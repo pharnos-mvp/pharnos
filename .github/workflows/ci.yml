@@ -26,7 +26,10 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Install
-        run: npm ci
+        # npm install (et non npm ci) : le lockfile généré sous Windows n'inclut pas les
+        # dépendances optionnelles Linux (@emnapi/* — fallback wasm de Tailwind/oxide).
+        # npm install résout les bonnes deps par plateforme tout en respectant le lock.
+        run: npm install --no-audit --no-fund
 
       - name: Typecheck
         run: npm run typecheck
