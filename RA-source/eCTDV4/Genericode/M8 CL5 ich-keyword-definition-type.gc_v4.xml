@@ -1,0 +1,446 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="ICH_M2_Codelist.xsl"?>
+<gc:CodeList xmlns:gc="http://docs.oasis-open.org/codelist/ns/genericode/1.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:html="http://www.w3.org/1999/xhtml" xsi:schemaLocation="http://docs.oasis-open.org/codelist/ns/genericode/1.0/ genericode.xsd">
+	<Annotation>
+		<Description>
+			<html:p>This file is an ICH M8 maintained code list.  It is encoded using OASIS genericode.More information on ICH technical standards is available via the M8 ESTRI webpages at www.ich.org.</html:p>
+		</Description>
+		<AppInfo>
+			<html:p>Authored November 2014 on behalf of the ICH M8 ESTRI Expert Working Group. -- Updated on May 2024</html:p>
+		</AppInfo>
+	</Annotation>
+	<Identification>
+		<ShortName>ich-keyword-definition-type</ShortName>
+		<LongName>ICH Keyword Definition Type</LongName>
+		<Version>4</Version>
+		<CanonicalUri>na</CanonicalUri>
+		<CanonicalVersionUri>2.16.840.1.113883.3.989.2.2.1.5.4</CanonicalVersionUri>
+		<StartDate>2024-05</StartDate>
+		<Agency>
+			<ShortName>M8</ShortName>
+			<LongName>Electronic Common Technical Document</LongName>
+		</Agency>
+		<CodeListRevisionHistory>Added controlled vocabulary versioning</CodeListRevisionHistory>
+	</Identification>
+	<ColumnSet>
+		<Column Use="required" Id="code">
+			<ShortName>string-code</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="required" Id="description">
+			<ShortName>description</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="required" Id="remark">
+			<ShortName>remark</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="required" Id="status">
+			<ShortName>status</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="optional" Id="operation">
+			<ShortName>operation</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="optional" Id="previousCode">
+			<ShortName>previous-valid-code(s)</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="optional" Id="currentCode">
+			<ShortName>current-valid-code(s)</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="optional" Id="lastVersion">
+			<ShortName>last-valid-version</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="optional" Id="revisionHistory">
+			<ShortName>revision-history</ShortName>
+			<Data Type="string"/>
+		</Column>
+	</ColumnSet>
+	<SimpleCodeList>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_keyword_type_1</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>indication</SimpleValue>
+			</Value>
+			<Value ColumnRef="remark">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_keyword_type_2</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>substance</SimpleValue>
+			</Value>
+			<Value ColumnRef="remark">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_keyword_type_3</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>manufacturer</SimpleValue>
+			</Value>
+			<Value ColumnRef="remark">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_keyword_type_4</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>product</SimpleValue>
+			</Value>
+			<Value ColumnRef="remark">
+				<SimpleValue>Replaces "product-name" attribute in eCTD v3.2.2</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_keyword_type_5</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>dosage form</SimpleValue>
+			</Value>
+			<Value ColumnRef="remark">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_keyword_type_6</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>excipient</SimpleValue>
+			</Value>
+			<Value ColumnRef="remark">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_keyword_type_7</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>container</SimpleValue>
+			</Value>
+			<Value ColumnRef="remark">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<!--Changes made to this section.  November 10, 2016-->
+		<!--Changed keyword code description to merge study id and study title into one keyword definition type.-->
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_keyword_type_8</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>study id_study title</SimpleValue>
+			</Value>
+			<Value ColumnRef="remark">
+				<SimpleValue>Merges Study Id and Study Title</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<!--Removed ich_keyword_type_9 code value to merge study id and study title into one keyword definition type.-->
+		<!--No changes made past this point.  November 10, 2016-->
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_keyword_type_10</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>site id</SimpleValue>
+			</Value>
+			<Value ColumnRef="remark">
+				<SimpleValue>The site-id should only be used when one of the following document types is present:  ich_document_type_25:  case report forms; and ich_document_type_57:  subject profiles</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_keyword_type_11</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>group title</SimpleValue>
+			</Value>
+			<Value ColumnRef="remark">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_keyword_type_12</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>facility</SimpleValue>
+			</Value>
+			<Value ColumnRef="remark">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_keyword_type_13</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>component</SimpleValue>
+			</Value>
+			<Value ColumnRef="remark">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_keyword_type_14</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>descriptor</SimpleValue>
+			</Value>
+			<Value ColumnRef="remark">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+	</SimpleCodeList>
+</gc:CodeList>

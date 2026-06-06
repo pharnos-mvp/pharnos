@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="ICH_M2_Codelist.xsl"?>
+<gc:CodeList xmlns:gc="http://docs.oasis-open.org/codelist/ns/genericode/1.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:html="http://www.w3.org/1999/xhtml" xsi:schemaLocation="http://docs.oasis-open.org/codelist/ns/genericode/1.0/ genericode.xsd">
+	<Annotation>
+		<Description>
+			<html:p>This file is an ICH M8 maintained code list.  It is encoded using OASIS genericode.More information on ICH technical standards is available via the M8 ESTRI webpages at www.ich.org.</html:p>
+		</Description>
+		<AppInfo>
+			<html:p>Created May 2022 by ICH M8 ESTRI Expert Working Group. Updated May 2024</html:p>
+		</AppInfo>
+	</Annotation>
+	<Identification>
+		<ShortName>ich-xml-types</ShortName>
+		<LongName>ICH XML Types</LongName>
+		<Version>2</Version>
+		<CanonicalUri>na</CanonicalUri>
+		<CanonicalVersionUri>na</CanonicalVersionUri>
+		<StartDate>2024-05</StartDate>
+		<Agency>
+			<ShortName>M8</ShortName>
+			<LongName>Electronic Common Technical Document</LongName>
+		</Agency>
+		<CodeListRevisionHistory>Added controlled vocabulary versioning</CodeListRevisionHistory>
+	</Identification>
+	<ColumnSet>
+		<Column Use="required" Id="code">
+			<ShortName>string-code</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="required" Id="description">
+			<ShortName>description</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="required" Id="remarks">
+			<ShortName>remarks</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="required" Id="status">
+			<ShortName>Status</ShortName>
+			<Data Type="string"/>
+		</Column>
+				<Column Use="optional" Id="operation">
+			<ShortName>Operation</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="optional" Id="previousCode">
+			<ShortName>Previous Valid Code(s)</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="optional" Id="currentCode">
+			<ShortName>Current Valid Code(s)</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="optional" Id="lastVersion">
+			<ShortName>Last Valid Version</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="optional" Id="revisionHistory">
+			<ShortName>Revision History</ShortName>
+			<Data Type="string"/>
+		</Column>
+	</ColumnSet>
+	<SimpleCodeList>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>ICH XML</SimpleValue>
+			</Value>
+			<Value ColumnRef="remarks">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>		
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>us-regional</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>US FDA Regional XML</SimpleValue>
+			</Value>
+			<Value ColumnRef="remarks">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>		
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>eu-regional</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>EU Regional XML</SimpleValue>
+			</Value>
+			<Value ColumnRef="remarks">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>			
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ca-regional</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>Health Canada Regional XML</SimpleValue>
+			</Value>
+			<Value ColumnRef="remarks">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>		
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ch-regional</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>Swissmedic Regional XML</SimpleValue>
+			</Value>
+			<Value ColumnRef="remarks">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>			
+	</SimpleCodeList>
+</gc:CodeList>

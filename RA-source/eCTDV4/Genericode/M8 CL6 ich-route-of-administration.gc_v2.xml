@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="ICH_M2_Codelist.xsl"?>
+<gc:CodeList xmlns:gc="http://docs.oasis-open.org/codelist/ns/genericode/1.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:html="http://www.w3.org/1999/xhtml" xsi:schemaLocation="http://docs.oasis-open.org/codelist/ns/genericode/1.0/ genericode.xsd">
+	<Annotation>
+		<Description>
+			<html:p>Note: The presentation order should follow ICH M4S guidance</html:p>
+			<html:p>This file is an ICH M8 maintained code list.  It is encoded using OASIS genericode.More information on ICH technical standards is available via the M8 ESTRI webpages at www.ich.org.</html:p>
+		</Description>
+		<AppInfo>
+			<html:p>Authored November 2014 by K.Hirano on behalf of the ICH M8 ESTRI Expert Working Group. -- Updated May 2024</html:p>
+		</AppInfo>
+	</Annotation>
+	<Identification>
+		<ShortName>ich-route-of-administration-for-non-clinical-study</ShortName>
+		<LongName>ICH Route of Administration for Non-Clinical Study</LongName>
+		<Version>2</Version>
+		<CanonicalUri>na</CanonicalUri>
+		<CanonicalVersionUri>2.16.840.1.113883.3.989.2.2.1.6.2</CanonicalVersionUri>
+		<StartDate>2024-05</StartDate>
+		<Agency>
+			<ShortName>M8</ShortName>
+			<LongName>Electronic Common Technical Document</LongName>
+		</Agency>
+		<CodeListRevisionHistory>Added controlled vocabulary versioning</CodeListRevisionHistory>
+	</Identification>
+	<ColumnSet>
+		<Column Use="required" Id="code">
+			<ShortName>string-code</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="required" Id="description">
+			<ShortName>description</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="required" Id="status">
+			<ShortName>status</ShortName>
+			<Data Type="string"/>
+		</Column>		
+		<Column Use="optional" Id="operation">
+			<ShortName>operation</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="optional" Id="previousCode">
+			<ShortName>previous-valid-code(s)</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="optional" Id="currentCode">
+			<ShortName>current-valid-code(s)</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="optional" Id="lastVersion">
+			<ShortName>last-valid-version</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="optional" Id="revisionHistory">
+			<ShortName>revision-history</ShortName>
+			<Data Type="string"/>
+		</Column>
+	</ColumnSet>
+	<SimpleCodeList>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_route_1</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>oral</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_route_2</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>intravenous</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_route_3</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>intramuscular</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_route_4</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>intraperitoneal</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_route_5</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>subcutaneous</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_route_6</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>inhalation</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_route_7</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>topical</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_route_8</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>other</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+				<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+	</SimpleCodeList>
+</gc:CodeList>

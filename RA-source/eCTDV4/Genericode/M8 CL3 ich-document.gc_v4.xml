@@ -1,0 +1,3046 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="ICH_M2_Codelist.xsl"?>
+<gc:CodeList xmlns:gc="http://docs.oasis-open.org/codelist/ns/genericode/1.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:html="http://www.w3.org/1999/xhtml" xsi:schemaLocation="http://docs.oasis-open.org/codelist/ns/genericode/1.0/ genericode.xsd">
+	<Annotation>
+		<Description>
+			<html:p>This file is an ICH M8 maintained code list.  It is encoded using OASIS genericode.More information on ICH technical standards is available via the M8 ESTRI webpages at www.ich.org.</html:p>
+		</Description>
+		<AppInfo>
+			<html:p>Authored November 2014 on behalf of the ICH M8 ESTRI Expert Working Group. -- Updated May 2024</html:p>
+		</AppInfo>
+	</Annotation>
+	<Identification>
+		<ShortName>ich-document</ShortName>
+		<LongName>ICH Document</LongName>
+		<Version>4</Version>
+		<CanonicalUri>na</CanonicalUri>
+		<CanonicalVersionUri>2.16.840.1.113883.3.989.2.2.1.3.4</CanonicalVersionUri>
+		<StartDate>2024-05</StartDate>
+		<Agency>
+			<ShortName>M8</ShortName>
+			<LongName>Electronic Common Technical Document</LongName>
+		</Agency>
+		<CodeListRevisionHistory>Added 23 document types to be used as study tags and Removed 1 document type, Study Data Standardization Plan.</CodeListRevisionHistory>
+	</Identification>
+	<ColumnSet>
+		<Column Use="required" Id="code">
+			<ShortName>string-code</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="required" Id="description">
+			<ShortName>description</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="required" Id="content">
+			<ShortName>content-of-document</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="required" Id="reference">
+			<ShortName>reference</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="required" Id="status">
+			<ShortName>status</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="optional" Id="operation">
+			<ShortName>operation</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="optional" Id="previousCode">
+			<ShortName>previous-valid-code(s)</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="optional" Id="currentCode">
+			<ShortName>current-valid-code(s)</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="optional" Id="lastVersion">
+			<ShortName>last-valid-version</ShortName>
+			<Data Type="string"/>
+		</Column>
+		<Column Use="optional" Id="revisionHistory">
+			<ShortName>revision-history</ShortName>
+			<Data Type="string"/>
+		</Column>
+	</ColumnSet>
+	<SimpleCodeList>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_1</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>preclinical study report</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Pre-clinical study report</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_2</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>legacy clinical study report</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Clinical study report submitted as one file</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_3</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>synopsis</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Study Report Synopsis</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E3 2</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>No code change</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>Updated Reference Information</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_4</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>study report body</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Study Report Body</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E3 1, 3 to 15</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>No Code Change</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>Updated Reference Information</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_5</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>protocol or amendment</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Protocol and/or amendments</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E3 16.1.1</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>No Code Change</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>Updated Reference Information</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_6</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>sample case report form</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Sample Case Report Form</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E3 16.1.2</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>No Code Change</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>Updated Reference Information</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_7</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>iec irb consent form list</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>IEC and IRB and Consent Form Listings</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E3 16.1.3</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>No Code Change</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>Updated Reference Information</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_8</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>list description investigator site</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Description of Investigators and Sites</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E3 16.1.4</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>No Code Change</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>Updated Reference Information</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_9</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>signatures investigators</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Signatures of principal or coordinating investigator(s) or sponsor’s responsible officer</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E3 16.1.5</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>No Code Change</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>Updated Reference Information</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_10</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>list patients with batches</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Listing of patients receiving test drug(s) from specified batch</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E3 16.1.6</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>No Code Change</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>Updated Reference Information</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_11</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>randomisation scheme</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Randomisation Scheme</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E3 16.1.7</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>No Code Change</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>Updated Reference Information</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_12</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>audit certificates report</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Audit Certificates or similar documentation</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E3 16.1.8</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>No Code Change</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>Updated Reference Information</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_13</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>statistical methods interim analysis plan</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Documentation of statistical methods and interim analysis plans</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E3 16.1.9</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>No Code Change</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>Updated Reference Information</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_14</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>inter-laboratory standardisation methods quality assurance</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Documentation of Inter-laboratory Standardisation Methods and Quality Assurance or similar documentation</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E3 16.1.10</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>No Code Change</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>Updated Reference information. Fixed typo in the content-of-document.</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_15</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>publications based on study</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Publications Based on the Study</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E3 16.1.11</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>No Code Change</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>Updated Reference Information</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_16</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>publications referenced in report</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Publications Referenced in the Study Report</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E3 16.1.12</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>No Code Change</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>Updated Reference Information</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_17</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>discontinued patients</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Discontinued Patients Listing</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E3 16.2.1</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>No Code Change</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>Updated Reference Information</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_18</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>protocol deviations</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Protocol Deviation Listing</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E3 16.2.2</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>No Code Change</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>Updated Reference Information</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_19</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>patients excluded from efficacy analysis</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Patients Excluded from Efficacy Analysis Listing</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E3 16.2.3</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>No Code Change</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>Updated Reference Information</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_20</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>demographic data</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Demographic Data Listing</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E3 16.2.4</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>No Code Change</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>Updated Reference Information</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_21</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>compliance and drug concentration data</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Compliance and/or Drug Concentration Data Listing</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E3 16.2.5</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>No Code Change</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>Updated Reference Information</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_22</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>individual efficacy response data</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Individual Efficacy Response Data Listing</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E3 16.2.6</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>No Code Change</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>Update Reference Information</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_23</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>adverse event listings</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>File contains Adverse Event Listings</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E3 16.2.7</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>No Code Change</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>Updated Reference Information</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_24</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>listing individual laboratory measurements by patient</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Individual Laboratory Measurements Listed by Patient</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E3 16.2.8</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>No Code Change</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>Updated Reference Information</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_25</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>case report forms</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>CRF for an individual subject</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E3 16.3</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>No Code Change</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>Updated Reference Information</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_74</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>csr other</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Clinical study report submitted as multiple files and that do not apply to ICH E3 reference headings</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>Added</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>New code value</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_26</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>available on request</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>A file listing documents available upon request for a single study. Consult regional guidance for use.</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_27</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>assay validation</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Reports addressing Assay Validation studies</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_28</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>biomarkers</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Reports indicating uses of Biomarkers in various studies</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_29</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>data monitoring review committees</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Data Monitoring Review Committee Reports</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_30</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>device information</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Device description, specifications, performance, handling and complaints</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_31</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>diagnostic tests</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Diagnostic Tests including Individualized Therapy</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_32</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>gene therapy</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Include information/reports on:- any clinical pharmacological studies / pharmacokinetics of the vector and vector products - any immunological studies, e.g., development of antibodies to the vector and vector products - a long-term follow-up protocol and any available data (especially with integrated retroviral vectors)- environmental assessments, including shedding studies</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_33</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>patient reported outcomes</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Reports addressing Patient Reported Outcomes</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_34</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>pharmacodynamics</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Reports addressing Pharmacodynamics studies</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_35</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>pharmacogenomics</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Reports addressing Pharmacogenomics studies</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_36</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>pharmacokinetics</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Reports addressing Pharmacokinetics studies</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_75</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>hepatic impairment study​</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Hepatic impairment studies conducted to assess the influence of hepatic impairment on pharmacokinetics and, where appropriate, pharmacodynamics of a drug​​</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>Added</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>New code value</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_76</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>renal impairment study​</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Renal impairment studies conducted to assess the influence of renal impairment on pharmacokinetics and, where appropriate, pharmacodynamics of a drug​​</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>Added</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>New code value</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_77</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>drug-drug interaction study​</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Drug-drug interaction (DDI) studies conducted to assess the influence of drug-drug interactions on pharmacokinetics and, where appropriate, pharmacodynamics of a drug​</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>Added</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>New code value</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_78</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>mass balance study​</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Mass balance study to obtain quantitative information on drug absorption, distribution, metabolism, and elimination properties​​</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>Added</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>New code value</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_79</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>population pk report​</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Report summarizing population pharmacokinetic (population PK) analyses conducted to inform drug development</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>Added</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>New code value</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_80</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>population pkpd report​</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Report summarizing population pharmacokinetic/pharmacodynamic analyses conducted to inform drug development</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>Added</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>New code value</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_81</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>pbpk report​</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Report summarizing physiologically-based pharmacokinetic analyses conducted to inform drug development</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>Added</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>New code value</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_82</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>pbbm report​</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Report summarizing physiologically-based biopharmaceutics modelling conducted to inform recommendations on biopharmaceutics applications</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>Added</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>New code value</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_83</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>qsp report​</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Report summarizing population quantitative systems pharmacology analyses conducted to inform drug development</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>Added</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>New code value</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_84</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>cp general​</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Checklist document and clinical pharmacology table​​</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>Added</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>New code value</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_85</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>qt clinical study​</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Stand-alone thorough QT studies or QT assessments performed by combining findings from multiple studies together​</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>E14/S7B Q&amp;A</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>Added</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>New code value</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_86</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>qt invitro study​</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Nonclinical in vitro study report summarize patch clamp studies, in vitro assays, etc. for assessing effects of cardiac channels​​</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>Added</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>New code value</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_87</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>pd invivo study​</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>In vivo nonclinical mechanism of action or proof of concept studies that supplement standard primary and secondary pharmacology studies​</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>Added</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>New code value</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_88</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>pd invitro study​</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>In vitro nonclinical mechanism of action or proof of concept studies that supplement standard primary and secondary pharmacology studies​</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>Added</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>New code value</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_37</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>quality of life</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Reports addressing Quality of Life studies</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_38</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>stem cells</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Include information/reports on:- long-term follow-up for tumorigenicity  - any immunological studies, including panel-reactive antibodies - any special biodistribution studies in humans</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_39</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>abuse liability</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Reports addressing Abuse Liability studies</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_40</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>antibody</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Reports addressing Antibody Data studies</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_41</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>healthcare utilization</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Reports addressing Healthcare Utilization studies</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_42</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>other data not specified</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Other data not specified in other sections</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_43</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>pk/pd relationship</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Reports addressing Pharmacodynamics / Pharmacokinetics Relationship studies</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_44</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>specialty report</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Reports addressing Specialty studies (e.g., Radioactivity Report-ADME, Dissolution Report, Health Authority Request)</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_45</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>bimo</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Bioresearch Monitoring Information</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_46</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>foreign clinical studies not under ind</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Reports of foreign clinical studies not conducted under an IND</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_47</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>data tabulation dataset legacy</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Data tabulation dataset</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_48</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>data tabulation data definition</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Data definitions for data tabulation datasets</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_49</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>data listing dataset</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Data listing dataset</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_71</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>data tabulation dataset sdtm</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>data tabulation dataset sdtm</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_72</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>data tabulation dataset send</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>data tabulation dataset send</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_50</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>data listing data definition</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Data definitions for data listing datasets</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_51</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>analysis dataset legacy</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Analysis datasets</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_52</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>analysis program</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Program file for analysis dataset</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_53</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>analysis data definition</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Data definition for analysis datasets</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_73</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>analysis dataset adam</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>analysis dataset adam</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_54</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>annotated crf</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Annotated CRF for datasets</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_55</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>ecg</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Annotated ECG waveform dataset</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_56</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>image</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Image files</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_57</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>subject profiles</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Subject profile</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active-</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_58</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>safety report</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>IND safety report</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_59</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>antibacterial</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Antibacterial microbiology report</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_60</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>special pathogen</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Special pathogens (e.g., fungi,parasites, mycobacteria) and immune modulator microbiology report</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_61</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>antiviral</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Antiviral microbiology report</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_62</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>iss</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Integrated analysis of safety –integrated summary of safety report</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_63</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>ise</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Integrated analysis of efficacy –integrated summary of efficacy report</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_89</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>iscp​</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Integrated analysis of clinical pharmacology - integrated summary of clinical pharmacology report​</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>Added</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>New code value</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_90</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>isi​</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Integrated analysis of immunogenicity - integrated summary of immunogenicity report​​</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>Added</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>New code value</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_91</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>weight of evidence​</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Nonclinical weight-of-evidence or risk assessment documents​</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>Added</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>New code value</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_92</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>animal rule efficacy​</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Nonclinical efficacy studies conducted for products regulated under the Animal Rule​</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>Added</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>New code value</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_93</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>animal rule natural history​</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Nonclinical natural history studies that are conducted with chemical, biological, radiological, or nuclear agents and used for animal model development for products regulated under the Animal Rule​</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>Added</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>New code value</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_94</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>nonstandard safety study​</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Studies conducted to provide complementary safety information to standard pharmacology and toxicology studies</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>Added</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>New code value</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_64</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>pm description</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Postmarketing periodic adverse eventdrug experience report description</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_66</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>Study Data Reviewer's Guide</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Study Data Reviewer's Guide</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<!--Added Human Factor values on November 10, 2016-->
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_67</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>Analysis Data Reviewer's Guide</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Analysis Data Reviewer's Guide</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_68</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>hf validation protocol</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Protocol describing the design and methodology for a Human Factors validation study.</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_69</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>hf validation report</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Report providing the results from a Human Factors validation study.</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+		<Row>
+			<Value ColumnRef="code">
+				<SimpleValue>ich_document_type_70</SimpleValue>
+			</Value>
+			<Value ColumnRef="description">
+				<SimpleValue>hf validation other</SimpleValue>
+			</Value>
+			<Value ColumnRef="content">
+				<SimpleValue>Human Factors information that is not a validation protocol or report.</SimpleValue>
+			</Value>
+			<Value ColumnRef="reference">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="status">
+				<SimpleValue>Active</SimpleValue>
+			</Value>
+			<Value ColumnRef="operation">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="previousCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="currentCode">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="lastVersion">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+			<Value ColumnRef="revisionHistory">
+				<SimpleValue>-</SimpleValue>
+			</Value>
+		</Row>
+	</SimpleCodeList>
+</gc:CodeList>
