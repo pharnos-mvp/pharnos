@@ -6,6 +6,8 @@ import {
   FileText,
   PanelLeftClose,
   PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
   Settings2,
 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -48,6 +50,7 @@ export function DossierWorkspacePage() {
   const [selected, setSelected] = useState<CtdNodeDef | null>(null)
   const [editing, setEditing] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  const [rightCollapsed, setRightCollapsed] = useState(false)
 
   const docsByNode = useMemo(() => {
     const map = new Map<string, DocumentRecord[]>()
@@ -104,7 +107,20 @@ export function DossierWorkspacePage() {
         <span className="text-muted-foreground text-sm">
           {activityLabel(dossier.activity)} · {countryLabel(dossier.country)}
         </span>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hidden lg:inline-flex"
+            aria-label={rightCollapsed ? 'Afficher la complétude' : 'Masquer la complétude'}
+            onClick={() => setRightCollapsed(!rightCollapsed)}
+          >
+            {rightCollapsed ? (
+              <PanelRightOpen className="size-4" />
+            ) : (
+              <PanelRightClose className="size-4" />
+            )}
+          </Button>
           <Button variant="outline" size="sm" disabled title="Disponible en M6">
             Compiler PDF
           </Button>
@@ -213,33 +229,35 @@ export function DossierWorkspacePage() {
           )}
         </main>
 
-        <aside className="hidden w-72 shrink-0 flex-col gap-3 overflow-auto lg:flex">
-          <div className="rounded-lg border p-3">
-            <h3 className="text-sm font-medium">Complétude</h3>
-            <p className="text-muted-foreground mt-1 text-xs">
-              {totalClassified} document(s) · {filledSections} rubrique(s) remplie(s)
-            </p>
-          </div>
-          <div className="rounded-lg border p-3">
-            <h3 className="text-sm font-medium">Alertes de validité</h3>
-            {alerts.length === 0 ? (
-              <p className="text-muted-foreground mt-1 text-xs">Aucune alerte.</p>
-            ) : (
-              <ul className="mt-2 space-y-2">
-                {alerts.map((a) => (
-                  <li key={a.id} className="flex items-center gap-2 text-xs">
-                    <Badge variant={a.expired ? 'destructive' : 'outline'}>
-                      {a.expired ? 'Expiré' : 'Bientôt'}
-                    </Badge>
-                    <span className="truncate">
-                      {docTypeLabel(a.docType)} — {a.expiryDate}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </aside>
+        {!rightCollapsed ? (
+          <aside className="hidden w-72 shrink-0 flex-col gap-3 overflow-auto lg:flex">
+            <div className="rounded-lg border p-3">
+              <h3 className="text-sm font-medium">Complétude</h3>
+              <p className="text-muted-foreground mt-1 text-xs">
+                {totalClassified} document(s) · {filledSections} rubrique(s) remplie(s)
+              </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <h3 className="text-sm font-medium">Alertes de validité</h3>
+              {alerts.length === 0 ? (
+                <p className="text-muted-foreground mt-1 text-xs">Aucune alerte.</p>
+              ) : (
+                <ul className="mt-2 space-y-2">
+                  {alerts.map((a) => (
+                    <li key={a.id} className="flex items-center gap-2 text-xs">
+                      <Badge variant={a.expired ? 'destructive' : 'outline'}>
+                        {a.expired ? 'Expiré' : 'Bientôt'}
+                      </Badge>
+                      <span className="truncate">
+                        {docTypeLabel(a.docType)} — {a.expiryDate}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </aside>
+        ) : null}
       </div>
     </div>
   )
