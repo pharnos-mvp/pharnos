@@ -225,7 +225,11 @@ export function DossierWorkspacePage() {
       agencyFull: ag.full,
       country: activeDossier.country,
       ville: '[Ville]',
-      date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
+      date: new Date().toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }),
       pght: '[PGHT en FCFA]',
     }
   }

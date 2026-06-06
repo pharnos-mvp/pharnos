@@ -85,7 +85,10 @@ function buildCover(c: TemplateContext): JSONContent {
       bullets([
         field('Nom commercial', c.nomCommercial),
         field('DCI et dosage', joinNonEmpty(c.dci, c.dosage) || '[DCI et dosage]'),
-        field('Forme et présentation', joinNonEmpty(c.forme, c.presentation) || '[Forme et présentation]'),
+        field(
+          'Forme et présentation',
+          joinNonEmpty(c.forme, c.presentation) || '[Forme et présentation]',
+        ),
         field('Nom et adresse du demandeur d’AMM', c.demandeur),
         field('Nom et adresse du fabricant', c.fabricant),
       ]),
@@ -133,7 +136,10 @@ function buildPght(c: TemplateContext): JSONContent {
       bullets([
         field('Nom commercial', c.nomCommercial),
         field('DCI et dosage', joinNonEmpty(c.dci, c.dosage) || '[DCI et dosage]'),
-        field('Forme et présentation', joinNonEmpty(c.forme, c.presentation) || '[Forme et présentation]'),
+        field(
+          'Forme et présentation',
+          joinNonEmpty(c.forme, c.presentation) || '[Forme et présentation]',
+        ),
         field('PGHT (FCFA)', c.pght),
       ]),
       para(txt('Nous restons à votre entière disposition pour tout complément d’information.')),
