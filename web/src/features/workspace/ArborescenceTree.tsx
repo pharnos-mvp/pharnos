@@ -114,15 +114,13 @@ function NodeRow({
         ) : (
           <button
             type="button"
-            className="flex min-w-0 flex-1 items-center gap-2 text-left"
+            className="flex min-w-0 flex-1 flex-col text-left"
             onClick={() => onSelect(node)}
           >
             {node.number ? (
-              <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
-                {node.number}
-              </span>
+              <span className="text-muted-foreground text-[11px] tabular-nums">{node.number}</span>
             ) : null}
-            <span className="truncate">{node.label}</span>
+            <span className="truncate text-sm">{node.label}</span>
           </button>
         )}
 
@@ -130,6 +128,10 @@ function NodeRow({
           <Badge variant="secondary" className="shrink-0">
             {count}
           </Badge>
+        ) : null}
+
+        {!editing && selectedId === node.id ? (
+          <ChevronRight className="text-muted-foreground size-4 shrink-0" />
         ) : null}
 
         {editing && nodeId ? (
