@@ -1,5 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie'
 
+import type { CtdNodeDef, DossierFormat } from '@/features/workspace/module1-tree'
+
 /**
  * Base locale (IndexedDB) — socle offline-first.
  *
@@ -66,11 +68,32 @@ export interface DocumentBlob {
   blob: Blob
 }
 
+export interface DossierRecord {
+  id: string
+  orgId: string
+  productId: string
+  /** Nom commercial dénormalisé (affichage rapide hors-ligne). */
+  productName: string
+  /** Format réglementaire : 'ectd' (ECOWAS) ou 'ctd' (UEMOA papier/PDF). */
+  format: DossierFormat
+  /** Activité réglementaire (code), ex. 'new_ma'. */
+  activity: string
+  /** Pays cible (code ISO), ex. 'CI'. */
+  country: string
+  status: string
+  /** Arborescence Module 1 **propre au dossier** (éditable par l'utilisateur). */
+  tree: CtdNodeDef[]
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+}
+
 const db = new Dexie('pharnos') as Dexie & {
   products: EntityTable<ProductRecord, 'id'>
   outbox: EntityTable<OutboxItem, 'id'>
   documents: EntityTable<DocumentRecord, 'id'>
   documentBlobs: EntityTable<DocumentBlob, 'id'>
+  dossiers: EntityTable<DossierRecord, 'id'>
 }
 
 db.version(1).stores({
@@ -87,6 +110,11 @@ db.version(2).stores({
 db.version(3).stores({
   documents: 'id, orgId, productId, category, updatedAt, deletedAt',
   documentBlobs: 'id',
+})
+
+// v4 : dossiers CTD/eCTD (CTD Workspace, M2).
+db.version(4).stores({
+  dossiers: 'id, orgId, productId, updatedAt, deletedAt',
 })
 
 export { db }

@@ -1,6 +1,15 @@
-import { Suspense } from 'react'
+import { Suspense, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { FlaskConical, FolderTree, LayoutDashboard, LogOut, Wifi, WifiOff } from 'lucide-react'
+import {
+  FlaskConical,
+  FolderTree,
+  LayoutDashboard,
+  LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Wifi,
+  WifiOff,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -15,9 +24,21 @@ const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
 ] as const
 
+const SIDEBAR_KEY = 'pharnos.sidebarCollapsed'
+
 export function AppShell() {
   const online = useOnlineStatus()
   const { user, signOut } = useAuth()
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_KEY) === '1')
+  const expanded = !collapsed
+
+  function toggleSidebar() {
+    setCollapsed((c) => {
+      const next = !c
+      localStorage.setItem(SIDEBAR_KEY, next ? '1' : '0')
+      return next
+    })
+  }
 
   async function handleSignOut() {
     await signOut()
@@ -26,15 +47,22 @@ export function AppShell() {
 
   return (
     <div className="bg-background text-foreground flex min-h-svh">
-      <aside className="bg-sidebar flex w-16 shrink-0 flex-col border-r p-2 md:w-60 md:p-3">
+      <aside
+        className={cn(
+          'bg-sidebar flex w-16 shrink-0 flex-col border-r p-2 md:p-3',
+          expanded && 'md:w-60',
+        )}
+      >
         <div className="flex items-center gap-2 px-1 py-3 md:px-2">
           <div className="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-md font-bold">
             P
           </div>
-          <div className="hidden leading-tight md:block">
-            <div className="text-sm font-semibold">Pharnos</div>
-            <div className="text-muted-foreground text-xs">RA UEMOA/CEDEAO</div>
-          </div>
+          {expanded ? (
+            <div className="hidden leading-tight md:block">
+              <div className="text-sm font-semibold">Pharnos</div>
+              <div className="text-muted-foreground text-xs">RA UEMOA/CEDEAO</div>
+            </div>
+          ) : null}
         </div>
 
         <nav className="mt-2 flex flex-col gap-1">
@@ -47,18 +75,35 @@ export function AppShell() {
               className={({ isActive }) =>
                 cn(
                   buttonVariants({ variant: isActive ? 'secondary' : 'ghost' }),
-                  'justify-center md:justify-start',
+                  expanded ? 'justify-center md:justify-start' : 'justify-center',
                 )
               }
             >
               <Icon className="size-4" />
-              <span className="hidden md:inline">{label}</span>
+              {expanded ? <span className="hidden md:inline">{label}</span> : null}
             </NavLink>
           ))}
         </nav>
 
-        <div className="text-muted-foreground mt-auto hidden px-2 py-2 text-xs md:block">
-          {env.isSupabaseConfigured ? 'Backend connecté' : 'Backend non configuré'}
+        <div className="mt-auto flex flex-col gap-1">
+          {expanded ? (
+            <div className="text-muted-foreground hidden px-2 py-1 text-xs md:block">
+              {env.isSupabaseConfigured ? 'Backend connecté' : 'Backend non configuré'}
+            </div>
+          ) : null}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hidden md:inline-flex"
+            aria-label={expanded ? 'Replier le menu' : 'Déplier le menu'}
+            onClick={toggleSidebar}
+          >
+            {expanded ? (
+              <PanelLeftClose className="size-4" />
+            ) : (
+              <PanelLeftOpen className="size-4" />
+            )}
+          </Button>
         </div>
       </aside>
 
