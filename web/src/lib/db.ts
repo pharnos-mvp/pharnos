@@ -88,12 +88,35 @@ export interface DossierRecord {
   deletedAt: string | null
 }
 
+/**
+ * Document **généré** depuis un template en vigueur (lettre Cover, attestation PGHT, formulaire…),
+ * rattaché à un nœud de l'arborescence d'un dossier et éditable in-place (M3).
+ * Le contenu est stocké au format ProseMirror/TipTap (JSON) — éditable, traduisible, compilable PDF.
+ */
+export interface GeneratedDocRecord {
+  id: string
+  orgId: string
+  dossierId: string
+  /** Numéro de nœud cible dans l'arborescence Module 1 (ex. '1.1.1'). */
+  nodeNumber: string
+  /** Clé du template source (ex. 'cover', 'pght'). */
+  templateKey: string
+  title: string
+  /** Contenu éditable au format ProseMirror/TipTap (JSON). */
+  content: unknown
+  status: string
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+}
+
 const db = new Dexie('pharnos') as Dexie & {
   products: EntityTable<ProductRecord, 'id'>
   outbox: EntityTable<OutboxItem, 'id'>
   documents: EntityTable<DocumentRecord, 'id'>
   documentBlobs: EntityTable<DocumentBlob, 'id'>
   dossiers: EntityTable<DossierRecord, 'id'>
+  generatedDocs: EntityTable<GeneratedDocRecord, 'id'>
 }
 
 db.version(1).stores({
@@ -115,6 +138,11 @@ db.version(3).stores({
 // v4 : dossiers CTD/eCTD (CTD Workspace, M2).
 db.version(4).stores({
   dossiers: 'id, orgId, productId, updatedAt, deletedAt',
+})
+
+// v5 : documents générés depuis templates (lettres Cover/PGHT, formulaires) — M3.
+db.version(5).stores({
+  generatedDocs: 'id, orgId, dossierId, [dossierId+nodeNumber], updatedAt, deletedAt',
 })
 
 export { db }
