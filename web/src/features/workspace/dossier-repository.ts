@@ -1,0 +1,78 @@
+import { db, type DossierRecord } from '@/lib/db'
+import { enqueueOutbox } from '@/lib/outbox'
+import { getModule1Tree, type DossierFormat } from './module1-tree'
+
+const now = () => new Date().toISOString()
+const newId = () => crypto.randomUUID()
+
+export interface CreateDossierInput {
+  productId: string
+  productName: string
+  format: DossierFormat
+  activity: string
+  country: string
+}
+
+export async function listDossiers(orgId: string): Promise<DossierRecord[]> {
+  const items = await db.dossiers.where('orgId').equals(orgId).toArray()
+  return items
+    .filter((d) => d.deletedAt === null)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+}
+
+export async function getDossier(id: string): Promise<DossierRecord | undefined> {
+  const d = await db.dossiers.get(id)
+  return d && d.deletedAt === null ? d : undefined
+}
+
+export async function createDossier(
+  orgId: string,
+  input: CreateDossierInput,
+): Promise<DossierRecord> {
+  const ts = now()
+  const record: DossierRecord = {
+    id: newId(),
+    orgId,
+    productId: input.productId,
+    productName: input.productName,
+    format: input.format,
+    activity: input.activity,
+    country: input.country,
+    status: 'draft',
+    // Copie indépendante de l'arborescence par défaut → éditable par dossier.
+    tree: structuredClone(getModule1Tree(input.format)),
+    createdAt: ts,
+    updatedAt: ts,
+    deletedAt: null,
+  }
+  await db.transaction('rw', db.dossiers, db.outbox, async () => {
+    await db.dossiers.add(record)
+    await enqueueOutbox('dossier', record.id, 'create', record)
+  })
+  return record
+}
+
+/** Met à jour l'arborescence éditée du dossier (renommage / repositionnement / ajout). */
+export async function updateDossierTree(
+  id: string,
+  tree: DossierRecord['tree'],
+): Promise<DossierRecord | undefined> {
+  const existing = await db.dossiers.get(id)
+  if (!existing || existing.deletedAt !== null) return undefined
+  const updated: DossierRecord = { ...existing, tree, updatedAt: now() }
+  await db.transaction('rw', db.dossiers, db.outbox, async () => {
+    await db.dossiers.put(updated)
+    await enqueueOutbox('dossier', id, 'update', updated)
+  })
+  return updated
+}
+
+export async function deleteDossier(id: string): Promise<void> {
+  const existing = await db.dossiers.get(id)
+  if (!existing || existing.deletedAt !== null) return
+  const ts = now()
+  await db.transaction('rw', db.dossiers, db.outbox, async () => {
+    await db.dossiers.put({ ...existing, deletedAt: ts, updatedAt: ts })
+    await enqueueOutbox('dossier', id, 'delete', { id })
+  })
+}

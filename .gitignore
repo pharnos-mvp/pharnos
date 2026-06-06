@@ -30,6 +30,5 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 
-# Référentiel réglementaire local (volumineux + MedDRA sous licence) — NON versionné.
-# Conservé localement comme source de référence (templates, vocabulaires eCTD, MedDRA).
-RA-source/
+# MedDRA — terminologie sous licence : NON versionné (conservé localement comme référence).
+RA-source/MedDRA/
