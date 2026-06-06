@@ -17,6 +17,7 @@ import { listProducts } from '@/features/catalogue/repository'
 import { useOrgId } from '@/features/org/org-context'
 import { COUNTRIES, DOSSIER_FORMATS, REG_ACTIVITIES } from './dossier-constants'
 import { createDossier } from './dossier-repository'
+import { syncDossiers } from './dossier-sync'
 import type { DossierFormat } from './module1-tree'
 
 export function NewDossierPage() {
@@ -45,8 +46,9 @@ export function NewDossierPage() {
         activity,
         country,
       })
+      void syncDossiers(orgId)
       toast.success('Dossier créé')
-      navigate(`/workspace/${dossier.id}`)
+      navigate(`/workspace/${dossier.id}/roadmap`)
     } catch (error) {
       toast.error('Échec de la création', {
         description: error instanceof Error ? error.message : undefined,

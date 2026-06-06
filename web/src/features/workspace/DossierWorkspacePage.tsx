@@ -25,6 +25,8 @@ import { cn } from '@/lib/utils'
 import { ArborescenceTree } from './ArborescenceTree'
 import { countryLabel } from './dossier-constants'
 import { getDossier, updateDossierTree } from './dossier-repository'
+import { syncDossiers } from './dossier-sync'
+import { useDossierSync } from './use-dossier-sync'
 import { nodeForDocType, type CtdNodeDef } from './module1-tree'
 import { flattenTree } from './tree-utils'
 
@@ -40,6 +42,7 @@ export function DossierWorkspacePage() {
   const navigate = useNavigate()
   const orgId = useOrgId()
   useCatalogueSync(orgId)
+  useDossierSync(orgId)
 
   const dossier = useLiveQuery(
     async () => (dossierId ? ((await getDossier(dossierId)) ?? null) : null),
@@ -82,6 +85,7 @@ export function DossierWorkspacePage() {
 
   async function handleTreeChange(tree: CtdNodeDef[]) {
     if (dossierId) await updateDossierTree(dossierId, tree)
+    void syncDossiers(orgId)
   }
 
   if (dossier === undefined) {
@@ -124,6 +128,15 @@ export function DossierWorkspacePage() {
             {dossier.productName} - {countryLabel(dossier.country)}
           </h1>
           <p className="text-muted-foreground text-sm">Création Module 1 ({region})</p>
+        </div>
+        <div className="ml-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/workspace/${dossier.id}/roadmap`)}
+          >
+            Roadmap
+          </Button>
         </div>
       </div>
 

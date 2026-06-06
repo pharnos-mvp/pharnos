@@ -9,14 +9,18 @@ import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
 import { useOrgId } from '@/features/org/org-context'
 import { activityLabel, countryLabel, formatLabel } from './dossier-constants'
 import { deleteDossier, listDossiers } from './dossier-repository'
+import { syncDossiers } from './dossier-sync'
+import { useDossierSync } from './use-dossier-sync'
 
 export function WorkspacePage() {
   const orgId = useOrgId()
   useCatalogueSync(orgId)
+  useDossierSync(orgId)
   const dossiers = useLiveQuery(() => listDossiers(orgId), [orgId])
 
   async function handleDelete(id: string) {
     await deleteDossier(id)
+    void syncDossiers(orgId)
     toast.success('Dossier supprimé')
   }
 
