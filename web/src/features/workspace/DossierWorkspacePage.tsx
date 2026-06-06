@@ -1,14 +1,20 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
+import type { Editor, JSONContent } from '@tiptap/core'
 import {
   ArrowLeft,
+  Bold,
   CheckCircle2,
   FileText,
+  Heading2,
+  Italic,
+  List,
   PanelLeftClose,
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
   Settings2,
+  Sparkles,
   XCircle,
 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -20,14 +26,26 @@ import { getDocumentBlob, listDocuments } from '@/features/catalogue/documents-r
 import { getDocumentDownloadUrl } from '@/features/catalogue/documents-sync'
 import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
 import { useOrgId } from '@/features/org/org-context'
-import type { DocumentRecord } from '@/lib/db'
+import { db, type DocumentRecord, type GeneratedDocRecord } from '@/lib/db'
 import { cn } from '@/lib/utils'
 import { ArborescenceTree } from './ArborescenceTree'
 import { countryLabel } from './dossier-constants'
 import { getDossier, updateDossierTree } from './dossier-repository'
 import { syncDossiers } from './dossier-sync'
+import {
+  createGeneratedDoc,
+  listGeneratedDocs,
+  regenerateGeneratedDoc,
+  updateGeneratedDocContent,
+} from './generated-docs-repository'
+import { generatedDocToHtml } from './generated-doc-html'
+import { syncGeneratedDocs } from './generated-docs-sync'
 import { useDossierSync } from './use-dossier-sync'
+import { useGeneratedDocsSync } from './use-generated-docs-sync'
 import { nodeForDocType, type CtdNodeDef } from './module1-tree'
+import { agencyFor } from './roadmap-data'
+import { RichTextEditor } from './RichTextEditor'
+import { TEMPLATES, templateKeyForNode, type TemplateContext } from './templates'
 import { flattenTree } from './tree-utils'
 
 interface ValidityAlert {
@@ -43,35 +61,89 @@ export function DossierWorkspacePage() {
   const orgId = useOrgId()
   useCatalogueSync(orgId)
   useDossierSync(orgId)
+  useGeneratedDocsSync(orgId)
 
   const dossier = useLiveQuery(
     async () => (dossierId ? ((await getDossier(dossierId)) ?? null) : null),
     [dossierId],
   )
+  const product = useLiveQuery(
+    async () => (dossier ? ((await db.products.get(dossier.productId)) ?? undefined) : undefined),
+    [dossier?.productId],
+  )
   const docs = useLiveQuery(
     () => (dossier ? listDocuments(dossier.productId) : Promise.resolve([])),
     [dossier?.productId],
   )
+  const genDocs = useLiveQuery(
+    () => (dossierId ? listGeneratedDocs(dossierId) : Promise.resolve([])),
+    [dossierId],
+  )
 
   const [selected, setSelected] = useState<CtdNodeDef | null>(null)
-  const [editing, setEditing] = useState(false)
+  const [treeEditing, setTreeEditing] = useState(false)
+  const [docEditing, setDocEditing] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [rightCollapsed, setRightCollapsed] = useState(false)
+  const [editorState, setEditorState] = useState<{ id: string; ed: Editor } | null>(null)
+
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingSave = useRef<{ id: string; json: JSONContent } | null>(null)
 
   const docsByNode = useMemo(() => {
     const map = new Map<string, DocumentRecord[]>()
     if (!dossier) return map
     for (const d of docs ?? []) {
-      map.set(nodeForDocType(dossier.format, d.docType, d.category), [
-        ...(map.get(nodeForDocType(dossier.format, d.docType, d.category)) ?? []),
-        d,
-      ])
+      const node = nodeForDocType(dossier.format, d.docType, d.category)
+      map.set(node, [...(map.get(node) ?? []), d])
     }
     return map
   }, [docs, dossier])
 
+  const genByNode = useMemo(() => {
+    const map = new Map<string, GeneratedDocRecord>()
+    for (const g of genDocs ?? []) map.set(g.nodeNumber, g)
+    return map
+  }, [genDocs])
+
   const flatNodes = useMemo(() => (dossier ? flattenTree(dossier.tree) : []), [dossier])
   const alerts = useMemo(() => computeAlerts(docs ?? []), [docs])
+
+  const handleEditorReady = useCallback((ed: Editor, id: string) => setEditorState({ id, ed }), [])
+
+  /** Écrit immédiatement toute édition débouncée en attente. */
+  const flushSave = useCallback(() => {
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current)
+      saveTimer.current = null
+    }
+    const p = pendingSave.current
+    if (p) {
+      pendingSave.current = null
+      void updateGeneratedDocContent(p.id, p.json).then(() => syncGeneratedDocs(orgId))
+    }
+  }, [orgId])
+
+  /** Abandonne toute édition débouncée en attente (ex. avant régénération). */
+  const cancelSave = useCallback(() => {
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current)
+      saveTimer.current = null
+    }
+    pendingSave.current = null
+  }, [])
+
+  const handleEditorChange = useCallback(
+    (id: string, json: JSONContent) => {
+      pendingSave.current = { id, json }
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+      saveTimer.current = setTimeout(() => flushSave(), 700)
+    },
+    [flushSave],
+  )
+
+  // Persiste les éditions en attente au démontage (navigation hors du workspace).
+  useEffect(() => () => flushSave(), [flushSave])
 
   function docsFor(node: CtdNodeDef): DocumentRecord[] {
     const out: DocumentRecord[] = []
@@ -83,9 +155,29 @@ export function DossierWorkspacePage() {
     return out
   }
 
+  function genDocsFor(node: CtdNodeDef): GeneratedDocRecord[] {
+    const out: GeneratedDocRecord[] = []
+    for (const [n, g] of genByNode) {
+      if (n === node.number || (node.number !== '' && n.startsWith(`${node.number}.`))) {
+        out.push(g)
+      }
+    }
+    return out
+  }
+
+  function countFor(node: CtdNodeDef): number {
+    return docsFor(node).length + genDocsFor(node).length
+  }
+
   async function handleTreeChange(tree: CtdNodeDef[]) {
     if (dossierId) await updateDossierTree(dossierId, tree)
     void syncDossiers(orgId)
+  }
+
+  function handleSelectNode(node: CtdNodeDef) {
+    flushSave() // ne pas perdre l'édition en cours en changeant de section
+    setSelected(node)
+    setDocEditing(false)
   }
 
   if (dossier === undefined) {
@@ -102,14 +194,76 @@ export function DossierWorkspacePage() {
     )
   }
 
+  const activeDossier = dossier
   const selectedDocs = selected ? docsFor(selected) : []
+  const selectedTplKey = selected ? templateKeyForNode(dossier.format, selected.number) : undefined
+  const selectedGenDoc = selected ? genByNode.get(selected.number) : undefined
+  // N'utiliser l'instance éditeur que si elle correspond au document sélectionné
+  // (évite d'agir sur une instance détruite pendant le changement de document).
+  const liveEditor =
+    editorState && selectedGenDoc && editorState.id === selectedGenDoc.id ? editorState.ed : null
+
   const leaves = flatNodes.filter((n) => !n.children?.length)
-  const filledLeaves = leaves.filter((n) => docsFor(n).length > 0)
+  const filledLeaves = leaves.filter((n) => countFor(n) > 0)
   const pct = leaves.length ? Math.round((filledLeaves.length / leaves.length) * 100) : 0
   const okCount = filledLeaves.length
   const warnCount = alerts.filter((a) => !a.expired).length
   const errCount = alerts.filter((a) => a.expired).length
   const region = dossier.format === 'ctd' ? 'CTD UEMOA' : 'eCTD CEDEAO'
+
+  function buildContext(): TemplateContext {
+    const ag = agencyFor(activeDossier.country)
+    return {
+      nomCommercial: product?.nomCommercial ?? activeDossier.productName,
+      dci: product?.dci ?? '',
+      dosage: product?.dosage ?? '',
+      forme: product?.forme ?? '',
+      presentation: product?.presentation ?? '',
+      demandeur: '[Nom et adresse du demandeur d’AMM]',
+      fabricant: '[Nom et adresse du fabricant]',
+      agencyName: ag.name,
+      agencyFull: ag.full,
+      country: activeDossier.country,
+      ville: '[Ville]',
+      date: new Date().toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }),
+      pght: '[PGHT en FCFA]',
+    }
+  }
+
+  async function handleGenerate() {
+    if (!selected || !selectedTplKey) return
+    await createGeneratedDoc(orgId, {
+      dossierId: activeDossier.id,
+      nodeNumber: selected.number,
+      templateKey: selectedTplKey,
+      context: buildContext(),
+    })
+    setDocEditing(true)
+    void syncGeneratedDocs(orgId)
+  }
+
+  async function handleRegenerate() {
+    if (!selectedGenDoc) return
+    cancelSave() // on repart du modèle : abandonner toute édition en attente
+    const content = await regenerateGeneratedDoc(selectedGenDoc.id, buildContext())
+    if (content && liveEditor) liveEditor.commands.setContent(content)
+    void syncGeneratedDocs(orgId)
+  }
+
+  function handleDownload() {
+    if (selectedGenDoc) {
+      const json = (liveEditor?.getJSON() ?? selectedGenDoc.content) as JSONContent
+      const html = generatedDocToHtml(selectedGenDoc.title, json)
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+      triggerDownload(URL.createObjectURL(blob), `${slugify(selectedGenDoc.title)}.html`, true)
+      return
+    }
+    if (selectedDocs[0]) void downloadDoc(selectedDocs[0])
+  }
 
   return (
     <div className="flex h-[calc(100svh-7rem)] flex-col">
@@ -157,7 +311,7 @@ export function DossierWorkspacePage() {
                 key={n.id ?? n.number}
                 type="button"
                 title={`${n.number} ${n.label}`}
-                onClick={() => setSelected(n)}
+                onClick={() => handleSelectNode(n)}
                 className={cn(
                   'flex size-9 shrink-0 items-center justify-center rounded-full border text-[10px] font-medium tabular-nums',
                   selected?.id === n.id
@@ -178,10 +332,10 @@ export function DossierWorkspacePage() {
               </div>
               <span className="flex items-center">
                 <Button
-                  variant={editing ? 'secondary' : 'ghost'}
+                  variant={treeEditing ? 'secondary' : 'ghost'}
                   size="icon-sm"
                   aria-label="Éditer l'arborescence"
-                  onClick={() => setEditing(!editing)}
+                  onClick={() => setTreeEditing(!treeEditing)}
                 >
                   <Settings2 className="size-4" />
                 </Button>
@@ -202,13 +356,13 @@ export function DossierWorkspacePage() {
               <ArborescenceTree
                 tree={dossier.tree}
                 selectedId={selected?.id ?? null}
-                onSelect={setSelected}
-                docCount={(node) => docsFor(node).length}
-                editing={editing}
+                onSelect={handleSelectNode}
+                docCount={(node) => countFor(node)}
+                editing={treeEditing}
                 onChange={handleTreeChange}
               />
             </div>
-            {editing ? (
+            {treeEditing ? (
               <p className="text-muted-foreground border-t p-2 text-xs">
                 Mode édition : renommez, repositionnez (▲▼), ajoutez ou supprimez des sections.
               </p>
@@ -220,64 +374,117 @@ export function DossierWorkspacePage() {
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border">
           <div className="flex justify-center border-b p-2">
             <div className="bg-card flex items-center gap-1 rounded-full border px-1 py-1 text-sm">
-              <ToolbarBtn label="Modifier" disabled />
+              <ToolbarBtn
+                label="Modifier"
+                active={docEditing}
+                disabled={!selectedGenDoc}
+                onClick={() => setDocEditing((v) => !v)}
+              />
               <ToolbarBtn label="Signer" disabled />
               <ToolbarBtn label="En-tête / Pied de page" disabled />
-              <ToolbarBtn label="Régénérer" disabled />
+              <ToolbarBtn
+                label="Régénérer"
+                disabled={!selectedGenDoc}
+                onClick={() => void handleRegenerate()}
+              />
               <ToolbarBtn
                 label="Télécharger"
-                disabled={selectedDocs.length === 0}
-                onClick={() => selectedDocs[0] && void downloadDoc(selectedDocs[0])}
+                disabled={!selectedGenDoc && selectedDocs.length === 0}
+                onClick={handleDownload}
               />
             </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-auto p-4">
             {selected ? (
-              <>
-                <div className="mb-3 flex items-start justify-between gap-2">
+              <div className="space-y-4">
+                <div className="flex items-start justify-between gap-2">
                   <div>
                     <h2 className="font-semibold">
                       {selected.number ? `${selected.number} ` : ''}
                       {selected.label}
                     </h2>
                     <p className="text-muted-foreground text-xs">
-                      {selectedDocs.length > 0
-                        ? `${selectedDocs.length} document(s) ajouté(s)`
-                        : 'Aucun document'}
+                      {selectedGenDoc
+                        ? selectedGenDoc.title
+                        : selectedDocs.length > 0
+                          ? `${selectedDocs.length} document(s) ajouté(s)`
+                          : 'Aucun document'}
                     </p>
                   </div>
-                  {selectedDocs.length > 0 ? (
+                  {selectedGenDoc ? (
+                    <Badge variant="secondary">BROUILLON</Badge>
+                  ) : selectedDocs.length > 0 ? (
                     <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
                       EN ATTENTE
                     </Badge>
                   ) : null}
                 </div>
 
-                {selectedDocs.length === 0 ? (
+                {selectedGenDoc ? (
+                  <section className="bg-card overflow-hidden rounded-lg border">
+                    {docEditing ? <FormatToolbar editor={liveEditor} /> : null}
+                    <RichTextEditor
+                      docId={selectedGenDoc.id}
+                      initialContent={selectedGenDoc.content as JSONContent}
+                      editable={docEditing}
+                      onChange={(json) => handleEditorChange(selectedGenDoc.id, json)}
+                      onReady={handleEditorReady}
+                    />
+                    {!docEditing ? (
+                      <p className="text-muted-foreground border-t px-4 py-2 text-xs">
+                        « Modifier » pour éditer, « Régénérer » pour repartir du modèle, «
+                        Télécharger » pour exporter.
+                      </p>
+                    ) : null}
+                  </section>
+                ) : selectedTplKey ? (
+                  <div className="flex h-64 flex-col items-center justify-center rounded-lg border border-dashed p-4 text-center">
+                    <Sparkles className="text-primary mb-2 size-8" />
+                    <p className="text-sm font-medium">{TEMPLATES[selectedTplKey].title}</p>
+                    <p className="text-muted-foreground mt-1 max-w-sm text-xs">
+                      Générez ce document depuis le modèle UEMOA en vigueur, pré-rempli avec les
+                      informations du produit. Tout reste éditable ensuite.
+                    </p>
+                    <Button className="mt-3" size="sm" onClick={() => void handleGenerate()}>
+                      <Sparkles className="size-4" /> Générer
+                    </Button>
+                  </div>
+                ) : null}
+
+                {selectedDocs.length > 0 ? (
+                  <div>
+                    {(selectedGenDoc || selectedTplKey) && (
+                      <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide">
+                        DOCUMENTS JOINTS
+                      </h3>
+                    )}
+                    <div className="flex flex-wrap gap-4 rounded-lg border p-6">
+                      {selectedDocs.map((d) => (
+                        <button
+                          key={d.id}
+                          type="button"
+                          onClick={() => void downloadDoc(d)}
+                          className="hover:bg-accent flex w-40 flex-col items-center gap-2 rounded-lg p-3"
+                          title="Télécharger"
+                        >
+                          <FileText className="text-muted-foreground size-10" />
+                          <span className="max-w-full truncate rounded-full border px-3 py-1 text-xs">
+                            {d.fileName}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {!selectedGenDoc && !selectedTplKey && selectedDocs.length === 0 ? (
                   <div className="text-muted-foreground flex h-64 flex-col items-center justify-center rounded-lg border border-dashed text-sm">
                     <FileText className="mb-2 size-8" />
                     Aucun document classé sous cette section.
                   </div>
-                ) : (
-                  <div className="flex flex-wrap gap-4 rounded-lg border p-6">
-                    {selectedDocs.map((d) => (
-                      <button
-                        key={d.id}
-                        type="button"
-                        onClick={() => void downloadDoc(d)}
-                        className="hover:bg-accent flex w-40 flex-col items-center gap-2 rounded-lg p-3"
-                        title="Télécharger"
-                      >
-                        <FileText className="text-muted-foreground size-10" />
-                        <span className="max-w-full truncate rounded-full border px-3 py-1 text-xs">
-                          {d.fileName}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </>
+                ) : null}
+              </div>
             ) : (
               <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
                 Sélectionnez une section de l'arborescence.
@@ -353,19 +560,65 @@ export function DossierWorkspacePage() {
   )
 }
 
+function FormatToolbar({ editor }: { editor: Editor | null }) {
+  if (!editor) return null
+  return (
+    <div className="flex items-center gap-1 border-b p-1.5">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Gras"
+        onClick={() => editor.chain().focus().toggleBold().run()}
+      >
+        <Bold className="size-4" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Italique"
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+      >
+        <Italic className="size-4" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Titre"
+        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+      >
+        <Heading2 className="size-4" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Liste à puces"
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+      >
+        <List className="size-4" />
+      </Button>
+    </div>
+  )
+}
+
 function ToolbarBtn({
   label,
   disabled,
+  active,
   onClick,
 }: {
   label: string
   disabled?: boolean
+  active?: boolean
   onClick?: () => void
 }) {
   return (
     <Button
       type="button"
-      variant="ghost"
+      variant={active ? 'secondary' : 'ghost'}
       size="sm"
       className="rounded-full"
       disabled={disabled}
@@ -415,6 +668,17 @@ function Donut({ value, size = 96 }: { value: number; size?: number }) {
         {value}%
       </text>
     </svg>
+  )
+}
+
+function slugify(s: string): string {
+  return (
+    s
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'document'
   )
 }
 

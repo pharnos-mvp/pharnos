@@ -1,0 +1,105 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+import { db, type GeneratedDocRecord } from '@/lib/db'
+import { getSupabase } from '@/lib/supabase'
+
+export interface GeneratedDocRow {
+  id: string
+  org_id: string
+  dossier_id: string
+  node_number: string
+  template_key: string
+  title: string
+  content: unknown
+  status: string
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
+export function generatedDocToRow(d: GeneratedDocRecord): GeneratedDocRow {
+  return {
+    id: d.id,
+    org_id: d.orgId,
+    dossier_id: d.dossierId,
+    node_number: d.nodeNumber,
+    template_key: d.templateKey,
+    title: d.title,
+    content: d.content,
+    status: d.status,
+    created_at: d.createdAt,
+    updated_at: d.updatedAt,
+    deleted_at: d.deletedAt,
+  }
+}
+
+export function rowToGeneratedDoc(r: GeneratedDocRow): GeneratedDocRecord {
+  return {
+    id: r.id,
+    orgId: r.org_id,
+    dossierId: r.dossier_id,
+    nodeNumber: r.node_number,
+    templateKey: r.template_key,
+    title: r.title,
+    content: r.content,
+    status: r.status,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+    deletedAt: r.deleted_at,
+  }
+}
+
+const lastPullKey = (orgId: string) => `pharnos.lastPull.generatedDocs.${orgId}`
+let syncing = false
+
+/** Réconcilie les documents générés (Dexie ⇄ Postgres). No-op hors-ligne / Supabase non configuré. */
+export async function syncGeneratedDocs(orgId: string): Promise<void> {
+  if (syncing || !navigator.onLine) return
+  const supabase = await getSupabase()
+  if (!supabase) return
+  syncing = true
+  try {
+    await pushGeneratedDocs(supabase, orgId)
+    await pullGeneratedDocs(supabase, orgId)
+  } catch (error) {
+    console.warn('[sync] generatedDocs :', error)
+  } finally {
+    syncing = false
+  }
+}
+
+async function pushGeneratedDocs(supabase: SupabaseClient, orgId: string): Promise<void> {
+  const items = await db.outbox.where('entity').equals('generated_doc').toArray()
+  if (items.length === 0) return
+  const ids = [...new Set(items.map((i) => i.entityId))]
+  for (const id of ids) {
+    const rec = await db.generatedDocs.get(id)
+    if (!rec || rec.orgId !== orgId) continue
+    const { error } = await supabase.from('generated_docs').upsert(generatedDocToRow(rec))
+    if (error) throw error
+  }
+  await db.outbox.bulkDelete(items.map((i) => i.id))
+}
+
+async function pullGeneratedDocs(supabase: SupabaseClient, orgId: string): Promise<void> {
+  const since = localStorage.getItem(lastPullKey(orgId)) ?? '1970-01-01T00:00:00.000Z'
+  const { data, error } = await supabase
+    .from('generated_docs')
+    .select('*')
+    .eq('org_id', orgId)
+    .gt('updated_at', since)
+    .order('updated_at', { ascending: true })
+  if (error) throw error
+
+  const rows = (data ?? []) as unknown as GeneratedDocRow[]
+  let maxUpdated = since
+  for (const row of rows) {
+    const incoming = rowToGeneratedDoc(row)
+    const local = await db.generatedDocs.get(incoming.id)
+    if (!local || incoming.updatedAt >= local.updatedAt) {
+      await db.generatedDocs.put(incoming)
+    }
+    if (incoming.updatedAt > maxUpdated) maxUpdated = incoming.updatedAt
+  }
+  if (rows.length > 0) localStorage.setItem(lastPullKey(orgId), maxUpdated)
+}
