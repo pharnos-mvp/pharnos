@@ -12,6 +12,8 @@
 export type DossierFormat = 'ectd' | 'ctd'
 
 export interface CtdNodeDef {
+  /** Identifiant stable du nœud (assigné à la création du dossier ; survit aux renommages/déplacements). */
+  id?: string
   /** Numérotation CTD, ex. "1.3.1". */
   number: string
   /** Libellé (français). */
@@ -78,7 +80,11 @@ export const MODULE1_ECTD_CEDEAO: CtdNodeDef[] = [
     code: 'm1-3-product-info',
     label: 'Informations sur le produit',
     children: [
-      { number: '1.3.1', code: 'm1-3-1-smpc', label: 'Résumé des Caractéristiques du Produit (RCP)' },
+      {
+        number: '1.3.1',
+        code: 'm1-3-1-smpc',
+        label: 'Résumé des Caractéristiques du Produit (RCP)',
+      },
       { number: '1.3.2', code: 'm1-3-2-pil', label: 'Notice' },
       { number: '1.3.3', code: 'm1-3-3-labels', label: 'Étiquetage (conditionnement)' },
     ],
@@ -120,7 +126,11 @@ export const MODULE1_ECTD_CEDEAO: CtdNodeDef[] = [
     code: 'm1-10-foreign-reg-info',
     label: 'Informations réglementaires étrangères',
     children: [
-      { number: '1.10.1', code: 'm1-10-1-status', label: 'Statut réglementaire régional et étranger' },
+      {
+        number: '1.10.1',
+        code: 'm1-10-1-status',
+        label: 'Statut réglementaire régional et étranger',
+      },
       {
         number: '1.10.2',
         code: 'm1-10-2-copp',
@@ -168,7 +178,10 @@ export const MODULE1_CTD_UEMOA: CtdNodeDef[] = [
         label: 'Conformité et informations sur le site',
         children: [
           { number: '1.2.4.1', label: 'Bonnes pratiques de fabrication (BPF)' },
-          { number: '1.2.4.2', label: "Autres documents de conformité et d'informations sur le site" },
+          {
+            number: '1.2.4.2',
+            label: "Autres documents de conformité et d'informations sur le site",
+          },
         ],
       },
       { number: '1.2.5', label: "Autorisation relative au partage d'informations" },

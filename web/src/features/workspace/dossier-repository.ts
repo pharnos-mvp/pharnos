@@ -1,6 +1,7 @@
 import { db, type DossierRecord } from '@/lib/db'
 import { enqueueOutbox } from '@/lib/outbox'
 import { getModule1Tree, type DossierFormat } from './module1-tree'
+import { assignIds } from './tree-utils'
 
 const now = () => new Date().toISOString()
 const newId = () => crypto.randomUUID()
@@ -39,8 +40,8 @@ export async function createDossier(
     activity: input.activity,
     country: input.country,
     status: 'draft',
-    // Copie indépendante de l'arborescence par défaut → éditable par dossier.
-    tree: structuredClone(getModule1Tree(input.format)),
+    // Copie indépendante de l'arborescence par défaut, avec id stables → éditable par dossier.
+    tree: assignIds(structuredClone(getModule1Tree(input.format))),
     createdAt: ts,
     updatedAt: ts,
     deletedAt: null,
