@@ -134,7 +134,7 @@ export function DashboardPage() {
         <ul className="divide-y">
           {REGULATORY_WATCH.map((w) => (
             <li key={w.id} className="flex items-start gap-3 p-3 text-sm">
-              <span className="bg-accent text-muted-foreground shrink-0 rounded px-2 py-0.5 text-xs tabular-nums">
+              <span className="bg-accent text-foreground shrink-0 rounded px-2 py-0.5 text-xs tabular-nums">
                 {w.date}
               </span>
               <span className="min-w-0 flex-1">{t({ fr: w.fr, en: w.en })}</span>
