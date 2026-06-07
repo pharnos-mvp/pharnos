@@ -46,6 +46,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Bundle budget (gzip)
+        run: npm run budget
+
   e2e:
     name: e2e (Playwright · offline PWA)
     runs-on: ubuntu-latest
