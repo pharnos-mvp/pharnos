@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Bold,
   CheckCircle2,
+  Download,
   FileDown,
   FileText,
   Heading2,
@@ -24,7 +25,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { docTypeLabel } from '@/features/catalogue/doc-types'
 import { getDocumentBlob, listDocuments } from '@/features/catalogue/documents-repository'
 import { getDocumentDownloadUrl } from '@/features/catalogue/documents-sync'
@@ -126,6 +127,7 @@ export function DossierWorkspacePage() {
   } | null>(null)
   const [compiling, setCompiling] = useState(false)
   const [autoStructural, setAutoStructural] = useState(true)
+  const [pickedKey, setPickedKey] = useState<string | null>(null)
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingSave = useRef<{ id: string; json: JSONContent } | null>(null)
@@ -247,6 +249,7 @@ export function DossierWorkspacePage() {
     flushSave() // ne pas perdre l'édition en cours en changeant de section
     setSelected(node)
     setDocEditing(false)
+    setPickedKey(null) // aperçu auto du 1er document du nœud
   }
 
   if (dossier === undefined) {
@@ -272,6 +275,52 @@ export function DossierWorkspacePage() {
   // (évite d'agir sur une instance détruite pendant le changement de document).
   const liveEditor =
     editorState && selectedGenDoc && editorState.id === selectedGenDoc.id ? editorState.ed : null
+
+  // Documents visualisables du nœud : lettre générée + pièces jointes + documents produit.
+  // Aperçu in-place automatique du 1er (ou de l'onglet choisi), même cadre que la lettre.
+  type Viewable =
+    | { key: string; kind: 'letter'; label: string }
+    | {
+        key: string
+        kind: 'attachment' | 'doc'
+        label: string
+        id: string
+        filePath: string | null
+        fileName: string
+      }
+  const viewables: Viewable[] = []
+  if (selectedGenDoc) {
+    viewables.push({
+      key: `letter:${selectedGenDoc.id}`,
+      kind: 'letter',
+      label: selectedGenDoc.title,
+    })
+  }
+  for (const a of selectedAttachments) {
+    viewables.push({
+      key: `att:${a.id}`,
+      kind: 'attachment',
+      label: a.fileName,
+      id: a.id,
+      filePath: a.filePath,
+      fileName: a.fileName,
+    })
+  }
+  for (const d of selectedDocs) {
+    viewables.push({
+      key: `doc:${d.id}`,
+      kind: 'doc',
+      label: d.fileName,
+      id: d.id,
+      filePath: d.filePath,
+      fileName: d.fileName,
+    })
+  }
+  const activeKey =
+    pickedKey && viewables.some((v) => v.key === pickedKey)
+      ? pickedKey
+      : (viewables[0]?.key ?? null)
+  const active = viewables.find((v) => v.key === activeKey) ?? null
 
   const leaves = flatNodes.filter((n) => !n.children?.length)
   const filledLeaves = leaves.filter((n) => countFor(n) > 0)
@@ -400,38 +449,6 @@ export function DossierWorkspacePage() {
     }
   }
 
-  async function previewAttachment(a: DossierAttachmentRecord) {
-    const blob = await getAttachmentBlob(a.id)
-    if (blob) {
-      showPreview(URL.createObjectURL(blob), a.fileName, true)
-      return
-    }
-    if (a.filePath) {
-      const url = await getAttachmentDownloadUrl(a.filePath)
-      if (url) {
-        showPreview(url, a.fileName, false)
-        return
-      }
-    }
-    toast.error('Aperçu indisponible hors-ligne.')
-  }
-
-  async function previewDoc(d: DocumentRecord) {
-    const blob = await getDocumentBlob(d.id)
-    if (blob) {
-      showPreview(URL.createObjectURL(blob), d.fileName, true)
-      return
-    }
-    if (d.filePath) {
-      const url = await getDocumentDownloadUrl(d.filePath)
-      if (url) {
-        showPreview(url, d.fileName, false)
-        return
-      }
-    }
-    toast.error('Aperçu indisponible hors-ligne.')
-  }
-
   return (
     <div className="flex h-[calc(100svh-7rem)] flex-col">
       <div className="flex items-start gap-2 border-b pb-3">
@@ -556,7 +573,11 @@ export function DossierWorkspacePage() {
                 label="Modifier"
                 active={docEditing}
                 disabled={!selectedGenDoc}
-                onClick={() => setDocEditing((v) => !v)}
+                onClick={() => {
+                  if (!selectedGenDoc) return
+                  setPickedKey(`letter:${selectedGenDoc.id}`)
+                  setDocEditing((v) => !v)
+                }}
               />
               <ToolbarBtn
                 label="Signer"
@@ -567,33 +588,26 @@ export function DossierWorkspacePage() {
               <ToolbarBtn label="En-tête / Pied de page" onClick={() => navigate('/compte')} />
               <ToolbarBtn
                 label="Régénérer"
-                disabled={!selectedGenDoc}
+                disabled={!selectedGenDoc || active?.kind !== 'letter'}
                 onClick={() => void handleRegenerate()}
               />
               <ToolbarBtn
                 label="Télécharger"
-                disabled={!selectedGenDoc && selectedDocs.length === 0}
+                disabled={!selectedGenDoc || active?.kind !== 'letter'}
                 onClick={handleDownload}
               />
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-auto p-4">
+          <div className="min-h-0 flex-1 overflow-hidden p-4">
             {selected ? (
-              <div className="space-y-4">
+              <div className="flex h-full flex-col gap-3">
                 <div className="flex items-start justify-between gap-2">
-                  <div>
+                  <div className="min-w-0">
                     <h2 className="font-semibold">
                       {selected.number ? `${selected.number} ` : ''}
                       {selected.label}
                     </h2>
-                    <p className="text-muted-foreground text-xs">
-                      {selectedGenDoc
-                        ? selectedGenDoc.title
-                        : selectedDocs.length > 0
-                          ? `${selectedDocs.length} document(s) ajouté(s)`
-                          : 'Aucun document'}
-                    </p>
                     {selected.note ? (
                       <p className="text-muted-foreground mt-1 max-w-prose text-xs italic">
                         {selected.note}
@@ -603,10 +617,15 @@ export function DossierWorkspacePage() {
                   <div className="flex shrink-0 items-center gap-2">
                     {selectedGenDoc ? (
                       <Badge variant="secondary">BROUILLON</Badge>
-                    ) : selectedDocs.length > 0 || selectedAttachments.length > 0 ? (
+                    ) : viewables.length > 0 ? (
                       <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
                         EN ATTENTE
                       </Badge>
+                    ) : null}
+                    {selectedTplKey && !selectedGenDoc ? (
+                      <Button size="sm" onClick={() => void handleGenerate()}>
+                        <Sparkles className="size-4" /> Générer
+                      </Button>
                     ) : null}
                     <input
                       ref={fileInputRef}
@@ -628,100 +647,75 @@ export function DossierWorkspacePage() {
                   </div>
                 </div>
 
-                {selectedGenDoc ? (
-                  <section className="bg-card overflow-hidden rounded-lg border">
-                    {docEditing ? <FormatToolbar editor={liveEditor} /> : null}
-                    <RichTextEditor
-                      docId={selectedGenDoc.id}
-                      initialContent={selectedGenDoc.content as JSONContent}
-                      editable={docEditing}
-                      onChange={(json) => handleEditorChange(selectedGenDoc.id, json)}
-                      onReady={handleEditorReady}
-                      header={branding?.headerImage ?? null}
-                      footer={branding?.footerImage ?? null}
+                {viewables.length > 1 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {viewables.map((v) => (
+                      <button
+                        key={v.key}
+                        type="button"
+                        onClick={() => setPickedKey(v.key)}
+                        title={v.label}
+                        className={cn(
+                          'flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs',
+                          active?.key === v.key
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'text-muted-foreground hover:bg-accent',
+                        )}
+                      >
+                        <FileText className="size-3.5" />
+                        <span className="max-w-[160px] truncate">{v.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className="min-h-0 flex-1">
+                  {active?.kind === 'letter' && selectedGenDoc ? (
+                    <section className="bg-card flex h-full flex-col overflow-hidden rounded-lg border">
+                      {docEditing ? <FormatToolbar editor={liveEditor} /> : null}
+                      <div className="min-h-0 flex-1 overflow-auto">
+                        <RichTextEditor
+                          docId={selectedGenDoc.id}
+                          initialContent={selectedGenDoc.content as JSONContent}
+                          editable={docEditing}
+                          onChange={(json) => handleEditorChange(selectedGenDoc.id, json)}
+                          onReady={handleEditorReady}
+                          header={branding?.headerImage ?? null}
+                          footer={branding?.footerImage ?? null}
+                        />
+                      </div>
+                    </section>
+                  ) : active && active.kind !== 'letter' ? (
+                    <InlineDocPreview
+                      key={active.key}
+                      kind={active.kind}
+                      docId={active.id}
+                      filePath={active.filePath}
+                      fileName={active.fileName}
+                      onDelete={
+                        active.kind === 'attachment'
+                          ? () => void handleDeleteAttachment(active.id)
+                          : undefined
+                      }
                     />
-                    {!docEditing ? (
-                      <p className="text-muted-foreground border-t px-4 py-2 text-xs">
-                        « Modifier » pour éditer, « Régénérer » pour repartir du modèle, «
-                        Télécharger » pour exporter.
+                  ) : selectedTplKey ? (
+                    <div className="flex h-full flex-col items-center justify-center rounded-lg border border-dashed p-4 text-center">
+                      <Sparkles className="text-primary mb-2 size-8" />
+                      <p className="text-sm font-medium">{TEMPLATES[selectedTplKey].title}</p>
+                      <p className="text-muted-foreground mt-1 max-w-sm text-xs">
+                        Générez ce document depuis le modèle UEMOA, ou téléversez un fichier.
                       </p>
-                    ) : null}
-                  </section>
-                ) : selectedTplKey ? (
-                  <div className="flex h-64 flex-col items-center justify-center rounded-lg border border-dashed p-4 text-center">
-                    <Sparkles className="text-primary mb-2 size-8" />
-                    <p className="text-sm font-medium">{TEMPLATES[selectedTplKey].title}</p>
-                    <p className="text-muted-foreground mt-1 max-w-sm text-xs">
-                      Générez ce document depuis le modèle UEMOA en vigueur, pré-rempli avec les
-                      informations du produit. Tout reste éditable ensuite.
-                    </p>
-                    <Button className="mt-3" size="sm" onClick={() => void handleGenerate()}>
-                      <Sparkles className="size-4" /> Générer
-                    </Button>
-                  </div>
-                ) : null}
-
-                {selectedDocs.length > 0 || selectedAttachments.length > 0 ? (
-                  <div>
-                    <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide">
-                      DOCUMENTS JOINTS
-                    </h3>
-                    <div className="flex flex-wrap gap-4 rounded-lg border p-6">
-                      {selectedDocs.map((d) => (
-                        <button
-                          key={d.id}
-                          type="button"
-                          onClick={() => void previewDoc(d)}
-                          className="hover:bg-accent flex w-40 flex-col items-center gap-2 rounded-lg p-3"
-                          title="Aperçu"
-                        >
-                          <FileText className="text-muted-foreground size-10" />
-                          <span className="max-w-full truncate rounded-full border px-3 py-1 text-xs">
-                            {d.fileName}
-                          </span>
-                        </button>
-                      ))}
-                      {selectedAttachments.map((a) => (
-                        <div
-                          key={a.id}
-                          className="group hover:bg-accent relative flex w-40 flex-col items-center gap-2 rounded-lg p-3"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => void previewAttachment(a)}
-                            className="flex flex-col items-center gap-2"
-                            title="Aperçu"
-                          >
-                            <FileText className="text-muted-foreground size-10" />
-                            <span className="max-w-full truncate rounded-full border px-3 py-1 text-xs">
-                              {a.fileName}
-                            </span>
-                          </button>
-                          <Button
-                            type="button"
-                            size="icon-sm"
-                            variant="ghost"
-                            aria-label="Supprimer la pièce jointe"
-                            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100"
-                            onClick={() => void handleDeleteAttachment(a.id)}
-                          >
-                            <Trash2 className="size-3.5" />
-                          </Button>
-                        </div>
-                      ))}
+                      <Button className="mt-3" size="sm" onClick={() => void handleGenerate()}>
+                        <Sparkles className="size-4" /> Générer
+                      </Button>
                     </div>
-                  </div>
-                ) : null}
-
-                {!selectedGenDoc &&
-                !selectedTplKey &&
-                selectedDocs.length === 0 &&
-                selectedAttachments.length === 0 ? (
-                  <div className="text-muted-foreground flex h-64 flex-col items-center justify-center rounded-lg border border-dashed text-sm">
-                    <FileText className="mb-2 size-8" />
-                    Aucun document classé sous cette section.
-                  </div>
-                ) : null}
+                  ) : (
+                    <div className="text-muted-foreground flex h-full flex-col items-center justify-center rounded-lg border border-dashed text-sm">
+                      <FileText className="mb-2 size-8" />
+                      Aucun document classé sous cette section.
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
@@ -798,6 +792,98 @@ export function DossierWorkspacePage() {
       {previewPdf ? (
         <PdfPreviewDialog url={previewPdf.url} name={previewPdf.name} onClose={closePreview} />
       ) : null}
+    </div>
+  )
+}
+
+function InlineDocPreview({
+  kind,
+  docId,
+  filePath,
+  fileName,
+  onDelete,
+}: {
+  kind: 'attachment' | 'doc'
+  docId: string
+  filePath: string | null
+  fileName: string
+  onDelete?: () => void
+}) {
+  const [url, setUrl] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    // Composant remonté (key=docId) à chaque changement → état initial déjà correct.
+    let alive = true
+    let created: string | null = null
+    void (async () => {
+      const blob =
+        kind === 'attachment' ? await getAttachmentBlob(docId) : await getDocumentBlob(docId)
+      if (blob) {
+        created = URL.createObjectURL(blob)
+        if (alive) {
+          setUrl(created)
+          setLoading(false)
+        }
+        return
+      }
+      if (filePath) {
+        const remote =
+          kind === 'attachment'
+            ? await getAttachmentDownloadUrl(filePath)
+            : await getDocumentDownloadUrl(filePath)
+        if (alive) {
+          setUrl(remote)
+          setLoading(false)
+        }
+      } else if (alive) {
+        setLoading(false)
+      }
+    })()
+    return () => {
+      alive = false
+      if (created) URL.revokeObjectURL(created)
+    }
+  }, [kind, docId, filePath])
+
+  return (
+    <div className="flex h-full flex-col overflow-hidden rounded-lg border">
+      <div className="bg-card flex items-center justify-between gap-2 border-b px-3 py-1.5">
+        <span className="truncate text-xs font-medium">{fileName}</span>
+        <div className="flex items-center gap-1">
+          {url ? (
+            <a
+              href={url}
+              download={fileName}
+              aria-label="Télécharger"
+              className={buttonVariants({ variant: 'ghost', size: 'icon-sm' })}
+            >
+              <Download className="size-4" />
+            </a>
+          ) : null}
+          {onDelete ? (
+            <Button size="icon-sm" variant="ghost" aria-label="Supprimer" onClick={onDelete}>
+              <Trash2 className="size-4" />
+            </Button>
+          ) : null}
+        </div>
+      </div>
+      {loading ? (
+        <div className="text-muted-foreground flex flex-1 items-center justify-center text-sm">
+          Chargement…
+        </div>
+      ) : url ? (
+        <iframe
+          src={url}
+          title={fileName}
+          sandbox="allow-same-origin allow-popups allow-downloads"
+          className="min-h-0 flex-1 bg-white"
+        />
+      ) : (
+        <div className="text-muted-foreground flex flex-1 items-center justify-center text-sm">
+          Aperçu indisponible hors-ligne.
+        </div>
+      )}
     </div>
   )
 }
