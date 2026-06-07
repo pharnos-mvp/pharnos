@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
+import Image from '@tiptap/extension-image'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 
@@ -13,11 +14,16 @@ interface RichTextEditorProps {
   onChange: (json: JSONContent) => void
   /** Expose l'instance éditeur **avec son docId** (téléchargement, régénération, mise en forme). */
   onReady?: (editor: Editor, docId: string) => void
+  /** En-tête (papier à en-tête) affiché en haut de la page A4 — data URL. */
+  header?: string | null
+  /** Pied de page affiché en bas de la page A4 — data URL. */
+  footer?: string | null
 }
 
 /**
  * Éditeur rich-text TipTap (ProseMirror) — édition in-place des documents générés (M3).
- * Importé uniquement par le workspace (route lazy) → hors du bundle initial.
+ * Rendu sur une **page A4** (Times New Roman 12, marges 2,5 cm) avec en-tête/pied de page
+ * optionnels. Importé uniquement par le workspace (route lazy) → hors du bundle initial.
  */
 export function RichTextEditor({
   docId,
@@ -25,15 +31,17 @@ export function RichTextEditor({
   editable,
   onChange,
   onReady,
+  header,
+  footer,
 }: RichTextEditorProps) {
   const editor = useEditor(
     {
-      extensions: [StarterKit],
+      extensions: [StarterKit, Image.configure({ inline: true, allowBase64: true })],
       content: initialContent,
       editable,
       editorProps: {
         attributes: {
-          class: 'ProseMirror min-h-64 px-4 py-3 text-sm focus:outline-none',
+          class: 'focus:outline-none',
           'aria-label': 'Éditeur de document',
         },
       },
@@ -51,5 +59,15 @@ export function RichTextEditor({
     if (editor && onReady) onReady(editor, docId)
   }, [editor, onReady, docId])
 
-  return <EditorContent editor={editor} />
+  return (
+    <div className="editor-page-wrap">
+      <div className="editor-page">
+        {header ? <img src={header} alt="En-tête" className="editor-band" /> : null}
+        <EditorContent editor={editor} />
+        {footer ? (
+          <img src={footer} alt="Pied de page" className="editor-band editor-band-footer" />
+        ) : null}
+      </div>
+    </div>
+  )
 }

@@ -152,3 +152,40 @@
   padding-left: 0.75rem;
   color: var(--muted-foreground);
 }
+
+/* Page A4 de l'éditeur (documents générés, M3.1) — Times New Roman 12, marges 2,5 cm */
+.editor-page-wrap {
+  background: var(--muted);
+  padding: 1.5rem;
+}
+.editor-page {
+  width: 21cm;
+  max-width: 100%;
+  min-height: 24cm;
+  margin: 0 auto;
+  padding: 2.5cm;
+  background: #fff;
+  color: #000;
+  box-shadow: 0 1px 8px rgb(0 0 0 / 0.12);
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 12pt;
+  line-height: 1.5;
+}
+.editor-page .ProseMirror {
+  min-height: 16cm;
+  outline: none;
+}
+.editor-page .ProseMirror img {
+  max-width: 100%;
+  height: auto;
+}
+.editor-band {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-bottom: 1rem;
+}
+.editor-band-footer {
+  margin-top: 2rem;
+  margin-bottom: 0;
+}

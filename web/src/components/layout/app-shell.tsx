@@ -7,6 +7,7 @@ import {
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
+  UserCog,
   Wifi,
   WifiOff,
 } from 'lucide-react'
@@ -22,6 +23,7 @@ const navItems = [
   { to: '/catalogue', label: 'Catalogue', icon: FlaskConical },
   { to: '/workspace', label: 'CTD Workspace', icon: FolderTree },
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/profil-pro', label: 'Profil pro', icon: UserCog },
 ] as const
 
 const SIDEBAR_KEY = 'pharnos.sidebarCollapsed'
