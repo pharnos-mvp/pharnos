@@ -39,6 +39,8 @@ const identificationFields: ReadonlyArray<{
   { name: 'presentation', label: 'Présentation', placeholder: 'Ex. Boîte de 16' },
   { name: 'classeTherapeutique', label: 'Classe thérapeutique', placeholder: 'Ex. Antalgique' },
   { name: 'codeAtc', label: 'Code ATC', placeholder: 'Ex. N02BE01' },
+  { name: 'titulaire', label: "Titulaire / demandeur d'AMM", placeholder: 'Nom + adresse' },
+  { name: 'fabricant', label: 'Fabricant', placeholder: 'Nom + adresse' },
 ]
 
 export function ProductForm({

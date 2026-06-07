@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Bold,
   CheckCircle2,
+  FileDown,
   FileText,
   Heading2,
   Italic,
@@ -64,6 +65,7 @@ import { useDossierSync } from './use-dossier-sync'
 import { useGeneratedDocsSync } from './use-generated-docs-sync'
 import { nodeForDocType, type CtdNodeDef } from './module1-tree'
 import { agencyFor } from './roadmap-data'
+import { PdfPreviewDialog } from './PdfPreviewDialog'
 import { RichTextEditor } from './RichTextEditor'
 import { TEMPLATES, templateKeyForNode, type TemplateContext } from './templates'
 import { flattenTree } from './tree-utils'
@@ -117,10 +119,18 @@ export function DossierWorkspacePage() {
   const [collapsed, setCollapsed] = useState(false)
   const [rightCollapsed, setRightCollapsed] = useState(false)
   const [editorState, setEditorState] = useState<{ id: string; ed: Editor } | null>(null)
+  const [previewPdf, setPreviewPdf] = useState<{
+    url: string
+    name: string
+    revoke: boolean
+  } | null>(null)
+  const [compiling, setCompiling] = useState(false)
+  const [autoStructural, setAutoStructural] = useState(true)
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingSave = useRef<{ id: string; json: JSONContent } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const previewRef = useRef<{ url: string; revoke: boolean } | null>(null)
 
   const docsByNode = useMemo(() => {
     const map = new Map<string, DocumentRecord[]>()
@@ -182,6 +192,17 @@ export function DossierWorkspacePage() {
 
   // Persiste les éditions en attente au démontage (navigation hors du workspace).
   useEffect(() => () => flushSave(), [flushSave])
+
+  // Libère l'object URL d'aperçu au démontage (évite une fuite si on quitte dialog ouvert).
+  useEffect(() => {
+    previewRef.current = previewPdf ? { url: previewPdf.url, revoke: previewPdf.revoke } : null
+  }, [previewPdf])
+  useEffect(
+    () => () => {
+      if (previewRef.current?.revoke) URL.revokeObjectURL(previewRef.current.url)
+    },
+    [],
+  )
 
   function docsFor(node: CtdNodeDef): DocumentRecord[] {
     const out: DocumentRecord[] = []
@@ -268,8 +289,8 @@ export function DossierWorkspacePage() {
       dosage: product?.dosage ?? '',
       forme: product?.forme ?? '',
       presentation: product?.presentation ?? '',
-      demandeur: '[Nom et adresse du demandeur d’AMM]',
-      fabricant: '[Nom et adresse du fabricant]',
+      demandeur: product?.titulaire || '[Nom et adresse du demandeur d’AMM]',
+      fabricant: product?.fabricant || '[Nom et adresse du fabricant]',
       agencyName: ag.name,
       agencyFull: ag.full,
       country: activeDossier.country,
@@ -337,6 +358,80 @@ export function DossierWorkspacePage() {
     if (src && liveEditor) liveEditor.chain().focus().setImage({ src }).run()
   }
 
+  function showPreview(url: string, name: string, revoke: boolean) {
+    if (previewPdf?.revoke) URL.revokeObjectURL(previewPdf.url)
+    setPreviewPdf({ url, name, revoke })
+  }
+  function closePreview() {
+    if (previewPdf?.revoke) URL.revokeObjectURL(previewPdf.url)
+    setPreviewPdf(null)
+  }
+
+  async function handleCompile() {
+    setCompiling(true)
+    try {
+      // pdf-lib chargé à la demande → hors du chunk workspace (perf).
+      const { compileDossierToPdf } = await import('./pdf/dossier-compiler')
+      const { bytes, missing } = await compileDossierToPdf({
+        dossier: activeDossier,
+        product,
+        generatedDocs: genDocs ?? [],
+        docs: docs ?? [],
+        attachments: attachments ?? [],
+        branding,
+        autoStructural,
+      })
+      const blob = new Blob([new Uint8Array(bytes)], { type: 'application/pdf' })
+      showPreview(
+        URL.createObjectURL(blob),
+        `${slugify(activeDossier.productName)}-module-1.pdf`,
+        true,
+      )
+      if (missing.length > 0) {
+        toast.warning(`${missing.length} pièce(s) non incluse(s) (indisponibles hors-ligne)`, {
+          description: missing.slice(0, 5).join(', '),
+        })
+      }
+    } catch (e) {
+      console.error(e)
+      toast.error('Échec de la compilation du dossier.')
+    } finally {
+      setCompiling(false)
+    }
+  }
+
+  async function previewAttachment(a: DossierAttachmentRecord) {
+    const blob = await getAttachmentBlob(a.id)
+    if (blob) {
+      showPreview(URL.createObjectURL(blob), a.fileName, true)
+      return
+    }
+    if (a.filePath) {
+      const url = await getAttachmentDownloadUrl(a.filePath)
+      if (url) {
+        showPreview(url, a.fileName, false)
+        return
+      }
+    }
+    toast.error('Aperçu indisponible hors-ligne.')
+  }
+
+  async function previewDoc(d: DocumentRecord) {
+    const blob = await getDocumentBlob(d.id)
+    if (blob) {
+      showPreview(URL.createObjectURL(blob), d.fileName, true)
+      return
+    }
+    if (d.filePath) {
+      const url = await getDocumentDownloadUrl(d.filePath)
+      if (url) {
+        showPreview(url, d.fileName, false)
+        return
+      }
+    }
+    toast.error('Aperçu indisponible hors-ligne.')
+  }
+
   return (
     <div className="flex h-[calc(100svh-7rem)] flex-col">
       <div className="flex items-start gap-2 border-b pb-3">
@@ -355,13 +450,24 @@ export function DossierWorkspacePage() {
           </h1>
           <p className="text-muted-foreground text-sm">Création Module 1 ({region})</p>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <label className="text-muted-foreground hidden items-center gap-1.5 text-xs sm:flex">
+            <input
+              type="checkbox"
+              checked={autoStructural}
+              onChange={(e) => setAutoStructural(e.target.checked)}
+            />
+            TDM + gardes auto
+          </label>
           <Button
             variant="outline"
             size="sm"
             onClick={() => navigate(`/workspace/${dossier.id}/roadmap`)}
           >
             Roadmap
+          </Button>
+          <Button size="sm" disabled={compiling} onClick={() => void handleCompile()}>
+            <FileDown className="size-4" /> {compiling ? 'Compilation…' : 'Compiler le PDF'}
           </Button>
         </div>
       </div>
@@ -560,9 +666,9 @@ export function DossierWorkspacePage() {
                         <button
                           key={d.id}
                           type="button"
-                          onClick={() => void downloadDoc(d)}
+                          onClick={() => void previewDoc(d)}
                           className="hover:bg-accent flex w-40 flex-col items-center gap-2 rounded-lg p-3"
-                          title="Télécharger"
+                          title="Aperçu"
                         >
                           <FileText className="text-muted-foreground size-10" />
                           <span className="max-w-full truncate rounded-full border px-3 py-1 text-xs">
@@ -577,9 +683,9 @@ export function DossierWorkspacePage() {
                         >
                           <button
                             type="button"
-                            onClick={() => void downloadAttachment(a)}
+                            onClick={() => void previewAttachment(a)}
                             className="flex flex-col items-center gap-2"
-                            title="Télécharger"
+                            title="Aperçu"
                           >
                             <FileText className="text-muted-foreground size-10" />
                             <span className="max-w-full truncate rounded-full border px-3 py-1 text-xs">
@@ -683,6 +789,10 @@ export function DossierWorkspacePage() {
           </aside>
         )}
       </div>
+
+      {previewPdf ? (
+        <PdfPreviewDialog url={previewPdf.url} name={previewPdf.name} onClose={closePreview} />
+      ) : null}
     </div>
   )
 }
@@ -820,18 +930,6 @@ async function downloadDoc(d: DocumentRecord) {
   if (d.filePath) {
     const url = await getDocumentDownloadUrl(d.filePath)
     if (url) triggerDownload(url, d.fileName, false)
-  }
-}
-
-async function downloadAttachment(a: DossierAttachmentRecord) {
-  const blob = await getAttachmentBlob(a.id)
-  if (blob) {
-    triggerDownload(URL.createObjectURL(blob), a.fileName, true)
-    return
-  }
-  if (a.filePath) {
-    const url = await getAttachmentDownloadUrl(a.filePath)
-    if (url) triggerDownload(url, a.fileName, false)
   }
 }
 

@@ -24,6 +24,7 @@ async function upsert(id: string, orgId: string, patch: Partial<ProSettingRecord
     kind: id.startsWith('user:') ? 'userSignature' : 'orgBranding',
     headerImage: null,
     footerImage: null,
+    logoImage: null,
     signatureImage: null,
     updatedAt: now(),
     deletedAt: null,
@@ -42,6 +43,11 @@ export function setOrgHeader(orgId: string, headerImage: string | null): Promise
 
 export function setOrgFooter(orgId: string, footerImage: string | null): Promise<void> {
   return upsert(orgBrandingId(orgId), orgId, { footerImage })
+}
+
+/** Met à jour le logo (bandeau d'en-tête du dossier compilé) — data URL ou `null`. */
+export function setOrgLogo(orgId: string, logoImage: string | null): Promise<void> {
+  return upsert(orgBrandingId(orgId), orgId, { logoImage })
 }
 
 /** Met à jour la signature de l'utilisateur (data URL ou `null`). */

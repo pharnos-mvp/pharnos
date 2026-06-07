@@ -12,6 +12,7 @@ import {
   getUserSignature,
   setOrgFooter,
   setOrgHeader,
+  setOrgLogo,
   setUserSignature,
 } from './pro-settings-repository'
 import { syncProSettings } from './pro-settings-sync'
@@ -67,8 +68,15 @@ export function ProfilePage() {
           Partagé par toute l'équipe du laboratoire.
         </p>
         <ImageField
-          label="En-tête"
-          hint="Logo / coordonnées en haut de page."
+          label="Logo (bandeau du dossier compilé)"
+          hint="Petit logo affiché dans l'en-tête de chaque page du dossier compilé."
+          value={branding?.logoImage ?? null}
+          onPick={(f) => handlePick(f, (d) => setOrgLogo(orgId, d))}
+          onRemove={() => remove(() => setOrgLogo(orgId, null))}
+        />
+        <ImageField
+          label="En-tête (lettre seule)"
+          hint="Papier à en-tête appliqué à une lettre téléchargée seule."
           value={branding?.headerImage ?? null}
           onPick={(f) => handlePick(f, (d) => setOrgHeader(orgId, d))}
           onRemove={() => remove(() => setOrgHeader(orgId, null))}

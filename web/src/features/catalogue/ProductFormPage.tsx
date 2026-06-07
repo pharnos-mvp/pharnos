@@ -58,6 +58,8 @@ export function ProductFormPage() {
         presentation: existing.presentation,
         classeTherapeutique: existing.classeTherapeutique,
         codeAtc: existing.codeAtc,
+        titulaire: existing.titulaire ?? '',
+        fabricant: existing.fabricant ?? '',
       }
     : undefined
 
