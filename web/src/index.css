@@ -156,7 +156,8 @@
 /* Page A4 de l'éditeur (documents générés, M3.1) — Times New Roman 12, marges 2,5 cm */
 .editor-page-wrap {
   background: var(--muted);
-  padding: 1.5rem;
+  /* Marge de bas de page généreuse (façon Google Docs) → on défile jusqu'au bas de l'A4. */
+  padding: 1.5rem 1.5rem 3rem;
 }
 .editor-page {
   width: 21cm;
