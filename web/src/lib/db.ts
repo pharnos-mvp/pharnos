@@ -126,6 +126,12 @@ export interface ProSettingRecord {
   id: string
   orgId: string
   kind: 'orgBranding' | 'userSignature'
+  /** Nom de l'entreprise (orgBranding) — infos professionnelles partagées. */
+  entreprise: string | null
+  /** Poste / fonction (orgBranding). */
+  poste: string | null
+  /** Pays (orgBranding). */
+  pays: string | null
   /** Data URL de l'en-tête (orgBranding). */
   headerImage: string | null
   /** Data URL du pied de page (orgBranding). */

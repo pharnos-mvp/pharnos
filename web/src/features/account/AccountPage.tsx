@@ -61,7 +61,11 @@ export function AccountPage() {
       label: t({ fr: 'Infos personnelles', en: 'Personal info' }),
       icon: UserCircle2,
     },
-    { key: 'pro', label: t({ fr: 'Infos pro', en: 'Professional info' }), icon: Building2 },
+    {
+      key: 'pro',
+      label: t({ fr: 'Informations professionnelles', en: 'Professional information' }),
+      icon: Building2,
+    },
     { key: 'prefs', label: t({ fr: 'Préférences', en: 'Preferences' }), icon: Settings2 },
     {
       key: 'logs',
@@ -139,6 +143,12 @@ function PersonalSection() {
   const [nom, setNom] = useState(meta.nom ?? '')
   const [prenom, setPrenom] = useState(meta.prenom ?? '')
   const [username, setUsername] = useState(meta.username ?? '')
+  // Baseline pour l'état « modifié » (dirty) — réinitialisée après chaque enregistrement.
+  const [saved, setSaved] = useState({
+    nom: meta.nom ?? '',
+    prenom: meta.prenom ?? '',
+    username: meta.username ?? '',
+  })
   const [photo, setPhoto] = useState<string | null>(meta.photo ?? null)
   const [saving, setSaving] = useState(false)
   const [pw1, setPw1] = useState('')
@@ -180,6 +190,7 @@ function PersonalSection() {
         username,
         photo: extra?.photo === undefined ? (photo ?? '') : (extra.photo ?? ''),
       })
+      setSaved({ nom, prenom, username })
       toast.success(t({ fr: 'Profil enregistré', en: 'Profile saved' }))
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
@@ -211,8 +222,18 @@ function PersonalSection() {
     }
   }
 
+  const dirty = nom !== saved.nom || prenom !== saved.prenom || username !== saved.username
+
   return (
     <div className="space-y-6">
+      <div className="bg-background sticky top-0 z-10 flex items-center justify-between gap-3 border-b pb-3">
+        <h3 className="text-sm font-medium">
+          {t({ fr: 'Infos personnelles', en: 'Personal info' })}
+        </h3>
+        <Button size="sm" disabled={saving || !dirty} onClick={() => void save()}>
+          {t({ fr: 'Enregistrer', en: 'Save' })}
+        </Button>
+      </div>
       <ImageField
         label={t({ fr: 'Photo', en: 'Photo' })}
         value={photo}
@@ -237,9 +258,6 @@ function PersonalSection() {
           <Input value={user.email ?? ''} disabled />
         </Field>
       </div>
-      <Button disabled={saving} onClick={() => void save()}>
-        {t({ fr: 'Enregistrer', en: 'Save' })}
-      </Button>
 
       <div className="space-y-3 border-t pt-6">
         <h3 className="text-sm font-medium">{t({ fr: 'Mot de passe', en: 'Password' })}</h3>

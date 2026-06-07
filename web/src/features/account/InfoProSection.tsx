@@ -1,6 +1,10 @@
+import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { toast } from 'sonner'
 
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { useAuth } from '@/features/auth/auth-context'
 import { useOrgId } from '@/features/org/org-context'
 import {
@@ -9,6 +13,7 @@ import {
   setOrgFooter,
   setOrgHeader,
   setOrgLogo,
+  setOrgProfile,
   setUserSignature,
 } from '@/features/profile/pro-settings-repository'
 import { syncProSettings } from '@/features/profile/pro-settings-sync'
@@ -55,6 +60,25 @@ export function InfoProSection() {
 
   return (
     <div className="space-y-6">
+      <OrgProfileForm
+        // Remonte le formulaire quand les valeurs stockées changent (après save / synchro) →
+        // réinitialise proprement la baseline sans effet ni clobber lors d'un upload d'image.
+        key={`${branding?.entreprise ?? ''}|${branding?.poste ?? ''}|${branding?.pays ?? ''}`}
+        initial={{
+          entreprise: branding?.entreprise ?? '',
+          poste: branding?.poste ?? '',
+          pays: branding?.pays ?? '',
+        }}
+        onSave={async (v) => {
+          await setOrgProfile(orgId, {
+            entreprise: v.entreprise.trim() || null,
+            poste: v.poste.trim() || null,
+            pays: v.pays.trim() || null,
+          })
+          void syncProSettings(orgId)
+        }}
+      />
+
       <section className="space-y-3">
         <div>
           <h2 className="text-sm font-semibold tracking-wide">
@@ -121,5 +145,80 @@ export function InfoProSection() {
         />
       </section>
     </div>
+  )
+}
+
+/* ----------------------------- Infos professionnelles (texte) ----------------------------- */
+
+interface OrgProfileValues {
+  entreprise: string
+  poste: string
+  pays: string
+}
+
+/**
+ * Formulaire « Informations professionnelles » : entreprise → poste → pays.
+ * Bouton Enregistrer **en haut** (sticky), actif uniquement en cas de modification (dirty).
+ * Remonté par `key` quand les valeurs stockées changent → baseline propre, sans effet.
+ */
+function OrgProfileForm({
+  initial,
+  onSave,
+}: {
+  initial: OrgProfileValues
+  onSave: (v: OrgProfileValues) => Promise<void>
+}) {
+  const { t } = useI18n()
+  const [entreprise, setEntreprise] = useState(initial.entreprise)
+  const [poste, setPoste] = useState(initial.poste)
+  const [pays, setPays] = useState(initial.pays)
+  const [saving, setSaving] = useState(false)
+
+  const dirty =
+    entreprise !== initial.entreprise || poste !== initial.poste || pays !== initial.pays
+
+  async function save() {
+    setSaving(true)
+    try {
+      await onSave({ entreprise, poste, pays })
+      toast.success(t({ fr: 'Enregistré', en: 'Saved' }))
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t({ fr: 'Erreur', en: 'Error' }))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section className="space-y-3">
+      <div className="bg-background sticky top-0 z-10 flex items-center justify-between gap-3 border-b pb-3">
+        <h2 className="text-sm font-semibold tracking-wide">
+          {t({ fr: 'INFORMATIONS PROFESSIONNELLES', en: 'PROFESSIONAL INFORMATION' })}
+        </h2>
+        <Button size="sm" disabled={saving || !dirty} onClick={() => void save()}>
+          {t({ fr: 'Enregistrer', en: 'Save' })}
+        </Button>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="org-entreprise">
+            {t({ fr: "Nom de l'entreprise", en: 'Company name' })}
+          </Label>
+          <Input
+            id="org-entreprise"
+            value={entreprise}
+            onChange={(e) => setEntreprise(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="org-poste">{t({ fr: 'Poste', en: 'Position' })}</Label>
+          <Input id="org-poste" value={poste} onChange={(e) => setPoste(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="org-pays">{t({ fr: 'Pays', en: 'Country' })}</Label>
+          <Input id="org-pays" value={pays} onChange={(e) => setPays(e.target.value)} />
+        </div>
+      </div>
+    </section>
   )
 }
