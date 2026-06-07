@@ -13,6 +13,7 @@ const rec: DossierRecord = {
   country: 'CI',
   status: 'draft',
   tree: [{ id: 'n1', number: '1.0', label: 'TdM' }],
+  excludedDocIds: [],
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-02T00:00:00.000Z',
   deletedAt: null,

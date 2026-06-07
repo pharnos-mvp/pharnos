@@ -14,6 +14,7 @@ export interface DossierRow {
   country: string
   status: string
   tree: CtdNodeDef[]
+  excluded_doc_ids: string[]
   created_at: string
   updated_at: string
   deleted_at: string | null
@@ -30,6 +31,7 @@ export function dossierToRow(d: DossierRecord): DossierRow {
     country: d.country,
     status: d.status,
     tree: d.tree,
+    excluded_doc_ids: d.excludedDocIds ?? [],
     created_at: d.createdAt,
     updated_at: d.updatedAt,
     deleted_at: d.deletedAt,
@@ -47,6 +49,7 @@ export function rowToDossier(r: DossierRow): DossierRecord {
     country: r.country,
     status: r.status,
     tree: (r.tree ?? []) as CtdNodeDef[],
+    excludedDocIds: (r.excluded_doc_ids ?? []) as string[],
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     deletedAt: r.deleted_at,

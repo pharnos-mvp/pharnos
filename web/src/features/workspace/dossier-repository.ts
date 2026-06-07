@@ -43,6 +43,7 @@ export async function createDossier(
     status: 'draft',
     // Copie indépendante de l'arborescence par défaut, avec id stables → éditable par dossier.
     tree: assignIds(structuredClone(getModule1Tree(input.format))),
+    excludedDocIds: [],
     createdAt: ts,
     updatedAt: ts,
     deletedAt: null,
@@ -69,6 +70,22 @@ export async function updateDossierTree(
   })
   await recordAudit(updated.orgId, 'dossier', id, 'update', updated.productName)
   return updated
+}
+
+/** Exclut un document produit (catalogue) de ce dossier — il reste présent sous le produit. */
+export async function excludeProductDoc(id: string, docId: string): Promise<void> {
+  const existing = await db.dossiers.get(id)
+  if (!existing || existing.deletedAt !== null) return
+  if ((existing.excludedDocIds ?? []).includes(docId)) return
+  const updated: DossierRecord = {
+    ...existing,
+    excludedDocIds: [...(existing.excludedDocIds ?? []), docId],
+    updatedAt: now(),
+  }
+  await db.transaction('rw', db.dossiers, db.outbox, async () => {
+    await db.dossiers.put(updated)
+    await enqueueOutbox('dossier', id, 'update', updated)
+  })
 }
 
 export async function deleteDossier(id: string): Promise<void> {

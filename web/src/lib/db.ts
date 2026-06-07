@@ -87,6 +87,8 @@ export interface DossierRecord {
   status: string
   /** Arborescence Module 1 **propre au dossier** (éditable par l'utilisateur). */
   tree: CtdNodeDef[]
+  /** Documents produit (catalogue) exclus de CE dossier (retirés du workspace, conservés au produit). */
+  excludedDocIds: string[]
   createdAt: string
   updatedAt: string
   deletedAt: string | null

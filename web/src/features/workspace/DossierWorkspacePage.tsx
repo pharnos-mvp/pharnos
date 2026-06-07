@@ -19,7 +19,6 @@ import {
   Save,
   Settings2,
   Sparkles,
-  Trash2,
   Upload,
   XCircle,
 } from 'lucide-react'
@@ -28,12 +27,8 @@ import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
-import {
-  deleteDocument,
-  getDocumentBlob,
-  listDocuments,
-} from '@/features/catalogue/documents-repository'
-import { getDocumentDownloadUrl, syncDocuments } from '@/features/catalogue/documents-sync'
+import { getDocumentBlob, listDocuments } from '@/features/catalogue/documents-repository'
+import { getDocumentDownloadUrl } from '@/features/catalogue/documents-sync'
 import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
 import { useAuth } from '@/features/auth/auth-context'
 import { useOrgId } from '@/features/org/org-context'
@@ -56,7 +51,7 @@ import {
   MAX_ATTACHMENT_BYTES,
 } from './dossier-attachments-repository'
 import { getAttachmentDownloadUrl, syncDossierAttachments } from './dossier-attachments-sync'
-import { getDossier, updateDossierTree } from './dossier-repository'
+import { excludeProductDoc, getDossier, updateDossierTree } from './dossier-repository'
 import { syncDossiers } from './dossier-sync'
 import {
   createGeneratedDoc,
@@ -70,13 +65,14 @@ import { syncGeneratedDocs } from './generated-docs-sync'
 import { useDossierAttachmentsSync } from './use-dossier-attachments-sync'
 import { useDossierSync } from './use-dossier-sync'
 import { useGeneratedDocsSync } from './use-generated-docs-sync'
-import { nodeForDocType, type CtdNodeDef } from './module1-tree'
+import { getModule1Tree, nodeForDocType, type CtdNodeDef } from './module1-tree'
 import { agencyFor } from './roadmap-data'
 import { PdfPreviewDialog } from './PdfPreviewDialog'
+import { PdfViewer } from './PdfViewer'
 import { runRegafy, type RegafyFinding } from './regafy'
 import { RichTextEditor } from './RichTextEditor'
 import { TEMPLATES, templateKeyForNode, type TemplateContext } from './templates'
-import { flattenTree, setNodeSaved } from './tree-utils'
+import { flattenTree, isTreeOutdated, mergeDefaultTree, setNodeSaved } from './tree-utils'
 
 export function DossierWorkspacePage() {
   const { dossierId } = useParams()
@@ -138,7 +134,9 @@ export function DossierWorkspacePage() {
   const docsByNode = useMemo(() => {
     const map = new Map<string, DocumentRecord[]>()
     if (!dossier) return map
+    const excluded = new Set(dossier.excludedDocIds ?? [])
     for (const d of docs ?? []) {
+      if (excluded.has(d.id)) continue
       const node = nodeForDocType(dossier.format, d.docType, d.category)
       map.set(node, [...(map.get(node) ?? []), d])
     }
@@ -170,6 +168,10 @@ export function DossierWorkspacePage() {
           })
         : [],
     [dossier, product, docsByNode, genByNode, attachByNode],
+  )
+  const structureOutdated = useMemo(
+    () => (dossier ? isTreeOutdated(dossier.tree, getModule1Tree(dossier.format)) : false),
+    [dossier],
   )
 
   const handleEditorReady = useCallback((ed: Editor, id: string) => setEditorState({ id, ed }), [])
@@ -437,6 +439,13 @@ export function DossierWorkspacePage() {
     if (next) handleSelectNode(next)
   }
 
+  async function handleUpdateStructure() {
+    const merged = mergeDefaultTree(activeDossier.tree, getModule1Tree(activeDossier.format))
+    await updateDossierTree(activeDossier.id, merged)
+    void syncDossiers(orgId)
+    toast.success('Structure mise à jour')
+  }
+
   async function handleRemoveActive() {
     if (!active) return
     if (active.kind === 'letter' && selectedGenDoc) {
@@ -446,11 +455,12 @@ export function DossierWorkspacePage() {
       await deleteAttachment(active.id)
       void syncDossierAttachments(orgId)
     } else if (active.kind === 'doc') {
-      await deleteDocument(active.id)
-      void syncDocuments(orgId)
+      // Document produit : on l'exclut du dossier (il reste présent sous le produit).
+      await excludeProductDoc(activeDossier.id, active.id)
+      void syncDossiers(orgId)
     }
     setPickedKey(null)
-    toast.success('Document retiré')
+    toast.success('Document retiré du dossier')
   }
 
   function showPreview(url: string, name: string, revoke: boolean) {
@@ -496,8 +506,20 @@ export function DossierWorkspacePage() {
   }
 
   function handleCompileClick() {
-    if (findings.length > 0) {
-      setGateFindings(findings)
+    // Panneau progressif, mais la garde anti-« dossier vide » s'arme toujours à la compilation.
+    const gate = [...findings]
+    const hasContent = genByNode.size > 0 || attachByNode.size > 0 || docsByNode.size > 0
+    if (!hasContent && !gate.some((f) => f.id === 'empty')) {
+      gate.unshift({
+        id: 'empty',
+        nodeNumber: '',
+        nodeLabel: 'Dossier',
+        severity: 'error',
+        message: 'Dossier vide : aucun document.',
+      })
+    }
+    if (gate.length > 0) {
+      setGateFindings(gate)
       return
     }
     void handleCompile()
@@ -598,6 +620,15 @@ export function DossierWorkspacePage() {
                 </Button>
               </span>
             </div>
+            {structureOutdated ? (
+              <button
+                type="button"
+                onClick={() => void handleUpdateStructure()}
+                className="border-b bg-amber-50 px-3 py-2 text-left text-xs text-amber-800 hover:bg-amber-100"
+              >
+                Nouvelle structure disponible — Mettre à jour
+              </button>
+            ) : null}
             <div className="min-h-0 flex-1 overflow-auto p-2">
               <div className="text-muted-foreground px-1 pb-1 text-[11px] font-semibold tracking-wide">
                 MODULE 1 — ADMINISTRATIF
@@ -824,7 +855,7 @@ export function DossierWorkspacePage() {
             </div>
             <div className="rounded-lg border p-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium">Regafy — constats</h3>
+                <h3 className="text-sm font-medium">Remarques pour la session</h3>
                 <span className="text-muted-foreground text-xs">{findings.length}</span>
               </div>
               {findings.length === 0 ? (
@@ -913,12 +944,12 @@ function RegafyGateDialog({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Observations Regafy"
+      aria-label="Remarques avant compilation"
     >
       <div className="bg-card flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border shadow-lg">
         <div className="flex items-center gap-2 border-b p-4">
           <AlertTriangle className="size-5 text-amber-500" />
-          <h2 className="font-semibold">Regafy a des observations</h2>
+          <h2 className="font-semibold">Remarques avant compilation</h2>
         </div>
         <div className="min-h-0 flex-1 overflow-auto p-4">
           <p className="text-muted-foreground mb-3 text-sm">
@@ -970,14 +1001,13 @@ function InlineDocPreview({
   docId,
   filePath,
   fileName,
-  onDelete,
 }: {
   kind: 'attachment' | 'doc'
   docId: string
   filePath: string | null
   fileName: string
-  onDelete?: () => void
 }) {
+  const [blob, setBlob] = useState<Blob | null>(null)
   const [url, setUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -986,28 +1016,30 @@ function InlineDocPreview({
     let alive = true
     let created: string | null = null
     void (async () => {
-      const blob =
-        kind === 'attachment' ? await getAttachmentBlob(docId) : await getDocumentBlob(docId)
-      if (blob) {
-        created = URL.createObjectURL(blob)
-        if (alive) {
-          setUrl(created)
-          setLoading(false)
-        }
-        return
-      }
-      if (filePath) {
+      let b =
+        (kind === 'attachment' ? await getAttachmentBlob(docId) : await getDocumentBlob(docId)) ??
+        null
+      if (!b && filePath) {
         const remote =
           kind === 'attachment'
             ? await getAttachmentDownloadUrl(filePath)
             : await getDocumentDownloadUrl(filePath)
-        if (alive) {
-          setUrl(remote)
-          setLoading(false)
+        if (remote) {
+          try {
+            const res = await fetch(remote)
+            if (res.ok) b = await res.blob()
+          } catch {
+            /* hors-ligne */
+          }
         }
-      } else if (alive) {
-        setLoading(false)
       }
+      if (!alive) return
+      if (b) {
+        created = URL.createObjectURL(b)
+        setBlob(b)
+        setUrl(created)
+      }
+      setLoading(false)
     })()
     return () => {
       alive = false
@@ -1015,39 +1047,44 @@ function InlineDocPreview({
     }
   }, [kind, docId, filePath])
 
+  const isPdf = blob?.type === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf')
+  const isImage =
+    (blob?.type ?? '').startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(fileName)
+
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-lg border">
       <div className="bg-card flex items-center justify-between gap-2 border-b px-3 py-1.5">
         <span className="truncate text-xs font-medium">{fileName}</span>
-        <div className="flex items-center gap-1">
-          {url ? (
-            <a
-              href={url}
-              download={fileName}
-              aria-label="Télécharger"
-              className={buttonVariants({ variant: 'ghost', size: 'icon-sm' })}
-            >
-              <Download className="size-4" />
-            </a>
-          ) : null}
-          {onDelete ? (
-            <Button size="icon-sm" variant="ghost" aria-label="Supprimer" onClick={onDelete}>
-              <Trash2 className="size-4" />
-            </Button>
-          ) : null}
-        </div>
+        {url ? (
+          <a
+            href={url}
+            download={fileName}
+            aria-label="Télécharger"
+            className={buttonVariants({ variant: 'ghost', size: 'icon-sm' })}
+          >
+            <Download className="size-4" />
+          </a>
+        ) : null}
       </div>
       {loading ? (
         <div className="text-muted-foreground flex flex-1 items-center justify-center text-sm">
           Chargement…
         </div>
+      ) : blob && isPdf ? (
+        <PdfViewer blob={blob} />
+      ) : blob && isImage && url ? (
+        <div className="bg-muted min-h-0 flex-1 overflow-auto p-3">
+          <img
+            src={url}
+            alt={fileName}
+            className="mx-auto max-w-full rounded border bg-white shadow"
+          />
+        </div>
       ) : url ? (
-        <iframe
-          src={url}
-          title={fileName}
-          sandbox="allow-same-origin allow-popups allow-downloads"
-          className="min-h-0 flex-1 bg-white"
-        />
+        <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-2 text-sm">
+          <FileText className="size-8" />
+          Aperçu non disponible pour ce format — téléchargez le fichier.
+        </div>
       ) : (
         <div className="text-muted-foreground flex flex-1 items-center justify-center text-sm">
           Aperçu indisponible hors-ligne.

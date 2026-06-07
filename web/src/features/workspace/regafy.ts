@@ -60,19 +60,34 @@ export function runRegafy(input: RegafyInput): RegafyFinding[] {
       message,
     })
 
+  const leaves = flattenTree(tree).filter((n) => !n.children?.length)
+  // Progressif : on ne signale que les sections déjà validées (« dépassées ») par l'utilisateur.
+  const savedLeaves = leaves.filter((n) => n.savedAt)
+  if (savedLeaves.length === 0) return []
+
   const today = new Date()
   const soon = new Date()
   soon.setDate(soon.getDate() + 90)
 
-  const leaves = flattenTree(tree).filter((n) => !n.children?.length)
   let anyContent = false
-
   for (const leaf of leaves) {
+    const has =
+      (docsByNode.get(leaf.number)?.length ?? 0) > 0 ||
+      Boolean(genByNode.get(leaf.number)) ||
+      (attachByNode.get(leaf.number)?.length ?? 0) > 0
+    if (has) anyContent = true
+  }
+
+  for (const leaf of savedLeaves) {
     const docs = docsByNode.get(leaf.number) ?? []
     const gen = genByNode.get(leaf.number)
     const atts = attachByNode.get(leaf.number) ?? []
     const has = docs.length > 0 || Boolean(gen) || atts.length > 0
-    if (has) anyContent = true
+
+    if (!has) push(leaf, 'warning', 'Section validée sans document')
+    if (gen && hasPlaceholder(gen.content)) {
+      push(leaf, 'warning', 'Champs à compléter dans le document')
+    }
 
     for (const d of docs) {
       if (!d.expiryDate) continue
@@ -89,14 +104,6 @@ export function runRegafy(input: RegafyInput): RegafyFinding[] {
             ? `Pièce expirée (${d.expiryDate})`
             : `Pièce bientôt expirée (${d.expiryDate})`,
       })
-    }
-
-    if (gen && hasPlaceholder(gen.content)) {
-      push(leaf, 'warning', 'Champs à compléter dans le document')
-    }
-
-    if (has && !leaf.savedAt) {
-      push(leaf, 'info', 'Section à valider (Enregistrer)')
     }
   }
 
