@@ -25,6 +25,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
+import { useHeaderSlot } from '@/components/layout/header-slot'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { getDocumentBlob, listDocuments } from '@/features/catalogue/documents-repository'
@@ -138,6 +139,7 @@ export function DossierWorkspacePage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const previewRef = useRef<{ url: string; revoke: boolean } | null>(null)
   const didAutoSelect = useRef(false)
+  const setHeaderSlot = useHeaderSlot()
 
   const docsByNode = useMemo(() => {
     const map = new Map<string, DocumentRecord[]>()
@@ -221,6 +223,36 @@ export function DossierWorkspacePage() {
       setSelected(target)
     }
   }, [flatNodes, selected, docs, docsByNode, genByNode, attachByNode])
+
+  // Titre du dossier (produit · pays · format) injecté dans le bandeau du haut — sur la même ligne
+  // que le profil, façon Google Docs. Remis à null en quittant le montage.
+  useEffect(() => {
+    if (!setHeaderSlot) return
+    if (!dossier) {
+      setHeaderSlot(null)
+      return
+    }
+    const fmt = dossier.format === 'ctd' ? 'CTD UEMOA' : 'eCTD CEDEAO'
+    setHeaderSlot(
+      <div className="flex min-w-0 items-center gap-1.5">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Retour aux dossiers"
+          onClick={() => navigate('/workspace')}
+        >
+          <ArrowLeft className="size-4" />
+        </Button>
+        <div className="min-w-0 leading-tight">
+          <div className="truncate text-sm font-semibold">
+            {dossier.productName} — {countryLabel(dossier.country)}
+          </div>
+          <div className="text-muted-foreground truncate text-xs">Création Module 1 ({fmt})</div>
+        </div>
+      </div>,
+    )
+    return () => setHeaderSlot(null)
+  }, [setHeaderSlot, dossier, navigate])
 
   const handleEditorReady = useCallback((ed: Editor, id: string) => setEditorState({ id, ed }), [])
 
@@ -391,7 +423,6 @@ export function DossierWorkspacePage() {
   const okCount = filledLeaves.length
   const warnCount = findings.filter((f) => f.severity === 'warning').length
   const errCount = findings.filter((f) => f.severity === 'error').length
-  const region = dossier.format === 'ctd' ? 'CTD UEMOA' : 'eCTD CEDEAO'
 
   function buildContext(): TemplateContext {
     const ag = agencyFor(activeDossier.country)
@@ -575,46 +606,31 @@ export function DossierWorkspacePage() {
   }
 
   return (
-    <div className="flex h-[calc(100svh-5rem)] flex-col">
-      <div className="flex items-start gap-2 border-b pb-3">
+    // Pleine hauteur sous le bandeau (récupère le padding de <main> via les marges négatives) →
+    // grande zone de prévisualisation, scroll interne par panneau (façon Google Docs).
+    <div className="-my-4 flex h-[calc(100svh-3.5rem)] flex-col md:-my-6">
+      <div className="flex items-center justify-end gap-2 border-b pb-2">
+        <label className="text-muted-foreground mr-auto hidden items-center gap-1.5 text-xs sm:flex">
+          <input
+            type="checkbox"
+            checked={autoStructural}
+            onChange={(e) => setAutoStructural(e.target.checked)}
+          />
+          TDM + gardes auto
+        </label>
         <Button
-          variant="ghost"
-          size="icon-sm"
-          className="mt-0.5"
-          aria-label="Retour aux dossiers"
-          onClick={() => navigate('/workspace')}
+          variant="outline"
+          size="sm"
+          onClick={() => navigate(`/workspace/${dossier.id}/roadmap`)}
         >
-          <ArrowLeft className="size-4" />
+          Roadmap
         </Button>
-        <div className="min-w-0">
-          <h1 className="truncate text-xl leading-tight font-bold">
-            {dossier.productName} - {countryLabel(dossier.country)}
-          </h1>
-          <p className="text-muted-foreground text-sm">Création Module 1 ({region})</p>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <label className="text-muted-foreground hidden items-center gap-1.5 text-xs sm:flex">
-            <input
-              type="checkbox"
-              checked={autoStructural}
-              onChange={(e) => setAutoStructural(e.target.checked)}
-            />
-            TDM + gardes auto
-          </label>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`/workspace/${dossier.id}/roadmap`)}
-          >
-            Roadmap
-          </Button>
-          <Button size="sm" disabled={compiling} onClick={handleCompileClick}>
-            <FileDown className="size-4" /> {compiling ? 'Compilation…' : 'Compiler le PDF'}
-          </Button>
-        </div>
+        <Button size="sm" disabled={compiling} onClick={handleCompileClick}>
+          <FileDown className="size-4" /> {compiling ? 'Compilation…' : 'Compiler le PDF'}
+        </Button>
       </div>
 
-      <div className="flex min-h-0 flex-1 gap-3 pt-3">
+      <div className="flex min-h-0 flex-1 gap-3 pt-3 pb-4">
         {/* Panneau gauche : arborescence */}
         {collapsed ? (
           <div className="flex w-14 shrink-0 flex-col items-center gap-1.5 overflow-auto rounded-lg border py-2">
@@ -886,7 +902,7 @@ export function DossierWorkspacePage() {
             </div>
           </div>
         ) : (
-          <aside className="hidden w-72 shrink-0 flex-col gap-3 overflow-auto lg:flex">
+          <aside className="hidden w-72 shrink-0 flex-col gap-3 overflow-auto pb-6 lg:flex">
             <div className="flex flex-col items-center rounded-lg border p-4">
               <div className="flex w-full items-center justify-between">
                 <span className="text-sm font-medium">État d'avancement</span>
