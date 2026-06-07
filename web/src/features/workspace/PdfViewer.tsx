@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react'
  * pdfjs-dist est chargé en import dynamique (chunk à la demande).
  *
  * Les types de pdfjs-dist varient selon les versions → on type localement le sous-ensemble utilisé.
+ * La destruction se fait via le **loadingTask** (le PDFDocumentProxy n'expose pas toujours destroy()).
  */
 interface PdfPage {
   getViewport: (o: { scale: number }) => { width: number; height: number }
@@ -18,6 +19,9 @@ interface PdfPage {
 interface PdfDoc {
   numPages: number
   getPage: (n: number) => Promise<PdfPage>
+}
+interface PdfTask {
+  promise: Promise<unknown>
   destroy: () => Promise<void>
 }
 
@@ -27,14 +31,15 @@ export function PdfViewer({ blob }: { blob: Blob }) {
 
   useEffect(() => {
     let cancelled = false
-    let doc: PdfDoc | undefined
+    let task: PdfTask | undefined
     void (async () => {
       try {
         const pdfjs = await import('pdfjs-dist')
         const worker = await import('pdfjs-dist/build/pdf.worker.min.mjs?url')
         pdfjs.GlobalWorkerOptions.workerSrc = worker.default
         const data = new Uint8Array(await blob.arrayBuffer())
-        doc = (await pdfjs.getDocument({ data }).promise) as unknown as PdfDoc
+        task = pdfjs.getDocument({ data }) as unknown as PdfTask
+        const doc = (await task.promise) as PdfDoc
         const container = containerRef.current
         if (cancelled || !container) return
         container.replaceChildren()
@@ -66,7 +71,8 @@ export function PdfViewer({ blob }: { blob: Blob }) {
     })()
     return () => {
       cancelled = true
-      void doc?.destroy()
+      // Optional call : ne plante jamais si l'API diffère selon la version de pdfjs.
+      void task?.destroy?.()
     }
   }, [blob])
 
