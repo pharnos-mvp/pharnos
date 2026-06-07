@@ -2,15 +2,20 @@ import type { JSONContent } from '@tiptap/core'
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from 'pdf-lib'
 
 import type { GeneratedDocRecord } from '@/lib/db'
+import { CTD_MODULE_TITLES, CTD_OUTLINE_2_5 } from '../ctd-full-outline'
 import type { CtdNodeDef } from '../module1-tree'
 
 /**
  * Compilation du Module 1 en un PDF unique (M6).
  *
- * Ordre : (TDM) → pour chaque section : page de garde → pour chaque pièce : page d'annonce →
- * document(s) (lettre générée rendue en vecteur + pièces jointes/produit fusionnées).
- * Bandeau **en-tête/pied taille 10** tamponné sur **toutes** les pages (y compris les PDF importés),
- * pagination continue. Police Times New Roman (standard PDF, pas d'embarquement de police).
+ * Ordre : (TDM tous modules) → pour chaque section : page de garde → pour chaque pièce : page
+ * d'annonce → document(s) (lettre générée rendue en vecteur + pièces jointes/produit fusionnées).
+ * Bandeau **en-tête/pied taille 10** tamponné **uniquement sur les pages de garde** (TDM, gardes de
+ * section, pages d'annonce) — **jamais** sur les documents administratifs / générés / traduits, qui
+ * restent vierges. Police Times New Roman (standard PDF, pas d'embarquement de police).
+ *
+ * Le **TDM** est la table des matières **générale du CTD** : INDEX des 5 modules, puis Module 1
+ * (arbre réel du dossier, avec numéros de page) et Modules 2 → 5 (ossature standard, sans page).
  */
 
 // A4 en points (1 pt = 1/72").
@@ -324,11 +329,14 @@ function stampAll(
   input: CompileInput,
   fonts: Fonts,
   logo: PDFImage | null,
+  coverIndices: Set<number>,
 ): void {
   const pages = final.getPages()
   const total = pages.length
   const half = CONTENT_WIDTH / 2 - 10
   pages.forEach((page, idx) => {
+    // En-tête/pied **uniquement** sur les pages de garde — jamais sur un document (admin/généré/traduit).
+    if (!coverIndices.has(idx)) return
     const { width, height } = page.getSize()
     const hy = height - 48
 
@@ -396,7 +404,7 @@ function stampAll(
 
 /* ----------------------------- Orchestrateur ----------------------------- */
 
-interface TdmEntry {
+export interface TdmEntry {
   number: string
   label: string
   depth: number
@@ -409,6 +417,158 @@ function hasContent(node: CtdNodeDef, input: CompileInput): boolean {
   return (node.children ?? []).some((ch) => hasContent(ch, input))
 }
 
+/* --------- TDM « tous modules » : INDEX + Module 1 réel + ossature Modules 2→5 --------- */
+
+export interface TdmLine {
+  kind: 'title' | 'subtitle' | 'index' | 'module' | 'entry'
+  text?: string
+  number?: string
+  label?: string
+  depth?: number
+  /** Pour une entrée Module 1 avec contenu : index (0-based) de sa page de garde dans le contenu. */
+  startIndex?: number
+}
+
+function tdmLineHeight(line: TdmLine): number {
+  switch (line.kind) {
+    case 'title':
+      return lineHeight(16) + 14
+    case 'subtitle':
+      return lineHeight(10) + 12
+    case 'index':
+      return lineHeight(11) + 1
+    case 'module':
+      return lineHeight(12) + 12
+    case 'entry':
+      return lineHeight(11)
+  }
+}
+
+function outlineToLines(
+  nodes: CtdNodeDef[],
+  depth: number,
+  out: TdmLine[],
+  pageOf?: Map<string, number>,
+): void {
+  for (const n of nodes) {
+    out.push({
+      kind: 'entry',
+      number: n.number,
+      label: n.label,
+      depth,
+      startIndex: pageOf?.get(n.number),
+    })
+    if (n.children && n.children.length > 0) outlineToLines(n.children, depth + 1, out, pageOf)
+  }
+}
+
+export function buildTdmLines(input: CompileInput, entries: TdmEntry[]): TdmLine[] {
+  const pageOf = new Map<string, number>()
+  for (const e of entries) pageOf.set(e.number, e.startIndex)
+
+  const lines: TdmLine[] = [
+    { kind: 'title', text: 'TABLE DES MATIÈRES' },
+    { kind: 'subtitle', text: 'Table des matières détaillée — tous les modules du CTD' },
+  ]
+  // INDEX des 5 modules.
+  for (const m of CTD_MODULE_TITLES) lines.push({ kind: 'index', number: m.number, text: m.title })
+  // Module 1 = arbre réel du dossier (avec numéros de page là où il y a du contenu).
+  const m1 = CTD_MODULE_TITLES[0]
+  lines.push({ kind: 'module', number: m1?.number ?? '1', label: m1?.title ?? 'Module 1' })
+  outlineToLines(input.tree, 1, lines, pageOf)
+  // Modules 2 → 5 = ossature standard (sans numéro de page : hors de ce dossier).
+  for (const mod of CTD_OUTLINE_2_5) {
+    lines.push({ kind: 'module', number: mod.number, label: mod.title })
+    outlineToLines(mod.nodes, 1, lines)
+  }
+  return lines
+}
+
+function paginateTdm(lines: TdmLine[]): TdmLine[][] {
+  const pages: TdmLine[][] = [[]]
+  let y = CONTENT_TOP
+  for (const line of lines) {
+    const h = tdmLineHeight(line)
+    if (y - h < CONTENT_BOTTOM) {
+      pages.push([])
+      y = CONTENT_TOP
+    }
+    pages[pages.length - 1]!.push(line)
+    y -= h
+  }
+  return pages
+}
+
+function drawTdmLine(
+  page: PDFPage,
+  line: TdmLine,
+  y: number,
+  fonts: Fonts,
+  tdmPageCount: number,
+): void {
+  switch (line.kind) {
+    case 'title':
+      page.drawText(sanitize(line.text ?? ''), {
+        x: MARGIN,
+        y,
+        size: 16,
+        font: fonts.bold,
+        color: BLACK,
+      })
+      return
+    case 'subtitle':
+      page.drawText(ellipsize(line.text ?? '', fonts.regular, 10, CONTENT_WIDTH), {
+        x: MARGIN,
+        y,
+        size: 10,
+        font: fonts.regular,
+        color: GRAY,
+      })
+      return
+    case 'index':
+      page.drawText(
+        ellipsize(`Module ${line.number} — ${line.text ?? ''}`, fonts.regular, 11, CONTENT_WIDTH),
+        { x: MARGIN, y, size: 11, font: fonts.regular, color: BLACK },
+      )
+      return
+    case 'module':
+      page.drawText(
+        ellipsize(
+          `MODULE ${line.number} — ${(line.label ?? '').toUpperCase()}`,
+          fonts.bold,
+          12,
+          CONTENT_WIDTH,
+        ),
+        { x: MARGIN, y, size: 12, font: fonts.bold, color: BLACK },
+      )
+      return
+    case 'entry': {
+      const indent = (line.depth ?? 0) * 14
+      const hasPage = line.startIndex !== undefined
+      const reserve = hasPage ? 40 : 6
+      const label = ellipsize(
+        `${line.number}  ${line.label ?? ''}`,
+        fonts.regular,
+        11,
+        CONTENT_WIDTH - indent - reserve,
+      )
+      page.drawText(label, { x: MARGIN + indent, y, size: 11, font: fonts.regular, color: BLACK })
+      if (hasPage) {
+        const abs = tdmPageCount + (line.startIndex as number) + 1
+        const s = String(abs)
+        page.drawText(s, {
+          x: A4[0] - MARGIN - fonts.regular.widthOfTextAtSize(s, 11),
+          y,
+          size: 11,
+          font: fonts.regular,
+          color: BLACK,
+        })
+      }
+      return
+    }
+  }
+}
+
 export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
   // 1) Contenu (hors TDM) dans un doc temporaire, en mémorisant l'index de page de départ de chaque nœud.
   const contentDoc = await PDFDocument.create()
@@ -417,6 +577,8 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
     bold: await contentDoc.embedFont(StandardFonts.TimesRomanBold),
   }
   const entries: TdmEntry[] = []
+  // Index (0-based, dans contentDoc) des pages de garde générées → tamponnées en-tête/pied.
+  const coverContentIndices = new Set<number>()
 
   async function walk(nodes: CtdNodeDef[], depth: number): Promise<void> {
     for (const node of nodes) {
@@ -425,6 +587,7 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
       const isSection = (node.children ?? []).length > 0
       if (isSection) {
         if (input.autoStructural) {
+          coverContentIndices.add(contentDoc.getPageCount())
           drawCentered(
             contentDoc.addPage(A4),
             [
@@ -464,6 +627,7 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
         for (const item of items) {
           if (input.autoStructural) {
             const number = items.length > 1 ? `${node.number}.${sub}` : node.number
+            coverContentIndices.add(contentDoc.getPageCount())
             drawCentered(
               contentDoc.addPage(A4),
               [
@@ -485,15 +649,16 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
   await walk(input.tree, 0)
 
   // 2) Assemblage final = pages TDM (réservées) + contenu copié.
-  const tdmRows = input.autoStructural ? entries.length : 0
-  const TDM_PER_PAGE = 30
-  const tdmPageCount = tdmRows > 0 ? Math.ceil((tdmRows + 2) / TDM_PER_PAGE) : 0
-
   const final = await PDFDocument.create()
   const fFonts: Fonts = {
     regular: await final.embedFont(StandardFonts.TimesRoman),
     bold: await final.embedFont(StandardFonts.TimesRomanBold),
   }
+
+  // TDM « tous modules » : on calcule d'abord le découpage en pages (indépendant des n° de page),
+  // ce qui donne le nombre exact de pages TDM à réserver avant de copier le contenu.
+  const tdmLayout = input.autoStructural ? paginateTdm(buildTdmLines(input, entries)) : []
+  const tdmPageCount = tdmLayout.length
 
   const tdmPages: PDFPage[] = []
   for (let i = 0; i < tdmPageCount; i++) tdmPages.push(final.addPage(A4))
@@ -501,48 +666,26 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
   const copied = await final.copyPages(contentDoc, contentDoc.getPageIndices())
   copied.forEach((p) => final.addPage(p))
 
+  // Pages de garde du doc final = pages TDM + gardes/annonces (décalées du nombre de pages TDM).
+  const coverPageIndices = new Set<number>()
+  for (let i = 0; i < tdmPageCount; i++) coverPageIndices.add(i)
+  for (const ci of coverContentIndices) coverPageIndices.add(tdmPageCount + ci)
+
   if (final.getPageCount() === 0) {
+    coverPageIndices.add(0)
     drawCentered(final.addPage(A4), [{ text: 'Dossier vide', size: 16, bold: true }], fFonts)
   }
 
-  // 3) Remplissage du TDM avec numéros de page absolus.
-  if (tdmPages.length > 0) {
-    let pi = 0
+  // 3) Remplissage du TDM (numéros de page absolus pour les nœuds Module 1 avec contenu).
+  tdmLayout.forEach((pageLines, p) => {
+    const page = tdmPages[p]
+    if (!page) return
     let y = CONTENT_TOP
-    tdmPages[0]!.drawText(sanitize('TABLE DES MATIÈRES'), {
-      x: MARGIN,
-      y,
-      size: 16,
-      font: fFonts.bold,
-      color: BLACK,
-    })
-    y -= lineHeight(16) + 10
-    for (const e of entries) {
-      if (y - lineHeight(11) < CONTENT_BOTTOM && pi < tdmPages.length - 1) {
-        pi++
-        y = CONTENT_TOP
-      }
-      const page = tdmPages[pi]!
-      const absolute = tdmPageCount + e.startIndex + 1
-      const label = ellipsize(`${e.number}  ${e.label}`, fFonts.regular, 11, CONTENT_WIDTH - 40)
-      page.drawText(label, {
-        x: MARGIN + e.depth * 14,
-        y,
-        size: 11,
-        font: fFonts.regular,
-        color: BLACK,
-      })
-      const pageStr = String(absolute)
-      page.drawText(pageStr, {
-        x: A4[0] - MARGIN - fFonts.regular.widthOfTextAtSize(pageStr, 11),
-        y,
-        size: 11,
-        font: fFonts.regular,
-        color: BLACK,
-      })
-      y -= lineHeight(11)
+    for (const line of pageLines) {
+      drawTdmLine(page, line, y, fFonts, tdmPageCount)
+      y -= tdmLineHeight(line)
     }
-  }
+  })
 
   // 4) En-tête/pied + pagination sur toutes les pages.
   let logoImg: PDFImage | null = null
@@ -555,7 +698,7 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
       logoImg = null
     }
   }
-  stampAll(final, input, fFonts, logoImg)
+  stampAll(final, input, fFonts, logoImg, coverPageIndices)
 
   return final.save()
 }

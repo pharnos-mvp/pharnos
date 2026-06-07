@@ -4,10 +4,12 @@ import { describe, expect, it } from 'vitest'
 import type { GeneratedDocRecord } from '@/lib/db'
 import type { CtdNodeDef } from '../module1-tree'
 import {
+  buildTdmLines,
   compileDossier,
   dataUrlToBytes,
   type CompileInput,
   type CompileNodeContent,
+  type TdmEntry,
 } from './compile-dossier'
 
 function gen(nodeNumber: string): GeneratedDocRecord {
@@ -86,6 +88,26 @@ describe('compileDossier (compilation PDF)', () => {
     const bytes = await compileDossier(input(false))
     const doc = await PDFDocument.load(bytes)
     expect(doc.getPageCount()).toBeGreaterThanOrEqual(1)
+  })
+
+  it('TDM couvre tous les modules (1→5) avec n° de page pour le Module 1 peuplé', () => {
+    const entries: TdmEntry[] = [
+      { number: '1.1.1', label: 'Lettre de demande', depth: 1, startIndex: 2 },
+    ]
+    const lines = buildTdmLines(input(true), entries)
+
+    // Un en-tête par module, dans l'ordre 1 → 5.
+    const modules = lines.filter((l) => l.kind === 'module').map((l) => l.number)
+    expect(modules).toEqual(['1', '2', '3', '4', '5'])
+
+    // INDEX : les 5 modules listés.
+    expect(lines.filter((l) => l.kind === 'index')).toHaveLength(5)
+
+    // Le nœud Module 1 peuplé porte un startIndex (→ numéro de page) ; un nœud Module 3 non.
+    expect(lines.find((l) => l.kind === 'entry' && l.number === '1.1.1')?.startIndex).toBe(2)
+    const m3 = lines.find((l) => l.kind === 'entry' && l.number === '3.2.S.1')
+    expect(m3).toBeDefined()
+    expect(m3?.startIndex).toBeUndefined()
   })
 
   it('dataUrlToBytes décode une data URL PNG', () => {
