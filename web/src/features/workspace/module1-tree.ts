@@ -20,6 +20,8 @@ export interface CtdNodeDef {
   label: string
   /** Code eCTD (format eCTD uniquement), ex. "m1-3-1-smpc". */
   code?: string
+  /** Guidance réglementaire optionnelle affichée sous le titre de la section. */
+  note?: string
   children?: CtdNodeDef[]
 }
 
@@ -172,22 +174,54 @@ export const MODULE1_CTD_UEMOA: CtdNodeDef[] = [
     children: [
       { number: '1.2.1', label: 'Formulaires de demande/soumissions' },
       { number: '1.2.2', label: "Formulaire de payement de frais d'homologation" },
-      { number: '1.2.3', label: "Formulaires de certification et d'attestation" },
+      {
+        number: '1.2.3',
+        label: "Formulaires de certification et d'attestation",
+        children: [
+          {
+            number: '1.2.3.1',
+            label:
+              'Certification de conformité aux monographies de la Pharmacopée Européenne (CEP)',
+          },
+          { number: '1.2.3.2', label: 'Certificat de Produit Pharmaceutique (COPP)' },
+          { number: '1.2.3.3', label: "Autorisation de mise en marché du pays d'origine" },
+          { number: '1.2.3.4', label: "Certificats d'analyse (COA)" },
+        ],
+      },
       {
         number: '1.2.4',
         label: 'Conformité et informations sur le site',
         children: [
           { number: '1.2.4.1', label: 'Bonnes pratiques de fabrication (BPF)' },
+          { number: '1.2.4.2', label: 'Licence de fabrication (ML)' },
+        ],
+      },
+      {
+        number: '1.2.5',
+        label: "Autorisation relative au partage d'informations",
+        children: [{ number: '1.2.5.1', label: "Lettre d'accès au DMF" }],
+      },
+      {
+        number: '1.2.6',
+        label: 'Statut réglementaire au plan régional et international',
+        children: [
+          { number: '1.2.6.1', label: "AMM obtenue dans l'UEMOA / CEDEAO" },
+          { number: '1.2.6.2', label: 'AMM obtenue hors UEMOA / CEDEAO' },
+        ],
+      },
+      { number: '1.2.7', label: 'Informations post-autorisation' },
+      {
+        number: '1.2.8',
+        label: 'Autres informations administratives',
+        note: "Informations administratives sans emplacement prévu dans le format CTD. Ne doit pas contenir d'informations scientifiques.",
+        children: [
           {
-            number: '1.2.4.2',
-            label: "Autres documents de conformité et d'informations sur le site",
+            number: '1.2.8.1',
+            label: "Demandes de dispenses d'études de bioéquivalence",
+            note: "La justification de la demande de dispense doit être soumise conformément aux lignes directrices sur les dispenses d'études de bioéquivalence.",
           },
         ],
       },
-      { number: '1.2.5', label: "Autorisation relative au partage d'informations" },
-      { number: '1.2.6', label: 'Statut réglementaire régional et international' },
-      { number: '1.2.7', label: 'Informations post-autorisation' },
-      { number: '1.2.8', label: 'Autres informations administratives' },
     ],
   },
   {
@@ -234,12 +268,12 @@ const NODE_BY_DOCTYPE: Record<DossierFormat, Record<string, string>> = {
     notice: '1.3.2',
     labeling: '1.3.3',
     artwork: '1.3.3',
-    coa: '1.2.3',
-    amm: '1.2.6',
+    coa: '1.2.3.4',
+    amm: '1.2.6.1',
     gmp: '1.2.4.1',
     ml: '1.2.4.2',
-    copp: '1.2.6',
-    fsc: '1.2.6',
+    copp: '1.2.3.2',
+    fsc: '1.2.6.2',
     cover: '1.1.1',
     pght: '1.1.2',
   },

@@ -594,6 +594,11 @@ export function DossierWorkspacePage() {
                           ? `${selectedDocs.length} document(s) ajouté(s)`
                           : 'Aucun document'}
                     </p>
+                    {selected.note ? (
+                      <p className="text-muted-foreground mt-1 max-w-prose text-xs italic">
+                        {selected.note}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     {selectedGenDoc ? (
