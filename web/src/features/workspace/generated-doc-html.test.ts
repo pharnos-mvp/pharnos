@@ -38,4 +38,15 @@ describe('generated-doc-html (sérialisation)', () => {
     expect(full).toContain('<!doctype html>')
     expect(full).toContain('<title>Ma lettre</title>')
   })
+
+  it('applique la mise en page A4/Times New Roman et intègre en-tête/pied', () => {
+    const full = generatedDocToHtml('Lettre', doc, {
+      header: 'data:image/png;base64,HHH',
+      footer: 'data:image/png;base64,FFF',
+    })
+    expect(full).toContain('@page')
+    expect(full).toContain('Times New Roman')
+    expect(full).toContain('data:image/png;base64,HHH')
+    expect(full).toContain('data:image/png;base64,FFF')
+  })
 })

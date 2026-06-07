@@ -110,6 +110,45 @@ export interface GeneratedDocRecord {
   deletedAt: string | null
 }
 
+/**
+ * Réglages « Profil pro » (M3.1) — images réutilisables appliquées aux documents générés.
+ * `kind: 'orgBranding'` = papier à en-tête + pied de page (partagés par l'organisation) ;
+ * `kind: 'userSignature'` = signature de l'utilisateur. Images stockées en **data URL**
+ * (petites, disponibles hors-ligne, exportables directement, pas de Storage à gérer).
+ */
+export interface ProSettingRecord {
+  id: string
+  orgId: string
+  kind: 'orgBranding' | 'userSignature'
+  /** Data URL de l'en-tête (orgBranding). */
+  headerImage: string | null
+  /** Data URL du pied de page (orgBranding). */
+  footerImage: string | null
+  /** Data URL de la signature (userSignature). */
+  signatureImage: string | null
+  updatedAt: string
+  deletedAt: string | null
+}
+
+/**
+ * Pièce jointe **téléversée directement sur un nœud** d'un dossier (M3.1) — coexiste avec les
+ * documents générés et les pièces produit auto-classées. Blob local (offline) + Storage.
+ */
+export interface DossierAttachmentRecord {
+  id: string
+  orgId: string
+  dossierId: string
+  nodeNumber: string
+  fileName: string
+  mimeType: string
+  size: number
+  filePath: string | null
+  uploaded: boolean
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+}
+
 const db = new Dexie('pharnos') as Dexie & {
   products: EntityTable<ProductRecord, 'id'>
   outbox: EntityTable<OutboxItem, 'id'>
@@ -117,6 +156,8 @@ const db = new Dexie('pharnos') as Dexie & {
   documentBlobs: EntityTable<DocumentBlob, 'id'>
   dossiers: EntityTable<DossierRecord, 'id'>
   generatedDocs: EntityTable<GeneratedDocRecord, 'id'>
+  proSettings: EntityTable<ProSettingRecord, 'id'>
+  dossierAttachments: EntityTable<DossierAttachmentRecord, 'id'>
 }
 
 db.version(1).stores({
@@ -143,6 +184,12 @@ db.version(4).stores({
 // v5 : documents générés depuis templates (lettres Cover/PGHT, formulaires) — M3.
 db.version(5).stores({
   generatedDocs: 'id, orgId, dossierId, [dossierId+nodeNumber], updatedAt, deletedAt',
+})
+
+// v6 : profil pro (en-tête/pied/signature) + pièces jointes par nœud — M3.1.
+db.version(6).stores({
+  proSettings: 'id, orgId, kind, updatedAt, deletedAt',
+  dossierAttachments: 'id, orgId, dossierId, [dossierId+nodeNumber], updatedAt, deletedAt',
 })
 
 export { db }

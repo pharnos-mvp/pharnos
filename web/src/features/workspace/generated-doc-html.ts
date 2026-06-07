@@ -78,22 +78,50 @@ export function contentToHtml(content: JSONContent): string {
   return renderNode(content)
 }
 
-/** Document HTML complet, prêt au téléchargement / à l'impression. */
-export function generatedDocToHtml(title: string, content: JSONContent): string {
+export interface GeneratedDocOptions {
+  /** Data URL de l'en-tête (papier à en-tête). */
+  header?: string | null
+  /** Data URL du pied de page. */
+  footer?: string | null
+}
+
+function imgTag(src: string, alt: string): string {
+  return `<img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}">`
+}
+
+/**
+ * Document HTML complet — **A4, Times New Roman 12, marges 2,5 cm**, en-tête/pied optionnels.
+ * Prêt au téléchargement et à l'impression (Ctrl+P → PDF). La compilation PDF fidèle = M6.
+ */
+export function generatedDocToHtml(
+  title: string,
+  content: JSONContent,
+  opts: GeneratedDocOptions = {},
+): string {
+  const header = opts.header ? `<div class="band">${imgTag(opts.header, 'En-tête')}</div>` : ''
+  const footer = opts.footer
+    ? `<div class="band band-footer">${imgTag(opts.footer, 'Pied de page')}</div>`
+    : ''
   return `<!doctype html>
 <html lang="fr">
 <head>
 <meta charset="utf-8">
 <title>${escapeHtml(title)}</title>
 <style>
-  body { font-family: Georgia, 'Times New Roman', serif; max-width: 21cm; margin: 2.5cm auto; padding: 0 1.5cm; line-height: 1.5; color: #111; }
-  h1, h2, h3 { font-family: Arial, Helvetica, sans-serif; }
+  @page { size: A4; margin: 2.5cm; }
+  body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5; color: #000; max-width: 16cm; margin: 2.5cm auto; }
+  h1, h2, h3 { font-family: 'Times New Roman', Times, serif; }
   ul, ol { padding-left: 1.5rem; }
   p { margin: 0.5rem 0; }
+  img { max-width: 100%; height: auto; }
+  .band img { width: 100%; }
+  .band-footer { margin-top: 2rem; }
 </style>
 </head>
 <body>
+${header}
 ${renderNode(content)}
+${footer}
 </body>
 </html>`
 }

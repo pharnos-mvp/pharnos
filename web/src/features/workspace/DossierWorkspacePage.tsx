@@ -15,9 +15,12 @@ import {
   PanelRightOpen,
   Settings2,
   Sparkles,
+  Trash2,
+  Upload,
   XCircle,
 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -25,11 +28,27 @@ import { docTypeLabel } from '@/features/catalogue/doc-types'
 import { getDocumentBlob, listDocuments } from '@/features/catalogue/documents-repository'
 import { getDocumentDownloadUrl } from '@/features/catalogue/documents-sync'
 import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
+import { useAuth } from '@/features/auth/auth-context'
 import { useOrgId } from '@/features/org/org-context'
-import { db, type DocumentRecord, type GeneratedDocRecord } from '@/lib/db'
+import { getOrgBranding, getUserSignature } from '@/features/profile/pro-settings-repository'
+import { useProSettingsSync } from '@/features/profile/use-pro-settings-sync'
+import {
+  db,
+  type DocumentRecord,
+  type DossierAttachmentRecord,
+  type GeneratedDocRecord,
+} from '@/lib/db'
 import { cn } from '@/lib/utils'
 import { ArborescenceTree } from './ArborescenceTree'
 import { countryLabel } from './dossier-constants'
+import {
+  addAttachment,
+  deleteAttachment,
+  getAttachmentBlob,
+  listAttachments,
+  MAX_ATTACHMENT_BYTES,
+} from './dossier-attachments-repository'
+import { getAttachmentDownloadUrl, syncDossierAttachments } from './dossier-attachments-sync'
 import { getDossier, updateDossierTree } from './dossier-repository'
 import { syncDossiers } from './dossier-sync'
 import {
@@ -40,6 +59,7 @@ import {
 } from './generated-docs-repository'
 import { generatedDocToHtml } from './generated-doc-html'
 import { syncGeneratedDocs } from './generated-docs-sync'
+import { useDossierAttachmentsSync } from './use-dossier-attachments-sync'
 import { useDossierSync } from './use-dossier-sync'
 import { useGeneratedDocsSync } from './use-generated-docs-sync'
 import { nodeForDocType, type CtdNodeDef } from './module1-tree'
@@ -62,6 +82,11 @@ export function DossierWorkspacePage() {
   useCatalogueSync(orgId)
   useDossierSync(orgId)
   useGeneratedDocsSync(orgId)
+  useDossierAttachmentsSync(orgId)
+  useProSettingsSync(orgId)
+
+  const { user } = useAuth()
+  const userId = user?.id ?? 'local'
 
   const dossier = useLiveQuery(
     async () => (dossierId ? ((await getDossier(dossierId)) ?? null) : null),
@@ -79,6 +104,12 @@ export function DossierWorkspacePage() {
     () => (dossierId ? listGeneratedDocs(dossierId) : Promise.resolve([])),
     [dossierId],
   )
+  const attachments = useLiveQuery(
+    () => (dossierId ? listAttachments(dossierId) : Promise.resolve([])),
+    [dossierId],
+  )
+  const branding = useLiveQuery(() => getOrgBranding(orgId), [orgId])
+  const signature = useLiveQuery(() => getUserSignature(userId), [userId])
 
   const [selected, setSelected] = useState<CtdNodeDef | null>(null)
   const [treeEditing, setTreeEditing] = useState(false)
@@ -89,6 +120,7 @@ export function DossierWorkspacePage() {
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingSave = useRef<{ id: string; json: JSONContent } | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const docsByNode = useMemo(() => {
     const map = new Map<string, DocumentRecord[]>()
@@ -105,6 +137,12 @@ export function DossierWorkspacePage() {
     for (const g of genDocs ?? []) map.set(g.nodeNumber, g)
     return map
   }, [genDocs])
+
+  const attachByNode = useMemo(() => {
+    const map = new Map<string, DossierAttachmentRecord[]>()
+    for (const a of attachments ?? []) map.set(a.nodeNumber, [...(map.get(a.nodeNumber) ?? []), a])
+    return map
+  }, [attachments])
 
   const flatNodes = useMemo(() => (dossier ? flattenTree(dossier.tree) : []), [dossier])
   const alerts = useMemo(() => computeAlerts(docs ?? []), [docs])
@@ -165,8 +203,18 @@ export function DossierWorkspacePage() {
     return out
   }
 
+  function attachmentsFor(node: CtdNodeDef): DossierAttachmentRecord[] {
+    const out: DossierAttachmentRecord[] = []
+    for (const [n, list] of attachByNode) {
+      if (n === node.number || (node.number !== '' && n.startsWith(`${node.number}.`))) {
+        out.push(...list)
+      }
+    }
+    return out
+  }
+
   function countFor(node: CtdNodeDef): number {
-    return docsFor(node).length + genDocsFor(node).length
+    return docsFor(node).length + genDocsFor(node).length + attachmentsFor(node).length
   }
 
   async function handleTreeChange(tree: CtdNodeDef[]) {
@@ -198,6 +246,7 @@ export function DossierWorkspacePage() {
   const selectedDocs = selected ? docsFor(selected) : []
   const selectedTplKey = selected ? templateKeyForNode(dossier.format, selected.number) : undefined
   const selectedGenDoc = selected ? genByNode.get(selected.number) : undefined
+  const selectedAttachments = selected ? attachmentsFor(selected) : []
   // N'utiliser l'instance éditeur que si elle correspond au document sélectionné
   // (évite d'agir sur une instance détruite pendant le changement de document).
   const liveEditor =
@@ -257,12 +306,35 @@ export function DossierWorkspacePage() {
   function handleDownload() {
     if (selectedGenDoc) {
       const json = (liveEditor?.getJSON() ?? selectedGenDoc.content) as JSONContent
-      const html = generatedDocToHtml(selectedGenDoc.title, json)
+      const html = generatedDocToHtml(selectedGenDoc.title, json, {
+        header: branding?.headerImage ?? null,
+        footer: branding?.footerImage ?? null,
+      })
       const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
       triggerDownload(URL.createObjectURL(blob), `${slugify(selectedGenDoc.title)}.html`, true)
       return
     }
     if (selectedDocs[0]) void downloadDoc(selectedDocs[0])
+  }
+
+  async function handleUpload(file: File) {
+    if (!selected) return
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      toast.error('Fichier trop lourd (max 25 Mo).')
+      return
+    }
+    await addAttachment(orgId, activeDossier.id, selected.number, file)
+    void syncDossierAttachments(orgId)
+  }
+
+  async function handleDeleteAttachment(id: string) {
+    await deleteAttachment(id)
+    void syncDossierAttachments(orgId)
+  }
+
+  function handleSign() {
+    const src = signature?.signatureImage
+    if (src && liveEditor) liveEditor.chain().focus().setImage({ src }).run()
   }
 
   return (
@@ -380,8 +452,13 @@ export function DossierWorkspacePage() {
                 disabled={!selectedGenDoc}
                 onClick={() => setDocEditing((v) => !v)}
               />
-              <ToolbarBtn label="Signer" disabled />
-              <ToolbarBtn label="En-tête / Pied de page" disabled />
+              <ToolbarBtn
+                label="Signer"
+                disabled={!liveEditor || !docEditing || !signature?.signatureImage}
+                hint="Configurez votre signature dans Profil pro, puis passez en mode Modifier"
+                onClick={handleSign}
+              />
+              <ToolbarBtn label="En-tête / Pied de page" onClick={() => navigate('/profil-pro')} />
               <ToolbarBtn
                 label="Régénérer"
                 disabled={!selectedGenDoc}
@@ -412,13 +489,32 @@ export function DossierWorkspacePage() {
                           : 'Aucun document'}
                     </p>
                   </div>
-                  {selectedGenDoc ? (
-                    <Badge variant="secondary">BROUILLON</Badge>
-                  ) : selectedDocs.length > 0 ? (
-                    <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
-                      EN ATTENTE
-                    </Badge>
-                  ) : null}
+                  <div className="flex shrink-0 items-center gap-2">
+                    {selectedGenDoc ? (
+                      <Badge variant="secondary">BROUILLON</Badge>
+                    ) : selectedDocs.length > 0 || selectedAttachments.length > 0 ? (
+                      <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
+                        EN ATTENTE
+                      </Badge>
+                    ) : null}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0]
+                        if (f) void handleUpload(f)
+                        e.target.value = ''
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="size-4" /> Téléverser
+                    </Button>
+                  </div>
                 </div>
 
                 {selectedGenDoc ? (
@@ -430,6 +526,8 @@ export function DossierWorkspacePage() {
                       editable={docEditing}
                       onChange={(json) => handleEditorChange(selectedGenDoc.id, json)}
                       onReady={handleEditorReady}
+                      header={branding?.headerImage ?? null}
+                      footer={branding?.footerImage ?? null}
                     />
                     {!docEditing ? (
                       <p className="text-muted-foreground border-t px-4 py-2 text-xs">
@@ -452,13 +550,11 @@ export function DossierWorkspacePage() {
                   </div>
                 ) : null}
 
-                {selectedDocs.length > 0 ? (
+                {selectedDocs.length > 0 || selectedAttachments.length > 0 ? (
                   <div>
-                    {(selectedGenDoc || selectedTplKey) && (
-                      <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide">
-                        DOCUMENTS JOINTS
-                      </h3>
-                    )}
+                    <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide">
+                      DOCUMENTS JOINTS
+                    </h3>
                     <div className="flex flex-wrap gap-4 rounded-lg border p-6">
                       {selectedDocs.map((d) => (
                         <button
@@ -474,11 +570,42 @@ export function DossierWorkspacePage() {
                           </span>
                         </button>
                       ))}
+                      {selectedAttachments.map((a) => (
+                        <div
+                          key={a.id}
+                          className="group hover:bg-accent relative flex w-40 flex-col items-center gap-2 rounded-lg p-3"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => void downloadAttachment(a)}
+                            className="flex flex-col items-center gap-2"
+                            title="Télécharger"
+                          >
+                            <FileText className="text-muted-foreground size-10" />
+                            <span className="max-w-full truncate rounded-full border px-3 py-1 text-xs">
+                              {a.fileName}
+                            </span>
+                          </button>
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            aria-label="Supprimer la pièce jointe"
+                            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100"
+                            onClick={() => void handleDeleteAttachment(a.id)}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ) : null}
 
-                {!selectedGenDoc && !selectedTplKey && selectedDocs.length === 0 ? (
+                {!selectedGenDoc &&
+                !selectedTplKey &&
+                selectedDocs.length === 0 &&
+                selectedAttachments.length === 0 ? (
                   <div className="text-muted-foreground flex h-64 flex-col items-center justify-center rounded-lg border border-dashed text-sm">
                     <FileText className="mb-2 size-8" />
                     Aucun document classé sous cette section.
@@ -608,11 +735,13 @@ function ToolbarBtn({
   label,
   disabled,
   active,
+  hint,
   onClick,
 }: {
   label: string
   disabled?: boolean
   active?: boolean
+  hint?: string
   onClick?: () => void
 }) {
   return (
@@ -623,7 +752,7 @@ function ToolbarBtn({
       className="rounded-full"
       disabled={disabled}
       onClick={onClick}
-      title={disabled ? 'Bientôt disponible' : label}
+      title={disabled ? (hint ?? 'Bientôt disponible') : label}
     >
       {label}
     </Button>
@@ -691,6 +820,18 @@ async function downloadDoc(d: DocumentRecord) {
   if (d.filePath) {
     const url = await getDocumentDownloadUrl(d.filePath)
     if (url) triggerDownload(url, d.fileName, false)
+  }
+}
+
+async function downloadAttachment(a: DossierAttachmentRecord) {
+  const blob = await getAttachmentBlob(a.id)
+  if (blob) {
+    triggerDownload(URL.createObjectURL(blob), a.fileName, true)
+    return
+  }
+  if (a.filePath) {
+    const url = await getAttachmentDownloadUrl(a.filePath)
+    if (url) triggerDownload(url, a.fileName, false)
   }
 }
 
