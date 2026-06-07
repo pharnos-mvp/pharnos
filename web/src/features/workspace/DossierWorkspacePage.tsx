@@ -561,10 +561,10 @@ export function DossierWorkspacePage() {
               <ToolbarBtn
                 label="Signer"
                 disabled={!liveEditor || !docEditing || !signature?.signatureImage}
-                hint="Configurez votre signature dans Profil pro, puis passez en mode Modifier"
+                hint="Configurez votre signature dans Mon compte, puis passez en mode Modifier"
                 onClick={handleSign}
               />
-              <ToolbarBtn label="En-tête / Pied de page" onClick={() => navigate('/profil-pro')} />
+              <ToolbarBtn label="En-tête / Pied de page" onClick={() => navigate('/compte')} />
               <ToolbarBtn
                 label="Régénérer"
                 disabled={!selectedGenDoc}

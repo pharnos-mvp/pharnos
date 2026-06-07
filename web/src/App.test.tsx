@@ -10,7 +10,7 @@ describe('App shell', () => {
     // La navigation principale (app-shell, non lazy) est présente immédiatement
     expect(screen.getByRole('link', { name: 'Catalogue' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'CTD Workspace' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Tableau de bord' })).toBeInTheDocument()
 
     // La route index redirige vers /catalogue (page chargée en lazy)
     expect(await screen.findByRole('heading', { level: 1, name: 'Catalogue' })).toBeInTheDocument()

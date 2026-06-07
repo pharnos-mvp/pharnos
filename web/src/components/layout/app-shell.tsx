@@ -1,38 +1,52 @@
 import { Suspense, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   FlaskConical,
   FolderTree,
   LayoutDashboard,
-  LogOut,
   PanelLeftClose,
   PanelLeftOpen,
-  UserCog,
   Wifi,
   WifiOff,
 } from 'lucide-react'
-import { toast } from 'sonner'
 
 import { Button, buttonVariants } from '@/components/ui/button'
 import { useAuth } from '@/features/auth/auth-context'
+import { useOrgId } from '@/features/org/org-context'
+import { fetchMyMemberships } from '@/features/org/org-repository'
 import { useOnlineStatus } from '@/hooks/use-online-status'
 import { env } from '@/lib/env'
+import { useI18n, type Translatable } from '@/lib/i18n-context'
+import { initials } from '@/lib/initials'
 import { cn } from '@/lib/utils'
 
-const navItems = [
-  { to: '/catalogue', label: 'Catalogue', icon: FlaskConical },
-  { to: '/workspace', label: 'CTD Workspace', icon: FolderTree },
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/profil-pro', label: 'Profil pro', icon: UserCog },
-] as const
+const navItems: { to: string; label: Translatable; icon: typeof FlaskConical }[] = [
+  { to: '/catalogue', label: { fr: 'Catalogue', en: 'Catalogue' }, icon: FlaskConical },
+  { to: '/workspace', label: { fr: 'CTD Workspace', en: 'CTD Workspace' }, icon: FolderTree },
+  { to: '/dashboard', label: { fr: 'Tableau de bord', en: 'Dashboard' }, icon: LayoutDashboard },
+]
 
 const SIDEBAR_KEY = 'pharnos.sidebarCollapsed'
 
 export function AppShell() {
   const online = useOnlineStatus()
-  const { user, signOut } = useAuth()
+  const { user } = useAuth()
+  const orgId = useOrgId()
+  const { t } = useI18n()
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_KEY) === '1')
   const expanded = !collapsed
+
+  const meta = (user?.user_metadata ?? {}) as Record<string, string | undefined>
+  const displayName =
+    [meta.prenom, meta.nom].filter(Boolean).join(' ') || meta.username || user?.email || 'Pharnos'
+  const photo = meta.photo
+  const { data: memberships } = useQuery({
+    queryKey: ['memberships'],
+    queryFn: fetchMyMemberships,
+    enabled: Boolean(user),
+  })
+  const orgName = memberships?.find((m) => m.orgId === orgId)?.orgName ?? ''
 
   function toggleSidebar() {
     setCollapsed((c) => {
@@ -40,11 +54,6 @@ export function AppShell() {
       localStorage.setItem(SIDEBAR_KEY, next ? '1' : '0')
       return next
     })
-  }
-
-  async function handleSignOut() {
-    await signOut()
-    toast.success('Déconnecté')
   }
 
   return (
@@ -68,36 +77,43 @@ export function AppShell() {
         </div>
 
         <nav className="mt-2 flex flex-col gap-1">
-          {navItems.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              aria-label={label}
-              title={label}
-              className={({ isActive }) =>
-                cn(
-                  buttonVariants({ variant: isActive ? 'secondary' : 'ghost' }),
-                  expanded ? 'justify-center md:justify-start' : 'justify-center',
-                )
-              }
-            >
-              <Icon className="size-4" />
-              {expanded ? <span className="hidden md:inline">{label}</span> : null}
-            </NavLink>
-          ))}
+          {navItems.map(({ to, label, icon: Icon }) => {
+            const text = t(label)
+            return (
+              <NavLink
+                key={to}
+                to={to}
+                aria-label={text}
+                title={text}
+                className={({ isActive }) =>
+                  cn(
+                    buttonVariants({ variant: isActive ? 'secondary' : 'ghost' }),
+                    expanded ? 'justify-center md:justify-start' : 'justify-center',
+                  )
+                }
+              >
+                <Icon className="size-4" />
+                {expanded ? <span className="hidden md:inline">{text}</span> : null}
+              </NavLink>
+            )
+          })}
         </nav>
 
         <div className="mt-auto flex flex-col gap-1">
           {expanded ? (
             <div className="text-muted-foreground hidden px-2 py-1 text-xs md:block">
-              {env.isSupabaseConfigured ? 'Backend connecté' : 'Backend non configuré'}
+              {env.isSupabaseConfigured
+                ? t({ fr: 'Backend connecté', en: 'Backend connected' })
+                : t({ fr: 'Backend non configuré', en: 'Backend not configured' })}
             </div>
           ) : null}
           <Button
             variant="ghost"
             size="icon"
             className="hidden md:inline-flex"
-            aria-label={expanded ? 'Replier le menu' : 'Déplier le menu'}
+            aria-label={
+              expanded ? t({ fr: 'Replier', en: 'Collapse' }) : t({ fr: 'Déplier', en: 'Expand' })
+            }
             onClick={toggleSidebar}
           >
             {expanded ? (
@@ -110,40 +126,50 @@ export function AppShell() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center border-b px-4">
-          <div className="ml-auto flex items-center gap-3 text-xs">
-            <span
-              role="status"
-              aria-live="polite"
-              className={cn(
-                'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1',
-                online ? 'text-foreground' : 'text-muted-foreground',
-              )}
-            >
-              {online ? <Wifi className="size-3.5" /> : <WifiOff className="size-3.5" />}
-              {online ? 'En ligne' : 'Hors ligne'}
-            </span>
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
+          <span
+            role="status"
+            aria-live="polite"
+            className={cn(
+              'ml-auto inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs',
+              online ? 'text-foreground' : 'text-muted-foreground',
+            )}
+          >
+            {online ? <Wifi className="size-3.5" /> : <WifiOff className="size-3.5" />}
+            {online ? t({ fr: 'En ligne', en: 'Online' }) : t({ fr: 'Hors ligne', en: 'Offline' })}
+          </span>
 
-            {user ? (
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground hidden max-w-[180px] truncate sm:inline">
-                  {user.email}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Se déconnecter"
-                  onClick={() => void handleSignOut()}
-                >
-                  <LogOut className="size-4" />
-                </Button>
-              </div>
-            ) : null}
-          </div>
+          <NavLink
+            to="/compte"
+            title={t({ fr: 'Mon compte', en: 'My account' })}
+            className="hover:bg-accent flex items-center gap-2 rounded-md p-1"
+          >
+            <div className="hidden text-right leading-tight sm:block">
+              <div className="max-w-[160px] truncate text-sm font-medium">{displayName}</div>
+              {orgName ? (
+                <div className="text-muted-foreground max-w-[160px] truncate text-xs">
+                  {orgName}
+                </div>
+              ) : null}
+            </div>
+            <div className="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-semibold">
+              {photo ? (
+                <img src={photo} alt="" className="size-full object-cover" />
+              ) : (
+                initials(displayName)
+              )}
+            </div>
+          </NavLink>
         </header>
 
         <main className="min-w-0 flex-1 overflow-auto p-4 md:p-6">
-          <Suspense fallback={<div className="text-muted-foreground p-2 text-sm">Chargement…</div>}>
+          <Suspense
+            fallback={
+              <div className="text-muted-foreground p-2 text-sm">
+                {t({ fr: 'Chargement…', en: 'Loading…' })}
+              </div>
+            }
+          >
             <Outlet />
           </Suspense>
         </main>

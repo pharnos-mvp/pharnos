@@ -46,3 +46,34 @@ export async function imageFileToDataUrl(
     return dataUrl
   }
 }
+
+/**
+ * Photo d'avatar : ré-encodée en **JPEG borné** (max `maxDim` px, sous `maxChars`) — destinée à
+ * `user_metadata` (embarqué dans le JWT) : il faut la garder très légère.
+ */
+export async function imageFileToAvatarDataUrl(
+  file: File,
+  maxDim = 256,
+  maxChars = 48_000,
+): Promise<string> {
+  const dataUrl = await fileToDataUrl(file)
+  try {
+    const img = await loadImage(dataUrl)
+    const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.round(img.width * scale))
+    canvas.height = Math.max(1, Math.round(img.height * scale))
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return dataUrl
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+    let quality = 0.8
+    let out = canvas.toDataURL('image/jpeg', quality)
+    while (out.length > maxChars && quality > 0.3) {
+      quality -= 0.15
+      out = canvas.toDataURL('image/jpeg', quality)
+    }
+    return out
+  } catch {
+    return dataUrl
+  }
+}
