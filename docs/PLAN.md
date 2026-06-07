@@ -1,7 +1,7 @@
 # Pharnos MVP — Plan d'exécution (CTO) — variante « near-zero cost »
 
-> Statut : **APPROUVÉ par le CEO** (go donné). Prochaine étape : exécution **M0 — Fondations**.
-> Source de vérité du plan. Les milestones sont suivis dans la todo list.
+> Statut : **APPROUVÉ par le CEO** (go donné). Source de vérité **du plan** (vision, scope, DoD).
+> 👉 **État vivant du projet (avancement, journal, cap) : [`docs/BOARD.md`](./BOARD.md).**
 
 ---
 
