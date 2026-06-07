@@ -194,6 +194,7 @@ export const MODULE1_CTD_UEMOA: CtdNodeDef[] = [
         children: [
           { number: '1.2.4.1', label: 'Bonnes pratiques de fabrication (BPF)' },
           { number: '1.2.4.2', label: 'Licence de fabrication (ML)' },
+          { number: '1.2.4.3', label: 'Certificat de vente libre (FSC)' },
         ],
       },
       {
@@ -273,7 +274,7 @@ const NODE_BY_DOCTYPE: Record<DossierFormat, Record<string, string>> = {
     gmp: '1.2.4.1',
     ml: '1.2.4.2',
     copp: '1.2.3.2',
-    fsc: '1.2.6.2',
+    fsc: '1.2.4.3',
     cover: '1.1.1',
     pght: '1.1.2',
   },

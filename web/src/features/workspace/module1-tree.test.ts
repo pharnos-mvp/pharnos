@@ -11,6 +11,7 @@ describe('module1-tree — CTD UEMOA (section 1.2 détaillée)', () => {
       '1.2.3.2',
       '1.2.3.3',
       '1.2.3.4',
+      '1.2.4.3',
       '1.2.5.1',
       '1.2.6.1',
       '1.2.6.2',
@@ -30,7 +31,7 @@ describe('module1-tree — CTD UEMOA (section 1.2 détaillée)', () => {
     expect(nodeForDocType('ctd', 'copp', 'admin')).toBe('1.2.3.2')
     expect(nodeForDocType('ctd', 'coa', 'admin')).toBe('1.2.3.4')
     expect(nodeForDocType('ctd', 'amm', 'admin')).toBe('1.2.6.1')
-    expect(nodeForDocType('ctd', 'fsc', 'admin')).toBe('1.2.6.2')
+    expect(nodeForDocType('ctd', 'fsc', 'admin')).toBe('1.2.4.3')
     expect(nodeForDocType('ctd', 'gmp', 'admin')).toBe('1.2.4.1')
   })
 })
