@@ -1,4 +1,4 @@
-import { Suspense, useState } from 'react'
+import { Suspense, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { HeaderSlotContext } from '@/components/layout/header-slot'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { useAuditSync } from '@/features/audit/use-audit-sync'
 import { useAuth } from '@/features/auth/auth-context'
@@ -40,6 +41,8 @@ export function AppShell() {
   useAuditSync(orgId)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_KEY) === '1')
   const expanded = !collapsed
+  // Contenu injecté par la page courante dans le bandeau (titre du dossier, façon Google Docs).
+  const [headerSlot, setHeaderSlot] = useState<ReactNode>(null)
 
   const meta = (user?.user_metadata ?? {}) as Record<string, string | undefined>
   const displayName =
@@ -131,11 +134,12 @@ export function AppShell() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
+          {headerSlot ? <div className="mr-auto min-w-0 flex-1">{headerSlot}</div> : null}
           <span
             role="status"
             aria-live="polite"
             className={cn(
-              'ml-auto inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs',
+              'ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs',
               online ? 'text-foreground' : 'text-muted-foreground',
             )}
           >
@@ -167,17 +171,19 @@ export function AppShell() {
         </header>
 
         <main className="min-w-0 flex-1 overflow-auto p-4 md:p-6">
-          <ErrorBoundary key={location.pathname}>
-            <Suspense
-              fallback={
-                <div className="text-muted-foreground p-2 text-sm">
-                  {t({ fr: 'Chargement…', en: 'Loading…' })}
-                </div>
-              }
-            >
-              <Outlet />
-            </Suspense>
-          </ErrorBoundary>
+          <HeaderSlotContext.Provider value={setHeaderSlot}>
+            <ErrorBoundary key={location.pathname}>
+              <Suspense
+                fallback={
+                  <div className="text-muted-foreground p-2 text-sm">
+                    {t({ fr: 'Chargement…', en: 'Loading…' })}
+                  </div>
+                }
+              >
+                <Outlet />
+              </Suspense>
+            </ErrorBoundary>
+          </HeaderSlotContext.Provider>
         </main>
       </div>
     </div>
