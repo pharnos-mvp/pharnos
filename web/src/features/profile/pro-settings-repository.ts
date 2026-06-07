@@ -22,6 +22,9 @@ async function upsert(id: string, orgId: string, patch: Partial<ProSettingRecord
     id,
     orgId,
     kind: id.startsWith('user:') ? 'userSignature' : 'orgBranding',
+    entreprise: null,
+    poste: null,
+    pays: null,
     headerImage: null,
     footerImage: null,
     logoImage: null,
@@ -34,6 +37,14 @@ async function upsert(id: string, orgId: string, patch: Partial<ProSettingRecord
     await db.proSettings.put(updated)
     await enqueueOutbox('pro_setting', id, existing ? 'update' : 'create', updated)
   })
+}
+
+/** Met à jour les infos professionnelles de l'organisation (entreprise, poste, pays). */
+export function setOrgProfile(
+  orgId: string,
+  profile: { entreprise: string | null; poste: string | null; pays: string | null },
+): Promise<void> {
+  return upsert(orgBrandingId(orgId), orgId, profile)
 }
 
 /** Met à jour le papier à en-tête / pied de page de l'organisation (data URL ou `null`). */
