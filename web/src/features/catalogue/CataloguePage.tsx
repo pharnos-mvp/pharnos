@@ -83,25 +83,35 @@ function EmptyState() {
 
 function ProductTable({ products }: { products: ProductRecord[] }) {
   return (
-    <Table>
+    <Table className="table-fixed">
       <TableHeader>
         <TableRow>
-          <TableHead>Nom commercial</TableHead>
-          <TableHead>DCI</TableHead>
-          <TableHead>Dosage</TableHead>
-          <TableHead>Forme</TableHead>
-          <TableHead>Code ATC</TableHead>
-          <TableHead className="w-24 text-right">Actions</TableHead>
+          <TableHead className="w-[24%]">Nom commercial</TableHead>
+          <TableHead className="w-[24%]">DCI</TableHead>
+          <TableHead className="w-[13%]">Dosage</TableHead>
+          <TableHead className="w-[15%]">Forme</TableHead>
+          <TableHead className="w-[12%]">Code ATC</TableHead>
+          <TableHead className="w-[88px] text-right">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {products.map((p) => (
           <TableRow key={p.id}>
-            <TableCell className="font-medium">{p.nomCommercial}</TableCell>
-            <TableCell>{p.dci}</TableCell>
-            <TableCell>{p.dosage || '—'}</TableCell>
-            <TableCell>{p.forme || '—'}</TableCell>
-            <TableCell>{p.codeAtc || '—'}</TableCell>
+            <TableCell className="truncate font-medium" title={p.nomCommercial}>
+              {p.nomCommercial}
+            </TableCell>
+            <TableCell className="truncate" title={p.dci}>
+              {p.dci}
+            </TableCell>
+            <TableCell className="truncate" title={p.dosage || undefined}>
+              {p.dosage || '—'}
+            </TableCell>
+            <TableCell className="truncate" title={p.forme || undefined}>
+              {p.forme || '—'}
+            </TableCell>
+            <TableCell className="truncate" title={p.codeAtc || undefined}>
+              {p.codeAtc || '—'}
+            </TableCell>
             <TableCell className="text-right">
               <div className="flex justify-end gap-1">
                 <Button

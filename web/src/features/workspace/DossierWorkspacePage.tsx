@@ -65,7 +65,13 @@ import { syncGeneratedDocs } from './generated-docs-sync'
 import { useDossierAttachmentsSync } from './use-dossier-attachments-sync'
 import { useDossierSync } from './use-dossier-sync'
 import { useGeneratedDocsSync } from './use-generated-docs-sync'
-import { getModule1Tree, nodeForDocType, type CtdNodeDef } from './module1-tree'
+import {
+  getModule1Tree,
+  nodeForDocType,
+  resolveExistingNode,
+  treeNodeNumbers,
+  type CtdNodeDef,
+} from './module1-tree'
 import { agencyFor } from './roadmap-data'
 import { PdfPreviewDialog } from './PdfPreviewDialog'
 import { PdfViewer } from './PdfViewer'
@@ -120,6 +126,7 @@ export function DossierWorkspacePage() {
     url: string
     name: string
     revoke: boolean
+    blob: Blob
   } | null>(null)
   const [compiling, setCompiling] = useState(false)
   const [autoStructural, setAutoStructural] = useState(true)
@@ -130,14 +137,21 @@ export function DossierWorkspacePage() {
   const pendingSave = useRef<{ id: string; json: JSONContent } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const previewRef = useRef<{ url: string; revoke: boolean } | null>(null)
+  const didAutoSelect = useRef(false)
 
   const docsByNode = useMemo(() => {
     const map = new Map<string, DocumentRecord[]>()
     if (!dossier) return map
     const excluded = new Set(dossier.excludedDocIds ?? [])
+    const numbers = treeNodeNumbers(dossier.tree)
     for (const d of docs ?? []) {
       if (excluded.has(d.id)) continue
-      const node = nodeForDocType(dossier.format, d.docType, d.category)
+      // Repli sur l'ancêtre existant si la sous-section détaillée n'est pas dans l'arbre du dossier
+      // → un COPP/FSC/… auto-classé reste toujours visible (et compilable).
+      const node = resolveExistingNode(
+        numbers,
+        nodeForDocType(dossier.format, d.docType, d.category),
+      )
       map.set(node, [...(map.get(node) ?? []), d])
     }
     return map
@@ -184,6 +198,29 @@ export function DossierWorkspacePage() {
     const merged = mergeDefaultTree(dossier.tree, getModule1Tree(dossier.format))
     void updateDossierTree(dossier.id, merged).then(() => syncDossiers(orgId))
   }, [dossier, structureOutdated, orgId])
+
+  // À l'ouverture, sélectionne automatiquement la 1re section contenant un document (sinon la 1re
+  // feuille) → l'utilisateur voit immédiatement ses pièces auto-classées sans avoir à chercher.
+  useEffect(() => {
+    if (didAutoSelect.current || selected || docs === undefined || flatNodes.length === 0) return
+    const hasDocs = (n: CtdNodeDef) => {
+      const match = (k: string) =>
+        k === n.number || (n.number !== '' && k.startsWith(`${n.number}.`))
+      for (const k of docsByNode.keys()) if (match(k)) return true
+      if (genByNode.has(n.number)) return true
+      for (const k of attachByNode.keys()) if (match(k)) return true
+      return false
+    }
+    const target =
+      flatNodes.find(hasDocs) ?? flatNodes.find((n) => !n.children?.length) ?? flatNodes[0]
+    if (target) {
+      didAutoSelect.current = true
+      // Initialisation unique de la sélection après chargement async des données (gardée par le
+      // ref didAutoSelect → aucune boucle de rendu) : exception légitime à set-state-in-effect.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelected(target)
+    }
+  }, [flatNodes, selected, docs, docsByNode, genByNode, attachByNode])
 
   const handleEditorReady = useCallback((ed: Editor, id: string) => setEditorState({ id, ed }), [])
 
@@ -474,9 +511,9 @@ export function DossierWorkspacePage() {
     toast.success('Document retiré du dossier')
   }
 
-  function showPreview(url: string, name: string, revoke: boolean) {
+  function showPreview(url: string, name: string, revoke: boolean, blob: Blob) {
     if (previewPdf?.revoke) URL.revokeObjectURL(previewPdf.url)
-    setPreviewPdf({ url, name, revoke })
+    setPreviewPdf({ url, name, revoke, blob })
   }
   function closePreview() {
     if (previewPdf?.revoke) URL.revokeObjectURL(previewPdf.url)
@@ -502,6 +539,7 @@ export function DossierWorkspacePage() {
         URL.createObjectURL(blob),
         `${slugify(activeDossier.productName)}-module-1.pdf`,
         true,
+        blob,
       )
       if (missing.length > 0) {
         toast.warning(`${missing.length} pièce(s) non incluse(s) (indisponibles hors-ligne)`, {
@@ -537,7 +575,7 @@ export function DossierWorkspacePage() {
   }
 
   return (
-    <div className="flex h-[calc(100svh-7rem)] flex-col">
+    <div className="flex h-[calc(100svh-5rem)] flex-col">
       <div className="flex items-start gap-2 border-b pb-3">
         <Button
           variant="ghost"
@@ -913,7 +951,12 @@ export function DossierWorkspacePage() {
       </div>
 
       {previewPdf ? (
-        <PdfPreviewDialog url={previewPdf.url} name={previewPdf.name} onClose={closePreview} />
+        <PdfPreviewDialog
+          blob={previewPdf.blob}
+          url={previewPdf.url}
+          name={previewPdf.name}
+          onClose={closePreview}
+        />
       ) : null}
 
       {gateFindings ? (

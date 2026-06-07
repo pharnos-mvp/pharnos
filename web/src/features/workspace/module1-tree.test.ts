@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { getModule1Tree, nodeForDocType } from './module1-tree'
+import {
+  getModule1Tree,
+  nodeForDocType,
+  resolveExistingNode,
+  treeNodeNumbers,
+} from './module1-tree'
 import { flattenTree } from './tree-utils'
 
 describe('module1-tree — CTD UEMOA (section 1.2 détaillée)', () => {
@@ -33,5 +38,17 @@ describe('module1-tree — CTD UEMOA (section 1.2 détaillée)', () => {
     expect(nodeForDocType('ctd', 'amm', 'admin')).toBe('1.2.6.1')
     expect(nodeForDocType('ctd', 'fsc', 'admin')).toBe('1.2.4.3')
     expect(nodeForDocType('ctd', 'gmp', 'admin')).toBe('1.2.4.1')
+  })
+
+  it('resolveExistingNode : replie sur le plus proche ancêtre présent dans l’arbre', () => {
+    // Arbre sans la feuille détaillée 1.2.3.2 → un COPP doit retomber sur 1.2.3 (ancêtre existant).
+    const partial = new Set(['1.2', '1.2.3', '1.3'])
+    expect(resolveExistingNode(partial, '1.2.3.2')).toBe('1.2.3')
+    // Sans 1.2.3 non plus → remonte à 1.2.
+    expect(resolveExistingNode(new Set(['1.2', '1.3']), '1.2.3.2')).toBe('1.2')
+    // La feuille existe → on la garde telle quelle.
+    const full = treeNodeNumbers(getModule1Tree('ctd'))
+    expect(resolveExistingNode(full, '1.2.3.2')).toBe('1.2.3.2')
+    expect(resolveExistingNode(full, '1.2.4.3')).toBe('1.2.4.3')
   })
 })
