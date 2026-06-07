@@ -174,6 +174,17 @@ export function DossierWorkspacePage() {
     [dossier],
   )
 
+  // Fusion automatique de la structure à jour, une seule fois par dossier (respecte ensuite les
+  // personnalisations de l'utilisateur : une section supprimée volontairement ne revient pas).
+  useEffect(() => {
+    if (!dossier || !structureOutdated) return
+    const key = `pharnos.autostruct.${dossier.id}`
+    if (localStorage.getItem(key)) return
+    localStorage.setItem(key, '1')
+    const merged = mergeDefaultTree(dossier.tree, getModule1Tree(dossier.format))
+    void updateDossierTree(dossier.id, merged).then(() => syncDossiers(orgId))
+  }, [dossier, structureOutdated, orgId])
+
   const handleEditorReady = useCallback((ed: Editor, id: string) => setEditorState({ id, ed }), [])
 
   /** Écrit immédiatement toute édition débouncée en attente. */

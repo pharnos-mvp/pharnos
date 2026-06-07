@@ -32,3 +32,4 @@ Thumbs.db
 
 # MedDRA — terminologie sous licence : NON versionné (conservé localement comme référence).
 RA-source/MedDRA/
+.commitmsg
