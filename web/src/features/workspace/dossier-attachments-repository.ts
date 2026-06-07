@@ -1,3 +1,4 @@
+import { recordAudit } from '@/lib/audit'
 import { db, type DossierAttachmentRecord } from '@/lib/db'
 import { enqueueOutbox } from '@/lib/outbox'
 
@@ -43,6 +44,7 @@ export async function addAttachment(
     await db.documentBlobs.add({ id, blob: file })
     await enqueueOutbox('dossier_attachment', id, 'create', { id })
   })
+  await recordAudit(orgId, 'dossier_attachment', id, 'create', record.fileName)
   return record
 }
 
@@ -55,6 +57,7 @@ export async function deleteAttachment(id: string): Promise<void> {
     await db.documentBlobs.delete(id) // libère l'espace IndexedDB (fichiers potentiellement lourds)
     await enqueueOutbox('dossier_attachment', id, 'delete', { id })
   })
+  await recordAudit(existing.orgId, 'dossier_attachment', id, 'delete', existing.fileName)
 }
 
 /** Blob local d'une pièce jointe (prévisualisation / téléchargement hors-ligne). */

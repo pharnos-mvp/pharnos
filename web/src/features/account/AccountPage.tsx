@@ -90,8 +90,8 @@ export function AccountPage() {
         </div>
       </header>
 
-      <div className="flex flex-col gap-6 md:flex-row">
-        <nav className="flex shrink-0 flex-row flex-wrap gap-1 md:w-56 md:flex-col">
+      <div className="flex flex-col gap-6 md:h-[calc(100svh-12rem)] md:flex-row">
+        <nav className="flex shrink-0 flex-row flex-wrap gap-1 md:w-56 md:flex-col md:overflow-auto">
           {nav.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -117,7 +117,7 @@ export function AccountPage() {
           </Button>
         </nav>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 md:overflow-auto">
           {section === 'perso' && <PersonalSection key={user?.id ?? 'local'} />}
           {section === 'pro' && <InfoProSection />}
           {section === 'prefs' && <PreferencesSection lang={lang} setLang={setLang} />}
@@ -297,61 +297,54 @@ function PreferencesSection({ lang, setLang }: { lang: Lang; setLang: (l: Lang) 
 
 function LogsSection({ orgId }: { orgId: string }) {
   const { t } = useI18n()
-  const items = useLiveQuery(async () => {
-    const [dossiers, products, gen] = await Promise.all([
-      db.dossiers.where('orgId').equals(orgId).toArray(),
-      db.products.where('orgId').equals(orgId).toArray(),
-      db.generatedDocs.where('orgId').equals(orgId).toArray(),
-    ])
-    const out = [
-      ...dossiers
-        .filter((d) => d.deletedAt === null)
-        .map((d) => ({
-          id: d.id,
-          kind: 'dossier' as const,
-          label: d.productName,
-          at: d.updatedAt,
-        })),
-      ...products
-        .filter((p) => p.deletedAt === null)
-        .map((p) => ({
-          id: p.id,
-          kind: 'produit' as const,
-          label: p.nomCommercial,
-          at: p.updatedAt,
-        })),
-      ...gen
-        .filter((g) => g.deletedAt === null)
-        .map((g) => ({ id: g.id, kind: 'document' as const, label: g.title, at: g.updatedAt })),
-    ]
-    return out.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 25)
+  const entries = useLiveQuery(async () => {
+    const all = await db.auditLog.where('orgId').equals(orgId).sortBy('at')
+    return all.reverse().slice(0, 50)
   }, [orgId])
 
-  const kindLabel = (k: string) =>
-    k === 'dossier'
-      ? t({ fr: 'Dossier', en: 'Dossier' })
-      : k === 'produit'
-        ? t({ fr: 'Produit', en: 'Product' })
-        : t({ fr: 'Document', en: 'Document' })
+  const actionLabel = (a: string) =>
+    a === 'create'
+      ? t({ fr: 'Créé', en: 'Created' })
+      : a === 'delete'
+        ? t({ fr: 'Supprimé', en: 'Deleted' })
+        : t({ fr: 'Modifié', en: 'Updated' })
 
-  if (!items || items.length === 0) {
+  const entityLabel = (e: string) =>
+    ({
+      product: t({ fr: 'Produit', en: 'Product' }),
+      document: t({ fr: 'Document', en: 'Document' }),
+      dossier: t({ fr: 'Dossier', en: 'Dossier' }),
+      generated_doc: t({ fr: 'Document généré', en: 'Generated doc' }),
+      dossier_attachment: t({ fr: 'Pièce jointe', en: 'Attachment' }),
+    })[e] ?? e
+
+  const actionColor = (a: string) =>
+    a === 'delete'
+      ? 'bg-red-100 text-red-700'
+      : a === 'create'
+        ? 'bg-emerald-100 text-emerald-700'
+        : 'bg-amber-100 text-amber-700'
+
+  if (!entries || entries.length === 0) {
     return (
       <p className="text-muted-foreground text-sm">
-        {t({ fr: 'Aucune activité récente.', en: 'No recent activity.' })}
+        {t({ fr: 'Aucune action enregistrée.', en: 'No recorded actions.' })}
       </p>
     )
   }
 
   return (
     <ul className="divide-y rounded-lg border">
-      {items.map((it) => (
-        <li key={`${it.kind}-${it.id}`} className="flex items-center gap-3 p-3 text-sm">
-          <span className="bg-accent text-muted-foreground rounded px-2 py-0.5 text-xs">
-            {kindLabel(it.kind)}
+      {entries.map((e) => (
+        <li key={e.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-3 text-sm">
+          <span className={`rounded px-2 py-0.5 text-xs ${actionColor(e.action)}`}>
+            {actionLabel(e.action)}
           </span>
-          <span className="min-w-0 flex-1 truncate">{it.label}</span>
+          <span className="text-muted-foreground text-xs">{entityLabel(e.entity)}</span>
+          <span className="min-w-0 flex-1 truncate">{e.label}</span>
+          <span className="text-muted-foreground shrink-0 text-xs">{e.actorEmail}</span>
           <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
-            {new Date(it.at).toLocaleString()}
+            {new Date(e.at).toLocaleString()}
           </span>
         </li>
       ))}

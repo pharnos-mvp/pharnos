@@ -20,10 +20,9 @@ describe('catalogue repository (offline-first)', () => {
 
     expect(await listProducts(ORG)).toHaveLength(1)
 
-    const outbox = await db.outbox.toArray()
+    const outbox = await db.outbox.where('entity').equals('product').toArray()
     expect(outbox).toHaveLength(1)
     expect(outbox[0]?.op).toBe('create')
-    expect(outbox[0]?.entity).toBe('product')
   })
 
   it('rejette un produit sans champ requis', async () => {

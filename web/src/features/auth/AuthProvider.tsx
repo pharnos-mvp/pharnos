@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 
+import { setAuditActor } from '@/lib/audit'
 import { env } from '@/lib/env'
 import { getSupabase } from '@/lib/supabase'
 import { AuthContext } from './auth-context'
@@ -31,6 +32,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       unsubscribe?.()
     }
   }, [])
+
+  // Acteur courant pour le journal d'audit (qui agit).
+  useEffect(() => {
+    const u = session?.user
+    setAuditActor(u ? { id: u.id, email: u.email ?? u.id } : null)
+  }, [session])
 
   async function signOut() {
     const supabase = await getSupabase()

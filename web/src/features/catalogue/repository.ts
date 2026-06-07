@@ -1,3 +1,4 @@
+import { recordAudit } from '@/lib/audit'
 import { db, type ProductRecord } from '@/lib/db'
 import { enqueueOutbox } from '@/lib/outbox'
 import { productSchema, type ProductInput } from './types'
@@ -33,6 +34,7 @@ export async function createProduct(orgId: string, input: ProductInput): Promise
     await db.products.add(record)
     await enqueueOutbox('product', record.id, 'create', record)
   })
+  await recordAudit(orgId, 'product', record.id, 'create', record.nomCommercial)
   return record
 }
 
@@ -47,6 +49,7 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Pr
     await db.products.put(updated)
     await enqueueOutbox('product', id, 'update', updated)
   })
+  await recordAudit(updated.orgId, 'product', id, 'update', updated.nomCommercial)
   return updated
 }
 
@@ -59,4 +62,5 @@ export async function deleteProduct(id: string): Promise<void> {
     await db.products.update(id, { deletedAt: ts, updatedAt: ts })
     await enqueueOutbox('product', id, 'delete', { id })
   })
+  await recordAudit(existing.orgId, 'product', id, 'delete', existing.nomCommercial)
 }

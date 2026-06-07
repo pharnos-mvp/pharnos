@@ -1,3 +1,4 @@
+import { recordAudit } from '@/lib/audit'
 import { db, type DocumentCategory, type DocumentRecord } from '@/lib/db'
 import { enqueueOutbox } from '@/lib/outbox'
 
@@ -54,6 +55,7 @@ export async function addDocument(
     await db.documentBlobs.add({ id, blob: input.file })
     await enqueueOutbox('document', id, 'create', { id })
   })
+  await recordAudit(orgId, 'document', id, 'create', record.fileName)
   return record
 }
 
@@ -65,6 +67,7 @@ export async function deleteDocument(id: string): Promise<void> {
     await db.documents.update(id, { deletedAt: ts, updatedAt: ts })
     await enqueueOutbox('document', id, 'delete', { id })
   })
+  await recordAudit(existing.orgId, 'document', id, 'delete', existing.fileName)
 }
 
 /** Blob local d'un document (pour prévisualisation / téléchargement hors-ligne). */

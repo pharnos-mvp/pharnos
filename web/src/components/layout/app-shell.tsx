@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 
 import { Button, buttonVariants } from '@/components/ui/button'
+import { useAuditSync } from '@/features/audit/use-audit-sync'
 import { useAuth } from '@/features/auth/auth-context'
 import { useOrgId } from '@/features/org/org-context'
 import { fetchMyMemberships } from '@/features/org/org-repository'
@@ -34,6 +35,7 @@ export function AppShell() {
   const { user } = useAuth()
   const orgId = useOrgId()
   const { t } = useI18n()
+  useAuditSync(orgId)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_KEY) === '1')
   const expanded = !collapsed
 

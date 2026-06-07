@@ -439,26 +439,44 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
       } else {
         const content = input.contentByNumber.get(node.number)
         if (!content || (!content.generated && content.pieces.length === 0)) continue
-        if (input.autoStructural) {
-          drawCentered(
-            contentDoc.addPage(A4),
-            [
-              { text: node.number, size: 22, bold: true },
-              { text: node.label, size: 15, bold: false },
-            ],
-            fonts,
-          )
-        }
+        // Un document = une sous-section : page d'annonce dédiée + document sur ses propres pages
+        // (jamais deux documents sur une même page).
+        const items: { name: string; render: () => Promise<void> }[] = []
         if (content.generated) {
-          const cursor: Cursor = {
-            doc: contentDoc,
-            page: contentDoc.addPage(A4),
-            y: CONTENT_TOP,
-            fonts,
-          }
-          await renderTiptap(cursor, content.generated.content as JSONContent)
+          const generated = content.generated
+          items.push({
+            name: generated.title,
+            render: async () => {
+              const cursor: Cursor = {
+                doc: contentDoc,
+                page: contentDoc.addPage(A4),
+                y: CONTENT_TOP,
+                fonts,
+              }
+              await renderTiptap(cursor, generated.content as JSONContent)
+            },
+          })
         }
-        for (const piece of content.pieces) await appendPiece(contentDoc, piece, fonts)
+        for (const piece of content.pieces) {
+          items.push({ name: piece.fileName, render: () => appendPiece(contentDoc, piece, fonts) })
+        }
+        let sub = 1
+        for (const item of items) {
+          if (input.autoStructural) {
+            const number = items.length > 1 ? `${node.number}.${sub}` : node.number
+            drawCentered(
+              contentDoc.addPage(A4),
+              [
+                { text: number, size: 22, bold: true },
+                { text: node.label, size: 14, bold: false },
+                { text: item.name, size: 11, bold: false },
+              ],
+              fonts,
+            )
+          }
+          await item.render()
+          sub++
+        }
         entries.push({ number: node.number, label: node.label, depth, startIndex })
       }
     }
