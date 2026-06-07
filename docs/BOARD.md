@@ -12,7 +12,7 @@
 > **Protocole de mise à jour** (voir §13) : à chaque tranche livrée (PR mergée), mettre à jour le
 > §1 (état), le §9 (milestones) et le §10 (journal). Garder le reste synchronisé si une décision change.
 
-_Dernière mise à jour : 2026-06-07 — **pilote déployé** sur Cloudflare Pages (après M8 mergé)._
+_Dernière mise à jour : 2026-06-07 — pilote déployé + Workspace (TDM tous modules · covers) en ligne._
 
 ---
 
@@ -208,6 +208,11 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 | #17 | 06-07 | **Profil** : Enregistrer en haut + actif si modifié ; infos pro (entreprise/poste/pays) |
 | #18 | 06-07 | **M8-C/D** Sentry (lazy) + garde-fou budget de bundle (CI) |
 | #19 | 06-07 | **M8-E** suite pgTAP d'isolation multi-tenant (RLS) |
+| #20 | 06-07 | `docs/BOARD.md` — board projet (source de vérité vivante) |
+| #21 | 06-07 | Fallback SPA Cloudflare Pages (`_redirects`) |
+| #22 | 06-07 | Board : **pilote déployé** (pharnos.pages.dev) |
+| #23 | 06-07 | `supabase/config.toml` versionné — **Auth Site URL prod** + réglages sécurisés |
+| #24 | 06-07 | **Workspace** : TDM général (tous modules CTD) + en-tête/pied uniquement sur les covers |
 
 ---
 
