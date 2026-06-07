@@ -13,6 +13,9 @@ test-results/
 playwright-report/
 playwright/.cache/
 
+# Aperçu local (Claude preview)
+.claude/launch.json
+
 # Env / secrets
 .env
 .env.*

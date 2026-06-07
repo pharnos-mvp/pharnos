@@ -609,7 +609,7 @@ export function DossierWorkspacePage() {
     // Pleine hauteur sous le bandeau (récupère le padding de <main> via les marges négatives) →
     // grande zone de prévisualisation, scroll interne par panneau (façon Google Docs).
     <div className="-my-4 flex h-[calc(100svh-3.5rem)] flex-col md:-my-6">
-      <div className="flex items-center justify-end gap-2 border-b pb-2">
+      <div className="flex flex-wrap items-center justify-end gap-2 border-b pb-2">
         <label className="text-muted-foreground mr-auto hidden items-center gap-1.5 text-xs sm:flex">
           <input
             type="checkbox"
@@ -618,6 +618,42 @@ export function DossierWorkspacePage() {
           />
           TDM + gardes auto
         </label>
+        {/* Actions du document sélectionné (remontées ici → zone de montage plus haute). */}
+        <div className="bg-card flex items-center gap-1 rounded-full border px-1 py-1 text-sm">
+          <ToolbarBtn
+            label="Modifier"
+            active={docEditing}
+            disabled={!selectedGenDoc}
+            onClick={() => {
+              if (!selectedGenDoc) return
+              setPickedKey(`letter:${selectedGenDoc.id}`)
+              setDocEditing((v) => !v)
+            }}
+          />
+          <ToolbarBtn
+            label="Signer"
+            disabled={!liveEditor || !docEditing || !signature?.signatureImage}
+            hint="Configurez votre signature dans Mon compte, puis passez en mode Modifier"
+            onClick={handleSign}
+          />
+          <ToolbarBtn label="En-tête / Pied de page" onClick={() => navigate('/compte')} />
+          <ToolbarBtn
+            label="Régénérer"
+            disabled={!selectedGenDoc || active?.kind !== 'letter'}
+            onClick={() => void handleRegenerate()}
+          />
+          <ToolbarBtn
+            label="Télécharger"
+            disabled={!selectedGenDoc || active?.kind !== 'letter'}
+            onClick={handleDownload}
+          />
+          <ToolbarBtn
+            label="Supprimer"
+            disabled={!active}
+            hint="Sélectionnez un document"
+            onClick={() => void handleRemoveActive()}
+          />
+        </div>
         <Button
           variant="outline"
           size="sm"
@@ -717,44 +753,6 @@ export function DossierWorkspacePage() {
 
         {/* Panneau central */}
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border">
-          <div className="flex justify-center border-b p-2">
-            <div className="bg-card flex items-center gap-1 rounded-full border px-1 py-1 text-sm">
-              <ToolbarBtn
-                label="Modifier"
-                active={docEditing}
-                disabled={!selectedGenDoc}
-                onClick={() => {
-                  if (!selectedGenDoc) return
-                  setPickedKey(`letter:${selectedGenDoc.id}`)
-                  setDocEditing((v) => !v)
-                }}
-              />
-              <ToolbarBtn
-                label="Signer"
-                disabled={!liveEditor || !docEditing || !signature?.signatureImage}
-                hint="Configurez votre signature dans Mon compte, puis passez en mode Modifier"
-                onClick={handleSign}
-              />
-              <ToolbarBtn label="En-tête / Pied de page" onClick={() => navigate('/compte')} />
-              <ToolbarBtn
-                label="Régénérer"
-                disabled={!selectedGenDoc || active?.kind !== 'letter'}
-                onClick={() => void handleRegenerate()}
-              />
-              <ToolbarBtn
-                label="Télécharger"
-                disabled={!selectedGenDoc || active?.kind !== 'letter'}
-                onClick={handleDownload}
-              />
-              <ToolbarBtn
-                label="Supprimer"
-                disabled={!active}
-                hint="Sélectionnez un document"
-                onClick={() => void handleRemoveActive()}
-              />
-            </div>
-          </div>
-
           <div className="min-h-0 flex-1 overflow-hidden p-4">
             {selected ? (
               <div className="flex h-full flex-col gap-3">
