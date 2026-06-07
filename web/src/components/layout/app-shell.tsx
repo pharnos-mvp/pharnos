@@ -1,6 +1,6 @@
 import { Suspense, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   FlaskConical,
   FolderTree,
@@ -11,6 +11,7 @@ import {
   WifiOff,
 } from 'lucide-react'
 
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { useAuditSync } from '@/features/audit/use-audit-sync'
 import { useAuth } from '@/features/auth/auth-context'
@@ -32,6 +33,7 @@ const SIDEBAR_KEY = 'pharnos.sidebarCollapsed'
 
 export function AppShell() {
   const online = useOnlineStatus()
+  const location = useLocation()
   const { user } = useAuth()
   const orgId = useOrgId()
   const { t } = useI18n()
@@ -165,15 +167,17 @@ export function AppShell() {
         </header>
 
         <main className="min-w-0 flex-1 overflow-auto p-4 md:p-6">
-          <Suspense
-            fallback={
-              <div className="text-muted-foreground p-2 text-sm">
-                {t({ fr: 'Chargement…', en: 'Loading…' })}
-              </div>
-            }
-          >
-            <Outlet />
-          </Suspense>
+          <ErrorBoundary key={location.pathname}>
+            <Suspense
+              fallback={
+                <div className="text-muted-foreground p-2 text-sm">
+                  {t({ fr: 'Chargement…', en: 'Loading…' })}
+                </div>
+              }
+            >
+              <Outlet />
+            </Suspense>
+          </ErrorBoundary>
         </main>
       </div>
     </div>
