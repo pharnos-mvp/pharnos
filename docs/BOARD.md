@@ -12,7 +12,7 @@
 > **Protocole de mise à jour** (voir §13) : à chaque tranche livrée (PR mergée), mettre à jour le
 > §1 (état), le §9 (milestones) et le §10 (journal). Garder le reste synchronisé si une décision change.
 
-_Dernière mise à jour : 2026-06-07 — pilote déployé + Workspace (TDM tous modules · covers) en ligne._
+_Dernière mise à jour : 2026-06-08 — pilote en ligne ; montage CTD façon Google Docs (scroll page unique, panneaux figés)._
 
 ---
 
@@ -213,6 +213,11 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 | #22 | 06-07 | Board : **pilote déployé** (pharnos.pages.dev) |
 | #23 | 06-07 | `supabase/config.toml` versionné — **Auth Site URL prod** + réglages sécurisés |
 | #24 | 06-07 | **Workspace** : TDM général (tous modules CTD) + en-tête/pied uniquement sur les covers |
+| #25 | 06-07 | Board : journal à jour (#20→#24) |
+| #26 | 06-07 | **Workspace/Catalogue** : docs produit visibles (repli ancêtre + auto-sélection), table catalogue (largeur), hauteur montage, aperçu compilé PDF.js |
+| #27 | 06-07 | **Workspace** : titre du dossier dans le bandeau (Google Docs) + montage pleine hauteur |
+| #28 | 06-07 | **Workspace** : actions document dans la toolbar du haut + A4 défilable (marge de bas) |
+| #29 | 06-08 | **Workspace** : scroll « Google Docs » (page unique, panneaux figés, pill centrée, pied de page) |
 
 ---
 
