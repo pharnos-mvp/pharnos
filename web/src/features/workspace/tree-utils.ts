@@ -19,6 +19,15 @@ export function renameNode(nodes: CtdNodeDef[], id: string, label: string): CtdN
   )
 }
 
+/** Marque une section comme validée (savedAt) — récursif. */
+export function setNodeSaved(nodes: CtdNodeDef[], id: string, savedAt: string): CtdNodeDef[] {
+  return nodes.map((n) =>
+    n.id === id
+      ? { ...n, savedAt }
+      : { ...n, children: n.children ? setNodeSaved(n.children, id, savedAt) : undefined },
+  )
+}
+
 export function deleteNode(nodes: CtdNodeDef[], id: string): CtdNodeDef[] {
   return nodes
     .filter((n) => n.id !== id)

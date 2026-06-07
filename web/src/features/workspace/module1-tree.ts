@@ -22,6 +22,8 @@ export interface CtdNodeDef {
   code?: string
   /** Guidance réglementaire optionnelle affichée sous le titre de la section. */
   note?: string
+  /** Horodatage de validation de la section par l'utilisateur (bouton Enregistrer). */
+  savedAt?: string
   children?: CtdNodeDef[]
 }
 

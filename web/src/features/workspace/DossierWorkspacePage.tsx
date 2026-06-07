@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { Editor, JSONContent } from '@tiptap/core'
 import {
+  AlertTriangle,
   ArrowLeft,
   Bold,
   CheckCircle2,
@@ -15,6 +16,7 @@ import {
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
+  Save,
   Settings2,
   Sparkles,
   Trash2,
@@ -26,9 +28,12 @@ import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { docTypeLabel } from '@/features/catalogue/doc-types'
-import { getDocumentBlob, listDocuments } from '@/features/catalogue/documents-repository'
-import { getDocumentDownloadUrl } from '@/features/catalogue/documents-sync'
+import {
+  deleteDocument,
+  getDocumentBlob,
+  listDocuments,
+} from '@/features/catalogue/documents-repository'
+import { getDocumentDownloadUrl, syncDocuments } from '@/features/catalogue/documents-sync'
 import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
 import { useAuth } from '@/features/auth/auth-context'
 import { useOrgId } from '@/features/org/org-context'
@@ -55,6 +60,7 @@ import { getDossier, updateDossierTree } from './dossier-repository'
 import { syncDossiers } from './dossier-sync'
 import {
   createGeneratedDoc,
+  deleteGeneratedDoc,
   listGeneratedDocs,
   regenerateGeneratedDoc,
   updateGeneratedDocContent,
@@ -67,16 +73,10 @@ import { useGeneratedDocsSync } from './use-generated-docs-sync'
 import { nodeForDocType, type CtdNodeDef } from './module1-tree'
 import { agencyFor } from './roadmap-data'
 import { PdfPreviewDialog } from './PdfPreviewDialog'
+import { runRegafy, type RegafyFinding } from './regafy'
 import { RichTextEditor } from './RichTextEditor'
 import { TEMPLATES, templateKeyForNode, type TemplateContext } from './templates'
-import { flattenTree } from './tree-utils'
-
-interface ValidityAlert {
-  id: string
-  docType: string
-  expiryDate: string
-  expired: boolean
-}
+import { flattenTree, setNodeSaved } from './tree-utils'
 
 export function DossierWorkspacePage() {
   const { dossierId } = useParams()
@@ -128,6 +128,7 @@ export function DossierWorkspacePage() {
   const [compiling, setCompiling] = useState(false)
   const [autoStructural, setAutoStructural] = useState(true)
   const [pickedKey, setPickedKey] = useState<string | null>(null)
+  const [gateFindings, setGateFindings] = useState<RegafyFinding[] | null>(null)
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingSave = useRef<{ id: string; json: JSONContent } | null>(null)
@@ -157,7 +158,19 @@ export function DossierWorkspacePage() {
   }, [attachments])
 
   const flatNodes = useMemo(() => (dossier ? flattenTree(dossier.tree) : []), [dossier])
-  const alerts = useMemo(() => computeAlerts(docs ?? []), [docs])
+  const findings = useMemo(
+    () =>
+      dossier
+        ? runRegafy({
+            tree: dossier.tree,
+            titulaire: product?.titulaire ?? '',
+            docsByNode,
+            genByNode,
+            attachByNode,
+          })
+        : [],
+    [dossier, product, docsByNode, genByNode, attachByNode],
+  )
 
   const handleEditorReady = useCallback((ed: Editor, id: string) => setEditorState({ id, ed }), [])
 
@@ -326,8 +339,8 @@ export function DossierWorkspacePage() {
   const filledLeaves = leaves.filter((n) => countFor(n) > 0)
   const pct = leaves.length ? Math.round((filledLeaves.length / leaves.length) * 100) : 0
   const okCount = filledLeaves.length
-  const warnCount = alerts.filter((a) => !a.expired).length
-  const errCount = alerts.filter((a) => a.expired).length
+  const warnCount = findings.filter((f) => f.severity === 'warning').length
+  const errCount = findings.filter((f) => f.severity === 'error').length
   const region = dossier.format === 'ctd' ? 'CTD UEMOA' : 'eCTD CEDEAO'
 
   function buildContext(): TemplateContext {
@@ -397,14 +410,47 @@ export function DossierWorkspacePage() {
     void syncDossierAttachments(orgId)
   }
 
-  async function handleDeleteAttachment(id: string) {
-    await deleteAttachment(id)
-    void syncDossierAttachments(orgId)
-  }
-
   function handleSign() {
     const src = signature?.signatureImage
     if (src && liveEditor) liveEditor.chain().focus().setImage({ src }).run()
+  }
+
+  function nextLeafAfter(node: CtdNodeDef): CtdNodeDef | null {
+    const idx = flatNodes.findIndex((n) => n.id === node.id)
+    for (let i = idx + 1; i < flatNodes.length; i++) {
+      const n = flatNodes[i]
+      if (n && !n.children?.length) return n
+    }
+    return null
+  }
+
+  async function handleSaveNode() {
+    if (!selected) return
+    flushSave()
+    if (selected.id) {
+      const tree = setNodeSaved(activeDossier.tree, selected.id, new Date().toISOString())
+      await updateDossierTree(activeDossier.id, tree)
+      void syncDossiers(orgId)
+    }
+    toast.success('Section enregistrée')
+    const next = nextLeafAfter(selected)
+    if (next) handleSelectNode(next)
+  }
+
+  async function handleRemoveActive() {
+    if (!active) return
+    if (active.kind === 'letter' && selectedGenDoc) {
+      await deleteGeneratedDoc(selectedGenDoc.id)
+      void syncGeneratedDocs(orgId)
+    } else if (active.kind === 'attachment') {
+      await deleteAttachment(active.id)
+      void syncDossierAttachments(orgId)
+    } else if (active.kind === 'doc') {
+      await deleteDocument(active.id)
+      void syncDocuments(orgId)
+    }
+    setPickedKey(null)
+    toast.success('Document retiré')
   }
 
   function showPreview(url: string, name: string, revoke: boolean) {
@@ -449,6 +495,14 @@ export function DossierWorkspacePage() {
     }
   }
 
+  function handleCompileClick() {
+    if (findings.length > 0) {
+      setGateFindings(findings)
+      return
+    }
+    void handleCompile()
+  }
+
   return (
     <div className="flex h-[calc(100svh-7rem)] flex-col">
       <div className="flex items-start gap-2 border-b pb-3">
@@ -483,7 +537,7 @@ export function DossierWorkspacePage() {
           >
             Roadmap
           </Button>
-          <Button size="sm" disabled={compiling} onClick={() => void handleCompile()}>
+          <Button size="sm" disabled={compiling} onClick={handleCompileClick}>
             <FileDown className="size-4" /> {compiling ? 'Compilation…' : 'Compiler le PDF'}
           </Button>
         </div>
@@ -596,6 +650,12 @@ export function DossierWorkspacePage() {
                 disabled={!selectedGenDoc || active?.kind !== 'letter'}
                 onClick={handleDownload}
               />
+              <ToolbarBtn
+                label="Supprimer"
+                disabled={!active}
+                hint="Sélectionnez un document"
+                onClick={() => void handleRemoveActive()}
+              />
             </div>
           </div>
 
@@ -643,6 +703,9 @@ export function DossierWorkspacePage() {
                       onClick={() => fileInputRef.current?.click()}
                     >
                       <Upload className="size-4" /> Téléverser
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => void handleSaveNode()}>
+                      <Save className="size-4" /> Enregistrer
                     </Button>
                   </div>
                 </div>
@@ -692,11 +755,6 @@ export function DossierWorkspacePage() {
                       docId={active.id}
                       filePath={active.filePath}
                       fileName={active.fileName}
-                      onDelete={
-                        active.kind === 'attachment'
-                          ? () => void handleDeleteAttachment(active.id)
-                          : undefined
-                      }
                     />
                   ) : selectedTplKey ? (
                     <div className="flex h-full flex-col items-center justify-center rounded-lg border border-dashed p-4 text-center">
@@ -765,21 +823,44 @@ export function DossierWorkspacePage() {
               <p className="text-muted-foreground mt-1 text-xs">Conformité UEMOA en direct</p>
             </div>
             <div className="rounded-lg border p-3">
-              <h3 className="text-sm font-medium">Remarques pour la session</h3>
-              {alerts.length === 0 ? (
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium">Regafy — constats</h3>
+                <span className="text-muted-foreground text-xs">{findings.length}</span>
+              </div>
+              {findings.length === 0 ? (
                 <p className="text-muted-foreground mt-3 text-center text-xs italic">
-                  Aucune irrégularité trouvée pour le moment.
+                  Aucun constat. ✓
                 </p>
               ) : (
-                <ul className="mt-2 space-y-2">
-                  {alerts.map((a) => (
-                    <li key={a.id} className="flex items-center gap-2 text-xs">
-                      <Badge variant={a.expired ? 'destructive' : 'outline'}>
-                        {a.expired ? 'Expiré' : 'Bientôt'}
-                      </Badge>
-                      <span className="truncate">
-                        {docTypeLabel(a.docType)} — {a.expiryDate}
-                      </span>
+                <ul className="mt-2 space-y-1.5">
+                  {findings.map((f) => (
+                    <li key={f.id}>
+                      <button
+                        type="button"
+                        disabled={!f.nodeNumber}
+                        onClick={() => {
+                          const n = flatNodes.find((x) => x.number === f.nodeNumber)
+                          if (n) handleSelectNode(n)
+                        }}
+                        className="hover:bg-accent flex w-full items-start gap-2 rounded p-1 text-left text-xs disabled:cursor-default disabled:hover:bg-transparent"
+                      >
+                        <span
+                          className={cn(
+                            'mt-1 size-2 shrink-0 rounded-full',
+                            f.severity === 'error'
+                              ? 'bg-red-500'
+                              : f.severity === 'warning'
+                                ? 'bg-amber-500'
+                                : 'bg-sky-500',
+                          )}
+                        />
+                        <span className="min-w-0">
+                          {f.nodeNumber ? (
+                            <span className="font-medium">{f.nodeNumber} </span>
+                          ) : null}
+                          {f.message}
+                        </span>
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -792,6 +873,94 @@ export function DossierWorkspacePage() {
       {previewPdf ? (
         <PdfPreviewDialog url={previewPdf.url} name={previewPdf.name} onClose={closePreview} />
       ) : null}
+
+      {gateFindings ? (
+        <RegafyGateDialog
+          findings={gateFindings}
+          onClose={() => setGateFindings(null)}
+          onCorrect={() => {
+            const target = gateFindings.find((f) => f.nodeNumber)
+            setGateFindings(null)
+            if (target) {
+              const n = flatNodes.find((x) => x.number === target.nodeNumber)
+              if (n) handleSelectNode(n)
+            }
+          }}
+          onCompile={() => {
+            setGateFindings(null)
+            void handleCompile()
+          }}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+function RegafyGateDialog({
+  findings,
+  onClose,
+  onCorrect,
+  onCompile,
+}: {
+  findings: RegafyFinding[]
+  onClose: () => void
+  onCorrect: () => void
+  onCompile: () => void
+}) {
+  const errors = findings.filter((f) => f.severity === 'error').length
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Observations Regafy"
+    >
+      <div className="bg-card flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border shadow-lg">
+        <div className="flex items-center gap-2 border-b p-4">
+          <AlertTriangle className="size-5 text-amber-500" />
+          <h2 className="font-semibold">Regafy a des observations</h2>
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto p-4">
+          <p className="text-muted-foreground mb-3 text-sm">
+            {findings.length} observation(s)
+            {errors > 0 ? ` dont ${errors} bloquante(s)` : ''}. Corriger d'abord, ou compiler malgré
+            tout ?
+          </p>
+          <ul className="space-y-1.5">
+            {findings.map((f) => (
+              <li key={f.id} className="flex items-start gap-2 text-sm">
+                <span
+                  className={cn(
+                    'mt-1.5 size-2 shrink-0 rounded-full',
+                    f.severity === 'error'
+                      ? 'bg-red-500'
+                      : f.severity === 'warning'
+                        ? 'bg-amber-500'
+                        : 'bg-sky-500',
+                  )}
+                />
+                <span>
+                  {f.nodeNumber ? <span className="font-medium">{f.nodeNumber} </span> : null}
+                  {f.message}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="flex justify-end gap-2 border-t p-3">
+          <Button variant="ghost" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button
+            variant="outline"
+            disabled={!findings.some((f) => f.nodeNumber)}
+            onClick={onCorrect}
+          >
+            Corriger
+          </Button>
+          <Button onClick={onCompile}>Compiler quand même</Button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -1032,19 +1201,4 @@ function triggerDownload(url: string, name: string, revoke: boolean) {
   a.click()
   a.remove()
   if (revoke) URL.revokeObjectURL(url)
-}
-
-function computeAlerts(docs: DocumentRecord[]): ValidityAlert[] {
-  const today = new Date()
-  const soon = new Date()
-  soon.setDate(soon.getDate() + 90)
-  const out: ValidityAlert[] = []
-  for (const d of docs) {
-    if (!d.expiryDate) continue
-    const exp = new Date(d.expiryDate)
-    if (exp <= soon) {
-      out.push({ id: d.id, docType: d.docType, expiryDate: d.expiryDate, expired: exp < today })
-    }
-  }
-  return out.sort((a, b) => a.expiryDate.localeCompare(b.expiryDate))
 }
