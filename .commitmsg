@@ -1,0 +1,8 @@
+feat(dashboard+workspace): M7 Dashboard (validite + veille) + sous-sections d'arborescence visibles
+
+- M7 Dashboard : monitoring de validite des pieces (expirees / bientot / valides) cliquable vers le produit + veille reglementaire (references UEMOA/CEDEAO/ICH/OMS) ; bilingue FR/EN
+- Arborescence depliee par defaut : toutes les sous-sections (1.2.3.x, 1.2.4.x, 1.2.5.1, 1.2.6.x...) sont visibles et cliquables pour y ranger un document
+- Auto-fusion de la structure a jour a l'ouverture d'un dossier cree avant (une fois par dossier, respecte ensuite les personnalisations)
+- 52 tests verts
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>

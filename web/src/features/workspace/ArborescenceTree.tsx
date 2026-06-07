@@ -73,7 +73,7 @@ function NodeRow({
   editing,
   onChange,
 }: NodeRowProps) {
-  const [open, setOpen] = useState(depth < 1)
+  const [open, setOpen] = useState(true) // déplié par défaut : toutes les sous-sections visibles
   const nodeId = node.id
   const hasChildren = Boolean(node.children?.length)
   const count = docCount(node)
