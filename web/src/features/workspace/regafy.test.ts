@@ -43,18 +43,8 @@ const empty = {
   attachByNode: new Map(),
 }
 
-describe('regafy (vérifications déterministes)', () => {
-  it('dossier vide → erreur', () => {
-    const f = runRegafy({ tree, titulaire: 'Labo', ...empty })
-    expect(f.some((x) => x.severity === 'error' && x.message.includes('vide'))).toBe(true)
-  })
-
-  it('titulaire manquant → avertissement', () => {
-    const f = runRegafy({ tree, titulaire: '  ', ...empty })
-    expect(f.some((x) => x.message.includes('Titulaire'))).toBe(true)
-  })
-
-  it('section avec contenu non validée → info', () => {
+describe('regafy (vérifications déterministes, progressif)', () => {
+  it("rien tant qu'aucune section n'est validée", () => {
     const genByNode = new Map([['1.1.1', gen('1.1.1', 'Bonjour')]])
     const f = runRegafy({
       tree,
@@ -63,10 +53,21 @@ describe('regafy (vérifications déterministes)', () => {
       genByNode,
       attachByNode: new Map(),
     })
-    expect(f.some((x) => x.severity === 'info' && x.nodeNumber === '1.1.1')).toBe(true)
+    expect(f).toHaveLength(0)
   })
 
-  it('placeholder restant → avertissement « à compléter »', () => {
+  it('section validée sans document → avertissement + dossier vide', () => {
+    const f = runRegafy({ tree: treeSaved, titulaire: 'Labo', ...empty })
+    expect(f.some((x) => x.severity === 'warning' && x.nodeNumber === '1.1.1')).toBe(true)
+    expect(f.some((x) => x.severity === 'error' && x.message.includes('vide'))).toBe(true)
+  })
+
+  it('titulaire manquant (après validation) → avertissement', () => {
+    const f = runRegafy({ tree: treeSaved, titulaire: '  ', ...empty })
+    expect(f.some((x) => x.message.includes('Titulaire'))).toBe(true)
+  })
+
+  it('placeholder restant → « à compléter »', () => {
     const genByNode = new Map([['1.1.1', gen('1.1.1', '[Ville] à compléter')]])
     const f = runRegafy({
       tree: treeSaved,

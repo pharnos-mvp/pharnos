@@ -19,6 +19,32 @@ export function renameNode(nodes: CtdNodeDef[], id: string, label: string): CtdN
   )
 }
 
+/**
+ * Fusionne dans l'arbre du dossier les sections du modèle par défaut **manquantes** (par numéro),
+ * sans toucher au contenu, à l'ordre ni aux ids existants. Sert à mettre à jour un dossier créé
+ * avant l'évolution du modèle.
+ */
+export function mergeDefaultTree(current: CtdNodeDef[], def: CtdNodeDef[]): CtdNodeDef[] {
+  const result = current.map((c) => {
+    const d = def.find((x) => x.number === c.number)
+    return d?.children?.length
+      ? { ...c, children: mergeDefaultTree(c.children ?? [], d.children) }
+      : c
+  })
+  for (const d of def) {
+    if (!result.some((c) => c.number === d.number)) {
+      result.push(assignIds([structuredClone(d)])[0]!)
+    }
+  }
+  return result
+}
+
+/** Vrai si une section du modèle par défaut est absente de l'arbre du dossier (structure obsolète). */
+export function isTreeOutdated(current: CtdNodeDef[], def: CtdNodeDef[]): boolean {
+  const nums = new Set(flattenTree(current).map((n) => n.number))
+  return flattenTree(def).some((n) => !nums.has(n.number))
+}
+
 /** Marque une section comme validée (savedAt) — récursif. */
 export function setNodeSaved(nodes: CtdNodeDef[], id: string, savedAt: string): CtdNodeDef[] {
   return nodes.map((n) =>
