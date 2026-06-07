@@ -610,8 +610,8 @@ export function DossierWorkspacePage() {
     // l'en-tête (toolbar) et les deux panneaux latéraux restent figés (sticky), seule la zone centrale
     // (A4) défile, jusqu'au pied de page (marge de bas — rien n'est collé au bas).
     <div className="flex flex-col gap-3">
-      <div className="bg-background sticky top-0 z-30 flex flex-wrap items-center justify-end gap-2 border-b pt-1 pb-2">
-        <label className="text-muted-foreground mr-auto hidden items-center gap-1.5 text-xs sm:flex">
+      <div className="bg-background sticky top-0 z-30 grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-b py-1.5">
+        <label className="text-muted-foreground hidden items-center gap-1.5 justify-self-start text-xs sm:flex">
           <input
             type="checkbox"
             checked={autoStructural}
@@ -619,16 +619,56 @@ export function DossierWorkspacePage() {
           />
           TDM + gardes auto
         </label>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => navigate(`/workspace/${dossier.id}/roadmap`)}
-        >
-          Roadmap
-        </Button>
-        <Button size="sm" disabled={compiling} onClick={handleCompileClick}>
-          <FileDown className="size-4" /> {compiling ? 'Compilation…' : 'Compiler le PDF'}
-        </Button>
+        {/* Barre des menus d'édition (Modifier/Signer/…) — CENTRÉE au-dessus du panneau d'aperçu. */}
+        <div className="flex min-w-0 justify-center">
+          <div className="bg-card flex items-center gap-1 rounded-full border px-1 py-1 text-sm shadow-sm">
+            <ToolbarBtn
+              label="Modifier"
+              active={docEditing}
+              disabled={!selectedGenDoc}
+              onClick={() => {
+                if (!selectedGenDoc) return
+                setPickedKey(`letter:${selectedGenDoc.id}`)
+                setDocEditing((v) => !v)
+              }}
+            />
+            <ToolbarBtn
+              label="Signer"
+              disabled={!liveEditor || !docEditing || !signature?.signatureImage}
+              hint="Configurez votre signature dans Mon compte, puis passez en mode Modifier"
+              onClick={handleSign}
+            />
+            <ToolbarBtn label="En-tête / Pied de page" onClick={() => navigate('/compte')} />
+            <ToolbarBtn
+              label="Régénérer"
+              disabled={!selectedGenDoc || active?.kind !== 'letter'}
+              onClick={() => void handleRegenerate()}
+            />
+            <ToolbarBtn
+              label="Télécharger"
+              disabled={!selectedGenDoc || active?.kind !== 'letter'}
+              onClick={handleDownload}
+            />
+            <ToolbarBtn
+              label="Supprimer"
+              disabled={!active}
+              hint="Sélectionnez un document"
+              onClick={() => void handleRemoveActive()}
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-2 justify-self-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/workspace/${dossier.id}/roadmap`)}
+          >
+            Roadmap
+          </Button>
+          <Button size="sm" disabled={compiling} onClick={handleCompileClick}>
+            <FileDown className="size-4" /> {compiling ? 'Compilation…' : 'Compiler le PDF'}
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-start gap-3">
@@ -716,45 +756,8 @@ export function DossierWorkspacePage() {
           </aside>
         )}
 
-        {/* Colonne centrale : pill d'actions centrée (sticky) + contenu A4 qui défile avec la page */}
+        {/* Colonne centrale : contenu A4 qui défile (les toolbars sont dans le bandeau du haut). */}
         <div className="min-w-0 flex-1">
-          <div className="bg-background/85 supports-[backdrop-filter]:bg-background/60 sticky top-12 z-20 mb-3 flex justify-center py-1 backdrop-blur">
-            <div className="bg-card flex flex-wrap items-center justify-center gap-1 rounded-full border px-1 py-1 text-sm shadow-sm">
-              <ToolbarBtn
-                label="Modifier"
-                active={docEditing}
-                disabled={!selectedGenDoc}
-                onClick={() => {
-                  if (!selectedGenDoc) return
-                  setPickedKey(`letter:${selectedGenDoc.id}`)
-                  setDocEditing((v) => !v)
-                }}
-              />
-              <ToolbarBtn
-                label="Signer"
-                disabled={!liveEditor || !docEditing || !signature?.signatureImage}
-                hint="Configurez votre signature dans Mon compte, puis passez en mode Modifier"
-                onClick={handleSign}
-              />
-              <ToolbarBtn label="En-tête / Pied de page" onClick={() => navigate('/compte')} />
-              <ToolbarBtn
-                label="Régénérer"
-                disabled={!selectedGenDoc || active?.kind !== 'letter'}
-                onClick={() => void handleRegenerate()}
-              />
-              <ToolbarBtn
-                label="Télécharger"
-                disabled={!selectedGenDoc || active?.kind !== 'letter'}
-                onClick={handleDownload}
-              />
-              <ToolbarBtn
-                label="Supprimer"
-                disabled={!active}
-                hint="Sélectionnez un document"
-                onClick={() => void handleRemoveActive()}
-              />
-            </div>
-          </div>
           {selected ? (
             <div className="flex flex-col gap-3">
               <div className="flex items-start justify-between gap-2">
@@ -827,7 +830,7 @@ export function DossierWorkspacePage() {
                 {active?.kind === 'letter' && selectedGenDoc ? (
                   <section className="bg-card overflow-hidden rounded-lg border">
                     {docEditing ? (
-                      <div className="bg-card sticky top-[5.25rem] z-10 border-b">
+                      <div className="bg-card/95 supports-[backdrop-filter]:bg-card/70 sticky top-12 z-10 flex justify-center border-b py-1.5 backdrop-blur">
                         <FormatToolbar editor={liveEditor} />
                       </div>
                     ) : null}
@@ -1170,7 +1173,7 @@ function InlineDocPreview({
 function FormatToolbar({ editor }: { editor: Editor | null }) {
   if (!editor) return null
   return (
-    <div className="flex items-center gap-1 border-b p-1.5">
+    <div className="bg-card flex items-center gap-1 rounded-full border px-1 py-1 shadow-sm">
       <Button
         type="button"
         variant="ghost"
