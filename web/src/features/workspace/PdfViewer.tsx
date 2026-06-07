@@ -25,7 +25,7 @@ interface PdfTask {
   destroy: () => Promise<void>
 }
 
-export function PdfViewer({ blob }: { blob: Blob }) {
+export function PdfViewer({ blob, flow = false }: { blob: Blob; flow?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
 
@@ -77,7 +77,8 @@ export function PdfViewer({ blob }: { blob: Blob }) {
   }, [blob])
 
   return (
-    <div className="bg-muted min-h-0 flex-1 overflow-auto p-3">
+    // `flow` : hauteur naturelle (défile avec la page, montage CTD) ; sinon scroll interne (dialog).
+    <div className={flow ? 'bg-muted p-3' : 'bg-muted min-h-0 flex-1 overflow-auto p-3'}>
       <div ref={containerRef} />
       {status === 'loading' ? (
         <p className="text-muted-foreground py-8 text-center text-sm">Chargement de l'aperçu…</p>
