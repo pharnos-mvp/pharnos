@@ -3,3 +3,6 @@ dev-dist
 coverage
 node_modules
 *.md
+test-results
+playwright-report
+playwright/.cache

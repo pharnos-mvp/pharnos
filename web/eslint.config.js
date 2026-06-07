@@ -28,4 +28,12 @@ export default defineConfig([
       'react-refresh/only-export-components': 'off',
     },
   },
+  {
+    // E2E Playwright + fichiers de config/scripts : tournent côté Node, et les callbacks
+    // page.evaluate() s'exécutent dans le navigateur → exposer les deux jeux de globals.
+    files: ['e2e/**/*.ts', 'playwright.config.ts', 'scripts/**/*.{ts,mjs,js}'],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.browser },
+    },
+  },
 ])
