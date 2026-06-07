@@ -13,6 +13,8 @@ const rec: ProductRecord = {
   presentation: 'Boîte de 16',
   classeTherapeutique: 'Antalgique',
   codeAtc: 'N02BE01',
+  titulaire: 'Laboratoire X',
+  fabricant: 'Usine Y',
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-02T00:00:00.000Z',
   deletedAt: null,

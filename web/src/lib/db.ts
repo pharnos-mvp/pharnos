@@ -20,6 +20,10 @@ export interface ProductRecord {
   presentation: string
   classeTherapeutique: string
   codeAtc: string
+  /** Titulaire / demandeur d'AMM (nom + adresse). */
+  titulaire: string
+  /** Fabricant (nom + adresse). */
+  fabricant: string
   createdAt: string
   updatedAt: string
   /** Soft delete : conservé pour la réconciliation de synchro. `null` = actif. */
@@ -124,6 +128,8 @@ export interface ProSettingRecord {
   headerImage: string | null
   /** Data URL du pied de page (orgBranding). */
   footerImage: string | null
+  /** Data URL du petit logo (orgBranding) — bandeau d'en-tête du dossier compilé. */
+  logoImage: string | null
   /** Data URL de la signature (userSignature). */
   signatureImage: string | null
   updatedAt: string

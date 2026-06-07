@@ -14,6 +14,8 @@ export interface ProductRow {
   presentation: string
   classe_therapeutique: string
   code_atc: string
+  titulaire: string
+  fabricant: string
   created_at: string
   updated_at: string
   deleted_at: string | null
@@ -30,6 +32,8 @@ export function productToRow(p: ProductRecord): ProductRow {
     presentation: p.presentation,
     classe_therapeutique: p.classeTherapeutique,
     code_atc: p.codeAtc,
+    titulaire: p.titulaire,
+    fabricant: p.fabricant,
     created_at: p.createdAt,
     updated_at: p.updatedAt,
     deleted_at: p.deletedAt,
@@ -47,6 +51,8 @@ export function rowToProduct(r: ProductRow): ProductRecord {
     presentation: r.presentation,
     classeTherapeutique: r.classe_therapeutique,
     codeAtc: r.code_atc,
+    titulaire: r.titulaire ?? '',
+    fabricant: r.fabricant ?? '',
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     deletedAt: r.deleted_at,
