@@ -1,6 +1,7 @@
 import { Component, type ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { reportError } from '@/lib/sentry'
 
 interface Props {
   children: ReactNode
@@ -22,6 +23,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   override componentDidCatch(error: Error, info: unknown): void {
     console.error('[ErrorBoundary]', error, info)
+    reportError(error, { boundary: 'route' })
   }
 
   override render(): ReactNode {

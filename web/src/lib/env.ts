@@ -6,6 +6,8 @@ interface AppEnv {
   readonly supabaseUrl: string
   readonly supabaseAnonKey: string
   readonly isSupabaseConfigured: boolean
+  /** DSN Sentry (clé publique, non secrète). Vide = observabilité désactivée (no-op). */
+  readonly sentryDsn: string
 }
 
 function readEnv(): AppEnv {
@@ -15,6 +17,7 @@ function readEnv(): AppEnv {
     supabaseUrl,
     supabaseAnonKey,
     isSupabaseConfigured: Boolean(supabaseUrl && supabaseAnonKey),
+    sentryDsn: import.meta.env.VITE_SENTRY_DSN ?? '',
   }
 }
 
