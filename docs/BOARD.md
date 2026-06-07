@@ -12,7 +12,7 @@
 > **Protocole de mise à jour** (voir §13) : à chaque tranche livrée (PR mergée), mettre à jour le
 > §1 (état), le §9 (milestones) et le §10 (journal). Garder le reste synchronisé si une décision change.
 
-_Dernière mise à jour : 2026-06-07 — après M8 (durcissement) mergé (#19)._
+_Dernière mise à jour : 2026-06-07 — **pilote déployé** sur Cloudflare Pages (après M8 mergé)._
 
 ---
 
@@ -30,7 +30,7 @@ _Dernière mise à jour : 2026-06-07 — après M8 (durcissement) mergé (#19)._
 | **Audit trail (ALCOA++)** | ✅ Livré |
 | **Durcissement M8** (E2E offline, a11y AA, Sentry, budget perf, tests RLS) | ✅ Livré |
 | **Regafy IA (M4, Vertex)** · **Traduction (M5, Gemini)** | ⏳ **Bloqué** : credentials GCP |
-| **Déploiement pilote** | ⏳ À lancer (Cloudflare Pages) |
+| **Déploiement pilote** | ✅ **En ligne — https://pharnos.pages.dev** (Cloudflare Pages, mode authentifié) |
 
 **Qualité (main, vert partout) :** typecheck · lint · format · **52 tests unitaires** · build ·
 **budget bundle** · **9 E2E Playwright** (dont reload hors-ligne) · **a11y WCAG AA** sur 4 pages cœur.
@@ -213,13 +213,30 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 
 ## 11. Cap — prochaines étapes
 
-1. **🚀 Pilote (recommandé, sans dépendance externe)** : déployer le front sur **Cloudflare Pages**
-   (build PWA + variables d'env Supabase + DSN Sentry), monter **1 dossier Module 1 réel** de bout en
-   bout (compile PDF au vert) avec 1-2 organisations.
+1. **🚀 Pilote — EN COURS** : front **déployé** sur Cloudflare Pages (https://pharnos.pages.dev).
+   Reste à : **créer les comptes/organisations** pilotes (sign-up), puis **monter 1 dossier Module 1
+   réel** de bout en bout (compile PDF au vert) ; (optionnel) brancher un **DSN Sentry** + domaine custom.
 2. **M4 — Regafy IA** et **M5 — Traduction** : **dès réception des credentials GCP/Vertex**. La
    mécanique front est prête (Regafy v1 déterministe + emplacements de traduction in-place).
 3. **Suivis M8 (optionnels, tâche #10)** : Lighthouse CI (PWA ≥ 90), exécution **auto** des tests RLS
    en CI (service Postgres + pgtap), export DOCX (fast-follow).
+
+### Déploiement (prod) — Cloudflare Pages
+
+- **Projet** : `pharnos` (compte `pharnos.mvp@gmail.com`) · **URL** : https://pharnos.pages.dev ·
+  branche prod `main`.
+- **Pré-requis** : auth Wrangler (`npx wrangler login`, une fois) ; `web/.env.local` avec
+  `VITE_SUPABASE_URL`/`ANON_KEY` (baked au build) ; `VITE_SENTRY_DSN` optionnel.
+- **⚠️ Config Supabase Auth (pour que les inscriptions marchent en prod)** : dashboard Supabase →
+  Authentication → URL Configuration → **Site URL** = `https://pharnos.pages.dev` + l'ajouter aux
+  **Redirect URLs** (sinon les liens de confirmation e-mail pointent vers localhost).
+- **Redéployer** (manuel, depuis `web/`) :
+  ```bash
+  npm run build
+  npx wrangler pages deploy dist --project-name pharnos --branch main --commit-dirty true
+  ```
+- **À faire (durcissement déploiement)** : automatiser via GitHub Actions (déploiement sur push `main`
+  avec `CLOUDFLARE_API_TOKEN` en secret de repo) plutôt que manuel.
 
 **Falaises de scale (post-pilote) :** dépassement free tiers Supabase → Pro (~25 $/mois) ; volume IA
 (Flash très bon marché) ; bande passante. Architecture prête (IaC portable, abstraction provider IA).
