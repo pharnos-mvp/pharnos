@@ -11,7 +11,7 @@ import type {
 import { getAttachmentBlob } from '../dossier-attachments-repository'
 import { getAttachmentDownloadUrl } from '../dossier-attachments-sync'
 import { countryLabel } from '../dossier-constants'
-import { nodeForDocType } from '../module1-tree'
+import { nodeForDocType, resolveExistingNode, treeNodeNumbers } from '../module1-tree'
 import {
   compileDossier,
   dataUrlToBytes,
@@ -134,8 +134,12 @@ export async function compileDossierToPdf(args: CompileArgs): Promise<CompileRes
     }
   }
 
+  const treeNumbers = treeNodeNumbers(dossier.tree)
   for (const d of docs) {
-    const node = nodeForDocType(dossier.format, d.docType, d.category)
+    const node = resolveExistingNode(
+      treeNumbers,
+      nodeForDocType(dossier.format, d.docType, d.category),
+    )
     const piece = await docPiece(d)
     if (piece) {
       ensure(node).pieces.push(piece)

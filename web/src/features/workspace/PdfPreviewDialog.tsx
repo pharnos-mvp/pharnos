@@ -1,15 +1,19 @@
 import { Download, X } from 'lucide-react'
 
 import { Button, buttonVariants } from '@/components/ui/button'
+import { PdfViewer } from './PdfViewer'
 
 interface PdfPreviewDialogProps {
+  /** Contenu PDF rendu via PDF.js (local-first, jamais bloqué par le sandbox d'un iframe). */
+  blob: Blob
+  /** Object URL pour le téléchargement direct. */
   url: string
   name: string
   onClose: () => void
 }
 
-/** Prévisualisation in-place d'un PDF/image (object URL) — plein écran, avec téléchargement. */
-export function PdfPreviewDialog({ url, name, onClose }: PdfPreviewDialogProps) {
+/** Prévisualisation in-place du PDF compilé — plein écran, rendu **PDF.js**, avec téléchargement. */
+export function PdfPreviewDialog({ blob, url, name, onClose }: PdfPreviewDialogProps) {
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col bg-black/70 p-4"
@@ -33,12 +37,7 @@ export function PdfPreviewDialog({ url, name, onClose }: PdfPreviewDialogProps) 
             </Button>
           </div>
         </div>
-        <iframe
-          src={url}
-          title={name}
-          sandbox="allow-same-origin allow-popups allow-downloads"
-          className="min-h-0 flex-1 bg-white"
-        />
+        <PdfViewer blob={blob} />
       </div>
     </div>
   )

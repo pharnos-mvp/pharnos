@@ -292,3 +292,32 @@ export function nodeForDocType(
   // Repli par catégorie : info → 1.3 (produit), admin → 1.2 (administratif).
   return category === 'info' ? '1.3' : '1.2'
 }
+
+/** Ensemble des numéros présents dans un arbre (pour fiabiliser l'auto-classement). */
+export function treeNodeNumbers(tree: CtdNodeDef[]): Set<string> {
+  const set = new Set<string>()
+  const walk = (nodes: CtdNodeDef[]) => {
+    for (const n of nodes) {
+      if (n.number) set.add(n.number)
+      if (n.children) walk(n.children)
+    }
+  }
+  walk(tree)
+  return set
+}
+
+/**
+ * Résout un numéro mappé vers un nœud **réellement présent** dans l'arbre du dossier : le nœud
+ * lui-même s'il existe, sinon le plus proche **ancêtre existant** (1.2.3.2 → 1.2.3 → 1.2 → 1).
+ * Garantit qu'un document auto-classé atterrit toujours sur un nœud visible et compilable, même
+ * si l'arbre du dossier ne contient pas (encore) la sous-section détaillée. Repli final : `mapped`.
+ */
+export function resolveExistingNode(numbers: Set<string>, mapped: string): string {
+  if (numbers.has(mapped)) return mapped
+  const parts = mapped.split('.')
+  for (let i = parts.length - 1; i >= 1; i--) {
+    const anc = parts.slice(0, i).join('.')
+    if (numbers.has(anc)) return anc
+  }
+  return mapped
+}
