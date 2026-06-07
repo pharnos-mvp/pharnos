@@ -37,6 +37,10 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
+        // Prise de contrôle immédiate → l'app est servie depuis le cache dès le rechargement
+        // suivant (hors-ligne fiable, mises à jour appliquées sans recharger deux fois).
+        clientsClaim: true,
+        skipWaiting: true,
       },
     }),
   ],
@@ -50,6 +54,9 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     css: true,
+    // Tests unitaires/intégration uniquement (src). Les specs Playwright (e2e/) sont exclues
+    // pour éviter que Vitest ne tente de les exécuter.
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
     // Force le mode local/offline en test (pas d'auth réseau).
     env: {
       VITE_SUPABASE_URL: '',
