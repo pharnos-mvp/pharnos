@@ -37,7 +37,11 @@ export function RichTextEditor({
   const editor = useEditor(
     {
       extensions: [StarterKit, Image.configure({ inline: true, allowBase64: true })],
-      content: initialContent,
+      // Garde-fou : un contenu non-ProseMirror ferait planter TipTap au montage.
+      content:
+        initialContent && (initialContent as { type?: string }).type === 'doc'
+          ? initialContent
+          : { type: 'doc', content: [] },
       editable,
       editorProps: {
         attributes: {
