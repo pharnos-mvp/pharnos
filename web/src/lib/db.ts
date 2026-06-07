@@ -155,6 +155,25 @@ export interface DossierAttachmentRecord {
   deletedAt: string | null
 }
 
+/**
+ * Journal d'audit (ALCOA++ / intégrité des données) — qui a fait quoi et quand.
+ * **Append-only** : on ajoute, on ne modifie ni ne supprime jamais une entrée.
+ */
+export interface AuditLogRecord {
+  id: string
+  orgId: string
+  actorId: string
+  actorEmail: string
+  /** Entité : 'product' | 'document' | 'dossier' | 'generated_doc' | 'dossier_attachment'. */
+  entity: string
+  entityId: string
+  /** 'create' | 'update' | 'delete'. */
+  action: string
+  /** Libellé lisible de la ressource (nom produit, fichier…). */
+  label: string
+  at: string
+}
+
 const db = new Dexie('pharnos') as Dexie & {
   products: EntityTable<ProductRecord, 'id'>
   outbox: EntityTable<OutboxItem, 'id'>
@@ -164,6 +183,7 @@ const db = new Dexie('pharnos') as Dexie & {
   generatedDocs: EntityTable<GeneratedDocRecord, 'id'>
   proSettings: EntityTable<ProSettingRecord, 'id'>
   dossierAttachments: EntityTable<DossierAttachmentRecord, 'id'>
+  auditLog: EntityTable<AuditLogRecord, 'id'>
 }
 
 db.version(1).stores({
@@ -196,6 +216,11 @@ db.version(5).stores({
 db.version(6).stores({
   proSettings: 'id, orgId, kind, updatedAt, deletedAt',
   dossierAttachments: 'id, orgId, dossierId, [dossierId+nodeNumber], updatedAt, deletedAt',
+})
+
+// v7 : journal d'audit (ALCOA++) — append-only.
+db.version(7).stores({
+  auditLog: 'id, orgId, at',
 })
 
 export { db }

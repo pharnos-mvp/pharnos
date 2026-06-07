@@ -1,5 +1,6 @@
 import type { JSONContent } from '@tiptap/core'
 
+import { recordAudit } from '@/lib/audit'
 import { db, type GeneratedDocRecord } from '@/lib/db'
 import { enqueueOutbox } from '@/lib/outbox'
 import { TEMPLATES, type TemplateContext, type TemplateKey } from './templates'
@@ -44,6 +45,7 @@ export async function createGeneratedDoc(
     await db.generatedDocs.add(record)
     await enqueueOutbox('generated_doc', record.id, 'create', record)
   })
+  await recordAudit(orgId, 'generated_doc', record.id, 'create', record.title)
   return record
 }
 
@@ -73,6 +75,7 @@ export async function regenerateGeneratedDoc(
     await db.generatedDocs.put(updated)
     await enqueueOutbox('generated_doc', id, 'update', updated)
   })
+  await recordAudit(existing.orgId, 'generated_doc', id, 'update', existing.title)
   return content
 }
 
@@ -84,4 +87,5 @@ export async function deleteGeneratedDoc(id: string): Promise<void> {
     await db.generatedDocs.put({ ...existing, deletedAt: ts, updatedAt: ts })
     await enqueueOutbox('generated_doc', id, 'delete', { id })
   })
+  await recordAudit(existing.orgId, 'generated_doc', id, 'delete', existing.title)
 }

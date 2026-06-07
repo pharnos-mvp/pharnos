@@ -1,3 +1,4 @@
+import { recordAudit } from '@/lib/audit'
 import { db, type DossierRecord } from '@/lib/db'
 import { enqueueOutbox } from '@/lib/outbox'
 import { getModule1Tree, type DossierFormat } from './module1-tree'
@@ -50,6 +51,7 @@ export async function createDossier(
     await db.dossiers.add(record)
     await enqueueOutbox('dossier', record.id, 'create', record)
   })
+  await recordAudit(orgId, 'dossier', record.id, 'create', record.productName)
   return record
 }
 
@@ -65,6 +67,7 @@ export async function updateDossierTree(
     await db.dossiers.put(updated)
     await enqueueOutbox('dossier', id, 'update', updated)
   })
+  await recordAudit(updated.orgId, 'dossier', id, 'update', updated.productName)
   return updated
 }
 
@@ -76,4 +79,5 @@ export async function deleteDossier(id: string): Promise<void> {
     await db.dossiers.put({ ...existing, deletedAt: ts, updatedAt: ts })
     await enqueueOutbox('dossier', id, 'delete', { id })
   })
+  await recordAudit(existing.orgId, 'dossier', id, 'delete', existing.productName)
 }
