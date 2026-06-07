@@ -606,10 +606,11 @@ export function DossierWorkspacePage() {
   }
 
   return (
-    // Pleine hauteur sous le bandeau (récupère le padding de <main> via les marges négatives) →
-    // grande zone de prévisualisation, scroll interne par panneau (façon Google Docs).
-    <div className="-my-4 flex h-[calc(100svh-3.5rem)] flex-col md:-my-6">
-      <div className="flex flex-wrap items-center justify-end gap-2 border-b pb-2">
+    // Modèle « Google Docs » : la page de montage défile globalement (scrollbar de <main> à droite),
+    // l'en-tête (toolbar) et les deux panneaux latéraux restent figés (sticky), seule la zone centrale
+    // (A4) défile, jusqu'au pied de page (marge de bas — rien n'est collé au bas).
+    <div className="flex flex-col gap-3">
+      <div className="bg-background sticky top-0 z-30 flex flex-wrap items-center justify-end gap-2 border-b pt-1 pb-2">
         <label className="text-muted-foreground mr-auto hidden items-center gap-1.5 text-xs sm:flex">
           <input
             type="checkbox"
@@ -618,42 +619,6 @@ export function DossierWorkspacePage() {
           />
           TDM + gardes auto
         </label>
-        {/* Actions du document sélectionné (remontées ici → zone de montage plus haute). */}
-        <div className="bg-card flex items-center gap-1 rounded-full border px-1 py-1 text-sm">
-          <ToolbarBtn
-            label="Modifier"
-            active={docEditing}
-            disabled={!selectedGenDoc}
-            onClick={() => {
-              if (!selectedGenDoc) return
-              setPickedKey(`letter:${selectedGenDoc.id}`)
-              setDocEditing((v) => !v)
-            }}
-          />
-          <ToolbarBtn
-            label="Signer"
-            disabled={!liveEditor || !docEditing || !signature?.signatureImage}
-            hint="Configurez votre signature dans Mon compte, puis passez en mode Modifier"
-            onClick={handleSign}
-          />
-          <ToolbarBtn label="En-tête / Pied de page" onClick={() => navigate('/compte')} />
-          <ToolbarBtn
-            label="Régénérer"
-            disabled={!selectedGenDoc || active?.kind !== 'letter'}
-            onClick={() => void handleRegenerate()}
-          />
-          <ToolbarBtn
-            label="Télécharger"
-            disabled={!selectedGenDoc || active?.kind !== 'letter'}
-            onClick={handleDownload}
-          />
-          <ToolbarBtn
-            label="Supprimer"
-            disabled={!active}
-            hint="Sélectionnez un document"
-            onClick={() => void handleRemoveActive()}
-          />
-        </div>
         <Button
           variant="outline"
           size="sm"
@@ -666,10 +631,10 @@ export function DossierWorkspacePage() {
         </Button>
       </div>
 
-      <div className="flex min-h-0 flex-1 gap-3 pt-3 pb-4">
+      <div className="flex items-start gap-3">
         {/* Panneau gauche : arborescence */}
         {collapsed ? (
-          <div className="flex w-14 shrink-0 flex-col items-center gap-1.5 overflow-auto rounded-lg border py-2">
+          <div className="bg-card sticky top-12 flex max-h-[calc(100svh-9rem)] w-14 shrink-0 flex-col items-center gap-1.5 overflow-auto rounded-lg border py-2">
             <Button
               variant="ghost"
               size="icon-sm"
@@ -696,7 +661,7 @@ export function DossierWorkspacePage() {
             ))}
           </div>
         ) : (
-          <aside className="flex w-72 shrink-0 flex-col rounded-lg border">
+          <aside className="bg-card sticky top-12 flex max-h-[calc(100svh-9rem)] w-72 shrink-0 flex-col overflow-hidden rounded-lg border">
             <div className="flex items-start justify-between border-b p-3">
               <div>
                 <div className="text-sm font-semibold">Arborescence</div>
@@ -751,135 +716,170 @@ export function DossierWorkspacePage() {
           </aside>
         )}
 
-        {/* Panneau central */}
-        <main className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border">
-          <div className="min-h-0 flex-1 overflow-hidden p-4">
-            {selected ? (
-              <div className="flex h-full flex-col gap-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h2 className="font-semibold">
-                      {selected.number ? `${selected.number} ` : ''}
-                      {selected.label}
-                    </h2>
-                    {selected.note ? (
-                      <p className="text-muted-foreground mt-1 max-w-prose text-xs italic">
-                        {selected.note}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    {selectedGenDoc ? (
-                      <Badge variant="secondary">BROUILLON</Badge>
-                    ) : viewables.length > 0 ? (
-                      <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
-                        EN ATTENTE
-                      </Badge>
-                    ) : null}
-                    {selectedTplKey && !selectedGenDoc ? (
-                      <Button size="sm" onClick={() => void handleGenerate()}>
-                        <Sparkles className="size-4" /> Générer
-                      </Button>
-                    ) : null}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0]
-                        if (f) void handleUpload(f)
-                        e.target.value = ''
-                      }}
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <Upload className="size-4" /> Téléverser
-                    </Button>
-                    <Button size="sm" variant="secondary" onClick={() => void handleSaveNode()}>
-                      <Save className="size-4" /> Enregistrer
-                    </Button>
-                  </div>
-                </div>
-
-                {viewables.length > 1 ? (
-                  <div className="flex flex-wrap gap-1">
-                    {viewables.map((v) => (
-                      <button
-                        key={v.key}
-                        type="button"
-                        onClick={() => setPickedKey(v.key)}
-                        title={v.label}
-                        className={cn(
-                          'flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs',
-                          active?.key === v.key
-                            ? 'border-primary bg-primary/10 text-primary'
-                            : 'text-muted-foreground hover:bg-accent',
-                        )}
-                      >
-                        <FileText className="size-3.5" />
-                        <span className="max-w-[160px] truncate">{v.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-
-                <div className="min-h-0 flex-1">
-                  {active?.kind === 'letter' && selectedGenDoc ? (
-                    <section className="bg-card flex h-full flex-col overflow-hidden rounded-lg border">
-                      {docEditing ? <FormatToolbar editor={liveEditor} /> : null}
-                      <div className="min-h-0 flex-1 overflow-auto">
-                        <RichTextEditor
-                          docId={selectedGenDoc.id}
-                          initialContent={selectedGenDoc.content as JSONContent}
-                          editable={docEditing}
-                          onChange={(json) => handleEditorChange(selectedGenDoc.id, json)}
-                          onReady={handleEditorReady}
-                          header={branding?.headerImage ?? null}
-                          footer={branding?.footerImage ?? null}
-                        />
-                      </div>
-                    </section>
-                  ) : active && active.kind !== 'letter' ? (
-                    <InlineDocPreview
-                      key={active.key}
-                      kind={active.kind}
-                      docId={active.id}
-                      filePath={active.filePath}
-                      fileName={active.fileName}
-                    />
-                  ) : selectedTplKey ? (
-                    <div className="flex h-full flex-col items-center justify-center rounded-lg border border-dashed p-4 text-center">
-                      <Sparkles className="text-primary mb-2 size-8" />
-                      <p className="text-sm font-medium">{TEMPLATES[selectedTplKey].title}</p>
-                      <p className="text-muted-foreground mt-1 max-w-sm text-xs">
-                        Générez ce document depuis le modèle UEMOA, ou téléversez un fichier.
-                      </p>
-                      <Button className="mt-3" size="sm" onClick={() => void handleGenerate()}>
-                        <Sparkles className="size-4" /> Générer
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="text-muted-foreground flex h-full flex-col items-center justify-center rounded-lg border border-dashed text-sm">
-                      <FileText className="mb-2 size-8" />
-                      Aucun document classé sous cette section.
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
-                Sélectionnez une section de l'arborescence.
-              </div>
-            )}
+        {/* Colonne centrale : pill d'actions centrée (sticky) + contenu A4 qui défile avec la page */}
+        <div className="min-w-0 flex-1">
+          <div className="bg-background/85 supports-[backdrop-filter]:bg-background/60 sticky top-12 z-20 mb-3 flex justify-center py-1 backdrop-blur">
+            <div className="bg-card flex flex-wrap items-center justify-center gap-1 rounded-full border px-1 py-1 text-sm shadow-sm">
+              <ToolbarBtn
+                label="Modifier"
+                active={docEditing}
+                disabled={!selectedGenDoc}
+                onClick={() => {
+                  if (!selectedGenDoc) return
+                  setPickedKey(`letter:${selectedGenDoc.id}`)
+                  setDocEditing((v) => !v)
+                }}
+              />
+              <ToolbarBtn
+                label="Signer"
+                disabled={!liveEditor || !docEditing || !signature?.signatureImage}
+                hint="Configurez votre signature dans Mon compte, puis passez en mode Modifier"
+                onClick={handleSign}
+              />
+              <ToolbarBtn label="En-tête / Pied de page" onClick={() => navigate('/compte')} />
+              <ToolbarBtn
+                label="Régénérer"
+                disabled={!selectedGenDoc || active?.kind !== 'letter'}
+                onClick={() => void handleRegenerate()}
+              />
+              <ToolbarBtn
+                label="Télécharger"
+                disabled={!selectedGenDoc || active?.kind !== 'letter'}
+                onClick={handleDownload}
+              />
+              <ToolbarBtn
+                label="Supprimer"
+                disabled={!active}
+                hint="Sélectionnez un document"
+                onClick={() => void handleRemoveActive()}
+              />
+            </div>
           </div>
-        </main>
+          {selected ? (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <h2 className="font-semibold">
+                    {selected.number ? `${selected.number} ` : ''}
+                    {selected.label}
+                  </h2>
+                  {selected.note ? (
+                    <p className="text-muted-foreground mt-1 max-w-prose text-xs italic">
+                      {selected.note}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {selectedGenDoc ? (
+                    <Badge variant="secondary">BROUILLON</Badge>
+                  ) : viewables.length > 0 ? (
+                    <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
+                      EN ATTENTE
+                    </Badge>
+                  ) : null}
+                  {selectedTplKey && !selectedGenDoc ? (
+                    <Button size="sm" onClick={() => void handleGenerate()}>
+                      <Sparkles className="size-4" /> Générer
+                    </Button>
+                  ) : null}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      if (f) void handleUpload(f)
+                      e.target.value = ''
+                    }}
+                  />
+                  <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                    <Upload className="size-4" /> Téléverser
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => void handleSaveNode()}>
+                    <Save className="size-4" /> Enregistrer
+                  </Button>
+                </div>
+              </div>
 
-        {/* Panneau droit : complétude & remarques */}
+              {viewables.length > 1 ? (
+                <div className="flex flex-wrap gap-1">
+                  {viewables.map((v) => (
+                    <button
+                      key={v.key}
+                      type="button"
+                      onClick={() => setPickedKey(v.key)}
+                      title={v.label}
+                      className={cn(
+                        'flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs',
+                        active?.key === v.key
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'text-muted-foreground hover:bg-accent',
+                      )}
+                    >
+                      <FileText className="size-3.5" />
+                      <span className="max-w-[160px] truncate">{v.label}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              <div>
+                {active?.kind === 'letter' && selectedGenDoc ? (
+                  <section className="bg-card overflow-hidden rounded-lg border">
+                    {docEditing ? (
+                      <div className="bg-card sticky top-[5.25rem] z-10 border-b">
+                        <FormatToolbar editor={liveEditor} />
+                      </div>
+                    ) : null}
+                    <div>
+                      <RichTextEditor
+                        docId={selectedGenDoc.id}
+                        initialContent={selectedGenDoc.content as JSONContent}
+                        editable={docEditing}
+                        onChange={(json) => handleEditorChange(selectedGenDoc.id, json)}
+                        onReady={handleEditorReady}
+                        header={branding?.headerImage ?? null}
+                        footer={branding?.footerImage ?? null}
+                      />
+                    </div>
+                  </section>
+                ) : active && active.kind !== 'letter' ? (
+                  <InlineDocPreview
+                    key={active.key}
+                    kind={active.kind}
+                    docId={active.id}
+                    filePath={active.filePath}
+                    fileName={active.fileName}
+                  />
+                ) : selectedTplKey ? (
+                  <div className="flex min-h-[24rem] flex-col items-center justify-center rounded-lg border border-dashed p-4 text-center">
+                    <Sparkles className="text-primary mb-2 size-8" />
+                    <p className="text-sm font-medium">{TEMPLATES[selectedTplKey].title}</p>
+                    <p className="text-muted-foreground mt-1 max-w-sm text-xs">
+                      Générez ce document depuis le modèle UEMOA, ou téléversez un fichier.
+                    </p>
+                    <Button className="mt-3" size="sm" onClick={() => void handleGenerate()}>
+                      <Sparkles className="size-4" /> Générer
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-muted-foreground flex min-h-[24rem] flex-col items-center justify-center rounded-lg border border-dashed text-sm">
+                    <FileText className="mb-2 size-8" />
+                    Aucun document classé sous cette section.
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="text-muted-foreground flex items-center justify-center rounded-lg border border-dashed py-16 text-sm">
+              Sélectionnez une section de l'arborescence.
+            </div>
+          )}
+        </div>
+
+        {/* Panneau droit : complétude & remarques — figé (sticky) */}
         {rightCollapsed ? (
-          <div className="hidden w-14 shrink-0 flex-col items-center gap-3 rounded-lg border py-3 lg:flex">
+          <div className="bg-card sticky top-12 hidden max-h-[calc(100svh-9rem)] w-14 shrink-0 flex-col items-center gap-3 overflow-auto rounded-lg border py-3 lg:flex">
             <Button
               variant="ghost"
               size="icon-sm"
@@ -900,7 +900,7 @@ export function DossierWorkspacePage() {
             </div>
           </div>
         ) : (
-          <aside className="hidden w-72 shrink-0 flex-col gap-3 overflow-auto pb-6 lg:flex">
+          <aside className="sticky top-12 hidden max-h-[calc(100svh-9rem)] w-72 shrink-0 flex-col gap-3 overflow-auto pb-2 lg:flex">
             <div className="flex flex-col items-center rounded-lg border p-4">
               <div className="flex w-full items-center justify-between">
                 <span className="text-sm font-medium">État d'avancement</span>
@@ -963,6 +963,11 @@ export function DossierWorkspacePage() {
           </aside>
         )}
       </div>
+
+      {/* Pied de page de l'app — marge de bas (rien n'est collé au pied de page). */}
+      <footer className="text-muted-foreground border-t pt-6 pb-10 text-center text-xs">
+        Pharnos — Montage CTD Module&nbsp;1
+      </footer>
 
       {previewPdf ? (
         <PdfPreviewDialog
@@ -1120,8 +1125,8 @@ function InlineDocPreview({
     (blob?.type ?? '').startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(fileName)
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-lg border">
-      <div className="bg-card flex items-center justify-between gap-2 border-b px-3 py-1.5">
+    <div className="overflow-hidden rounded-lg border">
+      <div className="bg-card sticky top-[5.25rem] z-10 flex items-center justify-between gap-2 border-b px-3 py-1.5">
         <span className="truncate text-xs font-medium">{fileName}</span>
         {url ? (
           <a
@@ -1135,13 +1140,13 @@ function InlineDocPreview({
         ) : null}
       </div>
       {loading ? (
-        <div className="text-muted-foreground flex flex-1 items-center justify-center text-sm">
+        <div className="text-muted-foreground flex min-h-[20rem] items-center justify-center text-sm">
           Chargement…
         </div>
       ) : blob && isPdf ? (
-        <PdfViewer blob={blob} />
+        <PdfViewer blob={blob} flow />
       ) : blob && isImage && url ? (
-        <div className="bg-muted min-h-0 flex-1 overflow-auto p-3">
+        <div className="bg-muted p-3">
           <img
             src={url}
             alt={fileName}
@@ -1149,12 +1154,12 @@ function InlineDocPreview({
           />
         </div>
       ) : url ? (
-        <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-2 text-sm">
+        <div className="text-muted-foreground flex min-h-[20rem] flex-col items-center justify-center gap-2 text-sm">
           <FileText className="size-8" />
           Aperçu non disponible pour ce format — téléchargez le fichier.
         </div>
       ) : (
-        <div className="text-muted-foreground flex flex-1 items-center justify-center text-sm">
+        <div className="text-muted-foreground flex min-h-[20rem] items-center justify-center text-sm">
           Aperçu indisponible hors-ligne.
         </div>
       )}

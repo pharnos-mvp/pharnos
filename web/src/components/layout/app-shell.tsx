@@ -64,7 +64,9 @@ export function AppShell() {
   }
 
   return (
-    <div className="bg-background text-foreground flex min-h-svh">
+    // Hauteur viewport fixe → c'est <main> qui défile (sa scrollbar = scroll global de droite),
+    // pendant que la barre latérale et l'en-tête restent figés (modèle « Google Docs »).
+    <div className="bg-background text-foreground flex h-svh overflow-hidden">
       <aside
         className={cn(
           'bg-sidebar flex w-16 shrink-0 flex-col border-r p-2 md:p-3',
