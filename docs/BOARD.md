@@ -227,9 +227,12 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
   branche prod `main`.
 - **Pré-requis** : auth Wrangler (`npx wrangler login`, une fois) ; `web/.env.local` avec
   `VITE_SUPABASE_URL`/`ANON_KEY` (baked au build) ; `VITE_SENTRY_DSN` optionnel.
-- **⚠️ Config Supabase Auth (pour que les inscriptions marchent en prod)** : dashboard Supabase →
-  Authentication → URL Configuration → **Site URL** = `https://pharnos.pages.dev` + l'ajouter aux
-  **Redirect URLs** (sinon les liens de confirmation e-mail pointent vers localhost).
+- **✅ Config Supabase Auth (faite)** : `site_url = https://pharnos.pages.dev` + redirects (prod +
+  localhost) appliqués au projet lié via `supabase config push`. Config désormais **versionnée**
+  dans `supabase/config.toml` (MFA TOTP on, confirmations e-mail on, OTP 8, anti-spam 1 min).
+- **⚠️ Règle d'or CLI Supabase** : **toujours** lancer les commandes `supabase` depuis la **racine du
+  repo** (`/d/pharnos-mvp`) — sinon la CLI lit un autre `config.toml` (le CEO a un 2e projet Pharnos)
+  et peut pousser la mauvaise config. Le projet correct est ref **`uhsireqwzqqymgsxuvqh`**.
 - **Redéployer** (manuel, depuis `web/`) :
   ```bash
   npm run build
