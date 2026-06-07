@@ -830,7 +830,7 @@ export function DossierWorkspacePage() {
                 {active?.kind === 'letter' && selectedGenDoc ? (
                   <section className="bg-card overflow-hidden rounded-lg border">
                     {docEditing ? (
-                      <div className="bg-card/95 supports-[backdrop-filter]:bg-card/70 sticky top-12 z-10 flex justify-center border-b py-1.5 backdrop-blur">
+                      <div className="sticky top-12 z-10">
                         <FormatToolbar editor={liveEditor} />
                       </div>
                     ) : null}
@@ -1173,7 +1173,7 @@ function InlineDocPreview({
 function FormatToolbar({ editor }: { editor: Editor | null }) {
   if (!editor) return null
   return (
-    <div className="bg-card flex items-center gap-1 rounded-full border px-1 py-1 shadow-sm">
+    <div className="bg-card flex items-center gap-1 border-b p-1.5">
       <Button
         type="button"
         variant="ghost"
