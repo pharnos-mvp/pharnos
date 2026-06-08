@@ -12,7 +12,9 @@
 > **Protocole de mise à jour** (voir §13) : à chaque tranche livrée (PR mergée), mettre à jour le
 > §1 (état), le §9 (milestones) et le §10 (journal). Garder le reste synchronisé si une décision change.
 
-_Dernière mise à jour : 2026-06-08 — pilote en ligne ; montage CTD façon Google Docs (scroll page unique, panneaux figés)._
+_Dernière mise à jour : 2026-06-08 — pilote en ligne ; montage CTD finalisé (UX Google Docs)._
+_**Reprise (nouvelle session) :** le cœur du MVP est livré et déployé. **Aller directement au §11 (Cap)** —
+on choisit le **Lot A / B / C** puis on exécute. Rien n'est en cours/cassé ; main est vert._
 
 ---
 
@@ -218,18 +220,40 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 | #27 | 06-07 | **Workspace** : titre du dossier dans le bandeau (Google Docs) + montage pleine hauteur |
 | #28 | 06-07 | **Workspace** : actions document dans la toolbar du haut + A4 défilable (marge de bas) |
 | #29 | 06-08 | **Workspace** : scroll « Google Docs » (page unique, panneaux figés, pill centrée, pied de page) |
+| #30 | 06-08 | Board : journal à jour (#25→#29) |
+| #31 | 06-08 | **Workspace** : barre des menus d'édition (Modifier/Signer…) remontée + centrée sur l'aperçu |
+| #32 | 06-08 | **Workspace** : barre de format (B/I/H2/Liste) rétablie pleine largeur, alignée à gauche |
+| #33 | 06-08 | **Workspace** : barre de format = en-tête direct du visualiseur (sans wrapper sticky) |
+| #34 | 06-08 | **Workspace** : barre de format collée à l'en-tête de la page A4 (marge sombre du haut supprimée) |
 
 ---
 
-## 11. Cap — prochaines étapes
+## 11. Cap — prochaines étapes (REPRISE : on choisit le lot, puis on exécute)
 
-1. **🚀 Pilote — EN COURS** : front **déployé** sur Cloudflare Pages (https://pharnos.pages.dev).
-   Reste à : **créer les comptes/organisations** pilotes (sign-up), puis **monter 1 dossier Module 1
-   réel** de bout en bout (compile PDF au vert) ; (optionnel) brancher un **DSN Sentry** + domaine custom.
-2. **M4 — Regafy IA** et **M5 — Traduction** : **dès réception des credentials GCP/Vertex**. La
-   mécanique front est prête (Regafy v1 déterministe + emplacements de traduction in-place).
-3. **Suivis M8 (optionnels, tâche #10)** : Lighthouse CI (PWA ≥ 90), exécution **auto** des tests RLS
-   en CI (service Postgres + pgtap), export DOCX (fast-follow).
+> **Le cœur du MVP (3 modules, online+offline) est livré, en ligne et durci.** Il reste 3 lots ;
+> le **Lot A** valide officiellement la métrique de succès du DoD et ne dépend d'**aucune clé externe**.
+
+**🟢 Lot A — Rendre le pilote réellement exploitable** *(recommandé en premier)*
+
+1. **E-mail d'inscription (SMTP)** : le service Supabase par défaut est limité (~qq envois/h) → ça
+   bloquera l'onboarding des orgs pilotes. Brancher **SendGrid/Resend** (config `[auth.email.smtp]`
+   dans `supabase/config.toml` + secret) **ou** désactiver la confirmation e-mail pour le pilote.
+2. **Valider le DoD** : monter **1 dossier Module 1 réel** de bout en bout (produit → pièces →
+   compile PDF au vert) avec une vraie organisation. C'est *le* test de succès du plan.
+3. *(optionnel)* domaine custom + **DSN Sentry** en prod (`VITE_SENTRY_DSN`).
+
+**🔴 Lot B — Couche IA (M4 + M5)** *(BLOQUÉ : credentials GCP/Vertex+Gemini du CEO)*
+
+- **M4 Regafy IA (Vertex)** : Regafy v1 (déterministe) fait déjà complétude/validité/langue ;
+  l'IA ajoute conformité template + suggestions. Abstraction provider prête.
+- **M5 Traduction in-place (Gemini + glossaire MedDRA, streaming)** : pas commencé ; emplacements prêts.
+- Dès clés GCP → brancher les deux **en parallèle** (Edge Functions, secrets côté Supabase, jamais en repo/chat).
+
+**⚪ Lot C — Finitions DoD / durcissement** *(non bloquant — tâche todo #10)*
+
+- **Lighthouse CI** (valider PWA ≥ 90 · TTI < 2,5 s) + mesurer « compile PDF M1 < 10 s ».
+- **Auto-deploy CI** (push `main` → Cloudflare, secret `CLOUDFLARE_API_TOKEN`) — fini le redéploiement manuel.
+- Tests **RLS pgTAP en CI** (service Postgres + pgtap). Export DOCX (fast-follow).
 
 ### Déploiement (prod) — Cloudflare Pages
 
