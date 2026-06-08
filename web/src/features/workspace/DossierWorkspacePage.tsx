@@ -33,7 +33,11 @@ import { getDocumentDownloadUrl } from '@/features/catalogue/documents-sync'
 import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
 import { useAuth } from '@/features/auth/auth-context'
 import { useOrgId } from '@/features/org/org-context'
-import { getOrgBranding, getUserSignature } from '@/features/profile/pro-settings-repository'
+import {
+  getOrgBranding,
+  getUserSignature,
+  setUserSignature,
+} from '@/features/profile/pro-settings-repository'
 import { useProSettingsSync } from '@/features/profile/use-pro-settings-sync'
 import {
   db,
@@ -78,6 +82,8 @@ import { PdfPreviewDialog } from './PdfPreviewDialog'
 import { PdfViewer } from './PdfViewer'
 import { runRegafy, type RegafyFinding } from './regafy'
 import { RichTextEditor } from './RichTextEditor'
+import { hasSignature, insertSignature, removeSignature } from './signature'
+import { BrandingPanel, SignaturePanel } from './SignatureBrandingPanels'
 import { TEMPLATES, templateKeyForNode, type TemplateContext } from './templates'
 import { flattenTree, isTreeOutdated, mergeDefaultTree, setNodeSaved } from './tree-utils'
 
@@ -133,6 +139,8 @@ export function DossierWorkspacePage() {
   const [autoStructural, setAutoStructural] = useState(true)
   const [pickedKey, setPickedKey] = useState<string | null>(null)
   const [gateFindings, setGateFindings] = useState<RegafyFinding[] | null>(null)
+  const [sigPanelOpen, setSigPanelOpen] = useState(false)
+  const [brandPanelOpen, setBrandPanelOpen] = useState(false)
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingSave = useRef<{ id: string; json: JSONContent } | null>(null)
@@ -498,8 +506,22 @@ export function DossierWorkspacePage() {
   }
 
   function handleSign() {
+    if (!liveEditor) return
+    // Toggle : déjà signée → retirer ; sinon signature stockée → insérer ; sinon ouvrir le panneau.
+    if (hasSignature(liveEditor)) {
+      removeSignature(liveEditor)
+      return
+    }
     const src = signature?.signatureImage
-    if (src && liveEditor) liveEditor.chain().focus().setImage({ src }).run()
+    if (src) insertSignature(liveEditor, src)
+    else setSigPanelOpen(true)
+  }
+
+  /** Applique une signature (data URL) à la lettre, en option en la stockant pour réutiliser. */
+  async function applySignature(dataUrl: string, store: boolean) {
+    if (store) await setUserSignature(orgId, userId, dataUrl)
+    if (liveEditor) insertSignature(liveEditor, dataUrl)
+    setSigPanelOpen(false)
   }
 
   function nextLeafAfter(node: CtdNodeDef): CtdNodeDef | null {
@@ -640,11 +662,11 @@ export function DossierWorkspacePage() {
             />
             <ToolbarBtn
               label="Signer"
-              disabled={!liveEditor || !docEditing || !signature?.signatureImage}
-              hint="Configurez votre signature dans Mon compte, puis passez en mode Modifier"
+              disabled={!liveEditor || !docEditing}
+              hint="Passez en mode Modifier pour signer"
               onClick={handleSign}
             />
-            <ToolbarBtn label="En-tête / Pied de page" onClick={() => navigate('/compte')} />
+            <ToolbarBtn label="En-tête / Pied de page" onClick={() => setBrandPanelOpen(true)} />
             <ToolbarBtn
               label="Régénérer"
               disabled={!selectedGenDoc || active?.kind !== 'letter'}
@@ -1012,6 +1034,13 @@ export function DossierWorkspacePage() {
             void handleCompile()
           }}
         />
+      ) : null}
+
+      {sigPanelOpen ? (
+        <SignaturePanel onApply={applySignature} onClose={() => setSigPanelOpen(false)} />
+      ) : null}
+      {brandPanelOpen ? (
+        <BrandingPanel branding={branding} orgId={orgId} onClose={() => setBrandPanelOpen(false)} />
       ) : null}
     </div>
   )
