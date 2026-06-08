@@ -72,6 +72,16 @@ function input(autoStructural: boolean): CompileInput {
   }
 }
 
+// PNG 1×1 transparent valide — pour tester l'embarquement en-tête/pied.
+const PNG_1x1 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+function pngBytes(): Uint8Array {
+  const bin = atob(PNG_1x1)
+  const b = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i)
+  return b
+}
+
 describe('compileDossier (compilation PDF)', () => {
   it('produit un PDF valide : TDM + garde + annonce + lettre', async () => {
     const bytes = await compileDossier(input(true))
@@ -81,6 +91,18 @@ describe('compileDossier (compilation PDF)', () => {
     expect(bytes[1]).toBe(0x50)
     const doc = await PDFDocument.load(bytes)
     // TDM(1) + garde 1.1 + annonce 1.1.1 + lettre(≥1) ; la section 1.3 sans contenu est exclue
+    expect(doc.getPageCount()).toBeGreaterThanOrEqual(4)
+  })
+
+  it('en-tête/pied embarqués + noms longs : PDF valide (pas de troncature qui casse)', async () => {
+    const inp = input(true)
+    inp.titulaire = 'Laboratoires Pharmaceutiques de l’Afrique de l’Ouest et du Centre SARL'
+    inp.commercialLine =
+      'Co-Amoxiclav (Amoxicilline 500 mg + Acide clavulanique 125 mg), comprimé pelliculé'
+    inp.header = { bytes: pngBytes(), isPng: true }
+    inp.footer = { bytes: pngBytes(), isPng: true }
+    const bytes = await compileDossier(inp)
+    const doc = await PDFDocument.load(bytes)
     expect(doc.getPageCount()).toBeGreaterThanOrEqual(4)
   })
 

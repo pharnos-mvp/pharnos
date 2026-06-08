@@ -158,6 +158,8 @@ export async function compileDossierToPdf(args: CompileArgs): Promise<CompileRes
   const commercialLine = dciDose ? `${dossier.productName} (${dciDose})` : dossier.productName
 
   const logo = branding?.logoImage ? dataUrlToBytes(branding.logoImage) : null
+  const header = branding?.headerImage ? dataUrlToBytes(branding.headerImage) : null
+  const footer = branding?.footerImage ? dataUrlToBytes(branding.footerImage) : null
 
   const bytes = await compileDossier({
     tree: dossier.tree,
@@ -166,6 +168,8 @@ export async function compileDossierToPdf(args: CompileArgs): Promise<CompileRes
     titulaire: product?.titulaire?.trim() || '[Titulaire]',
     commercialLine,
     logo,
+    header,
+    footer,
     autoStructural,
     contentByNumber,
   })
