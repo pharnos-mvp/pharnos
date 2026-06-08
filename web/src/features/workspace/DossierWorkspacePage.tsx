@@ -432,8 +432,14 @@ export function DossierWorkspacePage() {
       dosage: product?.dosage ?? '',
       forme: product?.forme ?? '',
       presentation: product?.presentation ?? '',
-      demandeur: product?.titulaire || '[Nom et adresse du demandeur d’AMM]',
-      fabricant: product?.fabricant || '[Nom et adresse du fabricant]',
+      demandeur:
+        [product?.titulaire, product?.titulaireAdresse]
+          .filter((s): s is string => Boolean(s?.trim()))
+          .join(', ') || '[Nom et adresse du demandeur d’AMM]',
+      fabricant:
+        [product?.fabricant, product?.fabricantAdresse]
+          .filter((s): s is string => Boolean(s?.trim()))
+          .join(', ') || '[Nom et adresse du fabricant]',
       agencyName: ag.name,
       agencyFull: ag.full,
       country: activeDossier.country,

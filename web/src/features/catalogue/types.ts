@@ -10,7 +10,9 @@ export const productSchema = z.object({
   classeTherapeutique: z.string().trim().max(200).default(''),
   codeAtc: z.string().trim().max(20).default(''),
   titulaire: z.string().trim().max(300).default(''),
+  titulaireAdresse: z.string().trim().max(300).default(''),
   fabricant: z.string().trim().max(300).default(''),
+  fabricantAdresse: z.string().trim().max(300).default(''),
 })
 
 /** Valeurs de sortie (validées, défauts appliqués) — utilisées par le formulaire. */
@@ -28,5 +30,7 @@ export const EMPTY_PRODUCT: ProductFormValues = {
   classeTherapeutique: '',
   codeAtc: '',
   titulaire: '',
+  titulaireAdresse: '',
   fabricant: '',
+  fabricantAdresse: '',
 }

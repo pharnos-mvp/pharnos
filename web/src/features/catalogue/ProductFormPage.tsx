@@ -59,7 +59,9 @@ export function ProductFormPage() {
         classeTherapeutique: existing.classeTherapeutique,
         codeAtc: existing.codeAtc,
         titulaire: existing.titulaire ?? '',
+        titulaireAdresse: existing.titulaireAdresse ?? '',
         fabricant: existing.fabricant ?? '',
+        fabricantAdresse: existing.fabricantAdresse ?? '',
       }
     : undefined
 
