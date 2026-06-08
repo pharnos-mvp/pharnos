@@ -42,6 +42,20 @@ export interface CompileNodeContent {
   pieces: CompilePiece[]
 }
 
+export interface CoverInfo {
+  /** Activité réglementaire (libellé), ex. « Nouvelle AMM ». */
+  activity: string
+  nomCommercial: string
+  /** DCI + dosage joints, ex. « Paracétamol 500 mg ». */
+  dciDosage: string
+  titulaireName: string
+  titulaireAddress: string
+  fabricantName: string
+  fabricantAddress: string
+  /** Mois + année, ex. « Juin 2026 ». */
+  dateLabel: string
+}
+
 export interface CompileInput {
   tree: CtdNodeDef[]
   moduleLabel: string
@@ -53,6 +67,8 @@ export interface CompileInput {
   header?: { bytes: Uint8Array; isPng: boolean } | null
   /** Pied de page (image) dessiné en bas des lettres générées — pleine largeur. */
   footer?: { bytes: Uint8Array; isPng: boolean } | null
+  /** Données des pages de couverture (CTD global + Module 1) ; null = pas de couverture. */
+  cover?: CoverInfo | null
   autoStructural: boolean
   contentByNumber: Map<string, CompileNodeContent>
 }
@@ -554,7 +570,7 @@ function drawTdmLine(
   line: TdmLine,
   y: number,
   fonts: Fonts,
-  tdmPageCount: number,
+  pagesBeforeContent: number,
 ): void {
   switch (line.kind) {
     case 'title':
@@ -604,7 +620,7 @@ function drawTdmLine(
       )
       page.drawText(label, { x: MARGIN + indent, y, size: 11, font: fonts.regular, color: BLACK })
       if (hasPage) {
-        const abs = tdmPageCount + (line.startIndex as number) + 1
+        const abs = pagesBeforeContent + (line.startIndex as number) + 1
         const s = String(abs)
         page.drawText(s, {
           x: A4[0] - MARGIN - fonts.regular.widthOfTextAtSize(s, 11),
@@ -617,6 +633,144 @@ function drawTdmLine(
       return
     }
   }
+}
+
+/* ----------------------------- Pages de couverture ----------------------------- */
+
+/** Couverture globale du dossier CTD (page 1) — DA officielle sobre (logo, filets, typo graduée). */
+function drawGlobalCover(
+  page: PDFPage,
+  input: CompileInput,
+  cover: CoverInfo,
+  fonts: Fonts,
+  logo: PDFImage | null,
+): void {
+  const { width, height } = page.getSize()
+
+  // En-tête : logo (gauche) + nom/sigle du titulaire (droite) + filet.
+  const headTop = height - MARGIN
+  if (logo) {
+    const lh = 38
+    const lw = Math.min((logo.width / logo.height) * lh, 150)
+    page.drawImage(logo, { x: MARGIN, y: headTop - lh, width: lw, height: lh })
+  }
+  if (cover.titulaireName) {
+    const t = ellipsize(cover.titulaireName, fonts.bold, 12, CONTENT_WIDTH / 2)
+    page.drawText(t, {
+      x: width - MARGIN - fonts.bold.widthOfTextAtSize(t, 12),
+      y: headTop - 24,
+      size: 12,
+      font: fonts.bold,
+      color: BLACK,
+    })
+  }
+  const ruleY = headTop - 52
+  page.drawLine({
+    start: { x: MARGIN, y: ruleY },
+    end: { x: width - MARGIN, y: ruleY },
+    thickness: 1,
+    color: GRAY,
+  })
+
+  // Bloc central : surtitre, activité, produit, DCI/dosage, pays.
+  let y = height * 0.66
+  const center = (text: string, size: number, bold: boolean, gap: number): void => {
+    if (!text) return
+    const f = bold ? fonts.bold : fonts.regular
+    const t = ellipsize(text, f, size, CONTENT_WIDTH)
+    page.drawText(t, {
+      x: (width - f.widthOfTextAtSize(t, size)) / 2,
+      y,
+      size,
+      font: f,
+      color: BLACK,
+    })
+    y -= gap
+  }
+  center("DOSSIER D'ENREGISTREMENT — COMMON TECHNICAL DOCUMENT (CTD)", 10, false, 28)
+  center(cover.activity.toUpperCase(), 13, true, 32)
+  center(cover.nomCommercial, 24, true, 30)
+  center(cover.dciDosage, 14, false, 22)
+  center(input.country, 13, false, 22)
+
+  // Parties : titulaire + fabricant (si différent).
+  y = height * 0.34
+  const block = (label: string, name: string, address: string): void => {
+    if (!name) return
+    page.drawText(sanitize(label), { x: MARGIN, y, size: 9, font: fonts.bold, color: GRAY })
+    y -= 15
+    page.drawText(ellipsize(name, fonts.regular, 11, CONTENT_WIDTH), {
+      x: MARGIN,
+      y,
+      size: 11,
+      font: fonts.regular,
+      color: BLACK,
+    })
+    y -= 13
+    for (const ln of wrapPlain(address, fonts.regular, 10, CONTENT_WIDTH).slice(0, 3)) {
+      if (!ln) break
+      page.drawText(ln, { x: MARGIN, y, size: 10, font: fonts.regular, color: BLACK })
+      y -= 12
+    }
+    y -= 12
+  }
+  block("TITULAIRE / DEMANDEUR D'AMM", cover.titulaireName, cover.titulaireAddress)
+  if (cover.fabricantName && cover.fabricantName !== cover.titulaireName) {
+    block('FABRICANT', cover.fabricantName, cover.fabricantAddress)
+  }
+
+  // Pied : activité + mois/année.
+  const fy = MARGIN
+  page.drawLine({
+    start: { x: MARGIN, y: fy + 16 },
+    end: { x: width - MARGIN, y: fy + 16 },
+    thickness: 0.5,
+    color: GRAY,
+  })
+  if (cover.activity) {
+    page.drawText(sanitize(cover.activity), {
+      x: MARGIN,
+      y: fy,
+      size: 9,
+      font: fonts.regular,
+      color: GRAY,
+    })
+  }
+  const dl = sanitize(cover.dateLabel)
+  page.drawText(dl, {
+    x: width - MARGIN - fonts.regular.widthOfTextAtSize(dl, 9),
+    y: fy,
+    size: 9,
+    font: fonts.regular,
+    color: GRAY,
+  })
+}
+
+/** Couverture du Module 1 (page 2). */
+function drawModuleCover(page: PDFPage, input: CompileInput, fonts: Fonts): void {
+  drawCentered(
+    page,
+    [
+      { text: 'MODULE 1', size: 34, bold: true },
+      { text: 'Informations administratives', size: 16, bold: false },
+      { text: input.commercialLine, size: 12, bold: false },
+      { text: input.country, size: 12, bold: false },
+    ],
+    fonts,
+  )
+}
+
+/** Ajoute les pages de couverture en tête du document final. Renvoie le nombre de pages ajoutées. */
+function drawCoverPages(
+  final: PDFDocument,
+  input: CompileInput,
+  fonts: Fonts,
+  logo: PDFImage | null,
+): number {
+  if (!input.cover) return 0
+  drawGlobalCover(final.addPage(A4), input, input.cover, fonts, logo)
+  drawModuleCover(final.addPage(A4), input, fonts)
+  return 2
 }
 
 export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
@@ -723,46 +877,14 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
 
   await walk(input.tree, 0)
 
-  // 2) Assemblage final = pages TDM (réservées) + contenu copié.
+  // 2) Assemblage final = couvertures + pages TDM (réservées) + contenu copié.
   const final = await PDFDocument.create()
   const fFonts: Fonts = {
     regular: await final.embedFont(StandardFonts.TimesRoman),
     bold: await final.embedFont(StandardFonts.TimesRomanBold),
   }
 
-  // TDM « tous modules » : on calcule d'abord le découpage en pages (indépendant des n° de page),
-  // ce qui donne le nombre exact de pages TDM à réserver avant de copier le contenu.
-  const tdmLayout = input.autoStructural ? paginateTdm(buildTdmLines(input, entries)) : []
-  const tdmPageCount = tdmLayout.length
-
-  const tdmPages: PDFPage[] = []
-  for (let i = 0; i < tdmPageCount; i++) tdmPages.push(final.addPage(A4))
-
-  const copied = await final.copyPages(contentDoc, contentDoc.getPageIndices())
-  copied.forEach((p) => final.addPage(p))
-
-  // Pages de garde du doc final = pages TDM + gardes/annonces (décalées du nombre de pages TDM).
-  const coverPageIndices = new Set<number>()
-  for (let i = 0; i < tdmPageCount; i++) coverPageIndices.add(i)
-  for (const ci of coverContentIndices) coverPageIndices.add(tdmPageCount + ci)
-
-  if (final.getPageCount() === 0) {
-    coverPageIndices.add(0)
-    drawCentered(final.addPage(A4), [{ text: 'Dossier vide', size: 16, bold: true }], fFonts)
-  }
-
-  // 3) Remplissage du TDM (numéros de page absolus pour les nœuds Module 1 avec contenu).
-  tdmLayout.forEach((pageLines, p) => {
-    const page = tdmPages[p]
-    if (!page) return
-    let y = CONTENT_TOP
-    for (const line of pageLines) {
-      drawTdmLine(page, line, y, fFonts, tdmPageCount)
-      y -= tdmLineHeight(line)
-    }
-  })
-
-  // 4) En-tête/pied + pagination sur toutes les pages.
+  // Logo (utilisé par la couverture ET le bandeau système) — embarqué tôt.
   let logoImg: PDFImage | null = null
   if (input.logo) {
     try {
@@ -773,6 +895,43 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
       logoImg = null
     }
   }
+
+  // Couvertures (p.1 CTD global, p.2 Module 1) en tête — uniquement en mode structurel.
+  const coverCount = input.autoStructural ? drawCoverPages(final, input, fFonts, logoImg) : 0
+
+  // TDM « tous modules » : découpage en pages (indépendant des n° de page) → pages à réserver.
+  const tdmLayout = input.autoStructural ? paginateTdm(buildTdmLines(input, entries)) : []
+  const tdmPageCount = tdmLayout.length
+
+  const tdmPages: PDFPage[] = []
+  for (let i = 0; i < tdmPageCount; i++) tdmPages.push(final.addPage(A4))
+
+  const copied = await final.copyPages(contentDoc, contentDoc.getPageIndices())
+  copied.forEach((p) => final.addPage(p))
+
+  // Pages tamponnées (bandeau système) = TDM + gardes/annonces, décalées des couvertures + TDM.
+  // Les pages de couverture (0..coverCount-1) ont leur DA propre → jamais tamponnées.
+  const coverPageIndices = new Set<number>()
+  for (let i = 0; i < tdmPageCount; i++) coverPageIndices.add(coverCount + i)
+  for (const ci of coverContentIndices) coverPageIndices.add(coverCount + tdmPageCount + ci)
+
+  if (final.getPageCount() === 0) {
+    coverPageIndices.add(0)
+    drawCentered(final.addPage(A4), [{ text: 'Dossier vide', size: 16, bold: true }], fFonts)
+  }
+
+  // 3) Remplissage du TDM (numéro de page absolu = couvertures + TDM + index dans le contenu).
+  tdmLayout.forEach((pageLines, p) => {
+    const page = tdmPages[p]
+    if (!page) return
+    let y = CONTENT_TOP
+    for (const line of pageLines) {
+      drawTdmLine(page, line, y, fFonts, coverCount + tdmPageCount)
+      y -= tdmLineHeight(line)
+    }
+  })
+
+  // 4) En-tête/pied + pagination sur toutes les pages (hors couvertures).
   stampAll(final, input, fFonts, logoImg, coverPageIndices)
 
   return final.save()
