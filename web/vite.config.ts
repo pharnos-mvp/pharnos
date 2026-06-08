@@ -34,7 +34,9 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        // `mjs` inclus : le worker pdf.js est livré en `pdf.worker.min-*.mjs` (~1,2 Mo) — sans ça
+        // il n'est pas précaché et l'aperçu PDF échoue hors-ligne (montage + visualiseur compilé).
+        globPatterns: ['**/*.{js,mjs,css,html,svg,png,ico,woff2}'],
         navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
         // Prise de contrôle immédiate → l'app est servie depuis le cache dès le rechargement

@@ -604,11 +604,10 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
         if (!content || (!content.generated && content.pieces.length === 0)) continue
         // Un document = une sous-section : page d'annonce dédiée + document sur ses propres pages
         // (jamais deux documents sur une même page).
-        const items: { name: string; render: () => Promise<void> }[] = []
+        const items: { render: () => Promise<void> }[] = []
         if (content.generated) {
           const generated = content.generated
           items.push({
-            name: generated.title,
             render: async () => {
               const cursor: Cursor = {
                 doc: contentDoc,
@@ -621,7 +620,7 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
           })
         }
         for (const piece of content.pieces) {
-          items.push({ name: piece.fileName, render: () => appendPiece(contentDoc, piece, fonts) })
+          items.push({ render: () => appendPiece(contentDoc, piece, fonts) })
         }
         let sub = 1
         for (const item of items) {
@@ -633,7 +632,6 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
               [
                 { text: number, size: 22, bold: true },
                 { text: node.label, size: 14, bold: false },
-                { text: item.name, size: 11, bold: false },
               ],
               fonts,
             )

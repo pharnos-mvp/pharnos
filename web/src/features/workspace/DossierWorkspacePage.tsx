@@ -760,78 +760,90 @@ export function DossierWorkspacePage() {
         <div className="min-w-0 flex-1">
           {selected ? (
             <div className="flex flex-col gap-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <h2 className="font-semibold">
-                    {selected.number ? `${selected.number} ` : ''}
-                    {selected.label}
-                  </h2>
-                  {selected.note ? (
-                    <p className="text-muted-foreground mt-1 max-w-prose text-xs italic">
-                      {selected.note}
-                    </p>
-                  ) : null}
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  {selectedGenDoc ? (
-                    <Badge variant="secondary">BROUILLON</Badge>
-                  ) : viewables.length > 0 ? (
-                    <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
-                      EN ATTENTE
-                    </Badge>
-                  ) : null}
-                  {selectedTplKey && !selectedGenDoc ? (
-                    <Button size="sm" onClick={() => void handleGenerate()}>
-                      <Sparkles className="size-4" /> Générer
-                    </Button>
-                  ) : null}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0]
-                      if (f) void handleUpload(f)
-                      e.target.value = ''
-                    }}
-                  />
-                  <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}>
-                    <Upload className="size-4" /> Téléverser
-                  </Button>
-                  <Button size="sm" variant="secondary" onClick={() => void handleSaveNode()}>
-                    <Save className="size-4" /> Enregistrer
-                  </Button>
-                </div>
-              </div>
-
-              {viewables.length > 1 ? (
-                <div className="flex flex-wrap gap-1">
-                  {viewables.map((v) => (
-                    <button
-                      key={v.key}
-                      type="button"
-                      onClick={() => setPickedKey(v.key)}
-                      title={v.label}
-                      className={cn(
-                        'flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs',
-                        active?.key === v.key
-                          ? 'border-primary bg-primary/10 text-primary'
-                          : 'text-muted-foreground hover:bg-accent',
-                      )}
+              {/* Chrome figé : titre, actions, onglets et barre de format restent en place pendant
+                  que la page A4 défile dessous (sticky sous le bandeau du haut). */}
+              <div className="bg-background sticky top-12 z-20 flex flex-col gap-3 pb-1">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <h2 className="font-semibold">
+                      {selected.number ? `${selected.number} ` : ''}
+                      {selected.label}
+                    </h2>
+                    {selected.note ? (
+                      <p className="text-muted-foreground mt-1 max-w-prose text-xs italic">
+                        {selected.note}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {selectedGenDoc ? (
+                      <Badge variant="secondary">BROUILLON</Badge>
+                    ) : viewables.length > 0 ? (
+                      <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
+                        EN ATTENTE
+                      </Badge>
+                    ) : null}
+                    {selectedTplKey && !selectedGenDoc ? (
+                      <Button size="sm" onClick={() => void handleGenerate()}>
+                        <Sparkles className="size-4" /> Générer
+                      </Button>
+                    ) : null}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0]
+                        if (f) void handleUpload(f)
+                        e.target.value = ''
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
                     >
-                      <FileText className="size-3.5" />
-                      <span className="max-w-[160px] truncate">{v.label}</span>
-                    </button>
-                  ))}
+                      <Upload className="size-4" /> Téléverser
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => void handleSaveNode()}>
+                      <Save className="size-4" /> Enregistrer
+                    </Button>
+                  </div>
                 </div>
-              ) : null}
+
+                {viewables.length > 1 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {viewables.map((v) => (
+                      <button
+                        key={v.key}
+                        type="button"
+                        onClick={() => setPickedKey(v.key)}
+                        title={v.label}
+                        className={cn(
+                          'flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs',
+                          active?.key === v.key
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'text-muted-foreground hover:bg-accent',
+                        )}
+                      >
+                        <FileText className="size-3.5" />
+                        <span className="max-w-[160px] truncate">{v.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+
+                {/* Barre de format figée dans le chrome (édition d'une lettre). */}
+                {active?.kind === 'letter' && selectedGenDoc && docEditing ? (
+                  <div className="bg-card overflow-hidden rounded-lg border">
+                    <FormatToolbar editor={liveEditor} />
+                  </div>
+                ) : null}
+              </div>
 
               <div>
                 {active?.kind === 'letter' && selectedGenDoc ? (
                   <section className="bg-card overflow-hidden rounded-lg border">
-                    {/* Barre de format = en-tête du visualiseur, directement en haut de la carte
-                        (place initiale, comme au moment où le scroll était au niveau du visualiseur). */}
-                    {docEditing ? <FormatToolbar editor={liveEditor} /> : null}
                     <div>
                       <RichTextEditor
                         docId={selectedGenDoc.id}
@@ -1127,7 +1139,7 @@ function InlineDocPreview({
 
   return (
     <div className="overflow-hidden rounded-lg border">
-      <div className="bg-card sticky top-[5.25rem] z-10 flex items-center justify-between gap-2 border-b px-3 py-1.5">
+      <div className="bg-card flex items-center justify-between gap-2 border-b px-3 py-1.5">
         <span className="truncate text-xs font-medium">{fileName}</span>
         {url ? (
           <a
