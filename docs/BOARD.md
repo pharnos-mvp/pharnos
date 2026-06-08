@@ -12,10 +12,10 @@
 > **Protocole de mise à jour** (voir §13) : à chaque tranche livrée (PR mergée), mettre à jour le
 > §1 (état), le §9 (milestones) et le §10 (journal). Garder le reste synchronisé si une décision change.
 
-_Dernière mise à jour : 2026-06-08 — **Lot A‑1 e-mail OK** + **polish montage M1 (Slices 1/0/2/3 livrées & déployées)** : preview PDF offline, titre/barre sticky, Nom/Adresse séparés, papier à en-tête/pied & 2 pages de couverture dans le PDF compilé._
-_**Reprise (nouvelle session) :** cœur du MVP déployé ; **Lot A‑1 e-mail OK** + **polish montage M1 (Slices 1/0/2/3
-livrées + déployées)**. **Reste :** **Slice 4** (UX signature/en-tête **in-montage** : upload sans navigation +
-stockage optionnel + signature au bon endroit + toggle — plan de session détaillé) + **valider le DoD réel**. Voir §11. Main est vert._
+_Dernière mise à jour : 2026-06-08 — **Lot A‑1 e-mail OK** + **polish montage M1 5/5 livré & déployé** (preview offline, sticky, Nom/Adresse, en-tête/pied & couvertures dans le PDF compilé, UX signature/en-tête in-montage). Reste : valider le DoD réel._
+_**Reprise (nouvelle session) :** cœur du MVP déployé ; **Lot A‑1 e-mail OK** + **polish montage M1 COMPLET (5/5 :
+Slices 1/0/2/3/4 + fix barre de format, déployés)**. **Reste du Lot A :** **valider le DoD réel** (1 dossier M1) +
+optionnel domaine/Sentry. Voir §11. Main est vert._
 
 ---
 
@@ -236,6 +236,9 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 | #42 | 06-08 | **Catalogue (polish 0)** : titulaire/fabricant **Nom + Adresse** séparés (+ migration 0012) |
 | #43 | 06-08 | **Workspace (polish 2)** : papier à en-tête/pied **dans le PDF compilé** + bandeau système noms complets (sans troncature) |
 | #44 | 06-08 | **Workspace (polish 3)** : **pages de couverture** CTD globale + Module 1 |
+| #45 | 06-08 | Board : polish montage (Slices 1/0/2/3) + journal #39→#44 |
+| #46 | 06-08 | **Workspace (fix)** : barre de format recollée à la page A4 (sticky) — retour CEO |
+| #47 | 06-08 | **Workspace (polish 4)** : UX **signature & en-tête/pied in-montage** (upload sans navigation + stockage optionnel + placement réservé `[Signature et cachet]` + toggle) |
 
 ---
 
@@ -244,7 +247,7 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 > **Le cœur du MVP (3 modules, online+offline) est livré, en ligne et durci.** Il reste 3 lots ;
 > le **Lot A** rend le pilote exploitable et valide la métrique de succès du DoD.
 
-**🟢 Lot A — Rendre le pilote réellement exploitable** *(e-mail ✅ ; polish montage 4/5 ; reste Slice 4 + DoD)*
+**🟢 Lot A — Rendre le pilote réellement exploitable** *(e-mail ✅ ; polish montage ✅ 5/5 ; reste : valider le DoD)*
 
 1. **E-mail d'inscription + récupération de compte** — ✅ **TERMINÉ & vérifié en prod** :
    - ✅ Front (#36) : « mot de passe oublié » (écran de reset via `PASSWORD_RECOVERY`) + « renvoyer la confirmation ».
@@ -256,7 +259,7 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
    - ✅ **Slice 0 (#42, migration 0012)** : titulaire/fabricant **Nom + Adresse** séparés.
    - ✅ **Slice 2 (#43)** : **papier à en-tête/pied dans le PDF compilé** + bandeau système **noms complets** (sans troncature).
    - ✅ **Slice 3 (#44)** : **pages de couverture** (CTD globale + Module 1).
-   - ⏳ **Slice 4 (à faire)** : UX **signature & en-tête/pied in-montage** — upload sans navigation + stockage optionnel (permission) + signature au paragraphe réservé `[Signature et cachet]` + toggle. (Plan de session conservé.)
+   - ✅ **Slice 4 (#47)** : UX **signature & en-tête/pied in-montage** — upload sans navigation + stockage optionnel (permission) + signature au paragraphe réservé `[Signature et cachet]` + toggle. **Fix #46** : barre de format recollée à l'A4 (sticky).
    - ℹ️ **Sync offline (réponse au CEO)** : à la reconnexion, l'outbox est poussée (métadonnées **+ blobs vers Storage**) puis pull **LWW server-authoritative** — automatique. Le PDF compilé n'est pas stocké (régénéré à la demande).
 3. **Valider le DoD** : monter **1 dossier Module 1 réel** de bout en bout (produit → pièces →
    compile PDF au vert) avec une vraie organisation. C'est *le* test de succès du plan.
