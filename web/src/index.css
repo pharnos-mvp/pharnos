@@ -183,11 +183,12 @@
 }
 .editor-band {
   display: block;
-  width: 100%;
+  /* Pleine largeur bord-à-bord : déborde le padding 2,5cm de .editor-page (en-tête/pied sans marge). */
+  width: calc(100% + 5cm);
+  max-width: none;
   height: auto;
-  margin-bottom: 1rem;
+  margin: -2.5cm -2.5cm 1rem;
 }
 .editor-band-footer {
-  margin-top: 2rem;
-  margin-bottom: 0;
+  margin: 2rem -2.5cm -2.5cm;
 }

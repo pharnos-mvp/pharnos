@@ -108,19 +108,25 @@ export function generatedDocToHtml(
 <meta charset="utf-8">
 <title>${escapeHtml(title)}</title>
 <style>
-  @page { size: A4; margin: 2.5cm; }
-  body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5; color: #000; max-width: 16cm; margin: 2.5cm auto; }
+  /* Marge de page nulle : l'en-tête/pied occupent toute la largeur (bord-à-bord). Le corps garde
+     ses marges 2,5 cm via le conteneur .content. */
+  @page { size: A4; margin: 0; }
+  body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5; color: #000; margin: 0; }
   h1, h2, h3 { font-family: 'Times New Roman', Times, serif; }
   ul, ol { padding-left: 1.5rem; }
   p { margin: 0.5rem 0; }
   img { max-width: 100%; height: auto; }
-  .band img { width: 100%; }
+  .content { max-width: 16cm; margin: 0 auto; padding: 2.5cm; }
+  .band { width: 100%; }
+  .band img { display: block; width: 100%; }
   .band-footer { margin-top: 2rem; }
 </style>
 </head>
 <body>
 ${header}
+<div class="content">
 ${renderNode(content)}
+</div>
 ${footer}
 </body>
 </html>`
