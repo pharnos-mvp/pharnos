@@ -12,10 +12,10 @@
 > **Protocole de mise à jour** (voir §13) : à chaque tranche livrée (PR mergée), mettre à jour le
 > §1 (état), le §9 (milestones) et le §10 (journal). Garder le reste synchronisé si une décision change.
 
-_Dernière mise à jour : 2026-06-08 — **Lot A entamé** : récupération de compte (front) livrée (#36) ; SMTP Resend + templates FR prêts (activation gated CEO)._
-_**Reprise (nouvelle session) :** cœur du MVP déployé ; **Lot A en cours**. Le front de récupération de compte
-(mot de passe oublié + renvoi de confirmation) est livré (#36) ; reste l'**activation SMTP Resend** (clé CEO +
-`supabase config push` + redeploy, gated). Voir §11. Main est vert._
+_Dernière mise à jour : 2026-06-08 — **Lot A‑1 (e-mail/onboarding) terminé & vérifié en prod** : récupération de compte + SMTP Resend (`pharnos.com`) ; inscription + reset délivrent l'e-mail._
+_**Reprise (nouvelle session) :** cœur du MVP déployé ; **Lot A‑1 terminé & vérifié en prod** (SMTP Resend
+`pharnos.com` ; inscription + « mot de passe oublié » OK). **Reste du Lot A :** valider le DoD (1 dossier M1 réel)
++ optionnel domaine custom/Sentry. Voir §11. Main est vert._
 
 ---
 
@@ -228,6 +228,8 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 | #34 | 06-08 | **Workspace** : barre de format collée à l'en-tête de la page A4 (marge sombre du haut supprimée) |
 | #35 | 06-08 | Board : mise à jour reprise (journal #30→#34 + cap Lots A/B/C) |
 | #36 | 06-08 | **Auth (Lot A)** : récupération de compte (mot de passe oublié + renvoi de confirmation) + SMTP Resend & templates e-mail FR (config gated) |
+| #37 | 06-08 | Board : Lot A entamé (récupération de compte #36, activation SMTP gated) |
+| #38 | 06-08 | **Auth (Lot A)** : expéditeur `noreply@pharnos.com` (domaine vérifié) — **SMTP Resend activé & vérifié en prod** (inscription + reset délivrés) |
 
 ---
 
@@ -236,12 +238,13 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 > **Le cœur du MVP (3 modules, online+offline) est livré, en ligne et durci.** Il reste 3 lots ;
 > le **Lot A** rend le pilote exploitable et valide la métrique de succès du DoD.
 
-**🟢 Lot A — Rendre le pilote réellement exploitable** *(en cours)*
+**🟢 Lot A — Rendre le pilote réellement exploitable** *(e-mail ✅ terminé ; reste : valider le DoD)*
 
-1. **E-mail d'inscription + récupération de compte** :
-   - ✅ **Front livré (#36)** : « mot de passe oublié » (écran de reset via l'événement `PASSWORD_RECOVERY`) + « renvoyer la confirmation ».
-   - ✅ **Config prête (#36)** : `[auth.email.smtp]` **Resend** + `email_sent` 2→30 + **templates FR** dans `supabase/templates/`.
-   - ⏳ **Activation (gated CEO)** : créer le compte **Resend** + clé API (+ domaine d'envoi vérifié), puis depuis la **racine du repo** `RESEND_API_KEY=… supabase config push` (écriture prod) **+ redeploy front**. Sans ça, le « mot de passe oublié » ne *délivre* pas l'e-mail.
+1. **E-mail d'inscription + récupération de compte** — ✅ **TERMINÉ & vérifié en prod** :
+   - ✅ Front (#36) : « mot de passe oublié » (écran de reset via `PASSWORD_RECOVERY`) + « renvoyer la confirmation ».
+   - ✅ Config (#36) + expéditeur `noreply@pharnos.com` (#38) : `[auth.email.smtp]` **Resend** + `email_sent` 30/h + **templates FR** (`supabase/templates/`).
+   - ✅ **Activé en prod** : `supabase config push` (projet `uhsireqwzqqymgsxuvqh`, clé Resend lue depuis `.env` **racine gitignoré**) + redeploy front. **Vérifié** : inscription + reset délivrent l'e-mail FR (expéditeur `pharnos.com`).
+   - ⚠️ La clé Resend vit dans `.env` (racine, gitignoré) pour les futurs `config push` — **ne jamais la commiter** ; toujours pousser **depuis la racine** du repo.
 2. **Valider le DoD** : monter **1 dossier Module 1 réel** de bout en bout (produit → pièces →
    compile PDF au vert) avec une vraie organisation. C'est *le* test de succès du plan.
 3. *(optionnel)* domaine custom + **DSN Sentry** en prod (`VITE_SENTRY_DSN`).
