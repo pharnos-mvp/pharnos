@@ -20,10 +20,14 @@ export interface ProductRecord {
   presentation: string
   classeTherapeutique: string
   codeAtc: string
-  /** Titulaire / demandeur d'AMM (nom + adresse). */
+  /** Nom du titulaire / demandeur d'AMM. */
   titulaire: string
-  /** Fabricant (nom + adresse). */
+  /** Adresse du titulaire / demandeur d'AMM (couverture du dossier). */
+  titulaireAdresse?: string
+  /** Nom du fabricant. */
   fabricant: string
+  /** Adresse du fabricant (couverture du dossier). */
+  fabricantAdresse?: string
   createdAt: string
   updatedAt: string
   /** Soft delete : conservé pour la réconciliation de synchro. `null` = actif. */

@@ -39,8 +39,22 @@ const identificationFields: ReadonlyArray<{
   { name: 'presentation', label: 'Présentation', placeholder: 'Ex. Boîte de 16' },
   { name: 'classeTherapeutique', label: 'Classe thérapeutique', placeholder: 'Ex. Antalgique' },
   { name: 'codeAtc', label: 'Code ATC', placeholder: 'Ex. N02BE01' },
-  { name: 'titulaire', label: "Titulaire / demandeur d'AMM", placeholder: 'Nom + adresse' },
-  { name: 'fabricant', label: 'Fabricant', placeholder: 'Nom + adresse' },
+  {
+    name: 'titulaire',
+    label: "Nom du titulaire / demandeur d'AMM",
+    placeholder: 'Ex. Sahel Pharma SARL',
+  },
+  {
+    name: 'titulaireAdresse',
+    label: 'Adresse du titulaire',
+    placeholder: 'Ex. 12 rue de la Santé, Cotonou, Bénin',
+  },
+  { name: 'fabricant', label: 'Nom du fabricant', placeholder: 'Ex. Laboratoires Atlas' },
+  {
+    name: 'fabricantAdresse',
+    label: 'Adresse du fabricant',
+    placeholder: 'Ex. Zone industrielle, Casablanca, Maroc',
+  },
 ]
 
 export function ProductForm({
