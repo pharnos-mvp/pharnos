@@ -5,6 +5,10 @@ export interface AuthContextValue {
   session: Session | null
   user: User | null
   loading: boolean
+  /** Vrai quand l'utilisateur arrive via un lien de récupération (événement `PASSWORD_RECOVERY`). */
+  recovery: boolean
+  /** Sort du mode récupération une fois le nouveau mot de passe défini. */
+  clearRecovery: () => void
   signOut: () => Promise<void>
 }
 

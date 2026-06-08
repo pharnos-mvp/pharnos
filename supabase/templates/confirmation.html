@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="fr">
+  <body
+    style="margin: 0; background: #f4f4f5; font-family: Arial, Helvetica, sans-serif; color: #18181b"
+  >
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding: 24px 0">
+      <tr>
+        <td align="center">
+          <table
+            role="presentation"
+            width="480"
+            cellpadding="0"
+            cellspacing="0"
+            style="background: #ffffff; border-radius: 12px; padding: 32px"
+          >
+            <tr>
+              <td style="padding-bottom: 8px; font-size: 20px; font-weight: bold">Pharnos</td>
+            </tr>
+            <tr>
+              <td style="padding-bottom: 8px; font-size: 16px; font-weight: bold">
+                Confirmez votre adresse
+              </td>
+            </tr>
+            <tr>
+              <td style="padding-bottom: 24px; font-size: 14px; line-height: 22px; color: #3f3f46">
+                Bienvenue sur Pharnos. Cliquez sur le bouton ci-dessous pour confirmer votre adresse
+                e-mail et activer votre compte.
+              </td>
+            </tr>
+            <tr>
+              <td style="padding-bottom: 24px">
+                <a
+                  href="{{ .ConfirmationURL }}"
+                  style="display: inline-block; background: #18181b; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: bold; padding: 12px 20px; border-radius: 8px"
+                  >Confirmer mon adresse</a
+                >
+              </td>
+            </tr>
+            <tr>
+              <td style="font-size: 12px; line-height: 18px; color: #71717a">
+                Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :<br />
+                <a href="{{ .ConfirmationURL }}" style="color: #2563eb; word-break: break-all"
+                  >{{ .ConfirmationURL }}</a
+                >
+              </td>
+            </tr>
+            <tr>
+              <td
+                style="padding-top: 24px; border-top: 1px solid #e4e4e7; font-size: 12px; color: #a1a1aa"
+              >
+                Vous recevez cet e-mail car un compte Pharnos a été créé avec cette adresse. Si ce
+                n'est pas vous, ignorez ce message.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

@@ -14,6 +14,9 @@ import { LOCAL_ORG_ID } from '@/lib/session'
 const LoginPage = lazy(() =>
   import('@/features/auth/LoginPage').then((m) => ({ default: m.LoginPage })),
 )
+const ResetPasswordPage = lazy(() =>
+  import('@/features/auth/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })),
+)
 const OnboardingPage = lazy(() =>
   import('@/features/org/OnboardingPage').then((m) => ({ default: m.OnboardingPage })),
 )
@@ -49,12 +52,22 @@ function AuthedApp() {
 }
 
 function AppGate() {
-  const { loading, session } = useAuth()
+  const { loading, session, recovery } = useAuth()
 
   // Mode local/offline (pas de backend configuré) : pas d'auth, org locale.
   if (!env.isSupabaseConfigured) return <OrgScopedRoutes orgId={LOCAL_ORG_ID} />
 
   if (loading) return <FullScreenLoader />
+
+  // Lien « mot de passe oublié » : on impose l'écran de reset avant tout (la session
+  // de récupération est active, donc ce test précède celui de `session`).
+  if (recovery) {
+    return (
+      <Suspense fallback={<FullScreenLoader />}>
+        <ResetPasswordPage />
+      </Suspense>
+    )
+  }
 
   if (!session) {
     return (
