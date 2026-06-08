@@ -838,29 +838,27 @@ export function DossierWorkspacePage() {
                     ))}
                   </div>
                 ) : null}
-
-                {/* Barre de format figée dans le chrome (édition d'une lettre). */}
-                {active?.kind === 'letter' && selectedGenDoc && docEditing ? (
-                  <div className="bg-card overflow-hidden rounded-lg border">
-                    <FormatToolbar editor={liveEditor} />
-                  </div>
-                ) : null}
               </div>
 
               <div>
                 {active?.kind === 'letter' && selectedGenDoc ? (
-                  <section className="bg-card overflow-hidden rounded-lg border">
-                    <div>
-                      <RichTextEditor
-                        docId={selectedGenDoc.id}
-                        initialContent={selectedGenDoc.content as JSONContent}
-                        editable={docEditing}
-                        onChange={(json) => handleEditorChange(selectedGenDoc.id, json)}
-                        onReady={handleEditorReady}
-                        header={branding?.headerImage ?? null}
-                        footer={branding?.footerImage ?? null}
-                      />
-                    </div>
+                  // Pas d'`overflow-hidden` : casserait le `sticky` de la barre de format.
+                  <section className="bg-card rounded-lg border">
+                    {/* Barre de format = en-tête direct de la page A4 (collée), figée (sticky) au scroll. */}
+                    {docEditing ? (
+                      <div className="bg-card sticky top-[5.25rem] z-10 rounded-t-lg">
+                        <FormatToolbar editor={liveEditor} />
+                      </div>
+                    ) : null}
+                    <RichTextEditor
+                      docId={selectedGenDoc.id}
+                      initialContent={selectedGenDoc.content as JSONContent}
+                      editable={docEditing}
+                      onChange={(json) => handleEditorChange(selectedGenDoc.id, json)}
+                      onReady={handleEditorReady}
+                      header={branding?.headerImage ?? null}
+                      footer={branding?.footerImage ?? null}
+                    />
                   </section>
                 ) : active && active.kind !== 'letter' ? (
                   <InlineDocPreview
