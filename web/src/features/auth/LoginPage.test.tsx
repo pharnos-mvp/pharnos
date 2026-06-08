@@ -22,9 +22,7 @@ describe('LoginPage (bascule des modes)', () => {
     const user = userEvent.setup()
     render(<LoginPage />)
 
-    await user.click(
-      screen.getByRole('button', { name: 'Pas encore de compte ? Créer un compte' }),
-    )
+    await user.click(screen.getByRole('button', { name: 'Pas encore de compte ? Créer un compte' }))
 
     expect(screen.getByLabelText('Mot de passe')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Créer le compte' })).toBeInTheDocument()
