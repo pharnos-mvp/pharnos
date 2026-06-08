@@ -49,6 +49,10 @@ export interface CompileInput {
   titulaire: string
   commercialLine: string
   logo?: { bytes: Uint8Array; isPng: boolean } | null
+  /** Papier à en-tête (image) dessiné en haut des lettres générées — pleine largeur. */
+  header?: { bytes: Uint8Array; isPng: boolean } | null
+  /** Pied de page (image) dessiné en bas des lettres générées — pleine largeur. */
+  footer?: { bytes: Uint8Array; isPng: boolean } | null
   autoStructural: boolean
   contentByNumber: Map<string, CompileNodeContent>
 }
@@ -62,6 +66,8 @@ interface Cursor {
   doc: PDFDocument
   page: PDFPage
   y: number
+  /** Limite basse de la zone de texte (relevée quand un pied de page occupe le bas de la page). */
+  bottom: number
   fonts: Fonts
 }
 
@@ -133,7 +139,7 @@ function drawRuns(c: Cursor, runs: Run[], size: number, indent: number, prefix?:
   const lh = lineHeight(size)
   const lines = wrap(runs, c.fonts, size, CONTENT_WIDTH - indent)
   lines.forEach((line, i) => {
-    if (c.y - lh < CONTENT_BOTTOM) newPage(c)
+    if (c.y - lh < c.bottom) newPage(c)
     let x = MARGIN + indent
     if (i === 0 && prefix) {
       c.page.drawText(sanitize(prefix), {
@@ -165,7 +171,7 @@ async function drawImage(c: Cursor, dataUrl: string, maxW = 180): Promise<void> 
   }
   const w = Math.min(maxW, img.width)
   const h = (img.height / img.width) * w
-  if (c.y - h < CONTENT_BOTTOM) newPage(c)
+  if (c.y - h < c.bottom) newPage(c)
   c.page.drawImage(img, { x: MARGIN, y: c.y - h, width: w, height: h })
   c.y -= h + 6
 }
@@ -324,6 +330,62 @@ function ellipsize(text: string, font: PDFFont, size: number, maxW: number): str
   return t + '...'
 }
 
+/** Découpe un texte en lignes tenant dans `maxW` (mot à mot). */
+function wrapPlain(text: string, font: PDFFont, size: number, maxW: number): string[] {
+  const words = sanitize(text).split(/\s+/).filter(Boolean)
+  const lines: string[] = []
+  let line = ''
+  for (const word of words) {
+    const cand = line ? `${line} ${word}` : word
+    if (line && font.widthOfTextAtSize(cand, size) > maxW) {
+      lines.push(line)
+      line = word
+    } else {
+      line = cand
+    }
+  }
+  if (line) lines.push(line)
+  return lines.length > 0 ? lines : ['']
+}
+
+/**
+ * Dessine un texte de bandeau **en entier** (jamais tronqué) : réduit la police de 10→7, puis
+ * passe sur 2 lignes si nécessaire (titulaires longs, produits multi-molécules).
+ */
+function drawBandEntry(
+  page: PDFPage,
+  text: string,
+  font: PDFFont,
+  x: number,
+  yTop: number,
+  maxW: number,
+  align: 'left' | 'right',
+): void {
+  const clean = sanitize(text)
+  let size = 10
+  while (size > 7 && font.widthOfTextAtSize(clean, size) > maxW) size -= 0.5
+  const lines =
+    font.widthOfTextAtSize(clean, size) <= maxW
+      ? [clean]
+      : wrapPlain(clean, font, size, maxW).slice(0, 2)
+  lines.forEach((line, i) => {
+    const lx = align === 'right' ? x - font.widthOfTextAtSize(line, size) : x
+    page.drawText(line, { x: lx, y: yTop - i * (size + 1.5), size, font, color: BLACK })
+  })
+}
+
+/** Bande image **pleine largeur** (en-tête/pied de lettre), avec garde-fou de hauteur. */
+function bandLayout(img: PDFImage): { x: number; w: number; h: number } {
+  const maxH = 130 // ~4,6 cm — évite qu'une image trop haute mange la page
+  let w = A4[0]
+  let h = (img.height / img.width) * w
+  if (h > maxH) {
+    h = maxH
+    w = (img.width / img.height) * h
+  }
+  return { x: (A4[0] - w) / 2, w, h }
+}
+
 function stampAll(
   final: PDFDocument,
   input: CompileInput,
@@ -347,21 +409,9 @@ function stampAll(
       page.drawImage(logo, { x: MARGIN, y: hy - 4, width: lw, height: lh })
       hx = MARGIN + lw + 6
     }
-    page.drawText(ellipsize(input.titulaire, fonts.regular, 10, half - (hx - MARGIN)), {
-      x: hx,
-      y: hy,
-      size: 10,
-      font: fonts.regular,
-      color: BLACK,
-    })
-    const right = ellipsize(input.commercialLine, fonts.regular, 10, half)
-    page.drawText(right, {
-      x: width - MARGIN - fonts.regular.widthOfTextAtSize(right, 10),
-      y: hy,
-      size: 10,
-      font: fonts.regular,
-      color: BLACK,
-    })
+    // Noms **complets** (jamais tronqués) : titulaire à gauche, produit à droite.
+    drawBandEntry(page, input.titulaire, fonts.regular, hx, hy, half - (hx - MARGIN), 'left')
+    drawBandEntry(page, input.commercialLine, fonts.regular, width - MARGIN, hy, half, 'right')
     page.drawLine({
       start: { x: MARGIN, y: hy - 6 },
       end: { x: width - MARGIN, y: hy - 6 },
@@ -580,6 +630,20 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
   // Index (0-based, dans contentDoc) des pages de garde générées → tamponnées en-tête/pied.
   const coverContentIndices = new Set<number>()
 
+  // Papier à en-tête/pied (images) embarqués une fois dans le doc de contenu.
+  const embedBand = async (
+    src?: { bytes: Uint8Array; isPng: boolean } | null,
+  ): Promise<PDFImage | null> => {
+    if (!src) return null
+    try {
+      return src.isPng ? await contentDoc.embedPng(src.bytes) : await contentDoc.embedJpg(src.bytes)
+    } catch {
+      return null
+    }
+  }
+  const letterHeader = await embedBand(input.header)
+  const letterFooter = await embedBand(input.footer)
+
   async function walk(nodes: CtdNodeDef[], depth: number): Promise<void> {
     for (const node of nodes) {
       if (!hasContent(node, input)) continue
@@ -609,13 +673,26 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
           const generated = content.generated
           items.push({
             render: async () => {
+              const page = contentDoc.addPage(A4)
               const cursor: Cursor = {
                 doc: contentDoc,
-                page: contentDoc.addPage(A4),
+                page,
                 y: CONTENT_TOP,
+                bottom: CONTENT_BOTTOM,
                 fonts,
               }
+              // Papier à en-tête en haut de la 1re page, pied en bas de la dernière — pleine largeur.
+              if (letterHeader) {
+                const b = bandLayout(letterHeader)
+                page.drawImage(letterHeader, { x: b.x, y: A4[1] - b.h, width: b.w, height: b.h })
+                cursor.y = A4[1] - b.h - 14
+              }
+              if (letterFooter) cursor.bottom = bandLayout(letterFooter).h + 14
               await renderTiptap(cursor, generated.content as JSONContent)
+              if (letterFooter) {
+                const b = bandLayout(letterFooter)
+                cursor.page.drawImage(letterFooter, { x: b.x, y: 0, width: b.w, height: b.h })
+              }
             },
           })
         }
