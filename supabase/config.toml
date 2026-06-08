@@ -195,7 +195,8 @@ password_requirements = ""
 
 [auth.rate_limit]
 # Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.
-email_sent = 2
+# Relevé de 2 → 30 (SMTP Resend custom) pour ne pas brider l'onboarding des orgs pilotes.
+email_sent = 30
 # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
 sms_sent = 30
 # Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true.
@@ -232,15 +233,30 @@ otp_length = 8
 # Number of seconds before the email OTP expires (defaults to 1 hour).
 otp_expiry = 3600
 
-# Use a production-ready SMTP server
-# [auth.email.smtp]
-# enabled = true
-# host = "smtp.sendgrid.net"
-# port = 587
-# user = "apikey"
-# pass = "env(SENDGRID_API_KEY)"
-# admin_email = "admin@email.com"
-# sender_name = "Admin"
+# SMTP de production — Resend. Le mot de passe = clé API Resend via variable d'env (JAMAIS commitée).
+# Renseigner RESEND_API_KEY dans l'environnement avant `supabase config push` (lancé depuis la racine du repo).
+[auth.email.smtp]
+enabled = true
+host = "smtp.resend.com"
+port = 465
+user = "resend"
+pass = "env(RESEND_API_KEY)"
+# IMPORTANT : `admin_email` doit appartenir à un domaine VÉRIFIÉ dans Resend (sinon l'envoi vers des
+# adresses arbitraires échoue). Sans domaine prêt, utiliser le sender bac-à-sable « onboarding@resend.dev »
+# (tests internes seulement). Alternative port STARTTLS : 587.
+admin_email = "noreply@pharnos.app"
+sender_name = "Pharnos"
+
+# Templates e-mail FR — poussés au projet hosted par `supabase config push`. Si le push ne les applique
+# pas, coller le HTML dans Dashboard → Auth → Email Templates. `content_path` = relatif à la racine du
+# repo (la CLI est lancée depuis /d/pharnos-mvp).
+[auth.email.template.confirmation]
+subject = "Confirmez votre adresse — Pharnos"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "Réinitialisation de votre mot de passe — Pharnos"
+content_path = "./supabase/templates/recovery.html"
 
 # Uncomment to customize email template
 # [auth.email.template.invite]

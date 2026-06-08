@@ -10,6 +10,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   // Si Supabase n'est pas configuré (tests / mode local), pas de chargement réseau.
   const [loading, setLoading] = useState(env.isSupabaseConfigured)
+  // L'utilisateur arrive via un lien « mot de passe oublié » → écran de reset (cf. App).
+  const [recovery, setRecovery] = useState(false)
 
   useEffect(() => {
     if (!env.isSupabaseConfigured) return
@@ -23,7 +25,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(data.session)
         setLoading(false)
       })
-      const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => setSession(next))
+      const { data: sub } = supabase.auth.onAuthStateChange((event, next) => {
+        setSession(next)
+        if (event === 'PASSWORD_RECOVERY') setRecovery(true)
+      })
       unsubscribe = () => sub.subscription.unsubscribe()
     })
 
@@ -42,10 +47,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signOut() {
     const supabase = await getSupabase()
     await supabase?.auth.signOut()
+    setRecovery(false)
   }
 
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, signOut }}>
+    <AuthContext.Provider
+      value={{
+        session,
+        user: session?.user ?? null,
+        loading,
+        recovery,
+        clearRecovery: () => setRecovery(false),
+        signOut,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )
