@@ -10,7 +10,7 @@ import type {
 } from '@/lib/db'
 import { getAttachmentBlob } from '../dossier-attachments-repository'
 import { getAttachmentDownloadUrl } from '../dossier-attachments-sync'
-import { countryLabel } from '../dossier-constants'
+import { activityLabel, countryLabel } from '../dossier-constants'
 import { nodeForDocType, resolveExistingNode, treeNodeNumbers } from '../module1-tree'
 import {
   compileDossier,
@@ -161,6 +161,20 @@ export async function compileDossierToPdf(args: CompileArgs): Promise<CompileRes
   const header = branding?.headerImage ? dataUrlToBytes(branding.headerImage) : null
   const footer = branding?.footerImage ? dataUrlToBytes(branding.footerImage) : null
 
+  const monthYear = new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+  const cover = product
+    ? {
+        activity: activityLabel(dossier.activity),
+        nomCommercial: product.nomCommercial || dossier.productName,
+        dciDosage: dciDose,
+        titulaireName: product.titulaire?.trim() ?? '',
+        titulaireAddress: product.titulaireAdresse?.trim() ?? '',
+        fabricantName: product.fabricant?.trim() ?? '',
+        fabricantAddress: product.fabricantAdresse?.trim() ?? '',
+        dateLabel: monthYear.charAt(0).toUpperCase() + monthYear.slice(1),
+      }
+    : null
+
   const bytes = await compileDossier({
     tree: dossier.tree,
     moduleLabel: 'Module 1',
@@ -170,6 +184,7 @@ export async function compileDossierToPdf(args: CompileArgs): Promise<CompileRes
     logo,
     header,
     footer,
+    cover,
     autoStructural,
     contentByNumber,
   })

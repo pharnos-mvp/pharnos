@@ -106,6 +106,23 @@ describe('compileDossier (compilation PDF)', () => {
     expect(doc.getPageCount()).toBeGreaterThanOrEqual(4)
   })
 
+  it('ajoute 2 pages de couverture (CTD global + Module 1) quand `cover` est fourni', async () => {
+    const base = await PDFDocument.load(await compileDossier(input(true)))
+    const withCover = input(true)
+    withCover.cover = {
+      activity: 'Nouvelle AMM',
+      nomCommercial: 'Doliprane',
+      dciDosage: 'Paracétamol 500 mg',
+      titulaireName: 'Laboratoire X',
+      titulaireAddress: '12 rue de la Santé, Cotonou',
+      fabricantName: 'Usine Y',
+      fabricantAddress: 'Zone industrielle, Casablanca',
+      dateLabel: 'Juin 2026',
+    }
+    const withDoc = await PDFDocument.load(await compileDossier(withCover))
+    expect(withDoc.getPageCount()).toBe(base.getPageCount() + 2)
+  })
+
   it('sans pages auto : produit quand même un PDF', async () => {
     const bytes = await compileDossier(input(false))
     const doc = await PDFDocument.load(bytes)
