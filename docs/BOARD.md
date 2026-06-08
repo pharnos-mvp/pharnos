@@ -12,10 +12,10 @@
 > **Protocole de mise à jour** (voir §13) : à chaque tranche livrée (PR mergée), mettre à jour le
 > §1 (état), le §9 (milestones) et le §10 (journal). Garder le reste synchronisé si une décision change.
 
-_Dernière mise à jour : 2026-06-08 — **Lot A‑1 (e-mail/onboarding) terminé & vérifié en prod** : récupération de compte + SMTP Resend (`pharnos.com`) ; inscription + reset délivrent l'e-mail._
-_**Reprise (nouvelle session) :** cœur du MVP déployé ; **Lot A‑1 terminé & vérifié en prod** (SMTP Resend
-`pharnos.com` ; inscription + « mot de passe oublié » OK). **Reste du Lot A :** valider le DoD (1 dossier M1 réel)
-+ optionnel domaine custom/Sentry. Voir §11. Main est vert._
+_Dernière mise à jour : 2026-06-08 — **Lot A‑1 e-mail OK** + **polish montage M1 (Slices 1/0/2/3 livrées & déployées)** : preview PDF offline, titre/barre sticky, Nom/Adresse séparés, papier à en-tête/pied & 2 pages de couverture dans le PDF compilé._
+_**Reprise (nouvelle session) :** cœur du MVP déployé ; **Lot A‑1 e-mail OK** + **polish montage M1 (Slices 1/0/2/3
+livrées + déployées)**. **Reste :** **Slice 4** (UX signature/en-tête **in-montage** : upload sans navigation +
+stockage optionnel + signature au bon endroit + toggle — plan de session détaillé) + **valider le DoD réel**. Voir §11. Main est vert._
 
 ---
 
@@ -230,6 +230,12 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 | #36 | 06-08 | **Auth (Lot A)** : récupération de compte (mot de passe oublié + renvoi de confirmation) + SMTP Resend & templates e-mail FR (config gated) |
 | #37 | 06-08 | Board : Lot A entamé (récupération de compte #36, activation SMTP gated) |
 | #38 | 06-08 | **Auth (Lot A)** : expéditeur `noreply@pharnos.com` (domaine vérifié) — **SMTP Resend activé & vérifié en prod** (inscription + reset délivrés) |
+| #39 | 06-08 | Board : Lot A‑1 e-mail terminé & vérifié en prod |
+| #40 | 06-08 | **Workspace** : garde-fou perf compile Module 1 (budget DoD M6 < 10 s ; ~240 ms / 59 pages) |
+| #41 | 06-08 | **Workspace (polish 1)** : aperçu PDF offline (`mjs` précaché), titre+barre format sticky, gardes sans nom de fichier, bandeaux pleine largeur |
+| #42 | 06-08 | **Catalogue (polish 0)** : titulaire/fabricant **Nom + Adresse** séparés (+ migration 0012) |
+| #43 | 06-08 | **Workspace (polish 2)** : papier à en-tête/pied **dans le PDF compilé** + bandeau système noms complets (sans troncature) |
+| #44 | 06-08 | **Workspace (polish 3)** : **pages de couverture** CTD globale + Module 1 |
 
 ---
 
@@ -238,16 +244,23 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 > **Le cœur du MVP (3 modules, online+offline) est livré, en ligne et durci.** Il reste 3 lots ;
 > le **Lot A** rend le pilote exploitable et valide la métrique de succès du DoD.
 
-**🟢 Lot A — Rendre le pilote réellement exploitable** *(e-mail ✅ terminé ; reste : valider le DoD)*
+**🟢 Lot A — Rendre le pilote réellement exploitable** *(e-mail ✅ ; polish montage 4/5 ; reste Slice 4 + DoD)*
 
 1. **E-mail d'inscription + récupération de compte** — ✅ **TERMINÉ & vérifié en prod** :
    - ✅ Front (#36) : « mot de passe oublié » (écran de reset via `PASSWORD_RECOVERY`) + « renvoyer la confirmation ».
    - ✅ Config (#36) + expéditeur `noreply@pharnos.com` (#38) : `[auth.email.smtp]` **Resend** + `email_sent` 30/h + **templates FR** (`supabase/templates/`).
    - ✅ **Activé en prod** : `supabase config push` (projet `uhsireqwzqqymgsxuvqh`, clé Resend lue depuis `.env` **racine gitignoré**) + redeploy front. **Vérifié** : inscription + reset délivrent l'e-mail FR (expéditeur `pharnos.com`).
    - ⚠️ La clé Resend vit dans `.env` (racine, gitignoré) pour les futurs `config push` — **ne jamais la commiter** ; toujours pousser **depuis la racine** du repo.
-2. **Valider le DoD** : monter **1 dossier Module 1 réel** de bout en bout (produit → pièces →
+2. **Polish montage Module 1** (smoke test CEO **7/10** → livrable) — livré + déployé :
+   - ✅ **Slice 1 (#41)** : aperçu PDF **offline** (`mjs` précaché), titre + barre de format **sticky**, gardes sans nom de fichier, bandeaux pleine largeur.
+   - ✅ **Slice 0 (#42, migration 0012)** : titulaire/fabricant **Nom + Adresse** séparés.
+   - ✅ **Slice 2 (#43)** : **papier à en-tête/pied dans le PDF compilé** + bandeau système **noms complets** (sans troncature).
+   - ✅ **Slice 3 (#44)** : **pages de couverture** (CTD globale + Module 1).
+   - ⏳ **Slice 4 (à faire)** : UX **signature & en-tête/pied in-montage** — upload sans navigation + stockage optionnel (permission) + signature au paragraphe réservé `[Signature et cachet]` + toggle. (Plan de session conservé.)
+   - ℹ️ **Sync offline (réponse au CEO)** : à la reconnexion, l'outbox est poussée (métadonnées **+ blobs vers Storage**) puis pull **LWW server-authoritative** — automatique. Le PDF compilé n'est pas stocké (régénéré à la demande).
+3. **Valider le DoD** : monter **1 dossier Module 1 réel** de bout en bout (produit → pièces →
    compile PDF au vert) avec une vraie organisation. C'est *le* test de succès du plan.
-3. *(optionnel)* domaine custom + **DSN Sentry** en prod (`VITE_SENTRY_DSN`).
+4. *(optionnel)* domaine custom + **DSN Sentry** en prod (`VITE_SENTRY_DSN`).
 
 **🔴 Lot B — Couche IA (M4 + M5)** *(BLOQUÉ : credentials GCP/Vertex+Gemini du CEO)*
 
