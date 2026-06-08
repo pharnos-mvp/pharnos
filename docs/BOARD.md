@@ -12,9 +12,10 @@
 > **Protocole de mise à jour** (voir §13) : à chaque tranche livrée (PR mergée), mettre à jour le
 > §1 (état), le §9 (milestones) et le §10 (journal). Garder le reste synchronisé si une décision change.
 
-_Dernière mise à jour : 2026-06-08 — pilote en ligne ; montage CTD finalisé (UX Google Docs)._
-_**Reprise (nouvelle session) :** le cœur du MVP est livré et déployé. **Aller directement au §11 (Cap)** —
-on choisit le **Lot A / B / C** puis on exécute. Rien n'est en cours/cassé ; main est vert._
+_Dernière mise à jour : 2026-06-08 — **Lot A entamé** : récupération de compte (front) livrée (#36) ; SMTP Resend + templates FR prêts (activation gated CEO)._
+_**Reprise (nouvelle session) :** cœur du MVP déployé ; **Lot A en cours**. Le front de récupération de compte
+(mot de passe oublié + renvoi de confirmation) est livré (#36) ; reste l'**activation SMTP Resend** (clé CEO +
+`supabase config push` + redeploy, gated). Voir §11. Main est vert._
 
 ---
 
@@ -225,19 +226,22 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 | #32 | 06-08 | **Workspace** : barre de format (B/I/H2/Liste) rétablie pleine largeur, alignée à gauche |
 | #33 | 06-08 | **Workspace** : barre de format = en-tête direct du visualiseur (sans wrapper sticky) |
 | #34 | 06-08 | **Workspace** : barre de format collée à l'en-tête de la page A4 (marge sombre du haut supprimée) |
+| #35 | 06-08 | Board : mise à jour reprise (journal #30→#34 + cap Lots A/B/C) |
+| #36 | 06-08 | **Auth (Lot A)** : récupération de compte (mot de passe oublié + renvoi de confirmation) + SMTP Resend & templates e-mail FR (config gated) |
 
 ---
 
 ## 11. Cap — prochaines étapes (REPRISE : on choisit le lot, puis on exécute)
 
 > **Le cœur du MVP (3 modules, online+offline) est livré, en ligne et durci.** Il reste 3 lots ;
-> le **Lot A** valide officiellement la métrique de succès du DoD et ne dépend d'**aucune clé externe**.
+> le **Lot A** rend le pilote exploitable et valide la métrique de succès du DoD.
 
-**🟢 Lot A — Rendre le pilote réellement exploitable** *(recommandé en premier)*
+**🟢 Lot A — Rendre le pilote réellement exploitable** *(en cours)*
 
-1. **E-mail d'inscription (SMTP)** : le service Supabase par défaut est limité (~qq envois/h) → ça
-   bloquera l'onboarding des orgs pilotes. Brancher **SendGrid/Resend** (config `[auth.email.smtp]`
-   dans `supabase/config.toml` + secret) **ou** désactiver la confirmation e-mail pour le pilote.
+1. **E-mail d'inscription + récupération de compte** :
+   - ✅ **Front livré (#36)** : « mot de passe oublié » (écran de reset via l'événement `PASSWORD_RECOVERY`) + « renvoyer la confirmation ».
+   - ✅ **Config prête (#36)** : `[auth.email.smtp]` **Resend** + `email_sent` 2→30 + **templates FR** dans `supabase/templates/`.
+   - ⏳ **Activation (gated CEO)** : créer le compte **Resend** + clé API (+ domaine d'envoi vérifié), puis depuis la **racine du repo** `RESEND_API_KEY=… supabase config push` (écriture prod) **+ redeploy front**. Sans ça, le « mot de passe oublié » ne *délivre* pas l'e-mail.
 2. **Valider le DoD** : monter **1 dossier Module 1 réel** de bout en bout (produit → pièces →
    compile PDF au vert) avec une vraie organisation. C'est *le* test de succès du plan.
 3. *(optionnel)* domaine custom + **DSN Sentry** en prod (`VITE_SENTRY_DSN`).
