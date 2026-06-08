@@ -244,7 +244,7 @@ pass = "env(RESEND_API_KEY)"
 # IMPORTANT : `admin_email` doit appartenir à un domaine VÉRIFIÉ dans Resend (sinon l'envoi vers des
 # adresses arbitraires échoue). Sans domaine prêt, utiliser le sender bac-à-sable « onboarding@resend.dev »
 # (tests internes seulement). Alternative port STARTTLS : 587.
-admin_email = "noreply@pharnos.app"
+admin_email = "noreply@pharnos.com"
 sender_name = "Pharnos"
 
 # Templates e-mail FR — poussés au projet hosted par `supabase config push`. Si le push ne les applique
