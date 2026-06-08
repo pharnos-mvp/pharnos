@@ -829,11 +829,9 @@ export function DossierWorkspacePage() {
               <div>
                 {active?.kind === 'letter' && selectedGenDoc ? (
                   <section className="bg-card overflow-hidden rounded-lg border">
-                    {docEditing ? (
-                      <div className="sticky top-12 z-10">
-                        <FormatToolbar editor={liveEditor} />
-                      </div>
-                    ) : null}
+                    {/* Barre de format = en-tête du visualiseur, directement en haut de la carte
+                        (place initiale, comme au moment où le scroll était au niveau du visualiseur). */}
+                    {docEditing ? <FormatToolbar editor={liveEditor} /> : null}
                     <div>
                       <RichTextEditor
                         docId={selectedGenDoc.id}
