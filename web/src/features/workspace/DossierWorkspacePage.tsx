@@ -448,7 +448,7 @@ export function DossierWorkspacePage() {
       fabricantNom: product?.fabricant?.trim() || '[Nom du fabricant]',
       fabricantAdresse: product?.fabricantAdresse?.trim() ?? '',
       agencyName: ag.name,
-      agencyFull: ag.full,
+      agencyFull: ag.name ? `${ag.full} (${ag.name})` : ag.full,
       agencyCivilite: agencyCivilite(ag),
       agencyAdresse: ag.adresse || '[Adresse de l’agence]',
       country: activeDossier.country,

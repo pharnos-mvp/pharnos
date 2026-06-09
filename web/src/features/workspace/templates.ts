@@ -101,7 +101,7 @@ function buildCover(c: TemplateContext): JSONContent {
       blank(),
       para(strong('Objet : '), txt(`Demande d’enregistrement d’AMM du produit ${c.nomCommercial}`)),
       blank(),
-      para(txt('Madame, Monsieur,')),
+      para(txt(`${c.agencyCivilite},`)),
       para(
         txt(
           'Nous avons l’honneur de soumettre à votre haute bienveillance le dossier de demande ' +
@@ -127,7 +127,7 @@ function buildCover(c: TemplateContext): JSONContent {
       ),
       para(
         txt(
-          'Nous vous prions d’agréer, Madame, Monsieur, l’expression de notre sincère considération.',
+          `Nous vous prions d’agréer, ${c.agencyCivilite}, l’expression de notre sincère considération.`,
         ),
       ),
       blank(),
@@ -151,7 +151,7 @@ function buildPght(c: TemplateContext): JSONContent {
       blank(),
       para(strong('Objet : '), txt('Attestation de Prix Grossiste Hors Taxe (PGHT)')),
       blank(),
-      para(txt('Madame, Monsieur,')),
+      para(txt(`${c.agencyCivilite},`)),
       para(
         txt(
           'Nous venons par la présente porter à votre connaissance les informations et le Prix ' +
@@ -170,7 +170,7 @@ function buildPght(c: TemplateContext): JSONContent {
       para(txt('Nous restons à votre entière disposition pour tout complément d’information.')),
       para(
         txt(
-          'Dans l’espoir d’une suite favorable, nous vous prions d’agréer, Madame, Monsieur, ' +
+          `Dans l’espoir d’une suite favorable, nous vous prions d’agréer, ${c.agencyCivilite}, ` +
             'l’expression de notre sincère collaboration.',
         ),
       ),
