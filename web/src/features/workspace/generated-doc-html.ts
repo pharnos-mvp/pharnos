@@ -41,10 +41,13 @@ function renderMarks(text: string, marks?: JSONContent['marks']): string {
   return out
 }
 
-/** Style d'alignement (textAlign TipTap) pour un paragraphe/titre HTML. */
+/**
+ * Style d'un paragraphe/titre HTML. Le marqueur `textAlign:'right'` = **bloc décalé** (date,
+ * destinataire, signature) : marge gauche ~56 % puis **aligné à gauche** (forme officielle UEMOA).
+ */
 function alignAttr(node: JSONContent): string {
   const a = node.attrs?.textAlign
-  if (a === 'right') return ' style="text-align:right"'
+  if (a === 'right') return ' style="margin-left:56%"'
   if (a === 'center') return ' style="text-align:center"'
   return ''
 }

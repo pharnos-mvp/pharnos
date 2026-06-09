@@ -50,7 +50,7 @@ describe('generated-doc-html (sérialisation)', () => {
     expect(full).toContain('data:image/png;base64,FFF')
   })
 
-  it('rend l’alignement à droite des paragraphes (textAlign)', () => {
+  it('rend le bloc décalé (date/destinataire/signature) en marge gauche', () => {
     const aligned: JSONContent = {
       type: 'doc',
       content: [
@@ -61,6 +61,6 @@ describe('generated-doc-html (sérialisation)', () => {
         },
       ],
     }
-    expect(contentToHtml(aligned)).toContain('style="text-align:right"')
+    expect(contentToHtml(aligned)).toContain('style="margin-left:56%"')
   })
 })
