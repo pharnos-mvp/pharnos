@@ -443,14 +443,10 @@ export function DossierWorkspacePage() {
       dciDosage: formatComposition(product?.dci ?? '', product?.dosage ?? ''),
       forme: product?.forme ?? '',
       presentation: product?.presentation ?? '',
-      demandeur:
-        [product?.titulaire, product?.titulaireAdresse]
-          .filter((s): s is string => Boolean(s?.trim()))
-          .join(', ') || '[Nom et adresse du demandeur d’AMM]',
-      fabricant:
-        [product?.fabricant, product?.fabricantAdresse]
-          .filter((s): s is string => Boolean(s?.trim()))
-          .join(', ') || '[Nom et adresse du fabricant]',
+      demandeurNom: product?.titulaire?.trim() || '[Nom du demandeur d’AMM]',
+      demandeurAdresse: product?.titulaireAdresse?.trim() ?? '',
+      fabricantNom: product?.fabricant?.trim() || '[Nom du fabricant]',
+      fabricantAdresse: product?.fabricantAdresse?.trim() ?? '',
       agencyName: ag.name,
       agencyFull: ag.full,
       country: activeDossier.country,
