@@ -181,6 +181,11 @@
   max-width: 100%;
   height: auto;
 }
+/* Signature insérée (alt="Signature") : taille officielle bornée dans l'aperçu, comme le PDF
+   compilé (~180 pt ≈ 6,35 cm) — évite un affichage disproportionné dans l'éditeur. */
+.editor-page .ProseMirror img[alt='Signature'] {
+  max-width: 6.35cm;
+}
 .editor-band {
   display: block;
   /* Pleine largeur bord-à-bord : déborde le padding 2,5cm de .editor-page (en-tête/pied sans marge). */
