@@ -6,7 +6,7 @@
 -- JWT `sub` (lu par auth.uid()). Le seeding se fait en superuser (la RLS ne s'y applique pas).
 
 begin;
-select plan(9);
+select plan(14);
 
 -- ----------------------------------------------------------------------------
 -- Seeding (superuser : contourne la RLS)
@@ -48,6 +48,27 @@ values
   ('org:00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000a1', 'orgBranding'),
   ('user:00000000-0000-0000-0000-00000000000c', '00000000-0000-0000-0000-0000000000a1', 'userSignature');
 
+-- Dossier + document généré + pièce jointe + entrée d'audit, un de chaque par organisation.
+insert into public.dossiers (id, org_id, product_name, format, activity, country)
+values
+  ('0000a000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-0000000000a1', 'Dossier A', 'CTD', 'Nouvelle AMM', 'BEN'),
+  ('0000b000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-0000000000b2', 'Dossier B', 'CTD', 'Nouvelle AMM', 'CIV');
+
+insert into public.generated_docs (id, org_id, dossier_id, node_number, template_key, title)
+values
+  ('0000a000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-0000000000a1', '0000a000-0000-0000-0000-000000000003', '1.0', 'cover', 'Cover A'),
+  ('0000b000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-0000000000b2', '0000b000-0000-0000-0000-000000000003', '1.0', 'cover', 'Cover B');
+
+insert into public.dossier_attachments (id, org_id, dossier_id, node_number)
+values
+  ('0000a000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-0000000000a1', '0000a000-0000-0000-0000-000000000003', '1.2'),
+  ('0000b000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-0000000000b2', '0000b000-0000-0000-0000-000000000003', '1.2');
+
+insert into public.audit_log (id, org_id, actor_id, actor_email, entity, entity_id, action)
+values
+  ('0000a000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-00000000000a', 'a@pharnos.test', 'product', '0000a000-0000-0000-0000-000000000001', 'create'),
+  ('0000b000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-00000000000b', 'b@pharnos.test', 'product', '0000b000-0000-0000-0000-000000000001', 'create');
+
 -- ----------------------------------------------------------------------------
 -- Utilisateur A (membre d'Org A)
 -- ----------------------------------------------------------------------------
@@ -85,6 +106,34 @@ select throws_ok(
   '42501',
   null,
   'RLS bloque l''insertion d''un produit dans une autre organisation'
+);
+select is(
+  (select count(*)::int from public.dossiers),
+  1,
+  'A ne voit que les dossiers de son organisation'
+);
+select is(
+  (select count(*)::int from public.generated_docs),
+  1,
+  'A ne voit que les documents générés de son organisation'
+);
+select is(
+  (select count(*)::int from public.dossier_attachments),
+  1,
+  'A ne voit que les pièces jointes de son organisation'
+);
+select is(
+  (select count(*)::int from public.audit_log),
+  1,
+  'A ne voit que le journal d''audit de son organisation'
+);
+select throws_ok(
+  $$ insert into public.audit_log (id, org_id, actor_id, actor_email, entity, entity_id, action)
+     values (gen_random_uuid(), '00000000-0000-0000-0000-0000000000a1',
+             '00000000-0000-0000-0000-00000000000b', 'b@pharnos.test', 'product', 'x', 'create') $$,
+  '42501',
+  null,
+  'audit_log : insertion au nom d''un autre acteur bloquée (anti-spoof)'
 );
 
 -- ----------------------------------------------------------------------------
