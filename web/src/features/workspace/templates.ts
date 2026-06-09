@@ -36,6 +36,12 @@ export interface TemplateContext {
   agencyName: string
   /** Nom complet de l'agence. */
   agencyFull: string
+  /** Civilité du destinataire (« Monsieur le Directeur Général » / « Madame la Directrice Générale »). */
+  agencyCivilite: string
+  /** Directeur / Responsable de l'agence (destinataire). */
+  agencyDirecteur: string
+  /** Adresse de l'agence (destinataire). */
+  agencyAdresse: string
   /** Pays cible (code ISO). */
   country: string
   ville: string
@@ -94,11 +100,13 @@ function buildCover(c: TemplateContext): JSONContent {
       blank(),
       paraR(txt('À')),
       paraR(
-        txt('Monsieur / Madame le Directeur Général'),
+        txt(c.agencyCivilite),
+        br(),
+        txt(c.agencyDirecteur),
         br(),
         txt(c.agencyFull),
         br(),
-        txt('[Adresse]'),
+        txt(c.agencyAdresse),
       ),
       blank(),
       para(strong('Objet : '), txt(`Demande d’enregistrement d’AMM du produit ${c.nomCommercial}`)),
@@ -150,11 +158,13 @@ function buildPght(c: TemplateContext): JSONContent {
       blank(),
       paraR(txt('À')),
       paraR(
-        txt('Monsieur / Madame le Directeur Général'),
+        txt(c.agencyCivilite),
+        br(),
+        txt(c.agencyDirecteur),
         br(),
         txt(c.agencyFull),
         br(),
-        txt('[Adresse]'),
+        txt(c.agencyAdresse),
       ),
       blank(),
       para(strong('Objet : '), txt('Attestation de Prix Grossiste Hors Taxe (PGHT)')),
