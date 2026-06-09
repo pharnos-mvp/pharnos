@@ -257,6 +257,8 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 | #62 | 06-09 | **Docs** : board — journal #58-#61 + DoD atteint |
 | #63 | 06-09 | **Docs** : board — kit de démarrage Lot B (IA) + Lot A clos |
 | #64 | 06-09 | **Workspace** : **destinataire des lettres auto-rempli par pays UEMOA** (civilité par rang + agence + adresse, 8 pays ; `roadmap-data` + `agencyCivilite`) |
+| #65 | 06-09 | **Docs** : board — journal #62-#64 + DoD validé CEO |
+| #66 | 06-09 | **Workspace** : lettres officielles — **sigle agence** entre parenthèses + **formule d'appel & politesse par rang** (« Monsieur le Directeur Général, ») au lieu de « Madame, Monsieur, » |
 
 ---
 
