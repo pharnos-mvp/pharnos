@@ -113,9 +113,9 @@ function buildCover(c: TemplateContext): JSONContent {
           'Forme et présentation',
           joinNonEmpty(c.forme, c.presentation) || '[Forme et présentation]',
         ),
+        partyField('Nom et adresse du demandeur d’AMM', c.demandeurNom, c.demandeurAdresse),
+        partyField('Nom et adresse du fabricant', c.fabricantNom, c.fabricantAdresse),
       ]),
-      partyField('Nom et adresse du demandeur d’AMM', c.demandeurNom, c.demandeurAdresse),
-      partyField('Nom et adresse du fabricant', c.fabricantNom, c.fabricantAdresse),
       para(
         txt(
           'Le dossier technique ci-joint a été constitué en conformité avec les directives de l’UEMOA ' +

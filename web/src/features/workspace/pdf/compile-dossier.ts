@@ -121,7 +121,6 @@ function sanitize(text: string): string {
     .replace(/[–—]/g, '-')
     .replace(/…/g, '...')
     .replace(new RegExp(`[${String.fromCharCode(0xa0, 0x202f)}]`, 'g'), ' ')
-    .replace(/•/g, '-')
 }
 
 function lineHeight(size: number): number {
@@ -279,13 +278,12 @@ async function renderTiptap(c: Cursor, content: JSONContent): Promise<void> {
         let i = 1
         for (const item of block.content ?? []) {
           const para = (item.content ?? []).find((x) => x.type === 'paragraph')
-          drawRuns(
-            c,
-            inlineRuns(para?.content),
-            BODY_SIZE,
-            18,
-            block.type === 'orderedList' ? `${i}.` : '-',
-          )
+          // Segments (sauts de ligne) → nom (1re ligne, avec puce) puis adresse (ligne suivante, alignée).
+          const segs = inlineSegments(para?.content)
+          segs.forEach((seg, si) => {
+            const prefix = si === 0 ? (block.type === 'orderedList' ? `${i}.` : '•') : undefined
+            drawRuns(c, seg, BODY_SIZE, 18, prefix)
+          })
           for (const src of inlineImages(para?.content)) await drawImage(c, src)
           i++
         }
@@ -710,97 +708,71 @@ function drawGlobalCover(
   edge(fx, fb, fx, fb + fh)
   edge(fx + fw, fb, fx + fw, fb + fh)
 
-  const innerW = width - 2 * (fx + 30)
-  let y = height - 66
+  const cx = width / 2
+  const innerW = width - 2 * 54
 
-  // Logo centré en haut (forme officielle UEMOA).
-  if (logo) {
-    const lh = 46
-    const lw = Math.min((logo.width / logo.height) * lh, 200)
-    page.drawImage(logo, { x: (width - lw) / 2, y: y - lh, width: lw, height: lh })
-    y -= lh + 30
-  } else {
-    y -= 6
-  }
-
-  // Helpers **centrés**.
-  const line = (
-    text: string,
-    size: number,
-    bold: boolean,
-    gapAfter: number,
-    underline = false,
-  ): void => {
+  // Ligne **centrée** à une position absolue (calée sur le template officiel UEMOA), option soulignée.
+  const at = (text: string, size: number, bold: boolean, yPos: number, underline = false): void => {
     if (!text) return
     const f = bold ? fonts.bold : fonts.regular
     const t = sanitize(text)
     const w = f.widthOfTextAtSize(t, size)
-    const x = (width - w) / 2
-    page.drawText(t, { x, y, size, font: f, color: BLACK })
+    page.drawText(t, { x: cx - w / 2, y: yPos, size, font: f, color: BLACK })
     if (underline) {
       page.drawLine({
-        start: { x, y: y - 2.5 },
-        end: { x: x + w, y: y - 2.5 },
+        start: { x: cx - w / 2, y: yPos - 2.5 },
+        end: { x: cx + w / 2, y: yPos - 2.5 },
         thickness: 0.6,
         color: BLACK,
       })
     }
-    y -= gapAfter
   }
-  // Texte **enroulé** (jamais tronqué), centré, lignes serrées.
-  const wrapped = (text: string, size: number, bold: boolean, gapAfter: number): void => {
+  // Texte **enroulé** centré à partir de `yTop` (jamais tronqué).
+  const atWrapped = (
+    text: string,
+    size: number,
+    bold: boolean,
+    yTop: number,
+    maxLines = 3,
+  ): void => {
     if (!text) return
     const f = bold ? fonts.bold : fonts.regular
-    for (const ln of wrapPlain(text, f, size, innerW)) {
-      page.drawText(ln, {
-        x: (width - f.widthOfTextAtSize(ln, size)) / 2,
-        y,
-        size,
-        font: f,
-        color: BLACK,
-      })
-      y -= lineHeight(size)
+    let yy = yTop
+    for (const ln of wrapPlain(text, f, size, innerW).slice(0, maxLines)) {
+      const w = f.widthOfTextAtSize(ln, size)
+      page.drawText(ln, { x: cx - w / 2, y: yy, size, font: f, color: BLACK })
+      yy -= lineHeight(size)
     }
-    y -= gapAfter
   }
-  // Partie (titulaire / fabricant) : label souligné, **nom 1re ligne**, **adresse ligne suivante**
-  // (interligne normal, centrée, sans puce).
-  const party = (label: string, name: string, address: string): void => {
-    if (!name) return
-    line(label, 11, true, 22, true)
-    page.drawText(sanitize(name), {
-      x: (width - fonts.bold.widthOfTextAtSize(sanitize(name), 13)) / 2,
-      y,
-      size: 13,
-      font: fonts.bold,
-      color: BLACK,
-    })
-    y -= lineHeight(13)
-    for (const ln of wrapPlain(address, fonts.regular, 11, innerW)) {
-      page.drawText(ln, {
-        x: (width - fonts.regular.widthOfTextAtSize(ln, 11)) / 2,
-        y,
-        size: 11,
-        font: fonts.regular,
-        color: BLACK,
-      })
-      y -= lineHeight(11)
-    }
-    y -= 26
+  // Plus grande taille (parmi `cands`) qui tient le texte en `maxLines` lignes (auto-fit composition).
+  const fit = (text: string, cands: number[], maxLines: number): number => {
+    for (const s of cands) if (wrapPlain(text, fonts.bold, s, innerW).length <= maxLines) return s
+    return cands[cands.length - 1] ?? 14
   }
 
-  // Titre officiel (souligné) + activité + produit + composition + pays.
-  line("DOSSIER CTD D'ENREGISTREMENT D'AUTORISATION", 12, true, 16, true)
-  line('DE MISE SUR LE MARCHÉ (AMM)', 12, true, cover.activity ? 22 : 52, true)
-  if (cover.activity) line(cover.activity.toUpperCase(), 11, true, 54)
-  line(cover.nomCommercial, 24, true, 34)
-  wrapped(cover.dciDosage, 14, false, 50)
-  line(input.country, 14, true, 80)
+  // Logo centré en haut.
+  if (logo) {
+    const lh = 48
+    const lw = Math.min((logo.width / logo.height) * lh, 220)
+    page.drawImage(logo, { x: cx - lw / 2, y: height - 92, width: lw, height: lh })
+  }
 
-  // Parties (centrées, sans puce) : titulaire puis fabricant (si différent).
-  party('Dossier soumis par', cover.titulaireName, cover.titulaireAddress)
+  // Mise en page **calée sur le template officiel** (A4) : tailles + positions (fraction de hauteur)
+  // → contenu réparti sur tout le corps de page.
+  at("DOSSIER CTD D'ENREGISTREMENT D'AUTORISATION", 12, true, height * 0.783, true)
+  at('DE MISE SUR LE MARCHÉ (AMM)', 12, true, height * 0.76, true)
+  at(cover.nomCommercial, 24, true, height * 0.645)
+  atWrapped(cover.dciDosage, fit(cover.dciDosage, [24, 20, 16, 14], 2), true, height * 0.605, 2)
+  at(input.country, 20, true, height * 0.503)
+
+  at('Dossier soumis par :', 14, true, height * 0.4, true)
+  at(cover.titulaireName, 24, true, height * 0.338)
+  atWrapped(cover.titulaireAddress, 12, false, height * 0.31, 3)
+
   if (cover.fabricantName && cover.fabricantName !== cover.titulaireName) {
-    party('Fabricant', cover.fabricantName, cover.fabricantAddress)
+    at('Fabricant :', 12, true, height * 0.198, true)
+    at(cover.fabricantName, 11, true, height * 0.171)
+    atWrapped(cover.fabricantAddress, 9, false, height * 0.147, 3)
   }
 }
 
