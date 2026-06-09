@@ -215,6 +215,9 @@ export function BrandingPanel({
         onUpload={(f) => upload('footer', f)}
         onRemove={() => setOrgFooter(orgId, null)}
       />
+      <div className="flex justify-end pt-1">
+        <Button onClick={onClose}>Insérer</Button>
+      </div>
     </PanelShell>
   )
 }
