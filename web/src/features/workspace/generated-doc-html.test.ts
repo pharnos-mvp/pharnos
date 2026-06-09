@@ -49,4 +49,18 @@ describe('generated-doc-html (sérialisation)', () => {
     expect(full).toContain('data:image/png;base64,HHH')
     expect(full).toContain('data:image/png;base64,FFF')
   })
+
+  it('rend l’alignement à droite des paragraphes (textAlign)', () => {
+    const aligned: JSONContent = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          attrs: { textAlign: 'right' },
+          content: [{ type: 'text', text: 'Cotonou, le 12 mai 2026' }],
+        },
+      ],
+    }
+    expect(contentToHtml(aligned)).toContain('style="text-align:right"')
+  })
 })

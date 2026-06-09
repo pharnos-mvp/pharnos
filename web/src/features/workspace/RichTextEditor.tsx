@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
 import Image from '@tiptap/extension-image'
+import TextAlign from '@tiptap/extension-text-align'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 
@@ -36,7 +37,11 @@ export function RichTextEditor({
 }: RichTextEditorProps) {
   const editor = useEditor(
     {
-      extensions: [StarterKit, Image.configure({ inline: true, allowBase64: true })],
+      extensions: [
+        StarterKit,
+        Image.configure({ inline: true, allowBase64: true }),
+        TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      ],
       // Garde-fou : un contenu non-ProseMirror ferait planter TipTap au montage.
       content:
         initialContent && (initialContent as { type?: string }).type === 'doc'

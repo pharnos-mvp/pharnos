@@ -151,13 +151,33 @@ function wrap(runs: Run[], fonts: Fonts, size: number, maxWidth: number): Run[][
   return lines.length > 0 ? lines : [[]]
 }
 
-function drawRuns(c: Cursor, runs: Run[], size: number, indent: number, prefix?: string): void {
+type Align = 'left' | 'right' | 'center'
+
+function runsWidth(line: Run[], fonts: Fonts, size: number): number {
+  return line.reduce(
+    (w, run) =>
+      w + (run.bold ? fonts.bold : fonts.regular).widthOfTextAtSize(sanitize(run.text), size),
+    0,
+  )
+}
+
+function drawRuns(
+  c: Cursor,
+  runs: Run[],
+  size: number,
+  indent: number,
+  prefix?: string,
+  align: Align = 'left',
+): void {
   const lh = lineHeight(size)
   const lines = wrap(runs, c.fonts, size, CONTENT_WIDTH - indent)
   lines.forEach((line, i) => {
     if (c.y - lh < c.bottom) newPage(c)
+    // Alignement : à droite/centré → x calculé d'après la largeur de la ligne ; sinon marge + indent.
     let x = MARGIN + indent
-    if (i === 0 && prefix) {
+    if (align === 'right') x = MARGIN + CONTENT_WIDTH - runsWidth(line, c.fonts, size)
+    else if (align === 'center') x = MARGIN + (CONTENT_WIDTH - runsWidth(line, c.fonts, size)) / 2
+    if (align === 'left' && i === 0 && prefix) {
       c.page.drawText(sanitize(prefix), {
         x: MARGIN + indent - 14,
         y: c.y,
@@ -211,20 +231,29 @@ function inlineImages(nodes: JSONContent[] | undefined): string[] {
     .map((n) => n.attrs!.src as string)
 }
 
+/** Alignement d'un bloc (attribut `textAlign` de l'extension TipTap) → gauche par défaut. */
+function alignOf(block: JSONContent): Align {
+  const a = block.attrs?.textAlign
+  if (a === 'right') return 'right'
+  if (a === 'center') return 'center'
+  return 'left'
+}
+
 async function renderTiptap(c: Cursor, content: JSONContent): Promise<void> {
   for (const block of content.content ?? []) {
     switch (block.type) {
       case 'heading': {
         c.y -= 4
-        drawRuns(c, inlineRuns(block.content), 14, 0)
+        drawRuns(c, inlineRuns(block.content), 14, 0, undefined, alignOf(block))
         for (const src of inlineImages(block.content)) await drawImage(c, src)
         c.y -= 4
         break
       }
       case 'paragraph': {
         const runs = inlineRuns(block.content)
-        if (runs.some((r) => r.text.trim().length > 0)) drawRuns(c, runs, BODY_SIZE, 0)
-        else if (c.y - lineHeight(BODY_SIZE) < CONTENT_BOTTOM) newPage(c)
+        if (runs.some((r) => r.text.trim().length > 0))
+          drawRuns(c, runs, BODY_SIZE, 0, undefined, alignOf(block))
+        else if (c.y - lineHeight(BODY_SIZE) < c.bottom) newPage(c)
         else c.y -= lineHeight(BODY_SIZE)
         for (const src of inlineImages(block.content)) await drawImage(c, src)
         c.y -= 4

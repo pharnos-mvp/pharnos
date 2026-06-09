@@ -52,6 +52,12 @@ const txt = (text: string): JSONContent => ({ type: 'text', text })
 const strong = (text: string): JSONContent => ({ type: 'text', text, marks: [{ type: 'bold' }] })
 const para = (...content: JSONContent[]): JSONContent =>
   content.length ? { type: 'paragraph', content } : { type: 'paragraph' }
+/** Paragraphe **aligné à droite** (date, destinataire, bloc signature — forme officielle UEMOA). */
+const paraR = (...content: JSONContent[]): JSONContent => ({
+  type: 'paragraph',
+  attrs: { textAlign: 'right' },
+  content,
+})
 const blank = (): JSONContent => ({ type: 'paragraph' })
 const field = (label: string, value: string): JSONContent => para(strong(`${label} : `), txt(value))
 const bullets = (items: JSONContent[]): JSONContent => ({
@@ -67,11 +73,12 @@ function buildCover(c: TemplateContext): JSONContent {
   return {
     type: 'doc',
     content: [
-      para(txt(`${c.ville}, le ${c.date}`)),
+      paraR(txt(`${c.ville}, le ${c.date}`)),
       blank(),
-      para(txt('À l’attention de Monsieur / Madame le Directeur Général')),
-      para(txt(c.agencyFull)),
-      para(txt('[Adresse de l’Agence]')),
+      paraR(txt('À')),
+      paraR(txt('Monsieur / Madame le Directeur Général')),
+      paraR(txt(c.agencyFull)),
+      paraR(txt('[Adresse]')),
       blank(),
       para(strong('Objet : '), txt(`Demande d’enregistrement d’AMM du produit ${c.nomCommercial}`)),
       blank(),
@@ -105,9 +112,9 @@ function buildCover(c: TemplateContext): JSONContent {
         ),
       ),
       blank(),
-      para(txt('[Poste]')),
-      para(txt('[Signature et cachet]')),
-      para(txt('[Nom et prénoms]')),
+      paraR(txt('[Poste]')),
+      paraR(txt('[Signature et cachet]')),
+      paraR(txt('[Nom et prénoms]')),
     ],
   }
 }
@@ -118,11 +125,12 @@ function buildPght(c: TemplateContext): JSONContent {
   return {
     type: 'doc',
     content: [
-      para(txt(`${c.ville}, le ${c.date}`)),
+      paraR(txt(`${c.ville}, le ${c.date}`)),
       blank(),
-      para(txt('À l’attention de Monsieur / Madame le Directeur Général')),
-      para(txt(c.agencyFull)),
-      para(txt('[Adresse de l’Agence]')),
+      paraR(txt('À')),
+      paraR(txt('Monsieur / Madame le Directeur Général')),
+      paraR(txt(c.agencyFull)),
+      paraR(txt('[Adresse]')),
       blank(),
       para(strong('Objet : '), txt('Attestation de Prix Grossiste Hors Taxe (PGHT)')),
       blank(),
@@ -150,9 +158,9 @@ function buildPght(c: TemplateContext): JSONContent {
         ),
       ),
       blank(),
-      para(txt('[Poste]')),
-      para(txt('[Signature et cachet]')),
-      para(txt('[Nom et prénom(s)]')),
+      paraR(txt('[Poste]')),
+      paraR(txt('[Signature et cachet]')),
+      paraR(txt('[Nom et prénom(s)]')),
     ],
   }
 }
