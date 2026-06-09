@@ -450,7 +450,6 @@ export function DossierWorkspacePage() {
       agencyName: ag.name,
       agencyFull: ag.full,
       agencyCivilite: agencyCivilite(ag),
-      agencyDirecteur: ag.directeur || '[Nom du Directeur]',
       agencyAdresse: ag.adresse || '[Adresse de l’agence]',
       country: activeDossier.country,
       ville: extractCity(product?.titulaireAdresse) || '[Ville]',

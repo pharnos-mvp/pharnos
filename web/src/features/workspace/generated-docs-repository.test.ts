@@ -27,7 +27,6 @@ const ctx: TemplateContext = {
   agencyName: 'AIRP',
   agencyFull: 'Autorité Ivoirienne de Régulation Pharmaceutique',
   agencyCivilite: 'Monsieur le Directeur Général',
-  agencyDirecteur: 'Dr Assane Coulibaly',
   agencyAdresse: 'Abidjan, Cocody',
   country: 'CI',
   ville: 'Abidjan',
