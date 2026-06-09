@@ -79,7 +79,7 @@ import {
   treeNodeNumbers,
   type CtdNodeDef,
 } from './module1-tree'
-import { agencyFor } from './roadmap-data'
+import { agencyCivilite, agencyFor } from './roadmap-data'
 import { PdfPreviewDialog } from './PdfPreviewDialog'
 import { PdfViewer } from './PdfViewer'
 import { runRegafy, type RegafyFinding } from './regafy'
@@ -449,6 +449,8 @@ export function DossierWorkspacePage() {
       fabricantAdresse: product?.fabricantAdresse?.trim() ?? '',
       agencyName: ag.name,
       agencyFull: ag.full,
+      agencyCivilite: agencyCivilite(ag),
+      agencyAdresse: ag.adresse || '[Adresse de l’agence]',
       country: activeDossier.country,
       ville: extractCity(product?.titulaireAdresse) || '[Ville]',
       date: new Date().toLocaleDateString('fr-FR', {

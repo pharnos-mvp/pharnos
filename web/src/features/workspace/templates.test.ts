@@ -22,6 +22,8 @@ const ctx: TemplateContext = {
   fabricantAdresse: 'Plot 12, GIDC, Gujarat, Inde',
   agencyName: 'AIRP',
   agencyFull: 'Autorité Ivoirienne de Régulation Pharmaceutique',
+  agencyCivilite: 'Monsieur le Directeur Général',
+  agencyAdresse: 'Abidjan, Cocody',
   country: 'CI',
   ville: 'Mumbai',
   date: '12 mai 2026',

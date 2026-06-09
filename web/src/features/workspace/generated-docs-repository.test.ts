@@ -26,6 +26,8 @@ const ctx: TemplateContext = {
   fabricantAdresse: '2 rue B, Casablanca',
   agencyName: 'AIRP',
   agencyFull: 'Autorité Ivoirienne de Régulation Pharmaceutique',
+  agencyCivilite: 'Monsieur le Directeur Général',
+  agencyAdresse: 'Abidjan, Cocody',
   country: 'CI',
   ville: 'Abidjan',
   date: '7 juin 2026',
