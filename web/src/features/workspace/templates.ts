@@ -58,6 +58,8 @@ const paraR = (...content: JSONContent[]): JSONContent => ({
   attrs: { textAlign: 'right' },
   content,
 })
+/** Saut de ligne **dans** un paragraphe → interligne serré (pas d'espace inter-paragraphe). */
+const br = (): JSONContent => ({ type: 'hardBreak' })
 const blank = (): JSONContent => ({ type: 'paragraph' })
 const field = (label: string, value: string): JSONContent => para(strong(`${label} : `), txt(value))
 const bullets = (items: JSONContent[]): JSONContent => ({
@@ -76,9 +78,13 @@ function buildCover(c: TemplateContext): JSONContent {
       paraR(txt(`${c.ville}, le ${c.date}`)),
       blank(),
       paraR(txt('À')),
-      paraR(txt('Monsieur / Madame le Directeur Général')),
-      paraR(txt(c.agencyFull)),
-      paraR(txt('[Adresse]')),
+      paraR(
+        txt('Monsieur / Madame le Directeur Général'),
+        br(),
+        txt(c.agencyFull),
+        br(),
+        txt('[Adresse]'),
+      ),
       blank(),
       para(strong('Objet : '), txt(`Demande d’enregistrement d’AMM du produit ${c.nomCommercial}`)),
       blank(),
@@ -128,9 +134,13 @@ function buildPght(c: TemplateContext): JSONContent {
       paraR(txt(`${c.ville}, le ${c.date}`)),
       blank(),
       paraR(txt('À')),
-      paraR(txt('Monsieur / Madame le Directeur Général')),
-      paraR(txt(c.agencyFull)),
-      paraR(txt('[Adresse]')),
+      paraR(
+        txt('Monsieur / Madame le Directeur Général'),
+        br(),
+        txt(c.agencyFull),
+        br(),
+        txt('[Adresse]'),
+      ),
       blank(),
       para(strong('Objet : '), txt('Attestation de Prix Grossiste Hors Taxe (PGHT)')),
       blank(),
