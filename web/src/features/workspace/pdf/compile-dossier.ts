@@ -180,7 +180,7 @@ function drawRuns(c: Cursor, runs: Run[], size: number, indent: number, prefix?:
   })
 }
 
-async function drawImage(c: Cursor, dataUrl: string, maxW = 180): Promise<void> {
+async function drawImage(c: Cursor, dataUrl: string, maxW = 180, indent = 0): Promise<void> {
   const parsed = dataUrlToBytes(dataUrl)
   if (!parsed) return
   let img: PDFImage
@@ -192,7 +192,7 @@ async function drawImage(c: Cursor, dataUrl: string, maxW = 180): Promise<void> 
   const w = Math.min(maxW, img.width)
   const h = (img.height / img.width) * w
   if (c.y - h < c.bottom) newPage(c)
-  c.page.drawImage(img, { x: MARGIN, y: c.y - h, width: w, height: h })
+  c.page.drawImage(img, { x: MARGIN + indent, y: c.y - h, width: w, height: h })
   c.y -= h + 6
 }
 
@@ -243,7 +243,8 @@ async function renderTiptap(c: Cursor, content: JSONContent): Promise<void> {
       case 'heading': {
         c.y -= 4
         drawRuns(c, inlineRuns(block.content), 14, blockIndent(block))
-        for (const src of inlineImages(block.content)) await drawImage(c, src)
+        for (const src of inlineImages(block.content))
+          await drawImage(c, src, 180, blockIndent(block))
         c.y -= 4
         break
       }
@@ -255,7 +256,8 @@ async function renderTiptap(c: Cursor, content: JSONContent): Promise<void> {
           for (const seg of segments) drawRuns(c, seg, BODY_SIZE, indent)
         } else if (c.y - lineHeight(BODY_SIZE) < c.bottom) newPage(c)
         else c.y -= lineHeight(BODY_SIZE)
-        for (const src of inlineImages(block.content)) await drawImage(c, src)
+        for (const src of inlineImages(block.content))
+          await drawImage(c, src, 180, blockIndent(block))
         c.y -= 4
         break
       }
