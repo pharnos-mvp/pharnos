@@ -12,7 +12,7 @@
 > **Protocole de mise à jour** (voir §13) : à chaque tranche livrée (PR mergée), mettre à jour le
 > §1 (état), le §9 (milestones) et le §10 (journal). Garder le reste synchronisé si une décision change.
 
-_Dernière mise à jour : 2026-06-09 — **Lot C (durcissement CI) livré** (auto-deploy Cloudflare + RLS pgTAP + Lighthouse) + **1er dossier réel compilé** (Gynoril Ovule, 44 p → **DoD atteint**) + **polish copie-conforme** (#56 composition multi-molécules appariée & non tronquée + espacement signature ; #57 bouton « Insérer »). **Auto-deploy actif** (chaque merge → prod). **Couverture refaite façon template officiel UEMOA + puces « • » + Poste/Nom du signataire tirés du profil** (#59-#61, migration 0013 appliquée). Reste : remplir le profil + régénérer les lettres pour boucler._
+_Dernière mise à jour : 2026-06-09 — **Lot C (durcissement CI) livré** (auto-deploy Cloudflare + RLS pgTAP + Lighthouse) + **1er dossier réel compilé** (Gynoril Ovule, 44 p → **DoD atteint**) + **polish copie-conforme** (#56 composition multi-molécules appariée & non tronquée + espacement signature ; #57 bouton « Insérer »). **Auto-deploy actif** (chaque merge → prod). **Couverture refaite façon template officiel UEMOA + puces « • » + Poste/Nom du signataire tirés du profil** (#59-#61, migration 0013 appliquée). **DoD VALIDÉ par le CEO** (lettre réelle propre) → **Lot A CLOS**. **Prochain : Lot B (IA — M4 Regafy IA + M5 traduction)**, à relancer dans une nouvelle conversation → **kit de démarrage complet au §11** (bloqueur unique = credentials GCP/Vertex à fournir par le CEO)._
 _**Reprise (nouvelle session) :** cœur du MVP déployé ; **Lot A‑1 e-mail OK** + **polish montage M1 (5/5)** +
 **mise en page des lettres générées conforme au template officiel UEMOA** (bloc date/destinataire/signature décalé
 à gauche [≠ right-align], interligne serré, signature placée dans le PDF, ville auto depuis l'adresse titulaire).
@@ -283,12 +283,31 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
    - ⏳ **Reste** : re-valider (régénérer les 2 lettres → corps « DCI et dosage » apparié [figé au JSON à la génération] ; recompiler) + **2 retouches de saisie** côté CEO sur la lettre PGHT (crochets `[` résiduels + accent « Représentant »).
 4. *(optionnel)* domaine custom + **DSN Sentry** en prod (`VITE_SENTRY_DSN`).
 
-**🔴 Lot B — Couche IA (M4 + M5)** *(BLOQUÉ : credentials GCP/Vertex+Gemini du CEO)*
+**🔴 Lot B — Couche IA (M4 Regafy IA + M5 Traduction) — PROCHAIN LOT** *(à relancer dans une nouvelle conversation ; bloqueur unique = credentials GCP/Vertex du CEO)*
 
-- **M4 Regafy IA (Vertex)** : Regafy v1 (déterministe) fait déjà complétude/validité/langue ;
-  l'IA ajoute conformité template + suggestions. Abstraction provider prête.
-- **M5 Traduction in-place (Gemini + glossaire MedDRA, streaming)** : pas commencé ; emplacements prêts.
-- Dès clés GCP → brancher les deux **en parallèle** (Edge Functions, secrets côté Supabase, jamais en repo/chat).
+> Tout est cadré ci-dessous → une nouvelle session démarre direct par l'étape ① (demander les creds), puis exécute. PLAN détaillé : `docs/PLAN.md` (M4 §133, M5 §134, archi IA §79-82).
+
+**① À DEMANDER AU CEO EN PREMIER** (sans ça, rien ne tourne) :
+- **Projet GCP** : `project_id` + **région** Vertex (ex. `us-central1` / `europe-west1`).
+- **API Vertex AI activée** + **facturation** liée (crédits ~300 $ + free tier OK au début).
+- **Service account** rôle **`Vertex AI User`** (`roles/aiplatform.user`) → **clé JSON**.
+- ⚠️ Clé JSON **JAMAIS dans le repo ni le chat** → **secret Supabase** depuis la racine : `supabase secrets set GCP_SA_KEY="$(cat key.json)" GCP_PROJECT_ID=… GCP_LOCATION=…`. Modèle : **`gemini-1.5-flash`** (no-train).
+
+**② CE QUI EXISTE DÉJÀ** (ne pas refaire) :
+- **Regafy v1 déterministe** : `web/src/features/workspace/regafy.ts` (`runRegafy` → `RegafyFinding[]` : expiry, placeholders restants, section validée sans doc, dossier vide, titulaire manquant). Affiché panneau droit (`DossierWorkspacePage`) + badge Catalogue. **L'IA ENRICHIT ces constats** (même modèle `RegafyFinding`), ne les remplace pas.
+- ❌ **PAS encore** : abstraction provider, Edge Functions (`supabase/functions/` **vide**), traduction. **À créer** (l'ancienne note « abstraction prête » était inexacte).
+
+**③ ARCHI CIBLE** (décisions verrouillées) :
+- Moteur = **Gemini Flash via Vertex AI** (no-train) derrière une **abstraction provider** (`LLMProvider` : `analyze()` / `translateStream()`, impl `VertexGemini` ; swap Claude/EU plus tard).
+- Orchestration = **Supabase Edge Functions (Deno/TS)** : `regafy-ai` (analyse → findings) + `translate` (streaming). Secrets GCP **côté Edge uniquement**, jamais client.
+- **Assistif only** (human-in-the-loop, jamais final). Budget **1er token traduction < 2 s**. zod + rate limiting + RLS.
+
+**④ PLAN D'EXÉCUTION** (slices verticales) :
+1. Creds ① → `supabase secrets set` + activer l'API Vertex.
+2. Abstraction `LLMProvider` + impl `VertexGemini` (auth SA : JWT → access token ; `:generateContent` / `:streamGenerateContent`).
+3. **Edge `regafy-ai`** : 1 finding IA bout-en-bout (ex. conformité template d'une lettre) → afficher dans le panneau Regafy (1ʳᵉ slice).
+4. Étendre M4 : détection langue + **OCR/vision** des pièces scannées (Gemini multimodal).
+5. **M5 traduction in-place** : Edge `translate` (streaming) + insertion TipTap + **glossaire MedDRA**.
 
 **🟢 Lot C — Finitions DoD / durcissement** *(CI livrée #55 ; reste : poser `CLOUDFLARE_API_TOKEN` + viser perf ≥ 90)*
 
