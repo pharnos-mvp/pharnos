@@ -186,6 +186,12 @@
 .editor-page .ProseMirror img[alt='Signature'] {
   max-width: 6.35cm;
 }
+/* Bloc décalé UEMOA (date / destinataire / signature) : le marqueur `textAlign:right` est rendu
+   comme un bloc **aligné à gauche** décalé à ~56 % (forme officielle — pas un text-align:right). */
+.editor-page .ProseMirror [style*='text-align: right'] {
+  text-align: left !important;
+  margin-left: 56%;
+}
 .editor-band {
   display: block;
   /* Pleine largeur bord-à-bord : déborde le padding 2,5cm de .editor-page (en-tête/pied sans marge). */

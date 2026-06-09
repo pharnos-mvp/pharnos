@@ -47,6 +47,7 @@ import {
 } from '@/lib/db'
 import { cn } from '@/lib/utils'
 import { ArborescenceTree } from './ArborescenceTree'
+import { extractCity } from './city'
 import { countryLabel } from './dossier-constants'
 import {
   addAttachment,
@@ -451,7 +452,7 @@ export function DossierWorkspacePage() {
       agencyName: ag.name,
       agencyFull: ag.full,
       country: activeDossier.country,
-      ville: '[Ville]',
+      ville: extractCity(product?.titulaireAdresse) || '[Ville]',
       date: new Date().toLocaleDateString('fr-FR', {
         day: 'numeric',
         month: 'long',
