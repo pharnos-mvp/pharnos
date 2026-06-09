@@ -254,6 +254,9 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 | #59 | 06-09 | **Workspace** : couverture globale (centrée, cadre, logo haut) + titulaire/fabricant nom + adresse |
 | #60 | 06-09 | **Workspace** : couverture **calée sur le template officiel** (tailles + équilibre vertical, auto-fit composition) + vraies puces **« • »** (rendu liste via `inlineSegments`) + Module 1 pays décalé |
 | #61 | 06-09 | **Profil** : **Poste + Nom et prénom(s) du signataire** auto-injectés dans le bloc signature (champ profil + colonne `pro_settings.signataire`, **migration 0013**) |
+| #62 | 06-09 | **Docs** : board — journal #58-#61 + DoD atteint |
+| #63 | 06-09 | **Docs** : board — kit de démarrage Lot B (IA) + Lot A clos |
+| #64 | 06-09 | **Workspace** : **destinataire des lettres auto-rempli par pays UEMOA** (civilité par rang + agence + adresse, 8 pays ; `roadmap-data` + `agencyCivilite`) |
 
 ---
 
@@ -280,7 +283,10 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
    le PDF compile, se télécharge et s'ouvre → **DoD atteint**. Round de **polish copie-conforme** (retours CEO) :
    - ✅ **#56** : composition multi-molécules **appariée** (DCI↔dosage) & **jamais tronquée** (couvertures wrap centré, en-tête courant = nom commercial seul) + **espacement signature** resserré/équilibré.
    - ✅ **#57** : bouton **« Insérer »** pour quitter le panneau en-tête/pied.
-   - ⏳ **Reste** : re-valider (régénérer les 2 lettres → corps « DCI et dosage » apparié [figé au JSON à la génération] ; recompiler) + **2 retouches de saisie** côté CEO sur la lettre PGHT (crochets `[` résiduels + accent « Représentant »).
+   - ✅ **#59-#60** : couverture **calée sur le template officiel** (tailles + équilibre vertical, auto-fit composition) + vraies puces **« • »**.
+   - ✅ **#61** : **Poste + Nom du signataire** depuis le profil (migration 0013).
+   - ✅ **#64** : **destinataire des lettres auto-rempli par pays UEMOA** (civilité par rang + agence + adresse ; 8 pays).
+   - ✅ **DoD VALIDÉ par le CEO** (lettre réelle propre, 2026-06-09). Reste perso : remplir le profil (Poste + Nom signataire) + régénérer pour figer au JSON.
 4. *(optionnel)* domaine custom + **DSN Sentry** en prod (`VITE_SENTRY_DSN`).
 
 **🔴 Lot B — Couche IA (M4 Regafy IA + M5 Traduction) — PROCHAIN LOT** *(à relancer dans une nouvelle conversation ; bloqueur unique = credentials GCP/Vertex du CEO)*
