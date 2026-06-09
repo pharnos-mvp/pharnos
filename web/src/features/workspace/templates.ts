@@ -40,6 +40,10 @@ export interface TemplateContext {
   country: string
   ville: string
   date: string
+  /** Poste / fonction du signataire (profil utilisateur). */
+  poste: string
+  /** Nom et prénom(s) du signataire (profil utilisateur). */
+  signataire: string
   /** Montant PGHT (FCFA). */
   pght: string
 }
@@ -129,9 +133,9 @@ function buildCover(c: TemplateContext): JSONContent {
         ),
       ),
       blank(),
-      paraR(txt('[Poste]')),
+      paraR(txt(c.poste || '[Poste]')),
       paraR(txt('[Signature et cachet]')),
-      paraR(txt('[Nom et prénoms]')),
+      paraR(txt(c.signataire || '[Nom et prénom(s)]')),
     ],
   }
 }
@@ -179,9 +183,9 @@ function buildPght(c: TemplateContext): JSONContent {
         ),
       ),
       blank(),
-      paraR(txt('[Poste]')),
+      paraR(txt(c.poste || '[Poste]')),
       paraR(txt('[Signature et cachet]')),
-      paraR(txt('[Nom et prénom(s)]')),
+      paraR(txt(c.signataire || '[Nom et prénom(s)]')),
     ],
   }
 }

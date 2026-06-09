@@ -25,6 +25,8 @@ const ctx: TemplateContext = {
   country: 'CI',
   ville: 'Mumbai',
   date: '12 mai 2026',
+  poste: 'Directeur des Affaires Réglementaires',
+  signataire: 'Dr. KESHAVLAL VAJECHAND',
   pght: '5 000',
 }
 
