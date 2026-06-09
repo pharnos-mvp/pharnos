@@ -41,6 +41,14 @@ function renderMarks(text: string, marks?: JSONContent['marks']): string {
   return out
 }
 
+/** Style d'alignement (textAlign TipTap) pour un paragraphe/titre HTML. */
+function alignAttr(node: JSONContent): string {
+  const a = node.attrs?.textAlign
+  if (a === 'right') return ' style="text-align:right"'
+  if (a === 'center') return ' style="text-align:center"'
+  return ''
+}
+
 function renderNode(node: JSONContent): string {
   const children = (node.content ?? []).map(renderNode).join('')
   switch (node.type) {
@@ -49,10 +57,10 @@ function renderNode(node: JSONContent): string {
     case 'text':
       return renderMarks(node.text ?? '', node.marks)
     case 'paragraph':
-      return `<p>${children || '<br>'}</p>`
+      return `<p${alignAttr(node)}>${children || '<br>'}</p>`
     case 'heading': {
       const level = Math.min(6, Math.max(1, Number(node.attrs?.level ?? 2)))
-      return `<h${level}>${children}</h${level}>`
+      return `<h${level}${alignAttr(node)}>${children}</h${level}>`
     }
     case 'bulletList':
       return `<ul>${children}</ul>`
