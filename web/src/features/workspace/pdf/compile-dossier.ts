@@ -209,6 +209,20 @@ function inlineRuns(nodes: JSONContent[] | undefined): Run[] {
   return out
 }
 
+/** Comme `inlineRuns` mais découpé aux sauts de ligne (`hardBreak`) → un segment = une ligne serrée. */
+function inlineSegments(nodes: JSONContent[] | undefined): Run[][] {
+  const segs: Run[][] = [[]]
+  for (const n of nodes ?? []) {
+    if (n.type === 'hardBreak') {
+      segs.push([])
+    } else if (n.type === 'text') {
+      const bold = (n.marks ?? []).some((m) => m.type === 'bold' || m.type === 'strong')
+      segs[segs.length - 1]!.push({ text: n.text ?? '', bold })
+    }
+  }
+  return segs
+}
+
 function inlineImages(nodes: JSONContent[] | undefined): string[] {
   return (nodes ?? [])
     .filter((n) => n.type === 'image' && typeof n.attrs?.src === 'string')
@@ -234,10 +248,12 @@ async function renderTiptap(c: Cursor, content: JSONContent): Promise<void> {
         break
       }
       case 'paragraph': {
-        const runs = inlineRuns(block.content)
-        if (runs.some((r) => r.text.trim().length > 0))
-          drawRuns(c, runs, BODY_SIZE, blockIndent(block))
-        else if (c.y - lineHeight(BODY_SIZE) < c.bottom) newPage(c)
+        const segments = inlineSegments(block.content)
+        const hasText = segments.some((seg) => seg.some((r) => r.text.trim().length > 0))
+        if (hasText) {
+          const indent = blockIndent(block)
+          for (const seg of segments) drawRuns(c, seg, BODY_SIZE, indent)
+        } else if (c.y - lineHeight(BODY_SIZE) < c.bottom) newPage(c)
         else c.y -= lineHeight(BODY_SIZE)
         for (const src of inlineImages(block.content)) await drawImage(c, src)
         c.y -= 4
