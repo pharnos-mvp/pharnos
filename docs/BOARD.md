@@ -12,7 +12,7 @@
 > **Protocole de mise à jour** (voir §13) : à chaque tranche livrée (PR mergée), mettre à jour le
 > §1 (état), le §9 (milestones) et le §10 (journal). Garder le reste synchronisé si une décision change.
 
-_Dernière mise à jour : 2026-06-09 — **Lot C (durcissement CI) livré** (auto-deploy Cloudflare + RLS pgTAP + Lighthouse) + **1er dossier réel compilé** (Gynoril Ovule, 44 p → **DoD atteint**) + **polish copie-conforme** (#56 composition multi-molécules appariée & non tronquée + espacement signature ; #57 bouton « Insérer »). **Auto-deploy actif** (chaque merge → prod). Reste : re-valider le dossier réel après régénération._
+_Dernière mise à jour : 2026-06-09 — **Lot C (durcissement CI) livré** (auto-deploy Cloudflare + RLS pgTAP + Lighthouse) + **1er dossier réel compilé** (Gynoril Ovule, 44 p → **DoD atteint**) + **polish copie-conforme** (#56 composition multi-molécules appariée & non tronquée + espacement signature ; #57 bouton « Insérer »). **Auto-deploy actif** (chaque merge → prod). **Couverture refaite façon template officiel UEMOA + puces « • » + Poste/Nom du signataire tirés du profil** (#59-#61, migration 0013 appliquée). Reste : remplir le profil + régénérer les lettres pour boucler._
 _**Reprise (nouvelle session) :** cœur du MVP déployé ; **Lot A‑1 e-mail OK** + **polish montage M1 (5/5)** +
 **mise en page des lettres générées conforme au template officiel UEMOA** (bloc date/destinataire/signature décalé
 à gauche [≠ right-align], interligne serré, signature placée dans le PDF, ville auto depuis l'adresse titulaire).
@@ -250,6 +250,10 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 | #55 | 06-09 | **Lot C (CI)** : auto-deploy Cloudflare (push `main`, gated `CLOUDFLARE_API_TOKEN`) + **RLS pgTAP en CI** + **Lighthouse CI** (perf/a11y) |
 | #56 | 06-09 | **Workspace** : composition multi-molécules **appariée** (DCI↔dosage) & **jamais tronquée** (couvertures en wrap centré, en-tête = nom seul) + **espacement signature** équilibré. Vérifié rendu poppler + pdfjs. |
 | #57 | 06-09 | **Workspace** : bouton **« Insérer »** pour quitter le panneau en-tête/pied (miroir du flux signature) |
+| #58 | 06-09 | **Docs** : board — journal #54-#57 + DoD atteint |
+| #59 | 06-09 | **Workspace** : couverture globale (centrée, cadre, logo haut) + titulaire/fabricant nom + adresse |
+| #60 | 06-09 | **Workspace** : couverture **calée sur le template officiel** (tailles + équilibre vertical, auto-fit composition) + vraies puces **« • »** (rendu liste via `inlineSegments`) + Module 1 pays décalé |
+| #61 | 06-09 | **Profil** : **Poste + Nom et prénom(s) du signataire** auto-injectés dans le bloc signature (champ profil + colonne `pro_settings.signataire`, **migration 0013**) |
 
 ---
 
@@ -258,7 +262,7 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 > **Le cœur du MVP (3 modules, online+offline) est livré, en ligne et durci.** Il reste 3 lots ;
 > le **Lot A** rend le pilote exploitable et valide la métrique de succès du DoD.
 
-**🟢 Lot A — Rendre le pilote réellement exploitable** *(e-mail ✅ ; polish montage ✅ ; **1er dossier réel compilé ✅ → DoD atteint** ; reste : re-valider après régénération)*
+**🟢 Lot A — Rendre le pilote réellement exploitable** *(e-mail ✅ ; polish montage ✅ ; **1er dossier réel compilé ✅ → DoD atteint** ; couverture template + puces + signataire profil ✅ ; reste : remplir le profil + régénérer)*
 
 1. **E-mail d'inscription + récupération de compte** — ✅ **TERMINÉ & vérifié en prod** :
    - ✅ Front (#36) : « mot de passe oublié » (écran de reset via `PASSWORD_RECOVERY`) + « renvoyer la confirmation ».
