@@ -20,6 +20,8 @@ export interface TemplateContext {
   nomCommercial: string
   dci: string
   dosage: string
+  /** Composition appariée DCI↔dosage, prête à l'affichage (multi-molécules). */
+  dciDosage: string
   forme: string
   presentation: string
   /** Nom + adresse du demandeur d'AMM (titulaire). */
@@ -97,7 +99,7 @@ function buildCover(c: TemplateContext): JSONContent {
       ),
       bullets([
         field('Nom commercial', c.nomCommercial),
-        field('DCI et dosage', joinNonEmpty(c.dci, c.dosage) || '[DCI et dosage]'),
+        field('DCI et dosage', c.dciDosage || '[DCI et dosage]'),
         field(
           'Forme et présentation',
           joinNonEmpty(c.forme, c.presentation) || '[Forme et présentation]',
@@ -153,7 +155,7 @@ function buildPght(c: TemplateContext): JSONContent {
       ),
       bullets([
         field('Nom commercial', c.nomCommercial),
-        field('DCI et dosage', joinNonEmpty(c.dci, c.dosage) || '[DCI et dosage]'),
+        field('DCI et dosage', c.dciDosage || '[DCI et dosage]'),
         field(
           'Forme et présentation',
           joinNonEmpty(c.forme, c.presentation) || '[Forme et présentation]',

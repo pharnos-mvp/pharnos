@@ -100,6 +100,7 @@ describe('compileDossier — budget perf DoD (M6 : compile < 10 s)', () => {
       country: 'Bénin',
       titulaire: 'Laboratoire Démo SARL',
       commercialLine: 'Produit Démo (DCI 500 mg, comprimé)',
+      productName: 'Produit Démo',
       logo: null,
       autoStructural: true,
       contentByNumber,

@@ -66,6 +66,7 @@ function input(autoStructural: boolean): CompileInput {
     country: "Côte d'Ivoire",
     titulaire: 'Laboratoire X',
     commercialLine: 'Doliprane (Paracétamol 500 mg)',
+    productName: 'Doliprane',
     logo: null,
     autoStructural,
     contentByNumber,
