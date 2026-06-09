@@ -12,18 +12,18 @@
 > **Protocole de mise à jour** (voir §13) : à chaque tranche livrée (PR mergée), mettre à jour le
 > §1 (état), le §9 (milestones) et le §10 (journal). Garder le reste synchronisé si une décision change.
 
-_Dernière mise à jour : 2026-06-08 — **Lot A‑1 e-mail OK** + **polish montage M1 5/5** + **lettres conformes au template officiel UEMOA** (alignements, interligne serré, signature bien placée, ville auto). Tout déployé. Reste : valider le DoD réel._
+_Dernière mise à jour : 2026-06-09 — **Lot C (durcissement CI) livré** (auto-deploy Cloudflare + RLS pgTAP + Lighthouse) + **1er dossier réel compilé** (Gynoril Ovule, 44 p → **DoD atteint**) + **polish copie-conforme** (#56 composition multi-molécules appariée & non tronquée + espacement signature ; #57 bouton « Insérer »). **Auto-deploy actif** (chaque merge → prod). Reste : re-valider le dossier réel après régénération._
 _**Reprise (nouvelle session) :** cœur du MVP déployé ; **Lot A‑1 e-mail OK** + **polish montage M1 (5/5)** +
 **mise en page des lettres générées conforme au template officiel UEMOA** (bloc date/destinataire/signature décalé
 à gauche [≠ right-align], interligne serré, signature placée dans le PDF, ville auto depuis l'adresse titulaire).
-Tout déployé/vert. **Reste du Lot A :** **valider le DoD réel** (1 dossier M1) + optionnel domaine/Sentry. Voir §11._
+Tout déployé/vert. **Lot C (CI) livré** (auto-deploy + RLS pgTAP + Lighthouse, secrets posés) **+ 1er dossier réel compilé** (Gynoril, 44 p → **DoD atteint**) **+ polish copie-conforme** (#56 composition multi-molécules appariée/non tronquée + espacement signature ; #57 bouton « Insérer »). **Auto-deploy actif** (merge→prod). **Reste :** re-valider le dossier réel (régénérer les lettres + recompiler) + 2 retouches de saisie sur la lettre PGHT. Voir §11._
 
 ---
 
 ## 1. TL;DR — où on en est
 
-**Le MVP (3 modules) est fonctionnel, online et offline, et durci.** Reste : l'IA (M4/M5)
-**bloquée sur les credentials Google Cloud**, et la mise en pilote.
+**Le MVP (3 modules) est fonctionnel, online et offline, durci ; le durcissement CI (Lot C) est livré.**
+Reste : l'IA (M4/M5) **bloquée sur les credentials Google Cloud**, et **valider le pilote sur 1 dossier réel**.
 
 | Domaine | État |
 |---|---|
@@ -36,8 +36,8 @@ Tout déployé/vert. **Reste du Lot A :** **valider le DoD réel** (1 dossier M1
 | **Regafy IA (M4, Vertex)** · **Traduction (M5, Gemini)** | ⏳ **Bloqué** : credentials GCP |
 | **Déploiement pilote** | ✅ **En ligne — https://pharnos.pages.dev** (Cloudflare Pages, mode authentifié) |
 
-**Qualité (main, vert partout) :** typecheck · lint · format · **52 tests unitaires** · build ·
-**budget bundle** · **9 E2E Playwright** (dont reload hors-ligne) · **a11y WCAG AA** sur 4 pages cœur.
+**Qualité (main, vert partout) :** typecheck · lint · format · **75 tests unitaires** · build ·
+**budget bundle** · **9 E2E Playwright** (dont reload hors-ligne) · **a11y WCAG AA** · **RLS pgTAP en CI** · **Lighthouse CI** (perf/a11y).
 
 ---
 
@@ -81,7 +81,7 @@ seulement), collab temps réel, soumission directe agences, apps natives, factur
 | **IA (Regafy/Traduction)** | **Gemini Flash via Vertex AI** (no-train) derrière une abstraction provider | Confidentialité + très bon marché ; swap possible |
 | **Observabilité** | **Sentry** (lazy, opt-in via `VITE_SENTRY_DSN`) | Erreurs en prod, zéro coût bundle si désactivé |
 | **Hébergement** | **Cloudflare Pages** (front) · Supabase managé | Free tier, edge mondial |
-| **CI** | **GitHub Actions** (Node 24) | 2 jobs : web + e2e |
+| **CI/CD** | **GitHub Actions** (Node 24) | 4 jobs : web · e2e · **RLS pgTAP** · **Lighthouse** + **auto-deploy** (push `main` → Cloudflare Pages) |
 
 **Principes non négociables :** performance · sécurité par défaut · scalabilité · efficacité ·
 correction · maintenabilité. IA **assistive only** (human-in-the-loop, jamais finale).
@@ -246,6 +246,10 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 | #51 | 06-08 | **Workspace** : bloc date/destinataire/signature **décalé à gauche** (≠ right-align) + **ville auto** depuis l'adresse titulaire (`city.ts`) |
 | #52 | 06-08 | **Workspace (fix)** : interligne serré du bloc destinataire (sauts de ligne) |
 | #53 | 06-08 | **Workspace (fix)** : signature placée au bon endroit dans le PDF compilé (indentation du bloc) |
+| #54 | 06-08 | **Docs** : board — lettres conformes au template UEMOA + journal #48‑#53 |
+| #55 | 06-09 | **Lot C (CI)** : auto-deploy Cloudflare (push `main`, gated `CLOUDFLARE_API_TOKEN`) + **RLS pgTAP en CI** + **Lighthouse CI** (perf/a11y) |
+| #56 | 06-09 | **Workspace** : composition multi-molécules **appariée** (DCI↔dosage) & **jamais tronquée** (couvertures en wrap centré, en-tête = nom seul) + **espacement signature** équilibré. Vérifié rendu poppler + pdfjs. |
+| #57 | 06-09 | **Workspace** : bouton **« Insérer »** pour quitter le panneau en-tête/pied (miroir du flux signature) |
 
 ---
 
@@ -254,7 +258,7 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 > **Le cœur du MVP (3 modules, online+offline) est livré, en ligne et durci.** Il reste 3 lots ;
 > le **Lot A** rend le pilote exploitable et valide la métrique de succès du DoD.
 
-**🟢 Lot A — Rendre le pilote réellement exploitable** *(e-mail ✅ ; polish montage ✅ 5/5 ; reste : valider le DoD)*
+**🟢 Lot A — Rendre le pilote réellement exploitable** *(e-mail ✅ ; polish montage ✅ ; **1er dossier réel compilé ✅ → DoD atteint** ; reste : re-valider après régénération)*
 
 1. **E-mail d'inscription + récupération de compte** — ✅ **TERMINÉ & vérifié en prod** :
    - ✅ Front (#36) : « mot de passe oublié » (écran de reset via `PASSWORD_RECOVERY`) + « renvoyer la confirmation ».
@@ -268,8 +272,11 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
    - ✅ **Slice 3 (#44)** : **pages de couverture** (CTD globale + Module 1).
    - ✅ **Slice 4 (#47)** : UX **signature & en-tête/pied in-montage** — upload sans navigation + stockage optionnel (permission) + signature au paragraphe réservé `[Signature et cachet]` + toggle. **Fix #46** : barre de format recollée à l'A4 (sticky).
    - ℹ️ **Sync offline (réponse au CEO)** : à la reconnexion, l'outbox est poussée (métadonnées **+ blobs vers Storage**) puis pull **LWW server-authoritative** — automatique. Le PDF compilé n'est pas stocké (régénéré à la demande).
-3. **Valider le DoD** : monter **1 dossier Module 1 réel** de bout en bout (produit → pièces →
-   compile PDF au vert) avec une vraie organisation. C'est *le* test de succès du plan.
+3. **Valider le DoD** — ✅ **1er dossier réel compilé** (Gynoril Ovule, **44 pages**, produit **4 molécules**) :
+   le PDF compile, se télécharge et s'ouvre → **DoD atteint**. Round de **polish copie-conforme** (retours CEO) :
+   - ✅ **#56** : composition multi-molécules **appariée** (DCI↔dosage) & **jamais tronquée** (couvertures wrap centré, en-tête courant = nom commercial seul) + **espacement signature** resserré/équilibré.
+   - ✅ **#57** : bouton **« Insérer »** pour quitter le panneau en-tête/pied.
+   - ⏳ **Reste** : re-valider (régénérer les 2 lettres → corps « DCI et dosage » apparié [figé au JSON à la génération] ; recompiler) + **2 retouches de saisie** côté CEO sur la lettre PGHT (crochets `[` résiduels + accent « Représentant »).
 4. *(optionnel)* domaine custom + **DSN Sentry** en prod (`VITE_SENTRY_DSN`).
 
 **🔴 Lot B — Couche IA (M4 + M5)** *(BLOQUÉ : credentials GCP/Vertex+Gemini du CEO)*
@@ -279,11 +286,12 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 - **M5 Traduction in-place (Gemini + glossaire MedDRA, streaming)** : pas commencé ; emplacements prêts.
 - Dès clés GCP → brancher les deux **en parallèle** (Edge Functions, secrets côté Supabase, jamais en repo/chat).
 
-**⚪ Lot C — Finitions DoD / durcissement** *(non bloquant — tâche todo #10)*
+**🟢 Lot C — Finitions DoD / durcissement** *(CI livrée #55 ; reste : poser `CLOUDFLARE_API_TOKEN` + viser perf ≥ 90)*
 
-- **Lighthouse CI** (valider PWA ≥ 90 · TTI < 2,5 s) + mesurer « compile PDF M1 < 10 s ».
-- **Auto-deploy CI** (push `main` → Cloudflare, secret `CLOUDFLARE_API_TOKEN`) — fini le redéploiement manuel.
-- Tests **RLS pgTAP en CI** (service Postgres + pgtap). Export DOCX (fast-follow).
+- ✅ **Lighthouse CI** (#55) : perf / a11y / best-practices mesurés à chaque run (assertions `warn`, rapport public). ⚠️ **Perf actuellement < 0,9** → optimisation possible (gros chunks pdf-lib/pdfjs) pour cocher le **PWA ≥ 90** strict du DoD.
+- ✅ **RLS pgTAP en CI** (#55) : `supabase start` + `supabase test db` — **isolation multi-tenant prouvée à chaque run**.
+- ✅ **Auto-deploy CI** (#55, `deploy.yml`) : push `main` → Cloudflare Pages, **gated par `CLOUDFLARE_API_TOKEN`** (no-op sans le secret → `main` reste vert). Secrets posés via `gh secret set` (3/4) : `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `CLOUDFLARE_ACCOUNT_ID`. **Reste `CLOUDFLARE_API_TOKEN`** : wrangler est en **OAuth** (pas de token API réutilisable) ⇒ minter un token scopé *Account → Cloudflare Pages → Edit*.
+- ⏳ Export DOCX (fast-follow).
 
 ### Déploiement (prod) — Cloudflare Pages
 
@@ -302,8 +310,7 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
   npm run build
   npx wrangler pages deploy dist --project-name pharnos --branch main --commit-dirty true
   ```
-- **À faire (durcissement déploiement)** : automatiser via GitHub Actions (déploiement sur push `main`
-  avec `CLOUDFLARE_API_TOKEN` en secret de repo) plutôt que manuel.
+- **✅ Auto-deploy (CI, #55)** : `.github/workflows/deploy.yml` déploie sur push `main` (gated `secrets.CLOUDFLARE_API_TOKEN`). Secrets repo posés via `gh secret set` : `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `CLOUDFLARE_ACCOUNT_ID`. **Activation finale** : `gh secret set CLOUDFLARE_API_TOKEN` (token scopé *Cloudflare Pages → Edit* ; saisie au prompt → hors historique shell).
 
 **Falaises de scale (post-pilote) :** dépassement free tiers Supabase → Pro (~25 $/mois) ; volume IA
 (Flash très bon marché) ; bande passante. Architecture prête (IaC portable, abstraction provider IA).
