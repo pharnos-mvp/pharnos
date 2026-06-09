@@ -29,6 +29,8 @@ const ctx: TemplateContext = {
   country: 'CI',
   ville: 'Abidjan',
   date: '7 juin 2026',
+  poste: 'Responsable RA',
+  signataire: 'Awa Koné',
   pght: '1 200',
 }
 

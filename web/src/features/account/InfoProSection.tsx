@@ -63,16 +63,18 @@ export function InfoProSection() {
       <OrgProfileForm
         // Remonte le formulaire quand les valeurs stockées changent (après save / synchro) →
         // réinitialise proprement la baseline sans effet ni clobber lors d'un upload d'image.
-        key={`${branding?.entreprise ?? ''}|${branding?.poste ?? ''}|${branding?.pays ?? ''}`}
+        key={`${branding?.entreprise ?? ''}|${branding?.poste ?? ''}|${branding?.signataire ?? ''}|${branding?.pays ?? ''}`}
         initial={{
           entreprise: branding?.entreprise ?? '',
           poste: branding?.poste ?? '',
+          signataire: branding?.signataire ?? '',
           pays: branding?.pays ?? '',
         }}
         onSave={async (v) => {
           await setOrgProfile(orgId, {
             entreprise: v.entreprise.trim() || null,
             poste: v.poste.trim() || null,
+            signataire: v.signataire.trim() || null,
             pays: v.pays.trim() || null,
           })
           void syncProSettings(orgId)
@@ -153,6 +155,7 @@ export function InfoProSection() {
 interface OrgProfileValues {
   entreprise: string
   poste: string
+  signataire: string
   pays: string
 }
 
@@ -171,16 +174,20 @@ function OrgProfileForm({
   const { t } = useI18n()
   const [entreprise, setEntreprise] = useState(initial.entreprise)
   const [poste, setPoste] = useState(initial.poste)
+  const [signataire, setSignataire] = useState(initial.signataire)
   const [pays, setPays] = useState(initial.pays)
   const [saving, setSaving] = useState(false)
 
   const dirty =
-    entreprise !== initial.entreprise || poste !== initial.poste || pays !== initial.pays
+    entreprise !== initial.entreprise ||
+    poste !== initial.poste ||
+    signataire !== initial.signataire ||
+    pays !== initial.pays
 
   async function save() {
     setSaving(true)
     try {
-      await onSave({ entreprise, poste, pays })
+      await onSave({ entreprise, poste, signataire, pays })
       toast.success(t({ fr: 'Enregistré', en: 'Saved' }))
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t({ fr: 'Erreur', en: 'Error' }))
@@ -213,6 +220,16 @@ function OrgProfileForm({
         <div className="space-y-1.5">
           <Label htmlFor="org-poste">{t({ fr: 'Poste', en: 'Position' })}</Label>
           <Input id="org-poste" value={poste} onChange={(e) => setPoste(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="org-signataire">
+            {t({ fr: 'Nom et prénom(s) du signataire', en: 'Signatory full name' })}
+          </Label>
+          <Input
+            id="org-signataire"
+            value={signataire}
+            onChange={(e) => setSignataire(e.target.value)}
+          />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="org-pays">{t({ fr: 'Pays', en: 'Country' })}</Label>

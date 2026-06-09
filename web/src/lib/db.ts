@@ -134,6 +134,8 @@ export interface ProSettingRecord {
   entreprise: string | null
   /** Poste / fonction (orgBranding). */
   poste: string | null
+  /** Nom et prénom(s) du signataire (orgBranding) — bloc signature des lettres. */
+  signataire: string | null
   /** Pays (orgBranding). */
   pays: string | null
   /** Data URL de l'en-tête (orgBranding). */

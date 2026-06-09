@@ -456,6 +456,8 @@ export function DossierWorkspacePage() {
         month: 'long',
         year: 'numeric',
       }),
+      poste: branding?.poste ?? '',
+      signataire: branding?.signataire ?? '',
       pght: '[PGHT en FCFA]',
     }
   }

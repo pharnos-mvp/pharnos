@@ -9,6 +9,7 @@ export interface ProSettingRow {
   kind: string
   entreprise: string | null
   poste: string | null
+  signataire: string | null
   pays: string | null
   header_image: string | null
   footer_image: string | null
@@ -25,6 +26,7 @@ function toRow(d: ProSettingRecord): ProSettingRow {
     kind: d.kind,
     entreprise: d.entreprise,
     poste: d.poste,
+    signataire: d.signataire,
     pays: d.pays,
     header_image: d.headerImage,
     footer_image: d.footerImage,
@@ -42,6 +44,7 @@ function rowTo(r: ProSettingRow): ProSettingRecord {
     kind: r.kind === 'userSignature' ? 'userSignature' : 'orgBranding',
     entreprise: r.entreprise ?? null,
     poste: r.poste ?? null,
+    signataire: r.signataire ?? null,
     pays: r.pays ?? null,
     headerImage: r.header_image,
     footerImage: r.footer_image,
