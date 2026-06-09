@@ -12,10 +12,11 @@
 > **Protocole de mise à jour** (voir §13) : à chaque tranche livrée (PR mergée), mettre à jour le
 > §1 (état), le §9 (milestones) et le §10 (journal). Garder le reste synchronisé si une décision change.
 
-_Dernière mise à jour : 2026-06-08 — **Lot A‑1 e-mail OK** + **polish montage M1 5/5 livré & déployé** (preview offline, sticky, Nom/Adresse, en-tête/pied & couvertures dans le PDF compilé, UX signature/en-tête in-montage). Reste : valider le DoD réel._
-_**Reprise (nouvelle session) :** cœur du MVP déployé ; **Lot A‑1 e-mail OK** + **polish montage M1 COMPLET (5/5 :
-Slices 1/0/2/3/4 + fix barre de format, déployés)**. **Reste du Lot A :** **valider le DoD réel** (1 dossier M1) +
-optionnel domaine/Sentry. Voir §11. Main est vert._
+_Dernière mise à jour : 2026-06-08 — **Lot A‑1 e-mail OK** + **polish montage M1 5/5** + **lettres conformes au template officiel UEMOA** (alignements, interligne serré, signature bien placée, ville auto). Tout déployé. Reste : valider le DoD réel._
+_**Reprise (nouvelle session) :** cœur du MVP déployé ; **Lot A‑1 e-mail OK** + **polish montage M1 (5/5)** +
+**mise en page des lettres générées conforme au template officiel UEMOA** (bloc date/destinataire/signature décalé
+à gauche [≠ right-align], interligne serré, signature placée dans le PDF, ville auto depuis l'adresse titulaire).
+Tout déployé/vert. **Reste du Lot A :** **valider le DoD réel** (1 dossier M1) + optionnel domaine/Sentry. Voir §11._
 
 ---
 
@@ -239,6 +240,12 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 | #45 | 06-08 | Board : polish montage (Slices 1/0/2/3) + journal #39→#44 |
 | #46 | 06-08 | **Workspace (fix)** : barre de format recollée à la page A4 (sticky) — retour CEO |
 | #47 | 06-08 | **Workspace (polish 4)** : UX **signature & en-tête/pied in-montage** (upload sans navigation + stockage optionnel + placement réservé `[Signature et cachet]` + toggle) |
+| #48 | 06-08 | Board : polish montage M1 complet 5/5 + journal #45→#47 |
+| #49 | 06-08 | **Workspace (fix)** : taille signature bornée dans l'aperçu éditeur (comme le PDF compilé) |
+| #50 | 06-08 | **Workspace** : mise en page des lettres générées (alignements) conforme au **template officiel UEMOA** |
+| #51 | 06-08 | **Workspace** : bloc date/destinataire/signature **décalé à gauche** (≠ right-align) + **ville auto** depuis l'adresse titulaire (`city.ts`) |
+| #52 | 06-08 | **Workspace (fix)** : interligne serré du bloc destinataire (sauts de ligne) |
+| #53 | 06-08 | **Workspace (fix)** : signature placée au bon endroit dans le PDF compilé (indentation du bloc) |
 
 ---
 
