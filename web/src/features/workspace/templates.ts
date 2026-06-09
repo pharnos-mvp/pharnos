@@ -25,9 +25,13 @@ export interface TemplateContext {
   forme: string
   presentation: string
   /** Nom + adresse du demandeur d'AMM (titulaire). */
-  demandeur: string
-  /** Nom + adresse du fabricant. */
-  fabricant: string
+  demandeurNom: string
+  /** Adresse du demandeur d'AMM (titulaire). */
+  demandeurAdresse: string
+  /** Nom du fabricant. */
+  fabricantNom: string
+  /** Adresse du fabricant. */
+  fabricantAdresse: string
   /** Sigle de l'agence (ex. 'AIRP'). */
   agencyName: string
   /** Nom complet de l'agence. */
@@ -64,6 +68,11 @@ const paraR = (...content: JSONContent[]): JSONContent => ({
 const br = (): JSONContent => ({ type: 'hardBreak' })
 const blank = (): JSONContent => ({ type: 'paragraph' })
 const field = (label: string, value: string): JSONContent => para(strong(`${label} : `), txt(value))
+/** Champ « nom (1re ligne) + adresse (ligne suivante, interligne serré) » — sans puce. */
+const partyField = (label: string, nom: string, adresse: string): JSONContent =>
+  adresse
+    ? para(strong(`${label} : `), txt(nom), br(), txt(adresse))
+    : para(strong(`${label} : `), txt(nom))
 const bullets = (items: JSONContent[]): JSONContent => ({
   type: 'bulletList',
   content: items.map((p) => ({ type: 'listItem', content: [p] })),
@@ -104,9 +113,9 @@ function buildCover(c: TemplateContext): JSONContent {
           'Forme et présentation',
           joinNonEmpty(c.forme, c.presentation) || '[Forme et présentation]',
         ),
-        field('Nom et adresse du demandeur d’AMM', c.demandeur),
-        field('Nom et adresse du fabricant', c.fabricant),
       ]),
+      partyField('Nom et adresse du demandeur d’AMM', c.demandeurNom, c.demandeurAdresse),
+      partyField('Nom et adresse du fabricant', c.fabricantNom, c.fabricantAdresse),
       para(
         txt(
           'Le dossier technique ci-joint a été constitué en conformité avec les directives de l’UEMOA ' +

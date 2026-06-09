@@ -698,52 +698,60 @@ function drawGlobalCover(
 ): void {
   const { width, height } = page.getSize()
 
-  // En-tête : logo (gauche) + nom/sigle du titulaire (droite) + filet.
-  const headTop = height - MARGIN
-  if (logo) {
-    const lh = 38
-    const lw = Math.min((logo.width / logo.height) * lh, 150)
-    page.drawImage(logo, { x: MARGIN, y: headTop - lh, width: lw, height: lh })
-  }
-  if (cover.titulaireName) {
-    const t = ellipsize(cover.titulaireName, fonts.bold, 12, CONTENT_WIDTH / 2)
-    page.drawText(t, {
-      x: width - MARGIN - fonts.bold.widthOfTextAtSize(t, 12),
-      y: headTop - 24,
-      size: 12,
-      font: fonts.bold,
-      color: BLACK,
-    })
-  }
-  const ruleY = headTop - 52
-  page.drawLine({
-    start: { x: MARGIN, y: ruleY },
-    end: { x: width - MARGIN, y: ruleY },
-    thickness: 1,
-    color: GRAY,
-  })
+  // Cadre officiel (bordure pleine page, tracée en 4 segments → pas de remplissage).
+  const fx = 24
+  const fw = width - 48
+  const fb = 24
+  const fh = height - 48
+  const edge = (x1: number, y1: number, x2: number, y2: number): void =>
+    page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness: 1, color: BLACK })
+  edge(fx, fb, fx + fw, fb)
+  edge(fx, fb + fh, fx + fw, fb + fh)
+  edge(fx, fb, fx, fb + fh)
+  edge(fx + fw, fb, fx + fw, fb + fh)
 
-  // Bloc central : surtitre, activité, produit, DCI/dosage, pays.
-  let y = height * 0.66
-  const center = (text: string, size: number, bold: boolean, gap: number): void => {
-    if (!text) return
-    const f = bold ? fonts.bold : fonts.regular
-    const t = ellipsize(text, f, size, CONTENT_WIDTH)
-    page.drawText(t, {
-      x: (width - f.widthOfTextAtSize(t, size)) / 2,
-      y,
-      size,
-      font: f,
-      color: BLACK,
-    })
-    y -= gap
+  const innerW = width - 2 * (fx + 30)
+  let y = height - 66
+
+  // Logo centré en haut (forme officielle UEMOA).
+  if (logo) {
+    const lh = 46
+    const lw = Math.min((logo.width / logo.height) * lh, 200)
+    page.drawImage(logo, { x: (width - lw) / 2, y: y - lh, width: lw, height: lh })
+    y -= lh + 30
+  } else {
+    y -= 6
   }
-  // Variante **enroulée** (jamais tronquée) : composition multi-molécules sur 2-3 lignes centrées.
-  const centerWrapped = (text: string, size: number, bold: boolean, gap: number): void => {
+
+  // Helpers **centrés**.
+  const line = (
+    text: string,
+    size: number,
+    bold: boolean,
+    gapAfter: number,
+    underline = false,
+  ): void => {
     if (!text) return
     const f = bold ? fonts.bold : fonts.regular
-    const wrapped = wrapPlain(text, f, size, CONTENT_WIDTH).slice(0, 3)
-    wrapped.forEach((ln, i) => {
+    const t = sanitize(text)
+    const w = f.widthOfTextAtSize(t, size)
+    const x = (width - w) / 2
+    page.drawText(t, { x, y, size, font: f, color: BLACK })
+    if (underline) {
+      page.drawLine({
+        start: { x, y: y - 2.5 },
+        end: { x: x + w, y: y - 2.5 },
+        thickness: 0.6,
+        color: BLACK,
+      })
+    }
+    y -= gapAfter
+  }
+  // Texte **enroulé** (jamais tronqué), centré, lignes serrées.
+  const wrapped = (text: string, size: number, bold: boolean, gapAfter: number): void => {
+    if (!text) return
+    const f = bold ? fonts.bold : fonts.regular
+    for (const ln of wrapPlain(text, f, size, innerW)) {
       page.drawText(ln, {
         x: (width - f.widthOfTextAtSize(ln, size)) / 2,
         y,
@@ -751,67 +759,49 @@ function drawGlobalCover(
         font: f,
         color: BLACK,
       })
-      if (i < wrapped.length - 1) y -= lineHeight(size)
-    })
-    y -= gap
+      y -= lineHeight(size)
+    }
+    y -= gapAfter
   }
-  center("DOSSIER D'ENREGISTREMENT — COMMON TECHNICAL DOCUMENT (CTD)", 10, false, 28)
-  center(cover.activity.toUpperCase(), 13, true, 32)
-  center(cover.nomCommercial, 24, true, 30)
-  centerWrapped(cover.dciDosage, 14, false, 22)
-  center(input.country, 13, false, 22)
-
-  // Parties : titulaire + fabricant (si différent).
-  y = height * 0.34
-  const block = (label: string, name: string, address: string): void => {
+  // Partie (titulaire / fabricant) : label souligné, **nom 1re ligne**, **adresse ligne suivante**
+  // (interligne normal, centrée, sans puce).
+  const party = (label: string, name: string, address: string): void => {
     if (!name) return
-    page.drawText(sanitize(label), { x: MARGIN, y, size: 9, font: fonts.bold, color: GRAY })
-    y -= 15
-    page.drawText(ellipsize(name, fonts.regular, 11, CONTENT_WIDTH), {
-      x: MARGIN,
+    line(label, 11, true, 22, true)
+    page.drawText(sanitize(name), {
+      x: (width - fonts.bold.widthOfTextAtSize(sanitize(name), 13)) / 2,
       y,
-      size: 11,
-      font: fonts.regular,
+      size: 13,
+      font: fonts.bold,
       color: BLACK,
     })
-    y -= 13
-    for (const ln of wrapPlain(address, fonts.regular, 10, CONTENT_WIDTH).slice(0, 3)) {
-      if (!ln) break
-      page.drawText(ln, { x: MARGIN, y, size: 10, font: fonts.regular, color: BLACK })
-      y -= 12
+    y -= lineHeight(13)
+    for (const ln of wrapPlain(address, fonts.regular, 11, innerW)) {
+      page.drawText(ln, {
+        x: (width - fonts.regular.widthOfTextAtSize(ln, 11)) / 2,
+        y,
+        size: 11,
+        font: fonts.regular,
+        color: BLACK,
+      })
+      y -= lineHeight(11)
     }
-    y -= 12
-  }
-  block("TITULAIRE / DEMANDEUR D'AMM", cover.titulaireName, cover.titulaireAddress)
-  if (cover.fabricantName && cover.fabricantName !== cover.titulaireName) {
-    block('FABRICANT', cover.fabricantName, cover.fabricantAddress)
+    y -= 26
   }
 
-  // Pied : activité + mois/année.
-  const fy = MARGIN
-  page.drawLine({
-    start: { x: MARGIN, y: fy + 16 },
-    end: { x: width - MARGIN, y: fy + 16 },
-    thickness: 0.5,
-    color: GRAY,
-  })
-  if (cover.activity) {
-    page.drawText(sanitize(cover.activity), {
-      x: MARGIN,
-      y: fy,
-      size: 9,
-      font: fonts.regular,
-      color: GRAY,
-    })
+  // Titre officiel (souligné) + activité + produit + composition + pays.
+  line("DOSSIER CTD D'ENREGISTREMENT D'AUTORISATION", 12, true, 16, true)
+  line('DE MISE SUR LE MARCHÉ (AMM)', 12, true, cover.activity ? 22 : 52, true)
+  if (cover.activity) line(cover.activity.toUpperCase(), 11, true, 54)
+  line(cover.nomCommercial, 24, true, 34)
+  wrapped(cover.dciDosage, 14, false, 50)
+  line(input.country, 14, true, 80)
+
+  // Parties (centrées, sans puce) : titulaire puis fabricant (si différent).
+  party('Dossier soumis par', cover.titulaireName, cover.titulaireAddress)
+  if (cover.fabricantName && cover.fabricantName !== cover.titulaireName) {
+    party('Fabricant', cover.fabricantName, cover.fabricantAddress)
   }
-  const dl = sanitize(cover.dateLabel)
-  page.drawText(dl, {
-    x: width - MARGIN - fonts.regular.widthOfTextAtSize(dl, 9),
-    y: fy,
-    size: 9,
-    font: fonts.regular,
-    color: GRAY,
-  })
 }
 
 /** Couverture du Module 1 (page 2). */
@@ -822,6 +812,7 @@ function drawModuleCover(page: PDFPage, input: CompileInput, fonts: Fonts): void
       { text: 'MODULE 1', size: 34, bold: true },
       { text: 'Informations administratives', size: 16, bold: false },
       { text: input.commercialLine, size: 12, bold: false },
+      { text: '', size: 12, bold: false },
       { text: input.country, size: 12, bold: false },
     ],
     fonts,
