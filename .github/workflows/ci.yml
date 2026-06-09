@@ -31,6 +31,11 @@ jobs:
         # npm install résout les bonnes deps par plateforme tout en respectant le lock.
         run: npm install --no-audit --no-fund
 
+      - name: Audit (vulnérabilités npm, high+)
+        # Garde-fou sécurité continu : échoue si une vulnérabilité high/critical apparaît
+        # dans l'arbre de dépendances (les advisories low/moderate ne bloquent pas un PR).
+        run: npm audit --audit-level=high
+
       - name: Typecheck
         run: npm run typecheck
 
