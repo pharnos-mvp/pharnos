@@ -8,6 +8,7 @@ import type {
   ProductRecord,
   ProSettingRecord,
 } from '@/lib/db'
+import { formatComposition } from '../composition'
 import { getAttachmentBlob } from '../dossier-attachments-repository'
 import { getAttachmentDownloadUrl } from '../dossier-attachments-sync'
 import { activityLabel, countryLabel } from '../dossier-constants'
@@ -154,7 +155,7 @@ export async function compileDossierToPdf(args: CompileArgs): Promise<CompileRes
     }
   }
 
-  const dciDose = [product?.dci, product?.dosage].filter((x) => x && x.trim()).join(' ')
+  const dciDose = formatComposition(product?.dci ?? '', product?.dosage ?? '')
   const commercialLine = dciDose ? `${dossier.productName} (${dciDose})` : dossier.productName
 
   const logo = branding?.logoImage ? dataUrlToBytes(branding.logoImage) : null
@@ -181,6 +182,7 @@ export async function compileDossierToPdf(args: CompileArgs): Promise<CompileRes
     country: countryLabel(dossier.country),
     titulaire: product?.titulaire?.trim() || '[Titulaire]',
     commercialLine,
+    productName: dossier.productName,
     logo,
     header,
     footer,

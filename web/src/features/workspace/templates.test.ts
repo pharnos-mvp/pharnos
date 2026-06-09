@@ -13,6 +13,7 @@ const ctx: TemplateContext = {
   nomCommercial: 'KV-Kacin 500',
   dci: 'Amikacine',
   dosage: '500 mg / 2 ml',
+  dciDosage: 'Amikacine 500 mg / 2 ml',
   forme: 'Solution injectable',
   presentation: 'flacon de 2 ml',
   demandeur: 'KESHAVLAL VAJECHAND',
@@ -48,7 +49,7 @@ describe('templates (génération de documents)', () => {
   })
 
   it('valeurs manquantes → marqueurs à compléter', () => {
-    const text = plain(TEMPLATES.cover.build({ ...ctx, dci: '', dosage: '' }))
+    const text = plain(TEMPLATES.cover.build({ ...ctx, dci: '', dosage: '', dciDosage: '' }))
     expect(text).toContain('[DCI et dosage]')
   })
 })

@@ -17,6 +17,7 @@ const ctx: TemplateContext = {
   nomCommercial: 'Doliprane',
   dci: 'Paracétamol',
   dosage: '500 mg',
+  dciDosage: 'Paracétamol 500 mg',
   forme: 'Comprimé',
   presentation: 'boîte de 16',
   demandeur: 'Labo X',

@@ -65,6 +65,8 @@ export interface CompileInput {
   country: string
   titulaire: string
   commercialLine: string
+  /** Nom commercial seul (en-tête courant — jamais tronqué). */
+  productName: string
   logo?: { bytes: Uint8Array; isPng: boolean } | null
   /** Papier à en-tête (image) dessiné en haut des lettres générées — pleine largeur. */
   header?: { bytes: Uint8Array; isPng: boolean } | null
@@ -191,9 +193,14 @@ async function drawImage(c: Cursor, dataUrl: string, maxW = 180, indent = 0): Pr
   }
   const w = Math.min(maxW, img.width)
   const h = (img.height / img.width) * w
-  if (c.y - h < c.bottom) newPage(c)
+  // Resserre l'écart au-dessus (vers le poste) puis laisse un espace équilibré en dessous (vers le nom)
+  // → bloc signature proportionné, digne d'une lettre officielle.
+  const LIFT = 8
+  const BELOW = 16
+  c.y += LIFT
+  if (c.y - h - BELOW < c.bottom) newPage(c)
   c.page.drawImage(img, { x: MARGIN + indent, y: c.y - h, width: w, height: h })
-  c.y -= h + 6
+  c.y -= h + BELOW
 }
 
 /* ----------------------------- Rendu TipTap → PDF ----------------------------- */
@@ -250,15 +257,20 @@ async function renderTiptap(c: Cursor, content: JSONContent): Promise<void> {
       }
       case 'paragraph': {
         const segments = inlineSegments(block.content)
+        const images = inlineImages(block.content)
         const hasText = segments.some((seg) => seg.some((r) => r.text.trim().length > 0))
+        const indent = blockIndent(block)
         if (hasText) {
-          const indent = blockIndent(block)
           for (const seg of segments) drawRuns(c, seg, BODY_SIZE, indent)
-        } else if (c.y - lineHeight(BODY_SIZE) < c.bottom) newPage(c)
-        else c.y -= lineHeight(BODY_SIZE)
-        for (const src of inlineImages(block.content))
-          await drawImage(c, src, 180, blockIndent(block))
-        c.y -= 4
+          c.y -= 4
+        } else if (images.length === 0) {
+          // Vraie ligne vide (séparateur). Un paragraphe ne portant **qu'une image** (signature)
+          // ne doit PAS ajouter d'interligne fantôme : drawImage gère son propre espacement.
+          if (c.y - lineHeight(BODY_SIZE) < c.bottom) newPage(c)
+          else c.y -= lineHeight(BODY_SIZE)
+          c.y -= 4
+        }
+        for (const src of images) await drawImage(c, src, 180, indent)
         break
       }
       case 'bulletList':
@@ -297,13 +309,21 @@ function drawCentered(
   lines: { text: string; size: number; bold: boolean }[],
   fonts: Fonts,
 ): void {
-  const totalH = lines.reduce((s, l) => s + lineHeight(l.size), 0)
-  let y = A4[1] / 2 + totalH / 2
-  for (const l of lines) {
+  // Chaque ligne logique est **enroulée** (jamais tronquée) en sous-lignes visuelles centrées.
+  const rendered = lines.flatMap((l) => {
     const font = l.bold ? fonts.bold : fonts.regular
-    const t = ellipsize(l.text, font, l.size, CONTENT_WIDTH)
-    const w = font.widthOfTextAtSize(t, l.size)
-    page.drawText(t, { x: (A4[0] - w) / 2, y, size: l.size, font, color: BLACK })
+    return wrapPlain(l.text, font, l.size, CONTENT_WIDTH).map((text) => ({
+      text,
+      size: l.size,
+      bold: l.bold,
+    }))
+  })
+  const totalH = rendered.reduce((s, l) => s + lineHeight(l.size), 0)
+  let y = A4[1] / 2 + totalH / 2
+  for (const l of rendered) {
+    const font = l.bold ? fonts.bold : fonts.regular
+    const w = font.widthOfTextAtSize(l.text, l.size)
+    page.drawText(l.text, { x: (A4[0] - w) / 2, y, size: l.size, font, color: BLACK })
     y -= lineHeight(l.size)
   }
 }
@@ -458,7 +478,7 @@ function stampAll(
     }
     // Noms **complets** (jamais tronqués) : titulaire à gauche, produit à droite.
     drawBandEntry(page, input.titulaire, fonts.regular, hx, hy, half - (hx - MARGIN), 'left')
-    drawBandEntry(page, input.commercialLine, fonts.regular, width - MARGIN, hy, half, 'right')
+    drawBandEntry(page, input.productName, fonts.regular, width - MARGIN, hy, half, 'right')
     page.drawLine({
       start: { x: MARGIN, y: hy - 6 },
       end: { x: width - MARGIN, y: hy - 6 },
@@ -718,10 +738,27 @@ function drawGlobalCover(
     })
     y -= gap
   }
+  // Variante **enroulée** (jamais tronquée) : composition multi-molécules sur 2-3 lignes centrées.
+  const centerWrapped = (text: string, size: number, bold: boolean, gap: number): void => {
+    if (!text) return
+    const f = bold ? fonts.bold : fonts.regular
+    const wrapped = wrapPlain(text, f, size, CONTENT_WIDTH).slice(0, 3)
+    wrapped.forEach((ln, i) => {
+      page.drawText(ln, {
+        x: (width - f.widthOfTextAtSize(ln, size)) / 2,
+        y,
+        size,
+        font: f,
+        color: BLACK,
+      })
+      if (i < wrapped.length - 1) y -= lineHeight(size)
+    })
+    y -= gap
+  }
   center("DOSSIER D'ENREGISTREMENT — COMMON TECHNICAL DOCUMENT (CTD)", 10, false, 28)
   center(cover.activity.toUpperCase(), 13, true, 32)
   center(cover.nomCommercial, 24, true, 30)
-  center(cover.dciDosage, 14, false, 22)
+  centerWrapped(cover.dciDosage, 14, false, 22)
   center(input.country, 13, false, 22)
 
   // Parties : titulaire + fabricant (si différent).

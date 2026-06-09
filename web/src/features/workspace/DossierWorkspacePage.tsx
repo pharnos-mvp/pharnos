@@ -48,6 +48,7 @@ import {
 import { cn } from '@/lib/utils'
 import { ArborescenceTree } from './ArborescenceTree'
 import { extractCity } from './city'
+import { formatComposition } from './composition'
 import { countryLabel } from './dossier-constants'
 import {
   addAttachment,
@@ -439,6 +440,7 @@ export function DossierWorkspacePage() {
       nomCommercial: product?.nomCommercial ?? activeDossier.productName,
       dci: product?.dci ?? '',
       dosage: product?.dosage ?? '',
+      dciDosage: formatComposition(product?.dci ?? '', product?.dosage ?? ''),
       forme: product?.forme ?? '',
       presentation: product?.presentation ?? '',
       demandeur:
