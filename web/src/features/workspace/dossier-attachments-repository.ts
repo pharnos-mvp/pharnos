@@ -64,3 +64,8 @@ export async function deleteAttachment(id: string): Promise<void> {
 export async function getAttachmentBlob(id: string): Promise<Blob | undefined> {
   return (await db.documentBlobs.get(id))?.blob
 }
+
+/** Épingle le blob d'une pièce jointe en local (offline-first) — après un téléchargement réseau. */
+export async function cacheAttachmentBlob(id: string, blob: Blob): Promise<void> {
+  await db.documentBlobs.put({ id, blob })
+}

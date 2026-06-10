@@ -2,11 +2,12 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { db, type DocumentCategory, type DocumentRecord } from '@/lib/db'
 import { getSupabase } from '@/lib/supabase'
-import { getDocumentBlob } from './documents-repository'
+import { cacheDocumentBlob, getDocumentBlob } from './documents-repository'
 
 const BUCKET = 'documents'
 const lastPullKey = (orgId: string) => `pharnos.lastPull.documents.${orgId}`
 let syncing = false
+let pinning = false
 
 export interface DocumentRow {
   id: string
@@ -131,6 +132,42 @@ async function pullDocuments(supabase: SupabaseClient, orgId: string): Promise<v
     if (incoming.updatedAt > maxUpdated) maxUpdated = incoming.updatedAt
   }
   if (rows.length > 0) localStorage.setItem(lastPullKey(orgId), maxUpdated)
+
+  // Offline-first : épingle en local les fichiers des documents qui n'ont pas encore de blob
+  // (tirés du serveur, ou cache local effacé). Best-effort, en arrière-plan, ne bloque pas la synchro.
+  void pinMissingDocumentBlobs(orgId)
+}
+
+/**
+ * Télécharge + met en cache local les blobs manquants (offline-first). Un document n'est lu qu'une
+ * fois ; les accès suivants sont instantanés. Garde de ré-entrance + tolérant aux échecs réseau.
+ */
+async function pinMissingDocumentBlobs(orgId: string): Promise<void> {
+  if (pinning || !navigator.onLine) return
+  pinning = true
+  try {
+    const docs = await db.documents
+      .where('orgId')
+      .equals(orgId)
+      .filter((d) => d.deletedAt === null && !!d.filePath)
+      .toArray()
+    for (const d of docs) {
+      if (!d.filePath) continue
+      if (await db.documentBlobs.get(d.id)) continue
+      const url = await getDocumentDownloadUrl(d.filePath)
+      if (!url) continue
+      try {
+        const res = await fetch(url)
+        if (res.ok) await cacheDocumentBlob(d.id, await res.blob())
+      } catch {
+        /* hors-ligne / transitoire — réessayé au prochain sync */
+      }
+    }
+  } catch (error) {
+    console.warn('[sync] épinglage blobs documents :', error)
+  } finally {
+    pinning = false
+  }
 }
 
 /** URL signée (courte durée) pour télécharger un document depuis Storage. */

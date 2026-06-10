@@ -29,7 +29,11 @@ import { toast } from 'sonner'
 import { useHeaderSlot } from '@/components/layout/header-slot'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { getDocumentBlob, listDocuments } from '@/features/catalogue/documents-repository'
+import {
+  cacheDocumentBlob,
+  getDocumentBlob,
+  listDocuments,
+} from '@/features/catalogue/documents-repository'
 import { getDocumentDownloadUrl } from '@/features/catalogue/documents-sync'
 import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
 import { useAuth } from '@/features/auth/auth-context'
@@ -54,6 +58,7 @@ import { formatComposition } from './composition'
 import { countryLabel } from './dossier-constants'
 import {
   addAttachment,
+  cacheAttachmentBlob,
   deleteAttachment,
   getAttachmentBlob,
   listAttachments,
@@ -1419,7 +1424,13 @@ function InlineDocPreview({
         if (remote) {
           try {
             const res = await fetch(remote)
-            if (res.ok) b = await res.blob()
+            if (res.ok) {
+              b = await res.blob()
+              // Offline-first : épingle le fichier en local pour les aperçus hors-ligne suivants.
+              void (kind === 'attachment'
+                ? cacheAttachmentBlob(docId, b)
+                : cacheDocumentBlob(docId, b))
+            }
           } catch {
             /* hors-ligne */
           }
