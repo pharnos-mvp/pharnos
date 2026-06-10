@@ -66,6 +66,14 @@ function monthsLeft(expiry: string, from: string): number {
   return (new Date(expiry).getTime() - new Date(from).getTime()) / (1000 * 60 * 60 * 24 * 30.4375)
 }
 
+function addMonths(dateStr: string, months: number): string {
+  const d = new Date(dateStr)
+  d.setMonth(d.getMonth() + months)
+  return d.toISOString().slice(0, 10)
+}
+
+const isISODate = (s: unknown): s is string => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}/.test(s)
+
 function bytesToBase64(bytes: Uint8Array): string {
   let bin = ''
   const chunk = 0x8000
@@ -143,12 +151,15 @@ async function analyzeValidityBatch(
   supabase: Supa,
   pieces: PieceInput[],
   opDate: string,
+  agency: string,
 ): Promise<Finding[]> {
   if (pieces.length === 0) return []
   const valSystem =
     'Tu es un expert RA. On te fournit plusieurs documents réglementaires (GMP/BPF, COPP, FSC, ML, ' +
-    "AMM, COA…). Pour chacun, extrais sa date d'expiration / fin de validité, ou la durée de validité " +
-    "énoncée. Ne déduis pas une date qui n'est pas écrite. Réponds STRICTEMENT en JSON."
+    "AMM, COA…). Pour CHACUN, repère : (a) la date d'expiration / fin de validité si elle est écrite ; " +
+    "sinon (b) la DATE D'ÉMISSION/DÉLIVRANCE et la DURÉE de validité énoncée (ex. « 2 ans à compter de la " +
+    "date d'émission » → 24 mois). Ne déduis jamais une date ou une durée non écrite. Réponds en JSON STRICT."
+  const requirement = agency ? ` par ${agency}` : ''
 
   const downloaded = await Promise.all(
     pieces.map(async (p) => {
@@ -181,9 +192,10 @@ async function analyzeValidityBatch(
 
   const header =
     `Date de l'opération : ${opDate}. Tu reçois ${valid.length} document(s) réglementaire(s) numérotés. ` +
-    "Pour CHAQUE document, extrais sa date d'expiration (fin de validité) OU la durée de validité énoncée. " +
-    'Renvoie STRICTEMENT : {"results":[{"index":<n° du document à partir de 1>,"found":true|false,' +
-    '"expiryDate":"yyyy-mm-dd"|null,"validityStatement":"durée/condition énoncée"|null}]}.'
+    'Pour CHAQUE document, renvoie STRICTEMENT : {"results":[{"index":<n° à partir de 1>,"found":true|false,' +
+    '"expiryDate":"yyyy-mm-dd"|null,"issueDate":"yyyy-mm-dd"|null,"validityMonths":<entier (mois)|null>,' +
+    '"validityStatement":"texte de la durée énoncée|null"}]}. expiryDate = fin de validité si écrite ; ' +
+    "sinon renseigne issueDate (date d'émission/délivrance) ET validityMonths (durée convertie en mois)."
   const parts: Part[] = [{ text: header }]
   valid.forEach((v, i) => {
     parts.push({ text: `--- Document ${i + 1} (type: ${v.p.docType}) :` })
@@ -194,6 +206,8 @@ async function analyzeValidityBatch(
     index?: number
     found?: boolean
     expiryDate?: string | null
+    issueDate?: string | null
+    validityMonths?: number | null
     validityStatement?: string | null
   }> = []
   try {
@@ -201,7 +215,7 @@ async function analyzeValidityBatch(
       await generateParts(parts, {
         system: valSystem,
         json: true,
-        maxOutputTokens: Math.min(2048, 320 + valid.length * 160),
+        maxOutputTokens: Math.min(2048, 320 + valid.length * 200),
         temperature: 0,
       }),
     ) as { results?: typeof results } | null
@@ -215,23 +229,34 @@ async function analyzeValidityBatch(
     const r = results.find((x) => Number(x.index) === i + 1) ?? {}
     const min = p.docType === 'coa' ? 18 : 6
     const label = (p.docType || 'pièce').toUpperCase()
-    if (r.found && r.expiryDate && /^\d{4}-\d{2}-\d{2}/.test(r.expiryDate)) {
-      const m = monthsLeft(r.expiryDate, opDate)
+
+    // Expiration explicite, sinon CALCULÉE depuis (date d'émission + durée de validité énoncée).
+    let expiry: string | null = isISODate(r.expiryDate) ? r.expiryDate.slice(0, 10) : null
+    const months = Math.round(Number(r.validityMonths))
+    let derived = false
+    if (!expiry && isISODate(r.issueDate) && months > 0) {
+      expiry = addMonths(r.issueDate.slice(0, 10), months)
+      derived = true
+    }
+
+    if (expiry) {
+      const m = monthsLeft(expiry, opDate)
+      const how = derived ? ` (calculé : émission + ${months} mois)` : ''
       if (m < 0) {
-        findings.push({ ...base(p), severity: 'error', message: `${label} expiré (${r.expiryDate}).` })
+        findings.push({ ...base(p), severity: 'error', message: `${label} expiré (${expiry})${how}.` })
       } else if (m < min) {
         findings.push({
           ...base(p),
           severity: 'warning',
-          message: `${label} : validité restante ~${Math.floor(m)} mois (< ${min} requis ; expire le ${r.expiryDate}).`,
+          message: `${label} : validité restante ~${Math.floor(m)} mois (< ${min} requis${requirement} ; expire le ${expiry})${how}.`,
         })
       }
-      // sinon valide → aucun constat (mais la pièce reste « analysée »)
+      // sinon valide (≥ seuil) → aucun constat
     } else if (r.found && r.validityStatement) {
       findings.push({
         ...base(p),
         severity: 'info',
-        message: `${label} : validité énoncée « ${String(r.validityStatement).slice(0, 120)} » — date d'expiration à confirmer.`,
+        message: `${label} : validité énoncée « ${String(r.validityStatement).slice(0, 120)} » — date d'émission introuvable, à confirmer.`,
       })
     } else {
       findings.push({
@@ -304,7 +329,7 @@ Deno.serve(async (req: Request) => {
       country: b.country,
       agency: b.agency,
     }),
-    analyzeValidityBatch(supabase, pieces, opDate),
+    analyzeValidityBatch(supabase, pieces, opDate, b.agency ?? ''),
   ])
 
   return json({ findings: [...letterFindings, ...validityFindings] })
