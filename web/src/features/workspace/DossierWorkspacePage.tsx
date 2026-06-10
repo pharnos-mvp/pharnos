@@ -220,7 +220,25 @@ export function DossierWorkspacePage() {
     () => [...Object.values(validityByPiece).flat(), ...letterFindings],
     [validityByPiece, letterFindings],
   )
-  const allFindings = useMemo(() => [...findings, ...aiFindings], [findings, aiFindings])
+  // Constat « résolu » : dès qu'une traduction existe pour un doc, on masque son constat de langue
+  // (et son bouton « Traduire ») — l'utilisateur a satisfait la demande. Vaut pour le panneau ET le
+  // gate de compilation. Les autres constats s'effacent déjà au recalcul (re-analyse).
+  const translatedSourceIds = useMemo(
+    () =>
+      new Set(
+        (genDocs ?? [])
+          .filter((g) => g.deletedAt === null && g.templateKey === 'translation' && g.sourceDocId)
+          .map((g) => g.sourceDocId),
+      ),
+    [genDocs],
+  )
+  const allFindings = useMemo(
+    () =>
+      [...findings, ...aiFindings].filter(
+        (f) => !(f.translate && f.pieceId && translatedSourceIds.has(f.pieceId)),
+      ),
+    [findings, aiFindings, translatedSourceIds],
+  )
 
   // Pièces admin/COA téléversées à faire analyser (validité multimodale), clé = id du document.
   const aiPieces = useMemo<RegafyAiPiece[]>(() => {
@@ -404,7 +422,7 @@ export function DossierWorkspacePage() {
         const node = flatNodes.find((n) => n.number === piece.nodeNumber)
         if (node) {
           setSelected(node)
-          setDocEditing(false)
+          setDocEditing(true) // traduction éditable d'emblée (pas besoin de cliquer « Modifier »)
           setPickedKey(`letter:${genId}`)
         }
       }
@@ -695,6 +713,9 @@ export function DossierWorkspacePage() {
       ? pickedKey
       : (viewables[0]?.key ?? null)
   const active = viewables.find((v) => v.key === activeKey) ?? null
+  // Onglet actif = texte éditable (doc généré / lettre / traduction) → on affiche la barre d'édition
+  // (Modifier/Signer/En-tête/Régénérer). Inutile sur un PDF/pièce → masquée.
+  const isEditableActive = active?.kind === 'letter' && !!selectedGenDoc
 
   // Constat de langue du document affiché (langue ≠ pays cible) → bouton « Traduire » en
   // surbrillance directement sur l'aperçu, en plus du rappel dans le panneau de droite.
@@ -797,12 +818,21 @@ export function DossierWorkspacePage() {
     }
   }
 
-  /** « × » d'un onglet de traduction : retire la traduction du dossier (le doc produit reste intact). */
-  async function handleCloseTranslation(key: string) {
-    await deleteGeneratedDoc(key.replace('letter:', ''))
-    void syncGeneratedDocs(orgId)
+  /** « × » d'un onglet : retire le document du dossier. Doc produit → exclu (reste sous le produit) ;
+   *  pièce jointe / lettre / traduction → supprimé du dossier. */
+  async function handleRemoveViewable(v: Viewable) {
+    if (v.kind === 'letter') {
+      await deleteGeneratedDoc(v.key.replace('letter:', ''))
+      void syncGeneratedDocs(orgId)
+    } else if (v.kind === 'attachment') {
+      await deleteAttachment(v.id)
+      void syncDossierAttachments(orgId)
+    } else {
+      await excludeProductDoc(activeDossier.id, v.id)
+      void syncDossiers(orgId)
+    }
     setPickedKey(null)
-    toast.success('Traduction retirée du dossier')
+    toast.success('Document retiré du dossier')
   }
 
   async function handleUpload(file: File) {
@@ -925,8 +955,9 @@ export function DossierWorkspacePage() {
   }
 
   function handleCompileClick() {
-    // Panneau progressif, mais la garde anti-« dossier vide » s'arme toujours à la compilation.
-    const gate = [...findings]
+    // Rappel AVANT compilation : TOUS les constats (déterministes + IA), pas seulement les
+    // déterministes. + garde anti-« dossier vide ».
+    const gate = [...allFindings]
     const hasContent = genByNode.size > 0 || attachByNode.size > 0 || docsByNode.size > 0
     if (!hasContent && !gate.some((f) => f.id === 'empty')) {
       gate.unshift({
@@ -961,32 +992,33 @@ export function DossierWorkspacePage() {
         {/* Barre des menus d'édition (Modifier/Signer/…) — CENTRÉE au-dessus du panneau d'aperçu. */}
         <div className="flex min-w-0 justify-center">
           <div className="bg-card flex items-center gap-1 rounded-full border px-1 py-1 text-sm shadow-sm">
-            <ToolbarBtn
-              label="Modifier"
-              active={docEditing}
-              disabled={!selectedGenDoc}
-              onClick={() => {
-                if (!selectedGenDoc) return
-                setPickedKey(`letter:${selectedGenDoc.id}`)
-                setDocEditing((v) => !v)
-              }}
-            />
-            <ToolbarBtn
-              label="Signer"
-              disabled={!liveEditor || !docEditing}
-              hint="Passez en mode Modifier pour signer"
-              onClick={handleSign}
-            />
-            <ToolbarBtn label="En-tête / Pied de page" onClick={() => setBrandPanelOpen(true)} />
-            <ToolbarBtn
-              label="Régénérer"
-              disabled={
-                !selectedGenDoc ||
-                active?.kind !== 'letter' ||
-                selectedGenDoc?.templateKey === 'translation'
-              }
-              onClick={() => void handleRegenerate()}
-            />
+            {/* Boutons d'édition : seulement pour du texte éditable (doc généré/lettre/traduction). */}
+            {isEditableActive ? (
+              <>
+                <ToolbarBtn
+                  label="Modifier"
+                  active={docEditing}
+                  onClick={() => {
+                    if (!selectedGenDoc) return
+                    setPickedKey(`letter:${selectedGenDoc.id}`)
+                    setDocEditing((v) => !v)
+                  }}
+                />
+                <ToolbarBtn
+                  label="Signer"
+                  disabled={!liveEditor || !docEditing}
+                  hint="Passez en mode Modifier pour signer"
+                  onClick={handleSign}
+                />
+                <ToolbarBtn
+                  label="En-tête / Pied de page"
+                  onClick={() => setBrandPanelOpen(true)}
+                />
+                {selectedGenDoc?.templateKey !== 'translation' ? (
+                  <ToolbarBtn label="Régénérer" onClick={() => void handleRegenerate()} />
+                ) : null}
+              </>
+            ) : null}
             <ToolbarBtn
               label="Télécharger"
               disabled={
@@ -1159,13 +1191,15 @@ export function DossierWorkspacePage() {
                 {viewables.length > 1 ? (
                   <div className="flex flex-wrap gap-1">
                     {viewables.map((v) => {
-                      const closable = v.kind === 'letter' && v.isTranslation
+                      const removeHint =
+                        v.kind === 'doc'
+                          ? 'Retirer du dossier (le document reste sous le produit)'
+                          : 'Supprimer du dossier'
                       return (
                         <div
                           key={v.key}
                           className={cn(
-                            'flex items-center gap-1 rounded-full border py-1 pl-3 text-xs',
-                            closable ? 'pr-1' : 'pr-3',
+                            'flex items-center gap-1 rounded-full border py-1 pr-1 pl-3 text-xs',
                             active?.key === v.key
                               ? 'border-primary bg-primary/10 text-primary'
                               : 'text-muted-foreground hover:bg-accent',
@@ -1173,24 +1207,26 @@ export function DossierWorkspacePage() {
                         >
                           <button
                             type="button"
-                            onClick={() => setPickedKey(v.key)}
+                            onClick={() => {
+                              setPickedKey(v.key)
+                              // Traduction → éditable d'emblée (cohérent avec l'ouverture via « Traduire »).
+                              if (v.kind === 'letter' && v.isTranslation) setDocEditing(true)
+                            }}
                             title={v.label}
                             className="flex items-center gap-1.5"
                           >
                             <FileText className="size-3.5 shrink-0" />
                             <span className="max-w-[160px] truncate">{v.label}</span>
                           </button>
-                          {closable ? (
-                            <button
-                              type="button"
-                              aria-label="Retirer la traduction du dossier"
-                              title="Retirer la traduction du dossier"
-                              onClick={() => void handleCloseTranslation(v.key)}
-                              className="hover:bg-destructive/10 hover:text-destructive rounded-full p-0.5"
-                            >
-                              <X className="size-3.5" />
-                            </button>
-                          ) : null}
+                          <button
+                            type="button"
+                            aria-label={removeHint}
+                            title={removeHint}
+                            onClick={() => void handleRemoveViewable(v)}
+                            className="hover:bg-destructive/10 hover:text-destructive rounded-full p-0.5"
+                          >
+                            <X className="size-3.5" />
+                          </button>
                         </div>
                       )
                     })}
