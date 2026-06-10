@@ -898,7 +898,12 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
               fonts,
             )
           }
-          await item.render()
+          // Défensif : une pièce/lettre fautive ne doit pas abattre toute la compilation.
+          try {
+            await item.render()
+          } catch (err) {
+            console.error('[compile] rendu pièce :', err)
+          }
           sub++
         }
         entries.push({ number: node.number, label: node.label, depth, startIndex })
