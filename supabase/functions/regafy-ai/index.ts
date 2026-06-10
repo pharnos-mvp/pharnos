@@ -112,6 +112,26 @@ function langName(code: string): string {
   return LANG_NAMES[c] ?? code
 }
 
+// Documents dont le NOM DE PRODUIT doit concorder avec le produit du dossier (anti « mauvais doc »).
+const NAME_CHECK_TYPES = new Set(['rcp', 'notice', 'labeling', 'artwork', 'amm', 'copp', 'fsc'])
+function normName(s: string): string {
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+function productMatches(docName: string, dossierName: string): boolean {
+  const a = normName(docName)
+  const b = normName(dossierName)
+  if (!a || !b) return true // impossible à juger → ne pas alerter
+  if (a.includes(b) || b.includes(a)) return true
+  const tB = b.split(' ')[0]
+  return tB.length >= 3 && a.includes(tB)
+}
+
 function extractJson(raw: string): unknown {
   try {
     return JSON.parse(raw)
@@ -174,6 +194,7 @@ async function analyzeValidityBatch(
   opDate: string,
   agency: string,
   targetLang: string,
+  productName: string,
 ): Promise<Finding[]> {
   if (pieces.length === 0) return []
   const valSystem =
@@ -216,9 +237,10 @@ async function analyzeValidityBatch(
     `Date de l'opération : ${opDate}. Tu reçois ${valid.length} document(s) réglementaire(s) numérotés. ` +
     'Pour CHAQUE document, renvoie STRICTEMENT : {"results":[{"index":<n° à partir de 1>,"found":true|false,' +
     '"expiryDate":"yyyy-mm-dd"|null,"issueDate":"yyyy-mm-dd"|null,"validityMonths":<entier (mois)|null>,' +
-    '"validityStatement":"texte de la durée énoncée|null","language":"code ISO 639-1 de la langue dominante (fr, en, pt…)"}]}. ' +
+    '"validityStatement":"texte de la durée énoncée|null","language":"code ISO 639-1 de la langue dominante (fr, en, pt…)",' +
+    '"productName":"nom commercial du produit pharmaceutique mentionné|null"}]}. ' +
     "expiryDate = fin de validité si écrite ; sinon issueDate (date d'émission) ET validityMonths (durée en mois). " +
-    'language = langue dominante du contenu du document.'
+    'language = langue dominante. productName = nom COMMERCIAL du médicament (ni la DCI, ni le fabricant).'
   const parts: Part[] = [{ text: header }]
   valid.forEach((v, i) => {
     parts.push({ text: `--- Document ${i + 1} (type: ${v.p.docType}) :` })
@@ -233,6 +255,7 @@ async function analyzeValidityBatch(
     validityMonths?: number | null
     validityStatement?: string | null
     language?: string | null
+    productName?: string | null
   }> = []
   try {
     const parsed = extractJson(
@@ -252,6 +275,18 @@ async function analyzeValidityBatch(
     const p = v.p
     const r = results.find((x) => Number(x.index) === i + 1) ?? {}
     const label = (p.docType || 'pièce').toUpperCase()
+
+    // ── CONCORDANCE PRODUIT : le document doit concerner le produit du dossier (anti « mauvais doc »).
+    if (NAME_CHECK_TYPES.has(p.docType) && productName) {
+      const docName = String(r.productName ?? '').trim()
+      if (docName && !productMatches(docName, productName)) {
+        findings.push({
+          ...base(p),
+          severity: 'error',
+          message: `${label} : concerne « ${docName.slice(0, 60)} » ≠ produit du dossier « ${productName} ». Mauvais document ?`,
+        })
+      }
+    }
 
     // ── LANGUE (RCP, Notice, Étiquette, Artwork) : signaler si ≠ langue officielle du pays.
     if (LANG_TYPES.has(p.docType)) {
@@ -371,7 +406,7 @@ Deno.serve(async (req: Request) => {
       country: b.country,
       agency: b.agency,
     }),
-    analyzeValidityBatch(supabase, pieces, opDate, b.agency ?? '', b.targetLang ?? ''),
+    analyzeValidityBatch(supabase, pieces, opDate, b.agency ?? '', b.targetLang ?? '', b.productName ?? ''),
   ])
 
   return json({ findings: [...letterFindings, ...validityFindings] })

@@ -86,6 +86,7 @@ import { PdfPreviewDialog } from './PdfPreviewDialog'
 import { PdfViewer } from './PdfViewer'
 import { runRegafy, type RegafyFinding } from './regafy'
 import { runRegafyLetters, runRegafyValidity, type RegafyAiPiece } from './regafy-ai'
+import { cacheAnalysis, getCachedAnalysis } from './regafy-cache'
 import { translateDoc } from './translate-doc'
 import { RichTextEditor } from './RichTextEditor'
 import { hasSignature, insertSignature, removeSignature } from './signature'
@@ -226,6 +227,7 @@ export function DossierWorkspacePage() {
         if (relevant && d.filePath) {
           out.push({
             pieceId: d.id,
+            sig: d.updatedAt,
             nodeNumber: num,
             nodeLabel,
             docType: d.docType,
@@ -245,7 +247,7 @@ export function DossierWorkspacePage() {
   const piecesSig = useMemo(
     () =>
       aiPieces
-        .map((p) => p.pieceId)
+        .map((p) => `${p.pieceId}:${p.sig}`)
         .sort()
         .join('|'),
     [aiPieces],
@@ -275,31 +277,44 @@ export function DossierWorkspacePage() {
     if (newPieces.length === 0) return
     const agencySigle = agencyFor(dossier.country).name || ''
     const targetLang = officialLanguage(dossier.country)
+    const productName = dossier.productName ?? product?.nomCommercial ?? ''
+    const today = new Date().toISOString().slice(0, 10)
     const t = setTimeout(() => {
-      newPieces.forEach((p) => analyzedPieceIds.current.add(p.pieceId))
-      setAiBusy(true)
-      void runRegafyValidity(
-        newPieces,
-        new Date().toISOString().slice(0, 10),
-        agencySigle,
-        targetLang,
-      )
-        .then((fs) => {
-          setValidityByPiece((prev) => {
-            const next = { ...prev }
-            for (const p of newPieces) next[p.pieceId] = []
-            for (const f of fs) if (f.pieceId) (next[f.pieceId] ??= []).push(f)
-            return next
-          })
-        })
-        .catch((e) => {
-          newPieces.forEach((p) => analyzedPieceIds.current.delete(p.pieceId))
+      void (async () => {
+        // 1. Cache : constats des documents déjà analysés (inchangés) → instantané, ZÉRO appel IA.
+        const fromCache: Record<string, RegafyFinding[]> = {}
+        const uncached: RegafyAiPiece[] = []
+        for (const p of newPieces) {
+          analyzedPieceIds.current.add(p.pieceId)
+          const cached = await getCachedAnalysis(p.pieceId, p.sig)
+          if (cached) fromCache[p.pieceId] = cached
+          else uncached.push(p)
+        }
+        if (Object.keys(fromCache).length > 0) {
+          setValidityByPiece((prev) => ({ ...prev, ...fromCache }))
+        }
+        // 2. IA : SEULEMENT les documents jamais analysés (nouveaux ou remplacés).
+        if (uncached.length === 0) return
+        setAiBusy(true)
+        try {
+          const fs = await runRegafyValidity(uncached, today, agencySigle, targetLang, productName)
+          const byPiece: Record<string, RegafyFinding[]> = {}
+          for (const p of uncached) byPiece[p.pieceId] = []
+          for (const f of fs) if (f.pieceId) (byPiece[f.pieceId] ??= []).push(f)
+          await Promise.all(
+            uncached.map((p) => cacheAnalysis(p.pieceId, p.sig, byPiece[p.pieceId] ?? [])),
+          )
+          setValidityByPiece((prev) => ({ ...prev, ...byPiece }))
+        } catch (e) {
+          uncached.forEach((p) => analyzedPieceIds.current.delete(p.pieceId))
           console.error('Regafy IA (validité) :', (e as Error).message)
-        })
-        .finally(() => setAiBusy(false))
+        } finally {
+          setAiBusy(false)
+        }
+      })()
     }, 1500)
     return () => clearTimeout(t)
-    // Déclenché sur piecesSig (signature stable), pas sur le ref de l'array aiPieces.
+    // Déclenché sur piecesSig (id + sig), pas sur le ref de l'array aiPieces.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dossierId, piecesSig])
 
