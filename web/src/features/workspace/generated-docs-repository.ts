@@ -49,6 +49,47 @@ export async function createGeneratedDoc(
   return record
 }
 
+export interface CreateTranslationInput {
+  dossierId: string
+  nodeNumber: string
+  /** Document produit source traduit. */
+  sourceDocId: string
+  title: string
+  content: JSONContent
+}
+
+/**
+ * Crée une traduction d'une pièce comme **document généré** propre au dossier : éditable (menu de
+ * format), sauvegardé, inclus dans le PDF compilé. Ne remplace PAS le document produit original
+ * (conformité face au pays cible, pour ce montage uniquement).
+ */
+export async function createTranslationDoc(
+  orgId: string,
+  input: CreateTranslationInput,
+): Promise<GeneratedDocRecord> {
+  const ts = now()
+  const record: GeneratedDocRecord = {
+    id: newId(),
+    orgId,
+    dossierId: input.dossierId,
+    nodeNumber: input.nodeNumber,
+    templateKey: 'translation',
+    sourceDocId: input.sourceDocId,
+    title: input.title,
+    content: input.content,
+    status: 'draft',
+    createdAt: ts,
+    updatedAt: ts,
+    deletedAt: null,
+  }
+  await db.transaction('rw', db.generatedDocs, db.outbox, async () => {
+    await db.generatedDocs.add(record)
+    await enqueueOutbox('generated_doc', record.id, 'create', record)
+  })
+  await recordAudit(orgId, 'generated_doc', record.id, 'create', record.title)
+  return record
+}
+
 /** Persiste le contenu édité (débouncé côté UI). */
 export async function updateGeneratedDocContent(id: string, content: JSONContent): Promise<void> {
   const existing = await db.generatedDocs.get(id)

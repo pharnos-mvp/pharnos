@@ -9,6 +9,7 @@ export interface GeneratedDocRow {
   dossier_id: string
   node_number: string
   template_key: string
+  source_doc_id: string | null
   title: string
   content: unknown
   status: string
@@ -24,6 +25,7 @@ export function generatedDocToRow(d: GeneratedDocRecord): GeneratedDocRow {
     dossier_id: d.dossierId,
     node_number: d.nodeNumber,
     template_key: d.templateKey,
+    source_doc_id: d.sourceDocId ?? null,
     title: d.title,
     content: d.content,
     status: d.status,
@@ -40,6 +42,7 @@ export function rowToGeneratedDoc(r: GeneratedDocRow): GeneratedDocRecord {
     dossierId: r.dossier_id,
     nodeNumber: r.node_number,
     templateKey: r.template_key,
+    sourceDocId: r.source_doc_id ?? undefined,
     title: r.title,
     content: r.content,
     status: r.status,
