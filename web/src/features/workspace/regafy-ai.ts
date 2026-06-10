@@ -70,9 +70,18 @@ export async function runRegafyValidity(
   agency: string,
   targetLang: string,
   productName: string,
+  country: string,
 ): Promise<RegafyFinding[]> {
   if (pieces.length === 0) return []
-  return invokeRegafy({ operationDate, agency, targetLang, productName, pieces, letters: [] })
+  return invokeRegafy({
+    operationDate,
+    agency,
+    targetLang,
+    productName,
+    country,
+    pieces,
+    letters: [],
+  })
 }
 
 /** Conformité des lettres générées (Cover/PGHT…). */

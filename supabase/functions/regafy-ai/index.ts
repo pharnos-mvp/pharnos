@@ -195,6 +195,7 @@ async function analyzeValidityBatch(
   agency: string,
   targetLang: string,
   productName: string,
+  country: string,
 ): Promise<Finding[]> {
   if (pieces.length === 0) return []
   const valSystem =
@@ -294,10 +295,14 @@ async function analyzeValidityBatch(
         .toLowerCase()
         .slice(0, 2)
       if (lang && targetLang && lang !== targetLang) {
+        // Préposition française selon le pays (UEMOA/CEDEAO) : « du Bénin », « de la Côte d'Ivoire »…
+        const officialRef = country
+          ? `langue officielle ${/(côte d'ivoire|guinée|gambie|sierra ?leone|mauritanie)/i.test(country) ? 'de la' : 'du'} ${country}`
+          : 'langue cible'
         findings.push({
           ...base(p),
           severity: 'warning',
-          message: `${label} en ${langName(lang)} — langue cible : ${langName(targetLang)}. Traduction recommandée.`,
+          message: `${label} en ${langName(lang)} — ${officialRef} : ${langName(targetLang)}. Traduction recommandée.`,
           translate: true,
           language: lang,
         })
@@ -406,7 +411,15 @@ Deno.serve(async (req: Request) => {
       country: b.country,
       agency: b.agency,
     }),
-    analyzeValidityBatch(supabase, pieces, opDate, b.agency ?? '', b.targetLang ?? '', b.productName ?? ''),
+    analyzeValidityBatch(
+      supabase,
+      pieces,
+      opDate,
+      b.agency ?? '',
+      b.targetLang ?? '',
+      b.productName ?? '',
+      b.country ?? '',
+    ),
   ])
 
   return json({ findings: [...letterFindings, ...validityFindings] })
