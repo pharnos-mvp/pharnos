@@ -45,6 +45,7 @@ import {
   type DossierAttachmentRecord,
   type GeneratedDocRecord,
 } from '@/lib/db'
+import { env } from '@/lib/env'
 import { cn } from '@/lib/utils'
 import { ArborescenceTree } from './ArborescenceTree'
 import { extractCity } from './city'
@@ -83,6 +84,7 @@ import { agencyCivilite, agencyFor } from './roadmap-data'
 import { PdfPreviewDialog } from './PdfPreviewDialog'
 import { PdfViewer } from './PdfViewer'
 import { runRegafy, type RegafyFinding } from './regafy'
+import { runRegafyAI } from './regafy-ai'
 import { RichTextEditor } from './RichTextEditor'
 import { hasSignature, insertSignature, removeSignature } from './signature'
 import { BrandingPanel, SignaturePanel } from './SignatureBrandingPanels'
@@ -141,6 +143,8 @@ export function DossierWorkspacePage() {
   const [autoStructural, setAutoStructural] = useState(true)
   const [pickedKey, setPickedKey] = useState<string | null>(null)
   const [gateFindings, setGateFindings] = useState<RegafyFinding[] | null>(null)
+  const [aiFindings, setAiFindings] = useState<RegafyFinding[]>([])
+  const [aiBusy, setAiBusy] = useState(false)
   const [sigPanelOpen, setSigPanelOpen] = useState(false)
   const [brandPanelOpen, setBrandPanelOpen] = useState(false)
 
@@ -195,6 +199,33 @@ export function DossierWorkspacePage() {
         : [],
     [dossier, product, docsByNode, genByNode, attachByNode],
   )
+  // Constats déterministes + enrichissement IA (assistif, marqué `source: 'ai'`).
+  const allFindings = useMemo(() => [...findings, ...aiFindings], [findings, aiFindings])
+
+  // Analyse IA (Edge `regafy-ai` → Vertex). Les findings n'apparaissent que dans le panneau
+  // (ils ne bloquent jamais la compilation). Réservé au mode authentifié (clé GCP côté Edge).
+  const runAi = useCallback(async () => {
+    if (!dossier) return
+    setAiBusy(true)
+    try {
+      const agency = agencyFor(dossier.country)
+      const ai = await runRegafyAI(genDocs ?? [], {
+        productName: dossier.productName ?? product?.nomCommercial ?? '',
+        titulaire: product?.titulaire ?? '',
+        country: countryLabel(dossier.country) || dossier.country || '',
+        agency: agency.full ? `${agency.full} (${agency.name})` : '',
+      })
+      setAiFindings(ai)
+      toast.success(
+        ai.length ? `Analyse IA : ${ai.length} constat(s).` : 'Analyse IA : aucun constat ✓',
+      )
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setAiBusy(false)
+    }
+  }, [dossier, genDocs, product])
+
   const structureOutdated = useMemo(
     () => (dossier ? isTreeOutdated(dossier.tree, getModule1Tree(dossier.format)) : false),
     [dossier],
@@ -961,15 +992,27 @@ export function DossierWorkspacePage() {
             <div className="rounded-lg border p-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-medium">Remarques pour la session</h3>
-                <span className="text-muted-foreground text-xs">{findings.length}</span>
+                <span className="text-muted-foreground text-xs">{allFindings.length}</span>
               </div>
-              {findings.length === 0 ? (
+              {env.isSupabaseConfigured ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 w-full"
+                  onClick={() => void runAi()}
+                  disabled={aiBusy}
+                >
+                  <Sparkles className="size-3.5" />
+                  {aiBusy ? 'Analyse IA…' : 'Analyser avec l’IA'}
+                </Button>
+              ) : null}
+              {allFindings.length === 0 ? (
                 <p className="text-muted-foreground mt-3 text-center text-xs italic">
                   Aucun constat. ✓
                 </p>
               ) : (
                 <ul className="mt-2 space-y-1.5">
-                  {findings.map((f) => (
+                  {allFindings.map((f) => (
                     <li key={f.id}>
                       <button
                         type="button"
@@ -993,6 +1036,11 @@ export function DossierWorkspacePage() {
                         <span className="min-w-0">
                           {f.nodeNumber ? (
                             <span className="font-medium">{f.nodeNumber} </span>
+                          ) : null}
+                          {f.source === 'ai' ? (
+                            <span className="bg-primary/10 text-primary mr-1 inline-block rounded px-1 align-middle text-[10px] font-semibold">
+                              IA
+                            </span>
                           ) : null}
                           {f.message}
                         </span>
