@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Download, FileText, Loader2, Trash2 } from 'lucide-react'
+import { Cloud, CloudOff, Download, FileText, Loader2, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -157,9 +156,13 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
                   {d.expiryDate ? ` · expire le ${d.expiryDate}` : ''}
                 </div>
               </div>
-              <Badge variant={d.uploaded ? 'secondary' : 'outline'}>
-                {d.uploaded ? 'Synchronisé' : 'En attente'}
-              </Badge>
+              <span
+                className="text-muted-foreground/70 shrink-0"
+                title={d.uploaded ? 'Sauvegardé dans le cloud' : 'Synchronisation en attente'}
+                aria-label={d.uploaded ? 'Sauvegardé dans le cloud' : 'Synchronisation en attente'}
+              >
+                {d.uploaded ? <Cloud className="size-4" /> : <CloudOff className="size-4" />}
+              </span>
               <Button
                 type="button"
                 variant="ghost"
