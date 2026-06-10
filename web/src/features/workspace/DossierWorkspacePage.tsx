@@ -84,7 +84,7 @@ import { agencyCivilite, agencyFor } from './roadmap-data'
 import { PdfPreviewDialog } from './PdfPreviewDialog'
 import { PdfViewer } from './PdfViewer'
 import { runRegafy, type RegafyFinding } from './regafy'
-import { runRegafyAI } from './regafy-ai'
+import { runRegafyAI, type RegafyAiPiece } from './regafy-ai'
 import { RichTextEditor } from './RichTextEditor'
 import { hasSignature, insertSignature, removeSignature } from './signature'
 import { BrandingPanel, SignaturePanel } from './SignatureBrandingPanels'
@@ -209,11 +209,31 @@ export function DossierWorkspacePage() {
     setAiBusy(true)
     try {
       const agency = agencyFor(dossier.country)
-      const ai = await runRegafyAI(genDocs ?? [], {
+      // Pièces admin + COA déjà téléversées (filePath) → l'Edge lit le document pour la validité.
+      const pieces: RegafyAiPiece[] = []
+      for (const [num, docs] of docsByNode) {
+        const nodeLabel = flatNodes.find((n) => n.number === num)?.label ?? ''
+        for (const d of docs) {
+          if ((d.category === 'admin' || d.docType === 'coa') && d.filePath) {
+            pieces.push({
+              nodeNumber: num,
+              nodeLabel,
+              docType: d.docType,
+              category: d.category,
+              fileName: d.fileName,
+              filePath: d.filePath,
+            })
+          }
+        }
+      }
+      const ai = await runRegafyAI({
+        genDocs: genDocs ?? [],
+        pieces,
         productName: dossier.productName ?? product?.nomCommercial ?? '',
         titulaire: product?.titulaire ?? '',
         country: countryLabel(dossier.country) || dossier.country || '',
         agency: agency.full ? `${agency.full} (${agency.name})` : '',
+        operationDate: new Date().toISOString().slice(0, 10),
       })
       setAiFindings(ai)
     } catch (e) {
@@ -222,7 +242,7 @@ export function DossierWorkspacePage() {
     } finally {
       setAiBusy(false)
     }
-  }, [dossier, genDocs, product])
+  }, [dossier, genDocs, product, docsByNode, flatNodes])
 
   // Copilote en arrière-plan : analyse automatiquement à l'ouverture du dossier et quand les
   // lettres changent (débounced 1,5 s). Silencieux — les constats arrivent dans le même panneau.

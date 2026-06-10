@@ -1,9 +1,14 @@
-// Edge Function `regafy-ai` — enrichit Regafy par une analyse IA (assistive only, human-in-the-loop).
-// Contrat sécurité (ADR 0002) : vérif JWT Supabase + validation/bornes d'entrée + secrets GCP
-// côté Edge uniquement. Renvoie des findings au MÊME modèle que le Regafy déterministe du front.
+// Edge Function `regafy-ai` v2 — copilote RA (assistif only, human-in-the-loop).
+// Deux analyses IA (Gemini/Vertex), renvoyées au MÊME modèle de findings que le Regafy déterministe :
+//   1) Conformité des lettres (texte) — avec la date de l'opération pour un raisonnement de dates juste.
+//   2) Validité des pièces (MULTIMODAL) — Gemini LIT le document (PDF/scan), en extrait la date
+//      d'expiration ou la durée de validité énoncée, puis on calcule la validité restante vs la date
+//      de l'opération et on compare aux cibles : pièces admin ≥ 6 mois, COA ≥ 18 mois.
+// Contrat sécurité (ADR 0002) : JWT Supabase vérifié, bornes d'entrée, secrets GCP côté Edge,
+// téléchargement Storage via le JWT de l'appelant (RLS), Vertex no-train.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
-import { generateText } from '../_shared/vertex.ts'
+import { generateParts, generateText, type Part } from '../_shared/vertex.ts'
 
 const CORS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -17,9 +22,26 @@ interface LetterInput {
   title: string
   text: string
 }
+interface PieceInput {
+  nodeNumber: string
+  nodeLabel: string
+  docType: string
+  category: string
+  fileName: string
+  filePath: string
+}
+interface Finding {
+  nodeNumber: string
+  nodeLabel: string
+  severity: 'error' | 'warning' | 'info'
+  message: string
+}
 
 const MAX_LETTERS = 8
 const MAX_TEXT = 8000
+const MAX_PIECES = 10
+const MAX_FILE_BYTES = 12 * 1024 * 1024
+const STORAGE_BUCKET = 'documents'
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -28,11 +50,56 @@ function json(body: unknown, status = 200): Response {
   })
 }
 
+const sev = (s: unknown): Finding['severity'] => (s === 'error' || s === 'warning' ? s : 'info')
+
+function todayISO(input?: string): string {
+  return input && /^\d{4}-\d{2}-\d{2}/.test(input)
+    ? input.slice(0, 10)
+    : new Date().toISOString().slice(0, 10)
+}
+
+function monthsLeft(expiry: string, from: string): number {
+  return (new Date(expiry).getTime() - new Date(from).getTime()) / (1000 * 60 * 60 * 24 * 30.4375)
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let bin = ''
+  const chunk = 0x8000
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + chunk))
+  }
+  return btoa(bin)
+}
+
+function mimeFor(fileName: string): string {
+  const ext = fileName.toLowerCase().split('.').pop()
+  if (ext === 'png') return 'image/png'
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg'
+  if (ext === 'webp') return 'image/webp'
+  return 'application/pdf'
+}
+
+function extractJson(raw: string): unknown {
+  try {
+    return JSON.parse(raw)
+  } catch {
+    const m = raw.match(/\{[\s\S]*\}/)
+    if (m) {
+      try {
+        return JSON.parse(m[0])
+      } catch {
+        return null
+      }
+    }
+    return null
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   if (req.method !== 'POST') return json({ error: 'méthode non autorisée' }, 405)
 
-  // 1) Auth — vérifier le JWT Supabase de l'appelant (sinon 401).
+  // 1) Auth — JWT Supabase de l'appelant (sinon 401).
   const authHeader = req.headers.get('Authorization') ?? ''
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
@@ -45,7 +112,7 @@ Deno.serve(async (req: Request) => {
   } = await supabase.auth.getUser()
   if (authErr || !user) return json({ error: 'non authentifié' }, 401)
 
-  // 2) Validation + bornes anti-abus.
+  // 2) Entrée + bornes.
   let raw: unknown
   try {
     raw = await req.json()
@@ -53,86 +120,146 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'JSON invalide' }, 400)
   }
   const b = (raw ?? {}) as {
+    operationDate?: string
     productName?: string
     titulaire?: string
     country?: string
     agency?: string
     letters?: LetterInput[]
+    pieces?: PieceInput[]
   }
-  if (!Array.isArray(b.letters) || b.letters.length === 0) {
-    return json({ error: 'Champ "letters" requis (≥ 1).' }, 400)
-  }
-  const letters = b.letters.slice(0, MAX_LETTERS).map((l) => ({
+  const opDate = todayISO(b.operationDate)
+  const letters = (Array.isArray(b.letters) ? b.letters : []).slice(0, MAX_LETTERS).map((l) => ({
     nodeNumber: String(l?.nodeNumber ?? ''),
     nodeLabel: String(l?.nodeLabel ?? ''),
     title: String(l?.title ?? '').slice(0, 200),
     text: String(l?.text ?? '').slice(0, MAX_TEXT),
   }))
+  const pieces = (Array.isArray(b.pieces) ? b.pieces : [])
+    .filter((p) => p?.filePath)
+    .slice(0, MAX_PIECES)
+    .map((p) => ({
+      nodeNumber: String(p.nodeNumber ?? ''),
+      nodeLabel: String(p.nodeLabel ?? ''),
+      docType: String(p.docType ?? ''),
+      category: String(p.category ?? ''),
+      fileName: String(p.fileName ?? 'document'),
+      filePath: String(p.filePath),
+    }))
 
-  // 3) Prompt — expert RA UEMOA/CEDEAO, sortie JSON stricte.
-  const system =
-    "Tu es un expert en affaires réglementaires pharmaceutiques (UEMOA/CEDEAO). Tu analyses des " +
-    "lettres administratives d'un dossier CTD Module 1 et tu repères les non-conformités ou " +
-    'incohérences : formule d\'appel/politesse manquante ou inadaptée, destinataire/agence ' +
-    'incohérents avec le pays, champs entre crochets non remplis, dates incohérentes, titulaire ' +
-    'absent, ton inapproprié. Assistance uniquement : tes constats sont des suggestions, jamais ' +
-    'des décisions finales. Tu écris en français, des messages courts et actionnables.'
+  const findings: Finding[] = []
 
-  const prompt =
-    `Contexte — Produit : ${b.productName ?? '(non précisé)'} | Titulaire : ${b.titulaire ?? '(non précisé)'} | ` +
-    `Pays : ${b.country ?? '(non précisé)'} | Agence : ${b.agency ?? '(non précisée)'}.\n\n` +
-    'Analyse les lettres ci-dessous et renvoie UNIQUEMENT un JSON de la forme :\n' +
-    '{"findings":[{"nodeNumber":"<numéro CTD ou \'\'>","severity":"error|warning|info","message":"<constat court>"}]}\n' +
-    "N'invente pas de problème : si une lettre est conforme, ne crée aucun finding pour elle. " +
-    'Maximum 10 findings.\n\nLettres :\n' +
-    letters
-      .map((l, i) => `[#${i + 1} | nœud ${l.nodeNumber} | ${l.title}]\n${l.text}`)
-      .join('\n\n---\n\n')
-
-  // 4) Appel Vertex (Gemini, JSON mode).
-  let out: string
-  try {
-    out = await generateText(prompt, {
-      system,
-      json: true,
-      maxOutputTokens: 1024,
-      temperature: 0.2,
-    })
-  } catch (e) {
-    return json({ error: 'IA indisponible', detail: String((e as Error).message).slice(0, 300) }, 502)
-  }
-
-  // 5) Parse robuste -> findings normalisés.
-  let parsedFindings: Array<{ nodeNumber?: string; severity?: string; message?: string }> = []
-  try {
-    const parsed = JSON.parse(out)
-    parsedFindings = Array.isArray(parsed) ? parsed : (parsed.findings ?? [])
-  } catch {
-    const m = out.match(/\{[\s\S]*\}/)
-    if (m) {
-      try {
-        parsedFindings = JSON.parse(m[0]).findings ?? []
-      } catch {
-        parsedFindings = []
+  // 3) Conformité des lettres (texte) — avec la date de l'opération.
+  if (letters.length > 0) {
+    const system =
+      'Tu es un expert en affaires réglementaires pharmaceutiques (UEMOA/CEDEAO). Tu repères les ' +
+      'non-conformités des lettres administratives (CTD Module 1) : formule d\'appel/politesse, ' +
+      'destinataire/agence incohérents, champs entre crochets non remplis, dates incohérentes, ' +
+      'titulaire absent, ton inadapté. Assistance uniquement, jamais de décision finale. Français, ' +
+      'messages courts et actionnables.'
+    const prompt =
+      `Date de l'opération en cours : ${opDate} (utilise-la pour juger les dates). ` +
+      `Produit : ${b.productName ?? '(n/a)'} | Titulaire : ${b.titulaire ?? '(n/a)'} | ` +
+      `Pays : ${b.country ?? '(n/a)'} | Agence : ${b.agency ?? '(n/a)'}.\n\n` +
+      'Renvoie UNIQUEMENT {"findings":[{"nodeNumber":"<n° ou \'\'>","severity":"error|warning|info","message":"<constat>"}]}. ' +
+      "N'invente rien ; lettre conforme = aucun finding. Max 10.\n\nLettres :\n" +
+      letters.map((l, i) => `[#${i + 1} | nœud ${l.nodeNumber} | ${l.title}]\n${l.text}`).join('\n\n---\n\n')
+    try {
+      const parsed = extractJson(
+        await generateText(prompt, { system, json: true, maxOutputTokens: 1024, temperature: 0.2 }),
+      ) as { findings?: Array<{ nodeNumber?: string; severity?: string; message?: string }> } | null
+      for (const f of (parsed?.findings ?? []).slice(0, 10)) {
+        const node = letters.find((l) => l.nodeNumber === String(f?.nodeNumber ?? ''))
+        const message = String(f?.message ?? '').slice(0, 400)
+        if (message.trim())
+          findings.push({
+            nodeNumber: String(f?.nodeNumber ?? ''),
+            nodeLabel: node?.nodeLabel ?? '',
+            severity: sev(f?.severity),
+            message,
+          })
       }
+    } catch (_e) {
+      // analyse lettres indisponible → on continue (les autres constats restent)
     }
   }
 
-  const sev = (s: unknown): 'error' | 'warning' | 'info' =>
-    s === 'error' || s === 'warning' ? s : 'info'
-  const findings = parsedFindings
-    .slice(0, 10)
-    .map((f) => {
-      const nodeNumber = String(f?.nodeNumber ?? '')
-      const node = letters.find((l) => l.nodeNumber === nodeNumber)
-      return {
-        nodeNumber,
-        nodeLabel: node?.nodeLabel ?? '',
-        severity: sev(f?.severity),
-        message: String(f?.message ?? '').slice(0, 400),
+  // 4) Validité des pièces (MULTIMODAL) — en parallèle, une lecture Gemini par document.
+  const valSystem =
+    'Tu es un expert RA. On te fournit un document réglementaire (certificat GMP/BPF, COPP, FSC, ' +
+    "ML, AMM, COA…). Extrais sa date d'expiration / fin de validité, ou la durée de validité " +
+    'énoncée. Ne déduis pas une date si elle n\'est pas écrite. Réponds STRICTEMENT en JSON.'
+
+  const validity = await Promise.all(
+    pieces.map(async (p) => {
+      try {
+        const { data, error } = await supabase.storage.from(STORAGE_BUCKET).download(p.filePath)
+        if (error || !data) return null
+        const buf = new Uint8Array(await data.arrayBuffer())
+        if (buf.byteLength === 0 || buf.byteLength > MAX_FILE_BYTES) return null
+        const parts: Part[] = [
+          {
+            text:
+              `Type de pièce : ${p.docType}. Date de l'opération : ${opDate}.\n` +
+              'Renvoie UNIQUEMENT : {"found":true|false,"expiryDate":"yyyy-mm-dd|null",' +
+              '"validityStatement":"durée/condition de validité énoncée dans le document|null"}. ' +
+              "found=false si le document ne mentionne NI date d'expiration NI durée de validité.",
+          },
+          { inlineData: { mimeType: mimeFor(p.fileName), data: bytesToBase64(buf) } },
+        ]
+        const parsed = extractJson(
+          await generateParts(parts, {
+            system: valSystem,
+            json: true,
+            maxOutputTokens: 256,
+            temperature: 0,
+          }),
+        ) as { found?: boolean; expiryDate?: string | null; validityStatement?: string | null } | null
+        return parsed ? { p, ...parsed } : null
+      } catch (_e) {
+        return null
       }
-    })
-    .filter((f) => f.message.trim().length > 0)
+    }),
+  )
+
+  for (const r of validity) {
+    if (!r) continue
+    const { p } = r
+    const min = p.docType === 'coa' ? 18 : 6
+    const label = (p.docType || 'pièce').toUpperCase()
+    if (r.found && r.expiryDate && /^\d{4}-\d{2}-\d{2}/.test(r.expiryDate)) {
+      const m = monthsLeft(r.expiryDate, opDate)
+      if (m < 0) {
+        findings.push({
+          nodeNumber: p.nodeNumber,
+          nodeLabel: p.nodeLabel,
+          severity: 'error',
+          message: `${label} expiré (${r.expiryDate}).`,
+        })
+      } else if (m < min) {
+        findings.push({
+          nodeNumber: p.nodeNumber,
+          nodeLabel: p.nodeLabel,
+          severity: 'warning',
+          message: `${label} : validité restante ~${Math.floor(m)} mois (< ${min} requis ; expire le ${r.expiryDate}).`,
+        })
+      }
+    } else if (r.found && r.validityStatement) {
+      findings.push({
+        nodeNumber: p.nodeNumber,
+        nodeLabel: p.nodeLabel,
+        severity: 'info',
+        message: `${label} : validité énoncée « ${String(r.validityStatement).slice(0, 120)} » — date d'expiration à confirmer.`,
+      })
+    } else {
+      findings.push({
+        nodeNumber: p.nodeNumber,
+        nodeLabel: p.nodeLabel,
+        severity: 'warning',
+        message: `${label} : aucune date ni durée de validité trouvée dans le document — à vérifier.`,
+      })
+    }
+  }
 
   return json({ findings })
 })
