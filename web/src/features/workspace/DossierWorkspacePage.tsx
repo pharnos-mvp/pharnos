@@ -244,13 +244,20 @@ export function DossierWorkspacePage() {
     }
   }, [dossier, genDocs, product, docsByNode, flatNodes])
 
-  // Copilote en arrière-plan : analyse automatiquement à l'ouverture du dossier et quand les
-  // lettres changent (débounced 1,5 s). Silencieux — les constats arrivent dans le même panneau.
+  // Copilote en arrière-plan : analyse automatiquement à l'ouverture du dossier et quand son
+  // contenu change (débounced 1,5 s). Se déclenche dès qu'il y a des **lettres générées OU des
+  // pièces admin/COA téléversées** — la validité s'analyse même sans lettre. Silencieux : les
+  // constats arrivent dans le même panneau « Remarques ».
   useEffect(() => {
-    if (!env.isSupabaseConfigured || !dossier || !genDocs || genDocs.length === 0) return
+    if (!env.isSupabaseConfigured || !dossier || genDocs === undefined || docs === undefined) return
+    const hasLetters = genDocs.length > 0
+    const hasPieces = docs.some(
+      (d) => (d.category === 'admin' || d.docType === 'coa') && d.filePath,
+    )
+    if (!hasLetters && !hasPieces) return
     const t = setTimeout(() => void runAi(), 1500)
     return () => clearTimeout(t)
-  }, [dossier, genDocs, runAi])
+  }, [dossier, genDocs, docs, runAi])
 
   const structureOutdated = useMemo(
     () => (dossier ? isTreeOutdated(dossier.tree, getModule1Tree(dossier.format)) : false),
