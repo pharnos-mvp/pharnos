@@ -69,6 +69,7 @@ import { excludeProductDoc, getDossier, updateDossierTree } from './dossier-repo
 import { syncDossiers } from './dossier-sync'
 import {
   createGeneratedDoc,
+  createTranslationDoc,
   deleteGeneratedDoc,
   listGeneratedDocs,
   regenerateGeneratedDoc,
@@ -92,7 +93,7 @@ import { PdfViewer } from './PdfViewer'
 import { runRegafy, type RegafyFinding } from './regafy'
 import { runRegafyLetters, runRegafyValidity, type RegafyAiPiece } from './regafy-ai'
 import { cacheAnalysis, getCachedAnalysis } from './regafy-cache'
-import { translateDoc } from './translate-doc'
+import { textToTiptap, translateDoc } from './translate-doc'
 import { RichTextEditor } from './RichTextEditor'
 import { hasSignature, insertSignature, removeSignature } from './signature'
 import { BrandingPanel, SignaturePanel } from './SignatureBrandingPanels'
@@ -155,7 +156,6 @@ export function DossierWorkspacePage() {
   const [letterFindings, setLetterFindings] = useState<RegafyFinding[]>([])
   const [aiBusy, setAiBusy] = useState(false)
   const [translating, setTranslating] = useState<string | null>(null)
-  const [translation, setTranslation] = useState<{ title: string; text: string } | null>(null)
   const [sigPanelOpen, setSigPanelOpen] = useState(false)
   const [brandPanelOpen, setBrandPanelOpen] = useState(false)
 
@@ -352,7 +352,9 @@ export function DossierWorkspacePage() {
     return () => clearTimeout(t)
   }, [dossier, genDocs, product])
 
-  // « Traduire » (M5) : lit le document via l'Edge et propose une traduction (MedDRA) pour revue.
+  // « Traduire » (M5) : lit le document via l'Edge, crée/MAJ une traduction ÉDITABLE propre au
+  // dossier (document généré), puis l'ouvre côte à côte avec l'original. Ne touche jamais au
+  // document produit original — c'est une version de conformité pour ce montage uniquement.
   const handleTranslate = useCallback(
     async (f: RegafyFinding) => {
       const piece = aiPieces.find((p) => p.pieceId === f.pieceId)
@@ -366,17 +368,45 @@ export function DossierWorkspacePage() {
           docType: piece.docType,
           targetLang: lang,
         })
-        setTranslation({
-          title: `${piece.docType.toUpperCase()} — traduction (${lang.toUpperCase()})`,
-          text,
-        })
+        const content = textToTiptap(text)
+        const title = `${piece.docType.toUpperCase()} — traduction (${lang.toUpperCase()})`
+        // Dédup : une seule traduction par document source (re-traduire met à jour la même).
+        const existing = (genDocs ?? []).find(
+          (g) =>
+            g.deletedAt === null &&
+            g.templateKey === 'translation' &&
+            g.sourceDocId === piece.pieceId,
+        )
+        let genId: string
+        if (existing) {
+          await updateGeneratedDocContent(existing.id, content)
+          genId = existing.id
+        } else {
+          const rec = await createTranslationDoc(orgId, {
+            dossierId: dossier.id,
+            nodeNumber: piece.nodeNumber,
+            sourceDocId: piece.pieceId,
+            title,
+            content,
+          })
+          genId = rec.id
+        }
+        void syncGeneratedDocs(orgId)
+        // Ouvre la section + l'onglet traduction (rendu côte à côte avec l'original).
+        const node = flatNodes.find((n) => n.number === piece.nodeNumber)
+        if (node) {
+          setSelected(node)
+          setDocEditing(false)
+          setPickedKey(`letter:${genId}`)
+        }
+        toast.success('Traduction prête — à relire avant usage.')
       } catch (e) {
         toast.error((e as Error).message)
       } finally {
         setTranslating(null)
       }
     },
-    [aiPieces, dossier],
+    [aiPieces, dossier, genDocs, orgId, flatNodes],
   )
 
   const structureOutdated = useMemo(
@@ -560,6 +590,11 @@ export function DossierWorkspacePage() {
   const selectedTplKey = selected ? templateKeyForNode(dossier.format, selected.number) : undefined
   const selectedGenDoc = selected ? genByNode.get(selected.number) : undefined
   const selectedAttachments = selected ? attachmentsFor(selected) : []
+  // Traduction : document produit original lié (affiché à gauche, en regard de la version éditable).
+  const translationSourceDoc =
+    selectedGenDoc?.templateKey === 'translation' && selectedGenDoc.sourceDocId
+      ? (docs ?? []).find((d) => d.id === selectedGenDoc.sourceDocId)
+      : undefined
   // N'utiliser l'instance éditeur que si elle correspond au document sélectionné
   // (évite d'agir sur une instance détruite pendant le changement de document).
   const liveEditor =
@@ -863,7 +898,11 @@ export function DossierWorkspacePage() {
             <ToolbarBtn label="En-tête / Pied de page" onClick={() => setBrandPanelOpen(true)} />
             <ToolbarBtn
               label="Régénérer"
-              disabled={!selectedGenDoc || active?.kind !== 'letter'}
+              disabled={
+                !selectedGenDoc ||
+                active?.kind !== 'letter' ||
+                selectedGenDoc?.templateKey === 'translation'
+              }
               onClick={() => void handleRegenerate()}
             />
             <ToolbarBtn
@@ -1058,24 +1097,74 @@ export function DossierWorkspacePage() {
 
               <div>
                 {active?.kind === 'letter' && selectedGenDoc ? (
-                  // Pas d'`overflow-hidden` : casserait le `sticky` de la barre de format.
-                  <section className="bg-card rounded-lg border">
-                    {/* Barre de format = en-tête direct de la page A4 (collée), figée (sticky) au scroll. */}
-                    {docEditing ? (
-                      <div className="bg-card sticky top-[5.25rem] z-10 rounded-t-lg">
-                        <FormatToolbar editor={liveEditor} />
+                  selectedGenDoc.templateKey === 'translation' ? (
+                    // Traduction : original (gauche) + version ÉDITABLE au menu de format (droite).
+                    <div className="space-y-2">
+                      <p className="text-muted-foreground flex items-center gap-1.5 text-xs italic">
+                        <Languages className="size-3.5 shrink-0 text-amber-500" />
+                        Traduction assistée (MedDRA) — à relire. N'altère pas l'original ; propre à
+                        ce dossier.
+                      </p>
+                      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                        <div className="overflow-hidden rounded-lg border">
+                          <div className="bg-card text-muted-foreground truncate border-b px-3 py-1.5 text-xs font-medium">
+                            Original — {translationSourceDoc?.fileName ?? 'document'}
+                          </div>
+                          {translationSourceDoc ? (
+                            <InlineDocPreview
+                              key={translationSourceDoc.id}
+                              kind="doc"
+                              docId={translationSourceDoc.id}
+                              filePath={translationSourceDoc.filePath}
+                              fileName={translationSourceDoc.fileName}
+                            />
+                          ) : (
+                            <p className="text-muted-foreground p-6 text-center text-xs">
+                              Document original indisponible.
+                            </p>
+                          )}
+                        </div>
+                        <section className="bg-card rounded-lg border">
+                          {docEditing ? (
+                            <div className="bg-card sticky top-[5.25rem] z-10 rounded-t-lg">
+                              <FormatToolbar editor={liveEditor} />
+                            </div>
+                          ) : null}
+                          <div className="bg-card text-muted-foreground truncate border-b px-3 py-1.5 text-xs font-medium">
+                            {selectedGenDoc.title}
+                          </div>
+                          <RichTextEditor
+                            docId={selectedGenDoc.id}
+                            initialContent={selectedGenDoc.content as JSONContent}
+                            editable={docEditing}
+                            onChange={(json) => handleEditorChange(selectedGenDoc.id, json)}
+                            onReady={handleEditorReady}
+                            header={null}
+                            footer={null}
+                          />
+                        </section>
                       </div>
-                    ) : null}
-                    <RichTextEditor
-                      docId={selectedGenDoc.id}
-                      initialContent={selectedGenDoc.content as JSONContent}
-                      editable={docEditing}
-                      onChange={(json) => handleEditorChange(selectedGenDoc.id, json)}
-                      onReady={handleEditorReady}
-                      header={branding?.headerImage ?? null}
-                      footer={branding?.footerImage ?? null}
-                    />
-                  </section>
+                    </div>
+                  ) : (
+                    // Pas d'`overflow-hidden` : casserait le `sticky` de la barre de format.
+                    <section className="bg-card rounded-lg border">
+                      {/* Barre de format = en-tête direct de la page A4 (collée), figée au scroll. */}
+                      {docEditing ? (
+                        <div className="bg-card sticky top-[5.25rem] z-10 rounded-t-lg">
+                          <FormatToolbar editor={liveEditor} />
+                        </div>
+                      ) : null}
+                      <RichTextEditor
+                        docId={selectedGenDoc.id}
+                        initialContent={selectedGenDoc.content as JSONContent}
+                        editable={docEditing}
+                        onChange={(json) => handleEditorChange(selectedGenDoc.id, json)}
+                        onReady={handleEditorReady}
+                        header={branding?.headerImage ?? null}
+                        footer={branding?.footerImage ?? null}
+                      />
+                    </section>
+                  )
                 ) : active && active.kind !== 'letter' ? (
                   <div className="space-y-2">
                     {activeLangFinding ? (
@@ -1249,14 +1338,6 @@ export function DossierWorkspacePage() {
         />
       ) : null}
 
-      {translation ? (
-        <TranslationDialog
-          title={translation.title}
-          text={translation.text}
-          onClose={() => setTranslation(null)}
-        />
-      ) : null}
-
       {gateFindings ? (
         <RegafyGateDialog
           findings={gateFindings}
@@ -1282,52 +1363,6 @@ export function DossierWorkspacePage() {
       {brandPanelOpen ? (
         <BrandingPanel branding={branding} orgId={orgId} onClose={() => setBrandPanelOpen(false)} />
       ) : null}
-    </div>
-  )
-}
-
-function TranslationDialog({
-  title,
-  text,
-  onClose,
-}: {
-  title: string
-  text: string
-  onClose: () => void
-}) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-    >
-      <div className="bg-card flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border shadow-lg">
-        <div className="flex items-center gap-2 border-b p-4">
-          <Languages className="size-5 text-amber-500" />
-          <h2 className="font-semibold">{title}</h2>
-        </div>
-        <div className="min-h-0 flex-1 overflow-auto p-4">
-          <p className="text-muted-foreground mb-3 text-xs italic">
-            Traduction assistée (terminologie MedDRA) — à relire avant tout usage. Ne remplace pas
-            le document officiel.
-          </p>
-          <pre className="text-foreground font-sans text-sm whitespace-pre-wrap">{text}</pre>
-        </div>
-        <div className="flex justify-end gap-2 border-t p-3">
-          <Button variant="ghost" onClick={onClose}>
-            Fermer
-          </Button>
-          <Button
-            onClick={() => {
-              void navigator.clipboard.writeText(text)
-              toast.success('Traduction copiée')
-            }}
-          >
-            Copier
-          </Button>
-        </div>
-      </div>
     </div>
   )
 }

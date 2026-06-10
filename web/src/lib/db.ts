@@ -109,8 +109,10 @@ export interface GeneratedDocRecord {
   dossierId: string
   /** Numéro de nœud cible dans l'arborescence Module 1 (ex. '1.1.1'). */
   nodeNumber: string
-  /** Clé du template source (ex. 'cover', 'pght'). */
+  /** Clé du template source (ex. 'cover', 'pght') ; 'translation' pour une traduction de pièce. */
   templateKey: string
+  /** Traduction : id du document produit source (lien vers l'original). Propre au dossier. */
+  sourceDocId?: string
   title: string
   /** Contenu éditable au format ProseMirror/TipTap (JSON). */
   content: unknown
