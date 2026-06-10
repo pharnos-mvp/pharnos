@@ -45,8 +45,16 @@ jobs:
       - name: Format check
         run: npm run format:check
 
-      - name: Test
-        run: npm run test
+      - name: Test (avec coverage + plancher anti-régression)
+        run: npm run test:coverage
+
+      - name: Upload coverage (lcov)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: web/coverage/
+          retention-days: 14
 
       - name: Build
         run: npm run build
@@ -134,3 +142,21 @@ jobs:
           configPath: ./lighthouserc.json
           uploadArtifacts: true
           temporaryPublicStorage: true
+
+  secrets:
+    name: secrets (gitleaks · historique complet)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Tout l'historique : un secret commité puis « supprimé » reste exposé dans git.
+          fetch-depth: 0
+
+      # Binaire officiel via Docker (licence MIT, pas de clé requise — contrairement à
+      # gitleaks-action qui exige une licence pour les organisations). --redact : ne jamais
+      # afficher la valeur d'un secret détecté dans les logs CI.
+      - name: Gitleaks (scan des secrets sur tout l'historique git)
+        run: >
+          docker run --rm -v "$PWD:/repo"
+          ghcr.io/gitleaks/gitleaks:latest
+          detect --source=/repo --redact --no-banner
