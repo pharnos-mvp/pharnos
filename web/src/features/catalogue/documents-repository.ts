@@ -74,3 +74,11 @@ export async function deleteDocument(id: string): Promise<void> {
 export async function getDocumentBlob(id: string): Promise<Blob | undefined> {
   return (await db.documentBlobs.get(id))?.blob
 }
+
+/**
+ * Épingle le blob d'un document en local (offline-first). Appelé après un téléchargement réseau
+ * (sync/aperçu/compilation) pour qu'un document tiré du serveur soit ensuite disponible hors-ligne.
+ */
+export async function cacheDocumentBlob(id: string, blob: Blob): Promise<void> {
+  await db.documentBlobs.put({ id, blob })
+}

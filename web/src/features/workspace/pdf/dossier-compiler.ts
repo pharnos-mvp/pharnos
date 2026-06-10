@@ -1,4 +1,4 @@
-import { getDocumentBlob } from '@/features/catalogue/documents-repository'
+import { cacheDocumentBlob, getDocumentBlob } from '@/features/catalogue/documents-repository'
 import { getDocumentDownloadUrl } from '@/features/catalogue/documents-sync'
 import type {
   DocumentRecord,
@@ -9,7 +9,7 @@ import type {
   ProSettingRecord,
 } from '@/lib/db'
 import { formatComposition } from '../composition'
-import { getAttachmentBlob } from '../dossier-attachments-repository'
+import { cacheAttachmentBlob, getAttachmentBlob } from '../dossier-attachments-repository'
 import { getAttachmentDownloadUrl } from '../dossier-attachments-sync'
 import { activityLabel, countryLabel } from '../dossier-constants'
 import { nodeForDocType, resolveExistingNode, treeNodeNumbers } from '../module1-tree'
@@ -28,12 +28,18 @@ function inferMime(fileName: string): string {
   return ''
 }
 
-async function urlToBytes(url: string): Promise<{ bytes: Uint8Array; mime: string } | null> {
+async function urlToBytes(
+  url: string,
+): Promise<{ bytes: Uint8Array; mime: string; blob: Blob } | null> {
   try {
     const res = await fetch(url)
     if (!res.ok) return null
-    const buf = await res.arrayBuffer()
-    return { bytes: new Uint8Array(buf), mime: res.headers.get('content-type') ?? '' }
+    const blob = await res.blob()
+    return {
+      bytes: new Uint8Array(await blob.arrayBuffer()),
+      mime: res.headers.get('content-type') ?? blob.type ?? '',
+      blob,
+    }
   } catch {
     return null
   }
@@ -52,12 +58,12 @@ async function attachmentPiece(a: DossierAttachmentRecord): Promise<CompilePiece
     const url = await getAttachmentDownloadUrl(a.filePath)
     if (url) {
       const out = await urlToBytes(url)
-      if (out)
-        return {
-          bytes: out.bytes,
-          mime: a.mimeType || out.mime || inferMime(a.fileName),
-          fileName: a.fileName,
-        }
+      if (out) {
+        const mime = a.mimeType || out.mime || inferMime(a.fileName)
+        // Offline-first : épingle le fichier en local pour les compilations hors-ligne suivantes.
+        void cacheAttachmentBlob(a.id, out.blob)
+        return { bytes: out.bytes, mime, fileName: a.fileName }
+      }
     }
   }
   return null
@@ -76,12 +82,12 @@ async function docPiece(d: DocumentRecord): Promise<CompilePiece | null> {
     const url = await getDocumentDownloadUrl(d.filePath)
     if (url) {
       const out = await urlToBytes(url)
-      if (out)
-        return {
-          bytes: out.bytes,
-          mime: d.mimeType || out.mime || inferMime(d.fileName),
-          fileName: d.fileName,
-        }
+      if (out) {
+        const mime = d.mimeType || out.mime || inferMime(d.fileName)
+        // Offline-first : épingle le fichier en local pour les compilations hors-ligne suivantes.
+        void cacheDocumentBlob(d.id, out.blob)
+        return { bytes: out.bytes, mime, fileName: d.fileName }
+      }
     }
   }
   return null

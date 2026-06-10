@@ -275,6 +275,7 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 | #78 | 06-10 | **Docs** : board — Track A + Regafy AI Copilot livrés (header + journal + M4/M5 ✅) |
 | #79 | 06-10 | **Copilote (éco)** : **cache d'analyse par document** (1 lecture IA/doc, réutilisé multi-pays — Dexie `docAnalysis` v8) + **concordance du nom de produit** (alerte « mauvais document ») + re-analyse auto à l'upload |
 | #81 | 06-10 | **Fix UX/PWA** : **mise à jour fiable du SW** (recharge auto quand le nouveau worker prend le contrôle → fin du code périmé servi après déploiement, cause des « fixes invisibles ») + bouton **« Traduire en un clic »** en surbrillance directement sur l'aperçu du doc (langue ≠ pays cible) + badge catalogue « En attente »/« Synchronisé » → **icône d'état discrète** (non-bouton). _Aperçu PDF hors-ligne = comportement existant (#9), pas une régression (requiert le fichier en cache local)._ |
+| #82 | 06-10 | **Offline-first robuste** : **épinglage local des fichiers** (blobs). `pullDocuments`/`pullAttachments` téléchargent désormais en arrière-plan les blobs manquants ; l'aperçu + la compilation mettent aussi le fichier en cache après tout accès réseau. Un doc tiré du serveur (ou après vidage de cache) devient consultable + compilable **hors-ligne** dès une ouverture en ligne. Corrige : PDF produit absents de l'aperçu/du livrable hors-ligne. |
 
 ---
 

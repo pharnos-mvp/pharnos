@@ -2,11 +2,12 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { db, type DossierAttachmentRecord } from '@/lib/db'
 import { getSupabase } from '@/lib/supabase'
-import { getAttachmentBlob } from './dossier-attachments-repository'
+import { cacheAttachmentBlob, getAttachmentBlob } from './dossier-attachments-repository'
 
 const BUCKET = 'documents'
 const lastPullKey = (orgId: string) => `pharnos.lastPull.dossierAttachments.${orgId}`
 let syncing = false
+let pinning = false
 
 export interface DossierAttachmentRow {
   id: string
@@ -123,6 +124,38 @@ async function pullAttachments(supabase: SupabaseClient, orgId: string): Promise
     if (incoming.updatedAt > maxUpdated) maxUpdated = incoming.updatedAt
   }
   if (rows.length > 0) localStorage.setItem(lastPullKey(orgId), maxUpdated)
+
+  // Offline-first : épingle en local les fichiers des pièces jointes sans blob (best-effort, async).
+  void pinMissingAttachmentBlobs(orgId)
+}
+
+/** Télécharge + met en cache local les blobs de pièces jointes manquants (offline-first, best-effort). */
+async function pinMissingAttachmentBlobs(orgId: string): Promise<void> {
+  if (pinning || !navigator.onLine) return
+  pinning = true
+  try {
+    const items = await db.dossierAttachments
+      .where('orgId')
+      .equals(orgId)
+      .filter((a) => a.deletedAt === null && !!a.filePath)
+      .toArray()
+    for (const a of items) {
+      if (!a.filePath) continue
+      if (await db.documentBlobs.get(a.id)) continue
+      const url = await getAttachmentDownloadUrl(a.filePath)
+      if (!url) continue
+      try {
+        const res = await fetch(url)
+        if (res.ok) await cacheAttachmentBlob(a.id, await res.blob())
+      } catch {
+        /* hors-ligne / transitoire */
+      }
+    }
+  } catch (error) {
+    console.warn('[sync] épinglage blobs pièces jointes :', error)
+  } finally {
+    pinning = false
+  }
 }
 
 /** URL signée (courte durée) pour télécharger une pièce jointe depuis Storage. */
