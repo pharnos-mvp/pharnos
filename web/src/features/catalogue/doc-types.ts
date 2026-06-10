@@ -22,6 +22,7 @@ export const ADMIN_DOC_TYPES: DocTypeOption[] = [
   { code: 'copp', label: 'COPP (Certificat de Produit Pharmaceutique)' },
   { code: 'fsc', label: 'FSC (Free Sale Certificate)' },
   { code: 'ml', label: "ML (Licence d'Établissement)" },
+  { code: 'contract', label: 'Contrat titulaire–fabricant' },
   { code: 'other_admin', label: 'Autre pièce administrative' },
 ]
 
