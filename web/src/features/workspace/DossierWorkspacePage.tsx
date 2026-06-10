@@ -21,6 +21,7 @@ import {
   Settings2,
   Sparkles,
   Upload,
+  X,
   XCircle,
 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -375,6 +376,26 @@ export function DossierWorkspacePage() {
     async (f: RegafyFinding) => {
       const piece = aiPieces.find((p) => p.pieceId === f.pieceId)
       if (!piece || !dossier) return
+      const openTab = (genId: string) => {
+        const node = flatNodes.find((n) => n.number === piece.nodeNumber)
+        if (node) {
+          setSelected(node)
+          setDocEditing(false)
+          setPickedKey(`letter:${genId}`)
+        }
+      }
+      // Cache anti-retraduction : déjà traduit → on rouvre l'onglet (zéro appel IA, zéro gaspillage).
+      // Pour forcer une nouvelle traduction : fermer l'onglet (« × ») puis recliquer « Traduire ».
+      const existing = (genDocs ?? []).find(
+        (g) =>
+          g.deletedAt === null &&
+          g.templateKey === 'translation' &&
+          g.sourceDocId === piece.pieceId,
+      )
+      if (existing) {
+        openTab(existing.id)
+        return
+      }
       const lang = officialLanguage(dossier.country)
       setTranslating(f.pieceId ?? null)
       try {
@@ -384,37 +405,15 @@ export function DossierWorkspacePage() {
           docType: piece.docType,
           targetLang: lang,
         })
-        const content = textToTiptap(text)
-        const title = `${piece.docType.toUpperCase()} — traduction (${lang.toUpperCase()})`
-        // Dédup : une seule traduction par document source (re-traduire met à jour la même).
-        const existing = (genDocs ?? []).find(
-          (g) =>
-            g.deletedAt === null &&
-            g.templateKey === 'translation' &&
-            g.sourceDocId === piece.pieceId,
-        )
-        let genId: string
-        if (existing) {
-          await updateGeneratedDocContent(existing.id, content)
-          genId = existing.id
-        } else {
-          const rec = await createTranslationDoc(orgId, {
-            dossierId: dossier.id,
-            nodeNumber: piece.nodeNumber,
-            sourceDocId: piece.pieceId,
-            title,
-            content,
-          })
-          genId = rec.id
-        }
+        const rec = await createTranslationDoc(orgId, {
+          dossierId: dossier.id,
+          nodeNumber: piece.nodeNumber,
+          sourceDocId: piece.pieceId,
+          title: `${piece.docType.toUpperCase()} — traduction (${lang.toUpperCase()})`,
+          content: textToTiptap(text),
+        })
         void syncGeneratedDocs(orgId)
-        // Ouvre la section + l'onglet traduction (rendu côte à côte avec l'original).
-        const node = flatNodes.find((n) => n.number === piece.nodeNumber)
-        if (node) {
-          setSelected(node)
-          setDocEditing(false)
-          setPickedKey(`letter:${genId}`)
-        }
+        openTab(rec.id)
         toast.success('Traduction prête — à relire avant usage.')
       } catch (e) {
         toast.error((e as Error).message)
@@ -611,6 +610,8 @@ export function DossierWorkspacePage() {
     selectedGenDoc?.templateKey === 'translation' && selectedGenDoc.sourceDocId
       ? (docs ?? []).find((d) => d.id === selectedGenDoc.sourceDocId)
       : undefined
+  // Langue cible (code pays → 'FR'/'PT'/'EN') pour les libellés (« Traduire en FR », « …_FR.docx »).
+  const targetLangLabel = officialLanguage(dossier.country).toUpperCase()
   // N'utiliser l'instance éditeur que si elle correspond au document sélectionné
   // (évite d'agir sur une instance détruite pendant le changement de document).
   const liveEditor =
@@ -619,7 +620,7 @@ export function DossierWorkspacePage() {
   // Documents visualisables du nœud : lettre générée + pièces jointes + documents produit.
   // Aperçu in-place automatique du 1er (ou de l'onglet choisi), même cadre que la lettre.
   type Viewable =
-    | { key: string; kind: 'letter'; label: string }
+    | { key: string; kind: 'letter'; label: string; isTranslation?: boolean }
     | {
         key: string
         kind: 'attachment' | 'doc'
@@ -630,10 +631,17 @@ export function DossierWorkspacePage() {
       }
   const viewables: Viewable[] = []
   if (selectedGenDoc) {
+    const isTranslation = selectedGenDoc.templateKey === 'translation'
+    // Onglet façon navigateur : « <nom de l'original>_<LANG>.docx » pour une traduction.
+    const transBase = (translationSourceDoc?.fileName ?? selectedGenDoc.title).replace(
+      /\.[^.]+$/,
+      '',
+    )
     viewables.push({
       key: `letter:${selectedGenDoc.id}`,
       kind: 'letter',
-      label: selectedGenDoc.title,
+      label: isTranslation ? `${transBase}_${targetLangLabel}.docx` : selectedGenDoc.title,
+      isTranslation,
     })
   }
   for (const a of selectedAttachments) {
@@ -726,8 +734,28 @@ export function DossierWorkspacePage() {
     void syncGeneratedDocs(orgId)
   }
 
+  /** Télécharge une traduction au format .docx (lib `docx` chargée en lazy → hors chunk d'entrée). */
+  async function downloadTranslationDocx(gen: GeneratedDocRecord) {
+    try {
+      const json = (liveEditor?.getJSON() ?? gen.content) as JSONContent
+      const { tiptapToDocxBlob } = await import('./tiptap-docx')
+      const blob = await tiptapToDocxBlob(json)
+      const src = (docs ?? []).find((d) => d.id === gen.sourceDocId)
+      const base = (src?.fileName ?? gen.title).replace(/\.[^.]+$/, '')
+      triggerDownload(URL.createObjectURL(blob), `${base}_${targetLangLabel}.docx`, true)
+    } catch (e) {
+      console.error(e)
+      toast.error('Échec du téléchargement de la traduction (.docx).')
+    }
+  }
+
+  /** Télécharge selon l'onglet actif : traduction → .docx · lettre → .html · doc produit → fichier d'origine. */
   function handleDownload() {
-    if (selectedGenDoc) {
+    if (active?.kind === 'letter' && selectedGenDoc) {
+      if (selectedGenDoc.templateKey === 'translation') {
+        void downloadTranslationDocx(selectedGenDoc)
+        return
+      }
       const json = (liveEditor?.getJSON() ?? selectedGenDoc.content) as JSONContent
       const html = generatedDocToHtml(selectedGenDoc.title, json, {
         header: branding?.headerImage ?? null,
@@ -737,7 +765,18 @@ export function DossierWorkspacePage() {
       triggerDownload(URL.createObjectURL(blob), `${slugify(selectedGenDoc.title)}.html`, true)
       return
     }
-    if (selectedDocs[0]) void downloadDoc(selectedDocs[0])
+    if (active?.kind === 'doc') {
+      const d = (docs ?? []).find((x) => x.id === active.id)
+      if (d) void downloadDoc(d)
+    }
+  }
+
+  /** « × » d'un onglet de traduction : retire la traduction du dossier (le doc produit reste intact). */
+  async function handleCloseTranslation(key: string) {
+    await deleteGeneratedDoc(key.replace('letter:', ''))
+    void syncGeneratedDocs(orgId)
+    setPickedKey(null)
+    toast.success('Traduction retirée du dossier')
   }
 
   async function handleUpload(file: File) {
@@ -924,7 +963,9 @@ export function DossierWorkspacePage() {
             />
             <ToolbarBtn
               label="Télécharger"
-              disabled={!selectedGenDoc || active?.kind !== 'letter'}
+              disabled={
+                !(active?.kind === 'doc' || (active?.kind === 'letter' && !!selectedGenDoc))
+              }
               onClick={handleDownload}
             />
             <ToolbarBtn
@@ -1091,97 +1132,81 @@ export function DossierWorkspacePage() {
 
                 {viewables.length > 1 ? (
                   <div className="flex flex-wrap gap-1">
-                    {viewables.map((v) => (
-                      <button
-                        key={v.key}
-                        type="button"
-                        onClick={() => setPickedKey(v.key)}
-                        title={v.label}
-                        className={cn(
-                          'flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs',
-                          active?.key === v.key
-                            ? 'border-primary bg-primary/10 text-primary'
-                            : 'text-muted-foreground hover:bg-accent',
-                        )}
-                      >
-                        <FileText className="size-3.5" />
-                        <span className="max-w-[160px] truncate">{v.label}</span>
-                      </button>
-                    ))}
+                    {viewables.map((v) => {
+                      const closable = v.kind === 'letter' && v.isTranslation
+                      return (
+                        <div
+                          key={v.key}
+                          className={cn(
+                            'flex items-center gap-1 rounded-full border py-1 pl-3 text-xs',
+                            closable ? 'pr-1' : 'pr-3',
+                            active?.key === v.key
+                              ? 'border-primary bg-primary/10 text-primary'
+                              : 'text-muted-foreground hover:bg-accent',
+                          )}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setPickedKey(v.key)}
+                            title={v.label}
+                            className="flex items-center gap-1.5"
+                          >
+                            <FileText className="size-3.5 shrink-0" />
+                            <span className="max-w-[160px] truncate">{v.label}</span>
+                          </button>
+                          {closable ? (
+                            <button
+                              type="button"
+                              aria-label="Retirer la traduction du dossier"
+                              title="Retirer la traduction du dossier"
+                              onClick={() => void handleCloseTranslation(v.key)}
+                              className="hover:bg-destructive/10 hover:text-destructive rounded-full p-0.5"
+                            >
+                              <X className="size-3.5" />
+                            </button>
+                          ) : null}
+                        </div>
+                      )
+                    })}
                   </div>
                 ) : null}
               </div>
 
               <div>
                 {active?.kind === 'letter' && selectedGenDoc ? (
-                  selectedGenDoc.templateKey === 'translation' ? (
-                    // Traduction : original (gauche) + version ÉDITABLE au menu de format (droite).
-                    <div className="space-y-2">
-                      <p className="text-muted-foreground flex items-center gap-1.5 text-xs italic">
+                  // Onglet traduction = plein largeur (éditeur + barre de format) ; l'original est
+                  // l'onglet voisin. Pas d'`overflow-hidden` : casserait le `sticky` de la barre.
+                  <section className="bg-card rounded-lg border">
+                    {selectedGenDoc.templateKey === 'translation' ? (
+                      <p className="text-muted-foreground flex items-center gap-1.5 px-3 pt-2 text-xs italic">
                         <Languages className="size-3.5 shrink-0 text-amber-500" />
                         Traduction assistée (MedDRA) — à relire. N'altère pas l'original ; propre à
                         ce dossier.
                       </p>
-                      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                        <div className="overflow-hidden rounded-lg border">
-                          <div className="bg-card text-muted-foreground truncate border-b px-3 py-1.5 text-xs font-medium">
-                            Original — {translationSourceDoc?.fileName ?? 'document'}
-                          </div>
-                          {translationSourceDoc ? (
-                            <InlineDocPreview
-                              key={translationSourceDoc.id}
-                              kind="doc"
-                              docId={translationSourceDoc.id}
-                              filePath={translationSourceDoc.filePath}
-                              fileName={translationSourceDoc.fileName}
-                            />
-                          ) : (
-                            <p className="text-muted-foreground p-6 text-center text-xs">
-                              Document original indisponible.
-                            </p>
-                          )}
-                        </div>
-                        <section className="bg-card rounded-lg border">
-                          {docEditing ? (
-                            <div className="bg-card sticky top-[5.25rem] z-10 rounded-t-lg">
-                              <FormatToolbar editor={liveEditor} />
-                            </div>
-                          ) : null}
-                          <div className="bg-card text-muted-foreground truncate border-b px-3 py-1.5 text-xs font-medium">
-                            {selectedGenDoc.title}
-                          </div>
-                          <RichTextEditor
-                            docId={selectedGenDoc.id}
-                            initialContent={selectedGenDoc.content as JSONContent}
-                            editable={docEditing}
-                            onChange={(json) => handleEditorChange(selectedGenDoc.id, json)}
-                            onReady={handleEditorReady}
-                            header={null}
-                            footer={null}
-                          />
-                        </section>
+                    ) : null}
+                    {docEditing ? (
+                      <div className="bg-card sticky top-[5.25rem] z-10 rounded-t-lg">
+                        <FormatToolbar editor={liveEditor} />
                       </div>
-                    </div>
-                  ) : (
-                    // Pas d'`overflow-hidden` : casserait le `sticky` de la barre de format.
-                    <section className="bg-card rounded-lg border">
-                      {/* Barre de format = en-tête direct de la page A4 (collée), figée au scroll. */}
-                      {docEditing ? (
-                        <div className="bg-card sticky top-[5.25rem] z-10 rounded-t-lg">
-                          <FormatToolbar editor={liveEditor} />
-                        </div>
-                      ) : null}
-                      <RichTextEditor
-                        docId={selectedGenDoc.id}
-                        initialContent={selectedGenDoc.content as JSONContent}
-                        editable={docEditing}
-                        onChange={(json) => handleEditorChange(selectedGenDoc.id, json)}
-                        onReady={handleEditorReady}
-                        header={branding?.headerImage ?? null}
-                        footer={branding?.footerImage ?? null}
-                      />
-                    </section>
-                  )
+                    ) : null}
+                    <RichTextEditor
+                      docId={selectedGenDoc.id}
+                      initialContent={selectedGenDoc.content as JSONContent}
+                      editable={docEditing}
+                      onChange={(json) => handleEditorChange(selectedGenDoc.id, json)}
+                      onReady={handleEditorReady}
+                      header={
+                        selectedGenDoc.templateKey === 'translation'
+                          ? null
+                          : (branding?.headerImage ?? null)
+                      }
+                      footer={
+                        selectedGenDoc.templateKey === 'translation'
+                          ? null
+                          : (branding?.footerImage ?? null)
+                      }
+                    />
+                  </section>
                 ) : active && active.kind !== 'letter' ? (
                   <div className="space-y-2">
                     {activeLangFinding ? (
@@ -1199,7 +1224,7 @@ export function DossierWorkspacePage() {
                           <Languages className="size-3.5" />
                           {translating === activeLangFinding.pieceId
                             ? 'Traduction…'
-                            : 'Traduire en un clic'}
+                            : `Traduire en ${targetLangLabel}`}
                         </Button>
                       </div>
                     ) : null}
@@ -1329,7 +1354,9 @@ export function DossierWorkspacePage() {
                           onClick={() => void handleTranslate(f)}
                         >
                           <Languages className="size-3" />
-                          {translating === f.pieceId ? 'Traduction…' : 'Traduire'}
+                          {translating === f.pieceId
+                            ? 'Traduction…'
+                            : `Traduire en ${targetLangLabel}`}
                         </Button>
                       ) : null}
                     </li>
