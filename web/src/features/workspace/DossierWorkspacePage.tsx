@@ -192,6 +192,7 @@ export function DossierWorkspacePage() {
         ? runRegafy({
             tree: dossier.tree,
             titulaire: product?.titulaire ?? '',
+            fabricant: product?.fabricant ?? '',
             docsByNode,
             genByNode,
             attachByNode,
@@ -199,11 +200,10 @@ export function DossierWorkspacePage() {
         : [],
     [dossier, product, docsByNode, genByNode, attachByNode],
   )
-  // Constats déterministes + enrichissement IA (assistif, marqué `source: 'ai'`).
+  // Constats déterministes + enrichissement du copilote IA (même affichage, en complément).
   const allFindings = useMemo(() => [...findings, ...aiFindings], [findings, aiFindings])
 
-  // Analyse IA (Edge `regafy-ai` → Vertex). Les findings n'apparaissent que dans le panneau
-  // (ils ne bloquent jamais la compilation). Réservé au mode authentifié (clé GCP côté Edge).
+  // Copilote IA (Edge `regafy-ai` → Vertex) : enrichit le panneau, ne bloque jamais la compilation.
   const runAi = useCallback(async () => {
     if (!dossier) return
     setAiBusy(true)
@@ -216,15 +216,21 @@ export function DossierWorkspacePage() {
         agency: agency.full ? `${agency.full} (${agency.name})` : '',
       })
       setAiFindings(ai)
-      toast.success(
-        ai.length ? `Analyse IA : ${ai.length} constat(s).` : 'Analyse IA : aucun constat ✓',
-      )
     } catch (e) {
-      toast.error((e as Error).message)
+      // Arrière-plan : échec silencieux (les constats déterministes restent affichés).
+      console.error('Regafy IA:', (e as Error).message)
     } finally {
       setAiBusy(false)
     }
   }, [dossier, genDocs, product])
+
+  // Copilote en arrière-plan : analyse automatiquement à l'ouverture du dossier et quand les
+  // lettres changent (débounced 1,5 s). Silencieux — les constats arrivent dans le même panneau.
+  useEffect(() => {
+    if (!env.isSupabaseConfigured || !dossier || !genDocs || genDocs.length === 0) return
+    const t = setTimeout(() => void runAi(), 1500)
+    return () => clearTimeout(t)
+  }, [dossier, genDocs, runAi])
 
   const structureOutdated = useMemo(
     () => (dossier ? isTreeOutdated(dossier.tree, getModule1Tree(dossier.format)) : false),
@@ -994,17 +1000,10 @@ export function DossierWorkspacePage() {
                 <h3 className="text-sm font-medium">Remarques pour la session</h3>
                 <span className="text-muted-foreground text-xs">{allFindings.length}</span>
               </div>
-              {env.isSupabaseConfigured ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-2 w-full"
-                  onClick={() => void runAi()}
-                  disabled={aiBusy}
-                >
-                  <Sparkles className="size-3.5" />
-                  {aiBusy ? 'Analyse IA…' : 'Analyser avec l’IA'}
-                </Button>
+              {aiBusy ? (
+                <p className="text-muted-foreground mt-1 flex items-center justify-center gap-1.5 text-xs italic">
+                  <Sparkles className="size-3 animate-pulse" /> Analyse en cours…
+                </p>
               ) : null}
               {allFindings.length === 0 ? (
                 <p className="text-muted-foreground mt-3 text-center text-xs italic">
@@ -1036,11 +1035,6 @@ export function DossierWorkspacePage() {
                         <span className="min-w-0">
                           {f.nodeNumber ? (
                             <span className="font-medium">{f.nodeNumber} </span>
-                          ) : null}
-                          {f.source === 'ai' ? (
-                            <span className="bg-primary/10 text-primary mr-1 inline-block rounded px-1 align-middle text-[10px] font-semibold">
-                              IA
-                            </span>
                           ) : null}
                           {f.message}
                         </span>

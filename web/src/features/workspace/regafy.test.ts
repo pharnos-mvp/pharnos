@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { GeneratedDocRecord } from '@/lib/db'
+import type { DocumentRecord, GeneratedDocRecord } from '@/lib/db'
 import type { CtdNodeDef } from './module1-tree'
 import { runRegafy } from './regafy'
 
@@ -79,3 +79,91 @@ describe('regafy (vérifications déterministes, progressif)', () => {
     expect(f.some((x) => x.message.includes('compléter'))).toBe(true)
   })
 })
+
+function doc(partial: Partial<DocumentRecord>): DocumentRecord {
+  return {
+    id: 'doc-' + Math.random().toString(36).slice(2),
+    orgId: 'o',
+    productId: 'p',
+    category: 'admin',
+    docType: 'gmp',
+    fileName: 'f.pdf',
+    mimeType: 'application/pdf',
+    size: 1,
+    language: null,
+    expiryDate: null,
+    status: 'active',
+    filePath: null,
+    uploaded: false,
+    createdAt: '',
+    updatedAt: '',
+    deletedAt: null,
+    ...partial,
+  }
+}
+
+function plusMonths(n: number): string {
+  const d = new Date()
+  d.setMonth(d.getMonth() + n)
+  return d.toISOString().slice(0, 10)
+}
+
+describe('regafy — validité des pièces & contrat (copilote)', () => {
+  it('pièce administrative à < 6 mois → avertissement', () => {
+    const docsByNode = new Map([
+      ['1.1.1', [doc({ category: 'admin', docType: 'gmp', expiryDate: plusMonths(3) })]],
+    ])
+    const f = runRegafy({ tree, titulaire: 'Labo', docsByNode, ...emptyGenAtt })
+    expect(f.some((x) => x.severity === 'warning' && x.message.includes('6 mois'))).toBe(true)
+  })
+
+  it('COA à < 18 mois → avertissement', () => {
+    const docsByNode = new Map([
+      ['1.1.1', [doc({ category: 'info', docType: 'coa', expiryDate: plusMonths(12) })]],
+    ])
+    const f = runRegafy({ tree, titulaire: 'Labo', docsByNode, ...emptyGenAtt })
+    expect(f.some((x) => x.message.includes('18 mois'))).toBe(true)
+  })
+
+  it('COA valide > 18 mois → aucun constat de validité', () => {
+    const docsByNode = new Map([
+      ['1.1.1', [doc({ category: 'info', docType: 'coa', expiryDate: plusMonths(24) })]],
+    ])
+    const f = runRegafy({ tree, titulaire: 'Labo', docsByNode, ...emptyGenAtt })
+    expect(f.some((x) => x.message.includes('18 mois'))).toBe(false)
+  })
+
+  it('pièce expirée → erreur', () => {
+    const docsByNode = new Map([['1.1.1', [doc({ expiryDate: plusMonths(-1) })]]])
+    const f = runRegafy({ tree, titulaire: 'Labo', docsByNode, ...emptyGenAtt })
+    expect(f.some((x) => x.severity === 'error' && x.message.includes('expirée'))).toBe(true)
+  })
+
+  it('titulaire ≠ fabricant sans contrat → avertissement', () => {
+    const f = runRegafy({
+      tree,
+      titulaire: 'Labo A',
+      fabricant: 'Usine B',
+      docsByNode: new Map(),
+      ...emptyGenAtt,
+    })
+    expect(f.some((x) => x.id === 'contract')).toBe(true)
+  })
+
+  it('titulaire ≠ fabricant AVEC contrat fourni → pas d’avertissement', () => {
+    const docsByNode = new Map([['1.1.1', [doc({ docType: 'contract' })]]])
+    const f = runRegafy({
+      tree,
+      titulaire: 'Labo A',
+      fabricant: 'Usine B',
+      docsByNode,
+      ...emptyGenAtt,
+    })
+    expect(f.some((x) => x.id === 'contract')).toBe(false)
+  })
+})
+
+const emptyGenAtt = {
+  genByNode: new Map<string, GeneratedDocRecord>(),
+  attachByNode: new Map(),
+}

@@ -25,6 +25,8 @@ export interface RegafyFinding {
 export interface RegafyInput {
   tree: CtdNodeDef[]
   titulaire: string
+  /** Nom du fabricant — pour la règle « titulaire ≠ fabricant : contrat requis ». */
+  fabricant?: string
   docsByNode: Map<string, DocumentRecord[]>
   genByNode: Map<string, GeneratedDocRecord>
   attachByNode: Map<string, DossierAttachmentRecord[]>
@@ -52,7 +54,7 @@ export function maxSeverity(findings: RegafyFinding[]): RegafySeverity | null {
 }
 
 export function runRegafy(input: RegafyInput): RegafyFinding[] {
-  const { tree, titulaire, docsByNode, genByNode, attachByNode } = input
+  const { tree, titulaire, fabricant, docsByNode, genByNode, attachByNode } = input
   const findings: RegafyFinding[] = []
   const push = (n: CtdNodeDef, severity: RegafySeverity, message: string) =>
     findings.push({
@@ -63,14 +65,66 @@ export function runRegafy(input: RegafyInput): RegafyFinding[] {
       message,
     })
 
-  const leaves = flattenTree(tree).filter((n) => !n.children?.length)
-  // Progressif : on ne signale que les sections déjà validées (« dépassées ») par l'utilisateur.
-  const savedLeaves = leaves.filter((n) => n.savedAt)
-  if (savedLeaves.length === 0) return []
-
+  const allNodes = flattenTree(tree)
+  const leaves = allNodes.filter((n) => !n.children?.length)
+  const labelOf = (num: string) => allNodes.find((n) => n.number === num)?.label ?? ''
   const today = new Date()
-  const soon = new Date()
-  soon.setDate(soon.getDate() + 90)
+
+  // ── Validité des pièces (toutes sections) : administratives ≥ 6 mois, COA ≥ 18 mois ──────
+  const monthsLeft = (d: Date) => (d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24 * 30.4375)
+  for (const [num, docs] of docsByNode) {
+    for (const d of docs) {
+      if (!d.expiryDate) continue
+      const exp = new Date(d.expiryDate)
+      const minMonths = d.docType === 'coa' ? 18 : d.category === 'admin' ? 6 : 0
+      let severity: RegafySeverity | null = null
+      let message = ''
+      if (exp < today) {
+        severity = 'error'
+        message = `Pièce expirée (${d.expiryDate})`
+      } else if (minMonths > 0 && monthsLeft(exp) < minMonths) {
+        severity = 'warning'
+        message =
+          d.docType === 'coa'
+            ? `COA : validité < 18 mois requise (expire le ${d.expiryDate})`
+            : `Validité < 6 mois requise (expire le ${d.expiryDate})`
+      }
+      if (severity) {
+        findings.push({
+          id: `${num}:${d.id}:val`,
+          nodeNumber: num,
+          nodeLabel: labelOf(num),
+          severity,
+          message,
+        })
+      }
+    }
+  }
+
+  // ── Titulaire ≠ fabricant : contrat (licence/fabrication) requis ──────────────────────────
+  const fab = (fabricant ?? '').trim()
+  const norm = (s: string) => s.trim().toLowerCase()
+  if (titulaire.trim() && fab && norm(titulaire) !== norm(fab)) {
+    let hasContract = false
+    for (const docs of docsByNode.values()) {
+      if (docs.some((d) => d.docType === 'contract')) {
+        hasContract = true
+        break
+      }
+    }
+    if (!hasContract) {
+      findings.push({
+        id: 'contract',
+        nodeNumber: '',
+        nodeLabel: 'Produit',
+        severity: 'warning',
+        message: 'Titulaire ≠ fabricant : contrat (licence/fabrication) non fourni.',
+      })
+    }
+  }
+
+  // ── Progressif : les contrôles de complétude ne s'appliquent qu'aux sections validées ─────
+  const savedLeaves = leaves.filter((n) => n.savedAt)
 
   let anyContent = false
   for (const leaf of leaves) {
@@ -91,26 +145,9 @@ export function runRegafy(input: RegafyInput): RegafyFinding[] {
     if (gen && hasPlaceholder(gen.content)) {
       push(leaf, 'warning', 'Champs à compléter dans le document')
     }
-
-    for (const d of docs) {
-      if (!d.expiryDate) continue
-      const exp = new Date(d.expiryDate)
-      const sev: RegafySeverity | null = exp < today ? 'error' : exp <= soon ? 'warning' : null
-      if (!sev) continue
-      findings.push({
-        id: `${leaf.number}:${d.id}:exp`, // identifiant par pièce → pas de collision de clé
-        nodeNumber: leaf.number,
-        nodeLabel: leaf.label,
-        severity: sev,
-        message:
-          sev === 'error'
-            ? `Pièce expirée (${d.expiryDate})`
-            : `Pièce bientôt expirée (${d.expiryDate})`,
-      })
-    }
   }
 
-  if (!anyContent) {
+  if (!anyContent && savedLeaves.length > 0) {
     findings.push({
       id: 'empty',
       nodeNumber: '',
@@ -120,7 +157,7 @@ export function runRegafy(input: RegafyInput): RegafyFinding[] {
     })
   }
 
-  if (!titulaire.trim()) {
+  if (savedLeaves.length > 0 && !titulaire.trim()) {
     findings.push({
       id: 'titulaire',
       nodeNumber: '',
