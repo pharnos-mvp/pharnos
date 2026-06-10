@@ -50,6 +50,10 @@ const MAX_TEXT = 8000
 const MAX_PIECES = 12
 const MAX_FILE_BYTES = 12 * 1024 * 1024
 const STORAGE_BUCKET = 'documents'
+// Modèle pour l'extraction de validité (dates critiques). Défaut : flash-lite (seul confirmé
+// disponible en location `global`). Surchargeable via le secret GCP_MODEL_VALIDITY (ex. un flash
+// plus précis si dispo dans la location utilisée).
+const VALIDITY_MODEL = Deno.env.get('GCP_MODEL_VALIDITY') || 'gemini-3.1-flash-lite'
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -234,47 +238,64 @@ async function analyzeValidityBatch(
   }
   if (valid.length === 0) return findings
 
-  const header =
-    `Date de l'opération : ${opDate}. Tu reçois ${valid.length} document(s) réglementaire(s) numérotés. ` +
-    'Pour CHAQUE document, renvoie STRICTEMENT : {"results":[{"index":<n° à partir de 1>,"found":true|false,' +
-    '"expiryDate":"yyyy-mm-dd"|null,"issueDate":"yyyy-mm-dd"|null,"validityMonths":<entier (mois)|null>,' +
-    '"validityStatement":"texte de la durée énoncée|null","language":"code ISO 639-1 de la langue dominante (fr, en, pt…)",' +
-    '"productName":"nom commercial du produit pharmaceutique mentionné|null"}]}. ' +
-    "expiryDate = fin de validité si écrite ; sinon issueDate (date d'émission) ET validityMonths (durée en mois). " +
-    'language = langue dominante. productName = nom COMMERCIAL du médicament (ni la DCI, ni le fabricant).'
-  const parts: Part[] = [{ text: header }]
-  valid.forEach((v, i) => {
-    parts.push({ text: `--- Document ${i + 1} (type: ${v.p.docType}) :` })
-    parts.push({ inlineData: { mimeType: v.mime, data: v.b64 } })
-  })
-
-  let results: Array<{
-    index?: number
+  // Extraction 1 DOCUMENT PAR APPEL (focus maximal, fiable, échec isolé à un doc), modèle plus
+  // précis pour la validité + réessai. Bien plus robuste qu'un seul gros appel multimodal (qui
+  // tronquait/confondait → dates fausses ou « aucune date » à tort).
+  type ValResult = {
     found?: boolean
     expiryDate?: string | null
     issueDate?: string | null
     validityMonths?: number | null
     validityStatement?: string | null
+    dateText?: string | null
     language?: string | null
     productName?: string | null
-  }> = []
-  try {
-    const parsed = extractJson(
-      await generateParts(parts, {
-        system: valSystem,
-        json: true,
-        maxOutputTokens: Math.min(2048, 320 + valid.length * 200),
-        temperature: 0,
-      }),
-    ) as { results?: typeof results } | null
-    results = parsed?.results ?? []
-  } catch (_e) {
-    results = []
+  }
+  const askOne = async (v: (typeof valid)[number]): Promise<ValResult | null> => {
+    const header =
+      `Date de l'opération : ${opDate}. Analyse CE SEUL document réglementaire (type: ${v.p.docType}). ` +
+      'Renvoie STRICTEMENT un objet JSON : {"found":true|false,"expiryDate":"yyyy-mm-dd"|null,' +
+      '"issueDate":"yyyy-mm-dd"|null,"validityMonths":<entier (mois)|null>,"validityStatement":"durée énoncée|null",' +
+      '"dateText":"la/les date(s) RECOPIÉE(S) VERBATIM du document|null",' +
+      '"language":"code ISO 639-1 de la langue dominante","productName":"nom commercial du médicament|null"}. ' +
+      "expiryDate = fin de validité si écrite ; sinon issueDate (date d'émission) ET validityMonths (durée énoncée). " +
+      "RÈGLE ABSOLUE anti-hallucination : recopie la date VERBATIM dans dateText ; si tu n'es pas CERTAIN d'une " +
+      "date, mets found:false et toutes les dates à null. N'INVENTE JAMAIS. productName = nom COMMERCIAL (ni DCI, ni fabricant)."
+    const parts: Part[] = [{ text: header }, { inlineData: { mimeType: v.mime, data: v.b64 } }]
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const parsed = extractJson(
+          await generateParts(parts, {
+            system: valSystem,
+            json: true,
+            maxOutputTokens: 512,
+            temperature: 0,
+            model: VALIDITY_MODEL,
+          }),
+        ) as ValResult | null
+        if (parsed && typeof parsed === 'object') return parsed
+      } catch (_e) {
+        /* réessai une fois */
+      }
+    }
+    return null
   }
 
-  valid.forEach((v, i) => {
+  const resultByPiece = new Map<string, ValResult>()
+  const CONC = 5 // concurrence limitée (n'inonde pas Vertex sur un gros dossier)
+  for (let i = 0; i < valid.length; i += CONC) {
+    const slice = valid.slice(i, i + CONC)
+    const rs = await Promise.all(slice.map((v) => askOne(v)))
+    slice.forEach((v, j) => {
+      const r = rs[j]
+      if (r) resultByPiece.set(v.p.pieceId, r)
+    })
+  }
+
+  valid.forEach((v) => {
     const p = v.p
-    const r = results.find((x) => Number(x.index) === i + 1) ?? {}
+    const r = resultByPiece.get(p.pieceId) ?? {}
+    const hasResult = resultByPiece.has(p.pieceId)
     const label = (p.docType || 'pièce').toUpperCase()
 
     // ── CONCORDANCE PRODUIT : le document doit concerner le produit du dossier (anti « mauvais doc »).
@@ -339,11 +360,20 @@ async function analyzeValidityBatch(
         severity: 'info',
         message: `${label} : validité énoncée « ${String(r.validityStatement).slice(0, 120)} » — date d'émission introuvable, à confirmer.`,
       })
-    } else {
+    } else if (!hasResult) {
+      // Aucun résultat du modèle pour ce document → ÉCHEC d'extraction. Vocabulaire HONNÊTE : ne
+      // jamais affirmer « aucune date » (ce serait faux si le document en contient une). Zéro hallucination.
       findings.push({
         ...base(p),
         severity: 'warning',
-        message: `${label} : aucune date ni durée de validité trouvée dans le document — à vérifier.`,
+        message: `${label} : extraction de la validité échouée — à vérifier manuellement.`,
+      })
+    } else {
+      // Le modèle a lu le document mais n'y a (avec prudence) détecté aucune date/durée de validité.
+      findings.push({
+        ...base(p),
+        severity: 'warning',
+        message: `${label} : validité non détectée automatiquement — à vérifier manuellement.`,
       })
     }
   })

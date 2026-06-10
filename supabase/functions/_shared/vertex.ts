@@ -88,11 +88,12 @@ async function mintAccessToken(): Promise<string> {
   return cachedToken.token
 }
 
-function vertexUrl(method: string): string {
+function vertexUrl(method: string, modelOverride?: string): string {
   const project = Deno.env.get('GCP_PROJECT_ID')
   if (!project) throw new Error('GCP_PROJECT_ID manquant')
   const location = Deno.env.get('GCP_LOCATION') ?? 'global'
-  const model = Deno.env.get('GCP_MODEL') ?? 'gemini-3.1-flash-lite'
+  // Modèle par défaut (flash-lite), surchargeable par appel (ex. validité → flash, plus précis).
+  const model = modelOverride || Deno.env.get('GCP_MODEL') || 'gemini-3.1-flash-lite'
   const host =
     location === 'global' ? 'aiplatform.googleapis.com' : `${location}-aiplatform.googleapis.com`
   return `https://${host}/v1/projects/${project}/locations/${location}/publishers/google/models/${model}:${method}`
@@ -104,6 +105,8 @@ export interface GenerateOptions {
   temperature?: number
   /** Demande une sortie JSON stricte (Gemini responseMimeType). */
   json?: boolean
+  /** Modèle Gemini pour CET appel (surcharge le défaut `GCP_MODEL`). Ex. validité → flash. */
+  model?: string
 }
 
 /** Un fragment de contenu : texte ou donnée binaire inline (base64) — pour le multimodal. */
@@ -125,7 +128,7 @@ export async function generateParts(parts: Part[], opts: GenerateOptions = {}): 
   }
   if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] }
 
-  const res = await fetch(vertexUrl('generateContent'), {
+  const res = await fetch(vertexUrl('generateContent', opts.model), {
     method: 'POST',
     headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
     body: JSON.stringify(body),

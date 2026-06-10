@@ -8,7 +8,7 @@ import type { RegafyFinding } from './regafy'
  * recalculées avec le nouveau format, sans attendre que le document change.
  * v2 : « langue cible » → « langue officielle du <Pays> ».
  */
-const CACHE_VERSION = 'v2'
+const CACHE_VERSION = 'v3'
 const versioned = (sig: string) => `${CACHE_VERSION}:${sig}`
 
 /**
