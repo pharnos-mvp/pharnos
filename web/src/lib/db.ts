@@ -188,6 +188,21 @@ export interface AuditLogRecord {
   at: string
 }
 
+/**
+ * Cache d'analyse IA par document (ÉCO) — l'extraction Gemini (chère : lecture du PDF) n'est faite
+ * qu'**une seule fois** par document ; les constats sont mémorisés et réutilisés tant que le document
+ * ne change pas (`sig`). Un même produit soumis à plusieurs pays ne re-lit pas ses documents.
+ */
+export interface DocAnalysisRecord {
+  /** Id du document analysé (clé). */
+  docId: string
+  /** Signature du contenu (updatedAt) — invalide le cache si le document change/est remplacé. */
+  sig: string
+  /** Constats IA figés pour ce document (validité/langue/produit) — JSON RegafyFinding[]. */
+  findings: unknown
+  analyzedAt: string
+}
+
 const db = new Dexie('pharnos') as Dexie & {
   products: EntityTable<ProductRecord, 'id'>
   outbox: EntityTable<OutboxItem, 'id'>
@@ -198,6 +213,7 @@ const db = new Dexie('pharnos') as Dexie & {
   proSettings: EntityTable<ProSettingRecord, 'id'>
   dossierAttachments: EntityTable<DossierAttachmentRecord, 'id'>
   auditLog: EntityTable<AuditLogRecord, 'id'>
+  docAnalysis: EntityTable<DocAnalysisRecord, 'docId'>
 }
 
 db.version(1).stores({
@@ -235,6 +251,11 @@ db.version(6).stores({
 // v7 : journal d'audit (ALCOA++) — append-only.
 db.version(7).stores({
   auditLog: 'id, orgId, at',
+})
+
+// v8 : cache d'analyse IA par document (éco — ne ré-analyse pas les documents inchangés).
+db.version(8).stores({
+  docAnalysis: 'docId, analyzedAt',
 })
 
 export { db }

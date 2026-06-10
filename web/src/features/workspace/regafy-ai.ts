@@ -14,6 +14,8 @@ import { tiptapText, type RegafyFinding } from './regafy'
  */
 export interface RegafyAiPiece {
   pieceId: string
+  /** Signature du contenu (updatedAt) — clé d'invalidation du cache d'analyse. */
+  sig: string
   nodeNumber: string
   nodeLabel: string
   docType: string
@@ -67,9 +69,10 @@ export async function runRegafyValidity(
   operationDate: string,
   agency: string,
   targetLang: string,
+  productName: string,
 ): Promise<RegafyFinding[]> {
   if (pieces.length === 0) return []
-  return invokeRegafy({ operationDate, agency, targetLang, pieces, letters: [] })
+  return invokeRegafy({ operationDate, agency, targetLang, productName, pieces, letters: [] })
 }
 
 /** Conformité des lettres générées (Cover/PGHT…). */
