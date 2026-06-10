@@ -54,6 +54,9 @@ jobs:
       - name: Bundle budget (gzip)
         run: npm run budget
 
+      - name: Headers de sécurité (_headers Cloudflare)
+        run: npm run headers
+
   e2e:
     name: e2e (Playwright · offline PWA)
     runs-on: ubuntu-latest
