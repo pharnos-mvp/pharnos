@@ -12,7 +12,7 @@
 > **Protocole de mise à jour** (voir §13) : à chaque tranche livrée (PR mergée), mettre à jour le
 > §1 (état), le §9 (milestones) et le §10 (journal). Garder le reste synchronisé si une décision change.
 
-_Dernière mise à jour : 2026-06-09 — **Lot C (durcissement CI) livré** (auto-deploy Cloudflare + RLS pgTAP + Lighthouse) + **1er dossier réel compilé** (Gynoril Ovule, 44 p → **DoD atteint**) + **polish copie-conforme** (#56 composition multi-molécules appariée & non tronquée + espacement signature ; #57 bouton « Insérer »). **Auto-deploy actif** (chaque merge → prod). **Couverture refaite façon template officiel UEMOA + puces « • » + Poste/Nom du signataire tirés du profil** (#59-#61, migration 0013 appliquée). **DoD VALIDÉ par le CEO** (lettre réelle propre) → **Lot A CLOS**. **Prochain : Lot B (IA — M4 Regafy IA + M5 traduction)**, à relancer dans une nouvelle conversation → **kit de démarrage complet au §11** (bloqueur unique = credentials GCP/Vertex à fournir par le CEO)._
+_Dernière mise à jour : 2026-06-10 — **Track A « MVP ultra-performant · sécurisé · scalable » livré & déployé.** **(#68) Perf** — squelette d'app-shell **inline** (FCP/LCP quasi instantanés, thème-aware) + route `/catalogue` en import statique + **budget d'entrée resserré 175→135 Ko** → **Lighthouse perf 91 · a11y 98→100 · BP 100 · CLS 0** sur matériel représentatif. (Sur le runner **CI mobile**, le perf est **TBT-bound ~75** — CPU partagé + throttle ×4 ; viser 90 en mobile imposerait du SSR/prerender, hors scope MVP. **Décision CEO :** Lighthouse gardé en `warn`, **gate dur = budget de bundle déterministe**.) **(#69) Sécurité** — `npm audit` en CI (**0 vuln**) + **pgTAP 9→14** (isolation dossiers/generated_docs/dossier_attachments + **anti-spoof** audit) + **ADR 0002** (posture sécurité + **contrat Edge Functions IA**). **CI 4 jobs + Deploy verts, prod redéployée.** Secrets CI **4/4** (CLOUDFLARE_API_TOKEN inclus → auto-deploy pleinement armé). **Prochain : Lot B (IA — M4 Regafy IA + M5 traduction)** ; bloqueur = creds GCP/Vertex (secrets Supabase **vides** → poser `GCP_SA_KEY/PROJECT_ID/LOCATION`). Kit complet au §11._
 _**Reprise (nouvelle session) :** cœur du MVP déployé ; **Lot A‑1 e-mail OK** + **polish montage M1 (5/5)** +
 **mise en page des lettres générées conforme au template officiel UEMOA** (bloc date/destinataire/signature décalé
 à gauche [≠ right-align], interligne serré, signature placée dans le PDF, ville auto depuis l'adresse titulaire).
@@ -117,10 +117,10 @@ D:\pharnos-mvp
 │  ├─ scripts/check-bundle-budget.mjs   # garde-fou perf
 │  └─ playwright.config.ts vite.config.ts eslint.config.js
 ├─ supabase/
-│  ├─ migrations/ 0001..0011   # schéma + RLS (appliquées au distant)
+│  ├─ migrations/ 0001..0013   # schéma + RLS (appliquées au distant)
 │  └─ tests/ rls_isolation.test.sql   # pgTAP isolation multi-tenant
 ├─ docs/ PLAN.md · BOARD.md · adr/
-└─ .github/workflows/ci.yml    # jobs web + e2e
+└─ .github/workflows/ ci.yml (4 jobs : web · e2e · rls · lighthouse) + deploy.yml
 ```
 
 ---
@@ -259,6 +259,9 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 | #64 | 06-09 | **Workspace** : **destinataire des lettres auto-rempli par pays UEMOA** (civilité par rang + agence + adresse, 8 pays ; `roadmap-data` + `agencyCivilite`) |
 | #65 | 06-09 | **Docs** : board — journal #62-#64 + DoD validé CEO |
 | #66 | 06-09 | **Workspace** : lettres officielles — **sigle agence** entre parenthèses + **formule d'appel & politesse par rang** (« Monsieur le Directeur Général, ») au lieu de « Madame, Monsieur, » |
+| #67 | 06-09 | **Docs** : board — journal #65-#66 (sigle agence + formules d'appel/politesse par rang) |
+| #68 | 06-10 | **Perf (Track A)** : squelette d'app-shell inline + eager `/catalogue` + budget d'entrée 175→135 Ko (FCP/LCP ; **perf 91** local · a11y 98→100 · CLS 0 ; Lighthouse en `warn`, gate = budget bundle déterministe) |
+| #69 | 06-10 | **Sécurité (Track A)** : `npm audit` en CI (0 vuln) + **pgTAP 9→14** (dossiers/generated_docs/attachments + anti-spoof audit) + **ADR 0002** (posture + contrat Edge Functions IA) |
 
 ---
 
@@ -317,11 +320,11 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 4. Étendre M4 : détection langue + **OCR/vision** des pièces scannées (Gemini multimodal).
 5. **M5 traduction in-place** : Edge `translate` (streaming) + insertion TipTap + **glossaire MedDRA**.
 
-**🟢 Lot C — Finitions DoD / durcissement** *(CI livrée #55 ; reste : poser `CLOUDFLARE_API_TOKEN` + viser perf ≥ 90)*
+**🟢 Lot C — Finitions DoD / durcissement** *(CI #55 ; **secrets 4/4 posés** + **perf traitée #68** — 91 sur device représentatif, gate = budget bundle — Track A)*
 
-- ✅ **Lighthouse CI** (#55) : perf / a11y / best-practices mesurés à chaque run (assertions `warn`, rapport public). ⚠️ **Perf actuellement < 0,9** → optimisation possible (gros chunks pdf-lib/pdfjs) pour cocher le **PWA ≥ 90** strict du DoD.
+- ✅ **Lighthouse CI** (#55) + **perf optimisée (#68)** : squelette d'app-shell inline + eager `/catalogue` + budget d'entrée 135 Ko → **perf 91 · a11y 98→100 · BP 100 · CLS 0** sur matériel représentatif. ⚠️ Sur runner **CI mobile** : **TBT-bound ~75** (CPU partagé + throttle ×4) → **décision CEO** : Lighthouse gardé en `warn`, **gate dur = budget de bundle déterministe**. Atteindre 90 en CI mobile imposerait du SSR/prerender (hors scope MVP).
 - ✅ **RLS pgTAP en CI** (#55) : `supabase start` + `supabase test db` — **isolation multi-tenant prouvée à chaque run**.
-- ✅ **Auto-deploy CI** (#55, `deploy.yml`) : push `main` → Cloudflare Pages, **gated par `CLOUDFLARE_API_TOKEN`** (no-op sans le secret → `main` reste vert). Secrets posés via `gh secret set` (3/4) : `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `CLOUDFLARE_ACCOUNT_ID`. **Reste `CLOUDFLARE_API_TOKEN`** : wrangler est en **OAuth** (pas de token API réutilisable) ⇒ minter un token scopé *Account → Cloudflare Pages → Edit*.
+- ✅ **Auto-deploy CI** (#55, `deploy.yml`) : push `main` → Cloudflare Pages. **Secrets 4/4 posés** (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `CLOUDFLARE_ACCOUNT_ID`, **`CLOUDFLARE_API_TOKEN`**) → **auto-deploy pleinement armé et vérifié** (Deploy `success` à chaque merge, dont #68/#69 — prod redéployée).
 - ⏳ Export DOCX (fast-follow).
 
 ### Déploiement (prod) — Cloudflare Pages
