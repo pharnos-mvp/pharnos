@@ -293,6 +293,19 @@ export function nodeForDocType(
   return category === 'info' ? '1.3' : '1.2'
 }
 
+/**
+ * Type de document « probable » d'un nœud (inverse de NODE_BY_DOCTYPE) — sert à analyser une pièce
+ * jointe **uploadée directement sur un nœud du workspace** : Regafy applique alors la règle du type
+ * (détection de langue pour RCP/Notice/Étiquette/Artwork, validité pour les pièces admin…).
+ * Exclut `cover`/`pght` (lettres générées, pas des pièces téléversées). Null si type inconnu.
+ */
+export function docTypeForNode(format: DossierFormat, nodeNumber: string): string | null {
+  for (const [docType, node] of Object.entries(NODE_BY_DOCTYPE[format])) {
+    if (node === nodeNumber && docType !== 'cover' && docType !== 'pght') return docType
+  }
+  return null
+}
+
 /** Ensemble des numéros présents dans un arbre (pour fiabiliser l'auto-classement). */
 export function treeNodeNumbers(tree: CtdNodeDef[]): Set<string> {
   const set = new Set<string>()
