@@ -274,6 +274,7 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 | #77 | 06-10 | **Langue + Traduction (M5)** : détection de langue (RCP/Notice/Étiquette/Artwork vs langue du pays) + bouton **« Traduire »** → Edge `translate` (MedDRA) → dialogue de revue |
 | #78 | 06-10 | **Docs** : board — Track A + Regafy AI Copilot livrés (header + journal + M4/M5 ✅) |
 | #79 | 06-10 | **Copilote (éco)** : **cache d'analyse par document** (1 lecture IA/doc, réutilisé multi-pays — Dexie `docAnalysis` v8) + **concordance du nom de produit** (alerte « mauvais document ») + re-analyse auto à l'upload |
+| #81 | 06-10 | **Fix UX/PWA** : **mise à jour fiable du SW** (recharge auto quand le nouveau worker prend le contrôle → fin du code périmé servi après déploiement, cause des « fixes invisibles ») + bouton **« Traduire en un clic »** en surbrillance directement sur l'aperçu du doc (langue ≠ pays cible) + badge catalogue « En attente »/« Synchronisé » → **icône d'état discrète** (non-bouton). _Aperçu PDF hors-ligne = comportement existant (#9), pas une régression (requiert le fichier en cache local)._ |
 
 ---
 

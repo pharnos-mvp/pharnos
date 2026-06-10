@@ -598,6 +598,13 @@ export function DossierWorkspacePage() {
       : (viewables[0]?.key ?? null)
   const active = viewables.find((v) => v.key === activeKey) ?? null
 
+  // Constat de langue du document affiché (langue ≠ pays cible) → bouton « Traduire » en
+  // surbrillance directement sur l'aperçu, en plus du rappel dans le panneau de droite.
+  const activeLangFinding =
+    active && active.kind !== 'letter'
+      ? allFindings.find((f) => f.pieceId === active.id && f.translate)
+      : undefined
+
   const leaves = flatNodes.filter((n) => !n.children?.length)
   const filledLeaves = leaves.filter((n) => countFor(n) > 0)
   const pct = leaves.length ? Math.round((filledLeaves.length / leaves.length) * 100) : 0
@@ -1057,13 +1064,34 @@ export function DossierWorkspacePage() {
                     />
                   </section>
                 ) : active && active.kind !== 'letter' ? (
-                  <InlineDocPreview
-                    key={active.key}
-                    kind={active.kind}
-                    docId={active.id}
-                    filePath={active.filePath}
-                    fileName={active.fileName}
-                  />
+                  <div className="space-y-2">
+                    {activeLangFinding ? (
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
+                        <span className="flex items-center gap-1.5 text-xs font-medium text-amber-800">
+                          <Languages className="size-4 shrink-0" />
+                          {activeLangFinding.message}
+                        </span>
+                        <Button
+                          size="sm"
+                          className="h-7 gap-1 bg-amber-500 text-white hover:bg-amber-600"
+                          disabled={translating === activeLangFinding.pieceId}
+                          onClick={() => void handleTranslate(activeLangFinding)}
+                        >
+                          <Languages className="size-3.5" />
+                          {translating === activeLangFinding.pieceId
+                            ? 'Traduction…'
+                            : 'Traduire en un clic'}
+                        </Button>
+                      </div>
+                    ) : null}
+                    <InlineDocPreview
+                      key={active.key}
+                      kind={active.kind}
+                      docId={active.id}
+                      filePath={active.filePath}
+                      fileName={active.fileName}
+                    />
+                  </div>
                 ) : selectedTplKey ? (
                   <div className="flex min-h-[24rem] flex-col items-center justify-center rounded-lg border border-dashed p-4 text-center">
                     <Sparkles className="text-primary mb-2 size-8" />
