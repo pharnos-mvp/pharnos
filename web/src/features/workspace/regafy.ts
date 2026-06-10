@@ -20,6 +20,8 @@ export interface RegafyFinding {
   message: string
   /** Origine : 'ai' = enrichissement Vertex (assistif) ; sinon règle déterministe. */
   source?: 'rule' | 'ai'
+  /** Pièce concernée (constats de validité IA) — clé du merge incrémental. */
+  pieceId?: string
 }
 
 export interface RegafyInput {

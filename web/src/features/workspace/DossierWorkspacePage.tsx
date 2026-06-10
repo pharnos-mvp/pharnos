@@ -84,7 +84,7 @@ import { agencyCivilite, agencyFor } from './roadmap-data'
 import { PdfPreviewDialog } from './PdfPreviewDialog'
 import { PdfViewer } from './PdfViewer'
 import { runRegafy, type RegafyFinding } from './regafy'
-import { runRegafyAI, type RegafyAiPiece } from './regafy-ai'
+import { runRegafyLetters, runRegafyValidity, type RegafyAiPiece } from './regafy-ai'
 import { RichTextEditor } from './RichTextEditor'
 import { hasSignature, insertSignature, removeSignature } from './signature'
 import { BrandingPanel, SignaturePanel } from './SignatureBrandingPanels'
@@ -143,7 +143,8 @@ export function DossierWorkspacePage() {
   const [autoStructural, setAutoStructural] = useState(true)
   const [pickedKey, setPickedKey] = useState<string | null>(null)
   const [gateFindings, setGateFindings] = useState<RegafyFinding[] | null>(null)
-  const [aiFindings, setAiFindings] = useState<RegafyFinding[]>([])
+  const [validityByPiece, setValidityByPiece] = useState<Record<string, RegafyFinding[]>>({})
+  const [letterFindings, setLetterFindings] = useState<RegafyFinding[]>([])
   const [aiBusy, setAiBusy] = useState(false)
   const [sigPanelOpen, setSigPanelOpen] = useState(false)
   const [brandPanelOpen, setBrandPanelOpen] = useState(false)
@@ -153,6 +154,7 @@ export function DossierWorkspacePage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const previewRef = useRef<{ url: string; revoke: boolean } | null>(null)
   const didAutoSelect = useRef(false)
+  const analyzedPieceIds = useRef<Set<string>>(new Set())
   const setHeaderSlot = useHeaderSlot()
 
   const docsByNode = useMemo(() => {
@@ -200,64 +202,99 @@ export function DossierWorkspacePage() {
         : [],
     [dossier, product, docsByNode, genByNode, attachByNode],
   )
-  // Constats déterministes + enrichissement du copilote IA (même affichage, en complément).
+  // Constats : déterministes + copilote IA (validité par pièce + conformité des lettres). Même
+  // affichage, en complément ; ne bloque jamais la compilation.
+  const aiFindings = useMemo(
+    () => [...Object.values(validityByPiece).flat(), ...letterFindings],
+    [validityByPiece, letterFindings],
+  )
   const allFindings = useMemo(() => [...findings, ...aiFindings], [findings, aiFindings])
 
-  // Copilote IA (Edge `regafy-ai` → Vertex) : enrichit le panneau, ne bloque jamais la compilation.
-  const runAi = useCallback(async () => {
-    if (!dossier) return
-    setAiBusy(true)
-    try {
-      const agency = agencyFor(dossier.country)
-      // Pièces admin + COA déjà téléversées (filePath) → l'Edge lit le document pour la validité.
-      const pieces: RegafyAiPiece[] = []
-      for (const [num, docs] of docsByNode) {
-        const nodeLabel = flatNodes.find((n) => n.number === num)?.label ?? ''
-        for (const d of docs) {
-          if ((d.category === 'admin' || d.docType === 'coa') && d.filePath) {
-            pieces.push({
-              nodeNumber: num,
-              nodeLabel,
-              docType: d.docType,
-              category: d.category,
-              fileName: d.fileName,
-              filePath: d.filePath,
-            })
-          }
+  // Pièces admin/COA téléversées à faire analyser (validité multimodale), clé = id du document.
+  const aiPieces = useMemo<RegafyAiPiece[]>(() => {
+    const out: RegafyAiPiece[] = []
+    for (const [num, list] of docsByNode) {
+      const nodeLabel = flatNodes.find((n) => n.number === num)?.label ?? ''
+      for (const d of list) {
+        if ((d.category === 'admin' || d.docType === 'coa') && d.filePath) {
+          out.push({
+            pieceId: d.id,
+            nodeNumber: num,
+            nodeLabel,
+            docType: d.docType,
+            category: d.category,
+            fileName: d.fileName,
+            filePath: d.filePath,
+          })
         }
       }
-      const ai = await runRegafyAI({
-        genDocs: genDocs ?? [],
-        pieces,
+    }
+    return out
+  }, [docsByNode, flatNodes])
+
+  // (Pas de reset manuel : l'app-shell remonte la page via `key={location.pathname}` au changement
+  // de dossier → l'état du copilote repart à zéro automatiquement.)
+
+  // Copilote — VALIDITÉ (incrémental) : à l'ouverture, 1 batch sur toutes les pièces ; puis seulement
+  // les **nouvelles** pièces à chaque upload. Réconcilie les retraits. Silencieux (échec en console).
+  useEffect(() => {
+    if (!env.isSupabaseConfigured || !dossier) return
+    const currentIds = new Set(aiPieces.map((p) => p.pieceId))
+    setValidityByPiece((prev) => {
+      let changed = false
+      const next: Record<string, RegafyFinding[]> = {}
+      for (const [id, f] of Object.entries(prev)) {
+        if (currentIds.has(id)) next[id] = f
+        else {
+          changed = true
+          analyzedPieceIds.current.delete(id)
+        }
+      }
+      return changed ? next : prev
+    })
+    const newPieces = aiPieces.filter((p) => !analyzedPieceIds.current.has(p.pieceId))
+    if (newPieces.length === 0) return
+    const t = setTimeout(() => {
+      newPieces.forEach((p) => analyzedPieceIds.current.add(p.pieceId))
+      setAiBusy(true)
+      void runRegafyValidity(newPieces, new Date().toISOString().slice(0, 10))
+        .then((fs) => {
+          setValidityByPiece((prev) => {
+            const next = { ...prev }
+            for (const p of newPieces) next[p.pieceId] = []
+            for (const f of fs) if (f.pieceId) (next[f.pieceId] ??= []).push(f)
+            return next
+          })
+        })
+        .catch((e) => {
+          newPieces.forEach((p) => analyzedPieceIds.current.delete(p.pieceId))
+          console.error('Regafy IA (validité) :', (e as Error).message)
+        })
+        .finally(() => setAiBusy(false))
+    }, 1500)
+    return () => clearTimeout(t)
+  }, [dossier, aiPieces])
+
+  // Copilote — LETTRES : conformité des lettres générées (à l'ouverture + à chaque modification).
+  useEffect(() => {
+    if (!env.isSupabaseConfigured || !dossier || genDocs === undefined || genDocs.length === 0)
+      return
+    const agency = agencyFor(dossier.country)
+    const t = setTimeout(() => {
+      setAiBusy(true)
+      void runRegafyLetters(genDocs, {
         productName: dossier.productName ?? product?.nomCommercial ?? '',
         titulaire: product?.titulaire ?? '',
         country: countryLabel(dossier.country) || dossier.country || '',
         agency: agency.full ? `${agency.full} (${agency.name})` : '',
         operationDate: new Date().toISOString().slice(0, 10),
       })
-      setAiFindings(ai)
-    } catch (e) {
-      // Arrière-plan : échec silencieux (les constats déterministes restent affichés).
-      console.error('Regafy IA:', (e as Error).message)
-    } finally {
-      setAiBusy(false)
-    }
-  }, [dossier, genDocs, product, docsByNode, flatNodes])
-
-  // Copilote en arrière-plan : analyse automatiquement à l'ouverture du dossier et quand son
-  // contenu change (débounced 1,5 s). Se déclenche dès qu'il y a des **lettres générées OU des
-  // pièces admin/COA téléversées** — la validité s'analyse même sans lettre. Silencieux : les
-  // constats arrivent dans le même panneau « Remarques ».
-  useEffect(() => {
-    if (!env.isSupabaseConfigured || !dossier || genDocs === undefined || docs === undefined) return
-    const hasLetters = genDocs.length > 0
-    const hasPieces = docs.some(
-      (d) => (d.category === 'admin' || d.docType === 'coa') && d.filePath,
-    )
-    if (!hasLetters && !hasPieces) return
-    const t = setTimeout(() => void runAi(), 1500)
+        .then((fs) => setLetterFindings(fs))
+        .catch((e) => console.error('Regafy IA (lettres) :', (e as Error).message))
+        .finally(() => setAiBusy(false))
+    }, 1500)
     return () => clearTimeout(t)
-  }, [dossier, genDocs, docs, runAi])
+  }, [dossier, genDocs, product])
 
   const structureOutdated = useMemo(
     () => (dossier ? isTreeOutdated(dossier.tree, getModule1Tree(dossier.format)) : false),
