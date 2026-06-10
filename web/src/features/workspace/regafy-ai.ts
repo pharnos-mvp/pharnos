@@ -5,25 +5,36 @@ import { getSupabase } from '@/lib/supabase'
 import { tiptapText, type RegafyFinding } from './regafy'
 
 /**
- * Regafy IA (M4) — enrichit les constats déterministes via l'Edge Function `regafy-ai`
- * (Gemini/Vertex). Assistif only : les findings sont marqués `source: 'ai'` et ne bloquent
- * jamais la compilation. La clé GCP reste côté Edge (jamais exposée au client).
+ * Regafy IA (M4) — copilote en arrière-plan via l'Edge Function `regafy-ai` (Gemini/Vertex).
+ * Deux analyses : conformité des lettres (texte) + **validité des pièces (multimodal :** Gemini lit
+ * le PDF/scan du document, en extrait date/durée de validité, calcul vs la date de l'opération).
+ * Assistif only ; la clé GCP reste côté Edge.
  */
-export interface RegafyAiContext {
+export interface RegafyAiPiece {
+  nodeNumber: string
+  nodeLabel: string
+  docType: string
+  category: string
+  fileName: string
+  filePath: string
+}
+
+export interface RegafyAiInput {
+  genDocs: GeneratedDocRecord[]
+  pieces: RegafyAiPiece[]
   productName: string
   titulaire: string
   country: string
   agency: string
+  /** Date de l'opération en cours (yyyy-mm-dd) — base du calcul de validité restante. */
+  operationDate: string
 }
 
-export async function runRegafyAI(
-  genDocs: GeneratedDocRecord[],
-  ctx: RegafyAiContext,
-): Promise<RegafyFinding[]> {
+export async function runRegafyAI(input: RegafyAiInput): Promise<RegafyFinding[]> {
   const supabase = await getSupabase()
   if (!supabase) throw new Error('Connexion requise pour l’analyse IA.')
 
-  const letters = genDocs
+  const letters = input.genDocs
     .map((g) => ({
       nodeNumber: g.nodeNumber,
       nodeLabel: g.title ?? '',
@@ -32,21 +43,29 @@ export async function runRegafyAI(
     }))
     .filter((l) => l.text.length > 0)
 
-  if (letters.length === 0) throw new Error('Aucune lettre générée à analyser.')
+  if (letters.length === 0 && input.pieces.length === 0) return []
 
   const { data, error } = await supabase.functions.invoke('regafy-ai', {
-    body: { ...ctx, letters },
+    body: {
+      operationDate: input.operationDate,
+      productName: input.productName,
+      titulaire: input.titulaire,
+      country: input.country,
+      agency: input.agency,
+      letters,
+      pieces: input.pieces,
+    },
   })
   if (error) throw new Error(error.message || 'Échec de l’analyse IA.')
 
-  const raw = (data?.findings ?? []) as Array<{
+  const rawFindings = (data?.findings ?? []) as Array<{
     nodeNumber?: string
     nodeLabel?: string
     severity?: RegafyFinding['severity']
     message?: string
   }>
 
-  return raw
+  return rawFindings
     .filter((f) => (f.message ?? '').trim().length > 0)
     .map((f, i) => ({
       id: `ai:${f.nodeNumber || 'global'}:${i}`,

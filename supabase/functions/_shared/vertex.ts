@@ -106,11 +106,17 @@ export interface GenerateOptions {
   json?: boolean
 }
 
-/** Génère du texte (non-streaming) via Gemini sur Vertex. */
-export async function generateText(prompt: string, opts: GenerateOptions = {}): Promise<string> {
+/** Un fragment de contenu : texte ou donnée binaire inline (base64) — pour le multimodal. */
+export interface Part {
+  text?: string
+  inlineData?: { mimeType: string; data: string }
+}
+
+/** Génère du texte via Gemini sur Vertex à partir de fragments (texte + documents/images). */
+export async function generateParts(parts: Part[], opts: GenerateOptions = {}): Promise<string> {
   const token = await mintAccessToken()
   const body: Record<string, unknown> = {
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    contents: [{ role: 'user', parts }],
     generationConfig: {
       maxOutputTokens: opts.maxOutputTokens ?? 1024,
       temperature: opts.temperature ?? 0.2,
@@ -126,6 +132,11 @@ export async function generateText(prompt: string, opts: GenerateOptions = {}): 
   })
   if (!res.ok) throw new Error(`Vertex ${res.status}: ${(await res.text()).slice(0, 400)}`)
   const data = await res.json()
-  const parts = data?.candidates?.[0]?.content?.parts ?? []
-  return parts.map((p: { text?: string }) => p.text ?? '').join('')
+  const out = data?.candidates?.[0]?.content?.parts ?? []
+  return out.map((p: { text?: string }) => p.text ?? '').join('')
+}
+
+/** Génère du texte (non-streaming) via Gemini sur Vertex. */
+export function generateText(prompt: string, opts: GenerateOptions = {}): Promise<string> {
+  return generateParts([{ text: prompt }], opts)
 }
