@@ -352,6 +352,22 @@ export function DossierWorkspacePage() {
     return () => clearTimeout(t)
   }, [dossier, genDocs, product])
 
+  // Offline-first : précharge le compilateur PDF (pdf-lib) **tant qu'on est en ligne** → il est en
+  // mémoire avant toute coupure réseau. Sans ça, l'import dynamique à la 1re compilation peut échouer
+  // hors-ligne (précache désynchronisé) et la rejection reste mise en cache jusqu'au rechargement.
+  // Warm-up différé (hors chemin critique) + réessai au retour en ligne. N'altère pas la compilation.
+  useEffect(() => {
+    const warm = () => {
+      if (navigator.onLine) void import('./pdf/dossier-compiler').catch(() => {})
+    }
+    const t = setTimeout(warm, 2000)
+    window.addEventListener('online', warm)
+    return () => {
+      clearTimeout(t)
+      window.removeEventListener('online', warm)
+    }
+  }, [])
+
   // « Traduire » (M5) : lit le document via l'Edge, crée/MAJ une traduction ÉDITABLE propre au
   // dossier (document généré), puis l'ouvre côte à côte avec l'original. Ne touche jamais au
   // document produit original — c'est une version de conformité pour ce montage uniquement.
@@ -836,7 +852,8 @@ export function DossierWorkspacePage() {
       }
     } catch (e) {
       console.error(e)
-      toast.error('Échec de la compilation du dossier.')
+      const msg = (e as Error)?.message
+      toast.error(msg ? `Échec de la compilation : ${msg}` : 'Échec de la compilation du dossier.')
     } finally {
       setCompiling(false)
     }
