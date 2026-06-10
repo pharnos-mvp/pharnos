@@ -283,6 +283,7 @@ export function DossierWorkspacePage() {
     const agencySigle = agencyFor(dossier.country).name || ''
     const targetLang = officialLanguage(dossier.country)
     const productName = dossier.productName ?? product?.nomCommercial ?? ''
+    const countryName = countryLabel(dossier.country) || dossier.country || ''
     const today = new Date().toISOString().slice(0, 10)
     const t = setTimeout(() => {
       void (async () => {
@@ -302,7 +303,14 @@ export function DossierWorkspacePage() {
         if (uncached.length === 0) return
         setAiBusy(true)
         try {
-          const fs = await runRegafyValidity(uncached, today, agencySigle, targetLang, productName)
+          const fs = await runRegafyValidity(
+            uncached,
+            today,
+            agencySigle,
+            targetLang,
+            productName,
+            countryName,
+          )
           const byPiece: Record<string, RegafyFinding[]> = {}
           for (const p of uncached) byPiece[p.pieceId] = []
           for (const f of fs) if (f.pieceId) (byPiece[f.pieceId] ??= []).push(f)
