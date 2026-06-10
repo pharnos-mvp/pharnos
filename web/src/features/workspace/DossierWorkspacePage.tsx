@@ -267,7 +267,11 @@ export function DossierWorkspacePage() {
     // produit, avec le type dérivé du nœud → Regafy détecte la langue (RCP/Notice/…) / la validité.
     if (dossier) {
       for (const [num, list] of attachByNode) {
-        const docType = docTypeForNode(dossier.format, num)
+        // Tout nœud produit (1.3.x) est langue-sensible → détection de langue même si le sous-type
+        // précis n'est pas mappé (Étiquetage étranger 1.3.4, produits de référence 1.3.5…) : repli
+        // 'labeling' (type LANG). Sinon, type admin dérivé du nœud (validité), ou rien.
+        const docType =
+          docTypeForNode(dossier.format, num) ?? (num.startsWith('1.3') ? 'labeling' : null)
         if (!docType) continue
         const nodeLabel = flatNodes.find((n) => n.number === num)?.label ?? ''
         for (const a of list) {
@@ -842,7 +846,9 @@ export function DossierWorkspacePage() {
       return
     }
     await addAttachment(orgId, activeDossier.id, selected.number, file)
-    void syncDossierAttachments(orgId)
+    // Synchroniser tout de suite → la pièce reçoit son chemin Storage et entre dans l'analyse Regafy.
+    await syncDossierAttachments(orgId)
+    toast.success('Pièce ajoutée — analyse en cours…')
   }
 
   function handleSign() {
