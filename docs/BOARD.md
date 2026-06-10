@@ -12,7 +12,9 @@
 > **Protocole de mise à jour** (voir §13) : à chaque tranche livrée (PR mergée), mettre à jour le
 > §1 (état), le §9 (milestones) et le §10 (journal). Garder le reste synchronisé si une décision change.
 
-_Dernière mise à jour : 2026-06-10 — **Track A « MVP ultra-performant · sécurisé · scalable » livré & déployé.** **(#68) Perf** — squelette d'app-shell **inline** (FCP/LCP quasi instantanés, thème-aware) + route `/catalogue` en import statique + **budget d'entrée resserré 175→135 Ko** → **Lighthouse perf 91 · a11y 98→100 · BP 100 · CLS 0** sur matériel représentatif. (Sur le runner **CI mobile**, le perf est **TBT-bound ~75** — CPU partagé + throttle ×4 ; viser 90 en mobile imposerait du SSR/prerender, hors scope MVP. **Décision CEO :** Lighthouse gardé en `warn`, **gate dur = budget de bundle déterministe**.) **(#69) Sécurité** — `npm audit` en CI (**0 vuln**) + **pgTAP 9→14** (isolation dossiers/generated_docs/dossier_attachments + **anti-spoof** audit) + **ADR 0002** (posture sécurité + **contrat Edge Functions IA**). **CI 4 jobs + Deploy verts, prod redéployée.** Secrets CI **4/4** (CLOUDFLARE_API_TOKEN inclus → auto-deploy pleinement armé). **Prochain : Lot B (IA — M4 Regafy IA + M5 traduction)** ; bloqueur = creds GCP/Vertex (secrets Supabase **vides** → poser `GCP_SA_KEY/PROJECT_ID/LOCATION`). Kit complet au §11._
+_Dernière mise à jour : 2026-06-10 — **Track A + Track B (Regafy AI Copilot) LIVRÉS & déployés en prod.**_
+_**Track A** (#68/#69) : **perf** squelette inline + eager `/catalogue` + budget d'entrée 135 Ko → **Lighthouse 91 · CLS 0 · a11y 100** (matériel représentatif ; sur runner CI mobile ~75 TBT-bound → **Lighthouse gardé en `warn`, gate dur = budget de bundle déterministe**, décision CEO) ; **sécurité** `npm audit` CI (0 vuln) + **pgTAP 9→14** + **ADR 0002**._
+_**Track B — Regafy AI Copilot** (creds GCP fournis : projet `gen-lang-client-0475676559`, location `global`, modèle `gemini-3.1-flash-lite` ; secrets Supabase posés ; **2 Edge Functions déployées : `regafy-ai` + `translate`**). Tourne **en arrière-plan** (sans bouton ; complète le panneau « Remarques », constats indistinguables) : **validité multimodale** (Gemini LIT les PDF → expiration explicite OU date d'émission + durée énoncée → calcul de la validité restante vs date d'opération → **≥ 6 mois admin / ≥ 18 mois COA**, réf. agence du pays) · **détection de langue** (RCP/Notice/Étiquette/Artwork vs langue officielle **FR/PT/EN**) · **conformité des lettres** · **titulaire≠fabricant sans contrat** · **traduction MedDRA** (bouton « Traduire » en surbrillance → Edge `translate` lit le PDF → traduit → dialogue de revue). Analyse **batch + incrémentale** (~5 s à l'ouverture ; seulement les **nouvelles** pièces à l'upload). Vérifié en prod (tests directs + retour CEO « ça marche »). **Reste (polish)** : streaming de la traduction + « Insérer comme document » ; détection mauvais doc/mauvais nœud. Détails §11._
 _**Reprise (nouvelle session) :** cœur du MVP déployé ; **Lot A‑1 e-mail OK** + **polish montage M1 (5/5)** +
 **mise en page des lettres générées conforme au template officiel UEMOA** (bloc date/destinataire/signature décalé
 à gauche [≠ right-align], interligne serré, signature placée dans le PDF, ville auto depuis l'adresse titulaire).
@@ -178,8 +180,8 @@ D:\pharnos-mvp
 | **M1** | Catalogue (CRUD + upload, offline + sync) | ✅ |
 | **M2** | CTD Workspace M1 (3 panneaux + auto-classement) | ✅ |
 | **M3** | Génération & édition (templates UEMOA → TipTap) + **M3.1** (A4/TNR, profil pro, upload nœuds) | ✅ |
-| **M4** | **Regafy IA v1** (validité/langue/conformité via Vertex) | ⏳ **Bloqué (creds GCP)** — Regafy **v1 déterministe livré** |
-| **M5** | **Traduction in-place** (Gemini + glossaire MedDRA, streaming) | ⏳ **Bloqué (creds GCP)** |
+| **M4** | **Regafy IA** (validité multimodale + langue + conformité via Vertex/Gemini) | ✅ **Livré** (#71-#77 — copilote en arrière-plan, déployé) |
+| **M5** | **Traduction** (Gemini + terminologie MedDRA) | ✅ **Livré** (#77 — bouton « Traduire » → dialogue de revue ; streaming = polish) |
 | **M6** | Compilation PDF Module 1 (TDM + pages de garde + bandeau) | ✅ |
 | **M7** | Dashboard (validité + veille) | ✅ |
 | **M8** | Durcissement (E2E offline, a11y AA, Sentry, budget perf, tests RLS) | ✅ (Lighthouse CI + pilote = suivis) |
@@ -262,6 +264,14 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 | #67 | 06-09 | **Docs** : board — journal #65-#66 (sigle agence + formules d'appel/politesse par rang) |
 | #68 | 06-10 | **Perf (Track A)** : squelette d'app-shell inline + eager `/catalogue` + budget d'entrée 175→135 Ko (FCP/LCP ; **perf 91** local · a11y 98→100 · CLS 0 ; Lighthouse en `warn`, gate = budget bundle déterministe) |
 | #69 | 06-10 | **Sécurité (Track A)** : `npm audit` en CI (0 vuln) + **pgTAP 9→14** (dossiers/generated_docs/attachments + anti-spoof audit) + **ADR 0002** (posture + contrat Edge Functions IA) |
+| #70 | 06-10 | **Docs** : board — Track A livré (perf #68 + sécurité #69) + corrections (secrets 4/4, migrations 0013) |
+| #71 | 06-10 | **IA (Lot B)** : Edge `regafy-ai` (Gemini 3.1 Flash Lite/Vertex) + provider `VertexGemini` (`_shared/vertex.ts`) + 1er finding IA (conformité lettres) ; **secrets GCP posés** |
+| #72 | 06-10 | **Copilote** : arrière-plan (sans bouton ni badge) + règles déterministes (validité 6/18 mois, titulaire≠fabricant) + type doc `contract` ; +6 tests |
+| #73 | 06-10 | **Validité multimodale** : Gemini LIT les PDF des pièces → date/durée → calcul vs 6/18 mois (AMM/FSC expirés, ML <6 mois détectés en prod) |
+| #74 | 06-10 | **Fix** : déclencher le copilote sur les pièces admin/COA (pas seulement quand il y a des lettres générées) |
+| #75 | 06-10 | **Perf IA** : validité en **1 appel batch** (~5 s au lieu de ~50 s, fin de la sérialisation Vertex) + analyse **incrémentale** (nouvelles pièces seulement) |
+| #76 | 06-10 | **Validité calculée** : date d'émission + durée énoncée → expiration calculée ; **réf. agence** du pays ; démarrage ~5 s (déclenchement sur signature des pièces) |
+| #77 | 06-10 | **Langue + Traduction (M5)** : détection de langue (RCP/Notice/Étiquette/Artwork vs langue du pays) + bouton **« Traduire »** → Edge `translate` (MedDRA) → dialogue de revue |
 
 ---
 
