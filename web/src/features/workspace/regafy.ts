@@ -18,6 +18,8 @@ export interface RegafyFinding {
   nodeLabel: string
   severity: RegafySeverity
   message: string
+  /** Origine : 'ai' = enrichissement Vertex (assistif) ; sinon règle déterministe. */
+  source?: 'rule' | 'ai'
 }
 
 export interface RegafyInput {
@@ -28,13 +30,14 @@ export interface RegafyInput {
   attachByNode: Map<string, DossierAttachmentRecord[]>
 }
 
-function textOf(node: JSONContent): string {
-  return (node.text ?? '') + (node.content ?? []).map(textOf).join(' ')
+/** Extrait le texte brut d'un document TipTap/ProseMirror (réutilisé par l'analyse IA). */
+export function tiptapText(node: JSONContent): string {
+  return (node.text ?? '') + (node.content ?? []).map(tiptapText).join(' ')
 }
 
 function hasPlaceholder(content: unknown): boolean {
   try {
-    return /\[[^\]\n]{2,}\]/.test(textOf(content as JSONContent))
+    return /\[[^\]\n]{2,}\]/.test(tiptapText(content as JSONContent))
   } catch {
     return false
   }
