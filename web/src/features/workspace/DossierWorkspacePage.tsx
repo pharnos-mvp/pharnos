@@ -82,6 +82,7 @@ import { useDossierAttachmentsSync } from './use-dossier-attachments-sync'
 import { useDossierSync } from './use-dossier-sync'
 import { useGeneratedDocsSync } from './use-generated-docs-sync'
 import {
+  docTypeForNode,
   getModule1Tree,
   nodeForDocType,
   resolveExistingNode,
@@ -244,8 +245,31 @@ export function DossierWorkspacePage() {
         }
       }
     }
+    // Pièces jointes téléversées DIRECTEMENT sur un nœud du workspace : analysées comme les docs
+    // produit, avec le type dérivé du nœud → Regafy détecte la langue (RCP/Notice/…) / la validité.
+    if (dossier) {
+      for (const [num, list] of attachByNode) {
+        const docType = docTypeForNode(dossier.format, num)
+        if (!docType) continue
+        const nodeLabel = flatNodes.find((n) => n.number === num)?.label ?? ''
+        for (const a of list) {
+          if (a.filePath) {
+            out.push({
+              pieceId: a.id,
+              sig: a.updatedAt,
+              nodeNumber: num,
+              nodeLabel,
+              docType,
+              category: num.startsWith('1.3') ? 'info' : 'admin',
+              fileName: a.fileName,
+              filePath: a.filePath,
+            })
+          }
+        }
+      }
+    }
     return out
-  }, [docsByNode, flatNodes])
+  }, [docsByNode, attachByNode, flatNodes, dossier])
 
   // Signature stable du jeu de pièces (ids triés) → l'analyse se déclenche sur un VRAI changement de
   // pièces, pas à chaque tick de la synchro Dexie (sinon le debounce est relancé en boucle → démarrage
@@ -606,9 +630,11 @@ export function DossierWorkspacePage() {
   const selectedGenDoc = selected ? genByNode.get(selected.number) : undefined
   const selectedAttachments = selected ? attachmentsFor(selected) : []
   // Traduction : document produit original lié (affiché à gauche, en regard de la version éditable).
+  // Source d'une traduction : doc produit OU pièce jointe (upload direct workspace). Pour le libellé.
   const translationSourceDoc =
     selectedGenDoc?.templateKey === 'translation' && selectedGenDoc.sourceDocId
-      ? (docs ?? []).find((d) => d.id === selectedGenDoc.sourceDocId)
+      ? ((docs ?? []).find((d) => d.id === selectedGenDoc.sourceDocId) ??
+        (attachments ?? []).find((a) => a.id === selectedGenDoc.sourceDocId))
       : undefined
   // Langue cible (code pays → 'FR'/'PT'/'EN') pour les libellés (« Traduire en FR », « …_FR.docx »).
   const targetLangLabel = officialLanguage(dossier.country).toUpperCase()
