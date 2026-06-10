@@ -5,12 +5,15 @@ import { getSupabase } from '@/lib/supabase'
 import { tiptapText, type RegafyFinding } from './regafy'
 
 /**
- * Regafy IA (M4) — copilote en arrière-plan via l'Edge Function `regafy-ai` (Gemini/Vertex).
- * Deux analyses : conformité des lettres (texte) + **validité des pièces (multimodal :** Gemini lit
- * le PDF/scan du document, en extrait date/durée de validité, calcul vs la date de l'opération).
- * Assistif only ; la clé GCP reste côté Edge.
+ * Regafy IA (M4) — copilote en arrière-plan via l'Edge `regafy-ai` (Gemini/Vertex).
+ * Deux analyses indépendantes (le front choisit ce qu'il envoie) :
+ *  - **Validité des pièces** (multimodal, BATCH) : Gemini lit les PDF et extrait date/durée de
+ *    validité ; appelé avec **toutes** les pièces à l'ouverture, puis **uniquement les nouvelles**
+ *    à chaque upload (incrémental). Chaque constat porte un `pieceId` pour le merge.
+ *  - **Conformité des lettres**. Assistif only ; clé GCP côté Edge.
  */
 export interface RegafyAiPiece {
+  pieceId: string
   nodeNumber: string
   nodeLabel: string
   docType: string
@@ -19,22 +22,56 @@ export interface RegafyAiPiece {
   filePath: string
 }
 
-export interface RegafyAiInput {
-  genDocs: GeneratedDocRecord[]
-  pieces: RegafyAiPiece[]
+export interface RegafyLetterCtx {
   productName: string
   titulaire: string
   country: string
   agency: string
-  /** Date de l'opération en cours (yyyy-mm-dd) — base du calcul de validité restante. */
+  /** Date de l'opération en cours (yyyy-mm-dd). */
   operationDate: string
 }
 
-export async function runRegafyAI(input: RegafyAiInput): Promise<RegafyFinding[]> {
+interface EdgeFinding {
+  pieceId?: string
+  nodeNumber?: string
+  nodeLabel?: string
+  severity?: RegafyFinding['severity']
+  message?: string
+}
+
+async function invokeRegafy(body: Record<string, unknown>): Promise<RegafyFinding[]> {
   const supabase = await getSupabase()
   if (!supabase) throw new Error('Connexion requise pour l’analyse IA.')
+  const { data, error } = await supabase.functions.invoke('regafy-ai', { body })
+  if (error) throw new Error(error.message || 'Échec de l’analyse IA.')
+  return ((data?.findings ?? []) as EdgeFinding[])
+    .filter((f) => (f.message ?? '').trim().length > 0)
+    .map((f, i) => ({
+      id: `ai:${f.pieceId ?? f.nodeNumber ?? 'g'}:${i}`,
+      nodeNumber: f.nodeNumber ?? '',
+      nodeLabel: f.nodeLabel ?? '',
+      severity: f.severity ?? 'info',
+      message: f.message ?? '',
+      source: 'ai' as const,
+      pieceId: f.pieceId,
+    }))
+}
 
-  const letters = input.genDocs
+/** Validité (multimodal) d'un lot de pièces — 1 appel batch (Gemini lit tous les PDF d'un coup). */
+export async function runRegafyValidity(
+  pieces: RegafyAiPiece[],
+  operationDate: string,
+): Promise<RegafyFinding[]> {
+  if (pieces.length === 0) return []
+  return invokeRegafy({ operationDate, pieces, letters: [] })
+}
+
+/** Conformité des lettres générées (Cover/PGHT…). */
+export async function runRegafyLetters(
+  genDocs: GeneratedDocRecord[],
+  ctx: RegafyLetterCtx,
+): Promise<RegafyFinding[]> {
+  const letters = genDocs
     .map((g) => ({
       nodeNumber: g.nodeNumber,
       nodeLabel: g.title ?? '',
@@ -42,37 +79,13 @@ export async function runRegafyAI(input: RegafyAiInput): Promise<RegafyFinding[]
       text: tiptapText((g.content ?? {}) as JSONContent).trim(),
     }))
     .filter((l) => l.text.length > 0)
-
-  if (letters.length === 0 && input.pieces.length === 0) return []
-
-  const { data, error } = await supabase.functions.invoke('regafy-ai', {
-    body: {
-      operationDate: input.operationDate,
-      productName: input.productName,
-      titulaire: input.titulaire,
-      country: input.country,
-      agency: input.agency,
-      letters,
-      pieces: input.pieces,
-    },
+  if (letters.length === 0) return []
+  return invokeRegafy({
+    operationDate: ctx.operationDate,
+    productName: ctx.productName,
+    titulaire: ctx.titulaire,
+    country: ctx.country,
+    agency: ctx.agency,
+    letters,
   })
-  if (error) throw new Error(error.message || 'Échec de l’analyse IA.')
-
-  const rawFindings = (data?.findings ?? []) as Array<{
-    nodeNumber?: string
-    nodeLabel?: string
-    severity?: RegafyFinding['severity']
-    message?: string
-  }>
-
-  return rawFindings
-    .filter((f) => (f.message ?? '').trim().length > 0)
-    .map((f, i) => ({
-      id: `ai:${f.nodeNumber || 'global'}:${i}`,
-      nodeNumber: f.nodeNumber ?? '',
-      nodeLabel: f.nodeLabel ?? '',
-      severity: f.severity ?? 'info',
-      message: f.message ?? '',
-      source: 'ai' as const,
-    }))
 }
