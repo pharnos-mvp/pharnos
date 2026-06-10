@@ -232,6 +232,18 @@ export function DossierWorkspacePage() {
     return out
   }, [docsByNode, flatNodes])
 
+  // Signature stable du jeu de pièces (ids triés) → l'analyse se déclenche sur un VRAI changement de
+  // pièces, pas à chaque tick de la synchro Dexie (sinon le debounce est relancé en boucle → démarrage
+  // lent). dossier/aiPieces sont stables pour une signature donnée.
+  const piecesSig = useMemo(
+    () =>
+      aiPieces
+        .map((p) => p.pieceId)
+        .sort()
+        .join('|'),
+    [aiPieces],
+  )
+
   // (Pas de reset manuel : l'app-shell remonte la page via `key={location.pathname}` au changement
   // de dossier → l'état du copilote repart à zéro automatiquement.)
 
@@ -254,10 +266,11 @@ export function DossierWorkspacePage() {
     })
     const newPieces = aiPieces.filter((p) => !analyzedPieceIds.current.has(p.pieceId))
     if (newPieces.length === 0) return
+    const agencySigle = agencyFor(dossier.country).name || ''
     const t = setTimeout(() => {
       newPieces.forEach((p) => analyzedPieceIds.current.add(p.pieceId))
       setAiBusy(true)
-      void runRegafyValidity(newPieces, new Date().toISOString().slice(0, 10))
+      void runRegafyValidity(newPieces, new Date().toISOString().slice(0, 10), agencySigle)
         .then((fs) => {
           setValidityByPiece((prev) => {
             const next = { ...prev }
@@ -273,7 +286,9 @@ export function DossierWorkspacePage() {
         .finally(() => setAiBusy(false))
     }, 1500)
     return () => clearTimeout(t)
-  }, [dossier, aiPieces])
+    // Déclenché sur piecesSig (signature stable), pas sur le ref de l'array aiPieces.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dossierId, piecesSig])
 
   // Copilote — LETTRES : conformité des lettres générées (à l'ouverture + à chaque modification).
   useEffect(() => {

@@ -61,9 +61,10 @@ async function invokeRegafy(body: Record<string, unknown>): Promise<RegafyFindin
 export async function runRegafyValidity(
   pieces: RegafyAiPiece[],
   operationDate: string,
+  agency: string,
 ): Promise<RegafyFinding[]> {
   if (pieces.length === 0) return []
-  return invokeRegafy({ operationDate, pieces, letters: [] })
+  return invokeRegafy({ operationDate, agency, pieces, letters: [] })
 }
 
 /** Conformité des lettres générées (Cover/PGHT…). */
