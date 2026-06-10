@@ -80,7 +80,7 @@ import {
   treeNodeNumbers,
   type CtdNodeDef,
 } from './module1-tree'
-import { agencyCivilite, agencyFor } from './roadmap-data'
+import { agencyCivilite, agencyFor, officialLanguage } from './roadmap-data'
 import { PdfPreviewDialog } from './PdfPreviewDialog'
 import { PdfViewer } from './PdfViewer'
 import { runRegafy, type RegafyFinding } from './regafy'
@@ -216,7 +216,10 @@ export function DossierWorkspacePage() {
     for (const [num, list] of docsByNode) {
       const nodeLabel = flatNodes.find((n) => n.number === num)?.label ?? ''
       for (const d of list) {
-        if ((d.category === 'admin' || d.docType === 'coa') && d.filePath) {
+        const relevant =
+          d.category === 'admin' ||
+          ['coa', 'rcp', 'notice', 'labeling', 'artwork'].includes(d.docType)
+        if (relevant && d.filePath) {
           out.push({
             pieceId: d.id,
             nodeNumber: num,
@@ -267,10 +270,16 @@ export function DossierWorkspacePage() {
     const newPieces = aiPieces.filter((p) => !analyzedPieceIds.current.has(p.pieceId))
     if (newPieces.length === 0) return
     const agencySigle = agencyFor(dossier.country).name || ''
+    const targetLang = officialLanguage(dossier.country)
     const t = setTimeout(() => {
       newPieces.forEach((p) => analyzedPieceIds.current.add(p.pieceId))
       setAiBusy(true)
-      void runRegafyValidity(newPieces, new Date().toISOString().slice(0, 10), agencySigle)
+      void runRegafyValidity(
+        newPieces,
+        new Date().toISOString().slice(0, 10),
+        agencySigle,
+        targetLang,
+      )
         .then((fs) => {
           setValidityByPiece((prev) => {
             const next = { ...prev }

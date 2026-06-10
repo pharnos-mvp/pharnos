@@ -83,6 +83,23 @@ const AGENCIES: Record<string, AgencyInfo> = {
   },
 }
 
+/**
+ * Langue officielle du pays cible (détection de langue des documents). UEMOA = français par
+ * défaut ; exceptions lusophones (Guinée-Bissau, Cap-Vert) et anglophones (CEDEAO non-UEMOA).
+ */
+const OFFICIAL_LANG: Record<string, string> = {
+  GW: 'pt',
+  CV: 'pt',
+  GH: 'en',
+  NG: 'en',
+  GM: 'en',
+  SL: 'en',
+  LR: 'en',
+}
+export function officialLanguage(country: string): string {
+  return OFFICIAL_LANG[country] ?? 'fr'
+}
+
 export function agencyFor(country: string): AgencyInfo {
   return (
     AGENCIES[country] ?? {

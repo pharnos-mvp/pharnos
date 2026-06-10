@@ -37,6 +37,8 @@ interface EdgeFinding {
   nodeLabel?: string
   severity?: RegafyFinding['severity']
   message?: string
+  translate?: boolean
+  language?: string
 }
 
 async function invokeRegafy(body: Record<string, unknown>): Promise<RegafyFinding[]> {
@@ -54,6 +56,8 @@ async function invokeRegafy(body: Record<string, unknown>): Promise<RegafyFindin
       message: f.message ?? '',
       source: 'ai' as const,
       pieceId: f.pieceId,
+      translate: f.translate,
+      language: f.language,
     }))
 }
 
@@ -62,9 +66,10 @@ export async function runRegafyValidity(
   pieces: RegafyAiPiece[],
   operationDate: string,
   agency: string,
+  targetLang: string,
 ): Promise<RegafyFinding[]> {
   if (pieces.length === 0) return []
-  return invokeRegafy({ operationDate, agency, pieces, letters: [] })
+  return invokeRegafy({ operationDate, agency, targetLang, pieces, letters: [] })
 }
 
 /** Conformité des lettres générées (Cover/PGHT…). */
