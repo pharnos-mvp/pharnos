@@ -37,6 +37,10 @@ interface Finding {
   nodeLabel: string
   severity: 'error' | 'warning' | 'info'
   message: string
+  /** Document à traduire (langue ≠ langue du pays) — pour le bouton « Traduire ». */
+  translate?: boolean
+  /** Langue détectée du document (code ISO 639-1). */
+  language?: string
 }
 
 type Supa = ReturnType<typeof createClient>
@@ -89,6 +93,23 @@ function mimeFor(fileName: string): string {
   if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg'
   if (ext === 'webp') return 'image/webp'
   return 'application/pdf'
+}
+
+// Types de documents soumis à la DÉTECTION DE LANGUE (≠ pièces de validité administratives).
+const LANG_TYPES = new Set(['rcp', 'notice', 'labeling', 'artwork'])
+const LANG_NAMES: Record<string, string> = {
+  fr: 'français',
+  en: 'anglais',
+  pt: 'portugais',
+  es: 'espagnol',
+  de: 'allemand',
+  it: 'italien',
+  ar: 'arabe',
+  nl: 'néerlandais',
+}
+function langName(code: string): string {
+  const c = (code || '').toLowerCase().slice(0, 2)
+  return LANG_NAMES[c] ?? code
 }
 
 function extractJson(raw: string): unknown {
@@ -152,6 +173,7 @@ async function analyzeValidityBatch(
   pieces: PieceInput[],
   opDate: string,
   agency: string,
+  targetLang: string,
 ): Promise<Finding[]> {
   if (pieces.length === 0) return []
   const valSystem =
@@ -184,7 +206,7 @@ async function analyzeValidityBatch(
       findings.push({
         ...base(p),
         severity: 'warning',
-        message: `${(p.docType || 'pièce').toUpperCase()} : document illisible — validité à vérifier.`,
+        message: `${(p.docType || 'pièce').toUpperCase()} : document illisible — à vérifier.`,
       })
     }
   }
@@ -194,8 +216,9 @@ async function analyzeValidityBatch(
     `Date de l'opération : ${opDate}. Tu reçois ${valid.length} document(s) réglementaire(s) numérotés. ` +
     'Pour CHAQUE document, renvoie STRICTEMENT : {"results":[{"index":<n° à partir de 1>,"found":true|false,' +
     '"expiryDate":"yyyy-mm-dd"|null,"issueDate":"yyyy-mm-dd"|null,"validityMonths":<entier (mois)|null>,' +
-    '"validityStatement":"texte de la durée énoncée|null"}]}. expiryDate = fin de validité si écrite ; ' +
-    "sinon renseigne issueDate (date d'émission/délivrance) ET validityMonths (durée convertie en mois)."
+    '"validityStatement":"texte de la durée énoncée|null","language":"code ISO 639-1 de la langue dominante (fr, en, pt…)"}]}. ' +
+    "expiryDate = fin de validité si écrite ; sinon issueDate (date d'émission) ET validityMonths (durée en mois). " +
+    'language = langue dominante du contenu du document.'
   const parts: Part[] = [{ text: header }]
   valid.forEach((v, i) => {
     parts.push({ text: `--- Document ${i + 1} (type: ${v.p.docType}) :` })
@@ -209,6 +232,7 @@ async function analyzeValidityBatch(
     issueDate?: string | null
     validityMonths?: number | null
     validityStatement?: string | null
+    language?: string | null
   }> = []
   try {
     const parsed = extractJson(
@@ -227,10 +251,27 @@ async function analyzeValidityBatch(
   valid.forEach((v, i) => {
     const p = v.p
     const r = results.find((x) => Number(x.index) === i + 1) ?? {}
-    const min = p.docType === 'coa' ? 18 : 6
     const label = (p.docType || 'pièce').toUpperCase()
 
-    // Expiration explicite, sinon CALCULÉE depuis (date d'émission + durée de validité énoncée).
+    // ── LANGUE (RCP, Notice, Étiquette, Artwork) : signaler si ≠ langue officielle du pays.
+    if (LANG_TYPES.has(p.docType)) {
+      const lang = String(r.language ?? '')
+        .toLowerCase()
+        .slice(0, 2)
+      if (lang && targetLang && lang !== targetLang) {
+        findings.push({
+          ...base(p),
+          severity: 'warning',
+          message: `${label} en ${langName(lang)} — langue cible : ${langName(targetLang)}. Traduction recommandée.`,
+          translate: true,
+          language: lang,
+        })
+      }
+      return
+    }
+
+    // ── VALIDITÉ (pièces admin + COA) : expiration explicite, sinon (date d'émission + durée).
+    const min = p.docType === 'coa' ? 18 : 6
     let expiry: string | null = isISODate(r.expiryDate) ? r.expiryDate.slice(0, 10) : null
     const months = Math.round(Number(r.validityMonths))
     let derived = false
@@ -297,6 +338,7 @@ Deno.serve(async (req: Request) => {
     titulaire?: string
     country?: string
     agency?: string
+    targetLang?: string
     letters?: LetterInput[]
     pieces?: PieceInput[]
   }
@@ -329,7 +371,7 @@ Deno.serve(async (req: Request) => {
       country: b.country,
       agency: b.agency,
     }),
-    analyzeValidityBatch(supabase, pieces, opDate, b.agency ?? ''),
+    analyzeValidityBatch(supabase, pieces, opDate, b.agency ?? '', b.targetLang ?? ''),
   ])
 
   return json({ findings: [...letterFindings, ...validityFindings] })

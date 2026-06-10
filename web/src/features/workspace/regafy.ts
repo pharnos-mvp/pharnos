@@ -22,6 +22,10 @@ export interface RegafyFinding {
   source?: 'rule' | 'ai'
   /** Pièce concernée (constats de validité IA) — clé du merge incrémental. */
   pieceId?: string
+  /** Document à traduire (langue ≠ pays) — affiche un bouton « Traduire ». */
+  translate?: boolean
+  /** Langue détectée du document (code ISO 639-1). */
+  language?: string
 }
 
 export interface RegafyInput {
