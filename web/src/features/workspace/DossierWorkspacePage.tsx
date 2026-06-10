@@ -11,6 +11,7 @@ import {
   FileText,
   Heading2,
   Italic,
+  Languages,
   List,
   PanelLeftClose,
   PanelLeftOpen,
@@ -85,6 +86,7 @@ import { PdfPreviewDialog } from './PdfPreviewDialog'
 import { PdfViewer } from './PdfViewer'
 import { runRegafy, type RegafyFinding } from './regafy'
 import { runRegafyLetters, runRegafyValidity, type RegafyAiPiece } from './regafy-ai'
+import { translateDoc } from './translate-doc'
 import { RichTextEditor } from './RichTextEditor'
 import { hasSignature, insertSignature, removeSignature } from './signature'
 import { BrandingPanel, SignaturePanel } from './SignatureBrandingPanels'
@@ -146,6 +148,8 @@ export function DossierWorkspacePage() {
   const [validityByPiece, setValidityByPiece] = useState<Record<string, RegafyFinding[]>>({})
   const [letterFindings, setLetterFindings] = useState<RegafyFinding[]>([])
   const [aiBusy, setAiBusy] = useState(false)
+  const [translating, setTranslating] = useState<string | null>(null)
+  const [translation, setTranslation] = useState<{ title: string; text: string } | null>(null)
   const [sigPanelOpen, setSigPanelOpen] = useState(false)
   const [brandPanelOpen, setBrandPanelOpen] = useState(false)
 
@@ -319,6 +323,33 @@ export function DossierWorkspacePage() {
     }, 1500)
     return () => clearTimeout(t)
   }, [dossier, genDocs, product])
+
+  // « Traduire » (M5) : lit le document via l'Edge et propose une traduction (MedDRA) pour revue.
+  const handleTranslate = useCallback(
+    async (f: RegafyFinding) => {
+      const piece = aiPieces.find((p) => p.pieceId === f.pieceId)
+      if (!piece || !dossier) return
+      const lang = officialLanguage(dossier.country)
+      setTranslating(f.pieceId ?? null)
+      try {
+        const text = await translateDoc({
+          filePath: piece.filePath,
+          fileName: piece.fileName,
+          docType: piece.docType,
+          targetLang: lang,
+        })
+        setTranslation({
+          title: `${piece.docType.toUpperCase()} — traduction (${lang.toUpperCase()})`,
+          text,
+        })
+      } catch (e) {
+        toast.error((e as Error).message)
+      } finally {
+        setTranslating(null)
+      }
+    },
+    [aiPieces, dossier],
+  )
 
   const structureOutdated = useMemo(
     () => (dossier ? isTreeOutdated(dossier.tree, getModule1Tree(dossier.format)) : false),
@@ -1127,6 +1158,18 @@ export function DossierWorkspacePage() {
                           {f.message}
                         </span>
                       </button>
+                      {f.translate && f.pieceId ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-1 ml-4 h-6 gap-1 border-amber-400 text-amber-700 hover:bg-amber-50"
+                          disabled={translating === f.pieceId}
+                          onClick={() => void handleTranslate(f)}
+                        >
+                          <Languages className="size-3" />
+                          {translating === f.pieceId ? 'Traduction…' : 'Traduire'}
+                        </Button>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
@@ -1147,6 +1190,14 @@ export function DossierWorkspacePage() {
           url={previewPdf.url}
           name={previewPdf.name}
           onClose={closePreview}
+        />
+      ) : null}
+
+      {translation ? (
+        <TranslationDialog
+          title={translation.title}
+          text={translation.text}
+          onClose={() => setTranslation(null)}
         />
       ) : null}
 
@@ -1175,6 +1226,52 @@ export function DossierWorkspacePage() {
       {brandPanelOpen ? (
         <BrandingPanel branding={branding} orgId={orgId} onClose={() => setBrandPanelOpen(false)} />
       ) : null}
+    </div>
+  )
+}
+
+function TranslationDialog({
+  title,
+  text,
+  onClose,
+}: {
+  title: string
+  text: string
+  onClose: () => void
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+    >
+      <div className="bg-card flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border shadow-lg">
+        <div className="flex items-center gap-2 border-b p-4">
+          <Languages className="size-5 text-amber-500" />
+          <h2 className="font-semibold">{title}</h2>
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto p-4">
+          <p className="text-muted-foreground mb-3 text-xs italic">
+            Traduction assistée (terminologie MedDRA) — à relire avant tout usage. Ne remplace pas
+            le document officiel.
+          </p>
+          <pre className="text-foreground font-sans text-sm whitespace-pre-wrap">{text}</pre>
+        </div>
+        <div className="flex justify-end gap-2 border-t p-3">
+          <Button variant="ghost" onClick={onClose}>
+            Fermer
+          </Button>
+          <Button
+            onClick={() => {
+              void navigator.clipboard.writeText(text)
+              toast.success('Traduction copiée')
+            }}
+          >
+            Copier
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }
