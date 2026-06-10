@@ -8,7 +8,10 @@ const ASSETS = path.resolve(import.meta.dirname, '../dist/assets')
 
 // Budgets (gzip) en kilo-octets.
 const BUDGET = {
-  entryJs: 175, // chunk d'entrée index-*.js (code app initial)
+  // Entrée index-*.js = JS exécuté au boot. **Gate déterministe de perf** : on cape ce chunk
+  // pour borner le TBT (le score Lighthouse mobile dépend surtout du temps d'exécution JS au
+  // démarrage). Resserré 175→135 après le travail FCP/LCP (squelette inline + eager /catalogue).
+  entryJs: 135,
   totalCss: 60, // CSS total
 }
 

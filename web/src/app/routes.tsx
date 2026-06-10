@@ -2,11 +2,12 @@ import { lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 
 import { AppShell } from '@/components/layout/app-shell'
+// Page d'atterrissage (cible de la redirection « / » → « /catalogue ») importée en statique :
+// elle peint dès le 1er rendu sans aller chercher un second chunk (gain LCP). Les autres pages
+// restent en code-splitting paresseux.
+import { CataloguePage } from '@/features/catalogue/CataloguePage'
 
 // Code-splitting par route : l'app-shell reste léger, chaque page charge son chunk à la demande.
-const CataloguePage = lazy(() =>
-  import('@/features/catalogue/CataloguePage').then((m) => ({ default: m.CataloguePage })),
-)
 const ProductFormPage = lazy(() =>
   import('@/features/catalogue/ProductFormPage').then((m) => ({ default: m.ProductFormPage })),
 )

@@ -10,9 +10,132 @@
       content="Pharnos — OS des affaires réglementaires pharmaceutiques UEMOA/CEDEAO. Catalogue, CTD Workspace et Dashboard. Rapide, sécurisé, disponible hors-ligne."
     />
     <title>Pharnos</title>
+    <!--
+      Squelette d'app-shell peint immédiatement (CSS inline, sans JS ni chunk) → FCP/LCP quasi
+      instantanés sur un SPA. React (createRoot) remplace le contenu de #root au 1er rendu, ce qui
+      retire le squelette. Thème-aware (prefers-color-scheme) pour éviter un flash clair/sombre.
+    -->
+    <style>
+      #app-skeleton {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        background: #fff;
+        color: #0a0a0a;
+        font-family:
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          sans-serif;
+      }
+      #app-skeleton * {
+        box-sizing: border-box;
+      }
+      #app-skeleton .sk-aside {
+        width: 64px;
+        flex: none;
+        border-right: 1px solid rgba(120, 120, 130, 0.18);
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      #app-skeleton .sk-logo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: #0a0a0a;
+        color: #fff;
+        font-weight: 700;
+        font-size: 15px;
+      }
+      #app-skeleton .sk-nav {
+        height: 36px;
+        border-radius: 8px;
+        background: rgba(120, 120, 130, 0.12);
+      }
+      #app-skeleton .sk-body {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      #app-skeleton .sk-header {
+        height: 56px;
+        flex: none;
+        border-bottom: 1px solid rgba(120, 120, 130, 0.18);
+      }
+      #app-skeleton .sk-main {
+        flex: 1;
+        padding: 24px;
+      }
+      #app-skeleton .sk-title {
+        height: 30px;
+        width: min(60%, 220px);
+        border-radius: 8px;
+        background: rgba(120, 120, 130, 0.18);
+      }
+      #app-skeleton .sk-card {
+        margin-top: 24px;
+        height: 180px;
+        border-radius: 12px;
+        border: 1px solid rgba(120, 120, 130, 0.18);
+        background: rgba(120, 120, 130, 0.05);
+      }
+      @media (min-width: 768px) {
+        #app-skeleton .sk-aside {
+          width: 240px;
+        }
+      }
+      @media (prefers-color-scheme: dark) {
+        #app-skeleton {
+          background: #0a0a0a;
+          color: #fafafa;
+        }
+        #app-skeleton .sk-logo {
+          background: #fafafa;
+          color: #0a0a0a;
+        }
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        #app-skeleton .sk-title,
+        #app-skeleton .sk-card,
+        #app-skeleton .sk-nav {
+          animation: sk-pulse 1.3s ease-in-out infinite;
+        }
+      }
+      @keyframes sk-pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.55;
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="app-skeleton" aria-hidden="true">
+        <div class="sk-aside">
+          <div class="sk-logo">P</div>
+          <div class="sk-nav"></div>
+          <div class="sk-nav"></div>
+          <div class="sk-nav"></div>
+        </div>
+        <div class="sk-body">
+          <div class="sk-header"></div>
+          <div class="sk-main">
+            <div class="sk-title"></div>
+            <div class="sk-card"></div>
+          </div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
