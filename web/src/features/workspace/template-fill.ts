@@ -9,6 +9,7 @@ import type { JSONContent } from '@tiptap/core'
 import { specForDocType, type RubricSpec } from '@specs'
 import type { ProductRecord } from '@/lib/db'
 import { formatComposition } from './composition'
+import { buildRcpFillContent, initialRcpFormState } from './template-form/rcp-form-content'
 
 export const FILL_PLACEHOLDER = '[À COMPLÉTER]'
 
@@ -64,6 +65,11 @@ export function buildTemplateSkeleton(
   docType: string,
   product?: ProductRecord,
 ): JSONContent | null {
+  // RCP : FORMULAIRE interactif officiel (branding CEO) — le contenu créé est le document
+  // final du formulaire (titres + mentions statiques + Identification pré-remplie), édité via
+  // TemplateFillForm (plus de squelette TipTap [À COMPLÉTER] pour ce type).
+  if (docType === 'rcp') return buildRcpFillContent(initialRcpFormState(product))
+
   const spec = specForDocType(docType)
   if (!spec) return null
 

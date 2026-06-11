@@ -1,0 +1,284 @@
+/* Branding du formulaire RCP — porté du gabarit CEO (RCP_formulaire_interactif.html).
+   Scopé sous .tplform : feuille A4 papier (Times 12pt), titres navy #263F73, champs de saisie
+   ergonomiques sur la feuille, cases à cocher navy. Couleurs FIXES (document papier) : le
+   rendu ne suit pas le thème de l'app. */
+.tplform {
+  --tpl-navy: #263f73;
+  --tpl-rule: #000;
+  --tpl-canvas: #e9ecf1;
+  --tpl-line-strong: #b9c2d6;
+  --tpl-focus: #3a5aa8;
+  --tpl-field-bg: #f7f9fc;
+  --tpl-field-bg-focus: #eef3fc;
+
+  background: var(--tpl-canvas);
+  border-radius: 0 0 0.5rem 0.5rem;
+}
+
+/* ---- Barre d'actions (navy, collée sous le chrome du panneau) ---- */
+.tplform-topbar {
+  position: sticky;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--tpl-navy);
+  color: #fff;
+}
+.tplform-topbar .tplform-brand {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.tplform-topbar .tplform-t1 {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tplform-topbar .tplform-t2 {
+  overflow: hidden;
+  font-size: 11px;
+  opacity: 0.75;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tplform-topbar .tplform-spacer {
+  flex: 1;
+}
+.tplform-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  background: transparent;
+  padding: 6px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+.tplform-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.tplform-btn--primary {
+  border-color: #fff;
+  background: #fff;
+  color: var(--tpl-navy);
+}
+.tplform-btn--primary:hover {
+  background: #e8edf8;
+}
+.tplform-btn--ghost {
+  border-color: transparent;
+  opacity: 0.85;
+}
+.tplform-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.tplform-hint {
+  padding: 7px 14px;
+  background: #f2f5fb;
+  border-bottom: 1px solid #d9dee8;
+  font-size: 12px;
+  color: #44507a;
+}
+
+/* ---- Feuille A4 ---- */
+.tplform-canvas {
+  display: flex;
+  justify-content: center;
+  padding: 18px 12px 28px;
+}
+.tplform-sheet {
+  width: 100%;
+  max-width: 210mm;
+  min-height: 297mm;
+  background: #fff;
+  padding: 25.4mm;
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 12pt;
+  color: #000;
+  line-height: 1.35;
+  box-shadow: 0 6px 28px rgba(28, 40, 70, 0.16);
+}
+@media (max-width: 860px) {
+  .tplform-sheet {
+    padding: 28px 22px;
+  }
+}
+
+/* ---- Blocs du document ---- */
+.tplform-sheet .doc-title {
+  margin: 0 0 18px;
+  text-align: center;
+  color: var(--tpl-navy);
+  font-size: 12pt;
+  font-weight: bold;
+}
+.tplform-sheet .doc-sec {
+  margin: 18px 0 7px;
+  color: var(--tpl-navy);
+  font-size: 12pt;
+  font-weight: bold;
+}
+.tplform-sheet .doc-sub {
+  margin: 14px 0 6px;
+  color: var(--tpl-navy);
+  font-size: 12pt;
+  font-weight: bold;
+}
+.tplform-sheet .doc-subsub {
+  margin: 10px 0 4px;
+  color: #000;
+  font-size: 12pt;
+  font-weight: bold;
+  text-decoration: underline;
+}
+.tplform-sheet .doc-static {
+  margin: 0 0 8px;
+  text-align: justify;
+}
+.tplform-sheet .doc-rule {
+  margin: 16px 0 10px;
+  border: none;
+  border-top: 1px solid var(--tpl-rule);
+}
+
+/* ---- Champs sur la feuille ---- */
+.tplform-sheet .field-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+.tplform-sheet .field-label {
+  white-space: nowrap;
+}
+.tplform-sheet .field-suffix {
+  white-space: nowrap;
+}
+.tplform-sheet .field-input {
+  flex: 1 1 220px;
+  min-width: 140px;
+  border: 1px solid var(--tpl-line-strong);
+  border-radius: 5px;
+  background: var(--tpl-field-bg);
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 12pt;
+  color: #000;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    box-shadow 0.12s;
+}
+.tplform-sheet .field-input--narrow {
+  flex: 0 0 90px;
+  min-width: 70px;
+}
+.tplform-sheet .field-area {
+  display: block;
+  width: 100%;
+  margin: 0 0 10px;
+  border: 1px solid var(--tpl-line-strong);
+  border-radius: 5px;
+  background: var(--tpl-field-bg);
+  padding: 6px 9px;
+  font-family: inherit;
+  font-size: 12pt;
+  color: #000;
+  line-height: 1.35;
+  resize: vertical;
+  overflow: hidden;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    box-shadow 0.12s;
+}
+.tplform-sheet .field-input:focus,
+.tplform-sheet .field-area:focus {
+  outline: none;
+  border-color: var(--tpl-focus);
+  background: var(--tpl-field-bg-focus);
+  box-shadow: 0 0 0 3px rgba(58, 90, 168, 0.14);
+}
+.tplform-sheet .field-input::placeholder,
+.tplform-sheet .field-area::placeholder {
+  color: #9aa3b5;
+  font-style: italic;
+}
+
+/* ---- Cases à cocher ---- */
+.tplform-sheet .chk-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0 0 8px;
+}
+.tplform-sheet .chk {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  border-radius: 6px;
+  padding: 4px 7px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.tplform-sheet .chk:hover {
+  background: #f0f4fb;
+}
+.tplform-sheet .chk-box {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+  border: 1.5px solid var(--tpl-line-strong);
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+}
+.tplform-sheet .chk-box:hover {
+  border-color: var(--tpl-focus);
+}
+.tplform-sheet .chk-box:checked {
+  border-color: var(--tpl-navy);
+  background: var(--tpl-navy);
+}
+.tplform-sheet .chk-box:checked::after {
+  content: '';
+  position: absolute;
+  top: 1.5px;
+  left: 5px;
+  width: 4px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.tplform-sheet .chk-box:focus-visible {
+  outline: 2px solid var(--tpl-focus);
+  outline-offset: 2px;
+}
+.tplform-sheet .chk-text {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 12pt;
+  color: #000;
+  line-height: 1.3;
+}
