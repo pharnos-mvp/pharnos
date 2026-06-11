@@ -74,13 +74,29 @@ describe('buildTemplateSkeleton', () => {
     expect(paras.some((p) => p.text.includes('vigilances.abmed@gouv.bj'))).toBe(true)
   })
 
-  it('notice et labeling : squelette [À COMPLÉTER] conservé ; type inconnu → null', () => {
+  it('notice et labeling : documents de FORMULAIRE officiel (gabarits) — aucun placeholder', () => {
     const notice = buildTemplateSkeleton('notice', product())!
-    expect(notice).not.toBeNull()
+    const noticeNodes = flatten(notice)
+    expect(noticeNodes[0]!.text).toBe('NOTICE : INFORMATION DE L’UTILISATEUR')
+    expect(noticeNodes.some((n) => n.text === FILL_PLACEHOLDER)).toBe(false)
+    // Identification pré-remplie (dénomination + DCI).
+    expect(noticeNodes.some((n) => n.text.includes('KV-Kacin 500'))).toBe(true)
+    expect(noticeNodes.some((n) => n.text.includes('Amikacine'))).toBe(true)
+
+    const labeling = buildTemplateSkeleton('labeling', product())!
+    const labelingNodes = flatten(labeling)
+    expect(labelingNodes[0]!.text).toBe('ETIQUETAGE')
+    expect(labelingNodes.some((n) => n.text === FILL_PLACEHOLDER)).toBe(false)
+    // `artwork` (étiquetage étranger) utilise le formulaire Étiquetage.
+    expect(flatten(buildTemplateSkeleton('artwork', product())!)[0]!.text).toBe('ETIQUETAGE')
+  })
+
+  it('cover/pght : squelette [À COMPLÉTER] conservé ; type inconnu → null', () => {
+    const cover = buildTemplateSkeleton('cover', product())!
+    expect(cover).not.toBeNull()
     expect(
-      flatten(notice).filter((n) => n.type === 'paragraph' && n.text === FILL_PLACEHOLDER).length,
-    ).toBeGreaterThan(3)
-    expect(buildTemplateSkeleton('labeling', product())).not.toBeNull()
+      flatten(cover).filter((n) => n.type === 'paragraph' && n.text === FILL_PLACEHOLDER).length,
+    ).toBeGreaterThan(0)
     expect(buildTemplateSkeleton('gmp', product())).toBeNull()
   })
 
