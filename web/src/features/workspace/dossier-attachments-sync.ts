@@ -148,14 +148,8 @@ async function pinMissingAttachmentBlobs(orgId: string): Promise<void> {
     for (const a of items) {
       if (!a.filePath) continue
       if (await db.documentBlobs.get(a.id)) continue
-      const url = await getAttachmentDownloadUrl(a.filePath)
-      if (!url) continue
-      try {
-        const res = await fetch(url)
-        if (res.ok) await cacheAttachmentBlob(a.id, await res.blob())
-      } catch {
-        /* hors-ligne / transitoire */
-      }
+      const blob = await downloadAttachmentBlob(a.filePath)
+      if (blob) await cacheAttachmentBlob(a.id, blob)
     }
   } catch (error) {
     console.warn('[sync] épinglage blobs pièces jointes :', error)
@@ -164,11 +158,17 @@ async function pinMissingAttachmentBlobs(orgId: string): Promise<void> {
   }
 }
 
-/** URL signée (courte durée) pour télécharger une pièce jointe depuis Storage. */
-export async function getAttachmentDownloadUrl(filePath: string): Promise<string | null> {
+/**
+ * Télécharge une pièce jointe depuis Storage via l'API `download` (RLS, encodage des chemins
+ * géré par la lib — voir downloadDocumentBlob). `null` = hors-ligne ou introuvable.
+ */
+export async function downloadAttachmentBlob(filePath: string): Promise<Blob | null> {
   const supabase = await getSupabase()
   if (!supabase) return null
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(filePath, 300)
-  if (error) return null
-  return data.signedUrl
+  try {
+    const { data, error } = await supabase.storage.from(BUCKET).download(filePath)
+    return error || !data ? null : data
+  } catch {
+    return null // hors-ligne / transitoire
+  }
 }

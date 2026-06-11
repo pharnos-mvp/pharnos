@@ -1,5 +1,5 @@
 import { getDocumentBlob } from '@/features/catalogue/documents-repository'
-import { getDocumentDownloadUrl } from '@/features/catalogue/documents-sync'
+import { downloadDocumentBlob } from '@/features/catalogue/documents-sync'
 import type { DocumentRecord } from '@/lib/db'
 
 /** Slug sûr pour les noms de fichiers téléchargés (PDF compilé, lettres .html). */
@@ -22,8 +22,8 @@ export async function downloadDoc(d: DocumentRecord): Promise<void> {
     return
   }
   if (d.filePath) {
-    const url = await getDocumentDownloadUrl(d.filePath)
-    if (url) triggerDownload(url, d.fileName, false)
+    const remote = await downloadDocumentBlob(d.filePath)
+    if (remote) triggerDownload(URL.createObjectURL(remote), d.fileName, true)
   }
 }
 

@@ -5,7 +5,6 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Sparkles,
-  Wand2,
   XCircle,
 } from 'lucide-react'
 
@@ -26,12 +25,10 @@ export function CompletionPanel({
   allFindings,
   aiBusy,
   translating,
-  upgrading,
   targetLangLabel,
   flatNodes,
   onSelectNode,
   onTranslate,
-  onUpgrade,
   onFillTemplate,
 }: {
   collapsed: boolean
@@ -43,12 +40,10 @@ export function CompletionPanel({
   allFindings: RegafyFinding[]
   aiBusy: boolean
   translating: string | null
-  upgrading: string | null
   targetLangLabel: string
   flatNodes: CtdNodeDef[]
   onSelectNode: (node: CtdNodeDef) => void
   onTranslate: (f: RegafyFinding) => void
-  onUpgrade: (f: RegafyFinding) => void
   onFillTemplate: (f: RegafyFinding) => void
 }) {
   if (collapsed) {
@@ -145,27 +140,17 @@ export function CompletionPanel({
                   </Button>
                 ) : null}
                 {f.upgrade && f.pieceId ? (
-                  <span className="flex flex-wrap gap-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-1 ml-4 h-6 gap-1 border-violet-400 text-violet-700 hover:bg-violet-50"
-                      onClick={() => onFillTemplate(f)}
-                    >
-                      <ClipboardList className="size-3" />
-                      Remplir le template
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-1 h-6 gap-1 border-violet-400 text-violet-700 hover:bg-violet-50"
-                      disabled={upgrading === f.pieceId}
-                      onClick={() => onUpgrade(f)}
-                    >
-                      <Wand2 className="size-3" />
-                      {upgrading === f.pieceId ? 'Mise en conformité…' : 'Générer'}
-                    </Button>
-                  </span>
+                  // « Générer » (mise en conformité IA) est désactivé pour l'instant (décision
+                  // CEO recette) — seul le remplissage manuel du template officiel est proposé.
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-1 ml-4 h-6 gap-1 border-violet-400 text-violet-700 hover:bg-violet-50"
+                    onClick={() => onFillTemplate(f)}
+                  >
+                    <ClipboardList className="size-3" />
+                    Remplir le template
+                  </Button>
                 ) : null}
               </li>
             ))}

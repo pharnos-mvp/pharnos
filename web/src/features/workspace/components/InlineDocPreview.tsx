@@ -3,9 +3,9 @@ import { Download, FileText } from 'lucide-react'
 
 import { buttonVariants } from '@/components/ui/button'
 import { cacheDocumentBlob, getDocumentBlob } from '@/features/catalogue/documents-repository'
-import { getDocumentDownloadUrl } from '@/features/catalogue/documents-sync'
+import { downloadDocumentBlob } from '@/features/catalogue/documents-sync'
 import { cacheAttachmentBlob, getAttachmentBlob } from '../dossier-attachments-repository'
-import { getAttachmentDownloadUrl } from '../dossier-attachments-sync'
+import { downloadAttachmentBlob } from '../dossier-attachments-sync'
 import { PdfViewer } from '../PdfViewer'
 
 /**
@@ -36,23 +36,15 @@ export function InlineDocPreview({
         (kind === 'attachment' ? await getAttachmentBlob(docId) : await getDocumentBlob(docId)) ??
         null
       if (!b && filePath) {
-        const remote =
+        // API download (encodage des chemins géré) — l'ancienne URL signée + fetch cassait sur
+        // les noms à caractères spéciaux (COPP invisible en navigation privée).
+        b =
           kind === 'attachment'
-            ? await getAttachmentDownloadUrl(filePath)
-            : await getDocumentDownloadUrl(filePath)
-        if (remote) {
-          try {
-            const res = await fetch(remote)
-            if (res.ok) {
-              b = await res.blob()
-              // Offline-first : épingle le fichier en local pour les aperçus hors-ligne suivants.
-              void (kind === 'attachment'
-                ? cacheAttachmentBlob(docId, b)
-                : cacheDocumentBlob(docId, b))
-            }
-          } catch {
-            /* hors-ligne */
-          }
+            ? await downloadAttachmentBlob(filePath)
+            : await downloadDocumentBlob(filePath)
+        if (b) {
+          // Offline-first : épingle le fichier en local pour les aperçus hors-ligne suivants.
+          void (kind === 'attachment' ? cacheAttachmentBlob(docId, b) : cacheDocumentBlob(docId, b))
         }
       }
       if (!alive) return
