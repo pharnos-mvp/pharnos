@@ -86,7 +86,14 @@ export function completionStats(
 
 /** Document visualisable du nœud sélectionné : doc généré, pièce jointe ou document produit. */
 export type Viewable =
-  | { key: string; kind: 'letter'; label: string; isTranslation?: boolean; isUpgrade?: boolean }
+  | {
+      key: string
+      kind: 'letter'
+      label: string
+      isTranslation?: boolean
+      isUpgrade?: boolean
+      isFill?: boolean
+    }
   | {
       key: string
       kind: 'attachment' | 'doc'
@@ -119,6 +126,7 @@ export function buildViewables({
   for (const g of selectedGenDocs) {
     const isTranslation = g.templateKey === 'translation'
     const isUpgrade = g.templateKey === 'upgrade'
+    const isFill = g.templateKey === 'fill'
     // Onglet façon navigateur : « <nom de l'original>_<LANG>.docx » (traduction),
     // « <nom de l'original>_CONFORME » (version conforme au template).
     const base = ((g.sourceDocId && sourceNamesById.get(g.sourceDocId)) ?? g.title).replace(
@@ -135,6 +143,7 @@ export function buildViewables({
           : g.title,
       isTranslation,
       isUpgrade,
+      isFill,
     })
   }
   for (const a of selectedAttachments) {

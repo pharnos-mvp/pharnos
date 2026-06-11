@@ -8,6 +8,7 @@ import {
   Languages,
   Save,
   Sparkles,
+  ClipboardList,
   Upload,
   Wand2,
   X,
@@ -55,6 +56,7 @@ import { excludeProductDoc, getDossier, updateDossierTree } from './dossier-repo
 import { syncDossiers } from './dossier-sync'
 import {
   createGeneratedDoc,
+  createTemplateFillDoc,
   deleteGeneratedDoc,
   listGeneratedDocs,
   regenerateGeneratedDoc,
@@ -64,7 +66,7 @@ import { syncGeneratedDocs } from './generated-docs-sync'
 import { useDossierAttachmentsSync } from './use-dossier-attachments-sync'
 import { useDossierSync } from './use-dossier-sync'
 import { useGeneratedDocsSync } from './use-generated-docs-sync'
-import { getModule1Tree, type CtdNodeDef } from './module1-tree'
+import { docTypeForNode, getModule1Tree, type CtdNodeDef } from './module1-tree'
 import { agencyCivilite, agencyFor, officialLanguage } from './roadmap-data'
 import { PdfPreviewDialog } from './PdfPreviewDialog'
 import { runRegafy, tiptapText, type RegafyFinding } from './regafy'
@@ -82,7 +84,9 @@ import { FormatToolbar, ToolbarBtn } from './components/toolbar'
 import { TranslationProgress } from './components/TranslationProgress'
 import { TreePanel } from './components/TreePanel'
 import { downloadDoc, slugify, triggerDownload } from './download-utils'
-import { countMissing } from './upgrade-doc'
+import { UPGRADE_DOC_TYPES } from './regafy-ai'
+import { buildTemplateSkeleton, FILL_PLACEHOLDER } from './template-fill'
+import { countMarker, countMissing } from './upgrade-doc'
 
 export function DossierWorkspacePage() {
   const { dossierId } = useParams()
@@ -429,6 +433,20 @@ export function DossierWorkspacePage() {
       ? countMissing(tiptapText(activeGenDoc.content as JSONContent))
       : 0
 
+  // Squelette « Remplir le template » affiché : zones [À COMPLÉTER] restantes.
+  const fillMissingCount =
+    activeGenDoc?.templateKey === 'fill'
+      ? countMarker(tiptapText(activeGenDoc.content as JSONContent), FILL_PLACEHOLDER)
+      : 0
+
+  // « Remplir le template » disponible sur les nœuds dont le type est couvert par un template
+  // officiel (RCP, Notice, Étiquetage… — 1.3.x), même sans aucun document.
+  const fillDocType = selected
+    ? (docTypeForNode(activeDossier.format, selected.number) ??
+      (selected.number.startsWith('1.3') ? 'labeling' : null))
+    : null
+  const canFillSelected = !!fillDocType && UPGRADE_DOC_TYPES.has(fillDocType)
+
   const { okCount, pct } = completionStats(flatNodes, countFor)
   const warnCount = findings.filter((f) => f.severity === 'warning').length
   const errCount = findings.filter((f) => f.severity === 'error').length
@@ -560,6 +578,42 @@ export function DossierWorkspacePage() {
     // Synchroniser tout de suite → la pièce reçoit son chemin Storage et entre dans l'analyse Regafy.
     await syncDossierAttachments(orgId)
     toast.success('Pièce ajoutée — analyse en cours…')
+  }
+
+  /** « Remplir le template » : squelette officiel verrouillé, zones [À COMPLÉTER] remplies
+   *  PAR L'UTILISATEUR (pré-rempli : session Identification produit uniquement). Généré
+   *  localement (zéro IA, offline) ; Regafy vérifie la conformité à chaque enregistrement. */
+  async function handleFillTemplate(node: CtdNodeDef) {
+    const docType =
+      docTypeForNode(activeDossier.format, node.number) ??
+      (node.number.startsWith('1.3') ? 'labeling' : null)
+    if (!docType) return
+    const openTab = (genId: string) => {
+      setSelected(node)
+      setDocEditing(true)
+      setPickedKey(`letter:${genId}`)
+    }
+    // Anti-relance : un squelette existe déjà sur ce nœud → rouvrir son onglet.
+    const existing = (genDocs ?? []).find(
+      (g) => g.deletedAt === null && g.templateKey === 'fill' && g.nodeNumber === node.number,
+    )
+    if (existing) {
+      openTab(existing.id)
+      return
+    }
+    const skeleton = buildTemplateSkeleton(docType, product)
+    if (!skeleton) return
+    const rec = await createTemplateFillDoc(orgId, {
+      dossierId: activeDossier.id,
+      nodeNumber: node.number,
+      title: `${docType.toUpperCase()} — template à compléter`,
+      content: skeleton,
+    })
+    void syncGeneratedDocs(orgId)
+    openTab(rec.id)
+    toast.success('Template officiel prêt.', {
+      description: 'Complétez les zones [À COMPLÉTER] — les titres du template sont verrouillés.',
+    })
   }
 
   function handleSign() {
@@ -850,7 +904,11 @@ export function DossierWorkspacePage() {
                             onClick={() => {
                               setPickedKey(v.key)
                               // Traduction → éditable d'emblée (cohérent avec l'ouverture via « Traduire »).
-                              if (v.kind === 'letter' && v.isTranslation) setDocEditing(true)
+                              if (
+                                v.kind === 'letter' &&
+                                (v.isTranslation || v.isUpgrade || v.isFill)
+                              )
+                                setDocEditing(true)
                             }}
                             title={v.label}
                             className="flex items-center gap-1.5"
@@ -899,23 +957,47 @@ export function DossierWorkspacePage() {
                           : 'Mise en conformité assistée — à relire. Toutes les rubriques portent une information issue du document source.'}
                       </p>
                     ) : null}
+                    {activeGenDoc.templateKey === 'fill' ? (
+                      <p
+                        className={cn(
+                          'flex items-center gap-1.5 px-3 pt-2 text-xs italic',
+                          fillMissingCount > 0 ? 'text-amber-700' : 'text-emerald-700',
+                        )}
+                      >
+                        <ClipboardList className="size-3.5 shrink-0" />
+                        {fillMissingCount > 0
+                          ? `Template officiel — ${fillMissingCount} zone(s) [À COMPLÉTER] restante(s). Les titres du template sont verrouillés ; Regafy vérifie la conformité à chaque enregistrement.`
+                          : 'Template officiel — toutes les zones sont complétées. Regafy vérifie la conformité à chaque enregistrement.'}
+                      </p>
+                    ) : null}
                     {activeUpgradeFinding && activeGenDoc.templateKey === 'translation' ? (
                       <div className="mx-3 mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-violet-300 bg-violet-50 px-3 py-2">
                         <span className="flex items-center gap-1.5 text-xs font-medium text-violet-800">
                           <Wand2 className="size-4 shrink-0" />
                           {activeUpgradeFinding.message}
                         </span>
-                        <Button
-                          size="sm"
-                          className="h-7 gap-1 bg-violet-500 text-white hover:bg-violet-600"
-                          disabled={upgrading === activeUpgradeFinding.pieceId}
-                          onClick={() => void handleUpgrade(activeUpgradeFinding)}
-                        >
-                          <Wand2 className="size-3.5" />
-                          {upgrading === activeUpgradeFinding.pieceId
-                            ? 'Mise en conformité…'
-                            : 'Upgrader'}
-                        </Button>
+                        <span className="flex flex-wrap gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 gap-1 border-violet-400 text-violet-700 hover:bg-violet-100"
+                            onClick={() => selected && void handleFillTemplate(selected)}
+                          >
+                            <ClipboardList className="size-3.5" />
+                            Remplir le template
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="h-7 gap-1 bg-violet-500 text-white hover:bg-violet-600"
+                            disabled={upgrading === activeUpgradeFinding.pieceId}
+                            onClick={() => void handleUpgrade(activeUpgradeFinding)}
+                          >
+                            <Wand2 className="size-3.5" />
+                            {upgrading === activeUpgradeFinding.pieceId
+                              ? 'Mise en conformité…'
+                              : 'Générer'}
+                          </Button>
+                        </span>
                       </div>
                     ) : null}
                     {upgrading === activeGenDoc.id && streamText !== null ? (
@@ -978,17 +1060,28 @@ export function DossierWorkspacePage() {
                           <Wand2 className="size-4 shrink-0" />
                           {activeUpgradeFinding.message}
                         </span>
-                        <Button
-                          size="sm"
-                          className="h-7 gap-1 bg-violet-500 text-white hover:bg-violet-600"
-                          disabled={upgrading === activeUpgradeFinding.pieceId}
-                          onClick={() => void handleUpgrade(activeUpgradeFinding)}
-                        >
-                          <Wand2 className="size-3.5" />
-                          {upgrading === activeUpgradeFinding.pieceId
-                            ? 'Mise en conformité…'
-                            : 'Upgrader'}
-                        </Button>
+                        <span className="flex flex-wrap gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 gap-1 border-violet-400 text-violet-700 hover:bg-violet-100"
+                            onClick={() => selected && void handleFillTemplate(selected)}
+                          >
+                            <ClipboardList className="size-3.5" />
+                            Remplir le template
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="h-7 gap-1 bg-violet-500 text-white hover:bg-violet-600"
+                            disabled={upgrading === activeUpgradeFinding.pieceId}
+                            onClick={() => void handleUpgrade(activeUpgradeFinding)}
+                          >
+                            <Wand2 className="size-3.5" />
+                            {upgrading === activeUpgradeFinding.pieceId
+                              ? 'Mise en conformité…'
+                              : 'Générer'}
+                          </Button>
+                        </span>
                       </div>
                     ) : null}
                     {translating === active.id && streamText !== null ? (
@@ -1017,6 +1110,22 @@ export function DossierWorkspacePage() {
                     </p>
                     <Button className="mt-3" size="sm" onClick={() => void handleGenerate()}>
                       <Sparkles className="size-4" /> Générer
+                    </Button>
+                  </div>
+                ) : canFillSelected ? (
+                  <div className="flex min-h-[24rem] flex-col items-center justify-center rounded-lg border border-dashed p-4 text-center">
+                    <ClipboardList className="text-primary mb-2 size-8" />
+                    <p className="text-sm font-medium">Template officiel disponible</p>
+                    <p className="text-muted-foreground mt-1 max-w-sm text-xs">
+                      Remplissez le template en vigueur (structure verrouillée, conformité vérifiée
+                      par Regafy à chaque enregistrement), ou téléversez un document.
+                    </p>
+                    <Button
+                      className="mt-3"
+                      size="sm"
+                      onClick={() => selected && void handleFillTemplate(selected)}
+                    >
+                      <ClipboardList className="size-4" /> Remplir le template
                     </Button>
                   </div>
                 ) : (
@@ -1050,6 +1159,10 @@ export function DossierWorkspacePage() {
           onSelectNode={handleSelectNode}
           onTranslate={(f) => void handleTranslate(f)}
           onUpgrade={(f) => void handleUpgrade(f)}
+          onFillTemplate={(f) => {
+            const n = flatNodes.find((x) => x.number === f.nodeNumber)
+            if (n) void handleFillTemplate(n)
+          }}
         />
       </div>
 

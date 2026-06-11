@@ -83,6 +83,13 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),
+      // Specs de conformité des templates réglementaires : SOURCE UNIQUE partagée avec les
+      // Edge Functions (TS pur, sans API Deno) — le front génère les squelettes « Remplir le
+      // template » depuis les mêmes rubriques que les constats de l'Edge.
+      '@specs': path.resolve(
+        import.meta.dirname,
+        '../supabase/functions/_shared/conformity-specs.ts',
+      ),
     },
   },
   test: {
