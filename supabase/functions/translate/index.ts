@@ -4,15 +4,13 @@
 // Contrat sécurité (ADR 0002) : JWT Supabase vérifié, Storage via le JWT appelant (RLS), no-train.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
+import { corsHeaders, isAllowedOrigin } from '../_shared/cors.ts'
+import { logJson, newReqId, userHash } from '../_shared/log.ts'
 import { generateParts, type Part } from '../_shared/vertex.ts'
 
-const CORS: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
 const MAX_FILE_BYTES = 12 * 1024 * 1024
+// Traduction multimodale d'un PDF complet : l'appel Vertex le plus long de l'app.
+const TRANSLATE_TIMEOUT_MS = 90_000
 const STORAGE_BUCKET = 'documents'
 const LANG_NAMES: Record<string, string> = {
   fr: 'français',
@@ -22,13 +20,6 @@ const LANG_NAMES: Record<string, string> = {
   de: 'allemand',
   it: 'italien',
   ar: 'arabe',
-}
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS, 'content-type': 'application/json' },
-  })
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -49,7 +40,20 @@ function mimeFor(fileName: string): string {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  const origin = req.headers.get('origin')
+  const reqId = newReqId()
+  if (!isAllowedOrigin(origin)) {
+    logJson({ fn: 'translate', reqId, op: 'cors', status: 'forbidden' })
+    return new Response('origine non autorisée', { status: 403 })
+  }
+  const cors = corsHeaders(origin)
+  const json = (body: unknown, status = 200): Response =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, 'content-type': 'application/json', 'x-request-id': reqId },
+    })
+
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'méthode non autorisée' }, 405)
 
   // Auth — JWT Supabase de l'appelant.
@@ -63,7 +67,11 @@ Deno.serve(async (req: Request) => {
     data: { user },
     error: authErr,
   } = await supabase.auth.getUser()
-  if (authErr || !user) return json({ error: 'non authentifié' }, 401)
+  if (authErr || !user) {
+    logJson({ fn: 'translate', reqId, op: 'auth', status: 'unauthorized' })
+    return json({ error: 'non authentifié' }, 401)
+  }
+  const log = { fn: 'translate', reqId, user: await userHash(user.id) }
 
   // Entrée.
   let raw: unknown
@@ -105,13 +113,26 @@ Deno.serve(async (req: Request) => {
     { inlineData: { mimeType: mimeFor(b.fileName ?? 'document'), data: bytesToBase64(buf) } },
   ]
 
+  const started = Date.now()
+  logJson({ ...log, op: 'start', bytes: buf.byteLength, docType, target: b.targetLang || 'fr' })
   let text: string
   try {
-    text = await generateParts(parts, { system, maxOutputTokens: 8192, temperature: 0.1 })
+    text = await generateParts(parts, {
+      system,
+      maxOutputTokens: 8192,
+      temperature: 0.1,
+      timeoutMs: TRANSLATE_TIMEOUT_MS,
+    })
   } catch (e) {
-    return json({ error: 'traduction indisponible', detail: String((e as Error).message).slice(0, 300) }, 502)
+    const err = String((e as Error).message).slice(0, 300)
+    logJson({ ...log, op: 'translate', ms: Date.now() - started, status: 'error', err })
+    return json({ error: 'traduction indisponible', detail: err }, 502)
   }
-  if (!text.trim()) return json({ error: 'traduction vide' }, 502)
+  if (!text.trim()) {
+    logJson({ ...log, op: 'translate', ms: Date.now() - started, status: 'empty' })
+    return json({ error: 'traduction vide' }, 502)
+  }
 
+  logJson({ ...log, op: 'translate', ms: Date.now() - started, status: 'ok', chars: text.length })
   return json({ text, targetLang: b.targetLang || 'fr' })
 })
