@@ -1,23 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { JSONContent } from '@tiptap/core'
-import {
-  ArrowLeft,
-  CheckCircle2,
-  FileDown,
-  FileText,
-  Languages,
-  PanelLeftClose,
-  PanelLeftOpen,
-  PanelRightClose,
-  PanelRightOpen,
-  Save,
-  Settings2,
-  Sparkles,
-  Upload,
-  X,
-  XCircle,
-} from 'lucide-react'
+import { ArrowLeft, FileDown, FileText, Languages, Save, Sparkles, Upload, X } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -34,18 +18,22 @@ import {
   setUserSignature,
 } from '@/features/profile/pro-settings-repository'
 import { useProSettingsSync } from '@/features/profile/use-pro-settings-sync'
-import {
-  db,
-  type DocumentRecord,
-  type DossierAttachmentRecord,
-  type GeneratedDocRecord,
-} from '@/lib/db'
+import { db, type DossierAttachmentRecord, type GeneratedDocRecord } from '@/lib/db'
 import { UPLOAD_ACCEPT } from '@/lib/files'
 import { cn } from '@/lib/utils'
-import { ArborescenceTree } from './ArborescenceTree'
 import { extractCity } from './city'
 import { formatComposition } from './composition'
 import { countryLabel } from './dossier-constants'
+import {
+  attachmentsForNode,
+  buildDocsByNode,
+  buildViewables,
+  completionStats,
+  docsForNode,
+  genDocsForNode,
+  nextLeafAfter,
+  type Viewable,
+} from './dossier-selectors'
 import {
   addAttachment,
   deleteAttachment,
@@ -66,13 +54,7 @@ import { syncGeneratedDocs } from './generated-docs-sync'
 import { useDossierAttachmentsSync } from './use-dossier-attachments-sync'
 import { useDossierSync } from './use-dossier-sync'
 import { useGeneratedDocsSync } from './use-generated-docs-sync'
-import {
-  getModule1Tree,
-  nodeForDocType,
-  resolveExistingNode,
-  treeNodeNumbers,
-  type CtdNodeDef,
-} from './module1-tree'
+import { getModule1Tree, type CtdNodeDef } from './module1-tree'
 import { agencyCivilite, agencyFor, officialLanguage } from './roadmap-data'
 import { PdfPreviewDialog } from './PdfPreviewDialog'
 import { runRegafy, type RegafyFinding } from './regafy'
@@ -83,10 +65,11 @@ import { TEMPLATES, templateKeyForNode, type TemplateContext } from './templates
 import { flattenTree, isTreeOutdated, mergeDefaultTree, setNodeSaved } from './tree-utils'
 import { useDebouncedDocSave } from './use-debounced-doc-save'
 import { useRegafyCopilot } from './use-regafy-copilot'
-import { Donut } from './components/Donut'
+import { CompletionPanel } from './components/CompletionPanel'
 import { InlineDocPreview } from './components/InlineDocPreview'
 import { RegafyGateDialog } from './components/RegafyGateDialog'
 import { FormatToolbar, ToolbarBtn } from './components/toolbar'
+import { TreePanel } from './components/TreePanel'
 import { downloadDoc, slugify, triggerDownload } from './download-utils'
 
 export function DossierWorkspacePage() {
@@ -148,23 +131,7 @@ export function DossierWorkspacePage() {
   const didAutoSelect = useRef(false)
   const setHeaderSlot = useHeaderSlot()
 
-  const docsByNode = useMemo(() => {
-    const map = new Map<string, DocumentRecord[]>()
-    if (!dossier) return map
-    const excluded = new Set(dossier.excludedDocIds ?? [])
-    const numbers = treeNodeNumbers(dossier.tree)
-    for (const d of docs ?? []) {
-      if (excluded.has(d.id)) continue
-      // Repli sur l'ancêtre existant si la sous-section détaillée n'est pas dans l'arbre du dossier
-      // → un COPP/FSC/… auto-classé reste toujours visible (et compilable).
-      const node = resolveExistingNode(
-        numbers,
-        nodeForDocType(dossier.format, d.docType, d.category),
-      )
-      map.set(node, [...(map.get(node) ?? []), d])
-    }
-    return map
-  }, [docs, dossier])
+  const docsByNode = useMemo(() => buildDocsByNode(dossier, docs), [docs, dossier])
 
   const genByNode = useMemo(() => {
     const map = new Map<string, GeneratedDocRecord>()
@@ -323,39 +290,11 @@ export function DossierWorkspacePage() {
     [],
   )
 
-  function docsFor(node: CtdNodeDef): DocumentRecord[] {
-    const out: DocumentRecord[] = []
-    for (const [n, list] of docsByNode) {
-      if (n === node.number || (node.number !== '' && n.startsWith(`${node.number}.`))) {
-        out.push(...list)
-      }
-    }
-    return out
-  }
-
-  function genDocsFor(node: CtdNodeDef): GeneratedDocRecord[] {
-    const out: GeneratedDocRecord[] = []
-    for (const [n, g] of genByNode) {
-      if (n === node.number || (node.number !== '' && n.startsWith(`${node.number}.`))) {
-        out.push(g)
-      }
-    }
-    return out
-  }
-
-  function attachmentsFor(node: CtdNodeDef): DossierAttachmentRecord[] {
-    const out: DossierAttachmentRecord[] = []
-    for (const [n, list] of attachByNode) {
-      if (n === node.number || (node.number !== '' && n.startsWith(`${node.number}.`))) {
-        out.push(...list)
-      }
-    }
-    return out
-  }
-
-  function countFor(node: CtdNodeDef): number {
-    return docsFor(node).length + genDocsFor(node).length + attachmentsFor(node).length
-  }
+  const docsFor = (node: CtdNodeDef) => docsForNode(docsByNode, node)
+  const genDocsFor = (node: CtdNodeDef) => genDocsForNode(genByNode, node)
+  const attachmentsFor = (node: CtdNodeDef) => attachmentsForNode(attachByNode, node)
+  const countFor = (node: CtdNodeDef) =>
+    docsFor(node).length + genDocsFor(node).length + attachmentsFor(node).length
 
   async function handleTreeChange(tree: CtdNodeDef[]) {
     if (dossierId) await updateDossierTree(dossierId, tree)
@@ -404,51 +343,13 @@ export function DossierWorkspacePage() {
 
   // Documents visualisables du nœud : lettre générée + pièces jointes + documents produit.
   // Aperçu in-place automatique du 1er (ou de l'onglet choisi), même cadre que la lettre.
-  type Viewable =
-    | { key: string; kind: 'letter'; label: string; isTranslation?: boolean }
-    | {
-        key: string
-        kind: 'attachment' | 'doc'
-        label: string
-        id: string
-        filePath: string | null
-        fileName: string
-      }
-  const viewables: Viewable[] = []
-  if (selectedGenDoc) {
-    const isTranslation = selectedGenDoc.templateKey === 'translation'
-    // Onglet façon navigateur : « <nom de l'original>_<LANG>.docx » pour une traduction.
-    const transBase = (translationSourceDoc?.fileName ?? selectedGenDoc.title).replace(
-      /\.[^.]+$/,
-      '',
-    )
-    viewables.push({
-      key: `letter:${selectedGenDoc.id}`,
-      kind: 'letter',
-      label: isTranslation ? `${transBase}_${targetLangLabel}.docx` : selectedGenDoc.title,
-      isTranslation,
-    })
-  }
-  for (const a of selectedAttachments) {
-    viewables.push({
-      key: `att:${a.id}`,
-      kind: 'attachment',
-      label: a.fileName,
-      id: a.id,
-      filePath: a.filePath,
-      fileName: a.fileName,
-    })
-  }
-  for (const d of selectedDocs) {
-    viewables.push({
-      key: `doc:${d.id}`,
-      kind: 'doc',
-      label: d.fileName,
-      id: d.id,
-      filePath: d.filePath,
-      fileName: d.fileName,
-    })
-  }
+  const viewables = buildViewables({
+    selectedGenDoc,
+    selectedAttachments,
+    selectedDocs,
+    translationSourceDoc,
+    targetLangLabel,
+  })
   const activeKey =
     pickedKey && viewables.some((v) => v.key === pickedKey)
       ? pickedKey
@@ -465,10 +366,7 @@ export function DossierWorkspacePage() {
       ? allFindings.find((f) => f.pieceId === active.id && f.translate)
       : undefined
 
-  const leaves = flatNodes.filter((n) => !n.children?.length)
-  const filledLeaves = leaves.filter((n) => countFor(n) > 0)
-  const pct = leaves.length ? Math.round((filledLeaves.length / leaves.length) * 100) : 0
-  const okCount = filledLeaves.length
+  const { okCount, pct } = completionStats(flatNodes, countFor)
   const warnCount = findings.filter((f) => f.severity === 'warning').length
   const errCount = findings.filter((f) => f.severity === 'error').length
 
@@ -614,15 +512,6 @@ export function DossierWorkspacePage() {
     setSigPanelOpen(false)
   }
 
-  function nextLeafAfter(node: CtdNodeDef): CtdNodeDef | null {
-    const idx = flatNodes.findIndex((n) => n.id === node.id)
-    for (let i = idx + 1; i < flatNodes.length; i++) {
-      const n = flatNodes[i]
-      if (n && !n.children?.length) return n
-    }
-    return null
-  }
-
   async function handleSaveNode() {
     if (!selected) return
     flushSave()
@@ -632,7 +521,7 @@ export function DossierWorkspacePage() {
       void syncDossiers(orgId)
     }
     toast.success('Section enregistrée')
-    const next = nextLeafAfter(selected)
+    const next = nextLeafAfter(flatNodes, selected)
     if (next) handleSelectNode(next)
   }
 
@@ -799,89 +688,20 @@ export function DossierWorkspacePage() {
       </div>
 
       <div className="flex items-start gap-3">
-        {/* Panneau gauche : arborescence */}
-        {collapsed ? (
-          <div className="bg-card sticky top-12 flex max-h-[calc(100svh-9rem)] w-14 shrink-0 flex-col items-center gap-1.5 overflow-auto rounded-lg border py-2">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Déplier l'arborescence"
-              onClick={() => setCollapsed(false)}
-            >
-              <PanelLeftOpen className="size-4" />
-            </Button>
-            {flatNodes.map((n) => (
-              <button
-                key={n.id ?? n.number}
-                type="button"
-                title={`${n.number} ${n.label}`}
-                onClick={() => handleSelectNode(n)}
-                className={cn(
-                  'flex size-9 shrink-0 items-center justify-center rounded-full border text-[10px] font-medium tabular-nums',
-                  selected?.id === n.id
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-accent',
-                )}
-              >
-                {n.number || '•'}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <aside className="bg-card sticky top-12 flex max-h-[calc(100svh-9rem)] w-72 shrink-0 flex-col overflow-hidden rounded-lg border">
-            <div className="flex items-start justify-between border-b p-3">
-              <div>
-                <div className="text-sm font-semibold">Arborescence</div>
-                <div className="text-muted-foreground text-xs">Séquence 0001</div>
-              </div>
-              <span className="flex items-center">
-                <Button
-                  variant={treeEditing ? 'secondary' : 'ghost'}
-                  size="icon-sm"
-                  aria-label="Éditer l'arborescence"
-                  onClick={() => setTreeEditing(!treeEditing)}
-                >
-                  <Settings2 className="size-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Replier le panneau"
-                  onClick={() => setCollapsed(true)}
-                >
-                  <PanelLeftClose className="size-4" />
-                </Button>
-              </span>
-            </div>
-            {structureOutdated ? (
-              <button
-                type="button"
-                onClick={() => void handleUpdateStructure()}
-                className="border-b bg-amber-50 px-3 py-2 text-left text-xs text-amber-800 hover:bg-amber-100"
-              >
-                Nouvelle structure disponible — Mettre à jour
-              </button>
-            ) : null}
-            <div className="min-h-0 flex-1 overflow-auto p-2">
-              <div className="text-muted-foreground px-1 pb-1 text-[11px] font-semibold tracking-wide">
-                MODULE 1 — ADMINISTRATIF
-              </div>
-              <ArborescenceTree
-                tree={dossier.tree}
-                selectedId={selected?.id ?? null}
-                onSelect={handleSelectNode}
-                docCount={(node) => countFor(node)}
-                editing={treeEditing}
-                onChange={handleTreeChange}
-              />
-            </div>
-            {treeEditing ? (
-              <p className="text-muted-foreground border-t p-2 text-xs">
-                Mode édition : renommez, repositionnez (▲▼), ajoutez ou supprimez des sections.
-              </p>
-            ) : null}
-          </aside>
-        )}
+        <TreePanel
+          collapsed={collapsed}
+          setCollapsed={setCollapsed}
+          treeEditing={treeEditing}
+          setTreeEditing={setTreeEditing}
+          structureOutdated={structureOutdated}
+          onUpdateStructure={() => void handleUpdateStructure()}
+          tree={dossier.tree}
+          flatNodes={flatNodes}
+          selected={selected}
+          onSelectNode={handleSelectNode}
+          countFor={countFor}
+          onTreeChange={(tree) => void handleTreeChange(tree)}
+        />
 
         {/* Colonne centrale : contenu A4 qui défile (les toolbars sont dans le bandeau du haut). */}
         <div className="min-w-0 flex-1">
@@ -1075,110 +895,21 @@ export function DossierWorkspacePage() {
           )}
         </div>
 
-        {/* Panneau droit : complétude & remarques — figé (sticky) */}
-        {rightCollapsed ? (
-          <div className="bg-card sticky top-12 hidden max-h-[calc(100svh-9rem)] w-14 shrink-0 flex-col items-center gap-3 overflow-auto rounded-lg border py-3 lg:flex">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Afficher la complétude"
-              onClick={() => setRightCollapsed(false)}
-            >
-              <PanelRightOpen className="size-4" />
-            </Button>
-            <Donut value={pct} size={44} />
-            <div className="flex items-center gap-1 text-xs text-emerald-600">
-              <CheckCircle2 className="size-4" /> {okCount}
-            </div>
-            <div className="flex items-center gap-1 text-xs text-amber-600">
-              <span className="text-sm leading-none">⚠</span> {warnCount}
-            </div>
-            <div className="flex items-center gap-1 text-xs text-red-600">
-              <XCircle className="size-4" /> {errCount}
-            </div>
-          </div>
-        ) : (
-          <aside className="sticky top-12 hidden max-h-[calc(100svh-9rem)] w-72 shrink-0 flex-col gap-3 overflow-auto pb-2 lg:flex">
-            <div className="flex flex-col items-center rounded-lg border p-4">
-              <div className="flex w-full items-center justify-between">
-                <span className="text-sm font-medium">État d'avancement</span>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Replier"
-                  onClick={() => setRightCollapsed(true)}
-                >
-                  <PanelRightClose className="size-4" />
-                </Button>
-              </div>
-              <Donut value={pct} size={96} />
-              <p className="text-muted-foreground mt-1 text-xs">Conformité UEMOA en direct</p>
-            </div>
-            <div className="rounded-lg border p-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium">Remarques pour la session</h3>
-                <span className="text-muted-foreground text-xs">{allFindings.length}</span>
-              </div>
-              {aiBusy ? (
-                <p className="text-muted-foreground mt-1 flex items-center justify-center gap-1.5 text-xs italic">
-                  <Sparkles className="size-3 animate-pulse" /> Analyse en cours…
-                </p>
-              ) : null}
-              {allFindings.length === 0 ? (
-                <p className="text-muted-foreground mt-3 text-center text-xs italic">
-                  Aucun constat. ✓
-                </p>
-              ) : (
-                <ul className="mt-2 space-y-1.5">
-                  {allFindings.map((f) => (
-                    <li key={f.id}>
-                      <button
-                        type="button"
-                        disabled={!f.nodeNumber}
-                        onClick={() => {
-                          const n = flatNodes.find((x) => x.number === f.nodeNumber)
-                          if (n) handleSelectNode(n)
-                        }}
-                        className="hover:bg-accent flex w-full items-start gap-2 rounded p-1 text-left text-xs disabled:cursor-default disabled:hover:bg-transparent"
-                      >
-                        <span
-                          className={cn(
-                            'mt-1 size-2 shrink-0 rounded-full',
-                            f.severity === 'error'
-                              ? 'bg-red-500'
-                              : f.severity === 'warning'
-                                ? 'bg-amber-500'
-                                : 'bg-sky-500',
-                          )}
-                        />
-                        <span className="min-w-0">
-                          {f.nodeNumber ? (
-                            <span className="font-medium">{f.nodeNumber} </span>
-                          ) : null}
-                          {f.message}
-                        </span>
-                      </button>
-                      {f.translate && f.pieceId ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-1 ml-4 h-6 gap-1 border-amber-400 text-amber-700 hover:bg-amber-50"
-                          disabled={translating === f.pieceId}
-                          onClick={() => void handleTranslate(f)}
-                        >
-                          <Languages className="size-3" />
-                          {translating === f.pieceId
-                            ? 'Traduction…'
-                            : `Traduire en ${targetLangLabel}`}
-                        </Button>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </aside>
-        )}
+        <CompletionPanel
+          collapsed={rightCollapsed}
+          setCollapsed={setRightCollapsed}
+          pct={pct}
+          okCount={okCount}
+          warnCount={warnCount}
+          errCount={errCount}
+          allFindings={allFindings}
+          aiBusy={aiBusy}
+          translating={translating}
+          targetLangLabel={targetLangLabel}
+          flatNodes={flatNodes}
+          onSelectNode={handleSelectNode}
+          onTranslate={(f) => void handleTranslate(f)}
+        />
       </div>
 
       {/* Pied de page de l'app — marge de bas (rien n'est collé au pied de page). */}

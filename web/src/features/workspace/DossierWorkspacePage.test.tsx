@@ -154,7 +154,9 @@ describe('DossierWorkspacePage — caractérisation (avant refactor T7)', () => 
     // Messages exacts de regafy.ts (déterministes, IA inactive en mode local).
     expect(await screen.findByText(/Validité < 6 mois requise \(expire le /)).toBeInTheDocument()
     expect(
-      await screen.findByText(/Titulaire ≠ fabricant : contrat \(licence\/fabrication\) non fourni\./),
+      await screen.findByText(
+        /Titulaire ≠ fabricant : contrat \(licence\/fabrication\) non fourni\./,
+      ),
     ).toBeInTheDocument()
     // Le donut affiche un pourcentage calculé (feuilles remplies / feuilles).
     const donut = await screen.findAllByRole('img', { name: /%$/ })
