@@ -69,6 +69,7 @@ import { CompletionPanel } from './components/CompletionPanel'
 import { InlineDocPreview } from './components/InlineDocPreview'
 import { RegafyGateDialog } from './components/RegafyGateDialog'
 import { FormatToolbar, ToolbarBtn } from './components/toolbar'
+import { TranslationProgress } from './components/TranslationProgress'
 import { TreePanel } from './components/TreePanel'
 import { downloadDoc, slugify, triggerDownload } from './download-utils'
 
@@ -172,7 +173,7 @@ export function DossierWorkspacePage() {
   }, [])
 
   // Copilote Regafy IA : validité des pièces, conformité des lettres, traduction (T7.2).
-  const { aiFindings, translatedSourceIds, aiBusy, translating, handleTranslate } =
+  const { aiFindings, translatedSourceIds, aiBusy, translating, streamText, handleTranslate } =
     useRegafyCopilot({
       dossierId,
       dossier,
@@ -868,6 +869,9 @@ export function DossierWorkspacePage() {
                             : `Traduire en ${targetLangLabel}`}
                         </Button>
                       </div>
+                    ) : null}
+                    {translating === active.id && streamText !== null ? (
+                      <TranslationProgress text={streamText} />
                     ) : null}
                     <InlineDocPreview
                       key={active.key}

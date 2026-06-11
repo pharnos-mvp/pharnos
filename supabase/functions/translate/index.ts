@@ -6,7 +6,8 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 
 import { corsHeaders, isAllowedOrigin } from '../_shared/cors.ts'
 import { logJson, newReqId, userHash } from '../_shared/log.ts'
-import { generateParts, type Part } from '../_shared/vertex.ts'
+import { vertexSseToSimple } from '../_shared/sse.ts'
+import { generateParts, streamParts, type Part } from '../_shared/vertex.ts'
 
 const MAX_FILE_BYTES = 12 * 1024 * 1024
 // Traduction multimodale d'un PDF complet : l'appel Vertex le plus long de l'app.
@@ -85,6 +86,8 @@ Deno.serve(async (req: Request) => {
     fileName?: string
     docType?: string
     targetLang?: string
+    /** true → réponse SSE au fil de l'eau ; absent → JSON (compat front antérieur). */
+    stream?: boolean
   }
   if (!b.filePath) return json({ error: 'filePath requis' }, 400)
   const targetName = LANG_NAMES[(b.targetLang || 'fr').toLowerCase().slice(0, 2)] ?? 'français'
@@ -114,7 +117,44 @@ Deno.serve(async (req: Request) => {
   ]
 
   const started = Date.now()
-  logJson({ ...log, op: 'start', bytes: buf.byteLength, docType, target: b.targetLang || 'fr' })
+  logJson({
+    ...log,
+    op: 'start',
+    bytes: buf.byteLength,
+    docType,
+    target: b.targetLang || 'fr',
+    stream: b.stream === true,
+  })
+
+  // Mode STREAMING (opt-in par le client) : SSE simple `data: {"text":"…"}` puis `data: [DONE]`.
+  // Premier texte à l'écran en ~2 s au lieu d'attendre la traduction complète — terrain bas débit.
+  if (b.stream === true) {
+    try {
+      const vertexRes = await streamParts(parts, {
+        system,
+        maxOutputTokens: 8192,
+        temperature: 0.1,
+        timeoutMs: 180_000,
+      })
+      const out = vertexSseToSimple(vertexRes.body!, (chars) =>
+        logJson({ ...log, op: 'translate', ms: Date.now() - started, status: 'ok', chars }),
+      )
+      return new Response(out, {
+        status: 200,
+        headers: {
+          ...cors,
+          'content-type': 'text/event-stream',
+          'cache-control': 'no-cache',
+          'x-request-id': reqId,
+        },
+      })
+    } catch (e) {
+      const err = String((e as Error).message).slice(0, 300)
+      logJson({ ...log, op: 'translate', ms: Date.now() - started, status: 'error', err })
+      return json({ error: 'traduction indisponible', detail: err }, 502)
+    }
+  }
+
   let text: string
   try {
     text = await generateParts(parts, {
