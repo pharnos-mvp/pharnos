@@ -6,6 +6,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 
 import { corsHeaders, isAllowedOrigin } from '../_shared/cors.ts'
 import { logJson, newReqId, userHash } from '../_shared/log.ts'
+import { buildTranslateSystem } from '../_shared/pharma-glossary.ts'
 import { vertexSseToSimple } from '../_shared/sse.ts'
 import { generateParts, streamParts, type Part } from '../_shared/vertex.ts'
 
@@ -101,12 +102,10 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'document illisible ou trop volumineux' }, 422)
   }
 
-  const system =
-    'Tu es un traducteur professionnel spécialisé en affaires réglementaires pharmaceutiques ' +
-    `(UEMOA/CEDEAO). Tu traduis fidèlement le document vers le ${targetName}, en utilisant la ` +
-    'terminologie médicale STANDARDISÉE MedDRA pour les termes médicaux (effets indésirables, ' +
-    'pathologies, classes d\'organes…). Conserve la structure (titres, sections, listes, tableaux ' +
-    'rendus en texte). Traduis INTÉGRALEMENT : ne résume pas, ne commente pas, n\'ajoute rien.'
+  // Traduction Pro (U2) : terminologie verrouillée (SOC/fréquences MedDRA, formes/voies EDQM,
+  // formules réglementaires) + titres de rubriques officiels FR du template quand le type de
+  // document est couvert (rcp/notice/labeling/cover/pght) — source : _shared/pharma-glossary.ts.
+  const system = buildTranslateSystem(docType, b.targetLang || 'fr', targetName)
   const parts: Part[] = [
     {
       text:
