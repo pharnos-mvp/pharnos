@@ -32,6 +32,10 @@ const BODY_SIZE = 12
 const LINE = 1.45
 const GRAY = rgb(0.45, 0.45, 0.45)
 const BLACK = rgb(0, 0, 0)
+// Branding des formulaires de templates (identique aux exports form-print/form-docx).
+const NAVY = rgb(38 / 255, 63 / 255, 115 / 255)
+const BAND_FILL = rgb(217 / 255, 217 / 255, 217 / 255)
+const BAND_BORDER = rgb(128 / 255, 128 / 255, 128 / 255)
 
 export interface CompilePiece {
   bytes: Uint8Array
@@ -157,13 +161,38 @@ function wrap(runs: Run[], fonts: Fonts, size: number, maxWidth: number): Run[][
   return lines.length > 0 ? lines : [[]]
 }
 
-function drawRuns(c: Cursor, runs: Run[], size: number, indent: number, prefix?: string): void {
+interface RunStyle {
+  color?: ReturnType<typeof rgb>
+  /** Ligne centrée dans la zone de contenu (titres officiels des formulaires). */
+  center?: boolean
+  /** Filet sous le texte (sous-sous-titres des formulaires — niveau 4). */
+  underline?: boolean
+}
+
+function drawRuns(
+  c: Cursor,
+  runs: Run[],
+  size: number,
+  indent: number,
+  prefix?: string,
+  style: RunStyle = {},
+): void {
   const lh = lineHeight(size)
+  const color = style.color ?? BLACK
   const lines = wrap(runs, c.fonts, size, CONTENT_WIDTH - indent)
   lines.forEach((line, i) => {
     if (c.y - lh < c.bottom) newPage(c)
-    // Texte toujours aligné à gauche ; `indent` décale le bloc (puces, ou bloc décalé date/destinataire).
-    let x = MARGIN + indent
+    const lineWidth = line.reduce(
+      (wsum, run) =>
+        wsum +
+        (run.bold ? c.fonts.bold : c.fonts.regular).widthOfTextAtSize(sanitize(run.text), size),
+      0,
+    )
+    // Texte aligné à gauche ; `indent` décale le bloc ; `center` centre la ligne (titres).
+    const x0 = style.center
+      ? MARGIN + indent + Math.max(0, (CONTENT_WIDTH - indent - lineWidth) / 2)
+      : MARGIN + indent
+    let x = x0
     if (i === 0 && prefix) {
       c.page.drawText(sanitize(prefix), {
         x: MARGIN + indent - 14,
@@ -176,11 +205,50 @@ function drawRuns(c: Cursor, runs: Run[], size: number, indent: number, prefix?:
     for (const run of line) {
       const font = run.bold ? c.fonts.bold : c.fonts.regular
       const t = sanitize(run.text)
-      c.page.drawText(t, { x, y: c.y, size, font, color: BLACK })
+      c.page.drawText(t, { x, y: c.y, size, font, color })
       x += font.widthOfTextAtSize(t, size)
+    }
+    if (style.underline && lineWidth > 0) {
+      c.page.drawLine({
+        start: { x: x0, y: c.y - 1.5 },
+        end: { x: x0 + lineWidth, y: c.y - 1.5 },
+        thickness: 0.7,
+        color,
+      })
     }
     c.y -= lh
   })
+}
+
+/** Bandeau de rubrique du template Étiquetage : rectangle gris bordé, texte navy bold (wrap). */
+function drawBanner(c: Cursor, runs: Run[]): void {
+  const size = BODY_SIZE
+  const lh = lineHeight(size)
+  const boldRuns = runs.map((r) => ({ ...r, bold: true }))
+  const lines = wrap(boldRuns, c.fonts, size, CONTENT_WIDTH - 16)
+  const boxH = lines.length * lh + 8
+  if (c.y + size - boxH < c.bottom) newPage(c)
+  const top = c.y + size // du baseline courant vers le haut de la boîte
+  c.page.drawRectangle({
+    x: MARGIN,
+    y: top - boxH,
+    width: CONTENT_WIDTH,
+    height: boxH,
+    color: BAND_FILL,
+    borderColor: BAND_BORDER,
+    borderWidth: 0.6,
+  })
+  let baseline = top - 4 - size * 0.85
+  for (const line of lines) {
+    let x = MARGIN + 8
+    for (const run of line) {
+      const t = sanitize(run.text)
+      c.page.drawText(t, { x, y: baseline, size, font: c.fonts.bold, color: NAVY })
+      x += c.fonts.bold.widthOfTextAtSize(t, size)
+    }
+    baseline -= lh
+  }
+  c.y = top - boxH - 10
 }
 
 async function drawImage(c: Cursor, dataUrl: string, maxW = 180, indent = 0): Promise<void> {
@@ -245,10 +313,34 @@ function blockIndent(block: JSONContent): number {
   return block.attrs?.textAlign === 'right' ? RIGHT_BLOCK_INDENT : 0
 }
 
-async function renderTiptap(c: Cursor, content: JSONContent): Promise<void> {
+/**
+ * Rendu d'un contenu TipTap. `styled` (formulaires de templates — `templateKey: 'fill'`) :
+ * hiérarchie IDENTIQUE aux exports form-print/form-docx — titre (niveau 1) centré navy bold,
+ * bandeaux gris (attrs.banner), niveaux 2-3 navy bold, niveau 4 noir bold souligné.
+ */
+async function renderTiptap(c: Cursor, content: JSONContent, styled = false): Promise<void> {
   for (const block of content.content ?? []) {
     switch (block.type) {
       case 'heading': {
+        if (styled) {
+          const runs = inlineRuns(block.content).map((r) => ({ ...r, bold: true }))
+          if (block.attrs?.banner === true) {
+            c.y -= 4
+            drawBanner(c, runs)
+            break
+          }
+          const level = Number(block.attrs?.level ?? 2)
+          c.y -= level === 1 ? 6 : 4
+          if (level === 1) {
+            drawRuns(c, runs, BODY_SIZE, 0, undefined, { color: NAVY, center: true })
+          } else if (level >= 4) {
+            drawRuns(c, runs, BODY_SIZE, 0, undefined, { underline: true })
+          } else {
+            drawRuns(c, runs, BODY_SIZE, 0, undefined, { color: NAVY })
+          }
+          c.y -= 4
+          break
+        }
         c.y -= 4
         drawRuns(c, inlineRuns(block.content), 14, blockIndent(block))
         for (const src of inlineImages(block.content))
@@ -892,7 +984,12 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
                 cursor.y = A4[1] - b.h - 14
               }
               if (letterFooter && isLetter) cursor.bottom = bandLayout(letterFooter).h + 14
-              await renderTiptap(cursor, generated.content as JSONContent)
+              // Formulaires de templates : rendu stylé (navy/bandeaux) = identique aux exports.
+              await renderTiptap(
+                cursor,
+                generated.content as JSONContent,
+                generated.templateKey === 'fill',
+              )
               if (letterFooter && isLetter) {
                 const b = bandLayout(letterFooter)
                 cursor.page.drawImage(letterFooter, { x: b.x, y: 0, width: b.w, height: b.h })

@@ -178,6 +178,17 @@ describe('compileDossier (compilation PDF)', () => {
     expect(multiPages).toBeGreaterThanOrEqual(basePages + 2)
   })
 
+  it('rendu STYLÉ des formulaires : Étiquetage (35 bandeaux gris, wrap multi-lignes) compile', async () => {
+    const { buildTemplateSkeleton } = await import('../template-fill')
+    const fill = gen('1.3.3', 'fill')
+    fill.content = buildTemplateSkeleton('labeling')!
+    const inp = input(true)
+    inp.contentByNumber.set('1.3.3', { generated: [fill], pieces: [] })
+    const doc = await PDFDocument.load(await compileDossier(inp))
+    // Titre + 3 parties + 35 bandeaux (dont des très longs → wrap) : plusieurs pages, zéro erreur.
+    expect(doc.getPageCount()).toBeGreaterThanOrEqual(6)
+  })
+
   it('en-tête/pied réservés aux LETTRES : un fill seul compile vierge sans erreur', async () => {
     const { buildTemplateSkeleton } = await import('../template-fill')
     const fill = gen('1.3.1', 'fill')
