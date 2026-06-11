@@ -9,7 +9,8 @@ import type { CtdNodeDef } from '../module1-tree'
  * Compilation du Module 1 en un PDF unique (M6).
  *
  * Ordre : (TDM tous modules) → pour chaque section : page de garde → pour chaque pièce : page
- * d'annonce → document(s) (lettre générée rendue en vecteur + pièces jointes/produit fusionnées).
+ * d'annonce → document(s) (documents générés rendus en vecteur — lettre, template rempli,
+ * traduction, version conforme : TOUS, chacun le sien — + pièces jointes/produit fusionnées).
  * Bandeau **en-tête/pied taille 10** tamponné **uniquement sur les pages de garde** (TDM, gardes de
  * section, pages d'annonce) — **jamais** sur les documents administratifs / générés / traduits, qui
  * restent vierges. Police Times New Roman (standard PDF, pas d'embarquement de police).
@@ -41,7 +42,8 @@ export interface CompilePiece {
 }
 
 export interface CompileNodeContent {
-  generated?: GeneratedDocRecord
+  /** Documents générés du nœud (lettre, template rempli, traduction, version conforme) — TOUS compilés. */
+  generated: GeneratedDocRecord[]
   pieces: CompilePiece[]
 }
 
@@ -294,6 +296,20 @@ async function renderTiptap(c: Cursor, content: JSONContent): Promise<void> {
         if (typeof block.attrs?.src === 'string') await drawImage(c, block.attrs.src as string)
         break
       }
+      case 'horizontalRule': {
+        // Filet noir pleine largeur (séparateur officiel — ex. formulaire RCP avant
+        // « CONDITIONS DE PRESCRIPTION ET DE DELIVRANCE »).
+        if (c.y - 14 < c.bottom) newPage(c)
+        c.y -= 8
+        c.page.drawLine({
+          start: { x: MARGIN, y: c.y },
+          end: { x: A4[0] - MARGIN, y: c.y },
+          thickness: 0.8,
+          color: BLACK,
+        })
+        c.y -= 10
+        break
+      }
       default:
         break
     }
@@ -528,7 +544,7 @@ export interface TdmEntry {
 
 function hasContent(node: CtdNodeDef, input: CompileInput): boolean {
   const c = input.contentByNumber.get(node.number)
-  if (c && (c.generated || c.pieces.length > 0)) return true
+  if (c && (c.generated.length > 0 || c.pieces.length > 0)) return true
   return (node.children ?? []).some((ch) => hasContent(ch, input))
 }
 
@@ -850,12 +866,15 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
         await walk(node.children ?? [], depth + 1)
       } else {
         const content = input.contentByNumber.get(node.number)
-        if (!content || (!content.generated && content.pieces.length === 0)) continue
+        if (!content || (content.generated.length === 0 && content.pieces.length === 0)) continue
         // Un document = une sous-section : page d'annonce dédiée + document sur ses propres pages
         // (jamais deux documents sur une même page).
         const items: { render: () => Promise<void> }[] = []
-        if (content.generated) {
-          const generated = content.generated
+        for (const generated of content.generated) {
+          // Papier à en-tête/pied : LETTRES uniquement (cover, PGHT…). Les templates remplis,
+          // traductions et versions conformes restent vierges — aligné sur l'éditeur, qui ne
+          // leur affiche pas le branding.
+          const isLetter = !['translation', 'upgrade', 'fill'].includes(generated.templateKey)
           items.push({
             render: async () => {
               const page = contentDoc.addPage(A4)
@@ -867,14 +886,14 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
                 fonts,
               }
               // Papier à en-tête en haut de la 1re page, pied en bas de la dernière — pleine largeur.
-              if (letterHeader) {
+              if (letterHeader && isLetter) {
                 const b = bandLayout(letterHeader)
                 page.drawImage(letterHeader, { x: b.x, y: A4[1] - b.h, width: b.w, height: b.h })
                 cursor.y = A4[1] - b.h - 14
               }
-              if (letterFooter) cursor.bottom = bandLayout(letterFooter).h + 14
+              if (letterFooter && isLetter) cursor.bottom = bandLayout(letterFooter).h + 14
               await renderTiptap(cursor, generated.content as JSONContent)
-              if (letterFooter) {
+              if (letterFooter && isLetter) {
                 const b = bandLayout(letterFooter)
                 cursor.page.drawImage(letterFooter, { x: b.x, y: 0, width: b.w, height: b.h })
               }
