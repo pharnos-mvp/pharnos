@@ -3,61 +3,10 @@
 // C'est la SOURCE DE VÉRITÉ du rendu, de l'export DOCX/PDF et de la persistance TipTap du
 // panneau « Remplir le template » pour les RCP. Les textes (titres officiels, mentions
 // statiques, options à cocher) sont VERBATIM — ne pas reformuler sans décision CEO.
+import { formatComposition } from '../composition'
+import type { FormBlock, TemplateFormDefinition } from './form-types'
 
-/** Bloc de structure (titres, mentions fixes, filet) — jamais saisissable. */
-export interface StaticBlock {
-  type: 'title' | 'sec' | 'sub' | 'subsub' | 'static' | 'rule'
-  text?: string
-}
-
-/** Champ d'une ligne (input), avec libellé inline optionnel (« Tél. : », « Code ATC : »…). */
-export interface LineBlock {
-  type: 'line'
-  key: string
-  label?: string
-  ph: string
-}
-
-/** Zone de texte multiligne (textarea auto-extensible). */
-export interface ParaBlock {
-  type: 'para'
-  key: string
-  ph: string
-}
-
-/** Durée de conservation : nombre + suffixe « mois » (rubrique 6.3). */
-export interface DureeBlock {
-  type: 'duree'
-  key: string
-  ph: string
-}
-
-/** Code ATC : input + case « non encore attribué » (rubrique 5.1). */
-export interface AtcBlock {
-  type: 'atc'
-  key: string
-  chkKey: string
-  label: string
-  ph: string
-  chkLabel: string
-}
-
-/** Groupe de mentions réglementaires à cocher (seules les cochées sont exportées). */
-export interface ChecksBlock {
-  type: 'checks'
-  key: string
-  options: string[]
-}
-
-export type RcpFormBlock = StaticBlock | LineBlock | ParaBlock | DureeBlock | AtcBlock | ChecksBlock
-
-/** Saisies du formulaire : valeurs texte par clé + indices cochés par groupe. */
-export interface RcpFormState {
-  values: Record<string, string>
-  checks: Record<string, number[]>
-}
-
-export const RCP_FORM_MODEL: RcpFormBlock[] = [
+export const RCP_FORM_MODEL: FormBlock[] = [
   { type: 'title', text: 'RESUME DES CARACTERISTIQUES DU PRODUIT' },
 
   { type: 'sec', text: '1.\tDENOMINATION DU MEDICAMENT' },
@@ -301,36 +250,20 @@ export const RCP_FORM_MODEL: RcpFormBlock[] = [
   },
 ]
 
-/** Titre d'un bloc structurel, tabulation officielle remplacée par 2 espaces (rendu écran/print). */
-export function blockHeadingText(text: string): string {
-  return text.replace('\t', '  ')
-}
-
-/** Nom de fichier d'export : « RCP_<dénomination> » (slug du gabarit CEO).
- *  Ici (module léger) et non dans rcp-form-docx : l'export PDF l'utilise sans tirer la lib docx. */
-export function rcpExportName(state: RcpFormState): string {
-  const d = (state.values.denomination ?? '').trim()
-  if (!d) return 'RCP'
-  return (
-    'RCP_' +
-    d
-      .replace(/[^\p{L}\p{N}]+/gu, '_')
-      .replace(/^_+|_+$/g, '')
-      .slice(0, 40)
-  )
-}
-
-/** État vide du formulaire (toutes les clés présentes — saisies et cases). */
-export function emptyRcpFormState(): RcpFormState {
-  const values: Record<string, string> = {}
-  const checks: Record<string, number[]> = {}
-  for (const b of RCP_FORM_MODEL) {
-    if (b.type === 'line' || b.type === 'para' || b.type === 'duree') values[b.key] = ''
-    if (b.type === 'atc') {
-      values[b.key] = ''
-      checks[b.chkKey] = []
-    }
-    if (b.type === 'checks') checks[b.key] = []
-  }
-  return { values, checks }
+/**
+ * Définition du formulaire RCP. Pré-remplissage STRICTEMENT limité à la session
+ * Identification de la fiche produit (dénomination, composition, forme) — tout le reste à
+ * l'utilisateur (exigence CEO).
+ */
+export const RCP_FORM_DEFINITION: TemplateFormDefinition = {
+  docType: 'rcp',
+  model: RCP_FORM_MODEL,
+  topbarTitle: 'Résumé des Caractéristiques du Produit',
+  slugPrefix: 'RCP',
+  slugKey: 'denomination',
+  prefill: (product) => ({
+    denomination: [product.nomCommercial, product.dosage, product.forme].filter(Boolean).join(', '),
+    composition: formatComposition(product.dci, product.dosage),
+    forme: product.forme ?? '',
+  }),
 }

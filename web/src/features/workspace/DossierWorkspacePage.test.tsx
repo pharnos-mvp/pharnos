@@ -1,10 +1,15 @@
 // Tests de CARACTÉRISATION du workspace (T7.0, PLAN-V2) — figent le comportement observable
 // AVANT le refactor (extractions de hooks/composants). Mode local (Supabase non configuré en
 // test) : syncs no-op, copilote IA inactif → comportement 100 % déterministe.
-import { render, screen } from '@testing-library/react'
+import { configure, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
+
+// Sous la charge d'une suite complète (workers parallèles), le premier rendu async de la page
+// (liveQuery Dexie + auto-sélection) peut dépasser la seconde par défaut des findBy* — sans
+// lien avec le comportement testé. Timeout élargi pour TOUT le fichier (anti-flaky).
+configure({ asyncUtilTimeout: 5000 })
 
 import { AuthContext, type AuthContextValue } from '@/features/auth/auth-context'
 import { OrgContext } from '@/features/org/org-context'

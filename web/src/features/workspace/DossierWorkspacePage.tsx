@@ -88,7 +88,9 @@ import { TreePanel } from './components/TreePanel'
 import { downloadDoc, slugify, triggerDownload } from './download-utils'
 import { UPGRADE_DOC_TYPES } from './regafy-ai'
 import { buildTemplateSkeleton, FILL_PLACEHOLDER } from './template-fill'
-import { countEmptyRcpFields, rcpFormStateFromContent } from './template-form/rcp-form-content'
+import { formStateFromContent } from './template-form/form-content'
+import { formDefinitionFor } from './template-form/form-definitions'
+import { countEmptyFields, formExportName } from './template-form/form-types'
 import { countMarker, countMissing } from './upgrade-doc'
 
 export function DossierWorkspacePage() {
@@ -457,12 +459,13 @@ export function DossierWorkspacePage() {
     : null
   const canFillSelected = !!fillDocType && UPGRADE_DOC_TYPES.has(fillDocType)
 
-  // Formulaire RCP (branding officiel CEO) : l'onglet « template à compléter » d'un nœud RCP
-  // est rendu par TemplateFillForm (feuille A4 navy + exports DOCX/PDF) — plus d'éditeur TipTap.
-  const isRcpFormActive = activeGenDoc?.templateKey === 'fill' && fillDocType === 'rcp'
-  const rcpEmptyCount =
-    isRcpFormActive && activeGenDoc
-      ? countEmptyRcpFields(rcpFormStateFromContent(activeGenDoc.content as JSONContent))
+  // Formulaire officiel (branding CEO — RCP, Notice, Étiquetage) : l'onglet « template à
+  // compléter » est rendu par TemplateFillForm (feuille A4 navy + exports DOCX/PDF) — plus
+  // d'éditeur TipTap pour ces types.
+  const activeFormDef = activeGenDoc?.templateKey === 'fill' ? formDefinitionFor(fillDocType) : null
+  const formEmptyCount =
+    activeFormDef && activeGenDoc
+      ? countEmptyFields(formStateFromContent(activeFormDef, activeGenDoc.content as JSONContent))
       : 0
 
   // Carte « non conforme au template en vigueur ! » (mockup CEO) du document affiché —
@@ -546,16 +549,14 @@ export function DossierWorkspacePage() {
     }
   }
 
-  /** Télécharge le formulaire RCP en .docx 100 % conforme au gabarit (Times/navy, A4). */
-  async function downloadRcpFormDocx(gen: GeneratedDocRecord) {
+  /** Télécharge un formulaire de template en .docx 100 % conforme au gabarit (Times/navy, A4). */
+  async function downloadFormDocx(gen: GeneratedDocRecord, def: NonNullable<typeof activeFormDef>) {
     try {
-      const [{ rcpFormDocxBlob }, { rcpExportName }] = await Promise.all([
-        import('./template-form/rcp-form-docx'), // lazy : lib docx hors du chunk workspace
-        import('./template-form/rcp-form-model'),
-      ])
-      const state = rcpFormStateFromContent(gen.content as JSONContent)
-      const blob = await rcpFormDocxBlob(state)
-      triggerDownload(URL.createObjectURL(blob), `${rcpExportName(state)}.docx`, true)
+      // Lazy : la lib docx reste hors du chunk workspace.
+      const { formDocxBlob } = await import('./template-form/form-docx')
+      const state = formStateFromContent(def, gen.content as JSONContent)
+      const blob = await formDocxBlob(def, state)
+      triggerDownload(URL.createObjectURL(blob), `${formExportName(def, state)}.docx`, true)
     } catch (e) {
       console.error(e)
       toast.error('Échec du téléchargement (.docx).')
@@ -573,8 +574,8 @@ export function DossierWorkspacePage() {
         void downloadGeneratedDocx(activeGenDoc, 'CONFORME')
         return
       }
-      if (isRcpFormActive) {
-        void downloadRcpFormDocx(activeGenDoc)
+      if (activeFormDef) {
+        void downloadFormDocx(activeGenDoc, activeFormDef)
         return
       }
       const json = (liveEditor?.getJSON() ?? activeGenDoc.content) as JSONContent
@@ -660,10 +661,9 @@ export function DossierWorkspacePage() {
     void syncGeneratedDocs(orgId)
     openTab(rec.id)
     toast.success('Template officiel prêt.', {
-      description:
-        docType === 'rcp'
-          ? 'Remplissez le formulaire officiel — structure et mentions réglementaires verrouillées.'
-          : 'Complétez les zones [À COMPLÉTER] — les titres du template sont verrouillés.',
+      description: formDefinitionFor(docType)
+        ? 'Remplissez le formulaire officiel — structure et mentions réglementaires verrouillées.'
+        : 'Complétez les zones [À COMPLÉTER] — les titres du template sont verrouillés.',
     })
   }
 
@@ -806,8 +806,8 @@ export function DossierWorkspacePage() {
         <div className="flex min-w-0 justify-center">
           <div className="bg-card flex items-center gap-1 rounded-full border px-1 py-1 text-sm shadow-sm">
             {/* Boutons d'édition : seulement pour du texte éditable (doc généré/lettre/traduction).
-                Le formulaire RCP a ses propres commandes (topbar navy) → pas de mode Modifier. */}
-            {isEditableActive && !isRcpFormActive ? (
+                Les formulaires de templates ont leurs propres commandes (topbar navy). */}
+            {isEditableActive && !activeFormDef ? (
               <>
                 <ToolbarBtn
                   label="Modifier"
@@ -1011,16 +1011,16 @@ export function DossierWorkspacePage() {
                       </p>
                     ) : null}
                     {activeGenDoc.templateKey === 'fill' ? (
-                      isRcpFormActive ? (
+                      activeFormDef ? (
                         <p
                           className={cn(
                             'flex items-center gap-1.5 px-3 pt-2 text-xs italic',
-                            rcpEmptyCount > 0 ? 'text-amber-700' : 'text-emerald-700',
+                            formEmptyCount > 0 ? 'text-amber-700' : 'text-emerald-700',
                           )}
                         >
                           <ClipboardList className="size-3.5 shrink-0" />
-                          {rcpEmptyCount > 0
-                            ? `Formulaire officiel — ${rcpEmptyCount} champ(s) à compléter. Regafy vérifie la conformité à chaque enregistrement.`
+                          {formEmptyCount > 0
+                            ? `Formulaire officiel — ${formEmptyCount} champ(s) à compléter. Regafy vérifie la conformité à chaque enregistrement.`
                             : 'Formulaire officiel — tous les champs sont remplis. Regafy vérifie la conformité à chaque enregistrement.'}
                         </p>
                       ) : (
@@ -1079,11 +1079,12 @@ export function DossierWorkspacePage() {
                         <TranslationProgress text={streamText} />
                       </div>
                     ) : null}
-                    {isRcpFormActive ? (
-                      // Formulaire RCP — branding officiel CEO (feuille A4 navy, exports
-                      // DOCX/PDF conformes). Remplace l'éditeur TipTap pour ce type.
+                    {activeFormDef ? (
+                      // Formulaire officiel (RCP/Notice/Étiquetage) — branding CEO (feuille A4
+                      // navy, exports DOCX/PDF conformes). Remplace l'éditeur TipTap.
                       <TemplateFillForm
                         key={activeGenDoc.id}
+                        def={activeFormDef}
                         genDoc={activeGenDoc}
                         product={product}
                         countryName={countryLabel(activeDossier.country)}

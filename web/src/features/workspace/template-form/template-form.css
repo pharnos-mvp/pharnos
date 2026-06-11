@@ -93,6 +93,46 @@
   color: #44507a;
 }
 
+/* ---- Réglages globaux (gabarit Notice : verbe + professionnels) ---- */
+.tplform-globals {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 14px;
+  background: #eef2fa;
+  border-bottom: 1px solid #d9dee8;
+  font-size: 12px;
+  color: #2c3a63;
+}
+.tplform-g-label {
+  font-weight: 600;
+}
+.tplform-g-select {
+  border: 1px solid var(--tpl-line-strong);
+  border-radius: 6px;
+  background: #fff;
+  padding: 3px 8px;
+  font-size: 12px;
+  color: #1a1a1a;
+}
+.tplform-g-divider {
+  width: 1px;
+  height: 18px;
+  background: #c9d2e4;
+}
+.tplform-g-cb {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+.tplform-g-hint {
+  font-size: 11px;
+  font-style: italic;
+  opacity: 0.7;
+}
+
 /* ---- Feuille A4 ---- */
 .tplform-canvas {
   display: flex;
@@ -143,6 +183,49 @@
   font-size: 12pt;
   font-weight: bold;
   text-decoration: underline;
+}
+/* Bandeau de rubrique du template Étiquetage ABMed : titre navy bold sur fond gris encadré. */
+.tplform-sheet .doc-banner {
+  margin: 18px 0 8px;
+  border: 1px solid #808080;
+  background: #d9d9d9;
+  padding: 3px 8px;
+  color: var(--tpl-navy);
+  font-size: 12pt;
+  font-weight: bold;
+}
+.tplform-sheet .doc-bullets {
+  margin: 0 0 10px;
+  padding-left: 24px;
+}
+.tplform-sheet .doc-bullets li {
+  margin: 0 0 4px;
+  text-align: justify;
+}
+.tplform-sheet .doc-sub-line {
+  margin-top: 12px;
+}
+.tplform-sheet .field-label--bold {
+  color: var(--tpl-navy);
+  font-weight: bold;
+}
+.tplform-sheet .field-line--indent {
+  margin-left: 26px;
+}
+.tplform-sheet .field-select {
+  border: 1px solid var(--tpl-line-strong);
+  border-radius: 5px;
+  background: var(--tpl-field-bg);
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 12pt;
+  color: #000;
+}
+.tplform-sheet .field-select:focus {
+  outline: none;
+  border-color: var(--tpl-focus);
+  background: var(--tpl-field-bg-focus);
+  box-shadow: 0 0 0 3px rgba(58, 90, 168, 0.14);
 }
 .tplform-sheet .doc-static {
   margin: 0 0 8px;
