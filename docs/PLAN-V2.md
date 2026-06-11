@@ -85,26 +85,20 @@ découpage JSX cosmétique, pas de migration DB destructive (additif uniquement)
 - [ ] Alertes Sentry (dashboard) : LCP p75 > 2,5 s ; erreurs Edge (les logs JSON `reqId` de T2
       rendent le tri immédiat).
 
-## Préparation Regafy Upgrade (prochaine phase — spec CEO du 2026-06-11)
+## Regafy Upgrade + Traduction Pro (spec CEO du 2026-06-11 — LIVRÉ)
 
 Fonctionnalité ultime : repérage des documents non conformes aux **templates réglementaires**
-et mise en conformité assistée (bouton **Upgrader**), zéro hallucination — toute rubrique du
-template absente du document source est marquée manquante, jamais inventée. Documents couverts :
-Cover letter, Lettre de PGHT, RCP, Notice, Étiquette. Même pattern d'onglet que la traduction
-(doc généré éditable propre au dossier, `templateKey: 'upgrade'`, `sourceDocId`). Flux :
-constat de langue → Traduire (existant) → vérification vs template → constat de conformité →
-Upgrader. Documents déjà en FR : passage direct à la vérification.
+en vigueur et mise en conformité assistée (bouton **Upgrader**), zéro hallucination. Documents
+couverts : Cover letter, Lettre de PGHT, RCP, Notice, Étiquette.
 
-Inventaire des templates disponibles (`RA-source/Template/`, à valider avec le CEO) :
+| # | Tranche | Contenu | État |
+|---|---|---|---|
+| U1 | Specs de conformité | `_shared/conformity-specs.ts` : transcription déclarative versionnée des 5 templates (RCP 1–10 + 4.x/5.x/6.x, Notice 1–6, Étiquetage A/B/C, Cover 5 tirets, PGHT tableau FCFA) ; mentions par pays (email ABMed BJ) ; `specPromptText` = source unique des prompts ; 9 tests deno — **à relire par le CEO (expert RA)** | ✅ #104 |
+| U2 | Traduction Pro | `_shared/pharma-glossary.ts` : 27 SOC MedDRA EN→FR, 6 fréquences CIOMS bornées, formes/voies EDQM, formules consacrées, invariants DCI/unités/noms ; prompt `translate` par type de doc avec titres officiels FR ; 6 tests deno. Attribution ANS (Licence Ouverte 2.0) + MedDRA v29 FR | ✅ #105 |
+| U3 | Constat de conformité | Edge `regafy-ai` : vérification des pièces (langue cible uniquement — sinon Traduire prévaut, b64 réutilisé) + des traductions (texte, cache id+updatedAt, re-analyse 8 s post-édition) ; CERTAINTY-only anti-faux-positifs ; findings additifs `upgrade`/`missing` | ✅ #106 |
+| U4 | Upgrader | Edge `upgrade` (nouvelle) : température 0, marqueur exact `[NON FOURNI DANS LE DOCUMENT SOURCE]`, SSE ; bouton Upgrader (panneau + bannières) ; onglet `<original>_CONFORME` ; compteur live des rubriques à compléter ; .docx ; **fix : les onglets d'un nœud coexistent** (lettre + traduction + conforme) | ✅ #107 |
+| U5 | Bout-en-bout | CI complète, déploiement des 3 fonctions + smoke tests, vérification navigateur preview, docs/mémoire | ✅ |
 
-| Type | Fichiers | Couverture |
-|---|---|---|
-| Cover Lettre | 9 (UEMOA New MA générique + Bénin ×2 + CI, officiel ABMed, + 3 exemples réels KV-*) | UEMOA + BJ + CI |
-| PGHT | 5 (UEMOA générique + Bénin ×2 + CI ×2) | UEMOA + BJ + CI |
-| RCP | 2 (Maquette ABMed 2026, Bénin RCP 2026) + RAG_Benin/Template_ RCP_2026.pdf (non tracké) | BJ 2026 |
-| Notice | 1 (Maquette ABMed 2026) | BJ 2026 |
-| Étiquetage | 1 (ABMed 2026) | BJ 2026 |
-
-Brique technique réutilisable : Edge durcie (T2 — timeout/retry/logs/degraded), pattern
-traduction + streaming (T11a), cache d'analyse par document. Planification dédiée (/cto:plan)
-à la prochaine session avec le CEO.
+Recette métier à dérouler avec le CEO sur la preview : lettres réelles KV-* → AUCUN constat de
+conformité attendu ; RCP anglophone → chaîne complète Traduire → constat → Upgrader → onglet
+conforme → compilation.
