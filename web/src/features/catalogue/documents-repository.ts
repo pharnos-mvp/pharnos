@@ -1,5 +1,12 @@
 import { recordAudit } from '@/lib/audit'
 import { db, type DocumentCategory, type DocumentRecord } from '@/lib/db'
+import {
+  isAllowedUpload,
+  MAX_UPLOAD_BYTES,
+  sanitizeFileName,
+  UPLOAD_SIZE_ERROR,
+  UPLOAD_TYPE_ERROR,
+} from '@/lib/files'
 import { enqueueOutbox } from '@/lib/outbox'
 
 const now = () => new Date().toISOString()
@@ -30,6 +37,8 @@ export async function addDocument(
   productId: string,
   input: AddDocumentInput,
 ): Promise<DocumentRecord> {
+  if (!isAllowedUpload(input.file)) throw new Error(UPLOAD_TYPE_ERROR)
+  if (input.file.size > MAX_UPLOAD_BYTES) throw new Error(UPLOAD_SIZE_ERROR)
   const ts = now()
   const id = newId()
   const record: DocumentRecord = {
@@ -38,7 +47,7 @@ export async function addDocument(
     productId,
     category: input.category,
     docType: input.docType,
-    fileName: input.file.name,
+    fileName: sanitizeFileName(input.file.name),
     mimeType: input.file.type || 'application/octet-stream',
     size: input.file.size,
     language: input.language ?? null,

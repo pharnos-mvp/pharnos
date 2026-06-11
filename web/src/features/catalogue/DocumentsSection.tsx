@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { DocumentCategory } from '@/lib/db'
+import { UPLOAD_ACCEPT } from '@/lib/files'
 import { docTypeLabel, docTypesFor } from './doc-types'
 import { addDocument, deleteDocument, getDocumentBlob, listDocuments } from './documents-repository'
 import { getDocumentDownloadUrl, syncDocuments } from './documents-sync'
@@ -128,6 +129,7 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
           <Input
             key={resetKey}
             type="file"
+            accept={UPLOAD_ACCEPT}
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           />
         </div>
