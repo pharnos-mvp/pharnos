@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { db, type DossierRecord } from '@/lib/db'
+import { withRetry } from '@/lib/retry'
+import { reportError } from '@/lib/sentry'
 import { getSupabase } from '@/lib/supabase'
 import type { CtdNodeDef, DossierFormat } from './module1-tree'
 
@@ -66,10 +68,12 @@ export async function syncDossiers(orgId: string): Promise<void> {
   if (!supabase) return
   syncing = true
   try {
-    await pushDossiers(supabase, orgId)
-    await pullDossiers(supabase, orgId)
+    // Retry borné (transitoires only) : une microcoupure ne repousse pas la sync au prochain déclencheur.
+    await withRetry(() => pushDossiers(supabase, orgId))
+    await withRetry(() => pullDossiers(supabase, orgId))
   } catch (error) {
     console.warn('[sync] dossiers :', error)
+    reportError(error, { op: 'sync', entity: 'dossiers' })
   } finally {
     syncing = false
   }

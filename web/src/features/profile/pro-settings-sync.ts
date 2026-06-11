@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { db, type ProSettingRecord } from '@/lib/db'
+import { withRetry } from '@/lib/retry'
+import { reportError } from '@/lib/sentry'
 import { getSupabase } from '@/lib/supabase'
 
 export interface ProSettingRow {
@@ -65,10 +67,12 @@ export async function syncProSettings(orgId: string): Promise<void> {
   if (!supabase) return
   syncing = true
   try {
-    await pushProSettings(supabase, orgId)
-    await pullProSettings(supabase, orgId)
+    // Retry borné (transitoires only) : une microcoupure ne repousse pas la sync au prochain déclencheur.
+    await withRetry(() => pushProSettings(supabase, orgId))
+    await withRetry(() => pullProSettings(supabase, orgId))
   } catch (error) {
     console.warn('[sync] proSettings :', error)
+    reportError(error, { op: 'sync', entity: 'proSettings' })
   } finally {
     syncing = false
   }
