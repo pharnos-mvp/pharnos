@@ -194,13 +194,18 @@ export function DossierWorkspacePage() {
     [findings, aiFindings, translatedSourceIds],
   )
 
-  // Offline-first : précharge le compilateur PDF (pdf-lib) **tant qu'on est en ligne** → il est en
-  // mémoire avant toute coupure réseau. Sans ça, l'import dynamique à la 1re compilation peut échouer
-  // hors-ligne (précache désynchronisé) et la rejection reste mise en cache jusqu'au rechargement.
-  // Warm-up différé (hors chemin critique) + réessai au retour en ligne. N'altère pas la compilation.
+  // Offline-first : précharge le compilateur PDF (pdf-lib) ET le worker pdf.js **tant qu'on est
+  // en ligne** → en mémoire/cache avant toute coupure réseau. Le worker (~1,2 Mo) n'est plus
+  // précaché par le SW (installation initiale allégée) : ce fetch le pose dans le runtime cache
+  // CacheFirst (vite.config) → l'aperçu PDF hors-ligne reste garanti dès la 1re session en ligne.
+  // Warm-up différé (hors chemin critique) + réessai au retour en ligne.
   useEffect(() => {
     const warm = () => {
-      if (navigator.onLine) void import('./pdf/dossier-compiler').catch(() => {})
+      if (!navigator.onLine) return
+      void import('./pdf/dossier-compiler').catch(() => {})
+      void import('pdfjs-dist/build/pdf.worker.min.mjs?url')
+        .then((w) => fetch(w.default))
+        .catch(() => {})
     }
     const t = setTimeout(warm, 2000)
     window.addEventListener('online', warm)

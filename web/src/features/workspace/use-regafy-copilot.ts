@@ -180,27 +180,36 @@ export function useRegafyCopilot({
         if (Object.keys(fromCache).length > 0) {
           setValidityByPiece((prev) => ({ ...prev, ...fromCache }))
         }
-        // 2. IA : SEULEMENT les documents jamais analysés (nouveaux ou remplacés).
+        // 2. IA : SEULEMENT les documents jamais analysés (nouveaux ou remplacés). Envoi par
+        // chunks de 3 → les premiers constats s'affichent AU FIL DE L'EAU sans attendre tout le
+        // lot (l'Edge analyse déjà 1 doc par appel ; zéro changement serveur). Sur un dossier de
+        // 12 pièces, le premier retour arrive ~4× plus tôt.
         if (uncached.length === 0) return
         setAiBusy(true)
+        const CHUNK = 3
+        let next = 0 // index de la 1re pièce non encore traitée (pour re-tenter après échec)
         try {
-          const fs = await runRegafyValidity(
-            uncached,
-            today,
-            agencySigle,
-            targetLang,
-            productName,
-            countryName,
-          )
-          const byPiece: Record<string, RegafyFinding[]> = {}
-          for (const p of uncached) byPiece[p.pieceId] = []
-          for (const f of fs) if (f.pieceId) (byPiece[f.pieceId] ??= []).push(f)
-          await Promise.all(
-            uncached.map((p) => cacheAnalysis(p.pieceId, p.sig, byPiece[p.pieceId] ?? [])),
-          )
-          setValidityByPiece((prev) => ({ ...prev, ...byPiece }))
+          for (; next < uncached.length; next += CHUNK) {
+            const slice = uncached.slice(next, next + CHUNK)
+            const fs = await runRegafyValidity(
+              slice,
+              today,
+              agencySigle,
+              targetLang,
+              productName,
+              countryName,
+            )
+            const byPiece: Record<string, RegafyFinding[]> = {}
+            for (const p of slice) byPiece[p.pieceId] = []
+            for (const f of fs) if (f.pieceId) (byPiece[f.pieceId] ??= []).push(f)
+            await Promise.all(
+              slice.map((p) => cacheAnalysis(p.pieceId, p.sig, byPiece[p.pieceId] ?? [])),
+            )
+            setValidityByPiece((prev) => ({ ...prev, ...byPiece }))
+          }
         } catch (e) {
-          uncached.forEach((p) => analyzedPieceIds.current.delete(p.pieceId))
+          // Seules les pièces NON traitées sont dé-marquées (les chunks réussis restent cachés).
+          uncached.slice(next).forEach((p) => analyzedPieceIds.current.delete(p.pieceId))
           console.error('Regafy IA (validité) :', (e as Error).message)
         } finally {
           setAiBusy(false)
