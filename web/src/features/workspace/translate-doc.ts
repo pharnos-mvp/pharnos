@@ -21,8 +21,11 @@ export function textToTiptap(text: string): JSONContent {
 }
 
 interface TranslateInput {
-  filePath: string
-  fileName: string
+  /** Pièce uploadée (chemin Storage) — exclusif avec `text`. */
+  filePath?: string
+  fileName?: string
+  /** Texte source (document généré : version conforme, template rempli) — exclusif `filePath`. */
+  text?: string
   docType: string
   targetLang: string
 }

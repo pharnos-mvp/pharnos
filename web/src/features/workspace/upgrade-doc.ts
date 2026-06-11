@@ -25,6 +25,14 @@ export interface UpgradeInput {
   text?: string
   docType: string
   countryCode?: string
+  /** Contexte certifié du dossier (fiche produit) — données vérifiées, pas des inventions. */
+  dossierContext?: {
+    activity?: string
+    titulaire?: string
+    titulaireAdresse?: string
+    fabricant?: string
+    fabricantAdresse?: string
+  }
 }
 
 /**

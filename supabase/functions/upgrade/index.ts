@@ -57,13 +57,65 @@ function buildSystem(docType: string): string {
   )
 }
 
-function buildInstruction(docTypeLabel: string, spec: string): string {
+interface DossierContext {
+  activity?: string
+  titulaire?: string
+  titulaireAdresse?: string
+  fabricant?: string
+  fabricantAdresse?: string
+}
+
+/**
+ * Contexte certifié du dossier (fiche produit Pharnos) : données VÉRIFIÉES utilisables au même
+ * titre que le document source — rubrique 9 auto-résolue pour une nouvelle AMM, structure
+ * 7.1 Titulaire / 7.2 Fabricant quand ils diffèrent. Ce ne sont pas des inventions du modèle.
+ */
+function dossierContextBlock(ctx?: DossierContext): string {
+  if (!ctx) return ''
+  const lines: string[] = []
+  if (ctx.activity === 'new_ma') {
+    lines.push(
+      "- Activité réglementaire : NOUVELLE demande d'AMM → pour la rubrique « DATE DE PREMIÈRE " +
+        "AUTORISATION/DE RENOUVELLEMENT DE L'AUTORISATION », écris exactement : " +
+        "« Sans objet — première demande d'AMM en cours d'instruction. »",
+    )
+  }
+  const titulaire = (ctx.titulaire ?? '').trim()
+  const fabricant = (ctx.fabricant ?? '').trim()
+  if (titulaire) {
+    lines.push(
+      `- Titulaire de l'AMM (certifié) : ${titulaire}${ctx.titulaireAdresse ? ` — ${ctx.titulaireAdresse}` : ''}`,
+    )
+  }
+  if (fabricant) {
+    lines.push(
+      `- Fabricant (certifié) : ${fabricant}${ctx.fabricantAdresse ? ` — ${ctx.fabricantAdresse}` : ''}`,
+    )
+  }
+  if (titulaire && fabricant && titulaire.toLowerCase() !== fabricant.toLowerCase()) {
+    lines.push(
+      '- Titulaire ≠ fabricant : présente la rubrique titulaire en « 7.1. Titulaire de ' +
+        "l'autorisation de mise sur le marché » (nom + adresse) et le fabricant en « 7.2. " +
+        'Fabricant » (nom + adresse).',
+    )
+  }
+  if (lines.length === 0) return ''
+  return (
+    '\nCONTEXTE CERTIFIÉ DU DOSSIER (fourni par Pharnos — données vérifiées, UTILISE-LES ; ' +
+    'ce ne sont pas des inventions) :\n' +
+    lines.join('\n') +
+    '\n'
+  )
+}
+
+function buildInstruction(docTypeLabel: string, spec: string, ctx?: DossierContext): string {
   return (
     `Restructure ce document (${docTypeLabel}) selon le template officiel ci-dessous. Produis le ` +
     'document COMPLET, rubrique par rubrique, dans l’ordre du template, en texte structuré ' +
     '(titres officiels puis paragraphes, une ligne vide entre les blocs, pas de commentaire).\n\n' +
-    `${spec}\n\n` +
-    `RAPPEL : rubrique sans information dans la source → écris exactement ${MISSING_MARKER} (rien d’autre).`
+    `${spec}\n` +
+    dossierContextBlock(ctx) +
+    `\nRAPPEL : rubrique sans information dans la source NI dans le contexte certifié → écris exactement ${MISSING_MARKER} (rien d’autre).`
   )
 }
 
@@ -115,6 +167,14 @@ Deno.serve(async (req: Request) => {
     docType?: string
     countryCode?: string
     stream?: boolean
+    /** Contexte certifié du dossier (fiche produit Pharnos) — données vérifiées, pas des inventions. */
+    dossierContext?: {
+      activity?: string
+      titulaire?: string
+      titulaireAdresse?: string
+      fabricant?: string
+      fabricantAdresse?: string
+    }
   }
   const docType = String(b.docType ?? '')
   const spec = specForDocType(docType)
@@ -147,7 +207,7 @@ Deno.serve(async (req: Request) => {
 
   const system = buildSystem(docType)
   const parts: Part[] = [
-    { text: buildInstruction(spec.label, specPromptText(spec, countryCode)) },
+    { text: buildInstruction(spec.label, specPromptText(spec, countryCode), b.dossierContext) },
     sourcePart,
   ]
 
