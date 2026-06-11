@@ -94,14 +94,17 @@ export async function compileDossierToPdf(args: CompileArgs): Promise<CompileRes
   const ensure = (n: string): CompileNodeContent => {
     let c = contentByNumber.get(n)
     if (!c) {
-      c = { pieces: [] }
+      c = { generated: [], pieces: [] }
       contentByNumber.set(n, c)
     }
     return c
   }
   const missing: string[] = []
 
-  for (const g of generatedDocs) ensure(g.nodeNumber).generated = g
+  // TOUS les documents générés du nœud (lettre + template rempli + traduction + version
+  // conforme coexistent en onglets) — chacun est compilé. L'ancienne affectation simple
+  // écrasait : seul un document par nœud survivait (bug recette CEO : formulaire RCP absent).
+  for (const g of generatedDocs) ensure(g.nodeNumber).generated.push(g)
 
   for (const a of attachments) {
     const piece = await attachmentPiece(a)

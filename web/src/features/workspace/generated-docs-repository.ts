@@ -10,9 +10,13 @@ const newId = () => crypto.randomUUID()
 
 export async function listGeneratedDocs(dossierId: string): Promise<GeneratedDocRecord[]> {
   const items = await db.generatedDocs.where('dossierId').equals(dossierId).toArray()
+  // Tri secondaire createdAt : ordre intra-nœud STABLE (chronologique) — pilote l'ordre des
+  // onglets ET des documents dans le PDF compilé (sans lui : ordre Dexie par id, aléatoire).
   return items
     .filter((d) => d.deletedAt === null)
-    .sort((a, b) => a.nodeNumber.localeCompare(b.nodeNumber))
+    .sort(
+      (a, b) => a.nodeNumber.localeCompare(b.nodeNumber) || a.createdAt.localeCompare(b.createdAt),
+    )
 }
 
 export interface CreateGeneratedDocInput {
