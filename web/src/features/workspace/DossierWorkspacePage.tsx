@@ -52,6 +52,7 @@ import {
   type GeneratedDocRecord,
 } from '@/lib/db'
 import { env } from '@/lib/env'
+import { UPLOAD_ACCEPT } from '@/lib/files'
 import { cn } from '@/lib/utils'
 import { ArborescenceTree } from './ArborescenceTree'
 import { extractCity } from './city'
@@ -845,7 +846,14 @@ export function DossierWorkspacePage() {
       toast.error('Fichier trop lourd (max 25 Mo).')
       return
     }
-    await addAttachment(orgId, activeDossier.id, selected.number, file)
+    try {
+      await addAttachment(orgId, activeDossier.id, selected.number, file)
+    } catch (error) {
+      toast.error("Échec de l'ajout", {
+        description: error instanceof Error ? error.message : undefined,
+      })
+      return
+    }
     // Synchroniser tout de suite → la pièce reçoit son chemin Storage et entre dans l'analyse Regafy.
     await syncDossierAttachments(orgId)
     toast.success('Pièce ajoutée — analyse en cours…')
@@ -1174,6 +1182,7 @@ export function DossierWorkspacePage() {
                     <input
                       ref={fileInputRef}
                       type="file"
+                      accept={UPLOAD_ACCEPT}
                       className="hidden"
                       onChange={(e) => {
                         const f = e.target.files?.[0]

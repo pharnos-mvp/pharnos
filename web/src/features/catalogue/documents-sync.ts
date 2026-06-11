@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { db, type DocumentCategory, type DocumentRecord } from '@/lib/db'
+import { sanitizeFileName } from '@/lib/files'
 import { getSupabase } from '@/lib/supabase'
 import { cacheDocumentBlob, getDocumentBlob } from './documents-repository'
 
@@ -93,7 +94,8 @@ async function pushDocuments(supabase: SupabaseClient, orgId: string): Promise<v
     if (!rec.uploaded && rec.deletedAt === null) {
       const blob = await getDocumentBlob(id)
       if (blob) {
-        const path = `${rec.orgId}/${rec.productId}/${rec.id}/${rec.fileName}`
+        // sanitize au build du chemin : couvre aussi les enregistrements Dexie antérieurs à T5.
+        const path = `${rec.orgId}/${rec.productId}/${rec.id}/${sanitizeFileName(rec.fileName)}`
         const { error: upErr } = await supabase.storage
           .from(BUCKET)
           .upload(path, blob, { upsert: true, contentType: rec.mimeType || undefined })

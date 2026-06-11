@@ -1,12 +1,19 @@
 import { recordAudit } from '@/lib/audit'
 import { db, type DossierAttachmentRecord } from '@/lib/db'
+import {
+  isAllowedUpload,
+  MAX_UPLOAD_BYTES,
+  sanitizeFileName,
+  UPLOAD_SIZE_ERROR,
+  UPLOAD_TYPE_ERROR,
+} from '@/lib/files'
 import { enqueueOutbox } from '@/lib/outbox'
 
 const now = () => new Date().toISOString()
 const newId = () => crypto.randomUUID()
 
-/** Plafond de taille d'une pièce jointe téléversée. */
-export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024 // 25 Mo
+/** Plafond de taille d'une pièce jointe téléversée (source unique : lib/files). */
+export const MAX_ATTACHMENT_BYTES = MAX_UPLOAD_BYTES
 
 /** Pièces jointes actives d'un dossier. */
 export async function listAttachments(dossierId: string): Promise<DossierAttachmentRecord[]> {
@@ -23,6 +30,8 @@ export async function addAttachment(
   nodeNumber: string,
   file: File,
 ): Promise<DossierAttachmentRecord> {
+  if (!isAllowedUpload(file)) throw new Error(UPLOAD_TYPE_ERROR)
+  if (file.size > MAX_UPLOAD_BYTES) throw new Error(UPLOAD_SIZE_ERROR)
   const ts = now()
   const id = newId()
   const record: DossierAttachmentRecord = {
@@ -30,7 +39,7 @@ export async function addAttachment(
     orgId,
     dossierId,
     nodeNumber,
-    fileName: file.name,
+    fileName: sanitizeFileName(file.name),
     mimeType: file.type || 'application/octet-stream',
     size: file.size,
     filePath: null,
