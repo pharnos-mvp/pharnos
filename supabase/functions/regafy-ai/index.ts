@@ -8,6 +8,12 @@
 // Contrat sécurité (ADR 0002) : JWT vérifié, bornes, Storage via le JWT appelant (RLS), no-train.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
+import {
+  checkConformityFile,
+  checkConformityText,
+  conformityMessage,
+} from '../_shared/conformity-check.ts'
+import { specForDocType } from '../_shared/conformity-specs.ts'
 import { corsHeaders, isAllowedOrigin } from '../_shared/cors.ts'
 import { logJson, newReqId, timed, userHash } from '../_shared/log.ts'
 import { generateParts, generateText, type Part } from '../_shared/vertex.ts'
@@ -37,6 +43,10 @@ interface Finding {
   translate?: boolean
   /** Langue détectée du document (code ISO 639-1). */
   language?: string
+  /** Document non conforme au template en vigueur — pour le bouton « Upgrader » (additif). */
+  upgrade?: boolean
+  /** Rubriques manquantes/non conformes (détail du constat de conformité). */
+  missing?: string[]
 }
 
 // Périmètre minimal du client utilisé par l'analyse : téléchargement Storage (RLS via le JWT
@@ -52,6 +62,8 @@ interface Supa {
 const MAX_LETTERS = 8
 const MAX_TEXT = 8000
 const MAX_PIECES = 12
+const MAX_CONFORMITY_TEXTS = 6
+const MAX_CONFORMITY_TEXT_CHARS = 60_000
 const MAX_FILE_BYTES = 12 * 1024 * 1024
 const STORAGE_BUCKET = 'documents'
 // Modèle pour l'extraction de validité (dates critiques). Défaut : flash-lite (seul confirmé
@@ -208,6 +220,7 @@ async function analyzeValidityBatch(
   targetLang: string,
   productName: string,
   country: string,
+  countryCode: string | undefined,
   log: Record<string, unknown>,
 ): Promise<Finding[]> {
   if (pieces.length === 0) return []
@@ -303,6 +316,38 @@ async function analyzeValidityBatch(
     slice.forEach((v, j) => {
       const r = rs[j]
       if (r) resultByPiece.set(v.p.pieceId, r)
+    })
+  }
+
+  // ── CONFORMITÉ AU TEMPLATE (Regafy Upgrade) : pièces des 5 types couverts, UNIQUEMENT si la
+  // langue détectée correspond à la langue cible — sinon le constat de langue (+ Traduire)
+  // prévaut, et la conformité sera vérifiée sur la traduction. Réutilise le b64 déjà téléchargé.
+  const conformable = valid.filter((v) => {
+    if (!specForDocType(v.p.docType)) return false
+    if (!targetLang) return true
+    const lang = String(resultByPiece.get(v.p.pieceId)?.language ?? '')
+      .toLowerCase()
+      .slice(0, 2)
+    return !lang || lang === targetLang
+  })
+  for (let i = 0; i < conformable.length; i += CONC) {
+    const slice = conformable.slice(i, i + CONC)
+    const rs = await Promise.all(
+      slice.map((v) => checkConformityFile(v.mime, v.b64, v.p.docType, countryCode, log)),
+    )
+    slice.forEach((v, j) => {
+      const c = rs[j]
+      // Échec d'analyse (null) → silence honnête : pas de constat inventé, le cache côté client
+      // n'enregistre rien de faux ; conforme → pas de bruit.
+      if (c && !c.conforme && c.manquantes.length > 0) {
+        findings.push({
+          ...base(v.p),
+          severity: 'warning',
+          message: conformityMessage(v.p.docType, c.manquantes),
+          upgrade: true,
+          missing: c.manquantes,
+        })
+      }
     })
   }
 
@@ -440,10 +485,20 @@ Deno.serve(async (req: Request) => {
     productName?: string
     titulaire?: string
     country?: string
+    /** Code ISO-2 du pays cible (additif — filtre des mentions pays-spécifiques des templates). */
+    countryCode?: string
     agency?: string
     targetLang?: string
     letters?: LetterInput[]
     pieces?: PieceInput[]
+    /** Textes à vérifier contre le template en vigueur (traductions) — additif. */
+    conformityTexts?: Array<{
+      id?: string
+      nodeNumber?: string
+      nodeLabel?: string
+      docType?: string
+      text?: string
+    }>
   }
   const opDate = todayISO(b.operationDate)
   const letters = (Array.isArray(b.letters) ? b.letters : []).slice(0, MAX_LETTERS).map((l) => ({
@@ -464,12 +519,30 @@ Deno.serve(async (req: Request) => {
       fileName: String(p.fileName ?? 'document'),
       filePath: String(p.filePath),
     }))
+  const countryCode = b.countryCode ? String(b.countryCode).toUpperCase().slice(0, 2) : undefined
+  // Traductions à vérifier contre le template (bornées : texte 60 k chars, 6 documents max).
+  const conformityTexts = (Array.isArray(b.conformityTexts) ? b.conformityTexts : [])
+    .filter((t) => t?.id && t?.docType && t?.text && specForDocType(String(t.docType)))
+    .slice(0, MAX_CONFORMITY_TEXTS)
+    .map((t) => ({
+      id: String(t.id),
+      nodeNumber: String(t.nodeNumber ?? ''),
+      nodeLabel: String(t.nodeLabel ?? ''),
+      docType: String(t.docType),
+      text: String(t.text).slice(0, MAX_CONFORMITY_TEXT_CHARS),
+    }))
 
-  // Les deux analyses tournent EN PARALLÈLE (1 appel lettres + 1 appel batch validité).
+  // Les analyses tournent EN PARALLÈLE (lettres + batch validité/conformité + traductions).
   const started = Date.now()
-  logJson({ ...log, op: 'start', letters: letters.length, pieces: pieces.length })
+  logJson({
+    ...log,
+    op: 'start',
+    letters: letters.length,
+    pieces: pieces.length,
+    conformityTexts: conformityTexts.length,
+  })
   try {
-    const [letterResult, validityFindings] = await Promise.all([
+    const [letterResult, validityFindings, textConformityFindings] = await Promise.all([
       analyzeLetters(
         letters,
         {
@@ -490,12 +563,31 @@ Deno.serve(async (req: Request) => {
           b.targetLang ?? '',
           b.productName ?? '',
           b.country ?? '',
+          countryCode,
           log,
         ),
       ),
+      timed(log, 'text-conformity', async () => {
+        const out: Finding[] = []
+        for (const t of conformityTexts) {
+          const c = await checkConformityText(t.text, t.docType, countryCode, log)
+          if (c && !c.conforme && c.manquantes.length > 0) {
+            out.push({
+              pieceId: t.id,
+              nodeNumber: t.nodeNumber,
+              nodeLabel: t.nodeLabel,
+              severity: 'warning',
+              message: conformityMessage(t.docType, c.manquantes),
+              upgrade: true,
+              missing: c.manquantes,
+            })
+          }
+        }
+        return out
+      }),
     ])
 
-    const findings = [...letterResult.findings, ...validityFindings]
+    const findings = [...letterResult.findings, ...validityFindings, ...textConformityFindings]
     logJson({
       ...log,
       op: 'done',

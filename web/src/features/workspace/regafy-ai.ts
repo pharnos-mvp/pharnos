@@ -42,7 +42,15 @@ interface EdgeFinding {
   message?: string
   translate?: boolean
   language?: string
+  upgrade?: boolean
+  missing?: string[]
 }
+
+/**
+ * Types de documents couverts par la vérification de conformité au template (et le bouton
+ * Upgrader) — miroir client de `specForDocType` (Edge, _shared/conformity-specs.ts).
+ */
+export const UPGRADE_DOC_TYPES = new Set(['cover', 'pght', 'rcp', 'notice', 'labeling', 'artwork'])
 
 async function invokeRegafy(body: Record<string, unknown>): Promise<RegafyFinding[]> {
   const supabase = await getSupabase()
@@ -68,6 +76,8 @@ async function invokeRegafy(body: Record<string, unknown>): Promise<RegafyFindin
       pieceId: f.pieceId,
       translate: f.translate,
       language: f.language,
+      upgrade: f.upgrade,
+      missing: f.missing,
     }))
 }
 
@@ -79,6 +89,7 @@ export async function runRegafyValidity(
   targetLang: string,
   productName: string,
   country: string,
+  countryCode?: string,
 ): Promise<RegafyFinding[]> {
   if (pieces.length === 0) return []
   return invokeRegafy({
@@ -87,9 +98,28 @@ export async function runRegafyValidity(
     targetLang,
     productName,
     country,
+    countryCode,
     pieces,
     letters: [],
   })
+}
+
+/**
+ * Conformité au template en vigueur d'un lot de TEXTES (traductions de pièces) — le constat
+ * porte l'id du document généré dans `pieceId` (clé du merge/cache côté client).
+ */
+export async function runRegafyConformityTexts(
+  texts: Array<{
+    id: string
+    nodeNumber: string
+    nodeLabel: string
+    docType: string
+    text: string
+  }>,
+  countryCode?: string,
+): Promise<RegafyFinding[]> {
+  if (texts.length === 0) return []
+  return invokeRegafy({ conformityTexts: texts, countryCode, letters: [] })
 }
 
 /** Conformité des lettres générées (Cover/PGHT…). */
