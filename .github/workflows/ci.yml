@@ -143,6 +143,24 @@ jobs:
           uploadArtifacts: true
           temporaryPublicStorage: true
 
+  edge:
+    name: edge (deno · modules partagés)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # Politique de retry (transitoires only), circuit breaker, whitelist CORS : la logique
+      # partagée des Edge Functions est testée en pur (sans réseau ni Supabase).
+      - name: Tests modules partagés Edge
+        run: deno test supabase/functions/_shared/
+
+      - name: Type-check des Edge Functions
+        run: deno check supabase/functions/regafy-ai/index.ts supabase/functions/translate/index.ts
+
   secrets:
     name: secrets (gitleaks · historique complet)
     runs-on: ubuntu-latest

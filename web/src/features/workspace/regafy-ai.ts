@@ -1,4 +1,5 @@
 import type { JSONContent } from '@tiptap/core'
+import { toast } from 'sonner'
 
 import type { GeneratedDocRecord } from '@/lib/db'
 import { getSupabase } from '@/lib/supabase'
@@ -48,6 +49,13 @@ async function invokeRegafy(body: Record<string, unknown>): Promise<RegafyFindin
   if (!supabase) throw new Error('Connexion requise pour l’analyse IA.')
   const { data, error } = await supabase.functions.invoke('regafy-ai', { body })
   if (error) throw new Error(error.message || 'Échec de l’analyse IA.')
+  if (data?.degraded === true) {
+    // L'Edge n'a pas pu analyser les lettres : le dire explicitement — un silence ici serait
+    // un faux négatif (« aucun constat » lu comme « lettres conformes »).
+    toast.warning('Analyse Regafy des lettres indisponible', {
+      description: 'Réessayez plus tard — les constats affichés peuvent être incomplets.',
+    })
+  }
   return ((data?.findings ?? []) as EdgeFinding[])
     .filter((f) => (f.message ?? '').trim().length > 0)
     .map((f, i) => ({
