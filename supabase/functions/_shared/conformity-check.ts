@@ -11,6 +11,8 @@ export interface ConformityResult {
   conforme: boolean
   /** Rubriques manquantes/non conformes : « <id>. <titre> — <raison courte> ». */
   manquantes: string[]
+  /** Langue dominante détectée du document (ISO 639-1) — pilote la proposition de traduction. */
+  langue?: string
 }
 
 const MAX_FINDINGS = 12
@@ -41,13 +43,16 @@ function conformityPrompt(spec: ConformitySpec, country?: string): string {
   return (
     `Vérifie si CE document (${spec.label}) respecte le template officiel en vigueur :\n\n` +
     `${specPromptText(spec, country)}\n\n` +
-    'Réponds STRICTEMENT : {"conforme":true|false,"manquantes":["<id>. <titre> — <raison courte>", …]}.\n' +
+    'Le document peut être rédigé dans une AUTRE LANGUE que le template : la conformité est ' +
+    'STRUCTURELLE — évalue la présence des rubriques ÉQUIVALENTES dans la langue du document ' +
+    '(ex. « 4.8 Undesirable effects » ≡ « 4.8 Effets indésirables ») ; un titre traduit est CONFORME.\n' +
+    'Réponds STRICTEMENT : {"conforme":true|false,"manquantes":["<id>. <titre> — <raison courte>", …],"langue":"<code ISO 639-1 de la langue dominante du document>"}.\n' +
     'RÈGLES ANTI-FAUX-POSITIFS :\n' +
     '- Signale une rubrique UNIQUEMENT si tu es CERTAIN qu’elle est absente ou non conforme.\n' +
-    '- Une rubrique présente sous un titre équivalent ou une numérotation proche est CONFORME.\n' +
+    '- Une rubrique présente sous un titre équivalent, traduit ou de numérotation proche est CONFORME.\n' +
     '- Les rubriques [optionnelle] absentes ne sont JAMAIS signalées.\n' +
     `- Maximum ${MAX_FINDINGS} entrées, les plus importantes d’abord.\n` +
-    '- En cas de doute, considère la rubrique conforme. Document globalement conforme → {"conforme":true,"manquantes":[]}.'
+    '- En cas de doute, considère la rubrique conforme. Document globalement conforme → {"conforme":true,"manquantes":[],"langue":"…"}.'
   )
 }
 
@@ -65,13 +70,24 @@ export async function checkConformityParts(
       [{ text: conformityPrompt(spec, country) }, ...contentParts],
       { system: SYSTEM, json: true, maxOutputTokens: 1024, temperature: 0, timeoutMs: 60_000 },
     )
-    const parsed = extractJson(raw) as { conforme?: boolean; manquantes?: unknown[] } | null
+    const parsed = extractJson(raw) as {
+      conforme?: boolean
+      manquantes?: unknown[]
+      langue?: string
+    } | null
     if (!parsed || typeof parsed !== 'object') return null
     const manquantes = (Array.isArray(parsed.manquantes) ? parsed.manquantes : [])
       .map((m) => String(m).slice(0, 200))
       .filter((m) => m.trim())
       .slice(0, MAX_FINDINGS)
-    return { conforme: parsed.conforme !== false && manquantes.length === 0, manquantes }
+    const langue = String(parsed.langue ?? '')
+      .toLowerCase()
+      .slice(0, 2)
+    return {
+      conforme: parsed.conforme !== false && manquantes.length === 0,
+      manquantes,
+      ...(langue ? { langue } : {}),
+    }
   } catch (e) {
     logJson({
       ...log,
