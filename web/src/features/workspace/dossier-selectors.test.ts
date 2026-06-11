@@ -66,24 +66,60 @@ describe('buildViewables', () => {
 
   it('lettre générée d’abord, puis pièces jointes, puis documents produit', () => {
     const out = buildViewables({
-      selectedGenDoc: gen('cover'),
+      selectedGenDocs: [gen('cover')],
       selectedAttachments: [
         { id: 'a1', fileName: 'a1.pdf', filePath: null } as DossierAttachmentRecord,
       ],
       selectedDocs: [doc('d1')],
-      translationSourceDoc: undefined,
+      sourceNamesById: new Map(),
       targetLangLabel: 'FR',
     })
     expect(out.map((v) => v.kind)).toEqual(['letter', 'attachment', 'doc'])
     expect(out[0]!.label).toBe('Lettre de demande')
   })
 
-  it('traduction : onglet nommé « <original>_<LANG>.docx »', () => {
+  it('version conforme : onglet « <original>_CONFORME », coexiste avec la traduction', () => {
+    const translation = {
+      id: 'g1',
+      templateKey: 'translation',
+      title: 'RCP — traduction (FR)',
+      sourceDocId: 's1',
+    } as GeneratedDocRecord
+    const upgrade = {
+      id: 'g2',
+      templateKey: 'upgrade',
+      title: 'RCP — version conforme',
+      sourceDocId: 'g1',
+    } as GeneratedDocRecord
     const out = buildViewables({
-      selectedGenDoc: gen('translation'),
+      selectedGenDocs: [translation, upgrade],
       selectedAttachments: [],
       selectedDocs: [],
-      translationSourceDoc: { fileName: 'RCP_source.pdf' },
+      sourceNamesById: new Map([
+        ['s1', 'RCP_source.pdf'],
+        ['g1', 'RCP — traduction (FR)'],
+      ]),
+      targetLangLabel: 'FR',
+    })
+    expect(out).toHaveLength(2) // les DEUX onglets coexistent sur le même nœud
+    expect(out[0]).toMatchObject({
+      kind: 'letter',
+      isTranslation: true,
+      label: 'RCP_source_FR.docx',
+    })
+    expect(out[1]).toMatchObject({
+      kind: 'letter',
+      isUpgrade: true,
+      label: 'RCP — traduction (FR)_CONFORME',
+    })
+  })
+
+  it('traduction : onglet nommé « <original>_<LANG>.docx »', () => {
+    const out = buildViewables({
+      selectedGenDocs: [gen('translation')],
+      selectedAttachments: [],
+      selectedDocs: [],
+      sourceNamesById: new Map([['s1', 'RCP_source.pdf']]),
       targetLangLabel: 'FR',
     })
     expect(out[0]).toMatchObject({

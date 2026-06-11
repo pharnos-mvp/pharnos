@@ -4,6 +4,7 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Sparkles,
+  Wand2,
   XCircle,
 } from 'lucide-react'
 
@@ -24,10 +25,12 @@ export function CompletionPanel({
   allFindings,
   aiBusy,
   translating,
+  upgrading,
   targetLangLabel,
   flatNodes,
   onSelectNode,
   onTranslate,
+  onUpgrade,
 }: {
   collapsed: boolean
   setCollapsed: (v: boolean) => void
@@ -38,10 +41,12 @@ export function CompletionPanel({
   allFindings: RegafyFinding[]
   aiBusy: boolean
   translating: string | null
+  upgrading: string | null
   targetLangLabel: string
   flatNodes: CtdNodeDef[]
   onSelectNode: (node: CtdNodeDef) => void
   onTranslate: (f: RegafyFinding) => void
+  onUpgrade: (f: RegafyFinding) => void
 }) {
   if (collapsed) {
     return (
@@ -134,6 +139,18 @@ export function CompletionPanel({
                   >
                     <Languages className="size-3" />
                     {translating === f.pieceId ? 'Traduction…' : `Traduire en ${targetLangLabel}`}
+                  </Button>
+                ) : null}
+                {f.upgrade && f.pieceId ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-1 ml-4 h-6 gap-1 border-violet-400 text-violet-700 hover:bg-violet-50"
+                    disabled={upgrading === f.pieceId}
+                    onClick={() => onUpgrade(f)}
+                  >
+                    <Wand2 className="size-3" />
+                    {upgrading === f.pieceId ? 'Mise en conformité…' : 'Upgrader'}
                   </Button>
                 ) : null}
               </li>
