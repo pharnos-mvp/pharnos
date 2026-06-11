@@ -2,17 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { Editor, JSONContent } from '@tiptap/core'
 import {
-  AlertTriangle,
   ArrowLeft,
-  Bold,
   CheckCircle2,
-  Download,
   FileDown,
   FileText,
-  Heading2,
-  Italic,
   Languages,
-  List,
   PanelLeftClose,
   PanelLeftOpen,
   PanelRightClose,
@@ -29,13 +23,8 @@ import { toast } from 'sonner'
 
 import { useHeaderSlot } from '@/components/layout/header-slot'
 import { Badge } from '@/components/ui/badge'
-import { Button, buttonVariants } from '@/components/ui/button'
-import {
-  cacheDocumentBlob,
-  getDocumentBlob,
-  listDocuments,
-} from '@/features/catalogue/documents-repository'
-import { getDocumentDownloadUrl } from '@/features/catalogue/documents-sync'
+import { Button } from '@/components/ui/button'
+import { listDocuments } from '@/features/catalogue/documents-repository'
 import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
 import { useAuth } from '@/features/auth/auth-context'
 import { useOrgId } from '@/features/org/org-context'
@@ -60,13 +49,11 @@ import { formatComposition } from './composition'
 import { countryLabel } from './dossier-constants'
 import {
   addAttachment,
-  cacheAttachmentBlob,
   deleteAttachment,
-  getAttachmentBlob,
   listAttachments,
   MAX_ATTACHMENT_BYTES,
 } from './dossier-attachments-repository'
-import { getAttachmentDownloadUrl, syncDossierAttachments } from './dossier-attachments-sync'
+import { syncDossierAttachments } from './dossier-attachments-sync'
 import { excludeProductDoc, getDossier, updateDossierTree } from './dossier-repository'
 import { syncDossiers } from './dossier-sync'
 import {
@@ -92,7 +79,6 @@ import {
 } from './module1-tree'
 import { agencyCivilite, agencyFor, officialLanguage } from './roadmap-data'
 import { PdfPreviewDialog } from './PdfPreviewDialog'
-import { PdfViewer } from './PdfViewer'
 import { runRegafy, type RegafyFinding } from './regafy'
 import { runRegafyLetters, runRegafyValidity, type RegafyAiPiece } from './regafy-ai'
 import { cacheAnalysis, getCachedAnalysis } from './regafy-cache'
@@ -102,6 +88,11 @@ import { hasSignature, insertSignature, removeSignature } from './signature'
 import { BrandingPanel, SignaturePanel } from './SignatureBrandingPanels'
 import { TEMPLATES, templateKeyForNode, type TemplateContext } from './templates'
 import { flattenTree, isTreeOutdated, mergeDefaultTree, setNodeSaved } from './tree-utils'
+import { Donut } from './components/Donut'
+import { InlineDocPreview } from './components/InlineDocPreview'
+import { RegafyGateDialog } from './components/RegafyGateDialog'
+import { FormatToolbar, ToolbarBtn } from './components/toolbar'
+import { downloadDoc, slugify, triggerDownload } from './download-utils'
 
 export function DossierWorkspacePage() {
   const { dossierId } = useParams()
@@ -1486,323 +1477,4 @@ export function DossierWorkspacePage() {
       ) : null}
     </div>
   )
-}
-
-function RegafyGateDialog({
-  findings,
-  onClose,
-  onCorrect,
-  onCompile,
-}: {
-  findings: RegafyFinding[]
-  onClose: () => void
-  onCorrect: () => void
-  onCompile: () => void
-}) {
-  const errors = findings.filter((f) => f.severity === 'error').length
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Remarques avant compilation"
-    >
-      <div className="bg-card flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border shadow-lg">
-        <div className="flex items-center gap-2 border-b p-4">
-          <AlertTriangle className="size-5 text-amber-500" />
-          <h2 className="font-semibold">Remarques avant compilation</h2>
-        </div>
-        <div className="min-h-0 flex-1 overflow-auto p-4">
-          <p className="text-muted-foreground mb-3 text-sm">
-            {findings.length} observation(s)
-            {errors > 0 ? ` dont ${errors} bloquante(s)` : ''}. Corriger d'abord, ou compiler malgré
-            tout ?
-          </p>
-          <ul className="space-y-1.5">
-            {findings.map((f) => (
-              <li key={f.id} className="flex items-start gap-2 text-sm">
-                <span
-                  className={cn(
-                    'mt-1.5 size-2 shrink-0 rounded-full',
-                    f.severity === 'error'
-                      ? 'bg-red-500'
-                      : f.severity === 'warning'
-                        ? 'bg-amber-500'
-                        : 'bg-sky-500',
-                  )}
-                />
-                <span>
-                  {f.nodeNumber ? <span className="font-medium">{f.nodeNumber} </span> : null}
-                  {f.message}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="flex justify-end gap-2 border-t p-3">
-          <Button variant="ghost" onClick={onClose}>
-            Annuler
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!findings.some((f) => f.nodeNumber)}
-            onClick={onCorrect}
-          >
-            Corriger
-          </Button>
-          <Button onClick={onCompile}>Compiler quand même</Button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function InlineDocPreview({
-  kind,
-  docId,
-  filePath,
-  fileName,
-}: {
-  kind: 'attachment' | 'doc'
-  docId: string
-  filePath: string | null
-  fileName: string
-}) {
-  const [blob, setBlob] = useState<Blob | null>(null)
-  const [url, setUrl] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    // Composant remonté (key=docId) à chaque changement → état initial déjà correct.
-    let alive = true
-    let created: string | null = null
-    void (async () => {
-      let b =
-        (kind === 'attachment' ? await getAttachmentBlob(docId) : await getDocumentBlob(docId)) ??
-        null
-      if (!b && filePath) {
-        const remote =
-          kind === 'attachment'
-            ? await getAttachmentDownloadUrl(filePath)
-            : await getDocumentDownloadUrl(filePath)
-        if (remote) {
-          try {
-            const res = await fetch(remote)
-            if (res.ok) {
-              b = await res.blob()
-              // Offline-first : épingle le fichier en local pour les aperçus hors-ligne suivants.
-              void (kind === 'attachment'
-                ? cacheAttachmentBlob(docId, b)
-                : cacheDocumentBlob(docId, b))
-            }
-          } catch {
-            /* hors-ligne */
-          }
-        }
-      }
-      if (!alive) return
-      if (b) {
-        created = URL.createObjectURL(b)
-        setBlob(b)
-        setUrl(created)
-      }
-      setLoading(false)
-    })()
-    return () => {
-      alive = false
-      if (created) URL.revokeObjectURL(created)
-    }
-  }, [kind, docId, filePath])
-
-  const isPdf = blob?.type === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf')
-  const isImage =
-    (blob?.type ?? '').startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(fileName)
-
-  return (
-    <div className="overflow-hidden rounded-lg border">
-      <div className="bg-card flex items-center justify-between gap-2 border-b px-3 py-1.5">
-        <span className="truncate text-xs font-medium">{fileName}</span>
-        {url ? (
-          <a
-            href={url}
-            download={fileName}
-            aria-label="Télécharger"
-            className={buttonVariants({ variant: 'ghost', size: 'icon-sm' })}
-          >
-            <Download className="size-4" />
-          </a>
-        ) : null}
-      </div>
-      {loading ? (
-        <div className="text-muted-foreground flex min-h-[20rem] items-center justify-center text-sm">
-          Chargement…
-        </div>
-      ) : blob && isPdf ? (
-        <PdfViewer blob={blob} flow />
-      ) : blob && isImage && url ? (
-        <div className="bg-muted p-3">
-          <img
-            src={url}
-            alt={fileName}
-            className="mx-auto max-w-full rounded border bg-white shadow"
-          />
-        </div>
-      ) : url ? (
-        <div className="text-muted-foreground flex min-h-[20rem] flex-col items-center justify-center gap-2 text-sm">
-          <FileText className="size-8" />
-          Aperçu non disponible pour ce format — téléchargez le fichier.
-        </div>
-      ) : (
-        <div className="text-muted-foreground flex min-h-[20rem] items-center justify-center text-sm">
-          Aperçu indisponible hors-ligne.
-        </div>
-      )}
-    </div>
-  )
-}
-
-function FormatToolbar({ editor }: { editor: Editor | null }) {
-  if (!editor) return null
-  return (
-    <div className="bg-card flex items-center gap-1 border-b p-1.5">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Gras"
-        onClick={() => editor.chain().focus().toggleBold().run()}
-      >
-        <Bold className="size-4" />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Italique"
-        onClick={() => editor.chain().focus().toggleItalic().run()}
-      >
-        <Italic className="size-4" />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Titre"
-        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-      >
-        <Heading2 className="size-4" />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Liste à puces"
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
-      >
-        <List className="size-4" />
-      </Button>
-    </div>
-  )
-}
-
-function ToolbarBtn({
-  label,
-  disabled,
-  active,
-  hint,
-  onClick,
-}: {
-  label: string
-  disabled?: boolean
-  active?: boolean
-  hint?: string
-  onClick?: () => void
-}) {
-  return (
-    <Button
-      type="button"
-      variant={active ? 'secondary' : 'ghost'}
-      size="sm"
-      className="rounded-full"
-      disabled={disabled}
-      onClick={onClick}
-      title={disabled ? (hint ?? 'Bientôt disponible') : label}
-    >
-      {label}
-    </Button>
-  )
-}
-
-function Donut({ value, size = 96 }: { value: number; size?: number }) {
-  const r = 28
-  const c = 2 * Math.PI * r
-  const offset = c - (Math.min(100, Math.max(0, value)) / 100) * c
-  return (
-    <svg
-      viewBox="0 0 64 64"
-      style={{ width: size, height: size }}
-      role="img"
-      aria-label={`${value}%`}
-    >
-      <circle
-        cx="32"
-        cy="32"
-        r={r}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="6"
-        className="text-muted"
-        opacity="0.25"
-      />
-      <circle
-        cx="32"
-        cy="32"
-        r={r}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="6"
-        strokeLinecap="round"
-        strokeDasharray={c}
-        strokeDashoffset={offset}
-        transform="rotate(-90 32 32)"
-        className="text-primary"
-      />
-      <text x="32" y="36" textAnchor="middle" className="fill-foreground text-[14px] font-semibold">
-        {value}%
-      </text>
-    </svg>
-  )
-}
-
-function slugify(s: string): string {
-  return (
-    s
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'document'
-  )
-}
-
-async function downloadDoc(d: DocumentRecord) {
-  const blob = await getDocumentBlob(d.id)
-  if (blob) {
-    triggerDownload(URL.createObjectURL(blob), d.fileName, true)
-    return
-  }
-  if (d.filePath) {
-    const url = await getDocumentDownloadUrl(d.filePath)
-    if (url) triggerDownload(url, d.fileName, false)
-  }
-}
-
-function triggerDownload(url: string, name: string, revoke: boolean) {
-  const a = document.createElement('a')
-  a.href = url
-  a.download = name
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  if (revoke) URL.revokeObjectURL(url)
 }
