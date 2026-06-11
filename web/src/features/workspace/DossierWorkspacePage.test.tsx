@@ -115,12 +115,18 @@ describe('DossierWorkspacePage — caractérisation (avant refactor T7)', () => 
     expect(await screen.findByText('Dossier introuvable.')).toBeInTheDocument()
   })
 
-  it('auto-sélection au chargement : première feuille (1.0) — comportement actuel', async () => {
+  it('auto-sélection au chargement : première section documentée (fix T7bis)', async () => {
     await seed()
     renderPage()
-    // CARACTÉRISATION : l'intention du code est « première section documentée », mais une course
-    // (docs vaut [] le temps du chargement quand l'effet se verrouille) fait retomber sur la
-    // première feuille. Fig é tel quel — fix dans une PR dédiée post-refactor, pas en move-only.
+    // Le GMP auto-classé vit sous 1.2 : l'utilisateur voit immédiatement ses pièces sans
+    // chercher (l'ancien bug — course docs=[] → verrouillage sur 1.0 — est corrigé).
+    const heading = await screen.findByRole('heading', { level: 2 })
+    expect(heading).toHaveTextContent('1.2 Informations administratives')
+  })
+
+  it('auto-sélection sans aucun document : première feuille (1.0)', async () => {
+    await seed({ withDoc: false })
+    renderPage()
     const heading = await screen.findByRole('heading', { level: 2 })
     expect(heading).toHaveTextContent('1.0 Table des matières (TdM)')
   })
