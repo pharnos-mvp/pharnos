@@ -28,18 +28,19 @@ de l'existant, en tranches mergeables, vérifiées dans le vrai navigateur sur l
 
 | # | Tranche | Contenu | h | État |
 |---|---|---|---|---|
-| T0 | Socle V2 | Branche `v2`, deploy preview par branche, ce plan, CI sur v2 | 2 | 🔄 |
-| T1 | Headers sécurité + cache | `web/public/_headers` : CSP (Report-Only → enforce), XFO, nosniff, HSTS, Referrer/Permissions-Policy, COOP ; immutable `/assets/*` ; `check-headers.mjs` en CI | 4 | ⬜ |
-| T3 | CI durcie | coverage en CI + artifact ; job gitleaks (historique complet) | 2 | ⬜ |
-| T4 | Rate-limit `create_org` | Migration additive 0015 (3 orgs/24 h/user), pgTAP 14→16 | 3 | ⬜ |
-| T2 | Edge durcies | Timeout + retry borné (429/5xx) + circuit breaker + logs JSON (reqId) ; fix faux négatif lettres (`degraded` + toast) ; CORS whitelist | 6 | ⬜ |
-| T5 | Uploads sûrs | `sanitizeFileName` + whitelist MIME/extension (pdf/png/jpg/webp) + `accept=` | 3 | ⬜ |
-| T6 | Validation TipTap | Schéma zod au pull (`generated-docs-sync`), quarantaine douce | 3 | ⬜ |
-| T7 | Refactor workspace | 1 799 → ≤ 800 l. ; T7.0 caractérisation bloquant ; extractions move-only (composants, `useRegafyCopilot`, `useDebouncedDocSave`, sélecteurs purs, `useViewables`) | 14 | ⬜ |
-| T8 | Retry sync client | `lib/retry.ts` (backoff+jitter, transitoires only) sur les 6 syncs + `reportError` | 3 | ⬜ |
-| T9 | Perf | Preconnect Supabase ; worker pdf.js (1,2 Mo) hors precache → runtimeCaching + warm-up ; constats Regafy au fil de l'eau | 5 | ⬜ |
-| T10 | Web Vitals | `browserTracingIntegration()` (1 ligne) | 1 | ⬜ |
-| T11 | Finitions | SSE traduction ; i18n EN (chrome UI) ; checklist ops backups/PITR | 14 | ⬜ |
+| T0 | Socle V2 | Branche `v2`, deploy preview par branche, ce plan, CI sur v2 | 2 | ✅ #91 |
+| T1 | Headers sécurité + cache | `web/public/_headers` : CSP (Report-Only → **enforcée**, 0 violation au navigateur réel), XFO, nosniff, HSTS, Referrer/Permissions-Policy, COOP ; immutable `/assets/*` ; `check-headers.mjs` en CI | 4 | ✅ #91+#102 |
+| T3 | CI durcie | coverage en CI + planchers + artifact ; jobs gitleaks (197 commits, 0 fuite) et edge (deno test+check) | 2 | ✅ #93 |
+| T4 | Rate-limit `create_org` | Migration additive 0015 (3 orgs/24 h/user), pgTAP 14→16 — **`db push` prod en attente du go CEO** | 3 | 🟡 #92 |
+| T2 | Edge durcies | Timeout + retry borné (429/5xx) + circuit breaker + logs JSON (reqId) ; fix faux négatif lettres (`degraded` + toast) ; CORS whitelist — **deploy Edge prod en attente du go CEO** | 6 | 🟡 #94 |
+| T5 | Uploads sûrs | `sanitizeFileName` + whitelist types + plafond 25 Mo commun (trou catalogue comblé) + `accept=` | 3 | ✅ #95 |
+| T6 | Validation TipTap | Schéma zod au pull, quarantaine douce (jamais d'écrasement d'une version locale saine) | 3 | ✅ #96 |
+| T7 | Refactor workspace | 1 809 → **956 l. (−47 %)** ; caractérisation d'abord (7 tests) ; hooks + sélecteurs purs + panneaux extraits ; écart vs cible 800 assumé (JSX d'orchestration, ligne d'arrêt) | 14 | ✅ #99 |
+| T7bis | Fix auto-sélection | Bug d'origine découvert par la caractérisation (course docs=[]) : la première section documentée est enfin sélectionnée | 1 | ✅ #101 |
+| T8 | Retry sync client | `lib/retry.ts` (backoff+jitter, transitoires only) sur les 6 syncs + `reportError` | 3 | ✅ #97 |
+| T9 | Perf | Précache SW **−1 200 Kio (−28 %)** ; preconnect Supabase ; constats Regafy au fil de l'eau (chunks de 3) ; e2e dédié | 5 | ✅ #100 |
+| T10 | Web Vitals | `browserTracingIntegration()` — le tracing était inerte | 1 | ✅ #98 |
+| T11 | Finitions | SSE traduction ; i18n EN (chrome UI) ; checklist ops backups/PITR | 14 | ⬜ à planifier |
 
 ## Non-goals
 
