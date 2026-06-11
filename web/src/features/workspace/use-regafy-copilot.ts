@@ -10,7 +10,7 @@ import type {
 } from '@/lib/db'
 import { env } from '@/lib/env'
 import { countryLabel } from './dossier-constants'
-import { createTranslationDoc } from './generated-docs-repository'
+import { createTranslationDoc, createUpgradeDoc } from './generated-docs-repository'
 import { syncGeneratedDocs } from './generated-docs-sync'
 import { docTypeForNode, type CtdNodeDef } from './module1-tree'
 import { agencyFor, officialLanguage } from './roadmap-data'
@@ -24,6 +24,7 @@ import {
 } from './regafy-ai'
 import { cacheAnalysis, getCachedAnalysis } from './regafy-cache'
 import { textToTiptap, translateDoc } from './translate-doc'
+import { upgradeDoc } from './upgrade-doc'
 
 /**
  * Copilote Regafy IA du workspace (extrait move-only de DossierWorkspacePage — T7.2) :
@@ -62,7 +63,9 @@ export function useRegafyCopilot({
   >({})
   const [aiBusy, setAiBusy] = useState(false)
   const [translating, setTranslating] = useState<string | null>(null)
-  /** Texte traduit reçu au fil de l'eau (SSE) — null hors traduction. */
+  /** Source (pieceId/genId) en cours de mise en conformité — null sinon. */
+  const [upgrading, setUpgrading] = useState<string | null>(null)
+  /** Texte (traduction OU version conforme) reçu au fil de l'eau (SSE) — null hors opération. */
   const [streamText, setStreamText] = useState<string | null>(null)
   const analyzedPieceIds = useRef<Set<string>>(new Set())
   /** Traductions analysées, clé `id:updatedAt` — une édition (sig changée) ré-analyse. */
@@ -247,13 +250,16 @@ export function useRegafyCopilot({
     const agency = agencyFor(dossier.country)
     const t = setTimeout(() => {
       setAiBusy(true)
-      void runRegafyLetters(genDocs, {
-        productName: dossier.productName ?? product?.nomCommercial ?? '',
-        titulaire: product?.titulaire ?? '',
-        country: countryLabel(dossier.country) || dossier.country || '',
-        agency: agency.full ? `${agency.full} (${agency.name})` : '',
-        operationDate: new Date().toISOString().slice(0, 10),
-      })
+      void runRegafyLetters(
+        genDocs.filter((g) => g.templateKey !== 'translation' && g.templateKey !== 'upgrade'),
+        {
+          productName: dossier.productName ?? product?.nomCommercial ?? '',
+          titulaire: product?.titulaire ?? '',
+          country: countryLabel(dossier.country) || dossier.country || '',
+          agency: agency.full ? `${agency.full} (${agency.name})` : '',
+          operationDate: new Date().toISOString().slice(0, 10),
+        },
+      )
         .then((fs) => setLetterFindings(fs))
         .catch((e) => console.error('Regafy IA (lettres) :', (e as Error).message))
         .finally(() => setAiBusy(false))
@@ -394,5 +400,87 @@ export function useRegafyCopilot({
     [aiPieces, dossier, genDocs, orgId, flatNodes, onOpenTranslation],
   )
 
-  return { aiFindings, translatedSourceIds, aiBusy, translating, streamText, handleTranslate }
+  // « Upgrader » (Regafy Upgrade) : produit la VERSION CONFORME au template en vigueur dans un
+  // onglet à côté (document généré éditable), à partir de la pièce uploadée OU de sa traduction.
+  // Zéro invention : les rubriques absentes de la source sont marquées [NON FOURNI…] — à
+  // compléter par l'utilisateur (bannière de revue). L'original n'est jamais modifié.
+  const handleUpgrade = useCallback(
+    async (f: RegafyFinding) => {
+      if (!dossier || !f.pieceId) return
+      const openTab = (nodeNumber: string, genId: string) => {
+        const node = flatNodes.find((n) => n.number === nodeNumber)
+        if (node) onOpenTranslation(node, genId)
+      }
+      // Anti-relance : une version conforme existe déjà pour cette source → rouvrir l'onglet.
+      // Pour forcer une nouvelle version : fermer l'onglet (« × ») puis recliquer « Upgrader ».
+      const existing = (genDocs ?? []).find(
+        (g) => g.deletedAt === null && g.templateKey === 'upgrade' && g.sourceDocId === f.pieceId,
+      )
+      if (existing) {
+        openTab(existing.nodeNumber, existing.id)
+        return
+      }
+      // Source : pièce uploadée (le PDF est lu par l'Edge) OU traduction (texte du doc généré).
+      const piece = aiPieces.find((p) => p.pieceId === f.pieceId)
+      const genSource = piece
+        ? undefined
+        : (genDocs ?? []).find((g) => g.id === f.pieceId && g.deletedAt === null)
+      const docType =
+        piece?.docType ?? aiPieces.find((p) => p.pieceId === genSource?.sourceDocId)?.docType
+      if ((!piece && !genSource) || !docType) return
+      const nodeNumber = piece?.nodeNumber ?? genSource!.nodeNumber
+
+      setUpgrading(f.pieceId)
+      setStreamText('')
+      try {
+        const text = await upgradeDoc(
+          piece
+            ? {
+                filePath: piece.filePath,
+                fileName: piece.fileName,
+                docType,
+                countryCode: dossier.country,
+              }
+            : {
+                text: tiptapText(
+                  (genSource!.content ?? {}) as Parameters<typeof tiptapText>[0],
+                ).trim(),
+                docType,
+                countryCode: dossier.country,
+              },
+          setStreamText,
+        )
+        const baseName = (piece?.fileName ?? genSource?.title ?? docType).replace(/\.[^.]+$/, '')
+        const rec = await createUpgradeDoc(orgId, {
+          dossierId: dossier.id,
+          nodeNumber,
+          sourceDocId: f.pieceId,
+          title: `${baseName} — version conforme`,
+          content: textToTiptap(text),
+        })
+        void syncGeneratedDocs(orgId)
+        openTab(nodeNumber, rec.id)
+        toast.success('Version conforme prête — à relire.', {
+          description: 'Complétez les rubriques marquées [NON FOURNI DANS LE DOCUMENT SOURCE].',
+        })
+      } catch (e) {
+        toast.error((e as Error).message)
+      } finally {
+        setUpgrading(null)
+        setStreamText(null)
+      }
+    },
+    [aiPieces, dossier, genDocs, orgId, flatNodes, onOpenTranslation],
+  )
+
+  return {
+    aiFindings,
+    translatedSourceIds,
+    aiBusy,
+    translating,
+    upgrading,
+    streamText,
+    handleTranslate,
+    handleUpgrade,
+  }
 }

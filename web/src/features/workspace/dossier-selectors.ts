@@ -84,9 +84,9 @@ export function completionStats(
   return { leaves, okCount: filledLeaves.length, pct }
 }
 
-/** Document visualisable du nœud sélectionné : lettre générée, pièce jointe ou document produit. */
+/** Document visualisable du nœud sélectionné : doc généré, pièce jointe ou document produit. */
 export type Viewable =
-  | { key: string; kind: 'letter'; label: string; isTranslation?: boolean }
+  | { key: string; kind: 'letter'; label: string; isTranslation?: boolean; isUpgrade?: boolean }
   | {
       key: string
       kind: 'attachment' | 'doc'
@@ -96,33 +96,45 @@ export type Viewable =
       fileName: string
     }
 
-/** Construit les onglets visualisables du nœud (lettre d'abord, puis pièces, puis docs produit). */
+/**
+ * Construit les onglets visualisables du nœud : documents générés d'abord (lettres, traductions,
+ * versions conformes — un onglet CHACUN, ils peuvent coexister sur un même nœud), puis pièces
+ * jointes, puis documents produit.
+ */
 export function buildViewables({
-  selectedGenDoc,
+  selectedGenDocs,
   selectedAttachments,
   selectedDocs,
-  translationSourceDoc,
+  sourceNamesById,
   targetLangLabel,
 }: {
-  selectedGenDoc: GeneratedDocRecord | undefined
+  selectedGenDocs: GeneratedDocRecord[]
   selectedAttachments: DossierAttachmentRecord[]
   selectedDocs: DocumentRecord[]
-  translationSourceDoc: { fileName: string } | undefined
+  /** Nom d'affichage des sources (docs/pièces : fileName ; docs générés : title). */
+  sourceNamesById: Map<string, string>
   targetLangLabel: string
 }): Viewable[] {
   const viewables: Viewable[] = []
-  if (selectedGenDoc) {
-    const isTranslation = selectedGenDoc.templateKey === 'translation'
-    // Onglet façon navigateur : « <nom de l'original>_<LANG>.docx » pour une traduction.
-    const transBase = (translationSourceDoc?.fileName ?? selectedGenDoc.title).replace(
+  for (const g of selectedGenDocs) {
+    const isTranslation = g.templateKey === 'translation'
+    const isUpgrade = g.templateKey === 'upgrade'
+    // Onglet façon navigateur : « <nom de l'original>_<LANG>.docx » (traduction),
+    // « <nom de l'original>_CONFORME » (version conforme au template).
+    const base = ((g.sourceDocId && sourceNamesById.get(g.sourceDocId)) ?? g.title).replace(
       /\.[^.]+$/,
       '',
     )
     viewables.push({
-      key: `letter:${selectedGenDoc.id}`,
+      key: `letter:${g.id}`,
       kind: 'letter',
-      label: isTranslation ? `${transBase}_${targetLangLabel}.docx` : selectedGenDoc.title,
+      label: isTranslation
+        ? `${base}_${targetLangLabel}.docx`
+        : isUpgrade
+          ? `${base}_CONFORME`
+          : g.title,
       isTranslation,
+      isUpgrade,
     })
   }
   for (const a of selectedAttachments) {

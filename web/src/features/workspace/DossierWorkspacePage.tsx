@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { JSONContent } from '@tiptap/core'
-import { ArrowLeft, FileDown, FileText, Languages, Save, Sparkles, Upload, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  FileDown,
+  FileText,
+  Languages,
+  Save,
+  Sparkles,
+  Upload,
+  Wand2,
+  X,
+} from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -57,7 +67,7 @@ import { useGeneratedDocsSync } from './use-generated-docs-sync'
 import { getModule1Tree, type CtdNodeDef } from './module1-tree'
 import { agencyCivilite, agencyFor, officialLanguage } from './roadmap-data'
 import { PdfPreviewDialog } from './PdfPreviewDialog'
-import { runRegafy, type RegafyFinding } from './regafy'
+import { runRegafy, tiptapText, type RegafyFinding } from './regafy'
 import { RichTextEditor } from './RichTextEditor'
 import { hasSignature, insertSignature, removeSignature } from './signature'
 import { BrandingPanel, SignaturePanel } from './SignatureBrandingPanels'
@@ -72,6 +82,7 @@ import { FormatToolbar, ToolbarBtn } from './components/toolbar'
 import { TranslationProgress } from './components/TranslationProgress'
 import { TreePanel } from './components/TreePanel'
 import { downloadDoc, slugify, triggerDownload } from './download-utils'
+import { countMissing } from './upgrade-doc'
 
 export function DossierWorkspacePage() {
   const { dossierId } = useParams()
@@ -143,6 +154,23 @@ export function DossierWorkspacePage() {
     return map
   }, [genDocs])
 
+  // TOUS les documents générés par nœud (lettre + traduction + version conforme coexistent —
+  // un onglet chacun). genByNode (un seul) reste pour la complétude/Regafy déterministe.
+  const genListByNode = useMemo(() => {
+    const map = new Map<string, GeneratedDocRecord[]>()
+    for (const g of genDocs ?? []) map.set(g.nodeNumber, [...(map.get(g.nodeNumber) ?? []), g])
+    return map
+  }, [genDocs])
+
+  // Nom d'affichage des sources (labels d'onglets traduction/version conforme).
+  const sourceNamesById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const d of docs ?? []) m.set(d.id, d.fileName)
+    for (const a of attachments ?? []) m.set(a.id, a.fileName)
+    for (const g of genDocs ?? []) m.set(g.id, g.title)
+    return m
+  }, [docs, attachments, genDocs])
+
   const attachByNode = useMemo(() => {
     const map = new Map<string, DossierAttachmentRecord[]>()
     for (const a of attachments ?? []) map.set(a.nodeNumber, [...(map.get(a.nodeNumber) ?? []), a])
@@ -173,18 +201,26 @@ export function DossierWorkspacePage() {
   }, [])
 
   // Copilote Regafy IA : validité des pièces, conformité des lettres, traduction (T7.2).
-  const { aiFindings, translatedSourceIds, aiBusy, translating, streamText, handleTranslate } =
-    useRegafyCopilot({
-      dossierId,
-      dossier,
-      product,
-      genDocs,
-      docsByNode,
-      attachByNode,
-      flatNodes,
-      orgId,
-      onOpenTranslation,
-    })
+  const {
+    aiFindings,
+    translatedSourceIds,
+    aiBusy,
+    translating,
+    upgrading,
+    streamText,
+    handleTranslate,
+    handleUpgrade,
+  } = useRegafyCopilot({
+    dossierId,
+    dossier,
+    product,
+    genDocs,
+    docsByNode,
+    attachByNode,
+    flatNodes,
+    orgId,
+    onOpenTranslation,
+  })
 
   // Sauvegarde débouncée des éditions TipTap (T7.3).
   const { editorState, handleEditorReady, handleEditorChange, flushSave, cancelSave } =
@@ -334,29 +370,22 @@ export function DossierWorkspacePage() {
   const activeDossier = dossier
   const selectedDocs = selected ? docsFor(selected) : []
   const selectedTplKey = selected ? templateKeyForNode(dossier.format, selected.number) : undefined
-  const selectedGenDoc = selected ? genByNode.get(selected.number) : undefined
+  const selectedGenDocs = selected ? (genListByNode.get(selected.number) ?? []) : []
+  // Le document de TEMPLATE du nœud (lettre cover/pght) — pilote le badge et le bouton Générer.
+  const selectedGenDoc = selectedGenDocs.find(
+    (g) => g.templateKey !== 'translation' && g.templateKey !== 'upgrade',
+  )
   const selectedAttachments = selected ? attachmentsFor(selected) : []
-  // Traduction : document produit original lié (affiché à gauche, en regard de la version éditable).
-  // Source d'une traduction : doc produit OU pièce jointe (upload direct workspace). Pour le libellé.
-  const translationSourceDoc =
-    selectedGenDoc?.templateKey === 'translation' && selectedGenDoc.sourceDocId
-      ? ((docs ?? []).find((d) => d.id === selectedGenDoc.sourceDocId) ??
-        (attachments ?? []).find((a) => a.id === selectedGenDoc.sourceDocId))
-      : undefined
   // Langue cible (code pays → 'FR'/'PT'/'EN') pour les libellés (« Traduire en FR », « …_FR.docx »).
   const targetLangLabel = officialLanguage(dossier.country).toUpperCase()
-  // N'utiliser l'instance éditeur que si elle correspond au document sélectionné
-  // (évite d'agir sur une instance détruite pendant le changement de document).
-  const liveEditor =
-    editorState && selectedGenDoc && editorState.id === selectedGenDoc.id ? editorState.ed : null
 
   // Documents visualisables du nœud : lettre générée + pièces jointes + documents produit.
   // Aperçu in-place automatique du 1er (ou de l'onglet choisi), même cadre que la lettre.
   const viewables = buildViewables({
-    selectedGenDoc,
+    selectedGenDocs,
     selectedAttachments,
     selectedDocs,
-    translationSourceDoc,
+    sourceNamesById,
     targetLangLabel,
   })
   const activeKey =
@@ -364,9 +393,18 @@ export function DossierWorkspacePage() {
       ? pickedKey
       : (viewables[0]?.key ?? null)
   const active = viewables.find((v) => v.key === activeKey) ?? null
+  // Document généré AFFICHÉ (lettre/traduction/version conforme de l'onglet actif).
+  const activeGenDoc =
+    active?.kind === 'letter'
+      ? selectedGenDocs.find((g) => `letter:${g.id}` === active.key)
+      : undefined
+  // N'utiliser l'instance éditeur que si elle correspond au document affiché
+  // (évite d'agir sur une instance détruite pendant le changement de document).
+  const liveEditor =
+    editorState && activeGenDoc && editorState.id === activeGenDoc.id ? editorState.ed : null
   // Onglet actif = texte éditable (doc généré / lettre / traduction) → on affiche la barre d'édition
   // (Modifier/Signer/En-tête/Régénérer). Inutile sur un PDF/pièce → masquée.
-  const isEditableActive = active?.kind === 'letter' && !!selectedGenDoc
+  const isEditableActive = active?.kind === 'letter' && !!activeGenDoc
 
   // Constat de langue du document affiché (langue ≠ pays cible) → bouton « Traduire » en
   // surbrillance directement sur l'aperçu, en plus du rappel dans le panneau de droite.
@@ -374,6 +412,22 @@ export function DossierWorkspacePage() {
     active && active.kind !== 'letter'
       ? allFindings.find((f) => f.pieceId === active.id && f.translate)
       : undefined
+
+  // Constat de conformité (bouton Upgrader) du document affiché : pièce en aperçu, ou
+  // traduction ouverte dans l'onglet actif.
+  const activeUpgradeFinding =
+    active && active.kind !== 'letter'
+      ? allFindings.find((f) => f.pieceId === active.id && f.upgrade)
+      : activeGenDoc?.templateKey === 'translation'
+        ? allFindings.find((f) => f.pieceId === activeGenDoc.id && f.upgrade)
+        : undefined
+
+  // Version conforme affichée : rubriques [NON FOURNI…] restant à compléter (recalculé sur le
+  // contenu sauvegardé — la bannière s'allège au fur et à mesure des corrections).
+  const upgradeMissingCount =
+    activeGenDoc?.templateKey === 'upgrade'
+      ? countMissing(tiptapText(activeGenDoc.content as JSONContent))
+      : 0
 
   const { okCount, pct } = completionStats(flatNodes, countFor)
   const warnCount = findings.filter((f) => f.severity === 'warning').length
@@ -422,42 +476,48 @@ export function DossierWorkspacePage() {
   }
 
   async function handleRegenerate() {
-    if (!selectedGenDoc) return
+    if (!activeGenDoc) return
     cancelSave() // on repart du modèle : abandonner toute édition en attente
-    const content = await regenerateGeneratedDoc(selectedGenDoc.id, buildContext())
+    const content = await regenerateGeneratedDoc(activeGenDoc.id, buildContext())
     if (content && liveEditor) liveEditor.commands.setContent(content)
     void syncGeneratedDocs(orgId)
   }
 
-  /** Télécharge une traduction au format .docx (lib `docx` chargée en lazy → hors chunk d'entrée). */
-  async function downloadTranslationDocx(gen: GeneratedDocRecord) {
+  /** Télécharge un doc généré au format .docx (lib `docx` en lazy) — traduction ou version conforme. */
+  async function downloadGeneratedDocx(gen: GeneratedDocRecord, suffix: string) {
     try {
       const json = (liveEditor?.getJSON() ?? gen.content) as JSONContent
       const { tiptapToDocxBlob } = await import('./tiptap-docx')
       const blob = await tiptapToDocxBlob(json)
-      const src = (docs ?? []).find((d) => d.id === gen.sourceDocId)
-      const base = (src?.fileName ?? gen.title).replace(/\.[^.]+$/, '')
-      triggerDownload(URL.createObjectURL(blob), `${base}_${targetLangLabel}.docx`, true)
+      const base = ((gen.sourceDocId && sourceNamesById.get(gen.sourceDocId)) ?? gen.title).replace(
+        /\.[^.]+$/,
+        '',
+      )
+      triggerDownload(URL.createObjectURL(blob), `${base}_${suffix}.docx`, true)
     } catch (e) {
       console.error(e)
-      toast.error('Échec du téléchargement de la traduction (.docx).')
+      toast.error('Échec du téléchargement (.docx).')
     }
   }
 
-  /** Télécharge selon l'onglet actif : traduction → .docx · lettre → .html · doc produit → fichier d'origine. */
+  /** Télécharge selon l'onglet actif : traduction/version conforme → .docx · lettre → .html · doc produit → fichier d'origine. */
   function handleDownload() {
-    if (active?.kind === 'letter' && selectedGenDoc) {
-      if (selectedGenDoc.templateKey === 'translation') {
-        void downloadTranslationDocx(selectedGenDoc)
+    if (active?.kind === 'letter' && activeGenDoc) {
+      if (activeGenDoc.templateKey === 'translation') {
+        void downloadGeneratedDocx(activeGenDoc, targetLangLabel)
         return
       }
-      const json = (liveEditor?.getJSON() ?? selectedGenDoc.content) as JSONContent
-      const html = generatedDocToHtml(selectedGenDoc.title, json, {
+      if (activeGenDoc.templateKey === 'upgrade') {
+        void downloadGeneratedDocx(activeGenDoc, 'CONFORME')
+        return
+      }
+      const json = (liveEditor?.getJSON() ?? activeGenDoc.content) as JSONContent
+      const html = generatedDocToHtml(activeGenDoc.title, json, {
         header: branding?.headerImage ?? null,
         footer: branding?.footerImage ?? null,
       })
       const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
-      triggerDownload(URL.createObjectURL(blob), `${slugify(selectedGenDoc.title)}.html`, true)
+      triggerDownload(URL.createObjectURL(blob), `${slugify(activeGenDoc.title)}.html`, true)
       return
     }
     if (active?.kind === 'doc') {
@@ -543,8 +603,8 @@ export function DossierWorkspacePage() {
 
   async function handleRemoveActive() {
     if (!active) return
-    if (active.kind === 'letter' && selectedGenDoc) {
-      await deleteGeneratedDoc(selectedGenDoc.id)
+    if (active.kind === 'letter' && activeGenDoc) {
+      await deleteGeneratedDoc(activeGenDoc.id)
       void syncGeneratedDocs(orgId)
     } else if (active.kind === 'attachment') {
       await deleteAttachment(active.id)
@@ -647,8 +707,8 @@ export function DossierWorkspacePage() {
                   label="Modifier"
                   active={docEditing}
                   onClick={() => {
-                    if (!selectedGenDoc) return
-                    setPickedKey(`letter:${selectedGenDoc.id}`)
+                    if (!activeGenDoc) return
+                    setPickedKey(`letter:${activeGenDoc.id}`)
                     setDocEditing((v) => !v)
                   }}
                 />
@@ -662,16 +722,16 @@ export function DossierWorkspacePage() {
                   label="En-tête / Pied de page"
                   onClick={() => setBrandPanelOpen(true)}
                 />
-                {selectedGenDoc?.templateKey !== 'translation' ? (
+                {activeGenDoc &&
+                activeGenDoc.templateKey !== 'translation' &&
+                activeGenDoc.templateKey !== 'upgrade' ? (
                   <ToolbarBtn label="Régénérer" onClick={() => void handleRegenerate()} />
                 ) : null}
               </>
             ) : null}
             <ToolbarBtn
               label="Télécharger"
-              disabled={
-                !(active?.kind === 'doc' || (active?.kind === 'letter' && !!selectedGenDoc))
-              }
+              disabled={!(active?.kind === 'doc' || (active?.kind === 'letter' && !!activeGenDoc))}
               onClick={handleDownload}
             />
             <ToolbarBtn
@@ -732,7 +792,7 @@ export function DossierWorkspacePage() {
                     ) : null}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    {selectedGenDoc ? (
+                    {selectedGenDocs.length > 0 ? (
                       <Badge variant="secondary">BROUILLON</Badge>
                     ) : viewables.length > 0 ? (
                       <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
@@ -815,16 +875,56 @@ export function DossierWorkspacePage() {
               </div>
 
               <div>
-                {active?.kind === 'letter' && selectedGenDoc ? (
-                  // Onglet traduction = plein largeur (éditeur + barre de format) ; l'original est
-                  // l'onglet voisin. Pas d'`overflow-hidden` : casserait le `sticky` de la barre.
+                {active?.kind === 'letter' && activeGenDoc ? (
+                  // Onglet traduction/version conforme = plein largeur (éditeur + barre de format) ;
+                  // l'original est l'onglet voisin. Pas d'`overflow-hidden` : casserait le `sticky`.
                   <section className="bg-card rounded-lg border">
-                    {selectedGenDoc.templateKey === 'translation' ? (
+                    {activeGenDoc.templateKey === 'translation' ? (
                       <p className="text-muted-foreground flex items-center gap-1.5 px-3 pt-2 text-xs italic">
                         <Languages className="size-3.5 shrink-0 text-amber-500" />
                         Traduction assistée (MedDRA) — à relire. N'altère pas l'original ; propre à
                         ce dossier.
                       </p>
+                    ) : null}
+                    {activeGenDoc.templateKey === 'upgrade' ? (
+                      <p
+                        className={cn(
+                          'flex items-center gap-1.5 px-3 pt-2 text-xs italic',
+                          upgradeMissingCount > 0 ? 'text-amber-700' : 'text-emerald-700',
+                        )}
+                      >
+                        <Wand2 className="size-3.5 shrink-0" />
+                        {upgradeMissingCount > 0
+                          ? `Mise en conformité assistée — à relire : ${upgradeMissingCount} rubrique(s) marquée(s) [NON FOURNI DANS LE DOCUMENT SOURCE] à compléter.`
+                          : 'Mise en conformité assistée — à relire. Toutes les rubriques portent une information issue du document source.'}
+                      </p>
+                    ) : null}
+                    {activeUpgradeFinding && activeGenDoc.templateKey === 'translation' ? (
+                      <div className="mx-3 mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-violet-300 bg-violet-50 px-3 py-2">
+                        <span className="flex items-center gap-1.5 text-xs font-medium text-violet-800">
+                          <Wand2 className="size-4 shrink-0" />
+                          {activeUpgradeFinding.message}
+                        </span>
+                        <Button
+                          size="sm"
+                          className="h-7 gap-1 bg-violet-500 text-white hover:bg-violet-600"
+                          disabled={upgrading === activeUpgradeFinding.pieceId}
+                          onClick={() => void handleUpgrade(activeUpgradeFinding)}
+                        >
+                          <Wand2 className="size-3.5" />
+                          {upgrading === activeUpgradeFinding.pieceId
+                            ? 'Mise en conformité…'
+                            : 'Upgrader'}
+                        </Button>
+                      </div>
+                    ) : null}
+                    {upgrading === activeGenDoc.id && streamText !== null ? (
+                      <div className="px-3 pt-2">
+                        <TranslationProgress
+                          text={streamText}
+                          label="Mise en conformité en cours — le document s'écrit au fil de l'eau…"
+                        />
+                      </div>
                     ) : null}
                     {docEditing ? (
                       <div className="bg-card sticky top-[5.25rem] z-10 rounded-t-lg">
@@ -832,18 +932,20 @@ export function DossierWorkspacePage() {
                       </div>
                     ) : null}
                     <RichTextEditor
-                      docId={selectedGenDoc.id}
-                      initialContent={selectedGenDoc.content as JSONContent}
+                      docId={activeGenDoc.id}
+                      initialContent={activeGenDoc.content as JSONContent}
                       editable={docEditing}
-                      onChange={(json) => handleEditorChange(selectedGenDoc.id, json)}
+                      onChange={(json) => handleEditorChange(activeGenDoc.id, json)}
                       onReady={handleEditorReady}
                       header={
-                        selectedGenDoc.templateKey === 'translation'
+                        activeGenDoc.templateKey === 'translation' ||
+                        activeGenDoc.templateKey === 'upgrade'
                           ? null
                           : (branding?.headerImage ?? null)
                       }
                       footer={
-                        selectedGenDoc.templateKey === 'translation'
+                        activeGenDoc.templateKey === 'translation' ||
+                        activeGenDoc.templateKey === 'upgrade'
                           ? null
                           : (branding?.footerImage ?? null)
                       }
@@ -870,8 +972,33 @@ export function DossierWorkspacePage() {
                         </Button>
                       </div>
                     ) : null}
+                    {activeUpgradeFinding ? (
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-violet-300 bg-violet-50 px-3 py-2">
+                        <span className="flex items-center gap-1.5 text-xs font-medium text-violet-800">
+                          <Wand2 className="size-4 shrink-0" />
+                          {activeUpgradeFinding.message}
+                        </span>
+                        <Button
+                          size="sm"
+                          className="h-7 gap-1 bg-violet-500 text-white hover:bg-violet-600"
+                          disabled={upgrading === activeUpgradeFinding.pieceId}
+                          onClick={() => void handleUpgrade(activeUpgradeFinding)}
+                        >
+                          <Wand2 className="size-3.5" />
+                          {upgrading === activeUpgradeFinding.pieceId
+                            ? 'Mise en conformité…'
+                            : 'Upgrader'}
+                        </Button>
+                      </div>
+                    ) : null}
                     {translating === active.id && streamText !== null ? (
                       <TranslationProgress text={streamText} />
+                    ) : null}
+                    {upgrading === active.id && streamText !== null ? (
+                      <TranslationProgress
+                        text={streamText}
+                        label="Mise en conformité en cours — le document s'écrit au fil de l'eau…"
+                      />
                     ) : null}
                     <InlineDocPreview
                       key={active.key}
@@ -917,10 +1044,12 @@ export function DossierWorkspacePage() {
           allFindings={allFindings}
           aiBusy={aiBusy}
           translating={translating}
+          upgrading={upgrading}
           targetLangLabel={targetLangLabel}
           flatNodes={flatNodes}
           onSelectNode={handleSelectNode}
           onTranslate={(f) => void handleTranslate(f)}
+          onUpgrade={(f) => void handleUpgrade(f)}
         />
       </div>
 
