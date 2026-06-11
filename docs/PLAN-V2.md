@@ -40,7 +40,9 @@ de l'existant, en tranches mergeables, vérifiées dans le vrai navigateur sur l
 | T8 | Retry sync client | `lib/retry.ts` (backoff+jitter, transitoires only) sur les 6 syncs + `reportError` | 3 | ✅ #97 |
 | T9 | Perf | Précache SW **−1 200 Kio (−28 %)** ; preconnect Supabase ; constats Regafy au fil de l'eau (chunks de 3) ; e2e dédié | 5 | ✅ #100 |
 | T10 | Web Vitals | `browserTracingIntegration()` — le tracing était inerte | 1 | ✅ #98 |
-| T11 | Finitions | SSE traduction ; i18n EN (chrome UI) ; checklist ops backups/PITR | 14 | ⬜ à planifier |
+| T11a | SSE traduction | Streaming de bout en bout (opt-in `stream:true`, repli JSON) : premier texte ~2 s, panneau de progression auto-scrollé — **Edge redéployée + smoke tests OK le 2026-06-11** | 6 | ✅ #103 |
+| T11b | i18n EN | **Reporté après Regafy Upgrade** (décision CTO, à confirmer CEO) : seuls 4 fichiers sont i18n-isés — couvrir tout le chrome = ~15 fichiers wrappés + tests de caractérisation à réécrire, churn massif avant le merge final, valeur pilote UEMOA (FR) nulle à court terme | 8 | ⏸️ reporté |
+| T11c | Checklist ops | Backups vérifiés par CLI : WALG **actif** (physique, Paris), **PITR non activé** (plan Pro requis) — voir checklist ci-dessous | 1 | ✅ |
 
 ## Non-goals
 
@@ -70,8 +72,39 @@ découpage JSX cosmétique, pas de migration DB destructive (additif uniquement)
 5. **Process** : prod intacte de bout en bout ; migrations validées en CI locale avant push ;
    go CEO = merge unique `v2 → main`.
 
-## Checklist ops (T11, hors code)
+## Checklist ops (T11c)
 
-- [ ] Vérifier le plan Supabase du projet `uhsireqwzqqymgsxuvqh` : backups quotidiens actifs,
-      PITR si plan Pro ; documenter un test de restauration.
-- [ ] Alertes Sentry : LCP p75 > 2,5 s ; erreurs Edge (via logs JSON).
+- [x] Backups du projet `uhsireqwzqqymgsxuvqh` vérifiés (CLI, 2026-06-11) : **WALG actif**
+      (sauvegarde physique, West EU Paris) ; backups quotidiens du free tier conservés 7 j
+      (dashboard → Database → Backups). **PITR non activé** (réservé plan Pro).
+- [ ] **Avant le pilote multi-organisations réel : passer au plan Pro et activer PITR.**
+      Risque actuel : jusqu'à 24 h de données serveur en cas de restauration — atténué par
+      l'offline-first (les données vivent aussi en Dexie sur les postes et se re-synchronisent),
+      mais inacceptable à terme pour des dossiers réglementaires multi-clients.
+- [ ] Documenter un test de restauration (dashboard, projet jetable) avant le pilote.
+- [ ] Alertes Sentry (dashboard) : LCP p75 > 2,5 s ; erreurs Edge (les logs JSON `reqId` de T2
+      rendent le tri immédiat).
+
+## Préparation Regafy Upgrade (prochaine phase — spec CEO du 2026-06-11)
+
+Fonctionnalité ultime : repérage des documents non conformes aux **templates réglementaires**
+et mise en conformité assistée (bouton **Upgrader**), zéro hallucination — toute rubrique du
+template absente du document source est marquée manquante, jamais inventée. Documents couverts :
+Cover letter, Lettre de PGHT, RCP, Notice, Étiquette. Même pattern d'onglet que la traduction
+(doc généré éditable propre au dossier, `templateKey: 'upgrade'`, `sourceDocId`). Flux :
+constat de langue → Traduire (existant) → vérification vs template → constat de conformité →
+Upgrader. Documents déjà en FR : passage direct à la vérification.
+
+Inventaire des templates disponibles (`RA-source/Template/`, à valider avec le CEO) :
+
+| Type | Fichiers | Couverture |
+|---|---|---|
+| Cover Lettre | 9 (UEMOA New MA générique + Bénin ×2 + CI, officiel ABMed, + 3 exemples réels KV-*) | UEMOA + BJ + CI |
+| PGHT | 5 (UEMOA générique + Bénin ×2 + CI ×2) | UEMOA + BJ + CI |
+| RCP | 2 (Maquette ABMed 2026, Bénin RCP 2026) + RAG_Benin/Template_ RCP_2026.pdf (non tracké) | BJ 2026 |
+| Notice | 1 (Maquette ABMed 2026) | BJ 2026 |
+| Étiquetage | 1 (ABMed 2026) | BJ 2026 |
+
+Brique technique réutilisable : Edge durcie (T2 — timeout/retry/logs/degraded), pattern
+traduction + streaming (T11a), cache d'analyse par document. Planification dédiée (/cto:plan)
+à la prochaine session avec le CEO.
