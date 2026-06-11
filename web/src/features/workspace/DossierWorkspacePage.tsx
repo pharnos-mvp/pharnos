@@ -213,6 +213,7 @@ export function DossierWorkspacePage() {
     upgrading,
     streamText,
     handleTranslate,
+    handleTranslateGenerated,
     handleUpgrade,
   } = useRegafyCopilot({
     dossierId,
@@ -438,6 +439,16 @@ export function DossierWorkspacePage() {
     activeGenDoc?.templateKey === 'fill'
       ? countMarker(tiptapText(activeGenDoc.content as JSONContent), FILL_PLACEHOLDER)
       : 0
+
+  // « Conformité d'abord, traduction après » : la version conforme rédigée dans une autre
+  // langue que la langue officielle du pays porte le bouton « Traduire » (langue détectée par
+  // le constat de conformité de la pièce source).
+  const activeUpgradeLang =
+    activeGenDoc?.templateKey === 'upgrade' && activeGenDoc.sourceDocId
+      ? allFindings.find((f) => f.pieceId === activeGenDoc.sourceDocId && f.upgrade)?.language
+      : undefined
+  const activeConformNeedsTranslation =
+    !!activeUpgradeLang && activeUpgradeLang !== officialLanguage(activeDossier.country)
 
   // « Remplir le template » disponible sur les nœuds dont le type est couvert par un template
   // officiel (RCP, Notice, Étiquetage… — 1.3.x), même sans aucun document.
@@ -1000,12 +1011,37 @@ export function DossierWorkspacePage() {
                         </span>
                       </div>
                     ) : null}
+                    {activeConformNeedsTranslation ? (
+                      <div className="mx-3 mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
+                        <span className="flex items-center gap-1.5 text-xs font-medium text-amber-800">
+                          <Languages className="size-4 shrink-0" />
+                          Document conforme en {activeUpgradeLang?.toUpperCase()} — langue
+                          officielle du pays : {targetLangLabel}.
+                        </span>
+                        <Button
+                          size="sm"
+                          className="h-7 gap-1 bg-amber-500 text-white hover:bg-amber-600"
+                          disabled={translating === activeGenDoc.id}
+                          onClick={() => void handleTranslateGenerated(activeGenDoc)}
+                        >
+                          <Languages className="size-3.5" />
+                          {translating === activeGenDoc.id
+                            ? 'Traduction…'
+                            : `Traduire en ${targetLangLabel}`}
+                        </Button>
+                      </div>
+                    ) : null}
                     {upgrading === activeGenDoc.id && streamText !== null ? (
                       <div className="px-3 pt-2">
                         <TranslationProgress
                           text={streamText}
                           label="Mise en conformité en cours — le document s'écrit au fil de l'eau…"
                         />
+                      </div>
+                    ) : null}
+                    {translating === activeGenDoc.id && streamText !== null ? (
+                      <div className="px-3 pt-2">
+                        <TranslationProgress text={streamText} />
                       </div>
                     ) : null}
                     {docEditing ? (

@@ -11,6 +11,7 @@ import { vertexSseToSimple } from '../_shared/sse.ts'
 import { generateParts, streamParts, type Part } from '../_shared/vertex.ts'
 
 const MAX_FILE_BYTES = 12 * 1024 * 1024
+const MAX_TEXT_CHARS = 60_000
 // Traduction multimodale d'un PDF complet : l'appel Vertex le plus long de l'app.
 const TRANSLATE_TIMEOUT_MS = 90_000
 const STORAGE_BUCKET = 'documents'
@@ -87,19 +88,35 @@ Deno.serve(async (req: Request) => {
     fileName?: string
     docType?: string
     targetLang?: string
+    /** Texte source (document généré : version conforme, template rempli) — exclusif filePath. */
+    text?: string
     /** true → réponse SSE au fil de l'eau ; absent → JSON (compat front antérieur). */
     stream?: boolean
   }
-  if (!b.filePath) return json({ error: 'filePath requis' }, 400)
+  if (!b.filePath && !b.text) return json({ error: 'filePath ou text requis' }, 400)
   const targetName = LANG_NAMES[(b.targetLang || 'fr').toLowerCase().slice(0, 2)] ?? 'français'
   const docType = String(b.docType ?? 'document')
 
-  // Téléchargement du document (Storage, RLS via le JWT appelant).
-  const { data, error } = await supabase.storage.from(STORAGE_BUCKET).download(b.filePath)
-  if (error || !data) return json({ error: 'document introuvable' }, 404)
-  const buf = new Uint8Array(await data.arrayBuffer())
-  if (!buf.byteLength || buf.byteLength > MAX_FILE_BYTES) {
-    return json({ error: 'document illisible ou trop volumineux' }, 422)
+  // Source : pièce téléchargée (Storage, RLS via le JWT appelant) OU texte borné (conformité
+  // d'abord : on traduit la VERSION CONFORME, un document généré).
+  let sourcePart: Part
+  let sourceBytes = 0
+  if (b.filePath) {
+    const { data, error } = await supabase.storage.from(STORAGE_BUCKET).download(b.filePath)
+    if (error || !data) return json({ error: 'document introuvable' }, 404)
+    const buf = new Uint8Array(await data.arrayBuffer())
+    if (!buf.byteLength || buf.byteLength > MAX_FILE_BYTES) {
+      return json({ error: 'document illisible ou trop volumineux' }, 422)
+    }
+    sourceBytes = buf.byteLength
+    sourcePart = {
+      inlineData: { mimeType: mimeFor(b.fileName ?? 'document'), data: bytesToBase64(buf) },
+    }
+  } else {
+    const text = String(b.text).slice(0, MAX_TEXT_CHARS)
+    if (!text.trim()) return json({ error: 'texte source vide' }, 400)
+    sourceBytes = text.length
+    sourcePart = { text: `DOCUMENT À TRADUIRE :\n${text}` }
   }
 
   // Traduction Pro (U2) : terminologie verrouillée (SOC/fréquences MedDRA, formes/voies EDQM,
@@ -112,14 +129,15 @@ Deno.serve(async (req: Request) => {
         `Traduis ce document (${docType}) en ${targetName}. Rends UNIQUEMENT la traduction, ` +
         'en texte structuré (titres puis paragraphes, une ligne vide entre les blocs).',
     },
-    { inlineData: { mimeType: mimeFor(b.fileName ?? 'document'), data: bytesToBase64(buf) } },
+    sourcePart,
   ]
 
   const started = Date.now()
   logJson({
     ...log,
     op: 'start',
-    bytes: buf.byteLength,
+    bytes: sourceBytes,
+    fromText: !b.filePath,
     docType,
     target: b.targetLang || 'fr',
     stream: b.stream === true,

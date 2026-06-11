@@ -462,6 +462,16 @@ export function useRegafyCopilot({
       if ((!piece && !genSource) || !docType) return
       const nodeNumber = piece?.nodeNumber ?? genSource!.nodeNumber
 
+      // Contexte certifié du dossier (fiche produit) : rubrique 9 auto-résolue pour une
+      // nouvelle AMM, 7.1 Titulaire / 7.2 Fabricant quand ils diffèrent — données vérifiées,
+      // utilisables par « Générer » au même titre que le document source.
+      const dossierContext = {
+        activity: dossier.activity,
+        titulaire: product?.titulaire,
+        titulaireAdresse: product?.titulaireAdresse,
+        fabricant: product?.fabricant,
+        fabricantAdresse: product?.fabricantAdresse,
+      }
       setUpgrading(f.pieceId)
       setStreamText('')
       try {
@@ -472,6 +482,7 @@ export function useRegafyCopilot({
                 fileName: piece.fileName,
                 docType,
                 countryCode: dossier.country,
+                dossierContext,
               }
             : {
                 text: tiptapText(
@@ -479,6 +490,7 @@ export function useRegafyCopilot({
                 ).trim(),
                 docType,
                 countryCode: dossier.country,
+                dossierContext,
               },
           setStreamText,
         )
@@ -505,6 +517,59 @@ export function useRegafyCopilot({
     [aiPieces, dossier, genDocs, orgId, flatNodes, onOpenTranslation],
   )
 
+  // Traduction d'un DOCUMENT GÉNÉRÉ (version conforme, template rempli) — « conformité d'abord,
+  // traduction après » : la version conforme non-FR porte le bouton « Traduire ». La traduction
+  // produite n'est PAS re-soumise au constat de conformité (sa source n'est pas une pièce).
+  const handleTranslateGenerated = useCallback(
+    async (genDoc: GeneratedDocRecord) => {
+      if (!dossier) return
+      const openTab = (genId: string) => {
+        const node = flatNodes.find((n) => n.number === genDoc.nodeNumber)
+        if (node) onOpenTranslation(node, genId)
+      }
+      const existing = (genDocs ?? []).find(
+        (g) =>
+          g.deletedAt === null && g.templateKey === 'translation' && g.sourceDocId === genDoc.id,
+      )
+      if (existing) {
+        openTab(existing.id)
+        return
+      }
+      const docType =
+        docTypeForNode(dossier.format, genDoc.nodeNumber) ??
+        (genDoc.nodeNumber.startsWith('1.3') ? 'labeling' : 'document')
+      const lang = officialLanguage(dossier.country)
+      setTranslating(genDoc.id)
+      setStreamText('')
+      try {
+        const text = await translateDoc(
+          {
+            text: tiptapText((genDoc.content ?? {}) as Parameters<typeof tiptapText>[0]).trim(),
+            docType,
+            targetLang: lang,
+          },
+          setStreamText,
+        )
+        const rec = await createTranslationDoc(orgId, {
+          dossierId: dossier.id,
+          nodeNumber: genDoc.nodeNumber,
+          sourceDocId: genDoc.id,
+          title: `${docType.toUpperCase()} — traduction (${lang.toUpperCase()})`,
+          content: textToTiptap(text),
+        })
+        void syncGeneratedDocs(orgId)
+        openTab(rec.id)
+        toast.success('Traduction prête — à relire avant usage.')
+      } catch (e) {
+        toast.error((e as Error).message)
+      } finally {
+        setTranslating(null)
+        setStreamText(null)
+      }
+    },
+    [dossier, genDocs, orgId, flatNodes, onOpenTranslation],
+  )
+
   return {
     aiFindings,
     translatedSourceIds,
@@ -513,6 +578,7 @@ export function useRegafyCopilot({
     upgrading,
     streamText,
     handleTranslate,
+    handleTranslateGenerated,
     handleUpgrade,
   }
 }
