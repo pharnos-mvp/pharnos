@@ -1,41 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import type { Editor, JSONContent } from '@tiptap/core'
-import {
-  AlertTriangle,
-  ArrowLeft,
-  Bold,
-  CheckCircle2,
-  Download,
-  FileDown,
-  FileText,
-  Heading2,
-  Italic,
-  Languages,
-  List,
-  PanelLeftClose,
-  PanelLeftOpen,
-  PanelRightClose,
-  PanelRightOpen,
-  Save,
-  Settings2,
-  Sparkles,
-  Upload,
-  X,
-  XCircle,
-} from 'lucide-react'
+import type { JSONContent } from '@tiptap/core'
+import { ArrowLeft, FileDown, FileText, Languages, Save, Sparkles, Upload, X } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { useHeaderSlot } from '@/components/layout/header-slot'
 import { Badge } from '@/components/ui/badge'
-import { Button, buttonVariants } from '@/components/ui/button'
-import {
-  cacheDocumentBlob,
-  getDocumentBlob,
-  listDocuments,
-} from '@/features/catalogue/documents-repository'
-import { getDocumentDownloadUrl } from '@/features/catalogue/documents-sync'
+import { Button } from '@/components/ui/button'
+import { listDocuments } from '@/features/catalogue/documents-repository'
 import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
 import { useAuth } from '@/features/auth/auth-context'
 import { useOrgId } from '@/features/org/org-context'
@@ -45,63 +18,59 @@ import {
   setUserSignature,
 } from '@/features/profile/pro-settings-repository'
 import { useProSettingsSync } from '@/features/profile/use-pro-settings-sync'
-import {
-  db,
-  type DocumentRecord,
-  type DossierAttachmentRecord,
-  type GeneratedDocRecord,
-} from '@/lib/db'
-import { env } from '@/lib/env'
+import { db, type DossierAttachmentRecord, type GeneratedDocRecord } from '@/lib/db'
 import { UPLOAD_ACCEPT } from '@/lib/files'
 import { cn } from '@/lib/utils'
-import { ArborescenceTree } from './ArborescenceTree'
 import { extractCity } from './city'
 import { formatComposition } from './composition'
 import { countryLabel } from './dossier-constants'
 import {
+  attachmentsForNode,
+  buildDocsByNode,
+  buildViewables,
+  completionStats,
+  docsForNode,
+  genDocsForNode,
+  nextLeafAfter,
+  type Viewable,
+} from './dossier-selectors'
+import {
   addAttachment,
-  cacheAttachmentBlob,
   deleteAttachment,
-  getAttachmentBlob,
   listAttachments,
   MAX_ATTACHMENT_BYTES,
 } from './dossier-attachments-repository'
-import { getAttachmentDownloadUrl, syncDossierAttachments } from './dossier-attachments-sync'
+import { syncDossierAttachments } from './dossier-attachments-sync'
 import { excludeProductDoc, getDossier, updateDossierTree } from './dossier-repository'
 import { syncDossiers } from './dossier-sync'
 import {
   createGeneratedDoc,
-  createTranslationDoc,
   deleteGeneratedDoc,
   listGeneratedDocs,
   regenerateGeneratedDoc,
-  updateGeneratedDocContent,
 } from './generated-docs-repository'
 import { generatedDocToHtml } from './generated-doc-html'
 import { syncGeneratedDocs } from './generated-docs-sync'
 import { useDossierAttachmentsSync } from './use-dossier-attachments-sync'
 import { useDossierSync } from './use-dossier-sync'
 import { useGeneratedDocsSync } from './use-generated-docs-sync'
-import {
-  docTypeForNode,
-  getModule1Tree,
-  nodeForDocType,
-  resolveExistingNode,
-  treeNodeNumbers,
-  type CtdNodeDef,
-} from './module1-tree'
+import { getModule1Tree, type CtdNodeDef } from './module1-tree'
 import { agencyCivilite, agencyFor, officialLanguage } from './roadmap-data'
 import { PdfPreviewDialog } from './PdfPreviewDialog'
-import { PdfViewer } from './PdfViewer'
 import { runRegafy, type RegafyFinding } from './regafy'
-import { runRegafyLetters, runRegafyValidity, type RegafyAiPiece } from './regafy-ai'
-import { cacheAnalysis, getCachedAnalysis } from './regafy-cache'
-import { textToTiptap, translateDoc } from './translate-doc'
 import { RichTextEditor } from './RichTextEditor'
 import { hasSignature, insertSignature, removeSignature } from './signature'
 import { BrandingPanel, SignaturePanel } from './SignatureBrandingPanels'
 import { TEMPLATES, templateKeyForNode, type TemplateContext } from './templates'
 import { flattenTree, isTreeOutdated, mergeDefaultTree, setNodeSaved } from './tree-utils'
+import { useDebouncedDocSave } from './use-debounced-doc-save'
+import { useRegafyCopilot } from './use-regafy-copilot'
+import { CompletionPanel } from './components/CompletionPanel'
+import { InlineDocPreview } from './components/InlineDocPreview'
+import { RegafyGateDialog } from './components/RegafyGateDialog'
+import { FormatToolbar, ToolbarBtn } from './components/toolbar'
+import { TreePanel } from './components/TreePanel'
+import { downloadDoc, slugify, triggerDownload } from './download-utils'
 
 export function DossierWorkspacePage() {
   const { dossierId } = useParams()
@@ -144,7 +113,6 @@ export function DossierWorkspacePage() {
   const [docEditing, setDocEditing] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [rightCollapsed, setRightCollapsed] = useState(false)
-  const [editorState, setEditorState] = useState<{ id: string; ed: Editor } | null>(null)
   const [previewPdf, setPreviewPdf] = useState<{
     url: string
     name: string
@@ -155,38 +123,15 @@ export function DossierWorkspacePage() {
   const [autoStructural, setAutoStructural] = useState(true)
   const [pickedKey, setPickedKey] = useState<string | null>(null)
   const [gateFindings, setGateFindings] = useState<RegafyFinding[] | null>(null)
-  const [validityByPiece, setValidityByPiece] = useState<Record<string, RegafyFinding[]>>({})
-  const [letterFindings, setLetterFindings] = useState<RegafyFinding[]>([])
-  const [aiBusy, setAiBusy] = useState(false)
-  const [translating, setTranslating] = useState<string | null>(null)
   const [sigPanelOpen, setSigPanelOpen] = useState(false)
   const [brandPanelOpen, setBrandPanelOpen] = useState(false)
 
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const pendingSave = useRef<{ id: string; json: JSONContent } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const previewRef = useRef<{ url: string; revoke: boolean } | null>(null)
   const didAutoSelect = useRef(false)
-  const analyzedPieceIds = useRef<Set<string>>(new Set())
   const setHeaderSlot = useHeaderSlot()
 
-  const docsByNode = useMemo(() => {
-    const map = new Map<string, DocumentRecord[]>()
-    if (!dossier) return map
-    const excluded = new Set(dossier.excludedDocIds ?? [])
-    const numbers = treeNodeNumbers(dossier.tree)
-    for (const d of docs ?? []) {
-      if (excluded.has(d.id)) continue
-      // Repli sur l'ancêtre existant si la sous-section détaillée n'est pas dans l'arbre du dossier
-      // → un COPP/FSC/… auto-classé reste toujours visible (et compilable).
-      const node = resolveExistingNode(
-        numbers,
-        nodeForDocType(dossier.format, d.docType, d.category),
-      )
-      map.set(node, [...(map.get(node) ?? []), d])
-    }
-    return map
-  }, [docs, dossier])
+  const docsByNode = useMemo(() => buildDocsByNode(dossier, docs), [docs, dossier])
 
   const genByNode = useMemo(() => {
     const map = new Map<string, GeneratedDocRecord>()
@@ -215,24 +160,32 @@ export function DossierWorkspacePage() {
         : [],
     [dossier, product, docsByNode, genByNode, attachByNode],
   )
-  // Constats : déterministes + copilote IA (validité par pièce + conformité des lettres). Même
-  // affichage, en complément ; ne bloque jamais la compilation.
-  const aiFindings = useMemo(
-    () => [...Object.values(validityByPiece).flat(), ...letterFindings],
-    [validityByPiece, letterFindings],
-  )
-  // Constat « résolu » : dès qu'une traduction existe pour un doc, on masque son constat de langue
-  // (et son bouton « Traduire ») — l'utilisateur a satisfait la demande. Vaut pour le panneau ET le
-  // gate de compilation. Les autres constats s'effacent déjà au recalcul (re-analyse).
-  const translatedSourceIds = useMemo(
-    () =>
-      new Set(
-        (genDocs ?? [])
-          .filter((g) => g.deletedAt === null && g.templateKey === 'translation' && g.sourceDocId)
-          .map((g) => g.sourceDocId),
-      ),
-    [genDocs],
-  )
+  // Ouverture d'un onglet de traduction (sélection du nœud + édition immédiate) — callback du
+  // copilote IA, stable pour ne pas relancer ses memos.
+  const onOpenTranslation = useCallback((node: CtdNodeDef, genId: string) => {
+    setSelected(node)
+    setDocEditing(true) // traduction éditable d'emblée (pas besoin de cliquer « Modifier »)
+    setPickedKey(`letter:${genId}`)
+  }, [])
+
+  // Copilote Regafy IA : validité des pièces, conformité des lettres, traduction (T7.2).
+  const { aiFindings, translatedSourceIds, aiBusy, translating, handleTranslate } =
+    useRegafyCopilot({
+      dossierId,
+      dossier,
+      product,
+      genDocs,
+      docsByNode,
+      attachByNode,
+      flatNodes,
+      orgId,
+      onOpenTranslation,
+    })
+
+  // Sauvegarde débouncée des éditions TipTap (T7.3).
+  const { editorState, handleEditorReady, handleEditorChange, flushSave, cancelSave } =
+    useDebouncedDocSave(orgId)
+
   const allFindings = useMemo(
     () =>
       [...findings, ...aiFindings].filter(
@@ -240,165 +193,6 @@ export function DossierWorkspacePage() {
       ),
     [findings, aiFindings, translatedSourceIds],
   )
-
-  // Pièces admin/COA téléversées à faire analyser (validité multimodale), clé = id du document.
-  const aiPieces = useMemo<RegafyAiPiece[]>(() => {
-    const out: RegafyAiPiece[] = []
-    for (const [num, list] of docsByNode) {
-      const nodeLabel = flatNodes.find((n) => n.number === num)?.label ?? ''
-      for (const d of list) {
-        const relevant =
-          d.category === 'admin' ||
-          ['coa', 'rcp', 'notice', 'labeling', 'artwork'].includes(d.docType)
-        if (relevant && d.filePath) {
-          out.push({
-            pieceId: d.id,
-            sig: d.updatedAt,
-            nodeNumber: num,
-            nodeLabel,
-            docType: d.docType,
-            category: d.category,
-            fileName: d.fileName,
-            filePath: d.filePath,
-          })
-        }
-      }
-    }
-    // Pièces jointes téléversées DIRECTEMENT sur un nœud du workspace : analysées comme les docs
-    // produit, avec le type dérivé du nœud → Regafy détecte la langue (RCP/Notice/…) / la validité.
-    if (dossier) {
-      for (const [num, list] of attachByNode) {
-        // Tout nœud produit (1.3.x) est langue-sensible → détection de langue même si le sous-type
-        // précis n'est pas mappé (Étiquetage étranger 1.3.4, produits de référence 1.3.5…) : repli
-        // 'labeling' (type LANG). Sinon, type admin dérivé du nœud (validité), ou rien.
-        const docType =
-          docTypeForNode(dossier.format, num) ?? (num.startsWith('1.3') ? 'labeling' : null)
-        if (!docType) continue
-        const nodeLabel = flatNodes.find((n) => n.number === num)?.label ?? ''
-        for (const a of list) {
-          if (a.filePath) {
-            out.push({
-              pieceId: a.id,
-              sig: a.updatedAt,
-              nodeNumber: num,
-              nodeLabel,
-              docType,
-              category: num.startsWith('1.3') ? 'info' : 'admin',
-              fileName: a.fileName,
-              filePath: a.filePath,
-            })
-          }
-        }
-      }
-    }
-    return out
-  }, [docsByNode, attachByNode, flatNodes, dossier])
-
-  // Signature stable du jeu de pièces (ids triés) → l'analyse se déclenche sur un VRAI changement de
-  // pièces, pas à chaque tick de la synchro Dexie (sinon le debounce est relancé en boucle → démarrage
-  // lent). dossier/aiPieces sont stables pour une signature donnée.
-  const piecesSig = useMemo(
-    () =>
-      aiPieces
-        .map((p) => `${p.pieceId}:${p.sig}`)
-        .sort()
-        .join('|'),
-    [aiPieces],
-  )
-
-  // (Pas de reset manuel : l'app-shell remonte la page via `key={location.pathname}` au changement
-  // de dossier → l'état du copilote repart à zéro automatiquement.)
-
-  // Copilote — VALIDITÉ (incrémental) : à l'ouverture, 1 batch sur toutes les pièces ; puis seulement
-  // les **nouvelles** pièces à chaque upload. Réconcilie les retraits. Silencieux (échec en console).
-  useEffect(() => {
-    if (!env.isSupabaseConfigured || !dossier) return
-    const currentIds = new Set(aiPieces.map((p) => p.pieceId))
-    setValidityByPiece((prev) => {
-      let changed = false
-      const next: Record<string, RegafyFinding[]> = {}
-      for (const [id, f] of Object.entries(prev)) {
-        if (currentIds.has(id)) next[id] = f
-        else {
-          changed = true
-          analyzedPieceIds.current.delete(id)
-        }
-      }
-      return changed ? next : prev
-    })
-    const newPieces = aiPieces.filter((p) => !analyzedPieceIds.current.has(p.pieceId))
-    if (newPieces.length === 0) return
-    const agencySigle = agencyFor(dossier.country).name || ''
-    const targetLang = officialLanguage(dossier.country)
-    const productName = dossier.productName ?? product?.nomCommercial ?? ''
-    const countryName = countryLabel(dossier.country) || dossier.country || ''
-    const today = new Date().toISOString().slice(0, 10)
-    const t = setTimeout(() => {
-      void (async () => {
-        // 1. Cache : constats des documents déjà analysés (inchangés) → instantané, ZÉRO appel IA.
-        const fromCache: Record<string, RegafyFinding[]> = {}
-        const uncached: RegafyAiPiece[] = []
-        for (const p of newPieces) {
-          analyzedPieceIds.current.add(p.pieceId)
-          const cached = await getCachedAnalysis(p.pieceId, p.sig)
-          if (cached) fromCache[p.pieceId] = cached
-          else uncached.push(p)
-        }
-        if (Object.keys(fromCache).length > 0) {
-          setValidityByPiece((prev) => ({ ...prev, ...fromCache }))
-        }
-        // 2. IA : SEULEMENT les documents jamais analysés (nouveaux ou remplacés).
-        if (uncached.length === 0) return
-        setAiBusy(true)
-        try {
-          const fs = await runRegafyValidity(
-            uncached,
-            today,
-            agencySigle,
-            targetLang,
-            productName,
-            countryName,
-          )
-          const byPiece: Record<string, RegafyFinding[]> = {}
-          for (const p of uncached) byPiece[p.pieceId] = []
-          for (const f of fs) if (f.pieceId) (byPiece[f.pieceId] ??= []).push(f)
-          await Promise.all(
-            uncached.map((p) => cacheAnalysis(p.pieceId, p.sig, byPiece[p.pieceId] ?? [])),
-          )
-          setValidityByPiece((prev) => ({ ...prev, ...byPiece }))
-        } catch (e) {
-          uncached.forEach((p) => analyzedPieceIds.current.delete(p.pieceId))
-          console.error('Regafy IA (validité) :', (e as Error).message)
-        } finally {
-          setAiBusy(false)
-        }
-      })()
-    }, 1500)
-    return () => clearTimeout(t)
-    // Déclenché sur piecesSig (id + sig), pas sur le ref de l'array aiPieces.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dossierId, piecesSig])
-
-  // Copilote — LETTRES : conformité des lettres générées (à l'ouverture + à chaque modification).
-  useEffect(() => {
-    if (!env.isSupabaseConfigured || !dossier || genDocs === undefined || genDocs.length === 0)
-      return
-    const agency = agencyFor(dossier.country)
-    const t = setTimeout(() => {
-      setAiBusy(true)
-      void runRegafyLetters(genDocs, {
-        productName: dossier.productName ?? product?.nomCommercial ?? '',
-        titulaire: product?.titulaire ?? '',
-        country: countryLabel(dossier.country) || dossier.country || '',
-        agency: agency.full ? `${agency.full} (${agency.name})` : '',
-        operationDate: new Date().toISOString().slice(0, 10),
-      })
-        .then((fs) => setLetterFindings(fs))
-        .catch((e) => console.error('Regafy IA (lettres) :', (e as Error).message))
-        .finally(() => setAiBusy(false))
-    }, 1500)
-    return () => clearTimeout(t)
-  }, [dossier, genDocs, product])
 
   // Offline-first : précharge le compilateur PDF (pdf-lib) **tant qu'on est en ligne** → il est en
   // mémoire avant toute coupure réseau. Sans ça, l'import dynamique à la 1re compilation peut échouer
@@ -415,61 +209,6 @@ export function DossierWorkspacePage() {
       window.removeEventListener('online', warm)
     }
   }, [])
-
-  // « Traduire » (M5) : lit le document via l'Edge, crée/MAJ une traduction ÉDITABLE propre au
-  // dossier (document généré), puis l'ouvre côte à côte avec l'original. Ne touche jamais au
-  // document produit original — c'est une version de conformité pour ce montage uniquement.
-  const handleTranslate = useCallback(
-    async (f: RegafyFinding) => {
-      const piece = aiPieces.find((p) => p.pieceId === f.pieceId)
-      if (!piece || !dossier) return
-      const openTab = (genId: string) => {
-        const node = flatNodes.find((n) => n.number === piece.nodeNumber)
-        if (node) {
-          setSelected(node)
-          setDocEditing(true) // traduction éditable d'emblée (pas besoin de cliquer « Modifier »)
-          setPickedKey(`letter:${genId}`)
-        }
-      }
-      // Cache anti-retraduction : déjà traduit → on rouvre l'onglet (zéro appel IA, zéro gaspillage).
-      // Pour forcer une nouvelle traduction : fermer l'onglet (« × ») puis recliquer « Traduire ».
-      const existing = (genDocs ?? []).find(
-        (g) =>
-          g.deletedAt === null &&
-          g.templateKey === 'translation' &&
-          g.sourceDocId === piece.pieceId,
-      )
-      if (existing) {
-        openTab(existing.id)
-        return
-      }
-      const lang = officialLanguage(dossier.country)
-      setTranslating(f.pieceId ?? null)
-      try {
-        const text = await translateDoc({
-          filePath: piece.filePath,
-          fileName: piece.fileName,
-          docType: piece.docType,
-          targetLang: lang,
-        })
-        const rec = await createTranslationDoc(orgId, {
-          dossierId: dossier.id,
-          nodeNumber: piece.nodeNumber,
-          sourceDocId: piece.pieceId,
-          title: `${piece.docType.toUpperCase()} — traduction (${lang.toUpperCase()})`,
-          content: textToTiptap(text),
-        })
-        void syncGeneratedDocs(orgId)
-        openTab(rec.id)
-        toast.success('Traduction prête — à relire avant usage.')
-      } catch (e) {
-        toast.error((e as Error).message)
-      } finally {
-        setTranslating(null)
-      }
-    },
-    [aiPieces, dossier, genDocs, orgId, flatNodes],
-  )
 
   const structureOutdated = useMemo(
     () => (dossier ? isTreeOutdated(dossier.tree, getModule1Tree(dossier.format)) : false),
@@ -540,42 +279,6 @@ export function DossierWorkspacePage() {
     return () => setHeaderSlot(null)
   }, [setHeaderSlot, dossier, navigate])
 
-  const handleEditorReady = useCallback((ed: Editor, id: string) => setEditorState({ id, ed }), [])
-
-  /** Écrit immédiatement toute édition débouncée en attente. */
-  const flushSave = useCallback(() => {
-    if (saveTimer.current) {
-      clearTimeout(saveTimer.current)
-      saveTimer.current = null
-    }
-    const p = pendingSave.current
-    if (p) {
-      pendingSave.current = null
-      void updateGeneratedDocContent(p.id, p.json).then(() => syncGeneratedDocs(orgId))
-    }
-  }, [orgId])
-
-  /** Abandonne toute édition débouncée en attente (ex. avant régénération). */
-  const cancelSave = useCallback(() => {
-    if (saveTimer.current) {
-      clearTimeout(saveTimer.current)
-      saveTimer.current = null
-    }
-    pendingSave.current = null
-  }, [])
-
-  const handleEditorChange = useCallback(
-    (id: string, json: JSONContent) => {
-      pendingSave.current = { id, json }
-      if (saveTimer.current) clearTimeout(saveTimer.current)
-      saveTimer.current = setTimeout(() => flushSave(), 700)
-    },
-    [flushSave],
-  )
-
-  // Persiste les éditions en attente au démontage (navigation hors du workspace).
-  useEffect(() => () => flushSave(), [flushSave])
-
   // Libère l'object URL d'aperçu au démontage (évite une fuite si on quitte dialog ouvert).
   useEffect(() => {
     previewRef.current = previewPdf ? { url: previewPdf.url, revoke: previewPdf.revoke } : null
@@ -587,39 +290,11 @@ export function DossierWorkspacePage() {
     [],
   )
 
-  function docsFor(node: CtdNodeDef): DocumentRecord[] {
-    const out: DocumentRecord[] = []
-    for (const [n, list] of docsByNode) {
-      if (n === node.number || (node.number !== '' && n.startsWith(`${node.number}.`))) {
-        out.push(...list)
-      }
-    }
-    return out
-  }
-
-  function genDocsFor(node: CtdNodeDef): GeneratedDocRecord[] {
-    const out: GeneratedDocRecord[] = []
-    for (const [n, g] of genByNode) {
-      if (n === node.number || (node.number !== '' && n.startsWith(`${node.number}.`))) {
-        out.push(g)
-      }
-    }
-    return out
-  }
-
-  function attachmentsFor(node: CtdNodeDef): DossierAttachmentRecord[] {
-    const out: DossierAttachmentRecord[] = []
-    for (const [n, list] of attachByNode) {
-      if (n === node.number || (node.number !== '' && n.startsWith(`${node.number}.`))) {
-        out.push(...list)
-      }
-    }
-    return out
-  }
-
-  function countFor(node: CtdNodeDef): number {
-    return docsFor(node).length + genDocsFor(node).length + attachmentsFor(node).length
-  }
+  const docsFor = (node: CtdNodeDef) => docsForNode(docsByNode, node)
+  const genDocsFor = (node: CtdNodeDef) => genDocsForNode(genByNode, node)
+  const attachmentsFor = (node: CtdNodeDef) => attachmentsForNode(attachByNode, node)
+  const countFor = (node: CtdNodeDef) =>
+    docsFor(node).length + genDocsFor(node).length + attachmentsFor(node).length
 
   async function handleTreeChange(tree: CtdNodeDef[]) {
     if (dossierId) await updateDossierTree(dossierId, tree)
@@ -668,51 +343,13 @@ export function DossierWorkspacePage() {
 
   // Documents visualisables du nœud : lettre générée + pièces jointes + documents produit.
   // Aperçu in-place automatique du 1er (ou de l'onglet choisi), même cadre que la lettre.
-  type Viewable =
-    | { key: string; kind: 'letter'; label: string; isTranslation?: boolean }
-    | {
-        key: string
-        kind: 'attachment' | 'doc'
-        label: string
-        id: string
-        filePath: string | null
-        fileName: string
-      }
-  const viewables: Viewable[] = []
-  if (selectedGenDoc) {
-    const isTranslation = selectedGenDoc.templateKey === 'translation'
-    // Onglet façon navigateur : « <nom de l'original>_<LANG>.docx » pour une traduction.
-    const transBase = (translationSourceDoc?.fileName ?? selectedGenDoc.title).replace(
-      /\.[^.]+$/,
-      '',
-    )
-    viewables.push({
-      key: `letter:${selectedGenDoc.id}`,
-      kind: 'letter',
-      label: isTranslation ? `${transBase}_${targetLangLabel}.docx` : selectedGenDoc.title,
-      isTranslation,
-    })
-  }
-  for (const a of selectedAttachments) {
-    viewables.push({
-      key: `att:${a.id}`,
-      kind: 'attachment',
-      label: a.fileName,
-      id: a.id,
-      filePath: a.filePath,
-      fileName: a.fileName,
-    })
-  }
-  for (const d of selectedDocs) {
-    viewables.push({
-      key: `doc:${d.id}`,
-      kind: 'doc',
-      label: d.fileName,
-      id: d.id,
-      filePath: d.filePath,
-      fileName: d.fileName,
-    })
-  }
+  const viewables = buildViewables({
+    selectedGenDoc,
+    selectedAttachments,
+    selectedDocs,
+    translationSourceDoc,
+    targetLangLabel,
+  })
   const activeKey =
     pickedKey && viewables.some((v) => v.key === pickedKey)
       ? pickedKey
@@ -729,10 +366,7 @@ export function DossierWorkspacePage() {
       ? allFindings.find((f) => f.pieceId === active.id && f.translate)
       : undefined
 
-  const leaves = flatNodes.filter((n) => !n.children?.length)
-  const filledLeaves = leaves.filter((n) => countFor(n) > 0)
-  const pct = leaves.length ? Math.round((filledLeaves.length / leaves.length) * 100) : 0
-  const okCount = filledLeaves.length
+  const { okCount, pct } = completionStats(flatNodes, countFor)
   const warnCount = findings.filter((f) => f.severity === 'warning').length
   const errCount = findings.filter((f) => f.severity === 'error').length
 
@@ -878,15 +512,6 @@ export function DossierWorkspacePage() {
     setSigPanelOpen(false)
   }
 
-  function nextLeafAfter(node: CtdNodeDef): CtdNodeDef | null {
-    const idx = flatNodes.findIndex((n) => n.id === node.id)
-    for (let i = idx + 1; i < flatNodes.length; i++) {
-      const n = flatNodes[i]
-      if (n && !n.children?.length) return n
-    }
-    return null
-  }
-
   async function handleSaveNode() {
     if (!selected) return
     flushSave()
@@ -896,7 +521,7 @@ export function DossierWorkspacePage() {
       void syncDossiers(orgId)
     }
     toast.success('Section enregistrée')
-    const next = nextLeafAfter(selected)
+    const next = nextLeafAfter(flatNodes, selected)
     if (next) handleSelectNode(next)
   }
 
@@ -1063,89 +688,20 @@ export function DossierWorkspacePage() {
       </div>
 
       <div className="flex items-start gap-3">
-        {/* Panneau gauche : arborescence */}
-        {collapsed ? (
-          <div className="bg-card sticky top-12 flex max-h-[calc(100svh-9rem)] w-14 shrink-0 flex-col items-center gap-1.5 overflow-auto rounded-lg border py-2">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Déplier l'arborescence"
-              onClick={() => setCollapsed(false)}
-            >
-              <PanelLeftOpen className="size-4" />
-            </Button>
-            {flatNodes.map((n) => (
-              <button
-                key={n.id ?? n.number}
-                type="button"
-                title={`${n.number} ${n.label}`}
-                onClick={() => handleSelectNode(n)}
-                className={cn(
-                  'flex size-9 shrink-0 items-center justify-center rounded-full border text-[10px] font-medium tabular-nums',
-                  selected?.id === n.id
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-accent',
-                )}
-              >
-                {n.number || '•'}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <aside className="bg-card sticky top-12 flex max-h-[calc(100svh-9rem)] w-72 shrink-0 flex-col overflow-hidden rounded-lg border">
-            <div className="flex items-start justify-between border-b p-3">
-              <div>
-                <div className="text-sm font-semibold">Arborescence</div>
-                <div className="text-muted-foreground text-xs">Séquence 0001</div>
-              </div>
-              <span className="flex items-center">
-                <Button
-                  variant={treeEditing ? 'secondary' : 'ghost'}
-                  size="icon-sm"
-                  aria-label="Éditer l'arborescence"
-                  onClick={() => setTreeEditing(!treeEditing)}
-                >
-                  <Settings2 className="size-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Replier le panneau"
-                  onClick={() => setCollapsed(true)}
-                >
-                  <PanelLeftClose className="size-4" />
-                </Button>
-              </span>
-            </div>
-            {structureOutdated ? (
-              <button
-                type="button"
-                onClick={() => void handleUpdateStructure()}
-                className="border-b bg-amber-50 px-3 py-2 text-left text-xs text-amber-800 hover:bg-amber-100"
-              >
-                Nouvelle structure disponible — Mettre à jour
-              </button>
-            ) : null}
-            <div className="min-h-0 flex-1 overflow-auto p-2">
-              <div className="text-muted-foreground px-1 pb-1 text-[11px] font-semibold tracking-wide">
-                MODULE 1 — ADMINISTRATIF
-              </div>
-              <ArborescenceTree
-                tree={dossier.tree}
-                selectedId={selected?.id ?? null}
-                onSelect={handleSelectNode}
-                docCount={(node) => countFor(node)}
-                editing={treeEditing}
-                onChange={handleTreeChange}
-              />
-            </div>
-            {treeEditing ? (
-              <p className="text-muted-foreground border-t p-2 text-xs">
-                Mode édition : renommez, repositionnez (▲▼), ajoutez ou supprimez des sections.
-              </p>
-            ) : null}
-          </aside>
-        )}
+        <TreePanel
+          collapsed={collapsed}
+          setCollapsed={setCollapsed}
+          treeEditing={treeEditing}
+          setTreeEditing={setTreeEditing}
+          structureOutdated={structureOutdated}
+          onUpdateStructure={() => void handleUpdateStructure()}
+          tree={dossier.tree}
+          flatNodes={flatNodes}
+          selected={selected}
+          onSelectNode={handleSelectNode}
+          countFor={countFor}
+          onTreeChange={(tree) => void handleTreeChange(tree)}
+        />
 
         {/* Colonne centrale : contenu A4 qui défile (les toolbars sont dans le bandeau du haut). */}
         <div className="min-w-0 flex-1">
@@ -1339,110 +895,21 @@ export function DossierWorkspacePage() {
           )}
         </div>
 
-        {/* Panneau droit : complétude & remarques — figé (sticky) */}
-        {rightCollapsed ? (
-          <div className="bg-card sticky top-12 hidden max-h-[calc(100svh-9rem)] w-14 shrink-0 flex-col items-center gap-3 overflow-auto rounded-lg border py-3 lg:flex">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Afficher la complétude"
-              onClick={() => setRightCollapsed(false)}
-            >
-              <PanelRightOpen className="size-4" />
-            </Button>
-            <Donut value={pct} size={44} />
-            <div className="flex items-center gap-1 text-xs text-emerald-600">
-              <CheckCircle2 className="size-4" /> {okCount}
-            </div>
-            <div className="flex items-center gap-1 text-xs text-amber-600">
-              <span className="text-sm leading-none">⚠</span> {warnCount}
-            </div>
-            <div className="flex items-center gap-1 text-xs text-red-600">
-              <XCircle className="size-4" /> {errCount}
-            </div>
-          </div>
-        ) : (
-          <aside className="sticky top-12 hidden max-h-[calc(100svh-9rem)] w-72 shrink-0 flex-col gap-3 overflow-auto pb-2 lg:flex">
-            <div className="flex flex-col items-center rounded-lg border p-4">
-              <div className="flex w-full items-center justify-between">
-                <span className="text-sm font-medium">État d'avancement</span>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Replier"
-                  onClick={() => setRightCollapsed(true)}
-                >
-                  <PanelRightClose className="size-4" />
-                </Button>
-              </div>
-              <Donut value={pct} size={96} />
-              <p className="text-muted-foreground mt-1 text-xs">Conformité UEMOA en direct</p>
-            </div>
-            <div className="rounded-lg border p-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium">Remarques pour la session</h3>
-                <span className="text-muted-foreground text-xs">{allFindings.length}</span>
-              </div>
-              {aiBusy ? (
-                <p className="text-muted-foreground mt-1 flex items-center justify-center gap-1.5 text-xs italic">
-                  <Sparkles className="size-3 animate-pulse" /> Analyse en cours…
-                </p>
-              ) : null}
-              {allFindings.length === 0 ? (
-                <p className="text-muted-foreground mt-3 text-center text-xs italic">
-                  Aucun constat. ✓
-                </p>
-              ) : (
-                <ul className="mt-2 space-y-1.5">
-                  {allFindings.map((f) => (
-                    <li key={f.id}>
-                      <button
-                        type="button"
-                        disabled={!f.nodeNumber}
-                        onClick={() => {
-                          const n = flatNodes.find((x) => x.number === f.nodeNumber)
-                          if (n) handleSelectNode(n)
-                        }}
-                        className="hover:bg-accent flex w-full items-start gap-2 rounded p-1 text-left text-xs disabled:cursor-default disabled:hover:bg-transparent"
-                      >
-                        <span
-                          className={cn(
-                            'mt-1 size-2 shrink-0 rounded-full',
-                            f.severity === 'error'
-                              ? 'bg-red-500'
-                              : f.severity === 'warning'
-                                ? 'bg-amber-500'
-                                : 'bg-sky-500',
-                          )}
-                        />
-                        <span className="min-w-0">
-                          {f.nodeNumber ? (
-                            <span className="font-medium">{f.nodeNumber} </span>
-                          ) : null}
-                          {f.message}
-                        </span>
-                      </button>
-                      {f.translate && f.pieceId ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-1 ml-4 h-6 gap-1 border-amber-400 text-amber-700 hover:bg-amber-50"
-                          disabled={translating === f.pieceId}
-                          onClick={() => void handleTranslate(f)}
-                        >
-                          <Languages className="size-3" />
-                          {translating === f.pieceId
-                            ? 'Traduction…'
-                            : `Traduire en ${targetLangLabel}`}
-                        </Button>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </aside>
-        )}
+        <CompletionPanel
+          collapsed={rightCollapsed}
+          setCollapsed={setRightCollapsed}
+          pct={pct}
+          okCount={okCount}
+          warnCount={warnCount}
+          errCount={errCount}
+          allFindings={allFindings}
+          aiBusy={aiBusy}
+          translating={translating}
+          targetLangLabel={targetLangLabel}
+          flatNodes={flatNodes}
+          onSelectNode={handleSelectNode}
+          onTranslate={(f) => void handleTranslate(f)}
+        />
       </div>
 
       {/* Pied de page de l'app — marge de bas (rien n'est collé au pied de page). */}
@@ -1486,323 +953,4 @@ export function DossierWorkspacePage() {
       ) : null}
     </div>
   )
-}
-
-function RegafyGateDialog({
-  findings,
-  onClose,
-  onCorrect,
-  onCompile,
-}: {
-  findings: RegafyFinding[]
-  onClose: () => void
-  onCorrect: () => void
-  onCompile: () => void
-}) {
-  const errors = findings.filter((f) => f.severity === 'error').length
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Remarques avant compilation"
-    >
-      <div className="bg-card flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border shadow-lg">
-        <div className="flex items-center gap-2 border-b p-4">
-          <AlertTriangle className="size-5 text-amber-500" />
-          <h2 className="font-semibold">Remarques avant compilation</h2>
-        </div>
-        <div className="min-h-0 flex-1 overflow-auto p-4">
-          <p className="text-muted-foreground mb-3 text-sm">
-            {findings.length} observation(s)
-            {errors > 0 ? ` dont ${errors} bloquante(s)` : ''}. Corriger d'abord, ou compiler malgré
-            tout ?
-          </p>
-          <ul className="space-y-1.5">
-            {findings.map((f) => (
-              <li key={f.id} className="flex items-start gap-2 text-sm">
-                <span
-                  className={cn(
-                    'mt-1.5 size-2 shrink-0 rounded-full',
-                    f.severity === 'error'
-                      ? 'bg-red-500'
-                      : f.severity === 'warning'
-                        ? 'bg-amber-500'
-                        : 'bg-sky-500',
-                  )}
-                />
-                <span>
-                  {f.nodeNumber ? <span className="font-medium">{f.nodeNumber} </span> : null}
-                  {f.message}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="flex justify-end gap-2 border-t p-3">
-          <Button variant="ghost" onClick={onClose}>
-            Annuler
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!findings.some((f) => f.nodeNumber)}
-            onClick={onCorrect}
-          >
-            Corriger
-          </Button>
-          <Button onClick={onCompile}>Compiler quand même</Button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function InlineDocPreview({
-  kind,
-  docId,
-  filePath,
-  fileName,
-}: {
-  kind: 'attachment' | 'doc'
-  docId: string
-  filePath: string | null
-  fileName: string
-}) {
-  const [blob, setBlob] = useState<Blob | null>(null)
-  const [url, setUrl] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    // Composant remonté (key=docId) à chaque changement → état initial déjà correct.
-    let alive = true
-    let created: string | null = null
-    void (async () => {
-      let b =
-        (kind === 'attachment' ? await getAttachmentBlob(docId) : await getDocumentBlob(docId)) ??
-        null
-      if (!b && filePath) {
-        const remote =
-          kind === 'attachment'
-            ? await getAttachmentDownloadUrl(filePath)
-            : await getDocumentDownloadUrl(filePath)
-        if (remote) {
-          try {
-            const res = await fetch(remote)
-            if (res.ok) {
-              b = await res.blob()
-              // Offline-first : épingle le fichier en local pour les aperçus hors-ligne suivants.
-              void (kind === 'attachment'
-                ? cacheAttachmentBlob(docId, b)
-                : cacheDocumentBlob(docId, b))
-            }
-          } catch {
-            /* hors-ligne */
-          }
-        }
-      }
-      if (!alive) return
-      if (b) {
-        created = URL.createObjectURL(b)
-        setBlob(b)
-        setUrl(created)
-      }
-      setLoading(false)
-    })()
-    return () => {
-      alive = false
-      if (created) URL.revokeObjectURL(created)
-    }
-  }, [kind, docId, filePath])
-
-  const isPdf = blob?.type === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf')
-  const isImage =
-    (blob?.type ?? '').startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(fileName)
-
-  return (
-    <div className="overflow-hidden rounded-lg border">
-      <div className="bg-card flex items-center justify-between gap-2 border-b px-3 py-1.5">
-        <span className="truncate text-xs font-medium">{fileName}</span>
-        {url ? (
-          <a
-            href={url}
-            download={fileName}
-            aria-label="Télécharger"
-            className={buttonVariants({ variant: 'ghost', size: 'icon-sm' })}
-          >
-            <Download className="size-4" />
-          </a>
-        ) : null}
-      </div>
-      {loading ? (
-        <div className="text-muted-foreground flex min-h-[20rem] items-center justify-center text-sm">
-          Chargement…
-        </div>
-      ) : blob && isPdf ? (
-        <PdfViewer blob={blob} flow />
-      ) : blob && isImage && url ? (
-        <div className="bg-muted p-3">
-          <img
-            src={url}
-            alt={fileName}
-            className="mx-auto max-w-full rounded border bg-white shadow"
-          />
-        </div>
-      ) : url ? (
-        <div className="text-muted-foreground flex min-h-[20rem] flex-col items-center justify-center gap-2 text-sm">
-          <FileText className="size-8" />
-          Aperçu non disponible pour ce format — téléchargez le fichier.
-        </div>
-      ) : (
-        <div className="text-muted-foreground flex min-h-[20rem] items-center justify-center text-sm">
-          Aperçu indisponible hors-ligne.
-        </div>
-      )}
-    </div>
-  )
-}
-
-function FormatToolbar({ editor }: { editor: Editor | null }) {
-  if (!editor) return null
-  return (
-    <div className="bg-card flex items-center gap-1 border-b p-1.5">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Gras"
-        onClick={() => editor.chain().focus().toggleBold().run()}
-      >
-        <Bold className="size-4" />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Italique"
-        onClick={() => editor.chain().focus().toggleItalic().run()}
-      >
-        <Italic className="size-4" />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Titre"
-        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-      >
-        <Heading2 className="size-4" />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Liste à puces"
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
-      >
-        <List className="size-4" />
-      </Button>
-    </div>
-  )
-}
-
-function ToolbarBtn({
-  label,
-  disabled,
-  active,
-  hint,
-  onClick,
-}: {
-  label: string
-  disabled?: boolean
-  active?: boolean
-  hint?: string
-  onClick?: () => void
-}) {
-  return (
-    <Button
-      type="button"
-      variant={active ? 'secondary' : 'ghost'}
-      size="sm"
-      className="rounded-full"
-      disabled={disabled}
-      onClick={onClick}
-      title={disabled ? (hint ?? 'Bientôt disponible') : label}
-    >
-      {label}
-    </Button>
-  )
-}
-
-function Donut({ value, size = 96 }: { value: number; size?: number }) {
-  const r = 28
-  const c = 2 * Math.PI * r
-  const offset = c - (Math.min(100, Math.max(0, value)) / 100) * c
-  return (
-    <svg
-      viewBox="0 0 64 64"
-      style={{ width: size, height: size }}
-      role="img"
-      aria-label={`${value}%`}
-    >
-      <circle
-        cx="32"
-        cy="32"
-        r={r}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="6"
-        className="text-muted"
-        opacity="0.25"
-      />
-      <circle
-        cx="32"
-        cy="32"
-        r={r}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="6"
-        strokeLinecap="round"
-        strokeDasharray={c}
-        strokeDashoffset={offset}
-        transform="rotate(-90 32 32)"
-        className="text-primary"
-      />
-      <text x="32" y="36" textAnchor="middle" className="fill-foreground text-[14px] font-semibold">
-        {value}%
-      </text>
-    </svg>
-  )
-}
-
-function slugify(s: string): string {
-  return (
-    s
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'document'
-  )
-}
-
-async function downloadDoc(d: DocumentRecord) {
-  const blob = await getDocumentBlob(d.id)
-  if (blob) {
-    triggerDownload(URL.createObjectURL(blob), d.fileName, true)
-    return
-  }
-  if (d.filePath) {
-    const url = await getDocumentDownloadUrl(d.filePath)
-    if (url) triggerDownload(url, d.fileName, false)
-  }
-}
-
-function triggerDownload(url: string, name: string, revoke: boolean) {
-  const a = document.createElement('a')
-  a.href = url
-  a.download = name
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  if (revoke) URL.revokeObjectURL(url)
 }
