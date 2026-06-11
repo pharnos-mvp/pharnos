@@ -93,8 +93,11 @@ export function DossierWorkspacePage() {
     async () => (dossier ? ((await db.products.get(dossier.productId)) ?? undefined) : undefined),
     [dossier?.productId],
   )
+  // `undefined` (pas `[]`) tant que le dossier n'est pas chargé : l'effet d'auto-sélection
+  // attend les VRAIS documents — un [] transitoire le verrouillait sur la première feuille
+  // au lieu de la première section documentée (bug figé par la caractérisation T7.0).
   const docs = useLiveQuery(
-    () => (dossier ? listDocuments(dossier.productId) : Promise.resolve([])),
+    () => (dossier ? listDocuments(dossier.productId) : undefined),
     [dossier?.productId],
   )
   const genDocs = useLiveQuery(
