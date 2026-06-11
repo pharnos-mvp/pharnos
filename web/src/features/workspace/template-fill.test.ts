@@ -38,21 +38,23 @@ const flatten = (doc: JSONContent) => {
 }
 
 describe('buildTemplateSkeleton', () => {
-  it('RCP : titres officiels verrouillés, ordonnés (1 → 10 → prescription)', () => {
+  it('RCP : document du FORMULAIRE officiel (gabarit CEO) — titres verrouillés, ordonnés', () => {
     const doc = buildTemplateSkeleton('rcp', product())!
     const nodes = flatten(doc)
     const headings = nodes.filter((n) => n.type === 'heading')
     expect(headings.every((h) => h.locked)).toBe(true) // structure FIGÉE
     const texts = headings.map((h) => h.text)
-    expect(texts[0]).toContain('RCP')
+    expect(texts[0]).toBe('RESUME DES CARACTERISTIQUES DU PRODUIT')
     const idx = (frag: string) => texts.findIndex((t) => t.includes(frag))
-    expect(idx('1. DÉNOMINATION')).toBeLessThan(idx('2. COMPOSITION'))
-    expect(idx('4.8. Effets indésirables')).toBeGreaterThan(idx('4.1. Indications'))
-    expect(idx('10. DATE DE MISE À JOUR')).toBeGreaterThan(idx('9. DATE DE PREMIÈRE'))
-    expect(idx('CONDITIONS DE PRESCRIPTION')).toBeGreaterThan(idx('10. DATE'))
+    expect(idx('1.  DENOMINATION')).toBeLessThan(idx('2.  COMPOSITION'))
+    expect(idx('4.8.  Effets indésirables')).toBeGreaterThan(idx('4.1.  Indications'))
+    expect(idx('10.  DATE DE MISE A JOUR')).toBeGreaterThan(idx('9.  DATE DE PREMIERE'))
+    expect(idx('CONDITIONS DE PRESCRIPTION')).toBeGreaterThan(idx('10.  DATE'))
+    // Structure officielle 7 / 7 bis (modèle CEO) — toujours présente.
+    expect(idx('7 bis.  FABRICANT')).toBeGreaterThan(idx('7.  TITULAIRE'))
   })
 
-  it('pré-remplissage STRICTEMENT Identification produit (le reste = [À COMPLÉTER])', () => {
+  it('RCP : pré-remplissage STRICTEMENT Identification produit, champs vides OMIS', () => {
     const doc = buildTemplateSkeleton('rcp', product())!
     const paras = flatten(doc).filter((n) => n.type === 'paragraph')
     // 1/2/3 pré-remplis depuis la fiche produit.
@@ -61,34 +63,28 @@ describe('buildTemplateSkeleton', () => {
     // AUCUNE date, AUCUN nom de titulaire/fabricant injecté (c'est à l'utilisateur).
     expect(paras.some((p) => p.text.includes('KESHAVLAL'))).toBe(false)
     expect(paras.some((p) => p.text.includes('PHARMAX'))).toBe(false)
-    // L'écrasante majorité des zones reste à compléter.
-    expect(paras.filter((p) => p.text === FILL_PLACEHOLDER).length).toBeGreaterThan(15)
+    // Formulaire : les champs vides ne génèrent AUCUN placeholder (export = saisies seules).
+    expect(paras.some((p) => p.text === FILL_PLACEHOLDER)).toBe(false)
+    // Les mentions statiques officielles, elles, sont toujours présentes.
+    expect(
+      paras.some((p) =>
+        p.text.includes('Pour la liste complète des excipients, voir rubrique 6.1.'),
+      ),
+    ).toBe(true)
+    expect(paras.some((p) => p.text.includes('vigilances.abmed@gouv.bj'))).toBe(true)
   })
 
-  it('RCP 7 : sous-titres 7.1 Titulaire / 7.2 Fabricant quand titulaire ≠ fabricant (valeurs vides)', () => {
-    const texts = flatten(buildTemplateSkeleton('rcp', product())!)
-      .filter((n) => n.type === 'heading')
-      .map((h) => h.text)
-    expect(texts.some((t) => t.startsWith('7.1.'))).toBe(true)
-    expect(texts.some((t) => t.startsWith('7.2. Fabricant'))).toBe(true)
-  })
-
-  it('RCP 7 : pas de découpage quand titulaire = fabricant', () => {
-    const texts = flatten(
-      buildTemplateSkeleton('rcp', product({ fabricant: 'KESHAVLAL VAJECHAND' }))!,
-    )
-      .filter((n) => n.type === 'heading')
-      .map((h) => h.text)
-    expect(texts.some((t) => t.startsWith('7.1.'))).toBe(false)
-  })
-
-  it('notice et labeling couverts ; type inconnu → null', () => {
-    expect(buildTemplateSkeleton('notice', product())).not.toBeNull()
+  it('notice et labeling : squelette [À COMPLÉTER] conservé ; type inconnu → null', () => {
+    const notice = buildTemplateSkeleton('notice', product())!
+    expect(notice).not.toBeNull()
+    expect(
+      flatten(notice).filter((n) => n.type === 'paragraph' && n.text === FILL_PLACEHOLDER).length,
+    ).toBeGreaterThan(3)
     expect(buildTemplateSkeleton('labeling', product())).not.toBeNull()
     expect(buildTemplateSkeleton('gmp', product())).toBeNull()
   })
 
-  it('squelette valide pour le pull zod (T6) — aucun nœud hors périmètre', async () => {
+  it('squelettes valides pour le pull zod (T6) — aucun nœud hors périmètre', async () => {
     const { parseTiptapContent } = await import('./tiptap-schema')
     expect(parseTiptapContent(buildTemplateSkeleton('rcp', product())!)).not.toBeNull()
     expect(parseTiptapContent(buildTemplateSkeleton('notice', product())!)).not.toBeNull()

@@ -116,3 +116,15 @@ Recette métier CEO sur la preview : Notice FR → constat émis (cache v4) ; RC
 direct → Générer (rubrique 9 + 7.1/7.2 auto) → Traduire en FR → compilation ; nœud 1.3.1 vide →
 Remplir le template (titres indestructibles) ; lettres KV-* → zéro constat ; formulation
 rubrique 9 à valider (« Sans objet — première demande d'AMM en cours d'instruction. »).
+
+## Recette CEO n°2 — fiabilité des aperçus + Regafy simplifié (LIVRÉ, PR #111)
+
+| # | Tranche | Contenu | État |
+|---|---|---|---|
+| R1 | Aperçus + simplification | Aperçus PDF réparés : Storage `download()` partout (l'URL signée + fetch cassait sur les chemins à caractères spéciaux — COPP invisible en nav privée et manquant à la compilation) ; worker pdf.js DE RETOUR au précache SW (rollback T9 : warm-up trop fragile hors-ligne) ; Regafy simplifié : constat de conformité = UNE phrase (détail dans `missing`, jamais énuméré), bouton « Générer » (upgrade IA) retiré de l'UI (moteur en place, réactivable), « Remplir le template » et validité conservés ; cache v5 ; migration 0016 grants explicites (nouvelle image Postgres CI) | ✅ #111 |
+
+## Recette CEO n°3 — branding mockup + formulaire RCP officiel (LIVRÉ, PR #112)
+
+| # | Tranche | Contenu | État |
+|---|---|---|---|
+| R2 | Carte mockup + formulaire RCP | **Carte de non-conformité (mockup CEO)** : carte blanche arrondie flottante centrée sur l'aperçu (« \« RCP \» / non conforme au template en vigueur ! » + bouton violet « Upgrader ! » → ouvre le template à remplir), remplace les bannières violettes (aperçu pièce + onglet traduction), sticky au scroll, masquable (session). **Formulaire RCP officiel** (gabarit `RCP_formulaire_interactif.html` du CEO) : feuille A4 Times 12pt navy #263F73, MODEL verbatim (50 champs, checks, ATC, durée), topbar Réinitialiser/PDF/DOCX ; exports 100 % conformes (DOCX lib docx lazy + PDF impression iframe — saisies et options cochées uniquement) ; persistance dans le content TipTap du doc `fill` (attrs `fillKey`, zod-compatibles) → sync/compilation/conformité au save inchangées ; réhydratation des anciens squelettes ; préfill STRICTEMENT Identification ; Notice/Étiquetage : squelette TipTap conservé. Frontend du panneau de prévisualisation uniquement (zéro changement Edge/DB) | ✅ #112 |

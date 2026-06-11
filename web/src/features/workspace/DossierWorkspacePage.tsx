@@ -79,13 +79,16 @@ import { useDebouncedDocSave } from './use-debounced-doc-save'
 import { useRegafyCopilot } from './use-regafy-copilot'
 import { CompletionPanel } from './components/CompletionPanel'
 import { InlineDocPreview } from './components/InlineDocPreview'
+import { NonConformCard } from './components/NonConformCard'
 import { RegafyGateDialog } from './components/RegafyGateDialog'
+import { TemplateFillForm } from './components/TemplateFillForm'
 import { FormatToolbar, ToolbarBtn } from './components/toolbar'
 import { TranslationProgress } from './components/TranslationProgress'
 import { TreePanel } from './components/TreePanel'
 import { downloadDoc, slugify, triggerDownload } from './download-utils'
 import { UPGRADE_DOC_TYPES } from './regafy-ai'
 import { buildTemplateSkeleton, FILL_PLACEHOLDER } from './template-fill'
+import { countEmptyRcpFields, rcpFormStateFromContent } from './template-form/rcp-form-content'
 import { countMarker, countMissing } from './upgrade-doc'
 
 export function DossierWorkspacePage() {
@@ -144,6 +147,9 @@ export function DossierWorkspacePage() {
   const [gateFindings, setGateFindings] = useState<RegafyFinding[] | null>(null)
   const [sigPanelOpen, setSigPanelOpen] = useState(false)
   const [brandPanelOpen, setBrandPanelOpen] = useState(false)
+  // Cartes de non-conformité masquées par l'utilisateur (ids de constats — session seulement,
+  // le constat reste dans le panneau Remarques).
+  const [hiddenCards, setHiddenCards] = useState<ReadonlySet<string>>(new Set())
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const previewRef = useRef<{ url: string; revoke: boolean } | null>(null)
@@ -451,6 +457,24 @@ export function DossierWorkspacePage() {
     : null
   const canFillSelected = !!fillDocType && UPGRADE_DOC_TYPES.has(fillDocType)
 
+  // Formulaire RCP (branding officiel CEO) : l'onglet « template à compléter » d'un nœud RCP
+  // est rendu par TemplateFillForm (feuille A4 navy + exports DOCX/PDF) — plus d'éditeur TipTap.
+  const isRcpFormActive = activeGenDoc?.templateKey === 'fill' && fillDocType === 'rcp'
+  const rcpEmptyCount =
+    isRcpFormActive && activeGenDoc
+      ? countEmptyRcpFields(rcpFormStateFromContent(activeGenDoc.content as JSONContent))
+      : 0
+
+  // Carte « non conforme au template en vigueur ! » (mockup CEO) du document affiché —
+  // masquable pour la session (le constat reste dans le panneau Remarques).
+  const visibleUpgradeCard =
+    activeUpgradeFinding && fillDocType && !hiddenCards.has(activeUpgradeFinding.id)
+      ? activeUpgradeFinding
+      : undefined
+  const hideUpgradeCard = () => {
+    if (activeUpgradeFinding) setHiddenCards((prev) => new Set(prev).add(activeUpgradeFinding.id))
+  }
+
   const { okCount, pct } = completionStats(flatNodes, countFor)
   const warnCount = findings.filter((f) => f.severity === 'warning').length
   const errCount = findings.filter((f) => f.severity === 'error').length
@@ -522,6 +546,22 @@ export function DossierWorkspacePage() {
     }
   }
 
+  /** Télécharge le formulaire RCP en .docx 100 % conforme au gabarit (Times/navy, A4). */
+  async function downloadRcpFormDocx(gen: GeneratedDocRecord) {
+    try {
+      const [{ rcpFormDocxBlob }, { rcpExportName }] = await Promise.all([
+        import('./template-form/rcp-form-docx'), // lazy : lib docx hors du chunk workspace
+        import('./template-form/rcp-form-model'),
+      ])
+      const state = rcpFormStateFromContent(gen.content as JSONContent)
+      const blob = await rcpFormDocxBlob(state)
+      triggerDownload(URL.createObjectURL(blob), `${rcpExportName(state)}.docx`, true)
+    } catch (e) {
+      console.error(e)
+      toast.error('Échec du téléchargement (.docx).')
+    }
+  }
+
   /** Télécharge selon l'onglet actif : traduction/version conforme → .docx · lettre → .html · doc produit → fichier d'origine. */
   function handleDownload() {
     if (active?.kind === 'letter' && activeGenDoc) {
@@ -531,6 +571,10 @@ export function DossierWorkspacePage() {
       }
       if (activeGenDoc.templateKey === 'upgrade') {
         void downloadGeneratedDocx(activeGenDoc, 'CONFORME')
+        return
+      }
+      if (isRcpFormActive) {
+        void downloadRcpFormDocx(activeGenDoc)
         return
       }
       const json = (liveEditor?.getJSON() ?? activeGenDoc.content) as JSONContent
@@ -616,7 +660,10 @@ export function DossierWorkspacePage() {
     void syncGeneratedDocs(orgId)
     openTab(rec.id)
     toast.success('Template officiel prêt.', {
-      description: 'Complétez les zones [À COMPLÉTER] — les titres du template sont verrouillés.',
+      description:
+        docType === 'rcp'
+          ? 'Remplissez le formulaire officiel — structure et mentions réglementaires verrouillées.'
+          : 'Complétez les zones [À COMPLÉTER] — les titres du template sont verrouillés.',
     })
   }
 
@@ -758,8 +805,9 @@ export function DossierWorkspacePage() {
         {/* Barre des menus d'édition (Modifier/Signer/…) — CENTRÉE au-dessus du panneau d'aperçu. */}
         <div className="flex min-w-0 justify-center">
           <div className="bg-card flex items-center gap-1 rounded-full border px-1 py-1 text-sm shadow-sm">
-            {/* Boutons d'édition : seulement pour du texte éditable (doc généré/lettre/traduction). */}
-            {isEditableActive ? (
+            {/* Boutons d'édition : seulement pour du texte éditable (doc généré/lettre/traduction).
+                Le formulaire RCP a ses propres commandes (topbar navy) → pas de mode Modifier. */}
+            {isEditableActive && !isRcpFormActive ? (
               <>
                 <ToolbarBtn
                   label="Modifier"
@@ -940,7 +988,8 @@ export function DossierWorkspacePage() {
                 {active?.kind === 'letter' && activeGenDoc ? (
                   // Onglet traduction/version conforme = plein largeur (éditeur + barre de format) ;
                   // l'original est l'onglet voisin. Pas d'`overflow-hidden` : casserait le `sticky`.
-                  <section className="bg-card rounded-lg border">
+                  // `relative` : ancre de la carte de non-conformité (mockup CEO).
+                  <section className="bg-card relative rounded-lg border">
                     {activeGenDoc.templateKey === 'translation' ? (
                       <p className="text-muted-foreground flex items-center gap-1.5 px-3 pt-2 text-xs italic">
                         <Languages className="size-3.5 shrink-0 text-amber-500" />
@@ -962,36 +1011,40 @@ export function DossierWorkspacePage() {
                       </p>
                     ) : null}
                     {activeGenDoc.templateKey === 'fill' ? (
-                      <p
-                        className={cn(
-                          'flex items-center gap-1.5 px-3 pt-2 text-xs italic',
-                          fillMissingCount > 0 ? 'text-amber-700' : 'text-emerald-700',
-                        )}
-                      >
-                        <ClipboardList className="size-3.5 shrink-0" />
-                        {fillMissingCount > 0
-                          ? `Template officiel — ${fillMissingCount} zone(s) [À COMPLÉTER] restante(s). Les titres du template sont verrouillés ; Regafy vérifie la conformité à chaque enregistrement.`
-                          : 'Template officiel — toutes les zones sont complétées. Regafy vérifie la conformité à chaque enregistrement.'}
-                      </p>
+                      isRcpFormActive ? (
+                        <p
+                          className={cn(
+                            'flex items-center gap-1.5 px-3 pt-2 text-xs italic',
+                            rcpEmptyCount > 0 ? 'text-amber-700' : 'text-emerald-700',
+                          )}
+                        >
+                          <ClipboardList className="size-3.5 shrink-0" />
+                          {rcpEmptyCount > 0
+                            ? `Formulaire officiel — ${rcpEmptyCount} champ(s) à compléter. Regafy vérifie la conformité à chaque enregistrement.`
+                            : 'Formulaire officiel — tous les champs sont remplis. Regafy vérifie la conformité à chaque enregistrement.'}
+                        </p>
+                      ) : (
+                        <p
+                          className={cn(
+                            'flex items-center gap-1.5 px-3 pt-2 text-xs italic',
+                            fillMissingCount > 0 ? 'text-amber-700' : 'text-emerald-700',
+                          )}
+                        >
+                          <ClipboardList className="size-3.5 shrink-0" />
+                          {fillMissingCount > 0
+                            ? `Template officiel — ${fillMissingCount} zone(s) [À COMPLÉTER] restante(s). Les titres du template sont verrouillés ; Regafy vérifie la conformité à chaque enregistrement.`
+                            : 'Template officiel — toutes les zones sont complétées. Regafy vérifie la conformité à chaque enregistrement.'}
+                        </p>
+                      )
                     ) : null}
-                    {activeUpgradeFinding && activeGenDoc.templateKey === 'translation' ? (
-                      <div className="mx-3 mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-violet-300 bg-violet-50 px-3 py-2">
-                        <span className="flex items-center gap-1.5 text-xs font-medium text-violet-800">
-                          <Wand2 className="size-4 shrink-0" />
-                          {activeUpgradeFinding.message}
-                        </span>
-                        <span className="flex flex-wrap gap-1.5">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 gap-1 border-violet-400 text-violet-700 hover:bg-violet-100"
-                            onClick={() => selected && void handleFillTemplate(selected)}
-                          >
-                            <ClipboardList className="size-3.5" />
-                            Remplir le template
-                          </Button>
-                        </span>
-                      </div>
+                    {/* Carte mockup « non conforme au template en vigueur ! » sur la traduction
+                        affichée — « Upgrader ! » ouvre le template officiel à remplir. */}
+                    {visibleUpgradeCard && activeGenDoc.templateKey === 'translation' ? (
+                      <NonConformCard
+                        docType={fillDocType!}
+                        onUpgrade={() => selected && void handleFillTemplate(selected)}
+                        onDismiss={hideUpgradeCard}
+                      />
                     ) : null}
                     {activeConformNeedsTranslation ? (
                       <div className="mx-3 mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
@@ -1026,33 +1079,48 @@ export function DossierWorkspacePage() {
                         <TranslationProgress text={streamText} />
                       </div>
                     ) : null}
-                    {docEditing ? (
-                      <div className="bg-card sticky top-[5.25rem] z-10 rounded-t-lg">
-                        <FormatToolbar editor={liveEditor} />
-                      </div>
-                    ) : null}
-                    <RichTextEditor
-                      docId={activeGenDoc.id}
-                      initialContent={activeGenDoc.content as JSONContent}
-                      editable={docEditing}
-                      onChange={(json) => handleEditorChange(activeGenDoc.id, json)}
-                      onReady={handleEditorReady}
-                      header={
-                        activeGenDoc.templateKey === 'translation' ||
-                        activeGenDoc.templateKey === 'upgrade'
-                          ? null
-                          : (branding?.headerImage ?? null)
-                      }
-                      footer={
-                        activeGenDoc.templateKey === 'translation' ||
-                        activeGenDoc.templateKey === 'upgrade'
-                          ? null
-                          : (branding?.footerImage ?? null)
-                      }
-                    />
+                    {isRcpFormActive ? (
+                      // Formulaire RCP — branding officiel CEO (feuille A4 navy, exports
+                      // DOCX/PDF conformes). Remplace l'éditeur TipTap pour ce type.
+                      <TemplateFillForm
+                        key={activeGenDoc.id}
+                        genDoc={activeGenDoc}
+                        product={product}
+                        countryName={countryLabel(activeDossier.country)}
+                        orgId={orgId}
+                      />
+                    ) : (
+                      <>
+                        {docEditing ? (
+                          <div className="bg-card sticky top-[5.25rem] z-10 rounded-t-lg">
+                            <FormatToolbar editor={liveEditor} />
+                          </div>
+                        ) : null}
+                        <RichTextEditor
+                          docId={activeGenDoc.id}
+                          initialContent={activeGenDoc.content as JSONContent}
+                          editable={docEditing}
+                          onChange={(json) => handleEditorChange(activeGenDoc.id, json)}
+                          onReady={handleEditorReady}
+                          header={
+                            activeGenDoc.templateKey === 'translation' ||
+                            activeGenDoc.templateKey === 'upgrade'
+                              ? null
+                              : (branding?.headerImage ?? null)
+                          }
+                          footer={
+                            activeGenDoc.templateKey === 'translation' ||
+                            activeGenDoc.templateKey === 'upgrade'
+                              ? null
+                              : (branding?.footerImage ?? null)
+                          }
+                        />
+                      </>
+                    )}
                   </section>
                 ) : active && active.kind !== 'letter' ? (
-                  <div className="space-y-2">
+                  // `relative` : ancre de la carte de non-conformité (mockup CEO) sur l'aperçu.
+                  <div className="relative space-y-2">
                     {activeLangFinding ? (
                       <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
                         <span className="flex items-center gap-1.5 text-xs font-medium text-amber-800">
@@ -1072,24 +1140,14 @@ export function DossierWorkspacePage() {
                         </Button>
                       </div>
                     ) : null}
-                    {activeUpgradeFinding ? (
-                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-violet-300 bg-violet-50 px-3 py-2">
-                        <span className="flex items-center gap-1.5 text-xs font-medium text-violet-800">
-                          <Wand2 className="size-4 shrink-0" />
-                          {activeUpgradeFinding.message}
-                        </span>
-                        <span className="flex flex-wrap gap-1.5">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 gap-1 border-violet-400 text-violet-700 hover:bg-violet-100"
-                            onClick={() => selected && void handleFillTemplate(selected)}
-                          >
-                            <ClipboardList className="size-3.5" />
-                            Remplir le template
-                          </Button>
-                        </span>
-                      </div>
+                    {/* Carte mockup « non conforme au template en vigueur ! » flottante au
+                        centre de l'aperçu — « Upgrader ! » ouvre le template officiel à remplir. */}
+                    {visibleUpgradeCard ? (
+                      <NonConformCard
+                        docType={fillDocType!}
+                        onUpgrade={() => selected && void handleFillTemplate(selected)}
+                        onDismiss={hideUpgradeCard}
+                      />
                     ) : null}
                     {translating === active.id && streamText !== null ? (
                       <TranslationProgress text={streamText} />
