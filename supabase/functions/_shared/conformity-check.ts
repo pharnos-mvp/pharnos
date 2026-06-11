@@ -126,14 +126,12 @@ export function checkConformityText(
   )
 }
 
-/** Message du constat (panneau Remarques) — sobre, actionnable, plafonné. */
-export function conformityMessage(docType: string, manquantes: string[]): string {
+/**
+ * Message du constat (panneau Remarques) — UNE phrase sobre (exigence recette CEO) :
+ * le détail des rubriques reste dans `missing` (donnée), jamais énuméré dans le message.
+ */
+export function conformityMessage(docType: string): string {
   const spec = specForDocType(docType)
   const label = spec ? spec.label : docType.toUpperCase()
-  const shown = manquantes.slice(0, 3).join(' ; ')
-  const more = manquantes.length > 3 ? ` (+${manquantes.length - 3} autres)` : ''
-  return (
-    `${label} : non conforme au template en vigueur — ` +
-    `${manquantes.length} rubrique(s) à corriger : ${shown}${more}.`
-  )
+  return `${label} : non conforme au template en vigueur — à mettre en conformité.`
 }

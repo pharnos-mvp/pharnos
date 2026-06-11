@@ -214,7 +214,6 @@ export function DossierWorkspacePage() {
     streamText,
     handleTranslate,
     handleTranslateGenerated,
-    handleUpgrade,
   } = useRegafyCopilot({
     dossierId,
     dossier,
@@ -239,18 +238,12 @@ export function DossierWorkspacePage() {
     [findings, aiFindings, translatedSourceIds],
   )
 
-  // Offline-first : précharge le compilateur PDF (pdf-lib) ET le worker pdf.js **tant qu'on est
-  // en ligne** → en mémoire/cache avant toute coupure réseau. Le worker (~1,2 Mo) n'est plus
-  // précaché par le SW (installation initiale allégée) : ce fetch le pose dans le runtime cache
-  // CacheFirst (vite.config) → l'aperçu PDF hors-ligne reste garanti dès la 1re session en ligne.
-  // Warm-up différé (hors chemin critique) + réessai au retour en ligne.
+  // Offline-first : précharge le compilateur PDF (pdf-lib) **tant qu'on est en ligne** → il est
+  // en mémoire avant toute coupure réseau. (Le worker pdf.js est de retour dans le PRÉCACHE du
+  // SW — vite.config — après le bug recette : le warm-up runtime était trop fragile offline.)
   useEffect(() => {
     const warm = () => {
-      if (!navigator.onLine) return
-      void import('./pdf/dossier-compiler').catch(() => {})
-      void import('pdfjs-dist/build/pdf.worker.min.mjs?url')
-        .then((w) => fetch(w.default))
-        .catch(() => {})
+      if (navigator.onLine) void import('./pdf/dossier-compiler').catch(() => {})
     }
     const t = setTimeout(warm, 2000)
     window.addEventListener('online', warm)
@@ -997,17 +990,6 @@ export function DossierWorkspacePage() {
                             <ClipboardList className="size-3.5" />
                             Remplir le template
                           </Button>
-                          <Button
-                            size="sm"
-                            className="h-7 gap-1 bg-violet-500 text-white hover:bg-violet-600"
-                            disabled={upgrading === activeUpgradeFinding.pieceId}
-                            onClick={() => void handleUpgrade(activeUpgradeFinding)}
-                          >
-                            <Wand2 className="size-3.5" />
-                            {upgrading === activeUpgradeFinding.pieceId
-                              ? 'Mise en conformité…'
-                              : 'Générer'}
-                          </Button>
                         </span>
                       </div>
                     ) : null}
@@ -1106,17 +1088,6 @@ export function DossierWorkspacePage() {
                             <ClipboardList className="size-3.5" />
                             Remplir le template
                           </Button>
-                          <Button
-                            size="sm"
-                            className="h-7 gap-1 bg-violet-500 text-white hover:bg-violet-600"
-                            disabled={upgrading === activeUpgradeFinding.pieceId}
-                            onClick={() => void handleUpgrade(activeUpgradeFinding)}
-                          >
-                            <Wand2 className="size-3.5" />
-                            {upgrading === activeUpgradeFinding.pieceId
-                              ? 'Mise en conformité…'
-                              : 'Générer'}
-                          </Button>
                         </span>
                       </div>
                     ) : null}
@@ -1189,12 +1160,10 @@ export function DossierWorkspacePage() {
           allFindings={allFindings}
           aiBusy={aiBusy}
           translating={translating}
-          upgrading={upgrading}
           targetLangLabel={targetLangLabel}
           flatNodes={flatNodes}
           onSelectNode={handleSelectNode}
           onTranslate={(f) => void handleTranslate(f)}
-          onUpgrade={(f) => void handleUpgrade(f)}
           onFillTemplate={(f) => {
             const n = flatNodes.find((x) => x.number === f.nodeNumber)
             if (n) void handleFillTemplate(n)

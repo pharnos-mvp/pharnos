@@ -55,24 +55,14 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // Le worker pdf.js (`pdf.worker.min-*.mjs`, ~1,2 Mo) est SORTI du précache : il pesait
-        // un tiers de l'installation initiale du SW (lent en 3G). Il passe en runtime cache
-        // (CacheFirst, ci-dessous) + warm-up en ligne sur la page workspace → l'aperçu PDF
-        // hors-ligne reste garanti dès la première session en ligne (e2e offline le vérifie).
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        // `mjs` inclus : le worker pdf.js (`pdf.worker.min-*.mjs`, ~1,2 Mo) est PRÉCACHÉ.
+        // T9 l'avait sorti du précache (runtime cache + warm-up) pour alléger l'installation,
+        // mais le warm-up s'est avéré trop fragile en recette (aperçu PDF hors-ligne cassé si
+        // le workspace n'a pas été visité en ligne dans la session SW). Offline-first prime :
+        // la fiabilité de l'aperçu vaut 1,2 Mo d'installation.
+        globPatterns: ['**/*.{js,mjs,css,html,svg,png,ico,woff2}'],
         navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
-        runtimeCaching: [
-          {
-            urlPattern: /\/assets\/.*\.mjs$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'pdf-worker',
-              // Les assets sont fingerprintés : 2 entrées suffisent (version courante + une MAJ).
-              expiration: { maxEntries: 2 },
-            },
-          },
-        ],
         // Prise de contrôle immédiate → l'app est servie depuis le cache dès le rechargement
         // suivant (hors-ligne fiable, mises à jour appliquées sans recharger deux fois).
         clientsClaim: true,

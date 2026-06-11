@@ -160,14 +160,8 @@ async function pinMissingDocumentBlobs(orgId: string): Promise<void> {
     for (const d of docs) {
       if (!d.filePath) continue
       if (await db.documentBlobs.get(d.id)) continue
-      const url = await getDocumentDownloadUrl(d.filePath)
-      if (!url) continue
-      try {
-        const res = await fetch(url)
-        if (res.ok) await cacheDocumentBlob(d.id, await res.blob())
-      } catch {
-        /* hors-ligne / transitoire — réessayé au prochain sync */
-      }
+      const blob = await downloadDocumentBlob(d.filePath)
+      if (blob) await cacheDocumentBlob(d.id, blob)
     }
   } catch (error) {
     console.warn('[sync] épinglage blobs documents :', error)
@@ -176,11 +170,19 @@ async function pinMissingDocumentBlobs(orgId: string): Promise<void> {
   }
 }
 
-/** URL signée (courte durée) pour télécharger un document depuis Storage. */
-export async function getDocumentDownloadUrl(filePath: string): Promise<string | null> {
+/**
+ * Télécharge un document depuis Storage via l'API `download` (RLS, encodage des chemins géré
+ * par la lib). Remplace l'ancien couple URL signée + fetch : les chemins avec espaces/accents/
+ * symboles y cassaient (bug recette : COPP invisible en navigation privée alors que l'Edge
+ * lisait le même fichier avec `download`). `null` = hors-ligne ou introuvable.
+ */
+export async function downloadDocumentBlob(filePath: string): Promise<Blob | null> {
   const supabase = await getSupabase()
   if (!supabase) return null
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(filePath, 300)
-  if (error) return null
-  return data.signedUrl
+  try {
+    const { data, error } = await supabase.storage.from(BUCKET).download(filePath)
+    return error || !data ? null : data
+  } catch {
+    return null // hors-ligne / transitoire
+  }
 }

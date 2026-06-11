@@ -337,7 +337,7 @@ async function analyzeValidityBatch(
         findings.push({
           ...base(v.p),
           severity: 'warning',
-          message: conformityMessage(v.p.docType, c.manquantes),
+          message: conformityMessage(v.p.docType),
           upgrade: true,
           missing: c.manquantes,
           ...(c.langue ? { language: c.langue } : {}),
@@ -572,7 +572,7 @@ Deno.serve(async (req: Request) => {
               nodeNumber: t.nodeNumber,
               nodeLabel: t.nodeLabel,
               severity: 'warning',
-              message: conformityMessage(t.docType, c.manquantes),
+              message: conformityMessage(t.docType),
               upgrade: true,
               missing: c.manquantes,
               ...(c.langue ? { language: c.langue } : {}),
