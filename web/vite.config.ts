@@ -69,6 +69,10 @@ export default defineConfig({
       reporter: ['text', 'lcov'],
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/**/*.test.{ts,tsx}', 'src/test/**', 'src/**/*.d.ts'],
+      // Plancher anti-régression (baseline unitaire 2026-06-11 − 2 pts ; les flux UI sont
+      // couverts par Playwright, hors de cette mesure). Ratchet : resserrer quand la
+      // couverture monte, ne jamais desserrer sans décision explicite.
+      thresholds: { statements: 29, branches: 19, functions: 27, lines: 30 },
     },
   },
 })
