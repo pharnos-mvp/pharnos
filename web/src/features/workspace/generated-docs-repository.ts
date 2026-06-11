@@ -131,6 +131,37 @@ export async function createUpgradeDoc(
   return record
 }
 
+/**
+ * Crée un SQUELETTE de template officiel à compléter (« Remplir le template ») : structure
+ * figée (titres verrouillés), zones [À COMPLÉTER] remplies PAR L'UTILISATEUR, conformité
+ * vérifiée par Regafy à chaque enregistrement. Généré localement (zéro IA, offline).
+ */
+export async function createTemplateFillDoc(
+  orgId: string,
+  input: { dossierId: string; nodeNumber: string; title: string; content: JSONContent },
+): Promise<GeneratedDocRecord> {
+  const ts = now()
+  const record: GeneratedDocRecord = {
+    id: newId(),
+    orgId,
+    dossierId: input.dossierId,
+    nodeNumber: input.nodeNumber,
+    templateKey: 'fill',
+    title: input.title,
+    content: input.content,
+    status: 'draft',
+    createdAt: ts,
+    updatedAt: ts,
+    deletedAt: null,
+  }
+  await db.transaction('rw', db.generatedDocs, db.outbox, async () => {
+    await db.generatedDocs.add(record)
+    await enqueueOutbox('generated_doc', record.id, 'create', record)
+  })
+  await recordAudit(orgId, 'generated_doc', record.id, 'create', record.title)
+  return record
+}
+
 /** Persiste le contenu édité (débouncé côté UI). */
 export async function updateGeneratedDocContent(id: string, content: JSONContent): Promise<void> {
   const existing = await db.generatedDocs.get(id)

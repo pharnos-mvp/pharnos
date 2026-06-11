@@ -1,5 +1,6 @@
 import {
   CheckCircle2,
+  ClipboardList,
   Languages,
   PanelRightClose,
   PanelRightOpen,
@@ -31,6 +32,7 @@ export function CompletionPanel({
   onSelectNode,
   onTranslate,
   onUpgrade,
+  onFillTemplate,
 }: {
   collapsed: boolean
   setCollapsed: (v: boolean) => void
@@ -47,6 +49,7 @@ export function CompletionPanel({
   onSelectNode: (node: CtdNodeDef) => void
   onTranslate: (f: RegafyFinding) => void
   onUpgrade: (f: RegafyFinding) => void
+  onFillTemplate: (f: RegafyFinding) => void
 }) {
   if (collapsed) {
     return (
@@ -142,16 +145,27 @@ export function CompletionPanel({
                   </Button>
                 ) : null}
                 {f.upgrade && f.pieceId ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-1 ml-4 h-6 gap-1 border-violet-400 text-violet-700 hover:bg-violet-50"
-                    disabled={upgrading === f.pieceId}
-                    onClick={() => onUpgrade(f)}
-                  >
-                    <Wand2 className="size-3" />
-                    {upgrading === f.pieceId ? 'Mise en conformité…' : 'Upgrader'}
-                  </Button>
+                  <span className="flex flex-wrap gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-1 ml-4 h-6 gap-1 border-violet-400 text-violet-700 hover:bg-violet-50"
+                      onClick={() => onFillTemplate(f)}
+                    >
+                      <ClipboardList className="size-3" />
+                      Remplir le template
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-1 h-6 gap-1 border-violet-400 text-violet-700 hover:bg-violet-50"
+                      disabled={upgrading === f.pieceId}
+                      onClick={() => onUpgrade(f)}
+                    >
+                      <Wand2 className="size-3" />
+                      {upgrading === f.pieceId ? 'Mise en conformité…' : 'Générer'}
+                    </Button>
+                  </span>
                 ) : null}
               </li>
             ))}

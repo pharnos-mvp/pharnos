@@ -7,9 +7,14 @@ import { getSupabase } from '@/lib/supabase'
  */
 export const MISSING_MARKER = '[NON FOURNI DANS LE DOCUMENT SOURCE]'
 
+/** Nombre d'occurrences d'un marqueur dans un texte (bannières de revue upgrade/fill). */
+export function countMarker(text: string, marker: string): number {
+  return text.split(marker).length - 1
+}
+
 /** Nombre de rubriques restant à compléter dans un texte/contenu upgradé. */
 export function countMissing(text: string): number {
-  return text.split(MISSING_MARKER).length - 1
+  return countMarker(text, MISSING_MARKER)
 }
 
 export interface UpgradeInput {

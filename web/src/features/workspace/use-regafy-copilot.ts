@@ -266,7 +266,12 @@ export function useRegafyCopilot({
     const t = setTimeout(() => {
       setAiBusy(true)
       void runRegafyLetters(
-        genDocs.filter((g) => g.templateKey !== 'translation' && g.templateKey !== 'upgrade'),
+        genDocs.filter(
+          (g) =>
+            g.templateKey !== 'translation' &&
+            g.templateKey !== 'upgrade' &&
+            g.templateKey !== 'fill',
+        ),
         {
           productName: dossier.productName ?? product?.nomCommercial ?? '',
           titulaire: product?.titulaire ?? '',
@@ -282,23 +287,35 @@ export function useRegafyCopilot({
     return () => clearTimeout(t)
   }, [dossier, genDocs, product])
 
-  // Copilote — CONFORMITÉ DES TRADUCTIONS (Regafy Upgrade) : un document traduit est vérifié
-  // contre le template en vigueur de son type (chaînage : constat de langue → Traduire →
-  // constat de conformité → Upgrader). Cache par (id, updatedAt) ; debounce long (8 s) pour ne
-  // pas ré-analyser à chaque sauvegarde pendant l'édition — le constat se met à jour après une
-  // pause, et disparaît quand l'utilisateur a corrigé les rubriques manquantes.
+  // Copilote — CONFORMITÉ DES DOCUMENTS GÉNÉRÉS (Regafy Upgrade) : traductions de pièces ET
+  // squelettes « Remplir le template » sont vérifiés contre le template en vigueur de leur type.
+  // Cache par (id, updatedAt) ; debounce long (8 s) pour ne pas ré-analyser à chaque sauvegarde
+  // pendant l'édition — le constat se met à jour après une pause, et disparaît quand
+  // l'utilisateur a corrigé les rubriques manquantes. Les versions conformes (upgrade) et les
+  // traductions de docs générés sont exclues (conformité traitée en amont — flux CEO).
   useEffect(() => {
     if (!env.isSupabaseConfigured || !dossier || genDocs === undefined) return
-    const translations = genDocs
-      .filter((g) => g.deletedAt === null && g.templateKey === 'translation' && g.sourceDocId)
+    const checkable = genDocs
+      .filter((g) => g.deletedAt === null)
       .map((g) => {
-        const src = aiPieces.find((p) => p.pieceId === g.sourceDocId)
-        return src && UPGRADE_DOC_TYPES.has(src.docType) ? { gen: g, docType: src.docType } : null
+        if (g.templateKey === 'translation' && g.sourceDocId) {
+          // Traduction d'une PIÈCE uniquement (une traduction de doc généré — version conforme
+          // déjà vérifiée — n'a pas de pièce correspondante dans aiPieces → exclue).
+          const src = aiPieces.find((p) => p.pieceId === g.sourceDocId)
+          return src && UPGRADE_DOC_TYPES.has(src.docType) ? { gen: g, docType: src.docType } : null
+        }
+        if (g.templateKey === 'fill') {
+          const docType =
+            docTypeForNode(dossier.format, g.nodeNumber) ??
+            (g.nodeNumber.startsWith('1.3') ? 'labeling' : null)
+          return docType && UPGRADE_DOC_TYPES.has(docType) ? { gen: g, docType } : null
+        }
+        return null
       })
       .filter((t): t is NonNullable<typeof t> => t !== null)
 
-    const currentIds = new Set(translations.map((t) => t.gen.id))
-    const pending = translations.filter(
+    const currentIds = new Set(checkable.map((t) => t.gen.id))
+    const pending = checkable.filter(
       (t) => !analyzedTranslationSigs.current.has(`${t.gen.id}:${t.gen.updatedAt}`),
     )
     const countryCode = dossier.country

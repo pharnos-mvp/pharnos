@@ -3,6 +3,10 @@
 // (structure harmonisée UEMOA) et modèles UEMOA New MA. Transcrites en schémas DÉCLARATIFS
 // versionnés : déterministes, auditables (ALCOA++), relisibles par l'expert RA, zéro RAG.
 // Toute évolution d'un template officiel = mise à jour ici, revue en PR.
+//
+// ⚠️ SOURCE UNIQUE PARTAGÉE : ce fichier est consommé par les Edge Functions (Deno) ET par le
+// front (alias `@specs`, vite.config + tsconfig.app) pour générer les squelettes « Remplir le
+// template ». TS pur uniquement — aucune API Deno/DOM ici.
 
 export type ConformityDocType = 'cover' | 'pght' | 'rcp' | 'notice' | 'labeling'
 
