@@ -19,6 +19,9 @@ export async function initSentry(): Promise<void> {
     dsn: env.sentryDsn,
     environment: import.meta.env.MODE,
     sendDefaultPii: false,
+    // Sans cette intégration, tracesSampleRate est inerte : aucune transaction n'était créée
+    // → zéro Web Vitals (LCP/INP/CLS) côté Sentry. Chunk déjà lazy, impact bundle initial nul.
+    integrations: [Sentry.browserTracingIntegration()],
     tracesSampleRate: 0.1,
   })
   capture = (error, context) =>
