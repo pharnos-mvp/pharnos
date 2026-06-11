@@ -122,7 +122,11 @@ export async function compileDossierToPdf(args: CompileArgs): Promise<CompileRes
   }
 
   const treeNumbers = treeNodeNumbers(dossier.tree)
+  // Documents produit RETIRÉS du dossier (« × » d'onglet → excludedDocIds) : exclus de la
+  // compilation comme de l'UI (même règle que buildDocsByNode — bug recette : ils revenaient).
+  const excludedDocs = new Set(dossier.excludedDocIds ?? [])
   for (const d of docs) {
+    if (excludedDocs.has(d.id)) continue
     const node = resolveExistingNode(
       treeNumbers,
       nodeForDocType(dossier.format, d.docType, d.category),
