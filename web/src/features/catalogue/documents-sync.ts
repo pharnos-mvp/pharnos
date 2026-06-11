@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { db, type DocumentCategory, type DocumentRecord } from '@/lib/db'
+import { withRetry } from '@/lib/retry'
+import { reportError } from '@/lib/sentry'
 import { sanitizeFileName } from '@/lib/files'
 import { getSupabase } from '@/lib/supabase'
 import { cacheDocumentBlob, getDocumentBlob } from './documents-repository'
@@ -72,10 +74,12 @@ export async function syncDocuments(orgId: string): Promise<void> {
   if (!supabase) return
   syncing = true
   try {
-    await pushDocuments(supabase, orgId)
-    await pullDocuments(supabase, orgId)
+    // Retry borné (transitoires only) : une microcoupure ne repousse pas la sync au prochain déclencheur.
+    await withRetry(() => pushDocuments(supabase, orgId))
+    await withRetry(() => pullDocuments(supabase, orgId))
   } catch (error) {
     console.warn('[sync] documents :', error)
+    reportError(error, { op: 'sync', entity: 'documents' })
   } finally {
     syncing = false
   }

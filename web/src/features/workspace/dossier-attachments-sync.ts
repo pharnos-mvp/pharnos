@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { db, type DossierAttachmentRecord } from '@/lib/db'
+import { withRetry } from '@/lib/retry'
+import { reportError } from '@/lib/sentry'
 import { sanitizeFileName } from '@/lib/files'
 import { getSupabase } from '@/lib/supabase'
 import { cacheAttachmentBlob, getAttachmentBlob } from './dossier-attachments-repository'
@@ -61,10 +63,12 @@ export async function syncDossierAttachments(orgId: string): Promise<void> {
   if (!supabase) return
   syncing = true
   try {
-    await pushAttachments(supabase, orgId)
-    await pullAttachments(supabase, orgId)
+    // Retry borné (transitoires only) : une microcoupure ne repousse pas la sync au prochain déclencheur.
+    await withRetry(() => pushAttachments(supabase, orgId))
+    await withRetry(() => pullAttachments(supabase, orgId))
   } catch (error) {
     console.warn('[sync] dossierAttachments :', error)
+    reportError(error, { op: 'sync', entity: 'dossierAttachments' })
   } finally {
     syncing = false
   }

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { db, type GeneratedDocRecord } from '@/lib/db'
+import { withRetry } from '@/lib/retry'
 import { reportError } from '@/lib/sentry'
 import { getSupabase } from '@/lib/supabase'
 import { EMPTY_DOC, parseTiptapContent } from './tiptap-schema'
@@ -64,10 +65,12 @@ export async function syncGeneratedDocs(orgId: string): Promise<void> {
   if (!supabase) return
   syncing = true
   try {
-    await pushGeneratedDocs(supabase, orgId)
-    await pullGeneratedDocs(supabase, orgId)
+    // Retry borné (transitoires only) : une microcoupure ne repousse pas la sync au prochain déclencheur.
+    await withRetry(() => pushGeneratedDocs(supabase, orgId))
+    await withRetry(() => pullGeneratedDocs(supabase, orgId))
   } catch (error) {
     console.warn('[sync] generatedDocs :', error)
+    reportError(error, { op: 'sync', entity: 'generatedDocs' })
   } finally {
     syncing = false
   }
