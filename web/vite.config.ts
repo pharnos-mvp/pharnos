@@ -1,14 +1,35 @@
 import path from 'node:path'
-import { defineConfig } from 'vitest/config'
+import { defineConfig, type Plugin } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
+
+// Preconnect vers l'API Supabase (auth + REST + Storage) : la poignée de main TLS démarre
+// pendant le parse du HTML au lieu d'attendre le 1er fetch — gain réel sur latences élevées
+// (terrain UEMOA). L'URL est bakée au build (env) → injection ici, pas de hardcode.
+function preconnectSupabase(): Plugin {
+  return {
+    name: 'pharnos:preconnect-supabase',
+    transformIndexHtml() {
+      const url = process.env.VITE_SUPABASE_URL
+      if (!url) return []
+      return [
+        {
+          tag: 'link',
+          attrs: { rel: 'preconnect', href: new URL(url).origin, crossorigin: '' },
+          injectTo: 'head',
+        },
+      ]
+    },
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    preconnectSupabase(),
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
@@ -34,11 +55,24 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // `mjs` inclus : le worker pdf.js est livré en `pdf.worker.min-*.mjs` (~1,2 Mo) — sans ça
-        // il n'est pas précaché et l'aperçu PDF échoue hors-ligne (montage + visualiseur compilé).
-        globPatterns: ['**/*.{js,mjs,css,html,svg,png,ico,woff2}'],
+        // Le worker pdf.js (`pdf.worker.min-*.mjs`, ~1,2 Mo) est SORTI du précache : il pesait
+        // un tiers de l'installation initiale du SW (lent en 3G). Il passe en runtime cache
+        // (CacheFirst, ci-dessous) + warm-up en ligne sur la page workspace → l'aperçu PDF
+        // hors-ligne reste garanti dès la première session en ligne (e2e offline le vérifie).
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
+        runtimeCaching: [
+          {
+            urlPattern: /\/assets\/.*\.mjs$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'pdf-worker',
+              // Les assets sont fingerprintés : 2 entrées suffisent (version courante + une MAJ).
+              expiration: { maxEntries: 2 },
+            },
+          },
+        ],
         // Prise de contrôle immédiate → l'app est servie depuis le cache dès le rechargement
         // suivant (hors-ligne fiable, mises à jour appliquées sans recharger deux fois).
         clientsClaim: true,
