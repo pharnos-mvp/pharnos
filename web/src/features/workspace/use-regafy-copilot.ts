@@ -224,6 +224,21 @@ export function useRegafyCopilot({
             const byPiece: Record<string, RegafyFinding[]> = {}
             for (const p of slice) byPiece[p.pieceId] = []
             for (const f of fs) if (f.pieceId) (byPiece[f.pieceId] ??= []).push(f)
+            // « Conformité d'abord » : sur les types couverts par un template, la traduction est
+            // proposée APRÈS la mise en conformité (sur la version conforme) — le constat de
+            // langue de l'ORIGINAL devient informatif (plus de bouton Traduire ici).
+            for (const p of slice) {
+              if (!UPGRADE_DOC_TYPES.has(p.docType)) continue
+              byPiece[p.pieceId] = (byPiece[p.pieceId] ?? []).map((f) =>
+                f.translate
+                  ? {
+                      ...f,
+                      translate: undefined,
+                      message: `${f.message.replace(/\s*Traduction recommandée\.\s*$/, '')} Traduction proposée après mise en conformité.`,
+                    }
+                  : f,
+              )
+            }
             await Promise.all(
               slice.map((p) => cacheAnalysis(p.pieceId, p.sig, byPiece[p.pieceId] ?? [])),
             )

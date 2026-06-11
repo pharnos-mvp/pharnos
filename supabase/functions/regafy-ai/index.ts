@@ -319,17 +319,11 @@ async function analyzeValidityBatch(
     })
   }
 
-  // ── CONFORMITÉ AU TEMPLATE (Regafy Upgrade) : pièces des 5 types couverts, UNIQUEMENT si la
-  // langue détectée correspond à la langue cible — sinon le constat de langue (+ Traduire)
-  // prévaut, et la conformité sera vérifiée sur la traduction. Réutilise le b64 déjà téléchargé.
-  const conformable = valid.filter((v) => {
-    if (!specForDocType(v.p.docType)) return false
-    if (!targetLang) return true
-    const lang = String(resultByPiece.get(v.p.pieceId)?.language ?? '')
-      .toLowerCase()
-      .slice(0, 2)
-    return !lang || lang === targetLang
-  })
+  // ── CONFORMITÉ AU TEMPLATE (Regafy Upgrade) : TOUTES les pièces des 5 types couverts, quelle
+  // que soit leur langue — la conformité est structurelle (« conformité d'abord, traduction
+  // après ») ; la langue détectée est portée sur le constat pour proposer la traduction de la
+  // VERSION CONFORME ensuite. Réutilise le b64 déjà téléchargé pour la validité.
+  const conformable = valid.filter((v) => specForDocType(v.p.docType))
   for (let i = 0; i < conformable.length; i += CONC) {
     const slice = conformable.slice(i, i + CONC)
     const rs = await Promise.all(
@@ -346,6 +340,7 @@ async function analyzeValidityBatch(
           message: conformityMessage(v.p.docType, c.manquantes),
           upgrade: true,
           missing: c.manquantes,
+          ...(c.langue ? { language: c.langue } : {}),
         })
       }
     })
@@ -580,6 +575,7 @@ Deno.serve(async (req: Request) => {
               message: conformityMessage(t.docType, c.manquantes),
               upgrade: true,
               missing: c.manquantes,
+              ...(c.langue ? { language: c.langue } : {}),
             })
           }
         }
