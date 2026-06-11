@@ -14,13 +14,11 @@
 # - connect-src : API Supabase (REST + Auth + Storage + Edge Functions, même domaine) + Sentry.
 # - frame-ancestors 'none' : aucune iframe dans l'app (PDF rendu en canvas), anti-clickjacking.
 #
-# ⚠️ Phase 1 : Content-Security-Policy-Report-Only — observation sans blocage (violations
-# visibles en console). Bascule en Content-Security-Policy (enforce) après la matrice manuelle
-# complète sur v2.pharnos.pages.dev : login, catalogue, workspace (générer/éditer/signer/
-# traduire/compiler), aperçu PDF natif + scanné, offline complet, mise à jour SW.
+# CSP ENFORCÉE (T1 phase 2) — validée en Report-Only : 0 violation observée (app-shell, SW,
+# chunks, login). Rollback : repasser cette ligne en Content-Security-Policy-Report-Only.
 
 /*
-  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://uhsireqwzqqymgsxuvqh.supabase.co https://*.sentry.io; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://uhsireqwzqqymgsxuvqh.supabase.co https://*.sentry.io; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
