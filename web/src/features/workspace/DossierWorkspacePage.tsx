@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import type { Editor, JSONContent } from '@tiptap/core'
+import type { JSONContent } from '@tiptap/core'
 import {
   ArrowLeft,
   CheckCircle2,
@@ -60,7 +60,6 @@ import {
   deleteGeneratedDoc,
   listGeneratedDocs,
   regenerateGeneratedDoc,
-  updateGeneratedDocContent,
 } from './generated-docs-repository'
 import { generatedDocToHtml } from './generated-doc-html'
 import { syncGeneratedDocs } from './generated-docs-sync'
@@ -82,6 +81,7 @@ import { hasSignature, insertSignature, removeSignature } from './signature'
 import { BrandingPanel, SignaturePanel } from './SignatureBrandingPanels'
 import { TEMPLATES, templateKeyForNode, type TemplateContext } from './templates'
 import { flattenTree, isTreeOutdated, mergeDefaultTree, setNodeSaved } from './tree-utils'
+import { useDebouncedDocSave } from './use-debounced-doc-save'
 import { useRegafyCopilot } from './use-regafy-copilot'
 import { Donut } from './components/Donut'
 import { InlineDocPreview } from './components/InlineDocPreview'
@@ -130,7 +130,6 @@ export function DossierWorkspacePage() {
   const [docEditing, setDocEditing] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [rightCollapsed, setRightCollapsed] = useState(false)
-  const [editorState, setEditorState] = useState<{ id: string; ed: Editor } | null>(null)
   const [previewPdf, setPreviewPdf] = useState<{
     url: string
     name: string
@@ -144,8 +143,6 @@ export function DossierWorkspacePage() {
   const [sigPanelOpen, setSigPanelOpen] = useState(false)
   const [brandPanelOpen, setBrandPanelOpen] = useState(false)
 
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const pendingSave = useRef<{ id: string; json: JSONContent } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const previewRef = useRef<{ url: string; revoke: boolean } | null>(null)
   const didAutoSelect = useRef(false)
@@ -217,6 +214,10 @@ export function DossierWorkspacePage() {
       orgId,
       onOpenTranslation,
     })
+
+  // Sauvegarde débouncée des éditions TipTap (T7.3).
+  const { editorState, handleEditorReady, handleEditorChange, flushSave, cancelSave } =
+    useDebouncedDocSave(orgId)
 
   const allFindings = useMemo(
     () =>
@@ -310,42 +311,6 @@ export function DossierWorkspacePage() {
     )
     return () => setHeaderSlot(null)
   }, [setHeaderSlot, dossier, navigate])
-
-  const handleEditorReady = useCallback((ed: Editor, id: string) => setEditorState({ id, ed }), [])
-
-  /** Écrit immédiatement toute édition débouncée en attente. */
-  const flushSave = useCallback(() => {
-    if (saveTimer.current) {
-      clearTimeout(saveTimer.current)
-      saveTimer.current = null
-    }
-    const p = pendingSave.current
-    if (p) {
-      pendingSave.current = null
-      void updateGeneratedDocContent(p.id, p.json).then(() => syncGeneratedDocs(orgId))
-    }
-  }, [orgId])
-
-  /** Abandonne toute édition débouncée en attente (ex. avant régénération). */
-  const cancelSave = useCallback(() => {
-    if (saveTimer.current) {
-      clearTimeout(saveTimer.current)
-      saveTimer.current = null
-    }
-    pendingSave.current = null
-  }, [])
-
-  const handleEditorChange = useCallback(
-    (id: string, json: JSONContent) => {
-      pendingSave.current = { id, json }
-      if (saveTimer.current) clearTimeout(saveTimer.current)
-      saveTimer.current = setTimeout(() => flushSave(), 700)
-    },
-    [flushSave],
-  )
-
-  // Persiste les éditions en attente au démontage (navigation hors du workspace).
-  useEffect(() => () => flushSave(), [flushSave])
 
   // Libère l'object URL d'aperçu au démontage (évite une fuite si on quitte dialog ouvert).
   useEffect(() => {
