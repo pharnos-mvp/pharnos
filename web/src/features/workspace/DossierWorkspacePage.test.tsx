@@ -147,6 +147,9 @@ describe('DossierWorkspacePage — caractérisation (avant refactor T7)', () => 
   it('affiche les actions cœur : Compiler, Téléverser, Enregistrer', async () => {
     await seed()
     renderPage()
+    // Attendre l'état stable (section auto-sélectionnée) : Téléverser/Enregistrer n'existent
+    // qu'une fois `selected` posé — sans ça le test est sensible à la charge de la machine.
+    await screen.findByRole('heading', { level: 2 })
     expect(await screen.findByRole('button', { name: /Compiler le PDF/ })).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: /Téléverser/ })).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: /Enregistrer/ })).toBeInTheDocument()

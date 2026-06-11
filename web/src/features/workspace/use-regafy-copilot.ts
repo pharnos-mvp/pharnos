@@ -52,6 +52,8 @@ export function useRegafyCopilot({
   const [letterFindings, setLetterFindings] = useState<RegafyFinding[]>([])
   const [aiBusy, setAiBusy] = useState(false)
   const [translating, setTranslating] = useState<string | null>(null)
+  /** Texte traduit reçu au fil de l'eau (SSE) — null hors traduction. */
+  const [streamText, setStreamText] = useState<string | null>(null)
   const analyzedPieceIds = useRef<Set<string>>(new Set())
 
   // Constats : déterministes + copilote IA (validité par pièce + conformité des lettres). Même
@@ -267,13 +269,17 @@ export function useRegafyCopilot({
       }
       const lang = officialLanguage(dossier.country)
       setTranslating(f.pieceId ?? null)
+      setStreamText('')
       try {
-        const text = await translateDoc({
-          filePath: piece.filePath,
-          fileName: piece.fileName,
-          docType: piece.docType,
-          targetLang: lang,
-        })
+        const text = await translateDoc(
+          {
+            filePath: piece.filePath,
+            fileName: piece.fileName,
+            docType: piece.docType,
+            targetLang: lang,
+          },
+          setStreamText,
+        )
         const rec = await createTranslationDoc(orgId, {
           dossierId: dossier.id,
           nodeNumber: piece.nodeNumber,
@@ -288,10 +294,11 @@ export function useRegafyCopilot({
         toast.error((e as Error).message)
       } finally {
         setTranslating(null)
+        setStreamText(null)
       }
     },
     [aiPieces, dossier, genDocs, orgId, flatNodes, onOpenTranslation],
   )
 
-  return { aiFindings, translatedSourceIds, aiBusy, translating, handleTranslate }
+  return { aiFindings, translatedSourceIds, aiBusy, translating, streamText, handleTranslate }
 }

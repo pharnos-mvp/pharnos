@@ -167,3 +167,38 @@ export function generateParts(parts: Part[], opts: GenerateOptions = {}): Promis
 export function generateText(prompt: string, opts: GenerateOptions = {}): Promise<string> {
   return generateParts([{ text: prompt }], opts)
 }
+
+/**
+ * Génération EN STREAMING (SSE `alt=sse`) — renvoie la Response Vertex dont le body est le flux
+ * SSE brut (à transformer côté appelant). Retry/breaker sur l'ÉTABLISSEMENT uniquement : une
+ * coupure en cours de flux n'est pas re-tentée (le client a déjà reçu du texte ; il gère).
+ */
+export function streamParts(parts: Part[], opts: GenerateOptions = {}): Promise<Response> {
+  const body: Record<string, unknown> = {
+    contents: [{ role: 'user', parts }],
+    generationConfig: {
+      maxOutputTokens: opts.maxOutputTokens ?? 1024,
+      temperature: opts.temperature ?? 0.2,
+    },
+  }
+  if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] }
+  const payload = JSON.stringify(body)
+  // Le signal borne TOUT le flux (établissement + lecture) — garde-fou global.
+  const timeoutMs = opts.timeoutMs ?? 180_000
+
+  return breaker.run(() =>
+    withRetry(async () => {
+      const token = await withRetry(mintAccessToken, { attempts: 2 })
+      const res = await fetch(`${vertexUrl('streamGenerateContent', opts.model)}?alt=sse`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: payload,
+        signal: AbortSignal.timeout(timeoutMs),
+      })
+      if (!res.ok || !res.body) {
+        throw new HttpError(res.status, `Vertex ${res.status}: ${(await res.text()).slice(0, 400)}`)
+      }
+      return res
+    }),
+  )
+}
