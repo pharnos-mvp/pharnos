@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Lockfile deno généré par les checks locaux des Edge Functions (pas une dépendance web)
+deno.lock
