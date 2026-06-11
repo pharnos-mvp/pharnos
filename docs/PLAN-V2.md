@@ -99,6 +99,20 @@ couverts : Cover letter, Lettre de PGHT, RCP, Notice, Étiquette.
 | U4 | Upgrader | Edge `upgrade` (nouvelle) : température 0, marqueur exact `[NON FOURNI DANS LE DOCUMENT SOURCE]`, SSE ; bouton Upgrader (panneau + bannières) ; onglet `<original>_CONFORME` ; compteur live des rubriques à compléter ; .docx ; **fix : les onglets d'un nœud coexistent** (lettre + traduction + conforme) | ✅ #107 |
 | U5 | Bout-en-bout | CI complète, déploiement des 3 fonctions + smoke tests, vérification navigateur preview, docs/mémoire | ✅ |
 
-Recette métier à dérouler avec le CEO sur la preview : lettres réelles KV-* → AUCUN constat de
-conformité attendu ; RCP anglophone → chaîne complète Traduire → constat → Upgrader → onglet
-conforme → compilation.
+## Conformité d'abord (retour de recette CEO du 2026-06-11 — LIVRÉ, PRs #108–#110)
+
+| # | Tranche | Contenu | État |
+|---|---|---|---|
+| C1 | Multi-langue + cache v4 | Bug Notice FR corrigé à la racine (CACHE_VERSION non incrémenté en U3 → v4, règle documentée) ; conformité vérifiée sur TOUTES les langues (structurelle, titres traduits conformes) ; langue détectée portée sur le constat ; le constat de langue de l'original devient informatif | ✅ #108 |
+| C2 | Remplir le template | Squelette officiel généré localement (zéro IA, offline), titres VERROUILLÉS (filterTransaction ProseMirror : suppression/frappe/réordonnancement rejetés — testé en éditeur headless) ; pré-remplissage STRICTEMENT session Identification produit ; structure 7.1/7.2 si titulaire ≠ fabricant (valeurs vides) ; specs U1 = source unique front/Edge (@specs) ; conformité vérifiée à chaque enregistrement ; compteur [À COMPLÉTER] ; boutons sur constats + nœuds 1.3.x vides | ✅ #109 |
+| C3 | Traduction après conformité | Version conforme non-FR → bannière + bouton Traduire (translate accepte une source texte) ; pas de boucle ; « Générer » reçoit le CONTEXTE CERTIFIÉ du dossier : rubrique 9 auto pour nouvelle AMM, 7.1 Titulaire / 7.2 Fabricant (données fiche produit) | ✅ #110 |
+| C4 | Zéro rouge + déploiement | Univers conformité : violet/ambre/émeraude, aucun rouge ; 3 Edge redéployées + smoke OK ; preview 0 violation CSP | ✅ |
+
+**Flux final** : upload → constat de conformité (toute langue) → « Remplir le template » (squelette
+verrouillé, l'utilisateur complète, Regafy vérifie au save) OU « Générer » (Regafy remplit tout :
+document source + contexte certifié, zéro hallucination) → si non-FR : Traduire en FR → compilation.
+
+Recette métier CEO sur la preview : Notice FR → constat émis (cache v4) ; RCP anglais → constat
+direct → Générer (rubrique 9 + 7.1/7.2 auto) → Traduire en FR → compilation ; nœud 1.3.1 vide →
+Remplir le template (titres indestructibles) ; lettres KV-* → zéro constat ; formulation
+rubrique 9 à valider (« Sans objet — première demande d'AMM en cours d'instruction. »).
