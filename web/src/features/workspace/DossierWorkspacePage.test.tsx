@@ -191,6 +191,18 @@ describe('DossierWorkspacePage — caractérisation (avant refactor T7)', () => 
     expect(donut.length).toBeGreaterThan(0)
   })
 
+  it('compiler sans analyse : gate « Aucune analyse effectuée » + bouton Audit Global', async () => {
+    await seed()
+    renderPage()
+    // État stable d'abord (docs chargés → auto-sélection 1.2), sinon le gate voit un dossier vide.
+    expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent('1.2')
+    const compile = await screen.findByRole('button', { name: /Compiler le PDF/ })
+    compile.click()
+    expect(await screen.findByText(/Aucune analyse effectuée sur ce dossier/)).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /Audit Global/ })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Compiler quand même' })).toBeInTheDocument()
+  })
+
   it('dossier vide : le gate signale « Dossier vide : aucun document. »', async () => {
     await seed({ withDoc: false })
     renderPage()

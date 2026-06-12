@@ -9,14 +9,21 @@ import type {
   ProductRecord,
 } from '@/lib/db'
 import { env } from '@/lib/env'
-import { countryLabel } from './dossier-constants'
+import { activityLabel, countryLabel, formatLabel } from './dossier-constants'
 import { createTranslationDoc, createUpgradeDoc } from './generated-docs-repository'
 import { syncGeneratedDocs } from './generated-docs-sync'
 import { docTypeForNode, type CtdNodeDef } from './module1-tree'
 import { agencyFor, officialLanguage } from './roadmap-data'
-import { tiptapText, type RegafyFinding } from './regafy'
-import { runRegafyValidity, UPGRADE_DOC_TYPES, type RegafyAiPiece } from './regafy-ai'
+import { runRegafy, tiptapText, type RegafyFinding } from './regafy'
+import {
+  runRegafyConformityTexts,
+  runRegafyLetters,
+  runRegafyValidity,
+  UPGRADE_DOC_TYPES,
+  type RegafyAiPiece,
+} from './regafy-ai'
 import { cacheAnalysis, getCachedAnalysis } from './regafy-cache'
+import { auditPieceKind, type AuditData, type AuditPiece } from './audit-report'
 import { textToTiptap, translateDoc } from './translate-doc'
 import { upgradeDoc } from './upgrade-doc'
 
@@ -54,6 +61,8 @@ export function useRegafyCopilot({
   const [analysisByPiece, setAnalysisByPiece] = useState<Record<string, RegafyFinding[]>>({})
   /** Pièce en cours d'analyse (animation de scan sur l'aperçu) — null sinon. */
   const [analyzing, setAnalyzing] = useState<string | null>(null)
+  /** Progression de l'Audit Global ({done,total}) — null hors audit. */
+  const [auditProgress, setAuditProgress] = useState<{ done: number; total: number } | null>(null)
   const [translating, setTranslating] = useState<string | null>(null)
   /** Source (pieceId/genId) en cours de mise en conformité — null sinon. */
   const [upgrading, setUpgrading] = useState<string | null>(null)
@@ -218,6 +227,159 @@ export function useRegafyCopilot({
       }
     },
     [aiPieces, dossier, product, analyzing, consolidate],
+  )
+
+  /**
+   * AUDIT GLOBAL (bouton du gate de compilation) : applique la politique d'analyse à TOUT
+   * le dossier — pièces (cache traversé), lettres générées, traductions/versions conformes,
+   * exigences structurelles — consigne chaque résultat au panneau Remarques et retourne les
+   * données du rapport. Déterministe : seuls les constats réellement émis sont rapportés.
+   */
+  const runGlobalAudit = useCallback(
+    async (opts: {
+      tree: CtdNodeDef[]
+      genByNode: Map<string, GeneratedDocRecord>
+    }): Promise<AuditData | null> => {
+      if (!dossier || !env.isSupabaseConfigured || auditProgress) return null
+      const countryName = countryLabel(dossier.country) || dossier.country || ''
+      const agency = agencyFor(dossier.country).name || ''
+      const today = new Date().toISOString().slice(0, 10)
+      const productName = dossier.productName ?? product?.nomCommercial ?? ''
+      const activeGen = (genDocs ?? []).filter((g) => g.deletedAt === null)
+      const letters = activeGen.filter((g) => g.templateKey === 'cover' || g.templateKey === 'pght')
+      const texts = activeGen.filter(
+        (g) => g.templateKey === 'translation' || g.templateKey === 'upgrade',
+      )
+      const total = aiPieces.length + (letters.length > 0 ? 1 : 0) + (texts.length > 0 ? 1 : 0)
+      setAuditProgress({ done: 0, total })
+      const labelOf = (num: string) => flatNodes.find((n) => n.number === num)?.label ?? ''
+      const pieces: AuditPiece[] = []
+      let done = 0
+      try {
+        // 1) Pièces téléversées — politique standard, par lots de 3, cache (pieceId, sig) traversé.
+        for (let i = 0; i < aiPieces.length; i += 3) {
+          const chunk = aiPieces.slice(i, i + 3)
+          const results = await Promise.all(
+            chunk.map(async (piece) => {
+              let fs = await getCachedAnalysis(piece.pieceId, piece.sig)
+              if (!fs) {
+                fs = await runRegafyValidity(
+                  [piece],
+                  today,
+                  agency,
+                  officialLanguage(dossier.country),
+                  productName,
+                  countryName,
+                  dossier.country,
+                )
+                fs = fs.filter((f) => !f.pieceId || f.pieceId === piece.pieceId)
+                await cacheAnalysis(piece.pieceId, piece.sig, fs)
+              }
+              return { piece, fs }
+            }),
+          )
+          for (const { piece, fs } of results) {
+            const consolidated = consolidate(piece, fs, countryName)
+            setAnalysisByPiece((prev) => ({ ...prev, [piece.pieceId]: consolidated }))
+            pieces.push({
+              name: piece.fileName,
+              nodeNumber: piece.nodeNumber,
+              nodeLabel: piece.nodeLabel || labelOf(piece.nodeNumber),
+              docType: piece.docType,
+              kind: auditPieceKind(piece.docType, piece.category),
+              findings: consolidated,
+            })
+            done += 1
+          }
+          setAuditProgress({ done, total })
+        }
+        // 2) Lettres générées (Cover/PGHT) — conformité.
+        if (letters.length > 0) {
+          const lf = await runRegafyLetters(letters, {
+            productName,
+            titulaire: product?.titulaire ?? '',
+            country: countryName,
+            agency,
+            operationDate: today,
+          })
+          for (const g of letters) {
+            pieces.push({
+              name: g.title || 'Lettre',
+              nodeNumber: g.nodeNumber,
+              nodeLabel: labelOf(g.nodeNumber),
+              docType: g.templateKey,
+              kind: 'lettre',
+              findings: lf.filter((f) => f.nodeNumber === g.nodeNumber),
+            })
+          }
+          done += 1
+          setAuditProgress({ done, total })
+        }
+        // 3) Traductions / versions conformes — conformité au template (texte).
+        if (texts.length > 0) {
+          const tf = await runRegafyConformityTexts(
+            texts.map((g) => ({
+              id: g.id,
+              nodeNumber: g.nodeNumber,
+              nodeLabel: labelOf(g.nodeNumber),
+              docType:
+                docTypeForNode(dossier.format, g.nodeNumber) ??
+                (g.nodeNumber.startsWith('1.3') ? 'labeling' : 'document'),
+              text: tiptapText((g.content ?? {}) as Parameters<typeof tiptapText>[0]).trim(),
+            })),
+            dossier.country,
+          )
+          for (const g of texts) {
+            pieces.push({
+              name: g.title || 'Document généré',
+              nodeNumber: g.nodeNumber,
+              nodeLabel: labelOf(g.nodeNumber),
+              docType: g.templateKey,
+              kind: 'texte',
+              findings: tf.filter((f) => f.pieceId === g.id),
+            })
+          }
+          done += 1
+          setAuditProgress({ done, total })
+        }
+        // 4) Exigences structurelles (déterministe local) : sections validées sans document,
+        // titulaire ≠ fabricant sans contrat, dossier vide…
+        const structural = runRegafy({
+          tree: opts.tree,
+          titulaire: product?.titulaire ?? '',
+          fabricant: product?.fabricant,
+          docsByNode,
+          genByNode: opts.genByNode,
+          attachByNode,
+        })
+        return {
+          productName,
+          countryName,
+          agency,
+          format: formatLabel(dossier.format),
+          activity: activityLabel(dossier.activity) || dossier.activity || '',
+          date: today,
+          pieces,
+          structural,
+        }
+      } catch (e) {
+        toast.error('Audit impossible : ' + (e as Error).message)
+        return null
+      } finally {
+        setAuditProgress(null)
+      }
+    },
+    [
+      aiPieces,
+      dossier,
+      product,
+      genDocs,
+      auditProgress,
+      consolidate,
+      docsByNode,
+      attachByNode,
+      flatNodes,
+    ],
   )
 
   /** Purge les remarques d'une pièce (document remplacé). */
@@ -431,6 +593,8 @@ export function useRegafyCopilot({
     analyzing,
     analyzeActive,
     clearPieceAnalysis,
+    auditProgress,
+    runGlobalAudit,
     translating,
     upgrading,
     streamText,

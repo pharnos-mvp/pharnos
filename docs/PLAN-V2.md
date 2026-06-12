@@ -151,3 +151,11 @@ Smoke prod : CSP enforce + nosniff + X-Frame DENY actifs, SW à jour, données s
 **Retour arrière** : tag **`v1-mvp`** (b943af3) — redéployer ce tag sur main en cas de besoin.
 Flux post-MVP : `main` = prod ; features en branches PR (preview Cloudflare par branche) ;
 la branche `v2` reste comme alias de preview.
+
+## Recette CEO n°6 — Regafy à la demande + Audit Global + UI premium (PRs #118-#120)
+
+| # | Tranche | Contenu | État |
+|---|---|---|---|
+| F1 | Regafy à la demande | **Plus d'analyse automatique** (3 useEffect retirés). Bouton **« Analyser »** à côté de Téléverser (pièce affichée, désactivé hors ligne) → politique : template → conformité (+ langue) ; pièce admin → validité ; cache (pieceId, updatedAt) traversé, CACHE v6. **Animation de scan** du mockup (regafy-scan.css, 2.4 s). **Carte de constat** : template → Remplir le template / [Traduire] / Remplacer ; admin → Remplacer ; constat conformité+langue FUSIONNÉ. **« Remplacer »** : upload → ancienne pièce retirée + remarques purgées. **Panneau Remarques vide par défaut**, résultat positif consigné (pastille émeraude), ré-analyse REMPLACE. 6 tests hook + carte + page (168 verts) | ✅ #118 |
+| F2 | Audit Global | `runGlobalAudit` (chunks + lettres + conformité + déterministes) → rapport A4 corporate DÉTERMINISTE (zéro hallucination : documents cités, manquants énumérés, conformité enfreinte) + gate de compilation avec « Audit Global » (même sans analyses) | ⏳ |
+| F3 | UI premium | Barre d'action compacte, donut dégradé mockup, poignées de rabat 18×46, polices arborescence réduites, panneau collé au rail | ⏳ |

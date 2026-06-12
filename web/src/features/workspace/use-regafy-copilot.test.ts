@@ -145,6 +145,38 @@ describe('useRegafyCopilot — analyse à la demande (recette n°6)', () => {
     expect(result.current.aiFindings[0]!.message).toBe('GMP expiré.')
   })
 
+  it('runGlobalAudit : pièces auditées (cache traversé), remarques consignées, données du rapport', async () => {
+    vi.mocked(runRegafyValidity).mockResolvedValue([
+      {
+        id: 'v1',
+        nodeNumber: '1.2',
+        nodeLabel: 'x',
+        severity: 'error',
+        message: 'GMP expiré.',
+        source: 'ai',
+        pieceId: 'p1',
+      },
+    ])
+    const { result } = setup(doc())
+    let data: Awaited<ReturnType<typeof result.current.runGlobalAudit>> = null
+    await act(async () => {
+      data = await result.current.runGlobalAudit({ tree: [], genByNode: new Map() })
+    })
+    expect(data).not.toBeNull()
+    expect(data!.pieces).toHaveLength(1)
+    expect(data!.pieces[0]).toMatchObject({
+      name: 'gmp.pdf',
+      kind: 'admin',
+      nodeNumber: '1.2',
+    })
+    expect(data!.pieces[0]!.findings[0]!.message).toBe('GMP expiré.')
+    expect(data!.countryName).toBe('Bénin')
+    expect(Array.isArray(data!.structural)).toBe(true)
+    // Le panneau Remarques est rempli par l'audit (résultats consignés).
+    await waitFor(() => expect(result.current.aiFindings).toHaveLength(1))
+    expect(cacheAnalysis).toHaveBeenCalledOnce()
+  })
+
   it('clearPieceAnalysis (Remplacer) et retrait de la pièce purgent ses remarques', async () => {
     vi.mocked(runRegafyValidity).mockResolvedValue([])
     const { result, rerender } = setup(doc())
