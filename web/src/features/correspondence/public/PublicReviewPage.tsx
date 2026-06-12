@@ -537,7 +537,11 @@ export function PublicReviewPage({ token }: { token: string }) {
               >
                 {/* Streaming par Range : la 1re page s'affiche sans télécharger le fichier entier. */}
                 {viewerUrl ? (
-                  <PdfViewer url={viewerUrl} watermark={watermarkText(c, openedAt)} />
+                  <PdfViewer
+                    url={viewerUrl}
+                    size={c.pdfSize}
+                    watermark={watermarkText(c, openedAt)}
+                  />
                 ) : null}
               </Suspense>
             </div>

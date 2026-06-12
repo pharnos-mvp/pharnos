@@ -5,10 +5,13 @@ import { useEffect, useRef, useState } from 'react'
  * Chrome) — aucun service externe, jamais bloquée par le sandbox/CSP d'un iframe.
  *
  * Performance (Correspondance v2 — dossiers 10-20 Mo) :
- *  • Source `url` : transport **HTTP Range** (`disableAutoFetch`) — pdf.js ne télécharge que la
- *    table xref + les objets des pages affichées : première page peinte en ~centaines de Ko au
- *    lieu du fichier entier. Si le serveur ne répond pas 206, pdf.js retombe tout seul sur le
- *    téléchargement complet (comportement d'avant, jamais pire).
+ *  • Source `url` (+ `size` connu) : transport **HTTP Range explicite** (PDFDataRangeTransport)
+ *    — pdf.js ne télécharge que la table xref + les objets des pages affichées : première page
+ *    peinte en ~centaines de Ko au lieu du fichier entier. Le transport est EXPLICITE car en
+ *    cross-origin, `Accept-Ranges` n'est pas exposé par CORS (header non safelisted) : pdf.js
+ *    seul croirait le serveur incapable de ranges et téléchargerait tout — alors que Supabase
+ *    Storage répond bien 206 (vérifié) et que la taille est déjà dans le payload. Sans `size`,
+ *    ou si le serveur répond 200, repli automatique sur le téléchargement complet (jamais pire).
  *  • Rendu **paresseux** : un conteneur dimensionné par page (gabarit = page 1), le canvas n'est
  *    créé que quand la page approche du viewport (IntersectionObserver) et il est LIBÉRÉ quand
  *    elle s'en éloigne — mémoire bornée même à 200 pages, y compris en source `blob`.
@@ -57,6 +60,7 @@ function drawWatermark(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D,
 export function PdfViewer({
   blob,
   url,
+  size,
   watermark,
   flow = false,
 }: {
@@ -64,6 +68,8 @@ export function PdfViewer({
   blob?: Blob
   /** Source distante (page publique) — streaming par requêtes Range. */
   url?: string
+  /** Taille du fichier distant en octets — active le transport Range explicite. */
+  size?: number
   /** Texte incrusté en diagonale sur chaque page (traçabilité — page publique). */
   watermark?: string
   flow?: boolean
@@ -87,7 +93,44 @@ export function PdfViewer({
         const workerUrl = await import('pdfjs-dist/build/pdf.worker.min.mjs?url')
         pdfjs.GlobalWorkerOptions.workerSrc = workerUrl.default
 
-        if (url) {
+        if (url && size && size > 0) {
+          // Transport Range EXPLICITE : chaque chunk = un GET `Range: bytes=a-b` (header
+          // safelisted → pas de préflight) ; échec/200 → repli complet une seule fois.
+          const transport = new pdfjs.PDFDataRangeTransport(size, null)
+          let fellBack = false
+          transport.requestDataRange = (begin: number, end: number) => {
+            void (async () => {
+              try {
+                const r = await fetch(url, {
+                  headers: { Range: `bytes=${begin}-${end - 1}` },
+                })
+                if (r.status !== 206) throw new Error(`status ${r.status}`)
+                const buf = new Uint8Array(await r.arrayBuffer())
+                if (!cancelled) transport.onDataRange(begin, buf)
+              } catch (err) {
+                // Serveur sans 206 / réseau : UN repli — tout le fichier, puis on sert les
+                // chunks depuis la mémoire (équivalent de l'ancien comportement).
+                if (fellBack || cancelled) return
+                fellBack = true
+                try {
+                  const r = await fetch(url)
+                  if (!r.ok) throw new Error(`status ${r.status}`, { cause: err })
+                  const all = new Uint8Array(await r.arrayBuffer())
+                  if (!cancelled) transport.onDataRange(0, all)
+                } catch (e2) {
+                  console.warn('[pdf] transport range + repli en échec :', err, e2)
+                  if (!cancelled) setStatus('error')
+                }
+              }
+            })()
+          }
+          task = pdfjs.getDocument({
+            range: transport,
+            rangeChunkSize: RANGE_CHUNK,
+            disableAutoFetch: true,
+            disableStream: true,
+          }) as unknown as PdfTask
+        } else if (url) {
           task = pdfjs.getDocument({
             url,
             rangeChunkSize: RANGE_CHUNK,
@@ -192,7 +235,7 @@ export function PdfViewer({
       // Optional call : ne plante jamais si l'API diffère selon la version de pdfjs.
       void task?.destroy?.()
     }
-  }, [blob, url, watermark, flow])
+  }, [blob, url, size, watermark, flow])
 
   return (
     // `flow` : hauteur naturelle (défile avec la page, montage CTD) ; sinon scroll interne (dialog).
