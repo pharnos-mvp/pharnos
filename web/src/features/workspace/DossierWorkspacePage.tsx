@@ -66,6 +66,7 @@ import { syncGeneratedDocs } from './generated-docs-sync'
 import { useDossierAttachmentsSync } from './use-dossier-attachments-sync'
 import { useDossierSync } from './use-dossier-sync'
 import { useGeneratedDocsSync } from './use-generated-docs-sync'
+import { buildAuditReport, type AuditReport } from './audit-report'
 import { docTypeForNode, getModule1Tree, type CtdNodeDef } from './module1-tree'
 import { agencyCivilite, agencyFor, officialLanguage } from './roadmap-data'
 import { PdfPreviewDialog } from './PdfPreviewDialog'
@@ -81,6 +82,7 @@ import { useRegafyCopilot } from './use-regafy-copilot'
 import { CompletionPanel } from './components/CompletionPanel'
 import { InlineDocPreview } from './components/InlineDocPreview'
 import { NonConformCard } from './components/NonConformCard'
+import { AuditReportView } from './components/AuditReportView'
 import { RegafyGateDialog } from './components/RegafyGateDialog'
 import { TemplateFillForm } from './components/TemplateFillForm'
 import { FormatToolbar, ToolbarBtn } from './components/toolbar'
@@ -150,6 +152,8 @@ export function DossierWorkspacePage() {
   const autoStructural = true
   const [pickedKey, setPickedKey] = useState<string | null>(null)
   const [gateFindings, setGateFindings] = useState<RegafyFinding[] | null>(null)
+  /** Rapport d'Audit Global affiché au premier plan — null sinon. */
+  const [auditReport, setAuditReport] = useState<AuditReport | null>(null)
   const [sigPanelOpen, setSigPanelOpen] = useState(false)
   const [brandPanelOpen, setBrandPanelOpen] = useState(false)
   // Cartes de non-conformité masquées par l'utilisateur (ids de constats — session seulement,
@@ -214,6 +218,8 @@ export function DossierWorkspacePage() {
     analyzing,
     analyzeActive,
     clearPieceAnalysis,
+    auditProgress,
+    runGlobalAudit,
     translating,
     upgrading,
     streamText,
@@ -361,11 +367,22 @@ export function DossierWorkspacePage() {
         message: 'Dossier vide : aucun document.',
       })
     }
-    if (gate.length > 0) {
+    // Recette n°6 : sans AUCUNE analyse de session, proposer l'Audit Global avant de compiler.
+    if (gate.length > 0 || (hasContent && allFindings.length === 0)) {
       setGateFindings(gate)
       return
     }
     void handleCompile()
+  }
+
+  /** « Audit Global » (gate) : politique d'analyse sur tout le dossier → rapport A4. */
+  async function handleAudit() {
+    if (!dossier) return
+    const data = await runGlobalAudit({ tree: dossier.tree, genByNode })
+    if (data) {
+      setGateFindings(null)
+      setAuditReport(buildAuditReport(data))
+    }
   }
   // Ref resynchronisée à chaque rendu (effet sans dépendances) → le clic du bandeau voit
   // toujours l'état frais (constats, contenu) sans reconstruire le slot.
@@ -1220,6 +1237,9 @@ export function DossierWorkspacePage() {
       {gateFindings ? (
         <RegafyGateDialog
           findings={gateFindings}
+          auditProgress={auditProgress}
+          auditDisabled={!online || !env.isSupabaseConfigured}
+          onAudit={() => void handleAudit()}
           onClose={() => setGateFindings(null)}
           onCorrect={() => {
             const target = gateFindings.find((f) => f.nodeNumber)
@@ -1234,6 +1254,10 @@ export function DossierWorkspacePage() {
             void handleCompile()
           }}
         />
+      ) : null}
+
+      {auditReport ? (
+        <AuditReportView report={auditReport} onClose={() => setAuditReport(null)} />
       ) : null}
 
       {sigPanelOpen ? (
