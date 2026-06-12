@@ -159,3 +159,15 @@ la branche `v2` reste comme alias de preview.
 | F1 | Regafy à la demande | **Plus d'analyse automatique** (3 useEffect retirés). Bouton **« Analyser »** à côté de Téléverser (pièce affichée, désactivé hors ligne) → politique : template → conformité (+ langue) ; pièce admin → validité ; cache (pieceId, updatedAt) traversé, CACHE v6. **Animation de scan** du mockup (regafy-scan.css, 2.4 s). **Carte de constat** : template → Remplir le template / [Traduire] / Remplacer ; admin → Remplacer ; constat conformité+langue FUSIONNÉ. **« Remplacer »** : upload → ancienne pièce retirée + remarques purgées. **Panneau Remarques vide par défaut**, résultat positif consigné (pastille émeraude), ré-analyse REMPLACE. 6 tests hook + carte + page (168 verts) | ✅ #118 |
 | F2 | Audit Global | `runGlobalAudit` (chunks + lettres + conformité + déterministes) → rapport A4 corporate DÉTERMINISTE (zéro hallucination : documents cités, manquants énumérés, conformité enfreinte) + gate de compilation avec « Audit Global » (même sans analyses) | ✅ #119 |
 | F3 | UI premium | Barre d'action compacte, donut dégradé mockup, poignées de rabat 18×46, polices arborescence réduites (num 10px / libellé 12.5px), panneau collé au rail gauche, poignées 18×46 sur les bords intérieurs (les boutons internes disparaissent) | ✅ #120 |
+
+## Recette CEO n°7 — traductions auditables, pages de garde, quota CI (PRs #121-#122)
+
+| # | Tranche | Contenu | État |
+|---|---|---|---|
+| G1-G4 | Produit | **Analyser sur les documents traduits/conformes** (conformité texte, cache (genId, updatedAt), scan + carte sans « Remplacer », CACHE v7) ; **pages de GARDE épurées** (parents + 1.0 TdM : pièces exactes seulement, page centrée numéro/intitulé/message + [Autogénéré] enfoncé + [Téléverser], cover custom → vue normale, compilation INCHANGÉE) ; carte de constat lisible en thème sombre (neutres forcés) ; complétude : donut 110 centré, sous-titre retiré | ✅ #121 |
+| G5 | Quota Actions (90 %) | concurrency cancel-in-progress, e2e/lighthouse/rls sur PR uniquement (push main = web+edge+secrets), cache Playwright, paths-ignore docs/md/RA-source, v2 retirée, **keep-alive Supabase** (ping REST /3 j — anti-pause du palier gratuit). Cycle PR+merge ~17 → ~9-10 min | ✅ #122 |
+
+**Stratégie coûts validée** : 0 € jusqu'au premier client payant (capacité pilote ~100-150
+dossiers / ~30-50 users, goulot Storage 1 Go) ; bascule Supabase Pro (25 $/mois) au premier
+seuil atteint : 1er contrat · Storage > 70 % · exigence PITR/SLA. Suivi à poser : backup
+hebdo pg_dump chiffré → R2 (secret SUPABASE_DB_URL requis).
