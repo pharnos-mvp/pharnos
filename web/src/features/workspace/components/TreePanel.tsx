@@ -1,4 +1,4 @@
-import { PanelLeftClose, PanelLeftOpen, Settings2 } from 'lucide-react'
+import { Settings2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -8,7 +8,6 @@ import type { CtdNodeDef } from '../module1-tree'
 /** Panneau gauche du workspace : arborescence Module 1 (repliable, éditable) — move-only T7. */
 export function TreePanel({
   collapsed,
-  setCollapsed,
   treeEditing,
   setTreeEditing,
   structureOutdated,
@@ -21,7 +20,6 @@ export function TreePanel({
   onTreeChange,
 }: {
   collapsed: boolean
-  setCollapsed: (v: boolean) => void
   treeEditing: boolean
   setTreeEditing: (v: boolean) => void
   structureOutdated: boolean
@@ -36,14 +34,6 @@ export function TreePanel({
   if (collapsed) {
     return (
       <div className="bg-card sticky top-2 flex max-h-[calc(100svh-6rem)] w-14 shrink-0 flex-col items-center gap-1.5 overflow-auto rounded-2xl border py-2 shadow-sm">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Déplier l'arborescence"
-          onClick={() => setCollapsed(false)}
-        >
-          <PanelLeftOpen className="size-4" />
-        </Button>
         {flatNodes.map((n) => (
           <button
             key={n.id ?? n.number}
@@ -78,14 +68,6 @@ export function TreePanel({
             onClick={() => setTreeEditing(!treeEditing)}
           >
             <Settings2 className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Replier le panneau"
-            onClick={() => setCollapsed(true)}
-          >
-            <PanelLeftClose className="size-4" />
           </Button>
         </span>
       </div>

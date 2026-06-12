@@ -70,7 +70,7 @@ export function ToolbarBtn({
       variant="ghost"
       size="sm"
       className={cn(
-        'rounded-full',
+        'h-7 rounded-full px-3 text-xs',
         active
           ? 'bg-background text-foreground hover:bg-background/90'
           : 'text-background/85 hover:bg-background/15 hover:text-background',

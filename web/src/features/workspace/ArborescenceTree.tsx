@@ -118,9 +118,9 @@ function NodeRow({
             onClick={() => onSelect(node)}
           >
             {node.number ? (
-              <span className="text-muted-foreground text-[11px] tabular-nums">{node.number}</span>
+              <span className="text-muted-foreground text-[10px] tabular-nums">{node.number}</span>
             ) : null}
-            <span className="truncate text-sm">{node.label}</span>
+            <span className="truncate text-[12.5px] leading-tight">{node.label}</span>
           </button>
         )}
 

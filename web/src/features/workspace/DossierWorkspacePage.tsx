@@ -87,6 +87,7 @@ import { RegafyGateDialog } from './components/RegafyGateDialog'
 import { TemplateFillForm } from './components/TemplateFillForm'
 import { FormatToolbar, ToolbarBtn } from './components/toolbar'
 import { TranslationProgress } from './components/TranslationProgress'
+import { PanelHandle } from './components/PanelHandle'
 import { TreePanel } from './components/TreePanel'
 import { downloadDoc, slugify, triggerDownload } from './download-utils'
 import { UPGRADE_DOC_TYPES } from './regafy-ai'
@@ -836,13 +837,13 @@ export function DossierWorkspacePage() {
     // droite), les panneaux latéraux restent figés (sticky), la feuille défile. Fond gris
     // clair (mockup CEO) : les cartes blanches ressortent ; les actions globales (Roadmap,
     // Compiler) sont dans le bandeau du haut.
-    <div className="bg-muted/40 -m-4 flex min-h-full flex-col gap-3 p-4 md:-m-6 md:p-6">
+    <div className="bg-muted/40 -m-4 flex min-h-full flex-col gap-2 p-4 pl-1.5 md:-m-6 md:p-6 md:pl-2">
       {/* Rangée d'actions d'édition : UNIQUEMENT pour un document éditable (lettre/traduction)
           — pilule SOMBRE centrée (mockup). Les formulaires ont leur propre barre navy ; les
           pièces ont Télécharger dans l'aperçu et le retrait via le « × » d'onglet. */}
       {isEditableActive && !activeFormDef ? (
         <div className="sticky top-0 z-30 flex justify-center">
-          <div className="bg-foreground flex items-center gap-1 rounded-full px-1.5 py-1 text-sm shadow-lg">
+          <div className="bg-foreground flex items-center gap-0.5 rounded-full px-1 py-0.5 text-sm shadow-lg">
             <ToolbarBtn
               label="Modifier"
               active={docEditing}
@@ -878,7 +879,6 @@ export function DossierWorkspacePage() {
       <div className="flex items-start gap-3">
         <TreePanel
           collapsed={collapsed}
-          setCollapsed={setCollapsed}
           treeEditing={treeEditing}
           setTreeEditing={setTreeEditing}
           structureOutdated={structureOutdated}
@@ -890,6 +890,12 @@ export function DossierWorkspacePage() {
           countFor={countFor}
           onTreeChange={(tree) => void handleTreeChange(tree)}
         />
+        <PanelHandle
+          side="left"
+          open={!collapsed}
+          onClick={() => setCollapsed(!collapsed)}
+          label={collapsed ? "Déplier l'arborescence" : "Replier l'arborescence"}
+        />
 
         {/* Colonne centrale : contenu A4 qui défile (les toolbars sont dans le bandeau du haut). */}
         <div className="min-w-0 flex-1">
@@ -898,7 +904,7 @@ export function DossierWorkspacePage() {
               {/* Barre FINE au-dessus de la feuille (mockup CEO — plus de gros chrome) :
                   onglets des documents à gauche, Générer/Téléverser à droite. Le retrait d'un
                   document passe par le « × » de son onglet (affiché même seul). */}
-              <div className="bg-card flex min-h-11 flex-wrap items-center gap-2 rounded-xl border px-2 py-1.5 shadow-sm">
+              <div className="bg-card flex min-h-10 flex-wrap items-center gap-2 rounded-xl border px-2 py-1 shadow-sm">
                 <span className="sr-only" role="heading" aria-level={2}>
                   {selected.number ? `${selected.number} ` : ''}
                   {selected.label}
@@ -1204,9 +1210,15 @@ export function DossierWorkspacePage() {
           )}
         </div>
 
+        <PanelHandle
+          side="right"
+          open={!rightCollapsed}
+          onClick={() => setRightCollapsed(!rightCollapsed)}
+          label={rightCollapsed ? 'Afficher la complétude' : 'Replier la complétude'}
+          className="hidden lg:grid"
+        />
         <CompletionPanel
           collapsed={rightCollapsed}
-          setCollapsed={setRightCollapsed}
           pct={pct}
           okCount={okCount}
           warnCount={warnCount}
