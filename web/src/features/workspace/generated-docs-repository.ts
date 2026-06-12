@@ -10,9 +10,13 @@ const newId = () => crypto.randomUUID()
 
 export async function listGeneratedDocs(dossierId: string): Promise<GeneratedDocRecord[]> {
   const items = await db.generatedDocs.where('dossierId').equals(dossierId).toArray()
+  // Tri secondaire createdAt : ordre intra-nœud STABLE (chronologique) — pilote l'ordre des
+  // onglets ET des documents dans le PDF compilé (sans lui : ordre Dexie par id, aléatoire).
   return items
     .filter((d) => d.deletedAt === null)
-    .sort((a, b) => a.nodeNumber.localeCompare(b.nodeNumber))
+    .sort(
+      (a, b) => a.nodeNumber.localeCompare(b.nodeNumber) || a.createdAt.localeCompare(b.createdAt),
+    )
 }
 
 export interface CreateGeneratedDocInput {
@@ -75,6 +79,78 @@ export async function createTranslationDoc(
     nodeNumber: input.nodeNumber,
     templateKey: 'translation',
     sourceDocId: input.sourceDocId,
+    title: input.title,
+    content: input.content,
+    status: 'draft',
+    createdAt: ts,
+    updatedAt: ts,
+    deletedAt: null,
+  }
+  await db.transaction('rw', db.generatedDocs, db.outbox, async () => {
+    await db.generatedDocs.add(record)
+    await enqueueOutbox('generated_doc', record.id, 'create', record)
+  })
+  await recordAudit(orgId, 'generated_doc', record.id, 'create', record.title)
+  return record
+}
+
+export interface CreateUpgradeInput {
+  dossierId: string
+  nodeNumber: string
+  /** Source mise en conformité : pièce uploadée OU document généré (traduction). */
+  sourceDocId: string
+  title: string
+  content: JSONContent
+}
+
+/**
+ * Crée la VERSION CONFORME d'un document (Regafy Upgrade) comme document généré propre au
+ * dossier : éditable, à relire (les rubriques marquées [NON FOURNI…] sont à compléter par
+ * l'utilisateur). Ne remplace JAMAIS le document original.
+ */
+export async function createUpgradeDoc(
+  orgId: string,
+  input: CreateUpgradeInput,
+): Promise<GeneratedDocRecord> {
+  const ts = now()
+  const record: GeneratedDocRecord = {
+    id: newId(),
+    orgId,
+    dossierId: input.dossierId,
+    nodeNumber: input.nodeNumber,
+    templateKey: 'upgrade',
+    sourceDocId: input.sourceDocId,
+    title: input.title,
+    content: input.content,
+    status: 'draft',
+    createdAt: ts,
+    updatedAt: ts,
+    deletedAt: null,
+  }
+  await db.transaction('rw', db.generatedDocs, db.outbox, async () => {
+    await db.generatedDocs.add(record)
+    await enqueueOutbox('generated_doc', record.id, 'create', record)
+  })
+  await recordAudit(orgId, 'generated_doc', record.id, 'create', record.title)
+  return record
+}
+
+/**
+ * Crée un SQUELETTE de template officiel à compléter (« Remplir le template ») : structure
+ * figée (titres verrouillés), zones [À COMPLÉTER] remplies PAR L'UTILISATEUR, conformité
+ * vérifiée par Regafy à chaque enregistrement. Généré localement (zéro IA, offline).
+ */
+export async function createTemplateFillDoc(
+  orgId: string,
+  input: { dossierId: string; nodeNumber: string; title: string; content: JSONContent },
+): Promise<GeneratedDocRecord> {
+  const ts = now()
+  const record: GeneratedDocRecord = {
+    id: newId(),
+    orgId,
+    dossierId: input.dossierId,
+    nodeNumber: input.nodeNumber,
+    templateKey: 'fill',
     title: input.title,
     content: input.content,
     status: 'draft',

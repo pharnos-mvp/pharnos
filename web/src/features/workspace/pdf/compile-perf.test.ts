@@ -75,8 +75,11 @@ describe('compileDossier — budget perf DoD (M6 : compile < 10 s)', () => {
   it('compile un dossier Module 1 UEMOA réaliste sous le budget', async () => {
     const tree = getModule1Tree('ctd')
     const contentByNumber = new Map<string, CompileNodeContent>()
-    contentByNumber.set('1.1.1', { generated: genLetter('1.1.1', 'Lettre de demande'), pieces: [] })
-    contentByNumber.set('1.1.2', { generated: genLetter('1.1.2', 'Lettre de PGHT'), pieces: [] })
+    contentByNumber.set('1.1.1', {
+      generated: [genLetter('1.1.1', 'Lettre de demande')],
+      pieces: [],
+    })
+    contentByNumber.set('1.1.2', { generated: [genLetter('1.1.2', 'Lettre de PGHT')], pieces: [] })
 
     const specs: [node: string, name: string, pages: number][] = [
       ['1.3.1', 'RCP.pdf', 12],
@@ -91,7 +94,10 @@ describe('compileDossier — budget perf DoD (M6 : compile < 10 s)', () => {
     let piecePages = 0
     for (const [node, name, pages] of specs) {
       piecePages += pages
-      contentByNumber.set(node, { pieces: [piece(await makePdf(pages, name), name)] })
+      contentByNumber.set(node, {
+        generated: [],
+        pieces: [piece(await makePdf(pages, name), name)],
+      })
     }
 
     const input: CompileInput = {

@@ -4,6 +4,12 @@
 // GCP_LOCATION (def. 'global'), GCP_MODEL (def. 'gemini-3.1-flash-lite').
 //
 // Confidentialité : Vertex no-train ; les secrets restent côté Edge (jamais exposés au client).
+// Robustesse (T2, PLAN-V2) : timeout sur chaque fetch, retry borné sur transitoires uniquement
+// (429/5xx/réseau — jamais un 400), circuit breaker partagé par isolate.
+import { CircuitBreaker, HttpError, withRetry } from './retry.ts'
+
+const OAUTH_TIMEOUT_MS = 10_000
+const breaker = new CircuitBreaker()
 
 interface ServiceAccount {
   client_email: string
@@ -81,8 +87,9 @@ async function mintAccessToken(): Promise<string> {
       grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
       assertion: jwt,
     }),
+    signal: AbortSignal.timeout(OAUTH_TIMEOUT_MS),
   })
-  if (!res.ok) throw new Error(`OAuth ${res.status}: ${await res.text()}`)
+  if (!res.ok) throw new HttpError(res.status, `OAuth ${res.status}: ${await res.text()}`)
   const data = await res.json()
   cachedToken = { token: data.access_token, exp: now + (data.expires_in ?? 3600) }
   return cachedToken.token
@@ -107,6 +114,8 @@ export interface GenerateOptions {
   json?: boolean
   /** Modèle Gemini pour CET appel (surcharge le défaut `GCP_MODEL`). Ex. validité → flash. */
   model?: string
+  /** Timeout de l'appel Vertex (défaut 60 s ; traduction de gros PDF → 90 s). */
+  timeoutMs?: number
 }
 
 /** Un fragment de contenu : texte ou donnée binaire inline (base64) — pour le multimodal. */
@@ -116,8 +125,7 @@ export interface Part {
 }
 
 /** Génère du texte via Gemini sur Vertex à partir de fragments (texte + documents/images). */
-export async function generateParts(parts: Part[], opts: GenerateOptions = {}): Promise<string> {
-  const token = await mintAccessToken()
+export function generateParts(parts: Part[], opts: GenerateOptions = {}): Promise<string> {
   const body: Record<string, unknown> = {
     contents: [{ role: 'user', parts }],
     generationConfig: {
@@ -127,19 +135,70 @@ export async function generateParts(parts: Part[], opts: GenerateOptions = {}): 
     },
   }
   if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] }
+  const payload = JSON.stringify(body)
+  const timeoutMs = opts.timeoutMs ?? 60_000
 
-  const res = await fetch(vertexUrl('generateContent', opts.model), {
-    method: 'POST',
-    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) throw new Error(`Vertex ${res.status}: ${(await res.text()).slice(0, 400)}`)
-  const data = await res.json()
-  const out = data?.candidates?.[0]?.content?.parts ?? []
-  return out.map((p: { text?: string }) => p.text ?? '').join('')
+  // Retry borné (transitoires only) autour de l'appel complet, breaker partagé par isolate.
+  return breaker.run(() =>
+    withRetry(async () => {
+      const token = await withRetry(mintAccessToken, { attempts: 2 })
+      const res = await fetch(vertexUrl('generateContent', opts.model), {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: payload,
+        signal: AbortSignal.timeout(timeoutMs),
+      })
+      if (!res.ok) {
+        const retryAfterS = Number(res.headers.get('retry-after'))
+        throw new HttpError(
+          res.status,
+          `Vertex ${res.status}: ${(await res.text()).slice(0, 400)}`,
+          Number.isFinite(retryAfterS) && retryAfterS > 0 ? retryAfterS * 1000 : undefined,
+        )
+      }
+      const data = await res.json()
+      const out = data?.candidates?.[0]?.content?.parts ?? []
+      return out.map((p: { text?: string }) => p.text ?? '').join('')
+    }),
+  )
 }
 
 /** Génère du texte (non-streaming) via Gemini sur Vertex. */
 export function generateText(prompt: string, opts: GenerateOptions = {}): Promise<string> {
   return generateParts([{ text: prompt }], opts)
+}
+
+/**
+ * Génération EN STREAMING (SSE `alt=sse`) — renvoie la Response Vertex dont le body est le flux
+ * SSE brut (à transformer côté appelant). Retry/breaker sur l'ÉTABLISSEMENT uniquement : une
+ * coupure en cours de flux n'est pas re-tentée (le client a déjà reçu du texte ; il gère).
+ */
+export function streamParts(parts: Part[], opts: GenerateOptions = {}): Promise<Response> {
+  const body: Record<string, unknown> = {
+    contents: [{ role: 'user', parts }],
+    generationConfig: {
+      maxOutputTokens: opts.maxOutputTokens ?? 1024,
+      temperature: opts.temperature ?? 0.2,
+    },
+  }
+  if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] }
+  const payload = JSON.stringify(body)
+  // Le signal borne TOUT le flux (établissement + lecture) — garde-fou global.
+  const timeoutMs = opts.timeoutMs ?? 180_000
+
+  return breaker.run(() =>
+    withRetry(async () => {
+      const token = await withRetry(mintAccessToken, { attempts: 2 })
+      const res = await fetch(`${vertexUrl('streamGenerateContent', opts.model)}?alt=sse`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: payload,
+        signal: AbortSignal.timeout(timeoutMs),
+      })
+      if (!res.ok || !res.body) {
+        throw new HttpError(res.status, `Vertex ${res.status}: ${(await res.text()).slice(0, 400)}`)
+      }
+      return res
+    }),
+  )
 }

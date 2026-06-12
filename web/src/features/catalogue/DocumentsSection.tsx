@@ -14,9 +14,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { DocumentCategory } from '@/lib/db'
+import { UPLOAD_ACCEPT } from '@/lib/files'
 import { docTypeLabel, docTypesFor } from './doc-types'
 import { addDocument, deleteDocument, getDocumentBlob, listDocuments } from './documents-repository'
-import { getDocumentDownloadUrl, syncDocuments } from './documents-sync'
+import { downloadDocumentBlob, syncDocuments } from './documents-sync'
 
 interface DocumentsSectionProps {
   orgId: string
@@ -82,9 +83,9 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
       return
     }
     if (filePath) {
-      const url = await getDocumentDownloadUrl(filePath)
-      if (url) {
-        triggerDownload(url, fileName, false)
+      const remote = await downloadDocumentBlob(filePath)
+      if (remote) {
+        triggerDownload(URL.createObjectURL(remote), fileName, true)
         return
       }
     }
@@ -128,6 +129,7 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
           <Input
             key={resetKey}
             type="file"
+            accept={UPLOAD_ACCEPT}
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           />
         </div>

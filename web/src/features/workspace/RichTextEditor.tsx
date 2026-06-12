@@ -5,6 +5,8 @@ import TextAlign from '@tiptap/extension-text-align'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 
+import { LockedHeading } from './locked-heading'
+
 interface RichTextEditorProps {
   /** Identité du document : un changement recrée l'éditeur avec le nouveau contenu. */
   docId: string
@@ -38,7 +40,10 @@ export function RichTextEditor({
   const editor = useEditor(
     {
       extensions: [
-        StarterKit,
+        // Heading remplacé par LockedHeading : identique pour les documents ordinaires, et
+        // verrouille les titres des squelettes « Remplir le template » (attrs.locked).
+        StarterKit.configure({ heading: false }),
+        LockedHeading,
         Image.configure({ inline: true, allowBase64: true }),
         TextAlign.configure({ types: ['heading', 'paragraph'] }),
       ],

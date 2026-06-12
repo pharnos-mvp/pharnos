@@ -1,5 +1,5 @@
 import { cacheDocumentBlob, getDocumentBlob } from '@/features/catalogue/documents-repository'
-import { getDocumentDownloadUrl } from '@/features/catalogue/documents-sync'
+import { downloadDocumentBlob } from '@/features/catalogue/documents-sync'
 import type {
   DocumentRecord,
   DossierAttachmentRecord,
@@ -10,7 +10,7 @@ import type {
 } from '@/lib/db'
 import { formatComposition } from '../composition'
 import { cacheAttachmentBlob, getAttachmentBlob } from '../dossier-attachments-repository'
-import { getAttachmentDownloadUrl } from '../dossier-attachments-sync'
+import { downloadAttachmentBlob } from '../dossier-attachments-sync'
 import { activityLabel, countryLabel } from '../dossier-constants'
 import { nodeForDocType, resolveExistingNode, treeNodeNumbers } from '../module1-tree'
 import {
@@ -28,23 +28,6 @@ function inferMime(fileName: string): string {
   return ''
 }
 
-async function urlToBytes(
-  url: string,
-): Promise<{ bytes: Uint8Array; mime: string; blob: Blob } | null> {
-  try {
-    const res = await fetch(url)
-    if (!res.ok) return null
-    const blob = await res.blob()
-    return {
-      bytes: new Uint8Array(await blob.arrayBuffer()),
-      mime: res.headers.get('content-type') ?? blob.type ?? '',
-      blob,
-    }
-  } catch {
-    return null
-  }
-}
-
 async function attachmentPiece(a: DossierAttachmentRecord): Promise<CompilePiece | null> {
   const blob = await getAttachmentBlob(a.id)
   if (blob) {
@@ -55,15 +38,12 @@ async function attachmentPiece(a: DossierAttachmentRecord): Promise<CompilePiece
     }
   }
   if (a.filePath) {
-    const url = await getAttachmentDownloadUrl(a.filePath)
-    if (url) {
-      const out = await urlToBytes(url)
-      if (out) {
-        const mime = a.mimeType || out.mime || inferMime(a.fileName)
-        // Offline-first : épingle le fichier en local pour les compilations hors-ligne suivantes.
-        void cacheAttachmentBlob(a.id, out.blob)
-        return { bytes: out.bytes, mime, fileName: a.fileName }
-      }
+    const remote = await downloadAttachmentBlob(a.filePath)
+    if (remote) {
+      const mime = a.mimeType || remote.type || inferMime(a.fileName)
+      // Offline-first : épingle le fichier en local pour les compilations hors-ligne suivantes.
+      void cacheAttachmentBlob(a.id, remote)
+      return { bytes: new Uint8Array(await remote.arrayBuffer()), mime, fileName: a.fileName }
     }
   }
   return null
@@ -79,15 +59,12 @@ async function docPiece(d: DocumentRecord): Promise<CompilePiece | null> {
     }
   }
   if (d.filePath) {
-    const url = await getDocumentDownloadUrl(d.filePath)
-    if (url) {
-      const out = await urlToBytes(url)
-      if (out) {
-        const mime = d.mimeType || out.mime || inferMime(d.fileName)
-        // Offline-first : épingle le fichier en local pour les compilations hors-ligne suivantes.
-        void cacheDocumentBlob(d.id, out.blob)
-        return { bytes: out.bytes, mime, fileName: d.fileName }
-      }
+    const remote = await downloadDocumentBlob(d.filePath)
+    if (remote) {
+      const mime = d.mimeType || remote.type || inferMime(d.fileName)
+      // Offline-first : épingle le fichier en local pour les compilations hors-ligne suivantes.
+      void cacheDocumentBlob(d.id, remote)
+      return { bytes: new Uint8Array(await remote.arrayBuffer()), mime, fileName: d.fileName }
     }
   }
   return null
@@ -117,14 +94,17 @@ export async function compileDossierToPdf(args: CompileArgs): Promise<CompileRes
   const ensure = (n: string): CompileNodeContent => {
     let c = contentByNumber.get(n)
     if (!c) {
-      c = { pieces: [] }
+      c = { generated: [], pieces: [] }
       contentByNumber.set(n, c)
     }
     return c
   }
   const missing: string[] = []
 
-  for (const g of generatedDocs) ensure(g.nodeNumber).generated = g
+  // TOUS les documents générés du nœud (lettre + template rempli + traduction + version
+  // conforme coexistent en onglets) — chacun est compilé. L'ancienne affectation simple
+  // écrasait : seul un document par nœud survivait (bug recette CEO : formulaire RCP absent).
+  for (const g of generatedDocs) ensure(g.nodeNumber).generated.push(g)
 
   for (const a of attachments) {
     const piece = await attachmentPiece(a)
@@ -142,7 +122,11 @@ export async function compileDossierToPdf(args: CompileArgs): Promise<CompileRes
   }
 
   const treeNumbers = treeNodeNumbers(dossier.tree)
+  // Documents produit RETIRÉS du dossier (« × » d'onglet → excludedDocIds) : exclus de la
+  // compilation comme de l'UI (même règle que buildDocsByNode — bug recette : ils revenaient).
+  const excludedDocs = new Set(dossier.excludedDocIds ?? [])
   for (const d of docs) {
+    if (excludedDocs.has(d.id)) continue
     const node = resolveExistingNode(
       treeNumbers,
       nodeForDocType(dossier.format, d.docType, d.category),

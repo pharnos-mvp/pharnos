@@ -4,15 +4,16 @@
 // Contrat sécurité (ADR 0002) : JWT Supabase vérifié, Storage via le JWT appelant (RLS), no-train.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
-import { generateParts, type Part } from '../_shared/vertex.ts'
-
-const CORS: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
+import { corsHeaders, isAllowedOrigin } from '../_shared/cors.ts'
+import { logJson, newReqId, userHash } from '../_shared/log.ts'
+import { buildTranslateSystem } from '../_shared/pharma-glossary.ts'
+import { vertexSseToSimple } from '../_shared/sse.ts'
+import { generateParts, streamParts, type Part } from '../_shared/vertex.ts'
 
 const MAX_FILE_BYTES = 12 * 1024 * 1024
+const MAX_TEXT_CHARS = 60_000
+// Traduction multimodale d'un PDF complet : l'appel Vertex le plus long de l'app.
+const TRANSLATE_TIMEOUT_MS = 90_000
 const STORAGE_BUCKET = 'documents'
 const LANG_NAMES: Record<string, string> = {
   fr: 'français',
@@ -22,13 +23,6 @@ const LANG_NAMES: Record<string, string> = {
   de: 'allemand',
   it: 'italien',
   ar: 'arabe',
-}
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS, 'content-type': 'application/json' },
-  })
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -49,7 +43,20 @@ function mimeFor(fileName: string): string {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  const origin = req.headers.get('origin')
+  const reqId = newReqId()
+  if (!isAllowedOrigin(origin)) {
+    logJson({ fn: 'translate', reqId, op: 'cors', status: 'forbidden' })
+    return new Response('origine non autorisée', { status: 403 })
+  }
+  const cors = corsHeaders(origin)
+  const json = (body: unknown, status = 200): Response =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, 'content-type': 'application/json', 'x-request-id': reqId },
+    })
+
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'méthode non autorisée' }, 405)
 
   // Auth — JWT Supabase de l'appelant.
@@ -63,7 +70,11 @@ Deno.serve(async (req: Request) => {
     data: { user },
     error: authErr,
   } = await supabase.auth.getUser()
-  if (authErr || !user) return json({ error: 'non authentifié' }, 401)
+  if (authErr || !user) {
+    logJson({ fn: 'translate', reqId, op: 'auth', status: 'unauthorized' })
+    return json({ error: 'non authentifié' }, 401)
+  }
+  const log = { fn: 'translate', reqId, user: await userHash(user.id) }
 
   // Entrée.
   let raw: unknown
@@ -77,41 +88,108 @@ Deno.serve(async (req: Request) => {
     fileName?: string
     docType?: string
     targetLang?: string
+    /** Texte source (document généré : version conforme, template rempli) — exclusif filePath. */
+    text?: string
+    /** true → réponse SSE au fil de l'eau ; absent → JSON (compat front antérieur). */
+    stream?: boolean
   }
-  if (!b.filePath) return json({ error: 'filePath requis' }, 400)
+  if (!b.filePath && !b.text) return json({ error: 'filePath ou text requis' }, 400)
   const targetName = LANG_NAMES[(b.targetLang || 'fr').toLowerCase().slice(0, 2)] ?? 'français'
   const docType = String(b.docType ?? 'document')
 
-  // Téléchargement du document (Storage, RLS via le JWT appelant).
-  const { data, error } = await supabase.storage.from(STORAGE_BUCKET).download(b.filePath)
-  if (error || !data) return json({ error: 'document introuvable' }, 404)
-  const buf = new Uint8Array(await data.arrayBuffer())
-  if (!buf.byteLength || buf.byteLength > MAX_FILE_BYTES) {
-    return json({ error: 'document illisible ou trop volumineux' }, 422)
+  // Source : pièce téléchargée (Storage, RLS via le JWT appelant) OU texte borné (conformité
+  // d'abord : on traduit la VERSION CONFORME, un document généré).
+  let sourcePart: Part
+  let sourceBytes = 0
+  if (b.filePath) {
+    const { data, error } = await supabase.storage.from(STORAGE_BUCKET).download(b.filePath)
+    if (error || !data) return json({ error: 'document introuvable' }, 404)
+    const buf = new Uint8Array(await data.arrayBuffer())
+    if (!buf.byteLength || buf.byteLength > MAX_FILE_BYTES) {
+      return json({ error: 'document illisible ou trop volumineux' }, 422)
+    }
+    sourceBytes = buf.byteLength
+    sourcePart = {
+      inlineData: { mimeType: mimeFor(b.fileName ?? 'document'), data: bytesToBase64(buf) },
+    }
+  } else {
+    const text = String(b.text).slice(0, MAX_TEXT_CHARS)
+    if (!text.trim()) return json({ error: 'texte source vide' }, 400)
+    sourceBytes = text.length
+    sourcePart = { text: `DOCUMENT À TRADUIRE :\n${text}` }
   }
 
-  const system =
-    'Tu es un traducteur professionnel spécialisé en affaires réglementaires pharmaceutiques ' +
-    `(UEMOA/CEDEAO). Tu traduis fidèlement le document vers le ${targetName}, en utilisant la ` +
-    'terminologie médicale STANDARDISÉE MedDRA pour les termes médicaux (effets indésirables, ' +
-    'pathologies, classes d\'organes…). Conserve la structure (titres, sections, listes, tableaux ' +
-    'rendus en texte). Traduis INTÉGRALEMENT : ne résume pas, ne commente pas, n\'ajoute rien.'
+  // Traduction Pro (U2) : terminologie verrouillée (SOC/fréquences MedDRA, formes/voies EDQM,
+  // formules réglementaires) + titres de rubriques officiels FR du template quand le type de
+  // document est couvert (rcp/notice/labeling/cover/pght) — source : _shared/pharma-glossary.ts.
+  const system = buildTranslateSystem(docType, b.targetLang || 'fr', targetName)
   const parts: Part[] = [
     {
       text:
         `Traduis ce document (${docType}) en ${targetName}. Rends UNIQUEMENT la traduction, ` +
         'en texte structuré (titres puis paragraphes, une ligne vide entre les blocs).',
     },
-    { inlineData: { mimeType: mimeFor(b.fileName ?? 'document'), data: bytesToBase64(buf) } },
+    sourcePart,
   ]
+
+  const started = Date.now()
+  logJson({
+    ...log,
+    op: 'start',
+    bytes: sourceBytes,
+    fromText: !b.filePath,
+    docType,
+    target: b.targetLang || 'fr',
+    stream: b.stream === true,
+  })
+
+  // Mode STREAMING (opt-in par le client) : SSE simple `data: {"text":"…"}` puis `data: [DONE]`.
+  // Premier texte à l'écran en ~2 s au lieu d'attendre la traduction complète — terrain bas débit.
+  if (b.stream === true) {
+    try {
+      const vertexRes = await streamParts(parts, {
+        system,
+        maxOutputTokens: 8192,
+        temperature: 0.1,
+        timeoutMs: 180_000,
+      })
+      const out = vertexSseToSimple(vertexRes.body!, (chars) =>
+        logJson({ ...log, op: 'translate', ms: Date.now() - started, status: 'ok', chars }),
+      )
+      return new Response(out, {
+        status: 200,
+        headers: {
+          ...cors,
+          'content-type': 'text/event-stream',
+          'cache-control': 'no-cache',
+          'x-request-id': reqId,
+        },
+      })
+    } catch (e) {
+      const err = String((e as Error).message).slice(0, 300)
+      logJson({ ...log, op: 'translate', ms: Date.now() - started, status: 'error', err })
+      return json({ error: 'traduction indisponible', detail: err }, 502)
+    }
+  }
 
   let text: string
   try {
-    text = await generateParts(parts, { system, maxOutputTokens: 8192, temperature: 0.1 })
+    text = await generateParts(parts, {
+      system,
+      maxOutputTokens: 8192,
+      temperature: 0.1,
+      timeoutMs: TRANSLATE_TIMEOUT_MS,
+    })
   } catch (e) {
-    return json({ error: 'traduction indisponible', detail: String((e as Error).message).slice(0, 300) }, 502)
+    const err = String((e as Error).message).slice(0, 300)
+    logJson({ ...log, op: 'translate', ms: Date.now() - started, status: 'error', err })
+    return json({ error: 'traduction indisponible', detail: err }, 502)
   }
-  if (!text.trim()) return json({ error: 'traduction vide' }, 502)
+  if (!text.trim()) {
+    logJson({ ...log, op: 'translate', ms: Date.now() - started, status: 'empty' })
+    return json({ error: 'traduction vide' }, 502)
+  }
 
+  logJson({ ...log, op: 'translate', ms: Date.now() - started, status: 'ok', chars: text.length })
   return json({ text, targetLang: b.targetLang || 'fr' })
 })

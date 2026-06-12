@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { db, type ProductRecord } from '@/lib/db'
+import { withRetry } from '@/lib/retry'
+import { reportError } from '@/lib/sentry'
 import { getSupabase } from '@/lib/supabase'
 
 /** Ligne Postgres (snake_case) de la table `products`. */
@@ -78,11 +80,13 @@ export async function syncProducts(orgId: string): Promise<void> {
   if (!supabase) return
   syncing = true
   try {
-    await pushOutbox(supabase, orgId)
-    await pullProducts(supabase, orgId)
+    // Retry borné (transitoires only) : une microcoupure ne repousse pas la sync au prochain déclencheur.
+    await withRetry(() => pushOutbox(supabase, orgId))
+    await withRetry(() => pullProducts(supabase, orgId))
   } catch (error) {
     // On réessaiera au prochain déclencheur (montage / reconnexion / mutation).
     console.warn('[sync] produits :', error)
+    reportError(error, { op: 'sync', entity: 'products' })
   } finally {
     syncing = false
   }

@@ -9,7 +9,8 @@ import type { CtdNodeDef } from '../module1-tree'
  * Compilation du Module 1 en un PDF unique (M6).
  *
  * Ordre : (TDM tous modules) → pour chaque section : page de garde → pour chaque pièce : page
- * d'annonce → document(s) (lettre générée rendue en vecteur + pièces jointes/produit fusionnées).
+ * d'annonce → document(s) (documents générés rendus en vecteur — lettre, template rempli,
+ * traduction, version conforme : TOUS, chacun le sien — + pièces jointes/produit fusionnées).
  * Bandeau **en-tête/pied taille 10** tamponné **uniquement sur les pages de garde** (TDM, gardes de
  * section, pages d'annonce) — **jamais** sur les documents administratifs / générés / traduits, qui
  * restent vierges. Police Times New Roman (standard PDF, pas d'embarquement de police).
@@ -31,6 +32,10 @@ const BODY_SIZE = 12
 const LINE = 1.45
 const GRAY = rgb(0.45, 0.45, 0.45)
 const BLACK = rgb(0, 0, 0)
+// Branding des formulaires de templates (identique aux exports form-print/form-docx).
+const NAVY = rgb(38 / 255, 63 / 255, 115 / 255)
+const BAND_FILL = rgb(217 / 255, 217 / 255, 217 / 255)
+const BAND_BORDER = rgb(128 / 255, 128 / 255, 128 / 255)
 
 export interface CompilePiece {
   bytes: Uint8Array
@@ -41,7 +46,8 @@ export interface CompilePiece {
 }
 
 export interface CompileNodeContent {
-  generated?: GeneratedDocRecord
+  /** Documents générés du nœud (lettre, template rempli, traduction, version conforme) — TOUS compilés. */
+  generated: GeneratedDocRecord[]
   pieces: CompilePiece[]
 }
 
@@ -155,13 +161,38 @@ function wrap(runs: Run[], fonts: Fonts, size: number, maxWidth: number): Run[][
   return lines.length > 0 ? lines : [[]]
 }
 
-function drawRuns(c: Cursor, runs: Run[], size: number, indent: number, prefix?: string): void {
+interface RunStyle {
+  color?: ReturnType<typeof rgb>
+  /** Ligne centrée dans la zone de contenu (titres officiels des formulaires). */
+  center?: boolean
+  /** Filet sous le texte (sous-sous-titres des formulaires — niveau 4). */
+  underline?: boolean
+}
+
+function drawRuns(
+  c: Cursor,
+  runs: Run[],
+  size: number,
+  indent: number,
+  prefix?: string,
+  style: RunStyle = {},
+): void {
   const lh = lineHeight(size)
+  const color = style.color ?? BLACK
   const lines = wrap(runs, c.fonts, size, CONTENT_WIDTH - indent)
   lines.forEach((line, i) => {
     if (c.y - lh < c.bottom) newPage(c)
-    // Texte toujours aligné à gauche ; `indent` décale le bloc (puces, ou bloc décalé date/destinataire).
-    let x = MARGIN + indent
+    const lineWidth = line.reduce(
+      (wsum, run) =>
+        wsum +
+        (run.bold ? c.fonts.bold : c.fonts.regular).widthOfTextAtSize(sanitize(run.text), size),
+      0,
+    )
+    // Texte aligné à gauche ; `indent` décale le bloc ; `center` centre la ligne (titres).
+    const x0 = style.center
+      ? MARGIN + indent + Math.max(0, (CONTENT_WIDTH - indent - lineWidth) / 2)
+      : MARGIN + indent
+    let x = x0
     if (i === 0 && prefix) {
       c.page.drawText(sanitize(prefix), {
         x: MARGIN + indent - 14,
@@ -174,11 +205,50 @@ function drawRuns(c: Cursor, runs: Run[], size: number, indent: number, prefix?:
     for (const run of line) {
       const font = run.bold ? c.fonts.bold : c.fonts.regular
       const t = sanitize(run.text)
-      c.page.drawText(t, { x, y: c.y, size, font, color: BLACK })
+      c.page.drawText(t, { x, y: c.y, size, font, color })
       x += font.widthOfTextAtSize(t, size)
+    }
+    if (style.underline && lineWidth > 0) {
+      c.page.drawLine({
+        start: { x: x0, y: c.y - 1.5 },
+        end: { x: x0 + lineWidth, y: c.y - 1.5 },
+        thickness: 0.7,
+        color,
+      })
     }
     c.y -= lh
   })
+}
+
+/** Bandeau de rubrique du template Étiquetage : rectangle gris bordé, texte navy bold (wrap). */
+function drawBanner(c: Cursor, runs: Run[]): void {
+  const size = BODY_SIZE
+  const lh = lineHeight(size)
+  const boldRuns = runs.map((r) => ({ ...r, bold: true }))
+  const lines = wrap(boldRuns, c.fonts, size, CONTENT_WIDTH - 16)
+  const boxH = lines.length * lh + 8
+  if (c.y + size - boxH < c.bottom) newPage(c)
+  const top = c.y + size // du baseline courant vers le haut de la boîte
+  c.page.drawRectangle({
+    x: MARGIN,
+    y: top - boxH,
+    width: CONTENT_WIDTH,
+    height: boxH,
+    color: BAND_FILL,
+    borderColor: BAND_BORDER,
+    borderWidth: 0.6,
+  })
+  let baseline = top - 4 - size * 0.85
+  for (const line of lines) {
+    let x = MARGIN + 8
+    for (const run of line) {
+      const t = sanitize(run.text)
+      c.page.drawText(t, { x, y: baseline, size, font: c.fonts.bold, color: NAVY })
+      x += c.fonts.bold.widthOfTextAtSize(t, size)
+    }
+    baseline -= lh
+  }
+  c.y = top - boxH - 10
 }
 
 async function drawImage(c: Cursor, dataUrl: string, maxW = 180, indent = 0): Promise<void> {
@@ -243,10 +313,34 @@ function blockIndent(block: JSONContent): number {
   return block.attrs?.textAlign === 'right' ? RIGHT_BLOCK_INDENT : 0
 }
 
-async function renderTiptap(c: Cursor, content: JSONContent): Promise<void> {
+/**
+ * Rendu d'un contenu TipTap. `styled` (formulaires de templates — `templateKey: 'fill'`) :
+ * hiérarchie IDENTIQUE aux exports form-print/form-docx — titre (niveau 1) centré navy bold,
+ * bandeaux gris (attrs.banner), niveaux 2-3 navy bold, niveau 4 noir bold souligné.
+ */
+async function renderTiptap(c: Cursor, content: JSONContent, styled = false): Promise<void> {
   for (const block of content.content ?? []) {
     switch (block.type) {
       case 'heading': {
+        if (styled) {
+          const runs = inlineRuns(block.content).map((r) => ({ ...r, bold: true }))
+          if (block.attrs?.banner === true) {
+            c.y -= 4
+            drawBanner(c, runs)
+            break
+          }
+          const level = Number(block.attrs?.level ?? 2)
+          c.y -= level === 1 ? 6 : 4
+          if (level === 1) {
+            drawRuns(c, runs, BODY_SIZE, 0, undefined, { color: NAVY, center: true })
+          } else if (level >= 4) {
+            drawRuns(c, runs, BODY_SIZE, 0, undefined, { underline: true })
+          } else {
+            drawRuns(c, runs, BODY_SIZE, 0, undefined, { color: NAVY })
+          }
+          c.y -= 4
+          break
+        }
         c.y -= 4
         drawRuns(c, inlineRuns(block.content), 14, blockIndent(block))
         for (const src of inlineImages(block.content))
@@ -292,6 +386,20 @@ async function renderTiptap(c: Cursor, content: JSONContent): Promise<void> {
       }
       case 'image': {
         if (typeof block.attrs?.src === 'string') await drawImage(c, block.attrs.src as string)
+        break
+      }
+      case 'horizontalRule': {
+        // Filet noir pleine largeur (séparateur officiel — ex. formulaire RCP avant
+        // « CONDITIONS DE PRESCRIPTION ET DE DELIVRANCE »).
+        if (c.y - 14 < c.bottom) newPage(c)
+        c.y -= 8
+        c.page.drawLine({
+          start: { x: MARGIN, y: c.y },
+          end: { x: A4[0] - MARGIN, y: c.y },
+          thickness: 0.8,
+          color: BLACK,
+        })
+        c.y -= 10
         break
       }
       default:
@@ -528,7 +636,7 @@ export interface TdmEntry {
 
 function hasContent(node: CtdNodeDef, input: CompileInput): boolean {
   const c = input.contentByNumber.get(node.number)
-  if (c && (c.generated || c.pieces.length > 0)) return true
+  if (c && (c.generated.length > 0 || c.pieces.length > 0)) return true
   return (node.children ?? []).some((ch) => hasContent(ch, input))
 }
 
@@ -850,12 +958,15 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
         await walk(node.children ?? [], depth + 1)
       } else {
         const content = input.contentByNumber.get(node.number)
-        if (!content || (!content.generated && content.pieces.length === 0)) continue
+        if (!content || (content.generated.length === 0 && content.pieces.length === 0)) continue
         // Un document = une sous-section : page d'annonce dédiée + document sur ses propres pages
         // (jamais deux documents sur une même page).
         const items: { render: () => Promise<void> }[] = []
-        if (content.generated) {
-          const generated = content.generated
+        for (const generated of content.generated) {
+          // Papier à en-tête/pied : LETTRES uniquement (cover, PGHT…). Les templates remplis,
+          // traductions et versions conformes restent vierges — aligné sur l'éditeur, qui ne
+          // leur affiche pas le branding.
+          const isLetter = !['translation', 'upgrade', 'fill'].includes(generated.templateKey)
           items.push({
             render: async () => {
               const page = contentDoc.addPage(A4)
@@ -867,14 +978,19 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
                 fonts,
               }
               // Papier à en-tête en haut de la 1re page, pied en bas de la dernière — pleine largeur.
-              if (letterHeader) {
+              if (letterHeader && isLetter) {
                 const b = bandLayout(letterHeader)
                 page.drawImage(letterHeader, { x: b.x, y: A4[1] - b.h, width: b.w, height: b.h })
                 cursor.y = A4[1] - b.h - 14
               }
-              if (letterFooter) cursor.bottom = bandLayout(letterFooter).h + 14
-              await renderTiptap(cursor, generated.content as JSONContent)
-              if (letterFooter) {
+              if (letterFooter && isLetter) cursor.bottom = bandLayout(letterFooter).h + 14
+              // Formulaires de templates : rendu stylé (navy/bandeaux) = identique aux exports.
+              await renderTiptap(
+                cursor,
+                generated.content as JSONContent,
+                generated.templateKey === 'fill',
+              )
+              if (letterFooter && isLetter) {
                 const b = bandLayout(letterFooter)
                 cursor.page.drawImage(letterFooter, { x: b.x, y: 0, width: b.w, height: b.h })
               }

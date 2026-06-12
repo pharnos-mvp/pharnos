@@ -26,6 +26,10 @@ export interface RegafyFinding {
   translate?: boolean
   /** Langue détectée du document (code ISO 639-1). */
   language?: string
+  /** Document non conforme au template en vigueur — affiche un bouton « Upgrader ». */
+  upgrade?: boolean
+  /** Rubriques manquantes/non conformes (détail du constat de conformité). */
+  missing?: string[]
 }
 
 export interface RegafyInput {

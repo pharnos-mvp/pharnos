@@ -1,7 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { db, type GeneratedDocRecord } from '@/lib/db'
+import { withRetry } from '@/lib/retry'
+import { reportError } from '@/lib/sentry'
 import { getSupabase } from '@/lib/supabase'
+import { EMPTY_DOC, parseTiptapContent } from './tiptap-schema'
 
 export interface GeneratedDocRow {
   id: string
@@ -62,10 +65,12 @@ export async function syncGeneratedDocs(orgId: string): Promise<void> {
   if (!supabase) return
   syncing = true
   try {
-    await pushGeneratedDocs(supabase, orgId)
-    await pullGeneratedDocs(supabase, orgId)
+    // Retry borné (transitoires only) : une microcoupure ne repousse pas la sync au prochain déclencheur.
+    await withRetry(() => pushGeneratedDocs(supabase, orgId))
+    await withRetry(() => pullGeneratedDocs(supabase, orgId))
   } catch (error) {
     console.warn('[sync] generatedDocs :', error)
+    reportError(error, { op: 'sync', entity: 'generatedDocs' })
   } finally {
     syncing = false
   }
@@ -98,9 +103,24 @@ async function pullGeneratedDocs(supabase: SupabaseClient, orgId: string): Promi
   let maxUpdated = since
   for (const row of rows) {
     const incoming = rowToGeneratedDoc(row)
+    // Le contenu vient d'un autre client du tenant : validé avant d'entrer en Dexie. Invalide →
+    // on ne remplace JAMAIS une version locale par du corrompu ; sans version locale, quarantaine
+    // douce (doc vide) pour que l'éditeur et la compilation ne plantent pas.
+    const safeContent = parseTiptapContent(incoming.content)
+    if (safeContent === null) {
+      reportError(new Error('Contenu TipTap invalide au pull'), {
+        op: 'pull-generated-doc',
+        id: incoming.id,
+      })
+    }
     const local = await db.generatedDocs.get(incoming.id)
     if (!local || incoming.updatedAt >= local.updatedAt) {
-      await db.generatedDocs.put(incoming)
+      if (safeContent !== null) {
+        await db.generatedDocs.put({ ...incoming, content: safeContent })
+      } else if (!local) {
+        await db.generatedDocs.put({ ...incoming, content: EMPTY_DOC })
+      }
+      // local présent + contenu entrant invalide → on garde la version locale.
     }
     if (incoming.updatedAt > maxUpdated) maxUpdated = incoming.updatedAt
   }

@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, v2]
   pull_request:
 
 permissions:
@@ -45,14 +45,25 @@ jobs:
       - name: Format check
         run: npm run format:check
 
-      - name: Test
-        run: npm run test
+      - name: Test (avec coverage + plancher anti-régression)
+        run: npm run test:coverage
+
+      - name: Upload coverage (lcov)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: web/coverage/
+          retention-days: 14
 
       - name: Build
         run: npm run build
 
       - name: Bundle budget (gzip)
         run: npm run budget
+
+      - name: Headers de sécurité (_headers Cloudflare)
+        run: npm run headers
 
   e2e:
     name: e2e (Playwright · offline PWA)
@@ -131,3 +142,39 @@ jobs:
           configPath: ./lighthouserc.json
           uploadArtifacts: true
           temporaryPublicStorage: true
+
+  edge:
+    name: edge (deno · modules partagés)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # Politique de retry (transitoires only), circuit breaker, whitelist CORS : la logique
+      # partagée des Edge Functions est testée en pur (sans réseau ni Supabase).
+      - name: Tests modules partagés Edge
+        run: deno test supabase/functions/_shared/
+
+      - name: Type-check des Edge Functions
+        run: deno check supabase/functions/regafy-ai/index.ts supabase/functions/translate/index.ts
+
+  secrets:
+    name: secrets (gitleaks · historique complet)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Tout l'historique : un secret commité puis « supprimé » reste exposé dans git.
+          fetch-depth: 0
+
+      # Binaire officiel via Docker (licence MIT, pas de clé requise — contrairement à
+      # gitleaks-action qui exige une licence pour les organisations). --redact : ne jamais
+      # afficher la valeur d'un secret détecté dans les logs CI.
+      - name: Gitleaks (scan des secrets sur tout l'historique git)
+        run: >
+          docker run --rm -v "$PWD:/repo"
+          ghcr.io/gitleaks/gitleaks:latest
+          detect --source=/repo --redact --no-banner

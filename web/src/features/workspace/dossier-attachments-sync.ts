@@ -1,6 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { db, type DossierAttachmentRecord } from '@/lib/db'
+import { withRetry } from '@/lib/retry'
+import { reportError } from '@/lib/sentry'
+import { sanitizeFileName } from '@/lib/files'
 import { getSupabase } from '@/lib/supabase'
 import { cacheAttachmentBlob, getAttachmentBlob } from './dossier-attachments-repository'
 
@@ -60,10 +63,12 @@ export async function syncDossierAttachments(orgId: string): Promise<void> {
   if (!supabase) return
   syncing = true
   try {
-    await pushAttachments(supabase, orgId)
-    await pullAttachments(supabase, orgId)
+    // Retry borné (transitoires only) : une microcoupure ne repousse pas la sync au prochain déclencheur.
+    await withRetry(() => pushAttachments(supabase, orgId))
+    await withRetry(() => pullAttachments(supabase, orgId))
   } catch (error) {
     console.warn('[sync] dossierAttachments :', error)
+    reportError(error, { op: 'sync', entity: 'dossierAttachments' })
   } finally {
     syncing = false
   }
@@ -80,7 +85,8 @@ async function pushAttachments(supabase: SupabaseClient, orgId: string): Promise
     if (!rec.uploaded && rec.deletedAt === null) {
       const blob = await getAttachmentBlob(id)
       if (blob) {
-        const path = `${rec.orgId}/dossiers/${rec.dossierId}/${rec.id}/${rec.fileName}`
+        // sanitize au build du chemin : couvre aussi les enregistrements Dexie antérieurs à T5.
+        const path = `${rec.orgId}/dossiers/${rec.dossierId}/${rec.id}/${sanitizeFileName(rec.fileName)}`
         const { error: upErr } = await supabase.storage
           .from(BUCKET)
           .upload(path, blob, { upsert: true, contentType: rec.mimeType || undefined })
@@ -142,14 +148,8 @@ async function pinMissingAttachmentBlobs(orgId: string): Promise<void> {
     for (const a of items) {
       if (!a.filePath) continue
       if (await db.documentBlobs.get(a.id)) continue
-      const url = await getAttachmentDownloadUrl(a.filePath)
-      if (!url) continue
-      try {
-        const res = await fetch(url)
-        if (res.ok) await cacheAttachmentBlob(a.id, await res.blob())
-      } catch {
-        /* hors-ligne / transitoire */
-      }
+      const blob = await downloadAttachmentBlob(a.filePath)
+      if (blob) await cacheAttachmentBlob(a.id, blob)
     }
   } catch (error) {
     console.warn('[sync] épinglage blobs pièces jointes :', error)
@@ -158,11 +158,17 @@ async function pinMissingAttachmentBlobs(orgId: string): Promise<void> {
   }
 }
 
-/** URL signée (courte durée) pour télécharger une pièce jointe depuis Storage. */
-export async function getAttachmentDownloadUrl(filePath: string): Promise<string | null> {
+/**
+ * Télécharge une pièce jointe depuis Storage via l'API `download` (RLS, encodage des chemins
+ * géré par la lib — voir downloadDocumentBlob). `null` = hors-ligne ou introuvable.
+ */
+export async function downloadAttachmentBlob(filePath: string): Promise<Blob | null> {
   const supabase = await getSupabase()
   if (!supabase) return null
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(filePath, 300)
-  if (error) return null
-  return data.signedUrl
+  try {
+    const { data, error } = await supabase.storage.from(BUCKET).download(filePath)
+    return error || !data ? null : data
+  } catch {
+    return null // hors-ligne / transitoire
+  }
 }

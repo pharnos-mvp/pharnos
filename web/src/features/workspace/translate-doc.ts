@@ -1,5 +1,6 @@
 import type { JSONContent } from '@tiptap/core'
 
+import { env } from '@/lib/env'
 import { getSupabase } from '@/lib/supabase'
 
 /**
@@ -19,21 +20,96 @@ export function textToTiptap(text: string): JSONContent {
   }
 }
 
+interface TranslateInput {
+  /** Pièce uploadée (chemin Storage) — exclusif avec `text`. */
+  filePath?: string
+  fileName?: string
+  /** Texte source (document généré : version conforme, template rempli) — exclusif `filePath`. */
+  text?: string
+  docType: string
+  targetLang: string
+}
+
 /**
  * Traduction (M5) — appelle l'Edge `translate` qui LIT le document (multimodal) et le traduit vers
  * la langue cible (terminologie MedDRA). Assistif : la traduction est proposée pour revue.
+ *
+ * Avec `onChunk` : STREAMING SSE — le texte arrive au fil de l'eau (~2 s au premier mot, décisif
+ * sur bas débit). En cas d'échec d'établissement du flux, repli silencieux sur l'appel JSON.
  */
-export async function translateDoc(input: {
-  filePath: string
-  fileName: string
-  docType: string
-  targetLang: string
-}): Promise<string> {
+export async function translateDoc(
+  input: TranslateInput,
+  onChunk?: (textSoFar: string) => void,
+): Promise<string> {
+  if (onChunk) {
+    try {
+      return await translateDocStream(input, onChunk)
+    } catch {
+      // Repli : Edge antérieure au streaming, proxy qui bufferise, etc. → réponse JSON classique.
+    }
+  }
   const supabase = await getSupabase()
   if (!supabase) throw new Error('Connexion requise pour la traduction.')
   const { data, error } = await supabase.functions.invoke('translate', { body: input })
   if (error) throw new Error(error.message || 'Échec de la traduction.')
   const text = String(data?.text ?? '').trim()
+  if (!text) throw new Error('Traduction vide.')
+  return text
+}
+
+/** Lit le flux SSE de l'Edge (`stream: true`) : `data: {"text":"…"}`* puis `data: [DONE]`. */
+async function translateDocStream(
+  input: TranslateInput,
+  onChunk: (textSoFar: string) => void,
+): Promise<string> {
+  const supabase = await getSupabase()
+  if (!supabase) throw new Error('Connexion requise pour la traduction.')
+  // fetch direct : functions.invoke ne donne pas accès au body en cours de flux.
+  const { data: sessionData } = await supabase.auth.getSession()
+  const token = sessionData.session?.access_token
+  if (!token) throw new Error('Connexion requise pour la traduction.')
+
+  const res = await fetch(`${env.supabaseUrl}/functions/v1/translate`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${token}`,
+      apikey: env.supabaseAnonKey,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ ...input, stream: true }),
+  })
+  if (!res.ok || !res.body || !res.headers.get('content-type')?.includes('text/event-stream')) {
+    throw new Error(`flux indisponible (${res.status})`)
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let full = ''
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const events = buffer.split('\n\n')
+    buffer = events.pop() ?? ''
+    for (const event of events) {
+      for (const line of event.split('\n')) {
+        if (!line.startsWith('data:')) continue
+        const payload = line.slice(5).trim()
+        if (payload === '[DONE]') continue
+        try {
+          const { text } = JSON.parse(payload) as { text?: string }
+          if (text) {
+            full += text
+            onChunk(full)
+          }
+        } catch {
+          /* fragment non-JSON → ignoré */
+        }
+      }
+    }
+  }
+  const text = full.trim()
   if (!text) throw new Error('Traduction vide.')
   return text
 }

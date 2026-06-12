@@ -3,12 +3,16 @@ import { db, type DocAnalysisRecord } from '@/lib/db'
 import type { RegafyFinding } from './regafy'
 
 /**
- * Version du schéma des constats en cache. **À incrémenter** quand le libellé ou la logique des
- * constats change (côté Edge ou front) → invalide les analyses figées pour qu'elles soient
- * recalculées avec le nouveau format, sans attendre que le document change.
+ * Version du schéma des constats en cache. **À incrémenter à CHAQUE évolution de l'analyse** —
+ * nouveau type de constat, nouveau libellé, nouvelle capacité côté Edge — sinon les documents
+ * déjà analysés servent leurs constats figés et ne bénéficient JAMAIS de la nouveauté (bug
+ * recette : la conformité U3 n'était pas vérifiée sur les pièces analysées avant déploiement).
  * v2 : « langue cible » → « langue officielle du <Pays> ».
+ * v3 : extraction de validité 1 document/appel.
+ * v4 : constat de conformité au template (toutes langues) + langue détectée portée.
+ * v5 : message de conformité en une phrase (sans énumération des rubriques).
  */
-const CACHE_VERSION = 'v3'
+const CACHE_VERSION = 'v5'
 const versioned = (sig: string) => `${CACHE_VERSION}:${sig}`
 
 /**

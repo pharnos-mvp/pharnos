@@ -1,14 +1,35 @@
 import path from 'node:path'
-import { defineConfig } from 'vitest/config'
+import { defineConfig, type Plugin } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
+
+// Preconnect vers l'API Supabase (auth + REST + Storage) : la poignée de main TLS démarre
+// pendant le parse du HTML au lieu d'attendre le 1er fetch — gain réel sur latences élevées
+// (terrain UEMOA). L'URL est bakée au build (env) → injection ici, pas de hardcode.
+function preconnectSupabase(): Plugin {
+  return {
+    name: 'pharnos:preconnect-supabase',
+    transformIndexHtml() {
+      const url = process.env.VITE_SUPABASE_URL
+      if (!url) return []
+      return [
+        {
+          tag: 'link',
+          attrs: { rel: 'preconnect', href: new URL(url).origin, crossorigin: '' },
+          injectTo: 'head',
+        },
+      ]
+    },
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    preconnectSupabase(),
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
@@ -34,8 +55,11 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // `mjs` inclus : le worker pdf.js est livré en `pdf.worker.min-*.mjs` (~1,2 Mo) — sans ça
-        // il n'est pas précaché et l'aperçu PDF échoue hors-ligne (montage + visualiseur compilé).
+        // `mjs` inclus : le worker pdf.js (`pdf.worker.min-*.mjs`, ~1,2 Mo) est PRÉCACHÉ.
+        // T9 l'avait sorti du précache (runtime cache + warm-up) pour alléger l'installation,
+        // mais le warm-up s'est avéré trop fragile en recette (aperçu PDF hors-ligne cassé si
+        // le workspace n'a pas été visité en ligne dans la session SW). Offline-first prime :
+        // la fiabilité de l'aperçu vaut 1,2 Mo d'installation.
         globPatterns: ['**/*.{js,mjs,css,html,svg,png,ico,woff2}'],
         navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
@@ -49,6 +73,13 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),
+      // Specs de conformité des templates réglementaires : SOURCE UNIQUE partagée avec les
+      // Edge Functions (TS pur, sans API Deno) — le front génère les squelettes « Remplir le
+      // template » depuis les mêmes rubriques que les constats de l'Edge.
+      '@specs': path.resolve(
+        import.meta.dirname,
+        '../supabase/functions/_shared/conformity-specs.ts',
+      ),
     },
   },
   test: {
@@ -69,6 +100,10 @@ export default defineConfig({
       reporter: ['text', 'lcov'],
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/**/*.test.{ts,tsx}', 'src/test/**', 'src/**/*.d.ts'],
+      // Plancher anti-régression (baseline unitaire 2026-06-11 − 2 pts ; les flux UI sont
+      // couverts par Playwright, hors de cette mesure). Ratchet : resserrer quand la
+      // couverture monte, ne jamais desserrer sans décision explicite.
+      thresholds: { statements: 29, branches: 19, functions: 27, lines: 30 },
     },
   },
 })

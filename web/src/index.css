@@ -192,6 +192,14 @@
   text-align: left !important;
   margin-left: 56%;
 }
+/* Titres verrouillés des squelettes « Remplir le template » : structure figée du template
+   officiel (non supprimables/modifiables — garde ProseMirror). Signal visuel discret. */
+.editor-page .ProseMirror [data-locked='true'] {
+  background: rgb(120 120 130 / 0.08);
+  border-left: 3px solid rgb(120 120 130 / 0.45);
+  padding-left: 0.4rem;
+  cursor: default;
+}
 .editor-band {
   display: block;
   /* Pleine largeur bord-à-bord : déborde le padding 2,5cm de .editor-page (en-tête/pied sans marge). */

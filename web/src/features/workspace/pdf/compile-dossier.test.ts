@@ -12,13 +12,13 @@ import {
   type TdmEntry,
 } from './compile-dossier'
 
-function gen(nodeNumber: string): GeneratedDocRecord {
+function gen(nodeNumber: string, templateKey = 'cover'): GeneratedDocRecord {
   return {
-    id: `g-${nodeNumber}`,
+    id: `g-${nodeNumber}-${templateKey}`,
     orgId: 'o',
     dossierId: 'd',
     nodeNumber,
-    templateKey: 'cover',
+    templateKey,
     title: 'Lettre',
     content: {
       type: 'doc',
@@ -59,7 +59,7 @@ const tree: CtdNodeDef[] = [
 
 function input(autoStructural: boolean): CompileInput {
   const contentByNumber = new Map<string, CompileNodeContent>()
-  contentByNumber.set('1.1.1', { generated: gen('1.1.1'), pieces: [] })
+  contentByNumber.set('1.1.1', { generated: [gen('1.1.1')], pieces: [] })
   return {
     tree,
     moduleLabel: 'Module 1',
@@ -154,5 +154,50 @@ describe('compileDossier (compilation PDF)', () => {
     const r = dataUrlToBytes(`data:image/png;base64,${btoa('hi')}`)
     expect(r?.isPng).toBe(true)
     expect(r?.bytes.length).toBe(2)
+  })
+
+  it('compile TOUS les documents générés d’un nœud (traduction + formulaire — bug recette CEO)', async () => {
+    // Référence : un seul doc sur 1.3.1.
+    const single = input(true)
+    single.contentByNumber.set('1.3.1', { generated: [gen('1.3.1', 'translation')], pieces: [] })
+    const basePages = (await PDFDocument.load(await compileDossier(single))).getPageCount()
+
+    // Même nœud avec traduction + formulaire RCP RÉEL (titres verrouillés, bulletList à attrs
+    // custom, horizontalRule, paragraphes vides omis) : les DEUX documents sont compilés,
+    // chacun avec sa page d'annonce (1.3.1.1 / 1.3.1.2).
+    const { buildTemplateSkeleton } = await import('../template-fill')
+    const fill = gen('1.3.1', 'fill')
+    fill.content = buildTemplateSkeleton('rcp')!
+    const multi = input(true)
+    multi.contentByNumber.set('1.3.1', {
+      generated: [gen('1.3.1', 'translation'), fill],
+      pieces: [],
+    })
+    const multiPages = (await PDFDocument.load(await compileDossier(multi))).getPageCount()
+    // + 1 page d'annonce + ≥ 1 page de formulaire RCP (60+ titres → plusieurs pages).
+    expect(multiPages).toBeGreaterThanOrEqual(basePages + 2)
+  })
+
+  it('rendu STYLÉ des formulaires : Étiquetage (35 bandeaux gris, wrap multi-lignes) compile', async () => {
+    const { buildTemplateSkeleton } = await import('../template-fill')
+    const fill = gen('1.3.3', 'fill')
+    fill.content = buildTemplateSkeleton('labeling')!
+    const inp = input(true)
+    inp.contentByNumber.set('1.3.3', { generated: [fill], pieces: [] })
+    const doc = await PDFDocument.load(await compileDossier(inp))
+    // Titre + 3 parties + 35 bandeaux (dont des très longs → wrap) : plusieurs pages, zéro erreur.
+    expect(doc.getPageCount()).toBeGreaterThanOrEqual(6)
+  })
+
+  it('en-tête/pied réservés aux LETTRES : un fill seul compile vierge sans erreur', async () => {
+    const { buildTemplateSkeleton } = await import('../template-fill')
+    const fill = gen('1.3.1', 'fill')
+    fill.content = buildTemplateSkeleton('rcp')!
+    const inp = input(true)
+    inp.header = { bytes: pngBytes(), isPng: true }
+    inp.footer = { bytes: pngBytes(), isPng: true }
+    inp.contentByNumber.set('1.3.1', { generated: [fill], pieces: [] })
+    const doc = await PDFDocument.load(await compileDossier(inp))
+    expect(doc.getPageCount()).toBeGreaterThanOrEqual(5)
   })
 })

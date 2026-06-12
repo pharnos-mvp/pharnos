@@ -8,13 +8,15 @@
 // Contrat sécurité (ADR 0002) : JWT vérifié, bornes, Storage via le JWT appelant (RLS), no-train.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
+import {
+  checkConformityFile,
+  checkConformityText,
+  conformityMessage,
+} from '../_shared/conformity-check.ts'
+import { specForDocType } from '../_shared/conformity-specs.ts'
+import { corsHeaders, isAllowedOrigin } from '../_shared/cors.ts'
+import { logJson, newReqId, timed, userHash } from '../_shared/log.ts'
 import { generateParts, generateText, type Part } from '../_shared/vertex.ts'
-
-const CORS: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
 
 interface LetterInput {
   nodeNumber: string
@@ -41,26 +43,33 @@ interface Finding {
   translate?: boolean
   /** Langue détectée du document (code ISO 639-1). */
   language?: string
+  /** Document non conforme au template en vigueur — pour le bouton « Upgrader » (additif). */
+  upgrade?: boolean
+  /** Rubriques manquantes/non conformes (détail du constat de conformité). */
+  missing?: string[]
 }
 
-type Supa = ReturnType<typeof createClient>
+// Périmètre minimal du client utilisé par l'analyse : téléchargement Storage (RLS via le JWT
+// appelant). Interface structurelle → découplée des génériques de supabase-js (deno check).
+interface Supa {
+  storage: {
+    from(bucket: string): {
+      download(path: string): Promise<{ data: Blob | null; error: unknown }>
+    }
+  }
+}
 
 const MAX_LETTERS = 8
 const MAX_TEXT = 8000
 const MAX_PIECES = 12
+const MAX_CONFORMITY_TEXTS = 6
+const MAX_CONFORMITY_TEXT_CHARS = 60_000
 const MAX_FILE_BYTES = 12 * 1024 * 1024
 const STORAGE_BUCKET = 'documents'
 // Modèle pour l'extraction de validité (dates critiques). Défaut : flash-lite (seul confirmé
 // disponible en location `global`). Surchargeable via le secret GCP_MODEL_VALIDITY (ex. un flash
 // plus précis si dispo dans la location utilisée).
 const VALIDITY_MODEL = Deno.env.get('GCP_MODEL_VALIDITY') || 'gemini-3.1-flash-lite'
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS, 'content-type': 'application/json' },
-  })
-}
 
 const sev = (s: unknown): Finding['severity'] => (s === 'error' || s === 'warning' ? s : 'info')
 
@@ -153,11 +162,14 @@ function extractJson(raw: string): unknown {
 }
 
 // ── 1) Conformité des lettres (texte) ───────────────────────────────────────────────────────
+// `degraded: true` = l'analyse a ÉCHOUÉ (≠ « lettres conformes ») : le client doit le dire à
+// l'utilisateur — un échec silencieux serait un faux négatif (lettre crue conforme à tort).
 async function analyzeLetters(
   letters: LetterInput[],
   ctx: { opDate: string; productName?: string; titulaire?: string; country?: string; agency?: string },
-): Promise<Finding[]> {
-  if (letters.length === 0) return []
+  log: Record<string, unknown>,
+): Promise<{ findings: Finding[]; degraded: boolean }> {
+  if (letters.length === 0) return { findings: [], degraded: false }
   const system =
     'Tu es un expert en affaires réglementaires pharmaceutiques (UEMOA/CEDEAO). Tu repères les ' +
     "non-conformités des lettres administratives (CTD Module 1) : formule d'appel/politesse, " +
@@ -171,10 +183,16 @@ async function analyzeLetters(
     "N'invente rien ; lettre conforme = aucun finding. Max 10.\n\nLettres :\n" +
     letters.map((l, i) => `[#${i + 1} | nœud ${l.nodeNumber} | ${l.title}]\n${l.text}`).join('\n\n---\n\n')
   try {
-    const parsed = extractJson(
-      await generateText(prompt, { system, json: true, maxOutputTokens: 1024, temperature: 0.2 }),
-    ) as { findings?: Array<{ nodeNumber?: string; severity?: string; message?: string }> } | null
-    return (parsed?.findings ?? [])
+    const parsed = (await timed(log, 'letters', () =>
+      generateText(prompt, {
+        system,
+        json: true,
+        maxOutputTokens: 1024,
+        temperature: 0.2,
+        timeoutMs: 30_000,
+      }).then(extractJson),
+    )) as { findings?: Array<{ nodeNumber?: string; severity?: string; message?: string }> } | null
+    const findings = (parsed?.findings ?? [])
       .slice(0, 10)
       .map((f) => {
         const node = letters.find((l) => l.nodeNumber === String(f?.nodeNumber ?? ''))
@@ -186,8 +204,10 @@ async function analyzeLetters(
         }
       })
       .filter((f) => f.message.trim())
+    return { findings, degraded: false }
   } catch (_e) {
-    return []
+    // L'erreur est déjà loggée par timed(). Surtout PAS de [] silencieux : on remonte degraded.
+    return { findings: [], degraded: true }
   }
 }
 
@@ -200,6 +220,8 @@ async function analyzeValidityBatch(
   targetLang: string,
   productName: string,
   country: string,
+  countryCode: string | undefined,
+  log: Record<string, unknown>,
 ): Promise<Finding[]> {
   if (pieces.length === 0) return []
   const valSystem =
@@ -262,21 +284,26 @@ async function analyzeValidityBatch(
       "RÈGLE ABSOLUE anti-hallucination : recopie la date VERBATIM dans dateText ; si tu n'es pas CERTAIN d'une " +
       "date, mets found:false et toutes les dates à null. N'INVENTE JAMAIS. productName = nom COMMERCIAL (ni DCI, ni fabricant)."
     const parts: Part[] = [{ text: header }, { inlineData: { mimeType: v.mime, data: v.b64 } }]
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const parsed = extractJson(
-          await generateParts(parts, {
-            system: valSystem,
-            json: true,
-            maxOutputTokens: 512,
-            temperature: 0,
-            model: VALIDITY_MODEL,
-          }),
-        ) as ValResult | null
-        if (parsed && typeof parsed === 'object') return parsed
-      } catch (_e) {
-        /* réessai une fois */
-      }
+    // Le retry borné (429/5xx/réseau uniquement) vit dans vertex.ts — l'ancienne boucle aveugle
+    // re-tentait même les 400 (inutile et coûteux). Échec → null → constat honnête en aval.
+    try {
+      const parsed = extractJson(
+        await generateParts(parts, {
+          system: valSystem,
+          json: true,
+          maxOutputTokens: 512,
+          temperature: 0,
+          model: VALIDITY_MODEL,
+        }),
+      ) as ValResult | null
+      if (parsed && typeof parsed === 'object') return parsed
+    } catch (e) {
+      logJson({
+        ...log,
+        op: 'validity-piece',
+        status: 'error',
+        err: String(e instanceof Error ? e.message : e).slice(0, 300),
+      })
     }
     return null
   }
@@ -289,6 +316,33 @@ async function analyzeValidityBatch(
     slice.forEach((v, j) => {
       const r = rs[j]
       if (r) resultByPiece.set(v.p.pieceId, r)
+    })
+  }
+
+  // ── CONFORMITÉ AU TEMPLATE (Regafy Upgrade) : TOUTES les pièces des 5 types couverts, quelle
+  // que soit leur langue — la conformité est structurelle (« conformité d'abord, traduction
+  // après ») ; la langue détectée est portée sur le constat pour proposer la traduction de la
+  // VERSION CONFORME ensuite. Réutilise le b64 déjà téléchargé pour la validité.
+  const conformable = valid.filter((v) => specForDocType(v.p.docType))
+  for (let i = 0; i < conformable.length; i += CONC) {
+    const slice = conformable.slice(i, i + CONC)
+    const rs = await Promise.all(
+      slice.map((v) => checkConformityFile(v.mime, v.b64, v.p.docType, countryCode, log)),
+    )
+    slice.forEach((v, j) => {
+      const c = rs[j]
+      // Échec d'analyse (null) → silence honnête : pas de constat inventé, le cache côté client
+      // n'enregistre rien de faux ; conforme → pas de bruit.
+      if (c && !c.conforme && c.manquantes.length > 0) {
+        findings.push({
+          ...base(v.p),
+          severity: 'warning',
+          message: conformityMessage(v.p.docType),
+          upgrade: true,
+          missing: c.manquantes,
+          ...(c.langue ? { language: c.langue } : {}),
+        })
+      }
     })
   }
 
@@ -381,7 +435,22 @@ async function analyzeValidityBatch(
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  const origin = req.headers.get('origin')
+  const reqId = newReqId()
+  // Origine navigateur hors whitelist → refus avant tout travail (les appels sans Origin —
+  // curl, server-to-server — ne sont pas un contexte CORS ; le JWT reste la barrière).
+  if (!isAllowedOrigin(origin)) {
+    logJson({ fn: 'regafy-ai', reqId, op: 'cors', status: 'forbidden' })
+    return new Response('origine non autorisée', { status: 403 })
+  }
+  const cors = corsHeaders(origin)
+  const json = (body: unknown, status = 200): Response =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, 'content-type': 'application/json', 'x-request-id': reqId },
+    })
+
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'méthode non autorisée' }, 405)
 
   const authHeader = req.headers.get('Authorization') ?? ''
@@ -394,7 +463,11 @@ Deno.serve(async (req: Request) => {
     data: { user },
     error: authErr,
   } = await supabase.auth.getUser()
-  if (authErr || !user) return json({ error: 'non authentifié' }, 401)
+  if (authErr || !user) {
+    logJson({ fn: 'regafy-ai', reqId, op: 'auth', status: 'unauthorized' })
+    return json({ error: 'non authentifié' }, 401)
+  }
+  const log = { fn: 'regafy-ai', reqId, user: await userHash(user.id) }
 
   let raw: unknown
   try {
@@ -407,10 +480,20 @@ Deno.serve(async (req: Request) => {
     productName?: string
     titulaire?: string
     country?: string
+    /** Code ISO-2 du pays cible (additif — filtre des mentions pays-spécifiques des templates). */
+    countryCode?: string
     agency?: string
     targetLang?: string
     letters?: LetterInput[]
     pieces?: PieceInput[]
+    /** Textes à vérifier contre le template en vigueur (traductions) — additif. */
+    conformityTexts?: Array<{
+      id?: string
+      nodeNumber?: string
+      nodeLabel?: string
+      docType?: string
+      text?: string
+    }>
   }
   const opDate = todayISO(b.operationDate)
   const letters = (Array.isArray(b.letters) ? b.letters : []).slice(0, MAX_LETTERS).map((l) => ({
@@ -431,26 +514,94 @@ Deno.serve(async (req: Request) => {
       fileName: String(p.fileName ?? 'document'),
       filePath: String(p.filePath),
     }))
+  const countryCode = b.countryCode ? String(b.countryCode).toUpperCase().slice(0, 2) : undefined
+  // Traductions à vérifier contre le template (bornées : texte 60 k chars, 6 documents max).
+  const conformityTexts = (Array.isArray(b.conformityTexts) ? b.conformityTexts : [])
+    .filter((t) => t?.id && t?.docType && t?.text && specForDocType(String(t.docType)))
+    .slice(0, MAX_CONFORMITY_TEXTS)
+    .map((t) => ({
+      id: String(t.id),
+      nodeNumber: String(t.nodeNumber ?? ''),
+      nodeLabel: String(t.nodeLabel ?? ''),
+      docType: String(t.docType),
+      text: String(t.text).slice(0, MAX_CONFORMITY_TEXT_CHARS),
+    }))
 
-  // Les deux analyses tournent EN PARALLÈLE (1 appel lettres + 1 appel batch validité).
-  const [letterFindings, validityFindings] = await Promise.all([
-    analyzeLetters(letters, {
-      opDate,
-      productName: b.productName,
-      titulaire: b.titulaire,
-      country: b.country,
-      agency: b.agency,
-    }),
-    analyzeValidityBatch(
-      supabase,
-      pieces,
-      opDate,
-      b.agency ?? '',
-      b.targetLang ?? '',
-      b.productName ?? '',
-      b.country ?? '',
-    ),
-  ])
+  // Les analyses tournent EN PARALLÈLE (lettres + batch validité/conformité + traductions).
+  const started = Date.now()
+  logJson({
+    ...log,
+    op: 'start',
+    letters: letters.length,
+    pieces: pieces.length,
+    conformityTexts: conformityTexts.length,
+  })
+  try {
+    const [letterResult, validityFindings, textConformityFindings] = await Promise.all([
+      analyzeLetters(
+        letters,
+        {
+          opDate,
+          productName: b.productName,
+          titulaire: b.titulaire,
+          country: b.country,
+          agency: b.agency,
+        },
+        log,
+      ),
+      timed(log, 'validity', () =>
+        analyzeValidityBatch(
+          supabase,
+          pieces,
+          opDate,
+          b.agency ?? '',
+          b.targetLang ?? '',
+          b.productName ?? '',
+          b.country ?? '',
+          countryCode,
+          log,
+        ),
+      ),
+      timed(log, 'text-conformity', async () => {
+        const out: Finding[] = []
+        for (const t of conformityTexts) {
+          const c = await checkConformityText(t.text, t.docType, countryCode, log)
+          if (c && !c.conforme && c.manquantes.length > 0) {
+            out.push({
+              pieceId: t.id,
+              nodeNumber: t.nodeNumber,
+              nodeLabel: t.nodeLabel,
+              severity: 'warning',
+              message: conformityMessage(t.docType),
+              upgrade: true,
+              missing: c.manquantes,
+              ...(c.langue ? { language: c.langue } : {}),
+            })
+          }
+        }
+        return out
+      }),
+    ])
 
-  return json({ findings: [...letterFindings, ...validityFindings] })
+    const findings = [...letterResult.findings, ...validityFindings, ...textConformityFindings]
+    logJson({
+      ...log,
+      op: 'done',
+      ms: Date.now() - started,
+      findings: findings.length,
+      degraded: letterResult.degraded,
+    })
+    // `degraded` (additif, optionnel) : l'analyse des lettres a échoué — le client doit
+    // l'afficher plutôt que de laisser croire « aucun constat = conforme ».
+    return json(letterResult.degraded ? { findings, degraded: true } : { findings })
+  } catch (e) {
+    // Filet global : réponse JSON propre (avec CORS) plutôt qu'un 500 brut du runtime.
+    logJson({
+      ...log,
+      op: 'fatal',
+      ms: Date.now() - started,
+      err: String(e instanceof Error ? e.message : e).slice(0, 300),
+    })
+    return json({ error: 'analyse indisponible — réessayez plus tard' }, 502)
+  }
 })

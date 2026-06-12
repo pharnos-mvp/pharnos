@@ -1,41 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import type { Editor, JSONContent } from '@tiptap/core'
+import type { JSONContent } from '@tiptap/core'
 import {
-  AlertTriangle,
   ArrowLeft,
-  Bold,
-  CheckCircle2,
-  Download,
   FileDown,
   FileText,
-  Heading2,
-  Italic,
   Languages,
-  List,
-  PanelLeftClose,
-  PanelLeftOpen,
-  PanelRightClose,
-  PanelRightOpen,
-  Save,
-  Settings2,
   Sparkles,
+  ClipboardList,
   Upload,
+  Wand2,
   X,
-  XCircle,
 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { useHeaderSlot } from '@/components/layout/header-slot'
-import { Badge } from '@/components/ui/badge'
-import { Button, buttonVariants } from '@/components/ui/button'
-import {
-  cacheDocumentBlob,
-  getDocumentBlob,
-  listDocuments,
-} from '@/features/catalogue/documents-repository'
-import { getDocumentDownloadUrl } from '@/features/catalogue/documents-sync'
+import { Button } from '@/components/ui/button'
+import { listDocuments } from '@/features/catalogue/documents-repository'
 import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
 import { useAuth } from '@/features/auth/auth-context'
 import { useOrgId } from '@/features/org/org-context'
@@ -45,62 +27,68 @@ import {
   setUserSignature,
 } from '@/features/profile/pro-settings-repository'
 import { useProSettingsSync } from '@/features/profile/use-pro-settings-sync'
-import {
-  db,
-  type DocumentRecord,
-  type DossierAttachmentRecord,
-  type GeneratedDocRecord,
-} from '@/lib/db'
-import { env } from '@/lib/env'
+import { db, type DossierAttachmentRecord, type GeneratedDocRecord } from '@/lib/db'
+import { UPLOAD_ACCEPT } from '@/lib/files'
 import { cn } from '@/lib/utils'
-import { ArborescenceTree } from './ArborescenceTree'
 import { extractCity } from './city'
 import { formatComposition } from './composition'
 import { countryLabel } from './dossier-constants'
 import {
+  attachmentsForNode,
+  buildDocsByNode,
+  buildViewables,
+  completionStats,
+  docsForNode,
+  genDocsForNode,
+  type Viewable,
+} from './dossier-selectors'
+import {
   addAttachment,
-  cacheAttachmentBlob,
   deleteAttachment,
-  getAttachmentBlob,
   listAttachments,
   MAX_ATTACHMENT_BYTES,
 } from './dossier-attachments-repository'
-import { getAttachmentDownloadUrl, syncDossierAttachments } from './dossier-attachments-sync'
+import { syncDossierAttachments } from './dossier-attachments-sync'
 import { excludeProductDoc, getDossier, updateDossierTree } from './dossier-repository'
 import { syncDossiers } from './dossier-sync'
 import {
   createGeneratedDoc,
-  createTranslationDoc,
+  createTemplateFillDoc,
   deleteGeneratedDoc,
   listGeneratedDocs,
   regenerateGeneratedDoc,
-  updateGeneratedDocContent,
 } from './generated-docs-repository'
 import { generatedDocToHtml } from './generated-doc-html'
 import { syncGeneratedDocs } from './generated-docs-sync'
 import { useDossierAttachmentsSync } from './use-dossier-attachments-sync'
 import { useDossierSync } from './use-dossier-sync'
 import { useGeneratedDocsSync } from './use-generated-docs-sync'
-import {
-  docTypeForNode,
-  getModule1Tree,
-  nodeForDocType,
-  resolveExistingNode,
-  treeNodeNumbers,
-  type CtdNodeDef,
-} from './module1-tree'
+import { docTypeForNode, getModule1Tree, type CtdNodeDef } from './module1-tree'
 import { agencyCivilite, agencyFor, officialLanguage } from './roadmap-data'
 import { PdfPreviewDialog } from './PdfPreviewDialog'
-import { PdfViewer } from './PdfViewer'
-import { runRegafy, type RegafyFinding } from './regafy'
-import { runRegafyLetters, runRegafyValidity, type RegafyAiPiece } from './regafy-ai'
-import { cacheAnalysis, getCachedAnalysis } from './regafy-cache'
-import { textToTiptap, translateDoc } from './translate-doc'
+import { runRegafy, tiptapText, type RegafyFinding } from './regafy'
 import { RichTextEditor } from './RichTextEditor'
 import { hasSignature, insertSignature, removeSignature } from './signature'
 import { BrandingPanel, SignaturePanel } from './SignatureBrandingPanels'
 import { TEMPLATES, templateKeyForNode, type TemplateContext } from './templates'
-import { flattenTree, isTreeOutdated, mergeDefaultTree, setNodeSaved } from './tree-utils'
+import { flattenTree, isTreeOutdated, mergeDefaultTree } from './tree-utils'
+import { useDebouncedDocSave } from './use-debounced-doc-save'
+import { useRegafyCopilot } from './use-regafy-copilot'
+import { CompletionPanel } from './components/CompletionPanel'
+import { InlineDocPreview } from './components/InlineDocPreview'
+import { NonConformCard } from './components/NonConformCard'
+import { RegafyGateDialog } from './components/RegafyGateDialog'
+import { TemplateFillForm } from './components/TemplateFillForm'
+import { FormatToolbar, ToolbarBtn } from './components/toolbar'
+import { TranslationProgress } from './components/TranslationProgress'
+import { TreePanel } from './components/TreePanel'
+import { downloadDoc, slugify, triggerDownload } from './download-utils'
+import { UPGRADE_DOC_TYPES } from './regafy-ai'
+import { buildTemplateSkeleton, FILL_PLACEHOLDER } from './template-fill'
+import { formStateFromContent } from './template-form/form-content'
+import { formDefinitionFor } from './template-form/form-definitions'
+import { countEmptyFields, formExportName } from './template-form/form-types'
+import { countMarker, countMissing } from './upgrade-doc'
 
 export function DossierWorkspacePage() {
   const { dossierId } = useParams()
@@ -123,8 +111,11 @@ export function DossierWorkspacePage() {
     async () => (dossier ? ((await db.products.get(dossier.productId)) ?? undefined) : undefined),
     [dossier?.productId],
   )
+  // `undefined` (pas `[]`) tant que le dossier n'est pas chargé : l'effet d'auto-sélection
+  // attend les VRAIS documents — un [] transitoire le verrouillait sur la première feuille
+  // au lieu de la première section documentée (bug figé par la caractérisation T7.0).
   const docs = useLiveQuery(
-    () => (dossier ? listDocuments(dossier.productId) : Promise.resolve([])),
+    () => (dossier ? listDocuments(dossier.productId) : undefined),
     [dossier?.productId],
   )
   const genDocs = useLiveQuery(
@@ -143,7 +134,6 @@ export function DossierWorkspacePage() {
   const [docEditing, setDocEditing] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [rightCollapsed, setRightCollapsed] = useState(false)
-  const [editorState, setEditorState] = useState<{ id: string; ed: Editor } | null>(null)
   const [previewPdf, setPreviewPdf] = useState<{
     url: string
     name: string
@@ -151,47 +141,45 @@ export function DossierWorkspacePage() {
     blob: Blob
   } | null>(null)
   const [compiling, setCompiling] = useState(false)
-  const [autoStructural, setAutoStructural] = useState(true)
+  // Pages structurelles (TDM + gardes) toujours générées — l'option a été retirée de l'UI (mockup).
+  const autoStructural = true
   const [pickedKey, setPickedKey] = useState<string | null>(null)
   const [gateFindings, setGateFindings] = useState<RegafyFinding[] | null>(null)
-  const [validityByPiece, setValidityByPiece] = useState<Record<string, RegafyFinding[]>>({})
-  const [letterFindings, setLetterFindings] = useState<RegafyFinding[]>([])
-  const [aiBusy, setAiBusy] = useState(false)
-  const [translating, setTranslating] = useState<string | null>(null)
   const [sigPanelOpen, setSigPanelOpen] = useState(false)
   const [brandPanelOpen, setBrandPanelOpen] = useState(false)
+  // Cartes de non-conformité masquées par l'utilisateur (ids de constats — session seulement,
+  // le constat reste dans le panneau Remarques).
+  const [hiddenCards, setHiddenCards] = useState<ReadonlySet<string>>(new Set())
 
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const pendingSave = useRef<{ id: string; json: JSONContent } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const previewRef = useRef<{ url: string; revoke: boolean } | null>(null)
   const didAutoSelect = useRef(false)
-  const analyzedPieceIds = useRef<Set<string>>(new Set())
   const setHeaderSlot = useHeaderSlot()
 
-  const docsByNode = useMemo(() => {
-    const map = new Map<string, DocumentRecord[]>()
-    if (!dossier) return map
-    const excluded = new Set(dossier.excludedDocIds ?? [])
-    const numbers = treeNodeNumbers(dossier.tree)
-    for (const d of docs ?? []) {
-      if (excluded.has(d.id)) continue
-      // Repli sur l'ancêtre existant si la sous-section détaillée n'est pas dans l'arbre du dossier
-      // → un COPP/FSC/… auto-classé reste toujours visible (et compilable).
-      const node = resolveExistingNode(
-        numbers,
-        nodeForDocType(dossier.format, d.docType, d.category),
-      )
-      map.set(node, [...(map.get(node) ?? []), d])
-    }
-    return map
-  }, [docs, dossier])
+  const docsByNode = useMemo(() => buildDocsByNode(dossier, docs), [docs, dossier])
 
   const genByNode = useMemo(() => {
     const map = new Map<string, GeneratedDocRecord>()
     for (const g of genDocs ?? []) map.set(g.nodeNumber, g)
     return map
   }, [genDocs])
+
+  // TOUS les documents générés par nœud (lettre + traduction + version conforme coexistent —
+  // un onglet chacun). genByNode (un seul) reste pour la complétude/Regafy déterministe.
+  const genListByNode = useMemo(() => {
+    const map = new Map<string, GeneratedDocRecord[]>()
+    for (const g of genDocs ?? []) map.set(g.nodeNumber, [...(map.get(g.nodeNumber) ?? []), g])
+    return map
+  }, [genDocs])
+
+  // Nom d'affichage des sources (labels d'onglets traduction/version conforme).
+  const sourceNamesById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const d of docs ?? []) m.set(d.id, d.fileName)
+    for (const a of attachments ?? []) m.set(a.id, a.fileName)
+    for (const g of genDocs ?? []) m.set(g.id, g.title)
+    return m
+  }, [docs, attachments, genDocs])
 
   const attachByNode = useMemo(() => {
     const map = new Map<string, DossierAttachmentRecord[]>()
@@ -214,24 +202,40 @@ export function DossierWorkspacePage() {
         : [],
     [dossier, product, docsByNode, genByNode, attachByNode],
   )
-  // Constats : déterministes + copilote IA (validité par pièce + conformité des lettres). Même
-  // affichage, en complément ; ne bloque jamais la compilation.
-  const aiFindings = useMemo(
-    () => [...Object.values(validityByPiece).flat(), ...letterFindings],
-    [validityByPiece, letterFindings],
-  )
-  // Constat « résolu » : dès qu'une traduction existe pour un doc, on masque son constat de langue
-  // (et son bouton « Traduire ») — l'utilisateur a satisfait la demande. Vaut pour le panneau ET le
-  // gate de compilation. Les autres constats s'effacent déjà au recalcul (re-analyse).
-  const translatedSourceIds = useMemo(
-    () =>
-      new Set(
-        (genDocs ?? [])
-          .filter((g) => g.deletedAt === null && g.templateKey === 'translation' && g.sourceDocId)
-          .map((g) => g.sourceDocId),
-      ),
-    [genDocs],
-  )
+  // Ouverture d'un onglet de traduction (sélection du nœud + édition immédiate) — callback du
+  // copilote IA, stable pour ne pas relancer ses memos.
+  const onOpenTranslation = useCallback((node: CtdNodeDef, genId: string) => {
+    setSelected(node)
+    setDocEditing(true) // traduction éditable d'emblée (pas besoin de cliquer « Modifier »)
+    setPickedKey(`letter:${genId}`)
+  }, [])
+
+  // Copilote Regafy IA : validité des pièces, conformité des lettres, traduction (T7.2).
+  const {
+    aiFindings,
+    translatedSourceIds,
+    aiBusy,
+    translating,
+    upgrading,
+    streamText,
+    handleTranslate,
+    handleTranslateGenerated,
+  } = useRegafyCopilot({
+    dossierId,
+    dossier,
+    product,
+    genDocs,
+    docsByNode,
+    attachByNode,
+    flatNodes,
+    orgId,
+    onOpenTranslation,
+  })
+
+  // Sauvegarde débouncée des éditions TipTap (T7.3).
+  const { editorState, handleEditorReady, handleEditorChange, flushSave, cancelSave } =
+    useDebouncedDocSave(orgId)
+
   const allFindings = useMemo(
     () =>
       [...findings, ...aiFindings].filter(
@@ -240,169 +244,9 @@ export function DossierWorkspacePage() {
     [findings, aiFindings, translatedSourceIds],
   )
 
-  // Pièces admin/COA téléversées à faire analyser (validité multimodale), clé = id du document.
-  const aiPieces = useMemo<RegafyAiPiece[]>(() => {
-    const out: RegafyAiPiece[] = []
-    for (const [num, list] of docsByNode) {
-      const nodeLabel = flatNodes.find((n) => n.number === num)?.label ?? ''
-      for (const d of list) {
-        const relevant =
-          d.category === 'admin' ||
-          ['coa', 'rcp', 'notice', 'labeling', 'artwork'].includes(d.docType)
-        if (relevant && d.filePath) {
-          out.push({
-            pieceId: d.id,
-            sig: d.updatedAt,
-            nodeNumber: num,
-            nodeLabel,
-            docType: d.docType,
-            category: d.category,
-            fileName: d.fileName,
-            filePath: d.filePath,
-          })
-        }
-      }
-    }
-    // Pièces jointes téléversées DIRECTEMENT sur un nœud du workspace : analysées comme les docs
-    // produit, avec le type dérivé du nœud → Regafy détecte la langue (RCP/Notice/…) / la validité.
-    if (dossier) {
-      for (const [num, list] of attachByNode) {
-        // Tout nœud produit (1.3.x) est langue-sensible → détection de langue même si le sous-type
-        // précis n'est pas mappé (Étiquetage étranger 1.3.4, produits de référence 1.3.5…) : repli
-        // 'labeling' (type LANG). Sinon, type admin dérivé du nœud (validité), ou rien.
-        const docType =
-          docTypeForNode(dossier.format, num) ?? (num.startsWith('1.3') ? 'labeling' : null)
-        if (!docType) continue
-        const nodeLabel = flatNodes.find((n) => n.number === num)?.label ?? ''
-        for (const a of list) {
-          if (a.filePath) {
-            out.push({
-              pieceId: a.id,
-              sig: a.updatedAt,
-              nodeNumber: num,
-              nodeLabel,
-              docType,
-              category: num.startsWith('1.3') ? 'info' : 'admin',
-              fileName: a.fileName,
-              filePath: a.filePath,
-            })
-          }
-        }
-      }
-    }
-    return out
-  }, [docsByNode, attachByNode, flatNodes, dossier])
-
-  // Signature stable du jeu de pièces (ids triés) → l'analyse se déclenche sur un VRAI changement de
-  // pièces, pas à chaque tick de la synchro Dexie (sinon le debounce est relancé en boucle → démarrage
-  // lent). dossier/aiPieces sont stables pour une signature donnée.
-  const piecesSig = useMemo(
-    () =>
-      aiPieces
-        .map((p) => `${p.pieceId}:${p.sig}`)
-        .sort()
-        .join('|'),
-    [aiPieces],
-  )
-
-  // (Pas de reset manuel : l'app-shell remonte la page via `key={location.pathname}` au changement
-  // de dossier → l'état du copilote repart à zéro automatiquement.)
-
-  // Copilote — VALIDITÉ (incrémental) : à l'ouverture, 1 batch sur toutes les pièces ; puis seulement
-  // les **nouvelles** pièces à chaque upload. Réconcilie les retraits. Silencieux (échec en console).
-  useEffect(() => {
-    if (!env.isSupabaseConfigured || !dossier) return
-    const currentIds = new Set(aiPieces.map((p) => p.pieceId))
-    setValidityByPiece((prev) => {
-      let changed = false
-      const next: Record<string, RegafyFinding[]> = {}
-      for (const [id, f] of Object.entries(prev)) {
-        if (currentIds.has(id)) next[id] = f
-        else {
-          changed = true
-          analyzedPieceIds.current.delete(id)
-        }
-      }
-      return changed ? next : prev
-    })
-    const newPieces = aiPieces.filter((p) => !analyzedPieceIds.current.has(p.pieceId))
-    if (newPieces.length === 0) return
-    const agencySigle = agencyFor(dossier.country).name || ''
-    const targetLang = officialLanguage(dossier.country)
-    const productName = dossier.productName ?? product?.nomCommercial ?? ''
-    const countryName = countryLabel(dossier.country) || dossier.country || ''
-    const today = new Date().toISOString().slice(0, 10)
-    const t = setTimeout(() => {
-      void (async () => {
-        // 1. Cache : constats des documents déjà analysés (inchangés) → instantané, ZÉRO appel IA.
-        const fromCache: Record<string, RegafyFinding[]> = {}
-        const uncached: RegafyAiPiece[] = []
-        for (const p of newPieces) {
-          analyzedPieceIds.current.add(p.pieceId)
-          const cached = await getCachedAnalysis(p.pieceId, p.sig)
-          if (cached) fromCache[p.pieceId] = cached
-          else uncached.push(p)
-        }
-        if (Object.keys(fromCache).length > 0) {
-          setValidityByPiece((prev) => ({ ...prev, ...fromCache }))
-        }
-        // 2. IA : SEULEMENT les documents jamais analysés (nouveaux ou remplacés).
-        if (uncached.length === 0) return
-        setAiBusy(true)
-        try {
-          const fs = await runRegafyValidity(
-            uncached,
-            today,
-            agencySigle,
-            targetLang,
-            productName,
-            countryName,
-          )
-          const byPiece: Record<string, RegafyFinding[]> = {}
-          for (const p of uncached) byPiece[p.pieceId] = []
-          for (const f of fs) if (f.pieceId) (byPiece[f.pieceId] ??= []).push(f)
-          await Promise.all(
-            uncached.map((p) => cacheAnalysis(p.pieceId, p.sig, byPiece[p.pieceId] ?? [])),
-          )
-          setValidityByPiece((prev) => ({ ...prev, ...byPiece }))
-        } catch (e) {
-          uncached.forEach((p) => analyzedPieceIds.current.delete(p.pieceId))
-          console.error('Regafy IA (validité) :', (e as Error).message)
-        } finally {
-          setAiBusy(false)
-        }
-      })()
-    }, 1500)
-    return () => clearTimeout(t)
-    // Déclenché sur piecesSig (id + sig), pas sur le ref de l'array aiPieces.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dossierId, piecesSig])
-
-  // Copilote — LETTRES : conformité des lettres générées (à l'ouverture + à chaque modification).
-  useEffect(() => {
-    if (!env.isSupabaseConfigured || !dossier || genDocs === undefined || genDocs.length === 0)
-      return
-    const agency = agencyFor(dossier.country)
-    const t = setTimeout(() => {
-      setAiBusy(true)
-      void runRegafyLetters(genDocs, {
-        productName: dossier.productName ?? product?.nomCommercial ?? '',
-        titulaire: product?.titulaire ?? '',
-        country: countryLabel(dossier.country) || dossier.country || '',
-        agency: agency.full ? `${agency.full} (${agency.name})` : '',
-        operationDate: new Date().toISOString().slice(0, 10),
-      })
-        .then((fs) => setLetterFindings(fs))
-        .catch((e) => console.error('Regafy IA (lettres) :', (e as Error).message))
-        .finally(() => setAiBusy(false))
-    }, 1500)
-    return () => clearTimeout(t)
-  }, [dossier, genDocs, product])
-
-  // Offline-first : précharge le compilateur PDF (pdf-lib) **tant qu'on est en ligne** → il est en
-  // mémoire avant toute coupure réseau. Sans ça, l'import dynamique à la 1re compilation peut échouer
-  // hors-ligne (précache désynchronisé) et la rejection reste mise en cache jusqu'au rechargement.
-  // Warm-up différé (hors chemin critique) + réessai au retour en ligne. N'altère pas la compilation.
+  // Offline-first : précharge le compilateur PDF (pdf-lib) **tant qu'on est en ligne** → il est
+  // en mémoire avant toute coupure réseau. (Le worker pdf.js est de retour dans le PRÉCACHE du
+  // SW — vite.config — après le bug recette : le warm-up runtime était trop fragile offline.)
   useEffect(() => {
     const warm = () => {
       if (navigator.onLine) void import('./pdf/dossier-compiler').catch(() => {})
@@ -414,61 +258,6 @@ export function DossierWorkspacePage() {
       window.removeEventListener('online', warm)
     }
   }, [])
-
-  // « Traduire » (M5) : lit le document via l'Edge, crée/MAJ une traduction ÉDITABLE propre au
-  // dossier (document généré), puis l'ouvre côte à côte avec l'original. Ne touche jamais au
-  // document produit original — c'est une version de conformité pour ce montage uniquement.
-  const handleTranslate = useCallback(
-    async (f: RegafyFinding) => {
-      const piece = aiPieces.find((p) => p.pieceId === f.pieceId)
-      if (!piece || !dossier) return
-      const openTab = (genId: string) => {
-        const node = flatNodes.find((n) => n.number === piece.nodeNumber)
-        if (node) {
-          setSelected(node)
-          setDocEditing(true) // traduction éditable d'emblée (pas besoin de cliquer « Modifier »)
-          setPickedKey(`letter:${genId}`)
-        }
-      }
-      // Cache anti-retraduction : déjà traduit → on rouvre l'onglet (zéro appel IA, zéro gaspillage).
-      // Pour forcer une nouvelle traduction : fermer l'onglet (« × ») puis recliquer « Traduire ».
-      const existing = (genDocs ?? []).find(
-        (g) =>
-          g.deletedAt === null &&
-          g.templateKey === 'translation' &&
-          g.sourceDocId === piece.pieceId,
-      )
-      if (existing) {
-        openTab(existing.id)
-        return
-      }
-      const lang = officialLanguage(dossier.country)
-      setTranslating(f.pieceId ?? null)
-      try {
-        const text = await translateDoc({
-          filePath: piece.filePath,
-          fileName: piece.fileName,
-          docType: piece.docType,
-          targetLang: lang,
-        })
-        const rec = await createTranslationDoc(orgId, {
-          dossierId: dossier.id,
-          nodeNumber: piece.nodeNumber,
-          sourceDocId: piece.pieceId,
-          title: `${piece.docType.toUpperCase()} — traduction (${lang.toUpperCase()})`,
-          content: textToTiptap(text),
-        })
-        void syncGeneratedDocs(orgId)
-        openTab(rec.id)
-        toast.success('Traduction prête — à relire avant usage.')
-      } catch (e) {
-        toast.error((e as Error).message)
-      } finally {
-        setTranslating(null)
-      }
-    },
-    [aiPieces, dossier, genDocs, orgId, flatNodes],
-  )
 
   const structureOutdated = useMemo(
     () => (dossier ? isTreeOutdated(dossier.tree, getModule1Tree(dossier.format)) : false),
@@ -509,8 +298,82 @@ export function DossierWorkspacePage() {
     }
   }, [flatNodes, selected, docs, docsByNode, genByNode, attachByNode])
 
-  // Titre du dossier (produit · pays · format) injecté dans le bandeau du haut — sur la même ligne
-  // que le profil, façon Google Docs. Remis à null en quittant le montage.
+  // Bandeau du haut (mockup CEO) : titre du dossier à gauche + actions globales à droite
+  // (Roadmap, Compiler le PDF). Le handler de compilation est lu via une ref resynchronisée à
+  // chaque rendu (effet sans dépendances, AVANT les early returns — règle des hooks) : le slot
+  // n'est reconstruit que quand dossier/compiling changent, le clic voit l'état frais.
+  const compileClickRef = useRef<() => void>(() => {})
+
+  function showPreview(url: string, name: string, revoke: boolean, blob: Blob) {
+    if (previewPdf?.revoke) URL.revokeObjectURL(previewPdf.url)
+    setPreviewPdf({ url, name, revoke, blob })
+  }
+  function closePreview() {
+    if (previewPdf?.revoke) URL.revokeObjectURL(previewPdf.url)
+    setPreviewPdf(null)
+  }
+
+  async function handleCompile() {
+    if (!dossier) return
+    setCompiling(true)
+    try {
+      // pdf-lib chargé à la demande → hors du chunk workspace (perf).
+      const { compileDossierToPdf } = await import('./pdf/dossier-compiler')
+      const { bytes, missing } = await compileDossierToPdf({
+        dossier,
+        product,
+        generatedDocs: genDocs ?? [],
+        docs: docs ?? [],
+        attachments: attachments ?? [],
+        branding,
+        autoStructural,
+      })
+      const blob = new Blob([new Uint8Array(bytes)], { type: 'application/pdf' })
+      showPreview(
+        URL.createObjectURL(blob),
+        `${slugify(dossier.productName)}-module-1.pdf`,
+        true,
+        blob,
+      )
+      if (missing.length > 0) {
+        toast.warning(`${missing.length} pièce(s) non incluse(s) (indisponibles hors-ligne)`, {
+          description: missing.slice(0, 5).join(', '),
+        })
+      }
+    } catch (e) {
+      console.error(e)
+      const msg = (e as Error)?.message
+      toast.error(msg ? `Échec de la compilation : ${msg}` : 'Échec de la compilation du dossier.')
+    } finally {
+      setCompiling(false)
+    }
+  }
+
+  function handleCompileClick() {
+    // Rappel AVANT compilation : TOUS les constats (déterministes + IA), pas seulement les
+    // déterministes. + garde anti-« dossier vide ».
+    const gate = [...allFindings]
+    const hasContent = genByNode.size > 0 || attachByNode.size > 0 || docsByNode.size > 0
+    if (!hasContent && !gate.some((f) => f.id === 'empty')) {
+      gate.unshift({
+        id: 'empty',
+        nodeNumber: '',
+        nodeLabel: 'Dossier',
+        severity: 'error',
+        message: 'Dossier vide : aucun document.',
+      })
+    }
+    if (gate.length > 0) {
+      setGateFindings(gate)
+      return
+    }
+    void handleCompile()
+  }
+  // Ref resynchronisée à chaque rendu (effet sans dépendances) → le clic du bandeau voit
+  // toujours l'état frais (constats, contenu) sans reconstruire le slot.
+  useEffect(() => {
+    compileClickRef.current = handleCompileClick
+  })
   useEffect(() => {
     if (!setHeaderSlot) return
     if (!dossier) {
@@ -519,7 +382,7 @@ export function DossierWorkspacePage() {
     }
     const fmt = dossier.format === 'ctd' ? 'CTD UEMOA' : 'eCTD CEDEAO'
     setHeaderSlot(
-      <div className="flex min-w-0 items-center gap-1.5">
+      <div className="flex min-w-0 flex-1 items-center gap-1.5">
         <Button
           variant="ghost"
           size="icon-sm"
@@ -534,46 +397,22 @@ export function DossierWorkspacePage() {
           </div>
           <div className="text-muted-foreground truncate text-xs">Création Module 1 ({fmt})</div>
         </div>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/workspace/${dossier.id}/roadmap`)}
+          >
+            Roadmap
+          </Button>
+          <Button size="sm" disabled={compiling} onClick={() => compileClickRef.current()}>
+            <FileDown className="size-4" /> {compiling ? 'Compilation…' : 'Compiler le PDF'}
+          </Button>
+        </div>
       </div>,
     )
     return () => setHeaderSlot(null)
-  }, [setHeaderSlot, dossier, navigate])
-
-  const handleEditorReady = useCallback((ed: Editor, id: string) => setEditorState({ id, ed }), [])
-
-  /** Écrit immédiatement toute édition débouncée en attente. */
-  const flushSave = useCallback(() => {
-    if (saveTimer.current) {
-      clearTimeout(saveTimer.current)
-      saveTimer.current = null
-    }
-    const p = pendingSave.current
-    if (p) {
-      pendingSave.current = null
-      void updateGeneratedDocContent(p.id, p.json).then(() => syncGeneratedDocs(orgId))
-    }
-  }, [orgId])
-
-  /** Abandonne toute édition débouncée en attente (ex. avant régénération). */
-  const cancelSave = useCallback(() => {
-    if (saveTimer.current) {
-      clearTimeout(saveTimer.current)
-      saveTimer.current = null
-    }
-    pendingSave.current = null
-  }, [])
-
-  const handleEditorChange = useCallback(
-    (id: string, json: JSONContent) => {
-      pendingSave.current = { id, json }
-      if (saveTimer.current) clearTimeout(saveTimer.current)
-      saveTimer.current = setTimeout(() => flushSave(), 700)
-    },
-    [flushSave],
-  )
-
-  // Persiste les éditions en attente au démontage (navigation hors du workspace).
-  useEffect(() => () => flushSave(), [flushSave])
+  }, [setHeaderSlot, dossier, navigate, compiling])
 
   // Libère l'object URL d'aperçu au démontage (évite une fuite si on quitte dialog ouvert).
   useEffect(() => {
@@ -586,39 +425,11 @@ export function DossierWorkspacePage() {
     [],
   )
 
-  function docsFor(node: CtdNodeDef): DocumentRecord[] {
-    const out: DocumentRecord[] = []
-    for (const [n, list] of docsByNode) {
-      if (n === node.number || (node.number !== '' && n.startsWith(`${node.number}.`))) {
-        out.push(...list)
-      }
-    }
-    return out
-  }
-
-  function genDocsFor(node: CtdNodeDef): GeneratedDocRecord[] {
-    const out: GeneratedDocRecord[] = []
-    for (const [n, g] of genByNode) {
-      if (n === node.number || (node.number !== '' && n.startsWith(`${node.number}.`))) {
-        out.push(g)
-      }
-    }
-    return out
-  }
-
-  function attachmentsFor(node: CtdNodeDef): DossierAttachmentRecord[] {
-    const out: DossierAttachmentRecord[] = []
-    for (const [n, list] of attachByNode) {
-      if (n === node.number || (node.number !== '' && n.startsWith(`${node.number}.`))) {
-        out.push(...list)
-      }
-    }
-    return out
-  }
-
-  function countFor(node: CtdNodeDef): number {
-    return docsFor(node).length + genDocsFor(node).length + attachmentsFor(node).length
-  }
+  const docsFor = (node: CtdNodeDef) => docsForNode(docsByNode, node)
+  const genDocsFor = (node: CtdNodeDef) => genDocsForNode(genByNode, node)
+  const attachmentsFor = (node: CtdNodeDef) => attachmentsForNode(attachByNode, node)
+  const countFor = (node: CtdNodeDef) =>
+    docsFor(node).length + genDocsFor(node).length + attachmentsFor(node).length
 
   async function handleTreeChange(tree: CtdNodeDef[]) {
     if (dossierId) await updateDossierTree(dossierId, tree)
@@ -649,77 +460,41 @@ export function DossierWorkspacePage() {
   const activeDossier = dossier
   const selectedDocs = selected ? docsFor(selected) : []
   const selectedTplKey = selected ? templateKeyForNode(dossier.format, selected.number) : undefined
-  const selectedGenDoc = selected ? genByNode.get(selected.number) : undefined
+  const selectedGenDocs = selected ? (genListByNode.get(selected.number) ?? []) : []
+  // Le document de TEMPLATE du nœud (lettre cover/pght) — pilote le badge et le bouton Générer.
+  const selectedGenDoc = selectedGenDocs.find(
+    (g) => g.templateKey !== 'translation' && g.templateKey !== 'upgrade',
+  )
   const selectedAttachments = selected ? attachmentsFor(selected) : []
-  // Traduction : document produit original lié (affiché à gauche, en regard de la version éditable).
-  // Source d'une traduction : doc produit OU pièce jointe (upload direct workspace). Pour le libellé.
-  const translationSourceDoc =
-    selectedGenDoc?.templateKey === 'translation' && selectedGenDoc.sourceDocId
-      ? ((docs ?? []).find((d) => d.id === selectedGenDoc.sourceDocId) ??
-        (attachments ?? []).find((a) => a.id === selectedGenDoc.sourceDocId))
-      : undefined
   // Langue cible (code pays → 'FR'/'PT'/'EN') pour les libellés (« Traduire en FR », « …_FR.docx »).
   const targetLangLabel = officialLanguage(dossier.country).toUpperCase()
-  // N'utiliser l'instance éditeur que si elle correspond au document sélectionné
-  // (évite d'agir sur une instance détruite pendant le changement de document).
-  const liveEditor =
-    editorState && selectedGenDoc && editorState.id === selectedGenDoc.id ? editorState.ed : null
 
   // Documents visualisables du nœud : lettre générée + pièces jointes + documents produit.
   // Aperçu in-place automatique du 1er (ou de l'onglet choisi), même cadre que la lettre.
-  type Viewable =
-    | { key: string; kind: 'letter'; label: string; isTranslation?: boolean }
-    | {
-        key: string
-        kind: 'attachment' | 'doc'
-        label: string
-        id: string
-        filePath: string | null
-        fileName: string
-      }
-  const viewables: Viewable[] = []
-  if (selectedGenDoc) {
-    const isTranslation = selectedGenDoc.templateKey === 'translation'
-    // Onglet façon navigateur : « <nom de l'original>_<LANG>.docx » pour une traduction.
-    const transBase = (translationSourceDoc?.fileName ?? selectedGenDoc.title).replace(
-      /\.[^.]+$/,
-      '',
-    )
-    viewables.push({
-      key: `letter:${selectedGenDoc.id}`,
-      kind: 'letter',
-      label: isTranslation ? `${transBase}_${targetLangLabel}.docx` : selectedGenDoc.title,
-      isTranslation,
-    })
-  }
-  for (const a of selectedAttachments) {
-    viewables.push({
-      key: `att:${a.id}`,
-      kind: 'attachment',
-      label: a.fileName,
-      id: a.id,
-      filePath: a.filePath,
-      fileName: a.fileName,
-    })
-  }
-  for (const d of selectedDocs) {
-    viewables.push({
-      key: `doc:${d.id}`,
-      kind: 'doc',
-      label: d.fileName,
-      id: d.id,
-      filePath: d.filePath,
-      fileName: d.fileName,
-    })
-  }
+  const viewables = buildViewables({
+    selectedGenDocs,
+    selectedAttachments,
+    selectedDocs,
+    sourceNamesById,
+    targetLangLabel,
+  })
   const activeKey =
     pickedKey && viewables.some((v) => v.key === pickedKey)
       ? pickedKey
       : (viewables[0]?.key ?? null)
   const active = viewables.find((v) => v.key === activeKey) ?? null
+  // Document généré AFFICHÉ (lettre/traduction/version conforme de l'onglet actif).
+  const activeGenDoc =
+    active?.kind === 'letter'
+      ? selectedGenDocs.find((g) => `letter:${g.id}` === active.key)
+      : undefined
+  // N'utiliser l'instance éditeur que si elle correspond au document affiché
+  // (évite d'agir sur une instance détruite pendant le changement de document).
+  const liveEditor =
+    editorState && activeGenDoc && editorState.id === activeGenDoc.id ? editorState.ed : null
   // Onglet actif = texte éditable (doc généré / lettre / traduction) → on affiche la barre d'édition
   // (Modifier/Signer/En-tête/Régénérer). Inutile sur un PDF/pièce → masquée.
-  const isEditableActive = active?.kind === 'letter' && !!selectedGenDoc
+  const isEditableActive = active?.kind === 'letter' && !!activeGenDoc
 
   // Constat de langue du document affiché (langue ≠ pays cible) → bouton « Traduire » en
   // surbrillance directement sur l'aperçu, en plus du rappel dans le panneau de droite.
@@ -728,10 +503,66 @@ export function DossierWorkspacePage() {
       ? allFindings.find((f) => f.pieceId === active.id && f.translate)
       : undefined
 
-  const leaves = flatNodes.filter((n) => !n.children?.length)
-  const filledLeaves = leaves.filter((n) => countFor(n) > 0)
-  const pct = leaves.length ? Math.round((filledLeaves.length / leaves.length) * 100) : 0
-  const okCount = filledLeaves.length
+  // Constat de conformité (bouton Upgrader) du document affiché : pièce en aperçu, ou
+  // traduction ouverte dans l'onglet actif.
+  const activeUpgradeFinding =
+    active && active.kind !== 'letter'
+      ? allFindings.find((f) => f.pieceId === active.id && f.upgrade)
+      : activeGenDoc?.templateKey === 'translation'
+        ? allFindings.find((f) => f.pieceId === activeGenDoc.id && f.upgrade)
+        : undefined
+
+  // Version conforme affichée : rubriques [NON FOURNI…] restant à compléter (recalculé sur le
+  // contenu sauvegardé — la bannière s'allège au fur et à mesure des corrections).
+  const upgradeMissingCount =
+    activeGenDoc?.templateKey === 'upgrade'
+      ? countMissing(tiptapText(activeGenDoc.content as JSONContent))
+      : 0
+
+  // Squelette « Remplir le template » affiché : zones [À COMPLÉTER] restantes.
+  const fillMissingCount =
+    activeGenDoc?.templateKey === 'fill'
+      ? countMarker(tiptapText(activeGenDoc.content as JSONContent), FILL_PLACEHOLDER)
+      : 0
+
+  // « Conformité d'abord, traduction après » : la version conforme rédigée dans une autre
+  // langue que la langue officielle du pays porte le bouton « Traduire » (langue détectée par
+  // le constat de conformité de la pièce source).
+  const activeUpgradeLang =
+    activeGenDoc?.templateKey === 'upgrade' && activeGenDoc.sourceDocId
+      ? allFindings.find((f) => f.pieceId === activeGenDoc.sourceDocId && f.upgrade)?.language
+      : undefined
+  const activeConformNeedsTranslation =
+    !!activeUpgradeLang && activeUpgradeLang !== officialLanguage(activeDossier.country)
+
+  // « Remplir le template » disponible sur les nœuds dont le type est couvert par un template
+  // officiel (RCP, Notice, Étiquetage… — 1.3.x), même sans aucun document.
+  const fillDocType = selected
+    ? (docTypeForNode(activeDossier.format, selected.number) ??
+      (selected.number.startsWith('1.3') ? 'labeling' : null))
+    : null
+  const canFillSelected = !!fillDocType && UPGRADE_DOC_TYPES.has(fillDocType)
+
+  // Formulaire officiel (branding CEO — RCP, Notice, Étiquetage) : l'onglet « template à
+  // compléter » est rendu par TemplateFillForm (feuille A4 navy + exports DOCX/PDF) — plus
+  // d'éditeur TipTap pour ces types.
+  const activeFormDef = activeGenDoc?.templateKey === 'fill' ? formDefinitionFor(fillDocType) : null
+  const formEmptyCount =
+    activeFormDef && activeGenDoc
+      ? countEmptyFields(formStateFromContent(activeFormDef, activeGenDoc.content as JSONContent))
+      : 0
+
+  // Carte « non conforme au template en vigueur ! » (mockup CEO) du document affiché —
+  // masquable pour la session (le constat reste dans le panneau Remarques).
+  const visibleUpgradeCard =
+    activeUpgradeFinding && fillDocType && !hiddenCards.has(activeUpgradeFinding.id)
+      ? activeUpgradeFinding
+      : undefined
+  const hideUpgradeCard = () => {
+    if (activeUpgradeFinding) setHiddenCards((prev) => new Set(prev).add(activeUpgradeFinding.id))
+  }
+
+  const { okCount, pct } = completionStats(flatNodes, countFor)
   const warnCount = findings.filter((f) => f.severity === 'warning').length
   const errCount = findings.filter((f) => f.severity === 'error').length
 
@@ -778,42 +609,66 @@ export function DossierWorkspacePage() {
   }
 
   async function handleRegenerate() {
-    if (!selectedGenDoc) return
+    if (!activeGenDoc) return
     cancelSave() // on repart du modèle : abandonner toute édition en attente
-    const content = await regenerateGeneratedDoc(selectedGenDoc.id, buildContext())
+    const content = await regenerateGeneratedDoc(activeGenDoc.id, buildContext())
     if (content && liveEditor) liveEditor.commands.setContent(content)
     void syncGeneratedDocs(orgId)
   }
 
-  /** Télécharge une traduction au format .docx (lib `docx` chargée en lazy → hors chunk d'entrée). */
-  async function downloadTranslationDocx(gen: GeneratedDocRecord) {
+  /** Télécharge un doc généré au format .docx (lib `docx` en lazy) — traduction ou version conforme. */
+  async function downloadGeneratedDocx(gen: GeneratedDocRecord, suffix: string) {
     try {
       const json = (liveEditor?.getJSON() ?? gen.content) as JSONContent
       const { tiptapToDocxBlob } = await import('./tiptap-docx')
       const blob = await tiptapToDocxBlob(json)
-      const src = (docs ?? []).find((d) => d.id === gen.sourceDocId)
-      const base = (src?.fileName ?? gen.title).replace(/\.[^.]+$/, '')
-      triggerDownload(URL.createObjectURL(blob), `${base}_${targetLangLabel}.docx`, true)
+      const base = ((gen.sourceDocId && sourceNamesById.get(gen.sourceDocId)) ?? gen.title).replace(
+        /\.[^.]+$/,
+        '',
+      )
+      triggerDownload(URL.createObjectURL(blob), `${base}_${suffix}.docx`, true)
     } catch (e) {
       console.error(e)
-      toast.error('Échec du téléchargement de la traduction (.docx).')
+      toast.error('Échec du téléchargement (.docx).')
     }
   }
 
-  /** Télécharge selon l'onglet actif : traduction → .docx · lettre → .html · doc produit → fichier d'origine. */
+  /** Télécharge un formulaire de template en .docx 100 % conforme au gabarit (Times/navy, A4). */
+  async function downloadFormDocx(gen: GeneratedDocRecord, def: NonNullable<typeof activeFormDef>) {
+    try {
+      // Lazy : la lib docx reste hors du chunk workspace.
+      const { formDocxBlob } = await import('./template-form/form-docx')
+      const state = formStateFromContent(def, gen.content as JSONContent)
+      const blob = await formDocxBlob(def, state)
+      triggerDownload(URL.createObjectURL(blob), `${formExportName(def, state)}.docx`, true)
+    } catch (e) {
+      console.error(e)
+      toast.error('Échec du téléchargement (.docx).')
+    }
+  }
+
+  /** Télécharge selon l'onglet actif : traduction/version conforme → .docx · lettre → .html · doc produit → fichier d'origine. */
   function handleDownload() {
-    if (active?.kind === 'letter' && selectedGenDoc) {
-      if (selectedGenDoc.templateKey === 'translation') {
-        void downloadTranslationDocx(selectedGenDoc)
+    if (active?.kind === 'letter' && activeGenDoc) {
+      if (activeGenDoc.templateKey === 'translation') {
+        void downloadGeneratedDocx(activeGenDoc, targetLangLabel)
         return
       }
-      const json = (liveEditor?.getJSON() ?? selectedGenDoc.content) as JSONContent
-      const html = generatedDocToHtml(selectedGenDoc.title, json, {
+      if (activeGenDoc.templateKey === 'upgrade') {
+        void downloadGeneratedDocx(activeGenDoc, 'CONFORME')
+        return
+      }
+      if (activeFormDef) {
+        void downloadFormDocx(activeGenDoc, activeFormDef)
+        return
+      }
+      const json = (liveEditor?.getJSON() ?? activeGenDoc.content) as JSONContent
+      const html = generatedDocToHtml(activeGenDoc.title, json, {
         header: branding?.headerImage ?? null,
         footer: branding?.footerImage ?? null,
       })
       const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
-      triggerDownload(URL.createObjectURL(blob), `${slugify(selectedGenDoc.title)}.html`, true)
+      triggerDownload(URL.createObjectURL(blob), `${slugify(activeGenDoc.title)}.html`, true)
       return
     }
     if (active?.kind === 'doc') {
@@ -845,10 +700,55 @@ export function DossierWorkspacePage() {
       toast.error('Fichier trop lourd (max 25 Mo).')
       return
     }
-    await addAttachment(orgId, activeDossier.id, selected.number, file)
+    try {
+      await addAttachment(orgId, activeDossier.id, selected.number, file)
+    } catch (error) {
+      toast.error("Échec de l'ajout", {
+        description: error instanceof Error ? error.message : undefined,
+      })
+      return
+    }
     // Synchroniser tout de suite → la pièce reçoit son chemin Storage et entre dans l'analyse Regafy.
     await syncDossierAttachments(orgId)
     toast.success('Pièce ajoutée — analyse en cours…')
+  }
+
+  /** « Remplir le template » : squelette officiel verrouillé, zones [À COMPLÉTER] remplies
+   *  PAR L'UTILISATEUR (pré-rempli : session Identification produit uniquement). Généré
+   *  localement (zéro IA, offline) ; Regafy vérifie la conformité à chaque enregistrement. */
+  async function handleFillTemplate(node: CtdNodeDef) {
+    const docType =
+      docTypeForNode(activeDossier.format, node.number) ??
+      (node.number.startsWith('1.3') ? 'labeling' : null)
+    if (!docType) return
+    const openTab = (genId: string) => {
+      setSelected(node)
+      setDocEditing(true)
+      setPickedKey(`letter:${genId}`)
+    }
+    // Anti-relance : un squelette existe déjà sur ce nœud → rouvrir son onglet.
+    const existing = (genDocs ?? []).find(
+      (g) => g.deletedAt === null && g.templateKey === 'fill' && g.nodeNumber === node.number,
+    )
+    if (existing) {
+      openTab(existing.id)
+      return
+    }
+    const skeleton = buildTemplateSkeleton(docType, product)
+    if (!skeleton) return
+    const rec = await createTemplateFillDoc(orgId, {
+      dossierId: activeDossier.id,
+      nodeNumber: node.number,
+      title: `${docType.toUpperCase()} — template à compléter`,
+      content: skeleton,
+    })
+    void syncGeneratedDocs(orgId)
+    openTab(rec.id)
+    toast.success('Template officiel prêt.', {
+      description: formDefinitionFor(docType)
+        ? 'Remplissez le formulaire officiel — structure et mentions réglementaires verrouillées.'
+        : 'Complétez les zones [À COMPLÉTER] — les titres du template sont verrouillés.',
+    })
   }
 
   function handleSign() {
@@ -870,28 +770,6 @@ export function DossierWorkspacePage() {
     setSigPanelOpen(false)
   }
 
-  function nextLeafAfter(node: CtdNodeDef): CtdNodeDef | null {
-    const idx = flatNodes.findIndex((n) => n.id === node.id)
-    for (let i = idx + 1; i < flatNodes.length; i++) {
-      const n = flatNodes[i]
-      if (n && !n.children?.length) return n
-    }
-    return null
-  }
-
-  async function handleSaveNode() {
-    if (!selected) return
-    flushSave()
-    if (selected.id) {
-      const tree = setNodeSaved(activeDossier.tree, selected.id, new Date().toISOString())
-      await updateDossierTree(activeDossier.id, tree)
-      void syncDossiers(orgId)
-    }
-    toast.success('Section enregistrée')
-    const next = nextLeafAfter(selected)
-    if (next) handleSelectNode(next)
-  }
-
   async function handleUpdateStructure() {
     const merged = mergeDefaultTree(activeDossier.tree, getModule1Tree(activeDossier.format))
     await updateDossierTree(activeDossier.id, merged)
@@ -901,8 +779,8 @@ export function DossierWorkspacePage() {
 
   async function handleRemoveActive() {
     if (!active) return
-    if (active.kind === 'letter' && selectedGenDoc) {
-      await deleteGeneratedDoc(selectedGenDoc.id)
+    if (active.kind === 'letter' && activeGenDoc) {
+      await deleteGeneratedDoc(activeGenDoc.id)
       void syncGeneratedDocs(orgId)
     } else if (active.kind === 'attachment') {
       await deleteAttachment(active.id)
@@ -916,122 +794,40 @@ export function DossierWorkspacePage() {
     toast.success('Document retiré du dossier')
   }
 
-  function showPreview(url: string, name: string, revoke: boolean, blob: Blob) {
-    if (previewPdf?.revoke) URL.revokeObjectURL(previewPdf.url)
-    setPreviewPdf({ url, name, revoke, blob })
-  }
-  function closePreview() {
-    if (previewPdf?.revoke) URL.revokeObjectURL(previewPdf.url)
-    setPreviewPdf(null)
-  }
-
-  async function handleCompile() {
-    setCompiling(true)
-    try {
-      // pdf-lib chargé à la demande → hors du chunk workspace (perf).
-      const { compileDossierToPdf } = await import('./pdf/dossier-compiler')
-      const { bytes, missing } = await compileDossierToPdf({
-        dossier: activeDossier,
-        product,
-        generatedDocs: genDocs ?? [],
-        docs: docs ?? [],
-        attachments: attachments ?? [],
-        branding,
-        autoStructural,
-      })
-      const blob = new Blob([new Uint8Array(bytes)], { type: 'application/pdf' })
-      showPreview(
-        URL.createObjectURL(blob),
-        `${slugify(activeDossier.productName)}-module-1.pdf`,
-        true,
-        blob,
-      )
-      if (missing.length > 0) {
-        toast.warning(`${missing.length} pièce(s) non incluse(s) (indisponibles hors-ligne)`, {
-          description: missing.slice(0, 5).join(', '),
-        })
-      }
-    } catch (e) {
-      console.error(e)
-      const msg = (e as Error)?.message
-      toast.error(msg ? `Échec de la compilation : ${msg}` : 'Échec de la compilation du dossier.')
-    } finally {
-      setCompiling(false)
-    }
-  }
-
-  function handleCompileClick() {
-    // Rappel AVANT compilation : TOUS les constats (déterministes + IA), pas seulement les
-    // déterministes. + garde anti-« dossier vide ».
-    const gate = [...allFindings]
-    const hasContent = genByNode.size > 0 || attachByNode.size > 0 || docsByNode.size > 0
-    if (!hasContent && !gate.some((f) => f.id === 'empty')) {
-      gate.unshift({
-        id: 'empty',
-        nodeNumber: '',
-        nodeLabel: 'Dossier',
-        severity: 'error',
-        message: 'Dossier vide : aucun document.',
-      })
-    }
-    if (gate.length > 0) {
-      setGateFindings(gate)
-      return
-    }
-    void handleCompile()
-  }
-
   return (
-    // Modèle « Google Docs » : la page de montage défile globalement (scrollbar de <main> à droite),
-    // l'en-tête (toolbar) et les deux panneaux latéraux restent figés (sticky), seule la zone centrale
-    // (A4) défile, jusqu'au pied de page (marge de bas — rien n'est collé au bas).
-    <div className="flex flex-col gap-3">
-      <div className="bg-background sticky top-0 z-30 grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-b py-1.5">
-        <label className="text-muted-foreground hidden items-center gap-1.5 justify-self-start text-xs sm:flex">
-          <input
-            type="checkbox"
-            checked={autoStructural}
-            onChange={(e) => setAutoStructural(e.target.checked)}
-          />
-          TDM + gardes auto
-        </label>
-        {/* Barre des menus d'édition (Modifier/Signer/…) — CENTRÉE au-dessus du panneau d'aperçu. */}
-        <div className="flex min-w-0 justify-center">
-          <div className="bg-card flex items-center gap-1 rounded-full border px-1 py-1 text-sm shadow-sm">
-            {/* Boutons d'édition : seulement pour du texte éditable (doc généré/lettre/traduction). */}
-            {isEditableActive ? (
-              <>
-                <ToolbarBtn
-                  label="Modifier"
-                  active={docEditing}
-                  onClick={() => {
-                    if (!selectedGenDoc) return
-                    setPickedKey(`letter:${selectedGenDoc.id}`)
-                    setDocEditing((v) => !v)
-                  }}
-                />
-                <ToolbarBtn
-                  label="Signer"
-                  disabled={!liveEditor || !docEditing}
-                  hint="Passez en mode Modifier pour signer"
-                  onClick={handleSign}
-                />
-                <ToolbarBtn
-                  label="En-tête / Pied de page"
-                  onClick={() => setBrandPanelOpen(true)}
-                />
-                {selectedGenDoc?.templateKey !== 'translation' ? (
-                  <ToolbarBtn label="Régénérer" onClick={() => void handleRegenerate()} />
-                ) : null}
-              </>
-            ) : null}
+    // Modèle « Google Docs » : la page de montage défile globalement (scrollbar de <main> à
+    // droite), les panneaux latéraux restent figés (sticky), la feuille défile. Fond gris
+    // clair (mockup CEO) : les cartes blanches ressortent ; les actions globales (Roadmap,
+    // Compiler) sont dans le bandeau du haut.
+    <div className="bg-muted/40 -m-4 flex min-h-full flex-col gap-3 p-4 md:-m-6 md:p-6">
+      {/* Rangée d'actions d'édition : UNIQUEMENT pour un document éditable (lettre/traduction)
+          — pilule SOMBRE centrée (mockup). Les formulaires ont leur propre barre navy ; les
+          pièces ont Télécharger dans l'aperçu et le retrait via le « × » d'onglet. */}
+      {isEditableActive && !activeFormDef ? (
+        <div className="sticky top-0 z-30 flex justify-center">
+          <div className="bg-foreground flex items-center gap-1 rounded-full px-1.5 py-1 text-sm shadow-lg">
             <ToolbarBtn
-              label="Télécharger"
-              disabled={
-                !(active?.kind === 'doc' || (active?.kind === 'letter' && !!selectedGenDoc))
-              }
-              onClick={handleDownload}
+              label="Modifier"
+              active={docEditing}
+              onClick={() => {
+                if (!activeGenDoc) return
+                setPickedKey(`letter:${activeGenDoc.id}`)
+                setDocEditing((v) => !v)
+              }}
             />
+            <ToolbarBtn
+              label="Signer"
+              disabled={!liveEditor || !docEditing}
+              hint="Passez en mode Modifier pour signer"
+              onClick={handleSign}
+            />
+            <ToolbarBtn label="En-tête / Pied de page" onClick={() => setBrandPanelOpen(true)} />
+            {activeGenDoc &&
+            activeGenDoc.templateKey !== 'translation' &&
+            activeGenDoc.templateKey !== 'upgrade' ? (
+              <ToolbarBtn label="Régénérer" onClick={() => void handleRegenerate()} />
+            ) : null}
+            <ToolbarBtn label="Télécharger" onClick={handleDownload} />
             <ToolbarBtn
               label="Supprimer"
               disabled={!active}
@@ -1040,243 +836,249 @@ export function DossierWorkspacePage() {
             />
           </div>
         </div>
-        <div className="flex items-center gap-2 justify-self-end">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`/workspace/${dossier.id}/roadmap`)}
-          >
-            Roadmap
-          </Button>
-          <Button size="sm" disabled={compiling} onClick={handleCompileClick}>
-            <FileDown className="size-4" /> {compiling ? 'Compilation…' : 'Compiler le PDF'}
-          </Button>
-        </div>
-      </div>
+      ) : null}
 
       <div className="flex items-start gap-3">
-        {/* Panneau gauche : arborescence */}
-        {collapsed ? (
-          <div className="bg-card sticky top-12 flex max-h-[calc(100svh-9rem)] w-14 shrink-0 flex-col items-center gap-1.5 overflow-auto rounded-lg border py-2">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Déplier l'arborescence"
-              onClick={() => setCollapsed(false)}
-            >
-              <PanelLeftOpen className="size-4" />
-            </Button>
-            {flatNodes.map((n) => (
-              <button
-                key={n.id ?? n.number}
-                type="button"
-                title={`${n.number} ${n.label}`}
-                onClick={() => handleSelectNode(n)}
-                className={cn(
-                  'flex size-9 shrink-0 items-center justify-center rounded-full border text-[10px] font-medium tabular-nums',
-                  selected?.id === n.id
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-accent',
-                )}
-              >
-                {n.number || '•'}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <aside className="bg-card sticky top-12 flex max-h-[calc(100svh-9rem)] w-72 shrink-0 flex-col overflow-hidden rounded-lg border">
-            <div className="flex items-start justify-between border-b p-3">
-              <div>
-                <div className="text-sm font-semibold">Arborescence</div>
-                <div className="text-muted-foreground text-xs">Séquence 0001</div>
-              </div>
-              <span className="flex items-center">
-                <Button
-                  variant={treeEditing ? 'secondary' : 'ghost'}
-                  size="icon-sm"
-                  aria-label="Éditer l'arborescence"
-                  onClick={() => setTreeEditing(!treeEditing)}
-                >
-                  <Settings2 className="size-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Replier le panneau"
-                  onClick={() => setCollapsed(true)}
-                >
-                  <PanelLeftClose className="size-4" />
-                </Button>
-              </span>
-            </div>
-            {structureOutdated ? (
-              <button
-                type="button"
-                onClick={() => void handleUpdateStructure()}
-                className="border-b bg-amber-50 px-3 py-2 text-left text-xs text-amber-800 hover:bg-amber-100"
-              >
-                Nouvelle structure disponible — Mettre à jour
-              </button>
-            ) : null}
-            <div className="min-h-0 flex-1 overflow-auto p-2">
-              <div className="text-muted-foreground px-1 pb-1 text-[11px] font-semibold tracking-wide">
-                MODULE 1 — ADMINISTRATIF
-              </div>
-              <ArborescenceTree
-                tree={dossier.tree}
-                selectedId={selected?.id ?? null}
-                onSelect={handleSelectNode}
-                docCount={(node) => countFor(node)}
-                editing={treeEditing}
-                onChange={handleTreeChange}
-              />
-            </div>
-            {treeEditing ? (
-              <p className="text-muted-foreground border-t p-2 text-xs">
-                Mode édition : renommez, repositionnez (▲▼), ajoutez ou supprimez des sections.
-              </p>
-            ) : null}
-          </aside>
-        )}
+        <TreePanel
+          collapsed={collapsed}
+          setCollapsed={setCollapsed}
+          treeEditing={treeEditing}
+          setTreeEditing={setTreeEditing}
+          structureOutdated={structureOutdated}
+          onUpdateStructure={() => void handleUpdateStructure()}
+          tree={dossier.tree}
+          flatNodes={flatNodes}
+          selected={selected}
+          onSelectNode={handleSelectNode}
+          countFor={countFor}
+          onTreeChange={(tree) => void handleTreeChange(tree)}
+        />
 
         {/* Colonne centrale : contenu A4 qui défile (les toolbars sont dans le bandeau du haut). */}
         <div className="min-w-0 flex-1">
           {selected ? (
-            <div className="flex flex-col gap-3">
-              {/* Chrome figé : titre, actions, onglets et barre de format restent en place pendant
-                  que la page A4 défile dessous (sticky sous le bandeau du haut). */}
-              <div className="bg-background sticky top-12 z-20 flex flex-col gap-3 pb-1">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h2 className="font-semibold">
-                      {selected.number ? `${selected.number} ` : ''}
-                      {selected.label}
-                    </h2>
-                    {selected.note ? (
-                      <p className="text-muted-foreground mt-1 max-w-prose text-xs italic">
-                        {selected.note}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    {selectedGenDoc ? (
-                      <Badge variant="secondary">BROUILLON</Badge>
-                    ) : viewables.length > 0 ? (
-                      <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
-                        EN ATTENTE
-                      </Badge>
-                    ) : null}
-                    {selectedTplKey && !selectedGenDoc ? (
-                      <Button size="sm" onClick={() => void handleGenerate()}>
-                        <Sparkles className="size-4" /> Générer
-                      </Button>
-                    ) : null}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0]
-                        if (f) void handleUpload(f)
-                        e.target.value = ''
-                      }}
-                    />
+            <div className="flex flex-col gap-2">
+              {/* Barre FINE au-dessus de la feuille (mockup CEO — plus de gros chrome) :
+                  onglets des documents à gauche, Générer/Téléverser à droite. Le retrait d'un
+                  document passe par le « × » de son onglet (affiché même seul). */}
+              <div className="bg-card flex min-h-11 flex-wrap items-center gap-2 rounded-xl border px-2 py-1.5 shadow-sm">
+                <span className="sr-only" role="heading" aria-level={2}>
+                  {selected.number ? `${selected.number} ` : ''}
+                  {selected.label}
+                </span>
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+                  {viewables.map((v) => {
+                    const removeHint =
+                      v.kind === 'doc'
+                        ? 'Retirer du dossier (le document reste sous le produit)'
+                        : 'Supprimer du dossier'
+                    return (
+                      <div
+                        key={v.key}
+                        className={cn(
+                          'flex items-center gap-1 rounded-full border py-1 pr-1 pl-3 text-xs',
+                          active?.key === v.key
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'text-muted-foreground hover:bg-accent',
+                        )}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPickedKey(v.key)
+                            // Traduction → éditable d'emblée (cohérent avec l'ouverture via « Traduire »).
+                            if (v.kind === 'letter' && (v.isTranslation || v.isUpgrade || v.isFill))
+                              setDocEditing(true)
+                          }}
+                          title={v.label}
+                          className="flex items-center gap-1.5"
+                        >
+                          <FileText className="size-3.5 shrink-0" />
+                          <span className="max-w-[160px] truncate">{v.label}</span>
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={removeHint}
+                          title={removeHint}
+                          onClick={() => void handleRemoveViewable(v)}
+                          className="hover:bg-destructive/10 hover:text-destructive rounded-full p-0.5"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="ml-auto flex shrink-0 items-center gap-2">
+                  {selectedTplKey && !selectedGenDoc ? (
                     <Button
                       size="sm"
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
+                      className="h-8 rounded-full"
+                      onClick={() => void handleGenerate()}
                     >
-                      <Upload className="size-4" /> Téléverser
+                      <Sparkles className="size-4" /> Générer
                     </Button>
-                    <Button size="sm" variant="secondary" onClick={() => void handleSaveNode()}>
-                      <Save className="size-4" /> Enregistrer
-                    </Button>
-                  </div>
+                  ) : null}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={UPLOAD_ACCEPT}
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      if (f) void handleUpload(f)
+                      e.target.value = ''
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 rounded-full"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="size-4" /> Téléverser
+                  </Button>
                 </div>
-
-                {viewables.length > 1 ? (
-                  <div className="flex flex-wrap gap-1">
-                    {viewables.map((v) => {
-                      const removeHint =
-                        v.kind === 'doc'
-                          ? 'Retirer du dossier (le document reste sous le produit)'
-                          : 'Supprimer du dossier'
-                      return (
-                        <div
-                          key={v.key}
-                          className={cn(
-                            'flex items-center gap-1 rounded-full border py-1 pr-1 pl-3 text-xs',
-                            active?.key === v.key
-                              ? 'border-primary bg-primary/10 text-primary'
-                              : 'text-muted-foreground hover:bg-accent',
-                          )}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPickedKey(v.key)
-                              // Traduction → éditable d'emblée (cohérent avec l'ouverture via « Traduire »).
-                              if (v.kind === 'letter' && v.isTranslation) setDocEditing(true)
-                            }}
-                            title={v.label}
-                            className="flex items-center gap-1.5"
-                          >
-                            <FileText className="size-3.5 shrink-0" />
-                            <span className="max-w-[160px] truncate">{v.label}</span>
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={removeHint}
-                            title={removeHint}
-                            onClick={() => void handleRemoveViewable(v)}
-                            className="hover:bg-destructive/10 hover:text-destructive rounded-full p-0.5"
-                          >
-                            <X className="size-3.5" />
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                ) : null}
               </div>
 
               <div>
-                {active?.kind === 'letter' && selectedGenDoc ? (
-                  // Onglet traduction = plein largeur (éditeur + barre de format) ; l'original est
-                  // l'onglet voisin. Pas d'`overflow-hidden` : casserait le `sticky` de la barre.
-                  <section className="bg-card rounded-lg border">
-                    {selectedGenDoc.templateKey === 'translation' ? (
+                {active?.kind === 'letter' && activeGenDoc ? (
+                  // Onglet traduction/version conforme = plein largeur (éditeur + barre de format) ;
+                  // l'original est l'onglet voisin. Pas d'`overflow-hidden` : casserait le `sticky`.
+                  // `relative` : ancre de la carte de non-conformité (mockup CEO).
+                  <section className="bg-card relative rounded-lg border">
+                    {activeGenDoc.templateKey === 'translation' ? (
                       <p className="text-muted-foreground flex items-center gap-1.5 px-3 pt-2 text-xs italic">
                         <Languages className="size-3.5 shrink-0 text-amber-500" />
                         Traduction assistée (MedDRA) — à relire. N'altère pas l'original ; propre à
                         ce dossier.
                       </p>
                     ) : null}
-                    {docEditing ? (
-                      <div className="bg-card sticky top-[5.25rem] z-10 rounded-t-lg">
-                        <FormatToolbar editor={liveEditor} />
+                    {activeGenDoc.templateKey === 'upgrade' ? (
+                      <p
+                        className={cn(
+                          'flex items-center gap-1.5 px-3 pt-2 text-xs italic',
+                          upgradeMissingCount > 0 ? 'text-amber-700' : 'text-emerald-700',
+                        )}
+                      >
+                        <Wand2 className="size-3.5 shrink-0" />
+                        {upgradeMissingCount > 0
+                          ? `Mise en conformité assistée — à relire : ${upgradeMissingCount} rubrique(s) marquée(s) [NON FOURNI DANS LE DOCUMENT SOURCE] à compléter.`
+                          : 'Mise en conformité assistée — à relire. Toutes les rubriques portent une information issue du document source.'}
+                      </p>
+                    ) : null}
+                    {activeGenDoc.templateKey === 'fill' ? (
+                      activeFormDef ? (
+                        <p
+                          className={cn(
+                            'flex items-center gap-1.5 px-3 pt-2 text-xs italic',
+                            formEmptyCount > 0 ? 'text-amber-700' : 'text-emerald-700',
+                          )}
+                        >
+                          <ClipboardList className="size-3.5 shrink-0" />
+                          {formEmptyCount > 0
+                            ? `Formulaire officiel — ${formEmptyCount} champ(s) à compléter. Regafy vérifie la conformité à chaque enregistrement.`
+                            : 'Formulaire officiel — tous les champs sont remplis. Regafy vérifie la conformité à chaque enregistrement.'}
+                        </p>
+                      ) : (
+                        <p
+                          className={cn(
+                            'flex items-center gap-1.5 px-3 pt-2 text-xs italic',
+                            fillMissingCount > 0 ? 'text-amber-700' : 'text-emerald-700',
+                          )}
+                        >
+                          <ClipboardList className="size-3.5 shrink-0" />
+                          {fillMissingCount > 0
+                            ? `Template officiel — ${fillMissingCount} zone(s) [À COMPLÉTER] restante(s). Les titres du template sont verrouillés ; Regafy vérifie la conformité à chaque enregistrement.`
+                            : 'Template officiel — toutes les zones sont complétées. Regafy vérifie la conformité à chaque enregistrement.'}
+                        </p>
+                      )
+                    ) : null}
+                    {/* Carte mockup « non conforme au template en vigueur ! » sur la traduction
+                        affichée — « Upgrader ! » ouvre le template officiel à remplir. */}
+                    {visibleUpgradeCard && activeGenDoc.templateKey === 'translation' ? (
+                      <NonConformCard
+                        docType={fillDocType!}
+                        onUpgrade={() => selected && void handleFillTemplate(selected)}
+                        onDismiss={hideUpgradeCard}
+                      />
+                    ) : null}
+                    {activeConformNeedsTranslation ? (
+                      <div className="mx-3 mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
+                        <span className="flex items-center gap-1.5 text-xs font-medium text-amber-800">
+                          <Languages className="size-4 shrink-0" />
+                          Document conforme en {activeUpgradeLang?.toUpperCase()} — langue
+                          officielle du pays : {targetLangLabel}.
+                        </span>
+                        <Button
+                          size="sm"
+                          className="h-7 gap-1 bg-amber-500 text-white hover:bg-amber-600"
+                          disabled={translating === activeGenDoc.id}
+                          onClick={() => void handleTranslateGenerated(activeGenDoc)}
+                        >
+                          <Languages className="size-3.5" />
+                          {translating === activeGenDoc.id
+                            ? 'Traduction…'
+                            : `Traduire en ${targetLangLabel}`}
+                        </Button>
                       </div>
                     ) : null}
-                    <RichTextEditor
-                      docId={selectedGenDoc.id}
-                      initialContent={selectedGenDoc.content as JSONContent}
-                      editable={docEditing}
-                      onChange={(json) => handleEditorChange(selectedGenDoc.id, json)}
-                      onReady={handleEditorReady}
-                      header={
-                        selectedGenDoc.templateKey === 'translation'
-                          ? null
-                          : (branding?.headerImage ?? null)
-                      }
-                      footer={
-                        selectedGenDoc.templateKey === 'translation'
-                          ? null
-                          : (branding?.footerImage ?? null)
-                      }
-                    />
+                    {upgrading === activeGenDoc.id && streamText !== null ? (
+                      <div className="px-3 pt-2">
+                        <TranslationProgress
+                          text={streamText}
+                          label="Mise en conformité en cours — le document s'écrit au fil de l'eau…"
+                        />
+                      </div>
+                    ) : null}
+                    {translating === activeGenDoc.id && streamText !== null ? (
+                      <div className="px-3 pt-2">
+                        <TranslationProgress text={streamText} />
+                      </div>
+                    ) : null}
+                    {activeFormDef ? (
+                      // Formulaire officiel (RCP/Notice/Étiquetage) — branding CEO (feuille A4
+                      // navy, exports DOCX/PDF conformes). Remplace l'éditeur TipTap.
+                      <TemplateFillForm
+                        key={activeGenDoc.id}
+                        def={activeFormDef}
+                        genDoc={activeGenDoc}
+                        product={product}
+                        countryName={countryLabel(activeDossier.country)}
+                        orgId={orgId}
+                      />
+                    ) : (
+                      <>
+                        {docEditing ? (
+                          <div className="bg-card sticky top-12 z-10 rounded-t-lg">
+                            <FormatToolbar editor={liveEditor} />
+                          </div>
+                        ) : null}
+                        <RichTextEditor
+                          docId={activeGenDoc.id}
+                          initialContent={activeGenDoc.content as JSONContent}
+                          editable={docEditing}
+                          onChange={(json) => handleEditorChange(activeGenDoc.id, json)}
+                          onReady={handleEditorReady}
+                          header={
+                            activeGenDoc.templateKey === 'translation' ||
+                            activeGenDoc.templateKey === 'upgrade'
+                              ? null
+                              : (branding?.headerImage ?? null)
+                          }
+                          footer={
+                            activeGenDoc.templateKey === 'translation' ||
+                            activeGenDoc.templateKey === 'upgrade'
+                              ? null
+                              : (branding?.footerImage ?? null)
+                          }
+                        />
+                      </>
+                    )}
                   </section>
                 ) : active && active.kind !== 'letter' ? (
-                  <div className="space-y-2">
+                  // `relative` : ancre de la carte de non-conformité (mockup CEO) sur l'aperçu.
+                  <div className="relative space-y-2">
                     {activeLangFinding ? (
                       <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
                         <span className="flex items-center gap-1.5 text-xs font-medium text-amber-800">
@@ -1295,6 +1097,24 @@ export function DossierWorkspacePage() {
                             : `Traduire en ${targetLangLabel}`}
                         </Button>
                       </div>
+                    ) : null}
+                    {/* Carte mockup « non conforme au template en vigueur ! » flottante au
+                        centre de l'aperçu — « Upgrader ! » ouvre le template officiel à remplir. */}
+                    {visibleUpgradeCard ? (
+                      <NonConformCard
+                        docType={fillDocType!}
+                        onUpgrade={() => selected && void handleFillTemplate(selected)}
+                        onDismiss={hideUpgradeCard}
+                      />
+                    ) : null}
+                    {translating === active.id && streamText !== null ? (
+                      <TranslationProgress text={streamText} />
+                    ) : null}
+                    {upgrading === active.id && streamText !== null ? (
+                      <TranslationProgress
+                        text={streamText}
+                        label="Mise en conformité en cours — le document s'écrit au fil de l'eau…"
+                      />
                     ) : null}
                     <InlineDocPreview
                       key={active.key}
@@ -1315,6 +1135,22 @@ export function DossierWorkspacePage() {
                       <Sparkles className="size-4" /> Générer
                     </Button>
                   </div>
+                ) : canFillSelected ? (
+                  <div className="flex min-h-[24rem] flex-col items-center justify-center rounded-lg border border-dashed p-4 text-center">
+                    <ClipboardList className="text-primary mb-2 size-8" />
+                    <p className="text-sm font-medium">Template officiel disponible</p>
+                    <p className="text-muted-foreground mt-1 max-w-sm text-xs">
+                      Remplissez le template en vigueur (structure verrouillée, conformité vérifiée
+                      par Regafy à chaque enregistrement), ou téléversez un document.
+                    </p>
+                    <Button
+                      className="mt-3"
+                      size="sm"
+                      onClick={() => selected && void handleFillTemplate(selected)}
+                    >
+                      <ClipboardList className="size-4" /> Remplir le template
+                    </Button>
+                  </div>
                 ) : (
                   <div className="text-muted-foreground flex min-h-[24rem] flex-col items-center justify-center rounded-lg border border-dashed text-sm">
                     <FileText className="mb-2 size-8" />
@@ -1330,116 +1166,26 @@ export function DossierWorkspacePage() {
           )}
         </div>
 
-        {/* Panneau droit : complétude & remarques — figé (sticky) */}
-        {rightCollapsed ? (
-          <div className="bg-card sticky top-12 hidden max-h-[calc(100svh-9rem)] w-14 shrink-0 flex-col items-center gap-3 overflow-auto rounded-lg border py-3 lg:flex">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Afficher la complétude"
-              onClick={() => setRightCollapsed(false)}
-            >
-              <PanelRightOpen className="size-4" />
-            </Button>
-            <Donut value={pct} size={44} />
-            <div className="flex items-center gap-1 text-xs text-emerald-600">
-              <CheckCircle2 className="size-4" /> {okCount}
-            </div>
-            <div className="flex items-center gap-1 text-xs text-amber-600">
-              <span className="text-sm leading-none">⚠</span> {warnCount}
-            </div>
-            <div className="flex items-center gap-1 text-xs text-red-600">
-              <XCircle className="size-4" /> {errCount}
-            </div>
-          </div>
-        ) : (
-          <aside className="sticky top-12 hidden max-h-[calc(100svh-9rem)] w-72 shrink-0 flex-col gap-3 overflow-auto pb-2 lg:flex">
-            <div className="flex flex-col items-center rounded-lg border p-4">
-              <div className="flex w-full items-center justify-between">
-                <span className="text-sm font-medium">État d'avancement</span>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Replier"
-                  onClick={() => setRightCollapsed(true)}
-                >
-                  <PanelRightClose className="size-4" />
-                </Button>
-              </div>
-              <Donut value={pct} size={96} />
-              <p className="text-muted-foreground mt-1 text-xs">Conformité UEMOA en direct</p>
-            </div>
-            <div className="rounded-lg border p-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium">Remarques pour la session</h3>
-                <span className="text-muted-foreground text-xs">{allFindings.length}</span>
-              </div>
-              {aiBusy ? (
-                <p className="text-muted-foreground mt-1 flex items-center justify-center gap-1.5 text-xs italic">
-                  <Sparkles className="size-3 animate-pulse" /> Analyse en cours…
-                </p>
-              ) : null}
-              {allFindings.length === 0 ? (
-                <p className="text-muted-foreground mt-3 text-center text-xs italic">
-                  Aucun constat. ✓
-                </p>
-              ) : (
-                <ul className="mt-2 space-y-1.5">
-                  {allFindings.map((f) => (
-                    <li key={f.id}>
-                      <button
-                        type="button"
-                        disabled={!f.nodeNumber}
-                        onClick={() => {
-                          const n = flatNodes.find((x) => x.number === f.nodeNumber)
-                          if (n) handleSelectNode(n)
-                        }}
-                        className="hover:bg-accent flex w-full items-start gap-2 rounded p-1 text-left text-xs disabled:cursor-default disabled:hover:bg-transparent"
-                      >
-                        <span
-                          className={cn(
-                            'mt-1 size-2 shrink-0 rounded-full',
-                            f.severity === 'error'
-                              ? 'bg-red-500'
-                              : f.severity === 'warning'
-                                ? 'bg-amber-500'
-                                : 'bg-sky-500',
-                          )}
-                        />
-                        <span className="min-w-0">
-                          {f.nodeNumber ? (
-                            <span className="font-medium">{f.nodeNumber} </span>
-                          ) : null}
-                          {f.message}
-                        </span>
-                      </button>
-                      {f.translate && f.pieceId ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-1 ml-4 h-6 gap-1 border-amber-400 text-amber-700 hover:bg-amber-50"
-                          disabled={translating === f.pieceId}
-                          onClick={() => void handleTranslate(f)}
-                        >
-                          <Languages className="size-3" />
-                          {translating === f.pieceId
-                            ? 'Traduction…'
-                            : `Traduire en ${targetLangLabel}`}
-                        </Button>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </aside>
-        )}
+        <CompletionPanel
+          collapsed={rightCollapsed}
+          setCollapsed={setRightCollapsed}
+          pct={pct}
+          okCount={okCount}
+          warnCount={warnCount}
+          errCount={errCount}
+          allFindings={allFindings}
+          aiBusy={aiBusy}
+          translating={translating}
+          targetLangLabel={targetLangLabel}
+          flatNodes={flatNodes}
+          onSelectNode={handleSelectNode}
+          onTranslate={(f) => void handleTranslate(f)}
+          onFillTemplate={(f) => {
+            const n = flatNodes.find((x) => x.number === f.nodeNumber)
+            if (n) void handleFillTemplate(n)
+          }}
+        />
       </div>
-
-      {/* Pied de page de l'app — marge de bas (rien n'est collé au pied de page). */}
-      <footer className="text-muted-foreground border-t pt-6 pb-10 text-center text-xs">
-        Pharnos — Montage CTD Module&nbsp;1
-      </footer>
 
       {previewPdf ? (
         <PdfPreviewDialog
@@ -1477,323 +1223,4 @@ export function DossierWorkspacePage() {
       ) : null}
     </div>
   )
-}
-
-function RegafyGateDialog({
-  findings,
-  onClose,
-  onCorrect,
-  onCompile,
-}: {
-  findings: RegafyFinding[]
-  onClose: () => void
-  onCorrect: () => void
-  onCompile: () => void
-}) {
-  const errors = findings.filter((f) => f.severity === 'error').length
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Remarques avant compilation"
-    >
-      <div className="bg-card flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border shadow-lg">
-        <div className="flex items-center gap-2 border-b p-4">
-          <AlertTriangle className="size-5 text-amber-500" />
-          <h2 className="font-semibold">Remarques avant compilation</h2>
-        </div>
-        <div className="min-h-0 flex-1 overflow-auto p-4">
-          <p className="text-muted-foreground mb-3 text-sm">
-            {findings.length} observation(s)
-            {errors > 0 ? ` dont ${errors} bloquante(s)` : ''}. Corriger d'abord, ou compiler malgré
-            tout ?
-          </p>
-          <ul className="space-y-1.5">
-            {findings.map((f) => (
-              <li key={f.id} className="flex items-start gap-2 text-sm">
-                <span
-                  className={cn(
-                    'mt-1.5 size-2 shrink-0 rounded-full',
-                    f.severity === 'error'
-                      ? 'bg-red-500'
-                      : f.severity === 'warning'
-                        ? 'bg-amber-500'
-                        : 'bg-sky-500',
-                  )}
-                />
-                <span>
-                  {f.nodeNumber ? <span className="font-medium">{f.nodeNumber} </span> : null}
-                  {f.message}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="flex justify-end gap-2 border-t p-3">
-          <Button variant="ghost" onClick={onClose}>
-            Annuler
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!findings.some((f) => f.nodeNumber)}
-            onClick={onCorrect}
-          >
-            Corriger
-          </Button>
-          <Button onClick={onCompile}>Compiler quand même</Button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function InlineDocPreview({
-  kind,
-  docId,
-  filePath,
-  fileName,
-}: {
-  kind: 'attachment' | 'doc'
-  docId: string
-  filePath: string | null
-  fileName: string
-}) {
-  const [blob, setBlob] = useState<Blob | null>(null)
-  const [url, setUrl] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    // Composant remonté (key=docId) à chaque changement → état initial déjà correct.
-    let alive = true
-    let created: string | null = null
-    void (async () => {
-      let b =
-        (kind === 'attachment' ? await getAttachmentBlob(docId) : await getDocumentBlob(docId)) ??
-        null
-      if (!b && filePath) {
-        const remote =
-          kind === 'attachment'
-            ? await getAttachmentDownloadUrl(filePath)
-            : await getDocumentDownloadUrl(filePath)
-        if (remote) {
-          try {
-            const res = await fetch(remote)
-            if (res.ok) {
-              b = await res.blob()
-              // Offline-first : épingle le fichier en local pour les aperçus hors-ligne suivants.
-              void (kind === 'attachment'
-                ? cacheAttachmentBlob(docId, b)
-                : cacheDocumentBlob(docId, b))
-            }
-          } catch {
-            /* hors-ligne */
-          }
-        }
-      }
-      if (!alive) return
-      if (b) {
-        created = URL.createObjectURL(b)
-        setBlob(b)
-        setUrl(created)
-      }
-      setLoading(false)
-    })()
-    return () => {
-      alive = false
-      if (created) URL.revokeObjectURL(created)
-    }
-  }, [kind, docId, filePath])
-
-  const isPdf = blob?.type === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf')
-  const isImage =
-    (blob?.type ?? '').startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(fileName)
-
-  return (
-    <div className="overflow-hidden rounded-lg border">
-      <div className="bg-card flex items-center justify-between gap-2 border-b px-3 py-1.5">
-        <span className="truncate text-xs font-medium">{fileName}</span>
-        {url ? (
-          <a
-            href={url}
-            download={fileName}
-            aria-label="Télécharger"
-            className={buttonVariants({ variant: 'ghost', size: 'icon-sm' })}
-          >
-            <Download className="size-4" />
-          </a>
-        ) : null}
-      </div>
-      {loading ? (
-        <div className="text-muted-foreground flex min-h-[20rem] items-center justify-center text-sm">
-          Chargement…
-        </div>
-      ) : blob && isPdf ? (
-        <PdfViewer blob={blob} flow />
-      ) : blob && isImage && url ? (
-        <div className="bg-muted p-3">
-          <img
-            src={url}
-            alt={fileName}
-            className="mx-auto max-w-full rounded border bg-white shadow"
-          />
-        </div>
-      ) : url ? (
-        <div className="text-muted-foreground flex min-h-[20rem] flex-col items-center justify-center gap-2 text-sm">
-          <FileText className="size-8" />
-          Aperçu non disponible pour ce format — téléchargez le fichier.
-        </div>
-      ) : (
-        <div className="text-muted-foreground flex min-h-[20rem] items-center justify-center text-sm">
-          Aperçu indisponible hors-ligne.
-        </div>
-      )}
-    </div>
-  )
-}
-
-function FormatToolbar({ editor }: { editor: Editor | null }) {
-  if (!editor) return null
-  return (
-    <div className="bg-card flex items-center gap-1 border-b p-1.5">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Gras"
-        onClick={() => editor.chain().focus().toggleBold().run()}
-      >
-        <Bold className="size-4" />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Italique"
-        onClick={() => editor.chain().focus().toggleItalic().run()}
-      >
-        <Italic className="size-4" />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Titre"
-        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-      >
-        <Heading2 className="size-4" />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Liste à puces"
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
-      >
-        <List className="size-4" />
-      </Button>
-    </div>
-  )
-}
-
-function ToolbarBtn({
-  label,
-  disabled,
-  active,
-  hint,
-  onClick,
-}: {
-  label: string
-  disabled?: boolean
-  active?: boolean
-  hint?: string
-  onClick?: () => void
-}) {
-  return (
-    <Button
-      type="button"
-      variant={active ? 'secondary' : 'ghost'}
-      size="sm"
-      className="rounded-full"
-      disabled={disabled}
-      onClick={onClick}
-      title={disabled ? (hint ?? 'Bientôt disponible') : label}
-    >
-      {label}
-    </Button>
-  )
-}
-
-function Donut({ value, size = 96 }: { value: number; size?: number }) {
-  const r = 28
-  const c = 2 * Math.PI * r
-  const offset = c - (Math.min(100, Math.max(0, value)) / 100) * c
-  return (
-    <svg
-      viewBox="0 0 64 64"
-      style={{ width: size, height: size }}
-      role="img"
-      aria-label={`${value}%`}
-    >
-      <circle
-        cx="32"
-        cy="32"
-        r={r}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="6"
-        className="text-muted"
-        opacity="0.25"
-      />
-      <circle
-        cx="32"
-        cy="32"
-        r={r}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="6"
-        strokeLinecap="round"
-        strokeDasharray={c}
-        strokeDashoffset={offset}
-        transform="rotate(-90 32 32)"
-        className="text-primary"
-      />
-      <text x="32" y="36" textAnchor="middle" className="fill-foreground text-[14px] font-semibold">
-        {value}%
-      </text>
-    </svg>
-  )
-}
-
-function slugify(s: string): string {
-  return (
-    s
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'document'
-  )
-}
-
-async function downloadDoc(d: DocumentRecord) {
-  const blob = await getDocumentBlob(d.id)
-  if (blob) {
-    triggerDownload(URL.createObjectURL(blob), d.fileName, true)
-    return
-  }
-  if (d.filePath) {
-    const url = await getDocumentDownloadUrl(d.filePath)
-    if (url) triggerDownload(url, d.fileName, false)
-  }
-}
-
-function triggerDownload(url: string, name: string, revoke: boolean) {
-  const a = document.createElement('a')
-  a.href = url
-  a.download = name
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  if (revoke) URL.revokeObjectURL(url)
 }

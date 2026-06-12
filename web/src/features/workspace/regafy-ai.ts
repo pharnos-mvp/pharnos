@@ -1,4 +1,5 @@
 import type { JSONContent } from '@tiptap/core'
+import { toast } from 'sonner'
 
 import type { GeneratedDocRecord } from '@/lib/db'
 import { getSupabase } from '@/lib/supabase'
@@ -41,13 +42,28 @@ interface EdgeFinding {
   message?: string
   translate?: boolean
   language?: string
+  upgrade?: boolean
+  missing?: string[]
 }
+
+/**
+ * Types de documents couverts par la vérification de conformité au template (et le bouton
+ * Upgrader) — miroir client de `specForDocType` (Edge, _shared/conformity-specs.ts).
+ */
+export const UPGRADE_DOC_TYPES = new Set(['cover', 'pght', 'rcp', 'notice', 'labeling', 'artwork'])
 
 async function invokeRegafy(body: Record<string, unknown>): Promise<RegafyFinding[]> {
   const supabase = await getSupabase()
   if (!supabase) throw new Error('Connexion requise pour l’analyse IA.')
   const { data, error } = await supabase.functions.invoke('regafy-ai', { body })
   if (error) throw new Error(error.message || 'Échec de l’analyse IA.')
+  if (data?.degraded === true) {
+    // L'Edge n'a pas pu analyser les lettres : le dire explicitement — un silence ici serait
+    // un faux négatif (« aucun constat » lu comme « lettres conformes »).
+    toast.warning('Analyse Regafy des lettres indisponible', {
+      description: 'Réessayez plus tard — les constats affichés peuvent être incomplets.',
+    })
+  }
   return ((data?.findings ?? []) as EdgeFinding[])
     .filter((f) => (f.message ?? '').trim().length > 0)
     .map((f, i) => ({
@@ -60,6 +76,8 @@ async function invokeRegafy(body: Record<string, unknown>): Promise<RegafyFindin
       pieceId: f.pieceId,
       translate: f.translate,
       language: f.language,
+      upgrade: f.upgrade,
+      missing: f.missing,
     }))
 }
 
@@ -71,6 +89,7 @@ export async function runRegafyValidity(
   targetLang: string,
   productName: string,
   country: string,
+  countryCode?: string,
 ): Promise<RegafyFinding[]> {
   if (pieces.length === 0) return []
   return invokeRegafy({
@@ -79,9 +98,28 @@ export async function runRegafyValidity(
     targetLang,
     productName,
     country,
+    countryCode,
     pieces,
     letters: [],
   })
+}
+
+/**
+ * Conformité au template en vigueur d'un lot de TEXTES (traductions de pièces) — le constat
+ * porte l'id du document généré dans `pieceId` (clé du merge/cache côté client).
+ */
+export async function runRegafyConformityTexts(
+  texts: Array<{
+    id: string
+    nodeNumber: string
+    nodeLabel: string
+    docType: string
+    text: string
+  }>,
+  countryCode?: string,
+): Promise<RegafyFinding[]> {
+  if (texts.length === 0) return []
+  return invokeRegafy({ conformityTexts: texts, countryCode, letters: [] })
 }
 
 /** Conformité des lettres générées (Cover/PGHT…). */

@@ -1,4 +1,4 @@
-import { Suspense, useState, type ReactNode } from 'react'
+import { Suspense, useEffect, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
@@ -7,8 +7,6 @@ import {
   LayoutDashboard,
   PanelLeftClose,
   PanelLeftOpen,
-  Wifi,
-  WifiOff,
 } from 'lucide-react'
 
 import { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -41,6 +39,16 @@ export function AppShell() {
   useAuditSync(orgId)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_KEY) === '1')
   const expanded = !collapsed
+
+  // Page de montage d'un dossier : la barre latérale passe en RAIL d'icônes (mockup CEO —
+  // place maximale pour la feuille). Réouverture manuelle possible ; en quittant le montage,
+  // retour à la préférence enregistrée.
+  const inMontage = /^\/workspace\/[^/]+$/.test(location.pathname)
+  useEffect(() => {
+    // Synchronisation pilotée par la route — exception légitime à set-state-in-effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCollapsed(inMontage ? true : localStorage.getItem(SIDEBAR_KEY) === '1')
+  }, [inMontage])
   // Contenu injecté par la page courante dans le bandeau (titre du dossier, façon Google Docs).
   const [headerSlot, setHeaderSlot] = useState<ReactNode>(null)
 
@@ -108,7 +116,7 @@ export function AppShell() {
           })}
         </nav>
 
-        <div className="mt-auto flex flex-col gap-1">
+        <div className="mt-auto flex flex-col gap-1.5">
           {expanded ? (
             <div className="text-muted-foreground hidden px-2 py-1 text-xs md:block">
               {env.isSupabaseConfigured
@@ -116,6 +124,48 @@ export function AppShell() {
                 : t({ fr: 'Backend non configuré', en: 'Backend not configured' })}
             </div>
           ) : null}
+          {/* Profil + statut réseau en BAS de la barre (mockup CEO) : pastille de statut sur
+              l'avatar en rail ; nom + organisation quand la barre est étendue. */}
+          <NavLink
+            to="/compte"
+            title={`${displayName}${orgName ? ` — ${orgName}` : ''} · ${online ? t({ fr: 'En ligne', en: 'Online' }) : t({ fr: 'Hors ligne', en: 'Offline' })}`}
+            aria-label={t({ fr: 'Mon compte', en: 'My account' })}
+            className="hover:bg-accent flex items-center justify-center gap-2 rounded-md p-1 md:justify-start"
+          >
+            <span className="relative shrink-0">
+              <span className="bg-primary text-primary-foreground flex size-8 items-center justify-center overflow-hidden rounded-full text-xs font-semibold">
+                {photo ? (
+                  <img src={photo} alt="" className="size-full object-cover" />
+                ) : (
+                  initials(displayName)
+                )}
+              </span>
+              <span
+                role="status"
+                aria-label={
+                  online
+                    ? t({ fr: 'En ligne', en: 'Online' })
+                    : t({ fr: 'Hors ligne', en: 'Offline' })
+                }
+                className={cn(
+                  'border-sidebar absolute -right-0.5 -bottom-0.5 size-3 rounded-full border-2',
+                  online ? 'bg-emerald-500' : 'bg-muted-foreground',
+                )}
+              />
+            </span>
+            {expanded ? (
+              <span className="hidden min-w-0 leading-tight md:block">
+                <span className="block max-w-[150px] truncate text-sm font-medium">
+                  {displayName}
+                </span>
+                {orgName ? (
+                  <span className="text-muted-foreground block max-w-[150px] truncate text-xs">
+                    {orgName}
+                  </span>
+                ) : null}
+              </span>
+            ) : null}
+          </NavLink>
           <Button
             variant="ghost"
             size="icon"
@@ -135,41 +185,10 @@ export function AppShell() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
+        {/* Le bandeau ne porte que le slot de la page (titre + actions — mockup CEO) ; le
+            profil et le statut réseau vivent en bas de la barre latérale. */}
         <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
-          {headerSlot ? <div className="mr-auto min-w-0 flex-1">{headerSlot}</div> : null}
-          <span
-            role="status"
-            aria-live="polite"
-            className={cn(
-              'ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs',
-              online ? 'text-foreground' : 'text-muted-foreground',
-            )}
-          >
-            {online ? <Wifi className="size-3.5" /> : <WifiOff className="size-3.5" />}
-            {online ? t({ fr: 'En ligne', en: 'Online' }) : t({ fr: 'Hors ligne', en: 'Offline' })}
-          </span>
-
-          <NavLink
-            to="/compte"
-            title={t({ fr: 'Mon compte', en: 'My account' })}
-            className="hover:bg-accent flex items-center gap-2 rounded-md p-1"
-          >
-            <div className="hidden text-right leading-tight sm:block">
-              <div className="max-w-[160px] truncate text-sm font-medium">{displayName}</div>
-              {orgName ? (
-                <div className="text-muted-foreground max-w-[160px] truncate text-xs">
-                  {orgName}
-                </div>
-              ) : null}
-            </div>
-            <div className="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-semibold">
-              {photo ? (
-                <img src={photo} alt="" className="size-full object-cover" />
-              ) : (
-                initials(displayName)
-              )}
-            </div>
-          </NavLink>
+          {headerSlot ? <div className="min-w-0 flex-1">{headerSlot}</div> : null}
         </header>
 
         <main className="min-w-0 flex-1 overflow-auto p-4 md:p-6">

@@ -31,3 +31,25 @@ test('fonctionne hors-ligne après le premier chargement (précache PWA)', async
 
   await context.setOffline(false)
 })
+
+/**
+ * Le worker pdf.js (~1,2 Mo) est PRÉCACHÉ par le SW : l'aperçu PDF hors-ligne ne dépend
+ * d'aucun warm-up (le runtime cache de T9 s'est avéré trop fragile en recette — rollback).
+ */
+test('worker pdf.js : présent dans le précache du service worker', async ({ page }) => {
+  await page.goto('/catalogue')
+  await page.waitForFunction(async () => {
+    if (!('serviceWorker' in navigator)) return false
+    const reg = await navigator.serviceWorker.ready
+    return Boolean(reg.active)
+  })
+
+  const precachedWorker = await page.evaluate(async () => {
+    const names = await caches.keys()
+    const precacheName = names.find((n) => n.includes('precache'))
+    if (!precacheName) return []
+    const keys = await (await caches.open(precacheName)).keys()
+    return keys.map((k) => k.url).filter((u) => u.includes('pdf.worker') && u.endsWith('.mjs'))
+  })
+  expect(precachedWorker.length).toBeGreaterThan(0)
+})
