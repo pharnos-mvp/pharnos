@@ -25,10 +25,11 @@ arborescence compacte, pages de GARDE épurées [Autogénéré]/[Téléverser]).
 [PLAN-V2.md](PLAN-V2.md)._
 
 _**Reprise (nouvelle session)** : le cap est dans **[ROADMAP-MVP.md](ROADMAP-MVP.md)** (jalons H→M jusqu'au
-GO-LIVE). **Jalon H (Correspondance) : CODE COMPLET en branche `feat/correspondance`** (plan
-[PLAN-H-CORRESPONDANCE.md](PLAN-H-CORRESPONDANCE.md), ADR-0003). Prochaine action : **CI verte sur la PR,
-puis feu vert CEO pour `supabase db push` (migration 0017) + `supabase functions deploy share --no-verify-jwt`
-+ secrets Edge (`RESEND_API_KEY`, `EMAIL_FROM`) + merge → recette navigateur en prod**._
+GO-LIVE). **Jalon H (Correspondance) : ✅ LIVRÉ EN PROD le 2026-06-12** (#124/#125, migration 0017 + Edge
+`share` déployées, secrets `RESEND_API_KEY`/`EMAIL_FROM` posés, recette navigateur réel complète — plan
+[PLAN-H-CORRESPONDANCE.md](PLAN-H-CORRESPONDANCE.md), ADR-0003). Prochaine action : **jalon I (backups +
+restore drill)** — préalables CEO : rétablir le quota GitHub Actions (Billing, CI/deploy auto HS — deploy
+wrangler local en attendant) + poser le secret repo `SUPABASE_DB_URL`._
 
 ---
 
