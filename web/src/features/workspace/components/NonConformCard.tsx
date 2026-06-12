@@ -24,6 +24,7 @@ export function NonConformCard({
   finding,
   docType,
   translating,
+  showReplace = true,
   onFill,
   onTranslate,
   onReplace,
@@ -32,6 +33,8 @@ export function NonConformCard({
   finding: RegafyFinding
   docType: string
   translating?: boolean
+  /** Masqué pour un document généré (traduction/version conforme) — rien à téléverser. */
+  showReplace?: boolean
   onFill: () => void
   onTranslate: () => void
   onReplace: () => void
@@ -47,7 +50,7 @@ export function NonConformCard({
             aria-label="Masquer le signalement"
             title="Masquer (le constat reste dans le panneau Remarques)"
             onClick={onDismiss}
-            className="text-muted-foreground hover:bg-accent hover:text-foreground absolute top-2 right-2 rounded-full p-1"
+            className="absolute top-2 right-2 rounded-full p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
           >
             <X className="size-3.5" />
           </button>
@@ -81,15 +84,17 @@ export function NonConformCard({
                 {translating ? 'Traduction…' : 'Traduire'}
               </Button>
             ) : null}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onReplace}
-              className="h-8 gap-1.5 rounded-full px-4"
-            >
-              <RefreshCw className="size-3.5" />
-              Remplacer
-            </Button>
+            {showReplace ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onReplace}
+                className="h-8 gap-1.5 rounded-full border-neutral-300 bg-white px-4 text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900"
+              >
+                <RefreshCw className="size-3.5" />
+                Remplacer
+              </Button>
+            ) : null}
           </div>
         </div>
       </div>

@@ -139,10 +139,11 @@ export function useRegafyCopilot({
   // pure : pas d'effet, les entrées orphelines sont simplement ignorées).
   const aiFindings = useMemo(() => {
     const currentIds = new Set(aiPieces.map((p) => p.pieceId))
+    for (const g of genDocs ?? []) if (g.deletedAt === null) currentIds.add(g.id)
     return Object.entries(analysisByPiece)
       .filter(([id]) => currentIds.has(id))
       .flatMap(([, fs]) => fs)
-  }, [analysisByPiece, aiPieces])
+  }, [analysisByPiece, aiPieces, genDocs])
   const aiBusy = analyzing !== null
 
   /**
@@ -227,6 +228,62 @@ export function useRegafyCopilot({
       }
     },
     [aiPieces, dossier, product, analyzing, consolidate],
+  )
+
+  /**
+   * Analyse À LA DEMANDE d'un DOCUMENT GÉNÉRÉ (traduction / version conforme) — politique :
+   * conformité au template en vigueur (texte). Résultat consigné comme pour une pièce
+   * (remarque positive si aucun constat), cache (genId, updatedAt).
+   */
+  const analyzeGenerated = useCallback(
+    async (genDoc: GeneratedDocRecord) => {
+      if (!dossier || !env.isSupabaseConfigured) return
+      if (analyzing) return
+      setAnalyzing(genDoc.id)
+      try {
+        let fs = await getCachedAnalysis(genDoc.id, genDoc.updatedAt)
+        if (!fs) {
+          fs = await runRegafyConformityTexts(
+            [
+              {
+                id: genDoc.id,
+                nodeNumber: genDoc.nodeNumber,
+                nodeLabel: flatNodes.find((n) => n.number === genDoc.nodeNumber)?.label ?? '',
+                docType:
+                  docTypeForNode(dossier.format, genDoc.nodeNumber) ??
+                  (genDoc.nodeNumber.startsWith('1.3') ? 'labeling' : 'document'),
+                text: tiptapText((genDoc.content ?? {}) as Parameters<typeof tiptapText>[0]).trim(),
+              },
+            ],
+            dossier.country,
+          )
+          fs = fs.filter((f) => !f.pieceId || f.pieceId === genDoc.id)
+          await cacheAnalysis(genDoc.id, genDoc.updatedAt, fs)
+        }
+        const title = genDoc.title || 'Document'
+        const consolidated: RegafyFinding[] =
+          fs.length === 0
+            ? [
+                {
+                  id: `analysis:${genDoc.id}`,
+                  nodeNumber: genDoc.nodeNumber,
+                  nodeLabel: flatNodes.find((n) => n.number === genDoc.nodeNumber)?.label ?? '',
+                  severity: 'info',
+                  ok: true,
+                  source: 'ai',
+                  pieceId: genDoc.id,
+                  message: `${title} : conforme au template en vigueur.`,
+                },
+              ]
+            : fs
+        setAnalysisByPiece((prev) => ({ ...prev, [genDoc.id]: consolidated }))
+      } catch (e) {
+        toast.error(`Analyse impossible : ${(e as Error).message}`)
+      } finally {
+        setAnalyzing(null)
+      }
+    },
+    [dossier, analyzing, flatNodes],
   )
 
   /**
@@ -592,6 +649,7 @@ export function useRegafyCopilot({
     aiBusy,
     analyzing,
     analyzeActive,
+    analyzeGenerated,
     clearPieceAnalysis,
     auditProgress,
     runGlobalAudit,
