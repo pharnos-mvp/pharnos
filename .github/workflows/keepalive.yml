@@ -1,0 +1,27 @@
+name: Keep-alive Supabase
+
+# Le palier gratuit Supabase met le projet EN PAUSE après ~7 jours sans activité API.
+# Un ping REST authentifié (anon key) tous les 3 jours compte comme activité et coûte
+# quelques secondes de quota Actions. Déclenchable à la main au besoin.
+on:
+  schedule:
+    - cron: '17 6 */3 * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping REST (activité API → pas de mise en pause du projet)
+        run: |
+          if [ -z "${{ secrets.VITE_SUPABASE_URL }}" ]; then
+            echo "Secret VITE_SUPABASE_URL absent — rien à pinger." && exit 0
+          fi
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: ${{ secrets.VITE_SUPABASE_ANON_KEY }}" \
+            "${{ secrets.VITE_SUPABASE_URL }}/rest/v1/")
+          echo "rest_status=$code"
+          # 200 attendu ; tout 2xx-4xx prouve que le projet répond (pas en pause).
+          case "$code" in 2*|3*|4*) exit 0 ;; *) exit 1 ;; esac

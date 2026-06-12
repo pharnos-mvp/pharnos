@@ -2,11 +2,19 @@ name: CI
 
 on:
   push:
-    branches: [main, v2]
+    branches: [main]
+    paths-ignore: ['docs/**', '**.md', 'RA-source/**']
   pull_request:
+    paths-ignore: ['docs/**', '**.md', 'RA-source/**']
 
 permissions:
   contents: read
+
+# Un push qui en remplace un autre sur la même branche annule le run précédent
+# (économie directe de minutes sur les itérations rapides).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   web:
@@ -67,6 +75,7 @@ jobs:
 
   e2e:
     name: e2e (Playwright · offline PWA)
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -84,7 +93,15 @@ jobs:
       - name: Install
         run: npm install --no-audit --no-fund
 
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
+
       - name: Install Playwright browser
+        if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
       - name: E2E (build + preview + tests)
@@ -100,6 +117,7 @@ jobs:
 
   rls:
     name: rls (pgTAP · isolation tenant)
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -117,6 +135,7 @@ jobs:
 
   lighthouse:
     name: lighthouse (perf · a11y)
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
