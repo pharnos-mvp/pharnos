@@ -141,7 +141,7 @@
 }
 .tplform-sheet {
   width: 100%;
-  max-width: 210mm;
+  max-width: 62rem; /* mockup CEO (~992 px à l'écran) — exports PDF/DOCX toujours A4 */
   min-height: 297mm;
   background: #fff;
   padding: 25.4mm;

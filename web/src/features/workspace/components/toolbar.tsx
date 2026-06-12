@@ -2,6 +2,7 @@ import type { Editor } from '@tiptap/core'
 import { Bold, Heading2, Italic, List } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 /** Barre de mise en forme TipTap (gras/italique/titre/liste) — affichée en mode Modifier. */
 export function FormatToolbar({ editor }: { editor: Editor | null }) {
@@ -48,7 +49,8 @@ export function FormatToolbar({ editor }: { editor: Editor | null }) {
   )
 }
 
-/** Bouton pilule de la barre de menus du workspace (Modifier/Signer/Télécharger…). */
+/** Bouton de la pilule d'actions SOMBRE du workspace (mockup CEO) : libellé clair sur fond
+ *  sombre, l'état actif s'inverse en pastille claire. */
 export function ToolbarBtn({
   label,
   disabled,
@@ -65,9 +67,14 @@ export function ToolbarBtn({
   return (
     <Button
       type="button"
-      variant={active ? 'secondary' : 'ghost'}
+      variant="ghost"
       size="sm"
-      className="rounded-full"
+      className={cn(
+        'rounded-full',
+        active
+          ? 'bg-background text-foreground hover:bg-background/90'
+          : 'text-background/85 hover:bg-background/15 hover:text-background',
+      )}
       disabled={disabled}
       onClick={onClick}
       title={disabled ? (hint ?? 'Bientôt disponible') : label}

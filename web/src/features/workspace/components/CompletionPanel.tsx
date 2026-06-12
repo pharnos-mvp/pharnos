@@ -48,7 +48,7 @@ export function CompletionPanel({
 }) {
   if (collapsed) {
     return (
-      <div className="bg-card sticky top-12 hidden max-h-[calc(100svh-9rem)] w-14 shrink-0 flex-col items-center gap-3 overflow-auto rounded-lg border py-3 lg:flex">
+      <div className="bg-card sticky top-2 hidden max-h-[calc(100svh-6rem)] w-14 shrink-0 flex-col items-center gap-3 overflow-auto rounded-2xl border py-3 shadow-sm lg:flex">
         <Button
           variant="ghost"
           size="icon-sm"
@@ -71,10 +71,10 @@ export function CompletionPanel({
     )
   }
   return (
-    <aside className="sticky top-12 hidden max-h-[calc(100svh-9rem)] w-72 shrink-0 flex-col gap-3 overflow-auto pb-2 lg:flex">
-      <div className="flex flex-col items-center rounded-lg border p-4">
+    <aside className="sticky top-2 hidden max-h-[calc(100svh-6rem)] w-80 shrink-0 flex-col gap-3 overflow-auto pb-2 lg:flex">
+      <div className="bg-card flex flex-col items-center rounded-2xl border p-4 shadow-sm">
         <div className="flex w-full items-center justify-between">
-          <span className="text-sm font-medium">État d'avancement</span>
+          <span className="text-sm font-medium">Tableau de complétude</span>
           <Button
             variant="ghost"
             size="icon-sm"
@@ -87,10 +87,12 @@ export function CompletionPanel({
         <Donut value={pct} size={96} />
         <p className="text-muted-foreground mt-1 text-xs">Conformité UEMOA en direct</p>
       </div>
-      <div className="rounded-lg border p-3">
+      <div className="bg-card rounded-2xl border p-3 shadow-sm">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-medium">Remarques pour la session</h3>
-          <span className="text-muted-foreground text-xs">{allFindings.length}</span>
+          <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs font-medium">
+            {allFindings.length}
+          </span>
         </div>
         {aiBusy ? (
           <p className="text-muted-foreground mt-1 flex items-center justify-center gap-1.5 text-xs italic">
