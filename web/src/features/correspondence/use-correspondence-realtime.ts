@@ -25,6 +25,13 @@ export function useCorrespondenceRealtime(orgId: string): void {
     void (async () => {
       const supabase = await getSupabase()
       if (!supabase || disposed) return
+      // postgres_changes + RLS : le serveur ne pousse les lignes QUE si le socket porte le JWT
+      // de session (sinon SUBSCRIBED « propre »… et zéro évènement). On le positionne
+      // explicitement — la resynchronisation au refresh du token est gérée par supabase-js.
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (session?.access_token) supabase.realtime.setAuth(session.access_token)
       channel = supabase
         .channel(`correspondence-messages-${orgId}`)
         .on(
@@ -54,9 +61,14 @@ export function useCorrespondenceRealtime(orgId: string): void {
             })
           },
         )
-        .subscribe((status) => {
+        .subscribe((status, err) => {
           // Rattrapage à l'établissement du canal : ce qui est arrivé pendant l'absence.
           if (status === 'SUBSCRIBED') void syncCorrespondences(orgId)
+          // Observabilité : un canal en échec est silencieux par défaut — le pull couvre la
+          // fonction, mais on veut VOIR la dégradation (console + Sentry via console hook).
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.warn('[realtime] correspondance :', status, err?.message ?? '')
+          }
         })
     })()
 
