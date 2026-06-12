@@ -50,7 +50,7 @@ i18n, admin/quotas, gate GO-LIVE).
 | **Formulaires officiels** (RCP · Notice · Étiquetage) | ✅ Livré (navy, DOCX/PDF, compilé identique) |
 | **CI/CD + coûts** | ✅ Optimisé (#122 : ÷2 minutes, keep-alive Supabase) — 0 € jusqu'au 1er client |
 | **Déploiement pilote** | ✅ **En ligne — https://pharnos.pages.dev** (Cloudflare Pages, mode authentifié) |
-| **Correspondance (jalon H)** | 🚧 **Code complet en PR** (`feat/correspondance`) : envoi tokenisé + page publique `/r/{token}` + décisions + fil chat + Realtime + e-mail Resend best-effort + états home — reste : deploy DB/Edge (feu vert CEO) + recette prod |
+| **Correspondance (jalon H)** | ✅ **LIVRÉ EN PROD (2026-06-12, #124/#125)** : envoi tokenisé + page publique `/r/{token}` + Accepter/Suspendre/Rejeter + fil chat + états home dérivés + e-mail Resend (domaine pharnos.com vérifié) — recette navigateur réel complète ; Realtime à confirmer hors poste de recette (websockets bloqués localement, pull OK) |
 
 **Qualité (main, vert partout) :** typecheck · lint · format · **75 tests unitaires** · build ·
 **budget bundle** · **9 E2E Playwright** (dont reload hors-ligne) · **a11y WCAG AA** · **RLS pgTAP en CI** · **Lighthouse CI** (perf/a11y).
@@ -199,7 +199,7 @@ D:\pharnos-mvp
 | **M6** | Compilation PDF Module 1 (TDM + pages de garde + bandeau) | ✅ |
 | **M7** | Dashboard (validité + veille) | ✅ |
 | **M8** | Durcissement (E2E offline, a11y AA, Sentry, budget perf, tests RLS) | ✅ (Lighthouse CI + pilote = suivis) |
-| **H** | **Correspondance & partage** (ROADMAP-MVP) — envoi tokenisé, review publique sans compte, décisions révisables, fil temps réel, 5 états home | 🚧 **Code complet en PR** — deploy DB/Edge + recette prod restants |
+| **H** | **Correspondance & partage** (ROADMAP-MVP) — envoi tokenisé, review publique sans compte, décisions révisables, fil temps réel, 5 états home | ✅ **Livré en prod** (#124 + fix #125, recette réelle aller-retour + e-mail délivré) |
 
 **Hors milestones, aussi livré :** audit trail, page Compte (avatar) + **i18n FR/EN** + **thème
 clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** local-first.
@@ -210,6 +210,8 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 
 | PR | Date | Contenu |
 |---|---|---|
+| #124 | 06-12 | **Jalon H — Correspondance** : envoi tokenisé (SHA-256, PBKDF2 600k), page publique /r/{token}, Edge `share` service-role rate-limitée, fil append-only à décision révisable, états home dérivés, notify Resend |
+| #125 | 06-12 | fix realtime : setAuth explicite sur le socket + observabilité CHANNEL_ERROR |
 | #1 | 06-06 | M2 — CTD Workspace (Module 1) |
 | #2 | 06-06 | M3 — Génération de documents (templates UEMOA) + édition TipTap |
 | #3 | 06-07 | M3.1 — Mise en forme A4/TNR, profil pro (en-tête/pied/signature), upload sur nœuds |

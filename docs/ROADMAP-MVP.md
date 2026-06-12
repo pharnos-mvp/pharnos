@@ -27,7 +27,7 @@ construction partout où l'autorité fait foi).
 
 ## 3. Jalons (tranches verticales, chacune livrable et recettable)
 
-### H — Module Correspondance & Partage du dossier CTD *(🚧 code complet en PR — recette restante)*
+### H — Module Correspondance & Partage du dossier CTD *(✅ LIVRÉ EN PROD le 2026-06-12 — PR #124/#125, recette technique complète)*
 > **Cadrage H0 livré par le brief produit CEO (2026-06-12)** : flux **Labo → Agence locale de
 > représentation** (et non l'autorité en direct), review **sans compte Pharnos**, 5 états de
 > dossier. Plan d'exécution : [PLAN-H-CORRESPONDANCE.md](PLAN-H-CORRESPONDANCE.md) · décisions :
@@ -44,9 +44,17 @@ construction partout où l'autorité fait foi).
 - **H3 · E-mail + révocation + preuves** ✅ code : notification Resend best-effort (anti-phishing :
   l'URL doit re-hasher vers le token_hash), révocation (410), pgTAP RLS (anon = zéro accès,
   append-only, share_hit service-role), e2e Playwright, audit log.
-- **Reste à faire** : CI verte sur la PR → **feu vert CEO** : `supabase db push` (0017) +
-  `supabase functions deploy share --no-verify-jwt` + secrets `RESEND_API_KEY`/`EMAIL_FROM` →
-  merge (deploy Pages auto) → **recette navigateur réel en prod** (fil complet aller-retour).
+- **Recette prod du 2026-06-12 (navigateur réel, fil aller-retour complet)** : envoi → mdp
+  (requis/mauvais/bon) → review (PDF 7,1 Mo, infos, fil) → décision « suspens » + commentaire →
+  badge/home/panneau labo → réponse chat → visible reviewer → renvoi (lien libre) → révocation
+  → 410. Sécurité Edge sondée en direct : 404/403/401/400 conformes. **E-mail Resend réel
+  délivré** (domaine pharnos.com DÉJÀ vérifié — secret `EMAIL_FROM` posé ; `RESEND_API_KEY`
+  posé aussi). Migration 0017 + Edge `share` déployées (feu vert CEO).
+- **Notes de recette** : (a) Realtime — websockets bloqués par l'environnement Chrome du poste
+  de recette (échec aussi hors CSP ; serveur 101 OK en curl) → fallback pull conforme ADR §6,
+  fix `setAuth` + observabilité CHANNEL_ERROR shippés (#125), à confirmer chez un pilote ;
+  (b) **quota GitHub Actions épuisé** (« spending limit ») → deploy Pages fait via wrangler
+  local ; CI/deploy auto HS jusqu'au reset du cycle ou hausse de limite (action CEO).
 - **Reporté post-MVP** (décision de recadrage) : délais réglementaires par agence + rappels,
   lettre de réponse générée pour le fil, export PDF du fil, lecture seule par rôle org.
 
@@ -133,8 +141,7 @@ accompagnées. M est un GATE : rien ne sort du pilote sans lui.
 
 ## 9. Prochaine étape recommandée (action unique)
 
-**Déployer le jalon H** : CI verte sur la PR `feat/correspondance`, puis feu vert CEO pour
-`supabase db push` (migration 0017) + `supabase functions deploy share --no-verify-jwt` +
-secrets Edge (`RESEND_API_KEY`, `EMAIL_FROM`), merge (deploy Pages auto) et **recette
-navigateur réel en prod** (envoi → review publique → décision → réponse). Ensuite : **jalon I**
-(backups chiffrés + restore drill) avant l'entrée des pilotes.
+**Jalon I — Ops & filets de production** (backup hebdo chiffré → R2 + restore drill TESTÉ +
+alertes seuils + uptime check) : obligatoire AVANT l'entrée des pilotes réels. Préalables CEO :
+(a) rétablir le quota GitHub Actions (Billing — le cycle Free est épuisé, CI/deploy auto HS) ;
+(b) poser le secret repo `SUPABASE_DB_URL` pour le workflow de backup.
