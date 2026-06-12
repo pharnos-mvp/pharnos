@@ -8,7 +8,7 @@
 --   4. share_hits / share_hit() sont réservés au service-role (anti-abus non contournable).
 
 begin;
-select plan(15);
+select plan(16);
 
 -- ----------------------------------------------------------------------------
 -- Seeding (superuser : contourne la RLS)
