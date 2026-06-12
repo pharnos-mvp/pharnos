@@ -1,10 +1,13 @@
 // Tests de CARACTÉRISATION du workspace (T7.0, PLAN-V2) — figent le comportement observable
 // AVANT le refactor (extractions de hooks/composants). Mode local (Supabase non configuré en
 // test) : syncs no-op, copilote IA inactif → comportement 100 % déterministe.
+import { useState, type ReactNode } from 'react'
 import { configure, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
+
+import { HeaderSlotContext } from '@/components/layout/header-slot'
 
 // Sous la charge d'une suite complète (workers parallèles), le premier rendu async de la page
 // (liveQuery Dexie + auto-sélection) peut dépasser la seconde par défaut des findBy* — sans
@@ -31,15 +34,26 @@ const auth: AuthContextValue = {
   signOut: () => Promise.resolve(),
 }
 
+/** Mini-shell de test : fournit le header-slot (la page y injecte titre + Compiler le PDF). */
+function TestShell() {
+  const [slot, setSlot] = useState<ReactNode>(null)
+  return (
+    <HeaderSlotContext.Provider value={setSlot}>
+      <header>{slot}</header>
+      <Routes>
+        <Route path="/workspace/:dossierId" element={<DossierWorkspacePage />} />
+        <Route path="/workspace" element={<p>Liste des dossiers</p>} />
+      </Routes>
+    </HeaderSlotContext.Provider>
+  )
+}
+
 function renderPage() {
   return render(
     <AuthContext.Provider value={auth}>
       <OrgContext.Provider value={ORG}>
         <MemoryRouter initialEntries={[`/workspace/${DOSSIER_ID}`]}>
-          <Routes>
-            <Route path="/workspace/:dossierId" element={<DossierWorkspacePage />} />
-            <Route path="/workspace" element={<p>Liste des dossiers</p>} />
-          </Routes>
+          <TestShell />
         </MemoryRouter>
       </OrgContext.Provider>
     </AuthContext.Provider>,
@@ -149,7 +163,7 @@ describe('DossierWorkspacePage — caractérisation (avant refactor T7)', () => 
     expect((await screen.findAllByText(/gmp\.pdf/i)).length).toBeGreaterThan(0)
   })
 
-  it('affiche les actions cœur : Compiler, Téléverser, Enregistrer', async () => {
+  it('affiche les actions cœur : Compiler (bandeau) et Téléverser', async () => {
     await seed()
     renderPage()
     // Attendre l'état stable (section auto-sélectionnée) : Téléverser/Enregistrer n'existent
@@ -157,7 +171,6 @@ describe('DossierWorkspacePage — caractérisation (avant refactor T7)', () => 
     await screen.findByRole('heading', { level: 2 })
     expect(await screen.findByRole('button', { name: /Compiler le PDF/ })).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: /Téléverser/ })).toBeInTheDocument()
-    expect(await screen.findByRole('button', { name: /Enregistrer/ })).toBeInTheDocument()
   })
 
   it('remarques déterministes : validité < 6 mois + titulaire ≠ fabricant', async () => {

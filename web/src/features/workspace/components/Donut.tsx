@@ -31,7 +31,7 @@ export function Donut({ value, size = 96 }: { value: number; size?: number }) {
         strokeDasharray={c}
         strokeDashoffset={offset}
         transform="rotate(-90 32 32)"
-        className="text-primary"
+        className="text-blue-500"
       />
       <text x="32" y="36" textAnchor="middle" className="fill-foreground text-[14px] font-semibold">
         {value}%

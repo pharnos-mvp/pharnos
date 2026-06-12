@@ -5,16 +5,16 @@ import { describe, expect, it, vi } from 'vitest'
 import { NonConformCard } from './NonConformCard'
 
 describe('NonConformCard (mockup CEO)', () => {
-  it('affiche le type court, la phrase du mockup et le bouton violet « Upgrader ! »', async () => {
+  it('affiche le type, la phrase du mockup et le bouton outline « Remplir le template »', async () => {
     const onUpgrade = vi.fn()
     const onDismiss = vi.fn()
     render(<NonConformCard docType="rcp" onUpgrade={onUpgrade} onDismiss={onDismiss} />)
 
-    expect(screen.getByText(/« RCP »/)).toBeInTheDocument()
+    expect(screen.getByText(/non conforme au template en vigueur/).textContent).toMatch(/^RCP/)
     expect(screen.getByText(/non conforme au template en vigueur/)).toBeInTheDocument()
 
-    const btn = screen.getByRole('button', { name: /Upgrader/ })
-    expect(btn.className).toContain('bg-violet-600') // violet, jamais de rouge
+    const btn = screen.getByRole('button', { name: /Remplir le template/ })
+    expect(btn.className).toContain('border-violet-500') // violet outline (mockup), jamais de rouge
     await userEvent.click(btn)
     expect(onUpgrade).toHaveBeenCalledOnce()
 
@@ -26,8 +26,8 @@ describe('NonConformCard (mockup CEO)', () => {
     const { rerender } = render(
       <NonConformCard docType="labeling" onUpgrade={() => {}} onDismiss={() => {}} />,
     )
-    expect(screen.getByText(/« Étiquetage »/)).toBeInTheDocument()
+    expect(screen.getByText(/non conforme/).textContent).toMatch(/^Étiquetage/)
     rerender(<NonConformCard docType="notice" onUpgrade={() => {}} onDismiss={() => {}} />)
-    expect(screen.getByText(/« Notice »/)).toBeInTheDocument()
+    expect(screen.getByText(/non conforme/).textContent).toMatch(/^Notice/)
   })
 })

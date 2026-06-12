@@ -1,4 +1,4 @@
-import { Wand2, X } from 'lucide-react'
+import { ClipboardList, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 
@@ -43,17 +43,18 @@ export function NonConformCard({
             <X className="size-3.5" />
           </button>
           <p className="text-sm leading-snug font-bold text-neutral-900">
-            « {SHORT_LABEL[docType] ?? docType.toUpperCase()} »
+            {SHORT_LABEL[docType] ?? docType.toUpperCase()}
             <br />
             non conforme au template en vigueur&nbsp;!
           </p>
           <Button
             size="sm"
+            variant="outline"
             onClick={onUpgrade}
-            className="h-8 gap-1.5 rounded-full bg-violet-600 px-5 text-white hover:bg-violet-700"
+            className="h-8 gap-1.5 rounded-full border-violet-500 px-5 text-violet-700 hover:bg-violet-50 hover:text-violet-800"
           >
-            <Wand2 className="size-3.5" />
-            Upgrader&nbsp;!
+            <ClipboardList className="size-3.5" />
+            Remplir le template
           </Button>
         </div>
       </div>

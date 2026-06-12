@@ -35,7 +35,7 @@ export function TreePanel({
 }) {
   if (collapsed) {
     return (
-      <div className="bg-card sticky top-12 flex max-h-[calc(100svh-9rem)] w-14 shrink-0 flex-col items-center gap-1.5 overflow-auto rounded-lg border py-2">
+      <div className="bg-card sticky top-2 flex max-h-[calc(100svh-6rem)] w-14 shrink-0 flex-col items-center gap-1.5 overflow-auto rounded-2xl border py-2 shadow-sm">
         <Button
           variant="ghost"
           size="icon-sm"
@@ -64,7 +64,7 @@ export function TreePanel({
     )
   }
   return (
-    <aside className="bg-card sticky top-12 flex max-h-[calc(100svh-9rem)] w-72 shrink-0 flex-col overflow-hidden rounded-lg border">
+    <aside className="bg-card sticky top-2 flex max-h-[calc(100svh-6rem)] w-80 shrink-0 flex-col overflow-hidden rounded-2xl border shadow-sm">
       <div className="flex items-start justify-between border-b p-3">
         <div>
           <div className="text-sm font-semibold">Arborescence</div>

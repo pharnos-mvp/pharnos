@@ -6,7 +6,6 @@ import {
   FileDown,
   FileText,
   Languages,
-  Save,
   Sparkles,
   ClipboardList,
   Upload,
@@ -17,7 +16,6 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { useHeaderSlot } from '@/components/layout/header-slot'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { listDocuments } from '@/features/catalogue/documents-repository'
 import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
@@ -42,7 +40,6 @@ import {
   completionStats,
   docsForNode,
   genDocsForNode,
-  nextLeafAfter,
   type Viewable,
 } from './dossier-selectors'
 import {
@@ -74,7 +71,7 @@ import { RichTextEditor } from './RichTextEditor'
 import { hasSignature, insertSignature, removeSignature } from './signature'
 import { BrandingPanel, SignaturePanel } from './SignatureBrandingPanels'
 import { TEMPLATES, templateKeyForNode, type TemplateContext } from './templates'
-import { flattenTree, isTreeOutdated, mergeDefaultTree, setNodeSaved } from './tree-utils'
+import { flattenTree, isTreeOutdated, mergeDefaultTree } from './tree-utils'
 import { useDebouncedDocSave } from './use-debounced-doc-save'
 import { useRegafyCopilot } from './use-regafy-copilot'
 import { CompletionPanel } from './components/CompletionPanel'
@@ -144,7 +141,8 @@ export function DossierWorkspacePage() {
     blob: Blob
   } | null>(null)
   const [compiling, setCompiling] = useState(false)
-  const [autoStructural, setAutoStructural] = useState(true)
+  // Pages structurelles (TDM + gardes) toujours générées — l'option a été retirée de l'UI (mockup).
+  const autoStructural = true
   const [pickedKey, setPickedKey] = useState<string | null>(null)
   const [gateFindings, setGateFindings] = useState<RegafyFinding[] | null>(null)
   const [sigPanelOpen, setSigPanelOpen] = useState(false)
@@ -300,8 +298,82 @@ export function DossierWorkspacePage() {
     }
   }, [flatNodes, selected, docs, docsByNode, genByNode, attachByNode])
 
-  // Titre du dossier (produit · pays · format) injecté dans le bandeau du haut — sur la même ligne
-  // que le profil, façon Google Docs. Remis à null en quittant le montage.
+  // Bandeau du haut (mockup CEO) : titre du dossier à gauche + actions globales à droite
+  // (Roadmap, Compiler le PDF). Le handler de compilation est lu via une ref resynchronisée à
+  // chaque rendu (effet sans dépendances, AVANT les early returns — règle des hooks) : le slot
+  // n'est reconstruit que quand dossier/compiling changent, le clic voit l'état frais.
+  const compileClickRef = useRef<() => void>(() => {})
+
+  function showPreview(url: string, name: string, revoke: boolean, blob: Blob) {
+    if (previewPdf?.revoke) URL.revokeObjectURL(previewPdf.url)
+    setPreviewPdf({ url, name, revoke, blob })
+  }
+  function closePreview() {
+    if (previewPdf?.revoke) URL.revokeObjectURL(previewPdf.url)
+    setPreviewPdf(null)
+  }
+
+  async function handleCompile() {
+    if (!dossier) return
+    setCompiling(true)
+    try {
+      // pdf-lib chargé à la demande → hors du chunk workspace (perf).
+      const { compileDossierToPdf } = await import('./pdf/dossier-compiler')
+      const { bytes, missing } = await compileDossierToPdf({
+        dossier,
+        product,
+        generatedDocs: genDocs ?? [],
+        docs: docs ?? [],
+        attachments: attachments ?? [],
+        branding,
+        autoStructural,
+      })
+      const blob = new Blob([new Uint8Array(bytes)], { type: 'application/pdf' })
+      showPreview(
+        URL.createObjectURL(blob),
+        `${slugify(dossier.productName)}-module-1.pdf`,
+        true,
+        blob,
+      )
+      if (missing.length > 0) {
+        toast.warning(`${missing.length} pièce(s) non incluse(s) (indisponibles hors-ligne)`, {
+          description: missing.slice(0, 5).join(', '),
+        })
+      }
+    } catch (e) {
+      console.error(e)
+      const msg = (e as Error)?.message
+      toast.error(msg ? `Échec de la compilation : ${msg}` : 'Échec de la compilation du dossier.')
+    } finally {
+      setCompiling(false)
+    }
+  }
+
+  function handleCompileClick() {
+    // Rappel AVANT compilation : TOUS les constats (déterministes + IA), pas seulement les
+    // déterministes. + garde anti-« dossier vide ».
+    const gate = [...allFindings]
+    const hasContent = genByNode.size > 0 || attachByNode.size > 0 || docsByNode.size > 0
+    if (!hasContent && !gate.some((f) => f.id === 'empty')) {
+      gate.unshift({
+        id: 'empty',
+        nodeNumber: '',
+        nodeLabel: 'Dossier',
+        severity: 'error',
+        message: 'Dossier vide : aucun document.',
+      })
+    }
+    if (gate.length > 0) {
+      setGateFindings(gate)
+      return
+    }
+    void handleCompile()
+  }
+  // Ref resynchronisée à chaque rendu (effet sans dépendances) → le clic du bandeau voit
+  // toujours l'état frais (constats, contenu) sans reconstruire le slot.
+  useEffect(() => {
+    compileClickRef.current = handleCompileClick
+  })
   useEffect(() => {
     if (!setHeaderSlot) return
     if (!dossier) {
@@ -310,7 +382,7 @@ export function DossierWorkspacePage() {
     }
     const fmt = dossier.format === 'ctd' ? 'CTD UEMOA' : 'eCTD CEDEAO'
     setHeaderSlot(
-      <div className="flex min-w-0 items-center gap-1.5">
+      <div className="flex min-w-0 flex-1 items-center gap-1.5">
         <Button
           variant="ghost"
           size="icon-sm"
@@ -325,10 +397,22 @@ export function DossierWorkspacePage() {
           </div>
           <div className="text-muted-foreground truncate text-xs">Création Module 1 ({fmt})</div>
         </div>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/workspace/${dossier.id}/roadmap`)}
+          >
+            Roadmap
+          </Button>
+          <Button size="sm" disabled={compiling} onClick={() => compileClickRef.current()}>
+            <FileDown className="size-4" /> {compiling ? 'Compilation…' : 'Compiler le PDF'}
+          </Button>
+        </div>
       </div>,
     )
     return () => setHeaderSlot(null)
-  }, [setHeaderSlot, dossier, navigate])
+  }, [setHeaderSlot, dossier, navigate, compiling])
 
   // Libère l'object URL d'aperçu au démontage (évite une fuite si on quitte dialog ouvert).
   useEffect(() => {
@@ -686,19 +770,6 @@ export function DossierWorkspacePage() {
     setSigPanelOpen(false)
   }
 
-  async function handleSaveNode() {
-    if (!selected) return
-    flushSave()
-    if (selected.id) {
-      const tree = setNodeSaved(activeDossier.tree, selected.id, new Date().toISOString())
-      await updateDossierTree(activeDossier.id, tree)
-      void syncDossiers(orgId)
-    }
-    toast.success('Section enregistrée')
-    const next = nextLeafAfter(flatNodes, selected)
-    if (next) handleSelectNode(next)
-  }
-
   async function handleUpdateStructure() {
     const merged = mergeDefaultTree(activeDossier.tree, getModule1Tree(activeDossier.format))
     await updateDossierTree(activeDossier.id, merged)
@@ -723,123 +794,40 @@ export function DossierWorkspacePage() {
     toast.success('Document retiré du dossier')
   }
 
-  function showPreview(url: string, name: string, revoke: boolean, blob: Blob) {
-    if (previewPdf?.revoke) URL.revokeObjectURL(previewPdf.url)
-    setPreviewPdf({ url, name, revoke, blob })
-  }
-  function closePreview() {
-    if (previewPdf?.revoke) URL.revokeObjectURL(previewPdf.url)
-    setPreviewPdf(null)
-  }
-
-  async function handleCompile() {
-    setCompiling(true)
-    try {
-      // pdf-lib chargé à la demande → hors du chunk workspace (perf).
-      const { compileDossierToPdf } = await import('./pdf/dossier-compiler')
-      const { bytes, missing } = await compileDossierToPdf({
-        dossier: activeDossier,
-        product,
-        generatedDocs: genDocs ?? [],
-        docs: docs ?? [],
-        attachments: attachments ?? [],
-        branding,
-        autoStructural,
-      })
-      const blob = new Blob([new Uint8Array(bytes)], { type: 'application/pdf' })
-      showPreview(
-        URL.createObjectURL(blob),
-        `${slugify(activeDossier.productName)}-module-1.pdf`,
-        true,
-        blob,
-      )
-      if (missing.length > 0) {
-        toast.warning(`${missing.length} pièce(s) non incluse(s) (indisponibles hors-ligne)`, {
-          description: missing.slice(0, 5).join(', '),
-        })
-      }
-    } catch (e) {
-      console.error(e)
-      const msg = (e as Error)?.message
-      toast.error(msg ? `Échec de la compilation : ${msg}` : 'Échec de la compilation du dossier.')
-    } finally {
-      setCompiling(false)
-    }
-  }
-
-  function handleCompileClick() {
-    // Rappel AVANT compilation : TOUS les constats (déterministes + IA), pas seulement les
-    // déterministes. + garde anti-« dossier vide ».
-    const gate = [...allFindings]
-    const hasContent = genByNode.size > 0 || attachByNode.size > 0 || docsByNode.size > 0
-    if (!hasContent && !gate.some((f) => f.id === 'empty')) {
-      gate.unshift({
-        id: 'empty',
-        nodeNumber: '',
-        nodeLabel: 'Dossier',
-        severity: 'error',
-        message: 'Dossier vide : aucun document.',
-      })
-    }
-    if (gate.length > 0) {
-      setGateFindings(gate)
-      return
-    }
-    void handleCompile()
-  }
-
   return (
-    // Modèle « Google Docs » : la page de montage défile globalement (scrollbar de <main> à droite),
-    // l'en-tête (toolbar) et les deux panneaux latéraux restent figés (sticky), seule la zone centrale
-    // (A4) défile, jusqu'au pied de page (marge de bas — rien n'est collé au bas).
-    <div className="flex flex-col gap-3">
-      <div className="bg-background sticky top-0 z-30 grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-b py-1.5">
-        <label className="text-muted-foreground hidden items-center gap-1.5 justify-self-start text-xs sm:flex">
-          <input
-            type="checkbox"
-            checked={autoStructural}
-            onChange={(e) => setAutoStructural(e.target.checked)}
-          />
-          TDM + gardes auto
-        </label>
-        {/* Barre des menus d'édition (Modifier/Signer/…) — CENTRÉE au-dessus du panneau d'aperçu. */}
-        <div className="flex min-w-0 justify-center">
-          <div className="bg-card flex items-center gap-1 rounded-full border px-1 py-1 text-sm shadow-sm">
-            {/* Boutons d'édition : seulement pour du texte éditable (doc généré/lettre/traduction).
-                Les formulaires de templates ont leurs propres commandes (topbar navy). */}
-            {isEditableActive && !activeFormDef ? (
-              <>
-                <ToolbarBtn
-                  label="Modifier"
-                  active={docEditing}
-                  onClick={() => {
-                    if (!activeGenDoc) return
-                    setPickedKey(`letter:${activeGenDoc.id}`)
-                    setDocEditing((v) => !v)
-                  }}
-                />
-                <ToolbarBtn
-                  label="Signer"
-                  disabled={!liveEditor || !docEditing}
-                  hint="Passez en mode Modifier pour signer"
-                  onClick={handleSign}
-                />
-                <ToolbarBtn
-                  label="En-tête / Pied de page"
-                  onClick={() => setBrandPanelOpen(true)}
-                />
-                {activeGenDoc &&
-                activeGenDoc.templateKey !== 'translation' &&
-                activeGenDoc.templateKey !== 'upgrade' ? (
-                  <ToolbarBtn label="Régénérer" onClick={() => void handleRegenerate()} />
-                ) : null}
-              </>
-            ) : null}
+    // Modèle « Google Docs » : la page de montage défile globalement (scrollbar de <main> à
+    // droite), les panneaux latéraux restent figés (sticky), la feuille défile. Fond gris
+    // clair (mockup CEO) : les cartes blanches ressortent ; les actions globales (Roadmap,
+    // Compiler) sont dans le bandeau du haut.
+    <div className="bg-muted/40 -m-4 flex min-h-full flex-col gap-3 p-4 md:-m-6 md:p-6">
+      {/* Rangée d'actions d'édition : UNIQUEMENT pour un document éditable (lettre/traduction)
+          — pilule SOMBRE centrée (mockup). Les formulaires ont leur propre barre navy ; les
+          pièces ont Télécharger dans l'aperçu et le retrait via le « × » d'onglet. */}
+      {isEditableActive && !activeFormDef ? (
+        <div className="sticky top-0 z-30 flex justify-center">
+          <div className="bg-foreground flex items-center gap-1 rounded-full px-1.5 py-1 text-sm shadow-lg">
             <ToolbarBtn
-              label="Télécharger"
-              disabled={!(active?.kind === 'doc' || (active?.kind === 'letter' && !!activeGenDoc))}
-              onClick={handleDownload}
+              label="Modifier"
+              active={docEditing}
+              onClick={() => {
+                if (!activeGenDoc) return
+                setPickedKey(`letter:${activeGenDoc.id}`)
+                setDocEditing((v) => !v)
+              }}
             />
+            <ToolbarBtn
+              label="Signer"
+              disabled={!liveEditor || !docEditing}
+              hint="Passez en mode Modifier pour signer"
+              onClick={handleSign}
+            />
+            <ToolbarBtn label="En-tête / Pied de page" onClick={() => setBrandPanelOpen(true)} />
+            {activeGenDoc &&
+            activeGenDoc.templateKey !== 'translation' &&
+            activeGenDoc.templateKey !== 'upgrade' ? (
+              <ToolbarBtn label="Régénérer" onClick={() => void handleRegenerate()} />
+            ) : null}
+            <ToolbarBtn label="Télécharger" onClick={handleDownload} />
             <ToolbarBtn
               label="Supprimer"
               disabled={!active}
@@ -848,19 +836,7 @@ export function DossierWorkspacePage() {
             />
           </div>
         </div>
-        <div className="flex items-center gap-2 justify-self-end">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`/workspace/${dossier.id}/roadmap`)}
-          >
-            Roadmap
-          </Button>
-          <Button size="sm" disabled={compiling} onClick={handleCompileClick}>
-            <FileDown className="size-4" /> {compiling ? 'Compilation…' : 'Compiler le PDF'}
-          </Button>
-        </div>
-      </div>
+      ) : null}
 
       <div className="flex items-start gap-3">
         <TreePanel
@@ -881,107 +857,88 @@ export function DossierWorkspacePage() {
         {/* Colonne centrale : contenu A4 qui défile (les toolbars sont dans le bandeau du haut). */}
         <div className="min-w-0 flex-1">
           {selected ? (
-            <div className="flex flex-col gap-3">
-              {/* Chrome figé : titre, actions, onglets et barre de format restent en place pendant
-                  que la page A4 défile dessous (sticky sous le bandeau du haut). */}
-              <div className="bg-background sticky top-12 z-20 flex flex-col gap-3 pb-1">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h2 className="font-semibold">
-                      {selected.number ? `${selected.number} ` : ''}
-                      {selected.label}
-                    </h2>
-                    {selected.note ? (
-                      <p className="text-muted-foreground mt-1 max-w-prose text-xs italic">
-                        {selected.note}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    {selectedGenDocs.length > 0 ? (
-                      <Badge variant="secondary">BROUILLON</Badge>
-                    ) : viewables.length > 0 ? (
-                      <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
-                        EN ATTENTE
-                      </Badge>
-                    ) : null}
-                    {selectedTplKey && !selectedGenDoc ? (
-                      <Button size="sm" onClick={() => void handleGenerate()}>
-                        <Sparkles className="size-4" /> Générer
-                      </Button>
-                    ) : null}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept={UPLOAD_ACCEPT}
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0]
-                        if (f) void handleUpload(f)
-                        e.target.value = ''
-                      }}
-                    />
+            <div className="flex flex-col gap-2">
+              {/* Barre FINE au-dessus de la feuille (mockup CEO — plus de gros chrome) :
+                  onglets des documents à gauche, Générer/Téléverser à droite. Le retrait d'un
+                  document passe par le « × » de son onglet (affiché même seul). */}
+              <div className="bg-card flex min-h-11 flex-wrap items-center gap-2 rounded-xl border px-2 py-1.5 shadow-sm">
+                <span className="sr-only" role="heading" aria-level={2}>
+                  {selected.number ? `${selected.number} ` : ''}
+                  {selected.label}
+                </span>
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+                  {viewables.map((v) => {
+                    const removeHint =
+                      v.kind === 'doc'
+                        ? 'Retirer du dossier (le document reste sous le produit)'
+                        : 'Supprimer du dossier'
+                    return (
+                      <div
+                        key={v.key}
+                        className={cn(
+                          'flex items-center gap-1 rounded-full border py-1 pr-1 pl-3 text-xs',
+                          active?.key === v.key
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'text-muted-foreground hover:bg-accent',
+                        )}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPickedKey(v.key)
+                            // Traduction → éditable d'emblée (cohérent avec l'ouverture via « Traduire »).
+                            if (v.kind === 'letter' && (v.isTranslation || v.isUpgrade || v.isFill))
+                              setDocEditing(true)
+                          }}
+                          title={v.label}
+                          className="flex items-center gap-1.5"
+                        >
+                          <FileText className="size-3.5 shrink-0" />
+                          <span className="max-w-[160px] truncate">{v.label}</span>
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={removeHint}
+                          title={removeHint}
+                          onClick={() => void handleRemoveViewable(v)}
+                          className="hover:bg-destructive/10 hover:text-destructive rounded-full p-0.5"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="ml-auto flex shrink-0 items-center gap-2">
+                  {selectedTplKey && !selectedGenDoc ? (
                     <Button
                       size="sm"
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
+                      className="h-8 rounded-full"
+                      onClick={() => void handleGenerate()}
                     >
-                      <Upload className="size-4" /> Téléverser
+                      <Sparkles className="size-4" /> Générer
                     </Button>
-                    <Button size="sm" variant="secondary" onClick={() => void handleSaveNode()}>
-                      <Save className="size-4" /> Enregistrer
-                    </Button>
-                  </div>
+                  ) : null}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={UPLOAD_ACCEPT}
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      if (f) void handleUpload(f)
+                      e.target.value = ''
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 rounded-full"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="size-4" /> Téléverser
+                  </Button>
                 </div>
-
-                {viewables.length > 1 ? (
-                  <div className="flex flex-wrap gap-1">
-                    {viewables.map((v) => {
-                      const removeHint =
-                        v.kind === 'doc'
-                          ? 'Retirer du dossier (le document reste sous le produit)'
-                          : 'Supprimer du dossier'
-                      return (
-                        <div
-                          key={v.key}
-                          className={cn(
-                            'flex items-center gap-1 rounded-full border py-1 pr-1 pl-3 text-xs',
-                            active?.key === v.key
-                              ? 'border-primary bg-primary/10 text-primary'
-                              : 'text-muted-foreground hover:bg-accent',
-                          )}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPickedKey(v.key)
-                              // Traduction → éditable d'emblée (cohérent avec l'ouverture via « Traduire »).
-                              if (
-                                v.kind === 'letter' &&
-                                (v.isTranslation || v.isUpgrade || v.isFill)
-                              )
-                                setDocEditing(true)
-                            }}
-                            title={v.label}
-                            className="flex items-center gap-1.5"
-                          >
-                            <FileText className="size-3.5 shrink-0" />
-                            <span className="max-w-[160px] truncate">{v.label}</span>
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={removeHint}
-                            title={removeHint}
-                            onClick={() => void handleRemoveViewable(v)}
-                            className="hover:bg-destructive/10 hover:text-destructive rounded-full p-0.5"
-                          >
-                            <X className="size-3.5" />
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                ) : null}
               </div>
 
               <div>
@@ -1093,7 +1050,7 @@ export function DossierWorkspacePage() {
                     ) : (
                       <>
                         {docEditing ? (
-                          <div className="bg-card sticky top-[5.25rem] z-10 rounded-t-lg">
+                          <div className="bg-card sticky top-12 z-10 rounded-t-lg">
                             <FormatToolbar editor={liveEditor} />
                           </div>
                         ) : null}
@@ -1229,11 +1186,6 @@ export function DossierWorkspacePage() {
           }}
         />
       </div>
-
-      {/* Pied de page de l'app — marge de bas (rien n'est collé au pied de page). */}
-      <footer className="text-muted-foreground border-t pt-6 pb-10 text-center text-xs">
-        Pharnos — Montage CTD Module&nbsp;1
-      </footer>
 
       {previewPdf ? (
         <PdfPreviewDialog

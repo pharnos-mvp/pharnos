@@ -146,7 +146,7 @@ export function TemplateFillForm({
 
   return (
     <div className="tplform">
-      <div className={cn('tplform-topbar', 'top-[5.25rem] rounded-t-lg')}>
+      <div className={cn('tplform-topbar', 'top-2 rounded-t-lg')}>
         <div className="tplform-brand">
           <span className="tplform-t1">{def.topbarTitle}</span>
           <span className="tplform-t2">
