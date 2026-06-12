@@ -142,3 +142,12 @@ rubrique 9 à valider (« Sans objet — première demande d'AMM en cours d'inst
 |---|---|---|---|
 | E1-E2 | Fidélité du compilé | **Exclusions respectées** : un doc produit retiré du dossier (excludedDocIds) n'est plus compilé (même filtre que l'UI, dans le compilateur). **Rendu stylé des formulaires** : renderTiptap(styled) pour les `fill` — titre centré navy bold, rubriques navy, niveau 4 souligné, BANDEAUX GRIS bordés (wrap multi-lignes) = identique aux exports DOCX/PDF ; lettres/traductions inchangées. Validé au pixel (viewer PDF) | ✅ #115 |
 | E3 | Rebranding montage | Mockups appliqués à la règle : « Compiler le PDF » + Roadmap dans le BANDEAU (ref fraîche) ; pilule d'édition SOMBRE conditionnelle (la feuille monte) ; retraits : checkbox TDM, titre de section/badges (h2 sr-only), Enregistrer, footer ; barre fine onglets (toujours visibles) + Générer/Téléverser ; panneaux w-80 en cartes rounded-2xl sur fond muted, sticky relevés ; feuille des formulaires 62 rem ; sidebar AUTO-REPLIÉE en rail sur le montage + profil/statut réseau en bas de barre ; carte non-conforme : type sans guillemets + bouton OUTLINE violet « Remplir le template » ; « Tableau de complétude » donut bleu | ✅ #116 |
+
+## 🚀 BASCULE EN PRODUCTION — 2026-06-12 (PR #117)
+
+La **V2 est la production** : `v2` → `main` mergée (merge commit, 34 commits préservés,
+PRs #91 → #116), déployée sur **pharnos.pages.dev** (bundle identique à la preview validée).
+Smoke prod : CSP enforce + nosniff + X-Frame DENY actifs, SW à jour, données synchronisées.
+**Retour arrière** : tag **`v1-mvp`** (b943af3) — redéployer ce tag sur main en cas de besoin.
+Flux post-MVP : `main` = prod ; features en branches PR (preview Cloudflare par branche) ;
+la branche `v2` reste comme alias de preview.
