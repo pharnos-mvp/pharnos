@@ -1,12 +1,4 @@
-import {
-  CheckCircle2,
-  ClipboardList,
-  Languages,
-  PanelRightClose,
-  PanelRightOpen,
-  Sparkles,
-  XCircle,
-} from 'lucide-react'
+import { CheckCircle2, ClipboardList, Languages, Sparkles, XCircle } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -17,7 +9,6 @@ import { Donut } from './Donut'
 /** Panneau droit du workspace : complétude (donut) + remarques Regafy — move-only T7. */
 export function CompletionPanel({
   collapsed,
-  setCollapsed,
   pct,
   okCount,
   warnCount,
@@ -32,7 +23,6 @@ export function CompletionPanel({
   onFillTemplate,
 }: {
   collapsed: boolean
-  setCollapsed: (v: boolean) => void
   pct: number
   okCount: number
   warnCount: number
@@ -49,14 +39,6 @@ export function CompletionPanel({
   if (collapsed) {
     return (
       <div className="bg-card sticky top-2 hidden max-h-[calc(100svh-6rem)] w-14 shrink-0 flex-col items-center gap-3 overflow-auto rounded-2xl border py-3 shadow-sm lg:flex">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Afficher la complétude"
-          onClick={() => setCollapsed(false)}
-        >
-          <PanelRightOpen className="size-4" />
-        </Button>
         <Donut value={pct} size={44} />
         <div className="flex items-center gap-1 text-xs text-emerald-600">
           <CheckCircle2 className="size-4" /> {okCount}
@@ -73,18 +55,8 @@ export function CompletionPanel({
   return (
     <aside className="sticky top-2 hidden max-h-[calc(100svh-6rem)] w-80 shrink-0 flex-col gap-3 overflow-auto pb-2 lg:flex">
       <div className="bg-card flex flex-col items-center rounded-2xl border p-4 shadow-sm">
-        <div className="flex w-full items-center justify-between">
-          <span className="text-sm font-medium">Tableau de complétude</span>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Replier"
-            onClick={() => setCollapsed(true)}
-          >
-            <PanelRightClose className="size-4" />
-          </Button>
-        </div>
-        <Donut value={pct} size={96} />
+        <span className="self-start text-sm font-medium">Tableau de complétude</span>
+        <Donut value={pct} size={140} />
         <p className="text-muted-foreground mt-1 text-xs">Conformité UEMOA en direct</p>
       </div>
       <div className="bg-card rounded-2xl border p-3 shadow-sm">
