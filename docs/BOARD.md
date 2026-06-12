@@ -12,20 +12,28 @@
 > **Protocole de mise à jour** (voir §13) : à chaque tranche livrée (PR mergée), mettre à jour le
 > §1 (état), le §9 (milestones) et le §10 (journal). Garder le reste synchronisé si une décision change.
 
-_Dernière mise à jour : 2026-06-10 — **Track A + Track B (Regafy AI Copilot) LIVRÉS & déployés en prod.**_
-_**Track A** (#68/#69) : **perf** squelette inline + eager `/catalogue` + budget d'entrée 135 Ko → **Lighthouse 91 · CLS 0 · a11y 100** (matériel représentatif ; sur runner CI mobile ~75 TBT-bound → **Lighthouse gardé en `warn`, gate dur = budget de bundle déterministe**, décision CEO) ; **sécurité** `npm audit` CI (0 vuln) + **pgTAP 9→14** + **ADR 0002**._
-_**Track B — Regafy AI Copilot** (creds GCP fournis : projet `gen-lang-client-0475676559`, location `global`, modèle `gemini-3.1-flash-lite` ; secrets Supabase posés ; **2 Edge Functions déployées : `regafy-ai` + `translate`**). Tourne **en arrière-plan** (sans bouton ; complète le panneau « Remarques », constats indistinguables) : **validité multimodale** (Gemini LIT les PDF → expiration explicite OU date d'émission + durée énoncée → calcul de la validité restante vs date d'opération → **≥ 6 mois admin / ≥ 18 mois COA**, réf. agence du pays) · **détection de langue** (RCP/Notice/Étiquette/Artwork vs langue officielle **FR/PT/EN**) · **conformité des lettres** · **titulaire≠fabricant sans contrat** · **traduction MedDRA** (bouton « Traduire » en surbrillance → Edge `translate` lit le PDF → traduit → dialogue de revue) · **concordance du nom de produit** (alerte « mauvais document » si un RCP/AMM/… concerne un autre produit). Analyse **batch + incrémentale + CACHE par document** (chaque doc lu par l'IA **une seule fois**, réutilisé à l'ouverture & en multi-pays ; re-analyse auto à l'upload — Dexie `docAnalysis` v8 ; ~5 s la 1re fois, **instantané ensuite**). Vérifié en prod (tests directs + retour CEO « ça marche »). **Reste (polish)** : streaming de la traduction + « Insérer comme document » ; détection bon doc/bon nœud. Détails §11._
-_**Reprise (nouvelle session) :** cœur du MVP déployé ; **Lot A‑1 e-mail OK** + **polish montage M1 (5/5)** +
-**mise en page des lettres générées conforme au template officiel UEMOA** (bloc date/destinataire/signature décalé
-à gauche [≠ right-align], interligne serré, signature placée dans le PDF, ville auto depuis l'adresse titulaire).
-Tout déployé/vert. **Lot C (CI) livré** (auto-deploy + RLS pgTAP + Lighthouse, secrets posés) **+ 1er dossier réel compilé** (Gynoril, 44 p → **DoD atteint**) **+ polish copie-conforme** (#56 composition multi-molécules appariée/non tronquée + espacement signature ; #57 bouton « Insérer »). **Auto-deploy actif** (merge→prod). **Reste :** re-valider le dossier réel (régénérer les lettres + recompiler) + 2 retouches de saisie sur la lettre PGHT. Voir §11._
+_Dernière mise à jour : 2026-06-12 — **V2 EN PRODUCTION + recettes CEO n°1-7 livrées ; plan MVP ancré.**_
+
+_**Bascule prod** (PR #117, rollback tag `v1-mvp`) : `main` = prod sur **pharnos.pages.dev**, features en
+branches PR (CI 6 jobs ; e2e/lighthouse/rls sur PR uniquement depuis #122). **Regafy refondu À LA DEMANDE**
+(recette n°6 : bouton « Analyser » par pièce ET par document traduit/conforme — n°7 —, scan mockup, carte
+multi-actions, remarques de session vides par défaut, cache (pieceId, updatedAt) v7) + **Audit Global**
+(rapport A4 corporate DÉTERMINISTE, gate de compilation) + **formulaires officiels** RCP/Notice/Étiquetage
+(navy, exports DOCX/PDF, rendu compilé identique) + **UI premium** (donut dégradé, poignées 18×46,
+arborescence compacte, pages de GARDE épurées [Autogénéré]/[Téléverser]). **Coûts validés CEO : 0 € jusqu'au
+1er client payant** (keep-alive anti-pause actif ; bascule Supabase Pro 25 $/mois aux seuils). Détails :
+[PLAN-V2.md](PLAN-V2.md)._
+
+_**Reprise (nouvelle session)** : le cap est dans **[ROADMAP-MVP.md](ROADMAP-MVP.md)** (jalons H→M jusqu'au
+GO-LIVE). Prochaine action : **H0 — cadrage du module Correspondance & Partage sur mockups CEO**._
 
 ---
 
 ## 1. TL;DR — où on en est
 
-**Le MVP (3 modules) est fonctionnel, online et offline, durci ; le durcissement CI (Lot C) est livré.**
-Reste : l'IA (M4/M5) **bloquée sur les credentials Google Cloud**, et **valider le pilote sur 1 dossier réel**.
+**Le produit est EN PRODUCTION (pharnos.pages.dev), IA comprise, durci, optimisé — recettes CEO n°1-7
+livrées.** Cap : [ROADMAP-MVP.md](ROADMAP-MVP.md) — jalons H→M (correspondance/partage, ops, branding,
+i18n, admin/quotas, gate GO-LIVE).
 
 | Domaine | État |
 |---|---|
@@ -35,7 +43,9 @@ Reste : l'IA (M4/M5) **bloquée sur les credentials Google Cloud**, et **valider
 | **Compte / i18n FR-EN / thème clair-sombre** | ✅ Livré |
 | **Audit trail (ALCOA++)** | ✅ Livré |
 | **Durcissement M8** (E2E offline, a11y AA, Sentry, budget perf, tests RLS) | ✅ Livré |
-| **Regafy IA (M4, Vertex)** · **Traduction (M5, Gemini)** | ⏳ **Bloqué** : credentials GCP |
+| **Regafy IA (M4)** · **Traduction Pro (M5)** | ✅ Livré — **à la demande** (bouton Analyser, cache v7), Upgrade/templates, Audit Global A4 |
+| **Formulaires officiels** (RCP · Notice · Étiquetage) | ✅ Livré (navy, DOCX/PDF, compilé identique) |
+| **CI/CD + coûts** | ✅ Optimisé (#122 : ÷2 minutes, keep-alive Supabase) — 0 € jusqu'au 1er client |
 | **Déploiement pilote** | ✅ **En ligne — https://pharnos.pages.dev** (Cloudflare Pages, mode authentifié) |
 
 **Qualité (main, vert partout) :** typecheck · lint · format · **75 tests unitaires** · build ·
@@ -287,91 +297,19 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 
 ---
 
-## 11. Cap — prochaines étapes (REPRISE : on choisit le lot, puis on exécute)
+## 11. Cap — prochaines étapes
 
-> **Le cœur du MVP (3 modules, online+offline) est livré, en ligne et durci.** Il reste 3 lots ;
-> le **Lot A** rend le pilote exploitable et valide la métrique de succès du DoD.
+> **Le cap d'exécution vit dans [ROADMAP-MVP.md](ROADMAP-MVP.md)** (ancré le 2026-06-12, après la
+> recette n°7). Résumé des jalons — chacun livrable, recettable en prod :
 
-**🟢 Lot A — Rendre le pilote réellement exploitable** *(e-mail ✅ ; polish montage ✅ ; **1er dossier réel compilé ✅ → DoD atteint** ; couverture template + puces + signataire profil ✅ ; reste : remplir le profil + régénérer)*
-
-1. **E-mail d'inscription + récupération de compte** — ✅ **TERMINÉ & vérifié en prod** :
-   - ✅ Front (#36) : « mot de passe oublié » (écran de reset via `PASSWORD_RECOVERY`) + « renvoyer la confirmation ».
-   - ✅ Config (#36) + expéditeur `noreply@pharnos.com` (#38) : `[auth.email.smtp]` **Resend** + `email_sent` 30/h + **templates FR** (`supabase/templates/`).
-   - ✅ **Activé en prod** : `supabase config push` (projet `uhsireqwzqqymgsxuvqh`, clé Resend lue depuis `.env` **racine gitignoré**) + redeploy front. **Vérifié** : inscription + reset délivrent l'e-mail FR (expéditeur `pharnos.com`).
-   - ⚠️ La clé Resend vit dans `.env` (racine, gitignoré) pour les futurs `config push` — **ne jamais la commiter** ; toujours pousser **depuis la racine** du repo.
-2. **Polish montage Module 1** (smoke test CEO **7/10** → livrable) — livré + déployé :
-   - ✅ **Slice 1 (#41)** : aperçu PDF **offline** (`mjs` précaché), titre + barre de format **sticky**, gardes sans nom de fichier, bandeaux pleine largeur.
-   - ✅ **Slice 0 (#42, migration 0012)** : titulaire/fabricant **Nom + Adresse** séparés.
-   - ✅ **Slice 2 (#43)** : **papier à en-tête/pied dans le PDF compilé** + bandeau système **noms complets** (sans troncature).
-   - ✅ **Slice 3 (#44)** : **pages de couverture** (CTD globale + Module 1).
-   - ✅ **Slice 4 (#47)** : UX **signature & en-tête/pied in-montage** — upload sans navigation + stockage optionnel (permission) + signature au paragraphe réservé `[Signature et cachet]` + toggle. **Fix #46** : barre de format recollée à l'A4 (sticky).
-   - ℹ️ **Sync offline (réponse au CEO)** : à la reconnexion, l'outbox est poussée (métadonnées **+ blobs vers Storage**) puis pull **LWW server-authoritative** — automatique. Le PDF compilé n'est pas stocké (régénéré à la demande).
-3. **Valider le DoD** — ✅ **1er dossier réel compilé** (Gynoril Ovule, **44 pages**, produit **4 molécules**) :
-   le PDF compile, se télécharge et s'ouvre → **DoD atteint**. Round de **polish copie-conforme** (retours CEO) :
-   - ✅ **#56** : composition multi-molécules **appariée** (DCI↔dosage) & **jamais tronquée** (couvertures wrap centré, en-tête courant = nom commercial seul) + **espacement signature** resserré/équilibré.
-   - ✅ **#57** : bouton **« Insérer »** pour quitter le panneau en-tête/pied.
-   - ✅ **#59-#60** : couverture **calée sur le template officiel** (tailles + équilibre vertical, auto-fit composition) + vraies puces **« • »**.
-   - ✅ **#61** : **Poste + Nom du signataire** depuis le profil (migration 0013).
-   - ✅ **#64** : **destinataire des lettres auto-rempli par pays UEMOA** (civilité par rang + agence + adresse ; 8 pays).
-   - ✅ **DoD VALIDÉ par le CEO** (lettre réelle propre, 2026-06-09). Reste perso : remplir le profil (Poste + Nom signataire) + régénérer pour figer au JSON.
-4. *(optionnel)* domaine custom + **DSN Sentry** en prod (`VITE_SENTRY_DSN`).
-
-**🔴 Lot B — Couche IA (M4 Regafy IA + M5 Traduction) — PROCHAIN LOT** *(à relancer dans une nouvelle conversation ; bloqueur unique = credentials GCP/Vertex du CEO)*
-
-> Tout est cadré ci-dessous → une nouvelle session démarre direct par l'étape ① (demander les creds), puis exécute. PLAN détaillé : `docs/PLAN.md` (M4 §133, M5 §134, archi IA §79-82).
-
-**① À DEMANDER AU CEO EN PREMIER** (sans ça, rien ne tourne) :
-- **Projet GCP** : `project_id` + **région** Vertex (ex. `us-central1` / `europe-west1`).
-- **API Vertex AI activée** + **facturation** liée (crédits ~300 $ + free tier OK au début).
-- **Service account** rôle **`Vertex AI User`** (`roles/aiplatform.user`) → **clé JSON**.
-- ⚠️ Clé JSON **JAMAIS dans le repo ni le chat** → **secret Supabase** depuis la racine : `supabase secrets set GCP_SA_KEY="$(cat key.json)" GCP_PROJECT_ID=… GCP_LOCATION=…`. Modèle : **`gemini-1.5-flash`** (no-train).
-
-**② CE QUI EXISTE DÉJÀ** (ne pas refaire) :
-- **Regafy v1 déterministe** : `web/src/features/workspace/regafy.ts` (`runRegafy` → `RegafyFinding[]` : expiry, placeholders restants, section validée sans doc, dossier vide, titulaire manquant). Affiché panneau droit (`DossierWorkspacePage`) + badge Catalogue. **L'IA ENRICHIT ces constats** (même modèle `RegafyFinding`), ne les remplace pas.
-- ❌ **PAS encore** : abstraction provider, Edge Functions (`supabase/functions/` **vide**), traduction. **À créer** (l'ancienne note « abstraction prête » était inexacte).
-
-**③ ARCHI CIBLE** (décisions verrouillées) :
-- Moteur = **Gemini Flash via Vertex AI** (no-train) derrière une **abstraction provider** (`LLMProvider` : `analyze()` / `translateStream()`, impl `VertexGemini` ; swap Claude/EU plus tard).
-- Orchestration = **Supabase Edge Functions (Deno/TS)** : `regafy-ai` (analyse → findings) + `translate` (streaming). Secrets GCP **côté Edge uniquement**, jamais client.
-- **Assistif only** (human-in-the-loop, jamais final). Budget **1er token traduction < 2 s**. zod + rate limiting + RLS.
-
-**④ PLAN D'EXÉCUTION** (slices verticales) :
-1. Creds ① → `supabase secrets set` + activer l'API Vertex.
-2. Abstraction `LLMProvider` + impl `VertexGemini` (auth SA : JWT → access token ; `:generateContent` / `:streamGenerateContent`).
-3. **Edge `regafy-ai`** : 1 finding IA bout-en-bout (ex. conformité template d'une lettre) → afficher dans le panneau Regafy (1ʳᵉ slice).
-4. Étendre M4 : détection langue + **OCR/vision** des pièces scannées (Gemini multimodal).
-5. **M5 traduction in-place** : Edge `translate` (streaming) + insertion TipTap + **glossaire MedDRA**.
-
-**🟢 Lot C — Finitions DoD / durcissement** *(CI #55 ; **secrets 4/4 posés** + **perf traitée #68** — 91 sur device représentatif, gate = budget bundle — Track A)*
-
-- ✅ **Lighthouse CI** (#55) + **perf optimisée (#68)** : squelette d'app-shell inline + eager `/catalogue` + budget d'entrée 135 Ko → **perf 91 · a11y 98→100 · BP 100 · CLS 0** sur matériel représentatif. ⚠️ Sur runner **CI mobile** : **TBT-bound ~75** (CPU partagé + throttle ×4) → **décision CEO** : Lighthouse gardé en `warn`, **gate dur = budget de bundle déterministe**. Atteindre 90 en CI mobile imposerait du SSR/prerender (hors scope MVP).
-- ✅ **RLS pgTAP en CI** (#55) : `supabase start` + `supabase test db` — **isolation multi-tenant prouvée à chaque run**.
-- ✅ **Auto-deploy CI** (#55, `deploy.yml`) : push `main` → Cloudflare Pages. **Secrets 4/4 posés** (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `CLOUDFLARE_ACCOUNT_ID`, **`CLOUDFLARE_API_TOKEN`**) → **auto-deploy pleinement armé et vérifié** (Deploy `success` à chaque merge, dont #68/#69 — prod redéployée).
-- ⏳ Export DOCX (fast-follow).
-
-### Déploiement (prod) — Cloudflare Pages
-
-- **Projet** : `pharnos` (compte `pharnos.mvp@gmail.com`) · **URL** : https://pharnos.pages.dev ·
-  branche prod `main`.
-- **Pré-requis** : auth Wrangler (`npx wrangler login`, une fois) ; `web/.env.local` avec
-  `VITE_SUPABASE_URL`/`ANON_KEY` (baked au build) ; `VITE_SENTRY_DSN` optionnel.
-- **✅ Config Supabase Auth (faite)** : `site_url = https://pharnos.pages.dev` + redirects (prod +
-  localhost) appliqués au projet lié via `supabase config push`. Config désormais **versionnée**
-  dans `supabase/config.toml` (MFA TOTP on, confirmations e-mail on, OTP 8, anti-spam 1 min).
-- **⚠️ Règle d'or CLI Supabase** : **toujours** lancer les commandes `supabase` depuis la **racine du
-  repo** (`/d/pharnos-mvp`) — sinon la CLI lit un autre `config.toml` (le CEO a un 2e projet Pharnos)
-  et peut pousser la mauvaise config. Le projet correct est ref **`uhsireqwzqqymgsxuvqh`**.
-- **Redéployer** (manuel, depuis `web/`) :
-  ```bash
-  npm run build
-  npx wrangler pages deploy dist --project-name pharnos --branch main --commit-dirty true
-  ```
-- **✅ Auto-deploy (CI, #55)** : `.github/workflows/deploy.yml` déploie sur push `main` (gated `secrets.CLOUDFLARE_API_TOKEN`). Secrets repo posés via `gh secret set` : `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `CLOUDFLARE_ACCOUNT_ID`. **Activation finale** : `gh secret set CLOUDFLARE_API_TOKEN` (token scopé *Cloudflare Pages → Edit* ; saisie au prompt → hors historique shell).
-
-**Falaises de scale (post-pilote) :** dépassement free tiers Supabase → Pro (~25 $/mois) ; volume IA
-(Flash très bon marché) ; bande passante. Architecture prête (IaC portable, abstraction provider IA).
-
----
+| Jalon | Contenu | Durée | État |
+|---|---|---|---|
+| **H** | **Module Correspondance & Partage du dossier CTD** — H0 cadrage mockups CEO → fil offline-first par dossier (soumission/requêtes/réponses/décision, statuts), lettres de réponse + échéances par agence, partage org en lecture + lien externe signé à expiration | ~4 s. | ⏳ **H0 = prochaine action** |
+| **I** | **Ops & filets** — backup hebdo pg_dump chiffré → R2 + restore drill TESTÉ, alertes seuils, uptime (avant les pilotes réels) | 1 s. | ⏳ (secret SUPABASE_DB_URL à poser — CEO) |
+| **J** | **Branding** — landing, domaine custom (~12 $/an, seule dépense), offres affichées, e-mails domaine | 2 s. | ⏳ |
+| **K** | **i18n EN/FR complet** (UI + e-mails ; templates réglementaires inchangés = langue du pays cible) | 1,5 s. | ⏳ |
+| **L** | **Admin & quotas** — console admin, **quotas IA par org** (verrou coûts Gemini), invitations/rôles | 2 s. | ⏳ |
+| **M** | **Durcissement final & gate GO-LIVE** — revue RLS/rate-limits/CSP, budgets perf en CI (LCP ≤ 2,5 s, INP < 200 ms), k6 Edge, checklist signée CEO | 2 s. | ⏳ GATE |
 
 ## 12. Dev workflow & commandes
 

@@ -1,5 +1,8 @@
 # Pharnos V2 — durcissement piloté de A à Z
 
+> **[2026-06-12] V2 + recettes n°1-7 LIVRÉES (en prod).** La suite (jalons H→M jusqu'au MVP
+> livrable) est ancrée dans **[ROADMAP-MVP.md](ROADMAP-MVP.md)**.
+
 > Plan approuvé par le CEO le 2026-06-11. Ne remplace pas `docs/PLAN.md` (plan MVP, historique) —
 > il le prolonge. La V2 vit sur la branche `v2`, déployée en preview sur
 > **https://v2.pharnos.pages.dev** ; `main` et la prod (https://pharnos.pages.dev) restent

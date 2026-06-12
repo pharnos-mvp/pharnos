@@ -1,5 +1,8 @@
 # Pharnos MVP — Plan d'exécution (CTO) — variante « near-zero cost »
 
+> **[2026-06-12] Plan V1 LIVRÉ.** Suite documentaire : [PLAN-V2.md](PLAN-V2.md) (durcissement +
+> recettes n°1-7, en prod) puis **[ROADMAP-MVP.md](ROADMAP-MVP.md)** (jalons H→M jusqu'au GO-LIVE).
+
 > Statut : **APPROUVÉ par le CEO** (go donné). Source de vérité **du plan** (vision, scope, DoD).
 > 👉 **État vivant du projet (avancement, journal, cap) : [`docs/BOARD.md`](./BOARD.md).**
 
