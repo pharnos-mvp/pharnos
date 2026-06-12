@@ -395,9 +395,7 @@ export function PublicReviewPage({ token }: { token: string }) {
                       onClick={() => setDecisionPick(decisionPick === value ? null : value)}
                       className={cn(
                         'flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors',
-                        decisionPick === value
-                          ? STATUS_BADGE_CLASSES[value]
-                          : 'hover:bg-muted/60',
+                        decisionPick === value ? STATUS_BADGE_CLASSES[value] : 'hover:bg-muted/60',
                       )}
                     >
                       <Icon className="size-4" /> {label}
@@ -498,8 +496,8 @@ export function PublicReviewPage({ token }: { token: string }) {
       </main>
 
       <footer className="text-muted-foreground border-t py-4 text-center text-xs">
-        Propulsé par <span className="font-medium">Pharnos</span> — l’OS des affaires
-        réglementaires pharmaceutiques UEMOA/CEDEAO.
+        Propulsé par <span className="font-medium">Pharnos</span> — l’OS des affaires réglementaires
+        pharmaceutiques UEMOA/CEDEAO.
       </footer>
     </div>
   )

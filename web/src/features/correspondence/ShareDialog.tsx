@@ -170,8 +170,8 @@ export function ShareDialog({
                     </Button>
                   </div>
                   <p className="text-muted-foreground text-xs">
-                    À transmettre par un canal séparé (téléphone, WhatsApp…). Il n’est jamais
-                    stocké en clair et n’apparaîtra plus.
+                    À transmettre par un canal séparé (téléphone, WhatsApp…). Il n’est jamais stocké
+                    en clair et n’apparaîtra plus.
                   </p>
                 </div>
               )}
@@ -182,7 +182,11 @@ export function ShareDialog({
                 Annuler
               </Button>
               <Button size="sm" onClick={() => void handleSend()} disabled={sending}>
-                {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+                {sending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Send className="size-4" />
+                )}
                 {sending ? 'Envoi…' : 'Envoyer'}
               </Button>
             </div>
@@ -197,7 +201,9 @@ export function ShareDialog({
             <p
               className={cn(
                 'text-xs',
-                emailState === 'failed' ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground',
+                emailState === 'failed'
+                  ? 'text-amber-600 dark:text-amber-400'
+                  : 'text-muted-foreground',
               )}
               role="status"
             >

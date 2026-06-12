@@ -72,14 +72,20 @@ export function WorkspacePage() {
       </div>
 
       {(dossiers ?? []).length > 0 ? (
-        <div className="mt-5 flex flex-wrap items-center gap-1.5" role="group" aria-label="Filtrer par état">
+        <div
+          className="mt-5 flex flex-wrap items-center gap-1.5"
+          role="group"
+          aria-label="Filtrer par état"
+        >
           <button
             type="button"
             aria-pressed={filter === 'all'}
             onClick={() => setFilter('all')}
             className={cn(
               'cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-              filter === 'all' ? 'bg-primary text-primary-foreground border-transparent' : 'hover:bg-muted',
+              filter === 'all'
+                ? 'bg-primary text-primary-foreground border-transparent'
+                : 'hover:bg-muted',
             )}
           >
             Tous · {dossiers?.length ?? 0}

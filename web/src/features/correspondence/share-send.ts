@@ -1,9 +1,6 @@
 import type { CorrespondenceRecord, DossierRecord } from '@/lib/db'
 import { getSupabase } from '@/lib/supabase'
-import {
-  createCorrespondence,
-  type CreateCorrespondenceInput,
-} from './correspondence-repository'
+import { createCorrespondence, type CreateCorrespondenceInput } from './correspondence-repository'
 import { syncCorrespondences } from './correspondence-sync'
 import { generateShareToken, hashSharePassword, sha256Hex, shareUrl } from './share-crypto'
 

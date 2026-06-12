@@ -29,8 +29,7 @@ export const STATUS_BADGE_CLASSES: Record<DossierDisplayStatus, string> = {
   in_review: 'bg-blue-100 text-blue-800 border-transparent dark:bg-blue-950 dark:text-blue-300',
   accepted:
     'bg-emerald-100 text-emerald-800 border-transparent dark:bg-emerald-950 dark:text-emerald-300',
-  suspended:
-    'bg-amber-100 text-amber-800 border-transparent dark:bg-amber-950 dark:text-amber-300',
+  suspended: 'bg-amber-100 text-amber-800 border-transparent dark:bg-amber-950 dark:text-amber-300',
   rejected: 'bg-red-100 text-red-800 border-transparent dark:bg-red-950 dark:text-red-300',
 }
 

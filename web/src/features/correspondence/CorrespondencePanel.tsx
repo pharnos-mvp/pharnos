@@ -118,7 +118,11 @@ export function CorrespondencePanel({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/40" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-50 flex justify-end bg-black/40"
+      role="dialog"
+      aria-modal="true"
+    >
       <div className="bg-card flex h-full w-full max-w-md flex-col border-l shadow-xl">
         <div className="flex items-center justify-between border-b p-3">
           <h2 className="text-sm font-semibold">Correspondance</h2>
@@ -145,7 +149,9 @@ export function CorrespondencePanel({
                     onClick={() => setSelectedId(c.id)}
                     className={cn(
                       'cursor-pointer rounded-full border px-2.5 py-0.5 text-xs',
-                      c.id === selected.id ? 'bg-primary text-primary-foreground' : 'hover:bg-muted',
+                      c.id === selected.id
+                        ? 'bg-primary text-primary-foreground'
+                        : 'hover:bg-muted',
                     )}
                   >
                     {dateFmt.format(new Date(c.createdAt))}
@@ -221,7 +227,11 @@ export function CorrespondencePanel({
                   aria-label="Envoyer la réponse"
                   onClick={() => void handleReply()}
                 >
-                  {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+                  {sending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Send className="size-4" />
+                  )}
                 </Button>
               </div>
             </div>
