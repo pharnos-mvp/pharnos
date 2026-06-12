@@ -224,6 +224,14 @@ export function PdfViewer({
           { root: flow ? null : container.parentElement, rootMargin: OBSERVE_MARGIN },
         )
         for (const h of holders) observer.observe(h)
+        // Amorçage SANS attendre l'observer : son callback initial peut rater si le layout
+        // n'est pas encore stabilisé à l'attache (constaté en recette : 0 canvas jusqu'au
+        // premier scroll). Les 2 premières pages partent tout de suite — l'observer libérera
+        // de toute façon ce qui sort du viewport.
+        const first = holders[0]
+        const second = holders[1]
+        if (first) renderPage(first, 1)
+        if (second) renderPage(second, 2)
       } catch (e) {
         console.error('[pdf] aperçu :', e)
         if (!cancelled) setStatus('error')
