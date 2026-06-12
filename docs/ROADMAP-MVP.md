@@ -57,6 +57,16 @@ construction partout où l'autorité fait foi).
   local ; CI/deploy auto HS jusqu'au reset du cycle ou hausse de limite (action CEO).
 - **Reporté post-MVP** (décision de recadrage) : délais réglementaires par agence + rappels,
   lettre de réponse générée pour le fil, export PDF du fil, lecture seule par rôle org.
+- **V2 (retours recette CEO, livrée en prod le 2026-06-12 — PR #126)** : page publique dockée
+  (tiroir repliable, barre figée, mobile overlay) + **PDF streaming HTTP Range** (transport
+  explicite PDFDataRangeTransport — CORS n'expose pas Accept-Ranges — 1re page en 2 requêtes
+  partielles, rendu paresseux + libération mémoire, amorçage pages 1-2) + écran terminal
+  post-décision (véridique selon auto-révocation) + re-notify e-mail à la réponse labo +
+  « Mettre à jour l'envoi » (PDF write-once versionné, même lien/fil) + **boîte Gmail×WhatsApp
+  par dossier** (volet conversations, non-lus locaux Dexie v10, clic carte → boîte + Modifier)
+  + **sécurité L1** (TTL 7/30/90 j, auto-révocation post-décision, journal d'accès infalsifiable
+  visible labo — migration 0018 —, filigrane reviewer aperçu+téléchargement). CI PR-only,
+  deploy nominal = Cloudflare Git natif (DEPLOY-CLOUDFLARE.md, branchement CEO).
 
 ### I — Ops & filets de production *(1 session — AVANT d'ouvrir aux pilotes)*
 - **Backup hebdo automatisé** `pg_dump` chiffré (age) → Cloudflare R2 (10 Go gratuits) —

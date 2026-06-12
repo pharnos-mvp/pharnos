@@ -25,11 +25,12 @@ arborescence compacte, pages de GARDE épurées [Autogénéré]/[Téléverser]).
 [PLAN-V2.md](PLAN-V2.md)._
 
 _**Reprise (nouvelle session)** : le cap est dans **[ROADMAP-MVP.md](ROADMAP-MVP.md)** (jalons H→M jusqu'au
-GO-LIVE). **Jalon H (Correspondance) : ✅ LIVRÉ EN PROD le 2026-06-12** (#124/#125, migration 0017 + Edge
-`share` déployées, secrets `RESEND_API_KEY`/`EMAIL_FROM` posés, recette navigateur réel complète — plan
-[PLAN-H-CORRESPONDANCE.md](PLAN-H-CORRESPONDANCE.md), ADR-0003). Prochaine action : **jalon I (backups +
-restore drill)** — préalables CEO : rétablir le quota GitHub Actions (Billing, CI/deploy auto HS — deploy
-wrangler local en attendant) + poser le secret repo `SUPABASE_DB_URL`._
+GO-LIVE). **Correspondance v2 ✅ LIVRÉE EN PROD le 2026-06-12** (#126 + fixes, migration 0018, Edge `share`
+redéployée — retours CEO : PDF streaming Range, tiroir docké, écran terminal, boîte Gmail×WhatsApp par
+dossier, sécurité L1 TTL/journal/filigrane). Prochaine action : **jalon I (backups + restore drill)** —
+préalables CEO : (1) **brancher Cloudflare Pages au repo Git** ([DEPLOY-CLOUDFLARE.md](DEPLOY-CLOUDFLARE.md),
+~5 min dashboard — deploy auto à 0 min GitHub ; en attendant : wrangler local) ; (2) poser le secret repo
+`SUPABASE_DB_URL` ; (3) quota GitHub Actions au reset du cycle (CI PR-only désormais)._
 
 ---
 
@@ -51,7 +52,7 @@ i18n, admin/quotas, gate GO-LIVE).
 | **Formulaires officiels** (RCP · Notice · Étiquetage) | ✅ Livré (navy, DOCX/PDF, compilé identique) |
 | **CI/CD + coûts** | ✅ Optimisé (#122 : ÷2 minutes, keep-alive Supabase) — 0 € jusqu'au 1er client |
 | **Déploiement pilote** | ✅ **En ligne — https://pharnos.pages.dev** (Cloudflare Pages, mode authentifié) |
-| **Correspondance (jalon H)** | ✅ **LIVRÉ EN PROD (2026-06-12, #124/#125)** : envoi tokenisé + page publique `/r/{token}` + Accepter/Suspendre/Rejeter + fil chat + états home dérivés + e-mail Resend (domaine pharnos.com vérifié) — recette navigateur réel complète ; Realtime à confirmer hors poste de recette (websockets bloqués localement, pull OK) |
+| **Correspondance (jalon H + v2)** | ✅ **V2 LIVRÉE EN PROD (2026-06-12, #126)** : review publique dockée (tiroir repliable, barre figée) + **PDF streaming Range** (1re page en 2 requêtes partielles vs 7,4 Mo) + écran terminal post-décision + mise à jour d'envoi (même lien/fil) + **boîte Gmail×WhatsApp par dossier** (non-lus, clic carte → boîte + Modifier) + **sécurité L1** (TTL lien, auto-révocation, journal d'accès, filigrane) — recette prod complète ; Realtime à confirmer hors poste de recette |
 
 **Qualité (main, vert partout) :** typecheck · lint · format · **75 tests unitaires** · build ·
 **budget bundle** · **9 E2E Playwright** (dont reload hors-ligne) · **a11y WCAG AA** · **RLS pgTAP en CI** · **Lighthouse CI** (perf/a11y).
