@@ -12,7 +12,7 @@ import type { RegafyFinding } from './regafy'
  * v4 : constat de conformité au template (toutes langues) + langue détectée portée.
  * v5 : message de conformité en une phrase (sans énumération des rubriques).
  */
-const CACHE_VERSION = 'v5'
+const CACHE_VERSION = 'v6'
 const versioned = (sig: string) => `${CACHE_VERSION}:${sig}`
 
 /**

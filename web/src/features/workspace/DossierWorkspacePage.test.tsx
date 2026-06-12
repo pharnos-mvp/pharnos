@@ -173,31 +173,22 @@ describe('DossierWorkspacePage — caractérisation (avant refactor T7)', () => 
     expect(await screen.findByRole('button', { name: /Téléverser/ })).toBeInTheDocument()
   })
 
-  it('remarques déterministes : validité < 6 mois + titulaire ≠ fabricant', async () => {
+  it('Regafy à la demande : panneau Remarques vide par défaut + bouton Analyser', async () => {
     await seed()
     renderPage()
     await screen.findByRole('heading', { level: 2 })
+    const user = userEvent.setup()
+    await user.click(await screen.findByText('Informations administratives'))
+    await screen.findAllByText(/gmp\.pdf/i)
+    // Recette n°6 : plus AUCUNE analyse automatique — le panneau attend une action user.
     expect(await screen.findByText('Remarques pour la session')).toBeInTheDocument()
-    // Messages exacts de regafy.ts (déterministes, IA inactive en mode local).
-    expect(await screen.findByText(/Validité < 6 mois requise \(expire le /)).toBeInTheDocument()
-    expect(
-      await screen.findByText(
-        /Titulaire ≠ fabricant : contrat \(licence\/fabrication\) non fourni\./,
-      ),
-    ).toBeInTheDocument()
+    expect(await screen.findByText(/Aucune analyse pour cette session\./)).toBeInTheDocument()
+    expect(screen.queryByText(/Validité < 6 mois requise/)).not.toBeInTheDocument()
+    // Le bouton Analyser accompagne la pièce affichée (désactivé sans Supabase/hors-ligne).
+    expect(await screen.findByRole('button', { name: /Analyser/ })).toBeInTheDocument()
     // Le donut affiche un pourcentage calculé (feuilles remplies / feuilles).
     const donut = await screen.findAllByRole('img', { name: /%$/ })
     expect(donut.length).toBeGreaterThan(0)
-  })
-
-  it('gate de compilation : remarques affichées AVANT compilation, option « Compiler quand même »', async () => {
-    await seed()
-    renderPage()
-    const compile = await screen.findByRole('button', { name: /Compiler le PDF/ })
-    compile.click()
-    expect(await screen.findByText('Remarques avant compilation')).toBeInTheDocument()
-    expect(await screen.findByRole('button', { name: 'Compiler quand même' })).toBeInTheDocument()
-    expect(await screen.findByRole('button', { name: 'Corriger' })).toBeInTheDocument()
   })
 
   it('dossier vide : le gate signale « Dossier vide : aucun document. »', async () => {

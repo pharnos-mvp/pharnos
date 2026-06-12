@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
 import type {
@@ -15,26 +15,22 @@ import { syncGeneratedDocs } from './generated-docs-sync'
 import { docTypeForNode, type CtdNodeDef } from './module1-tree'
 import { agencyFor, officialLanguage } from './roadmap-data'
 import { tiptapText, type RegafyFinding } from './regafy'
-import {
-  runRegafyConformityTexts,
-  runRegafyLetters,
-  runRegafyValidity,
-  UPGRADE_DOC_TYPES,
-  type RegafyAiPiece,
-} from './regafy-ai'
+import { runRegafyValidity, UPGRADE_DOC_TYPES, type RegafyAiPiece } from './regafy-ai'
 import { cacheAnalysis, getCachedAnalysis } from './regafy-cache'
 import { textToTiptap, translateDoc } from './translate-doc'
 import { upgradeDoc } from './upgrade-doc'
 
 /**
- * Copilote Regafy IA du workspace (extrait move-only de DossierWorkspacePage — T7.2) :
- * - validité des pièces (multimodal, incrémental, cache par document) ;
- * - conformité des lettres générées ;
- * - traduction d'un document (crée un doc généré éditable, propre au dossier).
+ * Copilote Regafy du workspace — analyses À LA DEMANDE (recette CEO n°6 : plus AUCUNE
+ * analyse automatique) :
+ * - `analyzeActive(pieceId)` : l'utilisateur clique « Analyser » sur la pièce affichée —
+ *   Regafy applique sa politique (document à template → conformité [+ langue] ; pièce
+ *   administrative → validité) et CONSIGNE le résultat dans les Remarques (une remarque
+ *   par document — ré-analyser remplace ; résultat positif consigné aussi) ;
+ * - traduction / mise en conformité d'un document (inchangé) ;
  * Assistif uniquement : ne bloque jamais la compilation.
  */
 export function useRegafyCopilot({
-  dossierId,
   dossier,
   product,
   genDocs,
@@ -44,7 +40,6 @@ export function useRegafyCopilot({
   orgId,
   onOpenTranslation,
 }: {
-  dossierId: string | undefined
   dossier: DossierRecord | null | undefined
   product: ProductRecord | undefined
   genDocs: GeneratedDocRecord[] | undefined
@@ -55,32 +50,15 @@ export function useRegafyCopilot({
   /** Ouvre l'onglet d'une traduction (sélection du nœud + mode édition) — fourni par la page. */
   onOpenTranslation: (node: CtdNodeDef, genId: string) => void
 }) {
-  const [validityByPiece, setValidityByPiece] = useState<Record<string, RegafyFinding[]>>({})
-  const [letterFindings, setLetterFindings] = useState<RegafyFinding[]>([])
-  /** Constats de conformité au template des TRADUCTIONS, par id de document généré. */
-  const [translationConformity, setTranslationConformity] = useState<
-    Record<string, RegafyFinding[]>
-  >({})
-  const [aiBusy, setAiBusy] = useState(false)
+  /** Remarques de la SESSION, par pièce analysée — vide par défaut, ré-analyser REMPLACE. */
+  const [analysisByPiece, setAnalysisByPiece] = useState<Record<string, RegafyFinding[]>>({})
+  /** Pièce en cours d'analyse (animation de scan sur l'aperçu) — null sinon. */
+  const [analyzing, setAnalyzing] = useState<string | null>(null)
   const [translating, setTranslating] = useState<string | null>(null)
   /** Source (pieceId/genId) en cours de mise en conformité — null sinon. */
   const [upgrading, setUpgrading] = useState<string | null>(null)
   /** Texte (traduction OU version conforme) reçu au fil de l'eau (SSE) — null hors opération. */
   const [streamText, setStreamText] = useState<string | null>(null)
-  const analyzedPieceIds = useRef<Set<string>>(new Set())
-  /** Traductions analysées, clé `id:updatedAt` — une édition (sig changée) ré-analyse. */
-  const analyzedTranslationSigs = useRef<Set<string>>(new Set())
-
-  // Constats : déterministes + copilote IA (validité par pièce + conformité des lettres et des
-  // traductions). Même affichage, en complément ; ne bloque jamais la compilation.
-  const aiFindings = useMemo(
-    () => [
-      ...Object.values(validityByPiece).flat(),
-      ...letterFindings,
-      ...Object.values(translationConformity).flat(),
-    ],
-    [validityByPiece, letterFindings, translationConformity],
-  )
 
   // Constat « résolu » : dès qu'une traduction existe pour un doc, on masque son constat de langue
   // (et son bouton « Traduire ») — l'utilisateur a satisfait la demande. Vaut pour le panneau ET le
@@ -148,233 +126,109 @@ export function useRegafyCopilot({
     return out
   }, [docsByNode, attachByNode, flatNodes, dossier])
 
-  // Signature stable du jeu de pièces (ids triés) → l'analyse se déclenche sur un VRAI changement de
-  // pièces, pas à chaque tick de la synchro Dexie (sinon le debounce est relancé en boucle → démarrage
-  // lent). dossier/aiPieces sont stables pour une signature donnée.
-  const piecesSig = useMemo(
-    () =>
-      aiPieces
-        .map((p) => `${p.pieceId}:${p.sig}`)
-        .sort()
-        .join('|'),
-    [aiPieces],
+  // Remarques de session — une pièce RETIRÉE du dossier emporte ses remarques (dérivation
+  // pure : pas d'effet, les entrées orphelines sont simplement ignorées).
+  const aiFindings = useMemo(() => {
+    const currentIds = new Set(aiPieces.map((p) => p.pieceId))
+    return Object.entries(analysisByPiece)
+      .filter(([id]) => currentIds.has(id))
+      .flatMap(([, fs]) => fs)
+  }, [analysisByPiece, aiPieces])
+  const aiBusy = analyzing !== null
+
+  /**
+   * Consolide le résultat d'une analyse en remarques de session — UNE remarque par genre :
+   * - conformité + langue d'un document à template fusionnées en UN constat (boutons
+   *   Remplir le template / Traduire / Remplacer) ;
+   * - analyse SANS constat → remarque POSITIVE (`ok`) : le panneau consigne chaque résultat.
+   */
+  const consolidate = useCallback(
+    (piece: RegafyAiPiece, fs: RegafyFinding[], countryName: string): RegafyFinding[] => {
+      const isTemplate = UPGRADE_DOC_TYPES.has(piece.docType)
+      if (fs.length === 0) {
+        return [
+          {
+            id: `analysis:${piece.pieceId}`,
+            nodeNumber: piece.nodeNumber,
+            nodeLabel: piece.nodeLabel,
+            severity: 'info',
+            ok: true,
+            source: 'ai',
+            pieceId: piece.pieceId,
+            message: isTemplate
+              ? `${piece.fileName} : conforme au template en vigueur.`
+              : `${piece.fileName} : validité vérifiée — conforme.`,
+          },
+        ]
+      }
+      if (!isTemplate) return fs
+      // Document à template : fusionner conformité + langue en un constat porteur d'actions.
+      const upgradeF = fs.find((f) => f.upgrade)
+      const langF = fs.find((f) => f.translate || (f.language && f.language !== 'fr'))
+      if (upgradeF && langF) {
+        const lang = (langF.language ?? '??').toUpperCase()
+        const merged: RegafyFinding = {
+          ...upgradeF,
+          translate: true,
+          language: langF.language,
+          message: `${piece.docType.toUpperCase()} : non conforme au template en vigueur et rédigé en ${lang} — langue officielle du ${countryName} : français.`,
+        }
+        return [merged, ...fs.filter((f) => f !== upgradeF && f !== langF)]
+      }
+      return fs
+    },
+    [],
   )
 
-  // (Pas de reset manuel : l'app-shell remonte la page via `key={location.pathname}` au changement
-  // de dossier → l'état du copilote repart à zéro automatiquement.)
-
-  // Copilote — VALIDITÉ (incrémental) : à l'ouverture, 1 batch sur toutes les pièces ; puis seulement
-  // les **nouvelles** pièces à chaque upload. Réconcilie les retraits. Silencieux (échec en console).
-  useEffect(() => {
-    if (!env.isSupabaseConfigured || !dossier) return
-    const currentIds = new Set(aiPieces.map((p) => p.pieceId))
-    setValidityByPiece((prev) => {
-      let changed = false
-      const next: Record<string, RegafyFinding[]> = {}
-      for (const [id, f] of Object.entries(prev)) {
-        if (currentIds.has(id)) next[id] = f
-        else {
-          changed = true
-          analyzedPieceIds.current.delete(id)
+  /**
+   * Analyse À LA DEMANDE de la pièce affichée (bouton « Analyser ») — politique Regafy :
+   * document à template → conformité (+ langue) ; pièce administrative → validité.
+   * Cache par (pieceId, updatedAt) : pièce inchangée = résultat immédiat, zéro appel IA.
+   */
+  const analyzeActive = useCallback(
+    async (pieceId: string) => {
+      const piece = aiPieces.find((p) => p.pieceId === pieceId)
+      if (!piece || !dossier || !env.isSupabaseConfigured) return
+      if (analyzing) return
+      const countryName = countryLabel(dossier.country) || dossier.country || ''
+      setAnalyzing(piece.pieceId)
+      try {
+        let fs = await getCachedAnalysis(piece.pieceId, piece.sig)
+        if (!fs) {
+          fs = await runRegafyValidity(
+            [piece],
+            new Date().toISOString().slice(0, 10),
+            agencyFor(dossier.country).name || '',
+            officialLanguage(dossier.country),
+            dossier.productName ?? product?.nomCommercial ?? '',
+            countryName,
+            dossier.country,
+          )
+          fs = fs.filter((f) => !f.pieceId || f.pieceId === piece.pieceId)
+          await cacheAnalysis(piece.pieceId, piece.sig, fs)
         }
+        setAnalysisByPiece((prev) => ({
+          ...prev,
+          [piece.pieceId]: consolidate(piece, fs!, countryName),
+        }))
+      } catch (e) {
+        toast.error(`Analyse impossible : ${(e as Error).message}`)
+      } finally {
+        setAnalyzing(null)
       }
-      return changed ? next : prev
+    },
+    [aiPieces, dossier, product, analyzing, consolidate],
+  )
+
+  /** Purge les remarques d'une pièce (document remplacé). */
+  const clearPieceAnalysis = useCallback((pieceId: string) => {
+    setAnalysisByPiece((prev) => {
+      if (!(pieceId in prev)) return prev
+      const next = { ...prev }
+      delete next[pieceId]
+      return next
     })
-    const newPieces = aiPieces.filter((p) => !analyzedPieceIds.current.has(p.pieceId))
-    if (newPieces.length === 0) return
-    const agencySigle = agencyFor(dossier.country).name || ''
-    const targetLang = officialLanguage(dossier.country)
-    const productName = dossier.productName ?? product?.nomCommercial ?? ''
-    const countryName = countryLabel(dossier.country) || dossier.country || ''
-    const today = new Date().toISOString().slice(0, 10)
-    const t = setTimeout(() => {
-      void (async () => {
-        // 1. Cache : constats des documents déjà analysés (inchangés) → instantané, ZÉRO appel IA.
-        const fromCache: Record<string, RegafyFinding[]> = {}
-        const uncached: RegafyAiPiece[] = []
-        for (const p of newPieces) {
-          analyzedPieceIds.current.add(p.pieceId)
-          const cached = await getCachedAnalysis(p.pieceId, p.sig)
-          if (cached) fromCache[p.pieceId] = cached
-          else uncached.push(p)
-        }
-        if (Object.keys(fromCache).length > 0) {
-          setValidityByPiece((prev) => ({ ...prev, ...fromCache }))
-        }
-        // 2. IA : SEULEMENT les documents jamais analysés (nouveaux ou remplacés). Envoi par
-        // chunks de 3 → les premiers constats s'affichent AU FIL DE L'EAU sans attendre tout le
-        // lot (l'Edge analyse déjà 1 doc par appel ; zéro changement serveur). Sur un dossier de
-        // 12 pièces, le premier retour arrive ~4× plus tôt.
-        if (uncached.length === 0) return
-        setAiBusy(true)
-        const CHUNK = 3
-        let next = 0 // index de la 1re pièce non encore traitée (pour re-tenter après échec)
-        try {
-          for (; next < uncached.length; next += CHUNK) {
-            const slice = uncached.slice(next, next + CHUNK)
-            const fs = await runRegafyValidity(
-              slice,
-              today,
-              agencySigle,
-              targetLang,
-              productName,
-              countryName,
-              dossier.country,
-            )
-            const byPiece: Record<string, RegafyFinding[]> = {}
-            for (const p of slice) byPiece[p.pieceId] = []
-            for (const f of fs) if (f.pieceId) (byPiece[f.pieceId] ??= []).push(f)
-            // « Conformité d'abord » : sur les types couverts par un template, la traduction est
-            // proposée APRÈS la mise en conformité (sur la version conforme) — le constat de
-            // langue de l'ORIGINAL devient informatif (plus de bouton Traduire ici).
-            for (const p of slice) {
-              if (!UPGRADE_DOC_TYPES.has(p.docType)) continue
-              byPiece[p.pieceId] = (byPiece[p.pieceId] ?? []).map((f) =>
-                f.translate
-                  ? {
-                      ...f,
-                      translate: undefined,
-                      message: `${f.message.replace(/\s*Traduction recommandée\.\s*$/, '')} Traduction proposée après mise en conformité.`,
-                    }
-                  : f,
-              )
-            }
-            await Promise.all(
-              slice.map((p) => cacheAnalysis(p.pieceId, p.sig, byPiece[p.pieceId] ?? [])),
-            )
-            setValidityByPiece((prev) => ({ ...prev, ...byPiece }))
-          }
-        } catch (e) {
-          // Seules les pièces NON traitées sont dé-marquées (les chunks réussis restent cachés).
-          uncached.slice(next).forEach((p) => analyzedPieceIds.current.delete(p.pieceId))
-          console.error('Regafy IA (validité) :', (e as Error).message)
-        } finally {
-          setAiBusy(false)
-        }
-      })()
-    }, 1500)
-    return () => clearTimeout(t)
-    // Déclenché sur piecesSig (id + sig), pas sur le ref de l'array aiPieces.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dossierId, piecesSig])
-
-  // Copilote — LETTRES : conformité des lettres générées (à l'ouverture + à chaque modification).
-  useEffect(() => {
-    if (!env.isSupabaseConfigured || !dossier || genDocs === undefined || genDocs.length === 0)
-      return
-    const agency = agencyFor(dossier.country)
-    const t = setTimeout(() => {
-      setAiBusy(true)
-      void runRegafyLetters(
-        genDocs.filter(
-          (g) =>
-            g.templateKey !== 'translation' &&
-            g.templateKey !== 'upgrade' &&
-            g.templateKey !== 'fill',
-        ),
-        {
-          productName: dossier.productName ?? product?.nomCommercial ?? '',
-          titulaire: product?.titulaire ?? '',
-          country: countryLabel(dossier.country) || dossier.country || '',
-          agency: agency.full ? `${agency.full} (${agency.name})` : '',
-          operationDate: new Date().toISOString().slice(0, 10),
-        },
-      )
-        .then((fs) => setLetterFindings(fs))
-        .catch((e) => console.error('Regafy IA (lettres) :', (e as Error).message))
-        .finally(() => setAiBusy(false))
-    }, 1500)
-    return () => clearTimeout(t)
-  }, [dossier, genDocs, product])
-
-  // Copilote — CONFORMITÉ DES DOCUMENTS GÉNÉRÉS (Regafy Upgrade) : traductions de pièces ET
-  // squelettes « Remplir le template » sont vérifiés contre le template en vigueur de leur type.
-  // Cache par (id, updatedAt) ; debounce long (8 s) pour ne pas ré-analyser à chaque sauvegarde
-  // pendant l'édition — le constat se met à jour après une pause, et disparaît quand
-  // l'utilisateur a corrigé les rubriques manquantes. Les versions conformes (upgrade) et les
-  // traductions de docs générés sont exclues (conformité traitée en amont — flux CEO).
-  useEffect(() => {
-    if (!env.isSupabaseConfigured || !dossier || genDocs === undefined) return
-    const checkable = genDocs
-      .filter((g) => g.deletedAt === null)
-      .map((g) => {
-        if (g.templateKey === 'translation' && g.sourceDocId) {
-          // Traduction d'une PIÈCE uniquement (une traduction de doc généré — version conforme
-          // déjà vérifiée — n'a pas de pièce correspondante dans aiPieces → exclue).
-          const src = aiPieces.find((p) => p.pieceId === g.sourceDocId)
-          return src && UPGRADE_DOC_TYPES.has(src.docType) ? { gen: g, docType: src.docType } : null
-        }
-        if (g.templateKey === 'fill') {
-          const docType =
-            docTypeForNode(dossier.format, g.nodeNumber) ??
-            (g.nodeNumber.startsWith('1.3') ? 'labeling' : null)
-          return docType && UPGRADE_DOC_TYPES.has(docType) ? { gen: g, docType } : null
-        }
-        return null
-      })
-      .filter((t): t is NonNullable<typeof t> => t !== null)
-
-    const currentIds = new Set(checkable.map((t) => t.gen.id))
-    const pending = checkable.filter(
-      (t) => !analyzedTranslationSigs.current.has(`${t.gen.id}:${t.gen.updatedAt}`),
-    )
-    const countryCode = dossier.country
-    const t = setTimeout(() => {
-      void (async () => {
-        // Réconcilie les suppressions (onglet fermé → constat retiré).
-        setTranslationConformity((prev) => {
-          let changed = false
-          const next: Record<string, RegafyFinding[]> = {}
-          for (const [id, f] of Object.entries(prev)) {
-            if (currentIds.has(id)) next[id] = f
-            else changed = true
-          }
-          return changed ? next : prev
-        })
-        if (pending.length === 0) return
-        // 1. Cache : traduction inchangée déjà analysée → constats instantanés, zéro appel IA.
-        const uncached: typeof pending = []
-        for (const p of pending) {
-          analyzedTranslationSigs.current.add(`${p.gen.id}:${p.gen.updatedAt}`)
-          const cached = await getCachedAnalysis(p.gen.id, p.gen.updatedAt)
-          if (cached) setTranslationConformity((prev) => ({ ...prev, [p.gen.id]: cached }))
-          else uncached.push(p)
-        }
-        if (uncached.length === 0) return
-        setAiBusy(true)
-        try {
-          const texts = uncached.map((p) => ({
-            id: p.gen.id,
-            nodeNumber: p.gen.nodeNumber,
-            nodeLabel: p.gen.title ?? '',
-            docType: p.docType,
-            text: tiptapText((p.gen.content ?? {}) as Parameters<typeof tiptapText>[0]).trim(),
-          }))
-          const fs = await runRegafyConformityTexts(
-            texts.filter((t) => t.text.length > 0),
-            countryCode,
-          )
-          const byGen: Record<string, RegafyFinding[]> = {}
-          for (const p of uncached) byGen[p.gen.id] = []
-          for (const f of fs) if (f.pieceId) (byGen[f.pieceId] ??= []).push(f)
-          await Promise.all(
-            uncached.map((p) => cacheAnalysis(p.gen.id, p.gen.updatedAt, byGen[p.gen.id] ?? [])),
-          )
-          setTranslationConformity((prev) => ({ ...prev, ...byGen }))
-        } catch (e) {
-          uncached.forEach((p) =>
-            analyzedTranslationSigs.current.delete(`${p.gen.id}:${p.gen.updatedAt}`),
-          )
-          console.error('Regafy IA (conformité traductions) :', (e as Error).message)
-        } finally {
-          setAiBusy(false)
-        }
-      })()
-    }, 8000)
-    return () => clearTimeout(t)
-    // aiPieces est couvert par piecesSig (signature stable) — même pattern que l'effet validité.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dossier, genDocs, piecesSig])
+  }, [])
 
   // « Traduire » (M5) : lit le document via l'Edge, crée/MAJ une traduction ÉDITABLE propre au
   // dossier (document généré), puis l'ouvre côte à côte avec l'original. Ne touche jamais au
@@ -574,6 +428,9 @@ export function useRegafyCopilot({
     aiFindings,
     translatedSourceIds,
     aiBusy,
+    analyzing,
+    analyzeActive,
+    clearPieceAnalysis,
     translating,
     upgrading,
     streamText,

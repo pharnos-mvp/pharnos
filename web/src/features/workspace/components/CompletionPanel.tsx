@@ -100,7 +100,13 @@ export function CompletionPanel({
           </p>
         ) : null}
         {allFindings.length === 0 ? (
-          <p className="text-muted-foreground mt-3 text-center text-xs italic">Aucun constat. ✓</p>
+          // Plus d'analyse automatique (recette n°6) : le panneau consigne les analyses de
+          // l'utilisateur — vide tant qu'aucune n'a été lancée.
+          <p className="text-muted-foreground mt-3 text-center text-xs italic">
+            Aucune analyse pour cette session.
+            <br />
+            Sélectionnez une pièce puis cliquez «&nbsp;Analyser&nbsp;».
+          </p>
         ) : (
           <ul className="mt-2 space-y-1.5">
             {allFindings.map((f) => (
@@ -117,11 +123,13 @@ export function CompletionPanel({
                   <span
                     className={cn(
                       'mt-1 size-2 shrink-0 rounded-full',
-                      f.severity === 'error'
-                        ? 'bg-red-500'
-                        : f.severity === 'warning'
-                          ? 'bg-amber-500'
-                          : 'bg-sky-500',
+                      f.ok
+                        ? 'bg-emerald-500'
+                        : f.severity === 'error'
+                          ? 'bg-red-500'
+                          : f.severity === 'warning'
+                            ? 'bg-amber-500'
+                            : 'bg-sky-500',
                     )}
                   />
                   <span className="min-w-0">

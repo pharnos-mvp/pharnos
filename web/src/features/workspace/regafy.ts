@@ -30,6 +30,8 @@ export interface RegafyFinding {
   upgrade?: boolean
   /** Rubriques manquantes/non conformes (détail du constat de conformité). */
   missing?: string[]
+  /** Analyse SANS constat : remarque positive consignée au panneau (pastille émeraude). */
+  ok?: boolean
 }
 
 export interface RegafyInput {

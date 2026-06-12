@@ -6,6 +6,7 @@ import {
   FileDown,
   FileText,
   Languages,
+  ScanSearch,
   Sparkles,
   ClipboardList,
   Upload,
@@ -16,6 +17,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { useHeaderSlot } from '@/components/layout/header-slot'
+import { useOnlineStatus } from '@/hooks/use-online-status'
 import { Button } from '@/components/ui/button'
 import { listDocuments } from '@/features/catalogue/documents-repository'
 import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
@@ -28,6 +30,7 @@ import {
 } from '@/features/profile/pro-settings-repository'
 import { useProSettingsSync } from '@/features/profile/use-pro-settings-sync'
 import { db, type DossierAttachmentRecord, type GeneratedDocRecord } from '@/lib/db'
+import { env } from '@/lib/env'
 import { UPLOAD_ACCEPT } from '@/lib/files'
 import { cn } from '@/lib/utils'
 import { extractCity } from './city'
@@ -66,7 +69,8 @@ import { useGeneratedDocsSync } from './use-generated-docs-sync'
 import { docTypeForNode, getModule1Tree, type CtdNodeDef } from './module1-tree'
 import { agencyCivilite, agencyFor, officialLanguage } from './roadmap-data'
 import { PdfPreviewDialog } from './PdfPreviewDialog'
-import { runRegafy, tiptapText, type RegafyFinding } from './regafy'
+import { tiptapText, type RegafyFinding } from './regafy'
+import './regafy-scan.css'
 import { RichTextEditor } from './RichTextEditor'
 import { hasSignature, insertSignature, removeSignature } from './signature'
 import { BrandingPanel, SignaturePanel } from './SignatureBrandingPanels'
@@ -102,6 +106,7 @@ export function DossierWorkspacePage() {
 
   const { user } = useAuth()
   const userId = user?.id ?? 'local'
+  const online = useOnlineStatus()
 
   const dossier = useLiveQuery(
     async () => (dossierId ? ((await getDossier(dossierId)) ?? null) : null),
@@ -150,6 +155,11 @@ export function DossierWorkspacePage() {
   // Cartes de non-conformité masquées par l'utilisateur (ids de constats — session seulement,
   // le constat reste dans le panneau Remarques).
   const [hiddenCards, setHiddenCards] = useState<ReadonlySet<string>>(new Set())
+  // « Remplacer » : pièce à retirer dès que le nouveau fichier est téléversé avec succès.
+  const [replaceTarget, setReplaceTarget] = useState<Extract<
+    Viewable,
+    { kind: 'doc' | 'attachment' }
+  > | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const previewRef = useRef<{ url: string; revoke: boolean } | null>(null)
@@ -188,20 +198,6 @@ export function DossierWorkspacePage() {
   }, [attachments])
 
   const flatNodes = useMemo(() => (dossier ? flattenTree(dossier.tree) : []), [dossier])
-  const findings = useMemo(
-    () =>
-      dossier
-        ? runRegafy({
-            tree: dossier.tree,
-            titulaire: product?.titulaire ?? '',
-            fabricant: product?.fabricant ?? '',
-            docsByNode,
-            genByNode,
-            attachByNode,
-          })
-        : [],
-    [dossier, product, docsByNode, genByNode, attachByNode],
-  )
   // Ouverture d'un onglet de traduction (sélection du nœud + édition immédiate) — callback du
   // copilote IA, stable pour ne pas relancer ses memos.
   const onOpenTranslation = useCallback((node: CtdNodeDef, genId: string) => {
@@ -215,13 +211,15 @@ export function DossierWorkspacePage() {
     aiFindings,
     translatedSourceIds,
     aiBusy,
+    analyzing,
+    analyzeActive,
+    clearPieceAnalysis,
     translating,
     upgrading,
     streamText,
     handleTranslate,
     handleTranslateGenerated,
   } = useRegafyCopilot({
-    dossierId,
     dossier,
     product,
     genDocs,
@@ -236,12 +234,12 @@ export function DossierWorkspacePage() {
   const { editorState, handleEditorReady, handleEditorChange, flushSave, cancelSave } =
     useDebouncedDocSave(orgId)
 
+  // Remarques de la SESSION (analyses déclenchées par l'utilisateur — recette n°6 : plus
+  // d'analyse automatique). Constat de langue masqué dès qu'une traduction existe.
   const allFindings = useMemo(
     () =>
-      [...findings, ...aiFindings].filter(
-        (f) => !(f.translate && f.pieceId && translatedSourceIds.has(f.pieceId)),
-      ),
-    [findings, aiFindings, translatedSourceIds],
+      aiFindings.filter((f) => !(f.translate && f.pieceId && translatedSourceIds.has(f.pieceId))),
+    [aiFindings, translatedSourceIds],
   )
 
   // Offline-first : précharge le compilateur PDF (pdf-lib) **tant qu'on est en ligne** → il est
@@ -352,7 +350,7 @@ export function DossierWorkspacePage() {
   function handleCompileClick() {
     // Rappel AVANT compilation : TOUS les constats (déterministes + IA), pas seulement les
     // déterministes. + garde anti-« dossier vide ».
-    const gate = [...allFindings]
+    const gate = allFindings.filter((f) => !f.ok)
     const hasContent = genByNode.size > 0 || attachByNode.size > 0 || docsByNode.size > 0
     if (!hasContent && !gate.some((f) => f.id === 'empty')) {
       gate.unshift({
@@ -441,6 +439,7 @@ export function DossierWorkspacePage() {
     setSelected(node)
     setDocEditing(false)
     setPickedKey(null) // aperçu auto du 1er document du nœud
+    setReplaceTarget(null)
   }
 
   if (dossier === undefined) {
@@ -496,21 +495,12 @@ export function DossierWorkspacePage() {
   // (Modifier/Signer/En-tête/Régénérer). Inutile sur un PDF/pièce → masquée.
   const isEditableActive = active?.kind === 'letter' && !!activeGenDoc
 
-  // Constat de langue du document affiché (langue ≠ pays cible) → bouton « Traduire » en
-  // surbrillance directement sur l'aperçu, en plus du rappel dans le panneau de droite.
-  const activeLangFinding =
+  // Constat de la pièce affichée (résultat d'une analyse Regafy non résolue) → carte
+  // d'actions flottante sur l'aperçu (Remplir le template / Traduire / Remplacer).
+  const activeAnalysisFinding =
     active && active.kind !== 'letter'
-      ? allFindings.find((f) => f.pieceId === active.id && f.translate)
+      ? allFindings.find((f) => f.pieceId === active.id && !f.ok)
       : undefined
-
-  // Constat de conformité (bouton Upgrader) du document affiché : pièce en aperçu, ou
-  // traduction ouverte dans l'onglet actif.
-  const activeUpgradeFinding =
-    active && active.kind !== 'letter'
-      ? allFindings.find((f) => f.pieceId === active.id && f.upgrade)
-      : activeGenDoc?.templateKey === 'translation'
-        ? allFindings.find((f) => f.pieceId === activeGenDoc.id && f.upgrade)
-        : undefined
 
   // Version conforme affichée : rubriques [NON FOURNI…] restant à compléter (recalculé sur le
   // contenu sauvegardé — la bannière s'allège au fur et à mesure des corrections).
@@ -552,19 +542,29 @@ export function DossierWorkspacePage() {
       ? countEmptyFields(formStateFromContent(activeFormDef, activeGenDoc.content as JSONContent))
       : 0
 
-  // Carte « non conforme au template en vigueur ! » (mockup CEO) du document affiché —
-  // masquable pour la session (le constat reste dans le panneau Remarques).
-  const visibleUpgradeCard =
-    activeUpgradeFinding && fillDocType && !hiddenCards.has(activeUpgradeFinding.id)
-      ? activeUpgradeFinding
+  // Carte de constat (mockup CEO) du document affiché — masquable pour la session (le
+  // constat reste dans le panneau Remarques). Type pour les actions : type de la pièce
+  // analysée si connu, sinon type du nœud.
+  const activePiece =
+    active && active.kind !== 'letter'
+      ? (selectedDocs.find((d) => d.id === active.id) ??
+        selectedAttachments.find((a) => a.id === active.id))
       : undefined
-  const hideUpgradeCard = () => {
-    if (activeUpgradeFinding) setHiddenCards((prev) => new Set(prev).add(activeUpgradeFinding.id))
+  const activeAnalysisDocType =
+    (activePiece && 'docType' in activePiece ? activePiece.docType : null) ??
+    fillDocType ??
+    'document'
+  const visibleAnalysisCard =
+    activeAnalysisFinding && !hiddenCards.has(activeAnalysisFinding.id)
+      ? activeAnalysisFinding
+      : undefined
+  const hideAnalysisCard = () => {
+    if (activeAnalysisFinding) setHiddenCards((prev) => new Set(prev).add(activeAnalysisFinding.id))
   }
 
   const { okCount, pct } = completionStats(flatNodes, countFor)
-  const warnCount = findings.filter((f) => f.severity === 'warning').length
-  const errCount = findings.filter((f) => f.severity === 'error').length
+  const warnCount = allFindings.filter((f) => !f.ok && f.severity === 'warning').length
+  const errCount = allFindings.filter((f) => !f.ok && f.severity === 'error').length
 
   function buildContext(): TemplateContext {
     const ag = agencyFor(activeDossier.country)
@@ -708,9 +708,29 @@ export function DossierWorkspacePage() {
       })
       return
     }
-    // Synchroniser tout de suite → la pièce reçoit son chemin Storage et entre dans l'analyse Regafy.
+    // Synchroniser tout de suite → la pièce reçoit son chemin Storage (analysable au clic).
     await syncDossierAttachments(orgId)
-    toast.success('Pièce ajoutée — analyse en cours…')
+    // « Remplacer » : le nouveau fichier remplace la pièce visée — l'ancienne est retirée du
+    // dossier (un doc produit reste au catalogue) et ses remarques sont purgées.
+    if (replaceTarget) {
+      const target = replaceTarget
+      setReplaceTarget(null)
+      if (target.kind === 'attachment') await deleteAttachment(target.id)
+      else if (target.kind === 'doc') await excludeProductDoc(activeDossier.id, target.id)
+      clearPieceAnalysis(target.id)
+      void syncDossiers(orgId)
+      setPickedKey(null)
+      toast.success('Document remplacé.')
+      return
+    }
+    toast.success('Pièce ajoutée — cliquez « Analyser » pour la vérifier.')
+  }
+
+  /** « Remplacer » (carte de constat) : téléverser un nouveau fichier à la place de la pièce visée. */
+  function handleReplace(target: Viewable) {
+    if (target.kind === 'letter') return
+    setReplaceTarget(target)
+    fileInputRef.current?.click()
   }
 
   /** « Remplir le template » : squelette officiel verrouillé, zones [À COMPLÉTER] remplies
@@ -919,6 +939,24 @@ export function DossierWorkspacePage() {
                       <Sparkles className="size-4" /> Générer
                     </Button>
                   ) : null}
+                  {/* Analyse Regafy À LA DEMANDE (recette n°6) : visible quand une pièce est
+                      affichée — template → conformité (+ langue) ; pièce admin → validité. */}
+                  {active && active.kind !== 'letter' ? (
+                    <Button
+                      size="sm"
+                      className="h-8 rounded-full bg-emerald-600 text-white hover:bg-emerald-700"
+                      disabled={analyzing !== null || !online || !env.isSupabaseConfigured}
+                      title={
+                        !online || !env.isSupabaseConfigured
+                          ? 'Analyse disponible en ligne'
+                          : 'Vérifier ce document (conformité ou validité)'
+                      }
+                      onClick={() => void analyzeActive(active.id)}
+                    >
+                      <ScanSearch className="size-4" />
+                      {analyzing === active.id ? 'Analyse…' : 'Analyser'}
+                    </Button>
+                  ) : null}
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -994,15 +1032,6 @@ export function DossierWorkspacePage() {
                         </p>
                       )
                     ) : null}
-                    {/* Carte mockup « non conforme au template en vigueur ! » sur la traduction
-                        affichée — « Upgrader ! » ouvre le template officiel à remplir. */}
-                    {visibleUpgradeCard && activeGenDoc.templateKey === 'translation' ? (
-                      <NonConformCard
-                        docType={fillDocType!}
-                        onUpgrade={() => selected && void handleFillTemplate(selected)}
-                        onDismiss={hideUpgradeCard}
-                      />
-                    ) : null}
                     {activeConformNeedsTranslation ? (
                       <div className="mx-3 mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
                         <span className="flex items-center gap-1.5 text-xs font-medium text-amber-800">
@@ -1077,34 +1106,26 @@ export function DossierWorkspacePage() {
                     )}
                   </section>
                 ) : active && active.kind !== 'letter' ? (
-                  // `relative` : ancre de la carte de non-conformité (mockup CEO) sur l'aperçu.
-                  <div className="relative space-y-2">
-                    {activeLangFinding ? (
-                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
-                        <span className="flex items-center gap-1.5 text-xs font-medium text-amber-800">
-                          <Languages className="size-4 shrink-0" />
-                          {activeLangFinding.message}
-                        </span>
-                        <Button
-                          size="sm"
-                          className="h-7 gap-1 bg-amber-500 text-white hover:bg-amber-600"
-                          disabled={translating === activeLangFinding.pieceId}
-                          onClick={() => void handleTranslate(activeLangFinding)}
-                        >
-                          <Languages className="size-3.5" />
-                          {translating === activeLangFinding.pieceId
-                            ? 'Traduction…'
-                            : `Traduire en ${targetLangLabel}`}
-                        </Button>
-                      </div>
-                    ) : null}
-                    {/* Carte mockup « non conforme au template en vigueur ! » flottante au
-                        centre de l'aperçu — « Upgrader ! » ouvre le template officiel à remplir. */}
-                    {visibleUpgradeCard ? (
+                  // `relative` : ancre de la carte de constat et de l'animation d'analyse.
+                  <div
+                    className={cn(
+                      'relative space-y-2',
+                      analyzing === active.id && 'regafy-scanning rounded-lg',
+                    )}
+                  >
+                    {/* Animation d'analyse Regafy (mockup CEO) : barre verte qui balaie le doc. */}
+                    {analyzing === active.id ? <div className="regafy-scan-line" /> : null}
+                    {/* Carte de CONSTAT (mockup CEO) : actions selon la politique — template :
+                        Remplir le template / Traduire / Remplacer ; pièce admin : Remplacer. */}
+                    {visibleAnalysisCard ? (
                       <NonConformCard
-                        docType={fillDocType!}
-                        onUpgrade={() => selected && void handleFillTemplate(selected)}
-                        onDismiss={hideUpgradeCard}
+                        finding={visibleAnalysisCard}
+                        docType={activeAnalysisDocType}
+                        translating={translating === visibleAnalysisCard.pieceId}
+                        onFill={() => selected && void handleFillTemplate(selected)}
+                        onTranslate={() => void handleTranslate(visibleAnalysisCard)}
+                        onReplace={() => handleReplace(active)}
+                        onDismiss={hideAnalysisCard}
                       />
                     ) : null}
                     {translating === active.id && streamText !== null ? (
