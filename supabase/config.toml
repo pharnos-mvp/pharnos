@@ -386,6 +386,11 @@ authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
 
+# Page publique de review (jalon H) : le reviewer n'a PAS de compte — la barrière d'accès est
+# le token 256 bits + mot de passe optionnel, vérifiés DANS la fonction (ADR-0003).
+[functions.share]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

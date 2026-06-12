@@ -14,6 +14,7 @@ import { HeaderSlotContext } from '@/components/layout/header-slot'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { useAuditSync } from '@/features/audit/use-audit-sync'
 import { useAuth } from '@/features/auth/auth-context'
+import { useCorrespondenceRealtime } from '@/features/correspondence/use-correspondence-realtime'
 import { useOrgId } from '@/features/org/org-context'
 import { fetchMyMemberships } from '@/features/org/org-repository'
 import { useOnlineStatus } from '@/hooks/use-online-status'
@@ -37,6 +38,8 @@ export function AppShell() {
   const orgId = useOrgId()
   const { t } = useI18n()
   useAuditSync(orgId)
+  // Reviews et messages du correspondant en quasi temps réel, où qu'on soit dans l'app.
+  useCorrespondenceRealtime(orgId)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_KEY) === '1')
   const expanded = !collapsed
 

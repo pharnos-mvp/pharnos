@@ -6,7 +6,9 @@ import {
   FileDown,
   FileText,
   Languages,
+  MessagesSquare,
   ScanSearch,
+  Send,
   Sparkles,
   ClipboardList,
   Upload,
@@ -18,7 +20,17 @@ import { toast } from 'sonner'
 
 import { useHeaderSlot } from '@/components/layout/header-slot'
 import { useOnlineStatus } from '@/hooks/use-online-status'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  dossierDisplayStatus,
+  STATUS_BADGE_CLASSES,
+  statusLabel,
+} from '@/features/correspondence/correspondence-constants'
+import { listByDossier } from '@/features/correspondence/correspondence-repository'
+import { CorrespondencePanel } from '@/features/correspondence/CorrespondencePanel'
+import { ShareDialog } from '@/features/correspondence/ShareDialog'
+import { useCorrespondenceSync } from '@/features/correspondence/use-correspondence-sync'
 import { listDocuments } from '@/features/catalogue/documents-repository'
 import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
 import { useAuth } from '@/features/auth/auth-context'
@@ -106,6 +118,7 @@ export function DossierWorkspacePage() {
   useGeneratedDocsSync(orgId)
   useDossierAttachmentsSync(orgId)
   useProSettingsSync(orgId)
+  useCorrespondenceSync(orgId)
 
   const { user } = useAuth()
   const userId = user?.id ?? 'local'
@@ -136,6 +149,12 @@ export function DossierWorkspacePage() {
   )
   const branding = useLiveQuery(() => getOrgBranding(orgId), [orgId])
   const signature = useLiveQuery(() => getUserSignature(userId), [userId])
+  // Correspondances du dossier → état dérivé (badge du bandeau + panneau).
+  const dossierCorrespondences = useLiveQuery(
+    () => (dossierId ? listByDossier(dossierId) : Promise.resolve([])),
+    [dossierId],
+  )
+  const corrStatus = dossierDisplayStatus(dossierId ?? '', dossierCorrespondences ?? [])
 
   const [selected, setSelected] = useState<CtdNodeDef | null>(null)
   const [treeEditing, setTreeEditing] = useState(false)
@@ -149,6 +168,10 @@ export function DossierWorkspacePage() {
     blob: Blob
   } | null>(null)
   const [compiling, setCompiling] = useState(false)
+  // « Envoyer le dossier » (jalon H) : dialog d'envoi du PDF compilé au correspondant.
+  const [shareOpen, setShareOpen] = useState(false)
+  // Panneau Correspondance (fil de review avec le correspondant).
+  const [corrPanelOpen, setCorrPanelOpen] = useState(false)
   // Pages structurelles (TDM + gardes) toujours générées — l'option a été retirée de l'UI (mockup).
   const autoStructural = true
   const [pickedKey, setPickedKey] = useState<string | null>(null)
@@ -422,6 +445,15 @@ export function DossierWorkspacePage() {
           >
             Roadmap
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setCorrPanelOpen(true)}>
+            <MessagesSquare className="size-4" />
+            <span className="hidden lg:inline">Correspondance</span>
+            {corrStatus !== 'draft' ? (
+              <Badge className={cn('px-1.5 py-0', STATUS_BADGE_CLASSES[corrStatus])}>
+                {statusLabel(corrStatus)}
+              </Badge>
+            ) : null}
+          </Button>
           <Button size="sm" disabled={compiling} onClick={() => compileClickRef.current()}>
             <FileDown className="size-4" /> {compiling ? 'Compilation…' : 'Compiler le PDF'}
           </Button>
@@ -429,7 +461,7 @@ export function DossierWorkspacePage() {
       </div>,
     )
     return () => setHeaderSlot(null)
-  }, [setHeaderSlot, dossier, navigate, compiling])
+  }, [setHeaderSlot, dossier, navigate, compiling, corrStatus])
 
   // Libère l'object URL d'aperçu au démontage (évite une fuite si on quitte dialog ouvert).
   useEffect(() => {
@@ -1327,7 +1359,39 @@ export function DossierWorkspacePage() {
           blob={previewPdf.blob}
           url={previewPdf.url}
           name={previewPdf.name}
+          actions={
+            <Button
+              size="sm"
+              disabled={!online || !env.isSupabaseConfigured}
+              title={!online ? 'Hors-ligne : l’envoi nécessite une connexion' : undefined}
+              onClick={() => setShareOpen(true)}
+            >
+              <Send className="size-4" /> Envoyer
+            </Button>
+          }
           onClose={closePreview}
+        />
+      ) : null}
+
+      {shareOpen && previewPdf && dossier ? (
+        <ShareDialog
+          orgId={orgId}
+          dossier={dossier}
+          pdfBlob={previewPdf.blob}
+          senderEmail={user?.email ?? 'local'}
+          onClose={() => setShareOpen(false)}
+          onSent={() => {
+            toast.success('Dossier envoyé — la review du correspondant apparaîtra ici.')
+          }}
+        />
+      ) : null}
+
+      {corrPanelOpen && dossierId ? (
+        <CorrespondencePanel
+          orgId={orgId}
+          dossierId={dossierId}
+          senderEmail={user?.email ?? 'local'}
+          onClose={() => setCorrPanelOpen(false)}
         />
       ) : null}
 

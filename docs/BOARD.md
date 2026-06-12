@@ -25,7 +25,10 @@ arborescence compacte, pages de GARDE épurées [Autogénéré]/[Téléverser]).
 [PLAN-V2.md](PLAN-V2.md)._
 
 _**Reprise (nouvelle session)** : le cap est dans **[ROADMAP-MVP.md](ROADMAP-MVP.md)** (jalons H→M jusqu'au
-GO-LIVE). Prochaine action : **H0 — cadrage du module Correspondance & Partage sur mockups CEO**._
+GO-LIVE). **Jalon H (Correspondance) : CODE COMPLET en branche `feat/correspondance`** (plan
+[PLAN-H-CORRESPONDANCE.md](PLAN-H-CORRESPONDANCE.md), ADR-0003). Prochaine action : **CI verte sur la PR,
+puis feu vert CEO pour `supabase db push` (migration 0017) + `supabase functions deploy share --no-verify-jwt`
++ secrets Edge (`RESEND_API_KEY`, `EMAIL_FROM`) + merge → recette navigateur en prod**._
 
 ---
 
@@ -47,6 +50,7 @@ i18n, admin/quotas, gate GO-LIVE).
 | **Formulaires officiels** (RCP · Notice · Étiquetage) | ✅ Livré (navy, DOCX/PDF, compilé identique) |
 | **CI/CD + coûts** | ✅ Optimisé (#122 : ÷2 minutes, keep-alive Supabase) — 0 € jusqu'au 1er client |
 | **Déploiement pilote** | ✅ **En ligne — https://pharnos.pages.dev** (Cloudflare Pages, mode authentifié) |
+| **Correspondance (jalon H)** | 🚧 **Code complet en PR** (`feat/correspondance`) : envoi tokenisé + page publique `/r/{token}` + décisions + fil chat + Realtime + e-mail Resend best-effort + états home — reste : deploy DB/Edge (feu vert CEO) + recette prod |
 
 **Qualité (main, vert partout) :** typecheck · lint · format · **75 tests unitaires** · build ·
 **budget bundle** · **9 E2E Playwright** (dont reload hors-ligne) · **a11y WCAG AA** · **RLS pgTAP en CI** · **Lighthouse CI** (perf/a11y).
@@ -195,6 +199,7 @@ D:\pharnos-mvp
 | **M6** | Compilation PDF Module 1 (TDM + pages de garde + bandeau) | ✅ |
 | **M7** | Dashboard (validité + veille) | ✅ |
 | **M8** | Durcissement (E2E offline, a11y AA, Sentry, budget perf, tests RLS) | ✅ (Lighthouse CI + pilote = suivis) |
+| **H** | **Correspondance & partage** (ROADMAP-MVP) — envoi tokenisé, review publique sans compte, décisions révisables, fil temps réel, 5 états home | 🚧 **Code complet en PR** — deploy DB/Edge + recette prod restants |
 
 **Hors milestones, aussi livré :** audit trail, page Compte (avatar) + **i18n FR/EN** + **thème
 clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** local-first.
