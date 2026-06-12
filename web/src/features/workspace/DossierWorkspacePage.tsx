@@ -218,6 +218,7 @@ export function DossierWorkspacePage() {
     aiBusy,
     analyzing,
     analyzeActive,
+    analyzeGenerated,
     clearPieceAnalysis,
     auditProgress,
     runGlobalAudit,
@@ -475,14 +476,27 @@ export function DossierWorkspacePage() {
   }
 
   const activeDossier = dossier
-  const selectedDocs = selected ? docsFor(selected) : []
+  // Recette n°7 : les sections de GARDE (nœuds parents + 1.0 TdM) ne regroupent plus les
+  // documents de leurs sous-sections sur la page de montage — pièces à correspondance EXACTE
+  // uniquement (la compilation, elle, est inchangée : intercalaires autogénérés).
+  const isCoverNode =
+    !!selected && ((selected.children?.length ?? 0) > 0 || selected.number === '1.0')
+  const selectedDocs = selected
+    ? isCoverNode
+      ? (docsByNode.get(selected.number) ?? [])
+      : docsFor(selected)
+    : []
   const selectedTplKey = selected ? templateKeyForNode(dossier.format, selected.number) : undefined
   const selectedGenDocs = selected ? (genListByNode.get(selected.number) ?? []) : []
   // Le document de TEMPLATE du nœud (lettre cover/pght) — pilote le badge et le bouton Générer.
   const selectedGenDoc = selectedGenDocs.find(
     (g) => g.templateKey !== 'translation' && g.templateKey !== 'upgrade',
   )
-  const selectedAttachments = selected ? attachmentsFor(selected) : []
+  const selectedAttachments = selected
+    ? isCoverNode
+      ? (attachByNode.get(selected.number) ?? [])
+      : attachmentsFor(selected)
+    : []
   // Langue cible (code pays → 'FR'/'PT'/'EN') pour les libellés (« Traduire en FR », « …_FR.docx »).
   const targetLangLabel = officialLanguage(dossier.country).toUpperCase()
 
@@ -500,6 +514,9 @@ export function DossierWorkspacePage() {
       ? pickedKey
       : (viewables[0]?.key ?? null)
   const active = viewables.find((v) => v.key === activeKey) ?? null
+  // Page de garde épurée : section de garde SANS pièce propre (une cover custom téléversée
+  // sur la section reprend la vue normale).
+  const showCoverPage = isCoverNode && !active
   // Document généré AFFICHÉ (lettre/traduction/version conforme de l'onglet actif).
   const activeGenDoc =
     active?.kind === 'letter'
@@ -513,12 +530,21 @@ export function DossierWorkspacePage() {
   // (Modifier/Signer/En-tête/Régénérer). Inutile sur un PDF/pièce → masquée.
   const isEditableActive = active?.kind === 'letter' && !!activeGenDoc
 
-  // Constat de la pièce affichée (résultat d'une analyse Regafy non résolue) → carte
-  // d'actions flottante sur l'aperçu (Remplir le template / Traduire / Remplacer).
-  const activeAnalysisFinding =
-    active && active.kind !== 'letter'
-      ? allFindings.find((f) => f.pieceId === active.id && !f.ok)
+  // Document généré analysable à la demande (recette n°7) : traduction ou version conforme.
+  const analyzableGenDoc =
+    activeGenDoc &&
+    (activeGenDoc.templateKey === 'translation' || activeGenDoc.templateKey === 'upgrade')
+      ? activeGenDoc
       : undefined
+  // Cible du bouton « Analyser » : pièce affichée OU document généré analysable.
+  const analyzeTargetId =
+    active && active.kind !== 'letter' ? active.id : (analyzableGenDoc?.id ?? null)
+
+  // Constat de l'élément affiché (résultat d'une analyse Regafy non résolue) → carte
+  // d'actions flottante sur l'aperçu (Remplir le template / Traduire / Remplacer).
+  const activeAnalysisFinding = analyzeTargetId
+    ? allFindings.find((f) => f.pieceId === analyzeTargetId && !f.ok)
+    : undefined
 
   // Version conforme affichée : rubriques [NON FOURNI…] restant à compléter (recalculé sur le
   // contenu sauvegardé — la bannière s'allège au fur et à mesure des corrections).
@@ -904,110 +930,169 @@ export function DossierWorkspacePage() {
               {/* Barre FINE au-dessus de la feuille (mockup CEO — plus de gros chrome) :
                   onglets des documents à gauche, Générer/Téléverser à droite. Le retrait d'un
                   document passe par le « × » de son onglet (affiché même seul). */}
-              <div className="bg-card flex min-h-10 flex-wrap items-center gap-2 rounded-xl border px-2 py-1 shadow-sm">
-                <span className="sr-only" role="heading" aria-level={2}>
-                  {selected.number ? `${selected.number} ` : ''}
-                  {selected.label}
-                </span>
-                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
-                  {viewables.map((v) => {
-                    const removeHint =
-                      v.kind === 'doc'
-                        ? 'Retirer du dossier (le document reste sous le produit)'
-                        : 'Supprimer du dossier'
-                    return (
-                      <div
-                        key={v.key}
-                        className={cn(
-                          'flex items-center gap-1 rounded-full border py-1 pr-1 pl-3 text-xs',
-                          active?.key === v.key
-                            ? 'border-primary bg-primary/10 text-primary'
-                            : 'text-muted-foreground hover:bg-accent',
-                        )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={UPLOAD_ACCEPT}
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) void handleUpload(f)
+                  e.target.value = ''
+                }}
+              />
+              {showCoverPage ? null : (
+                <div className="bg-card flex min-h-10 flex-wrap items-center gap-2 rounded-xl border px-2 py-1 shadow-sm">
+                  <span className="sr-only" role="heading" aria-level={2}>
+                    {selected.number ? `${selected.number} ` : ''}
+                    {selected.label}
+                  </span>
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+                    {viewables.map((v) => {
+                      const removeHint =
+                        v.kind === 'doc'
+                          ? 'Retirer du dossier (le document reste sous le produit)'
+                          : 'Supprimer du dossier'
+                      return (
+                        <div
+                          key={v.key}
+                          className={cn(
+                            'flex items-center gap-1 rounded-full border py-1 pr-1 pl-3 text-xs',
+                            active?.key === v.key
+                              ? 'border-primary bg-primary/10 text-primary'
+                              : 'text-muted-foreground hover:bg-accent',
+                          )}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPickedKey(v.key)
+                              // Traduction → éditable d'emblée (cohérent avec l'ouverture via « Traduire »).
+                              if (
+                                v.kind === 'letter' &&
+                                (v.isTranslation || v.isUpgrade || v.isFill)
+                              )
+                                setDocEditing(true)
+                            }}
+                            title={v.label}
+                            className="flex items-center gap-1.5"
+                          >
+                            <FileText className="size-3.5 shrink-0" />
+                            <span className="max-w-[160px] truncate">{v.label}</span>
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={removeHint}
+                            title={removeHint}
+                            onClick={() => void handleRemoveViewable(v)}
+                            className="hover:bg-destructive/10 hover:text-destructive rounded-full p-0.5"
+                          >
+                            <X className="size-3.5" />
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="ml-auto flex shrink-0 items-center gap-2">
+                    {selectedTplKey && !selectedGenDoc ? (
+                      <Button
+                        size="sm"
+                        className="h-8 rounded-full"
+                        onClick={() => void handleGenerate()}
                       >
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPickedKey(v.key)
-                            // Traduction → éditable d'emblée (cohérent avec l'ouverture via « Traduire »).
-                            if (v.kind === 'letter' && (v.isTranslation || v.isUpgrade || v.isFill))
-                              setDocEditing(true)
-                          }}
-                          title={v.label}
-                          className="flex items-center gap-1.5"
-                        >
-                          <FileText className="size-3.5 shrink-0" />
-                          <span className="max-w-[160px] truncate">{v.label}</span>
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={removeHint}
-                          title={removeHint}
-                          onClick={() => void handleRemoveViewable(v)}
-                          className="hover:bg-destructive/10 hover:text-destructive rounded-full p-0.5"
-                        >
-                          <X className="size-3.5" />
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-                <div className="ml-auto flex shrink-0 items-center gap-2">
-                  {selectedTplKey && !selectedGenDoc ? (
+                        <Sparkles className="size-4" /> Générer
+                      </Button>
+                    ) : null}
+                    {/* Analyse Regafy À LA DEMANDE (recettes n°6-7) : pièce affichée OU document
+                      traduit / version conforme — template → conformité ; admin → validité. */}
+                    {analyzeTargetId ? (
+                      <Button
+                        size="sm"
+                        className="h-8 rounded-full bg-emerald-600 text-white hover:bg-emerald-700"
+                        disabled={analyzing !== null || !online || !env.isSupabaseConfigured}
+                        title={
+                          !online || !env.isSupabaseConfigured
+                            ? 'Analyse disponible en ligne'
+                            : 'Vérifier ce document (conformité ou validité)'
+                        }
+                        onClick={() => {
+                          if (analyzableGenDoc) void analyzeGenerated(analyzableGenDoc)
+                          else void analyzeActive(analyzeTargetId)
+                        }}
+                      >
+                        <ScanSearch className="size-4" />
+                        {analyzing === analyzeTargetId ? 'Analyse…' : 'Analyser'}
+                      </Button>
+                    ) : null}
                     <Button
                       size="sm"
+                      variant="outline"
                       className="h-8 rounded-full"
-                      onClick={() => void handleGenerate()}
+                      onClick={() => fileInputRef.current?.click()}
                     >
-                      <Sparkles className="size-4" /> Générer
+                      <Upload className="size-4" /> Téléverser
                     </Button>
-                  ) : null}
-                  {/* Analyse Regafy À LA DEMANDE (recette n°6) : visible quand une pièce est
-                      affichée — template → conformité (+ langue) ; pièce admin → validité. */}
-                  {active && active.kind !== 'letter' ? (
-                    <Button
-                      size="sm"
-                      className="h-8 rounded-full bg-emerald-600 text-white hover:bg-emerald-700"
-                      disabled={analyzing !== null || !online || !env.isSupabaseConfigured}
-                      title={
-                        !online || !env.isSupabaseConfigured
-                          ? 'Analyse disponible en ligne'
-                          : 'Vérifier ce document (conformité ou validité)'
-                      }
-                      onClick={() => void analyzeActive(active.id)}
-                    >
-                      <ScanSearch className="size-4" />
-                      {analyzing === active.id ? 'Analyse…' : 'Analyser'}
-                    </Button>
-                  ) : null}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept={UPLOAD_ACCEPT}
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0]
-                      if (f) void handleUpload(f)
-                      e.target.value = ''
-                    }}
-                  />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 rounded-full"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Upload className="size-4" /> Téléverser
-                  </Button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div>
-                {active?.kind === 'letter' && activeGenDoc ? (
+                {showCoverPage && selected ? (
+                  // Page de GARDE (recette n°7) : numéro + intitulé, contenu autogénéré à la
+                  // compilation — l'utilisateur peut téléverser sa propre page s'il préfère.
+                  <div className="flex min-h-[28rem] flex-col items-center justify-center rounded-lg border border-dashed p-6 text-center">
+                    <h2>
+                      <span className="block text-4xl font-bold tracking-wide">
+                        {selected.number}
+                      </span>{' '}
+                      <span className="mt-2 block text-lg font-semibold">{selected.label}</span>
+                    </h2>
+                    <p className="text-muted-foreground mt-3 max-w-md text-sm">
+                      {selected.number === '1.0'
+                        ? 'Table des matières générée automatiquement à la compilation (pagination incluse).'
+                        : 'Page de garde générée automatiquement à la compilation — numéro et intitulé de la section.'}
+                    </p>
+                    <div className="mt-5 flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        aria-pressed="true"
+                        className="bg-foreground text-background hover:bg-foreground pointer-events-none rounded-full"
+                      >
+                        Autogénéré
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-full"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <Upload className="size-4" /> Téléverser
+                      </Button>
+                    </div>
+                  </div>
+                ) : active?.kind === 'letter' && activeGenDoc ? (
                   // Onglet traduction/version conforme = plein largeur (éditeur + barre de format) ;
                   // l'original est l'onglet voisin. Pas d'`overflow-hidden` : casserait le `sticky`.
-                  // `relative` : ancre de la carte de non-conformité (mockup CEO).
-                  <section className="bg-card relative rounded-lg border">
+                  // `relative` : ancre de la carte de non-conformité et du scan (mockup CEO).
+                  <section
+                    className={cn(
+                      'bg-card relative rounded-lg border',
+                      analyzing === activeGenDoc.id && 'regafy-scanning',
+                    )}
+                  >
+                    {analyzing === activeGenDoc.id ? <div className="regafy-scan-line" /> : null}
+                    {visibleAnalysisCard && analyzableGenDoc ? (
+                      <NonConformCard
+                        finding={visibleAnalysisCard}
+                        docType={activeAnalysisDocType}
+                        showReplace={false}
+                        onFill={() => selected && void handleFillTemplate(selected)}
+                        onTranslate={() => void handleTranslateGenerated(analyzableGenDoc)}
+                        onReplace={() => {}}
+                        onDismiss={hideAnalysisCard}
+                      />
+                    ) : null}
                     {activeGenDoc.templateKey === 'translation' ? (
                       <p className="text-muted-foreground flex items-center gap-1.5 px-3 pt-2 text-xs italic">
                         <Languages className="size-3.5 shrink-0 text-amber-500" />

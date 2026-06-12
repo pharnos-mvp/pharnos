@@ -86,4 +86,20 @@ describe('NonConformCard (carte de constat — politique recette n°6)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Masquer le signalement' }))
     expect(onDismiss).toHaveBeenCalledOnce()
   })
+
+  it('document généré (traduction) : showReplace=false masque « Remplacer »', () => {
+    render(
+      <NonConformCard
+        finding={finding({ translate: undefined })}
+        docType="rcp"
+        showReplace={false}
+        onFill={() => {}}
+        onTranslate={() => {}}
+        onReplace={() => {}}
+        onDismiss={() => {}}
+      />,
+    )
+    expect(screen.getByRole('button', { name: /Remplir le template/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Remplacer/ })).not.toBeInTheDocument()
+  })
 })

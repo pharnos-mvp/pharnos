@@ -2,7 +2,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { DocumentRecord, DossierRecord } from '@/lib/db'
+import type { DocumentRecord, DossierRecord, GeneratedDocRecord } from '@/lib/db'
 import type { RegafyFinding } from './regafy'
 import { useRegafyCopilot } from './use-regafy-copilot'
 
@@ -12,13 +12,14 @@ vi.mock('@/lib/env', () => ({
 vi.mock('./regafy-ai', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./regafy-ai')>()),
   runRegafyValidity: vi.fn(),
+  runRegafyConformityTexts: vi.fn(),
 }))
 vi.mock('./regafy-cache', () => ({
   getCachedAnalysis: vi.fn(async () => null),
   cacheAnalysis: vi.fn(async () => {}),
 }))
 
-import { runRegafyValidity } from './regafy-ai'
+import { runRegafyConformityTexts, runRegafyValidity } from './regafy-ai'
 import { cacheAnalysis, getCachedAnalysis } from './regafy-cache'
 
 const dossier = {
@@ -40,13 +41,13 @@ const doc = (over: Partial<DocumentRecord> = {}): DocumentRecord =>
     ...over,
   }) as DocumentRecord
 
-function setup(d: DocumentRecord) {
+function setup(d: DocumentRecord, genDocs: GeneratedDocRecord[] = []) {
   return renderHook(
     ({ docs }: { docs: DocumentRecord[] }) =>
       useRegafyCopilot({
         dossier,
         product: undefined,
-        genDocs: [],
+        genDocs,
         docsByNode: new Map([['1.2', docs]]),
         attachByNode: new Map(),
         flatNodes: [{ number: '1.2', label: 'Informations administratives', depth: 1 }] as never,
@@ -59,6 +60,7 @@ function setup(d: DocumentRecord) {
 
 beforeEach(() => {
   vi.mocked(runRegafyValidity).mockReset()
+  vi.mocked(runRegafyConformityTexts).mockReset().mockResolvedValue([])
   vi.mocked(getCachedAnalysis).mockReset().mockResolvedValue(null)
   vi.mocked(cacheAnalysis).mockReset().mockResolvedValue(undefined)
 })
@@ -189,5 +191,56 @@ describe('useRegafyCopilot — analyse à la demande (recette n°6)', () => {
     await waitFor(() => expect(result.current.aiFindings).toHaveLength(1))
     rerender({ docs: [] }) // pièce retirée du dossier → la remarque disparaît du panneau
     expect(result.current.aiFindings).toEqual([])
+  })
+
+  it('analyzeGenerated : traduction conforme → remarque POSITIVE consignée (recette n°7)', async () => {
+    const gen = {
+      id: 'g1',
+      nodeNumber: '1.2',
+      title: 'RCP — traduction (FR)',
+      templateKey: 'translation',
+      content: { type: 'doc', content: [] },
+      updatedAt: '2026-06-12T00:00:00Z',
+      deletedAt: null,
+    } as unknown as GeneratedDocRecord
+    const { result } = setup(doc(), [gen])
+    await act(() => result.current.analyzeGenerated(gen))
+    await waitFor(() => expect(result.current.aiFindings).toHaveLength(1))
+    const f = result.current.aiFindings[0]!
+    expect(f.ok).toBe(true)
+    expect(f.message).toBe('RCP — traduction (FR) : conforme au template en vigueur.')
+    expect(runRegafyConformityTexts).toHaveBeenCalledOnce()
+    expect(cacheAnalysis).toHaveBeenCalledWith('g1', '2026-06-12T00:00:00Z', [])
+  })
+
+  it('analyzeGenerated : constat de conformité consigné + cache hit sans appel IA', async () => {
+    const gen = {
+      id: 'g2',
+      nodeNumber: '1.2',
+      title: 'Notice — traduction (FR)',
+      templateKey: 'translation',
+      content: { type: 'doc', content: [] },
+      updatedAt: '2026-06-12T00:00:00Z',
+      deletedAt: null,
+    } as unknown as GeneratedDocRecord
+    vi.mocked(getCachedAnalysis).mockResolvedValue([
+      {
+        id: 'c1',
+        nodeNumber: '1.2',
+        nodeLabel: 'x',
+        severity: 'warning',
+        message: 'Notice : non conforme au template en vigueur.',
+        source: 'ai',
+        pieceId: 'g2',
+        upgrade: true,
+      },
+    ])
+    const { result } = setup(doc(), [gen])
+    await act(() => result.current.analyzeGenerated(gen))
+    await waitFor(() => expect(result.current.aiFindings).toHaveLength(1))
+    expect(result.current.aiFindings[0]!.message).toBe(
+      'Notice : non conforme au template en vigueur.',
+    )
+    expect(runRegafyConformityTexts).not.toHaveBeenCalled()
   })
 })

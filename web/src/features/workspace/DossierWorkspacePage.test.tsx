@@ -150,16 +150,15 @@ describe('DossierWorkspacePage — caractérisation (avant refactor T7)', () => 
     expect(heading).toHaveTextContent('1.0 Table des matières (TdM)')
   })
 
-  it('sélection manuelle du nœud documenté → aperçu du document (gmp.pdf)', async () => {
+  it('sélection manuelle de la feuille documentée → aperçu du document (gmp.pdf)', async () => {
     await seed()
     renderPage()
     await screen.findByRole('heading', { level: 2 })
     const user = userEvent.setup()
-    // Le badge de comptage du nœud 1.2 reflète le GMP auto-classé ; on clique le nœud.
-    await user.click(await screen.findByText('Informations administratives'))
-    expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent(
-      '1.2 Informations administratives',
-    )
+    // Recette n°7 : le GMP auto-classé vit sous la FEUILLE 1.2.4.1 (BPF) — la section 1.2
+    // est une page de garde et ne regroupe plus les documents de ses sous-sections.
+    await user.click(await screen.findByText('Bonnes pratiques de fabrication (BPF)'))
+    expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent('1.2.4.1')
     expect((await screen.findAllByText(/gmp\.pdf/i)).length).toBeGreaterThan(0)
   })
 
@@ -178,7 +177,7 @@ describe('DossierWorkspacePage — caractérisation (avant refactor T7)', () => 
     renderPage()
     await screen.findByRole('heading', { level: 2 })
     const user = userEvent.setup()
-    await user.click(await screen.findByText('Informations administratives'))
+    await user.click(await screen.findByText('Bonnes pratiques de fabrication (BPF)'))
     await screen.findAllByText(/gmp\.pdf/i)
     // Recette n°6 : plus AUCUNE analyse automatique — le panneau attend une action user.
     expect(await screen.findByText('Remarques pour la session')).toBeInTheDocument()
@@ -189,6 +188,20 @@ describe('DossierWorkspacePage — caractérisation (avant refactor T7)', () => 
     // Le donut affiche un pourcentage calculé (feuilles remplies / feuilles).
     const donut = await screen.findAllByRole('img', { name: /%$/ })
     expect(donut.length).toBeGreaterThan(0)
+  })
+
+  it('section de garde (1.2) : page épurée Autogénéré + Téléverser, sans documents des enfants', async () => {
+    await seed()
+    renderPage()
+    // L'auto-sélection retient 1.2 (première section documentée) — désormais page de garde.
+    const heading = await screen.findByRole('heading', { level: 2 })
+    expect(heading).toHaveTextContent('1.2 Informations administratives')
+    expect(await screen.findByText(/Page de garde générée automatiquement/)).toBeInTheDocument()
+    const auto = await screen.findByRole('button', { name: 'Autogénéré' })
+    expect(auto).toHaveAttribute('aria-pressed', 'true')
+    expect(await screen.findByRole('button', { name: /Téléverser/ })).toBeInTheDocument()
+    // Le GMP (classé sous 1.2.4.1) n'est PLUS regroupé sur la page de la section 1.2.
+    expect(screen.queryByText(/gmp\.pdf/i)).not.toBeInTheDocument()
   })
 
   it('compiler sans analyse : gate « Aucune analyse effectuée » + bouton Audit Global', async () => {
