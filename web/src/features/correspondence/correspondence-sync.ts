@@ -27,6 +27,8 @@ export interface CorrespondenceRow {
   status: string
   decided_at: string | null
   revoked_at: string | null
+  expires_at: string | null
+  auto_revoke_on_decision: boolean
   created_at: string
   updated_at: string
   deleted_at: string | null
@@ -63,6 +65,8 @@ export function correspondenceToRow(c: CorrespondenceRecord): CorrespondenceRow 
     status: c.status,
     decided_at: c.decidedAt,
     revoked_at: c.revokedAt,
+    expires_at: c.expiresAt,
+    auto_revoke_on_decision: c.autoRevokeOnDecision,
     created_at: c.createdAt,
     updated_at: c.updatedAt,
     deleted_at: c.deletedAt,
@@ -87,6 +91,8 @@ export function rowToCorrespondence(r: CorrespondenceRow): CorrespondenceRecord 
     status: r.status as CorrespondenceRecord['status'],
     decidedAt: r.decided_at,
     revokedAt: r.revoked_at,
+    expiresAt: r.expires_at ?? null,
+    autoRevokeOnDecision: r.auto_revoke_on_decision ?? false,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     deletedAt: r.deleted_at,
@@ -184,13 +190,19 @@ async function pushCorrespondences(supabase: SupabaseClient, orgId: string): Pro
         .upsert(correspondenceToRow(rec), { ignoreDuplicates: true })
       if (error) throw error
     } else if (item.op === 'update') {
-      // Mutation PARTIELLE (révocation) : n'écrase JAMAIS `status`/`decided_at` écrits par
-      // l'Edge entre-temps.
-      const p = item.payload as { revokedAt?: string | null; updatedAt?: string }
-      const { error } = await supabase
-        .from('correspondences')
-        .update({ revoked_at: p.revokedAt ?? null, updated_at: p.updatedAt ?? rec.updatedAt })
-        .eq('id', rec.id)
+      // Mutation PARTIELLE (révocation, remplacement du PDF…) : seules les clés PRÉSENTES du
+      // payload partent — n'écrase JAMAIS `status`/`decided_at` écrits par l'Edge entre-temps.
+      const p = item.payload as {
+        revokedAt?: string | null
+        pdfPath?: string
+        pdfSize?: number
+        updatedAt?: string
+      }
+      const partial: Record<string, unknown> = { updated_at: p.updatedAt ?? rec.updatedAt }
+      if ('revokedAt' in p) partial.revoked_at = p.revokedAt ?? null
+      if (p.pdfPath !== undefined) partial.pdf_path = p.pdfPath
+      if (p.pdfSize !== undefined) partial.pdf_size = p.pdfSize
+      const { error } = await supabase.from('correspondences').update(partial).eq('id', rec.id)
       if (error) throw error
     }
   }

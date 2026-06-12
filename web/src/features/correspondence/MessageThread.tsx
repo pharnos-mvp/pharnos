@@ -36,6 +36,23 @@ const formatDate = (iso: string) => {
   return Number.isNaN(d.getTime()) ? '' : dateFmt.format(d)
 }
 
+// Séparateurs de jour (groupage type WhatsApp) : « Aujourd'hui », « Hier », sinon date longue.
+const dayFmt = new Intl.DateTimeFormat('fr', { weekday: 'long', day: 'numeric', month: 'long' })
+function dayLabel(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
+  const sameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  if (sameDay(d, today)) return 'Aujourd’hui'
+  if (sameDay(d, yesterday)) return 'Hier'
+  return dayFmt.format(d)
+}
+
 const formatSize = (bytes: number) => {
   const b = Number.isFinite(bytes) && bytes > 0 ? bytes : 0
   return b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} Mo` : `${Math.ceil(b / 1024)} Ko`
@@ -95,11 +112,22 @@ export function MessageThread({
   }
   return (
     <ol className="space-y-3" aria-label="Fil de correspondance">
-      {messages.map((m) => {
+      {messages.map((m, i) => {
+        const day = dayLabel(m.createdAt)
+        const prevDay = i > 0 ? dayLabel(messages[i - 1]?.createdAt ?? '') : ''
+        const daySeparator =
+          day && day !== prevDay ? (
+            <div className="my-2 flex items-center gap-3" aria-hidden>
+              <span className="bg-border h-px flex-1" />
+              <span className="text-muted-foreground text-xs">{day}</span>
+              <span className="bg-border h-px flex-1" />
+            </div>
+          ) : null
         // Jalon décision : uniquement pour une valeur connue (payload réseau → garde runtime).
         if (m.kind === 'decision' && m.decision && m.decision in DECISION_LABELS) {
           return (
             <li key={m.id} className="py-1 text-center">
+              {daySeparator}
               <Badge className={cn('px-2.5 py-0.5', STATUS_BADGE_CLASSES[m.decision])}>
                 {DECISION_LABELS[m.decision]}
               </Badge>
@@ -121,19 +149,22 @@ export function MessageThread({
         }
         const mine = m.author === viewpoint
         return (
-          <li key={m.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
-            <div
-              className={cn(
-                'max-w-[85%] rounded-lg border px-3 py-2 text-sm sm:max-w-[70%]',
-                mine ? 'bg-primary/10 border-primary/20' : 'bg-muted/50',
-              )}
-            >
-              <div className="text-muted-foreground mb-0.5 text-xs">
-                {m.kind === 'note' ? 'Note d’envoi — ' : ''}
-                {m.authorLabel} · {formatDate(m.createdAt)}
+          <li key={m.id}>
+            {daySeparator}
+            <div className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
+              <div
+                className={cn(
+                  'max-w-[85%] rounded-lg border px-3 py-2 text-sm sm:max-w-[70%]',
+                  mine ? 'bg-primary/10 border-primary/20' : 'bg-muted/50',
+                )}
+              >
+                <div className="text-muted-foreground mb-0.5 text-xs">
+                  {m.kind === 'note' ? 'Note d’envoi — ' : ''}
+                  {m.authorLabel} · {formatDate(m.createdAt)}
+                </div>
+                <div className="whitespace-pre-wrap">{m.body}</div>
+                <AttachmentChips attachments={m.attachments} onDownload={onDownloadAttachment} />
               </div>
-              <div className="whitespace-pre-wrap">{m.body}</div>
-              <AttachmentChips attachments={m.attachments} onDownload={onDownloadAttachment} />
             </div>
           </li>
         )

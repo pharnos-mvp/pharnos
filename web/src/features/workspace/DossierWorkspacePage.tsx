@@ -155,6 +155,20 @@ export function DossierWorkspacePage() {
     [dossierId],
   )
   const corrStatus = dossierDisplayStatus(dossierId ?? '', dossierCorrespondences ?? [])
+  // Messages reviewer non lus de CE dossier (pastille du bandeau).
+  const dossierUnread =
+    useLiveQuery(async () => {
+      const ids = (dossierCorrespondences ?? []).map((c) => c.id)
+      if (ids.length === 0) return 0
+      const [msgs, reads] = await Promise.all([
+        db.correspondenceMessages.where('correspondenceId').anyOf(ids).toArray(),
+        db.correspondenceReads.toArray(),
+      ])
+      const seen = new Map(reads.map((r) => [r.id, r.lastSeenAt]))
+      return msgs.filter(
+        (m) => m.author === 'recipient' && m.createdAt > (seen.get(m.correspondenceId) ?? ''),
+      ).length
+    }, [dossierCorrespondences]) ?? 0
 
   const [selected, setSelected] = useState<CtdNodeDef | null>(null)
   const [treeEditing, setTreeEditing] = useState(false)
@@ -445,13 +459,26 @@ export function DossierWorkspacePage() {
           >
             Roadmap
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setCorrPanelOpen(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="relative"
+            onClick={() => setCorrPanelOpen(true)}
+          >
             <MessagesSquare className="size-4" />
             <span className="hidden lg:inline">Correspondance</span>
             {corrStatus !== 'draft' ? (
               <Badge className={cn('px-1.5 py-0', STATUS_BADGE_CLASSES[corrStatus])}>
                 {statusLabel(corrStatus)}
               </Badge>
+            ) : null}
+            {dossierUnread > 0 ? (
+              <span
+                className="bg-primary text-primary-foreground absolute -top-1.5 -right-1.5 grid size-4 place-items-center rounded-full text-[10px] font-semibold"
+                aria-label={`${dossierUnread} message(s) non lu(s)`}
+              >
+                {dossierUnread}
+              </span>
             ) : null}
           </Button>
           <Button size="sm" disabled={compiling} onClick={() => compileClickRef.current()}>
@@ -461,7 +488,7 @@ export function DossierWorkspacePage() {
       </div>,
     )
     return () => setHeaderSlot(null)
-  }, [setHeaderSlot, dossier, navigate, compiling, corrStatus])
+  }, [setHeaderSlot, dossier, navigate, compiling, corrStatus, dossierUnread])
 
   // Libère l'object URL d'aperçu au démontage (évite une fuite si on quitte dialog ouvert).
   useEffect(() => {

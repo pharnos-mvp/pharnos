@@ -24,6 +24,10 @@ export interface CreateCorrespondenceInput {
   pdfSize: number
   tokenHash: string
   passwordHash: string | null
+  /** Expiration du lien (L1) — null = sans expiration. */
+  expiresAt?: string | null
+  /** L1 : révocation automatique du lien dès la décision rendue. */
+  autoRevokeOnDecision?: boolean
   /** Lien en clair `/r/{token}` — conservé en LOCAL uniquement (jamais synchronisé). */
   shareUrl: string
 }
@@ -88,6 +92,8 @@ export async function createCorrespondence(
     status: 'in_review',
     decidedAt: null,
     revokedAt: null,
+    expiresAt: input.expiresAt ?? null,
+    autoRevokeOnDecision: input.autoRevokeOnDecision ?? false,
     createdAt: ts,
     updatedAt: ts,
     deletedAt: null,
@@ -153,6 +159,51 @@ export async function appendSenderMessage(
     await enqueueOutbox('correspondence_message', message.id, 'create', message)
   })
   return message
+}
+
+/**
+ * Remplace le PDF d'un envoi existant (dossier recompilé) : le reviewer garde le MÊME lien et
+ * tout le fil — l'Edge resigne `pdf_path` à chaque ouverture, il verra la nouvelle version.
+ * Mutation PARTIELLE côté serveur (pdf_path/pdf_size/updated_at) : n'écrase jamais une décision
+ * concurrente. Un message « note » système trace la mise à jour dans le fil (append-only).
+ */
+export async function updateCorrespondencePdf(
+  correspondence: CorrespondenceRecord,
+  authorLabel: string,
+  pdfPath: string,
+  pdfSize: number,
+): Promise<void> {
+  const ts = now()
+  const message: CorrespondenceMessageRecord = {
+    id: newId(),
+    orgId: correspondence.orgId,
+    correspondenceId: correspondence.id,
+    author: 'sender',
+    authorLabel,
+    kind: 'note',
+    decision: null,
+    body: 'Dossier mis à jour — une nouvelle version du document est disponible.',
+    attachments: [],
+    createdAt: ts,
+  }
+  await db.transaction('rw', db.correspondences, db.correspondenceMessages, db.outbox, async () => {
+    await db.correspondences.put({ ...correspondence, pdfPath, pdfSize, updatedAt: ts })
+    await enqueueOutbox('correspondence', correspondence.id, 'update', {
+      id: correspondence.id,
+      pdfPath,
+      pdfSize,
+      updatedAt: ts,
+    })
+    await db.correspondenceMessages.add(message)
+    await enqueueOutbox('correspondence_message', message.id, 'create', message)
+  })
+  await recordAudit(
+    correspondence.orgId,
+    'correspondence',
+    correspondence.id,
+    'update',
+    correspondence.productName,
+  )
 }
 
 /**

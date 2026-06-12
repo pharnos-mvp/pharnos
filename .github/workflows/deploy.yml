@@ -1,15 +1,14 @@
 name: Deploy
 
-# Déploiement automatique du front sur Cloudflare Pages.
-# - push main → production (pharnos.pages.dev)
-# ⚠️ No-op tant que le secret repo `CLOUDFLARE_API_TOKEN` n'est pas configuré (main reste vert).
-# Secrets repo à poser pour activer : CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID,
-# VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY (+ optionnel VITE_SENTRY_DSN).
+# FALLBACK MANUEL uniquement. Le déploiement NOMINAL est l'intégration Git native de
+# Cloudflare Pages (dashboard Cloudflare → Pages → pharnos → connecté au repo : build
+# `npm run build`, output `web/dist`, vars VITE_* — voir docs/DEPLOY-CLOUDFLARE.md) :
+# elle consomme les minutes de build Cloudflare (500/mois Free), pas le quota GitHub Actions
+# (épuisé 06/2026 → ce workflow ne partait plus). Dépannage local : `npm run build` puis
+# `npx wrangler pages deploy dist --project-name pharnos --branch main` (depuis web/).
 
 on:
-  push:
-    branches: [main]
-    paths-ignore: ['docs/**', '**.md', 'RA-source/**']
+  workflow_dispatch:
 
 permissions:
   contents: read

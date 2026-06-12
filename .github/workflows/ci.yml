@@ -1,11 +1,12 @@
 name: CI
 
+# PR-only (économie de quota Actions) : le squash-merge reproduit à l'identique le head de PR
+# déjà validé — re-tester sur push main doublait les minutes pour zéro information nouvelle.
+# `workflow_dispatch` reste disponible pour relancer manuellement sur main si besoin.
 on:
-  push:
-    branches: [main]
-    paths-ignore: ['docs/**', '**.md', 'RA-source/**']
   pull_request:
     paths-ignore: ['docs/**', '**.md', 'RA-source/**']
+  workflow_dispatch:
 
 permissions:
   contents: read
