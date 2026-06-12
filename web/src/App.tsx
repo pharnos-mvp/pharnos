@@ -14,6 +14,11 @@ import { LOCAL_ORG_ID } from '@/lib/session'
 const LoginPage = lazy(() =>
   import('@/features/auth/LoginPage').then((m) => ({ default: m.LoginPage })),
 )
+const PublicReviewPage = lazy(() =>
+  import('@/features/correspondence/public/PublicReviewPage').then((m) => ({
+    default: m.PublicReviewPage,
+  })),
+)
 const ResetPasswordPage = lazy(() =>
   import('@/features/auth/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })),
 )
@@ -80,7 +85,23 @@ function AppGate() {
   return <AuthedApp />
 }
 
+// Page publique de review `/r/{token}` (jalon H) : AUCUNE auth/org/sync — le reviewer n'a pas
+// de compte, le token est l'authentification (vérifiée par l'Edge `share`). Évaluée une fois au
+// chargement : la page est autonome (pas de navigation interne). Format STRICT 43 caractères
+// base64url — même contrat que l'Edge (`share-auth.ts`).
+const shareToken = /^\/r\/([A-Za-z0-9_-]{43})\/?$/.exec(window.location.pathname)?.[1] ?? null
+
 export default function App() {
+  if (shareToken) {
+    return (
+      <Providers>
+        <Suspense fallback={<FullScreenLoader />}>
+          <PublicReviewPage token={shareToken} />
+        </Suspense>
+        <Toaster richColors position="top-right" />
+      </Providers>
+    )
+  }
   return (
     <Providers>
       <AuthProvider>

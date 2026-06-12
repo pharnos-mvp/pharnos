@@ -27,24 +27,28 @@ construction partout où l'autorité fait foi).
 
 ## 3. Jalons (tranches verticales, chacune livrable et recettable)
 
-### H — Module Correspondance & Partage du dossier CTD *(~4 sessions — LE chantier produit)*
-> Périmètre à CONFIRMER sur mockups CEO en H0 — contour proposé d'après le métier RA :
+### H — Module Correspondance & Partage du dossier CTD *(🚧 code complet en PR — recette restante)*
+> **Cadrage H0 livré par le brief produit CEO (2026-06-12)** : flux **Labo → Agence locale de
+> représentation** (et non l'autorité en direct), review **sans compte Pharnos**, 5 états de
+> dossier. Plan d'exécution : [PLAN-H-CORRESPONDANCE.md](PLAN-H-CORRESPONDANCE.md) · décisions :
+> [ADR-0003](adr/0003-correspondance-partage-public.md). Livré en branche `feat/correspondance` :
 
-- **H0 · Cadrage** (0,5 s.) : mockups/spec CEO du flux correspondance (états d'une soumission,
-  types d'échanges, délais réglementaires par agence) et du partage (qui, quoi, combien de
-  temps). ADR + modèle de données. **Bloque H1-H3.**
-- **H1 · Fil de correspondance offline-first** (1,5 s.) : table `correspondences` (+ sync
-  incrémentale paginée, RLS org) ; par dossier : fil chronologique des échanges
-  (soumission initiale, requête de l'autorité, réponse, décision), pièces jointes par
-  échange (réutilise attachments/Storage), statut du dossier piloté par le fil
-  (soumis / en instruction / requête reçue / répondu / approuvé / rejeté).
-- **H2 · Réponses outillées + échéances** (1 s.) : lettre de réponse générée (moteur de
-  templates existant — `templates.ts`), délais de réponse par agence avec rappels visuels
-  (dashboard + badge dossier), export PDF du fil (pattern compile existant).
-- **H3 · Partage sécurisé du dossier** (1 s.) : membres d'org en LECTURE (rôles existants
-  étendus) + **lien de partage externe signé à expiration** (Edge Function : token →
-  rendu lecture seule du dossier compilé + fil), révocable, journalisé. Aucune donnée
-  publique sans token.
+- **H1 · Envoi + review publique + décision** ✅ code : envoi du Module 1 compilé (e-mail
+  destinataire, note, mot de passe optionnel) → lien `/r/{token}` (token 256 bits hashé SHA-256) ;
+  page publique brandée (prévisualiser, télécharger, **Accepter / Suspendre / Rejeter** +
+  commentaire + pièces 3 × 4 Mo) via Edge `share` service-role rate-limitée ; états home
+  (Draft / En review / Accepté / En suspens / Rejeté) **dérivés** de la dernière correspondance.
+- **H2 · Fil chat + temps réel** ✅ code : panneau Correspondance du dossier (fil append-only,
+  réponses labo offline via outbox), Supabase Realtime (toasts + Dexie) avec pull incrémental
+  paginé en source de vérité ; décision révisable (chaque décision tracée au fil).
+- **H3 · E-mail + révocation + preuves** ✅ code : notification Resend best-effort (anti-phishing :
+  l'URL doit re-hasher vers le token_hash), révocation (410), pgTAP RLS (anon = zéro accès,
+  append-only, share_hit service-role), e2e Playwright, audit log.
+- **Reste à faire** : CI verte sur la PR → **feu vert CEO** : `supabase db push` (0017) +
+  `supabase functions deploy share --no-verify-jwt` + secrets `RESEND_API_KEY`/`EMAIL_FROM` →
+  merge (deploy Pages auto) → **recette navigateur réel en prod** (fil complet aller-retour).
+- **Reporté post-MVP** (décision de recadrage) : délais réglementaires par agence + rappels,
+  lettre de réponse générée pour le fil, export PDF du fil, lecture seule par rôle org.
 
 ### I — Ops & filets de production *(1 session — AVANT d'ouvrir aux pilotes)*
 - **Backup hebdo automatisé** `pg_dump` chiffré (age) → Cloudflare R2 (10 Go gratuits) —
@@ -129,6 +133,8 @@ accompagnées. M est un GATE : rien ne sort du pilote sans lui.
 
 ## 9. Prochaine étape recommandée (action unique)
 
-**H0 — cadrage du module Correspondance & Partage** : le CEO fournit ses mockups/le flux
-métier attendu (états, échanges types, délais par agence, règles de partage) ; le CTO rend
-l'ADR + le modèle de données + le plan H1-H3 détaillé dans la foulée, et H1 démarre.
+**Déployer le jalon H** : CI verte sur la PR `feat/correspondance`, puis feu vert CEO pour
+`supabase db push` (migration 0017) + `supabase functions deploy share --no-verify-jwt` +
+secrets Edge (`RESEND_API_KEY`, `EMAIL_FROM`), merge (deploy Pages auto) et **recette
+navigateur réel en prod** (envoi → review publique → décision → réponse). Ensuite : **jalon I**
+(backups chiffrés + restore drill) avant l'entrée des pilotes.

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Download, X } from 'lucide-react'
 
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -9,11 +10,13 @@ interface PdfPreviewDialogProps {
   /** Object URL pour le téléchargement direct. */
   url: string
   name: string
+  /** Actions additionnelles dans la barre (ex. « Envoyer au correspondant » — jalon H). */
+  actions?: ReactNode
   onClose: () => void
 }
 
 /** Prévisualisation in-place du PDF compilé — plein écran, rendu **PDF.js**, avec téléchargement. */
-export function PdfPreviewDialog({ blob, url, name, onClose }: PdfPreviewDialogProps) {
+export function PdfPreviewDialog({ blob, url, name, actions, onClose }: PdfPreviewDialogProps) {
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col bg-black/70 p-4"
@@ -25,6 +28,7 @@ export function PdfPreviewDialog({ blob, url, name, onClose }: PdfPreviewDialogP
         <div className="flex items-center justify-between border-b p-2">
           <span className="truncate px-2 text-sm font-medium">{name}</span>
           <div className="flex items-center gap-1">
+            {actions}
             <a
               href={url}
               download={name}

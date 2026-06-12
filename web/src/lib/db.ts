@@ -190,6 +190,74 @@ export interface AuditLogRecord {
   at: string
 }
 
+/** Statuts d'une correspondance — la décision du reviewer fait foi (jalon H). */
+export type CorrespondenceStatus = 'in_review' | 'accepted' | 'suspended' | 'rejected'
+
+/** Décision rendue par le reviewer (jamais `in_review` : c'est l'état d'attente, pas un acte). */
+export type CorrespondenceDecision = Exclude<CorrespondenceStatus, 'in_review'>
+
+/**
+ * Correspondance (jalon H) : envoi du Module 1 compilé à un correspondant externe (agence locale)
+ * via un lien tokenisé. Le token en clair n'est JAMAIS stocké côté serveur (seulement son SHA-256) ;
+ * le lien complet est conservé en local chez l'expéditeur (`shareLinks`, non synchronisé).
+ */
+export interface CorrespondenceRecord {
+  id: string
+  orgId: string
+  dossierId: string
+  /** Dénormalisés (affichage hors-ligne + page publique sans jointures). */
+  productName: string
+  country: string
+  activity: string
+  senderEmail: string
+  recipientEmail: string
+  note: string | null
+  /** PDF compilé dans le bucket privé `documents` ({orgId}/shares/{id}/…). */
+  pdfPath: string
+  pdfSize: number
+  /** SHA-256 hex du token de partage. */
+  tokenHash: string
+  /** 'pbkdf2$iter$salt$hash' ou null = lien libre. */
+  passwordHash: string | null
+  status: CorrespondenceStatus
+  decidedAt: string | null
+  revokedAt: string | null
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+}
+
+/**
+ * Message du fil de correspondance — append-only (ALCOA). `author: 'sender'` = labo,
+ * `'recipient'` = reviewer externe (écrit via l'Edge `share` en service-role).
+ */
+export interface CorrespondenceMessageRecord {
+  id: string
+  orgId: string
+  correspondenceId: string
+  author: 'sender' | 'recipient'
+  /** Libellé affiché (e-mail), figé à l'écriture. */
+  authorLabel: string
+  /** 'note' (message d'envoi) | 'decision' (Accepter/Suspendre/Rejeter) | 'comment' (chat). */
+  kind: 'note' | 'decision' | 'comment'
+  decision: CorrespondenceDecision | null
+  body: string
+  /** Pièces jointes du reviewer [{path,name,size,mime}] — blobs dans Storage. */
+  attachments: { path: string; name: string; size: number; mime: string }[]
+  createdAt: string
+}
+
+/**
+ * Lien de partage en clair — **local uniquement** (jamais synchronisé) : seul l'expéditeur
+ * peut ré-afficher/copier son lien ; côté serveur seul le hash existe.
+ */
+export interface ShareLinkRecord {
+  /** correspondenceId. */
+  id: string
+  url: string
+  createdAt: string
+}
+
 /**
  * Cache d'analyse IA par document (ÉCO) — l'extraction Gemini (chère : lecture du PDF) n'est faite
  * qu'**une seule fois** par document ; les constats sont mémorisés et réutilisés tant que le document
@@ -216,6 +284,9 @@ const db = new Dexie('pharnos') as Dexie & {
   dossierAttachments: EntityTable<DossierAttachmentRecord, 'id'>
   auditLog: EntityTable<AuditLogRecord, 'id'>
   docAnalysis: EntityTable<DocAnalysisRecord, 'docId'>
+  correspondences: EntityTable<CorrespondenceRecord, 'id'>
+  correspondenceMessages: EntityTable<CorrespondenceMessageRecord, 'id'>
+  shareLinks: EntityTable<ShareLinkRecord, 'id'>
 }
 
 db.version(1).stores({
@@ -258,6 +329,13 @@ db.version(7).stores({
 // v8 : cache d'analyse IA par document (éco — ne ré-analyse pas les documents inchangés).
 db.version(8).stores({
   docAnalysis: 'docId, analyzedAt',
+})
+
+// v9 : correspondance (jalon H) — envois tokenisés + fil append-only + liens locaux (non sync).
+db.version(9).stores({
+  correspondences: 'id, orgId, dossierId, updatedAt, deletedAt',
+  correspondenceMessages: 'id, orgId, correspondenceId, [correspondenceId+createdAt], createdAt',
+  shareLinks: 'id',
 })
 
 export { db }
