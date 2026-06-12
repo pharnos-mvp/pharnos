@@ -9,6 +9,7 @@ name: Deploy
 on:
   push:
     branches: [main]
+    paths-ignore: ['docs/**', '**.md', 'RA-source/**']
 
 permissions:
   contents: read
