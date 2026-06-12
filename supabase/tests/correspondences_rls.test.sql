@@ -8,7 +8,7 @@
 --   4. share_hits / share_hit() sont réservés au service-role (anti-abus non contournable).
 
 begin;
-select plan(16);
+select plan(20);
 
 -- ----------------------------------------------------------------------------
 -- Seeding (superuser : contourne la RLS)
@@ -50,6 +50,12 @@ values
   ('e0000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000000b2',
    'c0000000-0000-0000-0000-00000000000b', 'sender', 'labo-b@pharnos.test', 'note', 'Note B');
 
+-- Journal d'accès (L1, migration 0018) : une entrée par org — écrite par l'Edge (service-role).
+insert into public.share_access_log (correspondence_id, org_id, action, ip_hash)
+values
+  ('c0000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000000a1', 'open', 'aaaa'),
+  ('c0000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000000b2', 'open', 'bbbb');
+
 -- ----------------------------------------------------------------------------
 -- 1) ANON : zéro lecture, zéro écriture (la page publique ne touche JAMAIS la DB en direct)
 -- ----------------------------------------------------------------------------
@@ -85,6 +91,11 @@ select throws_ok(
   '42501',
   null,
   'anon : share_hit() interdit (execute service_role only)'
+);
+select is(
+  (select count(*)::int from public.share_access_log),
+  0,
+  'anon : journal d''accès invisible'
 );
 
 -- ----------------------------------------------------------------------------
@@ -144,6 +155,26 @@ select is(
     where id = 'e0000000-0000-0000-0000-00000000000a'),
   1,
   'org A : DELETE d''un message sans effet (append-only)'
+);
+
+-- Journal d'accès : l'org A voit le SIEN uniquement (lecture seule, écrit par l'Edge).
+select is(
+  (select count(*)::int from public.share_access_log),
+  1,
+  'org A : voit uniquement SON journal d''accès'
+);
+select is(
+  (select ip_hash from public.share_access_log limit 1),
+  'aaaa',
+  'org A : le journal visible est bien celui de sa correspondance'
+);
+select throws_ok(
+  $$ insert into public.share_access_log (correspondence_id, org_id, action, ip_hash)
+     values ('c0000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000000a1',
+             'open', 'forged') $$,
+  '42501',
+  null,
+  'org A : journal d''accès infalsifiable (INSERT réservé au service-role)'
 );
 
 -- Écrire une correspondance dans l'org B : rejeté (with check).

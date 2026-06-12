@@ -15,6 +15,8 @@ export interface ReviewCorrespondence {
   status: 'in_review' | 'accepted' | 'suspended' | 'rejected'
   decidedAt: string | null
   createdAt: string
+  /** Expiration du lien (L1) — null = sans expiration. */
+  expiresAt: string | null
   pdfSize: number
   hasPassword: boolean
 }
@@ -42,11 +44,14 @@ export interface OpenPayload {
   correspondence: ReviewCorrespondence
   pdfUrl: string
   messages: ReviewMessage[]
+  /** Réponse à `decide` : vrai si le lien vient d'être auto-révoqué (écran terminal véridique). */
+  linkRevoked?: boolean
 }
 
 export type ShareErrorCode =
   | 'invalid'
   | 'revoked'
+  | 'expired'
   | 'password_required'
   | 'wrong_password'
   | 'rate_limited'
@@ -70,6 +75,8 @@ interface ShareRequest {
   decision?: string
   body?: string
   attachments?: ReviewAttachmentInput[]
+  /** Poll de rafraîchissement (90 s) — l'Edge ne le journalise pas dans le journal d'accès. */
+  silent?: boolean
 }
 
 export async function callShare(req: ShareRequest): Promise<ShareResult> {
@@ -87,6 +94,7 @@ export async function callShare(req: ShareRequest): Promise<ShareResult> {
       const known: ShareErrorCode[] = [
         'invalid',
         'revoked',
+        'expired',
         'password_required',
         'wrong_password',
         'rate_limited',
@@ -108,6 +116,7 @@ export async function callShare(req: ShareRequest): Promise<ShareResult> {
 export const SHARE_ERROR_MESSAGES: Record<ShareErrorCode, string> = {
   invalid: 'Lien invalide — vérifiez l’adresse reçue ou contactez l’expéditeur.',
   revoked: 'Accès révoqué par l’expéditeur.',
+  expired: 'Lien expiré — demandez un nouvel envoi à l’expéditeur.',
   password_required: 'Ce lien est protégé par un mot de passe.',
   wrong_password: 'Mot de passe incorrect.',
   rate_limited: 'Trop de tentatives — réessayez dans quelques minutes.',

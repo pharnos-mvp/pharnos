@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { FileStack, FolderPlus, Trash2 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/features/auth/auth-context'
 import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
 import {
   dossierDisplayStatus,
@@ -14,6 +15,8 @@ import {
   statusLabel,
   type DossierDisplayStatus,
 } from '@/features/correspondence/correspondence-constants'
+import { CorrespondencePanel } from '@/features/correspondence/CorrespondencePanel'
+import { unreadIndex } from '@/features/correspondence/correspondence-reads'
 import { listCorrespondences } from '@/features/correspondence/correspondence-repository'
 import { useCorrespondenceSync } from '@/features/correspondence/use-correspondence-sync'
 import { useOrgId } from '@/features/org/org-context'
@@ -25,11 +28,18 @@ import { useDossierSync } from './use-dossier-sync'
 
 export function WorkspacePage() {
   const orgId = useOrgId()
+  const navigate = useNavigate()
+  const { user } = useAuth()
   useCatalogueSync(orgId)
   useDossierSync(orgId)
   useCorrespondenceSync(orgId)
   const dossiers = useLiveQuery(() => listDossiers(orgId), [orgId])
   const correspondences = useLiveQuery(() => listCorrespondences(orgId), [orgId])
+  // Non-lus par dossier (pastilles) — useLiveQuery observe les tables LUES dans unreadIndex
+  // (messages, reads, correspondences) : il se relance tout seul à chaque écriture.
+  const unread = useLiveQuery(() => unreadIndex(orgId), [orgId])
+  // Boîte de correspondance ouverte depuis une carte (dossier déjà reviewé — brief CEO point c).
+  const [reviewDossierId, setReviewDossierId] = useState<string | null>(null)
   // Filtre par état (brief CEO) : Draft / En review / Accepté / En suspens / Rejeté.
   const [filter, setFilter] = useState<DossierDisplayStatus | 'all'>('all')
 
@@ -132,19 +142,48 @@ export function WorkspacePage() {
           <ul className="grid gap-3 sm:grid-cols-2">
             {visible.map((d) => {
               const s = statusById.get(d.id) ?? 'draft'
+              const unreadCount = unread?.byDossier.get(d.id) ?? 0
+              // Dossier déjà en correspondance : le clic ouvre la boîte (reviews au premier
+              // plan, bouton « Modifier le dossier » pour rejoindre le montage) — brief CEO.
+              const hasReviews = s !== 'draft'
+              const cardBody = (
+                <>
+                  <div className="truncate font-medium">{d.productName}</div>
+                  <div className="text-muted-foreground mt-1 text-xs">
+                    {activityLabel(d.activity)} · {countryLabel(d.country)}
+                  </div>
+                </>
+              )
               return (
                 <li key={d.id} className="rounded-lg border p-4">
                   <div className="flex items-start justify-between gap-2">
-                    <Link to={`/workspace/${d.id}`} className="min-w-0 flex-1">
-                      <div className="truncate font-medium">{d.productName}</div>
-                      <div className="text-muted-foreground mt-1 text-xs">
-                        {activityLabel(d.activity)} · {countryLabel(d.country)}
-                      </div>
-                    </Link>
+                    {hasReviews ? (
+                      <button
+                        type="button"
+                        className="min-w-0 flex-1 cursor-pointer text-left"
+                        onClick={() => setReviewDossierId(d.id)}
+                      >
+                        {cardBody}
+                      </button>
+                    ) : (
+                      <Link to={`/workspace/${d.id}`} className="min-w-0 flex-1">
+                        {cardBody}
+                      </Link>
+                    )}
                     <Badge variant="secondary">{formatLabel(d.format)}</Badge>
                   </div>
                   <div className="mt-3 flex items-center justify-between">
-                    <Badge className={cn(STATUS_BADGE_CLASSES[s])}>{statusLabel(s)}</Badge>
+                    <div className="flex items-center gap-1.5">
+                      <Badge className={cn(STATUS_BADGE_CLASSES[s])}>{statusLabel(s)}</Badge>
+                      {unreadCount > 0 ? (
+                        <Badge
+                          className="bg-primary text-primary-foreground border-transparent"
+                          aria-label={`${unreadCount} message(s) non lu(s)`}
+                        >
+                          {unreadCount} non lu{unreadCount > 1 ? 's' : ''}
+                        </Badge>
+                      ) : null}
+                    </div>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -160,6 +199,16 @@ export function WorkspacePage() {
           </ul>
         )}
       </div>
+
+      {reviewDossierId ? (
+        <CorrespondencePanel
+          orgId={orgId}
+          dossierId={reviewDossierId}
+          senderEmail={user?.email ?? 'local'}
+          onClose={() => setReviewDossierId(null)}
+          onEdit={() => navigate(`/workspace/${reviewDossierId}`)}
+        />
+      ) : null}
     </section>
   )
 }

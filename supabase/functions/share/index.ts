@@ -59,6 +59,8 @@ interface CorrespondenceRow {
   status: string
   decided_at: string | null
   revoked_at: string | null
+  expires_at: string | null
+  auto_revoke_on_decision: boolean
   created_at: string
   deleted_at: string | null
 }
@@ -142,8 +144,12 @@ Deno.serve(async (req: Request) => {
     decision?: unknown
     body?: unknown
     attachments?: unknown
+    /** Poll de rafraîchissement de la page (90 s) — non journalisé dans share_access_log. */
+    silent?: unknown
   }
 
+  // ⚠ Si un verbe s'ajoute ici, mettre à jour le CHECK de share_access_log (migration 0018) —
+  // sinon le journal d'accès du nouveau verbe échouera silencieusement (insert best-effort).
   const action = typeof b.action === 'string' ? b.action : ''
   if (!['open', 'decide', 'reply', 'notify'].includes(action)) {
     return json({ error: 'bad_request' }, 400)
@@ -185,7 +191,7 @@ Deno.serve(async (req: Request) => {
   const { data: corr, error: corrErr } = await supabase
     .from('correspondences')
     .select(
-      'id, org_id, product_name, country, activity, sender_email, recipient_email, note, pdf_path, pdf_size, password_hash, status, decided_at, revoked_at, created_at, deleted_at',
+      'id, org_id, product_name, country, activity, sender_email, recipient_email, note, pdf_path, pdf_size, password_hash, status, decided_at, revoked_at, expires_at, auto_revoke_on_decision, created_at, deleted_at',
     )
     .eq('token_hash', tokenHash)
     .maybeSingle<CorrespondenceRow>()
@@ -201,6 +207,11 @@ Deno.serve(async (req: Request) => {
     logJson({ ...log, op: action, status: 'revoked' })
     return json({ error: 'revoked' }, 410)
   }
+  // Expiration (L1) : lien périmé = même fin de parcours qu'une révocation, code dédié.
+  if (corr.expires_at !== null && new Date(corr.expires_at).getTime() < Date.now()) {
+    logJson({ ...log, op: action, status: 'expired' })
+    return json({ error: 'expired' }, 410)
+  }
 
   // Mot de passe (optionnel) — rate-limité par token, indépendamment de l'IP.
   if (corr.password_hash) {
@@ -214,6 +225,34 @@ Deno.serve(async (req: Request) => {
     if (!(await verifySharePassword(password, corr.password_hash))) {
       logJson({ ...log, op: action, status: 'wrong_password' })
       return json({ error: 'wrong_password' }, 401)
+    }
+  }
+
+  // Journal d'accès (L1) — visible par le labo (RLS select org), écrit ici en service-role.
+  // Best-effort : la traçabilité ne doit jamais casser le parcours du reviewer. Le POLL
+  // silencieux de la page (rafraîchissement du fil toutes les 90 s, `silent: true`) n'est PAS
+  // journalisé : sinon un onglet ouvert noierait le journal sous des « Ouverture » dupliquées.
+  const silentPoll = action === 'open' && b.silent === true
+  if (!silentPoll) {
+    void supabase
+      .from('share_access_log')
+      .insert({
+        correspondence_id: corr.id,
+        org_id: corr.org_id,
+        action,
+        ip_hash: (await sha256Hex(ip)).slice(0, 16),
+        user_agent: (req.headers.get('user-agent') ?? '').slice(0, 120) || null,
+      })
+      .then(({ error }) => {
+        if (error) {
+          logJson({ ...log, op: 'access_log', status: 'error', err: error.message.slice(0, 120) })
+        }
+      })
+    // Rétention bornée (~2 % des écritures) : le journal sert la traçabilité opérationnelle,
+    // pas l'archivage — au-delà de 180 j, purge opportuniste (pas de cron à entretenir).
+    if (Math.random() < 0.02) {
+      const cutoff = new Date(Date.now() - 180 * 86_400_000).toISOString()
+      void supabase.from('share_access_log').delete().lt('at', cutoff)
     }
   }
 
@@ -254,14 +293,17 @@ Deno.serve(async (req: Request) => {
 
     if (action === 'decide') {
       // La décision est RÉVISABLE (métier : suspendu → frais reçus → accepté) ; chaque décision
-      // reste tracée dans le fil append-only. Le statut = dernière décision.
+      // reste tracée dans le fil append-only. Le statut = dernière décision. Option L1 : le
+      // lien se révoque tout seul après décision (l'expéditeur relance avec un nouvel envoi).
+      const updatePayload: Record<string, unknown> = {
+        status: decision,
+        decided_at: message.created_at,
+        updated_at: message.created_at,
+      }
+      if (corr.auto_revoke_on_decision) updatePayload.revoked_at = message.created_at
       const { error: updErr } = await supabase
         .from('correspondences')
-        .update({
-          status: decision,
-          decided_at: message.created_at,
-          updated_at: message.created_at,
-        })
+        .update(updatePayload)
         .eq('id', corr.id)
       if (updErr) throw updErr
     }
@@ -272,7 +314,10 @@ Deno.serve(async (req: Request) => {
       decided_at: action === 'decide' ? message.created_at : corr.decided_at,
     })
     logJson({ ...log, op: action, ms: Date.now() - started, status: 'ok' })
-    return json(payload)
+    // L'écran terminal du reviewer doit dire la vérité sur son lien : clôturé (auto-révocation)
+    // ou toujours valable pour revenir à l'échange.
+    const linkRevoked = action === 'decide' && corr.auto_revoke_on_decision
+    return json({ ...payload, linkRevoked })
   } catch (e) {
     logJson({
       ...log,
@@ -341,6 +386,7 @@ async function buildOpenPayload(supabase: SupabaseClient, corr: CorrespondenceRo
       status: corr.status,
       decidedAt: corr.decided_at,
       createdAt: corr.created_at,
+      expiresAt: corr.expires_at,
       pdfSize: corr.pdf_size,
       hasPassword: corr.password_hash !== null,
     },

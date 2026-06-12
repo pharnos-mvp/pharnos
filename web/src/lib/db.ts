@@ -222,6 +222,10 @@ export interface CorrespondenceRecord {
   status: CorrespondenceStatus
   decidedAt: string | null
   revokedAt: string | null
+  /** Expiration du lien (L1) — null = sans expiration. */
+  expiresAt: string | null
+  /** L1 : le lien se révoque automatiquement dès que le reviewer rend sa décision. */
+  autoRevokeOnDecision: boolean
   createdAt: string
   updatedAt: string
   deletedAt: string | null
@@ -259,6 +263,16 @@ export interface ShareLinkRecord {
 }
 
 /**
+ * Marqueur de lecture d'une conversation — **local uniquement** (préférence d'appareil,
+ * comme la barre latérale) : messages du reviewer postérieurs à `lastSeenAt` = non lus.
+ */
+export interface CorrespondenceReadRecord {
+  /** correspondenceId. */
+  id: string
+  lastSeenAt: string
+}
+
+/**
  * Cache d'analyse IA par document (ÉCO) — l'extraction Gemini (chère : lecture du PDF) n'est faite
  * qu'**une seule fois** par document ; les constats sont mémorisés et réutilisés tant que le document
  * ne change pas (`sig`). Un même produit soumis à plusieurs pays ne re-lit pas ses documents.
@@ -287,6 +301,7 @@ const db = new Dexie('pharnos') as Dexie & {
   correspondences: EntityTable<CorrespondenceRecord, 'id'>
   correspondenceMessages: EntityTable<CorrespondenceMessageRecord, 'id'>
   shareLinks: EntityTable<ShareLinkRecord, 'id'>
+  correspondenceReads: EntityTable<CorrespondenceReadRecord, 'id'>
 }
 
 db.version(1).stores({
@@ -336,6 +351,11 @@ db.version(9).stores({
   correspondences: 'id, orgId, dossierId, updatedAt, deletedAt',
   correspondenceMessages: 'id, orgId, correspondenceId, [correspondenceId+createdAt], createdAt',
   shareLinks: 'id',
+})
+
+// v10 : marqueurs de lecture des conversations (non-lus, local uniquement) — Correspondance v2.
+db.version(10).stores({
+  correspondenceReads: 'id',
 })
 
 export { db }
