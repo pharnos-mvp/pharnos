@@ -89,10 +89,16 @@ exécuter au prochain drill trimestriel (Supabase local/conteneur pg, ou job CI 
 Cron (GitHub Actions ou Edge) : taille DB / Storage > 70 % du palier Free, erreurs Edge → e-mail
 Resend. Déclenche la décision de bascule Supabase Pro (25 $/mois) avant saturation.
 
-## 4. Uptime externe *(à implémenter — sous-jalon)*
+## 4. Uptime externe ✅ *(workflow `.github/workflows/uptime.yml`)*
 
-Check externe gratuit sur `https://pharnos.pages.dev` + santé Edge `share`/`translate` (ping
-périodique → alerte e-mail si KO). Option : un cron Actions `curl` simple (repo public → 0 €).
+Cron **toutes les 30 min** (+ manuel) : `curl` sur le **front** (`pharnos.pages.dev`, doit répondre
+**200**) et les **backends** (Supabase `auth/health`, Edge `share`/`translate` — « vivants » dès que
+la réponse est **< 500** ; un 400/401 sans apikey prouve que la gateway tourne). En cas de KO, le job
+**échoue (rouge)** → GitHub notifie par **e-mail** les admins du dépôt (github.com → **Settings →
+Notifications → Actions** → activer les e-mails d'échec). **0 secret, 0 €.**
+Codes calibrés en prod le 2026-06-13 : front 200 · auth/health 401 · share 400 · translate 401 (tous
+< 500 = vivants). Upgrade : alerte **Resend** dédiée (ajouter un secret repo `RESEND_API_KEY`) ou un
+service type **UptimeRobot** (intervalle 5 min) si un SLA plus serré est requis.
 
 ## 5. Backup des fichiers Storage *(décision à prendre)*
 
@@ -106,5 +112,5 @@ pièces reviewer, non) ; (b) sync hebdo du bucket `documents` (`gsutil`/S3 → a
 - [x] **Restore drill exécuté et consigné** (§2). — 2026-06-13 (déchiffrement + structure + données OK)
 - [ ] Clé privée age déplacée offline par le CEO (§1).
 - [ ] Alertes seuils actives (§3).
-- [ ] Uptime check actif (§4).
+- [x] Uptime check actif (§4). — 2026-06-13 (uptime.yml, cron 30 min, alerte e-mail GitHub sur KO)
 - [ ] Décision Storage tranchée (§5).

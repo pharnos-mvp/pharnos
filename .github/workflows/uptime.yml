@@ -1,0 +1,65 @@
+name: Uptime
+
+# Jalon I §4 — sonde d'uptime externe GRATUITE (repo public → 0 € minutes, 0 secret).
+#
+# Toutes les 30 min (+ manuel), curl sur :
+#   - le FRONT (pharnos.pages.dev) : doit répondre **200** (c'est le produit servi) ;
+#   - les BACKENDS (Supabase auth/health, Edge share + translate) : considérés « vivants » dès que
+#     la gateway répond avec un code **< 500** (un 400/401 sans apikey prouve que la gateway tourne ;
+#     seuls un 5xx ou une absence de réponse = 000 signalent une panne).
+#
+# En cas de KO, le job **échoue (rouge)** → GitHub notifie par e-mail les admins du dépôt
+# (github.com → Settings → Notifications → Actions → activer les e-mails d'échec de workflow).
+# Upgrade possible : alerte Resend dédiée (ajouter un secret repo RESEND_API_KEY) ou UptimeRobot (5 min).
+
+on:
+  schedule:
+    - cron: '*/30 * * * *' # toutes les 30 min (best-effort GitHub)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: uptime
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    name: Sondes prod (front + backend + Edge)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sonder les endpoints
+        env:
+          FRONT: https://pharnos.pages.dev
+          SUPA: https://uhsireqwzqqymgsxuvqh.supabase.co
+        run: |
+          set -uo pipefail
+          fail=0
+          # Code HTTP d'une requête (000 si injoignable). Retry léger pour absorber un hoquet réseau.
+          hit() {
+            curl -s -o /dev/null -w '%{http_code}' -X "$1" \
+              --connect-timeout 10 --max-time 25 --retry 2 --retry-delay 3 \
+              -A 'pharnos-uptime/1.0 (+github-actions)' "$2" 2>/dev/null || echo 000
+          }
+          # Front : STRICT 200 (toute autre valeur = problème de service).
+          c="$(hit GET "$FRONT")"
+          if [ "$c" = "200" ]; then echo "✅ Front (Pages)            : 200"
+          else echo "❌ Front (Pages)            : $c (attendu 200)"; fail=1; fi
+          # Backends : « vivant » = code != 000 ET < 500.
+          alive() { # $1=nom  $2=url  $3=méthode
+            local code; code="$(hit "$3" "$2")"
+            if [ "$code" != "000" ] && [ "$code" -lt 500 ] 2>/dev/null; then
+              printf '✅ %-25s : %s (vivant)\n' "$1" "$code"
+            else
+              printf '❌ %-25s : %s (5xx / injoignable)\n' "$1" "$code"; fail=1
+            fi
+          }
+          alive "Supabase (auth/health)"  "$SUPA/auth/v1/health"          GET
+          alive "Edge: share"             "$SUPA/functions/v1/share"      POST
+          alive "Edge: translate"         "$SUPA/functions/v1/translate"  POST
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::UPTIME KO — au moins une sonde a échoué (voir le détail ci-dessus)."
+            exit 1
+          fi
+          echo "🟢 Toutes les sondes OK."
