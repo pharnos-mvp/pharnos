@@ -28,6 +28,7 @@ import {
   statusLabel,
 } from '@/features/correspondence/correspondence-constants'
 import { autoGrow } from '@/features/correspondence/auto-grow'
+import { ConversationAvatar } from '@/features/correspondence/correspondence-avatar'
 import { MessageThread } from '@/features/correspondence/MessageThread'
 import '@/features/correspondence/correspondence-chat.css'
 import { activityLabel, countryLabel } from '@/features/workspace/dossier-constants'
@@ -303,156 +304,200 @@ export function PublicReviewPage({ token }: { token: string }) {
 
   const c = data?.correspondence
 
-  const reviewPanel = c ? (
-    <div ref={reviewBoxRef} className="flex h-full flex-col">
-      {/* Contexte du dossier (en-tête de conversation) */}
-      <section className="bg-card flex items-start justify-between gap-2 border-b p-3">
-        <div className="min-w-0">
-          <h1 className="truncate text-sm font-semibold">{c.productName}</h1>
-          <p className="text-muted-foreground truncate text-xs">
-            {countryLabel(c.country)} · {activityLabel(c.activity)} · de {c.senderEmail}
-            {c.expiresAt
-              ? ` · valable jusqu’au ${new Intl.DateTimeFormat('fr', { dateStyle: 'medium' }).format(new Date(c.expiresAt))}`
-              : ''}
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Actualiser le fil"
-            onClick={() => void open(grantedPassword.current, { silent: true })}
-          >
-            <RefreshCw className="size-4" />
-          </Button>
-          {/* Contrôles fenêtre (mockup) : plein écran → réduire ; docké → agrandir ; fermer. */}
-          {panelView === 'full' ? (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="hidden lg:inline-flex"
-              aria-label="Réduire la fenêtre"
-              onClick={() => setPanelView('half')}
-            >
-              <Minimize2 className="size-4" />
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="hidden lg:inline-flex"
-              aria-label="Agrandir la fenêtre"
-              onClick={() => setPanelView('full')}
-            >
-              <Maximize2 className="size-4" />
-            </Button>
+  // Pills de décision (réutilisées : sidebar desktop + repli mobile au-dessus du composeur).
+  const decisionPills = (
+    <div className="grid grid-cols-3 gap-1.5 md:grid-cols-1">
+      {DECISION_OPTIONS.map(({ value, label, icon: Icon }) => (
+        <button
+          key={value}
+          type="button"
+          aria-pressed={decisionPick === value}
+          onClick={() => setDecisionPick(decisionPick === value ? null : value)}
+          className={cn(
+            'flex cursor-pointer items-center justify-center gap-1.5 rounded-md border px-2 py-2 text-xs font-medium transition-colors md:justify-start',
+            decisionPick === value ? STATUS_BADGE_CLASSES[value] : DECISION_PILL[value],
           )}
+        >
+          <Icon className="size-3.5" /> {label}
+        </button>
+      ))}
+    </div>
+  )
+
+  const reviewPanel = c ? (
+    <div ref={reviewBoxRef} className="bg-card flex h-full flex-col">
+      {/* Bandeau de contrôles fenêtre (mockup) : réduire/agrandir + fermer. */}
+      <div className="flex h-10 shrink-0 items-center justify-end gap-1 border-b px-2">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Actualiser le fil"
+          onClick={() => void open(grantedPassword.current, { silent: true })}
+        >
+          <RefreshCw className="size-4" />
+        </Button>
+        {panelView === 'full' ? (
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label="Fermer la correspondance"
-            onClick={() => setPanelView('closed')}
+            className="hidden lg:inline-flex"
+            aria-label="Réduire la fenêtre"
+            onClick={() => setPanelView('half')}
           >
-            <X className="size-4" />
+            <Minimize2 className="size-4" />
           </Button>
-        </div>
-      </section>
-
-      {/* Fil de discussion (fond à motifs) */}
-      <div ref={threadRef} className="wa-pane flex-1 overflow-auto p-3">
-        {/* Pas de handler de téléchargement : les pièces signées s'ouvrent via « Ouvrir »
-            (le bouton « Enregistrer » ne s'affiche que côté labo, avec un vrai handler). */}
-        <MessageThread messages={data?.messages ?? []} viewpoint="recipient" />
+        ) : (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="hidden lg:inline-flex"
+            aria-label="Agrandir la fenêtre"
+            onClick={() => setPanelView('full')}
+          >
+            <Maximize2 className="size-4" />
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Fermer la correspondance"
+          onClick={() => setPanelView('closed')}
+        >
+          <X className="size-4" />
+        </Button>
       </div>
 
-      {/* Dock bas : décision + composeur */}
-      <div className="bg-card space-y-2 border-t p-3">
-        <div className="text-muted-foreground text-xs font-semibold">
-          {c.status === 'in_review' ? 'Votre décision' : 'Réviser la décision / répondre'}
-        </div>
-        <div className="grid grid-cols-3 gap-1.5">
-          {DECISION_OPTIONS.map(({ value, label, icon: Icon }) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={decisionPick === value}
-              onClick={() => setDecisionPick(decisionPick === value ? null : value)}
-              className={cn(
-                'flex cursor-pointer items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors',
-                decisionPick === value ? STATUS_BADGE_CLASSES[value] : DECISION_PILL[value],
-              )}
-            >
-              <Icon className="size-3.5" /> {label}
-            </button>
-          ))}
-        </div>
+      {/* DEUX VOLETS : sidebar (contexte + décision) | chat (en-tête + fil + composeur) */}
+      <div className="flex min-h-0 flex-1">
+        {/* SIDEBAR (desktop) — infos dossier + décision (mockup) */}
+        <aside className="hidden w-[270px] shrink-0 flex-col overflow-auto border-r md:flex">
+          <div className="border-b p-4">
+            <h1 className="text-base font-semibold">{c.productName}</h1>
+            <dl className="text-muted-foreground mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
+              <dt>Pays cible</dt>
+              <dd className="text-foreground">{countryLabel(c.country)}</dd>
+              <dt>Activité</dt>
+              <dd className="text-foreground">{activityLabel(c.activity)}</dd>
+              <dt>Expéditeur</dt>
+              <dd className="text-foreground break-all">{c.senderEmail}</dd>
+              <dt>Envoyé le</dt>
+              <dd className="text-foreground">
+                {new Intl.DateTimeFormat('fr', { dateStyle: 'long' }).format(new Date(c.createdAt))}
+              </dd>
+              {c.expiresAt ? (
+                <>
+                  <dt>Valable</dt>
+                  <dd className="text-foreground">
+                    jusqu’au{' '}
+                    {new Intl.DateTimeFormat('fr', { dateStyle: 'medium' }).format(
+                      new Date(c.expiresAt),
+                    )}
+                  </dd>
+                </>
+              ) : null}
+            </dl>
+          </div>
+          <div className="p-4">
+            <div className="text-muted-foreground mb-2 text-xs font-semibold">
+              {c.status === 'in_review' ? 'Votre décision' : 'Réviser la décision'}
+            </div>
+            {decisionPills}
+          </div>
+        </aside>
 
-        {files.length > 0 ? (
-          <ul className="space-y-1">
-            {files.map((f, i) => (
-              <li
-                key={i}
-                className="bg-muted/40 flex items-center justify-between gap-2 rounded-md border px-2 py-1 text-xs"
+        {/* CHAT — en-tête correspondant + fil + composeur */}
+        <section className="flex min-w-0 flex-1 flex-col">
+          <div className="bg-card flex h-14 shrink-0 items-center gap-2.5 border-b px-3">
+            <ConversationAvatar email={c.senderEmail} />
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold">{c.senderEmail}</div>
+              <div className="text-muted-foreground truncate text-xs">{statusLabel(c.status)}</div>
+            </div>
+          </div>
+
+          <div ref={threadRef} className="wa-pane flex-1 overflow-auto p-3">
+            {/* Pas de handler : pièces signées via « Ouvrir » (pas de bouton mort côté reviewer). */}
+            <MessageThread messages={data?.messages ?? []} viewpoint="recipient" />
+          </div>
+
+          {/* Composeur (et, en mobile, les pills de décision repliées au-dessus). */}
+          <div className="bg-card space-y-2 border-t p-2.5">
+            <div className="md:hidden">{decisionPills}</div>
+
+            {files.length > 0 ? (
+              <ul className="space-y-1">
+                {files.map((f, i) => (
+                  <li
+                    key={i}
+                    className="bg-muted/40 flex items-center justify-between gap-2 rounded-md border px-2 py-1 text-xs"
+                  >
+                    <span className="flex min-w-0 items-center gap-1">
+                      <Paperclip className="size-3 shrink-0" />
+                      <span className="truncate">{f.name}</span>
+                      <span className="text-muted-foreground shrink-0">· {formatSize(f.size)}</span>
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={`Retirer ${f.name}`}
+                      className="cursor-pointer"
+                      onClick={() => setFiles(files.filter((_, j) => j !== i))}
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
+            <div className="flex items-end gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept={ACCEPT}
+                className="hidden"
+                onChange={(e) => handlePickFiles(e.target.files)}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-10 shrink-0 rounded-full"
+                aria-label="Joindre une pièce"
+                disabled={files.length >= MAX_FILES}
+                onClick={() => fileInputRef.current?.click()}
               >
-                <span className="flex min-w-0 items-center gap-1">
-                  <Paperclip className="size-3 shrink-0" />
-                  <span className="truncate">{f.name}</span>
-                  <span className="text-muted-foreground shrink-0">· {formatSize(f.size)}</span>
-                </span>
-                <button
-                  type="button"
-                  aria-label={`Retirer ${f.name}`}
-                  className="cursor-pointer"
-                  onClick={() => setFiles(files.filter((_, j) => j !== i))}
-                >
-                  <X className="size-3.5" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-
-        <div className="flex items-end gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept={ACCEPT}
-            className="hidden"
-            onChange={(e) => handlePickFiles(e.target.files)}
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-10 shrink-0 rounded-full"
-            aria-label="Joindre une pièce"
-            disabled={files.length >= MAX_FILES}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Paperclip className="size-4" />
-          </Button>
-          <textarea
-            ref={composerRef}
-            rows={1}
-            className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 min-h-10 flex-1 resize-none rounded-2xl border bg-transparent px-4 py-2.5 text-sm outline-none focus-visible:ring-[3px]"
-            placeholder={decisionPick ? 'Commentaire (recommandé)…' : 'Écrivez un message…'}
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-          />
-          <Button
-            size="icon"
-            className="size-10 shrink-0 rounded-full"
-            disabled={submitting}
-            aria-label={decisionPick ? 'Envoyer la décision' : 'Envoyer'}
-            onClick={() => void handleSubmit()}
-          >
-            {submitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-          </Button>
-        </div>
-        <p className="text-muted-foreground text-[11px]">
-          PDF, PNG, JPG, WebP, DOCX — 4 Mo max par pièce, {MAX_FILES} pièces.
-        </p>
+                <Paperclip className="size-4" />
+              </Button>
+              <textarea
+                ref={composerRef}
+                rows={1}
+                className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 min-h-10 flex-1 resize-none rounded-2xl border bg-transparent px-4 py-2.5 text-sm outline-none focus-visible:ring-[3px]"
+                placeholder={decisionPick ? 'Commentaire (recommandé)…' : 'Écrivez un message…'}
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+              />
+              <Button
+                size="icon"
+                className="size-10 shrink-0 rounded-full"
+                disabled={submitting}
+                aria-label={decisionPick ? 'Envoyer la décision' : 'Envoyer'}
+                onClick={() => void handleSubmit()}
+              >
+                {submitting ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Send className="size-4" />
+                )}
+              </Button>
+            </div>
+            <p className="text-muted-foreground text-[11px]">
+              {decisionPick
+                ? 'Décision sélectionnée — ajoutez un commentaire (optionnel) puis Envoyer.'
+                : `PDF, PNG, JPG, WebP, DOCX — 4 Mo max par pièce, ${MAX_FILES} pièces.`}
+            </p>
+          </div>
+        </section>
       </div>
     </div>
   ) : null
