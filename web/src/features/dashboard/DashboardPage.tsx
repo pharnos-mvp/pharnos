@@ -6,57 +6,64 @@ import { AlertTriangle, CalendarClock, CheckCircle2, Newspaper } from 'lucide-re
 import { Badge } from '@/components/ui/badge'
 import { docTypeLabel } from '@/features/catalogue/doc-types'
 import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
+import { useCorrespondenceSync } from '@/features/correspondence/use-correspondence-sync'
 import { useOrgId } from '@/features/org/org-context'
+import { useDossierSync } from '@/features/workspace/use-dossier-sync'
 import { db } from '@/lib/db'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
+import { ActionsRequises } from './components/ActionsRequises'
+import { buildActions, expiryStatus, type ExpiryStatus } from './dashboard-data'
 import { REGULATORY_WATCH } from './regulatory-watch'
-
-type Status = 'expired' | 'soon' | 'ok'
 
 export function DashboardPage() {
   const orgId = useOrgId()
   const navigate = useNavigate()
   const { t, lang } = useI18n()
+  // Synchros (best-effort) pour un poste de pilotage frais — offline : on lit le cache Dexie.
   useCatalogueSync(orgId)
+  useDossierSync(orgId)
+  useCorrespondenceSync(orgId)
 
-  const items = useLiveQuery(async () => {
-    const docs = (await db.documents.where('orgId').equals(orgId).toArray()).filter(
-      (d) => d.deletedAt === null && d.expiryDate,
-    )
-    const products = new Map(
-      (await db.products.where('orgId').equals(orgId).toArray()).map((p) => [
-        p.id,
-        p.nomCommercial,
-      ]),
-    )
-    return docs
+  // Une requête batchée par domaine (perf) ; tout dérive ensuite côté client.
+  const data = useLiveQuery(async () => {
+    const [products, documents, dossiers, correspondences, messages, reads, docAnalysis] =
+      await Promise.all([
+        db.products.where('orgId').equals(orgId).toArray(),
+        db.documents.where('orgId').equals(orgId).toArray(),
+        db.dossiers.where('orgId').equals(orgId).toArray(),
+        db.correspondences.where('orgId').equals(orgId).toArray(),
+        db.correspondenceMessages.where('orgId').equals(orgId).toArray(),
+        db.correspondenceReads.toArray(),
+        db.docAnalysis.toArray(),
+      ])
+    return { products, documents, dossiers, correspondences, messages, reads, docAnalysis }
+  }, [orgId])
+
+  const actions = useMemo(() => (data ? buildActions(data, new Date()) : []), [data])
+
+  // Validité des pièces administratives (vue détaillée, complément des actions priorisées).
+  const { rows, expired, soon, ok } = useMemo(() => {
+    const now = new Date()
+    const products = new Map((data?.products ?? []).map((p) => [p.id, p.nomCommercial]))
+    const computed = (data?.documents ?? [])
+      .filter((d) => d.deletedAt === null && d.expiryDate)
       .map((d) => ({
         id: d.id,
         productId: d.productId,
         productName: products.get(d.productId) ?? '—',
         docType: d.docType,
         expiryDate: d.expiryDate as string,
+        status: expiryStatus(d.expiryDate as string, now),
       }))
       .sort((a, b) => a.expiryDate.localeCompare(b.expiryDate))
-  }, [orgId])
-
-  const { rows, expired, soon, ok } = useMemo(() => {
-    const today = new Date()
-    const soonDate = new Date()
-    soonDate.setDate(soonDate.getDate() + 90)
-    const computed = (items ?? []).map((it) => {
-      const exp = new Date(it.expiryDate)
-      const status: Status = exp < today ? 'expired' : exp <= soonDate ? 'soon' : 'ok'
-      return { ...it, status }
-    })
     return {
       rows: computed,
       expired: computed.filter((r) => r.status === 'expired').length,
       soon: computed.filter((r) => r.status === 'soon').length,
       ok: computed.filter((r) => r.status === 'ok').length,
     }
-  }, [items])
+  }, [data])
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -64,11 +71,14 @@ export function DashboardPage() {
         <h1 className="text-xl font-bold">{t({ fr: 'Tableau de bord', en: 'Dashboard' })}</h1>
         <p className="text-muted-foreground text-sm">
           {t({
-            fr: 'Validité des pièces & veille réglementaire (UEMOA/CEDEAO).',
-            en: 'Document validity & regulatory watch (UEMOA/CEDEAO).',
+            fr: 'Poste de pilotage RA — vos actions, la validité des pièces & la veille (UEMOA/CEDEAO).',
+            en: 'RA control center — your actions, document validity & regulatory watch (UEMOA/CEDEAO).',
           })}
         </p>
       </div>
+
+      {/* Cœur : ce qui requiert une action, priorisé. */}
+      <ActionsRequises items={actions} />
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Kpi
@@ -169,7 +179,7 @@ function Kpi({
   )
 }
 
-function StatusBadge({ status, t }: { status: Status; t: (s: Translatable) => string }) {
+function StatusBadge({ status, t }: { status: ExpiryStatus; t: (s: Translatable) => string }) {
   if (status === 'expired')
     return <Badge variant="destructive">{t({ fr: 'Expiré', en: 'Expired' })}</Badge>
   if (status === 'soon') {
