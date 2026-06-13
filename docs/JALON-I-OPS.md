@@ -22,6 +22,7 @@ veut 0 € **sans carte**, l'artefact GitHub chiffré est un offsite suffisant a
 | Élément | Type | Où l'obtenir | Qui |
 |---|---|---|---|
 | `SUPABASE_DB_PASSWORD` | **secret repo** | Dashboard Supabase → Database → *Database password* → **Reset password** (le mot de passe n'est jamais réaffiché ; reset = nouveau, montré une fois). Le **mot de passe brut** suffit — le workflow assemble l'URI et encode les caractères spéciaux. | **CEO** (`gh secret set` en git bash, ou web UI) |
+| `SUPABASE_SERVICE_ROLE_KEY` | **secret repo** | clé `service_role` (Dashboard → Settings → API) — utilisée **uniquement** pour le backup Storage (§5). Récupérée via `supabase projects api-keys` et posée le 2026-06-13 (✅). | CTO (CLI), sur autorisation CEO |
 | `AGE_RECIPIENT` | **variable repo** | clé **publique** age (`age1…`) — voir ci-dessous | CTO génère (✅ fait), CEO garde la clé privée |
 
 > **Connexion : Session pooler (IPv4)**, pas la connexion directe (IPv6, qui échoue depuis les
@@ -105,12 +106,18 @@ Codes calibrés en prod le 2026-06-13 : front 200 · auth/health 401 · share 40
 < 500 = vivants). Upgrade : alerte **Resend** dédiée (ajouter un secret repo `RESEND_API_KEY`) ou un
 service type **UptimeRobot** (intervalle 5 min) si un SLA plus serré est requis.
 
-## 5. Backup des fichiers Storage *(décision à prendre)*
+## 5. Backup des fichiers Storage ✅ *(workflow `.github/workflows/storage-backup.yml`)*
 
-`pg_dump` sauvegarde la **base**, pas les **fichiers** (PDF compilés, pièces jointes, en-têtes).
-Options : (a) rien (les PDF compilés sont re-générables ; mais les originaux téléversés et les
-pièces reviewer, non) ; (b) sync hebdo du bucket `documents` (`gsutil`/S3 → artefact ou R2).
-**Recommandation : (b)** pour les pièces non re-dérivables. À confirmer CEO (volume = coût).
+`pg_dump` sauvegarde la **base** (métadonnées des fichiers comprises), **pas les octets** des fichiers
+(PDF compilés, pièces téléversées, pièces reviewer, en-têtes). **Décision CEO 2026-06-13 : OUI**, on
+sauvegarde le bucket `documents` (les originaux téléversés + pièces reviewer sont irremplaçables ; les
+PDF compilés re-générables sont inclus par simplicité).
+
+**Chaîne** (hebdo, lundi 03:53 UTC) : liste des chemins via la DB → téléchargement de chaque objet via
+l'API Storage authentifiée (**service_role**) → `tar.gz` → chiffré **age** → **asset d'une Release
+GitHub `storage-backup`** (rétention 12 snapshots). Permanent (pas de purge à 90 j comme les artefacts),
+0 € sans carte. Restore : télécharger l'asset → `age -d -i <clé privée>` → `tar -xzf` → ré-upload via
+l'API Storage si besoin. Upgrade : Cloudflare R2 (si carte) pour rétention illimitée + hors-GitHub.
 
 ## Definition of Done (jalon I)
 - [x] Backup hebdo chiffré → artefact **vert** (1er run réussi). — 2026-06-13 (run 27475179006, 1m49s)
@@ -118,4 +125,4 @@ pièces reviewer, non) ; (b) sync hebdo du bucket `documents` (`gsutil`/S3 → a
 - [ ] Clé privée age déplacée offline par le CEO (§1).
 - [x] Alertes seuils actives (§3). — 2026-06-13 (alerts.yml, cron quotidien DB+Storage, e-mail GitHub si >70 %)
 - [x] Uptime check actif (§4). — 2026-06-13 (uptime.yml, cron 30 min, alerte e-mail GitHub sur KO)
-- [ ] Décision Storage tranchée (§5).
+- [x] Décision Storage tranchée (§5). — 2026-06-13 : OUI → backup chiffré du bucket `documents` (storage-backup.yml)
