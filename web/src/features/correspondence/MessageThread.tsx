@@ -1,13 +1,13 @@
-import { Paperclip } from 'lucide-react'
+import { Check, Download, FileText } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { DECISION_LABELS, STATUS_BADGE_CLASSES } from './correspondence-constants'
 
 /**
- * Fil de correspondance type chat (jalon H) — commun à la page publique (reviewer) et au
- * panneau labo. Les bulles de `viewpoint` s'alignent à droite ; les décisions s'affichent en
- * jalon central (acte fort du flux), le reste en bulles.
+ * Fil de correspondance type chat (jalon H, habillage WhatsApp v3) — commun à la page publique
+ * (reviewer) et au panneau labo. Bulles `viewpoint` vertes à droite, reçues à gauche ; décisions
+ * et notes système en pastille centrée (acte fort du flux) ; pièces jointes en carte document.
  */
 
 export interface ThreadAttachment {
@@ -30,10 +30,10 @@ export interface ThreadMessage {
   attachments: ThreadAttachment[]
 }
 
-const dateFmt = new Intl.DateTimeFormat('fr', { dateStyle: 'medium', timeStyle: 'short' })
-const formatDate = (iso: string) => {
+const timeFmt = new Intl.DateTimeFormat('fr', { hour: '2-digit', minute: '2-digit' })
+const formatTime = (iso: string) => {
   const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? '' : dateFmt.format(d)
+  return Number.isNaN(d.getTime()) ? '' : timeFmt.format(d)
 }
 
 // Séparateurs de jour (groupage type WhatsApp) : « Aujourd'hui », « Hier », sinon date longue.
@@ -58,7 +58,8 @@ const formatSize = (bytes: number) => {
   return b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} Mo` : `${Math.ceil(b / 1024)} Ko`
 }
 
-function AttachmentChips({
+/** Carte document type WhatsApp : icône, nom, taille + « Ouvrir / Enregistrer ». */
+function AttachmentCards({
   attachments,
   onDownload,
 }: {
@@ -67,33 +68,51 @@ function AttachmentChips({
 }) {
   if (attachments.length === 0) return null
   return (
-    <div className="mt-2 flex flex-wrap gap-1.5">
-      {attachments.map((a, i) =>
-        a.url ? (
-          <a
-            key={i}
-            href={a.url}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="bg-background/60 hover:bg-background inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-1 text-xs"
-          >
-            <Paperclip className="size-3 shrink-0" />
-            <span className="truncate">{a.name}</span>
-            <span className="text-muted-foreground shrink-0">· {formatSize(a.size)}</span>
-          </a>
-        ) : (
-          <button
-            key={i}
-            type="button"
-            onClick={() => onDownload?.(a)}
-            className="bg-background/60 hover:bg-background inline-flex max-w-full cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-xs"
-          >
-            <Paperclip className="size-3 shrink-0" />
-            <span className="truncate">{a.name}</span>
-            <span className="text-muted-foreground shrink-0">· {formatSize(a.size)}</span>
-          </button>
-        ),
-      )}
+    <div className="mt-1.5 space-y-1.5">
+      {attachments.map((a, i) => {
+        // « Ouvrir » : pièce signée (page publique). « Enregistrer » : seulement si un vrai
+        // handler de téléchargement est fourni (panneau labo). Ni l'un ni l'autre → indisponible
+        // (jamais de bouton mort : la signature peut échouer côté reviewer).
+        const canOpen = Boolean(a.url)
+        const canSave = Boolean(onDownload)
+        return (
+          <div key={i} className="rounded-md bg-black/5 p-2 dark:bg-white/5">
+            <div className="flex items-center gap-2">
+              <span className="grid size-9 shrink-0 place-items-center rounded bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-300">
+                <FileText className="size-4.5" />
+              </span>
+              <div className="min-w-0">
+                <div className="truncate text-xs font-medium">{a.name}</div>
+                <div className="text-[11px] opacity-70">
+                  {(a.mime?.split('/')?.pop() ?? 'fichier').toUpperCase()} · {formatSize(a.size)}
+                </div>
+              </div>
+            </div>
+            <div className="mt-1.5 flex items-center gap-3 border-t border-black/10 pt-1.5 text-[11px] font-medium dark:border-white/10">
+              {canOpen ? (
+                <a
+                  href={a.url ?? undefined}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="text-emerald-800 hover:underline dark:text-emerald-300"
+                >
+                  Ouvrir
+                </a>
+              ) : null}
+              {canSave ? (
+                <button
+                  type="button"
+                  className="inline-flex cursor-pointer items-center gap-1 text-emerald-800 hover:underline dark:text-emerald-300"
+                  onClick={() => onDownload?.(a)}
+                >
+                  <Download className="size-3" /> Enregistrer
+                </button>
+              ) : null}
+              {!canOpen && !canSave ? <span className="opacity-70">Pièce indisponible</span> : null}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -108,45 +127,50 @@ export function MessageThread({
   onDownloadAttachment?: (a: ThreadAttachment) => void
 }) {
   if (messages.length === 0) {
-    return <p className="text-muted-foreground py-6 text-center text-sm">Aucun échange.</p>
+    return (
+      <p className="text-muted-foreground py-6 text-center text-sm">
+        Aucun échange pour l’instant.
+      </p>
+    )
   }
   return (
-    <ol className="space-y-3" aria-label="Fil de correspondance">
+    <ol className="space-y-1.5" aria-label="Fil de correspondance">
       {messages.map((m, i) => {
         const day = dayLabel(m.createdAt)
         const prevDay = i > 0 ? dayLabel(messages[i - 1]?.createdAt ?? '') : ''
         const daySeparator =
           day && day !== prevDay ? (
-            <div className="my-2 flex items-center gap-3" aria-hidden>
-              <span className="bg-border h-px flex-1" />
-              <span className="text-muted-foreground text-xs">{day}</span>
-              <span className="bg-border h-px flex-1" />
+            <div className="my-2.5 flex justify-center" aria-hidden>
+              <span className="wa-chip rounded-md px-2.5 py-0.5 text-[11px] shadow-sm">{day}</span>
             </div>
           ) : null
-        // Jalon décision : uniquement pour une valeur connue (payload réseau → garde runtime).
+
+        // Décision : pastille centrée (acte fort) — uniquement pour une valeur connue.
         if (m.kind === 'decision' && m.decision && m.decision in DECISION_LABELS) {
           return (
-            <li key={m.id} className="py-1 text-center">
+            <li key={m.id} className="text-center">
               {daySeparator}
-              <Badge className={cn('px-2.5 py-0.5', STATUS_BADGE_CLASSES[m.decision])}>
-                {DECISION_LABELS[m.decision]}
-              </Badge>
-              <div className="text-muted-foreground mt-1 text-xs">
-                {m.authorLabel} · {formatDate(m.createdAt)}
+              <div className="py-1">
+                <Badge className={cn('px-2.5 py-0.5', STATUS_BADGE_CLASSES[m.decision])}>
+                  {DECISION_LABELS[m.decision]}
+                </Badge>
+                <div className="text-muted-foreground mt-1 text-[11px]">
+                  {m.authorLabel} · {formatTime(m.createdAt)}
+                </div>
+                {m.body || m.attachments.length > 0 ? (
+                  <div className="wa-chip mx-auto mt-2 max-w-sm rounded-lg px-3 py-2 text-left text-sm whitespace-pre-wrap shadow-sm">
+                    {m.body}
+                    <AttachmentCards
+                      attachments={m.attachments}
+                      onDownload={onDownloadAttachment}
+                    />
+                  </div>
+                ) : null}
               </div>
-              {m.body ? (
-                <div className="bg-muted/50 mx-auto mt-2 max-w-md rounded-lg border px-3 py-2 text-left text-sm whitespace-pre-wrap">
-                  {m.body}
-                  <AttachmentChips attachments={m.attachments} onDownload={onDownloadAttachment} />
-                </div>
-              ) : (
-                <div className="mx-auto max-w-md text-left">
-                  <AttachmentChips attachments={m.attachments} onDownload={onDownloadAttachment} />
-                </div>
-              )}
             </li>
           )
         }
+
         const mine = m.author === viewpoint
         return (
           <li key={m.id}>
@@ -154,16 +178,26 @@ export function MessageThread({
             <div className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
               <div
                 className={cn(
-                  'max-w-[85%] rounded-lg border px-3 py-2 text-sm sm:max-w-[70%]',
-                  mine ? 'bg-primary/10 border-primary/20' : 'bg-muted/50',
+                  'max-w-[85%] rounded-lg px-2.5 py-1.5 text-sm shadow-sm sm:max-w-[75%]',
+                  mine ? 'wa-out rounded-tr-sm' : 'wa-in rounded-tl-sm',
                 )}
               >
-                <div className="text-muted-foreground mb-0.5 text-xs">
-                  {m.kind === 'note' ? 'Note d’envoi — ' : ''}
-                  {m.authorLabel} · {formatDate(m.createdAt)}
+                {m.kind === 'note' ? (
+                  <div className="mb-0.5 text-[11px] font-medium opacity-70">Note d’envoi</div>
+                ) : null}
+                {m.body ? <div className="whitespace-pre-wrap">{m.body}</div> : null}
+                <AttachmentCards attachments={m.attachments} onDownload={onDownloadAttachment} />
+                <div className="mt-0.5 flex items-center justify-end gap-1 text-[10px] opacity-75">
+                  {formatTime(m.createdAt)}
+                  {/* Accusé HONNÊTE : ✓✓ gris = envoyé/synchronisé (jamais « lu » bleu — on ne
+                      peut pas le prouver côté reviewer). */}
+                  {mine ? (
+                    <span title="Envoyé" className="inline-flex -space-x-1">
+                      <Check className="size-3" />
+                      <Check className="size-3" />
+                    </span>
+                  ) : null}
                 </div>
-                <div className="whitespace-pre-wrap">{m.body}</div>
-                <AttachmentChips attachments={m.attachments} onDownload={onDownloadAttachment} />
               </div>
             </div>
           </li>

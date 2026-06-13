@@ -1,16 +1,39 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Ban, Check, Copy, FolderOpen, History, Loader2, Lock, MailX, Send, X } from 'lucide-react'
+import {
+  Ban,
+  Copy,
+  FolderOpen,
+  History,
+  Loader2,
+  Lock,
+  MailX,
+  Maximize2,
+  Minimize2,
+  MoreVertical,
+  Plus,
+  Search,
+  Send,
+  X,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { downloadAttachmentBlob } from '@/features/workspace/dossier-attachments-sync'
+import { activityLabel, countryLabel } from '@/features/workspace/dossier-constants'
 import { db, type CorrespondenceRecord } from '@/lib/db'
 import { initials } from '@/lib/initials'
 import { getSupabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
-import { STATUS_BADGE_CLASSES, statusLabel } from './correspondence-constants'
+import './correspondence-chat.css'
+import { statusLabel } from './correspondence-constants'
 import { countUnread, markConversationRead } from './correspondence-reads'
 import {
   appendSenderMessage,
@@ -25,11 +48,40 @@ import { notifyRecipient } from './share-send'
 const dateFmt = new Intl.DateTimeFormat('fr', { dateStyle: 'medium' })
 const timeFmt = new Intl.DateTimeFormat('fr', { hour: '2-digit', minute: '2-digit' })
 const accessFmt = new Intl.DateTimeFormat('fr', { dateStyle: 'medium', timeStyle: 'short' })
+const SIZE_KEY = 'pharnos.corr.maximized'
 
 const ACCESS_LABELS: Record<string, string> = {
   open: 'Ouverture du dossier',
   decide: 'Décision rendue',
   reply: 'Message envoyé',
+}
+
+// Couleur d'avatar déterministe par correspondant (palette type WhatsApp).
+const AVATAR_COLORS = [
+  'bg-rose-500',
+  'bg-amber-500',
+  'bg-emerald-500',
+  'bg-sky-500',
+  'bg-violet-500',
+  'bg-fuchsia-500',
+  'bg-teal-500',
+  'bg-indigo-500',
+]
+function avatarColor(s: string): string {
+  let h = 0
+  for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0
+  return AVATAR_COLORS[h % AVATAR_COLORS.length] ?? AVATAR_COLORS[0]!
+}
+
+const listTime = (iso: string) => {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const today = new Date()
+  const sameDay =
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() &&
+    d.getDate() === today.getDate()
+  return sameDay ? timeFmt.format(d) : dateFmt.format(d)
 }
 
 interface AccessRow {
@@ -95,22 +147,27 @@ function AccessLog({ correspondenceId }: { correspondenceId: string }) {
     </ul>
   )
 }
-const listTime = (iso: string) => {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  const today = new Date()
-  const sameDay =
-    d.getFullYear() === today.getFullYear() &&
-    d.getMonth() === today.getMonth() &&
-    d.getDate() === today.getDate()
-  return sameDay ? timeFmt.format(d) : dateFmt.format(d)
+
+function Avatar({ email, size = 'md' }: { email: string; size?: 'sm' | 'md' }) {
+  return (
+    <span
+      className={cn(
+        'grid shrink-0 place-items-center rounded-full font-semibold text-white',
+        size === 'sm' ? 'size-9 text-xs' : 'size-10 text-sm',
+        avatarColor(email),
+      )}
+      aria-hidden
+    >
+      {initials(email)}
+    </span>
+  )
 }
 
 /**
- * Boîte de correspondance DU DOSSIER (v2) — « Gmail des RA × WhatsApp », scopée au produit :
- * volet gauche = conversations de ce dossier (une par correspondant : dernier message, non-lus,
- * état), volet droit = fil type chat (séparateurs de jour, auto-scroll, composer). Le classement
- * inter-dossiers reste sur la home du CTD Workspace (pastilles d'état).
+ * Boîte de correspondance DU DOSSIER (v3 — habillage WhatsApp, mockups CEO) : deux volets
+ * (conversations du dossier à gauche : recherche, filtre Toutes/Non lues, aperçus, non-lus ;
+ * chat à droite : fond à motifs, bulles, composeur), deux tailles (défaut docké / large
+ * maximisé). Le classement inter-dossiers reste sur la home du CTD Workspace.
  * Offline-first : Dexie est l'unique source de l'UI (Realtime/pull alimentent Dexie).
  */
 export function CorrespondencePanel({
@@ -164,6 +221,15 @@ export function CorrespondencePanel({
   const [sending, setSending] = useState(false)
   const [copied, setCopied] = useState(false)
   const [showAccess, setShowAccess] = useState(false)
+  const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState<'all' | 'unread'>('all')
+  const [maximized, setMaximized] = useState(() => localStorage.getItem(SIZE_KEY) === '1')
+  function toggleSize() {
+    setMaximized((m) => {
+      localStorage.setItem(SIZE_KEY, m ? '0' : '1')
+      return !m
+    })
+  }
 
   // Conversation affichée = lue (marqueur local). Re-marquée à chaque nouveau message reçu.
   const lastMessageAt = messages.at(-1)?.createdAt
@@ -229,6 +295,12 @@ export function CorrespondencePanel({
     toast.success('Lien révoqué — le correspondant n’y a plus accès.')
   }
 
+  function handleNew() {
+    // Un nouvel envoi exige le PDF compilé : on renvoie l'utilisateur au montage.
+    if (onEdit) onEdit()
+    else toast.info('Pour un nouvel envoi : compilez le PDF puis « Envoyer ».')
+  }
+
   async function handleDownloadAttachment(a: ThreadAttachment) {
     if (!a.path) return
     const blob = await downloadAttachmentBlob(a.path)
@@ -246,17 +318,40 @@ export function CorrespondencePanel({
 
   const conversations = correspondences ?? []
   const productName = conversations[0]?.productName
+  const visibleConversations = conversations.filter((c) => {
+    if (
+      filter === 'unread' &&
+      countUnread(byConversation.get(c.id) ?? [], lastSeen.get(c.id)) === 0
+    )
+      return false
+    const q = search.trim().toLowerCase()
+    return !q || c.recipientEmail.toLowerCase().includes(q)
+  })
+  const unreadConversations = conversations.filter(
+    (c) => countUnread(byConversation.get(c.id) ?? [], lastSeen.get(c.id)) > 0,
+  ).length
 
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-end bg-black/40"
+      className={cn(
+        'fixed inset-0 z-50 flex bg-black/50',
+        maximized ? 'items-center justify-center p-2 sm:p-4' : 'justify-end',
+      )}
       role="dialog"
       aria-modal="true"
       aria-label="Correspondance du dossier"
     >
-      <div className="bg-card flex h-full w-full max-w-3xl flex-col border-l shadow-xl">
-        <div className="flex items-center justify-between gap-2 border-b p-3">
-          <h2 className="min-w-0 truncate text-sm font-semibold">
+      <div
+        className={cn(
+          'bg-card flex flex-col shadow-xl',
+          maximized
+            ? 'h-[96vh] w-[97vw] max-w-[1500px] rounded-lg border'
+            : 'h-full w-full max-w-4xl border-l',
+        )}
+      >
+        {/* Bandeau du conteneur : titre + actions globales + tailles */}
+        <div className="flex items-center justify-between gap-2 border-b p-2.5">
+          <h2 className="min-w-0 truncate pl-1 text-sm font-semibold">
             Correspondance{productName ? ` — ${productName}` : ''}
           </h2>
           <div className="flex shrink-0 items-center gap-1.5">
@@ -265,6 +360,14 @@ export function CorrespondencePanel({
                 <FolderOpen className="size-4" /> Modifier le dossier
               </Button>
             ) : null}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={maximized ? 'Réduire la fenêtre' : 'Agrandir la fenêtre'}
+              onClick={toggleSize}
+            >
+              {maximized ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+            </Button>
             <Button variant="ghost" size="icon-sm" aria-label="Fermer" onClick={onClose}>
               <X className="size-4" />
             </Button>
@@ -279,11 +382,111 @@ export function CorrespondencePanel({
           </div>
         ) : selected ? (
           <div className="flex min-h-0 flex-1">
-            {/* Volet conversations (type Gmail/WhatsApp) — masqué s'il n'y a qu'un correspondant */}
-            {conversations.length > 1 ? (
-              <aside className="hidden w-64 shrink-0 overflow-auto border-r md:block">
-                <ul aria-label="Conversations du dossier">
-                  {conversations.map((c) => {
+            {/* VOLET GAUCHE — contexte dossier + actions + Discussions (recherche, filtre, liste) */}
+            <aside className="hidden w-[300px] shrink-0 flex-col border-r md:flex">
+              <div className="space-y-2 border-b p-3">
+                <div>
+                  <div className="truncate text-sm font-semibold">{selected.productName}</div>
+                  <dl className="text-muted-foreground mt-1 grid grid-cols-[auto_1fr] gap-x-2 text-xs">
+                    <dt>Pays cible</dt>
+                    <dd className="text-foreground truncate">{countryLabel(selected.country)}</dd>
+                    <dt>Activité</dt>
+                    <dd className="text-foreground truncate">{activityLabel(selected.activity)}</dd>
+                  </dl>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {shareLink && selected.revokedAt === null ? (
+                    <Button variant="outline" size="sm" onClick={() => void handleCopy()}>
+                      <Copy className="size-3.5" /> {copied ? 'Copié' : 'Copier le lien'}
+                    </Button>
+                  ) : null}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    aria-expanded={showAccess}
+                    onClick={() => setShowAccess((s) => !s)}
+                  >
+                    <History className="size-3.5" /> Accès
+                  </Button>
+                  {selected.revokedAt === null ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive"
+                      onClick={() => void handleRevoke()}
+                    >
+                      <Ban className="size-3.5" /> Révoquer
+                    </Button>
+                  ) : null}
+                </div>
+                {showAccess ? (
+                  <div className="bg-muted/40 rounded-md border">
+                    <AccessLog correspondenceId={selected.id} />
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="flex items-center justify-between px-3 pt-3 pb-1">
+                <span className="text-base font-semibold tracking-tight">Discussions</span>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Nouvel envoi"
+                  title="Nouvel envoi (compiler puis Envoyer)"
+                  onClick={handleNew}
+                >
+                  <Plus className="size-4" />
+                </Button>
+              </div>
+
+              <div className="px-3 pb-2">
+                <div className="relative">
+                  <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
+                  <input
+                    type="search"
+                    placeholder="Rechercher un correspondant…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="border-input focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-full rounded-full border bg-transparent pr-3 pl-8 text-xs outline-none focus-visible:ring-[3px]"
+                  />
+                </div>
+                <div className="mt-2 flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    aria-pressed={filter === 'all'}
+                    onClick={() => setFilter('all')}
+                    className={cn(
+                      'cursor-pointer rounded-full border px-2.5 py-0.5 text-xs font-medium',
+                      filter === 'all'
+                        ? 'border-transparent bg-emerald-600 text-white'
+                        : 'hover:bg-muted',
+                    )}
+                  >
+                    Toutes
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={filter === 'unread'}
+                    onClick={() => setFilter('unread')}
+                    className={cn(
+                      'cursor-pointer rounded-full border px-2.5 py-0.5 text-xs font-medium',
+                      filter === 'unread'
+                        ? 'border-transparent bg-emerald-600 text-white'
+                        : 'hover:bg-muted',
+                    )}
+                  >
+                    Non lues{unreadConversations > 0 ? ` ${unreadConversations}` : ''}
+                  </button>
+                </div>
+              </div>
+
+              <ul className="flex-1 overflow-auto" aria-label="Conversations du dossier">
+                {visibleConversations.length === 0 ? (
+                  <li className="text-muted-foreground p-4 text-center text-xs">
+                    Aucune conversation.
+                  </li>
+                ) : (
+                  visibleConversations.map((c) => {
                     const msgs = byConversation.get(c.id) ?? []
                     const last = msgs.at(-1)
                     const unread = countUnread(msgs, lastSeen.get(c.id))
@@ -295,13 +498,11 @@ export function CorrespondencePanel({
                           aria-pressed={active}
                           onClick={() => setSelectedId(c.id)}
                           className={cn(
-                            'flex w-full cursor-pointer items-start gap-2.5 border-b px-3 py-2.5 text-left',
+                            'flex w-full cursor-pointer items-center gap-2.5 border-b px-3 py-2.5 text-left',
                             active ? 'bg-muted/70' : 'hover:bg-muted/40',
                           )}
                         >
-                          <span className="bg-primary/15 text-primary mt-0.5 grid size-8 shrink-0 place-items-center rounded-full text-xs font-semibold">
-                            {initials(c.recipientEmail)}
-                          </span>
+                          <Avatar email={c.recipientEmail} size="sm" />
                           <span className="min-w-0 flex-1">
                             <span className="flex items-baseline justify-between gap-2">
                               <span
@@ -325,109 +526,106 @@ export function CorrespondencePanel({
                                     : 'text-muted-foreground',
                                 )}
                               >
-                                {last ? last.body || 'Pièce jointe' : 'Dossier envoyé'}
+                                {last
+                                  ? last.kind === 'decision'
+                                    ? `Décision : ${statusLabel(last.decision ?? '')}`
+                                    : last.body || 'Pièce jointe'
+                                  : 'Dossier envoyé'}
                               </span>
                               {unread > 0 ? (
-                                <span className="bg-primary text-primary-foreground grid size-4.5 shrink-0 place-items-center rounded-full text-[10px] font-semibold">
+                                <span className="grid size-4.5 shrink-0 place-items-center rounded-full bg-emerald-600 text-[10px] font-semibold text-white">
                                   {unread}
                                 </span>
-                              ) : (
-                                <span
-                                  className={cn(
-                                    'size-2 shrink-0 rounded-full',
-                                    STATUS_BADGE_CLASSES[c.status],
-                                  )}
-                                  title={statusLabel(c.status)}
-                                />
-                              )}
+                              ) : null}
                             </span>
                           </span>
                         </button>
                       </li>
                     )
-                  })}
-                </ul>
-              </aside>
-            ) : null}
+                  })
+                )}
+              </ul>
+            </aside>
 
-            {/* Conversation : bande info + fil + composer */}
+            {/* VOLET DROIT — conversation (en-tête + fil doodle + composeur) */}
             <section className="flex min-w-0 flex-1 flex-col">
-              <div className="space-y-2 border-b p-3">
-                {conversations.length > 1 ? (
-                  <div className="flex flex-wrap gap-1.5 md:hidden">
-                    {conversations.map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        aria-pressed={c.id === selected.id}
-                        onClick={() => setSelectedId(c.id)}
-                        className={cn(
-                          'cursor-pointer rounded-full border px-2.5 py-0.5 text-xs',
-                          c.id === selected.id
-                            ? 'bg-primary text-primary-foreground'
-                            : 'hover:bg-muted',
-                        )}
-                      >
-                        {c.recipientEmail}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0 text-sm">
-                    <div className="truncate font-medium">{selected.recipientEmail}</div>
-                    <div className="text-muted-foreground flex items-center gap-1 text-xs">
-                      Envoyé le {dateFmt.format(new Date(selected.createdAt))}
-                      {selected.passwordHash ? (
-                        <>
-                          {' '}
-                          · <Lock className="inline size-3" /> protégé
-                        </>
-                      ) : null}
-                    </div>
-                  </div>
-                  <Badge className={cn('shrink-0', STATUS_BADGE_CLASSES[selected.status])}>
+              <div className="bg-card flex shrink-0 items-center gap-2.5 border-b p-2.5">
+                <Avatar email={selected.recipientEmail} />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold">{selected.recipientEmail}</div>
+                  <div className="text-muted-foreground flex items-center gap-1 text-xs">
                     {statusLabel(selected.status)}
-                  </Badge>
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {shareLink && selected.revokedAt === null ? (
-                    <Button variant="outline" size="sm" onClick={() => void handleCopy()}>
-                      {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-                      {copied ? 'Copié' : 'Copier le lien'}
-                    </Button>
-                  ) : null}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    aria-expanded={showAccess}
-                    onClick={() => setShowAccess((s) => !s)}
-                  >
-                    <History className="size-4" /> Accès
-                  </Button>
-                  {selected.revokedAt === null ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-destructive"
-                      onClick={() => void handleRevoke()}
-                    >
-                      <Ban className="size-4" /> Révoquer
-                    </Button>
-                  ) : (
-                    <span className="text-muted-foreground text-xs">
-                      Lien révoqué — renvoyez le dossier pour rouvrir l’accès.
-                    </span>
-                  )}
-                </div>
-                {showAccess ? (
-                  <div className="bg-muted/40 rounded-md border">
-                    <AccessLog correspondenceId={selected.id} />
+                    {selected.passwordHash ? (
+                      <>
+                        {' · '}
+                        <Lock className="inline size-3" /> protégé
+                      </>
+                    ) : null}
+                    {selected.revokedAt !== null ? ' · lien révoqué' : ''}
                   </div>
-                ) : null}
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon-sm" aria-label="Actions de la conversation">
+                      <MoreVertical className="size-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {shareLink && selected.revokedAt === null ? (
+                      <DropdownMenuItem onClick={() => void handleCopy()}>
+                        <Copy className="size-4" /> Copier le lien
+                      </DropdownMenuItem>
+                    ) : null}
+                    <DropdownMenuItem onClick={() => setShowAccess((s) => !s)}>
+                      <History className="size-4" /> Journal d’accès
+                    </DropdownMenuItem>
+                    {onEdit ? (
+                      <DropdownMenuItem onClick={onEdit}>
+                        <FolderOpen className="size-4" /> Modifier le dossier
+                      </DropdownMenuItem>
+                    ) : null}
+                    {selected.revokedAt === null ? (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem variant="destructive" onClick={() => void handleRevoke()}>
+                          <Ban className="size-4" /> Révoquer le lien
+                        </DropdownMenuItem>
+                      </>
+                    ) : null}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
-              <div ref={threadRef} className="flex-1 overflow-auto p-3">
+              {/* Journal d'accès en mobile (le volet gauche qui l'héberge est masqué < md) */}
+              {showAccess ? (
+                <div className="bg-muted/40 border-b md:hidden">
+                  <AccessLog correspondenceId={selected.id} />
+                </div>
+              ) : null}
+
+              {/* Sélecteur de conversation en mobile (le volet liste est masqué < md) */}
+              {conversations.length > 1 ? (
+                <div className="flex flex-wrap gap-1.5 border-b p-2 md:hidden">
+                  {conversations.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      aria-pressed={c.id === selected.id}
+                      onClick={() => setSelectedId(c.id)}
+                      className={cn(
+                        'cursor-pointer rounded-full border px-2.5 py-0.5 text-xs',
+                        c.id === selected.id
+                          ? 'border-transparent bg-emerald-600 text-white'
+                          : 'hover:bg-muted',
+                      )}
+                    >
+                      {c.recipientEmail}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              <div ref={threadRef} className="wa-pane flex-1 overflow-auto p-3 sm:px-6">
                 <MessageThread
                   messages={threadMessages}
                   viewpoint="sender"
@@ -435,39 +633,33 @@ export function CorrespondencePanel({
                 />
               </div>
 
-              <div className="border-t p-3">
-                <div className="flex items-end gap-2">
-                  <textarea
-                    rows={2}
-                    className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
-                    placeholder="Répondre au correspondant…"
-                    value={reply}
-                    onChange={(e) => setReply(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault()
-                        void handleReply()
-                      }
-                    }}
-                  />
-                  <Button
-                    size="sm"
-                    className="shrink-0"
-                    disabled={sending || !reply.trim()}
-                    aria-label="Envoyer la réponse"
-                    onClick={() => void handleReply()}
-                  >
-                    {sending ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <Send className="size-4" />
-                    )}
-                  </Button>
-                </div>
-                <p className="text-muted-foreground mt-1.5 text-[11px]">
-                  Entrée pour envoyer · Maj+Entrée pour une nouvelle ligne · le correspondant est
-                  prévenu par e-mail.
-                </p>
+              <div className="bg-card flex items-end gap-2 border-t p-2.5">
+                <textarea
+                  rows={1}
+                  className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 max-h-32 min-h-10 flex-1 resize-none rounded-2xl border bg-transparent px-4 py-2.5 text-sm outline-none focus-visible:ring-[3px]"
+                  placeholder="Écrivez un message…"
+                  value={reply}
+                  onChange={(e) => setReply(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      void handleReply()
+                    }
+                  }}
+                />
+                <Button
+                  size="icon"
+                  className="size-10 shrink-0 rounded-full bg-emerald-600 text-white hover:bg-emerald-700"
+                  disabled={sending || !reply.trim()}
+                  aria-label="Envoyer la réponse"
+                  onClick={() => void handleReply()}
+                >
+                  {sending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Send className="size-4" />
+                  )}
+                </Button>
               </div>
             </section>
           </div>
