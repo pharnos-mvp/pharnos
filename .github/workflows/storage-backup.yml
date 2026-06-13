@@ -1,0 +1,125 @@
+name: Backup Storage
+
+# Jalon I §5 — sauvegarde CHIFFRÉE des FICHIERS du bucket `documents` (NON couverts par le dump DB,
+# qui ne contient que les métadonnées). Pièces téléversées + reviewer = irremplaçables.
+#
+# Chaîne (hebdo + manuel) : liste des chemins via la DB (pg) → téléchargement de chaque objet via
+# l'API Storage authentifiée (service_role) → tar.gz → chiffré **age** (clé publique ; privée offline,
+# hors CI) → publié comme **asset d'une Release GitHub** `storage-backup` (rétention : KEEP derniers
+# snapshots). 0 € sans carte ; l'archive chiffrée est inexploitable même téléchargée (repo public).
+#
+# No-op vert tant que les secrets/var manquent. Requis :
+#   secret SUPABASE_DB_PASSWORD       — liste des objets (pg_database).
+#   secret SUPABASE_SERVICE_ROLE_KEY  — téléchargement des objets privés (bypass RLS).
+#   var    AGE_RECIPIENT              — clé publique age.
+
+on:
+  schedule:
+    - cron: '53 3 * * 1' # lundi 03:53 UTC (après le backup DB)
+  workflow_dispatch:
+
+permissions:
+  contents: write # créer/mettre à jour la Release + ses assets
+
+concurrency:
+  group: backup-storage
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Snapshot chiffré du bucket → Release
+    runs-on: ubuntu-latest
+    env:
+      REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+      SUPA: https://uhsireqwzqqymgsxuvqh.supabase.co
+      KEEP: '12'
+    steps:
+      - name: Garde-fou (secrets/var présents ?)
+        id: guard
+        env:
+          DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SR: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AGE_RECIPIENT: ${{ vars.AGE_RECIPIENT }}
+        run: |
+          if [ -z "$DB_PASSWORD" ] || [ -z "$SR" ] || [ -z "$AGE_RECIPIENT" ]; then
+            echo "Secrets/var de backup Storage absents — étape ignorée (configurer pour activer)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Outils (psql + age)
+        if: steps.guard.outputs.ready == 'true'
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client age
+
+      - name: Lister → télécharger → chiffrer
+        id: snap
+        if: steps.guard.outputs.ready == 'true'
+        env:
+          DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SR: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AGE_RECIPIENT: ${{ vars.AGE_RECIPIENT }}
+        run: |
+          set -uo pipefail
+          enc_pw="$(DB_PASSWORD="$DB_PASSWORD" python3 -c 'import os,urllib.parse;print(urllib.parse.quote(os.environ["DB_PASSWORD"],safe=""))')"
+          echo "::add-mask::$enc_pw"
+          db_url="postgresql://postgres.uhsireqwzqqymgsxuvqh:${enc_pw}@aws-0-eu-west-3.pooler.supabase.com:5432/postgres"
+          echo "::add-mask::$db_url"
+          # 1) Liste des chemins d'objets (un par ligne) — depuis storage.objects.
+          psql "$db_url" -tAc "SELECT name FROM storage.objects WHERE bucket_id='documents' ORDER BY name;" > paths.txt \
+            || { echo "::error::Liste des objets échouée (connexion DB ?)."; exit 1; }
+          total=$(grep -c . paths.txt || true)
+          echo "Objets dans le bucket : $total"
+          if [ "${total:-0}" -eq 0 ]; then
+            echo "Bucket vide — rien à sauvegarder."; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          # 2) Téléchargement de chaque objet (chemins percent-encodés ; endpoint authentifié, fallback).
+          mkdir -p files; fail=0; n=0
+          while IFS= read -r path; do
+            [ -n "$path" ] || continue
+            n=$((n+1))
+            penc="$(PP="$path" python3 -c 'import os,urllib.parse;print(urllib.parse.quote(os.environ["PP"],safe="/"))')"
+            dest="files/$path"; mkdir -p "$(dirname "$dest")"
+            code=$(curl -s -o "$dest" -w '%{http_code}' -H "Authorization: Bearer $SR" -H "apikey: $SR" \
+                   --max-time 180 --retry 2 --retry-delay 3 "$SUPA/storage/v1/object/authenticated/documents/$penc")
+            if [ "$code" != "200" ]; then
+              code=$(curl -s -o "$dest" -w '%{http_code}' -H "Authorization: Bearer $SR" -H "apikey: $SR" \
+                     --max-time 180 --retry 2 --retry-delay 3 "$SUPA/storage/v1/object/documents/$penc")
+            fi
+            if [ "$code" = "200" ]; then :; else echo "  KO ($code) $path"; rm -f "$dest"; fail=$((fail+1)); fi
+          done < paths.txt
+          ok=$((n - fail))
+          echo "Téléchargés : $ok/$n (échecs: $fail)"
+          [ "$fail" -eq 0 ] || { echo "::error::$fail fichier(s) non récupéré(s) — snapshot incomplet, abandon."; exit 1; }
+          # 3) Archive + chiffrement asymétrique.
+          stamp="$(date -u +%Y%m%d-%H%M)"
+          tar -czf "pharnos-storage-$stamp.tar.gz" -C files .
+          age -r "$AGE_RECIPIENT" -o "pharnos-storage-$stamp.tar.gz.age" "pharnos-storage-$stamp.tar.gz"
+          rm -rf files "pharnos-storage-$stamp.tar.gz"
+          sz=$(stat -c %s "pharnos-storage-$stamp.tar.gz.age")
+          echo "asset=pharnos-storage-$stamp.tar.gz.age" >> "$GITHUB_OUTPUT"
+          echo "Archive chiffrée : pharnos-storage-$stamp.tar.gz.age ($sz octets, $ok fichiers)"
+          {
+            echo "### Backup Storage — $(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo "- Fichiers sauvegardés : **$ok / $n**"
+            echo "- Archive chiffrée : \`pharnos-storage-$stamp.tar.gz.age\` ($((sz/1048576)) Mo)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publier sur la Release + rétention
+        if: steps.guard.outputs.ready == 'true' && steps.snap.outputs.skip != 'true'
+        run: |
+          set -uo pipefail
+          asset="${{ steps.snap.outputs.asset }}"
+          gh release view storage-backup -R "$REPO" >/dev/null 2>&1 || \
+            gh release create storage-backup -R "$REPO" --title "Storage backups (chiffrés age)" \
+              --notes "Snapshots chiffrés du bucket documents. Déchiffrement = clé privée age offline (hors CI)." --latest=false
+          gh release upload storage-backup "$asset" -R "$REPO" --clobber
+          echo "Asset publié : $asset"
+          # Rétention : garder les KEEP plus récents (supprimer les plus anciens).
+          mapfile -t old < <(gh release view storage-backup -R "$REPO" --json assets -q '.assets[].name' \
+            | grep -E '^pharnos-storage-.*\.age$' | sort | head -n "-$KEEP")
+          for a in "${old[@]:-}"; do
+            [ -n "$a" ] || continue
+            gh release delete-asset storage-backup "$a" -R "$REPO" -y && echo "purge ancien snapshot : $a"
+          done
