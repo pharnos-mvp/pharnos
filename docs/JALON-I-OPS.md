@@ -119,6 +119,11 @@ GitHub `storage-backup`** (rétention 12 snapshots). Permanent (pas de purge à 
 0 € sans carte. Restore : télécharger l'asset → `age -d -i <clé privée>` → `tar -xzf` → ré-upload via
 l'API Storage si besoin. Upgrade : Cloudflare R2 (si carte) pour rétention illimitée + hors-GitHub.
 
+**1er run + drill 2026-06-13 — ✅ OK.** Run 27478951721 : **82/82 fichiers** téléchargés (0 échec),
+archive chiffrée **~92 Mo** publiée sur la Release `storage-backup`. Restore drill : asset re-téléchargé
+(92 Mo complet après 1 retry — réseau local instable) → **déchiffré avec la clé privée** → archive `tar`
+valide, **82 fichiers** (81 `.pdf` + 1 `.PDF` majuscule). Endpoint Storage retenu : `/object/authenticated/`.
+
 ## Definition of Done (jalon I)
 - [x] Backup hebdo chiffré → artefact **vert** (1er run réussi). — 2026-06-13 (run 27475179006, 1m49s)
 - [x] **Restore drill exécuté et consigné** (§2). — 2026-06-13 (déchiffrement + structure + données OK)
