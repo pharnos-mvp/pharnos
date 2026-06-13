@@ -52,7 +52,7 @@ i18n, admin/quotas, gate GO-LIVE).
 | **Formulaires officiels** (RCP · Notice · Étiquetage) | ✅ Livré (navy, DOCX/PDF, compilé identique) |
 | **CI/CD + coûts** | ✅ Optimisé (#122 : ÷2 minutes, keep-alive Supabase) — 0 € jusqu'au 1er client |
 | **Déploiement pilote** | ✅ **En ligne — https://pharnos.pages.dev** (Cloudflare Pages, mode authentifié) |
-| **Correspondance (jalon H + v2 + UX v3)** | ✅ **EN PROD (2026-06-13, #127)** : V2 (review dockée, PDF streaming Range, écran terminal, mise à jour d'envoi, sécurité L1 TTL/journal/filigrane) **+ habillage WhatsApp** — boîte 2 volets (recherche, filtre Toutes/Non lues, avatars, ⋮), 2 tailles (défaut↔large), fond doodle, bulles vert/gris, accusé ✓✓ honnête, cartes document ; recette prod complète (labo + reviewer, 2 tailles) |
+| **Correspondance (jalon H + v2 + UX v3/v3.1)** | ✅ **EN PROD (2026-06-13, #127/#128)** : V2 (review dockée, PDF streaming Range, écran terminal, mise à jour d'envoi, sécurité L1 TTL/journal/filigrane) **+ habillage WhatsApp** — boîte 2 volets, 2 tailles (défaut↔large, **aussi côté agence**), fond doodle, bulles vert/gris, ✓✓ honnête, cartes document, **avatars/noms par auteur**, **Discussions 1 icône/destinataire** (cycles antérieurs joignables — sélecteur de cycle, zéro perte d'audit), **composeur auto-extensible** (½ boîte) ; recette prod complète |
 
 **Qualité (main, vert partout) :** typecheck · lint · format · **75 tests unitaires** · build ·
 **budget bundle** · **9 E2E Playwright** (dont reload hors-ligne) · **a11y WCAG AA** · **RLS pgTAP en CI** · **Lighthouse CI** (perf/a11y).
