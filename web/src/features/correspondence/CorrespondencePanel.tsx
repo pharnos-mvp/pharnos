@@ -29,10 +29,11 @@ import {
 import { downloadAttachmentBlob } from '@/features/workspace/dossier-attachments-sync'
 import { activityLabel, countryLabel } from '@/features/workspace/dossier-constants'
 import { db, type CorrespondenceRecord } from '@/lib/db'
-import { initials } from '@/lib/initials'
 import { getSupabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import './correspondence-chat.css'
+import { autoGrow } from './auto-grow'
+import { ConversationAvatar } from './correspondence-avatar'
 import { statusLabel } from './correspondence-constants'
 import { countUnread, markConversationRead } from './correspondence-reads'
 import {
@@ -54,23 +55,6 @@ const ACCESS_LABELS: Record<string, string> = {
   open: 'Ouverture du dossier',
   decide: 'Décision rendue',
   reply: 'Message envoyé',
-}
-
-// Couleur d'avatar déterministe par correspondant (palette type WhatsApp).
-const AVATAR_COLORS = [
-  'bg-rose-500',
-  'bg-amber-500',
-  'bg-emerald-500',
-  'bg-sky-500',
-  'bg-violet-500',
-  'bg-fuchsia-500',
-  'bg-teal-500',
-  'bg-indigo-500',
-]
-function avatarColor(s: string): string {
-  let h = 0
-  for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0
-  return AVATAR_COLORS[h % AVATAR_COLORS.length] ?? AVATAR_COLORS[0]!
 }
 
 const listTime = (iso: string) => {
@@ -148,21 +132,6 @@ function AccessLog({ correspondenceId }: { correspondenceId: string }) {
   )
 }
 
-function Avatar({ email, size = 'md' }: { email: string; size?: 'sm' | 'md' }) {
-  return (
-    <span
-      className={cn(
-        'grid shrink-0 place-items-center rounded-full font-semibold text-white',
-        size === 'sm' ? 'size-9 text-xs' : 'size-10 text-sm',
-        avatarColor(email),
-      )}
-      aria-hidden
-    >
-      {initials(email)}
-    </span>
-  )
-}
-
 /**
  * Boîte de correspondance DU DOSSIER (v3 — habillage WhatsApp, mockups CEO) : deux volets
  * (conversations du dossier à gauche : recherche, filtre Toutes/Non lues, aperçus, non-lus ;
@@ -224,6 +193,8 @@ export function CorrespondencePanel({
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
   const [maximized, setMaximized] = useState(() => localStorage.getItem(SIZE_KEY) === '1')
+  const boxRef = useRef<HTMLDivElement>(null)
+  const composerRef = useRef<HTMLTextAreaElement>(null)
   function toggleSize() {
     setMaximized((m) => {
       localStorage.setItem(SIZE_KEY, m ? '0' : '1')
@@ -243,6 +214,11 @@ export function CorrespondencePanel({
     const el = threadRef.current
     if (el) el.scrollTop = el.scrollHeight
   }, [selected?.id, messages.length])
+
+  // Composeur auto-extensible : hauteur max = moitié de la boîte (recalcul si taille change).
+  useEffect(() => {
+    autoGrow(composerRef.current, (boxRef.current?.clientHeight ?? 480) / 2)
+  }, [reply, maximized, selected?.id])
 
   const threadMessages: ThreadMessage[] = messages.map((m) => ({
     id: m.id,
@@ -318,18 +294,30 @@ export function CorrespondencePanel({
 
   const conversations = correspondences ?? []
   const productName = conversations[0]?.productName
-  const visibleConversations = conversations.filter((c) => {
-    if (
-      filter === 'unread' &&
-      countUnread(byConversation.get(c.id) ?? [], lastSeen.get(c.id)) === 0
+  // Une icône par DESTINATAIRE (brief CEO) : on GROUPE par e-mail (liste déjà triée par createdAt
+  // décroissant) → le représentant de la ligne = le cycle le plus récent. Les cycles antérieurs
+  // (« renvoi après rejet » = nouvelle correspondance même agence) restent JOIGNABLES via le
+  // sélecteur de cycle de la conversation — jamais perdus (audit réglementaire).
+  const recipientGroups = new Map<string, CorrespondenceRecord[]>()
+  for (const c of conversations) {
+    const arr = recipientGroups.get(c.recipientEmail)
+    if (arr) arr.push(c)
+    else recipientGroups.set(c.recipientEmail, [c])
+  }
+  const recipients = [...recipientGroups.values()].map((g) => g[0]!)
+  const groupUnread = (email: string) =>
+    (recipientGroups.get(email) ?? []).reduce(
+      (n, c) => n + countUnread(byConversation.get(c.id) ?? [], lastSeen.get(c.id)),
+      0,
     )
-      return false
+  const visibleRecipients = recipients.filter((c) => {
+    if (filter === 'unread' && groupUnread(c.recipientEmail) === 0) return false
     const q = search.trim().toLowerCase()
     return !q || c.recipientEmail.toLowerCase().includes(q)
   })
-  const unreadConversations = conversations.filter(
-    (c) => countUnread(byConversation.get(c.id) ?? [], lastSeen.get(c.id)) > 0,
-  ).length
+  const unreadConversations = recipients.filter((c) => groupUnread(c.recipientEmail) > 0).length
+  // Cycles du destinataire sélectionné (≥ 2 → sélecteur de cycle dans la conversation).
+  const selectedGroup = selected ? (recipientGroups.get(selected.recipientEmail) ?? [selected]) : []
 
   return (
     <div
@@ -342,11 +330,10 @@ export function CorrespondencePanel({
       aria-label="Correspondance du dossier"
     >
       <div
+        ref={boxRef}
         className={cn(
           'bg-card flex flex-col shadow-xl',
-          maximized
-            ? 'h-[96vh] w-[97vw] max-w-[1500px] rounded-lg border'
-            : 'h-full w-full max-w-4xl border-l',
+          maximized ? 'h-[96vh] w-[98vw] rounded-lg border' : 'h-full w-full max-w-4xl border-l',
         )}
       >
         {/* Bandeau du conteneur : titre + actions globales + tailles */}
@@ -481,16 +468,19 @@ export function CorrespondencePanel({
               </div>
 
               <ul className="flex-1 overflow-auto" aria-label="Conversations du dossier">
-                {visibleConversations.length === 0 ? (
+                {visibleRecipients.length === 0 ? (
                   <li className="text-muted-foreground p-4 text-center text-xs">
                     Aucune conversation.
                   </li>
                 ) : (
-                  visibleConversations.map((c) => {
+                  visibleRecipients.map((c) => {
                     const msgs = byConversation.get(c.id) ?? []
                     const last = msgs.at(-1)
-                    const unread = countUnread(msgs, lastSeen.get(c.id))
-                    const active = c.id === selected.id
+                    const unread = groupUnread(c.recipientEmail)
+                    const cycles = recipientGroups.get(c.recipientEmail)?.length ?? 1
+                    // Active si la conversation ouverte appartient à CE destinataire (un cycle
+                    // antérieur sélectionné garde sa ligne en surbrillance).
+                    const active = selected.recipientEmail === c.recipientEmail
                     return (
                       <li key={c.id}>
                         <button
@@ -502,7 +492,7 @@ export function CorrespondencePanel({
                             active ? 'bg-muted/70' : 'hover:bg-muted/40',
                           )}
                         >
-                          <Avatar email={c.recipientEmail} size="sm" />
+                          <ConversationAvatar email={c.recipientEmail} size="sm" />
                           <span className="min-w-0 flex-1">
                             <span className="flex items-baseline justify-between gap-2">
                               <span
@@ -532,11 +522,18 @@ export function CorrespondencePanel({
                                     : last.body || 'Pièce jointe'
                                   : 'Dossier envoyé'}
                               </span>
-                              {unread > 0 ? (
-                                <span className="grid size-4.5 shrink-0 place-items-center rounded-full bg-emerald-600 text-[10px] font-semibold text-white">
-                                  {unread}
-                                </span>
-                              ) : null}
+                              <span className="flex shrink-0 items-center gap-1">
+                                {cycles > 1 ? (
+                                  <span className="text-muted-foreground text-[10px]">
+                                    {cycles} envois
+                                  </span>
+                                ) : null}
+                                {unread > 0 ? (
+                                  <span className="grid size-4.5 place-items-center rounded-full bg-emerald-600 text-[10px] font-semibold text-white">
+                                    {unread}
+                                  </span>
+                                ) : null}
+                              </span>
                             </span>
                           </span>
                         </button>
@@ -550,7 +547,7 @@ export function CorrespondencePanel({
             {/* VOLET DROIT — conversation (en-tête + fil doodle + composeur) */}
             <section className="flex min-w-0 flex-1 flex-col">
               <div className="bg-card flex shrink-0 items-center gap-2.5 border-b p-2.5">
-                <Avatar email={selected.recipientEmail} />
+                <ConversationAvatar email={selected.recipientEmail} />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-semibold">{selected.recipientEmail}</div>
                   <div className="text-muted-foreground flex items-center gap-1 text-xs">
@@ -596,6 +593,33 @@ export function CorrespondencePanel({
                 </DropdownMenu>
               </div>
 
+              {/* Sélecteur de CYCLE — plusieurs envois à la MÊME agence (renvoi après rejet) :
+                  une icône par destinataire dans la liste, mais chaque cycle reste joignable ici. */}
+              {selectedGroup.length > 1 ? (
+                <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b px-3 py-2">
+                  <span className="text-muted-foreground mr-1 text-[11px] font-medium">
+                    Envois :
+                  </span>
+                  {selectedGroup.map((c, i) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      aria-pressed={c.id === selected.id}
+                      onClick={() => setSelectedId(c.id)}
+                      className={cn(
+                        'cursor-pointer rounded-full border px-2.5 py-0.5 text-[11px]',
+                        c.id === selected.id
+                          ? 'border-transparent bg-emerald-600 text-white'
+                          : 'hover:bg-muted',
+                      )}
+                    >
+                      {dateFmt.format(new Date(c.createdAt))} · {statusLabel(c.status)}
+                      {i === 0 ? ' (actuel)' : ''}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
               {/* Journal d'accès en mobile (le volet gauche qui l'héberge est masqué < md) */}
               {showAccess ? (
                 <div className="bg-muted/40 border-b md:hidden">
@@ -604,9 +628,9 @@ export function CorrespondencePanel({
               ) : null}
 
               {/* Sélecteur de conversation en mobile (le volet liste est masqué < md) */}
-              {conversations.length > 1 ? (
+              {recipients.length > 1 ? (
                 <div className="flex flex-wrap gap-1.5 border-b p-2 md:hidden">
-                  {conversations.map((c) => (
+                  {recipients.map((c) => (
                     <button
                       key={c.id}
                       type="button"
@@ -635,8 +659,9 @@ export function CorrespondencePanel({
 
               <div className="bg-card flex items-end gap-2 border-t p-2.5">
                 <textarea
+                  ref={composerRef}
                   rows={1}
-                  className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 max-h-32 min-h-10 flex-1 resize-none rounded-2xl border bg-transparent px-4 py-2.5 text-sm outline-none focus-visible:ring-[3px]"
+                  className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 min-h-10 flex-1 resize-none rounded-2xl border bg-transparent px-4 py-2.5 text-sm outline-none focus-visible:ring-[3px]"
                   placeholder="Écrivez un message…"
                   value={reply}
                   onChange={(e) => setReply(e.target.value)}
