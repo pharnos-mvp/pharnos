@@ -52,7 +52,7 @@ i18n, admin/quotas, gate GO-LIVE).
 | **Formulaires officiels** (RCP · Notice · Étiquetage) | ✅ Livré (navy, DOCX/PDF, compilé identique) |
 | **CI/CD + coûts** | ✅ Optimisé (#122 : ÷2 minutes, keep-alive Supabase) — 0 € jusqu'au 1er client |
 | **Déploiement pilote** | ✅ **En ligne — https://pharnos.pages.dev** (Cloudflare Pages, mode authentifié) |
-| **Correspondance (jalon H + v2)** | ✅ **V2 LIVRÉE EN PROD (2026-06-12, #126)** : review publique dockée (tiroir repliable, barre figée) + **PDF streaming Range** (1re page en 2 requêtes partielles vs 7,4 Mo) + écran terminal post-décision + mise à jour d'envoi (même lien/fil) + **boîte Gmail×WhatsApp par dossier** (non-lus, clic carte → boîte + Modifier) + **sécurité L1** (TTL lien, auto-révocation, journal d'accès, filigrane) — recette prod complète ; Realtime à confirmer hors poste de recette |
+| **Correspondance (jalon H + v2 + UX v3)** | ✅ **EN PROD (2026-06-13, #127)** : V2 (review dockée, PDF streaming Range, écran terminal, mise à jour d'envoi, sécurité L1 TTL/journal/filigrane) **+ habillage WhatsApp** — boîte 2 volets (recherche, filtre Toutes/Non lues, avatars, ⋮), 2 tailles (défaut↔large), fond doodle, bulles vert/gris, accusé ✓✓ honnête, cartes document ; recette prod complète (labo + reviewer, 2 tailles) |
 
 **Qualité (main, vert partout) :** typecheck · lint · format · **75 tests unitaires** · build ·
 **budget bundle** · **9 E2E Playwright** (dont reload hors-ligne) · **a11y WCAG AA** · **RLS pgTAP en CI** · **Lighthouse CI** (perf/a11y).
