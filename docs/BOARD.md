@@ -25,12 +25,13 @@ arborescence compacte, pages de GARDE épurées [Autogénéré]/[Téléverser]).
 [PLAN-V2.md](PLAN-V2.md)._
 
 _**Reprise (nouvelle session)** : le cap est dans **[ROADMAP-MVP.md](ROADMAP-MVP.md)** (jalons H→M jusqu'au
-GO-LIVE). **Correspondance v2 ✅ LIVRÉE EN PROD le 2026-06-12** (#126 + fixes, migration 0018, Edge `share`
-redéployée — retours CEO : PDF streaming Range, tiroir docké, écran terminal, boîte Gmail×WhatsApp par
-dossier, sécurité L1 TTL/journal/filigrane). Prochaine action : **jalon I (backups + restore drill)** —
-préalables CEO : (1) **brancher Cloudflare Pages au repo Git** ([DEPLOY-CLOUDFLARE.md](DEPLOY-CLOUDFLARE.md),
-~5 min dashboard — deploy auto à 0 min GitHub ; en attendant : wrangler local) ; (2) poser le secret repo
-`SUPABASE_DB_URL` ; (3) quota GitHub Actions au reset du cycle (CI PR-only désormais)._
+GO-LIVE). **Correspondance livrée en prod (H + v2 + UX v3→v3.2)** ; UX WhatsApp en palette DA Pharnos
+(3 états page lien, 2 volets, fond à pois), recette complète. **GitHub débloqué le 2026-06-13 : repo passé
+PUBLIC** (aucun secret dans le dépôt — anon key déjà publique, service_role en secret Edge) → minutes Actions
+**illimitées 0 €** ; **CI + auto-deploy Cloudflare (push main) + keep-alive : tous verts**, pipeline autonome
+(plus de wrangler local). Cloudflare Git natif = option SI on repasse privé ([DEPLOY-CLOUDFLARE.md](DEPLOY-CLOUDFLARE.md)).
+Prochaine action : **jalon I (backups + restore drill)** — seul préalable restant : poser le secret repo
+`SUPABASE_DB_URL` (chaîne de connexion DB directe, pour `pg_dump` chiffré → R2)._
 
 ---
 
@@ -50,7 +51,7 @@ i18n, admin/quotas, gate GO-LIVE).
 | **Durcissement M8** (E2E offline, a11y AA, Sentry, budget perf, tests RLS) | ✅ Livré |
 | **Regafy IA (M4)** · **Traduction Pro (M5)** | ✅ Livré — **à la demande** (bouton Analyser, cache v7), Upgrade/templates, Audit Global A4 |
 | **Formulaires officiels** (RCP · Notice · Étiquetage) | ✅ Livré (navy, DOCX/PDF, compilé identique) |
-| **CI/CD + coûts** | ✅ Optimisé (#122 : ÷2 minutes, keep-alive Supabase) — 0 € jusqu'au 1er client |
+| **CI/CD + coûts** | ✅ **Repo PUBLIC (2026-06-13) → Actions illimitées 0 €** ; CI + auto-deploy Cloudflare (push main) + keep-alive verts, pipeline autonome (#122 optimisé) |
 | **Déploiement pilote** | ✅ **En ligne — https://pharnos.pages.dev** (Cloudflare Pages, mode authentifié) |
 | **Correspondance (jalon H + v2 + UX v3→v3.2)** | ✅ **EN PROD (2026-06-13, #127/#128/#129)** : flux complet + **UX exacte des HTML CEO en palette DA Pharnos** (neutre/monochrome ; couleurs réservées aux statuts) — page lien **3 états** (fermé : bouton « Correspondance »+badge / docké min(840px,47%) / plein écran), **2 volets** (sidebar contexte+décisions \| chat) des deux côtés, fond à **pois radial**, avatars/noms par auteur, Discussions 1 icône/destinataire + sélecteur de cycle (zéro perte d'audit), composeur auto-extensible (½ boîte) ; recette prod complète. ⚠️ Deploy : `npm run build` JUSTE avant `wrangler deploy` (e2e reconstruit dist sans env) |
 

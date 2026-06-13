@@ -1,9 +1,13 @@
-# Déploiement front — intégration Git native Cloudflare Pages
+# Déploiement front — option « Cloudflare Git natif » (si retour en privé)
 
-> Décision (Correspondance v2, 2026-06-12) : le quota GitHub Actions Free (2000 min/mois) est
-> épuisé → le deploy sort des Actions. Cloudflare Pages build et déploie **directement depuis le
-> repo GitHub** avec ses **propres** minutes (Free : 500 builds/mois, indépendantes de GitHub).
-> `deploy.yml` ne reste qu'en fallback manuel (`workflow_dispatch`) ; la CI est PR-only.
+> **État actuel (2026-06-13) : repo PUBLIC → Actions illimitées ; le déploiement nominal est
+> GitHub Actions `deploy.yml` (push main → Cloudflare Pages), CI + keep-alive verts. Ce document
+> n'est PAS appliqué aujourd'hui.**
+>
+> Il décrit la bascule à faire **uniquement si on repasse le repo en privé** (quota 2000 min/mois) :
+> sortir le deploy des Actions en laissant Cloudflare Pages build/déployer **directement depuis le
+> repo** (500 builds/mois, indépendant de GitHub) ; la CI resterait sur Actions en PR-only (tient
+> dans le quota). Comparatif détaillé GitHub Actions vs CF Git natif : voir BOARD/historique.
 
 ## Branchement (une fois, dashboard Cloudflare — action CEO, ~5 min)
 
