@@ -186,6 +186,16 @@ export function PublicReviewPage({ token }: { token: string }) {
     autoGrow(composerRef.current, (reviewBoxRef.current?.clientHeight ?? 480) / 2)
   }, [comment, reviewMaximized, phase])
 
+  // Échap quitte le plein écran (pas de dropdown Radix ici → aucun conflit d'événement).
+  useEffect(() => {
+    if (!reviewMaximized) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setReviewMaximized(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [reviewMaximized])
+
   // Rafraîchissement périodique discret (réponses du labo) — pause quand l'onglet est masqué.
   useEffect(() => {
     if (phase !== 'ready') return
@@ -607,6 +617,8 @@ export function PublicReviewPage({ token }: { token: string }) {
             )}
             aria-label="Panneau de review"
             aria-hidden={!reviewMaximized && panelCollapsed}
+            role={reviewMaximized ? 'dialog' : undefined}
+            aria-modal={reviewMaximized ? true : undefined}
           >
             <div className={cn('h-full', reviewMaximized ? 'w-full' : 'w-[400px]')}>
               {reviewPanel}
