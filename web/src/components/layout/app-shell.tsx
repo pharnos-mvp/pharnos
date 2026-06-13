@@ -194,7 +194,9 @@ export function AppShell() {
           {headerSlot ? <div className="min-w-0 flex-1">{headerSlot}</div> : null}
         </header>
 
-        <main className="min-w-0 flex-1 overflow-auto p-4 md:p-6">
+        {/* tabIndex={0} : la région défilable doit être accessible au clavier (axe
+            scrollable-region-focusable) — surtout quand le contenu n'a pas d'élément focusable. */}
+        <main tabIndex={0} className="min-w-0 flex-1 overflow-auto p-4 md:p-6">
           <HeaderSlotContext.Provider value={setHeaderSlot}>
             <ErrorBoundary key={location.pathname}>
               <Suspense
