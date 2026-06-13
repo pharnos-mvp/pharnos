@@ -25,6 +25,7 @@ import {
   statusLabel,
 } from '@/features/correspondence/correspondence-constants'
 import { MessageThread } from '@/features/correspondence/MessageThread'
+import '@/features/correspondence/correspondence-chat.css'
 import { PanelHandle } from '@/features/workspace/components/PanelHandle'
 import { activityLabel, countryLabel } from '@/features/workspace/dossier-constants'
 import { cn } from '@/lib/utils'
@@ -55,9 +56,19 @@ type Decision = 'accepted' | 'suspended' | 'rejected'
 
 const DECISION_OPTIONS: { value: Decision; label: string; icon: typeof Check }[] = [
   { value: 'accepted', label: 'Accepter', icon: Check },
-  { value: 'suspended', label: 'Mettre en suspens', icon: PauseCircle },
+  { value: 'suspended', label: 'Suspendre', icon: PauseCircle },
   { value: 'rejected', label: 'Rejeter', icon: XCircle },
 ]
+
+// Pills de décision toujours colorées (mockup) ; remplies quand sélectionnées (STATUS_BADGE).
+const DECISION_PILL: Record<Decision, string> = {
+  accepted:
+    'border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-950',
+  suspended:
+    'border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-950',
+  rejected:
+    'border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950',
+}
 
 const formatSize = (bytes: number) => {
   const b = Number.isFinite(bytes) && bytes > 0 ? bytes : 0
@@ -117,6 +128,7 @@ export function PublicReviewPage({ token }: { token: string }) {
   // Après décision : le lien a-t-il été auto-révoqué (écran terminal véridique) ?
   const [linkClosed, setLinkClosed] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const threadRef = useRef<HTMLDivElement>(null)
 
   const open = useCallback(
     async (pwd: string | undefined, opts: { silent?: boolean } = {}) => {
@@ -153,6 +165,13 @@ export function PublicReviewPage({ token }: { token: string }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void open(undefined)
   }, [open])
+
+  // Auto-scroll en bas du fil (WhatsApp) à l'ouverture et à chaque nouveau message.
+  const messageCount = data?.messages?.length ?? 0
+  useEffect(() => {
+    const el = threadRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [phase, messageCount])
 
   // Rafraîchissement périodique discret (réponses du labo) — pause quand l'onglet est masqué.
   useEffect(() => {
@@ -273,37 +292,42 @@ export function PublicReviewPage({ token }: { token: string }) {
   const c = data?.correspondence
 
   const reviewPanel = c ? (
-    <div className="flex h-full flex-col overflow-auto">
-      <section className="border-b p-4">
-        <h1 className="text-base font-semibold">{c.productName}</h1>
-        <dl className="text-muted-foreground mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-          <dt>Pays cible</dt>
-          <dd className="text-foreground">{countryLabel(c.country)}</dd>
-          <dt>Activité</dt>
-          <dd className="text-foreground">{activityLabel(c.activity)}</dd>
-          <dt>Expéditeur</dt>
-          <dd className="text-foreground break-all">{c.senderEmail}</dd>
-          <dt>Envoyé le</dt>
-          <dd className="text-foreground">
-            {new Intl.DateTimeFormat('fr', { dateStyle: 'long' }).format(new Date(c.createdAt))}
-          </dd>
-          {c.expiresAt ? (
-            <>
-              <dt>Lien valable</dt>
-              <dd className="text-foreground">
-                jusqu’au{' '}
-                {new Intl.DateTimeFormat('fr', { dateStyle: 'long' }).format(new Date(c.expiresAt))}
-              </dd>
-            </>
-          ) : null}
-        </dl>
+    <div className="flex h-full flex-col">
+      {/* Contexte du dossier (en-tête de conversation) */}
+      <section className="bg-card flex items-start justify-between gap-2 border-b p-3">
+        <div className="min-w-0">
+          <h1 className="truncate text-sm font-semibold">{c.productName}</h1>
+          <p className="text-muted-foreground truncate text-xs">
+            {countryLabel(c.country)} · {activityLabel(c.activity)} · de {c.senderEmail}
+            {c.expiresAt
+              ? ` · valable jusqu’au ${new Intl.DateTimeFormat('fr', { dateStyle: 'medium' }).format(new Date(c.expiresAt))}`
+              : ''}
+          </p>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="shrink-0"
+          aria-label="Actualiser le fil"
+          onClick={() => void open(grantedPassword.current, { silent: true })}
+        >
+          <RefreshCw className="size-4" />
+        </Button>
       </section>
 
-      <section className="border-b p-4">
-        <h2 className="text-sm font-semibold">
+      {/* Fil de discussion (fond à motifs) */}
+      <div ref={threadRef} className="wa-pane flex-1 overflow-auto p-3">
+        {/* Pas de handler de téléchargement : les pièces signées s'ouvrent via « Ouvrir »
+            (le bouton « Enregistrer » ne s'affiche que côté labo, avec un vrai handler). */}
+        <MessageThread messages={data?.messages ?? []} viewpoint="recipient" />
+      </div>
+
+      {/* Dock bas : décision + composeur */}
+      <div className="bg-card space-y-2 border-t p-3">
+        <div className="text-muted-foreground text-xs font-semibold">
           {c.status === 'in_review' ? 'Votre décision' : 'Réviser la décision / répondre'}
-        </h2>
-        <div className="mt-3 grid gap-2">
+        </div>
+        <div className="grid grid-cols-3 gap-1.5">
           {DECISION_OPTIONS.map(({ value, label, icon: Icon }) => (
             <button
               key={value}
@@ -311,29 +335,17 @@ export function PublicReviewPage({ token }: { token: string }) {
               aria-pressed={decisionPick === value}
               onClick={() => setDecisionPick(decisionPick === value ? null : value)}
               className={cn(
-                'flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors',
-                decisionPick === value ? STATUS_BADGE_CLASSES[value] : 'hover:bg-muted/60',
+                'flex cursor-pointer items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors',
+                decisionPick === value ? STATUS_BADGE_CLASSES[value] : DECISION_PILL[value],
               )}
             >
-              <Icon className="size-4" /> {label}
+              <Icon className="size-3.5" /> {label}
             </button>
           ))}
         </div>
 
-        <textarea
-          rows={3}
-          className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 mt-3 w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
-          placeholder={
-            decisionPick
-              ? 'Commentaire (recommandé)…'
-              : 'Message à l’expéditeur (ou choisissez une décision)…'
-          }
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-        />
-
         {files.length > 0 ? (
-          <ul className="mt-2 space-y-1">
+          <ul className="space-y-1">
             {files.map((f, i) => (
               <li
                 key={i}
@@ -357,7 +369,7 @@ export function PublicReviewPage({ token }: { token: string }) {
           </ul>
         ) : null}
 
-        <div className="mt-3 flex items-center justify-between gap-2">
+        <div className="flex items-end gap-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -368,39 +380,36 @@ export function PublicReviewPage({ token }: { token: string }) {
           />
           <Button
             type="button"
-            variant="outline"
-            size="sm"
+            variant="ghost"
+            size="icon"
+            className="size-10 shrink-0 rounded-full"
+            aria-label="Joindre une pièce"
             disabled={files.length >= MAX_FILES}
             onClick={() => fileInputRef.current?.click()}
           >
-            <Paperclip className="size-4" /> Joindre
+            <Paperclip className="size-4" />
           </Button>
-          <Button size="sm" disabled={submitting} onClick={() => void handleSubmit()}>
+          <textarea
+            rows={1}
+            className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 max-h-32 min-h-10 flex-1 resize-none rounded-2xl border bg-transparent px-4 py-2.5 text-sm outline-none focus-visible:ring-[3px]"
+            placeholder={decisionPick ? 'Commentaire (recommandé)…' : 'Écrivez un message…'}
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+          />
+          <Button
+            size="icon"
+            className="size-10 shrink-0 rounded-full bg-emerald-600 text-white hover:bg-emerald-700"
+            disabled={submitting}
+            aria-label={decisionPick ? 'Envoyer la décision' : 'Envoyer'}
+            onClick={() => void handleSubmit()}
+          >
             {submitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-            {decisionPick ? 'Envoyer la décision' : 'Envoyer'}
           </Button>
         </div>
-        <p className="text-muted-foreground mt-2 text-xs">
+        <p className="text-muted-foreground text-[11px]">
           PDF, PNG, JPG, WebP, DOCX — 4 Mo max par pièce, {MAX_FILES} pièces.
         </p>
-      </section>
-
-      <section className="flex-1 p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Échanges</h2>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Actualiser le fil"
-            onClick={() => void open(grantedPassword.current, { silent: true })}
-          >
-            <RefreshCw className="size-4" />
-          </Button>
-        </div>
-        <div className="mt-3">
-          <MessageThread messages={data?.messages ?? []} viewpoint="recipient" />
-        </div>
-      </section>
+      </div>
     </div>
   ) : null
 
