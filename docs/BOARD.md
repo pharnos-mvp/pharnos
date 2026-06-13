@@ -314,12 +314,13 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 
 | Jalon | Contenu | Durée | État |
 |---|---|---|---|
-| **H** | **Module Correspondance & Partage du dossier CTD** — H0 cadrage mockups CEO → fil offline-first par dossier (soumission/requêtes/réponses/décision, statuts), lettres de réponse + échéances par agence, partage org en lecture + lien externe signé à expiration | ~4 s. | ⏳ **H0 = prochaine action** |
-| **I** | **Ops & filets** — backup hebdo pg_dump chiffré → R2 + restore drill TESTÉ, alertes seuils, uptime (avant les pilotes réels) | 1 s. | ⏳ (secret SUPABASE_DB_URL à poser — CEO) |
-| **J** | **Branding** — landing, domaine custom (~12 $/an, seule dépense), offres affichées, e-mails domaine | 2 s. | ⏳ |
-| **K** | **i18n EN/FR complet** (UI + e-mails ; templates réglementaires inchangés = langue du pays cible) | 1,5 s. | ⏳ |
-| **L** | **Admin & quotas** — console admin, **quotas IA par org** (verrou coûts Gemini), invitations/rôles | 2 s. | ⏳ |
-| **M** | **Durcissement final & gate GO-LIVE** — revue RLS/rate-limits/CSP, budgets perf en CI (LCP ≤ 2,5 s, INP < 200 ms), k6 Edge, checklist signée CEO | 2 s. | ⏳ GATE |
+| **H** | **Module Correspondance & Partage du dossier CTD** — fil offline-first par dossier, review publique sans compte, décision, 5 états | ~4 s. | ✅ **en prod** (2026-06-12) |
+| **I** | **Ops & filets** — backups **DB + Storage** chiffrés (age) + **restore drills testés**, alertes seuils, uptime | 1 s. | ✅ **livré** (2026-06-13) |
+| **J** | **Dashboard RA « poste de pilotage »** — actions requises (to-do RA), pipeline dossiers, échéances/renouvellements, correspondance en cours, conformité Regafy, portefeuille, veille ; **« digne d'une OS RA »**, offline-first, zéro hallucination | 2 s. | ⏳ **prochaine action proposée** |
+| **K** | **Branding** — landing, domaine custom (~12 $/an, seule dépense), offres affichées, e-mails domaine | 2 s. | ⏳ |
+| **L** | **i18n EN/FR complet** (UI + e-mails ; templates réglementaires inchangés = langue du pays cible) | 1,5 s. | ⏳ |
+| **M** | **Console admin & quotas** — console admin, **quotas IA par org** (verrou coûts Gemini), invitations/rôles | 2 s. | ⏳ |
+| **N** | **Durcissement final & gate GO-LIVE** — revue RLS/rate-limits/CSP, budgets perf en CI (LCP ≤ 2,5 s, INP < 200 ms), k6 Edge, checklist signée CEO | 2 s. | ⏳ GATE |
 
 ## 12. Dev workflow & commandes
 
