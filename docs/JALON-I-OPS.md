@@ -76,7 +76,13 @@ psql "$LOCAL_DB_URL" -f data.sql
 #    correspondence_messages…) et comparer à la prod. Consigner le résultat + la durée ci-dessous.
 ```
 
-**Résultat du dernier drill** : _(à remplir — date, durée, tables vérifiées, OK/KO)_.
+**Résultat du dernier drill** : **2026-06-13 — ✅ OK.** Artefact `pharnos-db-20260613-1823`
+(3,98 Mo chiffré) téléchargé → **déchiffré avec la clé privée age** → archive `tar.gz` valide →
+`schema.sql` **15 tables** (dont products, dossiers, correspondences, correspondence_messages,
+profiles, orgs), `data.sql` **21 INSERT / 1336 lignes** (auth.users/sessions, orgs, correspondences…
+= données réelles présentes ; format INSERT, pas COPY), `roles.sql` (rôles Supabase gérés). Clair
+supprimé après vérif. ⚠️ Restauration `psql` réelle **non rejouée** (pas de Postgres local) — à
+exécuter au prochain drill trimestriel (Supabase local/conteneur pg, ou job CI avec service pg).
 
 ## 3. Alertes seuils *(à implémenter — sous-jalon)*
 
@@ -96,8 +102,8 @@ pièces reviewer, non) ; (b) sync hebdo du bucket `documents` (`gsutil`/S3 → a
 **Recommandation : (b)** pour les pièces non re-dérivables. À confirmer CEO (volume = coût).
 
 ## Definition of Done (jalon I)
-- [ ] Backup hebdo chiffré → artefact **vert** (1er run réussi).
-- [ ] **Restore drill exécuté et consigné** (§2).
+- [x] Backup hebdo chiffré → artefact **vert** (1er run réussi). — 2026-06-13 (run 27475179006, 1m49s)
+- [x] **Restore drill exécuté et consigné** (§2). — 2026-06-13 (déchiffrement + structure + données OK)
 - [ ] Clé privée age déplacée offline par le CEO (§1).
 - [ ] Alertes seuils actives (§3).
 - [ ] Uptime check actif (§4).
