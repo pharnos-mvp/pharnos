@@ -2,6 +2,8 @@ import { Check, Download, FileText } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { authorTextColor } from './avatar-colors'
+import { ConversationAvatar } from './correspondence-avatar'
 import { DECISION_LABELS, STATUS_BADGE_CLASSES } from './correspondence-constants'
 
 /**
@@ -172,16 +174,40 @@ export function MessageThread({
         }
 
         const mine = m.author === viewpoint
+        // Identité par auteur (style chat de groupe) : sur les messages REÇUS, on affiche
+        // l'avatar + le nom du correspondant. Regroupé par auteur consécutif (avatar/nom sur
+        // le 1er d'une série) → « chaque icône par correspondant » quand plusieurs personnes
+        // écrivent (membres du labo côté agence, ou inversement).
+        const prev = messages[i - 1]
+        const firstOfRun =
+          !prev || prev.author !== m.author || prev.authorLabel !== m.authorLabel || !!daySeparator
         return (
           <li key={m.id}>
             {daySeparator}
-            <div className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
+            <div className={cn('flex items-end gap-2', mine ? 'justify-end' : 'justify-start')}>
+              {!mine ? (
+                firstOfRun ? (
+                  <ConversationAvatar email={m.authorLabel} size="sm" />
+                ) : (
+                  <span className="w-9 shrink-0" aria-hidden />
+                )
+              ) : null}
               <div
                 className={cn(
                   'max-w-[85%] rounded-lg px-2.5 py-1.5 text-sm shadow-sm sm:max-w-[75%]',
                   mine ? 'wa-out rounded-tr-sm' : 'wa-in rounded-tl-sm',
                 )}
               >
+                {!mine && firstOfRun ? (
+                  <div
+                    className={cn(
+                      'mb-0.5 text-[11px] font-semibold',
+                      authorTextColor(m.authorLabel),
+                    )}
+                  >
+                    {m.authorLabel}
+                  </div>
+                ) : null}
                 {m.kind === 'note' ? (
                   <div className="mb-0.5 text-[11px] font-medium opacity-70">Note d’envoi</div>
                 ) : null}
