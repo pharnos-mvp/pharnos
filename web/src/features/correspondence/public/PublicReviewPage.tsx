@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import {
   Check,
+  ChevronRight,
   CircleAlert,
   Download,
   FileText,
@@ -29,7 +30,6 @@ import {
 import { autoGrow } from '@/features/correspondence/auto-grow'
 import { MessageThread } from '@/features/correspondence/MessageThread'
 import '@/features/correspondence/correspondence-chat.css'
-import { PanelHandle } from '@/features/workspace/components/PanelHandle'
 import { activityLabel, countryLabel } from '@/features/workspace/dossier-constants'
 import { cn } from '@/lib/utils'
 import {
@@ -50,7 +50,6 @@ const MAX_FILES = 3
 const MAX_FILE_BYTES = 4 * 1024 * 1024
 const ACCEPT = '.pdf,.png,.jpg,.jpeg,.webp,.docx'
 const REFRESH_MS = 90_000
-const PANEL_KEY = 'pharnos.review.panelCollapsed'
 // URL signée TTL 1 h → rotation de l'URL d'aperçu à 40 min (marge avant expiration).
 const VIEWER_URL_MAX_AGE_MS = 40 * 60_000
 
@@ -110,22 +109,12 @@ export function PublicReviewPage({ token }: { token: string }) {
   // déclencherait un re-téléchargement complet + perte du scroll à chaque poll.
   const [openedAt] = useState(() => new Date())
 
-  // Tiroir review : replié ↔ déplié (persisté) ; en mobile, overlay togglé par bouton flottant.
-  const [panelCollapsed, setPanelCollapsed] = useState(
-    () => localStorage.getItem(PANEL_KEY) === '1',
-  )
-  const [mobilePanelOpen, setMobilePanelOpen] = useState(false)
-  // Taille large (brief CEO) : la boîte de correspondance passe plein écran (PDF masqué derrière,
-  // toujours monté → le streaming n'est pas perdu) ; restauration = vue scindée PDF + tiroir.
-  const [reviewMaximized, setReviewMaximized] = useState(false)
+  // Vue du panneau correspondance (mockup CEO) : fermé (PDF plein + bouton « Correspondance »),
+  // docké (à droite du PDF), plein écran (recouvre le PDF, monté derrière → streaming préservé).
+  const [panelView, setPanelView] = useState<'closed' | 'half' | 'full'>('closed')
+  const panelOpen = panelView !== 'closed'
   const reviewBoxRef = useRef<HTMLDivElement>(null)
   const composerRef = useRef<HTMLTextAreaElement>(null)
-  function togglePanel() {
-    setPanelCollapsed((c) => {
-      localStorage.setItem(PANEL_KEY, c ? '0' : '1')
-      return !c
-    })
-  }
 
   const [downloading, setDownloading] = useState(false)
 
@@ -184,17 +173,17 @@ export function PublicReviewPage({ token }: { token: string }) {
   // Composeur auto-extensible : hauteur max = moitié de la boîte (recalcul si la taille change).
   useEffect(() => {
     autoGrow(composerRef.current, (reviewBoxRef.current?.clientHeight ?? 480) / 2)
-  }, [comment, reviewMaximized, phase])
+  }, [comment, panelView, phase])
 
-  // Échap quitte le plein écran (pas de dropdown Radix ici → aucun conflit d'événement).
+  // Échap : plein écran → docké, docké → fermé (pas de dropdown Radix ici → aucun conflit).
   useEffect(() => {
-    if (!reviewMaximized) return
+    if (!panelOpen) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setReviewMaximized(false)
+      if (e.key === 'Escape') setPanelView((v) => (v === 'full' ? 'half' : 'closed'))
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [reviewMaximized])
+  }, [panelOpen])
 
   // Rafraîchissement périodique discret (réponses du labo) — pause quand l'onglet est masqué.
   useEffect(() => {
@@ -336,15 +325,35 @@ export function PublicReviewPage({ token }: { token: string }) {
           >
             <RefreshCw className="size-4" />
           </Button>
-          {/* Bascule taille large (desktop) — plein écran sur le PDF, et retour. */}
+          {/* Contrôles fenêtre (mockup) : plein écran → réduire ; docké → agrandir ; fermer. */}
+          {panelView === 'full' ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="hidden lg:inline-flex"
+              aria-label="Réduire la fenêtre"
+              onClick={() => setPanelView('half')}
+            >
+              <Minimize2 className="size-4" />
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="hidden lg:inline-flex"
+              aria-label="Agrandir la fenêtre"
+              onClick={() => setPanelView('full')}
+            >
+              <Maximize2 className="size-4" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon-sm"
-            className="hidden lg:inline-flex"
-            aria-label={reviewMaximized ? 'Réduire la fenêtre' : 'Agrandir la fenêtre'}
-            onClick={() => setReviewMaximized((m) => !m)}
+            aria-label="Fermer la correspondance"
+            onClick={() => setPanelView('closed')}
           >
-            {reviewMaximized ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+            <X className="size-4" />
           </Button>
         </div>
       </section>
@@ -433,7 +442,7 @@ export function PublicReviewPage({ token }: { token: string }) {
           />
           <Button
             size="icon"
-            className="size-10 shrink-0 rounded-full bg-emerald-600 text-white hover:bg-emerald-700"
+            className="size-10 shrink-0 rounded-full"
             disabled={submitting}
             aria-label={decisionPick ? 'Envoyer la décision' : 'Envoyer'}
             onClick={() => void handleSubmit()}
@@ -556,20 +565,32 @@ export function PublicReviewPage({ token }: { token: string }) {
                   {formatSize(c.pdfSize)}
                 </span>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="shrink-0"
-                disabled={downloading}
-                onClick={() => void downloadPdf()}
-              >
-                {downloading ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Download className="size-4" />
-                )}
-                Télécharger
-              </Button>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={downloading}
+                  onClick={() => void downloadPdf()}
+                >
+                  {downloading ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Download className="size-4" />
+                  )}
+                  Télécharger
+                </Button>
+                {/* État FERMÉ (mockup) : bouton « Correspondance » + nombre d'échanges. */}
+                {!panelOpen ? (
+                  <Button size="sm" className="relative" onClick={() => setPanelView('half')}>
+                    <MessagesSquare className="size-4" /> Correspondance
+                    {messageCount > 0 ? (
+                      <span className="bg-primary-foreground text-primary absolute -top-1.5 -right-1.5 grid size-5 place-items-center rounded-full text-[11px] font-bold">
+                        {messageCount > 99 ? '99+' : messageCount}
+                      </span>
+                    ) : null}
+                  </Button>
+                ) : null}
+              </div>
             </div>
             <div className="flex min-h-0 flex-1 flex-col">
               <Suspense
@@ -591,65 +612,37 @@ export function PublicReviewPage({ token }: { token: string }) {
             </div>
           </section>
 
-          {/* Languette de rabat (desktop) — masquée en taille large (plein écran) */}
-          {!reviewMaximized ? (
-            <PanelHandle
-              side="right"
-              open={!panelCollapsed}
-              onClick={togglePanel}
-              label={
-                panelCollapsed ? 'Afficher le panneau de review' : 'Replier le panneau de review'
-              }
-              className="z-10 -mr-px hidden lg:grid"
-            />
+          {/* Tiroir review (desktop ≥ lg) : DOCKÉ (half, large : min(840px,47%)/560px) ou
+              PLEIN ÉCRAN (full, recouvre le PDF monté derrière → streaming préservé). */}
+          {panelOpen ? (
+            <aside
+              className={cn(
+                'bg-card hidden overflow-hidden lg:block',
+                panelView === 'full'
+                  ? 'fixed inset-0 z-40'
+                  : 'relative w-[min(840px,47%)] min-w-[560px] shrink-0 border-l shadow-[-12px_0_34px_rgba(0,0,0,.18)]',
+              )}
+              aria-label="Panneau de review"
+              role={panelView === 'full' ? 'dialog' : undefined}
+              aria-modal={panelView === 'full' ? true : undefined}
+            >
+              {/* Languette de repli (half) — sur le bord intérieur, ferme le panneau. */}
+              {panelView === 'half' ? (
+                <button
+                  type="button"
+                  aria-label="Fermer la correspondance"
+                  onClick={() => setPanelView('closed')}
+                  className="bg-card text-muted-foreground hover:bg-accent absolute top-1/2 -left-3 z-20 grid h-12 w-6 -translate-y-1/2 cursor-pointer place-items-center rounded-lg border shadow-md"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+              ) : null}
+              <div className="h-full w-full">{reviewPanel}</div>
+            </aside>
           ) : null}
 
-          {/* Tiroir review — colonne dockée à droite (desktop) ; plein écran en taille large */}
-          <aside
-            className={cn(
-              'bg-card overflow-hidden',
-              reviewMaximized
-                ? 'fixed inset-0 z-40 block'
-                : cn(
-                    'hidden shrink-0 border-l transition-[width] duration-200 lg:block',
-                    panelCollapsed ? 'w-0 border-l-0' : 'w-[400px]',
-                  ),
-            )}
-            aria-label="Panneau de review"
-            aria-hidden={!reviewMaximized && panelCollapsed}
-            role={reviewMaximized ? 'dialog' : undefined}
-            aria-modal={reviewMaximized ? true : undefined}
-          >
-            <div className={cn('h-full', reviewMaximized ? 'w-full' : 'w-[400px]')}>
-              {reviewPanel}
-            </div>
-          </aside>
-
-          {/* Mobile : tiroir en overlay plein écran + bouton flottant */}
-          <Button
-            className="fixed right-4 bottom-4 z-30 shadow-lg lg:hidden"
-            onClick={() => setMobilePanelOpen(true)}
-          >
-            <MessagesSquare className="size-4" /> Review
-          </Button>
-          {mobilePanelOpen ? (
-            <div className="fixed inset-0 z-40 flex justify-end bg-black/40 lg:hidden">
-              <div className="bg-card flex h-full w-full max-w-md flex-col">
-                <div className="flex items-center justify-between border-b p-3">
-                  <h2 className="text-sm font-semibold">Review</h2>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Fermer le panneau"
-                    onClick={() => setMobilePanelOpen(false)}
-                  >
-                    <X className="size-4" />
-                  </Button>
-                </div>
-                <div className="min-h-0 flex-1">{reviewPanel}</div>
-              </div>
-            </div>
-          ) : null}
+          {/* Mobile (< lg) : overlay plein écran quand ouvert. */}
+          {panelOpen ? <div className="fixed inset-0 z-40 lg:hidden">{reviewPanel}</div> : null}
         </main>
       ) : null}
 

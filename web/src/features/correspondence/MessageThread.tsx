@@ -96,7 +96,7 @@ function AttachmentCards({
                   href={a.url ?? undefined}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="text-emerald-800 hover:underline dark:text-emerald-300"
+                  className="text-foreground font-semibold hover:underline"
                 >
                   Ouvrir
                 </a>
@@ -104,7 +104,7 @@ function AttachmentCards({
               {canSave ? (
                 <button
                   type="button"
-                  className="inline-flex cursor-pointer items-center gap-1 text-emerald-800 hover:underline dark:text-emerald-300"
+                  className="text-foreground inline-flex cursor-pointer items-center gap-1 font-semibold hover:underline"
                   onClick={() => onDownload?.(a)}
                 >
                   <Download className="size-3" /> Enregistrer

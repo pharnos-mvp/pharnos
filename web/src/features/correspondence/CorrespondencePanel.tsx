@@ -529,7 +529,7 @@ export function CorrespondencePanel({
                                   </span>
                                 ) : null}
                                 {unread > 0 ? (
-                                  <span className="grid size-4.5 place-items-center rounded-full bg-emerald-600 text-[10px] font-semibold text-white">
+                                  <span className="bg-primary text-primary-foreground grid size-4.5 place-items-center rounded-full text-[10px] font-semibold">
                                     {unread}
                                   </span>
                                 ) : null}
@@ -609,7 +609,7 @@ export function CorrespondencePanel({
                       className={cn(
                         'cursor-pointer rounded-full border px-2.5 py-0.5 text-[11px]',
                         c.id === selected.id
-                          ? 'border-transparent bg-emerald-600 text-white'
+                          ? 'bg-primary text-primary-foreground border-transparent'
                           : 'hover:bg-muted',
                       )}
                     >
@@ -639,7 +639,7 @@ export function CorrespondencePanel({
                       className={cn(
                         'cursor-pointer rounded-full border px-2.5 py-0.5 text-xs',
                         c.id === selected.id
-                          ? 'border-transparent bg-emerald-600 text-white'
+                          ? 'bg-primary text-primary-foreground border-transparent'
                           : 'hover:bg-muted',
                       )}
                     >
@@ -674,7 +674,7 @@ export function CorrespondencePanel({
                 />
                 <Button
                   size="icon"
-                  className="size-10 shrink-0 rounded-full bg-emerald-600 text-white hover:bg-emerald-700"
+                  className="size-10 shrink-0 rounded-full"
                   disabled={sending || !reply.trim()}
                   aria-label="Envoyer la réponse"
                   onClick={() => void handleReply()}
