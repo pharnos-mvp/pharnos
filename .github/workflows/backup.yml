@@ -1,0 +1,115 @@
+name: Backup DB
+
+# Jalon I — sauvegarde hebdomadaire CHIFFRÉE de la base Postgres → Cloudflare R2 (10 Go gratuits).
+#
+# Chaîne : `supabase db dump` (rôles + schéma + données, version pg alignée par la CLI) → archive
+# tar.gz → chiffrement **age** avec une clé PUBLIQUE de destinataire (la clé PRIVÉE de
+# déchiffrement reste HORS CI, conservée offline par le CEO — voir docs/JALON-I-OPS.md) → upload
+# R2 via l'API S3. Rétention : 8 dernières sauvegardes (~2 mois).
+#
+# ⚠️ NE COUVRE PAS les fichiers Storage (PDF/pièces jointes) — voir le 2ᵉ job (option) et la doc.
+#
+# No-op vert tant que les secrets ne sont pas posés (comme deploy.yml). Secrets/vars requis :
+#   secret SUPABASE_DB_URL        — URI de connexion directe (dashboard → Database → Connection string)
+#   secret R2_ACCESS_KEY_ID       — clé d'accès R2 (S3)
+#   secret R2_SECRET_ACCESS_KEY   — secret R2 (S3)
+#   secret CLOUDFLARE_ACCOUNT_ID  — (déjà posé)
+#   var    R2_BUCKET              — nom du bucket R2 (ex. pharnos-backups)
+#   var    AGE_RECIPIENT          — clé publique age (age1… ; PUBLIQUE, pas un secret)
+
+on:
+  schedule:
+    - cron: '23 3 * * 1' # chaque lundi 03:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-db
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Dump chiffré → R2
+    runs-on: ubuntu-latest
+    steps:
+      - name: Garde-fou (secrets/vars présents ?)
+        id: guard
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          R2_KEY: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+          AGE_RECIPIENT: ${{ vars.AGE_RECIPIENT }}
+          ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$DB_URL" ] || [ -z "$R2_KEY" ] || [ -z "$R2_SECRET" ] \
+             || [ -z "$R2_BUCKET" ] || [ -z "$AGE_RECIPIENT" ] || [ -z "$ACCOUNT_ID" ]; then
+            echo "Secrets/vars de backup absents — étape ignorée (configurer pour activer)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.guard.outputs.ready == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        if: steps.guard.outputs.ready == 'true'
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Installer age
+        if: steps.guard.outputs.ready == 'true'
+        run: sudo apt-get update && sudo apt-get install -y age
+
+      - name: Dump (rôles + schéma + données) → archive chiffrée
+        if: steps.guard.outputs.ready == 'true'
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          AGE_RECIPIENT: ${{ vars.AGE_RECIPIENT }}
+        run: |
+          set -euo pipefail
+          stamp="$(date -u +%Y%m%d-%H%M)"
+          # `supabase db dump` embarque la version pg_dump alignée sur le serveur (évite les
+          # erreurs de version) et gère les spécificités Supabase.
+          supabase db dump --db-url "$DB_URL" --role-only  -f "roles.sql"
+          supabase db dump --db-url "$DB_URL"              -f "schema.sql"
+          supabase db dump --db-url "$DB_URL" --data-only  -f "data.sql"
+          tar -czf "pharnos-db-$stamp.tar.gz" roles.sql schema.sql data.sql
+          # Chiffrement asymétrique : seul le détenteur de la clé privée age pourra déchiffrer.
+          age -r "$AGE_RECIPIENT" -o "pharnos-db-$stamp.tar.gz.age" "pharnos-db-$stamp.tar.gz"
+          rm -f roles.sql schema.sql data.sql "pharnos-db-$stamp.tar.gz"
+          echo "ARTIFACT=pharnos-db-$stamp.tar.gz.age" >> "$GITHUB_ENV"
+          ls -lh "pharnos-db-$stamp.tar.gz.age"
+
+      - name: Upload → Cloudflare R2 (S3) + rétention 8
+        if: steps.guard.outputs.ready == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          # R2 rejette les checksums "à la volée" d'aws-cli v2 récents : ne les calculer que si requis.
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+          ENDPOINT: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+        run: |
+          set -euo pipefail
+          aws s3 cp "$ARTIFACT" "s3://$R2_BUCKET/db/$ARTIFACT" --endpoint-url "$ENDPOINT"
+          echo "Sauvegarde envoyée : s3://$R2_BUCKET/db/$ARTIFACT"
+          # Rétention : conserve les 8 plus récentes, supprime les plus anciennes.
+          mapfile -t old < <(aws s3 ls "s3://$R2_BUCKET/db/" --endpoint-url "$ENDPOINT" \
+            | awk '{print $4}' | grep -E '\.tar\.gz\.age$' | sort | head -n -8)
+          for f in "${old[@]:-}"; do
+            [ -n "$f" ] || continue
+            aws s3 rm "s3://$R2_BUCKET/db/$f" --endpoint-url "$ENDPOINT"
+            echo "Purge ancienne sauvegarde : $f"
+          done
+
+      - name: Résumé
+        if: steps.guard.outputs.ready == 'true'
+        run: echo "✅ Backup chiffré du $(date -u) poussé sur R2 (rétention 8)."
