@@ -91,9 +91,9 @@
 - **RGPD / droit à l'effacement** : suppression de compte/organisation → purge DB + Storage + exclusion
   des prochains snapshots (les snapshots antérieurs expirent par rétention).
 
-## 8. Quotas & garde-fous (sous-jalon L)
+## 8. Quotas & garde-fous (sous-jalon M)
 
-- **Quota de stockage par organisation** (à implémenter jalon L) — empêche une org de saturer le palier
+- **Quota de stockage par organisation** (à implémenter jalon M) — empêche une org de saturer le palier
   partagé ; condition d'ouverture au-delà des pilotes.
 - **Taille de fichier max** par upload (proposé : 25–50 Mo MVP) ; **types autorisés** (PDF + images).
 - **Alertes seuils** (déjà en place, JALON-I-OPS §3) : e-mail si DB ou Storage > 70 % du palier.

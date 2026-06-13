@@ -2,7 +2,7 @@
 
 > **Doc maître d'exécution** (ancré le 2026-06-12, recette n°7 en prod). Chaîne documentaire :
 > [PLAN.md](PLAN.md) (V1, 3 modules — livré) → [PLAN-V2.md](PLAN-V2.md) (durcissement + recettes
-> n°1-7 — livré, **en prod**) → **ce document** (jalons H→M jusqu'au GO-LIVE).
+> n°1-7 — livré, **en prod**) → **ce document** (jalons H→N jusqu'au GO-LIVE).
 > Suivi d'état : [BOARD.md](BOARD.md).
 
 ## 1. Objectif & métrique de succès
@@ -13,7 +13,7 @@
   sous marque propre (domaine, landing, offres), bilingue FR/EN, administrable et surveillé.
 - **Succès (GO-LIVE)** : ≥ 3 organisations pilotes montent ET compilent un dossier réel en
   < 1 jour, gèrent ≥ 1 fil de correspondance réel, le tout 100 % fonctionnel hors-ligne ;
-  gate M validé (perf/sécurité/scalabilité chiffrées, §7) ; coût d'infra : **0 €** jusqu'au
+  gate N validé (perf/sécurité/scalabilité chiffrées, §7) ; coût d'infra : **0 €** jusqu'au
   premier client payant (bascule Supabase Pro 25 $/mois aux seuils définis §6).
 
 ## 2. Principes verrouillés (inchangés depuis V1)
@@ -75,7 +75,25 @@ construction partout où l'autorité fait foi).
 - Alertes seuils (cron : taille DB/Storage > 70 %, erreurs Edge) → e-mail.
 - Uptime check externe gratuit sur pharnos.pages.dev + Edge health.
 
-### J — Branding, landing, domaine, offres *(2 sessions)*
+### J — Dashboard RA « poste de pilotage » *(2 sessions)*
+> Élever le tableau de bord actuel (validité des pièces + veille) en véritable **centre de pilotage RA** —
+> l'écran d'accueil qui donne **en un coup d'œil** l'état de tout le portefeuille réglementaire et
+> **ce qui requiert une action aujourd'hui**. Digne d'une « OS RA ». Offline-first (Dexie), DA Pharnos,
+> perf (Lighthouse), **zéro hallucination** (tous les chiffres dérivés des données réelles, aucune IA).
+- **Actions requises (to-do RA priorisé)** : pièces expirées/expirantes, dossiers en suspens à traiter,
+  réponses d'agence en attente, non-conformités Regafy à corriger, messages non lus → « ce qui requiert
+  votre attention ».
+- **Pipeline des dossiers** : compteurs par état (Brouillon / En review / Accepté / En suspens / Rejeté,
+  dérivés de la correspondance) + accès direct + activité récente.
+- **Échéances & renouvellements** : validité des pièces (30/60/90 j — existant enrichi) + échéances de
+  correspondance par agence + dates de renouvellement AMM, en timeline.
+- **Correspondance en cours** : fils ouverts, en attente de réponse d'agence, décisions récentes, non-lus.
+- **Conformité (Regafy)** : nb de documents non conformes, analyses en attente, dernier audit global.
+- **Portefeuille** : nb de produits, couverture pays/AMM (UEMOA-CEDEAO), répartition par activité.
+- **Veille réglementaire** : feed existant enrichi (filtrable par pays/source).
+- *(Option)* **KPIs** : délai moyen de montage, taux d'acceptation, dossiers en cours.
+
+### K — Branding, landing, domaine, offres *(2 sessions)*
 - Landing page (statique, même infra Cloudflare, Lighthouse ≥ 95) : proposition de valeur RA,
   captures produit, CTA inscription pilote.
 - **Domaine custom** (achat CEO, ~12 $/an — seule dépense) : DNS Cloudflare, app sur
@@ -83,19 +101,19 @@ construction partout où l'autorité fait foi).
 - Offres/pricing affichés (Pilote gratuit · Pro · Entreprise — facturation HORS scope MVP :
   contact commercial), branding in-app finalisé (logo, favicon, e-mails transactionnels).
 
-### K — i18n EN/FR complet *(1,5 session)*
+### L — i18n EN/FR complet *(1,5 session)*
 - Extraction des chaînes UI → dictionnaires FR/EN (socle T11 à généraliser), bascule de
   langue persistée, e-mails bilingues. Les TEMPLATES réglementaires restent pilotés par la
   langue officielle du pays cible (déjà le cas — politique Regafy inchangée).
 
-### L — Dashboard admin & quotas *(2 sessions)*
+### M — Console admin & quotas *(2 sessions)*
 - Console d'administration (rôle admin Pharnos) : organisations, utilisateurs, usage
   (dossiers, storage, appels IA), désactivation de compte.
 - **Quotas IA par organisation** (compteur Edge + plafond par offre) — verrou anti-dérive
   du SEUL coût variable (Gemini), prérequis à l'ouverture au-delà des pilotes connus.
 - Invitations d'équipe propres (e-mail Resend) + rôles (admin org / éditeur / lecteur).
 
-### M — Durcissement final & gate GO-LIVE *(2 sessions)*
+### N — Durcissement final & gate GO-LIVE *(2 sessions)*
 - Sécurité : revue RLS table par table (pgTAP complétés), rate-limits Edge IA par
   user/org, rotation des secrets documentée, en-têtes/CSP re-audités, npm audit 0 high.
 - Performance : budgets re-serrés (entry gzip, LCP ≤ 2,5 s sur 4G, INP < 200 ms,
@@ -114,10 +132,11 @@ offres sont contractées à la main) ; apps natives ; SSO/MFA entreprise ; licen
 
 ## 5. Ordre, durée, dépendances
 
-**H → I → J → K → L → M** (~12-13 sessions ≈ 4-6 semaines au rythme actuel).
+**H → I → J → K → L → M → N** (~14-15 sessions ≈ 5-7 semaines au rythme actuel).
 I avant l'entrée des pilotes réels (données réglementaires ⇒ backups testés d'abord).
-J/K permutables selon l'agenda commercial du CEO. L bloque l'ouverture à des orgs non
-accompagnées. M est un GATE : rien ne sort du pilote sans lui.
+**J (Dashboard RA), K, L, M permutables** selon l'agenda commercial du CEO — J est un atout démo
+fort et peut être priorisé tôt. M (console admin + quotas IA) bloque l'ouverture à des orgs non
+accompagnées. **N est le GATE** : rien ne sort du pilote sans lui.
 
 ## 6. Coûts (posture validée CEO : 0 € jusqu'à X clients)
 
@@ -127,7 +146,7 @@ accompagnées. M est un GATE : rien ne sort du pilote sans lui.
 | **Pro** | 1er contrat signé OU Storage > 70 % OU exigence PITR/SLA | 25 $ Supabase (+ ~12 $/an domaine) | ~10 000 dossiers · milliers d'users |
 | **Scale** | > ~50 orgs actives | à l'usage (Supabase compute + R2 + Gemini) | horizontal — architecture inchangée |
 
-## 7. Definition of Done du MVP (gate M, chiffré)
+## 7. Definition of Done du MVP (gate N, chiffré)
 
 1. **Produit** : 3 orgs pilotes — dossier réel compilé < 1 j + 1 fil de correspondance réel +
    1 partage externe utilisé ; 100 % du parcours en e2e offline vert.
@@ -144,14 +163,15 @@ accompagnées. M est un GATE : rien ne sort du pilote sans lui.
 
 1. **Spec correspondance floue** → H0 cadrage sur mockups CEO AVANT toute ligne de code
    (pattern éprouvé des recettes : le CEO fournit l'HTML, on l'applique à la règle).
-2. **Dérive du coût Gemini à l'ouverture** → quotas par org (L) AVANT d'ouvrir au-delà des
+2. **Dérive du coût Gemini à l'ouverture** → quotas par org (M) AVANT d'ouvrir au-delà des
    pilotes connus ; analyse uniquement à la demande (déjà en place).
 3. **Perte de données réglementaires sur palier Free (pas de PITR)** → I en tête de file :
    backups chiffrés hebdo + restore drill ; bascule Pro contractuelle dès le 1er client.
 
 ## 9. Prochaine étape recommandée (action unique)
 
-**Jalon I — Ops & filets de production** (backup hebdo chiffré → R2 + restore drill TESTÉ +
-alertes seuils + uptime check) : obligatoire AVANT l'entrée des pilotes réels. Préalables CEO :
-(a) rétablir le quota GitHub Actions (Billing — le cycle Free est épuisé, CI/deploy auto HS) ;
-(b) poser le secret repo `SUPABASE_DB_URL` pour le workflow de backup.
+Jalons **H + I livrés** (2026-06-13 : correspondance en prod ; backups DB + Storage chiffrés +
+restore drills + uptime + alertes seuils, 0 €). Reste **J (Dashboard RA) → K (branding/domaine) →
+L (i18n) → M (console admin + quotas IA) → N (gate GO-LIVE)**. **Prochaine action proposée : jalon J —
+Dashboard RA** (poste de pilotage « digne d'une OS RA »), atout produit majeur pour les démos pilotes ;
+J–M permutables selon l'agenda commercial.
