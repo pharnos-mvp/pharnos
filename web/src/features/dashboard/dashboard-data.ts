@@ -182,7 +182,5 @@ export function buildActions(input: DashboardInput, now: Date): ActionItem[] {
     })
   }
 
-  return items.sort(
-    (x, y) => x.priority - y.priority || (x.date ?? '').localeCompare(y.date ?? ''),
-  )
+  return items.sort((x, y) => x.priority - y.priority || (x.date ?? '').localeCompare(y.date ?? ''))
 }

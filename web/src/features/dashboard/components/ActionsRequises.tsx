@@ -37,9 +37,15 @@ export function ActionsRequises({ items }: { items: ActionItem[] }) {
     const flag = it.country ? `${countryFlag(it.country)} ${countryLabel(it.country)}` : ''
     switch (it.kind) {
       case 'doc_expired':
-        return t({ fr: `${dt} — expirée le ${fmtDate(it.date)}`, en: `${dt} — expired ${fmtDate(it.date)}` })
+        return t({
+          fr: `${dt} — expirée le ${fmtDate(it.date)}`,
+          en: `${dt} — expired ${fmtDate(it.date)}`,
+        })
       case 'doc_expiring':
-        return t({ fr: `${dt} — expire le ${fmtDate(it.date)}`, en: `${dt} — expires ${fmtDate(it.date)}` })
+        return t({
+          fr: `${dt} — expire le ${fmtDate(it.date)}`,
+          en: `${dt} — expires ${fmtDate(it.date)}`,
+        })
       case 'dossier_suspended':
         return t({ fr: `Dossier mis en suspens · ${flag}`, en: `Dossier suspended · ${flag}` })
       case 'unread_reply':
@@ -53,7 +59,10 @@ export function ActionsRequises({ items }: { items: ActionItem[] }) {
           en: `${dt} — not template-compliant (${it.count})`,
         })
       case 'agency_pending':
-        return t({ fr: `En attente de réponse de l'agence · ${flag}`, en: `Awaiting agency reply · ${flag}` })
+        return t({
+          fr: `En attente de réponse de l'agence · ${flag}`,
+          en: `Awaiting agency reply · ${flag}`,
+        })
     }
   }
 
@@ -91,7 +100,9 @@ export function ActionsRequises({ items }: { items: ActionItem[] }) {
                   <Icon className={cn('size-4 shrink-0', color)} aria-hidden />
                   <span className="min-w-0 flex-1">
                     <span className="font-medium">{it.label}</span>
-                    <span className="text-muted-foreground block truncate text-xs">{detail(it)}</span>
+                    <span className="text-muted-foreground block truncate text-xs">
+                      {detail(it)}
+                    </span>
                   </span>
                 </Link>
               </li>

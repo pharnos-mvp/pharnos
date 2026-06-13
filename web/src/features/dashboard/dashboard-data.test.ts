@@ -10,12 +10,7 @@ import type {
   ProductRecord,
 } from '@/lib/db'
 
-import {
-  buildActions,
-  expiryStatus,
-  isNonConform,
-  type DashboardInput,
-} from './dashboard-data'
+import { buildActions, expiryStatus, isNonConform, type DashboardInput } from './dashboard-data'
 
 const NOW = new Date('2026-06-14T00:00:00Z')
 const plus = (days: number) => {
@@ -237,7 +232,10 @@ describe('buildActions', () => {
     const items = buildActions(
       emptyInput({
         products: [product()],
-        documents: [doc({ id: 'd1', expiryDate: plus(-2) }), doc({ id: 'd2', expiryDate: plus(10) })],
+        documents: [
+          doc({ id: 'd1', expiryDate: plus(-2) }),
+          doc({ id: 'd2', expiryDate: plus(10) }),
+        ],
         dossiers: [dossier({ id: 'dos1' })],
         correspondences: [corr({ id: 'c1', dossierId: 'dos1', status: 'suspended' })],
       }),
