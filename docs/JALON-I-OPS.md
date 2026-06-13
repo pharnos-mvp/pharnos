@@ -84,10 +84,15 @@ profiles, orgs), `data.sql` **21 INSERT / 1336 lignes** (auth.users/sessions, or
 supprimé après vérif. ⚠️ Restauration `psql` réelle **non rejouée** (pas de Postgres local) — à
 exécuter au prochain drill trimestriel (Supabase local/conteneur pg, ou job CI avec service pg).
 
-## 3. Alertes seuils *(à implémenter — sous-jalon)*
+## 3. Alertes seuils ✅ *(workflow `.github/workflows/alerts.yml`)*
 
-Cron (GitHub Actions ou Edge) : taille DB / Storage > 70 % du palier Free, erreurs Edge → e-mail
-Resend. Déclenche la décision de bascule Supabase Pro (25 $/mois) avant saturation.
+Cron **quotidien** (+ manuel) : mesure la **taille DB** (`pg_database_size`) + l'**usage Storage**
+(somme des tailles dans `storage.objects`) via le Session pooler (réutilise `SUPABASE_DB_PASSWORD`,
+aucun nouveau secret). Si l'un dépasse **70 %** de son palier Free (DB 500 Mo, Storage 1 Go), le job
+**échoue (rouge)** → e-mail GitHub aux admins. Un tableau d'usage est publié dans le **résumé du run**
+à chaque exécution. **Calibré en prod 2026-06-13 : DB ~19 Mo (4 %), Storage ~96 Mo / 82 fichiers
+(9 %)** → large marge. C'est le déclencheur documenté de la bascule Supabase Pro (25 $/mois) avant
+saturation (goulot = Storage 1 Go).
 
 ## 4. Uptime externe ✅ *(workflow `.github/workflows/uptime.yml`)*
 
@@ -111,6 +116,6 @@ pièces reviewer, non) ; (b) sync hebdo du bucket `documents` (`gsutil`/S3 → a
 - [x] Backup hebdo chiffré → artefact **vert** (1er run réussi). — 2026-06-13 (run 27475179006, 1m49s)
 - [x] **Restore drill exécuté et consigné** (§2). — 2026-06-13 (déchiffrement + structure + données OK)
 - [ ] Clé privée age déplacée offline par le CEO (§1).
-- [ ] Alertes seuils actives (§3).
+- [x] Alertes seuils actives (§3). — 2026-06-13 (alerts.yml, cron quotidien DB+Storage, e-mail GitHub si >70 %)
 - [x] Uptime check actif (§4). — 2026-06-13 (uptime.yml, cron 30 min, alerte e-mail GitHub sur KO)
 - [ ] Décision Storage tranchée (§5).

@@ -1,0 +1,86 @@
+name: Alertes seuils
+
+# Jalon I §3 — alerte AVANT saturation du palier Supabase Free (déclenche la décision Pro 25 $/mois).
+#
+# Cron quotidien : mesure la taille DB (pg_database_size) + l'usage Storage (somme des tailles dans
+# storage.objects) via le **Session pooler IPv4** — réutilise le secret SUPABASE_DB_PASSWORD, AUCUN
+# nouveau secret. Si l'un dépasse WARN_PCT % de son palier, le job **échoue (rouge)** → e-mail GitHub
+# aux admins du dépôt (Settings → Notifications → Actions). 0 € (repo public). No-op vert sans secret.
+#
+# Paliers Free : DB 500 Mo, Storage 1 Go (1024 Mo). Seuil d'alerte : 70 %.
+# Calibré en prod 2026-06-13 : DB ~19 Mo (4 %), Storage ~96 Mo / 82 fichiers (9 %).
+
+on:
+  schedule:
+    - cron: '17 6 * * *' # chaque jour 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alerts-quota
+  cancel-in-progress: true
+
+jobs:
+  quota:
+    name: Seuils DB + Storage
+    runs-on: ubuntu-latest
+    env:
+      DB_LIMIT_MB: '500'
+      STORAGE_LIMIT_MB: '1024'
+      WARN_PCT: '70'
+    steps:
+      - name: Garde-fou (secret présent ?)
+        id: guard
+        env:
+          DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          if [ -z "$DB_PASSWORD" ]; then
+            echo "Secret SUPABASE_DB_PASSWORD absent — étape ignorée (configurer pour activer)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Installer psql
+        if: steps.guard.outputs.ready == 'true'
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Mesurer DB + Storage et comparer aux seuils
+        if: steps.guard.outputs.ready == 'true'
+        env:
+          DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -uo pipefail
+          # Assemble l'URI Session pooler ; mot de passe percent-encodé puis masqué des logs.
+          enc="$(DB_PASSWORD="$DB_PASSWORD" python3 -c 'import os,urllib.parse;print(urllib.parse.quote(os.environ["DB_PASSWORD"],safe=""))')"
+          echo "::add-mask::$enc"
+          db_url="postgresql://postgres.uhsireqwzqqymgsxuvqh:${enc}@aws-0-eu-west-3.pooler.supabase.com:5432/postgres"
+          echo "::add-mask::$db_url"
+          out="$(psql "$db_url" -tAF'|' -c "SELECT pg_database_size(current_database()), (SELECT COALESCE(SUM((metadata->>'size')::bigint),0) FROM storage.objects);")" \
+            || { echo "::error::Connexion à la base échouée (mot de passe / pooler ?)."; exit 1; }
+          db_bytes="${out%%|*}"; st_bytes="${out##*|}"
+          case "$db_bytes$st_bytes" in (''|*[!0-9]*) echo "::error::Mesure invalide: '$out'"; exit 1 ;; esac
+          db_mb=$(( db_bytes / 1048576 )); st_mb=$(( st_bytes / 1048576 ))
+          db_pct=$(( db_mb * 100 / DB_LIMIT_MB )); st_pct=$(( st_mb * 100 / STORAGE_LIMIT_MB ))
+          echo "DB      : ${db_mb} Mo / ${DB_LIMIT_MB} Mo  (${db_pct} %)"
+          echo "Storage : ${st_mb} Mo / ${STORAGE_LIMIT_MB} Mo  (${st_pct} %)"
+          db_flag='🟢'; [ "$db_pct" -ge "$WARN_PCT" ] && db_flag='🔴'
+          st_flag='🟢'; [ "$st_pct" -ge "$WARN_PCT" ] && st_flag='🔴'
+          {
+            echo "### Quotas Supabase Free — $(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo ""
+            echo "| Ressource | Usage | Palier | % | Seuil ${WARN_PCT}% |"
+            echo "|---|---|---|---|---|"
+            echo "| Base de données | ${db_mb} Mo | ${DB_LIMIT_MB} Mo | ${db_pct}% | ${db_flag} |"
+            echo "| Storage | ${st_mb} Mo | ${STORAGE_LIMIT_MB} Mo | ${st_pct}% | ${st_flag} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          fail=0
+          [ "$db_pct" -ge "$WARN_PCT" ] && { echo "::warning::DB à ${db_pct}% du palier Free (${db_mb}/${DB_LIMIT_MB} Mo)."; fail=1; }
+          [ "$st_pct" -ge "$WARN_PCT" ] && { echo "::warning::Storage à ${st_pct}% du palier Free (${st_mb}/${STORAGE_LIMIT_MB} Mo)."; fail=1; }
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::SEUIL ${WARN_PCT}% ATTEINT — planifier la bascule Supabase Pro (25 \$/mois) avant saturation."
+            exit 1
+          fi
+          echo "🟢 Sous les seuils — RAS."
