@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select'
 import type { DocumentCategory } from '@/lib/db'
 import { UPLOAD_ACCEPT } from '@/lib/files'
+import { useI18n } from '@/lib/i18n-context'
 import { docTypeLabel, docTypesFor } from './doc-types'
 import { addDocument, deleteDocument, getDocumentBlob, listDocuments } from './documents-repository'
 import { downloadDocumentBlob, syncDocuments } from './documents-sync'
@@ -36,6 +37,7 @@ function triggerDownload(url: string, fileName: string, revoke: boolean) {
 }
 
 export function DocumentsSection({ orgId, productId, category }: DocumentsSectionProps) {
+  const { t, lang } = useI18n()
   const docs = useLiveQuery(() => listDocuments(productId, category), [productId, category])
   const types = docTypesFor(category)
   const [docType, setDocType] = useState(types[0]?.code ?? '')
@@ -46,11 +48,11 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
 
   async function handleAdd() {
     if (!file) {
-      toast.error('Sélectionne un fichier')
+      toast.error(t({ fr: 'Sélectionne un fichier', en: 'Select a file' }))
       return
     }
     if (!docType) {
-      toast.error('Choisis un type de document')
+      toast.error(t({ fr: 'Choisis un type de document', en: 'Choose a document type' }))
       return
     }
     setBusy(true)
@@ -63,12 +65,12 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
         expiryDate: category === 'admin' && expiryDate ? expiryDate : null,
       })
       void syncDocuments(orgId)
-      toast.success('Document ajouté')
+      toast.success(t({ fr: 'Document ajouté', en: 'Document added' }))
       setFile(null)
       setExpiryDate('')
       setResetKey((k) => k + 1)
     } catch (error) {
-      toast.error("Échec de l'ajout", {
+      toast.error(t({ fr: "Échec de l'ajout", en: 'Upload failed' }), {
         description: error instanceof Error ? error.message : undefined,
       })
     } finally {
@@ -89,28 +91,28 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
         return
       }
     }
-    toast.error('Fichier indisponible hors-ligne')
+    toast.error(t({ fr: 'Fichier indisponible hors-ligne', en: 'File unavailable offline' }))
   }
 
   async function handleDelete(id: string) {
     await deleteDocument(id)
     void syncDocuments(orgId)
-    toast.success('Document supprimé')
+    toast.success(t({ fr: 'Document supprimé', en: 'Document deleted' }))
   }
 
   return (
     <div className="space-y-6">
       <div className="grid gap-3 rounded-lg border p-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label>Type de document</Label>
+          <Label>{t({ fr: 'Type de document', en: 'Document type' })}</Label>
           <Select value={docType} onValueChange={setDocType}>
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Type" />
+              <SelectValue placeholder={t({ fr: 'Type', en: 'Type' })} />
             </SelectTrigger>
             <SelectContent>
-              {types.map((t) => (
-                <SelectItem key={t.code} value={t.code}>
-                  {t.label}
+              {types.map((opt) => (
+                <SelectItem key={opt.code} value={opt.code}>
+                  {t({ fr: opt.label, en: opt.en ?? opt.label })}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -119,13 +121,13 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
 
         {category === 'admin' ? (
           <div className="space-y-1.5">
-            <Label>Date de validité</Label>
+            <Label>{t({ fr: 'Date de validité', en: 'Validity date' })}</Label>
             <Input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
           </div>
         ) : null}
 
         <div className="space-y-1.5 sm:col-span-2">
-          <Label>Fichier</Label>
+          <Label>{t({ fr: 'Fichier', en: 'File' })}</Label>
           <Input
             key={resetKey}
             type="file"
@@ -137,31 +139,43 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
         <div className="sm:col-span-2">
           <Button type="button" onClick={() => void handleAdd()} disabled={busy}>
             {busy ? <Loader2 className="animate-spin" /> : null}
-            Ajouter le document
+            {t({ fr: 'Ajouter le document', en: 'Add document' })}
           </Button>
         </div>
       </div>
 
       {docs === undefined ? (
-        <p className="text-muted-foreground text-sm">Chargement…</p>
+        <p className="text-muted-foreground text-sm">{t({ fr: 'Chargement…', en: 'Loading…' })}</p>
       ) : docs.length === 0 ? (
-        <p className="text-muted-foreground text-sm">Aucun document pour l'instant.</p>
+        <p className="text-muted-foreground text-sm">
+          {t({ fr: "Aucun document pour l'instant.", en: 'No document yet.' })}
+        </p>
       ) : (
         <ul className="divide-y rounded-lg border">
           {docs.map((d) => (
             <li key={d.id} className="flex items-center gap-3 p-3">
               <FileText className="text-muted-foreground size-4 shrink-0" />
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{docTypeLabel(d.docType)}</div>
+                <div className="truncate text-sm font-medium">{docTypeLabel(d.docType, lang)}</div>
                 <div className="text-muted-foreground truncate text-xs">
                   {d.fileName}
-                  {d.expiryDate ? ` · expire le ${d.expiryDate}` : ''}
+                  {d.expiryDate
+                    ? t({ fr: ` · expire le ${d.expiryDate}`, en: ` · expires ${d.expiryDate}` })
+                    : ''}
                 </div>
               </div>
               <span
                 className="text-muted-foreground/70 shrink-0"
-                title={d.uploaded ? 'Sauvegardé dans le cloud' : 'Synchronisation en attente'}
-                aria-label={d.uploaded ? 'Sauvegardé dans le cloud' : 'Synchronisation en attente'}
+                title={
+                  d.uploaded
+                    ? t({ fr: 'Sauvegardé dans le cloud', en: 'Saved to cloud' })
+                    : t({ fr: 'Synchronisation en attente', en: 'Sync pending' })
+                }
+                aria-label={
+                  d.uploaded
+                    ? t({ fr: 'Sauvegardé dans le cloud', en: 'Saved to cloud' })
+                    : t({ fr: 'Synchronisation en attente', en: 'Sync pending' })
+                }
               >
                 {d.uploaded ? <Cloud className="size-4" /> : <CloudOff className="size-4" />}
               </span>
@@ -169,7 +183,7 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
                 type="button"
                 variant="ghost"
                 size="icon"
-                aria-label="Télécharger"
+                aria-label={t({ fr: 'Télécharger', en: 'Download' })}
                 onClick={() => void handleDownload(d.id, d.fileName, d.filePath)}
               >
                 <Download className="size-4" />
@@ -178,7 +192,7 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
                 type="button"
                 variant="ghost"
                 size="icon"
-                aria-label="Supprimer"
+                aria-label={t({ fr: 'Supprimer', en: 'Delete' })}
                 onClick={() => void handleDelete(d.id)}
               >
                 <Trash2 className="size-4" />
