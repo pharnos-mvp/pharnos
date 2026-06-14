@@ -25,6 +25,9 @@ playwright/.cache/
 supabase/.branches/
 supabase/.temp/
 
+# Cloudflare Wrangler (state/cache local — ne jamais committer, repo public)
+.wrangler/
+
 # Logs
 *.log
 npm-debug.log*
