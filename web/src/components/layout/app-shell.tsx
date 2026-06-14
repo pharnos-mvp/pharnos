@@ -11,6 +11,7 @@ import {
 
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { HeaderSlotContext } from '@/components/layout/header-slot'
+import { LangSwitch } from '@/components/layout/LangSwitch'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { useAuditSync } from '@/features/audit/use-audit-sync'
 import { useAuth } from '@/features/auth/auth-context'
@@ -169,6 +170,9 @@ export function AppShell() {
               </span>
             ) : null}
           </NavLink>
+          <div className="flex justify-center px-1 md:justify-start">
+            <LangSwitch />
+          </div>
           <Button
             variant="ghost"
             size="icon"

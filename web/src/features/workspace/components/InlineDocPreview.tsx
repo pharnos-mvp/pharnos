@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Download, FileText } from 'lucide-react'
 
 import { buttonVariants } from '@/components/ui/button'
+import { useI18n } from '@/lib/i18n-context'
 import { cacheDocumentBlob, getDocumentBlob } from '@/features/catalogue/documents-repository'
 import { downloadDocumentBlob } from '@/features/catalogue/documents-sync'
 import { cacheAttachmentBlob, getAttachmentBlob } from '../dossier-attachments-repository'
@@ -23,6 +24,7 @@ export function InlineDocPreview({
   filePath: string | null
   fileName: string
 }) {
+  const { t } = useI18n()
   const [blob, setBlob] = useState<Blob | null>(null)
   const [url, setUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -73,7 +75,7 @@ export function InlineDocPreview({
           <a
             href={url}
             download={fileName}
-            aria-label="Télécharger"
+            aria-label={t({ fr: 'Télécharger', en: 'Download' })}
             className={buttonVariants({ variant: 'ghost', size: 'icon-sm' })}
           >
             <Download className="size-4" />
@@ -82,7 +84,7 @@ export function InlineDocPreview({
       </div>
       {loading ? (
         <div className="text-muted-foreground flex min-h-[20rem] items-center justify-center text-sm">
-          Chargement…
+          {t({ fr: 'Chargement…', en: 'Loading…' })}
         </div>
       ) : blob && isPdf ? (
         <PdfViewer blob={blob} flow />
@@ -97,11 +99,14 @@ export function InlineDocPreview({
       ) : url ? (
         <div className="text-muted-foreground flex min-h-[20rem] flex-col items-center justify-center gap-2 text-sm">
           <FileText className="size-8" />
-          Aperçu non disponible pour ce format — téléchargez le fichier.
+          {t({
+            fr: 'Aperçu non disponible pour ce format — téléchargez le fichier.',
+            en: 'Preview not available for this format — download the file.',
+          })}
         </div>
       ) : (
         <div className="text-muted-foreground flex min-h-[20rem] items-center justify-center text-sm">
-          Aperçu indisponible hors-ligne.
+          {t({ fr: 'Aperçu indisponible hors-ligne.', en: 'Preview unavailable offline.' })}
         </div>
       )}
     </div>

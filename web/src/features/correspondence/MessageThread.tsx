@@ -1,10 +1,11 @@
 import { Check, Download, FileText } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
+import { useI18n, type Lang } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import { authorTextColor } from './avatar-colors'
 import { ConversationAvatar } from './correspondence-avatar'
-import { DECISION_LABELS, STATUS_BADGE_CLASSES } from './correspondence-constants'
+import { decisionLabel, DECISION_LABELS, STATUS_BADGE_CLASSES } from './correspondence-constants'
 
 /**
  * Fil de correspondance type chat (jalon H, habillage WhatsApp v3) — commun à la page publique
@@ -32,15 +33,18 @@ export interface ThreadMessage {
   attachments: ThreadAttachment[]
 }
 
-const timeFmt = new Intl.DateTimeFormat('fr', { hour: '2-digit', minute: '2-digit' })
-const formatTime = (iso: string) => {
+// Locale Intl suivant la langue UI : EN = en-GB (24 h + jour/mois, registre pro), sinon FR.
+const dtLocale = (lang: Lang) => (lang === 'en' ? 'en-GB' : 'fr')
+
+const formatTime = (iso: string, lang: Lang) => {
   const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? '' : timeFmt.format(d)
+  return Number.isNaN(d.getTime())
+    ? ''
+    : new Intl.DateTimeFormat(dtLocale(lang), { hour: '2-digit', minute: '2-digit' }).format(d)
 }
 
 // Séparateurs de jour (groupage type WhatsApp) : « Aujourd'hui », « Hier », sinon date longue.
-const dayFmt = new Intl.DateTimeFormat('fr', { weekday: 'long', day: 'numeric', month: 'long' })
-function dayLabel(iso: string): string {
+function dayLabel(iso: string, lang: Lang): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
   const today = new Date()
@@ -50,14 +54,20 @@ function dayLabel(iso: string): string {
     a.getFullYear() === b.getFullYear() &&
     a.getMonth() === b.getMonth() &&
     a.getDate() === b.getDate()
-  if (sameDay(d, today)) return 'Aujourd’hui'
-  if (sameDay(d, yesterday)) return 'Hier'
-  return dayFmt.format(d)
+  if (sameDay(d, today)) return lang === 'en' ? 'Today' : 'Aujourd’hui'
+  if (sameDay(d, yesterday)) return lang === 'en' ? 'Yesterday' : 'Hier'
+  return new Intl.DateTimeFormat(dtLocale(lang), {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }).format(d)
 }
 
-const formatSize = (bytes: number) => {
+const formatSize = (bytes: number, lang: Lang) => {
   const b = Number.isFinite(bytes) && bytes > 0 ? bytes : 0
-  return b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} Mo` : `${Math.ceil(b / 1024)} Ko`
+  const mb = lang === 'en' ? 'MB' : 'Mo'
+  const kb = lang === 'en' ? 'KB' : 'Ko'
+  return b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} ${mb}` : `${Math.ceil(b / 1024)} ${kb}`
 }
 
 /** Carte document type WhatsApp : icône, nom, taille + « Ouvrir / Enregistrer ». */
@@ -68,6 +78,7 @@ function AttachmentCards({
   attachments: ThreadAttachment[]
   onDownload?: (a: ThreadAttachment) => void
 }) {
+  const { t, lang } = useI18n()
   if (attachments.length === 0) return null
   return (
     <div className="mt-1.5 space-y-1.5">
@@ -86,7 +97,8 @@ function AttachmentCards({
               <div className="min-w-0">
                 <div className="truncate text-xs font-medium">{a.name}</div>
                 <div className="text-[11px] opacity-70">
-                  {(a.mime?.split('/')?.pop() ?? 'fichier').toUpperCase()} · {formatSize(a.size)}
+                  {(a.mime?.split('/')?.pop() ?? 'fichier').toUpperCase()} ·{' '}
+                  {formatSize(a.size, lang)}
                 </div>
               </div>
             </div>
@@ -98,7 +110,7 @@ function AttachmentCards({
                   rel="noreferrer noopener"
                   className="text-foreground font-semibold hover:underline"
                 >
-                  Ouvrir
+                  {t({ fr: 'Ouvrir', en: 'Open' })}
                 </a>
               ) : null}
               {canSave ? (
@@ -107,10 +119,14 @@ function AttachmentCards({
                   className="text-foreground inline-flex cursor-pointer items-center gap-1 font-semibold hover:underline"
                   onClick={() => onDownload?.(a)}
                 >
-                  <Download className="size-3" /> Enregistrer
+                  <Download className="size-3" /> {t({ fr: 'Enregistrer', en: 'Save' })}
                 </button>
               ) : null}
-              {!canOpen && !canSave ? <span className="opacity-70">Pièce indisponible</span> : null}
+              {!canOpen && !canSave ? (
+                <span className="opacity-70">
+                  {t({ fr: 'Pièce indisponible', en: 'Attachment unavailable' })}
+                </span>
+              ) : null}
             </div>
           </div>
         )
@@ -128,18 +144,22 @@ export function MessageThread({
   viewpoint: 'sender' | 'recipient'
   onDownloadAttachment?: (a: ThreadAttachment) => void
 }) {
+  const { t, lang } = useI18n()
   if (messages.length === 0) {
     return (
       <p className="text-muted-foreground py-6 text-center text-sm">
-        Aucun échange pour l’instant.
+        {t({ fr: 'Aucun échange pour l’instant.', en: 'No exchanges yet.' })}
       </p>
     )
   }
   return (
-    <ol className="space-y-1.5" aria-label="Fil de correspondance">
+    <ol
+      className="space-y-1.5"
+      aria-label={t({ fr: 'Fil de correspondance', en: 'Correspondence thread' })}
+    >
       {messages.map((m, i) => {
-        const day = dayLabel(m.createdAt)
-        const prevDay = i > 0 ? dayLabel(messages[i - 1]?.createdAt ?? '') : ''
+        const day = dayLabel(m.createdAt, lang)
+        const prevDay = i > 0 ? dayLabel(messages[i - 1]?.createdAt ?? '', lang) : ''
         const daySeparator =
           day && day !== prevDay ? (
             <div className="my-2.5 flex justify-center" aria-hidden>
@@ -154,10 +174,10 @@ export function MessageThread({
               {daySeparator}
               <div className="py-1">
                 <Badge className={cn('px-2.5 py-0.5', STATUS_BADGE_CLASSES[m.decision])}>
-                  {DECISION_LABELS[m.decision]}
+                  {decisionLabel(m.decision, lang)}
                 </Badge>
                 <div className="text-muted-foreground mt-1 text-[11px]">
-                  {m.authorLabel} · {formatTime(m.createdAt)}
+                  {m.authorLabel} · {formatTime(m.createdAt, lang)}
                 </div>
                 {m.body || m.attachments.length > 0 ? (
                   <div className="wa-chip mx-auto mt-2 max-w-sm rounded-lg px-3 py-2 text-left text-sm whitespace-pre-wrap shadow-sm">
@@ -209,16 +229,21 @@ export function MessageThread({
                   </div>
                 ) : null}
                 {m.kind === 'note' ? (
-                  <div className="mb-0.5 text-[11px] font-medium opacity-70">Note d’envoi</div>
+                  <div className="mb-0.5 text-[11px] font-medium opacity-70">
+                    {t({ fr: 'Note d’envoi', en: 'Cover note' })}
+                  </div>
                 ) : null}
                 {m.body ? <div className="whitespace-pre-wrap">{m.body}</div> : null}
                 <AttachmentCards attachments={m.attachments} onDownload={onDownloadAttachment} />
                 <div className="mt-0.5 flex items-center justify-end gap-1 text-[10px] opacity-75">
-                  {formatTime(m.createdAt)}
+                  {formatTime(m.createdAt, lang)}
                   {/* Accusé HONNÊTE : ✓✓ gris = envoyé/synchronisé (jamais « lu » bleu — on ne
                       peut pas le prouver côté reviewer). */}
                   {mine ? (
-                    <span title="Envoyé" className="inline-flex -space-x-1">
+                    <span
+                      title={t({ fr: 'Envoyé', en: 'Sent' })}
+                      className="inline-flex -space-x-1"
+                    >
                       <Check className="size-3" />
                       <Check className="size-3" />
                     </span>

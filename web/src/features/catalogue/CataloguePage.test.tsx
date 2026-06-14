@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { OrgContext } from '@/features/org/org-context'
 import { db } from '@/lib/db'
+import { I18nProvider } from '@/lib/I18nProvider'
 import { CataloguePage } from './CataloguePage'
 
 beforeEach(async () => {
@@ -13,11 +14,13 @@ beforeEach(async () => {
 describe('CataloguePage', () => {
   it("affiche l'état vide quand aucun produit n'est enregistré", async () => {
     render(
-      <OrgContext.Provider value="test-org">
-        <MemoryRouter>
-          <CataloguePage />
-        </MemoryRouter>
-      </OrgContext.Provider>,
+      <I18nProvider>
+        <OrgContext.Provider value="test-org">
+          <MemoryRouter>
+            <CataloguePage />
+          </MemoryRouter>
+        </OrgContext.Provider>
+      </I18nProvider>,
     )
 
     expect(await screen.findByText('Aucun produit')).toBeInTheDocument()

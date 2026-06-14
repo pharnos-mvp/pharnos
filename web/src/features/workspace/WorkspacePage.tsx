@@ -20,6 +20,7 @@ import { unreadIndex } from '@/features/correspondence/correspondence-reads'
 import { listCorrespondences } from '@/features/correspondence/correspondence-repository'
 import { useCorrespondenceSync } from '@/features/correspondence/use-correspondence-sync'
 import { useOrgId } from '@/features/org/org-context'
+import { useI18n } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import { activityLabel, countryLabel, formatLabel } from './dossier-constants'
 import { deleteDossier, listDossiers } from './dossier-repository'
@@ -27,6 +28,7 @@ import { syncDossiers } from './dossier-sync'
 import { useDossierSync } from './use-dossier-sync'
 
 export function WorkspacePage() {
+  const { t, lang } = useI18n()
   const orgId = useOrgId()
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -62,21 +64,26 @@ export function WorkspacePage() {
   async function handleDelete(id: string) {
     await deleteDossier(id)
     void syncDossiers(orgId)
-    toast.success('Dossier supprimé')
+    toast.success(t({ fr: 'Dossier supprimé', en: 'Dossier deleted' }))
   }
 
   return (
     <section className="mx-auto max-w-5xl">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">CTD Workspace</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {t({ fr: 'CTD Workspace', en: 'CTD Workspace' })}
+          </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Montez vos dossiers CTD/eCTD Module 1.
+            {t({
+              fr: 'Montez vos dossiers CTD/eCTD Module 1.',
+              en: 'Build your CTD/eCTD Module 1 dossiers.',
+            })}
           </p>
         </div>
         <Button asChild>
           <Link to="/workspace/nouveau">
-            <FolderPlus /> Nouveau dossier
+            <FolderPlus /> {t({ fr: 'Nouveau dossier', en: 'New dossier' })}
           </Link>
         </Button>
       </div>
@@ -85,7 +92,7 @@ export function WorkspacePage() {
         <div
           className="mt-5 flex flex-wrap items-center gap-1.5"
           role="group"
-          aria-label="Filtrer par état"
+          aria-label={t({ fr: 'Filtrer par état', en: 'Filter by status' })}
         >
           <button
             type="button"
@@ -98,7 +105,7 @@ export function WorkspacePage() {
                 : 'hover:bg-muted',
             )}
           >
-            Tous · {dossiers?.length ?? 0}
+            {t({ fr: 'Tous', en: 'All' })} · {dossiers?.length ?? 0}
           </button>
           {DOSSIER_STATUS_ORDER.map((s) => (
             <button
@@ -111,7 +118,7 @@ export function WorkspacePage() {
                 filter === s ? STATUS_BADGE_CLASSES[s] : 'hover:bg-muted',
               )}
             >
-              {statusLabel(s)} · {counts.get(s) ?? 0}
+              {statusLabel(s, lang)} · {counts.get(s) ?? 0}
             </button>
           ))}
         </div>
@@ -119,24 +126,33 @@ export function WorkspacePage() {
 
       <div className="mt-6">
         {dossiers === undefined ? (
-          <p className="text-muted-foreground text-sm">Chargement…</p>
+          <p className="text-muted-foreground text-sm">
+            {t({ fr: 'Chargement…', en: 'Loading…' })}
+          </p>
         ) : dossiers.length === 0 ? (
           <div className="rounded-lg border border-dashed p-10 text-center">
             <FileStack className="text-muted-foreground mx-auto size-8" />
-            <h2 className="mt-2 text-lg font-medium">Aucun dossier</h2>
+            <h2 className="mt-2 text-lg font-medium">
+              {t({ fr: 'Aucun dossier', en: 'No dossier' })}
+            </h2>
             <p className="text-muted-foreground mx-auto mt-1 max-w-sm text-sm">
-              Créez un dossier : choisissez un produit, le format (CTD/eCTD), l'activité et le pays
-              cible.
+              {t({
+                fr: "Créez un dossier : choisissez un produit, le format (CTD/eCTD), l'activité et le pays cible.",
+                en: 'Create a dossier: choose a product, the format (CTD/eCTD), the activity and the target country.',
+              })}
             </p>
             <Button asChild className="mt-4">
               <Link to="/workspace/nouveau">
-                <FolderPlus /> Nouveau dossier
+                <FolderPlus /> {t({ fr: 'Nouveau dossier', en: 'New dossier' })}
               </Link>
             </Button>
           </div>
         ) : visible.length === 0 ? (
           <p className="text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">
-            Aucun dossier « {statusLabel(filter)} ».
+            {t({
+              fr: `Aucun dossier « ${statusLabel(filter, lang)} ».`,
+              en: `No "${statusLabel(filter, lang)}" dossier.`,
+            })}
           </p>
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2">
@@ -150,7 +166,7 @@ export function WorkspacePage() {
                 <>
                   <div className="truncate font-medium">{d.productName}</div>
                   <div className="text-muted-foreground mt-1 text-xs">
-                    {activityLabel(d.activity)} · {countryLabel(d.country)}
+                    {activityLabel(d.activity, lang)} · {countryLabel(d.country, lang)}
                   </div>
                 </>
               )
@@ -174,20 +190,26 @@ export function WorkspacePage() {
                   </div>
                   <div className="mt-3 flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
-                      <Badge className={cn(STATUS_BADGE_CLASSES[s])}>{statusLabel(s)}</Badge>
+                      <Badge className={cn(STATUS_BADGE_CLASSES[s])}>{statusLabel(s, lang)}</Badge>
                       {unreadCount > 0 ? (
                         <Badge
                           className="bg-primary text-primary-foreground border-transparent"
-                          aria-label={`${unreadCount} message(s) non lu(s)`}
+                          aria-label={t({
+                            fr: `${unreadCount} message(s) non lu(s)`,
+                            en: `${unreadCount} unread message(s)`,
+                          })}
                         >
-                          {unreadCount} non lu{unreadCount > 1 ? 's' : ''}
+                          {t({
+                            fr: `${unreadCount} non lu${unreadCount > 1 ? 's' : ''}`,
+                            en: `${unreadCount} unread`,
+                          })}
                         </Badge>
                       ) : null}
                     </div>
                     <Button
                       variant="ghost"
                       size="icon"
-                      aria-label="Supprimer le dossier"
+                      aria-label={t({ fr: 'Supprimer le dossier', en: 'Delete dossier' })}
                       onClick={() => void handleDelete(d.id)}
                     >
                       <Trash2 className="size-4" />

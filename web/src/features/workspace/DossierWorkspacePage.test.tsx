@@ -17,6 +17,7 @@ configure({ asyncUtilTimeout: 5000 })
 import { AuthContext, type AuthContextValue } from '@/features/auth/auth-context'
 import { OrgContext } from '@/features/org/org-context'
 import { db } from '@/lib/db'
+import { I18nProvider } from '@/lib/I18nProvider'
 import { DossierWorkspacePage } from './DossierWorkspacePage'
 import { getModule1Tree } from './module1-tree'
 
@@ -50,13 +51,15 @@ function TestShell() {
 
 function renderPage() {
   return render(
-    <AuthContext.Provider value={auth}>
-      <OrgContext.Provider value={ORG}>
-        <MemoryRouter initialEntries={[`/workspace/${DOSSIER_ID}`]}>
-          <TestShell />
-        </MemoryRouter>
-      </OrgContext.Provider>
-    </AuthContext.Provider>,
+    <I18nProvider>
+      <AuthContext.Provider value={auth}>
+        <OrgContext.Provider value={ORG}>
+          <MemoryRouter initialEntries={[`/workspace/${DOSSIER_ID}`]}>
+            <TestShell />
+          </MemoryRouter>
+        </OrgContext.Provider>
+      </AuthContext.Provider>
+    </I18nProvider>,
   )
 }
 

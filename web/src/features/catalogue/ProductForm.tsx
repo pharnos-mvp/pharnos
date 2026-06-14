@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react'
+import { useEffect, useMemo, type ReactNode } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 
@@ -13,7 +13,13 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { EMPTY_PRODUCT, productSchema, type ProductFormValues, type ProductInput } from './types'
+import { useI18n, type Translatable } from '@/lib/i18n-context'
+import {
+  EMPTY_PRODUCT,
+  makeProductSchema,
+  type ProductFormValues,
+  type ProductInput,
+} from './types'
 
 interface ProductFormProps {
   defaultValues?: ProductFormValues
@@ -28,32 +34,72 @@ interface ProductFormProps {
 
 const identificationFields: ReadonlyArray<{
   name: keyof ProductFormValues
-  label: string
+  label: Translatable
   required?: boolean
-  placeholder?: string
+  placeholder?: Translatable
 }> = [
-  { name: 'nomCommercial', label: 'Nom commercial', required: true, placeholder: 'Ex. Doliprane' },
-  { name: 'dci', label: 'DCI', required: true, placeholder: 'Ex. Paracétamol' },
-  { name: 'dosage', label: 'Dosage', placeholder: 'Ex. 500 mg' },
-  { name: 'forme', label: 'Forme pharmaceutique', placeholder: 'Ex. Comprimé' },
-  { name: 'presentation', label: 'Présentation', placeholder: 'Ex. Boîte de 16' },
-  { name: 'classeTherapeutique', label: 'Classe thérapeutique', placeholder: 'Ex. Antalgique' },
-  { name: 'codeAtc', label: 'Code ATC', placeholder: 'Ex. N02BE01' },
+  {
+    name: 'nomCommercial',
+    label: { fr: 'Nom commercial', en: 'Trade name' },
+    required: true,
+    placeholder: { fr: 'Ex. Doliprane', en: 'e.g. Doliprane' },
+  },
+  {
+    name: 'dci',
+    label: { fr: 'DCI', en: 'INN' },
+    required: true,
+    placeholder: { fr: 'Ex. Paracétamol', en: 'e.g. Paracetamol' },
+  },
+  {
+    name: 'dosage',
+    label: { fr: 'Dosage', en: 'Strength' },
+    placeholder: { fr: 'Ex. 500 mg', en: 'e.g. 500 mg' },
+  },
+  {
+    name: 'forme',
+    label: { fr: 'Forme pharmaceutique', en: 'Pharmaceutical form' },
+    placeholder: { fr: 'Ex. Comprimé', en: 'e.g. Tablet' },
+  },
+  {
+    name: 'presentation',
+    label: { fr: 'Présentation', en: 'Presentation' },
+    placeholder: { fr: 'Ex. Boîte de 16', en: 'e.g. Box of 16' },
+  },
+  {
+    name: 'classeTherapeutique',
+    label: { fr: 'Classe thérapeutique', en: 'Therapeutic class' },
+    placeholder: { fr: 'Ex. Antalgique', en: 'e.g. Analgesic' },
+  },
+  {
+    name: 'codeAtc',
+    label: { fr: 'Code ATC', en: 'ATC code' },
+    placeholder: { fr: 'Ex. N02BE01', en: 'e.g. N02BE01' },
+  },
   {
     name: 'titulaire',
-    label: "Nom du titulaire / demandeur d'AMM",
-    placeholder: 'Ex. Sahel Pharma SARL',
+    label: { fr: "Nom du titulaire / demandeur d'AMM", en: 'MA holder / applicant name' },
+    placeholder: { fr: 'Ex. Sahel Pharma SARL', en: 'e.g. Sahel Pharma SARL' },
   },
   {
     name: 'titulaireAdresse',
-    label: 'Adresse du titulaire',
-    placeholder: 'Ex. 12 rue de la Santé, Cotonou, Bénin',
+    label: { fr: 'Adresse du titulaire', en: 'Holder address' },
+    placeholder: {
+      fr: 'Ex. 12 rue de la Santé, Cotonou, Bénin',
+      en: 'e.g. 12 rue de la Santé, Cotonou, Benin',
+    },
   },
-  { name: 'fabricant', label: 'Nom du fabricant', placeholder: 'Ex. Laboratoires Atlas' },
+  {
+    name: 'fabricant',
+    label: { fr: 'Nom du fabricant', en: 'Manufacturer name' },
+    placeholder: { fr: 'Ex. Laboratoires Atlas', en: 'e.g. Atlas Laboratories' },
+  },
   {
     name: 'fabricantAdresse',
-    label: 'Adresse du fabricant',
-    placeholder: 'Ex. Zone industrielle, Casablanca, Maroc',
+    label: { fr: 'Adresse du fabricant', en: 'Manufacturer address' },
+    placeholder: {
+      fr: 'Ex. Zone industrielle, Casablanca, Maroc',
+      en: 'e.g. Industrial zone, Casablanca, Morocco',
+    },
   },
 ]
 
@@ -65,14 +111,25 @@ export function ProductForm({
   documentsSlot,
   adminSlot,
 }: ProductFormProps) {
+  const { t } = useI18n()
+  const schema = useMemo(() => makeProductSchema(t), [t])
   const form = useForm<ProductInput, unknown, ProductFormValues>({
-    resolver: zodResolver(productSchema),
+    resolver: zodResolver(schema),
     defaultValues: defaultValues ?? EMPTY_PRODUCT,
   })
 
+  // Re-traduit à chaud les messages de validation déjà affichés quand la langue change.
+  useEffect(() => {
+    if (Object.keys(form.formState.errors).length > 0) void form.trigger()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t])
+
   const savePrompt = (
     <p className="text-muted-foreground text-sm">
-      Enregistrez d'abord le produit (onglet Identification) pour ajouter des documents.
+      {t({
+        fr: "Enregistrez d'abord le produit (onglet Identification) pour ajouter des documents.",
+        en: 'Save the product first (Identification tab) to add documents.',
+      })}
     </p>
   )
 
@@ -80,9 +137,15 @@ export function ProductForm({
     <Form {...form}>
       <Tabs defaultValue="identification">
         <TabsList>
-          <TabsTrigger value="identification">Identification</TabsTrigger>
-          <TabsTrigger value="documents">Documents d'information</TabsTrigger>
-          <TabsTrigger value="admin">Pièces administratives</TabsTrigger>
+          <TabsTrigger value="identification">
+            {t({ fr: 'Identification', en: 'Identification' })}
+          </TabsTrigger>
+          <TabsTrigger value="documents">
+            {t({ fr: "Documents d'information", en: 'Product information' })}
+          </TabsTrigger>
+          <TabsTrigger value="admin">
+            {t({ fr: 'Pièces administratives', en: 'Administrative documents' })}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="identification" className="pt-4">
@@ -96,11 +159,15 @@ export function ProductForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        {f.label}
+                        {t(f.label)}
                         {f.required ? <span className="text-destructive"> *</span> : null}
                       </FormLabel>
                       <FormControl>
-                        <Input placeholder={f.placeholder} {...field} value={field.value ?? ''} />
+                        <Input
+                          placeholder={f.placeholder ? t(f.placeholder) : undefined}
+                          {...field}
+                          value={field.value ?? ''}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

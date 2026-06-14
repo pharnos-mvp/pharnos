@@ -1,20 +1,23 @@
 import { Printer, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { useI18n } from '@/lib/i18n-context'
 import { printAuditReport } from '../audit-print'
 import type { AuditReport } from '../audit-report'
 
 /**
  * Rapport d'audit global au PREMIER PLAN : papier A4 scrollable, typographie corporate
  * (Times), impression/PDF via le dialogue natif (pattern printForm).
+ * NB : le CONTENU du rapport (`report.*`) est généré (langue réglementaire) — non traduit ici.
  */
 export function AuditReportView({ report, onClose }: { report: AuditReport; onClose: () => void }) {
+  const { t } = useI18n()
   return (
     <div
       className="fixed inset-0 z-50 overflow-y-auto bg-black/60 p-4 sm:p-8"
       role="dialog"
       aria-modal="true"
-      aria-label="Rapport d'audit de conformité"
+      aria-label={t({ fr: "Rapport d'audit de conformité", en: 'Compliance audit report' })}
     >
       <div className="pointer-events-none sticky top-0 z-10 mx-auto flex max-w-[820px] justify-end gap-2 pb-3">
         <Button
@@ -23,7 +26,7 @@ export function AuditReportView({ report, onClose }: { report: AuditReport; onCl
           className="pointer-events-auto gap-1.5 rounded-full"
         >
           <Printer className="size-3.5" />
-          Imprimer / PDF
+          {t({ fr: 'Imprimer / PDF', en: 'Print / PDF' })}
         </Button>
         <Button
           size="sm"
@@ -32,7 +35,7 @@ export function AuditReportView({ report, onClose }: { report: AuditReport; onCl
           className="pointer-events-auto gap-1.5 rounded-full"
         >
           <X className="size-3.5" />
-          Fermer
+          {t({ fr: 'Fermer', en: 'Close' })}
         </Button>
       </div>
       {/* Papier A4 (210 mm ≈ 794 px) — fond blanc fixe, indépendant du thème. */}

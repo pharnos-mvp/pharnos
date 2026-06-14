@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { ImageUp, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { useI18n } from '@/lib/i18n-context'
 
 interface ImageFieldProps {
   label: string
@@ -15,6 +16,7 @@ interface ImageFieldProps {
 /** Champ de téléversement d'image avec aperçu (en-tête, pied, logo, signature, photo). */
 export function ImageField({ label, hint, value, onPick, onRemove, uploadLabel }: ImageFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const { t } = useI18n()
   return (
     <div className="rounded-lg border p-4">
       <div className="flex items-start justify-between gap-2">
@@ -38,7 +40,12 @@ export function ImageField({ label, hint, value, onPick, onRemove, uploadLabel }
             <ImageUp className="size-4" /> {uploadLabel}
           </Button>
           {value ? (
-            <Button size="sm" variant="ghost" aria-label="Retirer" onClick={onRemove}>
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-label={t({ fr: 'Retirer', en: 'Remove' })}
+              onClick={onRemove}
+            >
               <Trash2 className="size-4" />
             </Button>
           ) : null}

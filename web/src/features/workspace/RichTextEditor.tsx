@@ -5,6 +5,7 @@ import TextAlign from '@tiptap/extension-text-align'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 
+import { useI18n } from '@/lib/i18n-context'
 import { LockedHeading } from './locked-heading'
 
 interface RichTextEditorProps {
@@ -37,6 +38,7 @@ export function RichTextEditor({
   header,
   footer,
 }: RichTextEditorProps) {
+  const { t } = useI18n()
   const editor = useEditor(
     {
       extensions: [
@@ -56,7 +58,7 @@ export function RichTextEditor({
       editorProps: {
         attributes: {
           class: 'focus:outline-none',
-          'aria-label': 'Éditeur de document',
+          'aria-label': t({ fr: 'Éditeur de document', en: 'Document editor' }),
         },
       },
       onUpdate: ({ editor: ed }) => onChange(ed.getJSON()),
@@ -76,10 +78,16 @@ export function RichTextEditor({
   return (
     <div className="editor-page-wrap">
       <div className="editor-page">
-        {header ? <img src={header} alt="En-tête" className="editor-band" /> : null}
+        {header ? (
+          <img src={header} alt={t({ fr: 'En-tête', en: 'Header' })} className="editor-band" />
+        ) : null}
         <EditorContent editor={editor} />
         {footer ? (
-          <img src={footer} alt="Pied de page" className="editor-band editor-band-footer" />
+          <img
+            src={footer}
+            alt={t({ fr: 'Pied de page', en: 'Footer' })}
+            className="editor-band editor-band-footer"
+          />
         ) : null}
       </div>
     </div>

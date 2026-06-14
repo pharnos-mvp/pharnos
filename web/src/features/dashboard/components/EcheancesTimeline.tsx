@@ -75,7 +75,9 @@ export function EcheancesTimeline({ items }: { items: ExpiryItem[] }) {
                     </span>
                     <span className="min-w-0 flex-1 truncate">
                       <span className="font-medium">{i.productName}</span>{' '}
-                      <span className="text-muted-foreground">— {docTypeLabel(i.docType)}</span>
+                      <span className="text-muted-foreground">
+                        — {docTypeLabel(i.docType, lang)}
+                      </span>
                     </span>
                     <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
                       {new Date(i.expiryDate).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB')}

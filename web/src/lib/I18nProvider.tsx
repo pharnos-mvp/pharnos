@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 
-import { I18nContext, type I18nValue, type Lang } from './i18n-context'
-
-const KEY = 'pharnos.lang'
+import { I18nContext, LANG_KEY as KEY, type I18nValue, type Lang } from './i18n-context'
 
 function initialLang(): Lang {
   if (typeof localStorage !== 'undefined') {

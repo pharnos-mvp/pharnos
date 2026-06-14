@@ -2,8 +2,13 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
+import type { ReactElement } from 'react'
+
+import { I18nProvider } from '@/lib/I18nProvider'
 import type { RegafyFinding } from '../regafy'
 import { NonConformCard } from './NonConformCard'
+
+const renderI = (ui: ReactElement) => render(ui, { wrapper: I18nProvider })
 
 const finding = (over: Partial<RegafyFinding> = {}): RegafyFinding => ({
   id: 'f1',
@@ -23,7 +28,7 @@ describe('NonConformCard (carte de constat — politique recette n°6)', () => {
     const onFill = vi.fn()
     const onTranslate = vi.fn()
     const onReplace = vi.fn()
-    render(
+    renderI(
       <NonConformCard
         finding={finding({ translate: true, language: 'en' })}
         docType="rcp"
@@ -47,7 +52,7 @@ describe('NonConformCard (carte de constat — politique recette n°6)', () => {
   })
 
   it('document à template conforme à la structure mais non-FR : pas de Traduire sans flag', () => {
-    render(
+    renderI(
       <NonConformCard
         finding={finding({ translate: undefined })}
         docType="notice"
@@ -64,7 +69,7 @@ describe('NonConformCard (carte de constat — politique recette n°6)', () => {
 
   it('pièce administrative (validité) : Remplacer uniquement', async () => {
     const onDismiss = vi.fn()
-    render(
+    renderI(
       <NonConformCard
         finding={finding({
           upgrade: undefined,
@@ -88,7 +93,7 @@ describe('NonConformCard (carte de constat — politique recette n°6)', () => {
   })
 
   it('document généré (traduction) : showReplace=false masque « Remplacer »', () => {
-    render(
+    renderI(
       <NonConformCard
         finding={finding({ translate: undefined })}
         docType="rcp"

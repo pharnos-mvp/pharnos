@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, ChevronUp, Plus, Trash2 } from 'lucide-react
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useI18n } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import type { CtdNodeDef } from './module1-tree'
 import { addChildNode, deleteNode, moveNode, newNode, renameNode } from './tree-utils'
@@ -25,6 +26,7 @@ export function ArborescenceTree({
   editing,
   onChange,
 }: ArborescenceTreeProps) {
+  const { t } = useI18n()
   return (
     <ul className="space-y-0.5">
       {tree.map((node) => (
@@ -49,7 +51,7 @@ export function ArborescenceTree({
             className="text-muted-foreground"
             onClick={() => onChange(addChildNode(tree, null, newNode()))}
           >
-            <Plus className="size-4" /> Ajouter une section
+            <Plus className="size-4" /> {t({ fr: 'Ajouter une section', en: 'Add a section' })}
           </Button>
         </li>
       ) : null}
@@ -73,6 +75,7 @@ function NodeRow({
   editing,
   onChange,
 }: NodeRowProps) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(true) // déplié par défaut : toutes les sous-sections visibles
   const nodeId = node.id
   const hasChildren = Boolean(node.children?.length)
@@ -90,7 +93,9 @@ function NodeRow({
         {hasChildren ? (
           <button
             type="button"
-            aria-label={open ? 'Replier' : 'Déplier'}
+            aria-label={
+              open ? t({ fr: 'Replier', en: 'Collapse' }) : t({ fr: 'Déplier', en: 'Expand' })
+            }
             onClick={() => setOpen(!open)}
             className="text-muted-foreground shrink-0"
           >
@@ -103,8 +108,9 @@ function NodeRow({
         {editing && nodeId ? (
           <input
             className="border-input bg-background h-7 flex-1 rounded border px-2 text-sm"
+            // node.label = libellé de structure CTD (réglementaire) — la valeur n'est pas traduite.
             defaultValue={node.label}
-            aria-label="Renommer la section"
+            aria-label={t({ fr: 'Renommer la section', en: 'Rename the section' })}
             onBlur={(e) => {
               if (e.target.value.trim() && e.target.value !== node.label) {
                 onChange(renameNode(tree, nodeId, e.target.value.trim()))
@@ -136,19 +142,28 @@ function NodeRow({
 
         {editing && nodeId ? (
           <span className="flex shrink-0 items-center opacity-60 group-hover:opacity-100">
-            <EditIcon label="Monter" onClick={() => onChange(moveNode(tree, nodeId, -1))}>
+            <EditIcon
+              label={t({ fr: 'Monter', en: 'Move up' })}
+              onClick={() => onChange(moveNode(tree, nodeId, -1))}
+            >
               <ChevronUp className="size-3.5" />
             </EditIcon>
-            <EditIcon label="Descendre" onClick={() => onChange(moveNode(tree, nodeId, 1))}>
+            <EditIcon
+              label={t({ fr: 'Descendre', en: 'Move down' })}
+              onClick={() => onChange(moveNode(tree, nodeId, 1))}
+            >
               <ChevronDown className="size-3.5" />
             </EditIcon>
             <EditIcon
-              label="Ajouter un sous-nœud"
+              label={t({ fr: 'Ajouter un sous-nœud', en: 'Add a sub-node' })}
               onClick={() => onChange(addChildNode(tree, nodeId, newNode()))}
             >
               <Plus className="size-3.5" />
             </EditIcon>
-            <EditIcon label="Supprimer" onClick={() => onChange(deleteNode(tree, nodeId))}>
+            <EditIcon
+              label={t({ fr: 'Supprimer', en: 'Delete' })}
+              onClick={() => onChange(deleteNode(tree, nodeId))}
+            >
               <Trash2 className="size-3.5" />
             </EditIcon>
           </span>

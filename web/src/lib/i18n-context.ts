@@ -22,3 +22,18 @@ export function useI18n(): I18nValue {
   if (!ctx) throw new Error('useI18n doit être utilisé à l’intérieur de <I18nProvider>')
   return ctx
 }
+
+/** Clé de persistance de la langue (partagée avec le provider et les modules non-React). */
+export const LANG_KEY = 'pharnos.lang'
+
+/**
+ * Langue courante HORS React (modules non-composants : websocket realtime, helpers async).
+ * Lit la préférence persistée — défaut FR. Les composants doivent utiliser `useI18n()`.
+ */
+export function readLang(): Lang {
+  try {
+    return localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'fr'
+  } catch {
+    return 'fr'
+  }
+}

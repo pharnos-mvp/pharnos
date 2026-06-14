@@ -4,6 +4,7 @@ import { FileDown, FileText, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 
 import type { GeneratedDocRecord, ProductRecord } from '@/lib/db'
+import { useI18n } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import { updateGeneratedDocContent } from '../generated-docs-repository'
 import { syncGeneratedDocs } from '../generated-docs-sync'
@@ -73,6 +74,7 @@ export function TemplateFillForm({
   countryName: string
   orgId: string
 }) {
+  const { t } = useI18n()
   const [state, setState] = useState<TemplateFormState>(() =>
     formStateFromContent(def, genDoc.content as JSONContent),
   )
@@ -125,10 +127,21 @@ export function TemplateFillForm({
   const isChecked = (key: string) => (state.checks[key] ?? []).includes(0)
 
   function handleReset() {
-    if (!window.confirm('Effacer toutes les saisies et cases cochées ?')) return
+    if (
+      !window.confirm(
+        t({
+          fr: 'Effacer toutes les saisies et cases cochées ?',
+          en: 'Clear all entries and checked boxes?',
+        }),
+      )
+    )
+      return
     apply(initialFormState(def, product))
-    toast.success('Formulaire réinitialisé', {
-      description: 'Identification du produit pré-remplie depuis la fiche.',
+    toast.success(t({ fr: 'Formulaire réinitialisé', en: 'Form reset' }), {
+      description: t({
+        fr: 'Identification du produit pré-remplie depuis la fiche.',
+        en: 'Product identification pre-filled from the record.',
+      }),
     })
   }
 
@@ -140,7 +153,7 @@ export function TemplateFillForm({
       triggerDownload(URL.createObjectURL(blob), `${formExportName(def, state)}.docx`, true)
     } catch (e) {
       console.error(e)
-      toast.error('Échec du téléchargement (.docx).')
+      toast.error(t({ fr: 'Échec du téléchargement (.docx).', en: 'Download failed (.docx).' }))
     }
   }
 
@@ -150,17 +163,20 @@ export function TemplateFillForm({
         <div className="tplform-brand">
           <span className="tplform-t1">{def.topbarTitle}</span>
           <span className="tplform-t2">
-            Formulaire interactif — gabarit réglementaire ({countryName} / UEMOA)
+            {t({
+              fr: `Formulaire interactif — gabarit réglementaire (${countryName} / UEMOA)`,
+              en: `Interactive form — regulatory template (${countryName} / WAEMU)`,
+            })}
           </span>
         </div>
         <div className="tplform-spacer" />
         <button
           type="button"
           className="tplform-btn tplform-btn--ghost"
-          title="Tout effacer"
+          title={t({ fr: 'Tout effacer', en: 'Clear all' })}
           onClick={handleReset}
         >
-          <RotateCcw aria-hidden /> Réinitialiser
+          <RotateCcw aria-hidden /> {t({ fr: 'Réinitialiser', en: 'Reset' })}
         </button>
         <button type="button" className="tplform-btn" onClick={() => printForm(def, state)}>
           <FileText aria-hidden /> PDF
@@ -170,7 +186,7 @@ export function TemplateFillForm({
           className="tplform-btn tplform-btn--primary"
           onClick={() => void handleDocx()}
         >
-          <FileDown aria-hidden /> Télécharger DOCX
+          <FileDown aria-hidden /> {t({ fr: 'Télécharger DOCX', en: 'Download DOCX' })}
         </button>
       </div>
       {def.hasGlobalsBar ? (
@@ -205,11 +221,18 @@ export function TemplateFillForm({
         </div>
       ) : null}
       <div className="tplform-hint">
-        <b>Astuce&nbsp;:</b>&nbsp;remplissez les champs, cochez les mentions qui s’appliquent. Le
-        document exporté ne contient que vos saisies et les options cochées — rien d’autre.
+        <b>{t({ fr: 'Astuce :', en: 'Tip:' })}</b>{' '}
+        {t({
+          fr: 'remplissez les champs, cochez les mentions qui s’appliquent. Le document exporté ne contient que vos saisies et les options cochées — rien d’autre.',
+          en: 'fill in the fields, tick the statements that apply. The exported document contains only your entries and the ticked options — nothing else.',
+        })}
       </div>
       <div className="tplform-canvas">
-        <main className="tplform-sheet" role="form" aria-label={`Formulaire ${def.topbarTitle}`}>
+        <main
+          className="tplform-sheet"
+          role="form"
+          aria-label={t({ fr: `Formulaire ${def.topbarTitle}`, en: `Form ${def.topbarTitle}` })}
+        >
           {def.model.map((b, i) => {
             switch (b.type) {
               case 'title':
