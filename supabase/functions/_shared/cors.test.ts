@@ -3,7 +3,8 @@ import { assertEquals } from 'jsr:@std/assert@1'
 
 import { corsHeaders, isAllowedOrigin } from './cors.ts'
 
-Deno.test('autorise prod, previews Cloudflare Pages et localhost', () => {
+Deno.test('autorise app.pharnos.com, prod/previews Cloudflare Pages et localhost', () => {
+  assertEquals(isAllowedOrigin('https://app.pharnos.com'), true)
   assertEquals(isAllowedOrigin('https://pharnos.pages.dev'), true)
   assertEquals(isAllowedOrigin('https://v2.pharnos.pages.dev'), true)
   assertEquals(isAllowedOrigin('https://abc123de.pharnos.pages.dev'), true)
@@ -18,6 +19,9 @@ Deno.test('refuse les origines hostiles (y compris suffixes trompeurs)', () => {
   assertEquals(isAllowedOrigin('http://pharnos.pages.dev'), false) // http interdit hors localhost
   assertEquals(isAllowedOrigin('https://localhost:5173'), false) // https localhost non servi
   assertEquals(isAllowedOrigin('https://a.b.pharnos.pages.dev'), false) // 1 seul niveau de sous-domaine
+  assertEquals(isAllowedOrigin('https://pharnos.com'), false) // apex = landing statique, hors whitelist
+  assertEquals(isAllowedOrigin('https://app.pharnos.com.evil.com'), false) // suffixe trompeur
+  assertEquals(isAllowedOrigin('http://app.pharnos.com'), false) // http interdit
 })
 
 Deno.test('sans Origin (curl/server-to-server) : pas un contexte CORS → laissé passer', () => {
