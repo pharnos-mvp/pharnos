@@ -2,6 +2,7 @@ import type { JSONContent } from '@tiptap/core'
 import { toast } from 'sonner'
 
 import type { GeneratedDocRecord } from '@/lib/db'
+import { tStatic } from '@/lib/i18n-context'
 import { getSupabase } from '@/lib/supabase'
 import { tiptapText, type RegafyFinding } from './regafy'
 
@@ -54,15 +55,33 @@ export const UPGRADE_DOC_TYPES = new Set(['cover', 'pght', 'rcp', 'notice', 'lab
 
 async function invokeRegafy(body: Record<string, unknown>): Promise<RegafyFinding[]> {
   const supabase = await getSupabase()
-  if (!supabase) throw new Error('Connexion requise pour l’analyse IA.')
+  if (!supabase)
+    throw new Error(
+      tStatic({
+        fr: 'Connexion requise pour l’analyse IA.',
+        en: 'Connection required for AI analysis.',
+      }),
+    )
   const { data, error } = await supabase.functions.invoke('regafy-ai', { body })
-  if (error) throw new Error(error.message || 'Échec de l’analyse IA.')
+  if (error)
+    throw new Error(
+      error.message || tStatic({ fr: 'Échec de l’analyse IA.', en: 'AI analysis failed.' }),
+    )
   if (data?.degraded === true) {
     // L'Edge n'a pas pu analyser les lettres : le dire explicitement — un silence ici serait
     // un faux négatif (« aucun constat » lu comme « lettres conformes »).
-    toast.warning('Analyse Regafy des lettres indisponible', {
-      description: 'Réessayez plus tard — les constats affichés peuvent être incomplets.',
-    })
+    toast.warning(
+      tStatic({
+        fr: 'Analyse Regafy des lettres indisponible',
+        en: 'Regafy letter analysis unavailable',
+      }),
+      {
+        description: tStatic({
+          fr: 'Réessayez plus tard — les constats affichés peuvent être incomplets.',
+          en: 'Try again later — the findings shown may be incomplete.',
+        }),
+      },
+    )
   }
   return ((data?.findings ?? []) as EdgeFinding[])
     .filter((f) => (f.message ?? '').trim().length > 0)

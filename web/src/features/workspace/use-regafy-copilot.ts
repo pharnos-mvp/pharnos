@@ -9,6 +9,7 @@ import type {
   ProductRecord,
 } from '@/lib/db'
 import { env } from '@/lib/env'
+import { tStatic } from '@/lib/i18n-context'
 import { activityLabel, countryLabel, formatLabel } from './dossier-constants'
 import { createTranslationDoc, createUpgradeDoc } from './generated-docs-repository'
 import { syncGeneratedDocs } from './generated-docs-sync'
@@ -420,7 +421,9 @@ export function useRegafyCopilot({
           structural,
         }
       } catch (e) {
-        toast.error('Audit impossible : ' + (e as Error).message)
+        toast.error(
+          tStatic({ fr: 'Audit impossible : ', en: 'Audit failed: ' }) + (e as Error).message,
+        )
         return null
       } finally {
         setAuditProgress(null)
@@ -494,7 +497,12 @@ export function useRegafyCopilot({
         })
         void syncGeneratedDocs(orgId)
         openTab(rec.id)
-        toast.success('Traduction prête — à relire avant usage.')
+        toast.success(
+          tStatic({
+            fr: 'Traduction prête — à relire avant usage.',
+            en: 'Translation ready — review before use.',
+          }),
+        )
       } catch (e) {
         toast.error((e as Error).message)
       } finally {
@@ -577,9 +585,18 @@ export function useRegafyCopilot({
         })
         void syncGeneratedDocs(orgId)
         openTab(nodeNumber, rec.id)
-        toast.success('Version conforme prête — à relire.', {
-          description: 'Complétez les rubriques marquées [NON FOURNI DANS LE DOCUMENT SOURCE].',
-        })
+        toast.success(
+          tStatic({
+            fr: 'Version conforme prête — à relire.',
+            en: 'Compliant version ready — review it.',
+          }),
+          {
+            description: tStatic({
+              fr: 'Complétez les rubriques marquées [NON FOURNI DANS LE DOCUMENT SOURCE].',
+              en: 'Complete the sections marked [NON FOURNI DANS LE DOCUMENT SOURCE].',
+            }),
+          },
+        )
       } catch (e) {
         toast.error((e as Error).message)
       } finally {
@@ -632,7 +649,12 @@ export function useRegafyCopilot({
         })
         void syncGeneratedDocs(orgId)
         openTab(rec.id)
-        toast.success('Traduction prête — à relire avant usage.')
+        toast.success(
+          tStatic({
+            fr: 'Traduction prête — à relire avant usage.',
+            en: 'Translation ready — review before use.',
+          }),
+        )
       } catch (e) {
         toast.error((e as Error).message)
       } finally {

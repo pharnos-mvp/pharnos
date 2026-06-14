@@ -1,4 +1,5 @@
 import { env } from '@/lib/env'
+import { tStatic } from '@/lib/i18n-context'
 import { getSupabase } from '@/lib/supabase'
 
 /**
@@ -54,11 +55,22 @@ export async function upgradeDoc(
     }
   }
   const supabase = await getSupabase()
-  if (!supabase) throw new Error('Connexion requise pour la mise en conformité.')
+  if (!supabase)
+    throw new Error(
+      tStatic({
+        fr: 'Connexion requise pour la mise en conformité.',
+        en: 'Connection required for compliance upgrade.',
+      }),
+    )
   const { data, error } = await supabase.functions.invoke('upgrade', { body: input })
-  if (error) throw new Error(error.message || 'Échec de la mise en conformité.')
+  if (error)
+    throw new Error(
+      error.message ||
+        tStatic({ fr: 'Échec de la mise en conformité.', en: 'Compliance upgrade failed.' }),
+    )
   const text = String(data?.text ?? '').trim()
-  if (!text) throw new Error('Mise en conformité vide.')
+  if (!text)
+    throw new Error(tStatic({ fr: 'Mise en conformité vide.', en: 'Empty compliance upgrade.' }))
   return text
 }
 
@@ -67,10 +79,22 @@ async function upgradeDocStream(
   onChunk: (textSoFar: string) => void,
 ): Promise<string> {
   const supabase = await getSupabase()
-  if (!supabase) throw new Error('Connexion requise pour la mise en conformité.')
+  if (!supabase)
+    throw new Error(
+      tStatic({
+        fr: 'Connexion requise pour la mise en conformité.',
+        en: 'Connection required for compliance upgrade.',
+      }),
+    )
   const { data: sessionData } = await supabase.auth.getSession()
   const token = sessionData.session?.access_token
-  if (!token) throw new Error('Connexion requise pour la mise en conformité.')
+  if (!token)
+    throw new Error(
+      tStatic({
+        fr: 'Connexion requise pour la mise en conformité.',
+        en: 'Connection required for compliance upgrade.',
+      }),
+    )
 
   const res = await fetch(`${env.supabaseUrl}/functions/v1/upgrade`, {
     method: 'POST',
@@ -113,6 +137,7 @@ async function upgradeDocStream(
     }
   }
   const text = full.trim()
-  if (!text) throw new Error('Mise en conformité vide.')
+  if (!text)
+    throw new Error(tStatic({ fr: 'Mise en conformité vide.', en: 'Empty compliance upgrade.' }))
   return text
 }
