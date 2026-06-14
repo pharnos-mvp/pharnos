@@ -15,12 +15,14 @@ import {
 } from '@/components/ui/select'
 import { listProducts } from '@/features/catalogue/repository'
 import { useOrgId } from '@/features/org/org-context'
+import { useI18n } from '@/lib/i18n-context'
 import { COUNTRIES, DOSSIER_FORMATS, REG_ACTIVITIES } from './dossier-constants'
 import { createDossier } from './dossier-repository'
 import { syncDossiers } from './dossier-sync'
 import type { DossierFormat } from './module1-tree'
 
 export function NewDossierPage() {
+  const { t } = useI18n()
   const orgId = useOrgId()
   const navigate = useNavigate()
   const products = useLiveQuery(() => listProducts(orgId), [orgId])
@@ -34,7 +36,7 @@ export function NewDossierPage() {
   async function handleCreate() {
     const product = products?.find((p) => p.id === productId)
     if (!product) {
-      toast.error('Choisis un produit')
+      toast.error(t({ fr: 'Choisis un produit', en: 'Choose a product' }))
       return
     }
     setBusy(true)
@@ -47,10 +49,10 @@ export function NewDossierPage() {
         country,
       })
       void syncDossiers(orgId)
-      toast.success('Dossier créé')
+      toast.success(t({ fr: 'Dossier créé', en: 'Dossier created' }))
       navigate(`/workspace/${dossier.id}/roadmap`)
     } catch (error) {
-      toast.error('Échec de la création', {
+      toast.error(t({ fr: 'Échec de la création', en: 'Creation failed' }), {
         description: error instanceof Error ? error.message : undefined,
       })
       setBusy(false)
@@ -65,22 +67,30 @@ export function NewDossierPage() {
         onClick={() => navigate('/workspace')}
         className="mb-4 -ml-2"
       >
-        <ArrowLeft /> Retour
+        <ArrowLeft /> {t({ fr: 'Retour', en: 'Back' })}
       </Button>
-      <h1 className="text-2xl font-semibold tracking-tight">Nouveau dossier</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">
+        {t({ fr: 'Nouveau dossier', en: 'New dossier' })}
+      </h1>
       <p className="text-muted-foreground mt-1 mb-6">
-        Configurez votre espace de montage Module 1.
+        {t({
+          fr: 'Configurez votre espace de montage Module 1.',
+          en: 'Configure your Module 1 workspace.',
+        })}
       </p>
 
       <div className="space-y-4">
-        <Field label="Produit">
+        <Field label={t({ fr: 'Produit', en: 'Product' })}>
           <Select value={productId} onValueChange={setProductId}>
             <SelectTrigger className="w-full">
               <SelectValue
                 placeholder={
                   products?.length
-                    ? 'Choisir un produit'
-                    : 'Aucun produit — créez-en un dans le Catalogue'
+                    ? t({ fr: 'Choisir un produit', en: 'Choose a product' })
+                    : t({
+                        fr: 'Aucun produit — créez-en un dans le Catalogue',
+                        en: 'No product — create one in the Catalogue',
+                      })
                 }
               />
             </SelectTrigger>
@@ -95,7 +105,7 @@ export function NewDossierPage() {
           </Select>
         </Field>
 
-        <Field label="Format du dossier">
+        <Field label={t({ fr: 'Format du dossier', en: 'Dossier format' })}>
           <Select value={format} onValueChange={(v) => setFormat(v as DossierFormat)}>
             <SelectTrigger className="w-full">
               <SelectValue />
@@ -110,7 +120,7 @@ export function NewDossierPage() {
           </Select>
         </Field>
 
-        <Field label="Activité réglementaire">
+        <Field label={t({ fr: 'Activité réglementaire', en: 'Regulatory activity' })}>
           <Select value={activity} onValueChange={setActivity}>
             <SelectTrigger className="w-full">
               <SelectValue />
@@ -118,14 +128,14 @@ export function NewDossierPage() {
             <SelectContent>
               {REG_ACTIVITIES.map((a) => (
                 <SelectItem key={a.code} value={a.code}>
-                  {a.label}
+                  {t({ fr: a.label, en: a.en ?? a.label })}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </Field>
 
-        <Field label="Pays cible">
+        <Field label={t({ fr: 'Pays cible', en: 'Target country' })}>
           <Select value={country} onValueChange={setCountry}>
             <SelectTrigger className="w-full">
               <SelectValue />
@@ -133,7 +143,7 @@ export function NewDossierPage() {
             <SelectContent>
               {COUNTRIES.map((c) => (
                 <SelectItem key={c.code} value={c.code}>
-                  {c.label}
+                  {t({ fr: c.label, en: c.en ?? c.label })}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -141,7 +151,7 @@ export function NewDossierPage() {
         </Field>
 
         <Button onClick={() => void handleCreate()} disabled={busy || !productId}>
-          Créer le dossier
+          {t({ fr: 'Créer le dossier', en: 'Create dossier' })}
         </Button>
       </div>
     </section>

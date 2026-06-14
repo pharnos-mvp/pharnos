@@ -1,4 +1,5 @@
 import type { CorrespondenceRecord, CorrespondenceStatus } from '@/lib/db'
+import type { Lang, Translatable } from '@/lib/i18n-context'
 
 /**
  * Statuts du flux Correspondance (jalon H) — libellés métier validés par le brief CEO :
@@ -15,12 +16,12 @@ export const DOSSIER_STATUS_ORDER: DossierDisplayStatus[] = [
   'rejected',
 ]
 
-const STATUS_LABELS: Record<DossierDisplayStatus, string> = {
-  draft: 'Draft',
-  in_review: 'En review',
-  accepted: 'Accepté',
-  suspended: 'En suspens',
-  rejected: 'Rejeté',
+const STATUS_LABELS: Record<DossierDisplayStatus, Translatable> = {
+  draft: { fr: 'Draft', en: 'Draft' },
+  in_review: { fr: 'En review', en: 'In review' },
+  accepted: { fr: 'Accepté', en: 'Accepted' },
+  suspended: { fr: 'En suspens', en: 'Suspended' },
+  rejected: { fr: 'Rejeté', en: 'Rejected' },
 }
 
 /** Classes Tailwind du badge d'état (fond doux + texte contrasté, lisible clair/sombre). */
@@ -33,8 +34,8 @@ export const STATUS_BADGE_CLASSES: Record<DossierDisplayStatus, string> = {
   rejected: 'bg-red-100 text-red-800 border-transparent dark:bg-red-950 dark:text-red-300',
 }
 
-export const statusLabel = (s: string): string =>
-  STATUS_LABELS[s as DossierDisplayStatus] ?? STATUS_LABELS.draft
+export const statusLabel = (s: string, lang: Lang = 'fr'): string =>
+  (STATUS_LABELS[s as DossierDisplayStatus] ?? STATUS_LABELS.draft)[lang]
 
 /** Classes du badge pour une valeur RUNTIME (payload réseau) — fallback sobre si inconnue. */
 export const statusBadgeClass = (s: string): string =>

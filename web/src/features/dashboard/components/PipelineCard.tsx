@@ -3,19 +3,10 @@ import { Link } from 'react-router-dom'
 import {
   STATUS_BADGE_CLASSES,
   statusLabel,
-  type DossierDisplayStatus,
 } from '@/features/correspondence/correspondence-constants'
 import { useI18n } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import type { PipelineCount } from '../dashboard-data'
-
-const EN_LABELS: Record<DossierDisplayStatus, string> = {
-  draft: 'Draft',
-  in_review: 'In review',
-  accepted: 'Accepted',
-  suspended: 'Suspended',
-  rejected: 'Rejected',
-}
 
 export function PipelineCard({ counts }: { counts: PipelineCount[] }) {
   const { t, lang } = useI18n()
@@ -53,7 +44,7 @@ export function PipelineCard({ counts }: { counts: PipelineCount[] }) {
                   STATUS_BADGE_CLASSES[c.status],
                 )}
               >
-                {lang === 'fr' ? statusLabel(c.status) : EN_LABELS[c.status]}
+                {statusLabel(c.status, lang)}
               </span>
             </Link>
           ))}
