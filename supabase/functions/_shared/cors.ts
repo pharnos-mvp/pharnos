@@ -1,9 +1,12 @@
 // CORS resserré pour les Edge Functions (T2, PLAN-V2) — remplace l'ancien wildcard `*`.
-// Origines légitimes : prod + previews Cloudflare Pages (v2, hash deploys) + dev local.
+// Origines légitimes : domaine custom de l'app (app.pharnos.com, jalon K) + prod/previews
+// Cloudflare Pages (pharnos.pages.dev, hash deploys) + dev local. L'apex pharnos.com est la
+// landing STATIQUE (n'appelle jamais l'Edge) → volontairement HORS whitelist.
 // Une requête sans Origin (curl, server-to-server) n'est pas un contexte navigateur : CORS ne
 // s'y applique pas, le JWT reste la barrière d'auth.
 
-const ALLOWED_ORIGIN = /^https:\/\/([a-z0-9-]+\.)?pharnos\.pages\.dev$|^http:\/\/localhost:\d+$/
+const ALLOWED_ORIGIN =
+  /^https:\/\/app\.pharnos\.com$|^https:\/\/([a-z0-9-]+\.)?pharnos\.pages\.dev$|^http:\/\/localhost:\d+$/
 
 const BASE_HEADERS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
