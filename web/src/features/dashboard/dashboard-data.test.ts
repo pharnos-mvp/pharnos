@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { RegafyFinding } from '@/features/workspace/regafy'
 import type {
+  AuditLogRecord,
   CorrespondenceMessageRecord,
   CorrespondenceRecord,
   DocAnalysisRecord,
@@ -10,7 +11,18 @@ import type {
   ProductRecord,
 } from '@/lib/db'
 
-import { buildActions, expiryStatus, isNonConform, type DashboardInput } from './dashboard-data'
+import {
+  buildActions,
+  conformitySummary,
+  expiringDocs,
+  expiryStatus,
+  isNonConform,
+  openCorrespondences,
+  pipelineCounts,
+  portfolio,
+  recentActivity,
+  type DashboardInput,
+} from './dashboard-data'
 
 const NOW = new Date('2026-06-14T00:00:00Z')
 const plus = (days: number) => {
@@ -127,6 +139,19 @@ const finding = (over: Partial<RegafyFinding> = {}): RegafyFinding => ({
   nodeLabel: 'RCP',
   severity: 'warning',
   message: 'msg',
+  ...over,
+})
+
+const audit = (over: Partial<AuditLogRecord> = {}): AuditLogRecord => ({
+  id: 'a1',
+  orgId: 'o1',
+  actorId: 'u1',
+  actorEmail: 'u@lab.com',
+  entity: 'dossier',
+  entityId: 'dos1',
+  action: 'update',
+  label: 'Gynoril',
+  at: '2026-06-01',
   ...over,
 })
 
@@ -253,5 +278,121 @@ describe('buildActions', () => {
       NOW,
     )
     expect(items).toEqual([])
+  })
+})
+
+describe('pipelineCounts', () => {
+  it('compte par état dérivé, ordre canonique (draft si pas de correspondance)', () => {
+    const counts = pipelineCounts(
+      [dossier({ id: 'dos1' }), dossier({ id: 'dos2' }), dossier({ id: 'dos3' })],
+      [
+        corr({ id: 'c1', dossierId: 'dos1', status: 'accepted' }),
+        corr({ id: 'c2', dossierId: 'dos2', status: 'suspended' }),
+      ],
+    )
+    expect(counts.map((c) => c.status)).toEqual([
+      'draft',
+      'in_review',
+      'accepted',
+      'suspended',
+      'rejected',
+    ])
+    const m = Object.fromEntries(counts.map((c) => [c.status, c.count]))
+    expect(m.draft).toBe(1)
+    expect(m.accepted).toBe(1)
+    expect(m.suspended).toBe(1)
+  })
+})
+
+describe('openCorrespondences', () => {
+  it('sous-état non lu > en attente > décidé, non lus en tête', () => {
+    const items = openCorrespondences(
+      [
+        corr({ id: 'c1', status: 'in_review' }),
+        corr({ id: 'c2', status: 'accepted', dossierId: 'dos2' }),
+      ],
+      [msg({ id: 'm1', correspondenceId: 'c1', author: 'recipient' })],
+      [],
+    )
+    expect(items[0]?.id).toBe('c1')
+    expect(items.find((i) => i.id === 'c1')?.state).toBe('unread')
+    expect(items.find((i) => i.id === 'c1')?.unread).toBe(1)
+    expect(items.find((i) => i.id === 'c2')?.state).toBe('decided')
+  })
+
+  it('in_review lu = en attente agence', () => {
+    const items = openCorrespondences(
+      [corr({ id: 'c1', status: 'in_review' })],
+      [
+        msg({
+          id: 'm1',
+          correspondenceId: 'c1',
+          author: 'recipient',
+          createdAt: '2026-06-10T10:00:00Z',
+        }),
+      ],
+      [{ id: 'c1', lastSeenAt: '2026-06-11T00:00:00Z' }],
+    )
+    expect(items[0]?.state).toBe('awaiting_agency')
+  })
+})
+
+describe('recentActivity', () => {
+  it('plus récent d’abord, limité', () => {
+    const log = [
+      audit({ id: 'a1', at: '2026-06-01' }),
+      audit({ id: 'a2', at: '2026-06-10' }),
+      audit({ id: 'a3', at: '2026-06-05' }),
+    ]
+    expect(recentActivity(log, 2).map((a) => a.id)).toEqual(['a2', 'a3'])
+  })
+})
+
+describe('expiringDocs', () => {
+  it('≤90 j ou expiré, trié par jours restants', () => {
+    const items = expiringDocs(
+      [
+        doc({ id: 'd1', expiryDate: plus(-3) }),
+        doc({ id: 'd2', expiryDate: plus(20) }),
+        doc({ id: 'd3', expiryDate: plus(300) }),
+      ],
+      [product()],
+      NOW,
+    )
+    expect(items.map((i) => i.id)).toEqual(['d1', 'd2'])
+    expect(items[0]?.daysLeft).toBeLessThan(0)
+    expect(items[0]?.productName).toBe('Gynoril')
+  })
+})
+
+describe('portfolio', () => {
+  it('compte produits/dossiers + couverture pays/activité', () => {
+    const p = portfolio(
+      [product({ id: 'p1' }), product({ id: 'p2' })],
+      [
+        dossier({ id: 'dos1', country: 'CI', activity: 'new_ma' }),
+        dossier({ id: 'dos2', country: 'CI', activity: 'renewal' }),
+        dossier({ id: 'dos3', country: 'SN', activity: 'new_ma' }),
+      ],
+    )
+    expect(p.productCount).toBe(2)
+    expect(p.dossierCount).toBe(3)
+    expect(p.byCountry[0]).toEqual({ code: 'CI', count: 2 })
+    expect(p.byActivity.find((a) => a.code === 'new_ma')?.count).toBe(2)
+  })
+})
+
+describe('conformitySummary', () => {
+  it('compte non conformes / analysés / non analysés', () => {
+    const s = conformitySummary(
+      [doc({ id: 'd1' }), doc({ id: 'd2' }), doc({ id: 'd3' })],
+      [
+        analysis({ docId: 'd1', findings: [finding({ upgrade: true })] }),
+        analysis({ docId: 'd2', findings: [finding({ ok: true, severity: 'info' })] }),
+      ],
+    )
+    expect(s.nonConformDocs).toBe(1)
+    expect(s.analyzedDocs).toBe(2)
+    expect(s.notAnalyzed).toBe(1)
   })
 })
