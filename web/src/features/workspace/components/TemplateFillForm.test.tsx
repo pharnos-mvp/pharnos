@@ -7,7 +7,11 @@ import { buildFillContent, formStateFromContent } from '../template-form/form-co
 import { initialFormState, type TemplateFormDefinition } from '../template-form/form-types'
 import { NOTICE_FORM_DEFINITION } from '../template-form/notice-form-model'
 import { RCP_FORM_DEFINITION } from '../template-form/rcp-form-model'
+import { I18nProvider } from '@/lib/I18nProvider'
 import { TemplateFillForm } from './TemplateFillForm'
+import type { ReactElement } from 'react'
+
+const renderI = (ui: ReactElement) => render(ui, { wrapper: I18nProvider })
 
 async function seedGenDoc(def: TemplateFormDefinition): Promise<GeneratedDocRecord> {
   const ts = new Date().toISOString()
@@ -31,7 +35,7 @@ async function seedGenDoc(def: TemplateFormDefinition): Promise<GeneratedDocReco
 describe('TemplateFillForm (formulaires officiels — branding CEO)', () => {
   it('RCP : feuille officielle (topbar, titres navy, champs, cases) — pas de barre globale', async () => {
     const rec = await seedGenDoc(RCP_FORM_DEFINITION)
-    render(
+    renderI(
       <TemplateFillForm def={RCP_FORM_DEFINITION} genDoc={rec} countryName="Bénin" orgId="org-1" />,
     )
     expect(screen.getByText('Résumé des Caractéristiques du Produit')).toBeInTheDocument()
@@ -48,7 +52,7 @@ describe('TemplateFillForm (formulaires officiels — branding CEO)', () => {
   it('persiste les saisies (débouncé) dans le content TipTap du document généré', async () => {
     const rec = await seedGenDoc(RCP_FORM_DEFINITION)
     const user = userEvent.setup()
-    render(
+    renderI(
       <TemplateFillForm def={RCP_FORM_DEFINITION} genDoc={rec} countryName="Bénin" orgId="org-1" />,
     )
 
@@ -72,7 +76,7 @@ describe('TemplateFillForm (formulaires officiels — branding CEO)', () => {
   it('Notice : barre des réglages globaux — le verbe re-rend les textes dynamiques', async () => {
     const rec = await seedGenDoc(NOTICE_FORM_DEFINITION)
     const user = userEvent.setup()
-    render(
+    renderI(
       <TemplateFillForm
         def={NOTICE_FORM_DEFINITION}
         genDoc={rec}

@@ -44,6 +44,7 @@ import { useProSettingsSync } from '@/features/profile/use-pro-settings-sync'
 import { db, type DossierAttachmentRecord, type GeneratedDocRecord } from '@/lib/db'
 import { env } from '@/lib/env'
 import { UPLOAD_ACCEPT } from '@/lib/files'
+import { useI18n } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import { extractCity } from './city'
 import { formatComposition } from './composition'
@@ -123,6 +124,7 @@ export function DossierWorkspacePage() {
   const { user } = useAuth()
   const userId = user?.id ?? 'local'
   const online = useOnlineStatus()
+  const { t, lang } = useI18n()
 
   const dossier = useLiveQuery(
     async () => (dossierId ? ((await getDossier(dossierId)) ?? null) : null),
@@ -379,14 +381,24 @@ export function DossierWorkspacePage() {
         blob,
       )
       if (missing.length > 0) {
-        toast.warning(`${missing.length} pièce(s) non incluse(s) (indisponibles hors-ligne)`, {
-          description: missing.slice(0, 5).join(', '),
-        })
+        toast.warning(
+          t({
+            fr: `${missing.length} pièce(s) non incluse(s) (indisponibles hors-ligne)`,
+            en: `${missing.length} item(s) not included (unavailable offline)`,
+          }),
+          {
+            description: missing.slice(0, 5).join(', '),
+          },
+        )
       }
     } catch (e) {
       console.error(e)
       const msg = (e as Error)?.message
-      toast.error(msg ? `Échec de la compilation : ${msg}` : 'Échec de la compilation du dossier.')
+      toast.error(
+        msg
+          ? t({ fr: `Échec de la compilation : ${msg}`, en: `Compilation failed: ${msg}` })
+          : t({ fr: 'Échec de la compilation du dossier.', en: 'Dossier compilation failed.' }),
+      )
     } finally {
       setCompiling(false)
     }
@@ -401,9 +413,9 @@ export function DossierWorkspacePage() {
       gate.unshift({
         id: 'empty',
         nodeNumber: '',
-        nodeLabel: 'Dossier',
+        nodeLabel: t({ fr: 'Dossier', en: 'Dossier' }),
         severity: 'error',
-        message: 'Dossier vide : aucun document.',
+        message: t({ fr: 'Dossier vide : aucun document.', en: 'Empty dossier: no documents.' }),
       })
     }
     // Recette n°6 : sans AUCUNE analyse de session, proposer l'Audit Global avant de compiler.
@@ -440,16 +452,18 @@ export function DossierWorkspacePage() {
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label="Retour aux dossiers"
+          aria-label={t({ fr: 'Retour aux dossiers', en: 'Back to dossiers' })}
           onClick={() => navigate('/workspace')}
         >
           <ArrowLeft className="size-4" />
         </Button>
         <div className="min-w-0 leading-tight">
           <div className="truncate text-sm font-semibold">
-            {dossier.productName} — {countryLabel(dossier.country)}
+            {dossier.productName} — {countryLabel(dossier.country, lang)}
           </div>
-          <div className="text-muted-foreground truncate text-xs">Création Module 1 ({fmt})</div>
+          <div className="text-muted-foreground truncate text-xs">
+            {t({ fr: `Création Module 1 (${fmt})`, en: `Module 1 creation (${fmt})` })}
+          </div>
         </div>
         <div className="ml-auto flex shrink-0 items-center gap-2">
           <Button
@@ -457,7 +471,7 @@ export function DossierWorkspacePage() {
             size="sm"
             onClick={() => navigate(`/workspace/${dossier.id}/roadmap`)}
           >
-            Roadmap
+            {t({ fr: 'Roadmap', en: 'Roadmap' })}
           </Button>
           <Button
             variant="outline"
@@ -466,29 +480,37 @@ export function DossierWorkspacePage() {
             onClick={() => setCorrPanelOpen(true)}
           >
             <MessagesSquare className="size-4" />
-            <span className="hidden lg:inline">Correspondance</span>
+            <span className="hidden lg:inline">
+              {t({ fr: 'Correspondance', en: 'Correspondence' })}
+            </span>
             {corrStatus !== 'draft' ? (
               <Badge className={cn('px-1.5 py-0', STATUS_BADGE_CLASSES[corrStatus])}>
-                {statusLabel(corrStatus)}
+                {statusLabel(corrStatus, lang)}
               </Badge>
             ) : null}
             {dossierUnread > 0 ? (
               <span
                 className="bg-primary text-primary-foreground absolute -top-1.5 -right-1.5 grid size-4 place-items-center rounded-full text-[10px] font-semibold"
-                aria-label={`${dossierUnread} message(s) non lu(s)`}
+                aria-label={t({
+                  fr: `${dossierUnread} message(s) non lu(s)`,
+                  en: `${dossierUnread} unread message(s)`,
+                })}
               >
                 {dossierUnread}
               </span>
             ) : null}
           </Button>
           <Button size="sm" disabled={compiling} onClick={() => compileClickRef.current()}>
-            <FileDown className="size-4" /> {compiling ? 'Compilation…' : 'Compiler le PDF'}
+            <FileDown className="size-4" />{' '}
+            {compiling
+              ? t({ fr: 'Compilation…', en: 'Compiling…' })
+              : t({ fr: 'Compiler le PDF', en: 'Compile the PDF' })}
           </Button>
         </div>
       </div>,
     )
     return () => setHeaderSlot(null)
-  }, [setHeaderSlot, dossier, navigate, compiling, corrStatus, dossierUnread])
+  }, [setHeaderSlot, dossier, navigate, compiling, corrStatus, dossierUnread, t, lang])
 
   // Libère l'object URL d'aperçu au démontage (évite une fuite si on quitte dialog ouvert).
   useEffect(() => {
@@ -521,14 +543,20 @@ export function DossierWorkspacePage() {
   }
 
   if (dossier === undefined) {
-    return <p className="text-muted-foreground p-4 text-sm">Chargement…</p>
+    return (
+      <p className="text-muted-foreground p-4 text-sm">
+        {t({ fr: 'Chargement…', en: 'Loading…' })}
+      </p>
+    )
   }
   if (dossier === null) {
     return (
       <div className="p-4">
-        <p className="text-muted-foreground text-sm">Dossier introuvable.</p>
+        <p className="text-muted-foreground text-sm">
+          {t({ fr: 'Dossier introuvable.', en: 'Dossier not found.' })}
+        </p>
         <Button variant="ghost" className="mt-2 -ml-2" onClick={() => navigate('/workspace')}>
-          <ArrowLeft /> Retour aux dossiers
+          <ArrowLeft /> {t({ fr: 'Retour aux dossiers', en: 'Back to dossiers' })}
         </Button>
       </div>
     )
@@ -732,7 +760,7 @@ export function DossierWorkspacePage() {
       triggerDownload(URL.createObjectURL(blob), `${base}_${suffix}.docx`, true)
     } catch (e) {
       console.error(e)
-      toast.error('Échec du téléchargement (.docx).')
+      toast.error(t({ fr: 'Échec du téléchargement (.docx).', en: 'Download failed (.docx).' }))
     }
   }
 
@@ -746,7 +774,7 @@ export function DossierWorkspacePage() {
       triggerDownload(URL.createObjectURL(blob), `${formExportName(def, state)}.docx`, true)
     } catch (e) {
       console.error(e)
-      toast.error('Échec du téléchargement (.docx).')
+      toast.error(t({ fr: 'Échec du téléchargement (.docx).', en: 'Download failed (.docx).' }))
     }
   }
 
@@ -794,19 +822,19 @@ export function DossierWorkspacePage() {
       void syncDossiers(orgId)
     }
     setPickedKey(null)
-    toast.success('Document retiré du dossier')
+    toast.success(t({ fr: 'Document retiré du dossier', en: 'Document removed from the dossier' }))
   }
 
   async function handleUpload(file: File) {
     if (!selected) return
     if (file.size > MAX_ATTACHMENT_BYTES) {
-      toast.error('Fichier trop lourd (max 25 Mo).')
+      toast.error(t({ fr: 'Fichier trop lourd (max 25 Mo).', en: 'File too large (max 25 MB).' }))
       return
     }
     try {
       await addAttachment(orgId, activeDossier.id, selected.number, file)
     } catch (error) {
-      toast.error("Échec de l'ajout", {
+      toast.error(t({ fr: "Échec de l'ajout", en: 'Upload failed' }), {
         description: error instanceof Error ? error.message : undefined,
       })
       return
@@ -823,10 +851,15 @@ export function DossierWorkspacePage() {
       clearPieceAnalysis(target.id)
       void syncDossiers(orgId)
       setPickedKey(null)
-      toast.success('Document remplacé.')
+      toast.success(t({ fr: 'Document remplacé.', en: 'Document replaced.' }))
       return
     }
-    toast.success('Pièce ajoutée — cliquez « Analyser » pour la vérifier.')
+    toast.success(
+      t({
+        fr: 'Pièce ajoutée — cliquez « Analyser » pour la vérifier.',
+        en: 'Item added — click “Analyze” to check it.',
+      }),
+    )
   }
 
   /** « Remplacer » (carte de constat) : téléverser un nouveau fichier à la place de la pièce visée. */
@@ -862,15 +895,24 @@ export function DossierWorkspacePage() {
     const rec = await createTemplateFillDoc(orgId, {
       dossierId: activeDossier.id,
       nodeNumber: node.number,
-      title: `${docType.toUpperCase()} — template à compléter`,
+      title: t({
+        fr: `${docType.toUpperCase()} — template à compléter`,
+        en: `${docType.toUpperCase()} — template to complete`,
+      }),
       content: skeleton,
     })
     void syncGeneratedDocs(orgId)
     openTab(rec.id)
-    toast.success('Template officiel prêt.', {
+    toast.success(t({ fr: 'Template officiel prêt.', en: 'Official template ready.' }), {
       description: formDefinitionFor(docType)
-        ? 'Remplissez le formulaire officiel — structure et mentions réglementaires verrouillées.'
-        : 'Complétez les zones [À COMPLÉTER] — les titres du template sont verrouillés.',
+        ? t({
+            fr: 'Remplissez le formulaire officiel — structure et mentions réglementaires verrouillées.',
+            en: 'Fill in the official form — regulatory structure and statements are locked.',
+          })
+        : t({
+            fr: 'Complétez les zones [À COMPLÉTER] — les titres du template sont verrouillés.',
+            en: 'Complete the [À COMPLÉTER] areas — the template headings are locked.',
+          }),
     })
   }
 
@@ -897,7 +939,7 @@ export function DossierWorkspacePage() {
     const merged = mergeDefaultTree(activeDossier.tree, getModule1Tree(activeDossier.format))
     await updateDossierTree(activeDossier.id, merged)
     void syncDossiers(orgId)
-    toast.success('Structure mise à jour')
+    toast.success(t({ fr: 'Structure mise à jour', en: 'Structure updated' }))
   }
 
   async function handleRemoveActive() {
@@ -914,7 +956,7 @@ export function DossierWorkspacePage() {
       void syncDossiers(orgId)
     }
     setPickedKey(null)
-    toast.success('Document retiré du dossier')
+    toast.success(t({ fr: 'Document retiré du dossier', en: 'Document removed from the dossier' }))
   }
 
   return (
@@ -930,7 +972,7 @@ export function DossierWorkspacePage() {
         <div className="sticky top-0 z-30 flex justify-center">
           <div className="bg-foreground flex items-center gap-0.5 rounded-full px-1 py-0.5 text-sm shadow-lg">
             <ToolbarBtn
-              label="Modifier"
+              label={t({ fr: 'Modifier', en: 'Edit' })}
               active={docEditing}
               onClick={() => {
                 if (!activeGenDoc) return
@@ -939,22 +981,31 @@ export function DossierWorkspacePage() {
               }}
             />
             <ToolbarBtn
-              label="Signer"
+              label={t({ fr: 'Signer', en: 'Sign' })}
               disabled={!liveEditor || !docEditing}
-              hint="Passez en mode Modifier pour signer"
+              hint={t({
+                fr: 'Passez en mode Modifier pour signer',
+                en: 'Switch to Edit mode to sign',
+              })}
               onClick={handleSign}
             />
-            <ToolbarBtn label="En-tête / Pied de page" onClick={() => setBrandPanelOpen(true)} />
+            <ToolbarBtn
+              label={t({ fr: 'En-tête / Pied de page', en: 'Header / Footer' })}
+              onClick={() => setBrandPanelOpen(true)}
+            />
             {activeGenDoc &&
             activeGenDoc.templateKey !== 'translation' &&
             activeGenDoc.templateKey !== 'upgrade' ? (
-              <ToolbarBtn label="Régénérer" onClick={() => void handleRegenerate()} />
+              <ToolbarBtn
+                label={t({ fr: 'Régénérer', en: 'Regenerate' })}
+                onClick={() => void handleRegenerate()}
+              />
             ) : null}
-            <ToolbarBtn label="Télécharger" onClick={handleDownload} />
+            <ToolbarBtn label={t({ fr: 'Télécharger', en: 'Download' })} onClick={handleDownload} />
             <ToolbarBtn
-              label="Supprimer"
+              label={t({ fr: 'Supprimer', en: 'Delete' })}
               disabled={!active}
-              hint="Sélectionnez un document"
+              hint={t({ fr: 'Sélectionnez un document', en: 'Select a document' })}
               onClick={() => void handleRemoveActive()}
             />
           </div>
@@ -979,7 +1030,11 @@ export function DossierWorkspacePage() {
           side="left"
           open={!collapsed}
           onClick={() => setCollapsed(!collapsed)}
-          label={collapsed ? "Déplier l'arborescence" : "Replier l'arborescence"}
+          label={
+            collapsed
+              ? t({ fr: "Déplier l'arborescence", en: 'Expand the structure' })
+              : t({ fr: "Replier l'arborescence", en: 'Collapse the structure' })
+          }
         />
 
         {/* Colonne centrale : contenu A4 qui défile (les toolbars sont dans le bandeau du haut). */}
@@ -1010,8 +1065,11 @@ export function DossierWorkspacePage() {
                     {viewables.map((v) => {
                       const removeHint =
                         v.kind === 'doc'
-                          ? 'Retirer du dossier (le document reste sous le produit)'
-                          : 'Supprimer du dossier'
+                          ? t({
+                              fr: 'Retirer du dossier (le document reste sous le produit)',
+                              en: 'Remove from dossier (the document stays under the product)',
+                            })
+                          : t({ fr: 'Supprimer du dossier', en: 'Remove from dossier' })
                       return (
                         <div
                           key={v.key}
@@ -1059,7 +1117,7 @@ export function DossierWorkspacePage() {
                         className="h-8 rounded-full"
                         onClick={() => void handleGenerate()}
                       >
-                        <Sparkles className="size-4" /> Générer
+                        <Sparkles className="size-4" /> {t({ fr: 'Générer', en: 'Generate' })}
                       </Button>
                     ) : null}
                     {/* Analyse Regafy À LA DEMANDE (recettes n°6-7) : pièce affichée OU document
@@ -1071,8 +1129,14 @@ export function DossierWorkspacePage() {
                         disabled={analyzing !== null || !online || !env.isSupabaseConfigured}
                         title={
                           !online || !env.isSupabaseConfigured
-                            ? 'Analyse disponible en ligne'
-                            : 'Vérifier ce document (conformité ou validité)'
+                            ? t({
+                                fr: 'Analyse disponible en ligne',
+                                en: 'Analysis available online',
+                              })
+                            : t({
+                                fr: 'Vérifier ce document (conformité ou validité)',
+                                en: 'Check this document (compliance or validity)',
+                              })
                         }
                         onClick={() => {
                           if (analyzableGenDoc) void analyzeGenerated(analyzableGenDoc)
@@ -1080,7 +1144,9 @@ export function DossierWorkspacePage() {
                         }}
                       >
                         <ScanSearch className="size-4" />
-                        {analyzing === analyzeTargetId ? 'Analyse…' : 'Analyser'}
+                        {analyzing === analyzeTargetId
+                          ? t({ fr: 'Analyse…', en: 'Analyzing…' })
+                          : t({ fr: 'Analyser', en: 'Analyze' })}
                       </Button>
                     ) : null}
                     <Button
@@ -1089,7 +1155,7 @@ export function DossierWorkspacePage() {
                       className="h-8 rounded-full"
                       onClick={() => fileInputRef.current?.click()}
                     >
-                      <Upload className="size-4" /> Téléverser
+                      <Upload className="size-4" /> {t({ fr: 'Téléverser', en: 'Upload' })}
                     </Button>
                   </div>
                 </div>
@@ -1108,8 +1174,14 @@ export function DossierWorkspacePage() {
                     </h2>
                     <p className="text-muted-foreground mt-3 max-w-md text-sm">
                       {selected.number === '1.0'
-                        ? 'Table des matières générée automatiquement à la compilation (pagination incluse).'
-                        : 'Page de garde générée automatiquement à la compilation — numéro et intitulé de la section.'}
+                        ? t({
+                            fr: 'Table des matières générée automatiquement à la compilation (pagination incluse).',
+                            en: 'Table of contents generated automatically at compilation (pagination included).',
+                          })
+                        : t({
+                            fr: 'Page de garde générée automatiquement à la compilation — numéro et intitulé de la section.',
+                            en: 'Cover page generated automatically at compilation — section number and title.',
+                          })}
                     </p>
                     <div className="mt-5 flex items-center gap-2">
                       <Button
@@ -1118,7 +1190,7 @@ export function DossierWorkspacePage() {
                         aria-pressed="true"
                         className="bg-foreground text-background hover:bg-foreground pointer-events-none rounded-full"
                       >
-                        Autogénéré
+                        {t({ fr: 'Autogénéré', en: 'Auto-generated' })}
                       </Button>
                       <Button
                         size="sm"
@@ -1126,7 +1198,7 @@ export function DossierWorkspacePage() {
                         className="rounded-full"
                         onClick={() => fileInputRef.current?.click()}
                       >
-                        <Upload className="size-4" /> Téléverser
+                        <Upload className="size-4" /> {t({ fr: 'Téléverser', en: 'Upload' })}
                       </Button>
                     </div>
                   </div>
@@ -1155,8 +1227,10 @@ export function DossierWorkspacePage() {
                     {activeGenDoc.templateKey === 'translation' ? (
                       <p className="text-muted-foreground flex items-center gap-1.5 px-3 pt-2 text-xs italic">
                         <Languages className="size-3.5 shrink-0 text-amber-500" />
-                        Traduction assistée (MedDRA) — à relire. N'altère pas l'original ; propre à
-                        ce dossier.
+                        {t({
+                          fr: "Traduction assistée (MedDRA) — à relire. N'altère pas l'original ; propre à ce dossier.",
+                          en: 'Assisted translation (MedDRA) — to review. Does not alter the original; specific to this dossier.',
+                        })}
                       </p>
                     ) : null}
                     {activeGenDoc.templateKey === 'upgrade' ? (
@@ -1168,8 +1242,14 @@ export function DossierWorkspacePage() {
                       >
                         <Wand2 className="size-3.5 shrink-0" />
                         {upgradeMissingCount > 0
-                          ? `Mise en conformité assistée — à relire : ${upgradeMissingCount} rubrique(s) marquée(s) [NON FOURNI DANS LE DOCUMENT SOURCE] à compléter.`
-                          : 'Mise en conformité assistée — à relire. Toutes les rubriques portent une information issue du document source.'}
+                          ? t({
+                              fr: `Mise en conformité assistée — à relire : ${upgradeMissingCount} rubrique(s) marquée(s) [NON FOURNI DANS LE DOCUMENT SOURCE] à compléter.`,
+                              en: `Assisted compliance upgrade — to review: ${upgradeMissingCount} section(s) marked [NON FOURNI DANS LE DOCUMENT SOURCE] to complete.`,
+                            })
+                          : t({
+                              fr: 'Mise en conformité assistée — à relire. Toutes les rubriques portent une information issue du document source.',
+                              en: 'Assisted compliance upgrade — to review. All sections carry information from the source document.',
+                            })}
                       </p>
                     ) : null}
                     {activeGenDoc.templateKey === 'fill' ? (
@@ -1182,8 +1262,14 @@ export function DossierWorkspacePage() {
                         >
                           <ClipboardList className="size-3.5 shrink-0" />
                           {formEmptyCount > 0
-                            ? `Formulaire officiel — ${formEmptyCount} champ(s) à compléter. Regafy vérifie la conformité à chaque enregistrement.`
-                            : 'Formulaire officiel — tous les champs sont remplis. Regafy vérifie la conformité à chaque enregistrement.'}
+                            ? t({
+                                fr: `Formulaire officiel — ${formEmptyCount} champ(s) à compléter. Regafy vérifie la conformité à chaque enregistrement.`,
+                                en: `Official form — ${formEmptyCount} field(s) to complete. Regafy checks compliance on each save.`,
+                              })
+                            : t({
+                                fr: 'Formulaire officiel — tous les champs sont remplis. Regafy vérifie la conformité à chaque enregistrement.',
+                                en: 'Official form — all fields are filled. Regafy checks compliance on each save.',
+                              })}
                         </p>
                       ) : (
                         <p
@@ -1194,8 +1280,14 @@ export function DossierWorkspacePage() {
                         >
                           <ClipboardList className="size-3.5 shrink-0" />
                           {fillMissingCount > 0
-                            ? `Template officiel — ${fillMissingCount} zone(s) [À COMPLÉTER] restante(s). Les titres du template sont verrouillés ; Regafy vérifie la conformité à chaque enregistrement.`
-                            : 'Template officiel — toutes les zones sont complétées. Regafy vérifie la conformité à chaque enregistrement.'}
+                            ? t({
+                                fr: `Template officiel — ${fillMissingCount} zone(s) [À COMPLÉTER] restante(s). Les titres du template sont verrouillés ; Regafy vérifie la conformité à chaque enregistrement.`,
+                                en: `Official template — ${fillMissingCount} [À COMPLÉTER] area(s) remaining. Template headings are locked; Regafy checks compliance on each save.`,
+                              })
+                            : t({
+                                fr: 'Template officiel — toutes les zones sont complétées. Regafy vérifie la conformité à chaque enregistrement.',
+                                en: 'Official template — all areas are completed. Regafy checks compliance on each save.',
+                              })}
                         </p>
                       )
                     ) : null}
@@ -1203,8 +1295,10 @@ export function DossierWorkspacePage() {
                       <div className="mx-3 mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
                         <span className="flex items-center gap-1.5 text-xs font-medium text-amber-800">
                           <Languages className="size-4 shrink-0" />
-                          Document conforme en {activeUpgradeLang?.toUpperCase()} — langue
-                          officielle du pays : {targetLangLabel}.
+                          {t({
+                            fr: `Document conforme en ${activeUpgradeLang?.toUpperCase()} — langue officielle du pays : ${targetLangLabel}.`,
+                            en: `Compliant document in ${activeUpgradeLang?.toUpperCase()} — country official language: ${targetLangLabel}.`,
+                          })}
                         </span>
                         <Button
                           size="sm"
@@ -1214,8 +1308,11 @@ export function DossierWorkspacePage() {
                         >
                           <Languages className="size-3.5" />
                           {translating === activeGenDoc.id
-                            ? 'Traduction…'
-                            : `Traduire en ${targetLangLabel}`}
+                            ? t({ fr: 'Traduction…', en: 'Translating…' })
+                            : t({
+                                fr: `Traduire en ${targetLangLabel}`,
+                                en: `Translate to ${targetLangLabel}`,
+                              })}
                         </Button>
                       </div>
                     ) : null}
@@ -1223,7 +1320,10 @@ export function DossierWorkspacePage() {
                       <div className="px-3 pt-2">
                         <TranslationProgress
                           text={streamText}
-                          label="Mise en conformité en cours — le document s'écrit au fil de l'eau…"
+                          label={t({
+                            fr: "Mise en conformité en cours — le document s'écrit au fil de l'eau…",
+                            en: 'Compliance upgrade in progress — the document is written as it streams…',
+                          })}
                         />
                       </div>
                     ) : null}
@@ -1240,7 +1340,7 @@ export function DossierWorkspacePage() {
                         def={activeFormDef}
                         genDoc={activeGenDoc}
                         product={product}
-                        countryName={countryLabel(activeDossier.country)}
+                        countryName={countryLabel(activeDossier.country, lang)}
                         orgId={orgId}
                       />
                     ) : (
@@ -1317,7 +1417,10 @@ export function DossierWorkspacePage() {
                     <Sparkles className="text-primary mb-2 size-8" />
                     <p className="text-sm font-medium">{TEMPLATES[selectedTplKey].title}</p>
                     <p className="text-muted-foreground mt-1 max-w-sm text-xs">
-                      Générez ce document depuis le modèle UEMOA, ou téléversez un fichier.
+                      {t({
+                        fr: 'Générez ce document depuis le modèle UEMOA, ou téléversez un fichier.',
+                        en: 'Generate this document from the WAEMU template, or upload a file.',
+                      })}
                     </p>
                     <Button className="mt-3" size="sm" onClick={() => void handleGenerate()}>
                       <Sparkles className="size-4" /> Générer
@@ -1326,30 +1429,41 @@ export function DossierWorkspacePage() {
                 ) : canFillSelected ? (
                   <div className="flex min-h-[24rem] flex-col items-center justify-center rounded-lg border border-dashed p-4 text-center">
                     <ClipboardList className="text-primary mb-2 size-8" />
-                    <p className="text-sm font-medium">Template officiel disponible</p>
+                    <p className="text-sm font-medium">
+                      {t({ fr: 'Template officiel disponible', en: 'Official template available' })}
+                    </p>
                     <p className="text-muted-foreground mt-1 max-w-sm text-xs">
-                      Remplissez le template en vigueur (structure verrouillée, conformité vérifiée
-                      par Regafy à chaque enregistrement), ou téléversez un document.
+                      {t({
+                        fr: 'Remplissez le template en vigueur (structure verrouillée, conformité vérifiée par Regafy à chaque enregistrement), ou téléversez un document.',
+                        en: 'Fill in the current template (locked structure, compliance checked by Regafy on each save), or upload a document.',
+                      })}
                     </p>
                     <Button
                       className="mt-3"
                       size="sm"
                       onClick={() => selected && void handleFillTemplate(selected)}
                     >
-                      <ClipboardList className="size-4" /> Remplir le template
+                      <ClipboardList className="size-4" />{' '}
+                      {t({ fr: 'Remplir le template', en: 'Fill the template' })}
                     </Button>
                   </div>
                 ) : (
                   <div className="text-muted-foreground flex min-h-[24rem] flex-col items-center justify-center rounded-lg border border-dashed text-sm">
                     <FileText className="mb-2 size-8" />
-                    Aucun document classé sous cette section.
+                    {t({
+                      fr: 'Aucun document classé sous cette section.',
+                      en: 'No document filed under this section.',
+                    })}
                   </div>
                 )}
               </div>
             </div>
           ) : (
             <div className="text-muted-foreground flex items-center justify-center rounded-lg border border-dashed py-16 text-sm">
-              Sélectionnez une section de l'arborescence.
+              {t({
+                fr: "Sélectionnez une section de l'arborescence.",
+                en: 'Select a section from the structure.',
+              })}
             </div>
           )}
         </div>
@@ -1358,7 +1472,11 @@ export function DossierWorkspacePage() {
           side="right"
           open={!rightCollapsed}
           onClick={() => setRightCollapsed(!rightCollapsed)}
-          label={rightCollapsed ? 'Afficher la complétude' : 'Replier la complétude'}
+          label={
+            rightCollapsed
+              ? t({ fr: 'Afficher la complétude', en: 'Show completeness' })
+              : t({ fr: 'Replier la complétude', en: 'Collapse completeness' })
+          }
           className="hidden lg:grid"
         />
         <CompletionPanel
@@ -1390,10 +1508,17 @@ export function DossierWorkspacePage() {
             <Button
               size="sm"
               disabled={!online || !env.isSupabaseConfigured}
-              title={!online ? 'Hors-ligne : l’envoi nécessite une connexion' : undefined}
+              title={
+                !online
+                  ? t({
+                      fr: 'Hors-ligne : l’envoi nécessite une connexion',
+                      en: 'Offline: sending requires a connection',
+                    })
+                  : undefined
+              }
               onClick={() => setShareOpen(true)}
             >
-              <Send className="size-4" /> Envoyer
+              <Send className="size-4" /> {t({ fr: 'Envoyer', en: 'Send' })}
             </Button>
           }
           onClose={closePreview}
@@ -1408,7 +1533,12 @@ export function DossierWorkspacePage() {
           senderEmail={user?.email ?? 'local'}
           onClose={() => setShareOpen(false)}
           onSent={() => {
-            toast.success('Dossier envoyé — la review du correspondant apparaîtra ici.')
+            toast.success(
+              t({
+                fr: 'Dossier envoyé — la review du correspondant apparaîtra ici.',
+                en: 'Dossier sent — the reviewer’s review will appear here.',
+              }),
+            )
           }}
         />
       ) : null}
