@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { CorrespondenceRecord, DossierRecord } from '@/lib/db'
+import { useI18n } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import { listByDossier } from './correspondence-repository'
 import {
@@ -46,6 +47,7 @@ export function ShareDialog({
   onClose,
   onSent,
 }: ShareDialogProps) {
+  const { t } = useI18n()
   const [recipientEmail, setRecipientEmail] = useState('')
   const [note, setNote] = useState('')
   const [withPassword, setWithPassword] = useState(false)
@@ -67,15 +69,30 @@ export function ShareDialog({
   async function handleSend() {
     const email = recipientEmail.trim()
     if (!EMAIL_RE.test(email)) {
-      toast.error('Adresse e-mail du correspondant invalide.')
+      toast.error(
+        t({
+          fr: 'Adresse e-mail du correspondant invalide.',
+          en: 'Invalid correspondent e-mail address.',
+        }),
+      )
       return
     }
     if (withPassword && password.trim().length < 8) {
-      toast.error('Mot de passe trop court (8 caractères minimum).')
+      toast.error(
+        t({
+          fr: 'Mot de passe trop court (8 caractères minimum).',
+          en: 'Password too short (8 characters minimum).',
+        }),
+      )
       return
     }
     if (!navigator.onLine) {
-      toast.error('Hors-ligne : l’envoi nécessite une connexion (téléversement du PDF).')
+      toast.error(
+        t({
+          fr: 'Hors-ligne : l’envoi nécessite une connexion (téléversement du PDF).',
+          en: 'Offline: sending requires a connection (PDF upload).',
+        }),
+      )
       return
     }
     setSending(true)
@@ -98,7 +115,10 @@ export function ShareDialog({
         setEmailState(sent ? 'sent' : 'failed'),
       )
     } catch (e) {
-      toast.error((e as Error)?.message ?? 'Échec de l’envoi du dossier.')
+      toast.error(
+        (e as Error)?.message ??
+          t({ fr: 'Échec de l’envoi du dossier.', en: 'Failed to send the dossier.' }),
+      )
     } finally {
       setSending(false)
     }
@@ -111,14 +131,24 @@ export function ShareDialog({
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      toast.error('Copie impossible — sélectionnez le lien manuellement.')
+      toast.error(
+        t({
+          fr: 'Copie impossible — sélectionnez le lien manuellement.',
+          en: 'Copy failed — select the link manually.',
+        }),
+      )
     }
   }
 
   /** Mise à jour d'un envoi existant : même lien/fil, nouveau PDF, correspondant prévenu. */
   async function handleUpdate(corr: CorrespondenceRecord) {
     if (!navigator.onLine) {
-      toast.error('Hors-ligne : l’envoi nécessite une connexion (téléversement du PDF).')
+      toast.error(
+        t({
+          fr: 'Hors-ligne : l’envoi nécessite une connexion (téléversement du PDF).',
+          en: 'Offline: sending requires a connection (PDF upload).',
+        }),
+      )
       return
     }
     setSending(true)
@@ -127,7 +157,10 @@ export function ShareDialog({
       setUpdatedFor(corr)
       onSent?.(corr)
     } catch (e) {
-      toast.error((e as Error)?.message ?? 'Échec de la mise à jour du dossier.')
+      toast.error(
+        (e as Error)?.message ??
+          t({ fr: 'Échec de la mise à jour du dossier.', en: 'Failed to update the dossier.' }),
+      )
     } finally {
       setSending(false)
     }
@@ -138,14 +171,23 @@ export function ShareDialog({
       className="fixed inset-0 z-60 flex items-center justify-center bg-black/70 p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Envoyer le dossier au correspondant"
+      aria-label={t({
+        fr: 'Envoyer le dossier au correspondant',
+        en: 'Send the dossier to the correspondent',
+      })}
     >
       <div className="bg-card w-full max-w-lg rounded-lg border shadow-lg">
         <div className="flex items-center justify-between border-b p-3">
           <div className="flex items-center gap-2 text-sm font-semibold">
-            <Send className="size-4" /> Envoyer le dossier — {dossier.productName}
+            <Send className="size-4" /> {t({ fr: 'Envoyer le dossier', en: 'Send the dossier' })} —{' '}
+            {dossier.productName}
           </div>
-          <Button variant="ghost" size="icon-sm" aria-label="Fermer" onClick={onClose}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t({ fr: 'Fermer', en: 'Close' })}
+            onClick={onClose}
+          >
             <X className="size-4" />
           </Button>
         </div>
@@ -153,14 +195,16 @@ export function ShareDialog({
         {updatedFor ? (
           <div className="space-y-4 p-4">
             <p className="text-sm">
-              Dossier mis à jour. <span className="font-medium">{updatedFor.recipientEmail}</span>{' '}
-              garde le même lien et tout l’historique des échanges — la nouvelle version du document
-              s’affichera à sa prochaine ouverture. Un e-mail de notification lui a été envoyé (si
-              la messagerie est joignable).
+              {t({ fr: 'Dossier mis à jour.', en: 'Dossier updated.' })}{' '}
+              <span className="font-medium">{updatedFor.recipientEmail}</span>{' '}
+              {t({
+                fr: 'garde le même lien et tout l’historique des échanges — la nouvelle version du document s’affichera à sa prochaine ouverture. Un e-mail de notification lui a été envoyé (si la messagerie est joignable).',
+                en: 'keeps the same link and the full exchange history — the new version of the document will appear the next time they open it. A notification e-mail has been sent to them (if their mailbox is reachable).',
+              })}
             </p>
             <div className="flex justify-end border-t pt-3">
               <Button size="sm" onClick={onClose}>
-                Fermer
+                {t({ fr: 'Fermer', en: 'Close' })}
               </Button>
             </div>
           </div>
@@ -168,10 +212,17 @@ export function ShareDialog({
           <div className="space-y-4 p-4">
             {activeSends.length > 0 ? (
               <div className="space-y-2 rounded-md border p-3">
-                <p className="text-sm font-medium">Ce dossier a déjà été envoyé.</p>
+                <p className="text-sm font-medium">
+                  {t({
+                    fr: 'Ce dossier a déjà été envoyé.',
+                    en: 'This dossier has already been sent.',
+                  })}
+                </p>
                 <p className="text-muted-foreground text-xs">
-                  Mettre à jour remplace le document — le correspondant garde le même lien et tout
-                  le fil d’échanges.
+                  {t({
+                    fr: 'Mettre à jour remplace le document — le correspondant garde le même lien et tout le fil d’échanges.',
+                    en: 'Updating replaces the document — the correspondent keeps the same link and the entire exchange thread.',
+                  })}
                 </p>
                 <div className="space-y-1.5">
                   {activeSends.map((corr) => (
@@ -190,33 +241,46 @@ export function ShareDialog({
                         <RefreshCw className="size-4" />
                       )}
                       <span className="truncate">
-                        Mettre à jour l’envoi à {corr.recipientEmail}
+                        {t({ fr: 'Mettre à jour l’envoi à', en: 'Update the send to' })}{' '}
+                        {corr.recipientEmail}
                       </span>
                     </Button>
                   ))}
                 </div>
-                <p className="text-muted-foreground text-xs">Ou créez un nouvel envoi :</p>
+                <p className="text-muted-foreground text-xs">
+                  {t({ fr: 'Ou créez un nouvel envoi :', en: 'Or create a new send:' })}
+                </p>
               </div>
             ) : null}
             <div className="space-y-1.5">
-              <Label htmlFor="share-email">E-mail du correspondant (agence locale)</Label>
+              <Label htmlFor="share-email">
+                {t({
+                  fr: 'E-mail du correspondant (agence locale)',
+                  en: 'Correspondent e-mail (local agency)',
+                })}
+              </Label>
               <Input
                 id="share-email"
                 type="email"
                 autoFocus
-                placeholder="agence@representant.com"
+                placeholder={t({ fr: 'agence@representant.com', en: 'agency@representative.com' })}
                 value={recipientEmail}
                 onChange={(e) => setRecipientEmail(e.target.value)}
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="share-note">Note d’accompagnement (optionnel)</Label>
+              <Label htmlFor="share-note">
+                {t({ fr: 'Note d’accompagnement (optionnel)', en: 'Cover note (optional)' })}
+              </Label>
               <textarea
                 id="share-note"
                 rows={3}
                 className={textareaClass}
-                placeholder="Ex. : merci de procéder au dépôt auprès de l’autorité…"
+                placeholder={t({
+                  fr: 'Ex. : merci de procéder au dépôt auprès de l’autorité…',
+                  en: 'E.g. please proceed with the submission to the authority…',
+                })}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
               />
@@ -230,16 +294,17 @@ export function ShareDialog({
                   checked={withPassword}
                   onChange={(e) => setWithPassword(e.target.checked)}
                 />
-                <Lock className="size-3.5" /> Protéger le lien par mot de passe
+                <Lock className="size-3.5" />{' '}
+                {t({ fr: 'Protéger le lien par mot de passe', en: 'Password-protect the link' })}
               </label>
               {withPassword && (
                 <div className="space-y-1.5">
                   <div className="flex gap-2">
                     <Input
-                      aria-label="Mot de passe du lien"
+                      aria-label={t({ fr: 'Mot de passe du lien', en: 'Link password' })}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="8 caractères minimum"
+                      placeholder={t({ fr: '8 caractères minimum', en: '8 characters minimum' })}
                     />
                     <Button
                       type="button"
@@ -248,12 +313,14 @@ export function ShareDialog({
                       className="shrink-0"
                       onClick={() => setPassword(suggestSharePassword())}
                     >
-                      Proposer
+                      {t({ fr: 'Proposer', en: 'Suggest' })}
                     </Button>
                   </div>
                   <p className="text-muted-foreground text-xs">
-                    À transmettre par un canal séparé (téléphone, WhatsApp…). Il n’est jamais stocké
-                    en clair et n’apparaîtra plus.
+                    {t({
+                      fr: 'À transmettre par un canal séparé (téléphone, WhatsApp…). Il n’est jamais stocké en clair et n’apparaîtra plus.',
+                      en: 'Share it through a separate channel (phone, WhatsApp…). It is never stored in clear text and will not be shown again.',
+                    })}
                   </p>
                 </div>
               )}
@@ -261,17 +328,19 @@ export function ShareDialog({
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="share-ttl">Validité du lien</Label>
+                <Label htmlFor="share-ttl">
+                  {t({ fr: 'Validité du lien', en: 'Link validity' })}
+                </Label>
                 <select
                   id="share-ttl"
                   className="border-input dark:bg-input/30 focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
                   value={ttlDays}
                   onChange={(e) => setTtlDays(e.target.value)}
                 >
-                  <option value="7">7 jours</option>
-                  <option value="30">30 jours</option>
-                  <option value="90">90 jours</option>
-                  <option value="0">Sans expiration</option>
+                  <option value="7">{t({ fr: '7 jours', en: '7 days' })}</option>
+                  <option value="30">{t({ fr: '30 jours', en: '30 days' })}</option>
+                  <option value="90">{t({ fr: '90 jours', en: '90 days' })}</option>
+                  <option value="0">{t({ fr: 'Sans expiration', en: 'No expiry' })}</option>
                 </select>
               </div>
               <label className="flex items-end gap-2 pb-2 text-sm">
@@ -281,13 +350,16 @@ export function ShareDialog({
                   checked={autoRevoke}
                   onChange={(e) => setAutoRevoke(e.target.checked)}
                 />
-                Révoquer le lien après la décision
+                {t({
+                  fr: 'Révoquer le lien après la décision',
+                  en: 'Revoke the link after the decision',
+                })}
               </label>
             </div>
 
             <div className="flex justify-end gap-2 border-t pt-3">
               <Button variant="outline" size="sm" onClick={onClose} disabled={sending}>
-                Annuler
+                {t({ fr: 'Annuler', en: 'Cancel' })}
               </Button>
               <Button size="sm" onClick={() => void handleSend()} disabled={sending}>
                 {sending ? (
@@ -295,16 +367,22 @@ export function ShareDialog({
                 ) : (
                   <Send className="size-4" />
                 )}
-                {sending ? 'Envoi…' : 'Envoyer'}
+                {sending ? t({ fr: 'Envoi…', en: 'Sending…' }) : t({ fr: 'Envoyer', en: 'Send' })}
               </Button>
             </div>
           </div>
         ) : (
           <div className="space-y-4 p-4">
             <p className="text-sm">
-              Dossier envoyé. Ce lien de review permet à{' '}
-              <span className="font-medium">{recipientEmail.trim()}</span> de prévisualiser,
-              télécharger et rendre une décision, sans compte Pharnos.
+              {t({
+                fr: 'Dossier envoyé. Ce lien de review permet à',
+                en: 'Dossier sent. This review link lets',
+              })}{' '}
+              <span className="font-medium">{recipientEmail.trim()}</span>{' '}
+              {t({
+                fr: 'de prévisualiser, télécharger et rendre une décision, sans compte Pharnos.',
+                en: 'preview, download and return a decision, with no Pharnos account.',
+              })}
             </p>
             <p
               className={cn(
@@ -316,13 +394,26 @@ export function ShareDialog({
               role="status"
             >
               {emailState === 'sending'
-                ? 'Notification e-mail en cours d’envoi…'
+                ? t({
+                    fr: 'Notification e-mail en cours d’envoi…',
+                    en: 'Sending e-mail notification…',
+                  })
                 : emailState === 'sent'
-                  ? 'E-mail de notification envoyé au correspondant.'
-                  : 'E-mail non envoyé — transmettez le lien ci-dessous vous-même.'}
+                  ? t({
+                      fr: 'E-mail de notification envoyé au correspondant.',
+                      en: 'Notification e-mail sent to the correspondent.',
+                    })
+                  : t({
+                      fr: 'E-mail non envoyé — transmettez le lien ci-dessous vous-même.',
+                      en: 'E-mail not sent — share the link below yourself.',
+                    })}
             </p>
             <div className="flex gap-2">
-              <Input readOnly value={sentUrl} aria-label="Lien de review" />
+              <Input
+                readOnly
+                value={sentUrl}
+                aria-label={t({ fr: 'Lien de review', en: 'Review link' })}
+              />
               <Button
                 type="button"
                 variant="outline"
@@ -331,18 +422,21 @@ export function ShareDialog({
                 onClick={() => void handleCopy()}
               >
                 {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-                {copied ? 'Copié' : 'Copier'}
+                {copied ? t({ fr: 'Copié', en: 'Copied' }) : t({ fr: 'Copier', en: 'Copy' })}
               </Button>
             </div>
             {withPassword && (
               <p className="text-muted-foreground text-xs">
-                <Lock className="mr-1 inline size-3" /> Lien protégé : communiquez le mot de passe
-                par un canal séparé — il ne sera plus affiché.
+                <Lock className="mr-1 inline size-3" />{' '}
+                {t({
+                  fr: 'Lien protégé : communiquez le mot de passe par un canal séparé — il ne sera plus affiché.',
+                  en: 'Protected link: share the password through a separate channel — it will not be shown again.',
+                })}
               </p>
             )}
             <div className="flex justify-end border-t pt-3">
               <Button size="sm" onClick={onClose}>
-                Fermer
+                {t({ fr: 'Fermer', en: 'Close' })}
               </Button>
             </div>
           </div>

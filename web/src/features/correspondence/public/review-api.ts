@@ -1,4 +1,5 @@
 import { env } from '@/lib/env'
+import type { Lang, Translatable } from '@/lib/i18n-context'
 
 /**
  * Client de l'Edge Function `share` (page publique de review — jalon H).
@@ -112,20 +113,44 @@ export async function callShare(req: ShareRequest): Promise<ShareResult> {
   }
 }
 
-/** Messages d'erreur FR de la page publique. */
-export const SHARE_ERROR_MESSAGES: Record<ShareErrorCode, string> = {
-  invalid: 'Lien invalide — vérifiez l’adresse reçue ou contactez l’expéditeur.',
-  revoked: 'Accès révoqué par l’expéditeur.',
-  expired: 'Lien expiré — demandez un nouvel envoi à l’expéditeur.',
-  password_required: 'Ce lien est protégé par un mot de passe.',
-  wrong_password: 'Mot de passe incorrect.',
-  rate_limited: 'Trop de tentatives — réessayez dans quelques minutes.',
-  attachment_invalid:
-    'Pièce jointe refusée (formats : PDF, PNG, JPG, WebP, DOCX — 4 Mo max par pièce, 3 pièces).',
-  bad_request: 'Requête invalide.',
-  offline: 'Connexion interrompue — vérifiez votre réseau puis réessayez.',
-  server_error: 'Erreur du service — réessayez dans un instant.',
+/** Messages d'erreur bilingues de la page publique (le reviewer choisit sa langue). */
+const SHARE_ERROR_MESSAGES: Record<ShareErrorCode, Translatable> = {
+  invalid: {
+    fr: 'Lien invalide — vérifiez l’adresse reçue ou contactez l’expéditeur.',
+    en: 'Invalid link — check the address you received or contact the sender.',
+  },
+  revoked: { fr: 'Accès révoqué par l’expéditeur.', en: 'Access revoked by the sender.' },
+  expired: {
+    fr: 'Lien expiré — demandez un nouvel envoi à l’expéditeur.',
+    en: 'Link expired — ask the sender to share it again.',
+  },
+  password_required: {
+    fr: 'Ce lien est protégé par un mot de passe.',
+    en: 'This link is password-protected.',
+  },
+  wrong_password: { fr: 'Mot de passe incorrect.', en: 'Incorrect password.' },
+  rate_limited: {
+    fr: 'Trop de tentatives — réessayez dans quelques minutes.',
+    en: 'Too many attempts — try again in a few minutes.',
+  },
+  attachment_invalid: {
+    fr: 'Pièce jointe refusée (formats : PDF, PNG, JPG, WebP, DOCX — 4 Mo max par pièce, 3 pièces).',
+    en: 'Attachment rejected (formats: PDF, PNG, JPG, WebP, DOCX — 4 MB max per file, 3 files).',
+  },
+  bad_request: { fr: 'Requête invalide.', en: 'Invalid request.' },
+  offline: {
+    fr: 'Connexion interrompue — vérifiez votre réseau puis réessayez.',
+    en: 'Connection lost — check your network and try again.',
+  },
+  server_error: {
+    fr: 'Erreur du service — réessayez dans un instant.',
+    en: 'Service error — please try again shortly.',
+  },
 }
+
+/** Message d'erreur de la page publique dans la langue choisie par le reviewer. */
+export const shareErrorMessage = (code: ShareErrorCode, lang: Lang = 'fr'): string =>
+  SHARE_ERROR_MESSAGES[code][lang]
 
 /** Lit un fichier en base64 (pièce jointe du reviewer). */
 export function fileToBase64(file: File): Promise<string> {

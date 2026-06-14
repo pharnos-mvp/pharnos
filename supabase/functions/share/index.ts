@@ -549,15 +549,20 @@ async function handleNotify(
       from,
       to: [corr.recipient_email],
       reply_to: corr.sender_email,
-      subject: `Dossier ${corr.product_name.replace(/[\r\n]/g, ' ')} — review demandée via Pharnos`,
+      // Bilingue FR/EN : le correspondant (agence locale UEMOA/CEDEAO) est anonyme côté serveur
+      // — sa langue est inconnue, et la région mêle pays francophones et anglophones. La note de
+      // l'expéditeur (texte libre) n'est jamais traduite (contenu utilisateur).
+      subject: `Dossier ${corr.product_name.replace(/[\r\n]/g, ' ')} — review demandée / requested (Pharnos)`,
       html: [
         `<div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:560px;margin:auto;padding:24px">`,
-        `<h2 style="margin:0 0 8px">Review de dossier réglementaire</h2>`,
-        `<p style="margin:0 0 16px;color:#444"><strong>${safeSender}</strong> vous a transmis le dossier <strong>${safeProduct}</strong> pour review et soumission.</p>`,
+        `<h2 style="margin:0 0 8px">Review de dossier réglementaire · Regulatory dossier review</h2>`,
+        `<p style="margin:0 0 4px;color:#444"><strong>${safeSender}</strong> vous a transmis le dossier <strong>${safeProduct}</strong> pour review et soumission.</p>`,
+        `<p style="margin:0 0 16px;color:#888;font-size:13px"><strong>${safeSender}</strong> has shared the dossier <strong>${safeProduct}</strong> with you for review and submission.</p>`,
         note ? `<p style="margin:0 0 16px;padding:12px;background:#f6f6f7;border-radius:8px;color:#333">${note}</p>` : '',
-        `<p style="margin:0 0 24px"><a href="${canonicalUrl}" style="background:#18181b;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;display:inline-block">Ouvrir le dossier</a></p>`,
-        `<p style="margin:0;color:#888;font-size:12px">Lien personnel — prévisualisez, téléchargez et rendez votre décision sans créer de compte. Si le lien est protégé, le mot de passe vous est communiqué séparément par l'expéditeur.</p>`,
-        `<p style="margin:16px 0 0;color:#aaa;font-size:11px">Pharnos — OS des affaires réglementaires pharmaceutiques UEMOA/CEDEAO</p>`,
+        `<p style="margin:0 0 24px"><a href="${canonicalUrl}" style="background:#18181b;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;display:inline-block">Ouvrir le dossier · Open the dossier</a></p>`,
+        `<p style="margin:0 0 4px;color:#888;font-size:12px">Lien personnel — prévisualisez, téléchargez et rendez votre décision sans créer de compte. Si le lien est protégé, le mot de passe vous est communiqué séparément par l'expéditeur.</p>`,
+        `<p style="margin:0;color:#888;font-size:12px">Personal link — preview, download and submit your decision without creating an account. If the link is protected, the password is sent to you separately by the sender.</p>`,
+        `<p style="margin:16px 0 0;color:#aaa;font-size:11px">Pharnos — OS des affaires réglementaires pharmaceutiques UEMOA/CEDEAO · the OS for pharmaceutical regulatory affairs in UEMOA/ECOWAS</p>`,
         `</div>`,
       ].join(''),
     }),

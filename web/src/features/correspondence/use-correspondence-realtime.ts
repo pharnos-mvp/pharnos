@@ -3,8 +3,9 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 import { toast } from 'sonner'
 
 import { db } from '@/lib/db'
+import { readLang } from '@/lib/i18n-context'
 import { getSupabase } from '@/lib/supabase'
-import { DECISION_LABELS } from './correspondence-constants'
+import { DECISION_LABELS, decisionLabel } from './correspondence-constants'
 import {
   rowToMessage,
   syncCorrespondences,
@@ -49,15 +50,20 @@ export function useCorrespondenceRealtime(orgId: string): void {
             // Une décision change le statut de la correspondance → rapatrie l'entête à jour.
             if (row.kind === 'decision') void syncCorrespondences(orgId)
             void db.correspondences.get(row.correspondence_id).then((corr) => {
+              // Langue lue à l'arrivée de l'évènement (websocket hors React) — défaut FR.
+              const lang = readLang()
               const product = corr ? ` — ${corr.productName}` : ''
               const decision =
                 row.kind === 'decision' && row.decision && row.decision in DECISION_LABELS
-                  ? DECISION_LABELS[row.decision as keyof typeof DECISION_LABELS]
+                  ? decisionLabel(row.decision as keyof typeof DECISION_LABELS, lang)
                   : null
-              toast.info(
-                decision ? `${decision}${product}` : `Nouveau message du correspondant${product}`,
-                { description: row.body ? row.body.slice(0, 140) : undefined },
-              )
+              const newMessage =
+                lang === 'en'
+                  ? `New message from the correspondent${product}`
+                  : `Nouveau message du correspondant${product}`
+              toast.info(decision ? `${decision}${product}` : newMessage, {
+                description: row.body ? row.body.slice(0, 140) : undefined,
+              })
             })
           },
         )

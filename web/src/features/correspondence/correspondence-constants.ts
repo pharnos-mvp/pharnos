@@ -42,11 +42,16 @@ export const statusBadgeClass = (s: string): string =>
   STATUS_BADGE_CLASSES[s as DossierDisplayStatus] ?? STATUS_BADGE_CLASSES.draft
 
 /** Libellés des décisions du reviewer (page publique + fil). */
-export const DECISION_LABELS: Record<Exclude<CorrespondenceStatus, 'in_review'>, string> = {
-  accepted: 'Dossier accepté',
-  suspended: 'Dossier mis en suspens',
-  rejected: 'Dossier rejeté',
+export const DECISION_LABELS: Record<Exclude<CorrespondenceStatus, 'in_review'>, Translatable> = {
+  accepted: { fr: 'Dossier accepté', en: 'Dossier accepted' },
+  suspended: { fr: 'Dossier mis en suspens', en: 'Dossier suspended' },
+  rejected: { fr: 'Dossier rejeté', en: 'Dossier rejected' },
 }
+
+export const decisionLabel = (
+  s: Exclude<CorrespondenceStatus, 'in_review'>,
+  lang: Lang = 'fr',
+): string => DECISION_LABELS[s][lang]
 
 /**
  * État affiché d'un dossier, DÉRIVÉ de ses correspondances (source de vérité :

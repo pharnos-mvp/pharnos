@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { LangSwitch } from '@/components/layout/LangSwitch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,11 +33,12 @@ import { ConversationAvatar } from '@/features/correspondence/correspondence-ava
 import { MessageThread } from '@/features/correspondence/MessageThread'
 import '@/features/correspondence/correspondence-chat.css'
 import { activityLabel, countryLabel } from '@/features/workspace/dossier-constants'
+import { useI18n, type Lang } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import {
   callShare,
   fileToBase64,
-  SHARE_ERROR_MESSAGES,
+  shareErrorMessage,
   type OpenPayload,
   type ReviewAttachmentInput,
   type ShareErrorCode,
@@ -57,10 +59,14 @@ const VIEWER_URL_MAX_AGE_MS = 40 * 60_000
 type Phase = 'loading' | 'password' | 'error' | 'ready' | 'done'
 type Decision = 'accepted' | 'suspended' | 'rejected'
 
-const DECISION_OPTIONS: { value: Decision; label: string; icon: typeof Check }[] = [
-  { value: 'accepted', label: 'Accepter', icon: Check },
-  { value: 'suspended', label: 'Suspendre', icon: PauseCircle },
-  { value: 'rejected', label: 'Rejeter', icon: XCircle },
+const DECISION_OPTIONS: {
+  value: Decision
+  label: { fr: string; en: string }
+  icon: typeof Check
+}[] = [
+  { value: 'accepted', label: { fr: 'Accepter', en: 'Accept' }, icon: Check },
+  { value: 'suspended', label: { fr: 'Suspendre', en: 'Suspend' }, icon: PauseCircle },
+  { value: 'rejected', label: { fr: 'Rejeter', en: 'Reject' }, icon: XCircle },
 ]
 
 // Pills de décision toujours colorées (mockup) ; remplies quand sélectionnées (STATUS_BADGE).
@@ -73,24 +79,28 @@ const DECISION_PILL: Record<Decision, string> = {
     'border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950',
 }
 
-const formatSize = (bytes: number) => {
+const formatSize = (bytes: number, lang: Lang) => {
   const b = Number.isFinite(bytes) && bytes > 0 ? bytes : 0
-  return b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} Mo` : `${Math.ceil(b / 1024)} Ko`
+  const mb = lang === 'en' ? 'MB' : 'Mo'
+  const kb = lang === 'en' ? 'KB' : 'Ko'
+  return b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} ${mb}` : `${Math.ceil(b / 1024)} ${kb}`
 }
 
-const stampFmt = new Intl.DateTimeFormat('fr', { dateStyle: 'short', timeStyle: 'short' })
+const dtLocale = (lang: Lang) => (lang === 'en' ? 'en-GB' : 'fr')
 
 /** Texte du filigrane reviewer (aperçu canvas + PDF téléchargé) — traçabilité L1. */
-const watermarkText = (c: { recipientEmail: string }, at: Date) =>
-  `${c.recipientEmail} · ${stampFmt.format(at)}`
+const watermarkText = (c: { recipientEmail: string }, at: Date, lang: Lang) =>
+  `${c.recipientEmail} · ${new Intl.DateTimeFormat(dtLocale(lang), { dateStyle: 'short', timeStyle: 'short' }).format(at)}`
 
 /**
  * Page publique de review (jalon H, layout v2) — `/r/{token}`, AUCUN compte requis.
  * L'aperçu PDF occupe l'écran (streaming HTTP Range : première page en ~centaines de Ko) ;
  * le panneau review (contexte, décision, fil) est un TIROIR collé au bord droit, repliable
  * via une languette (même geste que les panneaux du montage CTD), overlay plein écran en mobile.
+ * Bilingue : le reviewer (anonyme) choisit sa langue via le sélecteur de l'en-tête (défaut FR).
  */
 export function PublicReviewPage({ token }: { token: string }) {
+  const { t, lang } = useI18n()
   const [phase, setPhase] = useState<Phase>('loading')
   const [errorCode, setErrorCode] = useState<ShareErrorCode>('server_error')
   const [data, setData] = useState<OpenPayload | null>(null)
@@ -147,14 +157,14 @@ export function PublicReviewPage({ token }: { token: string }) {
         setPhase('password')
       } else if (res.error === 'wrong_password' || res.error === 'rate_limited') {
         setPhase('password')
-        setPasswordError(SHARE_ERROR_MESSAGES[res.error])
+        setPasswordError(shareErrorMessage(res.error, lang))
       } else {
         setErrorCode(res.error)
         setPhase('error')
       }
       return false
     },
-    [token],
+    [token, lang],
   )
 
   useEffect(() => {
@@ -212,11 +222,16 @@ export function PublicReviewPage({ token }: { token: string }) {
     const next = [...files]
     for (const f of picked) {
       if (next.length >= MAX_FILES) {
-        toast.error(`Maximum ${MAX_FILES} pièces par message.`)
+        toast.error(
+          t({
+            fr: `Maximum ${MAX_FILES} pièces par message.`,
+            en: `Maximum ${MAX_FILES} files per message.`,
+          }),
+        )
         break
       }
       if (f.size > MAX_FILE_BYTES) {
-        toast.error(`« ${f.name} » dépasse 4 Mo.`)
+        toast.error(t({ fr: `« ${f.name} » dépasse 4 Mo.`, en: `“${f.name}” exceeds 4 MB.` }))
         continue
       }
       next.push(f)
@@ -228,7 +243,12 @@ export function PublicReviewPage({ token }: { token: string }) {
   async function handleSubmit() {
     const body = comment.trim()
     if (!decisionPick && !body && files.length === 0) {
-      toast.error('Choisissez une décision ou écrivez un message.')
+      toast.error(
+        t({
+          fr: 'Choisissez une décision ou écrivez un message.',
+          en: 'Choose a decision or write a message.',
+        }),
+      )
       return
     }
     setSubmitting(true)
@@ -252,7 +272,7 @@ export function PublicReviewPage({ token }: { token: string }) {
         attachments,
       })
       if (!res.ok) {
-        toast.error(SHARE_ERROR_MESSAGES[res.error])
+        toast.error(shareErrorMessage(res.error, lang))
         return
       }
       setData(res.data)
@@ -268,7 +288,7 @@ export function PublicReviewPage({ token }: { token: string }) {
         setLinkClosed(res.data.linkRevoked === true)
         setPhase('done')
       } else {
-        toast.success('Message envoyé.')
+        toast.success(t({ fr: 'Message envoyé.', en: 'Message sent.' }))
       }
     } finally {
       setSubmitting(false)
@@ -287,7 +307,7 @@ export function PublicReviewPage({ token }: { token: string }) {
       // Le fichier téléchargé porte l'heure RÉELLE du téléchargement (pas une prop de rendu).
       const blob = await watermarkPdfBlob(
         await r.blob(),
-        watermarkText(data.correspondence, new Date()),
+        watermarkText(data.correspondence, new Date(), lang),
       )
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -296,7 +316,12 @@ export function PublicReviewPage({ token }: { token: string }) {
       a.click()
       setTimeout(() => URL.revokeObjectURL(url), 30_000)
     } catch {
-      toast.error('Téléchargement impossible — réessayez (le lien d’aperçu expire après 1 h).')
+      toast.error(
+        t({
+          fr: 'Téléchargement impossible — réessayez (le lien d’aperçu expire après 1 h).',
+          en: 'Download failed — try again (the preview link expires after 1 h).',
+        }),
+      )
     } finally {
       setDownloading(false)
     }
@@ -318,7 +343,7 @@ export function PublicReviewPage({ token }: { token: string }) {
             decisionPick === value ? STATUS_BADGE_CLASSES[value] : DECISION_PILL[value],
           )}
         >
-          <Icon className="size-3.5" /> {label}
+          <Icon className="size-3.5" /> {t(label)}
         </button>
       ))}
     </div>
@@ -331,7 +356,7 @@ export function PublicReviewPage({ token }: { token: string }) {
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label="Actualiser le fil"
+          aria-label={t({ fr: 'Actualiser le fil', en: 'Refresh the thread' })}
           onClick={() => void open(grantedPassword.current, { silent: true })}
         >
           <RefreshCw className="size-4" />
@@ -341,7 +366,7 @@ export function PublicReviewPage({ token }: { token: string }) {
             variant="ghost"
             size="icon-sm"
             className="hidden lg:inline-flex"
-            aria-label="Réduire la fenêtre"
+            aria-label={t({ fr: 'Réduire la fenêtre', en: 'Minimize window' })}
             onClick={() => setPanelView('half')}
           >
             <Minimize2 className="size-4" />
@@ -351,7 +376,7 @@ export function PublicReviewPage({ token }: { token: string }) {
             variant="ghost"
             size="icon-sm"
             className="hidden lg:inline-flex"
-            aria-label="Agrandir la fenêtre"
+            aria-label={t({ fr: 'Agrandir la fenêtre', en: 'Maximize window' })}
             onClick={() => setPanelView('full')}
           >
             <Maximize2 className="size-4" />
@@ -360,7 +385,7 @@ export function PublicReviewPage({ token }: { token: string }) {
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label="Fermer la correspondance"
+          aria-label={t({ fr: 'Fermer la correspondance', en: 'Close correspondence' })}
           onClick={() => setPanelView('closed')}
         >
           <X className="size-4" />
@@ -374,22 +399,24 @@ export function PublicReviewPage({ token }: { token: string }) {
           <div className="border-b p-4">
             <h1 className="text-base font-semibold">{c.productName}</h1>
             <dl className="text-muted-foreground mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
-              <dt>Pays cible</dt>
-              <dd className="text-foreground">{countryLabel(c.country)}</dd>
-              <dt>Activité</dt>
-              <dd className="text-foreground">{activityLabel(c.activity)}</dd>
-              <dt>Expéditeur</dt>
+              <dt>{t({ fr: 'Pays cible', en: 'Target country' })}</dt>
+              <dd className="text-foreground">{countryLabel(c.country, lang)}</dd>
+              <dt>{t({ fr: 'Activité', en: 'Activity' })}</dt>
+              <dd className="text-foreground">{activityLabel(c.activity, lang)}</dd>
+              <dt>{t({ fr: 'Expéditeur', en: 'Sender' })}</dt>
               <dd className="text-foreground break-all">{c.senderEmail}</dd>
-              <dt>Envoyé le</dt>
+              <dt>{t({ fr: 'Envoyé le', en: 'Sent on' })}</dt>
               <dd className="text-foreground">
-                {new Intl.DateTimeFormat('fr', { dateStyle: 'long' }).format(new Date(c.createdAt))}
+                {new Intl.DateTimeFormat(dtLocale(lang), { dateStyle: 'long' }).format(
+                  new Date(c.createdAt),
+                )}
               </dd>
               {c.expiresAt ? (
                 <>
-                  <dt>Valable</dt>
+                  <dt>{t({ fr: 'Valable', en: 'Valid' })}</dt>
                   <dd className="text-foreground">
-                    jusqu’au{' '}
-                    {new Intl.DateTimeFormat('fr', { dateStyle: 'medium' }).format(
+                    {t({ fr: 'jusqu’au', en: 'until' })}{' '}
+                    {new Intl.DateTimeFormat(dtLocale(lang), { dateStyle: 'medium' }).format(
                       new Date(c.expiresAt),
                     )}
                   </dd>
@@ -399,7 +426,9 @@ export function PublicReviewPage({ token }: { token: string }) {
           </div>
           <div className="p-4">
             <div className="text-muted-foreground mb-2 text-xs font-semibold">
-              {c.status === 'in_review' ? 'Votre décision' : 'Réviser la décision'}
+              {c.status === 'in_review'
+                ? t({ fr: 'Votre décision', en: 'Your decision' })
+                : t({ fr: 'Réviser la décision', en: 'Review the decision' })}
             </div>
             {decisionPills}
           </div>
@@ -411,7 +440,9 @@ export function PublicReviewPage({ token }: { token: string }) {
             <ConversationAvatar email={c.senderEmail} />
             <div className="min-w-0">
               <div className="truncate text-sm font-semibold">{c.senderEmail}</div>
-              <div className="text-muted-foreground truncate text-xs">{statusLabel(c.status)}</div>
+              <div className="text-muted-foreground truncate text-xs">
+                {statusLabel(c.status, lang)}
+              </div>
             </div>
           </div>
 
@@ -434,11 +465,13 @@ export function PublicReviewPage({ token }: { token: string }) {
                     <span className="flex min-w-0 items-center gap-1">
                       <Paperclip className="size-3 shrink-0" />
                       <span className="truncate">{f.name}</span>
-                      <span className="text-muted-foreground shrink-0">· {formatSize(f.size)}</span>
+                      <span className="text-muted-foreground shrink-0">
+                        · {formatSize(f.size, lang)}
+                      </span>
                     </span>
                     <button
                       type="button"
-                      aria-label={`Retirer ${f.name}`}
+                      aria-label={t({ fr: `Retirer ${f.name}`, en: `Remove ${f.name}` })}
                       className="cursor-pointer"
                       onClick={() => setFiles(files.filter((_, j) => j !== i))}
                     >
@@ -463,7 +496,7 @@ export function PublicReviewPage({ token }: { token: string }) {
                 variant="ghost"
                 size="icon"
                 className="size-10 shrink-0 rounded-full"
-                aria-label="Joindre une pièce"
+                aria-label={t({ fr: 'Joindre une pièce', en: 'Attach a file' })}
                 disabled={files.length >= MAX_FILES}
                 onClick={() => fileInputRef.current?.click()}
               >
@@ -473,7 +506,11 @@ export function PublicReviewPage({ token }: { token: string }) {
                 ref={composerRef}
                 rows={1}
                 className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 min-h-10 flex-1 resize-none rounded-2xl border bg-transparent px-4 py-2.5 text-sm outline-none focus-visible:ring-[3px]"
-                placeholder={decisionPick ? 'Commentaire (recommandé)…' : 'Écrivez un message…'}
+                placeholder={
+                  decisionPick
+                    ? t({ fr: 'Commentaire (recommandé)…', en: 'Comment (recommended)…' })
+                    : t({ fr: 'Écrivez un message…', en: 'Write a message…' })
+                }
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
               />
@@ -481,7 +518,11 @@ export function PublicReviewPage({ token }: { token: string }) {
                 size="icon"
                 className="size-10 shrink-0 rounded-full"
                 disabled={submitting}
-                aria-label={decisionPick ? 'Envoyer la décision' : 'Envoyer'}
+                aria-label={
+                  decisionPick
+                    ? t({ fr: 'Envoyer la décision', en: 'Send the decision' })
+                    : t({ fr: 'Envoyer', en: 'Send' })
+                }
                 onClick={() => void handleSubmit()}
               >
                 {submitting ? (
@@ -493,8 +534,14 @@ export function PublicReviewPage({ token }: { token: string }) {
             </div>
             <p className="text-muted-foreground text-[11px]">
               {decisionPick
-                ? 'Décision sélectionnée — ajoutez un commentaire (optionnel) puis Envoyer.'
-                : `PDF, PNG, JPG, WebP, DOCX — 4 Mo max par pièce, ${MAX_FILES} pièces.`}
+                ? t({
+                    fr: 'Décision sélectionnée — ajoutez un commentaire (optionnel) puis Envoyer.',
+                    en: 'Decision selected — add a comment (optional) then Send.',
+                  })
+                : t({
+                    fr: `PDF, PNG, JPG, WebP, DOCX — 4 Mo max par pièce, ${MAX_FILES} pièces.`,
+                    en: `PDF, PNG, JPG, WebP, DOCX — 4 MB max per file, ${MAX_FILES} files.`,
+                  })}
             </p>
           </div>
         </section>
@@ -510,29 +557,37 @@ export function PublicReviewPage({ token }: { token: string }) {
             <img src="/favicon.svg" alt="" className="size-6" />
             <span className="text-base font-semibold tracking-tight">Pharnos</span>
             <span className="text-muted-foreground hidden text-sm sm:inline">
-              · Review de dossier réglementaire
+              · {t({ fr: 'Review de dossier réglementaire', en: 'Regulatory dossier review' })}
             </span>
           </div>
-          {c ? (
-            <Badge className={cn('px-2.5 py-0.5', statusBadgeClass(c.status))}>
-              {statusLabel(c.status)}
-            </Badge>
-          ) : null}
+          <div className="flex items-center gap-2">
+            {c ? (
+              <Badge className={cn('px-2.5 py-0.5', statusBadgeClass(c.status))}>
+                {statusLabel(c.status, lang)}
+              </Badge>
+            ) : null}
+            <LangSwitch />
+          </div>
         </div>
       </header>
 
       {phase === 'loading' ? (
         <div className="text-muted-foreground flex flex-1 items-center justify-center gap-2 text-sm">
-          <Loader2 className="size-4 animate-spin" /> Ouverture du dossier…
+          <Loader2 className="size-4 animate-spin" />{' '}
+          {t({ fr: 'Ouverture du dossier…', en: 'Opening the dossier…' })}
         </div>
       ) : phase === 'password' ? (
         <main className="flex-1 overflow-auto px-4">
           <div className="mx-auto mt-16 max-w-sm rounded-lg border p-6">
             <div className="flex items-center gap-2 text-sm font-semibold">
-              <Lock className="size-4" /> Lien protégé par mot de passe
+              <Lock className="size-4" />{' '}
+              {t({ fr: 'Lien protégé par mot de passe', en: 'Password-protected link' })}
             </div>
             <p className="text-muted-foreground mt-1 text-sm">
-              Saisissez le mot de passe communiqué par l’expéditeur.
+              {t({
+                fr: 'Saisissez le mot de passe communiqué par l’expéditeur.',
+                en: 'Enter the password provided by the sender.',
+              })}
             </p>
             <form
               className="mt-4 space-y-3"
@@ -544,13 +599,14 @@ export function PublicReviewPage({ token }: { token: string }) {
               <Input
                 type="password"
                 autoFocus
-                aria-label="Mot de passe"
+                aria-label={t({ fr: 'Mot de passe', en: 'Password' })}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
               {passwordError ? <p className="text-destructive text-sm">{passwordError}</p> : null}
               <Button type="submit" className="w-full" disabled={unlocking || !password.trim()}>
-                {unlocking ? <Loader2 className="size-4 animate-spin" /> : null} Accéder au dossier
+                {unlocking ? <Loader2 className="size-4 animate-spin" /> : null}{' '}
+                {t({ fr: 'Accéder au dossier', en: 'Access the dossier' })}
               </Button>
             </form>
           </div>
@@ -559,7 +615,7 @@ export function PublicReviewPage({ token }: { token: string }) {
         <main className="flex-1 overflow-auto px-4">
           <div className="mx-auto mt-16 max-w-md rounded-lg border p-6 text-center">
             <CircleAlert className="text-muted-foreground mx-auto size-8" />
-            <p className="mt-3 text-sm font-medium">{SHARE_ERROR_MESSAGES[errorCode]}</p>
+            <p className="mt-3 text-sm font-medium">{shareErrorMessage(errorCode, lang)}</p>
             {errorCode !== 'invalid' && errorCode !== 'revoked' ? (
               <Button
                 variant="outline"
@@ -570,7 +626,7 @@ export function PublicReviewPage({ token }: { token: string }) {
                   void open(grantedPassword.current)
                 }}
               >
-                <RefreshCw className="size-4" /> Réessayer
+                <RefreshCw className="size-4" /> {t({ fr: 'Réessayer', en: 'Retry' })}
               </Button>
             ) : null}
           </div>
@@ -581,18 +637,27 @@ export function PublicReviewPage({ token }: { token: string }) {
             <div className="bg-muted mx-auto grid size-14 place-items-center rounded-full">
               <Check className="size-7 text-emerald-600 dark:text-emerald-400" />
             </div>
-            <h1 className="mt-4 text-lg font-semibold">Merci d’avoir répondu.</h1>
+            <h1 className="mt-4 text-lg font-semibold">
+              {t({ fr: 'Merci d’avoir répondu.', en: 'Thank you for your response.' })}
+            </h1>
             <p className="text-muted-foreground mt-2 text-sm">
-              Votre décision —{' '}
+              {t({ fr: 'Votre décision —', en: 'Your decision —' })}{' '}
               <Badge className={cn('align-middle', statusBadgeClass(c.status))}>
-                {statusLabel(c.status)}
+                {statusLabel(c.status, lang)}
               </Badge>{' '}
-              — a été transmise à <span className="font-medium">{c.senderEmail}</span>.
+              {t({ fr: '— a été transmise à', en: '— has been sent to' })}{' '}
+              <span className="font-medium">{c.senderEmail}</span>.
             </p>
             <p className="text-muted-foreground mt-3 text-sm">
               {linkClosed
-                ? 'Vous pouvez fermer cette page. Ce lien est maintenant clôturé — si l’expéditeur souhaite poursuivre l’échange, il vous transmettra un nouveau lien par e-mail.'
-                : 'Vous pouvez fermer cette page. Si l’expéditeur vous répond ou met le dossier à jour, vous serez prévenu par e-mail — ce même lien vous ramènera à l’échange complet.'}
+                ? t({
+                    fr: 'Vous pouvez fermer cette page. Ce lien est maintenant clôturé — si l’expéditeur souhaite poursuivre l’échange, il vous transmettra un nouveau lien par e-mail.',
+                    en: 'You can close this page. This link is now closed — if the sender wishes to continue the exchange, they will send you a new link by e-mail.',
+                  })
+                : t({
+                    fr: 'Vous pouvez fermer cette page. Si l’expéditeur vous répond ou met le dossier à jour, vous serez prévenu par e-mail — ce même lien vous ramènera à l’échange complet.',
+                    en: 'You can close this page. If the sender replies or updates the dossier, you will be notified by e-mail — this same link will bring you back to the full exchange.',
+                  })}
             </p>
           </div>
         </main>
@@ -604,10 +669,10 @@ export function PublicReviewPage({ token }: { token: string }) {
               <div className="flex min-w-0 items-center gap-2 text-sm">
                 <FileText className="size-4 shrink-0" />
                 <span className="truncate font-medium">
-                  Module 1 — {c.productName} ({countryLabel(c.country)})
+                  Module 1 — {c.productName} ({countryLabel(c.country, lang)})
                 </span>
                 <span className="text-muted-foreground shrink-0 text-xs">
-                  {formatSize(c.pdfSize)}
+                  {formatSize(c.pdfSize, lang)}
                 </span>
               </div>
               <div className="flex shrink-0 items-center gap-2">
@@ -622,12 +687,13 @@ export function PublicReviewPage({ token }: { token: string }) {
                   ) : (
                     <Download className="size-4" />
                   )}
-                  Télécharger
+                  {t({ fr: 'Télécharger', en: 'Download' })}
                 </Button>
                 {/* État FERMÉ (mockup) : bouton « Correspondance » + nombre d'échanges. */}
                 {!panelOpen ? (
                   <Button size="sm" className="relative" onClick={() => setPanelView('half')}>
-                    <MessagesSquare className="size-4" /> Correspondance
+                    <MessagesSquare className="size-4" />{' '}
+                    {t({ fr: 'Correspondance', en: 'Correspondence' })}
                     {messageCount > 0 ? (
                       <span className="bg-primary-foreground text-primary absolute -top-1.5 -right-1.5 grid size-5 place-items-center rounded-full text-[11px] font-bold">
                         {messageCount > 99 ? '99+' : messageCount}
@@ -641,7 +707,8 @@ export function PublicReviewPage({ token }: { token: string }) {
               <Suspense
                 fallback={
                   <div className="text-muted-foreground flex items-center justify-center gap-2 py-16 text-sm">
-                    <Loader2 className="size-4 animate-spin" /> Préparation de l’aperçu…
+                    <Loader2 className="size-4 animate-spin" />{' '}
+                    {t({ fr: 'Préparation de l’aperçu…', en: 'Preparing the preview…' })}
                   </div>
                 }
               >
@@ -650,7 +717,7 @@ export function PublicReviewPage({ token }: { token: string }) {
                   <PdfViewer
                     url={viewerUrl}
                     size={c.pdfSize}
-                    watermark={watermarkText(c, openedAt)}
+                    watermark={watermarkText(c, openedAt, lang)}
                   />
                 ) : null}
               </Suspense>
@@ -667,7 +734,7 @@ export function PublicReviewPage({ token }: { token: string }) {
                   ? 'fixed inset-0 z-40'
                   : 'relative w-[min(840px,47%)] min-w-[560px] shrink-0 border-l shadow-[-12px_0_34px_rgba(0,0,0,.18)]',
               )}
-              aria-label="Panneau de review"
+              aria-label={t({ fr: 'Panneau de review', en: 'Review panel' })}
               role={panelView === 'full' ? 'dialog' : undefined}
               aria-modal={panelView === 'full' ? true : undefined}
             >
@@ -675,7 +742,7 @@ export function PublicReviewPage({ token }: { token: string }) {
               {panelView === 'half' ? (
                 <button
                   type="button"
-                  aria-label="Fermer la correspondance"
+                  aria-label={t({ fr: 'Fermer la correspondance', en: 'Close correspondence' })}
                   onClick={() => setPanelView('closed')}
                   className="bg-card text-muted-foreground hover:bg-accent absolute top-1/2 -left-3 z-20 grid h-12 w-6 -translate-y-1/2 cursor-pointer place-items-center rounded-lg border shadow-md"
                 >
@@ -692,8 +759,11 @@ export function PublicReviewPage({ token }: { token: string }) {
       ) : null}
 
       <footer className="text-muted-foreground shrink-0 border-t py-2.5 text-center text-xs">
-        Propulsé par <span className="font-medium">Pharnos</span> — l’OS des affaires réglementaires
-        pharmaceutiques UEMOA/CEDEAO.
+        {t({ fr: 'Propulsé par', en: 'Powered by' })} <span className="font-medium">Pharnos</span> —{' '}
+        {t({
+          fr: 'l’OS des affaires réglementaires pharmaceutiques UEMOA/CEDEAO.',
+          en: 'the OS for pharmaceutical regulatory affairs in UEMOA/ECOWAS.',
+        })}
       </footer>
     </div>
   )
