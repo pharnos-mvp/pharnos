@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { setOrgFooter, setOrgHeader } from '@/features/profile/pro-settings-repository'
 import type { ProSettingRecord } from '@/lib/db'
 import { imageFileToDataUrl, MAX_IMAGE_BYTES } from '@/lib/image-utils'
+import { useI18n } from '@/lib/i18n-context'
 
 /**
  * Panneaux d'upload **in-montage** (signature, en-tête/pied) — l'utilisateur ne quitte jamais
@@ -21,6 +22,7 @@ function PanelShell({
   onClose: () => void
   children: ReactNode
 }) {
+  const { t } = useI18n()
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
@@ -31,7 +33,12 @@ function PanelShell({
       <div className="bg-card flex w-full max-w-md flex-col gap-3 rounded-lg border p-4 shadow-lg">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">{title}</h2>
-          <Button variant="ghost" size="icon-sm" aria-label="Fermer" onClick={onClose}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t({ fr: 'Fermer', en: 'Close' })}
+            onClick={onClose}
+          >
             <X className="size-4" />
           </Button>
         </div>
@@ -49,13 +56,14 @@ export function SignaturePanel({
   onApply: (dataUrl: string, store: boolean) => void | Promise<void>
   onClose: () => void
 }) {
+  const { t } = useI18n()
   const [preview, setPreview] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   async function onFile(file: File) {
     if (file.size > MAX_IMAGE_BYTES) {
-      toast.error('Image trop lourde (max 3 Mo).')
+      toast.error(t({ fr: 'Image trop lourde (max 3 Mo).', en: 'Image too large (max 3 MB).' }))
       return
     }
     setPreview(await imageFileToDataUrl(file, 600))
@@ -72,13 +80,18 @@ export function SignaturePanel({
   }
 
   return (
-    <PanelShell title="Signature" onClose={onClose}>
+    <PanelShell title={t({ fr: 'Signature', en: 'Signature' })} onClose={onClose}>
       <p className="text-muted-foreground text-sm">
-        Importez votre signature depuis votre ordinateur. Elle se place automatiquement à
-        l'emplacement réservé de la lettre (entre le poste et le nom).
+        {t({
+          fr: "Importez votre signature depuis votre ordinateur. Elle se place automatiquement à l'emplacement réservé de la lettre (entre le poste et le nom).",
+          en: 'Import your signature from your computer. It is placed automatically at the reserved spot in the letter (between the role and the name).',
+        })}
       </p>
       <p className="text-muted-foreground text-xs">
-        Recommandé : PNG à fond transparent, ~600×200 px, moins de 3 Mo.
+        {t({
+          fr: 'Recommandé : PNG à fond transparent, ~600×200 px, moins de 3 Mo.',
+          en: 'Recommended: transparent PNG, ~600×200 px, under 3 MB.',
+        })}
       </p>
       <input
         ref={inputRef}
@@ -94,24 +107,24 @@ export function SignaturePanel({
       {preview ? (
         <img
           src={preview}
-          alt="Aperçu de la signature"
+          alt={t({ fr: 'Aperçu de la signature', en: 'Signature preview' })}
           className="max-h-28 self-center rounded border bg-white p-2"
         />
       ) : (
         <Button variant="outline" onClick={() => inputRef.current?.click()}>
-          <Upload className="size-4" /> Choisir un fichier
+          <Upload className="size-4" /> {t({ fr: 'Choisir un fichier', en: 'Choose a file' })}
         </Button>
       )}
       {preview ? (
         <div className="flex flex-wrap justify-end gap-2">
           <Button variant="ghost" disabled={busy} onClick={() => setPreview(null)}>
-            Changer
+            {t({ fr: 'Changer', en: 'Change' })}
           </Button>
           <Button variant="outline" disabled={busy} onClick={() => void apply(false)}>
-            Appliquer une fois
+            {t({ fr: 'Appliquer une fois', en: 'Apply once' })}
           </Button>
           <Button disabled={busy} onClick={() => void apply(true)}>
-            Enregistrer et appliquer
+            {t({ fr: 'Enregistrer et appliquer', en: 'Save and apply' })}
           </Button>
         </div>
       ) : null}
@@ -132,6 +145,7 @@ function BrandRow({
   onUpload: (file: File) => void | Promise<void>
   onRemove: () => void | Promise<void>
 }) {
+  const { t } = useI18n()
   const inputRef = useRef<HTMLInputElement>(null)
   return (
     <div className="rounded border p-3">
@@ -139,7 +153,7 @@ function BrandRow({
         <span className="text-sm font-medium">{label}</span>
         {current ? (
           <Button variant="ghost" size="sm" onClick={() => void onRemove()}>
-            Retirer
+            {t({ fr: 'Retirer', en: 'Remove' })}
           </Button>
         ) : null}
       </div>
@@ -168,7 +182,8 @@ function BrandRow({
         className="mt-2"
         onClick={() => inputRef.current?.click()}
       >
-        <Upload className="size-4" /> {current ? 'Remplacer' : 'Importer'}
+        <Upload className="size-4" />{' '}
+        {current ? t({ fr: 'Remplacer', en: 'Replace' }) : t({ fr: 'Importer', en: 'Import' })}
       </Button>
     </div>
   )
@@ -184,39 +199,55 @@ export function BrandingPanel({
   orgId: string
   onClose: () => void
 }) {
+  const { t } = useI18n()
   async function upload(kind: 'header' | 'footer', file: File) {
     if (file.size > MAX_IMAGE_BYTES) {
-      toast.error('Image trop lourde (max 3 Mo).')
+      toast.error(t({ fr: 'Image trop lourde (max 3 Mo).', en: 'Image too large (max 3 MB).' }))
       return
     }
     const dataUrl = await imageFileToDataUrl(file, 1600)
     if (kind === 'header') await setOrgHeader(orgId, dataUrl)
     else await setOrgFooter(orgId, dataUrl)
-    toast.success(kind === 'header' ? 'En-tête mis à jour' : 'Pied de page mis à jour')
+    toast.success(
+      kind === 'header'
+        ? t({ fr: 'En-tête mis à jour', en: 'Header updated' })
+        : t({ fr: 'Pied de page mis à jour', en: 'Footer updated' }),
+    )
   }
 
   return (
-    <PanelShell title="En-tête / Pied de page" onClose={onClose}>
+    <PanelShell
+      title={t({ fr: 'En-tête / Pied de page', en: 'Header / Footer' })}
+      onClose={onClose}
+    >
       <p className="text-muted-foreground text-sm">
-        Importez votre papier à en-tête et votre pied de page : ils s'appliquent à vos lettres
-        (éditeur + PDF compilé), pleine largeur — sans quitter le montage.
+        {t({
+          fr: "Importez votre papier à en-tête et votre pied de page : ils s'appliquent à vos lettres (éditeur + PDF compilé), pleine largeur — sans quitter le montage.",
+          en: 'Import your letterhead and footer: they apply to your letters (editor + compiled PDF), full width — without leaving the workspace.',
+        })}
       </p>
       <BrandRow
-        label="En-tête"
+        label={t({ fr: 'En-tête', en: 'Header' })}
         current={branding?.headerImage ?? null}
-        hint="Bannière pleine largeur, ~1000×150 px, moins de 3 Mo."
+        hint={t({
+          fr: 'Bannière pleine largeur, ~1000×150 px, moins de 3 Mo.',
+          en: 'Full-width banner, ~1000×150 px, under 3 MB.',
+        })}
         onUpload={(f) => upload('header', f)}
         onRemove={() => setOrgHeader(orgId, null)}
       />
       <BrandRow
-        label="Pied de page"
+        label={t({ fr: 'Pied de page', en: 'Footer' })}
         current={branding?.footerImage ?? null}
-        hint="Bannière pleine largeur, ~1000×120 px, moins de 3 Mo."
+        hint={t({
+          fr: 'Bannière pleine largeur, ~1000×120 px, moins de 3 Mo.',
+          en: 'Full-width banner, ~1000×120 px, under 3 MB.',
+        })}
         onUpload={(f) => upload('footer', f)}
         onRemove={() => setOrgFooter(orgId, null)}
       />
       <div className="flex justify-end pt-1">
-        <Button onClick={onClose}>Insérer</Button>
+        <Button onClick={onClose}>{t({ fr: 'Insérer', en: 'Insert' })}</Button>
       </div>
     </PanelShell>
   )

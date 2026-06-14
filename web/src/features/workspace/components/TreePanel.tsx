@@ -1,6 +1,7 @@
 import { Settings2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { useI18n } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import { ArborescenceTree } from '../ArborescenceTree'
 import type { CtdNodeDef } from '../module1-tree'
@@ -31,6 +32,7 @@ export function TreePanel({
   countFor: (node: CtdNodeDef) => number
   onTreeChange: (tree: CtdNodeDef[]) => void
 }) {
+  const { t } = useI18n()
   if (collapsed) {
     return (
       <div className="bg-card sticky top-2 flex max-h-[calc(100svh-6rem)] w-14 shrink-0 flex-col items-center gap-1.5 overflow-auto rounded-2xl border py-2 shadow-sm">
@@ -38,6 +40,7 @@ export function TreePanel({
           <button
             key={n.id ?? n.number}
             type="button"
+            // n.label = libellé de structure CTD (réglementaire) — non traduit.
             title={`${n.number} ${n.label}`}
             onClick={() => onSelectNode(n)}
             className={cn(
@@ -57,14 +60,16 @@ export function TreePanel({
     <aside className="bg-card sticky top-2 flex max-h-[calc(100svh-6rem)] w-80 shrink-0 flex-col overflow-hidden rounded-2xl border shadow-sm">
       <div className="flex items-start justify-between border-b p-3">
         <div>
-          <div className="text-sm font-semibold">Arborescence</div>
-          <div className="text-muted-foreground text-xs">Séquence 0001</div>
+          <div className="text-sm font-semibold">{t({ fr: 'Arborescence', en: 'Structure' })}</div>
+          <div className="text-muted-foreground text-xs">
+            {t({ fr: 'Séquence 0001', en: 'Sequence 0001' })}
+          </div>
         </div>
         <span className="flex items-center">
           <Button
             variant={treeEditing ? 'secondary' : 'ghost'}
             size="icon-sm"
-            aria-label="Éditer l'arborescence"
+            aria-label={t({ fr: "Éditer l'arborescence", en: 'Edit the structure' })}
             onClick={() => setTreeEditing(!treeEditing)}
           >
             <Settings2 className="size-4" />
@@ -77,12 +82,15 @@ export function TreePanel({
           onClick={onUpdateStructure}
           className="border-b bg-amber-50 px-3 py-2 text-left text-xs text-amber-800 hover:bg-amber-100"
         >
-          Nouvelle structure disponible — Mettre à jour
+          {t({
+            fr: 'Nouvelle structure disponible — Mettre à jour',
+            en: 'New structure available — Update',
+          })}
         </button>
       ) : null}
       <div className="min-h-0 flex-1 overflow-auto p-2">
         <div className="text-muted-foreground px-1 pb-1 text-[11px] font-semibold tracking-wide">
-          MODULE 1 — ADMINISTRATIF
+          {t({ fr: 'MODULE 1 — ADMINISTRATIF', en: 'MODULE 1 — ADMINISTRATIVE' })}
         </div>
         <ArborescenceTree
           tree={tree}
@@ -95,7 +103,10 @@ export function TreePanel({
       </div>
       {treeEditing ? (
         <p className="text-muted-foreground border-t p-2 text-xs">
-          Mode édition : renommez, repositionnez (▲▼), ajoutez ou supprimez des sections.
+          {t({
+            fr: 'Mode édition : renommez, repositionnez (▲▼), ajoutez ou supprimez des sections.',
+            en: 'Edit mode: rename, reorder (▲▼), add or remove sections.',
+          })}
         </p>
       ) : null}
     </aside>

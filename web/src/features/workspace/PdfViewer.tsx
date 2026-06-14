@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
+import { useI18n } from '@/lib/i18n-context'
+
 /**
  * Visionneuse PDF **local-first** basée sur PDF.js (rendu canvas, comme le viewer intégré de
  * Chrome) — aucun service externe, jamais bloquée par le sandbox/CSP d'un iframe.
@@ -74,6 +76,7 @@ export function PdfViewer({
   watermark?: string
   flow?: boolean
 }) {
+  const { t } = useI18n()
   const containerRef = useRef<HTMLDivElement>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
 
@@ -250,11 +253,16 @@ export function PdfViewer({
     <div className={flow ? 'bg-muted p-3' : 'bg-muted min-h-0 flex-1 overflow-auto p-3'}>
       <div ref={containerRef} />
       {status === 'loading' ? (
-        <p className="text-muted-foreground py-8 text-center text-sm">Chargement de l'aperçu…</p>
+        <p className="text-muted-foreground py-8 text-center text-sm">
+          {t({ fr: "Chargement de l'aperçu…", en: 'Loading preview…' })}
+        </p>
       ) : null}
       {status === 'error' ? (
         <p className="text-muted-foreground py-8 text-center text-sm">
-          Aperçu impossible — téléchargez le fichier.
+          {t({
+            fr: 'Aperçu impossible — téléchargez le fichier.',
+            en: 'Preview unavailable — download the file.',
+          })}
         </p>
       ) : null}
     </div>
