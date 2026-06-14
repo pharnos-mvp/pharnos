@@ -1,4 +1,5 @@
 import type { CorrespondenceRecord, DossierRecord } from '@/lib/db'
+import { tStatic } from '@/lib/i18n-context'
 import { getSupabase } from '@/lib/supabase'
 import {
   createCorrespondence,
@@ -41,9 +42,21 @@ export interface SendDossierResult {
 }
 
 export async function sendCompiledDossier(input: SendDossierInput): Promise<SendDossierResult> {
-  if (!navigator.onLine) throw new Error('Connexion requise pour envoyer le dossier.')
+  if (!navigator.onLine)
+    throw new Error(
+      tStatic({
+        fr: 'Connexion requise pour envoyer le dossier.',
+        en: 'Connection required to send the dossier.',
+      }),
+    )
   const supabase = await getSupabase()
-  if (!supabase) throw new Error('Backend non configuré — envoi indisponible.')
+  if (!supabase)
+    throw new Error(
+      tStatic({
+        fr: 'Backend non configuré — envoi indisponible.',
+        en: 'Backend not configured — sending unavailable.',
+      }),
+    )
 
   const token = generateShareToken()
   const [tokenHash, passwordHash] = await Promise.all([
@@ -59,7 +72,13 @@ export async function sendCompiledDossier(input: SendDossierInput): Promise<Send
     upsert: false,
     contentType: 'application/pdf',
   })
-  if (upErr) throw new Error(`Téléversement du PDF impossible : ${upErr.message}`)
+  if (upErr)
+    throw new Error(
+      tStatic({
+        fr: `Téléversement du PDF impossible : ${upErr.message}`,
+        en: `PDF upload failed: ${upErr.message}`,
+      }),
+    )
 
   const url = shareUrl(window.location.origin, token)
   const payload: CreateCorrespondenceInput = {
@@ -96,16 +115,34 @@ export async function resendCompiledDossier(input: {
   pdfBlob: Blob
   senderEmail: string
 }): Promise<void> {
-  if (!navigator.onLine) throw new Error('Connexion requise pour envoyer le dossier.')
+  if (!navigator.onLine)
+    throw new Error(
+      tStatic({
+        fr: 'Connexion requise pour envoyer le dossier.',
+        en: 'Connection required to send the dossier.',
+      }),
+    )
   const supabase = await getSupabase()
-  if (!supabase) throw new Error('Backend non configuré — envoi indisponible.')
+  if (!supabase)
+    throw new Error(
+      tStatic({
+        fr: 'Backend non configuré — envoi indisponible.',
+        en: 'Backend not configured — sending unavailable.',
+      }),
+    )
 
   const pdfPath = `${input.orgId}/shares/${input.correspondence.id}/v${Date.now()}.pdf`
   const { error: upErr } = await supabase.storage.from(BUCKET).upload(pdfPath, input.pdfBlob, {
     upsert: false,
     contentType: 'application/pdf',
   })
-  if (upErr) throw new Error(`Téléversement du PDF impossible : ${upErr.message}`)
+  if (upErr)
+    throw new Error(
+      tStatic({
+        fr: `Téléversement du PDF impossible : ${upErr.message}`,
+        en: `PDF upload failed: ${upErr.message}`,
+      }),
+    )
 
   await updateCorrespondencePdf(
     input.correspondence,

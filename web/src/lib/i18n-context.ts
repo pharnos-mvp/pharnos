@@ -37,3 +37,12 @@ export function readLang(): Lang {
     return 'fr'
   }
 }
+
+/**
+ * Équivalent de `t()` pour les modules NON-React (libs, hooks dans des callbacks async) :
+ * résout une chaîne traduisible selon la langue persistée AU MOMENT de l'appel. À réserver aux
+ * messages d'erreur/toasts produits hors rendu (Edge clients, throws) ; en composant, `useI18n()`.
+ */
+export function tStatic(s: Translatable): string {
+  return s[readLang()]
+}

@@ -1,6 +1,7 @@
 import type { JSONContent } from '@tiptap/core'
 
 import { env } from '@/lib/env'
+import { tStatic } from '@/lib/i18n-context'
 import { getSupabase } from '@/lib/supabase'
 
 /**
@@ -49,11 +50,20 @@ export async function translateDoc(
     }
   }
   const supabase = await getSupabase()
-  if (!supabase) throw new Error('Connexion requise pour la traduction.')
+  if (!supabase)
+    throw new Error(
+      tStatic({
+        fr: 'Connexion requise pour la traduction.',
+        en: 'Connection required for translation.',
+      }),
+    )
   const { data, error } = await supabase.functions.invoke('translate', { body: input })
-  if (error) throw new Error(error.message || 'Échec de la traduction.')
+  if (error)
+    throw new Error(
+      error.message || tStatic({ fr: 'Échec de la traduction.', en: 'Translation failed.' }),
+    )
   const text = String(data?.text ?? '').trim()
-  if (!text) throw new Error('Traduction vide.')
+  if (!text) throw new Error(tStatic({ fr: 'Traduction vide.', en: 'Empty translation.' }))
   return text
 }
 
@@ -63,11 +73,23 @@ async function translateDocStream(
   onChunk: (textSoFar: string) => void,
 ): Promise<string> {
   const supabase = await getSupabase()
-  if (!supabase) throw new Error('Connexion requise pour la traduction.')
+  if (!supabase)
+    throw new Error(
+      tStatic({
+        fr: 'Connexion requise pour la traduction.',
+        en: 'Connection required for translation.',
+      }),
+    )
   // fetch direct : functions.invoke ne donne pas accès au body en cours de flux.
   const { data: sessionData } = await supabase.auth.getSession()
   const token = sessionData.session?.access_token
-  if (!token) throw new Error('Connexion requise pour la traduction.')
+  if (!token)
+    throw new Error(
+      tStatic({
+        fr: 'Connexion requise pour la traduction.',
+        en: 'Connection required for translation.',
+      }),
+    )
 
   const res = await fetch(`${env.supabaseUrl}/functions/v1/translate`, {
     method: 'POST',
@@ -110,6 +132,6 @@ async function translateDocStream(
     }
   }
   const text = full.trim()
-  if (!text) throw new Error('Traduction vide.')
+  if (!text) throw new Error(tStatic({ fr: 'Traduction vide.', en: 'Empty translation.' }))
   return text
 }
