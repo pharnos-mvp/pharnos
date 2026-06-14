@@ -9,6 +9,7 @@ import { useAuth } from '@/features/auth/auth-context'
 import { OrgContext } from '@/features/org/org-context'
 import { useCurrentOrg } from '@/features/org/use-current-org'
 import { env } from '@/lib/env'
+import { useI18n } from '@/lib/i18n-context'
 import { LOCAL_ORG_ID } from '@/lib/session'
 
 const LoginPage = lazy(() =>
@@ -27,9 +28,10 @@ const OnboardingPage = lazy(() =>
 )
 
 function FullScreenLoader() {
+  const { t } = useI18n()
   return (
     <div className="text-muted-foreground flex min-h-svh items-center justify-center text-sm">
-      Chargement…
+      {t({ fr: 'Chargement…', en: 'Loading…' })}
     </div>
   )
 }

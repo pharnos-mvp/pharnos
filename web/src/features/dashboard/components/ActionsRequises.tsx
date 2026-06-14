@@ -33,8 +33,8 @@ export function ActionsRequises({ items }: { items: ActionItem[] }) {
     iso ? new Date(iso).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB') : ''
 
   const detail = (it: ActionItem): string => {
-    const dt = it.docType ? docTypeLabel(it.docType) : ''
-    const flag = it.country ? `${countryFlag(it.country)} ${countryLabel(it.country)}` : ''
+    const dt = it.docType ? docTypeLabel(it.docType, lang) : ''
+    const flag = it.country ? `${countryFlag(it.country)} ${countryLabel(it.country, lang)}` : ''
     switch (it.kind) {
       case 'doc_expired':
         return t({

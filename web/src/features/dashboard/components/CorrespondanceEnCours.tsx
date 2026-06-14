@@ -15,7 +15,7 @@ const STATE_CLS: Record<CorrSubState, string> = {
 }
 
 export function CorrespondanceEnCours({ items }: { items: CorrItem[] }) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const stateLabel = (it: CorrItem): string => {
     switch (it.state) {
       case 'unread':
@@ -53,7 +53,7 @@ export function CorrespondanceEnCours({ items }: { items: CorrItem[] }) {
                     <span className="text-muted-foreground">
                       {' '}
                       · <span aria-hidden>{countryFlag(it.country)}</span>{' '}
-                      {countryLabel(it.country)}
+                      {countryLabel(it.country, lang)}
                     </span>
                   )}
                 </span>

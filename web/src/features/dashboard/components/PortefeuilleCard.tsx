@@ -14,7 +14,7 @@ function Stat({ value, label }: { value: number; label: string }) {
 }
 
 export function PortefeuilleCard({ data }: { data: Portfolio }) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
 
   return (
     <section className="rounded-lg border" aria-labelledby="portfolio-title">
@@ -43,7 +43,7 @@ export function PortefeuilleCard({ data }: { data: Portfolio }) {
                   className="bg-muted inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs"
                 >
                   <span aria-hidden>{countryFlag(c.code)}</span>
-                  {countryLabel(c.code)}
+                  {countryLabel(c.code, lang)}
                   <span className="text-muted-foreground tabular-nums">{c.count}</span>
                 </span>
               ))}
@@ -59,7 +59,7 @@ export function PortefeuilleCard({ data }: { data: Portfolio }) {
             <div className="flex flex-wrap gap-1.5">
               {data.byActivity.map((a) => (
                 <span key={a.code} className="bg-muted rounded-full px-2 py-0.5 text-xs">
-                  {activityLabel(a.code)}{' '}
+                  {activityLabel(a.code, lang)}{' '}
                   <span className="text-muted-foreground tabular-nums">{a.count}</span>
                 </span>
               ))}
