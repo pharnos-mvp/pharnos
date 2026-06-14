@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
@@ -51,7 +51,7 @@ const DESCRIPTIONS: Record<Mode, Translatable> = {
 }
 
 export function LoginPage() {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const [mode, setMode] = useState<Mode>('login')
   const [submitting, setSubmitting] = useState(false)
   // Adresse en attente de confirmation après inscription → affiche l'option « renvoyer ».
@@ -75,6 +75,13 @@ export function LoginPage() {
     resolver: zodResolver(schema),
     defaultValues: { email: '', password: '' },
   })
+
+  // Re-traduit à chaud les messages de validation DÉJÀ affichés quand la langue change
+  // (RHF ne relance pas le resolver sur simple changement de langue).
+  useEffect(() => {
+    if (Object.keys(form.formState.errors).length > 0) void form.trigger()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang])
 
   async function onSubmit(values: Credentials) {
     setSubmitting(true)

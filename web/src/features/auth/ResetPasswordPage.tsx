@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
@@ -36,7 +36,7 @@ type ResetValues = { password: string; confirm: string }
  * normale prend le relais → l'app s'affiche.
  */
 export function ResetPasswordPage() {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const { clearRecovery } = useAuth()
   const [submitting, setSubmitting] = useState(false)
   const resetSchema = useMemo(
@@ -61,6 +61,12 @@ export function ResetPasswordPage() {
     resolver: zodResolver(resetSchema),
     defaultValues: { password: '', confirm: '' },
   })
+
+  // Re-traduit à chaud les messages de validation DÉJÀ affichés quand la langue change.
+  useEffect(() => {
+    if (Object.keys(form.formState.errors).length > 0) void form.trigger()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang])
 
   async function onSubmit(values: ResetValues) {
     setSubmitting(true)
