@@ -34,6 +34,8 @@ interface PieceInput {
   category: string
   fileName: string
   filePath: string
+  /** Date d'expiration DÉCLARÉE par l'utilisateur (Monitor) — Regafy contre-expertise (O3). */
+  declaredExpiry?: string
 }
 interface Finding {
   pieceId?: string
@@ -397,6 +399,23 @@ async function analyzeValidityBatch(
       derived = true
     }
 
+    // ── CONTRE-EXPERTISE (O3) : Regafy LIT la date dans le document ; si elle DIVERGE (> 1 mois) de
+    // la date DÉCLARÉE par l'utilisateur (Monitor), on le signale — l'IA peut se tromper, l'humain
+    // aussi : human-in-the-loop. Seuil 31 j pour ignorer les arrondis fin de mois.
+    if (expiry && isISODate(p.declaredExpiry)) {
+      const decl = p.declaredExpiry.slice(0, 10)
+      const driftDays = Math.abs(
+        (new Date(expiry).getTime() - new Date(decl).getTime()) / (1000 * 60 * 60 * 24),
+      )
+      if (driftDays > 31) {
+        findings.push({
+          ...base(p),
+          severity: 'warning',
+          message: `${label} : date lue dans le document (${expiry}${derived ? ', calculée' : ''}) ≠ date déclarée (${decl}) — à vérifier.`,
+        })
+      }
+    }
+
     if (expiry) {
       const m = monthsLeft(expiry, opDate)
       const how = derived ? ` (calculé : émission + ${months} mois)` : ''
@@ -525,6 +544,7 @@ Deno.serve(async (req: Request) => {
       category: String(p.category ?? ''),
       fileName: String(p.fileName ?? 'document'),
       filePath: String(p.filePath),
+      declaredExpiry: p.declaredExpiry ? String(p.declaredExpiry).slice(0, 10) : undefined,
     }))
   const countryCode = b.countryCode ? String(b.countryCode).toUpperCase().slice(0, 2) : undefined
   // Traductions à vérifier contre le template (bornées : texte 60 k chars, 6 documents max).
