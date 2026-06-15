@@ -6,7 +6,7 @@
 -- 4) team_list réservé aux membres.
 
 begin;
-select plan(12);
+select plan(13);
 
 insert into auth.users (instance_id, id, aud, role, email) values
   ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000a1', 'authenticated', 'authenticated', 'admin@x.test'),
