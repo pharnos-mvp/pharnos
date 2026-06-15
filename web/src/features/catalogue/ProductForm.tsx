@@ -225,7 +225,10 @@ export function ProductForm({
         </form>
 
         <SectionCard
-          title={t({ fr: "II — Documents d'information du produit", en: 'II — Product information' })}
+          title={t({
+            fr: "II — Documents d'information du produit",
+            en: 'II — Product information',
+          })}
           open={open.docs}
           onToggle={() => toggle('docs')}
         >
