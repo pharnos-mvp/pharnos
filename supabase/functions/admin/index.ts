@@ -103,6 +103,9 @@ Deno.serve(async (req: Request) => {
       case 'users':
         logJson({ ...log, op: 'users', status: 'ok' })
         return await callRpc('admin_users', {})
+      case 'plans':
+        logJson({ ...log, op: 'plans', status: 'ok' })
+        return await callRpc('admin_plan_limits', {})
 
       // ── Écritures (audit-loggées dans la RPC) ───────────────────────────────────────────────
       case 'set_plan': {
