@@ -2,7 +2,15 @@ import { useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useTheme } from 'next-themes'
-import { Building2, ClipboardList, LogOut, Settings2, ShieldAlert, UserCircle2 } from 'lucide-react'
+import {
+  Building2,
+  ClipboardList,
+  LogOut,
+  Settings2,
+  ShieldAlert,
+  UserCircle2,
+  Users,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 import {
@@ -29,6 +37,7 @@ import {
 import { useAuth } from '@/features/auth/auth-context'
 import { fetchMyMemberships } from '@/features/org/org-repository'
 import { useOrgId } from '@/features/org/org-context'
+import { TeamSection } from '@/features/team/TeamSection'
 import { db } from '@/lib/db'
 import { useI18n, type Lang } from '@/lib/i18n-context'
 import { imageFileToAvatarDataUrl, MAX_IMAGE_BYTES } from '@/lib/image-utils'
@@ -37,7 +46,7 @@ import { purgeLocalData, updatePassword, updateProfileMetadata } from './account
 import { ImageField } from './ImageField'
 import { InfoProSection } from './InfoProSection'
 
-type Section = 'perso' | 'pro' | 'prefs' | 'logs' | 'danger'
+type Section = 'perso' | 'pro' | 'team' | 'prefs' | 'logs' | 'danger'
 
 export function AccountPage() {
   const { user, signOut } = useAuth()
@@ -66,6 +75,7 @@ export function AccountPage() {
       label: t({ fr: 'Informations professionnelles', en: 'Professional information' }),
       icon: Building2,
     },
+    { key: 'team', label: t({ fr: 'Équipe', en: 'Team' }), icon: Users },
     { key: 'prefs', label: t({ fr: 'Préférences', en: 'Preferences' }), icon: Settings2 },
     {
       key: 'logs',
@@ -124,6 +134,7 @@ export function AccountPage() {
         <div className="min-w-0 flex-1 md:overflow-auto">
           {section === 'perso' && <PersonalSection key={user?.id ?? 'local'} />}
           {section === 'pro' && <InfoProSection />}
+          {section === 'team' && <TeamSection orgId={orgId} />}
           {section === 'prefs' && <PreferencesSection lang={lang} setLang={setLang} />}
           {section === 'logs' && <LogsSection orgId={orgId} />}
           {section === 'danger' && <DangerSection onDeleted={() => void signOut()} />}

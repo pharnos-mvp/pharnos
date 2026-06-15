@@ -31,6 +31,10 @@ const OnboardingPage = lazy(() =>
 const AdminConsole = lazy(() =>
   import('@/features/admin/AdminConsole').then((m) => ({ default: m.AdminConsole })),
 )
+// Acceptation d'invitation d'équipe (jalon M4) — chunk séparé, chargé uniquement sur /invite/{token}.
+const InvitePage = lazy(() =>
+  import('@/features/team/InvitePage').then((m) => ({ default: m.InvitePage })),
+)
 
 function FullScreenLoader() {
   const { t } = useI18n()
@@ -85,6 +89,17 @@ function AppGate() {
     return (
       <Suspense fallback={<FullScreenLoader />}>
         <LoginPage />
+      </Suspense>
+    )
+  }
+
+  // Acceptation d'invitation : l'utilisateur connecté accepte (l'e-mail doit correspondre). Avant
+  // ce point, `!session` a déjà renvoyé LoginPage — après connexion, on retombe ici et on accepte.
+  const inviteToken = /^\/invite\/([A-Za-z0-9_-]{43})\/?$/.exec(window.location.pathname)?.[1]
+  if (inviteToken) {
+    return (
+      <Suspense fallback={<FullScreenLoader />}>
+        <InvitePage token={inviteToken} />
       </Suspense>
     )
   }
