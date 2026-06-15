@@ -1,8 +1,10 @@
-import { useEffect, useMemo, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
+import { ChevronDown } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import {
   Form,
   FormControl,
@@ -12,7 +14,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
 import {
   EMPTY_PRODUCT,
@@ -26,10 +28,48 @@ interface ProductFormProps {
   onSubmit: (values: ProductFormValues) => void | Promise<void>
   submitting?: boolean
   submitLabel: string
-  /** Contenu de l'onglet « Documents d'information » (mode édition). */
+  /** Contenu de la section « Documents d'information » (mode édition). */
   documentsSlot?: ReactNode
-  /** Contenu de l'onglet « Pièces administratives » (mode édition). */
+  /** Contenu de la section « Pièces administratives » (mode édition). */
   adminSlot?: ReactNode
+}
+
+/** Carte de session repliable (chaînon de la fiche produit) — en-tête cliquable + corps. */
+function SectionCard({
+  title,
+  open,
+  onToggle,
+  action,
+  children,
+}: {
+  title: string
+  open: boolean
+  onToggle: () => void
+  action?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <Card className="gap-0 overflow-hidden py-0">
+      <div className="flex items-center justify-between gap-3 px-5 py-4">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          className="flex flex-1 items-center gap-2 text-left"
+        >
+          <ChevronDown
+            className={cn(
+              'text-muted-foreground size-4 shrink-0 transition-transform',
+              open ? '' : '-rotate-90',
+            )}
+          />
+          <span className="font-semibold tracking-tight">{title}</span>
+        </button>
+        {action}
+      </div>
+      {open ? <div className="border-t px-5 py-5">{children}</div> : null}
+    </Card>
+  )
 }
 
 const identificationFields: ReadonlyArray<{
@@ -124,32 +164,38 @@ export function ProductForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t])
 
+  const [open, setOpen] = useState({ id: true, docs: false, admin: false })
+  const toggle = (k: 'id' | 'docs' | 'admin') => setOpen((o) => ({ ...o, [k]: !o[k] }))
+
   const savePrompt = (
     <p className="text-muted-foreground text-sm">
       {t({
-        fr: "Enregistrez d'abord le produit (onglet Identification) pour ajouter des documents.",
-        en: 'Save the product first (Identification tab) to add documents.',
+        fr: "Enregistrez d'abord le produit (section I — Identification) pour ajouter des documents.",
+        en: 'Save the product first (section I — Identification) to add documents.',
       })}
     </p>
   )
 
+  // Trois sessions empilées (chaînon l'un sous l'autre) : I (Identification) porte le formulaire
+  // et le bouton d'enregistrement ; II/III reçoivent les documents en mode édition. Repli sur
+  // erreur de validation : on rouvre la section I pour montrer les messages.
   return (
     <Form {...form}>
-      <Tabs defaultValue="identification">
-        <TabsList>
-          <TabsTrigger value="identification">
-            {t({ fr: 'Identification', en: 'Identification' })}
-          </TabsTrigger>
-          <TabsTrigger value="documents">
-            {t({ fr: "Documents d'information", en: 'Product information' })}
-          </TabsTrigger>
-          <TabsTrigger value="admin">
-            {t({ fr: 'Pièces administratives', en: 'Administrative documents' })}
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="identification" className="pt-4">
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6" noValidate>
+      <div className="space-y-4">
+        <form
+          onSubmit={form.handleSubmit(onSubmit, () => setOpen((o) => ({ ...o, id: true })))}
+          noValidate
+        >
+          <SectionCard
+            title={t({ fr: 'I — Identification', en: 'I — Identification' })}
+            open={open.id}
+            onToggle={() => toggle('id')}
+            action={
+              <Button type="submit" size="sm" disabled={submitting}>
+                {submitLabel}
+              </Button>
+            }
+          >
             <div className="grid gap-4 sm:grid-cols-2">
               {identificationFields.map((f) => (
                 <FormField
@@ -175,20 +221,28 @@ export function ProductForm({
                 />
               ))}
             </div>
-            <Button type="submit" disabled={submitting}>
-              {submitLabel}
-            </Button>
-          </form>
-        </TabsContent>
+          </SectionCard>
+        </form>
 
-        <TabsContent value="documents" className="pt-4">
+        <SectionCard
+          title={t({
+            fr: "II — Documents d'information du produit",
+            en: 'II — Product information',
+          })}
+          open={open.docs}
+          onToggle={() => toggle('docs')}
+        >
           {documentsSlot ?? savePrompt}
-        </TabsContent>
+        </SectionCard>
 
-        <TabsContent value="admin" className="pt-4">
+        <SectionCard
+          title={t({ fr: 'III — Pièces administratives', en: 'III — Administrative documents' })}
+          open={open.admin}
+          onToggle={() => toggle('admin')}
+        >
           {adminSlot ?? savePrompt}
-        </TabsContent>
-      </Tabs>
+        </SectionCard>
+      </div>
     </Form>
   )
 }

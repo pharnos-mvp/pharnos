@@ -14,6 +14,8 @@ interface ArborescenceTreeProps {
   onSelect: (node: CtdNodeDef) => void
   /** Nombre de documents classés sous ce nœud (et ses descendants). */
   docCount: (node: CtdNodeDef) => number
+  /** Nœud (ou ancêtre) portant un constat non résolu — surbrillance sobre d'orientation (n°6). */
+  isFlagged?: (node: CtdNodeDef) => boolean
   editing: boolean
   onChange: (tree: CtdNodeDef[]) => void
 }
@@ -23,6 +25,7 @@ export function ArborescenceTree({
   selectedId,
   onSelect,
   docCount,
+  isFlagged,
   editing,
   onChange,
 }: ArborescenceTreeProps) {
@@ -38,6 +41,7 @@ export function ArborescenceTree({
           selectedId={selectedId}
           onSelect={onSelect}
           docCount={docCount}
+          isFlagged={isFlagged}
           editing={editing}
           onChange={onChange}
         />
@@ -72,6 +76,7 @@ function NodeRow({
   selectedId,
   onSelect,
   docCount,
+  isFlagged,
   editing,
   onChange,
 }: NodeRowProps) {
@@ -129,6 +134,13 @@ function NodeRow({
             <span className="truncate text-[12.5px] leading-tight">{node.label}</span>
           </button>
         )}
+
+        {!editing && isFlagged?.(node) ? (
+          <span
+            className="size-1.5 shrink-0 rounded-full bg-amber-400"
+            title={t({ fr: 'Section à vérifier', en: 'Section to review' })}
+          />
+        ) : null}
 
         {!editing && count > 0 ? (
           <Badge variant="secondary" className="shrink-0">

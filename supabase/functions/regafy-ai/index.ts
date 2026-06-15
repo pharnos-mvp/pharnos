@@ -51,6 +51,12 @@ interface Finding {
   upgrade?: boolean
   /** Rubriques manquantes/non conformes (détail du constat de conformité). */
   missing?: string[]
+  /** Constat POSITIF (validité OK) — remarque verte, non bloquante. */
+  ok?: boolean
+  /** Date de fin de validité relevée (yyyy-mm-dd) — affichée dans le verdict conforme (point 4). */
+  validUntil?: string
+  /** Mois de validité restants relevés — affichés dans le verdict conforme. */
+  validityMonths?: number
 }
 
 // Périmètre minimal du client utilisé par l'analyse : téléchargement Storage (RLS via le JWT
@@ -130,7 +136,7 @@ function langName(code: string): string {
 }
 
 // Documents dont le NOM DE PRODUIT doit concorder avec le produit du dossier (anti « mauvais doc »).
-const NAME_CHECK_TYPES = new Set(['rcp', 'notice', 'labeling', 'artwork', 'amm', 'copp', 'fsc'])
+const NAME_CHECK_TYPES = new Set(['rcp', 'notice', 'labeling', 'artwork', 'amm', 'copp', 'fsc', 'coa'])
 function normName(s: string): string {
   return (s || '')
     .toLowerCase()
@@ -427,8 +433,18 @@ async function analyzeValidityBatch(
           severity: 'warning',
           message: `${label} : validité restante ~${Math.floor(m)} mois (< ${min} requis${requirement} ; expire le ${expiry})${how}.`,
         })
+      } else {
+        // Valide (≥ seuil) : constat POSITIF DATÉ — la date relevée figure dans le verdict
+        // conforme (point 4). Le client le reformule avec le nom de fichier de la pièce.
+        findings.push({
+          ...base(p),
+          severity: 'info',
+          ok: true,
+          validUntil: expiry,
+          validityMonths: Math.floor(m),
+          message: `${label} : validité vérifiée — conforme — valable encore ~${Math.floor(m)} mois (expire le ${expiry})${how}.`,
+        })
       }
-      // sinon valide (≥ seuil) → aucun constat
     } else if (r.found && r.validityStatement) {
       findings.push({
         ...base(p),

@@ -132,7 +132,7 @@ export function ResetPasswordPage() {
                 )}
               />
             </CardContent>
-            <CardFooter>
+            <CardFooter className="pt-6">
               <Button type="submit" className="w-full" disabled={submitting}>
                 {t({ fr: 'Enregistrer le mot de passe', en: 'Save password' })}
               </Button>

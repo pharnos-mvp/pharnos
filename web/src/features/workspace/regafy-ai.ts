@@ -47,6 +47,9 @@ interface EdgeFinding {
   language?: string
   upgrade?: boolean
   missing?: string[]
+  ok?: boolean
+  validUntil?: string
+  validityMonths?: number
 }
 
 /**
@@ -116,6 +119,9 @@ async function invokeRegafy(body: Record<string, unknown>): Promise<RegafyFindin
       language: f.language,
       upgrade: f.upgrade,
       missing: f.missing,
+      ok: f.ok,
+      validUntil: f.validUntil,
+      validityMonths: f.validityMonths,
     }))
 }
 

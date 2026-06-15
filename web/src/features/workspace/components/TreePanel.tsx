@@ -18,6 +18,7 @@ export function TreePanel({
   selected,
   onSelectNode,
   countFor,
+  flaggedNodes,
   onTreeChange,
 }: {
   collapsed: boolean
@@ -30,6 +31,8 @@ export function TreePanel({
   selected: CtdNodeDef | null
   onSelectNode: (node: CtdNodeDef) => void
   countFor: (node: CtdNodeDef) => number
+  /** Numéros de nœuds (et ancêtres) portant un constat non résolu — surbrillance sobre (n°6). */
+  flaggedNodes?: Set<string>
   onTreeChange: (tree: CtdNodeDef[]) => void
 }) {
   const { t } = useI18n()
@@ -47,7 +50,9 @@ export function TreePanel({
               'flex size-9 shrink-0 items-center justify-center rounded-full border text-[10px] font-medium tabular-nums',
               selected?.id === n.id
                 ? 'border-primary bg-primary/10 text-primary'
-                : 'text-muted-foreground hover:bg-accent',
+                : flaggedNodes?.has(n.number)
+                  ? 'border-amber-300 bg-amber-50 text-amber-700'
+                  : 'text-muted-foreground hover:bg-accent',
             )}
           >
             {n.number || '•'}
@@ -97,6 +102,7 @@ export function TreePanel({
           selectedId={selected?.id ?? null}
           onSelect={onSelectNode}
           docCount={countFor}
+          isFlagged={(n) => flaggedNodes?.has(n.number) ?? false}
           editing={treeEditing}
           onChange={onTreeChange}
         />

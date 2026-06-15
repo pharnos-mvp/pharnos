@@ -256,7 +256,7 @@ export function LoginPage() {
                 />
               )}
             </CardContent>
-            <CardFooter className="flex-col gap-3">
+            <CardFooter className="flex-col gap-3 pt-6">
               <Button type="submit" className="w-full" disabled={submitting}>
                 {mode === 'login'
                   ? t({ fr: 'Se connecter', en: 'Sign in' })

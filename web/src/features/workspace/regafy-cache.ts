@@ -11,8 +11,9 @@ import type { RegafyFinding } from './regafy'
  * v3 : extraction de validité 1 document/appel.
  * v4 : constat de conformité au template (toutes langues) + langue détectée portée.
  * v5 : message de conformité en une phrase (sans énumération des rubriques).
+ * v8 : constat de validité POSITIF DATÉ (date relevée dans le verdict) + champ `topic` (dédup).
  */
-const CACHE_VERSION = 'v7'
+const CACHE_VERSION = 'v8'
 const versioned = (sig: string) => `${CACHE_VERSION}:${sig}`
 
 /**

@@ -26,6 +26,7 @@ const piece = (over: Partial<AuditPiece>): AuditPiece => ({
 const data = (over: Partial<AuditData>): AuditData => ({
   productName: 'Paracétamol 500',
   countryName: 'Bénin',
+  countryCode: 'BJ',
   agency: 'ABMed',
   format: 'CTD UEMOA',
   activity: 'Nouvelle AMM',
@@ -130,5 +131,12 @@ describe('buildAuditReport — rapport déterministe (zéro hallucination par co
     expect(text).toContain('MSG-UNIQUE-42')
     // Aucune autre « citation » de constat que celle fournie.
     expect(r.sections[3]!.items).toHaveLength(1)
+  })
+
+  it('en-tête « Outil », signature et nom de fichier (point 14)', () => {
+    const r = buildAuditReport(data({ productName: 'Gynoril ovule', countryCode: 'BJ' }))
+    expect(r.sections[0]!.rows).toContainEqual(['Outil', 'Regafy AI, RA Copilot'])
+    expect(r.footer).toBe('© Regafy AI, 2026-06-12 ---- by Pharnos')
+    expect(r.fileTitle).toBe('Gynoril ovule_M1_bj_Audit')
   })
 })
