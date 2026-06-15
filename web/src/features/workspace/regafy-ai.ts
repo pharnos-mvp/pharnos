@@ -63,10 +63,27 @@ async function invokeRegafy(body: Record<string, unknown>): Promise<RegafyFindin
       }),
     )
   const { data, error } = await supabase.functions.invoke('regafy-ai', { body })
-  if (error)
+  if (error) {
+    // Gating d'offre (jalon O) : 403 = Regafy hors offre (Free → Monitor seul) ; 429 = quota tokens.
+    const status = (error as { context?: Response }).context?.status
+    if (status === 403)
+      throw new Error(
+        tStatic({
+          fr: 'Regafy (copilote IA) n’est pas inclus dans votre offre — Monitor reste disponible.',
+          en: 'Regafy (AI copilot) is not included in your plan — Monitor remains available.',
+        }),
+      )
+    if (status === 429)
+      throw new Error(
+        tStatic({
+          fr: 'Quota d’analyses IA du mois atteint pour votre organisation.',
+          en: 'Monthly AI analysis quota reached for your organization.',
+        }),
+      )
     throw new Error(
       error.message || tStatic({ fr: 'Échec de l’analyse IA.', en: 'AI analysis failed.' }),
     )
+  }
   if (data?.degraded === true) {
     // L'Edge n'a pas pu analyser les lettres : le dire explicitement — un silence ici serait
     // un faux négatif (« aucun constat » lu comme « lettres conformes »).

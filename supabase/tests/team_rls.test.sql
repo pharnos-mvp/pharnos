@@ -14,6 +14,8 @@ insert into auth.users (instance_id, id, aud, role, email) values
   ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000a3', 'authenticated', 'authenticated', 'invitee@x.test'),
   ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000a4', 'authenticated', 'authenticated', 'outsider@x.test');
 insert into public.orgs (id, name) values ('00000000-0000-0000-0000-0000000000b1', 'OrgM4');
+-- Plan 'team' : la feature « team » est activée (le nouveau 'free' la désactive — jalon O).
+update public.orgs set plan = 'team' where id = '00000000-0000-0000-0000-0000000000b1';
 insert into public.memberships (org_id, user_id, role) values
   ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000a1', 'admin'),
   ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000a2', 'reviewer');

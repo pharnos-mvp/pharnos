@@ -4,6 +4,13 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useI18n } from '@/lib/i18n-context'
 import type { Translatable } from '@/lib/i18n-context'
 
@@ -11,6 +18,8 @@ import { adminApi, type PlanLimits } from './admin-api'
 import { useAsync } from './use-async'
 
 const FEATURES: Array<{ key: string; label: Translatable }> = [
+  { key: 'team', label: { fr: 'Équipe (multi-utilisateurs)', en: 'Team (multi-user)' } },
+  { key: 'regafy', label: { fr: 'Regafy (copilote IA)', en: 'Regafy (AI copilot)' } },
   { key: 'translation', label: { fr: 'Traduction', en: 'Translation' } },
   { key: 'correspondence', label: { fr: 'Correspondance', en: 'Correspondence' } },
   { key: 'audit_global', label: { fr: 'Audit global', en: 'Global audit' } },
@@ -53,7 +62,9 @@ export function AdminPlans() {
 function PlanCard({ plan, onSaved }: { plan: PlanLimits; onSaved: () => void }) {
   const { t } = useI18n()
   const [dossiers, setDossiers] = useState(plan.max_dossiers?.toString() ?? '')
+  const [period, setPeriod] = useState<'lifetime' | 'month'>(plan.dossiers_period ?? 'month')
   const [tokens, setTokens] = useState(plan.monthly_ai_tokens?.toString() ?? '')
+  const [seats, setSeats] = useState(plan.max_seats?.toString() ?? '')
   const [features, setFeatures] = useState<Record<string, boolean>>({ ...plan.features })
   const [busy, setBusy] = useState(false)
 
@@ -67,7 +78,14 @@ function PlanCard({ plan, onSaved }: { plan: PlanLimits; onSaved: () => void }) 
   async function save() {
     setBusy(true)
     try {
-      await adminApi.setPlanLimits(plan.plan, parse(dossiers), parse(tokens), features)
+      await adminApi.setPlanLimits(
+        plan.plan,
+        parse(dossiers),
+        period,
+        parse(tokens),
+        parse(seats),
+        features,
+      )
       toast.success(
         t({ fr: `Plan « ${plan.plan} » mis à jour`, en: `Plan “${plan.plan}” updated` }),
       )
@@ -95,8 +113,22 @@ function PlanCard({ plan, onSaved }: { plan: PlanLimits; onSaved: () => void }) 
               value={dossiers}
               onChange={(e) => setDossiers(e.target.value)}
               placeholder="∞"
-              className="w-32"
+              className="w-28"
             />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="text-muted-foreground text-xs">
+              {t({ fr: 'Période', en: 'Period' })}
+            </span>
+            <Select value={period} onValueChange={(v) => setPeriod(v as 'lifetime' | 'month')}>
+              <SelectTrigger size="sm" className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="month">{t({ fr: 'Par mois', en: 'Per month' })}</SelectItem>
+                <SelectItem value="lifetime">{t({ fr: 'À vie', en: 'Lifetime' })}</SelectItem>
+              </SelectContent>
+            </Select>
           </label>
           <label className="space-y-1 text-sm">
             <span className="text-muted-foreground text-xs">
@@ -107,7 +139,19 @@ function PlanCard({ plan, onSaved }: { plan: PlanLimits; onSaved: () => void }) 
               value={tokens}
               onChange={(e) => setTokens(e.target.value)}
               placeholder="∞"
-              className="w-40"
+              className="w-36"
+            />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="text-muted-foreground text-xs">
+              {t({ fr: 'Sièges', en: 'Seats' })}
+            </span>
+            <Input
+              inputMode="numeric"
+              value={seats}
+              onChange={(e) => setSeats(e.target.value)}
+              placeholder="∞"
+              className="w-24"
             />
           </label>
         </div>
