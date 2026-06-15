@@ -175,18 +175,18 @@ describe('DossierWorkspacePage — caractérisation (avant refactor T7)', () => 
     expect(await screen.findByRole('button', { name: /Téléverser/ })).toBeInTheDocument()
   })
 
-  it('Regafy à la demande : panneau Remarques vide par défaut + bouton Analyser', async () => {
+  it('Monitor toujours actif (déterministe, gratuit) + Regafy IA à la demande', async () => {
     await seed()
     renderPage()
     await screen.findByRole('heading', { level: 2 })
     const user = userEvent.setup()
     await user.click(await screen.findByText('Bonnes pratiques de fabrication (BPF)'))
     await screen.findAllByText(/gmp\.pdf/i)
-    // Recette n°6 : plus AUCUNE analyse automatique — le panneau attend une action user.
+    // Jalon O : Monitor (vérifs DÉTERMINISTES, gratuites) est TOUJOURS actif — le GMP expire à
+    // < 6 mois → le constat apparaît SANS action utilisateur (l'IA Regafy, elle, reste à la demande).
     expect(await screen.findByText('Remarques pour la session')).toBeInTheDocument()
-    expect(await screen.findByText(/Aucune analyse pour cette session\./)).toBeInTheDocument()
-    expect(screen.queryByText(/Validité < 6 mois requise/)).not.toBeInTheDocument()
-    // Le bouton Analyser accompagne la pièce affichée (désactivé sans Supabase/hors-ligne).
+    expect(await screen.findByText(/Validité < 6 mois requise/)).toBeInTheDocument()
+    // Regafy IA reste À LA DEMANDE : le bouton Analyser accompagne la pièce (désactivé hors-ligne).
     expect(await screen.findByRole('button', { name: /Analyser/ })).toBeInTheDocument()
     // Le donut affiche un pourcentage calculé (feuilles remplies / feuilles).
     const donut = await screen.findAllByRole('img', { name: /%$/ })
@@ -207,14 +207,16 @@ describe('DossierWorkspacePage — caractérisation (avant refactor T7)', () => 
     expect(screen.queryByText(/gmp\.pdf/i)).not.toBeInTheDocument()
   })
 
-  it('compiler sans analyse : gate « Aucune analyse effectuée » + bouton Audit Global', async () => {
+  it('compiler : le gate présente les constats Monitor + « Compiler quand même »', async () => {
     await seed()
     renderPage()
     // État stable d'abord (docs chargés → auto-sélection 1.2), sinon le gate voit un dossier vide.
     expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent('1.2')
     const compile = await screen.findByRole('button', { name: /Compiler le PDF/ })
     compile.click()
-    expect(await screen.findByText(/Aucune analyse effectuée sur ce dossier/)).toBeInTheDocument()
+    // Monitor étant toujours actif, le gate liste ses constats déterministes (GMP < 6 mois) — plus de
+    // « Aucune analyse effectuée » — et propose Audit Global (IA) / Compiler quand même (jamais bloquant).
+    expect(await screen.findByText(/Validité < 6 mois requise/)).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: /Audit Global/ })).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: 'Compiler quand même' })).toBeInTheDocument()
   })
