@@ -55,3 +55,13 @@ export function docTypeLabel(code: string, lang: Lang = 'fr'): string {
   if (!opt) return code
   return lang === 'en' && opt.en ? opt.en : opt.label
 }
+
+/**
+ * Pièces dont la date d'expiration est REQUISE au save (Monitor — jalon O) : pièces administratives
+ * à validité réglementaire (AMM/GMP/COPP/FSC/ML) + COA. Monitor compare ces dates DÉCLARÉES aux
+ * validités requises (admin ≥ 6 mois, COA ≥ 18 mois).
+ */
+export const EXPIRY_REQUIRED_TYPES = new Set(['coa', 'amm', 'gmp', 'copp', 'fsc', 'ml'])
+export function requiresExpiry(docType: string): boolean {
+  return EXPIRY_REQUIRED_TYPES.has(docType)
+}
