@@ -107,6 +107,7 @@ construction partout où l'autorité fait foi).
   langue officielle du pays cible (déjà le cas — politique Regafy inchangée).
 
 ### M — Console admin & quotas *(2 sessions)*
+> 📋 Plan d'exécution détaillé : [PLAN-M-N-GOLIVE.md](PLAN-M-N-GOLIVE.md).
 - Console d'administration (rôle admin Pharnos) : organisations, utilisateurs, usage
   (dossiers, storage, appels IA), désactivation de compte.
 - **Quotas IA par organisation** (compteur Edge + plafond par offre) — verrou anti-dérive
@@ -114,6 +115,7 @@ construction partout où l'autorité fait foi).
 - Invitations d'équipe propres (e-mail Resend) + rôles (admin org / éditeur / lecteur).
 
 ### N — Durcissement final & gate GO-LIVE *(2 sessions)*
+> 📋 Plan d'exécution détaillé : [PLAN-M-N-GOLIVE.md](PLAN-M-N-GOLIVE.md).
 - Sécurité : revue RLS table par table (pgTAP complétés), rate-limits Edge IA par
   user/org, rotation des secrets documentée, en-têtes/CSP re-audités, npm audit 0 high.
 - Performance : budgets re-serrés (entry gzip, LCP ≤ 2,5 s sur 4G, INP < 200 ms,

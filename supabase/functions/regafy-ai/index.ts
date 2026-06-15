@@ -16,6 +16,8 @@ import {
 import { specForDocType } from '../_shared/conformity-specs.ts'
 import { corsHeaders, isAllowedOrigin } from '../_shared/cors.ts'
 import { logJson, newReqId, timed, userHash } from '../_shared/log.ts'
+import { checkAiQuota, recordAiUsage } from '../_shared/quota.ts'
+import { withUsage } from '../_shared/usage.ts'
 import { generateParts, generateText, type Part } from '../_shared/vertex.ts'
 
 interface LetterInput {
@@ -469,6 +471,16 @@ Deno.serve(async (req: Request) => {
   }
   const log = { fn: 'regafy-ai', reqId, user: await userHash(user.id) }
 
+  // Verrou de quota IA par organisation (M1) — AVANT tout appel Vertex. Fail-closed.
+  const quota = await checkAiQuota(supabase, 'regafy')
+  if (!quota.allowed) {
+    logJson({ ...log, op: 'quota', status: 'blocked', reason: quota.reason })
+    return json(
+      { error: 'quota_exceeded', reason: quota.reason, cap: quota.cap, remaining: quota.remaining },
+      quota.status,
+    )
+  }
+
   let raw: unknown
   try {
     raw = await req.json()
@@ -537,7 +549,8 @@ Deno.serve(async (req: Request) => {
     conformityTexts: conformityTexts.length,
   })
   try {
-    const [letterResult, validityFindings, textConformityFindings] = await Promise.all([
+    const { result, usage } = await withUsage(async () => {
+      const [letterResult, validityFindings, textConformityFindings] = await Promise.all([
       analyzeLetters(
         letters,
         {
@@ -591,9 +604,12 @@ Deno.serve(async (req: Request) => {
       findings: findings.length,
       degraded: letterResult.degraded,
     })
-    // `degraded` (additif, optionnel) : l'analyse des lettres a échoué — le client doit
-    // l'afficher plutôt que de laisser croire « aucun constat = conforme ».
-    return json(letterResult.degraded ? { findings, degraded: true } : { findings })
+      // `degraded` (additif, optionnel) : l'analyse des lettres a échoué — le client doit
+      // l'afficher plutôt que de laisser croire « aucun constat = conforme ».
+      return letterResult.degraded ? { findings, degraded: true } : { findings }
+    })
+    recordAiUsage(supabase, 'regafy', usage)
+    return json(result)
   } catch (e) {
     // Filet global : réponse JSON propre (avec CORS) plutôt qu'un 500 brut du runtime.
     logJson({

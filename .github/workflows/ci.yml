@@ -179,7 +179,7 @@ jobs:
         run: deno test supabase/functions/_shared/
 
       - name: Type-check des Edge Functions
-        run: deno check supabase/functions/regafy-ai/index.ts supabase/functions/translate/index.ts supabase/functions/share/index.ts
+        run: deno check supabase/functions/regafy-ai/index.ts supabase/functions/translate/index.ts supabase/functions/upgrade/index.ts supabase/functions/share/index.ts
 
   secrets:
     name: secrets (gitleaks · historique complet)
