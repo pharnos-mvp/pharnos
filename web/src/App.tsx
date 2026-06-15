@@ -26,6 +26,11 @@ const ResetPasswordPage = lazy(() =>
 const OnboardingPage = lazy(() =>
   import('@/features/org/OnboardingPage').then((m) => ({ default: m.OnboardingPage })),
 )
+// Console admin Pharnos (jalon M) — chunk séparé, chargé uniquement sur /admin. Elle s'auto-protège
+// (l'Edge `admin` refuse les non super-admins → écran « accès refusé »).
+const AdminConsole = lazy(() =>
+  import('@/features/admin/AdminConsole').then((m) => ({ default: m.AdminConsole })),
+)
 
 function FullScreenLoader() {
   const { t } = useI18n()
@@ -80,6 +85,15 @@ function AppGate() {
     return (
       <Suspense fallback={<FullScreenLoader />}>
         <LoginPage />
+      </Suspense>
+    )
+  }
+
+  // Console admin plateforme (hors shell RA org-scoped) — réservée aux super-admins Pharnos.
+  if (window.location.pathname.startsWith('/admin')) {
+    return (
+      <Suspense fallback={<FullScreenLoader />}>
+        <AdminConsole />
       </Suspense>
     )
   }
