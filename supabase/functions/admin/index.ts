@@ -150,7 +150,9 @@ Deno.serve(async (req: Request) => {
         return await callRpc('admin_set_plan_limits', {
           p_plan: plan,
           p_max_dossiers: optInt(b.maxDossiers),
+          p_dossiers_period: b.dossiersPeriod === 'lifetime' || b.dossiersPeriod === 'month' ? b.dossiersPeriod : null,
           p_monthly_ai_tokens: optInt(b.monthlyAiTokens),
+          p_max_seats: optInt(b.maxSeats),
           p_features: features,
           p_actor_org: actorOrg, p_actor_id: actorId, p_actor_email: actorEmail,
         })

@@ -8,7 +8,9 @@ export type PlanTier = 'free' | 'pro' | 'business' | 'enterprise'
 export interface PlanLimits {
   plan: PlanTier
   max_dossiers: number | null
+  dossiers_period: 'lifetime' | 'month'
   monthly_ai_tokens: number | null
+  max_seats: number | null
   features: Record<string, boolean>
   updated_at?: string
 }
@@ -107,9 +109,19 @@ export const adminApi = {
   setPlanLimits: (
     plan: PlanTier,
     maxDossiers: number | null,
+    dossiersPeriod: 'lifetime' | 'month',
     monthlyAiTokens: number | null,
+    maxSeats: number | null,
     features: Record<string, boolean> | null,
-  ) => callAdmin('set_plan_limits', { plan, maxDossiers, monthlyAiTokens, features }),
+  ) =>
+    callAdmin('set_plan_limits', {
+      plan,
+      maxDossiers,
+      dossiersPeriod,
+      monthlyAiTokens,
+      maxSeats,
+      features,
+    }),
 }
 
 // ── Formatage (déterministe, sans dépendance) ──────────────────────────────────────────────
