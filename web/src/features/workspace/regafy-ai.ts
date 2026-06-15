@@ -24,6 +24,8 @@ export interface RegafyAiPiece {
   category: string
   fileName: string
   filePath: string
+  /** Date d'expiration DÉCLARÉE par l'utilisateur (Monitor) — Regafy fait la contre-expertise (O3). */
+  declaredExpiry?: string | null
 }
 
 export interface RegafyLetterCtx {

@@ -83,7 +83,7 @@ import { buildAuditReport, type AuditReport } from './audit-report'
 import { docTypeForNode, getModule1Tree, type CtdNodeDef } from './module1-tree'
 import { agencyCivilite, agencyFor, officialLanguage } from './roadmap-data'
 import { PdfPreviewDialog } from './PdfPreviewDialog'
-import { tiptapText, type RegafyFinding } from './regafy'
+import { runRegafy, tiptapText, type RegafyFinding } from './regafy'
 import './regafy-scan.css'
 import { RichTextEditor } from './RichTextEditor'
 import { hasSignature, insertSignature, removeSignature } from './signature'
@@ -241,6 +241,22 @@ export function DossierWorkspacePage() {
     return map
   }, [attachments])
 
+  // MONITOR (jalon O) — vérifications DÉTERMINISTES, gratuites, TOUJOURS actives (offline, sans IA,
+  // zéro token) : complétude des lettres générées, sections validées sans pièce, validité des dates
+  // DÉCLARÉES (admin ≥ 6 mois, COA ≥ 18 mois), titulaire ≠ fabricant sans contrat. Indépendant de
+  // « Analyser » (Regafy/IA) — disponible sur TOUS les plans, y compris Free.
+  const monitorFindings = useMemo<RegafyFinding[]>(() => {
+    if (!dossier) return []
+    return runRegafy({
+      tree: dossier.tree,
+      titulaire: product?.titulaire ?? '',
+      fabricant: product?.fabricant,
+      docsByNode,
+      genByNode,
+      attachByNode,
+    }).map((f) => ({ ...f, source: 'monitor' as const }))
+  }, [dossier, product, docsByNode, genByNode, attachByNode])
+
   const flatNodes = useMemo(() => (dossier ? flattenTree(dossier.tree) : []), [dossier])
   // Ouverture d'un onglet de traduction (sélection du nœud + édition immédiate) — callback du
   // copilote IA, stable pour ne pas relancer ses memos.
@@ -283,11 +299,16 @@ export function DossierWorkspacePage() {
 
   // Remarques de la SESSION (analyses déclenchées par l'utilisateur — recette n°6 : plus
   // d'analyse automatique). Constat de langue masqué dès qu'une traduction existe.
-  const allFindings = useMemo(
-    () =>
-      aiFindings.filter((f) => !(f.translate && f.pieceId && translatedSourceIds.has(f.pieceId))),
-    [aiFindings, translatedSourceIds],
-  )
+  const allFindings = useMemo(() => {
+    const ai = aiFindings.filter(
+      (f) => !(f.translate && f.pieceId && translatedSourceIds.has(f.pieceId)),
+    )
+    // Monitor TOUJOURS affiché (gratuit, déterministe) ; on dédupe les constats déjà remontés par
+    // l'IA (même nœud + même message) pour éviter les doublons. Regafy (O3) ajoute la contre-expertise.
+    const seen = new Set(ai.map((f) => `${f.nodeNumber}|${f.message}`))
+    const monitor = monitorFindings.filter((f) => !seen.has(`${f.nodeNumber}|${f.message}`))
+    return [...monitor, ...ai]
+  }, [aiFindings, monitorFindings, translatedSourceIds])
 
   // Offline-first : précharge le compilateur PDF (pdf-lib) **tant qu'on est en ligne** → il est
   // en mémoire avant toute coupure réseau. (Le worker pdf.js est de retour dans le PRÉCACHE du

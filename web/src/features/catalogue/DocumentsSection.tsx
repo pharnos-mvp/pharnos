@@ -16,7 +16,7 @@ import {
 import type { DocumentCategory } from '@/lib/db'
 import { UPLOAD_ACCEPT } from '@/lib/files'
 import { useI18n } from '@/lib/i18n-context'
-import { docTypeLabel, docTypesFor } from './doc-types'
+import { docTypeLabel, docTypesFor, requiresExpiry } from './doc-types'
 import { addDocument, deleteDocument, getDocumentBlob, listDocuments } from './documents-repository'
 import { downloadDocumentBlob, syncDocuments } from './documents-sync'
 
@@ -55,6 +55,16 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
       toast.error(t({ fr: 'Choisis un type de document', en: 'Choose a document type' }))
       return
     }
+    // Monitor (jalon O) : la date d'expiration est obligatoire pour les pièces à validité (COA + admin).
+    if (requiresExpiry(docType) && !expiryDate) {
+      toast.error(
+        t({
+          fr: 'Date d’expiration requise pour cette pièce (vérifiée par Monitor).',
+          en: 'Expiry date required for this document (checked by Monitor).',
+        }),
+      )
+      return
+    }
     setBusy(true)
     try {
       await addDocument(orgId, productId, {
@@ -62,7 +72,7 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
         docType,
         file,
         language: 'fr',
-        expiryDate: category === 'admin' && expiryDate ? expiryDate : null,
+        expiryDate: expiryDate || null,
       })
       void syncDocuments(orgId)
       toast.success(t({ fr: 'Document ajouté', en: 'Document added' }))
@@ -119,9 +129,9 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
           </Select>
         </div>
 
-        {category === 'admin' ? (
+        {requiresExpiry(docType) ? (
           <div className="space-y-1.5">
-            <Label>{t({ fr: 'Date de validité', en: 'Validity date' })}</Label>
+            <Label>{t({ fr: "Date d'expiration *", en: 'Expiry date *' })}</Label>
             <Input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
           </div>
         ) : null}

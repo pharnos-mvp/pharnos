@@ -102,6 +102,7 @@ export function useRegafyCopilot({
             category: d.category,
             fileName: d.fileName,
             filePath: d.filePath,
+            declaredExpiry: d.expiryDate ?? null,
           })
         }
       }
@@ -128,6 +129,7 @@ export function useRegafyCopilot({
               category: num.startsWith('1.3') ? 'info' : 'admin',
               fileName: a.fileName,
               filePath: a.filePath,
+              declaredExpiry: null,
             })
           }
         }

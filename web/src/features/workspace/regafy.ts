@@ -18,8 +18,8 @@ export interface RegafyFinding {
   nodeLabel: string
   severity: RegafySeverity
   message: string
-  /** Origine : 'ai' = enrichissement Vertex (assistif) ; sinon règle déterministe. */
-  source?: 'rule' | 'ai'
+  /** Origine : 'ai' = Regafy (copilote Vertex) ; 'monitor' = vérifs déterministes gratuites ; 'rule' = legacy. */
+  source?: 'rule' | 'ai' | 'monitor'
   /** Pièce concernée (constats de validité IA) — clé du merge incrémental. */
   pieceId?: string
   /** Document à traduire (langue ≠ pays) — affiche un bouton « Traduire ». */
