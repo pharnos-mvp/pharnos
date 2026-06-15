@@ -25,6 +25,10 @@ values
   ('00000000-0000-0000-0000-0000000000a1', 'Org A'),
   ('00000000-0000-0000-0000-0000000000b2', 'Org B');
 
+-- Org A sur 'pro' (Regafy activé, 200 000 tokens) : le nouveau 'free' = 0 token / Regafy off (O),
+-- on teste donc le gate de TOKENS sur un plan où l'IA est activée.
+update public.orgs set plan = 'pro' where id = '00000000-0000-0000-0000-0000000000a1';
+
 insert into public.memberships (org_id, user_id, role)
 values
   ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000aa', 'admin'),
@@ -68,14 +72,14 @@ select is(
 );
 select is(
   (public.consume_ai_quota('regafy') ->> 'cap')::bigint,
-  1000000::bigint,
-  'gate : plafond = plan free (1 000 000 tokens)'
+  200000::bigint,
+  'gate : plafond = plan pro (200 000 tokens)'
 );
 select is(public.is_platform_admin(), false, 'utilisateur normal : is_platform_admin = false');
 select is(
   (select count(*)::int from public.plan_limits),
-  4,
-  'plan_limits (config globale) lisible par un authentifié : 4 plans'
+  5,
+  'plan_limits (config globale) lisible par un authentifié : 5 plans'
 );
 
 -- caller_org_id / enforce_dossier_quota : NON appelables en RPC (lockdown advisor).

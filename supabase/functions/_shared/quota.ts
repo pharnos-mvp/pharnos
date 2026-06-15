@@ -17,6 +17,7 @@ export interface QuotaVerdict {
 
 const STATUS_BY_REASON: Record<string, number> = {
   quota_exceeded: 429,
+  feature_disabled: 403,
   org_disabled: 403,
   no_org: 403,
   quota_check_failed: 503,
