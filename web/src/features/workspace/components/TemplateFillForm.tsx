@@ -223,8 +223,8 @@ export function TemplateFillForm({
       <div className="tplform-hint">
         <b>{t({ fr: 'Astuce :', en: 'Tip:' })}</b>{' '}
         {t({
-          fr: 'remplissez les champs, cochez les mentions qui s’appliquent. Le document exporté ne contient que vos saisies et les options cochées — rien d’autre.',
-          en: 'fill in the fields, tick the statements that apply. The exported document contains only your entries and the ticked options — nothing else.',
+          fr: 'remplissez les champs, cochez les mentions qui s’appliquent. Le document exporté est 100% conforme au template en vigueur.',
+          en: 'fill in the fields, tick the statements that apply. The exported document is 100% compliant with the current template.',
         })}
       </div>
       <div className="tplform-canvas">

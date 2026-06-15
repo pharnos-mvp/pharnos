@@ -102,12 +102,12 @@ import { FormatToolbar, ToolbarBtn } from './components/toolbar'
 import { TranslationProgress } from './components/TranslationProgress'
 import { PanelHandle } from './components/PanelHandle'
 import { TreePanel } from './components/TreePanel'
-import { downloadDoc, slugify, triggerDownload } from './download-utils'
+import { dossierBaseName, downloadDoc, slugify, triggerDownload } from './download-utils'
 import { UPGRADE_DOC_TYPES } from './regafy-ai'
 import { buildTemplateSkeleton, FILL_PLACEHOLDER } from './template-fill'
 import { formStateFromContent } from './template-form/form-content'
 import { formDefinitionFor } from './template-form/form-definitions'
-import { countEmptyFields, formExportName } from './template-form/form-types'
+import { formExportName } from './template-form/form-types'
 import { countMarker, countMissing } from './upgrade-doc'
 
 export function DossierWorkspacePage() {
@@ -303,12 +303,30 @@ export function DossierWorkspacePage() {
     const ai = aiFindings.filter(
       (f) => !(f.translate && f.pieceId && translatedSourceIds.has(f.pieceId)),
     )
-    // Monitor TOUJOURS affiché (gratuit, déterministe) ; on dédupe les constats déjà remontés par
-    // l'IA (même nœud + même message) pour éviter les doublons. Regafy (O3) ajoute la contre-expertise.
-    const seen = new Set(ai.map((f) => `${f.nodeNumber}|${f.message}`))
-    const monitor = monitorFindings.filter((f) => !seen.has(`${f.nodeNumber}|${f.message}`))
+    // Monitor TOUJOURS affiché (gratuit, déterministe). Dédup (recette n°6) : on retire le constat
+    // Monitor si l'IA en a déjà un sur le MÊME message OU la MÊME (nœud, nature) — une seule remarque
+    // par doc et par nature ; l'IA (contre-expertise O3 plus riche) prime.
+    const seenMsg = new Set(ai.map((f) => `${f.nodeNumber}|${f.message}`))
+    const seenTopic = new Set(ai.filter((f) => f.topic).map((f) => `${f.nodeNumber}|${f.topic}`))
+    const monitor = monitorFindings.filter(
+      (f) =>
+        !seenMsg.has(`${f.nodeNumber}|${f.message}`) &&
+        !(f.topic && seenTopic.has(`${f.nodeNumber}|${f.topic}`)),
+    )
     return [...monitor, ...ai]
   }, [aiFindings, monitorFindings, translatedSourceIds])
+
+  // Surbrillance sobre (recette n°6) : nœuds (et leurs ancêtres) portant un constat NON résolu →
+  // oriente l'utilisateur vers la section à compléter/vérifier dans l'arborescence.
+  const flaggedNodes = useMemo(() => {
+    const set = new Set<string>()
+    for (const f of allFindings) {
+      if (f.ok || !f.nodeNumber) continue
+      const parts = f.nodeNumber.split('.')
+      for (let i = 1; i <= parts.length; i++) set.add(parts.slice(0, i).join('.'))
+    }
+    return set
+  }, [allFindings])
 
   // Offline-first : précharge le compilateur PDF (pdf-lib) **tant qu'on est en ligne** → il est
   // en mémoire avant toute coupure réseau. (Le worker pdf.js est de retour dans le PRÉCACHE du
@@ -397,7 +415,7 @@ export function DossierWorkspacePage() {
       const blob = new Blob([new Uint8Array(bytes)], { type: 'application/pdf' })
       showPreview(
         URL.createObjectURL(blob),
-        `${slugify(dossier.productName)}-module-1.pdf`,
+        `${dossierBaseName(dossier.productName, dossier.country)}.pdf`,
         true,
         blob,
       )
@@ -689,10 +707,6 @@ export function DossierWorkspacePage() {
   // compléter » est rendu par TemplateFillForm (feuille A4 navy + exports DOCX/PDF) — plus
   // d'éditeur TipTap pour ces types.
   const activeFormDef = activeGenDoc?.templateKey === 'fill' ? formDefinitionFor(fillDocType) : null
-  const formEmptyCount =
-    activeFormDef && activeGenDoc
-      ? countEmptyFields(formStateFromContent(activeFormDef, activeGenDoc.content as JSONContent))
-      : 0
 
   // Carte de constat (mockup CEO) du document affiché — masquable pour la session (le
   // constat reste dans le panneau Remarques). Type pour les actions : type de la pièce
@@ -1045,6 +1059,7 @@ export function DossierWorkspacePage() {
           selected={selected}
           onSelectNode={handleSelectNode}
           countFor={countFor}
+          flaggedNodes={flaggedNodes}
           onTreeChange={(tree) => void handleTreeChange(tree)}
         />
         <PanelHandle
@@ -1077,7 +1092,15 @@ export function DossierWorkspacePage() {
                 }}
               />
               {showCoverPage ? null : (
-                <div className="bg-card flex min-h-10 flex-wrap items-center gap-2 rounded-xl border px-2 py-1 shadow-sm">
+                <div
+                  className={cn(
+                    'bg-card flex min-h-10 flex-wrap items-center gap-2 rounded-xl border px-2 py-1 shadow-sm',
+                    // Recette n°7 : barre épinglée pour garder « Téléverser/Analyser » à portée au
+                    // scroll. En édition de lettre, la pilule (top-0) + la barre de format (top-12)
+                    // sont déjà épinglées → barre laissée statique pour éviter tout chevauchement.
+                    !isEditableActive && 'sticky top-0 z-20',
+                  )}
+                >
                   <span className="sr-only" role="heading" aria-level={2}>
                     {selected.number ? `${selected.number} ` : ''}
                     {selected.label}
@@ -1160,6 +1183,15 @@ export function DossierWorkspacePage() {
                               })
                         }
                         onClick={() => {
+                          // Recette n°10 : une (ré)analyse ré-affiche la carte d'invite si elle avait
+                          // été masquée (le panneau « Remplir le template » réapparaît au scan).
+                          if (activeAnalysisFinding)
+                            setHiddenCards((prev) => {
+                              if (!prev.has(activeAnalysisFinding.id)) return prev
+                              const next = new Set(prev)
+                              next.delete(activeAnalysisFinding.id)
+                              return next
+                            })
                           if (analyzableGenDoc) void analyzeGenerated(analyzableGenDoc)
                           else void analyzeActive(analyzeTargetId)
                         }}
@@ -1245,15 +1277,6 @@ export function DossierWorkspacePage() {
                         onDismiss={hideAnalysisCard}
                       />
                     ) : null}
-                    {activeGenDoc.templateKey === 'translation' ? (
-                      <p className="text-muted-foreground flex items-center gap-1.5 px-3 pt-2 text-xs italic">
-                        <Languages className="size-3.5 shrink-0 text-amber-500" />
-                        {t({
-                          fr: "Traduction assistée (MedDRA) — à relire. N'altère pas l'original ; propre à ce dossier.",
-                          en: 'Assisted translation (MedDRA) — to review. Does not alter the original; specific to this dossier.',
-                        })}
-                      </p>
-                    ) : null}
                     {activeGenDoc.templateKey === 'upgrade' ? (
                       <p
                         className={cn(
@@ -1274,25 +1297,7 @@ export function DossierWorkspacePage() {
                       </p>
                     ) : null}
                     {activeGenDoc.templateKey === 'fill' ? (
-                      activeFormDef ? (
-                        <p
-                          className={cn(
-                            'flex items-center gap-1.5 px-3 pt-2 text-xs italic',
-                            formEmptyCount > 0 ? 'text-amber-700' : 'text-emerald-700',
-                          )}
-                        >
-                          <ClipboardList className="size-3.5 shrink-0" />
-                          {formEmptyCount > 0
-                            ? t({
-                                fr: `Formulaire officiel — ${formEmptyCount} champ(s) à compléter. Regafy vérifie la conformité à chaque enregistrement.`,
-                                en: `Official form — ${formEmptyCount} field(s) to complete. Regafy checks compliance on each save.`,
-                              })
-                            : t({
-                                fr: 'Formulaire officiel — tous les champs sont remplis. Regafy vérifie la conformité à chaque enregistrement.',
-                                en: 'Official form — all fields are filled. Regafy checks compliance on each save.',
-                              })}
-                        </p>
-                      ) : (
+                      activeFormDef ? null : (
                         <p
                           className={cn(
                             'flex items-center gap-1.5 px-3 pt-2 text-xs italic',

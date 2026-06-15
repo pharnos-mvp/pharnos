@@ -158,6 +158,8 @@ export function useRegafyCopilot({
   const consolidate = useCallback(
     (piece: RegafyAiPiece, fs: RegafyFinding[], countryName: string): RegafyFinding[] => {
       const isTemplate = UPGRADE_DOC_TYPES.has(piece.docType)
+      // Nature du constat (dédup recette n°6 : un constat par doc et par nature ; Monitor cède à l'IA).
+      const topic = isTemplate ? 'conformity' : 'validity'
       if (fs.length === 0) {
         return [
           {
@@ -168,13 +170,27 @@ export function useRegafyCopilot({
             ok: true,
             source: 'ai',
             pieceId: piece.pieceId,
+            topic,
             message: isTemplate
               ? `${piece.fileName} : conforme au template en vigueur.`
               : `${piece.fileName} : validité vérifiée — conforme.`,
           },
         ]
       }
-      if (!isTemplate) return fs
+      if (!isTemplate) {
+        // Pièce admin/COA : le constat positif daté de l'IA est reformulé avec le NOM DE FICHIER
+        // (point 4 — la date relevée figure dans le verdict conforme).
+        return fs.map((f) =>
+          f.ok && f.validUntil
+            ? {
+                ...f,
+                pieceId: piece.pieceId,
+                topic,
+                message: `${piece.fileName} : validité vérifiée — conforme — valable encore ~${f.validityMonths ?? '?'} mois (expire le ${f.validUntil}).`,
+              }
+            : { ...f, topic },
+        )
+      }
       // Document à template : fusionner conformité + langue en un constat porteur d'actions.
       const upgradeF = fs.find((f) => f.upgrade)
       const langF = fs.find((f) => f.translate || (f.language && f.language !== 'fr'))
@@ -184,11 +200,15 @@ export function useRegafyCopilot({
           ...upgradeF,
           translate: true,
           language: langF.language,
+          topic,
           message: `${piece.docType.toUpperCase()} : non conforme au template en vigueur et rédigé en ${lang} — langue officielle du ${countryName} : français.`,
         }
-        return [merged, ...fs.filter((f) => f !== upgradeF && f !== langF)]
+        return [
+          merged,
+          ...fs.filter((f) => f !== upgradeF && f !== langF).map((f) => ({ ...f, topic })),
+        ]
       }
-      return fs
+      return fs.map((f) => ({ ...f, topic }))
     },
     [],
   )
@@ -207,6 +227,7 @@ export function useRegafyCopilot({
       setAnalyzing(piece.pieceId)
       try {
         let fs = await getCachedAnalysis(piece.pieceId, piece.sig)
+        const cached = !!fs
         if (!fs) {
           fs = await runRegafyValidity(
             [piece],
@@ -224,6 +245,9 @@ export function useRegafyCopilot({
           ...prev,
           [piece.pieceId]: consolidate(piece, fs!, countryName),
         }))
+        // Doc inchangé (cache) : rejoue l'animation de scan VISIBLE, sans réappel IA ni doublon de
+        // remarque (résultat identique → idempotent) — recette n°10.
+        if (cached) await new Promise((r) => setTimeout(r, 900))
       } catch (e) {
         toast.error(`Analyse impossible : ${(e as Error).message}`)
       } finally {
@@ -245,6 +269,7 @@ export function useRegafyCopilot({
       setAnalyzing(genDoc.id)
       try {
         let fs = await getCachedAnalysis(genDoc.id, genDoc.updatedAt)
+        const cached = !!fs
         if (!fs) {
           fs = await runRegafyConformityTexts(
             [
@@ -280,6 +305,8 @@ export function useRegafyCopilot({
               ]
             : fs
         setAnalysisByPiece((prev) => ({ ...prev, [genDoc.id]: consolidated }))
+        // Doc inchangé (cache) : rejoue l'animation de scan VISIBLE, sans réappel IA (recette n°10).
+        if (cached) await new Promise((r) => setTimeout(r, 900))
       } catch (e) {
         toast.error(`Analyse impossible : ${(e as Error).message}`)
       } finally {
@@ -415,6 +442,7 @@ export function useRegafyCopilot({
         return {
           productName,
           countryName,
+          countryCode: dossier.country,
           agency,
           format: formatLabel(dossier.format),
           activity: activityLabel(dossier.activity) || dossier.activity || '',

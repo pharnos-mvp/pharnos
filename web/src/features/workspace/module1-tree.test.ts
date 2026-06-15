@@ -51,4 +51,18 @@ describe('module1-tree — CTD UEMOA (section 1.2 détaillée)', () => {
     expect(resolveExistingNode(full, '1.2.3.2')).toBe('1.2.3.2')
     expect(resolveExistingNode(full, '1.2.4.3')).toBe('1.2.4.3')
   })
+
+  it('1.3.3 Étiquetage = page de garde avec sous-sections primaire / extérieur (CTD)', () => {
+    const flat = flattenTree(getModule1Tree('ctd'))
+    const node = flat.find((n) => n.number === '1.3.3')
+    expect(node?.children?.map((c) => c.number)).toEqual(['1.3.3.1', '1.3.3.2'])
+    const numbers = flat.map((n) => n.number)
+    expect(numbers).toContain('1.3.3.1')
+    expect(numbers).toContain('1.3.3.2')
+  })
+
+  it('auto-classe étiquetage/artwork vers les sous-sections 1.3.3.x (CTD)', () => {
+    expect(nodeForDocType('ctd', 'labeling', 'info')).toBe('1.3.3.1')
+    expect(nodeForDocType('ctd', 'artwork', 'info')).toBe('1.3.3.2')
+  })
 })

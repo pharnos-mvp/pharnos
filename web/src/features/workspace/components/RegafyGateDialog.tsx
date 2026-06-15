@@ -89,43 +89,47 @@ export function RegafyGateDialog({
             </>
           )}
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2 border-t p-3">
-          <Button
-            variant="outline"
-            disabled={auditing || auditDisabled}
-            title={
-              auditDisabled
-                ? t({ fr: 'Audit disponible en ligne', en: 'Audit available online' })
-                : undefined
-            }
-            onClick={onAudit}
-            className="gap-1.5 border-emerald-600 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
-          >
-            {auditing ? (
-              <>
-                <Loader2 className="size-4 animate-spin" />
-                {t({ fr: 'Audit…', en: 'Audit…' })} {auditProgress.done}/{auditProgress.total}
-              </>
-            ) : (
-              <>
-                <ScanSearch className="size-4" />
-                {t({ fr: 'Audit Global', en: 'Global Audit' })}
-              </>
-            )}
-          </Button>
+        {/* Annuler à gauche (sortie claire) · actions à droite, Compiler en primaire (le plus à
+            droite = CTA principal). Ordre logique : Audit Global → Corriger → Compiler. */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t p-3">
           <Button variant="ghost" disabled={auditing} onClick={onClose}>
             {t({ fr: 'Annuler', en: 'Cancel' })}
           </Button>
-          <Button
-            variant="outline"
-            disabled={auditing || !findings.some((f) => f.nodeNumber)}
-            onClick={onCorrect}
-          >
-            {t({ fr: 'Corriger', en: 'Fix' })}
-          </Button>
-          <Button disabled={auditing} onClick={onCompile}>
-            {t({ fr: 'Compiler quand même', en: 'Compile anyway' })}
-          </Button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              disabled={auditing || auditDisabled}
+              title={
+                auditDisabled
+                  ? t({ fr: 'Audit disponible en ligne', en: 'Audit available online' })
+                  : undefined
+              }
+              onClick={onAudit}
+              className="gap-1.5 border-emerald-600 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+            >
+              {auditing ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  {t({ fr: 'Audit…', en: 'Audit…' })} {auditProgress.done}/{auditProgress.total}
+                </>
+              ) : (
+                <>
+                  <ScanSearch className="size-4" />
+                  {t({ fr: 'Audit Global', en: 'Global Audit' })}
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              disabled={auditing || !findings.some((f) => f.nodeNumber)}
+              onClick={onCorrect}
+            >
+              {t({ fr: 'Corriger', en: 'Fix' })}
+            </Button>
+            <Button disabled={auditing} onClick={onCompile}>
+              {t({ fr: 'Compiler quand même', en: 'Compile anyway' })}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

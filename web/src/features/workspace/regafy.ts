@@ -32,6 +32,13 @@ export interface RegafyFinding {
   missing?: string[]
   /** Analyse SANS constat : remarque positive consignée au panneau (pastille émeraude). */
   ok?: boolean
+  /** Nature du constat (validity / conformity / completeness…) — dédup « un constat par doc et par
+   *  nature » (recette n°6) : un constat Monitor cède à l'IA sur le même (nœud, topic). */
+  topic?: string
+  /** Date de fin de validité relevée (yyyy-mm-dd) — verdict conforme daté (point 4). */
+  validUntil?: string
+  /** Mois de validité restants relevés — verdict conforme daté. */
+  validityMonths?: number
 }
 
 export interface RegafyInput {
@@ -108,6 +115,7 @@ export function runRegafy(input: RegafyInput): RegafyFinding[] {
           nodeLabel: labelOf(num),
           severity,
           message,
+          topic: 'validity',
         })
       }
     }

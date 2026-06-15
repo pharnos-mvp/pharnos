@@ -233,7 +233,16 @@ export const MODULE1_CTD_UEMOA: CtdNodeDef[] = [
     children: [
       { number: '1.3.1', label: 'Résumé des caractéristiques du produit (RCP)' },
       { number: '1.3.2', label: "Notice à l'intention du patient" },
-      { number: '1.3.3', label: 'Étiquettes des conditionnements' },
+      {
+        number: '1.3.3',
+        label: 'Étiquettes des conditionnements',
+        // Page de garde (aucun document attaché) : les pièces se classent sous les deux
+        // sous-sections — primaire (étiquette/blister) et extérieur (carton, mockup).
+        children: [
+          { number: '1.3.3.1', label: 'Conditionnement primaire' },
+          { number: '1.3.3.2', label: 'Emballage extérieur' },
+        ],
+      },
       { number: '1.3.4', label: 'Étiquetage étranger' },
       { number: '1.3.5', label: 'Étiquetage des produits de référence' },
     ],
@@ -269,8 +278,8 @@ const NODE_BY_DOCTYPE: Record<DossierFormat, Record<string, string>> = {
   ctd: {
     rcp: '1.3.1',
     notice: '1.3.2',
-    labeling: '1.3.3',
-    artwork: '1.3.3',
+    labeling: '1.3.3.1',
+    artwork: '1.3.3.2',
     coa: '1.2.3.4',
     amm: '1.2.6.1',
     gmp: '1.2.4.1',

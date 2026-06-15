@@ -28,7 +28,7 @@ export function buildAuditPrintHtml(r: AuditReport): string {
   }
   parts.push(`<p class="footer">${esc(r.footer)}</p>`)
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8" />
-<title>${esc(r.title)}</title>
+<title>${esc(r.fileTitle || r.title)}</title>
 <style>
   @page { size: A4; margin: 22mm 20mm; }
   body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; color: #111; margin: 0; }

@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -103,6 +103,29 @@ export function NewDossierPage() {
               ))}
             </SelectContent>
           </Select>
+          {/* Raccourci : un user sans produit est redirigé en un clic vers la fiche produit
+              (proéminent si aucun produit, discret sinon). */}
+          {products && products.length === 0 ? (
+            <div className="bg-muted/40 mt-2 flex flex-col items-start gap-2 rounded-lg border border-dashed p-3 text-sm">
+              <span className="text-muted-foreground">
+                {t({
+                  fr: "Vous n'avez pas encore de produit. Créez-en un pour démarrer un dossier.",
+                  en: "You don't have any product yet. Create one to start a dossier.",
+                })}
+              </span>
+              <Button type="button" size="sm" onClick={() => navigate('/catalogue/nouveau')}>
+                <Plus className="size-4" /> {t({ fr: 'Créer un produit', en: 'Create a product' })}
+              </Button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => navigate('/catalogue/nouveau')}
+              className="text-muted-foreground hover:text-foreground mt-1.5 inline-flex items-center gap-1 text-xs"
+            >
+              <Plus className="size-3.5" /> {t({ fr: 'Créer un produit', en: 'Create a product' })}
+            </button>
+          )}
         </Field>
 
         <Field label={t({ fr: 'Format du dossier', en: 'Dossier format' })}>

@@ -1,3 +1,4 @@
+import { dossierBaseName } from './download-utils'
 import { UPGRADE_DOC_TYPES } from './regafy-ai'
 import type { RegafyFinding } from './regafy'
 
@@ -25,6 +26,8 @@ export interface AuditPiece {
 export interface AuditData {
   productName: string
   countryName: string
+  /** Code ISO-2 du pays cible (ex. 'BJ') — sert au nom de fichier du rapport. */
+  countryCode: string
   agency: string
   format: string
   activity: string
@@ -45,6 +48,8 @@ export interface AuditSection {
 
 export interface AuditReport {
   title: string
+  /** Nom de fichier suggéré à l'export PDF : « {Produit}_M1_{sigle pays}_Audit ». */
+  fileTitle: string
   subtitle: string
   sections: AuditSection[]
   footer: string
@@ -91,7 +96,7 @@ export function buildAuditReport(data: AuditData): AuditReport {
       ['Procédure', data.activity || '—'],
       ['Format', data.format || '—'],
       ["Date de l'audit", data.date],
-      ['Outil', 'Regafy — audit assisté, constats vérifiés document par document'],
+      ['Outil', 'Regafy AI, RA Copilot'],
     ],
   }
 
@@ -181,9 +186,10 @@ export function buildAuditReport(data: AuditData): AuditReport {
 
   return {
     title: "RAPPORT D'AUDIT DE CONFORMITÉ RÉGLEMENTAIRE",
+    fileTitle: `${dossierBaseName(data.productName, data.countryCode)}_Audit`,
     subtitle: `${data.productName || 'Dossier'} — ${data.countryName}${data.agency ? ` (${data.agency})` : ''}`,
     sections: [reference, method, synthese, details, manquants, conclusion],
-    footer: `Généré par Regafy — Pharnos · ${data.date}`,
+    footer: `© Regafy AI, ${data.date} ---- by Pharnos`,
   }
 }
 
