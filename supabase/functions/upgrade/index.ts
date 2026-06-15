@@ -14,7 +14,9 @@ import { specForDocType, specPromptText } from '../_shared/conformity-specs.ts'
 import { corsHeaders, isAllowedOrigin } from '../_shared/cors.ts'
 import { logJson, newReqId, userHash } from '../_shared/log.ts'
 import { frenchCalibration } from '../_shared/pharma-glossary.ts'
+import { checkAiQuota, recordAiUsage } from '../_shared/quota.ts'
 import { vertexSseToSimple } from '../_shared/sse.ts'
+import { withUsage } from '../_shared/usage.ts'
 import { generateParts, streamParts, type Part } from '../_shared/vertex.ts'
 
 const MAX_FILE_BYTES = 12 * 1024 * 1024
@@ -184,6 +186,16 @@ Deno.serve(async (req: Request) => {
     ? String(b.countryCode).toUpperCase().slice(0, 2)
     : undefined
 
+  // Verrou de quota IA par organisation (M1) — AVANT le téléchargement et l'appel Vertex.
+  const quota = await checkAiQuota(supabase, 'upgrade')
+  if (!quota.allowed) {
+    logJson({ ...log, op: 'quota', status: 'blocked', reason: quota.reason })
+    return json(
+      { error: 'quota_exceeded', reason: quota.reason, cap: quota.cap, remaining: quota.remaining },
+      quota.status,
+    )
+  }
+
   // Source : pièce téléchargée (Storage, RLS via le JWT appelant) ou texte borné.
   let sourcePart: Part
   let sourceBytes = 0
@@ -231,8 +243,10 @@ Deno.serve(async (req: Request) => {
         temperature: 0,
         timeoutMs: UPGRADE_TIMEOUT_MS,
       })
-      const out = vertexSseToSimple(vertexRes.body!, (chars) =>
-        logJson({ ...log, op: 'upgrade', ms: Date.now() - started, status: 'ok', chars }),
+      const out = vertexSseToSimple(
+        vertexRes.body!,
+        (chars) => logJson({ ...log, op: 'upgrade', ms: Date.now() - started, status: 'ok', chars }),
+        (uin, uout) => recordAiUsage(supabase, 'upgrade', { in: uin, out: uout }),
       )
       return new Response(out, {
         status: 200,
@@ -252,12 +266,16 @@ Deno.serve(async (req: Request) => {
 
   let text: string
   try {
-    text = await generateParts(parts, {
-      system,
-      maxOutputTokens: 8192,
-      temperature: 0,
-      timeoutMs: UPGRADE_TIMEOUT_MS,
-    })
+    const r = await withUsage(() =>
+      generateParts(parts, {
+        system,
+        maxOutputTokens: 8192,
+        temperature: 0,
+        timeoutMs: UPGRADE_TIMEOUT_MS,
+      }),
+    )
+    text = r.result
+    recordAiUsage(supabase, 'upgrade', r.usage)
   } catch (e) {
     const err = String((e as Error).message).slice(0, 300)
     logJson({ ...log, op: 'upgrade', ms: Date.now() - started, status: 'error', err })

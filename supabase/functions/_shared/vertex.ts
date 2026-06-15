@@ -7,6 +7,7 @@
 // Robustesse (T2, PLAN-V2) : timeout sur chaque fetch, retry borné sur transitoires uniquement
 // (429/5xx/réseau — jamais un 400), circuit breaker partagé par isolate.
 import { CircuitBreaker, HttpError, withRetry } from './retry.ts'
+import { addUsage } from './usage.ts'
 
 const OAUTH_TIMEOUT_MS = 10_000
 const breaker = new CircuitBreaker()
@@ -158,7 +159,13 @@ export function generateParts(parts: Part[], opts: GenerateOptions = {}): Promis
       }
       const data = await res.json()
       const out = data?.candidates?.[0]?.content?.parts ?? []
-      return out.map((p: { text?: string }) => p.text ?? '').join('')
+      const text = out.map((p: { text?: string }) => p.text ?? '').join('')
+      // Comptage des tokens IA (quota par org, M1) : usageMetadata si fourni par Vertex, sinon
+      // estimation (~4 chars/token) — on ne laisse JAMAIS un appel non compté (sinon coût non borné).
+      const um = data?.usageMetadata
+      if (um) addUsage(Number(um.promptTokenCount) || 0, Number(um.candidatesTokenCount) || 0)
+      else addUsage(Math.ceil(payload.length / 4), Math.ceil(text.length / 4))
+      return text
     }),
   )
 }
