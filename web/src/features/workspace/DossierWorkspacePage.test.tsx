@@ -2,6 +2,7 @@
 // AVANT le refactor (extractions de hooks/composants). Mode local (Supabase non configuré en
 // test) : syncs no-op, copilote IA inactif → comportement 100 % déterministe.
 import { useState, type ReactNode } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { configure, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -50,16 +51,21 @@ function TestShell() {
 }
 
 function renderPage() {
+  // Client neuf par rendu (isolation). useCurrentOrg garde sa query `enabled: false` ici
+  // (session null) → memberships=[] → canSubmit=false : aucun impact sur la caractérisation.
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
-    <I18nProvider>
-      <AuthContext.Provider value={auth}>
-        <OrgContext.Provider value={ORG}>
-          <MemoryRouter initialEntries={[`/workspace/${DOSSIER_ID}`]}>
-            <TestShell />
-          </MemoryRouter>
-        </OrgContext.Provider>
-      </AuthContext.Provider>
-    </I18nProvider>,
+    <QueryClientProvider client={queryClient}>
+      <I18nProvider>
+        <AuthContext.Provider value={auth}>
+          <OrgContext.Provider value={ORG}>
+            <MemoryRouter initialEntries={[`/workspace/${DOSSIER_ID}`]}>
+              <TestShell />
+            </MemoryRouter>
+          </OrgContext.Provider>
+        </AuthContext.Provider>
+      </I18nProvider>
+    </QueryClientProvider>,
   )
 }
 

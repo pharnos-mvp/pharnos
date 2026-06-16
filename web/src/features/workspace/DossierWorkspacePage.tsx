@@ -35,6 +35,7 @@ import { listDocuments } from '@/features/catalogue/documents-repository'
 import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
 import { useAuth } from '@/features/auth/auth-context'
 import { useOrgId } from '@/features/org/org-context'
+import { useCanManageSubmission } from '@/features/org/use-current-org'
 import {
   getOrgBranding,
   getUserSignature,
@@ -125,6 +126,8 @@ export function DossierWorkspacePage() {
   const userId = user?.id ?? 'local'
   const online = useOnlineStatus()
   const { t, lang } = useI18n()
+  // Gestion des soumissions (envoi du dossier) réservée à Admin + rôles agence/expert (RLS 0028).
+  const canSubmit = useCanManageSubmission()
 
   const dossier = useLiveQuery(
     async () => (dossierId ? ((await getDossier(dossierId)) ?? null) : null),
@@ -1571,21 +1574,23 @@ export function DossierWorkspacePage() {
           url={previewPdf.url}
           name={previewPdf.name}
           actions={
-            <Button
-              size="sm"
-              disabled={!online || !env.isSupabaseConfigured}
-              title={
-                !online
-                  ? t({
-                      fr: 'Hors-ligne : l’envoi nécessite une connexion',
-                      en: 'Offline: sending requires a connection',
-                    })
-                  : undefined
-              }
-              onClick={() => setShareOpen(true)}
-            >
-              <Send className="size-4" /> {t({ fr: 'Envoyer', en: 'Send' })}
-            </Button>
+            canSubmit ? (
+              <Button
+                size="sm"
+                disabled={!online || !env.isSupabaseConfigured}
+                title={
+                  !online
+                    ? t({
+                        fr: 'Hors-ligne : l’envoi nécessite une connexion',
+                        en: 'Offline: sending requires a connection',
+                      })
+                    : undefined
+                }
+                onClick={() => setShareOpen(true)}
+              >
+                <Send className="size-4" /> {t({ fr: 'Envoyer', en: 'Send' })}
+              </Button>
+            ) : undefined
           }
           onClose={closePreview}
         />

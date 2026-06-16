@@ -35,7 +35,14 @@ import { useI18n } from '@/lib/i18n-context'
 
 import { ROLE_HINT, ROLE_LABEL, teamApi, type OrgRole } from './team-api'
 
-const ROLES: OrgRole[] = ['admin', 'ra_officer', 'reviewer']
+const ROLES: OrgRole[] = [
+  'admin',
+  'ra_officer',
+  'reviewer',
+  'agence_locale',
+  'agence_representation',
+  'expert_ra',
+]
 
 export function TeamSection({ orgId }: { orgId: string }) {
   const { t } = useI18n()

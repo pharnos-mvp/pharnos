@@ -26,6 +26,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useCurrentOrg } from '@/features/org/use-current-org'
+import { canManageSubmission } from '@/features/team/team-api'
 import { downloadAttachmentBlob } from '@/features/workspace/dossier-attachments-sync'
 import { activityLabel, countryLabel } from '@/features/workspace/dossier-constants'
 import { db, type CorrespondenceRecord } from '@/lib/db'
@@ -177,6 +179,10 @@ export function CorrespondencePanel({
   onEdit?: () => void
 }) {
   const { t, lang } = useI18n()
+  // Gestion des soumissions (répondre au correspondant) réservée à Admin + agence/expert (RLS 0028).
+  // On gate par l'org EXACTE du panneau ; la RLS reste la vraie barrière (évite un 42501 visible).
+  const { memberships } = useCurrentOrg()
+  const canSubmit = canManageSubmission(memberships.find((m) => m.orgId === orgId)?.role)
   const correspondences = useLiveQuery(() => listByDossier(dossierId), [dossierId])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected: CorrespondenceRecord | undefined = useMemo(() => {
@@ -465,7 +471,7 @@ export function CorrespondencePanel({
                   >
                     <History className="size-3.5" /> {t({ fr: 'Accès', en: 'Access' })}
                   </Button>
-                  {selected.revokedAt === null ? (
+                  {selected.revokedAt === null && canSubmit ? (
                     <Button
                       variant="outline"
                       size="sm"
@@ -487,18 +493,20 @@ export function CorrespondencePanel({
                 <span className="text-base font-semibold tracking-tight">
                   {t({ fr: 'Discussions', en: 'Discussions' })}
                 </span>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={t({ fr: 'Nouvel envoi', en: 'New send' })}
-                  title={t({
-                    fr: 'Nouvel envoi (compiler puis Envoyer)',
-                    en: 'New send (compile then Send)',
-                  })}
-                  onClick={handleNew}
-                >
-                  <Plus className="size-4" />
-                </Button>
+                {canSubmit ? (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t({ fr: 'Nouvel envoi', en: 'New send' })}
+                    title={t({
+                      fr: 'Nouvel envoi (compiler puis Envoyer)',
+                      en: 'New send (compile then Send)',
+                    })}
+                    onClick={handleNew}
+                  >
+                    <Plus className="size-4" />
+                  </Button>
+                ) : null}
               </div>
 
               <div className="px-3 pb-2">
@@ -677,7 +685,7 @@ export function CorrespondencePanel({
                         {t({ fr: 'Modifier le dossier', en: 'Edit the dossier' })}
                       </DropdownMenuItem>
                     ) : null}
-                    {selected.revokedAt === null ? (
+                    {selected.revokedAt === null && canSubmit ? (
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem variant="destructive" onClick={() => void handleRevoke()}>
@@ -754,35 +762,47 @@ export function CorrespondencePanel({
                 />
               </div>
 
-              <div className="bg-card flex items-end gap-2 border-t p-2.5">
-                <textarea
-                  ref={composerRef}
-                  rows={1}
-                  className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 min-h-10 flex-1 resize-none rounded-2xl border bg-transparent px-4 py-2.5 text-sm outline-none focus-visible:ring-[3px]"
-                  placeholder={t({ fr: 'Écrivez un message…', en: 'Write a message…' })}
-                  value={reply}
-                  onChange={(e) => setReply(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      void handleReply()
-                    }
-                  }}
-                />
-                <Button
-                  size="icon"
-                  className="size-10 shrink-0 rounded-full"
-                  disabled={sending || !reply.trim()}
-                  aria-label={t({ fr: 'Envoyer la réponse', en: 'Send the reply' })}
-                  onClick={() => void handleReply()}
-                >
-                  {sending ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Send className="size-4" />
-                  )}
-                </Button>
-              </div>
+              {canSubmit ? (
+                <div className="bg-card flex items-end gap-2 border-t p-2.5">
+                  <textarea
+                    ref={composerRef}
+                    rows={1}
+                    className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 min-h-10 flex-1 resize-none rounded-2xl border bg-transparent px-4 py-2.5 text-sm outline-none focus-visible:ring-[3px]"
+                    placeholder={t({ fr: 'Écrivez un message…', en: 'Write a message…' })}
+                    value={reply}
+                    onChange={(e) => setReply(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        void handleReply()
+                      }
+                    }}
+                  />
+                  <Button
+                    size="icon"
+                    className="size-10 shrink-0 rounded-full"
+                    disabled={sending || !reply.trim()}
+                    aria-label={t({ fr: 'Envoyer la réponse', en: 'Send the reply' })}
+                    onClick={() => void handleReply()}
+                  >
+                    {sending ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Send className="size-4" />
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <div className="bg-card text-muted-foreground flex items-center gap-2 border-t p-3 text-xs">
+                  <Lock className="size-3.5 shrink-0" />
+                  <span>
+                    {t({
+                      fr: 'Lecture seule — seuls les gestionnaires de soumission (Admin, Agence, Expert RA) peuvent répondre.',
+                      en: 'Read-only — only submission managers (Admin, Agency, RA Expert) can reply.',
+                    })}
+                  </span>
+                </div>
+              )}
             </section>
           </div>
         ) : null}

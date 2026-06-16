@@ -4,7 +4,13 @@ import { getSupabase } from '@/lib/supabase'
 // Gestion d'équipe (jalon M4). Lecture/mutations via RPC self-gated ; l'envoi d'e-mail
 // d'invitation via l'Edge `team` (qui crée l'invitation par la même RPC gated puis poste à Resend).
 
-export type OrgRole = 'admin' | 'ra_officer' | 'reviewer'
+export type OrgRole =
+  | 'admin'
+  | 'ra_officer'
+  | 'reviewer'
+  | 'agence_locale'
+  | 'agence_representation'
+  | 'expert_ra'
 
 export interface TeamMember {
   user_id: string
@@ -39,12 +45,39 @@ export const ROLE_LABEL: Record<OrgRole, Translatable> = {
   admin: { fr: 'Administrateur', en: 'Administrator' },
   ra_officer: { fr: 'Éditeur', en: 'Editor' },
   reviewer: { fr: 'Lecteur', en: 'Reader' },
+  agence_locale: { fr: 'Agence Locale', en: 'Local agency' },
+  agence_representation: { fr: 'Agence de représentation', en: 'Representation agency' },
+  expert_ra: { fr: 'Expert RA', en: 'RA expert' },
 }
 
 export const ROLE_HINT: Record<OrgRole, Translatable> = {
   admin: { fr: 'Gère l’équipe et tout le contenu', en: 'Manages the team and all content' },
   ra_officer: { fr: 'Crée et modifie le contenu', en: 'Creates and edits content' },
   reviewer: { fr: 'Lecture seule', en: 'Read-only' },
+  agence_locale: {
+    fr: 'Filiale locale — édite le contenu et gère les soumissions',
+    en: 'Local subsidiary — edits content and manages submissions',
+  },
+  agence_representation: {
+    fr: 'Gère les soumissions auprès des agences',
+    en: 'Manages submissions to agencies',
+  },
+  expert_ra: {
+    fr: 'Expert RA — édite le contenu et gère les soumissions',
+    en: 'RA expert — edits content and manages submissions',
+  },
+}
+
+/** Rôles habilités à GÉRER LES SOUMISSIONS (correspondance) — miroir UI de
+ *  current_user_submission_org_ids (RLS, migration 0028). La RLS reste la vraie barrière. */
+export const SUBMISSION_ROLES = new Set<OrgRole>([
+  'admin',
+  'agence_locale',
+  'agence_representation',
+  'expert_ra',
+])
+export function canManageSubmission(role: string | null | undefined): boolean {
+  return !!role && SUBMISSION_ROLES.has(role as OrgRole)
 }
 
 async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
