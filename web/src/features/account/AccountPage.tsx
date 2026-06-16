@@ -1,10 +1,12 @@
 import { useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useLocation } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useTheme } from 'next-themes'
 import {
   Building2,
   ClipboardList,
+  CreditCard,
   LogOut,
   Settings2,
   ShieldAlert,
@@ -38,25 +40,30 @@ import { useAuth } from '@/features/auth/auth-context'
 import { fetchMyMemberships } from '@/features/org/org-repository'
 import { useOrgId } from '@/features/org/org-context'
 import { TeamSection } from '@/features/team/TeamSection'
+import { PLAN_LABEL, useOrgPlan } from '@/features/org/use-org-plan'
 import { db } from '@/lib/db'
-import { useI18n, type Lang } from '@/lib/i18n-context'
+import { useI18n, type Lang, type Translatable } from '@/lib/i18n-context'
 import { imageFileToAvatarDataUrl, MAX_IMAGE_BYTES } from '@/lib/image-utils'
 import { initials } from '@/lib/initials'
 import { purgeLocalData, updatePassword, updateProfileMetadata } from './account-repository'
 import { ImageField } from './ImageField'
 import { InfoProSection } from './InfoProSection'
 
-type Section = 'perso' | 'pro' | 'team' | 'prefs' | 'logs' | 'danger'
+type Section = 'perso' | 'pro' | 'abonnement' | 'team' | 'prefs' | 'logs' | 'danger'
 
 export function AccountPage() {
   const { user, signOut } = useAuth()
   const orgId = useOrgId()
   const { t, lang, setLang } = useI18n()
-  const [section, setSection] = useState<Section>('perso')
+  const location = useLocation()
+  const [section, setSection] = useState<Section>(
+    (location.state as { section?: Section } | null)?.section ?? 'perso',
+  )
 
   const meta = (user?.user_metadata ?? {}) as Record<string, string | undefined>
+  // « Nom d'admin » : le nom d'utilisateur choisi prime sur prénom+nom (recette CEO).
   const displayName =
-    [meta.prenom, meta.nom].filter(Boolean).join(' ') || meta.username || user?.email || 'Pharnos'
+    meta.username || [meta.prenom, meta.nom].filter(Boolean).join(' ') || user?.email || 'Pharnos'
   const { data: memberships } = useQuery({
     queryKey: ['memberships'],
     queryFn: fetchMyMemberships,
@@ -75,6 +82,7 @@ export function AccountPage() {
       label: t({ fr: 'Informations professionnelles', en: 'Professional information' }),
       icon: Building2,
     },
+    { key: 'abonnement', label: t({ fr: 'Abonnement', en: 'Subscription' }), icon: CreditCard },
     { key: 'team', label: t({ fr: 'Équipe', en: 'Team' }), icon: Users },
     { key: 'prefs', label: t({ fr: 'Préférences', en: 'Preferences' }), icon: Settings2 },
     {
@@ -134,6 +142,7 @@ export function AccountPage() {
         <div className="min-w-0 flex-1 md:overflow-auto">
           {section === 'perso' && <PersonalSection key={user?.id ?? 'local'} />}
           {section === 'pro' && <InfoProSection />}
+          {section === 'abonnement' && <AbonnementSection />}
           {section === 'team' && <TeamSection orgId={orgId} />}
           {section === 'prefs' && <PreferencesSection lang={lang} setLang={setLang} />}
           {section === 'logs' && <LogsSection orgId={orgId} />}
@@ -433,6 +442,113 @@ function DangerSection({ onDeleted }: { onDeleted: () => void }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  )
+}
+
+/* ----------------------------- Abonnement (plan + usage + upgrade) ----------------------------- */
+
+const FEATURE_LABELS: Record<string, Translatable> = {
+  regafy: { fr: 'Regafy (copilote IA)', en: 'Regafy (AI copilot)' },
+  translation: { fr: 'Traduction', en: 'Translation' },
+  upgrade_templates: { fr: 'Mise en conformité des templates', en: 'Template compliance upgrade' },
+  audit_global: { fr: 'Audit global', en: 'Global audit' },
+  correspondence: { fr: 'Correspondance', en: 'Correspondence' },
+  team: { fr: 'Équipe (multi-utilisateurs)', en: 'Team (multi-user)' },
+}
+
+function AbonnementSection() {
+  const { t } = useI18n()
+  const { data: plan, isLoading } = useOrgPlan()
+  const fmt = (n: number) => new Intl.NumberFormat('fr-FR').format(n)
+  const cap = (n: number | null) => (n === null ? '∞' : fmt(n))
+
+  if (isLoading) {
+    return (
+      <p className="text-muted-foreground text-sm">{t({ fr: 'Chargement…', en: 'Loading…' })}</p>
+    )
+  }
+  if (!plan) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        {t({ fr: 'Plan indisponible (hors-ligne).', en: 'Plan unavailable (offline).' })}
+      </p>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3 border-b pb-3">
+        <div>
+          <h3 className="text-sm font-medium">{t({ fr: 'Abonnement', en: 'Subscription' })}</h3>
+          <p className="text-muted-foreground text-xs">
+            {t({ fr: 'Votre plan et vos limites.', en: 'Your plan and limits.' })}
+          </p>
+        </div>
+        <span className="bg-primary text-primary-foreground rounded-full px-3 py-1 text-sm font-semibold">
+          {t(PLAN_LABEL[plan.plan])}
+        </span>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-lg border p-3">
+          <div className="text-muted-foreground text-xs">
+            {t({ fr: 'Dossiers', en: 'Dossiers' })}
+          </div>
+          <div className="mt-1 text-lg font-semibold tabular-nums">
+            {fmt(plan.dossiers_used)} / {cap(plan.max_dossiers)}
+          </div>
+          <div className="text-muted-foreground text-xs">
+            {plan.dossiers_period === 'lifetime'
+              ? t({ fr: 'à vie', en: 'lifetime' })
+              : t({ fr: 'ce mois-ci', en: 'this month' })}
+          </div>
+        </div>
+        <div className="rounded-lg border p-3">
+          <div className="text-muted-foreground text-xs">
+            {t({ fr: 'Tokens IA (ce mois)', en: 'AI tokens (this month)' })}
+          </div>
+          <div className="mt-1 text-lg font-semibold tabular-nums">
+            {fmt(plan.tokens_used)} / {cap(plan.monthly_ai_tokens)}
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <h4 className="text-sm font-medium">{t({ fr: 'Fonctionnalités', en: 'Features' })}</h4>
+        <ul className="grid gap-1 sm:grid-cols-2">
+          {Object.entries(FEATURE_LABELS).map(([k, label]) => {
+            const on = plan.features[k]
+            return (
+              <li key={k} className="flex items-center gap-2 text-sm">
+                <span className={on ? 'text-emerald-600' : 'text-muted-foreground'}>
+                  {on ? '✓' : '—'}
+                </span>
+                <span className={on ? '' : 'text-muted-foreground'}>{t(label)}</span>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+
+      {plan.plan !== 'enterprise' ? (
+        <div className="bg-muted/40 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
+          <div className="text-sm">
+            <div className="font-medium">{t({ fr: 'Besoin de plus ?', en: 'Need more?' })}</div>
+            <div className="text-muted-foreground text-xs">
+              {t({
+                fr: 'Passez à un plan supérieur — plus de dossiers, de tokens et de fonctionnalités.',
+                en: 'Move to a higher plan — more dossiers, tokens and features.',
+              })}
+            </div>
+          </div>
+          <Button asChild>
+            <a href="mailto:contact@pharnos.com?subject=Mise%20%C3%A0%20niveau%20Pharnos">
+              {t({ fr: "Mettre à niveau l'abonnement", en: 'Upgrade plan' })}
+            </a>
+          </Button>
+        </div>
+      ) : null}
     </div>
   )
 }
