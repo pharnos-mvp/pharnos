@@ -107,13 +107,13 @@ export function AppShell() {
           <img
             src="/brand/pharnos-logo.svg"
             alt="Pharnos"
-            className="size-8 shrink-0 rounded-full dark:hidden"
+            className="size-8 shrink-0 dark:hidden"
           />
           <img
             src="/brand/pharnos-logo-dark.svg"
             alt=""
             aria-hidden="true"
-            className="hidden size-8 shrink-0 rounded-full dark:block"
+            className="hidden size-8 shrink-0 dark:block"
           />
           {expanded ? (
             <div className="hidden leading-tight md:block">

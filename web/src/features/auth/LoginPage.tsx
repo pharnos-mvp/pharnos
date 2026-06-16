@@ -209,16 +209,12 @@ export function LoginPage() {
       </div>
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <img
-            src="/brand/pharnos-logo.svg"
-            alt="Pharnos"
-            className="mb-2 size-10 rounded-full dark:hidden"
-          />
+          <img src="/brand/pharnos-logo.svg" alt="Pharnos" className="mb-2 size-10 dark:hidden" />
           <img
             src="/brand/pharnos-logo-dark.svg"
             alt=""
             aria-hidden="true"
-            className="mb-2 hidden size-10 rounded-full dark:block"
+            className="mb-2 hidden size-10 dark:block"
           />
           <CardTitle>{t(TITLES[mode])}</CardTitle>
           <CardDescription>{t(DESCRIPTIONS[mode])}</CardDescription>
