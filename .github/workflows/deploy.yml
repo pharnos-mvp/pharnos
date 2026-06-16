@@ -51,6 +51,9 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          # Drapeau public (non secret) : affiche le bouton « Continuer avec Google ».
+          # Le provider Google est activé côté Supabase (gate N — N1-a).
+          VITE_GOOGLE_AUTH: 'true'
         run: npm run build
 
       - name: Deploy to Cloudflare Pages
