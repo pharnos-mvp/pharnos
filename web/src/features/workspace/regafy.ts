@@ -143,7 +143,8 @@ export function runRegafy(input: RegafyInput): RegafyFinding[] {
     }
   }
 
-  // ── Progressif : les contrôles de complétude ne s'appliquent qu'aux sections validées ─────
+  // ── Complétude : « Champs à compléter » est automatique (cf. plus bas) ; les autres contrôles
+  //    progressifs (section validée sans pièce, dossier vide, titulaire) restent gardés sur savedAt.
   const savedLeaves = leaves.filter((n) => n.savedAt)
 
   let anyContent = false
@@ -155,16 +156,26 @@ export function runRegafy(input: RegafyInput): RegafyFinding[] {
     if (has) anyContent = true
   }
 
+  // « Champs à compléter dans le document » : déclenché AUTOMATIQUEMENT dès qu'un document GÉNÉRÉ
+  // (lettre ou template) porte encore des [...] non remplis — l'utilisateur a « engagé » la section
+  // en générant le document ; aucune validation manuelle, sauvegarde auto en arrière-plan
+  // (online/offline). Affiché en continu au panneau Remarques ET au gate de compilation : si l'user
+  // quitte la section ou compile en laissant des champs vides, le constat reste visible.
+  for (const leaf of leaves) {
+    const gen = genByNode.get(leaf.number)
+    if (gen && hasPlaceholder(gen.content)) {
+      push(leaf, 'warning', 'Champs à compléter dans le document')
+    }
+  }
+
+  // « Section validée sans document » reste réservé aux sections explicitement validées (savedAt) :
+  // on n'alerte pas sur les sections jamais démarrées.
   for (const leaf of savedLeaves) {
     const docs = docsByNode.get(leaf.number) ?? []
     const gen = genByNode.get(leaf.number)
     const atts = attachByNode.get(leaf.number) ?? []
     const has = docs.length > 0 || Boolean(gen) || atts.length > 0
-
     if (!has) push(leaf, 'warning', 'Section validée sans document')
-    if (gen && hasPlaceholder(gen.content)) {
-      push(leaf, 'warning', 'Champs à compléter dans le document')
-    }
   }
 
   if (!anyContent && savedLeaves.length > 0) {
