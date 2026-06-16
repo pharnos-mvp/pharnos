@@ -96,6 +96,13 @@ img {
   width: 100%;
   height: 100%;
 }
+/* Pied de page : reprend EXACTEMENT la taille du logo de la barre latérale REPLIÉE
+   de l'app (size-8 contraint par le rail w-16 → 23.2×32), demande CEO. Le header garde
+   la taille DÉPLIÉE (32×32). */
+.site-footer .brand-mark {
+  width: 23.2px;
+  height: 32px;
+}
 .brand-name {
   font-size: 1.05rem;
 }
