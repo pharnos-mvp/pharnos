@@ -21,13 +21,17 @@ const treeSaved: CtdNodeDef[] = [
   },
 ]
 
-function gen(nodeNumber: string, text: string): GeneratedDocRecord {
+function gen(
+  nodeNumber: string,
+  text: string,
+  templateKey: GeneratedDocRecord['templateKey'] = 'cover',
+): GeneratedDocRecord {
   return {
     id: `g-${nodeNumber}`,
     orgId: 'o',
     dossierId: 'd',
     nodeNumber,
-    templateKey: 'cover',
+    templateKey,
     title: 'Lettre',
     content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] },
     status: 'draft',
@@ -94,6 +98,20 @@ describe('regafy (vérifications déterministes, progressif)', () => {
     expect(
       f.some((x) => x.nodeNumber === '1.1.1' && x.message.includes('Champs à compléter')),
     ).toBe(true)
+  })
+
+  it('FORMULAIRE (templateKey fill) à [...] → AUCUN constat runRegafy (géré form-aware côté page)', () => {
+    // Les champs vides d'un formulaire sont OMIS du contenu → détection form-aware (page),
+    // pas via hasPlaceholder ; runRegafy doit IGNORER les docs 'fill'.
+    const genByNode = new Map([['1.1.1', gen('1.1.1', '[Ville] à compléter', 'fill')]])
+    const f = runRegafy({
+      tree,
+      titulaire: 'Labo',
+      docsByNode: new Map(),
+      genByNode,
+      attachByNode: new Map(),
+    })
+    expect(f.some((x) => x.message.includes('compléter'))).toBe(false)
   })
 })
 

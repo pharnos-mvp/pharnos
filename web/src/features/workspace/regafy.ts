@@ -163,7 +163,9 @@ export function runRegafy(input: RegafyInput): RegafyFinding[] {
   // quitte la section ou compile en laissant des champs vides, le constat reste visible.
   for (const leaf of leaves) {
     const gen = genByNode.get(leaf.number)
-    if (gen && hasPlaceholder(gen.content)) {
+    // Les FORMULAIRES (templateKey 'fill') ont leurs champs vides OMIS du contenu (jamais des [...])
+    // → vérifiés « form-aware » côté page (champs comptés via la définition). Ici : lettres/squelettes.
+    if (gen && gen.templateKey !== 'fill' && hasPlaceholder(gen.content)) {
       push(leaf, 'warning', 'Champs à compléter dans le document')
     }
   }

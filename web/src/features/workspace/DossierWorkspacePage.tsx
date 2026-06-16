@@ -107,7 +107,7 @@ import { UPGRADE_DOC_TYPES } from './regafy-ai'
 import { buildTemplateSkeleton, FILL_PLACEHOLDER } from './template-fill'
 import { formStateFromContent } from './template-form/form-content'
 import { formDefinitionFor } from './template-form/form-definitions'
-import { formExportName } from './template-form/form-types'
+import { countEmptyFields, formExportName } from './template-form/form-types'
 import { countMarker, countMissing } from './upgrade-doc'
 
 export function DossierWorkspacePage() {
@@ -297,6 +297,37 @@ export function DossierWorkspacePage() {
   const { editorState, handleEditorReady, handleEditorChange, flushSave, cancelSave } =
     useDebouncedDocSave(orgId)
 
+  // Complétude FORM-AWARE (recette CEO) : les champs vides d'un FORMULAIRE (RCP/Notice/Étiquetage)
+  // sont OMIS du contenu sauvegardé (jamais des [...]) → invisibles à hasPlaceholder. On les compte
+  // ici via la définition du formulaire (countEmptyFields). Déclenché AUTO dès qu'un document généré
+  // « fill » est incomplet — visible au panneau Remarques ET au gate de compilation.
+  const formCompletionFindings = useMemo<RegafyFinding[]>(() => {
+    if (!dossier) return []
+    const out: RegafyFinding[] = []
+    for (const g of genDocs ?? []) {
+      if (g.deletedAt !== null || g.templateKey !== 'fill') continue
+      const docType =
+        docTypeForNode(dossier.format, g.nodeNumber) ??
+        (g.nodeNumber.startsWith('1.3') ? 'labeling' : null)
+      const def = docType ? formDefinitionFor(docType) : null
+      const incomplete = def
+        ? countEmptyFields(formStateFromContent(def, g.content as JSONContent)) > 0
+        : /\[[^\]\n]{2,}\]/.test(tiptapText((g.content ?? {}) as Parameters<typeof tiptapText>[0]))
+      if (incomplete) {
+        out.push({
+          id: `formfill:${g.id}`,
+          nodeNumber: g.nodeNumber,
+          nodeLabel: flatNodes.find((n) => n.number === g.nodeNumber)?.label ?? '',
+          severity: 'warning',
+          source: 'monitor',
+          topic: 'completeness',
+          message: 'Champs à compléter dans le document',
+        })
+      }
+    }
+    return out
+  }, [dossier, genDocs, flatNodes])
+
   // Remarques de la SESSION (analyses déclenchées par l'utilisateur — recette n°6 : plus
   // d'analyse automatique). Constat de langue masqué dès qu'une traduction existe.
   const allFindings = useMemo(() => {
@@ -308,13 +339,17 @@ export function DossierWorkspacePage() {
     // par doc et par nature ; l'IA (contre-expertise O3 plus riche) prime.
     const seenMsg = new Set(ai.map((f) => `${f.nodeNumber}|${f.message}`))
     const seenTopic = new Set(ai.filter((f) => f.topic).map((f) => `${f.nodeNumber}|${f.topic}`))
-    const monitor = monitorFindings.filter(
-      (f) =>
-        !seenMsg.has(`${f.nodeNumber}|${f.message}`) &&
-        !(f.topic && seenTopic.has(`${f.nodeNumber}|${f.topic}`)),
-    )
+    // Monitor déterministe + complétude form-aware ; dédup INTERNE (un seul « Champs à compléter »
+    // par nœud) puis dédup vs IA (message exact OU nœud+nature, l'IA primant).
+    const seenMonitor = new Set<string>()
+    const monitor = [...monitorFindings, ...formCompletionFindings].filter((f) => {
+      const k = `${f.nodeNumber}|${f.message}`
+      if (seenMonitor.has(k)) return false
+      seenMonitor.add(k)
+      return !seenMsg.has(k) && !(f.topic && seenTopic.has(`${f.nodeNumber}|${f.topic}`))
+    })
     return [...monitor, ...ai]
-  }, [aiFindings, monitorFindings, translatedSourceIds])
+  }, [aiFindings, monitorFindings, formCompletionFindings, translatedSourceIds])
 
   // Surbrillance sobre (recette n°6) : nœuds (et leurs ancêtres) portant un constat NON résolu →
   // oriente l'utilisateur vers la section à compléter/vérifier dans l'arborescence.
@@ -912,6 +947,11 @@ export function DossierWorkspacePage() {
       docTypeForNode(activeDossier.format, node.number) ??
       (node.number.startsWith('1.3') ? 'labeling' : null)
     if (!docType) return
+    // Recette CEO : le constat « non conforme — Remplir le template » disparaît dès qu'on ouvre le
+    // template pour le remplir → purge l'analyse de la pièce source qui le portait (par nœud).
+    for (const f of allFindings) {
+      if (f.nodeNumber === node.number && f.upgrade && f.pieceId) clearPieceAnalysis(f.pieceId)
+    }
     const openTab = (genId: string) => {
       setSelected(node)
       setDocEditing(true)
