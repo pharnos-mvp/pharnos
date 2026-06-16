@@ -96,6 +96,12 @@ export interface DossierRecord {
   createdAt: string
   updatedAt: string
   deletedAt: string | null
+  /**
+   * Archivage (rétention réglementaire GxP) d'un dossier SOUMIS — distinct de `deletedAt`.
+   * `deletedAt` = brouillon retiré (corbeille, purgeable) ; `archivedAt` = dossier soumis
+   * conservé (jamais purgé). Optionnel : les enregistrements antérieurs n'ont pas le champ.
+   */
+  archivedAt?: string | null
 }
 
 /**

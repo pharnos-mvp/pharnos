@@ -1,14 +1,32 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { db } from '@/lib/db'
-import { createDossier, deleteDossier, getDossier, listDossiers } from './dossier-repository'
+import {
+  archiveDossier,
+  createDossier,
+  deleteDossier,
+  getDossier,
+  listArchivedDossiers,
+  listDossiers,
+  restoreDossier,
+} from './dossier-repository'
 
 const ORG = 'org-1'
 
 beforeEach(async () => {
   await db.dossiers.clear()
   await db.outbox.clear()
+  await db.auditLog.clear()
 })
+
+const seed = (name = 'X') =>
+  createDossier(ORG, {
+    productId: 'p1',
+    productName: name,
+    format: 'ctd',
+    activity: 'new_ma',
+    country: 'SN',
+  })
 
 describe('dossier repository (offline-first)', () => {
   it('crée un dossier CTD avec une copie indépendante de l’arborescence UEMOA', async () => {
@@ -54,5 +72,41 @@ describe('dossier repository (offline-first)', () => {
     await deleteDossier(d.id)
     expect(await listDossiers(ORG)).toHaveLength(0)
     expect(await getDossier(d.id)).toBeUndefined()
+  })
+})
+
+describe('rétention réglementaire : archive / restore / motif', () => {
+  it('archive un dossier (hors actif, présent en archivés, audit « archive » + motif)', async () => {
+    const d = await seed()
+    await archiveDossier(d.id, 'soumis à la DPM')
+    expect(await listDossiers(ORG)).toHaveLength(0)
+    const arch = await listArchivedDossiers(ORG)
+    expect(arch).toHaveLength(1)
+    expect(arch[0]?.archivedAt).toBeTruthy()
+    const ev = (await db.auditLog.toArray()).find((a) => a.action === 'archive')
+    expect(ev?.label).toContain('motif : soumis à la DPM')
+  })
+
+  it('restaure un dossier archivé dans l’actif (audit « restore »)', async () => {
+    const d = await seed()
+    await archiveDossier(d.id)
+    await restoreDossier(d.id)
+    expect(await listArchivedDossiers(ORG)).toHaveLength(0)
+    expect(await listDossiers(ORG)).toHaveLength(1)
+    expect((await db.auditLog.toArray()).some((a) => a.action === 'restore')).toBe(true)
+  })
+
+  it('la suppression d’un brouillon trace le motif à l’audit', async () => {
+    const d = await seed()
+    await deleteDossier(d.id, 'doublon')
+    const ev = (await db.auditLog.toArray()).find((a) => a.action === 'delete')
+    expect(ev?.label).toContain('motif : doublon')
+  })
+
+  it('archiver deux fois est un no-op (idempotent)', async () => {
+    const d = await seed()
+    await archiveDossier(d.id)
+    await archiveDossier(d.id)
+    expect(await listArchivedDossiers(ORG)).toHaveLength(1)
   })
 })

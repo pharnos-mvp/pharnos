@@ -18,8 +18,16 @@ export interface CreateDossierInput {
 export async function listDossiers(orgId: string): Promise<DossierRecord[]> {
   const items = await db.dossiers.where('orgId').equals(orgId).toArray()
   return items
-    .filter((d) => d.deletedAt === null)
+    .filter((d) => d.deletedAt === null && !d.archivedAt)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+}
+
+/** Dossiers ARCHIVÉS (soumis, conservés pour la rétention réglementaire) d'une org. */
+export async function listArchivedDossiers(orgId: string): Promise<DossierRecord[]> {
+  const items = await db.dossiers.where('orgId').equals(orgId).toArray()
+  return items
+    .filter((d) => d.deletedAt === null && !!d.archivedAt)
+    .sort((a, b) => (b.archivedAt ?? '').localeCompare(a.archivedAt ?? ''))
 }
 
 export async function getDossier(id: string): Promise<DossierRecord | undefined> {
@@ -47,6 +55,7 @@ export async function createDossier(
     createdAt: ts,
     updatedAt: ts,
     deletedAt: null,
+    archivedAt: null,
   }
   await db.transaction('rw', db.dossiers, db.outbox, async () => {
     await db.dossiers.add(record)
@@ -88,7 +97,17 @@ export async function excludeProductDoc(id: string, docId: string): Promise<void
   })
 }
 
-export async function deleteDossier(id: string): Promise<void> {
+/** Motif d'audit (ALCOA : « reason for change ») accolé au libellé. */
+function withReason(label: string, reason?: string): string {
+  const r = reason?.trim()
+  return r ? `${label} · motif : ${r}` : label
+}
+
+/**
+ * Suppression DOUCE d'un BROUILLON (jamais soumis). Conserve la ligne (tombstone + backups),
+ * tracée à l'audit avec un motif. À RÉSERVER aux brouillons — un dossier soumis s'ARCHIVE.
+ */
+export async function deleteDossier(id: string, reason?: string): Promise<void> {
   const existing = await db.dossiers.get(id)
   if (!existing || existing.deletedAt !== null) return
   const ts = now()
@@ -96,5 +115,46 @@ export async function deleteDossier(id: string): Promise<void> {
     await db.dossiers.put({ ...existing, deletedAt: ts, updatedAt: ts })
     await enqueueOutbox('dossier', id, 'delete', { id })
   })
-  await recordAudit(existing.orgId, 'dossier', id, 'delete', existing.productName)
+  await recordAudit(
+    existing.orgId,
+    'dossier',
+    id,
+    'delete',
+    withReason(existing.productName, reason),
+  )
+}
+
+/**
+ * ARCHIVE un dossier SOUMIS (enregistrement réglementaire) : retiré de l'actif mais CONSERVÉ
+ * (rétention, jamais purgé), restaurable. Tracé à l'audit avec motif.
+ */
+export async function archiveDossier(id: string, reason?: string): Promise<void> {
+  const existing = await db.dossiers.get(id)
+  if (!existing || existing.deletedAt !== null || existing.archivedAt) return
+  const ts = now()
+  const updated: DossierRecord = { ...existing, archivedAt: ts, updatedAt: ts }
+  await db.transaction('rw', db.dossiers, db.outbox, async () => {
+    await db.dossiers.put(updated)
+    await enqueueOutbox('dossier', id, 'update', updated)
+  })
+  await recordAudit(
+    existing.orgId,
+    'dossier',
+    id,
+    'archive',
+    withReason(existing.productName, reason),
+  )
+}
+
+/** Restaure un dossier archivé dans l'actif. Tracé à l'audit. */
+export async function restoreDossier(id: string): Promise<void> {
+  const existing = await db.dossiers.get(id)
+  if (!existing || existing.deletedAt !== null || !existing.archivedAt) return
+  const ts = now()
+  const updated: DossierRecord = { ...existing, archivedAt: null, updatedAt: ts }
+  await db.transaction('rw', db.dossiers, db.outbox, async () => {
+    await db.dossiers.put(updated)
+    await enqueueOutbox('dossier', id, 'update', updated)
+  })
+  await recordAudit(existing.orgId, 'dossier', id, 'restore', existing.productName)
 }
