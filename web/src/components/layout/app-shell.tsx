@@ -1,23 +1,38 @@
 import { Suspense, useEffect, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
+  ArrowUpCircle,
   FlaskConical,
   FolderTree,
+  Globe,
   LayoutDashboard,
+  LogOut,
   PanelLeftClose,
   PanelLeftOpen,
+  Settings2,
 } from 'lucide-react'
 
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { HeaderSlotContext } from '@/components/layout/header-slot'
-import { LangSwitch } from '@/components/layout/LangSwitch'
 import { Button, buttonVariants } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useAuditSync } from '@/features/audit/use-audit-sync'
 import { useAuth } from '@/features/auth/auth-context'
 import { useCorrespondenceRealtime } from '@/features/correspondence/use-correspondence-realtime'
 import { useOrgId } from '@/features/org/org-context'
 import { fetchMyMemberships } from '@/features/org/org-repository'
+import { PLAN_LABEL, useOrgPlan } from '@/features/org/use-org-plan'
 import { useOnlineStatus } from '@/hooks/use-online-status'
 import { env } from '@/lib/env'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
@@ -35,9 +50,11 @@ const SIDEBAR_KEY = 'pharnos.sidebarCollapsed'
 export function AppShell() {
   const online = useOnlineStatus()
   const location = useLocation()
-  const { user } = useAuth()
+  const { user, signOut } = useAuth()
   const orgId = useOrgId()
-  const { t } = useI18n()
+  const navigate = useNavigate()
+  const { t, lang, setLang } = useI18n()
+  const { data: plan } = useOrgPlan()
   useAuditSync(orgId)
   // Reviews et messages du correspondant en quasi temps réel, où qu'on soit dans l'app.
   useCorrespondenceRealtime(orgId)
@@ -57,8 +74,9 @@ export function AppShell() {
   const [headerSlot, setHeaderSlot] = useState<ReactNode>(null)
 
   const meta = (user?.user_metadata ?? {}) as Record<string, string | undefined>
+  // « Nom d'admin » : le nom d'utilisateur choisi prime sur prénom+nom (recette CEO).
   const displayName =
-    [meta.prenom, meta.nom].filter(Boolean).join(' ') || meta.username || user?.email || 'Pharnos'
+    meta.username || [meta.prenom, meta.nom].filter(Boolean).join(' ') || user?.email || 'Pharnos'
   const photo = meta.photo
   const { data: memberships } = useQuery({
     queryKey: ['memberships'],
@@ -130,49 +148,95 @@ export function AppShell() {
           ) : null}
           {/* Profil + statut réseau en BAS de la barre (mockup CEO) : pastille de statut sur
               l'avatar en rail ; nom + organisation quand la barre est étendue. */}
-          <NavLink
-            to="/compte"
-            title={`${displayName}${orgName ? ` — ${orgName}` : ''} · ${online ? t({ fr: 'En ligne', en: 'Online' }) : t({ fr: 'Hors ligne', en: 'Offline' })}`}
-            aria-label={t({ fr: 'Mon compte', en: 'My account' })}
-            className="hover:bg-accent flex items-center justify-center gap-2 rounded-md p-1 md:justify-start"
-          >
-            <span className="relative shrink-0">
-              <span className="bg-primary text-primary-foreground flex size-8 items-center justify-center overflow-hidden rounded-full text-xs font-semibold">
-                {photo ? (
-                  <img src={photo} alt="" className="size-full object-cover" />
-                ) : (
-                  initials(displayName)
-                )}
-              </span>
-              <span
-                role="status"
-                aria-label={
-                  online
-                    ? t({ fr: 'En ligne', en: 'Online' })
-                    : t({ fr: 'Hors ligne', en: 'Offline' })
-                }
-                className={cn(
-                  'border-sidebar absolute -right-0.5 -bottom-0.5 size-3 rounded-full border-2',
-                  online ? 'bg-emerald-500' : 'bg-muted-foreground',
-                )}
-              />
-            </span>
-            {expanded ? (
-              <span className="hidden min-w-0 leading-tight md:block">
-                <span className="block max-w-[150px] truncate text-sm font-medium">
-                  {displayName}
+          {/* Profil = menu rapide du compte (mockup CEO, façon Claude) : avatar + nom + plan, puis
+              Paramètres / Langue / Mettre à niveau / Se déconnecter. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                title={`${displayName}${orgName ? ` — ${orgName}` : ''} · ${online ? t({ fr: 'En ligne', en: 'Online' }) : t({ fr: 'Hors ligne', en: 'Offline' })}`}
+                aria-label={t({ fr: 'Mon compte', en: 'My account' })}
+                className="hover:bg-accent flex w-full items-center justify-center gap-2 rounded-md p-1 md:justify-start"
+              >
+                <span className="relative shrink-0">
+                  <span className="bg-primary text-primary-foreground flex size-8 items-center justify-center overflow-hidden rounded-full text-xs font-semibold">
+                    {photo ? (
+                      <img src={photo} alt="" className="size-full object-cover" />
+                    ) : (
+                      initials(displayName)
+                    )}
+                  </span>
+                  <span
+                    role="status"
+                    aria-label={
+                      online
+                        ? t({ fr: 'En ligne', en: 'Online' })
+                        : t({ fr: 'Hors ligne', en: 'Offline' })
+                    }
+                    className={cn(
+                      'border-sidebar absolute -right-0.5 -bottom-0.5 size-3 rounded-full border-2',
+                      online ? 'bg-emerald-500' : 'bg-muted-foreground',
+                    )}
+                  />
                 </span>
-                {orgName ? (
-                  <span className="text-muted-foreground block max-w-[150px] truncate text-xs">
-                    {orgName}
+                {expanded ? (
+                  <span className="hidden min-w-0 flex-1 text-left leading-tight md:block">
+                    <span className="flex items-center gap-1.5">
+                      <span className="max-w-[100px] truncate text-sm font-medium">
+                        {displayName}
+                      </span>
+                      {plan ? (
+                        <span className="bg-muted text-muted-foreground shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium">
+                          {t(PLAN_LABEL[plan.plan])}
+                        </span>
+                      ) : null}
+                    </span>
+                    {orgName ? (
+                      <span className="text-muted-foreground block max-w-[150px] truncate text-xs">
+                        {orgName}
+                      </span>
+                    ) : null}
                   </span>
                 ) : null}
-              </span>
-            ) : null}
-          </NavLink>
-          <div className="flex justify-center px-1 md:justify-start">
-            <LangSwitch />
-          </div>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="right" align="end" className="w-56">
+              {user?.email ? (
+                <DropdownMenuLabel className="text-muted-foreground truncate text-xs font-normal">
+                  {user.email}
+                </DropdownMenuLabel>
+              ) : null}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/compte')}>
+                <Settings2 className="size-4" /> {t({ fr: 'Paramètres', en: 'Settings' })}
+              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Globe className="size-4" /> {t({ fr: 'Langue', en: 'Language' })}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem onClick={() => setLang('fr')}>
+                    Français {lang === 'fr' ? '✓' : ''}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setLang('en')}>
+                    English {lang === 'en' ? '✓' : ''}
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              {plan && plan.plan !== 'enterprise' ? (
+                <DropdownMenuItem
+                  onClick={() => navigate('/compte', { state: { section: 'abonnement' } })}
+                >
+                  <ArrowUpCircle className="size-4" />{' '}
+                  {t({ fr: "Mettre à niveau l'abonnement", en: 'Upgrade plan' })}
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => void signOut()}>
+                <LogOut className="size-4" /> {t({ fr: 'Se déconnecter', en: 'Sign out' })}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             variant="ghost"
             size="icon"
