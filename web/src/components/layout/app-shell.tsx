@@ -104,9 +104,17 @@ export function AppShell() {
         )}
       >
         <div className="flex items-center gap-2 px-1 py-3 md:px-2">
-          <div className="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-md font-bold">
-            P
-          </div>
+          <img
+            src="/brand/pharnos-logo.svg"
+            alt="Pharnos"
+            className="size-8 shrink-0 rounded-full dark:hidden"
+          />
+          <img
+            src="/brand/pharnos-logo-dark.svg"
+            alt=""
+            aria-hidden="true"
+            className="hidden size-8 shrink-0 rounded-full dark:block"
+          />
           {expanded ? (
             <div className="hidden leading-tight md:block">
               <div className="text-sm font-semibold">Pharnos</div>
