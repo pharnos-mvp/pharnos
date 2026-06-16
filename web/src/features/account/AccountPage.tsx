@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useTheme } from 'next-themes'
@@ -7,6 +7,7 @@ import {
   Building2,
   ClipboardList,
   CreditCard,
+  Loader2,
   LogOut,
   Settings2,
   ShieldAlert,
@@ -37,10 +38,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useAuth } from '@/features/auth/auth-context'
-import { fetchMyMemberships } from '@/features/org/org-repository'
+import { choosePlan, fetchMyMemberships } from '@/features/org/org-repository'
 import { useOrgId } from '@/features/org/org-context'
 import { TeamSection } from '@/features/team/TeamSection'
-import { PLAN_LABEL, useOrgPlan } from '@/features/org/use-org-plan'
+import { PLAN_LABEL, PLAN_ORDER, useOrgPlan, type PlanTier } from '@/features/org/use-org-plan'
 import { db } from '@/lib/db'
 import { useI18n, type Lang, type Translatable } from '@/lib/i18n-context'
 import { imageFileToAvatarDataUrl, MAX_IMAGE_BYTES } from '@/lib/image-utils'
@@ -460,8 +461,30 @@ const FEATURE_LABELS: Record<string, Translatable> = {
 function AbonnementSection() {
   const { t } = useI18n()
   const { data: plan, isLoading } = useOrgPlan()
+  const qc = useQueryClient()
+  const [upgrading, setUpgrading] = useState<PlanTier | null>(null)
   const fmt = (n: number) => new Intl.NumberFormat('fr-FR').format(n)
   const cap = (n: number | null) => (n === null ? '∞' : fmt(n))
+
+  async function upgrade(tier: PlanTier) {
+    setUpgrading(tier)
+    try {
+      await choosePlan(tier)
+      await qc.invalidateQueries({ queryKey: ['my-org-plan'] })
+      toast.success(
+        t({
+          fr: `Plan ${t(PLAN_LABEL[tier])} activé`,
+          en: `${t(PLAN_LABEL[tier])} plan activated`,
+        }),
+      )
+    } catch (e) {
+      toast.error(t({ fr: 'Échec de la mise à niveau', en: 'Upgrade failed' }), {
+        description: e instanceof Error ? e.message : undefined,
+      })
+    } finally {
+      setUpgrading(null)
+    }
+  }
 
   if (isLoading) {
     return (
@@ -532,21 +555,36 @@ function AbonnementSection() {
       </div>
 
       {plan.plan !== 'enterprise' ? (
-        <div className="bg-muted/40 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
+        <div className="bg-muted/40 space-y-3 rounded-lg border p-4">
           <div className="text-sm">
-            <div className="font-medium">{t({ fr: 'Besoin de plus ?', en: 'Need more?' })}</div>
+            <div className="font-medium">{t({ fr: 'Mettre à niveau', en: 'Upgrade' })}</div>
             <div className="text-muted-foreground text-xs">
               {t({
-                fr: 'Passez à un plan supérieur — plus de dossiers, de tokens et de fonctionnalités.',
-                en: 'Move to a higher plan — more dossiers, tokens and features.',
+                fr: 'Activation immédiate (mode pilote, sans paiement) — plus de dossiers, de tokens et de fonctionnalités.',
+                en: 'Immediate activation (pilot mode, no payment) — more dossiers, tokens and features.',
               })}
             </div>
           </div>
-          <Button asChild>
-            <a href="mailto:contact@pharnos.com?subject=Mise%20%C3%A0%20niveau%20Pharnos">
-              {t({ fr: "Mettre à niveau l'abonnement", en: 'Upgrade plan' })}
+          <div className="flex flex-wrap gap-2">
+            {PLAN_ORDER.slice(PLAN_ORDER.indexOf(plan.plan) + 1).map((tier, i) => (
+              <Button
+                key={tier}
+                variant={i === 0 ? 'default' : 'outline'}
+                size="sm"
+                disabled={upgrading !== null}
+                onClick={() => void upgrade(tier)}
+              >
+                {upgrading === tier ? <Loader2 className="size-4 animate-spin" /> : null}
+                {t({ fr: 'Passer à', en: 'Switch to' })} {t(PLAN_LABEL[tier])}
+              </Button>
+            ))}
+          </div>
+          <p className="text-muted-foreground text-xs">
+            {t({ fr: 'Besoin d’un devis sur-mesure ? ', en: 'Need a tailored quote? ' })}
+            <a className="underline" href="mailto:contact@pharnos.com?subject=Pharnos">
+              contact@pharnos.com
             </a>
-          </Button>
+          </p>
         </div>
       ) : null}
     </div>
