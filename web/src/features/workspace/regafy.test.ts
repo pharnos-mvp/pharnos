@@ -44,7 +44,7 @@ const empty = {
 }
 
 describe('regafy (vérifications déterministes, progressif)', () => {
-  it("rien tant qu'aucune section n'est validée", () => {
+  it('aucun constat si le document généré est complet (pas de placeholder, pas de validation)', () => {
     const genByNode = new Map([['1.1.1', gen('1.1.1', 'Bonjour')]])
     const f = runRegafy({
       tree,
@@ -67,16 +67,33 @@ describe('regafy (vérifications déterministes, progressif)', () => {
     expect(f.some((x) => x.message.includes('Titulaire'))).toBe(true)
   })
 
-  it('placeholder restant → « à compléter »', () => {
+  it('document généré avec placeholder → « à compléter » AUTO (sans validation manuelle)', () => {
+    // Aucun savedAt : le constat se déclenche dès qu'un document GÉNÉRÉ porte des [...].
     const genByNode = new Map([['1.1.1', gen('1.1.1', '[Ville] à compléter')]])
     const f = runRegafy({
-      tree: treeSaved,
+      tree,
       titulaire: 'Labo',
       docsByNode: new Map(),
       genByNode,
       attachByNode: new Map(),
     })
     expect(f.some((x) => x.message.includes('compléter'))).toBe(true)
+  })
+
+  it('placeholder dans une lettre NON validée déclenche aussi le constat (régression recette CEO)', () => {
+    // Reproduit le cas réel : lettre générée (cover) avec [PGHT en FCFA] non rempli, section non
+    // validée → Monitor doit flaguer « Champs à compléter » (avant le fix, savedAt requis = muet).
+    const genByNode = new Map([['1.1.1', gen('1.1.1', 'Prix proposé : [PGHT en FCFA].')]])
+    const f = runRegafy({
+      tree,
+      titulaire: 'Labo',
+      docsByNode: new Map(),
+      genByNode,
+      attachByNode: new Map(),
+    })
+    expect(
+      f.some((x) => x.nodeNumber === '1.1.1' && x.message.includes('Champs à compléter')),
+    ).toBe(true)
   })
 })
 
