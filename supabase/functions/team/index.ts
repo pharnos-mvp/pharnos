@@ -11,7 +11,14 @@ import { logJson, newReqId, userHash } from '../_shared/log.ts'
 import { sha256Hex } from '../_shared/share-auth.ts'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const ROLES = new Set(['admin', 'ra_officer', 'reviewer'])
+const ROLES = new Set([
+  'admin',
+  'ra_officer',
+  'reviewer',
+  'agence_locale',
+  'agence_representation',
+  'expert_ra',
+])
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const INVITE_TTL_DAYS = 7
 
@@ -19,6 +26,9 @@ const ROLE_LABEL: Record<string, { fr: string; en: string }> = {
   admin: { fr: 'Administrateur', en: 'Administrator' },
   ra_officer: { fr: 'Éditeur', en: 'Editor' },
   reviewer: { fr: 'Lecteur', en: 'Reader' },
+  agence_locale: { fr: 'Agence Locale', en: 'Local agency' },
+  agence_representation: { fr: 'Agence de représentation', en: 'Representation agency' },
+  expert_ra: { fr: 'Expert RA', en: 'RA expert' },
 }
 
 /** Token 256 bits base64url (43 caractères) — même format que les liens de partage. */

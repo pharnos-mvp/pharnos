@@ -2,6 +2,7 @@ import { useCallback, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import { useAuth } from '@/features/auth/auth-context'
+import { canManageSubmission } from '@/features/team/team-api'
 import { fetchMyMemberships, type OrgMembership } from './org-repository'
 
 const ORG_STORAGE_KEY = 'pharnos.orgId'
@@ -47,4 +48,12 @@ export function useCurrentOrg(): CurrentOrgState {
   const loading = Boolean(session) && isLoading && !cachedOrgId
 
   return { loading, orgId, memberships, refresh }
+}
+
+/** L'utilisateur courant peut-il GÉRER LES SOUMISSIONS (envoi du dossier, réponses, décisions)
+ *  dans son org ? Miroir UI de la RLS `current_user_submission_org_ids` (0028) — la RLS reste la
+ *  vraie barrière ; ce gating évite seulement d'afficher une action qui renverrait 42501. */
+export function useCanManageSubmission(): boolean {
+  const { orgId, memberships } = useCurrentOrg()
+  return canManageSubmission(memberships.find((m) => m.orgId === orgId)?.role)
 }
