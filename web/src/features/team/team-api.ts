@@ -108,9 +108,16 @@ export const teamApi = {
       body: { orgId, email, role },
     })
     if (error) {
-      const status = (error as { context?: Response }).context?.status
-      if (status === 403) throw new Error('forbidden')
-      throw new Error((error as Error).message)
+      // L'Edge renvoie un code précis dans le corps (team_disabled, seats_full, forbidden…) :
+      // on le remonte tel quel → message UI pertinent + CTA upgrade côté TeamSection.
+      let code = ''
+      try {
+        const body = await (error as { context?: Response }).context?.json()
+        code = (body as { error?: string } | undefined)?.error ?? ''
+      } catch {
+        // corps illisible → message générique
+      }
+      throw new Error(code || (error as Error).message || 'invite_failed')
     }
     return data as { ok: boolean; emailSent: boolean }
   },

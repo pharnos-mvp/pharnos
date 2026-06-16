@@ -101,9 +101,17 @@ Deno.serve(async (req: Request) => {
     p_expires_at: expiresAt,
   })
   if (createErr) {
-    const forbidden = /forbidden|permission|42501/i.test(createErr.message ?? '')
-    logJson({ ...log, op: 'create', status: forbidden ? 'forbidden' : 'error' })
-    return json({ error: forbidden ? 'forbidden' : 'create_failed' }, forbidden ? 403 : 500)
+    const m = createErr.message ?? ''
+    // Codes PRÉCIS (offre / sièges / droits) → le front affiche un message pertinent + CTA upgrade.
+    const code = /team_disabled/i.test(m)
+      ? 'team_disabled'
+      : /seats_full/i.test(m)
+        ? 'seats_full'
+        : /forbidden|permission|42501/i.test(m)
+          ? 'forbidden'
+          : 'create_failed'
+    logJson({ ...log, op: 'create', status: code })
+    return json({ error: code }, code === 'create_failed' ? 500 : 403)
   }
 
   // Nom de l'org (l'appelant en est membre → lecture RLS autorisée).

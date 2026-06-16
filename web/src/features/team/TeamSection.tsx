@@ -31,6 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { useOrgPlan } from '@/features/org/use-org-plan'
 import { useI18n } from '@/lib/i18n-context'
 
 import { ROLE_HINT, ROLE_LABEL, teamApi, type OrgRole } from './team-api'
@@ -44,8 +45,12 @@ const ROLES: OrgRole[] = [
   'expert_ra',
 ]
 
-export function TeamSection({ orgId }: { orgId: string }) {
+export function TeamSection({ orgId, onUpgrade }: { orgId: string; onUpgrade?: () => void }) {
   const { t } = useI18n()
+  const { data: orgPlan } = useOrgPlan()
+  // L'invitation d'équipe est une feature d'OFFRE : verrouillée tant que `features.team` est faux
+  // (Free/Pro). On gate le formulaire (proactif) + message d'erreur pertinent + CTA (réactif).
+  const teamLocked = !!orgPlan && orgPlan.features?.team !== true
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['team', orgId],
     queryFn: () => teamApi.list(orgId),
@@ -76,11 +81,29 @@ export function TeamSection({ orgId }: { orgId: string }) {
       setEmail('')
       void refetch()
     } catch (err) {
-      toast.error(
-        (err as Error).message === 'forbidden'
-          ? t({ fr: 'Réservé aux administrateurs', en: 'Admins only' })
-          : t({ fr: 'Échec de l’invitation', en: 'Invite failed' }),
-      )
+      const code = (err as Error).message
+      if (code === 'team_disabled' || code === 'seats_full') {
+        toast.error(
+          code === 'team_disabled'
+            ? t({
+                fr: "L'invitation d'équipe n'est pas incluse dans votre offre.",
+                en: 'Team invitations are not included in your plan.',
+              })
+            : t({
+                fr: 'Vous avez atteint le nombre de sièges de votre offre.',
+                en: "You've reached your plan's seat limit.",
+              }),
+          onUpgrade
+            ? { action: { label: t({ fr: 'Mettre à niveau', en: 'Upgrade' }), onClick: onUpgrade } }
+            : undefined,
+        )
+      } else {
+        toast.error(
+          code === 'forbidden'
+            ? t({ fr: 'Réservé aux administrateurs', en: 'Admins only' })
+            : t({ fr: 'Échec de l’invitation', en: 'Invite failed' }),
+        )
+      }
     } finally {
       setBusy(false)
     }
@@ -118,7 +141,26 @@ export function TeamSection({ orgId }: { orgId: string }) {
         </p>
       </div>
 
-      {isAdmin ? (
+      {isAdmin && teamLocked ? (
+        <div className="bg-muted/40 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
+          <div className="text-sm">
+            <div className="font-medium">
+              {t({ fr: 'Invitez votre équipe', en: 'Invite your team' })}
+            </div>
+            <div className="text-muted-foreground text-xs">
+              {t({
+                fr: "L'invitation de membres est incluse à partir du plan Team.",
+                en: 'Member invitations are included from the Team plan.',
+              })}
+            </div>
+          </div>
+          {onUpgrade ? (
+            <Button onClick={onUpgrade}>{t({ fr: 'Mettre à niveau', en: 'Upgrade' })}</Button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {isAdmin && !teamLocked ? (
         <div className="bg-card flex flex-wrap items-end gap-3 rounded-lg border p-4">
           <label className="space-y-1 text-sm">
             <span className="text-muted-foreground text-xs">

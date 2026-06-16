@@ -144,7 +144,9 @@ export function AccountPage() {
           {section === 'perso' && <PersonalSection key={user?.id ?? 'local'} />}
           {section === 'pro' && <InfoProSection />}
           {section === 'abonnement' && <AbonnementSection />}
-          {section === 'team' && <TeamSection orgId={orgId} />}
+          {section === 'team' && (
+            <TeamSection orgId={orgId} onUpgrade={() => setSection('abonnement')} />
+          )}
           {section === 'prefs' && <PreferencesSection lang={lang} setLang={setLang} />}
           {section === 'logs' && <LogsSection orgId={orgId} />}
           {section === 'danger' && <DangerSection onDeleted={() => void signOut()} />}
