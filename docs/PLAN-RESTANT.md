@@ -57,7 +57,8 @@ Ordre = valeur × dépendance. Chaque item est une tranche verticale livrable + 
 | 2 | **Bibliothèque Templates (couche RIM)** | Onglet sidebar : templates en vigueur + lettres ; l'org sauvegarde ses versions réutilisables et les rappelle dans le CTD builder. **= le moat RIM** (≈ content library Veeva). Table `org_templates` offline-first. **Garde-fou : templates réglementaires read-only (zéro hallucination).** | ~1-2 sessions |
 | 3 | **Corbeille brouillons + Archive enrichie + doc rétention** | Finition de la rétention GxP (#162) : restore brouillons + purge N j + vue Archive + *Politique de rétention* (argument conformité vendeur). | ~0,5 session |
 | 4 | **Landing « Veeva africain »** | Site `landing/` isolé : branding premium (couleur d'accent, typo, mouvement), tour produit, 3 piliers (intelligence réglementaire / offline / conformité), Lighthouse ≥ 95. App reste neutre 2 tons. **Parallélisable avec N.** | ~1-2 sessions |
-| 5 | **Pricing finalisé + facturation** | Grille finale (à caler avec 3-5 entretiens pilotes sur le willingness-to-pay) ; **mobile money (Wave/Orange Money/MoMo)** + Stripe quand ~5 clients payants. **Zéro dette à différer.** | décision now / implé later |
+| 5 | **Pricing finalisé + facturation** | Grille finale (à caler avec 3-5 entretiens pilotes sur le willingness-to-pay ; reprend les tokens Team/Business « à confirmer » de jalon O) ; **mobile money (Wave/Orange Money/MoMo)** + Stripe quand ~5 clients payants. **Zéro dette à différer.** | décision now / implé later |
+| 6 | **Correspondance v3 — suivi de soumission (RIM)** | Délais réglementaires par agence + **rappels**, **export PDF du fil**, lettre de réponse générée ; (option) **compte Agence authentifié** + multi-destinataires. Approfondit le moat correspondance (déféré depuis ADR-0003 / jalon H). | ~1-2 sessions |
 
 ---
 
@@ -69,7 +70,7 @@ Ordre = valeur × dépendance. Chaque item est une tranche verticale livrable + 
 
 ## Séquencement recommandé
 1. **N1 → N2 → N3 → N4** (le gate, priorité absolue), **landing en parallèle** (isolée).
-2. Post-N : **erreurs actionnables** → **corbeille/rétention** → **bibliothèque Templates** → **pricing/mobile money** au fil des clients.
+2. Post-N : **erreurs actionnables** → **corbeille/rétention** → **bibliothèque Templates** → **correspondance v3 (RIM)** → **pricing/mobile money** au fil des clients.
 
 ## Definition of Done du GO-LIVE (gate N, chiffré)
 - **Produit** : 3 orgs pilotes — dossier réel compilé < 1 j + 1 fil de correspondance + 1 partage utilisé ; parcours e2e offline vert.
@@ -77,3 +78,16 @@ Ordre = valeur × dépendance. Chaque item est une tranche verticale livrable + 
 - **Perf** : LCP ≤ 2,5 s (4G), INP < 200 ms, Lighthouse perf ≥ 90 / a11y ≥ 95 en CI ; budget bundle tenu.
 - **Scalabilité** : syncs paginées, indexes vérifiés (EXPLAIN + auth_rls_initplan), quotas IA actifs, k6 sur Edge critiques.
 - **Opérabilité** : alertes + uptime actifs ; console admin OK ; **checklist GO-LIVE signée CEO**.
+
+## Actions CEO / ops en attente (loose ends — à clôturer avant/pendant N)
+- **Backup** : ranger la clé privée age `C:\Users\ASUS\pharnos-backup-age.key` **hors-ligne** (coffre) puis supprimer le fichier — sa perte = backups illisibles.
+- **GitHub** : activer Settings → Notifications → Actions (e-mails d'échec) — alerte si backup/uptime tombent.
+- **DNS / e-mail (sécurité & délivrabilité)** : durcir **SPF** (`+include:amazonses.com`), **CAA**, **DNSSEC**, **DMARC** (parqué au jalon K).
+
+## Vision / horizon (au-delà du GO-LIVE — à ne pas oublier, arbitrage selon traction)
+- **eCTD v4** — backbone XML / livrable ECOWAS (aujourd'hui hooks + PDF compilé seulement).
+- **CTD Modules 2-5** (le MVP couvre le Module 1).
+- **IDMP complet** (modèle déjà IDMP-ready, ADR-0001) + **règles réglementaires versionnées par pays** (jamais en dur — recoupe la bibliothèque Templates #2).
+- **Abstraction LLM** : swap du provider (Claude / EU / self-host) — la couche existe, le swap reste à activer.
+- **Sécurité de maturité** : **pentest externe**, WAF applicatif avancé, secret-scanning tiers (ADR-0002 hors-scope MVP) — attendus par les gros clients enterprise.
+- **Export DOCX du dossier compilé** (les formulaires exportent déjà en DOCX) ; **KPIs dashboard** (délai moyen de montage, taux d'acceptation) ; **apps natives**.
