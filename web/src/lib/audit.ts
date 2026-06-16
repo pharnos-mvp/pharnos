@@ -1,7 +1,7 @@
 import { db } from '@/lib/db'
 import { enqueueOutbox } from '@/lib/outbox'
 
-export type AuditAction = 'create' | 'update' | 'delete'
+export type AuditAction = 'create' | 'update' | 'delete' | 'archive' | 'restore'
 
 /**
  * Acteur courant (qui agit) — alimenté par l'AuthProvider à chaque changement de session.

@@ -20,6 +20,7 @@ export interface DossierRow {
   created_at: string
   updated_at: string
   deleted_at: string | null
+  archived_at: string | null
 }
 
 export function dossierToRow(d: DossierRecord): DossierRow {
@@ -37,6 +38,7 @@ export function dossierToRow(d: DossierRecord): DossierRow {
     created_at: d.createdAt,
     updated_at: d.updatedAt,
     deleted_at: d.deletedAt,
+    archived_at: d.archivedAt ?? null,
   }
 }
 
@@ -55,6 +57,7 @@ export function rowToDossier(r: DossierRow): DossierRecord {
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     deletedAt: r.deleted_at,
+    archivedAt: r.archived_at ?? null,
   }
 }
 
