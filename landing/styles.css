@@ -87,15 +87,16 @@ img {
   letter-spacing: -0.02em;
 }
 .brand-mark {
-  display: grid;
-  place-items: center;
+  display: block;
   width: 28px;
   height: 28px;
-  border-radius: 7px;
-  background: var(--primary);
-  color: var(--primary-fg);
-  font-weight: 800;
-  font-size: 0.95rem;
+  border-radius: 50%;
+  overflow: hidden;
+}
+.brand-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 .brand-name {
   font-size: 1.05rem;
