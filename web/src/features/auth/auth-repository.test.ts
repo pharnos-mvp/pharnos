@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { getSupabase } from '@/lib/supabase'
-import { requestPasswordReset, resendSignupConfirmation } from './auth-repository'
+import { requestPasswordReset, resendSignupConfirmation, signInWithGoogle } from './auth-repository'
 
 vi.mock('@/lib/supabase', () => ({ getSupabase: vi.fn() }))
 
@@ -20,6 +20,23 @@ describe('auth repository (récupération de compte)', () => {
     await expect(resendSignupConfirmation('a@b.com')).rejects.toThrow(
       'Compte indisponible hors-ligne',
     )
+    await expect(signInWithGoogle()).rejects.toThrow('Compte indisponible hors-ligne')
+  })
+
+  it('démarre la connexion Google avec le bon provider et un redirectTo vers l’origine', async () => {
+    const signInWithOAuth = vi.fn().mockResolvedValue({ error: null })
+    mockedGetSupabase.mockResolvedValue(asClient({ signInWithOAuth }))
+    await signInWithGoogle()
+    expect(signInWithOAuth).toHaveBeenCalledWith({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    })
+  })
+
+  it('propage l’erreur OAuth renvoyée par Supabase', async () => {
+    const signInWithOAuth = vi.fn().mockResolvedValue({ error: new Error('oauth boom') })
+    mockedGetSupabase.mockResolvedValue(asClient({ signInWithOAuth }))
+    await expect(signInWithGoogle()).rejects.toThrow('oauth boom')
   })
 
   it('demande la réinitialisation avec un redirectTo vers l’origine', async () => {
