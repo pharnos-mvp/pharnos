@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
-import { useI18n } from '@/lib/i18n-context'
+import { useI18n, type Translatable } from '@/lib/i18n-context'
 
 import { FEATURE_BY_KEY } from './feature-state'
 import { PLAN_LABEL } from './use-org-plan'
@@ -17,10 +17,10 @@ export function useUpsell() {
   const { t } = useI18n()
 
   return useCallback(
-    (featureKey: string) => {
+    (featureKey: string, label?: Translatable) => {
       const meta = FEATURE_BY_KEY[featureKey]
       const planName = meta ? t(PLAN_LABEL[meta.minPlan]) : ''
-      const featureName = meta ? t(meta.label) : featureKey
+      const featureName = label ? t(label) : meta ? t(meta.label) : featureKey
       toast(featureName, {
         description: planName
           ? t({

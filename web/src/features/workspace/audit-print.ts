@@ -59,8 +59,13 @@ export function printAuditReport(r: AuditReport): void {
   frame.srcdoc = buildAuditPrintHtml(r)
   frame.onload = () => {
     setTimeout(() => {
+      // Le nom « Enregistrer en PDF » est repris du document.title de la PAGE (pas de l'iframe sous
+      // Chrome) → on le bascule sur le nom de fichier voulu le temps du dialogue, puis on restaure.
+      const prevTitle = document.title
+      if (r.fileTitle) document.title = r.fileTitle
       frame.contentWindow?.focus()
       frame.contentWindow?.print()
+      document.title = prevTitle
       setTimeout(() => frame.remove(), 60_000)
     }, 150)
   }
