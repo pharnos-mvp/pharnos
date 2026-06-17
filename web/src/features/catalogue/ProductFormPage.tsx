@@ -25,7 +25,8 @@ export function ProductFormPage() {
   // Produit créé à la volée (auto-save d'une nouvelle fiche) : on RESTE sur la page pour ajouter les docs.
   const [createdId, setCreatedId] = useState<string | null>(null)
   const createdIdRef = useRef<string | null>(null) // source synchrone (anti double-création)
-  const savingRef = useRef(false)
+  // Création en vol (auto-save) : un second appel s'y rattache au lieu de créer un doublon.
+  const creatingRef = useRef<Promise<string> | null>(null)
   const effectiveId = productId ?? createdId
   const isEditing = Boolean(effectiveId)
 
@@ -35,38 +36,40 @@ export function ProductFormPage() {
     [productId],
   )
 
+  // Auto-save (silent) : crée/maj la fiche en place → les sections II/III (documents) deviennent
+  // disponibles sans navigation. Save explicite (bouton) : enregistre puis retour au catalogue.
   async function handleSave(values: ProductFormValues, silent = false) {
-    if (savingRef.current) return // une sauvegarde est déjà en cours (anti double-création)
-    savingRef.current = true
     if (!silent) setSubmitting(true)
     try {
-      const eid = productId ?? createdIdRef.current
+      // Une création peut être en vol (auto-save débouncé) : on attend son id plutôt que dupliquer.
+      let eid = productId ?? createdIdRef.current
+      if (!eid && creatingRef.current) eid = await creatingRef.current.catch(() => null)
       if (eid) {
         await updateProduct(eid, values)
-        if (!silent) {
-          toast.success(t({ fr: 'Produit mis à jour', en: 'Product updated' }))
-          if (productId) navigate('/catalogue') // édition d'un produit existant → retour à la liste
-        }
       } else {
-        const created = await createProduct(orgId, values)
-        createdIdRef.current = created.id
-        setCreatedId(created.id)
-        if (!silent)
-          toast.success(
-            t({
-              fr: 'Produit enregistré — vous pouvez ajouter les documents (II / III).',
-              en: 'Product saved — you can now add documents (II / III).',
-            }),
-          )
+        const p = createProduct(orgId, values).then((rec) => {
+          createdIdRef.current = rec.id
+          setCreatedId(rec.id)
+          return rec.id
+        })
+        creatingRef.current = p
+        try {
+          await p
+        } finally {
+          creatingRef.current = null
+        }
       }
       void syncProducts(orgId)
+      if (!silent) {
+        toast.success(t({ fr: 'Produit enregistré', en: 'Product saved' }))
+        navigate('/catalogue')
+      }
     } catch (error) {
       if (!silent)
         toast.error(t({ fr: "Échec de l'enregistrement", en: 'Save failed' }), {
           description: error instanceof Error ? error.message : undefined,
         })
     } finally {
-      savingRef.current = false
       if (!silent) setSubmitting(false)
     }
   }
