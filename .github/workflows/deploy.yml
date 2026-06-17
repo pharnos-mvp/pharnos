@@ -9,7 +9,7 @@ name: Deploy
 on:
   push:
     branches: [main]
-    paths-ignore: ['docs/**', '**.md', 'RA-source/**']
+    paths-ignore: ['docs/**', '**.md', 'RA-source/**', 'load/**', 'supabase/tests/**']
   workflow_dispatch:
 
 permissions:
