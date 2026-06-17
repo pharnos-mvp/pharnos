@@ -59,6 +59,14 @@ export async function recordCompilation(
   return data as CompileGate
 }
 
+/** Bascule la synchro cloud de l'org du caller (admin-only côté serveur). Lève en cas d'échec. */
+export async function setOrgSync(enabled: boolean): Promise<void> {
+  const supabase = await getSupabase()
+  if (!supabase) throw new Error('offline')
+  const { error } = await supabase.rpc('set_org_sync', { p_enabled: enabled })
+  if (error) throw new Error((error as { message?: string }).message || 'failed')
+}
+
 export const PLAN_LABEL: Record<PlanTier, Translatable> = {
   free: { fr: 'Free', en: 'Free' },
   pro: { fr: 'Pro', en: 'Pro' },

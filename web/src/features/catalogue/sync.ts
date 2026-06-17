@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { db, type ProductRecord } from '@/lib/db'
 import { isPermanentSyncError, withRetry } from '@/lib/retry'
+import { isSyncEnabled } from '@/lib/sync-prefs'
 import { reportError } from '@/lib/sentry'
 import { getSupabase } from '@/lib/supabase'
 
@@ -75,7 +76,7 @@ let syncing = false
  * incrémental. No-op hors-ligne ou si Supabase n'est pas configuré (mode local/tests).
  */
 export async function syncProducts(orgId: string): Promise<void> {
-  if (syncing || !navigator.onLine) return
+  if (syncing || !navigator.onLine || !isSyncEnabled(orgId)) return
   const supabase = await getSupabase()
   if (!supabase) return
   syncing = true

@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { db, type DossierAttachmentRecord } from '@/lib/db'
 import { isPermanentSyncError, withRetry } from '@/lib/retry'
+import { isSyncEnabled } from '@/lib/sync-prefs'
 import { reportError } from '@/lib/sentry'
 import { contentTypeFor, sanitizeFileName } from '@/lib/files'
 import { getSupabase } from '@/lib/supabase'
@@ -58,7 +59,7 @@ export function rowToAttachment(r: DossierAttachmentRow): DossierAttachmentRecor
 
 /** Réconcilie les pièces jointes : upload des blobs en attente + upsert métadonnées, puis pull. */
 export async function syncDossierAttachments(orgId: string): Promise<void> {
-  if (syncing || !navigator.onLine) return
+  if (syncing || !navigator.onLine || !isSyncEnabled(orgId)) return
   const supabase = await getSupabase()
   if (!supabase) return
   syncing = true
