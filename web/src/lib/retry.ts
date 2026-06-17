@@ -22,6 +22,22 @@ function isTransient(e: unknown): boolean {
   return e instanceof TypeError || (e instanceof Error && e.name === 'AbortError')
 }
 
+/**
+ * Erreur de sync PERMANENTE (rejet métier/contrainte/RLS) : ré-essayer rééchouera à l'identique.
+ * → on DRAINE l'item de la file (anti-boucle) et on ne le remonte PAS à Sentry (rejet attendu, pas un bug).
+ * SQLSTATE Postgres à 5 car. (ex. 23514 check, 23505 unique, 42501 RLS, P0001 raise) OU 4xx non-429.
+ */
+export function isPermanentSyncError(e: unknown): boolean {
+  if (isTransient(e)) return false
+  const code = (e as { code?: unknown })?.code
+  if (typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code)) return true
+  const raw =
+    (e as { status?: unknown; statusCode?: unknown })?.status ??
+    (e as { statusCode?: unknown })?.statusCode
+  const status = Number(raw)
+  return Number.isFinite(status) && status >= 400 && status < 500 && status !== 429
+}
+
 /** Exécute fn avec retry borné sur erreurs transitoires uniquement (backoff expo + jitter). */
 export async function withRetry<T>(fn: () => Promise<T>, opts: RetryOptions = {}): Promise<T> {
   const attempts = Math.max(1, opts.attempts ?? 3)

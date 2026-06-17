@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { db, type GeneratedDocRecord } from '@/lib/db'
-import { withRetry } from '@/lib/retry'
+import { isPermanentSyncError, withRetry } from '@/lib/retry'
 import { reportError } from '@/lib/sentry'
 import { getSupabase } from '@/lib/supabase'
 import { EMPTY_DOC, parseTiptapContent } from './tiptap-schema'
@@ -84,7 +84,10 @@ async function pushGeneratedDocs(supabase: SupabaseClient, orgId: string): Promi
     const rec = await db.generatedDocs.get(id)
     if (!rec || rec.orgId !== orgId) continue
     const { error } = await supabase.from('generated_docs').upsert(generatedDocToRow(rec))
-    if (error) throw error
+    if (error) {
+      if (isPermanentSyncError(error)) continue // rejet permanent : drainé par le bulkDelete final (anti-boucle/Sentry)
+      throw error
+    }
   }
   await db.outbox.bulkDelete(items.map((i) => i.id))
 }
