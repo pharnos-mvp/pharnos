@@ -128,8 +128,12 @@ jobs:
         with:
           version: latest
 
-      - name: Start Supabase (stack local Docker)
-        run: supabase start
+      - name: Start Supabase (sans les services superflus — pgTAP ne tape que Postgres)
+        # `supabase test db` n'a besoin que de Postgres. edge-runtime cold-fetch des deps deno
+        # « latest » à son démarrage et rate régulièrement son health check (Error status 502) →
+        # faisait échouer tout `supabase start`. On l'exclut, avec les autres services lourds et
+        # inutiles ici (studio/imgproxy/logflare/vector).
+        run: supabase start -x edge-runtime,studio,imgproxy,logflare,vector
 
       - name: RLS pgTAP (isolation multi-tenant)
         run: supabase test db
