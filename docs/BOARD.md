@@ -12,10 +12,13 @@
 > **Protocole de mise à jour** (voir §13) : à chaque tranche livrée (PR mergée), mettre à jour le
 > §1 (état), le §9 (milestones) et le §10 (journal). Garder le reste synchronisé si une décision change.
 
-_Dernière mise à jour : 2026-06-17 — **Jalons H→M + O + N1 (sécurité) + N2-a (perf) EN PROD.** Tracker
-vivant du gate GO-LIVE (état détaillé, PRs, reste) : **[PLAN-N-EXECUTION.md](PLAN-N-EXECUTION.md)**. Reprise
-(nouvelle discussion) sur **N2-b** (code-split workspace + e2e offline + Lighthouse CI). NB : les §§ ci-dessous
-datent du 2026-06-12 ; pour H→N voir [ROADMAP-MVP.md](ROADMAP-MVP.md) + PLAN-N-EXECUTION + mémoire `regafy-upgrade-roadmap`._
+_Dernière mise à jour : 2026-06-17 — **Jalons H→M + O + N1 + N2 + N3 (gros œuvre) EN PROD.** Tracker vivant
+du gate GO-LIVE (état détaillé, PRs, reste) : **[PLAN-N-EXECUTION.md](PLAN-N-EXECUTION.md)**. **Session 2026-06-17
+= 6 ships prod** : B1 (verrou d'offre Regafy `0034`), N2-b (code-split workspace **−77 %** + Lighthouse a11y gate
++ e2e offline), N3-a (index sync `0035`), N3-b (backstop stockage `0036` + **quota stockage god mode** `0037`).
+**Reste gate N** : N3 (k6 léger + doc capacité) + N4 (gate signé + 3 pilotes + bascule Pro). **Prochaine grande
+tranche : modèle features 3 états Masquée/Vitrine/Activée** (validé CEO — plan = [PLAN-FEATURE-STATES.md](PLAN-FEATURE-STATES.md)).
+NB : les §§ ci-dessous datent du 2026-06-12 ; pour H→N voir [ROADMAP-MVP.md](ROADMAP-MVP.md) + PLAN-N-EXECUTION + mémoire `regafy-upgrade-roadmap`._
 
 _**Bascule prod** (PR #117, rollback tag `v1-mvp`) : `main` = prod sur **pharnos.pages.dev**, features en
 branches PR (CI 6 jobs ; e2e/lighthouse/rls sur PR uniquement depuis #122). **Regafy refondu À LA DEMANDE**
