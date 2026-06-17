@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { JSONContent } from '@tiptap/core'
 import {
@@ -86,7 +86,6 @@ import { agencyCivilite, agencyFor, officialLanguage } from './roadmap-data'
 import { PdfPreviewDialog } from './PdfPreviewDialog'
 import { runRegafy, tiptapText, type RegafyFinding } from './regafy'
 import './regafy-scan.css'
-import { RichTextEditor } from './RichTextEditor'
 import { hasSignature, insertSignature, removeSignature } from './signature'
 import { BrandingPanel, SignaturePanel } from './SignatureBrandingPanels'
 import { TEMPLATES, templateKeyForNode, type TemplateContext } from './templates'
@@ -98,7 +97,6 @@ import { InlineDocPreview } from './components/InlineDocPreview'
 import { NonConformCard } from './components/NonConformCard'
 import { AuditReportView } from './components/AuditReportView'
 import { RegafyGateDialog } from './components/RegafyGateDialog'
-import { TemplateFillForm } from './components/TemplateFillForm'
 import { FormatToolbar, ToolbarBtn } from './components/toolbar'
 import { TranslationProgress } from './components/TranslationProgress'
 import { PanelHandle } from './components/PanelHandle'
@@ -110,6 +108,29 @@ import { formStateFromContent } from './template-form/form-content'
 import { formDefinitionFor } from './template-form/form-definitions'
 import { countEmptyFields, formExportName } from './template-form/form-types'
 import { countMarker, countMissing } from './upgrade-doc'
+
+// Code-split (gate N2-b) : TipTap (RichTextEditor) et le moteur de formulaires (TemplateFillForm)
+// concentrent l'essentiel du poids du chunk de la route workspace. Chargés à la demande (rendu
+// conditionnel, sous <Suspense>) → la page s'affiche sans eux ; précachés par le service worker
+// (offline-safe) + préchargés à l'idle quand on est en ligne (cf. warm()).
+const RichTextEditor = lazy(() =>
+  import('./RichTextEditor').then((m) => ({ default: m.RichTextEditor })),
+)
+const TemplateFillForm = lazy(() =>
+  import('./components/TemplateFillForm').then((m) => ({ default: m.TemplateFillForm })),
+)
+
+/** Repère de chargement de l'éditeur (TipTap/formulaire) — conserve la page A4 (anti-CLS). */
+function EditorSkeleton() {
+  const { t } = useI18n()
+  return (
+    <div className="editor-page-wrap">
+      <div className="editor-page text-muted-foreground flex items-center justify-center text-sm">
+        {t({ fr: 'Chargement de l’éditeur…', en: 'Loading editor…' })}
+      </div>
+    </div>
+  )
+}
 
 export function DossierWorkspacePage() {
   const { dossierId } = useParams()
@@ -371,7 +392,12 @@ export function DossierWorkspacePage() {
   // SW — vite.config — après le bug recette : le warm-up runtime était trop fragile offline.)
   useEffect(() => {
     const warm = () => {
-      if (navigator.onLine) void import('./pdf/dossier-compiler').catch(() => {})
+      if (!navigator.onLine) return
+      void import('./pdf/dossier-compiler').catch(() => {})
+      // Précharge aussi les chunks code-splittés (N2-b) tant qu'on est en ligne → 1re édition
+      // instantanée + disponibles hors-ligne avant même que le SW ait fini de précacher.
+      void import('./RichTextEditor').catch(() => {})
+      void import('./components/TemplateFillForm').catch(() => {})
     }
     const t = setTimeout(warm, 2000)
     window.addEventListener('online', warm)
@@ -1401,45 +1427,47 @@ export function DossierWorkspacePage() {
                         <TranslationProgress text={streamText} />
                       </div>
                     ) : null}
-                    {activeFormDef ? (
-                      // Formulaire officiel (RCP/Notice/Étiquetage) — branding CEO (feuille A4
-                      // navy, exports DOCX/PDF conformes). Remplace l'éditeur TipTap.
-                      <TemplateFillForm
-                        key={activeGenDoc.id}
-                        def={activeFormDef}
-                        genDoc={activeGenDoc}
-                        product={product}
-                        countryName={countryLabel(activeDossier.country, lang)}
-                        orgId={orgId}
-                      />
-                    ) : (
-                      <>
-                        {docEditing ? (
-                          <div className="bg-card sticky top-12 z-10 rounded-t-lg">
-                            <FormatToolbar editor={liveEditor} />
-                          </div>
-                        ) : null}
-                        <RichTextEditor
-                          docId={activeGenDoc.id}
-                          initialContent={activeGenDoc.content as JSONContent}
-                          editable={docEditing}
-                          onChange={(json) => handleEditorChange(activeGenDoc.id, json)}
-                          onReady={handleEditorReady}
-                          header={
-                            activeGenDoc.templateKey === 'translation' ||
-                            activeGenDoc.templateKey === 'upgrade'
-                              ? null
-                              : (branding?.headerImage ?? null)
-                          }
-                          footer={
-                            activeGenDoc.templateKey === 'translation' ||
-                            activeGenDoc.templateKey === 'upgrade'
-                              ? null
-                              : (branding?.footerImage ?? null)
-                          }
+                    <Suspense fallback={<EditorSkeleton />}>
+                      {activeFormDef ? (
+                        // Formulaire officiel (RCP/Notice/Étiquetage) — branding CEO (feuille A4
+                        // navy, exports DOCX/PDF conformes). Remplace l'éditeur TipTap.
+                        <TemplateFillForm
+                          key={activeGenDoc.id}
+                          def={activeFormDef}
+                          genDoc={activeGenDoc}
+                          product={product}
+                          countryName={countryLabel(activeDossier.country, lang)}
+                          orgId={orgId}
                         />
-                      </>
-                    )}
+                      ) : (
+                        <>
+                          {docEditing ? (
+                            <div className="bg-card sticky top-12 z-10 rounded-t-lg">
+                              <FormatToolbar editor={liveEditor} />
+                            </div>
+                          ) : null}
+                          <RichTextEditor
+                            docId={activeGenDoc.id}
+                            initialContent={activeGenDoc.content as JSONContent}
+                            editable={docEditing}
+                            onChange={(json) => handleEditorChange(activeGenDoc.id, json)}
+                            onReady={handleEditorReady}
+                            header={
+                              activeGenDoc.templateKey === 'translation' ||
+                              activeGenDoc.templateKey === 'upgrade'
+                                ? null
+                                : (branding?.headerImage ?? null)
+                            }
+                            footer={
+                              activeGenDoc.templateKey === 'translation' ||
+                              activeGenDoc.templateKey === 'upgrade'
+                                ? null
+                                : (branding?.footerImage ?? null)
+                            }
+                          />
+                        </>
+                      )}
+                    </Suspense>
                   </section>
                 ) : active && active.kind !== 'letter' ? (
                   // `relative` : ancre de la carte de constat et de l'animation d'analyse.

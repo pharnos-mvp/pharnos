@@ -13,6 +13,11 @@ const BUDGET = {
   // démarrage). Resserré 175→135 après le travail FCP/LCP (squelette inline + eager /catalogue).
   entryJs: 135,
   totalCss: 60, // CSS total
+  // Chunk de la route workspace (DossierWorkspacePage-*). Après le code-split N2-b (TipTap +
+  // moteur de formulaires → lazy), il pèse ~41 Ko. Cap = garde-fou anti-régression : si TipTap
+  // ou pdf-lib y ré-entrent par un import statique, le chunk repasse à ~170+ Ko et la CI casse.
+  // Chargé uniquement sur /workspace/:id, donc hors du budget d'entrée (boot).
+  workspaceRouteJs: 70,
 }
 
 const gzipKB = (buf) => gzipSync(buf, { level: 9 }).length / 1024
@@ -35,7 +40,14 @@ if (!entry) {
   process.exit(1)
 }
 
+const workspace = js.find((f) => /^DossierWorkspacePage-.*\.js$/.test(f))
+if (!workspace) {
+  console.error('✗ Chunk de route DossierWorkspacePage-*.js introuvable dans dist/assets.')
+  process.exit(1)
+}
+
 const entryKB = sizeOf(entry)
+const workspaceKB = sizeOf(workspace)
 const totalCssKB = css.reduce((sum, f) => sum + sizeOf(f), 0)
 
 console.log('Chunks JS (gzip), du plus lourd au plus léger :')
@@ -46,6 +58,7 @@ console.log(`CSS total (gzip) : ${totalCssKB.toFixed(1)} Ko`)
 
 const checks = [
   { name: `entrée ${entry}`, value: entryKB, budget: BUDGET.entryJs },
+  { name: `route workspace ${workspace}`, value: workspaceKB, budget: BUDGET.workspaceRouteJs },
   { name: 'CSS total', value: totalCssKB, budget: BUDGET.totalCss },
 ]
 
