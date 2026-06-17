@@ -49,8 +49,8 @@ export function RegafyGateDialog({
           {findings.length === 0 ? (
             <p className="text-muted-foreground text-sm">
               {t({
-                fr: "Aucune analyse effectuée sur ce dossier. Lancez l'« Audit Global » pour un rapport de conformité complet, ou compilez directement.",
-                en: 'No analysis run on this dossier. Launch the “Global Audit” for a full compliance report, or compile directly.',
+                fr: "Aucune analyse effectuée sur ce dossier. Lancez l'« Audit de conformité » pour un rapport complet, ou compilez directement.",
+                en: 'No analysis run on this dossier. Launch the “Compliance Audit” for a full report, or compile directly.',
               })}
             </p>
           ) : (
@@ -61,8 +61,8 @@ export function RegafyGateDialog({
                   en: `${findings.length} finding(s)${errors > 0 ? `, ${errors} blocking` : ''}.`,
                 })}{' '}
                 {t({
-                  fr: "Corriger d'abord, lancer l'« Audit Global », ou compiler malgré tout ?",
-                  en: 'Fix first, run the Global Audit, or compile anyway?',
+                  fr: "Corriger d'abord, lancer l'« Audit de conformité », ou compiler malgré tout ?",
+                  en: 'Fix first, run the Compliance Audit, or compile anyway?',
                 })}
               </p>
               <ul className="space-y-1.5">

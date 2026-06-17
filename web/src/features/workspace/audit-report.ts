@@ -179,7 +179,7 @@ export function buildAuditReport(data: AuditData): AuditReport {
           ]
         : [
             `Le dossier n'est pas prêt pour soumission en l'état : ${nonConform.length} document(s) présentent un écart et ${structuralReal.length} exigence(s) structurelle(s) restent à satisfaire. Il est recommandé de lever chaque constat de la section 4 (actions indiquées document par document) et de compléter les sections listées en section 5 avant compilation finale.`,
-            'Après correction, relancer l’analyse des documents modifiés puis un nouvel audit global pour constater la levée des écarts.',
+            'Après correction, relancer l’analyse des documents modifiés puis un nouvel audit de conformité pour constater la levée des écarts.',
             'Le présent audit assiste la revue réglementaire ; il ne se substitue pas à la validation finale par la personne responsable des affaires réglementaires.',
           ],
   }
