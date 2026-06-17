@@ -32,14 +32,27 @@ import {
 } from '@/components/ui/table'
 import { useI18n } from '@/lib/i18n-context'
 
-import { adminApi, formatInt, type AdminOrg, type PlanTier } from './admin-api'
+import {
+  adminApi,
+  bytesToGbInput,
+  formatBytes,
+  formatInt,
+  gbToBytes,
+  type AdminOrg,
+  type PlanTier,
+} from './admin-api'
 import { useAsync } from './use-async'
 
-const PLAN_TIERS: PlanTier[] = ['free', 'pro', 'business', 'enterprise']
+const PLAN_TIERS: PlanTier[] = ['free', 'pro', 'team', 'business', 'enterprise']
 
 function capText(override: number | null | undefined, planCap: number | null): string {
   const eff = override ?? planCap
   return eff === null || eff === undefined ? '∞' : formatInt(eff)
+}
+
+function storageCapText(override: number | null | undefined, planCap: number | null): string {
+  const eff = override ?? planCap
+  return eff === null || eff === undefined ? '∞' : formatBytes(eff)
 }
 
 export function AdminOrgs() {
@@ -92,6 +105,7 @@ export function AdminOrgs() {
                 {t({ fr: 'Tokens IA / mois', en: 'AI tokens / mo' })}
               </TableHead>
               <TableHead className="text-right">{t({ fr: 'Dossiers', en: 'Dossiers' })}</TableHead>
+              <TableHead className="text-right">{t({ fr: 'Stockage', en: 'Storage' })}</TableHead>
               <TableHead className="text-right">{t({ fr: 'Membres', en: 'Members' })}</TableHead>
               <TableHead>{t({ fr: 'État', en: 'State' })}</TableHead>
               <TableHead className="text-right">{t({ fr: 'Actions', en: 'Actions' })}</TableHead>
@@ -132,6 +146,16 @@ export function AdminOrgs() {
                     {formatInt(org.dossiers)}{' '}
                     <span className="text-muted-foreground">
                       / {capText(org.override?.max_dossiers, org.limits.max_dossiers)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatBytes(org.storage_bytes)}{' '}
+                    <span className="text-muted-foreground">
+                      /{' '}
+                      {storageCapText(
+                        org.override?.max_storage_bytes,
+                        org.limits.max_storage_bytes,
+                      )}
                     </span>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{formatInt(org.users)}</TableCell>
@@ -217,9 +241,9 @@ export function AdminOrgs() {
           org={editing}
           busy={busy === editing.id}
           onClose={() => setEditing(null)}
-          onSave={(maxDossiers, tokens) =>
+          onSave={(maxDossiers, tokens, maxStorageBytes) =>
             run(editing.id, async () => {
-              await adminApi.setQuota(editing.id, maxDossiers, tokens)
+              await adminApi.setQuota(editing.id, maxDossiers, tokens, maxStorageBytes)
               setEditing(null)
             })
           }
@@ -238,16 +262,27 @@ function QuotaEditor({
   org: AdminOrg
   busy: boolean
   onClose: () => void
-  onSave: (maxDossiers: number | null, tokens: number | null) => void
+  onSave: (
+    maxDossiers: number | null,
+    tokens: number | null,
+    maxStorageBytes: number | null,
+  ) => void
 }) {
   const { t } = useI18n()
   const [dossiers, setDossiers] = useState(org.override?.max_dossiers?.toString() ?? '')
   const [tokens, setTokens] = useState(org.override?.monthly_ai_tokens?.toString() ?? '')
+  const [storageGb, setStorageGb] = useState(bytesToGbInput(org.override?.max_storage_bytes))
   const parse = (s: string): number | null => {
     const v = s.trim()
     if (v === '') return null
     const n = Math.floor(Number(v))
     return Number.isFinite(n) && n >= 0 ? n : null
+  }
+  const parseStorage = (s: string): number | null => {
+    const v = s.trim()
+    if (v === '') return null
+    const n = Number(v)
+    return Number.isFinite(n) && n >= 0 ? gbToBytes(n) : null
   }
   return (
     <div className="bg-card space-y-3 rounded-lg border p-4">
@@ -290,7 +325,23 @@ function QuotaEditor({
             className="w-44"
           />
         </label>
-        <Button size="sm" disabled={busy} onClick={() => onSave(parse(dossiers), parse(tokens))}>
+        <label className="space-y-1 text-sm">
+          <span className="text-muted-foreground text-xs">
+            {t({ fr: 'Stockage (Go)', en: 'Storage (GB)' })}
+          </span>
+          <Input
+            inputMode="decimal"
+            value={storageGb}
+            onChange={(e) => setStorageGb(e.target.value)}
+            placeholder={t({ fr: 'défaut', en: 'default' })}
+            className="w-32"
+          />
+        </label>
+        <Button
+          size="sm"
+          disabled={busy}
+          onClick={() => onSave(parse(dossiers), parse(tokens), parseStorage(storageGb))}
+        >
           {busy
             ? t({ fr: 'Enregistrement…', en: 'Saving…' })
             : t({ fr: 'Enregistrer', en: 'Save' })}

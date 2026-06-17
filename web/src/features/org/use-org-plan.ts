@@ -15,9 +15,11 @@ export interface OrgPlan {
   dossiers_period: 'lifetime' | 'month'
   monthly_ai_tokens: number | null
   max_seats: number | null
+  max_storage_bytes: number | null
   features: Record<string, boolean>
   tokens_used: number
   dossiers_used: number
+  storage_used: number
 }
 
 export const PLAN_LABEL: Record<PlanTier, Translatable> = {

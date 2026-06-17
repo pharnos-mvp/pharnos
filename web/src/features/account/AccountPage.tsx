@@ -467,6 +467,17 @@ function AbonnementSection() {
   const [upgrading, setUpgrading] = useState<PlanTier | null>(null)
   const fmt = (n: number) => new Intl.NumberFormat('fr-FR').format(n)
   const cap = (n: number | null) => (n === null ? '∞' : fmt(n))
+  const fmtBytes = (n: number) => {
+    if (n < 1024) return `${n} o`
+    const units = ['Ko', 'Mo', 'Go', 'To']
+    let v = n / 1024
+    let i = 0
+    while (v >= 1024 && i < units.length - 1) {
+      v /= 1024
+      i++
+    }
+    return `${v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`
+  }
 
   async function upgrade(tier: PlanTier) {
     setUpgrading(tier)
@@ -535,6 +546,15 @@ function AbonnementSection() {
           </div>
           <div className="mt-1 text-lg font-semibold tabular-nums">
             {fmt(plan.tokens_used)} / {cap(plan.monthly_ai_tokens)}
+          </div>
+        </div>
+        <div className="rounded-lg border p-3">
+          <div className="text-muted-foreground text-xs">
+            {t({ fr: 'Stockage', en: 'Storage' })}
+          </div>
+          <div className="mt-1 text-lg font-semibold tabular-nums">
+            {fmtBytes(plan.storage_used)} /{' '}
+            {plan.max_storage_bytes === null ? '∞' : fmtBytes(plan.max_storage_bytes)}
           </div>
         </div>
       </div>
