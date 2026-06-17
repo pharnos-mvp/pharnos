@@ -12,7 +12,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders, isAllowedOrigin } from '../_shared/cors.ts'
 import { logJson, newReqId, userHash } from '../_shared/log.ts'
 
-const PLANS = new Set(['free', 'pro', 'business', 'enterprise'])
+const PLANS = new Set(['free', 'pro', 'team', 'business', 'enterprise'])
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** Borne un entier optionnel (quota) : null (= défaut du plan) ou entier >= 0 borné. */
@@ -21,6 +21,14 @@ function optInt(v: unknown): number | null {
   const n = Math.floor(Number(v))
   if (!Number.isFinite(n) || n < 0) return null
   return Math.min(n, 9_000_000_000)
+}
+
+/** Idem pour des OCTETS (stockage) : borne plus haute (1 Po) — 20 Go dépasse le cap d'optInt. */
+function optBig(v: unknown): number | null {
+  if (v === null || v === undefined || v === '') return null
+  const n = Math.floor(Number(v))
+  if (!Number.isFinite(n) || n < 0) return null
+  return Math.min(n, 1_000_000_000_000_000)
 }
 
 Deno.serve(async (req: Request) => {
@@ -125,6 +133,7 @@ Deno.serve(async (req: Request) => {
           p_org: org,
           p_max_dossiers: optInt(b.maxDossiers),
           p_monthly_ai_tokens: optInt(b.monthlyAiTokens),
+          p_max_storage_bytes: optBig(b.maxStorageBytes),
           p_actor_id: actorId, p_actor_email: actorEmail,
         })
       }
@@ -153,6 +162,7 @@ Deno.serve(async (req: Request) => {
           p_dossiers_period: b.dossiersPeriod === 'lifetime' || b.dossiersPeriod === 'month' ? b.dossiersPeriod : null,
           p_monthly_ai_tokens: optInt(b.monthlyAiTokens),
           p_max_seats: optInt(b.maxSeats),
+          p_max_storage_bytes: optBig(b.maxStorageBytes),
           p_features: features,
           p_actor_org: actorOrg, p_actor_id: actorId, p_actor_email: actorEmail,
         })

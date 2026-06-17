@@ -14,7 +14,7 @@ import {
 import { useI18n } from '@/lib/i18n-context'
 import type { Translatable } from '@/lib/i18n-context'
 
-import { adminApi, type PlanLimits } from './admin-api'
+import { adminApi, bytesToGbInput, gbToBytes, type PlanLimits } from './admin-api'
 import { useAsync } from './use-async'
 
 const FEATURES: Array<{ key: string; label: Translatable }> = [
@@ -65,6 +65,7 @@ function PlanCard({ plan, onSaved }: { plan: PlanLimits; onSaved: () => void }) 
   const [period, setPeriod] = useState<'lifetime' | 'month'>(plan.dossiers_period ?? 'month')
   const [tokens, setTokens] = useState(plan.monthly_ai_tokens?.toString() ?? '')
   const [seats, setSeats] = useState(plan.max_seats?.toString() ?? '')
+  const [storageGb, setStorageGb] = useState(bytesToGbInput(plan.max_storage_bytes))
   const [features, setFeatures] = useState<Record<string, boolean>>({ ...plan.features })
   const [busy, setBusy] = useState(false)
 
@@ -73,6 +74,12 @@ function PlanCard({ plan, onSaved }: { plan: PlanLimits; onSaved: () => void }) 
     if (v === '') return null
     const n = Math.floor(Number(v))
     return Number.isFinite(n) && n >= 0 ? n : null
+  }
+  const parseStorage = (s: string): number | null => {
+    const v = s.trim()
+    if (v === '') return null
+    const n = Number(v)
+    return Number.isFinite(n) && n >= 0 ? gbToBytes(n) : null
   }
 
   async function save() {
@@ -84,6 +91,7 @@ function PlanCard({ plan, onSaved }: { plan: PlanLimits; onSaved: () => void }) 
         period,
         parse(tokens),
         parse(seats),
+        parseStorage(storageGb),
         features,
       )
       toast.success(
@@ -152,6 +160,18 @@ function PlanCard({ plan, onSaved }: { plan: PlanLimits; onSaved: () => void }) 
               onChange={(e) => setSeats(e.target.value)}
               placeholder="∞"
               className="w-24"
+            />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="text-muted-foreground text-xs">
+              {t({ fr: 'Stockage (Go)', en: 'Storage (GB)' })}
+            </span>
+            <Input
+              inputMode="decimal"
+              value={storageGb}
+              onChange={(e) => setStorageGb(e.target.value)}
+              placeholder="∞"
+              className="w-28"
             />
           </label>
         </div>

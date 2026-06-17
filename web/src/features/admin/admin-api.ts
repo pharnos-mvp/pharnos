@@ -3,7 +3,7 @@ import { getSupabase } from '@/lib/supabase'
 // Client de l'Edge `admin` (jalon M2). Tout passe par l'Edge (service-role, gated is_platform_admin) ;
 // le front n'accède JAMAIS aux données cross-org directement. La session JWT est jointe par invoke().
 
-export type PlanTier = 'free' | 'pro' | 'business' | 'enterprise'
+export type PlanTier = 'free' | 'pro' | 'team' | 'business' | 'enterprise'
 
 export interface PlanLimits {
   plan: PlanTier
@@ -11,6 +11,7 @@ export interface PlanLimits {
   dossiers_period: 'lifetime' | 'month'
   monthly_ai_tokens: number | null
   max_seats: number | null
+  max_storage_bytes: number | null
   features: Record<string, boolean>
   updated_at?: string
 }
@@ -19,6 +20,7 @@ export interface QuotaOverride {
   org_id: string
   max_dossiers: number | null
   monthly_ai_tokens: number | null
+  max_storage_bytes: number | null
   features: Record<string, boolean> | null
 }
 
@@ -69,6 +71,7 @@ export interface AdminOrg {
   dossiers: number
   products: number
   ai_tokens_month: number
+  storage_bytes: number
   override: QuotaOverride | null
   limits: PlanLimits
 }
@@ -103,8 +106,12 @@ export const adminApi = {
   users: () => callAdmin<AdminUser[]>('users'),
   plans: () => callAdmin<PlanLimits[]>('plans'),
   setPlan: (orgId: string, plan: PlanTier) => callAdmin('set_plan', { orgId, plan }),
-  setQuota: (orgId: string, maxDossiers: number | null, monthlyAiTokens: number | null) =>
-    callAdmin('set_quota', { orgId, maxDossiers, monthlyAiTokens }),
+  setQuota: (
+    orgId: string,
+    maxDossiers: number | null,
+    monthlyAiTokens: number | null,
+    maxStorageBytes: number | null,
+  ) => callAdmin('set_quota', { orgId, maxDossiers, monthlyAiTokens, maxStorageBytes }),
   setDisabled: (orgId: string, disabled: boolean) => callAdmin('set_disabled', { orgId, disabled }),
   setPlanLimits: (
     plan: PlanTier,
@@ -112,6 +119,7 @@ export const adminApi = {
     dossiersPeriod: 'lifetime' | 'month',
     monthlyAiTokens: number | null,
     maxSeats: number | null,
+    maxStorageBytes: number | null,
     features: Record<string, boolean> | null,
   ) =>
     callAdmin('set_plan_limits', {
@@ -120,6 +128,7 @@ export const adminApi = {
       dossiersPeriod,
       monthlyAiTokens,
       maxSeats,
+      maxStorageBytes,
       features,
     }),
 }
@@ -135,6 +144,18 @@ export function formatBytes(n: number): string {
     i++
   }
   return `${v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`
+}
+
+const BYTES_PER_GB = 1024 * 1024 * 1024
+/** Go (saisie admin) → octets. */
+export function gbToBytes(gb: number): number {
+  return Math.round(gb * BYTES_PER_GB)
+}
+/** Octets → Go pour pré-remplir un champ (vide = illimité). */
+export function bytesToGbInput(bytes: number | null | undefined): string {
+  if (bytes === null || bytes === undefined) return ''
+  const gb = bytes / BYTES_PER_GB
+  return Number.isInteger(gb) ? String(gb) : String(Math.round(gb * 100) / 100)
 }
 
 export function formatInt(n: number): string {
