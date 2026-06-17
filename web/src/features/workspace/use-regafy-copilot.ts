@@ -9,7 +9,7 @@ import type {
   ProductRecord,
 } from '@/lib/db'
 import { env } from '@/lib/env'
-import { tStatic } from '@/lib/i18n-context'
+import { readLang, tStatic } from '@/lib/i18n-context'
 import { activityLabel, countryLabel, formatLabel } from './dossier-constants'
 import { createTranslationDoc, createUpgradeDoc } from './generated-docs-repository'
 import { syncGeneratedDocs } from './generated-docs-sync'
@@ -172,8 +172,14 @@ export function useRegafyCopilot({
             pieceId: piece.pieceId,
             topic,
             message: isTemplate
-              ? `${piece.fileName} : conforme au template en vigueur.`
-              : `${piece.fileName} : validité vérifiée — conforme.`,
+              ? tStatic({
+                  fr: `${piece.fileName} : conforme au template en vigueur.`,
+                  en: `${piece.fileName}: compliant with the current template.`,
+                })
+              : tStatic({
+                  fr: `${piece.fileName} : validité vérifiée — conforme.`,
+                  en: `${piece.fileName}: validity checked — compliant.`,
+                }),
           },
         ]
       }
@@ -186,7 +192,10 @@ export function useRegafyCopilot({
                 ...f,
                 pieceId: piece.pieceId,
                 topic,
-                message: `${piece.fileName} : validité vérifiée — conforme — valable encore ~${f.validityMonths ?? '?'} mois (expire le ${f.validUntil}).`,
+                message: tStatic({
+                  fr: `${piece.fileName} : validité vérifiée — conforme — valable encore ~${f.validityMonths ?? '?'} mois (expire le ${f.validUntil}).`,
+                  en: `${piece.fileName}: validity checked — compliant — still valid for ~${f.validityMonths ?? '?'} months (expires ${f.validUntil}).`,
+                }),
               }
             : { ...f, topic },
         )
@@ -196,12 +205,19 @@ export function useRegafyCopilot({
       const langF = fs.find((f) => f.translate || (f.language && f.language !== 'fr'))
       if (upgradeF && langF) {
         const lang = (langF.language ?? '??').toUpperCase()
+        const dt = piece.docType.toUpperCase()
+        // UEMOA/CEDEAO : la langue officielle cible est TOUJOURS le français → on l'écrit en dur
+        // ici (constat fusionné). Un constat de langue seul reste rendu par l'Edge (langName
+        // dynamique) ; à reconsolider sur regafyMessages le jour d'une cible non francophone.
         const merged: RegafyFinding = {
           ...upgradeF,
           translate: true,
           language: langF.language,
           topic,
-          message: `${piece.docType.toUpperCase()} : non conforme au template en vigueur et rédigé en ${lang} — langue officielle du ${countryName} : français.`,
+          message: tStatic({
+            fr: `${dt} : non conforme au template en vigueur et rédigé en ${lang} — langue officielle du ${countryName} : français.`,
+            en: `${dt}: not compliant with the current template and written in ${lang} — official language of ${countryName}: French.`,
+          }),
         }
         return [
           merged,
@@ -223,7 +239,7 @@ export function useRegafyCopilot({
       const piece = aiPieces.find((p) => p.pieceId === pieceId)
       if (!piece || !dossier || !env.isSupabaseConfigured) return
       if (analyzing) return
-      const countryName = countryLabel(dossier.country) || dossier.country || ''
+      const countryName = countryLabel(dossier.country, readLang()) || dossier.country || ''
       setAnalyzing(piece.pieceId)
       try {
         let fs = await getCachedAnalysis(piece.pieceId, piece.sig)
@@ -300,7 +316,10 @@ export function useRegafyCopilot({
                   ok: true,
                   source: 'ai',
                   pieceId: genDoc.id,
-                  message: `${title} : conforme au template en vigueur.`,
+                  message: tStatic({
+                    fr: `${title} : conforme au template en vigueur.`,
+                    en: `${title}: compliant with the current template.`,
+                  }),
                 },
               ]
             : fs
@@ -328,7 +347,7 @@ export function useRegafyCopilot({
       genByNode: Map<string, GeneratedDocRecord>
     }): Promise<AuditData | null> => {
       if (!dossier || !env.isSupabaseConfigured || auditProgress) return null
-      const countryName = countryLabel(dossier.country) || dossier.country || ''
+      const countryName = countryLabel(dossier.country, readLang()) || dossier.country || ''
       const agency = agencyFor(dossier.country).name || ''
       const today = new Date().toISOString().slice(0, 10)
       const productName = dossier.productName ?? product?.nomCommercial ?? ''

@@ -5,6 +5,7 @@
 
 import { specForDocType, specPromptText, type ConformitySpec } from './conformity-specs.ts'
 import { logJson } from './log.ts'
+import { regafyMessages, respondIn, type RegafyLocale } from './regafy-i18n.ts'
 import { generateParts, type Part } from './vertex.ts'
 
 export interface ConformityResult {
@@ -33,11 +34,14 @@ function extractJson(raw: string): unknown {
   }
 }
 
-const SYSTEM =
+// Le contenu de `manquantes` (texte libre) suit la langue d'affichage via `respondIn(loc)` —
+// les clés JSON et la structure restent fixes.
+const systemFor = (loc: RegafyLocale) =>
   'Tu es un expert en affaires réglementaires pharmaceutiques (UEMOA/CEDEAO). Tu vérifies la ' +
   'conformité STRUCTURELLE d’un document au template officiel en vigueur : présence des rubriques ' +
   'obligatoires, titres, mentions imposées, ordre. Tu ne juges PAS le fond médical. Réponds en ' +
-  'JSON STRICT, en français.'
+  'JSON STRICT.' +
+  respondIn(loc)
 
 function conformityPrompt(spec: ConformitySpec, country?: string): string {
   return (
@@ -62,13 +66,14 @@ export async function checkConformityParts(
   docType: string,
   country: string | undefined,
   log: Record<string, unknown>,
+  loc: RegafyLocale,
 ): Promise<ConformityResult | null> {
   const spec = specForDocType(docType)
   if (!spec) return null
   try {
     const raw = await generateParts(
       [{ text: conformityPrompt(spec, country) }, ...contentParts],
-      { system: SYSTEM, json: true, maxOutputTokens: 1024, temperature: 0, timeoutMs: 60_000 },
+      { system: systemFor(loc), json: true, maxOutputTokens: 1024, temperature: 0, timeoutMs: 60_000 },
     )
     const parsed = extractJson(raw) as {
       conforme?: boolean
@@ -107,8 +112,15 @@ export function checkConformityFile(
   docType: string,
   country: string | undefined,
   log: Record<string, unknown>,
+  loc: RegafyLocale,
 ): Promise<ConformityResult | null> {
-  return checkConformityParts([{ inlineData: { mimeType: mime, data: b64 } }], docType, country, log)
+  return checkConformityParts(
+    [{ inlineData: { mimeType: mime, data: b64 } }],
+    docType,
+    country,
+    log,
+    loc,
+  )
 }
 
 /** Variante texte (traductions, documents générés). */
@@ -117,12 +129,14 @@ export function checkConformityText(
   docType: string,
   country: string | undefined,
   log: Record<string, unknown>,
+  loc: RegafyLocale,
 ): Promise<ConformityResult | null> {
   return checkConformityParts(
     [{ text: `DOCUMENT À VÉRIFIER :\n${text}` }],
     docType,
     country,
     log,
+    loc,
   )
 }
 
@@ -130,8 +144,8 @@ export function checkConformityText(
  * Message du constat (panneau Remarques) — UNE phrase sobre (exigence recette CEO) :
  * le détail des rubriques reste dans `missing` (donnée), jamais énuméré dans le message.
  */
-export function conformityMessage(docType: string): string {
+export function conformityMessage(docType: string, loc: RegafyLocale): string {
   const spec = specForDocType(docType)
   const label = spec ? spec.label : docType.toUpperCase()
-  return `${label} : non conforme au template en vigueur — à mettre en conformité.`
+  return regafyMessages(loc).nonCompliant(label)
 }

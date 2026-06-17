@@ -242,6 +242,28 @@ export function DossierWorkspacePage() {
   const didAutoSelect = useRef(false)
   const setHeaderSlot = useHeaderSlot()
 
+  // P0-1 : la barre d'actions (sticky top-0) et le topbar du formulaire (sticky, dans
+  // TemplateFillForm) partagent le même conteneur de scroll. On mesure la hauteur — variable
+  // (retour à la ligne des onglets, i18n) — de la barre d'actions et on la publie en var CSS
+  // `--tpl-actionbar-h` sur leur ancêtre commun, que `.tplform-topbar` consomme via `top:` →
+  // il se cale SOUS la barre au lieu de glisser dessous. Callback ref = re-mesure auto au
+  // (dé)montage de la barre ; ResizeObserver = suit les changements de hauteur.
+  const actionBarRO = useRef<ResizeObserver | null>(null)
+  const measureActionBar = useCallback((node: HTMLDivElement | null) => {
+    actionBarRO.current?.disconnect()
+    actionBarRO.current = null
+    const host = node?.parentElement // .flex.flex-col.gap-2 — ancêtre du topbar aussi
+    if (!node || !host) return
+    const publish = () => host.style.setProperty('--tpl-actionbar-h', `${node.offsetHeight}px`)
+    publish()
+    // jsdom (tests) / environnements sans ResizeObserver : mesure unique, pas de suivi live.
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(publish)
+    ro.observe(node)
+    actionBarRO.current = ro
+  }, [])
+  useEffect(() => () => actionBarRO.current?.disconnect(), [])
+
   const docsByNode = useMemo(() => buildDocsByNode(dossier, docs), [docs, dossier])
 
   const genByNode = useMemo(() => {
@@ -1201,6 +1223,7 @@ export function DossierWorkspacePage() {
               />
               {showCoverPage ? null : (
                 <div
+                  ref={measureActionBar}
                   className={cn(
                     'bg-card flex min-h-10 flex-wrap items-center gap-2 rounded-xl border px-2 py-1 shadow-sm',
                     // Recette n°7 : barre épinglée pour garder « Téléverser/Analyser » à portée au
