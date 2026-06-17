@@ -5,6 +5,12 @@
 > Chaîne : [PLAN.md](PLAN.md) (vision, **immuable**) → PLAN-V2 → ROADMAP-MVP → PLAN-M-N-GOLIVE → PLAN-RESTANT → **ce doc**.
 > Suivi vivant : [BOARD.md](BOARD.md). **Ici on exécute N1→N4** ; le reste est backlog post-N.
 
+## ✅ Avancement (MAJ 2026-06-17 — reprise en nouvelle discussion sur N2-b)
+- **N1 (SÉCURITÉ) COMPLET, en prod** : N1-a Google OAuth ([#165](https://github.com/pharnos-mvp/pharnos/pull/165)) · N1-b verrou RPC `0031` ([#166](https://github.com/pharnos-mvp/pharnos/pull/166)) · N1-c pgTAP deny-all ([#167](https://github.com/pharnos-mvp/pharnos/pull/167)) · N1-d Sentry EU + rate-limit IA `0032` + CSP + runbook secrets ([#168](https://github.com/pharnos-mvp/pharnos/pull/168)). Advisor sécurité **sans WARN actionnable** (reste : items deny-all/RPC acceptés-par-conception + leaked-password **Pro-gated**).
+- **N2-a (PERF) LIVRÉ** : `auth_rls_initplan` (5 policies → `(select auth.uid())`) + index FK `invitations.invited_by` — migration `0033` ([#169](https://github.com/pharnos-mvp/pharnos/pull/169)) → **advisor perf sans WARN** (restent 6 `unused_index` INFO = conservés, low-traffic).
+- **RESTE** : **N2-b** (code-split `DossierWorkspacePage` ~594 ko — **INVASIF, recette navigateur obligatoire** ; e2e offline complet ; seuils Lighthouse perf≥90/a11y≥95 en CI) · **N3** (EXPLAIN/k6 + **D1 stockage** : garde-fous fichier + jauge usage par org — cf. [PLAN-DATA-STORAGE-QUOTA.md](PLAN-DATA-STORAGE-QUOTA.md)) · **N4** (gate signé + recette 3 pilotes + **bascule Supabase Pro** : leaked-password ON + `auth.pharnos.com` pour le branding « Pharnos » sur l'écran Google + quota stockage dur D2).
+- **Migrations : dernier appliqué = `0033` → reprendre à `0034`.** Runbook secrets : [SECRETS-ROTATION.md](SECRETS-ROTATION.md).
+
 ## 0. Ancrage sur le RÉEL (advisors live, projet `uhsireqwzqqymgsxuvqh`, eu-west-3, 2026-06-16)
 
 La liste N a été **re-vérifiée contre les advisors Supabase live** — elle correspond. Détail brut :

@@ -12,7 +12,10 @@
 > **Protocole de mise à jour** (voir §13) : à chaque tranche livrée (PR mergée), mettre à jour le
 > §1 (état), le §9 (milestones) et le §10 (journal). Garder le reste synchronisé si une décision change.
 
-_Dernière mise à jour : 2026-06-12 — **V2 EN PRODUCTION + recettes CEO n°1-7 livrées ; plan MVP ancré.**_
+_Dernière mise à jour : 2026-06-17 — **Jalons H→M + O + N1 (sécurité) + N2-a (perf) EN PROD.** Tracker
+vivant du gate GO-LIVE (état détaillé, PRs, reste) : **[PLAN-N-EXECUTION.md](PLAN-N-EXECUTION.md)**. Reprise
+(nouvelle discussion) sur **N2-b** (code-split workspace + e2e offline + Lighthouse CI). NB : les §§ ci-dessous
+datent du 2026-06-12 ; pour H→N voir [ROADMAP-MVP.md](ROADMAP-MVP.md) + PLAN-N-EXECUTION + mémoire `regafy-upgrade-roadmap`._
 
 _**Bascule prod** (PR #117, rollback tag `v1-mvp`) : `main` = prod sur **pharnos.pages.dev**, features en
 branches PR (CI 6 jobs ; e2e/lighthouse/rls sur PR uniquement depuis #122). **Regafy refondu À LA DEMANDE**
