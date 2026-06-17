@@ -81,8 +81,8 @@ async function invokeRegafy(body: Record<string, unknown>): Promise<RegafyFindin
     if (status === 429)
       throw new Error(
         tStatic({
-          fr: 'Quota d’analyses IA du mois atteint pour votre organisation.',
-          en: 'Monthly AI analysis quota reached for your organization.',
+          fr: 'Quota IA du mois atteint, ou trop de requêtes rapprochées — réessayez dans un moment.',
+          en: 'Monthly AI quota reached, or too many requests in a short time — try again shortly.',
         }),
       )
     throw new Error(
