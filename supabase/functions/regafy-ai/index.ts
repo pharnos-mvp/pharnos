@@ -16,6 +16,13 @@ import {
 import { specForDocType } from '../_shared/conformity-specs.ts'
 import { corsHeaders, isAllowedOrigin } from '../_shared/cors.ts'
 import { logJson, newReqId, timed, userHash } from '../_shared/log.ts'
+import {
+  asLocale,
+  langName,
+  regafyMessages,
+  respondIn,
+  type RegafyLocale,
+} from '../_shared/regafy-i18n.ts'
 import { checkAiQuota, recordAiUsage } from '../_shared/quota.ts'
 import { withUsage } from '../_shared/usage.ts'
 import { generateParts, generateText, type Part } from '../_shared/vertex.ts'
@@ -120,20 +127,6 @@ function mimeFor(fileName: string): string {
 
 // Types de documents soumis à la DÉTECTION DE LANGUE (≠ pièces de validité administratives).
 const LANG_TYPES = new Set(['rcp', 'notice', 'labeling', 'artwork'])
-const LANG_NAMES: Record<string, string> = {
-  fr: 'français',
-  en: 'anglais',
-  pt: 'portugais',
-  es: 'espagnol',
-  de: 'allemand',
-  it: 'italien',
-  ar: 'arabe',
-  nl: 'néerlandais',
-}
-function langName(code: string): string {
-  const c = (code || '').toLowerCase().slice(0, 2)
-  return LANG_NAMES[c] ?? code
-}
 
 // Documents dont le NOM DE PRODUIT doit concorder avec le produit du dossier (anti « mauvais doc »).
 const NAME_CHECK_TYPES = new Set(['rcp', 'notice', 'labeling', 'artwork', 'amm', 'copp', 'fsc', 'coa'])
@@ -177,6 +170,7 @@ function extractJson(raw: string): unknown {
 async function analyzeLetters(
   letters: LetterInput[],
   ctx: { opDate: string; productName?: string; titulaire?: string; country?: string; agency?: string },
+  loc: RegafyLocale,
   log: Record<string, unknown>,
 ): Promise<{ findings: Finding[]; degraded: boolean }> {
   if (letters.length === 0) return { findings: [], degraded: false }
@@ -184,7 +178,8 @@ async function analyzeLetters(
     'Tu es un expert en affaires réglementaires pharmaceutiques (UEMOA/CEDEAO). Tu repères les ' +
     "non-conformités des lettres administratives (CTD Module 1) : formule d'appel/politesse, " +
     'destinataire/agence incohérents, champs entre crochets non remplis, dates incohérentes, ' +
-    'titulaire absent, ton inadapté. Assistance uniquement. Français, messages courts et actionnables.'
+    'titulaire absent, ton inadapté. Assistance uniquement. Messages courts et actionnables.' +
+    respondIn(loc)
   const prompt =
     `Date de l'opération en cours : ${ctx.opDate} (utilise-la pour juger les dates). ` +
     `Produit : ${ctx.productName ?? '(n/a)'} | Titulaire : ${ctx.titulaire ?? '(n/a)'} | ` +
@@ -231,15 +226,17 @@ async function analyzeValidityBatch(
   productName: string,
   country: string,
   countryCode: string | undefined,
+  loc: RegafyLocale,
   log: Record<string, unknown>,
 ): Promise<Finding[]> {
   if (pieces.length === 0) return []
+  const M = regafyMessages(loc)
   const valSystem =
     'Tu es un expert RA. On te fournit plusieurs documents réglementaires (GMP/BPF, COPP, FSC, ML, ' +
     "AMM, COA…). Pour CHACUN, repère : (a) la date d'expiration / fin de validité si elle est écrite ; " +
     "sinon (b) la DATE D'ÉMISSION/DÉLIVRANCE et la DURÉE de validité énoncée (ex. « 2 ans à compter de la " +
     "date d'émission » → 24 mois). Ne déduis jamais une date ou une durée non écrite. Réponds en JSON STRICT."
-  const requirement = agency ? ` par ${agency}` : ''
+  const requirement = M.requirement(agency)
 
   const downloaded = await Promise.all(
     pieces.map(async (p) => {
@@ -264,7 +261,7 @@ async function analyzeValidityBatch(
       findings.push({
         ...base(p),
         severity: 'warning',
-        message: `${(p.docType || 'pièce').toUpperCase()} : document illisible — à vérifier.`,
+        message: M.unreadable((p.docType || 'pièce').toUpperCase()),
       })
     }
   }
@@ -337,7 +334,7 @@ async function analyzeValidityBatch(
   for (let i = 0; i < conformable.length; i += CONC) {
     const slice = conformable.slice(i, i + CONC)
     const rs = await Promise.all(
-      slice.map((v) => checkConformityFile(v.mime, v.b64, v.p.docType, countryCode, log)),
+      slice.map((v) => checkConformityFile(v.mime, v.b64, v.p.docType, countryCode, log, loc)),
     )
     slice.forEach((v, j) => {
       const c = rs[j]
@@ -347,7 +344,7 @@ async function analyzeValidityBatch(
         findings.push({
           ...base(v.p),
           severity: 'warning',
-          message: conformityMessage(v.p.docType),
+          message: conformityMessage(v.p.docType, loc),
           upgrade: true,
           missing: c.manquantes,
           ...(c.langue ? { language: c.langue } : {}),
@@ -369,7 +366,7 @@ async function analyzeValidityBatch(
         findings.push({
           ...base(p),
           severity: 'error',
-          message: `${label} : concerne « ${docName.slice(0, 60)} » ≠ produit du dossier « ${productName} ». Mauvais document ?`,
+          message: M.wrongProduct(label, docName.slice(0, 60), productName),
         })
       }
     }
@@ -380,14 +377,10 @@ async function analyzeValidityBatch(
         .toLowerCase()
         .slice(0, 2)
       if (lang && targetLang && lang !== targetLang) {
-        // Préposition française selon le pays (UEMOA/CEDEAO) : « du Bénin », « de la Côte d'Ivoire »…
-        const officialRef = country
-          ? `langue officielle ${/(côte d'ivoire|guinée|gambie|sierra ?leone|mauritanie)/i.test(country) ? 'de la' : 'du'} ${country}`
-          : 'langue cible'
         findings.push({
           ...base(p),
           severity: 'warning',
-          message: `${label} en ${langName(lang)} — ${officialRef} : ${langName(targetLang)}. Traduction recommandée.`,
+          message: M.langMismatch(label, langName(lang, loc), country, langName(targetLang, loc)),
           translate: true,
           language: lang,
         })
@@ -417,21 +410,21 @@ async function analyzeValidityBatch(
         findings.push({
           ...base(p),
           severity: 'warning',
-          message: `${label} : date lue dans le document (${expiry}${derived ? ', calculée' : ''}) ≠ date déclarée (${decl}) — à vérifier.`,
+          message: M.drift(label, expiry, derived, decl),
         })
       }
     }
 
     if (expiry) {
       const m = monthsLeft(expiry, opDate)
-      const how = derived ? ` (calculé : émission + ${months} mois)` : ''
+      const how = M.how(derived, months)
       if (m < 0) {
-        findings.push({ ...base(p), severity: 'error', message: `${label} expiré (${expiry})${how}.` })
+        findings.push({ ...base(p), severity: 'error', message: M.expired(label, expiry, how) })
       } else if (m < min) {
         findings.push({
           ...base(p),
           severity: 'warning',
-          message: `${label} : validité restante ~${Math.floor(m)} mois (< ${min} requis${requirement} ; expire le ${expiry})${how}.`,
+          message: M.lowValidity(label, Math.floor(m), min, requirement, expiry, how),
         })
       } else {
         // Valide (≥ seuil) : constat POSITIF DATÉ — la date relevée figure dans le verdict
@@ -442,14 +435,14 @@ async function analyzeValidityBatch(
           ok: true,
           validUntil: expiry,
           validityMonths: Math.floor(m),
-          message: `${label} : validité vérifiée — conforme — valable encore ~${Math.floor(m)} mois (expire le ${expiry})${how}.`,
+          message: M.validOk(label, Math.floor(m), expiry, how),
         })
       }
     } else if (r.found && r.validityStatement) {
       findings.push({
         ...base(p),
         severity: 'info',
-        message: `${label} : validité énoncée « ${String(r.validityStatement).slice(0, 120)} » — date d'émission introuvable, à confirmer.`,
+        message: M.statedValidity(label, String(r.validityStatement).slice(0, 120)),
       })
     } else if (!hasResult) {
       // Aucun résultat du modèle pour ce document → ÉCHEC d'extraction. Vocabulaire HONNÊTE : ne
@@ -457,14 +450,14 @@ async function analyzeValidityBatch(
       findings.push({
         ...base(p),
         severity: 'warning',
-        message: `${label} : extraction de la validité échouée — à vérifier manuellement.`,
+        message: M.extractionFailed(label),
       })
     } else {
       // Le modèle a lu le document mais n'y a (avec prudence) détecté aucune date/durée de validité.
       findings.push({
         ...base(p),
         severity: 'warning',
-        message: `${label} : validité non détectée automatiquement — à vérifier manuellement.`,
+        message: M.notDetected(label),
       })
     }
   })
@@ -531,6 +524,8 @@ Deno.serve(async (req: Request) => {
     countryCode?: string
     agency?: string
     targetLang?: string
+    /** Langue d'AFFICHAGE (UI) de l'utilisateur — langue des constats. Défaut FR. */
+    uiLang?: string
     letters?: LetterInput[]
     pieces?: PieceInput[]
     /** Textes à vérifier contre le template en vigueur (traductions) — additif. */
@@ -543,6 +538,7 @@ Deno.serve(async (req: Request) => {
     }>
   }
   const opDate = todayISO(b.operationDate)
+  const loc = asLocale(b.uiLang)
   const letters = (Array.isArray(b.letters) ? b.letters : []).slice(0, MAX_LETTERS).map((l) => ({
     nodeNumber: String(l?.nodeNumber ?? ''),
     nodeLabel: String(l?.nodeLabel ?? ''),
@@ -596,6 +592,7 @@ Deno.serve(async (req: Request) => {
           country: b.country,
           agency: b.agency,
         },
+        loc,
         log,
       ),
       timed(log, 'validity', () =>
@@ -608,20 +605,21 @@ Deno.serve(async (req: Request) => {
           b.productName ?? '',
           b.country ?? '',
           countryCode,
+          loc,
           log,
         ),
       ),
       timed(log, 'text-conformity', async () => {
         const out: Finding[] = []
         for (const t of conformityTexts) {
-          const c = await checkConformityText(t.text, t.docType, countryCode, log)
+          const c = await checkConformityText(t.text, t.docType, countryCode, log, loc)
           if (c && !c.conforme && c.manquantes.length > 0) {
             out.push({
               pieceId: t.id,
               nodeNumber: t.nodeNumber,
               nodeLabel: t.nodeLabel,
               severity: 'warning',
-              message: conformityMessage(t.docType),
+              message: conformityMessage(t.docType, loc),
               upgrade: true,
               missing: c.manquantes,
               ...(c.langue ? { language: c.langue } : {}),

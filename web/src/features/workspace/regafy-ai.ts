@@ -2,7 +2,7 @@ import type { JSONContent } from '@tiptap/core'
 import { toast } from 'sonner'
 
 import type { GeneratedDocRecord } from '@/lib/db'
-import { tStatic } from '@/lib/i18n-context'
+import { readLang, tStatic } from '@/lib/i18n-context'
 import { getSupabase } from '@/lib/supabase'
 import { tiptapText, type RegafyFinding } from './regafy'
 
@@ -67,7 +67,11 @@ async function invokeRegafy(body: Record<string, unknown>): Promise<RegafyFindin
         en: 'Connection required for AI analysis.',
       }),
     )
-  const { data, error } = await supabase.functions.invoke('regafy-ai', { body })
+  // `uiLang` (langue d'affichage) → l'Edge rend ses constats déterministes et demande à l'IA de
+  // répondre dans cette langue (P0-2). Distinct de `targetLang` (langue officielle du pays cible).
+  const { data, error } = await supabase.functions.invoke('regafy-ai', {
+    body: { ...body, uiLang: readLang() },
+  })
   if (error) {
     // Gating d'offre (jalon O) : 403 = Regafy hors offre (Free → Monitor seul) ; 429 = quota tokens.
     const status = (error as { context?: Response }).context?.status

@@ -1,4 +1,5 @@
 import { db, type DocAnalysisRecord } from '@/lib/db'
+import { readLang } from '@/lib/i18n-context'
 
 import type { RegafyFinding } from './regafy'
 
@@ -12,9 +13,11 @@ import type { RegafyFinding } from './regafy'
  * v4 : constat de conformité au template (toutes langues) + langue détectée portée.
  * v5 : message de conformité en une phrase (sans énumération des rubriques).
  * v8 : constat de validité POSITIF DATÉ (date relevée dans le verdict) + champ `topic` (dédup).
+ * v9 : constats rendus dans la langue d'AFFICHAGE (P0-2) → la langue UI fait partie de la clé,
+ *      un cache FR ne doit jamais être servi sous UI EN (et inversement).
  */
-const CACHE_VERSION = 'v8'
-const versioned = (sig: string) => `${CACHE_VERSION}:${sig}`
+const CACHE_VERSION = 'v9'
+const versioned = (sig: string) => `${CACHE_VERSION}:${readLang()}:${sig}`
 
 /**
  * Cache d'analyse IA par document (ÉCO) — l'extraction Gemini n'est faite qu'une fois par document.
