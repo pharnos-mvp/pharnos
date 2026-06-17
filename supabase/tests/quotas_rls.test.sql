@@ -10,7 +10,7 @@
 --   7. is_platform_admin() est faux pour un utilisateur normal ; plan_limits est lisible (config).
 
 begin;
-select plan(16);
+select plan(18);
 
 -- ----------------------------------------------------------------------------
 -- Seeding (superuser : contourne la RLS)
@@ -103,6 +103,31 @@ select is(
    where org_id = '00000000-0000-0000-0000-0000000000a1' and kind = 'translate'),
   300::bigint,
   'record_ai_usage : 300 tokens enregistrés pour translate'
+);
+
+-- ----------------------------------------------------------------------------
+-- 2bis) Garde d'OFFRE Regafy (migration 0034) : Org B est sur 'free' (Regafy OFF) → feature_disabled,
+--       y compris avec un override de TOKENS (anti-fuite Gemini payant, cf. revue gate-N).
+-- ----------------------------------------------------------------------------
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000bb"}', true);
+select is(
+  public.consume_ai_quota('regafy') ->> 'reason',
+  'feature_disabled',
+  'gate : plan free (Regafy hors offre) → refus feature_disabled'
+);
+
+-- Exploit fermé : un override de tokens SANS toucher `features` ne débloque PAS l'IA (feature prime).
+reset role;
+insert into public.org_quota_override (org_id, monthly_ai_tokens)
+values ('00000000-0000-0000-0000-0000000000b2', 500000);
+
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000bb"}', true);
+select is(
+  public.consume_ai_quota('regafy') ->> 'reason',
+  'feature_disabled',
+  'gate : override de tokens sur plan free → toujours feature_disabled (anti-fuite)'
 );
 
 -- ----------------------------------------------------------------------------
