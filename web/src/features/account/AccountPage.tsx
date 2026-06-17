@@ -41,12 +41,19 @@ import { useAuth } from '@/features/auth/auth-context'
 import { choosePlan, fetchMyMemberships } from '@/features/org/org-repository'
 import { useOrgId } from '@/features/org/org-context'
 import { TeamSection } from '@/features/team/TeamSection'
-import { PLAN_LABEL, PLAN_ORDER, useOrgPlan, type PlanTier } from '@/features/org/use-org-plan'
+import {
+  PLAN_LABEL,
+  PLAN_ORDER,
+  setOrgSync,
+  useOrgPlan,
+  type PlanTier,
+} from '@/features/org/use-org-plan'
 import { featureState, FEATURES } from '@/features/org/feature-state'
 import { db } from '@/lib/db'
 import { useI18n, type Lang } from '@/lib/i18n-context'
 import { imageFileToAvatarDataUrl, MAX_IMAGE_BYTES } from '@/lib/image-utils'
 import { initials } from '@/lib/initials'
+import { setSyncEnabledCache } from '@/lib/sync-prefs'
 import { purgeLocalData, updatePassword, updateProfileMetadata } from './account-repository'
 import { ImageField } from './ImageField'
 import { InfoProSection } from './InfoProSection'
@@ -306,6 +313,37 @@ function PersonalSection() {
 function PreferencesSection({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void }) {
   const { t } = useI18n()
   const { theme, setTheme } = useTheme()
+  const orgId = useOrgId()
+  const { data: plan } = useOrgPlan()
+  const qc = useQueryClient()
+  const [savingSync, setSavingSync] = useState(false)
+
+  async function onSyncChange(v: string) {
+    const enabled = v === 'on'
+    setSavingSync(true)
+    try {
+      await setOrgSync(enabled)
+      if (orgId) setSyncEnabledCache(orgId, enabled)
+      await qc.invalidateQueries({ queryKey: ['my-org-plan'] })
+      toast.success(
+        enabled
+          ? t({ fr: 'Synchronisation cloud activée', en: 'Cloud sync enabled' })
+          : t({
+              fr: 'Mode local activé — vos données restent sur cet appareil',
+              en: 'Local mode enabled — your data stays on this device',
+            }),
+      )
+    } catch (e) {
+      toast.error(
+        (e as Error).message === 'forbidden'
+          ? t({ fr: 'Réservé aux administrateurs', en: 'Admins only' })
+          : t({ fr: 'Échec de la mise à jour', en: 'Update failed' }),
+      )
+    } finally {
+      setSavingSync(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Field label={t({ fr: 'Langue', en: 'Language' })}>
@@ -330,6 +368,36 @@ function PreferencesSection({ lang, setLang }: { lang: Lang; setLang: (l: Lang) 
             <SelectItem value="system">{t({ fr: 'Système', en: 'System' })}</SelectItem>
           </SelectContent>
         </Select>
+      </Field>
+      <Field label={t({ fr: 'Synchronisation cloud', en: 'Cloud sync' })}>
+        <div className="space-y-1.5">
+          <Select
+            value={plan?.sync_enabled === false ? 'off' : 'on'}
+            onValueChange={onSyncChange}
+            disabled={savingSync || !plan}
+          >
+            <SelectTrigger className="w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="on">
+                {t({ fr: 'Activée (sauvegarde + équipe)', en: 'Enabled (backup + team)' })}
+              </SelectItem>
+              <SelectItem value="off">
+                {t({
+                  fr: 'Mode local (privé, cet appareil)',
+                  en: 'Local mode (private, this device)',
+                })}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-muted-foreground max-w-md text-xs">
+            {t({
+              fr: 'En mode local, vos dossiers restent sur cet appareil — non synchronisés, non sauvegardés en ligne, partage agence indisponible. Réservé aux administrateurs.',
+              en: 'In local mode, your dossiers stay on this device — not synced, no online backup, agency sharing unavailable. Admins only.',
+            })}
+          </p>
+        </div>
       </Field>
     </div>
   )

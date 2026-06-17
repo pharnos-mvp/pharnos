@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { db, type AuditLogRecord } from '@/lib/db'
 import { getSupabase } from '@/lib/supabase'
+import { isSyncEnabled } from '@/lib/sync-prefs'
 
 interface AuditRow {
   id: string
@@ -48,7 +49,7 @@ let syncing = false
 
 /** Réconcilie le journal d'audit (append-only). No-op hors-ligne / Supabase non configuré. */
 export async function syncAudit(orgId: string): Promise<void> {
-  if (syncing || !navigator.onLine) return
+  if (syncing || !navigator.onLine || !isSyncEnabled(orgId)) return
   const supabase = await getSupabase()
   if (!supabase) return
   syncing = true

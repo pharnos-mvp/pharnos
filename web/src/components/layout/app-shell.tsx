@@ -35,6 +35,7 @@ import { fetchMyMemberships } from '@/features/org/org-repository'
 import { PLAN_LABEL, useOrgPlan } from '@/features/org/use-org-plan'
 import { useOnlineStatus } from '@/hooks/use-online-status'
 import { env } from '@/lib/env'
+import { setSyncEnabledCache } from '@/lib/sync-prefs'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
 import { initials } from '@/lib/initials'
 import { cn } from '@/lib/utils'
@@ -84,6 +85,12 @@ export function AppShell() {
     enabled: Boolean(user),
   })
   const orgName = memberships?.find((m) => m.orgId === orgId)?.orgName ?? ''
+
+  // Cache du choix de synchro cloud de l'org → lu par les modules de sync (non-React) pour le gate opt-in.
+  const syncEnabled = plan?.sync_enabled
+  useEffect(() => {
+    if (orgId && syncEnabled !== undefined) setSyncEnabledCache(orgId, syncEnabled)
+  }, [orgId, syncEnabled])
 
   function toggleSidebar() {
     setCollapsed((c) => {

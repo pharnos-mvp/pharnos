@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { db, type DocumentCategory, type DocumentRecord } from '@/lib/db'
 import { isPermanentSyncError, withRetry } from '@/lib/retry'
+import { isSyncEnabled } from '@/lib/sync-prefs'
 import { reportError } from '@/lib/sentry'
 import { contentTypeFor, sanitizeFileName } from '@/lib/files'
 import { getSupabase } from '@/lib/supabase'
@@ -69,7 +70,7 @@ export function rowToDocument(r: DocumentRow): DocumentRecord {
 
 /** Réconcilie les documents : upload des blobs en attente + upsert métadonnées, puis pull. */
 export async function syncDocuments(orgId: string): Promise<void> {
-  if (syncing || !navigator.onLine) return
+  if (syncing || !navigator.onLine || !isSyncEnabled(orgId)) return
   const supabase = await getSupabase()
   if (!supabase) return
   syncing = true
