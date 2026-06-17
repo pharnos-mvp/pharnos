@@ -78,7 +78,11 @@ export const FEATURES: FeatureMeta[] = [
   },
   { key: 'translation', label: { fr: 'Traduction', en: 'Translation' }, minPlan: 'pro' },
   { key: 'correspondence', label: { fr: 'Correspondance', en: 'Correspondence' }, minPlan: 'free' },
-  { key: 'audit_global', label: { fr: 'Audit global', en: 'Global audit' }, minPlan: 'pro' },
+  {
+    key: 'audit_global',
+    label: { fr: 'Audit de conformité', en: 'Compliance audit' },
+    minPlan: 'pro',
+  },
   {
     key: 'upgrade_templates',
     label: { fr: 'Mise en conformité', en: 'Template upgrade' },
