@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { isAllowedUpload, sanitizeFileName } from './files'
+import { contentTypeFor, isAllowedUpload, sanitizeFileName } from './files'
 
 describe('sanitizeFileName', () => {
   it('laisse passer un nom sain (accents inclus)', () => {
@@ -56,5 +56,25 @@ describe('isAllowedUpload', () => {
     expect(isAllowedUpload({ name: 'logo.svg', type: 'image/svg+xml' })).toBe(false)
     expect(isAllowedUpload({ name: 'setup.exe', type: 'application/x-msdownload' })).toBe(false)
     expect(isAllowedUpload({ name: 'script.js', type: 'text/javascript' })).toBe(false)
+  })
+})
+
+describe('contentTypeFor', () => {
+  it('garde le MIME navigateur quand il est dans l’allowlist', () => {
+    expect(contentTypeFor({ name: 'x.pdf', type: 'application/pdf' })).toBe('application/pdf')
+    expect(contentTypeFor({ name: 'x.png', type: 'image/png' })).toBe('image/png')
+  })
+
+  it('dérive de l’extension quand le MIME est vide/octet-stream (Windows)', () => {
+    // Sans ce repli, un PDF stocké en octet-stream serait refusé par la allowed_mime_types du bucket.
+    expect(contentTypeFor({ name: 'scan.pdf', type: '' })).toBe('application/pdf')
+    expect(contentTypeFor({ name: 'scan.pdf', type: 'application/octet-stream' })).toBe(
+      'application/pdf',
+    )
+    expect(contentTypeFor({ name: 'photo.JPG', type: null })).toBe('image/jpeg')
+  })
+
+  it('repli sur octet-stream pour une extension inconnue', () => {
+    expect(contentTypeFor({ name: 'mystery.bin', type: '' })).toBe('application/octet-stream')
   })
 })

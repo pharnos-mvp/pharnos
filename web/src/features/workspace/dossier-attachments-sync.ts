@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { db, type DossierAttachmentRecord } from '@/lib/db'
 import { withRetry } from '@/lib/retry'
 import { reportError } from '@/lib/sentry'
-import { sanitizeFileName } from '@/lib/files'
+import { contentTypeFor, sanitizeFileName } from '@/lib/files'
 import { getSupabase } from '@/lib/supabase'
 import { cacheAttachmentBlob, getAttachmentBlob } from './dossier-attachments-repository'
 
@@ -87,9 +87,10 @@ async function pushAttachments(supabase: SupabaseClient, orgId: string): Promise
       if (blob) {
         // sanitize au build du chemin : couvre aussi les enregistrements Dexie antérieurs à T5.
         const path = `${rec.orgId}/dossiers/${rec.dossierId}/${rec.id}/${sanitizeFileName(rec.fileName)}`
-        const { error: upErr } = await supabase.storage
-          .from(BUCKET)
-          .upload(path, blob, { upsert: true, contentType: rec.mimeType || undefined })
+        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, {
+          upsert: true,
+          contentType: contentTypeFor({ name: rec.fileName, type: rec.mimeType }),
+        })
         if (upErr) throw upErr
         await db.dossierAttachments.update(id, { filePath: path, uploaded: true })
         rec.filePath = path
