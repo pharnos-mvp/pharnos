@@ -5,7 +5,7 @@
 --   2. un membre ne voit que l'usage IA de SON org (isolation multi-tenant) ;
 --   3. consume_ai_quota : autorise sous le plafond, refuse au plafond, refuse si org désactivée ;
 --   4. record_ai_usage incrémente de façon atomique ;
---   5. le trigger de plafond de dossiers bloque au-delà du quota ;
+--   5. la création de dossiers est ILLIMITÉE (quota déplacé sur la compilation, migration 0040) ;
 --   6. caller_org_id() et enforce_dossier_quota() ne sont PAS appelables en RPC (advisor 0028/0029) ;
 --   7. is_platform_admin() est faux pour un utilisateur normal ; plan_limits est lisible (config).
 
@@ -165,17 +165,15 @@ select is(
 );
 
 -- ----------------------------------------------------------------------------
--- 5) Trigger plafond de dossiers (override = 0 → bloque, errcode check_violation 23514)
+-- 5) Création de dossiers désormais ILLIMITÉE (trigger retiré en 0040 ; le quota porte sur la COMPILATION).
 -- ----------------------------------------------------------------------------
 reset role;
 insert into public.org_quota_override (org_id, max_dossiers)
 values ('00000000-0000-0000-0000-0000000000a1', 0);
-select throws_ok(
+select lives_ok(
   $$insert into public.dossiers (id, org_id, product_name, format, activity, country)
     values (gen_random_uuid(), '00000000-0000-0000-0000-0000000000a1', 'X', 'CTD', 'Nouvelle AMM', 'BJ')$$,
-  '23514',
-  null,
-  'trigger : insertion de dossier bloquée au-delà du plafond'
+  'création de dossier NON bloquée (quota déplacé sur la compilation, 0040)'
 );
 
 select * from finish();
