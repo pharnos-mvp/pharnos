@@ -224,9 +224,9 @@ describe('DossierWorkspacePage — caractérisation (avant refactor T7)', () => 
     const compile = await screen.findByRole('button', { name: /Compiler le PDF/ })
     compile.click()
     // Monitor étant toujours actif, le gate liste ses constats déterministes (GMP < 6 mois) — plus de
-    // « Aucune analyse effectuée » — et propose Audit Global (IA) / Compiler quand même (jamais bloquant).
+    // « Aucune analyse effectuée » — et propose Audit de conformité (IA) / Compiler quand même (jamais bloquant).
     expect(await screen.findByText(/Validité < 6 mois requise/)).toBeInTheDocument()
-    expect(await screen.findByRole('button', { name: /Audit Global/ })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /Audit de conformité/ })).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: 'Compiler quand même' })).toBeInTheDocument()
   })
 

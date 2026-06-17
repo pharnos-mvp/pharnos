@@ -1,6 +1,7 @@
 import type { JSONContent } from '@tiptap/core'
 
 import type { DocumentRecord, DossierAttachmentRecord, GeneratedDocRecord } from '@/lib/db'
+import { tStatic } from '@/lib/i18n-context'
 import type { CtdNodeDef } from './module1-tree'
 import { flattenTree } from './tree-utils'
 
@@ -100,13 +101,22 @@ export function runRegafy(input: RegafyInput): RegafyFinding[] {
       let message = ''
       if (exp < today) {
         severity = 'error'
-        message = `Pièce expirée (${d.expiryDate})`
+        message = tStatic({
+          fr: `Pièce expirée (${d.expiryDate})`,
+          en: `Item expired (${d.expiryDate})`,
+        })
       } else if (minMonths > 0 && monthsLeft(exp) < minMonths) {
         severity = 'warning'
         message =
           d.docType === 'coa'
-            ? `COA : validité < 18 mois requise (expire le ${d.expiryDate})`
-            : `Validité < 6 mois requise (expire le ${d.expiryDate})`
+            ? tStatic({
+                fr: `COA : validité < 18 mois requise (expire le ${d.expiryDate})`,
+                en: `CoA: 18-month validity required (expires ${d.expiryDate})`,
+              })
+            : tStatic({
+                fr: `Validité < 6 mois requise (expire le ${d.expiryDate})`,
+                en: `6-month validity required (expires ${d.expiryDate})`,
+              })
       }
       if (severity) {
         findings.push({
@@ -136,9 +146,12 @@ export function runRegafy(input: RegafyInput): RegafyFinding[] {
       findings.push({
         id: 'contract',
         nodeNumber: '',
-        nodeLabel: 'Produit',
+        nodeLabel: tStatic({ fr: 'Produit', en: 'Product' }),
         severity: 'warning',
-        message: 'Titulaire ≠ fabricant : contrat (licence/fabrication) non fourni.',
+        message: tStatic({
+          fr: 'Titulaire ≠ fabricant : contrat (licence/fabrication) non fourni.',
+          en: 'MA holder ≠ manufacturer: contract (licence/manufacturing) not provided.',
+        }),
       })
     }
   }
@@ -166,7 +179,14 @@ export function runRegafy(input: RegafyInput): RegafyFinding[] {
     // Les FORMULAIRES (templateKey 'fill') ont leurs champs vides OMIS du contenu (jamais des [...])
     // → vérifiés « form-aware » côté page (champs comptés via la définition). Ici : lettres/squelettes.
     if (gen && gen.templateKey !== 'fill' && hasPlaceholder(gen.content)) {
-      push(leaf, 'warning', 'Champs à compléter dans le document')
+      push(
+        leaf,
+        'warning',
+        tStatic({
+          fr: 'Champs à compléter dans le document',
+          en: 'Fields to complete in the document',
+        }),
+      )
     }
   }
 
@@ -177,16 +197,24 @@ export function runRegafy(input: RegafyInput): RegafyFinding[] {
     const gen = genByNode.get(leaf.number)
     const atts = attachByNode.get(leaf.number) ?? []
     const has = docs.length > 0 || Boolean(gen) || atts.length > 0
-    if (!has) push(leaf, 'warning', 'Section validée sans document')
+    if (!has)
+      push(
+        leaf,
+        'warning',
+        tStatic({ fr: 'Section validée sans document', en: 'Validated section without document' }),
+      )
   }
 
   if (!anyContent && savedLeaves.length > 0) {
     findings.push({
       id: 'empty',
       nodeNumber: '',
-      nodeLabel: 'Dossier',
+      nodeLabel: tStatic({ fr: 'Dossier', en: 'Dossier' }),
       severity: 'error',
-      message: 'Dossier vide : aucun document.',
+      message: tStatic({
+        fr: 'Dossier vide : aucun document.',
+        en: 'Empty dossier: no documents.',
+      }),
     })
   }
 
@@ -194,9 +222,12 @@ export function runRegafy(input: RegafyInput): RegafyFinding[] {
     findings.push({
       id: 'titulaire',
       nodeNumber: '',
-      nodeLabel: 'Produit',
+      nodeLabel: tStatic({ fr: 'Produit', en: 'Product' }),
       severity: 'warning',
-      message: "Titulaire / demandeur d'AMM non renseigné (fiche produit).",
+      message: tStatic({
+        fr: "Titulaire / demandeur d'AMM non renseigné (fiche produit).",
+        en: 'MA holder / applicant not set (product sheet).',
+      }),
     })
   }
 

@@ -115,7 +115,7 @@ export function RegafyGateDialog({
               ) : (
                 <>
                   <ScanSearch className="size-4" />
-                  {t({ fr: 'Audit Global', en: 'Global Audit' })}
+                  {t({ fr: 'Audit de conformité', en: 'Compliance Audit' })}
                 </>
               )}
             </Button>

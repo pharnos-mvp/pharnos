@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { ChevronDown } from 'lucide-react'
@@ -28,6 +28,8 @@ interface ProductFormProps {
   onSubmit: (values: ProductFormValues) => void | Promise<void>
   submitting?: boolean
   submitLabel: string
+  /** Auto-enregistrement quand les champs requis sont valides (création/maj silencieuse). */
+  onAutoSave?: (values: ProductFormValues) => void
   /** Contenu de la section « Documents d'information » (mode édition). */
   documentsSlot?: ReactNode
   /** Contenu de la section « Pièces administratives » (mode édition). */
@@ -148,6 +150,7 @@ export function ProductForm({
   onSubmit,
   submitting,
   submitLabel,
+  onAutoSave,
   documentsSlot,
   adminSlot,
 }: ProductFormProps) {
@@ -156,6 +159,7 @@ export function ProductForm({
   const form = useForm<ProductInput, unknown, ProductFormValues>({
     resolver: zodResolver(schema),
     defaultValues: defaultValues ?? EMPTY_PRODUCT,
+    mode: 'onChange',
   })
 
   // Re-traduit à chaud les messages de validation déjà affichés quand la langue change.
@@ -163,6 +167,29 @@ export function ProductForm({
     if (Object.keys(form.formState.errors).length > 0) void form.trigger()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t])
+
+  // Auto-enregistrement : dès que les champs requis sont valides, on persiste (silencieux, débouncé)
+  // → la fiche existe, les sections II/III (documents) deviennent disponibles sans clic explicite.
+  const autoTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const lastSaved = useRef<string>('')
+  useEffect(() => {
+    if (!onAutoSave) return
+    const sub = form.watch((values) => {
+      clearTimeout(autoTimer.current)
+      autoTimer.current = setTimeout(() => {
+        const parsed = schema.safeParse(values)
+        if (!parsed.success) return
+        const serialized = JSON.stringify(parsed.data)
+        if (serialized === lastSaved.current) return
+        lastSaved.current = serialized
+        onAutoSave(parsed.data)
+      }, 800)
+    })
+    return () => {
+      sub.unsubscribe()
+      clearTimeout(autoTimer.current)
+    }
+  }, [form, onAutoSave, schema])
 
   const [open, setOpen] = useState({ id: true, docs: false, admin: false })
   const toggle = (k: 'id' | 'docs' | 'admin') => setOpen((o) => ({ ...o, [k]: !o[k] }))

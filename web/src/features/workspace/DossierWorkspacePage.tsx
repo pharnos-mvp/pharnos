@@ -48,7 +48,7 @@ import { useProSettingsSync } from '@/features/profile/use-pro-settings-sync'
 import { db, type DossierAttachmentRecord, type GeneratedDocRecord } from '@/lib/db'
 import { env } from '@/lib/env'
 import { UPLOAD_ACCEPT } from '@/lib/files'
-import { useI18n } from '@/lib/i18n-context'
+import { tStatic, useI18n } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import { extractCity } from './city'
 import { formatComposition } from './composition'
@@ -287,7 +287,9 @@ export function DossierWorkspacePage() {
       genByNode,
       attachByNode,
     }).map((f) => ({ ...f, source: 'monitor' as const }))
-  }, [dossier, product, docsByNode, genByNode, attachByNode])
+    // `lang` force la recomputation pour relocaliser les messages Monitor (runRegafy → tStatic lit la langue).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dossier, product, docsByNode, genByNode, attachByNode, lang])
 
   const flatNodes = useMemo(() => (dossier ? flattenTree(dossier.tree) : []), [dossier])
   // Ouverture d'un onglet de traduction (sélection du nœud + édition immédiate) — callback du
@@ -353,12 +355,17 @@ export function DossierWorkspacePage() {
           severity: 'warning',
           source: 'monitor',
           topic: 'completeness',
-          message: 'Champs à compléter dans le document',
+          message: tStatic({
+            fr: 'Champs à compléter dans le document',
+            en: 'Fields to complete in the document',
+          }),
         })
       }
     }
     return out
-  }, [dossier, genDocs, flatNodes])
+    // `lang` force la recomputation pour relocaliser le message (tStatic lit la langue courante).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dossier, genDocs, flatNodes, lang])
 
   // Remarques de la SESSION (analyses déclenchées par l'utilisateur — recette n°6 : plus
   // d'analyse automatique). Constat de langue masqué dès qu'une traduction existe.
@@ -1199,7 +1206,7 @@ export function DossierWorkspacePage() {
                     // Recette n°7 : barre épinglée pour garder « Téléverser/Analyser » à portée au
                     // scroll. En édition de lettre, la pilule (top-0) + la barre de format (top-12)
                     // sont déjà épinglées → barre laissée statique pour éviter tout chevauchement.
-                    !isEditableActive && 'sticky top-0 z-20',
+                    (!isEditableActive || !!activeFormDef) && 'sticky top-0 z-20',
                   )}
                 >
                   <span className="sr-only" role="heading" aria-level={2}>
@@ -1314,7 +1321,7 @@ export function DossierWorkspacePage() {
                             fr: 'Analyse incluse avec Regafy (copilote IA)',
                             en: 'Analysis included with Regafy (AI copilot)',
                           })}
-                          onClick={() => upsell('regafy')}
+                          onClick={() => upsell('regafy', { fr: 'Analyse IA', en: 'AI analysis' })}
                         >
                           <ScanSearch className="size-4" /> {t({ fr: 'Analyser', en: 'Analyze' })}
                         </Button>
@@ -1326,7 +1333,9 @@ export function DossierWorkspacePage() {
                             fr: 'Traduction incluse avec Regafy (copilote IA)',
                             en: 'Translation included with Regafy (AI copilot)',
                           })}
-                          onClick={() => upsell('regafy')}
+                          onClick={() =>
+                            upsell('regafy', { fr: 'Traduction IA', en: 'AI translation' })
+                          }
                         >
                           <Languages className="size-4" /> {t({ fr: 'Traduire', en: 'Translate' })}
                         </Button>
