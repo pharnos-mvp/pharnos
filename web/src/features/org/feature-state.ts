@@ -84,6 +84,11 @@ export const FEATURES: FeatureMeta[] = [
     label: { fr: 'Mise en conformité', en: 'Template upgrade' },
     minPlan: 'pro',
   },
+  {
+    key: 'cloud_sync',
+    label: { fr: 'Sauvegarde & synchro cloud', en: 'Cloud backup & sync' },
+    minPlan: 'pro',
+  },
 ]
 
 export const FEATURE_BY_KEY: Record<string, FeatureMeta> = Object.fromEntries(
