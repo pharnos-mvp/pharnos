@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { getSupabase } from '@/lib/supabase'
 import type { Translatable } from '@/lib/i18n-context'
+import type { FeatureMap } from './feature-state'
 
 /** Paliers Pharnos (jalon O — 5 plans). */
 export type PlanTier = 'free' | 'pro' | 'team' | 'business' | 'enterprise'
@@ -16,7 +17,7 @@ export interface OrgPlan {
   monthly_ai_tokens: number | null
   max_seats: number | null
   max_storage_bytes: number | null
-  features: Record<string, boolean>
+  features: FeatureMap
   tokens_used: number
   dossiers_used: number
   storage_used: number

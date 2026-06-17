@@ -42,8 +42,9 @@ import { choosePlan, fetchMyMemberships } from '@/features/org/org-repository'
 import { useOrgId } from '@/features/org/org-context'
 import { TeamSection } from '@/features/team/TeamSection'
 import { PLAN_LABEL, PLAN_ORDER, useOrgPlan, type PlanTier } from '@/features/org/use-org-plan'
+import { featureState, FEATURES } from '@/features/org/feature-state'
 import { db } from '@/lib/db'
-import { useI18n, type Lang, type Translatable } from '@/lib/i18n-context'
+import { useI18n, type Lang } from '@/lib/i18n-context'
 import { imageFileToAvatarDataUrl, MAX_IMAGE_BYTES } from '@/lib/image-utils'
 import { initials } from '@/lib/initials'
 import { purgeLocalData, updatePassword, updateProfileMetadata } from './account-repository'
@@ -451,15 +452,6 @@ function DangerSection({ onDeleted }: { onDeleted: () => void }) {
 
 /* ----------------------------- Abonnement (plan + usage + upgrade) ----------------------------- */
 
-const FEATURE_LABELS: Record<string, Translatable> = {
-  regafy: { fr: 'Regafy (copilote IA)', en: 'Regafy (AI copilot)' },
-  translation: { fr: 'Traduction', en: 'Translation' },
-  upgrade_templates: { fr: 'Mise en conformité des templates', en: 'Template compliance upgrade' },
-  audit_global: { fr: 'Audit global', en: 'Global audit' },
-  correspondence: { fr: 'Correspondance', en: 'Correspondence' },
-  team: { fr: 'Équipe (multi-utilisateurs)', en: 'Team (multi-user)' },
-}
-
 function AbonnementSection() {
   const { t } = useI18n()
   const { data: plan, isLoading } = useOrgPlan()
@@ -562,14 +554,22 @@ function AbonnementSection() {
       <div className="space-y-2">
         <h4 className="text-sm font-medium">{t({ fr: 'Fonctionnalités', en: 'Features' })}</h4>
         <ul className="grid gap-1 sm:grid-cols-2">
-          {Object.entries(FEATURE_LABELS).map(([k, label]) => {
-            const on = plan.features[k]
+          {FEATURES.map((f) => {
+            const st = featureState(plan.features, f.key)
+            if (st === 'hidden') return null // Masquée : invisible
+            const on = st === 'enabled'
+            const planName = t(PLAN_LABEL[f.minPlan])
             return (
-              <li key={k} className="flex items-center gap-2 text-sm">
+              <li key={f.key} className="flex items-center gap-2 text-sm">
                 <span className={on ? 'text-emerald-600' : 'text-muted-foreground'}>
-                  {on ? '✓' : '—'}
+                  {on ? '✓' : '○'}
                 </span>
-                <span className={on ? '' : 'text-muted-foreground'}>{t(label)}</span>
+                <span className={on ? '' : 'text-muted-foreground'}>{t(f.label)}</span>
+                {st === 'teaser' ? (
+                  <span className="text-muted-foreground text-xs">
+                    {t({ fr: `dès ${planName}`, en: `from ${planName}` })}
+                  </span>
+                ) : null}
               </li>
             )
           })}

@@ -36,6 +36,9 @@ import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
 import { useAuth } from '@/features/auth/auth-context'
 import { useOrgId } from '@/features/org/org-context'
 import { useCanManageSubmission } from '@/features/org/use-current-org'
+import { featureState } from '@/features/org/feature-state'
+import { useOrgPlan } from '@/features/org/use-org-plan'
+import { useUpsell } from '@/features/org/use-upsell'
 import {
   getOrgBranding,
   getUserSignature,
@@ -149,6 +152,11 @@ export function DossierWorkspacePage() {
   const { t, lang } = useI18n()
   // Gestion des soumissions (envoi du dossier) réservée à Admin + rôles agence/expert (RLS 0028).
   const canSubmit = useCanManageSubmission()
+  // Offre IA Regafy (modèle 3 états) : Activée → analyse réelle ; Vitrine → upsell ; Masquée → invisible.
+  // L'entitlement RÉEL reste serveur (`consume_ai_quota` → feature_disabled) ; ici on gate l'UI + le CTA.
+  const { data: orgPlan } = useOrgPlan()
+  const upsell = useUpsell()
+  const regafyState = featureState(orgPlan?.features, 'regafy')
 
   const dossier = useLiveQuery(
     async () => (dossierId ? ((await getDossier(dossierId)) ?? null) : null),
@@ -1233,9 +1241,11 @@ export function DossierWorkspacePage() {
                         <Sparkles className="size-4" /> {t({ fr: 'Générer', en: 'Generate' })}
                       </Button>
                     ) : null}
-                    {/* Analyse Regafy À LA DEMANDE (recettes n°6-7) : pièce affichée OU document
-                      traduit / version conforme — template → conformité ; admin → validité. */}
-                    {analyzeTargetId ? (
+                    {/* Analyse Regafy À LA DEMANDE (recettes n°6-7), gating modèle 3 états :
+                        - Activée + cible → analyse réelle (pièce affichée OU doc traduit/conforme) ;
+                        - Vitrine → Analyser + Traduire restent visibles comme accroche, clic → upsell ;
+                        - Masquée → rien. Monitor (déterministe, gratuit) reste auto pour tous les plans. */}
+                    {regafyState === 'enabled' && analyzeTargetId ? (
                       <Button
                         size="sm"
                         className="h-8 rounded-full bg-emerald-600 text-white hover:bg-emerald-700"
@@ -1270,6 +1280,33 @@ export function DossierWorkspacePage() {
                           ? t({ fr: 'Analyse…', en: 'Analyzing…' })
                           : t({ fr: 'Analyser', en: 'Analyze' })}
                       </Button>
+                    ) : regafyState === 'teaser' ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 rounded-full"
+                          title={t({
+                            fr: 'Analyse incluse avec Regafy (copilote IA)',
+                            en: 'Analysis included with Regafy (AI copilot)',
+                          })}
+                          onClick={() => upsell('regafy')}
+                        >
+                          <ScanSearch className="size-4" /> {t({ fr: 'Analyser', en: 'Analyze' })}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 rounded-full"
+                          title={t({
+                            fr: 'Traduction incluse avec Regafy (copilote IA)',
+                            en: 'Translation included with Regafy (AI copilot)',
+                          })}
+                          onClick={() => upsell('regafy')}
+                        >
+                          <Languages className="size-4" /> {t({ fr: 'Traduire', en: 'Translate' })}
+                        </Button>
+                      </>
                     ) : null}
                     <Button
                       size="sm"
