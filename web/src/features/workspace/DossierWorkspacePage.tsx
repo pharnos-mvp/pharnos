@@ -37,7 +37,7 @@ import { useAuth } from '@/features/auth/auth-context'
 import { useOrgId } from '@/features/org/org-context'
 import { useCanManageSubmission } from '@/features/org/use-current-org'
 import { featureState } from '@/features/org/feature-state'
-import { useOrgPlan } from '@/features/org/use-org-plan'
+import { recordCompilation, useOrgPlan } from '@/features/org/use-org-plan'
 import { useUpsell } from '@/features/org/use-upsell'
 import {
   getOrgBranding,
@@ -473,6 +473,30 @@ export function DossierWorkspacePage() {
     if (!dossier) return
     setCompiling(true)
     try {
+      // Garde de quota au DÉPÔT (compilation = le livrable métré, migration 0039). En ligne uniquement
+      // (l'acte est en ligne) ; hors-ligne, on laisse compiler (best-effort, réconcilié plus tard).
+      if (online && env.isSupabaseConfigured) {
+        const gate = await recordCompilation(dossierId ?? null, 'm1_pdf')
+        if (!gate.allowed) {
+          if (gate.reason === 'quota_exceeded') {
+            toast.error(
+              t({
+                fr: `Quota de dépôts atteint ce mois (${gate.cap ?? ''}). Compilez davantage avec un plan supérieur.`,
+                en: `Monthly submission quota reached (${gate.cap ?? ''}). Upgrade to compile more.`,
+              }),
+              {
+                action: {
+                  label: t({ fr: 'Mettre à niveau', en: 'Upgrade' }),
+                  onClick: () => navigate('/compte', { state: { section: 'abonnement' } }),
+                },
+              },
+            )
+          } else {
+            toast.error(t({ fr: 'Compilation indisponible.', en: 'Compilation unavailable.' }))
+          }
+          return
+        }
+      }
       // pdf-lib chargé à la demande → hors du chunk workspace (perf).
       const { compileDossierToPdf } = await import('./pdf/dossier-compiler')
       const { bytes, missing } = await compileDossierToPdf({

@@ -521,15 +521,13 @@ function AbonnementSection() {
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-lg border p-3">
           <div className="text-muted-foreground text-xs">
-            {t({ fr: 'Dossiers', en: 'Dossiers' })}
+            {t({ fr: 'Dépôts (compilations)', en: 'Submissions (compilations)' })}
           </div>
           <div className="mt-1 text-lg font-semibold tabular-nums">
-            {fmt(plan.dossiers_used)} / {cap(plan.max_dossiers)}
+            {fmt(plan.compilations_used)} / {cap(plan.max_compilations)}
           </div>
           <div className="text-muted-foreground text-xs">
-            {plan.dossiers_period === 'lifetime'
-              ? t({ fr: 'à vie', en: 'lifetime' })
-              : t({ fr: 'ce mois-ci', en: 'this month' })}
+            {t({ fr: 'ce mois-ci · brouillons illimités', en: 'this month · unlimited drafts' })}
           </div>
         </div>
         <div className="rounded-lg border p-3">
