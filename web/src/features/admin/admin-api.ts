@@ -1,4 +1,5 @@
 import { getSupabase } from '@/lib/supabase'
+import type { FeatureMap } from '@/features/org/feature-state'
 
 // Client de l'Edge `admin` (jalon M2). Tout passe par l'Edge (service-role, gated is_platform_admin) ;
 // le front n'accède JAMAIS aux données cross-org directement. La session JWT est jointe par invoke().
@@ -12,7 +13,7 @@ export interface PlanLimits {
   monthly_ai_tokens: number | null
   max_seats: number | null
   max_storage_bytes: number | null
-  features: Record<string, boolean>
+  features: FeatureMap
   updated_at?: string
 }
 
@@ -21,7 +22,7 @@ export interface QuotaOverride {
   max_dossiers: number | null
   monthly_ai_tokens: number | null
   max_storage_bytes: number | null
-  features: Record<string, boolean> | null
+  features: FeatureMap | null
 }
 
 export interface AdminOverview {
@@ -120,7 +121,7 @@ export const adminApi = {
     monthlyAiTokens: number | null,
     maxSeats: number | null,
     maxStorageBytes: number | null,
-    features: Record<string, boolean> | null,
+    features: FeatureMap | null,
   ) =>
     callAdmin('set_plan_limits', {
       plan,

@@ -31,6 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { isEnabled, isTeaser } from '@/features/org/feature-state'
 import { useOrgPlan } from '@/features/org/use-org-plan'
 import { useI18n } from '@/lib/i18n-context'
 
@@ -48,9 +49,11 @@ const ROLES: OrgRole[] = [
 export function TeamSection({ orgId, onUpgrade }: { orgId: string; onUpgrade?: () => void }) {
   const { t } = useI18n()
   const { data: orgPlan } = useOrgPlan()
-  // L'invitation d'équipe est une feature d'OFFRE : verrouillée tant que `features.team` est faux
-  // (Free/Pro). On gate le formulaire (proactif) + message d'erreur pertinent + CTA (réactif).
-  const teamLocked = !!orgPlan && orgPlan.features?.team !== true
+  // L'invitation d'équipe est une feature d'OFFRE (modèle 3 états) : opérationnelle seulement si
+  // `features.team` est « Activée ». « Vitrine » → bloc d'upsell ; « Masquée » → rien. Le serveur
+  // (`create_invitation`) reste l'autorité (team_disabled) ; ici on gate l'UI + le CTA.
+  const teamLocked = !!orgPlan && !isEnabled(orgPlan.features, 'team')
+  const teamTeaser = !!orgPlan && isTeaser(orgPlan.features, 'team')
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['team', orgId],
     queryFn: () => teamApi.list(orgId),
@@ -141,7 +144,7 @@ export function TeamSection({ orgId, onUpgrade }: { orgId: string; onUpgrade?: (
         </p>
       </div>
 
-      {isAdmin && teamLocked ? (
+      {isAdmin && teamTeaser ? (
         <div className="bg-muted/40 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
           <div className="text-sm">
             <div className="font-medium">

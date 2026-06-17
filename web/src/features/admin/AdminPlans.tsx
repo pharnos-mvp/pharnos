@@ -12,19 +12,17 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useI18n } from '@/lib/i18n-context'
-import type { Translatable } from '@/lib/i18n-context'
+import {
+  featureState,
+  FEATURE_STATE_LABEL,
+  FEATURE_STATES,
+  FEATURES,
+  type FeatureMap,
+  type FeatureState,
+} from '@/features/org/feature-state'
 
 import { adminApi, bytesToGbInput, gbToBytes, type PlanLimits } from './admin-api'
 import { useAsync } from './use-async'
-
-const FEATURES: Array<{ key: string; label: Translatable }> = [
-  { key: 'team', label: { fr: 'Équipe (multi-utilisateurs)', en: 'Team (multi-user)' } },
-  { key: 'regafy', label: { fr: 'Regafy (copilote IA)', en: 'Regafy (AI copilot)' } },
-  { key: 'translation', label: { fr: 'Traduction', en: 'Translation' } },
-  { key: 'correspondence', label: { fr: 'Correspondance', en: 'Correspondence' } },
-  { key: 'audit_global', label: { fr: 'Audit global', en: 'Global audit' } },
-  { key: 'upgrade_templates', label: { fr: 'Mise en conformité', en: 'Template upgrade' } },
-]
 
 export function AdminPlans() {
   const { t } = useI18n()
@@ -66,7 +64,7 @@ function PlanCard({ plan, onSaved }: { plan: PlanLimits; onSaved: () => void }) 
   const [tokens, setTokens] = useState(plan.monthly_ai_tokens?.toString() ?? '')
   const [seats, setSeats] = useState(plan.max_seats?.toString() ?? '')
   const [storageGb, setStorageGb] = useState(bytesToGbInput(plan.max_storage_bytes))
-  const [features, setFeatures] = useState<Record<string, boolean>>({ ...plan.features })
+  const [features, setFeatures] = useState<FeatureMap>({ ...plan.features })
   const [busy, setBusy] = useState(false)
 
   const parse = (s: string): number | null => {
@@ -177,18 +175,30 @@ function PlanCard({ plan, onSaved }: { plan: PlanLimits; onSaved: () => void }) 
         </div>
         <div className="space-y-1.5">
           <span className="text-muted-foreground text-xs">
-            {t({ fr: 'Fonctionnalités', en: 'Features' })}
+            {t({
+              fr: 'Fonctionnalités (Masquée / Vitrine / Activée)',
+              en: 'Features (Hidden / Preview / Enabled)',
+            })}
           </span>
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
             {FEATURES.map((f) => (
-              <label key={f.key} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="accent-foreground size-4"
-                  checked={features[f.key] ?? false}
-                  onChange={(e) => setFeatures((s) => ({ ...s, [f.key]: e.target.checked }))}
-                />
-                {t(f.label)}
+              <label key={f.key} className="flex items-center justify-between gap-2 text-sm">
+                <span className="truncate">{t(f.label)}</span>
+                <Select
+                  value={featureState(features, f.key)}
+                  onValueChange={(v) => setFeatures((s) => ({ ...s, [f.key]: v as FeatureState }))}
+                >
+                  <SelectTrigger size="sm" className="w-28 shrink-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FEATURE_STATES.map((st) => (
+                      <SelectItem key={st} value={st}>
+                        {t(FEATURE_STATE_LABEL[st])}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </label>
             ))}
           </div>

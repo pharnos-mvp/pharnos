@@ -54,6 +54,9 @@ function renderPage() {
   // Client neuf par rendu (isolation). useCurrentOrg garde sa query `enabled: false` ici
   // (session null) → memberships=[] → canSubmit=false : aucun impact sur la caractérisation.
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  // Plan d'org : Regafy « Activée » → le bouton Analyser (on-demand) s'affiche. staleTime du hook
+  // useOrgPlan = 5 min → la donnée seedée est fraîche : pas de refetch qui l'écraserait en test.
+  queryClient.setQueryData(['my-org-plan'], { features: { regafy: 'enabled' } })
   return render(
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
