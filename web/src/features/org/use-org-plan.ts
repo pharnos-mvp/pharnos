@@ -12,15 +12,51 @@ export interface OrgPlan {
   plan: PlanTier
   billing_period: string | null
   disabled: boolean
+  /** Synchro cloud activée pour l'org (choix opt-in ; enforcement des syncs = M3). */
+  sync_enabled: boolean
+  /** Création de dossiers — déprécié (la création est désormais illimitée ; le quota porte sur la compilation). */
   max_dossiers: number | null
   dossiers_period: 'lifetime' | 'month'
+  /** Quota de DÉPÔTS (compilations) — le livrable métré. NULL = illimité. */
+  max_compilations: number | null
+  compilations_period: 'lifetime' | 'month'
   monthly_ai_tokens: number | null
   max_seats: number | null
   max_storage_bytes: number | null
   features: FeatureMap
   tokens_used: number
   dossiers_used: number
+  compilations_used: number
   storage_used: number
+}
+
+/** Résultat de la garde de quota au DÉPÔT (RPC `record_compilation`). */
+export interface CompileGate {
+  allowed: boolean
+  reason?: 'no_org' | 'org_disabled' | 'quota_exceeded'
+  cap?: number | null
+  used?: number
+  remaining?: number | null
+}
+
+/**
+ * Garde ATOMIQUE de compilation (dépôt) : vérifie le quota ET enregistre au serveur (fail-closed serveur).
+ * Hors-ligne / Supabase non configuré → `{ allowed: true }` (on ne bloque pas le travail ; le serveur reste
+ * l'autorité au prochain dépôt en ligne). Une erreur réseau ne bloque pas non plus (fail-open client : c'est
+ * une garde de quota, pas de sécurité ; le ledger serveur reste la vérité).
+ */
+export async function recordCompilation(
+  dossierId: string | null,
+  kind = 'm1_pdf',
+): Promise<CompileGate> {
+  const supabase = await getSupabase()
+  if (!supabase) return { allowed: true }
+  const { data, error } = await supabase.rpc('record_compilation', {
+    p_dossier_id: dossierId,
+    p_kind: kind,
+  })
+  if (error || !data) return { allowed: true }
+  return data as CompileGate
 }
 
 export const PLAN_LABEL: Record<PlanTier, Translatable> = {

@@ -20,7 +20,10 @@ export const PLAN_CATALOG: PlanCatalogEntry[] = [
     tier: 'free',
     tagline: { fr: 'Pour découvrir', en: 'To get started' },
     highlights: [
-      { fr: '1 dossier (à vie)', en: '1 dossier (lifetime)' },
+      {
+        fr: '1 dépôt / mois · brouillons illimités',
+        en: '1 submission / month · unlimited drafts',
+      },
       { fr: 'Monitor — vérifications gratuites', en: 'Monitor — free checks' },
       { fr: 'Correspondance', en: 'Correspondence' },
     ],
@@ -30,7 +33,10 @@ export const PLAN_CATALOG: PlanCatalogEntry[] = [
     tier: 'pro',
     tagline: { fr: 'Pour un expert RA', en: 'For a single RA expert' },
     highlights: [
-      { fr: '5 dossiers / mois', en: '5 dossiers / month' },
+      {
+        fr: '5 dépôts / mois · brouillons illimités',
+        en: '5 submissions / month · unlimited drafts',
+      },
       { fr: '200 000 tokens IA (Regafy)', en: '200,000 AI tokens (Regafy)' },
       { fr: 'Traduction, audit, modèles avancés', en: 'Translation, audit, advanced templates' },
     ],
@@ -41,7 +47,7 @@ export const PLAN_CATALOG: PlanCatalogEntry[] = [
     tier: 'team',
     tagline: { fr: 'Pour une équipe', en: 'For a team' },
     highlights: [
-      { fr: '15 dossiers / mois', en: '15 dossiers / month' },
+      { fr: '15 dépôts / mois', en: '15 submissions / month' },
       { fr: '1 000 000 tokens IA', en: '1,000,000 AI tokens' },
       { fr: 'Équipe & rôles (invitations)', en: 'Team & roles (invitations)' },
       { fr: 'Tout le plan Pro', en: 'Everything in Pro' },
@@ -52,7 +58,7 @@ export const PLAN_CATALOG: PlanCatalogEntry[] = [
     tier: 'business',
     tagline: { fr: 'Pour un laboratoire établi', en: 'For an established lab' },
     highlights: [
-      { fr: '50 dossiers / mois', en: '50 dossiers / month' },
+      { fr: '50 dépôts / mois', en: '50 submissions / month' },
       { fr: '5 000 000 tokens IA', en: '5,000,000 AI tokens' },
       { fr: 'Équipe illimitée', en: 'Unlimited team' },
       { fr: 'Tout le plan Team', en: 'Everything in Team' },
@@ -63,7 +69,7 @@ export const PLAN_CATALOG: PlanCatalogEntry[] = [
     tier: 'enterprise',
     tagline: { fr: 'Sur-mesure', en: 'Tailored' },
     highlights: [
-      { fr: 'Dossiers illimités', en: 'Unlimited dossiers' },
+      { fr: 'Dépôts illimités', en: 'Unlimited submissions' },
       { fr: 'Tokens IA illimités', en: 'Unlimited AI tokens' },
       { fr: 'Accompagnement dédié', en: 'Dedicated support' },
     ],
