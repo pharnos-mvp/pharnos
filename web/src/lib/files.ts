@@ -32,6 +32,28 @@ export function isAllowedUpload(file: { name: string; type: string }): boolean {
   return ALLOWED_MIMES.has(file.type) || ALLOWED_EXTENSIONS.has(extOf(file.name))
 }
 
+// MIME canonique par extension — couvre exactement ALLOWED_EXTENSIONS.
+const MIME_BY_EXT: Record<string, string> = {
+  pdf: 'application/pdf',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+}
+
+/**
+ * Content-Type FIABLE à poser sur l'objet Storage : le MIME navigateur s'il est déjà dans
+ * l'allowlist, sinon dérivé de l'extension (sous Windows le MIME est souvent vide/octet-stream →
+ * un PDF était stocké en `application/octet-stream`). Garantit qu'un upload accepté par
+ * `isAllowedUpload` passe aussi la `allowed_mime_types` du bucket (backstop serveur N3).
+ */
+export function contentTypeFor(file: { name: string; type?: string | null }): string {
+  if (file.type && ALLOWED_MIMES.has(file.type)) return file.type
+  return MIME_BY_EXT[extOf(file.name)] ?? 'application/octet-stream'
+}
+
 /** Message d'erreur FR unique (toasts + throw des repositories). */
 export const UPLOAD_TYPE_ERROR =
   'Format non pris en charge — formats acceptés : PDF, PNG, JPG, WebP, DOCX, XLSX.'
