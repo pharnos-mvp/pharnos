@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { db, type DocumentCategory, type DocumentRecord } from '@/lib/db'
-import { withRetry } from '@/lib/retry'
+import { isPermanentSyncError, withRetry } from '@/lib/retry'
 import { reportError } from '@/lib/sentry'
 import { contentTypeFor, sanitizeFileName } from '@/lib/files'
 import { getSupabase } from '@/lib/supabase'
@@ -112,7 +112,10 @@ async function pushDocuments(supabase: SupabaseClient, orgId: string): Promise<v
     }
 
     const { error } = await supabase.from('documents').upsert(documentToRow(rec))
-    if (error) throw error
+    if (error) {
+      if (isPermanentSyncError(error)) continue // rejet permanent : drainé par le bulkDelete final (anti-boucle/Sentry)
+      throw error
+    }
   }
   await db.outbox.bulkDelete(items.map((i) => i.id))
 }

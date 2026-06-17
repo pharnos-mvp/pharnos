@@ -1,6 +1,7 @@
 import { recordAudit } from '@/lib/audit'
 import { db, type DossierRecord } from '@/lib/db'
 import { enqueueOutbox } from '@/lib/outbox'
+import { requestPersistentStorage } from '@/lib/persist'
 import { getModule1Tree, type DossierFormat } from './module1-tree'
 import { assignIds } from './tree-utils'
 
@@ -61,6 +62,8 @@ export async function createDossier(
     await db.dossiers.add(record)
     await enqueueOutbox('dossier', record.id, 'create', record)
   })
+  // Sauvegarde de données critiques (geste utilisateur) → moment recommandé pour rendre le stockage persistant.
+  void requestPersistentStorage()
   await recordAudit(orgId, 'dossier', record.id, 'create', record.productName)
   return record
 }

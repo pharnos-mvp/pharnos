@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { db, type ProSettingRecord } from '@/lib/db'
-import { withRetry } from '@/lib/retry'
+import { isPermanentSyncError, withRetry } from '@/lib/retry'
 import { reportError } from '@/lib/sentry'
 import { getSupabase } from '@/lib/supabase'
 
@@ -86,7 +86,10 @@ async function pushProSettings(supabase: SupabaseClient, orgId: string): Promise
     const rec = await db.proSettings.get(id)
     if (!rec || rec.orgId !== orgId) continue
     const { error } = await supabase.from('pro_settings').upsert(toRow(rec))
-    if (error) throw error
+    if (error) {
+      if (isPermanentSyncError(error)) continue // rejet permanent : drainé par le bulkDelete final (anti-boucle/Sentry)
+      throw error
+    }
   }
   await db.outbox.bulkDelete(items.map((i) => i.id))
 }

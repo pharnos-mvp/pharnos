@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { db, type ProductRecord } from '@/lib/db'
-import { withRetry } from '@/lib/retry'
+import { isPermanentSyncError, withRetry } from '@/lib/retry'
 import { reportError } from '@/lib/sentry'
 import { getSupabase } from '@/lib/supabase'
 
@@ -102,7 +102,10 @@ async function pushOutbox(supabase: SupabaseClient, orgId: string): Promise<void
     const rec = await db.products.get(id)
     if (!rec || rec.orgId !== orgId) continue
     const { error } = await supabase.from('products').upsert(productToRow(rec))
-    if (error) throw error
+    if (error) {
+      if (isPermanentSyncError(error)) continue // rejet permanent : drainé par le bulkDelete final (anti-boucle/Sentry)
+      throw error
+    }
   }
   await db.outbox.bulkDelete(items.map((i) => i.id))
 }

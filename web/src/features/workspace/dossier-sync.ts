@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { db, type DossierRecord } from '@/lib/db'
-import { withRetry } from '@/lib/retry'
+import { isPermanentSyncError, withRetry } from '@/lib/retry'
 import { reportError } from '@/lib/sentry'
 import { getSupabase } from '@/lib/supabase'
 import type { CtdNodeDef, DossierFormat } from './module1-tree'
@@ -90,7 +90,10 @@ async function pushDossiers(supabase: SupabaseClient, orgId: string): Promise<vo
     const rec = await db.dossiers.get(id)
     if (!rec || rec.orgId !== orgId) continue
     const { error } = await supabase.from('dossiers').upsert(dossierToRow(rec))
-    if (error) throw error
+    if (error) {
+      if (isPermanentSyncError(error)) continue // rejet permanent : drainé par le bulkDelete final (anti-boucle/Sentry)
+      throw error
+    }
   }
   await db.outbox.bulkDelete(items.map((i) => i.id))
 }
