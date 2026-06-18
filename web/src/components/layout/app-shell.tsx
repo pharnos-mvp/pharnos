@@ -299,7 +299,12 @@ export function AppShell() {
 
         {/* tabIndex={0} : la région défilable doit être accessible au clavier (axe
             scrollable-region-focusable) — surtout quand le contenu n'a pas d'élément focusable. */}
-        <main tabIndex={0} className="min-w-0 flex-1 overflow-auto p-4 md:p-6">
+        {/* PAS de padding-top sur le conteneur de scroll : sinon les barres `sticky top-0` des
+            pages (Bibliothèque, CTD builder) collent SOUS ce padding → bande transparente entre le
+            header et la barre, où le contenu défile (signalé par le CEO). Sans padding-top, elles
+            collent FLUSH sous le header. Le contenu démarre sous la bordure du header ; une page
+            ajoute son propre `pt-*` si elle veut de la respiration (sans barre sticky). */}
+        <main tabIndex={0} className="min-w-0 flex-1 overflow-auto px-4 pb-4 md:px-6 md:pb-6">
           <HeaderSlotContext.Provider value={setHeaderSlot}>
             <ErrorBoundary key={location.pathname}>
               <Suspense
