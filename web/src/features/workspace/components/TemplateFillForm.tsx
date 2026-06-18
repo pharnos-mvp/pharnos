@@ -12,8 +12,8 @@ import { triggerDownload } from '../download-utils'
 import { buildFillContent, formStateFromContent } from '../template-form/form-content'
 import {
   blockHeadingText,
+  emptyFormState,
   formExportName,
-  initialFormState,
   resolveText,
   type FormGlobals,
   type TemplateFormDefinition,
@@ -64,7 +64,6 @@ function FieldArea({
 export function TemplateFillForm({
   def,
   genDoc,
-  product,
   countryName,
   orgId,
 }: {
@@ -130,18 +129,17 @@ export function TemplateFillForm({
     if (
       !window.confirm(
         t({
-          fr: 'Effacer toutes les saisies et cases cochées ?',
-          en: 'Clear all entries and checked boxes?',
+          fr: 'Tout effacer, y compris les informations pré-remplies depuis la fiche produit ?',
+          en: 'Clear everything, including details pre-filled from the product record?',
         }),
       )
     )
       return
-    apply(initialFormState(def, product))
+    // Vide TOUT (y compris le pré-rempli auto depuis la fiche produit) — exigence CEO :
+    // `emptyFormState` (≠ `initialFormState` qui ré-appliquait l'Identification produit).
+    apply(emptyFormState(def.model))
     toast.success(t({ fr: 'Formulaire réinitialisé', en: 'Form reset' }), {
-      description: t({
-        fr: 'Identification du produit pré-remplie depuis la fiche.',
-        en: 'Product identification pre-filled from the record.',
-      }),
+      description: t({ fr: 'Tous les champs ont été vidés.', en: 'All fields cleared.' }),
     })
   }
 
