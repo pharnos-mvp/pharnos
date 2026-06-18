@@ -2,8 +2,48 @@
 
 > Refactor de `web/src/features/workspace/DossierWorkspacePage.tsx` vers l'en-tête unique
 > validé (mockup `docs/mockups/ctd-builder-unified-header.html`).
-> **Plan only — aucun code écrit.** Ce fichier ne remplace PAS `docs/PLAN.md` (plan maître) ni
-> `docs/PLAN-RESTANT.md`.
+> Ne remplace PAS `docs/PLAN.md` (plan maître) ni `docs/PLAN-RESTANT.md`.
+
+## État & reprise — au 2026-06-18 (fin de session)
+
+**LIVRÉ EN PROD + RECETTÉ Chrome (merged sur `main`) :**
+
+- **M1 — En-tête de document UNIQUE (desktop).** PR #201 (fondation : modèle pur `buildDocActions`
+  + composant `DocumentHeader` + token `--brand` dual-mode), #202 (câblage : cascade pilule+barre+
+  bandeau+format SUPPRIMÉE → une seule barre `sticky top-0 z-30`, revue code-reviewer = 1 blocker
+  Signer-en-lecture-seule + 2 majors corrigés), #203 (fix : tout nœud sélectionné a un en-tête →
+  Téléverser toujours). Recette 5 types OK.
+- **Fidélité mockup — PASS 1.** PR #204 : métriques EXACTES de l'en-tête (`.act` h34/r9/px11/font13/
+  gap6/icône17, conteneur, pastille numéro, chip) ; **« Modifier » ouvre la mise en forme B/I/H₂/•
+  SUR LA MÊME LIGNE** dans l'en-tête ; **sélection d'arbre = surbrillance navy** ; panneau Structure
+  286 px. Dark/light + EN/FR préservés.
+
+**RESTE À FAIRE (reprise prochaine session) :**
+
+1. **Fidélité mockup — PASS 2 (restructure de layout, le gros morceau).**
+   - Panneaux **edge-to-edge flush** : Structure `border-right`, Copilote `border-left`, sans cartes
+     arrondies ni gaps ; en-tête full-bleed pleine largeur. (Restructure du body + scroll du workspace.)
+   - **Poignées de rabat PETITES, positionnées SUR la bordure** des deux panneaux (pas flottantes
+     dans le vide comme actuellement).
+   - **Constat Regafy en CARTE dans le panneau Copilote (droite)** : déplacer `NonConformCard` du
+     canvas → rail, style `.finding` du mockup (fond ambré, titre bouclier, boutons Traduire/Remplacer).
+   - Largeur rail 274 px + cartes/ring du rail au style mockup.
+2. **NOUVEAU (demande CEO 2026-06-18) — Barre d'ONGLETS de documents façon navigateur.**
+   - Reprendre la **position/le style de la ligne « Démo — choisir un document : »** du mockup
+     (les pilules `pickbtn`) pour en faire la **vraie barre d'onglets** des documents présents dans
+     le panneau central.
+   - Chaque onglet = nom du document au format **« {Type} ({n° CTD}) »** exactement comme les pilules
+     du mockup (`Formulaire RCP (1.3.1)`, `Pièce PDF (1.2.3.2)`, `Page de garde (1.2)`, `Nœud vide
+     (1.1.3)`, `Lettre (1.1.1)`…), **avec un petit « × » pour retirer**, comme les onglets de navigateur.
+   - ⇒ remplace/élargit la bande d'onglets actuelle (qui n'apparaît que si ≥2 `viewables`) : la rendre
+     persistante + au style mockup. Câbler le retrait sur `handleRemoveViewable`. Réutiliser le label
+     type via le `DocKind` (`document-header-model.ts`) + `selected.number`.
+3. **M2 responsive** (laptop/tablette/téléphone : Sheet + container queries + overflow ⋯) puis
+   **M3 a11y** (clavier WAI-ARIA arbre/toolbar roving tabindex, audit Lighthouse, finitions).
+
+**Garde-fous reprise :** `main` = prod ; brancher → CI 6/6 → **recette Chrome réelle** (sticky/responsive
+NON vérifiables en headless) → merge → deploy. **Piège SW : double `update()`+reload** avant de recetter
+un écran modifié. Stack verrouillé Vite/React19/TS strict/Tailwind v4/shadcn ; tout en tokens (dark/light).
 
 ## Réponses directes aux questions CEO
 
