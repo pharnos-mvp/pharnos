@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { db } from '@/lib/db'
 import { emptyFormState, fieldList, fieldText } from '@/features/workspace/template-form/form-types'
 import { RCP_FORM_MODEL } from '@/features/workspace/template-form/rcp-form-model'
+import { LABELING_FORM_MODEL } from '@/features/workspace/template-form/labeling-form-model'
 import { TemplatePreview } from './TemplatePreview'
 import { deleteSavedTemplate, saveTemplate } from './saved-templates-repository'
 
@@ -35,6 +36,16 @@ describe('TemplatePreview — RCP bilingue (SmPC/MedDRA)', () => {
     render(<TemplatePreview model={RCP_FORM_MODEL} lang="fr" />)
     expect(screen.getByText('RESUME DES CARACTERISTIQUES DU PRODUIT')).toBeInTheDocument()
     expect(screen.getByText(/DONNEES CLINIQUES/)).toBeInTheDocument()
+  })
+
+  it('Étiquetage (Labeling) : rubriques QRD EN sous lang="en", FR sous lang="fr"', () => {
+    const { unmount } = render(<TemplatePreview model={LABELING_FORM_MODEL} lang="en" />)
+    expect(screen.getByText('LABELLING')).toBeInTheDocument()
+    expect(screen.getByText(/PARTICULARS TO APPEAR ON THE OUTER PACKAGING/)).toBeInTheDocument()
+    expect(screen.getAllByText(/BATCH NUMBER/).length).toBeGreaterThan(0)
+    unmount()
+    render(<TemplatePreview model={LABELING_FORM_MODEL} lang="fr" />)
+    expect(screen.getByText('ETIQUETAGE')).toBeInTheDocument()
   })
 
   it('mode éditable : la saisie remonte via onChange (clé indépendante de la langue)', () => {
