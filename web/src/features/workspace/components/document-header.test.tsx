@@ -87,6 +87,36 @@ describe('buildDocActions — boutons adaptatifs par type de document', () => {
     dl.menu!.find((m) => m.key === 'pdf')!.onSelect()
     expect(pdf).toHaveBeenCalledTimes(1)
   })
+
+  it('Signer : désactivé hors mode édition, actif en édition (anti-mutation read-only)', () => {
+    const view = buildDocActions({ kind: 'letter', handlers: {} }, t).find((a) => a.key === 'sign')!
+    expect(view.disabled).toBe(true)
+    const editing = buildDocActions({ kind: 'letter', editing: true, handlers: {} }, t).find(
+      (a) => a.key === 'sign',
+    )!
+    expect(editing.disabled).toBe(false)
+  })
+
+  it('Analyser : désactivé si analyse réelle indisponible (activé) ; cliquable en Vitrine', () => {
+    const off = buildDocActions(
+      { kind: 'piece', regafy: 'enabled', analyzeDisabled: true, handlers: {} },
+      t,
+    ).find((a) => a.key === 'analyze')!
+    expect(off.disabled).toBe(true)
+    const teaser = buildDocActions(
+      { kind: 'piece', regafy: 'teaser', analyzeDisabled: true, handlers: {} },
+      t,
+    ).find((a) => a.key === 'analyze')!
+    expect(teaser.disabled).toBe(false)
+  })
+
+  it('pièce : « Générer » si nœud à template sans doc ; « Traduire » (upsell) en Vitrine', () => {
+    expect(keys({ kind: 'piece', regafy: 'enabled', canGenerate: true, handlers: {} })).toContain(
+      'generate',
+    )
+    expect(keys({ kind: 'piece', regafy: 'teaser', handlers: {} })).toContain('translate')
+    expect(keys({ kind: 'piece', regafy: 'enabled', handlers: {} })).not.toContain('translate')
+  })
 })
 
 describe('DocumentHeader — rendu (cadre unique, actions à droite)', () => {

@@ -731,6 +731,12 @@ export function DossierWorkspacePage() {
     : []
   const selectedTplKey = selected ? templateKeyForNode(dossier.format, selected.number) : undefined
   const selectedGenDocs = selected ? (genListByNode.get(selected.number) ?? []) : []
+  // Le document de TEMPLATE du nœud (lettre cover/PGHT générée) — pilote « Générer » : tant qu'il
+  // n'existe pas sur un nœud à template, Générer reste proposé (même si une pièce est l'onglet actif).
+  const selectedTemplateDoc = selectedGenDocs.find(
+    (g) => g.templateKey !== 'translation' && g.templateKey !== 'upgrade',
+  )
+  const canGenerate = !!selectedTplKey && !selectedTemplateDoc
   const selectedAttachments = selected
     ? isCoverNode
       ? (attachByNode.get(selected.number) ?? [])
@@ -1179,6 +1185,8 @@ export function DossierWorkspacePage() {
         editing: docEditing,
         aiGenerated: headerKind === 'letter' && !isTranslationOrUpgrade,
         analyzable: headerKind === 'piece' || (headerKind === 'letter' && !!analyzableGenDoc),
+        analyzeDisabled: analyzing !== null || !online || !env.isSupabaseConfigured,
+        canGenerate,
         handlers: {
           edit: () => {
             if (!activeGenDoc) return
@@ -1186,7 +1194,11 @@ export function DossierWorkspacePage() {
             setDocEditing((v) => !v)
           },
           regenerate: () => void handleRegenerate(),
-          sign: handleSign,
+          // Garde anti-régression : signer modifie le document → uniquement en mode édition
+          // (le bouton est aussi désactivé hors édition ; handleSign re-vérifie l'éditeur).
+          sign: () => {
+            if (docEditing) handleSign()
+          },
           branding: () => setBrandPanelOpen(true),
           download: handleDownload,
           downloadPdf: () => fillFormRef.current?.pdf(),
@@ -1194,6 +1206,7 @@ export function DossierWorkspacePage() {
           upload: () => fileInputRef.current?.click(),
           reset: () => fillFormRef.current?.reset(),
           analyze: runHeaderAnalyze,
+          translate: () => upsell('regafy', { fr: 'Traduction IA', en: 'AI translation' }),
           replace: () => {
             if (active) handleReplace(active)
           },
@@ -1258,9 +1271,7 @@ export function DossierWorkspacePage() {
         <div className="min-w-0 flex-1">
           {selected ? (
             <div className="flex flex-col gap-2">
-              {/* Barre FINE au-dessus de la feuille (mockup CEO — plus de gros chrome) :
-                  onglets des documents à gauche, Générer/Téléverser à droite. Le retrait d'un
-                  document passe par le « × » de son onglet (affiché même seul). */}
+              {/* Input fichier caché : déclenché par « Téléverser » de l'en-tête (et « Remplacer »). */}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -1276,7 +1287,7 @@ export function DossierWorkspacePage() {
                   (original + traduction / version conforme). Les actions vivent dans l'EN-TÊTE
                   unique ci-dessus ; le « × » retire l'onglet du dossier. */}
               {!showCoverPage && viewables.length > 1 ? (
-                <div className="flex flex-wrap items-center gap-1" role="tablist">
+                <div className="flex flex-wrap items-center gap-1">
                   {viewables.map((v) => {
                     const removeHint =
                       v.kind === 'doc'
@@ -1297,8 +1308,7 @@ export function DossierWorkspacePage() {
                       >
                         <button
                           type="button"
-                          role="tab"
-                          aria-selected={active?.key === v.key}
+                          aria-current={active?.key === v.key}
                           onClick={() => {
                             setPickedKey(v.key)
                             // Traduction → éditable d'emblée (cohérent avec l'ouverture via « Traduire »).
