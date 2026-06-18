@@ -7,6 +7,7 @@ import {
   FolderTree,
   Globe,
   LayoutDashboard,
+  Library,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
@@ -43,10 +44,29 @@ import { cn } from '@/lib/utils'
 const navItems: { to: string; label: Translatable; icon: typeof FlaskConical }[] = [
   { to: '/catalogue', label: { fr: 'Catalogue', en: 'Catalogue' }, icon: FlaskConical },
   { to: '/workspace', label: { fr: 'CTD Workspace', en: 'CTD Workspace' }, icon: FolderTree },
+  { to: '/templates', label: { fr: 'Bibliothèque', en: 'Templates' }, icon: Library },
   { to: '/dashboard', label: { fr: 'Tableau de bord', en: 'Dashboard' }, icon: LayoutDashboard },
 ]
 
 const SIDEBAR_KEY = 'pharnos.sidebarCollapsed'
+
+// Accès défensifs : `localStorage` peut être indisponible (mode privé Safari, iframe sandbox,
+// stockage désactivé) — comme `readLang` (i18n-context), on ne laisse jamais une lecture/écriture
+// de préférence faire planter le shell.
+function readSidebarCollapsed(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+function writeSidebarCollapsed(collapsed: boolean): void {
+  try {
+    localStorage.setItem(SIDEBAR_KEY, collapsed ? '1' : '0')
+  } catch {
+    /* stockage indisponible — préférence non persistée, non bloquant */
+  }
+}
 
 export function AppShell() {
   const online = useOnlineStatus()
@@ -59,7 +79,7 @@ export function AppShell() {
   useAuditSync(orgId)
   // Reviews et messages du correspondant en quasi temps réel, où qu'on soit dans l'app.
   useCorrespondenceRealtime(orgId)
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_KEY) === '1')
+  const [collapsed, setCollapsed] = useState(readSidebarCollapsed)
   const expanded = !collapsed
 
   // Page de montage d'un dossier : la barre latérale passe en RAIL d'icônes (mockup CEO —
@@ -69,7 +89,7 @@ export function AppShell() {
   useEffect(() => {
     // Synchronisation pilotée par la route — exception légitime à set-state-in-effect.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCollapsed(inMontage ? true : localStorage.getItem(SIDEBAR_KEY) === '1')
+    setCollapsed(inMontage ? true : readSidebarCollapsed())
   }, [inMontage])
   // Contenu injecté par la page courante dans le bandeau (titre du dossier, façon Google Docs).
   const [headerSlot, setHeaderSlot] = useState<ReactNode>(null)
@@ -95,7 +115,7 @@ export function AppShell() {
   function toggleSidebar() {
     setCollapsed((c) => {
       const next = !c
-      localStorage.setItem(SIDEBAR_KEY, next ? '1' : '0')
+      writeSidebarCollapsed(next)
       return next
     })
   }

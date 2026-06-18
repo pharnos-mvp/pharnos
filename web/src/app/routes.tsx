@@ -28,6 +28,9 @@ const RoadmapPage = lazy(() =>
 const DashboardPage = lazy(() =>
   import('@/features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })),
 )
+const TemplatesPage = lazy(() =>
+  import('@/features/templates/TemplatesPage').then((m) => ({ default: m.TemplatesPage })),
+)
 const AccountPage = lazy(() =>
   import('@/features/account/AccountPage').then((m) => ({ default: m.AccountPage })),
 )
@@ -45,6 +48,7 @@ export function AppRoutes() {
         <Route path="/workspace/:dossierId" element={<DossierWorkspacePage />} />
         <Route path="/workspace/:dossierId/roadmap" element={<RoadmapPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/templates" element={<TemplatesPage />} />
         <Route path="/compte" element={<AccountPage />} />
         <Route path="*" element={<Navigate to="/catalogue" replace />} />
       </Route>
