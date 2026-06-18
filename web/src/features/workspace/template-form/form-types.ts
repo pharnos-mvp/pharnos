@@ -3,6 +3,20 @@
 // et du template PDF ABMed Étiquetage 2026. Un formulaire = un MODEL déclaratif de blocs ;
 // le rendu écran, la persistance TipTap et les exports DOCX/PDF itèrent le même MODEL.
 import type { ProductRecord } from '@/lib/db'
+import type { Lang } from '@/lib/i18n-context'
+
+/**
+ * Résolution bilingue ADDITIVE des libellés de template (jalon Bibliothèque) : le FR reste la
+ * source verbatim (champs `text`/`ph`/… inchangés → rendu/export FR intacts) ; l'anglais est porté
+ * en champs jumeaux optionnels (`textEn`/`phEn`/…). On résout EN si demandé ET disponible, sinon
+ * repli FR (jamais de trou). EN aligné SmPC/MedDRA, porté verbatim des gabarits `RA-source/`.
+ */
+export function fieldText(fr: string, en: string | undefined, lang: Lang): string {
+  return lang === 'en' && en ? en : fr
+}
+export function fieldList(fr: string[], en: string[] | undefined, lang: Lang): string[] {
+  return lang === 'en' && en && en.length === fr.length ? en : fr
+}
 
 /** Réglages GLOBAUX du document (gabarit Notice) : appliqués à tous les textes dynamiques. */
 export interface FormGlobals {
@@ -30,6 +44,8 @@ export function resolveText(t: DynText | undefined, g: FormGlobals): string {
 export interface StaticBlock {
   type: 'title' | 'sec' | 'sub' | 'subsub' | 'static' | 'banner'
   text: string
+  /** Équivalent EN (SmPC/MedDRA), porté verbatim — repli sur `text` si absent. */
+  textEn?: string
 }
 
 export interface RuleBlock {
@@ -55,8 +71,11 @@ export interface LineBlock {
   type: 'line'
   key: string
   ph: string
+  phEn?: string
   label?: string
+  labelEn?: string
   suffix?: string
+  suffixEn?: string
   narrow?: boolean
   /** Rendu/export seulement si la case `dependsOn` est cochée. */
   dependsOn?: string
@@ -67,6 +86,7 @@ export interface ParaBlock {
   type: 'para'
   key: string
   ph: string
+  phEn?: string
   dependsOn?: string
 }
 
@@ -75,6 +95,7 @@ export interface DureeBlock {
   type: 'duree'
   key: string
   ph: string
+  phEn?: string
 }
 
 /** Code ATC RCP : input + case « non encore attribué » (rubrique 5.1). */
@@ -83,8 +104,11 @@ export interface AtcBlock {
   key: string
   chkKey: string
   label: string
+  labelEn?: string
   ph: string
+  phEn?: string
   chkLabel: string
+  chkLabelEn?: string
 }
 
 /** Groupe de mentions à cocher (RCP/Étiquetage — seules les cochées sont exportées). */
@@ -92,6 +116,8 @@ export interface ChecksBlock {
   type: 'checks'
   key: string
   options: string[]
+  /** Équivalents EN (même longueur/ordre que `options`) — repli FR si absent/incohérent. */
+  optionsEn?: string[]
 }
 
 /** Case UNIQUE (gabarit Notice) : mention optionnelle d'une ligne, parfois rendue en sous-titre. */
