@@ -273,6 +273,7 @@ export function buildDocActions(ctx: DocActionsContext, t: TFn): DocAction[] {
       ]
 
     case 'empty':
-      return [generateBtn(), uploadBtn()]
+      // Nœud sans document : Téléverser toujours ; Générer seulement si le nœud a un template officiel.
+      return [...(ctx.canGenerate ? [generateBtn()] : []), uploadBtn()]
   }
 }

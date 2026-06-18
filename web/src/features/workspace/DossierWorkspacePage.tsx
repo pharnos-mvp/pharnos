@@ -1130,9 +1130,7 @@ export function DossierWorkspacePage() {
           ? 'letter'
           : active && active.kind !== 'letter'
             ? 'piece'
-            : selectedTplKey
-              ? 'empty'
-              : null
+            : 'empty'
   const regafyFor: 'enabled' | 'teaser' | 'hidden' =
     regafyState === 'enabled' ? 'enabled' : regafyState === 'teaser' ? 'teaser' : 'hidden'
   const isTranslationOrUpgrade =
