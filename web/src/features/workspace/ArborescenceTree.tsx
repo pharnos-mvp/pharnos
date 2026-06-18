@@ -90,8 +90,11 @@ function NodeRow({
     <li>
       <div
         className={cn(
-          'group flex items-center gap-1 rounded-md py-1 pr-1 text-sm',
-          selectedId === node.id ? 'bg-secondary' : 'hover:bg-accent',
+          // Mockup : sélection = surbrillance navy (fond marque léger + bord interne marque).
+          'group flex items-center gap-1 rounded-[9px] py-1 pr-1 text-sm',
+          selectedId === node.id
+            ? 'bg-brand/10 shadow-[inset_2px_0_0_var(--brand)]'
+            : 'hover:bg-brand/5',
         )}
         style={{ paddingLeft: `${depth * 14 + 4}px` }}
       >
@@ -129,9 +132,9 @@ function NodeRow({
             onClick={() => onSelect(node)}
           >
             {node.number ? (
-              <span className="text-muted-foreground text-[10px] tabular-nums">{node.number}</span>
+              <span className="text-muted-foreground text-[11px] tabular-nums">{node.number}</span>
             ) : null}
-            <span className="truncate text-[12.5px] leading-tight">{node.label}</span>
+            <span className="truncate text-[13px] leading-tight">{node.label}</span>
           </button>
         )}
 

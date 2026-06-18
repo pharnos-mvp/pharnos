@@ -1235,6 +1235,12 @@ export function DossierWorkspacePage() {
             status={headerStatus}
             actions={headerActions}
             toolbarLabel={t({ fr: 'Actions du document', en: 'Document actions' })}
+            // Mockup : « Modifier » révèle la mise en forme SUR LA MÊME LIGNE (dans l'en-tête).
+            formatSlot={
+              isEditableActive && docEditing && !activeFormDef && liveEditor ? (
+                <FormatToolbar editor={liveEditor} />
+              ) : undefined
+            }
           />
         </div>
       ) : null}
@@ -1476,11 +1482,8 @@ export function DossierWorkspacePage() {
                         />
                       ) : (
                         <>
-                          {docEditing ? (
-                            <div className="bg-card rounded-t-lg border-b">
-                              <FormatToolbar editor={liveEditor} />
-                            </div>
-                          ) : null}
+                          {/* Mise en forme (gras/italique/titre/liste) : dans l'EN-TÊTE en mode
+                              Modifier (mockup), plus de barre séparée au-dessus de l'éditeur. */}
                           <RichTextEditor
                             docId={activeGenDoc.id}
                             initialContent={activeGenDoc.content as JSONContent}

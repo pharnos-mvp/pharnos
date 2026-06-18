@@ -73,6 +73,9 @@ export interface DocumentHeaderProps {
 const ACCENT_CLS =
   'border-emerald-600 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/60 dark:text-emerald-300 dark:hover:bg-emerald-500/10'
 const SOLID_CLS = 'bg-brand text-brand-foreground hover:bg-brand/90 border-transparent'
+// Métriques EXACTES du mockup (.act) : h 34, padding 0 11, radius 9, font 13, gap 6, icône 17.
+const ACT_BASE = 'h-[34px] gap-[6px] rounded-[9px] px-[11px] text-[13px] font-medium'
+const ACT_ICON = 'size-[17px]'
 
 function ActionButton({ a }: { a: DocAction }) {
   const Icon = ACTION_ICON[a.key]
@@ -87,14 +90,14 @@ function ActionButton({ a }: { a: DocAction }) {
             type="button"
             variant="outline"
             size={iconOnly ? 'icon' : 'sm'}
-            className={cn('h-8', iconOnly && 'size-8')}
+            className={cn(ACT_BASE, iconOnly && 'size-[34px] px-0')}
             aria-label={a.ariaLabel}
             title={a.title ?? a.ariaLabel}
           >
-            {Icon ? <Icon className="size-4" aria-hidden /> : null}
+            {Icon ? <Icon className={ACT_ICON} aria-hidden /> : null}
             {label}
             {!iconOnly ? (
-              <ChevronDown className="text-muted-foreground size-3.5" aria-hidden />
+              <ChevronDown className="text-muted-foreground size-4" aria-hidden />
             ) : null}
           </Button>
         </DropdownMenuTrigger>
@@ -125,7 +128,7 @@ function ActionButton({ a }: { a: DocAction }) {
       size="sm"
       variant={a.variant === 'solid' || pressed ? 'default' : 'outline'}
       className={cn(
-        'h-8',
+        ACT_BASE,
         a.variant === 'accent' && ACCENT_CLS,
         (a.variant === 'solid' || pressed) && SOLID_CLS,
       )}
@@ -135,7 +138,7 @@ function ActionButton({ a }: { a: DocAction }) {
       disabled={a.disabled || (a.kind === 'toggle' && !a.onClick)}
       onClick={a.onClick}
     >
-      {Icon ? <Icon className="size-4" aria-hidden /> : null}
+      {Icon ? <Icon className={ACT_ICON} aria-hidden /> : null}
       {label}
     </Button>
   )
@@ -152,14 +155,14 @@ export function DocumentHeader({
 }: DocumentHeaderProps) {
   const StatusIcon = status?.icon
   return (
-    <div className="bg-card flex min-h-[3.25rem] flex-wrap items-center gap-3 border-b px-4 py-2">
-      <div className="flex min-w-0 items-center gap-3">
+    <div className="bg-card flex min-h-[54px] flex-wrap items-center gap-[14px] border-b px-4 py-2">
+      <div className="flex min-w-0 items-center gap-[11px]">
         <span className="flex min-w-0 flex-col">
           {/* Identité = titre de niveau 2 du document (numéro CTD + intitulé) : repère de
               navigation pour les lecteurs d'écran, source de vérité du fil d'Ariane. */}
-          <h2 className="m-0 flex min-w-0 items-center gap-2 text-[15px] leading-tight font-medium">
+          <h2 className="m-0 flex min-w-0 items-center gap-[11px] text-[15px] leading-tight font-medium">
             {number ? (
-              <span className="bg-brand/10 text-brand border-brand/20 rounded-md border px-2 py-0.5 text-[13px] font-bold tabular-nums">
+              <span className="bg-brand/10 text-brand border-brand/20 rounded-[8px] border px-[9px] py-[4px] text-[13px] font-bold tabular-nums">
                 {number}
               </span>
             ) : null}{' '}
@@ -174,7 +177,7 @@ export function DocumentHeader({
         {status ? (
           <span
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11.5px] font-medium',
+              'inline-flex items-center gap-[5px] rounded-full px-[9px] py-[3px] text-[11.5px] font-medium',
               STATUS_TONE[status.tone],
             )}
           >
@@ -187,7 +190,7 @@ export function DocumentHeader({
       <div
         role="toolbar"
         aria-label={toolbarLabel}
-        className="ml-auto flex flex-wrap items-center justify-end gap-1.5"
+        className="ml-auto flex flex-wrap items-center justify-end gap-[7px]"
       >
         {actions.map((a) => {
           if (a.kind === 'separator')
