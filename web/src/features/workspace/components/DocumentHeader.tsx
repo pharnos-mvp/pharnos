@@ -154,16 +154,22 @@ export function DocumentHeader({
   return (
     <div className="bg-card flex min-h-[3.25rem] flex-wrap items-center gap-3 border-b px-4 py-2">
       <div className="flex min-w-0 items-center gap-3">
-        {number ? (
-          <span className="bg-brand/10 text-brand border-brand/20 rounded-md border px-2 py-1 text-[13px] font-bold tabular-nums">
-            {number}
-          </span>
-        ) : null}
         <span className="flex min-w-0 flex-col">
-          <span className="truncate text-[15px] font-medium" title={title}>
-            {title}
-          </span>
-          {subtitle ? <span className="text-muted-foreground text-xs">{subtitle}</span> : null}
+          {/* Identité = titre de niveau 2 du document (numéro CTD + intitulé) : repère de
+              navigation pour les lecteurs d'écran, source de vérité du fil d'Ariane. */}
+          <h2 className="m-0 flex min-w-0 items-center gap-2 text-[15px] leading-tight font-medium">
+            {number ? (
+              <span className="bg-brand/10 text-brand border-brand/20 rounded-md border px-2 py-0.5 text-[13px] font-bold tabular-nums">
+                {number}
+              </span>
+            ) : null}{' '}
+            <span className="truncate" title={title}>
+              {title}
+            </span>
+          </h2>
+          {subtitle ? (
+            <span className="text-muted-foreground mt-0.5 text-xs">{subtitle}</span>
+          ) : null}
         </span>
         {status ? (
           <span

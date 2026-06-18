@@ -3,16 +3,15 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import type { JSONContent } from '@tiptap/core'
 import {
   ArrowLeft,
+  CircleDashed,
   FileDown,
   FileText,
   Languages,
   MessagesSquare,
-  RotateCcw,
-  ScanSearch,
+  Pencil,
   Send,
   Sparkles,
   ClipboardList,
-  Upload,
   Wand2,
   X,
 } from 'lucide-react'
@@ -99,10 +98,17 @@ import { useRegafyCopilot } from './use-regafy-copilot'
 import { CompletionPanel } from './components/CompletionPanel'
 import { InlineDocPreview } from './components/InlineDocPreview'
 import type { TemplateFillFormHandle } from './components/TemplateFillForm'
+import { DocumentHeader } from './components/DocumentHeader'
+import {
+  buildDocActions,
+  type DocActionsContext,
+  type DocHeaderStatus,
+  type DocKind,
+} from './components/document-header-model'
 import { NonConformCard } from './components/NonConformCard'
 import { AuditReportView } from './components/AuditReportView'
 import { RegafyGateDialog } from './components/RegafyGateDialog'
-import { FormatToolbar, ToolbarBtn } from './components/toolbar'
+import { FormatToolbar } from './components/toolbar'
 import { TranslationProgress } from './components/TranslationProgress'
 import { PanelHandle } from './components/PanelHandle'
 import { TreePanel } from './components/TreePanel'
@@ -247,52 +253,8 @@ export function DossierWorkspacePage() {
   const didAutoSelect = useRef(false)
   const setHeaderSlot = useHeaderSlot()
 
-  // P0-1 : la barre d'actions (sticky top-0) et le topbar du formulaire (sticky, dans
-  // TemplateFillForm) partagent le même conteneur de scroll. On mesure la hauteur — variable
-  // (retour à la ligne des onglets, i18n) — de la barre d'actions et on la publie en var CSS
-  // `--tpl-actionbar-h` sur leur ancêtre commun, que `.tplform-topbar` consomme via `top:` →
-  // il se cale SOUS la barre au lieu de glisser dessous. Callback ref = re-mesure auto au
-  // (dé)montage de la barre ; ResizeObserver = suit les changements de hauteur.
-  const actionBarRO = useRef<ResizeObserver | null>(null)
-  const measureActionBar = useCallback((node: HTMLDivElement | null) => {
-    actionBarRO.current?.disconnect()
-    actionBarRO.current = null
-    const host = node?.parentElement // .flex.flex-col.gap-2 — ancêtre du topbar aussi
-    if (!node || !host) return
-    const publish = () => host.style.setProperty('--tpl-actionbar-h', `${node.offsetHeight}px`)
-    publish()
-    // jsdom (tests) / environnements sans ResizeObserver : mesure unique, pas de suivi live.
-    if (typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(publish)
-    ro.observe(node)
-    actionBarRO.current = ro
-  }, [])
-  useEffect(() => () => actionBarRO.current?.disconnect(), [])
-
-  // Pt1 : en édition de lettre, la pilule d'actions (sticky top-0) coexiste avec la barre
-  // d'actions. On mesure sa hauteur → var CSS `--tpl-pill-h` publiée sur la racine de la page
-  // (ancêtre commun) : la barre d'actions se cale SOUS la pilule (`top`), au lieu de rester
-  // statique. Var remise à 0 au démontage de la pilule (doc non éditable) → barre calée en haut.
-  const pillRO = useRef<ResizeObserver | null>(null)
-  const pillHostRef = useRef<HTMLElement | null>(null)
-  const measurePill = useCallback((node: HTMLDivElement | null) => {
-    pillRO.current?.disconnect()
-    pillRO.current = null
-    if (!node) {
-      pillHostRef.current?.style.setProperty('--tpl-pill-h', '0px')
-      return
-    }
-    const host = node.parentElement // div racine de la page de montage
-    if (!host) return
-    pillHostRef.current = host
-    const publish = () => host.style.setProperty('--tpl-pill-h', `${node.offsetHeight}px`)
-    publish()
-    if (typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(publish)
-    ro.observe(node)
-    pillRO.current = ro
-  }, [])
-  useEffect(() => () => pillRO.current?.disconnect(), [])
+  // M1 : l'en-tête de document UNIQUE (DocumentHeader) est désormais la seule barre collante —
+  // plus de cascade pilule + barre d'actions + bandeau navy + barre de format à mesurer/empiler.
 
   const docsByNode = useMemo(() => buildDocsByNode(dossier, docs), [docs, dossier])
 
@@ -769,10 +731,6 @@ export function DossierWorkspacePage() {
     : []
   const selectedTplKey = selected ? templateKeyForNode(dossier.format, selected.number) : undefined
   const selectedGenDocs = selected ? (genListByNode.get(selected.number) ?? []) : []
-  // Le document de TEMPLATE du nœud (lettre cover/pght) — pilote le badge et le bouton Générer.
-  const selectedGenDoc = selectedGenDocs.find(
-    (g) => g.templateKey !== 'translation' && g.templateKey !== 'upgrade',
-  )
   const selectedAttachments = selected
     ? isCoverNode
       ? (attachByNode.get(selected.number) ?? [])
@@ -1154,56 +1112,119 @@ export function DossierWorkspacePage() {
     toast.success(t({ fr: 'Document retiré du dossier', en: 'Document removed from the dossier' }))
   }
 
+  // ───────────────────────── EN-TÊTE DE DOCUMENT UNIQUE (M1) ─────────────────────────
+  // Type fonctionnel du document affiché → cadre constant + boutons adaptatifs (buildDocActions).
+  const headerKind: DocKind | null = !selected
+    ? null
+    : showCoverPage
+      ? 'cover'
+      : isEditableActive && activeFormDef
+        ? 'form'
+        : isEditableActive
+          ? 'letter'
+          : active && active.kind !== 'letter'
+            ? 'piece'
+            : selectedTplKey
+              ? 'empty'
+              : null
+  const regafyFor: 'enabled' | 'teaser' | 'hidden' =
+    regafyState === 'enabled' ? 'enabled' : regafyState === 'teaser' ? 'teaser' : 'hidden'
+  const isTranslationOrUpgrade =
+    activeGenDoc?.templateKey === 'translation' || activeGenDoc?.templateKey === 'upgrade'
+  const headerStatus: DocHeaderStatus | undefined =
+    headerKind === null
+      ? undefined
+      : headerKind === 'cover'
+        ? { tone: 'auto', label: t({ fr: 'Autogénéré', en: 'Auto-generated' }), icon: Sparkles }
+        : headerKind === 'piece'
+          ? { tone: 'file', label: t({ fr: 'Pièce', en: 'File' }), icon: FileText }
+          : headerKind === 'empty'
+            ? { tone: 'todo', label: t({ fr: 'À générer', en: 'To generate' }), icon: CircleDashed }
+            : { tone: 'draft', label: t({ fr: 'Brouillon', en: 'Draft' }), icon: Pencil }
+  const headerSubtitle =
+    headerKind === 'form'
+      ? t({ fr: 'Module 1 · Information produit', en: 'Module 1 · Product information' })
+      : headerKind === 'piece'
+        ? t({ fr: 'Module 1 · Pièce téléversée', en: 'Module 1 · Uploaded file' })
+        : headerKind === 'cover'
+          ? t({ fr: 'Module 1 · Page de garde', en: 'Module 1 · Cover page' })
+          : headerKind === 'letter'
+            ? t({ fr: 'Module 1 · Correspondance', en: 'Module 1 · Correspondence' })
+            : t({ fr: 'Module 1', en: 'Module 1' })
+  const headerTitle =
+    active?.label ??
+    (selectedTplKey ? TEMPLATES[selectedTplKey].title : undefined) ??
+    selected?.label ??
+    ''
+  const runHeaderAnalyze = () => {
+    if (regafyState !== 'enabled') {
+      upsell('regafy', { fr: 'Analyse IA', en: 'AI analysis' })
+      return
+    }
+    if (!analyzeTargetId || analyzing !== null || !online || !env.isSupabaseConfigured) return
+    if (activeAnalysisFinding)
+      setHiddenCards((prev) => {
+        if (!prev.has(activeAnalysisFinding.id)) return prev
+        const next = new Set(prev)
+        next.delete(activeAnalysisFinding.id)
+        return next
+      })
+    if (analyzableGenDoc) void analyzeGenerated(analyzableGenDoc)
+    else void analyzeActive(analyzeTargetId)
+  }
+  const headerCtx: DocActionsContext | null = headerKind
+    ? {
+        kind: headerKind,
+        regafy: regafyFor,
+        editing: docEditing,
+        aiGenerated: headerKind === 'letter' && !isTranslationOrUpgrade,
+        analyzable: headerKind === 'piece' || (headerKind === 'letter' && !!analyzableGenDoc),
+        handlers: {
+          edit: () => {
+            if (!activeGenDoc) return
+            setPickedKey(`letter:${activeGenDoc.id}`)
+            setDocEditing((v) => !v)
+          },
+          regenerate: () => void handleRegenerate(),
+          sign: handleSign,
+          branding: () => setBrandPanelOpen(true),
+          download: handleDownload,
+          downloadPdf: () => fillFormRef.current?.pdf(),
+          downloadDocx: () => void fillFormRef.current?.docx(),
+          upload: () => fileInputRef.current?.click(),
+          reset: () => fillFormRef.current?.reset(),
+          analyze: runHeaderAnalyze,
+          replace: () => {
+            if (active) handleReplace(active)
+          },
+          generate: () => void handleGenerate(),
+          remove: () => void handleRemoveActive(),
+        },
+      }
+    : null
+  // buildDocActions ne fait que STOCKER les handlers (appelés au clic) — aucun ref lu au rendu.
+  // eslint-disable-next-line react-hooks/refs
+  const headerActions = headerCtx ? buildDocActions(headerCtx, t) : []
+
   return (
     // Modèle « Google Docs » : la page de montage défile globalement (scrollbar de <main> à
     // droite), les panneaux latéraux restent figés (sticky), la feuille défile. Fond gris
     // clair (mockup CEO) : les cartes blanches ressortent ; les actions globales (Roadmap,
     // Compiler) sont dans le bandeau du haut.
     <div className="bg-muted/40 -m-4 flex min-h-full flex-col gap-2 p-4 pl-1.5 md:-m-6 md:p-6 md:pl-2">
-      {/* Rangée d'actions d'édition : UNIQUEMENT pour un document éditable (lettre/traduction)
-          — pilule SOMBRE centrée (mockup). Les formulaires ont leur propre barre navy ; les
-          pièces ont Télécharger dans l'aperçu et le retrait via le « × » d'onglet. */}
-      {isEditableActive && !activeFormDef ? (
-        <div ref={measurePill} className="sticky top-0 z-30 flex justify-center">
-          <div className="bg-foreground flex items-center gap-0.5 rounded-full px-1 py-0.5 text-sm shadow-lg">
-            <ToolbarBtn
-              label={t({ fr: 'Modifier', en: 'Edit' })}
-              active={docEditing}
-              onClick={() => {
-                if (!activeGenDoc) return
-                setPickedKey(`letter:${activeGenDoc.id}`)
-                setDocEditing((v) => !v)
-              }}
-            />
-            <ToolbarBtn
-              label={t({ fr: 'Signer', en: 'Sign' })}
-              disabled={!liveEditor || !docEditing}
-              hint={t({
-                fr: 'Passez en mode Modifier pour signer',
-                en: 'Switch to Edit mode to sign',
-              })}
-              onClick={handleSign}
-            />
-            <ToolbarBtn
-              label={t({ fr: 'En-tête / Pied de page', en: 'Header / Footer' })}
-              onClick={() => setBrandPanelOpen(true)}
-            />
-            {activeGenDoc &&
-            activeGenDoc.templateKey !== 'translation' &&
-            activeGenDoc.templateKey !== 'upgrade' ? (
-              <ToolbarBtn
-                label={t({ fr: 'Régénérer', en: 'Regenerate' })}
-                onClick={() => void handleRegenerate()}
-              />
-            ) : null}
-            <ToolbarBtn label={t({ fr: 'Télécharger', en: 'Download' })} onClick={handleDownload} />
-            <ToolbarBtn
-              label={t({ fr: 'Supprimer', en: 'Delete' })}
-              disabled={!active}
-              hint={t({ fr: 'Sélectionnez un document', en: 'Select a document' })}
-              onClick={() => void handleRemoveActive()}
-            />
-          </div>
+      {/* EN-TÊTE DE DOCUMENT UNIQUE (M1) : cadre constant (identité + barre d'actions), boutons
+          adaptés au type. SEULE barre collante — remplace pilule + barre d'actions + bandeau navy
+          + barre de format. */}
+      {headerKind ? (
+        <div className="sticky top-0 z-30">
+          <DocumentHeader
+            number={selected?.number}
+            title={headerTitle}
+            subtitle={headerSubtitle}
+            status={headerStatus}
+            actions={headerActions}
+            toolbarLabel={t({ fr: 'Actions du document', en: 'Document actions' })}
+          />
         </div>
       ) : null}
 
@@ -1251,207 +1272,71 @@ export function DossierWorkspacePage() {
                   e.target.value = ''
                 }}
               />
-              {showCoverPage ? null : (
-                <div
-                  ref={measureActionBar}
-                  className="bg-card sticky z-20 flex min-h-10 flex-wrap items-center gap-2 rounded-xl border px-2 py-1 shadow-sm"
-                  // Pt1 : barre d'actions TOUJOURS épinglée (y compris en édition de lettre) — calée
-                  // SOUS la pilule d'actions via `--tpl-pill-h` (= 0 hors lettre → reste calée en haut),
-                  // sans chevauchement. La barre de format se cale ensuite sous pilule + barre.
-                  style={{ top: 'var(--tpl-pill-h, 0px)' }}
-                >
-                  <span className="sr-only" role="heading" aria-level={2}>
-                    {selected.number ? `${selected.number} ` : ''}
-                    {selected.label}
-                  </span>
-                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
-                    {viewables.map((v) => {
-                      const removeHint =
-                        v.kind === 'doc'
-                          ? t({
-                              fr: 'Retirer du dossier (le document reste sous le produit)',
-                              en: 'Remove from dossier (the document stays under the product)',
-                            })
-                          : t({ fr: 'Supprimer du dossier', en: 'Remove from dossier' })
-                      return (
-                        <div
-                          key={v.key}
-                          className={cn(
-                            'flex items-center gap-1 rounded-full border py-1 pr-1 pl-3 text-xs',
-                            active?.key === v.key
-                              ? 'border-primary bg-primary/10 text-primary'
-                              : 'text-muted-foreground hover:bg-accent',
-                          )}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPickedKey(v.key)
-                              // Traduction → éditable d'emblée (cohérent avec l'ouverture via « Traduire »).
-                              if (
-                                v.kind === 'letter' &&
-                                (v.isTranslation || v.isUpgrade || v.isFill)
-                              )
-                                setDocEditing(true)
-                            }}
-                            title={v.label}
-                            className="flex items-center gap-1.5"
-                          >
-                            <FileText className="size-3.5 shrink-0" />
-                            <span className="max-w-[160px] truncate">{v.label}</span>
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={removeHint}
-                            title={removeHint}
-                            onClick={() => void handleRemoveViewable(v)}
-                            className="hover:bg-destructive/10 hover:text-destructive rounded-full p-0.5"
-                          >
-                            <X className="size-3.5" />
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                  <div className="ml-auto flex shrink-0 items-center gap-2">
-                    {selectedTplKey && !selectedGenDoc ? (
-                      <Button
-                        size="sm"
-                        className="h-8 rounded-full"
-                        onClick={() => void handleGenerate()}
+              {/* Onglets des documents du nœud — affichés seulement s'il y en a plusieurs
+                  (original + traduction / version conforme). Les actions vivent dans l'EN-TÊTE
+                  unique ci-dessus ; le « × » retire l'onglet du dossier. */}
+              {!showCoverPage && viewables.length > 1 ? (
+                <div className="flex flex-wrap items-center gap-1" role="tablist">
+                  {viewables.map((v) => {
+                    const removeHint =
+                      v.kind === 'doc'
+                        ? t({
+                            fr: 'Retirer du dossier (le document reste sous le produit)',
+                            en: 'Remove from dossier (the document stays under the product)',
+                          })
+                        : t({ fr: 'Supprimer du dossier', en: 'Remove from dossier' })
+                    return (
+                      <div
+                        key={v.key}
+                        className={cn(
+                          'flex items-center gap-1 rounded-full border py-1 pr-1 pl-3 text-xs',
+                          active?.key === v.key
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'text-muted-foreground hover:bg-accent',
+                        )}
                       >
-                        <Sparkles className="size-4" /> {t({ fr: 'Générer', en: 'Generate' })}
-                      </Button>
-                    ) : null}
-                    {/* Analyse Regafy À LA DEMANDE (recettes n°6-7), gating modèle 3 états :
-                        - Activée + cible → analyse réelle (pièce affichée OU doc traduit/conforme) ;
-                        - Vitrine → Analyser + Traduire restent visibles comme accroche, clic → upsell ;
-                        - Masquée → rien. Monitor (déterministe, gratuit) reste auto pour tous les plans. */}
-                    {regafyState === 'enabled' && analyzeTargetId ? (
-                      <Button
-                        size="sm"
-                        className="h-8 rounded-full bg-emerald-600 text-white hover:bg-emerald-700"
-                        disabled={analyzing !== null || !online || !env.isSupabaseConfigured}
-                        title={
-                          !online || !env.isSupabaseConfigured
-                            ? t({
-                                fr: 'Analyse disponible en ligne',
-                                en: 'Analysis available online',
-                              })
-                            : t({
-                                fr: 'Vérifier ce document (conformité ou validité)',
-                                en: 'Check this document (compliance or validity)',
-                              })
-                        }
-                        onClick={() => {
-                          // Recette n°10 : une (ré)analyse ré-affiche la carte d'invite si elle avait
-                          // été masquée (le panneau « Remplir le template » réapparaît au scan).
-                          if (activeAnalysisFinding)
-                            setHiddenCards((prev) => {
-                              if (!prev.has(activeAnalysisFinding.id)) return prev
-                              const next = new Set(prev)
-                              next.delete(activeAnalysisFinding.id)
-                              return next
-                            })
-                          if (analyzableGenDoc) void analyzeGenerated(analyzableGenDoc)
-                          else void analyzeActive(analyzeTargetId)
-                        }}
-                      >
-                        <ScanSearch className="size-4" />
-                        {analyzing === analyzeTargetId
-                          ? t({ fr: 'Analyse…', en: 'Analyzing…' })
-                          : t({ fr: 'Analyser', en: 'Analyze' })}
-                      </Button>
-                    ) : regafyState === 'teaser' ? (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 rounded-full"
-                          title={t({
-                            fr: 'Analyse incluse avec Regafy (copilote IA)',
-                            en: 'Analysis included with Regafy (AI copilot)',
-                          })}
-                          onClick={() => upsell('regafy', { fr: 'Analyse IA', en: 'AI analysis' })}
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={active?.key === v.key}
+                          onClick={() => {
+                            setPickedKey(v.key)
+                            // Traduction → éditable d'emblée (cohérent avec l'ouverture via « Traduire »).
+                            if (v.kind === 'letter' && (v.isTranslation || v.isUpgrade || v.isFill))
+                              setDocEditing(true)
+                          }}
+                          title={v.label}
+                          className="flex items-center gap-1.5"
                         >
-                          <ScanSearch className="size-4" /> {t({ fr: 'Analyser', en: 'Analyze' })}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 rounded-full"
-                          title={t({
-                            fr: 'Traduction incluse avec Regafy (copilote IA)',
-                            en: 'Translation included with Regafy (AI copilot)',
-                          })}
-                          onClick={() =>
-                            upsell('regafy', { fr: 'Traduction IA', en: 'AI translation' })
-                          }
+                          <FileText className="size-3.5 shrink-0" />
+                          <span className="max-w-[160px] truncate">{v.label}</span>
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={removeHint}
+                          title={removeHint}
+                          onClick={() => void handleRemoveViewable(v)}
+                          className="hover:bg-destructive/10 hover:text-destructive rounded-full p-0.5"
                         >
-                          <Languages className="size-4" /> {t({ fr: 'Traduire', en: 'Translate' })}
-                        </Button>
-                      </>
-                    ) : null}
-                    {/* Pt2 : pour un formulaire de template, ses actions (Réinitialiser/PDF/DOCX)
-                        vivent ICI (barre d'actions unique), calquées sur l'éditeur de la
-                        Bibliothèque — le bandeau navy du formulaire ne garde que son titre. */}
-                    {activeFormDef ? (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 rounded-full"
-                          title={t({ fr: 'Tout effacer', en: 'Clear all' })}
-                          onClick={() => fillFormRef.current?.reset()}
-                        >
-                          <RotateCcw className="size-4" />
-                          <span className="hidden sm:inline">
-                            {t({ fr: 'Réinitialiser', en: 'Reset' })}
-                          </span>
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 rounded-full"
-                          title={t({ fr: 'Télécharger en PDF', en: 'Download as PDF' })}
-                          onClick={() => fillFormRef.current?.pdf()}
-                        >
-                          <FileText className="size-4" /> PDF
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 rounded-full"
-                          title={t({ fr: 'Télécharger en DOCX', en: 'Download as DOCX' })}
-                          onClick={() => void fillFormRef.current?.docx()}
-                        >
-                          <FileDown className="size-4" /> DOCX
-                        </Button>
-                      </>
-                    ) : null}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 rounded-full"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <Upload className="size-4" /> {t({ fr: 'Téléverser', en: 'Upload' })}
-                    </Button>
-                  </div>
+                          <X className="size-3.5" />
+                        </button>
+                      </div>
+                    )
+                  })}
                 </div>
-              )}
+              ) : null}
 
               <div>
                 {showCoverPage && selected ? (
-                  // Page de GARDE (recette n°7) : numéro + intitulé, contenu autogénéré à la
-                  // compilation — l'utilisateur peut téléverser sa propre page s'il préfère.
+                  // Page de GARDE : aperçu numéro + intitulé (contenu autogénéré à la compilation).
+                  // L'identité (titre h2) et les actions (Autogénéré / Téléverser) vivent dans l'EN-TÊTE.
                   <div className="flex min-h-[28rem] flex-col items-center justify-center rounded-lg border border-dashed p-6 text-center">
-                    <h2>
+                    <div>
                       <span className="block text-4xl font-bold tracking-wide">
                         {selected.number}
                       </span>{' '}
                       <span className="mt-2 block text-lg font-semibold">{selected.label}</span>
-                    </h2>
+                    </div>
                     <p className="text-muted-foreground mt-3 max-w-md text-sm">
                       {selected.number === '1.0'
                         ? t({
@@ -1463,24 +1348,6 @@ export function DossierWorkspacePage() {
                             en: 'Cover page generated automatically at compilation — section number and title.',
                           })}
                     </p>
-                    <div className="mt-5 flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        aria-pressed="true"
-                        className="bg-foreground text-background hover:bg-foreground pointer-events-none rounded-full"
-                      >
-                        {t({ fr: 'Autogénéré', en: 'Auto-generated' })}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="rounded-full"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <Upload className="size-4" /> {t({ fr: 'Téléverser', en: 'Upload' })}
-                      </Button>
-                    </div>
                   </div>
                 ) : active?.kind === 'letter' && activeGenDoc ? (
                   // Onglet traduction/version conforme = plein largeur (éditeur + barre de format) ;
@@ -1602,14 +1469,7 @@ export function DossierWorkspacePage() {
                       ) : (
                         <>
                           {docEditing ? (
-                            <div
-                              className="bg-card sticky z-10 rounded-t-lg"
-                              // Pt1 : calée sous la pilule (--tpl-pill-h) + la barre d'actions
-                              // (--tpl-actionbar-h) → pile de barres collante sans chevauchement.
-                              style={{
-                                top: 'calc(var(--tpl-pill-h, 0px) + var(--tpl-actionbar-h, 3rem))',
-                              }}
-                            >
+                            <div className="bg-card rounded-t-lg border-b">
                               <FormatToolbar editor={liveEditor} />
                             </div>
                           ) : null}

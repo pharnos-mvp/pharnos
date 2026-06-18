@@ -27,6 +27,16 @@ describe('buildDocActions — boutons adaptatifs par type de document', () => {
     expect(keys({ kind: 'letter', aiGenerated: false, handlers: {} })).not.toContain('regenerate')
   })
 
+  it('lettre analysable (traduction / version conforme) : « Analyser » présent, sauf Regafy masqué', () => {
+    expect(keys({ kind: 'letter', analyzable: true, regafy: 'enabled', handlers: {} })).toContain(
+      'analyze',
+    )
+    expect(
+      keys({ kind: 'letter', analyzable: true, regafy: 'hidden', handlers: {} }),
+    ).not.toContain('analyze')
+    expect(keys({ kind: 'letter', handlers: {} })).not.toContain('analyze')
+  })
+
   it('formulaire : Réinitialiser→Télécharger→Téléverser→⋯ ; Notice ajoute « Réglages »', () => {
     expect(keys({ kind: 'form', handlers: {} })).toEqual(['reset', 'download', 'upload', 'more'])
     expect(keys({ kind: 'form', hasGlobals: true, handlers: {} })).toEqual([

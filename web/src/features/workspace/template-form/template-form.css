@@ -20,11 +20,9 @@
    DossierWorkspacePage ; fallback = barre sur une ligne) → le topbar se cale SOUS elle au
    lieu de glisser dessous. z-index 10 < 20 (barre d'actions) = empilement cohérent. */
 .tplform-topbar {
-  position: sticky;
-  /* Fallback (jsdom / 1ʳᵉ peinture avant la mesure) calé sur la barre sur une ligne :
-     min-h-10 (2.5rem) + py-1 (0.5rem) ≈ 3rem ; le ResizeObserver affine ensuite. */
-  top: var(--tpl-actionbar-h, 3rem);
-  z-index: 10;
+  /* M1 : bandeau titre/marque du gabarit — les actions (Réinitialiser/PDF/DOCX) vivent dans
+     l'en-tête de document UNIQUE (seule barre collante) → statique, défile avec la feuille. */
+  position: static;
   display: flex;
   align-items: center;
   gap: 10px;

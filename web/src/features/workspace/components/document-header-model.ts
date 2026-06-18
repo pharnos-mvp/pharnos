@@ -62,6 +62,8 @@ export interface DocActionsContext {
   editing?: boolean
   /** Document généré par IA (≠ pièce téléversée) → « Régénérer » disponible. */
   aiGenerated?: boolean
+  /** Document analysable par Regafy (pièce, ou lettre = traduction / version conforme). */
+  analyzable?: boolean
   handlers: Partial<{
     edit: () => void
     regenerate: () => void
@@ -132,6 +134,18 @@ export function buildDocActions(ctx: DocActionsContext, t: TFn): DocAction[] {
           onClick: h.edit,
         },
         { key: 'sep1', kind: 'separator' },
+        ...(ctx.analyzable && ctx.regafy && ctx.regafy !== 'hidden'
+          ? [
+              {
+                key: 'analyze',
+                kind: 'button' as const,
+                label: t({ fr: 'Analyser', en: 'Analyze' }),
+                variant: 'accent' as const,
+                collapsible: true,
+                onClick: h.analyze,
+              },
+            ]
+          : []),
         ...(ctx.aiGenerated
           ? [
               {
@@ -158,7 +172,14 @@ export function buildDocActions(ctx: DocActionsContext, t: TFn): DocAction[] {
           collapsible: true,
           onClick: h.branding,
         },
-        downloadMenu(),
+        // Lettre = un seul format de téléchargement (.html / .docx selon le type) → bouton simple.
+        {
+          key: 'download',
+          kind: 'button',
+          label: labels.download,
+          collapsible: true,
+          onClick: h.download,
+        },
         uploadBtn(),
         moreMenu(),
       ]
