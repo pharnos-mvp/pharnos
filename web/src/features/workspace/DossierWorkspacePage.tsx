@@ -264,6 +264,31 @@ export function DossierWorkspacePage() {
   }, [])
   useEffect(() => () => actionBarRO.current?.disconnect(), [])
 
+  // Pt1 : en édition de lettre, la pilule d'actions (sticky top-0) coexiste avec la barre
+  // d'actions. On mesure sa hauteur → var CSS `--tpl-pill-h` publiée sur la racine de la page
+  // (ancêtre commun) : la barre d'actions se cale SOUS la pilule (`top`), au lieu de rester
+  // statique. Var remise à 0 au démontage de la pilule (doc non éditable) → barre calée en haut.
+  const pillRO = useRef<ResizeObserver | null>(null)
+  const pillHostRef = useRef<HTMLElement | null>(null)
+  const measurePill = useCallback((node: HTMLDivElement | null) => {
+    pillRO.current?.disconnect()
+    pillRO.current = null
+    if (!node) {
+      pillHostRef.current?.style.setProperty('--tpl-pill-h', '0px')
+      return
+    }
+    const host = node.parentElement // div racine de la page de montage
+    if (!host) return
+    pillHostRef.current = host
+    const publish = () => host.style.setProperty('--tpl-pill-h', `${node.offsetHeight}px`)
+    publish()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(publish)
+    ro.observe(node)
+    pillRO.current = ro
+  }, [])
+  useEffect(() => () => pillRO.current?.disconnect(), [])
+
   const docsByNode = useMemo(() => buildDocsByNode(dossier, docs), [docs, dossier])
 
   const genByNode = useMemo(() => {
@@ -1134,7 +1159,7 @@ export function DossierWorkspacePage() {
           — pilule SOMBRE centrée (mockup). Les formulaires ont leur propre barre navy ; les
           pièces ont Télécharger dans l'aperçu et le retrait via le « × » d'onglet. */}
       {isEditableActive && !activeFormDef ? (
-        <div className="sticky top-0 z-30 flex justify-center">
+        <div ref={measurePill} className="sticky top-0 z-30 flex justify-center">
           <div className="bg-foreground flex items-center gap-0.5 rounded-full px-1 py-0.5 text-sm shadow-lg">
             <ToolbarBtn
               label={t({ fr: 'Modifier', en: 'Edit' })}
@@ -1224,13 +1249,11 @@ export function DossierWorkspacePage() {
               {showCoverPage ? null : (
                 <div
                   ref={measureActionBar}
-                  className={cn(
-                    'bg-card flex min-h-10 flex-wrap items-center gap-2 rounded-xl border px-2 py-1 shadow-sm',
-                    // Recette n°7 : barre épinglée pour garder « Téléverser/Analyser » à portée au
-                    // scroll. En édition de lettre, la pilule (top-0) + la barre de format (top-12)
-                    // sont déjà épinglées → barre laissée statique pour éviter tout chevauchement.
-                    (!isEditableActive || !!activeFormDef) && 'sticky top-0 z-20',
-                  )}
+                  className="bg-card sticky z-20 flex min-h-10 flex-wrap items-center gap-2 rounded-xl border px-2 py-1 shadow-sm"
+                  // Pt1 : barre d'actions TOUJOURS épinglée (y compris en édition de lettre) — calée
+                  // SOUS la pilule d'actions via `--tpl-pill-h` (= 0 hors lettre → reste calée en haut),
+                  // sans chevauchement. La barre de format se cale ensuite sous pilule + barre.
+                  style={{ top: 'var(--tpl-pill-h, 0px)' }}
                 >
                   <span className="sr-only" role="heading" aria-level={2}>
                     {selected.number ? `${selected.number} ` : ''}
@@ -1535,7 +1558,14 @@ export function DossierWorkspacePage() {
                       ) : (
                         <>
                           {docEditing ? (
-                            <div className="bg-card sticky top-12 z-10 rounded-t-lg">
+                            <div
+                              className="bg-card sticky z-10 rounded-t-lg"
+                              // Pt1 : calée sous la pilule (--tpl-pill-h) + la barre d'actions
+                              // (--tpl-actionbar-h) → pile de barres collante sans chevauchement.
+                              style={{
+                                top: 'calc(var(--tpl-pill-h, 0px) + var(--tpl-actionbar-h, 3rem))',
+                              }}
+                            >
                               <FormatToolbar editor={liveEditor} />
                             </div>
                           ) : null}
