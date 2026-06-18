@@ -4,6 +4,9 @@ import { describe, expect, it } from 'vitest'
 
 import { db } from '@/lib/db'
 import { emptyFormState, fieldList, fieldText } from '@/features/workspace/template-form/form-types'
+import { formDefinitionFor } from '@/features/workspace/template-form/form-definitions'
+import { buildFormPrintHtml } from '@/features/workspace/template-form/form-print'
+import { buildFormDocument } from '@/features/workspace/template-form/form-docx'
 import { RCP_FORM_MODEL } from '@/features/workspace/template-form/rcp-form-model'
 import { LABELING_FORM_MODEL } from '@/features/workspace/template-form/labeling-form-model'
 import { TemplatePreview } from './TemplatePreview'
@@ -65,6 +68,27 @@ describe('TemplatePreview — RCP bilingue (SmPC/MedDRA)', () => {
     const first = screen.getAllByRole('textbox')[0]! // champ « dénomination »
     fireEvent.change(first, { target: { value: 'KV-Super Muscle' } })
     expect(Object.values(captured.values)).toContain('KV-Super Muscle')
+  })
+})
+
+describe('export bilingue des templates (PDF/DOCX threadés `lang`)', () => {
+  it('buildFormPrintHtml : EN rend les rubriques SmPC, FR (défaut) les rubriques FR', () => {
+    const def = formDefinitionFor('rcp')!
+    const state = emptyFormState(def.model)
+    const fr = buildFormPrintHtml(def, state) // défaut 'fr'
+    expect(fr).toContain('DONNEES CLINIQUES')
+    expect(fr).not.toContain('CLINICAL PARTICULARS')
+    expect(fr).toContain('lang="fr"')
+    const en = buildFormPrintHtml(def, state, 'en')
+    expect(en).toContain('CLINICAL PARTICULARS')
+    expect(en).not.toContain('DONNEES CLINIQUES')
+    expect(en).toContain('lang="en"')
+  })
+  it('buildFormDocument : construit le .docx dans les deux langues (mêmes résolveurs)', () => {
+    const def = formDefinitionFor('rcp')!
+    const state = emptyFormState(def.model)
+    expect(() => buildFormDocument(def, state)).not.toThrow()
+    expect(() => buildFormDocument(def, state, 'en')).not.toThrow()
   })
 })
 

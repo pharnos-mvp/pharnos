@@ -16,7 +16,14 @@ import {
   UnderlineType,
 } from 'docx'
 
-import { resolveText, type TemplateFormDefinition, type TemplateFormState } from './form-types'
+import type { Lang } from '@/lib/i18n-context'
+import {
+  fieldList,
+  fieldText,
+  resolveText,
+  type TemplateFormDefinition,
+  type TemplateFormState,
+} from './form-types'
 
 const NAVY = '263F73'
 const BLACK = '000000'
@@ -108,27 +115,33 @@ const checkedP = (text: string) =>
 const isChecked = (state: TemplateFormState, key: string): boolean =>
   (state.checks[key] ?? []).includes(0)
 
-export function buildFormDocument(def: TemplateFormDefinition, state: TemplateFormState): Document {
+export function buildFormDocument(
+  def: TemplateFormDefinition,
+  state: TemplateFormState,
+  lang: Lang = 'fr',
+): Document {
   const g = state.globals
   const v = (k: string) => (state.values[k] ?? '').trim()
+  // Résolution bilingue ADDITIVE (mirror TemplatePreview) : EN si demandé ET disponible, sinon FR.
+  const tx = (fr: string, en?: string) => fieldText(fr, en, lang)
   const children: Paragraph[] = []
 
   for (const b of def.model) {
     switch (b.type) {
       case 'title':
-        children.push(titleP(b.text))
+        children.push(titleP(tx(b.text, b.textEn)))
         break
       case 'sec':
-        children.push(secP(b.text.replace('\t', '  ')))
+        children.push(secP(tx(b.text, b.textEn).replace('\t', '  ')))
         break
       case 'sub':
-        children.push(subP(b.text.replace('\t', '  ')))
+        children.push(subP(tx(b.text, b.textEn).replace('\t', '  ')))
         break
       case 'subsub':
-        children.push(subsubP(b.text))
+        children.push(subsubP(tx(b.text, b.textEn)))
         break
       case 'banner':
-        children.push(bannerP(b.text.replace('\t', '  ')))
+        children.push(bannerP(tx(b.text, b.textEn).replace('\t', '  ')))
         break
       case 'secDyn':
         children.push(secP(b.dynText(g).replace('\t', '  ')))
@@ -137,7 +150,7 @@ export function buildFormDocument(def: TemplateFormDefinition, state: TemplateFo
         children.push(subP(b.dynText(g).replace('\t', '  ')))
         break
       case 'static':
-        children.push(bodyP(b.text))
+        children.push(bodyP(tx(b.text, b.textEn)))
         break
       case 'dyn':
         children.push(bodyP(b.dynText(g)))
@@ -152,7 +165,13 @@ export function buildFormDocument(def: TemplateFormDefinition, state: TemplateFo
         if (b.dependsOn && !isChecked(state, b.dependsOn)) break
         if (!v(b.key)) break
         children.push(
-          b.label || b.suffix ? labelValueP(b.label ?? '', v(b.key), b.suffix) : bodyP(v(b.key)),
+          b.label || b.suffix
+            ? labelValueP(
+                b.label ? tx(b.label, b.labelEn) : '',
+                v(b.key),
+                b.suffix ? tx(b.suffix, b.suffixEn) : undefined,
+              )
+            : bodyP(v(b.key)),
         )
         break
       }
@@ -162,17 +181,17 @@ export function buildFormDocument(def: TemplateFormDefinition, state: TemplateFo
         break
       }
       case 'duree': {
-        if (v(b.key)) children.push(bodyP(`${v(b.key)} mois`))
+        if (v(b.key)) children.push(bodyP(`${v(b.key)} ${lang === 'en' ? 'months' : 'mois'}`))
         break
       }
       case 'atc': {
-        if (v(b.key)) children.push(labelValueP(b.label, v(b.key)))
-        if (isChecked(state, b.chkKey)) children.push(bodyP(`${b.chkLabel}.`))
+        if (v(b.key)) children.push(labelValueP(tx(b.label, b.labelEn), v(b.key)))
+        if (isChecked(state, b.chkKey)) children.push(bodyP(`${tx(b.chkLabel, b.chkLabelEn)}.`))
         break
       }
       case 'checks': {
         const picked = state.checks[b.key] ?? []
-        b.options.forEach((opt, i) => {
+        fieldList(b.options, b.optionsEn, lang).forEach((opt, i) => {
           if (picked.includes(i)) children.push(checkedP(opt))
         })
         break
@@ -231,6 +250,7 @@ export function buildFormDocument(def: TemplateFormDefinition, state: TemplateFo
 export async function formDocxBlob(
   def: TemplateFormDefinition,
   state: TemplateFormState,
+  lang: Lang = 'fr',
 ): Promise<Blob> {
-  return Packer.toBlob(buildFormDocument(def, state))
+  return Packer.toBlob(buildFormDocument(def, state, lang))
 }
