@@ -7,6 +7,7 @@ import {
   FileText,
   Languages,
   MessagesSquare,
+  RotateCcw,
   ScanSearch,
   Send,
   Sparkles,
@@ -97,6 +98,7 @@ import { useDebouncedDocSave } from './use-debounced-doc-save'
 import { useRegafyCopilot } from './use-regafy-copilot'
 import { CompletionPanel } from './components/CompletionPanel'
 import { InlineDocPreview } from './components/InlineDocPreview'
+import type { TemplateFillFormHandle } from './components/TemplateFillForm'
 import { NonConformCard } from './components/NonConformCard'
 import { AuditReportView } from './components/AuditReportView'
 import { RegafyGateDialog } from './components/RegafyGateDialog'
@@ -238,6 +240,9 @@ export function DossierWorkspacePage() {
   > | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Pt2 : poignée du formulaire de template (RCP/Notice/Étiquetage) → la barre d'actions du
+  // dossier déclenche Réinitialiser/PDF/DOCX (convergence avec l'éditeur de la Bibliothèque).
+  const fillFormRef = useRef<TemplateFillFormHandle>(null)
   const previewRef = useRef<{ url: string; revoke: boolean } | null>(null)
   const didAutoSelect = useRef(false)
   const setHeaderSlot = useHeaderSlot()
@@ -1387,6 +1392,43 @@ export function DossierWorkspacePage() {
                         </Button>
                       </>
                     ) : null}
+                    {/* Pt2 : pour un formulaire de template, ses actions (Réinitialiser/PDF/DOCX)
+                        vivent ICI (barre d'actions unique), calquées sur l'éditeur de la
+                        Bibliothèque — le bandeau navy du formulaire ne garde que son titre. */}
+                    {activeFormDef ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 rounded-full"
+                          title={t({ fr: 'Tout effacer', en: 'Clear all' })}
+                          onClick={() => fillFormRef.current?.reset()}
+                        >
+                          <RotateCcw className="size-4" />
+                          <span className="hidden sm:inline">
+                            {t({ fr: 'Réinitialiser', en: 'Reset' })}
+                          </span>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 rounded-full"
+                          title={t({ fr: 'Télécharger en PDF', en: 'Download as PDF' })}
+                          onClick={() => fillFormRef.current?.pdf()}
+                        >
+                          <FileText className="size-4" /> PDF
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 rounded-full"
+                          title={t({ fr: 'Télécharger en DOCX', en: 'Download as DOCX' })}
+                          onClick={() => void fillFormRef.current?.docx()}
+                        >
+                          <FileDown className="size-4" /> DOCX
+                        </Button>
+                      </>
+                    ) : null}
                     <Button
                       size="sm"
                       variant="outline"
@@ -1549,11 +1591,13 @@ export function DossierWorkspacePage() {
                         // navy, exports DOCX/PDF conformes). Remplace l'éditeur TipTap.
                         <TemplateFillForm
                           key={activeGenDoc.id}
+                          ref={fillFormRef}
                           def={activeFormDef}
                           genDoc={activeGenDoc}
                           product={product}
                           countryName={countryLabel(activeDossier.country, lang)}
                           orgId={orgId}
+                          controlsInBar
                         />
                       ) : (
                         <>

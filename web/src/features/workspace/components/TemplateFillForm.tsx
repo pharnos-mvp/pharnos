@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react'
 import type { JSONContent } from '@tiptap/core'
 import { FileDown, FileText, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
@@ -61,17 +61,29 @@ function FieldArea({
  * Exports DOCX/PDF 100 % conformes aux gabarits. La Notice porte en plus la barre de
  * réglages GLOBAUX (verbe employé, professionnels mentionnés) du gabarit.
  */
+export interface TemplateFillFormHandle {
+  reset: () => void
+  pdf: () => void
+  docx: () => Promise<void>
+}
+
 export function TemplateFillForm({
   def,
   genDoc,
   countryName,
   orgId,
+  controlsInBar = false,
+  ref,
 }: {
   def: TemplateFormDefinition
   genDoc: GeneratedDocRecord
   product?: ProductRecord
   countryName: string
   orgId: string
+  /** Pt2 : Réinitialiser/PDF/DOCX remontés dans la barre d'actions du dossier (convergence
+   *  Bibliothèque) → le bandeau navy ne garde que le titre/marque du gabarit. */
+  controlsInBar?: boolean
+  ref?: Ref<TemplateFillFormHandle>
 }) {
   const { t } = useI18n()
   const [state, setState] = useState<TemplateFormState>(() =>
@@ -125,7 +137,7 @@ export function TemplateFillForm({
   const setGlobals = (next: FormGlobals) => apply({ ...state, globals: next })
   const isChecked = (key: string) => (state.checks[key] ?? []).includes(0)
 
-  function handleReset() {
+  const handleReset = useCallback(() => {
     if (
       !window.confirm(
         t({
@@ -141,9 +153,11 @@ export function TemplateFillForm({
     toast.success(t({ fr: 'Formulaire réinitialisé', en: 'Form reset' }), {
       description: t({ fr: 'Tous les champs ont été vidés.', en: 'All fields cleared.' }),
     })
-  }
+  }, [apply, def, t])
 
-  async function handleDocx() {
+  const handlePdf = useCallback(() => printForm(def, state), [def, state])
+
+  const handleDocx = useCallback(async () => {
     try {
       // Lazy : la lib docx reste hors du chunk workspace.
       const { formDocxBlob } = await import('../template-form/form-docx')
@@ -153,7 +167,14 @@ export function TemplateFillForm({
       console.error(e)
       toast.error(t({ fr: 'Échec du téléchargement (.docx).', en: 'Download failed (.docx).' }))
     }
-  }
+  }, [def, state, t])
+
+  // Pt2 : expose les contrôles au parent (barre d'actions du dossier) → convergence Bibliothèque.
+  useImperativeHandle(ref, () => ({ reset: handleReset, pdf: handlePdf, docx: handleDocx }), [
+    handleReset,
+    handlePdf,
+    handleDocx,
+  ])
 
   return (
     <div className="tplform">
@@ -168,24 +189,30 @@ export function TemplateFillForm({
           </span>
         </div>
         <div className="tplform-spacer" />
-        <button
-          type="button"
-          className="tplform-btn tplform-btn--ghost"
-          title={t({ fr: 'Tout effacer', en: 'Clear all' })}
-          onClick={handleReset}
-        >
-          <RotateCcw aria-hidden /> {t({ fr: 'Réinitialiser', en: 'Reset' })}
-        </button>
-        <button type="button" className="tplform-btn" onClick={() => printForm(def, state)}>
-          <FileText aria-hidden /> PDF
-        </button>
-        <button
-          type="button"
-          className="tplform-btn tplform-btn--primary"
-          onClick={() => void handleDocx()}
-        >
-          <FileDown aria-hidden /> {t({ fr: 'Télécharger DOCX', en: 'Download DOCX' })}
-        </button>
+        {/* Pt2 : en mode `controlsInBar`, les actions vivent dans la barre d'actions du dossier
+            (convergence Bibliothèque) ; le bandeau ne garde que le titre/marque. */}
+        {!controlsInBar ? (
+          <>
+            <button
+              type="button"
+              className="tplform-btn tplform-btn--ghost"
+              title={t({ fr: 'Tout effacer', en: 'Clear all' })}
+              onClick={handleReset}
+            >
+              <RotateCcw aria-hidden /> {t({ fr: 'Réinitialiser', en: 'Reset' })}
+            </button>
+            <button type="button" className="tplform-btn" onClick={handlePdf}>
+              <FileText aria-hidden /> PDF
+            </button>
+            <button
+              type="button"
+              className="tplform-btn tplform-btn--primary"
+              onClick={() => void handleDocx()}
+            >
+              <FileDown aria-hidden /> {t({ fr: 'Télécharger DOCX', en: 'Download DOCX' })}
+            </button>
+          </>
+        ) : null}
       </div>
       {def.hasGlobalsBar ? (
         // Réglages GLOBAUX du gabarit Notice : appliqués à tous les textes dynamiques.
