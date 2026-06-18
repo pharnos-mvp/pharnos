@@ -4,12 +4,13 @@ import { Bold, Heading2, Italic, List } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useI18n } from '@/lib/i18n-context'
 
-/** Barre de mise en forme TipTap (gras/italique/titre/liste) — affichée en mode Modifier. */
+/** Groupe de mise en forme TipTap (gras/italique/titre/liste) — inséré dans l'en-tête de document
+ *  en mode Modifier (mockup `.fmt` : groupe pastille bordé, fond marque léger). */
 export function FormatToolbar({ editor }: { editor: Editor | null }) {
   const { t } = useI18n()
   if (!editor) return null
   return (
-    <div className="bg-card flex items-center gap-1 border-b p-1.5">
+    <div className="bg-brand/5 inline-flex items-center gap-[2px] rounded-[9px] border p-[2px]">
       <Button
         type="button"
         variant="ghost"
