@@ -1,6 +1,16 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowLeft, FileText, Languages, Pencil, Save, Search, Trash2 } from 'lucide-react'
+import {
+  ArrowLeft,
+  FileDown,
+  FileText,
+  Languages,
+  Pencil,
+  RotateCcw,
+  Save,
+  Search,
+  Trash2,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -9,11 +19,14 @@ import { db } from '@/lib/db'
 import { useI18n, type Lang, type Translatable } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import { useOrgId } from '@/features/org/org-context'
+import { triggerDownload } from '@/features/workspace/download-utils'
 import { formDefinitionFor } from '@/features/workspace/template-form/form-definitions'
 import {
   emptyFormState,
+  formExportName,
   type TemplateFormState,
 } from '@/features/workspace/template-form/form-types'
+import { printForm } from '@/features/workspace/template-form/form-print'
 import { TemplatePreview } from './TemplatePreview'
 import { deleteSavedTemplate, saveTemplate } from './saved-templates-repository'
 
@@ -152,6 +165,44 @@ export function TemplatesPage() {
   // ───────────────────────── Vue FORMULAIRE (centrée A4, sans menu latéral) ─────────────────────────
   if (editing) {
     const def = formDefinitionFor(editing.docType)
+
+    // Réinitialiser → vide TOUT le modèle en cours (champs, cases, choix). Exports PDF/DOCX dans
+    // la langue active (mêmes générateurs que le dossier, threadés `lang` → jumeaux EN résolus).
+    const resetEditor = () => {
+      if (
+        !window.confirm(
+          t({
+            fr: 'Tout effacer le contenu de ce modèle ?',
+            en: 'Clear all content in this template?',
+          }),
+        )
+      )
+        return
+      setEditing({ ...editing, state: def ? emptyFormState(def.model) : editing.state })
+      toast.success(t({ fr: 'Modèle réinitialisé', en: 'Template reset' }), {
+        description: t({ fr: 'Tous les champs ont été vidés.', en: 'All fields cleared.' }),
+      })
+    }
+    const exportPdf = () => {
+      if (def) printForm(def, editing.state, editing.lang)
+    }
+    const exportDocx = async () => {
+      if (!def) return
+      try {
+        // Lazy : la lib docx reste hors du chunk de la Bibliothèque.
+        const { formDocxBlob } = await import('@/features/workspace/template-form/form-docx')
+        const blob = await formDocxBlob(def, editing.state, editing.lang)
+        triggerDownload(
+          URL.createObjectURL(blob),
+          `${formExportName(def, editing.state)}.docx`,
+          true,
+        )
+      } catch (e) {
+        console.error(e)
+        toast.error(t({ fr: 'Échec du téléchargement (.docx).', en: 'Download failed (.docx).' }))
+      }
+    }
+
     return (
       <div className="flex flex-col gap-3">
         {/* Barre d'actions COLLANTE au défilement (retour + nom + langue + Enregistrer) : reste à
@@ -177,12 +228,42 @@ export function TemplatesPage() {
                 className="h-8 max-w-xs"
                 aria-label={t({ fr: 'Nom du modèle', en: 'Template name' })}
               />
-              <div className="ml-auto flex items-center gap-2">
+              <div className="ml-auto flex flex-wrap items-center gap-2">
                 <LangToggle
                   value={editing.lang}
                   onChange={(l) => setEditing({ ...editing, lang: l })}
                   label={t({ fr: 'Langue', en: 'Language' })}
                 />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8"
+                  onClick={resetEditor}
+                  title={t({ fr: 'Tout effacer', en: 'Clear all' })}
+                >
+                  <RotateCcw className="size-4" />
+                  <span className="hidden sm:inline">
+                    {t({ fr: 'Réinitialiser', en: 'Reset' })}
+                  </span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8"
+                  onClick={exportPdf}
+                  title={t({ fr: 'Télécharger en PDF', en: 'Download as PDF' })}
+                >
+                  <FileText className="size-4" /> PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8"
+                  onClick={() => void exportDocx()}
+                  title={t({ fr: 'Télécharger en DOCX', en: 'Download as DOCX' })}
+                >
+                  <FileDown className="size-4" /> DOCX
+                </Button>
                 <Button
                   size="sm"
                   className="h-8"

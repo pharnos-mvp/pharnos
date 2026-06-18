@@ -2,7 +2,10 @@
 // uniquement) imprimé via le dialogue natif (« Enregistrer en PDF »). HTML et CSS @page A4
 // 25,4 mm repris des gabarits CEO (+ bandeaux gris du template Étiquetage). Impression via
 // IFRAME cachée : aucun blocage de fenêtres contextuelles, fonctionne hors-ligne.
+import type { Lang } from '@/lib/i18n-context'
 import {
+  fieldList,
+  fieldText,
   formExportName,
   resolveText,
   type TemplateFormDefinition,
@@ -13,28 +16,34 @@ const esc = (s: string) =>
   String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 const multiline = (s: string) => esc(s).replace(/\r?\n/g, '<br>')
 
-export function buildFormPrintHtml(def: TemplateFormDefinition, state: TemplateFormState): string {
+export function buildFormPrintHtml(
+  def: TemplateFormDefinition,
+  state: TemplateFormState,
+  lang: Lang = 'fr',
+): string {
   const g = state.globals
   const v = (k: string) => (state.values[k] ?? '').trim()
   const checked = (k: string) => (state.checks[k] ?? []).includes(0)
+  // Résolution bilingue ADDITIVE (mirror TemplatePreview) : EN si demandé ET disponible, sinon FR.
+  const tx = (fr: string, en?: string) => fieldText(fr, en, lang)
   const parts: string[] = []
 
   for (const b of def.model) {
     switch (b.type) {
       case 'title':
-        parts.push(`<h1 class="p-title">${esc(b.text)}</h1>`)
+        parts.push(`<h1 class="p-title">${esc(tx(b.text, b.textEn))}</h1>`)
         break
       case 'sec':
-        parts.push(`<h2 class="p-sec">${esc(b.text.replace('\t', '  '))}</h2>`)
+        parts.push(`<h2 class="p-sec">${esc(tx(b.text, b.textEn).replace('\t', '  '))}</h2>`)
         break
       case 'sub':
-        parts.push(`<h3 class="p-sub">${esc(b.text.replace('\t', '  '))}</h3>`)
+        parts.push(`<h3 class="p-sub">${esc(tx(b.text, b.textEn).replace('\t', '  '))}</h3>`)
         break
       case 'subsub':
-        parts.push(`<h4 class="p-subsub">${esc(b.text)}</h4>`)
+        parts.push(`<h4 class="p-subsub">${esc(tx(b.text, b.textEn))}</h4>`)
         break
       case 'banner':
-        parts.push(`<h2 class="p-banner">${esc(b.text.replace('\t', '  '))}</h2>`)
+        parts.push(`<h2 class="p-banner">${esc(tx(b.text, b.textEn).replace('\t', '  '))}</h2>`)
         break
       case 'secDyn':
         parts.push(`<h2 class="p-sec">${esc(b.dynText(g).replace('\t', '  '))}</h2>`)
@@ -43,7 +52,7 @@ export function buildFormPrintHtml(def: TemplateFormDefinition, state: TemplateF
         parts.push(`<h3 class="p-sub">${esc(b.dynText(g).replace('\t', '  '))}</h3>`)
         break
       case 'static':
-        parts.push(`<p class="p-body">${esc(b.text)}</p>`)
+        parts.push(`<p class="p-body">${esc(tx(b.text, b.textEn))}</p>`)
         break
       case 'dyn':
         parts.push(`<p class="p-body">${esc(b.dynText(g))}</p>`)
@@ -60,7 +69,7 @@ export function buildFormPrintHtml(def: TemplateFormDefinition, state: TemplateF
         if (b.dependsOn && !checked(b.dependsOn)) break
         if (!v(b.key)) break
         parts.push(
-          `<p class="p-body">${b.label ? esc(b.label) : ''}${esc(v(b.key))}${b.suffix ? esc(b.suffix) : ''}</p>`,
+          `<p class="p-body">${b.label ? esc(tx(b.label, b.labelEn)) : ''}${esc(v(b.key))}${b.suffix ? esc(tx(b.suffix, b.suffixEn)) : ''}</p>`,
         )
         break
       }
@@ -70,17 +79,20 @@ export function buildFormPrintHtml(def: TemplateFormDefinition, state: TemplateF
         break
       }
       case 'duree': {
-        if (v(b.key)) parts.push(`<p class="p-body">${esc(v(b.key))} mois</p>`)
+        if (v(b.key))
+          parts.push(`<p class="p-body">${esc(v(b.key))} ${lang === 'en' ? 'months' : 'mois'}</p>`)
         break
       }
       case 'atc': {
-        if (v(b.key)) parts.push(`<p class="p-body">${esc(b.label)}${esc(v(b.key))}</p>`)
-        if (checked(b.chkKey)) parts.push(`<p class="p-body">${esc(b.chkLabel)}.</p>`)
+        if (v(b.key))
+          parts.push(`<p class="p-body">${esc(tx(b.label, b.labelEn))}${esc(v(b.key))}</p>`)
+        if (checked(b.chkKey))
+          parts.push(`<p class="p-body">${esc(tx(b.chkLabel, b.chkLabelEn))}.</p>`)
         break
       }
       case 'checks': {
         const picked = state.checks[b.key] ?? []
-        const items = b.options.filter((_, i) => picked.includes(i))
+        const items = fieldList(b.options, b.optionsEn, lang).filter((_, i) => picked.includes(i))
         if (items.length)
           parts.push(`<ul class="p-list">${items.map((o) => `<li>${esc(o)}</li>`).join('')}</ul>`)
         break
@@ -109,7 +121,7 @@ export function buildFormPrintHtml(def: TemplateFormDefinition, state: TemplateF
     }
   }
 
-  return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+  return `<!DOCTYPE html><html lang="${lang}"><head><meta charset="utf-8">
 <title>${esc(formExportName(def, state))}</title>
 <style>
   @page { size: A4; margin: 25.4mm; }
@@ -128,7 +140,11 @@ export function buildFormPrintHtml(def: TemplateFormDefinition, state: TemplateF
 }
 
 /** Ouvre le dialogue d'impression sur le rendu final (iframe cachée, retirée après usage). */
-export function printForm(def: TemplateFormDefinition, state: TemplateFormState): void {
+export function printForm(
+  def: TemplateFormDefinition,
+  state: TemplateFormState,
+  lang: Lang = 'fr',
+): void {
   const frame = document.createElement('iframe')
   frame.style.position = 'fixed'
   frame.style.right = '0'
@@ -137,7 +153,7 @@ export function printForm(def: TemplateFormDefinition, state: TemplateFormState)
   frame.style.height = '0'
   frame.style.border = '0'
   frame.setAttribute('aria-hidden', 'true')
-  frame.srcdoc = buildFormPrintHtml(def, state)
+  frame.srcdoc = buildFormPrintHtml(def, state, lang)
   frame.onload = () => {
     // Laisse la mise en page se poser, imprime, puis nettoie une fois le dialogue rendu.
     setTimeout(() => {
