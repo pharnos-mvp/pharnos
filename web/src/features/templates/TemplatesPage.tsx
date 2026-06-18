@@ -154,7 +154,10 @@ export function TemplatesPage() {
     const def = formDefinitionFor(editing.docType)
     return (
       <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Barre d'actions COLLANTE au défilement (retour + nom + langue + Enregistrer) : reste à
+            portée sur les longs templates (le RCP ≈ 50 champs). Fond opaque + bord bas pour couvrir
+            la feuille A4 qui défile dessous ; sous le chrome de l'app-shell. */}
+        <div className="bg-background sticky top-0 z-20 -mt-1 flex flex-wrap items-center gap-2 border-b py-2">
           <button
             type="button"
             onClick={() => setEditing(null)}
