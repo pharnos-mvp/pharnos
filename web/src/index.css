@@ -13,6 +13,9 @@
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
+  /* Marque Pharnos (navy des gabarits). En clair : navy plein + texte blanc. */
+  --brand: #263f73;
+  --brand-foreground: #ffffff;
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
@@ -49,6 +52,10 @@
   --popover-foreground: #e6edf3;
   --primary: #2f81f7;
   --primary-foreground: #ffffff;
+  /* Marque en dark (GitHub Dark) : navy clair lisible — sert AUSSI de couleur de texte
+     (text-brand) sur fond sombre ; les remplissages portent un texte sombre (--brand-foreground). */
+  --brand: #7da3dc;
+  --brand-foreground: #0d1117;
   --secondary: #21262d;
   --secondary-foreground: #e6edf3;
   --muted: #21262d;
@@ -87,6 +94,8 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);

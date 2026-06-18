@@ -1,0 +1,997 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pharnos — CTD Builder (mockup en-tête unique)</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css"
+    />
+    <style>
+      :root {
+        --navy: #263f73;
+        --navy-700: #1d3460;
+        --navy-100: #d8e0f0;
+        --navy-50: #eef2fb;
+        --ink: #1c2230;
+        --muted: #5b6472;
+        --hint: #8c94a3;
+        --line: #e4e8f0;
+        --line-strong: #d2d8e4;
+        --bg: #eef1f6;
+        --card: #ffffff;
+        --emerald: #0f6e56;
+        --emerald-50: #e4f5ee;
+        --amber: #92590a;
+        --amber-50: #fbf0db;
+        --danger: #a32d2d;
+        --danger-50: #fcebeb;
+        --radius: 12px;
+        --radius-sm: 9px;
+        --shadow: 0 1px 2px rgba(28, 34, 48, 0.06), 0 1px 3px rgba(28, 34, 48, 0.05);
+        --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial,
+          sans-serif;
+        --serif: "Times New Roman", Times, Georgia, serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        font-family: var(--font);
+        color: var(--ink);
+        background: var(--bg);
+        font-size: 14px;
+        line-height: 1.45;
+        -webkit-font-smoothing: antialiased;
+      }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+      button {
+        font-family: inherit;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      :focus-visible {
+        outline: 2px solid var(--navy);
+        outline-offset: 2px;
+        border-radius: 6px;
+      }
+
+      .app {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        min-width: 980px;
+      }
+
+      /* ───── App bar (slim, global) ───── */
+      .appbar {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        height: 52px;
+        padding: 0 16px;
+        background: var(--card);
+        border-bottom: 1px solid var(--line);
+        flex: 0 0 auto;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-weight: 600;
+        color: var(--navy);
+        letter-spacing: 0.2px;
+      }
+      .brand .logo {
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        background: var(--navy);
+        color: #fff;
+        display: grid;
+        place-items: center;
+        font-size: 15px;
+      }
+      .crumb {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 13px;
+        min-width: 0;
+      }
+      .crumb b {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .crumb .sep {
+        color: var(--hint);
+      }
+      .flag {
+        font-size: 14px;
+      }
+      .appbar .spacer {
+        flex: 1;
+      }
+      .ghostbtn {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        height: 34px;
+        padding: 0 12px;
+        border: 1px solid var(--line-strong);
+        background: var(--card);
+        color: var(--ink);
+        border-radius: 9px;
+        white-space: nowrap;
+        transition: background 0.12s;
+      }
+      .ghostbtn:hover {
+        background: var(--navy-50);
+      }
+      .ghostbtn i {
+        font-size: 17px;
+        color: var(--muted);
+      }
+      .primarybtn {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        height: 34px;
+        padding: 0 14px;
+        border: 1px solid var(--navy);
+        background: var(--navy);
+        color: #fff;
+        border-radius: 9px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .primarybtn:hover {
+        background: var(--navy-700);
+      }
+      .primarybtn i {
+        font-size: 17px;
+      }
+      .avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--navy-100);
+        color: var(--navy);
+        display: grid;
+        place-items: center;
+        font-weight: 600;
+        font-size: 12px;
+      }
+
+      /* ───── THE unified document header ───── */
+      .dochead {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-height: 54px;
+        padding: 8px 16px;
+        background: var(--card);
+        border-bottom: 1px solid var(--line);
+        flex: 0 0 auto;
+        flex-wrap: wrap;
+      }
+      .docid {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        min-width: 0;
+      }
+      .docnum {
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+        color: var(--navy);
+        background: var(--navy-50);
+        border: 1px solid var(--navy-100);
+        border-radius: 8px;
+        padding: 4px 9px;
+        font-size: 13px;
+        white-space: nowrap;
+      }
+      .doctitle {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .doctitle .t {
+        font-weight: 600;
+        font-size: 15px;
+        color: var(--ink);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 46ch;
+      }
+      .doctitle .s {
+        font-size: 12px;
+        color: var(--hint);
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11.5px;
+        font-weight: 600;
+        padding: 3px 9px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+      .chip i {
+        font-size: 14px;
+      }
+      .chip.draft {
+        background: var(--amber-50);
+        color: var(--amber);
+      }
+      .chip.ok {
+        background: var(--emerald-50);
+        color: var(--emerald);
+      }
+      .chip.file {
+        background: var(--navy-50);
+        color: var(--navy);
+      }
+      .chip.todo {
+        background: #f0f1f4;
+        color: var(--muted);
+      }
+
+      .actions {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      .act {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 34px;
+        padding: 0 11px;
+        border: 1px solid var(--line-strong);
+        background: var(--card);
+        color: var(--ink);
+        border-radius: 9px;
+        white-space: nowrap;
+        transition: background 0.12s;
+      }
+      .act:hover {
+        background: var(--navy-50);
+      }
+      .act i {
+        font-size: 17px;
+        color: var(--muted);
+      }
+      .act.accent {
+        border-color: var(--emerald);
+        color: var(--emerald);
+      }
+      .act.accent i {
+        color: var(--emerald);
+      }
+      .act.accent:hover {
+        background: var(--emerald-50);
+      }
+      .act.solid {
+        background: var(--navy);
+        border-color: var(--navy);
+        color: #fff;
+      }
+      .act.solid i {
+        color: #fff;
+      }
+      .act.solid:hover {
+        background: var(--navy-700);
+      }
+      .act.danger:hover {
+        background: var(--danger-50);
+        border-color: var(--danger);
+        color: var(--danger);
+      }
+      .act[aria-pressed="true"] {
+        background: var(--navy);
+        border-color: var(--navy);
+        color: #fff;
+      }
+      .act[aria-pressed="true"] i {
+        color: #fff;
+      }
+      .act .caret {
+        font-size: 15px;
+        margin-left: -2px;
+      }
+      .vsep {
+        width: 1px;
+        height: 24px;
+        background: var(--line-strong);
+        margin: 0 3px;
+      }
+      .fmt {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        padding: 2px;
+        border: 1px solid var(--line-strong);
+        border-radius: 9px;
+        background: var(--navy-50);
+      }
+      .fmt button {
+        width: 30px;
+        height: 28px;
+        border: 0;
+        background: transparent;
+        border-radius: 6px;
+        color: var(--ink);
+        display: grid;
+        place-items: center;
+      }
+      .fmt button i {
+        font-size: 17px;
+      }
+      .fmt button:hover {
+        background: #fff;
+      }
+      .iconbtn {
+        width: 34px;
+        height: 34px;
+        border: 1px solid var(--line-strong);
+        background: var(--card);
+        border-radius: 9px;
+        display: grid;
+        place-items: center;
+        color: var(--muted);
+      }
+      .iconbtn:hover {
+        background: var(--navy-50);
+      }
+      .iconbtn i {
+        font-size: 18px;
+      }
+
+      /* ───── Body : 3 columns ───── */
+      .body {
+        flex: 1;
+        display: flex;
+        min-height: 0;
+      }
+      .col {
+        overflow: auto;
+      }
+      .tree {
+        flex: 0 0 286px;
+        background: var(--card);
+        border-right: 1px solid var(--line);
+        padding: 12px 8px 24px;
+      }
+      .tree h2 {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.7px;
+        color: var(--hint);
+        margin: 6px 10px 4px;
+        font-weight: 700;
+      }
+      .seq {
+        font-size: 12px;
+        color: var(--muted);
+        margin: 0 10px 10px;
+      }
+      .grp {
+        font-size: 12px;
+        color: var(--muted);
+        font-weight: 600;
+        padding: 8px 10px 3px;
+      }
+      .node {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        width: 100%;
+        text-align: left;
+        border: 0;
+        background: transparent;
+        padding: 7px 10px;
+        border-radius: 9px;
+        color: var(--ink);
+        line-height: 1.25;
+      }
+      .node:hover {
+        background: var(--navy-50);
+      }
+      .node[aria-selected="true"] {
+        background: var(--navy-50);
+        box-shadow: inset 2px 0 0 var(--navy);
+      }
+      .node .n {
+        font-variant-numeric: tabular-nums;
+        font-size: 11.5px;
+        color: var(--hint);
+        flex: 0 0 34px;
+      }
+      .node .lbl {
+        flex: 1;
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .node[aria-selected="true"] .lbl {
+        font-weight: 600;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex: 0 0 8px;
+      }
+      .dot.ok {
+        background: var(--emerald);
+      }
+      .dot.draft {
+        background: #e0a92b;
+      }
+      .dot.todo {
+        background: #cfd4de;
+      }
+      .node .sub {
+        padding-left: 22px;
+      }
+
+      .canvas {
+        flex: 1;
+        background: var(--bg);
+        padding: 22px;
+        display: flex;
+        justify-content: center;
+      }
+      .stage {
+        width: 100%;
+        max-width: 820px;
+      }
+      .sheet {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        box-shadow: var(--shadow);
+        padding: 56px 64px;
+        font-family: var(--serif);
+        color: #111;
+        min-height: 560px;
+      }
+      .sheet .titlestrip {
+        margin: -56px -64px 22px;
+        padding: 12px 64px;
+        background: var(--navy);
+        color: #fff;
+        border-radius: 10px 10px 0 0;
+        font-family: var(--font);
+      }
+      .sheet .titlestrip .t1 {
+        font-weight: 600;
+        font-size: 14px;
+      }
+      .sheet .titlestrip .t2 {
+        font-size: 11.5px;
+        opacity: 0.78;
+      }
+      .doc-h {
+        text-align: center;
+        color: var(--navy);
+        font-weight: 700;
+        font-size: 15px;
+        margin: 0 0 18px;
+      }
+      .doc-sec {
+        color: var(--navy);
+        font-weight: 700;
+        font-size: 14px;
+        margin: 16px 0 6px;
+      }
+      .field {
+        border: 1px solid var(--line-strong);
+        border-radius: 6px;
+        background: #f7f9fc;
+        color: var(--hint);
+        font-style: italic;
+        padding: 9px 11px;
+        margin: 4px 0 2px;
+        font-size: 13px;
+      }
+      .doc-p {
+        margin: 0 0 10px;
+        text-align: justify;
+        font-size: 14px;
+      }
+      .doc-logo {
+        height: 34px;
+        width: 96px;
+        border: 1px dashed var(--line-strong);
+        border-radius: 6px;
+        display: grid;
+        place-items: center;
+        color: var(--hint);
+        font-family: var(--font);
+        font-size: 10px;
+        margin-bottom: 18px;
+      }
+      .empty {
+        background: #fff;
+        border: 1.5px dashed var(--line-strong);
+        border-radius: 12px;
+        min-height: 440px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        gap: 12px;
+        padding: 30px;
+        font-family: var(--font);
+      }
+      .empty .big {
+        font-size: 34px;
+        font-weight: 700;
+        color: var(--ink);
+        font-family: var(--font);
+      }
+      .empty .lead {
+        color: var(--muted);
+        max-width: 360px;
+      }
+      .empty i.hero {
+        font-size: 30px;
+        color: var(--navy);
+      }
+      .pdfframe {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        box-shadow: var(--shadow);
+        min-height: 560px;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--hint);
+        font-family: var(--font);
+        flex-direction: column;
+        gap: 10px;
+      }
+      .pdfframe .pdfbadge {
+        position: absolute;
+        top: 14px;
+        left: 14px;
+      }
+      .pdfframe i.hero {
+        font-size: 42px;
+        color: var(--danger);
+      }
+
+      .rail {
+        flex: 0 0 274px;
+        background: var(--card);
+        border-left: 1px solid var(--line);
+        padding: 16px 14px;
+      }
+      .railcard {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px;
+        margin-bottom: 14px;
+      }
+      .railcard h3 {
+        font-size: 13px;
+        font-weight: 600;
+        margin: 0 0 10px;
+        color: var(--ink);
+      }
+      .ring {
+        width: 96px;
+        height: 96px;
+        border-radius: 50%;
+        margin: 4px auto 6px;
+        background: conic-gradient(var(--navy) 0 32%, #e7ebf2 32% 100%);
+        display: grid;
+        place-items: center;
+      }
+      .ring > div {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        background: #fff;
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+        font-size: 19px;
+        color: var(--navy);
+      }
+      .note {
+        display: flex;
+        gap: 8px;
+        font-size: 12.5px;
+        color: var(--muted);
+        padding: 7px 0;
+        border-top: 1px solid var(--line);
+      }
+      .note:first-of-type {
+        border-top: 0;
+      }
+      .note i {
+        color: #e0a92b;
+        font-size: 15px;
+        margin-top: 1px;
+      }
+      .finding {
+        border: 1px solid var(--amber-50);
+        background: var(--amber-50);
+        border-radius: 10px;
+        padding: 11px;
+      }
+      .finding .ttl {
+        font-weight: 600;
+        color: var(--amber);
+        font-size: 12.5px;
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .finding p {
+        margin: 6px 0 9px;
+        font-size: 12px;
+        color: #6b5212;
+      }
+      .finding .row {
+        display: flex;
+        gap: 6px;
+      }
+      .finding .row button {
+        flex: 1;
+        height: 28px;
+        border-radius: 7px;
+        border: 1px solid var(--navy);
+        background: #fff;
+        color: var(--navy);
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .hint-banner {
+        font-family: var(--font);
+        background: var(--navy-50);
+        border: 1px solid var(--navy-100);
+        color: var(--navy-700);
+        border-radius: 8px;
+        padding: 7px 11px;
+        font-size: 12.5px;
+        margin: -8px 0 14px;
+      }
+      .legend {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+        padding: 8px 16px;
+        background: var(--card);
+        border-bottom: 1px solid var(--line);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .legend b {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .legend .pickbtn {
+        border: 1px solid var(--line-strong);
+        background: var(--card);
+        border-radius: 999px;
+        padding: 4px 11px;
+        color: var(--ink);
+        font-size: 12px;
+      }
+      .legend .pickbtn[aria-pressed="true"] {
+        background: var(--navy);
+        border-color: var(--navy);
+        color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <p class="sr-only">
+      Maquette Pharnos : montage CTD avec un en-tête de document unique dont les boutons s'adaptent
+      au type de document sélectionné. Démonstration interactive — non connectée à l'application.
+    </p>
+
+    <div class="app">
+      <!-- App bar (global, dossier) -->
+      <header class="appbar">
+        <div class="brand"><span class="logo">P</span> Pharnos</div>
+        <div class="crumb">
+          <span class="flag" aria-hidden="true">🇧🇫</span>
+          <b>Gynoril Ovule</b><span class="sep">·</span>Burkina Faso
+          <span class="sep">·</span>Module 1 — CTD UEMOA
+        </div>
+        <div class="spacer"></div>
+        <button class="ghostbtn"><i class="ti ti-map-2" aria-hidden="true"></i> Feuille de route</button>
+        <button class="ghostbtn"><i class="ti ti-mail" aria-hidden="true"></i> Correspondance</button>
+        <button class="primarybtn"><i class="ti ti-file-zip" aria-hidden="true"></i> Compiler le PDF</button>
+        <button class="ghostbtn"><i class="ti ti-share" aria-hidden="true"></i> Partager</button>
+        <div class="avatar" title="Compte">AN</div>
+      </header>
+
+      <!-- Sélecteur de démo (hors maquette : pour parcourir les types de document) -->
+      <div class="legend">
+        <b>Démo — choisir un document :</b>
+        <button class="pickbtn" data-pick="letter" aria-pressed="true">Lettre (1.1.1)</button>
+        <button class="pickbtn" data-pick="form">Formulaire RCP (1.3.1)</button>
+        <button class="pickbtn" data-pick="piece">Pièce PDF (1.2.3.2)</button>
+        <button class="pickbtn" data-pick="cover">Page de garde (1.2)</button>
+        <button class="pickbtn" data-pick="empty">Nœud vide (1.1.3)</button>
+        <span style="margin-left: auto">L'en-tête ci-dessous est le <b>même cadre</b> ; seuls les boutons changent.</span>
+      </div>
+
+      <!-- ★ EN-TÊTE DE DOCUMENT UNIQUE — structure constante, boutons adaptatifs ★ -->
+      <div class="dochead">
+        <div class="docid">
+          <span class="docnum" id="dh-num">1.1.1</span>
+          <span class="doctitle">
+            <span class="t" id="dh-title">Lettre de demande d'AMM</span>
+            <span class="s" id="dh-sub">Module 1 · Correspondance</span>
+          </span>
+          <span class="chip draft" id="dh-chip"><i class="ti ti-pencil" aria-hidden="true"></i> Brouillon</span>
+        </div>
+        <div class="actions" id="dh-actions" role="toolbar" aria-label="Actions du document"></div>
+      </div>
+
+      <!-- Corps : arborescence | canevas | panneau -->
+      <div class="body">
+        <nav class="col tree" aria-label="Structure du dossier CTD">
+          <h2>Structure</h2>
+          <div class="seq">Séquence 0001</div>
+
+          <div class="grp">Module 1 — Administratif</div>
+          <div role="tree">
+            <button class="node" role="treeitem" data-pick="cover" data-num="1.0">
+              <span class="n">1.0</span><span class="lbl">Table des matières</span>
+              <span class="dot ok" aria-hidden="true"></span>
+            </button>
+            <div class="grp" style="padding-left: 10px">1.1 Correspondance</div>
+            <button class="node sub" role="treeitem" data-pick="letter" data-num="1.1.1" aria-selected="true">
+              <span class="n">1.1.1</span><span class="lbl">Lettre de demande</span>
+              <span class="dot draft" aria-hidden="true"></span>
+            </button>
+            <button class="node sub" role="treeitem" data-pick="letter2" data-num="1.1.2">
+              <span class="n">1.1.2</span><span class="lbl">Lettre de PGHT</span>
+              <span class="dot todo" aria-hidden="true"></span>
+            </button>
+            <button class="node sub" role="treeitem" data-pick="empty" data-num="1.1.3">
+              <span class="n">1.1.3</span><span class="lbl">Informations sollicitées</span>
+              <span class="dot todo" aria-hidden="true"></span>
+            </button>
+            <button class="node" role="treeitem" data-pick="cover" data-num="1.2">
+              <span class="n">1.2</span><span class="lbl">Informations administratives</span>
+              <span class="dot draft" aria-hidden="true"></span>
+            </button>
+            <button class="node sub" role="treeitem" data-pick="piece" data-num="1.2.3.2">
+              <span class="n">1.2.3.2</span><span class="lbl">Certificat (COPP)</span>
+              <span class="dot ok" aria-hidden="true"></span>
+            </button>
+            <div class="grp" style="padding-left: 10px">1.3 Informations sur le produit</div>
+            <button class="node sub" role="treeitem" data-pick="form" data-num="1.3.1">
+              <span class="n">1.3.1</span><span class="lbl">Résumé des caract. (RCP)</span>
+              <span class="dot draft" aria-hidden="true"></span>
+            </button>
+            <button class="node sub" role="treeitem" data-pick="form-notice" data-num="1.3.2">
+              <span class="n">1.3.2</span><span class="lbl">Notice patient</span>
+              <span class="dot todo" aria-hidden="true"></span>
+            </button>
+            <button class="node sub" role="treeitem" data-pick="form-label" data-num="1.3.3">
+              <span class="n">1.3.3</span><span class="lbl">Étiquetage</span>
+              <span class="dot todo" aria-hidden="true"></span>
+            </button>
+          </div>
+        </nav>
+
+        <main class="col canvas">
+          <div class="stage" id="stage"></div>
+        </main>
+
+        <aside class="col rail" aria-label="Tableau de bord et notes">
+          <div class="railcard" style="text-align: center">
+            <h3>Complétude du dossier</h3>
+            <div class="ring" role="img" aria-label="32 pour cent complété"><div>32%</div></div>
+            <div style="font-size: 12px; color: var(--muted)">7 / 22 sections prêtes</div>
+          </div>
+          <div class="railcard">
+            <h3>Notes de session</h3>
+            <div class="note">
+              <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+              <span>Titulaire ≠ fabricant : contrat (licence/fabrication) non fourni.</span>
+            </div>
+            <div class="note">
+              <i class="ti ti-info-circle" aria-hidden="true"></i>
+              <span>1.3.1 RCP — champs à compléter.</span>
+            </div>
+          </div>
+          <div class="railcard finding" id="finding" hidden>
+            <div class="ttl"><i class="ti ti-shield-search" aria-hidden="true"></i> Constat Regafy</div>
+            <p id="finding-text">Validité du COPP non détectée automatiquement — à vérifier.</p>
+            <div class="row">
+              <button>Traduire</button><button>Remplacer</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <script>
+      const DL =
+        '<button class="act" aria-haspopup="menu"><i class="ti ti-download"></i> Télécharger <i class="ti ti-chevron-down caret"></i></button>';
+      const UP = '<button class="act"><i class="ti ti-upload"></i> Téléverser</button>';
+      const MORE =
+        '<button class="iconbtn danger" aria-label="Plus d’actions"><i class="ti ti-dots"></i></button>';
+      const FMT =
+        '<span class="fmt" role="group" aria-label="Mise en forme"><button aria-label="Gras"><i class="ti ti-bold"></i></button><button aria-label="Italique"><i class="ti ti-italic"></i></button><button aria-label="Titre"><i class="ti ti-heading"></i></button><button aria-label="Liste"><i class="ti ti-list"></i></button></span>';
+
+      const SHEET_RCP = `
+        <div class="sheet">
+          <div class="titlestrip"><div class="t1">Résumé des Caractéristiques du Produit</div><div class="t2">Formulaire interactif — gabarit réglementaire (Burkina Faso / UEMOA)</div></div>
+          <div class="hint-banner"><b>Astuce :</b> remplissez les champs, cochez les mentions applicables. L'export est 100 % conforme au gabarit en vigueur.</div>
+          <p class="doc-h">RESUME DES CARACTERISTIQUES DU PRODUIT</p>
+          <p class="doc-sec">1. DENOMINATION DU MEDICAMENT</p>
+          <div class="field" style="font-style: normal; color: #111">Gynoril Ovule, 200 mg + 35 000 UI + 35 000 UI + 100 000 UI, Ovule</div>
+          <p class="doc-sec">2. COMPOSITION QUALITATIVE ET QUANTITATIVE</p>
+          <div class="field">Composition qualitative et quantitative (substance(s) active(s) et quantité par unité de prise)</div>
+          <p class="doc-sec">3. FORME PHARMACEUTIQUE</p>
+          <div class="field">Forme pharmaceutique et description (aspect)</div>
+        </div>`;
+
+      const SHEET_LETTER = `
+        <div class="sheet">
+          <div class="doc-logo">Logo titulaire</div>
+          <p class="doc-p" style="text-align: right">Ottawa, le 18 juin 2026</p>
+          <p class="doc-p">À<br />Madame la Directrice Générale<br />Agence Nationale de Régulation Pharmaceutique (ANRP)<br />Ouagadougou, 01 BP 7009</p>
+          <p class="doc-p"><b>Objet :</b> Demande d'enregistrement d'AMM du produit Gynoril Ovule</p>
+          <p class="doc-p">Madame la Directrice Générale,</p>
+          <p class="doc-p">Nous avons l'honneur de soumettre à votre haute bienveillance le dossier de demande d'autorisation de mise sur le marché (AMM) pour notre spécialité pharmaceutique suivante :</p>
+          <p class="doc-p" style="padding-left: 18px">• <b>Nom commercial :</b> Gynoril Ovule<br />• <b>DCI :</b> Métronidazole + Néomycine + Polymyxine B + Nystatine</p>
+        </div>`;
+
+      const EMPTY = (num, title, lead) => `
+        <div class="empty">
+          <i class="ti ti-sparkles hero" aria-hidden="true"></i>
+          <div style="font-size:16px;font-weight:600">${title}</div>
+          <div class="lead">${lead}</div>
+        </div>`;
+
+      const COVER = (num, title) => `
+        <div class="empty">
+          <div class="big">${num}</div>
+          <div style="font-size:16px;font-weight:600">${title}</div>
+          <div class="lead">Page de garde générée automatiquement à la compilation (numéro et intitulé de la section). Vous pouvez téléverser votre propre page.</div>
+        </div>`;
+
+      const PDF = `
+        <div class="pdfframe">
+          <span class="chip file pdfbadge"><i class="ti ti-file-type-pdf"></i> PDF · 2 pages</span>
+          <i class="ti ti-file-type-pdf hero" aria-hidden="true"></i>
+          <div>Certificat de Produit Pharmaceutique (COPP)<br /><span style="font-size:12px">aperçu de la pièce téléversée</span></div>
+        </div>`;
+
+      const DOCS = {
+        letter: {
+          num: "1.1.1", title: "Lettre de demande d'AMM", sub: "Module 1 · Correspondance",
+          chip: ["draft", "ti-pencil", "Brouillon"],
+          actions: ['<button class="act" aria-pressed="false" data-edit><i class="ti ti-edit"></i> Modifier</button>', '<span class="vsep"></span>', '<button class="act accent"><i class="ti ti-sparkles"></i> Régénérer</button>', '<button class="act"><i class="ti ti-signature"></i> Signer</button>', '<button class="act"><i class="ti ti-layout-navbar"></i> En-tête / Pied</button>', DL, UP, MORE],
+          canvas: SHEET_LETTER, finding: null,
+        },
+        letter2: {
+          num: "1.1.2", title: "Lettre de PGHT", sub: "Module 1 · Correspondance",
+          chip: ["todo", "ti-circle-dashed", "À générer"],
+          actions: ['<button class="act solid"><i class="ti ti-sparkles"></i> Générer</button>', UP],
+          canvas: EMPTY("1.1.2", "Lettre de PGHT (Prix Grossiste Hors Taxe)", "Générez ce document depuis le modèle UEMOA, ou téléversez un fichier."), finding: null,
+        },
+        form: {
+          num: "1.3.1", title: "Résumé des caractéristiques du produit (RCP)", sub: "Module 1 · Information produit",
+          chip: ["draft", "ti-pencil", "Brouillon"],
+          actions: ['<button class="act"><i class="ti ti-rotate"></i> Réinitialiser</button>', DL, UP, MORE],
+          canvas: SHEET_RCP, finding: null,
+        },
+        "form-notice": {
+          num: "1.3.2", title: "Notice patient (PIL)", sub: "Module 1 · Information produit",
+          chip: ["todo", "ti-circle-dashed", "À générer"],
+          actions: ['<button class="act"><i class="ti ti-adjustments"></i> Réglages</button>', '<button class="act"><i class="ti ti-rotate"></i> Réinitialiser</button>', DL, UP, MORE],
+          canvas: SHEET_RCP, finding: null,
+        },
+        "form-label": {
+          num: "1.3.3", title: "Étiquetage", sub: "Module 1 · Information produit",
+          chip: ["todo", "ti-circle-dashed", "À générer"],
+          actions: ['<button class="act"><i class="ti ti-rotate"></i> Réinitialiser</button>', DL, UP, MORE],
+          canvas: SHEET_RCP, finding: null,
+        },
+        piece: {
+          num: "1.2.3.2", title: "Certificat de Produit Pharmaceutique (COPP)", sub: "Module 1 · Pièce téléversée",
+          chip: ["file", "ti-file-type-pdf", "PDF"],
+          actions: ['<button class="act accent"><i class="ti ti-shield-search"></i> Analyser</button>', '<button class="act"><i class="ti ti-download"></i> Télécharger</button>', '<button class="act"><i class="ti ti-replace"></i> Remplacer</button>', MORE],
+          canvas: PDF, finding: "Validité du COPP non détectée automatiquement — à vérifier manuellement.",
+        },
+        cover: {
+          num: "1.2", title: "Informations administratives", sub: "Module 1 · Page de garde",
+          chip: ["ok", "ti-sparkles", "Autogénéré"],
+          actions: ['<button class="act" aria-pressed="true"><i class="ti ti-sparkles"></i> Autogénéré</button>', UP],
+          canvas: COVER("1.2", "Informations administratives"), finding: null,
+        },
+        empty: {
+          num: "1.1.3", title: "Informations sollicitées par l'Autorité", sub: "Module 1 · Correspondance",
+          chip: ["todo", "ti-circle-dashed", "À générer"],
+          actions: ['<button class="act solid"><i class="ti ti-sparkles"></i> Générer</button>', UP],
+          canvas: EMPTY("1.1.3", "Informations sollicitées par l'Autorité de réglementation", "Générez ce document depuis le modèle UEMOA, ou téléversez un fichier."), finding: null,
+        },
+      };
+
+      const $ = (s) => document.querySelector(s);
+      function render(key) {
+        const d = DOCS[key] || DOCS.letter;
+        $("#dh-num").textContent = d.num;
+        $("#dh-title").textContent = d.title;
+        $("#dh-sub").textContent = d.sub;
+        const chip = $("#dh-chip");
+        chip.className = "chip " + d.chip[0];
+        chip.innerHTML = '<i class="ti ' + d.chip[1] + '" aria-hidden="true"></i> ' + d.chip[2];
+        $("#dh-actions").innerHTML = d.actions.join("");
+        $("#stage").innerHTML = d.canvas;
+        const f = $("#finding");
+        if (d.finding) { f.hidden = false; $("#finding-text").textContent = d.finding; }
+        else f.hidden = true;
+        wireEdit();
+      }
+      function wireEdit() {
+        const btn = document.querySelector("[data-edit]");
+        if (!btn) return;
+        btn.addEventListener("click", () => {
+          const on = btn.getAttribute("aria-pressed") === "true";
+          btn.setAttribute("aria-pressed", String(!on));
+          const existing = document.querySelector(".fmt");
+          if (!on && !existing) btn.insertAdjacentHTML("afterend", '<span class="vsep"></span>' + FMT);
+          else if (on && existing) { existing.previousElementSibling?.remove(); existing.remove(); }
+        });
+      }
+      function select(key, num) {
+        render(key);
+        document.querySelectorAll(".pickbtn").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.pick === key)));
+        document.querySelectorAll(".node").forEach((n) =>
+          n.setAttribute("aria-selected", String(num ? n.dataset.num === num : n.dataset.pick === key)),
+        );
+      }
+      document.querySelectorAll(".pickbtn").forEach((b) =>
+        b.addEventListener("click", () => select(b.dataset.pick)),
+      );
+      document.querySelectorAll(".node").forEach((n) =>
+        n.addEventListener("click", () => select(n.dataset.pick, n.dataset.num)),
+      );
+      render("letter");
+    </script>
+  </body>
+</html>
