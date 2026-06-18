@@ -6,31 +6,81 @@ import {
   fieldText,
   resolveText,
   type FormBlock,
+  type TemplateFormState,
 } from '@/features/workspace/template-form/form-types'
 import '@/features/workspace/template-form/template-form.css'
 
 /**
- * Aperçu READ-ONLY d'un template officiel pour la Bibliothèque : rend la STRUCTURE du modèle
- * (titres, mentions, champs en gris) dans la langue demandée — référence réglementaire, non
- * remplissable ici (le remplissage réel se fait dans un dossier du CTD Workspace). Réutilise la
- * feuille A4 navy/Times des formulaires. Les libellés bilingues sont résolus via `fieldText` /
- * `fieldList` (repli FR pour les blocs pas encore traduits). Zéro hallucination : texte verbatim.
+ * Rendu d'un template officiel sur la feuille A4 navy/Times. Deux modes :
+ *  - **aperçu** (défaut) : structure + champs en gris (référence read-only de la Bibliothèque) ;
+ *  - **éditable** (`editable` + `state` + `onChange`) : les champs deviennent des saisies réelles
+ *    (mêmes contrôles que le formulaire de dossier) → éditeur de « Mes modèles ».
+ * Libellés bilingues résolus via `fieldText`/`fieldList` (repli FR). Zéro hallucination : verbatim.
  */
-export function TemplatePreview({ model, lang }: { model: FormBlock[]; lang: Lang }) {
-  const g = DEFAULT_GLOBALS
+export function TemplatePreview({
+  model,
+  lang,
+  editable = false,
+  state,
+  onChange,
+}: {
+  model: FormBlock[]
+  lang: Lang
+  editable?: boolean
+  state?: TemplateFormState
+  onChange?: (next: TemplateFormState) => void
+}) {
+  const g = state?.globals ?? DEFAULT_GLOBALS
+  const rw = editable && state && onChange // mode éditable effectif
   const ph = (text: string) => <span className="text-muted-foreground italic">[{text}]</span>
+
+  const setValue = (key: string, v: string) =>
+    rw && onChange({ ...state, values: { ...state.values, [key]: v } })
+  const setSelect = (key: string, v: string) =>
+    rw && onChange({ ...state, selects: { ...state.selects, [key]: v } })
+  const isChecked = (key: string, idx = 0) => (state?.checks[key] ?? []).includes(idx)
+  const toggleCheck = (key: string, idx: number) => {
+    if (!rw) return
+    const cur = state.checks[key] ?? []
+    const next = cur.includes(idx) ? cur.filter((i) => i !== idx) : [...cur, idx]
+    onChange({ ...state, checks: { ...state.checks, [key]: next } })
+  }
+
+  /** Champ texte : input réel (éditable) ou placeholder gris (aperçu). */
+  const field = (key: string, placeholder: string, area = false) => {
+    if (!rw) return ph(placeholder)
+    return area ? (
+      <textarea
+        className="field-area"
+        rows={1}
+        placeholder={placeholder}
+        aria-label={placeholder}
+        value={state.values[key] ?? ''}
+        onChange={(e) => setValue(key, e.target.value)}
+      />
+    ) : (
+      <input
+        type="text"
+        className="field-input"
+        placeholder={placeholder}
+        aria-label={placeholder}
+        value={state.values[key] ?? ''}
+        onChange={(e) => setValue(key, e.target.value)}
+      />
+    )
+  }
+
   return (
     <div className="tplform">
       <div className="tplform-canvas">
         <div
           className="tplform-sheet"
-          aria-label={lang === 'en' ? 'Template preview' : 'Aperçu du template'}
+          aria-label={lang === 'en' ? 'Template form' : 'Formulaire du template'}
         >
           {model.map((b, i) => {
             switch (b.type) {
               case 'title':
-                // Facsimilé read-only : titre du document rendu en <p> stylé (pas un <h1>) — la page
-                // Bibliothèque porte déjà le <h1>, on évite un 2ᵉ h1 / un désordre de hiérarchie a11y.
+                // Facsimilé : titre du document rendu en <p> stylé (pas un <h1>) — évite un 2ᵉ h1.
                 return (
                   <p key={i} className="doc-title">
                     {fieldText(b.text, b.textEn, lang)}
@@ -90,7 +140,7 @@ export function TemplatePreview({ model, lang }: { model: FormBlock[]; lang: Lan
                     {b.label ? (
                       <span className="field-label">{fieldText(b.label, b.labelEn, lang)}</span>
                     ) : null}
-                    {ph(fieldText(b.ph, b.phEn, lang))}
+                    {field(b.key, fieldText(b.ph, b.phEn, lang))}
                     {b.suffix ? (
                       <span className="field-suffix"> {fieldText(b.suffix, b.suffixEn, lang)}</span>
                     ) : null}
@@ -98,14 +148,14 @@ export function TemplatePreview({ model, lang }: { model: FormBlock[]; lang: Lan
                 )
               case 'para':
                 return (
-                  <p key={i} className="doc-static">
-                    {ph(fieldText(b.ph, b.phEn, lang))}
-                  </p>
+                  <div key={i} className="doc-static">
+                    {field(b.key, fieldText(b.ph, b.phEn, lang), true)}
+                  </div>
                 )
               case 'duree':
                 return (
                   <p key={i} className="field-line">
-                    {ph(fieldText(b.ph, b.phEn, lang))}{' '}
+                    {field(b.key, fieldText(b.ph, b.phEn, lang))}{' '}
                     <span className="field-suffix">{lang === 'en' ? 'months' : 'mois'}</span>
                   </p>
                 )
@@ -114,10 +164,16 @@ export function TemplatePreview({ model, lang }: { model: FormBlock[]; lang: Lan
                   <div key={i}>
                     <p className="field-line">
                       <span className="field-label">{fieldText(b.label, b.labelEn, lang)}</span>
-                      {ph(fieldText(b.ph, b.phEn, lang))}
+                      {field(b.key, fieldText(b.ph, b.phEn, lang))}
                     </p>
                     <label className="chk">
-                      <span className="chk-box" aria-hidden />
+                      <input
+                        type="checkbox"
+                        className="chk-box"
+                        disabled={!rw}
+                        checked={isChecked(b.chkKey)}
+                        onChange={() => toggleCheck(b.chkKey, 0)}
+                      />
                       <span className="chk-text">{fieldText(b.chkLabel, b.chkLabelEn, lang)}</span>
                     </label>
                   </div>
@@ -127,7 +183,13 @@ export function TemplatePreview({ model, lang }: { model: FormBlock[]; lang: Lan
                   <div key={i} className="chk-group">
                     {fieldList(b.options, b.optionsEn, lang).map((opt, oi) => (
                       <label key={oi} className="chk">
-                        <span className="chk-box" aria-hidden />
+                        <input
+                          type="checkbox"
+                          className="chk-box"
+                          disabled={!rw}
+                          checked={isChecked(b.key, oi)}
+                          onChange={() => toggleCheck(b.key, oi)}
+                        />
                         <span className="chk-text">{opt}</span>
                       </label>
                     ))}
@@ -136,7 +198,13 @@ export function TemplatePreview({ model, lang }: { model: FormBlock[]; lang: Lan
               case 'check':
                 return (
                   <label key={i} className="chk">
-                    <span className="chk-box" aria-hidden />
+                    <input
+                      type="checkbox"
+                      className="chk-box"
+                      disabled={!rw}
+                      checked={isChecked(b.key)}
+                      onChange={() => toggleCheck(b.key, 0)}
+                    />
                     <span className="chk-text">{resolveText(b.text, g)}</span>
                   </label>
                 )
@@ -144,14 +212,30 @@ export function TemplatePreview({ model, lang }: { model: FormBlock[]; lang: Lan
                 return (
                   <p key={i} className="field-line doc-sub-line">
                     <span className="field-label field-label--bold">{b.before}</span>
-                    {ph(b.options.join(' / '))}
+                    {rw ? (
+                      <select
+                        className="field-select"
+                        aria-label={b.before.trim()}
+                        value={state.selects[b.key] ?? ''}
+                        onChange={(e) => setSelect(b.key, e.target.value)}
+                      >
+                        <option value="">— {lang === 'en' ? 'choose' : 'choisir'} —</option>
+                        {b.options.map((o) => (
+                          <option key={o} value={o}>
+                            {o}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      ph(b.options.join(' / '))
+                    )}
                   </p>
                 )
               case 'subLine':
                 return (
                   <p key={i} className="field-line doc-sub-line">
                     <span className="field-label field-label--bold">{b.before}</span>
-                    {ph(b.ph)}
+                    {field(b.key, b.ph)}
                   </p>
                 )
               default:

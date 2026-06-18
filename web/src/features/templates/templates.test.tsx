@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
-import { fieldList, fieldText } from '@/features/workspace/template-form/form-types'
+import { db } from '@/lib/db'
+import { emptyFormState, fieldList, fieldText } from '@/features/workspace/template-form/form-types'
 import { RCP_FORM_MODEL } from '@/features/workspace/template-form/rcp-form-model'
 import { TemplatePreview } from './TemplatePreview'
+import { deleteSavedTemplate, saveTemplate } from './saved-templates-repository'
 
 describe('résolveur bilingue (fieldText / fieldList)', () => {
   it('fieldText : EN si demandé ET disponible, sinon repli FR', () => {
@@ -33,5 +35,46 @@ describe('TemplatePreview — RCP bilingue (SmPC/MedDRA)', () => {
     render(<TemplatePreview model={RCP_FORM_MODEL} lang="fr" />)
     expect(screen.getByText('RESUME DES CARACTERISTIQUES DU PRODUIT')).toBeInTheDocument()
     expect(screen.getByText(/DONNEES CLINIQUES/)).toBeInTheDocument()
+  })
+
+  it('mode éditable : la saisie remonte via onChange (clé indépendante de la langue)', () => {
+    const state = emptyFormState(RCP_FORM_MODEL)
+    let captured = state
+    render(
+      <TemplatePreview
+        model={RCP_FORM_MODEL}
+        lang="en"
+        editable
+        state={state}
+        onChange={(s) => {
+          captured = s
+        }}
+      />,
+    )
+    const first = screen.getAllByRole('textbox')[0]! // champ « dénomination »
+    fireEvent.change(first, { target: { value: 'KV-Super Muscle' } })
+    expect(Object.values(captured.values)).toContain('KV-Super Muscle')
+  })
+})
+
+describe('saved-templates-repository (local-first Dexie)', () => {
+  it('saveTemplate persiste, deleteSavedTemplate soft-delete', async () => {
+    const state = emptyFormState(RCP_FORM_MODEL)
+    state.values['denomination'] = 'KV-Super Muscle'
+    const id = await saveTemplate({
+      orgId: 'org-test',
+      docType: 'rcp',
+      title: 'RCP KV',
+      productName: 'KV-Super Muscle',
+      lang: 'en',
+      state,
+    })
+    const rec = await db.savedTemplates.get(id)
+    expect(rec?.title).toBe('RCP KV')
+    expect(rec?.productName).toBe('KV-Super Muscle')
+    expect(rec?.deletedAt).toBeNull()
+
+    await deleteSavedTemplate(id)
+    expect((await db.savedTemplates.get(id))?.deletedAt).not.toBeNull()
   })
 })

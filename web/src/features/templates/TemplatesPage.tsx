@@ -1,12 +1,21 @@
-import { useMemo, useState } from 'react'
-import { ArrowLeft, FileText, Languages, Search } from 'lucide-react'
+import { useMemo, useState, type ReactNode } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { ArrowLeft, FileText, Languages, Pencil, Save, Search, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { db } from '@/lib/db'
 import { useI18n, type Lang, type Translatable } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
+import { useOrgId } from '@/features/org/org-context'
 import { formDefinitionFor } from '@/features/workspace/template-form/form-definitions'
+import {
+  emptyFormState,
+  type TemplateFormState,
+} from '@/features/workspace/template-form/form-types'
 import { TemplatePreview } from './TemplatePreview'
+import { deleteSavedTemplate, saveTemplate } from './saved-templates-repository'
 
 type Tab = 'dashboard' | 'saved'
 type ZoneKey = 'all' | 'uemoa' | 'afrique' | 'europe' | 'amerique' | 'asie'
@@ -28,12 +37,10 @@ const ZONES: Zone[] = [
 
 interface TemplateEntry {
   key: string
-  /** docType résolu par formDefinitionFor (null = lettre générée dans le dossier — Tranche B). */
+  /** docType résolu par formDefinitionFor (null = lettre générée dans le dossier — tranche M3). */
   docType: string | null
   label: Translatable
 }
-// Ordre validé CEO. RCP/Notice/Étiquetage ont un form-template (aperçu réel) ; Lettre de demande
-// et PGHT sont générées dans le dossier (portage en form-template = Tranche B).
 const TEMPLATES: TemplateEntry[] = [
   { key: 'cover', docType: null, label: { fr: 'Lettre de demande AMM', en: 'Cover Letter' } },
   { key: 'pght', docType: null, label: { fr: 'Lettre de PGHT', en: 'PGHT Letter' } },
@@ -41,21 +48,49 @@ const TEMPLATES: TemplateEntry[] = [
   { key: 'notice', docType: 'notice', label: { fr: 'Notice patient', en: 'PIL' } },
   { key: 'labeling', docType: 'labeling', label: { fr: 'Étiquetage', en: 'Labeling' } },
 ]
+const DOC_LABEL: Record<string, Translatable> = {
+  rcp: { fr: 'RCP', en: 'SmPC' },
+  notice: { fr: 'Notice patient', en: 'PIL' },
+  labeling: { fr: 'Étiquetage', en: 'Labeling' },
+}
+
+/** Édition en cours (carte du tableau de bord = neuf ; carte « Mes modèles » = chargé). */
+interface Editing {
+  docType: string | null
+  savedId?: string
+  title: string
+  state: TemplateFormState
+  lang: Lang
+}
 
 /**
- * Bibliothèque de templates (couche RIM). Accueil à 2 onglets : **Tableau de bord** (les 5 templates
- * officiels du Module 1, par zone réglementaire — UEMOA/CEDEAO en premier) et **Mes modèles** (les
- * versions enregistrées par l'org — persistance = tranche suivante). Accès **illimité, tous plans**
- * (aucun gating) : c'est la rédaction, pas le livrable métré. Clic sur une carte → formulaire centré
- * A4 (FR/EN). Le remplissage/sauvegarde réels d'un dossier passent par le CTD Workspace.
+ * Bibliothèque de templates (couche RIM). 2 onglets : **Tableau de bord** (5 templates officiels par
+ * zone, UEMOA/CEDEAO d'abord) et **Mes modèles** (versions enregistrées par l'org, local-first Dexie ;
+ * onglet masqué si aucune). Accès **illimité, tous plans** (aucun gating). Clic carte → formulaire
+ * centré A4 éditable (FR/EN) → Enregistrer. Le remplissage d'un dossier réel passe par le Workspace.
  */
 export function TemplatesPage() {
   const { t, lang } = useI18n()
+  const orgId = useOrgId()
   const [tab, setTab] = useState<Tab>('dashboard')
   const [zone, setZone] = useState<ZoneKey>('uemoa')
   const [query, setQuery] = useState('')
-  const [open, setOpen] = useState<TemplateEntry | null>(null)
-  const [previewLang, setPreviewLang] = useState<Lang>(lang)
+  const [editing, setEditing] = useState<Editing | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  const saved = useLiveQuery(
+    () =>
+      db.savedTemplates
+        .where('orgId')
+        .equals(orgId)
+        .filter((r) => r.deletedAt === null)
+        .toArray(),
+    [orgId],
+  )
+  const savedList = useMemo(
+    () => (saved ?? []).slice().sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1)),
+    [saved],
+  )
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -64,42 +99,112 @@ export function TemplatesPage() {
   }, [query])
 
   function pickZone(z: Zone) {
-    if (z.ready) {
-      setZone(z.key)
-    } else {
-      toast(t({ fr: `${t(z.label)} — bientôt disponible`, en: `${t(z.label)} — coming soon` }))
+    if (z.ready) setZone(z.key)
+    else toast(t({ fr: `${t(z.label)} — bientôt disponible`, en: `${t(z.label)} — coming soon` }))
+  }
+
+  function openNew(e: TemplateEntry) {
+    const def = formDefinitionFor(e.docType)
+    setEditing({
+      docType: e.docType,
+      title: '',
+      state: def
+        ? emptyFormState(def.model)
+        : ({
+            values: {},
+            checks: {},
+            selects: {},
+            globals: {
+              verb: 'prendre',
+              hcp: { medecin: true, pharmacien: true, infirmier: false },
+            },
+          } as TemplateFormState),
+      lang,
+    })
+  }
+
+  async function handleSave() {
+    if (!editing || !editing.docType) return
+    const title = editing.title.trim() || t({ fr: 'Modèle sans titre', en: 'Untitled template' })
+    setSaving(true)
+    try {
+      await saveTemplate({
+        id: editing.savedId,
+        orgId,
+        docType: editing.docType,
+        title,
+        productName: editing.state.values['denomination'] || undefined,
+        dci: editing.state.values['composition'] || undefined,
+        lang: editing.lang,
+        state: editing.state,
+      })
+      toast.success(t({ fr: 'Modèle enregistré', en: 'Template saved' }))
+      setEditing(null)
+      setTab('saved')
+    } catch (err) {
+      toast.error(t({ fr: 'Échec de l’enregistrement', en: 'Save failed' }))
+      console.error(err)
+    } finally {
+      setSaving(false)
     }
   }
 
   // ───────────────────────── Vue FORMULAIRE (centrée A4, sans menu latéral) ─────────────────────────
-  if (open) {
-    const def = formDefinitionFor(open.docType)
+  if (editing) {
+    const def = formDefinitionFor(editing.docType)
     return (
       <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => setOpen(null)}
+            onClick={() => setEditing(null)}
             className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
           >
             <ArrowLeft className="size-4" /> {t({ fr: 'Bibliothèque', en: 'Library' })}
           </button>
-          <h1 className="min-w-0 flex-1 truncate text-center text-sm font-semibold">
-            {t(open.label)}
-          </h1>
-          <LangToggle
-            value={previewLang}
-            onChange={setPreviewLang}
-            label={t({ fr: 'Langue', en: 'Language' })}
-          />
+          {def ? (
+            <>
+              <Input
+                value={editing.title}
+                onChange={(e) => setEditing({ ...editing, title: e.target.value })}
+                placeholder={t({
+                  fr: 'Nom du modèle (ex. produit)',
+                  en: 'Template name (e.g. product)',
+                })}
+                className="h-8 max-w-xs"
+                aria-label={t({ fr: 'Nom du modèle', en: 'Template name' })}
+              />
+              <div className="ml-auto flex items-center gap-2">
+                <LangToggle
+                  value={editing.lang}
+                  onChange={(l) => setEditing({ ...editing, lang: l })}
+                  label={t({ fr: 'Langue', en: 'Language' })}
+                />
+                <Button
+                  size="sm"
+                  className="h-8"
+                  onClick={() => void handleSave()}
+                  disabled={saving}
+                >
+                  <Save className="size-4" /> {t({ fr: 'Enregistrer', en: 'Save' })}
+                </Button>
+              </div>
+            </>
+          ) : null}
         </div>
         {def ? (
-          <TemplatePreview model={def.model} lang={previewLang} />
+          <TemplatePreview
+            model={def.model}
+            lang={editing.lang}
+            editable
+            state={editing.state}
+            onChange={(s) => setEditing({ ...editing, state: s })}
+          />
         ) : (
           <div className="bg-muted/30 text-muted-foreground mx-auto max-w-2xl rounded-lg border p-6 text-sm">
             {t({
-              fr: 'Cette lettre est générée directement dans un dossier (CTD Workspace) : le destinataire (Agence/Direction nationale) et les mentions s’adaptent au pays cible du montage. Son édition depuis la Bibliothèque arrive dans la prochaine tranche.',
-              en: 'This letter is generated directly inside a dossier (CTD Workspace): the recipient (national agency) and wording adapt to the dossier’s target country. Editing it from the Library is coming in the next slice.',
+              fr: 'Cette lettre est générée directement dans un dossier (CTD Workspace) : le destinataire (Agence/Direction nationale) et les mentions s’adaptent au pays cible du montage. Son édition depuis la Bibliothèque arrive prochainement.',
+              en: 'This letter is generated directly inside a dossier (CTD Workspace): the recipient (national agency) and wording adapt to the dossier’s target country. Editing it from the Library is coming soon.',
             })}
           </div>
         )}
@@ -107,7 +212,10 @@ export function TemplatesPage() {
     )
   }
 
-  // ───────────────────────── Accueil (2 onglets) ─────────────────────────
+  const showSavedTab = savedList.length > 0
+  const effectiveTab: Tab = tab === 'saved' && !showSavedTab ? 'dashboard' : tab
+
+  // ───────────────────────── Accueil (onglets) ─────────────────────────
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -120,30 +228,16 @@ export function TemplatesPage() {
         </p>
       </div>
 
-      {/* Onglets */}
+      {/* Onglets — « Mes modèles » masqué tant qu'aucun modèle enregistré. */}
       <div className="flex gap-2" role="tablist">
-        {(
-          [
-            { key: 'dashboard', label: { fr: 'Tableau de bord', en: 'Dashboard' } },
-            { key: 'saved', label: { fr: 'Mes modèles', en: 'My templates' } },
-          ] as const
-        ).map((b) => (
-          <button
-            key={b.key}
-            type="button"
-            role="tab"
-            aria-selected={tab === b.key}
-            onClick={() => setTab(b.key)}
-            className={cn(
-              'rounded-lg border px-4 py-2 text-sm font-medium transition',
-              tab === b.key
-                ? 'border-primary bg-primary/5 text-primary'
-                : 'hover:bg-accent text-muted-foreground',
-            )}
-          >
-            {t(b.label)}
-          </button>
-        ))}
+        <TabBtn active={effectiveTab === 'dashboard'} onClick={() => setTab('dashboard')}>
+          {t({ fr: 'Tableau de bord', en: 'Dashboard' })}
+        </TabBtn>
+        {showSavedTab ? (
+          <TabBtn active={effectiveTab === 'saved'} onClick={() => setTab('saved')}>
+            {t({ fr: 'Mes modèles', en: 'My templates' })} ({savedList.length})
+          </TabBtn>
+        ) : null}
       </div>
 
       {/* Header commun : recherche + filtres de zone */}
@@ -184,17 +278,13 @@ export function TemplatesPage() {
         </div>
       </div>
 
-      {tab === 'dashboard' ? (
-        // 5 cartes officielles, 2 par ligne (zone UEMOA/CEDEAO — les autres zones = bientôt).
+      {effectiveTab === 'dashboard' ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {filtered.map((e) => (
             <button
               key={e.key}
               type="button"
-              onClick={() => {
-                setPreviewLang(lang)
-                setOpen(e)
-              }}
+              onClick={() => openNew(e)}
               className="hover:border-primary/50 hover:bg-accent/40 flex items-center gap-3 rounded-xl border p-4 text-left transition"
             >
               <span className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-lg">
@@ -215,15 +305,89 @@ export function TemplatesPage() {
           ) : null}
         </div>
       ) : (
-        // Mes modèles — persistance (enregistrer/éditer/supprimer) = tranche suivante.
-        <div className="bg-muted/30 text-muted-foreground rounded-lg border p-8 text-center text-sm">
-          {t({
-            fr: 'Vous n’avez pas encore de modèle enregistré. Bientôt : enregistrez un template rempli (avec les métadonnées produit) pour le réutiliser et le modifier ici.',
-            en: 'You have no saved template yet. Coming soon: save a filled template (with product metadata) to reuse and edit it here.',
-          })}
+        // Mes modèles — cartes des modèles enregistrés (métadonnées) : éditer / supprimer.
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {savedList.map((rec) => (
+            <div key={rec.id} className="flex items-start gap-3 rounded-xl border p-4">
+              <span className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-lg">
+                <FileText className="size-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">{rec.title}</div>
+                <div className="text-muted-foreground text-xs">
+                  {t(DOC_LABEL[rec.docType] ?? { fr: rec.docType, en: rec.docType })} ·{' '}
+                  {rec.lang.toUpperCase()}
+                  {rec.productName ? ` · ${rec.productName}` : ''}
+                  {rec.dci ? ` · ${rec.dci}` : ''}
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  aria-label={t({ fr: 'Modifier', en: 'Edit' })}
+                  title={t({ fr: 'Modifier', en: 'Edit' })}
+                  className="hover:bg-accent rounded-md p-1.5"
+                  onClick={() =>
+                    setEditing({
+                      docType: rec.docType,
+                      savedId: rec.id,
+                      title: rec.title,
+                      state: rec.state as TemplateFormState,
+                      lang: rec.lang,
+                    })
+                  }
+                >
+                  <Pencil className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label={t({ fr: 'Supprimer', en: 'Delete' })}
+                  title={t({ fr: 'Supprimer', en: 'Delete' })}
+                  className="hover:bg-destructive/10 hover:text-destructive rounded-md p-1.5"
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        t({ fr: 'Supprimer ce modèle ?', en: 'Delete this template?' }),
+                      )
+                    )
+                      void deleteSavedTemplate(rec.id)
+                  }}
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
+  )
+}
+
+function TabBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={cn(
+        'rounded-lg border px-4 py-2 text-sm font-medium transition',
+        active
+          ? 'border-primary bg-primary/5 text-primary'
+          : 'hover:bg-accent text-muted-foreground',
+      )}
+    >
+      {children}
+    </button>
   )
 }
 

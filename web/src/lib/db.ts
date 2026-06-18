@@ -293,6 +293,25 @@ export interface DocAnalysisRecord {
   analyzedAt: string
 }
 
+export interface SavedTemplateRecord {
+  id: string
+  orgId: string
+  /** Type de template officiel : 'rcp' | 'notice' | 'labeling'. */
+  docType: string
+  /** Nom donné au modèle (défaut : dénomination du produit saisie). */
+  title: string
+  /** Métadonnées produit pour la carte (dérivées de la saisie). */
+  productName?: string
+  dci?: string
+  /** Langue d'édition du modèle. */
+  lang: 'fr' | 'en'
+  /** État du formulaire rempli (TemplateFormState sérialisé) — saisie indépendante de la langue. */
+  state: unknown
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+}
+
 const db = new Dexie('pharnos') as Dexie & {
   products: EntityTable<ProductRecord, 'id'>
   outbox: EntityTable<OutboxItem, 'id'>
@@ -308,6 +327,7 @@ const db = new Dexie('pharnos') as Dexie & {
   correspondenceMessages: EntityTable<CorrespondenceMessageRecord, 'id'>
   shareLinks: EntityTable<ShareLinkRecord, 'id'>
   correspondenceReads: EntityTable<CorrespondenceReadRecord, 'id'>
+  savedTemplates: EntityTable<SavedTemplateRecord, 'id'>
 }
 
 db.version(1).stores({
@@ -362,6 +382,11 @@ db.version(9).stores({
 // v10 : marqueurs de lecture des conversations (non-lus, local uniquement) — Correspondance v2.
 db.version(10).stores({
   correspondenceReads: 'id',
+})
+
+// v11 : modèles de templates enregistrés (Bibliothèque RIM, local-first) — « Mes modèles ».
+db.version(11).stores({
+  savedTemplates: 'id, orgId, docType, updatedAt, deletedAt',
 })
 
 export { db }
