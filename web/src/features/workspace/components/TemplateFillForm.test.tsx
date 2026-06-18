@@ -8,8 +8,8 @@ import { initialFormState, type TemplateFormDefinition } from '../template-form/
 import { NOTICE_FORM_DEFINITION } from '../template-form/notice-form-model'
 import { RCP_FORM_DEFINITION } from '../template-form/rcp-form-model'
 import { I18nProvider } from '@/lib/I18nProvider'
-import { TemplateFillForm } from './TemplateFillForm'
-import type { ReactElement } from 'react'
+import { TemplateFillForm, type TemplateFillFormHandle } from './TemplateFillForm'
+import { createRef, type ReactElement } from 'react'
 
 const renderI = (ui: ReactElement) => render(ui, { wrapper: I18nProvider })
 
@@ -47,6 +47,30 @@ describe('TemplateFillForm (formulaires officiels — branding CEO)', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('Aucune étude d’interaction n’a été réalisée.')).toBeInTheDocument()
     expect(screen.queryByLabelText('Verbe employé')).not.toBeInTheDocument()
+  })
+
+  it('controlsInBar : masque les actions du bandeau et expose la poignée (reset/pdf/docx)', async () => {
+    const rec = await seedGenDoc(RCP_FORM_DEFINITION)
+    const ref = createRef<TemplateFillFormHandle>()
+    renderI(
+      <TemplateFillForm
+        ref={ref}
+        def={RCP_FORM_DEFINITION}
+        genDoc={rec}
+        countryName="Bénin"
+        orgId="org-1"
+        controlsInBar
+      />,
+    )
+    // Pt2 : les actions vivent dans la barre d'actions du dossier → absentes du bandeau navy.
+    expect(screen.queryByRole('button', { name: /Télécharger DOCX/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Réinitialiser/ })).not.toBeInTheDocument()
+    // La feuille reste rendue (titre + structure).
+    expect(screen.getByText('RESUME DES CARACTERISTIQUES DU PRODUIT')).toBeInTheDocument()
+    // Poignée impérative exposée au parent.
+    expect(typeof ref.current?.reset).toBe('function')
+    expect(typeof ref.current?.pdf).toBe('function')
+    expect(typeof ref.current?.docx).toBe('function')
   })
 
   it('persiste les saisies (débouncé) dans le content TipTap du document généré', async () => {
