@@ -67,9 +67,13 @@ describe('buildDocActions — boutons adaptatifs par type de document', () => {
     const cover = buildDocActions({ kind: 'cover', handlers: {} }, t)
     expect(cover.map((a) => a.key)).toEqual(['auto', 'upload'])
     expect(cover[0]!.pressed).toBe(true)
-    const empty = buildDocActions({ kind: 'empty', handlers: {} }, t)
+    // Nœud à template sans doc → Générer + Téléverser ; nœud sans template → Téléverser seul.
+    const empty = buildDocActions({ kind: 'empty', canGenerate: true, handlers: {} }, t)
     expect(empty.map((a) => a.key)).toEqual(['generate', 'upload'])
     expect(empty[0]!.variant).toBe('solid')
+    expect(buildDocActions({ kind: 'empty', handlers: {} }, t).map((a) => a.key)).toEqual([
+      'upload',
+    ])
   })
 
   it('Télécharger = menu PDF/DOCX ; ⋯ = Supprimer (destructif) ; handlers câblés', () => {
