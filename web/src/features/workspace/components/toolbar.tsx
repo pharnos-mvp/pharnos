@@ -3,7 +3,6 @@ import { Bold, Heading2, Italic, List } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { useI18n } from '@/lib/i18n-context'
-import { cn } from '@/lib/utils'
 
 /** Barre de mise en forme TipTap (gras/italique/titre/liste) — affichée en mode Modifier. */
 export function FormatToolbar({ editor }: { editor: Editor | null }) {
@@ -48,41 +47,5 @@ export function FormatToolbar({ editor }: { editor: Editor | null }) {
         <List className="size-4" />
       </Button>
     </div>
-  )
-}
-
-/** Bouton de la pilule d'actions SOMBRE du workspace (mockup CEO) : libellé clair sur fond
- *  sombre, l'état actif s'inverse en pastille claire. */
-export function ToolbarBtn({
-  label,
-  disabled,
-  active,
-  hint,
-  onClick,
-}: {
-  label: string
-  disabled?: boolean
-  active?: boolean
-  hint?: string
-  onClick?: () => void
-}) {
-  const { t } = useI18n()
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="sm"
-      className={cn(
-        'h-7 rounded-full px-3 text-xs',
-        active
-          ? 'bg-background text-foreground hover:bg-background/90'
-          : 'text-background/85 hover:bg-background/15 hover:text-background',
-      )}
-      disabled={disabled}
-      onClick={onClick}
-      title={disabled ? (hint ?? t({ fr: 'Bientôt disponible', en: 'Coming soon' })) : label}
-    >
-      {label}
-    </Button>
   )
 }

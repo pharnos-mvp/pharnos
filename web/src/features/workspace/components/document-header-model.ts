@@ -62,6 +62,12 @@ export interface DocActionsContext {
   editing?: boolean
   /** Document généré par IA (≠ pièce téléversée) → « Régénérer » disponible. */
   aiGenerated?: boolean
+  /** Document analysable par Regafy (pièce, ou lettre = traduction / version conforme). */
+  analyzable?: boolean
+  /** Analyse réelle indisponible (hors-ligne / Supabase absent / analyse en cours) → bouton désactivé. */
+  analyzeDisabled?: boolean
+  /** Nœud à template officiel sans document généré → « Générer » disponible (même sur une pièce). */
+  canGenerate?: boolean
   handlers: Partial<{
     edit: () => void
     regenerate: () => void
@@ -74,6 +80,7 @@ export interface DocActionsContext {
     reset: () => void
     settings: () => void
     analyze: () => void
+    translate: () => void
     replace: () => void
     generate: () => void
     remove: () => void
@@ -120,6 +127,37 @@ export function buildDocActions(ctx: DocActionsContext, t: TFn): DocAction[] {
     ariaLabel: labels.more,
     menu: [{ key: 'remove', label: labels.remove, onSelect: h.remove ?? noop, destructive: true }],
   })
+  // Analyser (IA Regafy) : désactivé si l'analyse réelle est indisponible (hors-ligne…) en mode
+  // activé — en Vitrine le bouton reste cliquable (accroche → upsell).
+  const analyzeBtn = (): DocAction => ({
+    key: 'analyze',
+    kind: 'button',
+    label: t({ fr: 'Analyser', en: 'Analyze' }),
+    variant: 'accent',
+    collapsible: true,
+    disabled: ctx.regafy === 'enabled' && !!ctx.analyzeDisabled,
+    title:
+      ctx.regafy === 'enabled' && ctx.analyzeDisabled
+        ? t({ fr: 'Analyse disponible en ligne', en: 'Analysis available online' })
+        : undefined,
+    onClick: h.analyze,
+  })
+  // Traduire : accroche Vitrine (upsell) — la traduction réelle vit dans le constat Regafy (panneau).
+  const translateBtn = (): DocAction => ({
+    key: 'translate',
+    kind: 'button',
+    label: t({ fr: 'Traduire', en: 'Translate' }),
+    variant: 'accent',
+    collapsible: true,
+    onClick: h.translate,
+  })
+  const generateBtn = (): DocAction => ({
+    key: 'generate',
+    kind: 'button',
+    label: t({ fr: 'Générer', en: 'Generate' }),
+    variant: 'solid',
+    onClick: h.generate,
+  })
 
   switch (ctx.kind) {
     case 'letter':
@@ -132,6 +170,7 @@ export function buildDocActions(ctx: DocActionsContext, t: TFn): DocAction[] {
           onClick: h.edit,
         },
         { key: 'sep1', kind: 'separator' },
+        ...(ctx.analyzable && ctx.regafy && ctx.regafy !== 'hidden' ? [analyzeBtn()] : []),
         ...(ctx.aiGenerated
           ? [
               {
@@ -149,6 +188,11 @@ export function buildDocActions(ctx: DocActionsContext, t: TFn): DocAction[] {
           kind: 'button',
           label: t({ fr: 'Signer', en: 'Sign' }),
           collapsible: true,
+          // Désactivé hors mode édition : signer modifie le document (le handler re-vérifie aussi).
+          disabled: !ctx.editing,
+          title: ctx.editing
+            ? undefined
+            : t({ fr: 'Passez en mode Modifier pour signer', en: 'Switch to Edit mode to sign' }),
           onClick: h.sign,
         },
         {
@@ -158,7 +202,14 @@ export function buildDocActions(ctx: DocActionsContext, t: TFn): DocAction[] {
           collapsible: true,
           onClick: h.branding,
         },
-        downloadMenu(),
+        // Lettre = un seul format de téléchargement (.html / .docx selon le type) → bouton simple.
+        {
+          key: 'download',
+          kind: 'button',
+          label: labels.download,
+          collapsible: true,
+          onClick: h.download,
+        },
         uploadBtn(),
         moreMenu(),
       ]
@@ -184,18 +235,11 @@ export function buildDocActions(ctx: DocActionsContext, t: TFn): DocAction[] {
 
     case 'piece':
       return [
-        ...(ctx.regafy && ctx.regafy !== 'hidden'
-          ? [
-              {
-                key: 'analyze',
-                kind: 'button' as const,
-                label: t({ fr: 'Analyser', en: 'Analyze' }),
-                variant: 'accent' as const,
-                collapsible: true,
-                onClick: h.analyze,
-              },
-            ]
-          : []),
+        // Nœud à template officiel sans document généré : « Générer » reste accessible même quand
+        // une pièce est l'onglet actif (parité avec l'ancienne barre d'actions).
+        ...(ctx.canGenerate ? [generateBtn()] : []),
+        ...(ctx.regafy && ctx.regafy !== 'hidden' ? [analyzeBtn()] : []),
+        ...(ctx.regafy === 'teaser' ? [translateBtn()] : []),
         {
           key: 'download',
           kind: 'button',
@@ -229,15 +273,6 @@ export function buildDocActions(ctx: DocActionsContext, t: TFn): DocAction[] {
       ]
 
     case 'empty':
-      return [
-        {
-          key: 'generate',
-          kind: 'button',
-          label: t({ fr: 'Générer', en: 'Generate' }),
-          variant: 'solid',
-          onClick: h.generate,
-        },
-        uploadBtn(),
-      ]
+      return [generateBtn(), uploadBtn()]
   }
 }
