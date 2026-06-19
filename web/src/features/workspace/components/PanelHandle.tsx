@@ -3,9 +3,10 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
- * Poignée de rabat des panneaux latéraux — mockup CEO (pharnos_3.html `.handle-btn`) :
- * petite languette verticale 18×46 sur le bord INTÉRIEUR du panneau, centrée à l'écran
- * (sticky), chevron orienté selon l'état.
+ * Poignée de rabat des panneaux latéraux — petite languette verticale 18×46 posée SUR la
+ * bordure du panneau (pass 2 fidélité mockup : l'appelant la positionne en `absolute` sur le
+ * bord, centrée verticalement, plutôt que flottante dans un gap). Le décalage `-left/-right-[9px]`
+ * = moitié de la largeur (18 px) → la languette chevauche la bordure d'1 px. Chevron selon l'état.
  */
 export function PanelHandle({
   side,
@@ -31,7 +32,7 @@ export function PanelHandle({
       title={label}
       onClick={onClick}
       className={cn(
-        'bg-card text-muted-foreground hover:text-foreground hover:bg-accent sticky top-[45svh] grid h-[46px] w-[18px] shrink-0 place-items-center self-start rounded-lg border shadow-sm',
+        'bg-card text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:ring-ring/50 grid h-[46px] w-[18px] shrink-0 place-items-center rounded-md border shadow-sm transition-colors outline-none focus-visible:ring-[3px]',
         className,
       )}
     >

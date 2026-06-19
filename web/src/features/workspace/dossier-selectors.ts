@@ -6,6 +6,7 @@ import type {
   DossierRecord,
   GeneratedDocRecord,
 } from '@/lib/db'
+import type { Translatable } from '@/lib/i18n-context'
 import {
   nodeForDocType,
   resolveExistingNode,
@@ -167,4 +168,24 @@ export function buildViewables({
     })
   }
   return viewables
+}
+
+/**
+ * Libellé de TYPE d'un onglet (barre d'onglets de documents façon navigateur — demande CEO
+ * 2026-06-18, mockup `ctd-builder-unified-header.html` pilules `.pickbtn`). L'appelant assemble
+ * « {Type} ({n° CTD}) », le numéro étant celui du nœud sélectionné. Module pur → testable :
+ * lettre/traduction/version conforme/formulaire pour un doc généré, sinon « Pièce » suffixée du
+ * format (PDF/Word) déduit du nom de fichier.
+ */
+export function viewableTabType(v: Viewable): Translatable {
+  if (v.kind === 'letter') {
+    if (v.isTranslation) return { fr: 'Traduction', en: 'Translation' }
+    if (v.isUpgrade) return { fr: 'Version conforme', en: 'Compliant version' }
+    if (v.isFill) return { fr: 'Formulaire', en: 'Form' }
+    return { fr: 'Lettre', en: 'Letter' }
+  }
+  const ext = v.fileName.split('.').pop()?.toLowerCase()
+  if (ext === 'pdf') return { fr: 'Pièce PDF', en: 'PDF file' }
+  if (ext === 'docx' || ext === 'doc') return { fr: 'Pièce Word', en: 'Word file' }
+  return { fr: 'Pièce', en: 'File' }
 }

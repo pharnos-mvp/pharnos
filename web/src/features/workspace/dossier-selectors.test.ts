@@ -8,6 +8,8 @@ import {
   completionStats,
   docsForNode,
   nextLeafAfter,
+  viewableTabType,
+  type Viewable,
 } from './dossier-selectors'
 
 const node = (number: string, children?: CtdNodeDef[]): CtdNodeDef =>
@@ -127,5 +129,35 @@ describe('buildViewables', () => {
       isTranslation: true,
       label: 'RCP_source_FR.docx',
     })
+  })
+})
+
+describe('viewableTabType (libellé de TYPE des onglets façon navigateur)', () => {
+  const letter = (over: Partial<Extract<Viewable, { kind: 'letter' }>> = {}): Viewable => ({
+    key: 'letter:g1',
+    kind: 'letter',
+    label: 'x',
+    ...over,
+  })
+  const piece = (fileName: string): Viewable => ({
+    key: `att:${fileName}`,
+    kind: 'attachment',
+    label: fileName,
+    id: 'a1',
+    filePath: null,
+    fileName,
+  })
+
+  it('documents générés : Lettre / Traduction / Version conforme / Formulaire', () => {
+    expect(viewableTabType(letter()).fr).toBe('Lettre')
+    expect(viewableTabType(letter({ isTranslation: true })).fr).toBe('Traduction')
+    expect(viewableTabType(letter({ isUpgrade: true })).fr).toBe('Version conforme')
+    expect(viewableTabType(letter({ isFill: true })).fr).toBe('Formulaire')
+  })
+
+  it('pièces : suffixe de format déduit du nom de fichier (PDF / Word / générique)', () => {
+    expect(viewableTabType(piece('copp.pdf'))).toMatchObject({ fr: 'Pièce PDF', en: 'PDF file' })
+    expect(viewableTabType(piece('lettre.DOCX')).fr).toBe('Pièce Word')
+    expect(viewableTabType(piece('scan.png')).fr).toBe('Pièce')
   })
 })

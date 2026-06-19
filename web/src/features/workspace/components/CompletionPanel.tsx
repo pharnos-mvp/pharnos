@@ -6,8 +6,21 @@ import { cn } from '@/lib/utils'
 import type { CtdNodeDef } from '../module1-tree'
 import type { RegafyFinding } from '../regafy'
 import { Donut } from './Donut'
+import { NonConformCard } from './NonConformCard'
 
-/** Panneau droit du workspace : complétude (donut) + remarques Regafy — move-only T7. */
+/** Carte de constat (Regafy) active du document affiché, rendue dans le rail (pass 2 fidélité). */
+export interface RailFinding {
+  finding: RegafyFinding
+  docType: string
+  showReplace?: boolean
+  translating?: boolean
+  onFill: () => void
+  onTranslate: () => void
+  onReplace: () => void
+  onDismiss: () => void
+}
+
+/** Panneau droit du workspace : complétude (donut) + remarques + constat Regafy — move-only T7. */
 export function CompletionPanel({
   collapsed,
   pct,
@@ -22,6 +35,7 @@ export function CompletionPanel({
   onSelectNode,
   onTranslate,
   onFillTemplate,
+  finding,
 }: {
   collapsed: boolean
   pct: number
@@ -36,11 +50,13 @@ export function CompletionPanel({
   onSelectNode: (node: CtdNodeDef) => void
   onTranslate: (f: RegafyFinding) => void
   onFillTemplate: (f: RegafyFinding) => void
+  /** Constat de l'élément affiché (carte amber du mockup) — null si aucun / masqué. */
+  finding?: RailFinding | null
 }) {
   const { t } = useI18n()
   if (collapsed) {
     return (
-      <div className="bg-card sticky top-2 hidden max-h-[calc(100svh-6rem)] w-14 shrink-0 flex-col items-center gap-3 overflow-auto rounded-2xl border py-3 shadow-sm lg:flex">
+      <div className="bg-card hidden h-full w-14 shrink-0 flex-col items-center gap-3 overflow-auto border-l py-3 lg:flex">
         <Donut value={pct} size={44} />
         <div className="flex items-center gap-1 text-xs text-emerald-600">
           <CheckCircle2 className="size-4" /> {okCount}
@@ -55,14 +71,17 @@ export function CompletionPanel({
     )
   }
   return (
-    <aside className="sticky top-2 hidden max-h-[calc(100svh-6rem)] w-80 shrink-0 flex-col gap-3 overflow-auto pb-2 lg:flex">
-      <div className="bg-card flex flex-col items-center rounded-2xl border p-4 shadow-sm">
+    <aside
+      aria-label={t({ fr: 'Complétude et copilote', en: 'Completeness and copilot' })}
+      className="bg-card hidden h-full w-[274px] shrink-0 flex-col gap-3.5 overflow-auto border-l px-3.5 py-4 lg:flex"
+    >
+      <div className="flex flex-col items-center rounded-xl border p-4">
         <span className="w-full text-center text-sm font-medium">
           {t({ fr: 'Tableau de complétude', en: 'Completeness dashboard' })}
         </span>
         <Donut value={pct} size={110} />
       </div>
-      <div className="bg-card rounded-2xl border p-3 shadow-sm">
+      <div className="rounded-xl border p-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-medium">
             {t({ fr: 'Remarques pour la session', en: 'Notes for this session' })}
@@ -154,6 +173,8 @@ export function CompletionPanel({
           </ul>
         )}
       </div>
+      {/* Constat Regafy de l'élément affiché (carte amber du mockup) — déplacé du canevas → rail. */}
+      {finding ? <NonConformCard {...finding} /> : null}
     </aside>
   )
 }
