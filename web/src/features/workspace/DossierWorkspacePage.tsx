@@ -1,4 +1,13 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { JSONContent } from '@tiptap/core'
 import {
@@ -6,6 +15,7 @@ import {
   CircleDashed,
   FileDown,
   FileText,
+  FolderTree,
   Languages,
   Map as MapIcon,
   MessagesSquare,
@@ -23,6 +33,7 @@ import { useHeaderSlot } from '@/components/layout/header-slot'
 import { useOnlineStatus } from '@/hooks/use-online-status'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import {
   dossierDisplayStatus,
   STATUS_BADGE_CLASSES,
@@ -217,6 +228,9 @@ export function DossierWorkspacePage() {
   const [docEditing, setDocEditing] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [rightCollapsed, setRightCollapsed] = useState(false)
+  // Tiroirs mobiles (M2 responsive < lg) : Structure (gauche) & Copilote (droite).
+  const [mobileTree, setMobileTree] = useState(false)
+  const [mobileRail, setMobileRail] = useState(false)
   const [previewPdf, setPreviewPdf] = useState<{
     url: string
     name: string
@@ -1240,6 +1254,83 @@ export function DossierWorkspacePage() {
   // eslint-disable-next-line react-hooks/refs
   const headerActions = headerCtx ? buildDocActions(headerCtx, t) : []
 
+  // Props COMMUNES des panneaux (M2) — source unique partagée entre le rendu inline (≥ lg) et les
+  // tiroirs mobiles (< lg). `collapsed`, `onSelectNode` et `drawer` sont fournis par chaque usage.
+  const treePanelProps = {
+    treeEditing,
+    setTreeEditing,
+    structureOutdated,
+    onUpdateStructure: () => void handleUpdateStructure(),
+    tree: dossier.tree,
+    flatNodes,
+    selected,
+    countFor,
+    flaggedNodes,
+    onTreeChange: (tree: CtdNodeDef[]) => void handleTreeChange(tree),
+  }
+  const railPanelProps = {
+    pct,
+    okCount,
+    total: leaves.length,
+    warnCount,
+    errCount,
+    allFindings,
+    aiBusy,
+    translating,
+    targetLangLabel,
+    flatNodes,
+    onTranslate: (f: RegafyFinding) => void handleTranslate(f),
+    onFillTemplate: (f: RegafyFinding) => {
+      const n = flatNodes.find((x) => x.number === f.nodeNumber)
+      if (n) void handleFillTemplate(n)
+    },
+    finding: railFinding,
+  }
+
+  // Sélection d'un onglet (clic ou clavier) : aperçu + édition d'emblée (traduction/conforme/template).
+  const selectViewable = (v: Viewable) => {
+    setPickedKey(v.key)
+    if (v.kind === 'letter' && (v.isTranslation || v.isUpgrade || v.isFill)) setDocEditing(true)
+  }
+  // Barre d'onglets WAI-ARIA (M3) : ←/→ (+ Début/Fin) déplacent ET activent l'onglet (roving
+  // tabindex) ; Suppr/Retour retire l'onglet focalisé. Le focus suit l'onglet activé.
+  const onTabsKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (viewables.length === 0) return
+    const idx = Math.max(
+      0,
+      viewables.findIndex((v) => v.key === activeKey),
+    )
+    let next: number
+    switch (e.key) {
+      case 'ArrowRight':
+        next = (idx + 1) % viewables.length
+        break
+      case 'ArrowLeft':
+        next = (idx - 1 + viewables.length) % viewables.length
+        break
+      case 'Home':
+        next = 0
+        break
+      case 'End':
+        next = viewables.length - 1
+        break
+      case 'Delete':
+      case 'Backspace': {
+        e.preventDefault()
+        const cur = viewables[idx]
+        if (cur) void handleRemoveViewable(cur)
+        return
+      }
+      default:
+        return
+    }
+    e.preventDefault()
+    const v = viewables[next]
+    if (!v) return
+    selectViewable(v)
+    requestAnimationFrame(() => document.getElementById(`ctd-tab-${v.key}`)?.focus())
+  }
+
   return (
     // Layout plein écran (mockup ctd-builder-unified-header) : en-tête de document UNIQUE
     // full-bleed, puis 3 colonnes FLUSH (Structure │ Document │ Copilote) qui défilent
@@ -1249,13 +1340,14 @@ export function DossierWorkspacePage() {
     <>
       <div className="bg-canvas -mx-4 -mb-4 flex h-[calc(100%+1rem)] flex-col overflow-hidden md:-mx-6 md:-mb-6 md:h-[calc(100%+1.5rem)]">
         {/* Barre d'ONGLETS de documents (mockup `.legend`) — pleine largeur, ENTRE l'en-tête
-            global du shell et l'en-tête de document. Pilules `.pickbtn` : « {Type} ({n° CTD}) »,
-            navy si actif + « × » pour retirer du dossier (façon onglet de navigateur). Pas de
-            role=tab (pattern tablist clavier complet = jalon M3 a11y). */}
+            global et l'en-tête de document. WAI-ARIA `tablist` (M3) : ←/→ + Début/Fin déplacent et
+            activent, Suppr retire ; pilule navy si actif + « × » (souris). Le document = `tabpanel`. */}
         {selected && !showCoverPage && viewables.length > 0 ? (
           <div
-            role="group"
+            role="tablist"
             aria-label={t({ fr: 'Documents de la section', en: 'Section documents' })}
+            aria-orientation="horizontal"
+            onKeyDown={onTabsKeyDown}
             className="bg-card flex flex-wrap items-center gap-2 border-b px-4 py-2"
           >
             {viewables.map((v) => {
@@ -1280,13 +1372,12 @@ export function DossierWorkspacePage() {
                 >
                   <button
                     type="button"
-                    aria-current={isActive ? 'true' : undefined}
-                    onClick={() => {
-                      setPickedKey(v.key)
-                      // Traduction/version conforme/template → éditable d'emblée.
-                      if (v.kind === 'letter' && (v.isTranslation || v.isUpgrade || v.isFill))
-                        setDocEditing(true)
-                    }}
+                    role="tab"
+                    id={`ctd-tab-${v.key}`}
+                    aria-selected={isActive}
+                    aria-controls="ctd-doc-panel"
+                    tabIndex={isActive ? 0 : -1}
+                    onClick={() => selectViewable(v)}
                     title={v.label}
                     className="focus-visible:ring-ring/50 max-w-[200px] truncate rounded-full py-1 pr-1.5 pl-[11px] font-medium outline-none focus-visible:ring-[3px]"
                   >
@@ -1294,6 +1385,7 @@ export function DossierWorkspacePage() {
                   </button>
                   <button
                     type="button"
+                    tabIndex={-1}
                     aria-label={`${removeHint} — ${tabLabel}`}
                     title={removeHint}
                     onClick={() => void handleRemoveViewable(v)}
@@ -1330,24 +1422,22 @@ export function DossierWorkspacePage() {
           />
         ) : null}
 
+        {/* Barre MOBILE (< lg) : ouvre Structure / Copilote en tiroir (M2 responsive). Les panneaux
+            latéraux passent en tiroirs `Sheet` sous lg ; ≥ lg ils restent inline en colonnes. */}
+        <div className="flex shrink-0 items-center gap-2 border-b px-3 py-1.5 lg:hidden">
+          <Button variant="outline" size="sm" onClick={() => setMobileTree(true)}>
+            <FolderTree className="size-4" /> {t({ fr: 'Structure', en: 'Structure' })}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setMobileRail(true)}>
+            <Sparkles className="size-4" /> {t({ fr: 'Copilote', en: 'Copilot' })}
+          </Button>
+        </div>
+
         {/* Corps : 3 colonnes flush ; `relative` → poignées de rabat posées SUR les bordures. */}
         <div className="relative flex min-h-0 flex-1">
-          {/* Colonne 1 — Structure (bordure droite, pleine hauteur, défile). */}
-          <div className="relative h-full shrink-0">
-            <TreePanel
-              collapsed={collapsed}
-              treeEditing={treeEditing}
-              setTreeEditing={setTreeEditing}
-              structureOutdated={structureOutdated}
-              onUpdateStructure={() => void handleUpdateStructure()}
-              tree={dossier.tree}
-              flatNodes={flatNodes}
-              selected={selected}
-              onSelectNode={handleSelectNode}
-              countFor={countFor}
-              flaggedNodes={flaggedNodes}
-              onTreeChange={(tree) => void handleTreeChange(tree)}
-            />
+          {/* Colonne 1 — Structure : inline ≥ lg, en tiroir < lg (cf. Sheet plus bas). */}
+          <div className="relative hidden h-full shrink-0 lg:block">
+            <TreePanel {...treePanelProps} collapsed={collapsed} onSelectNode={handleSelectNode} />
             <PanelHandle
               side="left"
               open={!collapsed}
@@ -1378,7 +1468,16 @@ export function DossierWorkspacePage() {
                     e.target.value = ''
                   }}
                 />
-                <div className="mx-auto w-full max-w-[840px] p-4 md:p-5">
+                <div
+                  className="mx-auto w-full max-w-[840px] p-4 md:p-5"
+                  {...(!showCoverPage && viewables.length > 0
+                    ? {
+                        role: 'tabpanel',
+                        id: 'ctd-doc-panel',
+                        'aria-labelledby': `ctd-tab-${activeKey}`,
+                      }
+                    : {})}
+                >
                   {showCoverPage && selected ? (
                     // Page de GARDE : aperçu numéro + intitulé (contenu autogénéré à la compilation).
                     // L'identité (titre h2) et les actions (Autogénéré / Téléverser) vivent dans l'EN-TÊTE.
@@ -1626,28 +1725,58 @@ export function DossierWorkspacePage() {
               className="absolute top-1/2 -left-[9px] z-20 -translate-y-1/2"
             />
             <CompletionPanel
+              {...railPanelProps}
               collapsed={rightCollapsed}
-              pct={pct}
-              okCount={okCount}
-              total={leaves.length}
-              warnCount={warnCount}
-              errCount={errCount}
-              allFindings={allFindings}
-              aiBusy={aiBusy}
-              translating={translating}
-              targetLangLabel={targetLangLabel}
-              flatNodes={flatNodes}
               onSelectNode={handleSelectNode}
-              onTranslate={(f) => void handleTranslate(f)}
-              onFillTemplate={(f) => {
-                const n = flatNodes.find((x) => x.number === f.nodeNumber)
-                if (n) void handleFillTemplate(n)
-              }}
-              finding={railFinding}
             />
           </div>
         </div>
+        {/* « Compiler » en barre basse — accès au pouce sur mobile (< lg) ; l'action vit aussi
+            dans l'en-tête global. M2 responsive. */}
+        <div className="flex shrink-0 items-center gap-2 border-t px-3 py-2 lg:hidden">
+          <Button className="h-11 flex-1" disabled={compiling} onClick={() => handleCompileClick()}>
+            <FileDown className="size-4" />
+            {compiling
+              ? t({ fr: 'Compilation…', en: 'Compiling…' })
+              : t({ fr: 'Compiler le PDF', en: 'Compile the PDF' })}
+          </Button>
+        </div>
       </div>
+
+      {/* Tiroirs mobiles (M2 < lg) — Structure (gauche) & Copilote (droite). Portalisés (Radix)
+          → hors du conteneur overflow-hidden ; fermeture auto à la sélection d'un nœud. */}
+      <Sheet open={mobileTree} onOpenChange={setMobileTree}>
+        <SheetContent side="left" className="w-[300px] max-w-[86vw] p-0">
+          <SheetTitle className="sr-only">
+            {t({ fr: 'Structure du dossier', en: 'Dossier structure' })}
+          </SheetTitle>
+          <TreePanel
+            {...treePanelProps}
+            drawer
+            collapsed={false}
+            onSelectNode={(n) => {
+              handleSelectNode(n)
+              setMobileTree(false)
+            }}
+          />
+        </SheetContent>
+      </Sheet>
+      <Sheet open={mobileRail} onOpenChange={setMobileRail}>
+        <SheetContent side="right" className="w-[300px] max-w-[86vw] p-0">
+          <SheetTitle className="sr-only">
+            {t({ fr: 'Complétude et copilote', en: 'Completeness and copilot' })}
+          </SheetTitle>
+          <CompletionPanel
+            {...railPanelProps}
+            drawer
+            collapsed={false}
+            onSelectNode={(n) => {
+              handleSelectNode(n)
+              setMobileRail(false)
+            }}
+          />
+        </SheetContent>
+      </Sheet>
 
       {previewPdf ? (
         <PdfPreviewDialog

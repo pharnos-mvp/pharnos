@@ -99,3 +99,35 @@ export function newNode(label = 'Nouvelle section'): CtdNodeDef {
 export function flattenTree(nodes: CtdNodeDef[]): CtdNodeDef[] {
   return nodes.flatMap((n) => [n, ...(n.children ? flattenTree(n.children) : [])])
 }
+
+/** Un nœud VISIBLE (expansion respectée), aplati dans l'ordre d'affichage. */
+export interface VisibleNode {
+  id: string
+  node: CtdNodeDef
+  level: number
+  hasChildren: boolean
+  expanded: boolean
+  parentId: string | null
+}
+
+/**
+ * Aplatit les nœuds VISIBLES (ordre d'affichage, expansion respectée) → support de la navigation
+ * clavier WAI-ARIA de l'arbre (roving tabindex : ↑↓ entre nœuds visibles, →← déplier/replier/parent).
+ * `collapsed` = ids repliés (absent ⇒ déplié). Pur → testable.
+ */
+export function flattenVisible(
+  nodes: CtdNodeDef[],
+  collapsed: ReadonlySet<string>,
+  level = 1,
+  parentId: string | null = null,
+): VisibleNode[] {
+  const out: VisibleNode[] = []
+  for (const node of nodes) {
+    const id = node.id ?? node.number
+    const hasChildren = Boolean(node.children?.length)
+    const expanded = hasChildren && !collapsed.has(id)
+    out.push({ id, node, level, hasChildren, expanded, parentId })
+    if (expanded) out.push(...flattenVisible(node.children ?? [], collapsed, level + 1, id))
+  }
+  return out
+}

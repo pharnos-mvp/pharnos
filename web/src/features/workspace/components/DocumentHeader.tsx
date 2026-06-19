@@ -74,12 +74,18 @@ const ACCENT_CLS =
   'border-emerald-600 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/60 dark:text-emerald-300 dark:hover:bg-emerald-500/10'
 const SOLID_CLS = 'bg-brand text-brand-foreground hover:bg-brand/90 border-transparent'
 // Métriques EXACTES du mockup (.act) : h 34, padding 0 11, radius 9, font 13, gap 6, icône 17.
-const ACT_BASE = 'h-[34px] gap-[6px] rounded-[9px] px-[11px] text-[13px] font-medium'
+// M2 responsive : sous une largeur d'en-tête de 48rem (conteneur `dh`), passage à 44px (cible
+// tactile) ; les libellés repliables passent en icône seule (cf. `label` + `@max-[48rem]/dh:sr-only`).
+const ACT_BASE =
+  'h-[34px] gap-[6px] rounded-[9px] px-[11px] text-[13px] font-medium @max-[48rem]/dh:h-11'
 const ACT_ICON = 'size-[17px]'
 
 function ActionButton({ a }: { a: DocAction }) {
   const Icon = ACTION_ICON[a.key]
-  const label = a.label ? <span className={cn(a.collapsible && 'dh-label')}>{a.label}</span> : null
+  // Libellé repliable : icône seule sous 48rem (sr-only → garde le nom accessible du bouton).
+  const label = a.label ? (
+    <span className={cn(a.collapsible && '@max-[48rem]/dh:sr-only')}>{a.label}</span>
+  ) : null
 
   if (a.kind === 'menu') {
     const iconOnly = !a.label
@@ -90,7 +96,7 @@ function ActionButton({ a }: { a: DocAction }) {
             type="button"
             variant="outline"
             size={iconOnly ? 'icon' : 'sm'}
-            className={cn(ACT_BASE, iconOnly && 'size-[34px] px-0')}
+            className={cn(ACT_BASE, iconOnly && 'size-[34px] px-0 @max-[48rem]/dh:size-11')}
             aria-label={a.ariaLabel}
             title={a.title ?? a.ariaLabel}
           >
@@ -155,7 +161,7 @@ export function DocumentHeader({
 }: DocumentHeaderProps) {
   const StatusIcon = status?.icon
   return (
-    <div className="bg-card flex min-h-[54px] flex-wrap items-center gap-[14px] border-b px-4 py-2">
+    <div className="bg-card @container/dh flex min-h-[54px] flex-wrap items-center gap-[14px] border-b px-4 py-2">
       <div className="flex min-w-0 items-center gap-[11px]">
         {/* Mockup .docid : numéro (badge) · titre+sous-titre (colonne) · statut. Le sous-titre
             s'aligne sous le TITRE, pas sous le numéro. Le numéro reste dans le nom accessible du
