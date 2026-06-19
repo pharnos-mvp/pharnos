@@ -15,7 +15,6 @@ import {
   CircleDashed,
   FileDown,
   FileText,
-  FolderTree,
   Languages,
   Map as MapIcon,
   MessagesSquare,
@@ -30,10 +29,10 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { useHeaderSlot } from '@/components/layout/header-slot'
+import { useBelowLg } from '@/hooks/use-below-lg'
 import { useOnlineStatus } from '@/hooks/use-online-status'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import {
   dossierDisplayStatus,
   STATUS_BADGE_CLASSES,
@@ -123,6 +122,10 @@ import { RegafyGateDialog } from './components/RegafyGateDialog'
 import { FormatToolbar } from './components/toolbar'
 import { PanelHandle } from './components/PanelHandle'
 import { TreePanel } from './components/TreePanel'
+import { DocumentActionsRail } from './components/DocumentActionsRail'
+import { SectionChips } from './components/SectionChips'
+import { buildSectionChips } from './components/section-chips-model'
+import { ValidationPanel } from './components/ValidationPanel'
 import { dossierBaseName, downloadDoc, slugify, triggerDownload } from './download-utils'
 import { UPGRADE_DOC_TYPES } from './regafy-ai'
 import { buildTemplateSkeleton, FILL_PLACEHOLDER } from './template-fill'
@@ -168,6 +171,9 @@ export function DossierWorkspacePage() {
   const { user } = useAuth()
   const userId = user?.id ?? 'local'
   const online = useOnlineStatus()
+  // Bascule de mise en page tablette/mobile (< lg) — choisie en JS pour ne monter qu'UNE
+  // arborescence (desktop 3 colonnes OU rail+carte+validation flottante+pastilles). [[use-below-lg]]
+  const belowLg = useBelowLg()
   const { t, lang } = useI18n()
   // Gestion des soumissions (envoi du dossier) réservée à Admin + rôles agence/expert (RLS 0028).
   const canSubmit = useCanManageSubmission()
@@ -228,9 +234,6 @@ export function DossierWorkspacePage() {
   const [docEditing, setDocEditing] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [rightCollapsed, setRightCollapsed] = useState(false)
-  // Tiroirs mobiles (M2 responsive < lg) : Structure (gauche) & Copilote (droite).
-  const [mobileTree, setMobileTree] = useState(false)
-  const [mobileRail, setMobileRail] = useState(false)
   const [previewPdf, setPreviewPdf] = useState<{
     url: string
     name: string
@@ -638,10 +641,11 @@ export function DossierWorkspacePage() {
           <Button
             variant="outline"
             size="sm"
+            aria-label={t({ fr: 'Feuille de route', en: 'Roadmap' })}
             onClick={() => navigate(`/workspace/${dossier.id}/roadmap`)}
           >
             <MapIcon className="size-4" />
-            {t({ fr: 'Feuille de route', en: 'Roadmap' })}
+            <span className="hidden sm:inline">{t({ fr: 'Feuille de route', en: 'Roadmap' })}</span>
           </Button>
           <Button
             variant="outline"
@@ -670,11 +674,18 @@ export function DossierWorkspacePage() {
               </span>
             ) : null}
           </Button>
-          <Button size="sm" disabled={compiling} onClick={() => compileClickRef.current()}>
-            <FileDown className="size-4" />{' '}
-            {compiling
-              ? t({ fr: 'Compilation…', en: 'Compiling…' })
-              : t({ fr: 'Compiler le PDF', en: 'Compile the PDF' })}
+          <Button
+            size="sm"
+            disabled={compiling}
+            aria-label={t({ fr: 'Compiler le PDF', en: 'Compile the PDF' })}
+            onClick={() => compileClickRef.current()}
+          >
+            <FileDown className="size-4" />
+            <span className="hidden sm:inline">
+              {compiling
+                ? t({ fr: 'Compilation…', en: 'Compiling…' })
+                : t({ fr: 'Compiler le PDF', en: 'Compile the PDF' })}
+            </span>
           </Button>
         </div>
       </div>,
@@ -1254,8 +1265,12 @@ export function DossierWorkspacePage() {
   // eslint-disable-next-line react-hooks/refs
   const headerActions = headerCtx ? buildDocActions(headerCtx, t) : []
 
-  // Props COMMUNES des panneaux (M2) — source unique partagée entre le rendu inline (≥ lg) et les
-  // tiroirs mobiles (< lg). `collapsed`, `onSelectNode` et `drawer` sont fournis par chaque usage.
+  // Pastilles de sections (refonte responsive < lg) : navigation du dossier en bas d'écran
+  // (l'arborescence latérale reste ≥ lg). Dérivation pure → numéro + statut (contenu / à vérifier).
+  const sectionChips = buildSectionChips(flatNodes, selected, countFor, flaggedNodes)
+
+  // Props COMMUNES des panneaux latéraux (≥ lg) : arborescence (gauche) & copilote (droite).
+  // `collapsed` et `onSelectNode` sont fournis par chaque usage.
   const treePanelProps = {
     treeEditing,
     setTreeEditing,
@@ -1405,7 +1420,9 @@ export function DossierWorkspacePage() {
         ) : null}
         {/* EN-TÊTE DE DOCUMENT UNIQUE (M1) : cadre constant (identité + actions), boutons adaptés
             au type — full-bleed, bordure basse. Remplace pilule + barre + bandeau navy + format. */}
-        {headerKind ? (
+        {/* ≥ lg : en-tête de document horizontal (identité + actions). < lg : masqué → l'identité
+            est rendue dans la carte document et les actions dans le rail vertical (refonte responsive). */}
+        {!belowLg && headerKind ? (
           <DocumentHeader
             number={selected?.number}
             title={headerTitle}
@@ -1422,34 +1439,39 @@ export function DossierWorkspacePage() {
           />
         ) : null}
 
-        {/* Barre MOBILE (< lg) : ouvre Structure / Copilote en tiroir (M2 responsive). Les panneaux
-            latéraux passent en tiroirs `Sheet` sous lg ; ≥ lg ils restent inline en colonnes. */}
-        <div className="flex shrink-0 items-center gap-2 border-b px-3 py-1.5 lg:hidden">
-          <Button variant="outline" size="sm" onClick={() => setMobileTree(true)}>
-            <FolderTree className="size-4" /> {t({ fr: 'Structure', en: 'Structure' })}
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setMobileRail(true)}>
-            <Sparkles className="size-4" /> {t({ fr: 'Copilote', en: 'Copilot' })}
-          </Button>
-        </div>
-
-        {/* Corps : 3 colonnes flush ; `relative` → poignées de rabat posées SUR les bordures. */}
+        {/* Corps : ≥ lg → 3 colonnes flush (Structure │ Document │ Copilote) ; < lg → rail d'actions
+            (gauche) + document + panneau de validation flottant. `relative` → poignées de rabat ≥ lg
+            ET ancrage du panneau flottant < lg (contrat de positionnement de ValidationPanel). */}
         <div className="relative flex min-h-0 flex-1">
-          {/* Colonne 1 — Structure : inline ≥ lg, en tiroir < lg (cf. Sheet plus bas). */}
-          <div className="relative hidden h-full shrink-0 lg:block">
-            <TreePanel {...treePanelProps} collapsed={collapsed} onSelectNode={handleSelectNode} />
-            <PanelHandle
-              side="left"
-              open={!collapsed}
-              onClick={() => setCollapsed(!collapsed)}
-              label={
-                collapsed
-                  ? t({ fr: "Déplier l'arborescence", en: 'Expand the structure' })
-                  : t({ fr: "Replier l'arborescence", en: 'Collapse the structure' })
-              }
-              className="absolute top-1/2 -right-[9px] z-20 -translate-y-1/2"
+          {/* Rail d'ACTIONS vertical — < lg uniquement (mêmes actions que l'en-tête, en icône seule). */}
+          {belowLg && headerKind ? (
+            <DocumentActionsRail
+              actions={headerActions}
+              toolbarLabel={t({ fr: 'Actions du document', en: 'Document actions' })}
             />
-          </div>
+          ) : null}
+
+          {/* Colonne 1 — Structure : ≥ lg uniquement (navigation < lg = pastilles en bas). */}
+          {!belowLg ? (
+            <div className="relative h-full shrink-0">
+              <TreePanel
+                {...treePanelProps}
+                collapsed={collapsed}
+                onSelectNode={handleSelectNode}
+              />
+              <PanelHandle
+                side="left"
+                open={!collapsed}
+                onClick={() => setCollapsed(!collapsed)}
+                label={
+                  collapsed
+                    ? t({ fr: "Déplier l'arborescence", en: 'Expand the structure' })
+                    : t({ fr: "Replier l'arborescence", en: 'Collapse the structure' })
+                }
+                className="absolute top-1/2 -right-[9px] z-20 -translate-y-1/2"
+              />
+            </div>
+          ) : null}
 
           {/* Colonne 2 — Document : fond canevas (mockup `--bg`), défile ; feuille centrée (max 840).
               `div` (pas `main` : le shell porte déjà le landmark `main` — pas de main imbriqué). */}
@@ -1478,6 +1500,37 @@ export function DossierWorkspacePage() {
                       }
                     : {})}
                 >
+                  {/* Identité du document (n° + titre + statut) — < lg uniquement (≥ lg = DocumentHeader).
+                      Inclut la barre de format quand on édite une lettre TipTap (parité formatSlot ≥ lg). */}
+                  {belowLg && headerKind ? (
+                    <div className="mb-3 flex flex-col gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {selected?.number ? (
+                          <span className="bg-brand/10 text-brand border-brand/20 rounded-[8px] border px-[9px] py-[4px] text-[13px] font-bold tabular-nums">
+                            {selected.number}
+                          </span>
+                        ) : null}
+                        <h2
+                          className="m-0 min-w-0 flex-1 truncate text-[15px] leading-tight font-semibold"
+                          title={headerTitle}
+                        >
+                          {selected?.number ? (
+                            <span className="sr-only">{selected.number} </span>
+                          ) : null}
+                          {headerTitle}
+                        </h2>
+                        {headerStatus ? (
+                          <span className="text-muted-foreground inline-flex shrink-0 items-center gap-1 text-xs font-medium">
+                            <headerStatus.icon className="size-3.5" aria-hidden />
+                            {headerStatus.label}
+                          </span>
+                        ) : null}
+                      </div>
+                      {isEditableActive && docEditing && !activeFormDef && liveEditor ? (
+                        <FormatToolbar editor={liveEditor} />
+                      ) : null}
+                    </div>
+                  ) : null}
                   {showCoverPage && selected ? (
                     // Page de GARDE : aperçu numéro + intitulé (contenu autogénéré à la compilation).
                     // L'identité (titre h2) et les actions (Autogénéré / Téléverser) vivent dans l'EN-TÊTE.
@@ -1711,72 +1764,39 @@ export function DossierWorkspacePage() {
             )}
           </div>
 
-          {/* Colonne 3 — Copilote (bordure gauche, pleine hauteur, défile) + poignée sur la bordure. */}
-          <div className="relative hidden h-full shrink-0 lg:block">
-            <PanelHandle
-              side="right"
-              open={!rightCollapsed}
-              onClick={() => setRightCollapsed(!rightCollapsed)}
-              label={
-                rightCollapsed
-                  ? t({ fr: 'Afficher la complétude', en: 'Show completeness' })
-                  : t({ fr: 'Replier la complétude', en: 'Collapse completeness' })
-              }
-              className="absolute top-1/2 -left-[9px] z-20 -translate-y-1/2"
-            />
-            <CompletionPanel
-              {...railPanelProps}
-              collapsed={rightCollapsed}
-              onSelectNode={handleSelectNode}
-            />
-          </div>
-        </div>
-        {/* « Compiler » en barre basse — accès au pouce sur mobile (< lg) ; l'action vit aussi
-            dans l'en-tête global. M2 responsive. */}
-        <div className="flex shrink-0 items-center gap-2 border-t px-3 py-2 lg:hidden">
-          <Button className="h-11 flex-1" disabled={compiling} onClick={() => handleCompileClick()}>
-            <FileDown className="size-4" />
-            {compiling
-              ? t({ fr: 'Compilation…', en: 'Compiling…' })
-              : t({ fr: 'Compiler le PDF', en: 'Compile the PDF' })}
-          </Button>
-        </div>
-      </div>
+          {/* Colonne 3 — Copilote : ≥ lg uniquement (< lg → panneau de validation flottant). */}
+          {!belowLg ? (
+            <div className="relative h-full shrink-0">
+              <PanelHandle
+                side="right"
+                open={!rightCollapsed}
+                onClick={() => setRightCollapsed(!rightCollapsed)}
+                label={
+                  rightCollapsed
+                    ? t({ fr: 'Afficher la complétude', en: 'Show completeness' })
+                    : t({ fr: 'Replier la complétude', en: 'Collapse completeness' })
+                }
+                className="absolute top-1/2 -left-[9px] z-20 -translate-y-1/2"
+              />
+              <CompletionPanel
+                {...railPanelProps}
+                collapsed={rightCollapsed}
+                onSelectNode={handleSelectNode}
+              />
+            </div>
+          ) : null}
 
-      {/* Tiroirs mobiles (M2 < lg) — Structure (gauche) & Copilote (droite). Portalisés (Radix)
-          → hors du conteneur overflow-hidden ; fermeture auto à la sélection d'un nœud. */}
-      <Sheet open={mobileTree} onOpenChange={setMobileTree}>
-        <SheetContent side="left" className="w-[300px] max-w-[86vw] p-0">
-          <SheetTitle className="sr-only">
-            {t({ fr: 'Structure du dossier', en: 'Dossier structure' })}
-          </SheetTitle>
-          <TreePanel
-            {...treePanelProps}
-            drawer
-            collapsed={false}
-            onSelectNode={(n) => {
-              handleSelectNode(n)
-              setMobileTree(false)
-            }}
-          />
-        </SheetContent>
-      </Sheet>
-      <Sheet open={mobileRail} onOpenChange={setMobileRail}>
-        <SheetContent side="right" className="w-[300px] max-w-[86vw] p-0">
-          <SheetTitle className="sr-only">
-            {t({ fr: 'Complétude et copilote', en: 'Completeness and copilot' })}
-          </SheetTitle>
-          <CompletionPanel
-            {...railPanelProps}
-            drawer
-            collapsed={false}
-            onSelectNode={(n) => {
-              handleSelectNode(n)
-              setMobileRail(false)
-            }}
-          />
-        </SheetContent>
-      </Sheet>
+          {/* Panneau de VALIDATION flottant — < lg uniquement (remplace le Copilote latéral).
+              Ancré en absolu dans ce corps `relative` (contrat de positionnement de ValidationPanel) ;
+              même contrat de données que CompletionPanel (railPanelProps). */}
+          {belowLg ? <ValidationPanel {...railPanelProps} onSelectNode={handleSelectNode} /> : null}
+        </div>
+
+        {/* Barre de SECTIONS (pastilles) — < lg uniquement : navigation du dossier (remplace
+            l'arborescence latérale ; l'édition de structure reste desktop-only). « Compiler » vit
+            dans l'en-tête (bouton compact, icône seule < sm). */}
+        {belowLg ? <SectionChips chips={sectionChips} onSelect={handleSelectNode} /> : null}
+      </div>
 
       {previewPdf ? (
         <PdfPreviewDialog
