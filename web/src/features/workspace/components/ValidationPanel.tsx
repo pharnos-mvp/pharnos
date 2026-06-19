@@ -25,26 +25,30 @@ import type { RailFinding } from './CompletionPanel'
 
 type Severity = 'ok' | 'warn' | 'error'
 
+// `iconCls` colore l'ICÔNE (objet graphique, contraste non-textuel ≥ 3:1) ; le NOMBRE reste en
+// `text-foreground` (jeton AA garanti) → on ne tient pas le contraste du texte sur une teinte
+// de sévérité (emerald/amber-600 échouent 4.5:1 en clair). Les sévérités diffèrent aussi par la
+// FORME de l'icône (✓/⚠/✗), pas seulement la couleur (WCAG 1.4.1).
 const SEV_META: Record<
   Severity,
-  { label: Translatable; dot: string; text: string; icon: typeof CheckCircle2 }
+  { label: Translatable; dot: string; iconCls: string; icon: typeof CheckCircle2 }
 > = {
   ok: {
     label: { fr: 'Validés', en: 'Validated' },
     dot: 'bg-emerald-500',
-    text: 'text-emerald-600 dark:text-emerald-400',
+    iconCls: 'text-emerald-600 dark:text-emerald-400',
     icon: CheckCircle2,
   },
   warn: {
     label: { fr: 'Avertissements', en: 'Warnings' },
     dot: 'bg-amber-500',
-    text: 'text-amber-600 dark:text-amber-400',
+    iconCls: 'text-amber-700 dark:text-amber-400',
     icon: AlertTriangle,
   },
   error: {
     label: { fr: 'Erreurs', en: 'Errors' },
     dot: 'bg-red-500',
-    text: 'text-red-600 dark:text-red-500',
+    iconCls: 'text-red-600 dark:text-red-400',
     icon: XCircle,
   },
 }
@@ -150,12 +154,11 @@ export function ValidationPanel({
               aria-label={`${n} ${t(m.label)}`}
               onClick={() => setOpen((o) => (o === sev ? null : sev))}
               className={cn(
-                'focus-visible:ring-ring/50 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm font-semibold outline-none focus-visible:ring-[3px]',
-                m.text,
+                'focus-visible:ring-ring/50 text-foreground flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm font-semibold outline-none focus-visible:ring-[3px]',
                 isOpen ? 'bg-accent' : 'hover:bg-accent',
               )}
             >
-              <Icon className="size-[18px]" aria-hidden />
+              <Icon className={cn('size-[18px]', m.iconCls)} aria-hidden />
               <span className="tabular-nums">{n}</span>
             </button>
           )

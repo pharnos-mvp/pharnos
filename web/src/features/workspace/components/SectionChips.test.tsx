@@ -56,7 +56,8 @@ describe('SectionChips (composant)', () => {
   it('clic sur une pastille → onSelect avec le nœud', async () => {
     const onSelect = vi.fn()
     renderI(<SectionChips chips={chips()} onSelect={onSelect} />)
-    await userEvent.click(screen.getByRole('button', { name: '1.2 Développement' }))
+    // 1.2 est signalé (flagged) → nom accessible suffixé « — à vérifier » (cf. 1.4.1).
+    await userEvent.click(screen.getByRole('button', { name: /^1\.2 Développement/ }))
     expect(onSelect).toHaveBeenCalledWith(NODES[2])
   })
 
@@ -69,6 +70,6 @@ describe('SectionChips (composant)', () => {
     expect(screen.getByRole('button', { name: '1.1 Introduction' })).toHaveFocus()
     expect(onSelect).not.toHaveBeenCalled()
     await userEvent.keyboard('{End}')
-    expect(screen.getByRole('button', { name: '1.2 Développement' })).toHaveFocus()
+    expect(screen.getByRole('button', { name: /^1\.2 Développement/ })).toHaveFocus()
   })
 })

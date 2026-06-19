@@ -90,8 +90,11 @@ export function SectionChips({
             key={c.id}
             type="button"
             data-chip-id={c.id}
-            // c.number + c.label = structure CTD réglementaire → non traduits.
-            aria-label={`${c.number} ${c.label}`}
+            // c.number + c.label = structure CTD réglementaire → non traduits. Le statut « à
+            // vérifier » est annoncé en toutes lettres (pas seulement par la couleur du point — 1.4.1).
+            aria-label={`${c.number} ${c.label}${
+              c.flagged ? ` — ${t({ fr: 'à vérifier', en: 'to review' })}` : ''
+            }`}
             aria-current={c.active ? 'true' : undefined}
             title={`${c.number} ${c.label}`}
             tabIndex={c.active || (!activeId && c === chips[0]) ? 0 : -1}
