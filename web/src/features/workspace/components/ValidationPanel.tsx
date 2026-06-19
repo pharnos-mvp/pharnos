@@ -53,8 +53,6 @@ export function ValidationPanel({
   pct,
   okCount,
   total,
-  warnCount,
-  errCount,
   allFindings,
   flatNodes,
   onSelectNode,
@@ -64,8 +62,6 @@ export function ValidationPanel({
   /** Sections prêtes (complétude) — légende sous le donut (distinct des constats « Validés »). */
   okCount: number
   total: number
-  warnCount: number
-  errCount: number
   allFindings: RegafyFinding[]
   flatNodes: CtdNodeDef[]
   onSelectNode: (node: CtdNodeDef) => void
@@ -82,10 +78,11 @@ export function ValidationPanel({
     warn: allFindings.filter((f) => !f.ok && f.severity === 'warning'),
     error: allFindings.filter((f) => !f.ok && f.severity === 'error'),
   }
+  // Compteur ET liste du pop-over dérivés de la MÊME source (buckets) → jamais désynchronisés.
   const counts: Record<Severity, number> = {
     ok: buckets.ok.length,
-    warn: warnCount,
-    error: errCount,
+    warn: buckets.warn.length,
+    error: buckets.error.length,
   }
 
   // Échap ferme le pop-over (le focus peut être resté sur le compteur déclencheur → écoute globale).
@@ -149,7 +146,7 @@ export function ValidationPanel({
               key={sev}
               type="button"
               aria-expanded={isOpen}
-              aria-controls="validation-remarks"
+              aria-controls={isOpen ? 'validation-remarks' : undefined}
               aria-label={`${n} ${t(m.label)}`}
               onClick={() => setOpen((o) => (o === sev ? null : sev))}
               className={cn(

@@ -75,7 +75,7 @@ export function SectionChips({
         aria-hidden
         tabIndex={-1}
         onClick={() => scrollByDir(-1)}
-        className="text-muted-foreground hover:bg-accent hover:text-foreground grid size-9 shrink-0 place-items-center rounded-full"
+        className="text-muted-foreground hover:bg-accent hover:text-foreground grid size-11 shrink-0 place-items-center rounded-full"
       >
         <ChevronLeft className="size-5" />
       </button>
@@ -124,7 +124,7 @@ export function SectionChips({
         aria-hidden
         tabIndex={-1}
         onClick={() => scrollByDir(1)}
-        className="text-muted-foreground hover:bg-accent hover:text-foreground grid size-9 shrink-0 place-items-center rounded-full"
+        className="text-muted-foreground hover:bg-accent hover:text-foreground grid size-11 shrink-0 place-items-center rounded-full"
       >
         <ChevronRight className="size-5" />
       </button>

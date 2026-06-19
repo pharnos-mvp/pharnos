@@ -41,7 +41,6 @@ export function CompletionPanel({
   onTranslate,
   onFillTemplate,
   finding,
-  drawer = false,
 }: {
   collapsed: boolean
   pct: number
@@ -60,13 +59,11 @@ export function CompletionPanel({
   onFillTemplate: (f: RegafyFinding) => void
   /** Constat de l'élément affiché (carte amber du mockup) — null si aucun / masqué. */
   finding?: RailFinding | null
-  /** Rendu dans un tiroir mobile (Sheet) : pleine largeur, toujours visible (M2 responsive). */
-  drawer?: boolean
 }) {
   const { t } = useI18n()
   if (collapsed) {
     return (
-      <div className="bg-card hidden h-full w-14 shrink-0 flex-col items-center gap-3 overflow-auto border-l py-3 lg:flex">
+      <div className="bg-card flex h-full w-14 shrink-0 flex-col items-center gap-3 overflow-auto border-l py-3">
         <Donut value={pct} size={44} />
         <div className="flex items-center gap-1 text-xs text-emerald-600">
           <CheckCircle2 className="size-4" /> {okCount}
@@ -83,10 +80,7 @@ export function CompletionPanel({
   return (
     <aside
       aria-label={t({ fr: 'Complétude et copilote', en: 'Completeness and copilot' })}
-      className={cn(
-        'bg-card h-full flex-col',
-        drawer ? 'flex w-full' : 'hidden w-[274px] shrink-0 border-l lg:flex',
-      )}
+      className="bg-card flex h-full w-[274px] shrink-0 flex-col border-l"
     >
       {/* Complétude du dossier — FIXE en haut : reste visible quand la liste défile (mockup). */}
       <div className="shrink-0 p-3.5 pb-0">
