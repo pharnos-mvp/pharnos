@@ -29,3 +29,24 @@ test('navigue vers le Tableau de bord', async ({ page }) => {
     .click()
   await expect(page).toHaveURL(/\/dashboard$/)
 })
+
+test('< lg : la barre latérale passe en menu ☰ (tiroir) et navigue', async ({ page }) => {
+  // Viewport mobile (< lg = 1024) : la barre latérale est masquée, un ☰ ouvre la nav en tiroir.
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/catalogue')
+  await expect(page.getByRole('heading', { level: 1, name: 'Catalogue' })).toBeVisible()
+
+  // Tiroir fermé : aucune « Navigation principale » dans l'arbre d'accessibilité (aside en display:none,
+  // tiroir Radix démonté). Le bouton ☰ est lui visible.
+  await expect(page.getByRole('navigation', { name: 'Navigation principale' })).toHaveCount(0)
+  const burger = page.getByRole('button', { name: 'Ouvrir le menu' })
+  await expect(burger).toBeVisible()
+
+  // Ouverture → la nav primaire apparaît dans le tiroir ; clic d'un lien → navigation + fermeture.
+  await burger.click()
+  const drawerNav = page.getByRole('navigation', { name: 'Navigation principale' })
+  await expect(drawerNav.getByRole('link', { name: 'CTD Workspace' })).toBeVisible()
+  await drawerNav.getByRole('link', { name: 'Tableau de bord' }).click()
+  await expect(page).toHaveURL(/\/dashboard$/)
+  await expect(page.getByRole('navigation', { name: 'Navigation principale' })).toHaveCount(0)
+})
