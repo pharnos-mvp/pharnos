@@ -1298,7 +1298,7 @@ export function DossierWorkspacePage() {
                     title={removeHint}
                     onClick={() => void handleRemoveViewable(v)}
                     className={cn(
-                      'focus-visible:ring-ring/50 mr-1 grid size-5 shrink-0 place-items-center rounded-full outline-none focus-visible:ring-[3px]',
+                      'focus-visible:ring-ring/50 mr-1 grid size-6 shrink-0 place-items-center rounded-full outline-none focus-visible:ring-[3px]',
                       isActive
                         ? 'hover:bg-brand-foreground/20'
                         : 'hover:bg-destructive/10 hover:text-destructive',

@@ -59,9 +59,10 @@
      (text-brand) sur fond sombre ; les remplissages portent un texte sombre (--brand-foreground). */
   --brand: #7da3dc;
   --brand-foreground: #0d1117;
-  /* Fond du panneau central (dark) : canvas GitHub le plus sombre (#0d1117), plus foncé que les
-     cartes #161b22 → les feuilles ressortent, miroir du gris-bleu clair du mode clair. */
-  --canvas: #0d1117;
+  /* Fond du panneau central (dark) : surface la PLUS profonde (#010409, le nav GitHub), plus
+     foncée que le shell #0d1117 ET que les cartes #161b22 → le canevas se détache et les feuilles
+     A4 ressortent (miroir du gris-bleu clair du mode clair, qui est distinct du blanc du shell). */
+  --canvas: #010409;
   --secondary: #21262d;
   --secondary-foreground: #e6edf3;
   --muted: #21262d;
