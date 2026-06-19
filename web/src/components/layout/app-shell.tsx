@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   Library,
   LogOut,
+  Menu,
   PanelLeftClose,
   PanelLeftOpen,
   Settings2,
@@ -29,6 +30,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useAuditSync } from '@/features/audit/use-audit-sync'
 import { useAuth } from '@/features/auth/auth-context'
 import { useCorrespondenceRealtime } from '@/features/correspondence/use-correspondence-realtime'
@@ -82,6 +84,14 @@ export function AppShell() {
   useCorrespondenceRealtime(orgId)
   const [collapsed, setCollapsed] = useState(readSidebarCollapsed)
   const expanded = !collapsed
+  // Menu PRINCIPAL en tiroir sous `lg` (refonte responsive tablette/mobile) : la barre latérale
+  // est masquée < lg ; un ☰ dans l'en-tête ouvre la nav (navItems + compte) dans un Sheet gauche.
+  const [navOpen, setNavOpen] = useState(false)
+  // Ferme le tiroir à chaque changement de route (clic d'un lien, retour navigateur…).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNavOpen(false)
+  }, [location.pathname])
 
   // Page de montage d'un dossier : la barre latérale passe en RAIL d'icônes (mockup CEO —
   // place maximale pour la feuille). Réouverture manuelle possible ; en quittant le montage,
@@ -125,9 +135,10 @@ export function AppShell() {
     // Hauteur viewport fixe → c'est <main> qui défile (sa scrollbar = scroll global de droite),
     // pendant que la barre latérale et l'en-tête restent figés (modèle « Google Docs »).
     <div className="bg-background text-foreground flex h-svh overflow-hidden">
+      {/* Barre latérale : visible ≥ lg uniquement (desktop inchangé) ; < lg → tiroir ☰ (refonte responsive). */}
       <aside
         className={cn(
-          'bg-sidebar flex w-16 shrink-0 flex-col border-r p-2 md:p-3',
+          'bg-sidebar hidden w-16 shrink-0 flex-col border-r p-2 md:p-3 lg:flex',
           expanded && 'md:w-60',
         )}
       >
@@ -298,8 +309,165 @@ export function AppShell() {
         {/* Le bandeau ne porte que le slot de la page (titre + actions — mockup CEO) ; le
             profil et le statut réseau vivent en bas de la barre latérale. */}
         <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
+          {/* ☰ — ouvre le menu principal en tiroir < lg (la barre latérale est masquée). */}
+          <button
+            type="button"
+            aria-label={t({ fr: 'Ouvrir le menu', en: 'Open menu' })}
+            aria-expanded={navOpen}
+            aria-controls="app-nav-drawer"
+            onClick={() => setNavOpen(true)}
+            className={cn(
+              buttonVariants({ variant: 'ghost', size: 'icon' }),
+              'size-11 shrink-0 lg:hidden',
+            )}
+          >
+            <Menu className="size-5" />
+          </button>
           {headerSlot ? <div className="min-w-0 flex-1">{headerSlot}</div> : null}
         </header>
+
+        {/* Tiroir du menu principal (< lg) : nav primaire + compte/statut. Portalisé (Radix) →
+            hors du flux ; fermé ≥ lg (la barre latérale reprend la main). */}
+        <Sheet open={navOpen} onOpenChange={setNavOpen}>
+          <SheetContent
+            side="left"
+            id="app-nav-drawer"
+            className="flex w-72 max-w-[86vw] flex-col p-0"
+          >
+            <SheetHeader className="border-b">
+              <SheetTitle className="flex items-center gap-2">
+                <img
+                  src="/brand/pharnos-logo.svg"
+                  alt=""
+                  aria-hidden
+                  className="size-7 dark:hidden"
+                />
+                <img
+                  src="/brand/pharnos-logo-dark.svg"
+                  alt=""
+                  aria-hidden
+                  className="hidden size-7 dark:block"
+                />
+                <span>Pharnos</span>
+              </SheetTitle>
+            </SheetHeader>
+
+            <nav
+              aria-label={t({ fr: 'Navigation principale', en: 'Main navigation' })}
+              className="flex flex-col gap-1 p-2"
+            >
+              {navItems.map(({ to, label, icon: Icon }) => {
+                const text = t(label)
+                return (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    className={({ isActive }) =>
+                      cn(
+                        buttonVariants({ variant: isActive ? 'secondary' : 'ghost' }),
+                        'h-11 justify-start',
+                      )
+                    }
+                  >
+                    <Icon className="size-4" /> <span>{text}</span>
+                  </NavLink>
+                )
+              })}
+            </nav>
+
+            {/* Compte + statut réseau (parité avec le bas de la barre latérale). */}
+            <div className="mt-auto flex flex-col gap-1 border-t p-2">
+              <div className="flex items-center gap-2 px-2 py-1.5">
+                <span className="relative shrink-0">
+                  <span className="bg-primary text-primary-foreground flex size-8 items-center justify-center overflow-hidden rounded-full text-xs font-semibold">
+                    {photo ? (
+                      <img src={photo} alt="" className="size-full object-cover" />
+                    ) : (
+                      initials(displayName)
+                    )}
+                  </span>
+                  <span
+                    role="status"
+                    aria-label={
+                      online
+                        ? t({ fr: 'En ligne', en: 'Online' })
+                        : t({ fr: 'Hors ligne', en: 'Offline' })
+                    }
+                    className={cn(
+                      'border-card absolute -right-0.5 -bottom-0.5 size-3 rounded-full border-2',
+                      online ? 'bg-emerald-500' : 'bg-muted-foreground',
+                    )}
+                  />
+                </span>
+                <span className="min-w-0 flex-1 leading-tight">
+                  <span className="flex items-center gap-1.5">
+                    <span className="truncate text-sm font-medium">{displayName}</span>
+                    {plan ? (
+                      <span className="bg-muted text-muted-foreground shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium">
+                        {t(PLAN_LABEL[plan.plan])}
+                      </span>
+                    ) : null}
+                  </span>
+                  {orgName ? (
+                    <span className="text-muted-foreground block truncate text-xs">{orgName}</span>
+                  ) : null}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/compte')}
+                className="hover:bg-accent flex h-11 items-center gap-2 rounded-md px-2 text-sm"
+              >
+                <Settings2 className="size-4" /> {t({ fr: 'Paramètres', en: 'Settings' })}
+              </button>
+              <div className="flex h-11 items-center gap-2 px-2 text-sm">
+                <Globe className="size-4 shrink-0" />
+                <span className="text-muted-foreground">{t({ fr: 'Langue', en: 'Language' })}</span>
+                <span className="ml-auto flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setLang('fr')}
+                    aria-pressed={lang === 'fr'}
+                    className={cn(
+                      'rounded px-2 py-1 text-xs font-medium',
+                      lang === 'fr' ? 'bg-secondary' : 'hover:bg-accent',
+                    )}
+                  >
+                    FR
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLang('en')}
+                    aria-pressed={lang === 'en'}
+                    className={cn(
+                      'rounded px-2 py-1 text-xs font-medium',
+                      lang === 'en' ? 'bg-secondary' : 'hover:bg-accent',
+                    )}
+                  >
+                    EN
+                  </button>
+                </span>
+              </div>
+              {plan && plan.plan !== 'enterprise' ? (
+                <button
+                  type="button"
+                  onClick={() => navigate('/compte', { state: { section: 'abonnement' } })}
+                  className="hover:bg-accent flex h-11 items-center gap-2 rounded-md px-2 text-sm"
+                >
+                  <ArrowUpCircle className="size-4" />{' '}
+                  {t({ fr: "Mettre à niveau l'abonnement", en: 'Upgrade plan' })}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => void signOut()}
+                className="hover:bg-accent flex h-11 items-center gap-2 rounded-md px-2 text-sm"
+              >
+                <LogOut className="size-4" /> {t({ fr: 'Se déconnecter', en: 'Sign out' })}
+              </button>
+            </div>
+          </SheetContent>
+        </Sheet>
 
         {/* tabIndex={0} : la région défilable doit être accessible au clavier (axe
             scrollable-region-focusable) — surtout quand le contenu n'a pas d'élément focusable. */}

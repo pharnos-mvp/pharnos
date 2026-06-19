@@ -27,6 +27,13 @@ if (!globalThis.localStorage) {
   })
 }
 
+// jsdom n'implémente pas les API de défilement d'éléments (scrollIntoView / scrollBy) — utilisées
+// par les barres défilables (SectionChips…). Sans stub, jsdom journalise « Not implemented » à
+// chaque appel (bruit de test). No-op déterministe.
+// Affectation inconditionnelle : jsdom peut fournir un stub « notImplemented » (qui journalise).
+Element.prototype.scrollIntoView = () => {}
+Element.prototype.scrollBy = () => {}
+
 // jsdom ne fournit pas matchMedia (utilisé par sonner / next-themes pour le thème).
 if (!window.matchMedia) {
   Object.defineProperty(window, 'matchMedia', {
