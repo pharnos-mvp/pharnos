@@ -1,4 +1,13 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { JSONContent } from '@tiptap/core'
 import {
@@ -1278,6 +1287,50 @@ export function DossierWorkspacePage() {
     finding: railFinding,
   }
 
+  // Sélection d'un onglet (clic ou clavier) : aperçu + édition d'emblée (traduction/conforme/template).
+  const selectViewable = (v: Viewable) => {
+    setPickedKey(v.key)
+    if (v.kind === 'letter' && (v.isTranslation || v.isUpgrade || v.isFill)) setDocEditing(true)
+  }
+  // Barre d'onglets WAI-ARIA (M3) : ←/→ (+ Début/Fin) déplacent ET activent l'onglet (roving
+  // tabindex) ; Suppr/Retour retire l'onglet focalisé. Le focus suit l'onglet activé.
+  const onTabsKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (viewables.length === 0) return
+    const idx = Math.max(
+      0,
+      viewables.findIndex((v) => v.key === activeKey),
+    )
+    let next: number
+    switch (e.key) {
+      case 'ArrowRight':
+        next = (idx + 1) % viewables.length
+        break
+      case 'ArrowLeft':
+        next = (idx - 1 + viewables.length) % viewables.length
+        break
+      case 'Home':
+        next = 0
+        break
+      case 'End':
+        next = viewables.length - 1
+        break
+      case 'Delete':
+      case 'Backspace': {
+        e.preventDefault()
+        const cur = viewables[idx]
+        if (cur) void handleRemoveViewable(cur)
+        return
+      }
+      default:
+        return
+    }
+    e.preventDefault()
+    const v = viewables[next]
+    if (!v) return
+    selectViewable(v)
+    requestAnimationFrame(() => document.getElementById(`ctd-tab-${v.key}`)?.focus())
+  }
+
   return (
     // Layout plein écran (mockup ctd-builder-unified-header) : en-tête de document UNIQUE
     // full-bleed, puis 3 colonnes FLUSH (Structure │ Document │ Copilote) qui défilent
@@ -1287,13 +1340,14 @@ export function DossierWorkspacePage() {
     <>
       <div className="bg-canvas -mx-4 -mb-4 flex h-[calc(100%+1rem)] flex-col overflow-hidden md:-mx-6 md:-mb-6 md:h-[calc(100%+1.5rem)]">
         {/* Barre d'ONGLETS de documents (mockup `.legend`) — pleine largeur, ENTRE l'en-tête
-            global du shell et l'en-tête de document. Pilules `.pickbtn` : « {Type} ({n° CTD}) »,
-            navy si actif + « × » pour retirer du dossier (façon onglet de navigateur). Pas de
-            role=tab (pattern tablist clavier complet = jalon M3 a11y). */}
+            global et l'en-tête de document. WAI-ARIA `tablist` (M3) : ←/→ + Début/Fin déplacent et
+            activent, Suppr retire ; pilule navy si actif + « × » (souris). Le document = `tabpanel`. */}
         {selected && !showCoverPage && viewables.length > 0 ? (
           <div
-            role="group"
+            role="tablist"
             aria-label={t({ fr: 'Documents de la section', en: 'Section documents' })}
+            aria-orientation="horizontal"
+            onKeyDown={onTabsKeyDown}
             className="bg-card flex flex-wrap items-center gap-2 border-b px-4 py-2"
           >
             {viewables.map((v) => {
@@ -1318,13 +1372,12 @@ export function DossierWorkspacePage() {
                 >
                   <button
                     type="button"
-                    aria-current={isActive ? 'true' : undefined}
-                    onClick={() => {
-                      setPickedKey(v.key)
-                      // Traduction/version conforme/template → éditable d'emblée.
-                      if (v.kind === 'letter' && (v.isTranslation || v.isUpgrade || v.isFill))
-                        setDocEditing(true)
-                    }}
+                    role="tab"
+                    id={`ctd-tab-${v.key}`}
+                    aria-selected={isActive}
+                    aria-controls="ctd-doc-panel"
+                    tabIndex={isActive ? 0 : -1}
+                    onClick={() => selectViewable(v)}
                     title={v.label}
                     className="focus-visible:ring-ring/50 max-w-[200px] truncate rounded-full py-1 pr-1.5 pl-[11px] font-medium outline-none focus-visible:ring-[3px]"
                   >
@@ -1332,6 +1385,7 @@ export function DossierWorkspacePage() {
                   </button>
                   <button
                     type="button"
+                    tabIndex={-1}
                     aria-label={`${removeHint} — ${tabLabel}`}
                     title={removeHint}
                     onClick={() => void handleRemoveViewable(v)}
@@ -1414,7 +1468,16 @@ export function DossierWorkspacePage() {
                     e.target.value = ''
                   }}
                 />
-                <div className="mx-auto w-full max-w-[840px] p-4 md:p-5">
+                <div
+                  className="mx-auto w-full max-w-[840px] p-4 md:p-5"
+                  {...(!showCoverPage && viewables.length > 0
+                    ? {
+                        role: 'tabpanel',
+                        id: 'ctd-doc-panel',
+                        'aria-labelledby': `ctd-tab-${activeKey}`,
+                      }
+                    : {})}
+                >
                   {showCoverPage && selected ? (
                     // Page de GARDE : aperçu numéro + intitulé (contenu autogénéré à la compilation).
                     // L'identité (titre h2) et les actions (Autogénéré / Téléverser) vivent dans l'EN-TÊTE.

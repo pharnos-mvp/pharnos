@@ -3,7 +3,7 @@
 // test) : syncs no-op, copilote IA inactif → comportement 100 % déterministe.
 import { useState, type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { configure, render, screen } from '@testing-library/react'
+import { configure, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -180,7 +180,11 @@ describe('DossierWorkspacePage — caractérisation (avant refactor T7)', () => 
     // Attendre l'état stable (section auto-sélectionnée) : Téléverser/Enregistrer n'existent
     // qu'une fois `selected` posé — sans ça le test est sensible à la charge de la machine.
     await screen.findByRole('heading', { level: 2 })
-    expect(await screen.findByRole('button', { name: /Compiler le PDF/ })).toBeInTheDocument()
+    // Compiler vit dans le bandeau (banner) ; une 2ᵉ instance « Compiler le PDF » existe en barre
+    // basse mobile (M2 lg:hidden) → on scope au bandeau pour lever l'ambiguïté.
+    expect(
+      await within(screen.getByRole('banner')).findByRole('button', { name: /Compiler le PDF/ }),
+    ).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: /Téléverser/ })).toBeInTheDocument()
   })
 
@@ -221,7 +225,9 @@ describe('DossierWorkspacePage — caractérisation (avant refactor T7)', () => 
     renderPage()
     // État stable d'abord (docs chargés → auto-sélection 1.2), sinon le gate voit un dossier vide.
     expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent('1.2')
-    const compile = await screen.findByRole('button', { name: /Compiler le PDF/ })
+    const compile = await within(screen.getByRole('banner')).findByRole('button', {
+      name: /Compiler le PDF/,
+    })
     compile.click()
     // Monitor étant toujours actif, le gate liste ses constats déterministes (GMP < 6 mois) — plus de
     // « Aucune analyse effectuée » — et propose Audit de conformité (IA) / Compiler quand même (jamais bloquant).
@@ -233,7 +239,9 @@ describe('DossierWorkspacePage — caractérisation (avant refactor T7)', () => 
   it('dossier vide : le gate signale « Dossier vide : aucun document. »', async () => {
     await seed({ withDoc: false })
     renderPage()
-    const compile = await screen.findByRole('button', { name: /Compiler le PDF/ })
+    const compile = await within(screen.getByRole('banner')).findByRole('button', {
+      name: /Compiler le PDF/,
+    })
     compile.click()
     expect(await screen.findByText(/Dossier vide : aucun document\./)).toBeInTheDocument()
   })
