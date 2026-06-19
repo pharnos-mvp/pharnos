@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
 import type { CtdNodeDef } from './module1-tree'
-import { addChildNode, assignIds, deleteNode, moveNode, newNode, renameNode } from './tree-utils'
+import {
+  addChildNode,
+  assignIds,
+  deleteNode,
+  flattenVisible,
+  moveNode,
+  newNode,
+  renameNode,
+} from './tree-utils'
 
 function tree(): CtdNodeDef[] {
   return assignIds([
@@ -43,5 +51,25 @@ describe('tree-utils (arborescence éditable)', () => {
     const moved = moveNode(t, t[1]!.id!, -1)
     expect(moved[0]?.number).toBe('1.1')
     expect(moved[1]?.number).toBe('1.0')
+  })
+
+  describe('flattenVisible (nav clavier WAI-ARIA de l’arbre)', () => {
+    it('tout déplié : nœuds dans l’ordre + niveau/enfants/parent', () => {
+      const t = tree()
+      const vis = flattenVisible(t, new Set())
+      expect(vis.map((v) => v.node.number)).toEqual(['1.0', '1.1', '1.1.1'])
+      const parent = vis.find((v) => v.node.number === '1.1')!
+      const child = vis.find((v) => v.node.number === '1.1.1')!
+      expect(parent).toMatchObject({ level: 1, hasChildren: true, expanded: true, parentId: null })
+      expect(child).toMatchObject({ level: 2, hasChildren: false, parentId: parent.id })
+    })
+
+    it('un nœud replié masque ses descendants', () => {
+      const t = tree()
+      const collapsed = new Set([t[1]!.id!])
+      const vis = flattenVisible(t, collapsed)
+      expect(vis.map((v) => v.node.number)).toEqual(['1.0', '1.1'])
+      expect(vis.find((v) => v.node.number === '1.1')).toMatchObject({ expanded: false })
+    })
   })
 })
