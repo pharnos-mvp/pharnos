@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { AppFooter } from '@/components/layout/AppFooter'
 import { HeaderSlotContext } from '@/components/layout/header-slot'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
@@ -150,7 +151,10 @@ export function AppShell() {
           ) : null}
         </div>
 
-        <nav className="mt-2 flex flex-col gap-1">
+        <nav
+          aria-label={t({ fr: 'Navigation principale', en: 'Main navigation' })}
+          className="mt-2 flex flex-col gap-1"
+        >
           {navItems.map(({ to, label, icon: Icon }) => {
             const text = t(label)
             return (
@@ -318,6 +322,9 @@ export function AppShell() {
               </Suspense>
             </ErrorBoundary>
           </HeaderSlotContext.Provider>
+          {/* Pied de page généreux — toutes les pages SAUF le montage CTD plein écran (qui remplit
+              le viewport ; y ajouter un footer casserait sa hauteur fixe). */}
+          {!inMontage ? <AppFooter /> : null}
         </main>
       </div>
     </div>

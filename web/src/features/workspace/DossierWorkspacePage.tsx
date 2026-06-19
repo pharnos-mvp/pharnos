@@ -7,6 +7,7 @@ import {
   FileDown,
   FileText,
   Languages,
+  Map as MapIcon,
   MessagesSquare,
   Pencil,
   Send,
@@ -627,7 +628,8 @@ export function DossierWorkspacePage() {
             size="sm"
             onClick={() => navigate(`/workspace/${dossier.id}/roadmap`)}
           >
-            {t({ fr: 'Roadmap', en: 'Roadmap' })}
+            <MapIcon className="size-4" />
+            {t({ fr: 'Feuille de route', en: 'Roadmap' })}
           </Button>
           <Button
             variant="outline"
@@ -870,7 +872,7 @@ export function DossierWorkspacePage() {
       }
     : null
 
-  const { okCount, pct } = completionStats(flatNodes, countFor)
+  const { okCount, pct, leaves } = completionStats(flatNodes, countFor)
   const warnCount = allFindings.filter((f) => !f.ok && f.severity === 'warning').length
   const errCount = allFindings.filter((f) => !f.ok && f.severity === 'error').length
 
@@ -1454,17 +1456,21 @@ export function DossierWorkspacePage() {
                         )
                       ) : null}
                       {activeConformNeedsTranslation ? (
-                        <div className="mx-3 mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
-                          <span className="flex items-center gap-1.5 text-xs font-medium text-amber-800">
-                            <Languages className="size-4 shrink-0" />
+                        // Politique « conformité d'abord, traduction après » : doc rédigé dans une
+                        // langue ≠ langue officielle du pays → contrôle SOBRE de traduction (style
+                        // Bibliothèque : bordé, navy), pas un bandeau ambré criard.
+                        <div className="bg-muted/40 mx-3 mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2">
+                          <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                            <Languages className="text-brand size-4 shrink-0" />
                             {t({
-                              fr: `Document conforme en ${activeUpgradeLang?.toUpperCase()} — langue officielle du pays : ${targetLangLabel}.`,
-                              en: `Compliant document in ${activeUpgradeLang?.toUpperCase()} — country official language: ${targetLangLabel}.`,
+                              fr: `Rédigé en ${activeUpgradeLang?.toUpperCase()} — langue officielle du pays : ${targetLangLabel}.`,
+                              en: `Written in ${activeUpgradeLang?.toUpperCase()} — country official language: ${targetLangLabel}.`,
                             })}
                           </span>
                           <Button
                             size="sm"
-                            className="h-7 gap-1 bg-amber-500 text-white hover:bg-amber-600"
+                            variant="outline"
+                            className="border-brand text-brand hover:bg-brand/5 h-7 gap-1.5"
                             disabled={translating === activeGenDoc.id}
                             onClick={() => void handleTranslateGenerated(activeGenDoc)}
                           >
@@ -1639,6 +1645,7 @@ export function DossierWorkspacePage() {
               collapsed={rightCollapsed}
               pct={pct}
               okCount={okCount}
+              total={leaves.length}
               warnCount={warnCount}
               errCount={errCount}
               allFindings={allFindings}

@@ -1,40 +1,30 @@
-import { useEffect, useRef } from 'react'
 import { Languages } from 'lucide-react'
 
 import { useI18n } from '@/lib/i18n-context'
 
 /**
- * Progression d'une génération IA en streaming (traduction T11, mise en conformité U4) : le
- * texte s'affiche au fil de l'eau, auto-scrollé — l'utilisateur voit le travail avancer au lieu
- * d'attendre en aveugle (décisif sur bas débit : premier texte ~2 s au lieu de 30-60 s).
+ * Indicateur SOBRE de traduction / mise en conformité en cours (T11 / U4) — **hauteur FIXE** :
+ * icône + libellé + barre indéterminée. Ne fait plus défiler le texte généré au fil de l'eau
+ * (qui enflait et déformait le panneau central) → la feuille reste stable pendant l'opération
+ * (demande CEO). Le `text` streamé n'est plus affiché ; la prop reste tolérée pour les appelants.
  */
-export function TranslationProgress({ text, label }: { text: string; label?: string }) {
+export function TranslationProgress({ label }: { text?: string; label?: string }) {
   const { t } = useI18n()
-  const boxRef = useRef<HTMLPreElement>(null)
-  const displayLabel =
-    label ??
-    t({
-      fr: "Traduction en cours — le texte s'affiche au fil de l'eau…",
-      en: 'Translation in progress — text streams in as it is generated…',
-    })
-
-  useEffect(() => {
-    const box = boxRef.current
-    if (box) box.scrollTop = box.scrollHeight
-  }, [text])
-
+  const displayLabel = label ?? t({ fr: 'Traduction en cours…', en: 'Translating…' })
   return (
-    <div className="rounded-lg border border-amber-300 bg-amber-50/50 p-3">
-      <p className="flex items-center gap-1.5 text-xs font-medium text-amber-800">
-        <Languages className="size-4 shrink-0 animate-pulse" />
-        {displayLabel}
-      </p>
-      <pre
-        ref={boxRef}
-        className="text-muted-foreground mt-2 max-h-56 overflow-auto font-sans text-xs whitespace-pre-wrap"
+    <div
+      role="status"
+      aria-live="polite"
+      className="border-brand/30 bg-brand/5 flex items-center gap-2 rounded-lg border px-3 py-2"
+    >
+      <Languages className="text-brand size-4 shrink-0 animate-pulse" aria-hidden />
+      <span className="text-brand text-xs font-medium">{displayLabel}</span>
+      <span
+        className="bg-brand/15 ml-auto h-1 w-24 shrink-0 overflow-hidden rounded-full"
+        aria-hidden
       >
-        {text || '…'}
-      </pre>
+        <span className="tr-bar bg-brand block h-full w-1/2 rounded-full" />
+      </span>
     </div>
   )
 }

@@ -193,7 +193,7 @@ describe('DossierWorkspacePage — caractérisation (avant refactor T7)', () => 
     await screen.findAllByText(/gmp\.pdf/i)
     // Jalon O : Monitor (vérifs DÉTERMINISTES, gratuites) est TOUJOURS actif — le GMP expire à
     // < 6 mois → le constat apparaît SANS action utilisateur (l'IA Regafy, elle, reste à la demande).
-    expect(await screen.findByText('Remarques pour la session')).toBeInTheDocument()
+    expect(await screen.findByText('Notes de session')).toBeInTheDocument()
     expect(await screen.findByText(/Validité < 6 mois requise/)).toBeInTheDocument()
     // Regafy IA reste À LA DEMANDE : le bouton Analyser accompagne la pièce (désactivé hors-ligne).
     expect(await screen.findByRole('button', { name: /Analyser/ })).toBeInTheDocument()
