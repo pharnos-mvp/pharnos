@@ -1668,6 +1668,16 @@ export function DossierWorkspacePage() {
             />
           </div>
         </div>
+        {/* « Compiler » en barre basse — accès au pouce sur mobile (< lg) ; l'action vit aussi
+            dans l'en-tête global. M2 responsive. */}
+        <div className="flex shrink-0 items-center gap-2 border-t px-3 py-2 lg:hidden">
+          <Button className="h-11 flex-1" disabled={compiling} onClick={() => handleCompileClick()}>
+            <FileDown className="size-4" />
+            {compiling
+              ? t({ fr: 'Compilation…', en: 'Compiling…' })
+              : t({ fr: 'Compiler le PDF', en: 'Compile the PDF' })}
+          </Button>
+        </div>
       </div>
 
       {/* Tiroirs mobiles (M2 < lg) — Structure (gauche) & Copilote (droite). Portalisés (Radix)
