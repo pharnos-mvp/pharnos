@@ -20,6 +20,7 @@ export function TreePanel({
   countFor,
   flaggedNodes,
   onTreeChange,
+  drawer = false,
 }: {
   collapsed: boolean
   treeEditing: boolean
@@ -34,6 +35,8 @@ export function TreePanel({
   /** Numéros de nœuds (et ancêtres) portant un constat non résolu — surbrillance sobre (n°6). */
   flaggedNodes?: Set<string>
   onTreeChange: (tree: CtdNodeDef[]) => void
+  /** Rendu dans un tiroir mobile (Sheet) : pleine largeur, sans bordure latérale (M2 responsive). */
+  drawer?: boolean
 }) {
   const { t } = useI18n()
   if (collapsed) {
@@ -64,7 +67,10 @@ export function TreePanel({
   return (
     <aside
       aria-label={t({ fr: 'Structure du dossier', en: 'Dossier structure' })}
-      className="bg-card flex h-full w-[286px] shrink-0 flex-col overflow-hidden border-r"
+      className={cn(
+        'bg-card flex h-full flex-col overflow-hidden',
+        drawer ? 'w-full' : 'w-[286px] shrink-0 border-r',
+      )}
     >
       <div className="flex items-start justify-between border-b p-3">
         <div>

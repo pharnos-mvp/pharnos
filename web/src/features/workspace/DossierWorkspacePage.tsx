@@ -6,6 +6,7 @@ import {
   CircleDashed,
   FileDown,
   FileText,
+  FolderTree,
   Languages,
   Map as MapIcon,
   MessagesSquare,
@@ -23,6 +24,7 @@ import { useHeaderSlot } from '@/components/layout/header-slot'
 import { useOnlineStatus } from '@/hooks/use-online-status'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import {
   dossierDisplayStatus,
   STATUS_BADGE_CLASSES,
@@ -217,6 +219,9 @@ export function DossierWorkspacePage() {
   const [docEditing, setDocEditing] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [rightCollapsed, setRightCollapsed] = useState(false)
+  // Tiroirs mobiles (M2 responsive < lg) : Structure (gauche) & Copilote (droite).
+  const [mobileTree, setMobileTree] = useState(false)
+  const [mobileRail, setMobileRail] = useState(false)
   const [previewPdf, setPreviewPdf] = useState<{
     url: string
     name: string
@@ -1240,6 +1245,39 @@ export function DossierWorkspacePage() {
   // eslint-disable-next-line react-hooks/refs
   const headerActions = headerCtx ? buildDocActions(headerCtx, t) : []
 
+  // Props COMMUNES des panneaux (M2) — source unique partagée entre le rendu inline (≥ lg) et les
+  // tiroirs mobiles (< lg). `collapsed`, `onSelectNode` et `drawer` sont fournis par chaque usage.
+  const treePanelProps = {
+    treeEditing,
+    setTreeEditing,
+    structureOutdated,
+    onUpdateStructure: () => void handleUpdateStructure(),
+    tree: dossier.tree,
+    flatNodes,
+    selected,
+    countFor,
+    flaggedNodes,
+    onTreeChange: (tree: CtdNodeDef[]) => void handleTreeChange(tree),
+  }
+  const railPanelProps = {
+    pct,
+    okCount,
+    total: leaves.length,
+    warnCount,
+    errCount,
+    allFindings,
+    aiBusy,
+    translating,
+    targetLangLabel,
+    flatNodes,
+    onTranslate: (f: RegafyFinding) => void handleTranslate(f),
+    onFillTemplate: (f: RegafyFinding) => {
+      const n = flatNodes.find((x) => x.number === f.nodeNumber)
+      if (n) void handleFillTemplate(n)
+    },
+    finding: railFinding,
+  }
+
   return (
     // Layout plein écran (mockup ctd-builder-unified-header) : en-tête de document UNIQUE
     // full-bleed, puis 3 colonnes FLUSH (Structure │ Document │ Copilote) qui défilent
@@ -1330,24 +1368,22 @@ export function DossierWorkspacePage() {
           />
         ) : null}
 
+        {/* Barre MOBILE (< lg) : ouvre Structure / Copilote en tiroir (M2 responsive). Les panneaux
+            latéraux passent en tiroirs `Sheet` sous lg ; ≥ lg ils restent inline en colonnes. */}
+        <div className="flex shrink-0 items-center gap-2 border-b px-3 py-1.5 lg:hidden">
+          <Button variant="outline" size="sm" onClick={() => setMobileTree(true)}>
+            <FolderTree className="size-4" /> {t({ fr: 'Structure', en: 'Structure' })}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setMobileRail(true)}>
+            <Sparkles className="size-4" /> {t({ fr: 'Copilote', en: 'Copilot' })}
+          </Button>
+        </div>
+
         {/* Corps : 3 colonnes flush ; `relative` → poignées de rabat posées SUR les bordures. */}
         <div className="relative flex min-h-0 flex-1">
-          {/* Colonne 1 — Structure (bordure droite, pleine hauteur, défile). */}
-          <div className="relative h-full shrink-0">
-            <TreePanel
-              collapsed={collapsed}
-              treeEditing={treeEditing}
-              setTreeEditing={setTreeEditing}
-              structureOutdated={structureOutdated}
-              onUpdateStructure={() => void handleUpdateStructure()}
-              tree={dossier.tree}
-              flatNodes={flatNodes}
-              selected={selected}
-              onSelectNode={handleSelectNode}
-              countFor={countFor}
-              flaggedNodes={flaggedNodes}
-              onTreeChange={(tree) => void handleTreeChange(tree)}
-            />
+          {/* Colonne 1 — Structure : inline ≥ lg, en tiroir < lg (cf. Sheet plus bas). */}
+          <div className="relative hidden h-full shrink-0 lg:block">
+            <TreePanel {...treePanelProps} collapsed={collapsed} onSelectNode={handleSelectNode} />
             <PanelHandle
               side="left"
               open={!collapsed}
@@ -1626,28 +1662,48 @@ export function DossierWorkspacePage() {
               className="absolute top-1/2 -left-[9px] z-20 -translate-y-1/2"
             />
             <CompletionPanel
+              {...railPanelProps}
               collapsed={rightCollapsed}
-              pct={pct}
-              okCount={okCount}
-              total={leaves.length}
-              warnCount={warnCount}
-              errCount={errCount}
-              allFindings={allFindings}
-              aiBusy={aiBusy}
-              translating={translating}
-              targetLangLabel={targetLangLabel}
-              flatNodes={flatNodes}
               onSelectNode={handleSelectNode}
-              onTranslate={(f) => void handleTranslate(f)}
-              onFillTemplate={(f) => {
-                const n = flatNodes.find((x) => x.number === f.nodeNumber)
-                if (n) void handleFillTemplate(n)
-              }}
-              finding={railFinding}
             />
           </div>
         </div>
       </div>
+
+      {/* Tiroirs mobiles (M2 < lg) — Structure (gauche) & Copilote (droite). Portalisés (Radix)
+          → hors du conteneur overflow-hidden ; fermeture auto à la sélection d'un nœud. */}
+      <Sheet open={mobileTree} onOpenChange={setMobileTree}>
+        <SheetContent side="left" className="w-[300px] max-w-[86vw] p-0">
+          <SheetTitle className="sr-only">
+            {t({ fr: 'Structure du dossier', en: 'Dossier structure' })}
+          </SheetTitle>
+          <TreePanel
+            {...treePanelProps}
+            drawer
+            collapsed={false}
+            onSelectNode={(n) => {
+              handleSelectNode(n)
+              setMobileTree(false)
+            }}
+          />
+        </SheetContent>
+      </Sheet>
+      <Sheet open={mobileRail} onOpenChange={setMobileRail}>
+        <SheetContent side="right" className="w-[300px] max-w-[86vw] p-0">
+          <SheetTitle className="sr-only">
+            {t({ fr: 'Complétude et copilote', en: 'Completeness and copilot' })}
+          </SheetTitle>
+          <CompletionPanel
+            {...railPanelProps}
+            drawer
+            collapsed={false}
+            onSelectNode={(n) => {
+              handleSelectNode(n)
+              setMobileRail(false)
+            }}
+          />
+        </SheetContent>
+      </Sheet>
 
       {previewPdf ? (
         <PdfPreviewDialog

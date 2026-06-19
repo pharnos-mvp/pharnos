@@ -41,6 +41,7 @@ export function CompletionPanel({
   onTranslate,
   onFillTemplate,
   finding,
+  drawer = false,
 }: {
   collapsed: boolean
   pct: number
@@ -59,6 +60,8 @@ export function CompletionPanel({
   onFillTemplate: (f: RegafyFinding) => void
   /** Constat de l'élément affiché (carte amber du mockup) — null si aucun / masqué. */
   finding?: RailFinding | null
+  /** Rendu dans un tiroir mobile (Sheet) : pleine largeur, toujours visible (M2 responsive). */
+  drawer?: boolean
 }) {
   const { t } = useI18n()
   if (collapsed) {
@@ -80,7 +83,10 @@ export function CompletionPanel({
   return (
     <aside
       aria-label={t({ fr: 'Complétude et copilote', en: 'Completeness and copilot' })}
-      className="bg-card hidden h-full w-[274px] shrink-0 flex-col border-l lg:flex"
+      className={cn(
+        'bg-card h-full flex-col',
+        drawer ? 'flex w-full' : 'hidden w-[274px] shrink-0 border-l lg:flex',
+      )}
     >
       {/* Complétude du dossier — FIXE en haut : reste visible quand la liste défile (mockup). */}
       <div className="shrink-0 p-3.5 pb-0">
