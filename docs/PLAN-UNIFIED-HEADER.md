@@ -4,7 +4,7 @@
 > validé (mockup `docs/mockups/ctd-builder-unified-header.html`).
 > Ne remplace PAS `docs/PLAN.md` (plan maître) ni `docs/PLAN-RESTANT.md`.
 
-## État & reprise — au 2026-06-18 (fin de session)
+## État & reprise — au 2026-06-19 (fin de session)
 
 **LIVRÉ EN PROD + RECETTÉ Chrome (merged sur `main`) :**
 
@@ -29,20 +29,38 @@
   Gate local : typecheck/lint/format/build/budget + **273 vitest**. **RESTE : recette Chrome réelle**
   (sticky/scroll/flush NON vérifiables en headless) → merge → deploy.
 
-**M2 + M3 — LIVRÉS** (branche `feat/ctd-builder-responsive-m2`, PR #207, CI 6/6) :
+**M2 + M3 — LIVRÉS EN PROD** (PR #206 fidélité + #207 responsive/a11y, squash-mergés sur `main`,
+Cloudflare Pages déployé **2026-06-19** ; recette navigateur RÉELLE faite : desktop visuel + M2/M3 vérifiés DOM/clavier) :
 
 - **M2 responsive** : primitive `Sheet` (Radix) ; sous `lg`, Structure & Copilote en **tiroirs**
-  (barre mobile, fermeture auto à la sélection) → document pleine largeur + **trou mobile bouché**
-  (constat Regafy + Traduire atteignables via le tiroir Copilote) ; en-tête `@container` → libellés
-  en icône seule + boutons **44 px** sous 48rem ; **« Compiler »** en barre basse mobile.
+  (barre mobile, fermeture auto à la sélection) → document pleine largeur ; en-tête `@container` →
+  libellés en icône seule + boutons **44 px** sous 48rem ; **« Compiler »** en barre basse mobile.
 - **M3 a11y** : onglets = vraie **`tablist`** (roving + ←/→/Début/Fin + Suppr + `tabpanel`) ;
-  **arbre = WAI-ARIA `tree`** (treeitem/group, aria-level/selected/expanded, roving tabindex,
-  ↑↓→←/Début/Fin/Entrée ; `flattenVisible` pur + testé). 275 vitest, Lighthouse a11y vert.
+  **arbre = WAI-ARIA `tree`** (treeitem/group, aria-level/selected/expanded, roving tabindex ;
+  `flattenVisible` pur + testé). 275 vitest, Lighthouse a11y vert.
 
-**RESTE (mineur)** : roving tabindex de la **toolbar d'en-tête** — reporté volontairement (jeu de
-boutons restreint déjà clavier-OK + axe-vert ; menus Radix portalisés + barre de format → roving
-propre fragile pour valeur marginale). **+ recette Chrome réelle** (responsive/sticky NON vérifiables
-en headless) avant merge → deploy.
+➡️ **PROCHAIN BUILD — plan APPROUVÉ, à faire en CONTEXTE FRAIS — REFONTE RESPONSIVE TABLETTE/MOBILE
+   (handoff CEO) + sidebar app → hamburger sous `lg`.** Cette refonte **REMPLACE la couche mobile M2**
+   (les tiroirs `Sheet` du builder) par la disposition du handoff ; **desktop ≥ lg INTACT**.
+   - **Plan détaillé approuvé** : `C:\Users\ASUS\.claude\plans\1-quelques-regles-simples-elegant-bubble.md`.
+   - **Handoff design (hi-fi)** : `C:\Users\ASUS\Downloads\Mockup page web tablette\design_handoff_pharnos_workspace\`
+     (`reference/Tablet Mockup Pharnos.html` = source visuelle autonome ; `src/App.jsx` + `README.md` = spec + réimpl. de référence).
+   - **Décisions verrouillées (Q&R CEO)** : ☰ = **menu principal de l'app** (Catalogue/CTD Workspace/Bibliothèque/Tableau
+     de bord) ; **Structure = barre de pastilles rondes en bas** (numéros de section, défilable + **scrollbar fonctionnelle**) ;
+     **panneau de validation FLOTTANT** haut-droite (donut complétude + compteurs OK/⚠/✗) → **pop-over remarques** (`allFindings`
+     filtrés → clic = sélection) ; **document = carte centrée** ; **rail d'actions vertical gauche** = nos **actions adaptatives
+     `buildDocActions` en icône seule** (PAS le set fixe du mockup) + Analyser(Regafy)/Traduire/« + »(upload/generate/fill) ;
+     seuil **< 1024px (lg)** ; **device-frame + chrome navigateur du mockup = présentation only (NON implémenté)** ; le
+     `transform: scale()` du mockup = présentation (en vrai = layout fluide) ; **édition de structure = desktop-only**.
+   - **Slices** : 1) hamburger app-shell (`Sheet`) · 2) bascule builder < lg (carte doc centrée) · 3) `SectionChips` + scrollbar
+     (porter `updateThumb`/`onThumbDown`/`onTrackDown` du handoff) · 4) `ValidationPanel` flottant + pop-over · 5) `DocumentActionsRail` ·
+     6) finitions (compile/onglets/a11y/thème/tests). Tokens handoff→Pharnos : accent #1f3a5f→`--brand`, app #efeff1→`--canvas`,
+     rail #f4f4f6→`--muted`, carte→`--card`, ok/warn/err→emerald/amber/red.
+   - **Réutiliser** : `flattenTree` (tree-utils), `completionStats`/`allFindings`/`flaggedNodes`/`countFor`, `buildDocActions`
+     (document-header-model), `handleSelectNode`, `railFinding`, `Sheet` (ui/sheet), `Donut`. Garder code-split + tokens (dark/light) + FR/EN.
+
+**RESTE (mineur, optionnel)** : roving tabindex de la **toolbar d'en-tête** (boutons restreints déjà
+clavier-OK + axe-vert ; reporté, valeur marginale).
 
 **Garde-fous reprise :** `main` = prod ; brancher → CI 6/6 → **recette Chrome réelle** (sticky/responsive
 NON vérifiables en headless) → merge → deploy. **Piège SW : double `update()`+reload** avant de recetter
