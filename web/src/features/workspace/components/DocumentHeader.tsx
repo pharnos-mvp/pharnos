@@ -3,24 +3,7 @@
 // changent selon le type (pilotées par `buildDocActions`). Remplace l'empilement pilule + barre
 // d'actions + bandeau navy + barre de format. 100 % tokens de thème → dark/light automatiques.
 import type { ReactNode } from 'react'
-import {
-  ChevronDown,
-  Download,
-  FileDown,
-  FileText,
-  MoreHorizontal,
-  PanelTop,
-  Pencil,
-  Replace,
-  RotateCcw,
-  ScanSearch,
-  Signature,
-  SlidersHorizontal,
-  Sparkles,
-  Trash2,
-  Upload,
-  type LucideIcon,
-} from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -31,24 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import type { DocAction, DocHeaderStatus, DocStatusTone } from './document-header-model'
-
-/** Icône par clé d'action (présentation — le modèle reste agnostique du jeu d'icônes). */
-const ACTION_ICON: Record<string, LucideIcon> = {
-  edit: Pencil,
-  regenerate: Sparkles,
-  sign: Signature,
-  branding: PanelTop,
-  download: Download,
-  upload: Upload,
-  reset: RotateCcw,
-  settings: SlidersHorizontal,
-  analyze: ScanSearch,
-  replace: Replace,
-  generate: Sparkles,
-  auto: Sparkles,
-  more: MoreHorizontal,
-}
-const MENU_ICON: Record<string, LucideIcon> = { pdf: FileText, docx: FileDown, remove: Trash2 }
+import { ACCENT_CLS, ACTION_ICON, MENU_ICON, SOLID_CLS } from './action-presentation'
 
 const STATUS_TONE: Record<DocStatusTone, string> = {
   draft: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
@@ -70,9 +36,6 @@ export interface DocumentHeaderProps {
   toolbarLabel: string
 }
 
-const ACCENT_CLS =
-  'border-emerald-600 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/60 dark:text-emerald-300 dark:hover:bg-emerald-500/10'
-const SOLID_CLS = 'bg-brand text-brand-foreground hover:bg-brand/90 border-transparent'
 // Métriques EXACTES du mockup (.act) : h 34, padding 0 11, radius 9, font 13, gap 6, icône 17.
 // M2 responsive : sous une largeur d'en-tête de 48rem (conteneur `dh`), passage à 44px (cible
 // tactile) ; les libellés repliables passent en icône seule (cf. `label` + `@max-[48rem]/dh:sr-only`).
