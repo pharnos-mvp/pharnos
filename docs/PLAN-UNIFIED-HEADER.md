@@ -29,15 +29,20 @@
   Gate local : typecheck/lint/format/build/budget + **273 vitest**. **RESTE : recette Chrome réelle**
   (sticky/scroll/flush NON vérifiables en headless) → merge → deploy.
 
-**RESTE À FAIRE (reprise prochaine session) :**
+**M2 + M3 — LIVRÉS** (branche `feat/ctd-builder-responsive-m2`, PR #207, CI 6/6) :
 
-1. **M2 responsive** (laptop/tablette/téléphone : `Sheet` + container queries + overflow ⋯ ;
-   **cibles tactiles ≥ 44 px**). ⚠️ **À restaurer en M2** : sous `lg`, le rail Copilote est masqué →
-   le constat Regafy et le bouton **Traduire d'une pièce** n'ont plus de point d'entrée mobile
-   (Remplacer/Remplir restent dispo). Prévoir un tiroir Copilote (Sheet) sur mobile.
-2. **M3 a11y** : clavier WAI-ARIA **arbre** + **toolbar** roving tabindex ; **vraie barre `tablist`**
-   pour les onglets (flèches ←/→ + `tabpanel`, actuellement `role="group"` + `aria-current`) ;
-   audit Lighthouse, finitions.
+- **M2 responsive** : primitive `Sheet` (Radix) ; sous `lg`, Structure & Copilote en **tiroirs**
+  (barre mobile, fermeture auto à la sélection) → document pleine largeur + **trou mobile bouché**
+  (constat Regafy + Traduire atteignables via le tiroir Copilote) ; en-tête `@container` → libellés
+  en icône seule + boutons **44 px** sous 48rem ; **« Compiler »** en barre basse mobile.
+- **M3 a11y** : onglets = vraie **`tablist`** (roving + ←/→/Début/Fin + Suppr + `tabpanel`) ;
+  **arbre = WAI-ARIA `tree`** (treeitem/group, aria-level/selected/expanded, roving tabindex,
+  ↑↓→←/Début/Fin/Entrée ; `flattenVisible` pur + testé). 275 vitest, Lighthouse a11y vert.
+
+**RESTE (mineur)** : roving tabindex de la **toolbar d'en-tête** — reporté volontairement (jeu de
+boutons restreint déjà clavier-OK + axe-vert ; menus Radix portalisés + barre de format → roving
+propre fragile pour valeur marginale). **+ recette Chrome réelle** (responsive/sticky NON vérifiables
+en headless) avant merge → deploy.
 
 **Garde-fous reprise :** `main` = prod ; brancher → CI 6/6 → **recette Chrome réelle** (sticky/responsive
 NON vérifiables en headless) → merge → deploy. **Piège SW : double `update()`+reload** avant de recetter
