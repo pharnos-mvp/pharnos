@@ -8,7 +8,7 @@ import { useI18n } from '@/lib/i18n-context'
  * (qui enflait et déformait le panneau central) → la feuille reste stable pendant l'opération
  * (demande CEO). Le `text` streamé n'est plus affiché ; la prop reste tolérée pour les appelants.
  */
-export function TranslationProgress({ label }: { text?: string; label?: string }) {
+export function TranslationProgress({ label }: { label?: string }) {
   const { t } = useI18n()
   const displayLabel = label ?? t({ fr: 'Traduction en cours…', en: 'Translating…' })
   return (

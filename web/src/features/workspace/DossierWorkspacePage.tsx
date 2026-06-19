@@ -1487,17 +1487,16 @@ export function DossierWorkspacePage() {
                       {upgrading === activeGenDoc.id && streamText !== null ? (
                         <div className="px-3 pt-2">
                           <TranslationProgress
-                            text={streamText}
                             label={t({
-                              fr: "Mise en conformité en cours — le document s'écrit au fil de l'eau…",
-                              en: 'Compliance upgrade in progress — the document is written as it streams…',
+                              fr: 'Mise en conformité en cours…',
+                              en: 'Compliance upgrade in progress…',
                             })}
                           />
                         </div>
                       ) : null}
                       {translating === activeGenDoc.id && streamText !== null ? (
                         <div className="px-3 pt-2">
-                          <TranslationProgress text={streamText} />
+                          <TranslationProgress />
                         </div>
                       ) : null}
                       <Suspense fallback={<EditorSkeleton />}>
@@ -1553,12 +1552,14 @@ export function DossierWorkspacePage() {
                       {analyzing === active.id ? <div className="regafy-scan-line" /> : null}
                       {/* Carte de CONSTAT Regafy déplacée dans le panneau Copilote (rail droit) — pass 2. */}
                       {translating === active.id && streamText !== null ? (
-                        <TranslationProgress text={streamText} />
+                        <TranslationProgress />
                       ) : null}
                       {upgrading === active.id && streamText !== null ? (
                         <TranslationProgress
-                          text={streamText}
-                          label="Mise en conformité en cours — le document s'écrit au fil de l'eau…"
+                          label={t({
+                            fr: 'Mise en conformité en cours…',
+                            en: 'Compliance upgrade in progress…',
+                          })}
                         />
                       ) : null}
                       <InlineDocPreview
