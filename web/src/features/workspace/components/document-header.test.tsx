@@ -136,7 +136,10 @@ describe('DocumentHeader — rendu (cadre unique, actions à droite)', () => {
         toolbarLabel="Actions du document"
       />,
     )
-    expect(screen.getByText('1.1.1')).toBeInTheDocument()
+    // Numéro CTD = badge sibling + repris dans le nom accessible du titre (sr-only) → mockup .docid.
+    expect(
+      screen.getByRole('heading', { level: 2, name: /1\.1\.1.*Lettre de demande/ }),
+    ).toBeInTheDocument()
     expect(screen.getByText("Lettre de demande d'AMM")).toBeInTheDocument()
     expect(screen.getByText('Brouillon')).toBeInTheDocument()
     expect(screen.getByRole('toolbar', { name: 'Actions du document' })).toBeInTheDocument()

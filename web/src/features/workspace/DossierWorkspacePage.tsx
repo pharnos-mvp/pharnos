@@ -613,13 +613,13 @@ export function DossierWorkspacePage() {
         >
           <ArrowLeft className="size-4" />
         </Button>
-        <div className="min-w-0 leading-tight">
-          <div className="truncate text-sm font-semibold">
-            {dossier.productName} — {countryLabel(dossier.country, lang)}
-          </div>
-          <div className="text-muted-foreground truncate text-xs">
+        {/* Fil d'Ariane sur UNE seule ligne (mockup .crumb) : produit (gras) — pays · activité. */}
+        <div className="min-w-0 flex-1 truncate text-sm leading-tight">
+          <span className="font-semibold">{dossier.productName}</span>{' '}
+          <span className="text-muted-foreground">
+            — {countryLabel(dossier.country, lang)} ·{' '}
             {t({ fr: `Création Module 1 (${fmt})`, en: `Module 1 creation (${fmt})` })}
-          </div>
+          </span>
         </div>
         <div className="ml-auto flex shrink-0 items-center gap-2">
           <Button
@@ -1247,7 +1247,70 @@ export function DossierWorkspacePage() {
     // neutralisé du shell, cf. app-shell) → plus de scroll global, bordures verticales pleine
     // hauteur. Les overlays (dialogs) sont SORTIS du conteneur overflow-hidden (fragment) → jamais rognés.
     <>
-      <div className="bg-muted/40 -mx-4 -mb-4 flex h-[calc(100%+1rem)] flex-col overflow-hidden md:-mx-6 md:-mb-6 md:h-[calc(100%+1.5rem)]">
+      <div className="bg-canvas -mx-4 -mb-4 flex h-[calc(100%+1rem)] flex-col overflow-hidden md:-mx-6 md:-mb-6 md:h-[calc(100%+1.5rem)]">
+        {/* Barre d'ONGLETS de documents (mockup `.legend`) — pleine largeur, ENTRE l'en-tête
+            global du shell et l'en-tête de document. Pilules `.pickbtn` : « {Type} ({n° CTD}) »,
+            navy si actif + « × » pour retirer du dossier (façon onglet de navigateur). Pas de
+            role=tab (pattern tablist clavier complet = jalon M3 a11y). */}
+        {selected && !showCoverPage && viewables.length > 0 ? (
+          <div
+            role="group"
+            aria-label={t({ fr: 'Documents de la section', en: 'Section documents' })}
+            className="bg-card flex flex-wrap items-center gap-2 border-b px-4 py-2"
+          >
+            {viewables.map((v) => {
+              const isActive = active?.key === v.key
+              const tabLabel = `${t(viewableTabType(v))} (${selected.number})`
+              const removeHint =
+                v.kind === 'doc'
+                  ? t({
+                      fr: 'Retirer du dossier (le document reste sous le produit)',
+                      en: 'Remove from dossier (the document stays under the product)',
+                    })
+                  : t({ fr: 'Supprimer du dossier', en: 'Remove from dossier' })
+              return (
+                <span
+                  key={v.key}
+                  className={cn(
+                    'inline-flex items-center rounded-full border text-[12px] transition-colors',
+                    isActive
+                      ? 'border-brand bg-brand text-brand-foreground'
+                      : 'text-foreground hover:bg-accent',
+                  )}
+                >
+                  <button
+                    type="button"
+                    aria-current={isActive ? 'true' : undefined}
+                    onClick={() => {
+                      setPickedKey(v.key)
+                      // Traduction/version conforme/template → éditable d'emblée.
+                      if (v.kind === 'letter' && (v.isTranslation || v.isUpgrade || v.isFill))
+                        setDocEditing(true)
+                    }}
+                    title={v.label}
+                    className="focus-visible:ring-ring/50 max-w-[200px] truncate rounded-full py-1 pr-1.5 pl-[11px] font-medium outline-none focus-visible:ring-[3px]"
+                  >
+                    {tabLabel}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`${removeHint} — ${tabLabel}`}
+                    title={removeHint}
+                    onClick={() => void handleRemoveViewable(v)}
+                    className={cn(
+                      'focus-visible:ring-ring/50 mr-1 grid size-5 shrink-0 place-items-center rounded-full outline-none focus-visible:ring-[3px]',
+                      isActive
+                        ? 'hover:bg-brand-foreground/20'
+                        : 'hover:bg-destructive/10 hover:text-destructive',
+                    )}
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </span>
+              )
+            })}
+          </div>
+        ) : null}
         {/* EN-TÊTE DE DOCUMENT UNIQUE (M1) : cadre constant (identité + actions), boutons adaptés
             au type — full-bleed, bordure basse. Remplace pilule + barre + bandeau navy + format. */}
         {headerKind ? (
@@ -1298,9 +1361,9 @@ export function DossierWorkspacePage() {
             />
           </div>
 
-          {/* Colonne 2 — Document : fond gris, défile ; onglets sticky + feuille centrée (max 840).
+          {/* Colonne 2 — Document : fond canevas (mockup `--bg`), défile ; feuille centrée (max 840).
               `div` (pas `main` : le shell porte déjà le landmark `main` — pas de main imbriqué). */}
-          <div className="bg-muted/40 min-w-0 flex-1 overflow-auto">
+          <div className="bg-canvas min-w-0 flex-1 overflow-auto">
             {selected ? (
               <>
                 {/* Input fichier caché : déclenché par « Téléverser » de l'en-tête (et « Remplacer »). */}
@@ -1315,73 +1378,6 @@ export function DossierWorkspacePage() {
                     e.target.value = ''
                   }}
                 />
-                {/* Barre d'ONGLETS de documents façon navigateur (demande CEO, mockup `.pickbtn`) :
-                    persistante (≥ 1 doc), libellé « {Type} ({n° CTD}) », pilule navy active + « × »
-                    pour retirer du dossier. Sticky en haut du canevas ; les actions vivent dans
-                    l'en-tête. Pas de role=tab (pattern tablist clavier complet = jalon M3 a11y). */}
-                {!showCoverPage && viewables.length > 0 ? (
-                  <div
-                    role="group"
-                    aria-label={t({ fr: 'Documents de la section', en: 'Section documents' })}
-                    className="bg-card sticky top-0 z-10 flex flex-wrap items-center gap-1.5 border-b px-3 py-2"
-                  >
-                    {viewables.map((v) => {
-                      const isActive = active?.key === v.key
-                      const tabLabel = `${t(viewableTabType(v))} (${selected.number})`
-                      const removeHint =
-                        v.kind === 'doc'
-                          ? t({
-                              fr: 'Retirer du dossier (le document reste sous le produit)',
-                              en: 'Remove from dossier (the document stays under the product)',
-                            })
-                          : t({ fr: 'Supprimer du dossier', en: 'Remove from dossier' })
-                      return (
-                        <span
-                          key={v.key}
-                          className={cn(
-                            'inline-flex items-center rounded-full border text-xs transition-colors',
-                            isActive
-                              ? 'border-primary bg-primary text-primary-foreground'
-                              : 'text-muted-foreground hover:bg-accent',
-                          )}
-                        >
-                          <button
-                            type="button"
-                            aria-current={isActive ? 'true' : undefined}
-                            onClick={() => {
-                              setPickedKey(v.key)
-                              // Traduction/version conforme/template → éditable d'emblée.
-                              if (
-                                v.kind === 'letter' &&
-                                (v.isTranslation || v.isUpgrade || v.isFill)
-                              )
-                                setDocEditing(true)
-                            }}
-                            title={v.label}
-                            className="focus-visible:ring-ring/50 max-w-[180px] truncate rounded-full py-1 pr-1.5 pl-3 font-medium outline-none focus-visible:ring-[3px]"
-                          >
-                            {tabLabel}
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`${removeHint} — ${tabLabel}`}
-                            title={removeHint}
-                            onClick={() => void handleRemoveViewable(v)}
-                            className={cn(
-                              'focus-visible:ring-ring/50 mr-1 grid size-6 shrink-0 place-items-center rounded-full outline-none focus-visible:ring-[3px]',
-                              isActive
-                                ? 'hover:bg-primary-foreground/20'
-                                : 'hover:bg-destructive/10 hover:text-destructive',
-                            )}
-                          >
-                            <X className="size-3.5" />
-                          </button>
-                        </span>
-                      )
-                    })}
-                  </div>
-                ) : null}
-
                 <div className="mx-auto w-full max-w-[840px] p-4 md:p-5">
                   {showCoverPage && selected ? (
                     // Page de GARDE : aperçu numéro + intitulé (contenu autogénéré à la compilation).

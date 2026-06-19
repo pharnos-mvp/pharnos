@@ -76,14 +76,14 @@ export function CompletionPanel({
       className="bg-card hidden h-full w-[274px] shrink-0 flex-col gap-3.5 overflow-auto border-l px-3.5 py-4 lg:flex"
     >
       <div className="flex flex-col items-center rounded-xl border p-4">
-        <span className="w-full text-center text-sm font-medium">
+        <span className="w-full text-center text-[13px] font-semibold">
           {t({ fr: 'Tableau de complétude', en: 'Completeness dashboard' })}
         </span>
-        <Donut value={pct} size={110} />
+        <Donut value={pct} size={96} />
       </div>
       <div className="rounded-xl border p-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium">
+          <h3 className="text-[13px] font-semibold">
             {t({ fr: 'Remarques pour la session', en: 'Notes for this session' })}
           </h3>
           <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs font-medium">

@@ -16,6 +16,9 @@
   /* Marque Pharnos (navy des gabarits). En clair : navy plein + texte blanc. */
   --brand: #263f73;
   --brand-foreground: #ffffff;
+  /* Fond du panneau central du CTD builder (mockup `--bg`) : gris-bleu clair sur lequel
+     ressortent les feuilles A4 blanches. Distinct de --background (blanc pur). */
+  --canvas: #eef1f6;
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
@@ -56,6 +59,9 @@
      (text-brand) sur fond sombre ; les remplissages portent un texte sombre (--brand-foreground). */
   --brand: #7da3dc;
   --brand-foreground: #0d1117;
+  /* Fond du panneau central (dark) : canvas GitHub le plus sombre (#0d1117), plus foncé que les
+     cartes #161b22 → les feuilles ressortent, miroir du gris-bleu clair du mode clair. */
+  --canvas: #0d1117;
   --secondary: #21262d;
   --secondary-foreground: #e6edf3;
   --muted: #21262d;
@@ -96,6 +102,7 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
+  --color-canvas: var(--canvas);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);

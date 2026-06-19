@@ -38,7 +38,7 @@ describe('NonConformCard (carte de constat — politique recette n°6)', () => {
         onDismiss={() => {}}
       />,
     )
-    expect(screen.getByText('RCP')).toBeInTheDocument()
+    expect(screen.getByText('Constat Regafy')).toBeInTheDocument()
     expect(
       screen.getByText(/non conforme au template en vigueur et rédigé en EN/),
     ).toBeInTheDocument()
@@ -83,7 +83,7 @@ describe('NonConformCard (carte de constat — politique recette n°6)', () => {
         onDismiss={onDismiss}
       />,
     )
-    expect(screen.getByText('GMP')).toBeInTheDocument()
+    expect(screen.getByText('Constat Regafy')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Remplir le template/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Traduire$/ })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Remplacer/ })).toBeInTheDocument()
