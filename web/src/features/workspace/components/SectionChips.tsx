@@ -67,7 +67,7 @@ export function SectionChips({
   return (
     <nav
       aria-label={t({ fr: 'Sections du dossier', en: 'Dossier sections' })}
-      className="bg-muted/40 flex shrink-0 items-center gap-1 border-t px-1 py-2"
+      className="bg-muted/40 flex shrink-0 items-center gap-1 border-t px-1 py-1.5"
     >
       {/* Flèches de défilement — affordance souris/tactile (le clavier utilise ←/→ sur les pastilles). */}
       <button
@@ -83,7 +83,7 @@ export function SectionChips({
       <div
         ref={railRef}
         onKeyDown={onKeyDown}
-        className="flex min-w-0 flex-1 [scrollbar-width:none] items-center gap-3 overflow-x-auto scroll-smooth py-1 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        className="flex min-w-0 flex-1 [scrollbar-width:none] items-center gap-2 overflow-x-auto scroll-smooth py-1 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
       >
         {chips.map((c) => (
           <button
@@ -102,20 +102,20 @@ export function SectionChips({
             className={cn(
               'focus-visible:ring-ring/60 bg-card relative grid shrink-0 snap-center place-items-center rounded-full border font-medium tabular-nums transition-all outline-none focus-visible:ring-[3px]',
               c.active
-                ? 'border-brand text-brand size-[68px] border-2 text-[15px] font-bold shadow-md'
-                : 'border-border text-foreground hover:bg-accent size-14 text-[13px]',
+                ? 'border-brand text-brand size-[50px] border-2 text-[13.5px] font-bold shadow-md'
+                : 'border-border text-foreground hover:bg-accent size-11 text-[12px]',
             )}
           >
             {c.number}
             {c.flagged ? (
               <span
                 aria-hidden
-                className="ring-card absolute top-1 right-1 size-2.5 rounded-full bg-amber-500 ring-2"
+                className="ring-card absolute top-0.5 right-0.5 size-2 rounded-full bg-amber-500 ring-2"
               />
             ) : c.hasContent ? (
               <span
                 aria-hidden
-                className="ring-card absolute top-1 right-1 size-2.5 rounded-full bg-emerald-500 ring-2"
+                className="ring-card absolute top-0.5 right-0.5 size-2 rounded-full bg-emerald-500 ring-2"
               />
             ) : null}
           </button>
