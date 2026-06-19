@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { AppFooter } from '@/components/layout/AppFooter'
 import { HeaderSlotContext } from '@/components/layout/header-slot'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
@@ -150,7 +151,10 @@ export function AppShell() {
           ) : null}
         </div>
 
-        <nav className="mt-2 flex flex-col gap-1">
+        <nav
+          aria-label={t({ fr: 'Navigation principale', en: 'Main navigation' })}
+          className="mt-2 flex flex-col gap-1"
+        >
           {navItems.map(({ to, label, icon: Icon }) => {
             const text = t(label)
             return (
@@ -319,6 +323,10 @@ export function AppShell() {
             </ErrorBoundary>
           </HeaderSlotContext.Provider>
         </main>
+        {/* Pied de page SOBRE — fine barre persistante SOUS le contenu, sur TOUTES les pages
+            (montage CTD inclus) → landmark contentinfo cohérent (a11y) + l'app ne « colle » pas
+            au bas de l'écran. Hors de <main> : ne touche pas la hauteur fixe du montage. */}
+        <AppFooter />
       </div>
     </div>
   )

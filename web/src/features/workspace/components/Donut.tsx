@@ -1,58 +1,28 @@
-import { useId } from 'react'
-
 /**
- * Donut de complétude — style du mockup CEO (pharnos_3.html) : anneau épais (stroke 16
- * sur viewBox 150), dégradé bleu #7aa2ff → #3b5bdb, extrémité arrondie, pourcentage
- * centré en gras. Le fond de l'anneau reste adaptatif (currentColor) pour le thème sombre.
+ * Donut de complétude — style EXACT du mockup CTD builder (`.ring`) : anneau conique navy
+ * (var(--brand)) sur piste neutre (var(--border)), trou central (var(--card)) portant le %
+ * en navy gras. 100 % tokens → dark/light automatiques. `value` borné 0–100.
  */
-export function Donut({ value, size = 140 }: { value: number; size?: number }) {
-  const gid = useId()
-  const r = 60
-  const c = 2 * Math.PI * r
-  const offset = c - (Math.min(100, Math.max(0, value)) / 100) * c
+export function Donut({ value, size = 96 }: { value: number; size?: number }) {
+  const pct = Math.min(100, Math.max(0, Math.round(value)))
+  const inner = Math.round(size * 0.75)
   return (
-    <svg
-      viewBox="0 0 150 150"
-      style={{ width: size, height: size }}
+    <div
       role="img"
-      aria-label={`${value}%`}
+      aria-label={`${pct}%`}
+      className="grid shrink-0 place-items-center rounded-full"
+      style={{
+        width: size,
+        height: size,
+        background: `conic-gradient(var(--brand) ${pct}%, var(--border) ${pct}% 100%)`,
+      }}
     >
-      <defs>
-        <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#7aa2ff" />
-          <stop offset="1" stopColor="#3b5bdb" />
-        </linearGradient>
-      </defs>
-      <circle
-        cx="75"
-        cy="75"
-        r={r}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="16"
-        className="text-muted"
-        opacity="0.45"
-      />
-      <circle
-        cx="75"
-        cy="75"
-        r={r}
-        fill="none"
-        stroke={`url(#${gid})`}
-        strokeWidth="16"
-        strokeLinecap="round"
-        strokeDasharray={c}
-        strokeDashoffset={offset}
-        transform="rotate(-90 75 75)"
-      />
-      <text
-        x="75"
-        y="83"
-        textAnchor="middle"
-        className="fill-foreground text-[24px] font-bold tabular-nums"
+      <div
+        className="text-brand bg-card grid place-items-center rounded-full font-bold tabular-nums"
+        style={{ width: inner, height: inner, fontSize: Math.round(size * 0.2) }}
       >
-        {value}%
-      </text>
-    </svg>
+        {pct}%
+      </div>
+    </div>
   )
 }

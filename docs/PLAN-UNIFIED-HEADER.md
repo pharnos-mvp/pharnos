@@ -17,29 +17,27 @@
   gap6/icône17, conteneur, pastille numéro, chip) ; **« Modifier » ouvre la mise en forme B/I/H₂/•
   SUR LA MÊME LIGNE** dans l'en-tête ; **sélection d'arbre = surbrillance navy** ; panneau Structure
   286 px. Dark/light + EN/FR préservés.
+- **Fidélité mockup — PASS 2 + onglets.** branche `feat/ctd-mockup-fidelity-2` : layout 3 colonnes
+  **flush pleine hauteur** (en-tête full-bleed + Structure `border-r` / Copilote `border-l`, plus de
+  cartes arrondies ni gaps) remplissant `<main>` (`h-[calc(100%+pb)]` + marges négatives → scroll
+  interne par colonne, plus de scroll global) ; **poignées de rabat posées SUR les bordures**
+  (`absolute -left/-right-[9px]`) ; **constat Regafy déplacé canevas → rail** (carte ambrée `.finding`,
+  titre bouclier, Remplir/Traduire/Remplacer) ; rail 274 px, cartes mockup ; **barre d'onglets
+  persistante façon navigateur** (`{Type} (n° CTD)` via `viewableTabType`, pilule navy active + « × »).
+  Overlays sortis du conteneur `overflow-hidden` (fragment). Revue code-reviewer = **SHIP** (0 blocker/major) ;
+  audit a11y = focus-ring design-system sur onglets/poignées + cible « × » 24 px, landmarks/labels OK.
+  Gate local : typecheck/lint/format/build/budget + **273 vitest**. **RESTE : recette Chrome réelle**
+  (sticky/scroll/flush NON vérifiables en headless) → merge → deploy.
 
 **RESTE À FAIRE (reprise prochaine session) :**
 
-1. **Fidélité mockup — PASS 2 (restructure de layout, le gros morceau).**
-   - Panneaux **edge-to-edge flush** : Structure `border-right`, Copilote `border-left`, sans cartes
-     arrondies ni gaps ; en-tête full-bleed pleine largeur. (Restructure du body + scroll du workspace.)
-   - **Poignées de rabat PETITES, positionnées SUR la bordure** des deux panneaux (pas flottantes
-     dans le vide comme actuellement).
-   - **Constat Regafy en CARTE dans le panneau Copilote (droite)** : déplacer `NonConformCard` du
-     canvas → rail, style `.finding` du mockup (fond ambré, titre bouclier, boutons Traduire/Remplacer).
-   - Largeur rail 274 px + cartes/ring du rail au style mockup.
-2. **NOUVEAU (demande CEO 2026-06-18) — Barre d'ONGLETS de documents façon navigateur.**
-   - Reprendre la **position/le style de la ligne « Démo — choisir un document : »** du mockup
-     (les pilules `pickbtn`) pour en faire la **vraie barre d'onglets** des documents présents dans
-     le panneau central.
-   - Chaque onglet = nom du document au format **« {Type} ({n° CTD}) »** exactement comme les pilules
-     du mockup (`Formulaire RCP (1.3.1)`, `Pièce PDF (1.2.3.2)`, `Page de garde (1.2)`, `Nœud vide
-     (1.1.3)`, `Lettre (1.1.1)`…), **avec un petit « × » pour retirer**, comme les onglets de navigateur.
-   - ⇒ remplace/élargit la bande d'onglets actuelle (qui n'apparaît que si ≥2 `viewables`) : la rendre
-     persistante + au style mockup. Câbler le retrait sur `handleRemoveViewable`. Réutiliser le label
-     type via le `DocKind` (`document-header-model.ts`) + `selected.number`.
-3. **M2 responsive** (laptop/tablette/téléphone : Sheet + container queries + overflow ⋯) puis
-   **M3 a11y** (clavier WAI-ARIA arbre/toolbar roving tabindex, audit Lighthouse, finitions).
+1. **M2 responsive** (laptop/tablette/téléphone : `Sheet` + container queries + overflow ⋯ ;
+   **cibles tactiles ≥ 44 px**). ⚠️ **À restaurer en M2** : sous `lg`, le rail Copilote est masqué →
+   le constat Regafy et le bouton **Traduire d'une pièce** n'ont plus de point d'entrée mobile
+   (Remplacer/Remplir restent dispo). Prévoir un tiroir Copilote (Sheet) sur mobile.
+2. **M3 a11y** : clavier WAI-ARIA **arbre** + **toolbar** roving tabindex ; **vraie barre `tablist`**
+   pour les onglets (flèches ←/→ + `tabpanel`, actuellement `role="group"` + `aria-current`) ;
+   audit Lighthouse, finitions.
 
 **Garde-fous reprise :** `main` = prod ; brancher → CI 6/6 → **recette Chrome réelle** (sticky/responsive
 NON vérifiables en headless) → merge → deploy. **Piège SW : double `update()`+reload** avant de recetter

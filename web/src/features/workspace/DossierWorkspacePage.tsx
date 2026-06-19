@@ -7,6 +7,7 @@ import {
   FileDown,
   FileText,
   Languages,
+  Map as MapIcon,
   MessagesSquare,
   Pencil,
   Send,
@@ -60,6 +61,7 @@ import {
   completionStats,
   docsForNode,
   genDocsForNode,
+  viewableTabType,
   type Viewable,
 } from './dossier-selectors'
 import {
@@ -105,11 +107,9 @@ import {
   type DocHeaderStatus,
   type DocKind,
 } from './components/document-header-model'
-import { NonConformCard } from './components/NonConformCard'
 import { AuditReportView } from './components/AuditReportView'
 import { RegafyGateDialog } from './components/RegafyGateDialog'
 import { FormatToolbar } from './components/toolbar'
-import { TranslationProgress } from './components/TranslationProgress'
 import { PanelHandle } from './components/PanelHandle'
 import { TreePanel } from './components/TreePanel'
 import { dossierBaseName, downloadDoc, slugify, triggerDownload } from './download-utils'
@@ -327,7 +327,6 @@ export function DossierWorkspacePage() {
     runGlobalAudit,
     translating,
     upgrading,
-    streamText,
     handleTranslate,
     handleTranslateGenerated,
   } = useRegafyCopilot({
@@ -613,13 +612,13 @@ export function DossierWorkspacePage() {
         >
           <ArrowLeft className="size-4" />
         </Button>
-        <div className="min-w-0 leading-tight">
-          <div className="truncate text-sm font-semibold">
-            {dossier.productName} — {countryLabel(dossier.country, lang)}
-          </div>
-          <div className="text-muted-foreground truncate text-xs">
+        {/* Fil d'Ariane sur UNE seule ligne (mockup .crumb) : produit (gras) — pays · activité. */}
+        <div className="min-w-0 flex-1 truncate text-sm leading-tight">
+          <span className="font-semibold">{dossier.productName}</span>{' '}
+          <span className="text-muted-foreground">
+            — {countryLabel(dossier.country, lang)} ·{' '}
             {t({ fr: `Création Module 1 (${fmt})`, en: `Module 1 creation (${fmt})` })}
-          </div>
+          </span>
         </div>
         <div className="ml-auto flex shrink-0 items-center gap-2">
           <Button
@@ -627,7 +626,8 @@ export function DossierWorkspacePage() {
             size="sm"
             onClick={() => navigate(`/workspace/${dossier.id}/roadmap`)}
           >
-            {t({ fr: 'Roadmap', en: 'Roadmap' })}
+            <MapIcon className="size-4" />
+            {t({ fr: 'Feuille de route', en: 'Roadmap' })}
           </Button>
           <Button
             variant="outline"
@@ -847,7 +847,30 @@ export function DossierWorkspacePage() {
     if (activeAnalysisFinding) setHiddenCards((prev) => new Set(prev).add(activeAnalysisFinding.id))
   }
 
-  const { okCount, pct } = completionStats(flatNodes, countFor)
+  // Constat Regafy de l'élément affiché → carte amber du panneau Copilote (pass 2 : déplacée du
+  // canevas → rail droit). Cible : document généré analysable (traduction / version conforme) →
+  // Remplir/Traduire, sans « Remplacer » ; pièce → Remplir/Traduire/Remplacer.
+  const railFinding = visibleAnalysisCard
+    ? {
+        finding: visibleAnalysisCard,
+        docType: activeAnalysisDocType,
+        showReplace: !analyzableGenDoc,
+        translating: translating === (analyzableGenDoc?.id ?? visibleAnalysisCard.pieceId),
+        onFill: () => {
+          if (selected) void handleFillTemplate(selected)
+        },
+        onTranslate: () => {
+          if (analyzableGenDoc) void handleTranslateGenerated(analyzableGenDoc)
+          else void handleTranslate(visibleAnalysisCard)
+        },
+        onReplace: () => {
+          if (active && active.kind !== 'letter') handleReplace(active)
+        },
+        onDismiss: hideAnalysisCard,
+      }
+    : null
+
+  const { okCount, pct, leaves } = completionStats(flatNodes, countFor)
   const warnCount = allFindings.filter((f) => !f.ok && f.severity === 'warning').length
   const errCount = allFindings.filter((f) => !f.ok && f.severity === 'error').length
 
@@ -1218,16 +1241,79 @@ export function DossierWorkspacePage() {
   const headerActions = headerCtx ? buildDocActions(headerCtx, t) : []
 
   return (
-    // Modèle « Google Docs » : la page de montage défile globalement (scrollbar de <main> à
-    // droite), les panneaux latéraux restent figés (sticky), la feuille défile. Fond gris
-    // clair (mockup CEO) : les cartes blanches ressortent ; les actions globales (Roadmap,
-    // Compiler) sont dans le bandeau du haut.
-    <div className="bg-muted/40 -m-4 flex min-h-full flex-col gap-2 p-4 pl-1.5 md:-m-6 md:p-6 md:pl-2">
-      {/* EN-TÊTE DE DOCUMENT UNIQUE (M1) : cadre constant (identité + barre d'actions), boutons
-          adaptés au type. SEULE barre collante — remplace pilule + barre d'actions + bandeau navy
-          + barre de format. */}
-      {headerKind ? (
-        <div className="sticky top-0 z-30">
+    // Layout plein écran (mockup ctd-builder-unified-header) : en-tête de document UNIQUE
+    // full-bleed, puis 3 colonnes FLUSH (Structure │ Document │ Copilote) qui défilent
+    // indépendamment. Le conteneur remplit <main> en hauteur (h = 100% + le padding-bottom
+    // neutralisé du shell, cf. app-shell) → plus de scroll global, bordures verticales pleine
+    // hauteur. Les overlays (dialogs) sont SORTIS du conteneur overflow-hidden (fragment) → jamais rognés.
+    <>
+      <div className="bg-canvas -mx-4 -mb-4 flex h-[calc(100%+1rem)] flex-col overflow-hidden md:-mx-6 md:-mb-6 md:h-[calc(100%+1.5rem)]">
+        {/* Barre d'ONGLETS de documents (mockup `.legend`) — pleine largeur, ENTRE l'en-tête
+            global du shell et l'en-tête de document. Pilules `.pickbtn` : « {Type} ({n° CTD}) »,
+            navy si actif + « × » pour retirer du dossier (façon onglet de navigateur). Pas de
+            role=tab (pattern tablist clavier complet = jalon M3 a11y). */}
+        {selected && !showCoverPage && viewables.length > 0 ? (
+          <div
+            role="group"
+            aria-label={t({ fr: 'Documents de la section', en: 'Section documents' })}
+            className="bg-card flex flex-wrap items-center gap-2 border-b px-4 py-2"
+          >
+            {viewables.map((v) => {
+              const isActive = active?.key === v.key
+              const tabLabel = `${t(viewableTabType(v))} (${selected.number})`
+              const removeHint =
+                v.kind === 'doc'
+                  ? t({
+                      fr: 'Retirer du dossier (le document reste sous le produit)',
+                      en: 'Remove from dossier (the document stays under the product)',
+                    })
+                  : t({ fr: 'Supprimer du dossier', en: 'Remove from dossier' })
+              return (
+                <span
+                  key={v.key}
+                  className={cn(
+                    'inline-flex items-center rounded-full border text-[12px] transition-colors',
+                    isActive
+                      ? 'border-brand bg-brand text-brand-foreground'
+                      : 'text-foreground hover:bg-accent',
+                  )}
+                >
+                  <button
+                    type="button"
+                    aria-current={isActive ? 'true' : undefined}
+                    onClick={() => {
+                      setPickedKey(v.key)
+                      // Traduction/version conforme/template → éditable d'emblée.
+                      if (v.kind === 'letter' && (v.isTranslation || v.isUpgrade || v.isFill))
+                        setDocEditing(true)
+                    }}
+                    title={v.label}
+                    className="focus-visible:ring-ring/50 max-w-[200px] truncate rounded-full py-1 pr-1.5 pl-[11px] font-medium outline-none focus-visible:ring-[3px]"
+                  >
+                    {tabLabel}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`${removeHint} — ${tabLabel}`}
+                    title={removeHint}
+                    onClick={() => void handleRemoveViewable(v)}
+                    className={cn(
+                      'focus-visible:ring-ring/50 mr-1 grid size-6 shrink-0 place-items-center rounded-full outline-none focus-visible:ring-[3px]',
+                      isActive
+                        ? 'hover:bg-brand-foreground/20'
+                        : 'hover:bg-destructive/10 hover:text-destructive',
+                    )}
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </span>
+              )
+            })}
+          </div>
+        ) : null}
+        {/* EN-TÊTE DE DOCUMENT UNIQUE (M1) : cadre constant (identité + actions), boutons adaptés
+            au type — full-bleed, bordure basse. Remplace pilule + barre + bandeau navy + format. */}
+        {headerKind ? (
           <DocumentHeader
             number={selected?.number}
             title={headerTitle}
@@ -1242,396 +1328,325 @@ export function DossierWorkspacePage() {
               ) : undefined
             }
           />
-        </div>
-      ) : null}
+        ) : null}
 
-      <div className="flex items-start gap-3">
-        <TreePanel
-          collapsed={collapsed}
-          treeEditing={treeEditing}
-          setTreeEditing={setTreeEditing}
-          structureOutdated={structureOutdated}
-          onUpdateStructure={() => void handleUpdateStructure()}
-          tree={dossier.tree}
-          flatNodes={flatNodes}
-          selected={selected}
-          onSelectNode={handleSelectNode}
-          countFor={countFor}
-          flaggedNodes={flaggedNodes}
-          onTreeChange={(tree) => void handleTreeChange(tree)}
-        />
-        <PanelHandle
-          side="left"
-          open={!collapsed}
-          onClick={() => setCollapsed(!collapsed)}
-          label={
-            collapsed
-              ? t({ fr: "Déplier l'arborescence", en: 'Expand the structure' })
-              : t({ fr: "Replier l'arborescence", en: 'Collapse the structure' })
-          }
-        />
+        {/* Corps : 3 colonnes flush ; `relative` → poignées de rabat posées SUR les bordures. */}
+        <div className="relative flex min-h-0 flex-1">
+          {/* Colonne 1 — Structure (bordure droite, pleine hauteur, défile). */}
+          <div className="relative h-full shrink-0">
+            <TreePanel
+              collapsed={collapsed}
+              treeEditing={treeEditing}
+              setTreeEditing={setTreeEditing}
+              structureOutdated={structureOutdated}
+              onUpdateStructure={() => void handleUpdateStructure()}
+              tree={dossier.tree}
+              flatNodes={flatNodes}
+              selected={selected}
+              onSelectNode={handleSelectNode}
+              countFor={countFor}
+              flaggedNodes={flaggedNodes}
+              onTreeChange={(tree) => void handleTreeChange(tree)}
+            />
+            <PanelHandle
+              side="left"
+              open={!collapsed}
+              onClick={() => setCollapsed(!collapsed)}
+              label={
+                collapsed
+                  ? t({ fr: "Déplier l'arborescence", en: 'Expand the structure' })
+                  : t({ fr: "Replier l'arborescence", en: 'Collapse the structure' })
+              }
+              className="absolute top-1/2 -right-[9px] z-20 -translate-y-1/2"
+            />
+          </div>
 
-        {/* Colonne centrale : contenu A4 qui défile (les toolbars sont dans le bandeau du haut). */}
-        <div className="min-w-0 flex-1">
-          {selected ? (
-            <div className="flex flex-col gap-2">
-              {/* Input fichier caché : déclenché par « Téléverser » de l'en-tête (et « Remplacer »). */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept={UPLOAD_ACCEPT}
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0]
-                  if (f) void handleUpload(f)
-                  e.target.value = ''
-                }}
-              />
-              {/* Onglets des documents du nœud — affichés seulement s'il y en a plusieurs
-                  (original + traduction / version conforme). Les actions vivent dans l'EN-TÊTE
-                  unique ci-dessus ; le « × » retire l'onglet du dossier. */}
-              {!showCoverPage && viewables.length > 1 ? (
-                <div className="flex flex-wrap items-center gap-1">
-                  {viewables.map((v) => {
-                    const removeHint =
-                      v.kind === 'doc'
-                        ? t({
-                            fr: 'Retirer du dossier (le document reste sous le produit)',
-                            en: 'Remove from dossier (the document stays under the product)',
-                          })
-                        : t({ fr: 'Supprimer du dossier', en: 'Remove from dossier' })
-                    return (
-                      <div
-                        key={v.key}
-                        className={cn(
-                          'flex items-center gap-1 rounded-full border py-1 pr-1 pl-3 text-xs',
-                          active?.key === v.key
-                            ? 'border-primary bg-primary/10 text-primary'
-                            : 'text-muted-foreground hover:bg-accent',
-                        )}
-                      >
-                        <button
-                          type="button"
-                          aria-current={active?.key === v.key}
-                          onClick={() => {
-                            setPickedKey(v.key)
-                            // Traduction → éditable d'emblée (cohérent avec l'ouverture via « Traduire »).
-                            if (v.kind === 'letter' && (v.isTranslation || v.isUpgrade || v.isFill))
-                              setDocEditing(true)
-                          }}
-                          title={v.label}
-                          className="flex items-center gap-1.5"
-                        >
-                          <FileText className="size-3.5 shrink-0" />
-                          <span className="max-w-[160px] truncate">{v.label}</span>
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={removeHint}
-                          title={removeHint}
-                          onClick={() => void handleRemoveViewable(v)}
-                          className="hover:bg-destructive/10 hover:text-destructive rounded-full p-0.5"
-                        >
-                          <X className="size-3.5" />
-                        </button>
+          {/* Colonne 2 — Document : fond canevas (mockup `--bg`), défile ; feuille centrée (max 840).
+              `div` (pas `main` : le shell porte déjà le landmark `main` — pas de main imbriqué). */}
+          <div className="bg-canvas min-w-0 flex-1 overflow-auto">
+            {selected ? (
+              <>
+                {/* Input fichier caché : déclenché par « Téléverser » de l'en-tête (et « Remplacer »). */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={UPLOAD_ACCEPT}
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) void handleUpload(f)
+                    e.target.value = ''
+                  }}
+                />
+                <div className="mx-auto w-full max-w-[840px] p-4 md:p-5">
+                  {showCoverPage && selected ? (
+                    // Page de GARDE : aperçu numéro + intitulé (contenu autogénéré à la compilation).
+                    // L'identité (titre h2) et les actions (Autogénéré / Téléverser) vivent dans l'EN-TÊTE.
+                    <div className="flex min-h-[28rem] flex-col items-center justify-center rounded-lg border border-dashed p-6 text-center">
+                      <div>
+                        <span className="block text-4xl font-bold tracking-wide">
+                          {selected.number}
+                        </span>{' '}
+                        <span className="mt-2 block text-lg font-semibold">{selected.label}</span>
                       </div>
-                    )
-                  })}
-                </div>
-              ) : null}
-
-              <div>
-                {showCoverPage && selected ? (
-                  // Page de GARDE : aperçu numéro + intitulé (contenu autogénéré à la compilation).
-                  // L'identité (titre h2) et les actions (Autogénéré / Téléverser) vivent dans l'EN-TÊTE.
-                  <div className="flex min-h-[28rem] flex-col items-center justify-center rounded-lg border border-dashed p-6 text-center">
-                    <div>
-                      <span className="block text-4xl font-bold tracking-wide">
-                        {selected.number}
-                      </span>{' '}
-                      <span className="mt-2 block text-lg font-semibold">{selected.label}</span>
-                    </div>
-                    <p className="text-muted-foreground mt-3 max-w-md text-sm">
-                      {selected.number === '1.0'
-                        ? t({
-                            fr: 'Table des matières générée automatiquement à la compilation (pagination incluse).',
-                            en: 'Table of contents generated automatically at compilation (pagination included).',
-                          })
-                        : t({
-                            fr: 'Page de garde générée automatiquement à la compilation — numéro et intitulé de la section.',
-                            en: 'Cover page generated automatically at compilation — section number and title.',
-                          })}
-                    </p>
-                  </div>
-                ) : active?.kind === 'letter' && activeGenDoc ? (
-                  // Onglet traduction/version conforme = plein largeur (éditeur + barre de format) ;
-                  // l'original est l'onglet voisin. Pas d'`overflow-hidden` : casserait le `sticky`.
-                  // `relative` : ancre de la carte de non-conformité et du scan (mockup CEO).
-                  <section
-                    className={cn(
-                      'bg-card relative rounded-lg border',
-                      analyzing === activeGenDoc.id && 'regafy-scanning',
-                    )}
-                  >
-                    {analyzing === activeGenDoc.id ? <div className="regafy-scan-line" /> : null}
-                    {visibleAnalysisCard && analyzableGenDoc ? (
-                      <NonConformCard
-                        finding={visibleAnalysisCard}
-                        docType={activeAnalysisDocType}
-                        showReplace={false}
-                        onFill={() => selected && void handleFillTemplate(selected)}
-                        onTranslate={() => void handleTranslateGenerated(analyzableGenDoc)}
-                        onReplace={() => {}}
-                        onDismiss={hideAnalysisCard}
-                      />
-                    ) : null}
-                    {activeGenDoc.templateKey === 'upgrade' ? (
-                      <p
-                        className={cn(
-                          'flex items-center gap-1.5 px-3 pt-2 text-xs italic',
-                          upgradeMissingCount > 0 ? 'text-amber-700' : 'text-emerald-700',
-                        )}
-                      >
-                        <Wand2 className="size-3.5 shrink-0" />
-                        {upgradeMissingCount > 0
+                      <p className="text-muted-foreground mt-3 max-w-md text-sm">
+                        {selected.number === '1.0'
                           ? t({
-                              fr: `Mise en conformité assistée — à relire : ${upgradeMissingCount} rubrique(s) marquée(s) [NON FOURNI DANS LE DOCUMENT SOURCE] à compléter.`,
-                              en: `Assisted compliance upgrade — to review: ${upgradeMissingCount} section(s) marked [NON FOURNI DANS LE DOCUMENT SOURCE] to complete.`,
+                              fr: 'Table des matières générée automatiquement à la compilation (pagination incluse).',
+                              en: 'Table of contents generated automatically at compilation (pagination included).',
                             })
                           : t({
-                              fr: 'Mise en conformité assistée — à relire. Toutes les rubriques portent une information issue du document source.',
-                              en: 'Assisted compliance upgrade — to review. All sections carry information from the source document.',
+                              fr: 'Page de garde générée automatiquement à la compilation — numéro et intitulé de la section.',
+                              en: 'Cover page generated automatically at compilation — section number and title.',
                             })}
                       </p>
-                    ) : null}
-                    {activeGenDoc.templateKey === 'fill' ? (
-                      activeFormDef ? null : (
+                    </div>
+                  ) : active?.kind === 'letter' && activeGenDoc ? (
+                    // Onglet traduction/version conforme = plein largeur (éditeur + barre de format) ;
+                    // l'original est l'onglet voisin. Pas d'`overflow-hidden` : casserait le `sticky`.
+                    // `relative` : ancre de la carte de non-conformité et du scan (mockup CEO).
+                    <section
+                      className={cn(
+                        'bg-card relative rounded-lg border',
+                        analyzing === activeGenDoc.id && 'regafy-scanning',
+                        (translating === activeGenDoc.id || upgrading === activeGenDoc.id) &&
+                          'tr-scanning',
+                      )}
+                    >
+                      {analyzing === activeGenDoc.id ? <div className="regafy-scan-line" /> : null}
+                      {/* Traduction / mise en conformité : MÊME scan que l'analyse, en navy
+                          (branding) — sobre, sans déformer le panneau (scan absolu + liseré). */}
+                      {translating === activeGenDoc.id || upgrading === activeGenDoc.id ? (
+                        <div className="tr-scan-line" />
+                      ) : null}
+                      {/* Constat Regafy (carte amber) déplacé dans le panneau Copilote — pass 2. */}
+                      {activeGenDoc.templateKey === 'upgrade' ? (
                         <p
                           className={cn(
                             'flex items-center gap-1.5 px-3 pt-2 text-xs italic',
-                            fillMissingCount > 0 ? 'text-amber-700' : 'text-emerald-700',
+                            upgradeMissingCount > 0 ? 'text-amber-700' : 'text-emerald-700',
                           )}
                         >
-                          <ClipboardList className="size-3.5 shrink-0" />
-                          {fillMissingCount > 0
+                          <Wand2 className="size-3.5 shrink-0" />
+                          {upgradeMissingCount > 0
                             ? t({
-                                fr: `Template officiel — ${fillMissingCount} zone(s) [À COMPLÉTER] restante(s). Les titres du template sont verrouillés ; Regafy vérifie la conformité à chaque enregistrement.`,
-                                en: `Official template — ${fillMissingCount} [À COMPLÉTER] area(s) remaining. Template headings are locked; Regafy checks compliance on each save.`,
+                                fr: `Mise en conformité assistée — à relire : ${upgradeMissingCount} rubrique(s) marquée(s) [NON FOURNI DANS LE DOCUMENT SOURCE] à compléter.`,
+                                en: `Assisted compliance upgrade — to review: ${upgradeMissingCount} section(s) marked [NON FOURNI DANS LE DOCUMENT SOURCE] to complete.`,
                               })
                             : t({
-                                fr: 'Template officiel — toutes les zones sont complétées. Regafy vérifie la conformité à chaque enregistrement.',
-                                en: 'Official template — all areas are completed. Regafy checks compliance on each save.',
+                                fr: 'Mise en conformité assistée — à relire. Toutes les rubriques portent une information issue du document source.',
+                                en: 'Assisted compliance upgrade — to review. All sections carry information from the source document.',
                               })}
                         </p>
-                      )
-                    ) : null}
-                    {activeConformNeedsTranslation ? (
-                      <div className="mx-3 mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
-                        <span className="flex items-center gap-1.5 text-xs font-medium text-amber-800">
-                          <Languages className="size-4 shrink-0" />
-                          {t({
-                            fr: `Document conforme en ${activeUpgradeLang?.toUpperCase()} — langue officielle du pays : ${targetLangLabel}.`,
-                            en: `Compliant document in ${activeUpgradeLang?.toUpperCase()} — country official language: ${targetLangLabel}.`,
-                          })}
-                        </span>
-                        <Button
-                          size="sm"
-                          className="h-7 gap-1 bg-amber-500 text-white hover:bg-amber-600"
-                          disabled={translating === activeGenDoc.id}
-                          onClick={() => void handleTranslateGenerated(activeGenDoc)}
-                        >
-                          <Languages className="size-3.5" />
-                          {translating === activeGenDoc.id
-                            ? t({ fr: 'Traduction…', en: 'Translating…' })
-                            : t({
-                                fr: `Traduire en ${targetLangLabel}`,
-                                en: `Translate to ${targetLangLabel}`,
-                              })}
-                        </Button>
-                      </div>
-                    ) : null}
-                    {upgrading === activeGenDoc.id && streamText !== null ? (
-                      <div className="px-3 pt-2">
-                        <TranslationProgress
-                          text={streamText}
-                          label={t({
-                            fr: "Mise en conformité en cours — le document s'écrit au fil de l'eau…",
-                            en: 'Compliance upgrade in progress — the document is written as it streams…',
-                          })}
-                        />
-                      </div>
-                    ) : null}
-                    {translating === activeGenDoc.id && streamText !== null ? (
-                      <div className="px-3 pt-2">
-                        <TranslationProgress text={streamText} />
-                      </div>
-                    ) : null}
-                    <Suspense fallback={<EditorSkeleton />}>
-                      {activeFormDef ? (
-                        // Formulaire officiel (RCP/Notice/Étiquetage) — branding CEO (feuille A4
-                        // navy, exports DOCX/PDF conformes). Remplace l'éditeur TipTap.
-                        <TemplateFillForm
-                          key={activeGenDoc.id}
-                          ref={fillFormRef}
-                          def={activeFormDef}
-                          genDoc={activeGenDoc}
-                          product={product}
-                          countryName={countryLabel(activeDossier.country, lang)}
-                          orgId={orgId}
-                          controlsInBar
-                        />
-                      ) : (
-                        <>
-                          {/* Mise en forme (gras/italique/titre/liste) : dans l'EN-TÊTE en mode
-                              Modifier (mockup), plus de barre séparée au-dessus de l'éditeur. */}
-                          <RichTextEditor
-                            docId={activeGenDoc.id}
-                            initialContent={activeGenDoc.content as JSONContent}
-                            editable={docEditing}
-                            onChange={(json) => handleEditorChange(activeGenDoc.id, json)}
-                            onReady={handleEditorReady}
-                            header={
-                              activeGenDoc.templateKey === 'translation' ||
-                              activeGenDoc.templateKey === 'upgrade'
-                                ? null
-                                : (branding?.headerImage ?? null)
-                            }
-                            footer={
-                              activeGenDoc.templateKey === 'translation' ||
-                              activeGenDoc.templateKey === 'upgrade'
-                                ? null
-                                : (branding?.footerImage ?? null)
-                            }
+                      ) : null}
+                      {activeGenDoc.templateKey === 'fill' ? (
+                        activeFormDef ? null : (
+                          <p
+                            className={cn(
+                              'flex items-center gap-1.5 px-3 pt-2 text-xs italic',
+                              fillMissingCount > 0 ? 'text-amber-700' : 'text-emerald-700',
+                            )}
+                          >
+                            <ClipboardList className="size-3.5 shrink-0" />
+                            {fillMissingCount > 0
+                              ? t({
+                                  fr: `Template officiel — ${fillMissingCount} zone(s) [À COMPLÉTER] restante(s). Les titres du template sont verrouillés ; Regafy vérifie la conformité à chaque enregistrement.`,
+                                  en: `Official template — ${fillMissingCount} [À COMPLÉTER] area(s) remaining. Template headings are locked; Regafy checks compliance on each save.`,
+                                })
+                              : t({
+                                  fr: 'Template officiel — toutes les zones sont complétées. Regafy vérifie la conformité à chaque enregistrement.',
+                                  en: 'Official template — all areas are completed. Regafy checks compliance on each save.',
+                                })}
+                          </p>
+                        )
+                      ) : null}
+                      {activeConformNeedsTranslation ? (
+                        // Politique « conformité d'abord, traduction après » : doc rédigé dans une
+                        // langue ≠ langue officielle du pays → contrôle SOBRE de traduction (style
+                        // Bibliothèque : bordé, navy), pas un bandeau ambré criard.
+                        <div className="bg-muted/40 mx-3 mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2">
+                          <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                            <Languages className="text-brand size-4 shrink-0" />
+                            {t({
+                              fr: `Rédigé en ${activeUpgradeLang?.toUpperCase()} — langue officielle du pays : ${targetLangLabel}.`,
+                              en: `Written in ${activeUpgradeLang?.toUpperCase()} — country official language: ${targetLangLabel}.`,
+                            })}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-brand text-brand hover:bg-brand/5 h-7 gap-1.5"
+                            disabled={translating === activeGenDoc.id}
+                            onClick={() => void handleTranslateGenerated(activeGenDoc)}
+                          >
+                            <Languages className="size-3.5" />
+                            {translating === activeGenDoc.id
+                              ? t({ fr: 'Traduction…', en: 'Translating…' })
+                              : t({
+                                  fr: `Traduire en ${targetLangLabel}`,
+                                  en: `Translate to ${targetLangLabel}`,
+                                })}
+                          </Button>
+                        </div>
+                      ) : null}
+                      <Suspense fallback={<EditorSkeleton />}>
+                        {activeFormDef ? (
+                          // Formulaire officiel (RCP/Notice/Étiquetage) — branding CEO (feuille A4
+                          // navy, exports DOCX/PDF conformes). Remplace l'éditeur TipTap.
+                          <TemplateFillForm
+                            key={activeGenDoc.id}
+                            ref={fillFormRef}
+                            def={activeFormDef}
+                            genDoc={activeGenDoc}
+                            product={product}
+                            countryName={countryLabel(activeDossier.country, lang)}
+                            orgId={orgId}
+                            controlsInBar
                           />
-                        </>
+                        ) : (
+                          <>
+                            {/* Mise en forme (gras/italique/titre/liste) : dans l'EN-TÊTE en mode
+                              Modifier (mockup), plus de barre séparée au-dessus de l'éditeur. */}
+                            <RichTextEditor
+                              docId={activeGenDoc.id}
+                              initialContent={activeGenDoc.content as JSONContent}
+                              editable={docEditing}
+                              onChange={(json) => handleEditorChange(activeGenDoc.id, json)}
+                              onReady={handleEditorReady}
+                              header={
+                                activeGenDoc.templateKey === 'translation' ||
+                                activeGenDoc.templateKey === 'upgrade'
+                                  ? null
+                                  : (branding?.headerImage ?? null)
+                              }
+                              footer={
+                                activeGenDoc.templateKey === 'translation' ||
+                                activeGenDoc.templateKey === 'upgrade'
+                                  ? null
+                                  : (branding?.footerImage ?? null)
+                              }
+                            />
+                          </>
+                        )}
+                      </Suspense>
+                    </section>
+                  ) : active && active.kind !== 'letter' ? (
+                    // `relative` : ancre de la carte de constat et de l'animation d'analyse.
+                    <div
+                      className={cn(
+                        'relative space-y-2',
+                        analyzing === active.id && 'regafy-scanning rounded-lg',
+                        (translating === active.id || upgrading === active.id) &&
+                          'tr-scanning rounded-lg',
                       )}
-                    </Suspense>
-                  </section>
-                ) : active && active.kind !== 'letter' ? (
-                  // `relative` : ancre de la carte de constat et de l'animation d'analyse.
-                  <div
-                    className={cn(
-                      'relative space-y-2',
-                      analyzing === active.id && 'regafy-scanning rounded-lg',
-                    )}
-                  >
-                    {/* Animation d'analyse Regafy (mockup CEO) : barre verte qui balaie le doc. */}
-                    {analyzing === active.id ? <div className="regafy-scan-line" /> : null}
-                    {/* Carte de CONSTAT (mockup CEO) : actions selon la politique — template :
-                        Remplir le template / Traduire / Remplacer ; pièce admin : Remplacer. */}
-                    {visibleAnalysisCard ? (
-                      <NonConformCard
-                        finding={visibleAnalysisCard}
-                        docType={activeAnalysisDocType}
-                        translating={translating === visibleAnalysisCard.pieceId}
-                        onFill={() => selected && void handleFillTemplate(selected)}
-                        onTranslate={() => void handleTranslate(visibleAnalysisCard)}
-                        onReplace={() => handleReplace(active)}
-                        onDismiss={hideAnalysisCard}
-                      />
-                    ) : null}
-                    {translating === active.id && streamText !== null ? (
-                      <TranslationProgress text={streamText} />
-                    ) : null}
-                    {upgrading === active.id && streamText !== null ? (
-                      <TranslationProgress
-                        text={streamText}
-                        label="Mise en conformité en cours — le document s'écrit au fil de l'eau…"
-                      />
-                    ) : null}
-                    <InlineDocPreview
-                      key={active.key}
-                      kind={active.kind}
-                      docId={active.id}
-                      filePath={active.filePath}
-                      fileName={active.fileName}
-                    />
-                  </div>
-                ) : selectedTplKey ? (
-                  <div className="flex min-h-[24rem] flex-col items-center justify-center rounded-lg border border-dashed p-4 text-center">
-                    <Sparkles className="text-primary mb-2 size-8" />
-                    <p className="text-sm font-medium">{TEMPLATES[selectedTplKey].title}</p>
-                    <p className="text-muted-foreground mt-1 max-w-sm text-xs">
-                      {t({
-                        fr: 'Générez ce document depuis le modèle UEMOA, ou téléversez un fichier.',
-                        en: 'Generate this document from the WAEMU template, or upload a file.',
-                      })}
-                    </p>
-                    <Button className="mt-3" size="sm" onClick={() => void handleGenerate()}>
-                      <Sparkles className="size-4" /> Générer
-                    </Button>
-                  </div>
-                ) : canFillSelected ? (
-                  <div className="flex min-h-[24rem] flex-col items-center justify-center rounded-lg border border-dashed p-4 text-center">
-                    <ClipboardList className="text-primary mb-2 size-8" />
-                    <p className="text-sm font-medium">
-                      {t({ fr: 'Template officiel disponible', en: 'Official template available' })}
-                    </p>
-                    <p className="text-muted-foreground mt-1 max-w-sm text-xs">
-                      {t({
-                        fr: 'Remplissez le template en vigueur (structure verrouillée, conformité vérifiée par Regafy à chaque enregistrement), ou téléversez un document.',
-                        en: 'Fill in the current template (locked structure, compliance checked by Regafy on each save), or upload a document.',
-                      })}
-                    </p>
-                    <Button
-                      className="mt-3"
-                      size="sm"
-                      onClick={() => selected && void handleFillTemplate(selected)}
                     >
-                      <ClipboardList className="size-4" />{' '}
-                      {t({ fr: 'Remplir le template', en: 'Fill the template' })}
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="text-muted-foreground flex min-h-[24rem] flex-col items-center justify-center rounded-lg border border-dashed text-sm">
-                    <FileText className="mb-2 size-8" />
-                    {t({
-                      fr: 'Aucun document classé sous cette section.',
-                      en: 'No document filed under this section.',
-                    })}
-                  </div>
-                )}
+                      {/* Analyse = scan vert ; traduction / mise en conformité = MÊME scan en navy. */}
+                      {analyzing === active.id ? <div className="regafy-scan-line" /> : null}
+                      {translating === active.id || upgrading === active.id ? (
+                        <div className="tr-scan-line" />
+                      ) : null}
+                      <InlineDocPreview
+                        key={active.key}
+                        kind={active.kind}
+                        docId={active.id}
+                        filePath={active.filePath}
+                        fileName={active.fileName}
+                      />
+                    </div>
+                  ) : selectedTplKey ? (
+                    <div className="flex min-h-[24rem] flex-col items-center justify-center rounded-lg border border-dashed p-4 text-center">
+                      <Sparkles className="text-primary mb-2 size-8" />
+                      <p className="text-sm font-medium">{TEMPLATES[selectedTplKey].title}</p>
+                      <p className="text-muted-foreground mt-1 max-w-sm text-xs">
+                        {t({
+                          fr: 'Générez ce document depuis le modèle UEMOA, ou téléversez un fichier.',
+                          en: 'Generate this document from the WAEMU template, or upload a file.',
+                        })}
+                      </p>
+                      <Button className="mt-3" size="sm" onClick={() => void handleGenerate()}>
+                        <Sparkles className="size-4" /> Générer
+                      </Button>
+                    </div>
+                  ) : canFillSelected ? (
+                    <div className="flex min-h-[24rem] flex-col items-center justify-center rounded-lg border border-dashed p-4 text-center">
+                      <ClipboardList className="text-primary mb-2 size-8" />
+                      <p className="text-sm font-medium">
+                        {t({
+                          fr: 'Template officiel disponible',
+                          en: 'Official template available',
+                        })}
+                      </p>
+                      <p className="text-muted-foreground mt-1 max-w-sm text-xs">
+                        {t({
+                          fr: 'Remplissez le template en vigueur (structure verrouillée, conformité vérifiée par Regafy à chaque enregistrement), ou téléversez un document.',
+                          en: 'Fill in the current template (locked structure, compliance checked by Regafy on each save), or upload a document.',
+                        })}
+                      </p>
+                      <Button
+                        className="mt-3"
+                        size="sm"
+                        onClick={() => selected && void handleFillTemplate(selected)}
+                      >
+                        <ClipboardList className="size-4" />{' '}
+                        {t({ fr: 'Remplir le template', en: 'Fill the template' })}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground flex min-h-[24rem] flex-col items-center justify-center rounded-lg border border-dashed text-sm">
+                      <FileText className="mb-2 size-8" />
+                      {t({
+                        fr: 'Aucun document classé sous cette section.',
+                        en: 'No document filed under this section.',
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="text-muted-foreground flex items-center justify-center rounded-lg border border-dashed py-16 text-sm">
+                {t({
+                  fr: "Sélectionnez une section de l'arborescence.",
+                  en: 'Select a section from the structure.',
+                })}
               </div>
-            </div>
-          ) : (
-            <div className="text-muted-foreground flex items-center justify-center rounded-lg border border-dashed py-16 text-sm">
-              {t({
-                fr: "Sélectionnez une section de l'arborescence.",
-                en: 'Select a section from the structure.',
-              })}
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        <PanelHandle
-          side="right"
-          open={!rightCollapsed}
-          onClick={() => setRightCollapsed(!rightCollapsed)}
-          label={
-            rightCollapsed
-              ? t({ fr: 'Afficher la complétude', en: 'Show completeness' })
-              : t({ fr: 'Replier la complétude', en: 'Collapse completeness' })
-          }
-          className="hidden lg:grid"
-        />
-        <CompletionPanel
-          collapsed={rightCollapsed}
-          pct={pct}
-          okCount={okCount}
-          warnCount={warnCount}
-          errCount={errCount}
-          allFindings={allFindings}
-          aiBusy={aiBusy}
-          translating={translating}
-          targetLangLabel={targetLangLabel}
-          flatNodes={flatNodes}
-          onSelectNode={handleSelectNode}
-          onTranslate={(f) => void handleTranslate(f)}
-          onFillTemplate={(f) => {
-            const n = flatNodes.find((x) => x.number === f.nodeNumber)
-            if (n) void handleFillTemplate(n)
-          }}
-        />
+          {/* Colonne 3 — Copilote (bordure gauche, pleine hauteur, défile) + poignée sur la bordure. */}
+          <div className="relative hidden h-full shrink-0 lg:block">
+            <PanelHandle
+              side="right"
+              open={!rightCollapsed}
+              onClick={() => setRightCollapsed(!rightCollapsed)}
+              label={
+                rightCollapsed
+                  ? t({ fr: 'Afficher la complétude', en: 'Show completeness' })
+                  : t({ fr: 'Replier la complétude', en: 'Collapse completeness' })
+              }
+              className="absolute top-1/2 -left-[9px] z-20 -translate-y-1/2"
+            />
+            <CompletionPanel
+              collapsed={rightCollapsed}
+              pct={pct}
+              okCount={okCount}
+              total={leaves.length}
+              warnCount={warnCount}
+              errCount={errCount}
+              allFindings={allFindings}
+              aiBusy={aiBusy}
+              translating={translating}
+              targetLangLabel={targetLangLabel}
+              flatNodes={flatNodes}
+              onSelectNode={handleSelectNode}
+              onTranslate={(f) => void handleTranslate(f)}
+              onFillTemplate={(f) => {
+                const n = flatNodes.find((x) => x.number === f.nodeNumber)
+                if (n) void handleFillTemplate(n)
+              }}
+              finding={railFinding}
+            />
+          </div>
+        </div>
       </div>
 
       {previewPdf ? (
@@ -1721,6 +1736,6 @@ export function DossierWorkspacePage() {
       {brandPanelOpen ? (
         <BrandingPanel branding={branding} orgId={orgId} onClose={() => setBrandPanelOpen(false)} />
       ) : null}
-    </div>
+    </>
   )
 }

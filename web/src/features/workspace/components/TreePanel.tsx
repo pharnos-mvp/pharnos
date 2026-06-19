@@ -38,7 +38,7 @@ export function TreePanel({
   const { t } = useI18n()
   if (collapsed) {
     return (
-      <div className="bg-card sticky top-2 flex max-h-[calc(100svh-6rem)] w-14 shrink-0 flex-col items-center gap-1.5 overflow-auto rounded-2xl border py-2 shadow-sm">
+      <div className="bg-card flex h-full w-14 shrink-0 flex-col items-center gap-1.5 overflow-auto border-r py-2">
         {flatNodes.map((n) => (
           <button
             key={n.id ?? n.number}
@@ -62,7 +62,10 @@ export function TreePanel({
     )
   }
   return (
-    <aside className="bg-card sticky top-2 flex max-h-[calc(100svh-6rem)] w-[286px] shrink-0 flex-col overflow-hidden rounded-2xl border shadow-sm">
+    <aside
+      aria-label={t({ fr: 'Structure du dossier', en: 'Dossier structure' })}
+      className="bg-card flex h-full w-[286px] shrink-0 flex-col overflow-hidden border-r"
+    >
       <div className="flex items-start justify-between border-b p-3">
         <div>
           <div className="text-sm font-semibold">{t({ fr: 'Arborescence', en: 'Structure' })}</div>

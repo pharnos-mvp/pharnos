@@ -30,3 +30,32 @@
   outline: 2px solid rgba(34, 197, 94, 0.45);
   outline-offset: -2px;
 }
+
+/* Traduction / mise en conformité (T11/U4) — MÊME animation que l'analyse Regafy, mais en NAVY
+   (branding `--brand`) au lieu du vert : un liseré qui balaie le document + un outline. Sobre,
+   ne déforme pas le panneau (scan absolu + outline en négatif). Réutilise `regafy-scanmove`. */
+.tr-scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 30px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--brand) 0%, transparent) 0%,
+    color-mix(in srgb, var(--brand) 22%, transparent) 50%,
+    color-mix(in srgb, var(--brand) 0%, transparent) 100%
+  );
+  pointer-events: none;
+  z-index: 5;
+  animation: regafy-scanmove 2.4s ease-in-out infinite;
+}
+.tr-scanning {
+  outline: 2px solid color-mix(in srgb, var(--brand) 45%, transparent);
+  outline-offset: -2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tr-scan-line {
+    animation: none;
+    top: 45%;
+  }
+}

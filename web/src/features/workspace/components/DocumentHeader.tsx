@@ -157,27 +157,27 @@ export function DocumentHeader({
   return (
     <div className="bg-card flex min-h-[54px] flex-wrap items-center gap-[14px] border-b px-4 py-2">
       <div className="flex min-w-0 items-center gap-[11px]">
+        {/* Mockup .docid : numéro (badge) · titre+sous-titre (colonne) · statut. Le sous-titre
+            s'aligne sous le TITRE, pas sous le numéro. Le numéro reste dans le nom accessible du
+            titre h2 (sr-only) → repère de navigation des lecteurs d'écran + fil d'Ariane. */}
+        {number ? (
+          <span className="bg-brand/10 text-brand border-brand/20 rounded-[8px] border px-[9px] py-[4px] text-[13px] font-bold whitespace-nowrap tabular-nums">
+            {number}
+          </span>
+        ) : null}
         <span className="flex min-w-0 flex-col">
-          {/* Identité = titre de niveau 2 du document (numéro CTD + intitulé) : repère de
-              navigation pour les lecteurs d'écran, source de vérité du fil d'Ariane. */}
-          <h2 className="m-0 flex min-w-0 items-center gap-[11px] text-[15px] leading-tight font-medium">
-            {number ? (
-              <span className="bg-brand/10 text-brand border-brand/20 rounded-[8px] border px-[9px] py-[4px] text-[13px] font-bold tabular-nums">
-                {number}
-              </span>
-            ) : null}{' '}
-            <span className="truncate" title={title}>
-              {title}
-            </span>
+          <h2 className="m-0 truncate text-[15px] leading-tight font-semibold" title={title}>
+            {number ? <span className="sr-only">{number} </span> : null}
+            <span>{title}</span>
           </h2>
           {subtitle ? (
-            <span className="text-muted-foreground mt-0.5 text-xs">{subtitle}</span>
+            <span className="text-muted-foreground text-[12px] leading-tight">{subtitle}</span>
           ) : null}
         </span>
         {status ? (
           <span
             className={cn(
-              'inline-flex items-center gap-[5px] rounded-full px-[9px] py-[3px] text-[11.5px] font-medium',
+              'inline-flex items-center gap-[5px] rounded-full px-[9px] py-[3px] text-[11.5px] font-semibold',
               STATUS_TONE[status.tone],
             )}
           >

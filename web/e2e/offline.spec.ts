@@ -25,7 +25,10 @@ test('fonctionne hors-ligne après le premier chargement (précache PWA)', async
   await expect(page.getByRole('heading', { level: 1, name: 'Catalogue' })).toBeVisible()
 
   // La navigation client (route lazy précachée) fonctionne toujours hors-ligne.
-  await page.getByRole('link', { name: 'Tableau de bord' }).click()
+  await page
+    .getByRole('navigation', { name: 'Navigation principale' })
+    .getByRole('link', { name: 'Tableau de bord' })
+    .click()
   await expect(page).toHaveURL(/\/dashboard$/)
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 
