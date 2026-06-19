@@ -31,22 +31,31 @@
   outline-offset: -2px;
 }
 
-/* Indicateur SOBRE de traduction (T11) : barre indéterminée à hauteur fixe (ne déforme pas le
-   panneau central — demande CEO). Un segment qui va-et-vient sous le libellé « Traduction… ». */
-@keyframes tr-indeterminate {
-  0% {
-    transform: translateX(-110%);
-  }
-  100% {
-    transform: translateX(220%);
-  }
+/* Traduction / mise en conformité (T11/U4) — MÊME animation que l'analyse Regafy, mais en NAVY
+   (branding `--brand`) au lieu du vert : un liseré qui balaie le document + un outline. Sobre,
+   ne déforme pas le panneau (scan absolu + outline en négatif). Réutilise `regafy-scanmove`. */
+.tr-scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 30px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--brand) 0%, transparent) 0%,
+    color-mix(in srgb, var(--brand) 22%, transparent) 50%,
+    color-mix(in srgb, var(--brand) 0%, transparent) 100%
+  );
+  pointer-events: none;
+  z-index: 5;
+  animation: regafy-scanmove 2.4s ease-in-out infinite;
 }
-.tr-bar {
-  animation: tr-indeterminate 1.1s ease-in-out infinite;
+.tr-scanning {
+  outline: 2px solid color-mix(in srgb, var(--brand) 45%, transparent);
+  outline-offset: -2px;
 }
 @media (prefers-reduced-motion: reduce) {
-  .tr-bar {
+  .tr-scan-line {
     animation: none;
-    transform: translateX(50%);
+    top: 45%;
   }
 }

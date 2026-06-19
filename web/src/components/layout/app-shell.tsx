@@ -322,10 +322,11 @@ export function AppShell() {
               </Suspense>
             </ErrorBoundary>
           </HeaderSlotContext.Provider>
-          {/* Pied de page généreux — toutes les pages SAUF le montage CTD plein écran (qui remplit
-              le viewport ; y ajouter un footer casserait sa hauteur fixe). */}
-          {!inMontage ? <AppFooter /> : null}
         </main>
+        {/* Pied de page SOBRE — fine barre persistante SOUS le contenu, sur TOUTES les pages
+            (montage CTD inclus) → landmark contentinfo cohérent (a11y) + l'app ne « colle » pas
+            au bas de l'écran. Hors de <main> : ne touche pas la hauteur fixe du montage. */}
+        <AppFooter />
       </div>
     </div>
   )

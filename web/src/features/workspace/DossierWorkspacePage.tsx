@@ -110,7 +110,6 @@ import {
 import { AuditReportView } from './components/AuditReportView'
 import { RegafyGateDialog } from './components/RegafyGateDialog'
 import { FormatToolbar } from './components/toolbar'
-import { TranslationProgress } from './components/TranslationProgress'
 import { PanelHandle } from './components/PanelHandle'
 import { TreePanel } from './components/TreePanel'
 import { dossierBaseName, downloadDoc, slugify, triggerDownload } from './download-utils'
@@ -328,7 +327,6 @@ export function DossierWorkspacePage() {
     runGlobalAudit,
     translating,
     upgrading,
-    streamText,
     handleTranslate,
     handleTranslateGenerated,
   } = useRegafyCopilot({
@@ -1411,9 +1409,16 @@ export function DossierWorkspacePage() {
                       className={cn(
                         'bg-card relative rounded-lg border',
                         analyzing === activeGenDoc.id && 'regafy-scanning',
+                        (translating === activeGenDoc.id || upgrading === activeGenDoc.id) &&
+                          'tr-scanning',
                       )}
                     >
                       {analyzing === activeGenDoc.id ? <div className="regafy-scan-line" /> : null}
+                      {/* Traduction / mise en conformité : MÊME scan que l'analyse, en navy
+                          (branding) — sobre, sans déformer le panneau (scan absolu + liseré). */}
+                      {translating === activeGenDoc.id || upgrading === activeGenDoc.id ? (
+                        <div className="tr-scan-line" />
+                      ) : null}
                       {/* Constat Regafy (carte amber) déplacé dans le panneau Copilote — pass 2. */}
                       {activeGenDoc.templateKey === 'upgrade' ? (
                         <p
@@ -1484,21 +1489,6 @@ export function DossierWorkspacePage() {
                           </Button>
                         </div>
                       ) : null}
-                      {upgrading === activeGenDoc.id && streamText !== null ? (
-                        <div className="px-3 pt-2">
-                          <TranslationProgress
-                            label={t({
-                              fr: 'Mise en conformité en cours…',
-                              en: 'Compliance upgrade in progress…',
-                            })}
-                          />
-                        </div>
-                      ) : null}
-                      {translating === activeGenDoc.id && streamText !== null ? (
-                        <div className="px-3 pt-2">
-                          <TranslationProgress />
-                        </div>
-                      ) : null}
                       <Suspense fallback={<EditorSkeleton />}>
                         {activeFormDef ? (
                           // Formulaire officiel (RCP/Notice/Étiquetage) — branding CEO (feuille A4
@@ -1546,21 +1536,14 @@ export function DossierWorkspacePage() {
                       className={cn(
                         'relative space-y-2',
                         analyzing === active.id && 'regafy-scanning rounded-lg',
+                        (translating === active.id || upgrading === active.id) &&
+                          'tr-scanning rounded-lg',
                       )}
                     >
-                      {/* Animation d'analyse Regafy (mockup CEO) : barre verte qui balaie le doc. */}
+                      {/* Analyse = scan vert ; traduction / mise en conformité = MÊME scan en navy. */}
                       {analyzing === active.id ? <div className="regafy-scan-line" /> : null}
-                      {/* Carte de CONSTAT Regafy déplacée dans le panneau Copilote (rail droit) — pass 2. */}
-                      {translating === active.id && streamText !== null ? (
-                        <TranslationProgress />
-                      ) : null}
-                      {upgrading === active.id && streamText !== null ? (
-                        <TranslationProgress
-                          label={t({
-                            fr: 'Mise en conformité en cours…',
-                            en: 'Compliance upgrade in progress…',
-                          })}
-                        />
+                      {translating === active.id || upgrading === active.id ? (
+                        <div className="tr-scan-line" />
                       ) : null}
                       <InlineDocPreview
                         key={active.key}
