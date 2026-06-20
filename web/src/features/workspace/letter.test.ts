@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildLetterContext, emptyLetterFields, letterFieldsFromValues } from './letter-context'
+import type { ProductRecord } from '@/lib/db'
+import {
+  buildLetterContext,
+  emptyLetterFields,
+  letterFieldsFromValues,
+  productToLetterFields,
+} from './letter-context'
 import { letterDocToHtml } from './letter-render'
 import { TEMPLATES } from './templates'
 
@@ -47,5 +53,49 @@ describe('letterDocToHtml (rendu A4 générique du courrier)', () => {
     const html = letterDocToHtml(TEMPLATES.cover.build(ctx, 'fr'))
     expect(html).not.toContain('<script>')
     expect(html).toContain('&lt;script&gt;')
+  })
+})
+
+describe('M3.1 — désignation autorité, devise PGHT, synchro produit', () => {
+  it('la désignation choisie surcharge la civilité auto de l’agence (repli auto si vide)', () => {
+    const f = { ...emptyLetterFields('BJ'), civilite: 'Madame la Directrice Générale' }
+    expect(buildLetterContext(f, 'fr').agencyCivilite).toBe('Madame la Directrice Générale')
+    expect(buildLetterContext(emptyLetterFields('BJ'), 'fr').agencyCivilite).toContain('Directeur')
+  })
+
+  it('devise PGHT : portée au contexte et affichée dans la lettre (défaut FCFA)', () => {
+    const f = { ...emptyLetterFields('SN'), pght: '12 500', pghtCurrency: 'Naira' }
+    const ctx = buildLetterContext(f, 'fr')
+    expect(ctx.pghtCurrency).toBe('Naira')
+    const html = letterDocToHtml(TEMPLATES.pght.build(ctx, 'fr'))
+    expect(html).toContain('PGHT (Naira)')
+    expect(html).toContain('12 500')
+    expect(buildLetterContext(emptyLetterFields('SN'), 'fr').pghtCurrency).toBe('FCFA')
+  })
+
+  it('productToLetterFields mappe la fiche produit (titulaire→demandeur, fabricant)', () => {
+    const product: ProductRecord = {
+      id: 'p1',
+      orgId: 'o1',
+      nomCommercial: 'KV-Super Muscle',
+      dci: 'Diclofénac',
+      dosage: '50 mg',
+      forme: 'Comprimé',
+      presentation: 'Boîte de 20',
+      classeTherapeutique: '',
+      codeAtc: '',
+      titulaire: 'KESHAVLAL VAJECHAND',
+      titulaireAdresse: 'Mumbai, Inde',
+      fabricant: 'AURA LIFECARE',
+      fabricantAdresse: 'Gujarat, Inde',
+      createdAt: '',
+      updatedAt: '',
+      deletedAt: null,
+    }
+    const f = productToLetterFields(product)
+    expect(f.nomCommercial).toBe('KV-Super Muscle')
+    expect(f.demandeurNom).toBe('KESHAVLAL VAJECHAND')
+    expect(f.demandeurAdresse).toBe('Mumbai, Inde')
+    expect(f.fabricantNom).toBe('AURA LIFECARE')
   })
 })

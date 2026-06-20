@@ -58,6 +58,8 @@ export interface TemplateContext {
   signataire: string
   /** Montant PGHT (FCFA). */
   pght: string
+  /** Devise du PGHT (Bibliothèque) — défaut « FCFA » (workspace inchangé). */
+  pghtCurrency?: string
 }
 
 export interface TemplateDef {
@@ -235,7 +237,7 @@ function buildPght(c: TemplateContext, lang: Lang = 'fr'): JSONContent {
           joinNonEmpty(c.forme, c.presentation) ||
             L('[Forme et présentation]', '[Form and presentation]'),
         ),
-        field(L('PGHT (FCFA)', 'PGHT (FCFA)'), c.pght),
+        field(`PGHT (${c.pghtCurrency || 'FCFA'})`, c.pght),
       ]),
       para(
         txt(

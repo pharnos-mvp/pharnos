@@ -3,6 +3,7 @@
 // (agence / civilité / ville), exactement comme le montage CTD côté Workspace — mais sans dossier.
 // Réutilise les sources pays (roadmap-data, city) en LECTURE SEULE ; le chemin Workspace est inchangé.
 import type { Lang } from '@/lib/i18n-context'
+import type { ProductRecord } from '@/lib/db'
 import { formatComposition } from './composition'
 import { extractCity } from './city'
 import { agencyCivilite, agencyCiviliteEn, agencyFor } from './roadmap-data'
@@ -12,6 +13,8 @@ import type { TemplateContext } from './templates'
 export interface LetterFields {
   /** Pays cible (code ISO) → destinataire auto. */
   country: string
+  /** Désignation choisie de l'autorité (civilité FR) ; vide = auto-déduit de l'agence. */
+  civilite: string
   nomCommercial: string
   dci: string
   dosage: string
@@ -23,9 +26,33 @@ export interface LetterFields {
   fabricantAdresse: string
   /** Montant PGHT (lettre PGHT uniquement). */
   pght: string
+  /** Devise du PGHT (lettre PGHT) — ex. « FCFA », « Naira »… */
+  pghtCurrency: string
   poste: string
   signataire: string
 }
+
+/** Devises proposées pour le PGHT (libellé affiché tel quel dans la lettre). */
+export const LETTER_CURRENCIES = [
+  'FCFA',
+  'Naira',
+  'Cedi',
+  'Dirham',
+  'Euro',
+  'USD',
+  'GBP',
+  'AUD',
+] as const
+
+/**
+ * Désignations de l'autorité destinataire (civilité FR) — défaut auto-déduit de l'agence.
+ * La 3ᵉ (générique) = `agencyCivilite` quand le directeur est inconnu → mêmes chaînes (re-sélectionnable).
+ */
+export const AUTHORITY_DESIGNATIONS = [
+  'Monsieur le Directeur Général',
+  'Madame la Directrice Générale',
+  'Monsieur / Madame le Directeur Général',
+] as const
 
 /** Pays UEMOA (destinataire auto des lettres) — source du sélecteur. */
 export const UEMOA_COUNTRIES: { code: string; name: string }[] = [
@@ -41,6 +68,7 @@ export const UEMOA_COUNTRIES: { code: string; name: string }[] = [
 
 export const LETTER_FIELD_KEYS: (keyof LetterFields)[] = [
   'country',
+  'civilite',
   'nomCommercial',
   'dci',
   'dosage',
@@ -51,6 +79,7 @@ export const LETTER_FIELD_KEYS: (keyof LetterFields)[] = [
   'fabricantNom',
   'fabricantAdresse',
   'pght',
+  'pghtCurrency',
   'poste',
   'signataire',
 ]
@@ -59,6 +88,7 @@ export const LETTER_FIELD_KEYS: (keyof LetterFields)[] = [
 export function emptyLetterFields(country = 'BJ'): LetterFields {
   return {
     country,
+    civilite: '',
     nomCommercial: '',
     dci: '',
     dosage: '',
@@ -69,8 +99,24 @@ export function emptyLetterFields(country = 'BJ'): LetterFields {
     fabricantNom: '',
     fabricantAdresse: '',
     pght: '',
+    pghtCurrency: 'FCFA',
     poste: '',
     signataire: '',
+  }
+}
+
+/** Mappe une fiche produit (catalogue) → champs de lettre (auto-synchronisation, hors pays). */
+export function productToLetterFields(p: ProductRecord): Partial<LetterFields> {
+  return {
+    nomCommercial: p.nomCommercial ?? '',
+    dci: p.dci ?? '',
+    dosage: p.dosage ?? '',
+    forme: p.forme ?? '',
+    presentation: p.presentation ?? '',
+    demandeurNom: p.titulaire ?? '',
+    demandeurAdresse: p.titulaireAdresse ?? '',
+    fabricantNom: p.fabricant ?? '',
+    fabricantAdresse: p.fabricantAdresse ?? '',
   }
 }
 
@@ -104,7 +150,8 @@ export function buildLetterContext(f: LetterFields, lang: Lang): TemplateContext
     fabricantAdresse: v(f.fabricantAdresse),
     agencyName: ag.name,
     agencyFull: ag.name ? `${ag.full} (${ag.name})` : ag.full,
-    agencyCivilite: agencyCivilite(ag),
+    // Civilité choisie par l'utilisateur (désignation autorité) si fournie, sinon auto-déduite.
+    agencyCivilite: v(f.civilite) || agencyCivilite(ag),
     agencyCiviliteEn: agencyCiviliteEn(),
     agencyAdresse: ag.adresse || ph('[Adresse de l’agence]', '[Agency address]'),
     country: f.country,
@@ -116,6 +163,7 @@ export function buildLetterContext(f: LetterFields, lang: Lang): TemplateContext
     }),
     poste: v(f.poste),
     signataire: v(f.signataire),
-    pght: v(f.pght) || ph('[PGHT en FCFA]', '[PGHT in FCFA]'),
+    pght: v(f.pght) || ph('[Montant]', '[Amount]'),
+    pghtCurrency: v(f.pghtCurrency) || 'FCFA',
   }
 }
