@@ -38,6 +38,26 @@ export function resolveText(t: DynText | undefined, g: FormGlobals): string {
   return typeof t === 'function' ? t(g) : (t ?? '')
 }
 
+/**
+ * Résolution bilingue d'un texte DYNAMIQUE (gabarit Notice) : EN résolu si demandé ET disponible,
+ * sinon repli FR (jamais de trou). Mirror de `fieldText` pour les blocs à `DynText`/fonctions.
+ */
+export function fieldDyn(fr: DynText, en: DynText | undefined, lang: Lang, g: FormGlobals): string {
+  // `en` truthy (cohérent avec `fieldText`) : une fonction est toujours truthy ; un `''` retombe en FR.
+  return resolveText(lang === 'en' && en ? en : fr, g)
+}
+
+/** Idem pour une LISTE dynamique (puces) : EN seulement si même longueur, sinon repli FR. */
+export function fieldDynList(
+  fr: DynText[],
+  en: DynText[] | undefined,
+  lang: Lang,
+  g: FormGlobals,
+): string[] {
+  const src = lang === 'en' && en && en.length === fr.length ? en : fr
+  return src.map((t) => resolveText(t, g))
+}
+
 /* ----------------------------- Blocs de structure (jamais saisissables) ----------------------------- */
 
 /** Titres et mentions officiels — texte fixe. `banner` : bandeau gris du template Étiquetage. */
@@ -56,12 +76,16 @@ export interface RuleBlock {
 export interface DynBlock {
   type: 'dyn' | 'secDyn' | 'subDyn'
   dynText: (g: FormGlobals) => string
+  /** Équivalent EN (EMA QRD/MedDRA) — repli sur `dynText` si absent. */
+  dynTextEn?: (g: FormGlobals) => string
 }
 
 /** Liste à puces de mentions officielles (toujours exportée — gabarit Notice : l'encadré). */
 export interface BulletsBlock {
   type: 'bullets'
   items: DynText[]
+  /** Équivalents EN (même longueur/ordre que `items`) — repli FR si absent/incohérent. */
+  itemsEn?: DynText[]
 }
 
 /* ----------------------------- Blocs saisissables ----------------------------- */
@@ -125,10 +149,14 @@ export interface CheckBlock {
   type: 'check'
   key: string
   text?: DynText
+  /** Équivalent EN du texte de la case (EMA QRD) — repli sur `text` si absent. */
+  textEn?: DynText
   /** Exportée comme sous-titre (« Enfants et adolescents »…) plutôt que comme paragraphe. */
   asHeading?: boolean
   /** Texte exporté composé depuis l'état (cas « amélioration après N jours » du gabarit). */
   exportText?: (state: TemplateFormState, g: FormGlobals) => string
+  /** Équivalent EN du texte exporté composé — repli sur `textEn`/`text` si absent. */
+  exportTextEn?: (state: TemplateFormState, g: FormGlobals) => string
 }
 
 /** Sous-titre à CHOIX (gabarit Notice : « Grossesse et allaitement »…). */
@@ -136,7 +164,13 @@ export interface SubSelectBlock {
   type: 'subSelect'
   key: string
   before: string
+  beforeEn?: string
   options: string[]
+  /**
+   * Équivalents EN (même longueur/ordre que `options`). Le choix reste stocké en FR (clé indépendante
+   * de la langue) → on mappe FR→EN par index à l'affichage (repli FR si absent/incohérent).
+   */
+  optionsEn?: string[]
   /** Titre exporté (défaut : before + choix ; « Grossesse » remplace entièrement — règle gabarit). */
   headingText?: (chosen: string) => string
 }
@@ -146,7 +180,9 @@ export interface SubLineBlock {
   type: 'subLine'
   key: string
   before: string
+  beforeEn?: string
   ph: string
+  phEn?: string
 }
 
 export type FormBlock =
@@ -257,4 +293,34 @@ export function countEmptyFields(state: TemplateFormState): number {
 /** Titre d'un bloc structurel, tabulation officielle remplacée par 2 espaces (rendu écran). */
 export function blockHeadingText(text: string): string {
   return text.replace('\t', '  ')
+}
+
+/**
+ * Titre rendu d'un `subSelect` (exports/print) : le choix stocké en FR est mappé EN par INDEX
+ * (repli FR si absent), puis `headingText` appliqué (« Grossesse » remplace) ou `before` + choix.
+ * `headingText` doit être agnostique de langue (identité ou structurel) — on lui passe le label résolu.
+ */
+export function subSelectHeading(b: SubSelectBlock, chosen: string, lang: Lang): string {
+  const idx = b.options.indexOf(chosen)
+  const label =
+    lang === 'en' && b.optionsEn && idx >= 0 && b.optionsEn[idx] ? b.optionsEn[idx]! : chosen
+  if (b.headingText) return b.headingText(label)
+  return `${fieldText(b.before, b.beforeEn, lang)}${label}`
+}
+
+/**
+ * Texte d'un bloc `check` pour les EXPORTS (print/docx) : en EN, privilégie `exportTextEn` puis
+ * `textEn`/`text` ; en FR, `exportText` (texte composé) puis `text`. Le rendu écran (aperçu) reste
+ * sur `fieldDyn(text, textEn)` car il n'utilise jamais le texte composé.
+ */
+export function checkText(
+  b: CheckBlock,
+  state: TemplateFormState,
+  g: FormGlobals,
+  lang: Lang,
+): string {
+  if (lang === 'en') {
+    return b.exportTextEn ? b.exportTextEn(state, g) : fieldDyn(b.text ?? '', b.textEn, lang, g)
+  }
+  return b.exportText ? b.exportText(state, g) : resolveText(b.text, g)
 }

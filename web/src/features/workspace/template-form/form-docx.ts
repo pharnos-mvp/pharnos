@@ -18,9 +18,12 @@ import {
 
 import type { Lang } from '@/lib/i18n-context'
 import {
+  checkText,
+  fieldDyn,
+  fieldDynList,
   fieldList,
   fieldText,
-  resolveText,
+  subSelectHeading,
   type TemplateFormDefinition,
   type TemplateFormState,
 } from './form-types'
@@ -144,22 +147,22 @@ export function buildFormDocument(
         children.push(bannerP(tx(b.text, b.textEn).replace('\t', '  ')))
         break
       case 'secDyn':
-        children.push(secP(b.dynText(g).replace('\t', '  ')))
+        children.push(secP(fieldDyn(b.dynText, b.dynTextEn, lang, g).replace('\t', '  ')))
         break
       case 'subDyn':
-        children.push(subP(b.dynText(g).replace('\t', '  ')))
+        children.push(subP(fieldDyn(b.dynText, b.dynTextEn, lang, g).replace('\t', '  ')))
         break
       case 'static':
         children.push(bodyP(tx(b.text, b.textEn)))
         break
       case 'dyn':
-        children.push(bodyP(b.dynText(g)))
+        children.push(bodyP(fieldDyn(b.dynText, b.dynTextEn, lang, g)))
         break
       case 'rule':
         children.push(ruleP())
         break
       case 'bullets':
-        for (const it of b.items) children.push(checkedP(resolveText(it, g)))
+        for (const it of fieldDynList(b.items, b.itemsEn, lang, g)) children.push(checkedP(it))
         break
       case 'line': {
         if (b.dependsOn && !isChecked(state, b.dependsOn)) break
@@ -198,18 +201,19 @@ export function buildFormDocument(
       }
       case 'check': {
         if (!isChecked(state, b.key)) break
-        const text = b.exportText ? b.exportText(state, g) : resolveText(b.text, g)
+        const text = checkText(b, state, g, lang)
         children.push(b.asHeading ? subP(text) : bodyP(text))
         break
       }
       case 'subSelect': {
         const chosen = state.selects[b.key] ?? ''
         if (!chosen) break
-        children.push(subP(b.headingText ? b.headingText(chosen) : `${b.before}${chosen}`))
+        children.push(subP(subSelectHeading(b, chosen, lang)))
         break
       }
       case 'subLine': {
-        if (v(b.key)) children.push(boldLabelValueP(b.before, v(b.key)))
+        if (v(b.key))
+          children.push(boldLabelValueP(fieldText(b.before, b.beforeEn, lang), v(b.key)))
         break
       }
     }

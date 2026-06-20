@@ -4,10 +4,13 @@
 // IFRAME cachée : aucun blocage de fenêtres contextuelles, fonctionne hors-ligne.
 import type { Lang } from '@/lib/i18n-context'
 import {
+  checkText,
+  fieldDyn,
+  fieldDynList,
   fieldList,
   fieldText,
   formExportName,
-  resolveText,
+  subSelectHeading,
   type TemplateFormDefinition,
   type TemplateFormState,
 } from './form-types'
@@ -46,23 +49,29 @@ export function buildFormPrintHtml(
         parts.push(`<h2 class="p-banner">${esc(tx(b.text, b.textEn).replace('\t', '  '))}</h2>`)
         break
       case 'secDyn':
-        parts.push(`<h2 class="p-sec">${esc(b.dynText(g).replace('\t', '  '))}</h2>`)
+        parts.push(
+          `<h2 class="p-sec">${esc(fieldDyn(b.dynText, b.dynTextEn, lang, g).replace('\t', '  '))}</h2>`,
+        )
         break
       case 'subDyn':
-        parts.push(`<h3 class="p-sub">${esc(b.dynText(g).replace('\t', '  '))}</h3>`)
+        parts.push(
+          `<h3 class="p-sub">${esc(fieldDyn(b.dynText, b.dynTextEn, lang, g).replace('\t', '  '))}</h3>`,
+        )
         break
       case 'static':
         parts.push(`<p class="p-body">${esc(tx(b.text, b.textEn))}</p>`)
         break
       case 'dyn':
-        parts.push(`<p class="p-body">${esc(b.dynText(g))}</p>`)
+        parts.push(`<p class="p-body">${esc(fieldDyn(b.dynText, b.dynTextEn, lang, g))}</p>`)
         break
       case 'rule':
         parts.push('<hr class="p-rule">')
         break
       case 'bullets':
         parts.push(
-          `<ul class="p-list">${b.items.map((it) => `<li>${esc(resolveText(it, g))}</li>`).join('')}</ul>`,
+          `<ul class="p-list">${fieldDynList(b.items, b.itemsEn, lang, g)
+            .map((it) => `<li>${esc(it)}</li>`)
+            .join('')}</ul>`,
         )
         break
       case 'line': {
@@ -99,7 +108,7 @@ export function buildFormPrintHtml(
       }
       case 'check': {
         if (!checked(b.key)) break
-        const text = b.exportText ? b.exportText(state, g) : resolveText(b.text, g)
+        const text = checkText(b, state, g, lang)
         parts.push(
           b.asHeading
             ? `<h3 class="p-sub">${esc(text)}</h3>`
@@ -110,12 +119,14 @@ export function buildFormPrintHtml(
       case 'subSelect': {
         const chosen = state.selects[b.key] ?? ''
         if (!chosen) break
-        const text = b.headingText ? b.headingText(chosen) : `${b.before}${chosen}`
-        parts.push(`<h3 class="p-sub">${esc(text)}</h3>`)
+        parts.push(`<h3 class="p-sub">${esc(subSelectHeading(b, chosen, lang))}</h3>`)
         break
       }
       case 'subLine': {
-        if (v(b.key)) parts.push(`<h3 class="p-sub">${esc(b.before)}${esc(v(b.key))}</h3>`)
+        if (v(b.key))
+          parts.push(
+            `<h3 class="p-sub">${esc(fieldText(b.before, b.beforeEn, lang))}${esc(v(b.key))}</h3>`,
+          )
         break
       }
     }
