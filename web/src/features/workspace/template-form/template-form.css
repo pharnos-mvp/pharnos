@@ -389,3 +389,18 @@
   margin: 0 0 4px;
   text-align: left;
 }
+/* Tranche 2 : en-tête / pied / signature insérés (images du profil org). */
+.tplform-sheet .l-head {
+  margin: 0 0 0.75rem;
+}
+.tplform-sheet .l-foot {
+  margin: 1rem 0 0;
+}
+.tplform-sheet .l-head img,
+.tplform-sheet .l-foot img {
+  max-width: 100%;
+  display: block;
+}
+.tplform-sheet .l-sig {
+  max-height: 80px;
+}

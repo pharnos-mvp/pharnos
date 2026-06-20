@@ -1,13 +1,28 @@
 // Export DOCX des lettres (cover/PGHT) — **importé à la demande** (clic « DOCX ») pour garder la
 // lib `docx` hors du chunk de la Bibliothèque (mirror form-docx). Générique sur les nœuds des
 // lettres (cf. letter-render) → source unique du contenu = templates.ts. Times New Roman 12pt, A4.
-import { AlignmentType, Document, LevelFormat, Packer, Paragraph, TextRun } from 'docx'
+// **Tranche 2 (branding)** : en-tête/pied/signature du profil insérés en images (ImageRun) — la
+// signature remplace le marqueur « [Signature et cachet] » du bloc signature.
+import { AlignmentType, Document, ImageRun, LevelFormat, Packer, Paragraph, TextRun } from 'docx'
 import type { JSONContent } from '@tiptap/core'
 
-import { isBoldNode } from './letter-render'
+import { isBoldNode, SIGNATURE_MARKERS, type LetterBrand } from './letter-render'
 
 const FONT = 'Times New Roman'
 const SZ = 24 // 12pt en demi-points
+
+type DocxImageType = 'png' | 'jpg' | 'gif' | 'bmp'
+interface DocxImage {
+  data: Uint8Array
+  type: DocxImageType
+  width: number
+  height: number
+}
+interface LetterDocxImages {
+  header?: DocxImage
+  footer?: DocxImage
+  signature?: DocxImage
+}
 
 function inlineRuns(nodes: JSONContent[] | undefined): TextRun[] {
   return (nodes ?? []).flatMap((n) => {
@@ -18,10 +33,34 @@ function inlineRuns(nodes: JSONContent[] | undefined): TextRun[] {
   })
 }
 
-export function letterDocToDocx(doc: JSONContent): Document {
+const plainText = (nodes: JSONContent[] | undefined): string =>
+  (nodes ?? []).map((n) => (n.type === 'text' ? (n.text ?? '') : '')).join('')
+
+const imageParagraph = (
+  img: DocxImage,
+  alignment: (typeof AlignmentType)[keyof typeof AlignmentType],
+) =>
+  new Paragraph({
+    alignment,
+    spacing: { after: 120 },
+    children: [
+      new ImageRun({
+        data: img.data,
+        type: img.type,
+        transformation: { width: img.width, height: img.height },
+      }),
+    ],
+  })
+
+export function letterDocToDocx(doc: JSONContent, images?: LetterDocxImages): Document {
   const children: Paragraph[] = []
+  if (images?.header) children.push(imageParagraph(images.header, AlignmentType.LEFT))
   for (const n of doc.content ?? []) {
     if (n.type === 'paragraph') {
+      if (images?.signature && SIGNATURE_MARKERS.includes(plainText(n.content).trim())) {
+        children.push(imageParagraph(images.signature, AlignmentType.RIGHT))
+        continue
+      }
       children.push(
         new Paragraph({
           alignment: n.attrs?.textAlign === 'right' ? AlignmentType.RIGHT : AlignmentType.JUSTIFIED,
@@ -42,6 +81,7 @@ export function letterDocToDocx(doc: JSONContent): Document {
       }
     }
   }
+  if (images?.footer) children.push(imageParagraph(images.footer, AlignmentType.LEFT))
   return new Document({
     styles: { default: { document: { run: { font: FONT, size: SZ } } } },
     numbering: {
@@ -74,6 +114,49 @@ export function letterDocToDocx(doc: JSONContent): Document {
   })
 }
 
-export async function letterDocxBlob(doc: JSONContent): Promise<Blob> {
-  return Packer.toBlob(letterDocToDocx(doc))
+/** Décode une data-URL image → octets + type (atob — navigateur). `null` si non-image. */
+function decodeDataUrl(dataUrl: string): { data: Uint8Array; type: DocxImageType } | null {
+  const m = /^data:image\/(png|jpe?g|gif|bmp);base64,(.+)$/i.exec(dataUrl)
+  if (!m) return null
+  const ext = m[1]!.toLowerCase()
+  const type: DocxImageType = ext.startsWith('jp') ? 'jpg' : (ext as DocxImageType)
+  const bin = atob(m[2]!)
+  const data = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) data[i] = bin.charCodeAt(i)
+  return { data, type }
+}
+
+/** Dimensions naturelles d'une image (data-URL) — pour conserver le ratio dans le DOCX. */
+function imageDims(src: string): Promise<{ w: number; h: number }> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight })
+    img.onerror = () => resolve({ w: 0, h: 0 })
+    img.src = src
+  })
+}
+
+async function loadDocxImage(
+  dataUrl: string | null | undefined,
+  maxWidth: number,
+): Promise<DocxImage | undefined> {
+  if (!dataUrl) return undefined
+  const decoded = decodeDataUrl(dataUrl)
+  if (!decoded) return undefined
+  const { w, h } = await imageDims(dataUrl)
+  if (!w || !h) return undefined
+  const scale = Math.min(1, maxWidth / w)
+  return { ...decoded, width: Math.round(w * scale), height: Math.round(h * scale) }
+}
+
+export async function letterDocxBlob(doc: JSONContent, brand?: LetterBrand): Promise<Blob> {
+  let images: LetterDocxImages | undefined
+  if (brand) {
+    images = {
+      header: await loadDocxImage(brand.headerImage, 600),
+      footer: await loadDocxImage(brand.footerImage, 600),
+      signature: await loadDocxImage(brand.signatureImage, 160),
+    }
+  }
+  return Packer.toBlob(letterDocToDocx(doc, images))
 }

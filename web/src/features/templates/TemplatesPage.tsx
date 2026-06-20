@@ -33,8 +33,9 @@ import {
   emptyLetterFields,
   letterFieldsFromValues,
 } from '@/features/workspace/letter-context'
-import { printLetter } from '@/features/workspace/letter-render'
-import { getOrgBranding } from '@/features/profile/pro-settings-repository'
+import { printLetter, type LetterBrand } from '@/features/workspace/letter-render'
+import { getOrgBranding, getUserSignature } from '@/features/profile/pro-settings-repository'
+import { useAuth } from '@/features/auth/auth-context'
 import { TemplatePreview } from './TemplatePreview'
 import { LetterEditor } from './LetterEditor'
 import { deleteSavedTemplate, saveTemplate } from './saved-templates-repository'
@@ -114,8 +115,11 @@ export function TemplatesPage() {
         .toArray(),
     [orgId],
   )
-  // Profil pro de l'org → pré-remplit le nom/poste du signataire des lettres (auto-synchro).
+  // Profil pro de l'org → pré-remplit le nom/poste du signataire + en-tête/pied/signature (Tranche 2).
   const branding = useLiveQuery(() => getOrgBranding(orgId), [orgId])
+  const { user } = useAuth()
+  const userId = user?.id ?? 'local'
+  const signature = useLiveQuery(() => getUserSignature(userId), [userId])
 
   const savedList = useMemo(
     () => (saved ?? []).slice().sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1)),
@@ -208,6 +212,15 @@ export function TemplatesPage() {
         .replace(/^_+|_+$/g, '')
         .slice(0, 60)
     }
+    /** Images de marque à inclure à l'export, selon les bascules d'insertion (Tranche 2). */
+    const letterBrand = (): LetterBrand => {
+      const f = letterFieldsFromValues(editing.state.values)
+      return {
+        headerImage: f.useHeader === '1' ? (branding?.headerImage ?? null) : null,
+        footerImage: f.useFooter === '1' ? (branding?.footerImage ?? null) : null,
+        signatureImage: f.useSignature === '1' ? (signature?.signatureImage ?? null) : null,
+      }
+    }
 
     // Réinitialiser → vide TOUT le modèle en cours (champs, cases, choix). Exports PDF/DOCX dans
     // la langue active (mêmes générateurs que le dossier, threadés `lang` → jumeaux EN résolus).
@@ -234,7 +247,7 @@ export function TemplatesPage() {
       })
     }
     const exportPdf = () => {
-      if (isLetter) printLetter(letterDoc(), letterFileName(), editing.lang)
+      if (isLetter) printLetter(letterDoc(), letterFileName(), editing.lang, letterBrand())
       else if (def) printForm(def, editing.state, editing.lang)
     }
     const exportDocx = async () => {
@@ -242,7 +255,7 @@ export function TemplatesPage() {
         // Lazy : la lib docx reste hors du chunk de la Bibliothèque.
         if (isLetter) {
           const { letterDocxBlob } = await import('@/features/workspace/letter-docx')
-          const blob = await letterDocxBlob(letterDoc())
+          const blob = await letterDocxBlob(letterDoc(), letterBrand())
           triggerDownload(URL.createObjectURL(blob), `${letterFileName()}.docx`, true)
           return
         }
@@ -347,6 +360,9 @@ export function TemplatesPage() {
             values={editing.state.values}
             lang={editing.lang}
             onChange={(values) => setEditing({ ...editing, state: { ...editing.state, values } })}
+            headerImage={branding?.headerImage}
+            footerImage={branding?.footerImage}
+            signatureImage={signature?.signatureImage}
           />
         ) : null}
       </div>
