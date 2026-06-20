@@ -43,4 +43,10 @@ Thumbs.db
 
 # MedDRA — terminologie sous licence : NON versionné (conservé localement comme référence).
 RA-source/MedDRA/
+
+# Comptes pilotes de test (mots de passe EN CLAIR) — JAMAIS versionné.
+Test/
+
+# Clés privées (backup age, etc.) — défense en profondeur, JAMAIS versionné.
+*.key
 .commitmsg

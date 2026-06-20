@@ -39,9 +39,10 @@ Cloudflare Pages déployé **2026-06-19** ; recette navigateur RÉELLE faite : d
   **arbre = WAI-ARIA `tree`** (treeitem/group, aria-level/selected/expanded, roving tabindex ;
   `flattenVisible` pur + testé). 275 vitest, Lighthouse a11y vert.
 
-➡️ **PROCHAIN BUILD — plan APPROUVÉ, à faire en CONTEXTE FRAIS — REFONTE RESPONSIVE TABLETTE/MOBILE
-   (handoff CEO) + sidebar app → hamburger sous `lg`.** Cette refonte **REMPLACE la couche mobile M2**
-   (les tiroirs `Sheet` du builder) par la disposition du handoff ; **desktop ≥ lg INTACT**.
+✅ **REFONTE RESPONSIVE TABLETTE/MOBILE — LIVRÉE EN PROD (PR #208/#209/#210, 2026-06-19)** : ☰ (menu app)
+   + rail d'actions vertical + barre de pastilles de sections + panneau de validation flottant ; sidebar app →
+   hamburger sous `lg`. A remplacé la couche mobile M2 (tiroirs `Sheet`) ; **desktop ≥ lg INTACT**. **Reste :
+   recette visuelle CEO < lg** (non vérifiable headless ; e2e 390 px verte). _Spec du build conservée ci-dessous (historique) :_
    - **Plan détaillé approuvé** : `C:\Users\ASUS\.claude\plans\1-quelques-regles-simples-elegant-bubble.md`.
    - **Handoff design (hi-fi)** : `C:\Users\ASUS\Downloads\Mockup page web tablette\design_handoff_pharnos_workspace\`
      (`reference/Tablet Mockup Pharnos.html` = source visuelle autonome ; `src/App.jsx` + `README.md` = spec + réimpl. de référence).
