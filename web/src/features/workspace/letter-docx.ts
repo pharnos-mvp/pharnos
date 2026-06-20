@@ -36,12 +36,13 @@ function inlineRuns(nodes: JSONContent[] | undefined): TextRun[] {
 const plainText = (nodes: JSONContent[] | undefined): string =>
   (nodes ?? []).map((n) => (n.type === 'text' ? (n.text ?? '') : '')).join('')
 
-const imageParagraph = (
-  img: DocxImage,
-  alignment: (typeof AlignmentType)[keyof typeof AlignmentType],
-) =>
+/** Décalage gauche ~56 % du contenu (A4 ≈ 9026 twips) pour les blocs « à droite » (date/signature). */
+const RIGHT_INDENT = 5050
+
+const imageParagraph = (img: DocxImage, opts: { indentLeft?: number } = {}) =>
   new Paragraph({
-    alignment,
+    alignment: AlignmentType.LEFT,
+    indent: opts.indentLeft ? { left: opts.indentLeft } : undefined,
     spacing: { after: 120 },
     children: [
       new ImageRun({
@@ -54,16 +55,19 @@ const imageParagraph = (
 
 export function letterDocToDocx(doc: JSONContent, images?: LetterDocxImages): Document {
   const children: Paragraph[] = []
-  if (images?.header) children.push(imageParagraph(images.header, AlignmentType.LEFT))
+  if (images?.header) children.push(imageParagraph(images.header))
   for (const n of doc.content ?? []) {
     if (n.type === 'paragraph') {
+      const isRight = n.attrs?.textAlign === 'right'
       if (images?.signature && SIGNATURE_MARKERS.includes(plainText(n.content).trim())) {
-        children.push(imageParagraph(images.signature, AlignmentType.RIGHT))
+        children.push(imageParagraph(images.signature, { indentLeft: RIGHT_INDENT }))
         continue
       }
+      // « à droite » = bloc aligné à gauche décalé à 56 % (forme UEMOA, identique au CTD Builder).
       children.push(
         new Paragraph({
-          alignment: n.attrs?.textAlign === 'right' ? AlignmentType.RIGHT : AlignmentType.JUSTIFIED,
+          alignment: AlignmentType.LEFT,
+          indent: isRight ? { left: RIGHT_INDENT } : undefined,
           spacing: { after: 120 },
           children: inlineRuns(n.content),
         }),
@@ -81,7 +85,7 @@ export function letterDocToDocx(doc: JSONContent, images?: LetterDocxImages): Do
       }
     }
   }
-  if (images?.footer) children.push(imageParagraph(images.footer, AlignmentType.LEFT))
+  if (images?.footer) children.push(imageParagraph(images.footer))
   return new Document({
     styles: { default: { document: { run: { font: FONT, size: SZ } } } },
     numbering: {

@@ -92,15 +92,16 @@ export function letterPrintHtml(
 <style>
   @page { size: A4; margin: 25.4mm; }
   * { box-sizing: border-box; }
-  body { font-family: "Times New Roman", Times, serif; font-size: 12pt; color: #000; line-height: 1.4; margin: 0; }
-  .l-p { text-align: justify; margin: 0 0 6pt; }
-  .l-r { text-align: right; }
-  .l-ul { margin: 0 0 6pt; padding-left: 18pt; }
+  body { font-family: "Times New Roman", Times, serif; font-size: 12pt; color: #000; line-height: 1.5; margin: 0; }
+  /* « à droite » = bloc aligné à gauche décalé à 56 % (forme officielle UEMOA, identique au CTD Builder). */
+  .l-p { margin: 0.5rem 0; }
+  .l-r { margin-left: 56%; text-align: left; }
+  .l-ul { margin: 0.5rem 0; padding-left: 1.5rem; list-style: disc; }
   .l-ul li { text-align: left; margin: 0 0 3pt; }
   .l-head { margin: 0 0 12pt; }
   .l-head img, .l-foot img { max-width: 100%; display: block; }
   .l-foot { margin: 16pt 0 0; }
-  .l-sig { max-height: 80px; }
+  .l-sig { max-width: 6.35cm; }
 </style></head><body>${letterDocToHtml(doc, brand)}</body></html>`
 }
 

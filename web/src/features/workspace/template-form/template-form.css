@@ -370,26 +370,34 @@
   line-height: 1.3;
 }
 
-/* ---- Lettres (cover / PGHT) — aperçu A4 (rendu via letter-render letterDocToHtml) ---- */
+/* ---- Lettres (cover / PGHT) — aperçu A4 calé EXACTEMENT sur l'éditeur du CTD Builder
+   (`.editor-page` / `.ProseMirror`, index.css) : Times 12, interligne 1,5, et le marqueur « à
+   droite » rendu comme un bloc **aligné à gauche décalé à 56 %** (forme officielle UEMOA) — PAS un
+   text-align:right. Date / destinataire / signature suivent donc la même disposition. ---- */
+.tplform-sheet.letter-sheet {
+  max-width: 21cm;
+  line-height: 1.5;
+}
 .tplform-sheet .l-p {
-  margin: 0 0 0.5rem;
-  text-align: justify;
+  margin: 0.5rem 0;
 }
 .tplform-sheet .l-p.l-r {
-  text-align: right;
+  margin-left: 56%;
+  text-align: left;
 }
 .tplform-sheet .l-p strong {
   font-weight: bold;
 }
 .tplform-sheet ul.l-ul {
-  margin: 0 0 0.5rem;
-  padding-left: 24px;
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+  list-style: disc;
 }
 .tplform-sheet ul.l-ul li {
   margin: 0 0 4px;
   text-align: left;
 }
-/* Tranche 2 : en-tête / pied / signature insérés (images du profil org). */
+/* En-tête / pied / signature insérés (images du profil) — signature ≤ 6,35 cm comme l'éditeur. */
 .tplform-sheet .l-head {
   margin: 0 0 0.75rem;
 }
@@ -402,5 +410,5 @@
   display: block;
 }
 .tplform-sheet .l-sig {
-  max-height: 80px;
+  max-width: 6.35cm;
 }
