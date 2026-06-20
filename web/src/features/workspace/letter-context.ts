@@ -11,10 +11,8 @@ import type { TemplateContext } from './templates'
 
 /** Champs éditables d'une lettre dans la Bibliothèque (indépendants de la langue d'affichage). */
 export interface LetterFields {
-  /** Pays cible (code ISO) → destinataire auto. */
+  /** Pays cible (code ISO) → destinataire auto (agence + civilité du directeur). */
   country: string
-  /** Désignation choisie de l'autorité (civilité FR) ; vide = auto-déduit de l'agence. */
-  civilite: string
   nomCommercial: string
   dci: string
   dosage: string
@@ -48,16 +46,6 @@ export const LETTER_CURRENCIES = [
   'AUD',
 ] as const
 
-/**
- * Désignations de l'autorité destinataire (civilité FR) — défaut auto-déduit de l'agence.
- * La 3ᵉ (générique) = `agencyCivilite` quand le directeur est inconnu → mêmes chaînes (re-sélectionnable).
- */
-export const AUTHORITY_DESIGNATIONS = [
-  'Monsieur le Directeur Général',
-  'Madame la Directrice Générale',
-  'Monsieur / Madame le Directeur Général',
-] as const
-
 /** Pays UEMOA (destinataire auto des lettres) — source du sélecteur. */
 export const UEMOA_COUNTRIES: { code: string; name: string }[] = [
   { code: 'BJ', name: 'Bénin' },
@@ -72,7 +60,6 @@ export const UEMOA_COUNTRIES: { code: string; name: string }[] = [
 
 export const LETTER_FIELD_KEYS: (keyof LetterFields)[] = [
   'country',
-  'civilite',
   'nomCommercial',
   'dci',
   'dosage',
@@ -95,7 +82,6 @@ export const LETTER_FIELD_KEYS: (keyof LetterFields)[] = [
 export function emptyLetterFields(country = 'BJ'): LetterFields {
   return {
     country,
-    civilite: '',
     nomCommercial: '',
     dci: '',
     dosage: '',
@@ -160,8 +146,7 @@ export function buildLetterContext(f: LetterFields, lang: Lang): TemplateContext
     fabricantAdresse: v(f.fabricantAdresse),
     agencyName: ag.name,
     agencyFull: ag.name ? `${ag.full} (${ag.name})` : ag.full,
-    // Civilité choisie par l'utilisateur (désignation autorité) si fournie, sinon auto-déduite.
-    agencyCivilite: v(f.civilite) || agencyCivilite(ag),
+    agencyCivilite: agencyCivilite(ag),
     agencyCiviliteEn: agencyCiviliteEn(),
     agencyAdresse: ag.adresse || ph('[Adresse de l’agence]', '[Agency address]'),
     country: f.country,

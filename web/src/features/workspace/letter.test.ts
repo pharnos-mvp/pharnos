@@ -57,10 +57,14 @@ describe('letterDocToHtml (rendu A4 générique du courrier)', () => {
 })
 
 describe('M3.1 — désignation autorité, devise PGHT, synchro produit', () => {
-  it('la désignation choisie surcharge la civilité auto de l’agence (repli auto si vide)', () => {
-    const f = { ...emptyLetterFields('BJ'), civilite: 'Madame la Directrice Générale' }
-    expect(buildLetterContext(f, 'fr').agencyCivilite).toBe('Madame la Directrice Générale')
-    expect(buildLetterContext(emptyLetterFields('BJ'), 'fr').agencyCivilite).toContain('Directeur')
+  it('la civilité du destinataire est auto-déduite de l’agence (pays cible)', () => {
+    // BJ : directeur (M) → « Monsieur le Directeur Général » ; ML : directrice (F) → « Madame… »
+    expect(buildLetterContext(emptyLetterFields('BJ'), 'fr').agencyCivilite).toBe(
+      'Monsieur le Directeur Général',
+    )
+    expect(buildLetterContext(emptyLetterFields('ML'), 'fr').agencyCivilite).toBe(
+      'Madame la Directrice Générale',
+    )
   })
 
   it('devise PGHT : portée au contexte et affichée dans la lettre (défaut FCFA)', () => {
