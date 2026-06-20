@@ -59,3 +59,32 @@ describe('templates (génération de documents)', () => {
     expect(text).toContain('[DCI et dosage]')
   })
 })
+
+describe('templates bilingues (M3 — EN additif, FR par défaut inchangé)', () => {
+  it('Cover EN : objet + libellés EN ; FR (défaut) inchangé', () => {
+    const en = plain(TEMPLATES.cover.build(ctx, 'en'))
+    expect(en).toContain('Application for marketing authorisation (MA) of the product KV-Kacin 500')
+    expect(en).toContain('Trade name')
+    expect(en).toContain('Please accept')
+    expect(en).not.toContain('Demande d’enregistrement')
+    const fr = plain(TEMPLATES.cover.build(ctx))
+    expect(fr).toContain('Demande d’enregistrement d’AMM')
+    expect(fr).not.toContain('Application for marketing authorisation')
+  })
+
+  it('PGHT EN : objet EN + montant conservé', () => {
+    const en = plain(TEMPLATES.pght.build(ctx, 'en'))
+    expect(en).toContain('Certificate of Wholesale Price Excluding Tax (PGHT)')
+    expect(en).toContain('5 000')
+  })
+
+  it('civilité EN résolue depuis agencyCiviliteEn (repli agencyCivilite)', () => {
+    const en = plain(
+      TEMPLATES.cover.build({ ...ctx, agencyCiviliteEn: 'The Director General' }, 'en'),
+    )
+    expect(en).toContain('The Director General')
+    // repli FR si pas d'EN fourni
+    const enFallback = plain(TEMPLATES.cover.build(ctx, 'en'))
+    expect(enFallback).toContain('Monsieur le Directeur Général')
+  })
+})

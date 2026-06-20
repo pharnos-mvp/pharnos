@@ -117,3 +117,8 @@ export function agencyCivilite(a: AgencyInfo): string {
   if (!a.directeur) return 'Monsieur / Madame le Directeur Général'
   return a.sexe === 'F' ? 'Madame la Directrice Générale' : 'Monsieur le Directeur Général'
 }
+
+/** Civilité EN du destinataire (le titre « Director General » n'est pas genré en anglais). */
+export function agencyCiviliteEn(): string {
+  return 'The Director General'
+}

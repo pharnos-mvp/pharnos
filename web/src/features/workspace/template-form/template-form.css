@@ -369,3 +369,23 @@
   color: #000;
   line-height: 1.3;
 }
+
+/* ---- Lettres (cover / PGHT) — aperçu A4 (rendu via letter-render letterDocToHtml) ---- */
+.tplform-sheet .l-p {
+  margin: 0 0 0.5rem;
+  text-align: justify;
+}
+.tplform-sheet .l-p.l-r {
+  text-align: right;
+}
+.tplform-sheet .l-p strong {
+  font-weight: bold;
+}
+.tplform-sheet ul.l-ul {
+  margin: 0 0 0.5rem;
+  padding-left: 24px;
+}
+.tplform-sheet ul.l-ul li {
+  margin: 0 0 4px;
+  text-align: left;
+}

@@ -27,8 +27,19 @@ import {
   type TemplateFormState,
 } from '@/features/workspace/template-form/form-types'
 import { printForm } from '@/features/workspace/template-form/form-print'
+import { TEMPLATES as LETTER_DEFS } from '@/features/workspace/templates'
+import {
+  buildLetterContext,
+  emptyLetterFields,
+  letterFieldsFromValues,
+} from '@/features/workspace/letter-context'
+import { printLetter } from '@/features/workspace/letter-render'
 import { TemplatePreview } from './TemplatePreview'
+import { LetterEditor } from './LetterEditor'
 import { deleteSavedTemplate, saveTemplate } from './saved-templates-repository'
+
+/** Types de lettre (cover/PGHT) — éditeur dédié (≠ form-models RCP/Notice/Étiquetage). */
+const isLetterType = (d: string | null): d is 'cover' | 'pght' => d === 'cover' || d === 'pght'
 
 type Tab = 'dashboard' | 'saved'
 type ZoneKey = 'all' | 'uemoa' | 'afrique' | 'europe' | 'amerique' | 'asie'
@@ -55,8 +66,8 @@ interface TemplateEntry {
   label: Translatable
 }
 const TEMPLATES: TemplateEntry[] = [
-  { key: 'cover', docType: null, label: { fr: 'Lettre de demande AMM', en: 'Cover Letter' } },
-  { key: 'pght', docType: null, label: { fr: 'Lettre de PGHT', en: 'PGHT Letter' } },
+  { key: 'cover', docType: 'cover', label: { fr: 'Lettre de demande AMM', en: 'Cover Letter' } },
+  { key: 'pght', docType: 'pght', label: { fr: 'Lettre de PGHT', en: 'PGHT Letter' } },
   { key: 'rcp', docType: 'rcp', label: { fr: 'RCP', en: 'SmPC' } },
   { key: 'notice', docType: 'notice', label: { fr: 'Notice patient', en: 'PIL' } },
   { key: 'labeling', docType: 'labeling', label: { fr: 'Étiquetage', en: 'Labeling' } },
@@ -65,6 +76,8 @@ const DOC_LABEL: Record<string, Translatable> = {
   rcp: { fr: 'RCP', en: 'SmPC' },
   notice: { fr: 'Notice patient', en: 'PIL' },
   labeling: { fr: 'Étiquetage', en: 'Labeling' },
+  cover: { fr: 'Lettre de demande AMM', en: 'Cover Letter' },
+  pght: { fr: 'Lettre de PGHT', en: 'PGHT Letter' },
 }
 
 /** Édition en cours (carte du tableau de bord = neuf ; carte « Mes modèles » = chargé). */
@@ -124,7 +137,7 @@ export function TemplatesPage() {
       state: def
         ? emptyFormState(def.model)
         : ({
-            values: {},
+            values: isLetterType(e.docType) ? { ...emptyLetterFields() } : {},
             checks: {},
             selects: {},
             globals: {
@@ -146,8 +159,11 @@ export function TemplatesPage() {
         orgId,
         docType: editing.docType,
         title,
-        productName: editing.state.values['denomination'] || undefined,
-        dci: editing.state.values['composition'] || undefined,
+        productName:
+          editing.state.values['denomination'] ||
+          editing.state.values['nomCommercial'] ||
+          undefined,
+        dci: editing.state.values['composition'] || editing.state.values['dci'] || undefined,
         lang: editing.lang,
         state: editing.state,
       })
@@ -165,6 +181,23 @@ export function TemplatesPage() {
   // ───────────────────────── Vue FORMULAIRE (centrée A4, sans menu latéral) ─────────────────────────
   if (editing) {
     const def = formDefinitionFor(editing.docType)
+    const isLetter = isLetterType(editing.docType)
+    /** Document TipTap de la lettre courante (cover/PGHT) depuis les champs + pays + langue. */
+    const letterDoc = () => {
+      const dt = editing.docType as 'cover' | 'pght'
+      const f = letterFieldsFromValues(editing.state.values)
+      return LETTER_DEFS[dt].build(buildLetterContext(f, editing.lang), editing.lang)
+    }
+    /** Nom de fichier d'export d'une lettre : « <Titre>[_<produit>] » (≤ 60 car.). */
+    const letterFileName = () => {
+      const dt = editing.docType as 'cover' | 'pght'
+      const base = editing.lang === 'en' ? LETTER_DEFS[dt].titleEn : LETTER_DEFS[dt].title
+      const prod = (editing.state.values['nomCommercial'] ?? '').trim()
+      return (prod ? `${base}_${prod}` : base)
+        .replace(/[^\p{L}\p{N}]+/gu, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 60)
+    }
 
     // Réinitialiser → vide TOUT le modèle en cours (champs, cases, choix). Exports PDF/DOCX dans
     // la langue active (mêmes générateurs que le dossier, threadés `lang` → jumeaux EN résolus).
@@ -178,18 +211,32 @@ export function TemplatesPage() {
         )
       )
         return
-      setEditing({ ...editing, state: def ? emptyFormState(def.model) : editing.state })
+      setEditing({
+        ...editing,
+        state: def
+          ? emptyFormState(def.model)
+          : isLetter
+            ? { ...editing.state, values: { ...emptyLetterFields() } }
+            : editing.state,
+      })
       toast.success(t({ fr: 'Modèle réinitialisé', en: 'Template reset' }), {
         description: t({ fr: 'Tous les champs ont été vidés.', en: 'All fields cleared.' }),
       })
     }
     const exportPdf = () => {
-      if (def) printForm(def, editing.state, editing.lang)
+      if (isLetter) printLetter(letterDoc(), letterFileName(), editing.lang)
+      else if (def) printForm(def, editing.state, editing.lang)
     }
     const exportDocx = async () => {
-      if (!def) return
       try {
         // Lazy : la lib docx reste hors du chunk de la Bibliothèque.
+        if (isLetter) {
+          const { letterDocxBlob } = await import('@/features/workspace/letter-docx')
+          const blob = await letterDocxBlob(letterDoc())
+          triggerDownload(URL.createObjectURL(blob), `${letterFileName()}.docx`, true)
+          return
+        }
+        if (!def) return
         const { formDocxBlob } = await import('@/features/workspace/template-form/form-docx')
         const blob = await formDocxBlob(def, editing.state, editing.lang)
         triggerDownload(
@@ -216,7 +263,7 @@ export function TemplatesPage() {
           >
             <ArrowLeft className="size-4" /> {t({ fr: 'Bibliothèque', en: 'Library' })}
           </button>
-          {def ? (
+          {def || isLetter ? (
             <>
               <Input
                 value={editing.title}
@@ -284,14 +331,14 @@ export function TemplatesPage() {
             state={editing.state}
             onChange={(s) => setEditing({ ...editing, state: s })}
           />
-        ) : (
-          <div className="bg-muted/30 text-muted-foreground mx-auto max-w-2xl rounded-lg border p-6 text-sm">
-            {t({
-              fr: 'Cette lettre est générée directement dans un dossier (CTD Workspace) : le destinataire (Agence/Direction nationale) et les mentions s’adaptent au pays cible du montage. Son édition depuis la Bibliothèque arrive prochainement.',
-              en: 'This letter is generated directly inside a dossier (CTD Workspace): the recipient (national agency) and wording adapt to the dossier’s target country. Editing it from the Library is coming soon.',
-            })}
-          </div>
-        )}
+        ) : isLetter ? (
+          <LetterEditor
+            docType={editing.docType as 'cover' | 'pght'}
+            values={editing.state.values}
+            lang={editing.lang}
+            onChange={(values) => setEditing({ ...editing, state: { ...editing.state, values } })}
+          />
+        ) : null}
       </div>
     )
   }

@@ -67,7 +67,7 @@
 |---|---------|---------|--------|
 | **M1 ✅** | **Infra bilingue + page Bibliothèque + RCP EN** | `Localized`+résolveur ; toggle FR/EN + persistance ; **page « Bibliothèque » (ungated)** listant les 5 + aperçu ; **RCP bilingue** (EN verbatim SmPC, MedDRA) ; exports/compile honorent la langue ; **test : toggle préserve la saisie**. | ~1–1,5 s |
 | **M2 ✅** | **Notice + Étiquetage EN** | M2a Étiquetage (#194) + **M2b Notice/PIL** (EMA QRD : prose patient dynamique EN — take/use, HCP, subSelect mappé FR→EN par index ; 3 surfaces preview/print/docx) livrés → **3 templates produit bilingues** (RCP + Notice + Étiquetage). FR (langue de soumission) inchangé. | ~0,5–1 s |
-| **M3** | **Lettre de demande + PGHT en templates** | Port des modèles 1.1.1/1.1.2 dans le système form-model, **bilingues**, auto-remplissage par pays **préservé** ; bibliothèque 5/5. | ~1 s |
+| **M3 ✅** | **Lettre de demande + PGHT bilingues (éditeur dédié)** | Lettres 1.1.1/1.1.2 bilingues FR/EN (additif, **FR dossier/pilote inchangé**) + **éditeur standalone Bibliothèque** : sélecteur pays (8 UEMOA) → destinataire/agence/civilité/ville **auto** ; aperçu A4 + PDF/DOCX (lazy) + Enregistrer. Renderers génériques (zéro duplication de contenu). **Bibliothèque 5/5.** | ~1 s |
 | **M4** | **Nudge langue de soumission** | `submissionLanguage` par pays + constat Monitor « langue doc ≠ soumission » + nudge avant compile. | ~0,3 s |
 | **(Différé)** | **RIM avancé** | `org_templates` (versions org réutilisables) ; **traduction IA des valeurs** FR↔EN ; **virage (b)** EN-livrable + pays anglophones. | phase 2 |
 
@@ -90,6 +90,6 @@
   revue `cto:code-reviewer` = **SHIP**.
 
 ## 8. Prochaine étape recommandée
-**M1 + M2 livrés** (RCP, Étiquetage, Notice/PIL bilingues). **Reste M3** : porter **Lettre de demande
-(1.1.1) + PGHT (1.1.2)** dans le système form-model, **bilingues**, en **préservant l'auto-remplissage
-par pays** (destinataire / ville / date / formule, 8 pays, FR & EN) ; puis **M4** (nudge langue de soumission).
+**M1 + M2 + M3 livrés** (RCP, Étiquetage, Notice/PIL bilingues + lettres Cover/PGHT bilingues avec
+éditeur standalone & destinataire auto par pays). **Bibliothèque 5/5.** **Reste M4** : `submissionLanguage`
+par pays + constat Monitor « langue du document ≠ langue de soumission du pays » + nudge avant compilation.
