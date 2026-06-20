@@ -99,3 +99,27 @@ describe('M3.1 — désignation autorité, devise PGHT, synchro produit', () => 
     expect(f.fabricantNom).toBe('AURA LIFECARE')
   })
 })
+
+describe('Tranche 2 — insertion en-tête / pied / signature (letterDocToHtml)', () => {
+  const img = 'data:image/png;base64,iVBORw0KGgo='
+  const cover = () => TEMPLATES.cover.build(buildLetterContext(emptyLetterFields('CI'), 'fr'), 'fr')
+
+  it('injecte en-tête + pied (images) et remplace le marqueur de signature', () => {
+    const html = letterDocToHtml(cover(), {
+      headerImage: img,
+      footerImage: img,
+      signatureImage: img,
+    })
+    expect(html).toContain('class="l-head"')
+    expect(html).toContain('class="l-foot"')
+    expect(html).toContain('class="l-sig"')
+    expect(html).not.toContain('[Signature et cachet]') // marqueur remplacé par l'image
+  })
+
+  it('sans images (ou non insérées) → aucune insertion, marqueur conservé', () => {
+    const html = letterDocToHtml(cover())
+    expect(html).not.toContain('class="l-head"')
+    expect(html).not.toContain('class="l-foot"')
+    expect(html).toContain('[Signature et cachet]')
+  })
+})

@@ -30,6 +30,10 @@ export interface LetterFields {
   pghtCurrency: string
   poste: string
   signataire: string
+  /** Inclure l'en-tête / le pied / la signature du profil (insertion 1-clic) — '1' = oui. */
+  useHeader: string
+  useFooter: string
+  useSignature: string
 }
 
 /** Devises proposées pour le PGHT (libellé affiché tel quel dans la lettre). */
@@ -82,6 +86,9 @@ export const LETTER_FIELD_KEYS: (keyof LetterFields)[] = [
   'pghtCurrency',
   'poste',
   'signataire',
+  'useHeader',
+  'useFooter',
+  'useSignature',
 ]
 
 /** État vide (pays par défaut = Bénin, 1er du portefeuille pilote). */
@@ -102,6 +109,9 @@ export function emptyLetterFields(country = 'BJ'): LetterFields {
     pghtCurrency: 'FCFA',
     poste: '',
     signataire: '',
+    useHeader: '',
+    useFooter: '',
+    useSignature: '',
   }
 }
 

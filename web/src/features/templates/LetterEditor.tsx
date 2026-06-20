@@ -28,11 +28,17 @@ export function LetterEditor({
   values,
   lang,
   onChange,
+  headerImage,
+  footerImage,
+  signatureImage,
 }: {
   docType: 'cover' | 'pght'
   values: Record<string, string>
   lang: Lang
   onChange: (values: Record<string, string>) => void
+  headerImage?: string | null
+  footerImage?: string | null
+  signatureImage?: string | null
 }) {
   const { t } = useI18n()
   const orgId = useOrgId()
@@ -58,6 +64,31 @@ export function LetterEditor({
   const L = (fr: string, en: string) => (lang === 'en' ? en : fr)
   const civ = lang === 'en' ? (ctx.agencyCiviliteEn ?? ctx.agencyCivilite) : ctx.agencyCivilite
   const sep = lang === 'en' ? ': ' : ' : '
+
+  // Insertion 1-clic en-tête/pied/signature (images du profil org) — désactivé si l'image manque.
+  const flag = (k: keyof LetterFields) => fields[k] === '1'
+  const toggleFlag = (k: keyof LetterFields) => set(k, fields[k] === '1' ? '' : '1')
+  const insertBtn = (
+    k: keyof LetterFields,
+    img: string | null | undefined,
+    label: { fr: string; en: string },
+  ) => (
+    <button
+      type="button"
+      disabled={!img && !flag(k)}
+      onClick={() => toggleFlag(k)}
+      aria-pressed={flag(k)}
+      title={img ? undefined : t({ fr: 'À définir dans le profil', en: 'Set in profile' })}
+      className={cn(
+        'rounded border px-2 py-0.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40',
+        flag(k) && img
+          ? 'border-primary bg-primary text-primary-foreground'
+          : 'text-muted-foreground',
+      )}
+    >
+      {t(label)}
+    </button>
+  )
 
   /** Input inline sur la feuille (classe `field-input`, scopée `.tplform-sheet`). */
   const inp = (k: keyof LetterFields, placeholder?: string) => (
@@ -170,6 +201,17 @@ export function LetterEditor({
             ) : null}
           </div>
         </div>
+
+        <div className="flex flex-col gap-1 text-xs">
+          <span className="text-muted-foreground font-medium">
+            {t({ fr: 'Insérer (1 clic)', en: 'Insert (1 click)' })}
+          </span>
+          <div className="flex items-center gap-1">
+            {insertBtn('useHeader', headerImage, { fr: 'En-tête', en: 'Header' })}
+            {insertBtn('useFooter', footerImage, { fr: 'Pied', en: 'Footer' })}
+            {insertBtn('useSignature', signatureImage, { fr: 'Signature', en: 'Signature' })}
+          </div>
+        </div>
       </div>
 
       {/* ───── Feuille A4 : lettre à cases remplissables inline ───── */}
@@ -179,6 +221,11 @@ export function LetterEditor({
             className="tplform-sheet"
             aria-label={t({ fr: 'Lettre (édition)', en: 'Letter (editing)' })}
           >
+            {flag('useHeader') && headerImage ? (
+              <div className="l-head">
+                <img src={headerImage} alt="" />
+              </div>
+            ) : null}
             <p className="l-p l-r">
               {L(`${ctx.ville}, le ${ctx.date}`, `${ctx.ville}, ${ctx.date}`)}
             </p>
@@ -310,8 +357,19 @@ export function LetterEditor({
 
             <p className="l-p l-r">&nbsp;</p>
             <p className="l-p l-r">{inp('poste', L('Poste', 'Position'))}</p>
-            <p className="l-p l-r">{L('[Signature et cachet]', '[Signature and stamp]')}</p>
+            {flag('useSignature') && signatureImage ? (
+              <p className="l-p l-r">
+                <img className="l-sig" src={signatureImage} alt="" />
+              </p>
+            ) : (
+              <p className="l-p l-r">{L('[Signature et cachet]', '[Signature and stamp]')}</p>
+            )}
             <p className="l-p l-r">{inp('signataire', L('Nom et prénom(s)', 'Full name'))}</p>
+            {flag('useFooter') && footerImage ? (
+              <div className="l-foot">
+                <img src={footerImage} alt="" />
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
