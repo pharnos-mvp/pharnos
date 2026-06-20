@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 
 import { db } from '@/lib/db'
@@ -6,7 +6,6 @@ import { useI18n, type Lang } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import { useOrgId } from '@/features/org/org-context'
 import {
-  AUTHORITY_DESIGNATIONS,
   buildLetterContext,
   LETTER_CURRENCIES,
   letterFieldsFromValues,
@@ -18,10 +17,10 @@ import '@/features/workspace/template-form/template-form.css'
 
 /**
  * Éditeur **inline** d'une lettre (cover/PGHT) — cases remplissables directement sur la feuille A4
- * (comme RCP/Notice). Barre d'en-tête HORS-template : **Pays cible** (→ agence/destinataire auto),
- * **Désignation de l'autorité** (civilité, défaut auto) et **Produit** (catalogue → auto-sync OU
- * saisie manuelle). Nom/poste du signataire pré-remplis depuis le profil (modifiables ici).
- * Valeurs à plat → persistées dans `savedTemplates`. Le FR reste la langue de soumission.
+ * (comme RCP/Notice). Barre d'en-tête HORS-template : **Pays cible** (→ agence + civilité du
+ * destinataire auto), **Produit** (sélecteur catalogue → auto-sync de la fiche ; saisie manuelle
+ * toujours possible inline) et **insertion en-tête/pied/signature** du profil. Nom/poste du
+ * signataire pré-remplis depuis le profil. Valeurs à plat → persistées ; FR = langue de soumission.
  */
 export function LetterEditor({
   docType,
@@ -53,7 +52,6 @@ export function LetterEditor({
         .toArray(),
     [orgId],
   )
-  const [source, setSource] = useState<'catalogue' | 'manual'>('manual')
 
   const set = (k: keyof LetterFields, v: string) => onChange({ ...values, [k]: v })
   const pickProduct = (id: string) => {
@@ -65,7 +63,7 @@ export function LetterEditor({
   const civ = lang === 'en' ? (ctx.agencyCiviliteEn ?? ctx.agencyCivilite) : ctx.agencyCivilite
   const sep = lang === 'en' ? ': ' : ' : '
 
-  // Insertion 1-clic en-tête/pied/signature (images du profil org) — désactivé si l'image manque.
+  // Insertion en-tête/pied/signature (images du profil org) — bouton désactivé si l'image manque.
   const flag = (k: keyof LetterFields) => fields[k] === '1'
   const toggleFlag = (k: keyof LetterFields) => set(k, fields[k] === '1' ? '' : '1')
   const insertBtn = (
@@ -116,7 +114,7 @@ export function LetterEditor({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* ───── Barre d'en-tête HORS-template (pays · désignation · produit) ───── */}
+      {/* ───── Barre d'en-tête HORS-template (pays · produit · en-tête/signature) ───── */}
       <div className="bg-muted/40 flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:flex-wrap sm:items-end">
         <label className="flex flex-col gap-1 text-xs">
           <span className="text-muted-foreground font-medium">
@@ -138,20 +136,25 @@ export function LetterEditor({
 
         <label className="flex flex-col gap-1 text-xs">
           <span className="text-muted-foreground font-medium">
-            {t({ fr: 'Désignation de l’autorité', en: 'Authority designation' })}
+            {t({ fr: 'Produit (catalogue)', en: 'Product (catalogue)' })}
           </span>
           <select
-            value={fields.civilite}
-            onChange={(e) => set('civilite', e.target.value)}
-            className="border-input bg-background h-8 rounded-md border px-2 text-sm"
-            aria-label={t({ fr: 'Désignation de l’autorité', en: 'Authority designation' })}
+            value=""
+            onChange={(e) => pickProduct(e.target.value)}
+            className="border-input bg-background h-8 min-w-44 rounded-md border px-2 text-sm"
+            aria-label={t({ fr: 'Choisir un produit', en: 'Choose a product' })}
           >
             <option value="">
-              {t({ fr: 'Automatique (selon l’agence)', en: 'Automatic (per agency)' })}
+              {(products ?? []).length
+                ? t({
+                    fr: '— Choisir (ou saisir à la main) —',
+                    en: '— Choose (or type manually) —',
+                  })
+                : t({ fr: '— Aucun produit — saisir —', en: '— No product — type —' })}
             </option>
-            {AUTHORITY_DESIGNATIONS.map((d) => (
-              <option key={d} value={d}>
-                {d}
+            {(products ?? []).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nomCommercial}
               </option>
             ))}
           </select>
@@ -159,52 +162,7 @@ export function LetterEditor({
 
         <div className="flex flex-col gap-1 text-xs">
           <span className="text-muted-foreground font-medium">
-            {t({ fr: 'Produit', en: 'Product' })}
-          </span>
-          <div className="flex items-center gap-2">
-            <div className="inline-flex rounded-md border p-0.5">
-              {(['catalogue', 'manual'] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setSource(s)}
-                  aria-pressed={source === s}
-                  className={cn(
-                    'rounded px-2 py-0.5 text-xs font-medium transition',
-                    source === s ? 'bg-primary text-primary-foreground' : 'text-muted-foreground',
-                  )}
-                >
-                  {s === 'catalogue'
-                    ? t({ fr: 'Catalogue', en: 'Catalogue' })
-                    : t({ fr: 'Manuel', en: 'Manual' })}
-                </button>
-              ))}
-            </div>
-            {source === 'catalogue' ? (
-              <select
-                value=""
-                onChange={(e) => pickProduct(e.target.value)}
-                className="border-input bg-background h-8 min-w-40 rounded-md border px-2 text-sm"
-                aria-label={t({ fr: 'Choisir un produit', en: 'Choose a product' })}
-              >
-                <option value="">
-                  {(products ?? []).length
-                    ? t({ fr: '— Choisir un produit —', en: '— Choose a product —' })
-                    : t({ fr: '— Aucun produit —', en: '— No product —' })}
-                </option>
-                {(products ?? []).map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nomCommercial}
-                  </option>
-                ))}
-              </select>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-1 text-xs">
-          <span className="text-muted-foreground font-medium">
-            {t({ fr: 'Insérer (1 clic)', en: 'Insert (1 click)' })}
+            {t({ fr: 'En-tête & signature', en: 'Letterhead & signature' })}
           </span>
           <div className="flex items-center gap-1">
             {insertBtn('useHeader', headerImage, { fr: 'En-tête', en: 'Header' })}
