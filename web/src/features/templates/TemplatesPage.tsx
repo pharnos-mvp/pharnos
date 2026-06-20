@@ -34,6 +34,7 @@ import {
   letterFieldsFromValues,
 } from '@/features/workspace/letter-context'
 import { printLetter } from '@/features/workspace/letter-render'
+import { getOrgBranding } from '@/features/profile/pro-settings-repository'
 import { TemplatePreview } from './TemplatePreview'
 import { LetterEditor } from './LetterEditor'
 import { deleteSavedTemplate, saveTemplate } from './saved-templates-repository'
@@ -113,6 +114,9 @@ export function TemplatesPage() {
         .toArray(),
     [orgId],
   )
+  // Profil pro de l'org → pré-remplit le nom/poste du signataire des lettres (auto-synchro).
+  const branding = useLiveQuery(() => getOrgBranding(orgId), [orgId])
+
   const savedList = useMemo(
     () => (saved ?? []).slice().sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1)),
     [saved],
@@ -137,7 +141,13 @@ export function TemplatesPage() {
       state: def
         ? emptyFormState(def.model)
         : ({
-            values: isLetterType(e.docType) ? { ...emptyLetterFields() } : {},
+            values: isLetterType(e.docType)
+              ? {
+                  ...emptyLetterFields(),
+                  poste: branding?.poste ?? '',
+                  signataire: branding?.signataire ?? '',
+                }
+              : {},
             checks: {},
             selects: {},
             globals: {

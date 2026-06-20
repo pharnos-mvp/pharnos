@@ -1,22 +1,27 @@
-import { useMemo } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 
-import { Input } from '@/components/ui/input'
-import { useI18n, type Lang, type Translatable } from '@/lib/i18n-context'
-import { TEMPLATES, type TemplateKey } from '@/features/workspace/templates'
+import { db } from '@/lib/db'
+import { useI18n, type Lang } from '@/lib/i18n-context'
+import { cn } from '@/lib/utils'
+import { useOrgId } from '@/features/org/org-context'
 import {
+  AUTHORITY_DESIGNATIONS,
   buildLetterContext,
+  LETTER_CURRENCIES,
   letterFieldsFromValues,
+  productToLetterFields,
   UEMOA_COUNTRIES,
   type LetterFields,
 } from '@/features/workspace/letter-context'
-import { letterDocToHtml } from '@/features/workspace/letter-render'
 import '@/features/workspace/template-form/template-form.css'
 
 /**
- * Éditeur **standalone** d'une lettre (cover/PGHT) dans la Bibliothèque. Saisie à gauche, **aperçu
- * A4 live** à droite (rendu via `letterDocToHtml` — même source que l'export PDF/DOCX). Le **pays
- * cible** pilote le destinataire (agence/civilité/ville) ; FR/EN via le toggle de la barre d'actions.
- * Les valeurs sont stockées à plat (`Record<string,string>`) → persistées dans `savedTemplates`.
+ * Éditeur **inline** d'une lettre (cover/PGHT) — cases remplissables directement sur la feuille A4
+ * (comme RCP/Notice). Barre d'en-tête HORS-template : **Pays cible** (→ agence/destinataire auto),
+ * **Désignation de l'autorité** (civilité, défaut auto) et **Produit** (catalogue → auto-sync OU
+ * saisie manuelle). Nom/poste du signataire pré-remplis depuis le profil (modifiables ici).
+ * Valeurs à plat → persistées dans `savedTemplates`. Le FR reste la langue de soumission.
  */
 export function LetterEditor({
   docType,
@@ -30,30 +35,60 @@ export function LetterEditor({
   onChange: (values: Record<string, string>) => void
 }) {
   const { t } = useI18n()
+  const orgId = useOrgId()
   const fields = useMemo(() => letterFieldsFromValues(values), [values])
+  const ctx = useMemo(() => buildLetterContext(fields, lang), [fields, lang])
+  const products = useLiveQuery(
+    () =>
+      db.products
+        .where('orgId')
+        .equals(orgId)
+        .filter((p) => p.deletedAt === null)
+        .toArray(),
+    [orgId],
+  )
+  const [source, setSource] = useState<'catalogue' | 'manual'>('manual')
+
   const set = (k: keyof LetterFields, v: string) => onChange({ ...values, [k]: v })
+  const pickProduct = (id: string) => {
+    const p = (products ?? []).find((x) => x.id === id)
+    if (p) onChange({ ...values, ...productToLetterFields(p) })
+  }
 
-  const { html, ctx } = useMemo(() => {
-    const c = buildLetterContext(fields, lang)
-    const doc = TEMPLATES[docType as TemplateKey].build(c, lang)
-    return { html: letterDocToHtml(doc), ctx: c }
-  }, [fields, lang, docType])
+  const L = (fr: string, en: string) => (lang === 'en' ? en : fr)
+  const civ = lang === 'en' ? (ctx.agencyCiviliteEn ?? ctx.agencyCivilite) : ctx.agencyCivilite
+  const sep = lang === 'en' ? ': ' : ' : '
 
-  // Champ étiqueté — FONCTION (appelée inline) et non composant, pour ne pas remonter l'input à
-  // chaque frappe (perte de focus). Même motif que TemplatePreview.
-  const field = (k: keyof LetterFields, label: Translatable) => (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="text-muted-foreground">{t(label)}</span>
-      <Input value={fields[k]} onChange={(e) => set(k, e.target.value)} className="h-8" />
-    </label>
+  /** Input inline sur la feuille (classe `field-input`, scopée `.tplform-sheet`). */
+  const inp = (k: keyof LetterFields, placeholder?: string) => (
+    <input
+      type="text"
+      className="field-input"
+      value={fields[k]}
+      onChange={(e) => set(k, e.target.value)}
+      placeholder={placeholder}
+      aria-label={placeholder ?? k}
+    />
+  )
+  /** Puce « label : champ(s) » sur la feuille. */
+  const bullet = (label: string, content: ReactNode) => (
+    <li>
+      <span className="field-line">
+        <span className="field-label field-label--bold">
+          {label}
+          {sep}
+        </span>
+        {content}
+      </span>
+    </li>
   )
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,22rem)_1fr]">
-      {/* ── Panneau de saisie ── */}
-      <div className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground">
+    <div className="flex flex-col gap-3">
+      {/* ───── Barre d'en-tête HORS-template (pays · désignation · produit) ───── */}
+      <div className="bg-muted/40 flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <label className="flex flex-col gap-1 text-xs">
+          <span className="text-muted-foreground font-medium">
             {t({ fr: 'Pays cible', en: 'Target country' })}
           </span>
           <select
@@ -70,43 +105,214 @@ export function LetterEditor({
           </select>
         </label>
 
-        {/* Destinataire auto (preuve du pilotage par pays) */}
-        <div className="bg-muted/40 text-muted-foreground rounded-md border p-2 text-xs">
-          <div className="text-foreground font-medium">
-            {t({ fr: 'Destinataire (auto)', en: 'Recipient (auto)' })}
-          </div>
-          <div>{ctx.agencyFull}</div>
-          <div>{lang === 'en' ? ctx.agencyCiviliteEn : ctx.agencyCivilite}</div>
-        </div>
+        <label className="flex flex-col gap-1 text-xs">
+          <span className="text-muted-foreground font-medium">
+            {t({ fr: 'Désignation de l’autorité', en: 'Authority designation' })}
+          </span>
+          <select
+            value={fields.civilite}
+            onChange={(e) => set('civilite', e.target.value)}
+            className="border-input bg-background h-8 rounded-md border px-2 text-sm"
+            aria-label={t({ fr: 'Désignation de l’autorité', en: 'Authority designation' })}
+          >
+            <option value="">
+              {t({ fr: 'Automatique (selon l’agence)', en: 'Automatic (per agency)' })}
+            </option>
+            {AUTHORITY_DESIGNATIONS.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </select>
+        </label>
 
-        {field('nomCommercial', { fr: 'Nom commercial', en: 'Trade name' })}
-        <div className="grid grid-cols-2 gap-2">
-          {field('dci', { fr: 'DCI', en: 'INN' })}
-          {field('dosage', { fr: 'Dosage', en: 'Strength' })}
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {field('forme', { fr: 'Forme', en: 'Form' })}
-          {field('presentation', { fr: 'Présentation', en: 'Presentation' })}
-        </div>
-        {field('demandeurNom', { fr: 'Demandeur d’AMM — nom', en: 'MA applicant — name' })}
-        {field('demandeurAdresse', { fr: 'Demandeur — adresse', en: 'Applicant — address' })}
-        {field('fabricantNom', { fr: 'Fabricant — nom', en: 'Manufacturer — name' })}
-        {field('fabricantAdresse', { fr: 'Fabricant — adresse', en: 'Manufacturer — address' })}
-        {docType === 'pght' ? field('pght', { fr: 'PGHT (FCFA)', en: 'PGHT (FCFA)' }) : null}
-        <div className="grid grid-cols-2 gap-2">
-          {field('poste', { fr: 'Signataire — poste', en: 'Signer — position' })}
-          {field('signataire', { fr: 'Signataire — nom', en: 'Signer — name' })}
+        <div className="flex flex-col gap-1 text-xs">
+          <span className="text-muted-foreground font-medium">
+            {t({ fr: 'Produit', en: 'Product' })}
+          </span>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-md border p-0.5">
+              {(['catalogue', 'manual'] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setSource(s)}
+                  aria-pressed={source === s}
+                  className={cn(
+                    'rounded px-2 py-0.5 text-xs font-medium transition',
+                    source === s ? 'bg-primary text-primary-foreground' : 'text-muted-foreground',
+                  )}
+                >
+                  {s === 'catalogue'
+                    ? t({ fr: 'Catalogue', en: 'Catalogue' })
+                    : t({ fr: 'Manuel', en: 'Manual' })}
+                </button>
+              ))}
+            </div>
+            {source === 'catalogue' ? (
+              <select
+                value=""
+                onChange={(e) => pickProduct(e.target.value)}
+                className="border-input bg-background h-8 min-w-40 rounded-md border px-2 text-sm"
+                aria-label={t({ fr: 'Choisir un produit', en: 'Choose a product' })}
+              >
+                <option value="">
+                  {(products ?? []).length
+                    ? t({ fr: '— Choisir un produit —', en: '— Choose a product —' })
+                    : t({ fr: '— Aucun produit —', en: '— No product —' })}
+                </option>
+                {(products ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nomCommercial}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+          </div>
         </div>
       </div>
 
-      {/* ── Aperçu A4 live ── */}
+      {/* ───── Feuille A4 : lettre à cases remplissables inline ───── */}
       <div className="tplform">
         <div className="tplform-canvas">
           <div
             className="tplform-sheet"
-            aria-label={t({ fr: 'Aperçu de la lettre', en: 'Letter preview' })}
-            dangerouslySetInnerHTML={{ __html: html }}
-          />
+            aria-label={t({ fr: 'Lettre (édition)', en: 'Letter (editing)' })}
+          >
+            <p className="l-p l-r">
+              {L(`${ctx.ville}, le ${ctx.date}`, `${ctx.ville}, ${ctx.date}`)}
+            </p>
+            <p className="l-p l-r">&nbsp;</p>
+            <p className="l-p l-r">{L('À', 'To')}</p>
+            <p className="l-p l-r">
+              {civ}
+              <br />
+              {ctx.agencyFull}
+              <br />
+              {ctx.agencyAdresse}
+            </p>
+            <p className="l-p l-r">&nbsp;</p>
+
+            <p className="l-p">
+              <strong>{L('Objet : ', 'Subject: ')}</strong>
+              {docType === 'cover'
+                ? L(
+                    `Demande d’enregistrement d’AMM du produit ${ctx.nomCommercial}`,
+                    `Application for marketing authorisation (MA) of the product ${ctx.nomCommercial}`,
+                  )
+                : L(
+                    'Attestation de Prix Grossiste Hors Taxe (PGHT)',
+                    'Certificate of Wholesale Price Excluding Tax (PGHT)',
+                  )}
+            </p>
+            <p className="l-p">{`${civ},`}</p>
+
+            <p className="l-p">
+              {docType === 'cover'
+                ? L(
+                    'Nous avons l’honneur de soumettre à votre haute bienveillance le dossier de demande d’autorisation de mise sur le marché (AMM) pour notre spécialité pharmaceutique suivante :',
+                    'We have the honour of submitting for your kind consideration the application file for marketing authorisation (MA) for our following pharmaceutical specialty:',
+                  )
+                : L(
+                    'Nous venons par la présente porter à votre connaissance les informations et le Prix Grossiste Hors Taxe (PGHT) de notre spécialité pharmaceutique, consignés ci-dessous :',
+                    'We hereby bring to your attention the information and the Wholesale Price Excluding Tax (PGHT) of our pharmaceutical specialty, set out below:',
+                  )}
+            </p>
+
+            <ul className="doc-bullets">
+              {bullet(
+                L('Nom commercial', 'Trade name'),
+                inp('nomCommercial', L('Nom commercial', 'Trade name')),
+              )}
+              {bullet(
+                L('DCI et dosage', 'INN and strength'),
+                <>
+                  {inp('dci', L('DCI', 'INN'))}
+                  {inp('dosage', L('Dosage', 'Strength'))}
+                </>,
+              )}
+              {bullet(
+                L('Forme et présentation', 'Form and presentation'),
+                <>
+                  {inp('forme', L('Forme', 'Form'))}
+                  {inp('presentation', L('Présentation', 'Presentation'))}
+                </>,
+              )}
+              {docType === 'cover' ? (
+                <>
+                  {bullet(
+                    L('Nom et adresse du demandeur d’AMM', 'Name and address of the MA applicant'),
+                    <>
+                      {inp('demandeurNom', L('Nom du demandeur', 'Applicant name'))}
+                      {inp('demandeurAdresse', L('Adresse', 'Address'))}
+                    </>,
+                  )}
+                  {bullet(
+                    L('Nom et adresse du fabricant', 'Name and address of the manufacturer'),
+                    <>
+                      {inp('fabricantNom', L('Nom du fabricant', 'Manufacturer name'))}
+                      {inp('fabricantAdresse', L('Adresse', 'Address'))}
+                    </>,
+                  )}
+                </>
+              ) : (
+                <li>
+                  <span className="field-line">
+                    <span className="field-label field-label--bold">
+                      {'PGHT ('}
+                      <select
+                        value={fields.pghtCurrency}
+                        onChange={(e) => set('pghtCurrency', e.target.value)}
+                        className="field-select"
+                        aria-label={t({ fr: 'Devise', en: 'Currency' })}
+                      >
+                        {LETTER_CURRENCIES.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                      {`)${sep}`}
+                    </span>
+                    {inp('pght', L('Montant', 'Amount'))}
+                  </span>
+                </li>
+              )}
+            </ul>
+
+            {docType === 'cover' ? (
+              <p className="l-p">
+                {L(
+                  'Le dossier technique ci-joint a été constitué en conformité avec les directives de l’UEMOA et les exigences spécifiques de votre Agence. Nous restons à votre entière disposition pour tout complément d’information.',
+                  'The attached technical dossier has been compiled in accordance with the UEMOA guidelines and the specific requirements of your Agency. We remain at your full disposal for any further information.',
+                )}
+              </p>
+            ) : (
+              <p className="l-p">
+                {L(
+                  'Nous restons à votre entière disposition pour tout complément d’information.',
+                  'We remain at your full disposal for any further information.',
+                )}
+              </p>
+            )}
+
+            <p className="l-p">
+              {docType === 'cover'
+                ? L(
+                    `Nous vous prions d’agréer, ${civ}, l’expression de notre sincère considération.`,
+                    `Please accept, ${civ}, the assurance of our highest consideration.`,
+                  )
+                : L(
+                    `Dans l’espoir d’une suite favorable, nous vous prions d’agréer, ${civ}, l’expression de notre sincère collaboration.`,
+                    `In the hope of a favourable response, please accept, ${civ}, the expression of our sincere collaboration.`,
+                  )}
+            </p>
+
+            <p className="l-p l-r">&nbsp;</p>
+            <p className="l-p l-r">{inp('poste', L('Poste', 'Position'))}</p>
+            <p className="l-p l-r">{L('[Signature et cachet]', '[Signature and stamp]')}</p>
+            <p className="l-p l-r">{inp('signataire', L('Nom et prénom(s)', 'Full name'))}</p>
+          </div>
         </div>
       </div>
     </div>

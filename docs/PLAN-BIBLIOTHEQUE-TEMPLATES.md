@@ -67,7 +67,7 @@
 |---|---------|---------|--------|
 | **M1 ✅** | **Infra bilingue + page Bibliothèque + RCP EN** | `Localized`+résolveur ; toggle FR/EN + persistance ; **page « Bibliothèque » (ungated)** listant les 5 + aperçu ; **RCP bilingue** (EN verbatim SmPC, MedDRA) ; exports/compile honorent la langue ; **test : toggle préserve la saisie**. | ~1–1,5 s |
 | **M2 ✅** | **Notice + Étiquetage EN** | M2a Étiquetage (#194) + **M2b Notice/PIL** (EMA QRD : prose patient dynamique EN — take/use, HCP, subSelect mappé FR→EN par index ; 3 surfaces preview/print/docx) livrés → **3 templates produit bilingues** (RCP + Notice + Étiquetage). FR (langue de soumission) inchangé. | ~0,5–1 s |
-| **M3 ✅** | **Lettre de demande + PGHT bilingues (éditeur dédié)** | Lettres 1.1.1/1.1.2 bilingues FR/EN (additif, **FR dossier/pilote inchangé**) + **éditeur standalone Bibliothèque** : sélecteur pays (8 UEMOA) → destinataire/agence/civilité/ville **auto** ; aperçu A4 + PDF/DOCX (lazy) + Enregistrer. Renderers génériques (zéro duplication de contenu). **Bibliothèque 5/5.** | ~1 s |
+| **M3 ✅** | **Lettre de demande + PGHT bilingues (éditeur dédié)** | Lettres 1.1.1/1.1.2 bilingues FR/EN (additif, **FR dossier/pilote inchangé**) + **éditeur standalone Bibliothèque** : sélecteur pays (8 UEMOA) → destinataire/agence/civilité/ville **auto** ; aperçu A4 + PDF/DOCX (lazy) + Enregistrer. Renderers génériques (zéro duplication de contenu). **Bibliothèque 5/5.** **Redesign M3.1 (inline)** : A4 à **cases remplissables directement** (comme RCP/Notice) + barre d'en-tête hors-template (pays · **désignation autorité** modifiable · **produit catalogue→auto-sync OU manuel**) + **nom/poste auto du profil** + **devise PGHT** (FCFA/Naira/Cedi/Dirham/Euro/USD/GBP/AUD). **Reste Tranche 2** : insertion **1-clic en-tête/pied + signature** (images branding). | ~1 s |
 | **M4** | **Nudge langue de soumission** | `submissionLanguage` par pays + constat Monitor « langue doc ≠ soumission » + nudge avant compile. | ~0,3 s |
 | **(Différé)** | **RIM avancé** | `org_templates` (versions org réutilisables) ; **traduction IA des valeurs** FR↔EN ; **virage (b)** EN-livrable + pays anglophones. | phase 2 |
 
@@ -91,5 +91,6 @@
 
 ## 8. Prochaine étape recommandée
 **M1 + M2 + M3 livrés** (RCP, Étiquetage, Notice/PIL bilingues + lettres Cover/PGHT bilingues avec
-éditeur standalone & destinataire auto par pays). **Bibliothèque 5/5.** **Reste M4** : `submissionLanguage`
+éditeur standalone inline & destinataire auto par pays). **Bibliothèque 5/5.** **Reste : Tranche 2 lettres**
+(insertion 1-clic en-tête/pied + signature, images branding) **puis M4** : `submissionLanguage`
 par pays + constat Monitor « langue du document ≠ langue de soumission du pays » + nudge avant compilation.
