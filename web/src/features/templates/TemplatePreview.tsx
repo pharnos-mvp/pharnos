@@ -2,9 +2,10 @@ import type { Lang } from '@/lib/i18n-context'
 import {
   blockHeadingText,
   DEFAULT_GLOBALS,
+  fieldDyn,
+  fieldDynList,
   fieldList,
   fieldText,
-  resolveText,
   type FormBlock,
   type TemplateFormState,
 } from '@/features/workspace/template-form/form-types'
@@ -121,7 +122,7 @@ export function TemplatePreview({
               case 'subDyn':
                 return (
                   <p key={i} className={b.type === 'dyn' ? 'doc-static' : 'doc-sub'}>
-                    {b.dynText(g)}
+                    {fieldDyn(b.dynText, b.dynTextEn, lang, g)}
                   </p>
                 )
               case 'rule':
@@ -129,8 +130,8 @@ export function TemplatePreview({
               case 'bullets':
                 return (
                   <ul key={i} className="doc-bullets">
-                    {b.items.map((it, ii) => (
-                      <li key={ii}>{resolveText(it, g)}</li>
+                    {fieldDynList(b.items, b.itemsEn, lang, g).map((it, ii) => (
+                      <li key={ii}>{it}</li>
                     ))}
                   </ul>
                 )
@@ -205,37 +206,42 @@ export function TemplatePreview({
                       checked={isChecked(b.key)}
                       onChange={() => toggleCheck(b.key, 0)}
                     />
-                    <span className="chk-text">{resolveText(b.text, g)}</span>
+                    <span className="chk-text">{fieldDyn(b.text ?? '', b.textEn, lang, g)}</span>
                   </label>
                 )
-              case 'subSelect':
+              case 'subSelect': {
+                const optLabels = fieldList(b.options, b.optionsEn, lang)
+                const beforeTx = fieldText(b.before, b.beforeEn, lang)
                 return (
                   <p key={i} className="field-line doc-sub-line">
-                    <span className="field-label field-label--bold">{b.before}</span>
+                    <span className="field-label field-label--bold">{beforeTx}</span>
                     {rw ? (
                       <select
                         className="field-select"
-                        aria-label={b.before.trim()}
+                        aria-label={beforeTx.trim()}
                         value={state.selects[b.key] ?? ''}
                         onChange={(e) => setSelect(b.key, e.target.value)}
                       >
                         <option value="">— {lang === 'en' ? 'choose' : 'choisir'} —</option>
-                        {b.options.map((o) => (
+                        {b.options.map((o, oi) => (
                           <option key={o} value={o}>
-                            {o}
+                            {optLabels[oi]}
                           </option>
                         ))}
                       </select>
                     ) : (
-                      ph(b.options.join(' / '))
+                      ph(optLabels.join(' / '))
                     )}
                   </p>
                 )
+              }
               case 'subLine':
                 return (
                   <p key={i} className="field-line doc-sub-line">
-                    <span className="field-label field-label--bold">{b.before}</span>
-                    {field(b.key, b.ph)}
+                    <span className="field-label field-label--bold">
+                      {fieldText(b.before, b.beforeEn, lang)}
+                    </span>
+                    {field(b.key, fieldText(b.ph, b.phEn, lang))}
                   </p>
                 )
               default:
