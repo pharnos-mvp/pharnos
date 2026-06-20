@@ -176,7 +176,7 @@ export function LetterEditor({
       <div className="tplform">
         <div className="tplform-canvas">
           <div
-            className="tplform-sheet"
+            className="tplform-sheet letter-sheet"
             aria-label={t({ fr: 'Lettre (édition)', en: 'Letter (editing)' })}
           >
             {flag('useHeader') && headerImage ? (
@@ -314,15 +314,15 @@ export function LetterEditor({
             </p>
 
             <p className="l-p l-r">&nbsp;</p>
-            <p className="l-p l-r">{inp('poste', L('Poste', 'Position'))}</p>
+            <p className="l-p l-r">{ctx.poste || L('[Poste]', '[Position]')}</p>
             {flag('useSignature') && signatureImage ? (
               <p className="l-p l-r">
-                <img className="l-sig" src={signatureImage} alt="" />
+                <img className="l-sig" src={signatureImage} alt="Signature" />
               </p>
             ) : (
               <p className="l-p l-r">{L('[Signature et cachet]', '[Signature and stamp]')}</p>
             )}
-            <p className="l-p l-r">{inp('signataire', L('Nom et prénom(s)', 'Full name'))}</p>
+            <p className="l-p l-r">{ctx.signataire || L('[Nom et prénom(s)]', '[Full name]')}</p>
             {flag('useFooter') && footerImage ? (
               <div className="l-foot">
                 <img src={footerImage} alt="" />
