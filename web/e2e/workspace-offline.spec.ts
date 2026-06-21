@@ -59,23 +59,25 @@ test('montage : la route workspace (code-splittée) se rend hors-ligne après pr
   await context.setOffline(false)
 })
 
-test('< lg : montage en disposition tablette (rail d’actions + pastilles + validation flottante)', async ({
+test('< lg : montage en disposition tablette (actions dans la barre d’onglets + pastilles + validation flottante)', async ({
   page,
 }) => {
-  // Refonte responsive : sous lg (1024), la page de montage bascule en rail d'actions vertical +
-  // carte document + panneau de validation flottant + pastilles de sections (l'arborescence et
-  // l'en-tête horizontal desktop ne sont PAS montés). Vérifié dans un vrai navigateur (viewport
-  // honoré), ce que le preview headless 0×0 ne permet pas. [[preview-env-limitations]]
+  // Refonte responsive : sous lg (1024), la page de montage bascule en barre d'onglets (avec les
+  // actions du document à DROITE, en version compacte) + carte document + panneau de validation
+  // flottant + pastilles de sections (l'arborescence et l'en-tête horizontal desktop ne sont PAS
+  // montés). Vérifié dans un vrai navigateur (viewport honoré), ce que le preview headless 0×0 ne
+  // permet pas. [[preview-env-limitations]]
   await page.setViewportSize({ width: 390, height: 844 })
   const nom = await createDossier(page)
   await page.goto('/workspace')
   await page.locator('li', { hasText: nom }).first().getByRole('link').first().click()
   await page.waitForURL(/\/workspace\/[^/]+$/)
 
-  // Rail d'actions vertical (même libellé que l'en-tête, mais orientation verticale).
-  const rail = page.getByRole('toolbar', { name: 'Actions du document' })
-  await expect(rail).toBeVisible()
-  await expect(rail).toHaveAttribute('aria-orientation', 'vertical')
+  // Actions du document = barre d'outils HORIZONTALE dans la barre d'onglets (≠ ancien rail vertical).
+  const actions = page.getByRole('toolbar', { name: 'Actions du document' })
+  await expect(actions).toBeVisible()
+  await expect(actions).not.toHaveAttribute('aria-orientation', 'vertical')
+  await expect(actions.getByRole('button').first()).toBeVisible() // boutons d'action compacts
 
   // Arborescence latérale desktop NON montée < lg ; navigation = pastilles de sections.
   await expect(page.getByRole('navigation', { name: 'Structure du dossier' })).toHaveCount(0)

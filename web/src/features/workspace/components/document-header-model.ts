@@ -68,6 +68,8 @@ export interface DocActionsContext {
   analyzeDisabled?: boolean
   /** Nœud à template officiel sans document généré → « Générer » disponible (même sur une pièce). */
   canGenerate?: boolean
+  /** Tablette : « Supprimer » surfacé en bouton direct visible (≥ lg : rangé dans le menu ⋯). */
+  surfaceRemove?: boolean
   handlers: Partial<{
     edit: () => void
     regenerate: () => void
@@ -127,6 +129,17 @@ export function buildDocActions(ctx: DocActionsContext, t: TFn): DocAction[] {
     ariaLabel: labels.more,
     menu: [{ key: 'remove', label: labels.remove, onSelect: h.remove ?? noop, destructive: true }],
   })
+  // « Supprimer » : bouton DIRECT (rouge) sur tablette (`surfaceRemove`), sinon rangé dans le ⋯.
+  const removeBtn = (): DocAction => ({
+    key: 'remove',
+    kind: 'button',
+    label: labels.remove,
+    ariaLabel: labels.remove,
+    variant: 'danger',
+    collapsible: true,
+    onClick: h.remove,
+  })
+  const removeAction = (): DocAction => (ctx.surfaceRemove ? removeBtn() : moreMenu())
   // Analyser (IA Regafy) : désactivé si l'analyse réelle est indisponible (hors-ligne…) en mode
   // activé — en Vitrine le bouton reste cliquable (accroche → upsell).
   const analyzeBtn = (): DocAction => ({
@@ -211,7 +224,7 @@ export function buildDocActions(ctx: DocActionsContext, t: TFn): DocAction[] {
           onClick: h.download,
         },
         uploadBtn(),
-        moreMenu(),
+        removeAction(),
       ]
 
     case 'form':
@@ -230,7 +243,7 @@ export function buildDocActions(ctx: DocActionsContext, t: TFn): DocAction[] {
         { key: 'reset', kind: 'button', label: labels.reset, collapsible: true, onClick: h.reset },
         downloadMenu(),
         uploadBtn(),
-        moreMenu(),
+        removeAction(),
       ]
 
     case 'piece':
@@ -254,7 +267,7 @@ export function buildDocActions(ctx: DocActionsContext, t: TFn): DocAction[] {
           collapsible: true,
           onClick: h.replace,
         },
-        moreMenu(),
+        removeAction(),
       ]
 
     case 'cover':
