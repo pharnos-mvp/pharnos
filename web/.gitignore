@@ -25,3 +25,6 @@ dist-ssr
 
 # Lockfile deno généré par les checks locaux des Edge Functions (pas une dépendance web)
 deno.lock
+
+# Recette visuelle locale (captures tablette) — ne pas committer
+recette-*.png
