@@ -1,7 +1,7 @@
-// Rail d'ACTIONS vertical (handoff CEO) — présentation `< lg` des actions du document. Consomme
-// EXACTEMENT le même `DocAction[]` que l'en-tête horizontal (DocumentHeader, ≥ lg), produit par
-// `buildDocActions` : une seule source de vérité, deux rendus. Icône seule (cibles tactiles 44 px),
-// menus en `DropdownMenu`. 100 % tokens → dark/light.
+// Barre d'ACTIONS horizontale COMPACTE (retour CEO) — présentation `< lg` des actions du document
+// DANS la barre d'onglets (à droite), à la place du rail vertical. Consomme EXACTEMENT le même
+// `DocAction[]` que l'en-tête (DocumentHeader) et le rail — une seule source de vérité. Icône seule,
+// boutons réduits (size-8). 100 % tokens → dark/light. « Supprimer » = bouton rouge direct (tablette).
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -13,12 +13,13 @@ import { cn } from '@/lib/utils'
 import type { DocAction } from './document-header-model'
 import { ACCENT_CLS, ACTION_ICON, MENU_ICON, SOLID_CLS } from './action-presentation'
 
-const RAIL_BTN = 'size-11 rounded-xl'
-const RAIL_ICON = 'size-[19px]'
+const BTN = 'size-8 rounded-lg'
+const ICON = 'size-[15px]'
+const DANGER_CLS =
+  'border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive'
 
-function RailAction({ a }: { a: DocAction }) {
+function BarAction({ a }: { a: DocAction }) {
   const Icon = ACTION_ICON[a.key]
-  // Icône seule → le nom accessible vient du libellé (ou de l'aria-label fourni par le modèle).
   const name = a.label ?? a.ariaLabel
 
   if (a.kind === 'menu') {
@@ -29,14 +30,14 @@ function RailAction({ a }: { a: DocAction }) {
             type="button"
             variant="outline"
             size="icon"
-            className={RAIL_BTN}
+            className={BTN}
             aria-label={name}
             title={a.title ?? name}
           >
-            {Icon ? <Icon className={RAIL_ICON} aria-hidden /> : null}
+            {Icon ? <Icon className={ICON} aria-hidden /> : null}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent side="right" align="start">
+        <DropdownMenuContent side="bottom" align="end">
           {(a.menu ?? []).map((m) => {
             const MIcon = MENU_ICON[m.key]
             return (
@@ -63,9 +64,10 @@ function RailAction({ a }: { a: DocAction }) {
       size="icon"
       variant={a.variant === 'solid' || pressed ? 'default' : 'outline'}
       className={cn(
-        RAIL_BTN,
+        BTN,
         a.variant === 'accent' && ACCENT_CLS,
         (a.variant === 'solid' || pressed) && SOLID_CLS,
+        a.variant === 'danger' && DANGER_CLS,
       )}
       aria-pressed={pressed}
       aria-label={name}
@@ -73,12 +75,12 @@ function RailAction({ a }: { a: DocAction }) {
       disabled={a.disabled || (a.kind === 'toggle' && !a.onClick)}
       onClick={a.onClick}
     >
-      {Icon ? <Icon className={RAIL_ICON} aria-hidden /> : null}
+      {Icon ? <Icon className={ICON} aria-hidden /> : null}
     </Button>
   )
 }
 
-export function DocumentActionsRail({
+export function DocumentActionsBar({
   actions,
   toolbarLabel,
 }: {
@@ -87,17 +89,12 @@ export function DocumentActionsRail({
   toolbarLabel: string
 }) {
   return (
-    <div
-      role="toolbar"
-      aria-orientation="vertical"
-      aria-label={toolbarLabel}
-      className="bg-card flex w-[54px] shrink-0 [scrollbar-width:none] flex-col items-center gap-1.5 overflow-y-auto border-r py-2 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-    >
+    <div role="toolbar" aria-label={toolbarLabel} className="flex shrink-0 items-center gap-1">
       {actions.map((a) =>
         a.kind === 'separator' ? (
-          <span key={a.key} className="bg-border my-0.5 h-px w-6" aria-hidden />
+          <span key={a.key} className="bg-border mx-0.5 h-5 w-px" aria-hidden />
         ) : (
-          <RailAction key={a.key} a={a} />
+          <BarAction key={a.key} a={a} />
         ),
       )}
     </div>

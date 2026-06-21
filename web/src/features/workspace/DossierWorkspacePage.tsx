@@ -122,7 +122,7 @@ import { RegafyGateDialog } from './components/RegafyGateDialog'
 import { FormatToolbar } from './components/toolbar'
 import { PanelHandle } from './components/PanelHandle'
 import { TreePanel } from './components/TreePanel'
-import { DocumentActionsRail } from './components/DocumentActionsRail'
+import { DocumentActionsBar } from './components/DocumentActionsBar'
 import { SectionChips } from './components/SectionChips'
 import { buildSectionChips } from './components/section-chips-model'
 import { ValidationPanel } from './components/ValidationPanel'
@@ -1233,6 +1233,8 @@ export function DossierWorkspacePage() {
         analyzable: headerKind === 'piece' || (headerKind === 'letter' && !!analyzableGenDoc),
         analyzeDisabled: analyzing !== null || !online || !env.isSupabaseConfigured,
         canGenerate,
+        // Tablette : « Supprimer » en bouton direct (sinon rangé dans le menu ⋯ — desktop).
+        surfaceRemove: belowLg,
         handlers: {
           edit: () => {
             if (!activeGenDoc) return
@@ -1257,7 +1259,21 @@ export function DossierWorkspacePage() {
             if (active) handleReplace(active)
           },
           generate: () => void handleGenerate(),
-          remove: () => void handleRemoveActive(),
+          remove: () => {
+            // Tablette : « Supprimer » est à un seul tap (barre d'onglets) → garde anti-accident.
+            // Desktop (≥ lg) : rangé dans le menu ⋯ (2 gestes) → comportement INCHANGÉ (pas de confirm).
+            if (
+              belowLg &&
+              !window.confirm(
+                t({
+                  fr: 'Retirer ce document du dossier ?',
+                  en: 'Remove this document from the dossier?',
+                }),
+              )
+            )
+              return
+            void handleRemoveActive()
+          },
         },
       }
     : null
@@ -1357,71 +1373,85 @@ export function DossierWorkspacePage() {
         {/* Barre d'ONGLETS de documents (mockup `.legend`) — pleine largeur, ENTRE l'en-tête
             global et l'en-tête de document. WAI-ARIA `tablist` (M3) : ←/→ + Début/Fin déplacent et
             activent, Suppr retire ; pilule navy si actif + « × » (souris). Le document = `tabpanel`. */}
-        {selected && !showCoverPage && viewables.length > 0 ? (
-          <div
-            role="tablist"
-            aria-label={t({ fr: 'Documents de la section', en: 'Section documents' })}
-            aria-orientation="horizontal"
-            onKeyDown={onTabsKeyDown}
-            className="bg-card flex flex-wrap items-center gap-2 border-b px-4 py-2"
-          >
-            {viewables.map((v) => {
-              const isActive = active?.key === v.key
-              const tabLabel = `${t(viewableTabType(v))} (${selected.number})`
-              const removeHint =
-                v.kind === 'doc'
-                  ? t({
-                      fr: 'Retirer du dossier (le document reste sous le produit)',
-                      en: 'Remove from dossier (the document stays under the product)',
-                    })
-                  : t({ fr: 'Supprimer du dossier', en: 'Remove from dossier' })
-              return (
-                <span
-                  key={v.key}
-                  className={cn(
-                    'inline-flex items-center rounded-full border text-[12px] transition-colors',
-                    isActive
-                      ? 'border-brand bg-brand text-brand-foreground'
-                      : 'text-foreground hover:bg-accent',
-                  )}
-                >
-                  <button
-                    type="button"
-                    role="tab"
-                    id={`ctd-tab-${v.key}`}
-                    aria-selected={isActive}
-                    aria-controls="ctd-doc-panel"
-                    tabIndex={isActive ? 0 : -1}
-                    onClick={() => selectViewable(v)}
-                    title={v.label}
-                    className="focus-visible:ring-ring/50 max-w-[200px] truncate rounded-full py-1 pr-1.5 pl-[11px] font-medium outline-none focus-visible:ring-[3px]"
-                  >
-                    {tabLabel}
-                  </button>
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    aria-label={`${removeHint} — ${tabLabel}`}
-                    title={removeHint}
-                    onClick={() => void handleRemoveViewable(v)}
-                    className={cn(
-                      'focus-visible:ring-ring/50 mr-1 grid size-6 shrink-0 place-items-center rounded-full outline-none focus-visible:ring-[3px]',
-                      isActive
-                        ? 'hover:bg-brand-foreground/20'
-                        : 'hover:bg-destructive/10 hover:text-destructive',
-                    )}
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                </span>
-              )
-            })}
+        {selected && ((!showCoverPage && viewables.length > 0) || (belowLg && headerKind)) ? (
+          <div className="bg-card flex flex-wrap items-center gap-2 border-b px-4 py-2">
+            {!showCoverPage && viewables.length > 0 ? (
+              <div
+                role="tablist"
+                aria-label={t({ fr: 'Documents de la section', en: 'Section documents' })}
+                aria-orientation="horizontal"
+                onKeyDown={onTabsKeyDown}
+                className="flex flex-wrap items-center gap-2"
+              >
+                {viewables.map((v) => {
+                  const isActive = active?.key === v.key
+                  const tabLabel = `${t(viewableTabType(v))} (${selected.number})`
+                  const removeHint =
+                    v.kind === 'doc'
+                      ? t({
+                          fr: 'Retirer du dossier (le document reste sous le produit)',
+                          en: 'Remove from dossier (the document stays under the product)',
+                        })
+                      : t({ fr: 'Supprimer du dossier', en: 'Remove from dossier' })
+                  return (
+                    <span
+                      key={v.key}
+                      className={cn(
+                        'inline-flex items-center rounded-full border text-[12px] transition-colors',
+                        isActive
+                          ? 'border-brand bg-brand text-brand-foreground'
+                          : 'text-foreground hover:bg-accent',
+                      )}
+                    >
+                      <button
+                        type="button"
+                        role="tab"
+                        id={`ctd-tab-${v.key}`}
+                        aria-selected={isActive}
+                        aria-controls="ctd-doc-panel"
+                        tabIndex={isActive ? 0 : -1}
+                        onClick={() => selectViewable(v)}
+                        title={v.label}
+                        className="focus-visible:ring-ring/50 max-w-[200px] truncate rounded-full py-1 pr-1.5 pl-[11px] font-medium outline-none focus-visible:ring-[3px]"
+                      >
+                        {tabLabel}
+                      </button>
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        aria-label={`${removeHint} — ${tabLabel}`}
+                        title={removeHint}
+                        onClick={() => void handleRemoveViewable(v)}
+                        className={cn(
+                          'focus-visible:ring-ring/50 mr-1 grid size-6 shrink-0 place-items-center rounded-full outline-none focus-visible:ring-[3px]',
+                          isActive
+                            ? 'hover:bg-brand-foreground/20'
+                            : 'hover:bg-destructive/10 hover:text-destructive',
+                        )}
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </span>
+                  )
+                })}
+              </div>
+            ) : null}
+            {/* Tablette : actions du document à DROITE des onglets (handoff CEO) — remplace le rail
+                vertical. ≥ lg : les actions vivent dans DocumentHeader. */}
+            {belowLg && headerKind ? (
+              <div className="ml-auto">
+                <DocumentActionsBar
+                  actions={headerActions}
+                  toolbarLabel={t({ fr: 'Actions du document', en: 'Document actions' })}
+                />
+              </div>
+            ) : null}
           </div>
         ) : null}
         {/* EN-TÊTE DE DOCUMENT UNIQUE (M1) : cadre constant (identité + actions), boutons adaptés
             au type — full-bleed, bordure basse. Remplace pilule + barre + bandeau navy + format. */}
         {/* ≥ lg : en-tête de document horizontal (identité + actions). < lg : masqué → l'identité
-            est rendue dans la carte document et les actions dans le rail vertical (refonte responsive). */}
+            est rendue dans la carte document et les actions dans la barre d'onglets (handoff CEO). */}
         {!belowLg && headerKind ? (
           <DocumentHeader
             number={selected?.number}
@@ -1439,19 +1469,12 @@ export function DossierWorkspacePage() {
           />
         ) : null}
 
-        {/* Corps : ≥ lg → 3 colonnes flush (Structure │ Document │ Copilote) ; < lg → rail d'actions
-            (gauche) + document + panneau de validation flottant. `relative` → poignées de rabat ≥ lg
-            ET ancrage du panneau flottant < lg (contrat de positionnement de ValidationPanel). */}
+        {/* Corps : ≥ lg → 3 colonnes flush (Structure │ Document │ Copilote) ; < lg → document seul
+            + panneau de validation flottant (actions = barre d'onglets). `relative` → poignées de rabat
+            ≥ lg ET ancrage du panneau flottant < lg (contrat de positionnement de ValidationPanel). */}
         <div className="relative flex min-h-0 flex-1">
-          {/* Rail d'ACTIONS vertical — < lg uniquement (mêmes actions que l'en-tête, en icône seule). */}
-          {belowLg && headerKind ? (
-            <DocumentActionsRail
-              actions={headerActions}
-              toolbarLabel={t({ fr: 'Actions du document', en: 'Document actions' })}
-            />
-          ) : null}
-
-          {/* Colonne 1 — Structure : ≥ lg uniquement (navigation < lg = pastilles en bas). */}
+          {/* Colonne 1 — Structure : ≥ lg uniquement (navigation < lg = pastilles en bas ; le rail
+              d'actions a été déplacé dans la barre d'onglets — handoff CEO). */}
           {!belowLg ? (
             <div className="relative h-full shrink-0">
               <TreePanel

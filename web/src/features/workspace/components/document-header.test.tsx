@@ -92,6 +92,28 @@ describe('buildDocActions — boutons adaptatifs par type de document', () => {
     expect(pdf).toHaveBeenCalledTimes(1)
   })
 
+  it('tablette (surfaceRemove) : « Supprimer » = bouton DIRECT rouge ; desktop = rangé dans ⋯', () => {
+    const remove = vi.fn()
+    const tablet = buildDocActions(
+      { kind: 'letter', aiGenerated: true, surfaceRemove: true, handlers: { remove } },
+      t,
+    )
+    const tk = tablet.map((a) => a.key)
+    expect(tk).toContain('remove')
+    expect(tk).not.toContain('more')
+    const rm = tablet.find((a) => a.key === 'remove')!
+    expect(rm.kind).toBe('button')
+    expect(rm.variant).toBe('danger')
+    rm.onClick!()
+    expect(remove).toHaveBeenCalledTimes(1)
+    // Desktop (sans surfaceRemove) : « Supprimer » reste dans le menu ⋯ (inchangé).
+    const desk = buildDocActions({ kind: 'letter', aiGenerated: true, handlers: {} }, t).map(
+      (a) => a.key,
+    )
+    expect(desk).toContain('more')
+    expect(desk).not.toContain('remove')
+  })
+
   it('Signer : désactivé hors mode édition, actif en édition (anti-mutation read-only)', () => {
     const view = buildDocActions({ kind: 'letter', handlers: {} }, t).find((a) => a.key === 'sign')!
     expect(view.disabled).toBe(true)
