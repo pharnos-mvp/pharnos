@@ -108,8 +108,8 @@ export function letterDocToDocx(doc: JSONContent, images?: LetterDocxImages): Do
       {
         properties: {
           page: {
-            size: { width: 11906, height: 16838 },
-            margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+            size: { width: 11906, height: 16838 }, // A4 (210 × 297 mm) en twips
+            margin: { top: 1417, right: 1417, bottom: 1417, left: 1417 }, // 2,5 cm — comme le dossier compilé
           },
         },
         children,

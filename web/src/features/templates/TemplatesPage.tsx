@@ -33,7 +33,7 @@ import {
   emptyLetterFields,
   letterFieldsFromValues,
 } from '@/features/workspace/letter-context'
-import { printLetter, type LetterBrand } from '@/features/workspace/letter-render'
+import type { LetterBrand } from '@/features/workspace/letter-render'
 import { getOrgBranding, getUserSignature } from '@/features/profile/pro-settings-repository'
 import { useAuth } from '@/features/auth/auth-context'
 import { TemplatePreview } from './TemplatePreview'
@@ -246,9 +246,22 @@ export function TemplatesPage() {
         description: t({ fr: 'Tous les champs ont été vidés.', en: 'All fields cleared.' }),
       })
     }
-    const exportPdf = () => {
-      if (isLetter) printLetter(letterDoc(), letterFileName(), editing.lang, letterBrand())
-      else if (def) printForm(def, editing.state, editing.lang)
+    const exportPdf = async () => {
+      try {
+        if (isLetter) {
+          // Lazy : pdf-lib reste hors du chunk de la Bibliothèque. MÊME moteur que le dossier compilé
+          // (`drawLetterPages`) → A4 garanti (≠ ancienne impression navigateur, tributaire du dialogue).
+          const { letterPdfBytes } = await import('@/features/workspace/letter-pdf')
+          const bytes = await letterPdfBytes(letterDoc(), letterBrand())
+          const blob = new Blob([new Uint8Array(bytes)], { type: 'application/pdf' })
+          triggerDownload(URL.createObjectURL(blob), `${letterFileName()}.pdf`, true)
+          return
+        }
+        if (def) printForm(def, editing.state, editing.lang)
+      } catch (e) {
+        console.error(e)
+        toast.error(t({ fr: 'Échec du téléchargement (.pdf).', en: 'Download failed (.pdf).' }))
+      }
     }
     const exportDocx = async () => {
       try {
@@ -320,7 +333,7 @@ export function TemplatesPage() {
                   variant="outline"
                   size="sm"
                   className="h-8"
-                  onClick={exportPdf}
+                  onClick={() => void exportPdf()}
                   title={t({ fr: 'Télécharger en PDF', en: 'Download as PDF' })}
                 >
                   <FileText className="size-4" /> PDF
