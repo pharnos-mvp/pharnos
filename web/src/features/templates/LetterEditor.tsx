@@ -136,7 +136,7 @@ export function LetterEditor({
 
         <label className="flex flex-col gap-1 text-xs">
           <span className="text-muted-foreground font-medium">
-            {t({ fr: 'Produit (catalogue)', en: 'Product (catalogue)' })}
+            {t({ fr: 'Catalogue', en: 'Catalogue' })}
           </span>
           <select
             value=""
@@ -146,11 +146,8 @@ export function LetterEditor({
           >
             <option value="">
               {(products ?? []).length
-                ? t({
-                    fr: '— Choisir (ou saisir à la main) —',
-                    en: '— Choose (or type manually) —',
-                  })
-                : t({ fr: '— Aucun produit — saisir —', en: '— No product — type —' })}
+                ? t({ fr: 'Choisir un produit', en: 'Choose a product' })
+                : t({ fr: 'Aucun produit — saisir à la main', en: 'No product — type manually' })}
             </option>
             {(products ?? []).map((p) => (
               <option key={p.id} value={p.id}>

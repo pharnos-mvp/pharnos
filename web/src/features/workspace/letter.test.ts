@@ -7,7 +7,7 @@ import {
   letterFieldsFromValues,
   productToLetterFields,
 } from './letter-context'
-import { letterDocToHtml } from './letter-render'
+import { letterDocToHtml, letterPrintHtml } from './letter-render'
 import { TEMPLATES } from './templates'
 
 describe('buildLetterContext (lettre standalone Bibliothèque, pilotée par pays)', () => {
@@ -104,26 +104,28 @@ describe('M3.1 — désignation autorité, devise PGHT, synchro produit', () => 
   })
 })
 
-describe('Tranche 2 — insertion en-tête / pied / signature (letterDocToHtml)', () => {
+describe('Tranche 2 — insertion en-tête / pied / signature', () => {
   const img = 'data:image/png;base64,iVBORw0KGgo='
   const cover = () => TEMPLATES.cover.build(buildLetterContext(emptyLetterFields('CI'), 'fr'), 'fr')
 
-  it('injecte en-tête + pied (images) et remplace le marqueur de signature', () => {
-    const html = letterDocToHtml(cover(), {
-      headerImage: img,
-      footerImage: img,
-      signatureImage: img,
-    })
-    expect(html).toContain('class="l-head"')
-    expect(html).toContain('class="l-foot"')
+  it('signature : le marqueur est remplacé par l’image (letterDocToHtml)', () => {
+    const html = letterDocToHtml(cover(), { signatureImage: img })
     expect(html).toContain('class="l-sig"')
-    expect(html).not.toContain('[Signature et cachet]') // marqueur remplacé par l'image
+    expect(html).not.toContain('[Signature et cachet]')
   })
 
-  it('sans images (ou non insérées) → aucune insertion, marqueur conservé', () => {
-    const html = letterDocToHtml(cover())
-    expect(html).not.toContain('class="l-head"')
-    expect(html).not.toContain('class="l-foot"')
-    expect(html).toContain('[Signature et cachet]')
+  it('en-tête + pied : bandeaux BORD-À-BORD hors du contenu paddé (letterPrintHtml)', () => {
+    const print = letterPrintHtml(cover(), 'T', 'fr', { headerImage: img, footerImage: img })
+    expect(print).toContain('class="band"')
+    expect(print).toContain('class="band band-foot"')
+    expect(print).toContain('class="content"') // corps paddé 2,5 cm
+    expect(print).toContain('@page { size: A4; margin: 0; }') // page sans marge → bord-à-bord
+  })
+
+  it('sans images → pas de bandeau, marqueur conservé', () => {
+    const print = letterPrintHtml(cover(), 'T', 'fr')
+    expect(print).not.toContain('class="band"')
+    expect(print).toContain('[Signature et cachet]')
+    expect(letterDocToHtml(cover())).toContain('[Signature et cachet]')
   })
 })

@@ -397,18 +397,30 @@
   margin: 0 0 4px;
   text-align: left;
 }
-/* En-tête / pied / signature insérés (images du profil) — signature ≤ 6,35 cm comme l'éditeur. */
+/* En-tête / pied insérés : PLEINE LARGEUR bord-à-bord — le négatif = padding 25,4 mm de la feuille
+   → AUCUNE marge (latérale, haute ni basse), exactement comme l'`.editor-band` du CTD Builder.
+   Signature ≤ 6,35 cm. */
 .tplform-sheet .l-head {
-  margin: 0 0 0.75rem;
+  margin: -25.4mm -25.4mm 1rem;
 }
 .tplform-sheet .l-foot {
-  margin: 1rem 0 0;
+  margin: 2rem -25.4mm -25.4mm;
 }
 .tplform-sheet .l-head img,
 .tplform-sheet .l-foot img {
-  max-width: 100%;
   display: block;
+  width: 100%;
+  height: auto;
 }
 .tplform-sheet .l-sig {
   max-width: 6.35cm;
+}
+/* < 860 px : la feuille a un padding 28/22 px → le bord-à-bord suit ce padding. */
+@media (max-width: 860px) {
+  .tplform-sheet .l-head {
+    margin: -28px -22px 1rem;
+  }
+  .tplform-sheet .l-foot {
+    margin: 2rem -22px -28px;
+  }
 }
