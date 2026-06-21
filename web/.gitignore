@@ -28,3 +28,4 @@ deno.lock
 
 # Recette visuelle locale (captures tablette) — ne pas committer
 recette-*.png
+sample-*.pdf

@@ -84,7 +84,7 @@ export interface CompileInput {
   contentByNumber: Map<string, CompileNodeContent>
 }
 
-interface Fonts {
+export interface Fonts {
   regular: PDFFont
   bold: PDFFont
 }
@@ -405,6 +405,34 @@ async function renderTiptap(c: Cursor, content: JSONContent, styled = false): Pr
       default:
         break
     }
+  }
+}
+
+/**
+ * Rend une lettre (cover/PGHT) sur ses propres pages A4 — **SOURCE UNIQUE** partagée par la
+ * compilation du dossier ET l'export autonome de la Bibliothèque (`letter-pdf`), garantissant un
+ * rendu identique. En-tête/pied = bandeaux image **pleine largeur** (haut de la 1re page / bas de
+ * la dernière) ; le corps (Times 12, interligne 1,45, blocs « à droite » décalés à 56 %, signature
+ * ≤ 6,35 cm) passe par `renderTiptap`. `styled` → hiérarchie navy/bandeaux des formulaires remplis.
+ */
+export async function drawLetterPages(
+  doc: PDFDocument,
+  fonts: Fonts,
+  content: JSONContent,
+  opts: { header?: PDFImage | null; footer?: PDFImage | null; styled?: boolean } = {},
+): Promise<void> {
+  const page = doc.addPage(A4)
+  const cursor: Cursor = { doc, page, y: CONTENT_TOP, bottom: CONTENT_BOTTOM, fonts }
+  if (opts.header) {
+    const b = bandLayout(opts.header)
+    page.drawImage(opts.header, { x: b.x, y: A4[1] - b.h, width: b.w, height: b.h })
+    cursor.y = A4[1] - b.h - 14
+  }
+  if (opts.footer) cursor.bottom = bandLayout(opts.footer).h + 14
+  await renderTiptap(cursor, content, opts.styled ?? false)
+  if (opts.footer) {
+    const b = bandLayout(opts.footer)
+    cursor.page.drawImage(opts.footer, { x: b.x, y: 0, width: b.w, height: b.h })
   }
 }
 
@@ -968,33 +996,14 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
           // leur affiche pas le branding.
           const isLetter = !['translation', 'upgrade', 'fill'].includes(generated.templateKey)
           items.push({
-            render: async () => {
-              const page = contentDoc.addPage(A4)
-              const cursor: Cursor = {
-                doc: contentDoc,
-                page,
-                y: CONTENT_TOP,
-                bottom: CONTENT_BOTTOM,
-                fonts,
-              }
-              // Papier à en-tête en haut de la 1re page, pied en bas de la dernière — pleine largeur.
-              if (letterHeader && isLetter) {
-                const b = bandLayout(letterHeader)
-                page.drawImage(letterHeader, { x: b.x, y: A4[1] - b.h, width: b.w, height: b.h })
-                cursor.y = A4[1] - b.h - 14
-              }
-              if (letterFooter && isLetter) cursor.bottom = bandLayout(letterFooter).h + 14
-              // Formulaires de templates : rendu stylé (navy/bandeaux) = identique aux exports.
-              await renderTiptap(
-                cursor,
-                generated.content as JSONContent,
-                generated.templateKey === 'fill',
-              )
-              if (letterFooter && isLetter) {
-                const b = bandLayout(letterFooter)
-                cursor.page.drawImage(letterFooter, { x: b.x, y: 0, width: b.w, height: b.h })
-              }
-            },
+            // Source unique avec l'export Bibliothèque (`drawLetterPages`) : en-tête/pied = LETTRES
+            // uniquement ; formulaires remplis (`fill`) → rendu stylé navy/bandeaux, sans branding.
+            render: () =>
+              drawLetterPages(contentDoc, fonts, generated.content as JSONContent, {
+                header: isLetter ? letterHeader : null,
+                footer: isLetter ? letterFooter : null,
+                styled: generated.templateKey === 'fill',
+              }),
           })
         }
         for (const piece of content.pieces) {
