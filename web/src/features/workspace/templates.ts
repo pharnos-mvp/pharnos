@@ -20,7 +20,7 @@ import type { DossierFormat } from './module1-tree'
  * `lang` → comportement FR identique.
  */
 
-export type TemplateKey = 'cover' | 'pght'
+export type TemplateKey = 'cover' | 'pght' | 'renewal'
 
 export interface TemplateContext {
   nomCommercial: string
@@ -60,6 +60,12 @@ export interface TemplateContext {
   pght: string
   /** Devise du PGHT (Bibliothèque) — défaut « FCFA » (workspace inchangé). */
   pghtCurrency?: string
+  /** Renouvellement d'AMM — n° de l'AMM à renouveler (sinon marqueur éditable). */
+  ammNumero?: string
+  /** Renouvellement d'AMM — date de délivrance de l'AMM. */
+  ammDateDelivrance?: string
+  /** Renouvellement d'AMM — date d'expiration de l'AMM. */
+  ammDateExpiration?: string
 }
 
 export interface TemplateDef {
@@ -98,9 +104,16 @@ const joinNonEmpty = (...parts: string[]): string => parts.filter((p) => p.trim(
 const civ = (c: TemplateContext, lang: Lang): string =>
   lang === 'en' ? (c.agencyCiviliteEn ?? c.agencyCivilite) : c.agencyCivilite
 
-/* ----------------------------- Cover letter (demande d'AMM) ----------------------------- */
+/* --------------- Lettre de demande d'AMM (enregistrement / renouvellement) --------------- */
 
-function buildCover(c: TemplateContext, lang: Lang = 'fr'): JSONContent {
+/**
+ * Lettre de demande d'AMM. `renewal=false` → **enregistrement** (nouvelle AMM, INCHANGÉ).
+ * `renewal=true` → **renouvellement** : (1) intention « renouvellement » dans l'objet + le corps ;
+ * (2) ligne **Réf.** sous l'objet (n° d'AMM + date de délivrance) ; (3) bloc **« AMM à renouveler »**
+ * dans le corps (n°, date de délivrance, date d'expiration). Tout le reste est identique → la nouvelle
+ * AMM et le renouvellement partagent une seule source (pas de divergence de prose).
+ */
+function buildApplicationLetter(c: TemplateContext, lang: Lang, renewal: boolean): JSONContent {
   const L = (fr: string, en: string) => (lang === 'en' ? en : fr)
   const sep = lang === 'en' ? ': ' : ' : '
   const field = (label: string, value: string): JSONContent =>
@@ -110,6 +123,10 @@ function buildCover(c: TemplateContext, lang: Lang = 'fr'): JSONContent {
       ? para(strong(`${label}${sep}`), txt(nom), br(), txt(adresse))
       : para(strong(`${label}${sep}`), txt(nom))
   const cv = civ(c, lang)
+  // Renouvellement : valeurs ou marqueurs éditables (le contexte du dossier ne les fournit pas).
+  const ammNum = (c.ammNumero ?? '').trim() || L('[N° d’AMM]', '[MA number]')
+  const ammDel = (c.ammDateDelivrance ?? '').trim() || L('[Date de délivrance]', '[Date of grant]')
+  const ammExp = (c.ammDateExpiration ?? '').trim() || L('[Date d’expiration]', '[Expiry date]')
   return {
     type: 'doc',
     content: [
@@ -121,22 +138,48 @@ function buildCover(c: TemplateContext, lang: Lang = 'fr'): JSONContent {
       para(
         strong(L('Objet : ', 'Subject: ')),
         txt(
-          L(
-            `Demande d’enregistrement d’AMM du produit ${c.nomCommercial}`,
-            `Application for marketing authorisation (MA) of the product ${c.nomCommercial}`,
-          ),
+          renewal
+            ? L(
+                `Demande de renouvellement d’AMM du produit ${c.nomCommercial}`,
+                `Application for renewal of marketing authorisation (MA) of the product ${c.nomCommercial}`,
+              )
+            : L(
+                `Demande d’enregistrement d’AMM du produit ${c.nomCommercial}`,
+                `Application for marketing authorisation (MA) of the product ${c.nomCommercial}`,
+              ),
         ),
       ),
+      ...(renewal
+        ? [
+            para(
+              strong(L('Réf. : ', 'Ref.: ')),
+              txt(
+                L(
+                  `AMM n° ${ammNum} délivrée le ${ammDel}`,
+                  `MA No. ${ammNum} granted on ${ammDel}`,
+                ),
+              ),
+            ),
+          ]
+        : []),
       blank(),
       para(txt(`${cv},`)),
       para(
         txt(
-          L(
-            'Nous avons l’honneur de soumettre à votre haute bienveillance le dossier de demande ' +
-              'd’autorisation de mise sur le marché (AMM) pour notre spécialité pharmaceutique suivante :',
-            'We have the honour of submitting for your kind consideration the application file for ' +
-              'marketing authorisation (MA) for our following pharmaceutical specialty:',
-          ),
+          renewal
+            ? L(
+                'Nous avons l’honneur de soumettre à votre haute bienveillance le dossier de demande ' +
+                  'de renouvellement de l’autorisation de mise sur le marché (AMM) pour notre spécialité ' +
+                  'pharmaceutique suivante :',
+                'We have the honour of submitting for your kind consideration the application file for ' +
+                  'renewal of the marketing authorisation (MA) for our following pharmaceutical specialty:',
+              )
+            : L(
+                'Nous avons l’honneur de soumettre à votre haute bienveillance le dossier de demande ' +
+                  'd’autorisation de mise sur le marché (AMM) pour notre spécialité pharmaceutique suivante :',
+                'We have the honour of submitting for your kind consideration the application file for ' +
+                  'marketing authorisation (MA) for our following pharmaceutical specialty:',
+              ),
         ),
       ),
       bullets([
@@ -161,6 +204,23 @@ function buildCover(c: TemplateContext, lang: Lang = 'fr'): JSONContent {
           c.fabricantAdresse,
         ),
       ]),
+      ...(renewal
+        ? [
+            para(
+              txt(
+                L(
+                  'L’autorisation de mise sur le marché dont le renouvellement est sollicité est référencée comme suit :',
+                  'The marketing authorisation for which renewal is requested is referenced as follows:',
+                ),
+              ),
+            ),
+            bullets([
+              field(L('N° d’AMM', 'MA number'), ammNum),
+              field(L('Date de délivrance', 'Date of grant'), ammDel),
+              field(L('Date d’expiration', 'Expiry date'), ammExp),
+            ]),
+          ]
+        : []),
       para(
         txt(
           L(
@@ -187,6 +247,14 @@ function buildCover(c: TemplateContext, lang: Lang = 'fr'): JSONContent {
       paraR(txt(c.signataire || L('[Nom et prénom(s)]', '[Full name]'))),
     ],
   }
+}
+
+function buildCover(c: TemplateContext, lang: Lang = 'fr'): JSONContent {
+  return buildApplicationLetter(c, lang, false)
+}
+
+function buildRenewal(c: TemplateContext, lang: Lang = 'fr'): JSONContent {
+  return buildApplicationLetter(c, lang, true)
 }
 
 /* ----------------------------- Attestation PGHT ----------------------------- */
@@ -280,6 +348,12 @@ export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
     titleEn: 'PGHT Certificate',
     build: buildPght,
   },
+  renewal: {
+    key: 'renewal',
+    title: 'Lettre de demande de renouvellement d’AMM',
+    titleEn: 'Marketing Authorisation Renewal Application Letter',
+    build: buildRenewal,
+  },
 }
 
 /** Nœud (par numéro CTD) → template applicable, selon le format réglementaire. */
@@ -290,10 +364,17 @@ const TEMPLATE_BY_NUMBER: Record<DossierFormat, Record<string, TemplateKey>> = {
   ctd: { '1.1.1': 'cover', '1.1.2': 'pght' },
 }
 
-/** Renvoie la clé de template générable pour un nœud (par numéro), ou `undefined`. */
+/**
+ * Renvoie la clé de template générable pour un nœud (par numéro), ou `undefined`.
+ * Selon l'**opération du dossier** : pour un **renouvellement** (`activity === 'renewal'`), la lettre
+ * de demande (cover, au 1.1.1 CTD / 1.0.1 eCTD) devient la **lettre de renouvellement**.
+ */
 export function templateKeyForNode(
   format: DossierFormat,
   nodeNumber: string,
+  activity?: string,
 ): TemplateKey | undefined {
-  return TEMPLATE_BY_NUMBER[format]?.[nodeNumber]
+  const key = TEMPLATE_BY_NUMBER[format]?.[nodeNumber]
+  if (key === 'cover' && activity === 'renewal') return 'renewal'
+  return key
 }

@@ -28,6 +28,10 @@ export interface LetterFields {
   pghtCurrency: string
   poste: string
   signataire: string
+  /** Renouvellement d'AMM — n°, date de délivrance, date d'expiration de l'AMM à renouveler. */
+  ammNumero: string
+  ammDateDelivrance: string
+  ammDateExpiration: string
   /** Inclure l'en-tête / le pied / la signature du profil (insertion 1-clic) — '1' = oui. */
   useHeader: string
   useFooter: string
@@ -73,6 +77,9 @@ export const LETTER_FIELD_KEYS: (keyof LetterFields)[] = [
   'pghtCurrency',
   'poste',
   'signataire',
+  'ammNumero',
+  'ammDateDelivrance',
+  'ammDateExpiration',
   'useHeader',
   'useFooter',
   'useSignature',
@@ -95,6 +102,9 @@ export function emptyLetterFields(country = 'BJ'): LetterFields {
     pghtCurrency: 'FCFA',
     poste: '',
     signataire: '',
+    ammNumero: '',
+    ammDateDelivrance: '',
+    ammDateExpiration: '',
     useHeader: '',
     useFooter: '',
     useSignature: '',
@@ -160,5 +170,9 @@ export function buildLetterContext(f: LetterFields, lang: Lang): TemplateContext
     signataire: v(f.signataire),
     pght: v(f.pght) || ph('[Montant]', '[Amount]'),
     pghtCurrency: v(f.pghtCurrency) || 'FCFA',
+    // Renouvellement : valeurs brutes (les marqueurs éditables sont posés par le template).
+    ammNumero: v(f.ammNumero),
+    ammDateDelivrance: v(f.ammDateDelivrance),
+    ammDateExpiration: v(f.ammDateExpiration),
   }
 }

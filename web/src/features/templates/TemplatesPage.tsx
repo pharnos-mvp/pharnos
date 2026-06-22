@@ -41,7 +41,8 @@ import { LetterEditor } from './LetterEditor'
 import { deleteSavedTemplate, saveTemplate } from './saved-templates-repository'
 
 /** Types de lettre (cover/PGHT) — éditeur dédié (≠ form-models RCP/Notice/Étiquetage). */
-const isLetterType = (d: string | null): d is 'cover' | 'pght' => d === 'cover' || d === 'pght'
+const isLetterType = (d: string | null): d is 'cover' | 'pght' | 'renewal' =>
+  d === 'cover' || d === 'pght' || d === 'renewal'
 
 type Tab = 'dashboard' | 'saved'
 type ZoneKey = 'all' | 'uemoa' | 'afrique' | 'europe' | 'amerique' | 'asie'
@@ -69,6 +70,11 @@ interface TemplateEntry {
 }
 const TEMPLATES: TemplateEntry[] = [
   { key: 'cover', docType: 'cover', label: { fr: 'Lettre de demande AMM', en: 'Cover Letter' } },
+  {
+    key: 'renewal',
+    docType: 'renewal',
+    label: { fr: 'Lettre de renouvellement AMM', en: 'MA Renewal Letter' },
+  },
   { key: 'pght', docType: 'pght', label: { fr: 'Lettre de PGHT', en: 'PGHT Letter' } },
   { key: 'rcp', docType: 'rcp', label: { fr: 'RCP', en: 'SmPC' } },
   { key: 'notice', docType: 'notice', label: { fr: 'Notice patient', en: 'PIL' } },
@@ -79,6 +85,7 @@ const DOC_LABEL: Record<string, Translatable> = {
   notice: { fr: 'Notice patient', en: 'PIL' },
   labeling: { fr: 'Étiquetage', en: 'Labeling' },
   cover: { fr: 'Lettre de demande AMM', en: 'Cover Letter' },
+  renewal: { fr: 'Lettre de renouvellement AMM', en: 'MA Renewal Letter' },
   pght: { fr: 'Lettre de PGHT', en: 'PGHT Letter' },
 }
 
@@ -198,13 +205,13 @@ export function TemplatesPage() {
     const isLetter = isLetterType(editing.docType)
     /** Document TipTap de la lettre courante (cover/PGHT) depuis les champs + pays + langue. */
     const letterDoc = () => {
-      const dt = editing.docType as 'cover' | 'pght'
+      const dt = editing.docType as 'cover' | 'pght' | 'renewal'
       const f = letterFieldsFromValues(editing.state.values)
       return LETTER_DEFS[dt].build(buildLetterContext(f, editing.lang), editing.lang)
     }
     /** Nom de fichier d'export d'une lettre : « <Titre>[_<produit>] » (≤ 60 car.). */
     const letterFileName = () => {
-      const dt = editing.docType as 'cover' | 'pght'
+      const dt = editing.docType as 'cover' | 'pght' | 'renewal'
       const base = editing.lang === 'en' ? LETTER_DEFS[dt].titleEn : LETTER_DEFS[dt].title
       const prod = (editing.state.values['nomCommercial'] ?? '').trim()
       return (prod ? `${base}_${prod}` : base)
@@ -369,7 +376,7 @@ export function TemplatesPage() {
           />
         ) : isLetter ? (
           <LetterEditor
-            docType={editing.docType as 'cover' | 'pght'}
+            docType={editing.docType as 'cover' | 'pght' | 'renewal'}
             values={editing.state.values}
             lang={editing.lang}
             onChange={(values) => setEditing({ ...editing, state: { ...editing.state, values } })}

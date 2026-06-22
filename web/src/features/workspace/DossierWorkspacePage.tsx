@@ -754,7 +754,9 @@ export function DossierWorkspacePage() {
       ? (docsByNode.get(selected.number) ?? [])
       : docsFor(selected)
     : []
-  const selectedTplKey = selected ? templateKeyForNode(dossier.format, selected.number) : undefined
+  const selectedTplKey = selected
+    ? templateKeyForNode(dossier.format, selected.number, dossier.activity)
+    : undefined
   const selectedGenDocs = selected ? (genListByNode.get(selected.number) ?? []) : []
   // Le document de TEMPLATE du nœud (lettre cover/PGHT générée) — pilote « Générer » : tant qu'il
   // n'existe pas sur un nœud à template, Générer reste proposé (même si une pièce est l'onglet actif).
