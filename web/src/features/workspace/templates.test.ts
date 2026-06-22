@@ -110,8 +110,9 @@ describe('templates — lettre de renouvellement d’AMM (renewal)', () => {
     expect(text).toContain('Demande de renouvellement d’AMM du produit KV-Kacin 500')
     expect(text).toContain('renouvellement de l’autorisation de mise sur le marché')
     expect(text).toContain('AMM n° BJ-2021-0456 délivrée le 15/03/2021') // ligne Réf.
-    expect(text).toContain('14/03/2026') // date d’expiration (corps)
+    expect(text).toContain('14/03/2026') // date d’expiration (corps, dans la liste produit)
     expect(text).toContain('KESHAVLAL VAJECHAND') // infos produit/parties conservées
+    expect(text).not.toContain('référencée comme suit') // phrase d'intro retirée (retour CEO)
   })
 
   it('valeurs AMM manquantes (chemin dossier) → marqueurs éditables', () => {
