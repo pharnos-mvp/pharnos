@@ -11,7 +11,7 @@ import type {
 import { formatComposition } from '../composition'
 import { cacheAttachmentBlob, getAttachmentBlob } from '../dossier-attachments-repository'
 import { downloadAttachmentBlob } from '../dossier-attachments-sync'
-import { activityLabel, countryLabel } from '../dossier-constants'
+import { countryLabel } from '../dossier-constants'
 import { nodeForDocType, resolveExistingNode, treeNodeNumbers } from '../module1-tree'
 import {
   compileDossier,
@@ -155,7 +155,7 @@ export async function compileDossierToPdf(args: CompileArgs): Promise<CompileRes
   const monthYear = new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
   const cover = product
     ? {
-        activity: activityLabel(dossier.activity),
+        activity: dossier.activity,
         nomCommercial: product.nomCommercial || dossier.productName,
         dciDosage: dciDose,
         titulaireName: product.titulaire?.trim() ?? '',

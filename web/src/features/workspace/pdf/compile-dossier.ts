@@ -52,7 +52,7 @@ export interface CompileNodeContent {
 }
 
 export interface CoverInfo {
-  /** Activité réglementaire (libellé), ex. « Nouvelle AMM ». */
+  /** Code de l'opération réglementaire (`new_ma` | `renewal` | `variation`) → intitulé de couverture. */
   activity: string
   nomCommercial: string
   /** DCI + dosage joints, ex. « Paracétamol 500 mg ». */
@@ -822,6 +822,17 @@ function drawTdmLine(
 
 /* ----------------------------- Pages de couverture ----------------------------- */
 
+/**
+ * Intitulé de la page de couverture selon l'opération réglementaire du dossier (FR, langue de
+ * soumission UEMOA). Défaut = enregistrement (nouvelle AMM) → comportement inchangé.
+ */
+export function coverHeadline(activity: string): [string, string] {
+  const line2 = 'DE MISE SUR LE MARCHÉ (AMM)'
+  if (activity === 'renewal') return ["DOSSIER CTD DE RENOUVELLEMENT D'AUTORISATION", line2]
+  if (activity === 'variation') return ["DOSSIER CTD DE MODIFICATION D'AUTORISATION", line2]
+  return ["DOSSIER CTD D'ENREGISTREMENT D'AUTORISATION", line2]
+}
+
 /** Couverture globale du dossier CTD (page 1) — DA officielle sobre (logo, filets, typo graduée). */
 function drawGlobalCover(
   page: PDFPage,
@@ -895,8 +906,9 @@ function drawGlobalCover(
 
   // Mise en page **calée sur le template officiel** (A4) : tailles + positions (fraction de hauteur)
   // → contenu réparti sur tout le corps de page.
-  at("DOSSIER CTD D'ENREGISTREMENT D'AUTORISATION", 12, true, height * 0.783, true)
-  at('DE MISE SUR LE MARCHÉ (AMM)', 12, true, height * 0.76, true)
+  const [headline1, headline2] = coverHeadline(cover.activity)
+  at(headline1, 12, true, height * 0.783, true)
+  at(headline2, 12, true, height * 0.76, true)
   at(cover.nomCommercial, 24, true, height * 0.645)
   atWrapped(cover.dciDosage, fit(cover.dciDosage, [24, 20, 16, 14], 2), true, height * 0.605, 2)
   at(input.country, 20, true, height * 0.503)
