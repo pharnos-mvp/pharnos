@@ -203,24 +203,15 @@ function buildApplicationLetter(c: TemplateContext, lang: Lang, renewal: boolean
           c.fabricantNom,
           c.fabricantAdresse,
         ),
-      ]),
-      ...(renewal
-        ? [
-            para(
-              txt(
-                L(
-                  'L’autorisation de mise sur le marché dont le renouvellement est sollicité est référencée comme suit :',
-                  'The marketing authorisation for which renewal is requested is referenced as follows:',
-                ),
-              ),
-            ),
-            bullets([
+        // Renouvellement : réf. de l'AMM à renouveler, dans la même liste (sans phrase d'intro).
+        ...(renewal
+          ? [
               field(L('N° d’AMM', 'MA number'), ammNum),
               field(L('Date de délivrance', 'Date of grant'), ammDel),
               field(L('Date d’expiration', 'Expiry date'), ammExp),
-            ]),
-          ]
-        : []),
+            ]
+          : []),
+      ]),
       para(
         txt(
           L(

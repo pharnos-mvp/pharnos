@@ -90,7 +90,6 @@ import {
   listGeneratedDocs,
   regenerateGeneratedDoc,
 } from './generated-docs-repository'
-import { generatedDocToHtml } from './generated-doc-html'
 import { syncGeneratedDocs } from './generated-docs-sync'
 import { useDossierAttachmentsSync } from './use-dossier-attachments-sync'
 import { useDossierSync } from './use-dossier-sync'
@@ -968,6 +967,24 @@ export function DossierWorkspacePage() {
     }
   }
 
+  /** Télécharge une lettre (cover / PGHT / renouvellement) en PDF **VRAI A4** — MÊME moteur que la
+   *  Bibliothèque (`letter-pdf` / pdf-lib), ≠ ancien export HTML (mise en page laissée au navigateur). */
+  async function downloadLetterPdf(gen: GeneratedDocRecord) {
+    try {
+      const json = (liveEditor?.getJSON() ?? gen.content) as JSONContent
+      const { letterPdfBytes } = await import('./letter-pdf')
+      const bytes = await letterPdfBytes(json, {
+        headerImage: branding?.headerImage ?? null,
+        footerImage: branding?.footerImage ?? null,
+      })
+      const blob = new Blob([new Uint8Array(bytes)], { type: 'application/pdf' })
+      triggerDownload(URL.createObjectURL(blob), `${slugify(gen.title)}.pdf`, true)
+    } catch (e) {
+      console.error(e)
+      toast.error(t({ fr: 'Échec du téléchargement (.pdf).', en: 'Download failed (.pdf).' }))
+    }
+  }
+
   /** Télécharge un formulaire de template en .docx 100 % conforme au gabarit (Times/navy, A4). */
   async function downloadFormDocx(gen: GeneratedDocRecord, def: NonNullable<typeof activeFormDef>) {
     try {
@@ -982,7 +999,7 @@ export function DossierWorkspacePage() {
     }
   }
 
-  /** Télécharge selon l'onglet actif : traduction/version conforme → .docx · lettre → .html · doc produit → fichier d'origine. */
+  /** Télécharge selon l'onglet actif : traduction/version conforme → .docx · lettre → .pdf (vrai A4) · doc produit → fichier d'origine. */
   function handleDownload() {
     if (active?.kind === 'letter' && activeGenDoc) {
       if (activeGenDoc.templateKey === 'translation') {
@@ -997,13 +1014,7 @@ export function DossierWorkspacePage() {
         void downloadFormDocx(activeGenDoc, activeFormDef)
         return
       }
-      const json = (liveEditor?.getJSON() ?? activeGenDoc.content) as JSONContent
-      const html = generatedDocToHtml(activeGenDoc.title, json, {
-        header: branding?.headerImage ?? null,
-        footer: branding?.footerImage ?? null,
-      })
-      const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
-      triggerDownload(URL.createObjectURL(blob), `${slugify(activeGenDoc.title)}.html`, true)
+      void downloadLetterPdf(activeGenDoc)
       return
     }
     if (active?.kind === 'doc') {

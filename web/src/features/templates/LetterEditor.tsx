@@ -310,17 +310,8 @@ export function LetterEditor({
                   </span>
                 </li>
               )}
-            </ul>
-
-            {isRenewal ? (
-              <>
-                <p className="l-p">
-                  {L(
-                    'L’autorisation de mise sur le marché dont le renouvellement est sollicité est référencée comme suit :',
-                    'The marketing authorisation for which renewal is requested is referenced as follows:',
-                  )}
-                </p>
-                <ul className="doc-bullets">
+              {isRenewal ? (
+                <>
                   {bullet(L('N° d’AMM', 'MA number'), inp('ammNumero', L('N° d’AMM', 'MA number')))}
                   {bullet(
                     L('Date de délivrance', 'Date of grant'),
@@ -330,9 +321,9 @@ export function LetterEditor({
                     L('Date d’expiration', 'Expiry date'),
                     inp('ammDateExpiration', L('Date d’expiration', 'Expiry date')),
                   )}
-                </ul>
-              </>
-            ) : null}
+                </>
+              ) : null}
+            </ul>
 
             {isApplication ? (
               <p className="l-p">

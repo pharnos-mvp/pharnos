@@ -5,7 +5,7 @@ import { AlignmentType, Document, HeadingLevel, Packer, Paragraph, TextRun } fro
  * Convertit un contenu ProseMirror/TipTap en **.docx** (Word) — pour télécharger une traduction
  * éditable. Couvre le sous-ensemble utilisé : paragraphes, titres, gras/italique, sauts de ligne,
  * listes à puces/numérotées. **Chargé en import dynamique** (la lib `docx` reste hors du chunk
- * d'entrée). Même parcours de nœuds que `generated-doc-html.ts`.
+ * d'entrée).
  */
 
 function inlineRuns(nodes: JSONContent[] | undefined): TextRun[] {
