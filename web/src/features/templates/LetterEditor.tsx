@@ -31,7 +31,7 @@ export function LetterEditor({
   footerImage,
   signatureImage,
 }: {
-  docType: 'cover' | 'pght'
+  docType: 'cover' | 'pght' | 'renewal'
   values: Record<string, string>
   lang: Lang
   onChange: (values: Record<string, string>) => void
@@ -62,6 +62,9 @@ export function LetterEditor({
   const L = (fr: string, en: string) => (lang === 'en' ? en : fr)
   const civ = lang === 'en' ? (ctx.agencyCiviliteEn ?? ctx.agencyCivilite) : ctx.agencyCivilite
   const sep = lang === 'en' ? ': ' : ' : '
+  // Renouvellement : partage la structure « demande d'AMM » (cover) + réf. AMM et bloc « AMM à renouveler ».
+  const isRenewal = docType === 'renewal'
+  const isApplication = docType !== 'pght'
 
   // Insertion en-tête/pied/signature (images du profil org) — bouton désactivé si l'image manque.
   const flag = (k: keyof LetterFields) => fields[k] === '1'
@@ -89,14 +92,14 @@ export function LetterEditor({
   )
 
   /** Input inline sur la feuille (classe `field-input`, scopée `.tplform-sheet`). */
-  const inp = (k: keyof LetterFields, placeholder?: string) => (
+  const inp = (k: keyof LetterFields, placeholder?: string, ariaLabel?: string) => (
     <input
       type="text"
       className="field-input"
       value={fields[k]}
       onChange={(e) => set(k, e.target.value)}
       placeholder={placeholder}
-      aria-label={placeholder ?? k}
+      aria-label={ariaLabel ?? placeholder ?? k}
     />
   )
   /** Puce « label : champ(s) » sur la feuille. */
@@ -197,28 +200,55 @@ export function LetterEditor({
 
             <p className="l-p">
               <strong>{L('Objet : ', 'Subject: ')}</strong>
-              {docType === 'cover'
+              {!isApplication
                 ? L(
-                    `Demande d’enregistrement d’AMM du produit ${ctx.nomCommercial}`,
-                    `Application for marketing authorisation (MA) of the product ${ctx.nomCommercial}`,
-                  )
-                : L(
                     'Attestation de Prix Grossiste Hors Taxe (PGHT)',
                     'Certificate of Wholesale Price Excluding Tax (PGHT)',
-                  )}
+                  )
+                : isRenewal
+                  ? L(
+                      `Demande de renouvellement d’AMM du produit ${ctx.nomCommercial}`,
+                      `Application for renewal of marketing authorisation (MA) of the product ${ctx.nomCommercial}`,
+                    )
+                  : L(
+                      `Demande d’enregistrement d’AMM du produit ${ctx.nomCommercial}`,
+                      `Application for marketing authorisation (MA) of the product ${ctx.nomCommercial}`,
+                    )}
             </p>
+            {isRenewal ? (
+              <p className="l-p">
+                <strong>{L('Réf. : ', 'Ref.: ')}</strong>
+                {L('AMM n° ', 'MA No. ')}
+                {inp(
+                  'ammNumero',
+                  L('N° d’AMM', 'MA number'),
+                  L('N° d’AMM (rappel réf.)', 'MA number (ref. reminder)'),
+                )}
+                {L(' délivrée le ', ' granted on ')}
+                {inp(
+                  'ammDateDelivrance',
+                  L('Date de délivrance', 'Date of grant'),
+                  L('Date de délivrance (rappel réf.)', 'Grant date (ref. reminder)'),
+                )}
+              </p>
+            ) : null}
             <p className="l-p">{`${civ},`}</p>
 
             <p className="l-p">
-              {docType === 'cover'
+              {!isApplication
                 ? L(
-                    'Nous avons l’honneur de soumettre à votre haute bienveillance le dossier de demande d’autorisation de mise sur le marché (AMM) pour notre spécialité pharmaceutique suivante :',
-                    'We have the honour of submitting for your kind consideration the application file for marketing authorisation (MA) for our following pharmaceutical specialty:',
-                  )
-                : L(
                     'Nous venons par la présente porter à votre connaissance les informations et le Prix Grossiste Hors Taxe (PGHT) de notre spécialité pharmaceutique, consignés ci-dessous :',
                     'We hereby bring to your attention the information and the Wholesale Price Excluding Tax (PGHT) of our pharmaceutical specialty, set out below:',
-                  )}
+                  )
+                : isRenewal
+                  ? L(
+                      'Nous avons l’honneur de soumettre à votre haute bienveillance le dossier de demande de renouvellement de l’autorisation de mise sur le marché (AMM) pour notre spécialité pharmaceutique suivante :',
+                      'We have the honour of submitting for your kind consideration the application file for renewal of the marketing authorisation (MA) for our following pharmaceutical specialty:',
+                    )
+                  : L(
+                      'Nous avons l’honneur de soumettre à votre haute bienveillance le dossier de demande d’autorisation de mise sur le marché (AMM) pour notre spécialité pharmaceutique suivante :',
+                      'We have the honour of submitting for your kind consideration the application file for marketing authorisation (MA) for our following pharmaceutical specialty:',
+                    )}
             </p>
 
             <ul className="doc-bullets">
@@ -240,7 +270,7 @@ export function LetterEditor({
                   {inp('presentation', L('Présentation', 'Presentation'))}
                 </>,
               )}
-              {docType === 'cover' ? (
+              {isApplication ? (
                 <>
                   {bullet(
                     L('Nom et adresse du demandeur d’AMM', 'Name and address of the MA applicant'),
@@ -282,7 +312,29 @@ export function LetterEditor({
               )}
             </ul>
 
-            {docType === 'cover' ? (
+            {isRenewal ? (
+              <>
+                <p className="l-p">
+                  {L(
+                    'L’autorisation de mise sur le marché dont le renouvellement est sollicité est référencée comme suit :',
+                    'The marketing authorisation for which renewal is requested is referenced as follows:',
+                  )}
+                </p>
+                <ul className="doc-bullets">
+                  {bullet(L('N° d’AMM', 'MA number'), inp('ammNumero', L('N° d’AMM', 'MA number')))}
+                  {bullet(
+                    L('Date de délivrance', 'Date of grant'),
+                    inp('ammDateDelivrance', L('Date de délivrance', 'Date of grant')),
+                  )}
+                  {bullet(
+                    L('Date d’expiration', 'Expiry date'),
+                    inp('ammDateExpiration', L('Date d’expiration', 'Expiry date')),
+                  )}
+                </ul>
+              </>
+            ) : null}
+
+            {isApplication ? (
               <p className="l-p">
                 {L(
                   'Le dossier technique ci-joint a été constitué en conformité avec les directives de l’UEMOA et les exigences spécifiques de votre Agence. Nous restons à votre entière disposition pour tout complément d’information.',
@@ -299,7 +351,7 @@ export function LetterEditor({
             )}
 
             <p className="l-p">
-              {docType === 'cover'
+              {isApplication
                 ? L(
                     `Nous vous prions d’agréer, ${civ}, l’expression de notre sincère considération.`,
                     `Please accept, ${civ}, the assurance of our highest consideration.`,
