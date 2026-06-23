@@ -117,7 +117,10 @@ export function VariationLetterEditor({
         <div className="tplform-canvas">
           <div
             className="tplform-sheet letter-sheet"
-            aria-label={t({ fr: 'Lettre de variation (édition)', en: 'Variation letter (editing)' })}
+            aria-label={t({
+              fr: 'Lettre de variation (édition)',
+              en: 'Variation letter (editing)',
+            })}
           >
             {flag('useHeader') && headerImage ? (
               <div className="l-head">

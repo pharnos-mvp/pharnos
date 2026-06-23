@@ -44,7 +44,7 @@ import { buildComparisonTable } from './variation-table'
 import { buildVariationLetterDoc } from './variation-letter'
 import { VariationLetterEditor } from './VariationLetterEditor'
 import { VariationTableDialog } from './VariationTableDialog'
-import { VariationTableForm } from './VariationTableForm'
+import { VariationTableSheet } from './VariationTableSheet'
 
 const sanitize = (s: string) =>
   (s || 'variation')
@@ -390,13 +390,13 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
         </TabsContent>
 
         <TabsContent value="tableau">
-          <VariationTableForm
+          <VariationTableSheet
             items={items}
+            natures={langItems().map((i) => i.nature)}
             onChange={setItems}
-            emptyHint={t({
-              fr: 'Ajoutez une variation ci-dessus pour remplir le tableau comparatif.',
-              en: 'Add a variation above to fill the comparison table.',
-            })}
+            fields={effectiveFields()}
+            title={docLang === 'en' ? 'ANNEX — VARIATION TABLE' : 'ANNEXE — TABLEAU DE VARIATION'}
+            lang={docLang}
           />
         </TabsContent>
       </Tabs>
