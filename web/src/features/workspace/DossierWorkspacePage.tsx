@@ -231,6 +231,8 @@ export function DossierWorkspacePage() {
     }, [dossierCorrespondences]) ?? 0
 
   const [selected, setSelected] = useState<CtdNodeDef | null>(null)
+  // Onglet « Tableau comparatif » (variation) fermé par l'utilisateur — réaffiché au changement de nœud.
+  const [tableTabClosed, setTableTabClosed] = useState(false)
   const [treeEditing, setTreeEditing] = useState(false)
   const [docEditing, setDocEditing] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
@@ -720,6 +722,7 @@ export function DossierWorkspacePage() {
     flushSave() // ne pas perdre l'édition en cours en changeant de section
     setSelected(node)
     setDocEditing(false)
+    setTableTabClosed(false) // réaffiche l'onglet Tableau en revenant sur la lettre de variation
     setPickedKey(null) // aperçu auto du 1er document du nœud
     setReplaceTarget(null)
   }
@@ -775,13 +778,31 @@ export function DossierWorkspacePage() {
 
   // Documents visualisables du nœud : lettre générée + pièces jointes + documents produit.
   // Aperçu in-place automatique du 1er (ou de l'onglet choisi), même cadre que la lettre.
-  const viewables = buildViewables({
+  const baseViewables = buildViewables({
     selectedGenDocs,
     selectedAttachments,
     selectedDocs,
     sourceNamesById,
     targetLangLabel,
   })
+  // Variation : l'annexe (tableau comparatif) s'ouvre comme un onglet, JUSTE À CÔTÉ de la lettre,
+  // dans la même barre d'onglets — fermable d'un clic (× → `tableTabClosed`). Pas de système d'onglet
+  // parallèle. Présent au nœud 1.1.1 dès que la lettre existe.
+  const showTableTab =
+    activeDossier.activity === 'variation' &&
+    selected?.number === '1.1.1' &&
+    selectedGenDocs.length > 0 &&
+    !tableTabClosed
+  const viewables: Viewable[] = showTableTab
+    ? [
+        ...baseViewables,
+        {
+          key: 'vartable',
+          kind: 'variation-table',
+          label: t({ fr: 'Tableau comparatif', en: 'Comparison table' }),
+        },
+      ]
+    : baseViewables
   const activeKey =
     pickedKey && viewables.some((v) => v.key === pickedKey)
       ? pickedKey
@@ -811,7 +832,9 @@ export function DossierWorkspacePage() {
       : undefined
   // Cible du bouton « Analyser » : pièce affichée OU document généré analysable.
   const analyzeTargetId =
-    active && active.kind !== 'letter' ? active.id : (analyzableGenDoc?.id ?? null)
+    active && (active.kind === 'attachment' || active.kind === 'doc')
+      ? active.id
+      : (analyzableGenDoc?.id ?? null)
 
   // Constat de l'élément affiché (résultat d'une analyse Regafy non résolue) → carte
   // d'actions flottante sur l'aperçu (Remplir le template / Traduire / Remplacer).
@@ -862,7 +885,7 @@ export function DossierWorkspacePage() {
   // constat reste dans le panneau Remarques). Type pour les actions : type de la pièce
   // analysée si connu, sinon type du nœud.
   const activePiece =
-    active && active.kind !== 'letter'
+    active && (active.kind === 'doc' || active.kind === 'attachment')
       ? (selectedDocs.find((d) => d.id === active.id) ??
         selectedAttachments.find((a) => a.id === active.id))
       : undefined
@@ -1039,6 +1062,12 @@ export function DossierWorkspacePage() {
   /** « × » d'un onglet : retire le document du dossier. Doc produit → exclu (reste sous le produit) ;
    *  pièce jointe / lettre / traduction → supprimé du dossier. */
   async function handleRemoveViewable(v: Viewable) {
+    if (v.kind === 'variation-table') {
+      // Onglet synthétique : « fermer » = masquer (revient sur la lettre), rien à supprimer.
+      setTableTabClosed(true)
+      setPickedKey(null)
+      return
+    }
     if (v.kind === 'letter') {
       await deleteGeneratedDoc(v.key.replace('letter:', ''))
       void syncGeneratedDocs(orgId)
@@ -1092,7 +1121,7 @@ export function DossierWorkspacePage() {
 
   /** « Remplacer » (carte de constat) : téléverser un nouveau fichier à la place de la pièce visée. */
   function handleReplace(target: Viewable) {
-    if (target.kind === 'letter') return
+    if (target.kind === 'letter' || target.kind === 'variation-table') return
     setReplaceTarget(target)
     fileInputRef.current?.click()
   }
@@ -1222,25 +1251,36 @@ export function DossierWorkspacePage() {
   const isTranslationOrUpgrade =
     activeGenDoc?.templateKey === 'translation' || activeGenDoc?.templateKey === 'upgrade'
   const headerStatus: DocHeaderStatus | undefined =
-    headerKind === null
-      ? undefined
-      : headerKind === 'cover'
-        ? { tone: 'auto', label: t({ fr: 'Autogénéré', en: 'Auto-generated' }), icon: Sparkles }
-        : headerKind === 'piece'
-          ? { tone: 'file', label: t({ fr: 'Pièce', en: 'File' }), icon: FileText }
-          : headerKind === 'empty'
-            ? { tone: 'todo', label: t({ fr: 'À générer', en: 'To generate' }), icon: CircleDashed }
-            : { tone: 'draft', label: t({ fr: 'Brouillon', en: 'Draft' }), icon: Pencil }
-  const headerSubtitle =
-    headerKind === 'form'
-      ? t({ fr: 'Module 1 · Information produit', en: 'Module 1 · Product information' })
-      : headerKind === 'piece'
-        ? t({ fr: 'Module 1 · Pièce téléversée', en: 'Module 1 · Uploaded file' })
+    active?.kind === 'variation-table'
+      ? { tone: 'draft', label: t({ fr: 'Annexe', en: 'Annex' }), icon: Pencil }
+      : headerKind === null
+        ? undefined
         : headerKind === 'cover'
-          ? t({ fr: 'Module 1 · Page de garde', en: 'Module 1 · Cover page' })
-          : headerKind === 'letter'
-            ? t({ fr: 'Module 1 · Correspondance', en: 'Module 1 · Correspondence' })
-            : t({ fr: 'Module 1', en: 'Module 1' })
+          ? { tone: 'auto', label: t({ fr: 'Autogénéré', en: 'Auto-generated' }), icon: Sparkles }
+          : headerKind === 'piece'
+            ? { tone: 'file', label: t({ fr: 'Pièce', en: 'File' }), icon: FileText }
+            : headerKind === 'empty'
+              ? {
+                  tone: 'todo',
+                  label: t({ fr: 'À générer', en: 'To generate' }),
+                  icon: CircleDashed,
+                }
+              : { tone: 'draft', label: t({ fr: 'Brouillon', en: 'Draft' }), icon: Pencil }
+  const headerSubtitle =
+    active?.kind === 'variation-table'
+      ? t({
+          fr: 'Module 1 · Annexe (tableau comparatif)',
+          en: 'Module 1 · Annex (comparison table)',
+        })
+      : headerKind === 'form'
+        ? t({ fr: 'Module 1 · Information produit', en: 'Module 1 · Product information' })
+        : headerKind === 'piece'
+          ? t({ fr: 'Module 1 · Pièce téléversée', en: 'Module 1 · Uploaded file' })
+          : headerKind === 'cover'
+            ? t({ fr: 'Module 1 · Page de garde', en: 'Module 1 · Cover page' })
+            : headerKind === 'letter'
+              ? t({ fr: 'Module 1 · Correspondance', en: 'Module 1 · Correspondence' })
+              : t({ fr: 'Module 1', en: 'Module 1' })
   const headerTitle =
     active?.label ??
     (selectedTplKey ? TEMPLATES[selectedTplKey].title : undefined) ??
@@ -1317,7 +1357,9 @@ export function DossierWorkspacePage() {
     : null
   // buildDocActions ne fait que STOCKER les handlers (appelés au clic) — aucun ref lu au rendu.
   // eslint-disable-next-line react-hooks/refs
-  const headerActions = headerCtx ? buildDocActions(headerCtx, t) : []
+  const builtHeaderActions = headerCtx ? buildDocActions(headerCtx, t) : []
+  // L'onglet « Tableau comparatif » porte ses propres actions (AMM/PDF/DOCX/Enregistrer) → pas d'actions d'en-tête.
+  const headerActions = active?.kind === 'variation-table' ? [] : builtHeaderActions
 
   // Pastilles de sections (refonte responsive < lg) : navigation du dossier en bas d'écran
   // (l'arborescence latérale reste ≥ lg). Dérivation pure → numéro + statut (contenu / à vérifier).
@@ -1561,43 +1603,6 @@ export function DossierWorkspacePage() {
                       }
                     : {})}
                 >
-                  {/* Variation : bascule rapide Lettre (1.1.1) ↔ Tableau comparatif (1.4.1) — les deux
-                      livrables côte à côte (onglets), comme dans la Bibliothèque. */}
-                  {activeDossier.activity === 'variation' &&
-                  (selected?.number === '1.1.1' || selected?.number === '1.4.1') ? (
-                    <div
-                      className="bg-muted/40 mb-3 inline-flex rounded-lg border p-0.5"
-                      role="group"
-                      aria-label={t({ fr: 'Lettre / Tableau', en: 'Letter / Table' })}
-                    >
-                      {(
-                        [
-                          ['1.1.1', { fr: 'Lettre', en: 'Letter' }],
-                          ['1.4.1', { fr: 'Tableau', en: 'Table' }],
-                        ] as const
-                      ).map(([num, label]) => {
-                        const node = flatNodes.find((n) => n.number === num)
-                        const isActive = selected?.number === num
-                        return (
-                          <button
-                            key={num}
-                            type="button"
-                            aria-pressed={isActive}
-                            disabled={!node}
-                            onClick={() => node && handleSelectNode(node)}
-                            className={cn(
-                              'rounded-md px-3 py-1 text-sm font-medium transition disabled:opacity-40',
-                              isActive
-                                ? 'bg-background text-foreground shadow-sm'
-                                : 'text-muted-foreground hover:text-foreground',
-                            )}
-                          >
-                            {t(label)}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  ) : null}
                   {/* Identité du document (n° + titre + statut) — < lg uniquement (≥ lg = DocumentHeader).
                       Inclut la barre de format quand on édite une lettre TipTap (parité formatSlot ≥ lg). */}
                   {belowLg && headerKind ? (
@@ -1651,6 +1656,9 @@ export function DossierWorkspacePage() {
                             })}
                       </p>
                     </div>
+                  ) : active?.kind === 'variation-table' ? (
+                    // Onglet « Tableau comparatif » (à côté de la lettre) → document A4 éditable.
+                    <VariationTableEditor dossier={activeDossier} product={product} />
                   ) : active?.kind === 'letter' && activeGenDoc ? (
                     // Onglet traduction/version conforme = plein largeur (éditeur + barre de format) ;
                     // l'original est l'onglet voisin. Pas d'`overflow-hidden` : casserait le `sticky`.

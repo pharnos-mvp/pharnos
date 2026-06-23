@@ -103,6 +103,13 @@ export type Viewable =
       filePath: string | null
       fileName: string
     }
+  // Onglet synthétique « tableau comparatif » d'un dossier de variation (≠ doc/pièce) — rendu par
+  // l'éditeur de tableau A4 ; injecté à côté de la lettre au nœud 1.1.1.
+  | {
+      key: string
+      kind: 'variation-table'
+      label: string
+    }
 
 /**
  * Construit les onglets visualisables du nœud : documents générés d'abord (lettres, traductions,
@@ -178,6 +185,7 @@ export function buildViewables({
  * format (PDF/Word) déduit du nom de fichier.
  */
 export function viewableTabType(v: Viewable): Translatable {
+  if (v.kind === 'variation-table') return { fr: 'Tableau', en: 'Table' }
   if (v.kind === 'letter') {
     if (v.isTranslation) return { fr: 'Traduction', en: 'Translation' }
     if (v.isUpgrade) return { fr: 'Version conforme', en: 'Compliant version' }
