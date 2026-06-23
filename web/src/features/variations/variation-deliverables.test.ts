@@ -49,8 +49,10 @@ describe('tableau comparatif', () => {
     expect(table.footnote).toBeUndefined()
   })
 
-  it('note de regroupement (redevance) seulement en multi-variation', () => {
-    expect(buildComparisonTable(request([item(13), item(40)])).footnote).toMatch(/2 variations/)
+  it('aucune note de redevance sur le document tableau (frais portés par la Roadmap)', () => {
+    // Les frais/échantillons/délais vivent désormais sur la Roadmap du dossier, répartis par
+    // activité réglementaire — le document tableau reste « propre », même en multi-variation.
+    expect(buildComparisonTable(request([item(13), item(40)])).footnote).toBeUndefined()
   })
 
   it('rubrique concaténée à la nature dans la cellule', () => {

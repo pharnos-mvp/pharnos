@@ -65,18 +65,13 @@ export function buildComparisonTable(req: VariationRequest, lang: Lang = 'fr'): 
 
   const colFractions = hasJustif ? [0.07, 0.25, 0.24, 0.24, 0.2] : [0.08, 0.3, 0.31, 0.31]
 
+  // Pas de note de redevance ici : les frais (et échantillons / délais) vivent sur la Roadmap du
+  // dossier, répartis par activité réglementaire et pays. Le document tableau reste « propre ».
   return {
     title: L('TABLEAU COMPARATIF DES MODIFICATIONS', 'COMPARISON TABLE OF CHANGES'),
     meta,
     headers,
     rows,
     colFractions,
-    footnote:
-      req.items.length > 1
-        ? L(
-            `Demande groupée de ${req.items.length} variations — la redevance est exigée pour chaque variation.`,
-            `Grouped request of ${req.items.length} variations — the fee is due for each variation.`,
-          )
-        : undefined,
   }
 }

@@ -1,3 +1,5 @@
+import type { Translatable } from '@/lib/i18n-context'
+
 export interface AgencyInfo {
   /** Sigle de l'agence. */
   name: string
@@ -98,6 +100,69 @@ const OFFICIAL_LANG: Record<string, string> = {
 }
 export function officialLanguage(country: string): string {
   return OFFICIAL_LANG[country] ?? 'fr'
+}
+
+/**
+ * Barème & exigences **nationales** réparties par **activité réglementaire** (redevances, échantillons,
+ * délais) — alimentent la Roadmap du dossier. Source CEO. **Bénin (ABMed)** renseigné ; les autres pays
+ * retombent sur un texte générique tant que leurs barèmes officiels ne sont pas fournis.
+ */
+export interface RegulatoryProfile {
+  /** Devise des redevances (ex. « FCFA »). */
+  currency: string
+  /** Redevances par activité (montant dans `currency`). Variation scindée mineure/majeure. */
+  fees: {
+    new_ma?: number
+    renewal?: number
+    variation_minor?: number
+    variation_major?: number
+  }
+  /** Exigences d'échantillons (lignes bilingues), réparties par activité. */
+  samples: {
+    /** Nouvelle AMM. */
+    new_ma?: Translatable[]
+    /** Renouvellement & variation nécessitant des échantillons. */
+    renewal_variation?: Translatable[]
+    /** Réserve applicable à tous les cas. */
+    reserve?: Translatable
+  }
+  /** Délai de traitement indicatif (jours). */
+  processingDays?: number
+}
+
+const REG_PROFILES: Record<string, RegulatoryProfile> = {
+  BJ: {
+    currency: 'FCFA',
+    fees: { new_ma: 500000, renewal: 250000, variation_minor: 50000, variation_major: 100000 },
+    samples: {
+      new_ma: [
+        {
+          fr: 'Cinq (05) échantillons modèle vente pour toutes les formes galéniques des conditionnements officinaux',
+          en: 'Five (05) sales-model samples for all galenic forms of retail (officinal) packaging',
+        },
+        {
+          fr: 'Trois (03) échantillons modèle vente pour toutes les formes galéniques des conditionnements hospitaliers',
+          en: 'Three (03) sales-model samples for all galenic forms of hospital packaging',
+        },
+      ],
+      renewal_variation: [
+        {
+          fr: 'Trois (03) échantillons modèle lors du renouvellement des autorisations et des variations nécessitant des échantillons',
+          en: 'Three (03) model samples for the renewal of authorisations and for variations requiring samples',
+        },
+      ],
+      reserve: {
+        fr: 'L’ABMed se réserve, selon le cas, le droit de demander des échantillons complémentaires.',
+        en: 'ABMed reserves the right, as the case may be, to request additional samples.',
+      },
+    },
+    processingDays: 120,
+  },
+}
+
+/** Barème national réparti par activité (`undefined` → repli générique sur la Roadmap). */
+export function regulatoryProfileFor(country: string): RegulatoryProfile | undefined {
+  return REG_PROFILES[country]
 }
 
 export function agencyFor(country: string): AgencyInfo {

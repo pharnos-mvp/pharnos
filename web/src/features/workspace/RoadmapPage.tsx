@@ -11,10 +11,11 @@ import {
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
-import { useI18n } from '@/lib/i18n-context'
+import { useI18n, type Translatable } from '@/lib/i18n-context'
+import { lookupVariation } from '@/features/variations/variation-request'
 import { activityLabel, countryLabel, formatLabel } from './dossier-constants'
 import { getDossier } from './dossier-repository'
-import { agencyFor } from './roadmap-data'
+import { agencyFor, regulatoryProfileFor } from './roadmap-data'
 import type { ReactNode } from 'react'
 
 export function RoadmapPage() {
@@ -47,6 +48,120 @@ export function RoadmapPage() {
   }
 
   const agency = agencyFor(dossier.country)
+  const profile = regulatoryProfileFor(dossier.country)
+  const activity = dossier.activity
+
+  // Variation : décompte mineures / majeures (« Autre » = majeure) pour le total de redevance.
+  const refs = dossier.variations ?? []
+  const minorCount = refs.filter((r) => lookupVariation(r)?.class === 'mineure').length
+  const majorCount = refs.length - minorCount
+  const money = (n: number) =>
+    `${n.toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR')} ${profile?.currency ?? ''}`.trim()
+
+  // ── Frais : redevance répartie par activité (variation = mineure/majeure + total par variation) ──
+  const feeNode = (): ReactNode => {
+    if (!profile) {
+      return (
+        <div className="text-muted-foreground text-xs">
+          {t({
+            fr: `Selon le barème de l'${agency.name} — à confirmer.`,
+            en: `According to ${agency.name}'s fee schedule — to be confirmed.`,
+          })}
+        </div>
+      )
+    }
+    const f = profile.fees
+    if (activity === 'new_ma' && f.new_ma != null) {
+      return <div className="text-foreground font-medium">{money(f.new_ma)}</div>
+    }
+    if (activity === 'renewal' && f.renewal != null) {
+      return <div className="text-foreground font-medium">{money(f.renewal)}</div>
+    }
+    if (activity === 'variation' && f.variation_minor != null && f.variation_major != null) {
+      const total = minorCount * f.variation_minor + majorCount * f.variation_major
+      return (
+        <div className="space-y-0.5 text-xs">
+          <div>
+            <span className="font-medium">{t({ fr: 'Mineure', en: 'Minor' })}</span> :{' '}
+            {money(f.variation_minor)}
+          </div>
+          <div>
+            <span className="font-medium">{t({ fr: 'Majeure', en: 'Major' })}</span> :{' '}
+            {money(f.variation_major)}
+          </div>
+          {refs.length ? (
+            <div className="text-muted-foreground pt-1">
+              {t({ fr: 'Total estimé', en: 'Estimated total' })} :{' '}
+              <span className="text-foreground font-medium">{money(total)}</span>{' '}
+              {t({
+                fr: `(${minorCount} mineure(s), ${majorCount} majeure(s)). La redevance est exigée pour chaque variation.`,
+                en: `(${minorCount} minor, ${majorCount} major). The fee is due for each variation.`,
+              })}
+            </div>
+          ) : null}
+        </div>
+      )
+    }
+    return (
+      <div className="text-muted-foreground text-xs">
+        {t({ fr: 'À confirmer auprès de l’agence.', en: 'To be confirmed with the agency.' })}
+      </div>
+    )
+  }
+
+  // ── Échantillons : exigences selon l'activité (nouvelle AMM vs renouvellement / variation) ──
+  const sampleLines: Translatable[] | undefined =
+    activity === 'new_ma' ? profile?.samples.new_ma : profile?.samples.renewal_variation
+  const samplesNode = (): ReactNode => {
+    if (!profile || !sampleLines) {
+      return (
+        <div className="text-muted-foreground text-xs">
+          {t({
+            fr: `Modèles-vente + certificats d'analyse de lots (nombre fixé par l'${agency.name}).`,
+            en: `Sales samples + batch certificates of analysis (number set by ${agency.name}).`,
+          })}
+        </div>
+      )
+    }
+    return (
+      <div className="text-xs">
+        <ul className="text-muted-foreground list-inside list-disc space-y-1">
+          {sampleLines.map((line, i) => (
+            <li key={i}>{t(line)}</li>
+          ))}
+        </ul>
+        {profile.samples.reserve ? (
+          <p className="text-muted-foreground/80 mt-2 italic">{t(profile.samples.reserve)}</p>
+        ) : null}
+      </div>
+    )
+  }
+
+  // ── Délais : délai de traitement indicatif (jours) ──
+  const delaiNode = (): ReactNode =>
+    profile?.processingDays != null ? (
+      <div className="text-xs">
+        <span className="text-foreground font-medium">
+          {t({
+            fr: `≈ ${profile.processingDays} jours`,
+            en: `≈ ${profile.processingDays} days`,
+          })}
+        </span>
+        <div className="text-muted-foreground">
+          {t({
+            fr: `Délai de traitement indicatif (${agency.name}).`,
+            en: `Indicative processing time (${agency.name}).`,
+          })}
+        </div>
+      </div>
+    ) : (
+      <div className="text-muted-foreground text-xs">
+        {t({
+          fr: `Délai d'évaluation indicatif — à confirmer auprès de l'${agency.name}.`,
+          en: `Indicative assessment time — to be confirmed with ${agency.name}.`,
+        })}
+      </div>
+    )
 
   return (
     <section className="mx-auto max-w-3xl">
@@ -100,43 +215,35 @@ export function RoadmapPage() {
             </li>
           </ul>
         </Card>
-        <Card icon={<Coins className="size-4" />} title={t({ fr: 'Frais', en: 'Fees' })}>
-          <div className="text-muted-foreground text-xs">
-            {t({
-              fr: `Selon le barème de l'${agency.name} — à confirmer.`,
-              en: `According to ${agency.name}'s fee schedule — to be confirmed.`,
-            })}
-          </div>
+        <Card
+          icon={<Coins className="size-4" />}
+          title={t({ fr: 'Frais', en: 'Fees' })}
+          subtitle={activityLabel(activity, lang)}
+        >
+          {feeNode()}
         </Card>
         <Card
           icon={<FlaskConical className="size-4" />}
           title={t({ fr: 'Échantillons', en: 'Samples' })}
+          subtitle={activityLabel(activity, lang)}
         >
-          <div className="text-muted-foreground text-xs">
-            {t({
-              fr:
-                "Modèles-vente + certificats d'analyse de lots (nombre fixé par l'" +
-                agency.name +
-                ').',
-              en: `Sales samples + batch certificates of analysis (number set by ${agency.name}).`,
-            })}
-          </div>
+          {samplesNode()}
         </Card>
         <Card icon={<Clock className="size-4" />} title={t({ fr: 'Délais', en: 'Timelines' })}>
-          <div className="text-muted-foreground text-xs">
-            {t({
-              fr: `Délai d'évaluation indicatif — à confirmer auprès de l'${agency.name}.`,
-              en: `Indicative assessment time — to be confirmed with ${agency.name}.`,
-            })}
-          </div>
+          {delaiNode()}
         </Card>
       </div>
 
       <p className="text-muted-foreground mt-4 text-xs italic">
-        {t({
-          fr: "Informations de référence — à valider et compléter par votre expert RA selon le pays et l'activité.",
-          en: 'Reference information — to be validated and completed by your RA expert depending on the country and activity.',
-        })}
+        {profile
+          ? t({
+              fr: `Barème ${agency.name} (${countryLabel(dossier.country, lang)}) — à confirmer auprès de l'agence avant dépôt.`,
+              en: `${agency.name} schedule (${countryLabel(dossier.country, lang)}) — to be confirmed with the agency before submission.`,
+            })
+          : t({
+              fr: "Informations de référence — à valider et compléter par votre expert RA selon le pays et l'activité.",
+              en: 'Reference information — to be validated and completed by your RA expert depending on the country and activity.',
+            })}
       </p>
 
       <Button className="mt-6" onClick={() => navigate(`/workspace/${dossier.id}`)}>
@@ -146,12 +253,25 @@ export function RoadmapPage() {
   )
 }
 
-function Card({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
+function Card({
+  icon,
+  title,
+  subtitle,
+  children,
+}: {
+  icon: ReactNode
+  title: string
+  subtitle?: string
+  children: ReactNode
+}) {
   return (
     <div className="rounded-lg border p-4">
       <div className="flex items-center gap-2 text-sm font-medium">
         <span className="text-muted-foreground">{icon}</span>
         {title}
+        {subtitle ? (
+          <span className="text-muted-foreground ml-auto text-[11px] font-normal">{subtitle}</span>
+        ) : null}
       </div>
       <div className="mt-2">{children}</div>
     </div>
