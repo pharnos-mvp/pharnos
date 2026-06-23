@@ -33,4 +33,27 @@ describe('dossier sync mapping', () => {
     expect(row.product_name).toBe('Doliprane')
     expect(row.product_id).toBe('p1')
   })
+
+  it('round-trip des champs variation (variations / items / AMM, `0042`)', () => {
+    const variation: DossierRecord = {
+      ...rec,
+      activity: 'variation',
+      variations: [3, 13],
+      variationItems: [{ ref: 3, nature: 'Changement de nom', before: 'A', after: 'B' }],
+      ammNumero: 'AMM_2015_7457',
+      ammDate: '2021-03-17',
+    }
+    const row = dossierToRow(variation)
+    expect(row.variations).toEqual([3, 13])
+    expect(row.amm_numero).toBe('AMM_2015_7457')
+    expect(row.amm_date).toBe('2021-03-17')
+    expect(rowToDossier(row)).toEqual(variation)
+  })
+
+  it('dossier non-variation : champs variation nuls côté row', () => {
+    const row = dossierToRow(rec)
+    expect(row.variations).toBeNull()
+    expect(row.variation_items).toBeNull()
+    expect(row.amm_numero).toBeNull()
+  })
 })

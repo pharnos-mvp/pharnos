@@ -18,6 +18,11 @@ export interface DossierRow {
   status: string
   tree: CtdNodeDef[]
   excluded_doc_ids: string[]
+  // Variation (moteur de variation, additif `0042`) — null pour les dossiers non-variation.
+  variations: number[] | null
+  variation_items: unknown
+  amm_numero: string | null
+  amm_date: string | null
   created_at: string
   updated_at: string
   deleted_at: string | null
@@ -36,6 +41,10 @@ export function dossierToRow(d: DossierRecord): DossierRow {
     status: d.status,
     tree: d.tree,
     excluded_doc_ids: d.excludedDocIds ?? [],
+    variations: d.variations ?? null,
+    variation_items: d.variationItems ?? null,
+    amm_numero: d.ammNumero ?? null,
+    amm_date: d.ammDate ?? null,
     created_at: d.createdAt,
     updated_at: d.updatedAt,
     deleted_at: d.deletedAt,
@@ -55,6 +64,10 @@ export function rowToDossier(r: DossierRow): DossierRecord {
     status: r.status,
     tree: (r.tree ?? []) as CtdNodeDef[],
     excludedDocIds: (r.excluded_doc_ids ?? []) as string[],
+    variations: r.variations ?? undefined,
+    variationItems: r.variation_items ?? undefined,
+    ammNumero: r.amm_numero ?? undefined,
+    ammDate: r.amm_date ?? undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     deletedAt: r.deleted_at,
