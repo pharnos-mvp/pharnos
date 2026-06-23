@@ -43,8 +43,12 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
   const [docType, setDocType] = useState(types[0]?.code ?? '')
   const [file, setFile] = useState<File | null>(null)
   const [expiryDate, setExpiryDate] = useState('')
+  const [issueDate, setIssueDate] = useState('')
+  const [reference, setReference] = useState('')
   const [busy, setBusy] = useState(false)
   const [resetKey, setResetKey] = useState(0)
+  // AMM : N° + date d'émission (octroi) requis — synchronisés ensuite vers le CTD builder (Renew/Variation).
+  const isAmm = docType === 'amm'
 
   async function handleAdd() {
     if (!file) {
@@ -65,6 +69,16 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
       )
       return
     }
+    // AMM : N° + date d'émission obligatoires (réf. de la lettre + RCP §8/§9 au renouvellement/variation).
+    if (isAmm && (!reference.trim() || !issueDate)) {
+      toast.error(
+        t({
+          fr: 'N° d’AMM et date d’émission requis pour une AMM.',
+          en: 'MA number and issue date are required for an MA.',
+        }),
+      )
+      return
+    }
     setBusy(true)
     try {
       await addDocument(orgId, productId, {
@@ -73,11 +87,15 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
         file,
         language: 'fr',
         expiryDate: expiryDate || null,
+        issueDate: isAmm ? issueDate || null : null,
+        reference: isAmm ? reference.trim() || null : null,
       })
       void syncDocuments(orgId)
       toast.success(t({ fr: 'Document ajouté', en: 'Document added' }))
       setFile(null)
       setExpiryDate('')
+      setIssueDate('')
+      setReference('')
       setResetKey((k) => k + 1)
     } catch (error) {
       toast.error(t({ fr: "Échec de l'ajout", en: 'Upload failed' }), {
@@ -129,6 +147,24 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
           </Select>
         </div>
 
+        {isAmm ? (
+          <div className="space-y-1.5">
+            <Label>{t({ fr: 'N° d’AMM *', en: 'MA number *' })}</Label>
+            <Input
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
+              placeholder={t({ fr: 'Ex. AMM_2015_7457', en: 'e.g. MA_2015_7457' })}
+            />
+          </div>
+        ) : null}
+
+        {isAmm ? (
+          <div className="space-y-1.5">
+            <Label>{t({ fr: 'Date d’émission (octroi) *', en: 'Issue date (grant) *' })}</Label>
+            <Input type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
+          </div>
+        ) : null}
+
         {requiresExpiry(docType) ? (
           <div className="space-y-1.5">
             <Label>{t({ fr: "Date d'expiration *", en: 'Expiry date *' })}</Label>
@@ -169,6 +205,10 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
                 <div className="truncate text-sm font-medium">{docTypeLabel(d.docType, lang)}</div>
                 <div className="text-muted-foreground truncate text-xs">
                   {d.fileName}
+                  {d.reference ? ` · N° ${d.reference}` : ''}
+                  {d.issueDate
+                    ? t({ fr: ` · émise le ${d.issueDate}`, en: ` · issued ${d.issueDate}` })
+                    : ''}
                   {d.expiryDate
                     ? t({ fr: ` · expire le ${d.expiryDate}`, en: ` · expires ${d.expiryDate}` })
                     : ''}

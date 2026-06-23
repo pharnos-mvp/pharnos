@@ -102,6 +102,8 @@ import { runRegafy, tiptapText, type RegafyFinding } from './regafy'
 import './regafy-scan.css'
 import { hasSignature, insertSignature, removeSignature } from './signature'
 import { BrandingPanel, SignaturePanel } from './SignatureBrandingPanels'
+import { variationLetterContextFields } from '@/features/variations/variation-letter'
+import { VariationTableEditor } from '@/features/variations/VariationTableEditor'
 import { TEMPLATES, templateKeyForNode, type TemplateContext } from './templates'
 import { flattenTree, isTreeOutdated, mergeDefaultTree } from './tree-utils'
 import { useDebouncedDocSave } from './use-debounced-doc-save'
@@ -847,6 +849,9 @@ export function DossierWorkspacePage() {
       (selected.number.startsWith('1.3') ? 'labeling' : null))
     : null
   const canFillSelected = !!fillDocType && UPGRADE_DOC_TYPES.has(fillDocType)
+  // Nœud 1.4.1 d'un dossier de variation → éditeur du tableau comparatif (annexe).
+  const isVariationTableNode =
+    activeDossier.activity === 'variation' && selected?.number === '1.4.1'
 
   // Formulaire officiel (branding CEO — RCP, Notice, Étiquetage) : l'onglet « template à
   // compléter » est rendu par TemplateFillForm (feuille A4 navy + exports DOCX/PDF) — plus
@@ -927,6 +932,14 @@ export function DossierWorkspacePage() {
       poste: branding?.poste ?? '',
       signataire: branding?.signataire ?? '',
       pght: '[PGHT en FCFA]',
+      // N° + date d'octroi de l'AMM existante (variation/renouvellement) → réf. de la lettre
+      // (« AMM n° X du JJ/MM/AAAA »). `ammDateDelivrance` = la date de délivrance/octroi.
+      ammNumero: activeDossier.ammNumero,
+      ammDateDelivrance: activeDossier.ammDate,
+      // Lettre de variation (nœud 1.1.1) : natures cochées → classe, puces, pièces (chemin dossier = FR).
+      ...(activeDossier.activity === 'variation' && activeDossier.variations?.length
+        ? variationLetterContextFields(activeDossier.variations, 'fr')
+        : {}),
     }
   }
 
@@ -1110,7 +1123,19 @@ export function DossierWorkspacePage() {
       openTab(existing.id)
       return
     }
-    const skeleton = buildTemplateSkeleton(docType, product)
+    // RCP « conscient de l'opération » : au renouvellement / à la variation, §8 (n° d'AMM) et §9
+    // (date de 1ʳᵉ autorisation = date d'octroi) sont pré-remplis depuis l'AMM du dossier. Pas de
+    // template dédié — un seed additif sur le formulaire.
+    const isRenewOrVar =
+      activeDossier.activity === 'renewal' || activeDossier.activity === 'variation'
+    const seed: Record<string, string> = {}
+    if (isRenewOrVar && activeDossier.ammNumero) seed.num_amm = activeDossier.ammNumero
+    if (isRenewOrVar && activeDossier.ammDate) seed.date_premiere = activeDossier.ammDate
+    const skeleton = buildTemplateSkeleton(
+      docType,
+      product,
+      Object.keys(seed).length ? seed : undefined,
+    )
     if (!skeleton) return
     const rec = await createTemplateFillDoc(orgId, {
       dossierId: activeDossier.id,
@@ -1779,6 +1804,8 @@ export function DossierWorkspacePage() {
                         {t({ fr: 'Remplir le template', en: 'Fill the template' })}
                       </Button>
                     </div>
+                  ) : isVariationTableNode ? (
+                    <VariationTableEditor dossier={activeDossier} product={product} />
                   ) : (
                     <div className="text-muted-foreground flex min-h-[24rem] flex-col items-center justify-center rounded-lg border border-dashed text-sm">
                       <FileText className="mb-2 size-8" />

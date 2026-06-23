@@ -61,6 +61,10 @@ export interface DocumentRecord {
   language: string | null
   /** Date de validité (yyyy-mm-dd) — pièces administratives ; null sinon. */
   expiryDate: string | null
+  /** Date d'émission / d'octroi (yyyy-mm-dd) — AMM : date où l'AMM a été accordée. Optionnel (additif). */
+  issueDate?: string | null
+  /** Référence / N° officiel de la pièce (ex. N° d'AMM « AMM_2015_7457 »). Optionnel (additif). */
+  reference?: string | null
   status: string
   /** Chemin Storage une fois le blob téléversé ; null tant que local-only. */
   filePath: string | null
@@ -93,6 +97,18 @@ export interface DossierRecord {
   tree: CtdNodeDef[]
   /** Documents produit (catalogue) exclus de CE dossier (retirés du workspace, conservés au produit). */
   excludedDocIds: string[]
+  /**
+   * Variations cochées (n° Annexe N°2) pour un dossier d'opération « variation » — pilotent
+   * l'arbre Module 1 taillé, la lettre de variation et le tableau comparatif. Optionnel
+   * (additif, rétro-compat : les dossiers non-variation n'ont pas le champ).
+   */
+  variations?: number[]
+  /** Items du tableau comparatif (VariationItem[] sérialisé) — édités au nœud 1.4.1. */
+  variationItems?: unknown
+  /** N° de l'AMM existante (variation / renouvellement) — réf. de la lettre + méta du tableau. */
+  ammNumero?: string
+  /** Date d'octroi (émission) de l'AMM existante (renouvellement / variation) — réf. lettre + RCP §9. */
+  ammDate?: string
   createdAt: string
   updatedAt: string
   deletedAt: string | null
@@ -312,6 +328,30 @@ export interface SavedTemplateRecord {
   deletedAt: string | null
 }
 
+/**
+ * Demande de variation (Module 1) — local-first, org-scoped. Une demande = un produit/AMM + une
+ * LISTE d'items de changement (multi-variation), d'où dérivent la lettre, le tableau comparatif,
+ * la checklist de pièces (union) et la redevance (× items). Cf. `variation-catalog` (Annexe N°2,
+ * Règlement 04/2020 UEMOA). `fields`/`items` typés `unknown` (cast dans le repo) — mirror `savedTemplates`.
+ */
+export interface VariationRequestRecord {
+  id: string
+  orgId: string
+  title: string
+  /** Dénormalisés pour les cartes « Mes demandes ». */
+  productName?: string
+  country: string
+  /** Sujet de la demande (LetterFields sérialisé). */
+  fields: unknown
+  /** Items de changement (VariationItem[] sérialisé). */
+  items: unknown
+  /** Index (0–6) de la condition de regroupement (GROUPING_RULES) ; null si item unique. */
+  groupingRuleIndex: number | null
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+}
+
 const db = new Dexie('pharnos') as Dexie & {
   products: EntityTable<ProductRecord, 'id'>
   outbox: EntityTable<OutboxItem, 'id'>
@@ -328,6 +368,7 @@ const db = new Dexie('pharnos') as Dexie & {
   shareLinks: EntityTable<ShareLinkRecord, 'id'>
   correspondenceReads: EntityTable<CorrespondenceReadRecord, 'id'>
   savedTemplates: EntityTable<SavedTemplateRecord, 'id'>
+  variationRequests: EntityTable<VariationRequestRecord, 'id'>
 }
 
 db.version(1).stores({
@@ -387,6 +428,13 @@ db.version(10).stores({
 // v11 : modèles de templates enregistrés (Bibliothèque RIM, local-first) — « Mes modèles ».
 db.version(11).stores({
   savedTemplates: 'id, orgId, docType, updatedAt, deletedAt',
+})
+
+// v12 : store « demandes de variation ». L'UI builder autonome a été RETIRÉE (flux intégré Workspace
+// + Bibliothèque) ; le store reste DÉCLARÉ — ne jamais retirer une version Dexie déjà servie à une
+// base locale (sinon VersionError à l'ouverture). Réutilisable si un flux le repeuple.
+db.version(12).stores({
+  variationRequests: 'id, orgId, updatedAt, deletedAt',
 })
 
 export { db }

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   ArrowUpCircle,
+  ClipboardList,
   FlaskConical,
   FolderTree,
   Globe,
@@ -48,6 +49,7 @@ const navItems: { to: string; label: Translatable; icon: typeof FlaskConical }[]
   { to: '/catalogue', label: { fr: 'Catalogue', en: 'Catalogue' }, icon: FlaskConical },
   { to: '/workspace', label: { fr: 'CTD Workspace', en: 'CTD Workspace' }, icon: FolderTree },
   { to: '/templates', label: { fr: 'Bibliothèque', en: 'Templates' }, icon: Library },
+  { to: '/variations', label: { fr: 'Variations', en: 'Variations' }, icon: ClipboardList },
   { to: '/dashboard', label: { fr: 'Tableau de bord', en: 'Dashboard' }, icon: LayoutDashboard },
 ]
 

@@ -74,6 +74,23 @@ describe('buildTemplateSkeleton', () => {
     expect(paras.some((p) => p.text.includes('vigilances.abmed@gouv.bj'))).toBe(true)
   })
 
+  it('RCP « conscient de l’opération » : §8 (n° AMM) pré-rempli via seed au renouvellement', () => {
+    // Sans seed : aucune valeur d'AMM (champ vide, omis).
+    const plain = flatten(buildTemplateSkeleton('rcp', product())!).filter(
+      (n) => n.type === 'paragraph',
+    )
+    expect(plain.some((p) => p.text.includes('BJ-2024-001'))).toBe(false)
+    // Avec seed : §8 (num_amm) et §9 (date_premiere = date d'octroi) pré-remplis.
+    const seeded = flatten(
+      buildTemplateSkeleton('rcp', product(), {
+        num_amm: 'BJ-2024-001',
+        date_premiere: '17 mars 2021',
+      })!,
+    ).filter((n) => n.type === 'paragraph')
+    expect(seeded.some((p) => p.text.includes('BJ-2024-001'))).toBe(true)
+    expect(seeded.some((p) => p.text.includes('17 mars 2021'))).toBe(true)
+  })
+
   it('notice et labeling : documents de FORMULAIRE officiel (gabarits) — aucun placeholder', () => {
     const notice = buildTemplateSkeleton('notice', product())!
     const noticeNodes = flatten(notice)

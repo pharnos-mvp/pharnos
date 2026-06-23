@@ -20,7 +20,7 @@ import type { DossierFormat } from './module1-tree'
  * `lang` → comportement FR identique.
  */
 
-export type TemplateKey = 'cover' | 'pght' | 'renewal'
+export type TemplateKey = 'cover' | 'pght' | 'renewal' | 'variation'
 
 export interface TemplateContext {
   nomCommercial: string
@@ -66,6 +66,12 @@ export interface TemplateContext {
   ammDateDelivrance?: string
   /** Renouvellement d'AMM — date d'expiration de l'AMM. */
   ammDateExpiration?: string
+  /** Variation — classe globale de la demande (mot inséré dans l'objet). */
+  variationClass?: 'mineure' | 'majeure'
+  /** Variation — natures des modifications (puces du corps), texte libre. */
+  variationItems?: string[]
+  /** Variation — pièces jointes (libellés déjà localisés) à énumérer en fin de lettre. */
+  variationPieces?: string[]
 }
 
 export interface TemplateDef {
@@ -248,6 +254,118 @@ function buildRenewal(c: TemplateContext, lang: Lang = 'fr'): JSONContent {
   return buildApplicationLetter(c, lang, true)
 }
 
+/* --------------- Lettre de demande de variation / modification d'AMM --------------- */
+
+/**
+ * Lettre de demande de **variation** (Annexe N°2, Règlement 04/2020 UEMOA). Déclare une (ou
+ * plusieurs — multi-variation) modification(s) sur une AMM **existante** : objet + classe
+ * (mineure/majeure), réf. de l'AMM, puces des natures de modification, puis énumération des
+ * **pièces jointes** (union des pièces de la demande). Construit depuis `TemplateContext`
+ * (`variationClass`, `variationItems`, `variationPieces`, `ammNumero`).
+ */
+function buildVariation(c: TemplateContext, lang: Lang = 'fr'): JSONContent {
+  const L = (fr: string, en: string) => (lang === 'en' ? en : fr)
+  const sep = lang === 'en' ? ': ' : ' : '
+  const field = (label: string, value: string): JSONContent =>
+    para(strong(`${label}${sep}`), txt(value))
+  const cv = civ(c, lang)
+  const ammNum = (c.ammNumero ?? '').trim() || L('[N° d’AMM]', '[MA number]')
+  const classWord = c.variationClass
+    ? lang === 'en'
+      ? c.variationClass === 'majeure'
+        ? 'major '
+        : 'minor '
+      : `${c.variationClass} `
+    : ''
+  const items =
+    c.variationItems && c.variationItems.length
+      ? c.variationItems
+      : [L('[Nature de la variation]', '[Nature of the variation]')]
+  // Date d'OCTROI de l'AMM (≠ date du jour) — réutilise `ammDateDelivrance` ; marqueur si absente.
+  const ammDel = (c.ammDateDelivrance ?? '').trim() || L('[date d’octroi]', '[grant date]')
+  const plural = (c.variationItems?.length ?? 0) > 1
+  return {
+    type: 'doc',
+    content: [
+      paraR(txt(L(`${c.ville}, le ${c.date}`, `${c.ville}, ${c.date}`))),
+      blank(),
+      paraR(txt(L('À', 'To'))),
+      paraR(txt(cv), br(), txt(c.agencyFull), br(), txt(c.agencyAdresse)),
+      blank(),
+      para(
+        strong(L('Objet : ', 'Subject: ')),
+        txt(
+          L(
+            `Demande de variation ${classWord}de l’AMM du produit ${c.nomCommercial}`,
+            `Application for a ${classWord}variation to the MA of the product ${c.nomCommercial}`,
+          ),
+        ),
+      ),
+      // Réf. : n° de l'AMM existante + sa DATE D'OCTROI (jamais la date du jour).
+      para(
+        strong(L('Réf. : ', 'Ref.: ')),
+        txt(L(`AMM n° ${ammNum} du ${ammDel}`, `MA No. ${ammNum} of ${ammDel}`)),
+      ),
+      blank(),
+      para(txt(`${cv},`)),
+      // Identification limitée (Nom commercial · DCI) — le n° d'AMM et sa date d'octroi sont en réf.
+      para(
+        txt(
+          L(
+            'Nous avons l’honneur de soumettre à votre haute bienveillance une demande de variation de ' +
+              'l’autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique, identifiée comme suit :',
+            'We have the honour of submitting for your kind consideration an application for a variation of ' +
+              'the marketing authorisation (MA) of our pharmaceutical specialty, identified as follows:',
+          ),
+        ),
+      ),
+      bullets([
+        field(L('Nom commercial', 'Trade name'), c.nomCommercial),
+        field(L('DCI', 'INN'), (c.dci ?? '').trim() || L('[DCI]', '[INN]')),
+      ]),
+      // Accord singulier / pluriel selon le nombre de variations cochées ; « variation » (≠ « modification »).
+      para(
+        txt(
+          L(
+            plural
+              ? 'Les variations sollicitées portent sur :'
+              : 'La variation sollicitée porte sur :',
+            plural ? 'The requested variations concern:' : 'The requested variation concerns:',
+          ),
+        ),
+      ),
+      bullets(items.map((nat) => para(txt(nat)))),
+      // Renvoi au tableau comparatif en ANNEXE (pas de liste « Pièces jointes » : la lettre EST la demande).
+      para(
+        txt(
+          L(
+            `Le détail ${plural ? 'des variations' : 'de la variation'} (situation actuelle / proposée) ` +
+              'figure dans le tableau comparatif joint en annexe. Le dossier de variation ci-joint a été ' +
+              'constitué conformément à l’Annexe N°2 du Règlement n°04/2020/CM/UEMOA. Nous restons à votre ' +
+              'entière disposition pour tout complément d’information.',
+            `The details of the ${plural ? 'variations' : 'variation'} (current / proposed) are set out in ` +
+              'the comparison table provided in the annex. The attached variation dossier has been compiled ' +
+              'in accordance with Annex No. 2 of UEMOA Regulation No. 04/2020. We remain at your full disposal ' +
+              'for any further information.',
+          ),
+        ),
+      ),
+      para(
+        txt(
+          L(
+            `Nous vous prions d’agréer, ${cv}, l’expression de notre sincère considération.`,
+            `Please accept, ${cv}, the assurance of our highest consideration.`,
+          ),
+        ),
+      ),
+      blank(),
+      paraR(txt(c.poste || L('[Poste]', '[Position]'))),
+      paraR(txt(L('[Signature et cachet]', '[Signature and stamp]'))),
+      paraR(txt(c.signataire || L('[Nom et prénom(s)]', '[Full name]'))),
+    ],
+  }
+}
+
 /* ----------------------------- Attestation PGHT ----------------------------- */
 
 function buildPght(c: TemplateContext, lang: Lang = 'fr'): JSONContent {
@@ -345,6 +463,12 @@ export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
     titleEn: 'Marketing Authorisation Renewal Application Letter',
     build: buildRenewal,
   },
+  variation: {
+    key: 'variation',
+    title: 'Lettre de demande de variation d’AMM',
+    titleEn: 'Marketing Authorisation Variation Application Letter',
+    build: buildVariation,
+  },
 }
 
 /** Nœud (par numéro CTD) → template applicable, selon le format réglementaire. */
@@ -367,5 +491,6 @@ export function templateKeyForNode(
 ): TemplateKey | undefined {
   const key = TEMPLATE_BY_NUMBER[format]?.[nodeNumber]
   if (key === 'cover' && activity === 'renewal') return 'renewal'
+  if (key === 'cover' && activity === 'variation') return 'variation'
   return key
 }
