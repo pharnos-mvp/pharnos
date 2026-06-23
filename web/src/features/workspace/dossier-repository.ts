@@ -2,6 +2,7 @@ import { recordAudit } from '@/lib/audit'
 import { db, type DossierRecord } from '@/lib/db'
 import { enqueueOutbox } from '@/lib/outbox'
 import { requestPersistentStorage } from '@/lib/persist'
+import type { VariationItem } from '@/features/variations/variation-request'
 import { getModule1Tree, type DossierFormat } from './module1-tree'
 import { assignIds } from './tree-utils'
 
@@ -14,6 +15,14 @@ export interface CreateDossierInput {
   format: DossierFormat
   activity: string
   country: string
+  /** Variations cochées (n° Annexe N°2) — opération « variation » uniquement. */
+  variations?: number[]
+  /** N° de l'AMM existante — opérations renouvellement / variation (réf. lettre + RCP §8). */
+  ammNumero?: string
+  /** Date d'octroi de l'AMM existante — renouvellement / variation (réf. lettre + RCP §9). */
+  ammDate?: string
+  /** Tableau comparatif rempli à la création (popup après le choix des natures) — variation. */
+  variationItems?: VariationItem[]
 }
 
 export async function listDossiers(orgId: string): Promise<DossierRecord[]> {
@@ -51,8 +60,15 @@ export async function createDossier(
     country: input.country,
     status: 'draft',
     // Copie indépendante de l'arborescence par défaut, avec id stables → éditable par dossier.
-    tree: assignIds(structuredClone(getModule1Tree(input.format))),
+    // L'opération « variation » reçoit un arbre dédié, taillé par les variations cochées.
+    tree: assignIds(
+      structuredClone(getModule1Tree(input.format, input.activity, input.variations)),
+    ),
     excludedDocIds: [],
+    ...(input.variations?.length ? { variations: input.variations } : {}),
+    ...(input.ammNumero ? { ammNumero: input.ammNumero } : {}),
+    ...(input.ammDate ? { ammDate: input.ammDate } : {}),
+    ...(input.variationItems?.length ? { variationItems: input.variationItems } : {}),
     createdAt: ts,
     updatedAt: ts,
     deletedAt: null,
@@ -82,6 +98,26 @@ export async function updateDossierTree(
   })
   await recordAudit(updated.orgId, 'dossier', id, 'update', updated.productName)
   return updated
+}
+
+/** Persiste les items du tableau comparatif (nœud 1.4.1) + le n° d'AMM d'un dossier de variation. */
+export async function updateDossierVariation(
+  id: string,
+  data: { variationItems: VariationItem[]; ammNumero: string },
+): Promise<void> {
+  const existing = await db.dossiers.get(id)
+  if (!existing || existing.deletedAt !== null) return
+  const updated: DossierRecord = {
+    ...existing,
+    variationItems: data.variationItems,
+    ammNumero: data.ammNumero,
+    updatedAt: now(),
+  }
+  await db.transaction('rw', db.dossiers, db.outbox, async () => {
+    await db.dossiers.put(updated)
+    await enqueueOutbox('dossier', id, 'update', updated)
+  })
+  await recordAudit(existing.orgId, 'dossier', id, 'update', existing.productName)
 }
 
 /** Exclut un document produit (catalogue) de ce dossier — il reste présent sous le produit. */

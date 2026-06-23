@@ -30,6 +30,9 @@ async function createDossier(page: Page): Promise<string> {
   await page.goto('/workspace/nouveau')
   await page.getByRole('combobox').first().click()
   await page.getByRole('option', { name: new RegExp(nom) }).click()
+  // Pays cible : plus de défaut (#224) — il faut désormais choisir un pays avant de créer.
+  await page.getByRole('combobox').filter({ hasText: 'Choisir un pays' }).click()
+  await page.getByRole('option', { name: 'Bénin' }).click()
   await page.getByRole('button', { name: 'Créer le dossier' }).click()
   await page.waitForURL(/\/workspace\/[^/]+\/roadmap$/)
   return nom

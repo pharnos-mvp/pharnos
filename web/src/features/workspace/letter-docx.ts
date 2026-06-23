@@ -18,10 +18,30 @@ interface DocxImage {
   width: number
   height: number
 }
-interface LetterDocxImages {
+export interface LetterDocxImages {
   header?: DocxImage
   footer?: DocxImage
   signature?: DocxImage
+}
+
+/** Page A4 des lettres (marges 2,5 cm) — réutilisée par l'export combiné lettre+annexe. */
+export const LETTER_PAGE = {
+  size: { width: 11906, height: 16838 }, // A4 (210 × 297 mm) en twips
+  margin: { top: 1417, right: 1417, bottom: 1417, left: 1417 }, // 2,5 cm — comme le dossier compilé
+}
+
+/** Config de puces des lettres (réf. `lbul`) — à déclarer une fois au niveau du Document. */
+export const LETTER_BULLET_NUMBERING = {
+  reference: 'lbul',
+  levels: [
+    {
+      level: 0,
+      format: LevelFormat.BULLET,
+      text: '•',
+      alignment: AlignmentType.LEFT,
+      style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+    },
+  ],
 }
 
 function inlineRuns(nodes: JSONContent[] | undefined): TextRun[] {
@@ -53,7 +73,8 @@ const imageParagraph = (img: DocxImage, opts: { indentLeft?: number } = {}) =>
     ],
   })
 
-export function letterDocToDocx(doc: JSONContent, images?: LetterDocxImages): Document {
+/** Paragraphes d'une lettre (corps + bandes en-tête/pied/signature) — partagé avec l'export combiné. */
+export function letterDocxChildren(doc: JSONContent, images?: LetterDocxImages): Paragraph[] {
   const children: Paragraph[] = []
   if (images?.header) children.push(imageParagraph(images.header))
   for (const n of doc.content ?? []) {
@@ -86,35 +107,14 @@ export function letterDocToDocx(doc: JSONContent, images?: LetterDocxImages): Do
     }
   }
   if (images?.footer) children.push(imageParagraph(images.footer))
+  return children
+}
+
+export function letterDocToDocx(doc: JSONContent, images?: LetterDocxImages): Document {
   return new Document({
     styles: { default: { document: { run: { font: FONT, size: SZ } } } },
-    numbering: {
-      config: [
-        {
-          reference: 'lbul',
-          levels: [
-            {
-              level: 0,
-              format: LevelFormat.BULLET,
-              text: '•',
-              alignment: AlignmentType.LEFT,
-              style: { paragraph: { indent: { left: 720, hanging: 360 } } },
-            },
-          ],
-        },
-      ],
-    },
-    sections: [
-      {
-        properties: {
-          page: {
-            size: { width: 11906, height: 16838 }, // A4 (210 × 297 mm) en twips
-            margin: { top: 1417, right: 1417, bottom: 1417, left: 1417 }, // 2,5 cm — comme le dossier compilé
-          },
-        },
-        children,
-      },
-    ],
+    numbering: { config: [LETTER_BULLET_NUMBERING] },
+    sections: [{ properties: { page: LETTER_PAGE }, children: letterDocxChildren(doc, images) }],
   })
 }
 
@@ -153,14 +153,16 @@ async function loadDocxImage(
   return { ...decoded, width: Math.round(w * scale), height: Math.round(h * scale) }
 }
 
-export async function letterDocxBlob(doc: JSONContent, brand?: LetterBrand): Promise<Blob> {
-  let images: LetterDocxImages | undefined
-  if (brand) {
-    images = {
-      header: await loadDocxImage(brand.headerImage, 600),
-      footer: await loadDocxImage(brand.footerImage, 600),
-      signature: await loadDocxImage(brand.signatureImage, 160),
-    }
+/** Charge les bandes de marque (en-tête/pied/signature) en images DOCX — partagé avec l'export combiné. */
+export async function loadLetterDocxImages(brand: LetterBrand): Promise<LetterDocxImages> {
+  return {
+    header: await loadDocxImage(brand.headerImage, 600),
+    footer: await loadDocxImage(brand.footerImage, 600),
+    signature: await loadDocxImage(brand.signatureImage, 160),
   }
+}
+
+export async function letterDocxBlob(doc: JSONContent, brand?: LetterBrand): Promise<Blob> {
+  const images = brand ? await loadLetterDocxImages(brand) : undefined
   return Packer.toBlob(letterDocToDocx(doc, images))
 }

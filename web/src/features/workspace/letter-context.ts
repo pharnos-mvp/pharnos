@@ -85,8 +85,8 @@ export const LETTER_FIELD_KEYS: (keyof LetterFields)[] = [
   'useSignature',
 ]
 
-/** État vide (pays par défaut = Bénin, 1er du portefeuille pilote). */
-export function emptyLetterFields(country = 'BJ'): LetterFields {
+/** État vide. Pas de pays par défaut : l'utilisateur doit choisir (point CEO). */
+export function emptyLetterFields(country = ''): LetterFields {
   return {
     country,
     nomCommercial: '',
@@ -128,7 +128,7 @@ export function productToLetterFields(p: ProductRecord): Partial<LetterFields> {
 
 /** Lit des `LetterFields` depuis un `Record<string,string>` (persistance via savedTemplates.values). */
 export function letterFieldsFromValues(values: Record<string, string>): LetterFields {
-  const base = emptyLetterFields(values['country'] || 'BJ')
+  const base = emptyLetterFields(values['country'] || '')
   for (const k of LETTER_FIELD_KEYS) {
     if (typeof values[k] === 'string') base[k] = values[k] as string
   }

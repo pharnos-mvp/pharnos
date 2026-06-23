@@ -254,7 +254,148 @@ export const MODULE1_CTD_UEMOA: CtdNodeDef[] = [
   },
 ]
 
-export function getModule1Tree(format: DossierFormat): CtdNodeDef[] {
+/* ----------------------------- CTD papier — VARIATION (Annexe N°2, Règlement 04-2020) ----------------------------- */
+
+/**
+ * Arborescence Module 1 d'une **VARIATION** (≠ dossier complet) — validée par le CEO.
+ * Cœur toujours présent + nœuds **conditionnels** (1.2.3/1.2.4 site ; 1.3.1/1.3.2/1.3.3 produit)
+ * conservés ou taillés selon les variations cochées (cf. {@link variationTree}). On ne soumet que
+ * ce qui est touché + lettre + formulaire + tableau comparatif (pratique UE/ICH + Annexe N°2 UEMOA).
+ */
+export const MODULE1_CTD_UEMOA_VARIATION: CtdNodeDef[] = [
+  { number: '1.0', label: 'Table des matières (TdM)' },
+  {
+    number: '1.1',
+    label: 'Correspondance',
+    children: [{ number: '1.1.1', label: 'Lettre de demande de variation' }],
+  },
+  {
+    number: '1.2',
+    label: 'Informations administratives',
+    children: [
+      {
+        number: '1.2.1',
+        label: 'Formulaire de demande de variation (modification d’enregistrement)',
+      },
+      { number: '1.2.2', label: 'Récépissé / preuve de paiement de la redevance' },
+      {
+        number: '1.2.3',
+        label: 'Certifications et attestations (CEP, COPP, AMM pays d’origine, COA)',
+        note: 'À inclure si la variation les concerne (CEP, changement de site/fabricant).',
+      },
+      {
+        number: '1.2.4',
+        label: 'Conformité et informations sur le site (BPF, licence de fabrication)',
+        note: 'À inclure en cas de changement de site ou de fabricant.',
+      },
+      { number: '1.2.7', label: 'Informations post-autorisation' },
+    ],
+  },
+  {
+    number: '1.3',
+    label: 'Informations sur le produit (rubriques modifiées)',
+    children: [
+      {
+        number: '1.3.1',
+        label: 'Résumé des caractéristiques du produit (RCP)',
+        note: 'Si le RCP est modifié par la variation.',
+      },
+      { number: '1.3.2', label: 'Notice', note: 'Si la notice est modifiée par la variation.' },
+      {
+        number: '1.3.3',
+        label: 'Étiquetage',
+        note: 'Si l’étiquetage / le conditionnement est modifié.',
+      },
+    ],
+  },
+  {
+    number: '1.4',
+    label: 'Documentation de la variation',
+    children: [
+      { number: '1.4.1', label: 'Tableau comparatif (situation actuelle / proposée)' },
+      { number: '1.4.2', label: 'Dossier présentant la variation + pièces justificatives' },
+    ],
+  },
+]
+
+/** Domaine d'impact d'une variation (taillage des nœuds conditionnels). RA-amendable. */
+type VariationDomain = 'site' | 'cert' | 'rcp' | 'notice' | 'labeling'
+
+/**
+ * Variations (n° Annexe N°2) → domaines impactés. Seules les variations qui déclenchent un nœud
+ * **conditionnel** figurent ici ; les autres n'ajoutent que le cœur (admin + dossier de variation).
+ */
+const VARIATION_DOMAINS: Record<number, VariationDomain[]> = {
+  1: ['site'],
+  3: ['rcp', 'labeling'],
+  4: ['rcp', 'labeling'],
+  5: ['site'],
+  6: ['rcp'],
+  7: ['site'],
+  9: ['labeling'],
+  10: ['labeling'],
+  11: ['notice', 'labeling'],
+  12: ['rcp', 'notice'],
+  13: ['site'],
+  19: ['site'],
+  20: ['site'],
+  25: ['cert'],
+  26: ['cert'],
+  31: ['labeling'],
+  32: ['labeling'],
+  38: ['labeling'],
+  40: ['rcp'],
+  42: ['rcp', 'notice'],
+}
+
+/** Nœud conditionnel → domaines qui le déclenchent (absent = nœud toujours conservé). */
+const CONDITIONAL_NODE_DOMAINS: Record<string, VariationDomain[]> = {
+  '1.2.3': ['site', 'cert'],
+  '1.2.4': ['site'],
+  '1.3.1': ['rcp'],
+  '1.3.2': ['notice'],
+  '1.3.3': ['labeling'],
+}
+
+/**
+ * Arbre de variation **taillé** par les variations cochées. Sans sélection (ou inconnue) → arbre
+ * complet (l'utilisateur élague lui-même, l'arbre reste éditable). Avec sélection, on retire les
+ * nœuds conditionnels dont aucun domaine n'est concerné, et un parent vidé de ses enfants (1.3).
+ * Ne retire JAMAIS le cœur (lettre, formulaire, récépissé, post-autorisation, tableau, dossier).
+ */
+export function variationTree(refs?: number[]): CtdNodeDef[] {
+  if (!refs?.length) return MODULE1_CTD_UEMOA_VARIATION
+  const domains = new Set<VariationDomain>()
+  for (const r of refs) {
+    // « Autre » (n° 0, non répertoriée) : domaine inconnu → on conserve TOUS les nœuds conditionnels.
+    if (r === 0) {
+      ;(['site', 'cert', 'rcp', 'notice', 'labeling'] as VariationDomain[]).forEach((d) =>
+        domains.add(d),
+      )
+      continue
+    }
+    for (const d of VARIATION_DOMAINS[r] ?? []) domains.add(d)
+  }
+  const keep = (num: string) => {
+    const trig = CONDITIONAL_NODE_DOMAINS[num]
+    return !trig || trig.some((d) => domains.has(d))
+  }
+  return MODULE1_CTD_UEMOA_VARIATION.map((n) =>
+    n.children ? { ...n, children: n.children.filter((c) => keep(c.number)) } : n,
+  ).filter((n) => !n.children || n.children.length > 0)
+}
+
+/**
+ * Arborescence initiale d'un dossier selon le **format** et l'**activité**. Pour une variation
+ * (CTD UEMOA), arbre dédié taillé par les variations cochées. eCTD variation → repli sur l'arbre
+ * eCTD standard (le cadre validé est CTD UEMOA). Nouvelle AMM / Renouvellement inchangés.
+ */
+export function getModule1Tree(
+  format: DossierFormat,
+  activity?: string,
+  variations?: number[],
+): CtdNodeDef[] {
+  if (activity === 'variation' && format === 'ctd') return variationTree(variations)
   return format === 'ectd' ? MODULE1_ECTD_CEDEAO : MODULE1_CTD_UEMOA
 }
 

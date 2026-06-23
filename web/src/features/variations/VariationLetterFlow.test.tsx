@@ -1,0 +1,47 @@
+// @vitest-environment jsdom
+import { render, screen } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
+
+import { I18nContext, type I18nValue } from '@/lib/i18n-context'
+import { OrgContext } from '@/features/org/org-context'
+import { AuthContext, type AuthContextValue } from '@/features/auth/auth-context'
+import { VariationLetterFlow } from './VariationLetterFlow'
+
+const AUTH: AuthContextValue = {
+  session: null,
+  user: null,
+  loading: false,
+  recovery: false,
+  clearRecovery: () => {},
+  signOut: async () => {},
+}
+
+function renderFlow() {
+  const i18n: I18nValue = { lang: 'fr', setLang: () => {}, t: (s) => s.fr }
+  render(
+    <I18nContext.Provider value={i18n}>
+      <AuthContext.Provider value={AUTH}>
+        <OrgContext.Provider value="org-test">
+          <VariationLetterFlow onBack={() => {}} />
+        </OrgContext.Provider>
+      </AuthContext.Provider>
+    </I18nContext.Provider>,
+  )
+}
+
+describe('VariationLetterFlow', () => {
+  it('header (sessions + sélecteur variation), 2 onglets, download combiné désactivé tant que non prêt', () => {
+    renderFlow()
+    // Sessions alignées dans le header (produit / pays / AMM / variation).
+    expect(screen.getByText('Ajouter une variation')).toBeInTheDocument()
+    expect(
+      screen.getByText(/le téléchargement exporte la lettre suivie du tableau/i),
+    ).toBeInTheDocument()
+    // Corps en deux onglets.
+    expect(screen.getByRole('tab', { name: 'Lettre' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /Tableau/ })).toBeInTheDocument()
+    // Download combiné (PDF/DOCX) désactivé : aucune variation / produit / pays.
+    expect(screen.getByRole('button', { name: /PDF/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /DOCX/ })).toBeDisabled()
+  })
+})

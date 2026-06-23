@@ -35,12 +35,18 @@ const para = (text: string): JSONContent => ({
 export function buildTemplateSkeleton(
   docType: string,
   product?: ProductRecord,
+  /** Valeurs additionnelles pré-remplies (clé de bloc → valeur) — ex. RCP §8 `num_amm` au renouvellement. */
+  seed?: Record<string, string>,
 ): JSONContent | null {
   // Types à FORMULAIRE officiel (RCP, Notice, Étiquetage) : le contenu créé est le document
   // final du formulaire (titres + mentions + Identification pré-remplie), édité via
   // TemplateFillForm — plus de squelette [À COMPLÉTER] pour ces types.
   const def = formDefinitionFor(docType)
-  if (def) return buildFillContent(def, initialFormState(def, product))
+  if (def) {
+    const state = initialFormState(def, product)
+    if (seed) Object.assign(state.values, seed)
+    return buildFillContent(def, state)
+  }
 
   const spec = specForDocType(docType)
   if (!spec) return null

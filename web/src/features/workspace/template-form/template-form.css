@@ -370,6 +370,74 @@
   line-height: 1.3;
 }
 
+/* ---- Tableau comparatif de variation (annexe) — feuille A4 ÉDITABLE (cellules = textareas) ---- */
+.tplform-sheet .doc-meta {
+  margin: 0 0 14px;
+}
+.tplform-sheet .doc-meta div {
+  margin: 0 0 3px;
+}
+.tplform-sheet .vartab {
+  width: 100%;
+  margin: 12px 0;
+  border-collapse: collapse;
+  font-size: 11pt;
+}
+.tplform-sheet .vartab th {
+  border: 1px solid #7f8aa6;
+  background: var(--tpl-navy);
+  padding: 5px 7px;
+  text-align: left;
+  font-weight: bold;
+  color: #fff;
+}
+.tplform-sheet .vartab td {
+  border: 1px solid #7f8aa6;
+  padding: 4px 6px;
+  vertical-align: top;
+}
+.tplform-sheet .vartab .vt-num {
+  width: 6%;
+  text-align: center;
+  white-space: nowrap;
+}
+.tplform-sheet .vartab .vt-nat {
+  width: 26%;
+}
+.tplform-sheet .vartab textarea {
+  width: 100%;
+  min-height: 2.4em;
+  border: 1px solid var(--tpl-line-strong);
+  border-radius: 4px;
+  background: var(--tpl-field-bg);
+  padding: 3px 6px;
+  font-family: inherit;
+  font-size: 11pt;
+  line-height: 1.3;
+  color: #000;
+  resize: vertical;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    box-shadow 0.12s;
+}
+.tplform-sheet .vartab textarea:focus {
+  outline: none;
+  border-color: var(--tpl-focus);
+  background: var(--tpl-field-bg-focus);
+  box-shadow: 0 0 0 3px rgba(58, 90, 168, 0.14);
+}
+.tplform-sheet .vartab textarea::placeholder {
+  color: #9aa3b5;
+  font-style: italic;
+}
+.tplform-sheet .vt-empty {
+  padding: 18px;
+  text-align: center;
+  font-style: italic;
+  color: #777;
+}
+
 /* ---- Lettres (cover / PGHT) — aperçu A4 calé EXACTEMENT sur l'éditeur du CTD Builder
    (`.editor-page` / `.ProseMirror`, index.css) : Times 12, interligne 1,5, et le marqueur « à
    droite » rendu comme un bloc **aligné à gauche décalé à 56 %** (forme officielle UEMOA) — PAS un

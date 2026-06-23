@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -13,8 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { getAmmDocument } from '@/features/catalogue/documents-repository'
 import { listProducts } from '@/features/catalogue/repository'
 import { useOrgId } from '@/features/org/org-context'
+import { VariationTableDialog } from '@/features/variations/VariationTableDialog'
+import { lookupVariation, type VariationItem } from '@/features/variations/variation-request'
 import { useI18n } from '@/lib/i18n-context'
 import { COUNTRIES, DOSSIER_FORMATS, REG_ACTIVITIES } from './dossier-constants'
 import { createDossier } from './dossier-repository'
@@ -30,8 +34,26 @@ export function NewDossierPage() {
   const [productId, setProductId] = useState('')
   const [format, setFormat] = useState<DossierFormat>('ctd')
   const [activity, setActivity] = useState(REG_ACTIVITIES[0]?.code ?? 'new_ma')
-  const [country, setCountry] = useState(COUNTRIES[0]?.code ?? 'CI')
+  const [country, setCountry] = useState('')
+  const [variations, setVariations] = useState<number[]>([])
+  const [tableItems, setTableItems] = useState<VariationItem[]>([])
+  const [tableOpen, setTableOpen] = useState(false)
+  const [amm, setAmm] = useState('')
+  const [ammDate, setAmmDate] = useState('')
   const [busy, setBusy] = useState(false)
+
+  const isVariation = activity === 'variation'
+  // Renouvellement & variation portent sur une AMM existante : on capte son n° + date d'octroi
+  // (réf. de la lettre + RCP §8/§9), pré-remplis depuis le doc AMM de la fiche produit.
+  const needsAmm = isVariation || activity === 'renewal'
+
+  // Choix d'un produit → synchro du N° + date d'octroi depuis son doc AMM (modifiables ensuite).
+  async function pickProduct(id: string) {
+    setProductId(id)
+    const ammDoc = await getAmmDocument(id)
+    if (ammDoc?.reference) setAmm(ammDoc.reference)
+    if (ammDoc?.issueDate) setAmmDate(ammDoc.issueDate)
+  }
 
   async function handleCreate() {
     const product = products?.find((p) => p.id === productId)
@@ -47,6 +69,10 @@ export function NewDossierPage() {
         format,
         activity,
         country,
+        variations: isVariation ? variations : undefined,
+        variationItems: isVariation && tableItems.length ? tableItems : undefined,
+        ammNumero: needsAmm ? amm.trim() || undefined : undefined,
+        ammDate: needsAmm ? ammDate || undefined : undefined,
       })
       void syncDossiers(orgId)
       toast.success(t({ fr: 'Dossier créé', en: 'Dossier created' }))
@@ -60,7 +86,7 @@ export function NewDossierPage() {
   }
 
   return (
-    <section className="mx-auto max-w-xl">
+    <section className={isVariation ? 'mx-auto max-w-3xl' : 'mx-auto max-w-xl'}>
       <Button
         variant="ghost"
         size="sm"
@@ -81,7 +107,7 @@ export function NewDossierPage() {
 
       <div className="space-y-4">
         <Field label={t({ fr: 'Produit', en: 'Product' })}>
-          <Select value={productId} onValueChange={setProductId}>
+          <Select value={productId} onValueChange={(id) => void pickProduct(id)}>
             <SelectTrigger className="w-full">
               <SelectValue
                 placeholder={
@@ -144,7 +170,14 @@ export function NewDossierPage() {
         </Field>
 
         <Field label={t({ fr: 'Activité réglementaire', en: 'Regulatory activity' })}>
-          <Select value={activity} onValueChange={setActivity}>
+          <Select
+            value={activity}
+            onValueChange={(v) => {
+              setActivity(v)
+              // Choix de l'opération Variation → ouvre directement la page tableau (picker + tableau).
+              if (v === 'variation' && variations.length === 0) setTableOpen(true)
+            }}
+          >
             <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>
@@ -158,10 +191,72 @@ export function NewDossierPage() {
           </Select>
         </Field>
 
+        {/* Opération Variation : le choix des natures ET le remplissage du tableau comparatif se font
+            dans une seule modale centrée (picker en haut, tableau qui grandit en live). La modale
+            s'ouvre directement au choix de l'opération ; « Annuler » revient à l'état d'avant. */}
+        {isVariation ? (
+          <Field label={t({ fr: 'Natures de variation', en: 'Variation types' })}>
+            {variations.length ? (
+              <ul className="mb-2 flex flex-wrap gap-1.5">
+                {variations.map((r) => (
+                  <li
+                    key={r}
+                    className="bg-primary/5 border-primary/30 inline-flex max-w-full items-center gap-1 rounded-full border px-2.5 py-1 text-xs"
+                  >
+                    <span className="text-muted-foreground tabular-nums">{r || '+'}.</span>
+                    <span className="truncate">
+                      {t(lookupVariation(r)?.nature ?? { fr: '', en: '' })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => setTableOpen(true)}
+            >
+              {variations.length
+                ? t({
+                    fr: `Modifier les natures & le tableau (${variations.length})`,
+                    en: `Edit types & table (${variations.length})`,
+                  })
+                : t({
+                    fr: 'Choisir les natures & remplir le tableau',
+                    en: 'Pick types & fill the table',
+                  })}
+            </Button>
+            <p className="text-muted-foreground mt-1.5 text-xs">
+              {variations.length
+                ? t({
+                    fr: 'L’arbre Module 1 sera adapté à ces variations.',
+                    en: 'The Module 1 tree will be tailored to these variations.',
+                  })
+                : t({
+                    fr: 'Cochez au moins une variation pour continuer.',
+                    en: 'Tick at least one variation to continue.',
+                  })}
+            </p>
+            <VariationTableDialog
+              open={tableOpen}
+              onOpenChange={setTableOpen}
+              refs={variations}
+              product={products?.find((p) => p.id === productId)}
+              initialItems={tableItems}
+              onCommit={(refs, items) => {
+                setVariations(refs)
+                setTableItems(items)
+              }}
+            />
+          </Field>
+        ) : null}
+
         <Field label={t({ fr: 'Pays cible', en: 'Target country' })}>
           <Select value={country} onValueChange={setCountry}>
             <SelectTrigger className="w-full">
-              <SelectValue />
+              <SelectValue placeholder={t({ fr: 'Choisir un pays', en: 'Choose a country' })} />
             </SelectTrigger>
             <SelectContent>
               {COUNTRIES.map((c) => (
@@ -173,7 +268,31 @@ export function NewDossierPage() {
           </Select>
         </Field>
 
-        <Button onClick={() => void handleCreate()} disabled={busy || !productId}>
+        {needsAmm ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label={t({ fr: 'N° d’AMM existante', en: 'Existing MA number' })}>
+              <Input
+                value={amm}
+                onChange={(e) => setAmm(e.target.value)}
+                placeholder={t({ fr: 'Ex. AMM_2015_7457', en: 'e.g. MA_2015_7457' })}
+              />
+            </Field>
+            <Field label={t({ fr: 'Date d’octroi de l’AMM', en: 'MA grant date' })}>
+              <Input type="date" value={ammDate} onChange={(e) => setAmmDate(e.target.value)} />
+            </Field>
+            <p className="text-muted-foreground -mt-1 text-xs sm:col-span-2">
+              {t({
+                fr: 'Pré-remplis depuis la fiche produit (doc AMM) si disponibles ; modifiables.',
+                en: 'Pre-filled from the product (MA document) if available; editable.',
+              })}
+            </p>
+          </div>
+        ) : null}
+
+        <Button
+          onClick={() => void handleCreate()}
+          disabled={busy || !productId || !country || (isVariation && variations.length === 0)}
+        >
           {t({ fr: 'Créer le dossier', en: 'Create dossier' })}
         </Button>
       </div>

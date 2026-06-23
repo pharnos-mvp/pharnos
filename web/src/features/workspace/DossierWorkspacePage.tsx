@@ -102,6 +102,8 @@ import { runRegafy, tiptapText, type RegafyFinding } from './regafy'
 import './regafy-scan.css'
 import { hasSignature, insertSignature, removeSignature } from './signature'
 import { BrandingPanel, SignaturePanel } from './SignatureBrandingPanels'
+import { variationLetterContextFields } from '@/features/variations/variation-letter'
+import { VariationTableEditor } from '@/features/variations/VariationTableEditor'
 import { TEMPLATES, templateKeyForNode, type TemplateContext } from './templates'
 import { flattenTree, isTreeOutdated, mergeDefaultTree } from './tree-utils'
 import { useDebouncedDocSave } from './use-debounced-doc-save'
@@ -229,6 +231,8 @@ export function DossierWorkspacePage() {
     }, [dossierCorrespondences]) ?? 0
 
   const [selected, setSelected] = useState<CtdNodeDef | null>(null)
+  // Onglet « Tableau comparatif » (variation) fermé par l'utilisateur — réaffiché au changement de nœud.
+  const [tableTabClosed, setTableTabClosed] = useState(false)
   const [treeEditing, setTreeEditing] = useState(false)
   const [docEditing, setDocEditing] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
@@ -718,6 +722,7 @@ export function DossierWorkspacePage() {
     flushSave() // ne pas perdre l'édition en cours en changeant de section
     setSelected(node)
     setDocEditing(false)
+    setTableTabClosed(false) // réaffiche l'onglet Tableau en revenant sur la lettre de variation
     setPickedKey(null) // aperçu auto du 1er document du nœud
     setReplaceTarget(null)
   }
@@ -773,13 +778,31 @@ export function DossierWorkspacePage() {
 
   // Documents visualisables du nœud : lettre générée + pièces jointes + documents produit.
   // Aperçu in-place automatique du 1er (ou de l'onglet choisi), même cadre que la lettre.
-  const viewables = buildViewables({
+  const baseViewables = buildViewables({
     selectedGenDocs,
     selectedAttachments,
     selectedDocs,
     sourceNamesById,
     targetLangLabel,
   })
+  // Variation : l'annexe (tableau comparatif) s'ouvre comme un onglet, JUSTE À CÔTÉ de la lettre,
+  // dans la même barre d'onglets — fermable d'un clic (× → `tableTabClosed`). Pas de système d'onglet
+  // parallèle. Présent au nœud 1.1.1 dès que la lettre existe.
+  const showTableTab =
+    activeDossier.activity === 'variation' &&
+    selected?.number === '1.1.1' &&
+    selectedGenDocs.length > 0 &&
+    !tableTabClosed
+  const viewables: Viewable[] = showTableTab
+    ? [
+        ...baseViewables,
+        {
+          key: 'vartable',
+          kind: 'variation-table',
+          label: t({ fr: 'Tableau comparatif', en: 'Comparison table' }),
+        },
+      ]
+    : baseViewables
   const activeKey =
     pickedKey && viewables.some((v) => v.key === pickedKey)
       ? pickedKey
@@ -809,7 +832,9 @@ export function DossierWorkspacePage() {
       : undefined
   // Cible du bouton « Analyser » : pièce affichée OU document généré analysable.
   const analyzeTargetId =
-    active && active.kind !== 'letter' ? active.id : (analyzableGenDoc?.id ?? null)
+    active && (active.kind === 'attachment' || active.kind === 'doc')
+      ? active.id
+      : (analyzableGenDoc?.id ?? null)
 
   // Constat de l'élément affiché (résultat d'une analyse Regafy non résolue) → carte
   // d'actions flottante sur l'aperçu (Remplir le template / Traduire / Remplacer).
@@ -847,6 +872,9 @@ export function DossierWorkspacePage() {
       (selected.number.startsWith('1.3') ? 'labeling' : null))
     : null
   const canFillSelected = !!fillDocType && UPGRADE_DOC_TYPES.has(fillDocType)
+  // Nœud 1.4.1 d'un dossier de variation → éditeur du tableau comparatif (annexe).
+  const isVariationTableNode =
+    activeDossier.activity === 'variation' && selected?.number === '1.4.1'
 
   // Formulaire officiel (branding CEO — RCP, Notice, Étiquetage) : l'onglet « template à
   // compléter » est rendu par TemplateFillForm (feuille A4 navy + exports DOCX/PDF) — plus
@@ -857,7 +885,7 @@ export function DossierWorkspacePage() {
   // constat reste dans le panneau Remarques). Type pour les actions : type de la pièce
   // analysée si connu, sinon type du nœud.
   const activePiece =
-    active && active.kind !== 'letter'
+    active && (active.kind === 'doc' || active.kind === 'attachment')
       ? (selectedDocs.find((d) => d.id === active.id) ??
         selectedAttachments.find((a) => a.id === active.id))
       : undefined
@@ -927,6 +955,14 @@ export function DossierWorkspacePage() {
       poste: branding?.poste ?? '',
       signataire: branding?.signataire ?? '',
       pght: '[PGHT en FCFA]',
+      // N° + date d'octroi de l'AMM existante (variation/renouvellement) → réf. de la lettre
+      // (« AMM n° X du JJ/MM/AAAA »). `ammDateDelivrance` = la date de délivrance/octroi.
+      ammNumero: activeDossier.ammNumero,
+      ammDateDelivrance: activeDossier.ammDate,
+      // Lettre de variation (nœud 1.1.1) : natures cochées → classe, puces, pièces (chemin dossier = FR).
+      ...(activeDossier.activity === 'variation' && activeDossier.variations?.length
+        ? variationLetterContextFields(activeDossier.variations, 'fr')
+        : {}),
     }
   }
 
@@ -1026,6 +1062,12 @@ export function DossierWorkspacePage() {
   /** « × » d'un onglet : retire le document du dossier. Doc produit → exclu (reste sous le produit) ;
    *  pièce jointe / lettre / traduction → supprimé du dossier. */
   async function handleRemoveViewable(v: Viewable) {
+    if (v.kind === 'variation-table') {
+      // Onglet synthétique : « fermer » = masquer (revient sur la lettre), rien à supprimer.
+      setTableTabClosed(true)
+      setPickedKey(null)
+      return
+    }
     if (v.kind === 'letter') {
       await deleteGeneratedDoc(v.key.replace('letter:', ''))
       void syncGeneratedDocs(orgId)
@@ -1079,7 +1121,7 @@ export function DossierWorkspacePage() {
 
   /** « Remplacer » (carte de constat) : téléverser un nouveau fichier à la place de la pièce visée. */
   function handleReplace(target: Viewable) {
-    if (target.kind === 'letter') return
+    if (target.kind === 'letter' || target.kind === 'variation-table') return
     setReplaceTarget(target)
     fileInputRef.current?.click()
   }
@@ -1110,7 +1152,19 @@ export function DossierWorkspacePage() {
       openTab(existing.id)
       return
     }
-    const skeleton = buildTemplateSkeleton(docType, product)
+    // RCP « conscient de l'opération » : au renouvellement / à la variation, §8 (n° d'AMM) et §9
+    // (date de 1ʳᵉ autorisation = date d'octroi) sont pré-remplis depuis l'AMM du dossier. Pas de
+    // template dédié — un seed additif sur le formulaire.
+    const isRenewOrVar =
+      activeDossier.activity === 'renewal' || activeDossier.activity === 'variation'
+    const seed: Record<string, string> = {}
+    if (isRenewOrVar && activeDossier.ammNumero) seed.num_amm = activeDossier.ammNumero
+    if (isRenewOrVar && activeDossier.ammDate) seed.date_premiere = activeDossier.ammDate
+    const skeleton = buildTemplateSkeleton(
+      docType,
+      product,
+      Object.keys(seed).length ? seed : undefined,
+    )
     if (!skeleton) return
     const rec = await createTemplateFillDoc(orgId, {
       dossierId: activeDossier.id,
@@ -1197,25 +1251,36 @@ export function DossierWorkspacePage() {
   const isTranslationOrUpgrade =
     activeGenDoc?.templateKey === 'translation' || activeGenDoc?.templateKey === 'upgrade'
   const headerStatus: DocHeaderStatus | undefined =
-    headerKind === null
-      ? undefined
-      : headerKind === 'cover'
-        ? { tone: 'auto', label: t({ fr: 'Autogénéré', en: 'Auto-generated' }), icon: Sparkles }
-        : headerKind === 'piece'
-          ? { tone: 'file', label: t({ fr: 'Pièce', en: 'File' }), icon: FileText }
-          : headerKind === 'empty'
-            ? { tone: 'todo', label: t({ fr: 'À générer', en: 'To generate' }), icon: CircleDashed }
-            : { tone: 'draft', label: t({ fr: 'Brouillon', en: 'Draft' }), icon: Pencil }
-  const headerSubtitle =
-    headerKind === 'form'
-      ? t({ fr: 'Module 1 · Information produit', en: 'Module 1 · Product information' })
-      : headerKind === 'piece'
-        ? t({ fr: 'Module 1 · Pièce téléversée', en: 'Module 1 · Uploaded file' })
+    active?.kind === 'variation-table'
+      ? { tone: 'draft', label: t({ fr: 'Annexe', en: 'Annex' }), icon: Pencil }
+      : headerKind === null
+        ? undefined
         : headerKind === 'cover'
-          ? t({ fr: 'Module 1 · Page de garde', en: 'Module 1 · Cover page' })
-          : headerKind === 'letter'
-            ? t({ fr: 'Module 1 · Correspondance', en: 'Module 1 · Correspondence' })
-            : t({ fr: 'Module 1', en: 'Module 1' })
+          ? { tone: 'auto', label: t({ fr: 'Autogénéré', en: 'Auto-generated' }), icon: Sparkles }
+          : headerKind === 'piece'
+            ? { tone: 'file', label: t({ fr: 'Pièce', en: 'File' }), icon: FileText }
+            : headerKind === 'empty'
+              ? {
+                  tone: 'todo',
+                  label: t({ fr: 'À générer', en: 'To generate' }),
+                  icon: CircleDashed,
+                }
+              : { tone: 'draft', label: t({ fr: 'Brouillon', en: 'Draft' }), icon: Pencil }
+  const headerSubtitle =
+    active?.kind === 'variation-table'
+      ? t({
+          fr: 'Module 1 · Annexe (tableau comparatif)',
+          en: 'Module 1 · Annex (comparison table)',
+        })
+      : headerKind === 'form'
+        ? t({ fr: 'Module 1 · Information produit', en: 'Module 1 · Product information' })
+        : headerKind === 'piece'
+          ? t({ fr: 'Module 1 · Pièce téléversée', en: 'Module 1 · Uploaded file' })
+          : headerKind === 'cover'
+            ? t({ fr: 'Module 1 · Page de garde', en: 'Module 1 · Cover page' })
+            : headerKind === 'letter'
+              ? t({ fr: 'Module 1 · Correspondance', en: 'Module 1 · Correspondence' })
+              : t({ fr: 'Module 1', en: 'Module 1' })
   const headerTitle =
     active?.label ??
     (selectedTplKey ? TEMPLATES[selectedTplKey].title : undefined) ??
@@ -1292,7 +1357,9 @@ export function DossierWorkspacePage() {
     : null
   // buildDocActions ne fait que STOCKER les handlers (appelés au clic) — aucun ref lu au rendu.
   // eslint-disable-next-line react-hooks/refs
-  const headerActions = headerCtx ? buildDocActions(headerCtx, t) : []
+  const builtHeaderActions = headerCtx ? buildDocActions(headerCtx, t) : []
+  // L'onglet « Tableau comparatif » porte ses propres actions (AMM/PDF/DOCX/Enregistrer) → pas d'actions d'en-tête.
+  const headerActions = active?.kind === 'variation-table' ? [] : builtHeaderActions
 
   // Pastilles de sections (refonte responsive < lg) : navigation du dossier en bas d'écran
   // (l'arborescence latérale reste ≥ lg). Dérivation pure → numéro + statut (contenu / à vérifier).
@@ -1589,6 +1656,9 @@ export function DossierWorkspacePage() {
                             })}
                       </p>
                     </div>
+                  ) : active?.kind === 'variation-table' ? (
+                    // Onglet « Tableau comparatif » (à côté de la lettre) → document A4 éditable.
+                    <VariationTableEditor dossier={activeDossier} product={product} />
                   ) : active?.kind === 'letter' && activeGenDoc ? (
                     // Onglet traduction/version conforme = plein largeur (éditeur + barre de format) ;
                     // l'original est l'onglet voisin. Pas d'`overflow-hidden` : casserait le `sticky`.
@@ -1779,6 +1849,8 @@ export function DossierWorkspacePage() {
                         {t({ fr: 'Remplir le template', en: 'Fill the template' })}
                       </Button>
                     </div>
+                  ) : isVariationTableNode ? (
+                    <VariationTableEditor dossier={activeDossier} product={product} />
                   ) : (
                     <div className="text-muted-foreground flex min-h-[24rem] flex-col items-center justify-center rounded-lg border border-dashed text-sm">
                       <FileText className="mb-2 size-8" />

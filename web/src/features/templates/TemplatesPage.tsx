@@ -36,6 +36,7 @@ import {
 import type { LetterBrand } from '@/features/workspace/letter-render'
 import { getOrgBranding, getUserSignature } from '@/features/profile/pro-settings-repository'
 import { useAuth } from '@/features/auth/auth-context'
+import { VariationLetterFlow } from '@/features/variations/VariationLetterFlow'
 import { TemplatePreview } from './TemplatePreview'
 import { LetterEditor } from './LetterEditor'
 import { deleteSavedTemplate, saveTemplate } from './saved-templates-repository'
@@ -75,6 +76,11 @@ const TEMPLATES: TemplateEntry[] = [
     docType: 'renewal',
     label: { fr: 'Lettre de renouvellement AMM', en: 'MA Renewal Letter' },
   },
+  {
+    key: 'variation',
+    docType: 'variation',
+    label: { fr: 'Lettre de variation', en: 'Variation Letter' },
+  },
   { key: 'pght', docType: 'pght', label: { fr: 'Lettre de PGHT', en: 'PGHT Letter' } },
   { key: 'rcp', docType: 'rcp', label: { fr: 'RCP', en: 'SmPC' } },
   { key: 'notice', docType: 'notice', label: { fr: 'Notice patient', en: 'PIL' } },
@@ -112,6 +118,8 @@ export function TemplatesPage() {
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState<Editing | null>(null)
   const [saving, setSaving] = useState(false)
+  // Carte « Lettre de variation » → flux dédié (sélecteur 2 colonnes + produit) ≠ éditeur de lettre classique.
+  const [variationFlow, setVariationFlow] = useState(false)
 
   const saved = useLiveQuery(
     () =>
@@ -197,6 +205,11 @@ export function TemplatesPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  // Flux « Lettre de variation » (sélecteur 2 colonnes + produit du catalogue → lettre PDF/DOCX).
+  if (variationFlow) {
+    return <VariationLetterFlow onBack={() => setVariationFlow(false)} />
   }
 
   // ───────────────────────── Vue FORMULAIRE (centrée A4, sans menu latéral) ─────────────────────────
@@ -461,7 +474,7 @@ export function TemplatesPage() {
             <button
               key={e.key}
               type="button"
-              onClick={() => openNew(e)}
+              onClick={() => (e.key === 'variation' ? setVariationFlow(true) : openNew(e))}
               className="hover:border-primary/50 hover:bg-accent/40 flex items-center gap-3 rounded-xl border p-4 text-left transition"
             >
               <span className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-lg">

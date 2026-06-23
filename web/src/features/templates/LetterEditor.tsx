@@ -129,6 +129,7 @@ export function LetterEditor({
             className="border-input bg-background h-8 rounded-md border px-2 text-sm"
             aria-label={t({ fr: 'Pays cible', en: 'Target country' })}
           >
+            <option value="">{t({ fr: 'Choisir un pays', en: 'Choose a country' })}</option>
             {UEMOA_COUNTRIES.map((c) => (
               <option key={c.code} value={c.code}>
                 {c.name}

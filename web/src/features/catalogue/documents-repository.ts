@@ -18,6 +18,9 @@ export interface AddDocumentInput {
   file: File
   language?: string | null
   expiryDate?: string | null
+  /** AMM : date d'émission (octroi) + N° d'AMM. */
+  issueDate?: string | null
+  reference?: string | null
 }
 
 /** Documents actifs d'un produit (optionnellement filtrés par catégorie). */
@@ -29,6 +32,15 @@ export async function listDocuments(
   return items
     .filter((d) => d.deletedAt === null && (!category || d.category === category))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+}
+
+/**
+ * Doc AMM actif le plus récent d'un produit (pièce administrative `amm`) — source du N° d'AMM et de
+ * la date d'octroi synchronisés vers le CTD builder pour les opérations Renouvellement / Variation.
+ */
+export async function getAmmDocument(productId: string): Promise<DocumentRecord | undefined> {
+  const docs = await listDocuments(productId, 'admin')
+  return docs.find((d) => d.docType === 'amm')
 }
 
 /** Ajoute un document : blob stocké en local (offline) + métadonnées + outbox pour upload. */
@@ -52,6 +64,8 @@ export async function addDocument(
     size: input.file.size,
     language: input.language ?? null,
     expiryDate: input.expiryDate ?? null,
+    issueDate: input.issueDate ?? null,
+    reference: input.reference ?? null,
     status: 'active',
     filePath: null,
     uploaded: false,
