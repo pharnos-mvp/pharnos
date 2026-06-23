@@ -39,4 +39,25 @@ describe('documents sync mapping', () => {
     expect(doc.orgId).toBe('org-1')
     expect(doc.category).toBe('admin')
   })
+
+  it('mappe issue_date / reference (pièce AMM, `0042`) en round-trip', () => {
+    const amm: DocumentRecord = {
+      ...rec,
+      docType: 'amm',
+      issueDate: '2021-03-17',
+      reference: 'AMM_2015_7457',
+    }
+    const row = documentToRow(amm)
+    expect(row.issue_date).toBe('2021-03-17')
+    expect(row.reference).toBe('AMM_2015_7457')
+    const back = rowToDocument(row)
+    expect(back.issueDate).toBe('2021-03-17')
+    expect(back.reference).toBe('AMM_2015_7457')
+  })
+
+  it('pièce sans AMM : issue_date / reference nuls côté row', () => {
+    const row = documentToRow(rec)
+    expect(row.issue_date).toBeNull()
+    expect(row.reference).toBeNull()
+  })
 })

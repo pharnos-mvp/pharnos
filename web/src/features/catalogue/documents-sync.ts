@@ -22,6 +22,9 @@ export interface DocumentRow {
   file_path: string | null
   language: string | null
   expiry_date: string | null
+  // Pièce AMM (additif `0042`) : date d'octroi + N° officiel — null pour les autres pièces.
+  issue_date: string | null
+  reference: string | null
   status: string
   created_at: string
   updated_at: string
@@ -38,6 +41,8 @@ export function documentToRow(d: DocumentRecord): DocumentRow {
     file_path: d.filePath,
     language: d.language,
     expiry_date: d.expiryDate,
+    issue_date: d.issueDate ?? null,
+    reference: d.reference ?? null,
     status: d.status,
     created_at: d.createdAt,
     updated_at: d.updatedAt,
@@ -59,6 +64,8 @@ export function rowToDocument(r: DocumentRow): DocumentRecord {
     size: 0,
     language: r.language,
     expiryDate: r.expiry_date,
+    issueDate: r.issue_date,
+    reference: r.reference,
     status: r.status,
     filePath: r.file_path,
     uploaded: true,
