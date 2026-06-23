@@ -5,19 +5,24 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
 import type { ProductRecord } from '@/lib/db'
 import { useI18n } from '@/lib/i18n-context'
-import { cn } from '@/lib/utils'
 import { seedVariationItems, type VariationItem } from './variation-request'
+import { VariationPicker } from './VariationPicker'
+import { VariationTableForm } from './VariationTableForm'
 
 /**
- * Modale **centrée au premier plan** (≠ tiroir latéral) de remplissage du **tableau comparatif**,
- * ouverte juste après le choix des natures à la création d'un dossier de variation. Lignes =
- * variations cochées (« ancien » prérempli depuis la fiche produit) ; saisie du « nouveau » + d'une
- * justification optionnelle (colonne masquée sur le document si vide). « Valider » remonte les items.
+ * Modale **centrée au premier plan** « natures de variation + tableau comparatif ». Quand
+ * `showPicker` (Workspace), le sélecteur deux colonnes est EN HAUT et le tableau **grandit en live**
+ * au fur et à mesure des coches. **Annuler** ferme sans rien valider → la sélection revient à l'état
+ * d'avant ouverture (décoche le choix qui a ouvert la modale) ; **Valider** remonte refs + items.
+ * Sans `showPicker` (Bibliothèque), seules les lignes du tableau sont éditées (refs déjà choisis via
+ * la liste déroulante du header) : ici **Annuler** abandonne uniquement les saisies du tableau, pas le
+ * choix des variations (la décoche se fait sur les chips du header).
  */
 export function VariationTableDialog({
   open,
@@ -25,21 +30,30 @@ export function VariationTableDialog({
   refs,
   product,
   initialItems,
-  onSave,
+  showPicker = true,
+  onCommit,
 }: {
   open: boolean
   onOpenChange: (o: boolean) => void
   refs: number[]
   product?: ProductRecord
   initialItems?: VariationItem[]
-  onSave: (items: VariationItem[]) => void
+  showPicker?: boolean
+  onCommit: (refs: number[], items: VariationItem[]) => void
 }) {
   const { t } = useI18n()
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>{t({ fr: 'Tableau comparatif', en: 'Comparison table' })}</DialogTitle>
+          <DialogTitle>
+            {showPicker
+              ? t({
+                  fr: 'Natures de variation & tableau comparatif',
+                  en: 'Variation types & comparison table',
+                })
+              : t({ fr: 'Tableau comparatif', en: 'Comparison table' })}
+          </DialogTitle>
           <DialogDescription>
             {t({
               fr: 'Renseignez l’ancien et le nouveau pour chaque variation. La justification est optionnelle (colonne masquée sur le document si vide).',
@@ -52,8 +66,10 @@ export function VariationTableDialog({
             refs={refs}
             product={product}
             initialItems={initialItems}
-            onSave={(items) => {
-              onSave(items)
+            showPicker={showPicker}
+            onCancel={() => onOpenChange(false)}
+            onCommit={(r, items) => {
+              onCommit(r, items)
               onOpenChange(false)
             }}
           />
@@ -67,87 +83,67 @@ function Body({
   refs,
   product,
   initialItems,
-  onSave,
+  showPicker,
+  onCancel,
+  onCommit,
 }: {
   refs: number[]
   product?: ProductRecord
   initialItems?: VariationItem[]
-  onSave: (items: VariationItem[]) => void
+  showPicker: boolean
+  onCancel: () => void
+  onCommit: (refs: number[], items: VariationItem[]) => void
 }) {
   const { t } = useI18n()
-  // Amorce depuis les natures cochées (ancien prérempli), en préservant les saisies déjà faites.
+  // Brouillon local : ne touche au parent qu'à « Valider » (→ Annuler revient à l'état d'avant).
+  const [draftRefs, setDraftRefs] = useState<number[]>(refs)
   const [items, setItems] = useState<VariationItem[]>(() =>
     seedVariationItems(refs, product, initialItems),
   )
-  const setItem = (i: number, patch: Partial<VariationItem>) =>
-    setItems((arr) => arr.map((it, j) => (j === i ? { ...it, ...patch } : it)))
-
-  if (refs.length === 0) {
-    return (
-      <p className="text-muted-foreground text-sm">
-        {t({
-          fr: 'Cochez d’abord une ou plusieurs variations.',
-          en: 'Tick one or more variations first.',
-        })}
-      </p>
-    )
+  // Coche/décoche → réamorce les lignes du tableau en préservant les saisies déjà faites.
+  const changeRefs = (next: number[]) => {
+    setDraftRefs(next)
+    setItems((cur) => seedVariationItems(next, product, cur))
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      {items.map((it, i) => (
-        <div key={i} className="rounded-lg border p-3">
-          <div className="mb-2 text-sm font-medium">
-            <span className="text-muted-foreground tabular-nums">{it.ref ?? '—'}. </span>
-            {it.nature}
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Cell
-              label={t({ fr: 'Situation actuelle (ancien)', en: 'Current (old)' })}
-              value={it.before}
-              onChange={(v) => setItem(i, { before: v })}
-            />
-            <Cell
-              label={t({ fr: 'Situation proposée (nouveau)', en: 'Proposed (new)' })}
-              value={it.after}
-              onChange={(v) => setItem(i, { after: v })}
-            />
-          </div>
-          <Cell
-            className="mt-2"
-            label={t({ fr: 'Justification (optionnelle)', en: 'Justification (optional)' })}
-            value={it.justification}
-            onChange={(v) => setItem(i, { justification: v })}
-          />
+    <div className="flex flex-col gap-4">
+      {showPicker ? (
+        <div>
+          <p className="text-foreground mb-2 text-sm font-medium">
+            {t({
+              fr: '1. Cochez la (les) nature(s) de variation',
+              en: '1. Tick the variation type(s)',
+            })}
+          </p>
+          <VariationPicker value={draftRefs} onChange={changeRefs} />
         </div>
-      ))}
-      <Button className="self-end" onClick={() => onSave(items)}>
-        {t({ fr: 'Valider le tableau', en: 'Save table' })}
-      </Button>
-    </div>
-  )
-}
+      ) : null}
 
-function Cell({
-  label,
-  value,
-  onChange,
-  className,
-}: {
-  label: string
-  value: string
-  onChange: (v: string) => void
-  className?: string
-}) {
-  return (
-    <label className={cn('flex flex-col gap-1', className)}>
-      <span className="text-muted-foreground text-xs">{label}</span>
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        rows={2}
-        className="border-input bg-background focus-visible:ring-ring w-full resize-y rounded-md border px-2 py-1.5 text-sm shadow-xs focus-visible:ring-1 focus-visible:outline-none"
-      />
-    </label>
+      <div>
+        {showPicker ? (
+          <p className="text-foreground mb-2 text-sm font-medium">
+            {t({ fr: '2. Renseignez le tableau comparatif', en: '2. Fill the comparison table' })}
+          </p>
+        ) : null}
+        <VariationTableForm
+          items={items}
+          onChange={setItems}
+          emptyHint={t({
+            fr: 'Cochez au moins une variation ci-dessus pour remplir le tableau.',
+            en: 'Tick at least one variation above to fill the table.',
+          })}
+        />
+      </div>
+
+      <DialogFooter>
+        <Button variant="outline" onClick={onCancel}>
+          {t({ fr: 'Annuler', en: 'Cancel' })}
+        </Button>
+        <Button disabled={draftRefs.length === 0} onClick={() => onCommit(draftRefs, items)}>
+          {t({ fr: 'Valider', en: 'Save' })}
+        </Button>
+      </DialogFooter>
+    </div>
   )
 }

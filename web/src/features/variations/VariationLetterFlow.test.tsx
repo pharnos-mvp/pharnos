@@ -30,12 +30,18 @@ function renderFlow() {
 }
 
 describe('VariationLetterFlow', () => {
-  it('phase formulaire : sélecteur 2 colonnes, intro, actions désactivées tant que rien n’est prêt', () => {
+  it('header (sessions + sélecteur variation), 2 onglets, download combiné désactivé tant que non prêt', () => {
     renderFlow()
-    expect(screen.getByText('Variation mineure')).toBeInTheDocument()
-    expect(screen.getByText('Variation majeure')).toBeInTheDocument()
-    expect(screen.getByText(/Cochez la \(les\) variation/)).toBeInTheDocument() // intro
-    expect(screen.getByRole('button', { name: /Ouvrir la lettre/ })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /Annexe/ })).toBeDisabled()
+    // Sessions alignées dans le header (produit / pays / AMM / variation).
+    expect(screen.getByText('Ajouter une variation')).toBeInTheDocument()
+    expect(
+      screen.getByText(/le téléchargement exporte la lettre suivie du tableau/i),
+    ).toBeInTheDocument()
+    // Corps en deux onglets.
+    expect(screen.getByRole('tab', { name: 'Lettre' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /Tableau/ })).toBeInTheDocument()
+    // Download combiné (PDF/DOCX) désactivé : aucune variation / produit / pays.
+    expect(screen.getByRole('button', { name: /PDF/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /DOCX/ })).toBeDisabled()
   })
 })

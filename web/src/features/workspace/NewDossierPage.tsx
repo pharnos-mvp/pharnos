@@ -17,9 +17,8 @@ import {
 import { getAmmDocument } from '@/features/catalogue/documents-repository'
 import { listProducts } from '@/features/catalogue/repository'
 import { useOrgId } from '@/features/org/org-context'
-import { VariationPicker } from '@/features/variations/VariationPicker'
 import { VariationTableDialog } from '@/features/variations/VariationTableDialog'
-import type { VariationItem } from '@/features/variations/variation-request'
+import { lookupVariation, type VariationItem } from '@/features/variations/variation-request'
 import { useI18n } from '@/lib/i18n-context'
 import { COUNTRIES, DOSSIER_FORMATS, REG_ACTIVITIES } from './dossier-constants'
 import { createDossier } from './dossier-repository'
@@ -171,7 +170,14 @@ export function NewDossierPage() {
         </Field>
 
         <Field label={t({ fr: 'Activité réglementaire', en: 'Regulatory activity' })}>
-          <Select value={activity} onValueChange={setActivity}>
+          <Select
+            value={activity}
+            onValueChange={(v) => {
+              setActivity(v)
+              // Choix de l'opération Variation → ouvre directement la page tableau (picker + tableau).
+              if (v === 'variation' && variations.length === 0) setTableOpen(true)
+            }}
+          >
             <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>
@@ -185,47 +191,64 @@ export function NewDossierPage() {
           </Select>
         </Field>
 
-        {/* Opération Variation : sélecteur deux colonnes → pilote l'arbre Module 1. Juste après le
-            choix, le tableau comparatif se remplit dans un popup (Sheet). */}
+        {/* Opération Variation : le choix des natures ET le remplissage du tableau comparatif se font
+            dans une seule modale centrée (picker en haut, tableau qui grandit en live). La modale
+            s'ouvre directement au choix de l'opération ; « Annuler » revient à l'état d'avant. */}
         {isVariation ? (
           <Field label={t({ fr: 'Natures de variation', en: 'Variation types' })}>
-            <VariationPicker value={variations} onChange={setVariations} />
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <p className="text-muted-foreground text-xs">
-                {variations.length
-                  ? t({
-                      fr: `${variations.length} variation(s) cochée(s) — l’arbre Module 1 sera adapté.`,
-                      en: `${variations.length} variation(s) selected — the Module 1 tree will be tailored.`,
-                    })
-                  : t({
-                      fr: 'Cochez au moins une variation.',
-                      en: 'Check at least one variation.',
-                    })}
-              </p>
-              {variations.length ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8"
-                  onClick={() => setTableOpen(true)}
-                >
-                  {tableItems.length
-                    ? t({
-                        fr: `Tableau comparatif rempli (${tableItems.length}) — modifier`,
-                        en: `Comparison table filled (${tableItems.length}) — edit`,
-                      })
-                    : t({ fr: 'Remplir le tableau comparatif', en: 'Fill the comparison table' })}
-                </Button>
-              ) : null}
-            </div>
+            {variations.length ? (
+              <ul className="mb-2 flex flex-wrap gap-1.5">
+                {variations.map((r) => (
+                  <li
+                    key={r}
+                    className="bg-primary/5 border-primary/30 inline-flex max-w-full items-center gap-1 rounded-full border px-2.5 py-1 text-xs"
+                  >
+                    <span className="text-muted-foreground tabular-nums">{r || '+'}.</span>
+                    <span className="truncate">
+                      {t(lookupVariation(r)?.nature ?? { fr: '', en: '' })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => setTableOpen(true)}
+            >
+              {variations.length
+                ? t({
+                    fr: `Modifier les natures & le tableau (${variations.length})`,
+                    en: `Edit types & table (${variations.length})`,
+                  })
+                : t({
+                    fr: 'Choisir les natures & remplir le tableau',
+                    en: 'Pick types & fill the table',
+                  })}
+            </Button>
+            <p className="text-muted-foreground mt-1.5 text-xs">
+              {variations.length
+                ? t({
+                    fr: 'L’arbre Module 1 sera adapté à ces variations.',
+                    en: 'The Module 1 tree will be tailored to these variations.',
+                  })
+                : t({
+                    fr: 'Cochez au moins une variation pour continuer.',
+                    en: 'Tick at least one variation to continue.',
+                  })}
+            </p>
             <VariationTableDialog
               open={tableOpen}
               onOpenChange={setTableOpen}
               refs={variations}
               product={products?.find((p) => p.id === productId)}
               initialItems={tableItems}
-              onSave={setTableItems}
+              onCommit={(refs, items) => {
+                setVariations(refs)
+                setTableItems(items)
+              }}
             />
           </Field>
         ) : null}

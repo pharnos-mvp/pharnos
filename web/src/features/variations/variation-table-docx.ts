@@ -51,7 +51,14 @@ const bodyCell = (text: string, pct: number) =>
     children: cellParas(text),
   })
 
-export function buildComparisonDocx(table: ComparisonTable): Document {
+/** Page A4 du tableau (marges 1 pouce) — réutilisée par l'export combiné lettre+annexe. */
+export const TABLE_PAGE = {
+  size: { width: 11906, height: 16838 }, // A4 en twips
+  margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+}
+
+/** Éléments DOCX du tableau comparatif (titre + méta + table native + note) — partagé avec l'export combiné. */
+export function comparisonDocxChildren(table: ComparisonTable): (Paragraph | Table)[] {
   // Largeurs en % depuis la table (varie si la colonne « Justification » est masquée).
   const colPct = table.colFractions.map((f) => Math.round(f * 100))
   const children: (Paragraph | Table)[] = [
@@ -95,19 +102,13 @@ export function buildComparisonDocx(table: ComparisonTable): Document {
     )
   }
 
+  return children
+}
+
+export function buildComparisonDocx(table: ComparisonTable): Document {
   return new Document({
     styles: { default: { document: { run: { font: FONT, size: SZ } } } },
-    sections: [
-      {
-        properties: {
-          page: {
-            size: { width: 11906, height: 16838 }, // A4 en twips
-            margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
-          },
-        },
-        children,
-      },
-    ],
+    sections: [{ properties: { page: TABLE_PAGE }, children: comparisonDocxChildren(table) }],
   })
 }
 
