@@ -1561,6 +1561,43 @@ export function DossierWorkspacePage() {
                       }
                     : {})}
                 >
+                  {/* Variation : bascule rapide Lettre (1.1.1) ↔ Tableau comparatif (1.4.1) — les deux
+                      livrables côte à côte (onglets), comme dans la Bibliothèque. */}
+                  {activeDossier.activity === 'variation' &&
+                  (selected?.number === '1.1.1' || selected?.number === '1.4.1') ? (
+                    <div
+                      className="bg-muted/40 mb-3 inline-flex rounded-lg border p-0.5"
+                      role="group"
+                      aria-label={t({ fr: 'Lettre / Tableau', en: 'Letter / Table' })}
+                    >
+                      {(
+                        [
+                          ['1.1.1', { fr: 'Lettre', en: 'Letter' }],
+                          ['1.4.1', { fr: 'Tableau', en: 'Table' }],
+                        ] as const
+                      ).map(([num, label]) => {
+                        const node = flatNodes.find((n) => n.number === num)
+                        const isActive = selected?.number === num
+                        return (
+                          <button
+                            key={num}
+                            type="button"
+                            aria-pressed={isActive}
+                            disabled={!node}
+                            onClick={() => node && handleSelectNode(node)}
+                            className={cn(
+                              'rounded-md px-3 py-1 text-sm font-medium transition disabled:opacity-40',
+                              isActive
+                                ? 'bg-background text-foreground shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground',
+                            )}
+                          >
+                            {t(label)}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  ) : null}
                   {/* Identité du document (n° + titre + statut) — < lg uniquement (≥ lg = DocumentHeader).
                       Inclut la barre de format quand on édite une lettre TipTap (parité formatSlot ≥ lg). */}
                   {belowLg && headerKind ? (

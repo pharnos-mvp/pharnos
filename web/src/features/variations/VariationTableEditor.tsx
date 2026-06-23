@@ -7,12 +7,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { ProductRecord } from '@/lib/db'
 import { useI18n } from '@/lib/i18n-context'
-import { cn } from '@/lib/utils'
 import { triggerDownload } from '@/features/workspace/download-utils'
 import { updateDossierVariation } from '@/features/workspace/dossier-repository'
 import { emptyLetterFields, type LetterFields } from '@/features/workspace/letter-context'
 import { seedVariationItems, type VariationItem, type VariationRequest } from './variation-request'
 import { buildComparisonTable } from './variation-table'
+import { VariationTableSheet } from './VariationTableSheet'
 
 const sanitize = (s: string) =>
   (s || 'variation')
@@ -64,10 +64,6 @@ export function VariationTableEditor({
     () => ({ title: '', fields, items, groupingRuleIndex: null }),
     [fields, items],
   )
-  const table = useMemo(() => buildComparisonTable(request, 'fr'), [request])
-
-  const setItem = (i: number, patch: Partial<VariationItem>) =>
-    setItems((arr) => arr.map((it, j) => (j === i ? { ...it, ...patch } : it)))
 
   const base = () => sanitize(product?.nomCommercial ?? dossier.productName)
 
@@ -156,101 +152,15 @@ export function VariationTableEditor({
         </div>
       </div>
 
-      <div className="flex flex-col gap-2">
-        {items.map((it, i) => (
-          <div key={i} className="rounded-lg border p-3">
-            <div className="mb-2 flex items-center gap-2 text-sm font-medium">
-              <span className="text-muted-foreground tabular-nums">{it.ref ?? '—'}.</span>
-              <span className="min-w-0 flex-1">{it.nature}</span>
-              <span
-                className={cn(
-                  'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium',
-                  it.class === 'majeure'
-                    ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
-                    : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
-                )}
-              >
-                {it.class === 'majeure'
-                  ? t({ fr: 'Majeure', en: 'Major' })
-                  : t({ fr: 'Mineure', en: 'Minor' })}
-              </span>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Cell
-                label={t({ fr: 'Situation actuelle (ancien)', en: 'Current (old)' })}
-                value={it.before}
-                onChange={(v) => setItem(i, { before: v })}
-              />
-              <Cell
-                label={t({ fr: 'Situation proposée (nouveau)', en: 'Proposed (new)' })}
-                value={it.after}
-                onChange={(v) => setItem(i, { after: v })}
-              />
-            </div>
-            <Cell
-              className="mt-2"
-              label={t({ fr: 'Justification', en: 'Justification' })}
-              value={it.justification}
-              onChange={(v) => setItem(i, { justification: v })}
-            />
-          </div>
-        ))}
-      </div>
-
-      <details className="rounded-lg border p-3">
-        <summary className="cursor-pointer text-sm font-medium">
-          {t({ fr: 'Aperçu de l’annexe', en: 'Annex preview' })}
-        </summary>
-        <div className="mt-3 overflow-x-auto">
-          <div className="text-center text-sm font-semibold text-[#263F73]">{table.title}</div>
-          <table className="mt-2 w-full border-collapse text-xs">
-            <thead>
-              <tr>
-                {table.headers.map((h) => (
-                  <th key={h} className="bg-primary/10 border p-1.5 text-left font-semibold">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {table.rows.map((r, ri) => (
-                <tr key={ri}>
-                  {r.map((c, ci) => (
-                    <td key={ci} className="border p-1.5 align-top whitespace-pre-wrap">
-                      {c}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </details>
-    </div>
-  )
-}
-
-function Cell({
-  label,
-  value,
-  onChange,
-  className,
-}: {
-  label: string
-  value: string
-  onChange: (v: string) => void
-  className?: string
-}) {
-  return (
-    <label className={cn('flex flex-col gap-1', className)}>
-      <span className="text-muted-foreground text-xs">{label}</span>
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        rows={2}
-        className="border-input bg-background focus-visible:ring-ring w-full resize-y rounded-md border px-2 py-1.5 text-sm shadow-xs focus-visible:ring-1 focus-visible:outline-none"
+      {/* Document A4 éditable du tableau comparatif (annexe) — cellules ancien/nouveau/justif saisies. */}
+      <VariationTableSheet
+        items={items}
+        natures={items.map((it) => it.nature)}
+        onChange={setItems}
+        fields={fields}
+        title="ANNEXE — TABLEAU DE VARIATION"
+        lang="fr"
       />
-    </label>
+    </div>
   )
 }

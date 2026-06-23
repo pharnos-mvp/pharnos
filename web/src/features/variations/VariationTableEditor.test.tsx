@@ -36,14 +36,15 @@ function renderEditor() {
 }
 
 describe('VariationTableEditor', () => {
-  it('rend une ligne par variation cochée, avec « ancien » prérempli et badges de classe', () => {
+  it('rend le document A4 du tableau : titre, natures, « ancien » prérempli, N° d’AMM et Enregistrer', () => {
     renderEditor()
-    // n°3 = changement de nom (mineure), n°13 = site (majeure) — la nature figure aussi dans l'aperçu.
+    // Document A4 éditable (≠ ancien form de lignes / badges de classe).
+    expect(screen.getByText('ANNEXE — TABLEAU DE VARIATION')).toBeInTheDocument()
+    // n°3 = changement de nom (mineure), n°13 = site (majeure) — natures en lecture seule dans le tableau.
     expect(screen.getAllByText(/Changement du nom du médicament/).length).toBeGreaterThan(0)
-    expect(screen.getByDisplayValue('Gynoril')).toBeInTheDocument() // colonne « ancien » préremplie
+    // Cellule « situation actuelle » de la variation #3 préremplie depuis la fiche produit.
+    expect(screen.getByDisplayValue('Gynoril')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('AMM modifiée')).toBeInTheDocument()
-    expect(screen.getByText('Mineure')).toBeInTheDocument()
-    expect(screen.getByText('Majeure')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Enregistrer/ })).toBeInTheDocument()
   })
 
