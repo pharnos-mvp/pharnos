@@ -6,6 +6,7 @@ import type { CtdNodeDef } from '../module1-tree'
 import {
   buildTdmLines,
   compileDossier,
+  coverHeadline,
   dataUrlToBytes,
   type CompileInput,
   type CompileNodeContent,
@@ -111,7 +112,7 @@ describe('compileDossier (compilation PDF)', () => {
     const base = await PDFDocument.load(await compileDossier(input(true)))
     const withCover = input(true)
     withCover.cover = {
-      activity: 'Nouvelle AMM',
+      activity: 'new_ma',
       nomCommercial: 'Doliprane',
       dciDosage: 'Paracétamol 500 mg',
       titulaireName: 'Laboratoire X',
@@ -199,5 +200,19 @@ describe('compileDossier (compilation PDF)', () => {
     inp.contentByNumber.set('1.3.1', { generated: [fill], pieces: [] })
     const doc = await PDFDocument.load(await compileDossier(inp))
     expect(doc.getPageCount()).toBeGreaterThanOrEqual(5)
+  })
+})
+
+describe('coverHeadline — intitulé de la page de couverture selon l’opération', () => {
+  const L2 = 'DE MISE SUR LE MARCHÉ (AMM)'
+  it('renouvellement → « DE RENOUVELLEMENT »', () => {
+    expect(coverHeadline('renewal')).toEqual(["DOSSIER CTD DE RENOUVELLEMENT D'AUTORISATION", L2])
+  })
+  it('variation → « DE MODIFICATION »', () => {
+    expect(coverHeadline('variation')).toEqual(["DOSSIER CTD DE MODIFICATION D'AUTORISATION", L2])
+  })
+  it('nouvelle AMM / inconnu → « D’ENREGISTREMENT » (défaut, inchangé)', () => {
+    expect(coverHeadline('new_ma')).toEqual(["DOSSIER CTD D'ENREGISTREMENT D'AUTORISATION", L2])
+    expect(coverHeadline('')).toEqual(["DOSSIER CTD D'ENREGISTREMENT D'AUTORISATION", L2])
   })
 })
