@@ -18,7 +18,7 @@ import { getAmmDocument } from '@/features/catalogue/documents-repository'
 import { listProducts } from '@/features/catalogue/repository'
 import { useOrgId } from '@/features/org/org-context'
 import { VariationPicker } from '@/features/variations/VariationPicker'
-import { VariationTableSheet } from '@/features/variations/VariationTableSheet'
+import { VariationTableDialog } from '@/features/variations/VariationTableDialog'
 import type { VariationItem } from '@/features/variations/variation-request'
 import { useI18n } from '@/lib/i18n-context'
 import { COUNTRIES, DOSSIER_FORMATS, REG_ACTIVITIES } from './dossier-constants'
@@ -219,7 +219,7 @@ export function NewDossierPage() {
                 </Button>
               ) : null}
             </div>
-            <VariationTableSheet
+            <VariationTableDialog
               open={tableOpen}
               onOpenChange={setTableOpen}
               refs={variations}

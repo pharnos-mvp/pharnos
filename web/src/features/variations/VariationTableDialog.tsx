@@ -1,19 +1,25 @@
 import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import type { ProductRecord } from '@/lib/db'
 import { useI18n } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import { seedVariationItems, type VariationItem } from './variation-request'
 
 /**
- * Popup (Sheet) de remplissage du **tableau comparatif** ouverte juste après le choix des natures, à
- * la création d'un dossier de variation. Lignes = variations cochées (« ancien » prérempli depuis la
- * fiche produit) ; l'utilisateur saisit le « nouveau » et, optionnellement, la justification (colonne
- * masquée sur le document final si vide). « Valider » remonte les items au formulaire de création.
+ * Modale **centrée au premier plan** (≠ tiroir latéral) de remplissage du **tableau comparatif**,
+ * ouverte juste après le choix des natures à la création d'un dossier de variation. Lignes =
+ * variations cochées (« ancien » prérempli depuis la fiche produit) ; saisie du « nouveau » + d'une
+ * justification optionnelle (colonne masquée sur le document si vide). « Valider » remonte les items.
  */
-export function VariationTableSheet({
+export function VariationTableDialog({
   open,
   onOpenChange,
   refs,
@@ -30,11 +36,17 @@ export function VariationTableSheet({
 }) {
   const { t } = useI18n()
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full max-w-2xl flex-col gap-3 overflow-y-auto">
-        <SheetHeader className="px-0">
-          <SheetTitle>{t({ fr: 'Tableau comparatif', en: 'Comparison table' })}</SheetTitle>
-        </SheetHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{t({ fr: 'Tableau comparatif', en: 'Comparison table' })}</DialogTitle>
+          <DialogDescription>
+            {t({
+              fr: 'Renseignez l’ancien et le nouveau pour chaque variation. La justification est optionnelle (colonne masquée sur le document si vide).',
+              en: 'Fill the old and new values for each variation. Justification is optional (column hidden in the document if empty).',
+            })}
+          </DialogDescription>
+        </DialogHeader>
         {open ? (
           <Body
             refs={refs}
@@ -46,8 +58,8 @@ export function VariationTableSheet({
             }}
           />
         ) : null}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -83,12 +95,6 @@ function Body({
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-muted-foreground text-xs">
-        {t({
-          fr: 'Renseignez l’ancien et le nouveau pour chaque variation. La justification est optionnelle (colonne masquée sur le document si vide).',
-          en: 'Fill the old and new values for each variation. Justification is optional (column hidden in the document if empty).',
-        })}
-      </p>
       {items.map((it, i) => (
         <div key={i} className="rounded-lg border p-3">
           <div className="mb-2 text-sm font-medium">
