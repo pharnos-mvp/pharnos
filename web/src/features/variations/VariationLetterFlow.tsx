@@ -1,7 +1,6 @@
-import { lazy, Suspense, useState } from 'react'
+import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import type { JSONContent } from '@tiptap/core'
-import { ArrowLeft, FileDown, FileText, Languages, Plus, RotateCcw, X } from 'lucide-react'
+import { ArrowLeft, FileDown, FileText, Languages, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -36,18 +35,16 @@ import { VARIATIONS } from './variation-catalog'
 import {
   lookupVariation,
   OTHER_REF,
+  requestClass,
   seedVariationItems,
   type VariationItem,
   type VariationRequest,
 } from './variation-request'
 import { buildComparisonTable } from './variation-table'
 import { buildVariationLetterDoc } from './variation-letter'
+import { VariationLetterEditor } from './VariationLetterEditor'
 import { VariationTableDialog } from './VariationTableDialog'
 import { VariationTableForm } from './VariationTableForm'
-
-const RichTextEditor = lazy(() =>
-  import('@/features/workspace/RichTextEditor').then((m) => ({ default: m.RichTextEditor })),
-)
 
 const sanitize = (s: string) =>
   (s || 'variation')
@@ -62,8 +59,9 @@ const MAJEURES = VARIATIONS.filter((v) => v.class === 'majeure')
  * Flux Bibliothèque « Lettre de variation » (classique RIM) :
  *  - **Header** : sessions alignées — produit (catalogue) · pays · N°/date d'AMM · **sélecteur de
  *    variation** (liste déroulante mineure/majeure ; le choix ouvre la **popup tableau** à remplir).
- *  - **Corps en deux onglets** : « Lettre » (éditable in-place, TipTap A4 — onglet par défaut) et
- *    « Tableau » (formulaire du tableau comparatif).
+ *  - **Corps en deux onglets** : « Lettre » (= `VariationLetterEditor`, **formulaire à cases sur
+ *    feuille A4**, auto-rempli par le header — comme les autres lettres) et « Tableau » (tableau
+ *    comparatif). Le formulaire **reflète à l'identique** l'export → affiché = exporté.
  *  - **Download** = la lettre **et** le tableau en annexe, **combinés** dans un seul PDF/DOCX.
  * N°/date d'AMM pré-remplis depuis le doc AMM du produit. Self-contained, hors-ligne.
  */
@@ -84,9 +82,6 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
   const [tab, setTab] = useState('lettre')
   const [popupOpen, setPopupOpen] = useState(false)
   const [busy, setBusy] = useState(false)
-  // Lettre éditable in-place : `letterDoc` = contenu courant (null → (re)généré depuis les champs).
-  const [letterDoc, setLetterDoc] = useState<JSONContent | null>(null)
-  const [genId, setGenId] = useState(0)
 
   const product = products?.find((p) => p.id === productId)
 
@@ -100,10 +95,16 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
     footerImage: branding?.footerImage ?? null,
     signatureImage: signature?.signatureImage ?? null,
   })
+  // Natures localisées (docLang) — l'éditeur ET l'export lisent la même source → affiché = exporté.
+  const langItems = (): VariationItem[] =>
+    items.map((it) => {
+      const v = lookupVariation(it.ref)
+      return v ? { ...it, nature: v.nature[docLang] } : it
+    })
   const request = (): VariationRequest => ({
     title: '',
     fields: effectiveFields(),
-    items,
+    items: langItems(),
     groupingRuleIndex: null,
   })
   // Tableau d'annexe = tableau comparatif, titré « Annexe — Tableau de variation ».
@@ -148,27 +149,10 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
     setItems((cur) => seedVariationItems(next, product, cur))
   }
 
-  // (Re)génère la lettre depuis les champs courants (langue active) — repart d'un document neuf.
-  function regenLetter() {
-    setLetterDoc(null)
-    setGenId((g) => g + 1)
-  }
-  function changeLang(l: Lang) {
-    setDocLang(l)
-    // Ne régénère QUE si la lettre n'a pas été éditée (sinon on préserve les saisies — le bouton
-    // « Régénérer » reste la voie explicite pour reconstruire dans la nouvelle langue).
-    if (letterDoc === null) setGenId((g) => g + 1)
-  }
-
-  // Document de la lettre affiché = document exporté (source unique) : édité si présent, sinon généré.
-  function initialDoc(): JSONContent {
-    return letterDoc ?? buildVariationLetterDoc(request(), docLang)
-  }
-
   async function downloadCombined(kind: 'pdf' | 'docx') {
     setBusy(true)
     try {
-      const doc = initialDoc()
+      const doc = buildVariationLetterDoc(request(), docLang)
       const table = annexTable()
       if (kind === 'pdf') {
         const { combinedVariationPdfBytes } = await import('./variation-combined')
@@ -219,7 +203,7 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
               <button
                 key={l}
                 type="button"
-                onClick={() => changeLang(l)}
+                onClick={() => setDocLang(l)}
                 aria-pressed={docLang === l}
                 className={cn(
                   'rounded px-2 py-0.5 text-xs font-medium uppercase transition',
@@ -255,8 +239,8 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
 
       <p className="text-muted-foreground text-sm">
         {t({
-          fr: 'Renseignez le produit, le pays, le N° d’AMM et la (les) variation(s) ci-dessous, puis éditez la lettre. Le téléchargement exporte la lettre suivie du tableau comparatif en annexe.',
-          en: 'Fill the product, country, MA number and variation(s) below, then edit the letter. The download exports the letter followed by the comparison table as an annex.',
+          fr: 'Renseignez le produit, le pays, le N° d’AMM et la (les) variation(s) ci-dessous : la lettre se remplit automatiquement (cases ajustables). Le téléchargement exporte la lettre suivie du tableau comparatif en annexe.',
+          en: 'Fill the product, country, MA number and variation(s) below: the letter fills in automatically (adjustable fields). The download exports the letter followed by the comparison table as an annex.',
         })}
       </p>
 
@@ -373,7 +357,7 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
         </div>
       ) : null}
 
-      {/* Corps : deux onglets — Lettre (éditable) | Tableau comparatif. */}
+      {/* Corps : deux onglets — Lettre (formulaire A4 à cases) | Tableau comparatif. */}
       <Tabs value={tab} onValueChange={setTab} className="gap-3">
         <TabsList>
           <TabsTrigger value="lettre">{t({ fr: 'Lettre', en: 'Letter' })}</TabsTrigger>
@@ -383,47 +367,23 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
           </TabsTrigger>
         </TabsList>
 
-        {/* forceMount : l'éditeur reste monté en changeant d'onglet (curseur / défilement / undo préservés). */}
-        <TabsContent value="lettre" forceMount>
+        <TabsContent value="lettre">
           {ready ? (
-            <div className="flex flex-col gap-2">
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7"
-                  onClick={regenLetter}
-                  title={t({
-                    fr: 'Régénérer la lettre depuis les champs',
-                    en: 'Regenerate the letter from the fields',
-                  })}
-                >
-                  <RotateCcw className="size-3.5" /> {t({ fr: 'Régénérer', en: 'Regenerate' })}
-                </Button>
-              </div>
-              <Suspense
-                fallback={
-                  <p className="text-muted-foreground p-2 text-sm">
-                    {t({ fr: 'Chargement…', en: 'Loading…' })}
-                  </p>
-                }
-              >
-                <RichTextEditor
-                  docId={`var-letter-${genId}`}
-                  initialContent={initialDoc()}
-                  editable
-                  onChange={setLetterDoc}
-                  header={branding?.headerImage ?? null}
-                  footer={branding?.footerImage ?? null}
-                />
-              </Suspense>
-            </div>
+            <VariationLetterEditor
+              fields={effectiveFields()}
+              natures={langItems().map((i) => i.nature)}
+              variationClass={requestClass(items)}
+              lang={docLang}
+              onChange={setFields}
+              headerImage={branding?.headerImage}
+              footerImage={branding?.footerImage}
+              signatureImage={signature?.signatureImage}
+            />
           ) : (
             <p className="text-muted-foreground rounded-lg border border-dashed p-6 text-center text-sm">
               {t({
-                fr: 'Choisissez un produit, un pays et au moins une variation pour éditer la lettre.',
-                en: 'Pick a product, a country and at least one variation to edit the letter.',
+                fr: 'Choisissez un produit, un pays et au moins une variation pour remplir la lettre.',
+                en: 'Pick a product, a country and at least one variation to fill the letter.',
               })}
             </p>
           )}
