@@ -1415,11 +1415,12 @@ export function DossierWorkspacePage() {
             if (docEditing) handleSign()
           },
           branding: () => {
-            // « En-tête/Pied » EN UN CLIC (comme Signer) : en édition + images org enregistrées →
+            // « En-tête/Pied » EN UN CLIC (comme Signer) : EN ÉDITION + images org enregistrées →
             // bascule l'attribut `brand` du document (affiche/masque le papier) ; sinon → panneau
-            // (pour les définir). Toggle instantané + persisté + lu par la compilation.
+            // (pour les définir). Gardé au mode édition (comme Signer) → pas de mutation silencieuse
+            // en simple consultation (l'éditeur reste monté hors édition). Persisté + lu par la compile.
             const hasBrandImages = !!(branding?.headerImage || branding?.footerImage)
-            if (liveEditor && hasBrandImages) {
+            if (docEditing && liveEditor && hasBrandImages) {
               const cur = (liveEditor.state.doc.attrs.brand as boolean | undefined) ?? true
               liveEditor
                 .chain()
