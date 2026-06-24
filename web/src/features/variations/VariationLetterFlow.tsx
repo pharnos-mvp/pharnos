@@ -4,17 +4,6 @@ import { ArrowLeft, FileDown, FileText, Languages, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useI18n, type Lang } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
@@ -237,90 +226,126 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      <p className="text-muted-foreground text-sm">
-        {t({
-          fr: 'Renseignez le produit, le pays, le N° d’AMM et la (les) variation(s) ci-dessous : la lettre se remplit automatiquement (cases ajustables). Le téléchargement exporte la lettre suivie du tableau comparatif en annexe.',
-          en: 'Fill the product, country, MA number and variation(s) below: the letter fills in automatically (adjustable fields). The download exports the letter followed by the comparison table as an annex.',
-        })}
-      </p>
+      {/* Header de configuration COMPACT — même format/taille que les autres templates (LetterEditor) :
+          barre `bg-muted/40 p-3`, champs natifs `h-8`, labels `text-xs`. Variables : produit · pays ·
+          N° d'AMM · date d'octroi · DEUX sélecteurs de variation (mineure | majeure, côte à côte). */}
+      <div className="bg-muted/40 flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <label className="flex flex-col gap-1 text-xs">
+          <span className="text-muted-foreground font-medium">
+            {t({ fr: 'Produit', en: 'Product' })}
+          </span>
+          <select
+            value={productId}
+            onChange={(e) => void pickProduct(e.target.value)}
+            className="border-input bg-background h-8 min-w-44 rounded-md border px-2 text-sm"
+            aria-label={t({ fr: 'Choisir un produit', en: 'Choose a product' })}
+          >
+            <option value="">
+              {(products ?? []).length
+                ? t({ fr: 'Choisir…', en: 'Choose…' })
+                : t({ fr: 'Aucun produit', en: 'No product' })}
+            </option>
+            {(products ?? []).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nomCommercial}
+                {p.dci ? ` (${p.dci})` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
 
-      {/* Sessions alignées : produit · pays · AMM · sélecteur de variation. */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Field label={t({ fr: 'Produit', en: 'Product' })}>
-          <Select value={productId} onValueChange={(id) => void pickProduct(id)}>
-            <SelectTrigger className="w-full">
-              <SelectValue
-                placeholder={fields.nomCommercial || t({ fr: 'Choisir…', en: 'Choose…' })}
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {(products ?? []).map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.nomCommercial}
-                  {p.dci ? ` (${p.dci})` : ''}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field label={t({ fr: 'Pays cible', en: 'Target country' })}>
-          <Select value={fields.country} onValueChange={(v) => setField('country', v)}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder={t({ fr: 'Choisir un pays', en: 'Choose a country' })} />
-            </SelectTrigger>
-            <SelectContent>
-              {UEMOA_COUNTRIES.map((c) => (
-                <SelectItem key={c.code} value={c.code}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field label={t({ fr: 'N° d’AMM', en: 'MA number' })}>
-          <Input
+        <label className="flex flex-col gap-1 text-xs">
+          <span className="text-muted-foreground font-medium">
+            {t({ fr: 'Pays cible', en: 'Target country' })}
+          </span>
+          <select
+            value={fields.country}
+            onChange={(e) => setField('country', e.target.value)}
+            className="border-input bg-background h-8 rounded-md border px-2 text-sm"
+            aria-label={t({ fr: 'Pays cible', en: 'Target country' })}
+          >
+            <option value="">{t({ fr: 'Choisir un pays', en: 'Choose a country' })}</option>
+            {UEMOA_COUNTRIES.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1 text-xs">
+          <span className="text-muted-foreground font-medium">
+            {t({ fr: 'N° d’AMM', en: 'MA number' })}
+          </span>
+          <input
+            type="text"
             value={fields.ammNumero}
             onChange={(e) => setField('ammNumero', e.target.value)}
             placeholder="AMM_2015_7457"
+            className="border-input bg-background h-8 rounded-md border px-2 text-sm"
+            aria-label={t({ fr: 'N° d’AMM', en: 'MA number' })}
           />
-        </Field>
-        <Field label={t({ fr: 'Date d’octroi', en: 'Grant date' })}>
-          <Input
+        </label>
+
+        <label className="flex flex-col gap-1 text-xs">
+          <span className="text-muted-foreground font-medium">
+            {t({ fr: 'Date d’octroi', en: 'Grant date' })}
+          </span>
+          <input
             type="date"
             value={fields.ammDateDelivrance}
             onChange={(e) => setField('ammDateDelivrance', e.target.value)}
+            className="border-input bg-background h-8 rounded-md border px-2 text-sm"
+            aria-label={t({ fr: 'Date d’octroi', en: 'Grant date' })}
           />
-        </Field>
-        <Field label={t({ fr: 'Ajouter une variation', en: 'Add a variation' })}>
-          <Select value="" onValueChange={(v) => addVariation(Number(v))}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder={t({ fr: 'Choisir une nature…', en: 'Choose a type…' })} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectLabel>{t({ fr: 'Variation mineure', en: 'Minor variation' })}</SelectLabel>
-                {MINEURES.map((v) => (
-                  <SelectItem key={v.n} value={String(v.n)} disabled={refs.includes(v.n!)}>
-                    {v.n}. {t(v.nature)}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-              <SelectGroup>
-                <SelectLabel>{t({ fr: 'Variation majeure', en: 'Major variation' })}</SelectLabel>
-                {MAJEURES.map((v) => (
-                  <SelectItem key={v.n} value={String(v.n)} disabled={refs.includes(v.n!)}>
-                    {v.n}. {t(v.nature)}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-              <SelectGroup>
-                <SelectItem value={String(OTHER_REF)} disabled={refs.includes(OTHER_REF)}>
-                  {t({ fr: 'Autre — variation non répertoriée', en: 'Other — unlisted variation' })}
-                </SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </Field>
+        </label>
+
+        <label className="flex flex-col gap-1 text-xs">
+          <span className="text-muted-foreground font-medium">
+            {t({ fr: 'Variation mineure', en: 'Minor variation' })}
+          </span>
+          <select
+            value=""
+            onChange={(e) => {
+              if (e.target.value) addVariation(Number(e.target.value))
+            }}
+            className="border-input bg-background h-8 min-w-44 rounded-md border px-2 text-sm"
+            aria-label={t({ fr: 'Ajouter une variation mineure', en: 'Add a minor variation' })}
+          >
+            <option value="">{t({ fr: 'Choisir…', en: 'Choose…' })}</option>
+            {MINEURES.map((v) => (
+              <option key={v.n} value={v.n!} disabled={refs.includes(v.n!)}>
+                {v.n}. {t(v.nature)}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1 text-xs">
+          <span className="text-muted-foreground font-medium">
+            {t({ fr: 'Variation majeure', en: 'Major variation' })}
+          </span>
+          <select
+            value=""
+            onChange={(e) => {
+              if (e.target.value) addVariation(Number(e.target.value))
+            }}
+            className="border-input bg-background h-8 min-w-44 rounded-md border px-2 text-sm"
+            aria-label={t({ fr: 'Ajouter une variation majeure', en: 'Add a major variation' })}
+          >
+            <option value="">{t({ fr: 'Choisir…', en: 'Choose…' })}</option>
+            {MAJEURES.map((v) => (
+              <option key={v.n} value={v.n!} disabled={refs.includes(v.n!)}>
+                {v.n}. {t(v.nature)}
+              </option>
+            ))}
+            <optgroup label={t({ fr: 'Autre', en: 'Other' })}>
+              <option value={OTHER_REF} disabled={refs.includes(OTHER_REF)}>
+                {t({ fr: 'Variation non répertoriée', en: 'Unlisted variation' })}
+              </option>
+            </optgroup>
+          </select>
+        </label>
       </div>
 
       {/* Variations choisies (chips, suppression) + raccourci pour rouvrir la popup. */}
@@ -411,15 +436,6 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
         showPicker={false}
         onCommit={(_refs, next) => setItems(next)}
       />
-    </div>
-  )
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-xs">{label}</Label>
-      {children}
     </div>
   )
 }
