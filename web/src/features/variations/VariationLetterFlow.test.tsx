@@ -30,7 +30,7 @@ function renderFlow() {
 }
 
 describe('VariationLetterFlow', () => {
-  it('header compact (produit/pays/AMM + DEUX sélecteurs de variation), 2 onglets, download désactivé tant que non prêt', () => {
+  it('header compact (produit/pays/AMM + DEUX sélecteurs), 2 onglets, formulaire à cases affiché SANS condition', () => {
     renderFlow()
     // Header compact : produit + DEUX sélecteurs de variation (mineure | majeure).
     expect(screen.getByText('Produit')).toBeInTheDocument()
@@ -41,8 +41,10 @@ describe('VariationLetterFlow', () => {
     // Corps en deux onglets.
     expect(screen.getByRole('tab', { name: 'Lettre' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /Tableau/ })).toBeInTheDocument()
-    // Download combiné (PDF/DOCX) désactivé : aucune variation / produit / pays.
-    expect(screen.getByRole('button', { name: /PDF/ })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /DOCX/ })).toBeDisabled()
+    // Le formulaire à cases s'affiche SANS produit/variation enregistré (clic carte → formulaire).
+    expect(screen.getByText(/Objet/)).toBeInTheDocument()
+    // Les actions (PDF/DOCX) ne sont que des raccourcis → toujours disponibles.
+    expect(screen.getByRole('button', { name: /PDF/ })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /DOCX/ })).toBeEnabled()
   })
 })
