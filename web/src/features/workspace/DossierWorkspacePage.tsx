@@ -1060,7 +1060,11 @@ export function DossierWorkspacePage() {
         /\.[^.]+$/,
         '',
       )
-      triggerDownload(URL.createObjectURL(blob), `${base}_${suffix}.docx`, true)
+      triggerDownload(
+        URL.createObjectURL(blob),
+        suffix ? `${base}_${suffix}.docx` : `${base}.docx`,
+        true,
+      )
     } catch (e) {
       console.error(e)
       toast.error(t({ fr: 'Échec du téléchargement (.docx).', en: 'Download failed (.docx).' }))
@@ -1434,8 +1438,24 @@ export function DossierWorkspacePage() {
             }
           },
           download: handleDownload,
-          downloadPdf: () => fillFormRef.current?.pdf(),
-          downloadDocx: () => void fillFormRef.current?.docx(),
+          // Télécharger ▾ : formulaire officiel → ref du formulaire (gabarit navy) ; lettre / annexe /
+          // document importé → vrai A4 (letter-pdf) et .docx éditable (tiptap-docx, tableaux inclus).
+          downloadPdf: () => {
+            if (activeFormDef) fillFormRef.current?.pdf()
+            else if (activeGenDoc) void downloadLetterPdf(activeGenDoc)
+          },
+          downloadDocx: () => {
+            if (activeFormDef) void fillFormRef.current?.docx()
+            else if (activeGenDoc) {
+              const suffix =
+                activeGenDoc.templateKey === 'translation'
+                  ? targetLangLabel
+                  : activeGenDoc.templateKey === 'upgrade'
+                    ? 'CONFORME'
+                    : ''
+              void downloadGeneratedDocx(activeGenDoc, suffix)
+            }
+          },
           upload: () => fileInputRef.current?.click(),
           reset: () => fillFormRef.current?.reset(),
           analyze: runHeaderAnalyze,

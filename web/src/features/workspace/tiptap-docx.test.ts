@@ -57,6 +57,22 @@ describe('tiptapToDocxBlob — tableaux', () => {
     for (const cell of ['Rubrique', 'Valeur', 'Dosage', '500 mg']) expect(xml).toContain(cell)
   })
 
+  it('préserve les espaces d’un titre (ex. « ANNEXE — TABLEAU DE VARIATION », pas de mots collés)', async () => {
+    const blob = await tiptapToDocxBlob({
+      type: 'doc',
+      content: [
+        {
+          type: 'heading',
+          attrs: { level: 1 },
+          content: [{ type: 'text', text: 'ANNEXE — TABLEAU DE VARIATION' }],
+        },
+      ],
+    })
+    const xml = await documentXml(blob)
+    expect(xml).toContain('ANNEXE — TABLEAU DE VARIATION')
+    expect(xml).not.toContain('TABLEAUDE')
+  })
+
   it('reste compatible avec le contenu sans tableau (paragraphes/listes)', async () => {
     const blob = await tiptapToDocxBlob({
       type: 'doc',

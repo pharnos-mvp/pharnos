@@ -202,7 +202,16 @@ function drawRuns(
         color: BLACK,
       })
     }
+    // Fusionne les runs adjacents de même graisse → UN SEUL drawText par segment : les espaces
+    // restent dans la chaîne (natifs) au lieu d'être dessinés isolément (un espace seul n'avançait
+    // pas toujours le curseur → mots collés « TABLEAU DE » → « TABLEAUDE »).
+    const merged: Run[] = []
     for (const run of line) {
+      const last = merged[merged.length - 1]
+      if (last && last.bold === run.bold) last.text += run.text
+      else merged.push({ text: run.text, bold: run.bold })
+    }
+    for (const run of merged) {
       const font = run.bold ? c.fonts.bold : c.fonts.regular
       const t = sanitize(run.text)
       c.page.drawText(t, { x, y: c.y, size, font, color })

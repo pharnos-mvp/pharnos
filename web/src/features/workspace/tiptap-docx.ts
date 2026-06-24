@@ -63,7 +63,12 @@ function blockParagraphs(block: JSONContent, opts?: { bold?: boolean }): Paragra
     case 'paragraph':
       return [
         new Paragraph({
-          alignment: block.attrs?.textAlign === 'center' ? AlignmentType.CENTER : undefined,
+          alignment:
+            block.attrs?.textAlign === 'center'
+              ? AlignmentType.CENTER
+              : block.attrs?.textAlign === 'right'
+                ? AlignmentType.RIGHT
+                : undefined,
           children: inlineRuns(block.content, opts),
         }),
       ]

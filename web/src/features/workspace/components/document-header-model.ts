@@ -215,14 +215,8 @@ export function buildDocActions(ctx: DocActionsContext, t: TFn): DocAction[] {
           collapsible: true,
           onClick: h.branding,
         },
-        // Lettre = un seul format de téléchargement (.html / .docx selon le type) → bouton simple.
-        {
-          key: 'download',
-          kind: 'button',
-          label: labels.download,
-          collapsible: true,
-          onClick: h.download,
-        },
+        // Lettre / annexe / document importé : Télécharger ▾ = PDF (vrai A4) **et** DOCX (éditable).
+        downloadMenu(),
         uploadBtn(),
         removeAction(),
       ]
