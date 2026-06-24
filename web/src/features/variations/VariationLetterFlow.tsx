@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, type SelectHTMLAttributes } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowLeft, FileDown, FileText, Languages, Plus, X } from 'lucide-react'
+import { ArrowLeft, ChevronDown, FileDown, FileText, Languages, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -43,6 +43,33 @@ const sanitize = (s: string) =>
 
 const MINEURES = VARIATIONS.filter((v) => v.class === 'mineure')
 const MAJEURES = VARIATIONS.filter((v) => v.class === 'majeure')
+
+/**
+ * `<select>` natif PREMIUM : on GARDE l'UX liste déroulante (a11y-excellente, picker natif mobile,
+ * la liste ouverte est gérée par l'OS — jamais de débordement dans la page) mais on neutralise la
+ * flèche système (`appearance-none`) au profit d'un chevron maison cohérent avec le design system.
+ * Largeur portée par le parent (`w-full` ici) → triggers compacts et alignés. La place du chevron
+ * est réservée par `pr-7`.
+ */
+function NativeSelect({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <div className="relative w-full">
+      <select
+        className={cn(
+          'border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-full cursor-pointer appearance-none rounded-md border py-0 pr-7 pl-2 text-sm outline-none focus-visible:ring-[3px]',
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </select>
+      <ChevronDown
+        className="text-muted-foreground pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2"
+        aria-hidden
+      />
+    </div>
+  )
+}
 
 /**
  * Flux Bibliothèque « Lettre de variation » (classique RIM) :
@@ -224,20 +251,20 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      {/* Header de configuration COMPACT sur UNE SEULE LIGNE (comme les autres templates) : barre
-          `bg-muted/40 p-3`, `<select>` NATIFS `h-8` (a11y-excellents, picker natif mobile, focus-ring
-          du design system), `flex-nowrap` + `overflow-x-auto`. Variables : produit · pays · DEUX
-          sélecteurs de variation (mineure | majeure). Le N° d'AMM et la date se saisissent dans les
-          cases du formulaire (pré-remplies par le choix du produit). Tout n'est que RACCOURCI. */}
-      <div className="bg-muted/40 flex flex-nowrap items-end gap-2 overflow-x-auto rounded-lg border p-3">
-        <label className="flex shrink-0 flex-col gap-1 text-xs">
+      {/* Header de configuration COMPACT (comme les autres templates) : barre `bg-muted/40 p-3`,
+          `<select>` natifs PREMIUM (`NativeSelect` — chevron maison + focus-ring du design system).
+          `flex-wrap` + champs ÉTROITS → tiennent sur une ligne sur écran large, passent à la ligne
+          sinon (JAMAIS de débordement du cadre). Variables : produit · pays · DEUX sélecteurs de
+          variation (mineure | majeure), de simples RACCOURCIS. N° d'AMM et date = cases du formulaire
+          (pré-remplies par le choix du produit). */}
+      <div className="bg-muted/40 flex flex-wrap items-end gap-2 rounded-lg border p-3">
+        <label className="flex w-36 shrink-0 flex-col gap-1 text-xs">
           <span className="text-muted-foreground font-medium">
             {t({ fr: 'Produit', en: 'Product' })}
           </span>
-          <select
+          <NativeSelect
             value={productId}
             onChange={(e) => void pickProduct(e.target.value)}
-            className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-40 cursor-pointer rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]"
             aria-label={t({ fr: 'Choisir un produit', en: 'Choose a product' })}
           >
             <option value="">
@@ -251,17 +278,16 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
                 {p.dci ? ` (${p.dci})` : ''}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </label>
 
-        <label className="flex shrink-0 flex-col gap-1 text-xs">
+        <label className="flex w-32 shrink-0 flex-col gap-1 text-xs">
           <span className="text-muted-foreground font-medium">
             {t({ fr: 'Pays cible', en: 'Target country' })}
           </span>
-          <select
+          <NativeSelect
             value={fields.country}
             onChange={(e) => setField('country', e.target.value)}
-            className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-36 cursor-pointer rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]"
             aria-label={t({ fr: 'Pays cible', en: 'Target country' })}
           >
             <option value="">{t({ fr: 'Choisir un pays', en: 'Choose a country' })}</option>
@@ -270,19 +296,18 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
                 {c.name}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </label>
 
-        <label className="flex shrink-0 flex-col gap-1 text-xs">
+        <label className="flex w-32 shrink-0 flex-col gap-1 text-xs">
           <span className="text-muted-foreground font-medium">
             {t({ fr: 'Variation mineure', en: 'Minor variation' })}
           </span>
-          <select
+          <NativeSelect
             value=""
             onChange={(e) => {
               if (e.target.value) addVariation(Number(e.target.value))
             }}
-            className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-40 cursor-pointer rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]"
             aria-label={t({ fr: 'Ajouter une variation mineure', en: 'Add a minor variation' })}
           >
             <option value="">{t({ fr: 'Choisir…', en: 'Choose…' })}</option>
@@ -291,19 +316,18 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
                 {v.n}. {t(v.nature)}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </label>
 
-        <label className="flex shrink-0 flex-col gap-1 text-xs">
+        <label className="flex w-32 shrink-0 flex-col gap-1 text-xs">
           <span className="text-muted-foreground font-medium">
             {t({ fr: 'Variation majeure', en: 'Major variation' })}
           </span>
-          <select
+          <NativeSelect
             value=""
             onChange={(e) => {
               if (e.target.value) addVariation(Number(e.target.value))
             }}
-            className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-40 cursor-pointer rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]"
             aria-label={t({ fr: 'Ajouter une variation majeure', en: 'Add a major variation' })}
           >
             <option value="">{t({ fr: 'Choisir…', en: 'Choose…' })}</option>
@@ -317,7 +341,7 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
                 {t({ fr: 'Variation non répertoriée', en: 'Unlisted variation' })}
               </option>
             </optgroup>
-          </select>
+          </NativeSelect>
         </label>
       </div>
 
