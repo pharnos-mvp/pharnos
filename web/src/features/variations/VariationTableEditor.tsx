@@ -1,10 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useImperativeHandle, useMemo, useState, type Ref } from 'react'
 import { FileDown, FileText, Save } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import type { ProductRecord } from '@/lib/db'
 import { useI18n } from '@/lib/i18n-context'
 import { triggerDownload } from '@/features/workspace/download-utils'
@@ -30,18 +28,30 @@ interface DossierLike {
   ammNumero?: string
 }
 
+/** Contrôles remontés dans la barre d'actions du dossier (parité lettre — `controlsInBar`). */
+export interface VariationTableHandle {
+  pdf: () => void
+  docx: () => Promise<void>
+  save: () => Promise<void>
+}
+
 /**
  * Éditeur **inline** du tableau comparatif (nœud 1.4.1 d'un dossier de variation) : lignes = variations
  * cochées, colonne « ancien » préremplie si Pharnos a la donnée, « nouveau »/justification à saisir.
  * Persiste sur le dossier et télécharge l'**annexe** PDF/DOCX (vrai A4, renderers partagés). Le moteur
- * de compilation n'est pas touché.
+ * de compilation n'est pas touché. `controlsInBar` : PDF/DOCX/Enregistrer remontés dans l'en-tête de
+ * document (mêmes boutons que la lettre) → la feuille ne porte plus de case-formulaire (AMM édité inline).
  */
 export function VariationTableEditor({
   dossier,
   product,
+  controlsInBar = false,
+  ref,
 }: {
   dossier: DossierLike
   product?: ProductRecord
+  controlsInBar?: boolean
+  ref?: Ref<VariationTableHandle>
 }) {
   const { t } = useI18n()
   const refs = dossier.variations ?? []
@@ -65,9 +75,8 @@ export function VariationTableEditor({
     [fields, items],
   )
 
-  const base = () => sanitize(product?.nomCommercial ?? dossier.productName)
-
-  async function save() {
+  // Mémoïsés (deps explicites) → handle impératif stable, capture l'état frais sans recréation au rendu.
+  const save = useCallback(async () => {
     setBusy(true)
     try {
       await updateDossierVariation(dossier.id, { variationItems: items, ammNumero: amm })
@@ -78,31 +87,47 @@ export function VariationTableEditor({
     } finally {
       setBusy(false)
     }
-  }
+  }, [dossier.id, items, amm, t])
 
-  async function download(kind: 'pdf' | 'docx') {
-    setBusy(true)
-    try {
-      if (kind === 'pdf') {
-        const { comparisonPdfBytes } = await import('./variation-table-pdf')
-        const bytes = await comparisonPdfBytes(buildComparisonTable(request, 'fr'))
-        triggerDownload(
-          URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: 'application/pdf' })),
-          `${base()}_tableau_comparatif.pdf`,
-          true,
-        )
-      } else {
-        const { comparisonDocxBlob } = await import('./variation-table-docx')
-        const blob = await comparisonDocxBlob(buildComparisonTable(request, 'fr'))
-        triggerDownload(URL.createObjectURL(blob), `${base()}_tableau_comparatif.docx`, true)
+  const download = useCallback(
+    async (kind: 'pdf' | 'docx') => {
+      setBusy(true)
+      const name = sanitize(product?.nomCommercial ?? dossier.productName)
+      try {
+        if (kind === 'pdf') {
+          const { comparisonPdfBytes } = await import('./variation-table-pdf')
+          const bytes = await comparisonPdfBytes(buildComparisonTable(request, 'fr'))
+          triggerDownload(
+            URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: 'application/pdf' })),
+            `${name}_tableau_comparatif.pdf`,
+            true,
+          )
+        } else {
+          const { comparisonDocxBlob } = await import('./variation-table-docx')
+          const blob = await comparisonDocxBlob(buildComparisonTable(request, 'fr'))
+          triggerDownload(URL.createObjectURL(blob), `${name}_tableau_comparatif.docx`, true)
+        }
+      } catch (e) {
+        console.error(e)
+        toast.error(t({ fr: 'Échec du téléchargement', en: 'Download failed' }))
+      } finally {
+        setBusy(false)
       }
-    } catch (e) {
-      console.error(e)
-      toast.error(t({ fr: 'Échec du téléchargement', en: 'Download failed' }))
-    } finally {
-      setBusy(false)
-    }
-  }
+    },
+    [request, product, dossier.productName, t],
+  )
+
+  // Remonte PDF/DOCX/Enregistrer au parent (en-tête de document) — recréé à chaque rendu pour
+  // capturer l'état frais (items/amm). Cf. `controlsInBar`.
+  useImperativeHandle(
+    ref,
+    () => ({
+      pdf: () => void download('pdf'),
+      docx: () => download('docx'),
+      save,
+    }),
+    [download, save],
+  )
 
   if (refs.length === 0) {
     return (
@@ -117,17 +142,10 @@ export function VariationTableEditor({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div className="space-y-1">
-          <Label className="text-xs">{t({ fr: 'N° d’AMM (réf.)', en: 'MA number (ref.)' })}</Label>
-          <Input
-            value={amm}
-            onChange={(e) => setAmm(e.target.value)}
-            placeholder={t({ fr: 'AMM modifiée', en: 'MA varied' })}
-            className="h-8 w-48"
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
+      {/* Repli (sans `controlsInBar`) : barre locale PDF/DOCX/Enregistrer. Dans le CTD builder, ces
+          actions vivent dans l'en-tête de document (mêmes boutons que la lettre) → barre masquée. */}
+      {!controlsInBar ? (
+        <div className="flex flex-wrap justify-end gap-2">
           <Button
             size="sm"
             variant="outline"
@@ -150,9 +168,10 @@ export function VariationTableEditor({
             <Save className="size-4" /> {t({ fr: 'Enregistrer', en: 'Save' })}
           </Button>
         </div>
-      </div>
+      ) : null}
 
-      {/* Document A4 éditable du tableau comparatif (annexe) — cellules ancien/nouveau/justif saisies. */}
+      {/* Document A4 éditable du tableau comparatif (annexe) — cellules ancien/nouveau/justif + N°
+          d'AMM saisis directement sur la feuille (pas de case-formulaire séparée). */}
       <VariationTableSheet
         items={items}
         natures={items.map((it) => it.nature)}
@@ -160,6 +179,7 @@ export function VariationTableEditor({
         fields={fields}
         title="ANNEXE — TABLEAU DE VARIATION"
         lang="fr"
+        onAmmChange={setAmm}
       />
     </div>
   )

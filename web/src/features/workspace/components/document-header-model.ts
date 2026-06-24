@@ -10,7 +10,7 @@ import type { Translatable } from '@/lib/i18n-context'
 export type TFn = (m: Translatable) => string
 
 /** Type fonctionnel du document actif, dérivé de l'état du workspace. */
-export type DocKind = 'letter' | 'form' | 'piece' | 'cover' | 'empty'
+export type DocKind = 'letter' | 'form' | 'piece' | 'cover' | 'empty' | 'variation-table'
 
 export type DocStatusTone = 'draft' | 'ready' | 'file' | 'todo' | 'auto'
 export type DocActionVariant = 'default' | 'accent' | 'solid' | 'danger'
@@ -75,6 +75,8 @@ export interface DocActionsContext {
     regenerate: () => void
     sign: () => void
     branding: () => void
+    /** Annexe de variation : persiste le tableau comparatif sur le dossier. */
+    save: () => void
     downloadPdf: () => void
     downloadDocx: () => void
     download: () => void
@@ -288,5 +290,20 @@ export function buildDocActions(ctx: DocActionsContext, t: TFn): DocAction[] {
     case 'empty':
       // Nœud sans document : Téléverser toujours ; Générer seulement si le nœud a un template officiel.
       return [...(ctx.canGenerate ? [generateBtn()] : []), uploadBtn()]
+
+    case 'variation-table':
+      // Annexe (tableau comparatif) : MÊMES boutons que la lettre — Télécharger ▾ (PDF/DOCX) +
+      // Enregistrer (solid). Le document est édité directement sur la feuille (pas de cases-formulaire).
+      return [
+        downloadMenu(),
+        {
+          key: 'save',
+          kind: 'button',
+          label: t({ fr: 'Enregistrer', en: 'Save' }),
+          variant: 'solid',
+          collapsible: true,
+          onClick: h.save,
+        },
+      ]
   }
 }

@@ -103,7 +103,10 @@ import './regafy-scan.css'
 import { hasSignature, insertSignature, removeSignature } from './signature'
 import { BrandingPanel, SignaturePanel } from './SignatureBrandingPanels'
 import { variationLetterContextFields } from '@/features/variations/variation-letter'
-import { VariationTableEditor } from '@/features/variations/VariationTableEditor'
+import {
+  VariationTableEditor,
+  type VariationTableHandle,
+} from '@/features/variations/VariationTableEditor'
 import { TEMPLATES, templateKeyForNode, type TemplateContext } from './templates'
 import { flattenTree, isTreeOutdated, mergeDefaultTree } from './tree-utils'
 import { useDebouncedDocSave } from './use-debounced-doc-save'
@@ -269,6 +272,8 @@ export function DossierWorkspacePage() {
   // Pt2 : poignée du formulaire de template (RCP/Notice/Étiquetage) → la barre d'actions du
   // dossier déclenche Réinitialiser/PDF/DOCX (convergence avec l'éditeur de la Bibliothèque).
   const fillFormRef = useRef<TemplateFillFormHandle>(null)
+  // Annexe de variation : ses actions (PDF/DOCX/Enregistrer) vivent dans l'en-tête de document.
+  const varTableRef = useRef<VariationTableHandle>(null)
   const previewRef = useRef<{ url: string; revoke: boolean } | null>(null)
   const didAutoSelect = useRef(false)
   const setHeaderSlot = useHeaderSlot()
@@ -875,6 +880,11 @@ export function DossierWorkspacePage() {
   // Nœud 1.4.1 d'un dossier de variation → éditeur du tableau comparatif (annexe).
   const isVariationTableNode =
     activeDossier.activity === 'variation' && selected?.number === '1.4.1'
+  // Le corps affiche l'éditeur du tableau comparatif (onglet annexe à côté de la lettre, OU nœud
+  // 1.4.1 sans pièce ni template) → l'en-tête porte les actions de l'annexe (mêmes boutons que la lettre).
+  const isTableBody =
+    active?.kind === 'variation-table' ||
+    (isVariationTableNode && !active && !showCoverPage && !selectedTplKey && !canFillSelected)
 
   // Formulaire officiel (branding CEO — RCP, Notice, Étiquetage) : l'onglet « template à
   // compléter » est rendu par TemplateFillForm (feuille A4 navy + exports DOCX/PDF) — plus
@@ -1239,48 +1249,48 @@ export function DossierWorkspacePage() {
     ? null
     : showCoverPage
       ? 'cover'
-      : isEditableActive && activeFormDef
-        ? 'form'
-        : isEditableActive
-          ? 'letter'
-          : active && active.kind !== 'letter'
-            ? 'piece'
-            : 'empty'
+      : isTableBody
+        ? 'variation-table'
+        : isEditableActive && activeFormDef
+          ? 'form'
+          : isEditableActive
+            ? 'letter'
+            : active && active.kind !== 'letter'
+              ? 'piece'
+              : 'empty'
   const regafyFor: 'enabled' | 'teaser' | 'hidden' =
     regafyState === 'enabled' ? 'enabled' : regafyState === 'teaser' ? 'teaser' : 'hidden'
   const isTranslationOrUpgrade =
     activeGenDoc?.templateKey === 'translation' || activeGenDoc?.templateKey === 'upgrade'
-  const headerStatus: DocHeaderStatus | undefined =
-    active?.kind === 'variation-table'
-      ? { tone: 'draft', label: t({ fr: 'Annexe', en: 'Annex' }), icon: Pencil }
-      : headerKind === null
-        ? undefined
-        : headerKind === 'cover'
-          ? { tone: 'auto', label: t({ fr: 'Autogénéré', en: 'Auto-generated' }), icon: Sparkles }
-          : headerKind === 'piece'
-            ? { tone: 'file', label: t({ fr: 'Pièce', en: 'File' }), icon: FileText }
-            : headerKind === 'empty'
-              ? {
-                  tone: 'todo',
-                  label: t({ fr: 'À générer', en: 'To generate' }),
-                  icon: CircleDashed,
-                }
-              : { tone: 'draft', label: t({ fr: 'Brouillon', en: 'Draft' }), icon: Pencil }
-  const headerSubtitle =
-    active?.kind === 'variation-table'
-      ? t({
-          fr: 'Module 1 · Annexe (tableau comparatif)',
-          en: 'Module 1 · Annex (comparison table)',
-        })
-      : headerKind === 'form'
-        ? t({ fr: 'Module 1 · Information produit', en: 'Module 1 · Product information' })
+  const headerStatus: DocHeaderStatus | undefined = isTableBody
+    ? { tone: 'draft', label: t({ fr: 'Annexe', en: 'Annex' }), icon: Pencil }
+    : headerKind === null
+      ? undefined
+      : headerKind === 'cover'
+        ? { tone: 'auto', label: t({ fr: 'Autogénéré', en: 'Auto-generated' }), icon: Sparkles }
         : headerKind === 'piece'
-          ? t({ fr: 'Module 1 · Pièce téléversée', en: 'Module 1 · Uploaded file' })
-          : headerKind === 'cover'
-            ? t({ fr: 'Module 1 · Page de garde', en: 'Module 1 · Cover page' })
-            : headerKind === 'letter'
-              ? t({ fr: 'Module 1 · Correspondance', en: 'Module 1 · Correspondence' })
-              : t({ fr: 'Module 1', en: 'Module 1' })
+          ? { tone: 'file', label: t({ fr: 'Pièce', en: 'File' }), icon: FileText }
+          : headerKind === 'empty'
+            ? {
+                tone: 'todo',
+                label: t({ fr: 'À générer', en: 'To generate' }),
+                icon: CircleDashed,
+              }
+            : { tone: 'draft', label: t({ fr: 'Brouillon', en: 'Draft' }), icon: Pencil }
+  const headerSubtitle = isTableBody
+    ? t({
+        fr: 'Module 1 · Annexe (tableau comparatif)',
+        en: 'Module 1 · Annex (comparison table)',
+      })
+    : headerKind === 'form'
+      ? t({ fr: 'Module 1 · Information produit', en: 'Module 1 · Product information' })
+      : headerKind === 'piece'
+        ? t({ fr: 'Module 1 · Pièce téléversée', en: 'Module 1 · Uploaded file' })
+        : headerKind === 'cover'
+          ? t({ fr: 'Module 1 · Page de garde', en: 'Module 1 · Cover page' })
+          : headerKind === 'letter'
+            ? t({ fr: 'Module 1 · Correspondance', en: 'Module 1 · Correspondence' })
+            : t({ fr: 'Module 1', en: 'Module 1' })
   const headerTitle =
     active?.label ??
     (selectedTplKey ? TEMPLATES[selectedTplKey].title : undefined) ??
@@ -1327,8 +1337,13 @@ export function DossierWorkspacePage() {
           },
           branding: () => setBrandPanelOpen(true),
           download: handleDownload,
-          downloadPdf: () => fillFormRef.current?.pdf(),
-          downloadDocx: () => void fillFormRef.current?.docx(),
+          // Annexe (tableau comparatif) et formulaire officiel partagent la même clé d'action
+          // « Télécharger ▾ » ; le corps actif décide de la cible (ref de l'annexe vs du formulaire).
+          save: () => void varTableRef.current?.save(),
+          downloadPdf: () =>
+            isTableBody ? varTableRef.current?.pdf() : fillFormRef.current?.pdf(),
+          downloadDocx: () =>
+            void (isTableBody ? varTableRef.current?.docx() : fillFormRef.current?.docx()),
           upload: () => fileInputRef.current?.click(),
           reset: () => fillFormRef.current?.reset(),
           analyze: runHeaderAnalyze,
@@ -1355,11 +1370,11 @@ export function DossierWorkspacePage() {
         },
       }
     : null
+  // L'annexe (tableau comparatif) porte désormais ses actions dans l'en-tête (kind 'variation-table'
+  // de buildDocActions) → mêmes boutons que la lettre, plus de mini-barre dédiée.
   // buildDocActions ne fait que STOCKER les handlers (appelés au clic) — aucun ref lu au rendu.
   // eslint-disable-next-line react-hooks/refs
-  const builtHeaderActions = headerCtx ? buildDocActions(headerCtx, t) : []
-  // L'onglet « Tableau comparatif » porte ses propres actions (AMM/PDF/DOCX/Enregistrer) → pas d'actions d'en-tête.
-  const headerActions = active?.kind === 'variation-table' ? [] : builtHeaderActions
+  const headerActions = headerCtx ? buildDocActions(headerCtx, t) : []
 
   // Pastilles de sections (refonte responsive < lg) : navigation du dossier en bas d'écran
   // (l'arborescence latérale reste ≥ lg). Dérivation pure → numéro + statut (contenu / à vérifier).
@@ -1658,7 +1673,12 @@ export function DossierWorkspacePage() {
                     </div>
                   ) : active?.kind === 'variation-table' ? (
                     // Onglet « Tableau comparatif » (à côté de la lettre) → document A4 éditable.
-                    <VariationTableEditor dossier={activeDossier} product={product} />
+                    <VariationTableEditor
+                      dossier={activeDossier}
+                      product={product}
+                      controlsInBar
+                      ref={varTableRef}
+                    />
                   ) : active?.kind === 'letter' && activeGenDoc ? (
                     // Onglet traduction/version conforme = plein largeur (éditeur + barre de format) ;
                     // l'original est l'onglet voisin. Pas d'`overflow-hidden` : casserait le `sticky`.
@@ -1850,7 +1870,12 @@ export function DossierWorkspacePage() {
                       </Button>
                     </div>
                   ) : isVariationTableNode ? (
-                    <VariationTableEditor dossier={activeDossier} product={product} />
+                    <VariationTableEditor
+                      dossier={activeDossier}
+                      product={product}
+                      controlsInBar
+                      ref={varTableRef}
+                    />
                   ) : (
                     <div className="text-muted-foreground flex min-h-[24rem] flex-col items-center justify-center rounded-lg border border-dashed text-sm">
                       <FileText className="mb-2 size-8" />
