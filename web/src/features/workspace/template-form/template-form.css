@@ -145,7 +145,9 @@
 }
 .tplform-sheet {
   width: 100%;
-  max-width: 62rem; /* mockup CEO (~992 px à l'écran) — exports PDF/DOCX toujours A4 */
+  /* Cadre A4 PARTAGÉ avec `.editor-page` (vars index.css) → uniforme avec l'éditeur ET l'aperçu PDF
+     (bordure + coins arrondis + ombre subtile + même largeur). Exports PDF/DOCX toujours A4. */
+  max-width: var(--doc-sheet-max, 820px);
   min-height: 297mm;
   background: #fff;
   padding: 25.4mm;
@@ -153,7 +155,9 @@
   font-size: 12pt;
   color: #000;
   line-height: 1.35;
-  box-shadow: 0 6px 28px rgba(28, 40, 70, 0.16);
+  border: var(--doc-sheet-border, 1px solid #d1d5db);
+  border-radius: var(--doc-sheet-radius, 6px);
+  box-shadow: var(--doc-sheet-shadow, 0 1px 3px rgba(0, 0, 0, 0.12));
 }
 @media (max-width: 860px) {
   .tplform-sheet {

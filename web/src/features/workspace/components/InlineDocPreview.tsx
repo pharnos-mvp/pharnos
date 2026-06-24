@@ -75,7 +75,7 @@ export function InlineDocPreview({
           {t({ fr: 'Chargement…', en: 'Loading…' })}
         </div>
       ) : blob && isPdf ? (
-        <div className="w-full max-w-[62rem]">
+        <div className="w-full" style={{ maxWidth: 'var(--doc-sheet-max)' }}>
           <PdfViewer blob={blob} flow />
         </div>
       ) : blob && isImage && url ? (

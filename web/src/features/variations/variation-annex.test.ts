@@ -43,4 +43,23 @@ describe('buildVariationTableContent', () => {
     const content = buildVariationTableContent(request, 'en')
     expect(JSON.stringify(content)).toContain('ANNEX — VARIATION TABLE')
   })
+
+  it('porte un bloc signature officiel (Poste / [Signature et cachet] / Nom) aligné à droite', () => {
+    const content = buildVariationTableContent(request, 'fr')
+    const json = JSON.stringify(content)
+    // Marqueur EXACT attendu par signature.ts (pour que « Signer » place l'image).
+    expect(json).toContain('[Signature et cachet]')
+    expect(json).toContain('[Poste]')
+    expect(json).toContain('[Nom et prénom(s)]')
+    // Le bloc est aligné à droite (rendu décalé à 56 % comme la lettre).
+    expect(json).toContain('"textAlign":"right"')
+    // Pré-rempli depuis les champs si fournis.
+    const signed = buildVariationTableContent(
+      { ...request, fields: { ...request.fields, poste: 'Directeur RA', signataire: 'Dr X' } },
+      'fr',
+    )
+    const sj = JSON.stringify(signed)
+    expect(sj).toContain('Directeur RA')
+    expect(sj).toContain('Dr X')
+  })
 })

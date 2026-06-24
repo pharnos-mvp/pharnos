@@ -79,6 +79,8 @@ const blockNode: z.ZodType<BlockNode> = z.lazy(() =>
 
 const docSchema = z.object({
   type: z.literal('doc'),
+  // `brand` (bool) : affiche/masque le papier à en-tête/pied (toggle 1 clic). Préservé au pull.
+  attrs: z.object({ brand: z.boolean().optional() }).passthrough().optional(),
   content: z.array(blockNode).optional(),
 })
 

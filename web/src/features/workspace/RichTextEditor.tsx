@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { EditorContent, useEditor } from '@tiptap/react'
+import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 
 import { useI18n } from '@/lib/i18n-context'
 import { editorExtensions } from './tiptap-extensions'
@@ -68,14 +68,22 @@ export function RichTextEditor({
     if (editor && onReady) onReady(editor, docId)
   }, [editor, onReady, docId])
 
+  // Attribut `brand` du document (défaut true) → affiche/masque le papier à en-tête/pied. Réactif :
+  // le toggle « En-tête/Pied » (1 clic) hide/show instantanément. Guard null/détruit (cf. barre).
+  const brand =
+    useEditorState({
+      editor,
+      selector: ({ editor: e }) => (e && !e.isDestroyed ? (e.state.doc.attrs.brand ?? true) : true),
+    }) ?? true
+
   return (
     <div className="editor-page-wrap">
       <div className="editor-page">
-        {header ? (
+        {header && brand ? (
           <img src={header} alt={t({ fr: 'En-tête', en: 'Header' })} className="editor-band" />
         ) : null}
         <EditorContent editor={editor} />
-        {footer ? (
+        {footer && brand ? (
           <img
             src={footer}
             alt={t({ fr: 'Pied de page', en: 'Footer' })}

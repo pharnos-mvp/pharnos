@@ -499,6 +499,9 @@ export function DossierWorkspacePage() {
           nomCommercial: product?.nomCommercial ?? dossier.productName,
           dci: product?.dci ?? '',
           ammNumero: dossier.ammNumero ?? '',
+          // Bloc signature de l'annexe pré-rempli depuis le profil org (comme la lettre).
+          poste: branding?.poste ?? '',
+          signataire: branding?.signataire ?? '',
         }
         const content = buildVariationTableContent(
           { title: '', fields, items, groupingRuleIndex: null },
@@ -517,7 +520,7 @@ export function DossierWorkspacePage() {
         creatingAnnexRef.current = false
       }
     })()
-  }, [dossier, genDocs, product, orgId, lang])
+  }, [dossier, genDocs, product, branding, orgId, lang])
 
   const structureOutdated = useMemo(
     () => (dossier ? isTreeOutdated(dossier.tree, getModule1Tree(dossier.format)) : false),
@@ -1411,7 +1414,24 @@ export function DossierWorkspacePage() {
           sign: () => {
             if (docEditing) handleSign()
           },
-          branding: () => setBrandPanelOpen(true),
+          branding: () => {
+            // « En-tête/Pied » EN UN CLIC (comme Signer) : en édition + images org enregistrées →
+            // bascule l'attribut `brand` du document (affiche/masque le papier) ; sinon → panneau
+            // (pour les définir). Toggle instantané + persisté + lu par la compilation.
+            const hasBrandImages = !!(branding?.headerImage || branding?.footerImage)
+            if (liveEditor && hasBrandImages) {
+              const cur = (liveEditor.state.doc.attrs.brand as boolean | undefined) ?? true
+              liveEditor
+                .chain()
+                .command(({ tr }) => {
+                  tr.setDocAttribute('brand', !cur)
+                  return true
+                })
+                .run()
+            } else {
+              setBrandPanelOpen(true)
+            }
+          },
           download: handleDownload,
           downloadPdf: () => fillFormRef.current?.pdf(),
           downloadDocx: () => void fillFormRef.current?.docx(),

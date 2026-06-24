@@ -35,14 +35,15 @@ function FormatToolbarInner({ editor }: { editor: Editor }) {
   const { t } = useI18n()
   // États RÉACTIFS : Annuler/Rétablir suivent l'historique (UndoRedo de StarterKit) ; `inTable`
   // pilote les actions de tableau. Re-render uniquement quand l'une de ces valeurs change.
+  // GUARD : pendant un changement de document (upload, navigation), l'éditeur peut être détruit/null
+  // au moment où le sélecteur s'exécute → `e.can()` planterait (« reading 'can' » → écran noir).
   const { canUndo, canRedo, inTable } = useEditorState({
     editor,
-    selector: ({ editor: e }) => ({
-      canUndo: e.can().undo(),
-      canRedo: e.can().redo(),
-      inTable: e.isActive('table'),
-    }),
-  })
+    selector: ({ editor: e }) =>
+      e && !e.isDestroyed
+        ? { canUndo: e.can().undo(), canRedo: e.can().redo(), inTable: e.isActive('table') }
+        : { canUndo: false, canRedo: false, inTable: false },
+  }) ?? { canUndo: false, canRedo: false, inTable: false }
   return (
     <div className="bg-brand/5 inline-flex items-center gap-[2px] rounded-[9px] border p-[2px]">
       <Button

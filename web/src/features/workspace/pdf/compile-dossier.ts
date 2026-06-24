@@ -1163,13 +1163,16 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
           const isLetter = !['translation', 'upgrade', 'fill', 'import'].includes(
             generated.templateKey,
           )
+          // Toggle « En-tête/Pied » (attribut `brand` du document, défaut true) : masque le papier si
+          // l'utilisateur l'a retiré → la compilation reflète l'éditeur (affiché = compilé).
+          const brandOn = (generated.content as JSONContent).attrs?.brand !== false
           items.push({
             // Source unique avec l'export Bibliothèque (`drawLetterPages`) : en-tête/pied = LETTRES
             // uniquement ; formulaires remplis (`fill`) → rendu stylé navy/bandeaux, sans branding.
             render: () =>
               drawLetterPages(contentDoc, fonts, generated.content as JSONContent, {
-                header: isLetter ? letterHeader : null,
-                footer: isLetter ? letterFooter : null,
+                header: isLetter && brandOn ? letterHeader : null,
+                footer: isLetter && brandOn ? letterFooter : null,
                 styled: generated.templateKey === 'fill',
               }),
           })

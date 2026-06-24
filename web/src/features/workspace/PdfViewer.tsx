@@ -249,8 +249,9 @@ export function PdfViewer({
   }, [blob, url, size, watermark, flow])
 
   return (
-    // `flow` : hauteur naturelle (défile avec la page, montage CTD) ; sinon scroll interne (dialog).
-    <div className={flow ? 'bg-muted p-3' : 'bg-muted min-h-0 flex-1 overflow-auto p-3'}>
+    // `flow` : hauteur naturelle, fond transparent → les pages (chacune bordée/ombrée) flottent comme
+    // la feuille de l'éditeur (cadre UNIQUE, retour CEO) ; sinon scroll interne fond gris (dialog).
+    <div className={flow ? '' : 'bg-muted min-h-0 flex-1 overflow-auto p-3'}>
       <div ref={containerRef} />
       {status === 'loading' ? (
         <p className="text-muted-foreground py-8 text-center text-sm">

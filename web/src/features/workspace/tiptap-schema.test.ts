@@ -124,6 +124,15 @@ describe('parseTiptapContent', () => {
     ).toBeNull()
   })
 
+  it('préserve l’attribut `brand` du document (toggle en-tête/pied — sinon perdu au pull)', () => {
+    const off = { type: 'doc', attrs: { brand: false }, content: [{ type: 'paragraph' }] }
+    const parsed = parseTiptapContent(off)
+    expect(parsed).not.toBeNull()
+    expect((parsed as { attrs?: { brand?: boolean } }).attrs?.brand).toBe(false)
+    // Absent → accepté (défaut = papier affiché).
+    expect(parseTiptapContent({ type: 'doc', content: [{ type: 'paragraph' }] })).not.toBeNull()
+  })
+
   it('refuse une image distante (exfiltration/contenu tiers)', () => {
     expect(
       parseTiptapContent({

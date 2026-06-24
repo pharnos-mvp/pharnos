@@ -18,7 +18,17 @@ function para(text: string): JSONContent {
  * un document généré, elle devient **éditable nativement** (RichTextEditor, toutes les actions de la
  * lettre) ET **compilée** dans le PDF du dossier (via `drawTable`). Affiché = exporté = compilé.
  */
+/** Paragraphe ALIGNÉ À DROITE (bloc signature officiel — rendu décalé à ~56 % comme la lettre). */
+function rightPara(text: string): JSONContent {
+  return { type: 'paragraph', attrs: { textAlign: 'right' }, content: [{ type: 'text', text }] }
+}
+
+// DOIT correspondre au marqueur de `signature.ts` (PLACEHOLDER) pour que le bouton « Signer » place
+// l'image au bon endroit, et au libellé `alt='Signature'` borné à 6,35 cm comme sur la lettre.
+const SIGNATURE_PLACEHOLDER = '[Signature et cachet]'
+
 export function buildVariationTableContent(request: VariationRequest, lang: Lang): JSONContent {
+  const L = (fr: string, en: string) => (lang === 'en' ? en : fr)
   const tbl = buildComparisonTable(request, lang)
   const title = lang === 'en' ? 'ANNEX — VARIATION TABLE' : 'ANNEXE — TABLEAU DE VARIATION'
   const headerRow: JSONContent = {
@@ -29,6 +39,10 @@ export function buildVariationTableContent(request: VariationRequest, lang: Lang
     type: 'tableRow',
     content: r.map((c) => ({ type: 'tableCell', content: [para(c)] })),
   }))
+  // Bloc signature officiel (Poste / Signature / Nom), comme la lettre de variation — juste sous le
+  // tableau (pas isolé), aligné à droite ; « Signer » remplace le marqueur par l'image (≤ 6,35 cm).
+  const poste = request.fields.poste || L('[Poste]', '[Position]')
+  const signataire = request.fields.signataire || L('[Nom et prénom(s)]', '[Full name]')
   return {
     type: 'doc',
     content: [
@@ -39,6 +53,10 @@ export function buildVariationTableContent(request: VariationRequest, lang: Lang
       },
       ...tbl.meta.map((m) => para(`${m.label} : ${m.value}`)),
       { type: 'table', content: [headerRow, ...bodyRows] },
+      para(''),
+      rightPara(poste),
+      rightPara(SIGNATURE_PLACEHOLDER),
+      rightPara(signataire),
     ],
   }
 }

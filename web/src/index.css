@@ -206,26 +206,38 @@
   pointer-events: none;
 }
 
-/* Page A4 de l'éditeur (documents générés, M3.1) — CADRE A4 UNIQUE du CTD builder : métriques
-   IDENTIQUES à `.tplform-sheet` (annexe / formulaires) → aucun décalage de cadre d'un onglet/nœud à
-   l'autre (retour CEO « le cadre bouge »). Times 12, feuille 62 rem, marges 25,4 mm, ombre tplform. */
+/* Page A4 de l'éditeur (documents générés, M3.1) — CADRE A4 UNIQUE du CTD builder, calé EXACTEMENT
+   sur l'aperçu PDF (PdfViewer : `rounded border bg-white shadow`, ~A4) → bordure + coins arrondis +
+   ombre subtile + même largeur. Métriques partagées (var `--doc-sheet-*`) avec `.tplform-sheet`
+   (annexe / formulaires) → aucun décalage de cadre d'un onglet/nœud à l'autre. */
+:root {
+  --doc-sheet-max: 820px; /* ≈ A4 affiché (PdfViewer maxWidth ~833 px) */
+  --doc-sheet-border: 1px solid #d1d5db;
+  --doc-sheet-radius: 6px;
+  --doc-sheet-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
+}
 .editor-page-wrap {
   display: flex;
   justify-content: center;
-  /* Transparent : la feuille flotte (ombre) sur le conteneur du document (carte du nœud / canevas) —
-     même traitement pour la lettre, l'annexe et les pièces → aucun décalage de cadre. */
-  background: transparent;
-  /* Pas de marge en HAUT : la barre de format colle pile à l'en-tête de la page A4. */
-  padding: 4px 0 28px;
+  /* MÊME boîte que l'aperçu PDF (référence CEO) : fond gris `--muted` + petit padding → la feuille
+     bordée/ombrée flotte au centre. Sert l'éditeur ET l'aperçu de pièce (InlineDocPreview) → uniforme. */
+  background: var(--muted);
+  padding: 12px 12px 28px;
 }
 .editor-page {
+  /* Flex colonne : l'aire d'édition grandit (flex:1) et POUSSE le pied en bas de la feuille → le
+     pied reste figé en bas comme l'en-tête en haut (retour CEO « le footer se décale »). */
+  display: flex;
+  flex-direction: column;
   width: 100%;
-  max-width: 62rem;
+  max-width: var(--doc-sheet-max);
   min-height: 297mm;
   padding: 25.4mm;
   background: #fff;
   color: #000;
-  box-shadow: 0 6px 28px rgba(28, 40, 70, 0.16);
+  border: var(--doc-sheet-border);
+  border-radius: var(--doc-sheet-radius);
+  box-shadow: var(--doc-sheet-shadow);
   font-family: 'Times New Roman', Times, serif;
   font-size: 12pt;
   line-height: 1.35;
@@ -235,12 +247,25 @@
     padding: 28px 22px;
   }
 }
+/* EditorContent rend un <div> wrapper autour de .ProseMirror : c'est LUI le flex-enfant à faire
+   grandir (entre en-tête et pied) → pousse le pied en bas. (Seul enfant <div> de .editor-page ;
+   en-tête/pied sont des <img>.) */
+.editor-page > div {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
 .editor-page .ProseMirror {
+  flex: 1 1 auto;
   min-height: 16cm;
   outline: none;
 }
+/* Images du contenu : bornées (une image Word/signature haute résolution ne doit pas s'afficher
+   démesurément — retour CEO). Aspect ratio préservé (la plus petite contrainte gagne). */
 .editor-page .ProseMirror img {
   max-width: 100%;
+  max-height: 12cm;
+  width: auto;
   height: auto;
 }
 /* Signature insérée (alt="Signature") : taille officielle bornée dans l'aperçu, comme le PDF
@@ -264,6 +289,7 @@
 }
 .editor-band {
   display: block;
+  flex-shrink: 0; /* flex colonne : l'en-tête/pied garde sa taille (l'aire d'édition grandit, pas eux). */
   /* Pleine largeur bord-à-bord : déborde le padding 25,4 mm de .editor-page (en-tête/pied sans marge). */
   width: calc(100% + 50.8mm);
   max-width: none;
