@@ -52,12 +52,23 @@ const blockNode: z.ZodType<BlockNode> = z.lazy(() =>
         'codeBlock',
         'horizontalRule',
         'hardBreak',
+        // Tableaux (extension-table) : table > tableRow > (tableHeader|tableCell) > blocs. La
+        // grammaire fine est laissée à TipTap ; ici on borne le coût (profondeur/taille) et les
+        // attrs de fusion pour qu'un contenu serveur à tableau ne soit pas mis en quarantaine.
+        'table',
+        'tableRow',
+        'tableHeader',
+        'tableCell',
       ]),
       attrs: z
         .object({
           level: z.number().int().min(1).max(6).optional(),
           textAlign: textAlign.nullish(),
           start: z.number().int().optional(),
+          // Cellules : fusion + largeurs de colonne bornées (anti-abus sur un payload forgé).
+          colspan: z.number().int().min(1).max(64).optional(),
+          rowspan: z.number().int().min(1).max(64).optional(),
+          colwidth: z.array(z.number().int().min(0).max(4000)).max(64).nullish(),
         })
         .passthrough()
         .optional(),
@@ -68,6 +79,8 @@ const blockNode: z.ZodType<BlockNode> = z.lazy(() =>
 
 const docSchema = z.object({
   type: z.literal('doc'),
+  // `brand` (bool) : affiche/masque le papier à en-tête/pied (toggle 1 clic). Préservé au pull.
+  attrs: z.object({ brand: z.boolean().optional() }).passthrough().optional(),
   content: z.array(blockNode).optional(),
 })
 

@@ -171,33 +171,101 @@
   padding-left: 0.75rem;
   color: var(--muted-foreground);
 }
+/* Tableaux (extension-table) — grille fine #999, en-tête grisé #f0f0f0 : FIDÈLE au PDF compilé
+   (compile-dossier drawTable) → aperçu = livrable. `table-layout: fixed` = colonnes régulières
+   (non redimensionnables). `position: relative` sur les cellules pour le voile de sélection TipTap. */
+.ProseMirror table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0.5rem 0;
+}
+.ProseMirror td,
+.ProseMirror th {
+  position: relative;
+  /* #808080 sur blanc = ~3,9:1 → passe WCAG 1.4.11 (≥ 3:1 pour les bordures de tableau, graphique
+     requis pour comprendre la structure). #999 (2,85:1) échouait. Aligné avec la grille du PDF. */
+  border: 1px solid #808080;
+  padding: 4px 6px;
+  vertical-align: top;
+  min-width: 2em;
+}
+.ProseMirror th {
+  background: #f0f0f0;
+  font-weight: 700;
+  text-align: left;
+}
+.ProseMirror table p {
+  margin: 0;
+}
+.ProseMirror .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgb(38 63 115 / 0.12);
+  pointer-events: none;
+}
 
-/* Page A4 de l'éditeur (documents générés, M3.1) — Times New Roman 12, marges 2,5 cm */
+/* Page A4 de l'éditeur (documents générés, M3.1) — CADRE A4 UNIQUE du CTD builder, calé EXACTEMENT
+   sur l'aperçu PDF (PdfViewer : `rounded border bg-white shadow`, ~A4) → bordure + coins arrondis +
+   ombre subtile + même largeur. Métriques partagées (var `--doc-sheet-*`) avec `.tplform-sheet`
+   (annexe / formulaires) → aucun décalage de cadre d'un onglet/nœud à l'autre. */
+:root {
+  --doc-sheet-max: 820px; /* ≈ A4 affiché (PdfViewer maxWidth ~833 px) */
+  --doc-sheet-border: 1px solid #d1d5db;
+  --doc-sheet-radius: 6px;
+  --doc-sheet-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
+}
 .editor-page-wrap {
+  display: flex;
+  justify-content: center;
+  /* MÊME boîte que l'aperçu PDF (référence CEO) : fond gris `--muted` + petit padding → la feuille
+     bordée/ombrée flotte au centre. Sert l'éditeur ET l'aperçu de pièce (InlineDocPreview) → uniforme. */
   background: var(--muted);
-  /* Pas de marge en HAUT : la barre de format colle pile à l'en-tête de la page A4.
-     Marges latérales (centrage) + marge de bas généreuse (on défile jusqu'au bas de l'A4). */
-  padding: 0 1.5rem 3rem;
+  padding: 12px 12px 28px;
 }
 .editor-page {
-  width: 21cm;
-  max-width: 100%;
-  min-height: 24cm;
-  margin: 0 auto;
-  padding: 2.5cm;
+  /* Flex colonne : l'aire d'édition grandit (flex:1) et POUSSE le pied en bas de la feuille → le
+     pied reste figé en bas comme l'en-tête en haut (retour CEO « le footer se décale »). */
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: var(--doc-sheet-max);
+  min-height: 297mm;
+  padding: 25.4mm;
   background: #fff;
   color: #000;
-  box-shadow: 0 1px 8px rgb(0 0 0 / 0.12);
+  border: var(--doc-sheet-border);
+  border-radius: var(--doc-sheet-radius);
+  box-shadow: var(--doc-sheet-shadow);
   font-family: 'Times New Roman', Times, serif;
   font-size: 12pt;
-  line-height: 1.5;
+  line-height: 1.35;
+}
+@media (max-width: 860px) {
+  .editor-page {
+    padding: 28px 22px;
+  }
+}
+/* EditorContent rend un <div> wrapper autour de .ProseMirror : c'est LUI le flex-enfant à faire
+   grandir (entre en-tête et pied) → pousse le pied en bas. (Seul enfant <div> de .editor-page ;
+   en-tête/pied sont des <img>.) */
+.editor-page > div {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
 }
 .editor-page .ProseMirror {
+  flex: 1 1 auto;
   min-height: 16cm;
   outline: none;
 }
+/* Images du contenu : bornées (une image Word/signature haute résolution ne doit pas s'afficher
+   démesurément — retour CEO). Aspect ratio préservé (la plus petite contrainte gagne). */
 .editor-page .ProseMirror img {
   max-width: 100%;
+  max-height: 12cm;
+  width: auto;
   height: auto;
 }
 /* Signature insérée (alt="Signature") : taille officielle bornée dans l'aperçu, comme le PDF
@@ -221,12 +289,22 @@
 }
 .editor-band {
   display: block;
-  /* Pleine largeur bord-à-bord : déborde le padding 2,5cm de .editor-page (en-tête/pied sans marge). */
-  width: calc(100% + 5cm);
+  flex-shrink: 0; /* flex colonne : l'en-tête/pied garde sa taille (l'aire d'édition grandit, pas eux). */
+  /* Pleine largeur bord-à-bord : déborde le padding 25,4 mm de .editor-page (en-tête/pied sans marge). */
+  width: calc(100% + 50.8mm);
   max-width: none;
   height: auto;
-  margin: -2.5cm -2.5cm 1rem;
+  margin: -25.4mm -25.4mm 1rem;
 }
 .editor-band-footer {
-  margin: 2rem -2.5cm -2.5cm;
+  margin: 2rem -25.4mm -25.4mm;
+}
+@media (max-width: 860px) {
+  .editor-band {
+    width: calc(100% + 44px);
+    margin: -28px -22px 1rem;
+  }
+  .editor-band-footer {
+    margin: 2rem -22px -28px;
+  }
 }

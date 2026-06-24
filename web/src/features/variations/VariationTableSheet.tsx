@@ -20,6 +20,7 @@ export function VariationTableSheet({
   fields,
   title,
   lang,
+  onAmmChange,
 }: {
   items: VariationItem[]
   /** Libellés des natures (déjà localisés) — colonne « Nature » en lecture seule. */
@@ -28,6 +29,9 @@ export function VariationTableSheet({
   fields: LetterFields
   title: string
   lang: Lang
+  /** Si fourni, le N° d'AMM du bloc méta devient éditable **inline sur la feuille** (édition
+   *  directe du document — pas de case-formulaire séparée). Sinon affiché en lecture seule. */
+  onAmmChange?: (v: string) => void
 }) {
   const { t } = useI18n()
   const L = (fr: string, en: string) => (lang === 'en' ? en : fr)
@@ -39,9 +43,10 @@ export function VariationTableSheet({
     year: 'numeric',
   })
 
-  const meta: { l: string; v: string }[] = [
+  const ammLabel = L('N° d’AMM', 'MA number')
+  const meta: { l: string; v: string; amm?: boolean }[] = [
     { l: L('Produit', 'Product'), v: fields.nomCommercial || DASH },
-    { l: L('N° d’AMM', 'MA number'), v: fields.ammNumero || DASH },
+    { l: ammLabel, v: fields.ammNumero || DASH, amm: true },
     {
       l: L('Pays', 'Country'),
       v: countryLabel(fields.country, lang) || fields.country || DASH,
@@ -61,7 +66,18 @@ export function VariationTableSheet({
             {meta.map((m, i) => (
               <div key={i}>
                 <strong>{m.l} : </strong>
-                {m.v}
+                {m.amm && onAmmChange ? (
+                  <input
+                    type="text"
+                    className="field-input"
+                    value={fields.ammNumero}
+                    onChange={(e) => onAmmChange(e.target.value)}
+                    placeholder={ammLabel}
+                    aria-label={ammLabel}
+                  />
+                ) : (
+                  m.v
+                )}
               </div>
             ))}
           </div>

@@ -55,6 +55,84 @@ describe('parseTiptapContent', () => {
     ).not.toBeNull()
   })
 
+  it('accepte un tableau (extension-table) et le préserve à l’identique (anti-perte au rechargement)', () => {
+    const tableDoc = {
+      type: 'doc',
+      content: [
+        {
+          type: 'table',
+          content: [
+            {
+              type: 'tableRow',
+              content: [
+                {
+                  type: 'tableHeader',
+                  attrs: { colspan: 1, rowspan: 1, colwidth: null },
+                  content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Rubrique' }] }],
+                },
+                {
+                  type: 'tableHeader',
+                  attrs: { colspan: 1, rowspan: 1, colwidth: [120] },
+                  content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Valeur' }] }],
+                },
+              ],
+            },
+            {
+              type: 'tableRow',
+              content: [
+                {
+                  type: 'tableCell',
+                  attrs: { colspan: 2, rowspan: 1, colwidth: null },
+                  content: [
+                    { type: 'paragraph', content: [{ type: 'text', text: 'Dosage : 500 mg' }] },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }
+    const parsed = parseTiptapContent(tableDoc)
+    expect(parsed).not.toBeNull()
+    // Round-trip fidèle : aucune cellule/attribut perdu (le doc serveur survit save→reload).
+    expect(parsed).toEqual(tableDoc)
+  })
+
+  it('refuse un colspan hors bornes (payload forgé — anti-abus)', () => {
+    expect(
+      parseTiptapContent({
+        type: 'doc',
+        content: [
+          {
+            type: 'table',
+            content: [
+              {
+                type: 'tableRow',
+                content: [
+                  {
+                    type: 'tableCell',
+                    attrs: { colspan: 100000 },
+                    content: [{ type: 'paragraph', content: [{ type: 'text', text: 'x' }] }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    ).toBeNull()
+  })
+
+  it('préserve l’attribut `brand` du document (toggle en-tête/pied — sinon perdu au pull)', () => {
+    const off = { type: 'doc', attrs: { brand: false }, content: [{ type: 'paragraph' }] }
+    const parsed = parseTiptapContent(off)
+    expect(parsed).not.toBeNull()
+    expect((parsed as { attrs?: { brand?: boolean } }).attrs?.brand).toBe(false)
+    // Absent → accepté (défaut = papier affiché).
+    expect(parseTiptapContent({ type: 'doc', content: [{ type: 'paragraph' }] })).not.toBeNull()
+  })
+
   it('refuse une image distante (exfiltration/contenu tiers)', () => {
     expect(
       parseTiptapContent({

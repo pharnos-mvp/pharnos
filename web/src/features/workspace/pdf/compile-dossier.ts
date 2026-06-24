@@ -202,7 +202,16 @@ function drawRuns(
         color: BLACK,
       })
     }
+    // Fusionne les runs adjacents de même graisse → UN SEUL drawText par segment : les espaces
+    // restent dans la chaîne (natifs) au lieu d'être dessinés isolément (un espace seul n'avançait
+    // pas toujours le curseur → mots collés « TABLEAU DE » → « TABLEAUDE »).
+    const merged: Run[] = []
     for (const run of line) {
+      const last = merged[merged.length - 1]
+      if (last && last.bold === run.bold) last.text += run.text
+      else merged.push({ text: run.text, bold: run.bold })
+    }
+    for (const run of merged) {
       const font = run.bold ? c.fonts.bold : c.fonts.regular
       const t = sanitize(run.text)
       c.page.drawText(t, { x, y: c.y, size, font, color })
@@ -313,6 +322,156 @@ function blockIndent(block: JSONContent): number {
   return block.attrs?.textAlign === 'right' ? RIGHT_BLOCK_INDENT : 0
 }
 
+/* ----------------------------- Tableaux (extension-table) ----------------------------- */
+
+const TABLE_SIZE = 10
+const TABLE_PAD = 4
+// #808080 : aligné avec la grille de l'éditeur (aperçu = compilé) ET ≥ 3:1 sur blanc (WCAG 1.4.11).
+const TABLE_GRID = rgb(0.5, 0.5, 0.5)
+const TABLE_HEAD_FILL = rgb(0.93, 0.93, 0.93)
+
+/** Cellules (tableHeader|tableCell) d'une ligne de tableau. */
+function rowCells(row: JSONContent): JSONContent[] {
+  return (row.content ?? []).filter((x) => x.type === 'tableCell' || x.type === 'tableHeader')
+}
+
+/** Lignes de texte d'une cellule, enroulées à la largeur `w` (paragraphes + listes ; en-tête = gras). */
+function cellLines(c: Cursor, cell: JSONContent, w: number, header: boolean): Run[][] {
+  const maxW = Math.max(8, w - 2 * TABLE_PAD)
+  const bolden = (runs: Run[]) => (header ? runs.map((r) => ({ ...r, bold: true })) : runs)
+  const out: Run[][] = []
+  for (const block of cell.content ?? []) {
+    if (block.type === 'bulletList' || block.type === 'orderedList') {
+      let i = 1
+      for (const item of block.content ?? []) {
+        const para = (item.content ?? []).find((x) => x.type === 'paragraph')
+        const prefix = block.type === 'orderedList' ? `${i}. ` : '• '
+        out.push(
+          ...wrap(
+            bolden([{ text: prefix, bold: false }, ...inlineRuns(para?.content)]),
+            c.fonts,
+            TABLE_SIZE,
+            maxW,
+          ),
+        )
+        i++
+      }
+    } else if (block.type === 'paragraph' || block.type === 'heading') {
+      out.push(...wrap(bolden(inlineRuns(block.content)), c.fonts, TABLE_SIZE, maxW))
+    }
+  }
+  return out.length ? out : [[]]
+}
+
+interface PlacedCell {
+  cell: JSONContent
+  rStart: number
+  cStart: number
+  cSpan: number
+  rSpan: number
+  header: boolean
+  lines: Run[][]
+}
+
+/** Largeur en colonnes effectivement occupée à droite par `cStart`, bornée à la grille. */
+function spanCols(cols: number, cStart: number, cSpan: number): number {
+  return Math.max(1, Math.min(cols - cStart, cSpan))
+}
+
+/**
+ * Dessine un tableau TipTap en pdf-lib. **Grille d'occupation** : colspan ET rowspan gérés comme le
+ * DOCX (un même contenu rend à l'identique) — une cellule fusionnée verticalement réserve ses colonnes
+ * sur les lignes suivantes (pas de décalage). Colonnes à largeur égale, enroulement par cellule, saut
+ * de page entre lignes. Calqué sur `variation-table-pdf.ts` → fidèle dans le livrable métré.
+ */
+function drawTable(c: Cursor, node: JSONContent): void {
+  const rows = (node.content ?? []).filter((r) => r.type === 'tableRow')
+  if (rows.length === 0) return
+  const lh = lineHeight(TABLE_SIZE)
+
+  // PASS 1 — placement. occupancy[col] = nb de lignes encore couvertes par une cellule fusionnée
+  // venant d'au-dessus → la ligne courante « saute » ces colonnes (jamais de décalage).
+  const occupancy: number[] = []
+  const placed: PlacedCell[] = []
+  rows.forEach((row, r) => {
+    let col = 0
+    for (const cell of rowCells(row)) {
+      while ((occupancy[col] ?? 0) > 0) col++
+      const cSpan = Math.max(1, Math.min(64, Number(cell.attrs?.colspan ?? 1)))
+      const rSpan = Math.max(1, Math.min(64, Number(cell.attrs?.rowspan ?? 1)))
+      placed.push({
+        cell,
+        rStart: r,
+        cStart: col,
+        cSpan,
+        rSpan,
+        header: cell.type === 'tableHeader',
+        lines: [],
+      })
+      for (let k = 0; k < cSpan; k++) occupancy[col + k] = rSpan
+      col += cSpan
+    }
+    for (let k = 0; k < occupancy.length; k++) if ((occupancy[k] ?? 0) > 0) occupancy[k]!--
+  })
+  const cols = Math.max(1, occupancy.length)
+  const colW = CONTENT_WIDTH / cols
+  for (const p of placed)
+    p.lines = cellLines(c, p.cell, spanCols(cols, p.cStart, p.cSpan) * colW, p.header)
+
+  // PASS 2 — hauteur des lignes. rSpan==1 impose sa hauteur à sa ligne ; une cellule fusionnée
+  // verticalement reporte son surplus sur la dernière ligne couverte.
+  const rowH = rows.map(() => lh + 2 * TABLE_PAD)
+  for (const p of placed) {
+    const need = p.lines.length * lh + 2 * TABLE_PAD
+    const last = Math.min(rows.length - 1, p.rStart + p.rSpan - 1)
+    if (p.rSpan <= 1) {
+      if (need > rowH[p.rStart]!) rowH[p.rStart] = need
+    } else {
+      let have = 0
+      for (let r = p.rStart; r <= last; r++) have += rowH[r]!
+      if (need > have) rowH[last]! += need - have
+    }
+  }
+
+  // PASS 3 — dessin ligne par ligne (saut de page entre lignes). Une cellule fusionnée est dessinée
+  // à sa ligne de départ, sur la hauteur cumulée des lignes qu'elle couvre.
+  c.y -= 4
+  for (let r = 0; r < rows.length; r++) {
+    if (c.y - rowH[r]! < c.bottom) newPage(c)
+    const top = c.y
+    for (const p of placed) {
+      if (p.rStart !== r) continue
+      const last = Math.min(rows.length - 1, p.rStart + p.rSpan - 1)
+      let h = 0
+      for (let k = r; k <= last; k++) h += rowH[k]!
+      const w = spanCols(cols, p.cStart, p.cSpan) * colW
+      const x = MARGIN + p.cStart * colW
+      c.page.drawRectangle({
+        x,
+        y: top - h,
+        width: w,
+        height: h,
+        color: p.header ? TABLE_HEAD_FILL : undefined,
+        borderColor: TABLE_GRID,
+        borderWidth: 0.5,
+      })
+      let ty = top - TABLE_PAD - TABLE_SIZE
+      for (const line of p.lines) {
+        let tx = x + TABLE_PAD
+        for (const run of line) {
+          const font = run.bold ? c.fonts.bold : c.fonts.regular
+          const txt = sanitize(run.text)
+          c.page.drawText(txt, { x: tx, y: ty, size: TABLE_SIZE, font, color: BLACK })
+          tx += font.widthOfTextAtSize(txt, TABLE_SIZE)
+        }
+        ty -= lh
+      }
+    }
+    c.y -= rowH[r]!
+  }
+  c.y -= 6
+}
+
 /**
  * Rendu d'un contenu TipTap. `styled` (formulaires de templates — `templateKey: 'fill'`) :
  * hiérarchie IDENTIQUE aux exports form-print/form-docx — titre (niveau 1) centré navy bold,
@@ -400,6 +559,10 @@ async function renderTiptap(c: Cursor, content: JSONContent, styled = false): Pr
           color: BLACK,
         })
         c.y -= 10
+        break
+      }
+      case 'table': {
+        drawTable(c, block)
         break
       }
       default:
@@ -1003,17 +1166,22 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
         // (jamais deux documents sur une même page).
         const items: { render: () => Promise<void> }[] = []
         for (const generated of content.generated) {
-          // Papier à en-tête/pied : LETTRES uniquement (cover, PGHT…). Les templates remplis,
-          // traductions et versions conformes restent vierges — aligné sur l'éditeur, qui ne
-          // leur affiche pas le branding.
-          const isLetter = !['translation', 'upgrade', 'fill'].includes(generated.templateKey)
+          // Papier à en-tête/pied : LETTRES uniquement (cover, PGHT…). Templates remplis,
+          // traductions, versions conformes et documents Word IMPORTÉS restent vierges — un .docx
+          // arbitraire n'est pas une lettre officielle (aligné sur l'éditeur).
+          const isLetter = !['translation', 'upgrade', 'fill', 'import'].includes(
+            generated.templateKey,
+          )
+          // Toggle « En-tête/Pied » (attribut `brand` du document, défaut true) : masque le papier si
+          // l'utilisateur l'a retiré → la compilation reflète l'éditeur (affiché = compilé).
+          const brandOn = (generated.content as JSONContent).attrs?.brand !== false
           items.push({
             // Source unique avec l'export Bibliothèque (`drawLetterPages`) : en-tête/pied = LETTRES
             // uniquement ; formulaires remplis (`fill`) → rendu stylé navy/bandeaux, sans branding.
             render: () =>
               drawLetterPages(contentDoc, fonts, generated.content as JSONContent, {
-                header: isLetter ? letterHeader : null,
-                footer: isLetter ? letterFooter : null,
+                header: isLetter && brandOn ? letterHeader : null,
+                footer: isLetter && brandOn ? letterFooter : null,
                 styled: generated.templateKey === 'fill',
               }),
           })

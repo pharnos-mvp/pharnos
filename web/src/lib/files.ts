@@ -8,19 +8,20 @@ export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024 // 25 Mo
 
 // Formats acceptés : PDF + images (aperçu, analyse IA, compilation) + bureautique courante
 // (annexes). Les types à risque (html, svg — XSS, exécutables…) sont volontairement exclus.
-const ALLOWED_EXTENSIONS = new Set(['pdf', 'png', 'jpg', 'jpeg', 'webp', 'docx', 'xlsx'])
+const ALLOWED_EXTENSIONS = new Set(['pdf', 'png', 'jpg', 'jpeg', 'webp', 'doc', 'docx', 'xlsx'])
 
 const ALLOWED_MIMES = new Set([
   'application/pdf',
   'image/png',
   'image/jpeg',
   'image/webp',
+  'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 ])
 
 /** Valeur pour l'attribut `accept` des inputs file (premier filtre, côté navigateur). */
-export const UPLOAD_ACCEPT = '.pdf,.png,.jpg,.jpeg,.webp,.docx,.xlsx'
+export const UPLOAD_ACCEPT = '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xlsx'
 
 const extOf = (name: string): string => name.toLowerCase().split('.').pop() ?? ''
 
@@ -39,6 +40,7 @@ const MIME_BY_EXT: Record<string, string> = {
   jpg: 'image/jpeg',
   jpeg: 'image/jpeg',
   webp: 'image/webp',
+  doc: 'application/msword',
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 }

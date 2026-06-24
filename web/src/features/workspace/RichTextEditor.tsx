@@ -1,12 +1,9 @@
 import { useEffect } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import Image from '@tiptap/extension-image'
-import TextAlign from '@tiptap/extension-text-align'
-import { EditorContent, useEditor } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
+import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 
 import { useI18n } from '@/lib/i18n-context'
-import { LockedHeading } from './locked-heading'
+import { editorExtensions } from './tiptap-extensions'
 
 interface RichTextEditorProps {
   /** Identité du document : un changement recrée l'éditeur avec le nouveau contenu. */
@@ -41,14 +38,10 @@ export function RichTextEditor({
   const { t } = useI18n()
   const editor = useEditor(
     {
-      extensions: [
-        // Heading remplacé par LockedHeading : identique pour les documents ordinaires, et
-        // verrouille les titres des squelettes « Remplir le template » (attrs.locked).
-        StarterKit.configure({ heading: false }),
-        LockedHeading,
-        Image.configure({ inline: true, allowBase64: true }),
-        TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      ],
+      // Extensions partagées avec l'import docx (même schéma) : StarterKit (Heading→LockedHeading),
+      // Image base64, TextAlign, tableaux non redimensionnables. Export DOCX + compilation PDF rendent
+      // tous ces nœuds → aucune perte.
+      extensions: editorExtensions(),
       // Garde-fou : un contenu non-ProseMirror ferait planter TipTap au montage.
       content:
         initialContent && (initialContent as { type?: string }).type === 'doc'
@@ -75,14 +68,22 @@ export function RichTextEditor({
     if (editor && onReady) onReady(editor, docId)
   }, [editor, onReady, docId])
 
+  // Attribut `brand` du document (défaut true) → affiche/masque le papier à en-tête/pied. Réactif :
+  // le toggle « En-tête/Pied » (1 clic) hide/show instantanément. Guard null/détruit (cf. barre).
+  const brand =
+    useEditorState({
+      editor,
+      selector: ({ editor: e }) => (e && !e.isDestroyed ? (e.state.doc.attrs.brand ?? true) : true),
+    }) ?? true
+
   return (
     <div className="editor-page-wrap">
       <div className="editor-page">
-        {header ? (
+        {header && brand ? (
           <img src={header} alt={t({ fr: 'En-tête', en: 'Header' })} className="editor-band" />
         ) : null}
         <EditorContent editor={editor} />
-        {footer ? (
+        {footer && brand ? (
           <img
             src={footer}
             alt={t({ fr: 'Pied de page', en: 'Footer' })}

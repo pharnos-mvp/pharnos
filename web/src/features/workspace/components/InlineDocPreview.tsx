@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Download, FileText } from 'lucide-react'
+import { FileText } from 'lucide-react'
 
-import { buttonVariants } from '@/components/ui/button'
 import { useI18n } from '@/lib/i18n-context'
 import { cacheDocumentBlob, getDocumentBlob } from '@/features/catalogue/documents-repository'
 import { downloadDocumentBlob } from '@/features/catalogue/documents-sync'
@@ -67,37 +66,24 @@ export function InlineDocPreview({
   const isImage =
     (blob?.type ?? '').startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(fileName)
 
+  // Cadre A4 UNIQUE (= éditeur/annexe) → aucun décalage en changeant d'onglet/nœud. Le nom du fichier
+  // et le bouton Télécharger vivent dans la barre d'actions du document (plus d'en-tête redondant ici).
   return (
-    <div className="overflow-hidden rounded-lg border">
-      <div className="bg-card flex items-center justify-between gap-2 border-b px-3 py-1.5">
-        <span className="truncate text-xs font-medium">{fileName}</span>
-        {url ? (
-          <a
-            href={url}
-            download={fileName}
-            aria-label={t({ fr: 'Télécharger', en: 'Download' })}
-            className={buttonVariants({ variant: 'ghost', size: 'icon-sm' })}
-          >
-            <Download className="size-4" />
-          </a>
-        ) : null}
-      </div>
+    <div className="editor-page-wrap">
       {loading ? (
-        <div className="text-muted-foreground flex min-h-[20rem] items-center justify-center text-sm">
+        <div className="editor-page text-muted-foreground flex min-h-[20rem] items-center justify-center text-sm">
           {t({ fr: 'Chargement…', en: 'Loading…' })}
         </div>
       ) : blob && isPdf ? (
-        <PdfViewer blob={blob} flow />
+        <div className="w-full" style={{ maxWidth: 'var(--doc-sheet-max)' }}>
+          <PdfViewer blob={blob} flow />
+        </div>
       ) : blob && isImage && url ? (
-        <div className="bg-muted p-3">
-          <img
-            src={url}
-            alt={fileName}
-            className="mx-auto max-w-full rounded border bg-white shadow"
-          />
+        <div className="editor-page">
+          <img src={url} alt={fileName} className="mx-auto max-w-full" />
         </div>
       ) : url ? (
-        <div className="text-muted-foreground flex min-h-[20rem] flex-col items-center justify-center gap-2 text-sm">
+        <div className="editor-page text-muted-foreground flex min-h-[20rem] flex-col items-center justify-center gap-2 text-sm">
           <FileText className="size-8" />
           {t({
             fr: 'Aperçu non disponible pour ce format — téléchargez le fichier.',
@@ -105,7 +91,7 @@ export function InlineDocPreview({
           })}
         </div>
       ) : (
-        <div className="text-muted-foreground flex min-h-[20rem] items-center justify-center text-sm">
+        <div className="editor-page text-muted-foreground flex min-h-[20rem] items-center justify-center text-sm">
           {t({ fr: 'Aperçu indisponible hors-ligne.', en: 'Preview unavailable offline.' })}
         </div>
       )}
