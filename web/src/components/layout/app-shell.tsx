@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTheme } from 'next-themes'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   ArrowUpCircle,
@@ -11,9 +12,12 @@ import {
   Library,
   LogOut,
   Menu,
+  Moon,
   PanelLeftClose,
   PanelLeftOpen,
   Settings2,
+  Sun,
+  SunMoon,
 } from 'lucide-react'
 
 import { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -80,6 +84,9 @@ export function AppShell() {
   const orgId = useOrgId()
   const navigate = useNavigate()
   const { t, lang, setLang } = useI18n()
+  // Thème clair/sombre (next-themes, `attribute="class"`). `resolvedTheme` = thème EFFECTIF (résout
+  // « system ») → sert à marquer le bouton actif, même si le réglage est encore « system ».
+  const { setTheme, resolvedTheme } = useTheme()
   const { data: plan } = useOrgPlan()
   useAuditSync(orgId)
   // Reviews et messages du correspondant en quasi temps réel, où qu'on soit dans l'app.
@@ -275,6 +282,21 @@ export function AppShell() {
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <SunMoon className="size-4" /> {t({ fr: 'Thème', en: 'Theme' })}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem onClick={() => setTheme('light')}>
+                    <Sun className="size-4" /> {t({ fr: 'Clair', en: 'Light' })}{' '}
+                    {resolvedTheme === 'light' ? '✓' : ''}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTheme('dark')}>
+                    <Moon className="size-4" /> {t({ fr: 'Sombre', en: 'Dark' })}{' '}
+                    {resolvedTheme === 'dark' ? '✓' : ''}
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
               {plan && plan.plan !== 'enterprise' ? (
                 <DropdownMenuItem
                   onClick={() => navigate('/compte', { state: { section: 'abonnement' } })}
@@ -447,6 +469,36 @@ export function AppShell() {
                     )}
                   >
                     EN
+                  </button>
+                </span>
+              </div>
+              <div className="flex h-11 items-center gap-2 px-2 text-sm">
+                <SunMoon className="size-4 shrink-0" />
+                <span className="text-muted-foreground">{t({ fr: 'Thème', en: 'Theme' })}</span>
+                <span className="ml-auto flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setTheme('light')}
+                    aria-pressed={resolvedTheme === 'light'}
+                    aria-label={t({ fr: 'Thème clair', en: 'Light theme' })}
+                    className={cn(
+                      'flex items-center rounded px-2 py-1',
+                      resolvedTheme === 'light' ? 'bg-secondary' : 'hover:bg-accent',
+                    )}
+                  >
+                    <Sun className="size-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTheme('dark')}
+                    aria-pressed={resolvedTheme === 'dark'}
+                    aria-label={t({ fr: 'Thème sombre', en: 'Dark theme' })}
+                    className={cn(
+                      'flex items-center rounded px-2 py-1',
+                      resolvedTheme === 'dark' ? 'bg-secondary' : 'hover:bg-accent',
+                    )}
+                  >
+                    <Moon className="size-4" />
                   </button>
                 </span>
               </div>
