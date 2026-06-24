@@ -183,7 +183,9 @@
 .ProseMirror td,
 .ProseMirror th {
   position: relative;
-  border: 1px solid #999;
+  /* #808080 sur blanc = ~3,9:1 → passe WCAG 1.4.11 (≥ 3:1 pour les bordures de tableau, graphique
+     requis pour comprendre la structure). #999 (2,85:1) échouait. Aligné avec la grille du PDF. */
+  border: 1px solid #808080;
   padding: 4px 6px;
   vertical-align: top;
   min-width: 2em;

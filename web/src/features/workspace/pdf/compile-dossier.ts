@@ -317,7 +317,8 @@ function blockIndent(block: JSONContent): number {
 
 const TABLE_SIZE = 10
 const TABLE_PAD = 4
-const TABLE_GRID = rgb(0.6, 0.6, 0.6)
+// #808080 : aligné avec la grille de l'éditeur (aperçu = compilé) ET ≥ 3:1 sur blanc (WCAG 1.4.11).
+const TABLE_GRID = rgb(0.5, 0.5, 0.5)
 const TABLE_HEAD_FILL = rgb(0.93, 0.93, 0.93)
 
 /** Cellules (tableHeader|tableCell) d'une ligne de tableau. */
