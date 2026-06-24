@@ -225,9 +225,10 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
       </div>
 
       {/* Header de configuration COMPACT sur UNE SEULE LIGNE (comme les autres templates) : barre
-          `bg-muted/40 p-3`, champs natifs `h-8` compacts, labels `text-xs`. `flex-nowrap` + `overflow-x-auto`
-          → tout sur une ligne (défile si l'écran est trop étroit). Variables : produit · pays · N° d'AMM ·
-          date d'octroi · DEUX sélecteurs de variation (mineure | majeure). */}
+          `bg-muted/40 p-3`, `<select>` NATIFS `h-8` (a11y-excellents, picker natif mobile, focus-ring
+          du design system), `flex-nowrap` + `overflow-x-auto`. Variables : produit · pays · DEUX
+          sélecteurs de variation (mineure | majeure). Le N° d'AMM et la date se saisissent dans les
+          cases du formulaire (pré-remplies par le choix du produit). Tout n'est que RACCOURCI. */}
       <div className="bg-muted/40 flex flex-nowrap items-end gap-2 overflow-x-auto rounded-lg border p-3">
         <label className="flex shrink-0 flex-col gap-1 text-xs">
           <span className="text-muted-foreground font-medium">
@@ -236,7 +237,7 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
           <select
             value={productId}
             onChange={(e) => void pickProduct(e.target.value)}
-            className="border-input bg-background h-8 w-40 rounded-md border px-2 text-sm"
+            className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-40 cursor-pointer rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]"
             aria-label={t({ fr: 'Choisir un produit', en: 'Choose a product' })}
           >
             <option value="">
@@ -260,7 +261,7 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
           <select
             value={fields.country}
             onChange={(e) => setField('country', e.target.value)}
-            className="border-input bg-background h-8 w-36 rounded-md border px-2 text-sm"
+            className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-36 cursor-pointer rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]"
             aria-label={t({ fr: 'Pays cible', en: 'Target country' })}
           >
             <option value="">{t({ fr: 'Choisir un pays', en: 'Choose a country' })}</option>
@@ -274,33 +275,6 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
 
         <label className="flex shrink-0 flex-col gap-1 text-xs">
           <span className="text-muted-foreground font-medium">
-            {t({ fr: 'N° d’AMM', en: 'MA number' })}
-          </span>
-          <input
-            type="text"
-            value={fields.ammNumero}
-            onChange={(e) => setField('ammNumero', e.target.value)}
-            placeholder="AMM_2015_7457"
-            className="border-input bg-background h-8 w-36 rounded-md border px-2 text-sm"
-            aria-label={t({ fr: 'N° d’AMM', en: 'MA number' })}
-          />
-        </label>
-
-        <label className="flex shrink-0 flex-col gap-1 text-xs">
-          <span className="text-muted-foreground font-medium">
-            {t({ fr: 'Date d’octroi', en: 'Grant date' })}
-          </span>
-          <input
-            type="date"
-            value={fields.ammDateDelivrance}
-            onChange={(e) => setField('ammDateDelivrance', e.target.value)}
-            className="border-input bg-background h-8 w-36 rounded-md border px-2 text-sm"
-            aria-label={t({ fr: 'Date d’octroi', en: 'Grant date' })}
-          />
-        </label>
-
-        <label className="flex shrink-0 flex-col gap-1 text-xs">
-          <span className="text-muted-foreground font-medium">
             {t({ fr: 'Variation mineure', en: 'Minor variation' })}
           </span>
           <select
@@ -308,7 +282,7 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
             onChange={(e) => {
               if (e.target.value) addVariation(Number(e.target.value))
             }}
-            className="border-input bg-background h-8 w-40 rounded-md border px-2 text-sm"
+            className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-40 cursor-pointer rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]"
             aria-label={t({ fr: 'Ajouter une variation mineure', en: 'Add a minor variation' })}
           >
             <option value="">{t({ fr: 'Choisir…', en: 'Choose…' })}</option>
@@ -329,7 +303,7 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
             onChange={(e) => {
               if (e.target.value) addVariation(Number(e.target.value))
             }}
-            className="border-input bg-background h-8 w-40 rounded-md border px-2 text-sm"
+            className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-40 cursor-pointer rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]"
             aria-label={t({ fr: 'Ajouter une variation majeure', en: 'Add a major variation' })}
           >
             <option value="">{t({ fr: 'Choisir…', en: 'Choose…' })}</option>
