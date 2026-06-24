@@ -1,11 +1,19 @@
 // @vitest-environment jsdom
 import { createRef } from 'react'
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ProductRecord } from '@/lib/db'
 import { I18nContext, type I18nValue } from '@/lib/i18n-context'
+
+// Espionne la persistance (offline-first) — l'auto-save et le flush au démontage doivent l'appeler.
+vi.mock('@/features/workspace/dossier-repository', () => ({
+  updateDossierVariation: vi.fn(() => Promise.resolve()),
+}))
+import { updateDossierVariation } from '@/features/workspace/dossier-repository'
 import { VariationTableEditor, type VariationTableHandle } from './VariationTableEditor'
+
+beforeEach(() => vi.clearAllMocks())
 
 const PRODUCT: ProductRecord = {
   id: 'p1',
@@ -28,7 +36,7 @@ function renderEditor(
   opts: { controlsInBar?: boolean; ref?: React.Ref<VariationTableHandle> } = {},
 ) {
   const i18n: I18nValue = { lang: 'fr', setLang: () => {}, t: (s) => s.fr }
-  render(
+  return render(
     <I18nContext.Provider value={i18n}>
       <VariationTableEditor
         dossier={{ id: 'd1', productName: 'Gynoril', country: 'BJ', variations: [3, 13] }}
@@ -66,6 +74,22 @@ describe('VariationTableEditor', () => {
     expect(typeof ref.current?.pdf).toBe('function')
     expect(typeof ref.current?.docx).toBe('function')
     expect(typeof ref.current?.save).toBe('function')
+  })
+
+  it('auto-save : une édition inline est persistée au démontage (flush — zéro perte)', () => {
+    const { unmount } = renderEditor()
+    // Édite le N° d'AMM directement sur la feuille (édition inline, plus de case-formulaire).
+    fireEvent.change(screen.getByRole('textbox', { name: /AMM/ }), {
+      target: { value: 'AMM_2026_42' },
+    })
+    // Débounce non écoulé → pas encore persisté…
+    expect(updateDossierVariation).not.toHaveBeenCalled()
+    // …mais le démontage (changement de section) flush la saisie en attente.
+    unmount()
+    expect(updateDossierVariation).toHaveBeenCalledWith(
+      'd1',
+      expect.objectContaining({ ammNumero: 'AMM_2026_42' }),
+    )
   })
 
   it('message si aucune variation cochée', () => {

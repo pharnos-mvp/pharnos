@@ -68,7 +68,7 @@ const blockNode: z.ZodType<BlockNode> = z.lazy(() =>
           // Cellules : fusion + largeurs de colonne bornées (anti-abus sur un payload forgé).
           colspan: z.number().int().min(1).max(64).optional(),
           rowspan: z.number().int().min(1).max(64).optional(),
-          colwidth: z.array(z.number().int().min(0).max(4000)).nullish(),
+          colwidth: z.array(z.number().int().min(0).max(4000)).max(64).nullish(),
         })
         .passthrough()
         .optional(),

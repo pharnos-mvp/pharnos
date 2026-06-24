@@ -325,18 +325,6 @@ function rowCells(row: JSONContent): JSONContent[] {
   return (row.content ?? []).filter((x) => x.type === 'tableCell' || x.type === 'tableHeader')
 }
 
-/** Nombre de colonnes de la grille = max, par ligne, de la somme des colspan. */
-function tableColumns(node: JSONContent): number {
-  let max = 1
-  for (const row of node.content ?? []) {
-    if (row.type !== 'tableRow') continue
-    let cols = 0
-    for (const cell of rowCells(row)) cols += Math.max(1, Number(cell.attrs?.colspan ?? 1))
-    if (cols > max) max = cols
-  }
-  return max
-}
-
 /** Lignes de texte d'une cellule, enroulées à la largeur `w` (paragraphes + listes ; en-tête = gras). */
 function cellLines(c: Cursor, cell: JSONContent, w: number, header: boolean): Run[][] {
   const maxW = Math.max(8, w - 2 * TABLE_PAD)
@@ -365,58 +353,111 @@ function cellLines(c: Cursor, cell: JSONContent, w: number, header: boolean): Ru
   return out.length ? out : [[]]
 }
 
+interface PlacedCell {
+  cell: JSONContent
+  rStart: number
+  cStart: number
+  cSpan: number
+  rSpan: number
+  header: boolean
+  lines: Run[][]
+}
+
+/** Largeur en colonnes effectivement occupée à droite par `cStart`, bornée à la grille. */
+function spanCols(cols: number, cStart: number, cSpan: number): number {
+  return Math.max(1, Math.min(cols - cStart, cSpan))
+}
+
 /**
- * Dessine un tableau TipTap en pdf-lib (grille à colonnes égales, colspan géré en largeur ; rowspan
- * ignoré — non produit par l'éditeur). Enroulement par cellule, saut de page entre lignes. Calqué sur
- * `variation-table-pdf.ts` → le tableau de l'éditeur est rendu fidèlement dans le livrable métré.
+ * Dessine un tableau TipTap en pdf-lib. **Grille d'occupation** : colspan ET rowspan gérés comme le
+ * DOCX (un même contenu rend à l'identique) — une cellule fusionnée verticalement réserve ses colonnes
+ * sur les lignes suivantes (pas de décalage). Colonnes à largeur égale, enroulement par cellule, saut
+ * de page entre lignes. Calqué sur `variation-table-pdf.ts` → fidèle dans le livrable métré.
  */
 function drawTable(c: Cursor, node: JSONContent): void {
-  const cols = tableColumns(node)
-  const colW = CONTENT_WIDTH / cols
+  const rows = (node.content ?? []).filter((r) => r.type === 'tableRow')
+  if (rows.length === 0) return
   const lh = lineHeight(TABLE_SIZE)
-  c.y -= 4
 
-  for (const row of node.content ?? []) {
-    if (row.type !== 'tableRow') continue
-    // Mise en page de la ligne : position/largeur (colspan cumulé) + lignes de texte enroulées.
-    const placed: { x: number; w: number; header: boolean; lines: Run[][] }[] = []
-    let ci = 0
+  // PASS 1 — placement. occupancy[col] = nb de lignes encore couvertes par une cellule fusionnée
+  // venant d'au-dessus → la ligne courante « saute » ces colonnes (jamais de décalage).
+  const occupancy: number[] = []
+  const placed: PlacedCell[] = []
+  rows.forEach((row, r) => {
+    let col = 0
     for (const cell of rowCells(row)) {
-      const span = Math.max(1, Number(cell.attrs?.colspan ?? 1))
-      const usable = Math.min(cols - ci, span)
-      if (usable <= 0) break
-      const header = cell.type === 'tableHeader'
-      const w = usable * colW
-      placed.push({ x: MARGIN + ci * colW, w, header, lines: cellLines(c, cell, w, header) })
-      ci += span
+      while ((occupancy[col] ?? 0) > 0) col++
+      const cSpan = Math.max(1, Math.min(64, Number(cell.attrs?.colspan ?? 1)))
+      const rSpan = Math.max(1, Math.min(64, Number(cell.attrs?.rowspan ?? 1)))
+      placed.push({
+        cell,
+        rStart: r,
+        cStart: col,
+        cSpan,
+        rSpan,
+        header: cell.type === 'tableHeader',
+        lines: [],
+      })
+      for (let k = 0; k < cSpan; k++) occupancy[col + k] = rSpan
+      col += cSpan
     }
-    if (placed.length === 0) continue
-    const rowH = Math.max(lh, ...placed.map((p) => p.lines.length * lh)) + 2 * TABLE_PAD
-    if (c.y - rowH < c.bottom) newPage(c)
+    for (let k = 0; k < occupancy.length; k++) if ((occupancy[k] ?? 0) > 0) occupancy[k]!--
+  })
+  const cols = Math.max(1, occupancy.length)
+  const colW = CONTENT_WIDTH / cols
+  for (const p of placed)
+    p.lines = cellLines(c, p.cell, spanCols(cols, p.cStart, p.cSpan) * colW, p.header)
 
+  // PASS 2 — hauteur des lignes. rSpan==1 impose sa hauteur à sa ligne ; une cellule fusionnée
+  // verticalement reporte son surplus sur la dernière ligne couverte.
+  const rowH = rows.map(() => lh + 2 * TABLE_PAD)
+  for (const p of placed) {
+    const need = p.lines.length * lh + 2 * TABLE_PAD
+    const last = Math.min(rows.length - 1, p.rStart + p.rSpan - 1)
+    if (p.rSpan <= 1) {
+      if (need > rowH[p.rStart]!) rowH[p.rStart] = need
+    } else {
+      let have = 0
+      for (let r = p.rStart; r <= last; r++) have += rowH[r]!
+      if (need > have) rowH[last]! += need - have
+    }
+  }
+
+  // PASS 3 — dessin ligne par ligne (saut de page entre lignes). Une cellule fusionnée est dessinée
+  // à sa ligne de départ, sur la hauteur cumulée des lignes qu'elle couvre.
+  c.y -= 4
+  for (let r = 0; r < rows.length; r++) {
+    if (c.y - rowH[r]! < c.bottom) newPage(c)
+    const top = c.y
     for (const p of placed) {
+      if (p.rStart !== r) continue
+      const last = Math.min(rows.length - 1, p.rStart + p.rSpan - 1)
+      let h = 0
+      for (let k = r; k <= last; k++) h += rowH[k]!
+      const w = spanCols(cols, p.cStart, p.cSpan) * colW
+      const x = MARGIN + p.cStart * colW
       c.page.drawRectangle({
-        x: p.x,
-        y: c.y - rowH,
-        width: p.w,
-        height: rowH,
+        x,
+        y: top - h,
+        width: w,
+        height: h,
         color: p.header ? TABLE_HEAD_FILL : undefined,
         borderColor: TABLE_GRID,
         borderWidth: 0.5,
       })
-      let ty = c.y - TABLE_PAD - TABLE_SIZE
+      let ty = top - TABLE_PAD - TABLE_SIZE
       for (const line of p.lines) {
-        let x = p.x + TABLE_PAD
+        let tx = x + TABLE_PAD
         for (const run of line) {
           const font = run.bold ? c.fonts.bold : c.fonts.regular
           const txt = sanitize(run.text)
-          c.page.drawText(txt, { x, y: ty, size: TABLE_SIZE, font, color: BLACK })
-          x += font.widthOfTextAtSize(txt, TABLE_SIZE)
+          c.page.drawText(txt, { x: tx, y: ty, size: TABLE_SIZE, font, color: BLACK })
+          tx += font.widthOfTextAtSize(txt, TABLE_SIZE)
         }
         ty -= lh
       }
     }
-    c.y -= rowH
+    c.y -= rowH[r]!
   }
   c.y -= 6
 }

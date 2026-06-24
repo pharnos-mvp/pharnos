@@ -235,6 +235,48 @@ describe('compileDossier (compilation PDF)', () => {
     expect(doc.getPageCount()).toBeGreaterThanOrEqual(3)
   })
 
+  it('tableau avec rowspan + colspan (cellules fusionnées) : grille cohérente, compile sans erreur', async () => {
+    const withSpans = gen('1.1.1', 'translation')
+    const cellP = (text: string) => ({
+      type: 'paragraph' as const,
+      content: [{ type: 'text' as const, text }],
+    })
+    withSpans.content = {
+      type: 'doc',
+      content: [
+        {
+          type: 'table',
+          content: [
+            {
+              type: 'tableRow',
+              content: [
+                { type: 'tableCell', attrs: { rowspan: 2 }, content: [cellP('Origine')] },
+                { type: 'tableHeader', content: [cellP('Avant')] },
+                { type: 'tableHeader', content: [cellP('Après')] },
+              ],
+            },
+            {
+              // Seulement 2 cellules : la colonne 0 est couverte par le rowspan ci-dessus.
+              type: 'tableRow',
+              content: [
+                { type: 'tableCell', content: [cellP('Valeur A')] },
+                { type: 'tableCell', content: [cellP('Valeur B')] },
+              ],
+            },
+            {
+              type: 'tableRow',
+              content: [{ type: 'tableCell', attrs: { colspan: 3 }, content: [cellP('Note bas')] }],
+            },
+          ],
+        },
+      ],
+    }
+    const inp = input(true)
+    inp.contentByNumber.set('1.1.1', { generated: [withSpans], pieces: [] })
+    const doc = await PDFDocument.load(await compileDossier(inp))
+    expect(doc.getPageCount()).toBeGreaterThanOrEqual(3)
+  })
+
   it('rendu STYLÉ des formulaires : Étiquetage (35 bandeaux gris, wrap multi-lignes) compile', async () => {
     const { buildTemplateSkeleton } = await import('../template-fill')
     const fill = gen('1.3.3', 'fill')

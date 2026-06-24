@@ -1,4 +1,12 @@
-import { useCallback, useImperativeHandle, useMemo, useState, type Ref } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  type Ref,
+} from 'react'
 import { FileDown, FileText, Save } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -75,8 +83,57 @@ export function VariationTableEditor({
     [fields, items],
   )
 
-  // Mémoïsés (deps explicites) → handle impératif stable, capture l'état frais sans recréation au rendu.
+  // Auto-save (offline-first) : l'utilisateur édite DIRECTEMENT la feuille (cellules + AMM inline) →
+  // sauvegarde débouncée + flush au démontage, comme TemplateFillForm. Aucune saisie perdue au
+  // changement d'onglet/section. Le bouton « Enregistrer » force une sauvegarde immédiate (+ toast).
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pending = useRef<{ items: VariationItem[]; amm: string } | null>(null)
+  const busyRef = useRef(false) // garde anti-réentrance (double-clic sur les boutons de l'en-tête).
+
+  const persist = useCallback(
+    async (its: VariationItem[], a: string) => {
+      pending.current = null
+      try {
+        await updateDossierVariation(dossier.id, { variationItems: its, ammNumero: a })
+      } catch (e) {
+        console.error(e)
+      }
+    },
+    [dossier.id],
+  )
+
+  // Débounce sur chaque édition (700 ms) — saute le rendu initial (seed depuis le dossier).
+  const seeded = useRef(false)
+  useEffect(() => {
+    if (!seeded.current) {
+      seeded.current = true
+      return
+    }
+    pending.current = { items, amm }
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      if (pending.current) void persist(pending.current.items, pending.current.amm)
+    }, 700)
+  }, [items, amm, persist])
+
+  // Flush au démontage (changement de section/onglet, navigation) — zéro saisie perdue.
+  useEffect(
+    () => () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+      if (pending.current) void persist(pending.current.items, pending.current.amm)
+    },
+    [persist],
+  )
+
+  // Sauvegarde immédiate (bouton d'en-tête) : annule l'auto-save en attente puis confirme (toast).
   const save = useCallback(async () => {
+    if (busyRef.current) return
+    busyRef.current = true
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current)
+      saveTimer.current = null
+    }
+    pending.current = null
     setBusy(true)
     try {
       await updateDossierVariation(dossier.id, { variationItems: items, ammNumero: amm })
@@ -85,12 +142,15 @@ export function VariationTableEditor({
       console.error(e)
       toast.error(t({ fr: 'Échec de l’enregistrement', en: 'Save failed' }))
     } finally {
+      busyRef.current = false
       setBusy(false)
     }
   }, [dossier.id, items, amm, t])
 
   const download = useCallback(
     async (kind: 'pdf' | 'docx') => {
+      if (busyRef.current) return
+      busyRef.current = true
       setBusy(true)
       const name = sanitize(product?.nomCommercial ?? dossier.productName)
       try {
@@ -111,6 +171,7 @@ export function VariationTableEditor({
         console.error(e)
         toast.error(t({ fr: 'Échec du téléchargement', en: 'Download failed' }))
       } finally {
+        busyRef.current = false
         setBusy(false)
       }
     },
