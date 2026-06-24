@@ -251,14 +251,15 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      {/* Header de configuration COMPACT (comme les autres templates) : barre `bg-muted/40 p-3`,
-          `<select>` natifs PREMIUM (`NativeSelect` — chevron maison + focus-ring du design system).
-          `flex-wrap` + champs ÉTROITS → tiennent sur une ligne sur écran large, passent à la ligne
-          sinon (JAMAIS de débordement du cadre). Variables : produit · pays · DEUX sélecteurs de
-          variation (mineure | majeure), de simples RACCOURCIS. N° d'AMM et date = cases du formulaire
-          (pré-remplies par le choix du produit). */}
-      <div className="bg-muted/40 flex flex-wrap items-end gap-2 rounded-lg border p-3">
-        <label className="flex w-36 shrink-0 flex-col gap-1 text-xs">
+      {/* Header de configuration COMPACT + RESPONSIVE (comme les autres templates) : barre
+          `bg-muted/40 p-3`, `<select>` natifs PREMIUM (`NativeSelect` — chevron maison + focus-ring).
+          GRILLE 2 colonnes sur mobile → rangée compacte `flex-wrap` sur desktop (≥sm) ; les selects
+          REMPLISSENT leur cellule (`w-full` + `min-w-0` sur le label) → ils NE DÉBORDENT JAMAIS,
+          quelle que soit la largeur de l'écran. Variables : produit · pays · DEUX sélecteurs de
+          variation (mineure | majeure), de simples RACCOURCIS. N° d'AMM et date = cases du
+          formulaire (pré-remplies par le choix du produit). */}
+      <div className="bg-muted/40 grid grid-cols-2 gap-2 rounded-lg border p-3 sm:flex sm:flex-wrap sm:items-end">
+        <label className="flex min-w-0 flex-col gap-1 text-xs sm:w-36">
           <span className="text-muted-foreground font-medium">
             {t({ fr: 'Produit', en: 'Product' })}
           </span>
@@ -281,7 +282,7 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
           </NativeSelect>
         </label>
 
-        <label className="flex w-32 shrink-0 flex-col gap-1 text-xs">
+        <label className="flex min-w-0 flex-col gap-1 text-xs sm:w-32">
           <span className="text-muted-foreground font-medium">
             {t({ fr: 'Pays cible', en: 'Target country' })}
           </span>
@@ -299,7 +300,7 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
           </NativeSelect>
         </label>
 
-        <label className="flex w-32 shrink-0 flex-col gap-1 text-xs">
+        <label className="flex min-w-0 flex-col gap-1 text-xs sm:w-32">
           <span className="text-muted-foreground font-medium">
             {t({ fr: 'Variation mineure', en: 'Minor variation' })}
           </span>
@@ -319,7 +320,7 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
           </NativeSelect>
         </label>
 
-        <label className="flex w-32 shrink-0 flex-col gap-1 text-xs">
+        <label className="flex min-w-0 flex-col gap-1 text-xs sm:w-32">
           <span className="text-muted-foreground font-medium">
             {t({ fr: 'Variation majeure', en: 'Major variation' })}
           </span>
