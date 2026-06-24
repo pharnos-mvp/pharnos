@@ -1,13 +1,9 @@
 import { useEffect } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import Image from '@tiptap/extension-image'
-import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table'
-import TextAlign from '@tiptap/extension-text-align'
 import { EditorContent, useEditor } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
 
 import { useI18n } from '@/lib/i18n-context'
-import { LockedHeading } from './locked-heading'
+import { editorExtensions } from './tiptap-extensions'
 
 interface RichTextEditorProps {
   /** Identité du document : un changement recrée l'éditeur avec le nouveau contenu. */
@@ -42,20 +38,10 @@ export function RichTextEditor({
   const { t } = useI18n()
   const editor = useEditor(
     {
-      extensions: [
-        // Heading remplacé par LockedHeading : identique pour les documents ordinaires, et
-        // verrouille les titres des squelettes « Remplir le template » (attrs.locked).
-        StarterKit.configure({ heading: false }),
-        LockedHeading,
-        Image.configure({ inline: true, allowBase64: true }),
-        TextAlign.configure({ types: ['heading', 'paragraph'] }),
-        // Tableaux : non redimensionnables (mise en page A4 fidèle, pas de poignées). L'export DOCX
-        // (tiptap-docx) et la compilation PDF (compile-dossier) rendent ces nœuds → aucune perte.
-        Table.configure({ resizable: false }),
-        TableRow,
-        TableHeader,
-        TableCell,
-      ],
+      // Extensions partagées avec l'import docx (même schéma) : StarterKit (Heading→LockedHeading),
+      // Image base64, TextAlign, tableaux non redimensionnables. Export DOCX + compilation PDF rendent
+      // tous ces nœuds → aucune perte.
+      extensions: editorExtensions(),
       // Garde-fou : un contenu non-ProseMirror ferait planter TipTap au montage.
       content:
         initialContent && (initialContent as { type?: string }).type === 'doc'

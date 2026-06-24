@@ -85,6 +85,7 @@ import { excludeProductDoc, getDossier, updateDossierTree } from './dossier-repo
 import { syncDossiers } from './dossier-sync'
 import {
   createGeneratedDoc,
+  createImportedDoc,
   createTemplateFillDoc,
   createVariationAnnexDoc,
   deleteGeneratedDoc,
@@ -1138,6 +1139,36 @@ export function DossierWorkspacePage() {
     if (file.size > MAX_ATTACHMENT_BYTES) {
       toast.error(t({ fr: 'Fichier trop lourd (max 25 Mo).', en: 'File too large (max 25 MB).' }))
       return
+    }
+    // .docx (hors « Remplacer ») → document ÉDITABLE NATIVEMENT : conversion mammoth → TipTap →
+    // doc généré (point 7). Échec de conversion (ex. ancien .doc binaire) → repli en pièce jointe.
+    const isDocx =
+      /\.docx$/i.test(file.name) ||
+      file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    if (isDocx && !replaceTarget) {
+      const { docxToTiptap } = await import('./docx-import')
+      const content = await docxToTiptap(file)
+      if (content) {
+        const rec = await createImportedDoc(orgId, {
+          dossierId: activeDossier.id,
+          nodeNumber: selected.number,
+          title: file.name.replace(/\.docx$/i, ''),
+          content,
+        })
+        void syncGeneratedDocs(orgId)
+        setPickedKey(`letter:${rec.id}`)
+        setDocEditing(true)
+        toast.success(
+          t({ fr: 'Document importé — éditable.', en: 'Document imported — editable.' }),
+        )
+        return
+      }
+      toast.error(
+        t({
+          fr: 'Conversion impossible — ajouté en pièce jointe.',
+          en: 'Conversion failed — added as attachment.',
+        }),
+      )
     }
     try {
       await addAttachment(orgId, activeDossier.id, selected.number, file)
