@@ -474,6 +474,9 @@ export function DossierWorkspacePage() {
     )
     const refs = dossier.variations ?? []
     if (!hasLetter || hasAnnex || refs.length === 0 || creatingAnnexRef.current) return
+    // Attendre la fiche produit (live-query séparée) si le dossier en a une : elle alimente la colonne
+    // « Ancien » du seed — sinon l'annexe se créerait avec la colonne vide en permanence.
+    if (dossier.productId && !product) return
     creatingAnnexRef.current = true
     void (async () => {
       try {
@@ -1136,6 +1139,7 @@ export function DossierWorkspacePage() {
 
   async function handleUpload(file: File) {
     if (!selected) return
+    flushSave() // ne pas perdre l'édition en cours avant de basculer sur le document importé
     if (file.size > MAX_ATTACHMENT_BYTES) {
       toast.error(t({ fr: 'Fichier trop lourd (max 25 Mo).', en: 'File too large (max 25 MB).' }))
       return

@@ -13,7 +13,10 @@ import { LockedHeading } from './locked-heading'
  */
 export function editorExtensions(): Extensions {
   return [
-    StarterKit.configure({ heading: false }),
+    // heading→LockedHeading ; link/underline DÉSACTIVÉS : le schéma de validation (tiptap-schema) ne
+    // connaît QUE bold/italic/strike/code → une marque link/underline ferait rejeter (EMPTY_DOC) le
+    // document au pull cross-client = PERTE dans le livrable métré. On garde « affiché = compilé ».
+    StarterKit.configure({ heading: false, link: false, underline: false }),
     LockedHeading,
     Image.configure({ inline: true, allowBase64: true }),
     TextAlign.configure({ types: ['heading', 'paragraph'] }),

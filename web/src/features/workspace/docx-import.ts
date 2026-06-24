@@ -3,6 +3,22 @@ import type { JSONContent } from '@tiptap/core'
 import { editorExtensions } from './tiptap-extensions'
 import { parseTiptapContent } from './tiptap-schema'
 
+// Images conservées : data URL PNG/JPEG (ce que la compilation pdf-lib sait embarquer). Word colle
+// souvent de l'EMF/WMF/GIF/webp : on les RETIRE (dégradation) plutôt que de rejeter tout le document.
+const SUPPORTED_IMG = /^data:image\/(png|jpeg);base64,/
+
+/** Retire récursivement les nœuds image au format non supporté → le reste du document est importé. */
+function stripUnsupportedImages(node: JSONContent): JSONContent {
+  const content = node.content
+  if (!Array.isArray(content)) return node
+  return {
+    ...node,
+    content: content
+      .filter((c) => !(c.type === 'image' && !SUPPORTED_IMG.test(String(c.attrs?.src ?? ''))))
+      .map(stripUnsupportedImages),
+  }
+}
+
 /**
  * Import d'un **.docx** en document **éditable nativement** : `mammoth` (docx → HTML) puis
  * `@tiptap/html` (HTML → ProseMirror, MÊMES extensions que l'éditeur) puis validation de schéma
@@ -16,7 +32,7 @@ export async function htmlToTiptap(html: string): Promise<JSONContent | null> {
   if (!html || !html.trim()) return null
   const { generateJSON } = await import('@tiptap/html')
   try {
-    const json = generateJSON(html, editorExtensions())
+    const json = stripUnsupportedImages(generateJSON(html, editorExtensions()))
     return parseTiptapContent(json)
   } catch (e) {
     console.error(e)

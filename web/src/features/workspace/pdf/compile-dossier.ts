@@ -1156,10 +1156,12 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
         // (jamais deux documents sur une même page).
         const items: { render: () => Promise<void> }[] = []
         for (const generated of content.generated) {
-          // Papier à en-tête/pied : LETTRES uniquement (cover, PGHT…). Les templates remplis,
-          // traductions et versions conformes restent vierges — aligné sur l'éditeur, qui ne
-          // leur affiche pas le branding.
-          const isLetter = !['translation', 'upgrade', 'fill'].includes(generated.templateKey)
+          // Papier à en-tête/pied : LETTRES uniquement (cover, PGHT…). Templates remplis,
+          // traductions, versions conformes et documents Word IMPORTÉS restent vierges — un .docx
+          // arbitraire n'est pas une lettre officielle (aligné sur l'éditeur).
+          const isLetter = !['translation', 'upgrade', 'fill', 'import'].includes(
+            generated.templateKey,
+          )
           items.push({
             // Source unique avec l'export Bibliothèque (`drawLetterPages`) : en-tête/pied = LETTRES
             // uniquement ; formulaires remplis (`fill`) → rendu stylé navy/bandeaux, sans branding.
