@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowLeft, FileDown, FileText, Languages } from 'lucide-react'
+import { ArrowLeft, FileDown, FileText, Languages, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -20,8 +20,10 @@ import {
   type LetterFields,
 } from '@/features/workspace/letter-context'
 import type { LetterBrand } from '@/features/workspace/letter-render'
+import { VARIATIONS } from './variation-catalog'
 import {
   lookupVariation,
+  OTHER_REF,
   requestClass,
   seedVariationItems,
   type VariationItem,
@@ -30,7 +32,7 @@ import {
 import { buildComparisonTable } from './variation-table'
 import { buildVariationLetterDoc } from './variation-letter'
 import { VariationLetterEditor } from './VariationLetterEditor'
-import { VariationPicker } from './VariationPicker'
+import { VariationTableDialog } from './VariationTableDialog'
 import { VariationTableSheet } from './VariationTableSheet'
 
 const sanitize = (s: string) =>
@@ -39,17 +41,18 @@ const sanitize = (s: string) =>
     .replace(/^_+|_+$/g, '')
     .slice(0, 50)
 
+const MINEURES = VARIATIONS.filter((v) => v.class === 'mineure')
+const MAJEURES = VARIATIONS.filter((v) => v.class === 'majeure')
+
 /**
  * Flux Bibliothèque « Lettre de variation » (classique RIM) :
- *  - **Header compact** (1 ligne) : produit (catalogue) · pays cible — de simples RACCOURCIS de
- *    pré-remplissage. N°/date d'AMM = cases du formulaire (pré-remplies par le choix du produit).
- *  - **Natures de variation** : `VariationPicker` — MÊME composant 2 colonnes que le CTD workspace
- *    (« mineure | majeure » bornées/scrollables, le texte s'enroule → jamais de débordement).
+ *  - **Header** : sessions alignées — produit (catalogue) · pays · N°/date d'AMM · **sélecteur de
+ *    variation** (liste déroulante mineure/majeure ; le choix ouvre la **popup tableau** à remplir).
  *  - **Corps en deux onglets** : « Lettre » (= `VariationLetterEditor`, **formulaire à cases sur
- *    feuille A4** TOUJOURS affiché — comme les autres lettres) et « Tableau » (tableau comparatif).
- *    Le formulaire **reflète à l'identique** l'export → affiché = exporté.
+ *    feuille A4**, auto-rempli par le header — comme les autres lettres) et « Tableau » (tableau
+ *    comparatif). Le formulaire **reflète à l'identique** l'export → affiché = exporté.
  *  - **Download** = la lettre **et** le tableau en annexe, **combinés** dans un seul PDF/DOCX.
- * Self-contained, hors-ligne — l'accès au formulaire ne dépend d'aucune donnée enregistrée.
+ * N°/date d'AMM pré-remplis depuis le doc AMM du produit. Self-contained, hors-ligne.
  */
 export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
   const { t, lang: appLang } = useI18n()
@@ -66,6 +69,7 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
   const [refs, setRefs] = useState<number[]>([])
   const [items, setItems] = useState<VariationItem[]>([])
   const [tab, setTab] = useState('lettre')
+  const [popupOpen, setPopupOpen] = useState(false)
   const [busy, setBusy] = useState(false)
 
   const product = products?.find((p) => p.id === productId)
@@ -119,9 +123,15 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
       }))
   }
 
-  // Sélection des variations via le VariationPicker (MÊME composant 2 colonnes que le CTD workspace) →
-  // réamorce la colonne « ancien » du tableau comparatif. Les saisies existantes sont préservées.
-  function setVariations(next: number[]) {
+  // Ajoute une variation (depuis la liste déroulante) → réamorce le tableau + ouvre la popup à remplir.
+  function addVariation(n: number) {
+    const next = refs.includes(n) ? refs : [...refs, n]
+    setRefs(next)
+    setItems((cur) => seedVariationItems(next, product, cur))
+    setPopupOpen(true)
+  }
+  function removeVariation(n: number) {
+    const next = refs.filter((r) => r !== n)
     setRefs(next)
     setItems((cur) => seedVariationItems(next, product, cur))
   }
@@ -216,9 +226,9 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
 
       {/* Header de configuration COMPACT sur UNE SEULE LIGNE (comme les autres templates) : barre
           `bg-muted/40 p-3`, `<select>` NATIFS `h-8` (a11y-excellents, picker natif mobile, focus-ring
-          du design system), `flex-nowrap` + `overflow-x-auto`. Variables : produit · pays cible — de
-          simples RACCOURCIS. Les natures de variation se choisissent dans le `VariationPicker` sous la
-          barre ; le N° d'AMM et la date se saisissent dans les cases du formulaire. */}
+          du design system), `flex-nowrap` + `overflow-x-auto`. Variables : produit · pays · DEUX
+          sélecteurs de variation (mineure | majeure). Le N° d'AMM et la date se saisissent dans les
+          cases du formulaire (pré-remplies par le choix du produit). Tout n'est que RACCOURCI. */}
       <div className="bg-muted/40 flex flex-nowrap items-end gap-2 overflow-x-auto rounded-lg border p-3">
         <label className="flex shrink-0 flex-col gap-1 text-xs">
           <span className="text-muted-foreground font-medium">
@@ -262,12 +272,88 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
             ))}
           </select>
         </label>
+
+        <label className="flex shrink-0 flex-col gap-1 text-xs">
+          <span className="text-muted-foreground font-medium">
+            {t({ fr: 'Variation mineure', en: 'Minor variation' })}
+          </span>
+          <select
+            value=""
+            onChange={(e) => {
+              if (e.target.value) addVariation(Number(e.target.value))
+            }}
+            className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-40 cursor-pointer rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]"
+            aria-label={t({ fr: 'Ajouter une variation mineure', en: 'Add a minor variation' })}
+          >
+            <option value="">{t({ fr: 'Choisir…', en: 'Choose…' })}</option>
+            {MINEURES.map((v) => (
+              <option key={v.n} value={v.n!} disabled={refs.includes(v.n!)}>
+                {v.n}. {t(v.nature)}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex shrink-0 flex-col gap-1 text-xs">
+          <span className="text-muted-foreground font-medium">
+            {t({ fr: 'Variation majeure', en: 'Major variation' })}
+          </span>
+          <select
+            value=""
+            onChange={(e) => {
+              if (e.target.value) addVariation(Number(e.target.value))
+            }}
+            className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-40 cursor-pointer rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]"
+            aria-label={t({ fr: 'Ajouter une variation majeure', en: 'Add a major variation' })}
+          >
+            <option value="">{t({ fr: 'Choisir…', en: 'Choose…' })}</option>
+            {MAJEURES.map((v) => (
+              <option key={v.n} value={v.n!} disabled={refs.includes(v.n!)}>
+                {v.n}. {t(v.nature)}
+              </option>
+            ))}
+            <optgroup label={t({ fr: 'Autre', en: 'Other' })}>
+              <option value={OTHER_REF} disabled={refs.includes(OTHER_REF)}>
+                {t({ fr: 'Variation non répertoriée', en: 'Unlisted variation' })}
+              </option>
+            </optgroup>
+          </select>
+        </label>
       </div>
 
-      {/* Sélection des natures de variation — MÊME composant que le CTD workspace (VariationPicker,
-          2 colonnes bornées/scrollables « mineure | majeure »). Le texte s'enroule → jamais de
-          débordement (≠ <select> natif qui s'élargit sur les longs intitulés). « Autre » inclus. */}
-      <VariationPicker value={refs} onChange={setVariations} />
+      {/* Variations choisies (chips, suppression) + raccourci pour rouvrir la popup. */}
+      {refs.length ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {refs.map((r) => (
+            <span
+              key={r}
+              className="bg-primary/5 border-primary/30 inline-flex max-w-full items-center gap-1 rounded-full border py-1 pr-1 pl-2.5 text-xs"
+            >
+              <span className="text-muted-foreground tabular-nums">{r || '+'}.</span>
+              <span className="max-w-[16rem] truncate">
+                {t(lookupVariation(r)?.nature ?? { fr: '', en: '' })}
+              </span>
+              <button
+                type="button"
+                onClick={() => removeVariation(r)}
+                aria-label={t({ fr: 'Retirer', en: 'Remove' })}
+                className="hover:bg-destructive/10 hover:text-destructive focus-visible:ring-ring rounded-full p-0.5 focus-visible:ring-2 focus-visible:outline-none"
+              >
+                <X className="size-3" />
+              </button>
+            </span>
+          ))}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7"
+            onClick={() => setPopupOpen(true)}
+          >
+            <Plus className="size-3.5" /> {t({ fr: 'Remplir le tableau', en: 'Fill the table' })}
+          </Button>
+        </div>
+      ) : null}
 
       {/* Corps : deux onglets — Lettre (formulaire A4 à cases) | Tableau comparatif. */}
       <Tabs value={tab} onValueChange={setTab} className="gap-3">
@@ -305,6 +391,17 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
           />
         </TabsContent>
       </Tabs>
+
+      {/* Popup tableau (sans picker) — ouverte au choix d'une variation dans la liste déroulante. */}
+      <VariationTableDialog
+        open={popupOpen}
+        onOpenChange={setPopupOpen}
+        refs={refs}
+        product={product}
+        initialItems={items}
+        showPicker={false}
+        onCommit={(_refs, next) => setItems(next)}
+      />
     </div>
   )
 }
