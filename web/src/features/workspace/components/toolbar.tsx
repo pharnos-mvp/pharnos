@@ -1,12 +1,30 @@
 import type { Editor } from '@tiptap/core'
 import { useEditorState } from '@tiptap/react'
-import { Bold, Heading2, Italic, List, Redo2, Undo2 } from 'lucide-react'
+import {
+  Bold,
+  Columns3,
+  Heading2,
+  Italic,
+  List,
+  Redo2,
+  Rows3,
+  Table as TableIcon,
+  Trash2,
+  Undo2,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useI18n } from '@/lib/i18n-context'
 
-/** Groupe de mise en forme TipTap (annuler/rétablir · gras/italique/titre/liste) — inséré dans
- *  l'en-tête de document en mode Modifier (mockup `.fmt` : groupe pastille bordé, fond marque léger). */
+/** Groupe de mise en forme TipTap (annuler/rétablir · gras/italique/titre/liste · tableau) — inséré
+ *  dans l'en-tête de document en mode Modifier (mockup `.fmt` : groupe pastille bordé, fond marque léger). */
 export function FormatToolbar({ editor }: { editor: Editor | null }) {
   if (!editor) return null
   // Éditeur non-null garanti → l'inner peut appeler les hooks (useEditorState) sans risque d'ordre.
@@ -15,11 +33,15 @@ export function FormatToolbar({ editor }: { editor: Editor | null }) {
 
 function FormatToolbarInner({ editor }: { editor: Editor }) {
   const { t } = useI18n()
-  // État Annuler/Rétablir RÉACTIF : suit l'historique (UndoRedo de StarterKit) et ne déclenche un
-  // rendu que lorsque la disponibilité change réellement (sélecteur comparé en valeur).
-  const { canUndo, canRedo } = useEditorState({
+  // États RÉACTIFS : Annuler/Rétablir suivent l'historique (UndoRedo de StarterKit) ; `inTable`
+  // pilote les actions de tableau. Re-render uniquement quand l'une de ces valeurs change.
+  const { canUndo, canRedo, inTable } = useEditorState({
     editor,
-    selector: ({ editor: e }) => ({ canUndo: e.can().undo(), canRedo: e.can().redo() }),
+    selector: ({ editor: e }) => ({
+      canUndo: e.can().undo(),
+      canRedo: e.can().redo(),
+      inTable: e.isActive('table'),
+    }),
   })
   return (
     <div className="bg-brand/5 inline-flex items-center gap-[2px] rounded-[9px] border p-[2px]">
@@ -80,6 +102,68 @@ function FormatToolbarInner({ editor }: { editor: Editor }) {
       >
         <List className="size-4" />
       </Button>
+      <span className="bg-border mx-[2px] h-5 w-px" aria-hidden />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t({ fr: 'Tableau', en: 'Table' })}
+          >
+            <TableIcon className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            disabled={inTable}
+            onSelect={() =>
+              editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+            }
+          >
+            <TableIcon className="size-4" aria-hidden />
+            {t({ fr: 'Insérer un tableau', en: 'Insert table' })}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            disabled={!inTable}
+            onSelect={() => editor.chain().focus().addColumnAfter().run()}
+          >
+            <Columns3 className="size-4" aria-hidden />
+            {t({ fr: 'Ajouter une colonne', en: 'Add column' })}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={!inTable}
+            onSelect={() => editor.chain().focus().addRowAfter().run()}
+          >
+            <Rows3 className="size-4" aria-hidden />
+            {t({ fr: 'Ajouter une ligne', en: 'Add row' })}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={!inTable}
+            onSelect={() => editor.chain().focus().deleteColumn().run()}
+          >
+            <Columns3 className="size-4" aria-hidden />
+            {t({ fr: 'Supprimer la colonne', en: 'Delete column' })}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={!inTable}
+            onSelect={() => editor.chain().focus().deleteRow().run()}
+          >
+            <Rows3 className="size-4" aria-hidden />
+            {t({ fr: 'Supprimer la ligne', en: 'Delete row' })}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={!inTable}
+            onSelect={() => editor.chain().focus().deleteTable().run()}
+          >
+            <Trash2 className="size-4" aria-hidden />
+            {t({ fr: 'Supprimer le tableau', en: 'Delete table' })}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   )
 }

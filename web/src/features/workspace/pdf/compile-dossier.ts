@@ -313,6 +313,114 @@ function blockIndent(block: JSONContent): number {
   return block.attrs?.textAlign === 'right' ? RIGHT_BLOCK_INDENT : 0
 }
 
+/* ----------------------------- Tableaux (extension-table) ----------------------------- */
+
+const TABLE_SIZE = 10
+const TABLE_PAD = 4
+const TABLE_GRID = rgb(0.6, 0.6, 0.6)
+const TABLE_HEAD_FILL = rgb(0.93, 0.93, 0.93)
+
+/** Cellules (tableHeader|tableCell) d'une ligne de tableau. */
+function rowCells(row: JSONContent): JSONContent[] {
+  return (row.content ?? []).filter((x) => x.type === 'tableCell' || x.type === 'tableHeader')
+}
+
+/** Nombre de colonnes de la grille = max, par ligne, de la somme des colspan. */
+function tableColumns(node: JSONContent): number {
+  let max = 1
+  for (const row of node.content ?? []) {
+    if (row.type !== 'tableRow') continue
+    let cols = 0
+    for (const cell of rowCells(row)) cols += Math.max(1, Number(cell.attrs?.colspan ?? 1))
+    if (cols > max) max = cols
+  }
+  return max
+}
+
+/** Lignes de texte d'une cellule, enroulées à la largeur `w` (paragraphes + listes ; en-tête = gras). */
+function cellLines(c: Cursor, cell: JSONContent, w: number, header: boolean): Run[][] {
+  const maxW = Math.max(8, w - 2 * TABLE_PAD)
+  const bolden = (runs: Run[]) => (header ? runs.map((r) => ({ ...r, bold: true })) : runs)
+  const out: Run[][] = []
+  for (const block of cell.content ?? []) {
+    if (block.type === 'bulletList' || block.type === 'orderedList') {
+      let i = 1
+      for (const item of block.content ?? []) {
+        const para = (item.content ?? []).find((x) => x.type === 'paragraph')
+        const prefix = block.type === 'orderedList' ? `${i}. ` : '• '
+        out.push(
+          ...wrap(
+            bolden([{ text: prefix, bold: false }, ...inlineRuns(para?.content)]),
+            c.fonts,
+            TABLE_SIZE,
+            maxW,
+          ),
+        )
+        i++
+      }
+    } else if (block.type === 'paragraph' || block.type === 'heading') {
+      out.push(...wrap(bolden(inlineRuns(block.content)), c.fonts, TABLE_SIZE, maxW))
+    }
+  }
+  return out.length ? out : [[]]
+}
+
+/**
+ * Dessine un tableau TipTap en pdf-lib (grille à colonnes égales, colspan géré en largeur ; rowspan
+ * ignoré — non produit par l'éditeur). Enroulement par cellule, saut de page entre lignes. Calqué sur
+ * `variation-table-pdf.ts` → le tableau de l'éditeur est rendu fidèlement dans le livrable métré.
+ */
+function drawTable(c: Cursor, node: JSONContent): void {
+  const cols = tableColumns(node)
+  const colW = CONTENT_WIDTH / cols
+  const lh = lineHeight(TABLE_SIZE)
+  c.y -= 4
+
+  for (const row of node.content ?? []) {
+    if (row.type !== 'tableRow') continue
+    // Mise en page de la ligne : position/largeur (colspan cumulé) + lignes de texte enroulées.
+    const placed: { x: number; w: number; header: boolean; lines: Run[][] }[] = []
+    let ci = 0
+    for (const cell of rowCells(row)) {
+      const span = Math.max(1, Number(cell.attrs?.colspan ?? 1))
+      const usable = Math.min(cols - ci, span)
+      if (usable <= 0) break
+      const header = cell.type === 'tableHeader'
+      const w = usable * colW
+      placed.push({ x: MARGIN + ci * colW, w, header, lines: cellLines(c, cell, w, header) })
+      ci += span
+    }
+    if (placed.length === 0) continue
+    const rowH = Math.max(lh, ...placed.map((p) => p.lines.length * lh)) + 2 * TABLE_PAD
+    if (c.y - rowH < c.bottom) newPage(c)
+
+    for (const p of placed) {
+      c.page.drawRectangle({
+        x: p.x,
+        y: c.y - rowH,
+        width: p.w,
+        height: rowH,
+        color: p.header ? TABLE_HEAD_FILL : undefined,
+        borderColor: TABLE_GRID,
+        borderWidth: 0.5,
+      })
+      let ty = c.y - TABLE_PAD - TABLE_SIZE
+      for (const line of p.lines) {
+        let x = p.x + TABLE_PAD
+        for (const run of line) {
+          const font = run.bold ? c.fonts.bold : c.fonts.regular
+          const txt = sanitize(run.text)
+          c.page.drawText(txt, { x, y: ty, size: TABLE_SIZE, font, color: BLACK })
+          x += font.widthOfTextAtSize(txt, TABLE_SIZE)
+        }
+        ty -= lh
+      }
+    }
+    c.y -= rowH
+  }
+  c.y -= 6
+}
+
 /**
  * Rendu d'un contenu TipTap. `styled` (formulaires de templates — `templateKey: 'fill'`) :
  * hiérarchie IDENTIQUE aux exports form-print/form-docx — titre (niveau 1) centré navy bold,
@@ -400,6 +508,10 @@ async function renderTiptap(c: Cursor, content: JSONContent, styled = false): Pr
           color: BLACK,
         })
         c.y -= 10
+        break
+      }
+      case 'table': {
+        drawTable(c, block)
         break
       }
       default:

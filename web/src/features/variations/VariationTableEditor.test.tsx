@@ -24,7 +24,9 @@ const PRODUCT: ProductRecord = {
   deletedAt: null,
 }
 
-function renderEditor(opts: { controlsInBar?: boolean; ref?: React.Ref<VariationTableHandle> } = {}) {
+function renderEditor(
+  opts: { controlsInBar?: boolean; ref?: React.Ref<VariationTableHandle> } = {},
+) {
   const i18n: I18nValue = { lang: 'fr', setLang: () => {}, t: (s) => s.fr }
   render(
     <I18nContext.Provider value={i18n}>

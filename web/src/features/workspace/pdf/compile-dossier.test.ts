@@ -179,6 +179,62 @@ describe('compileDossier (compilation PDF)', () => {
     expect(multiPages).toBeGreaterThanOrEqual(basePages + 2)
   })
 
+  it('compile un document à TABLEAU (extension-table) dans le livrable métré, sans erreur', async () => {
+    const withTable = gen('1.1.1', 'translation')
+    withTable.content = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Tableau comparatif :' }] },
+        {
+          type: 'table',
+          content: [
+            {
+              type: 'tableRow',
+              content: [
+                {
+                  type: 'tableHeader',
+                  content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Rubrique' }] }],
+                },
+                {
+                  type: 'tableHeader',
+                  content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Valeur' }] }],
+                },
+              ],
+            },
+            {
+              type: 'tableRow',
+              content: [
+                {
+                  type: 'tableCell',
+                  content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Dosage' }] }],
+                },
+                {
+                  type: 'tableCell',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [
+                        {
+                          type: 'text',
+                          text: 'Une valeur longue qui doit s’enrouler sur plusieurs lignes dans la cellule du tableau du document compilé.',
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }
+    const inp = input(true)
+    inp.contentByNumber.set('1.1.1', { generated: [withTable], pieces: [] })
+    const doc = await PDFDocument.load(await compileDossier(inp))
+    // TDM + garde 1.1 + annonce + page(s) du document à tableau → PDF valide multi-pages.
+    expect(doc.getPageCount()).toBeGreaterThanOrEqual(3)
+  })
+
   it('rendu STYLÉ des formulaires : Étiquetage (35 bandeaux gris, wrap multi-lignes) compile', async () => {
     const { buildTemplateSkeleton } = await import('../template-fill')
     const fill = gen('1.3.3', 'fill')

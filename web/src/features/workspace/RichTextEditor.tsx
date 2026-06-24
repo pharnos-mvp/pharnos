@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
 import Image from '@tiptap/extension-image'
+import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table'
 import TextAlign from '@tiptap/extension-text-align'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -48,6 +49,12 @@ export function RichTextEditor({
         LockedHeading,
         Image.configure({ inline: true, allowBase64: true }),
         TextAlign.configure({ types: ['heading', 'paragraph'] }),
+        // Tableaux : non redimensionnables (mise en page A4 fidèle, pas de poignées). L'export DOCX
+        // (tiptap-docx) et la compilation PDF (compile-dossier) rendent ces nœuds → aucune perte.
+        Table.configure({ resizable: false }),
+        TableRow,
+        TableHeader,
+        TableCell,
       ],
       // Garde-fou : un contenu non-ProseMirror ferait planter TipTap au montage.
       content:

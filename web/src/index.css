@@ -171,6 +171,38 @@
   padding-left: 0.75rem;
   color: var(--muted-foreground);
 }
+/* Tableaux (extension-table) — grille fine #999, en-tête grisé #f0f0f0 : FIDÈLE au PDF compilé
+   (compile-dossier drawTable) → aperçu = livrable. `table-layout: fixed` = colonnes régulières
+   (non redimensionnables). `position: relative` sur les cellules pour le voile de sélection TipTap. */
+.ProseMirror table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0.5rem 0;
+}
+.ProseMirror td,
+.ProseMirror th {
+  position: relative;
+  border: 1px solid #999;
+  padding: 4px 6px;
+  vertical-align: top;
+  min-width: 2em;
+}
+.ProseMirror th {
+  background: #f0f0f0;
+  font-weight: 700;
+  text-align: left;
+}
+.ProseMirror table p {
+  margin: 0;
+}
+.ProseMirror .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgb(38 63 115 / 0.12);
+  pointer-events: none;
+}
 
 /* Page A4 de l'éditeur (documents générés, M3.1) — Times New Roman 12, marges 2,5 cm */
 .editor-page-wrap {
