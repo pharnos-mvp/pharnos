@@ -30,16 +30,14 @@ function renderFlow() {
 }
 
 describe('VariationLetterFlow', () => {
-  it('header compact (produit/pays) + VariationPicker 2 colonnes (mineure | majeure) + formulaire SANS condition', () => {
+  it('header compact (produit/pays/AMM + DEUX sélecteurs), 2 onglets, formulaire à cases affiché SANS condition', () => {
     renderFlow()
-    // Header compact : produit + pays cible = simples raccourcis.
+    // Header compact : produit + DEUX sélecteurs de variation (mineure | majeure).
     expect(screen.getByText('Produit')).toBeInTheDocument()
-    expect(screen.getByText('Pays cible')).toBeInTheDocument()
-    // Natures de variation via le VariationPicker (2 colonnes À COCHER, comme le CTD workspace) :
-    // bornées/scrollables, le texte s'enroule → jamais de débordement (≠ <select> natif).
     expect(screen.getByText('Variation mineure')).toBeInTheDocument()
     expect(screen.getByText('Variation majeure')).toBeInTheDocument()
-    expect(screen.getAllByRole('checkbox').length).toBeGreaterThan(10)
+    expect(screen.getByRole('combobox', { name: /variation mineure/i })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /variation majeure/i })).toBeInTheDocument()
     // Corps en deux onglets.
     expect(screen.getByRole('tab', { name: 'Lettre' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /Tableau/ })).toBeInTheDocument()
