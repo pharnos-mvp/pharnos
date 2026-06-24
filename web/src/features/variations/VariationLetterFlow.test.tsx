@@ -30,14 +30,21 @@ function renderFlow() {
 }
 
 describe('VariationLetterFlow', () => {
-  it('header compact (produit/pays/AMM + DEUX sélecteurs), 2 onglets, formulaire à cases affiché SANS condition', () => {
+  it('header (produit/pays) + MULTI-sélecteurs de variants (mineure | majeure) + formulaire SANS condition', () => {
     renderFlow()
-    // Header compact : produit + DEUX sélecteurs de variation (mineure | majeure).
+    // Header : produit + pays cible.
     expect(screen.getByText('Produit')).toBeInTheDocument()
+    expect(screen.getByText('Pays cible')).toBeInTheDocument()
     expect(screen.getByText('Variation mineure')).toBeInTheDocument()
     expect(screen.getByText('Variation majeure')).toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: /variation mineure/i })).toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: /variation majeure/i })).toBeInTheDocument()
+    // Variants = MENUS DÉROULANTS À CASES (multi-sélection) → triggers « une ou plusieurs », pas
+    // des <select> natifs : on peut cocher plusieurs natures de différents types d'un coup.
+    expect(
+      screen.getByRole('button', { name: /une ou plusieurs variations mineures/i }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /une ou plusieurs variations majeures/i }),
+    ).toBeInTheDocument()
     // Corps en deux onglets.
     expect(screen.getByRole('tab', { name: 'Lettre' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /Tableau/ })).toBeInTheDocument()

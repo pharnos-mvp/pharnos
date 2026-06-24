@@ -4,6 +4,12 @@ import { ArrowLeft, ChevronDown, FileDown, FileText, Languages, Plus, X } from '
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useI18n, type Lang } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
@@ -41,8 +47,16 @@ const sanitize = (s: string) =>
     .replace(/^_+|_+$/g, '')
     .slice(0, 50)
 
-const MINEURES = VARIATIONS.filter((v) => v.class === 'mineure')
-const MAJEURES = VARIATIONS.filter((v) => v.class === 'majeure')
+type VariantOption = { n: number; nature: { fr: string; en: string } }
+const MINEURE_OPTS: VariantOption[] = VARIATIONS.filter((v) => v.class === 'mineure').map((v) => ({
+  n: v.n!,
+  nature: v.nature,
+}))
+const MAJEURE_OPTS: VariantOption[] = [
+  ...VARIATIONS.filter((v) => v.class === 'majeure').map((v) => ({ n: v.n!, nature: v.nature })),
+  // Filet « Autre » : variation non répertoriée (l'annexe N°2 est non exhaustive).
+  { n: OTHER_REF, nature: { fr: 'Variation non répertoriée', en: 'Unlisted variation' } },
+]
 
 /**
  * `<select>` natif PREMIUM : on GARDE l'UX liste déroulante (a11y-excellente, picker natif mobile,
@@ -68,6 +82,60 @@ function NativeSelect({ className, children, ...props }: SelectHTMLAttributes<HT
         aria-hidden
       />
     </div>
+  )
+}
+
+/**
+ * Multi-sélecteur de variations : MENU DÉROULANT À CASES À COCHER (Radix DropdownMenu). Conserve
+ * l'UX liste déroulante (clic → la liste se déroule) MAIS permet de cocher UNE OU PLUSIEURS natures
+ * d'un coup — le menu RESTE OUVERT entre les coches (`onSelect` preventDefault). Liste BORNÉE
+ * (largeur fixe ≤ écran, `max-h` scrollable, texte enroulé) → jamais de débordement. Trigger =
+ * bouton premium (même style que `NativeSelect`) affichant le nombre de sélections de CE type.
+ */
+function MultiVariantSelect({
+  ariaLabel,
+  options,
+  selected,
+  onToggle,
+}: {
+  ariaLabel: string
+  options: VariantOption[]
+  selected: number[]
+  onToggle: (n: number) => void
+}) {
+  const { t } = useI18n()
+  const count = options.filter((o) => selected.includes(o.n)).length
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={ariaLabel}
+          className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 flex h-8 w-full cursor-pointer items-center justify-between gap-1 rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]"
+        >
+          <span className={cn('truncate', !count && 'text-muted-foreground')}>
+            {count
+              ? t({ fr: `${count} choisie(s)`, en: `${count} selected` })
+              : t({ fr: 'Choisir…', en: 'Choose…' })}
+          </span>
+          <ChevronDown className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-h-72 w-72 max-w-[calc(100vw-1rem)]">
+        {options.map((o) => (
+          <DropdownMenuCheckboxItem
+            key={o.n}
+            checked={selected.includes(o.n)}
+            onCheckedChange={() => onToggle(o.n)}
+            onSelect={(e) => e.preventDefault()}
+            className="items-start text-xs leading-snug whitespace-normal"
+          >
+            <span className="text-muted-foreground tabular-nums">{o.n || '+'}. </span>
+            {t(o.nature)}
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -150,15 +218,11 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
       }))
   }
 
-  // Ajoute une variation (depuis la liste déroulante) → réamorce le tableau + ouvre la popup à remplir.
-  function addVariation(n: number) {
-    const next = refs.includes(n) ? refs : [...refs, n]
-    setRefs(next)
-    setItems((cur) => seedVariationItems(next, product, cur))
-    setPopupOpen(true)
-  }
-  function removeVariation(n: number) {
-    const next = refs.filter((r) => r !== n)
+  // Coche/décoche une variation (multi-sélection) → réamorce la colonne « ancien » du tableau
+  // comparatif depuis la fiche produit (saisies existantes préservées). PAS de popup auto (≠ l'ancien
+  // « ajouter » 1-par-1) : l'utilisateur coche librement UNE OU PLUSIEURS natures, puis remplit.
+  function toggleVariation(n: number) {
+    const next = refs.includes(n) ? refs.filter((r) => r !== n) : [...refs, n]
     setRefs(next)
     setItems((cur) => seedVariationItems(next, product, cur))
   }
@@ -252,12 +316,11 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
       </div>
 
       {/* Header de configuration COMPACT + RESPONSIVE (comme les autres templates) : barre
-          `bg-muted/40 p-3`, `<select>` natifs PREMIUM (`NativeSelect` — chevron maison + focus-ring).
-          GRILLE 2 colonnes sur mobile → rangée compacte `flex-wrap` sur desktop (≥sm) ; les selects
-          REMPLISSENT leur cellule (`w-full` + `min-w-0` sur le label) → ils NE DÉBORDENT JAMAIS,
-          quelle que soit la largeur de l'écran. Variables : produit · pays · DEUX sélecteurs de
-          variation (mineure | majeure), de simples RACCOURCIS. N° d'AMM et date = cases du
-          formulaire (pré-remplies par le choix du produit). */}
+          `bg-muted/40 p-3`, GRILLE 2 colonnes sur mobile → rangée `flex-wrap` sur desktop (≥sm) ;
+          chaque contrôle REMPLIT sa cellule (`w-full` + label `min-w-0`) → NE DÉBORDE JAMAIS.
+          Produit · pays = `<select>` natifs PREMIUM (un seul choix). Variation mineure | majeure =
+          `MultiVariantSelect` (menu déroulant À CASES → cocher UNE OU PLUSIEURS natures d'un coup,
+          de différents types). Tout n'est que RACCOURCI ; N° d'AMM/date = cases du formulaire. */}
       <div className="bg-muted/40 grid grid-cols-2 gap-2 rounded-lg border p-3 sm:flex sm:flex-wrap sm:items-end">
         <label className="flex min-w-0 flex-col gap-1 text-xs sm:w-36">
           <span className="text-muted-foreground font-medium">
@@ -304,45 +367,30 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
           <span className="text-muted-foreground font-medium">
             {t({ fr: 'Variation mineure', en: 'Minor variation' })}
           </span>
-          <NativeSelect
-            value=""
-            onChange={(e) => {
-              if (e.target.value) addVariation(Number(e.target.value))
-            }}
-            aria-label={t({ fr: 'Ajouter une variation mineure', en: 'Add a minor variation' })}
-          >
-            <option value="">{t({ fr: 'Choisir…', en: 'Choose…' })}</option>
-            {MINEURES.map((v) => (
-              <option key={v.n} value={v.n!} disabled={refs.includes(v.n!)}>
-                {v.n}. {t(v.nature)}
-              </option>
-            ))}
-          </NativeSelect>
+          <MultiVariantSelect
+            ariaLabel={t({
+              fr: 'Choisir une ou plusieurs variations mineures',
+              en: 'Select one or more minor variations',
+            })}
+            options={MINEURE_OPTS}
+            selected={refs}
+            onToggle={toggleVariation}
+          />
         </label>
 
         <label className="flex min-w-0 flex-col gap-1 text-xs sm:w-32">
           <span className="text-muted-foreground font-medium">
             {t({ fr: 'Variation majeure', en: 'Major variation' })}
           </span>
-          <NativeSelect
-            value=""
-            onChange={(e) => {
-              if (e.target.value) addVariation(Number(e.target.value))
-            }}
-            aria-label={t({ fr: 'Ajouter une variation majeure', en: 'Add a major variation' })}
-          >
-            <option value="">{t({ fr: 'Choisir…', en: 'Choose…' })}</option>
-            {MAJEURES.map((v) => (
-              <option key={v.n} value={v.n!} disabled={refs.includes(v.n!)}>
-                {v.n}. {t(v.nature)}
-              </option>
-            ))}
-            <optgroup label={t({ fr: 'Autre', en: 'Other' })}>
-              <option value={OTHER_REF} disabled={refs.includes(OTHER_REF)}>
-                {t({ fr: 'Variation non répertoriée', en: 'Unlisted variation' })}
-              </option>
-            </optgroup>
-          </NativeSelect>
+          <MultiVariantSelect
+            ariaLabel={t({
+              fr: 'Choisir une ou plusieurs variations majeures',
+              en: 'Select one or more major variations',
+            })}
+            options={MAJEURE_OPTS}
+            selected={refs}
+            onToggle={toggleVariation}
+          />
         </label>
       </div>
 
@@ -360,7 +408,7 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
               </span>
               <button
                 type="button"
-                onClick={() => removeVariation(r)}
+                onClick={() => toggleVariation(r)}
                 aria-label={t({ fr: 'Retirer', en: 'Remove' })}
                 className="hover:bg-destructive/10 hover:text-destructive focus-visible:ring-ring rounded-full p-0.5 focus-visible:ring-2 focus-visible:outline-none"
               >
