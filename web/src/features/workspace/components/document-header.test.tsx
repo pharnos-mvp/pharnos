@@ -76,29 +76,6 @@ describe('buildDocActions — boutons adaptatifs par type de document', () => {
     ])
   })
 
-  it('annexe (tableau comparatif) : Télécharger ▾ (PDF/DOCX) + Enregistrer (solid) ; handlers câblés', () => {
-    const save = vi.fn()
-    const pdf = vi.fn()
-    const docx = vi.fn()
-    const acts = buildDocActions(
-      { kind: 'variation-table', handlers: { save, downloadPdf: pdf, downloadDocx: docx } },
-      t,
-    )
-    expect(acts.map((a) => a.key)).toEqual(['download', 'save'])
-    const dl = acts.find((a) => a.key === 'download')!
-    expect(dl.kind).toBe('menu')
-    expect(dl.menu!.map((m) => m.key)).toEqual(['pdf', 'docx'])
-    const saveBtn = acts.find((a) => a.key === 'save')!
-    expect(saveBtn.kind).toBe('button')
-    expect(saveBtn.variant).toBe('solid')
-    saveBtn.onClick!()
-    expect(save).toHaveBeenCalledTimes(1)
-    dl.menu!.find((m) => m.key === 'pdf')!.onSelect()
-    expect(pdf).toHaveBeenCalledTimes(1)
-    dl.menu!.find((m) => m.key === 'docx')!.onSelect()
-    expect(docx).toHaveBeenCalledTimes(1)
-  })
-
   it('Télécharger = menu PDF/DOCX ; ⋯ = Supprimer (destructif) ; handlers câblés', () => {
     const reset = vi.fn()
     const pdf = vi.fn()

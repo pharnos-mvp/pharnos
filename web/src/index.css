@@ -204,25 +204,34 @@
   pointer-events: none;
 }
 
-/* Page A4 de l'éditeur (documents générés, M3.1) — Times New Roman 12, marges 2,5 cm */
+/* Page A4 de l'éditeur (documents générés, M3.1) — CADRE A4 UNIQUE du CTD builder : métriques
+   IDENTIQUES à `.tplform-sheet` (annexe / formulaires) → aucun décalage de cadre d'un onglet/nœud à
+   l'autre (retour CEO « le cadre bouge »). Times 12, feuille 62 rem, marges 25,4 mm, ombre tplform. */
 .editor-page-wrap {
-  background: var(--muted);
-  /* Pas de marge en HAUT : la barre de format colle pile à l'en-tête de la page A4.
-     Marges latérales (centrage) + marge de bas généreuse (on défile jusqu'au bas de l'A4). */
-  padding: 0 1.5rem 3rem;
+  display: flex;
+  justify-content: center;
+  /* Transparent : la feuille flotte (ombre) sur le conteneur du document (carte du nœud / canevas) —
+     même traitement pour la lettre, l'annexe et les pièces → aucun décalage de cadre. */
+  background: transparent;
+  /* Pas de marge en HAUT : la barre de format colle pile à l'en-tête de la page A4. */
+  padding: 4px 0 28px;
 }
 .editor-page {
-  width: 21cm;
-  max-width: 100%;
-  min-height: 24cm;
-  margin: 0 auto;
-  padding: 2.5cm;
+  width: 100%;
+  max-width: 62rem;
+  min-height: 297mm;
+  padding: 25.4mm;
   background: #fff;
   color: #000;
-  box-shadow: 0 1px 8px rgb(0 0 0 / 0.12);
+  box-shadow: 0 6px 28px rgba(28, 40, 70, 0.16);
   font-family: 'Times New Roman', Times, serif;
   font-size: 12pt;
-  line-height: 1.5;
+  line-height: 1.35;
+}
+@media (max-width: 860px) {
+  .editor-page {
+    padding: 28px 22px;
+  }
 }
 .editor-page .ProseMirror {
   min-height: 16cm;
@@ -253,12 +262,21 @@
 }
 .editor-band {
   display: block;
-  /* Pleine largeur bord-à-bord : déborde le padding 2,5cm de .editor-page (en-tête/pied sans marge). */
-  width: calc(100% + 5cm);
+  /* Pleine largeur bord-à-bord : déborde le padding 25,4 mm de .editor-page (en-tête/pied sans marge). */
+  width: calc(100% + 50.8mm);
   max-width: none;
   height: auto;
-  margin: -2.5cm -2.5cm 1rem;
+  margin: -25.4mm -25.4mm 1rem;
 }
 .editor-band-footer {
-  margin: 2rem -2.5cm -2.5cm;
+  margin: 2rem -25.4mm -25.4mm;
+}
+@media (max-width: 860px) {
+  .editor-band {
+    width: calc(100% + 44px);
+    margin: -28px -22px 1rem;
+  }
+  .editor-band-footer {
+    margin: 2rem -22px -28px;
+  }
 }

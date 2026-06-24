@@ -94,6 +94,8 @@ export type Viewable =
       isTranslation?: boolean
       isUpgrade?: boolean
       isFill?: boolean
+      /** Annexe de variation (tableau comparatif) — doc généré rendu/compilé comme une lettre. */
+      isAnnex?: boolean
     }
   | {
       key: string
@@ -102,13 +104,6 @@ export type Viewable =
       id: string
       filePath: string | null
       fileName: string
-    }
-  // Onglet synthétique « tableau comparatif » d'un dossier de variation (≠ doc/pièce) — rendu par
-  // l'éditeur de tableau A4 ; injecté à côté de la lettre au nœud 1.1.1.
-  | {
-      key: string
-      kind: 'variation-table'
-      label: string
     }
 
 /**
@@ -135,6 +130,7 @@ export function buildViewables({
     const isTranslation = g.templateKey === 'translation'
     const isUpgrade = g.templateKey === 'upgrade'
     const isFill = g.templateKey === 'fill'
+    const isAnnex = g.templateKey === 'variation-annex'
     // Onglet façon navigateur : « <nom de l'original>_<LANG>.docx » (traduction),
     // « <nom de l'original>_CONFORME » (version conforme au template).
     const base = ((g.sourceDocId && sourceNamesById.get(g.sourceDocId)) ?? g.title).replace(
@@ -152,6 +148,7 @@ export function buildViewables({
       isTranslation,
       isUpgrade,
       isFill,
+      isAnnex,
     })
   }
   for (const a of selectedAttachments) {
@@ -185,8 +182,8 @@ export function buildViewables({
  * format (PDF/Word) déduit du nom de fichier.
  */
 export function viewableTabType(v: Viewable): Translatable {
-  if (v.kind === 'variation-table') return { fr: 'Tableau', en: 'Table' }
   if (v.kind === 'letter') {
+    if (v.isAnnex) return { fr: 'Annexe', en: 'Annex' }
     if (v.isTranslation) return { fr: 'Traduction', en: 'Translation' }
     if (v.isUpgrade) return { fr: 'Version conforme', en: 'Compliant version' }
     if (v.isFill) return { fr: 'Formulaire', en: 'Form' }

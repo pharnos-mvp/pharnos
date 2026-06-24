@@ -90,3 +90,30 @@ Ordre d'exécution recommandé : **T1 → T2 → T3** (valeur livrée tôt, risq
 
 Démarrer **T1** : exposer `pdf()/docx()/save()` sur `VariationTableEditor` (ref + `controlsInBar`), ajouter
 le `case 'variation-table'` à `buildDocActions`, câbler `DocumentHeader`, retirer la case AMM.
+
+---
+
+# ROUND 2 — Unification (retour recette CEO 2026-06-24, PR #226)
+
+> T1-T3 livrés + verts (PR #226). Recette CEO concluante mais 7 points → chantier d'**unification**.
+> Décisions confirmées : docx = **conversion mammoth** (édition native) ; **GO tout, une PR** (réusine l'annexe de T1).
+
+## Cap
+**Tout devient un document TipTap natif dans UN seul cadre A4** (modèle `.tplform-sheet` 62 rem retenu par le
+CEO), avec **le jeu complet d'actions de la lettre** partout. Front/édition, 0 migration.
+
+## Tranches
+- **R2-A — Prévisualiseur A4 unique** (points 3, 4). `.editor-page` aligné sur `.tplform-sheet` ;
+  `InlineDocPreview` + page de garde dans le même cadre ; **retrait** de l'en-tête redondant nom+download
+  des pièces (déjà dans la barre d'actions). → plus de cadre qui bouge.
+- **R2-B — Annexe = document natif** (points 1, 2, 6). Le tableau comparatif devient un **doc généré
+  TipTap** (templateKey `variation-annex`, nœud `table` seedé depuis `variationItems`) → hérite de
+  Modifier/Signer/En-tête/Pied/Télécharger/Téléverser/Supprimer ; **1.4.1 ≡ onglet annexe** ; **compilé**
+  juste après la lettre (drawTable de T3) → corrige point 6. Retire le special-casing `variation-table` (T1).
+- **R2-C — doc/docx éditable** (point 7). `.doc`/`.docx` acceptés (fiche produit + CTD) ; **mammoth**
+  docx→TipTap à l'upload → édition native ; validation `parseTiptapContent` ; chunk lazy.
+
+## Definition of Done (round 2)
+Cadre A4 **identique** sous toutes les arborescences (zéro décalage onglet/onglet) ; annexe = doc natif
+avec actions complètes, **visible dans le PDF compilé** ; docx téléversé **éditable nativement** ; CI 6/6 +
+recette navigateur réelle (preview headless non fiable pour ce flux). `/cto:review` + `/accessibility-review`.
