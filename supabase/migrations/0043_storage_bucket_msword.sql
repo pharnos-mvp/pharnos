@@ -1,4 +1,4 @@
--- 0042_storage_bucket_msword.sql — Autorise l'ancien format Word `.doc` (application/msword) au
+-- 0043_storage_bucket_msword.sql — Autorise l'ancien format Word `.doc` (application/msword) au
 -- backstop serveur du bucket `documents` (cf. 0036).
 --
 -- Contexte (retour recette CEO) : la fiche produit ET le CTD builder acceptent désormais doc/docx.
