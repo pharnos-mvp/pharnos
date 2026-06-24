@@ -30,13 +30,14 @@ function renderFlow() {
 }
 
 describe('VariationLetterFlow', () => {
-  it('header (sessions + sélecteur variation), 2 onglets, download combiné désactivé tant que non prêt', () => {
+  it('header compact (produit/pays/AMM + DEUX sélecteurs de variation), 2 onglets, download désactivé tant que non prêt', () => {
     renderFlow()
-    // Sessions alignées dans le header (produit / pays / AMM / variation).
-    expect(screen.getByText('Ajouter une variation')).toBeInTheDocument()
-    expect(
-      screen.getByText(/le téléchargement exporte la lettre suivie du tableau/i),
-    ).toBeInTheDocument()
+    // Header compact : produit + DEUX sélecteurs de variation (mineure | majeure).
+    expect(screen.getByText('Produit')).toBeInTheDocument()
+    expect(screen.getByText('Variation mineure')).toBeInTheDocument()
+    expect(screen.getByText('Variation majeure')).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /variation mineure/i })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /variation majeure/i })).toBeInTheDocument()
     // Corps en deux onglets.
     expect(screen.getByRole('tab', { name: 'Lettre' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /Tableau/ })).toBeInTheDocument()

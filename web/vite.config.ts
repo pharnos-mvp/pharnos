@@ -69,6 +69,19 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        // Isole Radix UI (shadcn) dans un chunk vendor STABLE → jamais inliné dans `index-*.js`.
+        // Sans ça, retirer un seul consommateur (ex. un sélecteur passé en <select> natif) suffit à
+        // faire basculer ~10 Ko de Radix dans l'entrée (gate de budget). Chargé au boot SI l'entrée
+        // en a besoin, sinon paresseusement — coût de boot inchangé, mais entrée lean et déterministe.
+        manualChunks(id) {
+          if (id.includes('node_modules/@radix-ui')) return 'vendor-radix'
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),

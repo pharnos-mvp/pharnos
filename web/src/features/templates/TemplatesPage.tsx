@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   ArrowLeft,
@@ -36,7 +36,13 @@ import {
 import type { LetterBrand } from '@/features/workspace/letter-render'
 import { getOrgBranding, getUserSignature } from '@/features/profile/pro-settings-repository'
 import { useAuth } from '@/features/auth/auth-context'
-import { VariationLetterFlow } from '@/features/variations/VariationLetterFlow'
+// Lazy : flux « Lettre de variation » lourd (catalogue 42 variations + éditeurs lettre/tableau) →
+// chunk dédié, hors du bundle d'entrée et du chunk principal de la Bibliothèque.
+const VariationLetterFlow = lazy(() =>
+  import('@/features/variations/VariationLetterFlow').then((m) => ({
+    default: m.VariationLetterFlow,
+  })),
+)
 import { TemplatePreview } from './TemplatePreview'
 import { LetterEditor } from './LetterEditor'
 import { deleteSavedTemplate, saveTemplate } from './saved-templates-repository'
@@ -209,7 +215,11 @@ export function TemplatesPage() {
 
   // Flux « Lettre de variation » (sélecteur 2 colonnes + produit du catalogue → lettre PDF/DOCX).
   if (variationFlow) {
-    return <VariationLetterFlow onBack={() => setVariationFlow(false)} />
+    return (
+      <Suspense fallback={<div className="text-muted-foreground p-6 text-sm">…</div>}>
+        <VariationLetterFlow onBack={() => setVariationFlow(false)} />
+      </Suspense>
+    )
   }
 
   // ───────────────────────── Vue FORMULAIRE (centrée A4, sans menu latéral) ─────────────────────────
