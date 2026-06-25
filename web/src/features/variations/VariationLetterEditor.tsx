@@ -100,8 +100,9 @@ export function VariationLetterEditor({
               </div>
             ) : null}
 
-            {/* Dateline REMPLISSABLE (Ville / Date) — vides → défaut auto à l'export. */}
-            <p className="l-p l-r">
+            {/* Dateline REMPLISSABLE (Ville / Date) — vides → défaut auto à l'export.
+                `l-dateline` → Ville et Date restent sur UNE seule ligne. */}
+            <p className="l-p l-r l-dateline">
               {inp('ville', L('Ville', 'City'), L('Ville de la lettre', 'Letter city'))}
               {L(', le ', ', ')}
               {inp('date', today, L('Date de la lettre', 'Letter date'))}

@@ -131,6 +131,8 @@ export function productToLetterFields(p: ProductRecord): Partial<LetterFields> {
     demandeurAdresse: p.titulaireAdresse ?? '',
     fabricantNom: p.fabricant ?? '',
     fabricantAdresse: p.fabricantAdresse ?? '',
+    // Ville préremplie depuis l'adresse du titulaire (comme DCI/dosage… depuis la fiche produit).
+    ville: extractCity(p.titulaireAdresse ?? '') ?? '',
   }
 }
 

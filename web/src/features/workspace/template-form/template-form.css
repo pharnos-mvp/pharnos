@@ -457,6 +457,17 @@
   margin-left: 56%;
   text-align: left;
 }
+/* Dateline « Ville, le Date » : les deux cases TOUJOURS sur une seule ligne (flex → pas de retour
+   malgré le min-width des champs) ; elles se partagent la largeur dispo de la dateline. */
+.tplform-sheet .l-p.l-dateline {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+.tplform-sheet .l-dateline .field-input {
+  flex: 1 1 0;
+  min-width: 0;
+}
 .tplform-sheet .l-p strong {
   font-weight: bold;
 }
