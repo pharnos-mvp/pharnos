@@ -46,7 +46,7 @@ Prochaine action : **jalon I (backups + restore drill)** — seul préalable res
 **Le produit est EN PRODUCTION (app.pharnos.com), IA comprise, durci, optimisé.** Jalons H→O + gate N
 (N1/N2/N3) + refonte CTD builder + **Bibliothèque Templates 5/5** + **🚀 Moteur de Variation (RIM, #224→#236)** livrés ;
 **reste N4 (gate GO-LIVE) — pilote #1 EN COURS (dossiers Bénin renouvellement/variation).** Cap : [PLAN-RESTANT.md](PLAN-RESTANT.md)
-+ [ROADMAP-MVP.md](ROADMAP-MVP.md).
++ [ROADMAP-MVP.md](ROADMAP-MVP.md). **Dernière ligne droite (refonte UX app + landing premium + clôture N4, zéro-dette) = roadmap ordonnée dans [PLAN-LANCEMENT.md](PLAN-LANCEMENT.md).**
 
 | Domaine | État |
 |---|---|
