@@ -1,6 +1,15 @@
 import { useState, type SelectHTMLAttributes } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowLeft, ChevronDown, FileDown, FileText, Languages, Plus, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  ChevronDown,
+  FileDown,
+  FileText,
+  Languages,
+  Plus,
+  RotateCcw,
+  X,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -141,13 +150,13 @@ function MultiVariantSelect({
 
 /**
  * Flux Bibliothèque « Lettre de variation » (classique RIM) :
- *  - **Header** : sessions alignées — produit (catalogue) · pays · N°/date d'AMM · **sélecteur de
- *    variation** (liste déroulante mineure/majeure ; le choix ouvre la **popup tableau** à remplir).
- *  - **Corps en deux onglets** : « Lettre » (= `VariationLetterEditor`, **formulaire à cases sur
- *    feuille A4**, auto-rempli par le header — comme les autres lettres) et « Tableau » (tableau
- *    comparatif). Le formulaire **reflète à l'identique** l'export → affiché = exporté.
- *  - **Download** = la lettre **et** le tableau en annexe, **combinés** dans un seul PDF/DOCX.
- * N°/date d'AMM pré-remplis depuis le doc AMM du produit. Self-contained, hors-ligne.
+ *  - **Header compact + responsive** (aligné sur `LetterEditor`) : Catalogue · Pays cible · variation
+ *    mineure | majeure (`MultiVariantSelect`, multi-coche) · En-tête & signature — tout sur UNE ligne.
+ *    Bouton **Réinitialiser**. N°/date d'AMM + Ville/Date = cases REMPLISSABLES du formulaire.
+ *  - **Corps en deux onglets** : « Lettre » (= `VariationLetterEditor`, formulaire à cases A4) et
+ *    « Tableau » (tableau comparatif). Le formulaire **reflète à l'identique** l'export.
+ *  - **Download** = lettre **+** tableau en annexe, combinés dans un seul PDF/DOCX.
+ * Réinitialiser ne touche QUE l'état LOCAL (jamais la fiche produit). Self-contained, hors-ligne.
  */
 export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
   const { t, lang: appLang } = useI18n()
@@ -227,6 +236,54 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
     setItems((cur) => seedVariationItems(next, product, cur))
   }
 
+  // Bascule en-tête / pied / signature (insertion 1-clic depuis le profil) — flags stockés dans
+  // `fields`, lus par l'éditeur pour afficher les images. Bouton désactivé si l'image manque.
+  const flag = (k: keyof LetterFields) => fields[k] === '1'
+  const toggleFlag = (k: keyof LetterFields) => setField(k, fields[k] === '1' ? '' : '1')
+  const insertBtn = (
+    k: keyof LetterFields,
+    img: string | null | undefined,
+    label: { fr: string; en: string },
+  ) => (
+    <button
+      type="button"
+      disabled={!img && !flag(k)}
+      onClick={() => toggleFlag(k)}
+      aria-pressed={flag(k)}
+      title={img ? undefined : t({ fr: 'À définir dans le profil', en: 'Set in profile' })}
+      className={cn(
+        'h-8 rounded-md border px-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40',
+        flag(k) && img
+          ? 'border-primary bg-primary text-primary-foreground'
+          : 'text-muted-foreground',
+      )}
+    >
+      {t(label)}
+    </button>
+  )
+
+  // Réinitialiser le formulaire (champs + variants + tableau) → état vide LOCAL. N'altère JAMAIS la
+  // fiche produit du catalogue : les formulaires LISENT le produit (productToLetterFields) et n'y
+  // écrivent rien (contrainte #5 CEO). Le choix produit est aussi remis à zéro.
+  function resetForm() {
+    if (
+      !window.confirm(
+        t({
+          fr: 'Tout effacer le contenu de cette lettre ?',
+          en: 'Clear all content in this letter?',
+        }),
+      )
+    )
+      return
+    setFields(emptyLetterFields())
+    setProductId('')
+    setRefs([])
+    setItems([])
+    toast.success(t({ fr: 'Lettre réinitialisée', en: 'Letter reset' }), {
+      description: t({ fr: 'Tous les champs ont été vidés.', en: 'All fields cleared.' }),
+    })
+  }
+
   async function downloadCombined(kind: 'pdf' | 'docx') {
     setBusy(true)
     try {
@@ -296,6 +353,16 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
             variant="outline"
             size="sm"
             className="h-8"
+            onClick={resetForm}
+            title={t({ fr: 'Tout effacer', en: 'Clear all' })}
+          >
+            <RotateCcw className="size-4" />
+            <span className="hidden sm:inline">{t({ fr: 'Réinitialiser', en: 'Reset' })}</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8"
             disabled={busy}
             onClick={() => void downloadCombined('pdf')}
             title={t({ fr: 'Lettre + tableau en annexe', en: 'Letter + table annex' })}
@@ -324,7 +391,7 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
       <div className="bg-muted/40 grid grid-cols-2 gap-2 rounded-lg border p-3 sm:flex sm:flex-wrap sm:items-end">
         <label className="flex min-w-0 flex-col gap-1 text-xs sm:w-36">
           <span className="text-muted-foreground font-medium">
-            {t({ fr: 'Produit', en: 'Product' })}
+            {t({ fr: 'Catalogue', en: 'Catalogue' })}
           </span>
           <NativeSelect
             value={productId}
@@ -392,6 +459,23 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
             onToggle={toggleVariation}
           />
         </label>
+
+        {/* En-tête & signature : sur la MÊME ligne que les autres contrôles (comme LetterEditor),
+            boutons `h-8` → même hauteur que les selects. Bascule les flags useHeader/Pied/Signature
+            (insertion 1-clic des images du profil). Pleine largeur sur mobile (col-span-2). */}
+        <div className="col-span-2 flex min-w-0 flex-col gap-1 text-xs sm:w-auto">
+          <span className="text-muted-foreground font-medium">
+            {t({ fr: 'En-tête & signature', en: 'Letterhead & signature' })}
+          </span>
+          <div className="flex h-8 items-center gap-1">
+            {insertBtn('useHeader', branding?.headerImage, { fr: 'En-tête', en: 'Header' })}
+            {insertBtn('useFooter', branding?.footerImage, { fr: 'Pied', en: 'Footer' })}
+            {insertBtn('useSignature', signature?.signatureImage, {
+              fr: 'Signature',
+              en: 'Signature',
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Variations choisies (chips, suppression) + raccourci pour rouvrir la popup. */}

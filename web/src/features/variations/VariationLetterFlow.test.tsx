@@ -32,11 +32,14 @@ function renderFlow() {
 describe('VariationLetterFlow', () => {
   it('header (produit/pays) + MULTI-sélecteurs de variants (mineure | majeure) + formulaire SANS condition', () => {
     renderFlow()
-    // Header : produit + pays cible.
-    expect(screen.getByText('Produit')).toBeInTheDocument()
+    // Header : Catalogue (ex-« Produit ») + pays cible + En-tête & signature, tout sur la même ligne.
+    expect(screen.getByText('Catalogue')).toBeInTheDocument()
     expect(screen.getByText('Pays cible')).toBeInTheDocument()
+    expect(screen.getByText('En-tête & signature')).toBeInTheDocument()
     expect(screen.getByText('Variation mineure')).toBeInTheDocument()
     expect(screen.getByText('Variation majeure')).toBeInTheDocument()
+    // Bouton Réinitialiser (comme les autres formulaires).
+    expect(screen.getByRole('button', { name: /Réinitialiser/i })).toBeInTheDocument()
     // Variants = MENUS DÉROULANTS À CASES (multi-sélection) → triggers « une ou plusieurs », pas
     // des <select> natifs : on peut cocher plusieurs natures de différents types d'un coup.
     expect(

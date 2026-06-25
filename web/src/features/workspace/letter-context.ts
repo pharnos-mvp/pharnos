@@ -13,6 +13,10 @@ import type { TemplateContext } from './templates'
 export interface LetterFields {
   /** Pays cible (code ISO) → destinataire auto (agence + civilité du directeur). */
   country: string
+  /** Ville et date de la lettre (dateline) — REMPLISSABLES ; si vides → défaut auto (ville extraite
+   * de l'adresse du demandeur / date du jour) appliqué à la compilation. */
+  ville: string
+  date: string
   nomCommercial: string
   dci: string
   dosage: string
@@ -64,6 +68,8 @@ export const UEMOA_COUNTRIES: { code: string; name: string }[] = [
 
 export const LETTER_FIELD_KEYS: (keyof LetterFields)[] = [
   'country',
+  'ville',
+  'date',
   'nomCommercial',
   'dci',
   'dosage',
@@ -89,6 +95,8 @@ export const LETTER_FIELD_KEYS: (keyof LetterFields)[] = [
 export function emptyLetterFields(country = ''): LetterFields {
   return {
     country,
+    ville: '',
+    date: '',
     nomCommercial: '',
     dci: '',
     dosage: '',
@@ -160,12 +168,15 @@ export function buildLetterContext(f: LetterFields, lang: Lang): TemplateContext
     agencyCiviliteEn: agencyCiviliteEn(),
     agencyAdresse: ag.adresse || ph('[Adresse de l’agence]', '[Agency address]'),
     country: f.country,
-    ville: extractCity(f.demandeurAdresse) || ph('[Ville]', '[City]'),
-    date: new Date().toLocaleDateString(lang === 'en' ? 'en-GB' : 'fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    }),
+    // REMPLISSABLES : la saisie l'emporte ; sinon défaut auto (ville extraite de l'adresse / aujourd'hui).
+    ville: v(f.ville) || extractCity(f.demandeurAdresse) || ph('[Ville]', '[City]'),
+    date:
+      v(f.date) ||
+      new Date().toLocaleDateString(lang === 'en' ? 'en-GB' : 'fr-FR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }),
     poste: v(f.poste),
     signataire: v(f.signataire),
     pght: v(f.pght) || ph('[Montant]', '[Amount]'),
