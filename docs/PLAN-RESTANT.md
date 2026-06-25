@@ -38,6 +38,10 @@ Tout **H → M (+O)** est en prod. **Depuis le 2026-06-16** :
   multi-variation, **tableau comparatif en annexe** (compilée), lettre de variation, éditeur TipTap **tableaux**
   + doc/.docx **éditable nativement**, barème national. **= moat RIM ajouté, hors plan initial.**
 - **Pilote #1 EN COURS** (kickoff N4) — dossiers réels Bénin (renouvellements + variations).
+- **Dernière ligne droite (2026-06-25)** : deux nouveaux chantiers CEO — **refonte UX de l'app (uniformité)**
+  + **landing premium** — consolidés avec tout le reste dans **[PLAN-LANCEMENT.md](PLAN-LANCEMENT.md)**
+  (roadmap ordonnée zéro-rework : fondation design-system → refonte par surface → landing → **i18n en dernier**
+  → recette finale + GO-LIVE). Périmètre validé CEO = **refonte UX profonde** (pas un simple re-skin).
 
 **Santé** : ~381 vitest + e2e Playwright, CI 6/6, `npm audit` 0 vuln, advisors **0 ERROR**, budget tenu, backups
 chiffrés + restore drill, uptime + alertes, **0 €**. Clé `age` rangée hors-ligne (2026-06-20).
@@ -85,6 +89,7 @@ Ordre = valeur × dépendance. Chaque ligne = tranche verticale livrable + recet
 
 | # | Tranche | Pourquoi | Effort |
 |---|---------|----------|--------|
+| ★ | **Refonte UX de l'app (uniformité)** + **Landing premium** | Décision CEO 2026-06-25 — **la dernière ligne droite**. Design-system unifié + parcours sur toutes les surfaces, puis landing premium. Absorbe #1 (erreurs) et #4 (landing). **Roadmap ordonnée : [PLAN-LANCEMENT.md](PLAN-LANCEMENT.md).** | ~10–14 s |
 | 1 | **Messages d'erreur actionnables (audit complet)** | Standard *quoi / pourquoi / que faire* + CTA ; priorité aux erreurs d'**offre** (quota IA 429, sièges, **quota de compilation**) = tunnel de conversion. 1er pas livré (#163). | ~0,5–1 session |
 | 2 | **Bibliothèque Templates (couche RIM)** | Onglet sidebar : templates en vigueur + lettres ; l'org sauvegarde ses versions réutilisables, rappelées dans le CTD builder. **= le moat RIM** (≈ content library Veeva). Table `org_templates` offline-first. **Garde-fou : réglementaires read-only, zéro hallucination.** | ~1–2 sessions |
 | 3 | **Corbeille brouillons + Archive enrichie + doc rétention** | Finition rétention GxP (#162) : restore brouillons + purge N j + vue Archive + *Politique de rétention* (argument conformité). | ~0,5 session |
