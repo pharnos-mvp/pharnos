@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 
+import { Page } from '@/components/ui/page'
+import { PageHeader } from '@/components/ui/page-header'
 import { useAuditSync } from '@/features/audit/use-audit-sync'
 import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
 import { useCorrespondenceSync } from '@/features/correspondence/use-correspondence-sync'
@@ -88,16 +90,14 @@ export function DashboardPage() {
   }, [products, documents, dossiers, correspondences, messages, reads, docAnalysis, auditLog])
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
-      <div>
-        <h1 className="text-xl font-bold">{t({ fr: 'Tableau de bord', en: 'Dashboard' })}</h1>
-        <p className="text-muted-foreground text-sm">
-          {t({
-            fr: 'Poste de pilotage RA — vos actions, dossiers, échéances & veille (UEMOA/CEDEAO).',
-            en: 'RA control center — your actions, dossiers, deadlines & watch (UEMOA/CEDEAO).',
-          })}
-        </p>
-      </div>
+    <Page>
+      <PageHeader
+        title={t({ fr: 'Tableau de bord', en: 'Dashboard' })}
+        description={t({
+          fr: 'Poste de pilotage RA — vos actions, dossiers, échéances & veille (UEMOA/CEDEAO).',
+          en: 'RA control center — your actions, dossiers, deadlines & watch (UEMOA/CEDEAO).',
+        })}
+      />
 
       {/* Cœur : ce qui requiert une action. */}
       <ActionsRequises items={vm.actions} />
@@ -117,6 +117,6 @@ export function DashboardPage() {
 
       <ActiviteRecente items={vm.activity} />
       <VeilleCard />
-    </div>
+    </Page>
   )
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { PackageOpen, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -16,6 +16,10 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Page } from '@/components/ui/page'
+import { PageHeader } from '@/components/ui/page-header'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
   TableBody,
@@ -38,57 +42,54 @@ export function CataloguePage() {
   const products = useLiveQuery(() => listProducts(orgId), [orgId])
 
   return (
-    <section className="mx-auto max-w-5xl">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t({ fr: 'Catalogue', en: 'Catalogue' })}
-          </h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            {t({
-              fr: 'Le tableau de bord des produits — tout part du produit.',
-              en: 'The product dashboard — everything starts from the product.',
-            })}
-          </p>
-        </div>
-        <Button asChild>
-          <Link to="/catalogue/nouveau">
-            <Plus /> {t({ fr: 'Nouveau produit', en: 'New product' })}
-          </Link>
-        </Button>
-      </div>
+    <Page>
+      <PageHeader
+        title={t({ fr: 'Catalogue', en: 'Catalogue' })}
+        description={t({
+          fr: 'Le tableau de bord des produits — tout part du produit.',
+          en: 'The product dashboard — everything starts from the product.',
+        })}
+        actions={
+          <Button asChild>
+            <Link to="/catalogue/nouveau">
+              <Plus /> {t({ fr: 'Nouveau produit', en: 'New product' })}
+            </Link>
+          </Button>
+        }
+      />
 
-      <div className="mt-6">
-        {products === undefined ? (
-          <p className="text-muted-foreground text-sm">
-            {t({ fr: 'Chargement…', en: 'Loading…' })}
-          </p>
-        ) : products.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <ProductTable products={products} />
-        )}
-      </div>
-    </section>
+      {products === undefined ? (
+        <CatalogueSkeleton />
+      ) : products.length === 0 ? (
+        <EmptyState
+          icon={<PackageOpen />}
+          title={t({ fr: 'Aucun produit', en: 'No product' })}
+          description={t({
+            fr: 'Enregistrez votre premier produit. Il sera disponible hors-ligne et alimentera le CTD Workspace, la traduction et le suivi de validité.',
+            en: 'Save your first product. It will be available offline and feed the CTD Workspace, translation and validity tracking.',
+          })}
+          action={
+            <Button asChild>
+              <Link to="/catalogue/nouveau">
+                <Plus /> {t({ fr: 'Nouveau produit', en: 'New product' })}
+              </Link>
+            </Button>
+          }
+        />
+      ) : (
+        <ProductTable products={products} />
+      )}
+    </Page>
   )
 }
 
-function EmptyState() {
-  const { t } = useI18n()
+function CatalogueSkeleton() {
   return (
-    <div className="rounded-lg border border-dashed p-10 text-center">
-      <h2 className="text-lg font-medium">{t({ fr: 'Aucun produit', en: 'No product' })}</h2>
-      <p className="text-muted-foreground mx-auto mt-1 max-w-sm text-sm">
-        {t({
-          fr: 'Enregistrez votre premier produit. Il sera disponible hors-ligne et alimentera le CTD Workspace, la traduction et le suivi de validité.',
-          en: 'Save your first product. It will be available offline and feed the CTD Workspace, translation and validity tracking.',
-        })}
-      </p>
-      <Button asChild className="mt-4">
-        <Link to="/catalogue/nouveau">
-          <Plus /> {t({ fr: 'Nouveau produit', en: 'New product' })}
-        </Link>
-      </Button>
+    <div className="space-y-2" aria-hidden="true">
+      <Skeleton className="h-9 w-full" />
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Skeleton key={i} className="h-12 w-full" />
+      ))}
     </div>
   )
 }
