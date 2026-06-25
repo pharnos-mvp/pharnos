@@ -12,7 +12,7 @@
 > **Protocole de mise à jour** (voir §13) : à chaque tranche livrée (PR mergée), mettre à jour le
 > §1 (état), le §9 (milestones) et le §10 (journal). Garder le reste synchronisé si une décision change.
 
-_Dernière mise à jour : 2026-06-20 — **Jalons H→O + pivot compilation-metering (P1) + Bibliothèque Templates + refonte CTD builder EN PROD ; gate N : N1✅ N2✅ N3✅ → reste N4 (pilote #1 lundi 2026-06-22).** Plan de finition « zéro-dette » : [PLAN-FINITION-ZERO-DETTE.md](PLAN-FINITION-ZERO-DETTE.md). _Bloc historique (06-17) :_ **Jalons H→M + O + N1 + N2 + N3 (gros œuvre) EN PROD.** Tracker vivant
+_Dernière mise à jour : 2026-06-25 — **Jalons H→O + pivot P1 + refonte CTD builder + Bibliothèque Templates 5/5 + 🚀 Moteur de Variation (#224→#236, moat RIM) EN PROD ; migrations à `0043` (reprendre à `0044`) ; gate N : N1✅ N2✅ N3✅ → reste N4, pilote #1 EN COURS (Bénin).** Plan de finition « zéro-dette » : [PLAN-FINITION-ZERO-DETTE.md](PLAN-FINITION-ZERO-DETTE.md). _Bloc historique (06-17) :_ **Jalons H→M + O + N1 + N2 + N3 (gros œuvre) EN PROD.** Tracker vivant
 du gate GO-LIVE (état détaillé, PRs, reste) : **[PLAN-N-EXECUTION.md](PLAN-N-EXECUTION.md)**. **Session 2026-06-17
 = 6 ships prod** : B1 (verrou d'offre Regafy `0034`), N2-b (code-split workspace **−77 %** + Lighthouse a11y gate
 + e2e offline), N3-a (index sync `0035`), N3-b (backstop stockage `0036` + **quota stockage god mode** `0037`).
@@ -44,8 +44,9 @@ Prochaine action : **jalon I (backups + restore drill)** — seul préalable res
 ## 1. TL;DR — où on en est
 
 **Le produit est EN PRODUCTION (app.pharnos.com), IA comprise, durci, optimisé.** Jalons H→O + gate N
-(N1/N2/N3) + Bibliothèque Templates + refonte CTD builder livrés ; **reste N4 (gate GO-LIVE) — pilote #1 lundi 2026-06-22.** Cap : [ROADMAP-MVP.md](ROADMAP-MVP.md) — jalons H→M (correspondance/partage, ops, branding,
-i18n, admin/quotas, gate GO-LIVE).
+(N1/N2/N3) + refonte CTD builder + **Bibliothèque Templates 5/5** + **🚀 Moteur de Variation (RIM, #224→#236)** livrés ;
+**reste N4 (gate GO-LIVE) — pilote #1 EN COURS (dossiers Bénin renouvellement/variation).** Cap : [PLAN-RESTANT.md](PLAN-RESTANT.md)
++ [ROADMAP-MVP.md](ROADMAP-MVP.md).
 
 | Domaine | État |
 |---|---|
@@ -57,11 +58,13 @@ i18n, admin/quotas, gate GO-LIVE).
 | **Durcissement M8** (E2E offline, a11y AA, Sentry, budget perf, tests RLS) | ✅ Livré |
 | **Regafy IA (M4)** · **Traduction Pro (M5)** | ✅ Livré — **à la demande** (bouton Analyser, cache v7), Upgrade/templates, Audit Global A4 |
 | **Formulaires officiels** (RCP · Notice · Étiquetage) | ✅ Livré (navy, DOCX/PDF, compilé identique) |
+| **Bibliothèque Templates (RIM)** | ✅ **5/5** (RCP/Notice/Étiquetage bilingues FR/EN + lettres Cover/PGHT/renouvellement + éditeur standalone, #191→#223) — reste **M4** (nudge langue de soumission) |
+| **Moteur de Variation (RIM)** | ✅ **NOUVEAU en prod** (#224→#236, `0042`/`0043`) : 42 variations UEMOA, demande multi-variation, **annexe tableau compilée**, lettre de variation, éditeur TipTap **tableaux**, doc/.docx éditable nativement, barème national |
 | **CI/CD + coûts** | ✅ **Repo PUBLIC (2026-06-13) → Actions illimitées 0 €** ; CI + auto-deploy Cloudflare (push main) + keep-alive verts, pipeline autonome (#122 optimisé) |
 | **Déploiement pilote** | ✅ **En ligne — https://pharnos.pages.dev** (Cloudflare Pages, mode authentifié) |
 | **Correspondance (jalon H + v2 + UX v3→v3.2)** | ✅ **EN PROD (2026-06-13, #127/#128/#129)** : flux complet + **UX exacte des HTML CEO en palette DA Pharnos** (neutre/monochrome ; couleurs réservées aux statuts) — page lien **3 états** (fermé : bouton « Correspondance »+badge / docké min(840px,47%) / plein écran), **2 volets** (sidebar contexte+décisions \| chat) des deux côtés, fond à **pois radial**, avatars/noms par auteur, Discussions 1 icône/destinataire + sélecteur de cycle (zéro perte d'audit), composeur auto-extensible (½ boîte) ; recette prod complète. ⚠️ Deploy : `npm run build` JUSTE avant `wrangler deploy` (e2e reconstruit dist sans env) |
 
-**Qualité (main, vert partout) :** typecheck · lint · format · **287 tests unitaires (vitest)** · build ·
+**Qualité (main, vert partout) :** typecheck · lint · format · **~381 tests unitaires (vitest)** · build ·
 **budget bundle** · **E2E Playwright** (reload hors-ligne + parcours offline complet) · **a11y WCAG AA** · **RLS pgTAP en CI** · **Lighthouse a11y/best-practices** · **CI 6/6**.
 
 ---
@@ -211,9 +214,10 @@ D:\pharnos-mvp
 | **H** | **Correspondance & partage** (ROADMAP-MVP) — envoi tokenisé, review publique sans compte, décisions révisables, fil temps réel, 5 états home | ✅ **Livré en prod** (#124 + fix #125, recette réelle aller-retour + e-mail délivré) |
 | **I→O** | Ops/backups · Dashboard RA · branding/landing/domaine · i18n FR/EN · console admin + quotas IA · pricing/Monitor | ✅ **Livré en prod** (2026-06-13 → 06-15) |
 | **Pivot** | Compilation = livrable métré + offline privé par org (ledger, garde compile, création illimitée, sync opt-in) | ✅ **P1 (M1-M3) livré** (#181-#184, `0039`-`0041`) |
-| **Templates** | Bibliothèque RIM (RCP + Étiquetage bilingues FR/EN, « Mes modèles » local-first) | ✅ **Livré** (#191-#198) — reste M2b/M3/M4 |
+| **Templates** | Bibliothèque RIM **5/5** (RCP/Notice/Étiquetage bilingues + lettres Cover/PGHT/renouvellement + éditeur standalone) | ✅ **Livré** (#191→#223) — reste **M4** (nudge langue) |
 | **CTD builder** | Refonte en-tête unique + fidélité mockup + responsive tablette/mobile | ✅ **Livré** (#199-#210) — reste recette visuelle CEO < lg |
-| **N** | Durcissement final & **gate GO-LIVE** | **N1✅ N2✅ N3✅ → reste N4** (3 pilotes + Supabase Pro + checklist signée) |
+| **Variation** | 🚀 **Moteur de Variation (RIM)** — 42 variations UEMOA, demande multi-variation, annexe tableau compilée, lettre de variation, éditeur TipTap **tableaux**, doc/.docx éditable | ✅ **Livré en prod** (#224→#236, `0042`/`0043`) |
+| **N** | Durcissement final & **gate GO-LIVE** | **N1✅ N2✅ N3✅ → reste N4** (3 pilotes — **#1 en cours** + Supabase Pro + checklist signée) |
 
 **Hors milestones, aussi livré :** audit trail, page Compte (avatar) + **i18n FR/EN** + **thème
 clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** local-first.
@@ -316,6 +320,7 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 | #89 | 06-10 | **Détection de langue sur upload workspace — tout nœud produit** : une pièce jointe téléversée sur un nœud **1.3.x non mappé** (Étiquetage étranger 1.3.4, produits de référence 1.3.5…) n'était **pas** analysée (`docTypeForNode` → null). Repli → **`labeling`** (type LANG) pour tout 1.3.x → **détection de langue garantie** quel que soit le sous-nœud produit. _Diagnostic : la pièce sur 1.3.1 (mappé) était bien analysée, mais pas les autres nœuds 1.3.x._ + synchro `await` + toast « analyse en cours » à l'upload. |
 | #90 | 06-10 | **Extraction de validité fiabilisée (zéro hallucination)** : l'analyse passe d'**un seul gros appel multimodal** (qui hallucinait des dates — le **même FSC** donnait `2026-04-29` puis `1998-11-13` selon le run — ou tombait en « aucune date » à tort) à **1 document par appel** (focus maximal + réessai + prompt conservateur « date verbatim, found:false si incertain »). **Vérifié en live : déterministe** (FSC = 2026-04-29 à chaque run). **Vocabulaire honnête** : échec d'extraction → « extraction échouée — à vérifier » ; lu sans date → « validité non détectée » ; **jamais « aucune date »** à tort. + option de modèle par appel (`vertex.ts` `model`, secret `GCP_MODEL_VALIDITY`). Cache **v3**. _`gemini-3.1-flash` indispo en location `global` (404) → flash-lite suffit grâce au focus per-doc._ |
 | **#91→#210** | 06-10 → 06-19 | **Résumé consolidé** (détail par PR = `git log` / [PLAN-N-EXECUTION.md](PLAN-N-EXECUTION.md)) : jalons **I→O** (ops/backups, Dashboard RA, branding/landing/domaine, i18n FR/EN, console admin + quotas IA, pricing/Monitor) · **gate N** — N1 sécu/auth (#165-#170), N2 perf code-split −77 % (#172), N3 scalabilité + k6 (#174-#180) · **features 3 états** (#179, `0038`) · **pivot compilation-metering P1** M1-M3 (#181-#184, `0039`-`0041`) · **punch-list pilote** (#186) · **Phase 0** P0-1/P0-2 (#188) · **Bibliothèque Templates** (#191-#198) · **refonte CTD builder** (en-tête unique + fidélité + responsive tablette/mobile, #199-#210). Migrations → `0041`. **Reste : N4 (gate GO-LIVE).** |
+| **#211→#236** | 06-20 → 06-25 | **Synchro docs** (#211) · **Bibliothèque Templates → 5/5** : Notice/PIL EN (#212), lettres Cover/PGHT bilingues + éditeur standalone + M3.1 (#213/#214), insertion 1-clic en-tête/pied/signature (#215), calage sur le CTD builder (#216→#219), **lettres PDF/DOCX en vrai A4** via moteur pdf-lib du dossier (#220), **lettre de renouvellement d'AMM** (#221→#223) · **🚀 Moteur de Variation** bout-en-bout (#224→#236, migrations `0042` variation_amm_columns + `0043` storage_bucket_msword) : encyclopédie 42 variations UEMOA, demande multi-variation, **annexe tableau compilée**, lettre de variation, éditeur TipTap **tableaux** + doc/.docx éditable nativement, barème national. Migrations → `0043` (next `0044`). **Reste : N4 — pilote #1 en cours.** |
 
 ---
 
@@ -344,10 +349,10 @@ npm run dev            # serveur de dev
 npm run typecheck      # tsc -b (strict)
 npm run lint           # eslint
 npm run format         # prettier --write
-npm run test           # vitest (unit/intégration) — 52 tests
+npm run test           # vitest (unit/intégration) — ~381 tests
 npm run build          # tsc + vite build (PWA)
 npm run budget         # garde-fou taille de bundle (après build)
-npm run e2e            # Playwright (build+preview+tests, dont offline) — 9 tests
+npm run e2e            # Playwright (build+preview+tests : offline, a11y, parcours)
 # Depuis la racine
 supabase db push --yes # applique les migrations au distant (sur feu vert CEO)
 supabase test db       # tests pgTAP RLS (nécessite Docker)

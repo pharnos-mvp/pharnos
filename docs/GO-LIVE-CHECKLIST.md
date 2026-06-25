@@ -1,7 +1,9 @@
 # Checklist GO-LIVE (gate N / P1) — à signer par le CEO
 
-> **MAJ 2026-06-17.** Tout le **technique** du gate est livré, déployé et recetté (CLI + MCP + Chrome).
-> Restent **3 actions humaines** : recette 3 pilotes, bascule Supabase Pro, signature.
+> **MAJ 2026-06-25.** Tout le **technique** du gate est livré, déployé et recetté (CLI + MCP + Chrome).
+> Depuis le 06-20, **Bibliothèque Templates 5/5** (ne reste que M4) + **moteur de Variation livré en prod**
+> (#224→#236, moat RIM ajouté) — voir [PLAN-RESTANT.md](PLAN-RESTANT.md). Restent **3 actions humaines** :
+> recette 3 pilotes (**pilote #1 EN COURS** — dossiers Bénin renouvellement/variation), bascule Supabase Pro, signature.
 > Le **parcours-type pilote** est cadré + **validé en prod** (dry-run CTO compte Enterprise) :
 > voir [KIT-PILOTE.md](KIT-PILOTE.md) — création produit/dossier, Regafy EN, gate localisé, **compile M1 ~2 s**.
 
@@ -12,7 +14,7 @@
       (Compte → Préférences) + `sync_enabled` qui **gate les 8 modules de sync** (`0041`) → mode local = rien ne sort.
 - [x] **Robustesse** — poison-pill outbox drainé (fin du *Sentry storm*) ; **stockage persistant** (`persist()`).
 - [x] **Polish pilote Phase 0** — P0-1 en-tête template sticky + P0-2 Regafy localisé FR/EN (PR #188, recettés prod Chrome).
-- [ ] **3 pilotes** : chacun **1 dossier réel compilé < 1 j + 1 correspondance + 1 partage** ([parcours-type](KIT-PILOTE.md) prêt). ⟵ **ACTION CEO**
+- [ ] **3 pilotes** : chacun **1 dossier réel compilé < 1 j + 1 correspondance + 1 partage** ([parcours-type](KIT-PILOTE.md) prêt). **Pilote #1 EN COURS** (Bénin) ; reste #2/#3. ⟵ **ACTION CEO**
 
 ## ✅ Sécurité (livré)
 - [x] 0 vuln high ; RLS pgTAP par table ; helpers internes verrouillés ; rate-limit IA ; rotation secrets documentée.
@@ -30,7 +32,7 @@
 - [ ] **Bascule Supabase Pro (25 $/mois)** au 1ᵉʳ déclencheur (1ᵉʳ client payant **OU** Storage/DB > 70 %). ⟵ **ACTION CEO**
 
 ## Migrations en prod
-Dernière appliquée = **`0041`** (set_org_sync). Reprendre à `0042`.
+Dernière appliquée = **`0043`** (`storage_bucket_msword`, 2026-06-25). `0042` = `variation_amm_columns`. Reprendre à `0044`.
 
 ## Signature
 GO-LIVE approuvé par : ____________________   Date : ____________
