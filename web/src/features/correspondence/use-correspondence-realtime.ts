@@ -41,10 +41,19 @@ export function useCorrespondenceRealtime(orgId: string): void {
             event: 'INSERT',
             schema: 'public',
             table: 'correspondence_messages',
-            filter: `org_id=eq.${orgId}`,
+            // ⚠️ PAS de `filter: org_id=eq.…` : le filtre postgres_changes est transmis au moteur
+            // Realtime comme un tuple {col, op, valeur, false} (taille 4) que le type composite de
+            // l'extension `realtime` (taille 3) ne sait pas encoder → `DBConnection.EncodeError:
+            // expected a tuple of size 3` à CHAQUE évènement = canal mort, repli pull (invisible).
+            // La RLS SELECT (`org_id ∈ current_user_org_ids()`) scope déjà les lignes livrées ; le
+            // garde `row.org_id !== orgId` ci-dessous reproduit le périmètre par org (comptes
+            // multi-org). NE PAS réintroduire ce filtre tant que l'extension n'est pas alignée.
           },
           (payload) => {
             const row = payload.new as CorrespondenceMessageRow
+            // Sans filtre serveur, la RLS peut livrer les autres orgs d'un user multi-org → on ne
+            // traite que l'org de ce canal (périmètre identique à l'ancien filtre).
+            if (row.org_id !== orgId) return
             void db.correspondenceMessages.put(rowToMessage(row))
             if (row.author !== 'recipient') return
             // Une décision change le statut de la correspondance → rapatrie l'entête à jour.
