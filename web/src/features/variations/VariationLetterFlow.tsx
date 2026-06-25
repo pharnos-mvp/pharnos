@@ -214,7 +214,13 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
     setProductId(id)
     const p = products?.find((x) => x.id === id)
     if (p) {
-      setFields((f) => ({ ...f, ...productToLetterFields(p) }))
+      // Préremplit Nom commercial/DCI/… ET Ville (via productToLetterFields) + Date (aujourd'hui).
+      const today = new Date().toLocaleDateString(docLang === 'en' ? 'en-GB' : 'fr-FR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+      setFields((f) => ({ ...f, ...productToLetterFields(p), date: today }))
       // Réamorce la colonne « ancien » du tableau depuis la fiche produit (saisies préservées).
       setItems((cur) => seedVariationItems(refs, p, cur))
     }

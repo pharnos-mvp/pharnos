@@ -54,19 +54,21 @@ export function LetterEditor({
   )
 
   const set = (k: keyof LetterFields, v: string) => onChange({ ...values, [k]: v })
-  const pickProduct = (id: string) => {
-    const p = (products ?? []).find((x) => x.id === id)
-    if (p) onChange({ ...values, ...productToLetterFields(p) })
-  }
-
-  const L = (fr: string, en: string) => (lang === 'en' ? en : fr)
-  const civ = lang === 'en' ? (ctx.agencyCiviliteEn ?? ctx.agencyCivilite) : ctx.agencyCivilite
-  const sep = lang === 'en' ? ': ' : ' : '
+  // Date du jour (langue d'affichage) — défaut des cases Date + préremplissage au choix du produit.
   const today = new Date().toLocaleDateString(lang === 'en' ? 'en-GB' : 'fr-FR', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   })
+  const pickProduct = (id: string) => {
+    const p = (products ?? []).find((x) => x.id === id)
+    // Préremplit Nom commercial/DCI/… ET Ville (via productToLetterFields) + Date (aujourd'hui).
+    if (p) onChange({ ...values, ...productToLetterFields(p), date: today })
+  }
+
+  const L = (fr: string, en: string) => (lang === 'en' ? en : fr)
+  const civ = lang === 'en' ? (ctx.agencyCiviliteEn ?? ctx.agencyCivilite) : ctx.agencyCivilite
+  const sep = lang === 'en' ? ': ' : ' : '
   // Renouvellement : partage la structure « demande d'AMM » (cover) + réf. AMM et bloc « AMM à renouveler ».
   const isRenewal = docType === 'renewal'
   const isApplication = docType !== 'pght'
@@ -191,8 +193,9 @@ export function LetterEditor({
               </div>
             ) : null}
             {/* Dateline REMPLISSABLE (Ville / Date) : cases comme le reste ; vides → défaut auto à
-                l'export (ville extraite de l'adresse / date du jour, cf. buildLetterContext). */}
-            <p className="l-p l-r">
+                l'export (ville extraite de l'adresse / date du jour, cf. buildLetterContext).
+                `l-dateline` → Ville et Date restent sur UNE seule ligne. */}
+            <p className="l-p l-r l-dateline">
               {inp('ville', L('Ville', 'City'), L('Ville de la lettre', 'Letter city'))}
               {L(', le ', ', ')}
               {inp('date', today, L('Date de la lettre', 'Letter date'))}
