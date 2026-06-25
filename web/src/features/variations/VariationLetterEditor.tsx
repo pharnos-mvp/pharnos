@@ -1,7 +1,6 @@
 import { useMemo, type ReactNode } from 'react'
 
 import { useI18n, type Lang } from '@/lib/i18n-context'
-import { cn } from '@/lib/utils'
 import { buildLetterContext, type LetterFields } from '@/features/workspace/letter-context'
 import type { VariationClass } from './variation-catalog'
 import '@/features/workspace/template-form/template-form.css'
@@ -39,6 +38,11 @@ export function VariationLetterEditor({
   const L = (fr: string, en: string) => (lang === 'en' ? en : fr)
   const civ = lang === 'en' ? (ctx.agencyCiviliteEn ?? ctx.agencyCivilite) : ctx.agencyCivilite
   const sep = lang === 'en' ? ': ' : ' : '
+  const today = new Date().toLocaleDateString(lang === 'en' ? 'en-GB' : 'fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
   const set = (k: keyof LetterFields, v: string) => onChange({ ...fields, [k]: v })
 
   const plural = natures.length > 1
@@ -51,30 +55,8 @@ export function VariationLetterEditor({
     : ''
   const nomC = fields.nomCommercial || L('[Nom commercial]', '[Trade name]')
 
-  // Insertion en-tête / pied / signature (images du profil org).
+  // Lecture des flags en-tête/pied/signature (basculés depuis le header du flux) → rendu des images.
   const flag = (k: keyof LetterFields) => fields[k] === '1'
-  const toggleFlag = (k: keyof LetterFields) => set(k, fields[k] === '1' ? '' : '1')
-  const insertBtn = (
-    k: keyof LetterFields,
-    img: string | null | undefined,
-    label: { fr: string; en: string },
-  ) => (
-    <button
-      type="button"
-      disabled={!img && !flag(k)}
-      onClick={() => toggleFlag(k)}
-      aria-pressed={flag(k)}
-      title={img ? undefined : t({ fr: 'À définir dans le profil', en: 'Set in profile' })}
-      className={cn(
-        'rounded border px-2 py-0.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40',
-        flag(k) && img
-          ? 'border-primary bg-primary text-primary-foreground'
-          : 'text-muted-foreground',
-      )}
-    >
-      {t(label)}
-    </button>
-  )
 
   /** Input inline sur la feuille (classe `field-input`, scopée `.tplform-sheet`). */
   const inp = (k: keyof LetterFields, placeholder?: string, ariaLabel?: string) => (
@@ -101,18 +83,8 @@ export function VariationLetterEditor({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Insertion en-tête / pied / signature du profil (le reste — produit/pays/AMM/natures — vit
-          dans le header du flux). */}
-      <div className="bg-muted/40 flex flex-wrap items-center gap-2 rounded-lg border p-3 text-xs">
-        <span className="text-muted-foreground font-medium">
-          {t({ fr: 'En-tête & signature', en: 'Letterhead & signature' })}
-        </span>
-        {insertBtn('useHeader', headerImage, { fr: 'En-tête', en: 'Header' })}
-        {insertBtn('useFooter', footerImage, { fr: 'Pied', en: 'Footer' })}
-        {insertBtn('useSignature', signatureImage, { fr: 'Signature', en: 'Signature' })}
-      </div>
-
-      {/* Feuille A4 : lettre de variation à cases remplissables inline (= buildVariation). */}
+      {/* Feuille A4 : lettre de variation à cases remplissables inline (= buildVariation). L'en-tête,
+          le pied et la signature sont basculés depuis le header du flux (flags `useHeader`…). */}
       <div className="tplform">
         <div className="tplform-canvas">
           <div
@@ -128,8 +100,11 @@ export function VariationLetterEditor({
               </div>
             ) : null}
 
+            {/* Dateline REMPLISSABLE (Ville / Date) — vides → défaut auto à l'export. */}
             <p className="l-p l-r">
-              {L(`${ctx.ville}, le ${ctx.date}`, `${ctx.ville}, ${ctx.date}`)}
+              {inp('ville', L('Ville', 'City'), L('Ville de la lettre', 'Letter city'))}
+              {L(', le ', ', ')}
+              {inp('date', today, L('Date de la lettre', 'Letter date'))}
             </p>
             <p className="l-p l-r">&nbsp;</p>
             <p className="l-p l-r">{L('À', 'To')}</p>

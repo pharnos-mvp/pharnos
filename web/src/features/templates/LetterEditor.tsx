@@ -62,6 +62,11 @@ export function LetterEditor({
   const L = (fr: string, en: string) => (lang === 'en' ? en : fr)
   const civ = lang === 'en' ? (ctx.agencyCiviliteEn ?? ctx.agencyCivilite) : ctx.agencyCivilite
   const sep = lang === 'en' ? ': ' : ' : '
+  const today = new Date().toLocaleDateString(lang === 'en' ? 'en-GB' : 'fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
   // Renouvellement : partage la structure « demande d'AMM » (cover) + réf. AMM et bloc « AMM à renouveler ».
   const isRenewal = docType === 'renewal'
   const isApplication = docType !== 'pght'
@@ -185,8 +190,12 @@ export function LetterEditor({
                 <img src={headerImage} alt="" />
               </div>
             ) : null}
+            {/* Dateline REMPLISSABLE (Ville / Date) : cases comme le reste ; vides → défaut auto à
+                l'export (ville extraite de l'adresse / date du jour, cf. buildLetterContext). */}
             <p className="l-p l-r">
-              {L(`${ctx.ville}, le ${ctx.date}`, `${ctx.ville}, ${ctx.date}`)}
+              {inp('ville', L('Ville', 'City'), L('Ville de la lettre', 'Letter city'))}
+              {L(', le ', ', ')}
+              {inp('date', today, L('Date de la lettre', 'Letter date'))}
             </p>
             <p className="l-p l-r">&nbsp;</p>
             <p className="l-p l-r">{L('À', 'To')}</p>
