@@ -6,25 +6,29 @@
 > Chaîne : PLAN.md → [ROADMAP-MVP.md](ROADMAP-MVP.md) → [PLAN-RESTANT.md](PLAN-RESTANT.md) →
 > [PLAN-N-EXECUTION.md](PLAN-N-EXECUTION.md) / [PLAN-COMPILATION-METERING.md](PLAN-COMPILATION-METERING.md) → **ce doc**.
 
-## 0. État réel reconcilié (git + CI + advisors, vérifié le 2026-06-20)
+## 0. État réel reconcilié (git + CI + advisors, vérifié le 2026-06-25)
 
 **Livré et en prod :** Modules M0–M8 · Jalons H→O · pivot compilation-metering P1 (M1–M3) ·
 modèle features 3 états · **Gate N : N1 ✅ N2 ✅ N3 ✅** · Phase 0 polish (P0-1/P0-2) ·
-**Bibliothèque Templates** (M1 RCP + Tranche A/B + M2a Étiquetage) · **refonte CTD builder complète**
-(en-tête unique + fidélité mockup + responsive tablette/mobile, #199→#210).
+refonte CTD builder complète (#199→#210) · **Bibliothèque Templates 5/5** (RCP + Notice/PIL + Étiquetage
+bilingues + lettres Cover/PGHT/renouvellement + éditeur standalone, #212→#223 ; reste M4) ·
+**🚀 Moteur de Variation livré bout-en-bout** (#224→#236, migrations `0042`/`0043`) — encyclopédie 42 variations
+UEMOA, demande multi-variation, tableau comparatif en annexe compilée, lettre de variation, éditeur TipTap
+**tableaux** + doc/.docx éditable nativement, barème national. **= moat RIM ajouté, hors plan initial.**
 
-**Santé :** 287 tests vitest + e2e Playwright · CI 6/6 verte · `npm audit` 0 vuln · advisors 0 ERROR ·
-backups DB+Storage chiffrés + restore testé · uptime + alertes · **0 €** · clé `age` rangée hors-ligne (2026-06-20).
+**Santé (vérifiée le 2026-06-25) :** ~381 tests vitest + e2e Playwright · CI 6/6 verte · deploy main + uptime verts ·
+`npm audit` 0 vuln · advisors **0 ERROR** · backups DB+Storage chiffrés + restore testé · uptime + alertes ·
+**0 €** · clé `age` rangée hors-ligne (2026-06-20). **Migration `0043` posée en prod le 2026-06-25 → reprendre à `0044`.**
 
 **Ce qui reste = le périmètre de ce plan :**
 - **N4 (gate GO-LIVE)** — 3 pilotes + bascule Supabase Pro + checklist signée (= clôt aussi M4 du pivot metering).
 - **Phase 0 micro** — P0-3 (upsell FREE) + P0-4 (purge produit test) → actions CEO.
-- **Phase 2 (moat RIM)** — #1 erreurs actionnables · #2 Templates (M2b/M3/M4) · #3 corbeille/rétention ·
-  #6 correspondance v3 · #5 pricing/facturation · (#7 multilingue document = synergie #2).
+- **Phase 2 (moat RIM)** — #1 erreurs actionnables · #2 Templates : **ne reste que M4** (nudge langue) ·
+  #3 corbeille/rétention · #6 correspondance v3 · #5 pricing/facturation · (#7 multilingue document = synergie #2).
 - **Phase 3 (horizon)** — P2→P5, **selon traction**.
-- **Dette identifiée à solder** — dérive docs (BOARD/PLAN-RESTANT/PLAN-UNIFIED-HEADER périmés),
-  nits (roving tabindex toolbar, recette visuelle tablette), ops/sécu (e-mails d'échec GitHub,
-  durcissement DNS, leaked-password [Pro], `Test/` gitignore **fait**).
+- **Dette identifiée à solder** — résync docs **faite le 2026-06-25** (BOARD/PLAN-RESTANT/GO-LIVE/ce plan remis à la réalité :
+  migrations 0042/0043, Templates 5/5, moteur Variation, pilote #1 en cours) ; restent nits (roving tabindex toolbar,
+  recette visuelle tablette), ops/sécu (e-mails d'échec GitHub, durcissement DNS, leaked-password [Pro]).
 
 ## 1. Objectif & métrique de succès
 - **Objectif** : amener Pharnos **jusqu'au GO-LIVE commercial puis à travers le moat RIM**, en ne
@@ -50,7 +54,7 @@ de **remettre les docs au niveau de la réalité**.
 (Vite/React 19/TS strict · Tailwind v4/shadcn · Dexie offline-first · Supabase Postgres/RLS/Auth/
 Storage/Edge Deno · Vertex Gemini · Cloudflare Pages · pdf-lib/pdfjs). Tout ajout reste **additif,
 réversible, offline-first, FR/EN, tokens dark/light, zéro hallucination réglementaire**.
-**Migrations : reprendre à `0042`** (dernière appliquée `0041`).
+**Migrations : reprendre à `0044`** (dernières appliquées `0042` variation_amm_columns + `0043` storage_bucket_msword, 2026-06-25).
 
 ## 5. Milestones (ordonnés, chacun livrable)
 
@@ -68,7 +72,7 @@ réversible, offline-first, FR/EN, tokens dark/light, zéro hallucination régle
 - **S0-E — Décision Supabase Pro** (voir §Décisions) — par défaut : **rester Free pour le pilote**
   (backups jalon I couvrent le risque par conception).
 
-### Sprint 1 — Pilote #1 EN DIRECT · **lundi 2026-06-22** · *N4 kickoff*
+### Sprint 1 — Pilote #1 **EN COURS** (démarré ~2026-06-22) · *N4 kickoff* — dossiers réels Bénin (renouvellements + variations)
 - Dérouler [KIT-PILOTE.md](KIT-PILOTE.md) avec l'org pilote ; **collecter la friction** (§6 du kit :
   temps de bout en bout, libellés, erreurs sans CTA, lenteurs). **Confirmer le Realtime websockets**
   en environnement réel (loose end ouvert depuis la recette H — le fallback pull marche déjà).
@@ -83,9 +87,8 @@ réversible, offline-first, FR/EN, tokens dark/light, zéro hallucination régle
 ### Sprint 3 — Phase 2 (moat RIM) · *post-N, ordre valeur × dépendance*
 1. **Erreurs actionnables (audit complet)** — alimenté par la friction pilote ; priorité aux erreurs
    d'**offre** (quota IA 429, sièges, quota de compilation) = tunnel de conversion. (1er pas livré #163.)
-2. **Bibliothèque Templates — finition** : **M2b** Notice/PIL EN (MedDRA, prose patient dynamique) →
-   **M3** Lettre de demande + PGHT en form-templates bilingues + **destinataire auto par pays** →
-   **M4** nudge langue de soumission (= absorbe Phase 2 #7 multilingue document).
+2. **Bibliothèque Templates — finition** : M2b ✅ (Notice/PIL EN, #212) · M3 ✅ (lettres Cover/PGHT/renouvellement
+   bilingues + destinataire auto par pays, #213→#223) → **reste M4** nudge langue de soumission (= absorbe Phase 2 #7).
 3. **Corbeille brouillons + Archive enrichie + doc rétention** (finition GxP, #162).
 4. **Correspondance v3 (RIM)** : délais réglementaires par agence + rappels + export PDF du fil + lettre de réponse.
 5. **Pricing finalisé + facturation** : grille calée sur 3-5 entretiens pilotes ; **mobile money

@@ -11,7 +11,7 @@ CTD global.** La **compilation** est le livrable métré (pas le brouillon). On 
 full-publishing (moat des incumbents) — on reste le meilleur sur le Module 1 régional + l'assistance IA
 zéro-hallucination. Détail : [PLAN-COMPILATION-METERING.md](PLAN-COMPILATION-METERING.md).
 
-## 0. Où on en est (MAJ 2026-06-20)
+## 0. Où on en est (MAJ 2026-06-25)
 Tout **H → M (+O)** est en prod. **Depuis le 2026-06-16** :
 - **Modèle features 3 états** (Masquée / Vitrine / Activée) god-mode — PR #179, migration `0038`.
 - **Virage « compilation = livrable métré » + offline privé par org** — P1 **M1→M3 livrés** (PR #181/#182/#183/#184,
@@ -29,9 +29,17 @@ Tout **H → M (+O)** est en prod. **Depuis le 2026-06-16** :
 
 - **Depuis le 2026-06-18** : **Bibliothèque Templates** (M1 RCP + Tranche A/B + M2a Étiquetage, #191→#198) +
   **refonte CTD builder complète** (en-tête unique + fidélité mockup + responsive tablette/mobile, #199→#210).
-  **Plan de finition « zéro-dette » : [PLAN-FINITION-ZERO-DETTE.md](PLAN-FINITION-ZERO-DETTE.md)** — pilote #1 **lundi 2026-06-22**.
+  **Plan de finition « zéro-dette » : [PLAN-FINITION-ZERO-DETTE.md](PLAN-FINITION-ZERO-DETTE.md)**.
+- **Depuis le 2026-06-20** : **Bibliothèque Templates 5/5** — M2b Notice/PIL EN (#212), M3 lettres Cover/PGHT
+  bilingues + éditeur standalone (#213/#214), insertion 1-clic en-tête/pied/signature (#215), lettres PDF/DOCX
+  en **vrai A4** via le moteur pdf-lib du dossier (#220), **lettre de renouvellement d'AMM** (#221→#223) ;
+  **ne reste que M4** (nudge langue de soumission). **+ 🚀 Moteur de Variation livré bout-en-bout en prod**
+  (#224→#236, migrations `0042`/`0043`) : encyclopédie 42 variations (Règl. 04/2020 UEMOA), demande
+  multi-variation, **tableau comparatif en annexe** (compilée), lettre de variation, éditeur TipTap **tableaux**
+  + doc/.docx **éditable nativement**, barème national. **= moat RIM ajouté, hors plan initial.**
+- **Pilote #1 EN COURS** (kickoff N4) — dossiers réels Bénin (renouvellements + variations).
 
-**Santé** : 287 vitest + e2e Playwright, CI 6/6, `npm audit` 0 vuln, advisors 0 ERROR, budget tenu, backups
+**Santé** : ~381 vitest + e2e Playwright, CI 6/6, `npm audit` 0 vuln, advisors **0 ERROR**, budget tenu, backups
 chiffrés + restore drill, uptime + alertes, **0 €**. Clé `age` rangée hors-ligne (2026-06-20).
 
 **Le seul jalon roadmap restant = N4 (gate GO-LIVE).** Le reste (Phase 0 polish + Phase 2 backlog + horizon)
@@ -124,4 +132,7 @@ Ordre = valeur × dépendance. Chaque ligne = tranche verticale livrable + recet
 - **Pilote** : supprimer le produit test « Recette PL3… » du catalogue prod (P0-4).
 
 ## Migrations
-Dernière appliquée = `0041`. **Reprendre à `0042`.** (Phase 0 = front/Edge only → aucune migration attendue.)
+Dernière appliquée = **`0043`** (`storage_bucket_msword` — bucket `documents` accepte `application/msword`,
+posée le 2026-06-25 via MCP). `0042` = `variation_amm_columns` (sync moteur de variation). **Reprendre à `0044`.**
+⚠️ Le tracking distant est en **timestamp** (≠ fichiers `0001-0043`) ; toujours `ls supabase/migrations/` avant de
+numéroter, et appliquer via MCP `apply_migration` (idempotent), pas `supabase db push` à l'aveugle.
