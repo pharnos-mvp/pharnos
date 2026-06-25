@@ -5,7 +5,7 @@ import { isPermanentSyncError, withRetry } from '@/lib/retry'
 import { isSyncEnabled } from '@/lib/sync-prefs'
 import { reportError } from '@/lib/sentry'
 import { getSupabase } from '@/lib/supabase'
-import { EMPTY_DOC, parseTiptapContent } from './tiptap-schema'
+import { EMPTY_DOC, parseTiptapContent, tiptapInvalidReason } from './tiptap-schema'
 
 export interface GeneratedDocRow {
   id: string
@@ -115,6 +115,7 @@ async function pullGeneratedDocs(supabase: SupabaseClient, orgId: string): Promi
       reportError(new Error('Contenu TipTap invalide au pull'), {
         op: 'pull-generated-doc',
         id: incoming.id,
+        reason: tiptapInvalidReason(incoming.content),
       })
     }
     const local = await db.generatedDocs.get(incoming.id)

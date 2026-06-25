@@ -118,5 +118,26 @@ export function parseTiptapContent(value: unknown): JSONContent | null {
   return parsed.success ? (parsed.data as JSONContent) : null
 }
 
+/**
+ * Raison d'invalidité d'un contenu TipTap, ou `null` s'il est valide. Sert à rendre les rapports
+ * d'erreur ACTIONNABLES (ex. au pull) : « schema-invalid » ≠ « too-large » appellent des fixes
+ * différents. N'appeler que sur le chemin déjà jugé invalide (re-vérifie les mêmes règles).
+ */
+export function tiptapInvalidReason(
+  value: unknown,
+): 'not-object' | 'unserializable' | 'too-large' | 'too-deep' | 'schema-invalid' | null {
+  if (value === null || typeof value !== 'object') return 'not-object'
+  let length: number
+  try {
+    length = JSON.stringify(value).length
+  } catch {
+    return 'unserializable'
+  }
+  if (length > MAX_BYTES) return 'too-large'
+  if (depthOf(value) > MAX_DEPTH) return 'too-deep'
+  if (!docSchema.safeParse(value).success) return 'schema-invalid'
+  return null
+}
+
 /** Contenu de quarantaine : document vide valide (l'éditeur s'ouvre, rien ne casse). */
 export const EMPTY_DOC: JSONContent = { type: 'doc', content: [] }

@@ -28,7 +28,41 @@ export async function initSentry(): Promise<void> {
     Sentry.captureException(error, context ? { extra: context } : undefined)
 }
 
-/** Remonte une erreur à Sentry si configuré ; no-op sinon. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+/**
+ * Normalise une valeur capturée en vraie `Error` exploitable par Sentry.
+ *
+ * Sans ça, un objet d'erreur **Supabase/PostgREST** (`{ code, details, hint, message }`) passé tel
+ * quel produit le titre opaque « Object captured as exception with keys: code, details, hint, message »
+ * — illisible et mal regroupé. On en fait une `Error(message)` nommée `SupabaseError(<code>)`, et on
+ * verse `code`/`details`/`hint` dans le contexte (diagnostic préservé). Une `Error` passe telle quelle.
+ */
+export function normalizeError(
+  error: unknown,
+  context?: Record<string, unknown>,
+): { error: Error; extra?: Record<string, unknown> } {
+  if (error instanceof Error) return { error, extra: context }
+  if (isRecord(error)) {
+    const rec = error
+    const message =
+      typeof rec.message === 'string' && rec.message ? rec.message : 'Erreur non-Error capturée'
+    const normalized = new Error(message)
+    if (typeof rec.code === 'string' && rec.code) normalized.name = `SupabaseError(${rec.code})`
+    const extra: Record<string, unknown> = { ...context }
+    for (const key of ['code', 'details', 'hint']) {
+      if (rec[key] != null) extra[key] = rec[key]
+    }
+    return { error: normalized, extra: Object.keys(extra).length ? extra : undefined }
+  }
+  const message = typeof error === 'string' ? error : `Valeur non-Error capturée : ${String(error)}`
+  return { error: new Error(message), extra: context }
+}
+
+/** Remonte une erreur à Sentry si configuré ; no-op sinon. Normalise les non-`Error` (cf. Supabase). */
 export function reportError(error: unknown, context?: Record<string, unknown>): void {
-  capture(error, context)
+  const { error: normalized, extra } = normalizeError(error, context)
+  capture(normalized, extra)
 }

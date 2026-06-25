@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { TEMPLATES, type TemplateContext } from './templates'
-import { parseTiptapContent } from './tiptap-schema'
+import { parseTiptapContent, tiptapInvalidReason } from './tiptap-schema'
 import { textToTiptap } from './translate-doc'
 
 // Même contexte que templates.test.ts : les templates réels doivent passer le schéma.
@@ -172,5 +172,29 @@ describe('parseTiptapContent', () => {
     let node: Record<string, unknown> = { type: 'paragraph' }
     for (let i = 0; i < 200; i++) node = { type: 'blockquote', content: [node] }
     expect(parseTiptapContent({ type: 'doc', content: [node] })).toBeNull()
+  })
+})
+
+describe('tiptapInvalidReason (rapport actionnable au pull)', () => {
+  it('contenu valide → null', () => {
+    expect(tiptapInvalidReason({ type: 'doc', content: [{ type: 'paragraph' }] })).toBeNull()
+  })
+
+  it('non-objet → not-object', () => {
+    expect(tiptapInvalidReason('texte brut')).toBe('not-object')
+    expect(tiptapInvalidReason(null)).toBe('not-object')
+  })
+
+  it('hors schéma → schema-invalid', () => {
+    expect(tiptapInvalidReason({ type: 'paragraph' })).toBe('schema-invalid') // racine ≠ doc
+    expect(
+      tiptapInvalidReason({ type: 'doc', content: [{ type: 'iframe', attrs: { src: 'x' } }] }),
+    ).toBe('schema-invalid')
+  })
+
+  it('profondeur excessive → too-deep', () => {
+    let node: Record<string, unknown> = { type: 'paragraph' }
+    for (let i = 0; i < 200; i++) node = { type: 'blockquote', content: [node] }
+    expect(tiptapInvalidReason({ type: 'doc', content: [node] })).toBe('too-deep')
   })
 })
