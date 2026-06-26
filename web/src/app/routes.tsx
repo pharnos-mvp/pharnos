@@ -2,9 +2,9 @@ import { lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 
 import { AppShell } from '@/components/layout/app-shell'
-// Page d'atterrissage (cible de la redirection « / » → « /catalogue ») importée en statique :
-// elle peint dès le 1er rendu sans aller chercher un second chunk (gain LCP). Les autres pages
-// restent en code-splitting paresseux.
+// CataloguePage importée en statique (peint dès le 1er rendu sans 2ᵉ chunk = gain LCP sur la
+// surface produit, cœur de l'app). L'atterrissage « / » est désormais le Dashboard (resté lazy :
+// le squelette d'app-shell couvre son chargement). Les autres pages restent en code-splitting.
 import { CataloguePage } from '@/features/catalogue/CataloguePage'
 
 // Code-splitting par route : l'app-shell reste léger, chaque page charge son chunk à la demande.
@@ -42,7 +42,7 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route element={<AppShell />}>
-        <Route index element={<Navigate to="/catalogue" replace />} />
+        <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="/catalogue" element={<CataloguePage />} />
         <Route path="/catalogue/nouveau" element={<ProductFormPage />} />
         <Route path="/catalogue/:productId" element={<ProductFormPage />} />
@@ -54,7 +54,7 @@ export function AppRoutes() {
         <Route path="/templates" element={<TemplatesPage />} />
         <Route path="/variations" element={<VariationsPage />} />
         <Route path="/compte" element={<AccountPage />} />
-        <Route path="*" element={<Navigate to="/catalogue" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>
   )

@@ -26,6 +26,21 @@
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
+  /* Palette de STATUT sémantique (RA : approuvé / à renouveler / expiré / en cours). Chaque teinte =
+     solide (icône/valeur/point) + subtle (fond de badge) + subtle-foreground (texte AA sur subtle).
+     Contrastes vérifiés WCAG AA. Décision CEO 2026-06-25 (app premium). */
+  --success: #059669;
+  --success-subtle: #d1fae5;
+  --success-subtle-foreground: #047857;
+  --warning: #b45309;
+  --warning-subtle: #fef3c7;
+  --warning-subtle-foreground: #b45309;
+  --danger: #dc2626;
+  --danger-subtle: #fee2e2;
+  --danger-subtle-foreground: #b91c1c;
+  --info: #1a56db;
+  --info-subtle: #eff6ff;
+  --info-subtle-foreground: #1e40af;
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -34,14 +49,18 @@
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Shell NAVY premium (mockup CEO 2026-06-25) : la barre latérale est un fond navy profond dans
+     les DEUX thèmes (clair #0a1628 ; sombre #010409 GitHub, plus bas) → logo blanc + nav claire.
+     Distinct de --brand (#263f73 = marque DOCUMENT, gelée pour le PDF byte-exact). Contrastes nav
+     vérifiés AA sur navy. */
+  --sidebar: #0a1628;
+  --sidebar-foreground: #c3d0e6;
+  --sidebar-primary: #3b82f6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #16233f;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #1c2b49;
+  --sidebar-ring: #3b82f6;
 }
 
 .dark {
@@ -70,6 +89,19 @@
   --accent: #21262d;
   --accent-foreground: #e6edf3;
   --destructive: #f85149;
+  /* Statut sémantique — variantes GitHub Dark (subtle = fond sombre teinté ; foreground = clair AA). */
+  --success: #2ea043;
+  --success-subtle: #12261c;
+  --success-subtle-foreground: #4ac26b;
+  --warning: #d29922;
+  --warning-subtle: #271d09;
+  --warning-subtle-foreground: #e3b341;
+  --danger: #f85149;
+  --danger-subtle: #2a1415;
+  --danger-subtle-foreground: #ff7b72;
+  --info: #2f81f7;
+  --info-subtle: #0d1b2f;
+  --info-subtle-foreground: #6cb6ff;
   --border: #30363d;
   --input: #30363d;
   --ring: #2f81f7;
@@ -89,6 +121,11 @@
 }
 
 @theme inline {
+  /* Typographie de marque (auto-hébergée via @fontsource-variable, offline-first) : Syne = display
+     (titres de page, logo, valeurs KPI) ; DM Sans = corps. Décision CEO 2026-06-25 (app premium).
+     Zone document A4 = Times New Roman (hors design-system, byte-exact PDF) — jamais touchée. */
+  --font-sans: 'DM Sans Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Syne Variable', 'DM Sans Variable', system-ui, sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -111,6 +148,18 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-success-subtle: var(--success-subtle);
+  --color-success-subtle-foreground: var(--success-subtle-foreground);
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-warning-subtle-foreground: var(--warning-subtle-foreground);
+  --color-danger: var(--danger);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-danger-subtle-foreground: var(--danger-subtle-foreground);
+  --color-info: var(--info);
+  --color-info-subtle: var(--info-subtle);
+  --color-info-subtle-foreground: var(--info-subtle-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -134,7 +183,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
     font-synthesis-weight: none;
     text-rendering: optimizeLegibility;
   }

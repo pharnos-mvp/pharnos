@@ -14,7 +14,8 @@ interface PageHeaderProps extends Omit<React.ComponentProps<'div'>, 'title'> {
 /**
  * En-tête de page UNIFIÉ : titre + sous-titre + actions à droite. Remplace les en-têtes ad-hoc
  * (chaque page avait sa taille/graisse de h1) → un seul traitement partout. Échelle typo arrêtée :
- * h1 = `text-2xl font-semibold tracking-tight`, sous-titre = `text-sm text-muted-foreground`.
+ * h1 = `font-display text-2xl font-semibold tracking-tight` (Syne), sous-titre = `text-sm
+ * text-muted-foreground`.
  */
 function PageHeader({ title, description, actions, className, ...props }: PageHeaderProps) {
   return (
@@ -24,7 +25,7 @@ function PageHeader({ title, description, actions, className, ...props }: PageHe
       {...props}
     >
       <div className="min-w-0 space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">{title}</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-balance">{title}</h1>
         {description ? (
           <p className="text-muted-foreground max-w-2xl text-sm">{description}</p>
         ) : null}

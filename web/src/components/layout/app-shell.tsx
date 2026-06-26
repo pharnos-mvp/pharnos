@@ -4,6 +4,7 @@ import { useTheme } from 'next-themes'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   ArrowUpCircle,
+  Bell,
   ClipboardList,
   FlaskConical,
   FolderTree,
@@ -15,10 +16,12 @@ import {
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
+  Search,
   Settings2,
   Sun,
   SunMoon,
 } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { AppFooter } from '@/components/layout/AppFooter'
@@ -43,18 +46,28 @@ import { useOrgId } from '@/features/org/org-context'
 import { fetchMyMemberships } from '@/features/org/org-repository'
 import { PLAN_LABEL, useOrgPlan } from '@/features/org/use-org-plan'
 import { useOnlineStatus } from '@/hooks/use-online-status'
-import { env } from '@/lib/env'
 import { setSyncEnabledCache } from '@/lib/sync-prefs'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
 import { initials } from '@/lib/initials'
 import { cn } from '@/lib/utils'
 
 const navItems: { to: string; label: Translatable; icon: typeof FlaskConical }[] = [
+  { to: '/dashboard', label: { fr: 'Tableau de bord', en: 'Dashboard' }, icon: LayoutDashboard },
   { to: '/catalogue', label: { fr: 'Catalogue', en: 'Catalogue' }, icon: FlaskConical },
   { to: '/workspace', label: { fr: 'CTD Workspace', en: 'CTD Workspace' }, icon: FolderTree },
   { to: '/templates', label: { fr: 'Bibliothèque', en: 'Templates' }, icon: Library },
   { to: '/variations', label: { fr: 'Variations', en: 'Variations' }, icon: ClipboardList },
-  { to: '/dashboard', label: { fr: 'Tableau de bord', en: 'Dashboard' }, icon: LayoutDashboard },
+]
+
+// Titre de page affiché dans la topbar (mockup), par préfixe de route.
+const PAGE_TITLES: { prefix: string; label: Translatable }[] = [
+  { prefix: '/dashboard', label: { fr: 'Tableau de bord', en: 'Dashboard' } },
+  { prefix: '/catalogue', label: { fr: 'Catalogue', en: 'Catalogue' } },
+  { prefix: '/workspace', label: { fr: 'CTD Workspace', en: 'CTD Workspace' } },
+  { prefix: '/templates', label: { fr: 'Bibliothèque', en: 'Templates' } },
+  { prefix: '/variations', label: { fr: 'Variations', en: 'Variations' } },
+  { prefix: '/compte', label: { fr: 'Compte', en: 'Account' } },
+  { prefix: '/admin', label: { fr: 'Administration', en: 'Admin' } },
 ]
 
 const SIDEBAR_KEY = 'pharnos.sidebarCollapsed'
@@ -106,6 +119,7 @@ export function AppShell() {
   // place maximale pour la feuille). Réouverture manuelle possible ; en quittant le montage,
   // retour à la préférence enregistrée.
   const inMontage = /^\/workspace\/[^/]+$/.test(location.pathname)
+  const onDashboard = location.pathname.startsWith('/dashboard')
   useEffect(() => {
     // Synchronisation pilotée par la route — exception légitime à set-state-in-effect.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -125,6 +139,10 @@ export function AppShell() {
     enabled: Boolean(user),
   })
   const orgName = memberships?.find((m) => m.orgId === orgId)?.orgName ?? ''
+  const pageTitle = PAGE_TITLES.find((x) => location.pathname.startsWith(x.prefix))?.label ?? {
+    fr: 'Pharnos',
+    en: 'Pharnos',
+  }
 
   // Cache du choix de synchro cloud de l'org → lu par les modules de sync (non-React) pour le gate opt-in.
   const syncEnabled = plan?.sync_enabled
@@ -147,33 +165,26 @@ export function AppShell() {
       {/* Barre latérale : visible ≥ lg uniquement (desktop inchangé) ; < lg → tiroir ☰ (refonte responsive). */}
       <aside
         className={cn(
-          'bg-sidebar hidden w-16 shrink-0 flex-col border-r p-2 md:p-3 lg:flex',
+          'bg-sidebar border-sidebar-border hidden w-16 shrink-0 flex-col border-r p-2 md:p-3 lg:flex',
           expanded && 'md:w-60',
         )}
       >
         <div className="flex items-center gap-2 px-1 py-3 md:px-2">
-          <img
-            src="/brand/pharnos-logo.svg"
-            alt="Pharnos"
-            className="size-8 shrink-0 dark:hidden"
-          />
-          <img
-            src="/brand/pharnos-logo-dark.svg"
-            alt=""
-            aria-hidden="true"
-            className="hidden size-8 shrink-0 dark:block"
-          />
+          {/* Barre navy dans les deux thèmes → logo BLANC (variante « dark ») partout. */}
+          <img src="/brand/pharnos-logo-dark.svg" alt="Pharnos" className="size-8 shrink-0" />
           {expanded ? (
             <div className="hidden leading-tight md:block">
-              <div className="text-sm font-semibold">Pharnos</div>
-              <div className="text-muted-foreground text-xs">RA UEMOA/CEDEAO</div>
+              <div className="font-display text-[17px] font-bold tracking-[-0.3px] text-white">
+                Pharnos
+              </div>
+              <div className="text-sidebar-foreground/60 text-[11px]">RA UEMOA/CEDEAO</div>
             </div>
           ) : null}
         </div>
 
         <nav
           aria-label={t({ fr: 'Navigation principale', en: 'Main navigation' })}
-          className="mt-2 flex flex-col gap-1"
+          className="mt-3 flex flex-col gap-0.5"
         >
           {navItems.map(({ to, label, icon: Icon }) => {
             const text = t(label)
@@ -183,14 +194,18 @@ export function AppShell() {
                 to={to}
                 aria-label={text}
                 title={text}
-                className={({ isActive }) =>
-                  cn(
-                    buttonVariants({ variant: isActive ? 'secondary' : 'ghost' }),
-                    expanded ? 'justify-center md:justify-start' : 'justify-center',
-                  )
-                }
+                className={cn(
+                  // Nav sur fond NAVY : mutée par défaut, active = fond bleu tinté + barre d'accent
+                  // gauche + texte blanc. État actif ciblé via aria-current (posé par NavLink) → pas
+                  // par la couleur seule (a11y 1.4.1 : barre + graisse + aria-current cumulés).
+                  'group relative flex h-9 items-center gap-2.5 rounded-md px-2.5 text-[13.5px] transition-colors',
+                  'text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-white',
+                  'aria-[current=page]:bg-sidebar-primary/15 aria-[current=page]:font-medium aria-[current=page]:text-white',
+                  expanded ? 'justify-center md:justify-start' : 'justify-center',
+                )}
               >
-                <Icon className="size-4" />
+                <span className="bg-sidebar-primary absolute top-1/2 left-0 hidden h-5 w-0.5 -translate-y-1/2 rounded-r group-aria-[current=page]:block" />
+                <Icon className="size-4 shrink-0" />
                 {expanded ? <span className="hidden md:inline">{text}</span> : null}
               </NavLink>
             )
@@ -198,24 +213,15 @@ export function AppShell() {
         </nav>
 
         <div className="mt-auto flex flex-col gap-1.5">
-          {expanded ? (
-            <div className="text-muted-foreground hidden px-2 py-1 text-xs md:block">
-              {env.isSupabaseConfigured
-                ? t({ fr: 'Backend connecté', en: 'Backend connected' })
-                : t({ fr: 'Backend non configuré', en: 'Backend not configured' })}
-            </div>
-          ) : null}
-          {/* Profil + statut réseau en BAS de la barre (mockup CEO) : pastille de statut sur
-              l'avatar en rail ; nom + organisation quand la barre est étendue. */}
-          {/* Profil = menu rapide du compte (mockup CEO, façon Claude) : avatar + nom + plan, puis
-              Paramètres / Langue / Mettre à niveau / Se déconnecter. */}
+          {/* Profil = menu compte (avatar + nom + plan, statut réseau). Reste EN BAS de la barre
+              latérale (le profil ne se déplace pas — choix CEO). */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
                 title={`${displayName}${orgName ? ` — ${orgName}` : ''} · ${online ? t({ fr: 'En ligne', en: 'Online' }) : t({ fr: 'Hors ligne', en: 'Offline' })}`}
                 aria-label={t({ fr: 'Mon compte', en: 'My account' })}
-                className="hover:bg-accent flex w-full items-center justify-center gap-2 rounded-md p-1 md:justify-start"
+                className="hover:bg-sidebar-accent text-sidebar-foreground flex w-full items-center justify-center gap-2 rounded-md p-1 md:justify-start"
               >
                 <span className="relative shrink-0">
                   <span className="bg-primary text-primary-foreground flex size-8 items-center justify-center overflow-hidden rounded-full text-xs font-semibold">
@@ -245,13 +251,13 @@ export function AppShell() {
                         {displayName}
                       </span>
                       {plan ? (
-                        <span className="bg-muted text-muted-foreground shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium">
+                        <span className="shrink-0 rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-medium text-white/80">
                           {t(PLAN_LABEL[plan.plan])}
                         </span>
                       ) : null}
                     </span>
                     {orgName ? (
-                      <span className="text-muted-foreground block max-w-[150px] truncate text-xs">
+                      <span className="text-sidebar-foreground/55 block max-w-[150px] truncate text-xs">
                         {orgName}
                       </span>
                     ) : null}
@@ -314,7 +320,7 @@ export function AppShell() {
           <Button
             variant="ghost"
             size="icon"
-            className="hidden md:inline-flex"
+            className="text-sidebar-foreground/70 hover:bg-sidebar-accent hidden hover:text-white md:inline-flex"
             aria-label={
               expanded ? t({ fr: 'Replier', en: 'Collapse' }) : t({ fr: 'Déplier', en: 'Expand' })
             }
@@ -330,9 +336,9 @@ export function AppShell() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Le bandeau ne porte que le slot de la page (titre + actions — mockup CEO) ; le
-            profil et le statut réseau vivent en bas de la barre latérale. */}
-        <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
+        {/* Topbar (mockup CEO) : titre de page + recherche + langue + copilote + notifications +
+            compte. Sur le montage de dossier, le slot de page reprend la main (titre + actions). */}
+        <header className="bg-background flex h-14 shrink-0 items-center gap-2 border-b px-4 md:gap-3 md:px-6">
           {/* ☰ — ouvre le menu principal en tiroir < lg (la barre latérale est masquée). */}
           <button
             type="button"
@@ -347,7 +353,78 @@ export function AppShell() {
           >
             <Menu className="size-5" />
           </button>
-          {headerSlot ? <div className="min-w-0 flex-1">{headerSlot}</div> : null}
+
+          {headerSlot ? (
+            <div className="min-w-0 flex-1">{headerSlot}</div>
+          ) : (
+            <>
+              <div className="font-display min-w-0 flex-1 truncate text-base font-bold">
+                {t(pageTitle)}
+              </div>
+
+              {/* Recherche — placeholder propre (non câblée → toast « bientôt »). */}
+              <button
+                type="button"
+                onClick={() =>
+                  toast(t({ fr: 'Recherche bientôt disponible.', en: 'Search coming soon.' }))
+                }
+                aria-label={t({ fr: 'Rechercher (bientôt)', en: 'Search (coming soon)' })}
+                className="bg-background text-muted-foreground hover:border-input hidden h-9 w-60 items-center gap-2 rounded-lg border px-3 text-[13px] md:flex"
+              >
+                <Search className="size-4 shrink-0" />
+                <span className="truncate">
+                  {t({
+                    fr: 'Rechercher produits, documents, pays…',
+                    en: 'Search products, documents, countries…',
+                  })}
+                </span>
+              </button>
+
+              {/* Langue (câblée) + thème (câblé) + notifications (placeholder) — desktop. */}
+              <div className="hidden items-center gap-2 lg:flex">
+                <button
+                  type="button"
+                  onClick={() => setLang(lang === 'fr' ? 'en' : 'fr')}
+                  aria-label={t({ fr: 'Changer de langue', en: 'Change language' })}
+                  className="hover:bg-accent rounded-md border px-2.5 py-1 text-xs font-medium"
+                >
+                  {lang === 'fr' ? '🇫🇷 FR' : '🇬🇧 EN'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+                  aria-label={t({ fr: 'Changer de thème', en: 'Toggle theme' })}
+                  title={t({ fr: 'Thème clair / sombre', en: 'Light / dark theme' })}
+                  className="text-muted-foreground hover:bg-accent inline-flex size-9 items-center justify-center rounded-md border"
+                >
+                  {resolvedTheme === 'dark' ? (
+                    <Sun className="size-4" />
+                  ) : (
+                    <Moon className="size-4" />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    toast(
+                      t({
+                        fr: 'Notifications bientôt disponibles.',
+                        en: 'Notifications coming soon.',
+                      }),
+                    )
+                  }
+                  aria-label={t({
+                    fr: 'Notifications (bientôt)',
+                    en: 'Notifications (coming soon)',
+                  })}
+                  className="text-muted-foreground hover:bg-accent relative inline-flex size-9 items-center justify-center rounded-md border"
+                >
+                  <Bell className="size-4" />
+                  <span className="border-background absolute top-1.5 right-1.5 size-2 rounded-full border bg-red-500" />
+                </button>
+              </div>
+            </>
+          )}
         </header>
 
         {/* Tiroir du menu principal (< lg) : nav primaire + compte/statut. Portalisé (Radix) →
@@ -530,7 +607,15 @@ export function AppShell() {
             header et la barre, où le contenu défile (signalé par le CEO). Sans padding-top, elles
             collent FLUSH sous le header. Le contenu démarre sous la bordure du header ; une page
             ajoute son propre `pt-*` si elle veut de la respiration (sans barre sticky). */}
-        <main tabIndex={0} className="min-w-0 flex-1 overflow-auto px-4 pb-4 md:px-6 md:pb-6">
+        <main
+          tabIndex={0}
+          className={cn(
+            'min-w-0 flex-1 overflow-auto px-4 pb-4 md:px-6 md:pb-6',
+            // Dashboard : fond « canvas » gris clair (mockup gray50 #f9fafb) → les cartes blanches
+            // ressortent avec leurs ombres/hover. En sombre : transparent → canvas GitHub du parent.
+            onDashboard && 'bg-[#f9fafb] dark:bg-transparent',
+          )}
+        >
           <HeaderSlotContext.Provider value={setHeaderSlot}>
             <ErrorBoundary key={location.pathname}>
               <Suspense

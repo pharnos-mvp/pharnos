@@ -1,6 +1,13 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
+// Polices de marque AUTO-HÉBERGÉES (offline-first) : les woff2 sont émis dans dist/assets → précachés
+// par le service worker (vite.config globPatterns inclut `woff2`). Importées AVANT index.css, qui les
+// référence via les tokens --font-sans / --font-display. Aucune dépendance réseau (≠ Google Fonts CDN).
+// DM Sans = variante `standard` (axes opsz + wght) = MÊME import que le mockup (`opsz,wght`) → le
+// navigateur applique l'optical-sizing auto aux petites tailles (rendu identique au mockup).
+import '@fontsource-variable/dm-sans/standard.css'
+import '@fontsource-variable/syne'
 import './index.css'
 import App from '@/App'
 import { initSentry } from '@/lib/sentry'
