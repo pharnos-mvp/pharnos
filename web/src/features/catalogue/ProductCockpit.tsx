@@ -12,7 +12,6 @@ import {
   Pencil,
   Pill,
   Syringe,
-  Tablets,
   X,
   Zap,
 } from 'lucide-react'
@@ -79,10 +78,29 @@ const CONFORMITY_TONE: Record<DocConformityStatus, 'success' | 'danger' | 'neutr
 // CTA bleu du mockup (.btn-primary = --blue = notre --info).
 const BLUE_BTN = 'bg-info text-white hover:bg-info/90'
 
+/** Comprimé unique (style lucide) : cercle + barre de sécabilité. */
+function TabletIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <line x1="12" y1="3.3" x2="12" y2="20.7" />
+    </svg>
+  )
+}
+
 /** Icône de la pastille produit selon la forme galénique (comprimé / injectable / liquide / gélule). */
 function formIcon(forme: string, className?: string) {
   const f = (forme || '').toLowerCase()
-  if (/comprim|cachet|dragée|dragee|tablet/.test(f)) return <Tablets className={className} />
+  if (/comprim|cachet|dragée|dragee|tablet/.test(f)) return <TabletIcon className={className} />
   if (/inject|vaccin|ampoule|seringue|perfusion|lyophilis/.test(f))
     return <Syringe className={className} />
   if (/sirop|solution|suspension|buvable|goutte|collyre|spray|nasal|émulsion|emulsion/.test(f))
@@ -475,14 +493,14 @@ export function ProductCockpit() {
 
           <RadixTabs.Content value="documents" className="outline-none">
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-              <div className="min-w-0 space-y-6">
-                <section className="space-y-3">
+              <div className="grid min-w-0 gap-5 md:grid-cols-2">
+                <section className="min-w-0 space-y-3">
                   <h2 className="rim-section-title">
                     {t({ fr: "Documents d'information", en: 'Product information' })}
                   </h2>
                   <DocumentsSection orgId={orgId} productId={p.id} category="info" />
                 </section>
-                <section className="space-y-3">
+                <section className="min-w-0 space-y-3">
                   <h2 className="rim-section-title">
                     {t({ fr: 'Pièces administratives', en: 'Administrative documents' })}
                   </h2>
