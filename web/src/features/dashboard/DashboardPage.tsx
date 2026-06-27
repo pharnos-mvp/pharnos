@@ -1,5 +1,22 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
+import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowUp,
+  CalendarClock,
+  ClipboardList,
+  Clock,
+  Globe,
+  History,
+  Mail,
+  Package,
+  PauseCircle,
+  RefreshCw,
+  Send,
+  ShieldCheck,
+  type LucideIcon,
+} from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { useAuditSync } from '@/features/audit/use-audit-sync'
@@ -8,20 +25,24 @@ import { docTypeLabel } from '@/features/catalogue/doc-types'
 import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
 import { useCorrespondenceSync } from '@/features/correspondence/use-correspondence-sync'
 import { useOrgId } from '@/features/org/org-context'
-import { COUNTRIES, countryFlag, countryLabel } from '@/features/workspace/dossier-constants'
+import { COUNTRIES, countryLabel } from '@/features/workspace/dossier-constants'
 import { useDossierSync } from '@/features/workspace/use-dossier-sync'
 import { db } from '@/lib/db'
 import { useI18n } from '@/lib/i18n-context'
+import { CountryFlag } from './CountryFlag'
 import { VeilleCard } from './components/VeilleCard'
 import {
   buildActions,
   conformitySummary,
+  conformityTone,
   expiringDocs,
+  expiryTone,
   openCorrespondences,
   portfolio,
   recentActivity,
   type ActionKind,
   type CorrSubState,
+  type KpiTone,
 } from './dashboard-data'
 import './dashboard-mockup.css'
 
@@ -33,13 +54,13 @@ const PREVIEW = 5
 const DASHBOARD_COUNTRY_CODES = ['BJ', 'BF', 'CI', 'GW', 'ML', 'NE', 'SN', 'TG', 'NG', 'GH']
 const DASHBOARD_COUNTRIES = COUNTRIES.filter((c) => DASHBOARD_COUNTRY_CODES.includes(c.code))
 
-const KIND_BADGE: Record<ActionKind, { cls: string; fr: string; en: string }> = {
-  doc_expired: { cls: 'badge-red', fr: 'Expirant', en: 'Expiring' },
-  non_conform: { cls: 'badge-red', fr: 'Non conforme', en: 'Non-compliant' },
-  doc_expiring: { cls: 'badge-amber', fr: 'Renouvellement', en: 'Renewal' },
-  dossier_suspended: { cls: 'badge-amber', fr: 'En suspens', en: 'Suspended' },
-  unread_reply: { cls: 'badge-blue', fr: 'Réponse agence', en: 'Agency reply' },
-  agency_pending: { cls: 'badge-blue', fr: 'En attente', en: 'Pending' },
+const KIND_BADGE: Record<ActionKind, { cls: string; Icon: LucideIcon; fr: string; en: string }> = {
+  doc_expired: { cls: 'badge-red', Icon: AlertTriangle, fr: 'Expirant', en: 'Expiring' },
+  non_conform: { cls: 'badge-red', Icon: AlertCircle, fr: 'Non conforme', en: 'Non-compliant' },
+  doc_expiring: { cls: 'badge-amber', Icon: RefreshCw, fr: 'Renouvellement', en: 'Renewal' },
+  dossier_suspended: { cls: 'badge-amber', Icon: PauseCircle, fr: 'En suspens', en: 'Suspended' },
+  unread_reply: { cls: 'badge-blue', Icon: Mail, fr: 'Réponse agence', en: 'Agency reply' },
+  agency_pending: { cls: 'badge-blue', Icon: Clock, fr: 'En attente', en: 'Pending' },
 }
 
 const STATE_DOT: Record<CorrSubState, string> = {
@@ -65,6 +86,47 @@ const emptyStyle = {
   textAlign: 'center' as const,
   fontSize: 13,
   color: 'var(--pd-muted)',
+}
+
+// Tonalité de KPI → tokens de statut. Une seule source : pilote coin + pastille + barre.
+// neutral = bleu calme (volumes/croissance, non notés bon/mauvais — choix CEO).
+const TONE_VAR: Record<KpiTone, string> = {
+  good: 'var(--success)',
+  fair: 'var(--info)',
+  passable: 'var(--warning)',
+  poor: 'var(--danger)',
+  neutral: 'var(--info)',
+}
+const TONE_SUBTLE: Record<KpiTone, string> = {
+  good: 'var(--success-subtle)',
+  fair: 'var(--info-subtle)',
+  passable: 'var(--warning-subtle)',
+  poor: 'var(--danger-subtle)',
+  neutral: 'var(--info-subtle)',
+}
+const TONE_SUBTLE_FG: Record<KpiTone, string> = {
+  good: 'var(--success-subtle-foreground)',
+  fair: 'var(--info-subtle-foreground)',
+  passable: 'var(--warning-subtle-foreground)',
+  poor: 'var(--danger-subtle-foreground)',
+  neutral: 'var(--info-subtle-foreground)',
+}
+// Étiquette VISIBLE seulement sur les états qui appellent une action (retirable au besoin).
+const GRADE_LABEL: Partial<Record<KpiTone, { fr: string; en: string }>> = {
+  passable: { fr: 'À surveiller', en: 'Watch' },
+  poor: { fr: 'Urgent', en: 'Urgent' },
+}
+const GRADE_ICON: Partial<Record<KpiTone, LucideIcon>> = {
+  passable: Clock,
+  poor: AlertTriangle,
+}
+// Grade complet pour lecteur d'écran — la couleur ne porte jamais l'info seule (WCAG 1.4.1).
+const GRADE_SR: Record<KpiTone, { fr: string; en: string }> = {
+  good: { fr: 'bon', en: 'good' },
+  fair: { fr: 'assez bien', en: 'fair' },
+  passable: { fr: 'à surveiller', en: 'watch' },
+  poor: { fr: 'urgent', en: 'urgent' },
+  neutral: { fr: '', en: '' },
 }
 
 export function DashboardPage() {
@@ -132,10 +194,16 @@ export function DashboardPage() {
     const open = vm.corrItems.filter((c) => c.state !== 'decided')
     const compliance =
       vm.conformity.analyzedDocs > 0
-        ? Math.round(
-            ((vm.conformity.analyzedDocs - vm.conformity.nonConformDocs) /
-              vm.conformity.analyzedDocs) *
+        ? Math.max(
+            0,
+            Math.min(
               100,
+              Math.round(
+                ((vm.conformity.analyzedDocs - vm.conformity.nonConformDocs) /
+                  vm.conformity.analyzedDocs) *
+                  100,
+              ),
+            ),
           )
         : null
     const counts = new Map(vm.portfolio.byCountry.map((c) => [c.code, c.count]))
@@ -174,6 +242,29 @@ export function DashboardPage() {
     ).length
   }, [products])
 
+  // Chargement Dexie : squelette plutôt qu'un flash « tout à zéro ».
+  if (data === undefined) {
+    return (
+      <div className="pharnos-dash pt-4 md:pt-6" aria-busy="true" aria-live="polite">
+        <span className="sr-only">
+          {t({ fr: 'Chargement du tableau de bord', en: 'Loading dashboard' })}
+        </span>
+        <div className="pd-skel" style={{ height: 44, maxWidth: 280, marginBottom: 20 }} />
+        <div className="kpi-grid">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="pd-skel" style={{ height: 128, borderRadius: 14 }} />
+          ))}
+        </div>
+        <div className="grid-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="pd-skel" style={{ height: 232, borderRadius: 14 }} />
+          ))}
+        </div>
+        <div className="pd-skel" style={{ height: 156, borderRadius: 14 }} />
+      </div>
+    )
+  }
+
   const clampPct = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
   const coverageBar = clampPct((vm.portfolio.byCountry.length / DASHBOARD_COUNTRIES.length) * 100)
   const submissionsBar =
@@ -201,22 +292,25 @@ export function DashboardPage() {
         : t({ fr: 'modifié', en: 'updated' })
 
   const kpis: {
-    ico: string
+    Ico: LucideIcon
+    tone: KpiTone
     label: string
     val: ReactNode
-    alert?: boolean
     sub: ReactNode
     bar: number
-    color: string
   }[] = [
     {
-      ico: '◈',
+      Ico: Package,
+      tone: 'neutral',
       label: t({ fr: 'Produits Actifs', en: 'Active Products' }),
       val: vm.portfolio.productCount,
       sub:
         productsThisMonth > 0 ? (
           <>
-            <span className="up">↑ {productsThisMonth}</span>{' '}
+            <span className="up">
+              <ArrowUp size={13} strokeWidth={2.5} />
+              {productsThisMonth}
+            </span>{' '}
             {t({ fr: 'ce mois', en: 'this month' })}
           </>
         ) : (
@@ -226,10 +320,10 @@ export function DashboardPage() {
           })
         ),
       bar: coverageBar,
-      color: 'var(--info)',
     },
     {
-      ico: '◉',
+      Ico: Send,
+      tone: 'neutral',
       label: t({ fr: 'Soumissions en cours', en: 'Pending submissions' }),
       val: derived.submissionsOpen,
       sub: t({
@@ -237,26 +331,21 @@ export function DashboardPage() {
         en: `${derived.submissionsCountries} countries`,
       }),
       bar: submissionsBar,
-      color: 'var(--warning)',
     },
     {
-      ico: '⏰',
-      label: t({ fr: 'Expirant ≤ 90 jours', en: 'Expiring ≤ 90 days' }),
+      Ico: CalendarClock,
+      tone: expiryTone(vm.echeances),
+      label: t({ fr: 'À renouveler', en: 'Renewals due' }),
       val: vm.echeances.length,
-      alert: vm.echeances.length > 0,
       sub:
-        vm.echeances.length > 0 ? (
-          <>
-            <span className="dn">!</span> {t({ fr: 'Action requise', en: 'Action required' })}
-          </>
-        ) : (
-          t({ fr: 'rien sous 90 j', en: 'none within 90 days' })
-        ),
+        vm.echeances.length > 0
+          ? t({ fr: 'fenêtre de renouvellement', en: 'within renewal window' })
+          : t({ fr: 'rien à renouveler', en: 'nothing due' }),
       bar: expiringBar,
-      color: 'var(--danger)',
     },
     {
-      ico: '✓',
+      Ico: ShieldCheck,
+      tone: conformityTone(derived.compliance),
       label: t({ fr: 'Taux de Conformité', en: 'Compliance rate' }),
       val: derived.compliance == null ? '—' : `${derived.compliance}%`,
       sub: t({
@@ -264,7 +353,6 @@ export function DashboardPage() {
         en: `${vm.conformity.analyzedDocs} analyzed`,
       }),
       bar: conformityBar,
-      color: 'var(--success)',
     },
   ]
 
@@ -320,28 +408,50 @@ export function DashboardPage() {
 
         {/* KPIs */}
         <div className="kpi-grid">
-          {kpis.map((k, i) => (
-            <div className="kpi" key={i}>
-              <div className="kpi-ico" aria-hidden>
-                {k.ico}
+          {kpis.map((k, i) => {
+            const accent = TONE_VAR[k.tone]
+            const gradeLabel = GRADE_LABEL[k.tone]
+            const GradeIcon = GRADE_ICON[k.tone]
+            return (
+              <div className="kpi" key={i} style={{ '--kpi-accent': accent } as CSSProperties}>
+                <div
+                  className="kpi-ico"
+                  aria-hidden
+                  style={{ background: TONE_SUBTLE[k.tone], color: accent }}
+                >
+                  <k.Ico size={16} strokeWidth={2} />
+                </div>
+                <div className="kpi-label">{k.label}</div>
+                <div className="kpi-val">{k.val}</div>
+                {gradeLabel && GradeIcon ? (
+                  <div
+                    className="kpi-grade"
+                    style={{ background: TONE_SUBTLE[k.tone], color: TONE_SUBTLE_FG[k.tone] }}
+                  >
+                    <GradeIcon size={11} strokeWidth={2.5} aria-hidden />
+                    {t(gradeLabel)}
+                  </div>
+                ) : null}
+                {k.tone !== 'neutral' && !gradeLabel ? (
+                  <span className="sr-only">{t(GRADE_SR[k.tone])}</span>
+                ) : null}
+                <div className="kpi-sub">{k.sub}</div>
+                <div className="bar-wrap">
+                  <div className="bar-fill" style={{ width: `${k.bar}%`, background: accent }} />
+                </div>
               </div>
-              <div className="kpi-label">{k.label}</div>
-              <div className={k.alert ? 'kpi-val alert' : 'kpi-val'}>{k.val}</div>
-              <div className="kpi-sub">{k.sub}</div>
-              <div className="bar-wrap">
-                <div className="bar-fill" style={{ width: `${k.bar}%`, background: k.color }} />
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         {/* Alertes | Timeline | Activité — 5 items, « Voir tout » déplie sur place. */}
         <div className="grid-3">
-          <div className="card">
+          <div className="card" role="region" aria-labelledby="dash-alerts">
             <div className="card-hd">
-              <div className="card-title">
-                ⚠️ {t({ fr: 'Alertes Réglementaires', en: 'Regulatory Alerts' })}
-              </div>
+              <h2 className="card-title" id="dash-alerts">
+                <AlertTriangle size={15} color="var(--danger)" aria-hidden />
+                {t({ fr: 'Alertes Réglementaires', en: 'Regulatory Alerts' })}
+              </h2>
               {seeAll('alerts', vm.actions.length)}
             </div>
             <div className="card-body" style={{ padding: '8px 20px' }}>
@@ -352,15 +462,29 @@ export function DashboardPage() {
               ) : (
                 alerts.map((a) => {
                   const b = KIND_BADGE[a.kind]
+                  const BIcon = b.Icon
                   return (
                     <Link className="alert-row" to={a.href} key={a.id}>
-                      <span className={`badge ${b.cls}`}>{t({ fr: b.fr, en: b.en })}</span>
+                      <span className={`badge ${b.cls}`}>
+                        <BIcon size={11} strokeWidth={2.5} aria-hidden />
+                        {t({ fr: b.fr, en: b.en })}
+                      </span>
                       <span className="alert-name">
                         {a.label}
                         {a.docType ? ` — ${docTypeLabel(a.docType, lang)}` : ''}
                       </span>
                       <span className="alert-meta">
-                        {a.country ? <span aria-hidden>{countryFlag(a.country)} </span> : null}
+                        {a.country ? (
+                          <CountryFlag
+                            code={a.country}
+                            size={13}
+                            style={{
+                              display: 'inline-block',
+                              verticalAlign: 'middle',
+                              marginRight: 5,
+                            }}
+                          />
+                        ) : null}
                         {fmtDate(a.date)}
                       </span>
                     </Link>
@@ -370,11 +494,12 @@ export function DashboardPage() {
             </div>
           </div>
 
-          <div className="card">
+          <div className="card" role="region" aria-labelledby="dash-timeline">
             <div className="card-hd">
-              <div className="card-title">
-                📋 {t({ fr: 'Timeline Soumissions', en: 'Submission Timeline' })}
-              </div>
+              <h2 className="card-title" id="dash-timeline">
+                <ClipboardList size={15} color="var(--info)" aria-hidden />
+                {t({ fr: 'Timeline Soumissions', en: 'Submission Timeline' })}
+              </h2>
               {seeAll('subs', vm.corrItems.length)}
             </div>
             <div className="card-body">
@@ -413,11 +538,12 @@ export function DashboardPage() {
             </div>
           </div>
 
-          <div className="card">
+          <div className="card" role="region" aria-labelledby="dash-activity">
             <div className="card-hd">
-              <div className="card-title">
-                🕓 {t({ fr: 'Activité récente', en: 'Recent activity' })}
-              </div>
+              <h2 className="card-title" id="dash-activity">
+                <History size={15} color="var(--pd-muted)" aria-hidden />
+                {t({ fr: 'Activité récente', en: 'Recent activity' })}
+              </h2>
               {seeAll('activity', vm.activity.length)}
             </div>
             <div className="card-body" style={{ padding: '8px 20px' }}>
@@ -441,11 +567,12 @@ export function DashboardPage() {
         </div>
 
         {/* Couverture pays — UEMOA + Nigeria + Ghana (10), 0 + pastille grise si vide. */}
-        <div className="card">
+        <div className="card" role="region" aria-labelledby="dash-coverage">
           <div className="card-hd">
-            <div className="card-title">
-              🌍 {t({ fr: 'Couverture Pays UEMOA/CEDEAO', en: 'UEMOA/ECOWAS country coverage' })}
-            </div>
+            <h2 className="card-title" id="dash-coverage">
+              <Globe size={15} color="var(--info)" aria-hidden />
+              {t({ fr: 'Couverture Pays UEMOA/CEDEAO', en: 'UEMOA/ECOWAS country coverage' })}
+            </h2>
             <span className="card-action" style={{ cursor: 'default', color: 'var(--pd-muted)' }}>
               {DASHBOARD_COUNTRIES.length} {t({ fr: 'pays', en: 'countries' })}
             </span>
@@ -456,8 +583,8 @@ export function DashboardPage() {
                 const n = derived.counts.get(c.code) ?? 0
                 return (
                   <div className="ctry-tile" key={c.code} title={countryLabel(c.code, lang)}>
-                    <div className="ctry-flag" aria-hidden>
-                      {countryFlag(c.code)}
+                    <div className="ctry-flag">
+                      <CountryFlag code={c.code} size={30} />
                     </div>
                     <div className="ctry-name">{countryLabel(c.code, lang)}</div>
                     <div className="ctry-cnt">
