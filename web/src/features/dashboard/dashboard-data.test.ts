@@ -395,4 +395,17 @@ describe('conformitySummary', () => {
     expect(s.analyzedDocs).toBe(2)
     expect(s.notAnalyzed).toBe(1)
   })
+
+  it("ignore les analyses dont le doc n'est pas dans l'org (docAnalysis sans orgId)", () => {
+    const s = conformitySummary(
+      [doc({ id: 'd1' })],
+      [
+        analysis({ docId: 'd1', findings: [finding({ upgrade: true })] }),
+        // Analyse orpheline : autre org ou doc supprimé — ne doit PAS être comptée.
+        analysis({ docId: 'foreign', findings: [finding({ upgrade: true })] }),
+      ],
+    )
+    expect(s.nonConformDocs).toBe(1)
+    expect(s.analyzedDocs).toBe(1)
+  })
 })

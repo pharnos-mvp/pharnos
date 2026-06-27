@@ -42,6 +42,14 @@ Tout **H → M (+O)** est en prod. **Depuis le 2026-06-16** :
   + **landing premium** — consolidés avec tout le reste dans **[PLAN-LANCEMENT.md](PLAN-LANCEMENT.md)**
   (roadmap ordonnée zéro-rework : fondation design-system → refonte par surface → landing → **i18n en dernier**
   → recette finale + GO-LIVE). Périmètre validé CEO = **refonte UX profonde** (pas un simple re-skin).
+- **LOT 1 fondation — Dashboard premium = DA validée CEO (2026-06-27)** : refonte « Ultra-Performance »
+  (branche `feat/design-system-foundation`, `c1e2071`) **verrouillée comme la DA de toute l'app**. Revue CTO :
+  **2 correctifs invisibles intégrés** (calcul de conformité scoping par-org → plus de % négatif ; a11y =
+  cartes en régions + titres `<h2>`, pixel-identique). **Reportés (tracés, non bloquants)** : #3 code mort
+  `pipelineCounts` ; #4 doublon contrôles thème/langue (topbar vs menu) ; #5 compteur « pays couverts »
+  (compte hors des 10 tuiles) ; #6 skeleton de chargement du dashboard ; **#7 pluriels EN (« 1 countries »)
+  → LOT 12 i18n**. **#8 résolu** : ce sont les primitives + le Catalogue qui convergent VERS le dashboard
+  (cf. [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md)).
 
 **Santé** : ~381 vitest + e2e Playwright, CI 6/6, `npm audit` 0 vuln, advisors **0 ERROR**, budget tenu, backups
 chiffrés + restore drill, uptime + alertes, **0 €**. Clé `age` rangée hors-ligne (2026-06-20).

@@ -360,9 +360,14 @@ export function conformitySummary(
   docAnalysis: DocAnalysisRecord[],
 ): ConformitySummary {
   const docs = active(documents)
+  // `docAnalysis` n'a pas de colonne orgId (clé = docId) et est chargé en entier : on RESTREINT
+  // aux docs actifs de l'org, sinon nonConformDocs agrégerait d'autres orgs / docs supprimés et
+  // le taux de conformité dérivé pourrait devenir négatif.
+  const docIds = new Set(docs.map((d) => d.id))
   const analyzedIds = new Set(docAnalysis.map((a) => a.docId))
   let nonConformDocs = 0
   for (const a of docAnalysis) {
+    if (!docIds.has(a.docId)) continue
     const findings = Array.isArray(a.findings) ? (a.findings as RegafyFinding[]) : []
     if (findings.some(isNonConform)) nonConformDocs++
   }

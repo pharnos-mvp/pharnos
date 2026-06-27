@@ -94,9 +94,13 @@
   opacity: 0.12;
 }
 .pharnos-dash .kpi-ico {
-  font-size: 18px;
-  margin-bottom: 10px;
-  opacity: 0.8;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
 }
 .pharnos-dash .kpi-label {
   font-size: 11px;
@@ -127,10 +131,15 @@
 .pharnos-dash .up {
   color: var(--success-subtle-foreground);
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
 }
 .pharnos-dash .dn {
   color: var(--danger-subtle-foreground);
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
 }
 .pharnos-dash .bar-wrap {
   height: 4px;
@@ -335,8 +344,7 @@
   box-shadow: var(--pd-shadow);
 }
 .pharnos-dash .ctry-flag {
-  font-size: 24px;
-  line-height: 1;
+  line-height: 0;
 }
 .pharnos-dash .ctry-name {
   font-size: 10.5px;
@@ -413,5 +421,31 @@
   }
   .pharnos-dash .grid-cc {
     grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ───── Skeleton de chargement (anti-flash « tout à zéro ») ───── */
+.pharnos-dash .pd-skel {
+  background: var(--pd-track);
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+}
+.pharnos-dash .pd-skel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
+  animation: pharnos-dash-shimmer 1.3s ease-in-out infinite;
+}
+@keyframes pharnos-dash-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pharnos-dash .pd-skel::after {
+    animation: none;
   }
 }

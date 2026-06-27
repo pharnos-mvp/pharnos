@@ -24,6 +24,9 @@
    `--sidebar-primary` (`#3b82f6`). **Palette de statut sémantique** `--success` / `--warning` /
    `--danger` / `--info` (+ `-subtle` = fond de badge, `-subtle-foreground` = texte AA), clair + dark.
    `--brand` (`#263f73`) = **marque document gelée** (PDF byte-exact), distincte du shell. Dark = GitHub.
+   **Palette DA du Dashboard** = `--pd-*` (`dashboard-mockup.css`, clair+dark) : c'est la **référence
+   couleur premium validée** (cf. écrans de référence) ; à **promouvoir dans le token layer partagé** en
+   LOT 2 (en sombre, `--pd-*` = déjà les hex GitHub canoniques ; en clair = gris slate AA-tunés).
 5. **z-index** (convention, règle les bugs de barres collantes) : contenu `z-0` · barre sticky `z-20`
    · dropdown/popover `z-30` · overlay `z-40` · modal `z-50` · toast (sonner) au-dessus.
 6. **États systématiques** — toute liste/donnée asynchrone expose **chargement** (`Skeleton`),
@@ -45,16 +48,25 @@ besoin). Compléter les shadcn manquants (tooltip, popover, separator, switch, c
 des surfaces qui les consomment.
 
 ## Écrans de référence (preuve de la fondation)
-- **Dashboard** (`features/dashboard/DashboardPage.tsx`) — `Page` + `PageHeader` (salutation + date +
-  CTA) + **bandeau KPI hero** (`KpiCards` : 4 indicateurs dérivés des données, `StatusBadge` sémantiques).
+- **Dashboard** (`features/dashboard/DashboardPage.tsx`) — **DA validée CEO le 2026-06-27 : c'est LA
+  référence visuelle de toute l'app.** Look premium « Ultra-Performance » (cartes, bandeau KPI hero,
+  badges de statut, drapeaux pays). Implémenté **aujourd'hui** via `dashboard-mockup.css` (palette
+  `--pd-*` clair+dark + patterns card/KPI/badge), **pas encore** via les primitives : il **définit la
+  cible** que les primitives devront produire (cf. règle LOT 2). Greeting = `<h1>` Syne ; chaque carte
+  est une région a11y (`role="region"` + titre `<h2>`).
 - **Shell** (`components/layout/app-shell.tsx`) — barre latérale **navy** (logo blanc + wordmark Syne ;
   nav mutée → active via `aria-current` : fond tinté + barre d'accent + texte blanc).
-- **Catalogue** (`features/catalogue/CataloguePage.tsx`) — `Page` + `PageHeader` (avec action) +
-  `EmptyState` (primitive, fini le doublon local) + `Skeleton` au chargement (fini le « Chargement… »).
+- **Catalogue** (`features/catalogue/CataloguePage.tsx`) — démontre la **structure** par primitives
+  (`Page` + `PageHeader` + `EmptyState` + `Skeleton`) avec tokens sémantiques neutres. **À réconcilier
+  avec la DA premium du Dashboard en LOT 2** (les primitives adoptent palette + patterns du dashboard,
+  pas l'inverse).
 
-→ **Validation CEO en navigateur réel** avant de dérouler la refonte surface par surface (LOT 2).
+→ **DA validée CEO le 2026-06-27.** Le LOT 2 fait **converger les primitives + le Catalogue vers cette DA**.
 
 ## Règle de déroulé (LOT 2)
-Chaque surface migre vers les primitives **dans sa propre tranche**, combinée à toute évolution
-fonctionnelle de cette surface (jamais re-skin puis reconstruire). i18n + recette visuelle finale =
-**en dernier** (cf. PLAN-LANCEMENT). On n'introduit une primitive nouvelle qu'avec un consommateur réel.
+**Convergence vers la DA du Dashboard.** Étape 1 = extraire la palette `--pd-*` et les patterns premium
+(card, KPI hero, badge) du dashboard dans le système partagé (tokens globaux + primitives). Étape 2 =
+migrer chaque surface — Catalogue en premier — vers ces primitives premium. Chaque surface migre **dans
+sa propre tranche**, combinée à toute évolution fonctionnelle (jamais re-skin puis reconstruire). i18n +
+recette visuelle finale = **en dernier** (cf. PLAN-LANCEMENT). On n'introduit une primitive nouvelle
+qu'avec un consommateur réel.

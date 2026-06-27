@@ -166,7 +166,7 @@ export function AppShell() {
       <aside
         className={cn(
           'bg-sidebar border-sidebar-border hidden w-16 shrink-0 flex-col border-r p-2 md:p-3 lg:flex',
-          expanded && 'md:w-60',
+          expanded && 'md:w-52',
         )}
       >
         <div className="flex items-center gap-2 px-1 py-3 md:px-2">
