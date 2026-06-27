@@ -11,6 +11,9 @@ import { CataloguePage } from '@/features/catalogue/CataloguePage'
 const ProductFormPage = lazy(() =>
   import('@/features/catalogue/ProductFormPage').then((m) => ({ default: m.ProductFormPage })),
 )
+const ProductCockpit = lazy(() =>
+  import('@/features/catalogue/ProductCockpit').then((m) => ({ default: m.ProductCockpit })),
+)
 const WorkspacePage = lazy(() =>
   import('@/features/workspace/WorkspacePage').then((m) => ({ default: m.WorkspacePage })),
 )
@@ -45,7 +48,7 @@ export function AppRoutes() {
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="/catalogue" element={<CataloguePage />} />
         <Route path="/catalogue/nouveau" element={<ProductFormPage />} />
-        <Route path="/catalogue/:productId" element={<ProductFormPage />} />
+        <Route path="/catalogue/:productId" element={<ProductCockpit />} />
         <Route path="/workspace" element={<WorkspacePage />} />
         <Route path="/workspace/nouveau" element={<NewDossierPage />} />
         <Route path="/workspace/:dossierId" element={<DossierWorkspacePage />} />
