@@ -31,15 +31,6 @@ import { Page } from '@/components/ui/page'
 import { PageHeader } from '@/components/ui/page-header'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { cn } from '@/lib/utils'
 import type { KpiTone } from '@/features/dashboard/dashboard-data'
 import { CountryFlag } from '@/features/dashboard/CountryFlag'
 import { useDossierSync } from '@/features/workspace/use-dossier-sync'
@@ -58,6 +49,7 @@ import { ProductIcon } from './product-icon'
 import { deleteProduct } from './repository'
 import { syncProducts } from './sync'
 import { useCatalogueSync } from './use-catalogue-sync'
+import './catalogue-list.css'
 
 /** Tonalité de santé (KPI) → tonalité de badge sémantique. */
 const TONE_BADGE: Record<KpiTone, 'neutral' | 'success' | 'warning' | 'danger' | 'info'> = {
@@ -196,7 +188,7 @@ export function CataloguePage() {
               }
             />
           ) : (
-            <ProductTable rows={filtered} />
+            <ProductList rows={filtered} />
           )}
         </div>
       )}
@@ -344,62 +336,36 @@ function HealthBadges({ row }: { row: CatalogueRow }) {
   )
 }
 
-function ProductTable({ rows }: { rows: CatalogueRow[] }) {
-  const { t, lang } = useI18n()
+function ProductList({ rows }: { rows: CatalogueRow[] }) {
+  const { lang } = useI18n()
   return (
-    <Table className="table-fixed">
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-[30%]">{t({ fr: 'Produit', en: 'Product' })}</TableHead>
-          <TableHead className="hidden w-[16%] md:table-cell">
-            {t({ fr: 'DCI', en: 'INN' })}
-          </TableHead>
-          <TableHead className="w-[30%]">
-            {t({ fr: 'Santé réglementaire', en: 'Regulatory health' })}
-          </TableHead>
-          <TableHead className="hidden w-[14%] lg:table-cell">
-            {t({ fr: 'Pays', en: 'Countries' })}
-          </TableHead>
-          <TableHead className="w-[64px] text-right">
-            {t({ fr: 'Actions', en: 'Actions' })}
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map(({ product: p, ...row }) => (
-          <TableRow key={p.id} className="group">
-            <TableCell>
-              <div className="flex min-w-0 items-center gap-2.5">
-                <span
-                  className="bg-info-subtle text-info-subtle-foreground flex size-8 shrink-0 items-center justify-center rounded-lg"
-                  aria-hidden
-                >
-                  <ProductIcon forme={p.forme} className="size-4" />
-                </span>
-                <Link
-                  to={`/catalogue/${p.id}`}
-                  className="hover:text-info min-w-0 truncate font-medium"
-                  title={p.nomCommercial}
-                >
+    <div className="pharnos-cat">
+      <div className="cat-list" role="list">
+        {rows.map(({ product: p, ...row }) => {
+          const sub = [p.dci, p.dosage, p.forme].filter(Boolean).join(' · ')
+          return (
+            <div className="cat-row" role="listitem" key={p.id}>
+              <span className="cat-ico" aria-hidden>
+                <ProductIcon forme={p.forme} className="size-5" />
+              </span>
+              <div className="cat-main">
+                <Link to={`/catalogue/${p.id}`} className="cat-name" title={p.nomCommercial}>
                   {p.nomCommercial}
                 </Link>
+                {sub ? (
+                  <div className="cat-sub" title={sub}>
+                    {sub}
+                  </div>
+                ) : null}
               </div>
-            </TableCell>
-            <TableCell
-              className="text-muted-foreground hidden truncate md:table-cell"
-              title={p.dci}
-            >
-              {p.dci || '—'}
-            </TableCell>
-            <TableCell>
-              <HealthBadges row={{ product: p, ...row }} />
-            </TableCell>
-            <TableCell className="hidden lg:table-cell">
-              {row.countries.length === 0 ? (
-                <span className="text-muted-foreground">—</span>
-              ) : (
+
+              <div className="cat-health">
+                <HealthBadges row={{ product: p, ...row }} />
+              </div>
+
+              {row.countries.length > 0 ? (
                 <span
-                  className="flex flex-wrap items-center gap-1"
+                  className="cat-flags"
                   aria-label={row.countries.map((c) => countryLabel(c, lang)).join(', ')}
                 >
                   {row.countries.slice(0, 4).map((c) => (
@@ -411,15 +377,16 @@ function ProductTable({ rows }: { rows: CatalogueRow[] }) {
                     </span>
                   ) : null}
                 </span>
-              )}
-            </TableCell>
-            <TableCell className="text-right">
-              <DeleteProductDialog id={p.id} name={p.nomCommercial} />
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+              ) : null}
+
+              <div className="cat-actions">
+                <DeleteProductDialog id={p.id} name={p.nomCommercial} />
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -449,7 +416,7 @@ function DeleteProductDialog({ id, name }: { id: string; name: string }) {
         <Button
           variant="ghost"
           size="icon"
-          className={cn('text-muted-foreground hover:text-danger')}
+          className="text-muted-foreground hover:text-danger"
           aria-label={t({ fr: `Supprimer ${name}`, en: `Delete ${name}` })}
         >
           <Trash2 />
