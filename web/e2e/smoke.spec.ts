@@ -4,12 +4,12 @@ import { expect, test } from '@playwright/test'
  * Smoke : l'app démarre en mode local (sans backend) et atterrit sur le Catalogue,
  * avec la navigation principale accessible.
  */
-test('démarre sur le Catalogue avec la navigation principale', async ({ page }) => {
+test('démarre sur le Dashboard avec la navigation principale', async ({ page }) => {
   await page.goto('/')
 
-  // La racine redirige vers /catalogue.
-  await expect(page).toHaveURL(/\/catalogue$/)
-  await expect(page.getByRole('heading', { level: 1, name: 'Catalogue' })).toBeVisible()
+  // La racine redirige désormais vers /dashboard.
+  await expect(page).toHaveURL(/\/dashboard$/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Tableau de bord' })).toBeVisible()
 
   // Navigation latérale présente (le pied de page reprend les mêmes libellés → on cible le
   // landmark « Navigation principale » pour lever l'ambiguïté du mode strict Playwright).

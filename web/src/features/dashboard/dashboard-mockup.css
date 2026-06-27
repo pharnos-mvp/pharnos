@@ -1,0 +1,417 @@
+/* Dashboard — design repris du mockup CEO « Pharnos Ultra-Performance » (Pharnos_Dashboard.html),
+   scopé sous .pharnos-dash (anti-fuite app-shell). Couleurs via variables --pd-* : CLAIR = hex EXACTS
+   du .html ; SOMBRE (.dark) = palette GitHub → le thème marche sur cette page. Ajustements non-design
+   assumés : polices auto-hébergées (≠ @import Google), et gris de TEXTE / texte des badges au niveau
+   WCAG AA (le .html descend sous 4.5:1 par endroits). */
+
+.pharnos-dash {
+  /* CLAIR = valeurs exactes du .html */
+  --pd-card: #ffffff;
+  --pd-border: #e5e7eb; /* g200 */
+  --pd-border-soft: #f3f4f6; /* g100 */
+  --pd-hover-border: #d1d5db; /* g300 */
+  --pd-track: #e5e7eb; /* barre de fond */
+  --pd-strong: #111827; /* g900 — valeur KPI */
+  --pd-text: #1f2937; /* g800 — titres */
+  --pd-text-2: #374151; /* g700 — noms */
+  --pd-name: #4b5563; /* g600 */
+  --pd-muted: #6b7280; /* g500 (remplace g400 du .html pour l'AA) */
+  --pd-link: #1a56db; /* blue */
+  --pd-link-hover: #2563eb; /* blue2 */
+  --pd-tile-hover-bg: #eff6ff; /* blue-ghost */
+  --pd-tile-hover-border: #1a56db;
+  --pd-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  --pd-shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.06);
+
+  font-family: 'DM Sans Variable', 'DM Sans', sans-serif;
+  color: var(--pd-text);
+}
+
+.dark .pharnos-dash {
+  --pd-card: #161b22;
+  --pd-border: #30363d;
+  --pd-border-soft: #21262d;
+  --pd-hover-border: #484f58;
+  --pd-track: #30363d;
+  --pd-strong: #f0f6fc;
+  --pd-text: #e6edf3;
+  --pd-text-2: #c9d1d9;
+  --pd-name: #adbac7;
+  --pd-muted: #8b949e;
+  --pd-link: #58a6ff;
+  --pd-link-hover: #79c0ff;
+  --pd-tile-hover-bg: #1c2333;
+  --pd-tile-hover-border: #58a6ff;
+  --pd-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  --pd-shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* ───── KPI ───── */
+.pharnos-dash .kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.pharnos-dash .kpi {
+  background: var(--pd-card);
+  border: 1px solid var(--pd-border);
+  border-radius: 14px;
+  padding: 18px 20px;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+.pharnos-dash .kpi::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 80px;
+  height: 80px;
+  border-radius: 0 0 0 80px;
+  opacity: 0.06;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.pharnos-dash .kpi:nth-child(1)::before {
+  background: var(--info);
+}
+.pharnos-dash .kpi:nth-child(2)::before {
+  background: var(--warning);
+}
+.pharnos-dash .kpi:nth-child(3)::before {
+  background: var(--danger);
+}
+.pharnos-dash .kpi:nth-child(4)::before {
+  background: var(--success);
+}
+.pharnos-dash .kpi:hover {
+  border-color: var(--pd-hover-border);
+  box-shadow: var(--pd-shadow);
+  transform: translateY(-2px);
+}
+.pharnos-dash .kpi:hover::before {
+  opacity: 0.12;
+}
+.pharnos-dash .kpi-ico {
+  font-size: 18px;
+  margin-bottom: 10px;
+  opacity: 0.8;
+}
+.pharnos-dash .kpi-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--pd-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 7px;
+}
+.pharnos-dash .kpi-val {
+  font-family: 'Syne Variable', 'Syne', sans-serif;
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--pd-strong);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.pharnos-dash .kpi-val.alert {
+  color: var(--danger);
+}
+.pharnos-dash .kpi-sub {
+  font-size: 12px;
+  color: var(--pd-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.pharnos-dash .up {
+  color: var(--success-subtle-foreground);
+  font-weight: 700;
+}
+.pharnos-dash .dn {
+  color: var(--danger-subtle-foreground);
+  font-weight: 700;
+}
+.pharnos-dash .bar-wrap {
+  height: 4px;
+  background: var(--pd-track);
+  border-radius: 99px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+.pharnos-dash .bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ───── Rows + cards ───── */
+.pharnos-dash .grid-2 {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.pharnos-dash .grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.pharnos-dash .card {
+  background: var(--pd-card);
+  border: 1px solid var(--pd-border);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.pharnos-dash .card:hover {
+  box-shadow: var(--pd-shadow);
+}
+.pharnos-dash .card-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--pd-border-soft);
+}
+.pharnos-dash .card-title {
+  font-family: 'Syne Variable', 'Syne', sans-serif;
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--pd-text);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.pharnos-dash .card-action {
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--pd-link);
+  cursor: pointer;
+  font-weight: 500;
+  transition: color 0.18s;
+}
+.pharnos-dash .card-action:hover {
+  color: var(--pd-link-hover);
+}
+.pharnos-dash .card-body {
+  padding: 16px 20px;
+}
+
+/* ───── Badges (AA : fond du .html + texte foncé ; dark adaptatif) ───── */
+.pharnos-dash .badge {
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.pharnos-dash .badge-red {
+  background: var(--danger-subtle);
+  color: var(--danger-subtle-foreground);
+}
+.pharnos-dash .badge-amber {
+  background: var(--warning-subtle);
+  color: var(--warning-subtle-foreground);
+}
+.pharnos-dash .badge-green {
+  background: var(--success-subtle);
+  color: var(--success-subtle-foreground);
+}
+.pharnos-dash .badge-blue {
+  background: var(--info-subtle);
+  color: var(--info-subtle-foreground);
+}
+.pharnos-dash .badge-gray {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+/* ───── Alerts ───── */
+.pharnos-dash .alert-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--pd-border-soft);
+  text-decoration: none;
+  transition: margin 0.18s;
+}
+.pharnos-dash .alert-row:last-child {
+  border-bottom: none;
+}
+.pharnos-dash .alert-row:hover {
+  margin-left: 2px;
+}
+.pharnos-dash .alert-name {
+  font-size: 13px;
+  color: var(--pd-text-2);
+  flex: 1;
+  font-weight: 450;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pharnos-dash .alert-meta {
+  font-size: 11px;
+  color: var(--pd-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ───── Timeline ───── */
+.pharnos-dash .tl-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.pharnos-dash .tl-row:last-child {
+  margin-bottom: 0;
+}
+.pharnos-dash .tl-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.pharnos-dash .tl-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.pharnos-dash .tl-line {
+  width: 1px;
+  flex: 1;
+  background: var(--pd-border);
+  margin-top: 4px;
+}
+.pharnos-dash .tl-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pd-text-2);
+}
+.pharnos-dash .tl-st {
+  font-size: 11.5px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+.pharnos-dash .tl-date {
+  font-size: 11px;
+  color: var(--pd-muted);
+  margin-top: 1px;
+}
+
+/* ───── Country coverage ───── */
+.pharnos-dash .grid-cc {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+.pharnos-dash .ctry-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 13px 8px;
+  border-radius: 9px;
+  border: 1px solid var(--pd-border);
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--pd-card);
+}
+.pharnos-dash .ctry-tile:hover {
+  border-color: var(--pd-tile-hover-border);
+  background: var(--pd-tile-hover-bg);
+  transform: translateY(-2px);
+  box-shadow: var(--pd-shadow);
+}
+.pharnos-dash .ctry-flag {
+  font-size: 24px;
+  line-height: 1;
+}
+.pharnos-dash .ctry-name {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--pd-name);
+  text-align: center;
+}
+.pharnos-dash .ctry-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.pharnos-dash .ctry-cnt {
+  font-size: 10px;
+  color: var(--pd-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ───── Buttons ───── */
+.pharnos-dash .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+  text-decoration: none;
+}
+.pharnos-dash .btn-primary {
+  background: #1a56db;
+  color: #fff;
+}
+.pharnos-dash .btn-primary:hover {
+  background: #2563eb;
+  box-shadow: 0 4px 14px rgba(26, 86, 219, 0.35);
+  transform: translateY(-1px);
+}
+
+/* Animation d'entrée — coupée si l'utilisateur préfère moins de mouvement (a11y). */
+@keyframes pharnos-dash-fade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.pharnos-dash.fade-in {
+  animation: pharnos-dash-fade 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pharnos-dash.fade-in {
+    animation: none;
+  }
+}
+
+/* Responsive (mockup) */
+@media (max-width: 900px) {
+  .pharnos-dash .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .pharnos-dash .grid-2,
+  .pharnos-dash .grid-3 {
+    grid-template-columns: 1fr;
+  }
+  .pharnos-dash .grid-cc {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

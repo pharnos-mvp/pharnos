@@ -1,41 +1,83 @@
-import { useMemo } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
+import { Link } from 'react-router-dom'
 
 import { useAuditSync } from '@/features/audit/use-audit-sync'
+import { useAuth } from '@/features/auth/auth-context'
+import { docTypeLabel } from '@/features/catalogue/doc-types'
 import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
 import { useCorrespondenceSync } from '@/features/correspondence/use-correspondence-sync'
 import { useOrgId } from '@/features/org/org-context'
+import { COUNTRIES, countryFlag, countryLabel } from '@/features/workspace/dossier-constants'
 import { useDossierSync } from '@/features/workspace/use-dossier-sync'
 import { db } from '@/lib/db'
 import { useI18n } from '@/lib/i18n-context'
-import { ActionsRequises } from './components/ActionsRequises'
-import { ActiviteRecente } from './components/ActiviteRecente'
-import { ConformiteCard } from './components/ConformiteCard'
-import { CorrespondanceEnCours } from './components/CorrespondanceEnCours'
-import { EcheancesTimeline } from './components/EcheancesTimeline'
-import { PipelineCard } from './components/PipelineCard'
-import { PortefeuilleCard } from './components/PortefeuilleCard'
 import { VeilleCard } from './components/VeilleCard'
 import {
   buildActions,
   conformitySummary,
   expiringDocs,
   openCorrespondences,
-  pipelineCounts,
   portfolio,
   recentActivity,
+  type ActionKind,
+  type CorrSubState,
 } from './dashboard-data'
+import './dashboard-mockup.css'
+
+const SYNE = "'Syne Variable', 'Syne', sans-serif"
+const TONE_RANK: Record<'info' | 'warning' | 'danger', number> = { info: 1, warning: 2, danger: 3 }
+const PREVIEW = 5
+
+// Couverture pays : UEMOA (8) + Nigeria + Ghana (choix CEO), dans l'ordre source.
+const DASHBOARD_COUNTRY_CODES = ['BJ', 'BF', 'CI', 'GW', 'ML', 'NE', 'SN', 'TG', 'NG', 'GH']
+const DASHBOARD_COUNTRIES = COUNTRIES.filter((c) => DASHBOARD_COUNTRY_CODES.includes(c.code))
+
+const KIND_BADGE: Record<ActionKind, { cls: string; fr: string; en: string }> = {
+  doc_expired: { cls: 'badge-red', fr: 'Expirant', en: 'Expiring' },
+  non_conform: { cls: 'badge-red', fr: 'Non conforme', en: 'Non-compliant' },
+  doc_expiring: { cls: 'badge-amber', fr: 'Renouvellement', en: 'Renewal' },
+  dossier_suspended: { cls: 'badge-amber', fr: 'En suspens', en: 'Suspended' },
+  unread_reply: { cls: 'badge-blue', fr: 'Réponse agence', en: 'Agency reply' },
+  agency_pending: { cls: 'badge-blue', fr: 'En attente', en: 'Pending' },
+}
+
+const STATE_DOT: Record<CorrSubState, string> = {
+  unread: 'var(--info)',
+  awaiting_agency: 'var(--warning)',
+  decided: 'var(--success)',
+}
+const STATE_TEXT: Record<CorrSubState, string> = {
+  unread: 'var(--info-subtle-foreground)',
+  awaiting_agency: 'var(--warning-subtle-foreground)',
+  decided: 'var(--success-subtle-foreground)',
+}
+const DOT_COLOR: Record<'neutral' | 'success' | 'warning' | 'danger' | 'info', string> = {
+  neutral: 'var(--pd-muted)',
+  success: 'var(--success)',
+  warning: 'var(--warning)',
+  danger: 'var(--danger)',
+  info: 'var(--info)',
+}
+
+const emptyStyle = {
+  padding: '24px 0',
+  textAlign: 'center' as const,
+  fontSize: 13,
+  color: 'var(--pd-muted)',
+}
 
 export function DashboardPage() {
   const orgId = useOrgId()
-  const { t } = useI18n()
-  // Synchros (best-effort) pour un poste de pilotage frais — hors-ligne : on lit le cache Dexie.
+  const { user } = useAuth()
+  const { t, lang } = useI18n()
   useCatalogueSync(orgId)
   useDossierSync(orgId)
   useCorrespondenceSync(orgId)
   useAuditSync(orgId)
 
-  // Une requête batchée par domaine (perf) ; tout dérive ensuite via des sélecteurs PURS.
+  const [showAll, setShowAll] = useState({ alerts: false, subs: false, activity: false })
+
   const data = useLiveQuery(async () => {
     const [products, documents, dossiers, correspondences, messages, reads, docAnalysis, auditLog] =
       await Promise.all([
@@ -78,45 +120,365 @@ export function DashboardPage() {
         { products, documents, dossiers, correspondences, messages, reads, docAnalysis },
         now,
       ),
-      pipeline: pipelineCounts(dossiers, correspondences),
       corrItems: openCorrespondences(correspondences, messages, reads),
-      activity: recentActivity(auditLog),
+      activity: recentActivity(auditLog, 50),
       echeances: expiringDocs(documents, products, now),
       portfolio: portfolio(products, dossiers),
       conformity: conformitySummary(documents, docAnalysis),
     }
   }, [products, documents, dossiers, correspondences, messages, reads, docAnalysis, auditLog])
 
+  const derived = useMemo(() => {
+    const open = vm.corrItems.filter((c) => c.state !== 'decided')
+    const compliance =
+      vm.conformity.analyzedDocs > 0
+        ? Math.round(
+            ((vm.conformity.analyzedDocs - vm.conformity.nonConformDocs) /
+              vm.conformity.analyzedDocs) *
+              100,
+          )
+        : null
+    const counts = new Map(vm.portfolio.byCountry.map((c) => [c.code, c.count]))
+    const worst = new Map<string, 'info' | 'warning' | 'danger'>()
+    for (const a of vm.actions) {
+      if (!a.country) continue
+      const tone =
+        a.kind === 'doc_expired' || a.kind === 'non_conform'
+          ? 'danger'
+          : a.kind === 'doc_expiring' || a.kind === 'dossier_suspended'
+            ? 'warning'
+            : 'info'
+      const cur = worst.get(a.country)
+      if (!cur || TONE_RANK[tone] > TONE_RANK[cur]) worst.set(a.country, tone)
+    }
+    const countryTone = (code: string): keyof typeof DOT_COLOR => {
+      const n = counts.get(code) ?? 0
+      return n === 0 ? 'neutral' : (worst.get(code) ?? 'success')
+    }
+    return {
+      submissionsOpen: open.length,
+      submissionsCountries: new Set(open.map((c) => c.country)).size,
+      compliance,
+      counts,
+      countryTone,
+    }
+  }, [vm])
+
+  // Tendance « ↑ N ce mois » = produits actifs créés ce mois-ci (RÉEL via createdAt).
+  const productsThisMonth = useMemo(() => {
+    const start = new Date()
+    start.setDate(1)
+    start.setHours(0, 0, 0, 0)
+    return products.filter(
+      (p) => p.deletedAt == null && p.createdAt && new Date(p.createdAt) >= start,
+    ).length
+  }, [products])
+
+  const clampPct = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
+  const coverageBar = clampPct((vm.portfolio.byCountry.length / DASHBOARD_COUNTRIES.length) * 100)
+  const submissionsBar =
+    vm.portfolio.dossierCount > 0
+      ? clampPct((derived.submissionsOpen / vm.portfolio.dossierCount) * 100)
+      : 0
+  const expiringBar =
+    documents.length > 0 ? clampPct((vm.echeances.length / documents.length) * 100) : 0
+  const conformityBar = derived.compliance ?? 0
+
+  const meta = (user?.user_metadata ?? {}) as Record<string, string | undefined>
+  const firstName = meta.prenom || meta.username || ''
+  const today = new Intl.DateTimeFormat(lang === 'en' ? 'en-GB' : 'fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date())
+  const fmtDate = (iso?: string) =>
+    iso ? new Date(iso).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB') : ''
+  const actionLabel = (action: string) =>
+    action === 'create'
+      ? t({ fr: 'créé', en: 'created' })
+      : action === 'delete'
+        ? t({ fr: 'supprimé', en: 'deleted' })
+        : t({ fr: 'modifié', en: 'updated' })
+
+  const kpis: {
+    ico: string
+    label: string
+    val: ReactNode
+    alert?: boolean
+    sub: ReactNode
+    bar: number
+    color: string
+  }[] = [
+    {
+      ico: '◈',
+      label: t({ fr: 'Produits Actifs', en: 'Active Products' }),
+      val: vm.portfolio.productCount,
+      sub:
+        productsThisMonth > 0 ? (
+          <>
+            <span className="up">↑ {productsThisMonth}</span>{' '}
+            {t({ fr: 'ce mois', en: 'this month' })}
+          </>
+        ) : (
+          t({
+            fr: `${vm.portfolio.byCountry.length} pays couverts`,
+            en: `${vm.portfolio.byCountry.length} countries`,
+          })
+        ),
+      bar: coverageBar,
+      color: 'var(--info)',
+    },
+    {
+      ico: '◉',
+      label: t({ fr: 'Soumissions en cours', en: 'Pending submissions' }),
+      val: derived.submissionsOpen,
+      sub: t({
+        fr: `${derived.submissionsCountries} pays`,
+        en: `${derived.submissionsCountries} countries`,
+      }),
+      bar: submissionsBar,
+      color: 'var(--warning)',
+    },
+    {
+      ico: '⏰',
+      label: t({ fr: 'Expirant ≤ 90 jours', en: 'Expiring ≤ 90 days' }),
+      val: vm.echeances.length,
+      alert: vm.echeances.length > 0,
+      sub:
+        vm.echeances.length > 0 ? (
+          <>
+            <span className="dn">!</span> {t({ fr: 'Action requise', en: 'Action required' })}
+          </>
+        ) : (
+          t({ fr: 'rien sous 90 j', en: 'none within 90 days' })
+        ),
+      bar: expiringBar,
+      color: 'var(--danger)',
+    },
+    {
+      ico: '✓',
+      label: t({ fr: 'Taux de Conformité', en: 'Compliance rate' }),
+      val: derived.compliance == null ? '—' : `${derived.compliance}%`,
+      sub: t({
+        fr: `${vm.conformity.analyzedDocs} analysés`,
+        en: `${vm.conformity.analyzedDocs} analyzed`,
+      }),
+      bar: conformityBar,
+      color: 'var(--success)',
+    },
+  ]
+
+  const alerts = showAll.alerts ? vm.actions : vm.actions.slice(0, PREVIEW)
+  const subs = showAll.subs ? vm.corrItems : vm.corrItems.slice(0, PREVIEW)
+  const activity = showAll.activity ? vm.activity : vm.activity.slice(0, PREVIEW)
+
+  const seeAll = (key: 'alerts' | 'subs' | 'activity', total: number) =>
+    total > PREVIEW ? (
+      <button
+        type="button"
+        className="card-action"
+        onClick={() => setShowAll((s) => ({ ...s, [key]: !s[key] }))}
+      >
+        {showAll[key]
+          ? t({ fr: 'Voir moins', en: 'Show less' })
+          : t({ fr: `Voir tout (${total})`, en: `View all (${total})` })}
+      </button>
+    ) : null
+
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
-      <div>
-        <h1 className="text-xl font-bold">{t({ fr: 'Tableau de bord', en: 'Dashboard' })}</h1>
-        <p className="text-muted-foreground text-sm">
-          {t({
-            fr: 'Poste de pilotage RA — vos actions, dossiers, échéances & veille (UEMOA/CEDEAO).',
-            en: 'RA control center — your actions, dossiers, deadlines & watch (UEMOA/CEDEAO).',
-          })}
-        </p>
+    <>
+      <div className="pharnos-dash fade-in pt-4 md:pt-6">
+        {/* Greeting */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 16,
+            marginBottom: 20,
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <h1
+              style={{ fontFamily: SYNE, fontWeight: 700, fontSize: 19, color: 'var(--pd-strong)' }}
+            >
+              {firstName
+                ? t({ fr: `Bonjour, ${firstName}`, en: `Hello, ${firstName}` })
+                : t({ fr: 'Tableau de bord', en: 'Dashboard' })}
+            </h1>
+            <div style={{ fontSize: 14, color: 'var(--pd-muted)', marginTop: 3 }}>
+              {t({
+                fr: `Vue d'ensemble réglementaire — ${today}`,
+                en: `Regulatory overview — ${today}`,
+              })}
+            </div>
+          </div>
+          <Link className="btn btn-primary" to="/catalogue/nouveau" style={{ flexShrink: 0 }}>
+            + {t({ fr: 'Enregistrer un Produit', en: 'Register a Product' })}
+          </Link>
+        </div>
+
+        {/* KPIs */}
+        <div className="kpi-grid">
+          {kpis.map((k, i) => (
+            <div className="kpi" key={i}>
+              <div className="kpi-ico" aria-hidden>
+                {k.ico}
+              </div>
+              <div className="kpi-label">{k.label}</div>
+              <div className={k.alert ? 'kpi-val alert' : 'kpi-val'}>{k.val}</div>
+              <div className="kpi-sub">{k.sub}</div>
+              <div className="bar-wrap">
+                <div className="bar-fill" style={{ width: `${k.bar}%`, background: k.color }} />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Alertes | Timeline | Activité — 5 items, « Voir tout » déplie sur place. */}
+        <div className="grid-3">
+          <div className="card">
+            <div className="card-hd">
+              <div className="card-title">
+                ⚠️ {t({ fr: 'Alertes Réglementaires', en: 'Regulatory Alerts' })}
+              </div>
+              {seeAll('alerts', vm.actions.length)}
+            </div>
+            <div className="card-body" style={{ padding: '8px 20px' }}>
+              {alerts.length === 0 ? (
+                <div style={emptyStyle}>
+                  {t({ fr: 'Rien à signaler — tout est à jour.', en: 'Nothing to flag.' })}
+                </div>
+              ) : (
+                alerts.map((a) => {
+                  const b = KIND_BADGE[a.kind]
+                  return (
+                    <Link className="alert-row" to={a.href} key={a.id}>
+                      <span className={`badge ${b.cls}`}>{t({ fr: b.fr, en: b.en })}</span>
+                      <span className="alert-name">
+                        {a.label}
+                        {a.docType ? ` — ${docTypeLabel(a.docType, lang)}` : ''}
+                      </span>
+                      <span className="alert-meta">
+                        {a.country ? <span aria-hidden>{countryFlag(a.country)} </span> : null}
+                        {fmtDate(a.date)}
+                      </span>
+                    </Link>
+                  )
+                })
+              )}
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-hd">
+              <div className="card-title">
+                📋 {t({ fr: 'Timeline Soumissions', en: 'Submission Timeline' })}
+              </div>
+              {seeAll('subs', vm.corrItems.length)}
+            </div>
+            <div className="card-body">
+              {subs.length === 0 ? (
+                <div style={{ padding: '16px 0', fontSize: 13, color: 'var(--pd-muted)' }}>
+                  {t({ fr: 'Aucune soumission en cours.', en: 'No submission in progress.' })}
+                </div>
+              ) : (
+                subs.map((c, i, arr) => {
+                  const statusLabel =
+                    c.state === 'unread'
+                      ? t({ fr: `${c.unread} non lu(s)`, en: `${c.unread} unread` })
+                      : c.state === 'awaiting_agency'
+                        ? t({ fr: 'En attente agence', en: 'Awaiting agency' })
+                        : t({ fr: 'Décidé', en: 'Decided' })
+                  return (
+                    <div className="tl-row" key={c.id}>
+                      <div className="tl-col">
+                        <div className="tl-dot" style={{ background: STATE_DOT[c.state] }} />
+                        {i < arr.length - 1 ? <div className="tl-line" /> : null}
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div className="tl-name">
+                          {c.productName}
+                          {c.country ? ` — ${countryLabel(c.country, lang)}` : ''}
+                        </div>
+                        <div className="tl-st" style={{ color: STATE_TEXT[c.state] }}>
+                          {statusLabel}
+                        </div>
+                        <div className="tl-date">{fmtDate(c.date)}</div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-hd">
+              <div className="card-title">
+                🕓 {t({ fr: 'Activité récente', en: 'Recent activity' })}
+              </div>
+              {seeAll('activity', vm.activity.length)}
+            </div>
+            <div className="card-body" style={{ padding: '8px 20px' }}>
+              {activity.length === 0 ? (
+                <div style={emptyStyle}>
+                  {t({ fr: 'Aucune activité récente.', en: 'No recent activity.' })}
+                </div>
+              ) : (
+                activity.map((a) => (
+                  <div className="alert-row" key={a.id} style={{ cursor: 'default' }}>
+                    <span className="alert-name">
+                      {a.label}{' '}
+                      <span style={{ color: 'var(--pd-muted)' }}>— {actionLabel(a.action)}</span>
+                    </span>
+                    <span className="alert-meta">{fmtDate(a.at)}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Couverture pays — UEMOA + Nigeria + Ghana (10), 0 + pastille grise si vide. */}
+        <div className="card">
+          <div className="card-hd">
+            <div className="card-title">
+              🌍 {t({ fr: 'Couverture Pays UEMOA/CEDEAO', en: 'UEMOA/ECOWAS country coverage' })}
+            </div>
+            <span className="card-action" style={{ cursor: 'default', color: 'var(--pd-muted)' }}>
+              {DASHBOARD_COUNTRIES.length} {t({ fr: 'pays', en: 'countries' })}
+            </span>
+          </div>
+          <div className="card-body">
+            <div className="grid-cc">
+              {DASHBOARD_COUNTRIES.map((c) => {
+                const n = derived.counts.get(c.code) ?? 0
+                return (
+                  <div className="ctry-tile" key={c.code} title={countryLabel(c.code, lang)}>
+                    <div className="ctry-flag" aria-hidden>
+                      {countryFlag(c.code)}
+                    </div>
+                    <div className="ctry-name">{countryLabel(c.code, lang)}</div>
+                    <div className="ctry-cnt">
+                      <div
+                        className="ctry-dot"
+                        style={{ background: DOT_COLOR[derived.countryTone(c.code)] }}
+                      />
+                      {n} {t({ fr: 'dossier(s)', en: 'dossier(s)' })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Cœur : ce qui requiert une action. */}
-      <ActionsRequises items={vm.actions} />
-
-      {/* Pipeline des dossiers par état (dérivé). */}
-      <PipelineCard counts={vm.pipeline} />
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <CorrespondanceEnCours items={vm.corrItems} />
-        <ConformiteCard data={vm.conformity} />
+      {/* Conservée hors mockup (décision CEO) : veille réglementaire. */}
+      <div className="mt-5">
+        <VeilleCard />
       </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <EcheancesTimeline items={vm.echeances} />
-        <PortefeuilleCard data={vm.portfolio} />
-      </div>
-
-      <ActiviteRecente items={vm.activity} />
-      <VeilleCard />
-    </div>
+    </>
   )
 }

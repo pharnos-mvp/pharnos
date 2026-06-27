@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import App from '@/App'
 
 describe('App shell', () => {
-  it('affiche la navigation et redirige vers le Catalogue par défaut', async () => {
+  it('affiche la navigation et redirige vers le Dashboard par défaut', async () => {
     render(<App />)
 
     // La navigation PRINCIPALE (sidebar app-shell, non lazy) est présente immédiatement.
@@ -15,7 +15,13 @@ describe('App shell', () => {
     expect(within(nav).getByRole('link', { name: 'CTD Workspace' })).toBeInTheDocument()
     expect(within(nav).getByRole('link', { name: 'Tableau de bord' })).toBeInTheDocument()
 
-    // La route index redirige vers /catalogue (page chargée en lazy)
-    expect(await screen.findByRole('heading', { level: 1, name: 'Catalogue' })).toBeInTheDocument()
+    // La route index redirige désormais vers /dashboard (page chargée en lazy ; sans utilisateur,
+    // le titre du greeting retombe sur « Tableau de bord »).
+    // Timeout élargi : sous charge (suite complète, workers parallèles) l'import du chunk
+    // lazy de la DashboardPage peut dépasser le défaut de 1000 ms (le h1 lui est rendu
+    // synchronement, sans attendre les données).
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Tableau de bord' }, { timeout: 5000 }),
+    ).toBeInTheDocument()
   })
 })
