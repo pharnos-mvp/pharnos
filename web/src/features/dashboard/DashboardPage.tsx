@@ -381,7 +381,7 @@ export function DashboardPage() {
           {kpis.map((k, i) => (
             <div className="kpi" key={i}>
               <div className="kpi-ico" aria-hidden style={{ background: k.subtle, color: k.color }}>
-                <k.Ico size={18} strokeWidth={2} />
+                <k.Ico size={16} strokeWidth={2} />
               </div>
               <div className="kpi-label">{k.label}</div>
               <div className={k.alert ? 'kpi-val alert' : 'kpi-val'}>{k.val}</div>
@@ -398,7 +398,7 @@ export function DashboardPage() {
           <div className="card" role="region" aria-labelledby="dash-alerts">
             <div className="card-hd">
               <h2 className="card-title" id="dash-alerts">
-                <AlertTriangle size={16} color="var(--danger)" aria-hidden />
+                <AlertTriangle size={15} color="var(--danger)" aria-hidden />
                 {t({ fr: 'Alertes Réglementaires', en: 'Regulatory Alerts' })}
               </h2>
               {seeAll('alerts', vm.actions.length)}
@@ -446,7 +446,7 @@ export function DashboardPage() {
           <div className="card" role="region" aria-labelledby="dash-timeline">
             <div className="card-hd">
               <h2 className="card-title" id="dash-timeline">
-                <ClipboardList size={16} color="var(--info)" aria-hidden />
+                <ClipboardList size={15} color="var(--info)" aria-hidden />
                 {t({ fr: 'Timeline Soumissions', en: 'Submission Timeline' })}
               </h2>
               {seeAll('subs', vm.corrItems.length)}
@@ -490,7 +490,7 @@ export function DashboardPage() {
           <div className="card" role="region" aria-labelledby="dash-activity">
             <div className="card-hd">
               <h2 className="card-title" id="dash-activity">
-                <History size={16} color="var(--pd-muted)" aria-hidden />
+                <History size={15} color="var(--pd-muted)" aria-hidden />
                 {t({ fr: 'Activité récente', en: 'Recent activity' })}
               </h2>
               {seeAll('activity', vm.activity.length)}
@@ -519,7 +519,7 @@ export function DashboardPage() {
         <div className="card" role="region" aria-labelledby="dash-coverage">
           <div className="card-hd">
             <h2 className="card-title" id="dash-coverage">
-              <Globe size={16} color="var(--info)" aria-hidden />
+              <Globe size={15} color="var(--info)" aria-hidden />
               {t({ fr: 'Couverture Pays UEMOA/CEDEAO', en: 'UEMOA/ECOWAS country coverage' })}
             </h2>
             <span className="card-action" style={{ cursor: 'default', color: 'var(--pd-muted)' }}>
