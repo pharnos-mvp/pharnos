@@ -1,5 +1,20 @@
-import { expiringDocs, type ExpiryItem } from '@/features/dashboard/dashboard-data'
-import type { DocumentRecord, DossierRecord, ProductRecord } from '@/lib/db'
+import {
+  conformitySummary,
+  expiringDocs,
+  isNonConform,
+  type ExpiryItem,
+} from '@/features/dashboard/dashboard-data'
+import type { RegafyFinding } from '@/features/workspace/regafy'
+import type {
+  AuditLogRecord,
+  DocAnalysisRecord,
+  DocumentRecord,
+  DossierRecord,
+  ProductRecord,
+} from '@/lib/db'
+
+const active = <T extends { deletedAt?: string | null }>(rows: T[]): T[] =>
+  rows.filter((r) => r.deletedAt == null)
 
 export interface ProductCockpitVm {
   /** Codes pays distincts couverts (depuis les dossiers actifs). */
@@ -28,4 +43,73 @@ export function productCockpitVm(
   const ammActive =
     ammDocs.length > 0 && ammDocs.some((d) => !d.expiryDate || new Date(d.expiryDate) >= now)
   return { countries, expiring, hasAmm: ammDocs.length > 0, ammActive }
+}
+
+/** Entrées d'audit liées au produit (lui-même + ses documents + ses dossiers), récentes d'abord. */
+export function productHistory(
+  auditLog: AuditLogRecord[],
+  entityIds: Set<string>,
+): AuditLogRecord[] {
+  return auditLog.filter((a) => entityIds.has(a.entityId)).sort((a, b) => b.at.localeCompare(a.at))
+}
+
+export type DocConformityStatus = 'conform' | 'nonconform' | 'unanalyzed'
+
+export interface DocConformity {
+  docId: string
+  docType: string
+  status: DocConformityStatus
+  /** Nombre de constats non conformes (cache Regafy). */
+  findings: number
+}
+
+export interface ProductConformity {
+  /** Taux de conformité (% des documents analysés conformes), borné [0,100] ; null si 0 analysé. */
+  pct: number | null
+  analyzed: number
+  nonConform: number
+  notAnalyzed: number
+  perDoc: DocConformity[]
+}
+
+/** Conformité du produit dérivée du cache `docAnalysis` — AUCUNE relance d'IA. */
+export function productConformity(
+  documents: DocumentRecord[],
+  docAnalysis: DocAnalysisRecord[],
+): ProductConformity {
+  const docs = active(documents)
+  const summary = conformitySummary(docs, docAnalysis)
+  const byDoc = new Map(docAnalysis.map((a) => [a.docId, a]))
+  const perDoc: DocConformity[] = docs.map((d) => {
+    const a = byDoc.get(d.id)
+    if (!a) return { docId: d.id, docType: d.docType, status: 'unanalyzed', findings: 0 }
+    const nc = (Array.isArray(a.findings) ? (a.findings as RegafyFinding[]) : []).filter(
+      isNonConform,
+    )
+    return {
+      docId: d.id,
+      docType: d.docType,
+      status: nc.length > 0 ? 'nonconform' : 'conform',
+      findings: nc.length,
+    }
+  })
+  const pct =
+    summary.analyzedDocs > 0
+      ? Math.max(
+          0,
+          Math.min(
+            100,
+            Math.round(
+              ((summary.analyzedDocs - summary.nonConformDocs) / summary.analyzedDocs) * 100,
+            ),
+          ),
+        )
+      : null
+  return {
+    pct,
+    analyzed: summary.analyzedDocs,
+    nonConform: summary.nonConformDocs,
+    notAnalyzed: summary.notAnalyzed,
+    perDoc,
+  }
 }

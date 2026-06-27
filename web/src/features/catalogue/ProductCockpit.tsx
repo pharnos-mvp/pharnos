@@ -1,6 +1,15 @@
-import { useMemo, type ReactNode } from 'react'
+import { useMemo } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowLeft, Clock3, FileText, Pill, Zap } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle2,
+  Clock3,
+  FileText,
+  Minus,
+  Pill,
+  Zap,
+} from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -11,13 +20,25 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CountryFlag } from '@/features/dashboard/CountryFlag'
-import { expiryTone, type KpiTone } from '@/features/dashboard/dashboard-data'
+import {
+  conformityTone,
+  expiryTone,
+  openCorrespondences,
+  type CorrSubState,
+  type KpiTone,
+} from '@/features/dashboard/dashboard-data'
 import { useOrgId } from '@/features/org/org-context'
 import { countryLabel } from '@/features/workspace/dossier-constants'
 import { db } from '@/lib/db'
 import { useI18n } from '@/lib/i18n-context'
+import { docTypeLabel } from './doc-types'
 import { DocumentsSection } from './DocumentsSection'
-import { productCockpitVm } from './product-cockpit-data'
+import {
+  productCockpitVm,
+  productConformity,
+  productHistory,
+  type DocConformityStatus,
+} from './product-cockpit-data'
 import { ProductForm } from './ProductForm'
 import { getProduct, updateProduct } from './repository'
 import { syncProducts } from './sync'
@@ -32,6 +53,23 @@ const TONE_BADGE: Record<KpiTone, 'neutral' | 'success' | 'warning' | 'danger' |
   poor: 'danger',
   neutral: 'neutral',
 }
+const TONE_COLOR: Record<KpiTone, string> = {
+  good: 'var(--success)',
+  fair: 'var(--info)',
+  passable: 'var(--warning)',
+  poor: 'var(--danger)',
+  neutral: 'var(--muted-foreground)',
+}
+const SUB_TONE: Record<CorrSubState, 'info' | 'warning' | 'success'> = {
+  unread: 'info',
+  awaiting_agency: 'warning',
+  decided: 'success',
+}
+const CONFORMITY_TONE: Record<DocConformityStatus, 'success' | 'danger' | 'neutral'> = {
+  conform: 'success',
+  nonconform: 'danger',
+  unanalyzed: 'neutral',
+}
 
 function BackLink() {
   const { t } = useI18n()
@@ -41,20 +79,6 @@ function BackLink() {
         <ArrowLeft /> {t({ fr: 'Retour au catalogue', en: 'Back to catalogue' })}
       </Link>
     </Button>
-  )
-}
-
-function SoonState({ icon }: { icon: ReactNode }) {
-  const { t } = useI18n()
-  return (
-    <EmptyState
-      icon={icon}
-      title={t({ fr: 'Bientôt', en: 'Coming soon' })}
-      description={t({
-        fr: 'Cet onglet arrive dans la prochaine tranche du cockpit.',
-        en: 'This tab is coming in the next cockpit slice.',
-      })}
-    />
   )
 }
 
@@ -77,25 +101,56 @@ export function ProductCockpit() {
 
   const data = useLiveQuery(async () => {
     if (!productId) return null
-    const [product, documents, dossiers] = await Promise.all([
-      getProduct(productId),
+    const product = await getProduct(productId)
+    if (!product)
+      return {
+        product: null as null,
+        documents: [],
+        dossiers: [],
+        correspondences: [],
+        messages: [],
+        reads: [],
+        docAnalysis: [],
+        auditLog: [],
+      }
+    const [docsRaw, dossiersRaw] = await Promise.all([
       db.documents.where('productId').equals(productId).toArray(),
       db.dossiers.where('productId').equals(productId).toArray(),
     ])
-    return {
-      product: product ?? null,
-      documents: documents.filter((d) => d.deletedAt == null),
-      dossiers: dossiers.filter((d) => d.deletedAt == null),
-    }
-  }, [productId])
+    const documents = docsRaw.filter((d) => d.deletedAt == null)
+    const dossiers = dossiersRaw.filter((d) => d.deletedAt == null)
+    const docIds = documents.map((d) => d.id)
+    const dossierIds = dossiers.map((d) => d.id)
+    const [corrRaw, docAnalysis, auditLog] = await Promise.all([
+      dossierIds.length ? db.correspondences.where('dossierId').anyOf(dossierIds).toArray() : [],
+      docIds.length ? db.docAnalysis.where('docId').anyOf(docIds).toArray() : [],
+      db.auditLog.where('orgId').equals(orgId).toArray(),
+    ])
+    const correspondences = corrRaw.filter((c) => c.deletedAt == null)
+    const corrIds = correspondences.map((c) => c.id)
+    const [messages, reads] = await Promise.all([
+      corrIds.length
+        ? db.correspondenceMessages.where('correspondenceId').anyOf(corrIds).toArray()
+        : [],
+      db.correspondenceReads.toArray(),
+    ])
+    return { product, documents, dossiers, correspondences, messages, reads, docAnalysis, auditLog }
+  }, [productId, orgId])
 
-  const vm = useMemo(
-    () =>
-      data?.product
-        ? productCockpitVm(data.product, data.documents, data.dossiers, new Date())
-        : null,
-    [data],
-  )
+  const derived = useMemo(() => {
+    if (!data?.product) return null
+    const now = new Date()
+    const vm = productCockpitVm(data.product, data.documents, data.dossiers, now)
+    const soumissions = openCorrespondences(data.correspondences, data.messages, data.reads)
+    const entityIds = new Set<string>([
+      data.product.id,
+      ...data.documents.map((d) => d.id),
+      ...data.dossiers.map((d) => d.id),
+    ])
+    const historique = productHistory(data.auditLog, entityIds)
+    const conformity = productConformity(data.documents, data.docAnalysis)
+    return { vm, soumissions, historique, conformity }
+  }, [data])
 
   async function handleSave(values: ProductFormValues, silent = false) {
     if (!productId) return
@@ -111,9 +166,18 @@ export function ProductCockpit() {
     }
   }
 
+  const fmtDate = (iso?: string) =>
+    iso ? new Date(iso).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB') : ''
+  const actionLabel = (action: string) =>
+    action === 'create'
+      ? t({ fr: 'créé', en: 'created' })
+      : action === 'delete'
+        ? t({ fr: 'supprimé', en: 'deleted' })
+        : t({ fr: 'modifié', en: 'updated' })
+
   if (data === undefined) return <CockpitSkeleton />
 
-  if (!data?.product || !vm) {
+  if (!data?.product || !derived) {
     return (
       <div className="pt-4 md:pt-6">
         <BackLink />
@@ -137,6 +201,7 @@ export function ProductCockpit() {
   }
 
   const p = data.product
+  const { vm, soumissions, historique, conformity } = derived
   const subtitle = [p.forme, p.classeTherapeutique, p.titulaire ? `MAH : ${p.titulaire}` : '']
     .filter(Boolean)
     .join(' · ')
@@ -161,6 +226,13 @@ export function ProductCockpit() {
     { label: t({ fr: 'Code ATC', en: 'ATC code' }), value: p.codeAtc || '—' },
     { label: t({ fr: 'Fabricant', en: 'Manufacturer' }), value: p.fabricant || '—' },
   ]
+
+  const subStateLabel = (s: CorrSubState, unread: number) =>
+    s === 'unread'
+      ? t({ fr: `${unread} non lu(s)`, en: `${unread} unread` })
+      : s === 'awaiting_agency'
+        ? t({ fr: 'En attente agence', en: 'Awaiting agency' })
+        : t({ fr: 'Décidé', en: 'Decided' })
 
   return (
     <div className="space-y-5 pt-4 md:pt-6">
@@ -244,54 +316,225 @@ export function ProductCockpit() {
         </div>
       </Card>
 
-      <Tabs defaultValue="documents">
-        <TabsList variant="line">
-          <TabsTrigger value="documents">{t({ fr: 'Documents', en: 'Documents' })}</TabsTrigger>
-          <TabsTrigger value="identification">
-            {t({ fr: 'Identification', en: 'Identification' })}
-          </TabsTrigger>
-          <TabsTrigger value="soumissions">
-            {t({ fr: 'Soumissions', en: 'Submissions' })}
-          </TabsTrigger>
-          <TabsTrigger value="historique">{t({ fr: 'Historique', en: 'History' })}</TabsTrigger>
-          <TabsTrigger value="conformite">{t({ fr: 'Conformité', en: 'Compliance' })}</TabsTrigger>
-        </TabsList>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-w-0">
+          <Tabs defaultValue="documents">
+            <TabsList variant="line">
+              <TabsTrigger value="documents">{t({ fr: 'Documents', en: 'Documents' })}</TabsTrigger>
+              <TabsTrigger value="identification">
+                {t({ fr: 'Identification', en: 'Identification' })}
+              </TabsTrigger>
+              <TabsTrigger value="soumissions">
+                {t({ fr: 'Soumissions', en: 'Submissions' })}
+              </TabsTrigger>
+              <TabsTrigger value="historique">{t({ fr: 'Historique', en: 'History' })}</TabsTrigger>
+              <TabsTrigger value="conformite">
+                {t({ fr: 'Conformité', en: 'Compliance' })}
+              </TabsTrigger>
+            </TabsList>
 
-        <TabsContent value="documents" className="space-y-6 pt-4">
-          <section className="space-y-3">
-            <h2 className="font-display text-sm font-semibold">
-              {t({ fr: "Documents d'information", en: 'Product information' })}
-            </h2>
-            <DocumentsSection orgId={orgId} productId={p.id} category="info" />
-          </section>
-          <section className="space-y-3">
-            <h2 className="font-display text-sm font-semibold">
-              {t({ fr: 'Pièces administratives', en: 'Administrative documents' })}
-            </h2>
-            <DocumentsSection orgId={orgId} productId={p.id} category="admin" />
-          </section>
-        </TabsContent>
+            <TabsContent value="documents" className="space-y-6 pt-4">
+              <section className="space-y-3">
+                <h2 className="font-display text-sm font-semibold">
+                  {t({ fr: "Documents d'information", en: 'Product information' })}
+                </h2>
+                <DocumentsSection orgId={orgId} productId={p.id} category="info" />
+              </section>
+              <section className="space-y-3">
+                <h2 className="font-display text-sm font-semibold">
+                  {t({ fr: 'Pièces administratives', en: 'Administrative documents' })}
+                </h2>
+                <DocumentsSection orgId={orgId} productId={p.id} category="admin" />
+              </section>
+            </TabsContent>
 
-        <TabsContent value="identification" className="pt-4">
-          <ProductForm
-            key={p.id}
-            defaultValues={defaults}
-            onSubmit={(v) => void handleSave(v, false)}
-            onAutoSave={(v) => void handleSave(v, true)}
-            submitLabel={t({ fr: 'Enregistrer les modifications', en: 'Save changes' })}
+            <TabsContent value="identification" className="pt-4">
+              <ProductForm
+                key={p.id}
+                defaultValues={defaults}
+                onSubmit={(v) => void handleSave(v, false)}
+                onAutoSave={(v) => void handleSave(v, true)}
+                submitLabel={t({ fr: 'Enregistrer les modifications', en: 'Save changes' })}
+              />
+            </TabsContent>
+
+            <TabsContent value="soumissions" className="pt-4">
+              {soumissions.length === 0 ? (
+                <EmptyState
+                  icon={<FileText />}
+                  title={t({ fr: 'Aucune soumission', en: 'No submission' })}
+                  description={t({
+                    fr: "Les correspondances avec l'agence apparaîtront ici.",
+                    en: 'Agency correspondences will appear here.',
+                  })}
+                />
+              ) : (
+                <ul className="divide-y rounded-lg border">
+                  {soumissions.map((c) => (
+                    <li key={c.id}>
+                      <Link
+                        to={`/workspace/${c.dossierId}`}
+                        className="hover:bg-accent/50 flex items-center gap-3 p-3"
+                      >
+                        <StatusBadge tone={SUB_TONE[c.state]}>
+                          {subStateLabel(c.state, c.unread)}
+                        </StatusBadge>
+                        <span className="min-w-0 flex-1 truncate text-sm">
+                          {c.country ? countryLabel(c.country, lang) : c.productName}
+                        </span>
+                        <span className="text-muted-foreground shrink-0 text-xs">
+                          {fmtDate(c.date)}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </TabsContent>
+
+            <TabsContent value="historique" className="pt-4">
+              {historique.length === 0 ? (
+                <EmptyState
+                  icon={<Clock3 />}
+                  title={t({ fr: 'Aucune activité', en: 'No activity' })}
+                  description={t({
+                    fr: 'Les modifications du produit et de ses pièces seront tracées ici.',
+                    en: 'Changes to the product and its documents will be tracked here.',
+                  })}
+                />
+              ) : (
+                <ul className="divide-y rounded-lg border">
+                  {historique.slice(0, 50).map((a) => (
+                    <li key={a.id} className="flex items-center gap-3 p-3 text-sm">
+                      <span className="min-w-0 flex-1 truncate">
+                        {a.label}{' '}
+                        <span className="text-muted-foreground">— {actionLabel(a.action)}</span>
+                      </span>
+                      <span className="text-muted-foreground shrink-0 text-xs">
+                        {fmtDate(a.at)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </TabsContent>
+
+            <TabsContent value="conformite" className="pt-4">
+              {conformity.perDoc.length === 0 ? (
+                <EmptyState
+                  icon={<CheckCircle2 />}
+                  title={t({ fr: 'Aucun document', en: 'No document' })}
+                  description={t({
+                    fr: 'Ajoutez des documents pour suivre leur conformité.',
+                    en: 'Add documents to track their compliance.',
+                  })}
+                />
+              ) : (
+                <ul className="divide-y rounded-lg border">
+                  {conformity.perDoc.map((d) => (
+                    <li key={d.docId} className="flex items-center gap-3 p-3 text-sm">
+                      <span className="min-w-0 flex-1 truncate">
+                        {docTypeLabel(d.docType, lang)}
+                      </span>
+                      <StatusBadge tone={CONFORMITY_TONE[d.status]}>
+                        {d.status === 'conform'
+                          ? t({ fr: 'Conforme', en: 'Compliant' })
+                          : d.status === 'nonconform'
+                            ? t({ fr: `${d.findings} à corriger`, en: `${d.findings} to fix` })
+                            : t({ fr: 'Non analysé', en: 'Not analyzed' })}
+                      </StatusBadge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        <aside className="min-w-0">
+          <ConformityPanel
+            pct={conformity.pct}
+            nonConform={conformity.nonConform}
+            notAnalyzed={conformity.notAnalyzed}
+            expiring={vm.expiring.length}
+            expiringTone={vm.expiring.length > 0 ? expiryTone(vm.expiring) : 'good'}
           />
-        </TabsContent>
-
-        <TabsContent value="soumissions" className="pt-4">
-          <SoonState icon={<FileText />} />
-        </TabsContent>
-        <TabsContent value="historique" className="pt-4">
-          <SoonState icon={<Clock3 />} />
-        </TabsContent>
-        <TabsContent value="conformite" className="pt-4">
-          <SoonState icon={<FileText />} />
-        </TabsContent>
-      </Tabs>
+        </aside>
+      </div>
     </div>
+  )
+}
+
+function ConformityPanel({
+  pct,
+  nonConform,
+  notAnalyzed,
+  expiring,
+  expiringTone,
+}: {
+  pct: number | null
+  nonConform: number
+  notAnalyzed: number
+  expiring: number
+  expiringTone: KpiTone
+}) {
+  const { t } = useI18n()
+  const tone = conformityTone(pct)
+  const items: { tone: 'success' | 'warning' | 'danger' | 'neutral'; label: string }[] = []
+  if (expiring > 0)
+    items.push({
+      tone: TONE_BADGE[expiringTone] === 'danger' ? 'danger' : 'warning',
+      label: t({ fr: `${expiring} pièce(s) à renouveler`, en: `${expiring} item(s) to renew` }),
+    })
+  if (nonConform > 0)
+    items.push({
+      tone: 'danger',
+      label: t({ fr: `${nonConform} non conforme(s)`, en: `${nonConform} non-compliant` }),
+    })
+  if (notAnalyzed > 0)
+    items.push({
+      tone: 'neutral',
+      label: t({ fr: `${notAnalyzed} à analyser`, en: `${notAnalyzed} to analyze` }),
+    })
+  if (items.length === 0)
+    items.push({ tone: 'success', label: t({ fr: 'Tout est à jour', en: 'All up to date' }) })
+
+  const ItemIcon = (itemTone: string) =>
+    itemTone === 'success' ? (
+      <CheckCircle2 className="text-success size-4 shrink-0" />
+    ) : itemTone === 'neutral' ? (
+      <Minus className="text-muted-foreground size-4 shrink-0" />
+    ) : (
+      <AlertTriangle
+        className={`${itemTone === 'danger' ? 'text-danger' : 'text-warning'} size-4 shrink-0`}
+      />
+    )
+
+  return (
+    <Card className="gap-0 p-5">
+      <h2 className="font-display text-sm font-semibold">
+        {t({ fr: 'Conformité', en: 'Compliance' })}
+      </h2>
+      <div className="mt-3 flex items-end justify-between">
+        <span className="font-display text-3xl font-semibold" style={{ color: TONE_COLOR[tone] }}>
+          {pct == null ? '—' : `${pct}%`}
+        </span>
+        <span className="text-muted-foreground text-xs">{t({ fr: 'globale', en: 'overall' })}</span>
+      </div>
+      <div className="bg-muted mt-2 h-2 overflow-hidden rounded-full">
+        <div
+          className="h-full rounded-full"
+          style={{ width: `${pct ?? 0}%`, background: TONE_COLOR[tone] }}
+        />
+      </div>
+      <ul className="mt-4 space-y-2.5">
+        {items.map((it, i) => (
+          <li key={i} className="flex items-center gap-2 text-sm">
+            {ItemIcon(it.tone)}
+            <span className="min-w-0">{it.label}</span>
+          </li>
+        ))}
+      </ul>
+    </Card>
   )
 }
