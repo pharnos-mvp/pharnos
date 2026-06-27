@@ -33,6 +33,7 @@ import { CountryFlag } from './CountryFlag'
 import { VeilleCard } from './components/VeilleCard'
 import {
   buildActions,
+  conformityPct,
   conformitySummary,
   conformityTone,
   expiringDocs,
@@ -192,20 +193,7 @@ export function DashboardPage() {
 
   const derived = useMemo(() => {
     const open = vm.corrItems.filter((c) => c.state !== 'decided')
-    const compliance =
-      vm.conformity.analyzedDocs > 0
-        ? Math.max(
-            0,
-            Math.min(
-              100,
-              Math.round(
-                ((vm.conformity.analyzedDocs - vm.conformity.nonConformDocs) /
-                  vm.conformity.analyzedDocs) *
-                  100,
-              ),
-            ),
-          )
-        : null
+    const compliance = conformityPct(vm.conformity)
     const counts = new Map(vm.portfolio.byCountry.map((c) => [c.code, c.count]))
     const worst = new Map<string, 'info' | 'warning' | 'danger'>()
     for (const a of vm.actions) {

@@ -1,4 +1,5 @@
 import {
+  conformityPct,
   conformitySummary,
   expiringDocs,
   isNonConform,
@@ -45,7 +46,11 @@ export function productCockpitVm(
   return { countries, expiring, hasAmm: ammDocs.length > 0, ammActive }
 }
 
-/** Entrées d'audit liées au produit (lui-même + ses documents + ses dossiers), récentes d'abord. */
+/**
+ * Entrées d'audit dont l'entité est dans `entityIds` (produit + ses documents + dossiers + documents
+ * compilés — l'appelant fournit l'ensemble), récentes d'abord. NB : la MODIFICATION de champ d'un
+ * document n'est pas encore auditée en amont (documents-repository n'audite que create/delete).
+ */
 export function productHistory(
   auditLog: AuditLogRecord[],
   entityIds: Set<string>,
@@ -93,20 +98,8 @@ export function productConformity(
       findings: nc.length,
     }
   })
-  const pct =
-    summary.analyzedDocs > 0
-      ? Math.max(
-          0,
-          Math.min(
-            100,
-            Math.round(
-              ((summary.analyzedDocs - summary.nonConformDocs) / summary.analyzedDocs) * 100,
-            ),
-          ),
-        )
-      : null
   return {
-    pct,
+    pct: conformityPct(summary),
     analyzed: summary.analyzedDocs,
     nonConform: summary.nonConformDocs,
     notAnalyzed: summary.notAnalyzed,

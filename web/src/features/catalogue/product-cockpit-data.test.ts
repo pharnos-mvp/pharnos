@@ -174,4 +174,12 @@ describe('productConformity', () => {
     expect(byId.d2).toBe('conform')
     expect(byId.d3).toBe('unanalyzed')
   })
+
+  it('analyse avec findings vides = conforme (cas le plus courant : analysé, propre)', () => {
+    const c = productConformity([doc({ id: 'd1' })], [analysis({ docId: 'd1', findings: [] })])
+    expect(c.analyzed).toBe(1)
+    expect(c.nonConform).toBe(0)
+    expect(c.pct).toBe(100)
+    expect(c.perDoc[0]?.status).toBe('conform')
+  })
 })

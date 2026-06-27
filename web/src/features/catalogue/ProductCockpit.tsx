@@ -112,6 +112,7 @@ export function ProductCockpit() {
         reads: [],
         docAnalysis: [],
         auditLog: [],
+        generatedDocs: [],
       }
     const [docsRaw, dossiersRaw] = await Promise.all([
       db.documents.where('productId').equals(productId).toArray(),
@@ -121,12 +122,16 @@ export function ProductCockpit() {
     const dossiers = dossiersRaw.filter((d) => d.deletedAt == null)
     const docIds = documents.map((d) => d.id)
     const dossierIds = dossiers.map((d) => d.id)
-    const [corrRaw, docAnalysis, auditLog] = await Promise.all([
+    const [corrRaw, docAnalysis, auditLog, genDocsRaw] = await Promise.all([
       dossierIds.length ? db.correspondences.where('dossierId').anyOf(dossierIds).toArray() : [],
       docIds.length ? db.docAnalysis.where('docId').anyOf(docIds).toArray() : [],
+      // TODO(scale): auditLog chargé org-wide (append-only, non borné) puis filtré côté client ;
+      // ajouter un index par entité/produit avant les grosses orgs. OK à l'échelle pilote.
       db.auditLog.where('orgId').equals(orgId).toArray(),
+      dossierIds.length ? db.generatedDocs.where('dossierId').anyOf(dossierIds).toArray() : [],
     ])
     const correspondences = corrRaw.filter((c) => c.deletedAt == null)
+    const generatedDocs = genDocsRaw.filter((g) => g.deletedAt == null)
     const corrIds = correspondences.map((c) => c.id)
     const [messages, reads] = await Promise.all([
       corrIds.length
@@ -134,7 +139,17 @@ export function ProductCockpit() {
         : [],
       db.correspondenceReads.toArray(),
     ])
-    return { product, documents, dossiers, correspondences, messages, reads, docAnalysis, auditLog }
+    return {
+      product,
+      documents,
+      dossiers,
+      correspondences,
+      messages,
+      reads,
+      docAnalysis,
+      auditLog,
+      generatedDocs,
+    }
   }, [productId, orgId])
 
   const derived = useMemo(() => {
@@ -146,6 +161,7 @@ export function ProductCockpit() {
       data.product.id,
       ...data.documents.map((d) => d.id),
       ...data.dossiers.map((d) => d.id),
+      ...data.generatedDocs.map((g) => g.id),
     ])
     const historique = productHistory(data.auditLog, entityIds)
     const conformity = productConformity(data.documents, data.docAnalysis)
@@ -398,8 +414,8 @@ export function ProductCockpit() {
                   icon={<Clock3 />}
                   title={t({ fr: 'Aucune activité', en: 'No activity' })}
                   description={t({
-                    fr: 'Les modifications du produit et de ses pièces seront tracées ici.',
-                    en: 'Changes to the product and its documents will be tracked here.',
+                    fr: "L'activité du produit (pièces, dossiers, compilations) est tracée ici.",
+                    en: 'Product activity (documents, dossiers, compilations) is tracked here.',
                   })}
                 />
               ) : (
