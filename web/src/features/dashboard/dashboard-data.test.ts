@@ -14,13 +14,16 @@ import type {
 import {
   buildActions,
   conformitySummary,
+  conformityTone,
   expiringDocs,
   expiryStatus,
+  expiryTone,
   isNonConform,
   openCorrespondences,
   pipelineCounts,
   portfolio,
   recentActivity,
+  renewalLeadDays,
   type DashboardInput,
 } from './dashboard-data'
 
@@ -407,5 +410,64 @@ describe('conformitySummary', () => {
     )
     expect(s.nonConformDocs).toBe(1)
     expect(s.analyzedDocs).toBe(1)
+  })
+})
+
+describe('renewalLeadDays', () => {
+  it('applique les délais RA (toute pièce admin 6 mois, COA 18 mois, défaut 3 mois)', () => {
+    expect(renewalLeadDays('amm')).toBe(180)
+    expect(renewalLeadDays('gmp')).toBe(180)
+    expect(renewalLeadDays('copp')).toBe(180)
+    expect(renewalLeadDays('coa')).toBe(547)
+    expect(renewalLeadDays('rcp')).toBe(90) // info non-COA → défaut 3 mois
+    expect(renewalLeadDays('inconnu')).toBe(90)
+  })
+})
+
+describe('expiringDocs — fenêtre par type', () => {
+  it('inclut une pièce admin à 150 j (≤ 180) et un COA à 400 j (≤ 547) ; exclut un info à 150 j (> 90) et un admin à 200 j (> 180)', () => {
+    const items = expiringDocs(
+      [
+        doc({ id: 'gmp150', docType: 'gmp', expiryDate: plus(150) }),
+        doc({ id: 'coa400', docType: 'coa', category: 'info', expiryDate: plus(400) }),
+        doc({ id: 'rcp150', docType: 'rcp', category: 'info', expiryDate: plus(150) }),
+        doc({ id: 'gmp200', docType: 'gmp', expiryDate: plus(200) }),
+      ],
+      [product()],
+      NOW,
+    )
+    const ids = items.map((i) => i.id)
+    expect(ids).toContain('gmp150')
+    expect(ids).toContain('coa400')
+    expect(ids).not.toContain('rcp150')
+    expect(ids).not.toContain('gmp200')
+  })
+})
+
+describe('conformityTone', () => {
+  it('mappe les seuils 95 / 85 / 70', () => {
+    expect(conformityTone(96)).toBe('good')
+    expect(conformityTone(88)).toBe('fair')
+    expect(conformityTone(76)).toBe('passable')
+    expect(conformityTone(61)).toBe('poor')
+    expect(conformityTone(null)).toBe('neutral')
+  })
+})
+
+describe('expiryTone', () => {
+  it('vert si rien, jaune dans la fenêtre, rouge à mi-fenêtre ou expiré', () => {
+    expect(expiryTone([])).toBe('good')
+    // GMP à 120 j (ratio 120/180 = 0,67 > 0,5) → dans la fenêtre = jaune
+    expect(
+      expiryTone(expiringDocs([doc({ docType: 'gmp', expiryDate: plus(120) })], [product()], NOW)),
+    ).toBe('passable')
+    // GMP à 60 j (ratio 0,33 ≤ 0,5) → urgent = rouge
+    expect(
+      expiryTone(expiringDocs([doc({ docType: 'gmp', expiryDate: plus(60) })], [product()], NOW)),
+    ).toBe('poor')
+    // expiré → rouge
+    expect(
+      expiryTone(expiringDocs([doc({ docType: 'gmp', expiryDate: plus(-5) })], [product()], NOW)),
+    ).toBe('poor')
   })
 })

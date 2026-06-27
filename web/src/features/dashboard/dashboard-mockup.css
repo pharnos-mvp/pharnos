@@ -70,20 +70,10 @@
   width: 80px;
   height: 80px;
   border-radius: 0 0 0 80px;
+  /* Source UNIQUE : la tonalité data (coin + pastille + barre lisent --kpi-accent). Doux (0.06). */
+  background: var(--kpi-accent, var(--info));
   opacity: 0.06;
   transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.pharnos-dash .kpi:nth-child(1)::before {
-  background: var(--info);
-}
-.pharnos-dash .kpi:nth-child(2)::before {
-  background: var(--warning);
-}
-.pharnos-dash .kpi:nth-child(3)::before {
-  background: var(--danger);
-}
-.pharnos-dash .kpi:nth-child(4)::before {
-  background: var(--success);
 }
 .pharnos-dash .kpi:hover {
   border-color: var(--pd-hover-border);
@@ -140,6 +130,17 @@
   font-weight: 700;
   display: inline-flex;
   align-items: center;
+}
+/* Étiquette de grade (états à action) — pastille discrète sous la valeur. */
+.pharnos-dash .kpi-grade {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  margin-bottom: 6px;
 }
 .pharnos-dash .bar-wrap {
   height: 4px;

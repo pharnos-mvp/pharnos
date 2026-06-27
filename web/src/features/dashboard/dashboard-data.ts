@@ -1,3 +1,4 @@
+import { ADMIN_DOC_TYPES } from '@/features/catalogue/doc-types'
 import {
   DOSSIER_STATUS_ORDER,
   dossierDisplayStatus,
@@ -35,6 +36,40 @@ export function expiryStatus(expiryDate: string, now: Date): ExpiryStatus {
   soon.setDate(soon.getDate() + EXPIRY_SOON_DAYS)
   if (exp < now) return 'expired'
   return exp <= soon ? 'soon' : 'ok'
+}
+
+/**
+ * Délai d'action avant expiration, par type de pièce (jours) — pilote le KPI « À renouveler ».
+ * ALIGNÉ sur la règle de validité du Monitor (`regafy.ts`) pour qu'aucun écran ne se contredise sur
+ * la même pièce : COA = 18 mois ; toute pièce ADMIN (AMM, GMP, COPP, FSC, ML, contrat…) = 6 mois ;
+ * autres (info) = 3 mois par défaut. « Admin » dérive de `ADMIN_DOC_TYPES` (source unique).
+ */
+export const COA_LEAD_DAYS = 547 // ≈ 18 mois
+export const ADMIN_LEAD_DAYS = 180 // 6 mois (= règle Monitor)
+export const DEFAULT_LEAD_DAYS = 90 // 3 mois
+const ADMIN_DOC_CODES = new Set(ADMIN_DOC_TYPES.map((d) => d.code))
+export function renewalLeadDays(docType: string): number {
+  if (docType === 'coa') return COA_LEAD_DAYS
+  if (ADMIN_DOC_CODES.has(docType)) return ADMIN_LEAD_DAYS
+  return DEFAULT_LEAD_DAYS
+}
+
+/** Au-delà de cette fraction de la fenêtre consommée, l'échéance passe en « urgent » (rouge). */
+export const EXPIRY_POOR_RATIO = 0.5
+
+/** Tonalité de performance d'un KPI — mappée aux tokens de statut (success/info/warning/danger) côté UI. */
+export type KpiTone = 'good' | 'fair' | 'passable' | 'poor' | 'neutral'
+
+/**
+ * Conformité (%) → tonalité. Seuils CEO : ≥ 95 bon · 85-94 assez bien · 70-84 passable · < 70 médiocre.
+ * `null` (aucun document analysé) → neutre.
+ */
+export function conformityTone(pct: number | null): KpiTone {
+  if (pct == null) return 'neutral'
+  if (pct >= 95) return 'good'
+  if (pct >= 85) return 'fair'
+  if (pct >= 70) return 'passable'
+  return 'poor'
 }
 
 /**
@@ -106,12 +141,14 @@ export function buildActions(input: DashboardInput, now: Date): ActionItem[] {
   const productName = new Map(products.map((p) => [p.id, p.nomCommercial]))
   const docById = new Map(documents.map((d) => [d.id, d]))
 
-  // 1) Pièces expirées / expirantes (validité administrative)
+  // 1) Pièces expirées / dans leur fenêtre de renouvellement (délai requis par type)
   for (const d of documents) {
     if (!d.expiryDate) continue
-    const st = expiryStatus(d.expiryDate, now)
-    if (st === 'ok') continue
-    const kind: ActionKind = st === 'expired' ? 'doc_expired' : 'doc_expiring'
+    const daysLeft = Math.round((new Date(d.expiryDate).getTime() - now.getTime()) / 86_400_000)
+    let kind: ActionKind
+    if (daysLeft <= 0) kind = 'doc_expired'
+    else if (daysLeft <= renewalLeadDays(d.docType)) kind = 'doc_expiring'
+    else continue
     items.push({
       id: `doc:${d.id}`,
       kind,
@@ -282,9 +319,14 @@ export interface ExpiryItem {
   expiryDate: string
   /** Jours restants (négatif = expiré). */
   daysLeft: number
+  /** Délai d'action requis pour ce type de pièce (jours) — fenêtre de renouvellement. */
+  lead: number
 }
 
-/** Pièces datées dont l'échéance est ≤ 90 j (ou dépassée), triées par urgence (jours restants). */
+/**
+ * Pièces datées DANS leur fenêtre de renouvellement (jours restants ≤ délai requis du type, ou
+ * dépassée), triées par urgence relative (jours restants / délai du type — plus petit = plus urgent).
+ */
 export function expiringDocs(
   documents: DocumentRecord[],
   products: ProductRecord[],
@@ -304,10 +346,22 @@ export function expiringDocs(
         docType: d.docType,
         expiryDate: d.expiryDate as string,
         daysLeft,
+        lead: renewalLeadDays(d.docType),
       }
     })
-    .filter((x) => x.daysLeft <= EXPIRY_SOON_DAYS)
-    .sort((a, b) => a.daysLeft - b.daysLeft)
+    .filter((x) => x.daysLeft <= x.lead)
+    .sort((a, b) => a.daysLeft / a.lead - b.daysLeft / b.lead)
+}
+
+/**
+ * Expirations → tonalité, selon la pièce la plus urgente RELATIVEMENT à sa fenêtre (jours restants /
+ * délai requis). Vert = rien dans la fenêtre ; jaune = dans la fenêtre ; rouge = à mi-fenêtre ou expiré.
+ */
+export function expiryTone(items: ExpiryItem[]): KpiTone {
+  if (items.length === 0) return 'good'
+  let worst = Infinity
+  for (const it of items) worst = Math.min(worst, it.daysLeft / it.lead)
+  return worst <= EXPIRY_POOR_RATIO ? 'poor' : 'passable'
 }
 
 export interface CodeCount {

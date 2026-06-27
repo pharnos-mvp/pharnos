@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   AlertCircle,
@@ -34,12 +34,15 @@ import { VeilleCard } from './components/VeilleCard'
 import {
   buildActions,
   conformitySummary,
+  conformityTone,
   expiringDocs,
+  expiryTone,
   openCorrespondences,
   portfolio,
   recentActivity,
   type ActionKind,
   type CorrSubState,
+  type KpiTone,
 } from './dashboard-data'
 import './dashboard-mockup.css'
 
@@ -83,6 +86,47 @@ const emptyStyle = {
   textAlign: 'center' as const,
   fontSize: 13,
   color: 'var(--pd-muted)',
+}
+
+// Tonalité de KPI → tokens de statut. Une seule source : pilote coin + pastille + barre.
+// neutral = bleu calme (volumes/croissance, non notés bon/mauvais — choix CEO).
+const TONE_VAR: Record<KpiTone, string> = {
+  good: 'var(--success)',
+  fair: 'var(--info)',
+  passable: 'var(--warning)',
+  poor: 'var(--danger)',
+  neutral: 'var(--info)',
+}
+const TONE_SUBTLE: Record<KpiTone, string> = {
+  good: 'var(--success-subtle)',
+  fair: 'var(--info-subtle)',
+  passable: 'var(--warning-subtle)',
+  poor: 'var(--danger-subtle)',
+  neutral: 'var(--info-subtle)',
+}
+const TONE_SUBTLE_FG: Record<KpiTone, string> = {
+  good: 'var(--success-subtle-foreground)',
+  fair: 'var(--info-subtle-foreground)',
+  passable: 'var(--warning-subtle-foreground)',
+  poor: 'var(--danger-subtle-foreground)',
+  neutral: 'var(--info-subtle-foreground)',
+}
+// Étiquette VISIBLE seulement sur les états qui appellent une action (retirable au besoin).
+const GRADE_LABEL: Partial<Record<KpiTone, { fr: string; en: string }>> = {
+  passable: { fr: 'À surveiller', en: 'Watch' },
+  poor: { fr: 'Urgent', en: 'Urgent' },
+}
+const GRADE_ICON: Partial<Record<KpiTone, LucideIcon>> = {
+  passable: Clock,
+  poor: AlertTriangle,
+}
+// Grade complet pour lecteur d'écran — la couleur ne porte jamais l'info seule (WCAG 1.4.1).
+const GRADE_SR: Record<KpiTone, { fr: string; en: string }> = {
+  good: { fr: 'bon', en: 'good' },
+  fair: { fr: 'assez bien', en: 'fair' },
+  passable: { fr: 'à surveiller', en: 'watch' },
+  poor: { fr: 'urgent', en: 'urgent' },
+  neutral: { fr: '', en: '' },
 }
 
 export function DashboardPage() {
@@ -249,17 +293,15 @@ export function DashboardPage() {
 
   const kpis: {
     Ico: LucideIcon
-    subtle: string
+    tone: KpiTone
     label: string
     val: ReactNode
-    alert?: boolean
     sub: ReactNode
     bar: number
-    color: string
   }[] = [
     {
       Ico: Package,
-      subtle: 'var(--info-subtle)',
+      tone: 'neutral',
       label: t({ fr: 'Produits Actifs', en: 'Active Products' }),
       val: vm.portfolio.productCount,
       sub:
@@ -278,11 +320,10 @@ export function DashboardPage() {
           })
         ),
       bar: coverageBar,
-      color: 'var(--info)',
     },
     {
       Ico: Send,
-      subtle: 'var(--warning-subtle)',
+      tone: 'neutral',
       label: t({ fr: 'Soumissions en cours', en: 'Pending submissions' }),
       val: derived.submissionsOpen,
       sub: t({
@@ -290,31 +331,21 @@ export function DashboardPage() {
         en: `${derived.submissionsCountries} countries`,
       }),
       bar: submissionsBar,
-      color: 'var(--warning)',
     },
     {
       Ico: CalendarClock,
-      subtle: 'var(--danger-subtle)',
-      label: t({ fr: 'Expirant ≤ 90 jours', en: 'Expiring ≤ 90 days' }),
+      tone: expiryTone(vm.echeances),
+      label: t({ fr: 'À renouveler', en: 'Renewals due' }),
       val: vm.echeances.length,
-      alert: vm.echeances.length > 0,
       sub:
-        vm.echeances.length > 0 ? (
-          <>
-            <span className="dn">
-              <AlertTriangle size={13} strokeWidth={2.5} />
-            </span>{' '}
-            {t({ fr: 'Action requise', en: 'Action required' })}
-          </>
-        ) : (
-          t({ fr: 'rien sous 90 j', en: 'none within 90 days' })
-        ),
+        vm.echeances.length > 0
+          ? t({ fr: 'fenêtre de renouvellement', en: 'within renewal window' })
+          : t({ fr: 'rien à renouveler', en: 'nothing due' }),
       bar: expiringBar,
-      color: 'var(--danger)',
     },
     {
       Ico: ShieldCheck,
-      subtle: 'var(--success-subtle)',
+      tone: conformityTone(derived.compliance),
       label: t({ fr: 'Taux de Conformité', en: 'Compliance rate' }),
       val: derived.compliance == null ? '—' : `${derived.compliance}%`,
       sub: t({
@@ -322,7 +353,6 @@ export function DashboardPage() {
         en: `${vm.conformity.analyzedDocs} analyzed`,
       }),
       bar: conformityBar,
-      color: 'var(--success)',
     },
   ]
 
@@ -378,19 +408,40 @@ export function DashboardPage() {
 
         {/* KPIs */}
         <div className="kpi-grid">
-          {kpis.map((k, i) => (
-            <div className="kpi" key={i}>
-              <div className="kpi-ico" aria-hidden style={{ background: k.subtle, color: k.color }}>
-                <k.Ico size={16} strokeWidth={2} />
+          {kpis.map((k, i) => {
+            const accent = TONE_VAR[k.tone]
+            const gradeLabel = GRADE_LABEL[k.tone]
+            const GradeIcon = GRADE_ICON[k.tone]
+            return (
+              <div className="kpi" key={i} style={{ '--kpi-accent': accent } as CSSProperties}>
+                <div
+                  className="kpi-ico"
+                  aria-hidden
+                  style={{ background: TONE_SUBTLE[k.tone], color: accent }}
+                >
+                  <k.Ico size={16} strokeWidth={2} />
+                </div>
+                <div className="kpi-label">{k.label}</div>
+                <div className="kpi-val">{k.val}</div>
+                {gradeLabel && GradeIcon ? (
+                  <div
+                    className="kpi-grade"
+                    style={{ background: TONE_SUBTLE[k.tone], color: TONE_SUBTLE_FG[k.tone] }}
+                  >
+                    <GradeIcon size={11} strokeWidth={2.5} aria-hidden />
+                    {t(gradeLabel)}
+                  </div>
+                ) : null}
+                {k.tone !== 'neutral' && !gradeLabel ? (
+                  <span className="sr-only">{t(GRADE_SR[k.tone])}</span>
+                ) : null}
+                <div className="kpi-sub">{k.sub}</div>
+                <div className="bar-wrap">
+                  <div className="bar-fill" style={{ width: `${k.bar}%`, background: accent }} />
+                </div>
               </div>
-              <div className="kpi-label">{k.label}</div>
-              <div className={k.alert ? 'kpi-val alert' : 'kpi-val'}>{k.val}</div>
-              <div className="kpi-sub">{k.sub}</div>
-              <div className="bar-wrap">
-                <div className="bar-fill" style={{ width: `${k.bar}%`, background: k.color }} />
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         {/* Alertes | Timeline | Activité — 5 items, « Voir tout » déplie sur place. */}
