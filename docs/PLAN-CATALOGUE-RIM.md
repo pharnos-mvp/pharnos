@@ -6,7 +6,10 @@
 > **Statut au 2026-06-27 — go/no-go VALIDÉ (CEO).** Les 3 décisions (§ bas de page) sont **verrouillées**.
 > **M1 (fiche produit cockpit) LIVRÉ EN PROD** : PR #244 (cockpit DA à la lettre) + PR #245 (polish recette :
 > docs info/admin côte à côte, icône comprimé unique). Front-only, 0 migration.
-> **Reprendre ici à la prochaine session : M2 (liste premium + drill-downs) puis Phase 2 (M3→M5, migration `0044`).**
+> **M2 (liste premium + recherche + filtres + drill-downs dashboard) LIVRÉ EN PROD** : PR #246. Front-only,
+> 0 migration. CI 6/6, e2e catalogue (vrai navigateur) vert, budget d'entrée préservé (`<select>` natif, pas de
+> Radix). Phase 1 (M1 + M2) **COMPLÈTE**.
+> **Reprendre ici à la prochaine session : Phase 2 (M3 migration `0044` → M4 wizard/auto-populate → M5 autorités).**
 
 ## L'idée (validée CEO via mockup)
 
@@ -63,7 +66,7 @@ Conformité, dossiers → pays). Valeur visible tout de suite, **sans nouvelle t
 | # | Slice | Phase | Effort | Statut |
 |---|-------|-------|--------|--------|
 | **M1** | **Fiche produit cockpit** : header + badges santé + onglets Identification/Documents/Soumissions/Historique/Conformité + conformité data-driven (dans Documents) + DA à la lettre + icône par forme galénique. | 1 | ~1–1,5 session | ✅ **LIVRÉ PROD** (PR #244 + #245) |
-| **M2** | **Liste premium + filtres + drill-downs dashboard** : table premium + recherche + filtres pays/échéance/conformité + branchement des clics du dashboard (cartes/drapeaux → catalogue filtré). | 1 | ~0,5–1 session | ⬜ **PROCHAIN** |
+| **M2** | **Liste premium + filtres + drill-downs dashboard** : table premium + recherche + filtres pays/échéance/conformité + branchement des clics du dashboard (cartes/drapeaux → catalogue filtré). | 1 | ~0,5–1 session | ✅ **LIVRÉ PROD** (PR #246) |
 | **M3** | **Modèle `parties` (backend)** : migration **`0044`** + FK produits (`titulaireId`/`fabricantId`) + **RLS + pgTAP** + Dexie + sync + backfill idempotent depuis les free-text. | 2 | ~1 session | ⬜ |
 | **M4** | **Wizard + auto-populate + fiches Organisations + hub** : wizard 3 étapes à la création ; à l'enregistrement, créer/lier titulaire + fabricant ; **colonnes suivies pays(AMM)** (→ dashboard par pays) **+ N°lot(COA)** ; **titulaire/fabricant par document** liés aux fiches org ; **agrégations par org** (nombre exact de produits / activités / docs) ; fiches org (GMP/expiry) ; hub Catalogue (cartes → listes). | 2 | ~1,5 session | ⬜ |
 | **M5** | **Autorités (référence) + polish hub** + lignes de documents en cartes `.doc-row` (mineur reporté de M1). | 2 | ~0,5 session | ⬜ |
@@ -83,9 +86,11 @@ budget perf tenu · a11y AA · **0 régression auto-save / offline** · zone A4 
 
 ## 8. Prochaine étape (handoff prochaine session)
 
-**M1 livré + recetté CEO en prod.** Reprendre par **M2 (liste premium catalogue + filtres + drill-downs
-dashboard)**, puis **Phase 2** (M3 migration `0044` → M4 wizard/auto-populate/agrégations → M5 autorités).
-Branche M1 = `feat/catalogue-product-detail` (mergée) ; ouvrir une nouvelle branche par slice.
+**M1 + M2 livrés en prod (Phase 1 complète).** Reprendre par la **Phase 2** : M3 (migration `0044` modèle
+`parties` + FK produits + RLS/pgTAP + Dexie + sync + backfill) → M4 (wizard/auto-populate/agrégations) →
+M5 (autorités). Branches M1 = `feat/catalogue-product-detail`, M2 = `feat/catalogue-list-premium` (mergées) ;
+ouvrir une nouvelle branche par slice. **Migration `0044` = prochaine libre** (`ls supabase/migrations/` avant
+de numéroter ; appliquer via MCP `apply_migration`).
 
 ### Spécifs Phase 2 verrouillées (consignes CEO)
 
