@@ -1,29 +1,167 @@
-/* Fiche produit RIM — DA premium « Ultra-Performance » (tokens --pd-* globaux, partagés avec le dashboard).
-   Cartes, ombres et fond = à l'identique du dashboard ; en-tête collant au scroll (mockup CEO). */
+/* Fiche produit RIM — reproduction À LA LETTRE du mockup CEO (MODULE 2 — PRODUCTS).
+   Tokens --pd-* globaux (index.css), partagés avec le dashboard. Look = mockup ; sémantique = data
+   (conformité pilotée par la donnée, pas de fausse IA). Le HAUT (header + méta + onglets) est figé
+   au scroll ; seul le contenu défile. --pd-link = bleu #1a56db (= --blue du mockup). */
+
 .rim-cockpit {
   color: var(--pd-text);
 }
 
-/* Carte premium = exactement le style des cartes du dashboard (.card). */
-.rim-cockpit .rim-card {
-  background: var(--pd-card);
-  border: 1px solid var(--pd-border);
-  border-radius: 14px;
-  box-shadow: var(--pd-shadow-sm);
-}
-
-/* En-tête de fiche : reste figé en haut quand le contenu défile (le « haut ne bouge pas »). */
-.rim-cockpit .rim-head {
+/* Bandes du haut FIGÉES (le « haut ne bouge pas au scroll »). */
+.rim-cockpit .rim-top {
   position: sticky;
   top: 0;
   z-index: 20;
-  box-shadow: var(--pd-shadow);
+  background: var(--pd-card);
 }
 
-/* Libellés de section (Syne, comme les titres de carte du dashboard). */
+/* ─ Header produit ─ */
+.rim-cockpit .prod-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--pd-border);
+}
+.rim-cockpit .prod-ico {
+  width: 54px;
+  height: 54px;
+  border-radius: 13px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #e0f2fe, #bae6fd);
+  color: #0369a1;
+}
+.dark .rim-cockpit .prod-ico {
+  background: linear-gradient(135deg, #14233b, #1c3a5e);
+  color: #7dd3fc;
+}
+.rim-cockpit .prod-name {
+  font-family: 'Syne Variable', 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--pd-strong);
+}
+.rim-cockpit .prod-sub {
+  font-size: 13px;
+  color: var(--pd-name);
+  margin-top: 3px;
+}
+.rim-cockpit .prod-tags {
+  display: flex;
+  gap: 6px;
+  margin-top: 9px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.rim-cockpit .prod-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  flex: none;
+}
+
+/* ─ Bande méta (Forme / Dosage / ATC / Fabricant) ─ */
+.rim-cockpit .prod-meta {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--pd-border);
+}
+@media (min-width: 768px) {
+  .rim-cockpit .prod-meta {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+.rim-cockpit .meta-key {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--pd-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 3px;
+}
+.rim-cockpit .meta-val {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--pd-text-2);
+}
+
+/* ─ Barre d'onglets (border-bottom continu, actif bleu) ─ */
+.rim-cockpit .tabs-bar {
+  display: flex;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--pd-border);
+  overflow-x: auto;
+}
+.rim-cockpit .tab {
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pd-muted);
+  cursor: pointer;
+  border: none;
+  background: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+  font-family: inherit;
+  transition: color 0.18s;
+}
+.rim-cockpit .tab:hover {
+  color: var(--pd-text);
+}
+.rim-cockpit .tab[data-state='active'] {
+  color: var(--pd-link);
+  border-bottom-color: var(--pd-link);
+  font-weight: 600;
+}
+
+/* ─ Contenu défilant ─ */
+.rim-cockpit .rim-content {
+  padding: 20px 24px;
+}
+.rim-cockpit .rim-card {
+  background: var(--pd-card);
+  border: 1px solid var(--pd-border);
+  border-radius: 10px;
+}
 .rim-cockpit .rim-section-title {
   font-family: 'Syne Variable', 'Syne', sans-serif;
   font-weight: 600;
-  font-size: 13.5px;
+  font-size: 14px;
   color: var(--pd-text);
+}
+
+/* ─ Ligne de document (cartes séparées, mockup) ─ */
+.rim-cockpit .doc-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 14px;
+  border: 1px solid var(--pd-border);
+  border-radius: 9px;
+  background: var(--pd-card);
+  transition: all 0.18s;
+}
+.rim-cockpit .doc-row:hover {
+  border-color: var(--pd-hover-border);
+  box-shadow: var(--pd-shadow-sm);
+  transform: translateX(2px);
+}
+
+/* ─ Jauge de conformité (track 7px du mockup ; couleur = la donnée) ─ */
+.rim-cockpit .meter-bg {
+  height: 7px;
+  background: var(--pd-track);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.rim-cockpit .meter-fill {
+  height: 100%;
+  border-radius: 99px;
 }

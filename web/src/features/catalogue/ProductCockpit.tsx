@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock3,
+  Download,
   FileText,
   Minus,
   Pencil,
@@ -12,6 +13,7 @@ import {
   X,
   Zap,
 } from 'lucide-react'
+import { Tabs as RadixTabs } from 'radix-ui'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -20,7 +22,6 @@ import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CountryFlag } from '@/features/dashboard/CountryFlag'
 import {
   conformityTone,
@@ -48,7 +49,6 @@ import type { ProductFormValues } from './types'
 import { useCatalogueSync } from './use-catalogue-sync'
 import './product-cockpit.css'
 
-// Tonalité métier → variante du badge sémantique (réutilise le grading du dashboard).
 const TONE_BADGE: Record<KpiTone, 'neutral' | 'success' | 'warning' | 'danger' | 'info'> = {
   good: 'success',
   fair: 'info',
@@ -73,6 +73,8 @@ const CONFORMITY_TONE: Record<DocConformityStatus, 'success' | 'danger' | 'neutr
   nonconform: 'danger',
   unanalyzed: 'neutral',
 }
+// CTA bleu du mockup (.btn-primary = --blue = notre --info).
+const BLUE_BTN = 'bg-info text-white hover:bg-info/90'
 
 function BackLink() {
   const { t } = useI18n()
@@ -267,14 +269,14 @@ export function ProductCockpit() {
     fabricantAdresse: p.fabricantAdresse ?? '',
   }
 
-  const details: { label: string; value: string }[] = [
+  const meta: { label: string; value: string }[] = [
     { label: t({ fr: 'Forme pharma.', en: 'Pharma form' }), value: p.forme || '—' },
     { label: t({ fr: 'Dosage', en: 'Strength' }), value: p.dosage || '—' },
     { label: t({ fr: 'Code ATC', en: 'ATC code' }), value: p.codeAtc || '—' },
     { label: t({ fr: 'Fabricant', en: 'Manufacturer' }), value: p.fabricant || '—' },
   ]
 
-  // Identification complète (lecture seule) — fiche RIM. Toute modification est auditée (traçabilité RA).
+  // Identification produit (read-only) — hors titulaire/fabricant qui ont leur bloc apparié.
   const idFields: { label: string; value: string }[] = [
     { label: t({ fr: 'Nom commercial', en: 'Trade name' }), value: p.nomCommercial },
     { label: t({ fr: 'DCI', en: 'INN' }), value: p.dci },
@@ -286,16 +288,6 @@ export function ProductCockpit() {
       value: p.classeTherapeutique,
     },
     { label: t({ fr: 'Code ATC', en: 'ATC code' }), value: p.codeAtc },
-    { label: t({ fr: "Titulaire d'AMM", en: 'MA holder' }), value: p.titulaire ?? '' },
-    {
-      label: t({ fr: 'Adresse du titulaire', en: 'Holder address' }),
-      value: p.titulaireAdresse ?? '',
-    },
-    { label: t({ fr: 'Fabricant', en: 'Manufacturer' }), value: p.fabricant ?? '' },
-    {
-      label: t({ fr: 'Adresse du fabricant', en: 'Manufacturer address' }),
-      value: p.fabricantAdresse ?? '',
-    },
   ]
 
   const subStateLabel = (s: CorrSubState, unread: number) =>
@@ -306,21 +298,18 @@ export function ProductCockpit() {
         : t({ fr: 'Décidé', en: 'Decided' })
 
   return (
-    <div className="rim-cockpit space-y-5 pt-4 md:pt-6">
-      <div className="rim-card rim-head p-5 md:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex min-w-0 items-start gap-4">
-            <span className="bg-info-subtle text-info flex size-12 shrink-0 items-center justify-center rounded-xl">
-              <Pill className="size-6" />
+    <div className="rim-cockpit -mx-4 md:-mx-6">
+      <RadixTabs.Root defaultValue="identification">
+        {/* ── HAUT FIGÉ : header + méta + onglets (ne bouge pas au scroll) ── */}
+        <div className="rim-top">
+          <header className="prod-header">
+            <span className="prod-ico" aria-hidden>
+              <Pill className="size-7" />
             </span>
-            <div className="min-w-0">
-              <h1 className="font-display truncate text-2xl font-semibold tracking-tight">
-                {p.nomCommercial}
-              </h1>
-              {subtitle ? (
-                <p className="text-muted-foreground mt-0.5 truncate text-sm">{subtitle}</p>
-              ) : null}
-              <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="prod-name truncate">{p.nomCommercial}</div>
+              {subtitle ? <div className="prod-sub truncate">{subtitle}</div> : null}
+              <div className="prod-tags">
                 {vm.ammActive ? (
                   <StatusBadge tone="success">
                     {t({ fr: 'AMM active', en: 'MA active' })}
@@ -363,47 +352,116 @@ export function ProductCockpit() {
                 ) : null}
               </div>
             </div>
-          </div>
-          <Button asChild>
-            <Link to="/workspace/nouveau">
-              <Zap /> {t({ fr: 'Lancer une opération', en: 'Start an operation' })}
-            </Link>
-          </Button>
-        </div>
-
-        <div className="mt-5 grid grid-cols-2 gap-4 border-t pt-4 md:grid-cols-4">
-          {details.map((d) => (
-            <div key={d.label} className="min-w-0">
-              <div className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
-                {d.label}
-              </div>
-              <div className="mt-1 truncate font-medium" title={d.value}>
-                {d.value}
-              </div>
+            <div className="prod-actions">
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/workspace">
+                  <Download /> {t({ fr: 'Exporter CTD', en: 'Export CTD' })}
+                </Link>
+              </Button>
+              <Button size="sm" asChild className={BLUE_BTN}>
+                <Link to="/workspace/nouveau">
+                  <Zap /> {t({ fr: 'Lancer une opération', en: 'Start an operation' })}
+                </Link>
+              </Button>
             </div>
-          ))}
+          </header>
+
+          <div className="prod-meta">
+            {meta.map((m) => (
+              <div key={m.label} className="min-w-0">
+                <div className="meta-key">{m.label}</div>
+                <div className="meta-val truncate" title={m.value}>
+                  {m.value}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <RadixTabs.List className="tabs-bar">
+            <RadixTabs.Trigger value="identification" className="tab">
+              {t({ fr: 'Identification', en: 'Identification' })}
+            </RadixTabs.Trigger>
+            <RadixTabs.Trigger value="documents" className="tab">
+              {t({ fr: 'Documents', en: 'Documents' })}
+            </RadixTabs.Trigger>
+            <RadixTabs.Trigger value="soumissions" className="tab">
+              {t({ fr: 'Soumissions', en: 'Submissions' })}
+            </RadixTabs.Trigger>
+            <RadixTabs.Trigger value="historique" className="tab">
+              {t({ fr: 'Historique', en: 'History' })}
+            </RadixTabs.Trigger>
+            <RadixTabs.Trigger value="conformite" className="tab">
+              {t({ fr: 'Conformité', en: 'Compliance' })}
+            </RadixTabs.Trigger>
+          </RadixTabs.List>
         </div>
-      </div>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="min-w-0">
-          <Tabs defaultValue="identification">
-            <TabsList variant="line">
-              <TabsTrigger value="identification">
-                {t({ fr: 'Identification', en: 'Identification' })}
-              </TabsTrigger>
-              <TabsTrigger value="documents">{t({ fr: 'Documents', en: 'Documents' })}</TabsTrigger>
-              <TabsTrigger value="soumissions">
-                {t({ fr: 'Soumissions', en: 'Submissions' })}
-              </TabsTrigger>
-              <TabsTrigger value="historique">{t({ fr: 'Historique', en: 'History' })}</TabsTrigger>
-              <TabsTrigger value="conformite">
-                {t({ fr: 'Conformité', en: 'Compliance' })}
-              </TabsTrigger>
-            </TabsList>
+        {/* ── CONTENU DÉFILANT ── */}
+        <div className="rim-content">
+          <RadixTabs.Content value="identification" className="outline-none">
+            {editingId ? (
+              <div className="space-y-3">
+                <div className="flex justify-end">
+                  <Button variant="ghost" size="sm" onClick={() => setEditingId(false)}>
+                    <X /> {t({ fr: 'Annuler', en: 'Cancel' })}
+                  </Button>
+                </div>
+                <ProductForm
+                  key={p.id}
+                  defaultValues={defaults}
+                  onSubmit={(v) => {
+                    void handleSave(v, false)
+                    setEditingId(false)
+                  }}
+                  submitLabel={t({ fr: 'Enregistrer les modifications', en: 'Save changes' })}
+                />
+              </div>
+            ) : (
+              <div className="rim-card p-5">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <h2 className="rim-section-title">
+                    {t({ fr: 'Identification', en: 'Identification' })}
+                  </h2>
+                  <Button variant="outline" size="sm" onClick={() => setEditingId(true)}>
+                    <Pencil /> {t({ fr: 'Modifier', en: 'Edit' })}
+                  </Button>
+                </div>
+                <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 md:grid-cols-3">
+                  {idFields.map((f) => (
+                    <div key={f.label} className="min-w-0">
+                      <dt className="meta-key">{f.label}</dt>
+                      <dd className="meta-val mt-1 break-words">{f.value || '—'}</dd>
+                    </div>
+                  ))}
+                </dl>
+                {/* Titulaire / Fabricant — blocs appariés (nom + adresse), visuellement cohérents. */}
+                <div className="mt-5 grid gap-4 border-t pt-4 sm:grid-cols-2">
+                  <div className="min-w-0">
+                    <div className="meta-key">{t({ fr: "Titulaire d'AMM", en: 'MA holder' })}</div>
+                    <div className="mt-1 font-medium break-words">{p.titulaire || '—'}</div>
+                    {p.titulaireAdresse ? (
+                      <div className="text-muted-foreground mt-0.5 text-sm break-words">
+                        {p.titulaireAdresse}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="meta-key">{t({ fr: 'Fabricant', en: 'Manufacturer' })}</div>
+                    <div className="mt-1 font-medium break-words">{p.fabricant || '—'}</div>
+                    {p.fabricantAdresse ? (
+                      <div className="text-muted-foreground mt-0.5 text-sm break-words">
+                        {p.fabricantAdresse}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            )}
+          </RadixTabs.Content>
 
-            <TabsContent value="documents" className="pt-4">
-              <div className="grid gap-6 xl:grid-cols-2">
+          <RadixTabs.Content value="documents" className="outline-none">
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
+              <div className="min-w-0 space-y-6">
                 <section className="space-y-3">
                   <h2 className="rim-section-title">
                     {t({ fr: "Documents d'information", en: 'Product information' })}
@@ -417,153 +475,101 @@ export function ProductCockpit() {
                   <DocumentsSection orgId={orgId} productId={p.id} category="admin" />
                 </section>
               </div>
-            </TabsContent>
+              <aside className="min-w-0">
+                <ConformityPanel
+                  pct={conformity.pct}
+                  nonConform={conformity.nonConform}
+                  notAnalyzed={conformity.notAnalyzed}
+                  expiring={vm.expiring.length}
+                  expiringTone={vm.expiring.length > 0 ? expiryTone(vm.expiring) : 'good'}
+                />
+              </aside>
+            </div>
+          </RadixTabs.Content>
 
-            <TabsContent value="identification" className="pt-4">
-              {editingId ? (
-                <div className="space-y-3">
-                  <div className="flex justify-end">
-                    <Button variant="ghost" size="sm" onClick={() => setEditingId(false)}>
-                      <X /> {t({ fr: 'Annuler', en: 'Cancel' })}
-                    </Button>
+          <RadixTabs.Content value="soumissions" className="outline-none">
+            {soumissions.length === 0 ? (
+              <EmptyState
+                icon={<FileText />}
+                title={t({ fr: 'Aucune soumission', en: 'No submission' })}
+                description={t({
+                  fr: "Les correspondances avec l'agence apparaîtront ici.",
+                  en: 'Agency correspondences will appear here.',
+                })}
+              />
+            ) : (
+              <div className="space-y-2">
+                {soumissions.map((c) => (
+                  <Link key={c.id} to={`/workspace/${c.dossierId}`} className="doc-row">
+                    <StatusBadge tone={SUB_TONE[c.state]}>
+                      {subStateLabel(c.state, c.unread)}
+                    </StatusBadge>
+                    <span className="min-w-0 flex-1 truncate text-sm">
+                      {c.country ? countryLabel(c.country, lang) : c.productName}
+                    </span>
+                    <span className="text-muted-foreground shrink-0 text-xs">
+                      {fmtDate(c.date)}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </RadixTabs.Content>
+
+          <RadixTabs.Content value="historique" className="outline-none">
+            {historique.length === 0 ? (
+              <EmptyState
+                icon={<Clock3 />}
+                title={t({ fr: 'Aucune activité', en: 'No activity' })}
+                description={t({
+                  fr: "L'activité du produit (pièces, dossiers, compilations) est tracée ici.",
+                  en: 'Product activity (documents, dossiers, compilations) is tracked here.',
+                })}
+              />
+            ) : (
+              <ul className="divide-y rounded-lg border">
+                {historique.slice(0, 50).map((a) => (
+                  <li key={a.id} className="flex items-center gap-3 p-3 text-sm">
+                    <span className="min-w-0 flex-1 truncate">
+                      {a.label}{' '}
+                      <span className="text-muted-foreground">— {actionLabel(a.action)}</span>
+                    </span>
+                    <span className="text-muted-foreground shrink-0 text-xs">{fmtDate(a.at)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </RadixTabs.Content>
+
+          <RadixTabs.Content value="conformite" className="outline-none">
+            {conformity.perDoc.length === 0 ? (
+              <EmptyState
+                icon={<CheckCircle2 />}
+                title={t({ fr: 'Aucun document', en: 'No document' })}
+                description={t({
+                  fr: 'Ajoutez des documents pour suivre leur conformité.',
+                  en: 'Add documents to track their compliance.',
+                })}
+              />
+            ) : (
+              <div className="space-y-2">
+                {conformity.perDoc.map((d) => (
+                  <div key={d.docId} className="doc-row text-sm">
+                    <span className="min-w-0 flex-1 truncate">{docTypeLabel(d.docType, lang)}</span>
+                    <StatusBadge tone={CONFORMITY_TONE[d.status]}>
+                      {d.status === 'conform'
+                        ? t({ fr: 'Conforme', en: 'Compliant' })
+                        : d.status === 'nonconform'
+                          ? t({ fr: `${d.findings} à corriger`, en: `${d.findings} to fix` })
+                          : t({ fr: 'Non analysé', en: 'Not analyzed' })}
+                    </StatusBadge>
                   </div>
-                  <ProductForm
-                    key={p.id}
-                    defaultValues={defaults}
-                    onSubmit={(v) => {
-                      void handleSave(v, false)
-                      setEditingId(false)
-                    }}
-                    submitLabel={t({ fr: 'Enregistrer les modifications', en: 'Save changes' })}
-                  />
-                </div>
-              ) : (
-                <div className="rim-card p-5">
-                  <div className="mb-4 flex items-center justify-between gap-3">
-                    <h2 className="rim-section-title">
-                      {t({ fr: 'Identification', en: 'Identification' })}
-                    </h2>
-                    <Button variant="outline" size="sm" onClick={() => setEditingId(true)}>
-                      <Pencil /> {t({ fr: 'Modifier', en: 'Edit' })}
-                    </Button>
-                  </div>
-                  <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-                    {idFields.map((f) => (
-                      <div key={f.label} className="min-w-0">
-                        <dt className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
-                          {f.label}
-                        </dt>
-                        <dd className="mt-0.5 font-medium break-words">{f.value || '—'}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="soumissions" className="pt-4">
-              {soumissions.length === 0 ? (
-                <EmptyState
-                  icon={<FileText />}
-                  title={t({ fr: 'Aucune soumission', en: 'No submission' })}
-                  description={t({
-                    fr: "Les correspondances avec l'agence apparaîtront ici.",
-                    en: 'Agency correspondences will appear here.',
-                  })}
-                />
-              ) : (
-                <ul className="divide-y rounded-lg border">
-                  {soumissions.map((c) => (
-                    <li key={c.id}>
-                      <Link
-                        to={`/workspace/${c.dossierId}`}
-                        className="hover:bg-accent/50 flex items-center gap-3 p-3"
-                      >
-                        <StatusBadge tone={SUB_TONE[c.state]}>
-                          {subStateLabel(c.state, c.unread)}
-                        </StatusBadge>
-                        <span className="min-w-0 flex-1 truncate text-sm">
-                          {c.country ? countryLabel(c.country, lang) : c.productName}
-                        </span>
-                        <span className="text-muted-foreground shrink-0 text-xs">
-                          {fmtDate(c.date)}
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </TabsContent>
-
-            <TabsContent value="historique" className="pt-4">
-              {historique.length === 0 ? (
-                <EmptyState
-                  icon={<Clock3 />}
-                  title={t({ fr: 'Aucune activité', en: 'No activity' })}
-                  description={t({
-                    fr: "L'activité du produit (pièces, dossiers, compilations) est tracée ici.",
-                    en: 'Product activity (documents, dossiers, compilations) is tracked here.',
-                  })}
-                />
-              ) : (
-                <ul className="divide-y rounded-lg border">
-                  {historique.slice(0, 50).map((a) => (
-                    <li key={a.id} className="flex items-center gap-3 p-3 text-sm">
-                      <span className="min-w-0 flex-1 truncate">
-                        {a.label}{' '}
-                        <span className="text-muted-foreground">— {actionLabel(a.action)}</span>
-                      </span>
-                      <span className="text-muted-foreground shrink-0 text-xs">
-                        {fmtDate(a.at)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </TabsContent>
-
-            <TabsContent value="conformite" className="pt-4">
-              {conformity.perDoc.length === 0 ? (
-                <EmptyState
-                  icon={<CheckCircle2 />}
-                  title={t({ fr: 'Aucun document', en: 'No document' })}
-                  description={t({
-                    fr: 'Ajoutez des documents pour suivre leur conformité.',
-                    en: 'Add documents to track their compliance.',
-                  })}
-                />
-              ) : (
-                <ul className="divide-y rounded-lg border">
-                  {conformity.perDoc.map((d) => (
-                    <li key={d.docId} className="flex items-center gap-3 p-3 text-sm">
-                      <span className="min-w-0 flex-1 truncate">
-                        {docTypeLabel(d.docType, lang)}
-                      </span>
-                      <StatusBadge tone={CONFORMITY_TONE[d.status]}>
-                        {d.status === 'conform'
-                          ? t({ fr: 'Conforme', en: 'Compliant' })
-                          : d.status === 'nonconform'
-                            ? t({ fr: `${d.findings} à corriger`, en: `${d.findings} to fix` })
-                            : t({ fr: 'Non analysé', en: 'Not analyzed' })}
-                      </StatusBadge>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </TabsContent>
-          </Tabs>
+                ))}
+              </div>
+            )}
+          </RadixTabs.Content>
         </div>
-
-        <aside className="min-w-0">
-          <ConformityPanel
-            pct={conformity.pct}
-            nonConform={conformity.nonConform}
-            notAnalyzed={conformity.notAnalyzed}
-            expiring={vm.expiring.length}
-            expiringTone={vm.expiring.length > 0 ? expiryTone(vm.expiring) : 'good'}
-          />
-        </aside>
-      </div>
+      </RadixTabs.Root>
     </div>
   )
 }
@@ -616,19 +622,7 @@ function ConformityPanel({
   return (
     <div className="rim-card p-5">
       <h2 className="rim-section-title">{t({ fr: 'Conformité', en: 'Compliance' })}</h2>
-      <div className="mt-3 flex items-end justify-between">
-        <span className="font-display text-3xl font-semibold" style={{ color: TONE_COLOR[tone] }}>
-          {pct == null ? '—' : `${pct}%`}
-        </span>
-        <span className="text-muted-foreground text-xs">{t({ fr: 'globale', en: 'overall' })}</span>
-      </div>
-      <div className="bg-muted mt-2 h-2 overflow-hidden rounded-full">
-        <div
-          className="h-full rounded-full"
-          style={{ width: `${pct ?? 0}%`, background: TONE_COLOR[tone] }}
-        />
-      </div>
-      <ul className="mt-4 space-y-2.5">
+      <ul className="mt-3 space-y-2.5">
         {items.map((it, i) => (
           <li key={i} className="flex items-center gap-2 text-sm">
             {ItemIcon(it.tone)}
@@ -636,6 +630,22 @@ function ConformityPanel({
           </li>
         ))}
       </ul>
+      <div className="mt-4 border-t pt-3">
+        <div className="mb-1.5 flex items-center justify-between text-xs">
+          <span className="text-muted-foreground">
+            {t({ fr: 'Conformité globale', en: 'Overall compliance' })}
+          </span>
+          <span className="font-semibold" style={{ color: TONE_COLOR[tone] }}>
+            {pct == null ? '—' : `${pct}%`}
+          </span>
+        </div>
+        <div className="meter-bg">
+          <div
+            className="meter-fill"
+            style={{ width: `${pct ?? 0}%`, background: TONE_COLOR[tone] }}
+          />
+        </div>
+      </div>
     </div>
   )
 }
