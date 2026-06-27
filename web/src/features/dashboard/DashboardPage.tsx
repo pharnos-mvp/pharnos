@@ -286,10 +286,12 @@ export function DashboardPage() {
     val: ReactNode
     sub: ReactNode
     bar: number
+    href?: string
   }[] = [
     {
       Ico: Package,
       tone: 'neutral',
+      href: '/catalogue',
       label: t({ fr: 'Produits Actifs', en: 'Active Products' }),
       val: vm.portfolio.productCount,
       sub:
@@ -323,6 +325,7 @@ export function DashboardPage() {
     {
       Ico: CalendarClock,
       tone: expiryTone(vm.echeances),
+      href: '/catalogue?filter=expiring',
       label: t({ fr: 'À renouveler', en: 'Renewals due' }),
       val: vm.echeances.length,
       sub:
@@ -334,6 +337,7 @@ export function DashboardPage() {
     {
       Ico: ShieldCheck,
       tone: conformityTone(derived.compliance),
+      href: '/catalogue?filter=nonconform',
       label: t({ fr: 'Taux de Conformité', en: 'Compliance rate' }),
       val: derived.compliance == null ? '—' : `${derived.compliance}%`,
       sub: t({
@@ -400,8 +404,8 @@ export function DashboardPage() {
             const accent = TONE_VAR[k.tone]
             const gradeLabel = GRADE_LABEL[k.tone]
             const GradeIcon = GRADE_ICON[k.tone]
-            return (
-              <div className="kpi" key={i} style={{ '--kpi-accent': accent } as CSSProperties}>
+            const inner = (
+              <>
                 <div
                   className="kpi-ico"
                   aria-hidden
@@ -427,6 +431,16 @@ export function DashboardPage() {
                 <div className="bar-wrap">
                   <div className="bar-fill" style={{ width: `${k.bar}%`, background: accent }} />
                 </div>
+              </>
+            )
+            const style = { '--kpi-accent': accent } as CSSProperties
+            return k.href ? (
+              <Link className="kpi" key={i} to={k.href} style={style}>
+                {inner}
+              </Link>
+            ) : (
+              <div className="kpi" key={i} style={style}>
+                {inner}
               </div>
             )
           })}
@@ -569,8 +583,8 @@ export function DashboardPage() {
             <div className="grid-cc">
               {DASHBOARD_COUNTRIES.map((c) => {
                 const n = derived.counts.get(c.code) ?? 0
-                return (
-                  <div className="ctry-tile" key={c.code} title={countryLabel(c.code, lang)}>
+                const inner = (
+                  <>
                     <div className="ctry-flag">
                       <CountryFlag code={c.code} size={30} />
                     </div>
@@ -582,6 +596,25 @@ export function DashboardPage() {
                       />
                       {n} {t({ fr: 'dossier(s)', en: 'dossier(s)' })}
                     </div>
+                  </>
+                )
+                // Tuile cliquable seulement si elle a des dossiers → filtre le catalogue par ce pays.
+                return n > 0 ? (
+                  <Link
+                    className="ctry-tile"
+                    key={c.code}
+                    to={`/catalogue?country=${c.code}`}
+                    title={countryLabel(c.code, lang)}
+                    aria-label={t({
+                      fr: `${countryLabel(c.code, lang)} — ${n} dossier(s), voir le catalogue`,
+                      en: `${countryLabel(c.code, lang)} — ${n} dossier(s), view catalogue`,
+                    })}
+                  >
+                    {inner}
+                  </Link>
+                ) : (
+                  <div className="ctry-tile" key={c.code} title={countryLabel(c.code, lang)}>
+                    {inner}
                   </div>
                 )
               })}
