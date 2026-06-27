@@ -97,6 +97,11 @@
   padding: 0 24px;
   border-bottom: 1px solid var(--pd-border);
   overflow-x: auto;
+  /* Pas de barre de défilement visible : swipe mobile conservé, rien sur desktop. */
+  scrollbar-width: none;
+}
+.rim-cockpit .tabs-bar::-webkit-scrollbar {
+  display: none;
 }
 .rim-cockpit .tab {
   padding: 12px 16px;

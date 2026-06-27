@@ -6,10 +6,13 @@ import {
   CheckCircle2,
   Clock3,
   Download,
+  Droplet,
   FileText,
   Minus,
   Pencil,
   Pill,
+  Syringe,
+  Tablets,
   X,
   Zap,
 } from 'lucide-react'
@@ -75,6 +78,17 @@ const CONFORMITY_TONE: Record<DocConformityStatus, 'success' | 'danger' | 'neutr
 }
 // CTA bleu du mockup (.btn-primary = --blue = notre --info).
 const BLUE_BTN = 'bg-info text-white hover:bg-info/90'
+
+/** Icône de la pastille produit selon la forme galénique (comprimé / injectable / liquide / gélule). */
+function formIcon(forme: string, className?: string) {
+  const f = (forme || '').toLowerCase()
+  if (/comprim|cachet|dragée|dragee|tablet/.test(f)) return <Tablets className={className} />
+  if (/inject|vaccin|ampoule|seringue|perfusion|lyophilis/.test(f))
+    return <Syringe className={className} />
+  if (/sirop|solution|suspension|buvable|goutte|collyre|spray|nasal|émulsion|emulsion/.test(f))
+    return <Droplet className={className} />
+  return <Pill className={className} /> // gélule, capsule, et défaut
+}
 
 function BackLink() {
   const { t } = useI18n()
@@ -304,7 +318,7 @@ export function ProductCockpit() {
         <div className="rim-top">
           <header className="prod-header">
             <span className="prod-ico" aria-hidden>
-              <Pill className="size-7" />
+              {formIcon(p.forme, 'size-7')}
             </span>
             <div className="min-w-0 flex-1">
               <div className="prod-name truncate">{p.nomCommercial}</div>
