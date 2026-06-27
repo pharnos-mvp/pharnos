@@ -44,6 +44,22 @@
   box-shadow: var(--pd-shadow);
   transform: translateY(-2px);
 }
+/* KPI / tuile rendus en <a> (drill-down vers le catalogue filtré) : pas de style de lien. */
+.pharnos-dash a.kpi,
+.pharnos-dash a.ctry-tile {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+/* <a> est inline par défaut : rétablir le bloc du KPI (la tuile hérite déjà du flex de .ctry-tile). */
+.pharnos-dash a.kpi {
+  display: block;
+}
+.pharnos-dash a.kpi:focus-visible,
+.pharnos-dash a.ctry-tile:focus-visible {
+  outline: 2px solid var(--pd-link);
+  outline-offset: 2px;
+}
 .pharnos-dash .kpi:hover::before {
   opacity: 0.12;
 }

@@ -6,12 +6,10 @@ import {
   CheckCircle2,
   Clock3,
   Download,
-  Droplet,
   FileText,
   Minus,
   Pencil,
   Pill,
-  Syringe,
   X,
   Zap,
 } from 'lucide-react'
@@ -38,6 +36,7 @@ import { db } from '@/lib/db'
 import { useI18n } from '@/lib/i18n-context'
 import { docTypeLabel } from './doc-types'
 import { DocumentsSection } from './DocumentsSection'
+import { ProductIcon } from './product-icon'
 import {
   productCockpitVm,
   productConformity,
@@ -77,36 +76,6 @@ const CONFORMITY_TONE: Record<DocConformityStatus, 'success' | 'danger' | 'neutr
 }
 // CTA bleu du mockup (.btn-primary = --blue = notre --info).
 const BLUE_BTN = 'bg-info text-white hover:bg-info/90'
-
-/** Comprimé unique (style lucide) : cercle + barre de sécabilité. */
-function TabletIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="9" />
-      <line x1="12" y1="3.3" x2="12" y2="20.7" />
-    </svg>
-  )
-}
-
-/** Icône de la pastille produit selon la forme galénique (comprimé / injectable / liquide / gélule). */
-function formIcon(forme: string, className?: string) {
-  const f = (forme || '').toLowerCase()
-  if (/comprim|cachet|dragée|dragee|tablet/.test(f)) return <TabletIcon className={className} />
-  if (/inject|vaccin|ampoule|seringue|perfusion|lyophilis/.test(f))
-    return <Syringe className={className} />
-  if (/sirop|solution|suspension|buvable|goutte|collyre|spray|nasal|émulsion|emulsion/.test(f))
-    return <Droplet className={className} />
-  return <Pill className={className} /> // gélule, capsule, et défaut
-}
 
 function BackLink() {
   const { t } = useI18n()
@@ -336,7 +305,7 @@ export function ProductCockpit() {
         <div className="rim-top">
           <header className="prod-header">
             <span className="prod-ico" aria-hidden>
-              {formIcon(p.forme, 'size-7')}
+              <ProductIcon forme={p.forme} className="size-7" />
             </span>
             <div className="min-w-0 flex-1">
               <div className="prod-name truncate">{p.nomCommercial}</div>
