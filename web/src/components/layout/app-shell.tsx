@@ -119,7 +119,10 @@ export function AppShell() {
   // place maximale pour la feuille). Réouverture manuelle possible ; en quittant le montage,
   // retour à la préférence enregistrée.
   const inMontage = /^\/workspace\/[^/]+$/.test(location.pathname)
-  const onDashboard = location.pathname.startsWith('/dashboard')
+  // Fond « canvas » gris premium : dashboard + fiche produit RIM (/catalogue/:id, hors /nouveau).
+  const onCanvas =
+    location.pathname.startsWith('/dashboard') ||
+    (/^\/catalogue\/[^/]+$/.test(location.pathname) && !location.pathname.endsWith('/nouveau'))
   useEffect(() => {
     // Synchronisation pilotée par la route — exception légitime à set-state-in-effect.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -613,7 +616,7 @@ export function AppShell() {
             'min-w-0 flex-1 overflow-auto px-4 pb-4 md:px-6 md:pb-6',
             // Dashboard : fond « canvas » gris clair (mockup gray50 #f9fafb) → les cartes blanches
             // ressortent avec leurs ombres/hover. En sombre : transparent → canvas GitHub du parent.
-            onDashboard && 'bg-[#f9fafb] dark:bg-transparent',
+            onCanvas && 'bg-[#f9fafb] dark:bg-transparent',
           )}
         >
           <HeaderSlotContext.Provider value={setHeaderSlot}>

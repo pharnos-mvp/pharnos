@@ -120,6 +120,45 @@
   --sidebar-ring: #2f81f7;
 }
 
+/* Palette DA premium « Ultra-Performance » (--pd-*) — PARTAGÉE (dashboard + fiche produit RIM).
+   Source unique : CLAIR = hex du mockup CEO ; SOMBRE = GitHub. Distincte des tokens shadcn canoniques. */
+:root {
+  --pd-card: #ffffff;
+  --pd-border: #e5e7eb;
+  --pd-border-soft: #f3f4f6;
+  --pd-hover-border: #d1d5db;
+  --pd-track: #e5e7eb;
+  --pd-strong: #111827;
+  --pd-text: #1f2937;
+  --pd-text-2: #374151;
+  --pd-name: #4b5563;
+  --pd-muted: #6b7280;
+  --pd-link: #1a56db;
+  --pd-link-hover: #2563eb;
+  --pd-tile-hover-bg: #eff6ff;
+  --pd-tile-hover-border: #1a56db;
+  --pd-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  --pd-shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+.dark {
+  --pd-card: #161b22;
+  --pd-border: #30363d;
+  --pd-border-soft: #21262d;
+  --pd-hover-border: #484f58;
+  --pd-track: #30363d;
+  --pd-strong: #f0f6fc;
+  --pd-text: #e6edf3;
+  --pd-text-2: #c9d1d9;
+  --pd-name: #adbac7;
+  --pd-muted: #8b949e;
+  --pd-link: #58a6ff;
+  --pd-link-hover: #79c0ff;
+  --pd-tile-hover-bg: #1c2333;
+  --pd-tile-hover-border: #58a6ff;
+  --pd-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  --pd-shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
 @theme inline {
   /* Typographie de marque (auto-hébergée via @fontsource-variable, offline-first) : Syne = display
      (titres de page, logo, valeurs KPI) ; DM Sans = corps. Décision CEO 2026-06-25 (app premium).

@@ -1,0 +1,29 @@
+/* Fiche produit RIM — DA premium « Ultra-Performance » (tokens --pd-* globaux, partagés avec le dashboard).
+   Cartes, ombres et fond = à l'identique du dashboard ; en-tête collant au scroll (mockup CEO). */
+.rim-cockpit {
+  color: var(--pd-text);
+}
+
+/* Carte premium = exactement le style des cartes du dashboard (.card). */
+.rim-cockpit .rim-card {
+  background: var(--pd-card);
+  border: 1px solid var(--pd-border);
+  border-radius: 14px;
+  box-shadow: var(--pd-shadow-sm);
+}
+
+/* En-tête de fiche : reste figé en haut quand le contenu défile (le « haut ne bouge pas »). */
+.rim-cockpit .rim-head {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  box-shadow: var(--pd-shadow);
+}
+
+/* Libellés de section (Syne, comme les titres de carte du dashboard). */
+.rim-cockpit .rim-section-title {
+  font-family: 'Syne Variable', 'Syne', sans-serif;
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--pd-text);
+}

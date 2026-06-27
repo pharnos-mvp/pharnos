@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   AlertTriangle,
@@ -7,7 +7,9 @@ import {
   Clock3,
   FileText,
   Minus,
+  Pencil,
   Pill,
+  X,
   Zap,
 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -15,7 +17,6 @@ import { toast } from 'sonner'
 
 import { useHeaderSlot } from '@/components/layout/header-slot'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -45,6 +46,7 @@ import { getProduct, updateProduct } from './repository'
 import { syncProducts } from './sync'
 import type { ProductFormValues } from './types'
 import { useCatalogueSync } from './use-catalogue-sync'
+import './product-cockpit.css'
 
 // Tonalité métier → variante du badge sémantique (réutilise le grading du dashboard).
 const TONE_BADGE: Record<KpiTone, 'neutral' | 'success' | 'warning' | 'danger' | 'info'> = {
@@ -100,6 +102,8 @@ export function ProductCockpit() {
   const navigate = useNavigate()
   const { t, lang } = useI18n()
   const setHeaderSlot = useHeaderSlot()
+  // Identification en LECTURE SEULE par défaut (vigilance RA) ; « Modifier » révèle le formulaire.
+  const [editingId, setEditingId] = useState(false)
   useCatalogueSync(orgId)
 
   const data = useLiveQuery(async () => {
@@ -270,6 +274,30 @@ export function ProductCockpit() {
     { label: t({ fr: 'Fabricant', en: 'Manufacturer' }), value: p.fabricant || '—' },
   ]
 
+  // Identification complète (lecture seule) — fiche RIM. Toute modification est auditée (traçabilité RA).
+  const idFields: { label: string; value: string }[] = [
+    { label: t({ fr: 'Nom commercial', en: 'Trade name' }), value: p.nomCommercial },
+    { label: t({ fr: 'DCI', en: 'INN' }), value: p.dci },
+    { label: t({ fr: 'Dosage', en: 'Strength' }), value: p.dosage },
+    { label: t({ fr: 'Forme pharmaceutique', en: 'Pharma form' }), value: p.forme },
+    { label: t({ fr: 'Présentation', en: 'Presentation' }), value: p.presentation },
+    {
+      label: t({ fr: 'Classe thérapeutique', en: 'Therapeutic class' }),
+      value: p.classeTherapeutique,
+    },
+    { label: t({ fr: 'Code ATC', en: 'ATC code' }), value: p.codeAtc },
+    { label: t({ fr: "Titulaire d'AMM", en: 'MA holder' }), value: p.titulaire ?? '' },
+    {
+      label: t({ fr: 'Adresse du titulaire', en: 'Holder address' }),
+      value: p.titulaireAdresse ?? '',
+    },
+    { label: t({ fr: 'Fabricant', en: 'Manufacturer' }), value: p.fabricant ?? '' },
+    {
+      label: t({ fr: 'Adresse du fabricant', en: 'Manufacturer address' }),
+      value: p.fabricantAdresse ?? '',
+    },
+  ]
+
   const subStateLabel = (s: CorrSubState, unread: number) =>
     s === 'unread'
       ? t({ fr: `${unread} non lu(s)`, en: `${unread} unread` })
@@ -278,8 +306,8 @@ export function ProductCockpit() {
         : t({ fr: 'Décidé', en: 'Decided' })
 
   return (
-    <div className="space-y-5 pt-4 md:pt-6">
-      <Card className="gap-0 p-5 md:p-6">
+    <div className="rim-cockpit space-y-5 pt-4 md:pt-6">
+      <div className="rim-card rim-head p-5 md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-4">
             <span className="bg-info-subtle text-info flex size-12 shrink-0 items-center justify-center rounded-xl">
@@ -355,16 +383,16 @@ export function ProductCockpit() {
             </div>
           ))}
         </div>
-      </Card>
+      </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0">
-          <Tabs defaultValue="documents">
+          <Tabs defaultValue="identification">
             <TabsList variant="line">
-              <TabsTrigger value="documents">{t({ fr: 'Documents', en: 'Documents' })}</TabsTrigger>
               <TabsTrigger value="identification">
                 {t({ fr: 'Identification', en: 'Identification' })}
               </TabsTrigger>
+              <TabsTrigger value="documents">{t({ fr: 'Documents', en: 'Documents' })}</TabsTrigger>
               <TabsTrigger value="soumissions">
                 {t({ fr: 'Soumissions', en: 'Submissions' })}
               </TabsTrigger>
@@ -377,13 +405,13 @@ export function ProductCockpit() {
             <TabsContent value="documents" className="pt-4">
               <div className="grid gap-6 xl:grid-cols-2">
                 <section className="space-y-3">
-                  <h2 className="font-display text-sm font-semibold">
+                  <h2 className="rim-section-title">
                     {t({ fr: "Documents d'information", en: 'Product information' })}
                   </h2>
                   <DocumentsSection orgId={orgId} productId={p.id} category="info" />
                 </section>
                 <section className="space-y-3">
-                  <h2 className="font-display text-sm font-semibold">
+                  <h2 className="rim-section-title">
                     {t({ fr: 'Pièces administratives', en: 'Administrative documents' })}
                   </h2>
                   <DocumentsSection orgId={orgId} productId={p.id} category="admin" />
@@ -392,13 +420,45 @@ export function ProductCockpit() {
             </TabsContent>
 
             <TabsContent value="identification" className="pt-4">
-              <ProductForm
-                key={p.id}
-                defaultValues={defaults}
-                onSubmit={(v) => void handleSave(v, false)}
-                onAutoSave={(v) => void handleSave(v, true)}
-                submitLabel={t({ fr: 'Enregistrer les modifications', en: 'Save changes' })}
-              />
+              {editingId ? (
+                <div className="space-y-3">
+                  <div className="flex justify-end">
+                    <Button variant="ghost" size="sm" onClick={() => setEditingId(false)}>
+                      <X /> {t({ fr: 'Annuler', en: 'Cancel' })}
+                    </Button>
+                  </div>
+                  <ProductForm
+                    key={p.id}
+                    defaultValues={defaults}
+                    onSubmit={(v) => {
+                      void handleSave(v, false)
+                      setEditingId(false)
+                    }}
+                    submitLabel={t({ fr: 'Enregistrer les modifications', en: 'Save changes' })}
+                  />
+                </div>
+              ) : (
+                <div className="rim-card p-5">
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <h2 className="rim-section-title">
+                      {t({ fr: 'Identification', en: 'Identification' })}
+                    </h2>
+                    <Button variant="outline" size="sm" onClick={() => setEditingId(true)}>
+                      <Pencil /> {t({ fr: 'Modifier', en: 'Edit' })}
+                    </Button>
+                  </div>
+                  <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                    {idFields.map((f) => (
+                      <div key={f.label} className="min-w-0">
+                        <dt className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+                          {f.label}
+                        </dt>
+                        <dd className="mt-0.5 font-medium break-words">{f.value || '—'}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="soumissions" className="pt-4">
@@ -554,10 +614,8 @@ function ConformityPanel({
     )
 
   return (
-    <Card className="gap-0 p-5">
-      <h2 className="font-display text-sm font-semibold">
-        {t({ fr: 'Conformité', en: 'Compliance' })}
-      </h2>
+    <div className="rim-card p-5">
+      <h2 className="rim-section-title">{t({ fr: 'Conformité', en: 'Compliance' })}</h2>
       <div className="mt-3 flex items-end justify-between">
         <span className="font-display text-3xl font-semibold" style={{ color: TONE_COLOR[tone] }}>
           {pct == null ? '—' : `${pct}%`}
@@ -578,6 +636,6 @@ function ConformityPanel({
           </li>
         ))}
       </ul>
-    </Card>
+    </div>
   )
 }
