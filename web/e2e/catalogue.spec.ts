@@ -15,8 +15,8 @@ test('crée un produit et le retrouve dans le catalogue', async ({ page }) => {
   await page.getByLabel('DCI').fill('Paracétamol')
   await page.getByRole('button', { name: 'Enregistrer le produit' }).click()
 
-  // Retour à la liste : le produit est visible (cellule « Nom commercial » exacte —
-  // la cellule Actions agrège les libellés « Modifier/Supprimer <produit> »).
+  // Retour à la liste : le produit est visible (carte-ligne premium — le nom est un
+  // lien vers la fiche cockpit, accessible name = nom exact).
   await expect(page).toHaveURL(/\/catalogue$/)
-  await expect(page.getByRole('cell', { name: nom, exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: nom, exact: true })).toBeVisible()
 })
