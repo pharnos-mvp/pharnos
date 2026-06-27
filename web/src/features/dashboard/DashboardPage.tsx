@@ -426,7 +426,7 @@ export function DashboardPage() {
                         {a.country ? (
                           <CountryFlag
                             code={a.country}
-                            size={15}
+                            size={13}
                             style={{
                               display: 'inline-block',
                               verticalAlign: 'middle',
