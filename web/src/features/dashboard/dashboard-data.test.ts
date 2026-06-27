@@ -13,6 +13,7 @@ import type {
 
 import {
   buildActions,
+  conformityPct,
   conformitySummary,
   conformityTone,
   expiringDocs,
@@ -441,6 +442,16 @@ describe('expiringDocs — fenêtre par type', () => {
     expect(ids).toContain('coa400')
     expect(ids).not.toContain('rcp150')
     expect(ids).not.toContain('gmp200')
+  })
+})
+
+describe('conformityPct', () => {
+  it('taux borné, null si rien analysé', () => {
+    expect(conformityPct({ analyzedDocs: 0, nonConformDocs: 0, notAnalyzed: 3 })).toBeNull()
+    expect(conformityPct({ analyzedDocs: 4, nonConformDocs: 1, notAnalyzed: 0 })).toBe(75)
+    expect(conformityPct({ analyzedDocs: 2, nonConformDocs: 2, notAnalyzed: 0 })).toBe(0)
+    // garde-fou : jamais < 0 même si les non-conformes dépassent (données incohérentes)
+    expect(conformityPct({ analyzedDocs: 2, nonConformDocs: 5, notAnalyzed: 0 })).toBe(0)
   })
 })
 

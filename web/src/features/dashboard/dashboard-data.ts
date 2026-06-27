@@ -431,3 +431,18 @@ export function conformitySummary(
     notAnalyzed: docs.filter((d) => !analyzedIds.has(d.id)).length,
   }
 }
+
+/**
+ * Taux de conformité (% des documents analysés qui sont conformes), borné [0,100].
+ * `null` si aucun document analysé. Source unique du calcul (dashboard + fiche produit).
+ */
+export function conformityPct(summary: ConformitySummary): number | null {
+  if (summary.analyzedDocs <= 0) return null
+  return Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round(((summary.analyzedDocs - summary.nonConformDocs) / summary.analyzedDocs) * 100),
+    ),
+  )
+}

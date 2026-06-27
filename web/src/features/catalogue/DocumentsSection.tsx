@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Cloud, CloudOff, Download, FileText, Loader2, Trash2 } from 'lucide-react'
+import { Cloud, CloudOff, Download, FileText, Loader2, Plus, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -13,12 +13,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { renewalLeadDays } from '@/features/dashboard/dashboard-data'
 import type { DocumentCategory } from '@/lib/db'
 import { UPLOAD_ACCEPT } from '@/lib/files'
 import { useI18n } from '@/lib/i18n-context'
 import { docTypeLabel, docTypesFor, requiresExpiry } from './doc-types'
 import { addDocument, deleteDocument, getDocumentBlob, listDocuments } from './documents-repository'
 import { downloadDocumentBlob, syncDocuments } from './documents-sync'
+
+/** Étiquette de validité d'une pièce réglementaire datée (réutilise la fenêtre de renouvellement par type). */
+function validity(
+  docType: string,
+  expiryDate: string | null,
+  now: Date,
+): { tone: 'success' | 'warning' | 'danger'; fr: string; en: string } | null {
+  if (!requiresExpiry(docType) || !expiryDate) return null
+  const daysLeft = Math.round((new Date(expiryDate).getTime() - now.getTime()) / 86_400_000)
+  if (daysLeft < 0) return { tone: 'danger', fr: 'Expiré', en: 'Expired' }
+  if (daysLeft <= renewalLeadDays(docType))
+    return { tone: 'warning', fr: 'À renouveler', en: 'To renew' }
+  return { tone: 'success', fr: 'Valide', en: 'Valid' }
+}
 
 interface DocumentsSectionProps {
   orgId: string
@@ -47,6 +63,8 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
   const [reference, setReference] = useState('')
   const [busy, setBusy] = useState(false)
   const [resetKey, setResetKey] = useState(0)
+  // Formulaire d'ajout replié par défaut : on n'affiche que la liste + un bouton « + » (recette CEO).
+  const [adding, setAdding] = useState(false)
   // AMM : N° + date d'émission (octroi) requis — synchronisés ensuite vers le CTD builder (Renew/Variation).
   const isAmm = docType === 'amm'
 
@@ -97,6 +115,7 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
       setIssueDate('')
       setReference('')
       setResetKey((k) => k + 1)
+      setAdding(false)
     } catch (error) {
       toast.error(t({ fr: "Échec de l'ajout", en: 'Upload failed' }), {
         description: error instanceof Error ? error.message : undefined,
@@ -129,66 +148,80 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
   }
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-3 rounded-lg border p-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label>{t({ fr: 'Type de document', en: 'Document type' })}</Label>
-          <Select value={docType} onValueChange={setDocType}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder={t({ fr: 'Type', en: 'Type' })} />
-            </SelectTrigger>
-            <SelectContent>
-              {types.map((opt) => (
-                <SelectItem key={opt.code} value={opt.code}>
-                  {t({ fr: opt.label, en: opt.en ?? opt.label })}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {isAmm ? (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button type="button" variant="outline" size="sm" onClick={() => setAdding((a) => !a)}>
+          {adding ? <X /> : <Plus />}
+          {adding
+            ? t({ fr: 'Fermer', en: 'Close' })
+            : t({ fr: 'Ajouter un document', en: 'Add document' })}
+        </Button>
+      </div>
+      {adding ? (
+        <div className="grid gap-3 rounded-lg border p-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label>{t({ fr: 'N° d’AMM *', en: 'MA number *' })}</Label>
+            <Label>{t({ fr: 'Type de document', en: 'Document type' })}</Label>
+            <Select value={docType} onValueChange={setDocType}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={t({ fr: 'Type', en: 'Type' })} />
+              </SelectTrigger>
+              <SelectContent>
+                {types.map((opt) => (
+                  <SelectItem key={opt.code} value={opt.code}>
+                    {t({ fr: opt.label, en: opt.en ?? opt.label })}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {isAmm ? (
+            <div className="space-y-1.5">
+              <Label>{t({ fr: 'N° d’AMM *', en: 'MA number *' })}</Label>
+              <Input
+                value={reference}
+                onChange={(e) => setReference(e.target.value)}
+                placeholder={t({ fr: 'Ex. AMM_2015_7457', en: 'e.g. MA_2015_7457' })}
+              />
+            </div>
+          ) : null}
+
+          {isAmm ? (
+            <div className="space-y-1.5">
+              <Label>{t({ fr: 'Date d’émission (octroi) *', en: 'Issue date (grant) *' })}</Label>
+              <Input type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
+            </div>
+          ) : null}
+
+          {requiresExpiry(docType) ? (
+            <div className="space-y-1.5">
+              <Label>{t({ fr: "Date d'expiration *", en: 'Expiry date *' })}</Label>
+              <Input
+                type="date"
+                value={expiryDate}
+                onChange={(e) => setExpiryDate(e.target.value)}
+              />
+            </div>
+          ) : null}
+
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>{t({ fr: 'Fichier', en: 'File' })}</Label>
             <Input
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
-              placeholder={t({ fr: 'Ex. AMM_2015_7457', en: 'e.g. MA_2015_7457' })}
+              key={resetKey}
+              type="file"
+              accept={UPLOAD_ACCEPT}
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
           </div>
-        ) : null}
 
-        {isAmm ? (
-          <div className="space-y-1.5">
-            <Label>{t({ fr: 'Date d’émission (octroi) *', en: 'Issue date (grant) *' })}</Label>
-            <Input type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
+          <div className="sm:col-span-2">
+            <Button type="button" onClick={() => void handleAdd()} disabled={busy}>
+              {busy ? <Loader2 className="animate-spin" /> : null}
+              {t({ fr: 'Ajouter le document', en: 'Add document' })}
+            </Button>
           </div>
-        ) : null}
-
-        {requiresExpiry(docType) ? (
-          <div className="space-y-1.5">
-            <Label>{t({ fr: "Date d'expiration *", en: 'Expiry date *' })}</Label>
-            <Input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
-          </div>
-        ) : null}
-
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label>{t({ fr: 'Fichier', en: 'File' })}</Label>
-          <Input
-            key={resetKey}
-            type="file"
-            accept={UPLOAD_ACCEPT}
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          />
         </div>
-
-        <div className="sm:col-span-2">
-          <Button type="button" onClick={() => void handleAdd()} disabled={busy}>
-            {busy ? <Loader2 className="animate-spin" /> : null}
-            {t({ fr: 'Ajouter le document', en: 'Add document' })}
-          </Button>
-        </div>
-      </div>
+      ) : null}
 
       {docs === undefined ? (
         <p className="text-muted-foreground text-sm">{t({ fr: 'Chargement…', en: 'Loading…' })}</p>
@@ -198,57 +231,67 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
         </p>
       ) : (
         <ul className="divide-y rounded-lg border">
-          {docs.map((d) => (
-            <li key={d.id} className="flex items-center gap-3 p-3">
-              <FileText className="text-muted-foreground size-4 shrink-0" />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{docTypeLabel(d.docType, lang)}</div>
-                <div className="text-muted-foreground truncate text-xs">
-                  {d.fileName}
-                  {d.reference ? ` · N° ${d.reference}` : ''}
-                  {d.issueDate
-                    ? t({ fr: ` · émise le ${d.issueDate}`, en: ` · issued ${d.issueDate}` })
-                    : ''}
-                  {d.expiryDate
-                    ? t({ fr: ` · expire le ${d.expiryDate}`, en: ` · expires ${d.expiryDate}` })
-                    : ''}
+          {docs.map((d) => {
+            const v = validity(d.docType, d.expiryDate, new Date())
+            return (
+              <li key={d.id} className="flex items-center gap-3 p-3">
+                <FileText className="text-muted-foreground size-4 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">
+                    {docTypeLabel(d.docType, lang)}
+                  </div>
+                  <div className="text-muted-foreground truncate text-xs">
+                    {d.fileName}
+                    {d.reference ? ` · N° ${d.reference}` : ''}
+                    {d.issueDate
+                      ? t({ fr: ` · émise le ${d.issueDate}`, en: ` · issued ${d.issueDate}` })
+                      : ''}
+                    {d.expiryDate
+                      ? t({ fr: ` · expire le ${d.expiryDate}`, en: ` · expires ${d.expiryDate}` })
+                      : ''}
+                  </div>
                 </div>
-              </div>
-              <span
-                className="text-muted-foreground/70 shrink-0"
-                title={
-                  d.uploaded
-                    ? t({ fr: 'Sauvegardé dans le cloud', en: 'Saved to cloud' })
-                    : t({ fr: 'Synchronisation en attente', en: 'Sync pending' })
-                }
-                aria-label={
-                  d.uploaded
-                    ? t({ fr: 'Sauvegardé dans le cloud', en: 'Saved to cloud' })
-                    : t({ fr: 'Synchronisation en attente', en: 'Sync pending' })
-                }
-              >
-                {d.uploaded ? <Cloud className="size-4" /> : <CloudOff className="size-4" />}
-              </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label={t({ fr: 'Télécharger', en: 'Download' })}
-                onClick={() => void handleDownload(d.id, d.fileName, d.filePath)}
-              >
-                <Download className="size-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label={t({ fr: 'Supprimer', en: 'Delete' })}
-                onClick={() => void handleDelete(d.id)}
-              >
-                <Trash2 className="size-4" />
-              </Button>
-            </li>
-          ))}
+                {v ? (
+                  <StatusBadge tone={v.tone} className="shrink-0">
+                    {t({ fr: v.fr, en: v.en })}
+                  </StatusBadge>
+                ) : null}
+                <span
+                  className="text-muted-foreground/70 shrink-0"
+                  title={
+                    d.uploaded
+                      ? t({ fr: 'Sauvegardé dans le cloud', en: 'Saved to cloud' })
+                      : t({ fr: 'Synchronisation en attente', en: 'Sync pending' })
+                  }
+                  aria-label={
+                    d.uploaded
+                      ? t({ fr: 'Sauvegardé dans le cloud', en: 'Saved to cloud' })
+                      : t({ fr: 'Synchronisation en attente', en: 'Sync pending' })
+                  }
+                >
+                  {d.uploaded ? <Cloud className="size-4" /> : <CloudOff className="size-4" />}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={t({ fr: 'Télécharger', en: 'Download' })}
+                  onClick={() => void handleDownload(d.id, d.fileName, d.filePath)}
+                >
+                  <Download className="size-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={t({ fr: 'Supprimer', en: 'Delete' })}
+                  onClick={() => void handleDelete(d.id)}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>
