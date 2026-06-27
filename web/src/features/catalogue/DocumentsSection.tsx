@@ -13,12 +13,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { renewalLeadDays } from '@/features/dashboard/dashboard-data'
 import type { DocumentCategory } from '@/lib/db'
 import { UPLOAD_ACCEPT } from '@/lib/files'
 import { useI18n } from '@/lib/i18n-context'
 import { docTypeLabel, docTypesFor, requiresExpiry } from './doc-types'
 import { addDocument, deleteDocument, getDocumentBlob, listDocuments } from './documents-repository'
 import { downloadDocumentBlob, syncDocuments } from './documents-sync'
+
+/** Étiquette de validité d'une pièce réglementaire datée (réutilise la fenêtre de renouvellement par type). */
+function validity(
+  docType: string,
+  expiryDate: string | null,
+  now: Date,
+): { tone: 'success' | 'warning' | 'danger'; fr: string; en: string } | null {
+  if (!requiresExpiry(docType) || !expiryDate) return null
+  const daysLeft = Math.round((new Date(expiryDate).getTime() - now.getTime()) / 86_400_000)
+  if (daysLeft < 0) return { tone: 'danger', fr: 'Expiré', en: 'Expired' }
+  if (daysLeft <= renewalLeadDays(docType))
+    return { tone: 'warning', fr: 'À renouveler', en: 'To renew' }
+  return { tone: 'success', fr: 'Valide', en: 'Valid' }
+}
 
 interface DocumentsSectionProps {
   orgId: string
@@ -198,57 +214,67 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
         </p>
       ) : (
         <ul className="divide-y rounded-lg border">
-          {docs.map((d) => (
-            <li key={d.id} className="flex items-center gap-3 p-3">
-              <FileText className="text-muted-foreground size-4 shrink-0" />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{docTypeLabel(d.docType, lang)}</div>
-                <div className="text-muted-foreground truncate text-xs">
-                  {d.fileName}
-                  {d.reference ? ` · N° ${d.reference}` : ''}
-                  {d.issueDate
-                    ? t({ fr: ` · émise le ${d.issueDate}`, en: ` · issued ${d.issueDate}` })
-                    : ''}
-                  {d.expiryDate
-                    ? t({ fr: ` · expire le ${d.expiryDate}`, en: ` · expires ${d.expiryDate}` })
-                    : ''}
+          {docs.map((d) => {
+            const v = validity(d.docType, d.expiryDate, new Date())
+            return (
+              <li key={d.id} className="flex items-center gap-3 p-3">
+                <FileText className="text-muted-foreground size-4 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">
+                    {docTypeLabel(d.docType, lang)}
+                  </div>
+                  <div className="text-muted-foreground truncate text-xs">
+                    {d.fileName}
+                    {d.reference ? ` · N° ${d.reference}` : ''}
+                    {d.issueDate
+                      ? t({ fr: ` · émise le ${d.issueDate}`, en: ` · issued ${d.issueDate}` })
+                      : ''}
+                    {d.expiryDate
+                      ? t({ fr: ` · expire le ${d.expiryDate}`, en: ` · expires ${d.expiryDate}` })
+                      : ''}
+                  </div>
                 </div>
-              </div>
-              <span
-                className="text-muted-foreground/70 shrink-0"
-                title={
-                  d.uploaded
-                    ? t({ fr: 'Sauvegardé dans le cloud', en: 'Saved to cloud' })
-                    : t({ fr: 'Synchronisation en attente', en: 'Sync pending' })
-                }
-                aria-label={
-                  d.uploaded
-                    ? t({ fr: 'Sauvegardé dans le cloud', en: 'Saved to cloud' })
-                    : t({ fr: 'Synchronisation en attente', en: 'Sync pending' })
-                }
-              >
-                {d.uploaded ? <Cloud className="size-4" /> : <CloudOff className="size-4" />}
-              </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label={t({ fr: 'Télécharger', en: 'Download' })}
-                onClick={() => void handleDownload(d.id, d.fileName, d.filePath)}
-              >
-                <Download className="size-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label={t({ fr: 'Supprimer', en: 'Delete' })}
-                onClick={() => void handleDelete(d.id)}
-              >
-                <Trash2 className="size-4" />
-              </Button>
-            </li>
-          ))}
+                {v ? (
+                  <StatusBadge tone={v.tone} className="shrink-0">
+                    {t({ fr: v.fr, en: v.en })}
+                  </StatusBadge>
+                ) : null}
+                <span
+                  className="text-muted-foreground/70 shrink-0"
+                  title={
+                    d.uploaded
+                      ? t({ fr: 'Sauvegardé dans le cloud', en: 'Saved to cloud' })
+                      : t({ fr: 'Synchronisation en attente', en: 'Sync pending' })
+                  }
+                  aria-label={
+                    d.uploaded
+                      ? t({ fr: 'Sauvegardé dans le cloud', en: 'Saved to cloud' })
+                      : t({ fr: 'Synchronisation en attente', en: 'Sync pending' })
+                  }
+                >
+                  {d.uploaded ? <Cloud className="size-4" /> : <CloudOff className="size-4" />}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={t({ fr: 'Télécharger', en: 'Download' })}
+                  onClick={() => void handleDownload(d.id, d.fileName, d.filePath)}
+                >
+                  <Download className="size-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={t({ fr: 'Supprimer', en: 'Delete' })}
+                  onClick={() => void handleDelete(d.id)}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   AlertTriangle,
@@ -10,9 +10,10 @@ import {
   Pill,
   Zap,
 } from 'lucide-react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
+import { useHeaderSlot } from '@/components/layout/header-slot'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -96,7 +97,9 @@ function CockpitSkeleton() {
 export function ProductCockpit() {
   const { productId } = useParams()
   const orgId = useOrgId()
+  const navigate = useNavigate()
   const { t, lang } = useI18n()
+  const setHeaderSlot = useHeaderSlot()
   useCatalogueSync(orgId)
 
   const data = useLiveQuery(async () => {
@@ -167,6 +170,30 @@ export function ProductCockpit() {
     const conformity = productConformity(data.documents, data.docAnalysis)
     return { vm, soumissions, historique, conformity }
   }, [data])
+
+  // En-tête applicatif (façon Google Docs) : retour + nom du produit ; libéré au démontage.
+  const productName = data?.product?.nomCommercial
+  useEffect(() => {
+    if (!setHeaderSlot) return
+    if (!productName) {
+      setHeaderSlot(null)
+      return
+    }
+    setHeaderSlot(
+      <div className="flex min-w-0 flex-1 items-center gap-1.5">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={t({ fr: 'Retour au catalogue', en: 'Back to catalogue' })}
+          onClick={() => navigate('/catalogue')}
+        >
+          <ArrowLeft className="size-4" />
+        </Button>
+        <span className="font-display min-w-0 truncate text-base font-bold">{productName}</span>
+      </div>,
+    )
+    return () => setHeaderSlot(null)
+  }, [setHeaderSlot, productName, navigate, t])
 
   async function handleSave(values: ProductFormValues, silent = false) {
     if (!productId) return
@@ -252,8 +279,6 @@ export function ProductCockpit() {
 
   return (
     <div className="space-y-5 pt-4 md:pt-6">
-      <BackLink />
-
       <Card className="gap-0 p-5 md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-4">
@@ -349,19 +374,21 @@ export function ProductCockpit() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="documents" className="space-y-6 pt-4">
-              <section className="space-y-3">
-                <h2 className="font-display text-sm font-semibold">
-                  {t({ fr: "Documents d'information", en: 'Product information' })}
-                </h2>
-                <DocumentsSection orgId={orgId} productId={p.id} category="info" />
-              </section>
-              <section className="space-y-3">
-                <h2 className="font-display text-sm font-semibold">
-                  {t({ fr: 'Pièces administratives', en: 'Administrative documents' })}
-                </h2>
-                <DocumentsSection orgId={orgId} productId={p.id} category="admin" />
-              </section>
+            <TabsContent value="documents" className="pt-4">
+              <div className="grid gap-6 xl:grid-cols-2">
+                <section className="space-y-3">
+                  <h2 className="font-display text-sm font-semibold">
+                    {t({ fr: "Documents d'information", en: 'Product information' })}
+                  </h2>
+                  <DocumentsSection orgId={orgId} productId={p.id} category="info" />
+                </section>
+                <section className="space-y-3">
+                  <h2 className="font-display text-sm font-semibold">
+                    {t({ fr: 'Pièces administratives', en: 'Administrative documents' })}
+                  </h2>
+                  <DocumentsSection orgId={orgId} productId={p.id} category="admin" />
+                </section>
+              </div>
             </TabsContent>
 
             <TabsContent value="identification" className="pt-4">
