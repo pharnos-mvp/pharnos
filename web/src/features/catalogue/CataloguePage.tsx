@@ -33,7 +33,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { useHideTopbarSearch } from '@/components/layout/topbar-search'
-import type { KpiTone } from '@/features/dashboard/dashboard-data'
+import { KPI_BADGE_TONE } from '@/features/dashboard/dashboard-data'
 import { CountryFlag } from '@/features/dashboard/CountryFlag'
 import { useDossierSync } from '@/features/workspace/use-dossier-sync'
 import { countryLabel } from '@/features/workspace/dossier-constants'
@@ -51,15 +51,6 @@ import { ProductIcon } from './product-icon'
 import { deleteProduct } from './repository'
 import { syncProducts } from './sync'
 import { useCatalogueSync } from './use-catalogue-sync'
-
-/** Tonalité de santé (KPI) → tonalité de badge sémantique. */
-const TONE_BADGE: Record<KpiTone, 'neutral' | 'success' | 'warning' | 'danger' | 'info'> = {
-  good: 'success',
-  fair: 'info',
-  passable: 'warning',
-  poor: 'danger',
-  neutral: 'neutral',
-}
 
 export function CataloguePage() {
   const { t, lang } = useI18n()
@@ -320,7 +311,7 @@ function HealthBadges({ row }: { row: CatalogueRow }) {
         <StatusBadge tone="neutral">{t({ fr: 'Sans AMM', en: 'No MA' })}</StatusBadge>
       )}
       {row.expiringCount > 0 ? (
-        <StatusBadge tone={TONE_BADGE[row.expiringTone]}>
+        <StatusBadge tone={KPI_BADGE_TONE[row.expiringTone]}>
           <Clock3 />
           {t({
             fr: `${row.expiringCount} à renouveler`,
