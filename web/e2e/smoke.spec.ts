@@ -34,7 +34,7 @@ test('< lg : la barre latérale passe en menu ☰ (tiroir) et navigue', async ({
   // Viewport mobile (< lg = 1024) : la barre latérale est masquée, un ☰ ouvre la nav en tiroir.
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/catalogue')
-  await expect(page.getByRole('heading', { level: 1, name: 'Catalogue' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Produits' })).toBeVisible()
 
   // Tiroir fermé : aucune « Navigation principale » dans l'arbre d'accessibilité (aside en display:none,
   // tiroir Radix démonté). Le bouton ☰ est lui visible.
