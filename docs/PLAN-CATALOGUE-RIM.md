@@ -24,7 +24,16 @@
 > localStorage) + **hub Catalogue** (sous-nav Produits/Organisations/Autorités) + **liste Organisations**
 > (agrégations produits/docs + drapeaux pays AMM + recherche) + **fiche Organisation** (rôles, pays/adresse/GMP
 > éditables → Monitor, produits liés). CI 6/6 verte, recette navigateur PROD faite (backfill → 2 orgs dérivées
-> de 4 produits, FK + parties synchronisées côté serveur, 0 doublon). **Reprendre : M5 (Autorités + polish).**
+> de 4 produits, FK + parties synchronisées côté serveur, 0 doublon).
+>
+> **M6 « Cockpit Organisation RA » LIVRÉ EN PROD (2026-06-28, PR #255, FRONT-ONLY, 0 migration).**
+> Fiche org **pilotée par rôle**, réutilise la politique de validité UNIQUE (`expiringDocs`/`expiryTone`
+> = dashboard/Monitor) : panneau **Portefeuille d'AMM** (total/actives/à renouveler/expirées + par pays,
+> au rôle titulaire) + panneau **Validité des pièces** (GMP/ML/AMM/CoPP/FSC/CoA, badges 🟢/🟠/🔴 + compte
+> à rebours) + badges d'exception sur la liste. Réponse aux questions RA CEO (un MAH pur n'affiche pas de
+> GMP ; le fabricant suit la validité de ses pièces). Recette prod OK. **Décisions RA ouvertes (post-pilotes) :
+> hub à KPI cards par rôle (garder l'entité unique à rôles) + mode Agence multi-clients.** **Reprendre :
+> M5 (Autorités + polish).**
 
 ## L'idée (validée CEO via mockup)
 
