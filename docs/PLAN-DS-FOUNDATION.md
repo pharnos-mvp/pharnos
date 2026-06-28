@@ -4,11 +4,13 @@
 > [PLAN-LANCEMENT.md](PLAN-LANCEMENT.md) ; il met en œuvre le contrat de
 > [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md). Ne remplace pas `PLAN.md` (vision).
 >
-> **Statut : M0 + M1 IMPLÉMENTÉS → PR au GATE CEO** (non mergé). Fondation : variante `Button primary`
-> bleue, primitive `ListRow`, `Page` (24 px en-tête), `useHideTopbarSearch` (1 recherche/écran). Produits
-> migré 100 % primitives (`catalogue-list.css` supprimé). Dashboard + cockpit **inchangés** (additif).
-> Recette : captures clair/sombre/FR-EN + dashboard inchangé ; CI 6/6 + budget tenu. **Déroulé M2–M10
-> seulement après signature.**
+> **Statut : M0 + M1 LIVRÉS EN PROD — gate CEO signé** (PR #249 squash `2619ae4`, Deploy ✅, 2026-06-28).
+> Fondation : variante `Button primary` bleue, primitive `ListRow`, `Page` (24 px en-tête),
+> `useHideTopbarSearch` (1 recherche/écran), **liste Produits sur canvas `#f9fafb`**. Produits migré
+> 100 % primitives (`catalogue-list.css` supprimé). Dashboard + cockpit **inchangés** (additif).
+> **Recette en VRAI Chrome (compte Glory Pharma, vraies données)** : canvas `rgb(249,250,251)` clair +
+> transparent→canvas sombre + anneau de focus clavier OK ; CI 6/6 + budget 133,6/135.
+> **Reste : déroulé M2–M10** (chaque surface = 1 PR + review, voir tableau §5).
 
 ## 0. Pourquoi (le problème, prouvé dans le code)
 La DA premium validée (Dashboard, 2026-06-27) n'est **pas** componentisée : elle vit en **CSS
