@@ -11,7 +11,7 @@ CTD global.** La **compilation** est le livrable métré (pas le brouillon). On 
 full-publishing (moat des incumbents) — on reste le meilleur sur le Module 1 régional + l'assistance IA
 zéro-hallucination. Détail : [PLAN-COMPILATION-METERING.md](PLAN-COMPILATION-METERING.md).
 
-## 0. Où on en est (MAJ 2026-06-25)
+## 0. Où on en est (MAJ 2026-06-28)
 Tout **H → M (+O)** est en prod. **Depuis le 2026-06-16** :
 - **Modèle features 3 états** (Masquée / Vitrine / Activée) god-mode — PR #179, migration `0038`.
 - **Virage « compilation = livrable métré » + offline privé par org** — P1 **M1→M3 livrés** (PR #181/#182/#183/#184,
@@ -50,8 +50,15 @@ Tout **H → M (+O)** est en prod. **Depuis le 2026-06-16** :
   (compte hors des 10 tuiles) ; #6 skeleton de chargement du dashboard ; **#7 pluriels EN (« 1 countries »)
   → LOT 12 i18n**. **#8 résolu** : ce sont les primitives + le Catalogue qui convergent VERS le dashboard
   (cf. [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md)).
+- **LOT 2 Catalogue — RIM COMPLET (M1→M6) livré en prod (2026-06-28)** : refonte premium (cockpit/liste DA)
+  **+** référentiel maître **Produits ↔ Organisations (à rôles) ↔ Autorités** — modèle `parties` (migration `0045`,
+  RLS/pgTAP/sync), auto-populate « 0 ressaisie » + hub, **cockpit Organisation RA** (validité pièces GMP/AMM +
+  portefeuille AMM par pays, réutilise la politique Monitor), **Autorités** (agences NMRA curées + exigences
+  nationales). PR #252→#258, recettes navigateur prod. **⚠️ Cadrage : Dashboard (LOT 3) + Catalogue (LOT 2)
+  font partie du MÊME projet de refonte complète de l'app ([PLAN-LANCEMENT.md](PLAN-LANCEMENT.md)) qui se
+  poursuit par les surfaces restantes puis la refonte du LANDING (LOT 11)** — pas des chantiers isolés.
 
-**Santé** : ~381 vitest + e2e Playwright, CI 6/6, `npm audit` 0 vuln, advisors **0 ERROR**, budget tenu, backups
+**Santé** : ~441 vitest + e2e Playwright, CI 6/6, `npm audit` 0 vuln, advisors **0 ERROR**, budget tenu, backups
 chiffrés + restore drill, uptime + alertes, **0 €**. Clé `age` rangée hors-ligne (2026-06-20).
 
 **Le seul jalon roadmap restant = N4 (gate GO-LIVE).** Le reste (Phase 0 polish + Phase 2 backlog + horizon)
@@ -97,7 +104,7 @@ Ordre = valeur × dépendance. Chaque ligne = tranche verticale livrable + recet
 
 | # | Tranche | Pourquoi | Effort |
 |---|---------|----------|--------|
-| ★ | **Refonte UX de l'app (uniformité)** + **Landing premium** | Décision CEO 2026-06-25 — **la dernière ligne droite**. Design-system unifié + parcours sur toutes les surfaces, puis landing premium. Absorbe #1 (erreurs) et #4 (landing). **Roadmap ordonnée : [PLAN-LANCEMENT.md](PLAN-LANCEMENT.md).** | ~10–14 s |
+| ★ | **Refonte UX de l'app (uniformité)** + **Landing premium** | Décision CEO 2026-06-25 — **la dernière ligne droite**. Design-system unifié + parcours sur toutes les surfaces, puis landing premium. Absorbe #1 (erreurs) et #4 (landing). **Roadmap ordonnée : [PLAN-LANCEMENT.md](PLAN-LANCEMENT.md).** **AVANCEMENT : LOT 1 fondation ✅ · LOT 2 Catalogue ✅ · LOT 3 Dashboard ✅ · LOT 6 Variations ✅ ; LOT 4 Workspace 🟡 ; LOT 5 Templates 🟡 ; restent LOTs 7-10 surfaces → LOT 11 LANDING → LOT 12-13 i18n/recette.** | ~10–14 s (≈ moitié faite) |
 | 1 | **Messages d'erreur actionnables (audit complet)** | Standard *quoi / pourquoi / que faire* + CTA ; priorité aux erreurs d'**offre** (quota IA 429, sièges, **quota de compilation**) = tunnel de conversion. 1er pas livré (#163). | ~0,5–1 session |
 | 2 | **Bibliothèque Templates (couche RIM)** | Onglet sidebar : templates en vigueur + lettres ; l'org sauvegarde ses versions réutilisables, rappelées dans le CTD builder. **= le moat RIM** (≈ content library Veeva). Table `org_templates` offline-first. **Garde-fou : réglementaires read-only, zéro hallucination.** | ~1–2 sessions |
 | 3 | **Corbeille brouillons + Archive enrichie + doc rétention** | Finition rétention GxP (#162) : restore brouillons + purge N j + vue Archive + *Politique de rétention* (argument conformité). | ~0,5 session |
@@ -145,7 +152,8 @@ Ordre = valeur × dépendance. Chaque ligne = tranche verticale livrable + recet
 - **Pilote** : supprimer le produit test « Recette PL3… » du catalogue prod (P0-4).
 
 ## Migrations
-Dernière appliquée = **`0043`** (`storage_bucket_msword` — bucket `documents` accepte `application/msword`,
-posée le 2026-06-25 via MCP). `0042` = `variation_amm_columns` (sync moteur de variation). `0043` = storage_bucket_msword ; `0044` = document_admin_metadata (PR #252). **Reprendre à `0045`.**
-⚠️ Le tracking distant est en **timestamp** (≠ fichiers `0001-0043`) ; toujours `ls supabase/migrations/` avant de
+Dernière appliquée = **`0045`** (`parties` — référentiel Organisations à rôles + FK produits, posée le
+2026-06-28 via MCP). `0043` = `storage_bucket_msword` ; `0044` = `document_admin_metadata` (PR #252) ;
+`0045` = `parties` (PR #253). **Reprendre à `0046`.**
+⚠️ Le tracking distant est en **timestamp** (≠ fichiers `0001-0045`) ; toujours `ls supabase/migrations/` avant de
 numéroter, et appliquer via MCP `apply_migration` (idempotent), pas `supabase db push` à l'aveugle.
