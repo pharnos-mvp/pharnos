@@ -47,7 +47,7 @@ export function ProductFormPage() {
 
   return (
     <Page className="max-w-3xl">
-      <p className="text-muted-foreground -mt-2 text-sm">
+      <p className="text-muted-foreground text-sm">
         {t({
           fr: 'Renseignez le produit en 3 étapes. Tout est enregistré localement et disponible hors-ligne.',
           en: 'Fill in the product in 3 steps. Everything is saved locally and available offline.',
