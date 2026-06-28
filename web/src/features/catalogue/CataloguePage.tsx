@@ -93,7 +93,11 @@ export function CataloguePage() {
 
   const q = params.get('q') ?? ''
   const country = params.get('country') ?? ''
-  const status = (params.get('filter') as StatusFilter) || 'all'
+  // Valider la valeur d'URL : `?filter=garbage` retombe sur 'all' (évite un état
+  // « Réinitialiser » fantôme sans chip actif, atteignable par URL trafiquée / bookmark obsolète).
+  const rawFilter = params.get('filter')
+  const status: StatusFilter =
+    rawFilter === 'expiring' || rawFilter === 'nonconform' ? rawFilter : 'all'
 
   const setParam = (key: string, value: string) =>
     setParams(
@@ -234,17 +238,20 @@ function CatalogueToolbar({
   onReset: () => void
 }) {
   const { t, lang } = useI18n()
-  const chip = (s: StatusFilter, active: boolean, label: string, Icon: typeof Clock3) => (
-    <Button
-      type="button"
-      size="sm"
-      variant={active ? 'default' : 'outline'}
-      onClick={() => onToggleStatus(s)}
-      aria-pressed={active}
-    >
-      <Icon /> {label}
-    </Button>
-  )
+  const chip = (s: StatusFilter, label: string, Icon: typeof Clock3) => {
+    const active = status === s
+    return (
+      <Button
+        type="button"
+        size="sm"
+        variant={active ? 'default' : 'outline'}
+        onClick={() => onToggleStatus(s)}
+        aria-pressed={active}
+      >
+        <Icon /> {label}
+      </Button>
+    )
+  }
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative min-w-0 flex-1 sm:max-w-xs">
@@ -256,6 +263,7 @@ function CatalogueToolbar({
           type="search"
           value={q}
           onChange={(e) => onSearch(e.target.value)}
+          maxLength={100}
           placeholder={t({ fr: 'Rechercher (nom, DCI, ATC…)', en: 'Search (name, INN, ATC…)' })}
           aria-label={t({ fr: 'Rechercher un produit', en: 'Search a product' })}
           className="pl-9"
@@ -276,13 +284,8 @@ function CatalogueToolbar({
         ))}
       </select>
 
-      {chip('expiring', status === 'expiring', t({ fr: 'À renouveler', en: 'Renewals' }), Clock3)}
-      {chip(
-        'nonconform',
-        status === 'nonconform',
-        t({ fr: 'Non conforme', en: 'Non-compliant' }),
-        AlertCircle,
-      )}
+      {chip('expiring', t({ fr: 'À renouveler', en: 'Renewals' }), Clock3)}
+      {chip('nonconform', t({ fr: 'Non conforme', en: 'Non-compliant' }), AlertCircle)}
 
       <div className="text-muted-foreground ml-auto flex items-center gap-2 text-sm">
         <span aria-live="polite">
@@ -366,6 +369,7 @@ function ProductList({ rows }: { rows: CatalogueRow[] }) {
               {row.countries.length > 0 ? (
                 <span
                   className="cat-flags"
+                  role="img"
                   aria-label={row.countries.map((c) => countryLabel(c, lang)).join(', ')}
                 >
                   {row.countries.slice(0, 4).map((c) => (
