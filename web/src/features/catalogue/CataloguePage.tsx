@@ -32,7 +32,7 @@ import { Page } from '@/components/ui/page'
 import { PageHeader } from '@/components/ui/page-header'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { useHideTopbarSearch } from '@/components/layout/topbar-search'
+import { useTopbar } from '@/components/layout/topbar'
 import { KPI_BADGE_TONE } from '@/features/dashboard/dashboard-data'
 import { CountryFlag } from '@/features/dashboard/CountryFlag'
 import { useDossierSync } from '@/features/workspace/use-dossier-sync'
@@ -57,7 +57,7 @@ export function CataloguePage() {
   const orgId = useOrgId()
   useCatalogueSync(orgId)
   useDossierSync(orgId)
-  useHideTopbarSearch() // la page a sa propre recherche → pas de doublon dans le topbar
+  useTopbar({ searchHidden: true }) // la page a sa propre recherche → pas de doublon dans le topbar
   const [params, setParams] = useSearchParams()
 
   const data = useLiveQuery(async () => {
