@@ -19,7 +19,6 @@ export const INFO_DOC_TYPES: DocTypeOption[] = [
   { code: 'notice', label: 'Notice', en: 'Package leaflet' },
   { code: 'labeling', label: 'Étiquetage', en: 'Labeling' },
   { code: 'artwork', label: 'Artwork', en: 'Artwork' },
-  { code: 'coa', label: "COA (Certificat d'analyse)", en: 'CoA (Certificate of Analysis)' },
   { code: 'other_info', label: 'Autre document d’information', en: 'Other product information' },
 ]
 
@@ -43,6 +42,7 @@ export const ADMIN_DOC_TYPES: DocTypeOption[] = [
   { code: 'fsc', label: 'FSC (Free Sale Certificate)', en: 'FSC (Free Sale Certificate)' },
   { code: 'ml', label: "ML (Licence d'Établissement)", en: 'ML (Establishment Licence)' },
   { code: 'contract', label: 'Contrat titulaire–fabricant', en: 'Holder–manufacturer agreement' },
+  { code: 'coa', label: "COA (Certificat d'analyse)", en: 'CoA (Certificate of Analysis)' },
   { code: 'other_admin', label: 'Autre pièce administrative', en: 'Other administrative document' },
 ]
 

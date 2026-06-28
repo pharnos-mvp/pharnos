@@ -24,7 +24,10 @@ async function createDossier(page: Page): Promise<string> {
   await page.goto('/catalogue/nouveau')
   await page.getByLabel('Nom commercial').fill(nom)
   await page.getByLabel('DCI').fill('Substance X')
-  await page.getByRole('button', { name: 'Enregistrer le produit' }).click()
+  // Wizard : le produit est créé à « Terminer » (sessions 2/3 = pièces, vides ici).
+  await page.getByRole('button', { name: 'Suivant' }).click()
+  await page.getByRole('button', { name: 'Suivant' }).click()
+  await page.getByRole('button', { name: 'Terminer' }).click()
   await expect(page).toHaveURL(/\/catalogue$/)
 
   await page.goto('/workspace/nouveau')

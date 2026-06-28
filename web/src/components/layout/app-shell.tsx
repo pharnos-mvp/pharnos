@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTheme } from 'next-themes'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
+  ArrowLeft,
   ArrowUpCircle,
   Bell,
   ClipboardList,
@@ -26,7 +27,7 @@ import { toast } from 'sonner'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { AppFooter } from '@/components/layout/AppFooter'
 import { HeaderSlotContext } from '@/components/layout/header-slot'
-import { TopbarSearchHiddenContext } from '@/components/layout/topbar-search'
+import { TopbarConfigContext, type TopbarConfig } from '@/components/layout/topbar'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -120,13 +121,10 @@ export function AppShell() {
   // place maximale pour la feuille). Réouverture manuelle possible ; en quittant le montage,
   // retour à la préférence enregistrée.
   const inMontage = /^\/workspace\/[^/]+$/.test(location.pathname)
-  // Fond « canvas » gris premium (#f9fafb) — les surfaces « vue d'ensemble » de la DA pour que les
-  // cartes blanches ressortent : dashboard + liste Produits (/catalogue) + fiche produit RIM
-  // (/catalogue/:id, hors /nouveau qui est un formulaire).
+  // Fond « canvas » gris premium (#f9fafb) — les surfaces de la DA où des cartes blanches doivent
+  // ressortir : Dashboard + tout le Catalogue (liste Produits, wizard de création, fiche cockpit).
   const onCanvas =
-    location.pathname.startsWith('/dashboard') ||
-    location.pathname === '/catalogue' ||
-    (/^\/catalogue\/[^/]+$/.test(location.pathname) && !location.pathname.endsWith('/nouveau'))
+    location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/catalogue')
   useEffect(() => {
     // Synchronisation pilotée par la route — exception légitime à set-state-in-effect.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -134,8 +132,9 @@ export function AppShell() {
   }, [inMontage])
   // Contenu injecté par la page courante dans le bandeau (titre du dossier, façon Google Docs).
   const [headerSlot, setHeaderSlot] = useState<ReactNode>(null)
-  // Une page qui a sa propre recherche (ex. Produits) masque la recherche globale du topbar.
-  const [searchHidden, setSearchHidden] = useState(false)
+  // Config de topbar posée par la page courante (titre, bouton retour, recherche masquée) — sans
+  // remplacer langue/thème/notifications (≠ headerSlot plein du cockpit).
+  const [topbar, setTopbar] = useState<TopbarConfig>({})
 
   const meta = (user?.user_metadata ?? {}) as Record<string, string | undefined>
   // « Nom d'admin » : le nom d'utilisateur choisi prime sur prénom+nom (recette CEO).
@@ -367,13 +366,25 @@ export function AppShell() {
             <div className="min-w-0 flex-1">{headerSlot}</div>
           ) : (
             <>
+              {/* Bouton retour optionnel (posé par la page via useTopbar), à gauche du titre. */}
+              {topbar.backTo ? (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t({ fr: 'Retour', en: 'Back' })}
+                  onClick={() => navigate(topbar.backTo as string)}
+                  className="-ml-1 shrink-0"
+                >
+                  <ArrowLeft className="size-4" />
+                </Button>
+              ) : null}
               <div className="font-display min-w-0 flex-1 truncate text-base font-bold">
-                {t(pageTitle)}
+                {topbar.title ?? t(pageTitle)}
               </div>
 
               {/* Recherche globale — placeholder propre (non câblée → toast « bientôt »). Masquée
                   sur les pages qui ont leur propre recherche (évite deux champs sur un écran). */}
-              {searchHidden ? null : (
+              {topbar.searchHidden ? null : (
                 <button
                   type="button"
                   onClick={() =>
@@ -629,7 +640,7 @@ export function AppShell() {
           )}
         >
           <HeaderSlotContext.Provider value={setHeaderSlot}>
-            <TopbarSearchHiddenContext.Provider value={setSearchHidden}>
+            <TopbarConfigContext.Provider value={setTopbar}>
               <ErrorBoundary key={location.pathname}>
                 <Suspense
                   fallback={
@@ -641,7 +652,7 @@ export function AppShell() {
                   <Outlet />
                 </Suspense>
               </ErrorBoundary>
-            </TopbarSearchHiddenContext.Provider>
+            </TopbarConfigContext.Provider>
           </HeaderSlotContext.Provider>
         </main>
         {/* Pied de page SOBRE — fine barre persistante SOUS le contenu, sur TOUTES les pages

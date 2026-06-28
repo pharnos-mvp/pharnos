@@ -11,9 +11,13 @@ test('crée un produit et le retrouve dans le catalogue', async ({ page }) => {
   await page.getByRole('link', { name: 'Nouveau produit' }).first().click()
   await expect(page).toHaveURL(/\/catalogue\/nouveau$/)
 
+  // Wizard 3 sessions : Identification → (Suivant, crée le produit) → Documents → Pièces admin → Terminer.
   await page.getByLabel('Nom commercial').fill(nom)
   await page.getByLabel('DCI').fill('Paracétamol')
-  await page.getByRole('button', { name: 'Enregistrer le produit' }).click()
+  await page.getByRole('button', { name: 'Suivant' }).click()
+  await expect(page.getByRole('button', { name: 'Précédent' })).toBeVisible() // session 2 rendue
+  await page.getByRole('button', { name: 'Suivant' }).click()
+  await page.getByRole('button', { name: 'Terminer' }).click()
 
   // Retour à la liste : le produit est visible (carte-ligne premium — le nom est un
   // lien vers la fiche cockpit, accessible name = nom exact).

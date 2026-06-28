@@ -21,6 +21,10 @@ export interface AddDocumentInput {
   /** AMM : date d'émission (octroi) + N° d'AMM. */
   issueDate?: string | null
   reference?: string | null
+  /** Métadonnées pièce admin (wizard) : titulaire figurant sur la pièce · pays (AMM) · N° de lot (COA). */
+  holder?: string | null
+  country?: string | null
+  batchNumber?: string | null
 }
 
 /** Documents actifs d'un produit (optionnellement filtrés par catégorie). */
@@ -66,6 +70,9 @@ export async function addDocument(
     expiryDate: input.expiryDate ?? null,
     issueDate: input.issueDate ?? null,
     reference: input.reference ?? null,
+    holder: input.holder ?? null,
+    country: input.country ?? null,
+    batchNumber: input.batchNumber ?? null,
     status: 'active',
     filePath: null,
     uploaded: false,

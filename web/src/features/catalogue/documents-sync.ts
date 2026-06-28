@@ -25,6 +25,10 @@ export interface DocumentRow {
   // Pièce AMM (additif `0042`) : date d'octroi + N° officiel — null pour les autres pièces.
   issue_date: string | null
   reference: string | null
+  // Métadonnées pièces admin (additif `0044`) : titulaire / pays (AMM) / N° de lot (COA).
+  holder: string | null
+  country: string | null
+  batch_number: string | null
   status: string
   created_at: string
   updated_at: string
@@ -43,6 +47,9 @@ export function documentToRow(d: DocumentRecord): DocumentRow {
     expiry_date: d.expiryDate,
     issue_date: d.issueDate ?? null,
     reference: d.reference ?? null,
+    holder: d.holder ?? null,
+    country: d.country ?? null,
+    batch_number: d.batchNumber ?? null,
     status: d.status,
     created_at: d.createdAt,
     updated_at: d.updatedAt,
@@ -66,6 +73,9 @@ export function rowToDocument(r: DocumentRow): DocumentRecord {
     expiryDate: r.expiry_date,
     issueDate: r.issue_date,
     reference: r.reference,
+    holder: r.holder ?? null,
+    country: r.country ?? null,
+    batchNumber: r.batch_number ?? null,
     status: r.status,
     filePath: r.file_path,
     uploaded: true,
