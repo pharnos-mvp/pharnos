@@ -18,6 +18,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { useHeaderSlot } from '@/components/layout/header-slot'
+import { LangThemeControls } from '@/components/layout/lang-theme-controls'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -188,7 +189,14 @@ export function ProductCockpit() {
         >
           <ArrowLeft className="size-4" />
         </Button>
-        <span className="font-display min-w-0 truncate text-base font-bold">{productName}</span>
+        <span className="font-display min-w-0 flex-1 truncate text-base font-bold">
+          {productName}
+        </span>
+        {/* Sélecteurs Langue/Thème — la fiche pose un headerSlot plein qui sinon masquerait ces
+            contrôles. Réutilise la primitive partagée (DRY). Sous lg : disponibles via le tiroir ☰. */}
+        <div className="hidden shrink-0 items-center gap-2 lg:flex">
+          <LangThemeControls />
+        </div>
       </div>,
     )
     return () => setHeaderSlot(null)

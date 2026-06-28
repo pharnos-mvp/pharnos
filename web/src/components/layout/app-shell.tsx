@@ -27,6 +27,7 @@ import { toast } from 'sonner'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { AppFooter } from '@/components/layout/AppFooter'
 import { HeaderSlotContext } from '@/components/layout/header-slot'
+import { LangThemeControls } from '@/components/layout/lang-theme-controls'
 import { TopbarConfigContext, type TopbarConfig } from '@/components/layout/topbar'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
@@ -405,27 +406,7 @@ export function AppShell() {
 
               {/* Langue (câblée) + thème (câblé) + notifications (placeholder) — desktop. */}
               <div className="hidden items-center gap-2 lg:flex">
-                <button
-                  type="button"
-                  onClick={() => setLang(lang === 'fr' ? 'en' : 'fr')}
-                  aria-label={t({ fr: 'Changer de langue', en: 'Change language' })}
-                  className="hover:bg-accent rounded-md border px-2.5 py-1 text-xs font-medium"
-                >
-                  {lang === 'fr' ? '🇫🇷 FR' : '🇬🇧 EN'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-                  aria-label={t({ fr: 'Changer de thème', en: 'Toggle theme' })}
-                  title={t({ fr: 'Thème clair / sombre', en: 'Light / dark theme' })}
-                  className="text-muted-foreground hover:bg-accent inline-flex size-9 items-center justify-center rounded-md border"
-                >
-                  {resolvedTheme === 'dark' ? (
-                    <Sun className="size-4" />
-                  ) : (
-                    <Moon className="size-4" />
-                  )}
-                </button>
+                <LangThemeControls />
                 <button
                   type="button"
                   onClick={() =>
