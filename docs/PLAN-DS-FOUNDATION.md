@@ -10,7 +10,9 @@
 > 100 % primitives (`catalogue-list.css` supprimé). Dashboard + cockpit **inchangés** (additif).
 > **Recette en VRAI Chrome (compte Glory Pharma, vraies données)** : canvas `rgb(249,250,251)` clair +
 > transparent→canvas sombre + anneau de focus clavier OK ; CI 6/6 + budget 133,6/135.
-> **Reste : déroulé M2–M10** (chaque surface = 1 PR + review, voir tableau §5).
+> **M2 LIVRÉ EN PROD** (PR #250 squash `82f6ac6`, Deploy ✅, 2026-06-28) : cockpit converge — `BLUE_BTN`
+> éliminé partout (→ `Button variant="primary"`) + map `KPI_BADGE_TONE` partagée ; **refactor invisible**
+> (cockpit golden master inchangé, vérifié vrai Chrome). **Reste : déroulé M3–M10** (1 PR + review/surface).
 
 ## 0. Pourquoi (le problème, prouvé dans le code)
 La DA premium validée (Dashboard, 2026-06-27) n'est **pas** componentisée : elle vit en **CSS
@@ -67,7 +69,7 @@ pour le **reproduire**, puis le Dashboard migre dessus **sans changement à l'œ
 | **M0** | **Fondation** : tokens formalisés + `Button primary` + `Card`/`ListRow`/`Kpi` + `PageHeader` v2 + `SearchToolbar` (additif, rien ne bouge encore) | ~1 s | — |
 | **M1** | **Produits = surface de référence** (composée 100 % primitives, `BLUE_BTN`/CSS bespoke supprimés, 1 recherche, 24 px) **+ règles Shell** (titre/recherche/espacement) | ~0,5–1 s | **🚦 GATE CEO** |
 | — | *Fin du LOT 1. Le déroulé ci-dessous = LOT 2, après le gate.* | | |
-| M2 | **Cockpit produit** → primitives (tue son `BLUE_BTN`/`.rim-cockpit`) | ~0,5–1 s | a11y+review |
+| **M2 ✅** | **Cockpit produit** : `BLUE_BTN` → `Button variant="primary"` + map `KPI_BADGE_TONE` partagée. **Refactor INVISIBLE** (golden master inchangé, vérifié vrai Chrome). PR #250. *`.rim-cockpit`/`.doc-row` gardés (convergence visuelle = OK CEO requis).* | ~0,5 s | ✅ **LIVRÉ PROD** |
 | M3 | **Fiche création produit** (DA du form ; wizard = M4 catalogue, hors lot) | ~0,5 s | a11y+review |
 | M4 | **Dashboard → primitives** (recâblage, **0 changement visuel**, retrait `dashboard-mockup.css`) — pixel-compare | ~0,5–1 s | a11y+review |
 | M5 | **Workspace (liste) + Nouveau dossier + Roadmap** (chrome) | ~1 s | a11y+review |
