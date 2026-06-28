@@ -65,6 +65,14 @@ export interface DocumentRecord {
   issueDate?: string | null
   /** Référence / N° officiel de la pièce (ex. N° d'AMM « AMM_2015_7457 »). Optionnel (additif). */
   reference?: string | null
+  /**
+   * Métadonnées de pièce administrative (wizard création). LOCAL-ONLY tant que la migration `0044`
+   * n'est pas posée : `documentToRow` (sync) ne les pousse pas encore → aucune casse synchro.
+   * `holder` = titulaire figurant sur la pièce · `country` = pays (AMM) · `batchNumber` = N° de lot (COA).
+   */
+  holder?: string | null
+  country?: string | null
+  batchNumber?: string | null
   status: string
   /** Chemin Storage une fois le blob téléversé ; null tant que local-only. */
   filePath: string | null

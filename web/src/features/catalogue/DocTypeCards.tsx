@@ -1,0 +1,316 @@
+import { useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { Check, ChevronDown, FileText, Loader2, Plus, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
+
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { COUNTRIES, countryLabel } from '@/features/workspace/dossier-constants'
+import type { DocumentCategory, DocumentRecord } from '@/lib/db'
+import { UPLOAD_ACCEPT } from '@/lib/files'
+import { cn } from '@/lib/utils'
+import { useI18n } from '@/lib/i18n-context'
+import { docTypesFor, requiresExpiry, type DocTypeOption } from './doc-types'
+import { addDocument, deleteDocument, listDocuments } from './documents-repository'
+import { syncDocuments } from './documents-sync'
+
+/**
+ * Cartes « un type de document = une carte » (wizard création produit). Clic → la carte se déplie
+ * pour révéler le fichier + (pièces admin) les métadonnées. Pré-construit toutes les cartes de la
+ * catégorie ; un compteur indique combien de pièces de ce type ont déjà été ajoutées.
+ */
+export function DocTypeCards({
+  orgId,
+  productId,
+  category,
+}: {
+  orgId: string
+  productId: string
+  category: DocumentCategory
+}) {
+  const docs = useLiveQuery(() => listDocuments(productId, category), [productId, category])
+  const types = docTypesFor(category)
+  const [openType, setOpenType] = useState<string | null>(null)
+  const countOf = (code: string) => (docs ?? []).filter((d) => d.docType === code).length
+
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {types.map((type) => (
+        <DocCard
+          key={type.code}
+          type={type}
+          category={category}
+          orgId={orgId}
+          productId={productId}
+          count={countOf(type.code)}
+          docs={(docs ?? []).filter((d) => d.docType === type.code)}
+          open={openType === type.code}
+          onToggle={() => setOpenType((o) => (o === type.code ? null : type.code))}
+        />
+      ))}
+    </div>
+  )
+}
+
+function DocCard({
+  type,
+  category,
+  orgId,
+  productId,
+  count,
+  docs,
+  open,
+  onToggle,
+}: {
+  type: DocTypeOption
+  category: DocumentCategory
+  orgId: string
+  productId: string
+  count: number
+  docs: DocumentRecord[]
+  open: boolean
+  onToggle: () => void
+}) {
+  const { t, lang } = useI18n()
+  const isAdmin = category === 'admin'
+  const isAmm = type.code === 'amm'
+  const isCoa = type.code === 'coa'
+  const needsExpiry = requiresExpiry(type.code)
+
+  const [file, setFile] = useState<File | null>(null)
+  const [issueDate, setIssueDate] = useState('')
+  const [expiryDate, setExpiryDate] = useState('')
+  const [holder, setHolder] = useState('')
+  const [country, setCountry] = useState('')
+  const [reference, setReference] = useState('')
+  const [batchNumber, setBatchNumber] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [resetKey, setResetKey] = useState(0)
+
+  function reset() {
+    setFile(null)
+    setIssueDate('')
+    setExpiryDate('')
+    setHolder('')
+    setCountry('')
+    setReference('')
+    setBatchNumber('')
+    setResetKey((k) => k + 1)
+  }
+
+  async function handleAdd() {
+    if (!file) {
+      toast.error(t({ fr: 'Sélectionne un fichier', en: 'Select a file' }))
+      return
+    }
+    if (needsExpiry && !expiryDate) {
+      toast.error(
+        t({
+          fr: 'Date d’expiration requise pour cette pièce (vérifiée par Monitor).',
+          en: 'Expiry date required for this document (checked by Monitor).',
+        }),
+      )
+      return
+    }
+    setBusy(true)
+    try {
+      await addDocument(orgId, productId, {
+        category,
+        docType: type.code,
+        file,
+        language: 'fr',
+        expiryDate: expiryDate || null,
+        issueDate: issueDate || null,
+        reference: isAmm ? reference.trim() || null : null,
+        holder: isAdmin ? holder.trim() || null : null,
+        country: isAmm ? country || null : null,
+        batchNumber: isCoa ? batchNumber.trim() || null : null,
+      })
+      void syncDocuments(orgId)
+      toast.success(t({ fr: 'Document ajouté', en: 'Document added' }))
+      reset()
+    } catch (error) {
+      toast.error(t({ fr: "Échec de l'ajout", en: 'Upload failed' }), {
+        description: error instanceof Error ? error.message : undefined,
+      })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div
+      className={cn(
+        'bg-card rounded-xl border transition-all',
+        open ? 'shadow-md md:col-span-2' : 'hover:border-muted-foreground/25 hover:shadow-sm',
+      )}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-center gap-3 px-4 py-3 text-left"
+      >
+        <span className="bg-info-subtle text-info-subtle-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
+          <FileText className="size-4" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium">
+            {t({ fr: type.label, en: type.en ?? type.label })}
+          </span>
+          <span className="text-muted-foreground text-xs">
+            {count > 0
+              ? t({ fr: `${count} pièce(s) ajoutée(s)`, en: `${count} added` })
+              : t({ fr: 'Aucune pièce', en: 'None yet' })}
+          </span>
+        </span>
+        {count > 0 ? (
+          <StatusBadge tone="success" className="shrink-0">
+            <Check /> {count}
+          </StatusBadge>
+        ) : null}
+        <ChevronDown
+          className={cn(
+            'text-muted-foreground size-4 shrink-0 transition-transform',
+            open ? '' : '-rotate-90',
+          )}
+        />
+      </button>
+
+      {open ? (
+        <div className="space-y-4 border-t px-4 py-4">
+          {docs.length > 0 ? (
+            <ul className="divide-y rounded-lg border">
+              {docs.map((d) => (
+                <li key={d.id} className="flex items-center gap-2 p-2.5 text-sm">
+                  <FileText className="text-muted-foreground size-4 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate" title={d.fileName}>
+                    {d.fileName}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t({ fr: 'Supprimer', en: 'Delete' })}
+                    onClick={() => {
+                      void deleteDocument(d.id).then(() => void syncDocuments(orgId))
+                    }}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {isAmm ? (
+              <Field label={t({ fr: 'N° d’AMM', en: 'MA number' })}>
+                <Input
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                  placeholder={t({ fr: 'Ex. AMM_2015_7457', en: 'e.g. MA_2015_7457' })}
+                />
+              </Field>
+            ) : null}
+
+            {isAmm ? (
+              <Field label={t({ fr: 'Pays', en: 'Country' })}>
+                <select
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  className="border-input dark:bg-input/30 focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
+                >
+                  <option value="">{t({ fr: 'Sélectionner…', en: 'Select…' })}</option>
+                  {COUNTRIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {countryLabel(c.code, lang)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            ) : null}
+
+            {isCoa ? (
+              <Field label={t({ fr: 'Batch N°', en: 'Batch No.' })}>
+                <Input
+                  value={batchNumber}
+                  onChange={(e) => setBatchNumber(e.target.value)}
+                  placeholder={t({ fr: 'Ex. LOT-2026-014', en: 'e.g. LOT-2026-014' })}
+                />
+              </Field>
+            ) : null}
+
+            {isAdmin ? (
+              <Field label={t({ fr: 'Date de délivrance', en: 'Issue date' })}>
+                <Input
+                  type="date"
+                  value={issueDate}
+                  onChange={(e) => setIssueDate(e.target.value)}
+                />
+              </Field>
+            ) : null}
+
+            {isAdmin ? (
+              <Field
+                label={t({
+                  fr: needsExpiry ? "Date d'expiration *" : "Date d'expiration",
+                  en: needsExpiry ? 'Expiry date *' : 'Expiry date',
+                })}
+              >
+                <Input
+                  type="date"
+                  value={expiryDate}
+                  onChange={(e) => setExpiryDate(e.target.value)}
+                />
+              </Field>
+            ) : null}
+
+            {isAdmin ? (
+              <Field label={t({ fr: 'Titulaire', en: 'Holder' })}>
+                <Input
+                  value={holder}
+                  onChange={(e) => setHolder(e.target.value)}
+                  placeholder={t({ fr: 'Ex. Sahel Pharma SARL', en: 'e.g. Sahel Pharma SARL' })}
+                />
+              </Field>
+            ) : null}
+
+            <Field label={t({ fr: 'Fichier', en: 'File' })} className="sm:col-span-2">
+              <Input
+                key={resetKey}
+                type="file"
+                accept={UPLOAD_ACCEPT}
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              />
+            </Field>
+          </div>
+
+          <Button type="button" variant="primary" onClick={() => void handleAdd()} disabled={busy}>
+            {busy ? <Loader2 className="animate-spin" /> : <Plus />}
+            {t({ fr: 'Ajouter la pièce', en: 'Add document' })}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function Field({
+  label,
+  className,
+  children,
+}: {
+  label: string
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className={cn('space-y-1.5', className)}>
+      <Label>{label}</Label>
+      {children}
+    </div>
+  )
+}

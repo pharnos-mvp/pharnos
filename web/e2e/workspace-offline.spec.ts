@@ -24,8 +24,9 @@ async function createDossier(page: Page): Promise<string> {
   await page.goto('/catalogue/nouveau')
   await page.getByLabel('Nom commercial').fill(nom)
   await page.getByLabel('DCI').fill('Substance X')
-  await page.getByRole('button', { name: 'Enregistrer le produit' }).click()
-  await expect(page).toHaveURL(/\/catalogue$/)
+  // Wizard : « Suivant » (session 1) crée le produit ; la session 2 (bouton « Précédent ») confirme.
+  await page.getByRole('button', { name: 'Suivant' }).click()
+  await expect(page.getByRole('button', { name: 'Précédent' })).toBeVisible()
 
   await page.goto('/workspace/nouveau')
   await page.getByRole('combobox').first().click()
