@@ -165,6 +165,15 @@ export function regulatoryProfileFor(country: string): RegulatoryProfile | undef
   return REG_PROFILES[country]
 }
 
+/**
+ * Agences nationales CURÉES (zéro hallucination) — source du référentiel « Autorités » du Catalogue.
+ * Renvoie toutes les entrées de `AGENCIES` (ordre d'insertion : UEMOA puis CEDEAO hors-UEMOA) ;
+ * certaines (NG, GW) peuvent avoir `directeur`/`adresse` vides, à compléter.
+ */
+export function listAgencies(): { code: string; agency: AgencyInfo }[] {
+  return Object.entries(AGENCIES).map(([code, agency]) => ({ code, agency }))
+}
+
 export function agencyFor(country: string): AgencyInfo {
   return (
     AGENCIES[country] ?? {
