@@ -27,10 +27,12 @@ import {
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
+import { ListRow, ListRowActions, ListRowIcon, ListRowLink } from '@/components/ui/list-row'
 import { Page } from '@/components/ui/page'
 import { PageHeader } from '@/components/ui/page-header'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { useHideTopbarSearch } from '@/components/layout/topbar-search'
 import type { KpiTone } from '@/features/dashboard/dashboard-data'
 import { CountryFlag } from '@/features/dashboard/CountryFlag'
 import { useDossierSync } from '@/features/workspace/use-dossier-sync'
@@ -49,7 +51,6 @@ import { ProductIcon } from './product-icon'
 import { deleteProduct } from './repository'
 import { syncProducts } from './sync'
 import { useCatalogueSync } from './use-catalogue-sync'
-import './catalogue-list.css'
 
 /** Tonalité de santé (KPI) → tonalité de badge sémantique. */
 const TONE_BADGE: Record<KpiTone, 'neutral' | 'success' | 'warning' | 'danger' | 'info'> = {
@@ -65,6 +66,7 @@ export function CataloguePage() {
   const orgId = useOrgId()
   useCatalogueSync(orgId)
   useDossierSync(orgId)
+  useHideTopbarSearch() // la page a sa propre recherche → pas de doublon dans le topbar
   const [params, setParams] = useSearchParams()
 
   const data = useLiveQuery(async () => {
@@ -130,13 +132,13 @@ export function CataloguePage() {
   return (
     <Page>
       <PageHeader
-        title={t({ fr: 'Catalogue', en: 'Catalogue' })}
+        title={t({ fr: 'Produits', en: 'Products' })}
         description={t({
           fr: 'Le référentiel de vos produits — santé réglementaire en un coup d’œil.',
           en: 'Your product master data — regulatory health at a glance.',
         })}
         actions={
-          <Button asChild>
+          <Button asChild variant="primary">
             <Link to="/catalogue/nouveau">
               <Plus /> {t({ fr: 'Nouveau produit', en: 'New product' })}
             </Link>
@@ -155,7 +157,7 @@ export function CataloguePage() {
             en: 'Save your first product. It will be available offline and feed the CTD Workspace, translation and validity tracking.',
           })}
           action={
-            <Button asChild>
+            <Button asChild variant="primary">
               <Link to="/catalogue/nouveau">
                 <Plus /> {t({ fr: 'Nouveau produit', en: 'New product' })}
               </Link>
@@ -342,54 +344,50 @@ function HealthBadges({ row }: { row: CatalogueRow }) {
 function ProductList({ rows }: { rows: CatalogueRow[] }) {
   const { lang } = useI18n()
   return (
-    <div className="pharnos-cat">
-      <div className="cat-list" role="list">
-        {rows.map(({ product: p, ...row }) => {
-          const sub = [p.dci, p.dosage, p.forme].filter(Boolean).join(' · ')
-          return (
-            <div className="cat-row" role="listitem" key={p.id}>
-              <span className="cat-ico" aria-hidden>
-                <ProductIcon forme={p.forme} className="size-5" />
-              </span>
-              <div className="cat-main">
-                <Link to={`/catalogue/${p.id}`} className="cat-name" title={p.nomCommercial}>
-                  {p.nomCommercial}
-                </Link>
-                {sub ? (
-                  <div className="cat-sub" title={sub}>
-                    {sub}
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="cat-health">
-                <HealthBadges row={{ product: p, ...row }} />
-              </div>
-
-              {row.countries.length > 0 ? (
-                <span
-                  className="cat-flags"
-                  role="img"
-                  aria-label={row.countries.map((c) => countryLabel(c, lang)).join(', ')}
-                >
-                  {row.countries.slice(0, 4).map((c) => (
-                    <CountryFlag key={c} code={c} size={16} />
-                  ))}
-                  {row.countries.length > 4 ? (
-                    <span className="text-muted-foreground text-xs">
-                      +{row.countries.length - 4}
-                    </span>
-                  ) : null}
-                </span>
+    <div className="flex flex-col gap-2" role="list">
+      {rows.map(({ product: p, ...row }) => {
+        const sub = [p.dci, p.dosage, p.forme].filter(Boolean).join(' · ')
+        return (
+          <ListRow role="listitem" key={p.id}>
+            <ListRowIcon>
+              <ProductIcon forme={p.forme} className="size-5" />
+            </ListRowIcon>
+            <div className="min-w-0 flex-1">
+              <ListRowLink to={`/catalogue/${p.id}`} title={p.nomCommercial}>
+                {p.nomCommercial}
+              </ListRowLink>
+              {sub ? (
+                <div className="text-muted-foreground mt-0.5 truncate text-xs" title={sub}>
+                  {sub}
+                </div>
               ) : null}
-
-              <div className="cat-actions">
-                <DeleteProductDialog id={p.id} name={p.nomCommercial} />
-              </div>
             </div>
-          )
-        })}
-      </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-1.5">
+              <HealthBadges row={{ product: p, ...row }} />
+            </div>
+
+            {row.countries.length > 0 ? (
+              <span
+                className="hidden shrink-0 items-center gap-1 sm:flex"
+                role="img"
+                aria-label={row.countries.map((c) => countryLabel(c, lang)).join(', ')}
+              >
+                {row.countries.slice(0, 4).map((c) => (
+                  <CountryFlag key={c} code={c} size={16} />
+                ))}
+                {row.countries.length > 4 ? (
+                  <span className="text-muted-foreground text-xs">+{row.countries.length - 4}</span>
+                ) : null}
+              </span>
+            ) : null}
+
+            <ListRowActions>
+              <DeleteProductDialog id={p.id} name={p.nomCommercial} />
+            </ListRowActions>
+          </ListRow>
+        )
+      })}
     </div>
   )
 }

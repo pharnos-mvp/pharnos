@@ -10,7 +10,7 @@ test('fonctionne hors-ligne après le premier chargement (précache PWA)', async
   context,
 }) => {
   await page.goto('/catalogue')
-  await expect(page.getByRole('heading', { level: 1, name: 'Catalogue' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Produits' })).toBeVisible()
 
   // Attendre que le service worker soit actif (install/précache terminés).
   await page.waitForFunction(async () => {
@@ -22,7 +22,7 @@ test('fonctionne hors-ligne après le premier chargement (précache PWA)', async
   // Couper le réseau et recharger : l'app doit se servir entièrement du cache.
   await context.setOffline(true)
   await page.reload()
-  await expect(page.getByRole('heading', { level: 1, name: 'Catalogue' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Produits' })).toBeVisible()
 
   // La navigation client (route lazy précachée) fonctionne toujours hors-ligne.
   await page

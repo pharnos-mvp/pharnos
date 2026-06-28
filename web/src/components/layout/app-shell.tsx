@@ -26,6 +26,7 @@ import { toast } from 'sonner'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { AppFooter } from '@/components/layout/AppFooter'
 import { HeaderSlotContext } from '@/components/layout/header-slot'
+import { TopbarSearchHiddenContext } from '@/components/layout/topbar-search'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -119,9 +120,12 @@ export function AppShell() {
   // place maximale pour la feuille). Réouverture manuelle possible ; en quittant le montage,
   // retour à la préférence enregistrée.
   const inMontage = /^\/workspace\/[^/]+$/.test(location.pathname)
-  // Fond « canvas » gris premium : dashboard + fiche produit RIM (/catalogue/:id, hors /nouveau).
+  // Fond « canvas » gris premium (#f9fafb) — les surfaces « vue d'ensemble » de la DA pour que les
+  // cartes blanches ressortent : dashboard + liste Produits (/catalogue) + fiche produit RIM
+  // (/catalogue/:id, hors /nouveau qui est un formulaire).
   const onCanvas =
     location.pathname.startsWith('/dashboard') ||
+    location.pathname === '/catalogue' ||
     (/^\/catalogue\/[^/]+$/.test(location.pathname) && !location.pathname.endsWith('/nouveau'))
   useEffect(() => {
     // Synchronisation pilotée par la route — exception légitime à set-state-in-effect.
@@ -130,6 +134,8 @@ export function AppShell() {
   }, [inMontage])
   // Contenu injecté par la page courante dans le bandeau (titre du dossier, façon Google Docs).
   const [headerSlot, setHeaderSlot] = useState<ReactNode>(null)
+  // Une page qui a sa propre recherche (ex. Produits) masque la recherche globale du topbar.
+  const [searchHidden, setSearchHidden] = useState(false)
 
   const meta = (user?.user_metadata ?? {}) as Record<string, string | undefined>
   // « Nom d'admin » : le nom d'utilisateur choisi prime sur prénom+nom (recette CEO).
@@ -365,23 +371,26 @@ export function AppShell() {
                 {t(pageTitle)}
               </div>
 
-              {/* Recherche — placeholder propre (non câblée → toast « bientôt »). */}
-              <button
-                type="button"
-                onClick={() =>
-                  toast(t({ fr: 'Recherche bientôt disponible.', en: 'Search coming soon.' }))
-                }
-                aria-label={t({ fr: 'Rechercher (bientôt)', en: 'Search (coming soon)' })}
-                className="bg-background text-muted-foreground hover:border-input hidden h-9 w-60 items-center gap-2 rounded-lg border px-3 text-[13px] md:flex"
-              >
-                <Search className="size-4 shrink-0" />
-                <span className="truncate">
-                  {t({
-                    fr: 'Rechercher produits, documents, pays…',
-                    en: 'Search products, documents, countries…',
-                  })}
-                </span>
-              </button>
+              {/* Recherche globale — placeholder propre (non câblée → toast « bientôt »). Masquée
+                  sur les pages qui ont leur propre recherche (évite deux champs sur un écran). */}
+              {searchHidden ? null : (
+                <button
+                  type="button"
+                  onClick={() =>
+                    toast(t({ fr: 'Recherche bientôt disponible.', en: 'Search coming soon.' }))
+                  }
+                  aria-label={t({ fr: 'Rechercher (bientôt)', en: 'Search (coming soon)' })}
+                  className="bg-background text-muted-foreground hover:border-input hidden h-9 w-60 items-center gap-2 rounded-lg border px-3 text-[13px] md:flex"
+                >
+                  <Search className="size-4 shrink-0" />
+                  <span className="truncate">
+                    {t({
+                      fr: 'Rechercher produits, documents, pays…',
+                      en: 'Search products, documents, countries…',
+                    })}
+                  </span>
+                </button>
+              )}
 
               {/* Langue (câblée) + thème (câblé) + notifications (placeholder) — desktop. */}
               <div className="hidden items-center gap-2 lg:flex">
@@ -620,17 +629,19 @@ export function AppShell() {
           )}
         >
           <HeaderSlotContext.Provider value={setHeaderSlot}>
-            <ErrorBoundary key={location.pathname}>
-              <Suspense
-                fallback={
-                  <div className="text-muted-foreground p-2 text-sm">
-                    {t({ fr: 'Chargement…', en: 'Loading…' })}
-                  </div>
-                }
-              >
-                <Outlet />
-              </Suspense>
-            </ErrorBoundary>
+            <TopbarSearchHiddenContext.Provider value={setSearchHidden}>
+              <ErrorBoundary key={location.pathname}>
+                <Suspense
+                  fallback={
+                    <div className="text-muted-foreground p-2 text-sm">
+                      {t({ fr: 'Chargement…', en: 'Loading…' })}
+                    </div>
+                  }
+                >
+                  <Outlet />
+                </Suspense>
+              </ErrorBoundary>
+            </TopbarSearchHiddenContext.Provider>
           </HeaderSlotContext.Provider>
         </main>
         {/* Pied de page SOBRE — fine barre persistante SOUS le contenu, sur TOUTES les pages
