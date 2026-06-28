@@ -1,6 +1,5 @@
 import { Building2, FlaskConical, Landmark } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
-import { toast } from 'sonner'
 
 import { useI18n } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
@@ -35,17 +34,12 @@ export function CatalogueTabs() {
       >
         <Building2 className="size-4" /> {t({ fr: 'Organisations', en: 'Organizations' })}
       </NavLink>
-      <button
-        type="button"
-        onClick={() =>
-          toast(t({ fr: 'Autorités — bientôt disponible.', en: 'Authorities — coming soon.' }))
-        }
-        // Contraste AA : `text-muted-foreground` plein (≥4,5:1 sur le canvas #f9fafb) ; le « bientôt »
-        // est porté par le toast, pas par une opacité réduite (qui retombait à 2,24:1).
-        className={cn(base, 'text-muted-foreground hover:bg-accent')}
+      <NavLink
+        to="/catalogue/autorites"
+        className={({ isActive }) => cn(base, isActive ? activeCls : inactive)}
       >
         <Landmark className="size-4" /> {t({ fr: 'Autorités', en: 'Authorities' })}
-      </button>
+      </NavLink>
     </nav>
   )
 }
