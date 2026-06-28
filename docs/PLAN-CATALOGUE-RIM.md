@@ -14,8 +14,17 @@
 > appariés / Documents d'info en cartes, COA reclassé admin / Pièces admin en cartes + date délivrance,
 > expiration, titulaire ; AMM → pays + N° ; COA → Batch N°). Ajout de pièces bufferisé (indépendant des
 > champs), persistance + garde des requis à « Terminer ». Header langue/thème conservés (`useTopbar`), canvas
-> #f9fafb. **Reste M4** : auto-populate `parties` + agrégations + hub. **Reprendre : Phase 2 M3 (modèle
-> `parties`, migration `0045`) → reste de M4 → M5 autorités.**
+> #f9fafb.
+>
+> **M3 + M4 LIVRÉS EN PROD (2026-06-28, PR #253, migration `0045`).** M3 = table `parties` (RLS miroir
+> produits + pgTAP) + FK `products.titulaire_id`/`fabricant_id` (`ON DELETE SET NULL`) + Dexie v13 +
+> `parties-repository` (id DÉTERMINISTE FNV-1a → dédup serveur/multi-appareil) + `parties-sync` + sync
+> séquencée parties→produits→docs (ordre FK ; 23503 reclassé transitoire → pas de perte de lien). M4 =
+> auto-populate « 0 ressaisie » (`deriveProductLinks` dans create/updateProduct) + backfill idempotent (flag
+> localStorage) + **hub Catalogue** (sous-nav Produits/Organisations/Autorités) + **liste Organisations**
+> (agrégations produits/docs + drapeaux pays AMM + recherche) + **fiche Organisation** (rôles, pays/adresse/GMP
+> éditables → Monitor, produits liés). CI 6/6 verte, recette navigateur PROD faite (backfill → 2 orgs dérivées
+> de 4 produits, FK + parties synchronisées côté serveur, 0 doublon). **Reprendre : M5 (Autorités + polish).**
 
 ## L'idée (validée CEO via mockup)
 
@@ -73,8 +82,8 @@ Conformité, dossiers → pays). Valeur visible tout de suite, **sans nouvelle t
 |---|-------|-------|--------|--------|
 | **M1** | **Fiche produit cockpit** : header + badges santé + onglets Identification/Documents/Soumissions/Historique/Conformité + conformité data-driven (dans Documents) + DA à la lettre + icône par forme galénique. | 1 | ~1–1,5 session | ✅ **LIVRÉ PROD** (PR #244 + #245) |
 | **M2** | **Liste premium + filtres + drill-downs dashboard** : table premium + recherche + filtres pays/échéance/conformité + branchement des clics du dashboard (cartes/drapeaux → catalogue filtré). | 1 | ~0,5–1 session | ✅ **LIVRÉ PROD** (PR #246) |
-| **M3** | **Modèle `parties` (backend)** : migration **`0045`** + FK produits (`titulaireId`/`fabricantId`) + **RLS + pgTAP** + Dexie + sync + backfill idempotent depuis les free-text. | 2 | ~1 session | ⬜ |
-| **M4** | **Wizard + auto-populate + fiches Organisations + hub** : ✅ **wizard 3 sessions LIVRÉ** (PR #252, migration `0044` : `documents.holder/country/batch_number` ; pays AMM + Batch N° COA capturés par pièce ; COA→admin) ; ⬜ reste = auto-populate/lier `parties` (dépend de M3) + agrégations par org + fiches org + hub. | 2 | ~1 session restante | 🟡 partiel |
+| **M3** | **Modèle `parties` (backend)** : migration **`0045`** + FK produits (`titulaireId`/`fabricantId`) + **RLS + pgTAP** + Dexie + sync + backfill idempotent depuis les free-text. | 2 | ~1 session | ✅ **LIVRÉ PROD** (PR #253) |
+| **M4** | **Wizard + auto-populate + fiches Organisations + hub** : wizard 3 sessions (PR #252) + auto-populate/lien `parties` (`deriveProductLinks`) + backfill idempotent + agrégations par org + liste & fiche Organisations + hub. | 2 | ~1 session | ✅ **LIVRÉ PROD** (PR #253) |
 | **M5** | **Autorités (référence) + polish hub** + lignes de documents en cartes `.doc-row` (mineur reporté de M1). | 2 | ~0,5 session | ⬜ |
 
 ## 6. Risques & mitigations
@@ -92,11 +101,10 @@ budget perf tenu · a11y AA · **0 régression auto-save / offline** · zone A4 
 
 ## 8. Prochaine étape (handoff prochaine session)
 
-**M1 + M2 livrés en prod (Phase 1 complète).** Reprendre par la **Phase 2** : M3 (migration `0045` modèle
-`parties` + FK produits + RLS/pgTAP + Dexie + sync + backfill) → M4 (wizard/auto-populate/agrégations) →
-M5 (autorités). Branches M1 = `feat/catalogue-product-detail`, M2 = `feat/catalogue-list-premium` (mergées) ;
-ouvrir une nouvelle branche par slice. **Migration `0045` = prochaine libre** (`0044` = document_admin_metadata, PR #252) (`ls supabase/migrations/` avant
-de numéroter ; appliquer via MCP `apply_migration`).
+**Phase 1 (M1+M2) + Phase 2 (M3+M4) livrés en prod.** Reste **M5 = Autorités (référence seedée par pays)
++ polish hub** (+ mineur reporté de M1 : lignes de documents en cartes `.doc-row`). **Prochaine migration
+libre = `0046`** (`0045` = parties, PR #253 ; `ls supabase/migrations/` avant de numéroter ; appliquer via
+MCP `apply_migration`). Autorités = données de référence (PAS une table tenant) → potentiellement 0 migration.
 
 ### Spécifs Phase 2 verrouillées (consignes CEO)
 
