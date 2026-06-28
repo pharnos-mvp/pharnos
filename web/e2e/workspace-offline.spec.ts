@@ -49,7 +49,12 @@ test('montage : la route workspace (code-splittée) se rend hors-ligne après pr
 
   // Vue de montage du dossier (/workspace/:id) — le chunk DossierWorkspacePage est chargé.
   await page.goto('/workspace')
-  await page.locator('li', { hasText: nom }).first().getByRole('link').first().click()
+  await page
+    .getByRole('row', { name: new RegExp(nom) })
+    .first()
+    .getByRole('link')
+    .first()
+    .click()
   await page.waitForURL(/\/workspace\/[^/]+$/)
   const corrButton = page.getByRole('banner').getByRole('button', { name: 'Correspondance' })
   await expect(corrButton).toBeVisible()
@@ -76,7 +81,12 @@ test('< lg : montage en disposition tablette (actions dans la barre d’onglets 
   await page.setViewportSize({ width: 390, height: 844 })
   const nom = await createDossier(page)
   await page.goto('/workspace')
-  await page.locator('li', { hasText: nom }).first().getByRole('link').first().click()
+  await page
+    .getByRole('row', { name: new RegExp(nom) })
+    .first()
+    .getByRole('link')
+    .first()
+    .click()
   await page.waitForURL(/\/workspace\/[^/]+$/)
 
   // Actions du document = barre d'outils HORIZONTALE dans la barre d'onglets (≠ ancien rail vertical).
