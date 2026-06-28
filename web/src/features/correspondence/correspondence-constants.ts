@@ -34,6 +34,18 @@ export const STATUS_BADGE_CLASSES: Record<DossierDisplayStatus, string> = {
   rejected: 'bg-red-100 text-red-800 border-transparent dark:bg-red-950 dark:text-red-300',
 }
 
+/** Tonalité sémantique `StatusBadge` par état (DA premium — remplace les classes hex ad-hoc). */
+export const DOSSIER_STATUS_TONE: Record<
+  DossierDisplayStatus,
+  'neutral' | 'info' | 'success' | 'warning' | 'danger'
+> = {
+  draft: 'neutral',
+  in_review: 'info',
+  accepted: 'success',
+  suspended: 'warning',
+  rejected: 'danger',
+}
+
 export const statusLabel = (s: string, lang: Lang = 'fr'): string =>
   (STATUS_LABELS[s as DossierDisplayStatus] ?? STATUS_LABELS.draft)[lang]
 

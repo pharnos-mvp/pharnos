@@ -41,7 +41,7 @@ test('home Workspace : dossiers groupés par état, badge « Draft » dérivé',
   await expect(group.getByRole('button', { name: /^Draft · 1$/ })).toBeVisible()
   await expect(group.getByRole('button', { name: /^En review · 0$/ })).toBeVisible()
 
-  const card = page.locator('li', { hasText: nom }).first()
+  const card = page.locator('[role="listitem"]', { hasText: nom }).first()
   await expect(card.getByText('Draft', { exact: true })).toBeVisible()
 
   // Filtre « Rejeté » : état vide explicite.
@@ -54,7 +54,12 @@ test('panneau Correspondance : accessible depuis le bandeau du dossier (état vi
 }) => {
   const nom = await createDossier(page)
   await page.goto('/workspace')
-  await page.locator('li', { hasText: nom }).first().getByRole('link').first().click()
+  await page
+    .locator('[role="listitem"]', { hasText: nom })
+    .first()
+    .getByRole('link')
+    .first()
+    .click()
   await page.waitForURL(/\/workspace\/[^/]+$/)
 
   // Banner uniquement : l'arborescence du dossier contient aussi « 1.1 Correspondance ».

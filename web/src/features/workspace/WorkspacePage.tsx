@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Archive, ArchiveRestore, FileStack, FolderPlus, Trash2 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -15,14 +15,24 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
+import {
+  ListRow,
+  ListRowActions,
+  ListRowButton,
+  ListRowIcon,
+  ListRowLink,
+} from '@/components/ui/list-row'
+import { Page } from '@/components/ui/page'
+import { PageHeader } from '@/components/ui/page-header'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { useAuth } from '@/features/auth/auth-context'
 import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
 import {
   dossierDisplayStatus,
   DOSSIER_STATUS_ORDER,
-  STATUS_BADGE_CLASSES,
+  DOSSIER_STATUS_TONE,
   statusLabel,
   type DossierDisplayStatus,
 } from '@/features/correspondence/correspondence-constants'
@@ -107,203 +117,193 @@ export function WorkspacePage() {
   const archivedCount = archivedDossiers?.length ?? 0
 
   return (
-    <section className="mx-auto max-w-5xl">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t({ fr: 'CTD Workspace', en: 'CTD Workspace' })}
-          </h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            {t({
-              fr: 'Montez vos dossiers CTD/eCTD Module 1.',
-              en: 'Build your CTD/eCTD Module 1 dossiers.',
-            })}
-          </p>
-        </div>
-        <Button asChild>
-          <Link to="/workspace/nouveau">
-            <FolderPlus /> {t({ fr: 'Nouveau dossier', en: 'New dossier' })}
-          </Link>
-        </Button>
-      </div>
+    <Page>
+      <PageHeader
+        title={t({ fr: 'CTD Workspace', en: 'CTD Workspace' })}
+        description={t({
+          fr: 'Vos opérations réglementaires — montez et suivez vos dossiers CTD/eCTD Module 1.',
+          en: 'Your regulatory operations — build and track your CTD/eCTD Module 1 dossiers.',
+        })}
+        actions={
+          <Button asChild variant="primary">
+            <Link to="/workspace/nouveau">
+              <FolderPlus /> {t({ fr: 'Nouveau dossier', en: 'New dossier' })}
+            </Link>
+          </Button>
+        }
+      />
 
       {/* Bascule Actifs / Archivés — n'apparaît que si des dossiers sont archivés. */}
       {archivedCount > 0 ? (
-        <div className="mt-5 inline-flex rounded-lg border p-0.5 text-xs font-medium">
-          <button
-            type="button"
-            aria-pressed={view === 'active'}
-            onClick={() => setView('active')}
-            className={cn(
-              'cursor-pointer rounded-md px-3 py-1 transition-colors',
-              view === 'active' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted',
-            )}
-          >
-            {t({ fr: 'Actifs', en: 'Active' })} · {activeDossiers?.length ?? 0}
-          </button>
-          <button
-            type="button"
-            aria-pressed={view === 'archived'}
-            onClick={() => setView('archived')}
-            className={cn(
-              'cursor-pointer rounded-md px-3 py-1 transition-colors',
-              view === 'archived' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted',
-            )}
-          >
-            {t({ fr: 'Archivés', en: 'Archived' })} · {archivedCount}
-          </button>
-        </div>
-      ) : null}
-
-      {view === 'active' && (activeDossiers ?? []).length > 0 ? (
-        <div
-          className="mt-4 flex flex-wrap items-center gap-1.5"
-          role="group"
-          aria-label={t({ fr: 'Filtrer par état', en: 'Filter by status' })}
-        >
-          <button
-            type="button"
-            aria-pressed={filter === 'all'}
-            onClick={() => setFilter('all')}
-            className={cn(
-              'cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-              filter === 'all'
-                ? 'bg-primary text-primary-foreground border-transparent'
-                : 'hover:bg-muted',
-            )}
-          >
-            {t({ fr: 'Tous', en: 'All' })} · {activeDossiers?.length ?? 0}
-          </button>
-          {DOSSIER_STATUS_ORDER.map((s) => (
+        <div className="bg-muted/60 inline-flex rounded-lg border p-0.5 text-xs font-medium">
+          {(['active', 'archived'] as const).map((v) => (
             <button
-              key={s}
+              key={v}
               type="button"
-              aria-pressed={filter === s}
-              onClick={() => setFilter(filter === s ? 'all' : s)}
+              aria-pressed={view === v}
+              onClick={() => setView(v)}
               className={cn(
-                'cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                filter === s ? STATUS_BADGE_CLASSES[s] : 'hover:bg-muted',
+                'cursor-pointer rounded-md px-3 py-1 transition-colors',
+                view === v
+                  ? 'bg-card text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground',
               )}
             >
-              {statusLabel(s, lang)} · {counts.get(s) ?? 0}
+              {v === 'active'
+                ? t({ fr: 'Actifs', en: 'Active' })
+                : t({ fr: 'Archivés', en: 'Archived' })}{' '}
+              · {v === 'active' ? (activeDossiers?.length ?? 0) : archivedCount}
             </button>
           ))}
         </div>
       ) : null}
 
-      <div className="mt-6">
-        {dossiers === undefined ? (
-          <p className="text-muted-foreground text-sm">
-            {t({ fr: 'Chargement…', en: 'Loading…' })}
-          </p>
-        ) : view === 'active' && dossiers.length === 0 ? (
-          <div className="rounded-lg border border-dashed p-10 text-center">
-            <FileStack className="text-muted-foreground mx-auto size-8" />
-            <h2 className="mt-2 text-lg font-medium">
-              {t({ fr: 'Aucun dossier', en: 'No dossier' })}
-            </h2>
-            <p className="text-muted-foreground mx-auto mt-1 max-w-sm text-sm">
-              {t({
-                fr: "Créez un dossier : choisissez un produit, le format (CTD/eCTD), l'activité et le pays cible.",
-                en: 'Create a dossier: choose a product, the format (CTD/eCTD), the activity and the target country.',
-              })}
-            </p>
-            <Button asChild className="mt-4">
+      {view === 'active' && (activeDossiers ?? []).length > 0 ? (
+        <div
+          className="flex flex-wrap items-center gap-1.5"
+          role="group"
+          aria-label={t({ fr: 'Filtrer par état', en: 'Filter by status' })}
+        >
+          <FilterChip
+            active={filter === 'all'}
+            tone="all"
+            count={activeDossiers?.length ?? 0}
+            onClick={() => setFilter('all')}
+          >
+            {t({ fr: 'Tous', en: 'All' })}
+          </FilterChip>
+          {DOSSIER_STATUS_ORDER.map((s) => (
+            <FilterChip
+              key={s}
+              active={filter === s}
+              tone={DOSSIER_STATUS_TONE[s]}
+              count={counts.get(s) ?? 0}
+              onClick={() => setFilter(filter === s ? 'all' : s)}
+            >
+              {statusLabel(s, lang)}
+            </FilterChip>
+          ))}
+        </div>
+      ) : null}
+
+      {dossiers === undefined ? (
+        <div className="text-muted-foreground text-sm">
+          {t({ fr: 'Chargement…', en: 'Loading…' })}
+        </div>
+      ) : view === 'active' && dossiers.length === 0 ? (
+        <EmptyState
+          icon={<FileStack />}
+          title={t({ fr: 'Aucun dossier', en: 'No dossier' })}
+          description={t({
+            fr: "Créez un dossier : choisissez un produit, le format (CTD/eCTD), l'activité et le pays cible.",
+            en: 'Create a dossier: choose a product, the format (CTD/eCTD), the activity and the target country.',
+          })}
+          action={
+            <Button asChild variant="primary">
               <Link to="/workspace/nouveau">
                 <FolderPlus /> {t({ fr: 'Nouveau dossier', en: 'New dossier' })}
               </Link>
             </Button>
-          </div>
-        ) : visible.length === 0 ? (
-          <p className="text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">
-            {view === 'archived'
+          }
+        />
+      ) : visible.length === 0 ? (
+        <EmptyState
+          icon={<FileStack />}
+          title={t({ fr: 'Aucun résultat', en: 'No result' })}
+          description={
+            view === 'archived'
               ? t({ fr: 'Aucun dossier archivé.', en: 'No archived dossier.' })
               : t({
                   fr: `Aucun dossier « ${statusLabel(filter, lang)} ».`,
                   en: `No "${statusLabel(filter, lang)}" dossier.`,
-                })}
-          </p>
-        ) : (
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {visible.map((d) => {
-              const s = statusById.get(d.id) ?? 'draft'
-              const unreadCount = unread?.byDossier.get(d.id) ?? 0
-              // Dossier déjà en correspondance : le clic ouvre la boîte (reviews au premier
-              // plan, bouton « Modifier le dossier » pour rejoindre le montage) — brief CEO.
-              const hasReviews = s !== 'draft'
-              const cardBody = (
-                <>
-                  <div className="truncate font-medium">{d.productName}</div>
-                  <div className="text-muted-foreground mt-1 text-xs">
-                    {activityLabel(d.activity, lang)} · {countryLabel(d.country, lang)}
-                  </div>
-                </>
-              )
-              return (
-                <li key={d.id} className="rounded-lg border p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    {hasReviews ? (
-                      <button
-                        type="button"
-                        className="min-w-0 flex-1 cursor-pointer text-left"
-                        onClick={() => setReviewDossierId(d.id)}
-                      >
-                        {cardBody}
-                      </button>
-                    ) : (
-                      <Link to={`/workspace/${d.id}`} className="min-w-0 flex-1">
-                        {cardBody}
-                      </Link>
-                    )}
-                    <Badge variant="secondary">{formatLabel(d.format)}</Badge>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <Badge className={cn(STATUS_BADGE_CLASSES[s])}>{statusLabel(s, lang)}</Badge>
-                      {unreadCount > 0 ? (
-                        <Badge
-                          className="bg-primary text-primary-foreground border-transparent"
-                          aria-label={t({
-                            fr: `${unreadCount} message(s) non lu(s)`,
-                            en: `${unreadCount} unread message(s)`,
-                          })}
-                        >
-                          {t({
-                            fr: `${unreadCount} non lu${unreadCount > 1 ? 's' : ''}`,
-                            en: `${unreadCount} unread`,
-                          })}
-                        </Badge>
-                      ) : null}
-                    </div>
-                    {/* Garde-fou GxP : un dossier SOUMIS (≥1 correspondance) ne se supprime pas →
-                        Archiver (rétention). Un brouillon → Supprimer. Un archivé → Restaurer.
-                        Toutes les actions passent par une confirmation + motif (audit). */}
-                    {view === 'archived' ? (
-                      <DossierAction
-                        mode="restore"
-                        name={d.productName}
-                        onConfirm={() => handleRestore(d.id)}
-                      />
-                    ) : hasReviews ? (
-                      <DossierAction
-                        mode="archive"
-                        name={d.productName}
-                        onConfirm={(r) => handleArchive(d.id, r)}
-                      />
-                    ) : (
-                      <DossierAction
-                        mode="delete"
-                        name={d.productName}
-                        onConfirm={(r) => handleDelete(d.id, r)}
-                      />
-                    )}
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </div>
+                })
+          }
+        />
+      ) : (
+        <div className="flex flex-col gap-2" role="list">
+          {visible.map((d) => {
+            const s = statusById.get(d.id) ?? 'draft'
+            const unreadCount = unread?.byDossier.get(d.id) ?? 0
+            // Dossier déjà en correspondance : le clic ouvre la boîte (reviews au premier plan,
+            // bouton « Modifier le dossier » pour rejoindre le montage) — brief CEO. Sinon → montage.
+            const hasReviews = s !== 'draft'
+            const sub = [
+              activityLabel(d.activity, lang),
+              countryLabel(d.country, lang),
+              formatLabel(d.format),
+            ].join(' · ')
+            return (
+              <ListRow role="listitem" key={d.id}>
+                <ListRowIcon>
+                  <FileStack className="size-5" />
+                </ListRowIcon>
+                <div className="min-w-0 flex-1">
+                  {hasReviews ? (
+                    <ListRowButton
+                      onClick={() => setReviewDossierId(d.id)}
+                      aria-label={t({
+                        fr: `Ouvrir la correspondance de ${d.productName}`,
+                        en: `Open correspondence for ${d.productName}`,
+                      })}
+                      title={d.productName}
+                    >
+                      {d.productName}
+                    </ListRowButton>
+                  ) : (
+                    <ListRowLink to={`/workspace/${d.id}`} title={d.productName}>
+                      {d.productName}
+                    </ListRowLink>
+                  )}
+                  <div className="text-muted-foreground mt-0.5 truncate text-xs">{sub}</div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                  <StatusBadge tone={DOSSIER_STATUS_TONE[s]}>{statusLabel(s, lang)}</StatusBadge>
+                  {unreadCount > 0 ? (
+                    <StatusBadge
+                      tone="info"
+                      aria-label={t({
+                        fr: `${unreadCount} message(s) non lu(s)`,
+                        en: `${unreadCount} unread message(s)`,
+                      })}
+                    >
+                      {t({
+                        fr: `${unreadCount} non lu${unreadCount > 1 ? 's' : ''}`,
+                        en: `${unreadCount} unread`,
+                      })}
+                    </StatusBadge>
+                  ) : null}
+                </div>
+
+                {/* Garde-fou GxP : un dossier SOUMIS (≥1 correspondance) ne se supprime pas →
+                    Archiver (rétention). Un brouillon → Supprimer. Un archivé → Restaurer.
+                    Toutes les actions passent par une confirmation + motif (audit). */}
+                <ListRowActions>
+                  {view === 'archived' ? (
+                    <DossierAction
+                      mode="restore"
+                      name={d.productName}
+                      onConfirm={() => handleRestore(d.id)}
+                    />
+                  ) : hasReviews ? (
+                    <DossierAction
+                      mode="archive"
+                      name={d.productName}
+                      onConfirm={(r) => handleArchive(d.id, r)}
+                    />
+                  ) : (
+                    <DossierAction
+                      mode="delete"
+                      name={d.productName}
+                      onConfirm={(r) => handleDelete(d.id, r)}
+                    />
+                  )}
+                </ListRowActions>
+              </ListRow>
+            )
+          })}
+        </div>
+      )}
 
       {reviewDossierId ? (
         <CorrespondencePanel
@@ -314,7 +314,45 @@ export function WorkspacePage() {
           onEdit={() => navigate(`/workspace/${reviewDossierId}`)}
         />
       ) : null}
-    </section>
+    </Page>
+  )
+}
+
+/** Chip de filtre d'état — actif = tonalité sémantique subtile (DA), inactif = neutre. */
+const CHIP_ACTIVE: Record<'all' | 'neutral' | 'info' | 'success' | 'warning' | 'danger', string> = {
+  all: 'bg-info text-white border-transparent',
+  neutral: 'bg-secondary text-secondary-foreground border-transparent',
+  info: 'bg-info-subtle text-info-subtle-foreground border-transparent',
+  success: 'bg-success-subtle text-success-subtle-foreground border-transparent',
+  warning: 'bg-warning-subtle text-warning-subtle-foreground border-transparent',
+  danger: 'bg-danger-subtle text-danger-subtle-foreground border-transparent',
+}
+
+function FilterChip({
+  active,
+  tone,
+  count,
+  onClick,
+  children,
+}: {
+  active: boolean
+  tone: keyof typeof CHIP_ACTIVE
+  count: number
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        'cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+        active ? CHIP_ACTIVE[tone] : 'text-muted-foreground hover:bg-accent',
+      )}
+    >
+      {children} · <span className="tabular-nums">{count}</span>
+    </button>
   )
 }
 

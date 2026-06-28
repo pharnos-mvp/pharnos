@@ -63,6 +63,27 @@ function ListRowLink({ className, ...props }: LinkProps) {
   )
 }
 
+/**
+ * Variante BOUTON du lien étiré (mêmes style + zone cliquable que `ListRowLink`) — pour une action
+ * qui n'est PAS une navigation (ex. ouvrir un panneau). Accessible : le texte du bouton = son nom.
+ */
+function ListRowButton({ className, ...props }: React.ComponentProps<'button'>) {
+  return (
+    <button
+      type="button"
+      data-slot="list-row-button"
+      className={cn(
+        'font-display text-foreground block w-full truncate text-left text-sm font-semibold transition-colors',
+        'group-hover:text-info cursor-pointer outline-none',
+        'after:absolute after:inset-0 after:rounded-xl after:content-[""]',
+        'focus-visible:after:ring-ring/60 focus-visible:after:ring-2 focus-visible:after:ring-offset-2',
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
 /** Zone d'actions : repasse AU-DESSUS du lien étiré (sinon le clic naviguerait). */
 function ListRowActions({ className, ...props }: React.ComponentProps<'div'>) {
   return (
@@ -74,4 +95,4 @@ function ListRowActions({ className, ...props }: React.ComponentProps<'div'>) {
   )
 }
 
-export { ListRow, ListRowIcon, ListRowLink, ListRowActions }
+export { ListRow, ListRowIcon, ListRowLink, ListRowButton, ListRowActions }
