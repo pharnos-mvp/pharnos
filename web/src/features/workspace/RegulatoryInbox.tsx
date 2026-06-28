@@ -90,10 +90,13 @@ export function RegulatoryInbox({
   ]
 
   return (
-    <aside className={cn('bg-card flex flex-col overflow-hidden rounded-xl border', className)}>
+    <aside
+      aria-labelledby="reg-inbox-title"
+      className={cn('bg-card flex flex-col overflow-hidden rounded-xl border', className)}
+    >
       <div className="shrink-0 border-b p-4">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="font-display text-sm font-semibold">
+          <h2 id="reg-inbox-title" className="font-display text-sm font-semibold">
             {t({ fr: 'Correspondances', en: 'Correspondence' })}
           </h2>
           {unread > 0 ? (

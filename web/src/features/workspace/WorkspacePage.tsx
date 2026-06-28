@@ -295,8 +295,11 @@ export function WorkspacePage() {
         </div>
 
         {showRail ? (
+          // Rail = hauteur visible de <main> = svh − header(3.5rem) − footer(~2.1rem) ; on retranche
+          // 6rem (footer + petite marge) → jamais clippé sous le footer, gap propre en bas. Le footer
+          // reste sur une ligne en ≥ lg (seul cas où le rail est sticky).
           <RegulatoryInbox
-            className="lg:sticky lg:top-0 lg:-mt-6 lg:h-[calc(100svh-5.5rem)]"
+            className="lg:sticky lg:top-0 lg:-mt-6 lg:h-[calc(100svh-6rem)]"
             items={inbox}
             onOpen={(id) => setReviewDossierId(id)}
             now={now.getTime()}
