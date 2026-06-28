@@ -33,6 +33,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { useTopbar } from '@/components/layout/topbar'
+import { CatalogueTabs } from './CatalogueTabs'
 import { KPI_BADGE_TONE } from '@/features/dashboard/dashboard-data'
 import { CountryFlag } from '@/features/dashboard/CountryFlag'
 import { useDossierSync } from '@/features/workspace/use-dossier-sync'
@@ -122,6 +123,7 @@ export function CataloguePage() {
 
   return (
     <Page>
+      <CatalogueTabs />
       <PageHeader
         title={t({ fr: 'Produits', en: 'Products' })}
         description={t({

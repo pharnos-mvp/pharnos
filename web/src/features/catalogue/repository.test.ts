@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { db } from '@/lib/db'
+import { listParties } from './parties-repository'
 import { createProduct, deleteProduct, getProduct, listProducts, updateProduct } from './repository'
 
 const ORG = 'org-1'
 
 beforeEach(async () => {
   await db.products.clear()
+  await db.parties.clear()
   await db.outbox.clear()
 })
 
@@ -48,6 +50,30 @@ describe('catalogue repository (offline-first)', () => {
     expect(await listProducts(ORG)).toHaveLength(0)
     expect(await getProduct(p.id)).toBeUndefined()
     expect((await db.outbox.toArray()).map((o) => o.op)).toContain('delete')
+  })
+
+  it('auto-populate : crée et lie les organisations titulaire/fabricant (0 ressaisie)', async () => {
+    const p = await createProduct(ORG, {
+      nomCommercial: 'Doliprane',
+      dci: 'Paracétamol',
+      titulaire: 'Synthia Labs',
+      fabricant: 'Aura Lifecare',
+    })
+    expect(p.titulaireId).toBeTruthy()
+    expect(p.fabricantId).toBeTruthy()
+    expect(p.titulaireId).not.toBe(p.fabricantId)
+
+    const parties = await listParties(ORG)
+    expect(parties).toHaveLength(2)
+    const titulaire = parties.find((x) => x.id === p.titulaireId)
+    expect(titulaire?.nom).toBe('Synthia Labs')
+    expect(titulaire?.roles).toContain('titulaire')
+  })
+
+  it('auto-populate idempotent : deux produits, même titulaire → une seule organisation', async () => {
+    await createProduct(ORG, { nomCommercial: 'A', dci: 'x', titulaire: 'Synthia Labs' })
+    await createProduct(ORG, { nomCommercial: 'B', dci: 'y', titulaire: 'synthia labs' })
+    expect(await listParties(ORG)).toHaveLength(1)
   })
 
   it('isole les produits par organisation (tenant)', async () => {

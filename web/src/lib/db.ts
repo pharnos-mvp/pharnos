@@ -28,6 +28,40 @@ export interface ProductRecord {
   fabricant: string
   /** Adresse du fabricant (couverture du dossier). */
   fabricantAdresse?: string
+  /**
+   * Lien vers l'organisation (`parties`) titulaire d'AMM — dérivé du free-text `titulaire` à
+   * l'enregistrement (M4, « 0 ressaisie »). Optionnel : le free-text reste la source de vérité
+   * pendant la transition (LOCAL-ONLY tant que la migration `0045` n'est pas posée).
+   */
+  titulaireId?: string | null
+  /** Lien vers l'organisation (`parties`) fabricant — dérivé du free-text `fabricant`. */
+  fabricantId?: string | null
+  createdAt: string
+  updatedAt: string
+  /** Soft delete : conservé pour la réconciliation de synchro. `null` = actif. */
+  deletedAt: string | null
+}
+
+/** Rôles cumulables d'une organisation (réalité RA + IDMP) — cf. migration `0045`. */
+export type PartyRole = 'titulaire' | 'fabricant' | 'distributeur'
+
+/**
+ * Organisation du référentiel RIM (table `parties`) — Titulaire d'AMM / Fabricant / Distributeur,
+ * rôles cumulables. UNE entité par organisation réelle (pas une par type) : le moat « OS
+ * réglementaire » IDMP-ready. Dérivée du free-text produit à l'enregistrement (M4) — id
+ * DÉTERMINISTE (org + nom normalisé) → dédup naturelle serveur/multi-appareil, zéro doublon.
+ */
+export interface PartyRecord {
+  id: string
+  orgId: string
+  nom: string
+  roles: PartyRole[]
+  pays: string
+  adresse: string
+  /** N° de certificat GMP (rôle fabricant). */
+  gmpCertificat: string
+  /** Échéance GMP (yyyy-mm-dd) suivie par Monitor ; null sinon. */
+  gmpExpiry: string | null
   createdAt: string
   updatedAt: string
   /** Soft delete : conservé pour la réconciliation de synchro. `null` = actif. */
@@ -362,6 +396,7 @@ export interface VariationRequestRecord {
 
 const db = new Dexie('pharnos') as Dexie & {
   products: EntityTable<ProductRecord, 'id'>
+  parties: EntityTable<PartyRecord, 'id'>
   outbox: EntityTable<OutboxItem, 'id'>
   documents: EntityTable<DocumentRecord, 'id'>
   documentBlobs: EntityTable<DocumentBlob, 'id'>
@@ -443,6 +478,11 @@ db.version(11).stores({
 // base locale (sinon VersionError à l'ouverture). Réutilisable si un flux le repeuple.
 db.version(12).stores({
   variationRequests: 'id, orgId, updatedAt, deletedAt',
+})
+
+// v13 : organisations RIM (`parties`) — référentiel maître Titulaire/Fabricant/Distributeur (M3).
+db.version(13).stores({
+  parties: 'id, orgId, updatedAt, nom, deletedAt',
 })
 
 export { db }

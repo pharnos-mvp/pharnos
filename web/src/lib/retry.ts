@@ -30,6 +30,12 @@ function isTransient(e: unknown): boolean {
 export function isPermanentSyncError(e: unknown): boolean {
   if (isTransient(e)) return false
   const code = (e as { code?: unknown })?.code
+  // 23503 = foreign_key_violation. Dans ce modèle offline-first, les parents (parties, products,
+  // dossiers) sont en SOFT-delete (la ligne subsiste) → une violation FK signifie seulement que le
+  // PARENT n'a pas encore été poussé (ordre de synchro). C'est donc TRANSITOIRE, jamais un rejet
+  // définitif : on NE draine PAS (sinon le lien titulaire_id/fabricant_id serait perdu côté serveur,
+  // sans ré-enfilage possible). L'item est conservé et retenté au cycle suivant, parent en tête.
+  if (code === '23503') return false
   if (typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code)) return true
   const raw =
     (e as { status?: unknown; statusCode?: unknown })?.status ??
