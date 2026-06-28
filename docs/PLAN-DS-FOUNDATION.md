@@ -73,7 +73,7 @@ pour le **reproduire**, puis le Dashboard migre dessus **sans changement à l'œ
 | **M1** | **Produits = surface de référence** (composée 100 % primitives, `BLUE_BTN`/CSS bespoke supprimés, 1 recherche, 24 px) **+ règles Shell** (titre/recherche/espacement) | ~0,5–1 s | **🚦 GATE CEO** |
 | — | *Fin du LOT 1. Le déroulé ci-dessous = LOT 2, après le gate.* | | |
 | **M2 ✅** | **Cockpit produit** : `BLUE_BTN` → `Button variant="primary"` + map `KPI_BADGE_TONE` partagée. **Refactor INVISIBLE** (golden master inchangé, vérifié vrai Chrome). PR #250. *`.rim-cockpit`/`.doc-row` gardés (convergence visuelle = OK CEO requis).* | ~0,5 s | ✅ **LIVRÉ PROD** |
-| **M3 ✅** | **Fiche création produit** : `Page` (24 px) + `PageHeader` Syne + CTA bleu (prop additif `submitVariant`, défaut `default` → cockpit inchangé). PR #251. *(wizard 3 étapes = Catalogue M4, hors lot)* | ~0,5 s | ✅ **LIVRÉ PROD** |
+| **M3 ✅** | **Fiche création produit** : d'abord DA premium (PR #251), puis **refondue en WIZARD 3 sessions typeform** (PR #252, migration `0044`) — cf. [PLAN-CATALOGUE-RIM.md](PLAN-CATALOGUE-RIM.md) M4. Header `useTopbar` (titre/retour + langue/thème), canvas #f9fafb, `Button primary`, stepper. | ~0,5 s | ✅ **LIVRÉ PROD** |
 | M4 | **Dashboard → primitives** (recâblage, **0 changement visuel**, retrait `dashboard-mockup.css`) — pixel-compare | ~0,5–1 s | a11y+review |
 | M5 | **Workspace (liste) + Nouveau dossier + Roadmap** (chrome) | ~1 s | a11y+review |
 | M6 | **CTD Builder** — **chrome seul** (feuille éditeur GELÉE) | ~0,5–1 s | a11y+review |

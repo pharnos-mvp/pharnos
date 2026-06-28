@@ -146,6 +146,6 @@ Ordre = valeur × dépendance. Chaque ligne = tranche verticale livrable + recet
 
 ## Migrations
 Dernière appliquée = **`0043`** (`storage_bucket_msword` — bucket `documents` accepte `application/msword`,
-posée le 2026-06-25 via MCP). `0042` = `variation_amm_columns` (sync moteur de variation). **Reprendre à `0044`.**
+posée le 2026-06-25 via MCP). `0042` = `variation_amm_columns` (sync moteur de variation). `0043` = storage_bucket_msword ; `0044` = document_admin_metadata (PR #252). **Reprendre à `0045`.**
 ⚠️ Le tracking distant est en **timestamp** (≠ fichiers `0001-0043`) ; toujours `ls supabase/migrations/` avant de
 numéroter, et appliquer via MCP `apply_migration` (idempotent), pas `supabase db push` à l'aveugle.
