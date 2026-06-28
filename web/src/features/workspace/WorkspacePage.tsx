@@ -38,12 +38,16 @@ import {
 } from '@/features/correspondence/correspondence-constants'
 import { CorrespondencePanel } from '@/features/correspondence/CorrespondencePanel'
 import { unreadIndex } from '@/features/correspondence/correspondence-reads'
+import { buildCorrespondenceFeed } from '@/features/correspondence/correspondence-feed'
 import { listCorrespondences } from '@/features/correspondence/correspondence-repository'
 import { useCorrespondenceSync } from '@/features/correspondence/use-correspondence-sync'
+import { expiringDocs } from '@/features/dashboard/dashboard-data'
 import { useOrgId } from '@/features/org/org-context'
+import { db } from '@/lib/db'
 import { useI18n } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import { activityLabel, countryLabel, formatLabel } from './dossier-constants'
+import { OperationsActivity } from './OperationsActivity'
 import {
   archiveDossier,
   deleteDossier,
@@ -68,6 +72,10 @@ export function WorkspacePage() {
   // Non-lus par dossier (pastilles) — useLiveQuery observe les tables LUES dans unreadIndex
   // (messages, reads, correspondences) : il se relance tout seul à chaque écriture.
   const unread = useLiveQuery(() => unreadIndex(orgId), [orgId])
+  // Produits + documents : alimentent UNIQUEMENT la colonne « Échéances » (réutilise la politique
+  // de validité Monitor `expiringDocs`). La liste des dossiers n'en dépend pas.
+  const products = useLiveQuery(() => db.products.where('orgId').equals(orgId).toArray(), [orgId])
+  const documents = useLiveQuery(() => db.documents.where('orgId').equals(orgId).toArray(), [orgId])
   // Boîte de correspondance ouverte depuis une carte (dossier déjà reviewé — brief CEO point c).
   const [reviewDossierId, setReviewDossierId] = useState<string | null>(null)
   // Vue : dossiers actifs vs archivés (rétention réglementaire des dossiers soumis).
@@ -98,6 +106,19 @@ export function WorkspacePage() {
       ? (archivedDossiers ?? [])
       : (activeDossiers ?? []).filter((d) => filter === 'all' || statusById.get(d.id) === filter)
 
+  // Colonne d'activité (centre de notifications RA) : fil des correspondances + échéances Monitor.
+  // `now` figé au montage (l'âge relatif d'un board n'a pas besoin d'être à la seconde ; il se
+  // recalcule à la navigation). Évite l'appel impur en render (Date.now() interdit, React Compiler).
+  const now = useMemo(() => new Date(), [])
+  const feed = useMemo(
+    () => buildCorrespondenceFeed(correspondences ?? [], unread?.byConversation ?? new Map()),
+    [correspondences, unread],
+  )
+  const echeances = useMemo(
+    () => expiringDocs(documents ?? [], products ?? [], now),
+    [documents, products, now],
+  )
+
   async function handleDelete(id: string, reason: string) {
     await deleteDossier(id, reason)
     void syncDossiers(orgId)
@@ -119,10 +140,10 @@ export function WorkspacePage() {
   return (
     <Page>
       <PageHeader
-        title={t({ fr: 'CTD Workspace', en: 'CTD Workspace' })}
+        title={t({ fr: 'Opérations', en: 'Operations' })}
         description={t({
-          fr: 'Vos opérations réglementaires — montez et suivez vos dossiers CTD/eCTD Module 1.',
-          en: 'Your regulatory operations — build and track your CTD/eCTD Module 1 dossiers.',
+          fr: 'Montez, suivez et corrigez vos dossiers CTD/eCTD Module 1.',
+          en: 'Build, track and amend your CTD/eCTD Module 1 dossiers.',
         })}
         actions={
           <Button asChild variant="primary">
@@ -220,88 +241,103 @@ export function WorkspacePage() {
           }
         />
       ) : (
-        <div className="flex flex-col gap-2" role="list">
-          {visible.map((d) => {
-            const s = statusById.get(d.id) ?? 'draft'
-            const unreadCount = unread?.byDossier.get(d.id) ?? 0
-            // Dossier déjà en correspondance : le clic ouvre la boîte (reviews au premier plan,
-            // bouton « Modifier le dossier » pour rejoindre le montage) — brief CEO. Sinon → montage.
-            const hasReviews = s !== 'draft'
-            const sub = [
-              activityLabel(d.activity, lang),
-              countryLabel(d.country, lang),
-              formatLabel(d.format),
-            ].join(' · ')
-            return (
-              <ListRow role="listitem" key={d.id}>
-                <ListRowIcon>
-                  <FileStack className="size-5" />
-                </ListRowIcon>
-                <div className="min-w-0 flex-1">
-                  {hasReviews ? (
-                    <ListRowButton
-                      onClick={() => setReviewDossierId(d.id)}
-                      aria-label={t({
-                        fr: `Ouvrir la correspondance de ${d.productName}`,
-                        en: `Open correspondence for ${d.productName}`,
-                      })}
-                      title={d.productName}
-                    >
-                      {d.productName}
-                    </ListRowButton>
-                  ) : (
-                    <ListRowLink to={`/workspace/${d.id}`} title={d.productName}>
-                      {d.productName}
-                    </ListRowLink>
-                  )}
-                  <div className="text-muted-foreground mt-0.5 truncate text-xs">{sub}</div>
-                </div>
+        <div
+          className={cn(
+            view === 'active' &&
+              'grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:items-start',
+          )}
+        >
+          <div className="flex flex-col gap-2" role="list">
+            {visible.map((d) => {
+              const s = statusById.get(d.id) ?? 'draft'
+              const unreadCount = unread?.byDossier.get(d.id) ?? 0
+              // Dossier déjà en correspondance : le clic ouvre la boîte (reviews au premier plan,
+              // bouton « Modifier le dossier » pour rejoindre le montage) — brief CEO. Sinon → montage.
+              const hasReviews = s !== 'draft'
+              const sub = [
+                activityLabel(d.activity, lang),
+                countryLabel(d.country, lang),
+                formatLabel(d.format),
+              ].join(' · ')
+              return (
+                <ListRow role="listitem" key={d.id}>
+                  <ListRowIcon>
+                    <FileStack className="size-5" />
+                  </ListRowIcon>
+                  <div className="min-w-0 flex-1">
+                    {hasReviews ? (
+                      <ListRowButton
+                        onClick={() => setReviewDossierId(d.id)}
+                        aria-label={t({
+                          fr: `Ouvrir la correspondance de ${d.productName}`,
+                          en: `Open correspondence for ${d.productName}`,
+                        })}
+                        title={d.productName}
+                      >
+                        {d.productName}
+                      </ListRowButton>
+                    ) : (
+                      <ListRowLink to={`/workspace/${d.id}`} title={d.productName}>
+                        {d.productName}
+                      </ListRowLink>
+                    )}
+                    <div className="text-muted-foreground mt-0.5 truncate text-xs">{sub}</div>
+                  </div>
 
-                <div className="flex flex-wrap items-center justify-end gap-1.5">
-                  <StatusBadge tone={DOSSIER_STATUS_TONE[s]}>{statusLabel(s, lang)}</StatusBadge>
-                  {unreadCount > 0 ? (
-                    <StatusBadge
-                      tone="info"
-                      aria-label={t({
-                        fr: `${unreadCount} message(s) non lu(s)`,
-                        en: `${unreadCount} unread message(s)`,
-                      })}
-                    >
-                      {t({
-                        fr: `${unreadCount} non lu${unreadCount > 1 ? 's' : ''}`,
-                        en: `${unreadCount} unread`,
-                      })}
-                    </StatusBadge>
-                  ) : null}
-                </div>
+                  <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    <StatusBadge tone={DOSSIER_STATUS_TONE[s]}>{statusLabel(s, lang)}</StatusBadge>
+                    {unreadCount > 0 ? (
+                      <StatusBadge
+                        tone="info"
+                        aria-label={t({
+                          fr: `${unreadCount} message(s) non lu(s)`,
+                          en: `${unreadCount} unread message(s)`,
+                        })}
+                      >
+                        {t({
+                          fr: `${unreadCount} non lu${unreadCount > 1 ? 's' : ''}`,
+                          en: `${unreadCount} unread`,
+                        })}
+                      </StatusBadge>
+                    ) : null}
+                  </div>
 
-                {/* Garde-fou GxP : un dossier SOUMIS (≥1 correspondance) ne se supprime pas →
+                  {/* Garde-fou GxP : un dossier SOUMIS (≥1 correspondance) ne se supprime pas →
                     Archiver (rétention). Un brouillon → Supprimer. Un archivé → Restaurer.
                     Toutes les actions passent par une confirmation + motif (audit). */}
-                <ListRowActions>
-                  {view === 'archived' ? (
-                    <DossierAction
-                      mode="restore"
-                      name={d.productName}
-                      onConfirm={() => handleRestore(d.id)}
-                    />
-                  ) : hasReviews ? (
-                    <DossierAction
-                      mode="archive"
-                      name={d.productName}
-                      onConfirm={(r) => handleArchive(d.id, r)}
-                    />
-                  ) : (
-                    <DossierAction
-                      mode="delete"
-                      name={d.productName}
-                      onConfirm={(r) => handleDelete(d.id, r)}
-                    />
-                  )}
-                </ListRowActions>
-              </ListRow>
-            )
-          })}
+                  <ListRowActions>
+                    {view === 'archived' ? (
+                      <DossierAction
+                        mode="restore"
+                        name={d.productName}
+                        onConfirm={() => handleRestore(d.id)}
+                      />
+                    ) : hasReviews ? (
+                      <DossierAction
+                        mode="archive"
+                        name={d.productName}
+                        onConfirm={(r) => handleArchive(d.id, r)}
+                      />
+                    ) : (
+                      <DossierAction
+                        mode="delete"
+                        name={d.productName}
+                        onConfirm={(r) => handleDelete(d.id, r)}
+                      />
+                    )}
+                  </ListRowActions>
+                </ListRow>
+              )
+            })}
+          </div>
+          {view === 'active' ? (
+            <OperationsActivity
+              feed={feed}
+              echeances={echeances}
+              onOpen={(id) => setReviewDossierId(id)}
+              now={now.getTime()}
+            />
+          ) : null}
         </div>
       )}
 
