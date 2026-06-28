@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest'
 
 import type { DocumentRecord, PartyRecord, ProductRecord } from '@/lib/db'
-import { buildOrgRows, filterOrgRows, productsForParty, sortRoles } from './parties-data'
+import {
+  buildOrgCockpitVm,
+  buildOrgRows,
+  filterOrgRows,
+  productsForParty,
+  sortRoles,
+} from './parties-data'
+
+const NOW = new Date('2026-06-28T00:00:00.000Z')
+/** Date d'expiration relative à NOW (jours). */
+const inDays = (n: number) => new Date(NOW.getTime() + n * 86_400_000).toISOString().slice(0, 10)
 
 const party = (id: string, over: Partial<PartyRecord> = {}): PartyRecord => ({
   id,
@@ -65,7 +75,7 @@ describe('parties-data (agrégations par organisation)', () => {
       product('p2', { titulaireId: 'holder' }),
       product('p3', { deletedAt: '2026-02-01T00:00:00.000Z', titulaireId: 'holder' }), // supprimé
     ]
-    const rows = buildOrgRows([holder, maker], products, [])
+    const rows = buildOrgRows([holder, maker], products, [], NOW)
     expect(rows.find((r) => r.party.id === 'holder')?.productCount).toBe(2)
     expect(rows.find((r) => r.party.id === 'maker')?.productCount).toBe(1)
   })
@@ -80,9 +90,23 @@ describe('parties-data (agrégations par organisation)', () => {
       doc('d4', { productId: 'p1', deletedAt: '2026-02-01T00:00:00.000Z' }), // supprimé → exclu
       doc('d5', { productId: 'other' }), // produit non lié → exclu
     ]
-    const row = buildOrgRows([holder], products, docs)[0]
+    const row = buildOrgRows([holder], products, docs, NOW)[0]
     expect(row?.docCount).toBe(3)
     expect(row?.countries).toEqual(['BEN', 'CIV'])
+  })
+
+  it('agrège la santé de validité (périmée / à renouveler) au niveau organisation', () => {
+    const holder = party('holder')
+    const products = [product('p1', { titulaireId: 'holder' })]
+    const docs = [
+      doc('expired', { productId: 'p1', docType: 'gmp', expiryDate: inDays(-5) }), // périmée
+      doc('soon', { productId: 'p1', docType: 'amm', expiryDate: inDays(30) }), // fenêtre admin 180j
+      doc('ok', { productId: 'p1', docType: 'amm', expiryDate: inDays(400) }), // hors fenêtre
+    ]
+    const row = buildOrgRows([holder], products, docs, NOW)[0]
+    expect(row?.expiredCount).toBe(1)
+    expect(row?.expiringCount).toBe(1)
+    expect(row?.tone).toBe('poor') // une pièce périmée → rouge
   })
 
   it('exclut les organisations supprimées et trie par nom', () => {
@@ -94,6 +118,7 @@ describe('parties-data (agrégations par organisation)', () => {
       ],
       [],
       [],
+      NOW,
     )
     expect(rows.map((r) => r.party.nom)).toEqual(['Alpha', 'Beta'])
   })
@@ -115,6 +140,7 @@ describe('parties-data (agrégations par organisation)', () => {
       ],
       [],
       [],
+      NOW,
     )
     expect(filterOrgRows(rows, 'synthia').map((r) => r.party.id)).toEqual(['h'])
     expect(filterOrgRows(rows, 'fabricant').map((r) => r.party.id)).toEqual(['m'])
@@ -128,5 +154,48 @@ describe('parties-data (agrégations par organisation)', () => {
       'fabricant',
       'distributeur',
     ])
+  })
+})
+
+describe('buildOrgCockpitVm (cockpit RA)', () => {
+  it('portefeuille AMM par pays : total / active / à renouveler / périmée', () => {
+    const holder = party('holder', { roles: ['titulaire'] })
+    const products = [
+      product('p1', { titulaireId: 'holder' }),
+      product('p2', { titulaireId: 'holder' }),
+    ]
+    const docs = [
+      doc('a1', { productId: 'p1', docType: 'amm', country: 'BEN', expiryDate: inDays(400) }), // active
+      doc('a2', { productId: 'p1', docType: 'amm', country: 'BEN', expiryDate: inDays(30) }), // à renouveler
+      doc('a3', { productId: 'p2', docType: 'amm', country: 'CIV', expiryDate: inDays(-10) }), // périmée
+      doc('a4', { productId: 'p2', docType: 'amm', country: 'TGO' }), // sans date → active
+    ]
+    const vm = buildOrgCockpitVm(holder, products, docs, NOW)
+    expect(vm.amm.total).toBe(4)
+    expect(vm.amm.expired).toBe(1)
+    expect(vm.amm.expiring).toBe(1)
+    expect(vm.amm.active).toBe(3) // total - périmées (sans date = active)
+    expect(vm.amm.byCountry.map((c) => c.code)).toEqual(['BEN', 'CIV', 'TGO'])
+    expect(vm.amm.byCountry.find((c) => c.code === 'BEN')).toMatchObject({
+      total: 2,
+      active: 2,
+      expiring: 1,
+    })
+  })
+
+  it('validité par type de pièce, la plus urgente en tête', () => {
+    const maker = party('maker', { roles: ['fabricant'] })
+    const products = [product('p1', { fabricantId: 'maker' })]
+    const docs = [
+      doc('gmp', { productId: 'p1', docType: 'gmp', expiryDate: inDays(-3) }), // périmée → poor
+      doc('coa', { productId: 'p1', docType: 'coa', expiryDate: inDays(900) }), // CoA 18 mois → valide
+    ]
+    const vm = buildOrgCockpitVm(maker, products, docs, NOW)
+    expect(vm.pieces[0]?.docType).toBe('gmp') // la plus urgente d'abord
+    expect(vm.pieces[0]?.expired).toBe(1)
+    expect(vm.pieces[0]?.tone).toBe('poor')
+    const coa = vm.pieces.find((p) => p.docType === 'coa')
+    expect(coa?.valid).toBe(1)
+    expect(coa?.expiring).toBe(0)
   })
 })
