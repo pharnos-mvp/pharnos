@@ -43,9 +43,12 @@
   --canvas: #eef1f6;
   --secondary: var(--gray-100);
   --secondary-foreground: var(--gray-900);
-  --muted: var(--gray-100);
+  /* --muted ET --accent = g50 (pas g100) : `text-muted-foreground` (g500) sur ces fonds doit passer
+     AA 4,5:1 — badge de statut neutre (`bg-muted`) + onglets/boutons mutés au survol (`hover:bg-accent`).
+     g500/g50 = 4,63:1 ✓ ; g500/g100 retombait à 4,39:1 ✗. --secondary reste g100 (ne porte que g900). */
+  --muted: var(--gray-50);
   --muted-foreground: var(--gray-500);
-  --accent: var(--gray-100);
+  --accent: var(--gray-50);
   --accent-foreground: var(--gray-900);
   --destructive: var(--danger);
   /* Palette de STATUT sémantique (RA : approuvé / à renouveler / expiré / en cours). Chaque teinte =
@@ -150,7 +153,9 @@
 :root {
   --pd-card: var(--card);
   --pd-border: var(--border);
-  --pd-border-soft: var(--muted);
+  --pd-border-soft: var(
+    --secondary
+  ); /* g100 clair / #21262d sombre = valeur d'origine (≠ --muted=g50) */
   --pd-track: var(--border);
   --pd-muted: var(--muted-foreground);
   --pd-tile-hover-bg: var(--info-subtle);
