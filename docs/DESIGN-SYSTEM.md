@@ -41,6 +41,10 @@
 | `ErrorState` | Erreur **actionnable** : **quoi** (`title`) / **pourquoi** (`reason`) / **que faire** (`action`+CTA). = absorbe le backlog « erreurs actionnables ». |
 | `Skeleton` | Placeholder de chargement animé. |
 | `StatusBadge` | Badge de **statut sémantique** (success/warning/danger/info/neutral) : fond `subtle` + texte AA — sens porté par la couleur **et** le texte (a11y 1.4.1). |
+| `Button` var. `primary` | **CTA premium bleu** de la DA (`bg-info` = `.btn-primary` du mockup). Source unique — remplace la chaîne magique `BLUE_BTN`. |
+| `ListRow` (+`ListRowIcon`/`ListRowLink`/`ListRowActions`) | **Ligne-carte premium** (hover-lift, lien étiré, anneau de focus) — unifie `.doc-row`/`.cat-row`/`.alert-row`. Tokens sémantiques (premium == neutre dans `index.css`). |
+
+**Règles encodées par les primitives (LOT 1)** : `Page` porte la **respiration en-tête de 24 px** (le titre du corps ne colle plus au header). Le **titre du corps** (`PageHeader`) est **descriptif et distinct** du libellé de section du topbar (jamais « Catalogue » deux fois). Une page qui a **sa propre recherche** appelle `useHideTopbarSearch()` (`components/layout/topbar-search`) → **une seule** recherche par écran.
 
 **À venir avec leur 1ʳᵉ surface (YAGNI — pas de primitive inutilisée)** : `ActionBar` (barre d'actions
 sticky — viendra avec le LOT Workspace/CTD), `Section` (bloc titré — avec le 1er regroupement qui en a

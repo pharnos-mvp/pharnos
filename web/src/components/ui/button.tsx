@@ -10,6 +10,9 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: 'bg-primary text-primary-foreground hover:bg-primary/90',
+        // CTA premium de la DA (= .btn-primary du mockup, bleu --info #1a56db). Source unique :
+        // remplace la chaîne magique `BLUE_BTN` jadis copiée dans les surfaces.
+        primary: 'bg-info text-white hover:bg-info/90',
         destructive:
           'bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40',
         outline:

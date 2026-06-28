@@ -4,12 +4,18 @@ import { cn } from '@/lib/utils'
 
 /**
  * Conteneur de page standard du design-system : largeur de lecture maîtrisée + rythme vertical
- * unifié (densité « équilibrée-pro » = 1,5 rem entre blocs). Toute page applique `<Page>` pour un
- * gabarit identique d'une surface à l'autre. Surcharger `className` au besoin (ex. `max-w-3xl`).
+ * unifié (densité « équilibrée-pro » = 1,5 rem entre blocs) + **respiration en-tête de 24 px**
+ * (= padding contenu du mockup ; le `<main>` du shell n'a pas de `padding-top`, réservé aux barres
+ * sticky). Toute page applique `<Page>` pour un gabarit identique d'une surface à l'autre.
+ * Surcharger `className` au besoin (ex. `max-w-3xl`).
  */
 function Page({ className, ...props }: React.ComponentProps<'div'>) {
   return (
-    <div data-slot="page" className={cn('mx-auto max-w-5xl space-y-6', className)} {...props} />
+    <div
+      data-slot="page"
+      className={cn('mx-auto max-w-5xl space-y-6 pt-6', className)}
+      {...props}
+    />
   )
 }
 
