@@ -1,9 +1,4 @@
-import {
-  expiringDocs,
-  expiryTone,
-  type ExpiryItem,
-  type KpiTone,
-} from '@/features/dashboard/dashboard-data'
+import { expiringDocs, expiryTone, type KpiTone } from '@/features/dashboard/dashboard-data'
 import type { DocumentRecord, PartyRecord, PartyRole, ProductRecord } from '@/lib/db'
 
 const isActive = <T extends { deletedAt?: string | null }>(r: T): boolean => r.deletedAt == null
@@ -74,7 +69,7 @@ export function buildOrgRows(
     .map((party) => {
       const { linked, docs } = orgScope(party.id, products, documents)
       const exp = expiringDocs(docs, linked, now)
-      const expired = exp.filter((i) => i.daysLeft < 0).length
+      const expired = exp.filter((i) => i.daysLeft <= 0).length
       return {
         party,
         productCount: linked.length,
@@ -158,7 +153,7 @@ export function buildOrgCockpitVm(
   const { linked, docs } = orgScope(party.id, products, documents)
   const exp = expiringDocs(docs, linked, now) // périmées ∪ dans la fenêtre (politique unique)
   const expById = new Set(exp.map((i) => i.id))
-  const expiredIds = new Set(exp.filter((i) => i.daysLeft < 0).map((i) => i.id))
+  const expiredIds = new Set(exp.filter((i) => i.daysLeft <= 0).map((i) => i.id))
   const expByType = groupBy(exp, (i) => i.docType)
 
   // Validité par type (pièces datées uniquement).
@@ -169,8 +164,8 @@ export function buildOrgCockpitVm(
   const pieces: PieceTypeValidity[] = [...datedByType.entries()]
     .map(([docType, ds]) => {
       const items = expByType.get(docType) ?? []
-      const expired = items.filter((i) => i.daysLeft < 0).length
-      const next = items[0] as ExpiryItem | undefined
+      const expired = items.filter((i) => i.daysLeft <= 0).length
+      const next = items[0]
       return {
         docType,
         total: ds.length,
@@ -199,7 +194,7 @@ export function buildOrgCockpitVm(
     .sort((a, b) => a.code.localeCompare(b.code))
   const amm: AmmPortfolio = { ...ammStat(ammDocs), byCountry }
 
-  const expiredCount = exp.filter((i) => i.daysLeft < 0).length
+  const expiredCount = exp.filter((i) => i.daysLeft <= 0).length
   return {
     productCount: linked.length,
     docCount: docs.length,

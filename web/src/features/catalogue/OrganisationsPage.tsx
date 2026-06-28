@@ -208,7 +208,9 @@ function OrgHealthBadges({ row }: { row: OrgRow }) {
         </StatusBadge>
       ) : null}
       {row.expiringCount > 0 ? (
-        <StatusBadge tone={KPI_BADGE_TONE[row.tone]}>
+        // Si un badge « expirée » (rouge) est déjà là, le « à renouveler » passe en amber pour ne
+        // pas dupliquer le rouge ; sinon il porte l'urgence réelle (rouge si pièce à mi-fenêtre).
+        <StatusBadge tone={row.expiredCount > 0 ? 'warning' : KPI_BADGE_TONE[row.tone]}>
           <Clock3 />
           {t({
             fr: `${row.expiringCount} à renouveler`,
