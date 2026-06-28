@@ -5,6 +5,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { Page } from '@/components/ui/page'
+import { PageHeader } from '@/components/ui/page-header'
 import { useOrgId } from '@/features/org/org-context'
 import { useI18n } from '@/lib/i18n-context'
 import { DocumentsSection } from './DocumentsSection'
@@ -93,27 +95,28 @@ export function ProductFormPage() {
     : undefined
 
   return (
-    <section className="mx-auto max-w-3xl">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => navigate('/catalogue')}
-        className="mb-4 -ml-2"
-      >
-        <ArrowLeft /> {t({ fr: 'Retour au catalogue', en: 'Back to catalogue' })}
-      </Button>
-
-      <h1 className="text-2xl font-semibold tracking-tight">
-        {isEditing
-          ? t({ fr: 'Modifier le produit', en: 'Edit product' })
-          : t({ fr: 'Nouveau produit', en: 'New product' })}
-      </h1>
-      <p className="text-muted-foreground mt-1 mb-6">
-        {t({
-          fr: "Renseignez l'identification du produit. Tout est enregistré localement et disponible hors-ligne.",
-          en: 'Fill in the product identification. Everything is saved locally and available offline.',
-        })}
-      </p>
+    <Page className="max-w-3xl">
+      <div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate('/catalogue')}
+          className="mb-2 -ml-2"
+        >
+          <ArrowLeft /> {t({ fr: 'Retour au catalogue', en: 'Back to catalogue' })}
+        </Button>
+        <PageHeader
+          title={
+            isEditing
+              ? t({ fr: 'Modifier le produit', en: 'Edit product' })
+              : t({ fr: 'Nouveau produit', en: 'New product' })
+          }
+          description={t({
+            fr: "Renseignez l'identification du produit. Tout est enregistré localement et disponible hors-ligne.",
+            en: 'Fill in the product identification. Everything is saved locally and available offline.',
+          })}
+        />
+      </div>
 
       {loadingExisting ? (
         <p className="text-muted-foreground text-sm">{t({ fr: 'Chargement…', en: 'Loading…' })}</p>
@@ -124,6 +127,7 @@ export function ProductFormPage() {
           onSubmit={(v) => void handleSave(v, false)}
           onAutoSave={(v) => void handleSave(v, true)}
           submitting={submitting}
+          submitVariant="primary"
           submitLabel={
             isEditing
               ? t({ fr: 'Enregistrer les modifications', en: 'Save changes' })
@@ -141,6 +145,6 @@ export function ProductFormPage() {
           }
         />
       )}
-    </section>
+    </Page>
   )
 }

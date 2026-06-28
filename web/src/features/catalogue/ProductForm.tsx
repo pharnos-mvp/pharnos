@@ -30,6 +30,8 @@ interface ProductFormProps {
   submitLabel: string
   /** Auto-enregistrement quand les champs requis sont valides (création/maj silencieuse). */
   onAutoSave?: (values: ProductFormValues) => void
+  /** Variante du bouton d'enregistrement (défaut `default` = cockpit inchangé ; `primary` = CTA bleu création). */
+  submitVariant?: 'default' | 'primary'
   /** Contenu de la section « Documents d'information » (mode édition). */
   documentsSlot?: ReactNode
   /** Contenu de la section « Pièces administratives » (mode édition). */
@@ -153,6 +155,7 @@ export function ProductForm({
   onAutoSave,
   documentsSlot,
   adminSlot,
+  submitVariant = 'default',
 }: ProductFormProps) {
   const { t } = useI18n()
   const schema = useMemo(() => makeProductSchema(t), [t])
@@ -218,7 +221,7 @@ export function ProductForm({
             open={open.id}
             onToggle={() => toggle('id')}
             action={
-              <Button type="submit" size="sm" disabled={submitting}>
+              <Button type="submit" size="sm" variant={submitVariant} disabled={submitting}>
                 {submitLabel}
               </Button>
             }
