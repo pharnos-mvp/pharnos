@@ -22,7 +22,7 @@ export interface AuthorityRow {
   hasProfile: boolean
   /** Mes dossiers (montages CTD) actifs ciblant ce pays. */
   dossierCount: number
-  /** Mes AMM actives enregistrées dans ce pays. */
+  /** Mes AMM ENREGISTRÉES (non supprimées) dans ce pays — pas de filtre d'expiration ici. */
   ammCount: number
 }
 

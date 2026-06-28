@@ -10,9 +10,8 @@ const inactive = 'text-muted-foreground hover:bg-accent'
 const activeCls = 'bg-info text-white'
 
 /**
- * Sous-navigation du hub Catalogue (référentiel maître RIM) : Produits · Organisations · Autorités.
- * Les onglets partagent la surface `/catalogue` ; « Autorités » est un emplacement honnête (M5) →
- * toast « bientôt ». Statique et léger (rendu dans le bundle d'entrée via CataloguePage).
+ * Sous-navigation du hub Catalogue (référentiel maître RIM) : Produits · Organisations · Autorités
+ * (les 3 surfaces de `/catalogue`). Statique et léger (rendu dans le bundle d'entrée via CataloguePage).
  */
 export function CatalogueTabs() {
   const { t } = useI18n()

@@ -90,7 +90,7 @@ export function AutoritesPage() {
             <span className="text-muted-foreground ml-auto text-sm" aria-live="polite">
               {t({
                 fr: `${filtered.length} autorité${filtered.length > 1 ? 's' : ''}`,
-                en: `${filtered.length} authorit${filtered.length > 1 ? 'ies' : 'y'}`,
+                en: `${filtered.length} authorit${filtered.length !== 1 ? 'ies' : 'y'}`,
               })}
             </span>
           </div>
@@ -138,7 +138,7 @@ function AuthorityListRow({ row }: { row: AuthorityRow }) {
         <ListRowLink to={`/catalogue/autorites/${row.code}`} title={row.agency.full}>
           {row.agency.name}
         </ListRowLink>
-        <div className="text-muted-foreground mt-0.5 truncate text-xs" title={row.agency.full}>
+        <div className="text-muted-foreground mt-0.5 truncate text-xs">
           {row.agency.full}
           {footprint.length > 0 ? ` · ${footprint.join(' · ')}` : ''}
         </div>

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { FileStack, Landmark, Receipt, ShieldCheck } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
@@ -195,40 +195,40 @@ export function AutoriteCockpit() {
         <h2 className="font-display text-sm font-semibold">
           {t({ fr: 'Mon activité dans ce pays', en: 'My activity in this country' })}
         </h2>
+        {/* Statistiques (non cliquables) : aucun filtre n'indexe l'empreinte par PAYS d'AMM côté
+            produits (le filtre catalogue est par pays de DOSSIER) ni côté workspace → un lien
+            mènerait à un résultat incohérent avec le compteur. On affiche des stats honnêtes. */}
         <div className="grid gap-2 sm:grid-cols-2">
-          <Link
-            to={`/workspace`}
-            className="bg-card hover:border-muted-foreground/25 flex items-center gap-3 rounded-xl border px-4 py-3 transition-all hover:shadow-md"
-          >
-            <span className="bg-muted text-muted-foreground flex size-10 items-center justify-center rounded-xl">
-              <FileStack className="size-5" />
-            </span>
-            <div>
-              <div className="font-display text-lg font-bold tabular-nums">
-                {counts?.dossiers ?? 0}
-              </div>
-              <div className="text-muted-foreground text-xs">
-                {t({ fr: 'Dossiers (montages CTD)', en: 'Submissions (CTD)' })}
-              </div>
-            </div>
-          </Link>
-          <Link
-            to={`/catalogue?country=${code}`}
-            className="bg-card hover:border-muted-foreground/25 flex items-center gap-3 rounded-xl border px-4 py-3 transition-all hover:shadow-md"
-          >
-            <span className="bg-muted text-muted-foreground flex size-10 items-center justify-center rounded-xl">
-              <ShieldCheck className="size-5" />
-            </span>
-            <div>
-              <div className="font-display text-lg font-bold tabular-nums">{counts?.amm ?? 0}</div>
-              <div className="text-muted-foreground text-xs">
-                {t({ fr: 'AMM enregistrées', en: 'Registered MAs' })}
-              </div>
-            </div>
-          </Link>
+          <Stat
+            icon={<FileStack className="size-5" />}
+            value={counts?.dossiers ?? 0}
+            label={t({ fr: 'Dossiers (montages CTD)', en: 'Submissions (CTD)' })}
+          />
+          <Stat
+            icon={<ShieldCheck className="size-5" />}
+            value={counts?.amm ?? 0}
+            label={t({ fr: 'AMM enregistrées', en: 'Registered MAs' })}
+          />
         </div>
       </section>
     </Page>
+  )
+}
+
+function Stat({ icon, value, label }: { icon: ReactNode; value: number; label: string }) {
+  return (
+    <div className="bg-card flex items-center gap-3 rounded-xl border px-4 py-3">
+      <span
+        aria-hidden
+        className="bg-muted text-muted-foreground flex size-10 items-center justify-center rounded-xl"
+      >
+        {icon}
+      </span>
+      <div>
+        <div className="font-display text-lg font-bold tabular-nums">{value}</div>
+        <div className="text-muted-foreground text-xs">{label}</div>
+      </div>
+    </div>
   )
 }
 
