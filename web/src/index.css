@@ -4,28 +4,53 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  /* ───────────────────────────────────────────────────────────────────────────
+     ÉCHELLE BRUTE — SOURCE UNIQUE de la fondation (mockup CEO `Pharnos_Dashboard.html`).
+     Les neutres canoniques (shadcn) ET la palette premium `--pd-*` en DÉRIVENT → fini
+     le double-maintien (LOT 1.5 « verrouillage de la fondation »). Gris cool (slate) =
+     la DA validée du Dashboard ; les primitives convergent vers elle (en clair).
+     ─────────────────────────────────────────────────────────────────────────── */
+  --white: #ffffff;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+  --blue-600: #1a56db; /* accent premium (CTA/lien) — mockup `--blue` */
+  --blue-700: #2563eb; /* hover accent — mockup `--blue2` */
+
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  /* Marque Pharnos (navy des gabarits). En clair : navy plein + texte blanc. */
+
+  /* Neutres canoniques (shadcn) — DÉRIVÉS de l'échelle brute (1 seule source). */
+  --background: var(--white);
+  --foreground: var(--gray-900);
+  --card: var(--white);
+  --card-foreground: var(--gray-900);
+  --popover: var(--white);
+  --popover-foreground: var(--gray-900);
+  --primary: var(--gray-900);
+  --primary-foreground: var(--gray-50);
+  /* Marque Pharnos (navy des gabarits). Zone document gelée (PDF byte-exact). */
   --brand: #263f73;
   --brand-foreground: #ffffff;
   /* Fond du panneau central du CTD builder (mockup `--bg`) : gris-bleu clair sur lequel
      ressortent les feuilles A4 blanches. Distinct de --background (blanc pur). */
   --canvas: #eef1f6;
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
+  --secondary: var(--gray-100);
+  --secondary-foreground: var(--gray-900);
+  /* --muted ET --accent = g50 (pas g100) : `text-muted-foreground` (g500) sur ces fonds doit passer
+     AA 4,5:1 — badge de statut neutre (`bg-muted`) + onglets/boutons mutés au survol (`hover:bg-accent`).
+     g500/g50 = 4,63:1 ✓ ; g500/g100 retombait à 4,39:1 ✗. --secondary reste g100 (ne porte que g900). */
+  --muted: var(--gray-50);
+  --muted-foreground: var(--gray-500);
+  --accent: var(--gray-50);
+  --accent-foreground: var(--gray-900);
+  --destructive: var(--danger);
   /* Palette de STATUT sémantique (RA : approuvé / à renouveler / expiré / en cours). Chaque teinte =
      solide (icône/valeur/point) + subtle (fond de badge) + subtle-foreground (texte AA sur subtle).
      Contrastes vérifiés WCAG AA. Décision CEO 2026-06-25 (app premium). */
@@ -38,12 +63,12 @@
   --danger: #dc2626;
   --danger-subtle: #fee2e2;
   --danger-subtle-foreground: #b91c1c;
-  --info: #1a56db;
+  --info: var(--blue-600);
   --info-subtle: #eff6ff;
   --info-subtle-foreground: #1e40af;
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: var(--gray-200);
+  --input: var(--gray-200);
+  --ring: var(--gray-400);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -120,40 +145,43 @@
   --sidebar-ring: #2f81f7;
 }
 
-/* Palette DA premium « Ultra-Performance » (--pd-*) — PARTAGÉE (dashboard + fiche produit RIM).
-   Source unique : CLAIR = hex du mockup CEO ; SOMBRE = GitHub. Distincte des tokens shadcn canoniques. */
+/* Palette DA premium « Ultra-Performance » (--pd-*) — dashboard + cockpit RIM. Les NEUTRES de
+   surface (card/border/track/border-soft/muted/tile-hover-bg) DÉRIVENT des tokens canoniques
+   (mêmes valeurs dans les 2 thèmes → 1 source, zéro double-maintien, dashboard pixel-identique).
+   Les teintes/ombres SPÉCIFIQUES à la DA (hiérarchie de texte, accent lien, hover-border) restent
+   explicites : clair = échelle brute, sombre = override GitHub ci-dessous. */
 :root {
-  --pd-card: #ffffff;
-  --pd-border: #e5e7eb;
-  --pd-border-soft: #f3f4f6;
-  --pd-hover-border: #d1d5db;
-  --pd-track: #e5e7eb;
-  --pd-strong: #111827;
-  --pd-text: #1f2937;
-  --pd-text-2: #374151;
-  --pd-name: #4b5563;
-  --pd-muted: #6b7280;
-  --pd-link: #1a56db;
-  --pd-link-hover: #2563eb;
-  --pd-tile-hover-bg: #eff6ff;
-  --pd-tile-hover-border: #1a56db;
+  --pd-card: var(--card);
+  --pd-border: var(--border);
+  --pd-border-soft: var(
+    --secondary
+  ); /* g100 clair / #21262d sombre = valeur d'origine (≠ --muted=g50) */
+  --pd-track: var(--border);
+  --pd-muted: var(--muted-foreground);
+  --pd-tile-hover-bg: var(--info-subtle);
+  --pd-strong: var(--gray-900);
+  --pd-text: var(--gray-800);
+  --pd-text-2: var(--gray-700);
+  --pd-name: var(--gray-600);
+  --pd-hover-border: var(--gray-300);
+  --pd-link: var(--blue-600);
+  --pd-link-hover: var(--blue-700);
+  --pd-tile-hover-border: var(--blue-600);
   --pd-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   --pd-shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 .dark {
-  --pd-card: #161b22;
-  --pd-border: #30363d;
-  --pd-border-soft: #21262d;
-  --pd-hover-border: #484f58;
-  --pd-track: #30363d;
+  /* DA-specific overrides (le reste suit les canoniques en sombre via les alias ci-dessus). */
+  /* `--info-subtle` vaut #0d1b2f en sombre ≠ l'ancien tile-hover #1c2333 → on le ÉPINGLE pour garder
+     le hover de tuile du dashboard pixel-identique en sombre (l'alias light #eff6ff reste correct). */
+  --pd-tile-hover-bg: #1c2333;
   --pd-strong: #f0f6fc;
   --pd-text: #e6edf3;
   --pd-text-2: #c9d1d9;
   --pd-name: #adbac7;
-  --pd-muted: #8b949e;
+  --pd-hover-border: #484f58;
   --pd-link: #58a6ff;
   --pd-link-hover: #79c0ff;
-  --pd-tile-hover-bg: #1c2333;
   --pd-tile-hover-border: #58a6ff;
   --pd-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
   --pd-shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.4);
@@ -215,6 +243,15 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Échelle z-index SÉMANTIQUE (LOT 1.5) → utilitaires `z-sticky`/`z-dropdown`/`z-overlay`/`z-modal`.
+     Règle la dérive des barres collantes/overlays (magic numbers). Contenu = `z-0` ; toasts (sonner)
+     gérés par la lib au-dessus. Radix (dropdown/dialog) porte déjà son propre z — ces tokens cadrent
+     le code applicatif (barres sticky de page, voiles maison). */
+  --z-index-sticky: 20;
+  --z-index-dropdown: 30;
+  --z-index-overlay: 40;
+  --z-index-modal: 50;
 }
 
 @layer base {
