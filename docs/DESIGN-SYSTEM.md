@@ -9,6 +9,12 @@
 > **MAJ 2026-06-25 — app PREMIUM** (remplace « chrome neutre 2 tons ») : typo de marque **Syne** (display)
 > / **DM Sans** (corps) auto-hébergées · **shell navy** (`--sidebar` `#0a1628`) + accent `#3b82f6` ·
 > **palette de statut sémantique**. La zone A4 (Times New Roman) reste gelée.
+>
+> **MAJ 2026-06-28 — LOT 1.5 « verrouillage de la fondation »** : **token layer UNIFIÉ** (échelle brute
+> unique → canoniques + `--pd-*` en dérivent, fin du double-maintien) · **z-index tokenisé**
+> (`z-sticky/dropdown/overlay/modal`). La fondation est désormais **verrouillée** ; le reste = rollout par
+> surface (LOTs 4-10) + landing. Le Dashboard reste sa propre CSS (`dashboard-mockup.css`) mais **partage
+> exactement les mêmes valeurs** que les primitives (1 source).
 
 ## Principes
 1. **Composer, pas improviser** — une page = `Page` + `PageHeader` + des sections/états, pas des
@@ -19,16 +25,19 @@
    offline). **A4/document = Times New Roman** (zone protégée). 2 graisses (400/500).
 3. **Rythme d'espacement** (base 4 px, densité équilibrée-pro) — entre blocs de page = `space-y-6`
    (24 px, via `Page`) ; intra-bloc = `gap-4` (16 px) ; padding carte = 16–20 px.
-4. **Couleurs** — tokens `index.css`, **jamais de couleur en dur** (invisible en dark sinon). **Shell
-   navy** (`--sidebar` = `#0a1628` clair / `#010409` dark) = identité de marque ; **accent**
-   `--sidebar-primary` (`#3b82f6`). **Palette de statut sémantique** `--success` / `--warning` /
-   `--danger` / `--info` (+ `-subtle` = fond de badge, `-subtle-foreground` = texte AA), clair + dark.
-   `--brand` (`#263f73`) = **marque document gelée** (PDF byte-exact), distincte du shell. Dark = GitHub.
-   **Palette DA du Dashboard** = `--pd-*` (`dashboard-mockup.css`, clair+dark) : c'est la **référence
-   couleur premium validée** (cf. écrans de référence) ; à **promouvoir dans le token layer partagé** en
-   LOT 2 (en sombre, `--pd-*` = déjà les hex GitHub canoniques ; en clair = gris slate AA-tunés).
-5. **z-index** (convention, règle les bugs de barres collantes) : contenu `z-0` · barre sticky `z-20`
-   · dropdown/popover `z-30` · overlay `z-40` · modal `z-50` · toast (sonner) au-dessus.
+4. **Couleurs** — tokens `index.css`, **jamais de couleur en dur** (invisible en dark sinon).
+   **SOURCE UNIQUE (LOT 1.5)** : une **échelle brute** (`--gray-50…--gray-900`, `--white`, `--blue-600/700`
+   = hex du mockup CEO) dont **dérivent et les neutres canoniques (shadcn `--card`/`--border`/`--muted…`) et
+   la palette premium `--pd-*`** → fini le double-maintien. Les primitives rendent donc les **gris cool
+   (slate) de la DA Dashboard** en clair (convergence) ; le Dashboard reste **pixel-identique** (ses
+   `--pd-*` de surface aliasent les canoniques aux mêmes valeurs). **Shell navy** (`--sidebar` `#0a1628`
+   clair / `#010409` dark) = identité de marque ; accent `--sidebar-primary` `#3b82f6`. **Statut
+   sémantique** `--success`/`--warning`/`--danger`/`--info` (+ `-subtle` fond badge, `-subtle-foreground`
+   texte AA) — l'ambre est volontairement plus foncé que le mockup (#b45309 vs #d97706) pour passer AA sur
+   texte. `--brand` `#263f73` = **marque document gelée** (PDF byte-exact). Dark = GitHub.
+5. **z-index** — **TOKENISÉ (LOT 1.5)** : `@theme` expose `z-sticky` (20) · `z-dropdown` (30) ·
+   `z-overlay` (40) · `z-modal` (50) ; contenu `z-0` ; Radix (dropdown/dialog) porte son propre z ; toast
+   (sonner) au-dessus. Utiliser ces utilitaires plutôt que des nombres → fin des bugs de barres collantes.
 6. **États systématiques** — toute liste/donnée asynchrone expose **chargement** (`Skeleton`),
    **vide** (`EmptyState`), **erreur** (`ErrorState` actionnable). Jamais un `<p>Chargement…</p>` nu.
 
