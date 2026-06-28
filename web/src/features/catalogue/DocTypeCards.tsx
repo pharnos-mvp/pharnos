@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Check, ChevronDown, FileText, Loader2, Plus, Trash2 } from 'lucide-react'
+import { Check, FileText, Loader2, Plus, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -147,12 +147,7 @@ function DocCard({
         open ? 'shadow-md md:col-span-2' : 'hover:border-muted-foreground/25 hover:shadow-sm',
       )}
     >
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left"
-      >
+      <div className="flex items-center gap-3 px-4 py-3">
         <span className="bg-info-subtle text-info-subtle-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
           <FileText className="size-4" />
         </span>
@@ -171,13 +166,25 @@ function DocCard({
             <Check /> {count}
           </StatusBadge>
         ) : null}
-        <ChevronDown
-          className={cn(
-            'text-muted-foreground size-4 shrink-0 transition-transform',
-            open ? '' : '-rotate-90',
+        {/* Bouton « + Ajouter » explicite sur chaque carte (déplie le formulaire d'upload). */}
+        <Button
+          type="button"
+          variant={open ? 'ghost' : 'outline'}
+          size="sm"
+          onClick={onToggle}
+          aria-expanded={open}
+        >
+          {open ? (
+            <>
+              <X /> {t({ fr: 'Fermer', en: 'Close' })}
+            </>
+          ) : (
+            <>
+              <Plus /> {t({ fr: 'Ajouter', en: 'Add' })}
+            </>
           )}
-        />
-      </button>
+        </Button>
+      </div>
 
       {open ? (
         <div className="space-y-4 border-t px-4 py-4">
