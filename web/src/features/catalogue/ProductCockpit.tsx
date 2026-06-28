@@ -26,6 +26,7 @@ import { CountryFlag } from '@/features/dashboard/CountryFlag'
 import {
   conformityTone,
   expiryTone,
+  KPI_BADGE_TONE,
   openCorrespondences,
   type CorrSubState,
   type KpiTone,
@@ -50,13 +51,6 @@ import type { ProductFormValues } from './types'
 import { useCatalogueSync } from './use-catalogue-sync'
 import './product-cockpit.css'
 
-const TONE_BADGE: Record<KpiTone, 'neutral' | 'success' | 'warning' | 'danger' | 'info'> = {
-  good: 'success',
-  fair: 'info',
-  passable: 'warning',
-  poor: 'danger',
-  neutral: 'neutral',
-}
 const TONE_COLOR: Record<KpiTone, string> = {
   good: 'var(--success)',
   fair: 'var(--info)',
@@ -74,8 +68,6 @@ const CONFORMITY_TONE: Record<DocConformityStatus, 'success' | 'danger' | 'neutr
   nonconform: 'danger',
   unanalyzed: 'neutral',
 }
-// CTA bleu du mockup (.btn-primary = --blue = notre --info).
-const BLUE_BTN = 'bg-info text-white hover:bg-info/90'
 
 function BackLink() {
   const { t } = useI18n()
@@ -333,7 +325,7 @@ export function ProductCockpit() {
                   </StatusBadge>
                 ) : null}
                 {vm.expiring.length > 0 ? (
-                  <StatusBadge tone={TONE_BADGE[expiryTone(vm.expiring)]}>
+                  <StatusBadge tone={KPI_BADGE_TONE[expiryTone(vm.expiring)]}>
                     <Clock3 />
                     {t({
                       fr: `${vm.expiring.length} à renouveler`,
@@ -359,7 +351,7 @@ export function ProductCockpit() {
                   <Download /> {t({ fr: 'Exporter CTD', en: 'Export CTD' })}
                 </Link>
               </Button>
-              <Button size="sm" asChild className={BLUE_BTN}>
+              <Button size="sm" asChild variant="primary">
                 <Link to="/workspace/nouveau">
                   <Zap /> {t({ fr: 'Lancer une opération', en: 'Start an operation' })}
                 </Link>
@@ -593,7 +585,7 @@ function ConformityPanel({
   const items: { tone: 'success' | 'warning' | 'danger' | 'neutral'; label: string }[] = []
   if (expiring > 0)
     items.push({
-      tone: TONE_BADGE[expiringTone] === 'danger' ? 'danger' : 'warning',
+      tone: KPI_BADGE_TONE[expiringTone] === 'danger' ? 'danger' : 'warning',
       label: t({ fr: `${expiring} pièce(s) à renouveler`, en: `${expiring} item(s) to renew` }),
     })
   if (nonConform > 0)

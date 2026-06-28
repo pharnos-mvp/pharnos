@@ -61,6 +61,21 @@ export const EXPIRY_POOR_RATIO = 0.5
 export type KpiTone = 'good' | 'fair' | 'passable' | 'poor' | 'neutral'
 
 /**
+ * Tonalité KPI → tonalité de `StatusBadge`. **Source unique** partagée (liste Produits + cockpit) —
+ * évite la map dupliquée par surface (pur mapping, pas de React).
+ */
+export const KPI_BADGE_TONE: Record<
+  KpiTone,
+  'neutral' | 'success' | 'warning' | 'danger' | 'info'
+> = {
+  good: 'success',
+  fair: 'info',
+  passable: 'warning',
+  poor: 'danger',
+  neutral: 'neutral',
+}
+
+/**
  * Conformité (%) → tonalité. Seuils CEO : ≥ 95 bon · 85-94 assez bien · 70-84 passable · < 70 médiocre.
  * `null` (aucun document analysé) → neutre.
  */
