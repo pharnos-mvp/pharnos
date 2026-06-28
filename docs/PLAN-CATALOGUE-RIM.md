@@ -93,7 +93,7 @@ Conformité, dossiers → pays). Valeur visible tout de suite, **sans nouvelle t
 | **M2** | **Liste premium + filtres + drill-downs dashboard** : table premium + recherche + filtres pays/échéance/conformité + branchement des clics du dashboard (cartes/drapeaux → catalogue filtré). | 1 | ~0,5–1 session | ✅ **LIVRÉ PROD** (PR #246) |
 | **M3** | **Modèle `parties` (backend)** : migration **`0045`** + FK produits (`titulaireId`/`fabricantId`) + **RLS + pgTAP** + Dexie + sync + backfill idempotent depuis les free-text. | 2 | ~1 session | ✅ **LIVRÉ PROD** (PR #253) |
 | **M4** | **Wizard + auto-populate + fiches Organisations + hub** : wizard 3 sessions (PR #252) + auto-populate/lien `parties` (`deriveProductLinks`) + backfill idempotent + agrégations par org + liste & fiche Organisations + hub. | 2 | ~1 session | ✅ **LIVRÉ PROD** (PR #253) |
-| **M5** | **Autorités (référence) + polish hub** + lignes de documents en cartes `.doc-row` (mineur reporté de M1). | 2 | ~0,5 session | ⬜ |
+| **M5** | **Autorités (référentiel agences NMRA + exigences nationales)** : liste + fiche (destinataire/civilité/adresse, redevances/échantillons/délai, empreinte org), onglet hub câblé. Réutilise la donnée curée `roadmap-data` (0 migration, 0 hallucination). | 2 | ~0,5 session | ✅ **LIVRÉ PROD** (PR #257) |
 
 ## 6. Risques & mitigations
 
@@ -110,10 +110,12 @@ budget perf tenu · a11y AA · **0 régression auto-save / offline** · zone A4 
 
 ## 8. Prochaine étape (handoff prochaine session)
 
-**Phase 1 (M1+M2) + Phase 2 (M3+M4) livrés en prod.** Reste **M5 = Autorités (référence seedée par pays)
-+ polish hub** (+ mineur reporté de M1 : lignes de documents en cartes `.doc-row`). **Prochaine migration
-libre = `0046`** (`0045` = parties, PR #253 ; `ls supabase/migrations/` avant de numéroter ; appliquer via
-MCP `apply_migration`). Autorités = données de référence (PAS une table tenant) → potentiellement 0 migration.
+**LOT 2 Catalogue RIM COMPLET (M1→M6 livrés en prod, 2026-06-28).** M5 (Autorités, PR #257) + M6 (cockpit
+Organisation RA, PR #255) clôturent le lot. **Prochaine migration libre = `0046`** (`0045` = parties, PR #253 ;
+`ls supabase/migrations/` avant de numéroter ; appliquer via MCP `apply_migration`). Mineur encore reporté :
+lignes de documents en cartes `.doc-row`. **Décisions RA post-pilotes (avis CTO donné) : hub à KPI cards par
+rôle (garder l'entité unique à rôles) + mode Agence RA multi-clients** (ICP probable n°1 en Afrique de l'Ouest
+francophone — manque une notion « client/portefeuille »). Priorité produit globale = **N4 / GO-LIVE** (pilotes).
 
 ### Spécifs Phase 2 verrouillées (consignes CEO)
 
