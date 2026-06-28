@@ -47,8 +47,7 @@ function titleFor(item: InboxItem): Translatable {
   }
 }
 
-const matchesFilter = (item: InboxItem, f: FilterKey): boolean =>
-  f === 'all' || (item.kind as string) === f
+const matchesFilter = (item: InboxItem, f: FilterKey): boolean => f === 'all' || item.kind === f
 
 function startOfDay(ms: number): number {
   const d = new Date(ms)

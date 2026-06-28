@@ -374,10 +374,11 @@ function PipelineBar({
         {pipeline
           .filter((p) => p.count > 0)
           .map((p) => (
+            // `flex: count` répartit sans erreur d'arrondi (≠ width %, qui laisse un liseré).
             <div
               key={p.status}
-              className={SEG_COLOR[p.status]}
-              style={{ width: `${(p.count / total) * 100}%` }}
+              className={cn('h-full', SEG_COLOR[p.status])}
+              style={{ flex: p.count }}
             />
           ))}
       </div>
@@ -496,6 +497,7 @@ function OperationsTable({
                     className="block size-2.5 rounded-full"
                     style={{ background: PROCEDURE_DOT[d.activity] ?? '#6b7280' }}
                   />
+                  <span className="sr-only">{procedureLabel(d.activity, lang)}</span>
                 </td>
                 <td className="min-w-0 px-3 py-2.5 align-middle">
                   {hasReviews ? (

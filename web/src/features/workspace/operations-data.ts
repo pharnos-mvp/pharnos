@@ -108,10 +108,11 @@ export function buildOpsRows(
       const byNode = buildDocsByNode(dossier, pdocs)
       const flat = flattenTree(dossier.tree)
       const completionPct = completionStats(flat, (n) => docsForNode(byNode, n).length).pct
-      // Échéance : pièce produit (admin) la plus urgente.
+      // Échéance : la pièce produit datée la PLUS PROCHE (jours bruts). `expiringDocs` trie par
+      // urgence relative (jours/fenêtre) → on reprend le minimum brut pour la colonne « Échéance ».
       const product = productById.get(dossier.productId)
       const exp = product ? expiringDocs(pdocs, [product], now) : []
-      const deadlineDays = exp.length > 0 ? (exp[0]?.daysLeft ?? null) : null
+      const deadlineDays = exp.length > 0 ? Math.min(...exp.map((e) => e.daysLeft)) : null
       return {
         dossier,
         ref: dossierRef(dossier),

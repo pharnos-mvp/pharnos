@@ -50,13 +50,18 @@ const product = (id: string): ProductRecord =>
     deletedAt: null,
   }) as ProductRecord
 
-const ammDoc = (id: string, productId: string, expiryDate: string): DocumentRecord =>
+const ammDoc = (
+  id: string,
+  productId: string,
+  expiryDate: string,
+  docType = 'amm',
+): DocumentRecord =>
   ({
     id,
     orgId: 'org-1',
     productId,
     category: 'admin',
-    docType: 'amm',
+    docType,
     fileName: 'f',
     mimeType: '',
     size: 0,
@@ -101,6 +106,21 @@ describe('operations-data', () => {
     expect(rows[0]?.deadlineDays).toBe(3)
     expect(rows[0]?.completionPct).toBe(0) // arbre vide
     expect(rows[0]?.ref).toMatch(/^OP-2026-/)
+  })
+
+  it("buildOpsRows : échéance = pièce la plus proche en JOURS BRUTS (pas l'urgence relative)", () => {
+    // amm (fenêtre 180 j) à J-60 = ratio 0,33 ; coa (fenêtre 547 j) à J-70 = ratio 0,13.
+    // `expiringDocs` trierait la coa en tête (plus urgente relativement) ; la colonne « Échéance »
+    // doit afficher la plus proche en absolu = l'amm (60 j).
+    const rows = buildOpsRows(
+      [dossier('d1', { productId: 'p1' })],
+      new Map(),
+      [product('p1')],
+      [ammDoc('amm', 'p1', inDays(60), 'amm'), ammDoc('coa', 'p1', inDays(70), 'coa')],
+      new Map(),
+      NOW,
+    )
+    expect(rows[0]?.deadlineDays).toBe(60)
   })
 
   it('opsKpis : actifs / en évaluation / complément / octroyés / échéances <=7j', () => {
