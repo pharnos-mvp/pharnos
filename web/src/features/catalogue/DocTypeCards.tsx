@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
-import { Check, FileText, Loader2, Plus, Trash2, Upload, X } from 'lucide-react'
+import { Check, FileText, Plus, Trash2, Upload, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -8,32 +7,53 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { COUNTRIES, countryLabel } from '@/features/workspace/dossier-constants'
-import type { DocumentCategory, DocumentRecord } from '@/lib/db'
-import { UPLOAD_ACCEPT } from '@/lib/files'
+import type { DocumentCategory } from '@/lib/db'
+import {
+  isAllowedUpload,
+  MAX_UPLOAD_BYTES,
+  UPLOAD_ACCEPT,
+  UPLOAD_SIZE_ERROR,
+  UPLOAD_TYPE_ERROR,
+} from '@/lib/files'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n-context'
 import { docTypesFor, requiresExpiry, type DocTypeOption } from './doc-types'
-import { addDocument, deleteDocument, listDocuments } from './documents-repository'
-import { syncDocuments } from './documents-sync'
 
 /**
- * Cartes « un type de document = une carte » (wizard création produit). Clic → la carte se déplie
- * pour révéler le fichier + (pièces admin) les métadonnées. Pré-construit toutes les cartes de la
- * catégorie ; un compteur indique combien de pièces de ce type ont déjà été ajoutées.
+ * Pièce en attente (buffer du wizard) — AJOUTÉE sans produit. La persistance (création du produit
+ * + `addDocument`) se fait à l'enregistrement. `id` = clé locale (suppression du buffer).
+ */
+export interface DraftDocument {
+  id: string
+  category: DocumentCategory
+  docType: string
+  file: File
+  issueDate: string | null
+  expiryDate: string | null
+  holder: string | null
+  country: string | null
+  reference: string | null
+  batchNumber: string | null
+}
+
+/**
+ * Cartes « un type = une carte » (wizard). Composant CONTRÔLÉ : l'ajout d'une pièce alimente un
+ * buffer (`onAdd`) sans dépendre d'un produit ; rien n'est persisté ici. Clic « + Ajouter » →
+ * ouvre la carte ET l'explorateur de fichiers.
  */
 export function DocTypeCards({
-  orgId,
-  productId,
   category,
+  drafts,
+  onAdd,
+  onRemove,
 }: {
-  orgId: string
-  productId: string
   category: DocumentCategory
+  drafts: DraftDocument[]
+  onAdd: (d: DraftDocument) => void
+  onRemove: (id: string) => void
 }) {
-  const docs = useLiveQuery(() => listDocuments(productId, category), [productId, category])
   const types = docTypesFor(category)
   const [openType, setOpenType] = useState<string | null>(null)
-  const countOf = (code: string) => (docs ?? []).filter((d) => d.docType === code).length
 
   return (
     <div className="grid gap-3 md:grid-cols-2">
@@ -42,10 +62,9 @@ export function DocTypeCards({
           key={type.code}
           type={type}
           category={category}
-          orgId={orgId}
-          productId={productId}
-          count={countOf(type.code)}
-          docs={(docs ?? []).filter((d) => d.docType === type.code)}
+          drafts={drafts.filter((d) => d.docType === type.code)}
+          onAdd={onAdd}
+          onRemove={onRemove}
           open={openType === type.code}
           onToggle={() => setOpenType((o) => (o === type.code ? null : type.code))}
         />
@@ -57,19 +76,17 @@ export function DocTypeCards({
 function DocCard({
   type,
   category,
-  orgId,
-  productId,
-  count,
-  docs,
+  drafts,
+  onAdd,
+  onRemove,
   open,
   onToggle,
 }: {
   type: DocTypeOption
   category: DocumentCategory
-  orgId: string
-  productId: string
-  count: number
-  docs: DocumentRecord[]
+  drafts: DraftDocument[]
+  onAdd: (d: DraftDocument) => void
+  onRemove: (id: string) => void
   open: boolean
   onToggle: () => void
 }) {
@@ -78,6 +95,7 @@ function DocCard({
   const isAmm = type.code === 'amm'
   const isCoa = type.code === 'coa'
   const needsExpiry = requiresExpiry(type.code)
+  const count = drafts.length
 
   const [file, setFile] = useState<File | null>(null)
   const [issueDate, setIssueDate] = useState('')
@@ -86,7 +104,6 @@ function DocCard({
   const [country, setCountry] = useState('')
   const [reference, setReference] = useState('')
   const [batchNumber, setBatchNumber] = useState('')
-  const [busy, setBusy] = useState(false)
   const [resetKey, setResetKey] = useState(0)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -107,9 +124,17 @@ function DocCard({
     setResetKey((k) => k + 1)
   }
 
-  async function handleAdd() {
+  function handleAdd() {
     if (!file) {
       toast.error(t({ fr: 'Sélectionne un fichier', en: 'Select a file' }))
+      return
+    }
+    if (!isAllowedUpload(file)) {
+      toast.error(UPLOAD_TYPE_ERROR)
+      return
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast.error(UPLOAD_SIZE_ERROR)
       return
     }
     if (needsExpiry && !expiryDate) {
@@ -121,30 +146,20 @@ function DocCard({
       )
       return
     }
-    setBusy(true)
-    try {
-      await addDocument(orgId, productId, {
-        category,
-        docType: type.code,
-        file,
-        language: 'fr',
-        expiryDate: expiryDate || null,
-        issueDate: issueDate || null,
-        reference: isAmm ? reference.trim() || null : null,
-        holder: isAdmin ? holder.trim() || null : null,
-        country: isAmm ? country || null : null,
-        batchNumber: isCoa ? batchNumber.trim() || null : null,
-      })
-      void syncDocuments(orgId)
-      toast.success(t({ fr: 'Document ajouté', en: 'Document added' }))
-      reset()
-    } catch (error) {
-      toast.error(t({ fr: "Échec de l'ajout", en: 'Upload failed' }), {
-        description: error instanceof Error ? error.message : undefined,
-      })
-    } finally {
-      setBusy(false)
-    }
+    onAdd({
+      id: crypto.randomUUID(),
+      category,
+      docType: type.code,
+      file,
+      issueDate: issueDate || null,
+      expiryDate: expiryDate || null,
+      holder: isAdmin ? holder.trim() || null : null,
+      country: isAmm ? country || null : null,
+      reference: isAmm ? reference.trim() || null : null,
+      batchNumber: isCoa ? batchNumber.trim() || null : null,
+    })
+    toast.success(t({ fr: 'Pièce ajoutée', en: 'Document added' }))
+    reset()
   }
 
   return (
@@ -154,7 +169,7 @@ function DocCard({
         open ? 'shadow-md md:col-span-2' : 'hover:border-muted-foreground/25 hover:shadow-sm',
       )}
     >
-      {/* Input fichier TOUJOURS monté (caché) → « + Ajouter » peut ouvrir l'explorateur directement. */}
+      {/* Input fichier TOUJOURS monté (caché) → « + Ajouter » ouvre l'explorateur directement. */}
       <input
         ref={fileRef}
         key={resetKey}
@@ -184,7 +199,7 @@ function DocCard({
             <Check /> {count}
           </StatusBadge>
         ) : null}
-        {/* Bouton « + Ajouter » explicite sur chaque carte (déplie le formulaire d'upload). */}
+        {/* Bouton « + Ajouter » explicite sur chaque carte (ouvre l'explorateur + déplie le form). */}
         <Button
           type="button"
           variant={open ? 'ghost' : 'outline'}
@@ -206,22 +221,20 @@ function DocCard({
 
       {open ? (
         <div className="space-y-4 border-t px-4 py-4">
-          {docs.length > 0 ? (
+          {drafts.length > 0 ? (
             <ul className="divide-y rounded-lg border">
-              {docs.map((d) => (
+              {drafts.map((d) => (
                 <li key={d.id} className="flex items-center gap-2 p-2.5 text-sm">
                   <FileText className="text-muted-foreground size-4 shrink-0" />
-                  <span className="min-w-0 flex-1 truncate" title={d.fileName}>
-                    {d.fileName}
+                  <span className="min-w-0 flex-1 truncate" title={d.file.name}>
+                    {d.file.name}
                   </span>
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    aria-label={t({ fr: 'Supprimer', en: 'Delete' })}
-                    onClick={() => {
-                      void deleteDocument(d.id).then(() => void syncDocuments(orgId))
-                    }}
+                    aria-label={t({ fr: 'Retirer', en: 'Remove' })}
+                    onClick={() => onRemove(d.id)}
                   >
                     <Trash2 className="size-4" />
                   </Button>
@@ -318,9 +331,8 @@ function DocCard({
             </Field>
           </div>
 
-          <Button type="button" variant="primary" onClick={() => void handleAdd()} disabled={busy}>
-            {busy ? <Loader2 className="animate-spin" /> : <Plus />}
-            {t({ fr: 'Ajouter la pièce', en: 'Add document' })}
+          <Button type="button" variant="primary" onClick={handleAdd}>
+            <Plus /> {t({ fr: 'Ajouter la pièce', en: 'Add document' })}
           </Button>
         </div>
       ) : null}

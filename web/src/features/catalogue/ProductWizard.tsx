@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
@@ -17,8 +17,10 @@ import {
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
-import { DocTypeCards } from './DocTypeCards'
-import { createProduct, updateProduct } from './repository'
+import { DocTypeCards, type DraftDocument } from './DocTypeCards'
+import { addDocument } from './documents-repository'
+import { syncDocuments } from './documents-sync'
+import { createProduct } from './repository'
 import { syncProducts } from './sync'
 import { makeProductSchema, type ProductFormValues, type ProductInput } from './types'
 
@@ -100,61 +102,27 @@ export function ProductWizard({ orgId, onDone }: { orgId: string; onDone: () => 
     mode: 'onChange',
   })
   const [step, setStep] = useState(1)
-  const [productId, setProductId] = useState<string | null>(null)
-  const productIdRef = useRef<string | null>(null)
   const [saving, setSaving] = useState(false)
-  // L'utilisateur a tenté d'avancer/enregistrer alors que l'identification est incomplète → on
-  // marque la session 1 en rouge (le produit n'a pas pu être créé : champs requis manquants).
+  // L'utilisateur a tenté d'enregistrer / a sauté l'identification incomplète → session 1 en rouge.
   const [attempted, setAttempted] = useState(false)
+  // Pièces AJOUTÉES sans produit (buffer) — persistées seulement à l'enregistrement. L'ajout de
+  // documents ne dépend donc d'AUCUN champ ; seul « Terminer » exige l'identification.
+  const [drafts, setDrafts] = useState<DraftDocument[]>([])
+  const isValidStep1 = form.formState.isValid // live (mode onChange) → pilote l'état du stepper
 
-  // Persiste l'identification SI valide (crée le produit la 1ʳᵉ fois, sinon met à jour). Renvoie
-  // `true` si le produit existe désormais. En cas d'invalidité → marque « attempted » (rouge).
-  async function persistStep1(): Promise<boolean> {
-    if (!(await form.trigger())) {
-      setAttempted(true)
-      return false
-    }
-    const values = schema.parse(form.getValues())
-    setSaving(true)
-    try {
-      if (productIdRef.current) {
-        await updateProduct(productIdRef.current, values)
-      } else {
-        const rec = await createProduct(orgId, values)
-        productIdRef.current = rec.id
-        setProductId(rec.id)
-      }
-      void syncProducts(orgId)
-      setAttempted(false)
-      return true
-    } catch (error) {
-      toast.error(t({ fr: "Échec de l'enregistrement", en: 'Save failed' }), {
-        description: error instanceof Error ? error.message : undefined,
-      })
-      return false
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  // Navigation LIBRE entre sessions (clic sur les titres). En quittant la session 1, on tente de
-  // persister l'identification ; si invalide, on navigue quand même mais le produit n'est pas créé
-  // (les sessions 2/3 invitent alors à compléter l'identification).
-  async function goToStep(n: number) {
+  // Navigation LIBRE entre sessions (clic sur les titres). Sauter la session 1 invalide la marque
+  // en rouge, mais n'empêche jamais d'ajouter des pièces aux sessions suivantes.
+  function goToStep(n: number) {
     if (n === step) return
-    if (step === 1 && n !== 1) await persistStep1()
+    if (step === 1 && n !== 1) setAttempted(!isValidStep1)
     setStep(n)
   }
 
-  // « Terminer » : refuse l'enregistrement tant que l'identification (champs requis) n'est pas remplie.
+  // « Terminer » = SEUL moment subordonné aux champs requis : refuse tant que l'identification
+  // n'est pas valide ; sinon crée le produit puis persiste toutes les pièces bufferisées.
   async function finish() {
-    if (productIdRef.current) {
-      onDone()
-      return
-    }
-    if (await persistStep1()) {
-      onDone()
-    } else {
+    if (!(await form.trigger())) {
+      setAttempted(true)
       setStep(1)
       toast.error(
         t({
@@ -162,12 +130,43 @@ export function ProductWizard({ orgId, onDone }: { orgId: string; onDone: () => 
           en: 'Fill the required Identification fields before saving.',
         }),
       )
+      return
+    }
+    setSaving(true)
+    try {
+      const rec = await createProduct(orgId, schema.parse(form.getValues()))
+      for (const d of drafts) {
+        await addDocument(orgId, rec.id, {
+          category: d.category,
+          docType: d.docType,
+          file: d.file,
+          language: 'fr',
+          issueDate: d.issueDate,
+          expiryDate: d.expiryDate,
+          reference: d.reference,
+          holder: d.holder,
+          country: d.country,
+          batchNumber: d.batchNumber,
+        })
+      }
+      void syncProducts(orgId)
+      void syncDocuments(orgId)
+      onDone()
+    } catch (error) {
+      toast.error(t({ fr: "Échec de l'enregistrement", en: 'Save failed' }), {
+        description: error instanceof Error ? error.message : undefined,
+      })
+    } finally {
+      setSaving(false)
     }
   }
 
+  const addDraft = (d: DraftDocument) => setDrafts((list) => [...list, d])
+  const removeDraft = (id: string) => setDrafts((list) => list.filter((x) => x.id !== id))
+
   const stepState = (n: number): 'done' | 'active' | 'error' | 'todo' => {
     if (n === 1) {
-      if (productId) return step === 1 ? 'active' : 'done'
+      if (isValidStep1) return step === 1 ? 'active' : 'done'
       if (attempted) return 'error'
       return step === 1 ? 'active' : 'todo'
     }
@@ -286,32 +285,24 @@ export function ProductWizard({ orgId, onDone }: { orgId: string; onDone: () => 
         </Form>
       ) : null}
 
-      {/* Session 2 — Documents d'information */}
+      {/* Session 2 — Documents d'information (ajout LIBRE, bufferisé) */}
       {step === 2 ? (
         <>
-          {productId ? (
-            <DocTypeCards orgId={orgId} productId={productId} category="info" />
-          ) : (
-            <IdentificationNeeded onGo={() => void goToStep(1)} />
-          )}
+          <DocTypeCards category="info" drafts={drafts} onAdd={addDraft} onRemove={removeDraft} />
           <StepNav
-            onBack={() => void goToStep(1)}
-            onNext={() => void goToStep(3)}
+            onBack={() => goToStep(1)}
+            onNext={() => goToStep(3)}
             nextLabel={t({ fr: 'Suivant', en: 'Next' })}
           />
         </>
       ) : null}
 
-      {/* Session 3 — Pièces administratives */}
+      {/* Session 3 — Pièces administratives (ajout LIBRE, bufferisé) */}
       {step === 3 ? (
         <>
-          {productId ? (
-            <DocTypeCards orgId={orgId} productId={productId} category="admin" />
-          ) : (
-            <IdentificationNeeded onGo={() => void goToStep(1)} />
-          )}
+          <DocTypeCards category="admin" drafts={drafts} onAdd={addDraft} onRemove={removeDraft} />
           <StepNav
-            onBack={() => void goToStep(2)}
+            onBack={() => goToStep(2)}
             onNext={() => void finish()}
             nextLabel={t({ fr: 'Terminer', en: 'Finish' })}
             finish
@@ -319,24 +310,6 @@ export function ProductWizard({ orgId, onDone }: { orgId: string; onDone: () => 
         </>
       ) : null}
     </div>
-  )
-}
-
-/** Sessions 2/3 atteintes sans identification valide : invite à compléter d'abord (champs requis). */
-function IdentificationNeeded({ onGo }: { onGo: () => void }) {
-  const { t } = useI18n()
-  return (
-    <Card className="items-center gap-3 p-8 text-center">
-      <p className="text-muted-foreground text-sm">
-        {t({
-          fr: "Renseignez d'abord l'Identification (champs requis) pour ajouter des pièces.",
-          en: 'Fill in the Identification first (required fields) to add documents.',
-        })}
-      </p>
-      <Button type="button" variant="outline" onClick={onGo}>
-        {t({ fr: "Aller à l'identification", en: 'Go to Identification' })}
-      </Button>
-    </Card>
   )
 }
 
