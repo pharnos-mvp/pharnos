@@ -172,6 +172,9 @@
 }
 .dark {
   /* DA-specific overrides (le reste suit les canoniques en sombre via les alias ci-dessus). */
+  /* `--info-subtle` vaut #0d1b2f en sombre ≠ l'ancien tile-hover #1c2333 → on le ÉPINGLE pour garder
+     le hover de tuile du dashboard pixel-identique en sombre (l'alias light #eff6ff reste correct). */
+  --pd-tile-hover-bg: #1c2333;
   --pd-strong: #f0f6fc;
   --pd-text: #e6edf3;
   --pd-text-2: #c9d1d9;

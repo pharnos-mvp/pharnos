@@ -37,7 +37,8 @@
    texte. `--brand` `#263f73` = **marque document gelée** (PDF byte-exact). Dark = GitHub.
 5. **z-index** — **TOKENISÉ (LOT 1.5)** : `@theme` expose `z-sticky` (20) · `z-dropdown` (30) ·
    `z-overlay` (40) · `z-modal` (50) ; contenu `z-0` ; Radix (dropdown/dialog) porte son propre z ; toast
-   (sonner) au-dessus. Utiliser ces utilitaires plutôt que des nombres → fin des bugs de barres collantes.
+   (sonner) au-dessus. **Nouveau code** : utiliser ces utilitaires plutôt que des nombres → fin des bugs de
+   barres collantes. *(Migration des z-index bruts existants = au fil du rollout des surfaces, non bloquant.)*
 6. **États systématiques** — toute liste/donnée asynchrone expose **chargement** (`Skeleton`),
    **vide** (`EmptyState`), **erreur** (`ErrorState` actionnable). Jamais un `<p>Chargement…</p>` nu.
 
