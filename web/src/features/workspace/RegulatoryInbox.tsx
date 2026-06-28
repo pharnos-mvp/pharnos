@@ -60,10 +60,13 @@ export function RegulatoryInbox({
   items,
   onOpen,
   now,
+  className,
 }: {
   items: InboxItem[]
   onOpen: (dossierId: string) => void
   now: number
+  /** Positionnement (rail sticky pleine hauteur) injecté par la page-hôte. */
+  className?: string
 }) {
   const { t, lang } = useI18n()
   const [filter, setFilter] = useState<FilterKey>('all')
@@ -87,8 +90,8 @@ export function RegulatoryInbox({
   ]
 
   return (
-    <aside className="bg-card flex flex-col rounded-xl border lg:sticky lg:top-2 lg:self-start">
-      <div className="border-b p-4">
+    <aside className={cn('bg-card flex flex-col overflow-hidden rounded-xl border', className)}>
+      <div className="shrink-0 border-b p-4">
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-display text-sm font-semibold">
             {t({ fr: 'Correspondances', en: 'Correspondence' })}
@@ -128,7 +131,7 @@ export function RegulatoryInbox({
           {t({ fr: 'Aucune correspondance.', en: 'No correspondence.' })}
         </p>
       ) : (
-        <div className="p-2">
+        <div className="min-h-0 flex-1 overflow-y-auto p-2">
           {today.length > 0 ? (
             <InboxGroup
               label={t({ fr: "Aujourd'hui", en: 'Today' })}

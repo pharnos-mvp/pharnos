@@ -136,6 +136,8 @@ export function WorkspacePage() {
 
   const loading = (view === 'archived' ? archivedDossiers : activeDossiers) === undefined
   const archivedCount = archivedDossiers?.length ?? 0
+  // Cockpit : la boîte de réception devient un rail pleine hauteur (sticky) en vue active peuplée.
+  const showRail = view === 'active' && activeRows.length > 0 && !loading
 
   async function handleDelete(id: string, reason: string) {
     await deleteDossier(id, reason)
@@ -154,148 +156,153 @@ export function WorkspacePage() {
   }
 
   return (
-    <Page className="max-w-6xl">
-      <PageHeader
-        title={t({ fr: 'Opérations', en: 'Operations' })}
-        description={t({
-          fr: 'Vos procédures réglementaires CTD/eCTD Module 1 — montez, suivez et corrigez.',
-          en: 'Your CTD/eCTD Module 1 regulatory procedures — build, track and amend.',
-        })}
-        actions={
-          <Button asChild variant="primary">
-            <Link to="/workspace/nouveau">
-              <FolderPlus /> {t({ fr: 'Nouveau dossier', en: 'New dossier' })}
-            </Link>
-          </Button>
-        }
-      />
+    <Page className={showRail ? 'max-w-none' : 'max-w-6xl'}>
+      <div
+        className={cn(showRail && 'grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start')}
+      >
+        <div className={cn('space-y-6', showRail && 'min-w-0')}>
+          <PageHeader
+            title={t({ fr: 'Opérations', en: 'Operations' })}
+            description={t({
+              fr: 'Vos procédures réglementaires CTD/eCTD Module 1 — montez, suivez et corrigez.',
+              en: 'Your CTD/eCTD Module 1 regulatory procedures — build, track and amend.',
+            })}
+            actions={
+              <Button asChild variant="primary">
+                <Link to="/workspace/nouveau">
+                  <FolderPlus /> {t({ fr: 'Nouveau dossier', en: 'New dossier' })}
+                </Link>
+              </Button>
+            }
+          />
 
-      {/* Bande KPI + barre Pipeline */}
-      {activeRows.length > 0 ? (
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-            <KpiTile
-              value={kpis.active}
-              label={t({ fr: 'Dossiers actifs', en: 'Active dossiers' })}
-            />
-            <KpiTile value={kpis.inReview} label={t({ fr: 'En évaluation', en: 'Under review' })} />
-            <KpiTile
-              value={kpis.complement}
-              label={t({ fr: 'Compléments', en: 'Information' })}
-              tone={kpis.complement > 0 ? 'warning' : undefined}
-            />
-            <KpiTile
-              value={kpis.granted}
-              label={t({ fr: 'Octroyés', en: 'Granted' })}
-              tone="success"
-            />
-            <KpiTile
-              value={kpis.dueSoon}
-              label={t({ fr: 'Échéances ≤ 7 j', en: 'Deadlines ≤ 7d' })}
-              tone={kpis.dueSoon > 0 ? 'danger' : undefined}
-            />
+          {/* Bande KPI + barre Pipeline */}
+          {view === 'active' && activeRows.length > 0 ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                <KpiTile
+                  value={kpis.active}
+                  label={t({ fr: 'Dossiers actifs', en: 'Active dossiers' })}
+                />
+                <KpiTile
+                  value={kpis.inReview}
+                  label={t({ fr: 'En évaluation', en: 'Under review' })}
+                />
+                <KpiTile
+                  value={kpis.complement}
+                  label={t({ fr: 'Compléments', en: 'Information' })}
+                  tone={kpis.complement > 0 ? 'warning' : undefined}
+                />
+                <KpiTile
+                  value={kpis.granted}
+                  label={t({ fr: 'Octroyés', en: 'Granted' })}
+                  tone="success"
+                />
+                <KpiTile
+                  value={kpis.dueSoon}
+                  label={t({ fr: 'Échéances ≤ 7 j', en: 'Deadlines ≤ 7d' })}
+                  tone={kpis.dueSoon > 0 ? 'danger' : undefined}
+                />
+              </div>
+              <PipelineBar pipeline={pipeline} total={activeRows.length} />
+            </div>
+          ) : null}
+
+          {/* Barre d'outils : filtres procédure + bascule actifs/archivés */}
+          <div className="flex flex-wrap items-center gap-2">
+            {view === 'active' && activeRows.length > 0 ? (
+              <div
+                className="flex flex-wrap items-center gap-1.5"
+                role="group"
+                aria-label={t({ fr: 'Filtrer par procédure', en: 'Filter by procedure' })}
+              >
+                <ProcChip
+                  active={proc === 'all'}
+                  count={activeRows.length}
+                  onClick={() => setProc('all')}
+                >
+                  {t({ fr: 'Toutes', en: 'All' })}
+                </ProcChip>
+                {procCounts.map((p) => (
+                  <ProcChip
+                    key={p.activity}
+                    active={proc === p.activity}
+                    count={p.count}
+                    dot={PROCEDURE_DOT[p.activity]}
+                    onClick={() => setProc(proc === p.activity ? 'all' : p.activity)}
+                  >
+                    {procedureLabel(p.activity, lang)}
+                  </ProcChip>
+                ))}
+              </div>
+            ) : null}
+            {archivedCount > 0 ? (
+              <div className="bg-muted/60 ml-auto inline-flex rounded-lg border p-0.5 text-xs font-medium">
+                {(['active', 'archived'] as const).map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    aria-pressed={view === v}
+                    onClick={() => setView(v)}
+                    className={cn(
+                      'cursor-pointer rounded-md px-3 py-1 transition-colors',
+                      view === v
+                        ? 'bg-card text-foreground shadow-xs'
+                        : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    {v === 'active'
+                      ? t({ fr: 'Actifs', en: 'Active' })
+                      : t({ fr: 'Archivés', en: 'Archived' })}{' '}
+                    · {v === 'active' ? activeRows.length : archivedCount}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
-          <PipelineBar pipeline={pipeline} total={activeRows.length} />
+
+          {loading ? (
+            <div className="text-muted-foreground text-sm">
+              {t({ fr: 'Chargement…', en: 'Loading…' })}
+            </div>
+          ) : rows.length === 0 ? (
+            <EmptyState
+              icon={<FileStack />}
+              title={t({ fr: 'Aucun dossier', en: 'No dossier' })}
+              description={t({
+                fr: 'Créez un dossier : choisissez un produit, le format (CTD/eCTD), la procédure et le pays cible.',
+                en: 'Create a dossier: choose a product, the format (CTD/eCTD), the procedure and the target country.',
+              })}
+              action={
+                <Button asChild variant="primary">
+                  <Link to="/workspace/nouveau">
+                    <FolderPlus /> {t({ fr: 'Nouveau dossier', en: 'New dossier' })}
+                  </Link>
+                </Button>
+              }
+            />
+          ) : (
+            <OperationsTable
+              rows={visible}
+              view={view}
+              now={now.getTime()}
+              onOpenPanel={(id) => setReviewDossierId(id)}
+              onDelete={handleDelete}
+              onArchive={handleArchive}
+              onRestore={handleRestore}
+            />
+          )}
         </div>
-      ) : null}
 
-      {/* Barre d'outils : filtres procédure + bascule actifs/archivés */}
-      <div className="flex flex-wrap items-center gap-2">
-        {view === 'active' && activeRows.length > 0 ? (
-          <div
-            className="flex flex-wrap items-center gap-1.5"
-            role="group"
-            aria-label={t({ fr: 'Filtrer par procédure', en: 'Filter by procedure' })}
-          >
-            <ProcChip
-              active={proc === 'all'}
-              count={activeRows.length}
-              onClick={() => setProc('all')}
-            >
-              {t({ fr: 'Toutes', en: 'All' })}
-            </ProcChip>
-            {procCounts.map((p) => (
-              <ProcChip
-                key={p.activity}
-                active={proc === p.activity}
-                count={p.count}
-                dot={PROCEDURE_DOT[p.activity]}
-                onClick={() => setProc(proc === p.activity ? 'all' : p.activity)}
-              >
-                {procedureLabel(p.activity, lang)}
-              </ProcChip>
-            ))}
-          </div>
-        ) : null}
-        {archivedCount > 0 ? (
-          <div className="bg-muted/60 ml-auto inline-flex rounded-lg border p-0.5 text-xs font-medium">
-            {(['active', 'archived'] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                aria-pressed={view === v}
-                onClick={() => setView(v)}
-                className={cn(
-                  'cursor-pointer rounded-md px-3 py-1 transition-colors',
-                  view === v
-                    ? 'bg-card text-foreground shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {v === 'active'
-                  ? t({ fr: 'Actifs', en: 'Active' })
-                  : t({ fr: 'Archivés', en: 'Archived' })}{' '}
-                · {v === 'active' ? activeRows.length : archivedCount}
-              </button>
-            ))}
-          </div>
+        {showRail ? (
+          <RegulatoryInbox
+            className="lg:sticky lg:top-0 lg:-mt-6 lg:h-[calc(100svh-5.5rem)]"
+            items={inbox}
+            onOpen={(id) => setReviewDossierId(id)}
+            now={now.getTime()}
+          />
         ) : null}
       </div>
-
-      {loading ? (
-        <div className="text-muted-foreground text-sm">
-          {t({ fr: 'Chargement…', en: 'Loading…' })}
-        </div>
-      ) : rows.length === 0 ? (
-        <EmptyState
-          icon={<FileStack />}
-          title={t({ fr: 'Aucun dossier', en: 'No dossier' })}
-          description={t({
-            fr: 'Créez un dossier : choisissez un produit, le format (CTD/eCTD), la procédure et le pays cible.',
-            en: 'Create a dossier: choose a product, the format (CTD/eCTD), the procedure and the target country.',
-          })}
-          action={
-            <Button asChild variant="primary">
-              <Link to="/workspace/nouveau">
-                <FolderPlus /> {t({ fr: 'Nouveau dossier', en: 'New dossier' })}
-              </Link>
-            </Button>
-          }
-        />
-      ) : (
-        <div
-          className={cn(
-            view === 'active' && 'grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start',
-          )}
-        >
-          <OperationsTable
-            rows={visible}
-            view={view}
-            now={now.getTime()}
-            onOpenPanel={(id) => setReviewDossierId(id)}
-            onDelete={handleDelete}
-            onArchive={handleArchive}
-            onRestore={handleRestore}
-          />
-          {view === 'active' ? (
-            <RegulatoryInbox
-              items={inbox}
-              onOpen={(id) => setReviewDossierId(id)}
-              now={now.getTime()}
-            />
-          ) : null}
-        </div>
-      )}
 
       {reviewDossierId ? (
         <CorrespondencePanel
