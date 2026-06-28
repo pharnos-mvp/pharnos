@@ -17,6 +17,8 @@ const rec: ProductRecord = {
   titulaireAdresse: '12 rue de la Santé, Cotonou',
   fabricant: 'Usine Y',
   fabricantAdresse: 'Zone industrielle, Casablanca',
+  titulaireId: 'party-titulaire-1',
+  fabricantId: 'party-fabricant-1',
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-02T00:00:00.000Z',
   deletedAt: null,
