@@ -13,6 +13,20 @@
 - **Mesure** : 1 design-system sur 100 % des surfaces + landing cohérente · Lighthouse perf ≥ 90 / a11y ≥ 95 ·
   FR/EN sur chaque écran · advisors 0 ERROR · 0 Blocker/Major · `GO-LIVE-CHECKLIST.md` signée.
 
+## 📍 État d'avancement (MAJ 2026-06-28)
+La refonte est **bien engagée** — plusieurs surfaces majeures sont déjà refondues **dans CE projet** :
+- **PHASE B · LOT 1 Fondation DS** ✅ (PR #249) — primitives premium + écrans de référence **Dashboard + Catalogue** validés CEO.
+- **PHASE C · LOT 2 Catalogue** ✅ — refonte premium **+ LOT 2 RIM complet (M1→M6)** livré 2026-06-28 (migration `0045`).
+- **PHASE C · LOT 3 Dashboard** ✅ — DA premium « Ultra-Performance » validée CEO (2026-06-27).
+- **LOT 4 Workspace/CTD** 🟡 (refonte responsive livrée #208 ; nits résiduels) · **LOT 5 Templates** 🟡 (Bibliothèque 5/5 ; reste M4) · **LOT 6 Variations** ✅ (moteur livré).
+
+> ⚠️ **À garder en tête** : la refonte du **Dashboard** et du **Catalogue** ne sont PAS des chantiers à part —
+> ce sont des **LOTs de CE projet de refonte complète de l'app**, qui se poursuit par les surfaces restantes
+> (LOTs 7-10) **puis la refonte du landing (LOT 11)**. Tout converge vers le même design-system.
+
+**Reste** : LOTs 7 (Compte), 8 (Admin), 9 (Dossiers+Corbeille), 10 (Correspondance v3) → **LOT 11 landing** →
+LOT 12 i18n+M4 → LOT 13 recette finale → **LOT 14 GO-LIVE (= N4)**.
+
 ---
 
 ## 🔁 Le cycle par lot (vaut pour CHAQUE lot — c'est la garantie zéro-dette)
@@ -52,7 +66,7 @@
 - Laisser **pilote #1 compiler son dossier sur l'app stable**.
 - *Input CEO* : valider la **direction du barème de prix** (alimente LOT 6 + landing).
 
-### ▶ PHASE B — Fondation (OBLIGATOIREMENT le 1er lot UI)
+### ▶ PHASE B — Fondation (OBLIGATOIREMENT le 1er lot UI) — ✅ **LIVRÉ (PR #249)**
 **LOT 1 — Fondation design-system + UX.** Le HUB : tout en dépend.
 - Audit UI/UX *(fait)* → **spec** : tokens **spacing + typo + z-index + élévation** (les tokens couleur/radius
   existent déjà) ; **primitives** `PageHeader`, `ActionBar` sticky, `EmptyState`, `LoadingState`/skeleton,
@@ -62,17 +76,18 @@
 
 ### ▶ PHASE C — Refonte UX par surface (TU choisis l'ordre, un lot à la fois)
 Chaque surface = **1 lot autonome** (cycle complet ci-dessus). Ordre **libre**, **sauf** les règles
-zéro-rework (combiner / zone protégée). Lots disponibles :
-- **LOT 2 — Catalogue** *(souvent livré avec LOT 1 comme écran de référence)*.
-- **LOT 3 — Dashboard** *(idem, écran de référence)*.
-- **LOT 4 — Workspace / CTD builder** — chrome uniquement (zone A4 protégée) ; **absorbe les nits** :
-  roving tabindex toolbar, donut complétude au recompute, date-pickers des dates AMM.
-- **LOT 5 — Templates** (Bibliothèque).
-- **LOT 6 — Variations**.
-- **LOT 7 — Compte / Abonnement** (+ affichage du **barème** validé en LOT 0 + vérif P0-3).
-- **LOT 8 — Admin / god mode**.
-- **LOT 9 — Dossiers + Corbeille/Archive** *(COMBINÉ : refonte + feature rétention #3 en un lot)*.
-- **LOT 10 — Correspondance + v3** *(COMBINÉ : refonte + délais agence/rappels/export PDF/lettre de réponse #6)*.
+zéro-rework (combiner / zone protégée). Lots :
+- **LOT 2 — Catalogue** — ✅ **LIVRÉ** : refonte premium (cockpit/liste DA) **+ référentiel RIM complet M1→M6**
+  (parties à rôles, auto-populate/hub Organisations, cockpit RA validité/AMM, Autorités ; migration `0045`, 2026-06-28).
+- **LOT 3 — Dashboard** — ✅ **LIVRÉ** : DA premium « Ultra-Performance » validée CEO (2026-06-27), écran de référence.
+- **LOT 4 — Workspace / CTD builder** — 🟡 chrome uniquement (zone A4 protégée) ; refonte **responsive** livrée (#208).
+  Restent les **nits** : roving tabindex toolbar, donut complétude au recompute, date-pickers des dates AMM.
+- **LOT 5 — Templates** (Bibliothèque) — 🟡 **5/5 livré** ; reste **M4** (nudge langue de soumission, → LOT 12).
+- **LOT 6 — Variations** — ✅ **LIVRÉ** (moteur de variation bout-en-bout, encyclopédie 42 variations).
+- **LOT 7 — Compte / Abonnement** — ⬜ (+ affichage du **barème** validé en LOT 0 + vérif P0-3).
+- **LOT 8 — Admin / god mode** — ⬜.
+- **LOT 9 — Dossiers + Corbeille/Archive** — ⬜ *(COMBINÉ : refonte + feature rétention #3 en un lot)*.
+- **LOT 10 — Correspondance + v3** — ⬜ *(COMBINÉ : refonte + délais agence/rappels/export PDF/lettre de réponse #6)*.
 
 ### ▶ PHASE D — Landing (APRÈS que toutes les surfaces app sont refondues)
 **LOT 11 — Landing premium.** Refonte `landing/` : tour produit + **vraies captures de l'app upgradée**,
@@ -106,7 +121,7 @@ Design-system **documenté + appliqué partout** · light/dark + **FR/EN complet
 ## 🧱 Stack (verrouillé — aucune décision nouvelle)
 Vite 8 · React 19 · TS 6 strict · Tailwind v4 + shadcn/ui (tokens light/dark) · Dexie offline-first ·
 Supabase (Postgres/RLS/Auth/Storage/Edge) · Vertex Gemini · Cloudflare Pages · pdf-lib/pdfjs · i18n FR/EN.
-Landing = `landing/` statique isolé, mêmes tokens. **Migrations : reprendre à `0044`** ; la plupart des lots = front-only.
+Landing = `landing/` statique isolé, mêmes tokens. **Migrations : `0044` (doc-metadata) + `0045` (parties) posées → reprendre à `0046`** ; la plupart des lots = front-only.
 
 ---
 

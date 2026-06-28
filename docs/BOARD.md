@@ -12,7 +12,7 @@
 > **Protocole de mise à jour** (voir §13) : à chaque tranche livrée (PR mergée), mettre à jour le
 > §1 (état), le §9 (milestones) et le §10 (journal). Garder le reste synchronisé si une décision change.
 
-_Dernière mise à jour : 2026-06-25 — **Jalons H→O + pivot P1 + refonte CTD builder + Bibliothèque Templates 5/5 + 🚀 Moteur de Variation (#224→#236, moat RIM) EN PROD ; migrations à `0043` (reprendre à `0044`) ; gate N : N1✅ N2✅ N3✅ → reste N4, pilote #1 EN COURS (Bénin).** Plan de finition « zéro-dette » : [PLAN-FINITION-ZERO-DETTE.md](PLAN-FINITION-ZERO-DETTE.md). _Bloc historique (06-17) :_ **Jalons H→M + O + N1 + N2 + N3 (gros œuvre) EN PROD.** Tracker vivant
+_Dernière mise à jour : 2026-06-28 — **Jalons H→O + pivot P1 + refonte CTD builder + Bibliothèque Templates 5/5 + 🚀 Moteur de Variation + LOT 2 Catalogue RIM COMPLET (M1→M6 : parties/Organisations/Autorités, #252→#258) EN PROD ; migrations à `0045` (reprendre à `0046`) ; gate N : N1✅ N2✅ N3✅ → reste N4, pilote #1 EN COURS (Bénin). Refonte app (PLAN-LANCEMENT) ≈ moitié faite : LOT 1 fondation + LOT 2 Catalogue + LOT 3 Dashboard + LOT 6 Variations livrés ; reste surfaces 4-10 + landing.** Plan de finition « zéro-dette » : [PLAN-FINITION-ZERO-DETTE.md](PLAN-FINITION-ZERO-DETTE.md). _Bloc historique (06-17) :_ **Jalons H→M + O + N1 + N2 + N3 (gros œuvre) EN PROD.** Tracker vivant
 du gate GO-LIVE (état détaillé, PRs, reste) : **[PLAN-N-EXECUTION.md](PLAN-N-EXECUTION.md)**. **Session 2026-06-17
 = 6 ships prod** : B1 (verrou d'offre Regafy `0034`), N2-b (code-split workspace **−77 %** + Lighthouse a11y gate
 + e2e offline), N3-a (index sync `0035`), N3-b (backstop stockage `0036` + **quota stockage god mode** `0037`).
@@ -44,13 +44,15 @@ Prochaine action : **jalon I (backups + restore drill)** — seul préalable res
 ## 1. TL;DR — où on en est
 
 **Le produit est EN PRODUCTION (app.pharnos.com), IA comprise, durci, optimisé.** Jalons H→O + gate N
-(N1/N2/N3) + refonte CTD builder + **Bibliothèque Templates 5/5** + **🚀 Moteur de Variation (RIM, #224→#236)** livrés ;
-**reste N4 (gate GO-LIVE) — pilote #1 EN COURS (dossiers Bénin renouvellement/variation).** Cap : [PLAN-RESTANT.md](PLAN-RESTANT.md)
-+ [ROADMAP-MVP.md](ROADMAP-MVP.md). **Dernière ligne droite (refonte UX app + landing premium + clôture N4, zéro-dette) = roadmap ordonnée dans [PLAN-LANCEMENT.md](PLAN-LANCEMENT.md).**
+(N1/N2/N3) + refonte CTD builder + **Bibliothèque Templates 5/5** + **🚀 Moteur de Variation (RIM, #224→#236)**
++ **LOT 2 Catalogue RIM COMPLET (M1→M6, #252→#258)** livrés ; **reste N4 (gate GO-LIVE) — pilote #1 EN COURS
+(dossiers Bénin renouvellement/variation).** Cap : [PLAN-RESTANT.md](PLAN-RESTANT.md) + [ROADMAP-MVP.md](ROADMAP-MVP.md).
+**Dernière ligne droite (refonte UX app + landing premium + clôture N4, zéro-dette) = roadmap ordonnée dans
+[PLAN-LANCEMENT.md](PLAN-LANCEMENT.md) ; ≈ moitié faite (Dashboard + Catalogue = des LOTs de CE projet, pas des chantiers isolés).**
 
 | Domaine | État |
 |---|---|
-| **Catalogue** (produits + documents) | ✅ Livré (offline + sync) |
+| **Catalogue RIM** (Produits + Organisations + Autorités) | ✅ **LOT 2 complet M1→M6** (#252→#258) : cockpit/liste premium, modèle `parties` à rôles (`0045`), auto-populate + hub, cockpit Organisation RA (validité GMP/AMM), Autorités (agences NMRA + exigences nationales) — offline + sync |
 | **CTD Workspace** (Module 1) | ✅ Livré (arborescence, upload, génération lettres, compile PDF, Regafy v1, aperçu PDF) |
 | **Dashboard** (validité + veille) | ✅ Livré |
 | **Compte / i18n FR-EN / thème clair-sombre** | ✅ Livré |
@@ -64,7 +66,7 @@ Prochaine action : **jalon I (backups + restore drill)** — seul préalable res
 | **Déploiement pilote** | ✅ **En ligne — https://pharnos.pages.dev** (Cloudflare Pages, mode authentifié) |
 | **Correspondance (jalon H + v2 + UX v3→v3.2)** | ✅ **EN PROD (2026-06-13, #127/#128/#129)** : flux complet + **UX exacte des HTML CEO en palette DA Pharnos** (neutre/monochrome ; couleurs réservées aux statuts) — page lien **3 états** (fermé : bouton « Correspondance »+badge / docké min(840px,47%) / plein écran), **2 volets** (sidebar contexte+décisions \| chat) des deux côtés, fond à **pois radial**, avatars/noms par auteur, Discussions 1 icône/destinataire + sélecteur de cycle (zéro perte d'audit), composeur auto-extensible (½ boîte) ; recette prod complète. ⚠️ Deploy : `npm run build` JUSTE avant `wrangler deploy` (e2e reconstruit dist sans env) |
 
-**Qualité (main, vert partout) :** typecheck · lint · format · **~381 tests unitaires (vitest)** · build ·
+**Qualité (main, vert partout) :** typecheck · lint · format · **~441 tests unitaires (vitest)** · build ·
 **budget bundle** · **E2E Playwright** (reload hors-ligne + parcours offline complet) · **a11y WCAG AA** · **RLS pgTAP en CI** · **Lighthouse a11y/best-practices** · **CI 6/6**.
 
 ---
@@ -217,6 +219,7 @@ D:\pharnos-mvp
 | **Templates** | Bibliothèque RIM **5/5** (RCP/Notice/Étiquetage bilingues + lettres Cover/PGHT/renouvellement + éditeur standalone) | ✅ **Livré** (#191→#223) — reste **M4** (nudge langue) |
 | **CTD builder** | Refonte en-tête unique + fidélité mockup + responsive tablette/mobile | ✅ **Livré** (#199-#210) — reste recette visuelle CEO < lg |
 | **Variation** | 🚀 **Moteur de Variation (RIM)** — 42 variations UEMOA, demande multi-variation, annexe tableau compilée, lettre de variation, éditeur TipTap **tableaux**, doc/.docx éditable | ✅ **Livré en prod** (#224→#236, `0042`/`0043`) |
+| **Catalogue RIM (LOT 2 refonte)** | Référentiel maître **Produits ↔ Organisations (à rôles) ↔ Autorités** — cockpit/liste premium, modèle `parties` (`0045`, RLS/pgTAP/sync), auto-populate « 0 ressaisie » + hub, **cockpit Organisation RA** (validité pièces + portefeuille AMM), **Autorités** (agences NMRA curées + exigences nationales). **Fait partie de la refonte app (LOT 2 de PLAN-LANCEMENT).** | ✅ **Livré en prod M1→M6** (#252→#258, `0045`) |
 | **N** | Durcissement final & **gate GO-LIVE** | **N1✅ N2✅ N3✅ → reste N4** (3 pilotes — **#1 en cours** + Supabase Pro + checklist signée) |
 
 **Hors milestones, aussi livré :** audit trail, page Compte (avatar) + **i18n FR/EN** + **thème
@@ -321,6 +324,7 @@ clair/sombre**, **ErrorBoundary** (plus d'écran blanc), aperçu **PDF.js** loca
 | #90 | 06-10 | **Extraction de validité fiabilisée (zéro hallucination)** : l'analyse passe d'**un seul gros appel multimodal** (qui hallucinait des dates — le **même FSC** donnait `2026-04-29` puis `1998-11-13` selon le run — ou tombait en « aucune date » à tort) à **1 document par appel** (focus maximal + réessai + prompt conservateur « date verbatim, found:false si incertain »). **Vérifié en live : déterministe** (FSC = 2026-04-29 à chaque run). **Vocabulaire honnête** : échec d'extraction → « extraction échouée — à vérifier » ; lu sans date → « validité non détectée » ; **jamais « aucune date »** à tort. + option de modèle par appel (`vertex.ts` `model`, secret `GCP_MODEL_VALIDITY`). Cache **v3**. _`gemini-3.1-flash` indispo en location `global` (404) → flash-lite suffit grâce au focus per-doc._ |
 | **#91→#210** | 06-10 → 06-19 | **Résumé consolidé** (détail par PR = `git log` / [PLAN-N-EXECUTION.md](PLAN-N-EXECUTION.md)) : jalons **I→O** (ops/backups, Dashboard RA, branding/landing/domaine, i18n FR/EN, console admin + quotas IA, pricing/Monitor) · **gate N** — N1 sécu/auth (#165-#170), N2 perf code-split −77 % (#172), N3 scalabilité + k6 (#174-#180) · **features 3 états** (#179, `0038`) · **pivot compilation-metering P1** M1-M3 (#181-#184, `0039`-`0041`) · **punch-list pilote** (#186) · **Phase 0** P0-1/P0-2 (#188) · **Bibliothèque Templates** (#191-#198) · **refonte CTD builder** (en-tête unique + fidélité + responsive tablette/mobile, #199-#210). Migrations → `0041`. **Reste : N4 (gate GO-LIVE).** |
 | **#211→#236** | 06-20 → 06-25 | **Synchro docs** (#211) · **Bibliothèque Templates → 5/5** : Notice/PIL EN (#212), lettres Cover/PGHT bilingues + éditeur standalone + M3.1 (#213/#214), insertion 1-clic en-tête/pied/signature (#215), calage sur le CTD builder (#216→#219), **lettres PDF/DOCX en vrai A4** via moteur pdf-lib du dossier (#220), **lettre de renouvellement d'AMM** (#221→#223) · **🚀 Moteur de Variation** bout-en-bout (#224→#236, migrations `0042` variation_amm_columns + `0043` storage_bucket_msword) : encyclopédie 42 variations UEMOA, demande multi-variation, **annexe tableau compilée**, lettre de variation, éditeur TipTap **tableaux** + doc/.docx éditable nativement, barème national. Migrations → `0043` (next `0044`). **Reste : N4 — pilote #1 en cours.** |
+| **#252→#258** | 06-28 | **LOT 2 Catalogue RIM COMPLET (M1→M6)** — refonte de la surface Catalogue (LOT 2 de [PLAN-LANCEMENT.md](PLAN-LANCEMENT.md)) en référentiel maître : **M3** modèle `parties` à rôles (Titulaire/Fabricant/Distributeur ; migration `0044` doc-metadata + `0045` parties, RLS + pgTAP + Dexie v13 + sync séquencée FK + id déterministe) · **M4** auto-populate « 0 ressaisie » + backfill + hub (Produits/Organisations/Autorités) + liste & fiches Organisations · **M6** cockpit Organisation RA (validité pièces GMP/AMM réutilisant la politique Monitor + portefeuille AMM par pays) · **M5** Autorités (agences NMRA curées de `roadmap-data` + exigences nationales : redevances/échantillons/délai). Front-only (sauf `0045`), 441 vitest, CI 6/6, recettes navigateur prod. Migrations → `0045` (next `0046`). **Reste : N4 — pilote #1 en cours.** |
 
 ---
 
@@ -349,7 +353,7 @@ npm run dev            # serveur de dev
 npm run typecheck      # tsc -b (strict)
 npm run lint           # eslint
 npm run format         # prettier --write
-npm run test           # vitest (unit/intégration) — ~381 tests
+npm run test           # vitest (unit/intégration) — ~441 tests
 npm run build          # tsc + vite build (PWA)
 npm run budget         # garde-fou taille de bundle (après build)
 npm run e2e            # Playwright (build+preview+tests : offline, a11y, parcours)
