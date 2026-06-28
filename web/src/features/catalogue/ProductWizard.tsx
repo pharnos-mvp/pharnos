@@ -103,10 +103,17 @@ export function ProductWizard({ orgId, onDone }: { orgId: string; onDone: () => 
   const [productId, setProductId] = useState<string | null>(null)
   const productIdRef = useRef<string | null>(null)
   const [saving, setSaving] = useState(false)
+  // L'utilisateur a tenté d'avancer/enregistrer alors que l'identification est incomplète → on
+  // marque la session 1 en rouge (le produit n'a pas pu être créé : champs requis manquants).
+  const [attempted, setAttempted] = useState(false)
 
-  // Session 1 → persiste l'identification puis avance. Crée le produit (1ʳᵉ fois) ou le met à jour.
-  async function nextFromStep1() {
-    if (!(await form.trigger())) return
+  // Persiste l'identification SI valide (crée le produit la 1ʳᵉ fois, sinon met à jour). Renvoie
+  // `true` si le produit existe désormais. En cas d'invalidité → marque « attempted » (rouge).
+  async function persistStep1(): Promise<boolean> {
+    if (!(await form.trigger())) {
+      setAttempted(true)
+      return false
+    }
     const values = schema.parse(form.getValues())
     setSaving(true)
     try {
@@ -118,46 +125,97 @@ export function ProductWizard({ orgId, onDone }: { orgId: string; onDone: () => 
         setProductId(rec.id)
       }
       void syncProducts(orgId)
-      setStep(2)
+      setAttempted(false)
+      return true
     } catch (error) {
       toast.error(t({ fr: "Échec de l'enregistrement", en: 'Save failed' }), {
         description: error instanceof Error ? error.message : undefined,
       })
+      return false
     } finally {
       setSaving(false)
     }
   }
 
+  // Navigation LIBRE entre sessions (clic sur les titres). En quittant la session 1, on tente de
+  // persister l'identification ; si invalide, on navigue quand même mais le produit n'est pas créé
+  // (les sessions 2/3 invitent alors à compléter l'identification).
+  async function goToStep(n: number) {
+    if (n === step) return
+    if (step === 1 && n !== 1) await persistStep1()
+    setStep(n)
+  }
+
+  // « Terminer » : refuse l'enregistrement tant que l'identification (champs requis) n'est pas remplie.
+  async function finish() {
+    if (productIdRef.current) {
+      onDone()
+      return
+    }
+    if (await persistStep1()) {
+      onDone()
+    } else {
+      setStep(1)
+      toast.error(
+        t({
+          fr: "Complétez les champs requis de l'Identification avant d'enregistrer.",
+          en: 'Fill the required Identification fields before saving.',
+        }),
+      )
+    }
+  }
+
+  const stepState = (n: number): 'done' | 'active' | 'error' | 'todo' => {
+    if (n === 1) {
+      if (productId) return step === 1 ? 'active' : 'done'
+      if (attempted) return 'error'
+      return step === 1 ? 'active' : 'todo'
+    }
+    return step === n ? 'active' : step > n ? 'done' : 'todo'
+  }
+
   return (
     <div className="space-y-6">
-      {/* Stepper typeform */}
+      {/* Stepper typeform — titres CLIQUABLES (navigation libre). */}
       <ol className="flex items-center gap-2">
         {STEPS.map((label, i) => {
           const n = i + 1
-          const done = step > n
-          const active = step === n
+          const state = stepState(n)
           return (
             <li key={n} className="flex flex-1 items-center gap-2">
-              <span
-                className={cn(
-                  'flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold',
-                  done
-                    ? 'bg-success text-white'
-                    : active
-                      ? 'bg-info text-white'
-                      : 'bg-muted text-muted-foreground',
-                )}
+              <button
+                type="button"
+                onClick={() => void goToStep(n)}
+                aria-current={state === 'active' ? 'step' : undefined}
+                className="flex min-w-0 items-center gap-2 text-left"
               >
-                {done ? <Check className="size-4" /> : n}
-              </span>
-              <span
-                className={cn(
-                  'truncate text-sm font-medium',
-                  active ? 'text-foreground' : 'text-muted-foreground',
-                )}
-              >
-                {t(label)}
-              </span>
+                <span
+                  className={cn(
+                    'flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold',
+                    state === 'done'
+                      ? 'bg-success text-white'
+                      : state === 'active'
+                        ? 'bg-info text-white'
+                        : state === 'error'
+                          ? 'bg-danger text-white'
+                          : 'bg-muted text-muted-foreground',
+                  )}
+                >
+                  {state === 'done' ? <Check className="size-4" /> : state === 'error' ? '!' : n}
+                </span>
+                <span
+                  className={cn(
+                    'truncate text-sm font-medium',
+                    state === 'active'
+                      ? 'text-foreground'
+                      : state === 'error'
+                        ? 'text-danger'
+                        : 'text-muted-foreground',
+                  )}
+                >
+                  {t(label)}
+                </span>
+              </button>
               {n < STEPS.length ? <span className="bg-border h-px flex-1" /> : null}
             </li>
           )
@@ -170,7 +228,7 @@ export function ProductWizard({ orgId, onDone }: { orgId: string; onDone: () => 
           <form
             onSubmit={(e) => {
               e.preventDefault()
-              void nextFromStep1()
+              void goToStep(2)
             }}
             className="space-y-5"
             noValidate
@@ -229,30 +287,56 @@ export function ProductWizard({ orgId, onDone }: { orgId: string; onDone: () => 
       ) : null}
 
       {/* Session 2 — Documents d'information */}
-      {step === 2 && productId ? (
+      {step === 2 ? (
         <>
-          <DocTypeCards orgId={orgId} productId={productId} category="info" />
+          {productId ? (
+            <DocTypeCards orgId={orgId} productId={productId} category="info" />
+          ) : (
+            <IdentificationNeeded onGo={() => void goToStep(1)} />
+          )}
           <StepNav
-            onBack={() => setStep(1)}
-            onNext={() => setStep(3)}
+            onBack={() => void goToStep(1)}
+            onNext={() => void goToStep(3)}
             nextLabel={t({ fr: 'Suivant', en: 'Next' })}
           />
         </>
       ) : null}
 
       {/* Session 3 — Pièces administratives */}
-      {step === 3 && productId ? (
+      {step === 3 ? (
         <>
-          <DocTypeCards orgId={orgId} productId={productId} category="admin" />
+          {productId ? (
+            <DocTypeCards orgId={orgId} productId={productId} category="admin" />
+          ) : (
+            <IdentificationNeeded onGo={() => void goToStep(1)} />
+          )}
           <StepNav
-            onBack={() => setStep(2)}
-            onNext={onDone}
+            onBack={() => void goToStep(2)}
+            onNext={() => void finish()}
             nextLabel={t({ fr: 'Terminer', en: 'Finish' })}
-            nextVariant="primary"
+            finish
           />
         </>
       ) : null}
     </div>
+  )
+}
+
+/** Sessions 2/3 atteintes sans identification valide : invite à compléter d'abord (champs requis). */
+function IdentificationNeeded({ onGo }: { onGo: () => void }) {
+  const { t } = useI18n()
+  return (
+    <Card className="items-center gap-3 p-8 text-center">
+      <p className="text-muted-foreground text-sm">
+        {t({
+          fr: "Renseignez d'abord l'Identification (champs requis) pour ajouter des pièces.",
+          en: 'Fill in the Identification first (required fields) to add documents.',
+        })}
+      </p>
+      <Button type="button" variant="outline" onClick={onGo}>
+        {t({ fr: "Aller à l'identification", en: 'Go to Identification' })}
+      </Button>
+    </Card>
   )
 }
 
@@ -305,12 +389,13 @@ function StepNav({
   onBack,
   onNext,
   nextLabel,
-  nextVariant = 'default',
+  finish = false,
 }: {
   onBack: () => void
   onNext: () => void
   nextLabel: string
-  nextVariant?: 'default' | 'primary'
+  /** Dernière session : bouton « Terminer » (icône Check) plutôt que « Suivant » (flèche). */
+  finish?: boolean
 }) {
   const { t } = useI18n()
   return (
@@ -318,8 +403,9 @@ function StepNav({
       <Button type="button" variant="outline" onClick={onBack}>
         <ArrowLeft /> {t({ fr: 'Précédent', en: 'Back' })}
       </Button>
-      <Button type="button" variant={nextVariant} onClick={onNext}>
-        {nextLabel} {nextVariant === 'primary' ? <Check /> : <ArrowRight />}
+      {/* CTA d'avancement = bleu DA (variant primary), jamais le bouton neutre noir. */}
+      <Button type="button" variant="primary" onClick={onNext}>
+        {nextLabel} {finish ? <Check /> : <ArrowRight />}
       </Button>
     </div>
   )

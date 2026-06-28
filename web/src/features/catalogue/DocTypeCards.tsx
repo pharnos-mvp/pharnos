@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Check, FileText, Loader2, Plus, Trash2, X } from 'lucide-react'
+import { Check, FileText, Loader2, Plus, Trash2, Upload, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -88,6 +88,13 @@ function DocCard({
   const [batchNumber, setBatchNumber] = useState('')
   const [busy, setBusy] = useState(false)
   const [resetKey, setResetKey] = useState(0)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  // « + Ajouter » ouvre la carte ET déclenche directement l'explorateur de fichiers.
+  function openAndPick() {
+    if (!open) onToggle()
+    fileRef.current?.click()
+  }
 
   function reset() {
     setFile(null)
@@ -147,6 +154,17 @@ function DocCard({
         open ? 'shadow-md md:col-span-2' : 'hover:border-muted-foreground/25 hover:shadow-sm',
       )}
     >
+      {/* Input fichier TOUJOURS monté (caché) → « + Ajouter » peut ouvrir l'explorateur directement. */}
+      <input
+        ref={fileRef}
+        key={resetKey}
+        type="file"
+        accept={UPLOAD_ACCEPT}
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden
+        onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+      />
       <div className="flex items-center gap-3 px-4 py-3">
         <span className="bg-info-subtle text-info-subtle-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
           <FileText className="size-4" />
@@ -171,7 +189,7 @@ function DocCard({
           type="button"
           variant={open ? 'ghost' : 'outline'}
           size="sm"
-          onClick={onToggle}
+          onClick={open ? onToggle : openAndPick}
           aria-expanded={open}
         >
           {open ? (
@@ -286,12 +304,17 @@ function DocCard({
             ) : null}
 
             <Field label={t({ fr: 'Fichier', en: 'File' })} className="sm:col-span-2">
-              <Input
-                key={resetKey}
-                type="file"
-                accept={UPLOAD_ACCEPT}
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              />
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="outline" onClick={() => fileRef.current?.click()}>
+                  <Upload />
+                  {file
+                    ? t({ fr: 'Changer le fichier', en: 'Change file' })
+                    : t({ fr: 'Choisir un fichier', en: 'Choose a file' })}
+                </Button>
+                <span className="text-muted-foreground min-w-0 truncate text-sm" title={file?.name}>
+                  {file ? file.name : t({ fr: 'Aucun fichier choisi', en: 'No file chosen' })}
+                </span>
+              </div>
             </Field>
           </div>
 
