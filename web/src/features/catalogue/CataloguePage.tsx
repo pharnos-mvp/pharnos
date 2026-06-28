@@ -51,6 +51,10 @@ import { syncProducts } from './sync'
 import { useCatalogueSync } from './use-catalogue-sync'
 import './catalogue-list.css'
 
+// CTA primaire de la DA = bouton BLEU (.btn-primary du mockup = --blue #1a56db = notre --info),
+// identique au cockpit et au dashboard. Le bouton neutre du design-system n'est PAS la DA.
+const BLUE_BTN = 'bg-info text-white hover:bg-info/90'
+
 /** Tonalité de santé (KPI) → tonalité de badge sémantique. */
 const TONE_BADGE: Record<KpiTone, 'neutral' | 'success' | 'warning' | 'danger' | 'info'> = {
   good: 'success',
@@ -130,13 +134,13 @@ export function CataloguePage() {
   return (
     <Page>
       <PageHeader
-        title={t({ fr: 'Catalogue', en: 'Catalogue' })}
+        title={t({ fr: 'Produits', en: 'Products' })}
         description={t({
           fr: 'Le référentiel de vos produits — santé réglementaire en un coup d’œil.',
           en: 'Your product master data — regulatory health at a glance.',
         })}
         actions={
-          <Button asChild>
+          <Button asChild className={BLUE_BTN}>
             <Link to="/catalogue/nouveau">
               <Plus /> {t({ fr: 'Nouveau produit', en: 'New product' })}
             </Link>
@@ -155,7 +159,7 @@ export function CataloguePage() {
             en: 'Save your first product. It will be available offline and feed the CTD Workspace, translation and validity tracking.',
           })}
           action={
-            <Button asChild>
+            <Button asChild className={BLUE_BTN}>
               <Link to="/catalogue/nouveau">
                 <Plus /> {t({ fr: 'Nouveau produit', en: 'New product' })}
               </Link>
