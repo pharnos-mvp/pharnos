@@ -14,6 +14,14 @@ const ProductFormPage = lazy(() =>
 const ProductCockpit = lazy(() =>
   import('@/features/catalogue/ProductCockpit').then((m) => ({ default: m.ProductCockpit })),
 )
+const OrganisationsPage = lazy(() =>
+  import('@/features/catalogue/OrganisationsPage').then((m) => ({ default: m.OrganisationsPage })),
+)
+const OrganisationCockpit = lazy(() =>
+  import('@/features/catalogue/OrganisationCockpit').then((m) => ({
+    default: m.OrganisationCockpit,
+  })),
+)
 const WorkspacePage = lazy(() =>
   import('@/features/workspace/WorkspacePage').then((m) => ({ default: m.WorkspacePage })),
 )
@@ -48,6 +56,8 @@ export function AppRoutes() {
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="/catalogue" element={<CataloguePage />} />
         <Route path="/catalogue/nouveau" element={<ProductFormPage />} />
+        <Route path="/catalogue/organisations" element={<OrganisationsPage />} />
+        <Route path="/catalogue/organisations/:partyId" element={<OrganisationCockpit />} />
         <Route path="/catalogue/:productId" element={<ProductCockpit />} />
         <Route path="/workspace" element={<WorkspacePage />} />
         <Route path="/workspace/nouveau" element={<NewDossierPage />} />

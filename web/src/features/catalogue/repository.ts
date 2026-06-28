@@ -1,6 +1,7 @@
 import { recordAudit } from '@/lib/audit'
 import { db, type ProductRecord } from '@/lib/db'
 import { enqueueOutbox } from '@/lib/outbox'
+import { deriveProductLinks } from './parties-repository'
 import { productSchema, type ProductInput } from './types'
 
 const now = () => new Date().toISOString()
@@ -21,11 +22,16 @@ export async function getProduct(id: string): Promise<ProductRecord | undefined>
 
 export async function createProduct(orgId: string, input: ProductInput): Promise<ProductRecord> {
   const values = productSchema.parse(input)
+  // Auto-populate « 0 ressaisie » : dérive/lie les organisations AVANT la transaction produit
+  // (upsertParty gère sa propre transaction `parties`+`outbox` → on n'imbrique pas de scopes).
+  const { titulaireId, fabricantId } = await deriveProductLinks(orgId, values)
   const ts = now()
   const record: ProductRecord = {
     id: newId(),
     orgId,
     ...values,
+    titulaireId,
+    fabricantId,
     createdAt: ts,
     updatedAt: ts,
     deletedAt: null,
@@ -44,7 +50,15 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Pr
     throw new Error('Produit introuvable')
   }
   const values = productSchema.parse(input)
-  const updated: ProductRecord = { ...existing, ...values, updatedAt: now() }
+  // Ré-aligne les liens d'organisation sur les free-text édités (« 0 ressaisie », idempotent).
+  const { titulaireId, fabricantId } = await deriveProductLinks(existing.orgId, values)
+  const updated: ProductRecord = {
+    ...existing,
+    ...values,
+    titulaireId,
+    fabricantId,
+    updatedAt: now(),
+  }
   await db.transaction('rw', db.products, db.outbox, async () => {
     await db.products.put(updated)
     await enqueueOutbox('product', id, 'update', updated)

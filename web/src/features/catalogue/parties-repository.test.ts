@@ -23,12 +23,13 @@ describe('parties repository (offline-first)', () => {
     expect(normalizePartyName('  Synthia   Labs  ')).toBe('synthia labs')
   })
 
-  it('id déterministe : même (org, nom normalisé) → même id', async () => {
-    const a = await partyId(ORG, 'Synthia Labs')
-    const b = await partyId(ORG, '  synthia   labs ')
+  it('id déterministe : même (org, nom normalisé) → même id', () => {
+    const a = partyId(ORG, 'Synthia Labs')
+    const b = partyId(ORG, '  synthia   labs ')
     expect(a).toBe(b)
+    expect(a).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
     // Tenant différent → id différent (isolation).
-    expect(await partyId('org-2', 'Synthia Labs')).not.toBe(a)
+    expect(partyId('org-2', 'Synthia Labs')).not.toBe(a)
   })
 
   it('upsert crée une organisation, la persiste et enregistre une op outbox', async () => {

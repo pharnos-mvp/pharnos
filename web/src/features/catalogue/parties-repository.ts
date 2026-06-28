@@ -1,4 +1,4 @@
-import { db, type PartyRecord, type PartyRole } from '@/lib/db'
+import { db, type PartyRecord, type PartyRole, type ProductRecord } from '@/lib/db'
 import { enqueueOutbox } from '@/lib/outbox'
 
 const now = () => new Date().toISOString()
@@ -15,30 +15,28 @@ export function normalizePartyName(nom: string): string {
   return nom.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
-const hexToBytes = (hex: string): Uint8Array =>
-  Uint8Array.from(hex.match(/.{2}/g)!.map((b) => parseInt(b, 16)))
-
-function bytesToUuid(b: Uint8Array): string {
-  const h = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('')
-  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`
-}
-
-/** UUIDv5 (SHA-1) standard — déterministe pour un couple (namespace, name). */
-async function uuidv5(name: string, namespace: string): Promise<string> {
-  const ns = hexToBytes(namespace.replace(/-/g, ''))
-  const nameBytes = new TextEncoder().encode(name)
-  const data = new Uint8Array(ns.length + nameBytes.length)
-  data.set(ns)
-  data.set(nameBytes, ns.length)
-  const digest = new Uint8Array(await crypto.subtle.digest('SHA-1', data)).slice(0, 16)
-  digest[6] = (digest[6]! & 0x0f) | 0x50 // version 5
-  digest[8] = (digest[8]! & 0x3f) | 0x80 // variant RFC 4122
-  return bytesToUuid(digest)
+/**
+ * UUID DÉTERMINISTE depuis une chaîne (FNV-1a, 4 graines → 128 bits). Synchrone (ni crypto async ni
+ * secure-context requis) et compact. La forme 8-4-4-4-12 hex est acceptée telle quelle par le type
+ * `uuid` de Postgres ; les bits de version/variant n'ont pas de sémantique ici (id interne de dédup).
+ */
+function deterministicUuid(input: string): string {
+  const seeds = [0x811c9dc5, 0x23456789, 0x9e3779b1, 0x85ebca77]
+  let hex = ''
+  for (const seed of seeds) {
+    let h = seed >>> 0
+    for (let i = 0; i < input.length; i++) {
+      h ^= input.charCodeAt(i)
+      h = Math.imul(h, 0x01000193)
+    }
+    hex += (h >>> 0).toString(16).padStart(8, '0')
+  }
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`
 }
 
 /** Id déterministe d'une organisation au sein d'un tenant (clé de dédup). */
-export function partyId(orgId: string, nom: string): Promise<string> {
-  return uuidv5(`${orgId}:${normalizePartyName(nom)}`, PARTY_NAMESPACE)
+export function partyId(orgId: string, nom: string): string {
+  return deterministicUuid(`${PARTY_NAMESPACE}:${orgId}:${normalizePartyName(nom)}`)
 }
 
 /** Organisations actives d'un tenant, de la plus récemment modifiée à la plus ancienne. */
@@ -63,7 +61,8 @@ export interface PartyInput {
   gmpExpiry?: string | null
 }
 
-const unionRoles = (a: PartyRole[], b: PartyRole[]): PartyRole[] => [...new Set([...a, ...b])].sort()
+const unionRoles = (a: PartyRole[], b: PartyRole[]): PartyRole[] =>
+  [...new Set([...a, ...b])].sort()
 
 /**
  * Upsert idempotent d'une organisation par NOM (id déterministe). Fusionne les rôles (cumul) et
@@ -74,7 +73,7 @@ const unionRoles = (a: PartyRole[], b: PartyRole[]): PartyRole[] => [...new Set(
 export async function upsertParty(orgId: string, input: PartyInput): Promise<string | null> {
   const nom = input.nom.trim()
   if (!nom) return null
-  const id = await partyId(orgId, nom)
+  const id = partyId(orgId, nom)
   const roles = input.roles ?? []
   const existing = await db.parties.get(id)
 
@@ -138,6 +137,64 @@ export async function updateParty(
     await enqueueOutbox('party', id, 'update', updated)
   })
   return updated
+}
+
+/** Free-text d'un produit dont on dérive les organisations liées. */
+export interface ProductPartyFields {
+  titulaire: string
+  titulaireAdresse?: string | null
+  fabricant: string
+  fabricantAdresse?: string | null
+}
+
+/**
+ * Dérive (et lie) les organisations d'un produit depuis ses free-text — « 0 ressaisie ». Upsert
+ * idempotent du titulaire (rôle `titulaire`) et du fabricant (rôle `fabricant`) ; renvoie leurs ids
+ * (à stocker sur le produit). Le free-text reste la source de vérité (secours pendant la transition).
+ */
+export async function deriveProductLinks(
+  orgId: string,
+  p: ProductPartyFields,
+): Promise<{ titulaireId: string | null; fabricantId: string | null }> {
+  const titulaireId = await upsertParty(orgId, {
+    nom: p.titulaire,
+    roles: ['titulaire'],
+    adresse: p.titulaireAdresse ?? '',
+  })
+  const fabricantId = await upsertParty(orgId, {
+    nom: p.fabricant,
+    roles: ['fabricant'],
+    adresse: p.fabricantAdresse ?? '',
+  })
+  return { titulaireId, fabricantId }
+}
+
+/**
+ * Backfill idempotent : lie les produits existants à leurs organisations (créées au besoin) depuis
+ * leurs free-text — pour les enregistrements antérieurs à la migration `0045`. Ne touche QUE les
+ * produits dont un free-text non vide n'a pas encore de lien → après le 1er passage, no-op (pas de
+ * churn de synchro). Best-effort, à appeler au montage du Catalogue.
+ */
+export async function backfillProductParties(orgId: string): Promise<void> {
+  const products = await db.products.where('orgId').equals(orgId).toArray()
+  for (const p of products) {
+    if (p.deletedAt !== null) continue
+    const needsT = !!p.titulaire?.trim() && !p.titulaireId
+    const needsF = !!p.fabricant?.trim() && !p.fabricantId
+    if (!needsT && !needsF) continue
+
+    const { titulaireId, fabricantId } = await deriveProductLinks(orgId, p)
+    const patch: Partial<ProductRecord> = {}
+    if (needsT && titulaireId) patch.titulaireId = titulaireId
+    if (needsF && fabricantId) patch.fabricantId = fabricantId
+    if (Object.keys(patch).length === 0) continue
+    patch.updatedAt = now()
+
+    await db.transaction('rw', db.products, db.outbox, async () => {
+      await db.products.update(p.id, patch)
+      await enqueueOutbox('product', p.id, 'update', { ...p, ...patch })
+    })
+  }
 }
 
 /** Suppression logique (soft delete) — l'objet reste pour la réconciliation de synchro. */

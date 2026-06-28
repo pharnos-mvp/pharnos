@@ -11,7 +11,9 @@ const BUDGET = {
   // Entrée index-*.js = JS exécuté au boot. **Gate déterministe de perf** : on cape ce chunk
   // pour borner le TBT (le score Lighthouse mobile dépend surtout du temps d'exécution JS au
   // démarrage). Resserré 175→135 après le travail FCP/LCP (squelette inline + eager /catalogue).
-  entryJs: 135,
+  // 135→137 (LOT 2 / M3-M4) : le sous-système master-data `parties` (sync + backfill au montage du
+  // Catalogue, qui est en import statique) entre légitimement au boot (~0,5 Ko gzip).
+  entryJs: 137,
   totalCss: 60, // CSS total
   // Chunk de la route workspace (DossierWorkspacePage-*). Après le code-split N2-b (TipTap +
   // moteur de formulaires → lazy), il pèse ~41 Ko. Cap = garde-fou anti-régression : si TipTap
