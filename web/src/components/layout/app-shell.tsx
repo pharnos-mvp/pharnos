@@ -120,9 +120,12 @@ export function AppShell() {
   // place maximale pour la feuille). Réouverture manuelle possible ; en quittant le montage,
   // retour à la préférence enregistrée.
   const inMontage = /^\/workspace\/[^/]+$/.test(location.pathname)
-  // Fond « canvas » gris premium : dashboard + fiche produit RIM (/catalogue/:id, hors /nouveau).
+  // Fond « canvas » gris premium (#f9fafb) — les surfaces « vue d'ensemble » de la DA pour que les
+  // cartes blanches ressortent : dashboard + liste Produits (/catalogue) + fiche produit RIM
+  // (/catalogue/:id, hors /nouveau qui est un formulaire).
   const onCanvas =
     location.pathname.startsWith('/dashboard') ||
+    location.pathname === '/catalogue' ||
     (/^\/catalogue\/[^/]+$/.test(location.pathname) && !location.pathname.endsWith('/nouveau'))
   useEffect(() => {
     // Synchronisation pilotée par la route — exception légitime à set-state-in-effect.
