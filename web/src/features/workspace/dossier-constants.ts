@@ -18,6 +18,7 @@ export const REG_ACTIVITIES: Option[] = [
   { code: 'new_ma', label: 'Nouvelle AMM', en: 'New MA' },
   { code: 'renewal', label: 'Renouvellement', en: 'Renewal' },
   { code: 'variation', label: 'Variation / Modification', en: 'Variation / Change' },
+  { code: 'transfer', label: "Transfert d'AMM", en: 'MA transfer' },
 ]
 
 /** Pays de l'espace UEMOA puis autres CEDEAO. */

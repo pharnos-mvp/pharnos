@@ -31,22 +31,24 @@ async function createDossier(page: Page): Promise<string> {
   return nom
 }
 
-test('home Workspace : dossiers groupés par état, badge « Draft » dérivé', async ({ page }) => {
+test('board Opérations : table dense + filtres procédure + statut « Brouillon » dérivé', async ({
+  page,
+}) => {
   const nom = await createDossier(page)
   await page.goto('/workspace')
 
-  const group = page.getByRole('group', { name: 'Filtrer par état' })
+  const group = page.getByRole('group', { name: 'Filtrer par procédure' })
   await expect(group).toBeVisible()
-  await expect(group.getByRole('button', { name: /^Tous · 1$/ })).toBeVisible()
-  await expect(group.getByRole('button', { name: /^Draft · 1$/ })).toBeVisible()
-  await expect(group.getByRole('button', { name: /^En review · 0$/ })).toBeVisible()
+  await expect(group.getByRole('button', { name: /^Toutes · 1$/ })).toBeVisible()
+  await expect(group.getByRole('button', { name: /^Enregistrement · 1$/ })).toBeVisible()
 
-  const card = page.locator('[role="listitem"]', { hasText: nom }).first()
-  await expect(card.getByText('Draft', { exact: true })).toBeVisible()
+  // La ligne du dossier porte le statut « Brouillon » (dérivé : aucune correspondance).
+  const row = page.getByRole('row', { name: new RegExp(nom) })
+  await expect(row.getByText('Brouillon', { exact: true })).toBeVisible()
 
-  // Filtre « Rejeté » : état vide explicite.
-  await group.getByRole('button', { name: /^Rejeté · 0$/ }).click()
-  await expect(page.getByText('Aucun dossier « Rejeté »')).toBeVisible()
+  // Filtre « Variation » (0 dossier) → table vide explicite.
+  await group.getByRole('button', { name: /^Variation · 0$/ }).click()
+  await expect(page.getByText('Aucun dossier pour ce filtre.')).toBeVisible()
 })
 
 test('panneau Correspondance : accessible depuis le bandeau du dossier (état vide)', async ({
@@ -55,8 +57,7 @@ test('panneau Correspondance : accessible depuis le bandeau du dossier (état vi
   const nom = await createDossier(page)
   await page.goto('/workspace')
   await page
-    .locator('[role="listitem"]', { hasText: nom })
-    .first()
+    .getByRole('row', { name: new RegExp(nom) })
     .getByRole('link')
     .first()
     .click()

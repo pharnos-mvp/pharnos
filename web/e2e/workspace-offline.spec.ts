@@ -50,7 +50,7 @@ test('montage : la route workspace (code-splittée) se rend hors-ligne après pr
   // Vue de montage du dossier (/workspace/:id) — le chunk DossierWorkspacePage est chargé.
   await page.goto('/workspace')
   await page
-    .locator('[role="listitem"]', { hasText: nom })
+    .getByRole('row', { name: new RegExp(nom) })
     .first()
     .getByRole('link')
     .first()
@@ -82,7 +82,7 @@ test('< lg : montage en disposition tablette (actions dans la barre d’onglets 
   const nom = await createDossier(page)
   await page.goto('/workspace')
   await page
-    .locator('[role="listitem"]', { hasText: nom })
+    .getByRole('row', { name: new RegExp(nom) })
     .first()
     .getByRole('link')
     .first()
