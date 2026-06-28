@@ -81,17 +81,29 @@ async function pushOutbox(supabase: SupabaseClient, orgId: string): Promise<void
   const items = await db.outbox.where('entity').equals('party').toArray()
   if (items.length === 0) return
 
+  // Drain PAR ITEM traité : on ne supprime que les ops poussées (ou définitivement absentes /
+  // rejetées) POUR CET org. Les ops d'un AUTRE org (membre multi-orgs) restent en file pour leur
+  // propre cycle de synchro — un bulkDelete global les perdrait.
   const ids = [...new Set(items.map((i) => i.entityId))]
+  const drain = new Set<string>()
   for (const id of ids) {
     const rec = await db.parties.get(id)
-    if (!rec || rec.orgId !== orgId) continue
+    if (!rec) {
+      drain.add(id) // plus rien à pousser localement
+      continue
+    }
+    if (rec.orgId !== orgId) continue // appartient à un autre org → reste en file
     const { error } = await supabase.from('parties').upsert(partyToRow(rec))
     if (error) {
-      if (isPermanentSyncError(error)) continue // rejet permanent : drainé par le bulkDelete final
-      throw error
+      if (isPermanentSyncError(error)) {
+        drain.add(id) // rejet permanent : on draine (anti-boucle/Sentry)
+        continue
+      }
+      throw error // transitoire (FK pas encore satisfaite incluse) → conservé, retenté
     }
+    drain.add(id)
   }
-  await db.outbox.bulkDelete(items.map((i) => i.id))
+  await db.outbox.bulkDelete(items.filter((i) => drain.has(i.entityId)).map((i) => i.id))
 }
 
 async function pullParties(supabase: SupabaseClient, orgId: string): Promise<void> {

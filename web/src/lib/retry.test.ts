@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { withRetry } from './retry'
+import { isPermanentSyncError, withRetry } from './retry'
 
 const failTimes = (n: number, error: unknown) => {
   let calls = 0
@@ -53,5 +53,22 @@ describe('withRetry (sync client)', () => {
     const { fn, calls } = failTimes(99, err)
     await expect(withRetry(fn, { baseMs: 1 })).rejects.toBe(err)
     expect(calls()).toBe(1)
+  })
+})
+
+describe('isPermanentSyncError', () => {
+  it('23503 (violation FK) → NON permanent (parent pas encore poussé = transitoire)', () => {
+    expect(isPermanentSyncError({ code: '23503' })).toBe(false)
+  })
+  it('42501 (RLS) et 23514 (check) → permanents (rééchoueront à l’identique)', () => {
+    expect(isPermanentSyncError({ code: '42501' })).toBe(true)
+    expect(isPermanentSyncError({ code: '23514' })).toBe(true)
+  })
+  it('429 et 5xx → NON permanents (transitoires)', () => {
+    expect(isPermanentSyncError({ status: 429 })).toBe(false)
+    expect(isPermanentSyncError({ status: 503 })).toBe(false)
+  })
+  it('4xx non-429 sans code SQLSTATE → permanent', () => {
+    expect(isPermanentSyncError({ status: 400 })).toBe(true)
   })
 })

@@ -124,10 +124,14 @@ export async function upsertParty(orgId: string, input: PartyInput): Promise<str
   return id
 }
 
-/** Met à jour les détails d'une organisation depuis sa fiche (pays/adresse/GMP/rôles). */
+/**
+ * Met à jour les détails éditables d'une organisation depuis sa fiche. `nom` est VOLONTAIREMENT
+ * exclu : l'id est dérivé du nom → le renommer créerait un doublon orphelin à la prochaine
+ * dérivation (un nom différent = une autre organisation). Le nom suit le free-text des produits.
+ */
 export async function updateParty(
   id: string,
-  patch: Partial<Omit<PartyRecord, 'id' | 'orgId' | 'createdAt' | 'updatedAt' | 'deletedAt'>>,
+  patch: Partial<Pick<PartyRecord, 'pays' | 'adresse' | 'gmpCertificat' | 'gmpExpiry'>>,
 ): Promise<PartyRecord> {
   const existing = await db.parties.get(id)
   if (!existing || existing.deletedAt !== null) throw new Error('Organisation introuvable')
@@ -169,13 +173,23 @@ export async function deriveProductLinks(
   return { titulaireId, fabricantId }
 }
 
+const BACKFILL_VERSION = '1'
+const backfillKey = (orgId: string) => `pharnos.parties.backfilled.${orgId}`
+
 /**
  * Backfill idempotent : lie les produits existants à leurs organisations (créées au besoin) depuis
  * leurs free-text — pour les enregistrements antérieurs à la migration `0045`. Ne touche QUE les
- * produits dont un free-text non vide n'a pas encore de lien → après le 1er passage, no-op (pas de
- * churn de synchro). Best-effort, à appeler au montage du Catalogue.
+ * produits dont un free-text non vide n'a pas encore de lien (pas de churn de synchro). Un flag
+ * localStorage par org évite de re-scanner tous les produits à chaque montage — une fois fait, les
+ * nouveaux produits sont liés à la création/édition (`deriveProductLinks`). Best-effort.
  */
 export async function backfillProductParties(orgId: string): Promise<void> {
+  try {
+    if (localStorage.getItem(backfillKey(orgId)) === BACKFILL_VERSION) return
+  } catch {
+    /* stockage indisponible → on exécute quand même (le travail reste idempotent) */
+  }
+
   const products = await db.products.where('orgId').equals(orgId).toArray()
   for (const p of products) {
     if (p.deletedAt !== null) continue
@@ -195,15 +209,10 @@ export async function backfillProductParties(orgId: string): Promise<void> {
       await enqueueOutbox('product', p.id, 'update', { ...p, ...patch })
     })
   }
-}
 
-/** Suppression logique (soft delete) — l'objet reste pour la réconciliation de synchro. */
-export async function deleteParty(id: string): Promise<void> {
-  const existing = await db.parties.get(id)
-  if (!existing || existing.deletedAt !== null) return
-  const ts = now()
-  await db.transaction('rw', db.parties, db.outbox, async () => {
-    await db.parties.update(id, { deletedAt: ts, updatedAt: ts })
-    await enqueueOutbox('party', id, 'delete', { id })
-  })
+  try {
+    localStorage.setItem(backfillKey(orgId), BACKFILL_VERSION)
+  } catch {
+    /* non bloquant : le prochain montage re-tentera (idempotent) */
+  }
 }

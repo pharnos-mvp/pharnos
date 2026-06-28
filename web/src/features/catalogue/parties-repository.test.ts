@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { db } from '@/lib/db'
 import {
-  deleteParty,
   getParty,
   listParties,
   normalizePartyName,
@@ -80,14 +79,6 @@ describe('parties repository (offline-first)', () => {
     const updated = await updateParty(id!, { pays: 'CI', gmpCertificat: 'GMP-9' })
     expect(updated.pays).toBe('CI')
     expect(updated.gmpCertificat).toBe('GMP-9')
-  })
-
-  it('supprime logiquement : exclu de la liste, getParty vide, outbox delete', async () => {
-    const id = await upsertParty(ORG, { nom: 'Synthia' })
-    await deleteParty(id!)
-    expect(await listParties(ORG)).toHaveLength(0)
-    expect(await getParty(id!)).toBeUndefined()
-    expect((await db.outbox.toArray()).map((o) => o.op)).toContain('delete')
   })
 
   it('isole les organisations par tenant', async () => {
