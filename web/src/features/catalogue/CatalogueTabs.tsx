@@ -40,7 +40,9 @@ export function CatalogueTabs() {
         onClick={() =>
           toast(t({ fr: 'Autorités — bientôt disponible.', en: 'Authorities — coming soon.' }))
         }
-        className={cn(base, 'text-muted-foreground/60 hover:bg-accent')}
+        // Contraste AA : `text-muted-foreground` plein (≥4,5:1 sur le canvas #f9fafb) ; le « bientôt »
+        // est porté par le toast, pas par une opacité réduite (qui retombait à 2,24:1).
+        className={cn(base, 'text-muted-foreground hover:bg-accent')}
       >
         <Landmark className="size-4" /> {t({ fr: 'Autorités', en: 'Authorities' })}
       </button>
