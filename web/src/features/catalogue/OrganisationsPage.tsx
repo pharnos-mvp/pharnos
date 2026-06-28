@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Building2, Search, SearchX } from 'lucide-react'
+import { AlertCircle, Building2, Clock3, Search, SearchX } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 
 import { EmptyState } from '@/components/ui/empty-state'
@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { useTopbar } from '@/components/layout/topbar'
+import { KPI_BADGE_TONE } from '@/features/dashboard/dashboard-data'
 import { CountryFlag } from '@/features/dashboard/CountryFlag'
 import { useOrgId } from '@/features/org/org-context'
 import { db, type PartyRole } from '@/lib/db'
@@ -43,7 +44,8 @@ export function OrganisationsPage() {
   }, [orgId])
 
   const rows = useMemo(
-    () => (data ? buildOrgRows(data.parties, data.products, data.documents) : undefined),
+    () =>
+      data ? buildOrgRows(data.parties, data.products, data.documents, new Date()) : undefined,
     [data],
   )
   const filtered = useMemo(() => (rows ? filterOrgRows(rows, q) : []), [rows, q])
@@ -164,6 +166,7 @@ function OrgListRow({ row }: { row: OrgRow }) {
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-1.5">
+        <OrgHealthBadges row={row} />
         {sortRoles(party.roles).map((r) => (
           <StatusBadge key={r} tone="info">
             {t(ROLE_LABEL[r])}
@@ -186,6 +189,34 @@ function OrgListRow({ row }: { row: OrgRow }) {
         </span>
       ) : null}
     </ListRow>
+  )
+}
+
+/** Badges d'exception (périmée / à renouveler) — management par exception, comme la liste produits. */
+function OrgHealthBadges({ row }: { row: OrgRow }) {
+  const { t } = useI18n()
+  if (row.expiredCount === 0 && row.expiringCount === 0) return null
+  return (
+    <>
+      {row.expiredCount > 0 ? (
+        <StatusBadge tone="danger">
+          <AlertCircle />
+          {t({
+            fr: `${row.expiredCount} expirée${row.expiredCount > 1 ? 's' : ''}`,
+            en: `${row.expiredCount} expired`,
+          })}
+        </StatusBadge>
+      ) : null}
+      {row.expiringCount > 0 ? (
+        <StatusBadge tone={KPI_BADGE_TONE[row.tone]}>
+          <Clock3 />
+          {t({
+            fr: `${row.expiringCount} à renouveler`,
+            en: `${row.expiringCount} to renew`,
+          })}
+        </StatusBadge>
+      ) : null}
+    </>
   )
 }
 

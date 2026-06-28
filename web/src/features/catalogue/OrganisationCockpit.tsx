@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Building2, PackageOpen, Pencil } from 'lucide-react'
+import { AlertCircle, Building2, Clock3, PackageOpen, Pencil, ShieldCheck } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -13,11 +13,20 @@ import { Page } from '@/components/ui/page'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { useTopbar } from '@/components/layout/topbar'
+import { KPI_BADGE_TONE } from '@/features/dashboard/dashboard-data'
+import { CountryFlag } from '@/features/dashboard/CountryFlag'
+import { countryLabel } from '@/features/workspace/dossier-constants'
 import { useOrgId } from '@/features/org/org-context'
 import { db, type PartyRecord, type PartyRole } from '@/lib/db'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
+import { docTypeLabel } from './doc-types'
 import { ProductIcon } from './product-icon'
-import { sortRoles } from './parties-data'
+import {
+  buildOrgCockpitVm,
+  sortRoles,
+  type OrgCockpitVm,
+  type PieceTypeValidity,
+} from './parties-data'
 import { updateParty } from './parties-repository'
 import { syncParties } from './parties-sync'
 
@@ -34,11 +43,12 @@ export function OrganisationCockpit() {
   const [editing, setEditing] = useState(false)
 
   const data = useLiveQuery(async () => {
-    const [party, products] = await Promise.all([
+    const [party, products, documents] = await Promise.all([
       db.parties.get(partyId),
       db.products.where('orgId').equals(orgId).toArray(),
+      db.documents.where('orgId').equals(orgId).toArray(),
     ])
-    return { party, products }
+    return { party, products, documents }
   }, [orgId, partyId])
 
   const party = data?.party && data.party.deletedAt === null ? data.party : undefined
@@ -57,6 +67,15 @@ export function OrganisationCockpit() {
       )
       .sort((a, b) => a.nomCommercial.localeCompare(b.nomCommercial))
   }, [data, partyId])
+
+  // Cockpit RA : portefeuille AMM + validité des pièces, dérivés des sélecteurs de validité uniques.
+  const vm = useMemo<OrgCockpitVm | undefined>(
+    () =>
+      party && data
+        ? buildOrgCockpitVm(party, data.products, data.documents, new Date())
+        : undefined,
+    [party, data],
+  )
 
   if (data === undefined) return <FicheSkeleton />
   if (!party) {
@@ -132,6 +151,12 @@ export function OrganisationCockpit() {
         )}
       </div>
 
+      {/* Portefeuille AMM — responsabilité du titulaire d'AMM. */}
+      {vm && party.roles.includes('titulaire') && vm.amm.total > 0 ? <AmmPanel vm={vm} /> : null}
+
+      {/* Validité des pièces — suivi des échéances (politique Monitor). */}
+      {vm && vm.pieces.length > 0 ? <PiecesPanel pieces={vm.pieces} /> : null}
+
       {/* Produits liés */}
       <section className="space-y-3">
         <h2 className="font-display text-sm font-semibold">
@@ -183,6 +208,146 @@ export function OrganisationCockpit() {
         )}
       </section>
     </Page>
+  )
+}
+
+const AMM_TILE = {
+  total: 'bg-muted text-foreground',
+  active: 'bg-success-subtle text-success-subtle-foreground',
+  expiring: 'bg-warning-subtle text-warning-subtle-foreground',
+  expired: 'bg-danger-subtle text-danger-subtle-foreground',
+} as const
+
+function AmmTile({
+  value,
+  label,
+  tone,
+}: {
+  value: number
+  label: string
+  tone: keyof typeof AMM_TILE
+}) {
+  return (
+    <div className={`rounded-lg px-3 py-2.5 text-center ${AMM_TILE[tone]}`}>
+      <div className="font-display text-xl leading-none font-bold tabular-nums">{value}</div>
+      <div className="mt-1 text-[11px] font-medium">{label}</div>
+    </div>
+  )
+}
+
+/** Portefeuille d'AMM (rôle titulaire) : total / actives / à renouveler / périmées + ventilation pays. */
+function AmmPanel({ vm }: { vm: OrgCockpitVm }) {
+  const { t, lang } = useI18n()
+  const { amm } = vm
+  return (
+    <section className="space-y-3">
+      <h2 className="font-display text-sm font-semibold">
+        {t({ fr: "Portefeuille d'AMM", en: 'MA portfolio' })}
+      </h2>
+      <div className="bg-card space-y-4 rounded-xl border p-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <AmmTile value={amm.total} label={t({ fr: 'Total', en: 'Total' })} tone="total" />
+          <AmmTile value={amm.active} label={t({ fr: 'Actives', en: 'Active' })} tone="active" />
+          <AmmTile
+            value={amm.expiring}
+            label={t({ fr: 'À renouveler', en: 'Renewals' })}
+            tone="expiring"
+          />
+          <AmmTile
+            value={amm.expired}
+            label={t({ fr: 'Expirées', en: 'Expired' })}
+            tone="expired"
+          />
+        </div>
+        {amm.byCountry.length > 0 ? (
+          <ul className="divide-border divide-y">
+            {amm.byCountry.map((c) => (
+              <li key={c.code} className="flex items-center gap-2 py-2 text-sm">
+                {c.code === '—' ? (
+                  <span className="text-muted-foreground w-4 text-center">—</span>
+                ) : (
+                  <CountryFlag code={c.code} size={16} />
+                )}
+                <span className="min-w-0 flex-1 truncate">
+                  {c.code === '—'
+                    ? t({ fr: 'Pays non précisé', en: 'Unspecified country' })
+                    : countryLabel(c.code, lang)}
+                </span>
+                <span className="text-muted-foreground text-xs tabular-nums">
+                  {t({ fr: `${c.total} AMM`, en: `${c.total} MA` })}
+                </span>
+                {c.expired > 0 ? <StatusBadge tone="danger">{c.expired}</StatusBadge> : null}
+                {c.expiring > 0 ? <StatusBadge tone="warning">{c.expiring}</StatusBadge> : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    </section>
+  )
+}
+
+/** Suivi de validité par type de pièce (GMP, ML, AMM, CoPP, FSC, CoA…) — politique Monitor. */
+function PiecesPanel({ pieces }: { pieces: PieceTypeValidity[] }) {
+  const { t, lang } = useI18n()
+  const expiryText = (daysLeft: number) =>
+    daysLeft < 0
+      ? t({ fr: `Périmé depuis ${-daysLeft} j`, en: `${-daysLeft}d overdue` })
+      : t({ fr: `Expire dans ${daysLeft} j`, en: `in ${daysLeft}d` })
+  return (
+    <section className="space-y-3">
+      <h2 className="font-display text-sm font-semibold">
+        {t({ fr: 'Validité des pièces', en: 'Document validity' })}
+      </h2>
+      <div className="flex flex-col gap-2">
+        {pieces.map((pv) => (
+          <div
+            key={pv.docType}
+            className="bg-card flex items-center gap-3 rounded-xl border px-4 py-3"
+          >
+            <div className="min-w-0 flex-1">
+              <div className="font-display truncate text-sm font-semibold">
+                {docTypeLabel(pv.docType, lang)}
+              </div>
+              <div className="text-muted-foreground mt-0.5 truncate text-xs">
+                {t({ fr: `${pv.valid}/${pv.total} à jour`, en: `${pv.valid}/${pv.total} valid` })}
+                {pv.next ? ` · ${pv.next.productName}` : ''}
+              </div>
+            </div>
+            {pv.next ? (
+              <span className="text-muted-foreground hidden text-xs sm:inline">
+                {expiryText(pv.next.daysLeft)}
+              </span>
+            ) : null}
+            <PieceBadge pv={pv} />
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function PieceBadge({ pv }: { pv: PieceTypeValidity }) {
+  const { t } = useI18n()
+  if (pv.expired > 0)
+    return (
+      <StatusBadge tone="danger">
+        <AlertCircle />
+        {t({ fr: 'Périmée', en: 'Expired' })}
+      </StatusBadge>
+    )
+  if (pv.expiring > 0)
+    return (
+      <StatusBadge tone={KPI_BADGE_TONE[pv.tone]}>
+        <Clock3 />
+        {t({ fr: 'À renouveler', en: 'Renew' })}
+      </StatusBadge>
+    )
+  return (
+    <StatusBadge tone="success">
+      <ShieldCheck />
+      {t({ fr: 'Valide', en: 'Valid' })}
+    </StatusBadge>
   )
 }
 
