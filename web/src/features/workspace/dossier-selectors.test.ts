@@ -1,12 +1,18 @@
 import { describe, expect, it } from 'vitest'
 
-import type { DocumentRecord, DossierAttachmentRecord, GeneratedDocRecord } from '@/lib/db'
+import type {
+  DocumentRecord,
+  DossierAttachmentRecord,
+  DossierRecord,
+  GeneratedDocRecord,
+} from '@/lib/db'
 import type { CtdNodeDef } from './module1-tree'
 import {
   attachmentsForNode,
   buildViewables,
   completionStats,
   docsForNode,
+  dossierCompletion,
   nextLeafAfter,
   viewableTabType,
   type Viewable,
@@ -50,6 +56,24 @@ describe('completionStats', () => {
 
   it('arbre vide → 0 % sans division par zéro', () => {
     expect(completionStats([], () => 0).pct).toBe(0)
+  })
+})
+
+describe('dossierCompletion (feuille documentée par pièce OU doc généré OU pièce jointe)', () => {
+  const dossier = {
+    format: 'ctd',
+    excludedDocIds: [],
+    tree: [node('1.0'), node('1.1'), node('1.2')], // 3 feuilles
+  } as unknown as DossierRecord
+
+  it('compte les feuilles remplies par genDoc / attachment (sans pièce produit)', () => {
+    const gen = [{ nodeNumber: '1.1' }] as GeneratedDocRecord[]
+    const att = [{ nodeNumber: '1.2' }] as DossierAttachmentRecord[]
+    expect(dossierCompletion(dossier, [], gen, att)).toEqual({ okCount: 2, total: 3, pct: 67 })
+  })
+
+  it('aucun contenu → 0 / 3', () => {
+    expect(dossierCompletion(dossier, [], [], [])).toEqual({ okCount: 0, total: 3, pct: 0 })
   })
 })
 

@@ -61,6 +61,9 @@ test('panneau Correspondance : accessible depuis le bandeau du dossier (état vi
     .getByRole('link')
     .first()
     .click()
+  // Clic ligne → aperçu, puis « Modifier » → CTD Builder (qui porte le bandeau Correspondance).
+  await page.waitForURL(/\/workspace\/[^/]+\/apercu$/)
+  await page.getByRole('link', { name: 'Modifier' }).click()
   await page.waitForURL(/\/workspace\/[^/]+$/)
 
   // Banner uniquement : l'arborescence du dossier contient aussi « 1.1 Correspondance ».
