@@ -92,22 +92,27 @@ export function DossierPreviewPage() {
     () => (dossierId ? listByDossier(dossierId) : Promise.resolve([])),
     [dossierId],
   )
-  const branding = useLiveQuery(() => getOrgBranding(orgId), [orgId])
+  // `?? null` : distingue « en cours de chargement » (undefined) de « pas de branding » (null) →
+  // le 1er compile attend la résolution du branding (pas de flash non-brandé → bandé).
+  const branding = useLiveQuery(() => getOrgBranding(orgId).then((b) => b ?? null), [orgId])
 
   const now = useMemo(() => new Date(), [])
   const [pdf, setPdf] = useState<{ url: string; blob: Blob; key: string } | null>(null)
   const [shareOpen, setShareOpen] = useState(false)
 
-  // Compile dès que les données du dossier sont prêtes (branding non requis : peut être absent).
   const ready =
     dossier != null &&
     docs !== undefined &&
     genDocs !== undefined &&
     attachments !== undefined &&
-    product !== undefined
-  // Signature stable → un seul compile par état réel (pas de recompile sur churn de référence).
+    product !== undefined &&
+    branding !== undefined
+  // Signature stable → un compile par ÉTAT réel. `maxTs` = dernier `updatedAt` (dossier OU enfant) :
+  // une édition in-place (contenu d'un doc généré → son `updatedAt`) à effectif constant recompile.
   const sig = ready
-    ? `${dossier.id}:${product?.id ?? ''}:${docs.length}:${genDocs.length}:${attachments.length}:${dossier.updatedAt}:${branding ? '1' : '0'}`
+    ? `${dossier.id}:${product?.id ?? ''}:${docs.length}:${genDocs.length}:${attachments.length}:` +
+      `${[dossier.updatedAt, ...genDocs.map((g) => g.updatedAt), ...attachments.map((a) => a.updatedAt ?? ''), ...docs.map((d) => d.updatedAt ?? '')].reduce((m, x) => (x > m ? x : m), '')}:` +
+      `${branding ? '1' : '0'}`
     : null
   const previewReady = pdf?.key === sig
 
@@ -124,7 +129,7 @@ export function DossierPreviewPage() {
           generatedDocs: genDocs ?? [],
           docs: docs ?? [],
           attachments: attachments ?? [],
-          branding,
+          branding: branding ?? undefined,
           autoStructural: true,
         })
         if (cancelled) return
@@ -314,11 +319,14 @@ export function DossierPreviewPage() {
             <FileText className="size-3.5" aria-hidden />{' '}
             {t({ fr: 'Aperçu du montage compilé', en: 'Compiled montage preview' })}
           </div>
-          <div className="min-h-[440px]">
+          <div className="min-h-[440px]" aria-busy={!previewReady}>
             {previewReady && pdf ? (
               <PdfViewer blob={pdf.blob} flow />
             ) : (
-              <div className="text-muted-foreground flex h-[440px] items-center justify-center text-sm">
+              <div
+                role="status"
+                className="text-muted-foreground flex h-[440px] items-center justify-center text-sm"
+              >
                 {t({ fr: 'Compilation de l’aperçu…', en: 'Compiling preview…' })}
               </div>
             )}
@@ -326,10 +334,10 @@ export function DossierPreviewPage() {
         </div>
 
         <div className="bg-card rounded-xl border p-4">
-          <div className="font-display mb-1 text-sm font-semibold">
+          <div id="sommaire-titre" className="font-display mb-1 text-sm font-semibold">
             {t({ fr: 'Sommaire du montage', en: 'Montage summary' })}
           </div>
-          <ul className="mt-2 flex flex-col gap-2.5">
+          <ul aria-labelledby="sommaire-titre" className="mt-2 flex flex-col gap-2.5">
             {sommaire.map(({ node, filled, total }) => {
               const state =
                 total === 0 || filled === 0 ? 'empty' : filled < total ? 'partial' : 'ok'
