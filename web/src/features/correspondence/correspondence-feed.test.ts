@@ -41,6 +41,7 @@ describe('buildInbox', () => {
         corr({ id: 'comp', status: 'suspended', decidedAt: inDays(-3) }),
         corr({ id: 'msg', status: 'in_review', updatedAt: inDays(-1) }),
         corr({ id: 'ech', status: 'in_review', expiresAt: inDays(5) }),
+        corr({ id: 'overdue', status: 'in_review', expiresAt: inDays(-3) }), // dépassée → échéance
         corr({ id: 'rev', status: 'in_review', updatedAt: inDays(-4) }), // nu → review
       ],
       new Map([['msg', 2]]),
@@ -52,6 +53,7 @@ describe('buildInbox', () => {
     expect(byId['comp']).toMatchObject({ kind: 'complement', status: 'suspended' })
     expect(byId['msg']).toMatchObject({ kind: 'message', unread: 2, status: 'in_review' })
     expect(byId['ech']).toMatchObject({ kind: 'echeance', deadlineDays: 5, status: 'in_review' })
+    expect(byId['overdue']).toMatchObject({ kind: 'echeance', deadlineDays: -3 })
     expect(byId['rev']).toMatchObject({ kind: 'review', status: 'in_review' })
   })
 

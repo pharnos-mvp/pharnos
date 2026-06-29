@@ -64,7 +64,8 @@ export function buildInbox(
         : null
       if (unread > 0) {
         items.push({ ...base, kind: 'message', status: 'in_review', unread, at: c.updatedAt })
-      } else if (days !== null && days >= 0 && days <= ECHEANCE_WINDOW_DAYS) {
+      } else if (days !== null && days <= ECHEANCE_WINDOW_DAYS) {
+        // proche OU DÉPASSÉE (days < 0) → échéance ; cohérent avec `isDeadlineUrgent` de la table.
         items.push({
           ...base,
           kind: 'echeance',

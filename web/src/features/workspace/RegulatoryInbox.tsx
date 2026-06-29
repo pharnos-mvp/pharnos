@@ -9,7 +9,7 @@ import {
   XCircle,
 } from 'lucide-react'
 
-import type { InboxItem } from '@/features/correspondence/correspondence-feed'
+import { inboxUnreadTotal, type InboxItem } from '@/features/correspondence/correspondence-feed'
 import type { DossierDisplayStatus } from '@/features/correspondence/correspondence-constants'
 import { agencyFor } from '@/features/workspace/roadmap-data'
 import { useI18n, type Lang, type Translatable } from '@/lib/i18n-context'
@@ -99,8 +99,12 @@ export function RegulatoryInbox({
 
   const count = (k: FilterKey) =>
     k === 'all' ? items.length : items.filter((i) => i.status === k).length
-  const unread = items.reduce((n, i) => n + (i.unread > 0 ? 1 : 0), 0)
-  const shown = items.filter((i) => filter === 'all' || i.status === filter)
+  const unread = inboxUnreadTotal(items)
+  // Si le statut filtré n'a plus d'entrée (sa pastille a disparu), on retombe sur « Tous » AU RENDU
+  // (pas de setState dans un effet = pas de cul-de-sac) ; le filtre reprend si ce statut réapparaît.
+  const effectiveFilter: FilterKey =
+    filter !== 'all' && !items.some((i) => i.status === filter) ? 'all' : filter
+  const shown = items.filter((i) => effectiveFilter === 'all' || i.status === effectiveFilter)
   const today = shown.filter((i) => new Date(i.at).getTime() >= startOfDay(now))
   const earlier = shown.filter((i) => new Date(i.at).getTime() < startOfDay(now))
 
@@ -131,11 +135,11 @@ export function RegulatoryInbox({
               <button
                 key={c.key}
                 type="button"
-                aria-pressed={filter === c.key}
+                aria-pressed={effectiveFilter === c.key}
                 onClick={() => setFilter(c.key)}
                 className={cn(
                   'cursor-pointer rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors',
-                  filter === c.key
+                  effectiveFilter === c.key
                     ? 'bg-info border-transparent text-white'
                     : 'text-muted-foreground hover:bg-accent',
                 )}

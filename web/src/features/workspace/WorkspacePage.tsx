@@ -231,6 +231,8 @@ export function WorkspacePage() {
   if (showRail) {
     return (
       <div className="flex h-full flex-col pt-6">
+        {/* h1 du document (le cockpit ne monte pas PageHeader ; le titre visible est le breadcrumb du shell). */}
+        <h1 className="sr-only">{t({ fr: 'Opérations', en: 'Operations' })}</h1>
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="flex min-h-0 min-w-0 flex-col gap-3">
             <KpiBand kpis={kpis} />
@@ -370,8 +372,8 @@ function KpiBand({ kpis }: { kpis: ReturnType<typeof opsKpis> }) {
   ]
   return (
     <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-      {tiles.map((tile, i) => (
-        <div key={i} className="bg-card rounded-xl border px-3.5 py-3">
+      {tiles.map((tile) => (
+        <div key={tile.label.en} className="bg-card rounded-xl border px-3.5 py-3">
           <div
             className={cn(
               'font-display text-2xl leading-none font-bold tabular-nums',
