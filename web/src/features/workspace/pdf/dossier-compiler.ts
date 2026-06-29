@@ -84,6 +84,8 @@ export interface CompileResult {
   bytes: Uint8Array
   /** Noms des pièces non incluses (indisponibles hors-ligne). */
   missing: string[]
+  /** Page FINALE 1-based de chaque section du Module 1 (n° → page) → table des matières cliquable. */
+  sectionPages: Record<string, number>
 }
 
 /** Rassemble le contenu d'un dossier (lettres, pièces, produit) et le compile en PDF. */
@@ -166,19 +168,23 @@ export async function compileDossierToPdf(args: CompileArgs): Promise<CompileRes
       }
     : null
 
-  const bytes = await compileDossier({
-    tree: dossier.tree,
-    moduleLabel: 'Module 1',
-    country: countryLabel(dossier.country),
-    titulaire: product?.titulaire?.trim() || '[Titulaire]',
-    commercialLine,
-    productName: dossier.productName,
-    logo,
-    header,
-    footer,
-    cover,
-    autoStructural,
-    contentByNumber,
-  })
-  return { bytes, missing }
+  const out: { sectionPages?: Record<string, number> } = {}
+  const bytes = await compileDossier(
+    {
+      tree: dossier.tree,
+      moduleLabel: 'Module 1',
+      country: countryLabel(dossier.country),
+      titulaire: product?.titulaire?.trim() || '[Titulaire]',
+      commercialLine,
+      productName: dossier.productName,
+      logo,
+      header,
+      footer,
+      cover,
+      autoStructural,
+      contentByNumber,
+    },
+    out,
+  )
+  return { bytes, missing, sectionPages: out.sectionPages ?? {} }
 }
