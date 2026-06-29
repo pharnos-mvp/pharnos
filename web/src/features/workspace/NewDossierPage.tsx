@@ -1,7 +1,7 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ArrowLeft, Plus } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -29,9 +29,12 @@ export function NewDossierPage() {
   const { t } = useI18n()
   const orgId = useOrgId()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const products = useLiveQuery(() => listProducts(orgId), [orgId])
 
-  const [productId, setProductId] = useState('')
+  // Pré-sélection depuis la fiche produit (« Lancer une opération » → ?produit=<id>). Le produit est
+  // pré-rempli, MAIS la configuration obligatoire (format, procédure, pays, variations) reste à saisir.
+  const [productId, setProductId] = useState(() => searchParams.get('produit') ?? '')
   const [format, setFormat] = useState<DossierFormat>('ctd')
   const [activity, setActivity] = useState(REG_ACTIVITIES[0]?.code ?? 'new_ma')
   const [country, setCountry] = useState('')
@@ -54,6 +57,21 @@ export function NewDossierPage() {
     if (ammDoc?.reference) setAmm(ammDoc.reference)
     if (ammDoc?.issueDate) setAmmDate(ammDoc.issueDate)
   }
+
+  // Produit pré-sélectionné par l'URL → même pré-remplissage AMM que pickProduct (fetch async).
+  useEffect(() => {
+    const id = searchParams.get('produit')
+    if (!id) return
+    let cancelled = false
+    void getAmmDocument(id).then((doc) => {
+      if (cancelled || !doc) return
+      if (doc.reference) setAmm(doc.reference)
+      if (doc.issueDate) setAmmDate(doc.issueDate)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [searchParams])
 
   async function handleCreate() {
     const product = products?.find((p) => p.id === productId)
