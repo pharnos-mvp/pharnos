@@ -27,6 +27,10 @@ export interface DossierRow {
   updated_at: string
   deleted_at: string | null
   archived_at: string | null
+  // N° d'opération attribué CÔTÉ SERVEUR (0046) : descend au pull, JAMAIS poussé par le client
+  // (absent de `dossierToRow` → l'upsert ne les écrase pas, le trigger les attribue à l'insert).
+  op_year?: number | null
+  op_number?: number | null
 }
 
 export function dossierToRow(d: DossierRecord): DossierRow {
@@ -72,6 +76,8 @@ export function rowToDossier(r: DossierRow): DossierRecord {
     updatedAt: r.updated_at,
     deletedAt: r.deleted_at,
     archivedAt: r.archived_at ?? null,
+    opYear: r.op_year ?? null,
+    opNumber: r.op_number ?? null,
   }
 }
 

@@ -18,6 +18,8 @@ const rec: DossierRecord = {
   updatedAt: '2026-01-02T00:00:00.000Z',
   deletedAt: null,
   archivedAt: null,
+  opYear: null,
+  opNumber: null,
 }
 
 describe('dossier sync mapping', () => {
@@ -55,5 +57,16 @@ describe('dossier sync mapping', () => {
     expect(row.variations).toBeNull()
     expect(row.variation_items).toBeNull()
     expect(row.amm_numero).toBeNull()
+  })
+
+  it("n° d'opération (0046) : JAMAIS poussé par le client, mais mappé au pull", () => {
+    // Le push omet op_year/op_number → l'upsert ne les écrase pas (trigger serveur seul juge).
+    const row = dossierToRow(rec)
+    expect('op_year' in row).toBe(false)
+    expect('op_number' in row).toBe(false)
+    // Le pull (row serveur numérotée) descend le n° dans Dexie.
+    const numbered = rowToDossier({ ...dossierToRow(rec), op_year: 2026, op_number: 7 })
+    expect(numbered.opYear).toBe(2026)
+    expect(numbered.opNumber).toBe(7)
   })
 })

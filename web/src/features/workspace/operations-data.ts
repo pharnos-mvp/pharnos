@@ -62,18 +62,23 @@ export const opsStatusLabel = (s: DossierDisplayStatus, lang: Lang): string =>
   OPS_STATUS_LABEL[s][lang]
 
 // ───────────────────────── Référence d'opération ─────────────────────────
-/** Référence lisible stable « OP-AAAA-NNNN » dérivée de l'id + de l'année de création (déterministe). */
-export function dossierRef(d: DossierRecord): string {
-  let h = 0
-  for (let i = 0; i < d.id.length; i++) h = (h * 31 + d.id.charCodeAt(i)) >>> 0
-  const year = d.createdAt.slice(0, 4)
-  return `OP-${year}-${String(h % 10000).padStart(4, '0')}`
+/**
+ * N° d'opération CANONIQUE « OP-AAAA-NNNN » attribué CÔTÉ SERVEUR (séquentiel, unique par org+année,
+ * migration 0046). `null` tant que le dossier n'a pas été synchronisé (brouillon local) → l'UI
+ * affiche « n° en attente ». (Remplace l'ancien hash déterministe, non séquentiel et collisionnable.)
+ */
+export function dossierRef(d: DossierRecord): string | null {
+  if (d.opNumber != null && d.opYear != null) {
+    return `OP-${d.opYear}-${String(d.opNumber).padStart(4, '0')}`
+  }
+  return null
 }
 
 // ───────────────────────── Ligne d'opération ─────────────────────────
 export interface OpsRow {
   dossier: DossierRecord
-  ref: string
+  /** N° d'opération « OP-AAAA-NNNN » ou `null` si pas encore attribué (brouillon non synchronisé). */
+  ref: string | null
   status: DossierDisplayStatus
   /** Complétude CTD (% de feuilles Module 1 documentées). */
   completionPct: number
