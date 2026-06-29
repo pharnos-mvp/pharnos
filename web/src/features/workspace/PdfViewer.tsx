@@ -1,6 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 
 import { useI18n } from '@/lib/i18n-context'
+
+/** Poignée impérative : faire défiler l'aperçu jusqu'à une page (table des matières cliquable). */
+export interface PdfViewerHandle {
+  scrollToPage: (page: number) => void
+}
 
 /**
  * Visionneuse PDF **local-first** basée sur PDF.js (rendu canvas, comme le viewer intégré de
@@ -59,26 +64,37 @@ function drawWatermark(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D,
   ctx.restore()
 }
 
-export function PdfViewer({
-  blob,
-  url,
-  size,
-  watermark,
-  flow = false,
-}: {
-  /** Source locale (montage CTD, offline-first). */
-  blob?: Blob
-  /** Source distante (page publique) — streaming par requêtes Range. */
-  url?: string
-  /** Taille du fichier distant en octets — active le transport Range explicite. */
-  size?: number
-  /** Texte incrusté en diagonale sur chaque page (traçabilité — page publique). */
-  watermark?: string
-  flow?: boolean
-}) {
+export const PdfViewer = forwardRef<
+  PdfViewerHandle,
+  {
+    /** Source locale (montage CTD, offline-first). */
+    blob?: Blob
+    /** Source distante (page publique) — streaming par requêtes Range. */
+    url?: string
+    /** Taille du fichier distant en octets — active le transport Range explicite. */
+    size?: number
+    /** Texte incrusté en diagonale sur chaque page (traçabilité — page publique). */
+    watermark?: string
+    flow?: boolean
+  }
+>(function PdfViewer({ blob, url, size, watermark, flow = false }, ref) {
   const { t } = useI18n()
   const containerRef = useRef<HTMLDivElement>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+
+  // Saut à une page (TdM cliquable) : le conteneur dimensionné `[data-page]` existe dès le montage
+  // (rendu paresseux du canvas à l'approche) → `scrollIntoView` défile l'ancêtre scrollable hôte.
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToPage(page: number) {
+        containerRef.current
+          ?.querySelector<HTMLElement>(`[data-page="${page}"]`)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      },
+    }),
+    [],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -268,4 +284,4 @@ export function PdfViewer({
       ) : null}
     </div>
   )
-}
+})

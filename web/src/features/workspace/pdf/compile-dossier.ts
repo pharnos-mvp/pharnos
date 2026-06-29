@@ -1115,7 +1115,12 @@ function drawCoverPages(
   return 2
 }
 
-export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
+export async function compileDossier(
+  input: CompileInput,
+  // Collecteur optionnel (additif) : page FINALE 1-based de chaque section (n° → page) pour une
+  // table des matières cliquable. N'altère PAS les octets du PDF (zone byte-exact préservée).
+  out?: { sectionPages?: Record<string, number> },
+): Promise<Uint8Array> {
   // 1) Contenu (hors TDM) dans un doc temporaire, en mémorisant l'index de page de départ de chaque nœud.
   const contentDoc = await PDFDocument.create()
   const fonts: Fonts = {
@@ -1274,6 +1279,13 @@ export async function compileDossier(input: CompileInput): Promise<Uint8Array> {
 
   // 4) En-tête/pied + pagination sur toutes les pages (hors couvertures).
   stampAll(final, input, fFonts, logoImg, coverPageIndices)
+
+  // Page FINALE 1-based de chaque section (couvertures + TDM + index contenu) → TdM cliquable.
+  if (out) {
+    const map: Record<string, number> = {}
+    for (const e of entries) map[e.number] = coverCount + tdmPageCount + e.startIndex + 1
+    out.sectionPages = map
+  }
 
   return final.save()
 }
