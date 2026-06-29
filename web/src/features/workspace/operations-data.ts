@@ -134,6 +134,13 @@ export function buildOpsRows(
 export const isDeadlineUrgent = (days: number | null): boolean =>
   days !== null && days <= ECHEANCE_URGENT_DAYS
 
+/** Libellé d'avancement (sous la barre) — dérivé HONNÊTEMENT du % de complétude de l'arbre M1. */
+export function avancementLabel(pct: number): Translatable {
+  if (pct >= 100) return { fr: 'CTD complet', en: 'CTD complete' }
+  if (pct <= 0) return { fr: 'Montage', en: 'Assembly' }
+  return { fr: 'CTD en cours', en: 'CTD in progress' }
+}
+
 // ───────────────────────── KPI + pipeline ─────────────────────────
 export interface OpsKpis {
   active: number
