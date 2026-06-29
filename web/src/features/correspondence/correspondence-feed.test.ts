@@ -33,7 +33,7 @@ const corr = (over: Partial<CorrespondenceRecord>): CorrespondenceRecord =>
   }) as CorrespondenceRecord
 
 describe('buildInbox', () => {
-  it('type les entrées : décision / complément / message / échéance', () => {
+  it('type les entrées : décision / complément / message / échéance / review', () => {
     const items = buildInbox(
       [
         corr({ id: 'oct', status: 'accepted', decidedAt: inDays(-1) }),
@@ -41,30 +41,35 @@ describe('buildInbox', () => {
         corr({ id: 'comp', status: 'suspended', decidedAt: inDays(-3) }),
         corr({ id: 'msg', status: 'in_review', updatedAt: inDays(-1) }),
         corr({ id: 'ech', status: 'in_review', expiresAt: inDays(5) }),
+        corr({ id: 'overdue', status: 'in_review', expiresAt: inDays(-3) }), // dépassée → échéance
+        corr({ id: 'rev', status: 'in_review', updatedAt: inDays(-4) }), // nu → review
       ],
       new Map([['msg', 2]]),
       NOW,
     )
     const byId = Object.fromEntries(items.map((i) => [i.id, i]))
-    expect(byId['oct']?.kind).toBe('decision')
-    expect(byId['rej']?.kind).toBe('decision')
-    expect(byId['comp']?.kind).toBe('complement')
-    expect(byId['msg']).toMatchObject({ kind: 'message', unread: 2 })
-    expect(byId['ech']).toMatchObject({ kind: 'echeance', deadlineDays: 5 })
+    expect(byId['oct']).toMatchObject({ kind: 'decision', status: 'accepted' })
+    expect(byId['rej']).toMatchObject({ kind: 'decision', status: 'rejected' })
+    expect(byId['comp']).toMatchObject({ kind: 'complement', status: 'suspended' })
+    expect(byId['msg']).toMatchObject({ kind: 'message', unread: 2, status: 'in_review' })
+    expect(byId['ech']).toMatchObject({ kind: 'echeance', deadlineDays: 5, status: 'in_review' })
+    expect(byId['overdue']).toMatchObject({ kind: 'echeance', deadlineDays: -3 })
+    expect(byId['rev']).toMatchObject({ kind: 'review', status: 'in_review' })
   })
 
-  it('ignore in_review sans message ni échéance proche, et les révoquées/supprimées', () => {
+  it('inclut TOUTE correspondance active (in_review nu = review) mais exclut révoquées/supprimées', () => {
     const items = buildInbox(
       [
-        corr({ id: 'silent', status: 'in_review' }), // rien de l'agence → exclu
-        corr({ id: 'far', status: 'in_review', expiresAt: inDays(30) }), // échéance lointaine → exclu
+        corr({ id: 'silent', status: 'in_review' }), // nu → review (inclus)
+        corr({ id: 'far', status: 'in_review', expiresAt: inDays(30) }), // échéance lointaine → review
         corr({ id: 'rev', status: 'in_review', revokedAt: inDays(-1) }), // révoquée → exclu
         corr({ id: 'del', status: 'accepted', deletedAt: inDays(-1) }), // supprimée → exclu
       ],
       new Map(),
       NOW,
     )
-    expect(items).toHaveLength(0)
+    expect(items.map((i) => i.id).sort()).toEqual(['far', 'silent'])
+    expect(items.every((i) => i.kind === 'review')).toBe(true)
   })
 
   it('inboxUnreadTotal compte les entrées avec messages non lus', () => {

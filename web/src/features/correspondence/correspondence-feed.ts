@@ -2,13 +2,12 @@ import type { CorrespondenceRecord } from '@/lib/db'
 import type { DossierDisplayStatus } from './correspondence-constants'
 
 /**
- * Boîte de réception réglementaire (mockup CTD Workspace Premium) — agrège, par correspondance
- * ACTIVE, le SIGNAL VENU DE L'AGENCE : décision (octroi/rejet), complément demandé, nouveaux
- * messages, ou échéance de réponse proche. PUR, trié du plus récent au plus ancien. Une
- * correspondance `in_review` sans message ni échéance proche n'est pas une entrée d'inbox
- * (rien de l'agence à traiter). Source de vérité = `correspondences` (jamais `dossiers.status`).
+ * Boîte de réception réglementaire (mockup CTD Workspace Premium v2) — agrège TOUTE correspondance
+ * ACTIVE en une entrée typée, filtrable PAR STATUT (Tous/Accepté/Review/En suspens/Rejeté). PUR,
+ * trié du plus récent au plus ancien. Source de vérité = `correspondences` (jamais `dossiers.status`).
+ * Le `kind` détermine l'icône + le libellé ; le `status` (de la correspondance) pilote le filtre.
  */
-export type InboxKind = 'decision' | 'complement' | 'message' | 'echeance'
+export type InboxKind = 'decision' | 'complement' | 'message' | 'echeance' | 'review'
 
 export interface InboxItem {
   /** correspondenceId. */
@@ -17,7 +16,7 @@ export interface InboxItem {
   product: string
   country: string
   kind: InboxKind
-  /** Statut de la correspondance (tonalité d'une décision : accepted/rejected). */
+  /** Statut de la correspondance — pilote le filtre + la tonalité d'une décision. */
   status: DossierDisplayStatus
   /** Messages reviewer non lus de la conversation. */
   unread: number
@@ -28,6 +27,7 @@ export interface InboxItem {
 }
 
 const DAY = 86_400_000
+const ECHEANCE_WINDOW_DAYS = 7
 
 export function buildInbox(
   correspondences: CorrespondenceRecord[],
@@ -57,19 +57,26 @@ export function buildInbox(
         unread,
         at: c.decidedAt ?? c.updatedAt,
       })
-    } else if (unread > 0) {
-      items.push({ ...base, kind: 'message', status: 'in_review', unread, at: c.updatedAt })
-    } else if (c.expiresAt) {
-      const days = Math.round((new Date(c.expiresAt).getTime() - now.getTime()) / DAY)
-      if (days >= 0 && days <= 7)
+    } else {
+      // in_review : messages non lus > échéance de réponse proche > évaluation en cours.
+      const days = c.expiresAt
+        ? Math.round((new Date(c.expiresAt).getTime() - now.getTime()) / DAY)
+        : null
+      if (unread > 0) {
+        items.push({ ...base, kind: 'message', status: 'in_review', unread, at: c.updatedAt })
+      } else if (days !== null && days <= ECHEANCE_WINDOW_DAYS) {
+        // proche OU DÉPASSÉE (days < 0) → échéance ; cohérent avec `isDeadlineUrgent` de la table.
         items.push({
           ...base,
           kind: 'echeance',
           status: 'in_review',
           unread: 0,
-          at: c.expiresAt,
+          at: c.expiresAt as string,
           deadlineDays: days,
         })
+      } else {
+        items.push({ ...base, kind: 'review', status: 'in_review', unread: 0, at: c.updatedAt })
+      }
     }
   }
   return items.sort((a, b) => b.at.localeCompare(a.at))

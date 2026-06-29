@@ -1,14 +1,31 @@
 import { useState } from 'react'
-import { CalendarClock, CheckCircle2, FileText, Inbox, MessageSquare, XCircle } from 'lucide-react'
+import {
+  CalendarClock,
+  CheckCircle2,
+  Clock,
+  FileText,
+  Inbox,
+  MessageSquare,
+  XCircle,
+} from 'lucide-react'
 
-import type { InboxItem } from '@/features/correspondence/correspondence-feed'
+import { inboxUnreadTotal, type InboxItem } from '@/features/correspondence/correspondence-feed'
+import type { DossierDisplayStatus } from '@/features/correspondence/correspondence-constants'
 import { agencyFor } from '@/features/workspace/roadmap-data'
 import { useI18n, type Lang, type Translatable } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import { countryLabel } from './dossier-constants'
 import { deadlineLabel, relativeTime } from './format-time'
 
-type FilterKey = 'all' | 'decision' | 'complement' | 'echeance'
+// Filtre PAR STATUT de correspondance (mockup v2 : Tous/Accepté/Review/En suspens/Rejeté).
+type FilterKey = 'all' | DossierDisplayStatus
+const FILTERS: { key: FilterKey; label: Translatable }[] = [
+  { key: 'all', label: { fr: 'Tous', en: 'All' } },
+  { key: 'accepted', label: { fr: 'Accepté', en: 'Granted' } },
+  { key: 'in_review', label: { fr: 'Review', en: 'Review' } },
+  { key: 'suspended', label: { fr: 'En suspens', en: 'On hold' } },
+  { key: 'rejected', label: { fr: 'Rejeté', en: 'Rejected' } },
+]
 
 const ICON_TONE: Record<string, string> = {
   accepted: 'bg-success-subtle text-success-subtle-foreground',
@@ -16,6 +33,7 @@ const ICON_TONE: Record<string, string> = {
   complement: 'bg-warning-subtle text-warning-subtle-foreground',
   message: 'bg-info-subtle text-info-subtle-foreground',
   echeance: 'bg-warning-subtle text-warning-subtle-foreground',
+  review: 'bg-muted text-muted-foreground',
 }
 
 function iconFor(item: InboxItem) {
@@ -27,6 +45,7 @@ function iconFor(item: InboxItem) {
     )
   if (item.kind === 'complement') return <FileText className="size-3.5" />
   if (item.kind === 'echeance') return <CalendarClock className="size-3.5" />
+  if (item.kind === 'review') return <Clock className="size-3.5" />
   return <MessageSquare className="size-3.5" />
 }
 
@@ -34,20 +53,24 @@ const toneKey = (item: InboxItem) => (item.kind === 'decision' ? item.status : i
 
 function titleFor(item: InboxItem): Translatable {
   const p = item.product
-  if (item.kind === 'decision')
-    return item.status === 'accepted'
-      ? { fr: `AMM octroyée — ${p}`, en: `MA granted — ${p}` }
-      : { fr: `Rejeté — ${p}`, en: `Rejected — ${p}` }
-  if (item.kind === 'complement')
-    return { fr: `Complément demandé — ${p}`, en: `Information requested — ${p}` }
-  if (item.kind === 'echeance') return { fr: `Réponse attendue — ${p}`, en: `Response due — ${p}` }
-  return {
-    fr: `${item.unread} nouveau${item.unread > 1 ? 'x' : ''} message${item.unread > 1 ? 's' : ''} — ${p}`,
-    en: `${item.unread} new message${item.unread > 1 ? 's' : ''} — ${p}`,
+  switch (item.kind) {
+    case 'decision':
+      return item.status === 'accepted'
+        ? { fr: `AMM octroyée — ${p}`, en: `MA granted — ${p}` }
+        : { fr: `Rejeté — ${p}`, en: `Rejected — ${p}` }
+    case 'complement':
+      return { fr: `Complément demandé — ${p}`, en: `Information requested — ${p}` }
+    case 'echeance':
+      return { fr: `Réponse attendue — ${p}`, en: `Response due — ${p}` }
+    case 'message':
+      return {
+        fr: `${item.unread} nouveau${item.unread > 1 ? 'x' : ''} message${item.unread > 1 ? 's' : ''} — ${p}`,
+        en: `${item.unread} new message${item.unread > 1 ? 's' : ''} — ${p}`,
+      }
+    default:
+      return { fr: `Évaluation en cours — ${p}`, en: `Under review — ${p}` }
   }
 }
-
-const matchesFilter = (item: InboxItem, f: FilterKey): boolean => f === 'all' || item.kind === f
 
 function startOfDay(ms: number): number {
   const d = new Date(ms)
@@ -55,44 +78,40 @@ function startOfDay(ms: number): number {
   return d.getTime()
 }
 
-/** Boîte de réception réglementaire : entrées typées, groupées Aujourd'hui / Plus tôt, filtrables. */
+/**
+ * Boîte de réception réglementaire = rail d'un cockpit. SCROLL INTERNE : en-tête figé (`shrink-0`)
+ * + liste `min-h-0 flex-1 overflow-y-auto`. La hauteur est donnée par la cellule de grille hôte
+ * (pas de sticky/calc) → une seule barre de défilement, dans le panneau. `className` = placement.
+ */
 export function RegulatoryInbox({
   items,
   onOpen,
-  now,
   className,
+  now,
 }: {
   items: InboxItem[]
   onOpen: (dossierId: string) => void
   now: number
-  /** Positionnement (rail sticky pleine hauteur) injecté par la page-hôte. */
   className?: string
 }) {
   const { t, lang } = useI18n()
   const [filter, setFilter] = useState<FilterKey>('all')
 
-  const counts: Record<FilterKey, number> = {
-    all: items.length,
-    decision: items.filter((i) => i.kind === 'decision').length,
-    complement: items.filter((i) => i.kind === 'complement').length,
-    echeance: items.filter((i) => i.kind === 'echeance').length,
-  }
-  const unread = items.reduce((n, i) => n + (i.unread > 0 ? 1 : 0), 0)
-  const shown = items.filter((i) => matchesFilter(i, filter))
+  const count = (k: FilterKey) =>
+    k === 'all' ? items.length : items.filter((i) => i.status === k).length
+  const unread = inboxUnreadTotal(items)
+  // Si le statut filtré n'a plus d'entrée (sa pastille a disparu), on retombe sur « Tous » AU RENDU
+  // (pas de setState dans un effet = pas de cul-de-sac) ; le filtre reprend si ce statut réapparaît.
+  const effectiveFilter: FilterKey =
+    filter !== 'all' && !items.some((i) => i.status === filter) ? 'all' : filter
+  const shown = items.filter((i) => effectiveFilter === 'all' || i.status === effectiveFilter)
   const today = shown.filter((i) => new Date(i.at).getTime() >= startOfDay(now))
   const earlier = shown.filter((i) => new Date(i.at).getTime() < startOfDay(now))
-
-  const chips: { key: FilterKey; label: Translatable }[] = [
-    { key: 'all', label: { fr: 'Tous', en: 'All' } },
-    { key: 'decision', label: { fr: 'Décisions', en: 'Decisions' } },
-    { key: 'complement', label: { fr: 'Compléments', en: 'Information' } },
-    { key: 'echeance', label: { fr: 'Échéances', en: 'Deadlines' } },
-  ]
 
   return (
     <aside
       aria-labelledby="reg-inbox-title"
-      className={cn('bg-card flex flex-col overflow-hidden rounded-xl border', className)}
+      className={cn('bg-card flex min-h-0 flex-col overflow-hidden rounded-xl border', className)}
     >
       <div className="shrink-0 border-b p-4">
         <div className="flex items-center justify-between gap-2">
@@ -109,22 +128,26 @@ export function RegulatoryInbox({
           {t({ fr: 'Boîte de réception réglementaire', en: 'Regulatory inbox' })}
         </p>
         <div className="mt-2.5 flex flex-wrap gap-1.5">
-          {chips.map((c) => (
-            <button
-              key={c.key}
-              type="button"
-              aria-pressed={filter === c.key}
-              onClick={() => setFilter(c.key)}
-              className={cn(
-                'cursor-pointer rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors',
-                filter === c.key
-                  ? 'bg-info border-transparent text-white'
-                  : 'text-muted-foreground hover:bg-accent',
-              )}
-            >
-              {t(c.label)} · {counts[c.key]}
-            </button>
-          ))}
+          {FILTERS.map((c) => {
+            const n = count(c.key)
+            if (c.key !== 'all' && n === 0) return null // masque un statut vide
+            return (
+              <button
+                key={c.key}
+                type="button"
+                aria-pressed={effectiveFilter === c.key}
+                onClick={() => setFilter(c.key)}
+                className={cn(
+                  'cursor-pointer rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors',
+                  effectiveFilter === c.key
+                    ? 'bg-info border-transparent text-white'
+                    : 'text-muted-foreground hover:bg-accent',
+                )}
+              >
+                {t(c.label)} · {n}
+              </button>
+            )
+          })}
         </div>
       </div>
 
