@@ -84,13 +84,17 @@ export const PdfViewer = forwardRef<
 
   // Saut à une page (TdM cliquable) : le conteneur dimensionné `[data-page]` existe dès le montage
   // (rendu paresseux du canvas à l'approche) → `scrollIntoView` défile l'ancêtre scrollable hôte.
-  useImperativeHandle(ref, () => ({
-    scrollToPage(page: number) {
-      containerRef.current
-        ?.querySelector<HTMLElement>(`[data-page="${page}"]`)
-        ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    },
-  }))
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToPage(page: number) {
+        containerRef.current
+          ?.querySelector<HTMLElement>(`[data-page="${page}"]`)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      },
+    }),
+    [],
+  )
 
   useEffect(() => {
     let cancelled = false

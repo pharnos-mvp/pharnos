@@ -380,7 +380,7 @@ export function DossierPreviewPage() {
                         title={
                           page
                             ? t({ fr: `Aller à la page ${page}`, en: `Go to page ${page}` })
-                            : undefined
+                            : t({ fr: 'Section sans contenu pour l’instant', en: 'No content yet' })
                         }
                         style={{ paddingLeft: 6 + depth * 12 }}
                         className="hover:bg-accent flex w-full items-center gap-1.5 rounded py-1 pr-1.5 text-left text-[12.5px] transition-colors disabled:cursor-default disabled:opacity-45 disabled:hover:bg-transparent"
