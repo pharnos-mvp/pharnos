@@ -26,6 +26,9 @@ async function createDossier(page: Page): Promise<string> {
   // Pays cible : plus de défaut (#224) — il faut désormais choisir un pays avant de créer.
   await page.getByRole('combobox').filter({ hasText: 'Choisir un pays' }).click()
   await page.getByRole('option', { name: 'Bénin' }).click()
+  // Assistant 3 étapes : Produit & marché → Opération (Nouvelle AMM par défaut) → Détails + création.
+  await page.getByRole('button', { name: 'Continuer' }).click()
+  await page.getByRole('button', { name: 'Continuer' }).click()
   await page.getByRole('button', { name: 'Créer le dossier' }).click()
   await page.waitForURL(/\/workspace\/[^/]+\/roadmap$/)
   return nom
