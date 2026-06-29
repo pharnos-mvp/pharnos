@@ -30,7 +30,13 @@ import { VariationTableDialog } from '@/features/variations/VariationTableDialog
 import { lookupVariation, type VariationItem } from '@/features/variations/variation-request'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
-import { COUNTRIES, countryLabel, DOSSIER_FORMATS, REG_ACTIVITIES } from './dossier-constants'
+import {
+  COUNTRIES,
+  countryLabel,
+  DOSSIER_FORMATS,
+  formatLabel,
+  REG_ACTIVITIES,
+} from './dossier-constants'
 import { createDossier } from './dossier-repository'
 import { syncDossiers } from './dossier-sync'
 import type { DossierFormat } from './module1-tree'
@@ -283,7 +289,7 @@ export function NewDossierPage() {
       {/* ── Étape 2 : Type d'opération (cartes) ── */}
       {step === 1 ? (
         <div
-          role="radiogroup"
+          role="group"
           aria-label={t({ fr: "Type d'opération", en: 'Operation type' })}
           className="grid grid-cols-1 gap-2.5 sm:grid-cols-2"
         >
@@ -292,11 +298,12 @@ export function NewDossierPage() {
             const Icon = meta?.icon ?? FilePlus
             const selected = activity === a.code
             return (
+              // Boutons-bascule `aria-pressed` (clavier-natifs Tab+Entrée/Espace) plutôt qu'un
+              // role=radio sans navigation flèches — sémantique honnête, zéro JS de roving tabindex.
               <button
                 key={a.code}
                 type="button"
-                role="radio"
-                aria-checked={selected}
+                aria-pressed={selected}
                 onClick={() => setActivity(a.code)}
                 className={cn(
                   'flex items-start gap-3 rounded-xl border p-3.5 text-left transition-colors',
@@ -345,10 +352,7 @@ export function NewDossierPage() {
               label={t({ fr: 'Opération', en: 'Operation' })}
               value={procedureLabel(activity, lang)}
             />
-            <Recap
-              label={t({ fr: 'Format', en: 'Format' })}
-              value={format === 'ectd' ? 'eCTD' : 'CTD (PDF)'}
-            />
+            <Recap label={t({ fr: 'Format', en: 'Format' })} value={formatLabel(format)} />
           </dl>
 
           {isVariation ? (
