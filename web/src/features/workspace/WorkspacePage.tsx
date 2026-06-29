@@ -557,7 +557,11 @@ function OperationsTable({
                   {d.productName}
                 </Link>
                 <div className="text-muted-foreground mt-0.5 flex items-center gap-2 text-[11px]">
-                  <span className="font-mono">{r.ref}</span>
+                  {r.ref ? (
+                    <span className="font-mono">{r.ref}</span>
+                  ) : (
+                    <span className="italic">{t({ fr: 'n° en attente', en: 'no. pending' })}</span>
+                  )}
                   <span>· {procedureLabel(d.activity, lang)}</span>
                 </div>
               </td>

@@ -360,7 +360,7 @@ export function ProductCockpit() {
                 </Link>
               </Button>
               <Button size="sm" asChild variant="primary">
-                <Link to="/workspace/nouveau">
+                <Link to={`/workspace/nouveau?produit=${productId}`}>
                   <Zap /> {t({ fr: 'Lancer une opération', en: 'Start an operation' })}
                 </Link>
               </Button>

@@ -76,10 +76,11 @@ const ammDoc = (
   }) as DocumentRecord
 
 describe('operations-data', () => {
-  it('dossierRef : format OP-AAAA-NNNN déterministe', () => {
-    const d = dossier('abc-123')
-    expect(dossierRef(d)).toMatch(/^OP-2026-\d{4}$/)
-    expect(dossierRef(d)).toBe(dossierRef(dossier('abc-123'))) // stable
+  it('dossierRef : n° canonique serveur OP-AAAA-NNNN, ou null si non synchronisé', () => {
+    // Numéroté (op_year/op_number attribués au serveur) → format OP-AAAA-NNNN (4 chiffres).
+    expect(dossierRef(dossier('d', { opYear: 2026, opNumber: 142 }))).toBe('OP-2026-0142')
+    // Brouillon local non encore synchronisé → null (l'UI affiche « n° en attente »).
+    expect(dossierRef(dossier('d'))).toBeNull()
   })
 
   it('isDeadlineUrgent : <= 7 j (ou dépassée)', () => {
@@ -105,7 +106,7 @@ describe('operations-data', () => {
     expect(rows.map((r) => r.dossier.id)).toEqual(['d2', 'd1']) // d2 (J-3) avant d1 (J-30)
     expect(rows[0]?.deadlineDays).toBe(3)
     expect(rows[0]?.completionPct).toBe(0) // arbre vide
-    expect(rows[0]?.ref).toMatch(/^OP-2026-/)
+    expect(rows[0]?.ref).toBeNull() // pas de n° serveur sur ces dossiers de test → « en attente »
   })
 
   it("buildOpsRows : échéance = pièce la plus proche en JOURS BRUTS (pas l'urgence relative)", () => {

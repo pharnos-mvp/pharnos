@@ -160,6 +160,14 @@ export interface DossierRecord {
    * conservé (jamais purgé). Optionnel : les enregistrements antérieurs n'ont pas le champ.
    */
   archivedAt?: string | null
+  /**
+   * Numéro d'opération canonique « OP-{opYear}-{opNumber sur 4} » attribué CÔTÉ SERVEUR à la 1re
+   * synchro (séquentiel, unique par org+année — migration 0046). Null tant que le dossier n'a pas
+   * été synchronisé (brouillon local) → l'UI affiche « n° en attente ». Le client ne les envoie
+   * jamais (omis du push) : seul le trigger serveur les attribue.
+   */
+  opYear?: number | null
+  opNumber?: number | null
 }
 
 /**
