@@ -13,6 +13,7 @@ import {
   treeNodeNumbers,
   type CtdNodeDef,
 } from './module1-tree'
+import { flattenTree } from './tree-utils'
 
 /** Clé de nœud rattachée à `node` : le nœud lui-même ou un de ses descendants. */
 const matches = (key: string, node: CtdNodeDef): boolean =>
@@ -83,6 +84,33 @@ export function completionStats(
   const filledLeaves = leaves.filter((n) => countFor(n) > 0)
   const pct = leaves.length ? Math.round((filledLeaves.length / leaves.length) * 100) : 0
   return { leaves, okCount: filledLeaves.length, pct }
+}
+
+/**
+ * Complétude CTD d'un dossier en UNE fonction (feuilles documentées par pièce produit OU doc généré
+ * OU pièce jointe). **Miroir EXACT du `countFor` du CTD Builder** (`DossierWorkspacePage`) → l'aperçu
+ * et le builder affichent les MÊMES « X / Y sections prêtes ». Pur, testable.
+ */
+export function dossierCompletion(
+  dossier: DossierRecord,
+  docs: DocumentRecord[],
+  genDocs: GeneratedDocRecord[],
+  attachments: DossierAttachmentRecord[],
+): { okCount: number; total: number; pct: number } {
+  const docsByNode = buildDocsByNode(dossier, docs)
+  const genByNode = new Map<string, GeneratedDocRecord>()
+  for (const g of genDocs) genByNode.set(g.nodeNumber, g)
+  const attachByNode = new Map<string, DossierAttachmentRecord[]>()
+  for (const a of attachments)
+    attachByNode.set(a.nodeNumber, [...(attachByNode.get(a.nodeNumber) ?? []), a])
+  const { okCount, pct, leaves } = completionStats(flattenTree(dossier.tree), (n) => {
+    return (
+      docsForNode(docsByNode, n).length +
+      genDocsForNode(genByNode, n).length +
+      attachmentsForNode(attachByNode, n).length
+    )
+  })
+  return { okCount, total: leaves.length, pct }
 }
 
 /** Document visualisable du nœud sélectionné : doc généré, pièce jointe ou document produit. */

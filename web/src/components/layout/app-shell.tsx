@@ -125,7 +125,9 @@ export function AppShell() {
   // Fond « canvas » gris premium (#f9fafb) — les surfaces de la DA où des cartes blanches doivent
   // ressortir : Dashboard + tout le Catalogue (liste Produits, wizard de création, fiche cockpit).
   const onCanvas =
-    location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/catalogue')
+    location.pathname.startsWith('/dashboard') ||
+    location.pathname.startsWith('/catalogue') ||
+    location.pathname === '/workspace' // board Opérations : cartes blanches sur canvas gris (≠ builder/aperçu)
   useEffect(() => {
     // Synchronisation pilotée par la route — exception légitime à set-state-in-effect.
     // eslint-disable-next-line react-hooks/set-state-in-effect

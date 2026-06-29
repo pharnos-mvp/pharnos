@@ -1,0 +1,390 @@
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import {
+  ArrowLeft,
+  Circle,
+  CircleCheck,
+  CircleDot,
+  Download,
+  FileText,
+  Pencil,
+  Send,
+} from 'lucide-react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { toast } from 'sonner'
+
+import { Button } from '@/components/ui/button'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { useAuth } from '@/features/auth/auth-context'
+import { listDocuments } from '@/features/catalogue/documents-repository'
+import { dossierDisplayStatus } from '@/features/correspondence/correspondence-constants'
+import { listByDossier } from '@/features/correspondence/correspondence-repository'
+import { ShareDialog } from '@/features/correspondence/ShareDialog'
+import { CountryFlag } from '@/features/dashboard/CountryFlag'
+import { expiringDocs } from '@/features/dashboard/dashboard-data'
+import { useOrgId } from '@/features/org/org-context'
+import { getOrgBranding } from '@/features/profile/pro-settings-repository'
+import { db, type DossierAttachmentRecord, type GeneratedDocRecord } from '@/lib/db'
+import { useI18n } from '@/lib/i18n-context'
+import { cn } from '@/lib/utils'
+import { listAttachments } from './dossier-attachments-repository'
+import { DossierAction } from './dossier-action'
+import { countryLabel } from './dossier-constants'
+import { archiveDossier, deleteDossier, getDossier, restoreDossier } from './dossier-repository'
+import {
+  attachmentsForNode,
+  buildDocsByNode,
+  docsForNode,
+  dossierCompletion,
+  genDocsForNode,
+} from './dossier-selectors'
+import { syncDossiers } from './dossier-sync'
+import { dossierBaseName, triggerDownload } from './download-utils'
+import { deadlineLabel } from './format-time'
+import { listGeneratedDocs } from './generated-docs-repository'
+import type { CtdNodeDef } from './module1-tree'
+import {
+  avancementLabel,
+  dossierRef,
+  isDeadlineUrgent,
+  OPS_STATUS_TONE,
+  opsStatusLabel,
+  procedureLabel,
+} from './operations-data'
+import { PdfViewer } from './PdfViewer'
+import { agencyFor } from './roadmap-data'
+import { flattenTree } from './tree-utils'
+
+/**
+ * Page d'APERÇU d'un dossier (clic par défaut depuis le board) : prévisualisation du montage
+ * Module 1 compilé (moteur `compileDossierToPdf` réutilisé, zone A4 byte-exact en lecture seule) +
+ * actions Modifier (→ CTD Builder) / Télécharger / Envoyer + cycle de vie. Métriques DÉRIVÉES
+ * (mêmes helpers que le builder → chiffres identiques).
+ */
+export function DossierPreviewPage() {
+  const { dossierId } = useParams()
+  const { t, lang } = useI18n()
+  const orgId = useOrgId()
+  const navigate = useNavigate()
+  const { user } = useAuth()
+
+  const dossier = useLiveQuery(
+    async () => (dossierId ? ((await getDossier(dossierId)) ?? null) : null),
+    [dossierId],
+  )
+  const product = useLiveQuery(
+    async () => (dossier ? ((await db.products.get(dossier.productId)) ?? null) : null),
+    [dossier?.productId],
+  )
+  const docs = useLiveQuery(
+    () => (dossier ? listDocuments(dossier.productId) : undefined),
+    [dossier?.productId],
+  )
+  const genDocs = useLiveQuery(
+    () => (dossierId ? listGeneratedDocs(dossierId) : Promise.resolve([])),
+    [dossierId],
+  )
+  const attachments = useLiveQuery(
+    () => (dossierId ? listAttachments(dossierId) : Promise.resolve([])),
+    [dossierId],
+  )
+  const corrs = useLiveQuery(
+    () => (dossierId ? listByDossier(dossierId) : Promise.resolve([])),
+    [dossierId],
+  )
+  const branding = useLiveQuery(() => getOrgBranding(orgId), [orgId])
+
+  const now = useMemo(() => new Date(), [])
+  const [pdf, setPdf] = useState<{ url: string; blob: Blob; key: string } | null>(null)
+  const [shareOpen, setShareOpen] = useState(false)
+
+  // Compile dès que les données du dossier sont prêtes (branding non requis : peut être absent).
+  const ready =
+    dossier != null &&
+    docs !== undefined &&
+    genDocs !== undefined &&
+    attachments !== undefined &&
+    product !== undefined
+  // Signature stable → un seul compile par état réel (pas de recompile sur churn de référence).
+  const sig = ready
+    ? `${dossier.id}:${product?.id ?? ''}:${docs.length}:${genDocs.length}:${attachments.length}:${dossier.updatedAt}:${branding ? '1' : '0'}`
+    : null
+  const previewReady = pdf?.key === sig
+
+  useEffect(() => {
+    if (!sig || !dossier) return
+    let cancelled = false
+    let createdUrl: string | null = null
+    void (async () => {
+      try {
+        const { compileDossierToPdf } = await import('./pdf/dossier-compiler')
+        const { bytes } = await compileDossierToPdf({
+          dossier,
+          product: product ?? undefined,
+          generatedDocs: genDocs ?? [],
+          docs: docs ?? [],
+          attachments: attachments ?? [],
+          branding,
+          autoStructural: true,
+        })
+        if (cancelled) return
+        const blob = new Blob([new Uint8Array(bytes)], { type: 'application/pdf' })
+        createdUrl = URL.createObjectURL(blob)
+        setPdf({ url: createdUrl, blob, key: sig })
+      } catch {
+        if (!cancelled) toast.error(t({ fr: 'Aperçu indisponible.', en: 'Preview unavailable.' }))
+      }
+    })()
+    return () => {
+      cancelled = true
+      if (createdUrl) URL.revokeObjectURL(createdUrl)
+    }
+    // sig encode toutes les entrées pertinentes ; les déps brutes churn à chaque écriture Dexie.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sig])
+
+  const sommaire = useMemo(() => {
+    if (!dossier) return []
+    const docsByNode = buildDocsByNode(dossier, docs ?? [])
+    const genByNode = new Map<string, GeneratedDocRecord>(
+      (genDocs ?? []).map((g) => [g.nodeNumber, g]),
+    )
+    const attachByNode = new Map<string, DossierAttachmentRecord[]>()
+    for (const a of attachments ?? [])
+      attachByNode.set(a.nodeNumber, [...(attachByNode.get(a.nodeNumber) ?? []), a])
+    const countFor = (n: CtdNodeDef) =>
+      docsForNode(docsByNode, n).length +
+      genDocsForNode(genByNode, n).length +
+      attachmentsForNode(attachByNode, n).length
+    return dossier.tree.map((tn) => {
+      const leaves = flattenTree([tn]).filter((n) => !n.children?.length)
+      return {
+        node: tn,
+        filled: leaves.filter((n) => countFor(n) > 0).length,
+        total: leaves.length,
+      }
+    })
+  }, [dossier, docs, genDocs, attachments])
+
+  if (dossier === undefined) {
+    return (
+      <p className="text-muted-foreground p-4 text-sm">
+        {t({ fr: 'Chargement…', en: 'Loading…' })}
+      </p>
+    )
+  }
+  if (dossier === null) {
+    return (
+      <div className="p-4">
+        <p className="text-muted-foreground text-sm">
+          {t({ fr: 'Dossier introuvable.', en: 'Dossier not found.' })}
+        </p>
+        <Button variant="ghost" className="mt-2 -ml-2" onClick={() => navigate('/workspace')}>
+          <ArrowLeft /> {t({ fr: 'Retour aux opérations', en: 'Back to operations' })}
+        </Button>
+      </div>
+    )
+  }
+
+  const activeDossier = dossier // narrowing stable pour les closures (handleLifecycle)
+  const status = dossierDisplayStatus(dossier.id, corrs ?? [])
+  const ref = dossierRef(dossier)
+  const completion = dossierCompletion(dossier, docs ?? [], genDocs ?? [], attachments ?? [])
+  const exp = product ? expiringDocs(docs ?? [], [product], now) : []
+  const deadlineDays = exp.length > 0 ? Math.min(...exp.map((e) => e.daysLeft)) : null
+  const agency = agencyFor(dossier.country)
+  const downloadName = `${dossierBaseName(dossier.productName, dossier.country)}.pdf`
+  const isArchived = !!dossier.archivedAt
+  const lifecycleMode = isArchived ? 'restore' : status === 'draft' ? 'delete' : 'archive'
+
+  async function handleLifecycle(reason: string) {
+    if (isArchived) await restoreDossier(activeDossier.id)
+    else if (status === 'draft') await deleteDossier(activeDossier.id, reason)
+    else await archiveDossier(activeDossier.id, reason)
+    void syncDossiers(orgId)
+    toast.success(
+      isArchived
+        ? t({ fr: 'Dossier restauré', en: 'Dossier restored' })
+        : status === 'draft'
+          ? t({ fr: 'Brouillon supprimé', en: 'Draft deleted' })
+          : t({ fr: 'Dossier archivé', en: 'Dossier archived' }),
+    )
+    navigate('/workspace')
+  }
+
+  return (
+    <div className="mx-auto max-w-6xl pt-6">
+      <Link
+        to="/workspace"
+        className="text-muted-foreground hover:text-foreground mb-3 inline-flex items-center gap-1.5 text-sm"
+      >
+        <ArrowLeft className="size-4" /> {t({ fr: 'Opérations', en: 'Operations' })}
+      </Link>
+
+      <div className="bg-card flex flex-wrap items-start justify-between gap-4 rounded-xl border p-4 md:p-5">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+            <h1 className="font-display text-xl font-semibold tracking-tight">
+              {dossier.productName}
+            </h1>
+            {ref ? (
+              <span className="text-muted-foreground font-mono text-xs">{ref}</span>
+            ) : (
+              <span className="text-muted-foreground text-xs italic">
+                {t({ fr: 'n° en attente', en: 'no. pending' })}
+              </span>
+            )}
+            <StatusBadge tone={OPS_STATUS_TONE[status]}>{opsStatusLabel(status, lang)}</StatusBadge>
+          </div>
+          <div className="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
+            <span className="inline-flex items-center gap-1.5">
+              <CountryFlag code={dossier.country} size={15} /> {countryLabel(dossier.country, lang)}{' '}
+              · {agency.name}
+            </span>
+            <span aria-hidden>·</span>
+            <span>{procedureLabel(dossier.activity, lang)}</span>
+            <span aria-hidden>·</span>
+            <span>CTD/eCTD Module 1</span>
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link to={`/workspace/${dossier.id}`}>
+              <Pencil /> {t({ fr: 'Modifier', en: 'Edit' })}
+            </Link>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!previewReady}
+            onClick={() => pdf && triggerDownload(pdf.url, downloadName, false)}
+          >
+            <Download /> {t({ fr: 'Télécharger', en: 'Download' })}
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={!previewReady}
+            onClick={() => setShareOpen(true)}
+          >
+            <Send /> {t({ fr: 'Envoyer', en: 'Send' })}
+          </Button>
+          <DossierAction
+            mode={lifecycleMode}
+            name={dossier.productName}
+            onConfirm={handleLifecycle}
+          />
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <Metric label={t({ fr: 'Avancement CTD', en: 'CTD progress' })}>
+          <div className="bg-muted mt-1.5 h-1.5 overflow-hidden rounded-full">
+            <div className="bg-info h-full rounded-full" style={{ width: `${completion.pct}%` }} />
+          </div>
+          <div className="text-muted-foreground mt-1 text-[11.5px]">
+            {t(avancementLabel(completion.pct))} · {completion.pct}%
+          </div>
+        </Metric>
+        <Metric label={t({ fr: 'Échéance', en: 'Deadline' })}>
+          <div
+            className={cn(
+              'font-display text-lg font-semibold tabular-nums',
+              isDeadlineUrgent(deadlineDays) ? 'text-danger-subtle-foreground' : 'text-foreground',
+            )}
+          >
+            {deadlineLabel(deadlineDays)}
+          </div>
+        </Metric>
+        <Metric label={t({ fr: 'Sections prêtes', en: 'Sections ready' })}>
+          <div className="font-display text-lg font-semibold tabular-nums">
+            {completion.okCount} / {completion.total}
+          </div>
+        </Metric>
+        <Metric label={t({ fr: 'Pièces', en: 'Documents' })}>
+          <div className="font-display text-lg font-semibold tabular-nums">
+            {(docs ?? []).length}
+          </div>
+        </Metric>
+      </div>
+
+      <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:items-start">
+        <div className="bg-muted/40 rounded-xl border p-3">
+          <div className="text-muted-foreground mb-2 flex items-center gap-1.5 px-1 text-xs">
+            <FileText className="size-3.5" aria-hidden />{' '}
+            {t({ fr: 'Aperçu du montage compilé', en: 'Compiled montage preview' })}
+          </div>
+          <div className="min-h-[440px]">
+            {previewReady && pdf ? (
+              <PdfViewer blob={pdf.blob} flow />
+            ) : (
+              <div className="text-muted-foreground flex h-[440px] items-center justify-center text-sm">
+                {t({ fr: 'Compilation de l’aperçu…', en: 'Compiling preview…' })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-card rounded-xl border p-4">
+          <div className="font-display mb-1 text-sm font-semibold">
+            {t({ fr: 'Sommaire du montage', en: 'Montage summary' })}
+          </div>
+          <ul className="mt-2 flex flex-col gap-2.5">
+            {sommaire.map(({ node, filled, total }) => {
+              const state =
+                total === 0 || filled === 0 ? 'empty' : filled < total ? 'partial' : 'ok'
+              return (
+                <li key={node.id} className="flex items-center gap-2.5 text-[13px]">
+                  {state === 'ok' ? (
+                    <CircleCheck className="text-success size-4 shrink-0" aria-hidden />
+                  ) : state === 'partial' ? (
+                    <CircleDot className="text-warning size-4 shrink-0" aria-hidden />
+                  ) : (
+                    <Circle className="text-muted-foreground size-4 shrink-0" aria-hidden />
+                  )}
+                  <span className="min-w-0 flex-1 truncate">
+                    <span className="text-muted-foreground">{node.number}</span> {node.label}
+                  </span>
+                  {total > 0 ? (
+                    <span className="text-muted-foreground shrink-0 text-[11.5px] tabular-nums">
+                      {filled}/{total}
+                    </span>
+                  ) : null}
+                </li>
+              )
+            })}
+          </ul>
+          <p className="text-muted-foreground mt-3 border-t pt-2.5 text-xs">
+            {t({
+              fr: '« Modifier » ouvre le CTD Builder. « Envoyer » crée une correspondance à l’agence.',
+              en: '“Edit” opens the CTD Builder. “Send” creates a correspondence to the agency.',
+            })}
+          </p>
+        </div>
+      </div>
+
+      {shareOpen && pdf ? (
+        <ShareDialog
+          orgId={orgId}
+          dossier={dossier}
+          pdfBlob={pdf.blob}
+          senderEmail={user?.email ?? 'local'}
+          onClose={() => setShareOpen(false)}
+          onSent={() => {
+            setShareOpen(false)
+            toast.success(t({ fr: 'Dossier envoyé', en: 'Dossier sent' }))
+          }}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+function Metric({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="bg-card rounded-xl border px-3.5 py-3">
+      <div className="text-muted-foreground text-[11.5px]">{label}</div>
+      {children}
+    </div>
+  )
+}
