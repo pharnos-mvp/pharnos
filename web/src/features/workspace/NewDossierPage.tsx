@@ -211,17 +211,22 @@ export function NewDossierPage() {
 
   return (
     <section className="mx-auto max-w-2xl">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => navigate('/workspace')}
-        className="mb-4 -ml-2"
-      >
-        <ArrowLeft /> {t({ fr: 'Retour', en: 'Back' })}
-      </Button>
-      <h1 className="text-2xl font-semibold tracking-tight">
-        {t({ fr: 'Nouvelle opération', en: 'New operation' })}
-      </h1>
+      {/* Icône retour à GAUCHE du titre. Le titre reste à SA position : horizontalement l'icône est
+          tirée dans la gouttière (`md:-ml-11` = taille bouton + gap, `-ml-2` en mobile pour ne pas
+          rogner) ; verticalement `mt-12` restitue l'espace de l'ancienne ligne « Retour » (h-8 + mb-4). */}
+      <div className="mt-12 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => navigate('/workspace')}
+          aria-label={t({ fr: 'Retour', en: 'Back' })}
+          className="text-muted-foreground hover:text-foreground hover:bg-muted -ml-2 grid size-9 shrink-0 place-items-center rounded-md transition-colors md:-ml-11"
+        >
+          <ArrowLeft className="size-5" />
+        </button>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {t({ fr: 'Nouvelle opération', en: 'New operation' })}
+        </h1>
+      </div>
       <p className="text-muted-foreground mt-1 mb-6">
         {t({
           fr: 'Configurez votre espace de montage Module 1.',
