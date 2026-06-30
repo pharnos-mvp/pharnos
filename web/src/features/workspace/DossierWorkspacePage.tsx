@@ -96,6 +96,7 @@ import { syncGeneratedDocs } from './generated-docs-sync'
 import { useDossierAttachmentsSync } from './use-dossier-attachments-sync'
 import { useDossierSync } from './use-dossier-sync'
 import { useGeneratedDocsSync } from './use-generated-docs-sync'
+import { useLifecycleSync } from './use-lifecycle-sync'
 import { buildAuditReport, type AuditReport } from './audit-report'
 import { docTypeForNode, getModule1Tree, type CtdNodeDef } from './module1-tree'
 import { agencyCivilite, agencyFor, officialLanguage } from './roadmap-data'
@@ -176,6 +177,7 @@ export function DossierWorkspacePage() {
   useDossierAttachmentsSync(orgId)
   useProSettingsSync(orgId)
   useCorrespondenceSync(orgId)
+  useLifecycleSync(orgId)
 
   const { user } = useAuth()
   const userId = user?.id ?? 'local'

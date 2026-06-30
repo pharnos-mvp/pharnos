@@ -68,6 +68,51 @@ export interface PartyRecord {
   deletedAt: string | null
 }
 
+/**
+ * Type d'événement du cycle de vie — vocabulaire CONTRÔLÉ (miroir du CHECK de la migration 0047).
+ * Jalons aval (Dépôt → Soumission → Notifications → AMM) + sous-workflows échantillons/paiement/relances.
+ */
+export type LifecycleEventType =
+  | 'deposited'
+  | 'submitted'
+  | 'authority_query'
+  | 'authority_response'
+  | 'amm_granted'
+  | 'amm_refused'
+  | 'samples_requested'
+  | 'samples_import_authorized'
+  | 'samples_shipped'
+  | 'samples_delivered'
+  | 'fees_invoiced'
+  | 'payment_submitted'
+  | 'payment_confirmed'
+  | 'reminder_sent'
+
+/**
+ * Événement du JOURNAL append-only du cycle de vie du dossier (« la spine », ADR-0004). Porte les
+ * jalons AVAL (Dépôt → Soumission → Notifications → AMM) + sous-workflows. IMMUABLE (ni updatedAt ni
+ * deletedAt, comme audit_log / correspondence_messages) : une correction = un NOUVEL événement.
+ * L'étape courante est DÉRIVÉE de ces événements + la correspondance par `deriveLifecycle()` — jamais
+ * stockée (cohérent ADR-0003 : zéro écriture serveur dans `dossiers`, zéro conflit offline-first).
+ */
+export interface LifecycleEventRecord {
+  id: string
+  orgId: string
+  dossierId: string
+  type: LifecycleEventType
+  /** Acteur : user_id, ou 'system' (relances auto), ou agent local externe via lien tokenisé (M5). */
+  actorId: string
+  /** Libellé d'affichage (e-mail), figé à l'écriture ; '' pour l'acteur 'system'. */
+  actorEmail: string
+  /** Quand l'événement réglementaire a RÉELLEMENT eu lieu (saisissable, ≠ createdAt d'enregistrement). */
+  occurredAt: string
+  /** Détails typés par `type` (mode de soumission, n° AMM, échéance, seuil de relance…). */
+  payload: Record<string, unknown>
+  /** Pièces justificatives [{path,name,size,mime}] dans le bucket privé `documents`. */
+  docRefs: { path: string; name: string; size: number; mime: string }[]
+  createdAt: string
+}
+
 export type OutboxOp = 'create' | 'update' | 'delete'
 
 export interface OutboxItem {
@@ -420,6 +465,7 @@ const db = new Dexie('pharnos') as Dexie & {
   correspondenceReads: EntityTable<CorrespondenceReadRecord, 'id'>
   savedTemplates: EntityTable<SavedTemplateRecord, 'id'>
   variationRequests: EntityTable<VariationRequestRecord, 'id'>
+  lifecycleEvents: EntityTable<LifecycleEventRecord, 'id'>
 }
 
 db.version(1).stores({
@@ -491,6 +537,13 @@ db.version(12).stores({
 // v13 : organisations RIM (`parties`) — référentiel maître Titulaire/Fabricant/Distributeur (M3).
 db.version(13).stores({
   parties: 'id, orgId, updatedAt, nom, deletedAt',
+})
+
+// v14 : journal du cycle de vie du dossier (« la spine », jalon M0) — append-only (jalons aval +
+// sous-workflows). Compound `[dossierId+occurredAt]` = timeline triée d'un dossier ; `createdAt` =
+// curseur de la sync pull incrémentale. Ni updatedAt ni deletedAt (immuable, comme correspondenceMessages).
+db.version(14).stores({
+  lifecycleEvents: 'id, orgId, dossierId, [dossierId+occurredAt], createdAt',
 })
 
 export { db }
