@@ -178,6 +178,18 @@ export function journalLabel(
   return (JOURNAL_LABELS[entry.key] ?? JOURNAL_LABELS.montage)[lang]
 }
 
+/** Libellé COURT d'une issue (pastille d'étape Décision/AMM) : Accepté/Suspendu/Rejeté/Accordée/Refusée. */
+const STAGE_OUTCOME_LABELS: Record<StageOutcome, Translatable> = {
+  accepted: { fr: 'Accepté', en: 'Accepted' },
+  suspended: { fr: 'Suspendu', en: 'Suspended' },
+  rejected: { fr: 'Rejeté', en: 'Rejected' },
+  granted: { fr: 'Accordée', en: 'Granted' },
+  refused: { fr: 'Refusée', en: 'Refused' },
+}
+
+export const stageOutcomeLabel = (outcome: StageOutcome, lang: Lang = 'fr'): string =>
+  STAGE_OUTCOME_LABELS[outcome][lang]
+
 // ── Résultat dérivé ──────────────────────────────────────────────────────────────────────────────
 export interface LifecycleState {
   /** Les 7 étapes du parcours, dans l'ordre canonique, avec leur statut. */

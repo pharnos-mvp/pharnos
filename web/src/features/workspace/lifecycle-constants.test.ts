@@ -8,6 +8,7 @@ import {
   deriveLifecycle,
   journalLabel,
   lifecycleStatusLabel,
+  stageOutcomeLabel,
 } from './lifecycle-constants'
 
 // ── Fabriques ────────────────────────────────────────────────────────────────────────────────────
@@ -234,5 +235,12 @@ describe('libellés', () => {
     expect(lifecycleStatusLabel('submitting')).toBe('En soumission')
     expect(lifecycleStatusLabel('amm_granted', 'en')).toBe('MA granted')
     expect(lifecycleStatusLabel('montage')).toBe('En montage')
+  })
+
+  it('stageOutcomeLabel — issues courtes (décision + AMM)', () => {
+    expect(stageOutcomeLabel('accepted')).toBe('Accepté')
+    expect(stageOutcomeLabel('suspended')).toBe('Suspendu')
+    expect(stageOutcomeLabel('granted', 'en')).toBe('Granted')
+    expect(stageOutcomeLabel('refused')).toBe('Refusée')
   })
 })

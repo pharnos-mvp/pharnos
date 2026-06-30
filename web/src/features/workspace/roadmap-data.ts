@@ -83,6 +83,13 @@ const AGENCIES: Record<string, AgencyInfo> = {
     sexe: 'M',
     adresse: '',
   },
+  GH: {
+    name: 'FDA',
+    full: 'Food and Drugs Authority',
+    directeur: 'Dr Delese Mimi Darko',
+    sexe: 'F',
+    adresse: 'Accra',
+  },
 }
 
 /**
