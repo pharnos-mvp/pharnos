@@ -18,7 +18,8 @@ export const PROCEDURE_LABEL: Record<string, Translatable> = {
   new_ma: { fr: 'Enregistrement', en: 'Registration' },
   renewal: { fr: 'Renouvellement', en: 'Renewal' },
   variation: { fr: 'Variation', en: 'Variation' },
-  transfer: { fr: 'Transfert', en: 'Transfer' },
+  transfer: { fr: 'Transfert', en: 'Transfer' }, // legacy (retiré du sélecteur de création)
+  notif_response: { fr: 'Réponse aux notifications', en: 'Notification response' },
 }
 /** Pastille catégorielle (hex décoratif, ≥3:1 non requis : porte aussi un libellé texte). */
 export const PROCEDURE_DOT: Record<string, string> = {
@@ -26,6 +27,7 @@ export const PROCEDURE_DOT: Record<string, string> = {
   renewal: '#0891b2',
   variation: '#7c3aed',
   transfer: '#6b7280',
+  notif_response: '#0d9488',
 }
 export const PROCEDURE_ORDER = ['new_ma', 'renewal', 'variation', 'transfer'] as const
 

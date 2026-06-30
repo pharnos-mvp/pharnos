@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pharnos — Cycle de vie du dossier + assistant Nouvelle opération</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Syne:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #f6f7f9;
+        --surface: #ffffff;
+        --surface-1: #f3f4f6;
+        --border: #e5e7eb;
+        --border-accent: #bfdbfe;
+        --border-warning: #fcd34d;
+        --text: #111827;
+        --text-2: #6b7280;
+        --text-muted: #9ca3af;
+        --accent: #1a56db;
+        --accent-bg: #eff6ff;
+        --success: #16a34a;
+        --warning: #b45309;
+        --warning-bg: #fffbeb;
+        --mono: ui-monospace, "SF Mono", Menlo, monospace;
+        --sans: "DM Sans", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        --syne: "Syne", var(--sans);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap { max-width: 920px; margin: 0 auto; padding: 40px 24px 80px; }
+      .topbar {
+        display: flex; align-items: center; gap: 10px; margin-bottom: 6px;
+      }
+      .logo {
+        width: 30px; height: 30px; border-radius: 8px; background: var(--accent);
+        color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700;
+        font-family: var(--syne);
+      }
+      h1 { font-family: var(--syne); font-size: 24px; margin: 0; font-weight: 700; }
+      .sub { color: var(--text-2); font-size: 14px; margin: 2px 0 0; }
+      .section-tag {
+        display: inline-flex; align-items: center; gap: 7px; margin: 48px 0 4px;
+        font-size: 12px; font-weight: 600; color: var(--accent); text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      h2 { font-family: var(--syne); font-size: 19px; margin: 0 0 4px; font-weight: 600; }
+      .lead { color: var(--text-2); font-size: 13.5px; margin: 0 0 22px; }
+      .card {
+        background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+        padding: 22px;
+      }
+      .card + .card { margin-top: 16px; }
+      .muted { color: var(--text-2); }
+      .mono { font-family: var(--mono); }
+
+      /* Pipeline */
+      .pipe { position: relative; }
+      .pipe-line { position: absolute; top: 17px; left: 6%; right: 6%; height: 2px; background: var(--border); z-index: 0; }
+      .pipe-row { display: flex; position: relative; z-index: 1; }
+      .stage { flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 7px; }
+      .dot { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 17px; }
+      .dot.done { background: var(--success); color: #fff; }
+      .dot.cur { background: var(--warning); color: #fff; box-shadow: 0 0 0 5px var(--warning-bg); }
+      .dot.todo { background: var(--surface-1); color: var(--text-muted); border: 1px solid var(--border); }
+      .stage .name { font-size: 12px; font-weight: 600; line-height: 1.25; }
+      .stage .who { font-size: 11px; color: var(--text-muted); }
+      .here { font-size: 10px; font-weight: 600; color: var(--warning); background: var(--warning-bg); border-radius: 999px; padding: 1px 8px; }
+
+      .grid2 { display: grid; grid-template-columns: 1.1fr 1fr; gap: 14px; margin-top: 22px; }
+      .panel { border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+      .panel.warn { border-color: var(--border-warning); background: var(--warning-bg); }
+      .panel h4 { margin: 0 0 10px; font-size: 13px; font-weight: 600; }
+      .cond { display: flex; align-items: center; gap: 9px; font-size: 13px; margin: 8px 0; }
+      .cond i { font-size: 18px; }
+      .ok { color: var(--success); }
+      .wait { color: var(--warning); }
+      .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 18px; font-size: 12px; color: var(--text-2); align-items: center; }
+      .swatch { width: 11px; height: 11px; border-radius: 50%; display: inline-block; vertical-align: -1px; margin-right: 5px; }
+
+      /* Stepper (assistant) */
+      .stepper { display: flex; align-items: center; gap: 8px; margin: 0 0 22px; }
+      .step { display: flex; flex: 1; align-items: center; gap: 8px; }
+      .step:last-child { flex: 0; }
+      .scircle { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+      .scircle.done { background: var(--success); color: #fff; }
+      .scircle.active { background: var(--accent); color: #fff; }
+      .scircle.todo { background: var(--surface-1); color: var(--text-muted); border: 1px solid var(--border); }
+      .slabel { font-size: 13px; font-weight: 600; }
+      .slabel.done, .slabel.todo { color: var(--text-muted); }
+      .sline { flex: 1; height: 1px; background: var(--border); }
+
+      .field-label { font-size: 12px; font-weight: 600; color: var(--text-2); margin-bottom: 7px; }
+      .control { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; font-size: 14px; background: var(--surface); }
+      .control .ph { color: var(--text-muted); }
+      .control .chev { margin-left: auto; color: var(--text-muted); }
+      .badge { font-size: 11px; background: var(--surface-1); border-radius: 999px; padding: 3px 10px; color: var(--text-2); }
+      .stack { display: flex; flex-direction: column; gap: 16px; }
+
+      .opgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .op { border: 1px solid var(--border); border-radius: 11px; padding: 13px 15px; }
+      .op .ic { color: var(--text-2); font-size: 18px; }
+      .op .t { font-weight: 600; margin-top: 6px; font-size: 14px; }
+      .op .d { font-size: 12px; color: var(--text-2); }
+      .op.sel { border: 1.5px solid var(--accent); background: var(--accent-bg); }
+      .op.sel .ic, .op.sel .t, .op.sel .d { color: var(--accent); }
+
+      .seg { display: inline-flex; background: var(--surface-1); border-radius: 8px; padding: 2px; }
+      .seg span { font-size: 12px; padding: 4px 12px; border-radius: 6px; color: var(--text-2); }
+      .seg span.on { background: var(--surface); font-weight: 600; color: var(--text); }
+      .search { flex: 1; display: flex; align-items: center; gap: 6px; background: var(--surface-1); border-radius: 8px; padding: 5px 11px; color: var(--text-muted); font-size: 12px; }
+      .nat { display: flex; align-items: center; gap: 9px; padding: 5px 2px; font-size: 13px; }
+      .nat i { font-size: 18px; }
+      .num { color: var(--text-muted); }
+
+      .nav { display: flex; justify-content: space-between; margin-top: 18px; }
+      .btn { border: 1px solid var(--border); background: var(--surface); border-radius: 9px; padding: 9px 16px; font-size: 14px; font-weight: 500; display: inline-flex; align-items: center; gap: 7px; color: var(--text); cursor: default; }
+      .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+      .summary-bar { display: flex; align-items: center; gap: 9px; background: var(--surface-1); border-radius: 11px; padding: 10px 13px; font-size: 13px; margin-bottom: 16px; }
+      .summary-bar .ch { margin-left: auto; color: var(--accent); font-weight: 500; }
+
+      .apercu { border: 1.5px solid var(--border-accent); border-radius: 12px; padding: 18px; }
+      .apercu h4 { display: flex; align-items: center; gap: 7px; margin: 0 0 14px; font-size: 14px; }
+      .apercu h4 i { color: var(--accent); }
+      .kpi2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+      .kpi { background: var(--surface-1); border-radius: 9px; padding: 11px 13px; }
+      .kpi .k { font-size: 11px; color: var(--text-muted); }
+      .kpi .v { font-weight: 600; margin-top: 1px; }
+      dl.rows { margin: 0; display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+      dl.rows > div { display: flex; justify-content: space-between; gap: 10px; }
+      dl.rows dt { color: var(--text-2); margin: 0; }
+      dl.rows dd { margin: 0; font-weight: 600; }
+      .nudge { display: flex; align-items: flex-start; gap: 9px; background: var(--warning-bg); border-radius: 9px; padding: 11px 13px; margin-top: 14px; font-size: 12.5px; }
+      .nudge i { color: var(--warning); margin-top: 1px; }
+      .note { font-size: 12px; color: var(--text-muted); margin-top: 28px; padding-top: 16px; border-top: 1px dashed var(--border); }
+      @media (max-width: 720px) {
+        .grid2, .opgrid, .kpi2 { grid-template-columns: 1fr; }
+        .stage .name, .stage .who { font-size: 10px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="topbar"><span class="logo">P</span><h1>Pharnos — proposition de workflow</h1></div>
+      <p class="sub">
+        Cycle de vie du dossier (la colonne vertébrale) + assistant « Nouvelle opération » (l'entrée).
+        Maquette statique pour revue avant développement.
+      </p>
+
+      <!-- ============ SECTION 1 : CYCLE DE VIE ============ -->
+      <div class="section-tag"><i class="ti ti-route"></i> Section 1 · la spine</div>
+      <h2>Cycle de vie d'un dossier — « où en est chaque dépôt, en un coup d'œil »</h2>
+      <p class="lead">Exemple : KV-Metro 250 mg · Bénin · Enregistrement. Suivi visuel, basé sur les données, en temps réel pour chaque partie.</p>
+
+      <div class="card">
+        <div class="pipe">
+          <div class="pipe-line"></div>
+          <div class="pipe-row">
+            <div class="stage"><span class="dot done"><i class="ti ti-stack-2"></i></span><span class="name">Montage</span><span class="who">Labo</span></div>
+            <div class="stage"><span class="dot done"><i class="ti ti-send"></i></span><span class="name">Revue</span><span class="who">Agent local</span></div>
+            <div class="stage"><span class="dot done"><i class="ti ti-checkup-list"></i></span><span class="name">Décision<br /><span style="color: var(--success); font-weight: 400">Accepté</span></span><span class="who">Agent local</span></div>
+            <div class="stage"><span class="dot done"><i class="ti ti-building-bank"></i></span><span class="name">Dépôt</span><span class="who">→ Agence nat.</span></div>
+            <div class="stage"><span class="here">vous êtes ici</span><span class="dot cur"><i class="ti ti-receipt"></i></span><span class="name">Soumission</span><span class="who">Agent local</span></div>
+            <div class="stage"><span class="dot todo"><i class="ti ti-bell-ringing"></i></span><span class="name" style="color: var(--text-muted)">Notifications</span><span class="who">Agence nat.</span></div>
+            <div class="stage"><span class="dot todo"><i class="ti ti-award"></i></span><span class="name" style="color: var(--text-muted)">AMM</span><span class="who">Agence nat.</span></div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="panel">
+            <h4>3 conditions de soumission</h4>
+            <div class="cond"><i class="ti ti-circle-check-filled ok"></i> Dossier CTD compilé</div>
+            <div class="cond"><i class="ti ti-circle-check-filled ok"></i> Échantillons remis</div>
+            <div class="cond wait"><i class="ti ti-clock"></i> Paiement des frais <span class="muted">· en attente</span></div>
+          </div>
+          <div class="panel warn">
+            <h4 style="color: var(--warning)"><i class="ti ti-bell-exclamation"></i> Relance automatique</h4>
+            <p style="margin: 0; font-size: 13px; color: var(--text-2)">
+              Bloqué à <strong style="color: var(--text)">Soumission</strong> depuis 6 jours — relance envoyée à l'agent local pour le justificatif de paiement.
+            </p>
+          </div>
+        </div>
+
+        <div class="legend">
+          <span><span class="swatch" style="background: var(--success)"></span> Fait</span>
+          <span><span class="swatch" style="background: var(--warning)"></span> En cours / bloqué</span>
+          <span><span class="swatch" style="background: var(--surface-1); border: 1px solid var(--border)"></span> À venir</span>
+          <span style="margin-left: auto" class="muted">Déjà dans l'app : étapes 1–3 (5 états) · À bâtir : étapes 4–7 + conditions + relances</span>
+        </div>
+      </div>
+
+      <!-- ============ SECTION 2 : ASSISTANT NOUVELLE OPÉRATION ============ -->
+      <div class="section-tag"><i class="ti ti-wand"></i> Section 2 · l'entrée</div>
+      <h2>Nouvelle opération — assistant guidé (calqué sur la fiche produit)</h2>
+      <p class="lead">3 jalons. Sans champ AMM (repris de la fiche). « Réponse aux notifications » remplace « Transfert ». L'aperçu arrive au bout des choix.</p>
+
+      <!-- Étape 1 -->
+      <div class="card">
+        <div class="stepper">
+          <div class="step"><span class="scircle active">1</span><span class="slabel">Produit &amp; marché</span><span class="sline"></span></div>
+          <div class="step"><span class="scircle todo">2</span><span class="slabel todo">Opération</span><span class="sline"></span></div>
+          <div class="step"><span class="scircle todo">3</span><span class="slabel todo">Aperçu</span></div>
+        </div>
+        <div class="stack">
+          <div>
+            <div class="field-label">Produit</div>
+            <div class="control"><i class="ti ti-package muted"></i> KV-Metro 250 mg <span class="muted" style="font-size: 12px">· Métronidazole · comprimé</span><i class="ti ti-chevron-down chev"></i></div>
+          </div>
+          <div>
+            <div class="field-label">Marché cible</div>
+            <div class="control">
+              <span style="width: 22px; height: 16px; border-radius: 3px; background: var(--surface-1); border: 1px solid var(--border); font-size: 10px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-2)">BJ</span>
+              Bénin
+              <span style="margin-left: auto; display: flex; gap: 6px"><span class="badge">ABMed</span><span class="badge">Français</span></span>
+              <i class="ti ti-chevron-down chev"></i>
+            </div>
+          </div>
+          <div>
+            <div class="field-label">Format du dossier</div>
+            <div class="control">CTD (PDF)<i class="ti ti-chevron-down chev"></i></div>
+          </div>
+        </div>
+        <div class="nav"><span></span><span class="btn primary">Suivant <i class="ti ti-arrow-right"></i></span></div>
+      </div>
+
+      <!-- Étape 2 -->
+      <div class="card">
+        <div class="stepper">
+          <div class="step"><span class="scircle done"><i class="ti ti-check"></i></span><span class="slabel done">Produit &amp; marché</span><span class="sline"></span></div>
+          <div class="step"><span class="scircle active">2</span><span class="slabel">Opération</span><span class="sline"></span></div>
+          <div class="step"><span class="scircle todo">3</span><span class="slabel todo">Aperçu</span></div>
+        </div>
+        <div class="summary-bar"><i class="ti ti-package muted"></i> <strong>KV-Metro 250 mg</strong> <span class="muted">· Bénin (ABMed)</span><span class="ch">Changer</span></div>
+
+        <div class="field-label" style="margin-bottom: 10px">Type d'opération</div>
+        <div class="opgrid">
+          <div class="op"><i class="ti ti-file-plus ic"></i><div class="t">Enregistrement</div><div class="d">Nouvelle AMM</div></div>
+          <div class="op"><i class="ti ti-refresh ic"></i><div class="t">Renouvellement</div><div class="d">AMM existante</div></div>
+          <div class="op sel"><i class="ti ti-adjustments-alt ic"></i><div class="t">Variation <i class="ti ti-check"></i></div><div class="d">Modification d'AMM</div></div>
+          <div class="op"><i class="ti ti-bell-ringing ic"></i><div class="t">Réponse aux notifications</div><div class="d">Répondre à l'autorité</div></div>
+        </div>
+
+        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border)">
+          <div style="display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; margin-bottom: 10px"><i class="ti ti-list-check" style="color: var(--accent)"></i> Natures concernées <span class="muted" style="font-weight: 400">· Annexe N°2</span></div>
+          <div style="display: flex; gap: 8px; margin-bottom: 10px">
+            <div class="seg"><span class="on">Mineures</span><span>Majeures</span></div>
+            <div class="search"><i class="ti ti-search"></i> Rechercher…</div>
+          </div>
+          <div class="nat"><i class="ti ti-square-check-filled" style="color: var(--accent)"></i><span class="num">8.</span> Diminution du prix</div>
+          <div class="nat"><i class="ti ti-square-check-filled" style="color: var(--accent)"></i><span class="num">10.</span> Changement du conditionnement secondaire</div>
+          <div class="nat muted"><i class="ti ti-square" style="color: var(--text-muted)"></i><span class="num">9.</span> Changement de la raison sociale</div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 9px"><i class="ti ti-info-circle"></i> Le n° d'AMM est repris de la fiche produit — plus besoin de le ressaisir ici.</div>
+        </div>
+        <div class="nav"><span class="btn"><i class="ti ti-arrow-left"></i> Précédent</span><span class="btn primary">Suivant <i class="ti ti-arrow-right"></i></span></div>
+      </div>
+
+      <!-- Étape 3 -->
+      <div class="card">
+        <div class="stepper">
+          <div class="step"><span class="scircle done"><i class="ti ti-check"></i></span><span class="slabel done">Produit &amp; marché</span><span class="sline"></span></div>
+          <div class="step"><span class="scircle done"><i class="ti ti-check"></i></span><span class="slabel done">Opération</span><span class="sline"></span></div>
+          <div class="step"><span class="scircle active">3</span><span class="slabel">Aperçu</span></div>
+        </div>
+
+        <div class="apercu">
+          <h4><i class="ti ti-eye"></i> Aperçu du dossier</h4>
+          <div class="kpi2">
+            <div class="kpi"><div class="k">Numéro d'opération</div><div class="v mono">OP-2026-00<span class="muted">••</span></div><div class="k">attribué à la création</div></div>
+            <div class="kpi"><div class="k">Structure générée</div><div class="v">Module 1 · 14 rubriques</div><div class="k">taillée pour la variation</div></div>
+          </div>
+          <dl class="rows">
+            <div><dt>Marché</dt><dd>Bénin · ABMed</dd></div>
+            <div><dt>Langue de soumission</dt><dd>Français</dd></div>
+            <div><dt>Opération</dt><dd>Variation mineure · 2 natures</dd></div>
+            <div><dt>Format</dt><dd>CTD (PDF)</dd></div>
+          </dl>
+          <div style="border-top: 1px solid var(--border); margin-top: 14px; padding-top: 13px">
+            <div style="font-size: 11px; color: var(--text-2); margin-bottom: 8px">Pièces clés exigées</div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px">
+              <span class="badge">Lettre de demande</span><span class="badge">Tableau comparatif</span><span class="badge">Échantillon</span><span class="badge">Récépissé</span>
+            </div>
+          </div>
+          <div class="nudge"><i class="ti ti-info-circle"></i><div><strong style="color: var(--warning)">N° d'AMM absent de la fiche produit.</strong> <span class="muted">Recommandé pour la lettre de demande —</span> <span style="color: var(--accent); font-weight: 600">l'ajouter à la fiche</span><span class="muted">. Vous pouvez créer sans.</span></div></div>
+        </div>
+        <div class="nav"><span class="btn"><i class="ti ti-arrow-left"></i> Précédent</span><span class="btn primary"><i class="ti ti-check"></i> Créer le dossier</span></div>
+      </div>
+
+      <p class="note">
+        Note UX : la maquette adopte les tokens neutres pour la revue ; l'implémentation utilisera la DA Pharnos (shell navy, accent #1A56DB, Syne/DM Sans).
+        « Réponse aux notifications » = opération rattachée à un dossier existant (sélection du dépôt concerné → lettre de réponse + pièces, e-mail ou dépôt physique selon le pays).
+      </p>
+    </div>
+  </body>
+</html>
