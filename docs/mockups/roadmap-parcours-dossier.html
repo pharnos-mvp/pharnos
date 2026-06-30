@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pharnos — Roadmap « Parcours du dossier »</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Syne:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #f6f7f9;
+        --surface: #ffffff;
+        --surface-1: #f3f4f6;
+        --border: #e5e7eb;
+        --border-accent: #bfdbfe;
+        --border-warning: #fcd34d;
+        --text: #111827;
+        --text-2: #6b7280;
+        --text-muted: #9ca3af;
+        --accent: #1a56db;
+        --accent-bg: #eff6ff;
+        --success: #16a34a;
+        --success-bg: #f0fdf4;
+        --warning: #b45309;
+        --warning-bg: #fffbeb;
+        --danger: #dc2626;
+        --mono: ui-monospace, "SF Mono", Menlo, monospace;
+        --sans: "DM Sans", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        --syne: "Syne", var(--sans);
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+      .wrap { max-width: 960px; margin: 0 auto; padding: 36px 24px 80px; }
+      .logo { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-family: var(--syne); }
+      .muted { color: var(--text-2); }
+      .mono { font-family: var(--mono); }
+      h1 { font-family: var(--syne); font-size: 22px; margin: 0; font-weight: 700; }
+      .section-tag { display: flex; align-items: center; gap: 7px; margin: 34px 0 10px; font-size: 12px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; }
+      .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
+      .pill { font-size: 11px; font-weight: 600; border-radius: 999px; padding: 3px 10px; }
+      .pill.warn { background: var(--warning-bg); color: var(--warning); }
+      .pill.ok { background: var(--success-bg); color: var(--success); }
+      .pill.info { background: var(--accent-bg); color: var(--accent); }
+
+      /* Header dossier */
+      .dossier { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+      .dossier .ic { width: 42px; height: 42px; border-radius: 11px; background: var(--accent-bg); color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 22px; }
+      .dossier .meta { font-size: 13px; color: var(--text-2); margin-top: 2px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+      .dot-sep::before { content: "·"; margin-right: 8px; color: var(--text-muted); }
+
+      /* Pipeline */
+      .pipe { position: relative; margin-top: 6px; }
+      .pipe-line { position: absolute; top: 17px; left: 6%; right: 6%; height: 2px; background: var(--border); z-index: 0; }
+      .pipe-row { display: flex; position: relative; z-index: 1; }
+      .stage { flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 7px; }
+      .dot { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 17px; }
+      .dot.done { background: var(--success); color: #fff; }
+      .dot.cur { background: var(--warning); color: #fff; box-shadow: 0 0 0 5px var(--warning-bg); }
+      .dot.todo { background: var(--surface-1); color: var(--text-muted); border: 1px solid var(--border); }
+      .stage .name { font-size: 12px; font-weight: 600; line-height: 1.25; }
+      .stage .who { font-size: 10.5px; color: var(--text-muted); }
+      .here { font-size: 10px; font-weight: 600; color: var(--warning); background: var(--warning-bg); border-radius: 999px; padding: 1px 8px; }
+      .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 18px; font-size: 12px; color: var(--text-2); align-items: center; }
+      .swatch { width: 11px; height: 11px; border-radius: 50%; display: inline-block; vertical-align: -1px; margin-right: 5px; }
+
+      .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      .panel { border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+      .panel.warn { border-color: var(--border-warning); background: var(--warning-bg); }
+      .panel h4 { margin: 0 0 12px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 7px; }
+      .cond { display: flex; align-items: center; gap: 9px; font-size: 13px; margin: 9px 0; }
+      .cond i { font-size: 18px; }
+      .ok { color: var(--success); }
+      .wait { color: var(--warning); }
+      .btn { border: 1px solid var(--border); background: var(--surface); border-radius: 9px; padding: 8px 14px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 7px; color: var(--text); cursor: default; }
+      .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+      /* Reference grid */
+      .ref { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+      .ref .item { border: 1px solid var(--border); border-radius: 11px; padding: 14px; }
+      .ref .item .lab { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+      .ref .item .val { font-weight: 600; margin-top: 4px; font-size: 14px; }
+      .ref .item .sub { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+
+      /* Journal */
+      .journal { position: relative; padding-left: 26px; }
+      .journal::before { content: ""; position: absolute; left: 9px; top: 4px; bottom: 4px; width: 2px; background: var(--border); }
+      .ev { position: relative; padding: 6px 0 14px; font-size: 13px; }
+      .ev::before { content: ""; position: absolute; left: -21px; top: 9px; width: 12px; height: 12px; border-radius: 50%; background: var(--surface); border: 2px solid var(--border); }
+      .ev.done::before { background: var(--success); border-color: var(--success); }
+      .ev.cur::before { background: var(--warning); border-color: var(--warning); }
+      .ev .d { font-size: 11px; color: var(--text-muted); }
+      .ev .who { color: var(--text-2); }
+      .ev.future { color: var(--text-muted); }
+
+      .note { font-size: 12px; color: var(--text-muted); margin-top: 30px; padding-top: 16px; border-top: 1px dashed var(--border); }
+      @media (max-width: 760px) {
+        .grid2, .ref { grid-template-columns: 1fr; }
+        .stage .name, .stage .who { font-size: 9.5px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px">
+        <span class="logo">P</span><h1>Roadmap — parcours du dossier</h1>
+      </div>
+      <p class="muted" style="font-size: 14px; margin: 0 0 22px">
+        Proposition : la page Roadmap = où en est CE dossier (live) + le chemin officiel. Maquette statique pour revue avant dev.
+      </p>
+
+      <!-- En-tête dossier -->
+      <div class="card dossier">
+        <span class="ic"><i class="ti ti-package"></i></span>
+        <div style="min-width: 0; flex: 1">
+          <div style="font-weight: 600; font-size: 16px">KV-Metro 250 mg</div>
+          <div class="meta">
+            <span class="mono">OP-2026-0042</span>
+            <span class="dot-sep">Bénin · ABMed</span>
+            <span class="dot-sep">Enregistrement</span>
+          </div>
+        </div>
+        <span class="pill warn"><i class="ti ti-receipt"></i> En soumission</span>
+      </div>
+
+      <!-- ===== LE PARCOURS (pipeline live) ===== -->
+      <div class="section-tag"><i class="ti ti-route"></i> Le parcours · suivi en temps réel</div>
+      <div class="card">
+        <div class="pipe">
+          <div class="pipe-line"></div>
+          <div class="pipe-row">
+            <div class="stage"><span class="dot done"><i class="ti ti-stack-2"></i></span><span class="name">Montage</span><span class="who">Labo</span></div>
+            <div class="stage"><span class="dot done"><i class="ti ti-send"></i></span><span class="name">Revue</span><span class="who">Agent local</span></div>
+            <div class="stage"><span class="dot done"><i class="ti ti-checkup-list"></i></span><span class="name">Décision<br /><span style="color: var(--success); font-weight: 400">Accepté</span></span><span class="who">Agent local</span></div>
+            <div class="stage"><span class="dot done"><i class="ti ti-building-bank"></i></span><span class="name">Dépôt</span><span class="who">→ Agence nat.</span></div>
+            <div class="stage"><span class="here">vous êtes ici</span><span class="dot cur"><i class="ti ti-receipt"></i></span><span class="name">Soumission</span><span class="who">Agent local</span></div>
+            <div class="stage"><span class="dot todo"><i class="ti ti-bell-ringing"></i></span><span class="name" style="color: var(--text-muted)">Notifications</span><span class="who">Agence nat.</span></div>
+            <div class="stage"><span class="dot todo"><i class="ti ti-award"></i></span><span class="name" style="color: var(--text-muted)">AMM</span><span class="who">Agence nat.</span></div>
+          </div>
+        </div>
+        <div class="legend">
+          <span><span class="swatch" style="background: var(--success)"></span> Fait</span>
+          <span><span class="swatch" style="background: var(--warning)"></span> En cours / bloqué</span>
+          <span><span class="swatch" style="background: var(--surface-1); border: 1px solid var(--border)"></span> À venir</span>
+          <span style="margin-left: auto" class="muted">Avancement 4 / 7 étapes</span>
+        </div>
+      </div>
+
+      <!-- ===== ÉTAPE EN COURS (actionnable) ===== -->
+      <div class="section-tag"><i class="ti ti-target"></i> Étape en cours · Soumission</div>
+      <div class="grid2">
+        <div class="panel">
+          <h4><i class="ti ti-list-check" style="color: var(--accent)"></i> 3 conditions de soumission</h4>
+          <div class="cond"><i class="ti ti-circle-check-filled ok"></i> Dossier CTD compilé &amp; déposé</div>
+          <div class="cond"><i class="ti ti-circle-check-filled ok"></i> Échantillons remis</div>
+          <div class="cond wait"><i class="ti ti-clock"></i> Paiement des frais <span class="muted">· justificatif en attente</span></div>
+          <div style="margin-top: 14px; display: flex; gap: 8px">
+            <span class="btn primary"><i class="ti ti-check"></i> Confirmer la soumission</span>
+            <span class="btn"><i class="ti ti-paperclip"></i> Joindre le récépissé</span>
+          </div>
+        </div>
+        <div class="panel warn">
+          <h4 style="color: var(--warning)"><i class="ti ti-bell-exclamation"></i> Relance automatique</h4>
+          <p style="margin: 0 0 10px; font-size: 13px; color: var(--text-2)">
+            Bloqué à <strong style="color: var(--text)">Soumission</strong> depuis <strong style="color: var(--text)">6 jours</strong>.
+            Relance envoyée à l'agent local le 24/01 pour le justificatif de paiement.
+          </p>
+          <div style="font-size: 12px; color: var(--text-2); display: flex; align-items: center; gap: 7px">
+            <i class="ti ti-repeat"></i> Prochaine relance auto dans 1 jour · <span class="muted">seuil 7 j, réglable</span>
+          </div>
+          <div style="margin-top: 12px"><span class="btn"><i class="ti ti-send"></i> Relancer maintenant</span></div>
+        </div>
+      </div>
+
+      <!-- ===== RÉFÉRENCE RÉGLEMENTAIRE ===== -->
+      <div class="section-tag"><i class="ti ti-book-2"></i> Référence réglementaire · Enregistrement × Bénin</div>
+      <div class="card">
+        <div class="ref">
+          <div class="item">
+            <div class="lab"><i class="ti ti-building-bank"></i> Agence nationale</div>
+            <div class="val">ABMed</div>
+            <div class="sub">Agence Béninoise du Médicament</div>
+          </div>
+          <div class="item">
+            <div class="lab"><i class="ti ti-language"></i> Langue de soumission</div>
+            <div class="val">Français</div>
+            <div class="sub">Dossier &amp; correspondance</div>
+          </div>
+          <div class="item">
+            <div class="lab"><i class="ti ti-flask"></i> Échantillons exigés</div>
+            <div class="val">Oui</div>
+            <div class="sub">Nouvelle AMM — à remettre au dépôt</div>
+          </div>
+          <div class="item">
+            <div class="lab"><i class="ti ti-clock"></i> Délai indicatif</div>
+            <div class="val">~ 90 jours</div>
+            <div class="sub">À confirmer auprès de l'ABMed</div>
+          </div>
+          <div class="item">
+            <div class="lab"><i class="ti ti-receipt-2"></i> Frais / barème</div>
+            <div class="val">Selon barème ABMed</div>
+            <div class="sub">À régler avant soumission</div>
+          </div>
+          <div class="item">
+            <div class="lab"><i class="ti ti-file-text"></i> Référence officielle</div>
+            <div class="val">Règlement UEMOA n°06/2010</div>
+            <div class="sub" style="color: var(--accent)">Ouvrir le parcours A4 ↗</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== JOURNAL ===== -->
+      <div class="section-tag"><i class="ti ti-history"></i> Journal · chaque partie suit en temps réel</div>
+      <div class="card">
+        <div class="journal">
+          <div class="ev done"><div>Montage créé</div><div class="who">Labo</div><div class="d">12 janv. 2026</div></div>
+          <div class="ev done"><div>Envoyé en revue à l'agent local</div><div class="who">Labo → Agent local</div><div class="d">15 janv. 2026</div></div>
+          <div class="ev done"><div>Dossier accepté</div><div class="who">Agent local</div><div class="d">18 janv. 2026</div></div>
+          <div class="ev done"><div>Déposé à l'ABMed</div><div class="who">Agent local → Agence</div><div class="d">20 janv. 2026</div></div>
+          <div class="ev cur"><div><strong>Relance auto</strong> — justificatif de paiement attendu</div><div class="who">Système → Agent local</div><div class="d">24 janv. 2026</div></div>
+          <div class="ev future"><div>Soumission confirmée (récépissé + paiement)</div><div class="d">à venir</div></div>
+          <div class="ev future"><div>Notifications / compléments d'info</div><div class="d">à venir</div></div>
+          <div class="ev future"><div>Obtention de l'AMM</div><div class="d">à venir</div></div>
+        </div>
+      </div>
+
+      <p class="note">
+        Maquette en tokens neutres pour la revue ; l'implémentation utilisera la DA Pharnos (shell navy, accent #1A56DB, Syne/DM Sans).
+        Données réelles à brancher : agence/langue/délais/barème = référentiel Autorités ; étapes 1–3 = correspondance existante ; étapes 4–7 + conditions + relances = à modéliser (la « spine »).
+      </p>
+    </div>
+  </body>
+</html>
