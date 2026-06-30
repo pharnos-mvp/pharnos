@@ -115,11 +115,17 @@ export function NewDossierPage() {
     () => countLeaves(getModule1Tree(format, activity, isVariation ? variations : undefined)),
     [format, activity, isVariation, variations],
   )
+  // Lignes de variation semées (colonne « ancien » pré-remplie) — mémoïsées, réutilisées par
+  // l'aperçu (pièces) ET la création (évite un double calcul).
+  const seededItems = useMemo(
+    () => (isVariation && variations.length ? seedVariationItems(variations, product) : []),
+    [isVariation, variations, product],
+  )
   // Pièces clés exigées (variation : dérivées des natures cochées).
-  const pieceLabels =
-    isVariation && variations.length
-      ? requestPieces(seedVariationItems(variations, product)).map((p) => t(PIECE_LABEL[p]))
-      : []
+  const pieceLabels = useMemo(
+    () => (seededItems.length ? requestPieces(seededItems).map((p) => t(PIECE_LABEL[p])) : []),
+    [seededItems, t],
+  )
 
   // Choix d'un produit → reprend le N° + date d'octroi depuis son doc AMM (pour la création/l'invite).
   async function pickProduct(id: string) {
@@ -161,8 +167,7 @@ export function NewDossierPage() {
         variations: isVariation ? variations : undefined,
         // Lignes du tableau comparatif semées des natures (colonne « ancien » pré-remplie depuis la
         // fiche) — éditées ensuite dans l'atelier (annexe de variation).
-        variationItems:
-          isVariation && variations.length ? seedVariationItems(variations, product) : undefined,
+        variationItems: seededItems.length ? seededItems : undefined,
         ammNumero: needsAmm ? amm.trim() || undefined : undefined,
         ammDate: needsAmm ? ammDate || undefined : undefined,
       })
@@ -177,10 +182,12 @@ export function NewDossierPage() {
     }
   }
 
+  // « Réponse aux notifications » ne crée pas de dossier → pas de jalon « Aperçu » (l'action est
+  // « Ouvrir la réponse » depuis l'étape Opération).
   const steps: Translatable[] = [
     { fr: 'Produit & marché', en: 'Product & market' },
     { fr: 'Opération', en: 'Operation' },
-    { fr: 'Aperçu', en: 'Preview' },
+    ...(isNotif ? [] : [{ fr: 'Aperçu', en: 'Preview' }]),
   ]
   const canContinue0 = !!productId && !!country
   const canContinue1 = isNotif ? !!targetDossierId : !isVariation || variations.length > 0
@@ -434,8 +441,8 @@ export function NewDossierPage() {
               </div>
               <p className="text-muted-foreground mt-0.5 mb-3 text-xs">
                 {t({
-                  fr: 'Le dépôt soumis qui a reçu la notification. La réponse sera rattachée à sa correspondance (e-mail ou dépôt physique selon le pays).',
-                  en: 'The submitted dossier that received the notification. The reply attaches to its correspondence (email or physical filing depending on the country).',
+                  fr: 'Le dossier qui a reçu la notification. La réponse sera rattachée à sa correspondance (e-mail ou dépôt physique selon le pays).',
+                  en: 'The dossier that received the notification. The reply attaches to its correspondence (email or physical filing depending on the country).',
                 })}
               </p>
               {notifTargets.length ? (
@@ -457,8 +464,8 @@ export function NewDossierPage() {
               ) : (
                 <p className="text-muted-foreground text-sm">
                   {t({
-                    fr: 'Aucun dossier soumis pour ce produit et ce marché.',
-                    en: 'No submitted dossier for this product and market.',
+                    fr: 'Aucun dossier pour ce produit et ce marché.',
+                    en: 'No dossier for this product and market.',
                   })}
                 </p>
               )}
@@ -566,7 +573,7 @@ export function NewDossierPage() {
                 <button
                   type="button"
                   onClick={() => navigate(`/catalogue/${productId}`)}
-                  className="text-info font-medium hover:underline"
+                  className="text-warning font-medium underline"
                 >
                   {t({ fr: 'l’ajouter à la fiche', en: 'add it to the product' })}
                 </button>
