@@ -30,10 +30,14 @@ export function VariationNaturesPicker({
   const selMaj = majeures.filter((v) => value.includes(v.n!)).length
 
   const q = query.trim().toLowerCase()
+  const matches = (list: typeof VARIATIONS) =>
+    q ? list.filter((v) => t(v.nature).toLowerCase().includes(q) || String(v.n).includes(q)) : list
   const active = tab === 'mineure' ? mineures : majeures
-  const rows = q
-    ? active.filter((v) => t(v.nature).toLowerCase().includes(q) || String(v.n).includes(q))
-    : active
+  const rows = matches(active)
+  // Recherche sans résultat dans l'onglet actif : combien dans l'AUTRE classe ? (évite l'angle mort « 0
+  // résultat » alors qu'une nature existe ailleurs — l'utilisateur ne connaît pas a priori sa classe.)
+  const otherClass: VariationClass = tab === 'mineure' ? 'majeure' : 'mineure'
+  const otherHits = q && !rows.length ? matches(tab === 'mineure' ? majeures : mineures).length : 0
 
   const toggle = (n: number) =>
     onChange(value.includes(n) ? value.filter((x) => x !== n) : [...value, n])
@@ -123,6 +127,21 @@ export function VariationNaturesPicker({
         ) : (
           <li className="text-muted-foreground px-2 py-4 text-center text-xs">
             {t({ fr: 'Aucune nature ne correspond.', en: 'No matching type.' })}
+            {otherHits > 0 ? (
+              <>
+                {' '}
+                <button
+                  type="button"
+                  onClick={() => setTab(otherClass)}
+                  className="text-info font-medium underline"
+                >
+                  {t({
+                    fr: `${otherHits} dans ${otherClass === 'majeure' ? 'Majeures' : 'Mineures'}`,
+                    en: `${otherHits} in ${otherClass === 'majeure' ? 'Major' : 'Minor'}`,
+                  })}
+                </button>
+              </>
+            ) : null}
           </li>
         )}
       </ul>

@@ -144,6 +144,8 @@ export function Combobox({
           aria-expanded={open}
           aria-controls={listId}
           aria-autocomplete="list"
+          // Le garde `filtered[activeIndex]` est CE qui empêche un activedescendant fantôme si `items`
+          // change pendant l'ouverture (re-emit Dexie/useLiveQuery) — ne pas le retirer.
           aria-activedescendant={open && filtered[activeIndex] ? optId(activeIndex) : undefined}
           aria-label={ariaLabel}
           autoComplete="off"
@@ -201,7 +203,10 @@ export function Combobox({
               )
             })
           ) : (
-            <li className="text-muted-foreground px-2 py-6 text-center text-sm">{emptyText}</li>
+            // `role=presentation` : un message n'est pas une `option` (containment ARIA du listbox).
+            <li role="presentation" className="text-muted-foreground px-2 py-6 text-center text-sm">
+              {emptyText}
+            </li>
           )}
         </ul>
       ) : null}

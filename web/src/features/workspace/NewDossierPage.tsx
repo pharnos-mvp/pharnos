@@ -291,10 +291,11 @@ export function NewDossierPage() {
       {/* ── Étape 1 : Produit & marché ── */}
       {screen === 0 ? (
         <div className="space-y-4">
-          <Field label={t({ fr: 'Produit', en: 'Product' })}>
+          <Field label={t({ fr: 'Produit', en: 'Product' })} htmlFor="op-product">
             {/* Combobox cherchable (clic → liste complète ; frappe → filtre par nom/DCI) — indispensable
                 aux portefeuilles de centaines de produits. */}
             <Combobox
+              id="op-product"
               value={productId}
               onChange={(id) => void pickProduct(id)}
               items={productItems}
@@ -618,10 +619,18 @@ export function NewDossierPage() {
   )
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: string
+  htmlFor?: string
+  children: ReactNode
+}) {
   return (
     <div className="space-y-1.5">
-      <Label>{label}</Label>
+      <Label htmlFor={htmlFor}>{label}</Label>
       {children}
     </div>
   )
