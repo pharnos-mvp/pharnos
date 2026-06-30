@@ -17,6 +17,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { Combobox, type ComboboxItem } from '@/components/ui/combobox'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -30,7 +31,7 @@ import { listProducts } from '@/features/catalogue/repository'
 import { useOrgId } from '@/features/org/org-context'
 import { PIECE_LABEL } from '@/features/variations/variation-catalog'
 import { requestPieces, seedVariationItems } from '@/features/variations/variation-request'
-import { VariationPicker } from '@/features/variations/VariationPicker'
+import { VariationNaturesPicker } from '@/features/variations/VariationNaturesPicker'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import {
@@ -104,6 +105,22 @@ export function NewDossierPage() {
   const needsAmm = isVariation || activity === 'renewal'
   const product = products?.find((p) => p.id === productId)
   const ammMissing = needsAmm && !amm.trim()
+
+  // Liste produits triée A-Z (par nom commercial, accents/casse ignorés) pour le combobox cherchable ;
+  // la DCI sert de mot-clé de recherche secondaire.
+  const productItems: ComboboxItem[] = useMemo(
+    () =>
+      [...(products ?? [])]
+        .sort((a, b) =>
+          a.nomCommercial.localeCompare(b.nomCommercial, 'fr', { sensitivity: 'base' }),
+        )
+        .map((p) => ({
+          value: p.id,
+          label: p.dci ? `${p.nomCommercial} (${p.dci})` : p.nomCommercial,
+          keywords: p.dci ?? undefined,
+        })),
+    [products],
+  )
 
   // Dossiers existants éligibles à une réponse (même produit + marché que les choix de l'étape 1).
   const notifTargets = (dossiers ?? []).filter(
@@ -275,28 +292,23 @@ export function NewDossierPage() {
       {screen === 0 ? (
         <div className="space-y-4">
           <Field label={t({ fr: 'Produit', en: 'Product' })}>
-            <Select value={productId} onValueChange={(id) => void pickProduct(id)}>
-              <SelectTrigger className="w-full">
-                <SelectValue
-                  placeholder={
-                    products?.length
-                      ? t({ fr: 'Choisir un produit', en: 'Choose a product' })
-                      : t({
-                          fr: 'Aucun produit — créez-en un dans le Catalogue',
-                          en: 'No product — create one in the Catalogue',
-                        })
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {(products ?? []).map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.nomCommercial}
-                    {p.dci ? ` (${p.dci})` : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Combobox cherchable (clic → liste complète ; frappe → filtre par nom/DCI) — indispensable
+                aux portefeuilles de centaines de produits. */}
+            <Combobox
+              value={productId}
+              onChange={(id) => void pickProduct(id)}
+              items={productItems}
+              ariaLabel={t({ fr: 'Produit', en: 'Product' })}
+              placeholder={
+                products?.length
+                  ? t({ fr: 'Rechercher ou choisir un produit', en: 'Search or choose a product' })
+                  : t({
+                      fr: 'Aucun produit — créez-en un dans le Catalogue',
+                      en: 'No product — create one in the Catalogue',
+                    })
+              }
+              emptyText={t({ fr: 'Aucun produit ne correspond.', en: 'No matching product.' })}
+            />
             {products && products.length === 0 ? (
               <div className="bg-muted/40 mt-2 flex flex-col items-start gap-2 rounded-lg border border-dashed p-3 text-sm">
                 <span className="text-muted-foreground">
@@ -418,18 +430,8 @@ export function NewDossierPage() {
                   en: 'Tick the types. The comparison table is filled later in the workspace.',
                 })}
               </p>
-              <VariationPicker value={variations} onChange={setVariations} />
+              <VariationNaturesPicker value={variations} onChange={setVariations} />
             </div>
-          ) : null}
-
-          {/* Renouvellement : AMM reprise de la fiche, pas de saisie. */}
-          {activity === 'renewal' ? (
-            <p className="text-muted-foreground rounded-xl border p-4 text-sm">
-              {t({
-                fr: 'L’AMM existante est reprise de la fiche produit — rien à saisir ici.',
-                en: 'The existing MA is taken from the product — nothing to enter here.',
-              })}
-            </p>
           ) : null}
 
           {/* Réponse aux notifications : rattachée à un dossier déjà soumis. */}
@@ -470,15 +472,6 @@ export function NewDossierPage() {
                 </p>
               )}
             </div>
-          ) : null}
-
-          {activity === 'new_ma' ? (
-            <p className="text-muted-foreground text-sm">
-              {t({
-                fr: 'Aucun détail supplémentaire — continuez vers l’aperçu.',
-                en: 'No extra details — continue to the preview.',
-              })}
-            </p>
           ) : null}
         </div>
       ) : null}

@@ -127,7 +127,8 @@ export function AppShell() {
   const onCanvas =
     location.pathname.startsWith('/dashboard') ||
     location.pathname.startsWith('/catalogue') ||
-    location.pathname === '/workspace' // board Opérations : cartes blanches sur canvas gris (≠ builder/aperçu)
+    location.pathname === '/workspace' || // board Opérations : cartes blanches sur canvas gris
+    location.pathname === '/workspace/nouveau' // assistant de création (cartes sur canvas ; ≠ builder/aperçu)
   useEffect(() => {
     // Synchronisation pilotée par la route — exception légitime à set-state-in-effect.
     // eslint-disable-next-line react-hooks/set-state-in-effect
