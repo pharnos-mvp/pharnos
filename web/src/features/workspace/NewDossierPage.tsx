@@ -211,9 +211,10 @@ export function NewDossierPage() {
 
   return (
     <section className="mx-auto max-w-2xl">
-      {/* Icône retour à GAUCHE du titre, tirée dans la gouttière (`md:-ml-11` = taille du bouton + gap)
-          pour que le titre reste à sa position actuelle ; en mobile, inline (`-ml-2`) pour ne pas rogner. */}
-      <div className="flex items-center gap-2">
+      {/* Icône retour à GAUCHE du titre. Le titre reste à SA position : horizontalement l'icône est
+          tirée dans la gouttière (`md:-ml-11` = taille bouton + gap, `-ml-2` en mobile pour ne pas
+          rogner) ; verticalement `mt-12` restitue l'espace de l'ancienne ligne « Retour » (h-8 + mb-4). */}
+      <div className="mt-12 flex items-center gap-2">
         <button
           type="button"
           onClick={() => navigate('/workspace')}
