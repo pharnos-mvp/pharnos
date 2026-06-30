@@ -18,7 +18,10 @@ export const REG_ACTIVITIES: Option[] = [
   { code: 'new_ma', label: 'Nouvelle AMM', en: 'New MA' },
   { code: 'renewal', label: 'Renouvellement', en: 'Renewal' },
   { code: 'variation', label: 'Variation / Modification', en: 'Variation / Change' },
-  { code: 'transfer', label: "Transfert d'AMM", en: 'MA transfer' },
+  // `transfer` retiré du sélecteur (gardé en lecture pour les anciens dossiers, cf. PROCEDURE_LABEL).
+  // `notif_response` = répondre à une notification d'agence sur un dossier DÉJÀ soumis (pas de nouveau
+  // dossier créé : on rattache la réponse au dossier existant). Cf. [[dossier-lifecycle]] étape 6.
+  { code: 'notif_response', label: 'Réponse aux notifications', en: 'Notification response' },
 ]
 
 /** Pays de l'espace UEMOA puis autres CEDEAO. */
