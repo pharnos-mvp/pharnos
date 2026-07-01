@@ -44,6 +44,7 @@ import {
   type StageStatus,
 } from './lifecycle-constants'
 import { lifecycleConfigFor, submissionModeLabel } from './lifecycle-config'
+import { LifecycleActionCard } from './LifecycleActionCard'
 import { listLifecycleEvents } from './lifecycle-repository'
 import { agencyFor, officialLanguage, regulatoryProfileFor } from './roadmap-data'
 import type { ReactNode } from 'react'
@@ -318,6 +319,15 @@ export function RoadmapPage() {
           </div>
         </div>
       </section>
+
+      {/* ── Carte « étape en cours » actionnable (actions Labo → journal) ─ */}
+      <LifecycleActionCard
+        dossierId={dossier.id}
+        country={dossier.country}
+        currentStageId={lifecycle.currentStageId}
+        status={lifecycle.status}
+        hasAuthorityQuery={events.some((e) => e.type === 'authority_query')}
+      />
 
       {/* ── Référence réglementaire + Journal, côte à côte dès lg ─────── */}
       <div className="grid items-start gap-6 lg:grid-cols-2">
