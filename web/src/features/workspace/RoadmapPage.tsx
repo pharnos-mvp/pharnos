@@ -255,7 +255,7 @@ export function RoadmapPage() {
           <Package className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate font-semibold">{dossier.productName}</h1>
+          <h1 className="font-display truncate font-semibold">{dossier.productName}</h1>
           <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
             <span className="font-mono">{opRef}</span>
             <Dot />
@@ -426,7 +426,7 @@ function Dot() {
 
 function SectionTag({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
   return (
-    <h2 className="text-primary mb-2 flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase">
+    <h2 className="text-info mb-2 flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase">
       <Icon className="size-3.5" /> {label}
     </h2>
   )
