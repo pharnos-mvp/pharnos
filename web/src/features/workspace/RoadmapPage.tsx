@@ -1,7 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   ArrowLeft,
-  ArrowRight,
   Award,
   BellRing,
   BookOpen,
@@ -9,17 +8,19 @@ import {
   ClipboardCheck,
   Clock,
   Coins,
+  Eye,
   FlaskConical,
   History,
   Landmark,
   Languages,
   type LucideIcon,
   Package,
+  Pencil,
   Receipt,
   Route,
   Send,
 } from 'lucide-react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Page } from '@/components/ui/page'
@@ -271,6 +272,20 @@ export function RoadmapPage() {
         </StatusBadge>
       </div>
 
+      {/* ── Accès rapides (en haut) : montage + aperçu (vraies ancres, comme les CTA du board) ─ */}
+      <div className="flex flex-wrap gap-2">
+        <Button asChild variant="primary">
+          <Link to={`/workspace/${dossier.id}`}>
+            <Pencil /> {t({ fr: 'Espace de montage', en: 'Workspace' })}
+          </Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link to={`/workspace/${dossier.id}/apercu`}>
+            <Eye /> {t({ fr: 'Aperçu', en: 'Preview' })}
+          </Link>
+        </Button>
+      </div>
+
       {/* ── Le parcours (pipeline live) ───────────────────────────────── */}
       <section>
         <SectionTag
@@ -304,105 +319,103 @@ export function RoadmapPage() {
         </div>
       </section>
 
-      {/* ── Référence réglementaire ───────────────────────────────────── */}
-      <section>
-        <SectionTag
-          icon={BookOpen}
-          label={t({
-            fr: `Référence réglementaire · ${activityLabel(activity, lang)} × ${countryLabel(dossier.country, lang)}`,
-            en: `Regulatory reference · ${activityLabel(activity, lang)} × ${countryLabel(dossier.country, lang)}`,
-          })}
-        />
-        <div className="grid gap-3 sm:grid-cols-2">
-          <RefCard icon={Building2} title={t({ fr: 'Agence nationale', en: 'National agency' })}>
-            <div className="font-medium">{agency.name}</div>
-            <div className="text-muted-foreground text-xs">{agency.full}</div>
-          </RefCard>
-          <RefCard
-            icon={Languages}
-            title={t({ fr: 'Langue de soumission', en: 'Submission language' })}
-          >
-            <div className="font-medium">
-              {t(LANG_LABELS[officialLang] ?? { fr: 'Français', en: 'French' })}
-            </div>
-            <div className="text-muted-foreground text-xs">
-              {t({ fr: 'Dossier & correspondance', en: 'Dossier & correspondence' })}
-            </div>
-          </RefCard>
-          <RefCard icon={Send} title={t({ fr: 'Mode de soumission', en: 'Submission mode' })}>
-            <div className="font-medium">{submissionModeLabel(config.submissionMode, lang)}</div>
-            <div className="text-muted-foreground text-xs">
-              {config.localAgentRequired
-                ? t({ fr: 'Agent local requis', en: 'Local agent required' })
-                : t({ fr: 'Sans agent local', en: 'No local agent' })}
-              {config.unconfirmed ? t({ fr: ' · à confirmer', en: ' · to be confirmed' }) : ''}
-            </div>
-          </RefCard>
-          <RefCard
-            icon={FlaskConical}
-            title={t({ fr: 'Échantillons', en: 'Samples' })}
-            subtitle={activityLabel(activity, lang)}
-          >
-            {samplesNode()}
-          </RefCard>
-          <RefCard icon={Clock} title={t({ fr: 'Délai indicatif', en: 'Indicative timeline' })}>
-            {delaiNode()}
-          </RefCard>
-          <RefCard
-            icon={Coins}
-            title={t({ fr: 'Frais / barème', en: 'Fees' })}
-            subtitle={activityLabel(activity, lang)}
-          >
-            {feeNode()}
-          </RefCard>
-        </div>
-        <p className="text-muted-foreground mt-3 text-xs italic">
-          {t({
-            fr: `Référence ${agency.name} (${countryLabel(dossier.country, lang)}) — à valider auprès de l'agence avant dépôt.`,
-            en: `${agency.name} reference (${countryLabel(dossier.country, lang)}) — to be validated with the agency before submission.`,
-          })}
-        </p>
-      </section>
-
-      {/* ── Journal ───────────────────────────────────────────────────── */}
-      <section>
-        <SectionTag
-          icon={History}
-          label={t({
-            fr: 'Journal · chaque partie suit en temps réel',
-            en: 'Journal · every party tracks live',
-          })}
-        />
-        <div className="bg-card rounded-xl border p-5">
-          <div className="relative pl-6">
-            <div className="bg-border absolute top-1 bottom-1 left-[9px] w-0.5" />
-            {lifecycle.journal.map((entry, i) => (
-              <JournalRow
-                key={`past-${i}`}
-                state="done"
-                label={journalLabel(entry, lang)}
-                date={formatDate(entry.at, lang)}
-              />
-            ))}
-            {upcoming.map((stage) => (
-              <JournalRow
-                key={`next-${stage.id}`}
-                state={stage.status === 'current' ? 'current' : 'future'}
-                label={t(STAGE_DEF[stage.id].label)}
-                date={
-                  stage.status === 'current'
-                    ? t({ fr: 'en cours', en: 'in progress' })
-                    : t({ fr: 'à venir', en: 'upcoming' })
-                }
-              />
-            ))}
+      {/* ── Référence réglementaire + Journal, côte à côte dès lg ─────── */}
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <section>
+          <SectionTag
+            icon={BookOpen}
+            label={t({
+              fr: `Référence réglementaire · ${activityLabel(activity, lang)} × ${countryLabel(dossier.country, lang)}`,
+              en: `Regulatory reference · ${activityLabel(activity, lang)} × ${countryLabel(dossier.country, lang)}`,
+            })}
+          />
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+            <RefCard icon={Building2} title={t({ fr: 'Agence nationale', en: 'National agency' })}>
+              <div className="font-medium">{agency.name}</div>
+              <div className="text-muted-foreground text-xs">{agency.full}</div>
+            </RefCard>
+            <RefCard
+              icon={Languages}
+              title={t({ fr: 'Langue de soumission', en: 'Submission language' })}
+            >
+              <div className="font-medium">
+                {t(LANG_LABELS[officialLang] ?? { fr: 'Français', en: 'French' })}
+              </div>
+              <div className="text-muted-foreground text-xs">
+                {t({ fr: 'Dossier & correspondance', en: 'Dossier & correspondence' })}
+              </div>
+            </RefCard>
+            <RefCard icon={Send} title={t({ fr: 'Mode de soumission', en: 'Submission mode' })}>
+              <div className="font-medium">{submissionModeLabel(config.submissionMode, lang)}</div>
+              <div className="text-muted-foreground text-xs">
+                {config.localAgentRequired
+                  ? t({ fr: 'Agent local requis', en: 'Local agent required' })
+                  : t({ fr: 'Sans agent local', en: 'No local agent' })}
+                {config.unconfirmed ? t({ fr: ' · à confirmer', en: ' · to be confirmed' }) : ''}
+              </div>
+            </RefCard>
+            <RefCard
+              icon={FlaskConical}
+              title={t({ fr: 'Échantillons', en: 'Samples' })}
+              subtitle={activityLabel(activity, lang)}
+            >
+              {samplesNode()}
+            </RefCard>
+            <RefCard icon={Clock} title={t({ fr: 'Délai indicatif', en: 'Indicative timeline' })}>
+              {delaiNode()}
+            </RefCard>
+            <RefCard
+              icon={Coins}
+              title={t({ fr: 'Frais / barème', en: 'Fees' })}
+              subtitle={activityLabel(activity, lang)}
+            >
+              {feeNode()}
+            </RefCard>
           </div>
-        </div>
-      </section>
+          <p className="text-muted-foreground mt-3 text-xs italic">
+            {t({
+              fr: `Référence ${agency.name} (${countryLabel(dossier.country, lang)}) — à valider auprès de l'agence avant dépôt.`,
+              en: `${agency.name} reference (${countryLabel(dossier.country, lang)}) — to be validated with the agency before submission.`,
+            })}
+          </p>
+        </section>
 
-      <Button className="w-fit" onClick={() => navigate(`/workspace/${dossier.id}`)}>
-        {t({ fr: "Accéder à l'espace de montage", en: 'Go to the workspace' })} <ArrowRight />
-      </Button>
+        {/* ── Journal ───────────────────────────────────────────────────── */}
+        <section>
+          <SectionTag
+            icon={History}
+            label={t({
+              fr: 'Journal · chaque partie suit en temps réel',
+              en: 'Journal · every party tracks live',
+            })}
+          />
+          <div className="bg-card rounded-xl border p-5">
+            <div className="relative pl-6">
+              <div className="bg-border absolute top-1 bottom-1 left-[9px] w-0.5" />
+              {lifecycle.journal.map((entry, i) => (
+                <JournalRow
+                  key={`past-${i}`}
+                  state="done"
+                  label={journalLabel(entry, lang)}
+                  date={formatDate(entry.at, lang)}
+                />
+              ))}
+              {upcoming.map((stage) => (
+                <JournalRow
+                  key={`next-${stage.id}`}
+                  state={stage.status === 'current' ? 'current' : 'future'}
+                  label={t(STAGE_DEF[stage.id].label)}
+                  date={
+                    stage.status === 'current'
+                      ? t({ fr: 'en cours', en: 'in progress' })
+                      : t({ fr: 'à venir', en: 'upcoming' })
+                  }
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+      </div>
     </Page>
   )
 }
