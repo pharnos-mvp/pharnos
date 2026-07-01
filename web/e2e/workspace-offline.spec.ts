@@ -40,7 +40,9 @@ async function createDossier(page: Page): Promise<string> {
   await page.getByRole('button', { name: 'Continuer' }).click()
   await page.getByRole('button', { name: 'Continuer' }).click()
   await page.getByRole('button', { name: 'Créer le dossier' }).click()
-  await page.waitForURL(/\/workspace\/[^/]+\/roadmap$/)
+  // La création amène au MONTAGE. Regex UUID (≠ `/workspace/nouveau`, qui matcherait `[^/]+` et
+  // ferait résoudre waitForURL AVANT la navigation → course).
+  await page.waitForURL(/\/workspace\/[0-9a-f-]{36}$/)
   return nom
 }
 
@@ -50,17 +52,14 @@ test('montage : la route workspace (code-splittée) se rend hors-ligne après pr
 }) => {
   const nom = await createDossier(page)
 
-  // Clic ligne → page d'aperçu, puis « Modifier » → vue de montage (chunk DossierWorkspacePage).
+  // Clic ligne = Roadmap (statut) ; pour le montage, raccourci « Modifier » au survol → CTD Builder.
   await page.goto('/workspace')
   await page
     .getByRole('row', { name: new RegExp(nom) })
     .first()
-    .getByRole('link')
-    .first()
+    .getByRole('link', { name: 'Modifier' })
     .click()
-  await page.waitForURL(/\/workspace\/[^/]+\/apercu$/)
-  await page.getByRole('link', { name: 'Modifier' }).click()
-  await page.waitForURL(/\/workspace\/[^/]+$/)
+  await page.waitForURL(/\/workspace\/[0-9a-f-]{36}$/)
   const corrButton = page.getByRole('banner').getByRole('button', { name: 'Correspondance' })
   await expect(corrButton).toBeVisible()
 
@@ -89,12 +88,9 @@ test('< lg : montage en disposition tablette (actions dans la barre d’onglets 
   await page
     .getByRole('row', { name: new RegExp(nom) })
     .first()
-    .getByRole('link')
-    .first()
+    .getByRole('link', { name: 'Modifier' })
     .click()
-  await page.waitForURL(/\/workspace\/[^/]+\/apercu$/)
-  await page.getByRole('link', { name: 'Modifier' }).click()
-  await page.waitForURL(/\/workspace\/[^/]+$/)
+  await page.waitForURL(/\/workspace\/[0-9a-f-]{36}$/)
 
   // Actions du document = barre d'outils HORIZONTALE dans la barre d'onglets (≠ ancien rail vertical).
   const actions = page.getByRole('toolbar', { name: 'Actions du document' })
