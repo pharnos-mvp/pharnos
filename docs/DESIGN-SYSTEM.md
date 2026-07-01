@@ -42,6 +42,31 @@
 6. **États systématiques** — toute liste/donnée asynchrone expose **chargement** (`Skeleton`),
    **vide** (`EmptyState`), **erreur** (`ErrorState` actionnable). Jamais un `<p>Chargement…</p>` nu.
 
+## Fonds — CONTRAT (fin des dérives de background)
+
+> **Cause historique** des retours répétés du CEO sur le fond : le mockup validé pose
+> `body { background: var(--g50) /* #f9fafb */ }` **globalement**, mais l'implémentation avait
+> `--background = #fff` (**== `--card`**) + une **liste de routes** (`onCanvas`) peignant `bg-[#f9fafb]`
+> au cas par cas → toute route oubliée (nouveau, roadmap, aperçu…) retombait sur **blanc**. Le dark
+> n'a jamais eu le bug (`--background` #0d1117 ≠ carte #161b22). **Corrigé 2026-07-01** : le fond de
+> page est un **token appliqué par DÉFAUT au shell**, plus jamais par route.
+
+**4 fonds, jamais confondus** :
+| Token (utilitaire) | Rôle | Clair | Sombre |
+|---|---|---|---|
+| `--page` (`bg-page`) | **Fond de page** du contenu = `<main>` du shell, **TOUTE page** | `#f9fafb` | `#0d1117` |
+| `--card` (`bg-card`) | **Surface** : cartes, topbar, popovers, champs blancs | `#ffffff` | `#161b22` |
+| `--canvas` (`bg-canvas`) | Panneau A4 du **CTD builder** uniquement | `#eef1f6` | `#010409` |
+| `--sidebar` | Barre latérale (identité navy) | `#0a1628` | `#010409` |
+
+**Règles (non négociables) :**
+1. **`--page` ≠ `--card`** — c'est ce contraste qui fait ressortir les cartes. Ne JAMAIS les rendre
+   égaux (le bug était `--background` == `--card` == blanc en clair).
+2. Le fond de page vit **au shell** (`<main>` = `bg-page`), **jamais** posé par une page ni par une
+   liste de routes. Une page ne pose un fond propre QUE si c'est une surface document (builder `--canvas`).
+3. **Interdit : `bg-[#hex]` / couleur en dur** dans le code app (invisible en dark, source de dérive).
+   **Tokens uniquement.** (C'est ce hex magique qui a permis le bricolage par route.)
+
 ## Primitives livrées (`web/src/components/ui/`)
 | Primitive | Rôle |
 |---|---|

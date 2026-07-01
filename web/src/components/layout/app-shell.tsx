@@ -122,13 +122,6 @@ export function AppShell() {
   // place maximale pour la feuille). Réouverture manuelle possible ; en quittant le montage,
   // retour à la préférence enregistrée.
   const inMontage = /^\/workspace\/[^/]+$/.test(location.pathname)
-  // Fond « canvas » gris premium (#f9fafb) — les surfaces de la DA où des cartes blanches doivent
-  // ressortir : Dashboard + tout le Catalogue (liste Produits, wizard de création, fiche cockpit).
-  const onCanvas =
-    location.pathname.startsWith('/dashboard') ||
-    location.pathname.startsWith('/catalogue') ||
-    location.pathname === '/workspace' || // board Opérations : cartes blanches sur canvas gris
-    location.pathname === '/workspace/nouveau' // assistant de création (cartes sur canvas ; ≠ builder/aperçu)
   useEffect(() => {
     // Synchronisation pilotée par la route — exception légitime à set-state-in-effect.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -616,12 +609,11 @@ export function AppShell() {
             ajoute son propre `pt-*` si elle veut de la respiration (sans barre sticky). */}
         <main
           tabIndex={0}
-          className={cn(
-            'min-w-0 flex-1 overflow-auto px-4 pb-4 md:px-6 md:pb-6',
-            // Dashboard : fond « canvas » gris clair (mockup gray50 #f9fafb) → les cartes blanches
-            // ressortent avec leurs ombres/hover. En sombre : transparent → canvas GitHub du parent.
-            onCanvas && 'bg-[#f9fafb] dark:bg-transparent',
-          )}
+          // Fond de PAGE canonique de la DA (token `--page` : #f9fafb clair / #0d1117 sombre = le
+          // `body` du mockup validé) appliqué à TOUTE page → les cartes blanches ressortent partout.
+          // Remplace l'ancienne liste `onCanvas` par route (source des oublis de fond). Les surfaces
+          // à leur propre fond (builder `--canvas`, aperçu PDF) le recouvrent intégralement.
+          className="bg-page min-w-0 flex-1 overflow-auto px-4 pb-4 md:px-6 md:pb-6"
         >
           <HeaderSlotContext.Provider value={setHeaderSlot}>
             <TopbarConfigContext.Provider value={setTopbar}>

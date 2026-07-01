@@ -41,6 +41,12 @@
   /* Fond du panneau central du CTD builder (mockup `--bg`) : gris-bleu clair sur lequel
      ressortent les feuilles A4 blanches. Distinct de --background (blanc pur). */
   --canvas: #eef1f6;
+  /* FOND DE PAGE canonique du contenu (= `body` du mockup validé `Pharnos_Dashboard.html`,
+     `background: --g50`). Distinct de --background (#fff, réservé aux surfaces blanches/champs) :
+     c'est le contraste page(#f9fafb) / carte(blanc) qui fait « ressortir » les cartes. Appliqué au
+     <main> du shell pour TOUTE page (plus de liste par route). En sombre = --background (#0d1117 ≠
+     carte #161b22 → contraste déjà correct, d'où l'absence de bug en sombre). */
+  --page: var(--gray-50);
   --secondary: var(--gray-100);
   --secondary-foreground: var(--gray-900);
   /* --muted ET --accent = g50 (pas g100) : `text-muted-foreground` (g500) sur ces fonds doit passer
@@ -107,6 +113,8 @@
      foncée que le shell #0d1117 ET que les cartes #161b22 → le canevas se détache et les feuilles
      A4 ressortent (miroir du gris-bleu clair du mode clair, qui est distinct du blanc du shell). */
   --canvas: #010409;
+  /* Fond de page en sombre = le fond GitHub (#0d1117) : ≠ carte #161b22 → cartes déjà contrastées. */
+  --page: var(--background);
   --secondary: #21262d;
   --secondary-foreground: #e6edf3;
   --muted: #21262d;
@@ -208,6 +216,7 @@
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
   --color-canvas: var(--canvas);
+  --color-page: var(--page);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
