@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { FileStack, FolderPlus } from 'lucide-react'
+import { Eye, FileStack, FolderPlus, Pencil, Route } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -209,7 +209,7 @@ export function WorkspacePage() {
       rows={visible}
       view={view}
       now={now.getTime()}
-      onOpenBuilder={(id) => navigate(`/workspace/${id}/apercu`)}
+      onOpenDossier={(id) => navigate(`/workspace/${id}/roadmap`)}
       onDelete={handleDelete}
       onArchive={handleArchive}
       onRestore={handleRestore}
@@ -465,12 +465,12 @@ function ProcChip({
   )
 }
 
-// ───────────────────────── Table dense (clic ligne → CTD Builder) ─────────────────────────
+// ───────────────────────── Table dense (clic ligne → Roadmap/statut) ─────────────────────────
 function OperationsTable({
   rows,
   view,
   now,
-  onOpenBuilder,
+  onOpenDossier,
   onDelete,
   onArchive,
   onRestore,
@@ -478,7 +478,7 @@ function OperationsTable({
   rows: OpsRow[]
   view: 'active' | 'archived'
   now: number
-  onOpenBuilder: (id: string) => void
+  onOpenDossier: (id: string) => void
   onDelete: (id: string, reason: string) => Promise<void>
   onArchive: (id: string, reason: string) => Promise<void>
   onRestore: (id: string) => Promise<void>
@@ -526,7 +526,7 @@ function OperationsTable({
           return (
             <tr
               key={d.id}
-              onClick={() => onOpenBuilder(d.id)}
+              onClick={() => onOpenDossier(d.id)}
               className="group hover:bg-accent/50 cursor-pointer border-b transition-colors last:border-0"
             >
               <td className="py-2.5 pr-1 pl-3 align-middle">
@@ -540,7 +540,7 @@ function OperationsTable({
               </td>
               <td className="min-w-0 px-3 py-2.5 align-middle">
                 <Link
-                  to={`/workspace/${d.id}/apercu`}
+                  to={`/workspace/${d.id}/roadmap`}
                   onClick={(e) => e.stopPropagation()}
                   className="font-display hover:text-info text-sm font-semibold"
                 >
@@ -597,25 +597,67 @@ function OperationsTable({
                 className="py-2.5 pr-2 pl-1 text-right align-middle opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
                 onClick={(e) => e.stopPropagation()}
               >
-                {view === 'archived' ? (
-                  <DossierAction
-                    mode="restore"
-                    name={d.productName}
-                    onConfirm={() => onRestore(d.id)}
-                  />
-                ) : r.status !== 'draft' ? (
-                  <DossierAction
-                    mode="archive"
-                    name={d.productName}
-                    onConfirm={(reason) => onArchive(d.id, reason)}
-                  />
-                ) : (
-                  <DossierAction
-                    mode="delete"
-                    name={d.productName}
-                    onConfirm={(reason) => onDelete(d.id, reason)}
-                  />
-                )}
+                <div className="flex items-center justify-end gap-0.5">
+                  {/* Le clic ligne mène au Roadmap. On affiche AUSSI les raccourcis explicites (sinon
+                      l'utilisateur pourrait croire que seules ces actions existent) : Statut · Aperçu
+                      (mis en évidence en accent) · Modifier. Puis Archiver/Supprimer. */}
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="icon"
+                    aria-label={t({ fr: 'Statut', en: 'Status' })}
+                  >
+                    <Link
+                      to={`/workspace/${d.id}/roadmap`}
+                      title={t({ fr: 'Statut', en: 'Status' })}
+                    >
+                      <Route className="size-4" />
+                    </Link>
+                  </Button>
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="icon"
+                    className="text-info hover:text-info hover:bg-info-subtle"
+                    aria-label={t({ fr: 'Aperçu', en: 'Preview' })}
+                  >
+                    <Link
+                      to={`/workspace/${d.id}/apercu`}
+                      title={t({ fr: 'Aperçu', en: 'Preview' })}
+                    >
+                      <Eye className="size-4" />
+                    </Link>
+                  </Button>
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="icon"
+                    aria-label={t({ fr: 'Modifier', en: 'Edit' })}
+                  >
+                    <Link to={`/workspace/${d.id}`} title={t({ fr: 'Modifier', en: 'Edit' })}>
+                      <Pencil className="size-4" />
+                    </Link>
+                  </Button>
+                  {view === 'archived' ? (
+                    <DossierAction
+                      mode="restore"
+                      name={d.productName}
+                      onConfirm={() => onRestore(d.id)}
+                    />
+                  ) : r.status !== 'draft' ? (
+                    <DossierAction
+                      mode="archive"
+                      name={d.productName}
+                      onConfirm={(reason) => onArchive(d.id, reason)}
+                    />
+                  ) : (
+                    <DossierAction
+                      mode="delete"
+                      name={d.productName}
+                      onConfirm={(reason) => onDelete(d.id, reason)}
+                    />
+                  )}
+                </div>
               </td>
             </tr>
           )

@@ -40,7 +40,8 @@ async function createDossier(page: Page): Promise<string> {
   await page.getByRole('button', { name: 'Continuer' }).click()
   await page.getByRole('button', { name: 'Continuer' }).click()
   await page.getByRole('button', { name: 'Créer le dossier' }).click()
-  await page.waitForURL(/\/workspace\/[^/]+\/roadmap$/)
+  // La création amène au MONTAGE (l'espace de travail), plus à la Roadmap (cockpit de statut à la demande).
+  await page.waitForURL(/\/workspace\/[^/]+$/)
   return nom
 }
 
@@ -50,16 +51,15 @@ test('montage : la route workspace (code-splittée) se rend hors-ligne après pr
 }) => {
   const nom = await createDossier(page)
 
-  // Clic ligne → page d'aperçu, puis « Modifier » → vue de montage (chunk DossierWorkspacePage).
+  // Clic ligne (nom du produit) → Roadmap (statut), puis « Accéder à l'espace de montage » → montage.
   await page.goto('/workspace')
   await page
     .getByRole('row', { name: new RegExp(nom) })
     .first()
-    .getByRole('link')
-    .first()
+    .getByRole('link', { name: new RegExp(nom) })
     .click()
-  await page.waitForURL(/\/workspace\/[^/]+\/apercu$/)
-  await page.getByRole('link', { name: 'Modifier' }).click()
+  await page.waitForURL(/\/workspace\/[^/]+\/roadmap$/)
+  await page.getByRole('button', { name: "Accéder à l'espace de montage" }).click()
   await page.waitForURL(/\/workspace\/[^/]+$/)
   const corrButton = page.getByRole('banner').getByRole('button', { name: 'Correspondance' })
   await expect(corrButton).toBeVisible()
@@ -89,11 +89,10 @@ test('< lg : montage en disposition tablette (actions dans la barre d’onglets 
   await page
     .getByRole('row', { name: new RegExp(nom) })
     .first()
-    .getByRole('link')
-    .first()
+    .getByRole('link', { name: new RegExp(nom) })
     .click()
-  await page.waitForURL(/\/workspace\/[^/]+\/apercu$/)
-  await page.getByRole('link', { name: 'Modifier' }).click()
+  await page.waitForURL(/\/workspace\/[^/]+\/roadmap$/)
+  await page.getByRole('button', { name: "Accéder à l'espace de montage" }).click()
   await page.waitForURL(/\/workspace\/[^/]+$/)
 
   // Actions du document = barre d'outils HORIZONTALE dans la barre d'onglets (≠ ancien rail vertical).

@@ -30,7 +30,8 @@ async function createDossier(page: Page): Promise<string> {
   await page.getByRole('button', { name: 'Continuer' }).click()
   await page.getByRole('button', { name: 'Continuer' }).click()
   await page.getByRole('button', { name: 'Créer le dossier' }).click()
-  await page.waitForURL(/\/workspace\/[^/]+\/roadmap$/)
+  // La création amène au MONTAGE (l'espace de travail), plus à la Roadmap (cockpit de statut à la demande).
+  await page.waitForURL(/\/workspace\/[^/]+$/)
   return nom
 }
 
@@ -61,12 +62,11 @@ test('panneau Correspondance : accessible depuis le bandeau du dossier (état vi
   await page.goto('/workspace')
   await page
     .getByRole('row', { name: new RegExp(nom) })
-    .getByRole('link')
-    .first()
+    .getByRole('link', { name: new RegExp(nom) })
     .click()
-  // Clic ligne → aperçu, puis « Modifier » → CTD Builder (qui porte le bandeau Correspondance).
-  await page.waitForURL(/\/workspace\/[^/]+\/apercu$/)
-  await page.getByRole('link', { name: 'Modifier' }).click()
+  // Clic ligne → Roadmap (statut), puis « Accéder à l'espace de montage » → CTD Builder (bandeau Correspondance).
+  await page.waitForURL(/\/workspace\/[^/]+\/roadmap$/)
+  await page.getByRole('button', { name: "Accéder à l'espace de montage" }).click()
   await page.waitForURL(/\/workspace\/[^/]+$/)
 
   // Banner uniquement : l'arborescence du dossier contient aussi « 1.1 Correspondance ».

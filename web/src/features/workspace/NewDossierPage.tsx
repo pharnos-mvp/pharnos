@@ -190,7 +190,9 @@ export function NewDossierPage() {
       })
       void syncDossiers(orgId)
       toast.success(t({ fr: 'Dossier créé', en: 'Dossier created' }))
-      navigate(`/workspace/${dossier.id}/roadmap`)
+      // La création amène directement au MONTAGE (le 1er vrai travail). La Roadmap est le cockpit de
+      // STATUT, atteint à la demande (survol du board / en-tête builder) — pas un préalable au montage.
+      navigate(`/workspace/${dossier.id}`)
     } catch (error) {
       toast.error(t({ fr: 'Échec de la création', en: 'Creation failed' }), {
         description: error instanceof Error ? error.message : undefined,
