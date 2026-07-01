@@ -291,7 +291,7 @@ export function RoadmapPage() {
       <section>
         <SectionTag
           icon={Route}
-          label={t({ fr: 'Le parcours · suivi en temps réel', en: 'The path · live tracking' })}
+          label={t({ fr: 'Le parcours · où en est le dossier', en: 'The path · where it stands' })}
         />
         <div className="bg-card rounded-xl border p-4 sm:p-5">
           {/* 7 étapes : scroll horizontal sous sm (sinon labels coupés), flex-1 qui remplit dès sm. */}
@@ -395,8 +395,8 @@ export function RoadmapPage() {
           <SectionTag
             icon={History}
             label={t({
-              fr: 'Journal · chaque partie suit en temps réel',
-              en: 'Journal · every party tracks live',
+              fr: 'Historique · qui a fait quoi, et quand',
+              en: 'History · who did what, and when',
             })}
           />
           <div className="bg-card rounded-xl border p-5">
@@ -407,6 +407,7 @@ export function RoadmapPage() {
                   key={`past-${i}`}
                   state="done"
                   label={journalLabel(entry, lang)}
+                  actor={t(entry.actor)}
                   date={formatDate(entry.at, lang)}
                 />
               ))}
@@ -415,6 +416,7 @@ export function RoadmapPage() {
                   key={`next-${stage.id}`}
                   state={stage.status === 'current' ? 'current' : 'future'}
                   label={t(STAGE_DEF[stage.id].label)}
+                  actor={t(STAGE_DEF[stage.id].actor)}
                   date={
                     stage.status === 'current'
                       ? t({ fr: 'en cours', en: 'in progress' })
@@ -545,10 +547,13 @@ const JOURNAL_DOT: Record<'done' | 'current' | 'future', string> = {
 function JournalRow({
   state,
   label,
+  actor,
   date,
 }: {
   state: 'done' | 'current' | 'future'
   label: string
+  /** « Qui a fait quoi » (Labo / Agent local → Agence / Système…) — restauré du mockup validé. */
+  actor: string
   date: string
 }) {
   return (
@@ -560,7 +565,9 @@ function JournalRow({
         )}
       />
       <div className={cn(state === 'future' && 'text-muted-foreground')}>{label}</div>
-      <div className="text-muted-foreground text-[11px]">{date}</div>
+      <div className="text-muted-foreground text-[11px]">
+        {actor} · {date}
+      </div>
     </div>
   )
 }

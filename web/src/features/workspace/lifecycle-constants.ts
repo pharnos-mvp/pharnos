@@ -130,6 +130,8 @@ export interface LifecycleJournalEntry {
   outcome?: StageOutcome
   /** Origine de l'entrée (le journal fusionne 3 sources). */
   source: 'dossier' | 'correspondence' | 'event'
+  /** « Qui a fait quoi » : acteur/direction de l'entrée (Labo/Agent local/Agence/Système). */
+  actor: Translatable
 }
 
 const JOURNAL_LABELS: Record<LifecycleJournalKey, Translatable> = {
@@ -176,6 +178,28 @@ export function journalLabel(
     return DECISION_OUTCOME_LABELS[entry.outcome as 'accepted' | 'suspended' | 'rejected'][lang]
   }
   return (JOURNAL_LABELS[entry.key] ?? JOURNAL_LABELS.montage)[lang]
+}
+
+/** « Qui a fait quoi » par entrée de journal (acteur/direction, calque du mockup validé). */
+const SYSTEME: Translatable = { fr: 'Système', en: 'System' }
+const JOURNAL_ACTOR: Record<LifecycleJournalKey, Translatable> = {
+  montage: { fr: 'Labo', en: 'Lab' },
+  review_sent: { fr: 'Labo → Agent local', en: 'Lab → Local agent' },
+  decision: { fr: 'Agent local', en: 'Local agent' },
+  deposited: { fr: 'Agent local → Agence', en: 'Local agent → Agency' },
+  submitted: { fr: 'Agent local → Agence', en: 'Local agent → Agency' },
+  authority_query: { fr: 'Agence → Labo', en: 'Agency → Lab' },
+  authority_response: { fr: 'Labo → Agence', en: 'Lab → Agency' },
+  amm_granted: { fr: 'Agence nat.', en: 'Nat. agency' },
+  amm_refused: { fr: 'Agence nat.', en: 'Nat. agency' },
+  samples_requested: { fr: 'Agence → Labo', en: 'Agency → Lab' },
+  samples_import_authorized: { fr: 'Agence nat.', en: 'Nat. agency' },
+  samples_shipped: { fr: 'Labo → Agent local', en: 'Lab → Local agent' },
+  samples_delivered: { fr: 'Agent local → Agence', en: 'Local agent → Agency' },
+  fees_invoiced: { fr: 'Agence → Labo', en: 'Agency → Lab' },
+  payment_submitted: { fr: 'Labo → Agence', en: 'Lab → Agency' },
+  payment_confirmed: { fr: 'Agence nat.', en: 'Nat. agency' },
+  reminder_sent: SYSTEME,
 }
 
 /** Libellé COURT d'une issue (pastille d'étape Décision/AMM) : Accepté/Suspendu/Rejeté/Accordée/Refusée. */
@@ -376,16 +400,24 @@ function buildJournal(
   decision: { status: 'accepted' | 'suspended' | 'rejected'; at: string } | null,
 ): LifecycleJournalEntry[] {
   const entries: LifecycleJournalEntry[] = [
-    { at: input.dossierCreatedAt, key: 'montage', source: 'dossier' },
+    { at: input.dossierCreatedAt, key: 'montage', source: 'dossier', actor: JOURNAL_ACTOR.montage },
   ]
   const reviewAt = firstCorrespondenceAt(input.dossierId, input.correspondences)
-  if (reviewAt) entries.push({ at: reviewAt, key: 'review_sent', source: 'correspondence' })
+  if (reviewAt) {
+    entries.push({
+      at: reviewAt,
+      key: 'review_sent',
+      source: 'correspondence',
+      actor: JOURNAL_ACTOR.review_sent,
+    })
+  }
   if (decision) {
     entries.push({
       at: decision.at,
       key: 'decision',
       outcome: decision.status,
       source: 'correspondence',
+      actor: JOURNAL_ACTOR.decision,
     })
   }
   for (const e of events) {
@@ -395,6 +427,8 @@ function buildJournal(
       outcome:
         e.type === 'amm_granted' ? 'granted' : e.type === 'amm_refused' ? 'refused' : undefined,
       source: 'event',
+      // Un événement 'system' (relance auto M6) l'emporte sur l'acteur par défaut du type.
+      actor: e.actorId === 'system' ? SYSTEME : (JOURNAL_ACTOR[e.type] ?? SYSTEME),
     })
   }
   return entries.sort((a, b) => a.at.localeCompare(b.at))
