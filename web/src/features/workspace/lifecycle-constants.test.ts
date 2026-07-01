@@ -223,6 +223,33 @@ describe('deriveLifecycle — robustesse (personas + règles ADR-0003)', () => {
   })
 })
 
+describe('journal — acteur « qui a fait quoi » (restauré du mockup)', () => {
+  it('chaque entrée porte un acteur (Labo / Agent local → Agence / Agence nat.)', () => {
+    const st = derive({
+      correspondences: [corr({ status: 'accepted', decidedAt: '2026-06-05T00:00:00.000Z' })],
+      events: [
+        ev({ id: 'e1', type: 'deposited', occurredAt: '2026-06-08T00:00:00.000Z' }),
+        ev({ id: 'e2', type: 'amm_granted', occurredAt: '2026-09-01T00:00:00.000Z' }),
+      ],
+    })
+    const actorOf = (key: string) => st.journal.find((j) => j.key === key)?.actor.fr
+    expect(actorOf('montage')).toBe('Labo')
+    expect(actorOf('review_sent')).toBe('Labo → Agent local')
+    expect(actorOf('decision')).toBe('Agent local')
+    expect(actorOf('deposited')).toBe('Agent local → Agence')
+    expect(actorOf('amm_granted')).toBe('Agence nat.')
+  })
+
+  it('un événement acteur=system (relance auto) → « Système » quel que soit le type', () => {
+    const st = derive({
+      events: [
+        ev({ type: 'reminder_sent', actorId: 'system', occurredAt: '2026-06-20T00:00:00.000Z' }),
+      ],
+    })
+    expect(st.journal.find((j) => j.key === 'reminder_sent')?.actor.fr).toBe('Système')
+  })
+})
+
 describe('libellés', () => {
   it('journalLabel — décision selon l’issue + repli', () => {
     expect(journalLabel({ key: 'decision', outcome: 'accepted' })).toBe('Dossier accepté')
