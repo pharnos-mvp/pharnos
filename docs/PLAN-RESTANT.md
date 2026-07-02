@@ -64,6 +64,11 @@ Tout **H → M (+O)** est en prod. **Depuis le 2026-06-16** :
   `deriveLifecycle` 7 étapes + Roadmap parcours du dossier + actions Labo. **Workflow complet validé CEO
   2026-07-02** → jalons M3→M8 ordonnancés dans [PLAN-LIFECYCLE.md](PLAN-LIFECYCLE.md) §5 et intégrés à la
   ligne droite [PLAN-LANCEMENT.md](PLAN-LANCEMENT.md) (PHASE C′, fusion relances/agent dans LOT 10).
+  **+ 🆕 CS1 « Collaboration compte-à-compte scopée au dossier » validée CEO 2026-07-02** (audit multi-org :
+  multi-appartenance OK mais pas de sélecteur d'org, quotas `caller_org_id()` à corriger, pas d'ACL fine) →
+  périmètre par membre (dossiers/pays/produits, couche SUIVI, fail-safe) + sélecteur d'org + fix quotas,
+  **insérée entre M4 et M5** ; phase 2 (éditeurs scopés, KPIs par agent) = post-GO-LIVE. Spec :
+  [PLAN-LIFECYCLE.md](PLAN-LIFECYCLE.md) §5-bis.
 
 **Santé** : ~441 vitest + e2e Playwright, CI 6/6, `npm audit` 0 vuln, advisors **0 ERROR**, budget tenu, backups
 chiffrés + restore drill, uptime + alertes, **0 €**. Clé `age` rangée hors-ligne (2026-06-20).
