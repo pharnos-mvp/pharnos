@@ -17,13 +17,13 @@ import { cn } from '@/lib/utils'
 import { countryLabel } from './dossier-constants'
 import { deadlineLabel, relativeTime } from './format-time'
 
-// Filtre PAR STATUT de correspondance (mockup v2 : Tous/Accepté/Review/En suspens/Rejeté).
+// Filtre PAR STATUT de correspondance (mockup v2 : Tous/Accepté/Review/Complément/Rejeté).
 type FilterKey = 'all' | DossierDisplayStatus
 const FILTERS: { key: FilterKey; label: Translatable }[] = [
   { key: 'all', label: { fr: 'Tous', en: 'All' } },
   { key: 'accepted', label: { fr: 'Accepté', en: 'Granted' } },
   { key: 'in_review', label: { fr: 'Review', en: 'Review' } },
-  { key: 'suspended', label: { fr: 'En suspens', en: 'On hold' } },
+  { key: 'suspended', label: { fr: 'Complément', en: 'Info required' } },
   { key: 'rejected', label: { fr: 'Rejeté', en: 'Rejected' } },
 ]
 

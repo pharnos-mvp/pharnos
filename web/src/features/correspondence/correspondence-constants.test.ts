@@ -67,7 +67,7 @@ describe('statusLabel (libellés CEO)', () => {
     expect(statusLabel('draft')).toBe('Draft')
     expect(statusLabel('in_review')).toBe('En review')
     expect(statusLabel('accepted')).toBe('Accepté')
-    expect(statusLabel('suspended')).toBe('En suspens')
+    expect(statusLabel('suspended')).toBe('Complément requis')
     expect(statusLabel('rejected')).toBe('Rejeté')
     expect(statusLabel('inconnu')).toBe('Draft')
   })

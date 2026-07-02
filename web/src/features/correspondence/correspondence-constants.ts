@@ -3,7 +3,9 @@ import type { Lang, Translatable } from '@/lib/i18n-context'
 
 /**
  * Statuts du flux Correspondance (jalon H) — libellés métier validés par le brief CEO :
- * Draft / En review / Accepté / En suspens / Rejeté.
+ * Draft / En review / Accepté / Complément requis / Rejeté.
+ * (« Complément requis » remplace « En suspens » — nom tranché CEO 2026-07-02, M4 ; le code
+ * de statut `suspended` reste inchangé : journal/API immuables, seul l'affichage change.)
  */
 
 export type DossierDisplayStatus = 'draft' | CorrespondenceStatus
@@ -20,7 +22,7 @@ const STATUS_LABELS: Record<DossierDisplayStatus, Translatable> = {
   draft: { fr: 'Draft', en: 'Draft' },
   in_review: { fr: 'En review', en: 'In review' },
   accepted: { fr: 'Accepté', en: 'Accepted' },
-  suspended: { fr: 'En suspens', en: 'Suspended' },
+  suspended: { fr: 'Complément requis', en: 'Additional info required' },
   rejected: { fr: 'Rejeté', en: 'Rejected' },
 }
 
@@ -56,7 +58,7 @@ export const statusBadgeClass = (s: string): string =>
 /** Libellés des décisions du reviewer (page publique + fil). */
 export const DECISION_LABELS: Record<Exclude<CorrespondenceStatus, 'in_review'>, Translatable> = {
   accepted: { fr: 'Dossier accepté', en: 'Dossier accepted' },
-  suspended: { fr: 'Dossier mis en suspens', en: 'Dossier suspended' },
+  suspended: { fr: 'Complément requis', en: 'Additional info required' },
   rejected: { fr: 'Dossier rejeté', en: 'Dossier rejected' },
 }
 

@@ -42,13 +42,15 @@ export interface LifecycleAction {
   form: LifecycleActionForm
 }
 
+// Réalignement M4 (workflow CEO) : Dépôt = réception confirmée par l'agent local ;
+// Soumission = dépôt du dossier à l'agence nationale. Types d'événement inchangés.
 const DEPOSIT: LifecycleAction = {
   id: 'deposit',
   type: 'deposited',
-  label: { fr: 'Transmettre à l’agence nationale', en: 'Forward to the national agency' },
+  label: { fr: 'Confirmer la réception par l’agent', en: 'Confirm receipt by the agent' },
   prompt: {
-    fr: 'Confirmer le dépôt du dossier auprès de l’agence nationale ? Cette action est journalisée.',
-    en: 'Confirm the dossier was deposited at the national agency? This action is logged.',
+    fr: 'Confirmer que l’agent local a bien reçu le dossier ? Cette action est journalisée.',
+    en: 'Confirm the local agent received the dossier? This action is logged.',
   },
   variant: 'primary',
   form: 'confirm',
@@ -59,8 +61,8 @@ const SUBMIT: LifecycleAction = {
   type: 'submitted',
   label: { fr: 'Marquer comme soumis', en: 'Mark as submitted' },
   prompt: {
-    fr: 'Enregistrer la soumission à l’autorité.',
-    en: 'Record the submission to the authority.',
+    fr: 'Enregistrer le dépôt du dossier à l’agence nationale.',
+    en: 'Record the filing of the dossier with the national agency.',
   },
   variant: 'primary',
   form: 'submit',

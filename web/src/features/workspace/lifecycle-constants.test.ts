@@ -115,7 +115,7 @@ describe('deriveLifecycle — la spine (étape courante + avancement)', () => {
     expect(st.progress.done).toBe(5)
   })
 
-  it('décision suspendue → bloqué à Décision (2/7), badge En suspens', () => {
+  it('décision suspendue → bloqué à Décision (2/7), badge Complément requis', () => {
     const st = derive({
       correspondences: [corr({ status: 'suspended', decidedAt: '2026-06-05T00:00:00.000Z' })],
     })
@@ -236,7 +236,7 @@ describe('journal — acteur « qui a fait quoi » (restauré du mockup)', () =>
     expect(actorOf('montage')).toBe('Labo')
     expect(actorOf('review_sent')).toBe('Labo → Agent local')
     expect(actorOf('decision')).toBe('Agent local')
-    expect(actorOf('deposited')).toBe('Agent local → Agence')
+    expect(actorOf('deposited')).toBe('Agent local')
     expect(actorOf('amm_granted')).toBe('Agence nat.')
   })
 
@@ -251,10 +251,14 @@ describe('journal — acteur « qui a fait quoi » (restauré du mockup)', () =>
 })
 
 describe('libellés', () => {
-  it('journalLabel — décision selon l’issue + repli', () => {
+  it('journalLabel — décision selon l’issue + repli (réalignement M4 : Dépôt = réception agent)', () => {
     expect(journalLabel({ key: 'decision', outcome: 'accepted' })).toBe('Dossier accepté')
-    expect(journalLabel({ key: 'decision', outcome: 'suspended' }, 'en')).toBe('Dossier suspended')
-    expect(journalLabel({ key: 'deposited' })).toBe('Déposé à l’agence nationale')
+    expect(journalLabel({ key: 'decision', outcome: 'suspended' })).toBe('Complément requis')
+    expect(journalLabel({ key: 'decision', outcome: 'suspended' }, 'en')).toBe(
+      'Additional info required',
+    )
+    expect(journalLabel({ key: 'deposited' })).toBe('Réception confirmée par l’agent local')
+    expect(journalLabel({ key: 'submitted' })).toBe('Déposé à l’agence nationale')
     expect(journalLabel({ key: 'reminder_sent' }, 'en')).toBe('Automatic reminder')
   })
 
@@ -262,12 +266,41 @@ describe('libellés', () => {
     expect(lifecycleStatusLabel('submitting')).toBe('En soumission')
     expect(lifecycleStatusLabel('amm_granted', 'en')).toBe('MA granted')
     expect(lifecycleStatusLabel('montage')).toBe('En montage')
+    expect(lifecycleStatusLabel('suspended')).toBe('Complément requis')
   })
 
   it('stageOutcomeLabel — issues courtes (décision + AMM)', () => {
     expect(stageOutcomeLabel('accepted')).toBe('Accepté')
-    expect(stageOutcomeLabel('suspended')).toBe('Suspendu')
+    expect(stageOutcomeLabel('suspended')).toBe('Complément')
     expect(stageOutcomeLabel('granted', 'en')).toBe('Granted')
     expect(stageOutcomeLabel('refused')).toBe('Refusée')
+  })
+})
+
+describe('buildJournal — déterminisme (minors M2 soldés en M4-T1)', () => {
+  it('tie-break à horodatage égal : amont (dossier < correspondance < événement) avant aval', () => {
+    const AT = '2026-06-05T12:00:00.000Z'
+    const st = derive({
+      dossierCreatedAt: AT,
+      correspondences: [corr({ createdAt: AT, status: 'accepted', decidedAt: AT })],
+      events: [ev({ id: 'e1', type: 'deposited', occurredAt: AT })],
+    })
+    expect(st.journal.map((j) => j.key)).toEqual([
+      'montage',
+      'review_sent',
+      'decision',
+      'deposited',
+    ])
+  })
+
+  it('chaque entrée porte une identité stable (id) — clés React sans index', () => {
+    const st = derive({
+      correspondences: [corr({ status: 'accepted', decidedAt: '2026-06-05T00:00:00.000Z' })],
+      events: [ev({ id: 'e1', type: 'deposited', occurredAt: '2026-06-08T00:00:00.000Z' })],
+    })
+    const ids = st.journal.map((j) => j.id)
+    expect(ids).toContain('montage')
+    expect(ids).toContain('e1')
+    expect(new Set(ids).size).toBe(ids.length)
   })
 })

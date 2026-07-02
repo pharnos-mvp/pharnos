@@ -59,7 +59,12 @@ const KIND_BADGE: Record<ActionKind, { cls: string; Icon: LucideIcon; fr: string
   doc_expired: { cls: 'badge-red', Icon: AlertTriangle, fr: 'Expirant', en: 'Expiring' },
   non_conform: { cls: 'badge-red', Icon: AlertCircle, fr: 'Non conforme', en: 'Non-compliant' },
   doc_expiring: { cls: 'badge-amber', Icon: RefreshCw, fr: 'Renouvellement', en: 'Renewal' },
-  dossier_suspended: { cls: 'badge-amber', Icon: PauseCircle, fr: 'En suspens', en: 'Suspended' },
+  dossier_suspended: {
+    cls: 'badge-amber',
+    Icon: PauseCircle,
+    fr: 'Complément requis',
+    en: 'Additional info required',
+  },
   unread_reply: { cls: 'badge-blue', Icon: Mail, fr: 'Réponse agence', en: 'Agency reply' },
   agency_pending: { cls: 'badge-blue', Icon: Clock, fr: 'En attente', en: 'Pending' },
 }

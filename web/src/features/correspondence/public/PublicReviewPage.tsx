@@ -65,7 +65,12 @@ const DECISION_OPTIONS: {
   icon: typeof Check
 }[] = [
   { value: 'accepted', label: { fr: 'Accepter', en: 'Accept' }, icon: Check },
-  { value: 'suspended', label: { fr: 'Suspendre', en: 'Suspend' }, icon: PauseCircle },
+  // « Complément requis » (nom CEO, M4) : le verbe de l'action du reviewer s'aligne sur le statut.
+  {
+    value: 'suspended',
+    label: { fr: 'Demander un complément', en: 'Request additional info' },
+    icon: PauseCircle,
+  },
   { value: 'rejected', label: { fr: 'Rejeter', en: 'Reject' }, icon: XCircle },
 ]
 

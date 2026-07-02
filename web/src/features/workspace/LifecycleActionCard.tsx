@@ -332,6 +332,7 @@ export function LifecycleActionCard({
                       id="lc-valid"
                       type="date"
                       value={validUntil}
+                      min={occurredOn || TODAY()}
                       onChange={(e) => setValidUntil(e.target.value)}
                     />
                   </Field>
@@ -514,13 +515,13 @@ function stageDescription(
   switch (stage) {
     case 'depot':
       return t({
-        fr: 'Le dossier est accepté. Transmettez-le à l’agence nationale pour dépôt.',
-        en: 'The dossier is accepted. Forward it to the national agency for filing.',
+        fr: 'Le dossier est accepté. Confirmez sa réception par l’agent local.',
+        en: 'The dossier is accepted. Confirm the local agent received it.',
       })
     case 'soumission':
       return t({
-        fr: `Dossier déposé. Enregistrez la soumission à l’autorité (mode : ${submissionModeLabel(mode, lang)}).`,
-        en: `Dossier deposited. Record the submission to the authority (mode: ${submissionModeLabel(mode, lang)}).`,
+        fr: `Dossier reçu par l’agent. Enregistrez le dépôt à l’agence nationale (mode : ${submissionModeLabel(mode, lang)}).`,
+        en: `Dossier received by the agent. Record the filing with the national agency (mode: ${submissionModeLabel(mode, lang)}).`,
       })
     case 'notifications':
       return t({
