@@ -4,6 +4,7 @@ import {
   Ban,
   Copy,
   FolderOpen,
+  Gavel,
   History,
   Loader2,
   Lock,
@@ -20,6 +21,14 @@ import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -30,8 +39,9 @@ import { useCurrentOrg } from '@/features/org/use-current-org'
 import { canManageSubmission } from '@/features/team/team-api'
 import { downloadAttachmentBlob } from '@/features/workspace/dossier-attachments-sync'
 import { activityLabel, countryLabel } from '@/features/workspace/dossier-constants'
-import { db, type CorrespondenceRecord } from '@/lib/db'
+import { db, type CorrespondenceDecision, type CorrespondenceRecord } from '@/lib/db'
 import { useI18n, type Lang, type Translatable } from '@/lib/i18n-context'
+import { reportError } from '@/lib/sentry'
 import { getSupabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import './correspondence-chat.css'
@@ -41,6 +51,7 @@ import { statusLabel } from './correspondence-constants'
 import { countUnread, markConversationRead } from './correspondence-reads'
 import {
   appendSenderMessage,
+  decideCorrespondenceInApp,
   getShareLink,
   listByDossier,
   revokeCorrespondence,
@@ -220,6 +231,11 @@ export function CorrespondencePanel({
   const [sending, setSending] = useState(false)
   const [copied, setCopied] = useState(false)
   const [showAccess, setShowAccess] = useState(false)
+  // Décision in-app (M4-T3) : choix + note du gestionnaire, modale de confirmation.
+  const [decisionOpen, setDecisionOpen] = useState(false)
+  const [decisionChoice, setDecisionChoice] = useState<CorrespondenceDecision | null>(null)
+  const [decisionNote, setDecisionNote] = useState('')
+  const [deciding, setDeciding] = useState(false)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
   const [maximized, setMaximized] = useState(() => localStorage.getItem(SIZE_KEY) === '1')
@@ -314,6 +330,31 @@ export function CorrespondencePanel({
         en: 'Link revoked — the correspondent no longer has access.',
       }),
     )
+  }
+
+  // Décision in-app (gestionnaire) : miroir offline-first du chemin tokenisé — le fil reçoit la
+  // pastille décision, le statut dérivé du dossier suit, la sync pousse à la reconnexion.
+  async function handleDecide() {
+    if (!selected || !decisionChoice || deciding) return
+    setDeciding(true)
+    try {
+      await decideCorrespondenceInApp(selected.id, senderEmail, decisionChoice, decisionNote)
+      void syncCorrespondences(orgId)
+      toast.success(t({ fr: 'Décision enregistrée.', en: 'Decision recorded.' }))
+      setDecisionOpen(false)
+      setDecisionChoice(null)
+      setDecisionNote('')
+    } catch (error) {
+      reportError(error, { op: 'decideCorrespondenceInApp' })
+      toast.error(
+        t({
+          fr: 'Échec de l’enregistrement de la décision.',
+          en: 'Failed to record the decision.',
+        }),
+      )
+    } finally {
+      setDeciding(false)
+    }
   }
 
   function handleNew() {
@@ -479,6 +520,20 @@ export function CorrespondencePanel({
                       onClick={() => void handleRevoke()}
                     >
                       <Ban className="size-3.5" /> {t({ fr: 'Révoquer', en: 'Revoke' })}
+                    </Button>
+                  ) : null}
+                  {canSubmit && selected.status === 'in_review' ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setDecisionChoice(null)
+                        setDecisionNote('')
+                        setDecisionOpen(true)
+                      }}
+                    >
+                      <Gavel className="size-3.5" />{' '}
+                      {t({ fr: 'Rendre la décision', en: 'Record the decision' })}
                     </Button>
                   ) : null}
                 </div>
@@ -807,6 +862,82 @@ export function CorrespondencePanel({
           </div>
         ) : null}
       </div>
+
+      {/* Décision in-app (M4-T3) : Accepter / Demander un complément / Rejeter + note optionnelle. */}
+      <Dialog open={decisionOpen} onOpenChange={(o) => !o && !deciding && setDecisionOpen(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t({ fr: 'Rendre la décision', en: 'Record the decision' })}</DialogTitle>
+            <DialogDescription>
+              {t({
+                fr: 'La décision est ajoutée au fil (traçable) et le statut du dossier suit. Pour la réviser ensuite : « Renvoyer en revue ».',
+                en: 'The decision is added to the thread (traceable) and the dossier status follows. To revise it later: “Send back for review”.',
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            {/* Boutons-bascule (aria-pressed) plutôt qu'un faux radiogroup : la navigation
+                clavier native (Tab) reste correcte sans roving tabindex. */}
+            <div
+              className="flex flex-wrap gap-2"
+              role="group"
+              aria-label={t({ fr: 'Décision', en: 'Decision' })}
+            >
+              {(
+                [
+                  { value: 'accepted', label: { fr: 'Accepter', en: 'Accept' } },
+                  {
+                    value: 'suspended',
+                    label: { fr: 'Demander un complément', en: 'Request additional info' },
+                  },
+                  { value: 'rejected', label: { fr: 'Rejeter', en: 'Reject' } },
+                ] as const
+              ).map((o) => (
+                <Button
+                  key={o.value}
+                  aria-pressed={decisionChoice === o.value}
+                  variant={
+                    decisionChoice === o.value
+                      ? o.value === 'rejected'
+                        ? 'destructive'
+                        : 'primary'
+                      : 'outline'
+                  }
+                  size="sm"
+                  onClick={() => setDecisionChoice(o.value)}
+                >
+                  {t(o.label)}
+                </Button>
+              ))}
+            </div>
+            <textarea
+              value={decisionNote}
+              onChange={(e) => setDecisionNote(e.target.value)}
+              maxLength={2000}
+              rows={3}
+              placeholder={t({
+                fr: 'Note (facultatif) — ex. pièces attendues pour le complément…',
+                en: 'Note (optional) — e.g. documents expected for the request…',
+              })}
+              aria-label={t({ fr: 'Note de décision', en: 'Decision note' })}
+              className="border-input focus-visible:border-ring focus-visible:ring-ring/50 w-full resize-none rounded-md border bg-transparent p-2.5 text-sm outline-none focus-visible:ring-[3px]"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDecisionOpen(false)} disabled={deciding}>
+              {t({ fr: 'Annuler', en: 'Cancel' })}
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => void handleDecide()}
+              disabled={deciding || !decisionChoice}
+            >
+              {deciding ? <Loader2 className="size-4 animate-spin" /> : null}
+              {t({ fr: 'Confirmer', en: 'Confirm' })}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
