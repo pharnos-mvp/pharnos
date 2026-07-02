@@ -94,7 +94,7 @@ le portail, la langue, les délais, l'exigence d'agent/d'autorisation d'import s
 | **M0** ✅ | **Fondation** | migration `0047` (`lifecycle_events` + RLS append-only + pgTAP) ; Dexie mirror + sync + outbox ; `deriveLifecycle()` pur + tests ; config 10 pays ; ADR-0004 — **PROD (PR #272)** | **L** |
 | **M1** ✅ | **Roadmap (lecture)** | pipeline live + référence pays + journal + badge ; accès montage/aperçu ; clic dossier → Roadmap — **PROD (#273→#275)** | **M** |
 | **M2** ✅ | **Actions Labo** | carte actionnable → `appendLifecycleEvent` (Transmettre / Soumis / Notification / Réponse / AMM ±) ; Parcours vs Journal + acteur — **PROD (#277/#278)** | **M** |
-| **M3** | **Échantillons & Frais** | boutons Décision/Dépôt sur les événements déjà typés (`samples_requested/…/delivered`, `fees_invoiced`, `payment_submitted/confirmed`) + pièces (autorisation import, AWB, SWIFT) + récap 3 conditions **non bloquant** au Dépôt | **M** |
+| **M3** ✅ | **Échantillons & Frais** | panneau « Conditions de soumission » (accordéon compact, colonne à côté de l'étape en cours) sur les événements déjà typés (`samples_requested/…/delivered`, `fees_invoiced`, `payment_submitted/confirmed`) + pièces (autorisation import, LTA/AWB, SWIFT → `doc_refs`, bucket `documents`) + récap 3 conditions **non bloquant** à la Soumission + journal enrichi (détails payload, pièces consultables, tronqué à 6) — **front-only, zéro migration** | **M** |
 | **M4** | **Boucle Décision** | bouton **« Renvoyer en revue »** après Complément/Rejeté (comble le cul-de-sac du workflow) ; libellé `suspended` → **« Complément requis »** (code d'événement inchangé — journal immuable) ; réalignement libellés Dépôt (= réception confirmée par l'agent) / Soumission (= dépôt agence nationale) ; upload **preuve AMM** (docRefs) ; payload `via: agent\|direct` sur `authority_query` (cas CI) ; **+ décision Revue→Décision rendue POSSIBLE IN-APP pour les membres gestionnaires** (aujourd'hui la décision formelle passe par le lien tokenisé même pour un membre — trou identifié en revue 2026-07-02) | **M** |
 | **CS1** | **Collaboration compte-à-compte SCOPÉE au dossier** (validée CEO 2026-07-02) | périmètre par membre (couche SUIVI), sélecteur d'org, fix attribution quotas — **détail §5-bis** ; migration `0048` probable | **M/L** |
 | **M5** | **Relance manuelle (phase 1)** | badge « en attente depuis N jours » + bouton Relancer → `reminder_sent` (pur front). **Phase 2 (cron Edge + seuils par pays) = LOT 10** | **S** |
@@ -168,6 +168,14 @@ journalisé), contenu des dossiers **jamais** accessible.
 issue de l'audit multi-org (multi-appartenance OK, mais pas de sélecteur d'org, quotas `caller_org_id`
 à corriger, pas d'ACL fine — décision : périmètre par membre, couche suivi, fail-safe).
 
-**Prochaine tranche : M3 — Échantillons & Frais** (événements déjà en base depuis `0047`, front-only,
-valeur directe pour le pilote #1 Bénin). Puis **M4 → CS1 → M5 → M6** selon §5, le reste via LOT 10
+**M3 — Échantillons & Frais : LIVRÉ (2026-07-02)** — mockup compact validé GO CEO (layout 2 colonnes,
+accordéon 1 ligne/condition, journal tronqué — demande « page pas trop longue »), dérivation pure
+`deriveSubmissionConditions` (saisie tolérante monotone, chaîne échantillons conditionnée par
+`sampleImportAuthRequired`), pièces recommandées jamais obligatoires (upload en ligne seulement,
+événement journalisable hors-ligne sans pièce), récap non bloquant dans la modale Soumission,
+e2e navigateur `lifecycle-m3.spec.ts` (seed IDB). Revue code-reviewer : 1 Major corrigé
+(`triggerDownload` au lieu de `window.open` post-await — bloqueurs de pop-up).
+
+**Prochaine tranche : M4 — Boucle Décision** (+ solder les 3 minors M2 : tri `buildJournal`,
+`valid_until` sans min, clé React journal). Puis **CS1 → M5 → M6** selon §5, le reste via LOT 10
 (PLAN-LANCEMENT).

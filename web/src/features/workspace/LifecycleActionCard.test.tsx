@@ -7,6 +7,7 @@ import { OrgContext } from '@/features/org/org-context'
 import { I18nContext, type I18nValue } from '@/lib/i18n-context'
 
 import { LifecycleActionCard } from './LifecycleActionCard'
+import { deriveSubmissionConditions } from './lifecycle-conditions'
 import type { LifecycleStageId, LifecycleStatus } from './lifecycle-constants'
 
 // État mutable partagé pour piloter rôle + chargement selon le test (rôle réel via `canManageSubmission`).
@@ -153,5 +154,34 @@ describe('LifecycleActionCard — actions Labo (M2)', () => {
     renderCard({ currentStageId: 'revue', status: 'in_review' })
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
     expect(screen.getByText(/en revue chez l’agent local/i)).toBeInTheDocument()
+  })
+
+  it('modale Soumission : récap des 3 conditions NON BLOQUANT (M3) — nudge mais Confirmer actif', () => {
+    const conditions = deriveSubmissionConditions({
+      dossierId: 'd1',
+      events: [],
+      sampleImportAuthRequired: true,
+    })
+    const i18n: I18nValue = { lang: 'fr', setLang: () => {}, t: (s) => s.fr }
+    render(
+      <I18nContext.Provider value={i18n}>
+        <AuthContext.Provider value={AUTH}>
+          <OrgContext.Provider value="org-test">
+            <LifecycleActionCard
+              dossierId="d1"
+              country="BJ"
+              currentStageId="soumission"
+              status="submitting"
+              conditions={conditions}
+            />
+          </OrgContext.Provider>
+        </AuthContext.Provider>
+      </I18nContext.Provider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Marquer comme soumis/i }))
+    expect(screen.getByText(/Conditions de soumission — 0 \/ 3/i)).toBeInTheDocument()
+    expect(screen.getByText(/Vous pouvez tout de même confirmer/i)).toBeInTheDocument()
+    // Non bloquant : le bouton Confirmer reste actif malgré les conditions en attente.
+    expect(screen.getByRole('button', { name: 'Confirmer' })).toBeEnabled()
   })
 })
