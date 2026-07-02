@@ -1,4 +1,9 @@
-import type { CorrespondenceRecord, LifecycleEventRecord, LifecycleEventType } from '@/lib/db'
+import type {
+  CorrespondenceMessageRecord,
+  CorrespondenceRecord,
+  LifecycleEventRecord,
+  LifecycleEventType,
+} from '@/lib/db'
 import type { Lang, Translatable } from '@/lib/i18n-context'
 
 /**
@@ -247,6 +252,13 @@ export interface DeriveLifecycleInput {
   events: LifecycleEventRecord[]
   /** Correspondances (source des étapes amont) — même contrat que `dossierDisplayStatus`. */
   correspondences: CorrespondenceRecord[]
+  /**
+   * Messages des correspondances (facultatif) — source IMMUABLE des décisions successives : avec
+   * la boucle Décision (M4), le journal trace chaque décision (`kind: 'decision'`) même après un
+   * « Renvoyer en revue » qui remet le `status` mutable à `in_review`. Sans messages (pas encore
+   * pullés), repli : une entrée synthétique par correspondance décidée (comportement M2).
+   */
+  messages?: CorrespondenceMessageRecord[]
 }
 
 // ── Helpers correspondance (règle ADR-0003 : dernière non révoquée-sans-décision l'emporte) ───────
@@ -259,24 +271,38 @@ function hasAnyCorrespondence(dossierId: string, all: CorrespondenceRecord[]): b
   return all.some((c) => isActive(c, dossierId))
 }
 
-function firstCorrespondenceAt(dossierId: string, all: CorrespondenceRecord[]): string | null {
-  let earliest: string | null = null
+function activeCorrespondences(
+  dossierId: string,
+  all: CorrespondenceRecord[],
+): CorrespondenceRecord[] {
+  return all
+    .filter((c) => isActive(c, dossierId))
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+}
+
+/**
+ * Correspondance actuellement DÉCIDÉE (dernière active, non `in_review`) — `null` si le dossier
+ * est en montage/revue. Cible du « Renvoyer en revue » (boucle Décision M4) ; même règle que la
+ * dérivation (ADR-0003 : dernière non révoquée-sans-décision l'emporte).
+ */
+export function latestDecidedCorrespondence(
+  dossierId: string,
+  all: CorrespondenceRecord[],
+): CorrespondenceRecord | null {
+  let latest: CorrespondenceRecord | undefined
   for (const c of all) {
     if (!isActive(c, dossierId)) continue
-    if (earliest === null || c.createdAt < earliest) earliest = c.createdAt
+    if (!latest || c.createdAt > latest.createdAt) latest = c
   }
-  return earliest
+  return !latest || latest.status === 'in_review' ? null : latest
 }
 
 function latestDecision(
   dossierId: string,
   all: CorrespondenceRecord[],
 ): { status: 'accepted' | 'suspended' | 'rejected'; at: string } | null {
-  let latest: CorrespondenceRecord | undefined
-  for (const c of all) {
-    if (!isActive(c, dossierId)) continue
-    if (!latest || c.createdAt > latest.createdAt) latest = c
-  }
+  const latest = latestDecidedCorrespondence(dossierId, all)
+  // `in_review` déjà exclu par latestDecidedCorrespondence — le test ne sert qu'au narrow TS.
   if (!latest || latest.status === 'in_review') return null
   return { status: latest.status, at: latest.decidedAt ?? latest.updatedAt }
 }
@@ -346,7 +372,7 @@ export function deriveLifecycle(input: DeriveLifecycleInput): LifecycleState {
   )
   const reachedAt: Record<LifecycleStageId, string | null> = {
     montage: dossierCreatedAt,
-    revue: firstCorrespondenceAt(dossierId, correspondences),
+    revue: activeCorrespondences(dossierId, correspondences)[0]?.createdAt ?? null,
     decision: decision?.at ?? null,
     depot: lastOf('deposited')?.occurredAt ?? null,
     soumission: lastOf('submitted')?.occurredAt ?? null,
@@ -378,7 +404,7 @@ export function deriveLifecycle(input: DeriveLifecycleInput): LifecycleState {
       done: stages.filter((s) => s.status === 'done').length,
       total: LIFECYCLE_STAGE_ORDER.length,
     },
-    journal: buildJournal(input, events, decision),
+    journal: buildJournal(input, events),
   }
 }
 
@@ -408,7 +434,6 @@ function deriveStatus(
 function buildJournal(
   input: DeriveLifecycleInput,
   events: LifecycleEventRecord[],
-  decision: { status: 'accepted' | 'suspended' | 'rejected'; at: string } | null,
 ): LifecycleJournalEntry[] {
   const entries: LifecycleJournalEntry[] = [
     {
@@ -419,25 +444,45 @@ function buildJournal(
       actor: JOURNAL_ACTOR.montage,
     },
   ]
-  const reviewAt = firstCorrespondenceAt(input.dossierId, input.correspondences)
-  if (reviewAt) {
+  // Boucle Décision (M4) : le journal trace TOUS les cycles — une entrée par envoi en revue, une
+  // par décision. Source des décisions = messages `kind: 'decision'` (immuables) ; le `status` de
+  // la correspondance reste mutable (« Renvoyer en revue » le remet à `in_review`) et ne porte que
+  // l'état COURANT, jamais l'historique.
+  const actives = activeCorrespondences(input.dossierId, input.correspondences)
+  const decisionMessages = (input.messages ?? [])
+    .filter((m) => m.kind === 'decision' && m.decision !== null)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+  for (const c of actives) {
     entries.push({
-      id: `review-${reviewAt}`,
-      at: reviewAt,
+      id: `review-${c.id}`,
+      at: c.createdAt,
       key: 'review_sent',
       source: 'correspondence',
       actor: JOURNAL_ACTOR.review_sent,
     })
-  }
-  if (decision) {
-    entries.push({
-      id: `decision-${decision.at}`,
-      at: decision.at,
-      key: 'decision',
-      outcome: decision.status,
-      source: 'correspondence',
-      actor: JOURNAL_ACTOR.decision,
-    })
+    const msgs = decisionMessages.filter((m) => m.correspondenceId === c.id)
+    for (const m of msgs) {
+      entries.push({
+        id: m.id,
+        at: m.createdAt,
+        key: 'decision',
+        outcome: m.decision ?? undefined,
+        source: 'correspondence',
+        // Décision in-app d'un membre (author 'sender') vs agent local tokenisé (recipient).
+        actor: m.author === 'sender' ? JOURNAL_ACTOR.montage : JOURNAL_ACTOR.decision,
+      })
+    }
+    // Repli (messages pas encore pullés sur ce poste) : le statut décidé vaut UNE entrée.
+    if (msgs.length === 0 && c.status !== 'in_review') {
+      entries.push({
+        id: `decision-${c.id}`,
+        at: c.decidedAt ?? c.updatedAt,
+        key: 'decision',
+        outcome: c.status,
+        source: 'correspondence',
+        actor: JOURNAL_ACTOR.decision,
+      })
+    }
   }
   for (const e of events) {
     entries.push({
@@ -455,9 +500,15 @@ function buildJournal(
   }
   // Tie-break explicite à horodatage égal (dates normalisées midi-UTC → égalités fréquentes) :
   // l'amont d'abord (dossier < correspondance < événement), l'ordre du journal reste déterministe.
+  // À source égale : un envoi (review_sent) précède toujours sa décision (même horodatage possible
+  // quand `decidedAt` replie sur `updatedAt`).
   const SOURCE_RANK = { dossier: 0, correspondence: 1, event: 2 } as const
+  const keyRank = (e: LifecycleJournalEntry): number => (e.key === 'review_sent' ? 0 : 1)
   return entries.sort(
-    (a, b) => a.at.localeCompare(b.at) || SOURCE_RANK[a.source] - SOURCE_RANK[b.source],
+    (a, b) =>
+      a.at.localeCompare(b.at) ||
+      SOURCE_RANK[a.source] - SOURCE_RANK[b.source] ||
+      keyRank(a) - keyRank(b),
   )
 }
 

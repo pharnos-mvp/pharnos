@@ -177,6 +177,33 @@ export async function syncCorrespondences(orgId: string): Promise<void> {
   }
 }
 
+/**
+ * Mutation PARTIELLE (révocation, remplacement du PDF, renvoi en revue / décision in-app M4) :
+ * seules les clés PRÉSENTES du payload partent. Par défaut `status`/`decided_at` n'y figurent PAS
+ * (jamais écrasés par accident) ; seul un acte EXPLICITE de gestionnaire (reopen, décision in-app —
+ * RLS 0028) les embarque, et une décision Edge concurrente reste tracée dans le fil. Pure (testée).
+ */
+export function updatePayloadToPartial(
+  payload: unknown,
+  rec: CorrespondenceRecord,
+): Record<string, unknown> {
+  const p = payload as {
+    revokedAt?: string | null
+    pdfPath?: string
+    pdfSize?: number
+    updatedAt?: string
+    status?: CorrespondenceRecord['status']
+    decidedAt?: string | null
+  }
+  const partial: Record<string, unknown> = { updated_at: p.updatedAt ?? rec.updatedAt }
+  if ('revokedAt' in p) partial.revoked_at = p.revokedAt ?? null
+  if (p.pdfPath !== undefined) partial.pdf_path = p.pdfPath
+  if (p.pdfSize !== undefined) partial.pdf_size = p.pdfSize
+  if (p.status !== undefined) partial.status = p.status
+  if ('decidedAt' in p) partial.decided_at = p.decidedAt ?? null
+  return partial
+}
+
 async function pushCorrespondences(supabase: SupabaseClient, orgId: string): Promise<void> {
   const items = await db.outbox.where('entity').equals('correspondence').toArray()
   if (items.length === 0) return
@@ -191,18 +218,7 @@ async function pushCorrespondences(supabase: SupabaseClient, orgId: string): Pro
         .upsert(correspondenceToRow(rec), { ignoreDuplicates: true })
       if (error) throw error
     } else if (item.op === 'update') {
-      // Mutation PARTIELLE (révocation, remplacement du PDF…) : seules les clés PRÉSENTES du
-      // payload partent — n'écrase JAMAIS `status`/`decided_at` écrits par l'Edge entre-temps.
-      const p = item.payload as {
-        revokedAt?: string | null
-        pdfPath?: string
-        pdfSize?: number
-        updatedAt?: string
-      }
-      const partial: Record<string, unknown> = { updated_at: p.updatedAt ?? rec.updatedAt }
-      if ('revokedAt' in p) partial.revoked_at = p.revokedAt ?? null
-      if (p.pdfPath !== undefined) partial.pdf_path = p.pdfPath
-      if (p.pdfSize !== undefined) partial.pdf_size = p.pdfSize
+      const partial = updatePayloadToPartial(item.payload, rec)
       const { error } = await supabase.from('correspondences').update(partial).eq('id', rec.id)
       if (error) throw error
     }
