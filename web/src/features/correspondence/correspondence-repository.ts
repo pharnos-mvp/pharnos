@@ -61,6 +61,22 @@ export async function listMessages(
     .toArray()
 }
 
+/**
+ * Messages de TOUTES les correspondances d'un dossier — alimente le journal multi-cycles de la
+ * Roadmap (M4) : les décisions successives (`kind: 'decision'`) y restent tracées même après un
+ * « Renvoyer en revue ».
+ */
+export async function listMessagesByDossier(
+  dossierId: string,
+): Promise<CorrespondenceMessageRecord[]> {
+  const ids = (await db.correspondences
+    .where('dossierId')
+    .equals(dossierId)
+    .primaryKeys()) as string[]
+  if (ids.length === 0) return []
+  return db.correspondenceMessages.where('correspondenceId').anyOf(ids).toArray()
+}
+
 export async function getShareLink(correspondenceId: string): Promise<ShareLinkRecord | undefined> {
   return db.shareLinks.get(correspondenceId)
 }
@@ -218,6 +234,57 @@ export async function revokeCorrespondence(id: string): Promise<void> {
   await db.transaction('rw', db.correspondences, db.outbox, async () => {
     await db.correspondences.put({ ...existing, revokedAt: ts, updatedAt: ts })
     await enqueueOutbox('correspondence', id, 'update', { id, revokedAt: ts, updatedAt: ts })
+  })
+  await recordAudit(existing.orgId, 'correspondence', id, 'update', existing.productName)
+}
+
+/**
+ * Renvoie une correspondance DÉCIDÉE en revue (boucle Décision, M4) : le `status` mutable revient
+ * à `in_review` (l'état dérivé du dossier repart à l'étape Revue) et le lien du reviewer est
+ * ré-armé (`revoked_at` levé si auto-révoqué à la décision). L'HISTORIQUE ne bouge pas : la
+ * décision précédente reste tracée dans le fil (`kind: 'decision'`, append-only) — une note de
+ * renvoi y est ajoutée (désactivable quand l'appelant journalise déjà, ex. renvoi d'une nouvelle
+ * version du PDF). Acte de gestionnaire de soumission — RLS 0028 côté serveur.
+ */
+export async function reopenCorrespondenceForReview(
+  id: string,
+  authorLabel: string,
+  opts: { withNote?: boolean } = {},
+): Promise<void> {
+  const existing = await db.correspondences.get(id)
+  if (!existing || existing.deletedAt !== null || existing.status === 'in_review') return
+  const ts = now()
+  const message: CorrespondenceMessageRecord = {
+    id: newId(),
+    orgId: existing.orgId,
+    correspondenceId: id,
+    author: 'sender',
+    authorLabel,
+    kind: 'note',
+    decision: null,
+    body: 'Dossier renvoyé en revue — la décision précédente reste consultable ci-dessus.',
+    attachments: [],
+    createdAt: ts,
+  }
+  await db.transaction('rw', db.correspondences, db.correspondenceMessages, db.outbox, async () => {
+    await db.correspondences.put({
+      ...existing,
+      status: 'in_review',
+      decidedAt: null,
+      revokedAt: null,
+      updatedAt: ts,
+    })
+    await enqueueOutbox('correspondence', id, 'update', {
+      id,
+      status: 'in_review',
+      decidedAt: null,
+      revokedAt: null,
+      updatedAt: ts,
+    })
+    if (opts.withNote !== false) {
+      await db.correspondenceMessages.add(message)
+      await enqueueOutbox('correspondence_message', message.id, 'create', message)
+    }
   })
   await recordAudit(existing.orgId, 'correspondence', id, 'update', existing.productName)
 }

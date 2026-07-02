@@ -4,6 +4,7 @@ import { getSupabase } from '@/lib/supabase'
 import {
   createCorrespondence,
   getShareLink,
+  reopenCorrespondenceForReview,
   updateCorrespondencePdf,
   type CreateCorrespondenceInput,
 } from './correspondence-repository'
@@ -150,6 +151,13 @@ export async function resendCompiledDossier(input: {
     pdfPath,
     input.pdfBlob.size,
   )
+  // Boucle Décision (M4) : renvoyer une nouvelle version d'un dossier DÉCIDÉ rouvre la revue
+  // (status → in_review, lien ré-armé) — sans note doublonnée, « Dossier mis à jour » suffit.
+  if (input.correspondence.status !== 'in_review') {
+    await reopenCorrespondenceForReview(input.correspondence.id, input.senderEmail, {
+      withNote: false,
+    })
+  }
   void syncCorrespondences(input.orgId)
   // E-mail best-effort : le reviewer retrouve le MÊME lien (token inchangé, conservé en local).
   const link = await getShareLink(input.correspondence.id)

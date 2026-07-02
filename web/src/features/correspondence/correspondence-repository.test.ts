@@ -8,6 +8,8 @@ import {
   listByDossier,
   listCorrespondences,
   listMessages,
+  listMessagesByDossier,
+  reopenCorrespondenceForReview,
   revokeCorrespondence,
 } from './correspondence-repository'
 
@@ -90,6 +92,61 @@ describe('correspondence repository (offline-first)', () => {
     await db.outbox.clear()
     await revokeCorrespondence(c.id)
     expect(await db.outbox.count()).toBe(0)
+  })
+
+  it('reopen (M4) : status→in_review, décision levée, lien ré-armé + outbox EXPLICITE + note du fil', async () => {
+    const c = await createCorrespondence(ORG, { ...input, note: null })
+    // Décision rendue avec lien auto-révoqué (autoRevokeOnDecision) — le cul-de-sac d'avant M4.
+    await db.correspondences.update(c.id, {
+      status: 'suspended',
+      decidedAt: '2026-06-05T00:00:00.000Z',
+      revokedAt: '2026-06-05T00:00:00.000Z',
+    })
+    await db.outbox.clear()
+
+    await reopenCorrespondenceForReview(c.id, 'labo@ex.com')
+
+    const updated = await db.correspondences.get(c.id)
+    expect(updated?.status).toBe('in_review')
+    expect(updated?.decidedAt).toBeNull()
+    expect(updated?.revokedAt).toBeNull()
+
+    // Mutation partielle EXPLICITE : status/decidedAt/revokedAt embarqués (acte gestionnaire).
+    const outbox = await db.outbox.where('entity').equals('correspondence').toArray()
+    expect(outbox).toHaveLength(1)
+    expect(outbox[0]?.op).toBe('update')
+    expect(Object.keys(outbox[0]?.payload ?? {}).sort()).toEqual([
+      'decidedAt',
+      'id',
+      'revokedAt',
+      'status',
+      'updatedAt',
+    ])
+
+    // Le renvoi est tracé dans le fil (append-only) ; la décision précédente y reste.
+    const messages = await listMessages(c.id)
+    expect(messages.at(-1)).toMatchObject({ kind: 'note', author: 'sender' })
+  })
+
+  it('reopen : no-op si déjà en revue ; withNote:false ne double pas la note (flux resend)', async () => {
+    const c = await createCorrespondence(ORG, { ...input, note: null })
+    await db.outbox.clear()
+    await reopenCorrespondenceForReview(c.id, 'labo@ex.com') // déjà in_review → no-op
+    expect(await db.outbox.count()).toBe(0)
+
+    await db.correspondences.update(c.id, { status: 'rejected' })
+    await reopenCorrespondenceForReview(c.id, 'labo@ex.com', { withNote: false })
+    expect((await db.correspondences.get(c.id))?.status).toBe('in_review')
+    expect(await listMessages(c.id)).toHaveLength(0)
+  })
+
+  it('listMessagesByDossier : agrège les fils de toutes les correspondances du dossier', async () => {
+    const c1 = await createCorrespondence(ORG, { ...input, note: 'envoi 1' })
+    const c2 = await createCorrespondence(ORG, { ...input, note: 'envoi 2' })
+    const other = await createCorrespondence(ORG, { ...input, dossierId: 'd2', note: 'autre' })
+    const all = await listMessagesByDossier('d1')
+    expect(all.map((m) => m.correspondenceId).sort()).toEqual([c1.id, c2.id].sort())
+    expect(all.some((m) => m.correspondenceId === other.id)).toBe(false)
   })
 
   it('messages triés chronologiquement par l’index composé', async () => {

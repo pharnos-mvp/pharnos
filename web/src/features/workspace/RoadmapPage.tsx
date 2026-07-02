@@ -31,7 +31,10 @@ import { Button } from '@/components/ui/button'
 import { Page } from '@/components/ui/page'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { CountryFlag } from '@/features/dashboard/CountryFlag'
-import { listByDossier } from '@/features/correspondence/correspondence-repository'
+import {
+  listByDossier,
+  listMessagesByDossier,
+} from '@/features/correspondence/correspondence-repository'
 import { useI18n, type Lang, type Translatable } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import { lookupVariation } from '@/features/variations/variation-request'
@@ -41,6 +44,7 @@ import {
   deriveLifecycle,
   journalDetail,
   journalLabel,
+  latestDecidedCorrespondence,
   LIFECYCLE_STAGES,
   LIFECYCLE_STATUS_TONE,
   lifecycleStatusLabel,
@@ -102,11 +106,12 @@ export function RoadmapPage() {
     if (!dossierId) return null
     const dossier = (await getDossier(dossierId)) ?? null
     if (!dossier) return { dossier: null }
-    const [events, correspondences] = await Promise.all([
+    const [events, correspondences, messages] = await Promise.all([
       listLifecycleEvents(dossierId),
       listByDossier(dossierId),
+      listMessagesByDossier(dossierId),
     ])
-    return { dossier, events, correspondences }
+    return { dossier, events, correspondences, messages }
   }, [dossierId])
 
   if (data === undefined) {
@@ -129,13 +134,17 @@ export function RoadmapPage() {
     )
   }
 
-  const { dossier, events, correspondences } = data
+  const { dossier, events, correspondences, messages } = data
   const lifecycle = deriveLifecycle({
     dossierId: dossier.id,
     dossierCreatedAt: dossier.createdAt,
     events,
     correspondences,
+    messages,
   })
+  // Boucle Décision (M4) : correspondance actuellement décidée (Complément requis / Rejeté) —
+  // cible du « Renvoyer en revue ». Même règle que la dérivation : dernière ACTIVE, non in_review.
+  const decidedCorrespondence = latestDecidedCorrespondence(dossier.id, correspondences)
 
   const agency = agencyFor(dossier.country)
   const profile = regulatoryProfileFor(dossier.country)
@@ -364,6 +373,7 @@ export function RoadmapPage() {
           status={lifecycle.status}
           hasAuthorityQuery={events.some((e) => e.type === 'authority_query')}
           conditions={conditions}
+          decidedCorrespondence={decidedCorrespondence}
         />
         {decisionDone ? (
           <LifecycleConditionsPanel

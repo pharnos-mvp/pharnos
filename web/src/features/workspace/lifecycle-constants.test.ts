@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import type { CorrespondenceRecord, LifecycleEventRecord } from '@/lib/db'
+import type {
+  CorrespondenceMessageRecord,
+  CorrespondenceRecord,
+  LifecycleEventRecord,
+} from '@/lib/db'
 import {
   type DeriveLifecycleInput,
   type LifecycleStageId,
@@ -277,6 +281,87 @@ describe('libellés', () => {
   })
 })
 
+describe('buildJournal — boucle Décision multi-cycles (M4-T2)', () => {
+  const msg = (over: Partial<CorrespondenceMessageRecord>): CorrespondenceMessageRecord => ({
+    id: 'm1',
+    orgId: 'org-1',
+    correspondenceId: 'c1',
+    author: 'recipient',
+    authorLabel: 'agent@ex.com',
+    kind: 'decision',
+    decision: 'suspended',
+    body: '',
+    attachments: [],
+    createdAt: '2026-06-05T00:00:00.000Z',
+    ...over,
+  })
+
+  it('après « Renvoyer en revue » : la décision précédente reste TRACÉE, l’étape revient à Revue', () => {
+    // Correspondance rouverte (status muté à in_review) MAIS la décision vit dans le fil (immuable).
+    const st = derive({
+      correspondences: [corr({ status: 'in_review', decidedAt: null })],
+      messages: [msg({ decision: 'suspended', createdAt: '2026-06-05T00:00:00.000Z' })],
+    })
+    expect(st.currentStageId).toBe('revue')
+    expect(st.status).toBe('in_review')
+    const decisions = st.journal.filter((j) => j.key === 'decision')
+    expect(decisions).toHaveLength(1)
+    expect(decisions[0]?.outcome).toBe('suspended')
+  })
+
+  it('deux décisions successives sur la même correspondance → deux entrées, zéro doublon synthétique', () => {
+    const st = derive({
+      correspondences: [corr({ status: 'accepted', decidedAt: '2026-06-20T00:00:00.000Z' })],
+      messages: [
+        msg({ id: 'm1', decision: 'suspended', createdAt: '2026-06-05T00:00:00.000Z' }),
+        msg({ id: 'm2', decision: 'accepted', createdAt: '2026-06-20T00:00:00.000Z' }),
+      ],
+    })
+    const decisions = st.journal.filter((j) => j.key === 'decision')
+    expect(decisions.map((d) => d.outcome)).toEqual(['suspended', 'accepted'])
+    expect(decisions.map((d) => d.id)).toEqual(['m1', 'm2'])
+    // L'étape Décision est bien franchie (statut courant = accepted).
+    expect(st.currentStageId).toBe('depot')
+  })
+
+  it('repli sans messages (pas encore pullés) : une entrée synthétique par correspondance décidée', () => {
+    const st = derive({
+      correspondences: [corr({ status: 'suspended', decidedAt: '2026-06-05T00:00:00.000Z' })],
+    })
+    const decisions = st.journal.filter((j) => j.key === 'decision')
+    expect(decisions).toHaveLength(1)
+    expect(decisions[0]?.id).toBe('decision-c1')
+    expect(decisions[0]?.outcome).toBe('suspended')
+  })
+
+  it('décision in-app (author sender) → acteur « Labo » ; tokenisée (recipient) → « Agent local »', () => {
+    const st = derive({
+      correspondences: [corr({ status: 'accepted', decidedAt: '2026-06-20T00:00:00.000Z' })],
+      messages: [
+        msg({ id: 'm1', author: 'recipient', decision: 'suspended' }),
+        msg({
+          id: 'm2',
+          author: 'sender',
+          decision: 'accepted',
+          createdAt: '2026-06-20T00:00:00.000Z',
+        }),
+      ],
+    })
+    const decisions = st.journal.filter((j) => j.key === 'decision')
+    expect(decisions[0]?.actor.fr).toBe('Agent local')
+    expect(decisions[1]?.actor.fr).toBe('Labo')
+  })
+
+  it('les messages d’une correspondance révoquée-sans-décision (inactive) sont ignorés', () => {
+    const st = derive({
+      correspondences: [corr({ status: 'in_review', revokedAt: '2026-06-03T00:00:00.000Z' })],
+      messages: [msg({ decision: 'suspended' })],
+    })
+    expect(st.journal.filter((j) => j.key === 'decision')).toHaveLength(0)
+    expect(st.journal.filter((j) => j.key === 'review_sent')).toHaveLength(0)
+  })
+})
+
 describe('buildJournal — déterminisme (minors M2 soldés en M4-T1)', () => {
   it('tie-break à horodatage égal : amont (dossier < correspondance < événement) avant aval', () => {
     const AT = '2026-06-05T12:00:00.000Z'
@@ -291,6 +376,18 @@ describe('buildJournal — déterminisme (minors M2 soldés en M4-T1)', () => {
       'decision',
       'deposited',
     ])
+  })
+
+  it('à source ET horodatage égaux : l’envoi (review_sent) précède la décision', () => {
+    const AT = '2026-06-05T12:00:00.000Z'
+    // decidedAt null → l'entrée synthétique replie sur updatedAt = createdAt : même horodatage.
+    const st = derive({
+      correspondences: [
+        corr({ status: 'suspended', decidedAt: null, createdAt: AT, updatedAt: AT }),
+      ],
+    })
+    const keys = st.journal.map((j) => j.key)
+    expect(keys.indexOf('review_sent')).toBeLessThan(keys.indexOf('decision'))
   })
 
   it('chaque entrée porte une identité stable (id) — clés React sans index', () => {

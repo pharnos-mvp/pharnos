@@ -7,6 +7,7 @@ import {
   Loader2,
   Lock,
   PlayCircle,
+  RotateCcw,
   XCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -30,9 +31,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useAuth } from '@/features/auth/auth-context'
+import { reopenCorrespondenceForReview } from '@/features/correspondence/correspondence-repository'
+import { syncCorrespondences } from '@/features/correspondence/correspondence-sync'
 import { useCurrentOrg } from '@/features/org/use-current-org'
 import { useOrgId } from '@/features/org/org-context'
 import { canManageSubmission } from '@/features/team/team-api'
+import type { CorrespondenceRecord } from '@/lib/db'
 import { useI18n } from '@/lib/i18n-context'
 import { reportError } from '@/lib/sentry'
 import {
@@ -80,6 +84,7 @@ export function LifecycleActionCard({
   status,
   hasAuthorityQuery = false,
   conditions,
+  decidedCorrespondence = null,
 }: {
   dossierId: string
   country: string
@@ -89,6 +94,8 @@ export function LifecycleActionCard({
   hasAuthorityQuery?: boolean
   /** État des 3 conditions (M3) — récap NON BLOQUANT dans la modale « Marquer comme soumis ». */
   conditions?: SubmissionConditionsState
+  /** Correspondance DÉCIDÉE (Complément requis / Rejeté) — cible du « Renvoyer en revue » (M4). */
+  decidedCorrespondence?: CorrespondenceRecord | null
 }) {
   const { t, lang } = useI18n()
   const orgId = useOrgId()
@@ -109,6 +116,8 @@ export function LifecycleActionCard({
   const [validUntil, setValidUntil] = useState('')
   const [note, setNote] = useState('')
   const [occurredOn, setOccurredOn] = useState('')
+  // Boucle Décision (M4) : modale de confirmation du « Renvoyer en revue ».
+  const [reopenOpen, setReopenOpen] = useState(false)
 
   function openAction(a: LifecycleAction) {
     setMode(config.submissionMode)
@@ -175,6 +184,24 @@ export function LifecycleActionCard({
     }
   }
 
+  // Boucle Décision (M4) : rouvre la revue (status → in_review, lien ré-armé, fil intact) —
+  // offline-first (Dexie + outbox), la dérivation ramène le dossier à l'étape Revue toute seule.
+  async function confirmReopen() {
+    if (busy || !decidedCorrespondence) return
+    setBusy(true)
+    try {
+      await reopenCorrespondenceForReview(decidedCorrespondence.id, user?.email ?? '')
+      void syncCorrespondences(orgId)
+      toast.success(t({ fr: 'Dossier renvoyé en revue.', en: 'Dossier sent back for review.' }))
+      setReopenOpen(false)
+    } catch (error) {
+      reportError(error, { op: 'reopenCorrespondenceForReview' })
+      toast.error(t({ fr: 'Échec du renvoi en revue.', en: 'Failed to send back for review.' }))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const stageLabel = t(STAGE_LABEL[currentStageId])
 
   // ── Terminal (AMM rendue) : parcours clôturé, aucune action ──────────────────────────────────────
@@ -197,6 +224,64 @@ export function LifecycleActionCard({
               })
         }
       />
+    )
+  }
+
+  // ── Boucle Décision (M4) : Complément requis / Rejeté → « Renvoyer en revue » (gestionnaires) ───
+  if (
+    currentStageId === 'decision' &&
+    (status === 'suspended' || status === 'rejected') &&
+    decidedCorrespondence &&
+    canManage
+  ) {
+    return (
+      <>
+        <ActionShell
+          tone={status === 'rejected' ? 'danger' : 'info'}
+          icon={RotateCcw}
+          title={t({ fr: 'Étape en cours · Décision', en: 'Current stage · Decision' })}
+          body={
+            status === 'suspended'
+              ? t({
+                  fr: 'L’agent local demande un complément. Répondez dans la correspondance, puis renvoyez le dossier en revue.',
+                  en: 'The local agent requests additional info. Respond in the correspondence, then send the dossier back for review.',
+                })
+              : t({
+                  fr: 'L’agent local a rejeté le dossier. Après correction, vous pouvez le renvoyer en revue.',
+                  en: 'The local agent rejected the dossier. Once corrected, you can send it back for review.',
+                })
+          }
+        >
+          <Button size="sm" variant="primary" onClick={() => setReopenOpen(true)}>
+            <RotateCcw /> {t({ fr: 'Renvoyer en revue', en: 'Send back for review' })}
+          </Button>
+        </ActionShell>
+
+        <Dialog open={reopenOpen} onOpenChange={(o) => !o && setReopenOpen(false)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {t({ fr: 'Renvoyer en revue', en: 'Send back for review' })}
+              </DialogTitle>
+              <DialogDescription>
+                {t({
+                  fr: 'Le dossier repart en revue chez l’agent local : le même lien de revue est réactivé et la décision précédente reste tracée dans le fil de la correspondance.',
+                  en: 'The dossier goes back for review with the local agent: the same review link is re-armed and the previous decision stays traced in the correspondence thread.',
+                })}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setReopenOpen(false)} disabled={busy}>
+                {t({ fr: 'Annuler', en: 'Cancel' })}
+              </Button>
+              <Button variant="primary" onClick={() => void confirmReopen()} disabled={busy}>
+                {busy ? <Loader2 className="animate-spin" /> : null}
+                {t({ fr: 'Confirmer', en: 'Confirm' })}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
     )
   }
 
@@ -416,11 +501,14 @@ function ActionShell({
   icon: Icon,
   title,
   body,
+  children,
 }: {
   tone: 'info' | 'success' | 'danger'
   icon: typeof Info
   title: string
   body: string
+  /** Zone d'action facultative (boutons) sous le descriptif. */
+  children?: ReactNode
 }) {
   return (
     <section>
@@ -434,6 +522,7 @@ function ActionShell({
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-semibold">{title}</h3>
             <p className="text-muted-foreground mt-0.5 text-xs">{body}</p>
+            {children ? <div className="mt-3 flex flex-wrap gap-2">{children}</div> : null}
           </div>
         </div>
       </div>

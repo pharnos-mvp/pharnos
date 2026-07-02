@@ -18,13 +18,29 @@ const state = vi.hoisted(() => ({
 }))
 const appendMock = vi.hoisted(() => vi.fn())
 const syncMock = vi.hoisted(() => vi.fn())
+const reopenMock = vi.hoisted(() => vi.fn())
+const syncCorrMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/features/org/use-current-org', () => ({
   useCurrentOrg: () => ({ ...state, orgId: 'org-test', refresh: async () => {} }),
 }))
 vi.mock('./lifecycle-repository', () => ({ appendLifecycleEvent: appendMock }))
 vi.mock('./lifecycle-sync', () => ({ syncLifecycle: syncMock }))
+vi.mock('@/features/correspondence/correspondence-repository', () => ({
+  reopenCorrespondenceForReview: reopenMock,
+}))
+vi.mock('@/features/correspondence/correspondence-sync', () => ({
+  syncCorrespondences: syncCorrMock,
+}))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+
+// Correspondance décidée minimale (cible du « Renvoyer en revue » M4).
+const DECIDED = {
+  id: 'c1',
+  orgId: 'org-test',
+  dossierId: 'd1',
+  status: 'suspended',
+} as unknown as import('@/lib/db').CorrespondenceRecord
 
 const AUTH: AuthContextValue = {
   session: null,
@@ -40,6 +56,7 @@ function renderCard(
     currentStageId?: LifecycleStageId
     status?: LifecycleStatus
     hasAuthorityQuery?: boolean
+    decidedCorrespondence?: import('@/lib/db').CorrespondenceRecord | null
   } = {},
 ) {
   const i18n: I18nValue = { lang: 'fr', setLang: () => {}, t: (s) => s.fr }
@@ -53,6 +70,7 @@ function renderCard(
             currentStageId={over.currentStageId ?? 'depot'}
             status={over.status ?? 'accepted'}
             hasAuthorityQuery={over.hasAuthorityQuery ?? false}
+            decidedCorrespondence={over.decidedCorrespondence ?? null}
           />
         </OrgContext.Provider>
       </AuthContext.Provider>
@@ -127,6 +145,32 @@ describe('LifecycleActionCard — actions Labo (M2)', () => {
       </I18nContext.Provider>,
     )
     expect(screen.getByRole('button', { name: /Réponse au complément/i })).toBeInTheDocument()
+  })
+
+  it('Complément requis (gestionnaire) : « Renvoyer en revue » → confirme → reopen + sync (M4)', async () => {
+    renderCard({ currentStageId: 'decision', status: 'suspended', decidedCorrespondence: DECIDED })
+    fireEvent.click(screen.getByRole('button', { name: /Renvoyer en revue/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
+    await waitFor(() => expect(reopenMock).toHaveBeenCalledTimes(1))
+    expect(reopenMock).toHaveBeenCalledWith('c1', 'labo@ex.com')
+    expect(syncCorrMock).toHaveBeenCalledWith('org-test')
+    // Aucun événement lifecycle : la boucle Décision vit dans la CORRESPONDANCE (étapes amont).
+    expect(appendMock).not.toHaveBeenCalled()
+  })
+
+  it('Rejeté (gestionnaire) : le bouton « Renvoyer en revue » est aussi proposé', () => {
+    renderCard({
+      currentStageId: 'decision',
+      status: 'rejected',
+      decidedCorrespondence: { ...DECIDED, status: 'rejected' },
+    })
+    expect(screen.getByRole('button', { name: /Renvoyer en revue/i })).toBeInTheDocument()
+  })
+
+  it('Complément requis (non-gestionnaire) : pas de bouton, renvoi contextuel', () => {
+    state.memberships = []
+    renderCard({ currentStageId: 'decision', status: 'suspended', decidedCorrespondence: DECIDED })
+    expect(screen.queryByRole('button', { name: /Renvoyer en revue/i })).not.toBeInTheDocument()
   })
 
   it('non-gestionnaire : aucune action, message lecture seule', () => {
