@@ -58,6 +58,13 @@ Tout **H → M (+O)** est en prod. **Depuis le 2026-06-16** :
   font partie du MÊME projet de refonte complète de l'app ([PLAN-LANCEMENT.md](PLAN-LANCEMENT.md)) qui se
   poursuit par les surfaces restantes puis la refonte du LANDING (LOT 11)** — pas des chantiers isolés.
 
+- **Depuis le 2026-06-28 (MAJ 2026-07-02)** : **Workspace cockpit Opérations v2** hauteur fixe (#264) ·
+  fond de page tokenisé `--page` (#276) · **🆕 chantier LIFECYCLE « la spine » M0–M2 EN PROD**
+  (#272→#278, migrations `0046` operation-number + `0047` lifecycle_events) : journal append-only +
+  `deriveLifecycle` 7 étapes + Roadmap parcours du dossier + actions Labo. **Workflow complet validé CEO
+  2026-07-02** → jalons M3→M8 ordonnancés dans [PLAN-LIFECYCLE.md](PLAN-LIFECYCLE.md) §5 et intégrés à la
+  ligne droite [PLAN-LANCEMENT.md](PLAN-LANCEMENT.md) (PHASE C′, fusion relances/agent dans LOT 10).
+
 **Santé** : ~441 vitest + e2e Playwright, CI 6/6, `npm audit` 0 vuln, advisors **0 ERROR**, budget tenu, backups
 chiffrés + restore drill, uptime + alertes, **0 €**. Clé `age` rangée hors-ligne (2026-06-20).
 
@@ -152,8 +159,8 @@ Ordre = valeur × dépendance. Chaque ligne = tranche verticale livrable + recet
 - **Pilote** : supprimer le produit test « Recette PL3… » du catalogue prod (P0-4).
 
 ## Migrations
-Dernière appliquée = **`0045`** (`parties` — référentiel Organisations à rôles + FK produits, posée le
-2026-06-28 via MCP). `0043` = `storage_bucket_msword` ; `0044` = `document_admin_metadata` (PR #252) ;
-`0045` = `parties` (PR #253). **Reprendre à `0046`.**
+Dernière appliquée = **`0047`** (`lifecycle_events` — journal append-only + RLS + pgTAP, PR #272).
+`0044` = `document_admin_metadata` ; `0045` = `parties` ; `0046` = `dossier_operation_number` ;
+`0047` = `lifecycle_events`. **Reprendre à `0048`.**
 ⚠️ Le tracking distant est en **timestamp** (≠ fichiers `0001-0045`) ; toujours `ls supabase/migrations/` avant de
 numéroter, et appliquer via MCP `apply_migration` (idempotent), pas `supabase db push` à l'aveugle.
