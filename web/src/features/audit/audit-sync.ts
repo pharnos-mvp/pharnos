@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { db, type AuditLogRecord } from '@/lib/db'
+import { isPermanentSyncError, withRetry } from '@/lib/retry'
+import { reportError } from '@/lib/sentry'
 import { getSupabase } from '@/lib/supabase'
 import { isSyncEnabled } from '@/lib/sync-prefs'
 
@@ -54,32 +56,51 @@ export async function syncAudit(orgId: string): Promise<void> {
   if (!supabase) return
   syncing = true
   try {
-    await pushAudit(supabase, orgId)
-    await pullAudit(supabase, orgId)
+    // Retry borné (transitoires only) : une microcoupure ne repousse pas la sync au prochain déclencheur.
+    await withRetry(() => pushAudit(supabase))
+    await withRetry(() => pullAudit(supabase, orgId))
   } catch (error) {
     console.warn('[sync] audit :', error)
+    reportError(error, { op: 'sync', entity: 'audit' })
   } finally {
     syncing = false
   }
 }
 
-async function pushAudit(supabase: SupabaseClient, orgId: string): Promise<void> {
+async function pushAudit(supabase: SupabaseClient): Promise<void> {
   const items = await db.outbox.where('entity').equals('audit').toArray()
   if (items.length === 0) return
   const ids = [...new Set(items.map((i) => i.entityId))]
-  const pushed = new Set<string>()
+  const drained = new Set<string>()
   for (const id of ids) {
     const rec = await db.auditLog.get(id)
-    if (!rec || rec.orgId !== orgId) continue
+    // Orphelin (entrée locale disparue) : plus rien à pousser, ne drainerait jamais → on draine.
+    if (!rec) {
+      drained.add(id)
+      continue
+    }
+    // Pousse pour TOUTES les orgs du user, pas seulement l'active : sans sélecteur d'org, une
+    // entrée d'une autre org resterait en file indéfiniment. La RLS (0009) reste la barrière
+    // (appartenance à l'org + actor = auth.uid()) ; seule une org à synchro coupée reste en file.
+    if (!isSyncEnabled(rec.orgId)) continue
     // Append-only : on insère sans jamais écraser (ignoreDuplicates).
     const { error } = await supabase
       .from('audit_log')
       .upsert(toRow(rec), { onConflict: 'id', ignoreDuplicates: true })
-    if (error) throw error
-    pushed.add(id)
+    if (error) {
+      if (isPermanentSyncError(error)) {
+        // Rejet définitif (RLS/contrainte) : re-tenter rééchouera à l'identique → draine la file
+        // (anti-boucle, sinon il bloque aussi le pull). ALCOA++ : l'entrée reste dans le journal
+        // LOCAL (db.auditLog) ; remontée Sentry pour tracer toute entrée d'audit non propagée.
+        reportError(error, { op: 'sync', entity: 'audit', auditId: id, permanent: true })
+        drained.add(id)
+        continue
+      }
+      throw error
+    }
+    drained.add(id)
   }
-  // Ne supprime QUE les entrées effectivement poussées (les autres org restent en file).
-  await db.outbox.bulkDelete(items.filter((i) => pushed.has(i.entityId)).map((i) => i.id))
+  await db.outbox.bulkDelete(items.filter((i) => drained.has(i.entityId)).map((i) => i.id))
 }
 
 async function pullAudit(supabase: SupabaseClient, orgId: string): Promise<void> {
