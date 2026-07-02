@@ -47,15 +47,17 @@ export const LIFECYCLE_STAGES: {
     label: { fr: 'Décision', en: 'Decision' },
     actor: { fr: 'Agent local', en: 'Local agent' },
   },
+  // Réalignement M4 (workflow CEO) : Dépôt = réception confirmée par l'agent local ;
+  // Soumission = dépôt du dossier à l'agence nationale. Codes d'étape/événement inchangés.
   {
     id: 'depot',
     label: { fr: 'Dépôt', en: 'Deposit' },
-    actor: { fr: '→ Agence nat.', en: '→ Nat. agency' },
+    actor: { fr: 'Agent local', en: 'Local agent' },
   },
   {
     id: 'soumission',
     label: { fr: 'Soumission', en: 'Submission' },
-    actor: { fr: 'Agent local', en: 'Local agent' },
+    actor: { fr: '→ Agence nat.', en: '→ Nat. agency' },
   },
   {
     id: 'notifications',
@@ -94,7 +96,7 @@ export type LifecycleTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger
 const STATUS_LABELS: Record<LifecycleStatus, Translatable> = {
   montage: { fr: 'En montage', en: 'In assembly' },
   in_review: { fr: 'En revue', en: 'In review' },
-  suspended: { fr: 'En suspens', en: 'Suspended' },
+  suspended: { fr: 'Complément requis', en: 'Additional info required' },
   rejected: { fr: 'Rejeté', en: 'Rejected' },
   accepted: { fr: 'Accepté', en: 'Accepted' },
   submitting: { fr: 'En soumission', en: 'In submission' },
@@ -123,6 +125,8 @@ export const lifecycleStatusLabel = (s: LifecycleStatus, lang: Lang = 'fr'): str
 export type LifecycleJournalKey = 'montage' | 'review_sent' | 'decision' | LifecycleEventType
 
 export interface LifecycleJournalEntry {
+  /** Identité STABLE de l'entrée (id d'événement, ou clé synthétique amont) — clés React du journal. */
+  id: string
   /** Horodatage réel de l'événement (ISO). */
   at: string
   key: LifecycleJournalKey
@@ -142,8 +146,11 @@ const JOURNAL_LABELS: Record<LifecycleJournalKey, Translatable> = {
   montage: { fr: 'Montage créé', en: 'Assembly created' },
   review_sent: { fr: 'Envoyé en revue à l’agent local', en: 'Sent for review to the local agent' },
   decision: { fr: 'Décision rendue', en: 'Decision rendered' },
-  deposited: { fr: 'Déposé à l’agence nationale', en: 'Deposited at the national agency' },
-  submitted: { fr: 'Soumis à l’autorité', en: 'Submitted to the authority' },
+  deposited: {
+    fr: 'Réception confirmée par l’agent local',
+    en: 'Receipt confirmed by the local agent',
+  },
+  submitted: { fr: 'Déposé à l’agence nationale', en: 'Filed with the national agency' },
   authority_query: {
     fr: 'Notification / complément demandé',
     en: 'Notification / additional info requested',
@@ -170,7 +177,7 @@ const JOURNAL_LABELS: Record<LifecycleJournalKey, Translatable> = {
 /** Libellés des issues de la Décision agent local (réutilisés par le journal + l'étape). */
 const DECISION_OUTCOME_LABELS: Record<'accepted' | 'suspended' | 'rejected', Translatable> = {
   accepted: { fr: 'Dossier accepté', en: 'Dossier accepted' },
-  suspended: { fr: 'Dossier mis en suspens', en: 'Dossier suspended' },
+  suspended: { fr: 'Complément requis', en: 'Additional info required' },
   rejected: { fr: 'Dossier rejeté', en: 'Dossier rejected' },
 }
 
@@ -190,7 +197,7 @@ const JOURNAL_ACTOR: Record<LifecycleJournalKey, Translatable> = {
   montage: { fr: 'Labo', en: 'Lab' },
   review_sent: { fr: 'Labo → Agent local', en: 'Lab → Local agent' },
   decision: { fr: 'Agent local', en: 'Local agent' },
-  deposited: { fr: 'Agent local → Agence', en: 'Local agent → Agency' },
+  deposited: { fr: 'Agent local', en: 'Local agent' },
   submitted: { fr: 'Agent local → Agence', en: 'Local agent → Agency' },
   authority_query: { fr: 'Agence → Labo', en: 'Agency → Lab' },
   authority_response: { fr: 'Labo → Agence', en: 'Lab → Agency' },
@@ -206,10 +213,10 @@ const JOURNAL_ACTOR: Record<LifecycleJournalKey, Translatable> = {
   reminder_sent: SYSTEME,
 }
 
-/** Libellé COURT d'une issue (pastille d'étape Décision/AMM) : Accepté/Suspendu/Rejeté/Accordée/Refusée. */
+/** Libellé COURT d'une issue (pastille d'étape Décision/AMM) : Accepté/Complément/Rejeté/Accordée/Refusée. */
 const STAGE_OUTCOME_LABELS: Record<StageOutcome, Translatable> = {
   accepted: { fr: 'Accepté', en: 'Accepted' },
-  suspended: { fr: 'Suspendu', en: 'Suspended' },
+  suspended: { fr: 'Complément', en: 'Info required' },
   rejected: { fr: 'Rejeté', en: 'Rejected' },
   granted: { fr: 'Accordée', en: 'Granted' },
   refused: { fr: 'Refusée', en: 'Refused' },
@@ -404,11 +411,18 @@ function buildJournal(
   decision: { status: 'accepted' | 'suspended' | 'rejected'; at: string } | null,
 ): LifecycleJournalEntry[] {
   const entries: LifecycleJournalEntry[] = [
-    { at: input.dossierCreatedAt, key: 'montage', source: 'dossier', actor: JOURNAL_ACTOR.montage },
+    {
+      id: 'montage',
+      at: input.dossierCreatedAt,
+      key: 'montage',
+      source: 'dossier',
+      actor: JOURNAL_ACTOR.montage,
+    },
   ]
   const reviewAt = firstCorrespondenceAt(input.dossierId, input.correspondences)
   if (reviewAt) {
     entries.push({
+      id: `review-${reviewAt}`,
       at: reviewAt,
       key: 'review_sent',
       source: 'correspondence',
@@ -417,6 +431,7 @@ function buildJournal(
   }
   if (decision) {
     entries.push({
+      id: `decision-${decision.at}`,
       at: decision.at,
       key: 'decision',
       outcome: decision.status,
@@ -426,6 +441,7 @@ function buildJournal(
   }
   for (const e of events) {
     entries.push({
+      id: e.id,
       at: e.occurredAt,
       key: e.type,
       outcome:
@@ -437,7 +453,12 @@ function buildJournal(
       docs: e.docRefs,
     })
   }
-  return entries.sort((a, b) => a.at.localeCompare(b.at))
+  // Tie-break explicite à horodatage égal (dates normalisées midi-UTC → égalités fréquentes) :
+  // l'amont d'abord (dossier < correspondance < événement), l'ordre du journal reste déterministe.
+  const SOURCE_RANK = { dossier: 0, correspondence: 1, event: 2 } as const
+  return entries.sort(
+    (a, b) => a.at.localeCompare(b.at) || SOURCE_RANK[a.source] - SOURCE_RANK[b.source],
+  )
 }
 
 /**

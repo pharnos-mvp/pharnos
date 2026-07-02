@@ -471,9 +471,9 @@ export function RoadmapPage() {
             ) : null}
             <div className="relative pl-6">
               <div className="bg-border absolute top-1 bottom-1 left-[9px] w-0.5" />
-              {visibleJournal.map((entry, i) => (
+              {visibleJournal.map((entry) => (
                 <JournalRow
-                  key={`past-${hiddenCount + i}`}
+                  key={entry.id}
                   state="done"
                   label={journalLabel(entry, lang)}
                   detail={journalDetail(entry, lang)}

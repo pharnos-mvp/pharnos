@@ -133,6 +133,41 @@ les écrans tokenisés de l'agent (M5).
   réussite « AMM du 1er coup », délais par étape — **pure dérivation du journal**, aucune écriture nouvelle).
 - **Effort** : **M/L (~2-3 sessions)**. Zone A4 intouchée.
 
+### §5-ter — M4 : Boucle Décision (plan d'exécution, CTO 2026-07-02)
+
+> **Architecture vérifiée sur code + RLS : 100 % FRONT-ONLY, zéro migration** (la `0048` reste
+> réservée à CS1, zéro Edge change). Les deux capacités « lourdes » du jalon reposent sur de
+> l'existant : (a) la RLS `0028` autorise DÉJÀ les gestionnaires de soumission à `UPDATE
+> correspondences` et à insérer des messages `author='sender'` → la **décision in-app** est une
+> écriture offline-first classique (Dexie + outbox), pas un nouveau chemin serveur ; (b)
+> `latestDecision` (lifecycle-constants.ts) ne considère que la DERNIÈRE correspondance active →
+> **renvoyer en revue = créer une nouvelle correspondance** (flux `resendCompiledDossier` existant),
+> la dérivation revient d'elle-même à l'étape Revue. Le manque réel : le journal ne trace qu'UN
+> envoi + UNE décision → la boucle serait invisible ; `buildJournal` doit itérer TOUS les cycles.
+
+**Objectif** : plus aucun cul-de-sac dans le workflow — depuis « Complément requis » ou « Rejeté »,
+le Labo repart en revue en un clic, et un membre gestionnaire peut rendre la décision in-app (sans
+lien tokenisé). **Métrique de succès** : cycle complet Montage→AMM réalisable in-app par un membre
+gestionnaire, chaque état non terminal offre une action suivante ; recette navigateur CEO.
+
+**Tranches (chacune livrable seule)** :
+
+| # | Tranche | Contenu | Effort |
+|---|---|---|---|
+| **T1** | **Libellés + 3 minors M2** | `suspended` → **« Complément requis »** (correspondence-constants `DISPLAY_STATUS`/badges/inbox `complement` + i18n EN « Additional info required ») ; réalignement **Dépôt = réception confirmée par l'agent / Soumission = dépôt à l'agence nationale** (STAGE labels + libellés actions M2) ; tri `buildJournal` avec tie-break (at égaux → ordre stable) ; `min` sur `valid_until` (≥ date d'octroi) ; clés React stables du journal (at+key, plus d'index). Code d'événement/statut INCHANGÉ (journal immuable). | **S** |
+| **T2** | **Boucle visible + « Renvoyer en revue »** | `buildJournal` itère TOUTES les correspondances actives (une entrée par envoi + par décision → la suspension reste tracée après renvoi) ; bouton **« Renvoyer en revue »** dans `LifecycleActionCard` (statuts `suspended`/`rejected`) → flux resend existant (nouvelle correspondance, nouveau lien) ; troncature M3 conservée (page courte) ; e2e du cul-de-sac (suspendu → renvoi → re-décision). | **M** |
+| **T3** | **Décision in-app (gestionnaires)** | panneau décision (Accepter / **Complément requis** / Rejeter + note) dans `CorrespondencePanel`, gating `canManageSubmission` (miroir RLS, comme M2) ; écriture offline-first : update Dexie `correspondences` (`status`, `decidedAt`) + outbox + message de fil `author:'sender', kind:'decision'` (RLS `0028` déjà passante ; vérifier que la sync correspondance pousse bien les updates) ; le fil affiche la pastille décision quel que soit l'auteur. | **M** |
+| **T4** | **Preuve AMM + `via`** | upload **preuve AMM** sur le formulaire `amm_granted` → `doc_refs` (réutilise l'infra pièces M3 `lifecycle-docs.ts`, recommandé jamais obligatoire, upload en ligne seulement) ; choix **`via: agent\|direct`** sur le formulaire `authority_query` → `payload.via` (cas CI : notification reçue en direct) + rendu `journalDetail`. | **S** |
+
+**Risques (top 3)** : (1) double chemin d'écriture du statut (in-app vs Edge tokenisé) → même forme
+d'écriture que l'Edge (status + decided_at + message décision), messages append-only, e2e couvrant
+les deux chemins ; (2) renommages de libellés = régressions tests/e2e/i18n → T1 isolé en tête, grep
+exhaustif FR+EN, suite complète verte avant T2 ; (3) journal multi-cycles = page plus chargée →
+troncature 6 entrées M3 conservée + recette visuelle CEO.
+
+**DoD M4** : §7 inchangé (gates 6/6, code-reviewer SHIP, zone A4 intacte, recette navigateur) +
+**zéro migration** + libellés validés CEO (expert RA).
+
 ## 6. Risques & mitigations (top 3)
 
 1. **Cohérence du statut (dérivé vs correspondance existante, offline)** → journal append-only = source de
@@ -176,6 +211,7 @@ accordéon 1 ligne/condition, journal tronqué — demande « page pas trop long
 e2e navigateur `lifecycle-m3.spec.ts` (seed IDB). Revue code-reviewer : 1 Major corrigé
 (`triggerDownload` au lieu de `window.open` post-await — bloqueurs de pop-up).
 
-**Prochaine tranche : M4 — Boucle Décision** (+ solder les 3 minors M2 : tri `buildJournal`,
-`valid_until` sans min, clé React journal). Puis **CS1 → M5 → M6** selon §5, le reste via LOT 10
+**Prochaine tranche : M4 — Boucle Décision** — plan d'exécution détaillé **§5-ter** (4 tranches
+T1→T4, 100 % front-only, zéro migration ; solde les 3 minors M2 en T1). Puis **CS1 → M5 → M6**
+selon §5, le reste via LOT 10
 (PLAN-LANCEMENT).

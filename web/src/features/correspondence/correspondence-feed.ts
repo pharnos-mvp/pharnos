@@ -3,7 +3,7 @@ import type { DossierDisplayStatus } from './correspondence-constants'
 
 /**
  * Boîte de réception réglementaire (mockup CTD Workspace Premium v2) — agrège TOUTE correspondance
- * ACTIVE en une entrée typée, filtrable PAR STATUT (Tous/Accepté/Review/En suspens/Rejeté). PUR,
+ * ACTIVE en une entrée typée, filtrable PAR STATUT (Tous/Accepté/Review/Complément/Rejeté). PUR,
  * trié du plus récent au plus ancien. Source de vérité = `correspondences` (jamais `dossiers.status`).
  * Le `kind` détermine l'icône + le libellé ; le `status` (de la correspondance) pilote le filtre.
  */
