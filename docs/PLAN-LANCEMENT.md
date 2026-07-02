@@ -102,8 +102,9 @@ zéro-rework (combiner / zone protégée). Lots :
 **Pourquoi d'abord** : valeur pilote immédiate (les dossiers réels du pilote #1 Bénin = renouvellements +
 variations), lots majoritairement front-only (événements déjà en base depuis `0047`), zéro risque zone A4.
 Workflow validé CEO 2026-07-02. Détail des jalons : [PLAN-LIFECYCLE.md](PLAN-LIFECYCLE.md) §5 + §5-bis.
-- **M3 — Échantillons & Frais** ⬜ : boutons Décision/Dépôt (`samples_*`, `fees_*`, `payment_*` déjà typés) ;
-  récap 3 conditions **non bloquant** au Dépôt.
+- **M3 — Échantillons & Frais** ✅ (2026-07-02) : panneau Conditions de soumission compact (accordéon,
+  2 colonnes anti-page-longue) + pièces (`doc_refs`, bucket `documents`) + récap 3 conditions **non
+  bloquant** à la Soumission + journal enrichi/tronqué ; front-only, zéro migration.
 - **M4 — Boucle Décision** ⬜ : bouton **« Renvoyer en revue »** (Complément/Rejeté — comble le cul-de-sac),
   renommage libellé `suspended` → **« Complément requis »** (code inchangé), réalignement sémantique des
   libellés Dépôt/Soumission, preuve AMM (docRefs), canal notification `via: agent|direct` (cas Côte d'Ivoire),

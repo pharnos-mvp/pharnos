@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   ArrowLeft,
@@ -5,6 +6,8 @@ import {
   BellRing,
   BookOpen,
   Building2,
+  ChevronDown,
+  ChevronUp,
   ClipboardCheck,
   Clock,
   Coins,
@@ -15,12 +18,14 @@ import {
   Languages,
   type LucideIcon,
   Package,
+  Paperclip,
   Pencil,
   Receipt,
   Route,
   Send,
 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Page } from '@/components/ui/page'
@@ -34,17 +39,22 @@ import { activityLabel, countryLabel } from './dossier-constants'
 import { getDossier } from './dossier-repository'
 import {
   deriveLifecycle,
+  journalDetail,
   journalLabel,
   LIFECYCLE_STAGES,
   LIFECYCLE_STATUS_TONE,
   lifecycleStatusLabel,
   stageOutcomeLabel,
+  type LifecycleJournalEntry,
   type LifecycleStage,
   type LifecycleStageId,
   type StageStatus,
 } from './lifecycle-constants'
+import { deriveSubmissionConditions } from './lifecycle-conditions'
 import { lifecycleConfigFor, submissionModeLabel } from './lifecycle-config'
+import { openLifecycleDoc } from './lifecycle-docs'
 import { LifecycleActionCard } from './LifecycleActionCard'
+import { LifecycleConditionsPanel } from './LifecycleConditionsPanel'
 import { listLifecycleEvents } from './lifecycle-repository'
 import { agencyFor, officialLanguage, regulatoryProfileFor } from './roadmap-data'
 import type { ReactNode } from 'react'
@@ -79,10 +89,14 @@ const formatDate = (iso: string, lang: Lang): string =>
     year: 'numeric',
   })
 
+/** Journal replié par défaut aux N dernières entrées (anti-page-longue, décision CEO M3). */
+const JOURNAL_VISIBLE = 6
+
 export function RoadmapPage() {
   const { t, lang } = useI18n()
   const { dossierId } = useParams()
   const navigate = useNavigate()
+  const [showAllJournal, setShowAllJournal] = useState(false)
 
   const data = useLiveQuery(async () => {
     if (!dossierId) return null
@@ -236,8 +250,29 @@ export function RoadmapPage() {
       </div>
     )
 
+  // ── Conditions de soumission (M3) : visibles dès la Décision acceptée, jamais bloquantes ──────
+  const conditions = deriveSubmissionConditions({
+    dossierId: dossier.id,
+    events,
+    sampleImportAuthRequired: config.sampleImportAuthRequired,
+  })
+  const decisionDone = lifecycle.stages.find((s) => s.id === 'decision')?.status === 'done'
+  const submittedDone = lifecycle.stages.find((s) => s.id === 'soumission')?.status === 'done'
+
   // Journal : événements passés (réels) + la suite (étape courante « en cours » + à venir).
   const upcoming = lifecycle.stages.filter((s) => s.status !== 'done')
+  // Anti-page-longue : replié aux N dernières entrées passées (les sous-événements M3 le font grossir).
+  const hiddenCount = showAllJournal ? 0 : Math.max(0, lifecycle.journal.length - JOURNAL_VISIBLE)
+  const visibleJournal = hiddenCount > 0 ? lifecycle.journal.slice(hiddenCount) : lifecycle.journal
+
+  const openDoc = async (doc: NonNullable<LifecycleJournalEntry['docs']>[number]) => {
+    const ok = await openLifecycleDoc(doc)
+    if (!ok) {
+      toast.error(
+        t({ fr: 'Pièce indisponible (hors-ligne ?).', en: 'Attachment unavailable (offline?).' }),
+      )
+    }
+  }
 
   return (
     <Page className="max-w-4xl">
@@ -320,14 +355,25 @@ export function RoadmapPage() {
         </div>
       </section>
 
-      {/* ── Carte « étape en cours » actionnable (actions Labo → journal) ─ */}
-      <LifecycleActionCard
-        dossierId={dossier.id}
-        country={dossier.country}
-        currentStageId={lifecycle.currentStageId}
-        status={lifecycle.status}
-        hasAuthorityQuery={events.some((e) => e.type === 'authority_query')}
-      />
+      {/* ── Étape en cours + conditions de soumission, côte à côte dès lg (compact — M3) ─ */}
+      <div className={cn('grid items-start gap-6', decisionDone && 'lg:grid-cols-2')}>
+        <LifecycleActionCard
+          dossierId={dossier.id}
+          country={dossier.country}
+          currentStageId={lifecycle.currentStageId}
+          status={lifecycle.status}
+          hasAuthorityQuery={events.some((e) => e.type === 'authority_query')}
+          conditions={conditions}
+        />
+        {decisionDone ? (
+          <LifecycleConditionsPanel
+            dossierId={dossier.id}
+            conditions={conditions}
+            defaultCurrency={profile?.currency ?? 'FCFA'}
+            submitted={submittedDone}
+          />
+        ) : null}
+      </div>
 
       {/* ── Référence réglementaire + Journal, côte à côte dès lg ─────── */}
       <div className="grid items-start gap-6 lg:grid-cols-2">
@@ -400,15 +446,41 @@ export function RoadmapPage() {
             })}
           />
           <div className="bg-card rounded-xl border p-5">
+            {lifecycle.journal.length > JOURNAL_VISIBLE ? (
+              <button
+                type="button"
+                onClick={() => setShowAllJournal(!showAllJournal)}
+                aria-expanded={showAllJournal}
+                className="text-muted-foreground hover:text-foreground mb-3 flex items-center gap-1.5 text-xs font-medium"
+              >
+                {showAllJournal ? (
+                  <>
+                    <ChevronUp className="size-3.5" />
+                    {t({ fr: 'Réduire le journal', en: 'Collapse the journal' })}
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="size-3.5" />
+                    {t({
+                      fr: `Afficher les ${hiddenCount} entrées précédentes`,
+                      en: `Show the ${hiddenCount} earlier entries`,
+                    })}
+                  </>
+                )}
+              </button>
+            ) : null}
             <div className="relative pl-6">
               <div className="bg-border absolute top-1 bottom-1 left-[9px] w-0.5" />
-              {lifecycle.journal.map((entry, i) => (
+              {visibleJournal.map((entry, i) => (
                 <JournalRow
-                  key={`past-${i}`}
+                  key={`past-${hiddenCount + i}`}
                   state="done"
                   label={journalLabel(entry, lang)}
+                  detail={journalDetail(entry, lang)}
                   actor={t(entry.actor)}
                   date={formatDate(entry.at, lang)}
+                  docs={entry.docs}
+                  onOpenDoc={openDoc}
                 />
               ))}
               {upcoming.map((stage) => (
@@ -547,14 +619,22 @@ const JOURNAL_DOT: Record<'done' | 'current' | 'future', string> = {
 function JournalRow({
   state,
   label,
+  detail,
   actor,
   date,
+  docs,
+  onOpenDoc,
 }: {
   state: 'done' | 'current' | 'future'
   label: string
+  /** Détail court dérivé du payload (montant, LTA, référence…) — M3. */
+  detail?: string | null
   /** « Qui a fait quoi » (Labo / Agent local → Agence / Système…) — restauré du mockup validé. */
   actor: string
   date: string
+  /** Pièces justificatives de l'événement, consultables (M3). */
+  docs?: LifecycleJournalEntry['docs']
+  onOpenDoc?: (doc: NonNullable<LifecycleJournalEntry['docs']>[number]) => void
 }) {
   return (
     <div className="relative pb-4 text-sm last:pb-0">
@@ -564,10 +644,29 @@ function JournalRow({
           JOURNAL_DOT[state],
         )}
       />
-      <div className={cn(state === 'future' && 'text-muted-foreground')}>{label}</div>
+      <div className={cn(state === 'future' && 'text-muted-foreground')}>
+        {label}
+        {detail ? <span className="text-muted-foreground"> — {detail}</span> : null}
+      </div>
       <div className="text-muted-foreground text-[11px]">
         {actor} · {date}
       </div>
+      {docs && docs.length > 0 && onOpenDoc ? (
+        <div className="mt-1 flex flex-wrap gap-1.5">
+          {docs.map((d) => (
+            <button
+              key={d.path}
+              type="button"
+              onClick={() => onOpenDoc(d)}
+              title={d.name}
+              className="bg-muted text-muted-foreground hover:text-foreground flex max-w-44 items-center gap-1 rounded-full border px-2 py-0.5 text-[10.5px]"
+            >
+              <Paperclip className="size-3 shrink-0" />
+              <span className="truncate">{d.name}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   )
 }

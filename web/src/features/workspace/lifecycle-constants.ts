@@ -132,6 +132,10 @@ export interface LifecycleJournalEntry {
   source: 'dossier' | 'correspondence' | 'event'
   /** « Qui a fait quoi » : acteur/direction de l'entrée (Labo/Agent local/Agence/Système). */
   actor: Translatable
+  /** Détails typés de l'événement source (montant, LTA, référence…) — M3, `source: 'event'` only. */
+  payload?: Record<string, unknown>
+  /** Pièces justificatives de l'événement source (consultables depuis le journal — M3). */
+  docs?: LifecycleEventRecord['docRefs']
 }
 
 const JOURNAL_LABELS: Record<LifecycleJournalKey, Translatable> = {
@@ -429,7 +433,41 @@ function buildJournal(
       source: 'event',
       // Un événement 'system' (relance auto M6) l'emporte sur l'acteur par défaut du type.
       actor: e.actorId === 'system' ? SYSTEME : (JOURNAL_ACTOR[e.type] ?? SYSTEME),
+      payload: e.payload,
+      docs: e.docRefs,
     })
   }
   return entries.sort((a, b) => a.at.localeCompare(b.at))
+}
+
+/**
+ * Détail COURT d'une entrée du journal, dérivé du payload (M3) : montant des frais, n° LTA,
+ * référence de dépôt, n° d'AMM. `null` = rien à afficher. Pur (testé) — le rendu reste mince.
+ */
+export function journalDetail(
+  entry: Pick<LifecycleJournalEntry, 'key' | 'payload'>,
+  lang: Lang = 'fr',
+): string | null {
+  const p = entry.payload
+  if (!p) return null
+  const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null)
+  switch (entry.key) {
+    case 'fees_invoiced':
+    case 'payment_submitted': {
+      if (typeof p.amount !== 'number' || !Number.isFinite(p.amount)) return null
+      const amount = p.amount.toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR')
+      const currency = str(p.currency)
+      return currency ? `${amount} ${currency}` : amount
+    }
+    case 'samples_shipped': {
+      const awb = str(p.awb)
+      return awb ? `LTA ${awb}` : null
+    }
+    case 'submitted':
+      return str(p.reference)
+    case 'amm_granted':
+      return str(p.amm_number)
+    default:
+      return null
+  }
 }

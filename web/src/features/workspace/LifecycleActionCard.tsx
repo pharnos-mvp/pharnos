@@ -1,5 +1,14 @@
 import { useState, type ReactNode } from 'react'
-import { CheckCircle2, Info, Loader2, Lock, PlayCircle, XCircle } from 'lucide-react'
+import {
+  CheckCircle2,
+  CircleAlert,
+  Clock,
+  Info,
+  Loader2,
+  Lock,
+  PlayCircle,
+  XCircle,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -38,6 +47,7 @@ import {
   type LifecycleStatus,
 } from './lifecycle-constants'
 import { nextLifecycleActions, type LifecycleAction } from './lifecycle-actions'
+import { CONDITION_TITLES, type SubmissionConditionsState } from './lifecycle-conditions'
 import { appendLifecycleEvent } from './lifecycle-repository'
 import { syncLifecycle } from './lifecycle-sync'
 
@@ -69,6 +79,7 @@ export function LifecycleActionCard({
   currentStageId,
   status,
   hasAuthorityQuery = false,
+  conditions,
 }: {
   dossierId: string
   country: string
@@ -76,6 +87,8 @@ export function LifecycleActionCard({
   status: LifecycleStatus
   /** Une notification (`authority_query`) a-t-elle déjà été journalisée ? (débloque « Réponse ».) */
   hasAuthorityQuery?: boolean
+  /** État des 3 conditions (M3) — récap NON BLOQUANT dans la modale « Marquer comme soumis ». */
+  conditions?: SubmissionConditionsState
 }) {
   const { t, lang } = useI18n()
   const orgId = useOrgId()
@@ -259,6 +272,9 @@ export function LifecycleActionCard({
 
           {active ? (
             <div className="grid gap-4">
+              {active.form === 'submit' && conditions ? (
+                <ConditionsRecap conditions={conditions} t={t} />
+              ) : null}
               {active.form === 'submit' ? (
                 <>
                   <Field
@@ -437,6 +453,51 @@ function Field({
     <div className="grid gap-1.5">
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
+    </div>
+  )
+}
+
+/**
+ * Récap des 3 conditions dans la modale « Marquer comme soumis » (M3) — INFORMATIF, JAMAIS BLOQUANT
+ * (décision CEO) : le journal garde la trace de l'ordre réel des faits, on n'empêche pas de confirmer.
+ */
+function ConditionsRecap({
+  conditions,
+  t,
+}: {
+  conditions: SubmissionConditionsState
+  t: (v: { fr: string; en: string }) => string
+}) {
+  const pending = conditions.total - conditions.done
+  return (
+    <div className="rounded-lg border p-3">
+      <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
+        {t({
+          fr: `Conditions de soumission — ${conditions.done} / ${conditions.total}`,
+          en: `Submission conditions — ${conditions.done} / ${conditions.total}`,
+        })}
+      </p>
+      <div className="mt-2 space-y-1.5">
+        {conditions.conditions.map((c) => (
+          <div key={c.id} className="flex items-center gap-2 text-xs">
+            {c.status === 'done' ? (
+              <CheckCircle2 className="text-success size-3.5 shrink-0" />
+            ) : (
+              <Clock className="text-warning size-3.5 shrink-0" />
+            )}
+            {t(CONDITION_TITLES[c.id])}
+          </div>
+        ))}
+      </div>
+      {pending > 0 ? (
+        <p className="text-warning mt-2.5 flex items-start gap-1.5 text-xs">
+          <CircleAlert className="mt-0.5 size-3.5 shrink-0" />
+          {t({
+            fr: `${pending} condition(s) non confirmée(s). Vous pouvez tout de même confirmer — le journal gardera la trace de l'ordre réel des faits.`,
+            en: `${pending} condition(s) not confirmed. You can still confirm — the journal keeps the real order of events.`,
+          })}
+        </p>
+      ) : null}
     </div>
   )
 }
