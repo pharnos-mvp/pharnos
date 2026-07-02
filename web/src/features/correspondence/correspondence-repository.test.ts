@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import {
   appendSenderMessage,
   createCorrespondence,
+  decideCorrespondenceInApp,
   getShareLink,
   listByDossier,
   listCorrespondences,
@@ -138,6 +139,72 @@ describe('correspondence repository (offline-first)', () => {
     await reopenCorrespondenceForReview(c.id, 'labo@ex.com', { withNote: false })
     expect((await db.correspondences.get(c.id))?.status).toBe('in_review')
     expect(await listMessages(c.id)).toHaveLength(0)
+  })
+
+  it('décision in-app (M4-T3) : status + decidedAt + message decision author=sender + outbox', async () => {
+    const c = await createCorrespondence(ORG, { ...input, note: null })
+    await db.outbox.clear()
+
+    await decideCorrespondenceInApp(c.id, 'labo@ex.com', 'suspended', ' Pièces manquantes. ')
+
+    const updated = await db.correspondences.get(c.id)
+    expect(updated?.status).toBe('suspended')
+    expect(updated?.decidedAt).toBeTruthy()
+    expect(updated?.revokedAt).toBeNull() // autoRevokeOnDecision false → lien intact
+
+    // Miroir du chemin Edge : la décision vit dans le fil (append-only), author='sender' (RLS 0028).
+    const messages = await listMessages(c.id)
+    expect(messages.at(-1)).toMatchObject({
+      kind: 'decision',
+      decision: 'suspended',
+      author: 'sender',
+      body: 'Pièces manquantes.',
+    })
+
+    // Mutation partielle EXPLICITE (status/decidedAt présents ; revokedAt ABSENT sans auto-revoke).
+    const outbox = await db.outbox.where('entity').equals('correspondence').toArray()
+    expect(outbox).toHaveLength(1)
+    expect(Object.keys(outbox[0]?.payload ?? {}).sort()).toEqual([
+      'decidedAt',
+      'id',
+      'status',
+      'updatedAt',
+    ])
+  })
+
+  it('décision in-app : autoRevokeOnDecision → le lien tokenisé se révoque (comme l’Edge)', async () => {
+    const c = await createCorrespondence(ORG, { ...input, autoRevokeOnDecision: true })
+    await db.outbox.clear()
+
+    await decideCorrespondenceInApp(c.id, 'labo@ex.com', 'accepted')
+
+    expect((await db.correspondences.get(c.id))?.revokedAt).toBeTruthy()
+    const outbox = await db.outbox.where('entity').equals('correspondence').toArray()
+    expect((outbox[0]?.payload as Record<string, unknown>).revokedAt).toBeTruthy()
+  })
+
+  it('décision in-app : no-op si la correspondance est déjà décidée (réviser = reopen d’abord)', async () => {
+    const c = await createCorrespondence(ORG, { ...input, note: null })
+    await decideCorrespondenceInApp(c.id, 'labo@ex.com', 'rejected')
+    await db.outbox.clear()
+
+    await decideCorrespondenceInApp(c.id, 'labo@ex.com', 'accepted')
+
+    expect((await db.correspondences.get(c.id))?.status).toBe('rejected')
+    expect(await db.outbox.count()).toBe(0)
+  })
+
+  it('boucle complète : décision → reopen → nouvelle décision (chaque acte tracé au fil)', async () => {
+    const c = await createCorrespondence(ORG, { ...input, note: null })
+    await decideCorrespondenceInApp(c.id, 'labo@ex.com', 'suspended')
+    await reopenCorrespondenceForReview(c.id, 'labo@ex.com')
+    await decideCorrespondenceInApp(c.id, 'labo@ex.com', 'accepted')
+
+    expect((await db.correspondences.get(c.id))?.status).toBe('accepted')
+    const kinds = (await listMessages(c.id)).map(
+      (m) => `${m.kind}${m.decision ? `:${m.decision}` : ''}`,
+    )
+    expect(kinds).toEqual(['decision:suspended', 'note', 'decision:accepted'])
   })
 
   it('listMessagesByDossier : agrège les fils de toutes les correspondances du dossier', async () => {

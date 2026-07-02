@@ -1,6 +1,7 @@
 import { recordAudit } from '@/lib/audit'
 import {
   db,
+  type CorrespondenceDecision,
   type CorrespondenceMessageRecord,
   type CorrespondenceRecord,
   type ShareLinkRecord,
@@ -285,6 +286,59 @@ export async function reopenCorrespondenceForReview(
       await db.correspondenceMessages.add(message)
       await enqueueOutbox('correspondence_message', message.id, 'create', message)
     }
+  })
+  await recordAudit(existing.orgId, 'correspondence', id, 'update', existing.productName)
+}
+
+/**
+ * Décision rendue IN-APP par un membre gestionnaire (boucle Décision, M4-T3) — miroir du chemin
+ * tokenisé de l'Edge `share` (status + decided_at + message `kind: 'decision'`), pour les personas
+ * où le décideur EST dans l'org (Agence locale = l'org) ou relaie une décision reçue hors-app.
+ * Offline-first : Dexie + outbox (mutation partielle EXPLICITE, cf. `updatePayloadToPartial`) ;
+ * RLS 0028 côté serveur (UPDATE gestionnaires + message `author='sender'` imposé — le journal
+ * de la Roadmap attribue l'entrée à « Labo »). Depuis `in_review` uniquement : réviser une
+ * décision = « Renvoyer en revue » puis redécider (chaque acte reste tracé, append-only).
+ */
+export async function decideCorrespondenceInApp(
+  id: string,
+  authorLabel: string,
+  decision: CorrespondenceDecision,
+  note = '',
+): Promise<void> {
+  const existing = await db.correspondences.get(id)
+  if (!existing || existing.deletedAt !== null || existing.status !== 'in_review') return
+  const ts = now()
+  const message: CorrespondenceMessageRecord = {
+    id: newId(),
+    orgId: existing.orgId,
+    correspondenceId: id,
+    author: 'sender',
+    authorLabel,
+    kind: 'decision',
+    decision,
+    body: note.trim(),
+    attachments: [],
+    createdAt: ts,
+  }
+  // Même règle que l'Edge : le lien tokenisé se révoque à la décision si l'envoi le demandait.
+  const revoke = existing.autoRevokeOnDecision
+  await db.transaction('rw', db.correspondences, db.correspondenceMessages, db.outbox, async () => {
+    await db.correspondences.put({
+      ...existing,
+      status: decision,
+      decidedAt: ts,
+      revokedAt: revoke ? ts : existing.revokedAt,
+      updatedAt: ts,
+    })
+    await enqueueOutbox('correspondence', id, 'update', {
+      id,
+      status: decision,
+      decidedAt: ts,
+      ...(revoke ? { revokedAt: ts } : {}),
+      updatedAt: ts,
+    })
+    await db.correspondenceMessages.add(message)
+    await enqueueOutbox('correspondence_message', message.id, 'create', message)
   })
   await recordAudit(existing.orgId, 'correspondence', id, 'update', existing.productName)
 }
