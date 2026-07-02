@@ -13,19 +13,23 @@
 - **Mesure** : 1 design-system sur 100 % des surfaces + landing cohérente · Lighthouse perf ≥ 90 / a11y ≥ 95 ·
   FR/EN sur chaque écran · advisors 0 ERROR · 0 Blocker/Major · `GO-LIVE-CHECKLIST.md` signée.
 
-## 📍 État d'avancement (MAJ 2026-06-28)
+## 📍 État d'avancement (MAJ 2026-07-02)
 La refonte est **bien engagée** — plusieurs surfaces majeures sont déjà refondues **dans CE projet** :
-- **PHASE B · LOT 1 Fondation DS** ✅ (PR #249) — primitives premium + écrans de référence **Dashboard + Catalogue** validés CEO.
+- **PHASE B · LOT 1 Fondation DS** ✅ (PR #249) + **LOT 1.5 verrouillage tokens** ✅ (PR #260) — primitives premium, token layer unifié, z-index tokenisé ; écrans de référence **Dashboard + Catalogue** validés CEO.
 - **PHASE C · LOT 2 Catalogue** ✅ — refonte premium **+ LOT 2 RIM complet (M1→M6)** livré 2026-06-28 (migration `0045`).
 - **PHASE C · LOT 3 Dashboard** ✅ — DA premium « Ultra-Performance » validée CEO (2026-06-27).
-- **LOT 4 Workspace/CTD** 🟡 (refonte responsive livrée #208 ; nits résiduels) · **LOT 5 Templates** 🟡 (Bibliothèque 5/5 ; reste M4) · **LOT 6 Variations** ✅ (moteur livré).
+- **LOT 4 Workspace/CTD** 🟡 — refonte responsive (#208) + **cockpit Opérations v2 hauteur fixe** (#264) + fond de page tokenisé (#276) ; restent les nits (roving tabindex, donut au recompute, date-pickers AMM).
+- **LOT 5 Templates** 🟡 (Bibliothèque 5/5 ; reste M4 → LOT 12) · **LOT 6 Variations** ✅ (moteur livré).
+- **🆕 CHANTIER LIFECYCLE (« la spine »)** 🟡 — **M0 fondation** (journal append-only `lifecycle_events`, migration `0047`, PR #272) + **M1 Roadmap parcours du dossier** (#273→#275) + **M2 actions Labo + Parcours/Journal + acteur** (#277/#278) **EN PROD**. Workflow complet 7 étapes **validé CEO le 2026-07-02** (revue `/cto:review`) → **M3→M8 ordonnancés en PHASE C′** ci-dessous (détail : [PLAN-LIFECYCLE.md](PLAN-LIFECYCLE.md)).
 
 > ⚠️ **À garder en tête** : la refonte du **Dashboard** et du **Catalogue** ne sont PAS des chantiers à part —
 > ce sont des **LOTs de CE projet de refonte complète de l'app**, qui se poursuit par les surfaces restantes
 > (LOTs 7-10) **puis la refonte du landing (LOT 11)**. Tout converge vers le même design-system.
 
-**Reste** : LOTs 7 (Compte), 8 (Admin), 9 (Dossiers+Corbeille), 10 (Correspondance v3) → **LOT 11 landing** →
-LOT 12 i18n+M4 → LOT 13 recette finale → **LOT 14 GO-LIVE (= N4)**.
+**Reste (ordre consolidé 2026-07-02)** : **lifecycle M3→M6** (valeur pilote immédiate) → LOTs **7 (Compte),
+8 (Admin), 9 (Dossiers+Corbeille)** → **LOT 10 Correspondance v3 ⊕ relances auto ⊕ vue Agent local (M7)**
+(fusion anti-rework) → **LOT 11 landing** → LOT 12 i18n+M4 → LOT 13 recette finale → **LOT 14 GO-LIVE (= N4)**.
+**M8 (fin de collaboration + modération) = post-GO-LIVE** (gated sur la décision « mode Agence multi-clients »).
 
 ---
 
@@ -87,7 +91,24 @@ zéro-rework (combiner / zone protégée). Lots :
 - **LOT 7 — Compte / Abonnement** — ⬜ (+ affichage du **barème** validé en LOT 0 + vérif P0-3).
 - **LOT 8 — Admin / god mode** — ⬜.
 - **LOT 9 — Dossiers + Corbeille/Archive** — ⬜ *(COMBINÉ : refonte + feature rétention #3 en un lot)*.
-- **LOT 10 — Correspondance + v3** — ⬜ *(COMBINÉ : refonte + délais agence/rappels/export PDF/lettre de réponse #6)*.
+- **LOT 10 — Correspondance + v3 + relances auto + Agent local** — ⬜ *(COMBINÉ anti-rework : refonte +
+  délais agence/rappels/export PDF/lettre de réponse #6 **+ relances automatiques lifecycle (M5 phase 2 :
+  cron Edge + seuils par pays) + vue Agent local (M7, liens tokenisés)** — même infra correspondance/rappels,
+  construite UNE fois. Séquençable en 10a (v3+relances) / 10b (vue agent, mockup-first))*.
+
+### ▶ PHASE C′ — Chantier Lifecycle M3→M6 (PRIORITAIRE — s'exécute AVANT les LOTs 7-10)
+**Pourquoi d'abord** : valeur pilote immédiate (les dossiers réels du pilote #1 Bénin = renouvellements +
+variations), lots front-only (événements déjà en base depuis `0047`), zéro risque zone A4. Workflow validé
+CEO 2026-07-02. Détail des jalons : [PLAN-LIFECYCLE.md](PLAN-LIFECYCLE.md) §5.
+- **M3 — Échantillons & Frais** ⬜ : boutons Décision/Dépôt (`samples_*`, `fees_*`, `payment_*` déjà typés) ;
+  récap 3 conditions **non bloquant** au Dépôt.
+- **M4 — Boucle Décision** ⬜ : bouton **« Renvoyer en revue »** (Complément/Rejeté — comble le cul-de-sac),
+  renommage libellé `suspended` → **« Complément requis »** (code inchangé), réalignement sémantique des
+  libellés Dépôt/Soumission, preuve AMM (docRefs), canal notification `via: agent|direct` (cas Côte d'Ivoire).
+- **M5 — Relance manuelle (phase 1)** ⬜ : badge « en attente depuis N jours » + bouton Relancer →
+  `reminder_sent` (pur front). *Phase 2 auto = fusionnée dans LOT 10.*
+- **M6 — Renouvellement J−6 & Variation sur la même spine** ⬜ : alerte dérivée `valid_until − 6 mois` +
+  création `renewal`/`variation` pré-remplie (n° AMM repris). **Pas de workflow séparé — la même spine.**
 
 ### ▶ PHASE D — Landing (APRÈS que toutes les surfaces app sont refondues)
 **LOT 11 — Landing premium.** Refonte `landing/` : tour produit + **vraies captures de l'app upgradée**,
@@ -121,10 +142,11 @@ Design-system **documenté + appliqué partout** · light/dark + **FR/EN complet
 ## 🧱 Stack (verrouillé — aucune décision nouvelle)
 Vite 8 · React 19 · TS 6 strict · Tailwind v4 + shadcn/ui (tokens light/dark) · Dexie offline-first ·
 Supabase (Postgres/RLS/Auth/Storage/Edge) · Vertex Gemini · Cloudflare Pages · pdf-lib/pdfjs · i18n FR/EN.
-Landing = `landing/` statique isolé, mêmes tokens. **Migrations : `0044` (doc-metadata) + `0045` (parties) posées → reprendre à `0046`** ; la plupart des lots = front-only.
+Landing = `landing/` statique isolé, mêmes tokens. **Migrations : dernière posée = `0047` (`lifecycle_events`) → reprendre à `0048`** ; la plupart des lots = front-only.
 
 ---
 
-### Récap ultra-court (l'ordre)
-**A. LOT 0 pré-vol (//)** → **B. LOT 1 fondation (gate CEO)** → **C. LOTs 2-10 refonte par surface (tu choisis l'ordre)**
-→ **D. LOT 11 landing** → **E. LOT 12 i18n+M4 puis LOT 13 recette finale** → **F. LOT 14 GO-LIVE.**
+### Récap ultra-court (l'ordre consolidé 2026-07-02)
+**A. LOT 0 pré-vol (//)** → **B. LOT 1 fondation ✅** → **C′. lifecycle M3→M6 (valeur pilote)** →
+**C. LOTs 7-9 surfaces restantes** → **LOT 10 Correspondance⊕relances⊕Agent (fusion)** → **D. LOT 11 landing**
+→ **E. LOT 12 i18n+M4 puis LOT 13 recette finale** → **F. LOT 14 GO-LIVE.** *(M8 modération = post-GO-LIVE.)*

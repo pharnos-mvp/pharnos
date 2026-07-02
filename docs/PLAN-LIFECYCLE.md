@@ -1,9 +1,12 @@
 # PLAN — Cycle de vie du dossier (« la spine ») + Roadmap « parcours du dossier »
 
-> Statut : **plan validé-en-attente** (mockup Roadmap validé CEO : `docs/mockups/roadmap-parcours-dossier.html`).
-> Réf. domaine : mémoire `dossier-lifecycle`. Backbone inspiré des grands RIM (Application → Submission →
-> Registration + interactions HA), couche opérationnelle africaine en plus (mandataire, échantillons,
-> paiement, canal physique/portail, journal de confiance). Migration libre : `0047`.
+> Statut : **M0–M2 LIVRÉS EN PROD** (M0 #272 migration `0047` · M1 #273→#275 · M2 #277/#278).
+> **Workflow complet 7 étapes + boutons validé CEO le 2026-07-02** (revue `/cto:review` : mapping proposition
+> CEO ↔ implémenté, verdict SHIP) → jalons M3→M8 réordonnancés ci-dessous (§5) et intégrés à la ligne droite
+> [PLAN-LANCEMENT.md](PLAN-LANCEMENT.md) (PHASE C′). Réf. domaine : mémoire `dossier-lifecycle`. Backbone
+> inspiré des grands RIM (Application → Submission → Registration + interactions HA), couche opérationnelle
+> africaine en plus (mandataire, échantillons, paiement, canal physique/portail, journal de confiance).
+> Migration libre : `0048`.
 
 ## 1. Objectif & métrique de succès
 
@@ -77,15 +80,22 @@ le portail, la langue, les délais, l'exigence d'agent/d'autorisation d'import s
 
 ## 5. Jalons (tranches verticales, chacune livrable)
 
+> **Réordonnancement validé CEO 2026-07-02** (issu de la revue workflow `/cto:review`) : l'ancien découpage
+> M3 Échantillons / M4 Paiement / M5 Agent / M6 Relances est **remplacé** par la table ci-dessous. Fusions
+> anti-rework : relances auto + vue Agent local rejoignent le **LOT 10** de PLAN-LANCEMENT (même infra
+> correspondance/rappels) ; M8 est **post-GO-LIVE**.
+
 | # | Tranche | Contenu | Effort |
 |---|---|---|---|
-| **M0** ✅ | **Fondation** | migration `0047` (`lifecycle_events` + RLS + index sync) ; Dexie mirror + sync + outbox ; `deriveLifecycle()` pur + tests ; `country_regulatory_config` semée (10 pays) ; ADR-0004 — **LIVRÉ (PR en revue)** | **L** |
-| **M1** | **Roadmap (lecture)** | refonte `/workspace/:dossierId/roadmap` = parcours du dossier : pipeline live (dérivé) + référence (config pays) + journal + badge statut (le mockup validé) | **M** |
-| **M2** | **Actions Labo** | faire avancer les jalons (Transmettre / Soumis [+mode+preuve] / Notification reçue / AMM) → append `lifecycle_events` ; carte « étape en cours » actionnable | **M** |
-| **M3** | **Échantillons** | sous-workflow demande → autorisation import → expédition → remise + emplacements pièces (autorisation, AWB) | **M** |
-| **M4** | **Paiement** | facture → preuve (SWIFT) → confirmation 2 niveaux + pièces (zéro fintech) | **M** |
-| **M5** | **Agent local (tokenisé)** | l'agent confirme dépôt/soumission, dépose preuves, relaie notifications via lien tokenisé (réutilise correspondance) → timeline partagée | **L** |
-| **M6** | **Relances auto** | règle « jours-en-étape > seuil → notifier » sur l'infra notif/e-mail existante ; seuil réglable | **S** |
+| **M0** ✅ | **Fondation** | migration `0047` (`lifecycle_events` + RLS append-only + pgTAP) ; Dexie mirror + sync + outbox ; `deriveLifecycle()` pur + tests ; config 10 pays ; ADR-0004 — **PROD (PR #272)** | **L** |
+| **M1** ✅ | **Roadmap (lecture)** | pipeline live + référence pays + journal + badge ; accès montage/aperçu ; clic dossier → Roadmap — **PROD (#273→#275)** | **M** |
+| **M2** ✅ | **Actions Labo** | carte actionnable → `appendLifecycleEvent` (Transmettre / Soumis / Notification / Réponse / AMM ±) ; Parcours vs Journal + acteur — **PROD (#277/#278)** | **M** |
+| **M3** | **Échantillons & Frais** | boutons Décision/Dépôt sur les événements déjà typés (`samples_requested/…/delivered`, `fees_invoiced`, `payment_submitted/confirmed`) + pièces (autorisation import, AWB, SWIFT) + récap 3 conditions **non bloquant** au Dépôt | **M** |
+| **M4** | **Boucle Décision** | bouton **« Renvoyer en revue »** après Complément/Rejeté (comble le cul-de-sac du workflow) ; libellé `suspended` → **« Complément requis »** (code d'événement inchangé — journal immuable) ; réalignement libellés Dépôt (= réception confirmée par l'agent) / Soumission (= dépôt agence nationale) ; upload **preuve AMM** (docRefs) ; payload `via: agent\|direct` sur `authority_query` (cas CI) | **M** |
+| **M5** | **Relance manuelle (phase 1)** | badge « en attente depuis N jours » + bouton Relancer → `reminder_sent` (pur front). **Phase 2 (cron Edge + seuils par pays) = LOT 10** | **S** |
+| **M6** | **Renouvellement J−6 & Variation** | alerte dérivée `valid_until − 6 mois` + bouton « Créer le renouvellement » (`activity: renewal` pré-rempli, n° AMM repris) ; idem variation — **même spine 7 étapes, pas de workflow séparé** | **S/M** |
+| **M7** | **Vue Agent local (tokenisé)** | l'agent confirme dépôt/soumission, dépose preuves, relaie notifications via lien tokenisé → timeline partagée — **fusionné dans LOT 10b** (PLAN-LANCEMENT) | **L** |
+| **M8** | **Fin de collaboration + modération** | révocation d'accès + raison journalisée → modération Pharnos (métadonnées seulement, jamais le contenu ; accès modération lui-même journalisé) — **post-GO-LIVE**, gated sur la décision « mode Agence multi-clients » | **M** |
 
 **Mockup-first** pour toute surface neuve hors Roadmap (déjà validée) : la config pays (si UI un jour) et
 les écrans tokenisés de l'agent (M5).
@@ -109,15 +119,17 @@ les écrans tokenisés de l'agent (M5).
 - **Recette navigateur réelle** (la spine est vérifiable hors zone protégée).
 - Pour M1+ : surface **validée CEO** (mockup d'abord si neuve).
 
-## 8. État & prochaine étape
+## 8. État & prochaine étape (MAJ 2026-07-02)
 
-**Lot M0 — Fondation : LIVRÉ (PR en revue, branche `feat/lifecycle-m0-foundation`).** ADR-0004 +
-migration `0047` (`lifecycle_events` + RLS append-only, pgTAP) + `deriveLifecycle()` pur (7 étapes,
-17 tests) + `country_regulatory_config` TS (10 pays) + Dexie mirror/sync/outbox + repository. Gates
-locaux 6/6 verts ; revue `cto:code-reviewer` = **SHIP**. ⚠️ **Application de la migration `0047` en
-prod = étape séparée à autoriser explicitement** (le garde-fou harness bloque l'écriture DB prod
-autonome) — la CI `rls` la valide déjà sur base propre.
+**M0 + M1 + M2 : EN PROD** (M0 #272 avec migration `0047` appliquée · M1 #273 + accès rapides #274/#275 ·
+M2 actions Labo #277 + Parcours/Journal/acteur #278). Revue CTO post-livraison du lot M2 (2026-07-02) :
+**SHIP, 0 Blocker/Major** ; 3 minors tracés (tri `buildJournal` sans tie-break, `valid_until` sans `min`,
+clé React sur index du journal) → **à solder dans M4** (même zone de code).
 
-**Prochaine tranche : M1 — Roadmap (lecture)** : refonte de `/workspace/:dossierId/roadmap` (route déjà
-montée) pour rendre le mockup validé à partir de `deriveLifecycle` + `lifecycle-config` (pipeline live,
-référence réglementaire, journal, badge). Mockup déjà validé CEO → prête à démarrer.
+**Workflow complet validé CEO 2026-07-02** : mapping proposition CEO ↔ implémenté fait en revue ; boutons
+par étape actés ; nom retenu pour `suspended` = **« Complément requis »** ; politique données modération =
+métadonnées d'actions accessibles (base : intérêt légitime, CGU/politique de confidentialité, accès
+journalisé), contenu des dossiers **jamais** accessible.
+
+**Prochaine tranche : M3 — Échantillons & Frais** (événements déjà en base depuis `0047`, front-only,
+valeur directe pour le pilote #1 Bénin). Puis M4 → M6 selon §5, le reste via LOT 10 (PLAN-LANCEMENT).

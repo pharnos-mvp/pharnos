@@ -12,7 +12,7 @@
 > **Protocole de mise à jour** (voir §13) : à chaque tranche livrée (PR mergée), mettre à jour le
 > §1 (état), le §9 (milestones) et le §10 (journal). Garder le reste synchronisé si une décision change.
 
-_Dernière mise à jour : 2026-06-28 — **Jalons H→O + pivot P1 + refonte CTD builder + Bibliothèque Templates 5/5 + 🚀 Moteur de Variation + LOT 2 Catalogue RIM COMPLET (M1→M6 : parties/Organisations/Autorités, #252→#258) EN PROD ; migrations à `0045` (reprendre à `0046`) ; gate N : N1✅ N2✅ N3✅ → reste N4, pilote #1 EN COURS (Bénin). Refonte app (PLAN-LANCEMENT) ≈ moitié faite : LOT 1 fondation + LOT 2 Catalogue + LOT 3 Dashboard + LOT 6 Variations livrés ; reste surfaces 4-10 + landing.** Plan de finition « zéro-dette » : [PLAN-FINITION-ZERO-DETTE.md](PLAN-FINITION-ZERO-DETTE.md). _Bloc historique (06-17) :_ **Jalons H→M + O + N1 + N2 + N3 (gros œuvre) EN PROD.** Tracker vivant
+_Dernière mise à jour : 2026-07-02 — **Jalons H→O + pivot P1 + refonte CTD builder + Bibliothèque Templates 5/5 + 🚀 Moteur de Variation + LOT 2 Catalogue RIM COMPLET (#252→#258) + Workspace cockpit v2 (#264) + 🆕 LIFECYCLE « la spine » M0–M2 (#272→#278 : journal append-only `0047` + `deriveLifecycle` 7 étapes + Roadmap parcours + actions Labo) EN PROD ; migrations à `0047` (reprendre à `0048`) ; gate N : N1✅ N2✅ N3✅ → reste N4, pilote #1 EN COURS (Bénin). Workflow lifecycle complet validé CEO 2026-07-02 → M3→M8 ordonnancés ([PLAN-LIFECYCLE.md](PLAN-LIFECYCLE.md) §5). Chemin consolidé jusqu'au lancement (lifecycle M3→M6 → LOTs 7-9 → LOT 10 fusionné → landing → i18n → recette → GO-LIVE) : [PLAN-LANCEMENT.md](PLAN-LANCEMENT.md).** Plan de finition « zéro-dette » : [PLAN-FINITION-ZERO-DETTE.md](PLAN-FINITION-ZERO-DETTE.md). _Bloc historique (06-17) :_ **Jalons H→M + O + N1 + N2 + N3 (gros œuvre) EN PROD.** Tracker vivant
 du gate GO-LIVE (état détaillé, PRs, reste) : **[PLAN-N-EXECUTION.md](PLAN-N-EXECUTION.md)**. **Session 2026-06-17
 = 6 ships prod** : B1 (verrou d'offre Regafy `0034`), N2-b (code-split workspace **−77 %** + Lighthouse a11y gate
 + e2e offline), N3-a (index sync `0035`), N3-b (backstop stockage `0036` + **quota stockage god mode** `0037`).
@@ -45,9 +45,11 @@ Prochaine action : **jalon I (backups + restore drill)** — seul préalable res
 
 **Le produit est EN PRODUCTION (app.pharnos.com), IA comprise, durci, optimisé.** Jalons H→O + gate N
 (N1/N2/N3) + refonte CTD builder + **Bibliothèque Templates 5/5** + **🚀 Moteur de Variation (RIM, #224→#236)**
-+ **LOT 2 Catalogue RIM COMPLET (M1→M6, #252→#258)** livrés ; **reste N4 (gate GO-LIVE) — pilote #1 EN COURS
-(dossiers Bénin renouvellement/variation).** Cap : [PLAN-RESTANT.md](PLAN-RESTANT.md) + [ROADMAP-MVP.md](ROADMAP-MVP.md).
-**Dernière ligne droite (refonte UX app + landing premium + clôture N4, zéro-dette) = roadmap ordonnée dans
++ **LOT 2 Catalogue RIM COMPLET (M1→M6, #252→#258)** + **🆕 Lifecycle « la spine » M0–M2 (#272→#278)** livrés ;
+**reste N4 (gate GO-LIVE) — pilote #1 EN COURS (dossiers Bénin renouvellement/variation).**
+Cap : [PLAN-RESTANT.md](PLAN-RESTANT.md) + [ROADMAP-MVP.md](ROADMAP-MVP.md).
+**Dernière ligne droite consolidée 2026-07-02 (lifecycle M3→M6 → surfaces 7-9 → LOT 10 fusionné
+correspondance⊕relances⊕agent → landing → i18n → recette → GO-LIVE) = roadmap ordonnée dans
 [PLAN-LANCEMENT.md](PLAN-LANCEMENT.md) ; ≈ moitié faite (Dashboard + Catalogue = des LOTs de CE projet, pas des chantiers isolés).**
 
 | Domaine | État |
