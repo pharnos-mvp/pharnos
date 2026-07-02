@@ -152,7 +152,7 @@ test('Roadmap M3 : conditions de soumission dérivées + journal enrichi et tron
 
   // Panneau conditions : CTD remplie (deposited) → 1/3 ; montant des frais affiché sur la ligne.
   await expect(page.getByText('Conditions de soumission · 1 / 3')).toBeVisible()
-  await expect(page.getByText(/850[\s  ]000/).first()).toBeVisible()
+  await expect(page.getByText(/850[\s\u00A0\u202F]000/).first()).toBeVisible()
 
   // Accordéon : la ligne Échantillons (1re actionnable) est dépliée → chaîne visible, « Expédiés ».
   await expect(page.getByText('Import autorisé')).toBeVisible()
