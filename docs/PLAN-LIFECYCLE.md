@@ -40,7 +40,11 @@ Togo) + Ghana + Nigeria — `country_regulatory_config` semée avec leurs **mode
 
 - ❌ Moteur de workflow générique / BPMN / state-machine configurable — **les 6 jalons sont codés en dur**.
 - ❌ **Fintech** / déplacement d'argent (seulement preuve + confirmation).
-- ❌ **Comptes multi-parties** agents/agences — l'agent local agit par **liens tokenisés** (correspondance).
+- ❌ ~~Comptes multi-parties~~ **RÉVISÉ 2026-07-02 (décision CEO)** : l'agent local peut désormais être
+  **membre scopé au dossier** (tranche **CS1**, voir §5-bis) OU agir par **lien tokenisé** (sans compte).
+  Restent des non-goals : le scoping par client/`party_id` dans une org (agence multi-clients), le
+  **partage cross-org persistant**, et le **périmètre sur la couche ÉDITION** (Expert RA/Éditeur limité à
+  certains produits = **phase 2, post-GO-LIVE**).
 - ❌ Procédures **régionales/continentales AMA** (joint assessment, listing) — modèle gardé extensible, pas construit.
 - ❌ **Marketplace**, contrats e-signés, paiement intégré — couches « réseau » ultérieures.
 - ❌ UI admin éditable de la config pays — référentiel par code au MVP.
@@ -91,7 +95,8 @@ le portail, la langue, les délais, l'exigence d'agent/d'autorisation d'import s
 | **M1** ✅ | **Roadmap (lecture)** | pipeline live + référence pays + journal + badge ; accès montage/aperçu ; clic dossier → Roadmap — **PROD (#273→#275)** | **M** |
 | **M2** ✅ | **Actions Labo** | carte actionnable → `appendLifecycleEvent` (Transmettre / Soumis / Notification / Réponse / AMM ±) ; Parcours vs Journal + acteur — **PROD (#277/#278)** | **M** |
 | **M3** | **Échantillons & Frais** | boutons Décision/Dépôt sur les événements déjà typés (`samples_requested/…/delivered`, `fees_invoiced`, `payment_submitted/confirmed`) + pièces (autorisation import, AWB, SWIFT) + récap 3 conditions **non bloquant** au Dépôt | **M** |
-| **M4** | **Boucle Décision** | bouton **« Renvoyer en revue »** après Complément/Rejeté (comble le cul-de-sac du workflow) ; libellé `suspended` → **« Complément requis »** (code d'événement inchangé — journal immuable) ; réalignement libellés Dépôt (= réception confirmée par l'agent) / Soumission (= dépôt agence nationale) ; upload **preuve AMM** (docRefs) ; payload `via: agent\|direct` sur `authority_query` (cas CI) | **M** |
+| **M4** | **Boucle Décision** | bouton **« Renvoyer en revue »** après Complément/Rejeté (comble le cul-de-sac du workflow) ; libellé `suspended` → **« Complément requis »** (code d'événement inchangé — journal immuable) ; réalignement libellés Dépôt (= réception confirmée par l'agent) / Soumission (= dépôt agence nationale) ; upload **preuve AMM** (docRefs) ; payload `via: agent\|direct` sur `authority_query` (cas CI) ; **+ décision Revue→Décision rendue POSSIBLE IN-APP pour les membres gestionnaires** (aujourd'hui la décision formelle passe par le lien tokenisé même pour un membre — trou identifié en revue 2026-07-02) | **M** |
+| **CS1** | **Collaboration compte-à-compte SCOPÉE au dossier** (validée CEO 2026-07-02) | périmètre par membre (couche SUIVI), sélecteur d'org, fix attribution quotas — **détail §5-bis** ; migration `0048` probable | **M/L** |
 | **M5** | **Relance manuelle (phase 1)** | badge « en attente depuis N jours » + bouton Relancer → `reminder_sent` (pur front). **Phase 2 (cron Edge + seuils par pays) = LOT 10** | **S** |
 | **M6** | **Renouvellement J−6 & Variation** | alerte dérivée `valid_until − 6 mois` + bouton « Créer le renouvellement » (`activity: renewal` pré-rempli, n° AMM repris) ; idem variation — **même spine 7 étapes, pas de workflow séparé** | **S/M** |
 | **M7** | **Vue Agent local (tokenisé)** | l'agent confirme dépôt/soumission, dépose preuves, relaie notifications via lien tokenisé → timeline partagée — **fusionné dans LOT 10b** (PLAN-LANCEMENT) | **L** |
@@ -99,6 +104,34 @@ le portail, la langue, les délais, l'exigence d'agent/d'autorisation d'import s
 
 **Mockup-first** pour toute surface neuve hors Roadmap (déjà validée) : la config pays (si UI un jour) et
 les écrans tokenisés de l'agent (M5).
+
+### §5-bis — CS1 : Collaboration compte-à-compte scopée au dossier (spec)
+
+> **Décision CEO 2026-07-02** (audit multi-org + vision « pas une agence invitée ne verra tout mon
+> catalogue »). Unité de scope = **le dossier** (produit × pays × opération) = l'unité du **mandat RA**.
+> Cas couverts : 1 dossier → 1 agence · même produit/2 pays → 2 agences · A/B de 2 agents sur un même
+> pays (catalogue divisé) · 8 agents / 8 pays UEMOA (portefeuille pays) · sans-compte = liens tokenisés
+> (inchangé, M7/LOT 10b pour la timeline).
+
+- **Modèle** : périmètre par membre — `null` = toute l'org (défaut, comportement actuel intact) ou
+  **liste de dossiers**, avec raccourcis de sélection **par pays / par produit / manuelle**. Table de
+  grants (`membership_scopes`, migration `0048` probable) + fonction RLS ; le périmètre s'ajoute en
+  **`AND` sur les policies existantes** (on restreint, on ne perce pas — direction fail-safe).
+- **Couche SUIVI uniquement (phase 1)** : dossiers, cycle de vie (Roadmap + actions), correspondance
+  (+ messages), lecture du **PDF compilé**. PAS le catalogue, PAS le CTD builder, PAS les documents de
+  travail (l'agent dépose et suit, il n'édite pas le Module 3 — conforme à la pratique RA).
+- **Inclus (prérequis découverts à l'audit 2026-07-02)** : **sélecteur d'organisation** (menu compte —
+  un agent sert plusieurs labos) + **fix attribution quotas** (`caller_org_id()` = plus ancienne org →
+  passer l'`orgId` actif explicite, vérifié membre côté SQL — bug de facturation latent).
+- **Garde-fous** : grants/révocations **journalisés** (audit GxP) ; **pgTAP négatifs** par table scopée
+  (« l'agent scopé ne voit PAS le dossier hors périmètre » = 0 ligne) ; advisors re-checkés (perf RLS
+  initplan : fonction stable + index) ; réalité offline **documentée** (la révocation coupe l'accès,
+  n'efface pas ce qui est déjà synchronisé sur la machine de l'agent — identique au retrait d'un membre
+  aujourd'hui).
+- **Phase 2 (post-GO-LIVE, non construite)** : périmètre sur la couche ÉDITION (Expert RA/Éditeur limité
+  à des produits — policies documents + storage par chemin) ; **KPIs par agent/portefeuille** (taux de
+  réussite « AMM du 1er coup », délais par étape — **pure dérivation du journal**, aucune écriture nouvelle).
+- **Effort** : **M/L (~2-3 sessions)**. Zone A4 intouchée.
 
 ## 6. Risques & mitigations (top 3)
 
@@ -131,5 +164,10 @@ par étape actés ; nom retenu pour `suspended` = **« Complément requis »** ;
 métadonnées d'actions accessibles (base : intérêt légitime, CGU/politique de confidentialité, accès
 journalisé), contenu des dossiers **jamais** accessible.
 
+**CS1 validée et insérée (2026-07-02)** : collaboration compte-à-compte **scopée au dossier** (§5-bis),
+issue de l'audit multi-org (multi-appartenance OK, mais pas de sélecteur d'org, quotas `caller_org_id`
+à corriger, pas d'ACL fine — décision : périmètre par membre, couche suivi, fail-safe).
+
 **Prochaine tranche : M3 — Échantillons & Frais** (événements déjà en base depuis `0047`, front-only,
-valeur directe pour le pilote #1 Bénin). Puis M4 → M6 selon §5, le reste via LOT 10 (PLAN-LANCEMENT).
+valeur directe pour le pilote #1 Bénin). Puis **M4 → CS1 → M5 → M6** selon §5, le reste via LOT 10
+(PLAN-LANCEMENT).

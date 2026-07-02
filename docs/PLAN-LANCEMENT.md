@@ -26,10 +26,12 @@ La refonte est **bien engagée** — plusieurs surfaces majeures sont déjà ref
 > ce sont des **LOTs de CE projet de refonte complète de l'app**, qui se poursuit par les surfaces restantes
 > (LOTs 7-10) **puis la refonte du landing (LOT 11)**. Tout converge vers le même design-system.
 
-**Reste (ordre consolidé 2026-07-02)** : **lifecycle M3→M6** (valeur pilote immédiate) → LOTs **7 (Compte),
-8 (Admin), 9 (Dossiers+Corbeille)** → **LOT 10 Correspondance v3 ⊕ relances auto ⊕ vue Agent local (M7)**
-(fusion anti-rework) → **LOT 11 landing** → LOT 12 i18n+M4 → LOT 13 recette finale → **LOT 14 GO-LIVE (= N4)**.
-**M8 (fin de collaboration + modération) = post-GO-LIVE** (gated sur la décision « mode Agence multi-clients »).
+**Reste (ordre consolidé 2026-07-02, v2 avec CS1)** : **lifecycle M3 → M4 → 🆕 CS1 Collaboration scopée →
+M5-M6** (valeur pilote immédiate) → LOTs **7 (Compte), 8 (Admin), 9 (Dossiers+Corbeille)** →
+**LOT 10 Correspondance v3 ⊕ relances auto ⊕ vue Agent local (M7)** (fusion anti-rework) → **LOT 11 landing**
+→ LOT 12 i18n+M4 → LOT 13 recette finale → **LOT 14 GO-LIVE (= N4)**.
+**M8 (fin de collaboration + modération) + CS1 phase 2 (éditeurs scopés) = post-GO-LIVE** (M8 gated sur la
+décision « mode Agence multi-clients »).
 
 ---
 
@@ -96,15 +98,22 @@ zéro-rework (combiner / zone protégée). Lots :
   cron Edge + seuils par pays) + vue Agent local (M7, liens tokenisés)** — même infra correspondance/rappels,
   construite UNE fois. Séquençable en 10a (v3+relances) / 10b (vue agent, mockup-first))*.
 
-### ▶ PHASE C′ — Chantier Lifecycle M3→M6 (PRIORITAIRE — s'exécute AVANT les LOTs 7-10)
+### ▶ PHASE C′ — Chantier Lifecycle M3→M6 + CS1 (PRIORITAIRE — s'exécute AVANT les LOTs 7-10)
 **Pourquoi d'abord** : valeur pilote immédiate (les dossiers réels du pilote #1 Bénin = renouvellements +
-variations), lots front-only (événements déjà en base depuis `0047`), zéro risque zone A4. Workflow validé
-CEO 2026-07-02. Détail des jalons : [PLAN-LIFECYCLE.md](PLAN-LIFECYCLE.md) §5.
+variations), lots majoritairement front-only (événements déjà en base depuis `0047`), zéro risque zone A4.
+Workflow validé CEO 2026-07-02. Détail des jalons : [PLAN-LIFECYCLE.md](PLAN-LIFECYCLE.md) §5 + §5-bis.
 - **M3 — Échantillons & Frais** ⬜ : boutons Décision/Dépôt (`samples_*`, `fees_*`, `payment_*` déjà typés) ;
   récap 3 conditions **non bloquant** au Dépôt.
 - **M4 — Boucle Décision** ⬜ : bouton **« Renvoyer en revue »** (Complément/Rejeté — comble le cul-de-sac),
   renommage libellé `suspended` → **« Complément requis »** (code inchangé), réalignement sémantique des
-  libellés Dépôt/Soumission, preuve AMM (docRefs), canal notification `via: agent|direct` (cas Côte d'Ivoire).
+  libellés Dépôt/Soumission, preuve AMM (docRefs), canal notification `via: agent|direct` (cas Côte d'Ivoire),
+  **+ décision Revue→Décision faisable IN-APP par les membres gestionnaires** (aujourd'hui tokenisé-only).
+- **🆕 CS1 — Collaboration compte-à-compte SCOPÉE au dossier** ⬜ (validée CEO 2026-07-02, spec
+  [PLAN-LIFECYCLE.md](PLAN-LIFECYCLE.md) §5-bis) : périmètre par membre (dossiers / raccourcis pays &
+  produits, `null` = toute l'org), **couche SUIVI** (dossiers, Roadmap/cycle de vie, correspondance, PDF
+  compilé — pas le catalogue ni le builder), **+ sélecteur d'organisation + fix attribution quotas**.
+  Migration `0048` probable + pgTAP négatifs. *Cas : 8 agents / 8 pays UEMOA, chacun SON portefeuille ;
+  A/B de 2 agents ; phase 2 (éditeurs scopés, KPIs par agent) = post-GO-LIVE.*
 - **M5 — Relance manuelle (phase 1)** ⬜ : badge « en attente depuis N jours » + bouton Relancer →
   `reminder_sent` (pur front). *Phase 2 auto = fusionnée dans LOT 10.*
 - **M6 — Renouvellement J−6 & Variation sur la même spine** ⬜ : alerte dérivée `valid_until − 6 mois` +
@@ -146,7 +155,8 @@ Landing = `landing/` statique isolé, mêmes tokens. **Migrations : dernière po
 
 ---
 
-### Récap ultra-court (l'ordre consolidé 2026-07-02)
-**A. LOT 0 pré-vol (//)** → **B. LOT 1 fondation ✅** → **C′. lifecycle M3→M6 (valeur pilote)** →
-**C. LOTs 7-9 surfaces restantes** → **LOT 10 Correspondance⊕relances⊕Agent (fusion)** → **D. LOT 11 landing**
-→ **E. LOT 12 i18n+M4 puis LOT 13 recette finale** → **F. LOT 14 GO-LIVE.** *(M8 modération = post-GO-LIVE.)*
+### Récap ultra-court (l'ordre consolidé 2026-07-02 v2)
+**A. LOT 0 pré-vol (//)** → **B. LOT 1 fondation ✅** → **C′. lifecycle M3 → M4 → CS1 collaboration scopée →
+M5-M6 (valeur pilote)** → **C. LOTs 7-9 surfaces restantes** → **LOT 10 Correspondance⊕relances⊕Agent (fusion)**
+→ **D. LOT 11 landing** → **E. LOT 12 i18n+M4 puis LOT 13 recette finale** → **F. LOT 14 GO-LIVE.**
+*(M8 modération + CS1 phase 2 = post-GO-LIVE.)*
