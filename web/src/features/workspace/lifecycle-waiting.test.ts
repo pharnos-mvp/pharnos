@@ -72,7 +72,8 @@ describe('deriveStageWaiting — « en attente depuis N jours » (M5)', () => {
     expect(w!.since).toBe('2026-06-02T00:00:00.000Z')
     expect(w!.days).toBe(13)
     expect(w!.lastIsReminder).toBe(false)
-    expect(w!.actor.fr).toBe('Agent local')
+    // Forme FLÉCHIE pour la phrase du badge (« En attente de … ») — revue M5.
+    expect(w!.actor.fr).toBe('l’agent local')
   })
 
   it('complément requis (le labo doit répondre) → null', () => {
@@ -113,7 +114,7 @@ describe('deriveStageWaiting — « en attente depuis N jours » (M5)', () => {
     const w = deriveStageWaiting(st, NOW)
     expect(w!.since).toBe('2026-06-12T00:00:00.000Z')
     expect(w!.days).toBe(3)
-    expect(w!.actor.fr).toBe('Agence nat.')
+    expect(w!.actor.fr).toBe('l’agence nationale')
   })
 
   it('relance journalisée → le compteur repart et lastIsReminder = true', () => {

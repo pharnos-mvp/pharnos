@@ -251,10 +251,10 @@ describe('LifecycleActionCard — actions Labo (M2)', () => {
       since: '2026-06-02T00:00:00.000Z',
       days: 12,
       lastIsReminder: false,
-      actor: { fr: 'Agent local', en: 'Local agent' },
+      actor: { fr: 'l’agent local', en: 'the local agent' },
     }
     renderCard({ currentStageId: 'depot', status: 'accepted', waiting })
-    expect(screen.getByText(/En attente de Agent local depuis 12 j/i)).toBeInTheDocument()
+    expect(screen.getByText(/En attente de l’agent local depuis 12 j/i)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Relancer' }))
     fireEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
     await waitFor(() => expect(appendMock).toHaveBeenCalledTimes(1))
@@ -274,10 +274,10 @@ describe('LifecycleActionCard — actions Labo (M2)', () => {
       since: '2026-06-02T00:00:00.000Z',
       days: 3,
       lastIsReminder: false,
-      actor: { fr: 'Agent local', en: 'Local agent' },
+      actor: { fr: 'l’agent local', en: 'the local agent' },
     }
     renderCard({ currentStageId: 'revue', status: 'in_review', waiting })
-    expect(screen.getByText(/En attente de Agent local depuis 3 j/i)).toBeInTheDocument()
+    expect(screen.getByText(/En attente de l’agent local depuis 3 j/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Relancer' })).toBeInTheDocument()
   })
 
@@ -287,7 +287,7 @@ describe('LifecycleActionCard — actions Labo (M2)', () => {
       since: '2026-06-13T00:00:00.000Z',
       days: 2,
       lastIsReminder: true,
-      actor: { fr: 'Agent local', en: 'Local agent' },
+      actor: { fr: 'l’agent local', en: 'the local agent' },
     }
     renderCard({ currentStageId: 'depot', status: 'accepted', waiting })
     expect(screen.getByText(/Relancé il y a 2 j/i)).toBeInTheDocument()

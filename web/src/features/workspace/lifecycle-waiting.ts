@@ -1,5 +1,5 @@
 import type { Translatable } from '@/lib/i18n-context'
-import { LIFECYCLE_STAGES, type LifecycleState, type LifecycleStatus } from './lifecycle-constants'
+import type { LifecycleState, LifecycleStatus } from './lifecycle-constants'
 
 /**
  * « En attente depuis N jours » (jalon M5, phase 1 — relance MANUELLE) : dérivation PURE de
@@ -19,27 +19,34 @@ export interface StageWaiting {
   days: number
   /** La dernière activité est déjà une relance → l'UI affiche « Relancé il y a N j ». */
   lastIsReminder: boolean
-  /** Acteur attendu (étiquette de l'étape courante — Agent local / Agence nat.). */
+  /** Partie attendue, FLÉCHIE pour la phrase (« En attente de … ») — revue de M5. */
   actor: Translatable
 }
 
 /**
- * Statuts où le dossier attend un TIERS (relançable). Les autres sont soit du travail PROPRE au
- * labo (montage, complément requis), soit terminaux (rejeté, AMM rendue) — pas de relance.
+ * Statuts où le dossier attend un TIERS (relançable) → partie attendue, forme fléchie pour la
+ * phrase du badge. Les autres statuts sont soit du travail PROPRE au labo (montage, complément
+ * requis), soit terminaux (rejeté, AMM rendue) — pas de relance.
  */
-const WAITING_STATUSES: ReadonlySet<LifecycleStatus> = new Set([
-  'in_review', // décision de l'agent local attendue
-  'accepted', // réception par l'agent local attendue (Dépôt)
-  'submitting', // dépôt à l'agence nationale attendu
-  'in_notification', // instruction de l'agence en cours
-])
+const WAITING_PARTY: Partial<Record<LifecycleStatus, Translatable>> = {
+  in_review: { fr: 'l’agent local', en: 'the local agent' }, // décision attendue
+  accepted: { fr: 'l’agent local', en: 'the local agent' }, // réception attendue (Dépôt)
+  submitting: { fr: 'l’agent local', en: 'the local agent' }, // dépôt à l'agence attendu
+  in_notification: { fr: 'l’agence nationale', en: 'the national agency' }, // instruction en cours
+}
 
-const STAGE_ACTOR = new Map(LIFECYCLE_STAGES.map((s) => [s.id, s.actor]))
 const DAY_MS = 86_400_000
 
-/** Ancienneté de l'attente à l'étape courante — `null` si le dossier n'attend pas un tiers. */
+/**
+ * Ancienneté de l'attente à l'étape courante — `null` si le dossier n'attend pas un tiers.
+ *
+ * Contrat payload `reminder_sent` : M5 (manuel) écrit `{ stage, waiting_days }` ; la relance AUTO
+ * (LOT 10, actor_id 'system') doit RÉUTILISER `waiting_days` (+ `threshold_days` pour le seuil
+ * déclencheur) — `journalDetail` lit `waiting_days`, un seul dialecte de payload.
+ */
 export function deriveStageWaiting(state: LifecycleState, now: Date): StageWaiting | null {
-  if (!WAITING_STATUSES.has(state.status)) return null
+  const party = WAITING_PARTY[state.status]
+  if (!party) return null
   // Le journal est trié chronologiquement (tie-breaks déterministes) : la dernière entrée = la
   // dernière activité réelle, toutes sources confondues (dossier, correspondance, événement).
   const last = state.journal[state.journal.length - 1]
@@ -50,6 +57,6 @@ export function deriveStageWaiting(state: LifecycleState, now: Date): StageWaiti
     // Événement futur-daté (saisie tolérante) ou horloge locale en retard → 0, jamais négatif.
     days: Math.max(0, Math.floor(elapsed / DAY_MS)),
     lastIsReminder: last.key === 'reminder_sent',
-    actor: STAGE_ACTOR.get(state.currentStageId) ?? { fr: 'Tiers', en: 'Third party' },
+    actor: party,
   }
 }

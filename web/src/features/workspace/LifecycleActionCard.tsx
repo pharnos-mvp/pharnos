@@ -691,9 +691,10 @@ function ReminderControl({
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
 
-  // « → Agence nat. » (étiquette d'étape) se lit mal en phrase — on retire la flèche.
-  const actor = t(waiting.actor).replace(/^→\s*/, '')
-  const overdue = waiting.days >= WAITING_WARN_DAYS && !waiting.lastIsReminder
+  const actor = t(waiting.actor)
+  // Le ton d'alerte revient MÊME après une relance restée sans réponse ≥ seuil (revue M5) :
+  // « Relancé il y a 12 j » en warning = il est temps de relancer à nouveau.
+  const overdue = waiting.days >= WAITING_WARN_DAYS
   const label = waiting.lastIsReminder
     ? waiting.days === 0
       ? t({ fr: 'Relancé aujourd’hui', en: 'Reminded today' })
