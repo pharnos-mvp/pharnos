@@ -10,6 +10,7 @@ import {
   type LifecycleStageId,
   type LifecycleState,
   deriveLifecycle,
+  journalDetail,
   journalLabel,
   lifecycleStatusLabel,
   stageOutcomeLabel,
@@ -278,6 +279,17 @@ describe('libellés', () => {
     expect(stageOutcomeLabel('suspended')).toBe('Complément')
     expect(stageOutcomeLabel('granted', 'en')).toBe('Granted')
     expect(stageOutcomeLabel('refused')).toBe('Refusée')
+  })
+
+  it('journalDetail — canal de la notification (via agent|direct, T4)', () => {
+    expect(journalDetail({ key: 'authority_query', payload: { via: 'direct' } })).toBe(
+      'En direct de l’agence',
+    )
+    expect(journalDetail({ key: 'authority_query', payload: { via: 'agent' } }, 'en')).toBe(
+      'Via the local agent',
+    )
+    // Événements M2 antérieurs (sans via) : aucun détail — pas de rétro-interprétation.
+    expect(journalDetail({ key: 'authority_query', payload: { note: 'x' } })).toBeNull()
   })
 })
 
