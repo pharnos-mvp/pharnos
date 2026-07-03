@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { getSupabase } from '@/lib/supabase'
 import type { Translatable } from '@/lib/i18n-context'
+import { getActiveOrgId } from './active-org'
 import type { FeatureMap } from './feature-state'
 
 /** Paliers Pharnos (jalon O — 5 plans). */
@@ -54,6 +55,7 @@ export async function recordCompilation(
   const { data, error } = await supabase.rpc('record_compilation', {
     p_dossier_id: dossierId,
     p_kind: kind,
+    p_org: getActiveOrgId(),
   })
   if (error || !data) return { allowed: true }
   return data as CompileGate
@@ -63,7 +65,10 @@ export async function recordCompilation(
 export async function setOrgSync(enabled: boolean): Promise<void> {
   const supabase = await getSupabase()
   if (!supabase) throw new Error('offline')
-  const { error } = await supabase.rpc('set_org_sync', { p_enabled: enabled })
+  const { error } = await supabase.rpc('set_org_sync', {
+    p_enabled: enabled,
+    p_org: getActiveOrgId(),
+  })
   if (error) throw new Error((error as { message?: string }).message || 'failed')
 }
 
@@ -78,14 +83,17 @@ export const PLAN_LABEL: Record<PlanTier, Translatable> = {
 /** Ordre des plans pour les comparaisons d'upgrade. */
 export const PLAN_ORDER: PlanTier[] = ['free', 'pro', 'team', 'business', 'enterprise']
 
-/** Plan effectif de l'org du caller (RPC `my_org_plan`) — caché 5 min, lecture seule. */
+/** Plan effectif de l'org ACTIVE (RPC `my_org_plan`, org explicite CS1) — caché 5 min, lecture seule. */
 export function useOrgPlan() {
+  // La bascule d'org recharge l'app (switchActiveOrg) : lire l'org active au montage suffit,
+  // et la clé de cache par org évite de servir le plan d'une autre org après bascule.
+  const orgId = getActiveOrgId()
   return useQuery<OrgPlan | null>({
-    queryKey: ['my-org-plan'],
+    queryKey: ['my-org-plan', orgId],
     queryFn: async () => {
       const supabase = await getSupabase()
       if (!supabase) return null
-      const { data, error } = await supabase.rpc('my_org_plan')
+      const { data, error } = await supabase.rpc('my_org_plan', { p_org: orgId })
       if (error || !data) return null
       return data as OrgPlan
     },

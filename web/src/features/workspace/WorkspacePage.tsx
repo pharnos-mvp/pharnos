@@ -23,6 +23,7 @@ import { unreadIndex } from '@/features/correspondence/correspondence-reads'
 import { listCorrespondences } from '@/features/correspondence/correspondence-repository'
 import { useCorrespondenceSync } from '@/features/correspondence/use-correspondence-sync'
 import { useOrgId } from '@/features/org/org-context'
+import { useMemberScope } from '@/features/org/use-current-org'
 import { db } from '@/lib/db'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
@@ -58,6 +59,7 @@ export function WorkspacePage() {
   const orgId = useOrgId()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { scoped } = useMemberScope()
   useCatalogueSync(orgId)
   useDossierSync(orgId)
   useCorrespondenceSync(orgId)
@@ -148,7 +150,9 @@ export function WorkspacePage() {
     toast.success(t({ fr: 'Dossier restauré', en: 'Dossier restored' }))
   }
 
-  const newDossierBtn = (
+  // CS1 : membre scopé = couche SUIVI seulement — pas de création, pas d'édition (RLS 0048 ;
+  // le masquage évite seulement des actions qui renverraient 42501).
+  const newDossierBtn = scoped ? null : (
     <Button asChild variant="primary">
       <Link to="/workspace/nouveau">
         <FolderPlus /> {t({ fr: 'Nouveau dossier', en: 'New dossier' })}
@@ -209,6 +213,7 @@ export function WorkspacePage() {
       rows={visible}
       view={view}
       now={now.getTime()}
+      scoped={scoped}
       onOpenDossier={(id) => navigate(`/workspace/${id}/roadmap`)}
       onDelete={handleDelete}
       onArchive={handleArchive}
@@ -470,6 +475,7 @@ function OperationsTable({
   rows,
   view,
   now,
+  scoped,
   onOpenDossier,
   onDelete,
   onArchive,
@@ -478,6 +484,8 @@ function OperationsTable({
   rows: OpsRow[]
   view: 'active' | 'archived'
   now: number
+  /** CS1 : membre scopé (couche suivi) → seuls le clic ligne et le raccourci Statut restent. */
+  scoped: boolean
   onOpenDossier: (id: string) => void
   onDelete: (id: string, reason: string) => Promise<void>
   onArchive: (id: string, reason: string) => Promise<void>
@@ -614,49 +622,53 @@ function OperationsTable({
                       <Route className="size-4" />
                     </Link>
                   </Button>
-                  <Button
-                    asChild
-                    variant="ghost"
-                    size="icon"
-                    className="text-info hover:text-info hover:bg-info-subtle"
-                    aria-label={t({ fr: 'Aperçu', en: 'Preview' })}
-                  >
-                    <Link
-                      to={`/workspace/${d.id}/apercu`}
-                      title={t({ fr: 'Aperçu', en: 'Preview' })}
-                    >
-                      <Eye className="size-4" />
-                    </Link>
-                  </Button>
-                  <Button
-                    asChild
-                    variant="ghost"
-                    size="icon"
-                    aria-label={t({ fr: 'Modifier', en: 'Edit' })}
-                  >
-                    <Link to={`/workspace/${d.id}`} title={t({ fr: 'Modifier', en: 'Edit' })}>
-                      <Pencil className="size-4" />
-                    </Link>
-                  </Button>
-                  {view === 'archived' ? (
-                    <DossierAction
-                      mode="restore"
-                      name={d.productName}
-                      onConfirm={() => onRestore(d.id)}
-                    />
-                  ) : r.status !== 'draft' ? (
-                    <DossierAction
-                      mode="archive"
-                      name={d.productName}
-                      onConfirm={(reason) => onArchive(d.id, reason)}
-                    />
-                  ) : (
-                    <DossierAction
-                      mode="delete"
-                      name={d.productName}
-                      onConfirm={(reason) => onDelete(d.id, reason)}
-                    />
-                  )}
+                  {!scoped ? (
+                    <>
+                      <Button
+                        asChild
+                        variant="ghost"
+                        size="icon"
+                        className="text-info hover:text-info hover:bg-info-subtle"
+                        aria-label={t({ fr: 'Aperçu', en: 'Preview' })}
+                      >
+                        <Link
+                          to={`/workspace/${d.id}/apercu`}
+                          title={t({ fr: 'Aperçu', en: 'Preview' })}
+                        >
+                          <Eye className="size-4" />
+                        </Link>
+                      </Button>
+                      <Button
+                        asChild
+                        variant="ghost"
+                        size="icon"
+                        aria-label={t({ fr: 'Modifier', en: 'Edit' })}
+                      >
+                        <Link to={`/workspace/${d.id}`} title={t({ fr: 'Modifier', en: 'Edit' })}>
+                          <Pencil className="size-4" />
+                        </Link>
+                      </Button>
+                      {view === 'archived' ? (
+                        <DossierAction
+                          mode="restore"
+                          name={d.productName}
+                          onConfirm={() => onRestore(d.id)}
+                        />
+                      ) : r.status !== 'draft' ? (
+                        <DossierAction
+                          mode="archive"
+                          name={d.productName}
+                          onConfirm={(reason) => onArchive(d.id, reason)}
+                        />
+                      ) : (
+                        <DossierAction
+                          mode="delete"
+                          name={d.productName}
+                          onConfirm={(reason) => onDelete(d.id, reason)}
+                        />
+                      )}
+                    </>
+                  ) : null}
                 </div>
               </td>
             </tr>

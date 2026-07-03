@@ -35,6 +35,7 @@ import {
   listByDossier,
   listMessagesByDossier,
 } from '@/features/correspondence/correspondence-repository'
+import { useMemberScope } from '@/features/org/use-current-org'
 import { useI18n, type Lang, type Translatable } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import { lookupVariation } from '@/features/variations/variation-request'
@@ -100,6 +101,7 @@ export function RoadmapPage() {
   const { t, lang } = useI18n()
   const { dossierId } = useParams()
   const navigate = useNavigate()
+  const { scoped } = useMemberScope()
   const [showAllJournal, setShowAllJournal] = useState(false)
 
   const data = useLiveQuery(async () => {
@@ -317,19 +319,22 @@ export function RoadmapPage() {
         </StatusBadge>
       </div>
 
-      {/* ── Accès rapides (en haut) : montage + aperçu (vraies ancres, comme les CTA du board) ─ */}
-      <div className="flex flex-wrap gap-2">
-        <Button asChild variant="primary">
-          <Link to={`/workspace/${dossier.id}`}>
-            <Pencil /> {t({ fr: 'Espace de montage', en: 'Workspace' })}
-          </Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link to={`/workspace/${dossier.id}/apercu`}>
-            <Eye /> {t({ fr: 'Aperçu', en: 'Preview' })}
-          </Link>
-        </Button>
-      </div>
+      {/* ── Accès rapides (en haut) : montage + aperçu (vraies ancres, comme les CTA du board).
+          CS1 : masqués pour un membre scopé — couche ÉDITION (le suivi reste complet ici). ─ */}
+      {!scoped ? (
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="primary">
+            <Link to={`/workspace/${dossier.id}`}>
+              <Pencil /> {t({ fr: 'Espace de montage', en: 'Workspace' })}
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to={`/workspace/${dossier.id}/apercu`}>
+              <Eye /> {t({ fr: 'Aperçu', en: 'Preview' })}
+            </Link>
+          </Button>
+        </div>
+      ) : null}
 
       {/* ── Le parcours (pipeline live) ───────────────────────────────── */}
       <section>

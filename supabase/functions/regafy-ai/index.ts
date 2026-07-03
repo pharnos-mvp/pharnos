@@ -23,7 +23,7 @@ import {
   respondIn,
   type RegafyLocale,
 } from '../_shared/regafy-i18n.ts'
-import { checkAiQuota, recordAiUsage } from '../_shared/quota.ts'
+import { activeOrgFromRequest, checkAiQuota, recordAiUsage } from '../_shared/quota.ts'
 import { withUsage } from '../_shared/usage.ts'
 import { generateParts, generateText, type Part } from '../_shared/vertex.ts'
 
@@ -500,7 +500,9 @@ Deno.serve(async (req: Request) => {
   const log = { fn: 'regafy-ai', reqId, user: await userHash(user.id) }
 
   // Verrou de quota IA par organisation (M1) — AVANT tout appel Vertex. Fail-closed.
-  const quota = await checkAiQuota(supabase, 'regafy')
+  // CS1 : org active du client (header), vérifiée membre côté SQL — attribution multi-org correcte.
+  const activeOrg = activeOrgFromRequest(req)
+  const quota = await checkAiQuota(supabase, 'regafy', activeOrg)
   if (!quota.allowed) {
     logJson({ ...log, op: 'quota', status: 'blocked', reason: quota.reason })
     return json(
@@ -642,7 +644,7 @@ Deno.serve(async (req: Request) => {
       // l'afficher plutôt que de laisser croire « aucun constat = conforme ».
       return letterResult.degraded ? { findings, degraded: true } : { findings }
     })
-    recordAiUsage(supabase, 'regafy', usage)
+    recordAiUsage(supabase, 'regafy', usage, activeOrg)
     return json(result)
   } catch (e) {
     // Filet global : réponse JSON propre (avec CORS) plutôt qu'un 500 brut du runtime.

@@ -292,13 +292,18 @@ select throws_ok(
   null,
   'scopé Storage : dépôt hors périmètre REJETÉ'
 );
-delete from storage.objects
-  where bucket_id = 'documents' and name like '%recepisse.pdf';
+-- NB : le DELETE direct sur storage.objects est interdit par le moteur Storage lui-même
+-- (« Use the Storage API instead ») — impossible à exercer en SQL. On prouve à la place que la
+-- policy RESTRICTIVE DELETE (unscoped only) est bien en place : c'est elle que l'API Storage
+-- applique via RLS.
 select is(
-  (select count(*)::int from storage.objects
-    where bucket_id = 'documents' and name like '%recepisse.pdf'),
-  2,
-  'scopé Storage : DELETE sans effet (pièces du journal intègres)'
+  (select count(*)::int from pg_policies
+    where schemaname = 'storage' and tablename = 'objects'
+      and policyname = 'cs1_documents_storage_delete'
+      and permissive = 'RESTRICTIVE'
+      and cmd = 'DELETE'),
+  1,
+  'scopé Storage : policy restrictive DELETE en place (le journal reste intègre via l''API)'
 );
 
 -- ── 7) Scope vide = ne voit RIEN (fail-safe) ─────────────────────────────────

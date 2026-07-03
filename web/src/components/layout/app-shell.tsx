@@ -1,11 +1,13 @@
 import { Suspense, useEffect, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTheme } from 'next-themes'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
   ArrowUpCircle,
   Bell,
+  Building2,
+  Check,
   ClipboardList,
   FlaskConical,
   FolderTree,
@@ -45,6 +47,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { useAuditSync } from '@/features/audit/use-audit-sync'
 import { useAuth } from '@/features/auth/auth-context'
 import { useCorrespondenceRealtime } from '@/features/correspondence/use-correspondence-realtime'
+import { switchActiveOrg } from '@/features/org/active-org'
 import { useOrgId } from '@/features/org/org-context'
 import { fetchMyMemberships } from '@/features/org/org-repository'
 import { PLAN_LABEL, useOrgPlan } from '@/features/org/use-org-plan'
@@ -72,6 +75,12 @@ const PAGE_TITLES: { prefix: string; label: Translatable }[] = [
   { prefix: '/compte', label: { fr: 'Compte', en: 'Account' } },
   { prefix: '/admin', label: { fr: 'Administration', en: 'Admin' } },
 ]
+
+// CS1 — membre SCOPÉ (périmètre par dossier, couche SUIVI seulement) : surfaces autorisées.
+// Le reste (dashboard, catalogue, montage/aperçu, bibliothèque, variations) est de la couche
+// ÉDITION → redirigé vers le workspace. La RLS reste la vraie barrière (0048) ; ce garde évite
+// seulement des pages vides ou des actions qui renverraient 42501.
+const SCOPED_ALLOWED_ROUTES = [/^\/workspace$/, /^\/workspace\/[^/]+\/roadmap$/, /^\/compte/]
 
 const SIDEBAR_KEY = 'pharnos.sidebarCollapsed'
 
@@ -143,7 +152,12 @@ export function AppShell() {
     queryFn: fetchMyMemberships,
     enabled: Boolean(user),
   })
-  const orgName = memberships?.find((m) => m.orgId === orgId)?.orgName ?? ''
+  const activeMembership = memberships?.find((m) => m.orgId === orgId)
+  const orgName = activeMembership?.orgName ?? ''
+  // CS1 : membre scopé (périmètre par dossier) → nav réduite à la couche SUIVI.
+  const scoped = (activeMembership?.scopedDossierIds ?? null) !== null
+  const visibleNavItems = scoped ? navItems.filter((i) => i.to === '/workspace') : navItems
+  const multiOrg = (memberships?.length ?? 0) > 1
   const pageTitle = PAGE_TITLES.find((x) => location.pathname.startsWith(x.prefix))?.label ?? {
     fr: 'Pharnos',
     en: 'Pharnos',
@@ -161,6 +175,11 @@ export function AppShell() {
       writeSidebarCollapsed(next)
       return next
     })
+  }
+
+  // Garde de route CS1 : un membre scopé n'a que la couche SUIVI (workspace, roadmap, compte).
+  if (scoped && !SCOPED_ALLOWED_ROUTES.some((re) => re.test(location.pathname))) {
+    return <Navigate to="/workspace" replace />
   }
 
   return (
@@ -191,7 +210,7 @@ export function AppShell() {
           aria-label={t({ fr: 'Navigation principale', en: 'Main navigation' })}
           className="mt-3 flex flex-col gap-0.5"
         >
-          {navItems.map(({ to, label, icon: Icon }) => {
+          {visibleNavItems.map(({ to, label, icon: Icon }) => {
             const text = t(label)
             return (
               <NavLink
@@ -280,6 +299,25 @@ export function AppShell() {
               <DropdownMenuItem onClick={() => navigate('/compte')}>
                 <Settings2 className="size-4" /> {t({ fr: 'Paramètres', en: 'Settings' })}
               </DropdownMenuItem>
+              {multiOrg ? (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <Building2 className="size-4" /> {t({ fr: 'Organisation', en: 'Organization' })}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {memberships?.map((m) => (
+                      <DropdownMenuItem
+                        key={m.orgId}
+                        disabled={m.orgId === orgId}
+                        onClick={() => switchActiveOrg(m.orgId)}
+                      >
+                        <span className="max-w-[180px] truncate">{m.orgName || m.orgId}</span>
+                        {m.orgId === orgId ? <Check className="ml-auto size-4" /> : null}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              ) : null}
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <Globe className="size-4" /> {t({ fr: 'Langue', en: 'Language' })}
@@ -308,7 +346,7 @@ export function AppShell() {
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
-              {plan && plan.plan !== 'enterprise' ? (
+              {plan && plan.plan !== 'enterprise' && !scoped ? (
                 <DropdownMenuItem
                   onClick={() => navigate('/compte', { state: { section: 'abonnement' } })}
                 >
@@ -457,7 +495,7 @@ export function AppShell() {
               aria-label={t({ fr: 'Navigation principale', en: 'Main navigation' })}
               className="flex flex-col gap-1 p-2"
             >
-              {navItems.map(({ to, label, icon: Icon }) => {
+              {visibleNavItems.map(({ to, label, icon: Icon }) => {
                 const text = t(label)
                 return (
                   <NavLink
@@ -521,6 +559,29 @@ export function AppShell() {
               >
                 <Settings2 className="size-4" /> {t({ fr: 'Paramètres', en: 'Settings' })}
               </button>
+              {multiOrg ? (
+                <div className="flex flex-col gap-1 px-2 py-1.5 text-sm">
+                  <span className="text-muted-foreground flex items-center gap-2">
+                    <Building2 className="size-4 shrink-0" />
+                    {t({ fr: 'Organisation', en: 'Organization' })}
+                  </span>
+                  {memberships?.map((m) => (
+                    <button
+                      key={m.orgId}
+                      type="button"
+                      disabled={m.orgId === orgId}
+                      onClick={() => switchActiveOrg(m.orgId)}
+                      className={cn(
+                        'flex h-10 items-center gap-2 rounded-md px-2 text-left text-sm',
+                        m.orgId === orgId ? 'bg-secondary' : 'hover:bg-accent',
+                      )}
+                    >
+                      <span className="min-w-0 flex-1 truncate">{m.orgName || m.orgId}</span>
+                      {m.orgId === orgId ? <Check className="size-4 shrink-0" /> : null}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
               <div className="flex h-11 items-center gap-2 px-2 text-sm">
                 <Globe className="size-4 shrink-0" />
                 <span className="text-muted-foreground">{t({ fr: 'Langue', en: 'Language' })}</span>
@@ -579,7 +640,7 @@ export function AppShell() {
                   </button>
                 </span>
               </div>
-              {plan && plan.plan !== 'enterprise' ? (
+              {plan && plan.plan !== 'enterprise' && !scoped ? (
                 <button
                   type="button"
                   onClick={() => navigate('/compte', { state: { section: 'abonnement' } })}

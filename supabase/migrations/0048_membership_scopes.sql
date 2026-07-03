@@ -432,6 +432,8 @@ end; $$;
 
 -- ── 8) team_list : exposer le périmètre courant à l'UI Équipe (admins) ────────────────────────
 -- Même signature (create or replace) ; ajoute `scope_dossier_ids` (null = toute l'org).
+-- Divulgation minimale : un CALLER scopé ne voit que SA propre ligne (cohérent avec la policy
+-- restrictive sur memberships) et aucune invitation en attente.
 create or replace function public.team_list(p_org uuid)
 returns jsonb
 language plpgsql
@@ -439,10 +441,16 @@ stable
 security definer
 set search_path = public
 as $$
+declare
+  v_caller_scoped boolean;
 begin
   if not exists (select 1 from public.memberships where org_id = p_org and user_id = auth.uid()) then
     raise exception 'forbidden' using errcode = '42501';
   end if;
+  v_caller_scoped := exists (
+    select 1 from public.membership_scopes s
+    where s.org_id = p_org and s.user_id = auth.uid()
+  );
   return jsonb_build_object(
     'members', coalesce((
       select jsonb_agg(jsonb_build_object(
@@ -459,6 +467,7 @@ begin
       from public.memberships m
       join auth.users u on u.id = m.user_id
       where m.org_id = p_org
+        and (not v_caller_scoped or m.user_id = auth.uid())
     ), '[]'::jsonb),
     'pending', coalesce((
       select jsonb_agg(jsonb_build_object(
@@ -467,6 +476,7 @@ begin
       ) order by i.created_at desc)
       from public.invitations i
       where i.org_id = p_org and i.accepted_at is null and i.expires_at > now()
+        and not v_caller_scoped
     ), '[]'::jsonb)
   );
 end;
