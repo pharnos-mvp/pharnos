@@ -176,7 +176,8 @@ const JOURNAL_LABELS: Record<LifecycleJournalKey, Translatable> = {
   fees_invoiced: { fr: 'Frais facturés', en: 'Fees invoiced' },
   payment_submitted: { fr: 'Preuve de paiement déposée', en: 'Payment proof submitted' },
   payment_confirmed: { fr: 'Paiement confirmé', en: 'Payment confirmed' },
-  reminder_sent: { fr: 'Relance automatique', en: 'Automatic reminder' },
+  // M5 : relance MANUELLE journalisée (l'acteur Système distingue la relance auto — LOT 10).
+  reminder_sent: { fr: 'Relance envoyée', en: 'Reminder sent' },
 }
 
 /** Libellés des issues de la Décision agent local (réutilisés par le journal + l'étape). */
@@ -215,7 +216,9 @@ const JOURNAL_ACTOR: Record<LifecycleJournalKey, Translatable> = {
   fees_invoiced: { fr: 'Agence → Labo', en: 'Agency → Lab' },
   payment_submitted: { fr: 'Labo → Agence', en: 'Lab → Agency' },
   payment_confirmed: { fr: 'Agence nat.', en: 'Nat. agency' },
-  reminder_sent: SYSTEME,
+  // Relance MANUELLE (M5) = le labo relance le tiers ; la relance AUTO (actor_id 'system',
+  // LOT 10) est réécrite en « Système » par l'override de buildJournal.
+  reminder_sent: { fr: 'Labo', en: 'Lab' },
 }
 
 /** Libellé COURT d'une issue (pastille d'étape Décision/AMM) : Accepté/Complément/Rejeté/Accordée/Refusée. */
@@ -545,6 +548,19 @@ export function journalDetail(
         return lang === 'en' ? 'Directly from the agency' : 'En direct de l’agence'
       if (p.via === 'agent') return lang === 'en' ? 'Via the local agent' : 'Via l’agent local'
       return null
+    }
+    case 'reminder_sent': {
+      // M5 : contexte de la relance — étape relancée + ancienneté de l'attente au moment T.
+      const stage = LIFECYCLE_STAGES.find((s) => s.id === p.stage)
+      const days =
+        typeof p.waiting_days === 'number' && Number.isFinite(p.waiting_days) && p.waiting_days >= 0
+          ? Math.floor(p.waiting_days)
+          : null
+      const parts: string[] = []
+      if (stage) parts.push(lang === 'en' ? `${stage.label.en} stage` : `Étape ${stage.label.fr}`)
+      if (days !== null)
+        parts.push(lang === 'en' ? `${days} day(s) without activity` : `${days} j sans activité`)
+      return parts.length > 0 ? parts.join(' · ') : null
     }
     default:
       return null

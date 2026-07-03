@@ -20,6 +20,7 @@ export type LifecycleActionId =
   | 'authority_response'
   | 'amm_granted'
   | 'amm_refused'
+  | 'reminder'
 
 /**
  * Nature du formulaire de la modale avant l'append :
@@ -114,6 +115,25 @@ const AMM_REFUSED: LifecycleAction = {
   },
   variant: 'destructive',
   form: 'amm_refused',
+}
+
+/**
+ * Relance MANUELLE (M5) — journalise que le tiers attendu a été relancé (téléphone/e-mail : le
+ * canal réel reste hors produit en phase 1 ; Pharnos trace l'acte et repart le compteur d'attente).
+ * Hors de `nextLifecycleActions` : contextuelle au badge « en attente depuis N jours » (dérivé
+ * par `deriveStageWaiting`), pas au « quoi faire ensuite ». Payload posé par la carte :
+ * `{ stage, waiting_days }`. Phase 2 (LOT 10) : relance AUTO, `actor_id = 'system'`.
+ */
+export const REMINDER_ACTION: LifecycleAction = {
+  id: 'reminder',
+  type: 'reminder_sent',
+  label: { fr: 'Relancer', en: 'Send reminder' },
+  prompt: {
+    fr: 'Journaliser une relance auprès de la partie attendue. Le compteur d’attente repart.',
+    en: 'Log a reminder to the awaited party. The waiting counter restarts.',
+  },
+  variant: 'outline',
+  form: 'confirm',
 }
 
 /** Contexte du dossier qui affine les actions disponibles (sans stocker d'état dérivé). */

@@ -9,6 +9,7 @@ import { I18nContext, type I18nValue } from '@/lib/i18n-context'
 import { LifecycleActionCard } from './LifecycleActionCard'
 import { deriveSubmissionConditions } from './lifecycle-conditions'
 import type { LifecycleStageId, LifecycleStatus } from './lifecycle-constants'
+import type { StageWaiting } from './lifecycle-waiting'
 
 // État mutable partagé pour piloter rôle + chargement selon le test (rôle réel via `canManageSubmission`).
 const ADMIN = { orgId: 'org-test', role: 'admin', orgName: 'Labo' }
@@ -62,6 +63,7 @@ function renderCard(
     status?: LifecycleStatus
     hasAuthorityQuery?: boolean
     decidedCorrespondence?: import('@/lib/db').CorrespondenceRecord | null
+    waiting?: StageWaiting | null
   } = {},
 ) {
   const i18n: I18nValue = { lang: 'fr', setLang: () => {}, t: (s) => s.fr }
@@ -76,6 +78,7 @@ function renderCard(
             status={over.status ?? 'accepted'}
             hasAuthorityQuery={over.hasAuthorityQuery ?? false}
             decidedCorrespondence={over.decidedCorrespondence ?? null}
+            waiting={over.waiting ?? null}
           />
         </OrgContext.Provider>
       </AuthContext.Provider>
@@ -241,6 +244,54 @@ describe('LifecycleActionCard — actions Labo (M2)', () => {
     renderCard({ currentStageId: 'revue', status: 'in_review' })
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
     expect(screen.getByText(/en revue chez l’agent local/i)).toBeInTheDocument()
+  })
+
+  it('relance (M5, gestionnaire) : badge d’attente + Relancer → append `reminder_sent` {stage, waiting_days}', async () => {
+    const waiting: StageWaiting = {
+      since: '2026-06-02T00:00:00.000Z',
+      days: 12,
+      lastIsReminder: false,
+      actor: { fr: 'l’agent local', en: 'the local agent' },
+    }
+    renderCard({ currentStageId: 'depot', status: 'accepted', waiting })
+    expect(screen.getByText(/En attente de l’agent local depuis 12 j/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Relancer' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
+    await waitFor(() => expect(appendMock).toHaveBeenCalledTimes(1))
+    expect(appendMock).toHaveBeenCalledWith(
+      'org-test',
+      expect.objectContaining({
+        type: 'reminder_sent',
+        actorId: 'u1',
+        payload: { stage: 'depot', waiting_days: 12 },
+      }),
+    )
+    expect(syncMock).toHaveBeenCalledWith('org-test')
+  })
+
+  it('relance (M5) : en REVUE (étape amont) le badge + Relancer apparaissent dans la coquille', () => {
+    const waiting: StageWaiting = {
+      since: '2026-06-02T00:00:00.000Z',
+      days: 3,
+      lastIsReminder: false,
+      actor: { fr: 'l’agent local', en: 'the local agent' },
+    }
+    renderCard({ currentStageId: 'revue', status: 'in_review', waiting })
+    expect(screen.getByText(/En attente de l’agent local depuis 3 j/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Relancer' })).toBeInTheDocument()
+  })
+
+  it('relance (M5, non-gestionnaire) : badge visible mais PAS de bouton Relancer', () => {
+    state.memberships = []
+    const waiting: StageWaiting = {
+      since: '2026-06-13T00:00:00.000Z',
+      days: 2,
+      lastIsReminder: true,
+      actor: { fr: 'l’agent local', en: 'the local agent' },
+    }
+    renderCard({ currentStageId: 'depot', status: 'accepted', waiting })
+    expect(screen.getByText(/Relancé il y a 2 j/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Relancer' })).not.toBeInTheDocument()
   })
 
   it('modale Soumission : récap des 3 conditions NON BLOQUANT (M3) — nudge mais Confirmer actif', () => {
