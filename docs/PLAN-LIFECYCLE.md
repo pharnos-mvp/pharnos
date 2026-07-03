@@ -236,5 +236,13 @@ d'org). **Réalité offline documentée** : réduire/révoquer un périmètre co
 (sync/Realtime/Storage) mais n'efface pas ce qui était déjà synchronisé sur l'appareil du membre —
 identique au retrait d'un membre. Phase 2 (périmètre couche ÉDITION, KPIs par agent) = post-GO-LIVE.
 
-**Prochaine : M5 — Relance manuelle (phase 1)** puis **M6** selon §5, le reste via LOT 10
-(PLAN-LANCEMENT).
+**M5 — Relance manuelle (phase 1) : LIVRÉE (2026-07-03, PR #288)** — pur front, zéro migration
+(vocabulaire `reminder_sent` de `0047`). Dérivation pure `deriveStageWaiting` (badge « en attente
+depuis N j » quand le dossier attend un TIERS : revue agent / réception / dépôt agence /
+instruction ; compteur = dernière activité du journal, une relance le repart) + `ReminderControl`
+sur la carte d'étape (badge + bouton Relancer gestionnaires, lecture seule = badge seul, ton
+warning ≥ 7 j — seuil VISUEL) + journal « Relance envoyée » (acteur Labo ; la future relance auto
+`system` s'affichera « Système »). L'événement n'avance JAMAIS le pipeline. **Phase 2 (cron Edge +
+seuils par pays) = LOT 10.**
+
+**Prochaine : M6 — Renouvellement J−6 & Variation** selon §5, le reste via LOT 10 (PLAN-LANCEMENT).
