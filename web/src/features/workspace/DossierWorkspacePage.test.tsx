@@ -56,7 +56,8 @@ function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   // Plan d'org : Regafy « Activée » → le bouton Analyser (on-demand) s'affiche. staleTime du hook
   // useOrgPlan = 5 min → la donnée seedée est fraîche : pas de refetch qui l'écraserait en test.
-  queryClient.setQueryData(['my-org-plan'], { features: { regafy: 'enabled' } })
+  // Clé par org active (CS1) : aucune org en localStorage de test → segment null.
+  queryClient.setQueryData(['my-org-plan', null], { features: { regafy: 'enabled' } })
   return render(
     <QueryClientProvider client={queryClient}>
       <I18nProvider>

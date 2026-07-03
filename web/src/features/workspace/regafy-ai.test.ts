@@ -40,12 +40,16 @@ describe('runRegafyConformityTexts (contrat client ↔ Edge)', () => {
     })
     expect(out[0]!.missing).toHaveLength(2)
     // Le payload envoyé porte bien les textes et le code pays (filtre des mentions BJ).
-    expect(invoke).toHaveBeenCalledWith('regafy-ai', {
-      body: expect.objectContaining({
-        countryCode: 'BJ',
-        conformityTexts: [expect.objectContaining({ id: 'gen-1', docType: 'rcp' })],
+    // (CS1 : l'appel porte aussi le header `x-pharnos-org` — hors sujet ici, objectContaining.)
+    expect(invoke).toHaveBeenCalledWith(
+      'regafy-ai',
+      expect.objectContaining({
+        body: expect.objectContaining({
+          countryCode: 'BJ',
+          conformityTexts: [expect.objectContaining({ id: 'gen-1', docType: 'rcp' })],
+        }),
       }),
-    })
+    )
   })
 
   it('liste vide → aucun appel réseau', async () => {

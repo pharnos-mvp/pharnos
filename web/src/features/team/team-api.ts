@@ -18,6 +18,8 @@ export interface TeamMember {
   role: OrgRole
   is_you: boolean
   joined_at: string
+  /** Périmètre CS1 : null/absent = toute l'org ; sinon la liste des dossiers grantés. */
+  scope_dossier_ids?: string[] | null
 }
 
 export interface PendingInvite {
@@ -98,6 +100,10 @@ export const teamApi = {
     }),
   removeMember: (orgId: string, userId: string) =>
     rpc<{ ok: boolean; reason?: string }>('team_remove_member', { p_org: orgId, p_user: userId }),
+  /** Périmètre CS1 (0048) : null = toute l'org ; sinon remplacement ATOMIQUE de la liste.
+   *  Admin only côté serveur, journalisé audit_log ; un admin n'est pas scopable. */
+  setScope: (orgId: string, userId: string, dossierIds: string[] | null) =>
+    rpc<void>('team_set_scope', { p_org: orgId, p_user: userId, p_dossier_ids: dossierIds }),
   revokeInvite: (id: string) =>
     rpc<{ ok: boolean; reason?: string }>('team_revoke_invitation', { p_id: id }),
   accept: (token: string) => rpc<AcceptResult>('accept_invitation', { p_token: token }),

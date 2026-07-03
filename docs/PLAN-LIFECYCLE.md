@@ -1,12 +1,13 @@
 # PLAN — Cycle de vie du dossier (« la spine ») + Roadmap « parcours du dossier »
 
-> Statut : **M0–M2 LIVRÉS EN PROD** (M0 #272 migration `0047` · M1 #273→#275 · M2 #277/#278).
+> Statut : **M0–M4 + CS1 LIVRÉS** (M0 #272 migration `0047` · M1 #273→#275 · M2 #277/#278 ·
+> M3 #281 · M4 #283→#286 · CS1 #287 migrations `0048`/`0049`).
 > **Workflow complet 7 étapes + boutons validé CEO le 2026-07-02** (revue `/cto:review` : mapping proposition
 > CEO ↔ implémenté, verdict SHIP) → jalons M3→M8 réordonnancés ci-dessous (§5) et intégrés à la ligne droite
 > [PLAN-LANCEMENT.md](PLAN-LANCEMENT.md) (PHASE C′). Réf. domaine : mémoire `dossier-lifecycle`. Backbone
 > inspiré des grands RIM (Application → Submission → Registration + interactions HA), couche opérationnelle
 > africaine en plus (mandataire, échantillons, paiement, canal physique/portail, journal de confiance).
-> Migration libre : `0048`.
+> Migration libre : `0050` (CS1 a consommé `0048` membership_scopes + `0049` orgId explicite RPC).
 
 ## 1. Objectif & métrique de succès
 
@@ -218,5 +219,22 @@ bout en bout : Montage → Revue → Décision (in-app OU tokenisée) → « Com
 `kind: 'decision'`, append-only) → … → AMM avec preuve (`doc_refs`) + canal `via: agent|direct`.
 Revues code-reviewer : 4× SHIP (1 Major corrigé en T1 — bouton reviewer « Demander un complément »).
 ⚠️ **Recette CEO** : libellés réalignés Dépôt/Soumission + défaut `via='agent'` à confirmer (jugement
-RA). **Prochaine : CS1** (collaboration scopée au dossier, §5-bis, migration `0048` probable) puis
-**M5 → M6** selon §5, le reste via LOT 10 (PLAN-LANCEMENT).
+RA).
+
+**CS1 — Collaboration compte-à-compte scopée au dossier : LIVRÉE (2026-07-03, PR #287)** — exécutée
+selon §5-bis, migrations **`0048`** (table `membership_scopes` + policies **RESTRICTIVE fail-safe**
+en AND : couche SUIVI scopée au dossier — dossiers en lecture, lifecycle, correspondance + décision
+in-app, Storage `events/` + `correspondence/` — et couche ÉDITION/usage org exclue ; `team_set_scope`
+admin-only journalisé GxP, admin non scopable, purge du périmètre à la promotion admin) et **`0049`**
+(orgId explicite **vérifié membre, fail-closed** sur les 7 RPC self-scopés — fix du bug d'attribution
+quotas `caller_org_id` = plus ancienne org ; header `x-pharnos-org` vers les 3 Edge IA). Web :
+sélecteur d'organisation (menu compte), éditeur de périmètre par membre (page Équipe, raccourcis
+par pays/produit), UX membre scopé (nav + garde de route couche suivi, sections org masquées) ;
+fix `fetchMyMemberships` (filtre `user_id` — le rôle d'un collègue pouvait gater l'UI). pgTAP :
+49 + 13 assertions négatives (0 ligne hors périmètre, scope vide = rien, révocation, attribution
+d'org). **Réalité offline documentée** : réduire/révoquer un périmètre coupe l'accès serveur
+(sync/Realtime/Storage) mais n'efface pas ce qui était déjà synchronisé sur l'appareil du membre —
+identique au retrait d'un membre. Phase 2 (périmètre couche ÉDITION, KPIs par agent) = post-GO-LIVE.
+
+**Prochaine : M5 — Relance manuelle (phase 1)** puis **M6** selon §5, le reste via LOT 10
+(PLAN-LANCEMENT).

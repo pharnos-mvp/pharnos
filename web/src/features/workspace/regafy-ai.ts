@@ -1,6 +1,7 @@
 import type { JSONContent } from '@tiptap/core'
 import { toast } from 'sonner'
 
+import { activeOrgHeaders } from '@/features/org/active-org'
 import type { GeneratedDocRecord } from '@/lib/db'
 import { readLang, tStatic } from '@/lib/i18n-context'
 import { getSupabase } from '@/lib/supabase'
@@ -71,6 +72,7 @@ async function invokeRegafy(body: Record<string, unknown>): Promise<RegafyFindin
   // répondre dans cette langue (P0-2). Distinct de `targetLang` (langue officielle du pays cible).
   const { data, error } = await supabase.functions.invoke('regafy-ai', {
     body: { ...body, uiLang: readLang() },
+    headers: activeOrgHeaders(),
   })
   if (error) {
     // Gating d'offre (jalon O) : 403 = Regafy hors offre (Free → Monitor seul) ; 429 = quota tokens.

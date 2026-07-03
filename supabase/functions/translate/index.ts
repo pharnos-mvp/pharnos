@@ -7,7 +7,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders, isAllowedOrigin } from '../_shared/cors.ts'
 import { logJson, newReqId, userHash } from '../_shared/log.ts'
 import { buildTranslateSystem } from '../_shared/pharma-glossary.ts'
-import { checkAiQuota, recordAiUsage } from '../_shared/quota.ts'
+import { activeOrgFromRequest, checkAiQuota, recordAiUsage } from '../_shared/quota.ts'
 import { vertexSseToSimple } from '../_shared/sse.ts'
 import { withUsage } from '../_shared/usage.ts'
 import { generateParts, streamParts, type Part } from '../_shared/vertex.ts'
@@ -100,7 +100,9 @@ Deno.serve(async (req: Request) => {
   const docType = String(b.docType ?? 'document')
 
   // Verrou de quota IA par organisation (M1) — AVANT le téléchargement et l'appel Vertex.
-  const quota = await checkAiQuota(supabase, 'translate')
+  // CS1 : org active du client (header), vérifiée membre côté SQL — attribution multi-org correcte.
+  const activeOrg = activeOrgFromRequest(req)
+  const quota = await checkAiQuota(supabase, 'translate', activeOrg)
   if (!quota.allowed) {
     logJson({ ...log, op: 'quota', status: 'blocked', reason: quota.reason })
     return json(
@@ -168,7 +170,7 @@ Deno.serve(async (req: Request) => {
       const out = vertexSseToSimple(
         vertexRes.body!,
         (chars) => logJson({ ...log, op: 'translate', ms: Date.now() - started, status: 'ok', chars }),
-        (uin, uout) => recordAiUsage(supabase, 'translate', { in: uin, out: uout }),
+        (uin, uout) => recordAiUsage(supabase, 'translate', { in: uin, out: uout }, activeOrg),
       )
       return new Response(out, {
         status: 200,
@@ -197,7 +199,7 @@ Deno.serve(async (req: Request) => {
       }),
     )
     text = r.result
-    recordAiUsage(supabase, 'translate', r.usage)
+    recordAiUsage(supabase, 'translate', r.usage, activeOrg)
   } catch (e) {
     const err = String((e as Error).message).slice(0, 300)
     logJson({ ...log, op: 'translate', ms: Date.now() - started, status: 'error', err })

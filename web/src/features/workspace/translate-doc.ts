@@ -1,5 +1,6 @@
 import type { JSONContent } from '@tiptap/core'
 
+import { activeOrgHeaders } from '@/features/org/active-org'
 import { env } from '@/lib/env'
 import { tStatic } from '@/lib/i18n-context'
 import { getSupabase } from '@/lib/supabase'
@@ -57,7 +58,10 @@ export async function translateDoc(
         en: 'Connection required for translation.',
       }),
     )
-  const { data, error } = await supabase.functions.invoke('translate', { body: input })
+  const { data, error } = await supabase.functions.invoke('translate', {
+    body: input,
+    headers: activeOrgHeaders(),
+  })
   if (error)
     throw new Error(
       error.message || tStatic({ fr: 'Échec de la traduction.', en: 'Translation failed.' }),
@@ -97,6 +101,7 @@ async function translateDocStream(
       authorization: `Bearer ${token}`,
       apikey: env.supabaseAnonKey,
       'content-type': 'application/json',
+      ...activeOrgHeaders(),
     },
     body: JSON.stringify({ ...input, stream: true }),
   })

@@ -9,7 +9,7 @@ const ALLOWED_ORIGIN =
   /^https:\/\/app\.pharnos\.com$|^https:\/\/([a-z0-9-]+\.)?pharnos\.pages\.dev$|^http:\/\/localhost:\d+$/
 
 const BASE_HEADERS = {
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-pharnos-org',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   // Le cache (navigateur/CDN) ne doit jamais resservir une réponse CORS d'une autre origine.
   Vary: 'Origin',

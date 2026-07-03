@@ -1,3 +1,4 @@
+import { activeOrgHeaders } from '@/features/org/active-org'
 import { env } from '@/lib/env'
 import { tStatic } from '@/lib/i18n-context'
 import { getSupabase } from '@/lib/supabase'
@@ -62,7 +63,10 @@ export async function upgradeDoc(
         en: 'Connection required for compliance upgrade.',
       }),
     )
-  const { data, error } = await supabase.functions.invoke('upgrade', { body: input })
+  const { data, error } = await supabase.functions.invoke('upgrade', {
+    body: input,
+    headers: activeOrgHeaders(),
+  })
   if (error)
     throw new Error(
       error.message ||
@@ -102,6 +106,7 @@ async function upgradeDocStream(
       authorization: `Bearer ${token}`,
       apikey: env.supabaseAnonKey,
       'content-type': 'application/json',
+      ...activeOrgHeaders(),
     },
     body: JSON.stringify({ ...input, stream: true }),
   })

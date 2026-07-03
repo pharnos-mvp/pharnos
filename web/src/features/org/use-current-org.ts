@@ -3,9 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 
 import { useAuth } from '@/features/auth/auth-context'
 import { canManageSubmission } from '@/features/team/team-api'
+import { ORG_STORAGE_KEY } from './active-org'
 import { fetchMyMemberships, type OrgMembership } from './org-repository'
-
-const ORG_STORAGE_KEY = 'pharnos.orgId'
 
 interface CurrentOrgState {
   loading: boolean
@@ -56,4 +55,17 @@ export function useCurrentOrg(): CurrentOrgState {
 export function useCanManageSubmission(): boolean {
   const { orgId, memberships } = useCurrentOrg()
   return canManageSubmission(memberships.find((m) => m.orgId === orgId)?.role)
+}
+
+/**
+ * Périmètre CS1 du membre courant dans l'org active (miroir UI de `membership_scopes`, 0048).
+ * `scoped` = membre limité à la couche SUIVI de ses dossiers grantés → l'UI masque catalogue,
+ * builder et réglages org. La RLS reste la vraie barrière ; hors-ligne sans cache on retombe
+ * sur `scoped: false` (cosmétique seulement — les stores locaux d'un membre scopé ne
+ * contiennent de toute façon que son périmètre).
+ */
+export function useMemberScope(): { scoped: boolean; dossierIds: string[] | null } {
+  const { orgId, memberships } = useCurrentOrg()
+  const ids = memberships.find((m) => m.orgId === orgId)?.scopedDossierIds ?? null
+  return { scoped: ids !== null, dossierIds: ids }
 }

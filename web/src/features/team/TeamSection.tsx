@@ -35,6 +35,7 @@ import { isEnabled, isTeaser } from '@/features/org/feature-state'
 import { useOrgPlan } from '@/features/org/use-org-plan'
 import { useI18n } from '@/lib/i18n-context'
 
+import { MemberScopeDialog } from './MemberScopeDialog'
 import { ROLE_HINT, ROLE_LABEL, teamApi, type OrgRole } from './team-api'
 
 const ROLES: OrgRole[] = [
@@ -205,6 +206,7 @@ export function TeamSection({ orgId, onUpgrade }: { orgId: string; onUpgrade?: (
             <TableRow>
               <TableHead>{t({ fr: 'Membre', en: 'Member' })}</TableHead>
               <TableHead>{t({ fr: 'Rôle', en: 'Role' })}</TableHead>
+              {isAdmin ? <TableHead>{t({ fr: 'Périmètre', en: 'Scope' })}</TableHead> : null}
               {isAdmin ? (
                 <TableHead className="text-right">{t({ fr: 'Actions', en: 'Actions' })}</TableHead>
               ) : null}
@@ -213,7 +215,7 @@ export function TeamSection({ orgId, onUpgrade }: { orgId: string; onUpgrade?: (
           <TableBody>
             {isLoading && !data ? (
               <TableRow>
-                <TableCell colSpan={3} className="text-muted-foreground text-sm">
+                <TableCell colSpan={4} className="text-muted-foreground text-sm">
                   {t({ fr: 'Chargement…', en: 'Loading…' })}
                 </TableCell>
               </TableRow>
@@ -256,6 +258,22 @@ export function TeamSection({ orgId, onUpgrade }: { orgId: string; onUpgrade?: (
                       </span>
                     )}
                   </TableCell>
+                  {isAdmin ? (
+                    <TableCell>
+                      {/* Périmètre CS1 : un admin a toujours toute l'org (non scopable, 0048). */}
+                      {m.role !== 'admin' ? (
+                        <MemberScopeDialog
+                          orgId={orgId}
+                          member={m}
+                          onSaved={() => void refetch()}
+                        />
+                      ) : (
+                        <span className="text-muted-foreground text-xs">
+                          {t({ fr: 'Toute l’organisation', en: 'Whole organization' })}
+                        </span>
+                      )}
+                    </TableCell>
+                  ) : null}
                   {isAdmin ? (
                     <TableCell className="text-right">
                       {!m.is_you ? (

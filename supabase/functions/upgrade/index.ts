@@ -14,7 +14,7 @@ import { specForDocType, specPromptText } from '../_shared/conformity-specs.ts'
 import { corsHeaders, isAllowedOrigin } from '../_shared/cors.ts'
 import { logJson, newReqId, userHash } from '../_shared/log.ts'
 import { frenchCalibration } from '../_shared/pharma-glossary.ts'
-import { checkAiQuota, recordAiUsage } from '../_shared/quota.ts'
+import { activeOrgFromRequest, checkAiQuota, recordAiUsage } from '../_shared/quota.ts'
 import { vertexSseToSimple } from '../_shared/sse.ts'
 import { withUsage } from '../_shared/usage.ts'
 import { generateParts, streamParts, type Part } from '../_shared/vertex.ts'
@@ -187,7 +187,9 @@ Deno.serve(async (req: Request) => {
     : undefined
 
   // Verrou de quota IA par organisation (M1) — AVANT le téléchargement et l'appel Vertex.
-  const quota = await checkAiQuota(supabase, 'upgrade')
+  // CS1 : org active du client (header), vérifiée membre côté SQL — attribution multi-org correcte.
+  const activeOrg = activeOrgFromRequest(req)
+  const quota = await checkAiQuota(supabase, 'upgrade', activeOrg)
   if (!quota.allowed) {
     logJson({ ...log, op: 'quota', status: 'blocked', reason: quota.reason })
     return json(
@@ -246,7 +248,7 @@ Deno.serve(async (req: Request) => {
       const out = vertexSseToSimple(
         vertexRes.body!,
         (chars) => logJson({ ...log, op: 'upgrade', ms: Date.now() - started, status: 'ok', chars }),
-        (uin, uout) => recordAiUsage(supabase, 'upgrade', { in: uin, out: uout }),
+        (uin, uout) => recordAiUsage(supabase, 'upgrade', { in: uin, out: uout }, activeOrg),
       )
       return new Response(out, {
         status: 200,
@@ -275,7 +277,7 @@ Deno.serve(async (req: Request) => {
       }),
     )
     text = r.result
-    recordAiUsage(supabase, 'upgrade', r.usage)
+    recordAiUsage(supabase, 'upgrade', r.usage, activeOrg)
   } catch (e) {
     const err = String((e as Error).message).slice(0, 300)
     logJson({ ...log, op: 'upgrade', ms: Date.now() - started, status: 'error', err })

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { useLocation } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useTheme } from 'next-themes'
@@ -38,8 +38,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useAuth } from '@/features/auth/auth-context'
-import { choosePlan, fetchMyMemberships } from '@/features/org/org-repository'
+import { choosePlan } from '@/features/org/org-repository'
 import { useOrgId } from '@/features/org/org-context'
+import { useCurrentOrg, useMemberScope } from '@/features/org/use-current-org'
 import { TeamSection } from '@/features/team/TeamSection'
 import {
   PLAN_LABEL,
@@ -73,14 +74,16 @@ export function AccountPage() {
   // « Nom d'admin » : le nom d'utilisateur choisi prime sur prénom+nom (recette CEO).
   const displayName =
     meta.username || [meta.prenom, meta.nom].filter(Boolean).join(' ') || user?.email || 'Pharnos'
-  const { data: memberships } = useQuery({
-    queryKey: ['memberships'],
-    queryFn: fetchMyMemberships,
-    enabled: Boolean(user),
-  })
-  const orgName = memberships?.find((m) => m.orgId === orgId)?.orgName ?? ''
+  // Même query (clé partagée) que useCurrentOrg/useMemberScope — pas de double cache.
+  const { memberships } = useCurrentOrg()
+  const orgName = memberships.find((m) => m.orgId === orgId)?.orgName ?? ''
+  // CS1 : membre scopé (couche suivi) — les sections ORG de l'hôte (abonnement/usage, équipe,
+  // branding pro, journal d'audit) ne le concernent pas ; la RLS (0048) les viderait de toute
+  // façon. Restent : infos perso, préférences, zone rouge (son propre compte).
+  const { scoped } = useMemberScope()
+  const orgOnlySections: Section[] = ['pro', 'abonnement', 'team', 'logs']
 
-  const nav: { key: Section; label: string; icon: typeof UserCircle2 }[] = [
+  const allNav: { key: Section; label: string; icon: typeof UserCircle2 }[] = [
     {
       key: 'perso',
       label: t({ fr: 'Infos personnelles', en: 'Personal info' }),
@@ -101,6 +104,10 @@ export function AccountPage() {
     },
     { key: 'danger', label: t({ fr: 'Zone rouge', en: 'Danger zone' }), icon: ShieldAlert },
   ]
+  const nav = scoped ? allNav.filter(({ key }) => !orgOnlySections.includes(key)) : allNav
+  // Une section org atteinte par état de navigation (ex. state {section:'abonnement'}) retombe
+  // sur les infos personnelles pour un membre scopé.
+  const activeSection = scoped && orgOnlySections.includes(section) ? 'perso' : section
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -130,7 +137,7 @@ export function AccountPage() {
               onClick={() => setSection(key)}
               className={
                 'flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm ' +
-                (section === key
+                (activeSection === key
                   ? 'bg-accent font-medium'
                   : 'text-muted-foreground hover:bg-accent/50')
               }
@@ -149,15 +156,15 @@ export function AccountPage() {
         </nav>
 
         <div className="min-w-0 flex-1 md:overflow-auto">
-          {section === 'perso' && <PersonalSection key={user?.id ?? 'local'} />}
-          {section === 'pro' && <InfoProSection />}
-          {section === 'abonnement' && <AbonnementSection />}
-          {section === 'team' && (
+          {activeSection === 'perso' && <PersonalSection key={user?.id ?? 'local'} />}
+          {activeSection === 'pro' && <InfoProSection />}
+          {activeSection === 'abonnement' && <AbonnementSection />}
+          {activeSection === 'team' && (
             <TeamSection orgId={orgId} onUpgrade={() => setSection('abonnement')} />
           )}
-          {section === 'prefs' && <PreferencesSection lang={lang} setLang={setLang} />}
-          {section === 'logs' && <LogsSection orgId={orgId} />}
-          {section === 'danger' && <DangerSection onDeleted={() => void signOut()} />}
+          {activeSection === 'prefs' && <PreferencesSection lang={lang} setLang={setLang} />}
+          {activeSection === 'logs' && <LogsSection orgId={orgId} />}
+          {activeSection === 'danger' && <DangerSection onDeleted={() => void signOut()} />}
         </div>
       </div>
     </div>
