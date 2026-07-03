@@ -59,6 +59,7 @@ import { deriveSubmissionConditions } from './lifecycle-conditions'
 import { lifecycleConfigFor, submissionModeLabel } from './lifecycle-config'
 import { openLifecycleDoc } from './lifecycle-docs'
 import { LifecycleActionCard } from './LifecycleActionCard'
+import { deriveStageWaiting } from './lifecycle-waiting'
 import { LifecycleConditionsPanel } from './LifecycleConditionsPanel'
 import { listLifecycleEvents } from './lifecycle-repository'
 import { agencyFor, officialLanguage, regulatoryProfileFor } from './roadmap-data'
@@ -379,6 +380,7 @@ export function RoadmapPage() {
           hasAuthorityQuery={events.some((e) => e.type === 'authority_query')}
           conditions={conditions}
           decidedCorrespondence={decidedCorrespondence}
+          waiting={deriveStageWaiting(lifecycle, new Date())}
         />
         {decisionDone ? (
           <LifecycleConditionsPanel

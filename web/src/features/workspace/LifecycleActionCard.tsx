@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import {
+  BellRing,
   CheckCircle2,
   CircleAlert,
   Clock,
@@ -39,6 +40,7 @@ import { canManageSubmission } from '@/features/team/team-api'
 import type { CorrespondenceRecord } from '@/lib/db'
 import { useI18n } from '@/lib/i18n-context'
 import { reportError } from '@/lib/sentry'
+import { cn } from '@/lib/utils'
 import {
   lifecycleConfigFor,
   submissionModeLabel,
@@ -50,7 +52,8 @@ import {
   type LifecycleStageId,
   type LifecycleStatus,
 } from './lifecycle-constants'
-import { nextLifecycleActions, type LifecycleAction } from './lifecycle-actions'
+import { nextLifecycleActions, REMINDER_ACTION, type LifecycleAction } from './lifecycle-actions'
+import type { StageWaiting } from './lifecycle-waiting'
 import { CONDITION_TITLES, type SubmissionConditionsState } from './lifecycle-conditions'
 import { removeLifecycleDocs, uploadLifecycleDoc, type LifecycleDocRef } from './lifecycle-docs'
 import { appendLifecycleEvent } from './lifecycle-repository'
@@ -86,6 +89,7 @@ export function LifecycleActionCard({
   hasAuthorityQuery = false,
   conditions,
   decidedCorrespondence = null,
+  waiting = null,
 }: {
   dossierId: string
   country: string
@@ -97,6 +101,8 @@ export function LifecycleActionCard({
   conditions?: SubmissionConditionsState
   /** Correspondance DÉCIDÉE (Complément requis / Rejeté) — cible du « Renvoyer en revue » (M4). */
   decidedCorrespondence?: CorrespondenceRecord | null
+  /** Ancienneté de l'attente d'un TIERS (M5, `deriveStageWaiting`) — badge + bouton Relancer. */
+  waiting?: StageWaiting | null
 }) {
   const { t, lang } = useI18n()
   const orgId = useOrgId()
@@ -315,7 +321,8 @@ export function LifecycleActionCard({
     )
   }
 
-  // ── Étapes amont (correspondance) : pas d'action journal, on renvoie au bon endroit ─────────────
+  // ── Étapes amont (correspondance) : pas d'action journal, on renvoie au bon endroit.
+  //    En revue, le dossier attend l'agent local → badge d'attente + Relancer (M5).
   if (actions.length === 0) {
     return (
       <ActionShell
@@ -323,7 +330,19 @@ export function LifecycleActionCard({
         icon={Info}
         title={t({ fr: `Étape en cours · ${stageLabel}`, en: `Current stage · ${stageLabel}` })}
         body={upstreamHint(currentStageId, status, t)}
-      />
+      >
+        {waiting ? (
+          <ReminderControl
+            orgId={orgId}
+            dossierId={dossierId}
+            currentStageId={currentStageId}
+            waiting={waiting}
+            canManage={canManage}
+            actorId={user?.id ?? 'local'}
+            actorEmail={user?.email ?? ''}
+          />
+        ) : null}
+      </ActionShell>
     )
   }
 
@@ -349,7 +368,19 @@ export function LifecycleActionCard({
           fr: 'Seul un gestionnaire de soumission (Admin, agence ou expert RA) peut faire avancer le dossier.',
           en: 'Only a submission manager (Admin, agency or RA expert) can advance the dossier.',
         })}
-      />
+      >
+        {waiting ? (
+          <ReminderControl
+            orgId={orgId}
+            dossierId={dossierId}
+            currentStageId={currentStageId}
+            waiting={waiting}
+            canManage={false}
+            actorId={user?.id ?? 'local'}
+            actorEmail={user?.email ?? ''}
+          />
+        ) : null}
+      </ActionShell>
     )
   }
 
@@ -374,6 +405,19 @@ export function LifecycleActionCard({
                 </Button>
               ))}
             </div>
+            {waiting ? (
+              <div className="mt-3">
+                <ReminderControl
+                  orgId={orgId}
+                  dossierId={dossierId}
+                  currentStageId={currentStageId}
+                  waiting={waiting}
+                  canManage={canManage}
+                  actorId={user?.id ?? 'local'}
+                  actorEmail={user?.email ?? ''}
+                />
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -611,6 +655,119 @@ function Field({
     <div className="grid gap-1.5">
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
+    </div>
+  )
+}
+
+/** Seuil VISUEL (jours) au-delà duquel l'attente passe en ton « warning » — purement indicatif
+ *  (aucun blocage) ; les seuils RÉELS par pays arrivent avec la relance auto (LOT 10). */
+const WAITING_WARN_DAYS = 7
+
+/**
+ * Badge « en attente depuis N jours » + bouton Relancer (M5, relance MANUELLE). Autonome
+ * (badge + dialog + append) pour s'insérer dans chaque branche de la carte, y compris les
+ * coquilles amont (Revue). La relance journalise un `reminder_sent` `{stage, waiting_days}` :
+ * le canal réel (téléphone/e-mail) reste hors produit en phase 1 — Pharnos trace l'acte et le
+ * compteur repart (la relance est la nouvelle dernière activité du journal).
+ */
+function ReminderControl({
+  orgId,
+  dossierId,
+  currentStageId,
+  waiting,
+  canManage,
+  actorId,
+  actorEmail,
+}: {
+  orgId: string
+  dossierId: string
+  currentStageId: LifecycleStageId
+  waiting: StageWaiting
+  canManage: boolean
+  actorId: string
+  actorEmail: string
+}) {
+  const { t } = useI18n()
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  // « → Agence nat. » (étiquette d'étape) se lit mal en phrase — on retire la flèche.
+  const actor = t(waiting.actor).replace(/^→\s*/, '')
+  const overdue = waiting.days >= WAITING_WARN_DAYS && !waiting.lastIsReminder
+  const label = waiting.lastIsReminder
+    ? waiting.days === 0
+      ? t({ fr: 'Relancé aujourd’hui', en: 'Reminded today' })
+      : t({ fr: `Relancé il y a ${waiting.days} j`, en: `Reminded ${waiting.days} d ago` })
+    : waiting.days === 0
+      ? t({ fr: `En attente de ${actor} · aujourd’hui`, en: `Waiting on ${actor} · today` })
+      : t({
+          fr: `En attente de ${actor} depuis ${waiting.days} j`,
+          en: `Waiting on ${actor} for ${waiting.days} d`,
+        })
+
+  async function confirmReminder() {
+    if (busy) return
+    setBusy(true)
+    try {
+      await appendLifecycleEvent(orgId, {
+        dossierId,
+        type: REMINDER_ACTION.type,
+        actorId,
+        actorEmail,
+        payload: { stage: currentStageId, waiting_days: waiting.days },
+      })
+      // Push best-effort (no-op hors-ligne : l'outbox rejouera à la reconnexion).
+      void syncLifecycle(orgId)
+      toast.success(t({ fr: 'Relance journalisée.', en: 'Reminder logged.' }))
+      setOpen(false)
+    } catch (error) {
+      reportError(error, { op: 'appendLifecycleEvent', type: REMINDER_ACTION.type })
+      toast.error(t({ fr: 'Échec de la relance.', en: 'Failed to log the reminder.' }))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span
+        className={cn(
+          'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs',
+          overdue ? 'bg-warning-subtle text-warning' : 'bg-muted text-muted-foreground',
+        )}
+      >
+        <Clock className="size-3.5 shrink-0" />
+        {label}
+      </span>
+      {canManage ? (
+        <>
+          <Button size="sm" variant={REMINDER_ACTION.variant} onClick={() => setOpen(true)}>
+            <BellRing /> {t(REMINDER_ACTION.label)}
+          </Button>
+          <Dialog open={open} onOpenChange={(o) => !o && setOpen(false)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t(REMINDER_ACTION.label)}</DialogTitle>
+                <DialogDescription>{t(REMINDER_ACTION.prompt)}</DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" size="sm" onClick={() => setOpen(false)} disabled={busy}>
+                  {t({ fr: 'Annuler', en: 'Cancel' })}
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => void confirmReminder()}
+                  disabled={busy}
+                >
+                  {busy ? <Loader2 className="animate-spin" /> : null}
+                  {t({ fr: 'Confirmer', en: 'Confirm' })}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </>
+      ) : null}
     </div>
   )
 }

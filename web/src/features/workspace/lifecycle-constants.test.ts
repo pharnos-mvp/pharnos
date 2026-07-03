@@ -264,7 +264,8 @@ describe('libellés', () => {
     )
     expect(journalLabel({ key: 'deposited' })).toBe('Réception confirmée par l’agent local')
     expect(journalLabel({ key: 'submitted' })).toBe('Déposé à l’agence nationale')
-    expect(journalLabel({ key: 'reminder_sent' }, 'en')).toBe('Automatic reminder')
+    // M5 : la relance peut être manuelle (Labo) ou auto (Système) — libellé neutre commun.
+    expect(journalLabel({ key: 'reminder_sent' }, 'en')).toBe('Reminder sent')
   })
 
   it('lifecycleStatusLabel — couvre les statuts + repli', () => {
