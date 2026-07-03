@@ -59,6 +59,7 @@ import { deriveSubmissionConditions } from './lifecycle-conditions'
 import { lifecycleConfigFor, submissionModeLabel } from './lifecycle-config'
 import { openLifecycleDoc } from './lifecycle-docs'
 import { LifecycleActionCard } from './LifecycleActionCard'
+import { deriveRenewalAlert } from './lifecycle-renewal'
 import { deriveStageWaiting } from './lifecycle-waiting'
 import { LifecycleConditionsPanel } from './LifecycleConditionsPanel'
 import { listLifecycleEvents } from './lifecycle-repository'
@@ -381,6 +382,17 @@ export function RoadmapPage() {
           conditions={conditions}
           decidedCorrespondence={decidedCorrespondence}
           waiting={deriveStageWaiting(lifecycle, new Date())}
+          renewal={(() => {
+            const alert = deriveRenewalAlert(events, dossier.id, new Date())
+            return alert
+              ? {
+                  alert,
+                  productId: dossier.productId,
+                  productName: dossier.productName,
+                  format: dossier.format,
+                }
+              : null
+          })()}
         />
         {decisionDone ? (
           <LifecycleConditionsPanel

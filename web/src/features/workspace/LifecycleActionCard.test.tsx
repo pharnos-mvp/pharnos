@@ -6,7 +6,7 @@ import { AuthContext, type AuthContextValue } from '@/features/auth/auth-context
 import { OrgContext } from '@/features/org/org-context'
 import { I18nContext, type I18nValue } from '@/lib/i18n-context'
 
-import { LifecycleActionCard } from './LifecycleActionCard'
+import { LifecycleActionCard, type RenewalContext } from './LifecycleActionCard'
 import { deriveSubmissionConditions } from './lifecycle-conditions'
 import type { LifecycleStageId, LifecycleStatus } from './lifecycle-constants'
 import type { StageWaiting } from './lifecycle-waiting'
@@ -21,12 +21,18 @@ const appendMock = vi.hoisted(() => vi.fn())
 const syncMock = vi.hoisted(() => vi.fn())
 const reopenMock = vi.hoisted(() => vi.fn())
 const syncCorrMock = vi.hoisted(() => vi.fn())
+const createDossierMock = vi.hoisted(() => vi.fn())
+const syncDossiersMock = vi.hoisted(() => vi.fn())
+const navigateMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/features/org/use-current-org', () => ({
   useCurrentOrg: () => ({ ...state, orgId: 'org-test', refresh: async () => {} }),
 }))
 vi.mock('./lifecycle-repository', () => ({ appendLifecycleEvent: appendMock }))
 vi.mock('./lifecycle-sync', () => ({ syncLifecycle: syncMock }))
+vi.mock('./dossier-repository', () => ({ createDossier: createDossierMock }))
+vi.mock('./dossier-sync', () => ({ syncDossiers: syncDossiersMock }))
+vi.mock('react-router-dom', () => ({ useNavigate: () => navigateMock }))
 vi.mock('@/features/correspondence/correspondence-repository', () => ({
   reopenCorrespondenceForReview: reopenMock,
 }))
@@ -64,6 +70,7 @@ function renderCard(
     hasAuthorityQuery?: boolean
     decidedCorrespondence?: import('@/lib/db').CorrespondenceRecord | null
     waiting?: StageWaiting | null
+    renewal?: RenewalContext | null
   } = {},
 ) {
   const i18n: I18nValue = { lang: 'fr', setLang: () => {}, t: (s) => s.fr }
@@ -79,6 +86,7 @@ function renderCard(
             hasAuthorityQuery={over.hasAuthorityQuery ?? false}
             decidedCorrespondence={over.decidedCorrespondence ?? null}
             waiting={over.waiting ?? null}
+            renewal={over.renewal ?? null}
           />
         </OrgContext.Provider>
       </AuthContext.Provider>
@@ -238,6 +246,87 @@ describe('LifecycleActionCard — actions Labo (M2)', () => {
     renderCard({ currentStageId: 'amm', status: 'amm_granted' })
     expect(screen.getByText(/Parcours terminé/i)).toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('renouvellement (M6) : alerte J−6 + « Créer le renouvellement » → createDossier pré-rempli + navigation', async () => {
+    createDossierMock.mockResolvedValue({ id: 'd-renew' })
+    const renewal: RenewalContext = {
+      alert: {
+        ammNumber: 'AMM-2026-1',
+        grantedAt: '2026-01-10T12:00:00.000Z',
+        validUntil: '2026-12-10T12:00:00.000Z',
+        alertFrom: '2026-06-10T12:00:00.000Z',
+        phase: 'due',
+        daysLeft: 160,
+      },
+      productId: 'p1',
+      productName: 'KV-Kacin 500',
+      format: 'ctd',
+    }
+    renderCard({ currentStageId: 'amm', status: 'amm_granted', renewal })
+    expect(screen.getByText(/AMM expire le .* \(J−160\)/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Créer le renouvellement' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Créer' }))
+    await waitFor(() => expect(createDossierMock).toHaveBeenCalledTimes(1))
+    expect(createDossierMock).toHaveBeenCalledWith(
+      'org-test',
+      expect.objectContaining({
+        productId: 'p1',
+        productName: 'KV-Kacin 500',
+        format: 'ctd',
+        activity: 'renewal',
+        country: 'BJ',
+        ammNumero: 'AMM-2026-1',
+        ammDate: '2026-01-10',
+      }),
+    )
+    expect(syncDossiersMock).toHaveBeenCalledWith('org-test')
+    expect(navigateMock).toHaveBeenCalledWith('/workspace/d-renew')
+  })
+
+  it('renouvellement (M6) : « Créer une variation » → assistant pré-rempli (produit, opération, pays)', () => {
+    const renewal: RenewalContext = {
+      alert: {
+        ammNumber: 'AMM-2026-1',
+        grantedAt: '2026-01-10T12:00:00.000Z',
+        validUntil: '2031-01-10T12:00:00.000Z',
+        alertFrom: '2030-07-10T12:00:00.000Z',
+        phase: 'ok',
+        daysLeft: 1800,
+      },
+      productId: 'p1',
+      productName: 'KV-Kacin 500',
+      format: 'ctd',
+    }
+    renderCard({ currentStageId: 'amm', status: 'amm_granted', renewal })
+    // Hors fenêtre : ligne de validité informative, pas d'alerte.
+    expect(screen.getByText(/valide jusqu'au/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Créer une variation' }))
+    expect(navigateMock).toHaveBeenCalledWith(
+      '/workspace/nouveau?produit=p1&operation=variation&pays=BJ',
+    )
+  })
+
+  it('renouvellement (M6, Lecteur) : ligne de validité SANS boutons de création', () => {
+    state.memberships = [{ orgId: 'org-test', role: 'reviewer', orgName: 'Labo' }]
+    const renewal: RenewalContext = {
+      alert: {
+        ammNumber: 'AMM-2026-1',
+        grantedAt: '2026-01-10T12:00:00.000Z',
+        validUntil: null,
+        alertFrom: null,
+        phase: 'unknown',
+        daysLeft: null,
+      },
+      productId: 'p1',
+      productName: 'KV-Kacin 500',
+      format: 'ctd',
+    }
+    renderCard({ currentStageId: 'amm', status: 'amm_granted', renewal })
+    expect(screen.getByText(/échéance de validité non renseignée/i)).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Créer le renouvellement' }),
+    ).not.toBeInTheDocument()
   })
 
   it('étape amont (revue) : renvoi contextuel, pas d’action journal', () => {
