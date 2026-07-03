@@ -539,6 +539,13 @@ export function journalDetail(
       return str(p.reference)
     case 'amm_granted':
       return str(p.amm_number)
+    case 'authority_query': {
+      // Canal de la notification (T4) : `via` = agent local (norme) ou direct (cas CI).
+      if (p.via === 'direct')
+        return lang === 'en' ? 'Directly from the agency' : 'En direct de l’agence'
+      if (p.via === 'agent') return lang === 'en' ? 'Via the local agent' : 'Via l’agent local'
+      return null
+    }
     default:
       return null
   }

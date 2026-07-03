@@ -52,6 +52,7 @@ import {
 } from './lifecycle-constants'
 import { nextLifecycleActions, type LifecycleAction } from './lifecycle-actions'
 import { CONDITION_TITLES, type SubmissionConditionsState } from './lifecycle-conditions'
+import { removeLifecycleDocs, uploadLifecycleDoc, type LifecycleDocRef } from './lifecycle-docs'
 import { appendLifecycleEvent } from './lifecycle-repository'
 import { syncLifecycle } from './lifecycle-sync'
 
@@ -116,6 +117,10 @@ export function LifecycleActionCard({
   const [validUntil, setValidUntil] = useState('')
   const [note, setNote] = useState('')
   const [occurredOn, setOccurredOn] = useState('')
+  // T4 : preuve d'AMM (pièce recommandée, jamais obligatoire — pattern M3, upload en ligne only).
+  const [proofFile, setProofFile] = useState<File | null>(null)
+  // T4 : canal de la notification (cas CI : l'agence notifie le labo EN DIRECT, sans agent local).
+  const [via, setVia] = useState<'agent' | 'direct'>('agent')
   // Boucle Décision (M4) : modale de confirmation du « Renvoyer en revue ».
   const [reopenOpen, setReopenOpen] = useState(false)
 
@@ -126,6 +131,8 @@ export function LifecycleActionCard({
     setValidUntil('')
     setNote('')
     setOccurredOn('')
+    setProofFile(null)
+    setVia('agent')
     setActive(a)
   }
 
@@ -152,8 +159,12 @@ export function LifecycleActionCard({
         return reason ? { reason } : {}
       }
       case 'note': {
+        const p: Record<string, unknown> = {}
         const n = note.trim()
-        return n ? { note: n } : {}
+        if (n) p.note = n
+        // Canal de la notification (T4) : `via` sur authority_query uniquement (cas CI = direct).
+        if (a.id === 'authority_query') p.via = via
+        return p
       }
       default:
         return {}
@@ -163,7 +174,22 @@ export function LifecycleActionCard({
   async function confirm() {
     if (!active || busy || missingRequired) return
     setBusy(true)
+    let uploaded: LifecycleDocRef[] = []
     try {
+      // Preuve d'AMM (T4, pattern M3) : upload EN LIGNE seulement — hors-ligne, on invite à
+      // retirer la pièce (l'événement se journalise sans pièce, offline-first préservé).
+      if (active.form === 'amm_granted' && proofFile) {
+        if (!navigator.onLine) {
+          toast.error(
+            t({
+              fr: 'Pièce impossible hors-ligne — retirez-la (l’AMM se journalise sans pièce) ou repassez en ligne.',
+              en: 'Attachment unavailable offline — remove it (the MA can be logged without it) or go back online.',
+            }),
+          )
+          return
+        }
+        uploaded = [await uploadLifecycleDoc(orgId, dossierId, proofFile)]
+      }
       await appendLifecycleEvent(orgId, {
         dossierId,
         type: active.type,
@@ -171,14 +197,18 @@ export function LifecycleActionCard({
         actorEmail: user?.email ?? '',
         occurredAt: toOccurredAt(occurredOn),
         payload: buildPayload(active),
+        docRefs: uploaded,
       })
       // Push best-effort (no-op hors-ligne : l'outbox rejouera à la reconnexion).
       void syncLifecycle(orgId)
       toast.success(t({ fr: 'Étape enregistrée.', en: 'Milestone recorded.' }))
       setActive(null)
     } catch (error) {
+      // Append échoué après upload → on retire la pièce orpheline (best-effort, pattern M3).
+      if (uploaded.length > 0) void removeLifecycleDocs(uploaded)
       reportError(error, { op: 'appendLifecycleEvent', type: active.type })
-      toast.error(t({ fr: 'Échec de l’enregistrement.', en: 'Failed to record.' }))
+      const message = error instanceof Error ? error.message : ''
+      toast.error(message || t({ fr: 'Échec de l’enregistrement.', en: 'Failed to record.' }))
     } finally {
       setBusy(false)
     }
@@ -421,6 +451,19 @@ export function LifecycleActionCard({
                       onChange={(e) => setValidUntil(e.target.value)}
                     />
                   </Field>
+                  <Field
+                    label={t({
+                      fr: 'Preuve d’AMM (facultatif — certificat, notification officielle)',
+                      en: 'MA proof (optional — certificate, official notification)',
+                    })}
+                    htmlFor="lc-proof"
+                  >
+                    <Input
+                      id="lc-proof"
+                      type="file"
+                      onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
+                    />
+                  </Field>
                 </>
               ) : null}
 
@@ -439,17 +482,42 @@ export function LifecycleActionCard({
               ) : null}
 
               {active.form === 'note' ? (
-                <Field
-                  label={t({ fr: 'Note (facultatif)', en: 'Note (optional)' })}
-                  htmlFor="lc-note"
-                >
-                  <Input
-                    id="lc-note"
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    maxLength={200}
-                  />
-                </Field>
+                <>
+                  {active.id === 'authority_query' ? (
+                    <Field
+                      label={t({ fr: 'Notification reçue', en: 'Notification received' })}
+                      htmlFor="lc-via"
+                    >
+                      <Select value={via} onValueChange={(v) => setVia(v as 'agent' | 'direct')}>
+                        <SelectTrigger id="lc-via" className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="agent">
+                            {t({ fr: 'Via l’agent local', en: 'Via the local agent' })}
+                          </SelectItem>
+                          <SelectItem value="direct">
+                            {t({
+                              fr: 'En direct de l’agence (ex. Côte d’Ivoire)',
+                              en: 'Directly from the agency (e.g. Côte d’Ivoire)',
+                            })}
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  ) : null}
+                  <Field
+                    label={t({ fr: 'Note (facultatif)', en: 'Note (optional)' })}
+                    htmlFor="lc-note"
+                  >
+                    <Input
+                      id="lc-note"
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      maxLength={200}
+                    />
+                  </Field>
+                </>
               ) : null}
 
               {active.form !== 'confirm' ? (

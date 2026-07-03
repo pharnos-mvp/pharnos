@@ -32,6 +32,11 @@ vi.mock('@/features/correspondence/correspondence-repository', () => ({
 vi.mock('@/features/correspondence/correspondence-sync', () => ({
   syncCorrespondences: syncCorrMock,
 }))
+const uploadDocMock = vi.hoisted(() => vi.fn())
+vi.mock('./lifecycle-docs', () => ({
+  uploadLifecycleDoc: uploadDocMock,
+  removeLifecycleDocs: vi.fn(),
+}))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 // Correspondance décidée minimale (cible du « Renvoyer en revue » M4).
@@ -145,6 +150,44 @@ describe('LifecycleActionCard — actions Labo (M2)', () => {
       </I18nContext.Provider>,
     )
     expect(screen.getByRole('button', { name: /Réponse au complément/i })).toBeInTheDocument()
+  })
+
+  it('Notification : payload porte le canal `via` (défaut = agent local) — T4', async () => {
+    renderCard({ currentStageId: 'notifications', status: 'in_notification' })
+    fireEvent.click(screen.getByRole('button', { name: /Notification \/ complément reçu/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
+    await waitFor(() => expect(appendMock).toHaveBeenCalledTimes(1))
+    expect(appendMock).toHaveBeenCalledWith(
+      'org-test',
+      expect.objectContaining({
+        type: 'authority_query',
+        payload: expect.objectContaining({ via: 'agent' }),
+      }),
+    )
+  })
+
+  it('AMM accordée avec preuve : upload puis docRefs sur l’événement — T4', async () => {
+    uploadDocMock.mockResolvedValue({
+      path: 'p/preuve.pdf',
+      name: 'preuve.pdf',
+      size: 9,
+      mime: 'application/pdf',
+    })
+    renderCard({ currentStageId: 'notifications', status: 'in_notification' })
+    fireEvent.click(screen.getByRole('button', { name: 'AMM accordée' }))
+    fireEvent.change(screen.getByLabelText(/Numéro d’AMM/i), { target: { value: 'AMM-2026-9' } })
+    const file = new File(['x'], 'preuve.pdf', { type: 'application/pdf' })
+    fireEvent.change(screen.getByLabelText(/Preuve d’AMM/i), { target: { files: [file] } })
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
+    await waitFor(() => expect(appendMock).toHaveBeenCalledTimes(1))
+    expect(uploadDocMock).toHaveBeenCalledWith('org-test', 'd1', file)
+    expect(appendMock).toHaveBeenCalledWith(
+      'org-test',
+      expect.objectContaining({
+        type: 'amm_granted',
+        docRefs: [expect.objectContaining({ name: 'preuve.pdf' })],
+      }),
+    )
   })
 
   it('Complément requis (gestionnaire) : « Renvoyer en revue » → confirme → reopen + sync (M4)', async () => {
