@@ -9,7 +9,7 @@
 --   4. écritures : l'agent scopé FAIT AVANCER ses dossiers (lifecycle INSERT, décision
 --      correspondance UPDATE, message INSERT) mais n'édite JAMAIS (dossiers INSERT/UPDATE,
 --      correspondence INSERT refusés) ;
---   5. Storage : pièces suivi (events/, correspondence/) des dossiers grantés seulement ;
+--   5. Storage : pièces suivi (lifecycle/, shares/) des dossiers grantés seulement ;
 --   6. team_set_scope : admin only, cible non-admin, dossiers de l'org only, journalisé
 --      (audit GxP), scope vide = ne voit rien, révocation = retour plein accès ;
 --   7. team_set_role : promotion admin purge le périmètre (anti « admin scopé »).
@@ -68,17 +68,18 @@ values ('b0000000-0000-0000-0000-0000000000dc', '00000000-0000-0000-0000-0000000
 insert into public.dossier_attachments (id, org_id, dossier_id, node_number)
 values ('b0000000-0000-0000-0000-0000000000a7', '00000000-0000-0000-0000-0000000000a1', 'd0000000-0000-0000-0000-0000000000d1', '1.2');
 
--- Storage : pièces suivi (events/, correspondence/) vs pièce CTD (builder) du MÊME dossier D1.
+-- Storage : pièces suivi (lifecycle/, shares/ — les conventions RÉELLES de l'app :
+-- lifecycle-docs.ts, share-send.ts) vs pièce CTD (builder) du MÊME dossier D1.
 insert into storage.buckets (id, name)
 values ('documents', 'documents')
 on conflict (id) do nothing;
 insert into storage.objects (bucket_id, name)
 values
-  ('documents', '00000000-0000-0000-0000-0000000000a1/dossiers/d0000000-0000-0000-0000-0000000000d1/events/e0000000-0000-0000-0000-0000000000e1/recepisse.pdf'),
-  ('documents', '00000000-0000-0000-0000-0000000000a1/dossiers/d0000000-0000-0000-0000-0000000000d2/events/e0000000-0000-0000-0000-0000000000e2/recepisse.pdf'),
+  ('documents', '00000000-0000-0000-0000-0000000000a1/dossiers/d0000000-0000-0000-0000-0000000000d1/lifecycle/e0000000-0000-0000-0000-0000000000e1/recepisse.pdf'),
+  ('documents', '00000000-0000-0000-0000-0000000000a1/dossiers/d0000000-0000-0000-0000-0000000000d2/lifecycle/e0000000-0000-0000-0000-0000000000e2/recepisse.pdf'),
   ('documents', '00000000-0000-0000-0000-0000000000a1/dossiers/d0000000-0000-0000-0000-0000000000d1/b0000000-0000-0000-0000-0000000000a7/piece-ctd.pdf'),
-  ('documents', '00000000-0000-0000-0000-0000000000a1/correspondence/c0000000-0000-0000-0000-0000000000c1/review.pdf'),
-  ('documents', '00000000-0000-0000-0000-0000000000a1/correspondence/c0000000-0000-0000-0000-0000000000c2/review.pdf'),
+  ('documents', '00000000-0000-0000-0000-0000000000a1/shares/c0000000-0000-0000-0000-0000000000c1/module1.pdf'),
+  ('documents', '00000000-0000-0000-0000-0000000000a1/shares/c0000000-0000-0000-0000-0000000000c2/module1.pdf'),
   ('documents', '00000000-0000-0000-0000-0000000000a1/products/b0000000-0000-0000-0000-0000000000b1/rcp.pdf');
 
 -- ── 1) team_set_scope : gardes d'accès ───────────────────────────────────────
@@ -261,7 +262,7 @@ select throws_ok(
 select is(
   (select count(*)::int from storage.objects where bucket_id = 'documents'),
   2,
-  'scopé Storage : voit UNIQUEMENT les pièces suivi du dossier granté (event D1 + PDF C1)'
+  'scopé Storage : voit UNIQUEMENT les pièces suivi du dossier granté (lifecycle D1 + PDF C1)'
 );
 select is(
   (select count(*)::int from storage.objects
@@ -276,18 +277,18 @@ select is(
   'scopé Storage : documents du catalogue INVISIBLES'
 );
 
--- Dépose une preuve sous events/ de SON dossier ; hors périmètre rejeté ; delete sans effet.
+-- Dépose une preuve sous lifecycle/ de SON dossier ; hors périmètre rejeté ; delete sans effet.
 insert into storage.objects (bucket_id, name)
-values ('documents', '00000000-0000-0000-0000-0000000000a1/dossiers/d0000000-0000-0000-0000-0000000000d1/events/e0000000-0000-0000-0000-0000000000e5/preuve.pdf');
+values ('documents', '00000000-0000-0000-0000-0000000000a1/dossiers/d0000000-0000-0000-0000-0000000000d1/lifecycle/e0000000-0000-0000-0000-0000000000e5/preuve.pdf');
 select is(
   (select count(*)::int from storage.objects
     where bucket_id = 'documents' and name like '%preuve.pdf'),
   1,
-  'scopé Storage : dépôt d''une preuve sous events/ du dossier granté accepté'
+  'scopé Storage : dépôt d''une preuve sous lifecycle/ du dossier granté accepté'
 );
 select throws_ok(
   $$ insert into storage.objects (bucket_id, name)
-     values ('documents', '00000000-0000-0000-0000-0000000000a1/dossiers/d0000000-0000-0000-0000-0000000000d2/events/e0000000-0000-0000-0000-0000000000e2/pirate.pdf') $$,
+     values ('documents', '00000000-0000-0000-0000-0000000000a1/dossiers/d0000000-0000-0000-0000-0000000000d2/lifecycle/e0000000-0000-0000-0000-0000000000e2/pirate.pdf') $$,
   '42501',
   null,
   'scopé Storage : dépôt hors périmètre REJETÉ'

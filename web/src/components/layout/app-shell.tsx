@@ -1,5 +1,4 @@
 import { Suspense, useEffect, useState, type ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { useTheme } from 'next-themes'
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
@@ -49,7 +48,7 @@ import { useAuth } from '@/features/auth/auth-context'
 import { useCorrespondenceRealtime } from '@/features/correspondence/use-correspondence-realtime'
 import { switchActiveOrg } from '@/features/org/active-org'
 import { useOrgId } from '@/features/org/org-context'
-import { fetchMyMemberships } from '@/features/org/org-repository'
+import { useCurrentOrg } from '@/features/org/use-current-org'
 import { PLAN_LABEL, useOrgPlan } from '@/features/org/use-org-plan'
 import { useOnlineStatus } from '@/hooks/use-online-status'
 import { setSyncEnabledCache } from '@/lib/sync-prefs'
@@ -147,17 +146,15 @@ export function AppShell() {
   const displayName =
     meta.username || [meta.prenom, meta.nom].filter(Boolean).join(' ') || user?.email || 'Pharnos'
   const photo = meta.photo
-  const { data: memberships } = useQuery({
-    queryKey: ['memberships'],
-    queryFn: fetchMyMemberships,
-    enabled: Boolean(user),
-  })
-  const activeMembership = memberships?.find((m) => m.orgId === orgId)
+  // Même query (clé partagée) que useCurrentOrg/useMemberScope : une seule source, un seul
+  // refetch — l'éditeur de périmètre et la nav restent cohérents sans double cache.
+  const { memberships } = useCurrentOrg()
+  const activeMembership = memberships.find((m) => m.orgId === orgId)
   const orgName = activeMembership?.orgName ?? ''
   // CS1 : membre scopé (périmètre par dossier) → nav réduite à la couche SUIVI.
   const scoped = (activeMembership?.scopedDossierIds ?? null) !== null
   const visibleNavItems = scoped ? navItems.filter((i) => i.to === '/workspace') : navItems
-  const multiOrg = (memberships?.length ?? 0) > 1
+  const multiOrg = memberships.length > 1
   const pageTitle = PAGE_TITLES.find((x) => location.pathname.startsWith(x.prefix))?.label ?? {
     fr: 'Pharnos',
     en: 'Pharnos',
@@ -305,7 +302,7 @@ export function AppShell() {
                     <Building2 className="size-4" /> {t({ fr: 'Organisation', en: 'Organization' })}
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
-                    {memberships?.map((m) => (
+                    {memberships.map((m) => (
                       <DropdownMenuItem
                         key={m.orgId}
                         disabled={m.orgId === orgId}
@@ -565,7 +562,7 @@ export function AppShell() {
                     <Building2 className="size-4 shrink-0" />
                     {t({ fr: 'Organisation', en: 'Organization' })}
                   </span>
-                  {memberships?.map((m) => (
+                  {memberships.map((m) => (
                     <button
                       key={m.orgId}
                       type="button"

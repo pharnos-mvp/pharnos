@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { useLocation } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useTheme } from 'next-themes'
@@ -38,9 +38,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useAuth } from '@/features/auth/auth-context'
-import { choosePlan, fetchMyMemberships } from '@/features/org/org-repository'
+import { choosePlan } from '@/features/org/org-repository'
 import { useOrgId } from '@/features/org/org-context'
-import { useMemberScope } from '@/features/org/use-current-org'
+import { useCurrentOrg, useMemberScope } from '@/features/org/use-current-org'
 import { TeamSection } from '@/features/team/TeamSection'
 import {
   PLAN_LABEL,
@@ -74,12 +74,9 @@ export function AccountPage() {
   // « Nom d'admin » : le nom d'utilisateur choisi prime sur prénom+nom (recette CEO).
   const displayName =
     meta.username || [meta.prenom, meta.nom].filter(Boolean).join(' ') || user?.email || 'Pharnos'
-  const { data: memberships } = useQuery({
-    queryKey: ['memberships'],
-    queryFn: fetchMyMemberships,
-    enabled: Boolean(user),
-  })
-  const orgName = memberships?.find((m) => m.orgId === orgId)?.orgName ?? ''
+  // Même query (clé partagée) que useCurrentOrg/useMemberScope — pas de double cache.
+  const { memberships } = useCurrentOrg()
+  const orgName = memberships.find((m) => m.orgId === orgId)?.orgName ?? ''
   // CS1 : membre scopé (couche suivi) — les sections ORG de l'hôte (abonnement/usage, équipe,
   // branding pro, journal d'audit) ne le concernent pas ; la RLS (0048) les viderait de toute
   // façon. Restent : infos perso, préférences, zone rouge (son propre compte).

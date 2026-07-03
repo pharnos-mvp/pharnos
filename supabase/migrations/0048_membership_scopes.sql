@@ -278,14 +278,15 @@ create policy cs1_memberships_select on public.memberships
   );
 
 -- ── 5) Storage (bucket `documents`) — chemins autorisés par le périmètre ──────────────────────
--- Arborescence réelle (conventions app) :
+-- Arborescence réelle (conventions app — vérifiées code : lifecycle-docs.ts:40, share-send.ts:69,
+-- dossier-attachments-sync.ts, documents-sync.ts) :
 --   {orgId}/dossiers/{dossierId}/{attachmentId}/…        → pièce du CTD builder (ÉDITION, exclue)
---   {orgId}/dossiers/{dossierId}/events/{eventId}/…      → pièce du journal de cycle de vie (SUIVI)
---   {orgId}/correspondence/{correspondenceId}/…          → PDF compilé + pièces du fil (SUIVI)
+--   {orgId}/dossiers/{dossierId}/lifecycle/{uuid}/…      → pièce du journal de cycle de vie (SUIVI)
+--   {orgId}/shares/{correspondenceId}/…                  → PDF compilé + pièces du fil (SUIVI)
 --   {orgId}/products/{productId}/…                       → document du catalogue (ÉDITION, exclue)
 -- Le membre scopé LIT les pièces suivi de ses dossiers grantés et DÉPOSE ses preuves sous
--- events/ et dans le fil de correspondance. Jamais de DELETE (les pièces référencées par le
--- journal append-only restent intègres).
+-- lifecycle/ (l'id d'événement est un dossier frais : la clé d'autorisation est le dossierId,
+-- segment 3). Jamais de DELETE (les pièces référencées par le journal append-only restent intègres).
 drop policy if exists cs1_documents_storage_select on storage.objects;
 create policy cs1_documents_storage_select on storage.objects
   as restrictive for select to authenticated
@@ -294,11 +295,11 @@ create policy cs1_documents_storage_select on storage.objects
     or (storage.foldername(name))[1] in (select (public.current_user_unscoped_org_ids())::text)
     or (
       (storage.foldername(name))[2] = 'dossiers'
-      and (storage.foldername(name))[4] = 'events'
+      and (storage.foldername(name))[4] = 'lifecycle'
       and (storage.foldername(name))[3] in (select (public.current_user_scoped_dossier_ids())::text)
     )
     or (
-      (storage.foldername(name))[2] = 'correspondence'
+      (storage.foldername(name))[2] = 'shares'
       and (storage.foldername(name))[3] in (select (public.current_user_scoped_correspondence_ids())::text)
     )
   );
@@ -311,11 +312,11 @@ create policy cs1_documents_storage_insert on storage.objects
     or (storage.foldername(name))[1] in (select (public.current_user_unscoped_org_ids())::text)
     or (
       (storage.foldername(name))[2] = 'dossiers'
-      and (storage.foldername(name))[4] = 'events'
+      and (storage.foldername(name))[4] = 'lifecycle'
       and (storage.foldername(name))[3] in (select (public.current_user_scoped_dossier_ids())::text)
     )
     or (
-      (storage.foldername(name))[2] = 'correspondence'
+      (storage.foldername(name))[2] = 'shares'
       and (storage.foldername(name))[3] in (select (public.current_user_scoped_correspondence_ids())::text)
     )
   );
