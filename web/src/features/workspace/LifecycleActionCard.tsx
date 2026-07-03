@@ -801,7 +801,7 @@ function RenewalPanel({
             variant="outline"
             onClick={() =>
               navigate(
-                `/workspace/nouveau?produit=${encodeURIComponent(renewal.productId)}&operation=variation&pays=${encodeURIComponent(country)}`,
+                `/workspace/nouveau?produit=${encodeURIComponent(renewal.productId)}&operation=variation&pays=${encodeURIComponent(country)}&format=${encodeURIComponent(renewal.format)}`,
               )
             }
           >

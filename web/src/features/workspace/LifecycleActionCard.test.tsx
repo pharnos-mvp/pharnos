@@ -302,8 +302,9 @@ describe('LifecycleActionCard — actions Labo (M2)', () => {
     // Hors fenêtre : ligne de validité informative, pas d'alerte.
     expect(screen.getByText(/valide jusqu'au/i)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Créer une variation' }))
+    // `format` transmis (revue M6) : un dossier eCTD ne retombe pas sur le défaut ctd de l'assistant.
     expect(navigateMock).toHaveBeenCalledWith(
-      '/workspace/nouveau?produit=p1&operation=variation&pays=BJ',
+      '/workspace/nouveau?produit=p1&operation=variation&pays=BJ&format=ctd',
     )
   })
 

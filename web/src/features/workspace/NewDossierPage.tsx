@@ -89,7 +89,10 @@ export function NewDossierPage() {
   // Pré-sélection depuis la fiche produit (« Lancer une opération » → ?produit=<id>) et depuis la
   // Roadmap post-AMM (M6 : ?operation=variation&pays=<code> — codes bénins, validés ci-dessous).
   const [productId, setProductId] = useState(() => searchParams.get('produit') ?? '')
-  const [format, setFormat] = useState<DossierFormat>('ctd')
+  const [format, setFormat] = useState<DossierFormat>(() => {
+    const f = searchParams.get('format')
+    return f === 'ectd' || f === 'ctd' ? f : 'ctd'
+  })
   const [activity, setActivity] = useState(() => {
     const op = searchParams.get('operation')
     return op && REG_ACTIVITIES.some((a) => a.code === op)
