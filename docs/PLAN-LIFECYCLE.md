@@ -95,7 +95,7 @@ le portail, la langue, les délais, l'exigence d'agent/d'autorisation d'import s
 | **M1** ✅ | **Roadmap (lecture)** | pipeline live + référence pays + journal + badge ; accès montage/aperçu ; clic dossier → Roadmap — **PROD (#273→#275)** | **M** |
 | **M2** ✅ | **Actions Labo** | carte actionnable → `appendLifecycleEvent` (Transmettre / Soumis / Notification / Réponse / AMM ±) ; Parcours vs Journal + acteur — **PROD (#277/#278)** | **M** |
 | **M3** ✅ | **Échantillons & Frais** | panneau « Conditions de soumission » (accordéon compact, colonne à côté de l'étape en cours) sur les événements déjà typés (`samples_requested/…/delivered`, `fees_invoiced`, `payment_submitted/confirmed`) + pièces (autorisation import, LTA/AWB, SWIFT → `doc_refs`, bucket `documents`) + récap 3 conditions **non bloquant** à la Soumission + journal enrichi (détails payload, pièces consultables, tronqué à 6) — **front-only, zéro migration** | **M** |
-| **M4** | **Boucle Décision** | bouton **« Renvoyer en revue »** après Complément/Rejeté (comble le cul-de-sac du workflow) ; libellé `suspended` → **« Complément requis »** (code d'événement inchangé — journal immuable) ; réalignement libellés Dépôt (= réception confirmée par l'agent) / Soumission (= dépôt agence nationale) ; upload **preuve AMM** (docRefs) ; payload `via: agent\|direct` sur `authority_query` (cas CI) ; **+ décision Revue→Décision rendue POSSIBLE IN-APP pour les membres gestionnaires** (aujourd'hui la décision formelle passe par le lien tokenisé même pour un membre — trou identifié en revue 2026-07-02) | **M** |
+| **M4** ✅ | **Boucle Décision** | bouton **« Renvoyer en revue »** après Complément/Rejeté (comble le cul-de-sac du workflow) ; libellé `suspended` → **« Complément requis »** (code d'événement inchangé — journal immuable) ; réalignement libellés Dépôt (= réception confirmée par l'agent) / Soumission (= dépôt agence nationale) ; upload **preuve AMM** (docRefs) ; payload `via: agent\|direct` sur `authority_query` (cas CI) ; **+ décision Revue→Décision IN-APP pour les membres gestionnaires** — **PROD (T1 #283 · T2 #284 · T3 #285 · T4 #286, 2026-07-03)** | **M** |
 | **CS1** | **Collaboration compte-à-compte SCOPÉE au dossier** (validée CEO 2026-07-02) | périmètre par membre (couche SUIVI), sélecteur d'org, fix attribution quotas — **détail §5-bis** ; migration `0048` probable | **M/L** |
 | **M5** | **Relance manuelle (phase 1)** | badge « en attente depuis N jours » + bouton Relancer → `reminder_sent` (pur front). **Phase 2 (cron Edge + seuils par pays) = LOT 10** | **S** |
 | **M6** | **Renouvellement J−6 & Variation** | alerte dérivée `valid_until − 6 mois` + bouton « Créer le renouvellement » (`activity: renewal` pré-rempli, n° AMM repris) ; idem variation — **même spine 7 étapes, pas de workflow séparé** | **S/M** |
@@ -211,7 +211,12 @@ accordéon 1 ligne/condition, journal tronqué — demande « page pas trop long
 e2e navigateur `lifecycle-m3.spec.ts` (seed IDB). Revue code-reviewer : 1 Major corrigé
 (`triggerDownload` au lieu de `window.open` post-await — bloqueurs de pop-up).
 
-**Prochaine tranche : M4 — Boucle Décision** — plan d'exécution détaillé **§5-ter** (4 tranches
-T1→T4, 100 % front-only, zéro migration ; solde les 3 minors M2 en T1). Puis **CS1 → M5 → M6**
-selon §5, le reste via LOT 10
-(PLAN-LANCEMENT).
+**M4 — Boucle Décision : LIVRÉ (2026-07-03, PR #283 → #286)** — exécuté selon §5-ter, 4 tranches
+100 % front-only, **zéro migration** (`0048` reste libre pour CS1). La boucle est fermée in-app de
+bout en bout : Montage → Revue → Décision (in-app OU tokenisée) → « Complément requis » →
+**Renvoyer en revue** (journal multi-cycles : chaque décision reste tracée via les messages
+`kind: 'decision'`, append-only) → … → AMM avec preuve (`doc_refs`) + canal `via: agent|direct`.
+Revues code-reviewer : 4× SHIP (1 Major corrigé en T1 — bouton reviewer « Demander un complément »).
+⚠️ **Recette CEO** : libellés réalignés Dépôt/Soumission + défaut `via='agent'` à confirmer (jugement
+RA). **Prochaine : CS1** (collaboration scopée au dossier, §5-bis, migration `0048` probable) puis
+**M5 → M6** selon §5, le reste via LOT 10 (PLAN-LANCEMENT).
