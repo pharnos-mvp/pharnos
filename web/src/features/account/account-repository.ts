@@ -1,4 +1,4 @@
-import { db } from '@/lib/db'
+import { clearLocalData } from '@/lib/local-data'
 import { getSupabase } from '@/lib/supabase'
 
 export interface ProfileMetadata {
@@ -30,19 +30,8 @@ export async function updatePassword(password: string): Promise<void> {
   if (error) throw error
 }
 
-/** Efface toutes les données locales (Dexie + curseurs de synchro). Irréversible. */
+/** Efface toutes les données locales (TOUTES les tables Dexie + curseurs de synchro + org active).
+ *  Irréversible. Délègue à `clearLocalData` (source unique — miroir exact du schéma Dexie). */
 export async function purgeLocalData(): Promise<void> {
-  await Promise.all([
-    db.products.clear(),
-    db.documents.clear(),
-    db.documentBlobs.clear(),
-    db.dossiers.clear(),
-    db.generatedDocs.clear(),
-    db.dossierAttachments.clear(),
-    db.proSettings.clear(),
-    db.outbox.clear(),
-  ])
-  for (const k of Object.keys(localStorage)) {
-    if (k.startsWith('pharnos.lastPull')) localStorage.removeItem(k)
-  }
+  await clearLocalData()
 }
