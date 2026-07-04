@@ -13,6 +13,7 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 
 import { corsHeaders, isAllowedOrigin } from '../_shared/cors.ts'
+import { validateAgentLifecycleEvent } from '../_shared/lifecycle-agent-actions.ts'
 import { logJson, newReqId } from '../_shared/log.ts'
 import { isValidShareToken, sha256Hex, verifySharePassword } from '../_shared/share-auth.ts'
 
@@ -47,6 +48,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 interface CorrespondenceRow {
   id: string
   org_id: string
+  dossier_id: string
   product_name: string
   country: string
   activity: string
@@ -144,14 +146,17 @@ Deno.serve(async (req: Request) => {
     decision?: unknown
     body?: unknown
     attachments?: unknown
+    /** Vue Agent local (M7) : type + payload de l'événement de cycle de vie à journaliser. */
+    type?: unknown
+    payload?: unknown
     /** Poll de rafraîchissement de la page (90 s) — non journalisé dans share_access_log. */
     silent?: unknown
   }
 
-  // ⚠ Si un verbe s'ajoute ici, mettre à jour le CHECK de share_access_log (migration 0018) —
-  // sinon le journal d'accès du nouveau verbe échouera silencieusement (insert best-effort).
+  // ⚠ Si un verbe s'ajoute ici, mettre à jour le CHECK de share_access_log (migration 0018,
+  // étendu par 0052) — sinon le journal d'accès du nouveau verbe échouera silencieusement.
   const action = typeof b.action === 'string' ? b.action : ''
-  if (!['open', 'decide', 'reply', 'notify'].includes(action)) {
+  if (!['open', 'decide', 'reply', 'notify', 'lifecycle_event'].includes(action)) {
     return json({ error: 'bad_request' }, 400)
   }
 
@@ -191,7 +196,7 @@ Deno.serve(async (req: Request) => {
   const { data: corr, error: corrErr } = await supabase
     .from('correspondences')
     .select(
-      'id, org_id, product_name, country, activity, sender_email, recipient_email, note, pdf_path, pdf_size, password_hash, status, decided_at, revoked_at, expires_at, auto_revoke_on_decision, created_at, deleted_at',
+      'id, org_id, dossier_id, product_name, country, activity, sender_email, recipient_email, note, pdf_path, pdf_size, password_hash, status, decided_at, revoked_at, expires_at, auto_revoke_on_decision, created_at, deleted_at',
     )
     .eq('token_hash', tokenHash)
     .maybeSingle<CorrespondenceRow>()
@@ -263,13 +268,58 @@ Deno.serve(async (req: Request) => {
       return json(payload)
     }
 
+    // Vue Agent local (M7, LOT 10b) : l'agent confirme un jalon AVAL du cycle de vie.
+    // Gating : l'onglet Parcours n'existe que dossier ACCEPTÉ (décision mockup CEO #5) — si le
+    // labo a renvoyé en revue entre-temps, l'action est indisponible (état FRAIS qui fait foi).
+    if (action === 'lifecycle_event') {
+      if (corr.status !== 'accepted') {
+        logJson({ ...log, op: action, status: 'not_available' })
+        return json({ error: 'not_available' }, 409)
+      }
+      const event = validateAgentLifecycleEvent(b.type, b.payload)
+      if (!event) return json({ error: 'bad_request' }, 400)
+
+      // Pièces (récépissé, preuve d'AMM…) : mêmes bornes que le fil, chemin LIFECYCLE (M3) —
+      // le labo les consulte depuis le journal de la Roadmap comme ses propres pièces.
+      const docRefs = await storeAttachments(
+        supabase,
+        b.attachments,
+        (name) => `${corr.org_id}/dossiers/${corr.dossier_id}/lifecycle/${crypto.randomUUID()}/${name}`,
+      )
+      if (docRefs === 'invalid') return json({ error: 'attachment_invalid' }, 400)
+
+      const nowIso = new Date().toISOString()
+      const { error: evErr } = await supabase.from('lifecycle_events').insert({
+        id: crypto.randomUUID(),
+        org_id: corr.org_id,
+        dossier_id: corr.dossier_id,
+        type: event.type,
+        // Acteur = correspondant tokenisé (sans compte) : identité ALCOA portée par l'e-mail.
+        actor_id: 'recipient',
+        actor_email: corr.recipient_email,
+        occurred_at: nowIso,
+        payload: event.payload,
+        doc_refs: docRefs,
+        created_at: nowIso,
+      })
+      if (evErr) throw evErr
+
+      const payload = await buildOpenPayload(supabase, corr)
+      logJson({ ...log, op: action, type: event.type, ms: Date.now() - started, status: 'ok' })
+      return json(payload)
+    }
+
     // decide / reply — écritures du reviewer.
     const comment = (typeof b.body === 'string' ? b.body : '').slice(0, MAX_COMMENT_CHARS).trim()
     const decision = typeof b.decision === 'string' ? b.decision : ''
 
     if (action === 'decide' && !DECISIONS.has(decision)) return json({ error: 'bad_request' }, 400)
 
-    const attachments = await storeAttachments(supabase, corr, b.attachments)
+    const attachments = await storeAttachments(
+      supabase,
+      b.attachments,
+      (name) => `${corr.org_id}/shares/${corr.id}/recipient/${crypto.randomUUID()}-${name}`,
+    )
     if (attachments === 'invalid') return json({ error: 'attachment_invalid' }, 400)
 
     if (action === 'reply' && !comment && attachments.length === 0) {
@@ -347,17 +397,126 @@ async function rateHit(
   return typeof data === 'number' ? data : null
 }
 
+/**
+ * Timeline PARTAGÉE du dossier (M7) : lignes BRUTES nécessaires à la dérivation CLIENT
+ * (`deriveLifecycle` — le même code que la Roadmap du labo, un seul dérivateur). Les chemins
+ * Storage des pièces d'événements ne sortent JAMAIS vers l'agent (noms/tailles seulement).
+ * Toutes les requêtes sont doublement scopées org + dossier de LA correspondance validée.
+ */
+async function buildLifecycleBlock(supabase: SupabaseClient, corr: CorrespondenceRow) {
+  const [dossierRes, corrsRes, eventsRes] = await Promise.all([
+    supabase
+      .from('dossiers')
+      .select('id, created_at')
+      .eq('id', corr.dossier_id)
+      .eq('org_id', corr.org_id)
+      .is('deleted_at', null) // dossier soft-supprimé = plus d'onglet Parcours (cohérent corr)
+      .maybeSingle(),
+    supabase
+      .from('correspondences')
+      .select('id, status, created_at, updated_at, decided_at, revoked_at')
+      .eq('dossier_id', corr.dossier_id)
+      .eq('org_id', corr.org_id)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: true })
+      .limit(100),
+    supabase
+      .from('lifecycle_events')
+      .select('id, type, actor_id, occurred_at, created_at, payload, doc_refs')
+      .eq('dossier_id', corr.dossier_id)
+      .eq('org_id', corr.org_id)
+      .order('occurred_at', { ascending: true })
+      .limit(1000),
+  ])
+  if (dossierRes.error) throw dossierRes.error
+  if (corrsRes.error) throw corrsRes.error
+  if (eventsRes.error) throw eventsRes.error
+  const dossierRow = dossierRes.data as { id: string; created_at: string } | null
+  if (!dossierRow) return null // dossier purgé : la page retombe sur le seul onglet Revue
+
+  const corrs = (corrsRes.data ?? []) as {
+    id: string
+    status: string
+    created_at: string
+    updated_at: string
+    decided_at: string | null
+    revoked_at: string | null
+  }[]
+
+  // Décisions immuables (boucle M4) — le journal multi-cycles côté agent = même source que le labo.
+  let decisionMessages: { id: string; correspondence_id: string; author: string; decision: string | null; created_at: string }[] = []
+  if (corrs.length > 0) {
+    const { data, error } = await supabase
+      .from('correspondence_messages')
+      .select('id, correspondence_id, author, decision, created_at')
+      .eq('kind', 'decision')
+      .in('correspondence_id', corrs.map((c) => c.id))
+      .order('created_at', { ascending: true })
+      .limit(500)
+    if (error) throw error
+    decisionMessages = (data ?? []) as typeof decisionMessages
+  }
+
+  type DocRef = { path?: string; name?: string; size?: number; mime?: string }
+  const events = ((eventsRes.data ?? []) as {
+    id: string
+    type: string
+    actor_id: string
+    occurred_at: string
+    created_at: string
+    payload: Record<string, unknown>
+    doc_refs: DocRef[]
+  }[]).map((e) => ({
+    id: e.id,
+    type: e.type,
+    actorId: e.actor_id,
+    occurredAt: e.occurred_at,
+    createdAt: e.created_at,
+    payload: e.payload ?? {},
+    // Chemins Storage STRIPPÉS : l'agent voit nom + taille, jamais l'arborescence interne.
+    docRefs: (e.doc_refs ?? []).map((d) => ({
+      name: d.name ?? '',
+      size: d.size ?? 0,
+      mime: d.mime ?? '',
+    })),
+  }))
+
+  return {
+    dossier: { id: dossierRow.id, createdAt: dossierRow.created_at },
+    correspondences: corrs.map((c) => ({
+      id: c.id,
+      status: c.status,
+      createdAt: c.created_at,
+      updatedAt: c.updated_at,
+      decidedAt: c.decided_at,
+      revokedAt: c.revoked_at,
+    })),
+    decisionMessages: decisionMessages.map((m) => ({
+      id: m.id,
+      correspondenceId: m.correspondence_id,
+      author: m.author,
+      decision: m.decision,
+      createdAt: m.created_at,
+    })),
+    events,
+  }
+}
+
 /** Charge fil + URLs signées (PDF 1 h, pièces jointes 1 h) — payload de la page publique. */
 async function buildOpenPayload(supabase: SupabaseClient, corr: CorrespondenceRow) {
-  const [{ data: pdfSigned, error: pdfErr }, { data: msgs, error: msgErr }] = await Promise.all([
-    supabase.storage.from(BUCKET).createSignedUrl(corr.pdf_path, SIGNED_URL_TTL),
-    supabase
-      .from('correspondence_messages')
-      .select('id, author, author_label, kind, decision, body, attachments, created_at')
-      .eq('correspondence_id', corr.id)
-      .order('created_at', { ascending: true })
-      .limit(500),
-  ])
+  const [{ data: pdfSigned, error: pdfErr }, { data: msgs, error: msgErr }, lifecycle] =
+    await Promise.all([
+      supabase.storage.from(BUCKET).createSignedUrl(corr.pdf_path, SIGNED_URL_TTL),
+      supabase
+        .from('correspondence_messages')
+        .select('id, author, author_label, kind, decision, body, attachments, created_at')
+        .eq('correspondence_id', corr.id)
+        .order('created_at', { ascending: true })
+        .limit(500),
+      // Onglet « Parcours » (M7) : seulement dossier ACCEPTÉ (décision mockup CEO #5) — avant,
+      // le travail de l'agent est la revue (onglet existant), pas le suivi aval.
+      corr.status === 'accepted' ? buildLifecycleBlock(supabase, corr) : Promise.resolve(null),
+    ])
   if (msgErr) throw msgErr
   if (pdfErr || !pdfSigned?.signedUrl) throw pdfErr ?? new Error('PDF signé indisponible')
 
@@ -390,6 +549,8 @@ async function buildOpenPayload(supabase: SupabaseClient, corr: CorrespondenceRo
       pdfSize: corr.pdf_size,
       hasPassword: corr.password_hash !== null,
     },
+    // Timeline partagée (M7) — absent = pas d'onglet Parcours (dossier non accepté).
+    lifecycle: lifecycle ?? undefined,
     pdfUrl: pdfSigned.signedUrl,
     messages: messages.map((m) => ({
       id: m.id,
@@ -410,13 +571,14 @@ async function buildOpenPayload(supabase: SupabaseClient, corr: CorrespondenceRo
 }
 
 /**
- * Valide et stocke les pièces jointes du reviewer (base64 → Storage, chemins contrôlés ici).
- * Renvoie les métadonnées à figer dans le message, ou 'invalid' si une pièce viole les bornes.
+ * Valide et stocke les pièces jointes du correspondant (base64 → Storage). Le CHEMIN est
+ * construit par l'appelant via `pathFor` (fil de review vs pièces du cycle de vie M7) mais
+ * TOUJOURS côté serveur — jamais par le client. Renvoie les métadonnées à figer, ou 'invalid'.
  */
 async function storeAttachments(
   supabase: SupabaseClient,
-  corr: CorrespondenceRow,
   input: unknown,
+  pathFor: (sanitizedName: string) => string,
 ): Promise<{ path: string; name: string; size: number; mime: string }[] | 'invalid'> {
   if (input === undefined || input === null) return []
   if (!Array.isArray(input) || input.length > MAX_ATTACHMENTS) return 'invalid'
@@ -433,7 +595,7 @@ async function storeAttachments(
     const bytes = decodeBase64(b64)
     if (!bytes || bytes.length === 0 || bytes.length > MAX_ATTACHMENT_BYTES) return 'invalid'
 
-    const path = `${corr.org_id}/shares/${corr.id}/recipient/${crypto.randomUUID()}-${name}`
+    const path = pathFor(name)
     const { error } = await supabase.storage.from(BUCKET).upload(path, bytes.slice().buffer, {
       contentType: ALLOWED_ATTACH_MIMES.has(mime) ? mime : 'application/octet-stream',
       upsert: false,

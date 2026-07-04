@@ -7,7 +7,7 @@
 > [PLAN-LANCEMENT.md](PLAN-LANCEMENT.md) (PHASE C′). Réf. domaine : mémoire `dossier-lifecycle`. Backbone
 > inspiré des grands RIM (Application → Submission → Registration + interactions HA), couche opérationnelle
 > africaine en plus (mandataire, échantillons, paiement, canal physique/portail, journal de confiance).
-> Migration libre : `0052` (`0050` cron relances auto + `0051` RPC hash secret ; CS1 = `0048`/`0049`).
+> Migration libre : `0053` (`0050`/`0051` = relances auto ; `0052` = access_log vue agent M7).
 
 ## 1. Objectif & métrique de succès
 
@@ -282,7 +282,27 @@ nocturne est O(tous dossiers + correspondances + événements) sans pré-filtre 
 pré-filtre SQL indexé (exclure dossiers terminaux `amm_*` et ceux avec activité < seuil min 14 j)
 + insert/flush PAR PAGE côté Edge (mémoire bornée). Correct et < 1 s aux volumes MVP.
 
-**Reste du plan** : LOT 10 suite — **Correspondance v3** (délais/rappels, export PDF du fil,
-lettre de réponse + refonte premium combinée) puis **M7 vue Agent local tokenisée = LOT 10b**
-(mockup-first, mockup posé : `docs/mockups/vue-agent-local-m7.html`) ; M8 fin de collaboration +
-modération = **post-GO-LIVE**.
+**Correspondance v3 (LOT 10a-2) : export PDF du fil + délai d'attente LIVRÉS (2026-07-04,
+PR #293)** — générateur d'audit pur + iframe srcdoc CSP-safe, puce « en attente depuis N j »
+(sémantique M5) ; la surface WhatsApp validée CEO reste (pas de re-skin).
+
+**M7 — Vue Agent local tokenisée : LIVRÉE (2026-07-04, LOT 10b — mockup validé GO CEO le jour
+même, `docs/mockups/vue-agent-local-m7.html`)** : la page publique `/r/<token>` gagne l'onglet
+**« Parcours du dossier »** (un seul lien pour l'agent — décision mockup #1), visible dossier
+**accepté** seulement (#5). L'agent y voit la **timeline partagée** (pipeline 7 étapes + journal,
+relances Système comprises — dérivée CLIENT par **le même `deriveLifecycle`** que la Roadmap labo
+via `parcours-data.ts`, zéro divergence) et agit par étape : **Confirmer la réception**
+(deposited, 2 temps) · **Confirmer le dépôt agence** (submitted + référence + récépissé) ·
+**Relayer une notification** (authority_query `via='agent'` forcé + courrier) · **Transmettre
+l'AMM ±** (n° requis, validité normalisée midi-UTC, preuve). Côté Edge `share` : action
+`lifecycle_event` APRÈS le pipeline token/mot de passe/révocation, payloads **reconstruits et
+bornés** (module pur `_shared/lifecycle-agent-actions.ts`, whitelist AVAL, jamais de
+passthrough), pièces aux bornes du fil vers les **chemins lifecycle M3** (builder serveur),
+insert service-role `actor_id='recipient'` + `actor_email` (ALCOA), statut FRAIS qui fait foi
+(409 si renvoi en revue entre-temps), access_log étendu (migration **`0052`** + pgTAP). Le bloc
+`lifecycle` du payload `open` strippe les chemins Storage (l'agent ne voit que noms/tailles).
+Échantillons/frais = lecture seule (pilotés labo, #3).
+
+**Reste du plan** : LOT 10 — **lettre de réponse** (nouveau template RA bilingue, contenu à
+valider CEO) + option multi-destinataires ; M8 fin de collaboration + modération =
+**post-GO-LIVE**.
