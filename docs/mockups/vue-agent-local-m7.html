@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pharnos — Vue Agent local (M7, lien tokenisé) — mockup LOT 10b</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Syne:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #f6f7f9;
+        --surface: #ffffff;
+        --surface-1: #f3f4f6;
+        --border: #e5e7eb;
+        --border-accent: #bfdbfe;
+        --border-warning: #fcd34d;
+        --text: #111827;
+        --text-2: #6b7280;
+        --text-muted: #9ca3af;
+        --accent: #1a56db;
+        --accent-bg: #eff6ff;
+        --success: #16a34a;
+        --success-bg: #f0fdf4;
+        --warning: #b45309;
+        --warning-bg: #fffbeb;
+        --danger: #dc2626;
+        --navy: #0a1628;
+        --mono: ui-monospace, "SF Mono", Menlo, monospace;
+        --sans: "DM Sans", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        --syne: "Syne", var(--sans);
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+      .wrap { max-width: 1060px; margin: 0 auto; padding: 28px 24px 80px; }
+      .logo { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-family: var(--syne); }
+      .muted { color: var(--text-2); }
+      .mono { font-family: var(--mono); }
+      h1 { font-family: var(--syne); font-size: 21px; margin: 0; font-weight: 700; }
+      .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
+      .pill { font-size: 11px; font-weight: 600; border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+      .pill.warn { background: var(--warning-bg); color: var(--warning); }
+      .pill.ok { background: var(--success-bg); color: var(--success); }
+      .pill.info { background: var(--accent-bg); color: var(--accent); }
+      .pill.ghost { background: var(--surface-1); color: var(--text-2); }
+      .section-tag { display: flex; align-items: center; gap: 7px; margin: 30px 0 10px; font-size: 12px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; }
+
+      /* Bandeau public (identité + accès sans compte) */
+      .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+      .who { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-2); }
+      .who .badge-agent { background: var(--navy); color: #fff; border-radius: 999px; padding: 4px 12px; font-size: 11.5px; font-weight: 600; }
+
+      /* Onglets de la page tokenisée */
+      .tabs { display: flex; gap: 6px; margin-top: 18px; border-bottom: 1px solid var(--border); }
+      .tab { padding: 9px 14px; font-size: 13.5px; font-weight: 600; color: var(--text-2); border: 0; background: none; border-bottom: 2px solid transparent; cursor: default; display: inline-flex; gap: 7px; align-items: center; }
+      .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+      .tab .count { background: var(--accent-bg); color: var(--accent); border-radius: 999px; font-size: 10.5px; padding: 1px 7px; }
+
+      /* En-tête dossier */
+      .dossier { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 18px; }
+      .dossier .ic { width: 42px; height: 42px; border-radius: 11px; background: var(--accent-bg); color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 22px; }
+      .dossier .meta { font-size: 13px; color: var(--text-2); margin-top: 2px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+      .dot-sep::before { content: "·"; margin-right: 8px; color: var(--text-muted); }
+
+      /* Pipeline 7 étapes (identique Roadmap labo — timeline PARTAGÉE) */
+      .pipe { position: relative; margin-top: 6px; }
+      .pipe-line { position: absolute; top: 17px; left: 6%; right: 6%; height: 2px; background: var(--border); z-index: 0; }
+      .pipe-row { display: flex; position: relative; z-index: 1; }
+      .stage { flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 7px; }
+      .dot { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 17px; }
+      .dot.done { background: var(--success); color: #fff; }
+      .dot.cur { background: var(--warning); color: #fff; box-shadow: 0 0 0 5px var(--warning-bg); }
+      .dot.todo { background: var(--surface-1); color: var(--text-muted); border: 1px solid var(--border); }
+      .stage .name { font-size: 12px; font-weight: 600; line-height: 1.25; }
+      .stage .who2 { font-size: 10.5px; color: var(--text-muted); }
+      .here { font-size: 10px; font-weight: 600; color: var(--warning); background: var(--warning-bg); border-radius: 999px; padding: 1px 8px; }
+      .you { font-size: 10px; font-weight: 700; color: #fff; background: var(--navy); border-radius: 999px; padding: 1px 8px; }
+
+      .grid2 { display: grid; grid-template-columns: 1.25fr 1fr; gap: 14px; align-items: start; }
+      @media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } .pipe-row { overflow-x: auto; } }
+      .panel { border: 1px solid var(--border); border-radius: 12px; padding: 16px; background: var(--surface); }
+      .panel.warn { border-color: var(--border-warning); background: var(--warning-bg); }
+      .panel h4 { margin: 0 0 10px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 7px; }
+      .btn { border: 1px solid var(--border); background: var(--surface); border-radius: 9px; padding: 8px 14px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 7px; color: var(--text); cursor: default; }
+      .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      .btn.small { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
+      .hint { font-size: 12px; color: var(--text-2); margin-top: 8px; }
+      .field { margin: 10px 0; }
+      .field label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+      .field input, .field select { width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: var(--sans); background: var(--surface); color: var(--text); }
+      .drop { border: 1.5px dashed var(--border); border-radius: 10px; padding: 14px; text-align: center; font-size: 12.5px; color: var(--text-2); background: var(--surface-1); }
+
+      /* Journal */
+      .jrow { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--surface-1); font-size: 13px; }
+      .jrow:last-child { border-bottom: 0; }
+      .jic { width: 28px; height: 28px; border-radius: 8px; background: var(--surface-1); color: var(--text-2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 15px; }
+      .jic.sys { background: var(--accent-bg); color: var(--accent); }
+      .jrow .t { color: var(--text-muted); font-size: 12px; }
+      .jrow .a { font-size: 11.5px; color: var(--text-2); }
+      .jrow .a b { color: var(--text); font-weight: 600; }
+
+      .note { border-left: 3px solid var(--accent); background: var(--accent-bg); border-radius: 0 10px 10px 0; padding: 12px 14px; font-size: 13px; margin-top: 16px; }
+      .note b { font-family: var(--syne); }
+      footer { margin-top: 40px; font-size: 11.5px; color: var(--text-muted); }
+      .kbd { border: 1px solid var(--border); background: var(--surface); border-radius: 5px; padding: 0 5px; font-family: var(--mono); font-size: 11px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <!-- Bandeau page publique tokenisée (SANS compte) -->
+      <div class="topbar">
+        <div style="display: flex; align-items: center; gap: 10px">
+          <span class="logo">P</span>
+          <h1>Suivi du dossier — accès correspondant</h1>
+        </div>
+        <div class="who">
+          <span class="badge-agent"><i class="ti ti-user-check"></i> Agent local · agence@cotonou-ra.bj</span>
+          <span class="pill ghost">Lien personnel — aucun compte requis</span>
+        </div>
+      </div>
+
+      <!-- Onglets : la page /r/<token> EXISTANTE gagne un 2ᵉ onglet « Parcours » (un seul lien) -->
+      <div class="tabs">
+        <button class="tab"><i class="ti ti-file-search"></i> Revue &amp; fil <span class="count">3</span></button>
+        <button class="tab active"><i class="ti ti-route"></i> Parcours du dossier</button>
+      </div>
+
+      <!-- En-tête dossier -->
+      <div class="dossier">
+        <div class="ic"><i class="ti ti-folder"></i></div>
+        <div>
+          <div style="font-weight: 700; font-family: var(--syne); font-size: 16px">
+            Amoxicilline 500 mg gélules — Enregistrement
+          </div>
+          <div class="meta">
+            <span><i class="ti ti-flag"></i> Bénin — ABMed</span>
+            <span class="dot-sep">Portail + dossier physique</span>
+            <span class="dot-sep">Labo : Glory Pharma (ra@glorypharma.com)</span>
+          </div>
+        </div>
+        <span class="pill warn" style="margin-left: auto">En soumission · 4/7</span>
+      </div>
+
+      <!-- Pipeline partagé (identique Roadmap labo, + marqueur « vous ») -->
+      <div class="section-tag"><i class="ti ti-route"></i> Timeline partagée — la même que le labo, en temps réel</div>
+      <div class="card">
+        <div class="pipe">
+          <div class="pipe-line"></div>
+          <div class="pipe-row">
+            <div class="stage"><div class="dot done"><i class="ti ti-check"></i></div><div class="name">Montage</div><div class="who2">Labo</div></div>
+            <div class="stage"><div class="dot done"><i class="ti ti-check"></i></div><div class="name">Revue</div><div class="who2">Agent local</div></div>
+            <div class="stage"><div class="dot done"><i class="ti ti-check"></i></div><div class="name">Décision</div><div class="who2">Accepté</div></div>
+            <div class="stage"><div class="dot done"><i class="ti ti-check"></i></div><div class="name">Dépôt</div><div class="who2">Agent local</div></div>
+            <div class="stage">
+              <div class="dot cur"><i class="ti ti-send"></i></div>
+              <div class="name">Soumission</div>
+              <div class="who2">→ Agence nat.</div>
+              <span class="here">vous êtes ici</span>
+              <span class="you">à vous d’agir</span>
+            </div>
+            <div class="stage"><div class="dot todo"><i class="ti ti-bell"></i></div><div class="name">Notifications</div><div class="who2">Agence nat.</div></div>
+            <div class="stage"><div class="dot todo"><i class="ti ti-certificate"></i></div><div class="name">AMM</div><div class="who2">Agence nat.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid2" style="margin-top: 14px">
+        <!-- Colonne 1 : l'action de l'étape, du point de vue AGENT -->
+        <div>
+          <div class="section-tag"><i class="ti ti-hand-click"></i> Votre action à cette étape</div>
+          <div class="panel warn">
+            <h4><i class="ti ti-building-bank"></i> Confirmer le dépôt à l’agence nationale (ABMed)</h4>
+            <div class="hint" style="margin-top: 0">
+              Mode du pays : <b>portail national + dossier physique</b>. Renseignez la référence et
+              joignez le récépissé — le labo le voit instantanément dans sa Roadmap.
+            </div>
+            <div class="field">
+              <label>Référence de dépôt (n° d’enregistrement portail / récépissé)</label>
+              <input value="ABMed-2026-0784" readonly />
+            </div>
+            <div class="field">
+              <label>Récépissé / preuve (PDF, PNG, JPG — 4 Mo max)</label>
+              <div class="drop"><i class="ti ti-upload"></i> Déposer le récépissé ici (recommandé, jamais obligatoire)</div>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px">
+              <button class="btn primary"><i class="ti ti-check"></i> Confirmer le dépôt</button>
+              <button class="btn"><i class="ti ti-message"></i> Poser une question au labo</button>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-top: 12px">
+            <h4><i class="ti ti-bell-plus"></i> Ensuite, à cette étape (Notifications)</h4>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap">
+              <button class="btn small"><i class="ti ti-bell"></i> Relayer une notification de l’agence</button>
+              <button class="btn small"><i class="ti ti-certificate"></i> Transmettre l’AMM (n° + validité + preuve)</button>
+            </div>
+            <div class="hint">
+              Chaque action = un événement horodaté du journal partagé (append-only, infalsifiable).
+              Les conditions Échantillons / Frais restent pilotées par le labo — vous les voyez ci-contre.
+            </div>
+          </div>
+
+          <div class="section-tag"><i class="ti ti-history"></i> Journal partagé (extrait)</div>
+          <div class="card" style="padding: 8px 16px">
+            <div class="jrow">
+              <div class="jic"><i class="ti ti-check"></i></div>
+              <div style="flex: 1">
+                <div><b>Réception confirmée par l’agent local</b></div>
+                <div class="a">Acteur : <b>Agent local (vous)</b> — via ce lien</div>
+              </div>
+              <div class="t">28 juin, 09:12</div>
+            </div>
+            <div class="jrow">
+              <div class="jic sys"><i class="ti ti-alarm"></i></div>
+              <div style="flex: 1">
+                <div><b>Relance envoyée</b> <span class="muted">· Étape Soumission · 14 j sans activité · seuil 14 j</span></div>
+                <div class="a">Acteur : <b>Système</b> — relance automatique Pharnos</div>
+              </div>
+              <div class="t">4 juil., 05:17</div>
+            </div>
+            <div class="jrow">
+              <div class="jic"><i class="ti ti-send"></i></div>
+              <div style="flex: 1">
+                <div><b>Déposé à l’agence nationale</b> <span class="muted">· ABMed-2026-0784</span></div>
+                <div class="a">Acteur : <b>Agent local → Agence</b> <span class="pill ok" style="margin-left: 6px">à confirmer ci-dessus</span></div>
+              </div>
+              <div class="t">— aujourd’hui</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Colonne 2 : visibilité (conditions + référence pays + fil) -->
+        <div>
+          <div class="section-tag"><i class="ti ti-eye"></i> Ce que vous voyez (lecture)</div>
+          <div class="panel">
+            <h4><i class="ti ti-clipboard-check"></i> Conditions de soumission</h4>
+            <div style="display: grid; gap: 8px; font-size: 13px">
+              <div><span class="pill ok">CTD ✓</span> <span class="muted">compilé &amp; transmis le 21 juin</span></div>
+              <div><span class="pill ok">Échantillons ✓</span> <span class="muted">remis à l’agence le 26 juin</span></div>
+              <div><span class="pill warn">Frais — preuve déposée</span> <span class="muted">confirmation agence attendue</span></div>
+            </div>
+          </div>
+          <div class="panel" style="margin-top: 12px">
+            <h4><i class="ti ti-book-2"></i> Référence pays — Bénin</h4>
+            <div style="font-size: 13px; display: grid; gap: 6px">
+              <div><i class="ti ti-building-bank muted"></i> ABMed — Agence Béninoise du Médicament</div>
+              <div><i class="ti ti-send muted"></i> Portail national + dossier physique</div>
+              <div><i class="ti ti-vaccine muted"></i> Autorisation d’import d’échantillons requise</div>
+            </div>
+          </div>
+          <div class="panel" style="margin-top: 12px">
+            <h4><i class="ti ti-messages"></i> Fil avec le labo (onglet Revue &amp; fil)</h4>
+            <div style="font-size: 12.5px" class="muted">
+              « Le récépissé ABMed arrive demain matin — dépôt physique fait à 9 h. » <br />
+              <span style="font-size: 11px">agence@cotonou-ra.bj · hier 17:42</span>
+            </div>
+            <button class="btn small" style="margin-top: 10px"><i class="ti ti-arrow-right"></i> Ouvrir le fil</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="note">
+        <b>Décisions de conception (à valider) :</b>
+        <ol style="margin: 8px 0 0; padding-left: 18px; font-size: 13px">
+          <li><b>Un seul lien</b> : la page de review tokenisée existante (<span class="kbd">/r/&lt;token&gt;</span>) gagne l’onglet « Parcours » — pas de 2ᵉ lien à gérer pour l’agent.</li>
+          <li><b>Actions agent</b> : Confirmer la réception (Dépôt) · Confirmer le dépôt agence (référence + récépissé) · Relayer une notification · Transmettre l’AMM (n°, validité, preuve). Chaque action passe par l’Edge (token validé), écrit <span class="kbd">lifecycle_events</span> avec <span class="kbd">actor_email = agent</span>.</li>
+          <li><b>Échantillons / Frais</b> : lecture seule pour l’agent au MVP (pilotés par le labo, M3) — visibles pour le contexte.</li>
+          <li><b>Relances auto</b> : visibles aussi côté agent (acteur « Système ») — pression douce documentée.</li>
+          <li><b>Gating</b> : onglet Parcours actif seulement si la correspondance est <b>acceptée</b> (avant : revue/décision inchangées) ; lien révoqué/expiré = mêmes règles qu’aujourd’hui.</li>
+        </ol>
+      </div>
+
+      <footer>
+        Mockup LOT 10b (M7 — vue Agent local tokenisée) · réutilise l’infra correspondance + Edge `share` ·
+        données d’exemple. Zone A4/PDF intacte.
+      </footer>
+    </div>
+  </body>
+</html>

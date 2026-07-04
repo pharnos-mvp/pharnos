@@ -93,12 +93,15 @@ zéro-rework (combiner / zone protégée). Lots :
 - **LOT 7 — Compte / Abonnement** — ⬜ (+ affichage du **barème** validé en LOT 0 + vérif P0-3).
 - **LOT 8 — Admin / god mode** — ⬜.
 - **LOT 9 — Dossiers + Corbeille/Archive** — ⬜ *(COMBINÉ : refonte + feature rétention #3 en un lot)*.
-- **LOT 10 — Correspondance + v3 + relances auto + Agent local** — 🟡 **relances auto LIVRÉES
-  (2026-07-04 : Edge `lifecycle-reminders` quotidienne + migration `0050` pg_cron/pg_net/Vault,
-  seuils par pays agent 14 j / agence 30 j, e-mail côté labo — détail
-  [PLAN-LIFECYCLE.md](PLAN-LIFECYCLE.md) §8)**. Reste *(COMBINÉ anti-rework : refonte + délais
-  agence/rappels/export PDF/lettre de réponse #6 **+ vue Agent local (M7, liens tokenisés)** —
-  séquencé 10a (v3) / 10b (vue agent, mockup-first))*.
+- **LOT 10 — Correspondance + v3 + relances auto + Agent local** — 🟡 **relances auto LIVRÉES**
+  (2026-07-04 : Edge `lifecycle-reminders` quotidienne + migrations `0050`/`0051`
+  pg_cron/pg_net/Vault, seuils par pays agent 14 j / agence 30 j, e-mail côté labo — détail
+  [PLAN-LIFECYCLE.md](PLAN-LIFECYCLE.md) §8) **+ v3 : export PDF du fil (audit) et délai
+  d'attente visible dans le chat LIVRÉS** (la surface WhatsApp validée CEO reste — pas de
+  re-skin) **+ mockup M7 posé** ([mockups/vue-agent-local-m7.html](mockups/vue-agent-local-m7.html),
+  onglet « Parcours » sur la page tokenisée existante — **gate CEO avant implémentation 10b**).
+  Reste : **lettre de réponse** (nouveau template RA bilingue — contenu à valider CEO) ·
+  multi-destinataires (option) · **implémentation M7 vue Agent local (10b, post-gate)**.
 
 ### ▶ PHASE C′ — Chantier Lifecycle M3→M6 + CS1 (PRIORITAIRE — s'exécute AVANT les LOTs 7-10)
 **Pourquoi d'abord** : valeur pilote immédiate (les dossiers réels du pilote #1 Bénin = renouvellements +

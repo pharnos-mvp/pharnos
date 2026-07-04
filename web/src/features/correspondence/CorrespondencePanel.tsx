@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import {
   Ban,
   Copy,
+  FileDown,
   FolderOpen,
   Gavel,
   History,
@@ -48,6 +49,7 @@ import './correspondence-chat.css'
 import { autoGrow } from './auto-grow'
 import { ConversationAvatar } from './correspondence-avatar'
 import { statusLabel } from './correspondence-constants'
+import { printThreadExport } from './correspondence-export'
 import { countUnread, markConversationRead } from './correspondence-reads'
 import {
   appendSenderMessage,
@@ -357,6 +359,13 @@ export function CorrespondencePanel({
     }
   }
 
+  // Export d'audit du fil (v3) : iframe srcdoc cachée + print() (CSP-safe, aucun pop-up à
+  // autoriser — revue LOT 10), données déjà en mémoire (Dexie). Lecture seule → tout membre.
+  function handleExport() {
+    if (!selected) return
+    printThreadExport({ correspondence: selected, messages, lang, exportedBy: senderEmail })
+  }
+
   function handleNew() {
     // Un nouvel envoi exige le PDF compilé : on renvoie l'utilisateur au montage.
     if (onEdit) onEdit()
@@ -388,6 +397,22 @@ export function CorrespondencePanel({
 
   const conversations = correspondences ?? []
   const productName = conversations[0]?.productName
+  // Délai d'attente de la conversation (v3) : jours depuis la DERNIÈRE activité du fil quand la
+  // revue est en cours — même sémantique que le badge M5 de la Roadmap (ton warning ≥ 7 j) : le
+  // compteur repart sur TOUTE dernière activité, y compris un message du labo (une relance/nudge
+  // réinitialise l'attente — décision produit M5, « Relancé il y a N j »). Horloge lue au rendu
+  // comme la Roadmap (`deriveStageWaiting(…, new Date())`) — la précision « jour » se recale à
+  // chaque re-rendu, aucun tic en direct nécessaire.
+  const waitingDays =
+    selected && selected.status === 'in_review' && selected.revokedAt === null
+      ? Math.max(
+          0,
+          Math.floor(
+            (new Date().getTime() - Date.parse(messages.at(-1)?.createdAt ?? selected.createdAt)) /
+              86_400_000,
+          ),
+        )
+      : null
   // Une icône par DESTINATAIRE (brief CEO) : on GROUPE par e-mail (liste déjà triée par createdAt
   // décroissant) → le représentant de la ligne = le cycle le plus récent. Les cycles antérieurs
   // (« renvoi après rejet » = nouvelle correspondance même agence) restent JOIGNABLES via le
@@ -511,6 +536,10 @@ export function CorrespondencePanel({
                     onClick={() => setShowAccess((s) => !s)}
                   >
                     <History className="size-3.5" /> {t({ fr: 'Accès', en: 'Access' })}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleExport}>
+                    <FileDown className="size-3.5" />{' '}
+                    {t({ fr: 'Exporter (PDF)', en: 'Export (PDF)' })}
                   </Button>
                   {selected.revokedAt === null && canSubmit ? (
                     <Button
@@ -699,6 +728,15 @@ export function CorrespondencePanel({
                   <div className="truncate text-sm font-semibold">{selected.recipientEmail}</div>
                   <div className="text-muted-foreground flex items-center gap-1 text-xs">
                     {statusLabel(selected.status, lang)}
+                    {waitingDays !== null && waitingDays >= 1 ? (
+                      <span className={cn(waitingDays >= 7 && 'text-warning font-medium')}>
+                        {' · '}
+                        {t({
+                          fr: `en attente depuis ${waitingDays} j`,
+                          en: `waiting for ${waitingDays} d`,
+                        })}
+                      </span>
+                    ) : null}
                     {selected.passwordHash ? (
                       <>
                         {' · '}
@@ -733,6 +771,10 @@ export function CorrespondencePanel({
                     <DropdownMenuItem onClick={() => setShowAccess((s) => !s)}>
                       <History className="size-4" />{' '}
                       {t({ fr: 'Journal d’accès', en: 'Access log' })}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExport}>
+                      <FileDown className="size-4" />{' '}
+                      {t({ fr: 'Exporter le fil (PDF)', en: 'Export the thread (PDF)' })}
                     </DropdownMenuItem>
                     {onEdit ? (
                       <DropdownMenuItem onClick={onEdit}>
