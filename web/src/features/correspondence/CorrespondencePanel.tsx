@@ -418,7 +418,8 @@ export function CorrespondencePanel({
       ? Math.max(
           0,
           Math.floor(
-            (Date.now() - Date.parse(messages.at(-1)?.createdAt ?? selected.createdAt)) / 86_400_000,
+            (Date.now() - Date.parse(messages.at(-1)?.createdAt ?? selected.createdAt)) /
+              86_400_000,
           ),
         )
       : null
@@ -547,7 +548,8 @@ export function CorrespondencePanel({
                     <History className="size-3.5" /> {t({ fr: 'Accès', en: 'Access' })}
                   </Button>
                   <Button variant="outline" size="sm" onClick={handleExport}>
-                    <FileDown className="size-3.5" /> {t({ fr: 'Exporter (PDF)', en: 'Export (PDF)' })}
+                    <FileDown className="size-3.5" />{' '}
+                    {t({ fr: 'Exporter (PDF)', en: 'Export (PDF)' })}
                   </Button>
                   {selected.revokedAt === null && canSubmit ? (
                     <Button

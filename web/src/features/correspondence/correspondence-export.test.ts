@@ -55,7 +55,13 @@ describe('buildThreadExportHtml (export d’audit du fil)', () => {
     const html = buildThreadExportHtml({
       correspondence: corr(),
       messages: [
-        msg({ id: 'm1', kind: 'note', author: 'sender', authorLabel: 'ra@labo.example', body: 'Envoi initial' }),
+        msg({
+          id: 'm1',
+          kind: 'note',
+          author: 'sender',
+          authorLabel: 'ra@labo.example',
+          body: 'Envoi initial',
+        }),
         msg({ id: 'm2', kind: 'decision', decision: 'accepted', body: 'RAS' }),
       ],
       lang: 'fr',
@@ -88,7 +94,9 @@ describe('buildThreadExportHtml (export d’audit du fil)', () => {
     expect(html).not.toContain('<script>alert')
     expect(html).not.toContain('<script>steal')
     expect(html).not.toContain('<img src=x')
-    expect(html).toContain('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt; &amp; &lt;b&gt;gras&lt;/b&gt;')
+    expect(html).toContain(
+      '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt; &amp; &lt;b&gt;gras&lt;/b&gt;',
+    )
   })
 
   it('pièces jointes : nom + taille lisible, jamais d’URL (document d’archive)', () => {
@@ -96,7 +104,14 @@ describe('buildThreadExportHtml (export d’audit du fil)', () => {
       correspondence: corr(),
       messages: [
         msg({
-          attachments: [{ path: 'org1/shares/c1/recipient/a.pdf', name: 'récépissé.pdf', size: 2 * 1024 * 1024, mime: 'application/pdf' }],
+          attachments: [
+            {
+              path: 'org1/shares/c1/recipient/a.pdf',
+              name: 'récépissé.pdf',
+              size: 2 * 1024 * 1024,
+              mime: 'application/pdf',
+            },
+          ],
         }),
       ],
       lang: 'fr',

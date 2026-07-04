@@ -15,11 +15,7 @@ import { decisionLabel, statusLabel } from './correspondence-constants'
  */
 
 const escapeHtml = (s: string): string =>
-  s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 const formatSize = (bytes: number, lang: Lang): string => {
   const b = Number.isFinite(bytes) && bytes > 0 ? bytes : 0
@@ -32,7 +28,9 @@ const dtLocale = (lang: Lang) => (lang === 'en' ? 'en-GB' : 'fr')
 const fmtDateTime = (iso: string, lang: Lang): string => {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
-  return new Intl.DateTimeFormat(dtLocale(lang), { dateStyle: 'long', timeStyle: 'short' }).format(d)
+  return new Intl.DateTimeFormat(dtLocale(lang), { dateStyle: 'long', timeStyle: 'short' }).format(
+    d,
+  )
 }
 
 const L = (lang: Lang, fr: string, en: string): string => (lang === 'en' ? en : fr)
