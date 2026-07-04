@@ -410,6 +410,7 @@ async function buildLifecycleBlock(supabase: SupabaseClient, corr: Correspondenc
       .select('id, created_at')
       .eq('id', corr.dossier_id)
       .eq('org_id', corr.org_id)
+      .is('deleted_at', null) // dossier soft-supprimé = plus d'onglet Parcours (cohérent corr)
       .maybeSingle(),
     supabase
       .from('correspondences')
