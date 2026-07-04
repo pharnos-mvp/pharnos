@@ -62,11 +62,16 @@ export interface ReminderThresholds {
 export const DEFAULT_THRESHOLDS: ReminderThresholds = { agentDays: 14, agencyDays: 30 }
 
 /** Overrides PAR PAYS (codes ISO alpha-2, mêmes clés que lifecycle-config.ts). Vide au départ :
- * les défauts s'appliquent partout ; on affine par PR quand le CEO fixe des SLA réels par agence. */
-export const COUNTRY_THRESHOLDS: Record<string, Partial<ReminderThresholds>> = {}
+ * les défauts s'appliquent partout ; on affine par PR quand le CEO fixe des SLA réels par agence.
+ * Gelé : référentiel immuable au runtime (les tests passent leurs overrides en paramètre). */
+export const COUNTRY_THRESHOLDS: Readonly<Record<string, Partial<ReminderThresholds>>> =
+  Object.freeze({})
 
-export function thresholdsFor(country: string): ReminderThresholds {
-  return { ...DEFAULT_THRESHOLDS, ...COUNTRY_THRESHOLDS[country] }
+export function thresholdsFor(
+  country: string,
+  overrides: Readonly<Record<string, Partial<ReminderThresholds>>> = COUNTRY_THRESHOLDS,
+): ReminderThresholds {
+  return { ...DEFAULT_THRESHOLDS, ...overrides[country] }
 }
 
 /** Noms d'affichage des pays MVP pour l'e-mail de relance (display-only ; repli = code ISO). */

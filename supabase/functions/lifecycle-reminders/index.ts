@@ -4,8 +4,8 @@
 // Contrat sécurité :
 //   • verify_jwt = false (config.toml) : l'appelant n'est pas un utilisateur. La barrière est le
 //     secret partagé `x-cron-secret` (256 bits, généré au déploiement : Vault côté cron, secret
-//     d'environnement LIFECYCLE_CRON_SECRET côté fonction). Comparaison par hachage (timing-safe
-//     par construction). Secret absent de l'env → 503 fail-closed.
+//     d'environnement LIFECYCLE_CRON_SECRET côté fonction). Comparaison à temps constant sur les
+//     empreintes SHA-256 (timingSafeEqual). Secret absent de l'env → 503 fail-closed.
 //   • Écritures en service-role : INSERT `lifecycle_events` actor_id='system' — le journal reste
 //     append-only pour l'API authentifiée (aucune policy nouvelle), le système écrit par le même
 //     canal que l'Edge `share`.
@@ -21,7 +21,7 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 
 import { logJson, newReqId } from '../_shared/log.ts'
-import { sha256Hex } from '../_shared/share-auth.ts'
+import { sha256Hex, timingSafeEqual } from '../_shared/share-auth.ts'
 import {
   COUNTRY_NAMES,
   planReminder,
@@ -69,7 +69,12 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'unavailable' }, 503)
   }
   const given = req.headers.get('x-cron-secret') ?? ''
-  if (!given || (await sha256Hex(given)) !== (await sha256Hex(secret))) {
+  // Empreintes SHA-256 (longueur constante) comparées à temps constant — jamais le secret brut.
+  const enc = new TextEncoder()
+  const authOk =
+    given.length > 0 &&
+    timingSafeEqual(enc.encode(await sha256Hex(given)), enc.encode(await sha256Hex(secret)))
+  if (!authOk) {
     logJson({ ...log, status: 'unauthorized' })
     return json({ error: 'unauthorized' }, 401)
   }
@@ -210,6 +215,40 @@ async function rateHit(
 }
 
 /**
+ * Lecture SEULE du compteur de fenêtre courante (même calcul de fenêtre fixe que `share_hit`) —
+ * ne consomme RIEN. Le quota n'est brûlé (`rateHit`) qu'APRÈS un envoi RÉUSSI : un échec Resend
+ * ou un e-mail supprimé par le cap ne mange jamais le plafond des relances légitimes (revue M1).
+ * `null` = échec technique → fail-closed (on n'envoie pas).
+ */
+async function peekHits(
+  supabase: SupabaseClient,
+  bucket: string,
+  windowSeconds: number,
+): Promise<number | null> {
+  const windowStart = new Date(
+    Math.floor(Date.now() / 1000 / windowSeconds) * windowSeconds * 1000,
+  ).toISOString()
+  const { data, error } = await supabase
+    .from('share_hits')
+    .select('hits')
+    .eq('bucket', bucket)
+    .eq('window_start', windowStart)
+    .maybeSingle()
+  if (error) {
+    logJson({ fn: 'lifecycle-reminders', op: 'rate_peek', status: 'error', err: error.message.slice(0, 120) })
+    return null
+  }
+  return (data as { hits?: number } | null)?.hits ?? 0
+}
+
+/** Assainit une valeur destinée à un EN-TÊTE d'e-mail (anti header-injection : jamais de CR/LF). */
+const headerLine = (s: string): string => s.replace(/[\r\n]+/g, ' ')
+
+/** Redacte toute adresse e-mail d'un texte de log (posture repo : zéro PII dans les logs). */
+const redactEmails = (s: string): string =>
+  s.replace(/[^\s@"'<>]+@[^\s@"'<>]+\.[^\s@"'<>]+/g, '<email>')
+
+/**
  * Notifie le côté labo (expéditeur de la dernière correspondance active) qu'une relance a été
  * journalisée — bilingue FR/EN (langue du destinataire inconnue côté serveur, pattern `share`).
  * Sans lien tokenisé (jamais reconstructible) : CTA vers la Roadmap de l'app.
@@ -225,10 +264,20 @@ async function sendEmails(
     if (plans.length > 0) logJson({ ...log, op: 'email', status: 'email_unavailable' })
     return 0
   }
-  const from = Deno.env.get('EMAIL_FROM') ?? 'Pharnos <onboarding@resend.dev>'
+  const from = Deno.env.get('EMAIL_FROM')
+  if (!from && plans.length > 0) {
+    // Défaut bac-à-sable Resend = livrable au seul propriétaire du compte → en prod, chaque envoi
+    // échouerait en silence. On le dit UNE fois, fort (même piège que le SMTP auth, config.toml).
+    logJson({ ...log, op: 'email', status: 'email_from_unconfigured' })
+  }
+  const sender = from ?? 'Pharnos <onboarding@resend.dev>'
   const appUrl = (Deno.env.get('APP_URL') ?? 'https://app.pharnos.com').replace(/\/+$/, '')
 
   let sent = 0
+  // Plafond par org/jour : lecture SEULE du compteur (peek) + comptage local des succès de CE run ;
+  // le quota n'est brûlé qu'après un envoi RÉUSSI (revue M1 — jamais sur échec ni suppression).
+  const orgBase = new Map<string, number | null>()
+  const orgSent = new Map<string, number>()
   for (const plan of plans) {
     if (sent >= MAIL_MAX_PER_RUN) {
       logJson({ ...log, op: 'email', status: 'run_cap_reached', skipped: plans.length - sent })
@@ -237,9 +286,14 @@ async function sendEmails(
     const dossier = products.get(plan.dossierId)
     if (!dossier || !plan.senderEmail || !EMAIL_RE.test(plan.senderEmail)) continue
 
-    // Plafond par org/jour (fenêtre fixe partagée `share_hit`) — fail-closed sur erreur technique.
-    const hits = await rateHit(supabase, `autorem:${plan.orgId}`, MAIL_ORG_WINDOW_S)
-    if (hits === null || hits > MAIL_ORG_MAX_PER_DAY) continue
+    let base = orgBase.get(plan.orgId)
+    if (base === undefined) {
+      base = await peekHits(supabase, `autorem:${plan.orgId}`, MAIL_ORG_WINDOW_S)
+      orgBase.set(plan.orgId, base)
+    }
+    const already = orgSent.get(plan.orgId) ?? 0
+    // `base === null` = compteur illisible → fail-closed (pas d'envoi, la relance reste journalisée).
+    if (base === null || base + already >= MAIL_ORG_MAX_PER_DAY) continue
 
     const country = COUNTRY_NAMES[dossier.country] ?? { fr: dossier.country, en: dossier.country }
     const party =
@@ -253,11 +307,13 @@ async function sendEmails(
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
       body: JSON.stringify({
-        from,
+        from: sender,
         to: [plan.senderEmail],
-        subject:
-          `Relance — dossier ${dossier.product_name.replace(/[\r\n]/g, ' ')} (${country.fr}) : ` +
-          `${plan.waitingDays} j sans activité`,
+        // Sujet assaini EN ENTIER (produit + pays — le pays peut replier sur le champ libre du
+        // dossier) : aucune valeur interpolée ne peut porter de CR/LF (revue M2).
+        subject: headerLine(
+          `Relance — dossier ${dossier.product_name} (${country.fr}) : ${plan.waitingDays} j sans activité`,
+        ),
         html: [
           `<div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:560px;margin:auto;padding:24px">`,
           `<h2 style="margin:0 0 8px">Relance automatique · Automatic reminder</h2>`,
@@ -272,9 +328,14 @@ async function sendEmails(
     })
     if (res.ok) {
       sent++
+      orgSent.set(plan.orgId, already + 1)
+      // Persistance inter-runs du plafond org/jour : on ne brûle le compteur qu'ICI (envoi réussi).
+      // Best-effort : un échec du compteur ne défait pas l'envoi (le comptage local borne ce run).
+      void rateHit(supabase, `autorem:${plan.orgId}`, MAIL_ORG_WINDOW_S)
     } else {
-      const detail = (await res.text().catch(() => '')).slice(0, 200)
-      logJson({ ...log, op: 'email', status: 'email_failed', detail })
+      // Le corps d'erreur Resend peut écho-er l'adresse destinataire → PII redactée avant log.
+      const detail = redactEmails((await res.text().catch(() => '')).slice(0, 200))
+      logJson({ ...log, op: 'email', status: 'email_failed', code: res.status, detail })
     }
   }
   return sent

@@ -274,6 +274,12 @@ CTA Roadmap, caps 50/run + 10/org/jour (`share_hit`), l'échec e-mail ne bloque 
 journalisation. pgTAP plomberie (extensions, job, zéro secret en clair). Smoke : POST
 `{"dryRun":true}`.
 
+**Dette suivie (relances auto, revue 2026-07-04 — à solder AVANT le 2ᵉ client payant)** : le scan
+nocturne est O(tous dossiers + correspondances + événements) sans pré-filtre — ajouter un
+pré-filtre SQL indexé (exclure dossiers terminaux `amm_*` et ceux avec activité < seuil min 14 j)
++ insert/flush PAR PAGE côté Edge (mémoire bornée). Correct et < 1 s aux volumes MVP.
+
 **Reste du plan** : LOT 10 suite — **Correspondance v3** (délais/rappels, export PDF du fil,
 lettre de réponse + refonte premium combinée) puis **M7 vue Agent local tokenisée = LOT 10b**
-(mockup-first) ; M8 fin de collaboration + modération = **post-GO-LIVE**.
+(mockup-first, mockup posé : `docs/mockups/vue-agent-local-m7.html`) ; M8 fin de collaboration +
+modération = **post-GO-LIVE**.

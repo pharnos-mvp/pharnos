@@ -23,6 +23,9 @@
 --                                         'lifecycle_reminders_url');
 --   3) Edge  : supabase secrets set LIFECYCLE_CRON_SECRET=<secret>   (même valeur)
 --   4) Smoke : POST manuel avec header x-cron-secret et body {"dryRun":true} → {scanned, planned…}
+--      ⚠ dryRun N'EXERCE NI l'insert (service-role) NI l'e-mail — il valide scan + dérivation
+--      seulement. La première exécution RÉELLE (nocturne ou POST sans dryRun) valide le reste :
+--      contrôler cron.job_run_details + les logs de la fonction au lendemain de la pose.
 
 create extension if not exists pg_cron;
 create extension if not exists pg_net;

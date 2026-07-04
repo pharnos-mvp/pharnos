@@ -1,7 +1,6 @@
 import { assertEquals } from 'jsr:@std/assert@1'
 
 import {
-  COUNTRY_THRESHOLDS,
   DEFAULT_THRESHOLDS,
   MAX_CONSECUTIVE_SYSTEM_REMINDERS,
   planReminder,
@@ -236,15 +235,29 @@ Deno.test('horodatages illisibles ignorés ; aucun temps datable → pas de rela
   assertEquals(p, null)
 })
 
-Deno.test('thresholdsFor : défauts + override partiel par pays', () => {
+Deno.test('thresholdsFor : défauts + override partiel par pays (référentiel gelé)', () => {
   assertEquals(thresholdsFor('BJ'), DEFAULT_THRESHOLDS)
   assertEquals(thresholdsFor('??'), DEFAULT_THRESHOLDS)
-  COUNTRY_THRESHOLDS.TEST = { agentDays: 7 }
-  try {
-    assertEquals(thresholdsFor('TEST'), { agentDays: 7, agencyDays: DEFAULT_THRESHOLDS.agencyDays })
-  } finally {
-    delete COUNTRY_THRESHOLDS.TEST
-  }
+  assertEquals(thresholdsFor('TG', { TG: { agentDays: 7 } }), {
+    agentDays: 7,
+    agencyDays: DEFAULT_THRESHOLDS.agencyDays,
+  })
+})
+
+Deno.test('persona « notification directe » : authority_query SANS submitted → in_notification (parité monotonie web)', () => {
+  // Cas CI (via: 'direct') : l'agence notifie sans que `submitted` ait été journalisé — la
+  // monotonie web (own.soumission = submitted || authority) place l'étape à Notifications ;
+  // le cron doit relancer côté AGENCE avec le même statut, jamais désynchroniser du badge.
+  const p = plan({
+    correspondences: [
+      corr({ status: 'accepted', created_at: daysAgo(60), updated_at: daysAgo(60), decided_at: daysAgo(60) }),
+    ],
+    events: [ev({ type: 'authority_query', occurred_at: daysAgo(31) })],
+  })
+  assertEquals(p?.status, 'in_notification')
+  assertEquals(p?.stage, 'notifications')
+  assertEquals(p?.waitingOn, 'agency')
+  assertEquals(p?.waitingDays, 31)
 })
 
 Deno.test('les événements d’un AUTRE dossier sont ignorés', () => {
