@@ -35,6 +35,7 @@ import '@/features/correspondence/correspondence-chat.css'
 import { activityLabel, countryLabel } from '@/features/workspace/dossier-constants'
 import { useI18n, type Lang } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
+import { PublicParcoursTab } from './PublicParcoursTab'
 import {
   callShare,
   fileToBase64,
@@ -138,6 +139,10 @@ export function PublicReviewPage({ token }: { token: string }) {
   const [comment, setComment] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [submitting, setSubmitting] = useState(false)
+  // Onglets M7 (mockup validé CEO) : « Revue & fil » (existant) | « Parcours du dossier »
+  // (timeline partagée + actions agent) — le second n'existe que dossier ACCEPTÉ.
+  const [tab, setTab] = useState<'review' | 'parcours'>('review')
+  const [postingEvent, setPostingEvent] = useState(false)
   // Après décision : le lien a-t-il été auto-révoqué (écran terminal véridique) ?
   const [linkClosed, setLinkClosed] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -212,6 +217,12 @@ export function PublicReviewPage({ token }: { token: string }) {
     const id = setInterval(tick, REFRESH_MS)
     return () => clearInterval(id)
   }, [phase, open])
+
+  // Onglet EFFECTIF dérivé au rendu (pas d'effet) : si le dossier repart en revue (renvoi labo
+  // pendant que Parcours est ouvert), le bloc lifecycle disparaît du payload → la page retombe
+  // d'elle-même sur l'onglet Revue (l'état FRAIS du serveur fait foi).
+  const hasLifecycle = data?.lifecycle !== undefined
+  const activeTab = tab === 'parcours' && hasLifecycle ? 'parcours' : 'review'
 
   async function handleUnlock() {
     if (!password.trim()) return
@@ -297,6 +308,44 @@ export function PublicReviewPage({ token }: { token: string }) {
       }
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  /** Journalise un événement du cycle de vie (M7) — l'Edge revalide token + statut FRAIS. */
+  async function postLifecycleEvent(
+    type: string,
+    payload: Record<string, unknown>,
+    file: File | null,
+  ): Promise<boolean> {
+    setPostingEvent(true)
+    try {
+      const attachments: ReviewAttachmentInput[] | undefined = file
+        ? [{ name: file.name, mime: file.type, dataBase64: await fileToBase64(file) }]
+        : undefined
+      const res = await callShare({
+        action: 'lifecycle_event',
+        token,
+        password: grantedPassword.current,
+        type,
+        payload,
+        attachments,
+      })
+      if (!res.ok) {
+        toast.error(shareErrorMessage(res.error, lang))
+        // Le labo a pu renvoyer en revue pendant que l'onglet était ouvert : on resynchronise.
+        if (res.error === 'not_available') void open(grantedPassword.current, { silent: true })
+        return false
+      }
+      setData(res.data)
+      toast.success(
+        t({
+          fr: 'Enregistré — le labo voit la mise à jour en temps réel.',
+          en: 'Recorded — the lab sees the update in real time.',
+        }),
+      )
+      return true
+    } finally {
+      setPostingEvent(false)
     }
   }
 
@@ -667,100 +716,147 @@ export function PublicReviewPage({ token }: { token: string }) {
           </div>
         </main>
       ) : c ? (
-        <main className="relative flex min-h-0 flex-1">
-          {/* Visionneuse plein écran — barre d'en-tête FIGÉE (hors zone de scroll) */}
-          <section className="flex min-w-0 flex-1 flex-col">
-            <div className="bg-card flex shrink-0 items-center justify-between gap-2 border-b p-2.5">
-              <div className="flex min-w-0 items-center gap-2 text-sm">
-                <FileText className="size-4 shrink-0" />
-                <span className="truncate font-medium">
-                  Module 1 — {c.productName} ({countryLabel(c.country, lang)})
-                </span>
-                <span className="text-muted-foreground shrink-0 text-xs">
-                  {formatSize(c.pdfSize, lang)}
-                </span>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={downloading}
-                  onClick={() => void downloadPdf()}
-                >
-                  {downloading ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Download className="size-4" />
-                  )}
-                  {t({ fr: 'Télécharger', en: 'Download' })}
-                </Button>
-                {/* État FERMÉ (mockup) : bouton « Correspondance » + nombre d'échanges. */}
-                {!panelOpen ? (
-                  <Button size="sm" className="relative" onClick={() => setPanelView('half')}>
-                    <MessagesSquare className="size-4" />{' '}
-                    {t({ fr: 'Correspondance', en: 'Correspondence' })}
-                    {messageCount > 0 ? (
-                      <span className="bg-primary-foreground text-primary absolute -top-1.5 -right-1.5 grid size-5 place-items-center rounded-full text-[11px] font-bold">
-                        {messageCount > 99 ? '99+' : messageCount}
-                      </span>
-                    ) : null}
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-            <div className="flex min-h-0 flex-1 flex-col">
-              <Suspense
-                fallback={
-                  <div className="text-muted-foreground flex items-center justify-center gap-2 py-16 text-sm">
-                    <Loader2 className="size-4 animate-spin" />{' '}
-                    {t({ fr: 'Préparation de l’aperçu…', en: 'Preparing the preview…' })}
-                  </div>
-                }
-              >
-                {/* Streaming par Range : la 1re page s'affiche sans télécharger le fichier entier. */}
-                {viewerUrl ? (
-                  <PdfViewer
-                    url={viewerUrl}
-                    size={c.pdfSize}
-                    watermark={watermarkText(c, openedAt, lang)}
-                  />
-                ) : null}
-              </Suspense>
-            </div>
-          </section>
-
-          {/* Tiroir review (desktop ≥ lg) : DOCKÉ (half, large : min(840px,47%)/560px) ou
-              PLEIN ÉCRAN (full, recouvre le PDF monté derrière → streaming préservé). */}
-          {panelOpen ? (
-            <aside
-              className={cn(
-                'bg-card hidden overflow-hidden lg:block',
-                panelView === 'full'
-                  ? 'fixed inset-0 z-40'
-                  : 'relative w-[min(840px,47%)] min-w-[560px] shrink-0 border-l shadow-[-12px_0_34px_rgba(0,0,0,.18)]',
-              )}
-              aria-label={t({ fr: 'Panneau de review', en: 'Review panel' })}
-              role={panelView === 'full' ? 'dialog' : undefined}
-              aria-modal={panelView === 'full' ? true : undefined}
+        <>
+          {/* Onglets M7 (dossier accepté) : Revue & fil | Parcours du dossier — mockup validé. */}
+          {hasLifecycle ? (
+            <nav
+              className="bg-card flex shrink-0 gap-1 border-b px-4"
+              aria-label={t({ fr: 'Sections', en: 'Sections' })}
             >
-              {/* Languette de repli (half) — sur le bord intérieur, ferme le panneau. */}
-              {panelView === 'half' ? (
+              {(
+                [
+                  { id: 'review', fr: 'Revue & fil', en: 'Review & thread' },
+                  { id: 'parcours', fr: 'Parcours du dossier', en: 'Dossier journey' },
+                ] as const
+              ).map((tabDef) => (
                 <button
+                  key={tabDef.id}
                   type="button"
-                  aria-label={t({ fr: 'Fermer la correspondance', en: 'Close correspondence' })}
-                  onClick={() => setPanelView('closed')}
-                  className="bg-card text-muted-foreground hover:bg-accent absolute top-1/2 -left-3 z-20 grid h-12 w-6 -translate-y-1/2 cursor-pointer place-items-center rounded-lg border shadow-md"
+                  aria-current={activeTab === tabDef.id ? 'page' : undefined}
+                  onClick={() => setTab(tabDef.id)}
+                  className={cn(
+                    'cursor-pointer border-b-2 px-3 py-2 text-sm font-medium',
+                    activeTab === tabDef.id
+                      ? 'border-primary text-foreground'
+                      : 'text-muted-foreground hover:text-foreground border-transparent',
+                  )}
                 >
-                  <ChevronRight className="size-4" />
+                  {t({ fr: tabDef.fr, en: tabDef.en })}
                 </button>
-              ) : null}
-              <div className="h-full w-full">{reviewPanel}</div>
-            </aside>
+              ))}
+            </nav>
           ) : null}
 
-          {/* Mobile (< lg) : overlay plein écran quand ouvert. */}
-          {panelOpen ? <div className="fixed inset-0 z-40 lg:hidden">{reviewPanel}</div> : null}
-        </main>
+          {/* Onglet Parcours (M7) — la vue Revue reste MONTÉE derrière (masquée) : le streaming
+              PDF et le scroll du viewer survivent aux allers-retours d'onglets. */}
+          {activeTab === 'parcours' && data?.lifecycle ? (
+            <main className="min-h-0 flex-1 overflow-auto">
+              <PublicParcoursTab
+                block={data.lifecycle}
+                correspondence={c}
+                busy={postingEvent}
+                onEvent={postLifecycleEvent}
+              />
+            </main>
+          ) : null}
+
+          <main
+            className={cn('relative flex min-h-0 flex-1', activeTab === 'parcours' && 'hidden')}
+          >
+            {/* Visionneuse plein écran — barre d'en-tête FIGÉE (hors zone de scroll) */}
+            <section className="flex min-w-0 flex-1 flex-col">
+              <div className="bg-card flex shrink-0 items-center justify-between gap-2 border-b p-2.5">
+                <div className="flex min-w-0 items-center gap-2 text-sm">
+                  <FileText className="size-4 shrink-0" />
+                  <span className="truncate font-medium">
+                    Module 1 — {c.productName} ({countryLabel(c.country, lang)})
+                  </span>
+                  <span className="text-muted-foreground shrink-0 text-xs">
+                    {formatSize(c.pdfSize, lang)}
+                  </span>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={downloading}
+                    onClick={() => void downloadPdf()}
+                  >
+                    {downloading ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Download className="size-4" />
+                    )}
+                    {t({ fr: 'Télécharger', en: 'Download' })}
+                  </Button>
+                  {/* État FERMÉ (mockup) : bouton « Correspondance » + nombre d'échanges. */}
+                  {!panelOpen ? (
+                    <Button size="sm" className="relative" onClick={() => setPanelView('half')}>
+                      <MessagesSquare className="size-4" />{' '}
+                      {t({ fr: 'Correspondance', en: 'Correspondence' })}
+                      {messageCount > 0 ? (
+                        <span className="bg-primary-foreground text-primary absolute -top-1.5 -right-1.5 grid size-5 place-items-center rounded-full text-[11px] font-bold">
+                          {messageCount > 99 ? '99+' : messageCount}
+                        </span>
+                      ) : null}
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+              <div className="flex min-h-0 flex-1 flex-col">
+                <Suspense
+                  fallback={
+                    <div className="text-muted-foreground flex items-center justify-center gap-2 py-16 text-sm">
+                      <Loader2 className="size-4 animate-spin" />{' '}
+                      {t({ fr: 'Préparation de l’aperçu…', en: 'Preparing the preview…' })}
+                    </div>
+                  }
+                >
+                  {/* Streaming par Range : la 1re page s'affiche sans télécharger le fichier entier. */}
+                  {viewerUrl ? (
+                    <PdfViewer
+                      url={viewerUrl}
+                      size={c.pdfSize}
+                      watermark={watermarkText(c, openedAt, lang)}
+                    />
+                  ) : null}
+                </Suspense>
+              </div>
+            </section>
+
+            {/* Tiroir review (desktop ≥ lg) : DOCKÉ (half, large : min(840px,47%)/560px) ou
+              PLEIN ÉCRAN (full, recouvre le PDF monté derrière → streaming préservé). */}
+            {panelOpen ? (
+              <aside
+                className={cn(
+                  'bg-card hidden overflow-hidden lg:block',
+                  panelView === 'full'
+                    ? 'fixed inset-0 z-40'
+                    : 'relative w-[min(840px,47%)] min-w-[560px] shrink-0 border-l shadow-[-12px_0_34px_rgba(0,0,0,.18)]',
+                )}
+                aria-label={t({ fr: 'Panneau de review', en: 'Review panel' })}
+                role={panelView === 'full' ? 'dialog' : undefined}
+                aria-modal={panelView === 'full' ? true : undefined}
+              >
+                {/* Languette de repli (half) — sur le bord intérieur, ferme le panneau. */}
+                {panelView === 'half' ? (
+                  <button
+                    type="button"
+                    aria-label={t({ fr: 'Fermer la correspondance', en: 'Close correspondence' })}
+                    onClick={() => setPanelView('closed')}
+                    className="bg-card text-muted-foreground hover:bg-accent absolute top-1/2 -left-3 z-20 grid h-12 w-6 -translate-y-1/2 cursor-pointer place-items-center rounded-lg border shadow-md"
+                  >
+                    <ChevronRight className="size-4" />
+                  </button>
+                ) : null}
+                <div className="h-full w-full">{reviewPanel}</div>
+              </aside>
+            ) : null}
+
+            {/* Mobile (< lg) : overlay plein écran quand ouvert. */}
+            {panelOpen ? <div className="fixed inset-0 z-40 lg:hidden">{reviewPanel}</div> : null}
+          </main>
+        </>
       ) : null}
 
       <footer className="text-muted-foreground shrink-0 border-t py-2.5 text-center text-xs">

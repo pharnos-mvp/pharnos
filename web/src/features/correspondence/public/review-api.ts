@@ -41,10 +41,58 @@ export interface ReviewMessage {
   attachments: ReviewAttachment[]
 }
 
+/** Pièce d'un événement du journal, SANS chemin Storage (l'agent voit nom + taille seulement). */
+export interface LifecycleDocMeta {
+  name: string
+  size: number
+  mime: string
+}
+
+export interface LifecycleEventDto {
+  id: string
+  type: string
+  actorId: string
+  occurredAt: string
+  createdAt: string
+  payload: Record<string, unknown>
+  docRefs: LifecycleDocMeta[]
+}
+
+export interface LifecycleCorrDto {
+  id: string
+  status: string
+  createdAt: string
+  updatedAt: string
+  decidedAt: string | null
+  revokedAt: string | null
+}
+
+export interface LifecycleDecisionMsgDto {
+  id: string
+  correspondenceId: string
+  author: string
+  decision: string | null
+  createdAt: string
+}
+
+/**
+ * Timeline PARTAGÉE du dossier (M7, LOT 10b) — lignes brutes pour la dérivation CLIENT
+ * (`deriveLifecycle`, le même dérivateur que la Roadmap du labo). Présent seulement quand la
+ * correspondance est ACCEPTÉE (décision mockup CEO : avant, le travail de l'agent = la revue).
+ */
+export interface LifecycleBlock {
+  dossier: { id: string; createdAt: string }
+  correspondences: LifecycleCorrDto[]
+  decisionMessages: LifecycleDecisionMsgDto[]
+  events: LifecycleEventDto[]
+}
+
 export interface OpenPayload {
   correspondence: ReviewCorrespondence
   pdfUrl: string
   messages: ReviewMessage[]
+  /** Onglet « Parcours du dossier » (M7) — absent tant que le dossier n'est pas accepté. */
+  lifecycle?: LifecycleBlock
   /** Réponse à `decide` : vrai si le lien vient d'être auto-révoqué (écran terminal véridique). */
   linkRevoked?: boolean
 }
@@ -58,6 +106,7 @@ export type ShareErrorCode =
   | 'rate_limited'
   | 'attachment_invalid'
   | 'bad_request'
+  | 'not_available'
   | 'offline'
   | 'server_error'
 
@@ -70,12 +119,15 @@ export interface ReviewAttachmentInput {
 }
 
 interface ShareRequest {
-  action: 'open' | 'decide' | 'reply'
+  action: 'open' | 'decide' | 'reply' | 'lifecycle_event'
   token: string
   password?: string
   decision?: string
   body?: string
   attachments?: ReviewAttachmentInput[]
+  /** Vue Agent local (M7) : type + payload de l'événement de cycle de vie à journaliser. */
+  type?: string
+  payload?: Record<string, unknown>
   /** Poll de rafraîchissement (90 s) — l'Edge ne le journalise pas dans le journal d'accès. */
   silent?: boolean
 }
@@ -101,6 +153,7 @@ export async function callShare(req: ShareRequest): Promise<ShareResult> {
         'rate_limited',
         'attachment_invalid',
         'bad_request',
+        'not_available',
       ]
       return {
         ok: false,
@@ -138,6 +191,10 @@ const SHARE_ERROR_MESSAGES: Record<ShareErrorCode, Translatable> = {
     en: 'Attachment rejected (formats: PDF, PNG, JPG, WebP, DOCX — 4 MB max per file, 3 files).',
   },
   bad_request: { fr: 'Requête invalide.', en: 'Invalid request.' },
+  not_available: {
+    fr: 'Action indisponible — le dossier est reparti en revue. Utilisez l’onglet « Revue & fil ».',
+    en: 'Action unavailable — the dossier is back in review. Use the “Review & thread” tab.',
+  },
   offline: {
     fr: 'Connexion interrompue — vérifiez votre réseau puis réessayez.',
     en: 'Connection lost — check your network and try again.',
