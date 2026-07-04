@@ -3,9 +3,11 @@
 //
 // Contrat sécurité :
 //   • verify_jwt = false (config.toml) : l'appelant n'est pas un utilisateur. La barrière est le
-//     secret partagé `x-cron-secret` (256 bits, généré au déploiement : Vault côté cron, secret
-//     d'environnement LIFECYCLE_CRON_SECRET côté fonction). Comparaison à temps constant sur les
-//     empreintes SHA-256 (timingSafeEqual). Secret absent de l'env → 503 fail-closed.
+//     secret partagé `x-cron-secret` (256 bits hex, généré CÔTÉ SERVEUR dans Vault — source
+//     UNIQUE) : la fonction compare le header au HASH SHA-256 du secret via la RPC service-role
+//     `lifecycle_cron_secret_hash` (migration 0051) — aucun secret d'environnement à synchroniser,
+//     rotation = update Vault. Comparaison à temps constant (timingSafeEqual) ; garde de FORME
+//     (64 hex) avant tout appel DB ; Vault vide → 503 fail-closed.
 //   • Écritures en service-role : INSERT `lifecycle_events` actor_id='system' — le journal reste
 //     append-only pour l'API authentifiée (aucune policy nouvelle), le système écrit par le même
 //     canal que l'Edge `share`.
@@ -62,19 +64,29 @@ Deno.serve(async (req: Request) => {
 
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405)
 
-  // Barrière d'accès : secret partagé cron (fail-closed si non configuré).
-  const secret = Deno.env.get('LIFECYCLE_CRON_SECRET') ?? ''
-  if (!secret) {
+  // Barrière d'accès : garde de FORME d'abord (64 hex — l'endpoint est public, aucun appel DB
+  // pour du spam), puis comparaison à temps constant contre le HASH du secret Vault (RPC 0051,
+  // service-role only). Une seule source de vérité, aucun secret d'environnement à synchroniser.
+  const given = req.headers.get('x-cron-secret') ?? ''
+  if (!/^[0-9a-f]{64}$/.test(given)) {
+    logJson({ ...log, status: 'unauthorized' })
+    return json({ error: 'unauthorized' }, 401)
+  }
+
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    { auth: { persistSession: false } },
+  )
+
+  const { data: expectedHash, error: hashErr } = await supabase.rpc('lifecycle_cron_secret_hash')
+  if (hashErr || typeof expectedHash !== 'string' || expectedHash.length !== 64) {
+    // Vault vide ou RPC absente : la relance auto n'est pas configurée → fail-closed, visible.
     logJson({ ...log, status: 'config_missing' })
     return json({ error: 'unavailable' }, 503)
   }
-  const given = req.headers.get('x-cron-secret') ?? ''
-  // Empreintes SHA-256 (longueur constante) comparées à temps constant — jamais le secret brut.
   const enc = new TextEncoder()
-  const authOk =
-    given.length > 0 &&
-    timingSafeEqual(enc.encode(await sha256Hex(given)), enc.encode(await sha256Hex(secret)))
-  if (!authOk) {
+  if (!timingSafeEqual(enc.encode(await sha256Hex(given)), enc.encode(expectedHash))) {
     logJson({ ...log, status: 'unauthorized' })
     return json({ error: 'unauthorized' }, 401)
   }
@@ -86,12 +98,6 @@ Deno.serve(async (req: Request) => {
   } catch {
     // corps vide/illisible : exécution normale
   }
-
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    { auth: { persistSession: false } },
-  )
 
   try {
     const now = new Date()

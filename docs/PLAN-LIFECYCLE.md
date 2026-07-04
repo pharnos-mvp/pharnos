@@ -7,7 +7,7 @@
 > [PLAN-LANCEMENT.md](PLAN-LANCEMENT.md) (PHASE C′). Réf. domaine : mémoire `dossier-lifecycle`. Backbone
 > inspiré des grands RIM (Application → Submission → Registration + interactions HA), couche opérationnelle
 > africaine en plus (mandataire, échantillons, paiement, canal physique/portail, journal de confiance).
-> Migration libre : `0051` (`0050` = cron relances auto ; CS1 avait consommé `0048`/`0049`).
+> Migration libre : `0052` (`0050` cron relances auto + `0051` RPC hash secret ; CS1 = `0048`/`0049`).
 
 ## 1. Objectif & métrique de succès
 
@@ -255,10 +255,13 @@ ligne de validité (warning J−6, danger expirée) + « Créer le renouvellemen
 Gate création = couche ÉDITION (Lecteur + membre CS1 scopé exclus). **Même spine 7 étapes.**
 
 **M5 phase 2 — Relances AUTOMATIQUES (LOT 10) : LIVRÉES (2026-07-04)** — Edge Function
-`lifecycle-reminders` (verify_jwt=false + secret partagé `x-cron-secret`, comparaison hachée,
+`lifecycle-reminders` (verify_jwt=false + secret partagé `x-cron-secret` **à source UNIQUE
+Vault** : la fonction vérifie le header contre le hash SHA-256 via la RPC service-role
+`lifecycle_cron_secret_hash`, migration **`0051`** — AUCUN secret d'environnement à
+synchroniser, rotation = update Vault ; garde de forme 64 hex avant tout appel DB,
 fail-closed) déclenchée chaque nuit à 05:17 UTC par **pg_cron → pg_net** (migration **`0050`**,
 secrets lus dans **Vault à l'exécution** : `lifecycle_reminders_url` + `lifecycle_cron_secret` —
-jamais de littéral en source). Dérivation serveur PURE (`_shared/lifecycle-reminders-core.ts`,
+jamais de littéral en source, générés CÔTÉ SERVEUR). Dérivation serveur PURE (`_shared/lifecycle-reminders-core.ts`,
 **miroir contractuel** du sous-ensemble « attente d'un tiers » de `deriveLifecycle`/
 `deriveStageWaiting` — 18 tests Deno rejouant les scénarios web, y c. boucle M4 via messages de
 décision et repli `decided_at`) : statuts relançables `in_review`/`accepted`/`submitting`
