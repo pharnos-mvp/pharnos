@@ -551,15 +551,24 @@ export function journalDetail(
     }
     case 'reminder_sent': {
       // M5 : contexte de la relance — étape relancée + ancienneté de l'attente au moment T.
+      // La relance AUTO (LOT 10, acteur Système) ajoute le seuil déclencheur au payload.
       const stage = LIFECYCLE_STAGES.find((s) => s.id === p.stage)
       const days =
         typeof p.waiting_days === 'number' && Number.isFinite(p.waiting_days) && p.waiting_days >= 0
           ? Math.floor(p.waiting_days)
           : null
+      const threshold =
+        typeof p.threshold_days === 'number' &&
+        Number.isFinite(p.threshold_days) &&
+        p.threshold_days > 0
+          ? Math.floor(p.threshold_days)
+          : null
       const parts: string[] = []
       if (stage) parts.push(lang === 'en' ? `${stage.label.en} stage` : `Étape ${stage.label.fr}`)
       if (days !== null)
         parts.push(lang === 'en' ? `${days} day(s) without activity` : `${days} j sans activité`)
+      if (threshold !== null)
+        parts.push(lang === 'en' ? `threshold ${threshold} d` : `seuil ${threshold} j`)
       return parts.length > 0 ? parts.join(' · ') : null
     }
     default:

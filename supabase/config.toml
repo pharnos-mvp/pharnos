@@ -394,6 +394,12 @@ allow_dynamic_registration = false
 [functions.share]
 verify_jwt = false
 
+# Relances auto du cycle de vie (LOT 10) : appelée par pg_cron/pg_net, pas par un utilisateur —
+# la barrière d'accès est le secret partagé `x-cron-secret` (Vault ⇄ LIFECYCLE_CRON_SECRET),
+# vérifié DANS la fonction (fail-closed si non configuré).
+[functions.lifecycle-reminders]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
