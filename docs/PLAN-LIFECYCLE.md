@@ -245,4 +245,14 @@ warning ≥ 7 j — seuil VISUEL) + journal « Relance envoyée » (acteur Labo 
 `system` s'affichera « Système »). L'événement n'avance JAMAIS le pipeline. **Phase 2 (cron Edge +
 seuils par pays) = LOT 10.**
 
-**Prochaine : M6 — Renouvellement J−6 & Variation** selon §5, le reste via LOT 10 (PLAN-LANCEMENT).
+**M6 — Renouvellement J−6 & Variation : LIVRÉE (2026-07-03, PR #289)** — pur front, zéro migration.
+Dérivation pure `deriveRenewalAlert` (`lifecycle-renewal.ts`) : dernier `amm_granted` du dossier →
+fenêtre d'alerte à `valid_until − 6 mois` (phases ok/due/expired/unknown, borne incluse, payload
+corrompu toléré, la dernière AMM journalisée l'emporte). Carte terminale « AMM accordée » :
+ligne de validité (warning J−6, danger expirée) + « Créer le renouvellement » (dialog récap →
+`createDossier activity: renewal`, n° d'AMM + date d'octroi repris sans ressaisie → montage) +
+« Créer une variation » (assistant pré-rempli `?produit&operation&pays`, natures à cocher).
+Gate création = couche ÉDITION (Lecteur + membre CS1 scopé exclus). **Même spine 7 étapes.**
+
+**Reste du plan** : M7 vue Agent local tokenisée + relances auto (phase 2 M5) = **LOT 10/10b**
+(PLAN-LANCEMENT) ; M8 fin de collaboration + modération = **post-GO-LIVE**.

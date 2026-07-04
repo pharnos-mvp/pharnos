@@ -86,11 +86,23 @@ export function NewDossierPage() {
   const products = useLiveQuery(() => listProducts(orgId), [orgId])
   const dossiers = useLiveQuery(() => listDossiers(orgId), [orgId])
 
-  // Pré-sélection depuis la fiche produit (« Lancer une opération » → ?produit=<id>).
+  // Pré-sélection depuis la fiche produit (« Lancer une opération » → ?produit=<id>) et depuis la
+  // Roadmap post-AMM (M6 : ?operation=variation&pays=<code> — codes bénins, validés ci-dessous).
   const [productId, setProductId] = useState(() => searchParams.get('produit') ?? '')
-  const [format, setFormat] = useState<DossierFormat>('ctd')
-  const [activity, setActivity] = useState(REG_ACTIVITIES[0]?.code ?? 'new_ma')
-  const [country, setCountry] = useState('')
+  const [format, setFormat] = useState<DossierFormat>(() => {
+    const f = searchParams.get('format')
+    return f === 'ectd' || f === 'ctd' ? f : 'ctd'
+  })
+  const [activity, setActivity] = useState(() => {
+    const op = searchParams.get('operation')
+    return op && REG_ACTIVITIES.some((a) => a.code === op)
+      ? op
+      : (REG_ACTIVITIES[0]?.code ?? 'new_ma')
+  })
+  const [country, setCountry] = useState(() => {
+    const c = searchParams.get('pays')
+    return c && COUNTRIES.some((o) => o.code === c) ? c : ''
+  })
   const [variations, setVariations] = useState<number[]>([])
   // AMM repris SILENCIEUSEMENT de la fiche produit (plus de saisie dans le formulaire) — sert à la
   // création + à l'invite non bloquante si absent.

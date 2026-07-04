@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import {
   BellRing,
+  CalendarClock,
   CheckCircle2,
   CircleAlert,
   Clock,
@@ -11,6 +12,7 @@ import {
   RotateCcw,
   XCircle,
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -53,7 +55,11 @@ import {
   type LifecycleStatus,
 } from './lifecycle-constants'
 import { nextLifecycleActions, REMINDER_ACTION, type LifecycleAction } from './lifecycle-actions'
+import type { RenewalAlert } from './lifecycle-renewal'
 import type { StageWaiting } from './lifecycle-waiting'
+import { createDossier } from './dossier-repository'
+import { syncDossiers } from './dossier-sync'
+import type { DossierFormat } from './module1-tree'
 import { CONDITION_TITLES, type SubmissionConditionsState } from './lifecycle-conditions'
 import { removeLifecycleDocs, uploadLifecycleDoc, type LifecycleDocRef } from './lifecycle-docs'
 import { appendLifecycleEvent } from './lifecycle-repository'
@@ -63,6 +69,14 @@ const STAGE_LABEL = Object.fromEntries(LIFECYCLE_STAGES.map((s) => [s.id, s.labe
   LifecycleStageId,
   (typeof LIFECYCLE_STAGES)[number]['label']
 >
+
+/** Contexte « après l'AMM » (M6) : alerte dérivée + identité du dossier pour la création pré-remplie. */
+export interface RenewalContext {
+  alert: RenewalAlert
+  productId: string
+  productName: string
+  format: DossierFormat
+}
 
 const TODAY = () => new Date().toISOString().slice(0, 10)
 
@@ -90,6 +104,7 @@ export function LifecycleActionCard({
   conditions,
   decidedCorrespondence = null,
   waiting = null,
+  renewal = null,
 }: {
   dossierId: string
   country: string
@@ -103,6 +118,8 @@ export function LifecycleActionCard({
   decidedCorrespondence?: CorrespondenceRecord | null
   /** Ancienneté de l'attente d'un TIERS (M5, `deriveStageWaiting`) — badge + bouton Relancer. */
   waiting?: StageWaiting | null
+  /** AMM accordée (M6, `deriveRenewalAlert`) — validité, alerte J−6 mois, création pré-remplie. */
+  renewal?: RenewalContext | null
 }) {
   const { t, lang } = useI18n()
   const orgId = useOrgId()
@@ -110,7 +127,14 @@ export function LifecycleActionCard({
   // Rôle « gestionnaire de soumission » lié à l'org COURANTE (miroir RLS 0047, comme CorrespondencePanel) ;
   // `loading` évite d'afficher le message « lecture seule » avant que les rôles soient chargés.
   const { loading: orgLoading, memberships } = useCurrentOrg()
-  const canManage = canManageSubmission(memberships.find((m) => m.orgId === orgId)?.role)
+  const activeMembership = memberships.find((m) => m.orgId === orgId)
+  const canManage = canManageSubmission(activeMembership?.role)
+  // M6 : créer un dossier (renouvellement/variation) = couche ÉDITION — le Lecteur et le membre
+  // CS1 scopé (couche suivi) sont exclus ; miroir UI, la RLS reste la vraie barrière.
+  const canCreate =
+    !!activeMembership?.role &&
+    activeMembership.role !== 'reviewer' &&
+    (activeMembership.scopedDossierIds ?? null) === null
   const config = lifecycleConfigFor(country)
 
   const actions = nextLifecycleActions(currentStageId, { hasAuthorityQuery })
@@ -240,7 +264,8 @@ export function LifecycleActionCard({
 
   const stageLabel = t(STAGE_LABEL[currentStageId])
 
-  // ── Terminal (AMM rendue) : parcours clôturé, aucune action ──────────────────────────────────────
+  // ── Terminal (AMM rendue) : parcours clôturé. AMM accordée → la VIE DU PRODUIT continue (M6) :
+  //    validité + alerte J−6 mois + création du renouvellement / d'une variation, même spine.
   if (status === 'amm_granted' || status === 'amm_refused') {
     const granted = status === 'amm_granted'
     return (
@@ -259,7 +284,11 @@ export function LifecycleActionCard({
                 en: 'MA refused — the dossier is closed.',
               })
         }
-      />
+      >
+        {granted && renewal ? (
+          <RenewalPanel orgId={orgId} country={country} renewal={renewal} canCreate={canCreate} />
+        ) : null}
+      </ActionShell>
     )
   }
 
@@ -655,6 +684,165 @@ function Field({
     <div className="grid gap-1.5">
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
+    </div>
+  )
+}
+
+/**
+ * Panneau « après l'AMM » (M6) : validité + alerte de renouvellement (fenêtre J−6 mois dérivée,
+ * jamais stockée) + création du RENOUVELLEMENT en un clic (activity `renewal`, n° d'AMM et date
+ * d'octroi REPRIS sans ressaisie — même spine 7 étapes) ou d'une VARIATION (assistant pré-rempli :
+ * les natures Annexe N°2 restent à cocher).
+ */
+function RenewalPanel({
+  orgId,
+  country,
+  renewal,
+  canCreate,
+}: {
+  orgId: string
+  country: string
+  renewal: RenewalContext
+  canCreate: boolean
+}) {
+  const { t, lang } = useI18n()
+  const navigate = useNavigate()
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const { alert } = renewal
+
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleDateString(lang === 'en' ? 'en-GB' : 'fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC', // dates normalisées midi-UTC : jamais de décalage de jour à l'affichage
+    })
+
+  const validityLine =
+    alert.phase === 'expired' && alert.validUntil
+      ? {
+          tone: 'text-danger',
+          icon: CircleAlert,
+          text: t({
+            fr: `AMM expirée le ${fmtDate(alert.validUntil)} — renouvellement requis.`,
+            en: `MA expired on ${fmtDate(alert.validUntil)} — renewal required.`,
+          }),
+        }
+      : alert.phase === 'due' && alert.validUntil
+        ? {
+            tone: 'text-warning',
+            icon: CircleAlert,
+            text: t({
+              fr: `AMM expire le ${fmtDate(alert.validUntil)} (J−${alert.daysLeft}) — préparez le renouvellement.`,
+              en: `MA expires on ${fmtDate(alert.validUntil)} (D−${alert.daysLeft}) — prepare the renewal.`,
+            }),
+          }
+        : alert.phase === 'ok' && alert.validUntil
+          ? {
+              tone: 'text-muted-foreground',
+              icon: CalendarClock,
+              text: t({
+                fr: `${alert.ammNumber ? `AMM ${alert.ammNumber} · ` : ''}valide jusqu'au ${fmtDate(alert.validUntil)}.`,
+                en: `${alert.ammNumber ? `MA ${alert.ammNumber} · ` : ''}valid until ${fmtDate(alert.validUntil)}.`,
+              }),
+            }
+          : {
+              tone: 'text-muted-foreground',
+              icon: CalendarClock,
+              text: t({
+                fr: `${alert.ammNumber ? `AMM ${alert.ammNumber} — ` : ''}échéance de validité non renseignée.`,
+                en: `${alert.ammNumber ? `MA ${alert.ammNumber} — ` : ''}validity end date not recorded.`,
+              }),
+            }
+
+  async function confirmRenewal() {
+    if (busy) return
+    setBusy(true)
+    try {
+      const dossier = await createDossier(orgId, {
+        productId: renewal.productId,
+        productName: renewal.productName,
+        format: renewal.format,
+        activity: 'renewal',
+        country,
+        ammNumero: alert.ammNumber ?? undefined,
+        // Date d'octroi de l'AMM à renouveler (réf. lettre + RCP §9) — `YYYY-MM-DD`.
+        ammDate: alert.grantedAt.slice(0, 10),
+      })
+      void syncDossiers(orgId)
+      toast.success(t({ fr: 'Renouvellement créé.', en: 'Renewal created.' }))
+      navigate(`/workspace/${dossier.id}`)
+    } catch (error) {
+      reportError(error, { op: 'createRenewalDossier' })
+      toast.error(t({ fr: 'Échec de la création.', en: 'Creation failed.' }))
+      setBusy(false)
+    }
+  }
+
+  const ValidityIcon = validityLine.icon
+  return (
+    <div className="w-full space-y-2.5">
+      <p className={cn('flex items-start gap-1.5 text-xs', validityLine.tone)}>
+        <ValidityIcon className="mt-0.5 size-3.5 shrink-0" />
+        {validityLine.text}
+      </p>
+      {canCreate ? (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant={alert.phase === 'due' || alert.phase === 'expired' ? 'primary' : 'outline'}
+            onClick={() => setConfirmOpen(true)}
+          >
+            {t({ fr: 'Créer le renouvellement', en: 'Create the renewal' })}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              navigate(
+                `/workspace/nouveau?produit=${encodeURIComponent(renewal.productId)}&operation=variation&pays=${encodeURIComponent(country)}&format=${encodeURIComponent(renewal.format)}`,
+              )
+            }
+          >
+            {t({ fr: 'Créer une variation', en: 'Create a variation' })}
+          </Button>
+          <Dialog open={confirmOpen} onOpenChange={(o) => !o && setConfirmOpen(false)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>
+                  {t({ fr: 'Créer le renouvellement', en: 'Create the renewal' })}
+                </DialogTitle>
+                <DialogDescription>
+                  {t({
+                    fr: `Un dossier « Renouvellement » sera créé pour ${renewal.productName}${alert.ammNumber ? ` (AMM ${alert.ammNumber} reprise` : ' (référence AMM reprise'} sans ressaisie) — même parcours en 7 étapes.`,
+                    en: `A "Renewal" dossier will be created for ${renewal.productName}${alert.ammNumber ? ` (MA ${alert.ammNumber} carried over` : ' (MA reference carried over'} without re-typing) — same 7-stage journey.`,
+                  })}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setConfirmOpen(false)}
+                  disabled={busy}
+                >
+                  {t({ fr: 'Annuler', en: 'Cancel' })}
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => void confirmRenewal()}
+                  disabled={busy}
+                >
+                  {busy ? <Loader2 className="animate-spin" /> : null}
+                  {t({ fr: 'Créer', en: 'Create' })}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      ) : null}
     </div>
   )
 }
