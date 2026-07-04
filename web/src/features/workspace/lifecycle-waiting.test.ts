@@ -180,6 +180,28 @@ describe('journal — rendu d’une relance (M5)', () => {
     ).toBeNull()
   })
 
+  it('relance AUTO (LOT 10) : le seuil déclencheur du payload est affiché', () => {
+    expect(
+      journalDetail({
+        key: 'reminder_sent',
+        payload: { stage: 'notifications', waiting_days: 31, threshold_days: 30 },
+      }),
+    ).toBe('Étape Notifications · 31 j sans activité · seuil 30 j')
+    expect(
+      journalDetail(
+        { key: 'reminder_sent', payload: { stage: 'revue', waiting_days: 14, threshold_days: 14 } },
+        'en',
+      ),
+    ).toBe('Review stage · 14 day(s) without activity · threshold 14 d')
+    // Seuil corrompu → ignoré, le reste s'affiche.
+    expect(
+      journalDetail({
+        key: 'reminder_sent',
+        payload: { stage: 'revue', waiting_days: 14, threshold_days: 'x' },
+      }),
+    ).toBe('Étape Revue · 14 j sans activité')
+  })
+
   it('acteur : relance manuelle = Labo ; relance système (LOT 10) = Système', () => {
     const st = derive({
       correspondences: [corr({})],

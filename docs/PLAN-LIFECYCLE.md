@@ -7,7 +7,7 @@
 > [PLAN-LANCEMENT.md](PLAN-LANCEMENT.md) (PHASE C′). Réf. domaine : mémoire `dossier-lifecycle`. Backbone
 > inspiré des grands RIM (Application → Submission → Registration + interactions HA), couche opérationnelle
 > africaine en plus (mandataire, échantillons, paiement, canal physique/portail, journal de confiance).
-> Migration libre : `0050` (CS1 a consommé `0048` membership_scopes + `0049` orgId explicite RPC).
+> Migration libre : `0051` (`0050` = cron relances auto ; CS1 avait consommé `0048`/`0049`).
 
 ## 1. Objectif & métrique de succès
 
@@ -98,7 +98,7 @@ le portail, la langue, les délais, l'exigence d'agent/d'autorisation d'import s
 | **M3** ✅ | **Échantillons & Frais** | panneau « Conditions de soumission » (accordéon compact, colonne à côté de l'étape en cours) sur les événements déjà typés (`samples_requested/…/delivered`, `fees_invoiced`, `payment_submitted/confirmed`) + pièces (autorisation import, LTA/AWB, SWIFT → `doc_refs`, bucket `documents`) + récap 3 conditions **non bloquant** à la Soumission + journal enrichi (détails payload, pièces consultables, tronqué à 6) — **front-only, zéro migration** | **M** |
 | **M4** ✅ | **Boucle Décision** | bouton **« Renvoyer en revue »** après Complément/Rejeté (comble le cul-de-sac du workflow) ; libellé `suspended` → **« Complément requis »** (code d'événement inchangé — journal immuable) ; réalignement libellés Dépôt (= réception confirmée par l'agent) / Soumission (= dépôt agence nationale) ; upload **preuve AMM** (docRefs) ; payload `via: agent\|direct` sur `authority_query` (cas CI) ; **+ décision Revue→Décision IN-APP pour les membres gestionnaires** — **PROD (T1 #283 · T2 #284 · T3 #285 · T4 #286, 2026-07-03)** | **M** |
 | **CS1** | **Collaboration compte-à-compte SCOPÉE au dossier** (validée CEO 2026-07-02) | périmètre par membre (couche SUIVI), sélecteur d'org, fix attribution quotas — **détail §5-bis** ; migration `0048` probable | **M/L** |
-| **M5** | **Relance manuelle (phase 1)** | badge « en attente depuis N jours » + bouton Relancer → `reminder_sent` (pur front). **Phase 2 (cron Edge + seuils par pays) = LOT 10** | **S** |
+| **M5** | **Relance manuelle (phase 1)** ✅ + **auto (phase 2, LOT 10)** ✅ | phase 1 : badge « en attente depuis N jours » + bouton Relancer → `reminder_sent` (pur front). Phase 2 : **cron Edge quotidien + seuils par pays** (`lifecycle-reminders`, migration `0050`) — même événement, `actor_id='system'`, payload `{stage, waiting_days, threshold_days}` | **S+M** |
 | **M6** | **Renouvellement J−6 & Variation** | alerte dérivée `valid_until − 6 mois` + bouton « Créer le renouvellement » (`activity: renewal` pré-rempli, n° AMM repris) ; idem variation — **même spine 7 étapes, pas de workflow séparé** | **S/M** |
 | **M7** | **Vue Agent local (tokenisé)** | l'agent confirme dépôt/soumission, dépose preuves, relaie notifications via lien tokenisé → timeline partagée — **fusionné dans LOT 10b** (PLAN-LANCEMENT) | **L** |
 | **M8** | **Fin de collaboration + modération** | révocation d'accès + raison journalisée → modération Pharnos (métadonnées seulement, jamais le contenu ; accès modération lui-même journalisé) — **post-GO-LIVE**, gated sur la décision « mode Agence multi-clients » | **M** |
@@ -254,5 +254,26 @@ ligne de validité (warning J−6, danger expirée) + « Créer le renouvellemen
 « Créer une variation » (assistant pré-rempli `?produit&operation&pays`, natures à cocher).
 Gate création = couche ÉDITION (Lecteur + membre CS1 scopé exclus). **Même spine 7 étapes.**
 
-**Reste du plan** : M7 vue Agent local tokenisée + relances auto (phase 2 M5) = **LOT 10/10b**
-(PLAN-LANCEMENT) ; M8 fin de collaboration + modération = **post-GO-LIVE**.
+**M5 phase 2 — Relances AUTOMATIQUES (LOT 10) : LIVRÉES (2026-07-04)** — Edge Function
+`lifecycle-reminders` (verify_jwt=false + secret partagé `x-cron-secret`, comparaison hachée,
+fail-closed) déclenchée chaque nuit à 05:17 UTC par **pg_cron → pg_net** (migration **`0050`**,
+secrets lus dans **Vault à l'exécution** : `lifecycle_reminders_url` + `lifecycle_cron_secret` —
+jamais de littéral en source). Dérivation serveur PURE (`_shared/lifecycle-reminders-core.ts`,
+**miroir contractuel** du sous-ensemble « attente d'un tiers » de `deriveLifecycle`/
+`deriveStageWaiting` — 18 tests Deno rejouant les scénarios web, y c. boucle M4 via messages de
+décision et repli `decided_at`) : statuts relançables `in_review`/`accepted`/`submitting`
+(attente AGENT, seuil défaut **14 j**) et `in_notification` (attente AGENCE, seuil défaut
+**30 j**), overrides par pays dans `COUNTRY_THRESHOLDS` (PR-maintenu, comme lifecycle-config).
+Écrit `reminder_sent` `actor_id='system'` payload `{stage, waiting_days, threshold_days}`
+(dialecte M5 ; le journal affiche « Système » + « seuil N j ») — l'événement REPART le compteur →
+**auto-idempotent** (rejeu du cron sans double tir) ; **cap 3 relances système consécutives**
+sans activité humaine (dossier dormant), ré-armé par toute activité humaine. **E-mail Resend
+best-effort au CÔTÉ LABO** (expéditeur de la dernière correspondance active — le lien tokenisé
+n'est PAS reconstructible par design ADR-0003, relancer l'agent reste un acte humain), bilingue,
+CTA Roadmap, caps 50/run + 10/org/jour (`share_hit`), l'échec e-mail ne bloque jamais la
+journalisation. pgTAP plomberie (extensions, job, zéro secret en clair). Smoke : POST
+`{"dryRun":true}`.
+
+**Reste du plan** : LOT 10 suite — **Correspondance v3** (délais/rappels, export PDF du fil,
+lettre de réponse + refonte premium combinée) puis **M7 vue Agent local tokenisée = LOT 10b**
+(mockup-first) ; M8 fin de collaboration + modération = **post-GO-LIVE**.
