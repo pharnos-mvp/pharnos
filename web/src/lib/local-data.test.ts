@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { db } from './db'
-import { clearLocalData, localDataOwner, reconcileLocalDataOwner } from './local-data'
+import {
+  clearLocalData,
+  localDataOwner,
+  purgeAllLocalData,
+  reconcileLocalDataOwner,
+} from './local-data'
 
 async function seed() {
   const ts = '2026-07-04T00:00:00.000Z'
@@ -72,8 +77,11 @@ describe('clearLocalData — purge complète du cache local partagé', () => {
     }
   })
 
-  it('efface les curseurs de sync + l’org active, garde les préférences d’UI', async () => {
+  it('efface curseurs + org + marqueurs scopés (sync/backfill/autostruct), garde les prefs d’UI', async () => {
     await seed()
+    localStorage.setItem('pharnos.sync.org-a', '1')
+    localStorage.setItem('pharnos.parties.backfilled.org-a', '1')
+    localStorage.setItem('pharnos.autostruct.d1', '1')
     localStorage.setItem('pharnos.sidebarCollapsed', '1')
     localStorage.setItem('theme', 'dark')
 
@@ -81,9 +89,26 @@ describe('clearLocalData — purge complète du cache local partagé', () => {
 
     expect(localStorage.getItem('pharnos.lastPull.dossiers.org-a')).toBeNull()
     expect(localStorage.getItem('pharnos.orgId')).toBeNull()
+    expect(localStorage.getItem('pharnos.sync.org-a')).toBeNull()
+    expect(localStorage.getItem('pharnos.parties.backfilled.org-a')).toBeNull()
+    expect(localStorage.getItem('pharnos.autostruct.d1')).toBeNull()
     // Préférences d'UI conservées (ce ne sont pas des données).
     expect(localStorage.getItem('pharnos.sidebarCollapsed')).toBe('1')
     expect(localStorage.getItem('theme')).toBe('dark')
+  })
+
+  it('CONSERVE le marqueur de propriétaire (garde de swap robuste même après purge partielle)', async () => {
+    localStorage.setItem('pharnos.localDataOwner', 'user-a')
+    await clearLocalData()
+    expect(localStorage.getItem('pharnos.localDataOwner')).toBe('user-a')
+  })
+
+  it('purgeAllLocalData (suppression de compte) retire AUSSI le marqueur de propriétaire', async () => {
+    localStorage.setItem('pharnos.localDataOwner', 'user-a')
+    await seed()
+    await purgeAllLocalData()
+    expect(localStorage.getItem('pharnos.localDataOwner')).toBeNull()
+    expect(await db.dossiers.count()).toBe(0)
   })
 })
 
@@ -116,5 +141,19 @@ describe('reconcileLocalDataOwner — garde de changement de compte', () => {
     expect(await db.dossiers.count()).toBe(0)
     expect(await db.lifecycleEvents.count()).toBe(0)
     expect(await db.products.count()).toBe(0)
+  })
+
+  it('appels CONCURRENTS pour le MÊME nouvel utilisateur (boot getSession + onAuthStateChange) : jamais de purge', async () => {
+    // Invariant de sûreté : au démarrage, Supabase déclenche getSession ET INITIAL_SESSION → 2
+    // publish() concurrents pour le même uid. Aucun ne doit purger ni faire osciller le propriétaire.
+    await seed()
+    const [a, b] = await Promise.all([
+      reconcileLocalDataOwner('user-a'),
+      reconcileLocalDataOwner('user-a'),
+    ])
+    expect(a).toBe(false)
+    expect(b).toBe(false)
+    expect(localDataOwner()).toBe('user-a')
+    expect(await db.dossiers.count()).toBe(1) // données du 1er login conservées
   })
 })

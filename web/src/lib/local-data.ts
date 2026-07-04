@@ -38,22 +38,37 @@ async function clearAllTables(): Promise<void> {
  * org active + marqueur de propriétaire. CONSERVE les préférences d'UI (thème, langue, barre
  * latérale) qui ne sont pas des données. Idempotent, tolérant à un `localStorage` indisponible.
  */
-export async function clearLocalData(): Promise<void> {
-  await clearAllTables()
+// Préfixes de clés `localStorage` porteuses de DONNÉES (curseurs de sync, marqueurs dérivés
+// scopés org/dossier). NE contient PAS `pharnos.localDataOwner` : le marqueur de propriétaire
+// SURVIT à la purge (voir clearLocalData) pour qu'un changement de compte déclenche TOUJOURS la
+// garde — même si une purge précédente a partiellement échoué.
+const DATA_KEY_PREFIXES = [
+  'pharnos.lastPull', // curseurs de sync pull incrémentale
+  'pharnos.sync.', // choix de synchro cloud par org (sync-prefs)
+  'pharnos.parties.backfilled.', // marqueur de backfill parties par org
+  'pharnos.autostruct.', // structure auto appliquée par dossier
+]
+const isDataKey = (k: string): boolean =>
+  k === ORG_KEY || DATA_KEY_PREFIXES.some((p) => k.startsWith(p))
+
+/** Supprime les clés `localStorage` correspondant à `match` (itération INDEXÉE fiable partout,
+ *  ≠ `Object.keys(localStorage)` ; collecte-puis-supprime pour ne pas muter en boucle). */
+function removeLocalStorageKeys(match: (k: string) => boolean): void {
   try {
-    // Itération INDEXÉE (fiable partout, ≠ `Object.keys(localStorage)` qui n'énumère pas les
-    // entrées Storage en jsdom) ; on collecte avant de supprimer pour ne pas muter en boucle.
     const toRemove: string[] = []
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i)
-      if (k && (k.startsWith('pharnos.lastPull') || k === ORG_KEY || k === DATA_OWNER_KEY)) {
-        toRemove.push(k)
-      }
+      if (k && match(k)) toRemove.push(k)
     }
     toRemove.forEach((k) => localStorage.removeItem(k))
   } catch {
     /* stockage indisponible — non bloquant */
   }
+}
+
+export async function clearLocalData(): Promise<void> {
+  await clearAllTables()
+  removeLocalStorageKeys(isDataKey)
 }
 
 /** Propriétaire (id utilisateur) des données actuellement en cache local. */
@@ -73,11 +88,24 @@ function setLocalDataOwner(userId: string): void {
   }
 }
 
+/** Purge TOTALE incluant le marqueur de propriétaire (suppression de compte — plus de session à
+ *  protéger). Distincte de `clearLocalData` qui conserve le marqueur pour la garde de swap. */
+export async function purgeAllLocalData(): Promise<void> {
+  await clearLocalData()
+  removeLocalStorageKeys((k) => k === DATA_OWNER_KEY)
+}
+
 /**
  * Garde de changement de compte : si le cache local appartient à un AUTRE utilisateur (login sans
  * déconnexion propre = swap de session sur le même navigateur), on purge AVANT d'exposer la moindre
  * donnée, puis on marque le nouveau propriétaire. À appeler pendant la résolution d'auth, avant de
  * publier la session. Retourne `true` si une purge a eu lieu.
+ *
+ * NB : on ne peut PAS flusher l'outbox de l'ancien utilisateur ici (la session est déjà celle du
+ * nouveau — pousser sous son JWT mésattribuerait). Une écriture hors-ligne non synchronisée de
+ * l'ancien compte est donc perdue sur ce swap — inhérent au partage de machine sans logout propre.
+ * Le marqueur `pharnos.localDataOwner` SURVIT à `clearLocalData` : ainsi un swap déclenche toujours
+ * la purge, même si une purge de déconnexion précédente a partiellement échoué.
  */
 export async function reconcileLocalDataOwner(userId: string): Promise<boolean> {
   const prev = localDataOwner()

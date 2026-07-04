@@ -1,8 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 
+import { getActiveOrgId } from '@/features/org/active-org'
 import { setAuditActor } from '@/lib/audit'
 import { env } from '@/lib/env'
+import { flushOutbox } from '@/lib/flush-outbox'
 import { clearLocalData, reconcileLocalDataOwner } from '@/lib/local-data'
 import { getSupabase } from '@/lib/supabase'
 import { AuthContext } from './auth-context'
@@ -56,6 +58,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     const supabase = await getSupabase()
+    // Best-effort : pousser les écritures hors-ligne en attente TANT QUE la session est valide,
+    // avant de la fermer — sinon la purge ci-dessous les perdrait (offline-first, intégrité ALCOA++).
+    await flushOutbox(getActiveOrgId()).catch(() => {})
     await supabase?.auth.signOut()
     // Purge le cache local : le navigateur peut être partagé — le prochain compte ne doit pas
     // hériter des données synchronisées de celui-ci (CS1 : agents externes sur machine commune).

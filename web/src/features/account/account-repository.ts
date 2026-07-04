@@ -1,4 +1,4 @@
-import { clearLocalData } from '@/lib/local-data'
+import { purgeAllLocalData } from '@/lib/local-data'
 import { getSupabase } from '@/lib/supabase'
 
 export interface ProfileMetadata {
@@ -30,8 +30,8 @@ export async function updatePassword(password: string): Promise<void> {
   if (error) throw error
 }
 
-/** Efface toutes les données locales (TOUTES les tables Dexie + curseurs de synchro + org active).
- *  Irréversible. Délègue à `clearLocalData` (source unique — miroir exact du schéma Dexie). */
+/** Efface toutes les données locales (TOUTES les tables Dexie + curseurs + org active + marqueur
+ *  de propriétaire). Irréversible — suppression de compte. Délègue à `purgeAllLocalData`. */
 export async function purgeLocalData(): Promise<void> {
-  await clearLocalData()
+  await purgeAllLocalData()
 }
