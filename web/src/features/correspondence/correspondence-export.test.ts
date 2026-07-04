@@ -76,8 +76,10 @@ describe('buildThreadExportHtml (export d’audit du fil)', () => {
     expect(html).toContain('Dossier accepté') // pastille décision
     expect(html).toContain('Exporté par ra@labo.example')
     expect(html).toContain('2 message(s)')
-    // Impression auto embarquée (Destination « Enregistrer en PDF »).
-    expect(html).toContain('window.print()')
+    // CSP-safe : AUCUN script dans le document (l'impression part du JS de l'app, iframe srcdoc —
+    // un script inline serait bloqué par `script-src 'self'` en prod) + charset déclaré (accents).
+    expect(html).not.toContain('<script')
+    expect(html).toContain('<meta charset="utf-8"')
   })
 
   it('échappe TOUT contenu utilisateur (messages, e-mails, produit) — saisie hostile', () => {

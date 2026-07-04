@@ -8,10 +8,12 @@ import { decisionLabel, statusLabel } from './correspondence-constants'
  * Export PDF du fil de correspondance (Correspondance v3, LOT 10 — backlog RIM #6) : dossier
  * d'AUDIT imprimable de l'échange labo ⇄ correspondant (envois, décisions, messages, pièces).
  *
- * Le document est un HTML AUTONOME écrit dans une fenêtre dédiée puis imprimé (Destination
- * « Enregistrer en PDF ») — AUCUNE dépendance PDF, zéro contact avec la zone A4 protégée du
- * compilateur de dossier. Générateur PUR et testé : tout contenu utilisateur est échappé
- * (les messages sont de la saisie hostile par défaut).
+ * Le document est un HTML AUTONOME rendu dans une iframe `srcdoc` cachée puis imprimé
+ * (Destination « Enregistrer en PDF ») — même pattern CSP-safe que `audit-print.ts` : AUCUN
+ * script inline (la CSP prod `script-src 'self'` le bloquerait dans une fenêtre `about:blank`),
+ * charset déclaré et respecté, pas de pop-up à autoriser. Zéro dépendance PDF, zéro contact
+ * avec la zone A4 protégée du compilateur de dossier. Générateur PUR et testé : tout contenu
+ * utilisateur est échappé (les messages sont de la saisie hostile par défaut).
  */
 
 const escapeHtml = (s: string): string =>
@@ -134,21 +136,36 @@ ${rows || `<p class="muted">${L(lang, 'Aucun message.', 'No messages.')}</p>`}
     fmtDateTime(now.toISOString(), lang),
   )} · ${messages.length} ${L(lang, 'message(s)', 'message(s)')} · Pharnos
 </footer>
-<script>window.addEventListener('load', function () { setTimeout(function () { window.print() }, 150) })</script>
 </body>
 </html>`
 }
 
 /**
- * Ouvre l'export dans une fenêtre dédiée et lance l'impression (→ « Enregistrer en PDF »).
- * DOIT être appelé de façon SYNCHRONE dans le handler de clic (bloqueurs de pop-up — leçon M3 :
- * jamais de window.open après un await). Renvoie `false` si la fenêtre a été bloquée.
+ * Imprime l'export du fil (→ « Enregistrer en PDF ») via une iframe `srcdoc` CACHÉE — le
+ * `print()` part du JS de l'app, jamais d'un script inline (CSP prod `script-src 'self'`) ni
+ * d'un pop-up à autoriser. Le `document.title` de la page porte le nom du fichier le temps du
+ * dialogue (Chrome nomme le PDF d'après la PAGE, pas l'iframe) — mécanique `printAuditReport`.
  */
-export function openThreadExport(input: ThreadExportInput): boolean {
-  const win = window.open('', '_blank')
-  if (!win) return false
-  win.opener = null // isolation : la fenêtre d'export ne doit pas pouvoir naviguer l'app
-  win.document.write(buildThreadExportHtml(input))
-  win.document.close()
-  return true
+export function printThreadExport(input: ThreadExportInput): void {
+  const frame = document.createElement('iframe')
+  frame.style.position = 'fixed'
+  frame.style.right = '0'
+  frame.style.bottom = '0'
+  frame.style.width = '0'
+  frame.style.height = '0'
+  frame.style.border = '0'
+  frame.setAttribute('aria-hidden', 'true')
+  frame.srcdoc = buildThreadExportHtml(input)
+  frame.onload = () => {
+    setTimeout(() => {
+      const prevTitle = document.title
+      document.title = `${L(input.lang, 'Correspondance', 'Correspondence')} — ${input.correspondence.productName}`
+      frame.contentWindow?.focus()
+      frame.contentWindow?.print()
+      document.title = prevTitle
+      // print() est synchrone sur Chrome mais pas partout : on laisse vivre le dialogue puis on nettoie.
+      setTimeout(() => frame.remove(), 60_000)
+    }, 150)
+  }
+  document.body.appendChild(frame)
 }
