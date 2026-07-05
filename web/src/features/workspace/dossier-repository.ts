@@ -25,10 +25,13 @@ export interface CreateDossierInput {
   variationItems?: VariationItem[]
 }
 
+// `purgedAt` est TERMINAL (défense en profondeur, LOT 9) : un squelette tombstone purgé ne
+// réapparaît dans AUCUNE vue, même si une écriture retardataire a remis deletedAt à null
+// (course restaurer/purger au jour 30 — le serveur la rejette aussi, trigger 0054).
 export async function listDossiers(orgId: string): Promise<DossierRecord[]> {
   const items = await db.dossiers.where('orgId').equals(orgId).toArray()
   return items
-    .filter((d) => d.deletedAt === null && !d.archivedAt)
+    .filter((d) => d.deletedAt === null && !d.archivedAt && !d.purgedAt)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 }
 
@@ -36,13 +39,49 @@ export async function listDossiers(orgId: string): Promise<DossierRecord[]> {
 export async function listArchivedDossiers(orgId: string): Promise<DossierRecord[]> {
   const items = await db.dossiers.where('orgId').equals(orgId).toArray()
   return items
-    .filter((d) => d.deletedAt === null && !!d.archivedAt)
+    .filter((d) => d.deletedAt === null && !!d.archivedAt && !d.purgedAt)
     .sort((a, b) => (b.archivedAt ?? '').localeCompare(a.archivedAt ?? ''))
+}
+
+/**
+ * Politique de rétention (docs/RETENTION-POLICY.md) : un brouillon supprimé reste restaurable
+ * en corbeille pendant cette fenêtre de grâce, puis est purgé définitivement (cron serveur,
+ * migration 0054). La même constante pilote l'affichage (« purge dans N j ») et la purge locale —
+ * le seuil serveur (Edge retention-purge) DOIT rester aligné.
+ */
+export const TRASH_RETENTION_DAYS = 30
+
+/** Date de purge prévue d'un élément de corbeille (ISO) — deletedAt + fenêtre de grâce. */
+export function trashPurgeAt(deletedAt: string): string {
+  const t = new Date(deletedAt)
+  t.setUTCDate(t.getUTCDate() + TRASH_RETENTION_DAYS)
+  return t.toISOString()
+}
+
+/**
+ * Jours restants (entier, arrondi supérieur) avant la purge d'un élément de corbeille — borné à
+ * [0, fenêtre] : l'horloge d'affichage (`now` figé au montage) peut précéder `deletedAt` de
+ * quelques secondes, qui arrondiraient à « 31 j » juste après la suppression.
+ */
+export function trashDaysLeft(deletedAt: string, now: Date): number {
+  const ms = new Date(trashPurgeAt(deletedAt)).getTime() - now.getTime()
+  return Math.min(TRASH_RETENTION_DAYS, Math.max(0, Math.ceil(ms / 86_400_000)))
+}
+
+/**
+ * CORBEILLE : brouillons supprimés (soft delete) encore dans la fenêtre de grâce — restaurables.
+ * Les éléments purgés (squelettes tombstone serveur) n'y figurent plus.
+ */
+export async function listTrashedDossiers(orgId: string): Promise<DossierRecord[]> {
+  const items = await db.dossiers.where('orgId').equals(orgId).toArray()
+  return items
+    .filter((d) => d.deletedAt !== null && !d.purgedAt)
+    .sort((a, b) => (b.deletedAt ?? '').localeCompare(a.deletedAt ?? ''))
 }
 
 export async function getDossier(id: string): Promise<DossierRecord | undefined> {
   const d = await db.dossiers.get(id)
-  return d && d.deletedAt === null ? d : undefined
+  return d && d.deletedAt === null && !d.purgedAt ? d : undefined
 }
 
 export async function createDossier(
@@ -191,6 +230,22 @@ export async function restoreDossier(id: string): Promise<void> {
   if (!existing || existing.deletedAt !== null || !existing.archivedAt) return
   const ts = now()
   const updated: DossierRecord = { ...existing, archivedAt: null, updatedAt: ts }
+  await db.transaction('rw', db.dossiers, db.outbox, async () => {
+    await db.dossiers.put(updated)
+    await enqueueOutbox('dossier', id, 'update', updated)
+  })
+  await recordAudit(existing.orgId, 'dossier', id, 'restore', existing.productName)
+}
+
+/**
+ * Restaure un BROUILLON depuis la corbeille (annule la suppression douce, dans la fenêtre de
+ * grâce). Refusé si l'élément a déjà été purgé (squelette tombstone serveur). Tracé à l'audit.
+ */
+export async function restoreTrashedDossier(id: string): Promise<void> {
+  const existing = await db.dossiers.get(id)
+  if (!existing || existing.deletedAt === null || existing.purgedAt) return
+  const ts = now()
+  const updated: DossierRecord = { ...existing, deletedAt: null, updatedAt: ts }
   await db.transaction('rw', db.dossiers, db.outbox, async () => {
     await db.dossiers.put(updated)
     await enqueueOutbox('dossier', id, 'update', updated)

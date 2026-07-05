@@ -31,6 +31,10 @@ export interface DossierRow {
   // (absent de `dossierToRow` → l'upsert ne les écrase pas, le trigger les attribue à l'insert).
   op_year?: number | null
   op_number?: number | null
+  // Purge de rétention posée CÔTÉ SERVEUR (0054, Edge retention-purge) : descend au pull, JAMAIS
+  // poussée par le client (même pattern que op_year/op_number — un push d'appareil retardataire
+  // ne peut pas « dé-purger » un squelette tombstone).
+  purged_at?: string | null
 }
 
 export function dossierToRow(d: DossierRecord): DossierRow {
@@ -78,6 +82,7 @@ export function rowToDossier(r: DossierRow): DossierRecord {
     archivedAt: r.archived_at ?? null,
     opYear: r.op_year ?? null,
     opNumber: r.op_number ?? null,
+    purgedAt: r.purged_at ?? null,
   }
 }
 
@@ -133,10 +138,41 @@ async function pullDossiers(supabase: SupabaseClient, orgId: string): Promise<vo
   for (const row of rows) {
     const incoming = rowToDossier(row)
     const local = await db.dossiers.get(incoming.id)
-    if (!local || incoming.updatedAt >= local.updatedAt) {
+    // Un squelette tombstone purgé (0054) l'emporte TOUJOURS, même sur un état local plus récent :
+    // la purge est terminale et le serveur neutralise toute écriture retardataire (trigger 0054) —
+    // sans cette priorité, l'appareil qui a « restauré » pendant la nuit de purge garderait à vie
+    // un zombie local que le LWW ne réconcilierait jamais.
+    if (!local || incoming.updatedAt >= local.updatedAt || incoming.purgedAt) {
       await db.dossiers.put(incoming)
+      // Purge de rétention descendue du serveur : miroir local — on efface les enfants (pièces
+      // jointes ET leurs blobs, documents générés, journal du cycle de vie) pour libérer
+      // IndexedDB, comme le serveur a effacé lignes + fichiers Storage. Idempotent.
+      if (incoming.purgedAt && !local?.purgedAt) await purgeLocalChildren(incoming.id)
     }
     if (incoming.updatedAt > maxUpdated) maxUpdated = incoming.updatedAt
   }
   if (rows.length > 0) localStorage.setItem(lastPullKey(orgId), maxUpdated)
+}
+
+/**
+ * Efface les données locales d'un dossier purgé (squelette tombstone conservé dans `dossiers`).
+ * Exporté pour le test unitaire (appelé par le pull quand `purged_at` descend du serveur).
+ */
+export async function purgeLocalChildren(dossierId: string): Promise<void> {
+  await db.transaction(
+    'rw',
+    [db.dossierAttachments, db.documentBlobs, db.generatedDocs, db.lifecycleEvents],
+    async () => {
+      // Les octets lourds des pièces jointes vivent dans `documentBlobs` (clé = id de pièce) :
+      // les purger AVEC les lignes, sinon l'espace IndexedDB n'est jamais rendu.
+      const attachmentIds = await db.dossierAttachments
+        .where('dossierId')
+        .equals(dossierId)
+        .primaryKeys()
+      if (attachmentIds.length > 0) await db.documentBlobs.bulkDelete(attachmentIds)
+      await db.dossierAttachments.where('dossierId').equals(dossierId).delete()
+      await db.generatedDocs.where('dossierId').equals(dossierId).delete()
+      await db.lifecycleEvents.where('dossierId').equals(dossierId).delete()
+    },
+  )
 }

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Eye, FileStack, FolderPlus, Pencil, Route } from 'lucide-react'
+import { Eye, FileStack, FolderPlus, Info, Pencil, Route, Trash2 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -24,14 +24,15 @@ import { listCorrespondences } from '@/features/correspondence/correspondence-re
 import { useCorrespondenceSync } from '@/features/correspondence/use-correspondence-sync'
 import { useOrgId } from '@/features/org/org-context'
 import { useMemberScope } from '@/features/org/use-current-org'
-import { db } from '@/lib/db'
-import { useI18n, type Translatable } from '@/lib/i18n-context'
+import { db, type DossierRecord } from '@/lib/db'
+import { useI18n, type Lang, type Translatable } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import { countryLabel } from './dossier-constants'
 import { deadlineLabel, relativeTime } from './format-time'
 import {
   avancementLabel,
   buildOpsRows,
+  dossierRef,
   isDeadlineUrgent,
   opsKpis,
   opsPipeline,
@@ -49,7 +50,11 @@ import {
   deleteDossier,
   listArchivedDossiers,
   listDossiers,
+  listTrashedDossiers,
   restoreDossier,
+  restoreTrashedDossier,
+  TRASH_RETENTION_DAYS,
+  trashDaysLeft,
 } from './dossier-repository'
 import { syncDossiers } from './dossier-sync'
 import { useDossierSync } from './use-dossier-sync'
@@ -65,13 +70,14 @@ export function WorkspacePage() {
   useCorrespondenceSync(orgId)
   const activeDossiers = useLiveQuery(() => listDossiers(orgId), [orgId])
   const archivedDossiers = useLiveQuery(() => listArchivedDossiers(orgId), [orgId])
+  const trashedDossiers = useLiveQuery(() => listTrashedDossiers(orgId), [orgId])
   const correspondences = useLiveQuery(() => listCorrespondences(orgId), [orgId])
   const unread = useLiveQuery(() => unreadIndex(orgId), [orgId])
   const products = useLiveQuery(() => db.products.where('orgId').equals(orgId).toArray(), [orgId])
   const documents = useLiveQuery(() => db.documents.where('orgId').equals(orgId).toArray(), [orgId])
 
   const [reviewDossierId, setReviewDossierId] = useState<string | null>(null)
-  const [view, setView] = useState<'active' | 'archived'>('active')
+  const [view, setView] = useState<'active' | 'archived' | 'trash'>('active')
   const [proc, setProc] = useState<string>('all') // filtre par procédure
 
   // `now` figé au montage (l'âge relatif d'un board n'a pas besoin d'être à la seconde).
@@ -127,8 +133,14 @@ export function WorkspacePage() {
   const visible =
     view === 'active' && proc !== 'all' ? rows.filter((r) => r.dossier.activity === proc) : rows
 
-  const loading = (view === 'archived' ? archivedDossiers : activeDossiers) === undefined
+  const loading =
+    (view === 'archived'
+      ? archivedDossiers
+      : view === 'trash'
+        ? trashedDossiers
+        : activeDossiers) === undefined
   const archivedCount = archivedDossiers?.length ?? 0
+  const trashCount = trashedDossiers?.length ?? 0
   const belowLg = useBelowLg()
   // Cockpit hauteur fixe (table + inbox à scroll interne) en vue active peuplée — lg+ uniquement
   // (sous lg, un cockpit à hauteur fixe écraserait la table → on rend une page défilante empilée).
@@ -137,7 +149,22 @@ export function WorkspacePage() {
   async function handleDelete(id: string, reason: string) {
     await deleteDossier(id, reason)
     void syncDossiers(orgId)
-    toast.success(t({ fr: 'Brouillon supprimé', en: 'Draft deleted' }))
+    toast.success(
+      t({
+        fr: `Brouillon déplacé dans la corbeille (${TRASH_RETENTION_DAYS} j)`,
+        en: `Draft moved to trash (${TRASH_RETENTION_DAYS} d)`,
+      }),
+      {
+        // Filet « annuler » : restauration en un geste, sans naviguer vers la corbeille.
+        action: {
+          label: t({ fr: 'Restaurer', en: 'Restore' }),
+          onClick: () => {
+            void restoreTrashedDossier(id).then(() => syncDossiers(orgId))
+          },
+        },
+        duration: 8000,
+      },
+    )
   }
   async function handleArchive(id: string, reason: string) {
     await archiveDossier(id, reason)
@@ -148,6 +175,14 @@ export function WorkspacePage() {
     await restoreDossier(id)
     void syncDossiers(orgId)
     toast.success(t({ fr: 'Dossier restauré', en: 'Dossier restored' }))
+    // Dernier archivé restauré → la vue Archivés se vide et sa pilule disparaît : retour à l'actif.
+    if ((await listArchivedDossiers(orgId)).length === 0) setView('active')
+  }
+  async function handleTrashRestore(id: string) {
+    await restoreTrashedDossier(id)
+    void syncDossiers(orgId)
+    toast.success(t({ fr: 'Brouillon restauré', en: 'Draft restored' }))
+    if ((await listTrashedDossiers(orgId)).length === 0) setView('active')
   }
 
   // CS1 : membre scopé = couche SUIVI seulement — pas de création, pas d'édition (RLS 0048 ;
@@ -159,29 +194,61 @@ export function WorkspacePage() {
       </Link>
     </Button>
   )
+  // Pilules de vue : Archivés / Corbeille n'apparaissent que peuplées (la corbeille est un outil
+  // de gestion → masquée pour les membres scopés CS1, comme les actions de fin de vie).
+  const viewPills: { key: typeof view; label: Translatable; count: number }[] = [
+    { key: 'active', label: { fr: 'Actifs', en: 'Active' }, count: activeRows.length },
+    ...(archivedCount > 0
+      ? [
+          {
+            key: 'archived' as const,
+            label: { fr: 'Archivés', en: 'Archived' },
+            count: archivedCount,
+          },
+        ]
+      : []),
+    ...(trashCount > 0 && !scoped
+      ? [{ key: 'trash' as const, label: { fr: 'Corbeille', en: 'Trash' }, count: trashCount }]
+      : []),
+  ]
   const archivedToggle =
-    archivedCount > 0 ? (
+    viewPills.length > 1 ? (
       <div className="bg-muted/60 inline-flex rounded-lg border p-0.5 text-xs font-medium">
-        {(['active', 'archived'] as const).map((v) => (
+        {viewPills.map((v) => (
           <button
-            key={v}
+            key={v.key}
             type="button"
-            aria-pressed={view === v}
-            onClick={() => setView(v)}
+            aria-pressed={view === v.key}
+            onClick={() => setView(v.key)}
             className={cn(
               'cursor-pointer rounded-md px-3 py-1 transition-colors',
-              view === v
+              view === v.key
                 ? 'bg-card text-foreground shadow-xs'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {v === 'active'
-              ? t({ fr: 'Actifs', en: 'Active' })
-              : t({ fr: 'Archivés', en: 'Archived' })}{' '}
-            · {v === 'active' ? activeRows.length : archivedCount}
+            {t(v.label)} · {v.count}
           </button>
         ))}
       </div>
+    ) : null
+
+  // Encart politique de rétention (docs/RETENTION-POLICY.md) — l'argument conformité, dit là où
+  // il se joue : corbeille (grâce puis purge) et archives (jamais purgé).
+  const retentionNote =
+    view === 'trash' || view === 'archived' ? (
+      <p className="text-muted-foreground flex items-start gap-1.5 text-xs">
+        <Info aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+        {view === 'trash'
+          ? t({
+              fr: `Politique de rétention : un brouillon supprimé reste restaurable ${TRASH_RETENTION_DAYS} jours, puis est purgé définitivement (fichiers inclus). L'action reste tracée au journal d'audit.`,
+              en: `Retention policy: a deleted draft can be restored for ${TRASH_RETENTION_DAYS} days, then is permanently purged (files included). The action remains in the audit log.`,
+            })
+          : t({
+              fr: 'Politique de rétention : un dossier soumis est un enregistrement réglementaire (GxP) — conservé sans limite de durée, jamais purgé, restaurable à tout moment.',
+              en: 'Retention policy: a submitted dossier is a regulatory record (GxP) — retained without time limit, never purged, restorable at any time.',
+            })}
+      </p>
     ) : null
 
   const procedureChips =
@@ -208,18 +275,22 @@ export function WorkspacePage() {
       </div>
     ) : null
 
-  const table = (
-    <OperationsTable
-      rows={visible}
-      view={view}
-      now={now.getTime()}
-      scoped={scoped}
-      onOpenDossier={(id) => navigate(`/workspace/${id}/roadmap`)}
-      onDelete={handleDelete}
-      onArchive={handleArchive}
-      onRestore={handleRestore}
-    />
-  )
+  const table =
+    view === 'trash' ? (
+      <TrashTable rows={trashedDossiers ?? []} now={now} onRestore={handleTrashRestore} />
+    ) : (
+      <OperationsTable
+        rows={visible}
+        view={view}
+        now={now.getTime()}
+        scoped={scoped}
+        onOpenDossier={(id) => navigate(`/workspace/${id}/roadmap`)}
+        onDelete={handleDelete}
+        onArchive={handleArchive}
+        onRestore={handleRestore}
+      />
+    )
+  const isEmpty = view === 'trash' ? trashCount === 0 : rows.length === 0
 
   // ─── Cockpit hauteur fixe : aucune barre de défilement de page ; table + inbox scrollent chacun
   //     dans leur panneau. `h-full` se résout sur <main> (flex-1 d'un shell `h-svh`). ───
@@ -302,20 +373,32 @@ export function WorkspacePage() {
           {archivedToggle ? <div className="ml-auto">{archivedToggle}</div> : null}
         </div>
       ) : null}
+      {retentionNote}
       {loading ? (
         <div className="text-muted-foreground text-sm">
           {t({ fr: 'Chargement…', en: 'Loading…' })}
         </div>
-      ) : rows.length === 0 ? (
-        <EmptyState
-          icon={<FileStack />}
-          title={t({ fr: 'Aucun dossier', en: 'No dossier' })}
-          description={t({
-            fr: 'Créez un dossier : choisissez un produit, le format (CTD/eCTD), la procédure et le pays cible.',
-            en: 'Create a dossier: choose a product, the format (CTD/eCTD), the procedure and the target country.',
-          })}
-          action={newDossierBtn}
-        />
+      ) : isEmpty ? (
+        view === 'trash' ? (
+          <EmptyState
+            icon={<Trash2 />}
+            title={t({ fr: 'Corbeille vide', en: 'Trash is empty' })}
+            description={t({
+              fr: 'Les brouillons supprimés apparaissent ici, restaurables pendant la fenêtre de grâce.',
+              en: 'Deleted drafts appear here, restorable during the grace window.',
+            })}
+          />
+        ) : (
+          <EmptyState
+            icon={<FileStack />}
+            title={t({ fr: 'Aucun dossier', en: 'No dossier' })}
+            description={t({
+              fr: 'Créez un dossier : choisissez un produit, le format (CTD/eCTD), la procédure et le pays cible.',
+              en: 'Create a dossier: choose a product, the format (CTD/eCTD), the procedure and the target country.',
+            })}
+            action={newDossierBtn}
+          />
+        )
       ) : (
         <div className="bg-card overflow-hidden rounded-xl border">{table}</div>
       )}
@@ -470,6 +553,14 @@ function ProcChip({
   )
 }
 
+/** Date courte localisée (vues Archivés / Corbeille) — ex. « 5 juil. 2026 » / “5 Jul 2026”. */
+const shortDate = (iso: string, lang: Lang): string =>
+  new Date(iso).toLocaleDateString(lang === 'en' ? 'en-GB' : 'fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+
 // ───────────────────────── Table dense (clic ligne → Roadmap/statut) ─────────────────────────
 function OperationsTable({
   rows,
@@ -521,7 +612,9 @@ function OperationsTable({
           {col({ fr: 'Marché', en: 'Market' }, 'border-b')}
           {col({ fr: 'Statut', en: 'Status' }, 'border-b')}
           {col({ fr: 'Avancement CTD', en: 'CTD progress' }, 'border-b')}
-          {col({ fr: 'Échéance', en: 'Deadline' }, 'border-b')}
+          {view === 'archived'
+            ? col({ fr: 'Archivé le', en: 'Archived on' }, 'border-b')
+            : col({ fr: 'Échéance', en: 'Deadline' }, 'border-b')}
           <th scope="col" className="bg-card sticky top-0 z-10 border-b">
             <span className="sr-only">{t({ fr: 'Actions', en: 'Actions' })}</span>
           </th>
@@ -587,19 +680,29 @@ function OperationsTable({
                 </div>
               </td>
               <td className="px-3 py-2.5 align-middle">
-                <div
-                  className={cn(
-                    'text-xs font-medium tabular-nums',
-                    urgent ? 'text-danger-subtle-foreground' : 'text-foreground',
-                  )}
-                >
-                  {deadlineLabel(r.deadlineDays)}
-                </div>
-                {r.lastActivityAt ? (
-                  <div className="text-muted-foreground text-[10.5px]">
-                    {relativeTime(r.lastActivityAt, lang, now)}
+                {view === 'archived' ? (
+                  // Vue Archivés : la date d'archivage (enregistrement de rétention) remplace
+                  // l'échéance — un dossier archivé n'a plus d'horloge réglementaire qui court.
+                  <div className="text-foreground text-xs font-medium tabular-nums">
+                    {d.archivedAt ? shortDate(d.archivedAt, lang) : '—'}
                   </div>
-                ) : null}
+                ) : (
+                  <>
+                    <div
+                      className={cn(
+                        'text-xs font-medium tabular-nums',
+                        urgent ? 'text-danger-subtle-foreground' : 'text-foreground',
+                      )}
+                    >
+                      {deadlineLabel(r.deadlineDays)}
+                    </div>
+                    {r.lastActivityAt ? (
+                      <div className="text-muted-foreground text-[10.5px]">
+                        {relativeTime(r.lastActivityAt, lang, now)}
+                      </div>
+                    ) : null}
+                  </>
+                )}
               </td>
               <td
                 className="py-2.5 pr-2 pl-1 text-right align-middle opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
@@ -670,6 +773,115 @@ function OperationsTable({
                     </>
                   ) : null}
                 </div>
+              </td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
+  )
+}
+
+// ─────────────── Corbeille : brouillons supprimés, fenêtre de grâce puis purge ───────────────
+function TrashTable({
+  rows,
+  now,
+  onRestore,
+}: {
+  rows: DossierRecord[]
+  now: Date
+  onRestore: (id: string) => Promise<void>
+}) {
+  const { t, lang } = useI18n()
+  if (rows.length === 0) {
+    return (
+      <p className="text-muted-foreground p-6 text-center text-sm">
+        {t({ fr: 'Corbeille vide.', en: 'Trash is empty.' })}
+      </p>
+    )
+  }
+  const col = (label: Translatable, className?: string) => (
+    <th
+      scope="col"
+      className={cn(
+        'bg-card text-muted-foreground sticky top-0 z-10 border-b px-3 py-2.5 text-[11px] font-semibold tracking-wide uppercase',
+        className,
+      )}
+    >
+      {t(label)}
+    </th>
+  )
+  return (
+    <table className="w-full border-collapse text-left">
+      <thead>
+        <tr>
+          <th scope="col" className="bg-card sticky top-0 z-10 border-b">
+            <span className="sr-only">{t({ fr: 'Procédure', en: 'Procedure' })}</span>
+          </th>
+          {col({ fr: 'Produit · réf', en: 'Product · ref' })}
+          {col({ fr: 'Marché', en: 'Market' })}
+          {col({ fr: 'Supprimé le', en: 'Deleted on' })}
+          {col({ fr: 'Purge automatique', en: 'Automatic purge' })}
+          <th scope="col" className="bg-card sticky top-0 z-10 border-b">
+            <span className="sr-only">{t({ fr: 'Actions', en: 'Actions' })}</span>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((d) => {
+          // deletedAt garanti non nul par listTrashedDossiers ; repli défensif = purge « aujourd'hui ».
+          const daysLeft = trashDaysLeft(d.deletedAt ?? now.toISOString(), now)
+          const ref = dossierRef(d)
+          return (
+            <tr key={d.id} className="border-b last:border-0">
+              <td className="py-2.5 pr-1 pl-3 align-middle">
+                <span
+                  aria-hidden
+                  title={procedureLabel(d.activity, lang)}
+                  className="block size-2.5 rounded-full opacity-50"
+                  style={{ background: PROCEDURE_DOT[d.activity] ?? '#6b7280' }}
+                />
+                <span className="sr-only">{procedureLabel(d.activity, lang)}</span>
+              </td>
+              <td className="min-w-0 px-3 py-2.5 align-middle">
+                <span className="font-display text-sm font-semibold">{d.productName}</span>
+                <div className="text-muted-foreground mt-0.5 flex items-center gap-2 text-[11px]">
+                  {ref ? <span className="font-mono">{ref}</span> : null}
+                  <span>
+                    {ref ? '· ' : ''}
+                    {procedureLabel(d.activity, lang)}
+                  </span>
+                </div>
+              </td>
+              <td className="px-3 py-2.5 align-middle">
+                <span className="flex items-center gap-1.5 text-xs">
+                  <CountryFlag code={d.country} size={16} />
+                  <span className="hidden sm:inline">{countryLabel(d.country, lang)}</span>
+                </span>
+              </td>
+              <td className="px-3 py-2.5 align-middle">
+                <span className="text-xs font-medium tabular-nums">
+                  {d.deletedAt ? shortDate(d.deletedAt, lang) : '—'}
+                </span>
+              </td>
+              <td className="px-3 py-2.5 align-middle">
+                <span
+                  className={cn(
+                    'text-xs font-medium tabular-nums',
+                    daysLeft <= 7 ? 'text-danger-subtle-foreground' : 'text-muted-foreground',
+                  )}
+                >
+                  {daysLeft > 0
+                    ? t({ fr: `dans ${daysLeft} j`, en: `in ${daysLeft} d` })
+                    : t({ fr: 'imminente', en: 'imminent' })}
+                </span>
+              </td>
+              <td className="py-2.5 pr-2 pl-1 text-right align-middle">
+                <DossierAction
+                  mode="restore-trash"
+                  name={d.productName}
+                  onConfirm={() => onRestore(d.id)}
+                />
               </td>
             </tr>
           )

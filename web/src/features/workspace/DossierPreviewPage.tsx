@@ -21,7 +21,13 @@ import { cn } from '@/lib/utils'
 import { listAttachments } from './dossier-attachments-repository'
 import { DossierAction } from './dossier-action'
 import { countryLabel } from './dossier-constants'
-import { archiveDossier, deleteDossier, getDossier, restoreDossier } from './dossier-repository'
+import {
+  archiveDossier,
+  deleteDossier,
+  getDossier,
+  restoreDossier,
+  TRASH_RETENTION_DAYS,
+} from './dossier-repository'
 import {
   attachmentsForNode,
   buildDocsByNode,
@@ -229,7 +235,10 @@ export function DossierPreviewPage() {
       isArchived
         ? t({ fr: 'Dossier restauré', en: 'Dossier restored' })
         : status === 'draft'
-          ? t({ fr: 'Brouillon supprimé', en: 'Draft deleted' })
+          ? t({
+              fr: `Brouillon déplacé dans la corbeille (${TRASH_RETENTION_DAYS} j)`,
+              en: `Draft moved to trash (${TRASH_RETENTION_DAYS} d)`,
+            })
           : t({ fr: 'Dossier archivé', en: 'Dossier archived' }),
     )
     navigate('/workspace')

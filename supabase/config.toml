@@ -400,6 +400,11 @@ verify_jwt = false
 [functions.lifecycle-reminders]
 verify_jwt = false
 
+# Purge de rétention de la corbeille (LOT 9) : appelée par pg_cron/pg_net (migration 0054) —
+# même barrière que lifecycle-reminders (secret partagé x-cron-secret, hash Vault 0051).
+[functions.retention-purge]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

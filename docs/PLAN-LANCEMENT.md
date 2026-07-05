@@ -26,10 +26,11 @@ La refonte est **bien engagée** — plusieurs surfaces majeures sont déjà ref
 > ce sont des **LOTs de CE projet de refonte complète de l'app**, qui se poursuit par les surfaces restantes
 > (LOTs 7-10) **puis la refonte du landing (LOT 11)**. Tout converge vers le même design-system.
 
-**Reste (MAJ 2026-07-05 — lifecycle M0–M6+CS1 ✅, LOT 10 ✅ CLOS, LOTs 7-8 ✅)** : **LOT 9
-(Dossiers+Corbeille)** → **LOT 11 landing** → LOT 12 i18n+M4 → LOT 13 recette finale →
+**Reste (MAJ 2026-07-05 — lifecycle M0–M6+CS1 ✅, LOT 10 ✅ CLOS, LOTs 7-8-9 ✅)** :
+**LOT 11 landing** → LOT 12 i18n+M4 → LOT 13 recette finale →
 **LOT 14 GO-LIVE (= N4)**. Recettes CEO en attente : M4 + CS1 + M7 + **LOT 7 (visuel /compte)** +
-**LOT 8 (visuel /admin + dark : texte sombre sur remplissages primaires — fix AA)**.
+**LOT 8 (visuel /admin + dark : texte sombre sur remplissages primaires — fix AA)** +
+**LOT 9 (corbeille/archive : cycle supprimer → restaurer → note de rétention)**.
 **M8 (fin de collaboration + modération) + CS1 phase 2 (éditeurs scopés) = post-GO-LIVE** (M8 gated sur la
 décision « mode Agence multi-clients »).
 
@@ -112,7 +113,16 @@ zéro-rework (combiner / zone protégée). Lots :
   **recherche** Organisations/Utilisateurs (insensible accents), **Overview cockpit SaaS** (bandeau
   4 KPI Syne + statut santé global 70/90 + répartition IA en barres + top consommateurs + CTA
   journal).
-- **LOT 9 — Dossiers + Corbeille/Archive** — ⬜ *(COMBINÉ : refonte + feature rétention #3 en un lot)*.
+- **LOT 9 — Dossiers + Corbeille/Archive** — ✅ **LIVRÉ (2026-07-05)** : la surface Dossiers
+  (board Opérations) était déjà DS (#264) → le lot livre la **fin de vie** = **Corbeille**
+  (3ᵉ pilule du board : brouillons supprimés restaurables, compte à rebours de purge, toast
+  « Restaurer » undo) + **purge de rétention automatique à 30 j CÔTÉ SERVEUR** (Edge
+  `retention-purge` + pg_cron 05:37 UTC, migration `0054` — pattern 0050/0051, secret Vault
+  partagé ; fichiers Storage réellement effacés, enfants DB purgés, **squelette tombstone**
+  conservé pour la sync + l'audit ; garde GxP SQL : jamais un dossier soumis ; `purged_at`
+  server-managed par trigger) + **Archive enrichie** (colonne « Archivé le », note GxP) +
+  **[RETENTION-POLICY.md](RETENTION-POLICY.md)** (argument conformité). Miroir local : purge
+  des enfants Dexie au pull.
 - **LOT 10 — Correspondance + v3 + relances auto + Agent local** — ✅ **LIVRÉ & CLOS
   (2026-07-04→05)** : **relances auto** (Edge `lifecycle-reminders` quotidienne + migrations
   `0050`/`0051` pg_cron/pg_net/Vault, seuils par pays agent 14 j / agence 30 j, e-mail côté
@@ -178,12 +188,12 @@ Design-system **documenté + appliqué partout** · light/dark + **FR/EN complet
 ## 🧱 Stack (verrouillé — aucune décision nouvelle)
 Vite 8 · React 19 · TS 6 strict · Tailwind v4 + shadcn/ui (tokens light/dark) · Dexie offline-first ·
 Supabase (Postgres/RLS/Auth/Storage/Edge) · Vertex Gemini · Cloudflare Pages · pdf-lib/pdfjs · i18n FR/EN.
-Landing = `landing/` statique isolé, mêmes tokens. **Migrations : dernière posée = `0047` (`lifecycle_events`) → reprendre à `0048`** ; la plupart des lots = front-only.
+Landing = `landing/` statique isolé, mêmes tokens. **Migrations : dernière posée = `0054` (`retention_purge`, LOT 9) → reprendre à `0055`** ; la plupart des lots restants = front-only.
 
 ---
 
 ### Récap ultra-court (l'ordre consolidé 2026-07-02 v2)
-**A. LOT 0 pré-vol (//)** → **B. LOT 1 fondation ✅** → **C′. lifecycle M3 → M4 → CS1 collaboration scopée →
-M5-M6 (valeur pilote)** → **C. LOTs 7-9 surfaces restantes** → **LOT 10 Correspondance⊕relances⊕Agent (fusion)**
+**A. LOT 0 pré-vol (//)** → **B. LOT 1 fondation ✅** → **C′. lifecycle M3 ✅ → CS1 ✅ →
+M5-M6 ✅ (M4 → LOT 12)** → **C. LOTs 7-9 surfaces restantes ✅** → **LOT 10 Correspondance⊕relances⊕Agent ✅**
 → **D. LOT 11 landing** → **E. LOT 12 i18n+M4 puis LOT 13 recette finale** → **F. LOT 14 GO-LIVE.**
 *(M8 modération + CS1 phase 2 = post-GO-LIVE.)*

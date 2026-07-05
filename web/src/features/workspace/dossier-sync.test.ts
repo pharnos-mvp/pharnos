@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import type { DossierRecord } from '@/lib/db'
-import { dossierToRow, rowToDossier } from './dossier-sync'
+import { db, type DossierRecord } from '@/lib/db'
+import { dossierToRow, purgeLocalChildren, rowToDossier } from './dossier-sync'
 
 const rec: DossierRecord = {
   id: 'd1',
@@ -20,6 +20,7 @@ const rec: DossierRecord = {
   archivedAt: null,
   opYear: null,
   opNumber: null,
+  purgedAt: null,
 }
 
 describe('dossier sync mapping', () => {
@@ -68,5 +69,71 @@ describe('dossier sync mapping', () => {
     const numbered = rowToDossier({ ...dossierToRow(rec), op_year: 2026, op_number: 7 })
     expect(numbered.opYear).toBe(2026)
     expect(numbered.opNumber).toBe(7)
+  })
+
+  it('purge de rétention (0054) : JAMAIS poussée par le client, mais mappée au pull', () => {
+    // Un appareil retardataire qui re-pousse un dossier purgé ne doit pas « dé-purger » le
+    // squelette tombstone serveur → purged_at est absent du push (pattern op_year/op_number).
+    const row = dossierToRow({ ...rec, purgedAt: '2026-08-01T05:37:00.000Z' })
+    expect('purged_at' in row).toBe(false)
+    // Le pull descend la purge dans Dexie (déclenche le miroir local des enfants).
+    const purged = rowToDossier({ ...dossierToRow(rec), purged_at: '2026-08-01T05:37:00.000Z' })
+    expect(purged.purgedAt).toBe('2026-08-01T05:37:00.000Z')
+  })
+
+  it('miroir local de purge : enfants effacés, BLOBS de pièces jointes inclus (espace rendu)', async () => {
+    const now = '2026-08-01T00:00:00.000Z'
+    await db.dossierAttachments.add({
+      id: 'att-1',
+      orgId: 'org-1',
+      dossierId: 'd1',
+      nodeNumber: '1.2',
+      fileName: 'gmp.pdf',
+      mimeType: 'application/pdf',
+      size: 3,
+      filePath: null,
+      uploaded: false,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+    })
+    await db.documentBlobs.add({ id: 'att-1', blob: new Blob(['pdf']) })
+    await db.generatedDocs.add({
+      id: 'gen-1',
+      orgId: 'org-1',
+      dossierId: 'd1',
+      nodeNumber: '1.0',
+      templateKey: 'cover',
+      title: 'Cover',
+      content: {},
+      status: 'draft',
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+    })
+    await db.lifecycleEvents.add({
+      id: 'ev-1',
+      orgId: 'org-1',
+      dossierId: 'd1',
+      type: 'submitted',
+      actorId: 'u1',
+      actorEmail: '',
+      occurredAt: now,
+      payload: {},
+      docRefs: [],
+      createdAt: now,
+    })
+    // Un autre dossier n'est PAS touché (l'effacement est ciblé).
+    await db.documentBlobs.add({ id: 'att-other', blob: new Blob(['x']) })
+
+    await purgeLocalChildren('d1')
+
+    expect(await db.dossierAttachments.where('dossierId').equals('d1').count()).toBe(0)
+    expect(await db.generatedDocs.where('dossierId').equals('d1').count()).toBe(0)
+    expect(await db.lifecycleEvents.where('dossierId').equals('d1').count()).toBe(0)
+    expect(await db.documentBlobs.get('att-1')).toBeUndefined()
+    expect(await db.documentBlobs.get('att-other')).toBeDefined()
+
+    await db.documentBlobs.clear()
   })
 })
