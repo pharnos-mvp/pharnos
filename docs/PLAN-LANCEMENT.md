@@ -93,14 +93,16 @@ zéro-rework (combiner / zone protégée). Lots :
 - **LOT 7 — Compte / Abonnement** — ⬜ (+ affichage du **barème** validé en LOT 0 + vérif P0-3).
 - **LOT 8 — Admin / god mode** — ⬜.
 - **LOT 9 — Dossiers + Corbeille/Archive** — ⬜ *(COMBINÉ : refonte + feature rétention #3 en un lot)*.
-- **LOT 10 — Correspondance + v3 + relances auto + Agent local** — ✅ **LIVRÉ à 90 %
-  (2026-07-04)** : **relances auto** (Edge `lifecycle-reminders` quotidienne + migrations
+- **LOT 10 — Correspondance + v3 + relances auto + Agent local** — ✅ **LIVRÉ & CLOS
+  (2026-07-04→05)** : **relances auto** (Edge `lifecycle-reminders` quotidienne + migrations
   `0050`/`0051` pg_cron/pg_net/Vault, seuils par pays agent 14 j / agence 30 j, e-mail côté
   labo) **+ v3 export PDF du fil (audit) + délai d'attente dans le chat** (surface WhatsApp
   validée CEO conservée) **+ M7 vue Agent local tokenisée** (mockup validé GO CEO → onglet
   « Parcours » sur `/r/<token>`, actions agent par étape, migration `0052` — détail
-  [PLAN-LIFECYCLE.md](PLAN-LIFECYCLE.md) §8). **Reste (queue du lot)** : **lettre de réponse**
-  (nouveau template RA bilingue — contenu à valider CEO) · multi-destinataires (option).
+  [PLAN-LIFECYCLE.md](PLAN-LIFECYCLE.md) §8). **« Lettre de réponse » ABANDONNÉE (décision CEO
+  2026-07-05)** : pas de template (réponse point-par-point aux requêtes de l'agence, contenu
+  libre) → le flux `authority_response` + pièce jointe existant suffit. Suivi point-par-point
+  structuré + multi-destinataires = **backlog optionnel** (non-MVP).
 
 ### ▶ PHASE C′ — Chantier Lifecycle M3→M6 + CS1 (PRIORITAIRE — s'exécute AVANT les LOTs 7-10)
 **Pourquoi d'abord** : valeur pilote immédiate (les dossiers réels du pilote #1 Bénin = renouvellements +

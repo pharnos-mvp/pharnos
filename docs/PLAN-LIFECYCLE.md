@@ -303,6 +303,12 @@ insert service-role `actor_id='recipient'` + `actor_email` (ALCOA), statut FRAIS
 `lifecycle` du payload `open` strippe les chemins Storage (l'agent ne voit que noms/tailles).
 Échantillons/frais = lecture seule (pilotés labo, #3).
 
-**Reste du plan** : LOT 10 — **lettre de réponse** (nouveau template RA bilingue, contenu à
-valider CEO) + option multi-destinataires ; M8 fin de collaboration + modération =
-**post-GO-LIVE**.
+**LOT 10 CLOS (décision CEO 2026-07-05)** : la « lettre de réponse à une notification » **n'a PAS
+de template** — c'est une **réponse point-par-point aux requêtes de l'agence** (contenu 100 %
+libre, aucune forme officielle). Le flux existant la couvre déjà : `authority_query` journalise la
+notification reçue, `authority_response` journalise la réponse **avec sa pièce jointe** (l'RA
+rédige dans son outil et joint son document). **Pas de générateur de document** (il serait faux et
+redondant). Un éventuel *suivi point-par-point structuré* (checklist des requêtes → réponse par
+point, signal Roadmap « N/M traités ») reste un **backlog optionnel**, non requis au MVP.
+Multi-destinataires = backlog optionnel aussi. **Reste sur la spine : M8** fin de collaboration +
+modération = **post-GO-LIVE**.
