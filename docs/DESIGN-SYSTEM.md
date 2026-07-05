@@ -78,13 +78,14 @@
 | `StatusBadge` | Badge de **statut sémantique** (success/warning/danger/info/neutral) : fond `subtle` + texte AA — sens porté par la couleur **et** le texte (a11y 1.4.1). |
 | `Button` var. `primary` | **CTA premium bleu** de la DA (`bg-info` = `.btn-primary` du mockup). Source unique — remplace la chaîne magique `BLUE_BTN`. |
 | `ListRow` (+`ListRowIcon`/`ListRowLink`/`ListRowActions`) | **Ligne-carte premium** (hover-lift, lien étiré, anneau de focus) — unifie `.doc-row`/`.cat-row`/`.alert-row`. Tokens sémantiques (premium == neutre dans `index.css`). |
+| `Section` | **Bloc titré** (LOT 7) : carte `bg-card` + en-tête h2 Syne / description / actions + contenu. Pages de réglages/regroupements — remplace cartes + titres ad-hoc (1ers consommateurs : Compte, InfoPro, Équipe). |
 
 **Règles encodées par les primitives (LOT 1)** : `Page` porte la **respiration en-tête de 24 px** (le titre du corps ne colle plus au header). Le **titre du corps** (`PageHeader`) est **descriptif et distinct** du libellé de section du topbar (jamais « Catalogue » deux fois). Une page qui a **sa propre recherche** appelle `useHideTopbarSearch()` (`components/layout/topbar-search`) → **une seule** recherche par écran.
 
 **À venir avec leur 1ʳᵉ surface (YAGNI — pas de primitive inutilisée)** : `ActionBar` (barre d'actions
-sticky — viendra avec le LOT Workspace/CTD), `Section` (bloc titré — avec le 1er regroupement qui en a
-besoin). Compléter les shadcn manquants (tooltip, popover, separator, switch, checkbox, avatar) **au fil**
-des surfaces qui les consomment.
+sticky — viendra avec le LOT Workspace/CTD). ~~`Section`~~ **livrée au LOT 7** (Compte). Compléter les
+shadcn manquants (tooltip, popover, separator, switch, checkbox, avatar) **au fil** des surfaces qui les
+consomment.
 
 ## Écrans de référence (preuve de la fondation)
 - **Dashboard** (`features/dashboard/DashboardPage.tsx`) — **DA validée CEO le 2026-06-27 : c'est LA

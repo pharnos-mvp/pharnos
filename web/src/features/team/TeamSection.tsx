@@ -16,6 +16,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Section } from '@/components/ui/section'
 import {
   Select,
   SelectContent,
@@ -134,17 +135,13 @@ export function TeamSection({ orgId, onUpgrade }: { orgId: string; onUpgrade?: (
   }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-background sticky top-0 z-10 border-b pb-3">
-        <h3 className="text-sm font-medium">{t({ fr: 'Équipe', en: 'Team' })}</h3>
-        <p className="text-muted-foreground text-xs">
-          {t({
-            fr: 'Invitez des coéquipiers et gérez leurs rôles. Le Lecteur est en lecture seule.',
-            en: 'Invite teammates and manage their roles. Reader is read-only.',
-          })}
-        </p>
-      </div>
-
+    <Section
+      title={t({ fr: 'Équipe', en: 'Team' })}
+      description={t({
+        fr: 'Invitez des coéquipiers et gérez leurs rôles. Le Lecteur est en lecture seule.',
+        en: 'Invite teammates and manage their roles. Reader is read-only.',
+      })}
+    >
       {isAdmin && teamTeaser ? (
         <div className="bg-muted/40 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
           <div className="text-sm">
@@ -165,7 +162,7 @@ export function TeamSection({ orgId, onUpgrade }: { orgId: string; onUpgrade?: (
       ) : null}
 
       {isAdmin && !teamLocked ? (
-        <div className="bg-card flex flex-wrap items-end gap-3 rounded-lg border p-4">
+        <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
           <label className="space-y-1 text-sm">
             <span className="text-muted-foreground text-xs">
               {t({ fr: 'E-mail à inviter', en: 'Email to invite' })}
@@ -320,9 +317,9 @@ export function TeamSection({ orgId, onUpgrade }: { orgId: string; onUpgrade?: (
       {/* Invitations en attente */}
       {data && data.pending.length > 0 ? (
         <div className="space-y-2">
-          <h4 className="text-sm font-medium">
+          <h3 className="text-sm font-medium">
             {t({ fr: 'Invitations en attente', en: 'Pending invitations' })}
-          </h4>
+          </h3>
           <div className="overflow-x-auto rounded-lg border">
             <Table>
               <TableHeader>
@@ -367,6 +364,6 @@ export function TeamSection({ orgId, onUpgrade }: { orgId: string; onUpgrade?: (
           </div>
         </div>
       ) : null}
-    </div>
+    </Section>
   )
 }

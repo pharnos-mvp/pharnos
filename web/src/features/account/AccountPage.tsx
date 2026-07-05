@@ -5,9 +5,11 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useTheme } from 'next-themes'
 import {
   Building2,
+  Check,
   ClipboardList,
   CreditCard,
   Loader2,
+  Lock,
   LogOut,
   Settings2,
   ShieldAlert,
@@ -28,8 +30,12 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
+import { ErrorState } from '@/components/ui/error-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Page } from '@/components/ui/page'
+import { Section } from '@/components/ui/section'
 import {
   Select,
   SelectContent,
@@ -37,10 +43,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { useAuth } from '@/features/auth/auth-context'
 import { choosePlan } from '@/features/org/org-repository'
 import { useOrgId } from '@/features/org/org-context'
 import { useCurrentOrg, useMemberScope } from '@/features/org/use-current-org'
+import { PLAN_CATALOG } from '@/features/org/plan-catalog'
 import { TeamSection } from '@/features/team/TeamSection'
 import {
   PLAN_LABEL,
@@ -51,24 +60,36 @@ import {
 } from '@/features/org/use-org-plan'
 import { featureState, FEATURES } from '@/features/org/feature-state'
 import { db } from '@/lib/db'
+import { formatBytes } from '@/lib/format-bytes'
 import { useI18n, type Lang } from '@/lib/i18n-context'
 import { imageFileToAvatarDataUrl, MAX_IMAGE_BYTES } from '@/lib/image-utils'
 import { initials } from '@/lib/initials'
 import { setSyncEnabledCache } from '@/lib/sync-prefs'
+import { cn } from '@/lib/utils'
 import { purgeLocalData, updatePassword, updateProfileMetadata } from './account-repository'
 import { ImageField } from './ImageField'
 import { InfoProSection } from './InfoProSection'
 
-type Section = 'perso' | 'pro' | 'abonnement' | 'team' | 'prefs' | 'logs' | 'danger'
+type SectionKey = 'perso' | 'pro' | 'abonnement' | 'team' | 'prefs' | 'logs' | 'danger'
+
+// Pilules de sous-navigation — mêmes classes que CatalogueTabs (pattern intra-page unifié),
+// + anneau de focus clavier du DS (cf. ListRowLink).
+const pillBase =
+  'inline-flex h-9 items-center gap-2 rounded-lg px-3.5 text-[13.5px] font-medium transition-colors lg:w-full ' +
+  'outline-none focus-visible:ring-ring/60 focus-visible:ring-2 focus-visible:ring-offset-2'
+const pillInactive = 'text-muted-foreground hover:bg-accent'
+const pillActive = 'bg-info text-white'
 
 export function AccountPage() {
   const { user, signOut } = useAuth()
   const orgId = useOrgId()
   const { t, lang, setLang } = useI18n()
   const location = useLocation()
-  const [section, setSection] = useState<Section>(
-    (location.state as { section?: Section } | null)?.section ?? 'perso',
+  const [section, setSection] = useState<SectionKey>(
+    (location.state as { section?: SectionKey } | null)?.section ?? 'perso',
   )
+  // Même query (clé partagée) que le shell — badge de plan de la carte identité, 0 requête en plus.
+  const { data: plan } = useOrgPlan()
 
   const meta = (user?.user_metadata ?? {}) as Record<string, string | undefined>
   // « Nom d'admin » : le nom d'utilisateur choisi prime sur prénom+nom (recette CEO).
@@ -81,9 +102,9 @@ export function AccountPage() {
   // branding pro, journal d'audit) ne le concernent pas ; la RLS (0048) les viderait de toute
   // façon. Restent : infos perso, préférences, zone rouge (son propre compte).
   const { scoped } = useMemberScope()
-  const orgOnlySections: Section[] = ['pro', 'abonnement', 'team', 'logs']
+  const orgOnlySections: SectionKey[] = ['pro', 'abonnement', 'team', 'logs']
 
-  const allNav: { key: Section; label: string; icon: typeof UserCircle2 }[] = [
+  const allNav: { key: SectionKey; label: string; icon: typeof UserCircle2 }[] = [
     {
       key: 'perso',
       label: t({ fr: 'Infos personnelles', en: 'Personal info' }),
@@ -110,52 +131,65 @@ export function AccountPage() {
   const activeSection = scoped && orgOnlySections.includes(section) ? 'perso' : section
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <header className="mb-6 flex items-center gap-3 border-b pb-4">
-        <div className="bg-primary text-primary-foreground flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full text-lg font-semibold">
-          {meta.photo ? (
-            <img src={meta.photo} alt="" className="size-full object-cover" />
-          ) : (
-            initials(displayName)
-          )}
-        </div>
-        <div className="min-w-0">
-          <div className="truncate font-semibold">{displayName}</div>
-          {user?.email ? (
-            <div className="text-muted-foreground truncate text-sm">{user.email}</div>
+    <Page>
+      {/* Carte identité — l'h1 de la page (pattern fiche/cockpit du DS) */}
+      <header className="bg-card rounded-xl border p-5">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="bg-primary text-primary-foreground flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full text-lg font-semibold">
+            {meta.photo ? (
+              <img src={meta.photo} alt="" className="size-full object-cover" />
+            ) : (
+              initials(displayName)
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <h1
+              className="font-display truncate text-xl font-bold tracking-tight"
+              title={displayName}
+            >
+              {displayName}
+            </h1>
+            <p className="text-muted-foreground truncate text-sm">
+              {user?.email}
+              {user?.email && orgName ? ' · ' : ''}
+              {orgName}
+            </p>
+          </div>
+          {plan && !scoped ? (
+            <span className="bg-primary text-primary-foreground rounded-full px-3 py-1 text-sm font-semibold">
+              {t(PLAN_LABEL[plan.plan])}
+            </span>
           ) : null}
-          {orgName ? <div className="text-muted-foreground truncate text-xs">{orgName}</div> : null}
         </div>
       </header>
 
-      <div className="flex flex-col gap-6 md:h-[calc(100svh-12rem)] md:flex-row">
-        <nav className="flex shrink-0 flex-row flex-wrap gap-1 md:w-56 md:flex-col md:overflow-auto">
+      <div className="flex flex-col gap-6 lg:flex-row">
+        <nav
+          aria-label={t({ fr: 'Sections du compte', en: 'Account sections' })}
+          className="flex shrink-0 flex-row flex-wrap gap-1.5 lg:sticky lg:top-6 lg:w-52 lg:flex-col lg:self-start"
+        >
           {nav.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               type="button"
               onClick={() => setSection(key)}
-              className={
-                'flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm ' +
-                (activeSection === key
-                  ? 'bg-accent font-medium'
-                  : 'text-muted-foreground hover:bg-accent/50')
-              }
+              aria-current={activeSection === key ? 'page' : undefined}
+              className={cn(pillBase, activeSection === key ? pillActive : pillInactive)}
             >
-              <Icon className="size-4" />
-              {label}
+              <Icon className="size-4 shrink-0" />
+              <span className="truncate">{label}</span>
             </button>
           ))}
           <Button
             variant="ghost"
-            className="text-muted-foreground mt-1 justify-start"
+            className="text-muted-foreground justify-start lg:mt-2"
             onClick={() => void signOut()}
           >
             <LogOut className="size-4" /> {t({ fr: 'Déconnexion', en: 'Sign out' })}
           </Button>
         </nav>
 
-        <div className="min-w-0 flex-1 md:overflow-auto">
+        <div className="min-w-0 flex-1 space-y-6">
           {activeSection === 'perso' && <PersonalSection key={user?.id ?? 'local'} />}
           {activeSection === 'pro' && <InfoProSection />}
           {activeSection === 'abonnement' && <AbonnementSection />}
@@ -167,7 +201,7 @@ export function AccountPage() {
           {activeSection === 'danger' && <DangerSection onDeleted={() => void signOut()} />}
         </div>
       </div>
-    </div>
+    </Page>
   )
 }
 
@@ -264,41 +298,48 @@ function PersonalSection() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-background sticky top-0 z-10 flex items-center justify-between gap-3 border-b pb-3">
-        <h3 className="text-sm font-medium">
-          {t({ fr: 'Infos personnelles', en: 'Personal info' })}
-        </h3>
-        <Button size="sm" disabled={saving || !dirty} onClick={() => void save()}>
-          {t({ fr: 'Enregistrer', en: 'Save' })}
-        </Button>
-      </div>
-      <ImageField
-        label={t({ fr: 'Photo', en: 'Photo' })}
-        value={photo}
-        uploadLabel={t({ fr: 'Téléverser', en: 'Upload' })}
-        onPick={(f) => void handlePhoto(f)}
-        onRemove={() => {
-          setPhoto(null)
-          void save({ photo: null })
-        }}
-      />
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label={t({ fr: 'Nom', en: 'Last name' })}>
-          <Input value={nom} onChange={(e) => setNom(e.target.value)} />
-        </Field>
-        <Field label={t({ fr: 'Prénom(s)', en: 'First name(s)' })}>
-          <Input value={prenom} onChange={(e) => setPrenom(e.target.value)} />
-        </Field>
-        <Field label={t({ fr: "Nom d'utilisateur", en: 'Username' })}>
-          <Input value={username} onChange={(e) => setUsername(e.target.value)} />
-        </Field>
-        <Field label="Email">
-          <Input value={user.email ?? ''} disabled />
-        </Field>
-      </div>
+      <Section
+        title={t({ fr: 'Infos personnelles', en: 'Personal info' })}
+        description={t({
+          fr: 'Nom, nom d’utilisateur et photo de votre compte.',
+          en: 'Your account name, username and photo.',
+        })}
+        actions={
+          <Button size="sm" disabled={saving || !dirty} onClick={() => void save()}>
+            {t({ fr: 'Enregistrer', en: 'Save' })}
+          </Button>
+        }
+      >
+        <ImageField
+          label={t({ fr: 'Photo', en: 'Photo' })}
+          value={photo}
+          uploadLabel={t({ fr: 'Téléverser', en: 'Upload' })}
+          onPick={(f) => void handlePhoto(f)}
+          onRemove={() => {
+            setPhoto(null)
+            void save({ photo: null })
+          }}
+        />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label={t({ fr: 'Nom', en: 'Last name' })}>
+            <Input value={nom} onChange={(e) => setNom(e.target.value)} />
+          </Field>
+          <Field label={t({ fr: 'Prénom(s)', en: 'First name(s)' })}>
+            <Input value={prenom} onChange={(e) => setPrenom(e.target.value)} />
+          </Field>
+          <Field label={t({ fr: "Nom d'utilisateur", en: 'Username' })}>
+            <Input value={username} onChange={(e) => setUsername(e.target.value)} />
+          </Field>
+          <Field label="Email">
+            <Input value={user.email ?? ''} disabled />
+          </Field>
+        </div>
+      </Section>
 
-      <div className="space-y-3 border-t pt-6">
-        <h3 className="text-sm font-medium">{t({ fr: 'Mot de passe', en: 'Password' })}</h3>
+      <Section
+        title={t({ fr: 'Mot de passe', en: 'Password' })}
+        description={t({ fr: '8 caractères minimum.', en: '8 characters minimum.' })}
+      >
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t({ fr: 'Nouveau mot de passe', en: 'New password' })}>
             <Input type="password" value={pw1} onChange={(e) => setPw1(e.target.value)} />
@@ -310,7 +351,7 @@ function PersonalSection() {
         <Button variant="outline" onClick={() => void changePassword()}>
           {t({ fr: 'Changer le mot de passe', en: 'Change password' })}
         </Button>
-      </div>
+      </Section>
     </div>
   )
 }
@@ -352,7 +393,13 @@ function PreferencesSection({ lang, setLang }: { lang: Lang; setLang: (l: Lang) 
   }
 
   return (
-    <div className="space-y-6">
+    <Section
+      title={t({ fr: 'Préférences', en: 'Preferences' })}
+      description={t({
+        fr: 'Langue de l’interface, thème et synchronisation.',
+        en: 'Interface language, theme and sync.',
+      })}
+    >
       <Field label={t({ fr: 'Langue', en: 'Language' })}>
         <Select value={lang} onValueChange={(v) => setLang(v as Lang)}>
           <SelectTrigger className="w-56">
@@ -406,7 +453,7 @@ function PreferencesSection({ lang, setLang }: { lang: Lang; setLang: (l: Lang) 
           </p>
         </div>
       </Field>
-    </div>
+    </Section>
   )
 }
 
@@ -435,37 +482,53 @@ function LogsSection({ orgId }: { orgId: string }) {
       dossier_attachment: t({ fr: 'Pièce jointe', en: 'Attachment' }),
     })[e] ?? e
 
-  const actionColor = (a: string) =>
+  // Statut sémantique (tokens light/dark AA) — plus de couleurs Tailwind en dur.
+  const actionTone = (a: string) =>
     a === 'delete'
-      ? 'bg-red-100 text-red-700'
+      ? ('danger' as const)
       : a === 'create'
-        ? 'bg-emerald-100 text-emerald-700'
-        : 'bg-amber-100 text-amber-700'
-
-  if (!entries || entries.length === 0) {
-    return (
-      <p className="text-muted-foreground text-sm">
-        {t({ fr: 'Aucune action enregistrée.', en: 'No recorded actions.' })}
-      </p>
-    )
-  }
+        ? ('success' as const)
+        : ('warning' as const)
 
   return (
-    <ul className="divide-y rounded-lg border">
-      {entries.map((e) => (
-        <li key={e.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-3 text-sm">
-          <span className={`rounded px-2 py-0.5 text-xs ${actionColor(e.action)}`}>
-            {actionLabel(e.action)}
-          </span>
-          <span className="text-muted-foreground text-xs">{entityLabel(e.entity)}</span>
-          <span className="min-w-0 flex-1 truncate">{e.label}</span>
-          <span className="text-muted-foreground shrink-0 text-xs">{e.actorEmail}</span>
-          <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
-            {new Date(e.at).toLocaleString()}
-          </span>
-        </li>
-      ))}
-    </ul>
+    <Section
+      title={t({ fr: 'Journal d’audit', en: 'Audit log' })}
+      description={t({
+        fr: 'Les 50 dernières actions sur les données de l’organisation.',
+        en: 'The 50 most recent actions on organization data.',
+      })}
+    >
+      {entries === undefined ? (
+        <div className="space-y-2">
+          <Skeleton className="h-10 rounded-lg" />
+          <Skeleton className="h-10 rounded-lg" />
+          <Skeleton className="h-10 rounded-lg" />
+        </div>
+      ) : entries.length === 0 ? (
+        <EmptyState
+          icon={<ClipboardList />}
+          title={t({ fr: 'Aucune action enregistrée', en: 'No recorded actions' })}
+          description={t({
+            fr: 'Les créations, modifications et suppressions apparaîtront ici.',
+            en: 'Creations, updates and deletions will appear here.',
+          })}
+        />
+      ) : (
+        <ul className="divide-y rounded-lg border">
+          {entries.map((e) => (
+            <li key={e.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-3 text-sm">
+              <StatusBadge tone={actionTone(e.action)}>{actionLabel(e.action)}</StatusBadge>
+              <span className="text-muted-foreground text-xs">{entityLabel(e.entity)}</span>
+              <span className="min-w-0 flex-1 truncate">{e.label}</span>
+              <span className="text-muted-foreground shrink-0 text-xs">{e.actorEmail}</span>
+              <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
+                {new Date(e.at).toLocaleString()}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Section>
   )
 }
 
@@ -484,17 +547,19 @@ function DangerSection({ onDeleted }: { onDeleted: () => void }) {
     onDeleted()
   }
   return (
-    <div className="border-destructive/40 space-y-3 rounded-lg border p-4">
-      <div className="flex items-center gap-2">
-        <ShieldAlert className="text-destructive size-5" />
-        <h3 className="font-medium">{t({ fr: 'Suppression de compte', en: 'Delete account' })}</h3>
-      </div>
-      <p className="text-muted-foreground text-sm">
-        {t({
-          fr: 'Efface vos données locales et vous déconnecte. La suppression définitive côté serveur sera traitée ensuite.',
-          en: 'Clears your local data and signs you out. Permanent server-side deletion is processed afterwards.',
-        })}
-      </p>
+    <Section
+      className="border-destructive/40"
+      title={
+        <span className="flex items-center gap-2">
+          <ShieldAlert className="text-destructive size-4 shrink-0" aria-hidden="true" />
+          {t({ fr: 'Suppression de compte', en: 'Delete account' })}
+        </span>
+      }
+      description={t({
+        fr: 'Efface vos données locales et vous déconnecte. La suppression définitive côté serveur sera traitée ensuite.',
+        en: 'Clears your local data and signs you out. Permanent server-side deletion is processed afterwards.',
+      })}
+    >
       <AlertDialog>
         <AlertDialogTrigger asChild>
           <Button variant="destructive">
@@ -521,30 +586,20 @@ function DangerSection({ onDeleted }: { onDeleted: () => void }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </Section>
   )
 }
 
-/* ----------------------------- Abonnement (plan + usage + upgrade) ----------------------------- */
+/* ----------------------------- Abonnement (plan + usage + barème) ----------------------------- */
 
-function AbonnementSection() {
-  const { t } = useI18n()
-  const { data: plan, isLoading } = useOrgPlan()
+/** Exportée pour le test composant (fixture de plan — le mode local n'a pas de plan serveur). */
+export function AbonnementSection() {
+  const { t, lang } = useI18n()
+  const { data: plan, isLoading, refetch } = useOrgPlan()
   const qc = useQueryClient()
   const [upgrading, setUpgrading] = useState<PlanTier | null>(null)
-  const fmt = (n: number) => new Intl.NumberFormat('fr-FR').format(n)
-  const cap = (n: number | null) => (n === null ? '∞' : fmt(n))
-  const fmtBytes = (n: number) => {
-    if (n < 1024) return `${n} o`
-    const units = ['Ko', 'Mo', 'Go', 'To']
-    let v = n / 1024
-    let i = 0
-    while (v >= 1024 && i < units.length - 1) {
-      v /= 1024
-      i++
-    }
-    return `${v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`
-  }
+  const nf = new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR')
+  const fmt = (n: number) => nf.format(n)
 
   async function upgrade(tier: PlanTier) {
     setUpgrading(tier)
@@ -568,65 +623,79 @@ function AbonnementSection() {
 
   if (isLoading) {
     return (
-      <p className="text-muted-foreground text-sm">{t({ fr: 'Chargement…', en: 'Loading…' })}</p>
+      <div className="space-y-6">
+        <Skeleton className="h-44 rounded-xl" />
+        <Skeleton className="h-36 rounded-xl" />
+        <Skeleton className="h-64 rounded-xl" />
+      </div>
     )
   }
   if (!plan) {
     return (
-      <p className="text-muted-foreground text-sm">
-        {t({ fr: 'Plan indisponible (hors-ligne).', en: 'Plan unavailable (offline).' })}
-      </p>
+      <ErrorState
+        title={t({ fr: 'Abonnement indisponible', en: 'Subscription unavailable' })}
+        reason={t({
+          fr: 'Vous êtes hors ligne ou le serveur est injoignable. Vos limites restent appliquées côté serveur.',
+          en: 'You are offline or the server is unreachable. Your limits still apply server-side.',
+        })}
+        action={
+          <Button variant="outline" onClick={() => void refetch()}>
+            {t({ fr: 'Réessayer', en: 'Retry' })}
+          </Button>
+        }
+      />
     )
   }
 
+  const currentIdx = PLAN_ORDER.indexOf(plan.plan)
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3 border-b pb-3">
-        <div>
-          <h3 className="text-sm font-medium">{t({ fr: 'Abonnement', en: 'Subscription' })}</h3>
-          <p className="text-muted-foreground text-xs">
-            {t({ fr: 'Votre plan et vos limites.', en: 'Your plan and limits.' })}
-          </p>
+      <Section
+        title={t({ fr: 'Votre abonnement', en: 'Your subscription' })}
+        description={t({
+          fr: 'Utilisation ce mois-ci — mode pilote, activation immédiate sans paiement.',
+          en: 'Usage this month — pilot mode, immediate activation without payment.',
+        })}
+        actions={
+          <span className="bg-primary text-primary-foreground rounded-full px-3 py-1 text-sm font-semibold">
+            {t(PLAN_LABEL[plan.plan])}
+          </span>
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-3">
+          <UsageMeter
+            label={t({ fr: 'Dépôts (compilations)', en: 'Submissions (compilations)' })}
+            used={plan.compilations_used}
+            capValue={plan.max_compilations}
+            format={fmt}
+            detail={t({ fr: 'brouillons illimités', en: 'unlimited drafts' })}
+          />
+          <UsageMeter
+            label={t({ fr: 'Tokens IA', en: 'AI tokens' })}
+            used={plan.tokens_used}
+            capValue={plan.monthly_ai_tokens}
+            format={fmt}
+            detail={t({ fr: 'Regafy & traduction', en: 'Regafy & translation' })}
+          />
+          <UsageMeter
+            label={t({ fr: 'Stockage', en: 'Storage' })}
+            used={plan.storage_used}
+            capValue={plan.max_storage_bytes}
+            format={(n) => formatBytes(n, lang)}
+            detail={t({ fr: 'documents synchronisés', en: 'synced documents' })}
+          />
         </div>
-        <span className="bg-primary text-primary-foreground rounded-full px-3 py-1 text-sm font-semibold">
-          {t(PLAN_LABEL[plan.plan])}
-        </span>
-      </div>
+      </Section>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-lg border p-3">
-          <div className="text-muted-foreground text-xs">
-            {t({ fr: 'Dépôts (compilations)', en: 'Submissions (compilations)' })}
-          </div>
-          <div className="mt-1 text-lg font-semibold tabular-nums">
-            {fmt(plan.compilations_used)} / {cap(plan.max_compilations)}
-          </div>
-          <div className="text-muted-foreground text-xs">
-            {t({ fr: 'ce mois-ci · brouillons illimités', en: 'this month · unlimited drafts' })}
-          </div>
-        </div>
-        <div className="rounded-lg border p-3">
-          <div className="text-muted-foreground text-xs">
-            {t({ fr: 'Tokens IA (ce mois)', en: 'AI tokens (this month)' })}
-          </div>
-          <div className="mt-1 text-lg font-semibold tabular-nums">
-            {fmt(plan.tokens_used)} / {cap(plan.monthly_ai_tokens)}
-          </div>
-        </div>
-        <div className="rounded-lg border p-3">
-          <div className="text-muted-foreground text-xs">
-            {t({ fr: 'Stockage', en: 'Storage' })}
-          </div>
-          <div className="mt-1 text-lg font-semibold tabular-nums">
-            {fmtBytes(plan.storage_used)} /{' '}
-            {plan.max_storage_bytes === null ? '∞' : fmtBytes(plan.max_storage_bytes)}
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <h4 className="text-sm font-medium">{t({ fr: 'Fonctionnalités', en: 'Features' })}</h4>
-        <ul className="grid gap-1 sm:grid-cols-2">
+      <Section
+        title={t({ fr: 'Fonctionnalités', en: 'Features' })}
+        description={t({
+          fr: 'Ce que votre plan inclut — le reste arrive avec la mise à niveau.',
+          en: 'What your plan includes — the rest comes with an upgrade.',
+        })}
+      >
+        <ul className="grid gap-2 sm:grid-cols-2">
           {FEATURES.map((f) => {
             const st = featureState(plan.features, f.key)
             if (st === 'hidden') return null // Masquée : invisible
@@ -634,54 +703,142 @@ function AbonnementSection() {
             const planName = t(PLAN_LABEL[f.minPlan])
             return (
               <li key={f.key} className="flex items-center gap-2 text-sm">
-                <span className={on ? 'text-emerald-600' : 'text-muted-foreground'}>
-                  {on ? '✓' : '○'}
-                </span>
+                {on ? (
+                  <Check className="text-success size-4 shrink-0" aria-hidden="true" />
+                ) : (
+                  <Lock className="text-muted-foreground/70 size-4 shrink-0" aria-hidden="true" />
+                )}
                 <span className={on ? '' : 'text-muted-foreground'}>{t(f.label)}</span>
                 {st === 'teaser' ? (
-                  <span className="text-muted-foreground text-xs">
+                  <StatusBadge tone="info">
                     {t({ fr: `dès ${planName}`, en: `from ${planName}` })}
-                  </span>
+                  </StatusBadge>
                 ) : null}
               </li>
             )
           })}
         </ul>
-      </div>
+      </Section>
 
-      {plan.plan !== 'enterprise' ? (
-        <div className="bg-muted/40 space-y-3 rounded-lg border p-4">
-          <div className="text-sm">
-            <div className="font-medium">{t({ fr: 'Mettre à niveau', en: 'Upgrade' })}</div>
-            <div className="text-muted-foreground text-xs">
-              {t({
-                fr: 'Activation immédiate (mode pilote, sans paiement) — plus de dossiers, de tokens et de fonctionnalités.',
-                en: 'Immediate activation (pilot mode, no payment) — more dossiers, tokens and features.',
-              })}
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {PLAN_ORDER.slice(PLAN_ORDER.indexOf(plan.plan) + 1).map((tier, i) => (
-              <Button
-                key={tier}
-                variant={i === 0 ? 'default' : 'outline'}
-                size="sm"
-                disabled={upgrading !== null}
-                onClick={() => void upgrade(tier)}
+      <Section
+        title={t({ fr: 'Tous les plans', en: 'All plans' })}
+        description={t({
+          fr: 'Changement immédiat en mode pilote — contrats et facturation à la signature.',
+          en: 'Immediate change in pilot mode — contracts and billing at signature.',
+        })}
+      >
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {PLAN_CATALOG.map((p) => {
+            const idx = PLAN_ORDER.indexOf(p.tier)
+            const isCurrent = p.tier === plan.plan
+            const isUpgrade = idx > currentIdx
+            return (
+              <div
+                key={p.tier}
+                className={cn(
+                  'flex flex-col rounded-xl border p-4',
+                  isCurrent && 'border-info ring-info/30 ring-1',
+                )}
               >
-                {upgrading === tier ? <Loader2 className="size-4 animate-spin" /> : null}
-                {t({ fr: 'Passer à', en: 'Switch to' })} {t(PLAN_LABEL[tier])}
-              </Button>
-            ))}
-          </div>
-          <p className="text-muted-foreground text-xs">
-            {t({ fr: 'Besoin d’un devis sur-mesure ? ', en: 'Need a tailored quote? ' })}
-            <a className="underline" href="mailto:contact@pharnos.com?subject=Pharnos">
-              contact@pharnos.com
-            </a>
-          </p>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-display text-sm font-semibold">
+                    {t(PLAN_LABEL[p.tier])}
+                  </span>
+                  {isCurrent ? (
+                    <StatusBadge tone="info">
+                      {t({ fr: 'Votre plan', en: 'Your plan' })}
+                    </StatusBadge>
+                  ) : p.recommended ? (
+                    <StatusBadge tone="neutral">
+                      {t({ fr: 'Recommandé', en: 'Recommended' })}
+                    </StatusBadge>
+                  ) : null}
+                </div>
+                <p className="text-muted-foreground mt-0.5 text-xs">{t(p.tagline)}</p>
+                {p.price ? (
+                  <div className="font-display mt-2 text-lg font-semibold">{t(p.price)}</div>
+                ) : null}
+                <ul className="mt-3 space-y-1.5">
+                  {p.highlights.map((h, i) => (
+                    <li key={i} className="text-muted-foreground flex items-start gap-1.5 text-xs">
+                      <Check className="text-success mt-0.5 size-3 shrink-0" aria-hidden="true" />
+                      <span>{t(h)}</span>
+                    </li>
+                  ))}
+                </ul>
+                {isUpgrade ? (
+                  <div className="mt-auto pt-3">
+                    <Button
+                      variant={idx === currentIdx + 1 ? 'primary' : 'outline'}
+                      size="sm"
+                      className="w-full"
+                      disabled={upgrading !== null}
+                      onClick={() => void upgrade(p.tier)}
+                    >
+                      {upgrading === p.tier ? <Loader2 className="size-4 animate-spin" /> : null}
+                      {t({ fr: 'Passer à', en: 'Switch to' })} {t(PLAN_LABEL[p.tier])}
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            )
+          })}
+        </div>
+        <p className="text-muted-foreground text-xs">
+          {t({ fr: 'Besoin d’un devis sur-mesure ? ', en: 'Need a tailored quote? ' })}
+          <a className="underline" href="mailto:contact@pharnos.com?subject=Pharnos">
+            contact@pharnos.com
+          </a>
+        </p>
+      </Section>
+    </div>
+  )
+}
+
+/**
+ * Tuile d'usage avec jauge : valeur/cap + barre de progression sémantique (info < 80 %,
+ * warning ≥ 80 %, danger à saturation). Cap `null` = illimité (∞, pas de jauge) ; cap 0 = pas
+ * de jauge non plus (rien à consommer — l'upsell s'en charge).
+ */
+function UsageMeter({
+  label,
+  used,
+  capValue,
+  format,
+  detail,
+}: {
+  label: string
+  used: number
+  capValue: number | null
+  format: (n: number) => string
+  detail?: string
+}) {
+  const pct =
+    capValue === null || capValue === 0 ? null : Math.min(100, Math.round((used / capValue) * 100))
+  const barClass =
+    pct === null ? '' : pct >= 100 ? 'bg-danger' : pct >= 80 ? 'bg-warning' : 'bg-info'
+  return (
+    <div className="rounded-lg border p-4">
+      <div className="text-muted-foreground text-xs">{label}</div>
+      <div className="mt-1 text-lg font-semibold tabular-nums">
+        {format(used)}{' '}
+        <span className="text-muted-foreground text-sm font-normal">
+          / {capValue === null ? '∞' : format(capValue)}
+        </span>
+      </div>
+      {pct !== null && capValue !== null ? (
+        <div
+          role="progressbar"
+          aria-label={label}
+          aria-valuemin={0}
+          aria-valuemax={capValue}
+          aria-valuenow={Math.min(used, capValue)}
+          className="bg-muted mt-2 h-1.5 overflow-hidden rounded-full"
+        >
+          <div className={cn('h-full rounded-full', barClass)} style={{ width: `${pct}%` }} />
         </div>
       ) : null}
+      {detail ? <div className="text-muted-foreground mt-1.5 text-xs">{detail}</div> : null}
     </div>
   )
 }

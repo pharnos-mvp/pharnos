@@ -85,7 +85,7 @@ Retours de la 1ʳᵉ vague de tests pilotes. Petites tranches verticales, recett
 |---|------|---------------|--------|
 | **P0-1 ✅ #188** | **Entête de template pas vraiment sticky** (bouge, puis se coince **sous** la barre Upload) | `.tplform-topbar` = `position:sticky; z-index:10` **sans `top`** → dérive, et passe **sous** la barre d'actions #5 (`sticky top-0 z-20`). **Livré** : hauteur de la barre d'actions mesurée (callback ref + ResizeObserver) → var CSS `--tpl-actionbar-h` ; `top: var(--tpl-actionbar-h, 3rem)`, z-index cohérent. | ~0,3 session |
 | **P0-2 ✅ #188** | **Regafy (IA) rend ses constats en FR sous UI EN** | Edge `regafy-ai` : prompt système « Français » + **messages déterministes FR en dur** (`index.ts`, ex. « Traduction recommandée », prépositions pays) ; le client ne passe **pas** la langue **d'affichage** (distincte de `targetLang` = langue **officielle du pays**). **Livré** : langue UI → prompt « respond in `<lang>` » **+** messages déterministes localisés (module `_shared/regafy-i18n.ts`, FR/EN) **+** **clé de cache** incluant la langue (v8→v9). 3 langues distinguées : UI (affichage), document (détectée), pays-cible (officielle). | ~0,5–1 session |
-| **P0-3** | **Eyeball upsell par action sur compte FREE** | #4 du punch-list est code+bundle-vérifié mais **non déclenchable sur Enterprise** (aucune feature en Vitrine). Confirmer « Analyse IA / Traduction IA — Incluse à partir du plan Pro » sur le compte free. | CEO, 2 min |
+| **P0-3** | **Eyeball upsell par action sur compte FREE** | #4 du punch-list est code+bundle-vérifié mais **non déclenchable sur Enterprise** (aucune feature en Vitrine). Confirmer « Analyse IA / Traduction IA — Incluse à partir du plan Pro » sur le compte free. *(LOT 7 : la section Abonnement refondue affiche désormais les features Vitrine avec badge « dès X » — l'eyeball se fait là.)* | CEO, 2 min |
 | **P0-4** | **Nettoyer l'artefact de recette** | Produit test « Recette PL3… » laissé dans le catalogue prod (soft-delete). | CEO, 1 clic |
 
 > **Note** : P0-2 (langue des **remarques**) est distinct de Phase 2 #7 (langue du **document** = templates MedDRA EN +
@@ -156,6 +156,18 @@ Ordre = valeur × dépendance. Chaque ligne = tranche verticale livrable + recet
 - **Perf** : LCP ≤ 2,5 s (4G), INP < 200 ms, Lighthouse perf ≥ 90 / a11y ≥ 95 en CI ; budget bundle tenu.
 - **Scalabilité** : syncs paginées, indexes (EXPLAIN + `auth_rls_initplan`), quotas IA **+ compilation** actifs, k6 Edge ✅.
 - **Opérabilité** : alertes + uptime ; console admin OK ; **checklist GO-LIVE signée CEO**.
+
+## Reports tracés (anti-dette, MAJ 2026-07-05 — LOT 7)
+- **Barème chiffré des plans** : la grille des 5 plans est affichée dans `/compte` (LOT 7) **sans prix**
+  — les montants attendent le **go CEO** (input LOT 0). Dès validation : renseigner `price` dans
+  `web/src/features/org/plan-catalog.ts` (Compte + landing LOT 11 les affichent sans autre changement).
+- **Dedup `formatBytes`** : `lib/format-bytes.ts` (FR/EN) est la source unique ; `admin-api.ts` (LOT 8)
+  et les 3 formatteurs Ko/KB de la correspondance convergent dessus au fil de leurs lots.
+- **Contraste AA de la pilule active en DARK** (revue LOT 7, hérité) : `bg-info text-white` = 3,75:1 en
+  sombre (`--info` #2f81f7) sur CatalogueTabs + ProductWizard + rail Compte — le gate a11y CI ne teste
+  que le thème clair (6,18:1 OK). Correctif au NIVEAU TOKEN (`index.css`, ex. `--info` on-solid dark
+  plus foncé) + extraction du pattern pilule partagé → à caser avec LOT 8 (admin) ou LOT 13 (recette),
+  recette visuelle dark obligatoire (touche Button primary & co).
 
 ## Actions CEO / ops en attente (loose ends — à clôturer avant/pendant N)
 - **Backup** : ranger la clé privée age `C:\Users\ASUS\pharnos-backup-age.key` **hors-ligne** (coffre) puis supprimer le fichier — sa perte = backups illisibles.

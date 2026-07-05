@@ -10,6 +10,12 @@ import type { PlanTier } from './use-org-plan'
 export interface PlanCatalogEntry {
   tier: PlanTier
   tagline: Translatable
+  /**
+   * Prix affiché (barème) — OPTIONNEL tant que la grille chiffrée n'est pas validée par le CEO
+   * (input LOT 0 du PLAN-LANCEMENT). Dès le go : renseigner ici (ex. { fr: '25 000 FCFA/mois' })
+   * et le Compte + la landing l'affichent sans autre changement. Display only, pas d'encaissement.
+   */
+  price?: Translatable
   highlights: Translatable[]
   team: boolean
   recommended?: boolean

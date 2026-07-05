@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Section } from '@/components/ui/section'
 import { useAuth } from '@/features/auth/auth-context'
 import { useOrgId } from '@/features/org/org-context'
 import {
@@ -81,15 +82,10 @@ export function InfoProSection() {
         }}
       />
 
-      <section className="space-y-3">
-        <div>
-          <h2 className="text-sm font-semibold tracking-wide">
-            {t({ fr: 'PAPIER À EN-TÊTE (ORGANISATION)', en: 'LETTERHEAD (ORGANISATION)' })}
-          </h2>
-          <p className="text-muted-foreground text-xs">
-            {t({ fr: "Partagé par toute l'équipe.", en: 'Shared across the team.' })}
-          </p>
-        </div>
+      <Section
+        title={t({ fr: 'Papier à en-tête (organisation)', en: 'Letterhead (organisation)' })}
+        description={t({ fr: "Partagé par toute l'équipe.", en: 'Shared across the team.' })}
+      >
         <ImageField
           label={t({
             fr: 'Logo (bandeau du dossier compilé)',
@@ -123,17 +119,12 @@ export function InfoProSection() {
           onPick={(f) => handlePick(f, (d) => setOrgFooter(orgId, d))}
           onRemove={() => remove(() => setOrgFooter(orgId, null))}
         />
-      </section>
+      </Section>
 
-      <section className="space-y-3">
-        <div>
-          <h2 className="text-sm font-semibold tracking-wide">
-            {t({ fr: 'SIGNATURE (VOUS)', en: 'SIGNATURE (YOU)' })}
-          </h2>
-          <p className="text-muted-foreground text-xs">
-            {t({ fr: 'Insérable via « Signer ».', en: 'Insertable via "Sign".' })}
-          </p>
-        </div>
+      <Section
+        title={t({ fr: 'Signature (vous)', en: 'Signature (you)' })}
+        description={t({ fr: 'Insérable via « Signer ».', en: 'Insertable via "Sign".' })}
+      >
         <ImageField
           label={t({ fr: 'Signature', en: 'Signature' })}
           hint={t({
@@ -145,7 +136,7 @@ export function InfoProSection() {
           onPick={(f) => handlePick(f, (d) => setUserSignature(orgId, userId, d))}
           onRemove={() => remove(() => setUserSignature(orgId, userId, null))}
         />
-      </section>
+      </Section>
     </div>
   )
 }
@@ -161,7 +152,7 @@ interface OrgProfileValues {
 
 /**
  * Formulaire « Informations professionnelles » : entreprise → poste → pays.
- * Bouton Enregistrer **en haut** (sticky), actif uniquement en cas de modification (dirty).
+ * Bouton Enregistrer dans l'en-tête de la Section, actif uniquement en cas de modification (dirty).
  * Remonté par `key` quand les valeurs stockées changent → baseline propre, sans effet.
  */
 function OrgProfileForm({
@@ -197,15 +188,18 @@ function OrgProfileForm({
   }
 
   return (
-    <section className="space-y-3">
-      <div className="bg-background sticky top-0 z-10 flex items-center justify-between gap-3 border-b pb-3">
-        <h2 className="text-sm font-semibold tracking-wide">
-          {t({ fr: 'INFORMATIONS PROFESSIONNELLES', en: 'PROFESSIONAL INFORMATION' })}
-        </h2>
+    <Section
+      title={t({ fr: 'Informations professionnelles', en: 'Professional information' })}
+      description={t({
+        fr: 'Identité de l’organisation en tête des documents générés.',
+        en: 'Organization identity in the header of generated documents.',
+      })}
+      actions={
         <Button size="sm" disabled={saving || !dirty} onClick={() => void save()}>
           {t({ fr: 'Enregistrer', en: 'Save' })}
         </Button>
-      </div>
+      }
+    >
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="org-entreprise">
@@ -236,6 +230,6 @@ function OrgProfileForm({
           <Input id="org-pays" value={pays} onChange={(e) => setPays(e.target.value)} />
         </div>
       </div>
-    </section>
+    </Section>
   )
 }
