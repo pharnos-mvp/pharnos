@@ -134,18 +134,9 @@ export const adminApi = {
     }),
 }
 
-// ── Formatage (déterministe, sans dépendance) ──────────────────────────────────────────────
-export function formatBytes(n: number): string {
-  if (n < 1024) return `${n} o`
-  const units = ['Ko', 'Mo', 'Go', 'To']
-  let v = n / 1024
-  let i = 0
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024
-    i++
-  }
-  return `${v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`
-}
+// ── Formatage & saisie (déterministes, sans dépendance) ────────────────────────────────────
+// Les octets s'affichent via la source unique `lib/format-bytes` (FR/EN) — le formatteur local
+// Ko/Mo a été résorbé au LOT 8 (dette tracée PLAN-RESTANT).
 
 const BYTES_PER_GB = 1024 * 1024 * 1024
 /** Go (saisie admin) → octets. */
@@ -159,8 +150,30 @@ export function bytesToGbInput(bytes: number | null | undefined): string {
   return Number.isInteger(gb) ? String(gb) : String(Math.round(gb * 100) / 100)
 }
 
-export function formatInt(n: number): string {
-  return new Intl.NumberFormat('fr-FR').format(n)
+export function formatInt(n: number, lang: 'fr' | 'en' = 'fr'): string {
+  return new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR').format(n)
+}
+
+/**
+ * Saisie de plafond (dossiers/tokens/sièges) : `''` → `null` (illimité ou défaut du plan) ;
+ * entier ≥ 0 → valeur ; **sinon `undefined` = saisie invalide** — l'appelant bloque
+ * l'enregistrement (avant LOT 8, « abc » devenait silencieusement ∞ : dangereux en god mode).
+ */
+export function parseCapInput(s: string): number | null | undefined {
+  const v = s.trim()
+  if (v === '') return null
+  const n = Number(v)
+  if (!Number.isFinite(n) || n < 0) return undefined
+  return Math.floor(n)
+}
+
+/** Saisie stockage en Go (décimales admises) → octets ; mêmes règles que `parseCapInput`. */
+export function parseStorageGbInput(s: string): number | null | undefined {
+  const v = s.trim()
+  if (v === '') return null
+  const n = Number(v)
+  if (!Number.isFinite(n) || n < 0) return undefined
+  return gbToBytes(n)
 }
 
 /** Pourcentage borné [0,100] pour les jauges. */

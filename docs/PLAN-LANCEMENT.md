@@ -26,9 +26,10 @@ La refonte est **bien engagée** — plusieurs surfaces majeures sont déjà ref
 > ce sont des **LOTs de CE projet de refonte complète de l'app**, qui se poursuit par les surfaces restantes
 > (LOTs 7-10) **puis la refonte du landing (LOT 11)**. Tout converge vers le même design-system.
 
-**Reste (MAJ 2026-07-05 — lifecycle M0–M6+CS1 ✅, LOT 10 ✅ CLOS, LOT 7 ✅)** : LOTs **8 (Admin),
-9 (Dossiers+Corbeille)** → **LOT 11 landing** → LOT 12 i18n+M4 → LOT 13 recette finale →
-**LOT 14 GO-LIVE (= N4)**. Recettes CEO en attente : M4 + CS1 + M7 + **LOT 7 (visuel /compte)**.
+**Reste (MAJ 2026-07-05 — lifecycle M0–M6+CS1 ✅, LOT 10 ✅ CLOS, LOTs 7-8 ✅)** : **LOT 9
+(Dossiers+Corbeille)** → **LOT 11 landing** → LOT 12 i18n+M4 → LOT 13 recette finale →
+**LOT 14 GO-LIVE (= N4)**. Recettes CEO en attente : M4 + CS1 + M7 + **LOT 7 (visuel /compte)** +
+**LOT 8 (visuel /admin + dark : texte sombre sur remplissages primaires — fix AA)**.
 **M8 (fin de collaboration + modération) + CS1 phase 2 (éditeurs scopés) = post-GO-LIVE** (M8 gated sur la
 décision « mode Agence multi-clients »).
 
@@ -98,7 +99,15 @@ zéro-rework (combiner / zone protégée). Lots :
   `plan-catalog.ts` (Compte + landing les affichent sans autre changement). Journal d'audit →
   `StatusBadge` sémantique ; `ErrorState` actionnable hors-ligne ; `lib/format-bytes` partagée FR/EN.
   Front-only, zéro migration.
-- **LOT 8 — Admin / god mode** — ⬜.
+- **LOT 8 — Admin / god mode** — ✅ **LIVRÉ (2026-07-05)** : console `/admin` recomposée sur les
+  primitives DS (topbar tokenisée logo clair/sombre + `PageHeader` h1 + **pilules partagées** +
+  `Section`/`StatusBadge`/`ErrorState`/`EmptyState`/skeletons) ; Overview premium (KPI Syne, deltas
+  sémantiques, jauges santé seuils 70/90 alignés politique R2, audit badgé) ; plans god mode avec
+  **nom marketing ↔ enum** affichés (piège LOT 7) ; formats FR/EN (`lib/format-bytes`, entiers
+  localisés) ; **garde de saisie quota** (invalide ≠ ∞). **+ dette LOT 7 soldée** : pattern pilule
+  extrait (`ui/pill.ts`, 3 consommateurs) + **fix tokens dark AA** (`--info` → #1f6feb 4,63:1 ;
+  `--primary-foreground` → #0d1117 5,05:1) **verrouillés par un scan axe SOMBRE en CI** (e2e).
+  Front-only, zéro migration.
 - **LOT 9 — Dossiers + Corbeille/Archive** — ⬜ *(COMBINÉ : refonte + feature rétention #3 en un lot)*.
 - **LOT 10 — Correspondance + v3 + relances auto + Agent local** — ✅ **LIVRÉ & CLOS
   (2026-07-04→05)** : **relances auto** (Edge `lifecycle-reminders` quotidienne + migrations

@@ -30,3 +30,23 @@ for (const { path, name } of PAGES) {
     expect(blocking, `Violations a11y bloquantes sur ${name} :\n${summary}`).toEqual([])
   })
 }
+
+// Thème SOMBRE — verrouille le fix token LOT 8 (pilule active `bg-info text-white` : 3,75:1 → 4,63:1
+// avec `--info` #1f6feb). Une seule page suffit : /compte porte le rail de pilules + badges + CTA.
+test('a11y — thème sombre, aucune violation serious/critical : Compte', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('theme', 'dark'))
+  await page.goto('/compte')
+  await expect(page.locator('main')).toBeVisible()
+  await expect(page.locator('html')).toHaveClass(/dark/)
+  await page.waitForLoadState('networkidle')
+
+  const { violations } = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze()
+
+  const blocking = violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')
+  const summary = blocking
+    .map((v) => `• ${v.id} (${v.impact}, ${v.nodes.length} nœud(s)) — ${v.help}`)
+    .join('\n')
+  expect(blocking, `Violations a11y bloquantes sur Compte (sombre) :\n${summary}`).toEqual([])
+})

@@ -7,8 +7,8 @@ const UNITS: Record<Lang, string[]> = {
 
 /**
  * Formatte une taille en octets pour l'affichage (base 1024, 1 décimale sous 10, unités FR/EN).
- * Source UNIQUE du format « octets » côté app (compte ; admin et correspondance convergent ici
- * au fil de leurs lots — cf. PLAN-RESTANT). Décimale localisée (« 1,5 Go » / "1.5 GB").
+ * Source UNIQUE du format « octets » côté app (compte + admin depuis le LOT 8 ; la correspondance
+ * converge ici à son prochain lot — cf. PLAN-RESTANT). Décimale localisée (« 1,5 Go » / "1.5 GB").
  */
 export function formatBytes(n: number, lang: Lang = 'fr'): string {
   const units = UNITS[lang]

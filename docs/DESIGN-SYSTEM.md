@@ -78,7 +78,8 @@
 | `StatusBadge` | Badge de **statut sémantique** (success/warning/danger/info/neutral) : fond `subtle` + texte AA — sens porté par la couleur **et** le texte (a11y 1.4.1). |
 | `Button` var. `primary` | **CTA premium bleu** de la DA (`bg-info` = `.btn-primary` du mockup). Source unique — remplace la chaîne magique `BLUE_BTN`. |
 | `ListRow` (+`ListRowIcon`/`ListRowLink`/`ListRowActions`) | **Ligne-carte premium** (hover-lift, lien étiré, anneau de focus) — unifie `.doc-row`/`.cat-row`/`.alert-row`. Tokens sémantiques (premium == neutre dans `index.css`). |
-| `Section` | **Bloc titré** (LOT 7) : carte `bg-card` + en-tête h2 Syne / description / actions + contenu. Pages de réglages/regroupements — remplace cartes + titres ad-hoc (1ers consommateurs : Compte, InfoPro, Équipe). |
+| `Section` | **Bloc titré** (LOT 7) : carte `bg-card` + en-tête h2 Syne / description / actions + contenu. Pages de réglages/regroupements — remplace cartes + titres ad-hoc (consommateurs : Compte, InfoPro, Équipe, Admin). |
+| `pillVariants` (`ui/pill.ts`) | **Pilule de sous-navigation intra-page** (LOT 8) : active = `bg-info` blanc (AA sombre depuis le fix token), inactive mutée + hover, anneau de focus clavier. Toujours doublée d'`aria-current`. Consommateurs : rail Compte, onglets Catalogue, sections Admin. |
 
 **Règles encodées par les primitives (LOT 1)** : `Page` porte la **respiration en-tête de 24 px** (le titre du corps ne colle plus au header). Le **titre du corps** (`PageHeader`) est **descriptif et distinct** du libellé de section du topbar (jamais « Catalogue » deux fois). Une page qui a **sa propre recherche** appelle `useHideTopbarSearch()` (`components/layout/topbar-search`) → **une seule** recherche par écran.
 
