@@ -35,6 +35,7 @@ import { ErrorState } from '@/components/ui/error-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Page } from '@/components/ui/page'
+import { pillVariants } from '@/components/ui/pill'
 import { Section } from '@/components/ui/section'
 import {
   Select,
@@ -71,14 +72,6 @@ import { ImageField } from './ImageField'
 import { InfoProSection } from './InfoProSection'
 
 type SectionKey = 'perso' | 'pro' | 'abonnement' | 'team' | 'prefs' | 'logs' | 'danger'
-
-// Pilules de sous-navigation — mêmes classes que CatalogueTabs (pattern intra-page unifié),
-// + anneau de focus clavier du DS (cf. ListRowLink).
-const pillBase =
-  'inline-flex h-9 items-center gap-2 rounded-lg px-3.5 text-[13.5px] font-medium transition-colors lg:w-full ' +
-  'outline-none focus-visible:ring-ring/60 focus-visible:ring-2 focus-visible:ring-offset-2'
-const pillInactive = 'text-muted-foreground hover:bg-accent'
-const pillActive = 'bg-info text-white'
 
 export function AccountPage() {
   const { user, signOut } = useAuth()
@@ -174,7 +167,7 @@ export function AccountPage() {
               type="button"
               onClick={() => setSection(key)}
               aria-current={activeSection === key ? 'page' : undefined}
-              className={cn(pillBase, activeSection === key ? pillActive : pillInactive)}
+              className={cn(pillVariants({ active: activeSection === key }), 'lg:w-full')}
             >
               <Icon className="size-4 shrink-0" />
               <span className="truncate">{label}</span>

@@ -104,7 +104,11 @@
   --popover: #161b22;
   --popover-foreground: #e6edf3;
   --primary: #2f81f7;
-  --primary-foreground: #ffffff;
+  /* Texte SOMBRE sur le remplissage primaire (avatars, bouton default, badge plan, sélection) :
+     blanc sur #2f81f7 = 3,74:1 ✗ AA ; #0d1117 sur #2f81f7 = 5,05:1 ✓ — la teinte validée ne change
+     pas, seul le texte porté bascule (même classe de défaut que --info, débusquée par le scan axe
+     sombre du LOT 8). */
+  --primary-foreground: #0d1117;
   /* Marque en dark (GitHub Dark) : navy clair lisible — sert AUSSI de couleur de texte
      (text-brand) sur fond sombre ; les remplissages portent un texte sombre (--brand-foreground). */
   --brand: #7da3dc;
@@ -132,7 +136,11 @@
   --danger: #f85149;
   --danger-subtle: #2a1415;
   --danger-subtle-foreground: #ff7b72;
-  --info: #2f81f7;
+  /* --info sombre = #1f6feb (accent.emphasis GitHub, fait pour un REMPLISSAGE) et non #2f81f7 (accent
+     texte/lien) : blanc sur #2f81f7 = 3,75:1 ✗ AA sur toutes les surfaces `bg-info text-white`
+     (pilules actives, Button primary, steppers) ; sur #1f6feb = 4,63:1 ✓. Les `text-info` en sombre
+     sont des icônes (≥ 3:1 requis : 3,73 ✓) — le texte informatif utilise --info-subtle-foreground. */
+  --info: #1f6feb;
   --info-subtle: #0d1b2f;
   --info-subtle-foreground: #6cb6ff;
   --border: #30363d;
@@ -146,6 +154,9 @@
   --sidebar: #010409;
   --sidebar-foreground: #e6edf3;
   --sidebar-primary: #2f81f7;
+  /* ⚠️ Blanc sur #2f81f7 = 3,75:1 ✗ AA : aucun consommateur n'appaire ces deux tokens en SOLIDE
+     aujourd'hui (la nav utilise un tint /15 + text-white). Si un remplissage plein apparaît un
+     jour, basculer ce foreground en sombre comme --primary-foreground (LOT 8). */
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #21262d;
   --sidebar-accent-foreground: #e6edf3;
