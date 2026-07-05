@@ -23,7 +23,9 @@ describe('parseCapInput (garde god mode : jamais « ∞ » par accident)', () =>
   it('saisie invalide → undefined (bloque l’enregistrement, ne devient PAS illimité)', () => {
     expect(parseCapInput('abc')).toBeUndefined()
     expect(parseCapInput('-5')).toBeUndefined()
-    expect(parseCapInput('1e999')).toBeUndefined() // Infinity
+    expect(parseCapInput('1e999')).toBeUndefined() // notation exponentielle refusée
+    expect(parseCapInput('0x10')).toBeUndefined() // hex refusé (Number() l'accepterait : 16)
+    expect(parseCapInput('1,5')).toBeUndefined() // virgule décimale FR → champ attend un point
   })
 })
 

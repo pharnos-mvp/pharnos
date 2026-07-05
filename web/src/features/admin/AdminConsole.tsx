@@ -203,7 +203,7 @@ function Overview({ data }: { data: AdminOverview }) {
           <ul className="max-h-72 space-y-1 overflow-auto pr-1" tabIndex={0}>
             {recent_audit.map((a, i) => (
               <li
-                key={i}
+                key={`${a.org_id}-${a.at}-${i}`}
                 className="flex items-center gap-x-3 border-b py-1.5 text-sm last:border-0"
               >
                 <StatusBadge tone={actionTone(a.action)}>{actionLabel(a.action)}</StatusBadge>
@@ -261,6 +261,8 @@ export function AdminConsole() {
   if (overview.error || !overview.data) {
     return (
       <div className="flex min-h-svh items-center justify-center p-6">
+        {/* h1 hors écran : l'ErrorState ouvre sur un h2 — l'ordre de titres reste valide. */}
+        <h1 className="sr-only">{t({ fr: 'Console plateforme', en: 'Platform console' })}</h1>
         <ErrorState
           className="w-full max-w-md"
           title={t({ fr: 'Console indisponible', en: 'Console unavailable' })}

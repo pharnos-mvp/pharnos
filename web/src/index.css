@@ -154,6 +154,9 @@
   --sidebar: #010409;
   --sidebar-foreground: #e6edf3;
   --sidebar-primary: #2f81f7;
+  /* ⚠️ Blanc sur #2f81f7 = 3,75:1 ✗ AA : aucun consommateur n'appaire ces deux tokens en SOLIDE
+     aujourd'hui (la nav utilise un tint /15 + text-white). Si un remplissage plein apparaît un
+     jour, basculer ce foreground en sombre comme --primary-foreground (LOT 8). */
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #21262d;
   --sidebar-accent-foreground: #e6edf3;

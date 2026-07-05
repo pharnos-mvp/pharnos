@@ -154,16 +154,20 @@ export function formatInt(n: number, lang: 'fr' | 'en' = 'fr'): string {
   return new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR').format(n)
 }
 
+// Décimal positif STRICT : `Number()` seul accepterait 0x10/0b11/1e3 — surprenant en god mode.
+const DECIMAL_INPUT = /^\d+(\.\d+)?$/
+
 /**
  * Saisie de plafond (dossiers/tokens/sièges) : `''` → `null` (illimité ou défaut du plan) ;
- * entier ≥ 0 → valeur ; **sinon `undefined` = saisie invalide** — l'appelant bloque
- * l'enregistrement (avant LOT 8, « abc » devenait silencieusement ∞ : dangereux en god mode).
+ * entier ≥ 0 → valeur (décimales tronquées) ; **sinon `undefined` = saisie invalide** — l'appelant
+ * bloque l'enregistrement (avant LOT 8, « abc » devenait silencieusement ∞ : dangereux en god mode).
  */
 export function parseCapInput(s: string): number | null | undefined {
   const v = s.trim()
   if (v === '') return null
+  if (!DECIMAL_INPUT.test(v)) return undefined
   const n = Number(v)
-  if (!Number.isFinite(n) || n < 0) return undefined
+  if (!Number.isFinite(n)) return undefined
   return Math.floor(n)
 }
 
@@ -171,8 +175,9 @@ export function parseCapInput(s: string): number | null | undefined {
 export function parseStorageGbInput(s: string): number | null | undefined {
   const v = s.trim()
   if (v === '') return null
+  if (!DECIMAL_INPUT.test(v)) return undefined
   const n = Number(v)
-  if (!Number.isFinite(n) || n < 0) return undefined
+  if (!Number.isFinite(n)) return undefined
   return gbToBytes(n)
 }
 
