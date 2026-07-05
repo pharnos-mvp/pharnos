@@ -1,9 +1,11 @@
-import { Users } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { SearchX, Users } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
+import { Input } from '@/components/ui/input'
 import { Section } from '@/components/ui/section'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -17,7 +19,7 @@ import {
 } from '@/components/ui/table'
 import { useI18n } from '@/lib/i18n-context'
 
-import { adminApi } from './admin-api'
+import { adminApi, matchesSearch } from './admin-api'
 import { useAsync } from './use-async'
 
 const ROLE_LABEL: Record<string, { fr: string; en: string }> = {
@@ -29,6 +31,12 @@ const ROLE_LABEL: Record<string, { fr: string; en: string }> = {
 export function AdminUsers() {
   const { t, lang } = useI18n()
   const { data, error, loading, reload } = useAsync(adminApi.users)
+  const [query, setQuery] = useState('')
+  const filtered = useMemo(
+    () =>
+      (data ?? []).filter((u) => matchesSearch(query, u.email, ...u.memberships.map((m) => m.org))),
+    [data, query],
+  )
 
   if (loading && !data) {
     return (
@@ -63,6 +71,15 @@ export function AdminUsers() {
         fr: 'Tous les comptes de la plateforme et leurs organisations.',
         en: 'All platform accounts and their organizations.',
       })}
+      actions={
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t({ fr: 'Rechercher (e-mail, organisation)…', en: 'Search (email, org)…' })}
+          aria-label={t({ fr: 'Rechercher un utilisateur', en: 'Search users' })}
+          className="h-8 w-64"
+        />
+      }
     >
       {data.length === 0 ? (
         <EmptyState
@@ -71,6 +88,15 @@ export function AdminUsers() {
           description={t({
             fr: 'Les comptes créés apparaîtront ici.',
             en: 'Created accounts will appear here.',
+          })}
+        />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={<SearchX />}
+          title={t({ fr: 'Aucun résultat', en: 'No results' })}
+          description={t({
+            fr: `Aucun compte ne correspond à « ${query.trim()} ».`,
+            en: `No account matches “${query.trim()}”.`,
           })}
         />
       ) : (
@@ -84,7 +110,7 @@ export function AdminUsers() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.map((u) => (
+              {filtered.map((u) => (
                 <TableRow key={u.id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">

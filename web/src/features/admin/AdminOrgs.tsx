@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Building2, X } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Building2, SearchX, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import {
@@ -42,6 +42,7 @@ import {
   adminApi,
   bytesToGbInput,
   formatInt,
+  matchesSearch,
   parseCapInput,
   parseStorageGbInput,
   type AdminOrg,
@@ -70,6 +71,11 @@ export function AdminOrgs() {
   const { data, error, loading, reload } = useAsync(adminApi.orgs)
   const [busy, setBusy] = useState<string | null>(null)
   const [editing, setEditing] = useState<AdminOrg | null>(null)
+  const [query, setQuery] = useState('')
+  const filtered = useMemo(
+    () => (data ?? []).filter((o) => matchesSearch(query, o.name, o.plan)),
+    [data, query],
+  )
 
   async function run(orgId: string, fn: () => Promise<unknown>) {
     setBusy(orgId)
@@ -117,6 +123,15 @@ export function AdminOrgs() {
           fr: 'Plan, usage, dérogations de quota et coupe-circuit par organisation.',
           en: 'Plan, usage, quota overrides and kill-switch per organization.',
         })}
+        actions={
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t({ fr: 'Rechercher (nom, plan)…', en: 'Search (name, plan)…' })}
+            aria-label={t({ fr: 'Rechercher une organisation', en: 'Search organizations' })}
+            className="h-8 w-56"
+          />
+        }
       >
         {data.length === 0 ? (
           <EmptyState
@@ -125,6 +140,15 @@ export function AdminOrgs() {
             description={t({
               fr: 'Les organisations créées dans l’app apparaîtront ici.',
               en: 'Organizations created in the app will appear here.',
+            })}
+          />
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={<SearchX />}
+            title={t({ fr: 'Aucun résultat', en: 'No results' })}
+            description={t({
+              fr: `Aucune organisation ne correspond à « ${query.trim()} ».`,
+              en: `No organization matches “${query.trim()}”.`,
             })}
           />
         ) : (
@@ -153,7 +177,7 @@ export function AdminOrgs() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.map((org) => {
+                {filtered.map((org) => {
                   const disabled = org.disabled_at !== null
                   return (
                     <TableRow key={org.id} className={disabled ? 'opacity-60' : undefined}>

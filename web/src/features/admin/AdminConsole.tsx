@@ -1,7 +1,15 @@
 import { useState, type ReactNode } from 'react'
-import { Building2, ClipboardList, LayoutDashboard, SlidersHorizontal, Users } from 'lucide-react'
+import {
+  Building2,
+  ClipboardList,
+  Cpu,
+  FolderKanban,
+  LayoutDashboard,
+  ScrollText,
+  SlidersHorizontal,
+  Users,
+} from 'lucide-react'
 
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
@@ -9,20 +17,30 @@ import { Page } from '@/components/ui/page'
 import { PageHeader } from '@/components/ui/page-header'
 import { pillVariants } from '@/components/ui/pill'
 import { Section } from '@/components/ui/section'
+import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { LangThemeControls } from '@/components/layout/lang-theme-controls'
 import { formatBytes } from '@/lib/format-bytes'
 import { useI18n, type Lang } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 
-import { AdminForbiddenError, adminApi, formatInt, pct, trend } from './admin-api'
+import {
+  AdminForbiddenError,
+  adminApi,
+  auditActionLabel,
+  auditTone,
+  formatInt,
+  pct,
+  trend,
+} from './admin-api'
 import type { AdminOverview } from './admin-api'
+import { AdminJournal } from './AdminJournal'
 import { AdminOrgs } from './AdminOrgs'
 import { AdminPlans } from './AdminPlans'
 import { AdminUsers } from './AdminUsers'
 import { useAsync } from './use-async'
 
-type AdminSection = 'overview' | 'orgs' | 'users' | 'plans'
+type AdminSection = 'overview' | 'orgs' | 'users' | 'plans' | 'journal'
 
 /**
  * Jauge de santé plateforme : seuils sémantiques alignés sur la politique stockage
@@ -65,13 +83,40 @@ function HealthGauge({
   )
 }
 
-/** Valeur KPI premium (Syne, cf. DS « valeurs KPI ») + libellé mutée + sous-ligne optionnelle. */
-function Kpi({ label, value, sub }: { label: string; value: string; sub?: ReactNode }) {
+/** Tuile KPI du bandeau cockpit : libellé + pastille icône, valeur Syne, tendance + sous-ligne. */
+function KpiCard({
+  label,
+  value,
+  icon: Icon,
+  trendNode,
+  sub,
+}: {
+  label: string
+  value: string
+  icon: typeof Building2
+  trendNode?: ReactNode
+  sub?: string
+}) {
   return (
-    <div className="space-y-0.5">
-      <div className="text-muted-foreground text-xs">{label}</div>
-      <div className="font-display text-2xl font-semibold tracking-tight tabular-nums">{value}</div>
-      {sub ? <div className="text-muted-foreground text-xs">{sub}</div> : null}
+    <div className="bg-card rounded-xl border p-5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-muted-foreground text-xs font-medium">{label}</span>
+        <span
+          className="bg-info-subtle text-info flex size-8 shrink-0 items-center justify-center rounded-lg"
+          aria-hidden="true"
+        >
+          <Icon className="size-4" />
+        </span>
+      </div>
+      <div className="font-display mt-2 text-3xl font-bold tracking-tight tabular-nums">
+        {value}
+      </div>
+      {trendNode || sub ? (
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+          {trendNode}
+          {sub ? <span className="text-muted-foreground">{sub}</span> : null}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -87,108 +132,190 @@ function TrendBadge({ current, previous }: { current: number; previous: number }
   )
 }
 
-function Overview({ data }: { data: AdminOverview }) {
+/** Ligne « part de » : libellé + valeur + barre de part (décorative — la valeur fait foi). */
+function ShareRow({
+  label,
+  valueText,
+  share,
+}: {
+  label: string
+  valueText: string
+  share: number
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-baseline justify-between gap-3 text-sm">
+        <span className="min-w-0 truncate">{label}</span>
+        <span className="text-muted-foreground shrink-0 text-xs tabular-nums">{valueText}</span>
+      </div>
+      <div className="bg-muted h-1.5 overflow-hidden rounded-full" aria-hidden="true">
+        <div
+          className="bg-info h-full rounded-full"
+          style={{ width: `${Math.max(0, Math.min(100, share))}%` }}
+        />
+      </div>
+    </div>
+  )
+}
+
+function Overview({ data, onOpenJournal }: { data: AdminOverview; onOpenJournal: () => void }) {
   const { t, lang } = useI18n()
   const { totals, growth, health, ai_by_kind, recent_audit } = data
   const fmt = (n: number) => formatInt(n, lang)
+  // Top consommateurs (coût variable = tokens) — l'action orgs existe déjà, volume pilote léger.
+  const orgs = useAsync(adminApi.orgs)
 
-  const actionTone = (a: string) =>
-    a === 'delete'
-      ? ('danger' as const)
-      : a === 'create'
-        ? ('success' as const)
-        : ('warning' as const)
-  const actionLabel = (a: string) =>
-    a === 'create'
-      ? t({ fr: 'Créé', en: 'Created' })
-      : a === 'delete'
-        ? t({ fr: 'Supprimé', en: 'Deleted' })
-        : t({ fr: 'Modifié', en: 'Updated' })
+  const healthPct = Math.max(
+    pct(health.db_bytes, health.db_cap_bytes),
+    pct(health.storage_bytes, health.storage_cap_bytes),
+  )
+  const healthTone = healthPct >= 90 ? 'danger' : healthPct >= 70 ? 'warning' : 'success'
+  const healthLabel =
+    healthPct >= 90
+      ? t({ fr: 'Critique', en: 'Critical' })
+      : healthPct >= 70
+        ? t({ fr: 'À surveiller', en: 'Watch' })
+        : t({ fr: 'Nominal', en: 'Nominal' })
+
+  const kinds = Object.entries(ai_by_kind).sort((a, b) => b[1] - a[1])
+  const topOrgs = (orgs.data ?? [])
+    .filter((o) => o.ai_tokens_month > 0)
+    .sort((a, b) => b.ai_tokens_month - a.ai_tokens_month)
+    .slice(0, 5)
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-2">
-      <Section
-        title={t({ fr: 'Croissance', en: 'Growth' })}
-        description={t({ fr: '30 derniers jours vs précédents', en: 'Last 30 days vs prior' })}
-      >
-        <div className="grid grid-cols-3 gap-4">
-          <div className="space-y-1.5">
-            <Kpi label={t({ fr: 'Organisations', en: 'Organizations' })} value={fmt(totals.orgs)} />
-            <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-muted-foreground tabular-nums">+{growth.orgs_30d}</span>
-              <TrendBadge current={growth.orgs_30d} previous={growth.orgs_prev_30d} />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Kpi label={t({ fr: 'Utilisateurs', en: 'Users' })} value={fmt(totals.users)} />
-            <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-muted-foreground tabular-nums">+{growth.users_30d}</span>
-              <TrendBadge current={growth.users_30d} previous={growth.users_prev_30d} />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Kpi label={t({ fr: 'Dossiers', en: 'Dossiers' })} value={fmt(totals.dossiers)} />
-            <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-muted-foreground tabular-nums">+{growth.dossiers_30d}</span>
-              <TrendBadge current={growth.dossiers_30d} previous={growth.dossiers_prev_30d} />
-            </div>
-          </div>
-        </div>
-      </Section>
+    <div className="space-y-4">
+      {/* Bandeau KPI hero — croissance + coût variable, tendances 30 j réelles. */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          label={t({ fr: 'Organisations', en: 'Organizations' })}
+          value={fmt(totals.orgs)}
+          icon={Building2}
+          trendNode={<TrendBadge current={growth.orgs_30d} previous={growth.orgs_prev_30d} />}
+          sub={`${fmt(totals.orgs_active)} ${t({ fr: 'actives', en: 'active' })}`}
+        />
+        <KpiCard
+          label={t({ fr: 'Utilisateurs', en: 'Users' })}
+          value={fmt(totals.users)}
+          icon={Users}
+          trendNode={<TrendBadge current={growth.users_30d} previous={growth.users_prev_30d} />}
+          sub={`+${fmt(growth.users_30d)} ${t({ fr: 'sur 30 j', en: 'in 30 d' })}`}
+        />
+        <KpiCard
+          label={t({ fr: 'Dossiers', en: 'Dossiers' })}
+          value={fmt(totals.dossiers)}
+          icon={FolderKanban}
+          trendNode={
+            <TrendBadge current={growth.dossiers_30d} previous={growth.dossiers_prev_30d} />
+          }
+          sub={`${fmt(totals.products)} ${t({ fr: 'produits au catalogue', en: 'products in catalogue' })}`}
+        />
+        <KpiCard
+          label={t({ fr: 'Tokens IA (mois)', en: 'AI tokens (month)' })}
+          value={fmt(totals.ai_tokens_month)}
+          icon={Cpu}
+          sub={`${fmt(totals.ai_calls_month)} ${t({ fr: 'appels — seul coût variable', en: 'calls — the only variable cost' })}`}
+        />
+      </div>
 
-      <Section
-        title={t({ fr: 'Santé plateforme', en: 'Platform health' })}
-        description={t({
-          fr: 'Ressources vs paliers du tier gratuit — seuil de bascule R2 à 70 %',
-          en: 'Resources vs free-tier caps — R2 migration threshold at 70%',
-        })}
-      >
-        <div className="space-y-4">
-          <HealthGauge
-            value={health.db_bytes}
-            cap={health.db_cap_bytes}
-            label={t({ fr: 'Base de données', en: 'Database' })}
-            lang={lang}
-          />
-          <HealthGauge
-            value={health.storage_bytes}
-            cap={health.storage_cap_bytes}
-            label={`${t({ fr: 'Stockage', en: 'Storage' })} · ${fmt(health.storage_objects)} ${t({ fr: 'fichiers', en: 'files' })}`}
-            lang={lang}
-          />
-        </div>
-      </Section>
+      {/* Rangée cockpit : infra · répartition du coût IA · top consommateurs. */}
+      <div className="grid items-start gap-4 lg:grid-cols-3">
+        <Section
+          title={t({ fr: 'Santé plateforme', en: 'Platform health' })}
+          description={t({
+            fr: 'Ressources vs paliers du tier gratuit — bascule R2 à 70 %',
+            en: 'Resources vs free-tier caps — R2 migration at 70%',
+          })}
+          actions={<StatusBadge tone={healthTone}>{healthLabel}</StatusBadge>}
+        >
+          <div className="space-y-4">
+            <HealthGauge
+              value={health.db_bytes}
+              cap={health.db_cap_bytes}
+              label={t({ fr: 'Base de données', en: 'Database' })}
+              lang={lang}
+            />
+            <HealthGauge
+              value={health.storage_bytes}
+              cap={health.storage_cap_bytes}
+              label={`${t({ fr: 'Stockage', en: 'Storage' })} · ${fmt(health.storage_objects)} ${t({ fr: 'fichiers', en: 'files' })}`}
+              lang={lang}
+            />
+          </div>
+        </Section>
 
-      <Section
-        title={t({ fr: 'Consommation IA (ce mois)', en: 'AI usage (this month)' })}
-        description={t({
-          fr: 'Tokens Gemini — le seul coût variable',
-          en: 'Gemini tokens — the only variable cost',
-        })}
-      >
-        <div className="flex flex-wrap gap-6">
-          <Kpi label={t({ fr: 'Tokens', en: 'Tokens' })} value={fmt(totals.ai_tokens_month)} />
-          <Kpi label={t({ fr: 'Appels', en: 'Calls' })} value={fmt(totals.ai_calls_month)} />
-          <Kpi label={t({ fr: 'Produits', en: 'Products' })} value={fmt(totals.products)} />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {Object.entries(ai_by_kind).length === 0 ? (
-            <span className="text-muted-foreground text-xs">
+        <Section
+          title={t({ fr: 'IA par usage (mois)', en: 'AI by usage (month)' })}
+          description={t({
+            fr: 'Répartition des tokens Gemini par fonction',
+            en: 'Gemini token split by feature',
+          })}
+        >
+          {kinds.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
               {t({ fr: 'Aucune consommation ce mois.', en: 'No usage this month.' })}
-            </span>
+            </p>
           ) : (
-            Object.entries(ai_by_kind).map(([kind, toks]) => (
-              <Badge key={kind} variant="secondary" className="tabular-nums">
-                {kind}: {fmt(toks)}
-              </Badge>
-            ))
+            <div className="space-y-3">
+              {kinds.map(([kind, toks]) => {
+                const share = pct(toks, totals.ai_tokens_month)
+                return (
+                  <ShareRow
+                    key={kind}
+                    label={kind}
+                    valueText={`${fmt(toks)} · ${share} %`}
+                    share={share}
+                  />
+                )
+              })}
+            </div>
           )}
-        </div>
-      </Section>
+        </Section>
+
+        <Section
+          title={t({ fr: 'Top consommateurs', en: 'Top consumers' })}
+          description={t({
+            fr: 'Organisations par tokens IA ce mois',
+            en: 'Organizations by AI tokens this month',
+          })}
+        >
+          {orgs.loading && !orgs.data ? (
+            <div className="space-y-2">
+              <Skeleton className="h-8 rounded-lg" />
+              <Skeleton className="h-8 rounded-lg" />
+              <Skeleton className="h-8 rounded-lg" />
+            </div>
+          ) : orgs.error ? (
+            <p className="text-muted-foreground text-sm">
+              {t({ fr: 'Indisponible pour le moment.', en: 'Unavailable right now.' })}
+            </p>
+          ) : topOrgs.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              {t({ fr: 'Aucune consommation ce mois.', en: 'No usage this month.' })}
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {topOrgs.map((o) => (
+                <ShareRow
+                  key={o.id}
+                  label={o.name}
+                  valueText={fmt(o.ai_tokens_month)}
+                  share={pct(o.ai_tokens_month, totals.ai_tokens_month)}
+                />
+              ))}
+            </div>
+          )}
+        </Section>
+      </div>
 
       <Section
         title={t({ fr: 'Activité récente', en: 'Recent activity' })}
-        description={t({ fr: "Journal d'audit (25 derniers)", en: 'Audit log (latest 25)' })}
+        description={t({ fr: 'Les 25 dernières actions', en: 'The latest 25 actions' })}
+        actions={
+          <Button variant="ghost" size="sm" onClick={onOpenJournal}>
+            {t({ fr: 'Journal complet', en: 'Full log' })} →
+          </Button>
+        }
       >
         {recent_audit.length === 0 ? (
           <EmptyState
@@ -206,7 +333,9 @@ function Overview({ data }: { data: AdminOverview }) {
                 key={`${a.org_id}-${a.at}-${i}`}
                 className="flex items-center gap-x-3 border-b py-1.5 text-sm last:border-0"
               >
-                <StatusBadge tone={actionTone(a.action)}>{actionLabel(a.action)}</StatusBadge>
+                <StatusBadge tone={auditTone(a.action)}>
+                  {t(auditActionLabel(a.action))}
+                </StatusBadge>
                 <span className="min-w-0 flex-1 truncate" title={a.label || a.action}>
                   {a.label || a.action}
                 </span>
@@ -293,6 +422,7 @@ export function AdminConsole() {
       label: t({ fr: 'Plans & quotas', en: 'Plans & quotas' }),
       icon: SlidersHorizontal,
     },
+    { key: 'journal', label: t({ fr: 'Journal', en: 'Audit log' }), icon: ScrollText },
   ]
 
   return (
@@ -351,10 +481,13 @@ export function AdminConsole() {
             ))}
           </nav>
 
-          {section === 'overview' && <Overview data={overview.data} />}
+          {section === 'overview' && (
+            <Overview data={overview.data} onOpenJournal={() => setSection('journal')} />
+          )}
           {section === 'orgs' && <AdminOrgs />}
           {section === 'users' && <AdminUsers />}
           {section === 'plans' && <AdminPlans />}
+          {section === 'journal' && <AdminJournal />}
         </Page>
       </main>
     </div>

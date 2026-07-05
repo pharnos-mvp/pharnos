@@ -178,8 +178,10 @@ Ordre = valeur × dépendance. Chaque ligne = tranche verticale livrable + recet
 - **Pilote** : supprimer le produit test « Recette PL3… » du catalogue prod (P0-4).
 
 ## Migrations
-Dernière appliquée = **`0047`** (`lifecycle_events` — journal append-only + RLS + pgTAP, PR #272).
+Dernière appliquée = **`0053`** (`admin_audit` — journal complet paginé de la console admin, LOT 8b).
 `0044` = `document_admin_metadata` ; `0045` = `parties` ; `0046` = `dossier_operation_number` ;
-`0047` = `lifecycle_events`. **Reprendre à `0048`.**
+`0047` = `lifecycle_events` ; `0048` = `membership_scopes` ; `0049` = `explicit_org_rpcs` ;
+`0050`/`0051` = relances auto (cron/Vault) ; `0052` = M7 agent ; `0053` = `admin_audit`.
+**Reprendre à `0054`.**
 ⚠️ Le tracking distant est en **timestamp** (≠ fichiers `0001-0045`) ; toujours `ls supabase/migrations/` avant de
 numéroter, et appliquer via MCP `apply_migration` (idempotent), pas `supabase db push` à l'aveugle.

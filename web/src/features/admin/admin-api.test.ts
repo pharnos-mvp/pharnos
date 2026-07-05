@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  auditTone,
   bytesToGbInput,
   formatInt,
   gbToBytes,
+  matchesSearch,
   parseCapInput,
   parseStorageGbInput,
   pct,
@@ -57,6 +59,31 @@ describe('pct / trend (jauges & croissance)', () => {
   it('trend signe le delta', () => {
     expect(trend(5, 2)).toEqual({ delta: 3, up: true })
     expect(trend(1, 4)).toEqual({ delta: -3, up: false })
+  })
+})
+
+describe('matchesSearch (recherche admin, insensible casse + accents)', () => {
+  it('requête vide ou blanche → tout passe', () => {
+    expect(matchesSearch('', 'Glory Pharma')).toBe(true)
+    expect(matchesSearch('   ', 'Glory Pharma')).toBe(true)
+  })
+  it('insensible à la casse et aux accents, sur n’importe quel champ', () => {
+    expect(matchesSearch('benin', 'Laboratoires du Bénin')).toBe(true)
+    expect(matchesSearch('BÉNIN', 'laboratoires du benin')).toBe(true)
+    expect(matchesSearch('glory', 'Autre', 'Glory Pharma')).toBe(true)
+  })
+  it('champs null/undefined ignorés ; aucun match → false', () => {
+    expect(matchesSearch('pharma', null, undefined)).toBe(false)
+    expect(matchesSearch('zzz', 'Glory Pharma')).toBe(false)
+  })
+})
+
+describe('auditTone (journal)', () => {
+  it('data org : create/delete/autre ; actions plateforme admin_* → info', () => {
+    expect(auditTone('create')).toBe('success')
+    expect(auditTone('delete')).toBe('danger')
+    expect(auditTone('update')).toBe('warning')
+    expect(auditTone('admin_set_disabled')).toBe('info')
   })
 })
 
