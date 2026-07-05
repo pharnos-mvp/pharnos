@@ -163,6 +163,11 @@ Ordre = valeur × dépendance. Chaque ligne = tranche verticale livrable + recet
   `web/src/features/org/plan-catalog.ts` (Compte + landing LOT 11 les affichent sans autre changement).
 - **Dedup `formatBytes`** : `lib/format-bytes.ts` (FR/EN) est la source unique ; `admin-api.ts` (LOT 8)
   et les 3 formatteurs Ko/KB de la correspondance convergent dessus au fil de leurs lots.
+- **Contraste AA de la pilule active en DARK** (revue LOT 7, hérité) : `bg-info text-white` = 3,75:1 en
+  sombre (`--info` #2f81f7) sur CatalogueTabs + ProductWizard + rail Compte — le gate a11y CI ne teste
+  que le thème clair (6,18:1 OK). Correctif au NIVEAU TOKEN (`index.css`, ex. `--info` on-solid dark
+  plus foncé) + extraction du pattern pilule partagé → à caser avec LOT 8 (admin) ou LOT 13 (recette),
+  recette visuelle dark obligatoire (touche Button primary & co).
 
 ## Actions CEO / ops en attente (loose ends — à clôturer avant/pendant N)
 - **Backup** : ranger la clé privée age `C:\Users\ASUS\pharnos-backup-age.key` **hors-ligne** (coffre) puis supprimer le fichier — sa perte = backups illisibles.

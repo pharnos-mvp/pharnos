@@ -152,7 +152,7 @@ interface OrgProfileValues {
 
 /**
  * Formulaire « Informations professionnelles » : entreprise → poste → pays.
- * Bouton Enregistrer **en haut** (sticky), actif uniquement en cas de modification (dirty).
+ * Bouton Enregistrer dans l'en-tête de la Section, actif uniquement en cas de modification (dirty).
  * Remonté par `key` quand les valeurs stockées changent → baseline propre, sans effet.
  */
 function OrgProfileForm({
