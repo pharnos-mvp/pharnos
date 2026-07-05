@@ -206,6 +206,14 @@ export interface DossierRecord {
    */
   archivedAt?: string | null
   /**
+   * Purge de rétention (LOT 9, migration 0054) : posé CÔTÉ SERVEUR quand le brouillon supprimé
+   * dépasse la fenêtre de grâce (30 j) — contenu et fichiers effacés, la ligne reste en squelette
+   * tombstone (la sync propage la purge, l'audit reste). Jamais poussé par le client (pull only,
+   * pattern opYear/opNumber). Un dossier purgé n'apparaît plus dans la corbeille et n'est plus
+   * restaurable.
+   */
+  purgedAt?: string | null
+  /**
    * Numéro d'opération canonique « OP-{opYear}-{opNumber sur 4} » attribué CÔTÉ SERVEUR à la 1re
    * synchro (séquentiel, unique par org+année — migration 0046). Null tant que le dossier n'a pas
    * été synchronisé (brouillon local) → l'UI affiche « n° en attente ». Le client ne les envoie

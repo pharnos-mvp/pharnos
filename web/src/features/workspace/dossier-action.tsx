@@ -14,14 +14,17 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { useI18n } from '@/lib/i18n-context'
+import { TRASH_RETENTION_DAYS } from './dossier-repository'
 
-export type DossierActionMode = 'delete' | 'archive' | 'restore'
+export type DossierActionMode = 'delete' | 'archive' | 'restore' | 'restore-trash'
 
 /**
- * Action de fin de vie d'un dossier, avec confirmation + motif (audit ALCOA). Trois régimes :
- * - delete : brouillon jamais soumis → suppression douce (récupérable par un admin).
+ * Action de fin de vie d'un dossier, avec confirmation + motif (audit ALCOA). Quatre régimes :
+ * - delete : brouillon jamais soumis → corbeille (restaurable pendant la fenêtre de grâce,
+ *   puis purge définitive automatique — docs/RETENTION-POLICY.md).
  * - archive : dossier soumis (enregistrement réglementaire) → conservé, jamais purgé.
  * - restore : remet un archivé dans l'actif.
+ * - restore-trash : remet un brouillon de la corbeille dans l'actif.
  * Réutilisé par le board Opérations ET la page d'aperçu (icône seule, nom accessible).
  */
 export function DossierAction({
@@ -44,8 +47,8 @@ export function DossierAction({
       trigger: t({ fr: 'Supprimer le brouillon', en: 'Delete draft' }),
       title: t({ fr: 'Supprimer ce brouillon ?', en: 'Delete this draft?' }),
       desc: t({
-        fr: `« ${name} » est un brouillon jamais soumis. Il sera retiré (action tracée, récupérable par un administrateur).`,
-        en: `"${name}" is a draft never submitted. It will be removed (audited, recoverable by an administrator).`,
+        fr: `« ${name} » est un brouillon jamais soumis. Il sera déplacé dans la corbeille (action tracée) — restaurable pendant ${TRASH_RETENTION_DAYS} jours, puis purgé définitivement.`,
+        en: `"${name}" is a draft never submitted. It will be moved to the trash (audited) — restorable for ${TRASH_RETENTION_DAYS} days, then permanently purged.`,
       }),
       confirm: t({ fr: 'Supprimer', en: 'Delete' }),
       reason: true,
@@ -70,6 +73,18 @@ export function DossierAction({
       desc: t({
         fr: `« ${name} » reviendra dans vos dossiers actifs.`,
         en: `"${name}" will return to your active dossiers.`,
+      }),
+      confirm: t({ fr: 'Restaurer', en: 'Restore' }),
+      reason: false,
+      destructive: false,
+    },
+    'restore-trash': {
+      Icon: ArchiveRestore,
+      trigger: t({ fr: 'Restaurer le brouillon', en: 'Restore draft' }),
+      title: t({ fr: 'Restaurer ce brouillon ?', en: 'Restore this draft?' }),
+      desc: t({
+        fr: `« ${name} » sortira de la corbeille et reviendra dans vos dossiers actifs.`,
+        en: `"${name}" will leave the trash and return to your active dossiers.`,
       }),
       confirm: t({ fr: 'Restaurer', en: 'Restore' }),
       reason: false,
