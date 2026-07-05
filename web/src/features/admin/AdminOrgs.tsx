@@ -133,6 +133,13 @@ export function AdminOrgs() {
           />
         }
       >
+        {/* Annonce du résultat de recherche aux lecteurs d'écran (le DOM bascule liste↔vide). */}
+        <p role="status" className="sr-only">
+          {t({
+            fr: `${filtered.length} organisation(s) affichée(s)`,
+            en: `${filtered.length} organization(s) shown`,
+          })}
+        </p>
         {data.length === 0 ? (
           <EmptyState
             icon={<Building2 />}

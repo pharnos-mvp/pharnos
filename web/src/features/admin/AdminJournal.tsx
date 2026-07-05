@@ -26,13 +26,15 @@ const PAGE = 50
  * Journal d'audit COMPLET (toutes les organisations) — pagination keyset « Charger plus »
  * (curseur = at+id de la dernière ligne, stable sous insertion) + filtre par organisation.
  * L'Overview n'affiche que les 25 derniers ; ici, tout audit_log est parcourable.
+ * `initialOrgFilter` : point d'entrée de test du curseur filtré (le Select Radix ne se pilote
+ * pas fiablement en jsdom) — la prod monte toujours sur « all ».
  */
-export function AdminJournal() {
+export function AdminJournal({ initialOrgFilter = 'all' }: { initialOrgFilter?: string }) {
   const { t, lang } = useI18n()
   // Liste des orgs pour le filtre (action déjà existante de l'Edge — volume pilote, appel léger).
   const orgs = useAsync(adminApi.orgs)
 
-  const [orgFilter, setOrgFilter] = useState<string>('all')
+  const [orgFilter, setOrgFilter] = useState<string>(initialOrgFilter)
   // `null` = première page en cours de chargement (skeleton).
   const [entries, setEntries] = useState<AdminAuditEntry[] | null>(null)
   const [error, setError] = useState<Error | null>(null)

@@ -82,6 +82,35 @@ describe('AdminJournal', () => {
     expect(await screen.findByText('Aucune entrée')).toBeInTheDocument()
   })
 
+  it('filtre org : la première page ET le curseur « Charger plus » portent orgId', async () => {
+    const page1 = Array.from({ length: 50 }, (_, i) => entry(i))
+    auditMock.mockResolvedValueOnce(page1).mockResolvedValueOnce([])
+
+    render(
+      <I18nProvider>
+        <AdminJournal initialOrgFilter="11111111-1111-1111-1111-111111111111" />
+      </I18nProvider>,
+    )
+
+    expect(await screen.findByText('Entrée 0')).toBeInTheDocument()
+    expect(auditMock).toHaveBeenCalledWith({
+      limit: 50,
+      orgId: '11111111-1111-1111-1111-111111111111',
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Charger plus' }))
+    await waitFor(() => expect(auditMock).toHaveBeenCalledTimes(2))
+    const last = entry(49)
+    expect(auditMock).toHaveBeenLastCalledWith({
+      limit: 50,
+      beforeAt: last.at,
+      beforeId: last.id,
+      orgId: '11111111-1111-1111-1111-111111111111',
+    })
+    // Page vide en retour → fin du journal (cas « multiple exact de 50 »).
+    expect(await screen.findByText('Fin du journal.')).toBeInTheDocument()
+  })
+
   it('erreur → ErrorState, « Réessayer » recharge', async () => {
     auditMock.mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce([entry(0)])
     renderJournal()
