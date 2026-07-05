@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils'
 import { listAttachments } from './dossier-attachments-repository'
 import { DossierAction } from './dossier-action'
 import { countryLabel } from './dossier-constants'
+import { isDeleteConfirmSkipped, setDeleteConfirmSkipped } from './delete-confirm-pref'
 import {
   archiveDossier,
   deleteDossier,
@@ -304,6 +305,8 @@ export function DossierPreviewPage() {
           <DossierAction
             mode={lifecycleMode}
             name={dossier.productName}
+            skipConfirm={isDeleteConfirmSkipped(orgId)}
+            onSkipPreference={(skip) => setDeleteConfirmSkipped(orgId, skip)}
             onConfirm={handleLifecycle}
           />
         </div>

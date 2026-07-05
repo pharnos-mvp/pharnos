@@ -2,14 +2,9 @@
 // Déclenchée chaque nuit par pg_cron → pg_net (migration 0054), JAMAIS par un navigateur.
 //
 // Politique (docs/RETENTION-POLICY.md) : un brouillon supprimé (corbeille) au-delà de la fenêtre
-// de grâce est purgé DÉFINITIVEMENT :
-//   1. fichiers Storage du dossier effacés via l'API Storage (préfixe `{org}/dossiers/{id}/` —
-//      pièces jointes + pièces du cycle de vie ; JAMAIS de DELETE SQL sur storage.objects) ;
-//   2. lignes enfants effacées (dossier_attachments, generated_docs, lifecycle_events) ;
-//   3. ligne `dossiers` réduite en SQUELETTE TOMBSTONE : contenu vidé, `purged_at` posé,
-//      `updated_at` bumpé → la sync incrémentale propage la purge aux appareils retardataires
-//      (le client miroir-purge ses enfants locaux au pull), et le squelette reste la preuve ALCOA ;
-//   4. entrée `audit_log` org-scopée (actor 'system') — la purge est un acte tracé.
+// de grâce est purgé DÉFINITIVEMENT. La mécanique de purge (Storage → enfants → squelette
+// tombstone → audit) vit dans `_shared/retention-purge-core.ts`, PARTAGÉE avec la purge
+// immédiate à la demande (`purge-dossier`).
 //
 // Garde-fou GxP re-vérifié ICI (pas seulement l'UI) : un dossier SOUMIS n'est JAMAIS purgé —
 // `archived_at` posé OU toute correspondance (même soft-supprimée) ⇒ exclu et compté `anomalies`.
@@ -18,25 +13,17 @@
 // secret partagé `x-cron-secret` comparé à temps constant au HASH Vault via la RPC service-role
 // `lifecycle_cron_secret_hash` (secret partagé par les crons internes : une seule rotation).
 //
-// Idempotence / crash-safety : l'ordre Storage → enfants → tombstone fait qu'un run interrompu
-// se rejoue sans effet de bord (remove de fichiers absents = no-op, deletes idempotents,
-// `purged_at is null` re-sélectionne le dossier la nuit suivante). Un échec unitaire n'arrête
-// pas la flotte (compté `failed`, retenté la nuit suivante).
-import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
+// Idempotence : `purged_at is null` re-sélectionne un dossier dont le run a été interrompu ;
+// un échec unitaire n'arrête pas la flotte (compté `failed`, retenté la nuit suivante).
+import { createClient } from 'npm:@supabase/supabase-js@2'
 
 import { logJson, newReqId } from '../_shared/log.ts'
 import { sha256Hex, timingSafeEqual } from '../_shared/share-auth.ts'
+import { PAGE_SIZE, purgeDossier, RETENTION_DAYS } from '../_shared/retention-purge-core.ts'
 
-/** Fenêtre de grâce (jours) — DOIT rester alignée avec TRASH_RETENTION_DAYS côté front. */
-const RETENTION_DAYS = 30
-const BUCKET = 'documents'
-const PAGE_SIZE = 500
 /** Borne du run nocturne (rattrapage la nuit suivante) — garde le run court et prévisible. */
 const MAX_PER_RUN = 200
 const ID_CHUNK = 100
-const REMOVE_CHUNK = 100
-/** Profondeur max du walk Storage sous le préfixe dossier (réel : 2 niveaux, marge ×2). */
-const MAX_LIST_DEPTH = 4
 
 interface TrashRow {
   id: string
@@ -146,44 +133,11 @@ Deno.serve(async (req: Request) => {
     let filesRemoved = 0
     for (const dossier of eligible) {
       try {
-        filesRemoved += await removeStoragePrefix(
-          supabase,
-          `${dossier.org_id}/dossiers/${dossier.id}`,
-        )
-
-        for (const table of ['dossier_attachments', 'generated_docs', 'lifecycle_events']) {
-          const { error } = await supabase.from(table).delete().eq('dossier_id', dossier.id)
-          if (error) throw error
-        }
-
-        // Squelette tombstone EN DERNIER (marqueur d'achèvement) : contenu vidé, identité
-        // conservée (product_name = trace lisible), updated_at bumpé → propagation sync.
-        const nowIso = new Date().toISOString()
-        const { error: updErr } = await supabase
-          .from('dossiers')
-          .update({
-            tree: [],
-            excluded_doc_ids: [],
-            variations: null,
-            variation_items: null,
-            purged_at: nowIso,
-            updated_at: nowIso,
-          })
-          .eq('id', dossier.id)
-        if (updErr) throw updErr
-
-        const { error: auditErr } = await supabase.from('audit_log').insert({
-          id: crypto.randomUUID(),
-          org_id: dossier.org_id,
-          actor_id: 'system',
-          actor_email: '',
-          entity: 'dossier',
-          entity_id: dossier.id,
-          action: 'purge',
+        filesRemoved += await purgeDossier(supabase, dossier, {
+          actorId: 'system',
+          actorEmail: '',
           label: `${dossier.product_name} · purge automatique de rétention (corbeille > ${RETENTION_DAYS} j)`,
         })
-        if (auditErr) throw auditErr
-
         purged++
       } catch (e) {
         failed++
@@ -209,33 +163,3 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'server_error' }, 500)
   }
 })
-
-/**
- * Efface récursivement tous les objets Storage sous un préfixe (l'API `list` n'est pas récursive :
- * les « dossiers » sont des entrées sans `id`). Profondeur bornée (réel : attachments à 2 niveaux,
- * lifecycle à 3). Retourne le nombre de fichiers supprimés ; préfixe absent = 0 (idempotent).
- */
-async function removeStoragePrefix(supabase: SupabaseClient, prefix: string): Promise<number> {
-  const files: string[] = []
-  const walk = async (dir: string, depth: number): Promise<void> => {
-    if (depth > MAX_LIST_DEPTH) return
-    for (let offset = 0; ; offset += PAGE_SIZE) {
-      const { data, error } = await supabase.storage
-        .from(BUCKET)
-        .list(dir, { limit: PAGE_SIZE, offset })
-      if (error) throw error
-      const entries = data ?? []
-      for (const entry of entries) {
-        if (entry.id === null) await walk(`${dir}/${entry.name}`, depth + 1)
-        else files.push(`${dir}/${entry.name}`)
-      }
-      if (entries.length < PAGE_SIZE) break
-    }
-  }
-  await walk(prefix, 0)
-  for (const part of chunk(files, REMOVE_CHUNK)) {
-    const { error } = await supabase.storage.from(BUCKET).remove(part)
-    if (error) throw error
-  }
-  return files.length
-}

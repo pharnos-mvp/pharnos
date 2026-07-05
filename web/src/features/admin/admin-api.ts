@@ -231,7 +231,7 @@ export type AuditTone = 'success' | 'warning' | 'danger' | 'info'
 /** Ton sémantique d'une action d'audit — les actions plateforme (admin_*) ressortent en info. */
 export function auditTone(action: string): AuditTone {
   if (action.startsWith('admin_')) return 'info'
-  if (action === 'delete') return 'danger'
+  if (action === 'delete' || action === 'purge') return 'danger'
   if (action === 'create') return 'success'
   return 'warning'
 }
@@ -253,6 +253,13 @@ export function auditActionLabel(action: string): { fr: string; en: string } {
       return { fr: 'Coupe-circuit', en: 'Kill-switch' }
     case 'admin_set_plan_limits':
       return { fr: 'Barème plan', en: 'Plan limits' }
+    // Rétention LOT 9 : purge définitive (cron retention-purge actor system / purge-dossier membre).
+    case 'purge':
+      return { fr: 'Purgé', en: 'Purged' }
+    case 'archive':
+      return { fr: 'Archivé', en: 'Archived' }
+    case 'restore':
+      return { fr: 'Restauré', en: 'Restored' }
     default:
       return { fr: 'Modifié', en: 'Updated' }
   }

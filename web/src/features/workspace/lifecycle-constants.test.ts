@@ -270,7 +270,9 @@ describe('libellés', () => {
 
   it('lifecycleStatusLabel — couvre les statuts + repli', () => {
     expect(lifecycleStatusLabel('submitting')).toBe('En soumission')
-    expect(lifecycleStatusLabel('amm_granted', 'en')).toBe('MA granted')
+    // Vocabulaire CEO (LOT 9) : issue positive agence nationale = produit ENREGISTRÉ.
+    expect(lifecycleStatusLabel('amm_granted', 'en')).toBe('Registered')
+    expect(lifecycleStatusLabel('amm_granted')).toBe('Enregistré')
     expect(lifecycleStatusLabel('montage')).toBe('En montage')
     expect(lifecycleStatusLabel('suspended')).toBe('Complément requis')
   })
@@ -278,7 +280,8 @@ describe('libellés', () => {
   it('stageOutcomeLabel — issues courtes (décision + AMM)', () => {
     expect(stageOutcomeLabel('accepted')).toBe('Accepté')
     expect(stageOutcomeLabel('suspended')).toBe('Complément')
-    expect(stageOutcomeLabel('granted', 'en')).toBe('Granted')
+    expect(stageOutcomeLabel('granted', 'en')).toBe('Issued')
+    expect(stageOutcomeLabel('granted')).toBe('Délivrée')
     expect(stageOutcomeLabel('refused')).toBe('Refusée')
   })
 

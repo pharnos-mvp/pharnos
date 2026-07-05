@@ -62,3 +62,30 @@ test('corbeille : supprimer un brouillon → restaurer depuis la corbeille', asy
   await expect(page.getByRole('button', { name: /Corbeille/ })).toHaveCount(0)
   await expect(page.getByRole('row', { name: new RegExp(nom) })).toBeVisible()
 })
+
+test('corbeille : « Supprimer définitivement » purge immédiatement (mode local)', async ({
+  page,
+}) => {
+  const nom = await createDraft(page)
+
+  await page.goto('/workspace')
+  await page
+    .getByRole('row', { name: new RegExp(nom) })
+    .first()
+    .getByRole('button', { name: 'Supprimer le brouillon' })
+    .click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Supprimer' }).click()
+  const toast = page.locator('[data-sonner-toast]')
+  await expect(toast).toHaveCount(0, { timeout: 12_000 })
+
+  await page.getByRole('button', { name: /Corbeille · 1/ }).click()
+  const row = page.getByRole('row', { name: new RegExp(nom) })
+  await row.getByRole('button', { name: 'Supprimer définitivement' }).click()
+  const dialog = page.getByRole('alertdialog')
+  await expect(dialog).toContainText('IRRÉVERSIBLEMENT')
+  await dialog.getByRole('button', { name: 'Supprimer définitivement' }).click()
+
+  // Purgé : disparu de la corbeille (pilule envolée → retour Actifs), jamais restaurable.
+  await expect(page.getByRole('button', { name: /Corbeille/ })).toHaveCount(0)
+  await expect(page.getByRole('row', { name: new RegExp(nom) })).toHaveCount(0)
+})

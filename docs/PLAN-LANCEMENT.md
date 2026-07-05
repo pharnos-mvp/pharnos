@@ -122,7 +122,15 @@ zéro-rework (combiner / zone protégée). Lots :
   conservé pour la sync + l'audit ; garde GxP SQL : jamais un dossier soumis ; `purged_at`
   server-managed par trigger) + **Archive enrichie** (colonne « Archivé le », note GxP) +
   **[RETENTION-POLICY.md](RETENTION-POLICY.md)** (argument conformité). Miroir local : purge
-  des enfants Dexie au pull.
+  des enfants Dexie au pull. **+ recette CEO (2026-07-05, vérifiée vrai Chrome)** : fix racine
+  **double barre de défilement** (les `sr-only` absolus des tables étiraient le document →
+  `relative` sur `<main>` + scrollers ; Archivés/Corbeille passés au cockpit hauteur fixe),
+  **« Supprimer définitivement »** dans la corbeille (Edge `purge-dossier`, purge immédiate
+  attribuée à l'utilisateur, core partagé `_shared/retention-purge-core.ts`), case **« Ne plus
+  afficher ce message »** (bypass du dialogue, toast undo = filet), **cellules cliquables**
+  (Statut → Roadmap, Avancement CTD → Aperçu), et **vocabulaire d'étapes corrigé** : Décision
+  agent local = « Accepté » / « Dossier accepté — X » (plus jamais « Octroyé »/« AMM octroyée »
+  à ce stade) ; étape AMM agence nationale = « Enregistré » (état) / « AMM délivrée » (événement).
 - **LOT 10 — Correspondance + v3 + relances auto + Agent local** — ✅ **LIVRÉ & CLOS
   (2026-07-04→05)** : **relances auto** (Edge `lifecycle-reminders` quotidienne + migrations
   `0050`/`0051` pg_cron/pg_net/Vault, seuils par pays agent 14 j / agence 30 j, e-mail côté

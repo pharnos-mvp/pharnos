@@ -12,7 +12,7 @@
 |---|---|---|
 | **Actif** | tout dossier en cours | Conservation intégrale (données + fichiers + journal du cycle de vie). |
 | **Archivé** (`archived_at`) | dossier **soumis** à une agence (enregistrement réglementaire) | **Jamais supprimé, jamais purgé** — la réglementation impose la rétention. Restaurable à tout moment dans l'actif. Motif d'archivage tracé à l'audit (ALCOA « reason for change »). |
-| **Corbeille** (`deleted_at`) | **brouillon jamais soumis**, supprimé par un membre | Restaurable pendant la **fenêtre de grâce de 30 jours**, puis **purge définitive automatique**. Suppression, restauration et purge tracées à l'audit. |
+| **Corbeille** (`deleted_at`) | **brouillon jamais soumis**, supprimé par un membre | Restaurable pendant la **fenêtre de grâce de 30 jours**, puis **purge définitive automatique**. Un membre (non scopé) peut aussi **« Supprimer définitivement »** sans attendre — même mécanique, purge **attribuée** à son auteur. Suppression, restauration et purge tracées à l'audit. |
 
 **Un dossier soumis ne peut PAS être supprimé** : l'UI ne propose que l'archivage, et le serveur
 re-vérifie (un dossier ayant une correspondance — même révoquée — n'est jamais purgé).
@@ -59,5 +59,9 @@ rétention (voir STORAGE-DATA-POLICY §5) — c'est le comportement attendu d'un
   jamais détruit.
 - « Que devient un brouillon supprimé ? » → **Corbeille 30 jours (restaurable), puis purge
   définitive automatique, tracée au journal d'audit.** Les fichiers sont réellement effacés.
-- « Qui peut purger ? » → **Personne manuellement.** La purge est un traitement serveur planifié,
-  authentifié par secret Vault, avec garde-fous SQL (jamais un dossier soumis).
+- « Qui peut purger ? » → **Le serveur, exclusivement.** Deux chemins, même mécanique serveur
+  (`_shared/retention-purge-core.ts`) : le **cron nocturne** (fenêtre échue, acteur `system`) et la
+  **suppression définitive à la demande** d'un membre non scopé (Edge `purge-dossier`, acteur =
+  l'utilisateur, motif tracé — ALCOA attribuable). Dans les deux cas les garde-fous SQL s'appliquent
+  (jamais un dossier soumis, jamais un archivé) ; aucun client ne peut simuler une purge
+  (trigger `protect_dossier_purged_at`).

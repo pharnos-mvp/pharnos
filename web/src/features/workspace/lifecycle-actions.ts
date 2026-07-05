@@ -96,10 +96,10 @@ const AUTHORITY_RESPONSE: LifecycleAction = {
 const AMM_GRANTED: LifecycleAction = {
   id: 'amm_granted',
   type: 'amm_granted',
-  label: { fr: 'AMM accordée', en: 'MA granted' },
+  label: { fr: 'AMM délivrée', en: 'MA issued' },
   prompt: {
-    fr: 'Enregistrer l’octroi de l’AMM. Le parcours du dossier sera clôturé.',
-    en: 'Record the marketing authorisation. The dossier journey will be closed.',
+    fr: 'Enregistrer la délivrance de l’AMM (produit enregistré). Le parcours du dossier sera clôturé.',
+    en: 'Record the marketing authorisation issuance (product registered). The dossier journey will be closed.',
   },
   variant: 'primary',
   form: 'amm_granted',

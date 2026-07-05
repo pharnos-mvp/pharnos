@@ -264,7 +264,7 @@ export function LifecycleActionCard({
 
   const stageLabel = t(STAGE_LABEL[currentStageId])
 
-  // ── Terminal (AMM rendue) : parcours clôturé. AMM accordée → la VIE DU PRODUIT continue (M6) :
+  // ── Terminal (AMM rendue) : parcours clôturé. AMM délivrée → la VIE DU PRODUIT continue (M6) :
   //    validité + alerte J−6 mois + création du renouvellement / d'une variation, même spine.
   if (status === 'amm_granted' || status === 'amm_refused') {
     const granted = status === 'amm_granted'
@@ -276,8 +276,8 @@ export function LifecycleActionCard({
         body={
           granted
             ? t({
-                fr: 'AMM accordée — le dossier est clôturé.',
-                en: 'MA granted — the dossier is closed.',
+                fr: 'AMM délivrée — produit enregistré, le dossier est clôturé.',
+                en: 'MA issued — product registered, the dossier is closed.',
               })
             : t({
                 fr: 'AMM refusée — le dossier est clôturé.',

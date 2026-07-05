@@ -119,9 +119,9 @@ describe('LifecycleActionCard — actions Labo (M2)', () => {
     expect(syncMock).toHaveBeenCalledWith('org-test')
   })
 
-  it('AMM accordée : Confirmer désactivé tant que le n° d’AMM est vide (champ requis)', async () => {
+  it('AMM délivrée : Confirmer désactivé tant que le n° d’AMM est vide (champ requis)', async () => {
     renderCard({ currentStageId: 'notifications', status: 'in_notification' })
-    fireEvent.click(screen.getByRole('button', { name: 'AMM accordée' }))
+    fireEvent.click(screen.getByRole('button', { name: 'AMM délivrée' }))
     const confirm = screen.getByRole('button', { name: 'Confirmer' })
     expect(confirm).toBeDisabled()
     fireEvent.change(screen.getByLabelText(/Numéro d’AMM/i), { target: { value: 'AMM-2026-1' } })
@@ -177,7 +177,7 @@ describe('LifecycleActionCard — actions Labo (M2)', () => {
     )
   })
 
-  it('AMM accordée avec preuve : upload puis docRefs sur l’événement — T4', async () => {
+  it('AMM délivrée avec preuve : upload puis docRefs sur l’événement — T4', async () => {
     uploadDocMock.mockResolvedValue({
       path: 'p/preuve.pdf',
       name: 'preuve.pdf',
@@ -185,7 +185,7 @@ describe('LifecycleActionCard — actions Labo (M2)', () => {
       mime: 'application/pdf',
     })
     renderCard({ currentStageId: 'notifications', status: 'in_notification' })
-    fireEvent.click(screen.getByRole('button', { name: 'AMM accordée' }))
+    fireEvent.click(screen.getByRole('button', { name: 'AMM délivrée' }))
     fireEvent.change(screen.getByLabelText(/Numéro d’AMM/i), { target: { value: 'AMM-2026-9' } })
     const file = new File(['x'], 'preuve.pdf', { type: 'application/pdf' })
     fireEvent.change(screen.getByLabelText(/Preuve d’AMM/i), { target: { files: [file] } })

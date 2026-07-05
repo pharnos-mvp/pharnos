@@ -47,7 +47,10 @@ export const OPS_STATUS_LABEL: Record<DossierDisplayStatus, Translatable> = {
   draft: { fr: 'Brouillon', en: 'Draft' },
   in_review: { fr: 'En évaluation', en: 'Under review' },
   suspended: { fr: 'Complément', en: 'Information requested' },
-  accepted: { fr: 'Octroyé', en: 'Granted' },
+  // `accepted` = l'issue de l'étape DÉCISION (l'agent local accepte le DOSSIER CTD) — pas l'AMM,
+  // qui relève de l'agence nationale bien plus tard (spine `amm_granted` → « Enregistré »).
+  // Recette CEO LOT 9 : « Octroyé » laissait croire à une AMM octroyée à ce stade.
+  accepted: { fr: 'Accepté', en: 'Accepted' },
   rejected: { fr: 'Rejeté', en: 'Rejected' },
 }
 export const OPS_STATUS_TONE: Record<
