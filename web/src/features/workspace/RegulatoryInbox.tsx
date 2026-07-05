@@ -21,7 +21,7 @@ import { deadlineLabel, relativeTime } from './format-time'
 type FilterKey = 'all' | DossierDisplayStatus
 const FILTERS: { key: FilterKey; label: Translatable }[] = [
   { key: 'all', label: { fr: 'Tous', en: 'All' } },
-  { key: 'accepted', label: { fr: 'Accepté', en: 'Granted' } },
+  { key: 'accepted', label: { fr: 'Accepté', en: 'Accepted' } },
   { key: 'in_review', label: { fr: 'Review', en: 'Review' } },
   { key: 'suspended', label: { fr: 'Complément', en: 'Info required' } },
   { key: 'rejected', label: { fr: 'Rejeté', en: 'Rejected' } },
@@ -55,9 +55,11 @@ function titleFor(item: InboxItem): Translatable {
   const p = item.product
   switch (item.kind) {
     case 'decision':
+      // Décision de l'étape REVUE (l'agent local accepte/rejette le DOSSIER CTD) — pas l'AMM,
+      // décidée par l'agence nationale en fin de parcours (recette CEO LOT 9).
       return item.status === 'accepted'
-        ? { fr: `AMM octroyée — ${p}`, en: `MA granted — ${p}` }
-        : { fr: `Rejeté — ${p}`, en: `Rejected — ${p}` }
+        ? { fr: `Dossier accepté — ${p}`, en: `Dossier accepted — ${p}` }
+        : { fr: `Dossier rejeté — ${p}`, en: `Dossier rejected — ${p}` }
     case 'complement':
       return { fr: `Complément demandé — ${p}`, en: `Information requested — ${p}` }
     case 'echeance':
@@ -157,7 +159,8 @@ export function RegulatoryInbox({
           {t({ fr: 'Aucune correspondance.', en: 'No correspondence.' })}
         </p>
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto p-2">
+        // `relative` : ancre les éventuels sr-only absolus dans le scroller (anti-phantom).
+        <div className="relative min-h-0 flex-1 overflow-y-auto p-2">
           {today.length > 0 ? (
             <InboxGroup
               label={t({ fr: "Aujourd'hui", en: 'Today' })}

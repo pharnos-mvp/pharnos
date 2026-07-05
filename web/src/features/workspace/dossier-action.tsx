@@ -16,30 +16,41 @@ import { Button } from '@/components/ui/button'
 import { useI18n } from '@/lib/i18n-context'
 import { TRASH_RETENTION_DAYS } from './dossier-repository'
 
-export type DossierActionMode = 'delete' | 'archive' | 'restore' | 'restore-trash'
+export type DossierActionMode = 'delete' | 'archive' | 'restore' | 'restore-trash' | 'purge'
 
 /**
- * Action de fin de vie d'un dossier, avec confirmation + motif (audit ALCOA). Quatre régimes :
+ * Action de fin de vie d'un dossier, avec confirmation + motif (audit ALCOA). Cinq régimes :
  * - delete : brouillon jamais soumis → corbeille (restaurable pendant la fenêtre de grâce,
  *   puis purge définitive automatique — docs/RETENTION-POLICY.md).
  * - archive : dossier soumis (enregistrement réglementaire) → conservé, jamais purgé.
  * - restore : remet un archivé dans l'actif.
  * - restore-trash : remet un brouillon de la corbeille dans l'actif.
+ * - purge : suppression DÉFINITIVE immédiate d'un brouillon de la corbeille (irréversible).
  * Réutilisé par le board Opérations ET la page d'aperçu (icône seule, nom accessible).
  */
 export function DossierAction({
   mode,
   name,
   onConfirm,
+  skipConfirm = false,
+  onSkipPreference,
 }: {
   mode: DossierActionMode
   name: string
   onConfirm: (reason: string) => Promise<void>
+  /**
+   * Préférence « ne plus afficher » active (mode delete) : le clic exécute directement, sans
+   * dialogue — le toast « Restaurer » (undo) reste le filet de sécurité.
+   */
+  skipConfirm?: boolean
+  /** Rend la case « Ne plus afficher ce message » et reçoit le choix au moment de confirmer. */
+  onSkipPreference?: (skip: boolean) => void
 }) {
   const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
+  const [dontAskAgain, setDontAskAgain] = useState(false)
 
   const cfg = {
     delete: {
@@ -90,6 +101,21 @@ export function DossierAction({
       reason: false,
       destructive: false,
     },
+    purge: {
+      Icon: Trash2,
+      trigger: t({ fr: 'Supprimer définitivement', en: 'Delete permanently' }),
+      title: t({
+        fr: 'Supprimer définitivement ce brouillon ?',
+        en: 'Permanently delete this draft?',
+      }),
+      desc: t({
+        fr: `« ${name} » sera effacé immédiatement et IRRÉVERSIBLEMENT — données, pièces et fichiers — sans attendre la purge automatique. L'action reste tracée au journal d'audit.`,
+        en: `"${name}" will be erased immediately and IRREVERSIBLY — data, items and files — without waiting for the automatic purge. The action remains in the audit log.`,
+      }),
+      confirm: t({ fr: 'Supprimer définitivement', en: 'Delete permanently' }),
+      reason: true,
+      destructive: true,
+    },
   }[mode]
   const { Icon } = cfg
 
@@ -97,11 +123,34 @@ export function DossierAction({
     setBusy(true)
     try {
       await onConfirm(reason)
+      if (dontAskAgain) onSkipPreference?.(true)
       setOpen(false)
       setReason('')
     } finally {
       setBusy(false)
     }
+  }
+
+  // Préférence « ne plus afficher » active : action DIRECTE (pas de dialogue) — le motif est vide
+  // (l'audit trace quand même l'acte) et le toast undo sert de filet. VOLONTAIREMENT limité au
+  // mode delete : purge (irréversible) et archive (réglementaire) ne se skippent JAMAIS.
+  if (mode === 'delete' && skipConfirm) {
+    return (
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label={cfg.trigger}
+        title={cfg.trigger}
+        disabled={busy}
+        onClick={(e) => {
+          e.stopPropagation()
+          setBusy(true)
+          void onConfirm('').finally(() => setBusy(false))
+        }}
+      >
+        <Icon className="size-4" />
+      </Button>
+    )
   }
 
   return (
@@ -129,6 +178,17 @@ export function DossierAction({
               className="border-input focus-visible:border-ring focus-visible:ring-ring/50 w-full resize-none rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-[3px]"
             />
           </div>
+        ) : null}
+        {mode === 'delete' && onSkipPreference ? (
+          <label className="text-muted-foreground flex cursor-pointer items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={dontAskAgain}
+              onChange={(e) => setDontAskAgain(e.target.checked)}
+              className="accent-primary size-4 cursor-pointer"
+            />
+            {t({ fr: 'Ne plus afficher ce message', en: "Don't show this message again" })}
+          </label>
         ) : null}
         <AlertDialogFooter>
           <AlertDialogCancel>{t({ fr: 'Annuler', en: 'Cancel' })}</AlertDialogCancel>

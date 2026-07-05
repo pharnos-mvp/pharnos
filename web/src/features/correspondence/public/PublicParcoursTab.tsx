@@ -474,7 +474,7 @@ export function PublicParcoursTab({
                     >
                       {(
                         [
-                          { v: 'granted', fr: 'AMM accordée', en: 'MA granted' },
+                          { v: 'granted', fr: 'AMM délivrée', en: 'MA issued' },
                           { v: 'refused', fr: 'AMM refusée', en: 'MA refused' },
                         ] as const
                       ).map((o) => (

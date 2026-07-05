@@ -671,7 +671,11 @@ export function AppShell() {
           // `body` du mockup validé) appliqué à TOUTE page → les cartes blanches ressortent partout.
           // Remplace l'ancienne liste `onCanvas` par route (source des oublis de fond). Les surfaces
           // à leur propre fond (builder `--canvas`, aperçu PDF) le recouvrent intégralement.
-          className="bg-page min-w-0 flex-1 overflow-auto px-4 pb-4 md:px-6 md:pb-6"
+          // `relative` = containing block du conteneur défilant : SANS lui, les `sr-only`
+          // (position:absolute, a11y) des contenus longs n'ont AUCUN ancêtre positionné → ils se
+          // posent aux coordonnées du DOCUMENT, hors du clip, et étirent <html> → une 2ᵉ barre de
+          // défilement fantôme à côté de celle de <main> (bug corbeille, recette CEO LOT 9).
+          className="bg-page relative min-w-0 flex-1 overflow-auto px-4 pb-4 md:px-6 md:pb-6"
         >
           <HeaderSlotContext.Provider value={setHeaderSlot}>
             <TopbarConfigContext.Provider value={setTopbar}>

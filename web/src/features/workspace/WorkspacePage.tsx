@@ -28,6 +28,7 @@ import { db, type DossierRecord } from '@/lib/db'
 import { useI18n, type Lang, type Translatable } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import { countryLabel } from './dossier-constants'
+import { isDeleteConfirmSkipped, setDeleteConfirmSkipped } from './delete-confirm-pref'
 import { deadlineLabel, relativeTime } from './format-time'
 import {
   avancementLabel,
@@ -44,6 +45,7 @@ import {
   type OpsRow,
 } from './operations-data'
 import { DossierAction } from './dossier-action'
+import { purgeTrashedDossier } from './dossier-purge'
 import { RegulatoryInbox } from './RegulatoryInbox'
 import {
   archiveDossier,
@@ -79,6 +81,12 @@ export function WorkspacePage() {
   const [reviewDossierId, setReviewDossierId] = useState<string | null>(null)
   const [view, setView] = useState<'active' | 'archived' | 'trash'>('active')
   const [proc, setProc] = useState<string>('all') // filtre par procédure
+  // Préférence « ne plus afficher » du dialogue de suppression (par navigateur + org).
+  const [skipDeleteConfirm, setSkipDeleteConfirm] = useState(() => isDeleteConfirmSkipped(orgId))
+  function handleSkipPreference(skip: boolean) {
+    setDeleteConfirmSkipped(orgId, skip)
+    setSkipDeleteConfirm(skip)
+  }
 
   // `now` figé au montage (l'âge relatif d'un board n'a pas besoin d'être à la seconde).
   const now = useMemo(() => new Date(), [])
@@ -142,9 +150,13 @@ export function WorkspacePage() {
   const archivedCount = archivedDossiers?.length ?? 0
   const trashCount = trashedDossiers?.length ?? 0
   const belowLg = useBelowLg()
-  // Cockpit hauteur fixe (table + inbox à scroll interne) en vue active peuplée — lg+ uniquement
-  // (sous lg, un cockpit à hauteur fixe écraserait la table → on rend une page défilante empilée).
-  const showRail = view === 'active' && activeRows.length > 0 && !loading && !belowLg
+  // Cockpit hauteur fixe (scroll INTERNE au panneau, jamais de scroll de page) pour les TROIS
+  // vues peuplées — lg+ uniquement (sous lg, un cockpit à hauteur fixe écraserait la table → page
+  // défilante empilée). Archivés/Corbeille passaient par la page défilante → DEUX barres de
+  // défilement côte à côte (recette CEO LOT 9) : elles montent dans le même gabarit cockpit.
+  const viewCount =
+    view === 'active' ? activeRows.length : view === 'archived' ? archivedRows.length : trashCount
+  const showCockpit = viewCount > 0 && !loading && !belowLg
 
   async function handleDelete(id: string, reason: string) {
     await deleteDossier(id, reason)
@@ -183,6 +195,38 @@ export function WorkspacePage() {
     void syncDossiers(orgId)
     toast.success(t({ fr: 'Brouillon restauré', en: 'Draft restored' }))
     if ((await listTrashedDossiers(orgId)).length === 0) setView('active')
+  }
+  async function handlePurge(id: string, reason: string) {
+    try {
+      await purgeTrashedDossier(orgId, id, reason)
+      toast.success(t({ fr: 'Brouillon supprimé définitivement', en: 'Draft permanently deleted' }))
+      if ((await listTrashedDossiers(orgId)).length === 0) setView('active')
+    } catch (e) {
+      // Erreur ACTIONNABLE par code serveur : un refus GxP n'est pas un transitoire (« réessayez »
+      // serait faux), un throttle se dit, le hors-ligne s'explique.
+      const code = e instanceof Error ? e.message : ''
+      toast.error(
+        code === 'offline'
+          ? t({
+              fr: 'Connexion requise — la suppression définitive s’exécute sur le serveur. Réessayez en ligne (la purge automatique reste programmée).',
+              en: 'Connection required — permanent deletion runs on the server. Retry online (the automatic purge remains scheduled).',
+            })
+          : code === 'submitted' || code === 'archived'
+            ? t({
+                fr: 'Ce dossier a été soumis à une agence : la réglementation impose sa conservation — il ne peut pas être supprimé définitivement.',
+                en: 'This dossier was submitted to an agency: regulation requires retention — it cannot be permanently deleted.',
+              })
+            : code === 'too_many'
+              ? t({
+                  fr: 'Trop de suppressions d’affilée — réessayez dans une minute.',
+                  en: 'Too many deletions in a row — retry in a minute.',
+                })
+              : t({
+                  fr: 'Suppression définitive impossible pour le moment. Réessayez — la purge automatique reste programmée.',
+                  en: 'Permanent deletion failed for now. Retry — the automatic purge remains scheduled.',
+                }),
+      )
+    }
   }
 
   // CS1 : membre scopé = couche SUIVI seulement — pas de création, pas d'édition (RLS 0048 ;
@@ -277,13 +321,20 @@ export function WorkspacePage() {
 
   const table =
     view === 'trash' ? (
-      <TrashTable rows={trashedDossiers ?? []} now={now} onRestore={handleTrashRestore} />
+      <TrashTable
+        rows={trashedDossiers ?? []}
+        now={now}
+        onRestore={handleTrashRestore}
+        onPurge={handlePurge}
+      />
     ) : (
       <OperationsTable
         rows={visible}
         view={view}
         now={now.getTime()}
         scoped={scoped}
+        skipDeleteConfirm={skipDeleteConfirm}
+        onSkipPreference={handleSkipPreference}
         onOpenDossier={(id) => navigate(`/workspace/${id}/roadmap`)}
         onDelete={handleDelete}
         onArchive={handleArchive}
@@ -294,7 +345,50 @@ export function WorkspacePage() {
 
   // ─── Cockpit hauteur fixe : aucune barre de défilement de page ; table + inbox scrollent chacun
   //     dans leur panneau. `h-full` se résout sur <main> (flex-1 d'un shell `h-svh`). ───
-  if (showRail) {
+  if (showCockpit && view !== 'active') {
+    // Archivés / Corbeille : panneau unique pleine largeur (pas de KPI/pipeline/inbox — ce sont
+    // des vues de gestion), en-tête figé (titre + pilules + note de rétention) + table à scroll
+    // interne → UNE seule barre de défilement, dans le panneau.
+    return (
+      <div className="flex h-full flex-col pt-6">
+        <h1 className="sr-only">
+          {view === 'archived'
+            ? t({ fr: 'Dossiers archivés', en: 'Archived dossiers' })
+            : t({ fr: 'Corbeille', en: 'Trash' })}
+        </h1>
+        <section className="bg-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border">
+          <div className="shrink-0 border-b p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="font-display text-sm font-semibold">
+                  {view === 'archived'
+                    ? t({ fr: 'Dossiers archivés', en: 'Archived dossiers' })
+                    : t({ fr: 'Corbeille', en: 'Trash' })}
+                </h2>
+                <p className="text-muted-foreground text-xs">
+                  {view === 'archived'
+                    ? t({
+                        fr: 'Enregistrements réglementaires conservés — restaurables à tout moment.',
+                        en: 'Regulatory records retained — restorable at any time.',
+                      })
+                    : t({
+                        fr: 'Brouillons supprimés — restaurables pendant la fenêtre de grâce.',
+                        en: 'Deleted drafts — restorable during the grace window.',
+                      })}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">{archivedToggle}</div>
+            </div>
+            <div className="mt-3">{retentionNote}</div>
+          </div>
+          {/* `relative` : ancre les sr-only absolus des lignes DANS le scroller (sinon ils
+              étirent le document → 2ᵉ barre de défilement fantôme — recette CEO LOT 9). */}
+          <div className="relative min-h-0 flex-1 overflow-y-auto">{table}</div>
+        </section>
+      </div>
+    )
+  }
+  if (showCockpit) {
     return (
       <div className="flex h-full flex-col pt-6">
         {/* h1 du document (le cockpit ne monte pas PageHeader ; le titre visible est le breadcrumb du shell). */}
@@ -324,7 +418,8 @@ export function WorkspacePage() {
                 </div>
                 <div className="mt-3">{procedureChips}</div>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto">{table}</div>
+              {/* `relative` : ancre les sr-only absolus des lignes dans le scroller (anti-phantom). */}
+              <div className="relative min-h-0 flex-1 overflow-y-auto">{table}</div>
             </section>
           </div>
 
@@ -441,7 +536,7 @@ function KpiBand({ kpis }: { kpis: ReturnType<typeof opsKpis> }) {
       label: { fr: 'Compléments', en: 'Information' },
       tone: kpis.complement > 0 ? 'warning' : undefined,
     },
-    { value: kpis.granted, label: { fr: 'Octroyés', en: 'Granted' }, tone: 'success' },
+    { value: kpis.granted, label: { fr: 'Acceptés', en: 'Accepted' }, tone: 'success' },
     {
       value: kpis.dueSoon,
       label: { fr: 'Échéances ≤ 7 j', en: 'Deadlines ≤ 7d' },
@@ -553,6 +648,22 @@ function ProcChip({
   )
 }
 
+/** Cellule Avancement CTD (barre + libellé) — partagée entre la version cliquable et la scopée. */
+function CompletionCell({ pct }: { pct: number }) {
+  const { t } = useI18n()
+  return (
+    <>
+      <div className="bg-muted h-1.5 w-24 overflow-hidden rounded-full" aria-hidden>
+        <div className="bg-info h-full rounded-full" style={{ width: `${pct}%` }} />
+      </div>
+      <div className="completion-label text-muted-foreground mt-1 text-[11px]">
+        {t(avancementLabel(pct))}
+        <span className="sr-only"> {pct}%</span>
+      </div>
+    </>
+  )
+}
+
 /** Date courte localisée (vues Archivés / Corbeille) — ex. « 5 juil. 2026 » / “5 Jul 2026”. */
 const shortDate = (iso: string, lang: Lang): string =>
   new Date(iso).toLocaleDateString(lang === 'en' ? 'en-GB' : 'fr-FR', {
@@ -567,6 +678,8 @@ function OperationsTable({
   view,
   now,
   scoped,
+  skipDeleteConfirm,
+  onSkipPreference,
   onOpenDossier,
   onDelete,
   onArchive,
@@ -577,6 +690,9 @@ function OperationsTable({
   now: number
   /** CS1 : membre scopé (couche suivi) → seuls le clic ligne et le raccourci Statut restent. */
   scoped: boolean
+  /** Préférence « ne plus afficher » du dialogue de suppression (toast undo = filet). */
+  skipDeleteConfirm: boolean
+  onSkipPreference: (skip: boolean) => void
   onOpenDossier: (id: string) => void
   onDelete: (id: string, reason: string) => Promise<void>
   onArchive: (id: string, reason: string) => Promise<void>
@@ -663,21 +779,37 @@ function OperationsTable({
                 </span>
               </td>
               <td className="px-3 py-2.5 align-middle">
-                <StatusBadge tone={OPS_STATUS_TONE[r.status]}>
-                  {opsStatusLabel(r.status, lang)}
-                </StatusBadge>
+                {/* Statut cliquable → Parcours (Roadmap) : même cible que le clic ligne, mais
+                    l'affordance sur le badge lui-même guide l'œil (recette CEO LOT 9). */}
+                <Link
+                  to={`/workspace/${d.id}/roadmap`}
+                  onClick={(e) => e.stopPropagation()}
+                  title={t({ fr: 'Voir le parcours du dossier', en: 'View the dossier journey' })}
+                  className="focus-visible:ring-ring inline-block rounded-full transition hover:brightness-95 focus-visible:ring-2 focus-visible:outline-none"
+                >
+                  <StatusBadge tone={OPS_STATUS_TONE[r.status]}>
+                    {opsStatusLabel(r.status, lang)}
+                  </StatusBadge>
+                </Link>
               </td>
               <td className="px-3 py-2.5 align-middle">
-                <div className="bg-muted h-1.5 w-24 overflow-hidden rounded-full" aria-hidden>
-                  <div
-                    className="bg-info h-full rounded-full"
-                    style={{ width: `${r.completionPct}%` }}
-                  />
-                </div>
-                <div className="text-muted-foreground mt-1 text-[11px]">
-                  {t(avancementLabel(r.completionPct))}
-                  <span className="sr-only"> {r.completionPct}%</span>
-                </div>
+                {/* Avancement cliquable → Aperçu du dossier compilé (pas pour les membres scopés
+                    CS1 : la couche suivi n'a pas le raccourci Aperçu, comme le bouton d'action). */}
+                {scoped ? (
+                  <CompletionCell pct={r.completionPct} />
+                ) : (
+                  <Link
+                    to={`/workspace/${d.id}/apercu`}
+                    onClick={(e) => e.stopPropagation()}
+                    title={t({
+                      fr: 'Prévisualiser le dossier compilé',
+                      en: 'Preview the compiled dossier',
+                    })}
+                    className="focus-visible:ring-ring block rounded-md focus-visible:ring-2 focus-visible:outline-none [&:hover_.completion-label]:underline"
+                  >
+                    <CompletionCell pct={r.completionPct} />
+                  </Link>
+                )}
               </td>
               <td className="px-3 py-2.5 align-middle">
                 {view === 'archived' ? (
@@ -767,6 +899,8 @@ function OperationsTable({
                         <DossierAction
                           mode="delete"
                           name={d.productName}
+                          skipConfirm={skipDeleteConfirm}
+                          onSkipPreference={onSkipPreference}
                           onConfirm={(reason) => onDelete(d.id, reason)}
                         />
                       )}
@@ -787,10 +921,13 @@ function TrashTable({
   rows,
   now,
   onRestore,
+  onPurge,
 }: {
   rows: DossierRecord[]
   now: Date
   onRestore: (id: string) => Promise<void>
+  /** Purge IMMÉDIATE (« Supprimer définitivement ») — sans attendre la purge automatique. */
+  onPurge: (id: string, reason: string) => Promise<void>
 }) {
   const { t, lang } = useI18n()
   if (rows.length === 0) {
@@ -877,11 +1014,18 @@ function TrashTable({
                 </span>
               </td>
               <td className="py-2.5 pr-2 pl-1 text-right align-middle">
-                <DossierAction
-                  mode="restore-trash"
-                  name={d.productName}
-                  onConfirm={() => onRestore(d.id)}
-                />
+                <div className="flex items-center justify-end gap-0.5">
+                  <DossierAction
+                    mode="restore-trash"
+                    name={d.productName}
+                    onConfirm={() => onRestore(d.id)}
+                  />
+                  <DossierAction
+                    mode="purge"
+                    name={d.productName}
+                    onConfirm={(reason) => onPurge(d.id, reason)}
+                  />
+                </div>
               </td>
             </tr>
           )

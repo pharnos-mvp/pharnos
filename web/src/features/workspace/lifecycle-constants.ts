@@ -106,7 +106,9 @@ const STATUS_LABELS: Record<LifecycleStatus, Translatable> = {
   accepted: { fr: 'Accepté', en: 'Accepted' },
   submitting: { fr: 'En soumission', en: 'In submission' },
   in_notification: { fr: 'En instruction', en: 'Under assessment' },
-  amm_granted: { fr: 'AMM accordée', en: 'MA granted' },
+  // Vocabulaire CEO (recette LOT 9) : l'issue positive de l'agence nationale = le produit est
+  // ENREGISTRÉ (homologué) — l'acte officiel étant la délivrance de l'AMM (« AMM délivrée »).
+  amm_granted: { fr: 'Enregistré', en: 'Registered' },
   amm_refused: { fr: 'AMM refusée', en: 'MA refused' },
 }
 
@@ -164,7 +166,7 @@ const JOURNAL_LABELS: Record<LifecycleJournalKey, Translatable> = {
     fr: 'Réponse au complément transmise',
     en: 'Response to the request submitted',
   },
-  amm_granted: { fr: 'AMM accordée', en: 'MA granted' },
+  amm_granted: { fr: 'AMM délivrée', en: 'MA issued' },
   amm_refused: { fr: 'AMM refusée', en: 'MA refused' },
   samples_requested: { fr: 'Échantillons demandés', en: 'Samples requested' },
   samples_import_authorized: {
@@ -221,12 +223,12 @@ const JOURNAL_ACTOR: Record<LifecycleJournalKey, Translatable> = {
   reminder_sent: { fr: 'Labo', en: 'Lab' },
 }
 
-/** Libellé COURT d'une issue (pastille d'étape Décision/AMM) : Accepté/Complément/Rejeté/Accordée/Refusée. */
+/** Libellé COURT d'une issue (pastille d'étape Décision/AMM) : Accepté/Complément/Rejeté/Délivrée/Refusée. */
 const STAGE_OUTCOME_LABELS: Record<StageOutcome, Translatable> = {
   accepted: { fr: 'Accepté', en: 'Accepted' },
   suspended: { fr: 'Complément', en: 'Info required' },
   rejected: { fr: 'Rejeté', en: 'Rejected' },
-  granted: { fr: 'Accordée', en: 'Granted' },
+  granted: { fr: 'Délivrée', en: 'Issued' },
   refused: { fr: 'Refusée', en: 'Refused' },
 }
 

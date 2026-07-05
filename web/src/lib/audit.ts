@@ -1,7 +1,9 @@
 import { db } from '@/lib/db'
 import { enqueueOutbox } from '@/lib/outbox'
 
-export type AuditAction = 'create' | 'update' | 'delete' | 'archive' | 'restore'
+// `purge` = suppression DÉFINITIVE d'un brouillon de corbeille (LOT 9) — exécutée côté serveur en
+// mode connecté (Edge purge-dossier / cron retention-purge), tracée localement en mode local.
+export type AuditAction = 'create' | 'update' | 'delete' | 'archive' | 'restore' | 'purge'
 
 /**
  * Acteur courant (qui agit) — alimenté par l'AuthProvider à chaque changement de session.
