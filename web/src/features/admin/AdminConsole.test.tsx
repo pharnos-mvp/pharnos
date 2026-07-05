@@ -3,10 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { I18nProvider } from '@/lib/I18nProvider'
 
-import { AdminForbiddenError, type AdminOverview } from './admin-api'
+import { AdminForbiddenError, type AdminOrg, type AdminOverview } from './admin-api'
 import { AdminConsole } from './AdminConsole'
 
-const { overviewMock } = vi.hoisted(() => ({ overviewMock: vi.fn() }))
+const { overviewMock, orgsMock, auditMock } = vi.hoisted(() => ({
+  overviewMock: vi.fn(),
+  orgsMock: vi.fn(),
+  auditMock: vi.fn(),
+}))
 
 // Partiel : seuls les appels réseau (adminApi.*) sont mockés — classes d'erreur et helpers réels.
 vi.mock('./admin-api', async (importOriginal) => {
@@ -16,9 +20,10 @@ vi.mock('./admin-api', async (importOriginal) => {
     adminApi: {
       ...mod.adminApi,
       overview: overviewMock,
-      orgs: vi.fn(),
+      orgs: orgsMock,
       users: vi.fn(),
       plans: vi.fn(),
+      audit: auditMock,
     },
   }
 })
@@ -62,6 +67,29 @@ const OVERVIEW: AdminOverview = {
   ],
 }
 
+const ORG: AdminOrg = {
+  id: 'o1',
+  name: 'Glory Pharma',
+  plan: 'pro',
+  disabled_at: null,
+  created_at: '2026-06-01T00:00:00Z',
+  users: 3,
+  dossiers: 4,
+  products: 5,
+  ai_tokens_month: 200000,
+  storage_bytes: 1024,
+  override: null,
+  limits: {
+    plan: 'pro',
+    max_dossiers: null,
+    dossiers_period: 'month',
+    monthly_ai_tokens: 1000000,
+    max_seats: 5,
+    max_storage_bytes: null,
+    features: {},
+  },
+}
+
 function renderConsole() {
   return render(
     <I18nProvider>
@@ -72,10 +100,14 @@ function renderConsole() {
 
 beforeEach(() => {
   overviewMock.mockReset()
+  orgsMock.mockReset()
+  auditMock.mockReset()
+  orgsMock.mockResolvedValue([ORG])
+  auditMock.mockResolvedValue([])
 })
 
 describe('AdminConsole', () => {
-  it('rend la vue d’ensemble : h1, pilules, KPIs, jauges (info/warning/danger) et audit', async () => {
+  it('rend le cockpit : h1, 5 pilules, KPIs, statut santé, répartition IA, top consommateurs, audit', async () => {
     overviewMock.mockResolvedValueOnce(OVERVIEW)
     renderConsole()
 
@@ -83,29 +115,51 @@ describe('AdminConsole', () => {
       await screen.findByRole('heading', { level: 1, name: 'Console plateforme' }),
     ).toBeInTheDocument()
 
-    // Sous-navigation en pilules : 4 sections, l'active porte aria-current.
+    // Sous-navigation en pilules : 5 sections (dont Journal), l'active porte aria-current.
     const nav = screen.getByRole('navigation', { name: 'Sections de la console' })
-    expect(within(nav).getAllByRole('button')).toHaveLength(4)
+    expect(within(nav).getAllByRole('button')).toHaveLength(5)
     expect(within(nav).getByRole('button', { name: "Vue d'ensemble" })).toHaveAttribute(
       'aria-current',
       'page',
     )
 
-    // KPIs de croissance (valeurs) + delta sémantique (▲ up, ▼ down, ±0 plat).
+    // Bandeau KPI (valeurs) + deltas sémantiques (▲ up, ▼ down, ±0 plat).
     expect(screen.getByText('12')).toBeInTheDocument() // orgs
     expect(screen.getByText('34')).toBeInTheDocument() // users
     expect(screen.getByText('▲ 2')).toBeInTheDocument() // orgs 3 vs 1
     expect(screen.getByText('±0')).toBeInTheDocument() // users 5 vs 5
     expect(screen.getByText('▼ 2')).toBeInTheDocument() // dossiers 2 vs 4
 
-    // Jauges santé : 2 progressbars a11y, la DB à 20 % et le stockage à ~88 % (warning ≥ 70).
+    // Santé : 2 progressbars a11y + statut global « À surveiller » (stockage ~88 % ≥ 70).
     const bars = screen.getAllByRole('progressbar')
     expect(bars).toHaveLength(2)
     expect(bars[0]).toHaveAttribute('aria-valuenow', String(100 * 1024 * 1024))
+    expect(screen.getByText('À surveiller')).toBeInTheDocument()
+
+    // Répartition IA par usage + top consommateurs (orgs mocké).
+    expect(screen.getByText('regafy')).toBeInTheDocument()
+    expect(screen.getByText('translation')).toBeInTheDocument()
+    expect(await screen.findByText('Glory Pharma')).toBeInTheDocument()
 
     // Audit : badge d'action sémantique + libellé.
     expect(screen.getByText('Créé')).toBeInTheDocument()
     expect(screen.getByText('Dossier Bénin — Paracétamol')).toBeInTheDocument()
+  })
+
+  it('« Journal complet » bascule sur la section Journal (audit paginé)', async () => {
+    overviewMock.mockResolvedValueOnce(OVERVIEW)
+    renderConsole()
+    await screen.findByRole('heading', { level: 1, name: 'Console plateforme' })
+
+    fireEvent.click(screen.getByRole('button', { name: /Journal complet/ }))
+
+    expect(await screen.findByText("Journal d'audit complet")).toBeInTheDocument()
+    expect(auditMock).toHaveBeenCalledWith({ limit: 50, orgId: undefined })
+    const nav = screen.getByRole('navigation', { name: 'Sections de la console' })
+    expect(within(nav).getByRole('button', { name: 'Journal' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
   })
 
   it('403 Edge → écran « Accès refusé » (console réservée aux super-admins)', async () => {

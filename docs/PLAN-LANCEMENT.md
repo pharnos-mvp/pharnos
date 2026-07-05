@@ -107,7 +107,11 @@ zéro-rework (combiner / zone protégée). Lots :
   localisés) ; **garde de saisie quota** (invalide ≠ ∞). **+ dette LOT 7 soldée** : pattern pilule
   extrait (`ui/pill.ts`, 3 consommateurs) + **fix tokens dark AA** (`--info` → #1f6feb 4,63:1 ;
   `--primary-foreground` → #0d1117 5,05:1) **verrouillés par un scan axe SOMBRE en CI** (e2e).
-  Front-only, zéro migration.
+  Front-only, zéro migration. **+ 8b (2026-07-05, demande CEO post-recette)** : **journal d'audit
+  COMPLET** (RPC `admin_audit` migration `0053`, keyset 50/page + filtre org, 5ᵉ pilule « Journal »),
+  **recherche** Organisations/Utilisateurs (insensible accents), **Overview cockpit SaaS** (bandeau
+  4 KPI Syne + statut santé global 70/90 + répartition IA en barres + top consommateurs + CTA
+  journal).
 - **LOT 9 — Dossiers + Corbeille/Archive** — ⬜ *(COMBINÉ : refonte + feature rétention #3 en un lot)*.
 - **LOT 10 — Correspondance + v3 + relances auto + Agent local** — ✅ **LIVRÉ & CLOS
   (2026-07-04→05)** : **relances auto** (Edge `lifecycle-reminders` quotidienne + migrations
