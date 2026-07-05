@@ -9,13 +9,29 @@ import {
   XCircle,
 } from 'lucide-react'
 
-import { inboxUnreadTotal, type InboxItem } from '@/features/correspondence/correspondence-feed'
+import {
+  inboxUnreadTotal,
+  type InboxItem,
+  type InboxKind,
+} from '@/features/correspondence/correspondence-feed'
 import type { DossierDisplayStatus } from '@/features/correspondence/correspondence-constants'
-import { agencyFor } from '@/features/workspace/roadmap-data'
 import { useI18n, type Lang, type Translatable } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import { countryLabel } from './dossier-constants'
 import { deadlineLabel, relativeTime } from './format-time'
+
+// Partie qui GÈRE l'étape/l'event d'un item (recette CEO). La boîte de correspondance (jalon H)
+// est un échange labo ⇄ AGENT/AGENCE LOCALE (le reviewer du lien tokenisé) : décision, complément,
+// messages, échéance, évaluation sont tous rendus par l'agent local. L'AGENCE NATIONALE (référentiel
+// `agencyFor`, ex. « ABMed ») n'intervient qu'à l'étape AMM de la spine (Roadmap) — jamais ici.
+// Afficher son nom sous une décision de l'agent local était donc la mauvaise partie.
+const INBOX_ACTOR: Record<InboxKind, Translatable> = {
+  decision: { fr: 'Agent local', en: 'Local agent' },
+  complement: { fr: 'Agent local', en: 'Local agent' },
+  message: { fr: 'Agent local', en: 'Local agent' },
+  echeance: { fr: 'Agent local', en: 'Local agent' },
+  review: { fr: 'Agent local', en: 'Local agent' },
+}
 
 // Filtre PAR STATUT de correspondance (mockup v2 : Tous/Accepté/Review/Complément/Rejeté).
 type FilterKey = 'all' | DossierDisplayStatus
@@ -230,7 +246,7 @@ function InboxGroup({
                 </span>
                 <span className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-[10.5px]">
                   <span className="truncate">
-                    {agencyFor(item.country).name} · {countryLabel(item.country, lang)}
+                    {t(INBOX_ACTOR[item.kind])} · {countryLabel(item.country, lang)}
                   </span>
                   <span aria-hidden>·</span>
                   <span className="shrink-0">
