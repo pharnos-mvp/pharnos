@@ -24,7 +24,7 @@ import type { ActionItem, ActionKind } from '@/features/dashboard/dashboard-data
 import { useOrgId } from '@/features/org/org-context'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
-import type { NotifEnvoye, SentKind } from './notifications-data'
+import { formatRelative, type NotifEnvoye, type SentKind } from './notifications-data'
 import { markNotificationsRead, useNotifications } from './use-notifications'
 
 type Tone = 'danger' | 'warning' | 'info' | 'success'
@@ -97,8 +97,8 @@ export function NotificationBell() {
   const [tab, setTab] = useState<'recu' | 'envoye'>('recu')
 
   const unread = vm?.unread ?? 0
-  const fmtDate = (iso?: string) =>
-    iso ? new Date(iso).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB') : ''
+  const now = new Date()
+  const fmtRel = (iso?: string) => (iso ? formatRelative(iso, now, lang) : '')
 
   function go(href: string) {
     setOpen(false)
@@ -182,7 +182,7 @@ export function NotificationBell() {
               />
             ) : (
               vm.recu.map((it) => (
-                <RecuRow key={it.id} item={it} lang={lang} t={t} onGo={go} fmtDate={fmtDate} />
+                <RecuRow key={it.id} item={it} lang={lang} t={t} onGo={go} fmtRel={fmtRel} />
               ))
             )
           ) : vm.envoye.length === 0 ? (
@@ -192,7 +192,7 @@ export function NotificationBell() {
             />
           ) : (
             vm.envoye.map((it) => (
-              <EnvoyeRow key={it.id} item={it} t={t} onGo={go} fmtDate={fmtDate} />
+              <EnvoyeRow key={it.id} item={it} t={t} onGo={go} fmtRel={fmtRel} />
             ))
           )}
         </div>
@@ -282,17 +282,17 @@ function RecuRow({
   lang,
   t,
   onGo,
-  fmtDate,
+  fmtRel,
 }: {
   item: ActionItem
   lang: 'fr' | 'en'
   t: (x: Translatable) => string
   onGo: (href: string) => void
-  fmtDate: (iso?: string) => string
+  fmtRel: (iso?: string) => string
 }) {
   const meta = RECU_META[item.kind]
   const title = item.docType ? `${item.label} · ${docTypeLabel(item.docType, lang)}` : item.label
-  const parts = [t(meta.label), fmtDate(item.date)].filter(Boolean)
+  const parts = [t(meta.label), fmtRel(item.date)].filter(Boolean)
   return (
     <Row
       icon={meta.icon}
@@ -308,12 +308,12 @@ function EnvoyeRow({
   item,
   t,
   onGo,
-  fmtDate,
+  fmtRel,
 }: {
   item: NotifEnvoye
   t: (x: Translatable) => string
   onGo: (href: string) => void
-  fmtDate: (iso?: string) => string
+  fmtRel: (iso?: string) => string
 }) {
   const meta = SENT_META[item.kind]
   return (
@@ -321,7 +321,7 @@ function EnvoyeRow({
       icon={meta.icon}
       iconCls="bg-muted text-muted-foreground"
       title={t(meta.label)}
-      sub={[item.label, fmtDate(item.at)].filter(Boolean).join(' · ')}
+      sub={[item.label, fmtRel(item.at)].filter(Boolean).join(' · ')}
       right={
         meta.tag ? (
           <span className="text-muted-foreground rounded-md border px-1.5 py-0.5 text-[10px]">

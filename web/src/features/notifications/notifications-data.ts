@@ -1,5 +1,26 @@
 import type { ActionItem } from '@/features/dashboard/dashboard-data'
 import type { LifecycleEventRecord } from '@/lib/db'
+import type { Lang } from '@/lib/i18n-context'
+
+const DAY_MS = 86_400_000
+
+/**
+ * Formatage RELATIF court d'une date pour les lignes de la cloche — passé ET futur (les échéances
+ * d'expiration sont dans le futur) : « aujourd'hui / hier / demain / il y a N j / dans N j ». Repli
+ * sur la date absolue au-delà de 60 j (évite « il y a 400 j »). `''` si date illisible. Pur → testé.
+ */
+export function formatRelative(iso: string, now: Date, lang: Lang): string {
+  const t = Date.parse(iso)
+  if (!Number.isFinite(t)) return ''
+  const diff = Math.round((t - now.getTime()) / DAY_MS) // > 0 futur, < 0 passé
+  const abs = Math.abs(diff)
+  if (abs > 60) return new Date(t).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB')
+  if (diff === 0) return lang === 'fr' ? "aujourd'hui" : 'today'
+  if (diff === 1) return lang === 'fr' ? 'demain' : 'tomorrow'
+  if (diff === -1) return lang === 'fr' ? 'hier' : 'yesterday'
+  if (diff > 0) return lang === 'fr' ? `dans ${diff} j` : `in ${diff} d`
+  return lang === 'fr' ? `il y a ${abs} j` : `${abs} d ago`
+}
 
 /**
  * Centre de notifications (cloche) — dérivation PURE, zéro table serveur (jalon cloche, Incrément 1).
