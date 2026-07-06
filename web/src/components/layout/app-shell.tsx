@@ -50,6 +50,7 @@ import { switchActiveOrg } from '@/features/org/active-org'
 import { useOrgId } from '@/features/org/org-context'
 import { useCurrentOrg } from '@/features/org/use-current-org'
 import { PLAN_LABEL, useOrgPlan } from '@/features/org/use-org-plan'
+import { useApplyReminderLeadDays } from '@/features/reminders/reminder-settings'
 import { useOnlineStatus } from '@/hooks/use-online-status'
 import { setSyncEnabledCache } from '@/lib/sync-prefs'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
@@ -72,6 +73,7 @@ const PAGE_TITLES: { prefix: string; label: Translatable }[] = [
   { prefix: '/templates', label: { fr: 'Bibliothèque', en: 'Templates' } },
   { prefix: '/variations', label: { fr: 'Variations', en: 'Variations' } },
   { prefix: '/compte', label: { fr: 'Compte', en: 'Account' } },
+  { prefix: '/relances', label: { fr: 'Relances', en: 'Reminders' } },
   { prefix: '/admin', label: { fr: 'Administration', en: 'Admin' } },
 ]
 
@@ -115,6 +117,9 @@ export function AppShell() {
   useAuditSync(orgId)
   // Reviews et messages du correspondant en quasi temps réel, où qu'on soit dans l'app.
   useCorrespondenceRealtime(orgId)
+  // Alimente l'override des préavis du monitoring (domaine B, config Relances) app-wide → toutes les
+  // surfaces (`renewalLeadDays`) respectent la config de l'org.
+  useApplyReminderLeadDays()
   const [collapsed, setCollapsed] = useState(readSidebarCollapsed)
   const expanded = !collapsed
   // Menu PRINCIPAL en tiroir sous `lg` (refonte responsive tablette/mobile) : la barre latérale
@@ -296,6 +301,11 @@ export function AppShell() {
               <DropdownMenuItem onClick={() => navigate('/compte')}>
                 <Settings2 className="size-4" /> {t({ fr: 'Paramètres', en: 'Settings' })}
               </DropdownMenuItem>
+              {!scoped ? (
+                <DropdownMenuItem onClick={() => navigate('/relances')}>
+                  <Bell className="size-4" /> {t({ fr: 'Relances', en: 'Reminders' })}
+                </DropdownMenuItem>
+              ) : null}
               {multiOrg ? (
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
@@ -556,6 +566,15 @@ export function AppShell() {
               >
                 <Settings2 className="size-4" /> {t({ fr: 'Paramètres', en: 'Settings' })}
               </button>
+              {!scoped ? (
+                <button
+                  type="button"
+                  onClick={() => navigate('/relances')}
+                  className="hover:bg-accent flex h-11 items-center gap-2 rounded-md px-2 text-sm"
+                >
+                  <Bell className="size-4" /> {t({ fr: 'Relances', en: 'Reminders' })}
+                </button>
+              ) : null}
               {multiOrg ? (
                 <div className="flex flex-col gap-1 px-2 py-1.5 text-sm">
                   <span className="text-muted-foreground flex items-center gap-2">

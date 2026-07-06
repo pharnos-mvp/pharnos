@@ -59,7 +59,10 @@ export interface ReminderThresholds {
   agencyDays: number
 }
 
-export const DEFAULT_THRESHOLDS: ReminderThresholds = { agentDays: 14, agencyDays: 30 }
+// Défaut agence = 60 j (choix CEO, expert RA) : le délai normal AMM/notification ≈ 6 mois → un
+// rappel tous les 2 mois, plafonné à 3, donne des relances vers J60/J120/J180 sans harceler l'agence.
+// Aligné sur le défaut de la table `reminder_settings` (0055) : org configurée ou non = même défaut.
+export const DEFAULT_THRESHOLDS: ReminderThresholds = { agentDays: 14, agencyDays: 60 }
 
 /** Overrides PAR PAYS (codes ISO alpha-2, mêmes clés que lifecycle-config.ts). Vide au départ :
  * les défauts s'appliquent partout ; on affine par PR quand le CEO fixe des SLA réels par agence.
@@ -72,6 +75,49 @@ export function thresholdsFor(
   overrides: Readonly<Record<string, Partial<ReminderThresholds>>> = COUNTRY_THRESHOLDS,
 ): ReminderThresholds {
   return { ...DEFAULT_THRESHOLDS, ...overrides[country] }
+}
+
+// ── Config des relances PAR ORG (table `reminder_settings`, 0055) ─────────────────────────────────
+// Sous-ensemble Roadmap lu par le cron. Le mapping ligne→config est PUR (testé) ; l'Edge ne fait que
+// l'I/O (SELECT + Map). Org sans ligne = défauts (mêmes valeurs que la table).
+
+/** Ligne brute de `reminder_settings` (colonnes Roadmap utiles au cron). */
+export interface ReminderSettingsRow {
+  org_id: string
+  roadmap_auto_enabled: boolean | null
+  roadmap_agent_days: number | null
+  roadmap_agency_days: number | null
+  roadmap_email_enabled: boolean | null
+}
+
+/** Config EFFECTIVE d'une org pour la relance Roadmap. */
+export interface OrgReminderCfg {
+  /** Relances auto Roadmap actives (une org qui a coupé n'est jamais planifiée). */
+  roadmapAutoEnabled: boolean
+  /** Seuils effectifs (custom de l'org, sinon défauts). */
+  thresholds: ReminderThresholds
+  /** Canal e-mail (l'affichage/journalisation in-app reste indépendant de ce flag). */
+  emailEnabled: boolean
+}
+
+export const DEFAULT_ORG_CFG: OrgReminderCfg = {
+  roadmapAutoEnabled: true,
+  thresholds: DEFAULT_THRESHOLDS,
+  emailEnabled: true,
+}
+
+/** Mappe une ligne `reminder_settings` (ou son absence) en config effective — pur, déterministe. */
+export function orgReminderCfg(row: ReminderSettingsRow | undefined | null): OrgReminderCfg {
+  if (!row) return DEFAULT_ORG_CFG
+  return {
+    // `!== false` : un flag NULL (colonne jamais écrite) retombe sur « activé », le défaut de la table.
+    roadmapAutoEnabled: row.roadmap_auto_enabled !== false,
+    thresholds: {
+      agentDays: row.roadmap_agent_days ?? DEFAULT_THRESHOLDS.agentDays,
+      agencyDays: row.roadmap_agency_days ?? DEFAULT_THRESHOLDS.agencyDays,
+    },
+    emailEnabled: row.roadmap_email_enabled !== false,
+  }
 }
 
 /** Noms d'affichage des pays MVP pour l'e-mail de relance (display-only ; repli = code ISO). */
@@ -137,6 +183,8 @@ export function planReminder(input: {
   events: ReminderEventRow[]
   decisionMessages: ReminderDecisionMsgRow[]
   now: Date
+  /** Seuils EFFECTIFS de l'org (config `reminder_settings`, 0055). Absent → défauts par pays. */
+  thresholds?: ReminderThresholds
 }): ReminderPlan | null {
   const { dossier, now } = input
   const events = input.events.filter((e) => e.dossier_id === dossier.id)
@@ -226,7 +274,7 @@ export function planReminder(input: {
   const consecutive = systemReminderTimes.filter((t) => t > lastHuman).length
   if (consecutive >= MAX_CONSECUTIVE_SYSTEM_REMINDERS) return null
 
-  const thresholds = thresholdsFor(dossier.country)
+  const thresholds = input.thresholds ?? thresholdsFor(dossier.country)
   const thresholdDays = waitingOn === 'agent' ? thresholds.agentDays : thresholds.agencyDays
   if (waitingDays < thresholdDays) return null
 
