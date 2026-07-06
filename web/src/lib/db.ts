@@ -398,6 +398,19 @@ export interface CorrespondenceReadRecord {
 }
 
 /**
+ * Marqueur de lecture du CENTRE DE NOTIFICATIONS (cloche) — **local uniquement** (par appareil,
+ * comme `correspondenceReads`). Une seule ligne (`id = 'recu'`) : `seenIds` = ids des items « à
+ * traiter » vus au dernier marquage ; le badge compte les items dont l'id n'y figure pas (nouveaux).
+ */
+export interface NotificationReadRecord {
+  /** Flux de notifications ('recu'). */
+  id: string
+  lastSeenAt: string
+  /** Ids d'items « à traiter » acquittés au dernier marquage. */
+  seenIds: string[]
+}
+
+/**
  * Cache d'analyse IA par document (ÉCO) — l'extraction Gemini (chère : lecture du PDF) n'est faite
  * qu'**une seule fois** par document ; les constats sont mémorisés et réutilisés tant que le document
  * ne change pas (`sig`). Un même produit soumis à plusieurs pays ne re-lit pas ses documents.
@@ -474,6 +487,7 @@ const db = new Dexie('pharnos') as Dexie & {
   savedTemplates: EntityTable<SavedTemplateRecord, 'id'>
   variationRequests: EntityTable<VariationRequestRecord, 'id'>
   lifecycleEvents: EntityTable<LifecycleEventRecord, 'id'>
+  notificationReads: EntityTable<NotificationReadRecord, 'id'>
 }
 
 db.version(1).stores({
@@ -552,6 +566,12 @@ db.version(13).stores({
 // curseur de la sync pull incrémentale. Ni updatedAt ni deletedAt (immuable, comme correspondenceMessages).
 db.version(14).stores({
   lifecycleEvents: 'id, orgId, dossierId, [dossierId+occurredAt], createdAt',
+})
+
+// v15 : marqueur de lecture du centre de notifications (cloche) — local uniquement (par appareil,
+// comme correspondenceReads v10). Une seule ligne 'recu' ; seul l'id est indexé.
+db.version(15).stores({
+  notificationReads: 'id',
 })
 
 export { db }

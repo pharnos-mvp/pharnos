@@ -30,6 +30,7 @@ async function clearAllTables(): Promise<void> {
     db.savedTemplates.clear(),
     db.variationRequests.clear(),
     db.lifecycleEvents.clear(),
+    db.notificationReads.clear(),
   ])
 }
 
