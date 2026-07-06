@@ -50,7 +50,9 @@ import { switchActiveOrg } from '@/features/org/active-org'
 import { useOrgId } from '@/features/org/org-context'
 import { useCurrentOrg } from '@/features/org/use-current-org'
 import { PLAN_LABEL, useOrgPlan } from '@/features/org/use-org-plan'
+import { NotificationBell } from '@/features/notifications/NotificationBell'
 import { useApplyReminderLeadDays } from '@/features/reminders/reminder-settings'
+import { useLifecycleSync } from '@/features/workspace/use-lifecycle-sync'
 import { useOnlineStatus } from '@/hooks/use-online-status'
 import { setSyncEnabledCache } from '@/lib/sync-prefs'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
@@ -120,6 +122,9 @@ export function AppShell() {
   // Alimente l'override des préavis du monitoring (domaine B, config Relances) app-wide → toutes les
   // surfaces (`renewalLeadDays`) respectent la config de l'org.
   useApplyReminderLeadDays()
+  // Journal du cycle de vie synchronisé globalement → la cloche (onglet Envoyé) a des données à jour
+  // où qu'on soit dans l'app, pas seulement sur les pages dossier/roadmap.
+  useLifecycleSync(orgId)
   const [collapsed, setCollapsed] = useState(readSidebarCollapsed)
   const expanded = !collapsed
   // Menu PRINCIPAL en tiroir sous `lg` (refonte responsive tablette/mobile) : la barre latérale
@@ -448,25 +453,7 @@ export function AppShell() {
               {/* Langue (câblée) + thème (câblé) + notifications (placeholder) — desktop. */}
               <div className="hidden items-center gap-2 lg:flex">
                 <LangThemeControls />
-                <button
-                  type="button"
-                  onClick={() =>
-                    toast(
-                      t({
-                        fr: 'Notifications bientôt disponibles.',
-                        en: 'Notifications coming soon.',
-                      }),
-                    )
-                  }
-                  aria-label={t({
-                    fr: 'Notifications (bientôt)',
-                    en: 'Notifications (coming soon)',
-                  })}
-                  className="text-muted-foreground hover:bg-accent relative inline-flex size-9 items-center justify-center rounded-md border"
-                >
-                  <Bell className="size-4" />
-                  <span className="border-background absolute top-1.5 right-1.5 size-2 rounded-full border bg-red-500" />
-                </button>
+                <NotificationBell />
               </div>
             </>
           )}
