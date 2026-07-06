@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { ActionItem } from '@/features/dashboard/dashboard-data'
 import type { LifecycleEventRecord } from '@/lib/db'
-import { buildEnvoye, unreadCount } from './notifications-data'
+import { buildEnvoye, formatRelative, unreadCount } from './notifications-data'
 
 const ev = (over: Partial<LifecycleEventRecord>): LifecycleEventRecord => ({
   id: 'e1',
@@ -50,6 +50,29 @@ describe('buildEnvoye', () => {
       ev({ id: `e${i}`, occurredAt: new Date(Date.UTC(2026, 6, 1, 0, 0, i)).toISOString() }),
     )
     expect(buildEnvoye(many, new Map(), 5)).toHaveLength(5)
+  })
+})
+
+describe('formatRelative', () => {
+  const NOW = new Date('2026-07-06T12:00:00.000Z')
+  const d = (n: number) => new Date(NOW.getTime() + n * 86_400_000).toISOString()
+
+  it('passé / présent / futur (FR) — les échéances (futur) donnent « dans N j »', () => {
+    expect(formatRelative(d(0), NOW, 'fr')).toBe("aujourd'hui")
+    expect(formatRelative(d(-1), NOW, 'fr')).toBe('hier')
+    expect(formatRelative(d(1), NOW, 'fr')).toBe('demain')
+    expect(formatRelative(d(-24), NOW, 'fr')).toBe('il y a 24 j')
+    expect(formatRelative(d(45), NOW, 'fr')).toBe('dans 45 j')
+  })
+
+  it('variantes EN', () => {
+    expect(formatRelative(d(-3), NOW, 'en')).toBe('3 d ago')
+    expect(formatRelative(d(10), NOW, 'en')).toBe('in 10 d')
+  })
+
+  it('au-delà de 60 j → date absolue ; date illisible → chaîne vide', () => {
+    expect(formatRelative(d(-400), NOW, 'fr')).toMatch(/\d{4}/) // année → date absolue
+    expect(formatRelative('n/a', NOW, 'fr')).toBe('')
   })
 })
 
