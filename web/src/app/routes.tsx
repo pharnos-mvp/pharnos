@@ -59,6 +59,9 @@ const VariationsPage = lazy(() =>
 const AccountPage = lazy(() =>
   import('@/features/account/AccountPage').then((m) => ({ default: m.AccountPage })),
 )
+const RemindersPage = lazy(() =>
+  import('@/features/reminders/RemindersPage').then((m) => ({ default: m.RemindersPage })),
+)
 
 export function AppRoutes() {
   return (
@@ -81,6 +84,7 @@ export function AppRoutes() {
         <Route path="/templates" element={<TemplatesPage />} />
         <Route path="/variations" element={<VariationsPage />} />
         <Route path="/compte" element={<AccountPage />} />
+        <Route path="/relances" element={<RemindersPage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>

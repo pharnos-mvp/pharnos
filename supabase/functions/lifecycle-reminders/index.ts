@@ -26,12 +26,16 @@ import { logJson, newReqId } from '../_shared/log.ts'
 import { sha256Hex, timingSafeEqual } from '../_shared/share-auth.ts'
 import {
   COUNTRY_NAMES,
+  DEFAULT_ORG_CFG,
+  orgReminderCfg,
   planReminder,
+  type OrgReminderCfg,
   type ReminderCorrRow,
   type ReminderDecisionMsgRow,
   type ReminderDossierRow,
   type ReminderEventRow,
   type ReminderPlan,
+  type ReminderSettingsRow,
 } from '../_shared/lifecycle-reminders-core.ts'
 
 const PAGE_SIZE = 1000
@@ -105,6 +109,22 @@ Deno.serve(async (req: Request) => {
     const products = new Map<string, ReminderDossierRow>()
     let scanned = 0
 
+    // Config des relances par org (0055) — petite table (1 ligne/org) : un seul SELECT, mappé.
+    // Org sans ligne = défauts. Le service-role bypasse la RLS.
+    const cfgByOrg = new Map<string, OrgReminderCfg>()
+    {
+      const { data: cfgRows, error: cfgErr } = await supabase
+        .from('reminder_settings')
+        .select(
+          'org_id, roadmap_auto_enabled, roadmap_agent_days, roadmap_agency_days, roadmap_email_enabled',
+        )
+      if (cfgErr) throw cfgErr
+      for (const r of (cfgRows ?? []) as ReminderSettingsRow[]) {
+        cfgByOrg.set(r.org_id, orgReminderCfg(r))
+      }
+    }
+    const cfgFor = (orgId: string): OrgReminderCfg => cfgByOrg.get(orgId) ?? DEFAULT_ORG_CFG
+
     // Scan paginé des dossiers vivants (toutes orgs — tâche plateforme, volumes MVP faibles).
     for (let from = 0; ; from += PAGE_SIZE) {
       const { data: dossiers, error } = await supabase
@@ -154,7 +174,16 @@ Deno.serve(async (req: Request) => {
       }
 
       for (const dossier of page) {
-        const plan = planReminder({ dossier, correspondences: corrs, events, decisionMessages, now })
+        const cfg = cfgFor(dossier.org_id)
+        if (!cfg.roadmapAutoEnabled) continue // org a désactivé les relances auto Roadmap (0055)
+        const plan = planReminder({
+          dossier,
+          correspondences: corrs,
+          events,
+          decisionMessages,
+          now,
+          thresholds: cfg.thresholds,
+        })
         if (plan) {
           plans.push(plan)
           products.set(plan.dossierId, dossier)
@@ -186,8 +215,13 @@ Deno.serve(async (req: Request) => {
     }
 
     // E-mails best-effort (côté labo) — plafonnés par run et par org/jour ; jamais bloquants.
+    // Canal e-mail filtré par org (0055) : la journalisation in-app (INSERT reminder_sent) reste
+    // faite pour TOUTES les relances ; seul l'envoi e-mail respecte le toggle par org.
     let emailed = 0
-    if (!dryRun) emailed = await sendEmails(supabase, plans, products, log)
+    if (!dryRun) {
+      const emailPlans = plans.filter((p) => cfgFor(p.orgId).emailEnabled)
+      emailed = await sendEmails(supabase, emailPlans, products, log)
+    }
 
     const out = { scanned, planned: plans.length, inserted, emailed, dryRun }
     logJson({ ...log, ...out, ms: Date.now() - started, status: 'ok' })

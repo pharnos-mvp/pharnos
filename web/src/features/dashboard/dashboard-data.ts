@@ -4,6 +4,7 @@ import {
   dossierDisplayStatus,
   type DossierDisplayStatus,
 } from '@/features/correspondence/correspondence-constants'
+import { renewalLeadOverride } from './renewal-config'
 import type { RegafyFinding } from '@/features/workspace/regafy'
 import type {
   AuditLogRecord,
@@ -49,6 +50,10 @@ export const ADMIN_LEAD_DAYS = 180 // 6 mois (= règle Monitor)
 export const DEFAULT_LEAD_DAYS = 90 // 3 mois
 const ADMIN_DOC_CODES = new Set(ADMIN_DOC_TYPES.map((d) => d.code))
 export function renewalLeadDays(docType: string): number {
+  // Préavis personnalisé de l'org (config `reminder_settings`, 0055) s'il existe, sinon les défauts.
+  // Point de passage unique du monitoring → toutes les surfaces respectent la config d'un seul coup.
+  const override = renewalLeadOverride(docType)
+  if (override !== undefined) return override
   if (docType === 'coa') return COA_LEAD_DAYS
   if (ADMIN_DOC_CODES.has(docType)) return ADMIN_LEAD_DAYS
   return DEFAULT_LEAD_DAYS

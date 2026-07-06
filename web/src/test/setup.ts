@@ -1,5 +1,15 @@
 import 'fake-indexeddb/auto'
 import '@testing-library/jest-dom'
+import { afterEach } from 'vitest'
+
+import { setRenewalLeadOverrides } from '@/features/dashboard/renewal-config'
+
+// `renewalLeadDays` (sélecteur monitoring) lit un override module peuplé par la config Relances
+// (domaine B). Reset après CHAQUE test → un test qui pose un override ne contamine jamais les
+// sélecteurs des tests suivants (l'état module persiste sinon dans le worker Vitest).
+afterEach(() => {
+  setRenewalLeadOverrides(null)
+})
 
 // jsdom n'expose pas `localStorage` de façon fiable selon le worker/la version de Node
 // (« localStorage is not available… »). Plusieurs composants le lisent (app-shell, prefs) →

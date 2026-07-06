@@ -1,8 +1,10 @@
 import { assertEquals } from 'jsr:@std/assert@1'
 
 import {
+  DEFAULT_ORG_CFG,
   DEFAULT_THRESHOLDS,
   MAX_CONSECUTIVE_SYSTEM_REMINDERS,
+  orgReminderCfg,
   planReminder,
   thresholdsFor,
   type ReminderCorrRow,
@@ -102,34 +104,36 @@ Deno.test('monotonie : complément requis MAIS deposited existe → soumission (
   assertEquals(p?.status, 'submitting')
 })
 
-Deno.test('soumis à l’agence : seuil AGENCE (30 j) — 20 j → rien, 31 j → relance notifications', () => {
+Deno.test('soumis à l’agence : seuil AGENCE (60 j) — 45 j → rien, 61 j → relance notifications', () => {
   const base = {
+    dossier: dossier({ created_at: daysAgo(130) }),
     correspondences: [
-      corr({ status: 'accepted', created_at: daysAgo(45), updated_at: daysAgo(45), decided_at: daysAgo(45) }),
+      corr({ status: 'accepted', created_at: daysAgo(75), updated_at: daysAgo(75), decided_at: daysAgo(75) }),
     ],
   }
-  const at20 = plan({ ...base, events: [ev({ type: 'submitted', occurred_at: daysAgo(20) })] })
-  assertEquals(at20, null)
-  const at31 = plan({ ...base, events: [ev({ type: 'submitted', occurred_at: daysAgo(31) })] })
-  assertEquals(at31?.status, 'in_notification')
-  assertEquals(at31?.stage, 'notifications')
-  assertEquals(at31?.waitingOn, 'agency')
-  assertEquals(at31?.thresholdDays, DEFAULT_THRESHOLDS.agencyDays)
+  const at45 = plan({ ...base, events: [ev({ type: 'submitted', occurred_at: daysAgo(45) })] })
+  assertEquals(at45, null)
+  const at61 = plan({ ...base, events: [ev({ type: 'submitted', occurred_at: daysAgo(61) })] })
+  assertEquals(at61?.status, 'in_notification')
+  assertEquals(at61?.stage, 'notifications')
+  assertEquals(at61?.waitingOn, 'agency')
+  assertEquals(at61?.thresholdDays, DEFAULT_THRESHOLDS.agencyDays)
 })
 
 Deno.test('réponse au complément transmise → l’attente repart côté agence', () => {
   const p = plan({
+    dossier: dossier({ created_at: daysAgo(150) }),
     correspondences: [
-      corr({ status: 'accepted', created_at: daysAgo(90), updated_at: daysAgo(90), decided_at: daysAgo(90) }),
+      corr({ status: 'accepted', created_at: daysAgo(120), updated_at: daysAgo(120), decided_at: daysAgo(120) }),
     ],
     events: [
-      ev({ type: 'submitted', occurred_at: daysAgo(80) }),
-      ev({ type: 'authority_query', occurred_at: daysAgo(60) }),
-      ev({ type: 'authority_response', occurred_at: daysAgo(35) }),
+      ev({ type: 'submitted', occurred_at: daysAgo(110) }),
+      ev({ type: 'authority_query', occurred_at: daysAgo(90) }),
+      ev({ type: 'authority_response', occurred_at: daysAgo(65) }),
     ],
   })
   assertEquals(p?.status, 'in_notification')
-  assertEquals(p?.waitingDays, 35)
+  assertEquals(p?.waitingDays, 65)
 })
 
 Deno.test('terminaux et étapes côté labo → jamais de relance', () => {
@@ -249,15 +253,34 @@ Deno.test('persona « notification directe » : authority_query SANS submitted �
   // monotonie web (own.soumission = submitted || authority) place l'étape à Notifications ;
   // le cron doit relancer côté AGENCE avec le même statut, jamais désynchroniser du badge.
   const p = plan({
+    dossier: dossier({ created_at: daysAgo(150) }),
     correspondences: [
-      corr({ status: 'accepted', created_at: daysAgo(60), updated_at: daysAgo(60), decided_at: daysAgo(60) }),
+      corr({ status: 'accepted', created_at: daysAgo(120), updated_at: daysAgo(120), decided_at: daysAgo(120) }),
     ],
-    events: [ev({ type: 'authority_query', occurred_at: daysAgo(31) })],
+    events: [ev({ type: 'authority_query', occurred_at: daysAgo(65) })],
   })
   assertEquals(p?.status, 'in_notification')
   assertEquals(p?.stage, 'notifications')
   assertEquals(p?.waitingOn, 'agency')
-  assertEquals(p?.waitingDays, 31)
+  assertEquals(p?.waitingDays, 65)
+})
+
+Deno.test('override de seuils (config org 0055) : les seuils personnalisés priment sur les défauts', () => {
+  const base = {
+    dossier: dossier(),
+    correspondences: [
+      corr({ status: 'accepted', created_at: daysAgo(80), updated_at: daysAgo(80), decided_at: daysAgo(80) }),
+    ],
+    events: [ev({ type: 'submitted', occurred_at: daysAgo(40) })],
+    decisionMessages: [] as ReminderDecisionMsgRow[],
+    now: NOW,
+  }
+  // 40 j d'attente agence < défaut 60 → aucune relance.
+  assertEquals(planReminder(base), null)
+  // Org ayant abaissé le seuil agence à 30 j → 40 ≥ 30 → relance, seuil journalisé = 30.
+  const p = planReminder({ ...base, thresholds: { agentDays: 14, agencyDays: 30 } })
+  assertEquals(p?.status, 'in_notification')
+  assertEquals(p?.thresholdDays, 30)
 })
 
 Deno.test('les événements d’un AUTRE dossier sont ignorés', () => {
@@ -268,4 +291,36 @@ Deno.test('les événements d’un AUTRE dossier sont ignorés', () => {
   // L'AMM de l'autre dossier ne « termine » pas d1 : toujours en revue à 20 j → relance.
   assertEquals(p?.status, 'in_review')
   assertEquals(p?.waitingDays, 20)
+})
+
+Deno.test('orgReminderCfg : absence de ligne (org non configurée) → défauts 14/60, auto + e-mail ON', () => {
+  assertEquals(orgReminderCfg(undefined), DEFAULT_ORG_CFG)
+  assertEquals(orgReminderCfg(null), DEFAULT_ORG_CFG)
+  assertEquals(orgReminderCfg(undefined).thresholds, DEFAULT_THRESHOLDS)
+})
+
+Deno.test('orgReminderCfg : seuils/flags personnalisés d’une org', () => {
+  const cfg = orgReminderCfg({
+    org_id: 'o1',
+    roadmap_auto_enabled: false,
+    roadmap_agent_days: 7,
+    roadmap_agency_days: 90,
+    roadmap_email_enabled: false,
+  })
+  assertEquals(cfg.roadmapAutoEnabled, false) // le cron sautera cette org
+  assertEquals(cfg.emailEnabled, false) // journalisation in-app conservée, e-mail coupé
+  assertEquals(cfg.thresholds, { agentDays: 7, agencyDays: 90 })
+})
+
+Deno.test('orgReminderCfg : colonnes NULL retombent sur les défauts de la table', () => {
+  const cfg = orgReminderCfg({
+    org_id: 'o1',
+    roadmap_auto_enabled: null,
+    roadmap_agent_days: null,
+    roadmap_agency_days: null,
+    roadmap_email_enabled: null,
+  })
+  assertEquals(cfg.roadmapAutoEnabled, true)
+  assertEquals(cfg.emailEnabled, true)
+  assertEquals(cfg.thresholds, DEFAULT_THRESHOLDS)
 })
