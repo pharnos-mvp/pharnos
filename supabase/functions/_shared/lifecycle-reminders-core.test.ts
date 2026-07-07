@@ -8,6 +8,7 @@ import {
   orgReminderCfg,
   planReminder,
   recipientAction,
+  senderDisplayName,
   thresholdsFor,
   type ReminderCorrRow,
   type ReminderDecisionMsgRow,
@@ -270,6 +271,14 @@ Deno.test('recipientAction : phrase « action attendue » par étape et par lang
   assertEquals(recipientAction('revue', 'fr'), 'nous transmettre votre décision')
   assertEquals(recipientAction('soumission', 'fr'), 'confirmer le dépôt auprès de l’agence')
   assertEquals(recipientAction('notifications', 'en'), 'update us on the review status')
+})
+
+Deno.test('senderDisplayName : quoted + assaini (anti-injection d’en-tête From, revue B1)', () => {
+  assertEquals(senderDisplayName('Cellchem'), '"Cellchem (via Pharnos)"')
+  assertEquals(senderDisplayName('Labo, Inc.'), '"Labo, Inc. (via Pharnos)"') // virgule littérale (quotée)
+  assertEquals(senderDisplayName('Bad"Name'), '"Bad Name (via Pharnos)"') // guillemet → espace
+  assertEquals(senderDisplayName('x\r\ny'), '"x y (via Pharnos)"') // CR/LF → espace
+  assertEquals(senderDisplayName('   '), '"Pharnos (via Pharnos)"') // vide → repli
 })
 
 Deno.test('persona « notification directe » : authority_query SANS submitted → in_notification (parité monotonie web)', () => {

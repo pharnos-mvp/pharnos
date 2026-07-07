@@ -175,6 +175,21 @@ export function recipientAction(stage: ReminderPlan['stage'], lang: MsgLang): st
   return m[stage][lang]
 }
 
+/**
+ * Display-name RFC 5322 SÛR pour l'expéditeur « {Org} (via Pharnos) » — l'ensemble est renvoyé en
+ * `quoted-string` : le nom d'org (texte LIBRE) est assaini (guillemet / antislash / CR-LF / `<>`
+ * retirés, whitespace normalisé, plafonné) puis PLACÉ DANS les guillemets, de sorte que `, : ; ( )`
+ * y sont LITTÉRAUX et ne peuvent plus casser la grammaire address-list (revue B1). Repli « Pharnos ».
+ */
+export function senderDisplayName(orgName: string): string {
+  const cleaned = orgName
+    .replace(/[\r\n"\\<>]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80)
+  return `"${cleaned || 'Pharnos'} (via Pharnos)"`
+}
+
 // ── Dérivation ───────────────────────────────────────────────────────────────────────────────────
 
 /** Statuts où le dossier attend un TIERS (calque de WAITING_PARTY, lifecycle-waiting.ts). */

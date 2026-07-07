@@ -33,6 +33,7 @@ import {
   orgReminderCfg,
   planReminder,
   recipientAction,
+  senderDisplayName,
   type MsgLang,
   type OrgReminderCfg,
   type ReminderCorrRow,
@@ -50,7 +51,9 @@ const INSERT_CHUNK = 200
 const MAIL_MAX_PER_RUN = 50
 const MAIL_ORG_WINDOW_S = 86_400
 const MAIL_ORG_MAX_PER_DAY = 10
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+// Adresse « stricte » : exclut aussi les métacaractères d'en-tête (`"'<>,;:`) — durcissement (revue
+// M2), aligné sur `redactEmails`. Empêche qu'une adresse libre saisie casse un jour un en-tête.
+const EMAIL_RE = /^[^\s@"'<>,;:]+@[^\s@"'<>,;:]+\.[^\s@"'<>,;:]+$/
 
 const chunk = <T>(arr: T[], size: number): T[][] => {
   const out: T[][] = []
@@ -302,10 +305,6 @@ const headerLine = (s: string): string => s.replace(/[\r\n]+/g, ' ')
 const redactEmails = (s: string): string =>
   s.replace(/[^\s@"'<>]+@[^\s@"'<>]+\.[^\s@"'<>]+/g, '<email>')
 
-/** Nom d'affichage sûr pour un en-tête From (pas de CR/LF ni de <>"), plafonné ; repli « Pharnos ». */
-const headerName = (s: string): string =>
-  headerLine(s).replace(/["<>]/g, '').trim().slice(0, 80) || 'Pharnos'
-
 /** Partie attendue, fléchie, MONOLINGUE (dégradation / repli). */
 const partyLabel = (waitingOn: 'agent' | 'agency', lang: MsgLang): string =>
   waitingOn === 'agent'
@@ -463,7 +462,7 @@ async function sendEmails(
       const lang = officialLang(dossier.country)
       // T1 — relance au destinataire, expéditeur « {Org} (via Pharnos) », Reply-To = émetteur.
       await trySend(plan.orgId, {
-        from: `${headerName(rawOrg)} (via Pharnos) <${fromAddress}>`,
+        from: `${senderDisplayName(rawOrg)} <${fromAddress}>`,
         to: [plan.recipientEmail as string],
         reply_to: hasSender ? [plan.senderEmail as string] : undefined,
         subject: headerLine(relanceSubject(dossier.product_name, country, lang)),
