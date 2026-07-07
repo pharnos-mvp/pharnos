@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { CorrespondenceRecord, DossierRecord } from '@/lib/db'
-import { useI18n } from '@/lib/i18n-context'
+import { useI18n, type Lang } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import { listByDossier } from './correspondence-repository'
+import { officialLang } from './recipient-lang'
 import {
   notifyRecipient,
   resendCompiledDossier,
@@ -49,6 +50,8 @@ export function ShareDialog({
 }: ShareDialogProps) {
   const { t } = useI18n()
   const [recipientEmail, setRecipientEmail] = useState('')
+  // Langue de la relance auto au destinataire (Slice 1b) — défaut = langue officielle du pays cible.
+  const [recipientLang, setRecipientLang] = useState<Lang>(() => officialLang(dossier.country))
   const [note, setNote] = useState('')
   const [withPassword, setWithPassword] = useState(false)
   const [password, setPassword] = useState('')
@@ -104,6 +107,7 @@ export function ShareDialog({
         pdfBlob,
         senderEmail,
         recipientEmail: email,
+        recipientLang,
         note,
         password: withPassword ? password.trim() : null,
         expiresAt: days > 0 ? new Date(Date.now() + days * 86_400_000).toISOString() : null,
@@ -267,6 +271,27 @@ export function ShareDialog({
                 value={recipientEmail}
                 onChange={(e) => setRecipientEmail(e.target.value)}
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="share-lang">
+                {t({ fr: 'Langue des relances', en: 'Reminder language' })}
+              </Label>
+              <select
+                id="share-lang"
+                className="border-input dark:bg-input/30 focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
+                value={recipientLang}
+                onChange={(e) => setRecipientLang(e.target.value as Lang)}
+              >
+                <option value="fr">{t({ fr: 'Français', en: 'French' })}</option>
+                <option value="en">{t({ fr: 'Anglais', en: 'English' })}</option>
+              </select>
+              <p className="text-muted-foreground text-xs">
+                {t({
+                  fr: 'Langue de la relance automatique envoyée au correspondant (défaut : langue du pays cible).',
+                  en: 'Language of the automatic reminder sent to the correspondent (default: target country language).',
+                })}
+              </p>
             </div>
 
             <div className="space-y-1.5">

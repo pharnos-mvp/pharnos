@@ -34,6 +34,8 @@ export interface ReminderCorrRow {
   deleted_at: string | null
   sender_email: string
   recipient_email: string
+  /** Langue de relance choisie à l'envoi (Slice 1b, 0056) ; null = langue officielle du pays. */
+  recipient_lang: string | null
 }
 
 export interface ReminderEventRow {
@@ -158,6 +160,12 @@ export function officialLang(country: string): MsgLang {
   return COUNTRY_OFFICIAL_LANG[country] ?? 'fr'
 }
 
+/** Valide une langue stockée (`recipient_lang`, texte libre côté DB) : 'fr'|'en', sinon null
+ * (→ l'appelant retombe sur la langue officielle du pays — défaut Slice 1a préservé). */
+export function asMsgLang(x: unknown): MsgLang | null {
+  return x === 'fr' || x === 'en' ? x : null
+}
+
 /** Phrase « action attendue » du destinataire selon l'étape courante — pour le corps de T1. */
 export function recipientAction(stage: ReminderPlan['stage'], lang: MsgLang): string {
   const m: Record<ReminderPlan['stage'], { fr: string; en: string }> = {
@@ -210,6 +218,8 @@ export interface ReminderPlan {
   senderEmail: string | null
   /** Adresse du DESTINATAIRE (agent/agence — recipient de la dernière correspondance) — cible T1. */
   recipientEmail: string | null
+  /** Langue de la relance choisie à l'envoi (Slice 1b) ; null = langue officielle du pays (défaut). */
+  recipientLang: MsgLang | null
 }
 
 const DAY_MS = 86_400_000
@@ -346,5 +356,6 @@ export function planReminder(input: {
     thresholdDays,
     senderEmail: latest?.sender_email ?? null,
     recipientEmail: latest?.recipient_email ?? null,
+    recipientLang: asMsgLang(latest?.recipient_lang ?? null),
   }
 }

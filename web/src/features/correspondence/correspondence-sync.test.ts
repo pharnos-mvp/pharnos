@@ -18,6 +18,7 @@ const record: CorrespondenceRecord = {
   activity: 'new_ma',
   senderEmail: 'labo@ex.com',
   recipientEmail: 'agence@ex.com',
+  recipientLang: 'en',
   note: 'Note',
   pdfPath: 'org-1/shares/c1/module1.pdf',
   pdfSize: 42,
@@ -53,6 +54,17 @@ describe('mappers sync correspondance (round-trip sans perte)', () => {
 
   it('message ⇄ row (pièces jointes incluses)', () => {
     expect(rowToMessage(messageToRow(message))).toEqual(message)
+  })
+
+  it('recipient_lang null côté serveur → null en local (le cron replie sur la langue du pays)', () => {
+    const row = { ...correspondenceToRow(record), recipient_lang: null }
+    expect(rowToCorrespondence(row).recipientLang).toBe(null)
+  })
+
+  it('recipientLang absent (ancien enregistrement local) → recipient_lang null poussé', () => {
+    const legacy = { ...record }
+    delete (legacy as { recipientLang?: unknown }).recipientLang
+    expect(correspondenceToRow(legacy).recipient_lang).toBe(null)
   })
 
   it('tolère les colonnes optionnelles nulles côté serveur', () => {
@@ -114,5 +126,35 @@ describe('updatePayloadToPartial — mutation partielle (fail-safe statut)', () 
       pdf_path: 'p2',
       pdf_size: 7,
     })
+  })
+
+  it('édition destinataire (Slice 1b) : recipient_email/recipient_lang partent, statut jamais touché', () => {
+    const partial = updatePayloadToPartial(
+      {
+        recipientEmail: 'neuf@ex.com',
+        recipientLang: 'en',
+        updatedAt: '2026-07-07T00:00:00.000Z',
+      },
+      record,
+    )
+    expect(partial).toEqual({
+      updated_at: '2026-07-07T00:00:00.000Z',
+      recipient_email: 'neuf@ex.com',
+      recipient_lang: 'en',
+    })
+    expect('status' in partial).toBe(false)
+    expect('decided_at' in partial).toBe(false)
+  })
+
+  it('édition destinataire : langue seule (adresse inchangée) → seul recipient_lang part', () => {
+    const partial = updatePayloadToPartial(
+      { recipientLang: 'fr', updatedAt: '2026-07-07T00:00:00.000Z' },
+      record,
+    )
+    expect(partial).toEqual({
+      updated_at: '2026-07-07T00:00:00.000Z',
+      recipient_lang: 'fr',
+    })
+    expect('recipient_email' in partial).toBe(false)
   })
 })

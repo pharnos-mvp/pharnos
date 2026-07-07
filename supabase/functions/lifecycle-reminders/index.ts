@@ -163,7 +163,7 @@ Deno.serve(async (req: Request) => {
           supabase
             .from('correspondences')
             .select(
-              'id, dossier_id, status, created_at, updated_at, decided_at, revoked_at, deleted_at, sender_email, recipient_email',
+              'id, dossier_id, status, created_at, updated_at, decided_at, revoked_at, deleted_at, sender_email, recipient_email, recipient_lang',
             )
             .is('deleted_at', null)
             .in('dossier_id', part),
@@ -459,7 +459,8 @@ async function sendEmails(
     const hasRecipient = !!plan.recipientEmail && EMAIL_RE.test(plan.recipientEmail)
 
     if (hasRecipient) {
-      const lang = officialLang(dossier.country)
+      // Langue CHOISIE à l'envoi (Slice 1b) si présente et valide, sinon langue officielle du pays.
+      const lang = plan.recipientLang ?? officialLang(dossier.country)
       // T1 — relance au destinataire, expéditeur « {Org} (via Pharnos) », Reply-To = émetteur.
       await trySend(plan.orgId, {
         from: `${senderDisplayName(rawOrg)} <${fromAddress}>`,

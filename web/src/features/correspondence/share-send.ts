@@ -1,5 +1,5 @@
 import type { CorrespondenceRecord, DossierRecord } from '@/lib/db'
-import { tStatic } from '@/lib/i18n-context'
+import { tStatic, type Lang } from '@/lib/i18n-context'
 import { getSupabase } from '@/lib/supabase'
 import {
   createCorrespondence,
@@ -27,6 +27,8 @@ export interface SendDossierInput {
   pdfBlob: Blob
   senderEmail: string
   recipientEmail: string
+  /** Langue de la relance auto adressée au destinataire (Slice 1b) — défaut = langue du pays. */
+  recipientLang: Lang
   note: string
   /** Mot de passe optionnel — hashé PBKDF2 ici, JAMAIS transmis ni stocké en clair. */
   password: string | null
@@ -90,6 +92,7 @@ export async function sendCompiledDossier(input: SendDossierInput): Promise<Send
     activity: input.dossier.activity,
     senderEmail: input.senderEmail,
     recipientEmail: input.recipientEmail.trim().toLowerCase(),
+    recipientLang: input.recipientLang,
     note: input.note.trim() || null,
     pdfPath,
     pdfSize: input.pdfBlob.size,
