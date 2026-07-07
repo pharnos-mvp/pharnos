@@ -4,8 +4,10 @@ import {
   DEFAULT_ORG_CFG,
   DEFAULT_THRESHOLDS,
   MAX_CONSECUTIVE_SYSTEM_REMINDERS,
+  officialLang,
   orgReminderCfg,
   planReminder,
+  recipientAction,
   thresholdsFor,
   type ReminderCorrRow,
   type ReminderDecisionMsgRow,
@@ -36,6 +38,7 @@ const corr = (over: Partial<ReminderCorrRow> = {}): ReminderCorrRow => ({
   revoked_at: null,
   deleted_at: null,
   sender_email: 'ra@labo.example',
+  recipient_email: 'agent@agence.example',
   ...over,
 })
 
@@ -225,10 +228,17 @@ Deno.test('e-mail = expéditeur de la DERNIÈRE correspondance active', () => {
   const p = plan({
     correspondences: [
       corr({ id: 'c1', created_at: daysAgo(50), updated_at: daysAgo(50), sender_email: 'old@labo.example' }),
-      corr({ id: 'c2', created_at: daysAgo(20), updated_at: daysAgo(20), sender_email: 'new@labo.example' }),
+      corr({
+        id: 'c2',
+        created_at: daysAgo(20),
+        updated_at: daysAgo(20),
+        sender_email: 'new@labo.example',
+        recipient_email: 'newagent@agence.example',
+      }),
     ],
   })
   assertEquals(p?.senderEmail, 'new@labo.example')
+  assertEquals(p?.recipientEmail, 'newagent@agence.example')
 })
 
 Deno.test('horodatages illisibles ignorés ; aucun temps datable → pas de relance aveugle', () => {
@@ -246,6 +256,20 @@ Deno.test('thresholdsFor : défauts + override partiel par pays (référentiel g
     agentDays: 7,
     agencyDays: DEFAULT_THRESHOLDS.agencyDays,
   })
+})
+
+Deno.test('officialLang : langue par défaut du destinataire selon le pays (repli FR)', () => {
+  assertEquals(officialLang('BJ'), 'fr')
+  assertEquals(officialLang('NG'), 'en')
+  assertEquals(officialLang('GH'), 'en')
+  assertEquals(officialLang('GW'), 'fr') // portugais → repli FR (app FR/EN)
+  assertEquals(officialLang('??'), 'fr') // pays inconnu → FR
+})
+
+Deno.test('recipientAction : phrase « action attendue » par étape et par langue', () => {
+  assertEquals(recipientAction('revue', 'fr'), 'nous transmettre votre décision')
+  assertEquals(recipientAction('soumission', 'fr'), 'confirmer le dépôt auprès de l’agence')
+  assertEquals(recipientAction('notifications', 'en'), 'update us on the review status')
 })
 
 Deno.test('persona « notification directe » : authority_query SANS submitted → in_notification (parité monotonie web)', () => {

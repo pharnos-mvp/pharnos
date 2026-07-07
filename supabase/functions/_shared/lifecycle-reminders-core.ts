@@ -33,6 +33,7 @@ export interface ReminderCorrRow {
   revoked_at: string | null
   deleted_at: string | null
   sender_email: string
+  recipient_email: string
 }
 
 export interface ReminderEventRow {
@@ -134,6 +135,46 @@ export const COUNTRY_NAMES: Record<string, { fr: string; en: string }> = {
   TG: { fr: 'Togo', en: 'Togo' },
 }
 
+// ── Langue du DESTINATAIRE (T1) ────────────────────────────────────────────────────────────────────
+// Défaut = langue officielle du pays (le sélecteur d'envoi peut la surcharger, stocké plus tard).
+// L'app ne gère que FR/EN → Guinée-Bissau (portugais) replie sur FR.
+export type MsgLang = 'fr' | 'en'
+
+export const COUNTRY_OFFICIAL_LANG: Readonly<Record<string, MsgLang>> = Object.freeze({
+  BJ: 'fr',
+  BF: 'fr',
+  CI: 'fr',
+  GW: 'fr',
+  ML: 'fr',
+  NE: 'fr',
+  SN: 'fr',
+  TG: 'fr',
+  NG: 'en',
+  GH: 'en',
+})
+
+/** Langue par défaut d'un destinataire d'après le pays du dossier (repli FR). */
+export function officialLang(country: string): MsgLang {
+  return COUNTRY_OFFICIAL_LANG[country] ?? 'fr'
+}
+
+/** Phrase « action attendue » du destinataire selon l'étape courante — pour le corps de T1. */
+export function recipientAction(stage: ReminderPlan['stage'], lang: MsgLang): string {
+  const m: Record<ReminderPlan['stage'], { fr: string; en: string }> = {
+    revue: { fr: 'nous transmettre votre décision', en: 'share your decision with us' },
+    depot: { fr: 'confirmer la réception du dossier', en: 'confirm receipt of the dossier' },
+    soumission: {
+      fr: 'confirmer le dépôt auprès de l’agence',
+      en: 'confirm filing with the agency',
+    },
+    notifications: {
+      fr: 'nous notifier l’état d’instruction',
+      en: 'update us on the review status',
+    },
+  }
+  return m[stage][lang]
+}
+
 // ── Dérivation ───────────────────────────────────────────────────────────────────────────────────
 
 /** Statuts où le dossier attend un TIERS (calque de WAITING_PARTY, lifecycle-waiting.ts). */
@@ -150,8 +191,10 @@ export interface ReminderPlan {
   waitingDays: number
   /** Seuil (jours) qui a déclenché la relance — journalisé dans le payload (self-describing). */
   thresholdDays: number
-  /** Adresse côté labo (expéditeur de la dernière correspondance active) — cible de l'e-mail. */
+  /** Adresse côté labo (expéditeur de la dernière correspondance active) — accusé + Reply-To. */
   senderEmail: string | null
+  /** Adresse du DESTINATAIRE (agent/agence — recipient de la dernière correspondance) — cible T1. */
+  recipientEmail: string | null
 }
 
 const DAY_MS = 86_400_000
@@ -287,5 +330,6 @@ export function planReminder(input: {
     waitingDays,
     thresholdDays,
     senderEmail: latest?.sender_email ?? null,
+    recipientEmail: latest?.recipient_email ?? null,
   }
 }
