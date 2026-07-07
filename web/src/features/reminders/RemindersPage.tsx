@@ -1,6 +1,7 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Bell, Building2, FlaskConical, Info, Loader2 } from 'lucide-react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { Bell, Building2, FlaskConical, Info, Loader2, Users } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -17,7 +18,19 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useI18n, type Translatable } from '@/lib/i18n-context'
+import { statusLabel } from '@/features/correspondence/correspondence-constants'
+import {
+  listCorrespondences,
+  updateCorrespondenceRecipient,
+} from '@/features/correspondence/correspondence-repository'
+import { officialLang } from '@/features/correspondence/recipient-lang'
+import { syncCorrespondences } from '@/features/correspondence/correspondence-sync'
+import { getActiveOrgId } from '@/features/org/active-org'
+import { useCurrentOrg } from '@/features/org/use-current-org'
+import { canManageSubmission } from '@/features/team/team-api'
+import { countryLabel } from '@/features/workspace/dossier-constants'
+import type { CorrespondenceRecord } from '@/lib/db'
+import { useI18n, type Lang, type Translatable } from '@/lib/i18n-context'
 import {
   DEFAULT_LEAD_DAYS,
   MONITORING_LEAD_FLOOR,
@@ -90,7 +103,10 @@ export function RemindersPage() {
           }
         />
       ) : (
-        <RemindersForm initial={data} />
+        <div className="space-y-6">
+          <RemindersForm initial={data} />
+          <RecipientsSection />
+        </div>
       )}
     </Page>
   )
@@ -309,6 +325,158 @@ function RemindersForm({ initial }: { initial: ReminderSettings }) {
         </Button>
       </div>
     </div>
+  )
+}
+
+/* ----------------------------- Destinataires (Slice 1b) ----------------------------- */
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/**
+ * Destinataires des relances — adresse + langue de la relance automatique, par envoi ACTIF (lien
+ * non révoqué). La relance s'adresse au destinataire du dernier envoi actif d'un dossier ; on l'édite
+ * ici (offline-first : Dexie + outbox, cf. `updateCorrespondenceRecipient`). Lecture seule pour les
+ * membres non-gestionnaires de soumission (la RLS reste la vraie barrière).
+ */
+function RecipientsSection() {
+  const { t } = useI18n()
+  const orgId = getActiveOrgId()
+  const { memberships } = useCurrentOrg()
+  const canManage = canManageSubmission(memberships.find((m) => m.orgId === orgId)?.role)
+
+  // Rafraîchit depuis le serveur à l'ouverture (best-effort ; `syncCorrespondences` no-op hors-ligne).
+  useEffect(() => {
+    if (orgId) void syncCorrespondences(orgId)
+  }, [orgId])
+
+  const correspondences = useLiveQuery(
+    () => (orgId ? listCorrespondences(orgId) : Promise.resolve([])),
+    [orgId],
+  )
+  // Envois ACTIFS (lien non révoqué) = cibles potentielles des relances auto.
+  const active = (correspondences ?? []).filter((c) => c.revokedAt === null)
+
+  return (
+    <Section
+      title={
+        <span className="flex items-center gap-2">
+          <Users className="text-info size-4 shrink-0" aria-hidden />
+          {t({ fr: 'Destinataires', en: 'Recipients' })}
+        </span>
+      }
+      description={t({
+        fr: 'Adresse et langue de la relance automatique, par envoi actif.',
+        en: 'Address and language of the automatic reminder, per active send.',
+      })}
+    >
+      {correspondences === undefined ? (
+        <div className="space-y-2">
+          <Skeleton className="h-16 rounded-lg" />
+          <Skeleton className="h-16 rounded-lg" />
+        </div>
+      ) : !orgId || active.length === 0 ? (
+        <p className="text-muted-foreground text-sm">
+          {t({
+            fr: 'Aucun envoi actif. Les destinataires apparaîtront ici après l’envoi d’un dossier.',
+            en: 'No active send. Recipients will appear here once a dossier has been sent.',
+          })}
+        </p>
+      ) : (
+        <ul className="divide-y">
+          {active.map((c) => (
+            <RecipientRow key={c.id} correspondence={c} orgId={orgId} canManage={canManage} />
+          ))}
+        </ul>
+      )}
+      <Note>
+        {t({
+          fr: 'La relance s’adresse au destinataire du dernier envoi actif de chaque dossier. Changer l’adresse redirige les relances et notifications futures ; l’historique du fil reste inchangé.',
+          en: 'The reminder targets the recipient of each dossier’s latest active send. Changing the address redirects future reminders and notifications; the thread history stays unchanged.',
+        })}
+      </Note>
+    </Section>
+  )
+}
+
+function RecipientRow({
+  correspondence: c,
+  orgId,
+  canManage,
+}: {
+  correspondence: CorrespondenceRecord
+  orgId: string
+  canManage: boolean
+}) {
+  const { t, lang } = useI18n()
+  const initialLang: Lang = c.recipientLang ?? officialLang(c.country)
+  const [email, setEmail] = useState(c.recipientEmail)
+  const [rLang, setRLang] = useState<Lang>(initialLang)
+  const [saving, setSaving] = useState(false)
+
+  const dirty = email.trim().toLowerCase() !== c.recipientEmail || rLang !== initialLang
+
+  async function save() {
+    const next = email.trim().toLowerCase()
+    if (!EMAIL_RE.test(next)) {
+      toast.error(t({ fr: 'Adresse e-mail invalide.', en: 'Invalid e-mail address.' }))
+      return
+    }
+    setSaving(true)
+    try {
+      await updateCorrespondenceRecipient(c.id, { recipientEmail: next, recipientLang: rLang })
+      void syncCorrespondences(orgId)
+      toast.success(t({ fr: 'Destinataire mis à jour', en: 'Recipient updated' }))
+    } catch {
+      toast.error(t({ fr: 'Échec de l’enregistrement', en: 'Save failed' }))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <li className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0">
+      <div className="min-w-0">
+        <div className="truncate text-sm font-medium">{c.productName}</div>
+        <div className="text-muted-foreground text-xs">
+          {countryLabel(c.country, lang)} · {statusLabel(c.status, lang)}
+        </div>
+      </div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          disabled={!canManage || saving}
+          aria-label={t({ fr: 'E-mail du destinataire', en: 'Recipient e-mail' })}
+          className="sm:flex-1"
+        />
+        <Select
+          value={rLang}
+          onValueChange={(v) => setRLang(v as Lang)}
+          disabled={!canManage || saving}
+        >
+          <SelectTrigger className="sm:w-40" aria-label={t({ fr: 'Langue', en: 'Language' })}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="fr">{t({ fr: 'Français', en: 'French' })}</SelectItem>
+            <SelectItem value="en">{t({ fr: 'Anglais', en: 'English' })}</SelectItem>
+          </SelectContent>
+        </Select>
+        {canManage ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            disabled={!dirty || saving}
+            onClick={() => void save()}
+          >
+            {saving ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+            {t({ fr: 'Enregistrer', en: 'Save' })}
+          </Button>
+        ) : null}
+      </div>
+    </li>
   )
 }
 

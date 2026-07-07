@@ -8,7 +8,7 @@
 --   4. share_hits / share_hit() sont réservés au service-role (anti-abus non contournable).
 
 begin;
-select plan(20);
+select plan(22);
 
 -- ----------------------------------------------------------------------------
 -- Seeding (superuser : contourne la RLS)
@@ -188,6 +188,24 @@ select throws_ok(
   '42501',
   null,
   'org A : INSERT d''une correspondance dans l''org B rejeté'
+);
+
+-- Slice 1b : langue de la relance au destinataire (migration 0056) — un membre PEUT l'éditer
+-- (la section « Destinataires » de la page Relances s'appuie sur cet UPDATE), valeur bornée fr|en.
+update public.correspondences set recipient_lang = 'en', updated_at = now()
+  where id = 'c0000000-0000-0000-0000-00000000000a';
+select is(
+  (select recipient_lang from public.correspondences
+    where id = 'c0000000-0000-0000-0000-00000000000a'),
+  'en',
+  'org A : recipient_lang éditable par un membre (langue de relance)'
+);
+select throws_ok(
+  $$ update public.correspondences set recipient_lang = 'xx'
+       where id = 'c0000000-0000-0000-0000-00000000000a' $$,
+  '23514',
+  null,
+  'recipient_lang : valeur hors (fr|en) rejetée par le CHECK (0056)'
 );
 
 -- ----------------------------------------------------------------------------

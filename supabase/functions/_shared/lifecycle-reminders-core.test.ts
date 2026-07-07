@@ -1,6 +1,7 @@
 import { assertEquals } from 'jsr:@std/assert@1'
 
 import {
+  asMsgLang,
   DEFAULT_ORG_CFG,
   DEFAULT_THRESHOLDS,
   MAX_CONSECUTIVE_SYSTEM_REMINDERS,
@@ -40,6 +41,7 @@ const corr = (over: Partial<ReminderCorrRow> = {}): ReminderCorrRow => ({
   deleted_at: null,
   sender_email: 'ra@labo.example',
   recipient_email: 'agent@agence.example',
+  recipient_lang: null,
   ...over,
 })
 
@@ -257,6 +259,34 @@ Deno.test('thresholdsFor : défauts + override partiel par pays (référentiel g
     agentDays: 7,
     agencyDays: DEFAULT_THRESHOLDS.agencyDays,
   })
+})
+
+Deno.test('recipientLang (Slice 1b) : langue stockée reprise dans le plan ; défaut/invalide → null', () => {
+  // Pays FR (BJ) mais langue stockée EN → le plan porte 'en' (le cron n'appliquera pas le défaut pays).
+  assertEquals(plan({ correspondences: [corr({ recipient_lang: 'en' })] })?.recipientLang, 'en')
+  // Aucune langue stockée → null : le cron retombe sur officialLang(pays) = défaut Slice 1a.
+  assertEquals(plan({ correspondences: [corr({ recipient_lang: null })] })?.recipientLang, null)
+  // Valeur invalide en base (appelant direct de l'API) → null (repli pays), jamais propagée telle quelle.
+  assertEquals(plan({ correspondences: [corr({ recipient_lang: 'pt' })] })?.recipientLang, null)
+})
+
+Deno.test('recipientLang : la langue de la DERNIÈRE correspondance active fait foi', () => {
+  const p = plan({
+    correspondences: [
+      corr({ id: 'c1', created_at: daysAgo(50), updated_at: daysAgo(50), recipient_lang: 'fr' }),
+      corr({ id: 'c2', created_at: daysAgo(20), updated_at: daysAgo(20), recipient_lang: 'en' }),
+    ],
+  })
+  assertEquals(p?.recipientLang, 'en')
+})
+
+Deno.test('asMsgLang : valide fr/en, sinon null (repli langue pays)', () => {
+  assertEquals(asMsgLang('fr'), 'fr')
+  assertEquals(asMsgLang('en'), 'en')
+  assertEquals(asMsgLang('pt'), null)
+  assertEquals(asMsgLang(''), null)
+  assertEquals(asMsgLang(null), null)
+  assertEquals(asMsgLang(undefined), null)
 })
 
 Deno.test('officialLang : langue par défaut du destinataire selon le pays (repli FR)', () => {

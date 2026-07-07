@@ -336,6 +336,13 @@ export interface CorrespondenceRecord {
   activity: string
   senderEmail: string
   recipientEmail: string
+  /**
+   * Langue de la relance automatique adressée au destinataire (Slice 1b) : 'fr' | 'en', ou
+   * null/absent = langue officielle du pays (défaut appliqué par le cron). Additif NON INDEXÉ →
+   * aucun bump de version Dexie requis (les enregistrements antérieurs le lisent comme `undefined`,
+   * traité comme null). Persisté serveur dans `correspondences.recipient_lang` (migration 0056).
+   */
+  recipientLang?: 'fr' | 'en' | null
   note: string | null
   /** PDF compilé dans le bucket privé `documents` ({orgId}/shares/{id}/…). */
   pdfPath: string

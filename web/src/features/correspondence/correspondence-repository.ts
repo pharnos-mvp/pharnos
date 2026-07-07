@@ -20,6 +20,8 @@ export interface CreateCorrespondenceInput {
   activity: string
   senderEmail: string
   recipientEmail: string
+  /** Langue de relance du destinataire (Slice 1b) — défaut = langue du pays ; null = idem au cron. */
+  recipientLang?: 'fr' | 'en' | null
   note: string | null
   pdfPath: string
   pdfSize: number
@@ -101,6 +103,7 @@ export async function createCorrespondence(
     activity: input.activity,
     senderEmail: input.senderEmail,
     recipientEmail: input.recipientEmail,
+    recipientLang: input.recipientLang ?? null,
     note: input.note,
     pdfPath: input.pdfPath,
     pdfSize: input.pdfSize,
@@ -235,6 +238,54 @@ export async function revokeCorrespondence(id: string): Promise<void> {
   await db.transaction('rw', db.correspondences, db.outbox, async () => {
     await db.correspondences.put({ ...existing, revokedAt: ts, updatedAt: ts })
     await enqueueOutbox('correspondence', id, 'update', { id, revokedAt: ts, updatedAt: ts })
+  })
+  await recordAudit(existing.orgId, 'correspondence', id, 'update', existing.productName)
+}
+
+/**
+ * Édite le DESTINATAIRE d'une correspondance active (Slice 1b, section « Destinataires » de la page
+ * Relances) : e-mail (où part la relance / le lien à la prochaine notification) et/ou langue de la
+ * relance auto. Mutation PARTIELLE côté serveur (recipient_email/recipient_lang/updated_at seulement,
+ * cf. `updatePayloadToPartial`) : ne touche JAMAIS le statut/la décision. Le FIL reste intact — les
+ * messages passés gardent leur `authorLabel` figé (ALCOA) ; seule l'adresse des envois FUTURS change.
+ * Offline-first (Dexie + outbox). No-op si rien ne change (pas d'entrée d'audit à vide).
+ */
+export async function updateCorrespondenceRecipient(
+  id: string,
+  patch: { recipientEmail?: string; recipientLang?: 'fr' | 'en' },
+): Promise<void> {
+  const existing = await db.correspondences.get(id)
+  if (!existing || existing.deletedAt !== null) return
+  const nextEmail =
+    patch.recipientEmail !== undefined
+      ? patch.recipientEmail.trim().toLowerCase()
+      : existing.recipientEmail
+  const nextLang = patch.recipientLang ?? existing.recipientLang ?? null
+  if (!nextEmail) return // garde : jamais d'adresse vide (le format est validé par l'appelant)
+  const emailChanged = nextEmail !== existing.recipientEmail
+  const langChanged = nextLang !== (existing.recipientLang ?? null)
+  if (!emailChanged && !langChanged) return
+
+  const ts = now()
+  const payload: {
+    id: string
+    updatedAt: string
+    recipientEmail?: string
+    recipientLang?: 'fr' | 'en'
+  } = { id, updatedAt: ts }
+  if (emailChanged) payload.recipientEmail = nextEmail
+  // `&& nextLang` rend l'invariant EXPLICITE (type-enforced) : `recipient_lang` ne part que concret,
+  // jamais null. Aucun appelant ne l'efface (le type de `patch` interdit null) → langChanged ⟹
+  // nextLang ∈ {fr,en} ; le garde le prouve au type-checker plutôt que par l'arithmétique.
+  if (langChanged && nextLang) payload.recipientLang = nextLang
+  await db.transaction('rw', db.correspondences, db.outbox, async () => {
+    await db.correspondences.put({
+      ...existing,
+      recipientEmail: nextEmail,
+      recipientLang: nextLang,
+      updatedAt: ts,
+    })
+    await enqueueOutbox('correspondence', id, 'update', payload)
   })
   await recordAudit(existing.orgId, 'correspondence', id, 'update', existing.productName)
 }

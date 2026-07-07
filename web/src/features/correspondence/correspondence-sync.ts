@@ -20,6 +20,8 @@ export interface CorrespondenceRow {
   activity: string
   sender_email: string
   recipient_email: string
+  /** Langue de relance du destinataire (Slice 1b) : 'fr'|'en'|null ; null = langue du pays. */
+  recipient_lang: string | null
   note: string | null
   pdf_path: string
   pdf_size: number
@@ -58,6 +60,7 @@ export function correspondenceToRow(c: CorrespondenceRecord): CorrespondenceRow 
     activity: c.activity,
     sender_email: c.senderEmail,
     recipient_email: c.recipientEmail,
+    recipient_lang: c.recipientLang ?? null,
     note: c.note,
     pdf_path: c.pdfPath,
     pdf_size: c.pdfSize,
@@ -84,6 +87,7 @@ export function rowToCorrespondence(r: CorrespondenceRow): CorrespondenceRecord 
     activity: r.activity,
     senderEmail: r.sender_email,
     recipientEmail: r.recipient_email,
+    recipientLang: (r.recipient_lang as 'fr' | 'en' | null) ?? null,
     note: r.note,
     pdfPath: r.pdf_path,
     pdfSize: r.pdf_size ?? 0,
@@ -194,6 +198,9 @@ export function updatePayloadToPartial(
     updatedAt?: string
     status?: CorrespondenceRecord['status']
     decidedAt?: string | null
+    /** Édition des destinataires (Slice 1b, page « Relances ») — seuls ces champs partent. */
+    recipientEmail?: string
+    recipientLang?: 'fr' | 'en'
   }
   const partial: Record<string, unknown> = { updated_at: p.updatedAt ?? rec.updatedAt }
   if ('revokedAt' in p) partial.revoked_at = p.revokedAt ?? null
@@ -201,6 +208,8 @@ export function updatePayloadToPartial(
   if (p.pdfSize !== undefined) partial.pdf_size = p.pdfSize
   if (p.status !== undefined) partial.status = p.status
   if ('decidedAt' in p) partial.decided_at = p.decidedAt ?? null
+  if (p.recipientEmail !== undefined) partial.recipient_email = p.recipientEmail
+  if (p.recipientLang !== undefined) partial.recipient_lang = p.recipientLang
   return partial
 }
 
