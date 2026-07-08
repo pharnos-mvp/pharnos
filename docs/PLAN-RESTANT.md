@@ -80,7 +80,7 @@ Tout **H → M (+O)** est en prod. **Depuis le 2026-06-16** :
   `monitoring_reminders` (`0058`), envoi bilingue au contact fabricant quand une pièce admin entre dans sa fenêtre de
   renouvellement (#307). **RECETTE PROD Chrome MCP PASSÉE (2026-07-08)** : les 3 tranches vérifiées bout-en-bout par
   actions réelles + 2 e-mails délivrés (relance fabricant + notification d'envoi 1b) ; **moteur fabricant confirmé
-  fonctionnel en prod** (dormant tant qu'aucun contact fabricant n'est saisi). Détail : mémoire `reminders-notifications`.
+  fonctionnel en prod** (dormant tant qu'aucun contact fabricant n'est saisi). **+ #309** : défauts de langue **par rôle** (MAH/fabricant = EN, agence = langue officielle du pays → **fini le bilingue**) **+ relances aux heures ouvrables** (cron → `0 9 * * 1-5` = 09:00 UTC lun–ven, migration `0059`). Détail : mémoire `reminders-notifications`.
 
 **Santé** : ~441 vitest + e2e Playwright, CI 6/6, `npm audit` 0 vuln, advisors **0 ERROR**, budget tenu, backups
 chiffrés + restore drill, uptime + alertes, **0 €**. Clé `age` rangée hors-ligne (2026-06-20).
