@@ -190,12 +190,13 @@ Ordre = valeur × dépendance. Chaque ligne = tranche verticale livrable + recet
 - **Pilote** : supprimer le produit test « Recette PL3… » du catalogue prod (P0-4).
 
 ## Migrations
-Dernière appliquée = **`0058`** (`monitoring_reminders` — idempotence relance fabricant, Slice 2b).
+Dernière appliquée = **`0059`** (`reminders_business_hours` — cron relances → 09:00 UTC lun–ven).
 `0044` = `document_admin_metadata` ; `0045` = `parties` ; `0046` = `dossier_operation_number` ;
 `0047` = `lifecycle_events` ; `0048` = `membership_scopes` ; `0049` = `explicit_org_rpcs` ;
 `0050`/`0051` = relances auto (cron/Vault) ; `0052` = M7 agent ; `0053` = `admin_audit` ;
 `0054` = `retention_purge` (corbeille/purge auto, LOT 9) ; `0055` = `reminder_settings` (page Relances,
 seuils A + préavis B) ; `0056` = `correspondence_recipient_lang` (Slice 1b) ; `0057` = `parties_contact_email`
-(Slice 2a) ; `0058` = `monitoring_reminders` (Slice 2b). **Reprendre à `0059`. Dexie = v15 (16 libre).**
+(Slice 2a) ; `0058` = `monitoring_reminders` (Slice 2b) ; `0059` = `reminders_business_hours` (cron relances
+→ `0 9 * * 1-5`, heures ouvrables). **Reprendre à `0060`. Dexie = v15 (16 libre).**
 ⚠️ Le tracking distant est en **timestamp** (≠ fichiers `0001-0045`) ; toujours `ls supabase/migrations/` avant de
 numéroter, et appliquer via MCP `apply_migration` (idempotent), pas `supabase db push` à l'aveugle.
