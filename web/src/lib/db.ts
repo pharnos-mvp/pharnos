@@ -62,6 +62,12 @@ export interface PartyRecord {
   gmpCertificat: string
   /** Échéance GMP (yyyy-mm-dd) suivie par Monitor ; null sinon. */
   gmpExpiry: string | null
+  /**
+   * E-mail de contact de l'organisation (Slice 2a) — cible de la relance FABRICANT (domaine B :
+   * pièces admin qui expirent). Additif NON INDEXÉ → aucun bump de version Dexie (les anciens
+   * enregistrements le lisent `undefined` → `?? null`). Serveur : `parties.contact_email` (0057).
+   */
+  contactEmail?: string | null
   createdAt: string
   updatedAt: string
   /** Soft delete : conservé pour la réconciliation de synchro. `null` = actif. */

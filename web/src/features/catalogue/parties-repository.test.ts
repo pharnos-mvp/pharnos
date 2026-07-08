@@ -74,11 +74,18 @@ describe('parties repository (offline-first)', () => {
     expect(p?.adresse).toBe('Berlin') // vide complété
   })
 
-  it('updateParty modifie les détails de la fiche', async () => {
+  it('updateParty modifie les détails de la fiche (dont le contact fabricant)', async () => {
     const id = await upsertParty(ORG, { nom: 'Synthia', roles: ['fabricant'] })
-    const updated = await updateParty(id!, { pays: 'CI', gmpCertificat: 'GMP-9' })
+    const updated = await updateParty(id!, {
+      pays: 'CI',
+      gmpCertificat: 'GMP-9',
+      contactEmail: 'qa@synthia.example',
+    })
     expect(updated.pays).toBe('CI')
     expect(updated.gmpCertificat).toBe('GMP-9')
+    expect(updated.contactEmail).toBe('qa@synthia.example')
+    // Persisté + poussé (la sync l'enverra à `parties.contact_email`).
+    expect((await getParty(id!))?.contactEmail).toBe('qa@synthia.example')
   })
 
   it('isole les organisations par tenant', async () => {

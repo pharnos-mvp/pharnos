@@ -147,6 +147,10 @@ export function OrganisationCockpit() {
               label={t({ fr: 'Échéance GMP', en: 'GMP expiry' })}
               value={party.gmpExpiry ?? ''}
             />
+            <Field
+              label={t({ fr: 'E-mail de contact', en: 'Contact e-mail' })}
+              value={party.contactEmail ?? ''}
+            />
           </dl>
         )}
       </div>
@@ -351,6 +355,9 @@ function PieceBadge({ pv }: { pv: PieceTypeValidity }) {
   )
 }
 
+/** Validation e-mail légère du contact fabricant (même motif que ShareDialog). */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 function Field({ label, value }: { label: string; value: string }) {
   const { t } = useI18n()
   return (
@@ -379,9 +386,17 @@ function OrgEditForm({
   const [adresse, setAdresse] = useState(party.adresse)
   const [gmpCertificat, setGmpCertificat] = useState(party.gmpCertificat)
   const [gmpExpiry, setGmpExpiry] = useState(party.gmpExpiry ?? '')
+  const [contactEmail, setContactEmail] = useState(party.contactEmail ?? '')
   const [busy, setBusy] = useState(false)
 
   async function save() {
+    // Contact facultatif ; s'il est renseigné, il doit être un e-mail valide (le moteur de relance
+    // fabricant l'utilise comme destinataire — une adresse cassée = une relance qui ne part jamais).
+    const email = contactEmail.trim()
+    if (email && !EMAIL_RE.test(email)) {
+      toast.error(t({ fr: 'E-mail de contact invalide.', en: 'Invalid contact e-mail.' }))
+      return
+    }
     setBusy(true)
     try {
       await updateParty(party.id, {
@@ -389,6 +404,7 @@ function OrgEditForm({
         adresse: adresse.trim(),
         gmpCertificat: gmpCertificat.trim(),
         gmpExpiry: gmpExpiry || null,
+        contactEmail: email || null,
       })
       void syncParties(orgId)
       toast.success(t({ fr: 'Organisation enregistrée', en: 'Organization saved' }))
@@ -439,6 +455,23 @@ function OrgEditForm({
           value={gmpExpiry}
           onChange={(e) => setGmpExpiry(e.target.value)}
         />
+      </div>
+      <div className="space-y-1.5 sm:col-span-2">
+        <Label htmlFor="org-contact">{t({ fr: 'E-mail de contact', en: 'Contact e-mail' })}</Label>
+        <Input
+          id="org-contact"
+          type="email"
+          value={contactEmail}
+          maxLength={320}
+          placeholder={t({ fr: 'contact@fabricant.com', en: 'contact@manufacturer.com' })}
+          onChange={(e) => setContactEmail(e.target.value)}
+        />
+        <p className="text-muted-foreground text-xs">
+          {t({
+            fr: 'Destinataire des relances de renouvellement des pièces (GMP, COPP…) qui expirent.',
+            en: 'Recipient of renewal reminders for expiring documents (GMP, CPP…).',
+          })}
+        </p>
       </div>
       <div className="flex items-center gap-2 sm:col-span-2">
         <Button variant="primary" onClick={() => void save()} disabled={busy}>
