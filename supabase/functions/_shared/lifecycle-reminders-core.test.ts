@@ -362,17 +362,21 @@ Deno.test('orgReminderCfg : absence de ligne (org non configurée) → défauts 
   assertEquals(orgReminderCfg(undefined).thresholds, DEFAULT_THRESHOLDS)
 })
 
-Deno.test('orgReminderCfg : seuils/flags personnalisés d’une org', () => {
+Deno.test('orgReminderCfg : seuils/flags personnalisés d’une org (Roadmap + Monitoring)', () => {
   const cfg = orgReminderCfg({
     org_id: 'o1',
     roadmap_auto_enabled: false,
     roadmap_agent_days: 7,
     roadmap_agency_days: 90,
     roadmap_email_enabled: false,
+    monitoring_auto_enabled: false,
+    monitoring_lead_days: { gmp: 90 },
   })
-  assertEquals(cfg.roadmapAutoEnabled, false) // le cron sautera cette org
+  assertEquals(cfg.roadmapAutoEnabled, false) // le cron sautera cette org (Roadmap)
   assertEquals(cfg.emailEnabled, false) // journalisation in-app conservée, e-mail coupé
   assertEquals(cfg.thresholds, { agentDays: 7, agencyDays: 90 })
+  assertEquals(cfg.monitoringEnabled, false) // relance fabricant coupée (domaine B)
+  assertEquals(cfg.monitoringLeadDays, { gmp: 90 })
 })
 
 Deno.test('orgReminderCfg : colonnes NULL retombent sur les défauts de la table', () => {
@@ -382,8 +386,12 @@ Deno.test('orgReminderCfg : colonnes NULL retombent sur les défauts de la table
     roadmap_agent_days: null,
     roadmap_agency_days: null,
     roadmap_email_enabled: null,
+    monitoring_auto_enabled: null,
+    monitoring_lead_days: null,
   })
   assertEquals(cfg.roadmapAutoEnabled, true)
   assertEquals(cfg.emailEnabled, true)
   assertEquals(cfg.thresholds, DEFAULT_THRESHOLDS)
+  assertEquals(cfg.monitoringEnabled, true) // NULL → activé (défaut table)
+  assertEquals(cfg.monitoringLeadDays, {}) // NULL → vide → défauts par type côté core monitoring
 })

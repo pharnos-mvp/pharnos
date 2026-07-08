@@ -84,16 +84,20 @@ export function thresholdsFor(
 // Sous-ensemble Roadmap lu par le cron. Le mapping ligne→config est PUR (testé) ; l'Edge ne fait que
 // l'I/O (SELECT + Map). Org sans ligne = défauts (mêmes valeurs que la table).
 
-/** Ligne brute de `reminder_settings` (colonnes Roadmap utiles au cron). */
+/** Ligne brute de `reminder_settings` (colonnes Roadmap + Monitoring utiles au cron). */
 export interface ReminderSettingsRow {
   org_id: string
   roadmap_auto_enabled: boolean | null
   roadmap_agent_days: number | null
   roadmap_agency_days: number | null
   roadmap_email_enabled: boolean | null
+  /** Domaine B — relance fabricant auto (Slice 2b). */
+  monitoring_auto_enabled: boolean | null
+  /** Préavis par type de pièce (jsonb → objet) ; null = défauts par type. */
+  monitoring_lead_days: Record<string, number> | null
 }
 
-/** Config EFFECTIVE d'une org pour la relance Roadmap. */
+/** Config EFFECTIVE d'une org pour les deux domaines de relance. */
 export interface OrgReminderCfg {
   /** Relances auto Roadmap actives (une org qui a coupé n'est jamais planifiée). */
   roadmapAutoEnabled: boolean
@@ -101,12 +105,18 @@ export interface OrgReminderCfg {
   thresholds: ReminderThresholds
   /** Canal e-mail (l'affichage/journalisation in-app reste indépendant de ce flag). */
   emailEnabled: boolean
+  /** Domaine B — relance fabricant auto activée (0055). */
+  monitoringEnabled: boolean
+  /** Préavis par type de pièce (jours) — override org ; vide = défauts par type (core monitoring). */
+  monitoringLeadDays: Record<string, number>
 }
 
 export const DEFAULT_ORG_CFG: OrgReminderCfg = {
   roadmapAutoEnabled: true,
   thresholds: DEFAULT_THRESHOLDS,
   emailEnabled: true,
+  monitoringEnabled: true,
+  monitoringLeadDays: {},
 }
 
 /** Mappe une ligne `reminder_settings` (ou son absence) en config effective — pur, déterministe. */
@@ -120,6 +130,11 @@ export function orgReminderCfg(row: ReminderSettingsRow | undefined | null): Org
       agencyDays: row.roadmap_agency_days ?? DEFAULT_THRESHOLDS.agencyDays,
     },
     emailEnabled: row.roadmap_email_enabled !== false,
+    monitoringEnabled: row.monitoring_auto_enabled !== false,
+    monitoringLeadDays:
+      row.monitoring_lead_days && typeof row.monitoring_lead_days === 'object'
+        ? row.monitoring_lead_days
+        : {},
   }
 }
 

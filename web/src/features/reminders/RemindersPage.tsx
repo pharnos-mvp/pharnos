@@ -269,8 +269,8 @@ function RemindersForm({ initial }: { initial: ReminderSettings }) {
         <BoolField
           label={t({ fr: 'Relance auto du fabricant', en: 'Automatic manufacturer reminder' })}
           hint={t({
-            fr: 'envoi e-mail au fabricant à venir — les préavis ci-dessous pilotent déjà les alertes',
-            en: 'email to the manufacturer coming soon — the lead times below already drive alerts',
+            fr: 'e-mail au fabricant (contact renseigné sur sa fiche Organisation) quand une pièce entre dans sa fenêtre de renouvellement',
+            en: 'emails the manufacturer (contact set on its Organization page) when a document enters its renewal window',
           })}
           value={draft.monitoring_auto_enabled}
           onChange={(v) => setDraft((d) => ({ ...d, monitoring_auto_enabled: v }))}
