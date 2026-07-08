@@ -43,6 +43,14 @@ import {
   type ReminderPlan,
   type ReminderSettingsRow,
 } from '../_shared/lifecycle-reminders-core.ts'
+import {
+  planManufacturerReminders,
+  type ManufacturerReminderPlan,
+  type MonitorDocRow,
+  type MonitorPartyRow,
+  type MonitorProductRow,
+  type MonitorSentRow,
+} from '../_shared/monitoring-reminders-core.ts'
 
 const PAGE_SIZE = 1000
 const ID_CHUNK = 100
@@ -51,6 +59,19 @@ const INSERT_CHUNK = 200
 const MAIL_MAX_PER_RUN = 50
 const MAIL_ORG_WINDOW_S = 86_400
 const MAIL_ORG_MAX_PER_DAY = 10
+// Caps DÉDIÉS à la relance fabricant (domaine B) — compteur séparé de la relance Roadmap.
+const MONITOR_MAX_PER_RUN = 50
+const MONITOR_ORG_WINDOW_S = 86_400
+const MONITOR_ORG_MAX_PER_DAY = 10
+// Libellés bilingues des pièces à préavis (corps d'e-mail fabricant) — repli = code.
+const MONITOR_DOC_LABELS: Record<string, { fr: string; en: string }> = {
+  amm: { fr: 'AMM', en: 'MA' },
+  gmp: { fr: 'certificat GMP', en: 'GMP certificate' },
+  copp: { fr: 'COPP', en: 'CPP' },
+  fsc: { fr: 'FSC', en: 'FSC' },
+  ml: { fr: 'licence d’établissement (ML)', en: 'establishment licence (ML)' },
+  coa: { fr: 'certificat d’analyse (COA)', en: 'certificate of analysis (CoA)' },
+}
 // Adresse « stricte » : exclut aussi les métacaractères d'en-tête (`"'<>,;:`) — durcissement (revue
 // M2), aligné sur `redactEmails`. Empêche qu'une adresse libre saisie casse un jour un en-tête.
 const EMAIL_RE = /^[^\s@"'<>,;:]+@[^\s@"'<>,;:]+\.[^\s@"'<>,;:]+$/
@@ -124,7 +145,7 @@ Deno.serve(async (req: Request) => {
       const { data: cfgRows, error: cfgErr } = await supabase
         .from('reminder_settings')
         .select(
-          'org_id, roadmap_auto_enabled, roadmap_agent_days, roadmap_agency_days, roadmap_email_enabled',
+          'org_id, roadmap_auto_enabled, roadmap_agent_days, roadmap_agency_days, roadmap_email_enabled, monitoring_auto_enabled, monitoring_lead_days',
         )
       if (cfgErr) throw cfgErr
       for (const r of (cfgRows ?? []) as ReminderSettingsRow[]) {
@@ -240,7 +261,33 @@ Deno.serve(async (req: Request) => {
       emailed = await sendEmails(supabase, emailPlans, products, orgName, log)
     }
 
-    const out = { scanned, planned: plans.length, inserted, emailed, dryRun }
+    // ── Pass MONITORING (domaine B, Slice 2b) — relance FABRICANT des pièces admin qui expirent.
+    // ISOLÉ dans son propre try/catch : une panne du monitoring (données B) ne casse JAMAIS la relance
+    // Roadmap déjà journalisée/envoyée ci-dessus, ni la réponse du cron. Best-effort, plafonné, idempotent.
+    let monitorScanned = 0
+    let manufacturerReminders = 0
+    try {
+      const m = await runMonitoringPass(supabase, cfgFor, orgName, dryRun, now, log)
+      monitorScanned = m.scanned
+      manufacturerReminders = m.sent
+    } catch (e) {
+      logJson({
+        ...log,
+        op: 'monitoring',
+        status: 'error',
+        err: String(e instanceof Error ? e.message : e).slice(0, 300),
+      })
+    }
+
+    const out = {
+      scanned,
+      planned: plans.length,
+      inserted,
+      emailed,
+      monitorScanned,
+      manufacturerReminders,
+      dryRun,
+    }
     logJson({ ...log, ...out, ms: Date.now() - started, status: 'ok' })
     return json(out)
   } catch (e) {
@@ -490,6 +537,218 @@ async function sendEmails(
         html: selfReminderHtml(safeProduct, country, plan, roadmapUrl),
       })
     }
+  }
+  return sent
+}
+
+// ─────────────────────────── Pass MONITORING (domaine B, Slice 2b) ───────────────────────────
+
+/** Libellé bilingue d'un type de pièce (corps d'e-mail fabricant) ; repli = code. */
+const monitorDocLabel = (docType: string, lang: MsgLang): string =>
+  MONITOR_DOC_LABELS[docType]?.[lang] ?? docType
+
+/** Sujet (une ligne, à assainir par `headerLine`) de la relance fabricant. */
+function monitorSubject(plan: ManufacturerReminderPlan): string {
+  return `Renouvellement — ${monitorDocLabel(plan.docType, 'fr')} · ${plan.productName} · Renewal reminder`
+}
+
+/** Corps BILINGUE FR/EN (langue du fabricant inconnue) — `orgHtml` déjà échappé. */
+function monitorHtml(plan: ManufacturerReminderPlan, orgHtml: string): string {
+  const docFr = escapeHtml(monitorDocLabel(plan.docType, 'fr'))
+  const docEn = escapeHtml(monitorDocLabel(plan.docType, 'en'))
+  const product = escapeHtml(plan.productName)
+  const exp = escapeHtml(plan.expiryDate)
+  const n = Math.abs(plan.daysLeft)
+  const frWhen = plan.daysLeft >= 0 ? `expire dans ${n} jour(s)` : `a expiré il y a ${n} jour(s)`
+  const enWhen = plan.daysLeft >= 0 ? `expires in ${n} day(s)` : `expired ${n} day(s) ago`
+  return [
+    `<div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:560px;margin:auto;padding:24px;color:#444">`,
+    `<p style="margin:0 0 12px">Bonjour,</p>`,
+    `<p style="margin:0 0 12px">Le document <strong>${docFr}</strong> lié au produit <strong>${product}</strong> ${frWhen} (échéance du ${exp}). Merci d’engager son renouvellement afin d’éviter toute rupture de conformité.</p>`,
+    `<p style="margin:0 0 16px;color:#888;font-size:13px">The <strong>${docEn}</strong> for product <strong>${product}</strong> ${enWhen} (expiry date ${exp}). Please initiate its renewal to avoid any compliance gap.</p>`,
+    `<p style="margin:16px 0 0">Cordialement · Best regards,<br><strong>${orgHtml}</strong></p>`,
+    // Pas de Reply-To (aucun contact RA MAH structuré en v1) → on le dit honnêtement au destinataire.
+    `<p style="margin:16px 0 0;color:#999;font-size:12px">Message automatique — pour toute question, contactez votre interlocuteur habituel. · Automated message — for any question, please contact your usual point of contact.</p>`,
+    `<p style="margin:24px 0 0;color:#aaa;font-size:11px">Envoyé via Pharnos · Sent via Pharnos</p>`,
+    `</div>`,
+  ].join('')
+}
+
+/**
+ * Pass monitoring : scanne les pièces admin datées (service-role), résout produit → fabricant →
+ * contact, planifie (cœur pur) PAR ORG (préavis + toggle propres à l'org), puis envoie. Requêtes par
+ * lots (jamais de N+1). Renvoie le nombre de pièces scannées + d'e-mails envoyés.
+ */
+async function runMonitoringPass(
+  supabase: SupabaseClient,
+  cfgFor: (orgId: string) => OrgReminderCfg,
+  orgName: Map<string, string>,
+  dryRun: boolean,
+  now: Date,
+  log: Record<string, unknown>,
+): Promise<{ scanned: number; sent: number }> {
+  // 1) Pièces ADMIN datées, vivantes (le sous-ensemble à préavis) — scan paginé.
+  const docs: MonitorDocRow[] = []
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from('documents')
+      .select('id, org_id, product_id, doc_type, expiry_date')
+      .eq('category', 'admin')
+      .is('deleted_at', null)
+      .not('expiry_date', 'is', null)
+      .order('id', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1)
+    if (error) throw error
+    const page = (data ?? []) as MonitorDocRow[]
+    docs.push(...page)
+    if (page.length < PAGE_SIZE) break
+  }
+  if (docs.length === 0) return { scanned: 0, sent: 0 }
+
+  // 2) Produits liés (fabricant) puis 3) fabricants (contact) — par lots d'ids.
+  const productIds = [...new Set(docs.map((d) => d.product_id).filter((x): x is string => !!x))]
+  const products: MonitorProductRow[] = []
+  for (const part of chunk(productIds, ID_CHUNK)) {
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, nom_commercial, fabricant_id')
+      .is('deleted_at', null) // produit retiré → plus de relance (soft-delete ≠ ON DELETE SET NULL)
+      .in('id', part)
+    if (error) throw error
+    products.push(...((data ?? []) as MonitorProductRow[]))
+  }
+  const fabricantIds = [
+    ...new Set(products.map((p) => p.fabricant_id).filter((x): x is string => !!x)),
+  ]
+  const parties: MonitorPartyRow[] = []
+  for (const part of chunk(fabricantIds, ID_CHUNK)) {
+    const { data, error } = await supabase
+      .from('parties')
+      .select('id, nom, contact_email')
+      .is('deleted_at', null) // fabricant retiré par l'org → aucune relance (cohérence avec l'app)
+      .in('id', part)
+    if (error) throw error
+    parties.push(...((data ?? []) as MonitorPartyRow[]))
+  }
+
+  // 4) Idempotence : couples (pièce, échéance) déjà relancés.
+  const alreadySent: MonitorSentRow[] = []
+  for (const part of chunk(docs.map((d) => d.id), ID_CHUNK)) {
+    const { data, error } = await supabase
+      .from('monitoring_reminders')
+      .select('document_id, expiry_date')
+      .in('document_id', part)
+    if (error) throw error
+    alreadySent.push(...((data ?? []) as MonitorSentRow[]))
+  }
+
+  // 5) Planification PAR ORG (préavis + toggle propres à l'org). Org monitoring coupé → ignorée.
+  const docsByOrg = new Map<string, MonitorDocRow[]>()
+  for (const d of docs) {
+    const arr = docsByOrg.get(d.org_id)
+    if (arr) arr.push(d)
+    else docsByOrg.set(d.org_id, [d])
+  }
+  const plans: ManufacturerReminderPlan[] = []
+  for (const [orgId, orgDocs] of docsByOrg) {
+    const cfg = cfgFor(orgId)
+    if (!cfg.monitoringEnabled) continue
+    plans.push(
+      ...planManufacturerReminders({
+        documents: orgDocs,
+        products,
+        parties,
+        leadCfg: cfg.monitoringLeadDays,
+        alreadySent,
+        now,
+      }),
+    )
+  }
+
+  if (dryRun || plans.length === 0) return { scanned: docs.length, sent: 0 }
+  const sent = await sendManufacturerReminders(supabase, plans, orgName, log)
+  return { scanned: docs.length, sent }
+}
+
+/**
+ * Envoie les relances fabricant — best-effort, plafonné (run + org/jour, buckets DÉDIÉS `monrem:`),
+ * jamais bloquant. Sur envoi RÉUSSI : journalise dans `monitoring_reminders` (idempotence : plus
+ * jamais de relance pour ce couple pièce/échéance) et brûle le quota. Un échec ne mange pas le quota
+ * et laisse la pièce éligible au prochain run.
+ */
+async function sendManufacturerReminders(
+  supabase: SupabaseClient,
+  plans: ManufacturerReminderPlan[],
+  orgName: Map<string, string>,
+  log: Record<string, unknown>,
+): Promise<number> {
+  const apiKey = Deno.env.get('RESEND_API_KEY')
+  if (!apiKey) {
+    if (plans.length > 0) logJson({ ...log, op: 'monitoring', status: 'email_unavailable' })
+    return 0
+  }
+  const fromRaw = Deno.env.get('EMAIL_FROM')
+  if (!fromRaw && plans.length > 0) {
+    // Sandbox Resend = livrable au seul propriétaire → en prod, tout envoi fabricant échoue en silence.
+    logJson({ ...log, op: 'monitoring', status: 'email_from_unconfigured' })
+  }
+  const fromField = fromRaw ?? 'Pharnos <onboarding@resend.dev>'
+  const addrMatch = fromField.match(/<([^>]+)>/)
+  const fromAddress = (addrMatch ? addrMatch[1] : fromField).trim()
+
+  let sent = 0
+  const orgBase = new Map<string, number | null>()
+  const orgSent = new Map<string, number>()
+
+  for (const plan of plans) {
+    if (sent >= MONITOR_MAX_PER_RUN) {
+      logJson({ ...log, op: 'monitoring', status: 'run_cap_reached', skipped: plans.length - sent })
+      break
+    }
+    // Adresse re-validée côté serveur (en-têtes Resend + interpolation) — jamais de confiance aveugle.
+    if (!EMAIL_RE.test(plan.contactEmail)) {
+      logJson({ ...log, op: 'monitoring', status: 'bad_contact' })
+      continue
+    }
+    let base = orgBase.get(plan.orgId)
+    if (base === undefined) {
+      base = await peekHits(supabase, `monrem:${plan.orgId}`, MONITOR_ORG_WINDOW_S)
+      orgBase.set(plan.orgId, base)
+    }
+    const already = orgSent.get(plan.orgId) ?? 0
+    if (base === null || base + already >= MONITOR_ORG_MAX_PER_DAY) continue // fail-closed / plafond org
+
+    const rawOrg = orgName.get(plan.orgId) ?? 'Pharnos'
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        from: `${senderDisplayName(rawOrg)} <${fromAddress}>`,
+        to: [plan.contactEmail],
+        subject: headerLine(monitorSubject(plan)),
+        html: monitorHtml(plan, escapeHtml(rawOrg)),
+      }),
+    })
+    if (!res.ok) {
+      const detail = redactEmails((await res.text().catch(() => '')).slice(0, 200))
+      logJson({ ...log, op: 'monitoring', status: 'email_failed', code: res.status, detail })
+      continue
+    }
+    // Envoi réussi → journalise (idempotence DURE via unique(document_id, expiry_date)) + brûle le quota.
+    const { error: insErr } = await supabase.from('monitoring_reminders').upsert(
+      {
+        org_id: plan.orgId,
+        document_id: plan.documentId,
+        expiry_date: plan.expiryDate,
+        doc_type: plan.docType,
+        contact_email: plan.contactEmail,
+      },
+      { onConflict: 'document_id,expiry_date', ignoreDuplicates: true },
+    )
+    if (insErr) logJson({ ...log, op: 'monitoring', status: 'log_failed', err: insErr.message.slice(0, 120) })
+    sent++
+    orgSent.set(plan.orgId, already + 1)
+    void rateHit(supabase, `monrem:${plan.orgId}`, MONITOR_ORG_WINDOW_S)
   }
   return sent
 }
