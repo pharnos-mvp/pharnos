@@ -69,6 +69,18 @@ Tout **H → M (+O)** est en prod. **Depuis le 2026-06-16** :
   périmètre par membre (dossiers/pays/produits, couche SUIVI, fail-safe) + sélecteur d'org + fix quotas,
   **insérée entre M4 et M5** ; phase 2 (éditeurs scopés, KPIs par agent) = post-GO-LIVE. Spec :
   [PLAN-LIFECYCLE.md](PLAN-LIFECYCLE.md) §5-bis.
+- **Depuis le 2026-07-05 → 07-08 (MAJ 2026-07-08)** — grosse vague livrée + EN PROD : **lifecycle M3–M6 + CS1**
+  (spine complète) · **LOT 10 CLOS** (relances auto Roadmap `0050`/`0051` cron nocturne + v3 export/délai + M7 vue
+  Agent tokenisée `0052`) · **LOTs 7-8-9** (`/compte` #295, `/admin` god-mode #296, cockpit/Journal/recherche #297
+  `0053`, **Corbeille + purge rétention 30 j** #298 `0054`) · **centre de notifications (cloche Reçu/Envoyé)** #302/#303.
+  **+ 🔔 RELANCES domaine B COMPLET** : page Relances (seuils A + préavis B, `0055`) · **Slice 1a** relance réellement
+  adressée au destinataire + accusé émetteur (#304) · **Slice 1b** langue du destinataire à l'envoi (`recipient_lang`
+  `0056`) + section « Destinataires » (#305) · **Slice 2a** contact fabricant sur `parties` (`0057`, #306) · **Slice 2b**
+  **moteur de relance FABRICANT** — pass monitoring isolée dans le cron `lifecycle-reminders`, idempotence
+  `monitoring_reminders` (`0058`), envoi bilingue au contact fabricant quand une pièce admin entre dans sa fenêtre de
+  renouvellement (#307). **RECETTE PROD Chrome MCP PASSÉE (2026-07-08)** : les 3 tranches vérifiées bout-en-bout par
+  actions réelles + 2 e-mails délivrés (relance fabricant + notification d'envoi 1b) ; **moteur fabricant confirmé
+  fonctionnel en prod** (dormant tant qu'aucun contact fabricant n'est saisi). Détail : mémoire `reminders-notifications`.
 
 **Santé** : ~441 vitest + e2e Playwright, CI 6/6, `npm audit` 0 vuln, advisors **0 ERROR**, budget tenu, backups
 chiffrés + restore drill, uptime + alertes, **0 €**. Clé `age` rangée hors-ligne (2026-06-20).
@@ -122,7 +134,7 @@ Ordre = valeur × dépendance. Chaque ligne = tranche verticale livrable + recet
 | 3 | **Corbeille brouillons + Archive enrichie + doc rétention** — ✅ **LIVRÉ (LOT 9, 2026-07-05)** | Finition rétention GxP (#162) : corbeille sur le board (restore + compte à rebours), **purge auto 30 j serveur** (Edge `retention-purge` + cron, migration `0054`, squelette tombstone), vue Archive « Archivé le », [RETENTION-POLICY.md](RETENTION-POLICY.md). | ~0,5 session |
 | 4 | **Landing « Veeva africain »** | Site `landing/` isolé : branding premium, tour produit, 3 piliers, Lighthouse ≥ 95. **Parallélisable avec N.** | ~1–2 sessions |
 | 5 | **Pricing finalisé + facturation** | Grille finale (à caler avec 3-5 entretiens pilotes) ; **mobile money (Wave/Orange/MoMo)** + Stripe à ~5 clients payants. **Décision now / implé later.** | now / later |
-| 6 | **Correspondance v3 — suivi de soumission (RIM)** | Délais réglementaires par agence + **rappels**, **export PDF du fil**, lettre de réponse générée ; (option) **compte Agence authentifié** + multi-destinataires. | ~1–2 sessions |
+| 6 | **Correspondance v3 — suivi de soumission (RIM)** — 🟢 **cœur LIVRÉ** | ✅ **rappels/relances** (LOT 10 Roadmap + domaine B fabricant `0055`→`0058`, recette prod 2026-07-08) · ✅ **export PDF du fil** (#293) · ✅ **cloche Reçu/Envoyé** (#302/#303). « Lettre de réponse » **abandonnée** (le flux `authority_response`+pièce jointe suffit). **Reste (post-GO-LIVE)** : compte **Agence authentifié** + multi-destinataires + Reply-To/contact RA par org + affichage in-app des relances fabricant. | reste ~0,5 s |
 | 7 | **Support multilingue du DOCUMENT (templates MedDRA EN + nudge FR)** | Quand UI EN : variantes de templates en **MedDRA anglais** ; constat Monitor invitant à **traduire vers le FR** (langue officielle du pays cible) **après remplissage**. Cross-langue = vrai moat régional. *(ex-#2 du punch-list — feature, à cadrer dans un plan dédié ; synergie avec P0-2.)* | ~1–2 sessions |
 
 ---
@@ -178,10 +190,12 @@ Ordre = valeur × dépendance. Chaque ligne = tranche verticale livrable + recet
 - **Pilote** : supprimer le produit test « Recette PL3… » du catalogue prod (P0-4).
 
 ## Migrations
-Dernière appliquée = **`0053`** (`admin_audit` — journal complet paginé de la console admin, LOT 8b).
+Dernière appliquée = **`0058`** (`monitoring_reminders` — idempotence relance fabricant, Slice 2b).
 `0044` = `document_admin_metadata` ; `0045` = `parties` ; `0046` = `dossier_operation_number` ;
 `0047` = `lifecycle_events` ; `0048` = `membership_scopes` ; `0049` = `explicit_org_rpcs` ;
-`0050`/`0051` = relances auto (cron/Vault) ; `0052` = M7 agent ; `0053` = `admin_audit`.
-**Reprendre à `0054`.**
+`0050`/`0051` = relances auto (cron/Vault) ; `0052` = M7 agent ; `0053` = `admin_audit` ;
+`0054` = `retention_purge` (corbeille/purge auto, LOT 9) ; `0055` = `reminder_settings` (page Relances,
+seuils A + préavis B) ; `0056` = `correspondence_recipient_lang` (Slice 1b) ; `0057` = `parties_contact_email`
+(Slice 2a) ; `0058` = `monitoring_reminders` (Slice 2b). **Reprendre à `0059`. Dexie = v15 (16 libre).**
 ⚠️ Le tracking distant est en **timestamp** (≠ fichiers `0001-0045`) ; toujours `ls supabase/migrations/` avant de
 numéroter, et appliquer via MCP `apply_migration` (idempotent), pas `supabase db push` à l'aveugle.
