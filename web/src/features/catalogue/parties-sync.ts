@@ -16,6 +16,8 @@ export interface PartyRow {
   adresse: string
   gmp_certificat: string
   gmp_expiry: string | null
+  /** E-mail de contact (relance fabricant, domaine B) ; null = pas de contact. */
+  contact_email: string | null
   created_at: string
   updated_at: string
   deleted_at: string | null
@@ -31,6 +33,7 @@ export function partyToRow(p: PartyRecord): PartyRow {
     adresse: p.adresse,
     gmp_certificat: p.gmpCertificat,
     gmp_expiry: p.gmpExpiry,
+    contact_email: p.contactEmail ?? null,
     created_at: p.createdAt,
     updated_at: p.updatedAt,
     deleted_at: p.deletedAt,
@@ -47,6 +50,7 @@ export function rowToParty(r: PartyRow): PartyRecord {
     adresse: r.adresse ?? '',
     gmpCertificat: r.gmp_certificat ?? '',
     gmpExpiry: r.gmp_expiry,
+    contactEmail: r.contact_email ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     deletedAt: r.deleted_at,

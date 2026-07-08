@@ -131,7 +131,9 @@ export async function upsertParty(orgId: string, input: PartyInput): Promise<str
  */
 export async function updateParty(
   id: string,
-  patch: Partial<Pick<PartyRecord, 'pays' | 'adresse' | 'gmpCertificat' | 'gmpExpiry'>>,
+  patch: Partial<
+    Pick<PartyRecord, 'pays' | 'adresse' | 'gmpCertificat' | 'gmpExpiry' | 'contactEmail'>
+  >,
 ): Promise<PartyRecord> {
   const existing = await db.parties.get(id)
   if (!existing || existing.deletedAt !== null) throw new Error('Organisation introuvable')
