@@ -394,19 +394,19 @@ function relanceHtml(
   return `<div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:560px;margin:auto;padding:24px;color:#444">${inner}<p style="margin:24px 0 0;color:#aaa;font-size:11px">${foot}</p></div>`
 }
 
-/** T2 — accusé à l'ÉMETTEUR (FR, concis). */
+/** T2 — accusé à l'ÉMETTEUR (MAH) — EN monolingue (règle CEO : MAH = EN). */
 function ackHtml(safeProduct: string, country: { fr: string; en: string }, plan: ReminderPlan): string {
   return (
     `<div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:560px;margin:auto;padding:24px;color:#444">` +
-    `<p style="margin:0 0 12px">Bonjour,</p>` +
-    `<p style="margin:0 0 12px">Votre relance pour le dossier <strong>${safeProduct}</strong> (${escapeHtml(country.fr)}) a été transmise à votre correspondant.</p>` +
-    `<p style="margin:0 0 12px;color:#888;font-size:13px">En attente depuis ${plan.waitingDays} j (seuil : ${plan.thresholdDays} j). Toute réponse de votre correspondant vous parviendra directement (Répondre à).</p>` +
-    `<p style="margin:16px 0 0;color:#aaa;font-size:11px">Pharnos — OS des affaires réglementaires UEMOA/CEDEAO</p>` +
+    `<p style="margin:0 0 12px">Hello,</p>` +
+    `<p style="margin:0 0 12px">Your reminder for dossier <strong>${safeProduct}</strong> (${escapeHtml(country.en)}) has been sent to your correspondent.</p>` +
+    `<p style="margin:0 0 12px;color:#888;font-size:13px">Waiting for ${plan.waitingDays} day(s) (threshold: ${plan.thresholdDays} d). Any reply from your correspondent will reach you directly (Reply-To).</p>` +
+    `<p style="margin:16px 0 0;color:#aaa;font-size:11px">Pharnos — the OS for pharmaceutical regulatory affairs in UEMOA/ECOWAS</p>` +
     `</div>`
   )
 }
 
-/** Dégradation — pense-bête historique au labo (bilingue + lien Roadmap) quand le destinataire est inconnu. */
+/** Dégradation — pense-bête au labo (MAH) quand le destinataire est inconnu — EN monolingue (règle CEO : MAH = EN). */
 function selfReminderHtml(
   safeProduct: string,
   country: { fr: string; en: string },
@@ -415,12 +415,11 @@ function selfReminderHtml(
 ): string {
   return [
     `<div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:560px;margin:auto;padding:24px">`,
-    `<h2 style="margin:0 0 8px">Relance automatique · Automatic reminder</h2>`,
-    `<p style="margin:0 0 4px;color:#444">Le dossier <strong>${safeProduct}</strong> (${escapeHtml(country.fr)}) est en attente de <strong>${partyLabel(plan.waitingOn, 'fr')}</strong> depuis <strong>${plan.waitingDays} jours</strong> (seuil : ${plan.thresholdDays} j).</p>`,
-    `<p style="margin:0 0 16px;color:#888;font-size:13px">The dossier <strong>${safeProduct}</strong> (${escapeHtml(country.en)}) has been waiting on <strong>${partyLabel(plan.waitingOn, 'en')}</strong> for <strong>${plan.waitingDays} days</strong> (threshold: ${plan.thresholdDays} d).</p>`,
-    `<p style="margin:0 0 16px;color:#444">Aucun e-mail de destinataire enregistré : pensez à relancer votre correspondant, ou renseignez son adresse dans « Relances ». · No recipient email on file — follow up manually or add the address under “Reminders”.</p>`,
-    `<p style="margin:0 0 24px"><a href="${roadmapUrl}" style="background:#18181b;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;display:inline-block">Ouvrir le parcours du dossier · Open the dossier roadmap</a></p>`,
-    `<p style="margin:16px 0 0;color:#aaa;font-size:11px">Pharnos — OS des affaires réglementaires pharmaceutiques UEMOA/CEDEAO · the OS for pharmaceutical regulatory affairs in UEMOA/ECOWAS</p>`,
+    `<h2 style="margin:0 0 8px">Automatic reminder</h2>`,
+    `<p style="margin:0 0 16px;color:#444">The dossier <strong>${safeProduct}</strong> (${escapeHtml(country.en)}) has been waiting on <strong>${partyLabel(plan.waitingOn, 'en')}</strong> for <strong>${plan.waitingDays} day(s)</strong> (threshold: ${plan.thresholdDays} d).</p>`,
+    `<p style="margin:0 0 16px;color:#444">No recipient email on file — follow up manually, or add the address under “Reminders”.</p>`,
+    `<p style="margin:0 0 24px"><a href="${roadmapUrl}" style="background:#18181b;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;display:inline-block">Open the dossier roadmap</a></p>`,
+    `<p style="margin:16px 0 0;color:#aaa;font-size:11px">Pharnos — the OS for pharmaceutical regulatory affairs in UEMOA/ECOWAS</p>`,
     `</div>`,
   ].join('')
 }
@@ -521,7 +520,7 @@ async function sendEmails(
         await trySend(plan.orgId, {
           from: `Pharnos <${fromAddress}>`,
           to: [plan.senderEmail as string],
-          subject: headerLine(`Relance envoyée — ${dossier.product_name}`),
+          subject: headerLine(`Reminder sent — ${dossier.product_name}`),
           html: ackHtml(safeProduct, country, plan),
         })
       }
@@ -532,7 +531,7 @@ async function sendEmails(
         from: `Pharnos <${fromAddress}>`,
         to: [plan.senderEmail as string],
         subject: headerLine(
-          `Relance — dossier ${dossier.product_name} (${country.fr}) : ${plan.waitingDays} j sans activité`,
+          `Reminder — dossier ${dossier.product_name} (${country.en}): ${plan.waitingDays} day(s) without activity`,
         ),
         html: selfReminderHtml(safeProduct, country, plan, roadmapUrl),
       })
@@ -547,29 +546,26 @@ async function sendEmails(
 const monitorDocLabel = (docType: string, lang: MsgLang): string =>
   MONITOR_DOC_LABELS[docType]?.[lang] ?? docType
 
-/** Sujet (une ligne, à assainir par `headerLine`) de la relance fabricant. */
+/** Sujet (une ligne, à assainir par `headerLine`) de la relance fabricant — EN (règle CEO : fabricant = EN). */
 function monitorSubject(plan: ManufacturerReminderPlan): string {
-  return `Renouvellement — ${monitorDocLabel(plan.docType, 'fr')} · ${plan.productName} · Renewal reminder`
+  return `Renewal reminder — ${monitorDocLabel(plan.docType, 'en')} · ${plan.productName}`
 }
 
-/** Corps BILINGUE FR/EN (langue du fabricant inconnue) — `orgHtml` déjà échappé. */
+/** Corps EN monolingue (règle CEO : fabricant = EN, plus de bilingue) — `orgHtml` déjà échappé. */
 function monitorHtml(plan: ManufacturerReminderPlan, orgHtml: string): string {
-  const docFr = escapeHtml(monitorDocLabel(plan.docType, 'fr'))
   const docEn = escapeHtml(monitorDocLabel(plan.docType, 'en'))
   const product = escapeHtml(plan.productName)
   const exp = escapeHtml(plan.expiryDate)
   const n = Math.abs(plan.daysLeft)
-  const frWhen = plan.daysLeft >= 0 ? `expire dans ${n} jour(s)` : `a expiré il y a ${n} jour(s)`
   const enWhen = plan.daysLeft >= 0 ? `expires in ${n} day(s)` : `expired ${n} day(s) ago`
   return [
     `<div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:560px;margin:auto;padding:24px;color:#444">`,
-    `<p style="margin:0 0 12px">Bonjour,</p>`,
-    `<p style="margin:0 0 12px">Le document <strong>${docFr}</strong> lié au produit <strong>${product}</strong> ${frWhen} (échéance du ${exp}). Merci d’engager son renouvellement afin d’éviter toute rupture de conformité.</p>`,
-    `<p style="margin:0 0 16px;color:#888;font-size:13px">The <strong>${docEn}</strong> for product <strong>${product}</strong> ${enWhen} (expiry date ${exp}). Please initiate its renewal to avoid any compliance gap.</p>`,
-    `<p style="margin:16px 0 0">Cordialement · Best regards,<br><strong>${orgHtml}</strong></p>`,
+    `<p style="margin:0 0 12px">Hello,</p>`,
+    `<p style="margin:0 0 12px">The <strong>${docEn}</strong> for product <strong>${product}</strong> ${enWhen} (expiry date ${exp}). Please initiate its renewal to avoid any compliance gap.</p>`,
+    `<p style="margin:16px 0 0">Best regards,<br><strong>${orgHtml}</strong></p>`,
     // Pas de Reply-To (aucun contact RA MAH structuré en v1) → on le dit honnêtement au destinataire.
-    `<p style="margin:16px 0 0;color:#999;font-size:12px">Message automatique — pour toute question, contactez votre interlocuteur habituel. · Automated message — for any question, please contact your usual point of contact.</p>`,
-    `<p style="margin:24px 0 0;color:#aaa;font-size:11px">Envoyé via Pharnos · Sent via Pharnos</p>`,
+    `<p style="margin:16px 0 0;color:#999;font-size:12px">Automated message — for any question, please contact your usual point of contact.</p>`,
+    `<p style="margin:24px 0 0;color:#aaa;font-size:11px">Sent via Pharnos</p>`,
     `</div>`,
   ].join('')
 }
