@@ -19,8 +19,8 @@ select ok(
 
 select is(
   (select schedule from cron.job where jobname = 'lifecycle-auto-reminders'),
-  '17 5 * * *',
-  'horaire quotidien 05:17 UTC'
+  '0 9 * * 1-5',
+  'horaire 09:00 UTC les jours ouvrables (lun–ven) — heures ouvrables (0059)'
 );
 
 -- Anti-régression sécurité : la commande du job référence Vault (pas de littéral de secret).
