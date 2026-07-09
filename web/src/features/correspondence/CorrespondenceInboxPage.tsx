@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   ArrowLeft,
@@ -11,6 +11,7 @@ import {
   Inbox,
   MoreVertical,
   Package,
+  PanelLeftOpen,
   Search,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -50,6 +51,21 @@ import { isActionNeeded, listInboxRows, type InboxRow } from './correspondence-i
 import { useDossierConversation } from './use-dossier-conversation'
 
 type InboxFilter = 'all' | 'action' | 'unread'
+
+// ── Volet liste redimensionnable à la souris (retour recette CEO 2026-07-09) ────────────────────
+const LIST_WIDTH_KEY = 'pharnos.inbox.listWidth'
+const LIST_COLLAPSED_KEY = 'pharnos.inbox.listCollapsed'
+const LIST_MIN = 280
+const LIST_MAX = 560
+const LIST_DEFAULT = 360
+/** Tirer la poignée sous ce seuil replie le volet d'un geste (rouvert via le bouton du fil). */
+const LIST_COLLAPSE_AT = 200
+
+const clampListWidth = (w: number) => Math.min(LIST_MAX, Math.max(LIST_MIN, Math.round(w)))
+const readListWidth = () => {
+  const w = Number(localStorage.getItem(LIST_WIDTH_KEY))
+  return Number.isFinite(w) && w > 0 ? clampListWidth(w) : LIST_DEFAULT
+}
 
 const listTime = (iso: string, lang: Lang): string => {
   const d = new Date(iso)
@@ -92,6 +108,30 @@ export function CorrespondenceInboxPage() {
   const [openDossierId, setOpenDossierId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<InboxFilter>('all')
+
+  // Largeur du volet liste (drag) + repli complet — persistés (préférence d'écran).
+  const [listWidth, setListWidth] = useState(readListWidth)
+  const [listCollapsed, setListCollapsed] = useState(
+    () => localStorage.getItem(LIST_COLLAPSED_KEY) === '1',
+  )
+  const gridRef = useRef<HTMLDivElement>(null)
+  // Largeur EN COURS de drag : pendant le geste on mute le template de la grid en IMPÉRATIF
+  // (zéro re-render, zéro écriture localStorage par pixel — revue CTO) ; l'état React + le
+  // stockage ne sont commis qu'à la FIN du geste (lostpointercapture). `null` = pas de drag.
+  const dragWidthRef = useRef<number | null>(null)
+  const setCollapsed = useCallback((v: boolean) => {
+    setListCollapsed(v)
+    localStorage.setItem(LIST_COLLAPSED_KEY, v ? '1' : '0')
+  }, [])
+  const applyWidth = (w: number) => {
+    const clamped = clampListWidth(w)
+    setListWidth(clamped)
+    localStorage.setItem(LIST_WIDTH_KEY, String(clamped))
+  }
+  // Callbacks STABLES : `InboxConversation` est mémoïsé pour ne pas re-rendre la conversation à
+  // chaque re-render du parent (repli/filtres) ; le drag, lui, ne re-rend plus rien du tout.
+  const handleBack = useCallback(() => setOpenDossierId(null), [])
+  const handleExpandList = useCallback(() => setCollapsed(false), [setCollapsed])
 
   const counts = useMemo(() => {
     const list = rows ?? []
@@ -163,21 +203,29 @@ export function CorrespondenceInboxPage() {
     )
   }
 
-  const showList = !belowLg || displayedDossierId === null
+  const showList = belowLg ? displayedDossierId === null : !listCollapsed
   const showConv = displayedDossierId !== null
+  const showResizer = !belowLg && !listCollapsed
 
   return (
-    <div className="flex h-full flex-col pt-4 lg:pt-6">
+    // Pleine page (retour recette CEO) : les marges négatives annulent le padding de <main>
+    // (même recette que le montage full-bleed) — la surface colle au topbar et à la barre
+    // latérale, plus de « boîte dans la boîte ».
+    <div className="bg-card -mx-4 -mb-4 flex h-[calc(100%+1rem)] flex-col overflow-hidden md:-mx-6 md:-mb-6 md:h-[calc(100%+1.5rem)]">
       <h1 className="sr-only">{t({ fr: 'Boîte de réception', en: 'Inbox' })}</h1>
-      <section
-        className={cn(
-          'bg-card grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-xl border',
-          !belowLg && 'lg:grid-cols-[360px_minmax(0,1fr)]',
-        )}
+      <div
+        ref={gridRef}
+        className="grid min-h-0 flex-1 grid-cols-1"
+        style={
+          showResizer ? { gridTemplateColumns: `${listWidth}px 6px minmax(0,1fr)` } : undefined
+        }
       >
         {/* ── Volet LISTE : tous les fils, recherche + filtres, scroll interne ── */}
         {showList ? (
-          <aside className={cn('flex min-h-0 flex-col', !belowLg && 'border-r')}>
+          <aside
+            id="inbox-thread-list"
+            className={cn('flex min-h-0 flex-col', !belowLg && 'border-r')}
+          >
             <div className="shrink-0 border-b px-4 pt-4 pb-3">
               <div className="flex items-center gap-2.5">
                 <span className="bg-info-subtle text-info flex size-9 shrink-0 items-center justify-center rounded-xl">
@@ -252,22 +300,102 @@ export function CorrespondenceInboxPage() {
           </aside>
         ) : null}
 
-        {/* ── Volet CONVERSATION : rail Parcours permanent + fil + composeur ── */}
+        {/* ── Poignée de redimensionnement (souris + clavier) : tirer < seuil = replier. ── */}
+        {showResizer ? (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-controls="inbox-thread-list"
+            aria-label={t({ fr: 'Redimensionner la liste', en: 'Resize the list' })}
+            aria-valuenow={listWidth}
+            aria-valuemin={LIST_MIN}
+            aria-valuemax={LIST_MAX}
+            tabIndex={0}
+            title={t({
+              fr: 'Glisser pour redimensionner · double-clic pour replier',
+              en: 'Drag to resize · double-click to collapse',
+            })}
+            className="group relative cursor-col-resize touch-none outline-none"
+            onPointerDown={(e) => {
+              e.preventDefault()
+              e.currentTarget.setPointerCapture(e.pointerId)
+              dragWidthRef.current = listWidth
+            }}
+            onPointerMove={(e) => {
+              if (!e.currentTarget.hasPointerCapture(e.pointerId)) return
+              const left = gridRef.current?.getBoundingClientRect().left ?? 0
+              const w = e.clientX - left
+              if (w < LIST_COLLAPSE_AT) {
+                dragWidthRef.current = null // geste terminé en repli : rien à commettre
+                e.currentTarget.releasePointerCapture(e.pointerId)
+                setCollapsed(true)
+                return
+              }
+              // Pendant le geste : mutation DIRECTE du template (zéro re-render/écriture par
+              // pixel — revue CTO) ; React reprend la main au commit de fin de geste.
+              const clamped = clampListWidth(w)
+              dragWidthRef.current = clamped
+              if (gridRef.current)
+                gridRef.current.style.gridTemplateColumns = `${clamped}px 6px minmax(0,1fr)`
+            }}
+            onLostPointerCapture={() => {
+              // Fin de geste (pointerup, ESC, perte de focus…) : UN commit état + stockage.
+              if (dragWidthRef.current !== null) applyWidth(dragWidthRef.current)
+              dragWidthRef.current = null
+            }}
+            onDoubleClick={() => setCollapsed(true)}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowLeft') applyWidth(listWidth - 16)
+              else if (e.key === 'ArrowRight') applyWidth(listWidth + 16)
+              else if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setCollapsed(true)
+                // Le repli démonte la poignée focalisée → replacer le focus sur le bouton
+                // « Afficher la liste » (a11y : l'utilisateur clavier garde sa position).
+                requestAnimationFrame(() =>
+                  document.querySelector<HTMLElement>('[data-expand-list]')?.focus(),
+                )
+              }
+            }}
+          >
+            <div className="bg-border group-hover:bg-info group-focus-visible:bg-info absolute inset-y-0 left-1/2 w-px -translate-x-1/2 transition-colors group-hover:w-0.5 group-focus-visible:w-0.5" />
+          </div>
+        ) : null}
+
+        {/* ── Volet CONVERSATION : rail Parcours + fil + composeur ── */}
         {showConv && displayedDossierId ? (
           <InboxConversation
             key={displayedDossierId}
             orgId={orgId}
             dossierId={displayedDossierId}
             senderEmail={user?.email ?? ''}
-            onBack={belowLg ? () => setOpenDossierId(null) : null}
+            onBack={belowLg ? handleBack : null}
+            onExpandList={!belowLg && listCollapsed ? handleExpandList : null}
           />
         ) : !belowLg ? (
           // Desktop, aucun fil affichable (filtre sans résultat…) : volet explicite, pas un blanc.
-          <div className="text-muted-foreground grid place-items-center p-8 text-sm">
-            {t({ fr: 'Sélectionnez un fil à gauche.', en: 'Select a thread on the left.' })}
+          <div className="text-muted-foreground relative grid place-items-center p-8 text-sm">
+            {listCollapsed ? (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="absolute top-3 left-3"
+                data-expand-list
+                aria-label={t({ fr: 'Afficher la liste', en: 'Show the list' })}
+                onClick={handleExpandList}
+              >
+                <PanelLeftOpen className="size-4" />
+              </Button>
+            ) : null}
+            {listCollapsed
+              ? t({
+                  fr: 'Rouvrez la liste (bouton en haut à gauche) pour choisir un fil.',
+                  en: 'Reopen the list (top-left button) to pick a thread.',
+                })
+              : t({ fr: 'Sélectionnez un fil à gauche.', en: 'Select a thread on the left.' })}
           </div>
         ) : null}
-      </section>
+      </div>
     </div>
   )
 }
@@ -414,18 +542,21 @@ function InboxRowItem({
  * Conversation du dossier ouvert : le hook partagé + `ConversationPane` (même moteur que le
  * panneau du dossier — UX validée), coiffés d'un en-tête IDENTITÉ DU DOSSIER (produit, pays,
  * agence, activité) et des actions du fil. `key={dossierId}` au call-site : état remis à zéro
- * en changeant de fil.
+ * en changeant de fil. Mémoïsé : le drag de la poignée re-rend le parent à chaque pixel.
  */
-function InboxConversation({
+const InboxConversation = memo(function InboxConversation({
   orgId,
   dossierId,
   senderEmail,
   onBack,
+  onExpandList,
 }: {
   orgId: string
   dossierId: string
   senderEmail: string
   onBack: (() => void) | null
+  /** Non-nul quand le volet liste est replié (desktop) : bouton pour le rouvrir. */
+  onExpandList: (() => void) | null
 }) {
   const { t, lang } = useI18n()
   const navigate = useNavigate()
@@ -441,6 +572,10 @@ function InboxConversation({
       conv={conv}
       onEdit={() => navigate(`/workspace/${dossierId}`)}
       recipientChips="always"
+      composerPlaceholder={t({
+        fr: `Écrire à ${agency.name}…`,
+        en: `Write to ${agency.name}…`,
+      })}
       header={
         <div className="bg-card flex shrink-0 items-center gap-2.5 border-b p-3">
           {onBack ? (
@@ -451,6 +586,18 @@ function InboxConversation({
               onClick={onBack}
             >
               <ArrowLeft className="size-4" />
+            </Button>
+          ) : null}
+          {onExpandList ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              data-expand-list
+              aria-label={t({ fr: 'Afficher la liste', en: 'Show the list' })}
+              title={t({ fr: 'Afficher la liste des fils', en: 'Show the thread list' })}
+              onClick={onExpandList}
+            >
+              <PanelLeftOpen className="size-4" />
             </Button>
           ) : null}
           <span className="bg-info-subtle text-info flex size-9 shrink-0 items-center justify-center rounded-xl">
@@ -476,6 +623,15 @@ function InboxConversation({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t({ fr: 'Exporter le fil (PDF)', en: 'Export the thread (PDF)' })}
+              title={t({ fr: 'Exporter le fil (PDF)', en: 'Export the thread (PDF)' })}
+              onClick={conv.handleExport}
+            >
+              <FileDown className="size-4" />
+            </Button>
             <Button
               variant="ghost"
               size="icon-sm"
@@ -533,4 +689,4 @@ function InboxConversation({
       }
     />
   )
-}
+})

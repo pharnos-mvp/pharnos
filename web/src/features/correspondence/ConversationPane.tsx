@@ -36,6 +36,7 @@ export function ConversationPane({
   header,
   onEdit,
   recipientChips = 'below-md',
+  composerPlaceholder,
   className,
 }: {
   conv: UseDossierConversation
@@ -45,6 +46,8 @@ export function ConversationPane({
   onEdit?: () => void
   /** Chips destinataires : `below-md` = fallback mobile du panneau (l'aside liste déjà) ; `always` = inbox. */
   recipientChips?: 'always' | 'below-md'
+  /** Placeholder du composeur — l'inbox le contextualise (« Écrire à l'ABMed… », mockup C). */
+  composerPlaceholder?: string
   className?: string
 }) {
   const { t, lang } = useI18n()
@@ -86,12 +89,16 @@ export function ConversationPane({
   if (!selected) return null
 
   return (
-    <section ref={paneRef} className={cn('flex min-w-0 flex-1 flex-col', className)}>
+    // `min-h-0` : en cellule de GRID (Boîte de réception), sans lui la section garde
+    // min-height:auto → un fil long étire la rangée et pousse le composeur HORS du clip
+    // (retour recette CEO : « boîte de dialogue oubliée »). Inoffensif dans le panneau (flex).
+    <section ref={paneRef} className={cn('flex min-h-0 min-w-0 flex-1 flex-col', className)}>
       {header}
 
-      {/* Rail Parcours PERMANENT (mockup C) : où en est le dossier, à tout moment — zéro clic. */}
+      {/* Rail Parcours (mockup C) : où en est le dossier, à tout moment — repliable en résumé
+          une ligne (le padding des deux états est porté par RoadmapMini). */}
       {lifecycle ? (
-        <div className="bg-muted/40 shrink-0 border-b px-4 pt-2.5 pb-1.5">
+        <div className="bg-muted/40 shrink-0 border-b">
           <RoadmapMini lifecycle={lifecycle} waitingDays={waitingDays} />
         </div>
       ) : null}
@@ -184,7 +191,9 @@ export function ConversationPane({
             ref={composerRef}
             rows={1}
             className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 min-h-10 flex-1 resize-none rounded-2xl border bg-transparent px-4 py-2.5 text-sm outline-none focus-visible:ring-[3px]"
-            placeholder={t({ fr: 'Écrivez un message…', en: 'Write a message…' })}
+            placeholder={
+              composerPlaceholder ?? t({ fr: 'Écrivez un message…', en: 'Write a message…' })
+            }
             value={reply}
             onChange={(e) => setReply(e.target.value)}
             onKeyDown={(e) => {
