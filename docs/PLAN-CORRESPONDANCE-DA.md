@@ -79,4 +79,15 @@ overlay du dossier garde son comportement). Dette `formatBytes` soldée. CI 6 jo
 (e2e/RLS/lighthouse inclus), déployé prod. ⚠️ pièges consignés : sélection desktop VERROUILLÉE en
 état (dérivée de la liste triée non-lus-d'abord = cascade `markConversationRead`) ; journal
 d'accès du volet `md:hidden` quand l'aside du panneau l'affiche ; Côte d'Ivoire = **AIRP**
-(DPML = Togo). **Reste : recette CEO en prod (vrai Chrome).**
+(DPML = Togo).
+
+**Recette CEO prod 2026-07-09 → PR #313 (livrée prod 2026-07-10)** : ① page **full-bleed**
+(marges négatives du builder — plus de « boîte dans la boîte ») ; ② volet liste
+**redimensionnable à la souris** (poignée 280–560 px, tirer < 200 px = repli, double-clic,
+clavier, persisté ; drag = mutation impérative du template, commit unique en fin de geste) ;
+③ **rail repliable verticalement** (résumé une ligne, préférence mémorisée, déplié par défaut) ;
+④ **bug composeur invisible corrigé** (`min-h-0` manquant sur la cellule grid — fil long =
+composeur clippé) + placeholder « Écrire à {agence}… ». Revue CTO : SHIP, Minors corrigés
+(commit fin de geste, focus clavier, aria du résumé). **Seul écart mockup restant (assumé)** :
+bouton trombone du composeur (joindre une pièce) — `appendSenderMessage` ne porte pas de PJ
+côté backend → petit lot dédié si GO CEO (upload Storage + attachments message + notify).
