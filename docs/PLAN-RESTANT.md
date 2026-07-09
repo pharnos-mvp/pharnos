@@ -173,9 +173,9 @@ Ordre = valeur × dépendance. Chaque ligne = tranche verticale livrable + recet
 - **Barème chiffré des plans** : la grille des 5 plans est affichée dans `/compte` (LOT 7) **sans prix**
   — les montants attendent le **go CEO** (input LOT 0). Dès validation : renseigner `price` dans
   `web/src/features/org/plan-catalog.ts` (Compte + landing LOT 11 les affichent sans autre changement).
-- **Dedup `formatBytes`** : `lib/format-bytes.ts` (FR/EN) est la source unique ; ~~`admin-api.ts`~~
-  **convergé au LOT 8** ; restent les 3 formatteurs Ko/KB de la **correspondance** (→ à solder au
-  prochain lot qui touche la surface, sinon LOT 13).
+- ~~**Dedup `formatBytes`**~~ **SOLDÉE (#312)** : `lib/format-bytes.ts` (FR/EN) est la source
+  unique — `admin-api.ts` convergé au LOT 8, les 3 formatteurs Ko/KB de la correspondance
+  convergés avec la Boîte de réception (2026-07-09). Plus aucun formatteur local.
 - ~~**Contraste AA de la pilule active en DARK**~~ **RÉSOLU (LOT 8)** au niveau token : `--info`
   sombre → **#1f6feb** (blanc 4,63:1 sur pilules/CTA/steppers) **+** `--primary-foreground` sombre →
   **#0d1117** (5,05:1 sur avatars/badge plan/bouton default — même classe de défaut, débusquée par le

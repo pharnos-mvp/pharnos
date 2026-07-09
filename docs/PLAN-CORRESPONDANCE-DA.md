@@ -68,15 +68,15 @@ clair/sombre **AA** (scan axe thème sombre, précédent LOT 8) · **FR/EN** vé
 préservées · dette `formatBytes` soldée · vitest sur tout helper pur extrait · e2e smoke du panneau ·
 budget bundle tenu · **0 migration** · recette navigateur (vrai Chrome, la surface est sensible SW).
 
-## 8. Recommended next step
-~~Le CEO tranche Rail vs Ruban~~ **Recette CEO 2026-07-09 : résultat rejeté** — la 1ʳᵉ passe
-(liste de cartes `max-w-3xl` → panneau en surimpression, ruban replié par défaut) ne matche pas
-l'attente « boîte de réception ». **Nouveau mockup C à recetter :
-`docs/mockups/correspondance-boite-de-reception.html`** — page 3 volets plein écran (nav réelle /
-liste des fils / conversation, scrolls internes façon cockpit Opérations v2), **rail Parcours
-PERMANENT** (7 étapes étiquetées + dates/issues, jamais replié) sous l'en-tête de chaque
-conversation, onglet nav **« Boîte de réception »** + badge non-lus, bandeau « Action requise »
-avec CTA, anneau n/7 par fil dans la liste. Fils/filtres cliquables, toggle clair/sombre.
-⚠️ le mockup corrige aussi une erreur des mockups A/B : Côte d'Ivoire = **AIRP** (DPML = Togo).
-GO CEO → réaligner le WIP : `CorrespondenceInboxPage` devient la vue 3 volets (le panneau overlay
-reste pour l'accès depuis un dossier), `RoadmapMini` gagne la variante « rail permanent ».
+## 8. Statut — LIVRÉ EN PROD (PR #312, 2026-07-09)
+~~1ʳᵉ passe rejetée en recette CEO (cartes + panneau superposé, ruban replié)~~ → **mockup C
+(`docs/mockups/correspondance-boite-de-reception.html`) validé GO CEO et implémenté le jour
+même** : `/correspondance` = cockpit 2 volets (fils + conversation, scrolls internes), **rail
+Parcours PERMANENT** dans chaque conversation (inbox **et** panneau du dossier), onglet nav
+**« Boîte de réception »** + badge non-lus, bandeau « Action requise » avec CTA, anneau n/7 par
+fil. Extraction sans duplication : `use-dossier-conversation` + `ConversationPane` (le panneau
+overlay du dossier garde son comportement). Dette `formatBytes` soldée. CI 6 jobs verte
+(e2e/RLS/lighthouse inclus), déployé prod. ⚠️ pièges consignés : sélection desktop VERROUILLÉE en
+état (dérivée de la liste triée non-lus-d'abord = cascade `markConversationRead`) ; journal
+d'accès du volet `md:hidden` quand l'aside du panneau l'affiche ; Côte d'Ivoire = **AIRP**
+(DPML = Togo). **Reste : recette CEO en prod (vrai Chrome).**
