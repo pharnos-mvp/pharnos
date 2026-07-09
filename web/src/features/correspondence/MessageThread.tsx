@@ -1,6 +1,7 @@
 import { Check, Download, FileText } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
+import { formatBytes } from '@/lib/format-bytes'
 import { useI18n, type Lang } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import { authorTextColor } from './avatar-colors'
@@ -63,12 +64,10 @@ function dayLabel(iso: string, lang: Lang): string {
   }).format(d)
 }
 
-const formatSize = (bytes: number, lang: Lang) => {
-  const b = Number.isFinite(bytes) && bytes > 0 ? bytes : 0
-  const mb = lang === 'en' ? 'MB' : 'Mo'
-  const kb = lang === 'en' ? 'KB' : 'Ko'
-  return b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} ${mb}` : `${Math.ceil(b / 1024)} ${kb}`
-}
+// Taille d'une pièce jointe — délègue au formatteur unique `lib/format-bytes` (dette LOT « corr.
+// converge ici » soldée) ; le garde NaN/négatif reste local (l'API peut envoyer une taille sale).
+const formatSize = (bytes: number, lang: Lang) =>
+  formatBytes(Number.isFinite(bytes) && bytes > 0 ? bytes : 0, lang)
 
 /** Carte document type WhatsApp : icône, nom, taille + « Ouvrir / Enregistrer ». */
 function AttachmentCards({

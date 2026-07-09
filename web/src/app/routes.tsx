@@ -62,6 +62,11 @@ const AccountPage = lazy(() =>
 const RemindersPage = lazy(() =>
   import('@/features/reminders/RemindersPage').then((m) => ({ default: m.RemindersPage })),
 )
+const CorrespondenceInboxPage = lazy(() =>
+  import('@/features/correspondence/CorrespondenceInboxPage').then((m) => ({
+    default: m.CorrespondenceInboxPage,
+  })),
+)
 
 export function AppRoutes() {
   return (
@@ -80,6 +85,7 @@ export function AppRoutes() {
         <Route path="/workspace/:dossierId" element={<DossierWorkspacePage />} />
         <Route path="/workspace/:dossierId/apercu" element={<DossierPreviewPage />} />
         <Route path="/workspace/:dossierId/roadmap" element={<RoadmapPage />} />
+        <Route path="/correspondance" element={<CorrespondenceInboxPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/templates" element={<TemplatesPage />} />
         <Route path="/variations" element={<VariationsPage />} />

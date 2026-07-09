@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="fr" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pharnos — Correspondance (DA) · A. Le Rail</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ============================================================================
+         TOKENS — copie fidèle de web/src/index.css (canoniques light + dark).
+         Le mock N'INVENTE AUCUNE couleur : seules les couleurs de STATUT sont utilisées.
+         ============================================================================ */
+      :root,
+      :root[data-theme="light"] {
+        --background: #ffffff;
+        --foreground: #111827;
+        --card: #ffffff;
+        --card-foreground: #111827;
+        --page: #f9fafb;
+        --muted: #f9fafb;
+        --muted-foreground: #6b7280;
+        --border: #e5e7eb;
+        --primary: #111827;
+        --primary-foreground: #f9fafb;
+        --success: #059669;
+        --success-subtle: #d1fae5;
+        --success-subtle-foreground: #047857;
+        --warning: #b45309;
+        --warning-subtle: #fef3c7;
+        --warning-subtle-foreground: #b45309;
+        --danger: #dc2626;
+        --danger-subtle: #fee2e2;
+        --danger-subtle-foreground: #b91c1c;
+        --info: #2563eb;
+        --info-subtle: #eff6ff;
+        --info-subtle-foreground: #1e40af;
+        --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
+        --shadow-lg: 0 12px 32px -8px rgba(16, 24, 40, 0.18);
+      }
+      :root[data-theme="dark"] {
+        --background: #0d1117;
+        --foreground: #e6edf3;
+        --card: #161b22;
+        --card-foreground: #e6edf3;
+        --page: #0d1117;
+        --muted: #21262d;
+        --muted-foreground: #8b949e;
+        --border: #30363d;
+        --primary: #2f81f7;
+        --primary-foreground: #0d1117;
+        --success: #2ea043;
+        --success-subtle: #12261c;
+        --success-subtle-foreground: #4ac26b;
+        --warning: #d29922;
+        --warning-subtle: #271d09;
+        --warning-subtle-foreground: #e3b341;
+        --danger: #f85149;
+        --danger-subtle: #2a1415;
+        --danger-subtle-foreground: #ff7b72;
+        --info: #1f6feb;
+        --info-subtle: #0d1b2f;
+        --info-subtle-foreground: #6cb6ff;
+        --shadow: 0 1px 2px rgba(1, 4, 9, 0.5), 0 1px 3px rgba(1, 4, 9, 0.6);
+        --shadow-lg: 0 16px 40px -8px rgba(1, 4, 9, 0.7);
+      }
+
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        background: var(--page);
+        color: var(--foreground);
+        font-family: "DM Sans", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+      .font-display { font-family: "Syne", "DM Sans", sans-serif; letter-spacing: -0.01em; }
+      .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+      .muted { color: var(--muted-foreground); }
+
+      /* ── Shell 3 colonnes : nav app · inbox · conversation ─────────────────── */
+      .shell { display: grid; grid-template-columns: 232px 340px 1fr; height: 100vh; }
+      @media (max-width: 1120px) { .shell { grid-template-columns: 64px 320px 1fr; } }
+
+      /* ── Colonne 1 : navigation latérale (illustre le menu "Correspondance") ── */
+      .nav { background: var(--card); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 16px 12px; gap: 3px; }
+      .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 16px; }
+      .brand .logo { width: 30px; height: 30px; border-radius: 8px; background: var(--info); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-family: "Syne", sans-serif; }
+      .brand .name { font-family: "Syne", sans-serif; font-weight: 800; font-size: 16px; }
+      .nav-item { display: flex; align-items: center; gap: 11px; padding: 9px 10px; border-radius: 9px; font-size: 13.5px; font-weight: 500; color: var(--muted-foreground); cursor: default; }
+      .nav-item i { font-size: 18px; width: 20px; text-align: center; }
+      .nav-item.active { background: var(--info-subtle); color: var(--info-subtle-foreground); font-weight: 600; }
+      .nav-item .count { margin-left: auto; font-size: 11px; font-weight: 700; background: var(--info); color: #fff; border-radius: 999px; padding: 1px 7px; }
+      .nav-sep { height: 1px; background: var(--border); margin: 10px 6px; }
+      @media (max-width: 1120px) { .brand .name, .nav-item span, .nav-item .count { display: none; } .nav-item { justify-content: center; } }
+
+      /* ── Colonne 2 : inbox (liste des discussions, tous dossiers) ───────────── */
+      .inbox { background: var(--card); border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+      .inbox-head { padding: 16px 16px 12px; border-bottom: 1px solid var(--border); }
+      .inbox-head h2 { font-family: "Syne", sans-serif; font-size: 17px; font-weight: 700; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+      .search { display: flex; align-items: center; gap: 8px; background: var(--muted); border: 1px solid var(--border); border-radius: 9px; padding: 7px 11px; font-size: 13px; color: var(--muted-foreground); }
+      .filters { display: flex; gap: 6px; margin-top: 10px; }
+      .chip { font-size: 11.5px; font-weight: 600; border-radius: 999px; padding: 3px 10px; border: 1px solid var(--border); color: var(--muted-foreground); background: var(--card); cursor: default; }
+      .chip.on { background: var(--foreground); color: var(--background); border-color: var(--foreground); }
+      .thread-list { overflow-y: auto; flex: 1; min-height: 0; }
+      .thread { display: block; padding: 13px 16px; border-bottom: 1px solid var(--border); cursor: default; }
+      .thread.sel { background: var(--info-subtle); box-shadow: inset 3px 0 0 var(--info); }
+      .thread-top { display: flex; align-items: baseline; gap: 8px; }
+      .thread-title { font-weight: 600; font-size: 13.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .thread-time { font-size: 11px; color: var(--muted-foreground); white-space: nowrap; }
+      .thread-sub { font-size: 11.5px; color: var(--muted-foreground); display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+      .thread-snip { font-size: 12.5px; color: var(--muted-foreground); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .thread-snip .unread { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--info); margin-right: 6px; vertical-align: 1px; }
+
+      /* micro-roadmap dans la ligne d'inbox : 7 segments (done/cur/todo) + N/7 + statut */
+      .micro { display: flex; align-items: center; gap: 8px; margin-top: 9px; }
+      .segs { display: flex; gap: 3px; flex: 1; }
+      .seg { height: 4px; border-radius: 2px; flex: 1; background: var(--border); }
+      .seg.done { background: var(--success); }
+      .seg.cur { background: var(--warning); }
+      .frac { font-size: 10.5px; font-weight: 700; color: var(--muted-foreground); font-family: ui-monospace, Menlo, monospace; }
+
+      .badge { font-size: 11px; font-weight: 600; border-radius: 999px; padding: 2px 9px; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+      .badge.info { background: var(--info-subtle); color: var(--info-subtle-foreground); }
+      .badge.ok { background: var(--success-subtle); color: var(--success-subtle-foreground); }
+      .badge.warn { background: var(--warning-subtle); color: var(--warning-subtle-foreground); }
+      .badge.danger { background: var(--danger-subtle); color: var(--danger-subtle-foreground); }
+      .badge.neutral { background: var(--muted); color: var(--muted-foreground); }
+      .badge .dotm { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+      /* ── Colonne 3 : conversation ──────────────────────────────────────────── */
+      .conv { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--page); }
+      .conv-head { background: var(--card); border-bottom: 1px solid var(--border); padding: 14px 22px 0; }
+      .conv-id { display: flex; align-items: center; gap: 13px; }
+      .conv-id .ic { width: 40px; height: 40px; border-radius: 11px; background: var(--info-subtle); color: var(--info); display: flex; align-items: center; justify-content: center; font-size: 21px; flex-shrink: 0; }
+      .conv-id h1 { font-family: "Syne", sans-serif; font-size: 18px; font-weight: 700; margin: 0; }
+      .conv-id .meta { font-size: 12px; color: var(--muted-foreground); margin-top: 2px; display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+      .conv-id .actions { margin-left: auto; display: flex; gap: 7px; }
+      .iconbtn { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--border); background: var(--card); color: var(--muted-foreground); display: inline-flex; align-items: center; justify-content: center; font-size: 17px; cursor: default; }
+
+      /* ---- LE RAIL : mini-roadmap 7 étapes, plein largeur, sous l'identité ---- */
+      .rail-wrap { padding: 15px 8px 2px; }
+      .rail { position: relative; display: flex; }
+      .rail-line { position: absolute; top: 13px; left: 7%; right: 7%; height: 2px; background: var(--border); }
+      .rail-fill { position: absolute; top: 13px; left: 7%; height: 2px; background: var(--success); }
+      .step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; position: relative; z-index: 1; }
+      .node { width: 27px; height: 27px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; border: 2px solid transparent; }
+      .node.done { background: var(--success); color: #fff; }
+      .node.cur { background: var(--warning); color: #fff; box-shadow: 0 0 0 5px var(--warning-subtle); }
+      .node.todo { background: var(--muted); color: var(--muted-foreground); border-color: var(--border); }
+      .step .lab { font-size: 10.5px; font-weight: 600; line-height: 1.15; }
+      .step.todo .lab { color: var(--muted-foreground); font-weight: 500; }
+      .step .out { font-size: 9.5px; font-weight: 700; }
+      .step .out.ok { color: var(--success); }
+      .step .out.warn { color: var(--warning); }
+      .here { position: absolute; top: -16px; font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; color: var(--warning); background: var(--warning-subtle); border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
+      .rail-foot { display: flex; align-items: center; gap: 14px; padding: 12px 14px 13px; font-size: 11.5px; color: var(--muted-foreground); border-top: 1px dashed var(--border); margin-top: 12px; }
+      .rail-foot .now { color: var(--foreground); font-weight: 600; }
+      .rail-foot .prog { margin-left: auto; font-weight: 600; }
+
+      /* ---- Fil de discussion (bulles WhatsApp — UX validée, tokens DA) -------- */
+      .thread-pane {
+        flex: 1; overflow-y: auto; min-height: 0; padding: 22px 22px 8px;
+        background-color: var(--muted);
+        background-image: radial-gradient(color-mix(in oklab, var(--foreground) 7%, transparent) 1px, transparent 1px);
+        background-size: 22px 22px;
+      }
+      .daysep { text-align: center; margin: 6px 0 16px; }
+      .daysep span { font-size: 11px; font-weight: 600; color: var(--muted-foreground); background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 3px 12px; }
+      .msg { max-width: 74%; margin-bottom: 14px; }
+      .msg .who { font-size: 11px; font-weight: 600; margin: 0 4px 3px; color: var(--muted-foreground); }
+      .bubble { padding: 10px 13px; border-radius: 14px; font-size: 13.5px; box-shadow: var(--shadow); }
+      .bubble .t { font-size: 10.5px; color: var(--muted-foreground); margin-top: 5px; text-align: right; }
+      .msg.in .bubble { background: color-mix(in oklab, var(--foreground) 4%, var(--card)); color: var(--card-foreground); border: 1px solid var(--border); border-top-left-radius: 4px; }
+      .msg.out { margin-left: auto; }
+      .msg.out .who { text-align: right; }
+      .msg.out .bubble { background: color-mix(in oklab, var(--primary) 16%, var(--card)); color: var(--card-foreground); border: 1px solid color-mix(in oklab, var(--primary) 26%, transparent); border-top-right-radius: 4px; }
+      .msg.decision .bubble { background: var(--warning-subtle); border: 1px solid color-mix(in oklab, var(--warning) 40%, transparent); }
+      .decision-head { font-weight: 700; font-size: 12px; color: var(--warning-subtle-foreground); display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+      .attach { display: inline-flex; align-items: center; gap: 6px; margin-top: 7px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 5px 9px; font-size: 12px; color: var(--foreground); }
+      .attach i { color: var(--info); }
+
+      /* ---- Composeur ---------------------------------------------------------- */
+      .composer { background: var(--card); border-top: 1px solid var(--border); padding: 12px 18px; display: flex; align-items: flex-end; gap: 10px; }
+      .composer .box { flex: 1; border: 1px solid var(--border); border-radius: 12px; padding: 10px 13px; font-size: 13.5px; color: var(--muted-foreground); background: var(--background); min-height: 42px; }
+      .send { width: 42px; height: 42px; border-radius: 12px; background: var(--info); color: #fff; border: none; display: inline-flex; align-items: center; justify-content: center; font-size: 19px; }
+      .ghost { border: 1px solid var(--border); background: var(--card); color: var(--muted-foreground); width: 42px; height: 42px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: 19px; }
+
+      /* ---- toggle thème (hors maquette) -------------------------------------- */
+      .theme-toggle { position: fixed; bottom: 16px; right: 16px; z-index: 50; background: var(--card); border: 1px solid var(--border); color: var(--foreground); border-radius: 999px; padding: 8px 15px; font-size: 12.5px; font-weight: 600; box-shadow: var(--shadow-lg); cursor: pointer; display: flex; align-items: center; gap: 7px; }
+      .cap { position: fixed; bottom: 16px; left: 16px; z-index: 50; font-size: 11px; color: var(--muted-foreground); background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 6px 11px; }
+      .cap b { color: var(--foreground); font-family: "Syne", sans-serif; }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <!-- ═══════════ NAV APP ═══════════ -->
+      <aside class="nav">
+        <div class="brand"><span class="logo">P</span><span class="name">Pharnos</span></div>
+        <div class="nav-item"><i class="ti ti-layout-dashboard"></i><span>Tableau de bord</span></div>
+        <div class="nav-item"><i class="ti ti-folders"></i><span>Dossiers</span></div>
+        <div class="nav-item active"><i class="ti ti-mail"></i><span>Correspondance</span><span class="count">4</span></div>
+        <div class="nav-item"><i class="ti ti-book-2"></i><span>Catalogue</span></div>
+        <div class="nav-item"><i class="ti ti-bell"></i><span>Relances</span></div>
+        <div class="nav-sep"></div>
+        <div class="nav-item"><i class="ti ti-library"></i><span>Bibliothèque</span></div>
+        <div class="nav-item"><i class="ti ti-shield-check"></i><span>Autorités</span></div>
+        <div style="flex:1"></div>
+        <div class="nav-item"><i class="ti ti-settings"></i><span>Compte</span></div>
+      </aside>
+
+      <!-- ═══════════ INBOX (liste, TOUS dossiers) ═══════════ -->
+      <section class="inbox">
+        <div class="inbox-head">
+          <h2><i class="ti ti-mail"></i> Correspondance</h2>
+          <div class="search"><i class="ti ti-search"></i> Rechercher un dossier, une agence…</div>
+          <div class="filters">
+            <span class="chip on">Toutes</span>
+            <span class="chip">Action requise · 2</span>
+            <span class="chip">En attente</span>
+          </div>
+        </div>
+        <div class="thread-list">
+          <!-- sélectionnée -->
+          <div class="thread sel">
+            <div class="thread-top">
+              <span class="thread-title">Amoxicilline 500 mg gél.</span>
+              <span class="thread-time">10:24</span>
+            </div>
+            <div class="thread-sub">🇧🇯 Bénin · ABMED · Renouvellement</div>
+            <div class="thread-snip"><span class="unread"></span>Agence : « Merci de compléter la notice (rubrique 4.8)… »</div>
+            <div class="micro">
+              <div class="segs">
+                <span class="seg done"></span><span class="seg done"></span><span class="seg done"></span>
+                <span class="seg done"></span><span class="seg done"></span><span class="seg cur"></span><span class="seg"></span>
+              </div>
+              <span class="frac">6/7</span>
+              <span class="badge info"><span class="dotm"></span>En instruction</span>
+            </div>
+          </div>
+          <!-- autres -->
+          <div class="thread">
+            <div class="thread-top">
+              <span class="thread-title">Metformine 850 mg cp.</span>
+              <span class="thread-time">Hier</span>
+            </div>
+            <div class="thread-sub">🇸🇳 Sénégal · ARP · Nouvelle AMM</div>
+            <div class="thread-snip"><span class="unread"></span>Agent local : « Dossier suspendu — complément requis. »</div>
+            <div class="micro">
+              <div class="segs">
+                <span class="seg done"></span><span class="seg done"></span><span class="seg cur"></span>
+                <span class="seg"></span><span class="seg"></span><span class="seg"></span><span class="seg"></span>
+              </div>
+              <span class="frac">2/7</span>
+              <span class="badge warn"><span class="dotm"></span>Complément requis</span>
+            </div>
+          </div>
+          <div class="thread">
+            <div class="thread-top">
+              <span class="thread-title">Paracétamol 1 g sirop</span>
+              <span class="thread-time">Lun</span>
+            </div>
+            <div class="thread-sub">🇨🇮 Côte d'Ivoire · DPML · Nouvelle AMM</div>
+            <div class="thread-snip">Vous : « Dossier transmis pour revue. »</div>
+            <div class="micro">
+              <div class="segs">
+                <span class="seg done"></span><span class="seg cur"></span><span class="seg"></span>
+                <span class="seg"></span><span class="seg"></span><span class="seg"></span><span class="seg"></span>
+              </div>
+              <span class="frac">1/7</span>
+              <span class="badge info"><span class="dotm"></span>En revue</span>
+            </div>
+          </div>
+          <div class="thread">
+            <div class="thread-top">
+              <span class="thread-title">Artéméther/Luméfantrine</span>
+              <span class="thread-time">28 juin</span>
+            </div>
+            <div class="thread-sub">🇧🇫 Burkina Faso · ANRP · Renouvellement</div>
+            <div class="thread-snip">Agence : « AMM délivrée — n° BF-2026-0417. »</div>
+            <div class="micro">
+              <div class="segs">
+                <span class="seg done"></span><span class="seg done"></span><span class="seg done"></span>
+                <span class="seg done"></span><span class="seg done"></span><span class="seg done"></span><span class="seg done"></span>
+              </div>
+              <span class="frac">7/7</span>
+              <span class="badge ok"><span class="dotm"></span>Enregistré</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════ CONVERSATION ═══════════ -->
+      <section class="conv">
+        <header class="conv-head">
+          <div class="conv-id">
+            <span class="ic"><i class="ti ti-package"></i></span>
+            <div style="min-width:0">
+              <h1>Amoxicilline 500 mg gélule</h1>
+              <div class="meta">
+                <span class="mono">OP-2026-0148</span> · <span>🇧🇯 Bénin · ABMED</span> · <span>Renouvellement</span>
+              </div>
+            </div>
+            <div class="actions">
+              <span class="iconbtn" title="Exporter le fil (PDF)"><i class="ti ti-file-download"></i></span>
+              <span class="iconbtn" title="Ouvrir le dossier"><i class="ti ti-external-link"></i></span>
+              <span class="iconbtn"><i class="ti ti-dots-vertical"></i></span>
+            </div>
+          </div>
+
+          <!-- LE RAIL : 7 étapes miniaturisées, plein largeur -->
+          <div class="rail-wrap">
+            <div class="rail">
+              <div class="rail-line"></div>
+              <div class="rail-fill" style="width: calc(86% * 5 / 6)"></div>
+              <div class="step">
+                <span class="node done"><i class="ti ti-package"></i></span>
+                <span class="lab">Montage</span>
+              </div>
+              <div class="step">
+                <span class="node done"><i class="ti ti-send"></i></span>
+                <span class="lab">Revue</span>
+              </div>
+              <div class="step">
+                <span class="node done"><i class="ti ti-clipboard-check"></i></span>
+                <span class="lab">Décision</span>
+                <span class="out ok">Accepté</span>
+              </div>
+              <div class="step">
+                <span class="node done"><i class="ti ti-building-bank"></i></span>
+                <span class="lab">Dépôt</span>
+              </div>
+              <div class="step">
+                <span class="node done"><i class="ti ti-receipt"></i></span>
+                <span class="lab">Soumission</span>
+              </div>
+              <div class="step">
+                <span class="here">vous êtes ici</span>
+                <span class="node cur"><i class="ti ti-bell-ringing"></i></span>
+                <span class="lab">Notifications</span>
+              </div>
+              <div class="step">
+                <span class="node todo"><i class="ti ti-award"></i></span>
+                <span class="lab">AMM</span>
+              </div>
+            </div>
+            <div class="rail-foot">
+              <span>Étape courante&nbsp;: <span class="now">Notifications</span> — Agence nationale</span>
+              <span>· en attente depuis <b class="now">11 j</b></span>
+              <span class="prog">Avancement 5 / 7</span>
+            </div>
+          </div>
+        </header>
+
+        <!-- Fil -->
+        <div class="thread-pane">
+          <div class="daysep"><span>Aujourd'hui</span></div>
+
+          <div class="msg in">
+            <div class="who">ABMED · Agence nationale</div>
+            <div class="bubble">
+              Bonjour, après examen recevabilité votre dossier de renouvellement est <b>en instruction</b>.
+              Merci de compléter la notice (rubrique 4.8 — effets indésirables) sous 30 jours.
+              <div class="t">10:24</div>
+            </div>
+          </div>
+
+          <div class="msg out">
+            <div class="who">Vous · Affaires réglementaires</div>
+            <div class="bubble">
+              Bien reçu, nous préparons la notice corrigée. Accusé de réception ci-joint.
+              <div class="attach"><i class="ti ti-file-type-pdf"></i> Accuse-reception-ABMED.pdf</div>
+              <div class="t">10:41 ✓✓</div>
+            </div>
+          </div>
+
+          <div class="msg out decision">
+            <div class="bubble">
+              <div class="decision-head"><i class="ti ti-gavel"></i> Notification consignée au parcours</div>
+              La demande de complément est enregistrée à l'étape <b>Notifications</b> — une relance
+              automatique partira dans 19 j si sans réponse.
+              <div class="t">10:41</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Composeur -->
+        <div class="composer">
+          <span class="ghost" title="Joindre une pièce"><i class="ti ti-paperclip"></i></span>
+          <div class="box">Répondre à l'ABMED…</div>
+          <button class="send"><i class="ti ti-send"></i></button>
+        </div>
+      </section>
+    </div>
+
+    <div class="cap">Mockup <b>A — Le Rail</b> · Correspondance sur la DA premium · mini-roadmap 7 étapes en header</div>
+    <button class="theme-toggle" onclick="var r=document.documentElement;r.dataset.theme=r.dataset.theme==='dark'?'light':'dark';this.querySelector('span').textContent=r.dataset.theme==='dark'?'Clair':'Sombre'">
+      <i class="ti ti-contrast-2"></i><span>Sombre</span>
+    </button>
+  </body>
+</html>

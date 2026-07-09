@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="fr" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pharnos — Boîte de réception · Proposition CTO (C)</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ============================================================================
+         TOKENS — copie fidèle de web/src/index.css (canoniques light + dark).
+         ============================================================================ */
+      :root,
+      :root[data-theme="light"] {
+        --background: #ffffff; --foreground: #111827; --card: #ffffff; --card-foreground: #111827;
+        --page: #f9fafb; --muted: #f9fafb; --muted-foreground: #6b7280; --border: #e5e7eb;
+        --primary: #111827; --primary-foreground: #f9fafb;
+        --success: #059669; --success-subtle: #d1fae5; --success-subtle-foreground: #047857;
+        --warning: #b45309; --warning-subtle: #fef3c7; --warning-subtle-foreground: #b45309;
+        --danger: #dc2626; --danger-subtle: #fee2e2; --danger-subtle-foreground: #b91c1c;
+        --info: #2563eb; --info-subtle: #eff6ff; --info-subtle-foreground: #1e40af;
+        --shadow: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+        --shadow-lg: 0 12px 32px -8px rgba(16,24,40,.18);
+        --on-solid: #ffffff; /* texte sur remplissage solide (success/warning/danger/info) */
+      }
+      :root[data-theme="dark"] {
+        --background: #0d1117; --foreground: #e6edf3; --card: #161b22; --card-foreground: #e6edf3;
+        --page: #0d1117; --muted: #21262d; --muted-foreground: #8b949e; --border: #30363d;
+        --primary: #2f81f7; --primary-foreground: #0d1117;
+        --success: #2ea043; --success-subtle: #12261c; --success-subtle-foreground: #4ac26b;
+        --warning: #d29922; --warning-subtle: #271d09; --warning-subtle-foreground: #e3b341;
+        --danger: #f85149; --danger-subtle: #2a1415; --danger-subtle-foreground: #ff7b72;
+        --info: #1f6feb; --info-subtle: #0d1b2f; --info-subtle-foreground: #6cb6ff;
+        --shadow: 0 1px 2px rgba(1,4,9,.5), 0 1px 3px rgba(1,4,9,.6);
+        --shadow-lg: 0 16px 40px -8px rgba(1,4,9,.7);
+        --on-solid: #0d1117; /* AA : les solides dark sont clairs → texte sombre (leçon LOT 8) */
+      }
+
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body { margin: 0; background: var(--page); color: var(--foreground); font-family: "DM Sans", system-ui, sans-serif; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+      .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+      button { font: inherit; }
+
+      /* ══ Shell 3 volets : nav app / boîte de réception / conversation ══
+         La boîte de réception EST la page (hauteur fixe, scrolls internes —
+         pattern cockpit Opérations v2). Plus de liste → modal par-dessus. */
+      .shell { display: grid; grid-template-columns: 236px 372px minmax(0, 1fr); height: 100vh; }
+      @media (max-width: 1220px) { .shell { grid-template-columns: 64px 340px minmax(0, 1fr); } }
+
+      /* ── Volet 1 : nav latérale RÉELLE de l'app (exigence 2 : onglet Boîte de réception) ── */
+      .nav { background: var(--card); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 16px 12px; gap: 3px; }
+      .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 16px; }
+      .brand .logo { width: 30px; height: 30px; border-radius: 8px; background: var(--info); color: var(--on-solid); display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-family: "Syne", sans-serif; }
+      .brand .name { font-family: "Syne", sans-serif; font-weight: 800; font-size: 16px; }
+      .nav-item { display: flex; align-items: center; gap: 11px; padding: 9px 10px; border-radius: 9px; font-size: 13.5px; font-weight: 500; color: var(--muted-foreground); cursor: default; }
+      .nav-item i { font-size: 18px; width: 20px; text-align: center; }
+      .nav-item.active { background: var(--info-subtle); color: var(--info-subtle-foreground); font-weight: 600; }
+      .nav-item .count { margin-left: auto; font-size: 11px; font-weight: 700; background: var(--info); color: var(--on-solid); border-radius: 999px; padding: 1px 7px; }
+      @media (max-width: 1220px) { .brand .name, .nav-item span, .nav-item .count { display: none; } .nav-item { justify-content: center; } }
+
+      /* ── Volet 2 : la boîte de réception (tous dossiers, scopée CS1) ── */
+      .inbox { background: var(--card); border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+      .inbox-head { padding: 16px 16px 12px; border-bottom: 1px solid var(--border); }
+      .inbox-head h2 { font-family: "Syne", sans-serif; font-size: 17px; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 8px; }
+      .inbox-sub { font-size: 11.5px; color: var(--muted-foreground); margin: 2px 0 10px 26px; }
+      .search { display: flex; align-items: center; gap: 8px; background: var(--muted); border: 1px solid var(--border); border-radius: 9px; padding: 7px 11px; font-size: 13px; color: var(--muted-foreground); }
+      .filters { display: flex; gap: 6px; margin-top: 10px; }
+      .chip { font-size: 11.5px; font-weight: 600; border-radius: 999px; padding: 3px 10px; border: 1px solid var(--border); color: var(--muted-foreground); background: var(--card); cursor: pointer; }
+      .chip.on { background: var(--foreground); color: var(--background); border-color: var(--foreground); }
+      .thread-list { overflow-y: auto; flex: 1; min-height: 0; }
+
+      /* Ligne de fil : anneau n/7 (couleur = ton du statut) + étape courante + badge —
+         l'état du dossier se lit DÈS LA LISTE, sans ouvrir. */
+      .thread { display: flex; gap: 12px; padding: 13px 16px; border-bottom: 1px solid var(--border); align-items: center; width: 100%; background: none; border-left: 0; border-right: 0; border-top: 0; text-align: left; cursor: pointer; color: inherit; }
+      .thread:hover { background: color-mix(in oklab, var(--foreground) 3%, var(--card)); }
+      .thread.sel { background: var(--info-subtle); box-shadow: inset 3px 0 0 var(--info); }
+      .ring { width: 42px; height: 42px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; position: relative; }
+      .ring::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(var(--_c) calc(var(--_p) * 1%), var(--border) 0); mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px)); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px)); }
+      .ring .rfrac { font-size: 11px; font-weight: 700; font-family: ui-monospace, Menlo, monospace; color: var(--foreground); }
+      .thread-main { flex: 1; min-width: 0; }
+      .thread-top { display: flex; align-items: baseline; gap: 8px; }
+      .thread-title { font-weight: 600; font-size: 13.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .thread-time { font-size: 11px; color: var(--muted-foreground); white-space: nowrap; }
+      .thread-sub { font-size: 11.5px; color: var(--muted-foreground); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .thread-snip { font-size: 11.5px; color: var(--muted-foreground); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .thread-snip.unread-snip { color: var(--foreground); font-weight: 500; }
+      .thread-row2 { display: flex; align-items: center; gap: 7px; margin-top: 7px; }
+      .stepnow { font-size: 11px; font-weight: 600; color: var(--muted-foreground); display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+      .stepnow i { font-size: 14px; }
+      .unread-count { min-width: 18px; height: 18px; border-radius: 999px; background: var(--info); color: var(--on-solid); font-size: 10.5px; font-weight: 700; display: grid; place-items: center; padding: 0 5px; flex-shrink: 0; }
+
+      .badge { font-size: 11px; font-weight: 600; border-radius: 999px; padding: 2px 9px; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+      .badge.info { background: var(--info-subtle); color: var(--info-subtle-foreground); }
+      .badge.ok { background: var(--success-subtle); color: var(--success-subtle-foreground); }
+      .badge.warn { background: var(--warning-subtle); color: var(--warning-subtle-foreground); }
+      .badge.danger { background: var(--danger-subtle); color: var(--danger-subtle-foreground); }
+      .badge.neutral { background: var(--muted); color: var(--muted-foreground); border: 1px solid var(--border); }
+      .badge .dotm { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+      /* ── Volet 3 : la conversation ── */
+      .conv { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--page); }
+      .conv-head { background: var(--card); padding: 14px 22px 12px; }
+      .conv-id { display: flex; align-items: center; gap: 13px; }
+      .conv-id .ic { width: 40px; height: 40px; border-radius: 11px; background: var(--info-subtle); color: var(--info); display: flex; align-items: center; justify-content: center; font-size: 21px; flex-shrink: 0; }
+      .conv-id h1 { font-family: "Syne", sans-serif; font-size: 18px; font-weight: 700; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .conv-id .meta { font-size: 12px; color: var(--muted-foreground); margin-top: 2px; display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+      .conv-id .actions { margin-left: auto; display: flex; gap: 7px; flex-shrink: 0; }
+      .iconbtn { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--border); background: var(--card); color: var(--muted-foreground); display: inline-flex; align-items: center; justify-content: center; font-size: 17px; cursor: pointer; }
+      .iconbtn:hover { background: var(--muted); color: var(--foreground); }
+
+      /* ══ LA PIÈCE MAÎTRESSE — le rail Parcours PERMANENT ══
+         Miniature fidèle de la page Roadmap (mêmes 7 étapes, icônes, couleurs,
+         vocabulaire), TOUJOURS visible sous l'en-tête de CHAQUE conversation.
+         Zéro clic : « où en est le dossier » se lit à tout moment. */
+      .journey { background: var(--muted); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 13px 22px 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; overflow-x: auto; }
+      .rail { position: relative; display: flex; flex: 1; min-width: 512px; }
+      .rail-line { position: absolute; top: 13px; left: 7%; right: 7%; height: 2.5px; border-radius: 3px; background: var(--border); }
+      .rail-fill { position: absolute; top: 13px; left: 7%; height: 2.5px; border-radius: 3px; background: var(--success); }
+      .step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; position: relative; z-index: 1; min-width: 0; }
+      .node { width: 27px; height: 27px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; border: 2px solid transparent; }
+      .node.done { background: var(--success); color: var(--on-solid); }
+      .node.todo { background: var(--card); color: var(--muted-foreground); border-color: var(--border); }
+      /* l'étape courante prend la couleur du statut : ça se passe bien (warning = en attente),
+         mal (danger = rejeté) ou c'est fini (success) — lisible sans légende. */
+      .node.cur { background: var(--warning); color: var(--on-solid); box-shadow: 0 0 0 4px var(--warning-subtle); }
+      .node.cur.danger { background: var(--danger); box-shadow: 0 0 0 4px var(--danger-subtle); }
+      .step .lab { font-size: 10.5px; font-weight: 700; line-height: 1.15; }
+      .step.todo .lab { color: var(--muted-foreground); font-weight: 500; }
+      .step .sub { font-size: 9.5px; color: var(--muted-foreground); font-family: ui-monospace, Menlo, monospace; line-height: 1.2; }
+      .step .sub.ok { color: var(--success); font-weight: 700; font-family: "DM Sans", sans-serif; }
+      .step .sub.bad { color: var(--danger); font-weight: 700; font-family: "DM Sans", sans-serif; }
+      .step .sub.wait { color: var(--warning); font-weight: 700; font-family: "DM Sans", sans-serif; }
+      /* bloc statut à droite du rail */
+      .journey-side { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; margin-left: auto; }
+      .journey-side .frac { font-size: 12px; font-weight: 700; color: var(--muted-foreground); font-family: ui-monospace, Menlo, monospace; }
+
+      /* Bandeau ACTION REQUISE : quand le dossier attend l'UTILISATEUR, l'info devient action. */
+      .todo-banner { display: flex; align-items: center; gap: 10px; padding: 9px 22px; font-size: 12.5px; font-weight: 500; border-bottom: 1px solid var(--border); }
+      .todo-banner.warn { background: var(--warning-subtle); color: var(--warning-subtle-foreground); }
+      .todo-banner.danger { background: var(--danger-subtle); color: var(--danger-subtle-foreground); }
+      .todo-banner i { font-size: 16px; flex-shrink: 0; }
+      .todo-banner .txt { flex: 1; min-width: 0; }
+      .todo-banner .cta { flex-shrink: 0; border: none; border-radius: 8px; padding: 5px 12px; font-size: 12px; font-weight: 700; color: var(--on-solid); cursor: pointer; }
+      .todo-banner.warn .cta { background: var(--warning); }
+      .todo-banner.danger .cta { background: var(--danger); }
+
+      /* fil de messages — bulles WhatsApp conservées (UX validée) */
+      .thread-pane { flex: 1; overflow-y: auto; min-height: 0; padding: 22px 22px 8px; background-color: var(--muted); background-image: radial-gradient(color-mix(in oklab, var(--foreground) 7%, transparent) 1px, transparent 1px); background-size: 22px 22px; }
+      .daysep { text-align: center; margin: 6px 0 16px; }
+      .daysep span { font-size: 11px; font-weight: 600; color: var(--muted-foreground); background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 3px 12px; }
+      .msg { max-width: 74%; margin-bottom: 14px; }
+      .msg .who { font-size: 11px; font-weight: 600; margin: 0 4px 3px; color: var(--muted-foreground); }
+      .bubble { padding: 10px 13px; border-radius: 14px; font-size: 13.5px; box-shadow: var(--shadow); }
+      .bubble .t { font-size: 10.5px; color: var(--muted-foreground); margin-top: 5px; text-align: right; }
+      .msg.in .bubble { background: color-mix(in oklab, var(--foreground) 4%, var(--card)); color: var(--card-foreground); border: 1px solid var(--border); border-top-left-radius: 4px; }
+      .msg.out { margin-left: auto; }
+      .msg.out .who { text-align: right; }
+      .msg.out .bubble { background: color-mix(in oklab, var(--primary) 16%, var(--card)); color: var(--card-foreground); border: 1px solid color-mix(in oklab, var(--primary) 26%, transparent); border-top-right-radius: 4px; }
+      .attach { display: inline-flex; align-items: center; gap: 6px; margin-top: 7px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 5px 9px; font-size: 12px; color: var(--foreground); }
+      .attach i { color: var(--info); }
+      /* événement de décision : carte système centrée (kind=decision du fil réel) */
+      .decision-card { max-width: 420px; margin: 0 auto 14px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; font-size: 12.5px; display: flex; align-items: center; gap: 10px; box-shadow: var(--shadow); }
+      .decision-card i { font-size: 18px; }
+      .decision-card.ok i { color: var(--success); }
+      .decision-card.danger i { color: var(--danger); }
+      .decision-card .dt { font-size: 10.5px; color: var(--muted-foreground); margin-left: auto; white-space: nowrap; }
+
+      /* composeur */
+      .composer { background: var(--card); border-top: 1px solid var(--border); padding: 12px 18px; display: flex; align-items: flex-end; gap: 10px; }
+      .composer .box { flex: 1; border: 1px solid var(--border); border-radius: 12px; padding: 10px 13px; font-size: 13.5px; color: var(--muted-foreground); background: var(--background); min-height: 42px; }
+      .send { width: 42px; height: 42px; border-radius: 12px; background: var(--info); color: var(--on-solid); border: none; display: inline-flex; align-items: center; justify-content: center; font-size: 19px; cursor: pointer; }
+      .ghost { border: 1px solid var(--border); background: var(--card); color: var(--muted-foreground); width: 42px; height: 42px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: 19px; cursor: pointer; }
+
+      .theme-toggle { position: fixed; bottom: 16px; right: 16px; z-index: 50; background: var(--card); border: 1px solid var(--border); color: var(--foreground); border-radius: 999px; padding: 8px 15px; font-size: 12.5px; font-weight: 600; box-shadow: var(--shadow-lg); cursor: pointer; display: flex; align-items: center; gap: 7px; }
+      .cap { position: fixed; bottom: 16px; left: 16px; z-index: 50; font-size: 11px; color: var(--muted-foreground); background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 6px 11px; }
+      .cap b { color: var(--foreground); font-family: "Syne", sans-serif; }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <!-- ══ NAV — items réels de app-shell.tsx ; l'onglet demandé : « Boîte de réception »
+           (badge = messages non lus), placé après CTD Workspace dans le flux de travail. ══ -->
+      <aside class="nav">
+        <div class="brand"><span class="logo">P</span><span class="name">Pharnos</span></div>
+        <div class="nav-item"><i class="ti ti-layout-dashboard"></i><span>Tableau de bord</span></div>
+        <div class="nav-item"><i class="ti ti-flask"></i><span>Catalogue</span></div>
+        <div class="nav-item"><i class="ti ti-folders"></i><span>CTD Workspace</span></div>
+        <div class="nav-item active"><i class="ti ti-inbox"></i><span>Boîte de réception</span><span class="count">3</span></div>
+        <div class="nav-item"><i class="ti ti-library"></i><span>Bibliothèque</span></div>
+        <div class="nav-item"><i class="ti ti-clipboard-list"></i><span>Variations</span></div>
+        <div style="flex:1"></div>
+        <div class="nav-item"><i class="ti ti-user-circle"></i><span>Compte</span></div>
+      </aside>
+
+      <!-- ══ BOÎTE DE RÉCEPTION — tous les fils, tous dossiers confondus (scopée CS1) ══ -->
+      <section class="inbox">
+        <div class="inbox-head">
+          <h2><i class="ti ti-inbox"></i> Boîte de réception</h2>
+          <div class="inbox-sub" id="inboxSub"></div>
+          <div class="search"><i class="ti ti-search"></i> Rechercher un produit, un pays, une agence…</div>
+          <div class="filters" id="filters">
+            <button class="chip on" data-f="all">Toutes</button>
+            <button class="chip" data-f="action">Action requise · 2</button>
+            <button class="chip" data-f="unread">Non lues · 2</button>
+          </div>
+        </div>
+        <div class="thread-list" id="threadList"></div>
+      </section>
+
+      <!-- ══ CONVERSATION — en-tête dossier + rail Parcours permanent + fil WhatsApp ══ -->
+      <section class="conv" id="conv"></section>
+    </div>
+
+    <button class="theme-toggle" id="themeToggle"><i class="ti ti-moon"></i> Sombre</button>
+    <div class="cap"><b>Proposition CTO — C. « Boîte de réception »</b> · fils &amp; filtres cliquables · rail Parcours permanent</div>
+
+    <script>
+      // ── Référentiel des 7 étapes (copie de lifecycle-constants : libellés + acteurs + icônes) ──
+      const STAGES = [
+        { id: 'montage',       lab: 'Montage',       actor: 'Labo',           icon: 'ti-package' },
+        { id: 'revue',         lab: 'Revue',         actor: 'Agent local',    icon: 'ti-send' },
+        { id: 'decision',      lab: 'Décision',      actor: 'Agent local',    icon: 'ti-clipboard-check' },
+        { id: 'depot',         lab: 'Dépôt',         actor: 'Agent local',    icon: 'ti-building-bank' },
+        { id: 'soumission',    lab: 'Soumission',    actor: '→ Agence nat.',  icon: 'ti-receipt' },
+        { id: 'notifications', lab: 'Notifications', actor: 'Agence nat.',    icon: 'ti-bell-ringing' },
+        { id: 'amm',           lab: 'AMM',           actor: 'Agence nat.',    icon: 'ti-award' },
+      ];
+
+      // ── Données de démonstration : 6 fils réalistes UEMOA (pays ↔ agence = référentiel réel). ──
+      // subs[i] : sous-ligne de l'étape i — {d:'date'} | {ok:'issue+'} | {bad:'issue−'} | {wait:'attente'}
+      const THREADS = [
+        {
+          id: 'amox', product: 'Amoxicilline 500 mg gélule', op: 'OP-2026-0148',
+          flag: '🇧🇯', country: 'Bénin', agency: 'ABMed', agencyFull: 'ABMed · Agence nationale', activity: 'Renouvellement',
+          time: '10:24', unread: 2, cur: 5, complete: false,
+          status: { lab: 'Complément requis', tone: 'warn' },
+          subs: [{ d: '2 mai' }, { d: '6 mai' }, { ok: 'Accepté' }, { d: '21 juin' }, { d: '28 juin' }, { wait: 'attente 11 j' }, { d: 'à venir' }],
+          snippet: 'ABMed : compléter la notice (rubrique 4.8) sous 30 j…',
+          action: { tone: 'warn', icon: 'ti-alert-triangle', txt: '<b>Requête ABMed en attente de réponse</b> — notice, rubrique 4.8 (échéance : 30 j).', cta: 'Répondre' },
+          messages: [
+            { sep: '28 juin' },
+            { dir: 'out', who: 'Vous · Affaires réglementaires', html: 'Dossier de renouvellement déposé auprès de l’ABMed — 34 pièces, bordereau ci-joint.', attach: 'Bordereau-depot-ABMed.pdf', time: '09:12 ✓✓' },
+            { sep: 'Aujourd’hui' },
+            { dir: 'in', who: 'ABMed · Agence nationale', html: 'Bonjour, après examen de recevabilité votre dossier est <b>en instruction</b>. Merci de compléter la notice (rubrique 4.8 — effets indésirables) sous 30 jours.', time: '10:24' },
+            { dir: 'out', who: 'Vous · Affaires réglementaires', html: 'Bien reçu, nous préparons la notice corrigée. Accusé de réception ci-joint.', attach: 'Accuse-reception-ABMed.pdf', time: '10:41 ✓✓' },
+          ],
+        },
+        {
+          id: 'metf', product: 'Metformine 850 mg comprimé', op: 'OP-2026-0162',
+          flag: '🇸🇳', country: 'Sénégal', agency: 'ARP', agencyFull: 'ARP · Agence nationale', activity: 'Nouvelle AMM',
+          time: 'Hier', unread: 1, cur: 1, complete: false,
+          status: { lab: 'En revue', tone: 'info' },
+          subs: [{ d: '7 juil.' }, { wait: 'depuis 1 j' }, { d: '—' }, { d: '—' }, { d: '—' }, { d: '—' }, { d: '—' }],
+          snippet: 'Agent (Dakar) : le CPP est-il légalisé ? Je vérifie avant dépôt…',
+          action: null,
+          messages: [
+            { sep: 'Hier' },
+            { dir: 'out', who: 'Vous · Affaires réglementaires', html: 'Dossier transmis pour revue avant dépôt à l’ARP. Module 1 complet, CPP inclus.', attach: 'Dossier-Metformine-M1.zip', time: '15:02 ✓✓' },
+            { dir: 'in', who: 'Agent local · Dakar', html: 'Bien reçu. Le CPP est-il légalisé ? Je vérifie la liasse avant dépôt physique à l’ARP.', time: '17:48' },
+          ],
+        },
+        {
+          id: 'arte', product: 'Artéméther/Luméfantrine 80/480 mg', op: 'OP-2026-0117',
+          flag: '🇧🇫', country: 'Burkina Faso', agency: 'ANRP', agencyFull: 'ANRP · Agence nationale', activity: 'Renouvellement',
+          time: '28 juin', unread: 0, cur: 6, complete: true,
+          status: { lab: 'Enregistré', tone: 'ok' },
+          subs: [{ d: '3 avr.' }, { d: '9 avr.' }, { ok: 'Accepté' }, { d: '18 avr.' }, { d: '25 avr.' }, { d: '12 juin' }, { ok: 'AMM délivrée' }],
+          snippet: 'Décision : AMM délivrée — n° BF-2026-0417 ✓',
+          action: null,
+          messages: [
+            { sep: '28 juin' },
+            { decision: 'ok', icon: 'ti-award', html: '<b>Décision de l’ANRP : AMM délivrée</b> — enregistrement n° BF-2026-0417.', dt: '28 juin, 11:05' },
+            { dir: 'in', who: 'ANRP · Agence nationale', html: 'Le certificat d’enregistrement est disponible. Validité : 5 ans à compter de la date de signature.', attach: 'Certificat-AMM-BF-2026-0417.pdf', time: '11:06' },
+            { dir: 'out', who: 'Vous · Affaires réglementaires', html: 'Merci. Certificat archivé au dossier, le titulaire est notifié.', time: '11:32 ✓✓' },
+          ],
+        },
+        {
+          id: 'azit', product: 'Azithromycine 250 mg comprimé', op: 'OP-2026-0171',
+          flag: '🇳🇪', country: 'Niger', agency: 'DPM/MT', agencyFull: 'DPM/MT · Agence nationale', activity: 'Nouvelle AMM',
+          time: '24 juin', unread: 0, cur: 2, complete: false, curTone: 'danger',
+          status: { lab: 'Rejeté', tone: 'danger' },
+          subs: [{ d: '2 juin' }, { d: '10 juin' }, { bad: 'Rejeté' }, { d: '—' }, { d: '—' }, { d: '—' }, { d: '—' }],
+          snippet: 'Agent (Niamey) : module 3 incomplet — 3.2.P.8 stabilité manquante.',
+          action: { tone: 'danger', icon: 'ti-rotate-clockwise-2', txt: '<b>Dossier rejeté en revue</b> — module 3 incomplet (3.2.P.8 stabilité). Corrigez puis renvoyez (nouveau cycle).', cta: 'Corriger et renvoyer' },
+          messages: [
+            { sep: '24 juin' },
+            { decision: 'danger', icon: 'ti-clipboard-x', html: '<b>Décision de l’agent local : dossier rejeté</b> — à corriger avant dépôt.', dt: '24 juin, 09:40' },
+            { dir: 'in', who: 'Agent local · Niamey', html: 'Le module 3 est incomplet : l’étude de stabilité (3.2.P.8) ne couvre pas la zone IVb. Merci de compléter avant tout dépôt à la DPM/MT.', time: '09:41' },
+          ],
+        },
+        {
+          id: 'para', product: 'Paracétamol 1 g sirop', op: 'OP-2026-0155',
+          flag: '🇨🇮', country: 'Côte d’Ivoire', agency: 'AIRP', agencyFull: 'AIRP · Agence nationale', activity: 'Nouvelle AMM',
+          time: 'Lun', unread: 0, cur: 4, complete: false,
+          status: { lab: 'En soumission', tone: 'info' },
+          subs: [{ d: '20 mai' }, { d: '27 mai' }, { ok: 'Accepté' }, { d: '5 juin' }, { wait: 'depuis 3 j' }, { d: '—' }, { d: '—' }],
+          snippet: 'Vous : bordereau déposé à l’AIRP, en attente d’enregistrement.',
+          action: null,
+          messages: [
+            { sep: 'Lundi' },
+            { dir: 'out', who: 'Vous · Affaires réglementaires', html: 'Bordereau déposé au guichet de l’AIRP (Cocody). En attente du numéro d’enregistrement de la soumission.', attach: 'Bordereau-AIRP.pdf', time: '10:15 ✓✓' },
+          ],
+        },
+        {
+          id: 'omep', product: 'Oméprazole 20 mg gélule', op: 'OP-2026-0139',
+          flag: '🇹🇬', country: 'Togo', agency: 'DPML', agencyFull: 'DPML · Agence nationale', activity: 'Renouvellement',
+          time: '19 juin', unread: 0, cur: 5, complete: false,
+          status: { lab: 'En instruction', tone: 'info' },
+          subs: [{ d: '28 avr.' }, { d: '5 mai' }, { ok: 'Accepté' }, { d: '12 mai' }, { d: '19 mai' }, { wait: 'attente 20 j' }, { d: 'à venir' }],
+          snippet: 'DPML : dossier recevable, instruction en cours.',
+          action: null,
+          messages: [
+            { sep: '19 juin' },
+            { dir: 'in', who: 'DPML · Agence nationale', html: 'Votre dossier de renouvellement est recevable. L’instruction technique est en cours ; vous serez notifié de toute requête.', time: '14:20' },
+          ],
+        },
+      ];
+
+      const TONE_VAR = { info: 'var(--info)', warn: 'var(--warning)', danger: 'var(--danger)', ok: 'var(--success)' };
+
+      // Géométrie du rail — MÊME formule que roadmap-mini-utils.roadmapMiniGeometry :
+      // nœuds flex-1, ligne encartée à 7 % → fill = (idx + 0,5)/7 × 100 − 7.
+      const fillPct = (t) => Math.max(0, (((t.complete ? 6 : t.cur) + 0.5) / 7) * 100 - 7);
+      const doneCount = (t) => (t.complete ? 7 : t.cur);
+
+      function stageState(t, i) {
+        if (t.complete || i < t.cur) return 'done';
+        return i === t.cur ? 'cur' : 'todo';
+      }
+
+      // ── Liste des fils ──
+      function threadHTML(t, sel) {
+        const done = doneCount(t);
+        const sub = t.subs[t.cur];
+        return `
+          <button class="thread${sel ? ' sel' : ''}" data-id="${t.id}" aria-pressed="${sel}">
+            <div class="ring" style="--_p:${Math.round((done / 7) * 100)}; --_c:${TONE_VAR[t.status.tone]}"><span class="rfrac">${done}/7</span></div>
+            <div class="thread-main">
+              <div class="thread-top"><span class="thread-title">${t.product}</span><span class="thread-time">${t.time}</span></div>
+              <div class="thread-sub">${t.flag} ${t.country} · ${t.agency} · ${t.activity}</div>
+              <div class="thread-snip${t.unread ? ' unread-snip' : ''}">${t.snippet}</div>
+              <div class="thread-row2">
+                <span class="stepnow"><i class="ti ${STAGES[t.cur].icon}"></i> ${t.complete ? 'Terminé' : STAGES[t.cur].lab}</span>
+                <span class="badge ${t.status.tone}"><span class="dotm"></span>${t.status.lab}</span>
+              </div>
+            </div>
+            ${t.unread ? `<span class="unread-count">${t.unread}</span>` : ''}
+          </button>`;
+      }
+
+      // ── Rail Parcours permanent (l'exigence n° 1) ──
+      function journeyHTML(t) {
+        const steps = STAGES.map((s, i) => {
+          const st = stageState(t, i);
+          const sub = t.subs[i] || {};
+          const subHTML = sub.ok ? `<span class="sub ok">${sub.ok}</span>`
+            : sub.bad ? `<span class="sub bad">${sub.bad}</span>`
+            : sub.wait ? `<span class="sub wait">${sub.wait}</span>`
+            : `<span class="sub">${sub.d ?? ''}</span>`;
+          const curClass = st === 'cur' && t.curTone === 'danger' ? ' danger' : '';
+          return `
+            <div class="step ${st}">
+              <span class="node ${st}${curClass}"><i class="ti ${s.icon}"></i></span>
+              <span class="lab">${s.lab}</span>
+              ${subHTML}
+            </div>`;
+        }).join('');
+        return `
+          <div class="journey" aria-label="Parcours du dossier">
+            <div class="rail">
+              <div class="rail-line"></div>
+              <div class="rail-fill" style="width:${fillPct(t)}%"></div>
+              ${steps}
+            </div>
+            <div class="journey-side">
+              <span class="badge ${t.status.tone}"><span class="dotm"></span>${t.status.lab}</span>
+              <span class="frac">${doneCount(t)}/7 étapes</span>
+            </div>
+          </div>`;
+      }
+
+      // ── Conversation complète ──
+      function convHTML(t) {
+        const msgs = t.messages.map((m) => {
+          if (m.sep) return `<div class="daysep"><span>${m.sep}</span></div>`;
+          if (m.decision) return `
+            <div class="decision-card ${m.decision}">
+              <i class="ti ${m.icon}"></i><span>${m.html}</span><span class="dt">${m.dt}</span>
+            </div>`;
+          return `
+            <div class="msg ${m.dir}">
+              <div class="who">${m.who}</div>
+              <div class="bubble">${m.html}
+                ${m.attach ? `<div class="attach"><i class="ti ti-file-type-pdf"></i> ${m.attach}</div>` : ''}
+                <div class="t">${m.time}</div>
+              </div>
+            </div>`;
+        }).join('');
+        return `
+          <header class="conv-head">
+            <div class="conv-id">
+              <span class="ic"><i class="ti ti-package"></i></span>
+              <div style="min-width:0">
+                <h1>${t.product}</h1>
+                <div class="meta"><span class="mono">${t.op}</span> · <span>${t.flag} ${t.country} · ${t.agency}</span> · <span>${t.activity}</span></div>
+              </div>
+              <div class="actions">
+                <span class="iconbtn" title="Exporter le fil (PDF)"><i class="ti ti-file-download"></i></span>
+                <span class="iconbtn" title="Ouvrir le dossier (CTD Workspace)"><i class="ti ti-external-link"></i></span>
+                <span class="iconbtn"><i class="ti ti-dots-vertical"></i></span>
+              </div>
+            </div>
+          </header>
+          ${journeyHTML(t)}
+          ${t.action ? `
+            <div class="todo-banner ${t.action.tone}">
+              <i class="ti ${t.action.icon}"></i><span class="txt">${t.action.txt}</span>
+              <button class="cta">${t.action.cta}</button>
+            </div>` : ''}
+          <div class="thread-pane">${msgs}</div>
+          <div class="composer">
+            <span class="ghost" title="Joindre une pièce"><i class="ti ti-paperclip"></i></span>
+            <div class="box">Écrire à l’agence (${t.agency})…</div>
+            <button class="send" title="Envoyer"><i class="ti ti-send-2"></i></button>
+          </div>`;
+      }
+
+      // ── Rendu + interactions (sélection, filtres, thème) ──
+      let selId = 'amox';
+      let filter = 'all';
+      const list = document.getElementById('threadList');
+      const conv = document.getElementById('conv');
+
+      function render() {
+        const visible = THREADS.filter((t) =>
+          filter === 'unread' ? t.unread > 0 : filter === 'action' ? !!t.action : true);
+        list.innerHTML = visible.map((t) => threadHTML(t, t.id === selId)).join('');
+        conv.innerHTML = convHTML(THREADS.find((t) => t.id === selId));
+        const unreadMsgs = THREADS.reduce((n, t) => n + t.unread, 0);
+        document.getElementById('inboxSub').textContent =
+          `${THREADS.length} fils · ${unreadMsgs} messages non lus`;
+        list.querySelectorAll('.thread').forEach((el) =>
+          el.addEventListener('click', () => { selId = el.dataset.id; render(); }));
+      }
+
+      document.getElementById('filters').addEventListener('click', (e) => {
+        const chip = e.target.closest('.chip');
+        if (!chip) return;
+        filter = chip.dataset.f;
+        document.querySelectorAll('#filters .chip').forEach((c) => c.classList.toggle('on', c === chip));
+        render();
+      });
+
+      const root = document.documentElement;
+      document.getElementById('themeToggle').addEventListener('click', function () {
+        const dark = root.getAttribute('data-theme') !== 'dark';
+        root.setAttribute('data-theme', dark ? 'dark' : 'light');
+        this.innerHTML = dark ? '<i class="ti ti-sun"></i> Clair' : '<i class="ti ti-moon"></i> Sombre';
+      });
+
+      render();
+    </script>
+  </body>
+</html>

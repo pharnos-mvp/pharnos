@@ -11,6 +11,7 @@ import {
   FlaskConical,
   FolderTree,
   Globe,
+  Inbox,
   LayoutDashboard,
   Library,
   LogOut,
@@ -24,6 +25,8 @@ import {
   SunMoon,
 } from 'lucide-react'
 import { toast } from 'sonner'
+
+import { useLiveQuery } from 'dexie-react-hooks'
 
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { AppFooter } from '@/components/layout/AppFooter'
@@ -45,6 +48,7 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useAuditSync } from '@/features/audit/use-audit-sync'
 import { useAuth } from '@/features/auth/auth-context'
+import { countInboxUnread } from '@/features/correspondence/correspondence-unread'
 import { useCorrespondenceRealtime } from '@/features/correspondence/use-correspondence-realtime'
 import { switchActiveOrg } from '@/features/org/active-org'
 import { useOrgId } from '@/features/org/org-context'
@@ -63,6 +67,9 @@ const navItems: { to: string; label: Translatable; icon: typeof FlaskConical }[]
   { to: '/dashboard', label: { fr: 'Tableau de bord', en: 'Dashboard' }, icon: LayoutDashboard },
   { to: '/catalogue', label: { fr: 'Catalogue', en: 'Catalogue' }, icon: FlaskConical },
   { to: '/workspace', label: { fr: 'CTD Workspace', en: 'CTD Workspace' }, icon: FolderTree },
+  // « Boîte de réception » (choix CEO, mockup C) : le nom que tout le monde comprend — l'inbox
+  // globale des échanges agences, badge = messages non lus (période le signal de la cloche).
+  { to: '/correspondance', label: { fr: 'Boîte de réception', en: 'Inbox' }, icon: Inbox },
   { to: '/templates', label: { fr: 'Bibliothèque', en: 'Templates' }, icon: Library },
   { to: '/variations', label: { fr: 'Variations', en: 'Variations' }, icon: ClipboardList },
 ]
@@ -72,6 +79,7 @@ const PAGE_TITLES: { prefix: string; label: Translatable }[] = [
   { prefix: '/dashboard', label: { fr: 'Tableau de bord', en: 'Dashboard' } },
   { prefix: '/catalogue', label: { fr: 'Catalogue', en: 'Catalogue' } },
   { prefix: '/workspace', label: { fr: 'CTD Workspace', en: 'CTD Workspace' } },
+  { prefix: '/correspondance', label: { fr: 'Boîte de réception', en: 'Inbox' } },
   { prefix: '/templates', label: { fr: 'Bibliothèque', en: 'Templates' } },
   { prefix: '/variations', label: { fr: 'Variations', en: 'Variations' } },
   { prefix: '/compte', label: { fr: 'Compte', en: 'Account' } },
@@ -83,7 +91,12 @@ const PAGE_TITLES: { prefix: string; label: Translatable }[] = [
 // Le reste (dashboard, catalogue, montage/aperçu, bibliothèque, variations) est de la couche
 // ÉDITION → redirigé vers le workspace. La RLS reste la vraie barrière (0048) ; ce garde évite
 // seulement des pages vides ou des actions qui renverraient 42501.
-const SCOPED_ALLOWED_ROUTES = [/^\/workspace$/, /^\/workspace\/[^/]+\/roadmap$/, /^\/compte/]
+const SCOPED_ALLOWED_ROUTES = [
+  /^\/workspace$/,
+  /^\/workspace\/[^/]+\/roadmap$/,
+  /^\/correspondance$/,
+  /^\/compte/,
+]
 
 const SIDEBAR_KEY = 'pharnos.sidebarCollapsed'
 
@@ -163,7 +176,16 @@ export function AppShell() {
   const orgName = activeMembership?.orgName ?? ''
   // CS1 : membre scopé (périmètre par dossier) → nav réduite à la couche SUIVI.
   const scoped = (activeMembership?.scopedDossierIds ?? null) !== null
-  const visibleNavItems = scoped ? navItems.filter((i) => i.to === '/workspace') : navItems
+  // CS1 : correspondance = couche SUIVI (comme workspace/roadmap) → visible aussi pour un membre
+  // scopé (agent multi-pays), sa boîte étant déjà bornée à ses dossiers par la sync RLS.
+  const visibleNavItems = scoped
+    ? navItems.filter((i) => i.to === '/workspace' || i.to === '/correspondance')
+    : navItems
+  // Badge « Boîte de réception » : messages non lus (même périmètre que la page — Dexie local,
+  // donc déjà scopé CS1). Recalcul par liveQuery à chaque écriture des tables correspondance.
+  const inboxUnread =
+    useLiveQuery(() => (orgId ? countInboxUnread(orgId) : Promise.resolve(0)), [orgId]) ?? 0
+  const navBadge = (to: string) => (to === '/correspondance' ? inboxUnread : 0)
   const multiOrg = memberships.length > 1
   const pageTitle = PAGE_TITLES.find((x) => location.pathname.startsWith(x.prefix))?.label ?? {
     fr: 'Pharnos',
@@ -219,25 +241,43 @@ export function AppShell() {
         >
           {visibleNavItems.map(({ to, label, icon: Icon }) => {
             const text = t(label)
+            const badge = navBadge(to)
             return (
               <NavLink
                 key={to}
                 to={to}
-                aria-label={text}
+                aria-label={badge > 0 ? `${text} (${badge})` : text}
                 title={text}
                 className={cn(
                   // Nav sur fond NAVY : mutée par défaut, active = fond bleu tinté + barre d'accent
                   // gauche + texte blanc. État actif ciblé via aria-current (posé par NavLink) → pas
                   // par la couleur seule (a11y 1.4.1 : barre + graisse + aria-current cumulés).
-                  'group relative flex h-9 items-center gap-2.5 rounded-md px-2.5 text-[13.5px] transition-colors',
+                  // `min-h-9` (≠ h-9) : « Boîte de réception » wrappe sur 2 lignes en étendu —
+                  // l'item s'étire au lieu de clipper ; les items une-ligne restent à 36 px.
+                  'group relative flex min-h-9 items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13.5px] leading-tight transition-colors',
                   'text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-white',
                   'aria-[current=page]:bg-sidebar-primary/15 aria-[current=page]:font-medium aria-[current=page]:text-white',
                   expanded ? 'justify-center md:justify-start' : 'justify-center',
                 )}
               >
                 <span className="bg-sidebar-primary absolute top-1/2 left-0 hidden h-5 w-0.5 -translate-y-1/2 rounded-r group-aria-[current=page]:block" />
-                <Icon className="size-4 shrink-0" />
+                <span className="relative shrink-0">
+                  <Icon className="size-4 shrink-0" />
+                  {/* Rail replié : point non-lus sur l'icône (le chiffre n'a pas la place). */}
+                  {badge > 0 && !expanded ? (
+                    <span
+                      aria-hidden="true"
+                      className="bg-sidebar-foreground ring-sidebar absolute -top-0.5 -right-0.5 size-2 rounded-full ring-2"
+                    />
+                  ) : null}
+                </span>
                 {expanded ? <span className="hidden md:inline">{text}</span> : null}
+                {/* Compteur non-lus — clair sur navy (AA dans les deux thèmes, tokens sidebar). */}
+                {badge > 0 && expanded ? (
+                  <span className="bg-sidebar-foreground text-sidebar ml-auto hidden min-w-4 rounded-full px-1.5 text-center text-[10px] leading-4 font-bold md:inline-block">
+                    {badge > 9 ? '9+' : badge}
+                  </span>
+                ) : null}
               </NavLink>
             )
           })}
@@ -491,6 +531,7 @@ export function AppShell() {
             >
               {visibleNavItems.map(({ to, label, icon: Icon }) => {
                 const text = t(label)
+                const badge = navBadge(to)
                 return (
                   <NavLink
                     key={to}
@@ -503,6 +544,11 @@ export function AppShell() {
                     }
                   >
                     <Icon className="size-4" /> <span>{text}</span>
+                    {badge > 0 ? (
+                      <span className="bg-primary text-primary-foreground ml-auto min-w-4 rounded-full px-1.5 text-center text-[10px] leading-4 font-bold">
+                        {badge > 9 ? '9+' : badge}
+                      </span>
+                    ) : null}
                   </NavLink>
                 )
               })}

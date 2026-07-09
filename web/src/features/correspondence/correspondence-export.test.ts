@@ -121,7 +121,8 @@ describe('buildThreadExportHtml (export d’audit du fil)', () => {
       now: NOW,
     })
     expect(html).toContain('récépissé.pdf')
-    expect(html).toContain('2.0 Mo')
+    // Taille via le formatteur unique `lib/format-bytes` (localisé, sans zéro superflu) : « 2 Mo ».
+    expect(html).toContain('2 Mo')
     expect(html).not.toContain('org1/shares') // les chemins Storage ne fuient pas dans l'export
   })
 

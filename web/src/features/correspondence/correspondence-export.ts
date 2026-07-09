@@ -1,5 +1,6 @@
 import { activityLabel, countryLabel } from '@/features/workspace/dossier-constants'
 import type { CorrespondenceMessageRecord, CorrespondenceRecord } from '@/lib/db'
+import { formatBytes } from '@/lib/format-bytes'
 import type { Lang } from '@/lib/i18n-context'
 
 import { decisionLabel, statusLabel } from './correspondence-constants'
@@ -19,12 +20,9 @@ import { decisionLabel, statusLabel } from './correspondence-constants'
 const escapeHtml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
-const formatSize = (bytes: number, lang: Lang): string => {
-  const b = Number.isFinite(bytes) && bytes > 0 ? bytes : 0
-  const mb = lang === 'en' ? 'MB' : 'Mo'
-  const kb = lang === 'en' ? 'KB' : 'Ko'
-  return b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} ${mb}` : `${Math.ceil(b / 1024)} ${kb}`
-}
+// Taille d'une pièce — délègue au formatteur unique `lib/format-bytes` ; garde NaN/négatif local.
+const formatSize = (bytes: number, lang: Lang): string =>
+  formatBytes(Number.isFinite(bytes) && bytes > 0 ? bytes : 0, lang)
 
 const dtLocale = (lang: Lang) => (lang === 'en' ? 'en-GB' : 'fr')
 const fmtDateTime = (iso: string, lang: Lang): string => {
