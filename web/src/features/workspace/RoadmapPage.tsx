@@ -2,25 +2,20 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   ArrowLeft,
-  Award,
-  BellRing,
   BookOpen,
   Building2,
   ChevronDown,
   ChevronUp,
-  ClipboardCheck,
   Clock,
   Coins,
   Eye,
   FlaskConical,
   History,
-  Landmark,
   Languages,
   type LucideIcon,
   Package,
   Paperclip,
   Pencil,
-  Receipt,
   Route,
   Send,
 } from 'lucide-react'
@@ -64,18 +59,8 @@ import { deriveStageWaiting } from './lifecycle-waiting'
 import { LifecycleConditionsPanel } from './LifecycleConditionsPanel'
 import { listLifecycleEvents } from './lifecycle-repository'
 import { agencyFor, officialLanguage, regulatoryProfileFor } from './roadmap-data'
+import { STAGE_ICON } from './roadmap-mini-utils'
 import type { ReactNode } from 'react'
-
-/** Icône Tabler du mockup → équivalent lucide, par étape. */
-const STAGE_ICON: Record<LifecycleStageId, LucideIcon> = {
-  montage: Package,
-  revue: Send,
-  decision: ClipboardCheck,
-  depot: Landmark,
-  soumission: Receipt,
-  notifications: BellRing,
-  amm: Award,
-}
 
 const LANG_LABELS: Record<string, Translatable> = {
   fr: { fr: 'Français', en: 'French' },

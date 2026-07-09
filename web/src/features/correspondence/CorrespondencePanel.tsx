@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useState } from 'react'
 import {
   Ban,
   Copy,
@@ -7,7 +6,6 @@ import {
   FolderOpen,
   Gavel,
   History,
-  Loader2,
   Lock,
   MailX,
   Maximize2,
@@ -15,20 +13,11 @@ import {
   MoreVertical,
   Plus,
   Search,
-  Send,
   X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,31 +25,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useCurrentOrg } from '@/features/org/use-current-org'
-import { canManageSubmission } from '@/features/team/team-api'
-import { downloadAttachmentBlob } from '@/features/workspace/dossier-attachments-sync'
 import { activityLabel, countryLabel } from '@/features/workspace/dossier-constants'
-import { db, type CorrespondenceDecision, type CorrespondenceRecord } from '@/lib/db'
-import { useI18n, type Lang, type Translatable } from '@/lib/i18n-context'
-import { reportError } from '@/lib/sentry'
-import { getSupabase } from '@/lib/supabase'
+import { useI18n, type Lang } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
-import './correspondence-chat.css'
-import { autoGrow } from './auto-grow'
+
+import { AccessLog } from './AccessLog'
+import { ConversationPane } from './ConversationPane'
 import { ConversationAvatar } from './correspondence-avatar'
 import { statusLabel } from './correspondence-constants'
-import { printThreadExport } from './correspondence-export'
-import { countUnread, markConversationRead } from './correspondence-reads'
-import {
-  appendSenderMessage,
-  decideCorrespondenceInApp,
-  getShareLink,
-  listByDossier,
-  revokeCorrespondence,
-} from './correspondence-repository'
-import { syncCorrespondences } from './correspondence-sync'
-import { MessageThread, type ThreadAttachment, type ThreadMessage } from './MessageThread'
-import { notifyRecipient } from './share-send'
+import { useDossierConversation } from './use-dossier-conversation'
 
 const SIZE_KEY = 'pharnos.corr.maximized'
 
@@ -70,14 +43,6 @@ const fmtDate = (d: Date, lang: Lang) =>
   new Intl.DateTimeFormat(dtLocale(lang), { dateStyle: 'medium' }).format(d)
 const fmtTime = (d: Date, lang: Lang) =>
   new Intl.DateTimeFormat(dtLocale(lang), { hour: '2-digit', minute: '2-digit' }).format(d)
-const fmtAccess = (d: Date, lang: Lang) =>
-  new Intl.DateTimeFormat(dtLocale(lang), { dateStyle: 'medium', timeStyle: 'short' }).format(d)
-
-const ACCESS_LABELS: Record<string, Translatable> = {
-  open: { fr: 'Ouverture du dossier', en: 'Dossier opened' },
-  decide: { fr: 'Décision rendue', en: 'Decision returned' },
-  reply: { fr: 'Message envoyé', en: 'Message sent' },
-}
 
 const listTime = (iso: string, lang: Lang) => {
   const d = new Date(iso)
@@ -90,91 +55,12 @@ const listTime = (iso: string, lang: Lang) => {
   return sameDay ? fmtTime(d, lang) : fmtDate(d, lang)
 }
 
-interface AccessRow {
-  action: string
-  ip_hash: string
-  user_agent: string | null
-  at: string
-}
-
-/**
- * Journal d'accès du lien (L1) — qui a consulté/agi, quand, depuis où (IP hashée). Lecture
- * seule via RLS org ; écrit exclusivement par l'Edge `share`. Online-only (traçabilité).
- */
-function AccessLog({ correspondenceId }: { correspondenceId: string }) {
-  const { t, lang } = useI18n()
-  const [rows, setRows] = useState<AccessRow[] | 'loading' | 'error'>('loading')
-  useEffect(() => {
-    let cancelled = false
-    // Chargement async (fetch on mount) : setState uniquement post-await — exception légitime.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setRows('loading')
-    void (async () => {
-      const supabase = await getSupabase()
-      if (!supabase) {
-        if (!cancelled) setRows('error')
-        return
-      }
-      const { data, error } = await supabase
-        .from('share_access_log')
-        .select('action, ip_hash, user_agent, at')
-        .eq('correspondence_id', correspondenceId)
-        .order('at', { ascending: false })
-        .limit(50)
-      if (!cancelled) setRows(error ? 'error' : ((data ?? []) as AccessRow[]))
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [correspondenceId])
-
-  if (rows === 'loading') {
-    return (
-      <p className="text-muted-foreground p-2 text-xs">
-        {t({ fr: 'Chargement du journal…', en: 'Loading the log…' })}
-      </p>
-    )
-  }
-  if (rows === 'error') {
-    return (
-      <p className="text-muted-foreground p-2 text-xs">
-        {t({ fr: 'Journal indisponible hors-ligne.', en: 'Log unavailable offline.' })}
-      </p>
-    )
-  }
-  if (rows.length === 0) {
-    return (
-      <p className="text-muted-foreground p-2 text-xs">
-        {t({ fr: 'Aucun accès enregistré.', en: 'No access recorded.' })}
-      </p>
-    )
-  }
-  return (
-    <ul
-      className="max-h-40 space-y-1 overflow-auto p-2"
-      aria-label={t({ fr: 'Journal d’accès', en: 'Access log' })}
-    >
-      {rows.map((r, i) => (
-        <li key={i} className="text-muted-foreground flex items-baseline gap-2 text-xs">
-          <span className="text-foreground shrink-0 font-medium">
-            {ACCESS_LABELS[r.action] ? t(ACCESS_LABELS[r.action]!) : r.action}
-          </span>
-          <span className="shrink-0">{fmtAccess(new Date(r.at), lang)}</span>
-          <span className="truncate">
-            IP {r.ip_hash}
-            {r.user_agent ? ` · ${r.user_agent.split(' ')[0]}` : ''}
-          </span>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
 /**
  * Boîte de correspondance DU DOSSIER (v3 — habillage WhatsApp, mockups CEO) : deux volets
  * (conversations du dossier à gauche : recherche, filtre Toutes/Non lues, aperçus, non-lus ;
  * chat à droite : fond à motifs, bulles, composeur), deux tailles (défaut docké / large
- * maximisé). Le classement inter-dossiers reste sur la home du CTD Workspace.
+ * maximisé). Le classement inter-dossiers vit dans la Boîte de réception (`/correspondance`).
+ * Données + actions : `useDossierConversation` (partagé) ; volet chat : `ConversationPane`.
  * Offline-first : Dexie est l'unique source de l'UI (Realtime/pull alimentent Dexie).
  */
 export function CorrespondencePanel({
@@ -192,178 +78,36 @@ export function CorrespondencePanel({
   onEdit?: () => void
 }) {
   const { t, lang } = useI18n()
-  // Gestion des soumissions (répondre au correspondant) réservée à Admin + agence/expert (RLS 0028).
-  // On gate par l'org EXACTE du panneau ; la RLS reste la vraie barrière (évite un 42501 visible).
-  const { memberships } = useCurrentOrg()
-  const canSubmit = canManageSubmission(memberships.find((m) => m.orgId === orgId)?.role)
-  const correspondences = useLiveQuery(() => listByDossier(dossierId), [dossierId])
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const selected: CorrespondenceRecord | undefined = useMemo(() => {
-    const list = correspondences ?? []
-    return list.find((c) => c.id === selectedId) ?? list[0]
-  }, [correspondences, selectedId])
+  const conv = useDossierConversation(orgId, dossierId, senderEmail)
+  const {
+    canSubmit,
+    conversations,
+    productName,
+    selected,
+    setSelectedId,
+    byConversation,
+    recipients,
+    groupUnread,
+    unreadConversations,
+    shareLink,
+    copied,
+    handleCopy,
+    handleRevoke,
+    handleExport,
+    showAccess,
+    setShowAccess,
+    openDecision,
+    waitingDays,
+  } = conv
 
-  // Tous les messages du dossier en une requête : fil de la conversation ouverte + extraits
-  // et compteurs non-lus de la liste (volumes pilotes faibles, agrégation en mémoire).
-  const allMessages = useLiveQuery(async () => {
-    const ids = (correspondences ?? []).map((c) => c.id)
-    if (ids.length === 0) return []
-    return db.correspondenceMessages.where('correspondenceId').anyOf(ids).sortBy('createdAt')
-  }, [correspondences])
-  const reads = useLiveQuery(() => db.correspondenceReads.toArray(), [])
-
-  const byConversation = useMemo(() => {
-    const map = new Map<string, NonNullable<typeof allMessages>>()
-    for (const m of allMessages ?? []) {
-      const list = map.get(m.correspondenceId)
-      if (list) list.push(m)
-      else map.set(m.correspondenceId, [m])
-    }
-    return map
-  }, [allMessages])
-  const lastSeen = useMemo(() => new Map((reads ?? []).map((r) => [r.id, r.lastSeenAt])), [reads])
-
-  const messages = selected ? (byConversation.get(selected.id) ?? []) : []
-  const shareLink = useLiveQuery(
-    () => (selected ? getShareLink(selected.id) : Promise.resolve(undefined)),
-    [selected?.id],
-  )
-
-  const [reply, setReply] = useState('')
-  const [sending, setSending] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const [showAccess, setShowAccess] = useState(false)
-  // Décision in-app (M4-T3) : choix + note du gestionnaire, modale de confirmation.
-  const [decisionOpen, setDecisionOpen] = useState(false)
-  const [decisionChoice, setDecisionChoice] = useState<CorrespondenceDecision | null>(null)
-  const [decisionNote, setDecisionNote] = useState('')
-  const [deciding, setDeciding] = useState(false)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
   const [maximized, setMaximized] = useState(() => localStorage.getItem(SIZE_KEY) === '1')
-  const boxRef = useRef<HTMLDivElement>(null)
-  const composerRef = useRef<HTMLTextAreaElement>(null)
   function toggleSize() {
     setMaximized((m) => {
       localStorage.setItem(SIZE_KEY, m ? '0' : '1')
       return !m
     })
-  }
-
-  // Conversation affichée = lue (marqueur local). Re-marquée à chaque nouveau message reçu.
-  const lastMessageAt = messages.at(-1)?.createdAt
-  useEffect(() => {
-    if (selected) void markConversationRead(selected.id)
-  }, [selected?.id, lastMessageAt, selected])
-
-  // Auto-scroll en bas du fil (WhatsApp) à l'ouverture et à chaque nouveau message.
-  const threadRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const el = threadRef.current
-    if (el) el.scrollTop = el.scrollHeight
-  }, [selected?.id, messages.length])
-
-  // Composeur auto-extensible : hauteur max = moitié de la boîte (recalcul si taille change).
-  useEffect(() => {
-    autoGrow(composerRef.current, (boxRef.current?.clientHeight ?? 480) / 2)
-  }, [reply, maximized, selected?.id])
-
-  const threadMessages: ThreadMessage[] = messages.map((m) => ({
-    id: m.id,
-    author: m.author,
-    authorLabel: m.authorLabel,
-    kind: m.kind,
-    decision: m.decision,
-    body: m.body,
-    createdAt: m.createdAt,
-    attachments: m.attachments.map((a) => ({ ...a, url: null })),
-  }))
-
-  async function handleReply() {
-    if (!selected || !reply.trim()) return
-    setSending(true)
-    try {
-      await appendSenderMessage(selected, senderEmail, reply)
-      setReply('')
-      if (navigator.onLine) {
-        const link = shareLink
-        void syncCorrespondences(orgId).then(() => {
-          // Le reviewer est prévenu par e-mail (best-effort) — même lien, fil complet retrouvé.
-          // Pas de garde revoked côté client : l'Edge `notify` re-vérifie révocation/expiration
-          // (état FRAIS) et répond 410 — c'est lui qui fait autorité.
-          if (link) void notifyRecipient(selected.id, link.url)
-        })
-      } else {
-        toast.info(
-          t({
-            fr: 'Hors-ligne : la réponse partira à la reconnexion.',
-            en: 'Offline: your reply will be sent when you reconnect.',
-          }),
-        )
-      }
-    } finally {
-      setSending(false)
-    }
-  }
-
-  async function handleCopy() {
-    if (!shareLink) return
-    try {
-      await navigator.clipboard.writeText(shareLink.url)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      toast.error(
-        t({
-          fr: 'Copie impossible — sélectionnez le lien manuellement.',
-          en: 'Copy failed — select the link manually.',
-        }),
-      )
-    }
-  }
-
-  async function handleRevoke() {
-    if (!selected) return
-    await revokeCorrespondence(selected.id)
-    void syncCorrespondences(orgId)
-    toast.success(
-      t({
-        fr: 'Lien révoqué — le correspondant n’y a plus accès.',
-        en: 'Link revoked — the correspondent no longer has access.',
-      }),
-    )
-  }
-
-  // Décision in-app (gestionnaire) : miroir offline-first du chemin tokenisé — le fil reçoit la
-  // pastille décision, le statut dérivé du dossier suit, la sync pousse à la reconnexion.
-  async function handleDecide() {
-    if (!selected || !decisionChoice || deciding) return
-    setDeciding(true)
-    try {
-      await decideCorrespondenceInApp(selected.id, senderEmail, decisionChoice, decisionNote)
-      void syncCorrespondences(orgId)
-      toast.success(t({ fr: 'Décision enregistrée.', en: 'Decision recorded.' }))
-      setDecisionOpen(false)
-      setDecisionChoice(null)
-      setDecisionNote('')
-    } catch (error) {
-      reportError(error, { op: 'decideCorrespondenceInApp' })
-      toast.error(
-        t({
-          fr: 'Échec de l’enregistrement de la décision.',
-          en: 'Failed to record the decision.',
-        }),
-      )
-    } finally {
-      setDeciding(false)
-    }
-  }
-
-  // Export d'audit du fil (v3) : iframe srcdoc cachée + print() (CSP-safe, aucun pop-up à
-  // autoriser — revue LOT 10), données déjà en mémoire (Dexie). Lecture seule → tout membre.
-  function handleExport() {
-    if (!selected) return
-    printThreadExport({ correspondence: selected, messages, lang, exportedBy: senderEmail })
   }
 
   function handleNew() {
@@ -378,65 +122,11 @@ export function CorrespondencePanel({
       )
   }
 
-  async function handleDownloadAttachment(a: ThreadAttachment) {
-    if (!a.path) return
-    const blob = await downloadAttachmentBlob(a.path)
-    if (!blob) {
-      toast.error(
-        t({ fr: 'Pièce indisponible (hors-ligne ?).', en: 'Attachment unavailable (offline?).' }),
-      )
-      return
-    }
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = a.name
-    link.click()
-    setTimeout(() => URL.revokeObjectURL(url), 30_000)
-  }
-
-  const conversations = correspondences ?? []
-  const productName = conversations[0]?.productName
-  // Délai d'attente de la conversation (v3) : jours depuis la DERNIÈRE activité du fil quand la
-  // revue est en cours — même sémantique que le badge M5 de la Roadmap (ton warning ≥ 7 j) : le
-  // compteur repart sur TOUTE dernière activité, y compris un message du labo (une relance/nudge
-  // réinitialise l'attente — décision produit M5, « Relancé il y a N j »). Horloge lue au rendu
-  // comme la Roadmap (`deriveStageWaiting(…, new Date())`) — la précision « jour » se recale à
-  // chaque re-rendu, aucun tic en direct nécessaire.
-  const waitingDays =
-    selected && selected.status === 'in_review' && selected.revokedAt === null
-      ? Math.max(
-          0,
-          Math.floor(
-            (new Date().getTime() - Date.parse(messages.at(-1)?.createdAt ?? selected.createdAt)) /
-              86_400_000,
-          ),
-        )
-      : null
-  // Une icône par DESTINATAIRE (brief CEO) : on GROUPE par e-mail (liste déjà triée par createdAt
-  // décroissant) → le représentant de la ligne = le cycle le plus récent. Les cycles antérieurs
-  // (« renvoi après rejet » = nouvelle correspondance même agence) restent JOIGNABLES via le
-  // sélecteur de cycle de la conversation — jamais perdus (audit réglementaire).
-  const recipientGroups = new Map<string, CorrespondenceRecord[]>()
-  for (const c of conversations) {
-    const arr = recipientGroups.get(c.recipientEmail)
-    if (arr) arr.push(c)
-    else recipientGroups.set(c.recipientEmail, [c])
-  }
-  const recipients = [...recipientGroups.values()].map((g) => g[0]!)
-  const groupUnread = (email: string) =>
-    (recipientGroups.get(email) ?? []).reduce(
-      (n, c) => n + countUnread(byConversation.get(c.id) ?? [], lastSeen.get(c.id)),
-      0,
-    )
   const visibleRecipients = recipients.filter((c) => {
     if (filter === 'unread' && groupUnread(c.recipientEmail) === 0) return false
     const q = search.trim().toLowerCase()
     return !q || c.recipientEmail.toLowerCase().includes(q)
   })
-  const unreadConversations = recipients.filter((c) => groupUnread(c.recipientEmail) > 0).length
-  // Cycles du destinataire sélectionné (≥ 2 → sélecteur de cycle dans la conversation).
-  const selectedGroup = selected ? (recipientGroups.get(selected.recipientEmail) ?? [selected]) : []
 
   return (
     <div
@@ -449,7 +139,6 @@ export function CorrespondencePanel({
       aria-label={t({ fr: 'Correspondance du dossier', en: 'Dossier correspondence' })}
     >
       <div
-        ref={boxRef}
         className={cn(
           'bg-card flex flex-col shadow-xl',
           maximized ? 'h-[96vh] w-[98vw] rounded-lg border' : 'h-full w-full max-w-4xl border-l',
@@ -552,15 +241,7 @@ export function CorrespondencePanel({
                     </Button>
                   ) : null}
                   {canSubmit && selected.status === 'in_review' ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setDecisionChoice(null)
-                        setDecisionNote('')
-                        setDecisionOpen(true)
-                      }}
-                    >
+                    <Button variant="outline" size="sm" onClick={openDecision}>
                       <Gavel className="size-3.5" />{' '}
                       {t({ fr: 'Rendre la décision', en: 'Record the decision' })}
                     </Button>
@@ -615,7 +296,7 @@ export function CorrespondencePanel({
                     className={cn(
                       'cursor-pointer rounded-full border px-2.5 py-0.5 text-xs font-medium',
                       filter === 'all'
-                        ? 'border-transparent bg-emerald-600 text-white'
+                        ? 'bg-foreground text-background border-transparent'
                         : 'hover:bg-muted',
                     )}
                   >
@@ -628,7 +309,7 @@ export function CorrespondencePanel({
                     className={cn(
                       'cursor-pointer rounded-full border px-2.5 py-0.5 text-xs font-medium',
                       filter === 'unread'
-                        ? 'border-transparent bg-emerald-600 text-white'
+                        ? 'bg-foreground text-background border-transparent'
                         : 'hover:bg-muted',
                     )}
                   >
@@ -651,7 +332,7 @@ export function CorrespondencePanel({
                     const msgs = byConversation.get(c.id) ?? []
                     const last = msgs.at(-1)
                     const unread = groupUnread(c.recipientEmail)
-                    const cycles = recipientGroups.get(c.recipientEmail)?.length ?? 1
+                    const cycles = conv.cyclesOf(c.recipientEmail)
                     // Active si la conversation ouverte appartient à CE destinataire (un cycle
                     // antérieur sélectionné garde sa ligne en surbrillance).
                     const active = selected.recipientEmail === c.recipientEmail
@@ -720,266 +401,92 @@ export function CorrespondencePanel({
               </ul>
             </aside>
 
-            {/* VOLET DROIT — conversation (en-tête + fil doodle + composeur) */}
-            <section className="flex min-w-0 flex-1 flex-col">
-              <div className="bg-card flex shrink-0 items-center gap-2.5 border-b p-2.5">
-                <ConversationAvatar email={selected.recipientEmail} />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-semibold">{selected.recipientEmail}</div>
-                  <div className="text-muted-foreground flex items-center gap-1 text-xs">
-                    {statusLabel(selected.status, lang)}
-                    {waitingDays !== null && waitingDays >= 1 ? (
-                      <span className={cn(waitingDays >= 7 && 'text-warning font-medium')}>
-                        {' · '}
-                        {t({
-                          fr: `en attente depuis ${waitingDays} j`,
-                          en: `waiting for ${waitingDays} d`,
-                        })}
-                      </span>
-                    ) : null}
-                    {selected.passwordHash ? (
-                      <>
-                        {' · '}
-                        <Lock className="inline size-3" /> {t({ fr: 'protégé', en: 'protected' })}
-                      </>
-                    ) : null}
-                    {selected.revokedAt !== null
-                      ? ` · ${t({ fr: 'lien révoqué', en: 'link revoked' })}`
-                      : ''}
+            {/* VOLET DROIT — conversation (en-tête destinataire + rail + fil + composeur) */}
+            <ConversationPane
+              conv={conv}
+              onEdit={onEdit}
+              recipientChips="below-md"
+              header={
+                <div className="bg-card flex shrink-0 items-center gap-2.5 border-b p-2.5">
+                  <ConversationAvatar email={selected.recipientEmail} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold">{selected.recipientEmail}</div>
+                    <div className="text-muted-foreground flex items-center gap-1 text-xs">
+                      {statusLabel(selected.status, lang)}
+                      {waitingDays !== null && waitingDays >= 1 ? (
+                        <span className={cn(waitingDays >= 7 && 'text-warning font-medium')}>
+                          {' · '}
+                          {t({
+                            fr: `en attente depuis ${waitingDays} j`,
+                            en: `waiting for ${waitingDays} d`,
+                          })}
+                        </span>
+                      ) : null}
+                      {selected.passwordHash ? (
+                        <>
+                          {' · '}
+                          <Lock className="inline size-3" /> {t({ fr: 'protégé', en: 'protected' })}
+                        </>
+                      ) : null}
+                      {selected.revokedAt !== null
+                        ? ` · ${t({ fr: 'lien révoqué', en: 'link revoked' })}`
+                        : ''}
+                    </div>
                   </div>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={t({
-                        fr: 'Actions de la conversation',
-                        en: 'Conversation actions',
-                      })}
-                    >
-                      <MoreVertical className="size-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {shareLink && selected.revokedAt === null ? (
-                      <DropdownMenuItem onClick={() => void handleCopy()}>
-                        <Copy className="size-4" />{' '}
-                        {t({ fr: 'Copier le lien', en: 'Copy the link' })}
-                      </DropdownMenuItem>
-                    ) : null}
-                    <DropdownMenuItem onClick={() => setShowAccess((s) => !s)}>
-                      <History className="size-4" />{' '}
-                      {t({ fr: 'Journal d’accès', en: 'Access log' })}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleExport}>
-                      <FileDown className="size-4" />{' '}
-                      {t({ fr: 'Exporter le fil (PDF)', en: 'Export the thread (PDF)' })}
-                    </DropdownMenuItem>
-                    {onEdit ? (
-                      <DropdownMenuItem onClick={onEdit}>
-                        <FolderOpen className="size-4" />{' '}
-                        {t({ fr: 'Modifier le dossier', en: 'Edit the dossier' })}
-                      </DropdownMenuItem>
-                    ) : null}
-                    {selected.revokedAt === null && canSubmit ? (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem variant="destructive" onClick={() => void handleRevoke()}>
-                          <Ban className="size-4" />{' '}
-                          {t({ fr: 'Révoquer le lien', en: 'Revoke the link' })}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={t({
+                          fr: 'Actions de la conversation',
+                          en: 'Conversation actions',
+                        })}
+                      >
+                        <MoreVertical className="size-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {shareLink && selected.revokedAt === null ? (
+                        <DropdownMenuItem onClick={() => void handleCopy()}>
+                          <Copy className="size-4" />{' '}
+                          {t({ fr: 'Copier le lien', en: 'Copy the link' })}
                         </DropdownMenuItem>
-                      </>
-                    ) : null}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              {/* Sélecteur de CYCLE — plusieurs envois à la MÊME agence (renvoi après rejet) :
-                  une icône par destinataire dans la liste, mais chaque cycle reste joignable ici. */}
-              {selectedGroup.length > 1 ? (
-                <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b px-3 py-2">
-                  <span className="text-muted-foreground mr-1 text-[11px] font-medium">
-                    {t({ fr: 'Envois :', en: 'Sends:' })}
-                  </span>
-                  {selectedGroup.map((c, i) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      aria-pressed={c.id === selected.id}
-                      onClick={() => setSelectedId(c.id)}
-                      className={cn(
-                        'cursor-pointer rounded-full border px-2.5 py-0.5 text-[11px]',
-                        c.id === selected.id
-                          ? 'bg-primary text-primary-foreground border-transparent'
-                          : 'hover:bg-muted',
-                      )}
-                    >
-                      {fmtDate(new Date(c.createdAt), lang)} · {statusLabel(c.status, lang)}
-                      {i === 0 ? ` ${t({ fr: '(actuel)', en: '(current)' })}` : ''}
-                    </button>
-                  ))}
+                      ) : null}
+                      <DropdownMenuItem onClick={() => setShowAccess((s) => !s)}>
+                        <History className="size-4" />{' '}
+                        {t({ fr: 'Journal d’accès', en: 'Access log' })}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleExport}>
+                        <FileDown className="size-4" />{' '}
+                        {t({ fr: 'Exporter le fil (PDF)', en: 'Export the thread (PDF)' })}
+                      </DropdownMenuItem>
+                      {onEdit ? (
+                        <DropdownMenuItem onClick={onEdit}>
+                          <FolderOpen className="size-4" />{' '}
+                          {t({ fr: 'Modifier le dossier', en: 'Edit the dossier' })}
+                        </DropdownMenuItem>
+                      ) : null}
+                      {selected.revokedAt === null && canSubmit ? (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={() => void handleRevoke()}
+                          >
+                            <Ban className="size-4" />{' '}
+                            {t({ fr: 'Révoquer le lien', en: 'Revoke the link' })}
+                          </DropdownMenuItem>
+                        </>
+                      ) : null}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-              ) : null}
-
-              {/* Journal d'accès en mobile (le volet gauche qui l'héberge est masqué < md) */}
-              {showAccess ? (
-                <div className="bg-muted/40 border-b md:hidden">
-                  <AccessLog correspondenceId={selected.id} />
-                </div>
-              ) : null}
-
-              {/* Sélecteur de conversation en mobile (le volet liste est masqué < md) */}
-              {recipients.length > 1 ? (
-                <div className="flex flex-wrap gap-1.5 border-b p-2 md:hidden">
-                  {recipients.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      aria-pressed={c.id === selected.id}
-                      onClick={() => setSelectedId(c.id)}
-                      className={cn(
-                        'cursor-pointer rounded-full border px-2.5 py-0.5 text-xs',
-                        c.id === selected.id
-                          ? 'bg-primary text-primary-foreground border-transparent'
-                          : 'hover:bg-muted',
-                      )}
-                    >
-                      {c.recipientEmail}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-
-              <div ref={threadRef} className="wa-pane flex-1 overflow-auto p-3 sm:px-6">
-                <MessageThread
-                  messages={threadMessages}
-                  viewpoint="sender"
-                  onDownloadAttachment={(a) => void handleDownloadAttachment(a)}
-                />
-              </div>
-
-              {canSubmit ? (
-                <div className="bg-card flex items-end gap-2 border-t p-2.5">
-                  <textarea
-                    ref={composerRef}
-                    rows={1}
-                    className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 min-h-10 flex-1 resize-none rounded-2xl border bg-transparent px-4 py-2.5 text-sm outline-none focus-visible:ring-[3px]"
-                    placeholder={t({ fr: 'Écrivez un message…', en: 'Write a message…' })}
-                    value={reply}
-                    onChange={(e) => setReply(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault()
-                        void handleReply()
-                      }
-                    }}
-                  />
-                  <Button
-                    size="icon"
-                    className="size-10 shrink-0 rounded-full"
-                    disabled={sending || !reply.trim()}
-                    aria-label={t({ fr: 'Envoyer la réponse', en: 'Send the reply' })}
-                    onClick={() => void handleReply()}
-                  >
-                    {sending ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <Send className="size-4" />
-                    )}
-                  </Button>
-                </div>
-              ) : (
-                <div className="bg-card text-muted-foreground flex items-center gap-2 border-t p-3 text-xs">
-                  <Lock className="size-3.5 shrink-0" />
-                  <span>
-                    {t({
-                      fr: 'Lecture seule — seuls les gestionnaires de soumission (Admin, Agence, Expert RA) peuvent répondre.',
-                      en: 'Read-only — only submission managers (Admin, Agency, RA Expert) can reply.',
-                    })}
-                  </span>
-                </div>
-              )}
-            </section>
+              }
+            />
           </div>
         ) : null}
       </div>
-
-      {/* Décision in-app (M4-T3) : Accepter / Demander un complément / Rejeter + note optionnelle. */}
-      <Dialog open={decisionOpen} onOpenChange={(o) => !o && !deciding && setDecisionOpen(false)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t({ fr: 'Rendre la décision', en: 'Record the decision' })}</DialogTitle>
-            <DialogDescription>
-              {t({
-                fr: 'La décision est ajoutée au fil (traçable) et le statut du dossier suit. Pour la réviser ensuite : « Renvoyer en revue ».',
-                en: 'The decision is added to the thread (traceable) and the dossier status follows. To revise it later: “Send back for review”.',
-              })}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4">
-            {/* Boutons-bascule (aria-pressed) plutôt qu'un faux radiogroup : la navigation
-                clavier native (Tab) reste correcte sans roving tabindex. */}
-            <div
-              className="flex flex-wrap gap-2"
-              role="group"
-              aria-label={t({ fr: 'Décision', en: 'Decision' })}
-            >
-              {(
-                [
-                  { value: 'accepted', label: { fr: 'Accepter', en: 'Accept' } },
-                  {
-                    value: 'suspended',
-                    label: { fr: 'Demander un complément', en: 'Request additional info' },
-                  },
-                  { value: 'rejected', label: { fr: 'Rejeter', en: 'Reject' } },
-                ] as const
-              ).map((o) => (
-                <Button
-                  key={o.value}
-                  aria-pressed={decisionChoice === o.value}
-                  variant={
-                    decisionChoice === o.value
-                      ? o.value === 'rejected'
-                        ? 'destructive'
-                        : 'primary'
-                      : 'outline'
-                  }
-                  size="sm"
-                  onClick={() => setDecisionChoice(o.value)}
-                >
-                  {t(o.label)}
-                </Button>
-              ))}
-            </div>
-            <textarea
-              value={decisionNote}
-              onChange={(e) => setDecisionNote(e.target.value)}
-              maxLength={2000}
-              rows={3}
-              placeholder={t({
-                fr: 'Note (facultatif) — ex. pièces attendues pour le complément…',
-                en: 'Note (optional) — e.g. documents expected for the request…',
-              })}
-              aria-label={t({ fr: 'Note de décision', en: 'Decision note' })}
-              className="border-input focus-visible:border-ring focus-visible:ring-ring/50 w-full resize-none rounded-md border bg-transparent p-2.5 text-sm outline-none focus-visible:ring-[3px]"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDecisionOpen(false)} disabled={deciding}>
-              {t({ fr: 'Annuler', en: 'Cancel' })}
-            </Button>
-            <Button
-              variant="primary"
-              onClick={() => void handleDecide()}
-              disabled={deciding || !decisionChoice}
-            >
-              {deciding ? <Loader2 className="size-4 animate-spin" /> : null}
-              {t({ fr: 'Confirmer', en: 'Confirm' })}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

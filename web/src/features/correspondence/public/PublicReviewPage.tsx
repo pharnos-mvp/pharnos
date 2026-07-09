@@ -33,6 +33,7 @@ import { ConversationAvatar } from '@/features/correspondence/correspondence-ava
 import { MessageThread } from '@/features/correspondence/MessageThread'
 import '@/features/correspondence/correspondence-chat.css'
 import { activityLabel, countryLabel } from '@/features/workspace/dossier-constants'
+import { formatBytes } from '@/lib/format-bytes'
 import { useI18n, type Lang } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import { PublicParcoursTab } from './PublicParcoursTab'
@@ -85,12 +86,9 @@ const DECISION_PILL: Record<Decision, string> = {
     'border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950',
 }
 
-const formatSize = (bytes: number, lang: Lang) => {
-  const b = Number.isFinite(bytes) && bytes > 0 ? bytes : 0
-  const mb = lang === 'en' ? 'MB' : 'Mo'
-  const kb = lang === 'en' ? 'KB' : 'Ko'
-  return b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} ${mb}` : `${Math.ceil(b / 1024)} ${kb}`
-}
+// Taille d'une pièce — délègue au formatteur unique `lib/format-bytes` ; garde NaN/négatif local.
+const formatSize = (bytes: number, lang: Lang) =>
+  formatBytes(Number.isFinite(bytes) && bytes > 0 ? bytes : 0, lang)
 
 const dtLocale = (lang: Lang) => (lang === 'en' ? 'en-GB' : 'fr')
 
