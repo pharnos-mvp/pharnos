@@ -88,6 +88,14 @@ clavier, persisté ; drag = mutation impérative du template, commit unique en f
 ③ **rail repliable verticalement** (résumé une ligne, préférence mémorisée, déplié par défaut) ;
 ④ **bug composeur invisible corrigé** (`min-h-0` manquant sur la cellule grid — fil long =
 composeur clippé) + placeholder « Écrire à {agence}… ». Revue CTO : SHIP, Minors corrigés
-(commit fin de geste, focus clavier, aria du résumé). **Seul écart mockup restant (assumé)** :
-bouton trombone du composeur (joindre une pièce) — `appendSenderMessage` ne porte pas de PJ
-côté backend → petit lot dédié si GO CEO (upload Storage + attachments message + notify).
+(commit fin de geste, focus clavier, aria du résumé).
+
+**Trombone (PJ du composeur labo) — PR #314 (GO CEO, livré prod 2026-07-10) : mockup C soldé à
+100 %.** Plafonds miroir Edge (3 × 4 Mo, PDF/PNG/JPG/WEBP/DOCX), upload direct
+`{orgId}/shares/{corrId}/sender/{uuid}-{nom}` (RLS 0048 par préfixe — zéro migration), message
+PJ-seule valide, chips + purge au changement de fil, garde anti double-envoi. Revue CTO
+FIX-FIRST → 3 Majors corrigés avant merge : ① supabase-js IGNORE `contentType` avec un `File`
+(multipart) → Blob re-typé `contentTypeFor` (mime vide Windows sinon rejeté par l'allowlist du
+bucket — reproduit en recette) ; ② garde `sending` (Entrée contournait le bouton) ; ③ **l'Edge
+`share` ne signe plus que les chemins `{org}/shares/{corr}/`** (les `attachments` sender sont
+désormais client-authored — Edge redéployée prod + smoke avant merge).
