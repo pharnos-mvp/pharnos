@@ -154,14 +154,19 @@ export async function createCorrespondence(
   return record
 }
 
-/** Réponse du labo dans le fil (offline-first : Dexie + outbox, poussée à la reconnexion). */
+/**
+ * Réponse du labo dans le fil (offline-first : Dexie + outbox, poussée à la reconnexion).
+ * `attachments` : références DÉJÀ téléversées (`uploadSenderAttachments` — online par nature) ;
+ * le message lui-même reste offline-first. PJ-seule valide (règle miroir de l'Edge `reply`).
+ */
 export async function appendSenderMessage(
   correspondence: CorrespondenceRecord,
   authorLabel: string,
   body: string,
+  attachments: CorrespondenceMessageRecord['attachments'] = [],
 ): Promise<CorrespondenceMessageRecord | null> {
   const text = body.trim()
-  if (!text) return null
+  if (!text && attachments.length === 0) return null
   const message: CorrespondenceMessageRecord = {
     id: newId(),
     orgId: correspondence.orgId,
@@ -171,7 +176,7 @@ export async function appendSenderMessage(
     kind: 'comment',
     decision: null,
     body: text,
-    attachments: [],
+    attachments,
     createdAt: now(),
   }
   await db.transaction('rw', db.correspondenceMessages, db.outbox, async () => {

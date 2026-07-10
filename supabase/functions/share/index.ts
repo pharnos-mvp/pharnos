@@ -521,8 +521,14 @@ async function buildOpenPayload(supabase: SupabaseClient, corr: CorrespondenceRo
   if (pdfErr || !pdfSigned?.signedUrl) throw pdfErr ?? new Error('PDF signé indisponible')
 
   const messages = (msgs ?? []) as unknown as MessageRow[]
-  // URLs signées des pièces jointes, en un seul appel Storage.
-  const paths = messages.flatMap((m) => (m.attachments ?? []).map((a) => a.path)).filter(Boolean)
+  // URLs signées des pièces jointes, en un seul appel Storage. GARDE (revue CTO) : ne signer QUE
+  // les chemins du dossier de CETTE correspondance (`sender/` + `recipient/`) — depuis que le
+  // labo écrit `attachments` côté client (trombone), un path hors périmètre inséré par un client
+  // trafiqué ne doit JAMAIS recevoir d'URL signée service-role (le signeur ignore la RLS).
+  const pathPrefix = `${corr.org_id}/shares/${corr.id}/`
+  const paths = messages
+    .flatMap((m) => (m.attachments ?? []).map((a) => a.path))
+    .filter((p): p is string => typeof p === 'string' && p.startsWith(pathPrefix))
   const urlByPath = new Map<string, string>()
   if (paths.length > 0) {
     const { data: signed } = await supabase
