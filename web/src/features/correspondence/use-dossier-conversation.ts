@@ -17,6 +17,11 @@ import {
 import { useI18n, type Lang } from '@/lib/i18n-context'
 import { reportError } from '@/lib/sentry'
 
+import {
+  uploadSenderAttachments,
+  validateAttachmentFiles,
+  type MessageAttachment,
+} from './correspondence-attachments'
 import { printThreadExport } from './correspondence-export'
 import { countUnread, markConversationRead } from './correspondence-reads'
 import {
@@ -108,12 +113,36 @@ export function useDossierConversation(orgId: string, dossierId: string, senderE
   const [decisionChoice, setDecisionChoice] = useState<CorrespondenceDecision | null>(null)
   const [decisionNote, setDecisionNote] = useState('')
   const [deciding, setDeciding] = useState(false)
+  // Pièces jointes EN ATTENTE du composeur (trombone, mockup C) — téléversées à l'ENVOI
+  // seulement (uploadSenderAttachments, online par nature) ; purgées au changement de fil.
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
 
   // Conversation affichée = lue (marqueur local). Re-marquée à chaque nouveau message reçu.
   const lastMessageAt = messages.at(-1)?.createdAt
   useEffect(() => {
     if (selected) void markConversationRead(selected.id)
   }, [selected?.id, lastMessageAt, selected])
+
+  // Changer de conversation abandonne la sélection de pièces (jamais de PJ envoyées au
+  // mauvais fil) — le brouillon TEXTE, lui, suit le comportement historique du panneau.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- purge pilotée par la sélection
+    setPendingFiles([])
+  }, [selected?.id])
+
+  function addPendingFiles(files: File[]) {
+    if (files.length === 0) return
+    const verdict = validateAttachmentFiles(files, pendingFiles.length)
+    if (!verdict.ok) {
+      toast.error(verdict.error)
+      return
+    }
+    setPendingFiles((prev) => [...prev, ...files])
+  }
+
+  function removePendingFile(index: number) {
+    setPendingFiles((prev) => prev.filter((_, i) => i !== index))
+  }
 
   const threadMessages: ThreadMessage[] = messages.map((m) => ({
     id: m.id,
@@ -127,11 +156,34 @@ export function useDossierConversation(orgId: string, dossierId: string, senderE
   }))
 
   async function handleReply() {
-    if (!selected || !reply.trim()) return
+    // Garde anti double-envoi : Entrée dans le textarea contourne le bouton désactivé — sans
+    // elle, un 2ᵉ Entrée pendant l'upload dupliquerait pièces ET message (revue CTO).
+    if (sending) return
+    if (!selected || (!reply.trim() && pendingFiles.length === 0)) return
     setSending(true)
     try {
-      await appendSenderMessage(selected, senderEmail, reply)
+      // Les pièces d'abord (online par nature — un échec N'ENVOIE PAS le message : rien de
+      // partiel dans le fil, les fichiers restent en attente pour réessayer).
+      let attachments: MessageAttachment[] = []
+      if (pendingFiles.length > 0) {
+        try {
+          attachments = await uploadSenderAttachments(orgId, selected.id, pendingFiles)
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : String(error))
+          return
+        }
+      }
+      try {
+        await appendSenderMessage(selected, senderEmail, reply, attachments)
+      } catch (error) {
+        // Écriture locale échouée APRÈS l'upload : les fichiers restent en attente (un nouvel
+        // essai re-téléverse — orphelins Storage possibles, même compromis que l'Edge).
+        reportError(error, { op: 'appendSenderMessage' })
+        toast.error(t({ fr: 'Échec de l’envoi du message.', en: 'Failed to send the message.' }))
+        return
+      }
       setReply('')
+      setPendingFiles([])
       if (navigator.onLine) {
         const link = shareLink
         void syncCorrespondences(orgId).then(() => {
@@ -300,6 +352,9 @@ export function useDossierConversation(orgId: string, dossierId: string, senderE
     setReply,
     sending,
     handleReply,
+    pendingFiles,
+    addPendingFiles,
+    removePendingFile,
     copied,
     handleCopy,
     handleRevoke,

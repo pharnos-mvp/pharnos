@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react'
-import { AlertTriangle, Loader2, Lock, RotateCw, Send } from 'lucide-react'
+import { AlertTriangle, Loader2, Lock, Paperclip, RotateCw, Send, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -11,12 +11,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { RoadmapMini } from '@/features/workspace/RoadmapMini'
+import { useOnlineStatus } from '@/hooks/use-online-status'
+import { formatBytes } from '@/lib/format-bytes'
 import { useI18n, type Lang } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import './correspondence-chat.css'
 
 import { AccessLog } from './AccessLog'
 import { autoGrow } from './auto-grow'
+import { ATTACH_ACCEPT, ATTACH_MAX_COUNT } from './correspondence-attachments'
 import { statusLabel } from './correspondence-constants'
 import { MessageThread } from './MessageThread'
 import type { UseDossierConversation } from './use-dossier-conversation'
@@ -51,6 +54,7 @@ export function ConversationPane({
   className?: string
 }) {
   const { t, lang } = useI18n()
+  const online = useOnlineStatus()
   const {
     selected,
     selectedGroup,
@@ -66,11 +70,15 @@ export function ConversationPane({
     setReply,
     sending,
     handleReply,
+    pendingFiles,
+    addPendingFiles,
+    removePendingFile,
     handleDownloadAttachment,
   } = conv
 
   const paneRef = useRef<HTMLElement>(null)
   const composerRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Auto-scroll en bas du fil (WhatsApp) à l'ouverture et à chaque nouveau message.
   const threadRef = useRef<HTMLDivElement>(null)
@@ -186,32 +194,96 @@ export function ConversationPane({
       </div>
 
       {canSubmit ? (
-        <div className="bg-card flex items-end gap-2 border-t p-2.5">
-          <textarea
-            ref={composerRef}
-            rows={1}
-            className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 min-h-10 flex-1 resize-none rounded-2xl border bg-transparent px-4 py-2.5 text-sm outline-none focus-visible:ring-[3px]"
-            placeholder={
-              composerPlaceholder ?? t({ fr: 'Écrivez un message…', en: 'Write a message…' })
-            }
-            value={reply}
-            onChange={(e) => setReply(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                void handleReply()
+        <div className="bg-card shrink-0 border-t">
+          {/* Pièces EN ATTENTE (trombone) : chips nom + taille + retirer — parties à l'ENVOI. */}
+          {pendingFiles.length > 0 ? (
+            <ul
+              className="flex flex-wrap gap-1.5 px-3 pt-2"
+              aria-label={t({ fr: 'Pièces à joindre', en: 'Files to attach' })}
+            >
+              {pendingFiles.map((f, i) => (
+                <li
+                  key={`${f.name}-${i}`}
+                  className="bg-muted flex max-w-64 items-center gap-1.5 rounded-full border py-0.5 pr-1 pl-2.5 text-xs"
+                >
+                  <Paperclip className="text-info size-3 shrink-0" />
+                  <span className="min-w-0 truncate font-medium">{f.name}</span>
+                  <span className="text-muted-foreground shrink-0 text-[10px]">
+                    {formatBytes(f.size, lang)}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={t({ fr: `Retirer ${f.name}`, en: `Remove ${f.name}` })}
+                    onClick={() => removePendingFile(i)}
+                    disabled={sending}
+                    className="hover:bg-accent text-muted-foreground hover:text-foreground grid size-4.5 shrink-0 cursor-pointer place-items-center rounded-full"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <div className="flex items-end gap-2 p-2.5">
+            {/* Joindre (mockup C) : online par nature — même contrat que l'envoi du dossier. */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={ATTACH_ACCEPT}
+              className="hidden"
+              onChange={(e) => {
+                addPendingFiles([...(e.target.files ?? [])])
+                e.target.value = '' // re-sélectionner le même fichier doit re-déclencher onChange
+              }}
+            />
+            <Button
+              variant="outline"
+              size="icon"
+              className="size-10 shrink-0 rounded-full"
+              disabled={sending || !online || pendingFiles.length >= ATTACH_MAX_COUNT}
+              aria-label={t({ fr: 'Joindre une pièce', en: 'Attach a file' })}
+              title={
+                !online
+                  ? t({
+                      fr: 'Hors-ligne : joindre exige la connexion.',
+                      en: 'Offline: attaching requires a connection.',
+                    })
+                  : t({
+                      fr: `Joindre une pièce (max ${ATTACH_MAX_COUNT} · 4 Mo — PDF, image, DOCX)`,
+                      en: `Attach a file (max ${ATTACH_MAX_COUNT} · 4 MB — PDF, image, DOCX)`,
+                    })
               }
-            }}
-          />
-          <Button
-            size="icon"
-            className="size-10 shrink-0 rounded-full"
-            disabled={sending || !reply.trim()}
-            aria-label={t({ fr: 'Envoyer la réponse', en: 'Send the reply' })}
-            onClick={() => void handleReply()}
-          >
-            {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-          </Button>
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Paperclip className="size-4" />
+            </Button>
+            <textarea
+              ref={composerRef}
+              rows={1}
+              className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 min-h-10 flex-1 resize-none rounded-2xl border bg-transparent px-4 py-2.5 text-sm outline-none focus-visible:ring-[3px]"
+              placeholder={
+                composerPlaceholder ?? t({ fr: 'Écrivez un message…', en: 'Write a message…' })
+              }
+              value={reply}
+              onChange={(e) => setReply(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  void handleReply()
+                }
+              }}
+            />
+            <Button
+              size="icon"
+              className="size-10 shrink-0 rounded-full"
+              disabled={sending || (!reply.trim() && pendingFiles.length === 0)}
+              aria-label={t({ fr: 'Envoyer la réponse', en: 'Send the reply' })}
+              onClick={() => void handleReply()}
+            >
+              {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="bg-card text-muted-foreground flex items-center gap-2 border-t p-3 text-xs">
