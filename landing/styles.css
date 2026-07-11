@@ -109,7 +109,7 @@
     linear-gradient(135deg, #171040 0%, #241456 45%, #3b1a7a 100%);
     font-family: 'Sora', 'Helvetica Neue', sans-serif; }
   .hero .wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding-top: 48px; padding-bottom: 40px; }
+    padding: 48px 24px 96px; }
   .site-header.on-cover { background: rgba(12,7,32,.55); border-bottom-color: transparent; backdrop-filter: blur(8px); }
   .site-header.on-cover .brand svg, .site-header.on-cover .brand-name { color: #fff; }
   .site-header.on-cover .site-nav { color: #d6c9f2; }
@@ -121,23 +121,23 @@
   .site-header.on-cover .lang button:hover { color: #fff; }
   .site-header.on-cover .lang button.on { background: rgba(255,255,255,.92); color: #241456; }
   .site-header.on-cover .burger { color: #fff; border-color: rgba(255,255,255,.35); }
-  .announce { display: inline-flex; align-items: stretch; border: none; border-radius: 999px;
-    box-shadow: 0 0 0 1px rgba(255,255,255,.08); padding: 4px;
-    overflow: hidden; background: rgba(10,5,28,.55); font-size: 13.5px; font-weight: 600; color: #eee7fb;
+  .announce { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px; margin-bottom: 32px;
+    background: rgba(10,5,28,.55); font-size: 14px; box-shadow: 0 0 0 1px rgba(255,255,255,.08);
     transition: var(--transition); }
   .announce:hover { box-shadow: 0 0 0 1px rgba(255,255,255,.25); transform: translateY(-1px); }
-  .announce b { background: linear-gradient(90deg, #a855f7, #7c3aed); color: #fff; border-radius: 999px;
-    padding: 8px 15px; font-weight: 700; }
-  .announce span { padding: 8px 16px; display: inline-flex; gap: 9px; align-items: center; }
-  .announce svg { width: 15px; height: 15px; transition: var(--transition); }
-  .announce:hover svg { transform: translateX(3px); }
+  .announce .chip { background: linear-gradient(90deg, #a855f7, #7c3aed); border-radius: 999px;
+    padding: 5px 13px; font-weight: 600; color: #fff; }
+  .announce .label { padding: 5px 8px 5px 12px; color: #eee7fb; font-weight: 500; }
+  .announce .arrow { padding: 5px 13px 5px 2px; color: #eee7fb; display: inline-flex; align-items: center; }
+  .announce .arrow svg { width: 15px; height: 15px; transition: var(--transition); }
+  .announce:hover .arrow svg { transform: translateX(3px); }
   h1 { font-family: 'Sora', sans-serif; font-weight: 800; font-size: clamp(2.25rem, 3.4vw, 3.875rem);
-    line-height: 1.1; letter-spacing: -.03em; color: #ffffff; max-width: 17.5em; margin: 32px auto 0; text-wrap: balance; }
+    line-height: 1.1; letter-spacing: -.03em; color: #ffffff; max-width: 17.5em; margin: 0 auto; text-wrap: balance; }
   h1 .grad { background: linear-gradient(92deg, #58a6ff 0%, #8ab8ff 100%);
     -webkit-background-clip: text; background-clip: text; color: transparent; }
   .lede { margin: 22px auto 0; font-family: 'Sora', sans-serif; font-weight: 400;
     font-size: clamp(15px, 1.05vw, 19px); line-height: 1.6; color: #cfc2ee; max-width: 30em; text-wrap: pretty; }
-  .hero-cta { display: flex; justify-content: center; flex-wrap: wrap; gap: 14px; margin-top: 36px; }
+  .hero-cta { display: flex; justify-content: center; flex-wrap: wrap; gap: 14px; margin-top: clamp(26px, 2.4vw, 40px); }
   .btn-white { display: inline-flex; align-items: center; justify-content: center; min-width: 240px;
     background: #ffffff; color: #7c3aed; font-family: 'Sora', sans-serif; font-weight: 600; font-size: 16px;
     border-radius: 999px; padding: 12px 30px; box-shadow: 0 10px 40px rgba(0,0,0,.35); transition: var(--transition); }
