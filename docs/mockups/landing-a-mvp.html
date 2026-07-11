@@ -7,7 +7,7 @@
 <meta name="description" content="Mockup A de la landing Pharnos — institutionnel clair, version vivante : couverture épurée, section constellation pleine largeur (molécule UEMOA/CEDEAO animée + carte dossier), hovers du design-system." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600..800&family=DM+Sans:opsz,wght@9..40,400..700&family=Source+Serif+4:opsz,wght@8..60,600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600..800&family=DM+Sans:opsz,wght@9..40,400..700&family=Source+Serif+4:opsz,wght@8..60,600&family=Sora:wght@400;500;600;800&display=swap" rel="stylesheet" />
 <style>
   /* ── Thème « Encre & Signature » — tokens app ; or #d29922/#e3b341 réservé à la constellation.
      Hovers = recettes EXACTES du mockup DS Pharnos_Dashboard.html (transition .18s, lift -2px,
@@ -65,27 +65,36 @@
   .btn-navy:hover { background: var(--navy-2); box-shadow: 0 4px 14px rgba(10,22,40,.3); transform: translateY(-1px); }
   .btn-navy:active { transform: translateY(0); }
 
-  /* ── Header ── */
-  .site-header { position: sticky; top: 0; z-index: 50; background: rgba(255,255,255,.86);
-    backdrop-filter: blur(10px); border-bottom: 1px solid var(--g200); }
-  .site-header .wrap { display: flex; align-items: center; gap: 28px; height: 68px; }
-  .brand { display: flex; align-items: center; gap: 10px; }
-  .brand svg { width: 30px; height: 30px; color: var(--navy); }
-  .brand-name { font-family: var(--font-display); font-weight: 700; font-size: 20px; letter-spacing: -.01em; color: var(--navy); }
-  .site-nav { display: flex; align-items: center; gap: 22px; margin-left: auto; font-size: 15px; font-weight: 500; color: var(--g600); }
+  /* ── Header — menu du mockup CEO, uniforme sur toute la page (58px, Sora, pharnos bas-de-casse) ── */
+  .site-header { position: sticky; top: 0; z-index: 50; font-family: 'Sora', sans-serif;
+    background: rgba(255,255,255,.86); backdrop-filter: blur(8px); border-bottom: 1px solid var(--g200);
+    transition: background .25s ease, border-color .25s ease; }
+  .site-header .wrap { display: flex; align-items: center; gap: 24px; height: 58px;
+    max-width: none; padding-left: clamp(20px,2.5vw,48px); padding-right: clamp(20px,2.5vw,48px); }
+  .brand { display: flex; align-items: center; gap: 12px; flex-shrink: 0; white-space: nowrap; }
+  .brand svg { width: 28px; height: 28px; color: var(--navy); }
+  .brand-name { font-weight: 800; font-size: 18px; letter-spacing: -.02em; color: var(--navy); }
+  .site-nav { display: flex; align-items: center; gap: clamp(14px,2vw,36px); margin: 0 auto;
+    font-size: clamp(13px,1vw,15px); font-weight: 500; color: var(--g600); white-space: nowrap; }
   .site-nav a { transition: var(--transition); }
   .site-nav a:hover { color: var(--g900); }
-  .lang { display: inline-flex; border: 1px solid var(--g200); border-radius: 999px; overflow: hidden; font-size: 12px; font-weight: 700; }
-  .lang span { padding: 4px 10px; }
-  .lang .on { background: var(--navy); color: #fff; }
-  .lang .off { color: var(--g500); }
-  .burger { display: none; margin-left: auto; width: 42px; height: 42px; border: 1px solid var(--g300);
-    border-radius: 8px; background: #fff; color: var(--navy); align-items: center; justify-content: center; cursor: pointer; }
+  .login { flex-shrink: 0; font-size: clamp(13px,1vw,15px); font-weight: 600; color: var(--g800);
+    border: 1px solid var(--g300); border-radius: 999px; padding: 7px 18px; white-space: nowrap; transition: var(--transition); }
+  .login:hover { background: var(--g50); border-color: var(--g400); }
+  .lang { display: inline-flex; align-items: center; flex-shrink: 0; border: 1px solid var(--g300);
+    border-radius: 999px; overflow: hidden; font-size: 12px; font-weight: 700; }
+  .lang button { padding: 5px 11px; background: transparent; border: 0; cursor: pointer; font: inherit;
+    color: var(--g500); transition: var(--transition); }
+  .lang button:hover { color: var(--g800); }
+  .lang button.on { background: var(--navy); color: #fff; }
+  .burger { display: none; margin-left: auto; width: 40px; height: 40px; border: 1px solid var(--g300);
+    border-radius: 8px; background: transparent; color: var(--navy); align-items: center; justify-content: center; cursor: pointer; }
   .burger svg path { stroke-width: 2.6; }
   .mnav { display: none; }
   @media (max-width: 900px) {
-    .site-nav { display: none; }
+    .site-nav, .login, .site-header > .wrap > .lang { display: none; }
     .burger { display: inline-flex; }
+    .mnav .lang { display: inline-flex; width: fit-content; margin-top: 12px; }
     .mnav { display: grid; position: absolute; top: 100%; left: 0; right: 0; background: #fff;
       border-bottom: 1px solid var(--g200); box-shadow: var(--shadow); padding: 12px 24px 18px; gap: 2px; }
     .mnav[hidden] { display: none; }
@@ -93,21 +102,53 @@
     .mnav a.btn { justify-content: center; margin-top: 10px; border-bottom: 0; color: #fff; }
   }
 
-  /* ── Hero = page de couverture, centrée ── */
-  .hero { padding: 96px 0 84px; text-align: center; background:
-    radial-gradient(1000px 460px at 50% -16%, var(--info-subtle) 0%, rgba(239,246,255,0) 62%), var(--white); }
-  .eyebrow { display: inline-flex; align-items: center; gap: 10px; font-size: 12.5px; font-weight: 700;
-    letter-spacing: .14em; text-transform: uppercase; color: var(--blue); margin-bottom: 22px; }
-  .eyebrow::before, .eyebrow::after { content: ""; width: 26px; height: 2px; background: var(--blue); }
-  h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(2.1rem, 3.4vw, 2.8rem);
-    line-height: 1.1; letter-spacing: -.02em; color: var(--navy); max-width: 26ch; margin: 0 auto; }
-  h1 .grad { background: linear-gradient(92deg, var(--navy) 0%, var(--blue) 85%);
+  /* ── Hero = couverture PLEIN ÉCRAN (DA CEO : immersive, header fondu, preuves en pied) ── */
+  .hero { margin-top: -58px; padding-top: 58px; min-height: 100vh; display: flex; flex-direction: column;
+    text-align: center; color: #e6edf3; background:
+    radial-gradient(1100px 700px at 72% 30%, rgba(124,58,237,.55), transparent 65%),
+    radial-gradient(900px 600px at 30% 85%, rgba(91,33,182,.4), transparent 70%),
+    linear-gradient(135deg, #171040 0%, #241456 45%, #3b1a7a 100%);
+    font-family: 'Sora', 'Helvetica Neue', sans-serif; }
+  .hero .wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding-top: 48px; padding-bottom: 40px; }
+  .site-header.on-cover { background: rgba(12,7,32,.55); border-bottom-color: transparent; backdrop-filter: blur(8px); }
+  .site-header.on-cover .brand svg, .site-header.on-cover .brand-name { color: #fff; }
+  .site-header.on-cover .site-nav { color: #d6c9f2; }
+  .site-header.on-cover .site-nav a:hover { color: #fff; }
+  .site-header.on-cover .login { color: #fff; border-color: rgba(255,255,255,.35); }
+  .site-header.on-cover .login:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.5); }
+  .site-header.on-cover .lang { border-color: rgba(255,255,255,.35); }
+  .site-header.on-cover .lang button { color: #d6c9f2; }
+  .site-header.on-cover .lang button:hover { color: #fff; }
+  .site-header.on-cover .lang button.on { background: rgba(255,255,255,.92); color: #241456; }
+  .site-header.on-cover .burger { color: #fff; border-color: rgba(255,255,255,.35); }
+  .announce { display: inline-flex; align-items: stretch; border: none; border-radius: 999px;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.08); padding: 4px;
+    overflow: hidden; background: rgba(10,5,28,.55); font-size: 13.5px; font-weight: 600; color: #eee7fb;
+    transition: var(--transition); }
+  .announce:hover { box-shadow: 0 0 0 1px rgba(255,255,255,.25); transform: translateY(-1px); }
+  .announce b { background: linear-gradient(90deg, #a855f7, #7c3aed); color: #fff; border-radius: 999px;
+    padding: 8px 15px; font-weight: 700; }
+  .announce span { padding: 8px 16px; display: inline-flex; gap: 9px; align-items: center; }
+  .announce svg { width: 15px; height: 15px; transition: var(--transition); }
+  .announce:hover svg { transform: translateX(3px); }
+  h1 { font-family: 'Sora', sans-serif; font-weight: 800; font-size: clamp(2.25rem, 3.4vw, 3.875rem);
+    line-height: 1.1; letter-spacing: -.03em; color: #ffffff; max-width: 17.5em; margin: 32px auto 0; text-wrap: balance; }
+  h1 .grad { background: linear-gradient(92deg, #58a6ff 0%, #8ab8ff 100%);
     -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .lede { margin: 22px auto 0; font-size: 18.5px; line-height: 1.65; color: var(--g600); max-width: 58ch; }
-  .hero-cta { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
-  .hero-proof { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px 20px; margin-top: 28px; font-size: 14px; color: var(--g500); }
-  .hero-proof li { display: flex; align-items: center; gap: 7px; }
-  .hero-proof svg { width: 15px; height: 15px; color: var(--success); flex: none; }
+  .lede { margin: 22px auto 0; font-family: 'Sora', sans-serif; font-weight: 400;
+    font-size: clamp(15px, 1.05vw, 19px); line-height: 1.6; color: #cfc2ee; max-width: 30em; text-wrap: pretty; }
+  .hero-cta { display: flex; justify-content: center; flex-wrap: wrap; gap: 14px; margin-top: 36px; }
+  .btn-white { display: inline-flex; align-items: center; justify-content: center; min-width: 240px;
+    background: #ffffff; color: #7c3aed; font-family: 'Sora', sans-serif; font-weight: 600; font-size: 16px;
+    border-radius: 999px; padding: 12px 30px; box-shadow: 0 10px 40px rgba(0,0,0,.35); transition: var(--transition); }
+  .btn-white:hover { background: #f1eafc; color: #6023c9; }
+  .btn-pill { border-radius: 999px; padding: 14px 30px; font-size: 16px; }
+  .hero-proof { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 8px 28px;
+    padding: 0 24px 24px; font-family: 'Sora', sans-serif; font-size: 12.5px; font-weight: 500;
+    color: rgba(214,201,242,.7); }
+  .hero-proof li { white-space: nowrap; }
+  .hero-proof li.dot { opacity: .5; }
 
   /* ── Constellation — session pleine largeur, la couverture qui se construit ── */
   .constellation { position: relative; background:
@@ -398,7 +439,8 @@
   }
   @media (max-width: 640px) {
     .personas, .modules, .plans, .security { grid-template-columns: 1fr; }
-    .hero { padding: 60px 0 52px; }
+    .hero { min-height: 100svh; }
+    h1 { font-size: 1.9rem; }
     h1 { font-size: 1.66rem; }
     .lede { font-size: 16px; }
     .eyebrow { font-size: 11px; letter-spacing: .1em; }
@@ -450,10 +492,12 @@
       <a class="navlink" href="#modules">Plateforme</a>
       <a class="navlink" href="#equipe">Équipe</a>
       <a class="navlink" href="#offres">Offres</a>
-      <span class="lang" role="img" aria-label="Langue : français"><span class="on">FR</span><span class="off">EN</span></span>
-      <a class="btn btn-ghost" href="https://app.pharnos.com">Se connecter</a>
-      <a class="btn btn-primary" href="mailto:contact@pharnos.com?subject=Démo%20Pharnos">Demander une démo</a>
     </nav>
+    <div class="lang" role="group" aria-label="Choisir la langue">
+      <button type="button" class="on" aria-pressed="true">FR</button>
+      <button type="button" aria-pressed="false">EN</button>
+    </div>
+    <a class="login" href="https://app.pharnos.com">Se connecter</a>
     <button class="burger" type="button" aria-expanded="false" aria-controls="mnav" aria-label="Ouvrir le menu">
       <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     </button>
@@ -463,8 +507,11 @@
       <a href="#modules">Plateforme</a>
       <a href="#equipe">Équipe</a>
       <a href="#offres">Offres</a>
+      <div class="lang" role="group" aria-label="Choisir la langue">
+        <button type="button" class="on" aria-pressed="true">FR</button>
+        <button type="button" aria-pressed="false">EN</button>
+      </div>
       <a href="https://app.pharnos.com">Se connecter</a>
-      <a class="btn btn-primary" href="mailto:contact@pharnos.com?subject=Démo%20Pharnos">Demander une démo</a>
     </nav>
   </div>
 </header>
@@ -474,22 +521,30 @@
   <!-- ═══════════ COUVERTURE ═══════════ -->
   <section class="hero">
     <div class="wrap intro">
-      <p class="eyebrow">Regulatory Information Management · UEMOA / CEDEAO</p>
-      <h1>L'enregistrement pharmaceutique en Afrique, <span class="grad">enfin sous contrôle.</span></h1>
+      <a class="announce" href="#regafy">
+        <b>Regafy AI</b>
+        <span>Disponible en bêta
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M4 12h15m-6-6 6 6-6 6"/></svg>
+        </span>
+      </a>
+      <h1>La plateforme du réglementaire pharmaceutique en Afrique</h1>
       <p class="lede">
-        CTD, soumission, suivi en temps réel, correspondance avec les autorités — une seule
-        plateforme pour le laboratoire, son fabricant et son représentant local.
+        CTD Builder, soumission, collaboration fluide entre laboratoire et représentant local,
+        suivi en temps réel — sur un seul dashboard.
       </p>
       <div class="hero-cta">
-        <a class="btn btn-primary btn-lg" href="mailto:contact@pharnos.com?subject=Démo%20Pharnos">Demander une démo</a>
-        <a class="btn btn-ghost btn-lg" href="https://app.pharnos.com">Démarrer — pilote gratuit</a>
+        <a class="btn-white" href="mailto:contact@pharnos.com?subject=Démo%20Pharnos">Demander une démo</a>
       </div>
-      <ul class="hero-proof">
-        <li><svg aria-hidden="true"><use href="#i-check"/></svg>Conçu par des experts RA de la région</li>
-        <li><svg aria-hidden="true"><use href="#i-check"/></svg>Français &amp; anglais</li>
-        <li><svg aria-hidden="true"><use href="#i-check"/></svg>Fonctionne hors-ligne</li>
-      </ul>
     </div>
+    <ul class="hero-proof">
+      <li>RIM · UEMOA / CEDEAO</li>
+      <li class="dot" aria-hidden="true">·</li>
+      <li>Français &amp; Anglais</li>
+      <li class="dot" aria-hidden="true">·</li>
+      <li>Confidentiel et sécurisé</li>
+      <li class="dot" aria-hidden="true">·</li>
+      <li>Conçu par des experts RA de la région</li>
+    </ul>
   </section>
 
   <!-- ═══════════ CONSTELLATION · pleine largeur ═══════════ -->
@@ -896,6 +951,31 @@
 <script>
   (function () {
     var MOTION = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    /* Header fondu tant que la couverture est à l'écran */
+    var header = document.querySelector('.site-header');
+    var hero = document.querySelector('.hero');
+    if (header && hero) {
+      header.classList.add('on-cover');
+      if ('IntersectionObserver' in window) {
+        new IntersectionObserver(function (e) {
+          header.classList.toggle('on-cover', e[0].isIntersecting);
+        }, { rootMargin: '-72px 0px 0px 0px', threshold: 0 }).observe(hero);
+      }
+    }
+
+    /* Sélecteur de langue (état visuel ; traduction du contenu = jalon i18n) */
+    document.querySelectorAll('.lang').forEach(function (grp) {
+      grp.addEventListener('click', function (e) {
+        var btn = e.target.closest('button');
+        if (!btn) return;
+        grp.querySelectorAll('button').forEach(function (b) {
+          var on = b === btn;
+          b.classList.toggle('on', on);
+          b.setAttribute('aria-pressed', String(on));
+        });
+      });
+    });
 
     /* Menu mobile */
     var burger = document.querySelector('.burger');

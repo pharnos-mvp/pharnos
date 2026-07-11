@@ -1,6 +1,31 @@
 (function () {
     var MOTION = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+    /* Header fondu tant que la couverture est à l'écran */
+    var header = document.querySelector('.site-header');
+    var hero = document.querySelector('.hero');
+    if (header && hero) {
+      header.classList.add('on-cover');
+      if ('IntersectionObserver' in window) {
+        new IntersectionObserver(function (e) {
+          header.classList.toggle('on-cover', e[0].isIntersecting);
+        }, { rootMargin: '-72px 0px 0px 0px', threshold: 0 }).observe(hero);
+      }
+    }
+
+    /* Sélecteur de langue (état visuel ; traduction du contenu = jalon i18n) */
+    document.querySelectorAll('.lang').forEach(function (grp) {
+      grp.addEventListener('click', function (e) {
+        var btn = e.target.closest('button');
+        if (!btn) return;
+        grp.querySelectorAll('button').forEach(function (b) {
+          var on = b === btn;
+          b.classList.toggle('on', on);
+          b.setAttribute('aria-pressed', String(on));
+        });
+      });
+    });
+
     /* Menu mobile */
     var burger = document.querySelector('.burger');
     var mnav = document.getElementById('mnav');
