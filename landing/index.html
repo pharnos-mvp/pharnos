@@ -1,257 +1,500 @@
 <!doctype html>
 <html lang="fr">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0a0a0a" />
-    <title>Pharnos — l'OS des affaires réglementaires pharmaceutiques (UEMOA/CEDEAO)</title>
-    <meta
-      name="description"
-      content="Pharnos : montez vos dossiers CTD Module 1, vérifiez la conformité (zéro hallucination), échangez avec les agences UEMOA/CEDEAO. Rapide, sécurisé, hors-ligne."
-    />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="preload" href="/styles.css" as="style" />
-    <link rel="stylesheet" href="/styles.css" />
-    <link rel="canonical" href="https://pharnos.com/" />
-    <meta property="og:title" content="Pharnos — l'OS des affaires réglementaires pharmaceutiques" />
-    <meta
-      property="og:description"
-      content="Montez, vérifiez et soumettez vos dossiers réglementaires UEMOA/CEDEAO. Rapide, sécurisé, hors-ligne."
-    />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://pharnos.com/" />
-  </head>
-  <body>
-    <a class="skip-link" href="#main" data-fr="Aller au contenu" data-en="Skip to content">Aller au contenu</a>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pharnos — Cockpit & Conformité réglementaire UEMOA</title>
+<meta name="description" content="Pharnos : CTD, soumission, suivi en temps réel et correspondance avec les autorités — une seule plateforme pour le laboratoire, son fabricant et son représentant local. UEMOA + Ghana, Nigeria." />
+<link rel="stylesheet" href="/styles.css" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<link rel="canonical" href="https://pharnos.com/" />
+<meta name="theme-color" content="#0a1628" />
+<meta property="og:title" content="Pharnos — Cockpit & Conformité réglementaire UEMOA" />
+<meta property="og:description" content="L'enregistrement pharmaceutique en Afrique, enfin sous contrôle." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://pharnos.com/" />
+<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/syne-latin-wght-normal.woff2" crossorigin />
+<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/dm-sans-latin-standard-normal.woff2" crossorigin />
+<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/source-serif-4-latin-600.woff2" crossorigin />
+</head>
+<body>
+<a class="skip-link" href="#main">Aller au contenu</a>
 
-    <header class="site-header">
-      <a class="brand" href="/" aria-label="Pharnos">
-        <picture class="brand-mark" aria-hidden="true">
-          <source srcset="/pharnos-logo-dark.svg" media="(prefers-color-scheme: dark)" />
-          <img src="/pharnos-logo.svg" alt="" width="32" height="32" />
-        </picture>
-        <span class="brand-name">Pharnos</span>
-      </a>
-      <nav class="site-nav" aria-label="Principale">
-        <a href="#modules" data-fr="Fonctionnalités" data-en="Features">Fonctionnalités</a>
-        <a href="#offres" data-fr="Offres" data-en="Pricing">Offres</a>
-        <button id="lang-toggle" class="lang-toggle" type="button" aria-label="Changer de langue">
-          <span class="lang-on">FR</span><span class="lang-off">EN</span>
-        </button>
-        <a class="btn btn-ghost" href="https://app.pharnos.com" data-fr="Se connecter" data-en="Sign in">Se connecter</a>
-        <a class="btn btn-primary" href="https://app.pharnos.com" data-fr="Essayer" data-en="Get started">Essayer</a>
-      </nav>
-    </header>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="logo-p" viewBox="0 0 640 640">
+      <path fill="currentColor" d="M610.99,569.98c.48,9.86-.64,18.75-7.05,26.28-5.47,6.42-12.3,10.02-20.7,10.62-1.5.11-3,.12-4.5.12-90.16,0-180.32,0-270.48,0h-4.09v-135.49c13.8,0,27.45.54,41.03-.13,19.93-.98,39.98-1.73,59.69-4.57,30.3-4.38,58.57-14.9,83.28-33.61,29.84-22.6,47.04-52.98,53.52-89.41,5.88-33.04,5.36-66.02-4.73-98.34-11.31-36.21-34.93-61.8-68.91-77.99-24.63-11.74-50.89-17.45-77.95-19.39-14.77-1.06-29.62-1.45-44.43-1.51-47.66-.18-95.32-.07-142.99-.07h-5.5v87.9h3.95c33,0,66-.08,98.99.03,23.14.07,46.3.05,69.43.72,12.2.35,24.01,3.57,35.02,9.02,15.94,7.89,25.51,20.96,29.71,38,3.97,16.09,4.32,32.32.21,48.44-5.99,23.52-21.83,37.72-44.07,45.61-17.35,6.16-35.4,7.6-53.61,7.6-44.65,0-89.3-.13-133.95-.2h-5.66v223.15c-1.66.09-3.08.24-4.5.24-43.16.01-86.33.03-129.49,0-19.78-.02-32.19-12.39-32.19-32.07-.01-169.32-.01-338.64,0-507.95,0-19.39,12.43-31.95,31.78-31.95,172.15-.03,344.3-.03,516.45,0,19.5,0,31.73,12.61,31.73,32.51.01,167.32.01,334.63,0,502.45Z"/>
+    </symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" d="M4 12.5l5 5L20 6.5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 7v5l3.5 2.5"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5M3 17.5l9 5 9-5"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" d="M6 2.5h8L20 8.5v13H6v-19zM14 2.5v6h6"/><path stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M9 13h7M9 17h7"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" d="M21 3L10.5 13.5M21 3l-7 18-3.5-7.5L3 10l18-7z"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.9"/><path fill="none" stroke="currentColor" stroke-width="1.9" d="M16 4.5V4a1.5 1.5 0 0 0-1.5-1.5h-10A1.5 1.5 0 0 0 3 4v10A1.5 1.5 0 0 0 4.5 15.5H5"/></symbol>
+    <symbol id="i-gauge" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 19a9.5 9.5 0 1 1 16 0"/><path fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" d="M12 14l4.2-5.2"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" d="M12 2.5l8 3.5v6c0 5-3.4 8.4-8 9.5-4.6-1.1-8-4.5-8-9.5V6l8-3.5z"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.9"/><path fill="none" stroke="currentColor" stroke-width="1.9" d="M2.8 12h18.4M12 2.8c-5.4 5.8-5.4 12.6 0 18.4 5.4-5.8 5.4-12.6 0-18.4z"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" d="M6 9.5a6 6 0 0 1 12 0c0 5 2 6.5 2 6.5H4s2-1.5 2-6.5zM10 19.5a2.2 2.2 0 0 0 4 0"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" d="M12 2.5l2.1 6.3 6.4 2.2-6.4 2.2L12 19.5l-2.1-6.3-6.4-2.2 6.4-2.2L12 2.5z"/></symbol>
+    <symbol id="i-pulse" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" d="M2.5 12h4l2.5-7 5 14 2.5-7h5"/></symbol>
+  </defs>
+</svg>
 
-    <main id="main">
-      <!-- Hero -->
-      <section class="hero">
-        <div class="hero-copy">
-          <p class="eyebrow" data-fr="Affaires réglementaires · UEMOA / CEDEAO" data-en="Regulatory affairs · UEMOA / ECOWAS">
-            Affaires réglementaires · UEMOA / CEDEAO
-          </p>
-          <h1
-            data-fr="L'OS des affaires réglementaires pharmaceutiques"
-            data-en="The operating system for pharma regulatory affairs"
-          >
-            L'OS des affaires réglementaires pharmaceutiques
-          </h1>
-          <p
-            class="lede"
-            data-fr="Montez vos dossiers CTD Module 1, vérifiez la conformité aux templates en vigueur, et échangez avec les agences locales — le tout rapide, sécurisé et disponible hors-ligne."
-            data-en="Build your CTD Module 1 dossiers, check compliance against current templates, and correspond with local agencies — fast, secure, and available offline."
-          >
-            Montez vos dossiers CTD Module 1, vérifiez la conformité aux templates en vigueur, et
-            échangez avec les agences locales — le tout rapide, sécurisé et disponible hors-ligne.
-          </p>
-          <div class="hero-cta">
-            <a class="btn btn-primary btn-lg" href="https://app.pharnos.com" data-fr="Démarrer — pilote gratuit" data-en="Start — free pilot">
-              Démarrer — pilote gratuit
-            </a>
-            <a class="btn btn-ghost btn-lg" href="#modules" data-fr="Voir les fonctionnalités" data-en="See features">
-              Voir les fonctionnalités
-            </a>
-          </div>
-          <p class="hero-note" data-fr="0 installation · fonctionne hors-ligne · vos données restent les vôtres" data-en="No install · works offline · your data stays yours">
-            0 installation · fonctionne hors-ligne · vos données restent les vôtres
-          </p>
-        </div>
-        <div class="hero-shot" aria-hidden="true">
-          <div class="frame">
-            <div class="frame-bar"><span></span><span></span><span></span></div>
-            <svg class="mock" viewBox="0 0 1200 700" role="img" xmlns="http://www.w3.org/2000/svg">
-              <rect width="1200" height="700" fill="var(--card)" />
-              <!-- titre -->
-              <rect x="40" y="36" width="260" height="20" rx="6" fill="var(--fg)" opacity="0.85" />
-              <rect x="40" y="66" width="420" height="12" rx="6" fill="var(--muted-fg)" opacity="0.5" />
-              <!-- Actions requises -->
-              <rect x="40" y="104" width="1120" height="96" rx="14" fill="none" stroke="var(--border)" />
-              <rect x="60" y="124" width="150" height="12" rx="6" fill="var(--fg)" opacity="0.7" />
-              <rect x="60" y="156" width="18" height="22" rx="4" fill="oklch(0.6 0.18 25)" />
-              <rect x="92" y="158" width="220" height="10" rx="5" fill="var(--fg)" opacity="0.7" />
-              <rect x="92" y="174" width="320" height="9" rx="5" fill="var(--muted-fg)" opacity="0.5" />
-              <!-- Pipeline (5) -->
-              <g>
-                <rect x="40" y="224" width="208" height="120" rx="12" fill="none" stroke="var(--border)" />
-                <rect x="268" y="224" width="208" height="120" rx="12" fill="none" stroke="var(--border)" />
-                <rect x="496" y="224" width="208" height="120" rx="12" fill="none" stroke="var(--border)" />
-                <rect x="724" y="224" width="208" height="120" rx="12" fill="none" stroke="var(--border)" />
-                <rect x="952" y="224" width="208" height="120" rx="12" fill="none" stroke="var(--border)" />
-                <rect x="120" y="258" width="48" height="26" rx="6" fill="var(--fg)" opacity="0.8" />
-                <rect x="348" y="258" width="48" height="26" rx="6" fill="var(--fg)" opacity="0.8" />
-                <rect x="576" y="258" width="48" height="26" rx="6" fill="var(--fg)" opacity="0.8" />
-                <rect x="804" y="258" width="48" height="26" rx="6" fill="var(--fg)" opacity="0.8" />
-                <rect x="1032" y="258" width="48" height="26" rx="6" fill="var(--fg)" opacity="0.8" />
-                <rect x="104" y="300" width="80" height="16" rx="8" fill="var(--muted-fg)" opacity="0.35" />
-                <rect x="332" y="300" width="80" height="16" rx="8" fill="var(--muted-fg)" opacity="0.35" />
-                <rect x="560" y="300" width="80" height="16" rx="8" fill="var(--muted-fg)" opacity="0.35" />
-                <rect x="788" y="300" width="80" height="16" rx="8" fill="var(--muted-fg)" opacity="0.35" />
-                <rect x="1016" y="300" width="80" height="16" rx="8" fill="var(--muted-fg)" opacity="0.35" />
-              </g>
-              <!-- 2 cartes -->
-              <rect x="40" y="372" width="548" height="290" rx="14" fill="none" stroke="var(--border)" />
-              <rect x="612" y="372" width="548" height="290" rx="14" fill="none" stroke="var(--border)" />
-              <rect x="60" y="396" width="180" height="12" rx="6" fill="var(--fg)" opacity="0.65" />
-              <rect x="632" y="396" width="180" height="12" rx="6" fill="var(--fg)" opacity="0.65" />
-              <g fill="var(--muted-fg)" opacity="0.4">
-                <rect x="60" y="436" width="500" height="10" rx="5" />
-                <rect x="60" y="464" width="460" height="10" rx="5" />
-                <rect x="60" y="492" width="500" height="10" rx="5" />
-                <rect x="632" y="436" width="500" height="10" rx="5" />
-                <rect x="632" y="464" width="420" height="10" rx="5" />
-              </g>
-            </svg>
-          </div>
-        </div>
-      </section>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="#" aria-label="Pharnos — accueil">
+      <svg aria-hidden="true"><use href="#logo-p"/></svg>
+      <span class="brand-name">Pharnos</span>
+    </a>
+    <nav class="site-nav" aria-label="Navigation principale">
+      <a class="navlink" href="#pourqui">Pour qui</a>
+      <a class="navlink" href="#cycle">Cycle de vie</a>
+      <a class="navlink" href="#modules">Plateforme</a>
+      <a class="navlink" href="#equipe">Équipe</a>
+      <a class="navlink" href="#offres">Offres</a>
+      <a class="btn btn-ghost" href="https://app.pharnos.com">Se connecter</a>
+      <a class="btn btn-primary" href="mailto:contact@pharnos.com?subject=Démo%20Pharnos">Demander une démo</a>
+    </nav>
+    <button class="burger" type="button" aria-expanded="false" aria-controls="mnav" aria-label="Ouvrir le menu">
+      <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <nav class="mnav" id="mnav" hidden aria-label="Menu mobile">
+      <a href="#pourqui">Pour qui</a>
+      <a href="#cycle">Cycle de vie</a>
+      <a href="#modules">Plateforme</a>
+      <a href="#equipe">Équipe</a>
+      <a href="#offres">Offres</a>
+      <a href="https://app.pharnos.com">Se connecter</a>
+      <a class="btn btn-primary" href="mailto:contact@pharnos.com?subject=Démo%20Pharnos">Demander une démo</a>
+    </nav>
+  </div>
+</header>
 
-      <!-- Modules -->
-      <section id="modules" class="section">
-        <h2 class="section-title" data-fr="Tout le cycle réglementaire, en un seul endroit" data-en="The whole regulatory cycle, in one place">
-          Tout le cycle réglementaire, en un seul endroit
-        </h2>
-        <div class="cards">
-          <article class="card">
-            <h3 data-fr="Catalogue produits" data-en="Product catalogue">Catalogue produits</h3>
-            <p data-fr="Centralisez produits et pièces (AMM, GMP, COPP, COA…), avec suivi de validité et de langue." data-en="Centralise products and documents (MA, GMP, CPP, CoA…), with validity and language tracking.">
-              Centralisez produits et pièces (AMM, GMP, COPP, COA…), avec suivi de validité et de langue.
-            </p>
-          </article>
-          <article class="card">
-            <h3 data-fr="CTD Workspace + Regafy" data-en="CTD Workspace + Regafy">CTD Workspace + Regafy</h3>
-            <p data-fr="Montez le Module 1, générez les lettres, compilez le PDF — et vérifiez la conformité aux templates en vigueur, sans hallucination." data-en="Build Module 1, generate letters, compile the PDF — and check compliance against current templates, with zero hallucination.">
-              Montez le Module 1, générez les lettres, compilez le PDF — et vérifiez la conformité aux
-              templates en vigueur, sans hallucination.
-            </p>
-          </article>
-          <article class="card">
-            <h3 data-fr="Correspondance" data-en="Correspondence">Correspondance</h3>
-            <p data-fr="Envoyez le dossier compilé à l'agence locale par lien sécurisé, suivez décisions et échanges en temps réel." data-en="Send the compiled dossier to the local agency via a secure link, track decisions and exchanges in real time.">
-              Envoyez le dossier compilé à l'agence locale par lien sécurisé, suivez décisions et
-              échanges en temps réel.
-            </p>
-          </article>
-          <article class="card">
-            <h3 data-fr="Dashboard RA" data-en="RA Dashboard">Dashboard RA</h3>
-            <p data-fr="Un poste de pilotage : actions requises, échéances, pipeline des dossiers, conformité et veille réglementaire." data-en="A control center: required actions, deadlines, dossier pipeline, compliance and regulatory watch.">
-              Un poste de pilotage : actions requises, échéances, pipeline des dossiers, conformité et
-              veille réglementaire.
-            </p>
-          </article>
-        </div>
-      </section>
+<main id="main">
 
-      <!-- Pourquoi -->
-      <section class="section section-muted">
-        <h2 class="section-title" data-fr="Conçu pour les exigences RA" data-en="Built for RA requirements">
-          Conçu pour les exigences RA
-        </h2>
-        <div class="pillars">
-          <div class="pillar">
-            <h3 data-fr="Hors-ligne d'abord" data-en="Offline-first">Hors-ligne d'abord</h3>
-            <p data-fr="Travaillez même sans connexion ; tout se synchronise dès le retour du réseau." data-en="Work even with no connection; everything syncs when the network returns.">
-              Travaillez même sans connexion ; tout se synchronise dès le retour du réseau.
-            </p>
-          </div>
-          <div class="pillar">
-            <h3 data-fr="Sécurisé par défaut" data-en="Secure by default">Sécurisé par défaut</h3>
-            <p data-fr="Isolation stricte par organisation, chiffrement, journal d'audit, liens de partage tokenisés." data-en="Strict per-organisation isolation, encryption, audit trail, tokenised share links.">
-              Isolation stricte par organisation, chiffrement, journal d'audit, liens de partage tokenisés.
-            </p>
-          </div>
-          <div class="pillar">
-            <h3 data-fr="Zéro hallucination" data-en="Zero hallucination">Zéro hallucination</h3>
-            <p data-fr="Quand l'autorité fait foi, le résultat est déterministe : aucune rubrique inventée, jamais." data-en="Where the authority is the source of truth, results are deterministic: nothing is ever invented.">
-              Quand l'autorité fait foi, le résultat est déterministe : aucune rubrique inventée, jamais.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <!-- Offres -->
-      <section id="offres" class="section">
-        <h2 class="section-title" data-fr="Offres" data-en="Pricing">Offres</h2>
-        <p class="section-sub" data-fr="Commencez gratuitement. Évoluez quand vous êtes prêt." data-en="Start free. Scale when you're ready.">
-          Commencez gratuitement. Évoluez quand vous êtes prêt.
-        </p>
-        <div class="cards">
-          <article class="card plan">
-            <h3 data-fr="Pilote" data-en="Pilot">Pilote</h3>
-            <p class="price" data-fr="Gratuit" data-en="Free">Gratuit</p>
-            <p data-fr="Pour démarrer sur des dossiers réels : une organisation, le cycle complet." data-en="To get started on real dossiers: one organisation, the full cycle.">
-              Pour démarrer sur des dossiers réels : une organisation, le cycle complet.
-            </p>
-            <a class="btn btn-primary" href="https://app.pharnos.com" data-fr="Commencer" data-en="Get started">Commencer</a>
-          </article>
-          <article class="card plan plan-featured">
-            <h3 data-fr="Pro" data-en="Pro">Pro</h3>
-            <p class="price" data-fr="Sur devis" data-en="On quote">Sur devis</p>
-            <p data-fr="Pour les équipes : volume de dossiers, rôles, accompagnement." data-en="For teams: dossier volume, roles, onboarding support.">
-              Pour les équipes : volume de dossiers, rôles, accompagnement.
-            </p>
-            <a class="btn btn-primary" href="mailto:contact@pharnos.com?subject=Pharnos%20Pro" data-fr="Nous contacter" data-en="Contact us">Nous contacter</a>
-          </article>
-          <article class="card plan">
-            <h3 data-fr="Entreprise" data-en="Enterprise">Entreprise</h3>
-            <p class="price" data-fr="Sur devis" data-en="On quote">Sur devis</p>
-            <p data-fr="Multi-organisations, SLA, exigences de conformité avancées." data-en="Multi-organisation, SLA, advanced compliance requirements.">
-              Multi-organisations, SLA, exigences de conformité avancées.
-            </p>
-            <a class="btn btn-primary" href="mailto:contact@pharnos.com?subject=Pharnos%20Entreprise" data-fr="Nous contacter" data-en="Contact us">Nous contacter</a>
-          </article>
-        </div>
-      </section>
-
-      <!-- CTA final -->
-      <section class="section cta-final">
-        <h2 data-fr="Prêt à accélérer vos soumissions ?" data-en="Ready to speed up your submissions?">
-          Prêt à accélérer vos soumissions ?
-        </h2>
-        <a class="btn btn-primary btn-lg" href="https://app.pharnos.com" data-fr="Démarrer — pilote gratuit" data-en="Start — free pilot">
-          Démarrer — pilote gratuit
-        </a>
-      </section>
-    </main>
-
-    <footer class="site-footer">
-      <div class="brand">
-        <picture class="brand-mark" aria-hidden="true">
-          <source srcset="/pharnos-logo-dark.svg" media="(prefers-color-scheme: dark)" />
-          <img src="/pharnos-logo.svg" alt="" width="32" height="32" />
-        </picture>
-        <span class="brand-name">Pharnos</span>
-      </div>
-      <p class="footer-tag" data-fr="L'OS des affaires réglementaires pharmaceutiques — UEMOA / CEDEAO." data-en="The OS for pharma regulatory affairs — UEMOA / ECOWAS.">
-        L'OS des affaires réglementaires pharmaceutiques — UEMOA / CEDEAO.
+  <!-- ═══════════ COUVERTURE ═══════════ -->
+  <section class="hero">
+    <div class="wrap intro">
+      <p class="eyebrow">Regulatory Information Management · UEMOA / CEDEAO</p>
+      <h1>L'enregistrement pharmaceutique en Afrique, <span class="grad">enfin sous contrôle.</span></h1>
+      <p class="lede">
+        CTD, soumission, suivi en temps réel, correspondance avec les autorités — une seule
+        plateforme pour le laboratoire, son fabricant et son représentant local.
       </p>
-      <nav class="footer-links" aria-label="Pied de page">
-        <a href="https://app.pharnos.com" data-fr="Application" data-en="App">Application</a>
-        <a href="mailto:contact@pharnos.com" data-fr="Contact" data-en="Contact">Contact</a>
-      </nav>
-      <p class="copy">© <span id="year">2026</span> Pharnos</p>
-    </footer>
+      <div class="hero-cta">
+        <a class="btn btn-primary btn-lg" href="mailto:contact@pharnos.com?subject=Démo%20Pharnos">Demander une démo</a>
+        <a class="btn btn-ghost btn-lg" href="https://app.pharnos.com">Démarrer — pilote gratuit</a>
+      </div>
+      <ul class="hero-proof">
+        <li><svg aria-hidden="true"><use href="#i-check"/></svg>Conçu par des experts RA de la région</li>
+        <li><svg aria-hidden="true"><use href="#i-check"/></svg>Français &amp; anglais</li>
+        <li><svg aria-hidden="true"><use href="#i-check"/></svg>Fonctionne hors-ligne</li>
+      </ul>
+    </div>
+  </section>
 
-    <script src="/i18n.js" defer></script>
-  </body>
+  <!-- ═══════════ CONSTELLATION · pleine largeur ═══════════ -->
+  <section class="constellation" id="couverture" aria-label="La couverture Pharnos se construit pays par pays ; une carte affiche le dossier suivi à chaque étape">
+    <div class="wrap">
+      <div>
+        <p class="kicker">La couverture</p>
+        <h2>Cockpit &amp; Conformité UEMOA.</h2>
+        <!-- Carte dossier synchronisée — hors de l'illustration -->
+        <div class="dossier-card" id="dcard" aria-hidden="true">
+          <p class="live"><i></i>Dossier · suivi en direct</p>
+          <div class="row1"><span class="dci" id="d-dci">Amoxicilline 500 mg</span><span class="cc" id="d-cc">BJ</span></div>
+          <div class="segs" id="d-segs"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="row2"><span class="stage" id="d-stage">Soumission</span><p id="d-status">J+38 · frais en attente — relance J+14 armée</p></div>
+        </div>
+      </div>
+
+      <div class="cosmos">
+        <span class="cov">Couverture <b id="cov">0</b>/10 pays<em id="covx"> · cap sur le continent</em></span>
+        <svg class="map" id="map" viewBox="14 6 540 566" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <!-- gabarit du continent (révélé après les 10 pays) -->
+          <path class="africa" id="africa" pathLength="1" d="M172,30 C214,20 258,18 300,22 C308,32 306,42 312,48 C318,58 326,64 334,66 C352,58 368,50 386,50 C402,52 414,58 426,64 C436,70 442,76 444,84 C452,106 462,128 472,150 C480,166 488,180 500,190 C514,198 530,204 544,208 C550,211 554,214 554,218 C548,232 522,262 492,286 C484,294 476,300 470,306 C462,314 456,322 452,330 C448,346 446,360 444,376 C440,392 432,406 428,420 C420,438 410,454 400,470 C392,482 384,494 376,506 C362,522 342,536 322,540 C308,540 296,522 292,506 C286,482 284,460 282,436 C278,412 274,386 272,362 C268,348 262,334 258,320 C254,310 252,300 250,292 C250,282 251,272 252,264 C240,262 228,262 216,262 C204,264 192,266 180,266 C170,267 160,268 150,268 C136,264 124,260 112,256 C104,250 98,244 92,238 C82,230 74,222 66,212 C60,202 56,192 56,184 C58,168 60,154 62,140 C66,128 70,116 76,104 C82,90 90,76 98,66 C120,48 146,36 172,30 Z" />
+          <path class="africa mada" pathLength="1" d="M470,380 C478,372 492,376 498,392 C502,410 496,438 482,458 C472,468 462,456 464,436 C466,414 466,396 470,380 Z" />
+          <!-- liaisons UEMOA (9 de croissance + 2 de fermeture, dans l'ordre du script) -->
+          <g>
+            <line class="link" pathLength="1" x1="214" y1="238" x2="200" y2="248" />
+            <line class="link" pathLength="1" x1="200" y1="248" x2="148" y2="250" />
+            <line class="link" pathLength="1" x1="148" y1="250" x2="180" y2="256" />
+            <line class="link" pathLength="1" x1="148" y1="250" x2="174" y2="214" />
+            <line class="link" pathLength="1" x1="174" y1="214" x2="150" y2="168" />
+            <line class="link" pathLength="1" x1="150" y1="168" x2="84" y2="184" />
+            <line class="link" pathLength="1" x1="84" y1="184" x2="90" y2="206" />
+            <line class="link" pathLength="1" x1="174" y1="214" x2="230" y2="178" />
+            <line class="link" pathLength="1" x1="214" y1="238" x2="244" y2="228" />
+            <line class="link" pathLength="1" x1="180" y1="256" x2="200" y2="248" />
+            <line class="link" pathLength="1" x1="174" y1="214" x2="200" y2="248" />
+          </g>
+          <!-- liaisons continentales (créées par le script pendant l'émaillage) -->
+          <g id="dyn"></g>
+          <!-- CEDEAO voisins (rejoignent le réseau pendant l'émaillage) -->
+          <g class="minor" id="m-CV" style="animation-delay:.5s"><circle cx="34" cy="168" r="5"/><text x="34" y="185">CV</text></g>
+          <g class="minor" id="m-MR" style="animation-delay:.6s"><circle cx="108" cy="140" r="5"/><text x="108" y="157">MR</text></g>
+          <g class="minor" id="m-GM" style="animation-delay:.7s"><circle cx="72" cy="198" r="5"/><text x="60" y="202">GM</text></g>
+          <g class="minor" id="m-GN" style="animation-delay:.8s"><circle cx="114" cy="230" r="5"/><text x="114" y="246">GN</text></g>
+          <g class="minor" id="m-SL" style="animation-delay:.9s"><circle cx="102" cy="250" r="5"/><text x="90" y="262">SL</text></g>
+          <g class="minor" id="m-LR" style="animation-delay:1s"><circle cx="120" cy="266" r="5"/><text x="122" y="282">LR</text></g>
+          <!-- le reste du continent (émaillage rapide) -->
+          <g id="rest">
+            <circle class="rest" id="r-MA" cx="150" cy="64" r="6.5"/><circle class="rest" id="r-DZ" cx="232" cy="84" r="6.5"/>
+            <circle class="rest" id="r-TN" cx="294" cy="40" r="6.5"/><circle class="rest" id="r-LY" cx="340" cy="92" r="6.5"/>
+            <circle class="rest" id="r-EG" cx="408" cy="84" r="6.5"/><circle class="rest" id="r-SD" cx="400" cy="152" r="6.5"/>
+            <circle class="rest" id="r-TD" cx="318" cy="168" r="6.5"/><circle class="rest" id="r-ER" cx="450" cy="160" r="6.5"/>
+            <circle class="rest" id="r-DJ" cx="486" cy="190" r="6.5"/><circle class="rest" id="r-ET" cx="452" cy="204" r="6.5"/>
+            <circle class="rest" id="r-SO" cx="508" cy="224" r="6.5"/><circle class="rest" id="r-SS" cx="408" cy="208" r="6.5"/>
+            <circle class="rest" id="r-CM" cx="252" cy="258" r="6.5"/><circle class="rest" id="r-CF" cx="340" cy="232" r="6.5"/>
+            <circle class="rest" id="r-GQ" cx="250" cy="282" r="6.5"/><circle class="rest" id="r-GA" cx="258" cy="300" r="6.5"/>
+            <circle class="rest" id="r-CG" cx="288" cy="300" r="6.5"/><circle class="rest" id="r-CD" cx="340" cy="292" r="6.5"/>
+            <circle class="rest" id="r-UG" cx="408" cy="262" r="6.5"/><circle class="rest" id="r-KE" cx="446" cy="262" r="6.5"/>
+            <circle class="rest" id="r-RW" cx="392" cy="288" r="6.5"/><circle class="rest" id="r-BI" cx="394" cy="302" r="6.5"/>
+            <circle class="rest" id="r-TZ" cx="420" cy="318" r="6.5"/><circle class="rest" id="r-AO" cx="300" cy="352" r="6.5"/>
+            <circle class="rest" id="r-ZM" cx="352" cy="352" r="6.5"/><circle class="rest" id="r-MW" cx="400" cy="340" r="6.5"/>
+            <circle class="rest" id="r-MZ" cx="408" cy="392" r="6.5"/><circle class="rest" id="r-ZW" cx="360" cy="392" r="6.5"/>
+            <circle class="rest" id="r-BW" cx="330" cy="424" r="6.5"/><circle class="rest" id="r-NA" cx="296" cy="412" r="6.5"/>
+            <circle class="rest" id="r-ZA" cx="336" cy="478" r="6.5"/><circle class="rest" id="r-LS" cx="352" cy="478" r="5"/>
+            <circle class="rest" id="r-SZ" cx="378" cy="452" r="5"/><circle class="rest" id="r-MG" cx="483" cy="418" r="6"/>
+          </g>
+          <!-- pays couverts — chaque atome dérive (--fx/--fy) vers sa liaison et s'y fixe -->
+          <g class="node" id="n-BJ" style="--fx:8px;--fy:-52px"><circle class="ping" cx="214" cy="238" r="10"/><circle class="halo" cx="214" cy="238" r="10"/><circle class="core" cx="214" cy="238" r="10"/><text x="214" y="241">BJ</text></g>
+          <g class="node" id="n-TG" style="--fx:-34px;--fy:34px"><circle class="ping" cx="200" cy="248" r="9"/><circle class="core" cx="200" cy="248" r="9"/><text x="200" y="251">TG</text></g>
+          <g class="node" id="n-CI" style="--fx:-44px;--fy:22px"><circle class="ping" cx="148" cy="250" r="11"/><circle class="halo" cx="148" cy="250" r="11"/><circle class="core" cx="148" cy="250" r="11"/><text x="148" y="253">CI</text></g>
+          <g class="node" id="n-GH" style="--fx:26px;--fy:38px"><circle class="ping" cx="180" cy="256" r="10"/><circle class="core" cx="180" cy="256" r="10"/><text x="180" y="259">GH</text></g>
+          <g class="node" id="n-BF" style="--fx:12px;--fy:-44px"><circle class="ping" cx="174" cy="214" r="10"/><circle class="core" cx="174" cy="214" r="10"/><text x="174" y="217">BF</text></g>
+          <g class="node" id="n-ML" style="--fx:-30px;--fy:-38px"><circle class="ping" cx="150" cy="168" r="11"/><circle class="core" cx="150" cy="168" r="11"/><text x="150" y="171">ML</text></g>
+          <g class="node" id="n-SN" style="--fx:-42px;--fy:-16px"><circle class="ping" cx="84" cy="184" r="10"/><circle class="core" cx="84" cy="184" r="10"/><text x="84" y="187">SN</text></g>
+          <g class="node" id="n-GW" style="--fx:-14px;--fy:40px"><circle class="ping" cx="90" cy="206" r="9"/><circle class="core" cx="90" cy="206" r="9"/><text x="90" y="209">GW</text></g>
+          <g class="node" id="n-NE" style="--fx:42px;--fy:-34px"><circle class="ping" cx="230" cy="178" r="11"/><circle class="core" cx="230" cy="178" r="11"/><text x="230" y="181">NE</text></g>
+          <g class="node" id="n-NG" style="--fx:50px;--fy:14px"><circle class="ping" cx="244" cy="228" r="11"/><circle class="core" cx="244" cy="228" r="11"/><text x="244" y="231">NG</text></g>
+          <!-- naissance de la marque, sur le golfe de Guinée : caducée (logo pharmacie) → P → wordmark -->
+          <g class="cadu" id="cadu" aria-hidden="true">
+            <path fill="#3fae60" d="M80,316 C90,311 136,311 146,316 C143,321 136,325 129,329 C123,332 118,334 113,334 C108,334 103,332 97,329 C90,325 83,321 80,316 Z"/>
+            <path fill="#3fae60" d="M110,333 L116,333 L116,351 L110,351 Z M99,351 C104,348 122,348 127,351 L127,356 L99,356 Z"/>
+            <path class="snakefill" fill="none" stroke="#3fae60" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round"
+              d="M118,295 C126,293 129,299 123,303 C112,308 104,313 113,319 C122,325 122,331 112,336 C103,341 104,346 112,350"/>
+          </g>
+          <g class="morphwrap" id="morphwrap">
+            <path class="mpath" id="mp-cup" d="M96,323 C102,318 124,318 130,323 C127,334 119,339 113,339 C107,339 99,334 96,323">
+              <animate attributeName="d" begin="indefinite" dur="0.9s" fill="freeze" calcMode="spline" keySplines="0.4 0 0.2 1"
+                values="M96,323 C102,318 124,318 130,323 C127,334 119,339 113,339 C107,339 99,334 96,323;M107,308 C107,318 107,328 107,338 C107,346 107,352 107,356 C107,356 107,356 107,356"/>
+            </path>
+            <path class="mpath" id="mp-snake" d="M113,306 C121,306 124,311 119,314 C111,318 106,322 113,327 C120,332 120,338 113,342 C106,346 106,350 113,353">
+              <animate attributeName="d" begin="indefinite" dur="0.9s" fill="freeze" calcMode="spline" keySplines="0.4 0 0.2 1"
+                values="M113,306 C121,306 124,311 119,314 C111,318 106,322 113,327 C120,332 120,338 113,342 C106,346 106,350 113,353;M107,310 C121,310 128,316 128,325 C128,334 121,339 110,339 C108,339 107,339 107,339 C107,339 107,339 107,339"/>
+            </path>
+          </g>
+          <g class="brandfinal" aria-hidden="true">
+            <use class="logoP" id="logoP" href="#logo-p" x="98" y="314" width="30" height="30" style="color:#ffffff"/>
+            <text class="wordmark" id="wordmark" x="138" y="338">Pharnos</text>
+          </g>
+        </svg>
+        <div class="map-legend" aria-hidden="true">
+          <span class="u"><i></i>Couverts : UEMOA · 8 + GH, NG</span>
+          <span class="c"><i></i>Demain : le continent</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ POUR QUI ═══════════ -->
+  <section class="section" id="pourqui">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="kicker">Regroupez votre équipe</p>
+        <h2>Collaboration efficace et transparente.</h2>
+        <p class="section-sub">
+          MAH, fabricant, agence ou représentant local : chacun son rôle et son niveau d'accès
+          sur le dossier — et le projet avance, tracé de bout en bout.
+        </p>
+      </div>
+      <div class="personas stagger reveal">
+        <article class="persona">
+          <h3>Expert / Chargé RA</h3>
+          <p class="role">Aujourd'hui : Word, tableurs, relances au téléphone.</p>
+          <h4>Avec Pharnos</h4>
+          <ul class="gains">
+            <li><svg><use href="#i-check"/></svg>CTD Module 1 guidé, PDF compilé en un clic</li>
+            <li><svg><use href="#i-check"/></svg>Exigences par autorité, validité des pièces alertée</li>
+            <li><svg><use href="#i-check"/></svg>Pipeline temps réel, relances automatiques</li>
+          </ul>
+        </article>
+        <article class="persona">
+          <h3>Titulaire / Fabricant</h3>
+          <p class="role">Aujourd'hui : zéro visibilité une fois le dossier confié.</p>
+          <h4>Avec Pharnos</h4>
+          <ul class="gains">
+            <li><svg><use href="#i-check"/></svg>Suivi en direct, du montage à l'AMM</li>
+            <li><svg><use href="#i-check"/></svg>Rôles d'accès définis pour chaque participant au dossier</li>
+            <li><svg><use href="#i-check"/></svg>Alerte renouvellement 6 mois avant l'échéance</li>
+          </ul>
+        </article>
+        <article class="persona">
+          <h3>Agence locale / Représentant</h3>
+          <p class="role">Aujourd'hui : e-mails, WhatsApp, preuves éparpillées.</p>
+          <h4>Avec Pharnos</h4>
+          <ul class="gains">
+            <li><svg><use href="#i-check"/></svg>Compte Pharnos ou lien sécurisé — dépôt et récépissé en 2 clics</li>
+            <li><svg><use href="#i-check"/></svg>Toutes les preuves — soumission, échantillons, frais — sécurisées au même endroit</li>
+            <li><svg><use href="#i-check"/></svg>Notifications de l'autorité relayées et tracées</li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ CYCLE DE VIE ═══════════ -->
+  <section class="section section-muted" id="cycle">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="kicker">La colonne vertébrale</p>
+        <h2>360° de pilotage. Zéro angle mort.</h2>
+        <p class="section-sub">
+          L'état de chaque projet se lit en un coup d'œil, du montage à l'AMM — plus besoin
+          d'enchaîner appels et e-mails pour savoir où on en est.
+        </p>
+      </div>
+      <div class="lifecycle reveal">
+        <div class="lifeline">
+          <div class="fill" aria-hidden="true"></div>
+          <div class="lstep"><i>1</i><p>Montage<span>Labo</span></p></div>
+          <div class="lstep"><i>2</i><p>Revue<span>Agent local</span></p></div>
+          <div class="lstep"><i>3</i><p>Décision<span>Agent local</span></p></div>
+          <div class="lstep"><i>4</i><p>Dépôt<span>Agent local</span></p></div>
+          <div class="lstep"><i>5</i><p>Soumission<span>+ preuves</span></p></div>
+          <div class="lstep"><i>6</i><p>Notifications<span>Autorité</span></p></div>
+          <div class="lstep"><i>7</i><p>AMM<span>Autorité</span></p></div>
+        </div>
+        <div class="life-notes">
+          <span class="life-note"><svg><use href="#i-bell"/></svg>Relance automatique si un dossier stagne — agent 14 j, autorité 30 j</span>
+          <span class="life-note"><svg><use href="#i-check"/></svg>3 conditions suivies : CTD · échantillons · frais</span>
+          <span class="life-note"><svg><use href="#i-copy"/></svg>Renouvellements et variations sur la même spine</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ MODULES ═══════════ -->
+  <section class="section" id="modules">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="kicker">La plateforme</p>
+        <h2>Tout le métier RA. Rien de plus.</h2>
+      </div>
+      <div class="modules stagger reveal">
+        <article class="module">
+          <span class="ic"><svg><use href="#i-layers"/></svg></span>
+          <h3>Une fiche produit, dix pays</h3>
+          <p>Créez la fiche produit une fois ; déclinez-la en quelques clics en Modules 1 adaptés à chaque pays de l'UEMOA. Zéro ressaisie.</p>
+        </article>
+        <article class="module">
+          <span class="ic"><svg><use href="#i-file"/></svg></span>
+          <h3>CTD Builder, framework UEMOA</h3>
+          <p>Arborescence Module 1 au cadre UEMOA, lettres officielles au format de chaque agence, PDF compilé en secondes.</p>
+        </article>
+        <article class="module">
+          <span class="ic"><svg><use href="#i-gauge"/></svg></span>
+          <h3>Cockpit &amp; Dashboard RA</h3>
+          <p>Toutes vos opérations réglementaires sur une seule interface : pipeline, actions requises, échéances, relances.</p>
+        </article>
+        <article class="module">
+          <span class="ic"><svg><use href="#i-send"/></svg></span>
+          <h3>Correspondance &amp; parcours</h3>
+          <p>Échanges structurés avec le correspondant et l'autorité — le parcours du dossier avance en direct.</p>
+        </article>
+        <article class="module">
+          <span class="ic"><svg><use href="#i-copy"/></svg></span>
+          <h3>Templates &amp; variations</h3>
+          <p>Bibliothèque bilingue RCP, notice, étiquetage — et l'annexe de variation préparée automatiquement.</p>
+        </article>
+        <article class="module">
+          <span class="ic"><svg><use href="#i-globe"/></svg></span>
+          <h3>Hors-ligne &amp; bilingue</h3>
+          <p>Pensé pour le terrain : fonctionne sans connexion, se synchronise au retour du réseau. FR / EN.</p>
+        </article>
+        <article class="module module-wide">
+          <span class="ic"><svg><use href="#i-shield"/></svg></span>
+          <h3>Confiance &amp; conformité</h3>
+          <p>Isolation par organisation (RLS) · journal d'audit append-only · corbeille 30 j ·
+             liens tokenisés révocables · sauvegardes chiffrées · chiffrement en transit et au repos.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ REGAFY AI ═══════════ -->
+  <section class="regafy" id="regafy">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="kicker">Regafy AI · bêta</p>
+        <h2>Meet your Regulatory Partner.</h2>
+        <p class="section-sub">
+          Regafy audite la conformité de votre Module 1 CTD contre les références UEMOA —
+          Règlement n° 04/2020/CM/UEMOA, templates en vigueur des agences et Directions
+          nationales du médicament. Chaque constat est validé par l'expert.
+        </p>
+        <ul>
+          <li><svg><use href="#i-check"/></svg>Validité lue dans les documents : ≥ 6 mois pièces admin, ≥ 18 mois COA</li>
+          <li><svg><use href="#i-check"/></svg>Langue de chaque pièce contrôlée contre la langue officielle du pays</li>
+        </ul>
+      </div>
+      <div class="card stagger reveal" aria-label="Exemple de constats Regafy">
+        <h4><span class="dot"></span>Remarques · analyse du dossier</h4>
+        <div class="finding warn">
+          <b>GMP du site de fabrication — expire dans 4 mois</b>
+          Sous le seuil de 6 mois requis au dépôt. Prévoir le renouvellement avant soumission.
+        </div>
+        <div class="finding warn">
+          <b>Notice en anglais — soumission au Bénin</b>
+          La langue officielle attendue est le français. Traduction assistée disponible.
+        </div>
+        <div class="finding ok">
+          <b>Lettre de couverture conforme</b>
+          Structure et mentions alignées sur le template en vigueur de l'agence.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ ÉQUIPE ═══════════ -->
+  <section class="section section-muted team" id="equipe">
+    <div class="wrap reveal">
+      <p class="kicker">L'équipe</p>
+      <h2>Créé par des experts RA, basés en UEMOA.</h2>
+      <p class="section-sub">
+        Chaque procédure vient du terrain — démarches, délais, réalités de chaque pays de la zone.
+        Quand les exigences évoluent, la plateforme s'adapte : la conformité cesse d'être un casse-tête.
+      </p>
+      <div class="founder">
+        <svg class="avatar" viewBox="0 0 96 96" role="img" aria-label="Portrait du fondateur — expert RA basé en UEMOA">
+          <circle cx="48" cy="48" r="48" fill="#16233f"/>
+          <ellipse cx="48" cy="86" rx="30" ry="22" fill="#1f3050"/>
+          <path d="M18 96c2-16 14-24 30-24s28 8 30 24z" fill="#263f73"/>
+          <path d="M40 70h16v10c0 4.4-3.6 8-8 8s-8-3.6-8-8z" fill="#5d3d2a"/>
+          <ellipse cx="48" cy="46" rx="17" ry="20" fill="#6b4a35"/>
+          <path d="M31 42c-1-12 6-20 17-20s18 8 17 20c-2-8-7-11-17-11s-15 3-17 11z" fill="#3a3a3e"/>
+          <path d="M31.5 40c-.9 2.2-1.3 4.6-1.2 7" fill="none" stroke="#9aa0a6" stroke-width="2.4" stroke-linecap="round"/>
+          <path d="M64.5 40c.9 2.2 1.3 4.6 1.2 7" fill="none" stroke="#9aa0a6" stroke-width="2.4" stroke-linecap="round"/>
+          <rect x="33" y="42" width="13" height="10" rx="3.5" fill="none" stroke="#d7dbe0" stroke-width="1.8"/>
+          <rect x="50" y="42" width="13" height="10" rx="3.5" fill="none" stroke="#d7dbe0" stroke-width="1.8"/>
+          <path d="M46 47h4" stroke="#d7dbe0" stroke-width="1.8"/>
+          <path d="M38 60c3 2.8 6.3 4.2 10 4.2s7-1.4 10-4.2c-1 5-4.6 8-10 8s-9-3-10-8z" fill="#3a3a3e" opacity=".55"/>
+          <circle cx="48" cy="48" r="47" fill="none" stroke="#1c2b49" stroke-width="2"/>
+        </svg>
+        <div class="fmeta">
+          <b>L'équipe Pharnos</b>
+          <a href="mailto:team@pharnos.com">team@pharnos.com</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ OFFRES ═══════════ -->
+  <section class="section section-muted" id="offres">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="kicker">Offres</p>
+        <h2>Commencez sur un dossier réel.</h2>
+      </div>
+      <div class="plans stagger reveal">
+        <article class="plan">
+          <h3>Pilote</h3>
+          <p class="price">Gratuit</p>
+          <p class="per">pour démarrer</p>
+          <ul>
+            <li><svg><use href="#i-check"/></svg>Une organisation, le cycle complet</li>
+            <li><svg><use href="#i-check"/></svg>Builder CTD + compilation PDF</li>
+            <li><svg><use href="#i-check"/></svg>Suivi 7 étapes &amp; correspondance</li>
+          </ul>
+          <a class="btn btn-ghost" href="https://app.pharnos.com">Commencer</a>
+        </article>
+        <article class="plan featured">
+          <h3>Pro</h3>
+          <p class="price">Sur devis</p>
+          <p class="per">par organisation / mois</p>
+          <ul>
+            <li><svg><use href="#i-check"/></svg>Volume de dossiers &amp; multi-pays</li>
+            <li><svg><use href="#i-check"/></svg>Regafy AI &amp; traduction assistée</li>
+            <li><svg><use href="#i-check"/></svg>Accompagnement à la prise en main</li>
+          </ul>
+          <a class="btn btn-primary" href="mailto:contact@pharnos.com?subject=Pharnos%20Pro">Nous contacter</a>
+        </article>
+        <article class="plan">
+          <h3>Entreprise</h3>
+          <p class="price">Sur devis</p>
+          <p class="per">annuel</p>
+          <ul>
+            <li><svg><use href="#i-check"/></svg>Multi-organisations &amp; équipes</li>
+            <li><svg><use href="#i-check"/></svg>Périmètres par dossier &amp; par pays</li>
+            <li><svg><use href="#i-check"/></svg>SLA &amp; exigences de conformité avancées</li>
+          </ul>
+          <a class="btn btn-ghost" href="mailto:contact@pharnos.com?subject=Pharnos%20Entreprise">Nous contacter</a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ CTA FINAL ═══════════ -->
+  <section class="cta-final">
+    <div class="wrap reveal">
+      <p class="kicker">Prochaine soumission</p>
+      <h2>Votre prochain dossier mérite mieux qu'un tableur.</h2>
+      <p>Compilez un premier dossier réel — gratuitement, en moins d'une journée.</p>
+      <div class="btns">
+        <a class="btn btn-primary btn-lg" href="mailto:contact@pharnos.com?subject=Démo%20Pharnos">Demander une démo</a>
+        <a class="btn btn-navy btn-lg" href="https://app.pharnos.com">Démarrer — pilote gratuit</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <a class="brand" href="#" aria-label="Pharnos">
+          <svg aria-hidden="true" style="width:28px;height:28px"><use href="#logo-p"/></svg>
+          <span class="brand-name">Pharnos</span>
+        </a>
+        <p class="tag">Le système d'exploitation des affaires réglementaires pharmaceutiques — UEMOA / CEDEAO.</p>
+      </div>
+      <div>
+        <h4>Plateforme</h4>
+        <ul>
+          <li><a href="#modules">Catalogue RIM</a></li>
+          <li><a href="#modules">Builder CTD</a></li>
+          <li><a href="#modules">Correspondance</a></li>
+          <li><a href="#regafy">Regafy AI</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Entreprise</h4>
+        <ul>
+          <li><a href="#couverture">Couverture</a></li>
+          <li><a href="#equipe">Équipe</a></li>
+          <li><a href="#pourqui">Pour qui</a></li>
+          <li><a href="#offres">Offres</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Contact</h4>
+        <ul>
+          <li><a href="mailto:contact@pharnos.com">contact@pharnos.com</a></li>
+          <li><a href="https://app.pharnos.com">app.pharnos.com</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="legal">
+      <span>© 2026 Pharnos — tous droits réservés.</span>
+      <span>Français · English</span>
+    </div>
+  </div>
+</footer>
+
+
+<script src="/landing.js" defer></script>
+</body>
 </html>
