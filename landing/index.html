@@ -3,17 +3,18 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pharnos — Cockpit & Conformité réglementaire UEMOA</title>
-<meta name="description" content="Pharnos : CTD, soumission, suivi en temps réel et correspondance avec les autorités — une seule plateforme pour le laboratoire, son fabricant et son représentant local. UEMOA + Ghana, Nigeria." />
-<link rel="stylesheet" href="/styles.css?v=2" />
+<title>Pharnos — La plateforme du réglementaire pharmaceutique en Afrique</title>
+<meta name="description" content="CTD Builder, soumission, collaboration fluide entre laboratoire et représentant local, suivi en temps réel — sur un seul dashboard. UEMOA / CEDEAO." />
+<link rel="stylesheet" href="/styles.css?v=3" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <link rel="canonical" href="https://pharnos.com/" />
-<meta name="theme-color" content="#0a1628" />
-<meta property="og:title" content="Pharnos — Cockpit & Conformité réglementaire UEMOA" />
-<meta property="og:description" content="L'enregistrement pharmaceutique en Afrique, enfin sous contrôle." />
+<meta name="theme-color" content="#171040" />
+<meta property="og:title" content="Pharnos — La plateforme du réglementaire pharmaceutique en Afrique" />
+<meta property="og:description" content="CTD Builder, soumission, collaboration, suivi en temps réel — sur un seul dashboard. UEMOA / CEDEAO." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://pharnos.com/" />
+<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/sora-latin.woff2" crossorigin />
 <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/syne-latin-wght-normal.woff2" crossorigin />
 <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/dm-sans-latin-standard-normal.woff2" crossorigin />
 <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/source-serif-4-latin-600.woff2" crossorigin />
@@ -54,9 +55,12 @@
       <a class="navlink" href="#modules">Plateforme</a>
       <a class="navlink" href="#equipe">Équipe</a>
       <a class="navlink" href="#offres">Offres</a>
-      <a class="btn btn-ghost" href="https://app.pharnos.com">Se connecter</a>
-      <a class="btn btn-primary" href="mailto:contact@pharnos.com?subject=Démo%20Pharnos">Demander une démo</a>
     </nav>
+    <div class="lang" role="group" aria-label="Choisir la langue">
+      <button type="button" class="on" aria-pressed="true">FR</button>
+      <button type="button" aria-pressed="false">EN</button>
+    </div>
+    <a class="login" href="https://app.pharnos.com">Se connecter</a>
     <button class="burger" type="button" aria-expanded="false" aria-controls="mnav" aria-label="Ouvrir le menu">
       <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     </button>
@@ -66,8 +70,11 @@
       <a href="#modules">Plateforme</a>
       <a href="#equipe">Équipe</a>
       <a href="#offres">Offres</a>
+      <div class="lang" role="group" aria-label="Choisir la langue">
+        <button type="button" class="on" aria-pressed="true">FR</button>
+        <button type="button" aria-pressed="false">EN</button>
+      </div>
       <a href="https://app.pharnos.com">Se connecter</a>
-      <a class="btn btn-primary" href="mailto:contact@pharnos.com?subject=Démo%20Pharnos">Demander une démo</a>
     </nav>
   </div>
 </header>
@@ -77,22 +84,30 @@
   <!-- ═══════════ COUVERTURE ═══════════ -->
   <section class="hero">
     <div class="wrap intro">
-      <p class="eyebrow">Regulatory Information Management · UEMOA / CEDEAO</p>
-      <h1>L'enregistrement pharmaceutique en Afrique, <span class="grad">enfin sous contrôle.</span></h1>
+      <a class="announce" href="#regafy">
+        <b>Regafy AI</b>
+        <span>Disponible en bêta
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M4 12h15m-6-6 6 6-6 6"/></svg>
+        </span>
+      </a>
+      <h1>La plateforme du réglementaire pharmaceutique en Afrique</h1>
       <p class="lede">
-        CTD, soumission, suivi en temps réel, correspondance avec les autorités — une seule
-        plateforme pour le laboratoire, son fabricant et son représentant local.
+        CTD Builder, soumission, collaboration fluide entre laboratoire et représentant local,
+        suivi en temps réel — sur un seul dashboard.
       </p>
       <div class="hero-cta">
-        <a class="btn btn-primary btn-lg" href="mailto:contact@pharnos.com?subject=Démo%20Pharnos">Demander une démo</a>
-        <a class="btn btn-ghost btn-lg" href="https://app.pharnos.com">Démarrer — pilote gratuit</a>
+        <a class="btn-white" href="mailto:contact@pharnos.com?subject=Démo%20Pharnos">Demander une démo</a>
       </div>
-      <ul class="hero-proof">
-        <li><svg aria-hidden="true"><use href="#i-check"/></svg>Conçu par des experts RA de la région</li>
-        <li><svg aria-hidden="true"><use href="#i-check"/></svg>Français &amp; anglais</li>
-        <li><svg aria-hidden="true"><use href="#i-check"/></svg>Fonctionne hors-ligne</li>
-      </ul>
     </div>
+    <ul class="hero-proof">
+      <li>RIM · UEMOA / CEDEAO</li>
+      <li class="dot" aria-hidden="true">·</li>
+      <li>Français &amp; Anglais</li>
+      <li class="dot" aria-hidden="true">·</li>
+      <li>Confidentiel et sécurisé</li>
+      <li class="dot" aria-hidden="true">·</li>
+      <li>Conçu par des experts RA de la région</li>
+    </ul>
   </section>
 
   <!-- ═══════════ CONSTELLATION · pleine largeur ═══════════ -->
@@ -493,8 +508,6 @@
     </div>
   </div>
 </footer>
-
-
-<script src="/landing.js?v=2" defer></script>
+<script src="/landing.js?v=3" defer></script>
 </body>
 </html>
