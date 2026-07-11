@@ -428,6 +428,27 @@
     .lifecycle.in .lstep:nth-child(5) i { transition-delay: .6s; } .lifecycle.in .lstep:nth-child(6) i { transition-delay: .8s; }
     .lifecycle.in .lstep:nth-child(7) i { transition-delay: 1s; } .lifecycle.in .lstep:nth-child(8) i { transition-delay: 1.2s; }
   }
+  /* ── De-inline (CSP style-src 'self' bloque style="") : offsets/délais/sprite déplacés ── */
+  body > svg[aria-hidden="true"][width="0"] { position: absolute; width: 0; height: 0; }
+  .site-footer .brand svg { width: 28px; height: 28px; }
+  #m-CV { animation-delay:.5s; }
+  #m-MR { animation-delay:.6s; }
+  #m-GM { animation-delay:.7s; }
+  #m-GN { animation-delay:.8s; }
+  #m-SL { animation-delay:.9s; }
+  #m-LR { animation-delay:1s; }
+  #n-BJ { --fx:8px;--fy:-52px; }
+  #n-TG { --fx:-34px;--fy:34px; }
+  #n-CI { --fx:-44px;--fy:22px; }
+  #n-GH { --fx:26px;--fy:38px; }
+  #n-BF { --fx:12px;--fy:-44px; }
+  #n-ML { --fx:-30px;--fy:-38px; }
+  #n-SN { --fx:-42px;--fy:-16px; }
+  #n-GW { --fx:-14px;--fy:40px; }
+  #n-NE { --fx:42px;--fy:-34px; }
+  #n-NG { --fx:50px;--fy:14px; }
+  #logoP { color:#ffffff; }
+
 
   /* ── Responsive ── */
   @media (max-width: 980px) {
