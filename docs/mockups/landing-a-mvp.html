@@ -1,0 +1,1088 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pharnos — Mockup A · MVP (concentré)</title>
+<meta name="description" content="Mockup A de la landing Pharnos — institutionnel clair, version vivante : couverture épurée, section constellation pleine largeur (molécule UEMOA/CEDEAO animée + carte dossier), hovers du design-system." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600..800&family=DM+Sans:opsz,wght@9..40,400..700&family=Source+Serif+4:opsz,wght@8..60,600&display=swap" rel="stylesheet" />
+<style>
+  /* ── Thème « Encre & Signature » — tokens app ; or #d29922/#e3b341 réservé à la constellation.
+     Hovers = recettes EXACTES du mockup DS Pharnos_Dashboard.html (transition .18s, lift -2px,
+     ombre, ghost bleu, nudge 2px sur les lignes). ── */
+  :root {
+    --white: #ffffff;
+    --g50: #f9fafb;  --g100: #f3f4f6; --g200: #e5e7eb; --g300: #d1d5db;
+    --g400: #9ca3af; --g500: #6b7280; --g600: #4b5563; --g700: #374151;
+    --g800: #1f2937; --g900: #111827;
+    --blue: #1a56db; --blue2: #2563eb; --blue-ghost: #eff6ff;
+    --navy: #0a1628; --navy-2: #16233f; --navy-border: #1c2b49;
+    --brand-doc: #263f73;
+    --ink-1: #0c1b33; --ink-2: #081222;
+    --gold: #d29922; --gold-2: #e3b341; --green: #4ac26b;
+    --ink-card: rgba(13,17,23,.94); --ink-border: #30363d; --ink-muted: #8b949e;
+    --info-dark-fg: #6cb6ff;
+    --success: #059669; --success-subtle: #d1fae5; --success-fg: #047857;
+    --warning: #b45309; --warning-subtle: #fef3c7;
+    --info-subtle: #eff6ff; --info-fg: #1e40af;
+    --radius: 10px; --radius-lg: 18px;
+    --shadow-soft: 0 14px 34px rgba(10,22,40,.10);
+    --shadow: 0 2px 12px rgba(0,0,0,.08);
+    --shadow-sm: 0 1px 4px rgba(0,0,0,.06);
+    --transition: all .18s cubic-bezier(.4,0,.2,1);
+    --font-display: 'Syne', 'DM Sans', system-ui, sans-serif;
+    --font-serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+    --font-sans: 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { animation: none !important; transition: none !important; } }
+  body {
+    font-family: var(--font-sans); color: var(--g800); background: var(--white);
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+    font-size: 16px; line-height: 1.6;
+  }
+  a { color: inherit; text-decoration: none; }
+  ul { list-style: none; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+  .skip-link { position: absolute; left: -9999px; }
+  .skip-link:focus { left: 16px; top: 16px; z-index: 100; background: var(--navy); color: #fff; padding: 8px 14px; border-radius: 8px; }
+  :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
+
+  /* ── Boutons (recette DS) ── */
+  .btn { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px;
+    border-radius: 10px; padding: 10px 20px; border: 1px solid transparent; cursor: pointer;
+    transition: var(--transition); }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover { background: var(--blue2); box-shadow: 0 4px 14px rgba(26,86,219,.35); transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-ghost { border-color: var(--g300); color: var(--g800); background: #fff; }
+  .btn-ghost:hover { border-color: var(--g400); background: var(--g50); }
+  .btn-lg { padding: 13px 26px; font-size: 16px; }
+  .btn-navy { background: var(--navy); color: #fff; }
+  .btn-navy:hover { background: var(--navy-2); box-shadow: 0 4px 14px rgba(10,22,40,.3); transform: translateY(-1px); }
+  .btn-navy:active { transform: translateY(0); }
+
+  /* ── Header ── */
+  .site-header { position: sticky; top: 0; z-index: 50; background: rgba(255,255,255,.86);
+    backdrop-filter: blur(10px); border-bottom: 1px solid var(--g200); }
+  .site-header .wrap { display: flex; align-items: center; gap: 28px; height: 68px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand svg { width: 30px; height: 30px; color: var(--navy); }
+  .brand-name { font-family: var(--font-display); font-weight: 700; font-size: 20px; letter-spacing: -.01em; color: var(--navy); }
+  .site-nav { display: flex; align-items: center; gap: 22px; margin-left: auto; font-size: 15px; font-weight: 500; color: var(--g600); }
+  .site-nav a { transition: var(--transition); }
+  .site-nav a:hover { color: var(--g900); }
+  .lang { display: inline-flex; border: 1px solid var(--g200); border-radius: 999px; overflow: hidden; font-size: 12px; font-weight: 700; }
+  .lang span { padding: 4px 10px; }
+  .lang .on { background: var(--navy); color: #fff; }
+  .lang .off { color: var(--g500); }
+  .burger { display: none; margin-left: auto; width: 42px; height: 42px; border: 1px solid var(--g300);
+    border-radius: 8px; background: #fff; color: var(--navy); align-items: center; justify-content: center; cursor: pointer; }
+  .burger svg path { stroke-width: 2.6; }
+  .mnav { display: none; }
+  @media (max-width: 900px) {
+    .site-nav { display: none; }
+    .burger { display: inline-flex; }
+    .mnav { display: grid; position: absolute; top: 100%; left: 0; right: 0; background: #fff;
+      border-bottom: 1px solid var(--g200); box-shadow: var(--shadow); padding: 12px 24px 18px; gap: 2px; }
+    .mnav[hidden] { display: none; }
+    .mnav a { padding: 11px 2px; font-size: 15px; font-weight: 600; color: var(--g800); border-bottom: 1px solid var(--g100); }
+    .mnav a.btn { justify-content: center; margin-top: 10px; border-bottom: 0; color: #fff; }
+  }
+
+  /* ── Hero = page de couverture, centrée ── */
+  .hero { padding: 96px 0 84px; text-align: center; background:
+    radial-gradient(1000px 460px at 50% -16%, var(--info-subtle) 0%, rgba(239,246,255,0) 62%), var(--white); }
+  .eyebrow { display: inline-flex; align-items: center; gap: 10px; font-size: 12.5px; font-weight: 700;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--blue); margin-bottom: 22px; }
+  .eyebrow::before, .eyebrow::after { content: ""; width: 26px; height: 2px; background: var(--blue); }
+  h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(2.1rem, 3.4vw, 2.8rem);
+    line-height: 1.1; letter-spacing: -.02em; color: var(--navy); max-width: 26ch; margin: 0 auto; }
+  h1 .grad { background: linear-gradient(92deg, var(--navy) 0%, var(--blue) 85%);
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lede { margin: 22px auto 0; font-size: 18.5px; line-height: 1.65; color: var(--g600); max-width: 58ch; }
+  .hero-cta { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+  .hero-proof { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px 20px; margin-top: 28px; font-size: 14px; color: var(--g500); }
+  .hero-proof li { display: flex; align-items: center; gap: 7px; }
+  .hero-proof svg { width: 15px; height: 15px; color: var(--success); flex: none; }
+
+  /* ── Constellation — session pleine largeur, la couverture qui se construit ── */
+  .constellation { position: relative; background:
+    radial-gradient(720px 420px at 68% 30%, rgba(26,86,219,.16), transparent 68%),
+    linear-gradient(160deg, var(--ink-1), var(--ink-2) 74%);
+    color: #c3d0e6; overflow: hidden; }
+  .constellation::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .8;
+    background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,.03) 0 1px, transparent 1px 108px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.03) 0 1px, transparent 1px 108px); }
+  .constellation .wrap { position: relative; display: grid; grid-template-columns: minmax(0, .34fr) minmax(0, .66fr);
+    gap: 48px; align-items: center; padding-top: 46px; padding-bottom: 54px; }
+  /* titre volontairement discret : la molécule est le sujet */
+  .constellation .kicker { color: var(--gold-2); margin-bottom: 8px; }
+  .constellation h2 { color: #fff; font-family: var(--font-serif); font-size: 22px; font-weight: 600;
+    letter-spacing: 0; line-height: 1.35; max-width: none; }
+  /* gabarit du continent + émaillage */
+  .map .africa { fill: rgba(125,163,220,.05); stroke: rgba(227,179,65,.34); stroke-width: 1.2; }
+  .map .rest { fill: var(--green); opacity: .9; }
+  .map .dlink { stroke: var(--gold); stroke-opacity: .26; stroke-width: 1; stroke-linecap: round; }
+  /* naissance de la marque */
+  .map .mpath { fill: none; stroke: #4ac26b; stroke-width: 4.2; stroke-linecap: round; stroke-linejoin: round; }
+  .map .morphwrap, .map .cadu { opacity: 0; }
+  .map .wordmark { font-family: var(--font-display); font-weight: 700; font-size: 25px;
+    fill: #ffffff; letter-spacing: -.02em; }
+  .cov em { font-style: normal; color: #8fa3c4; }
+
+  .cosmos { position: relative; }
+  .cosmos svg.map { display: block; width: 100%; height: auto; transition: opacity .5s ease; }
+  .cosmos svg.map.fade { opacity: 0; }
+  .map .link { stroke: var(--gold); stroke-opacity: .42; stroke-width: 1.3; stroke-linecap: round; }
+  .map .node circle.core { fill: var(--ink-1); stroke: var(--gold-2); stroke-width: 1.6; }
+  .map .node text { font-family: var(--font-sans); font-size: 8.5px; font-weight: 700; fill: var(--gold-2); text-anchor: middle; }
+  .map .node .ping, .map .node .halo { fill: none; stroke: var(--gold-2); stroke-width: 1.2; opacity: 0;
+    transform-box: fill-box; transform-origin: center; }
+  .map .minor circle { fill: var(--green); opacity: .75; }
+  .map .minor text { font-size: 8px; font-weight: 600; fill: #6f8fae; text-anchor: middle; }
+
+  .cov { position: absolute; top: 0; left: 0; display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 700; color: #c3d0e6; border: 1px solid var(--navy-border);
+    background: rgba(10,22,40,.6); border-radius: 999px; padding: 5px 13px; letter-spacing: .02em; }
+  .cov b { color: var(--gold-2); font-family: var(--font-display); font-weight: 800; }
+  .map-legend { position: absolute; right: 0; bottom: -26px; display: flex; flex-direction: column;
+    align-items: flex-end; gap: 5px; font-size: 11.5px; font-weight: 600; color: #8fa3c4; }
+  .map-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .map-legend .u i { background: var(--gold-2); }
+  .map-legend .c i { background: var(--green); }
+
+  /* Carte dossier — dans la colonne de gauche, jamais sur l'illustration */
+  .dossier-card { margin-top: 26px; width: min(348px, 100%);
+    background: var(--ink-card); border: 1px solid var(--ink-border); border-radius: var(--radius-lg);
+    padding: 13px 16px 14px; box-shadow: 0 18px 44px rgba(3,8,20,.5);
+    transition: opacity .2s ease, transform .2s ease; }
+  .dossier-card.swap { opacity: 0; transform: translateY(6px); }
+  .dossier-card .live { display: flex; align-items: center; gap: 7px; font-size: 9.5px; font-weight: 700;
+    letter-spacing: .14em; text-transform: uppercase; color: #8fa3c4; margin-bottom: 7px; }
+  .dossier-card .live i { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+  .dossier-card .row1 { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .dossier-card .dci { font-family: var(--font-display); font-weight: 700; font-size: 15.5px; color: #fff; letter-spacing: -.01em; }
+  .dossier-card .cc { flex: none; font-size: 11px; font-weight: 700; color: var(--gold-2);
+    border: 1px solid rgba(227,179,65,.55); border-radius: 999px; padding: 3px 9px; background: rgba(227,179,65,.08); }
+  .segs { display: flex; gap: 5px; margin: 10px 0 9px; }
+  .segs i { height: 6px; flex: 1; border-radius: 999px; background: #2a3242; }
+  .segs i.done { background: var(--green); }
+  .segs i.now { background: var(--gold-2); }
+  .dossier-card .row2 { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--ink-muted); }
+  .dossier-card .stage { flex: none; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--info-dark-fg); border: 1px solid rgba(108,182,255,.45); border-radius: 999px; padding: 3px 9px; }
+
+  /* ── Bande pays ── */
+  .countries { border-block: 1px solid var(--g200); background: var(--g50); padding: 22px 0; }
+  .countries .wrap { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .countries p { font-size: 13px; font-weight: 600; color: var(--g500); flex: none; }
+  .countries ul { display: flex; flex-wrap: wrap; gap: 8px; }
+  .countries li { font-size: 12.5px; font-weight: 600; color: var(--g600); border: 1px solid var(--g200);
+    background: #fff; border-radius: 999px; padding: 4px 12px; transition: var(--transition); }
+  .countries li:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-ghost);
+    transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+
+  /* ── Sections — hybride Veeva × Apple : centrées, aérées, cartes douces ── */
+  .section { padding: 104px 0; }
+  .section-muted { background: #f5f7fa; }
+  .section > .wrap > .reveal:first-child { text-align: center; }
+  .section > .wrap > .reveal:first-child h2 { margin-left: auto; margin-right: auto; }
+  .section > .wrap > .reveal:first-child .section-sub { margin-left: auto; margin-right: auto; max-width: 56ch; }
+  .kicker { font-size: 12.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--blue); margin-bottom: 14px; }
+  /* Titres de section en serif : Syne reste réservé à la marque, au hero et aux chiffres */
+  h2 { font-family: var(--font-serif); font-weight: 600; font-size: clamp(1.65rem, 2.9vw, 2.3rem);
+    letter-spacing: -.005em; line-height: 1.18; color: var(--navy); max-width: 28ch; }
+  .section-sub { margin-top: 14px; color: var(--g600); font-size: 17px; max-width: 62ch; }
+
+  /* ── Personas (hover = recette kpi du DS) ── */
+  .personas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 44px; }
+  .persona { background: #fff; border: 1px solid var(--g100); border-radius: var(--radius-lg); padding: 30px;
+    box-shadow: var(--shadow-sm); transition: var(--transition); }
+  .persona:hover { border-color: var(--g200); box-shadow: var(--shadow-soft); transform: translateY(-2px); }
+  .persona h3 { font-family: var(--font-sans); font-size: 17px; font-weight: 700; color: var(--navy); }
+  .persona .role { font-size: 13px; color: var(--g500); margin: 4px 0 18px; }
+  .persona h4 { font-size: 11.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--g400); margin: 14px 0 8px; }
+  .persona ul { display: grid; gap: 7px; font-size: 14px; }
+  .persona .pains li { color: var(--g500); display: flex; gap: 8px; }
+  .persona .pains svg { width: 14px; height: 14px; color: var(--g300); flex: none; margin-top: 4px; }
+  .persona .gains li { color: var(--g700); display: flex; gap: 8px; }
+  .persona .gains svg { width: 14px; height: 14px; color: var(--blue); flex: none; margin-top: 4px; }
+
+  /* ── Cycle de vie (spine animée) ── */
+  .lifecycle { margin-top: 52px; background: #fff; border: 1px solid var(--g100); border-radius: 22px;
+    padding: 42px 36px 32px; box-shadow: var(--shadow-sm); transition: var(--transition); }
+  .lifecycle:hover { box-shadow: var(--shadow-soft); }
+  .lifeline { position: relative; display: flex; }
+  .lifeline::before { content: ""; position: absolute; top: 15px; left: 7%; right: 7%; height: 2px; background: var(--g200); }
+  .lifeline .fill { position: absolute; top: 15px; left: 7%; height: 2px; width: 86%; background: var(--blue); }
+  .lstep { flex: 1; position: relative; text-align: center; z-index: 1; }
+  .lstep i { display: inline-flex; width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--blue);
+    color: var(--blue); background: var(--info-subtle); align-items: center; justify-content: center;
+    font-style: normal; font-family: var(--font-display); font-weight: 700; font-size: 13px; }
+  .lstep p { margin-top: 10px; font-size: 13px; font-weight: 600; color: var(--g700); }
+  .lstep span { display: block; font-size: 11.5px; font-weight: 400; color: var(--g400); margin-top: 2px; }
+  .life-notes { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; padding-top: 20px; border-top: 1px dashed var(--g200); }
+  .life-note { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--g600);
+    background: var(--g50); border: 1px solid var(--g200); border-radius: 999px; padding: 7px 14px; transition: var(--transition); }
+  .life-note:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-ghost); }
+  .life-note svg { width: 14px; height: 14px; color: var(--blue); }
+
+  /* ── Modules (hover = recette ctry-tile du DS) ── */
+  .modules { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 44px; }
+  .module { background: #fff; border: 1px solid var(--g100); border-radius: var(--radius-lg); padding: 30px;
+    box-shadow: var(--shadow-sm); transition: var(--transition); }
+  .module:hover { border-color: var(--blue); box-shadow: var(--shadow-soft); transform: translateY(-2px); }
+  .module .ic { display: inline-flex; width: 42px; height: 42px; border-radius: 10px; background: var(--info-subtle);
+    color: var(--blue); align-items: center; justify-content: center; margin-bottom: 16px; }
+  .module .ic svg { width: 21px; height: 21px; }
+  .module h3 { font-size: 16.5px; font-weight: 700; color: var(--g900); margin-bottom: 8px; }
+  .module p { font-size: 14.5px; color: var(--g600); }
+  .module-wide { grid-column: 1 / -1; display: flex; gap: 18px; align-items: flex-start; }
+  .module-wide .ic { margin-bottom: 0; flex: none; }
+  .module-wide p { margin-top: 2px; }
+
+  /* ── Regafy AI ── */
+  .regafy { background: var(--navy); color: #c3d0e6; }
+  .regafy .wrap { display: grid; grid-template-columns: 1.05fr .95fr; gap: 56px; align-items: center; padding-top: 84px; padding-bottom: 84px; }
+  .regafy .kicker { color: #7da3dc; }
+  .regafy h2 { color: #fff; }
+  .regafy .section-sub { color: #c3d0e6; }
+  .regafy ul { margin-top: 26px; display: grid; gap: 13px; font-size: 15px; }
+  .regafy li { display: flex; gap: 11px; }
+  .regafy li svg { width: 17px; height: 17px; color: #7da3dc; flex: none; margin-top: 3px; }
+  .regafy .card { background: var(--navy-2); border: 1px solid var(--navy-border); border-radius: var(--radius-lg); padding: 22px; }
+  .regafy .card h4 { font-size: 13px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
+  .regafy .card h4 .dot { width: 8px; height: 8px; border-radius: 50%; background: #3b82f6; }
+  .finding { margin-top: 14px; background: rgba(255,255,255,.04); border: 1px solid var(--navy-border);
+    border-radius: 10px; padding: 13px 15px; font-size: 13px; transition: var(--transition); }
+  .finding:hover { border-color: #31446e; transform: translateX(2px); }
+  .finding b { color: #fff; font-weight: 600; display: block; margin-bottom: 3px; }
+  .finding.warn { border-left: 3px solid #d29922; }
+  .finding.ok { border-left: 3px solid #2ea043; }
+
+  /* ── Équipe ── */
+  .team { text-align: center; padding: 64px 0; }
+  .team h2, .team .section-sub { margin-left: auto; margin-right: auto; }
+  .founder { margin-top: 26px; display: inline-flex; align-items: center; gap: 14px; text-align: left; }
+  .founder .avatar { width: 64px; height: 64px; border-radius: 50%; flex: none; box-shadow: var(--shadow-sm); }
+  .founder .fmeta b { display: block; font-size: 14.5px; font-weight: 700; color: var(--navy); }
+  .founder .fmeta a { font-size: 13.5px; color: var(--blue); }
+  .founder .fmeta a:hover { color: var(--blue2); text-decoration: underline; }
+
+  /* ── Sécurité (hover = nudge alert-row du DS) ── */
+  .security { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px 28px; margin-top: 44px; }
+  .sec { display: flex; gap: 14px; transition: var(--transition); }
+  .sec:hover { transform: translateX(2px); }
+  .sec svg { width: 20px; height: 20px; color: var(--brand-doc); flex: none; margin-top: 3px; }
+  .sec h3 { font-size: 15px; font-weight: 700; color: var(--g900); }
+  .sec p { font-size: 13.5px; color: var(--g600); margin-top: 3px; }
+
+  /* ── Offres ── */
+  .plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 44px; align-items: start; }
+  .plan { background: #fff; border: 1px solid var(--g100); border-radius: var(--radius-lg); padding: 30px;
+    box-shadow: var(--shadow-sm); transition: var(--transition); }
+  .plan:hover { border-color: var(--g200); box-shadow: var(--shadow-soft); transform: translateY(-2px); }
+  .plan.featured { border: 2px solid var(--blue); box-shadow: 0 18px 44px rgba(26,86,219,.14); position: relative; }
+  .plan.featured:hover { border-color: var(--blue); }
+  .plan.featured::before { content: "Recommandé"; position: absolute; top: -12px; left: 24px;
+    background: var(--blue); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: .06em;
+    border-radius: 999px; padding: 3px 12px; }
+  .plan h3 { font-family: var(--font-sans); font-size: 17px; font-weight: 700; color: var(--navy); }
+  .plan .price { font-family: var(--font-display); font-size: 30px; font-weight: 800; color: var(--g900); margin: 12px 0 2px; }
+  .plan .per { font-size: 12.5px; color: var(--g400); margin-bottom: 16px; }
+  .plan ul { display: grid; gap: 8px; font-size: 14px; color: var(--g600); margin-bottom: 22px; }
+  .plan li { display: flex; gap: 8px; }
+  .plan li svg { width: 14px; height: 14px; color: var(--success); flex: none; margin-top: 4px; }
+  .plan .btn { width: 100%; justify-content: center; }
+
+  /* ── CTA final ── */
+  .cta-final { text-align: center; padding: 124px 0; background:
+    radial-gradient(720px 380px at 50% 118%, var(--info-subtle) 0%, rgba(239,246,255,0) 70%), var(--white); }
+  .cta-final h2 { margin: 0 auto 14px; }
+  .cta-final p { color: var(--g600); font-size: 17px; margin-bottom: 30px; }
+  .cta-final .btns { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+
+  /* ── Footer ── */
+  .site-footer { background: var(--navy); color: #c3d0e6; padding: 56px 0 34px; }
+  .site-footer .cols { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 36px; }
+  .site-footer .brand svg, .site-footer .brand-name { color: #fff; }
+  .site-footer .tag { font-size: 13.5px; margin-top: 14px; max-width: 34ch; color: #8fa3c4; }
+  .site-footer h4 { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #7da3dc; margin-bottom: 14px; }
+  .site-footer ul { display: grid; gap: 9px; font-size: 14px; }
+  .site-footer a:hover { color: #fff; }
+  .site-footer .legal { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    border-top: 1px solid var(--navy-border); margin-top: 44px; padding-top: 22px; font-size: 12.5px; color: #8fa3c4; }
+
+  /* ── Ruban mockup ── */
+  .ribbon { position: fixed; left: 14px; bottom: 14px; z-index: 60; font-size: 11px; font-weight: 700;
+    letter-spacing: .08em; color: var(--g500); background: #fff; border: 1px solid var(--g200);
+    border-radius: 999px; padding: 5px 12px; box-shadow: var(--shadow-sm); }
+
+  /* ── Vie : entrées, reveals, états initiaux (si le visiteur accepte le mouvement) ── */
+  @media (prefers-reduced-motion: no-preference) {
+    .intro > * { opacity: 0; transform: translateY(12px); animation: riseIn .6s ease-out both; }
+    .intro > *:nth-child(2) { animation-delay: .08s; } .intro > *:nth-child(3) { animation-delay: .16s; }
+    .intro > *:nth-child(4) { animation-delay: .24s; } .intro > *:nth-child(5) { animation-delay: .32s; }
+    @keyframes riseIn { to { opacity: 1; transform: none; } }
+
+    .reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease-out, transform .6s ease-out; }
+    .reveal.in { opacity: 1; transform: none; }
+    .stagger > * { opacity: 0; transform: translateY(12px); transition: opacity .55s ease-out, transform .55s ease-out; }
+    .stagger.in > * { opacity: 1; transform: none; }
+    .stagger.in > *:nth-child(2) { transition-delay: .09s; } .stagger.in > *:nth-child(3) { transition-delay: .18s; }
+    .stagger.in > *:nth-child(4) { transition-delay: .27s; } .stagger.in > *:nth-child(5) { transition-delay: .36s; }
+    .stagger.in > *:nth-child(6) { transition-delay: .45s; }
+
+    /* constellation : liaisons qui se tracent, atomes qui dérivent vers leur liaison et s'y fixent */
+    .map .link { stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset .85s ease-in-out; }
+    .map .link.on { stroke-dashoffset: 0; }
+    .map .node { opacity: 0; transform: translate(var(--fx, 0px), var(--fy, 0px)) scale(.55);
+      transform-box: fill-box; transform-origin: center;
+      transition: opacity .5s ease, transform .8s cubic-bezier(.3,1.35,.45,1); }
+    .map .node.on { opacity: 1; transform: translate(0, 0) scale(1); }
+    .map .node.on .ping { animation: ping .9s ease-out .55s 1 both; }
+    @keyframes ping { 0% { opacity: .55; transform: scale(1); } 100% { opacity: 0; transform: scale(2.3); } }
+    .map .node.on .halo { animation: halo 3s ease-out 1.6s infinite; }
+    @keyframes halo { 0% { opacity: .5; transform: scale(1); } 70%, 100% { opacity: 0; transform: scale(2.1); } }
+    .map .minor { opacity: 0; animation: nodein .7s ease-out both; }
+    @keyframes nodein { from { opacity: 0; } to { opacity: 1; } }
+    /* naissance de la marque : logo pharmacie plein → traits → morph → vrai logo */
+    .map .cadu { transition: opacity .5s ease, transform .6s ease; transform: scale(.9);
+      transform-box: fill-box; transform-origin: center; }
+    .map .cadu.show { opacity: 1; transform: scale(1); }
+    .map .cadu.out { opacity: 0; }
+    .map .morphwrap { transition: opacity .45s ease; }
+    .map .morphwrap.show { opacity: 1; }
+    .map .morphwrap.out { opacity: 0; }
+    .map .mpath { transition: stroke .85s ease; }
+    .map .morphwrap.toP .mpath { stroke: #ffffff; }
+    .map .logoP, .map .wordmark { opacity: 0; transition: opacity .55s ease, transform .55s ease; }
+    .map .wordmark { transform: translateX(6px); transform-box: fill-box; }
+    .map .logoP.on, .map .wordmark.on { opacity: 1; transform: none; }
+    /* continent : gabarit qui se dessine, atomes qui s'émaillent */
+    .map .africa { opacity: 0; stroke-dasharray: 1; stroke-dashoffset: 1;
+      transition: opacity 1.3s ease, stroke-dashoffset 2s ease-in-out; }
+    .map .africa.on { opacity: 1; stroke-dashoffset: 0; }
+    .map .rest { opacity: 0; transform: scale(.3); transform-box: fill-box; transform-origin: center;
+      transition: opacity .4s ease, transform .5s cubic-bezier(.3,1.35,.45,1); }
+    .map .rest.on { opacity: .9; transform: scale(1); }
+    .map .minor.on circle { opacity: 1; }
+    .map .dlink { stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset .4s ease-out; }
+    .map .dlink.on { stroke-dashoffset: 0; }
+    .cov em { opacity: 0; transition: opacity .6s ease; }
+    .cov em.on { opacity: 1; }
+    .dossier-card .live i { animation: pulse 2.2s infinite; }
+    @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(74,194,107,.45); } 60% { box-shadow: 0 0 0 6px rgba(74,194,107,0); } }
+
+    /* spine du cycle : la ligne se remplit, les étapes s'allument en cascade */
+    .lifecycle:not(.in) .fill { width: 0; }
+    .lifecycle .fill { transition: width 1.4s cubic-bezier(.22,.8,.36,1) .2s; }
+    .lifecycle:not(.in) .lstep i { border-color: var(--g300); color: var(--g500); background: #fff; }
+    .lifecycle .lstep i { transition: border-color .3s, color .3s, background .3s; }
+    .lifecycle.in .lstep:nth-child(3) i { transition-delay: .2s; } .lifecycle.in .lstep:nth-child(4) i { transition-delay: .4s; }
+    .lifecycle.in .lstep:nth-child(5) i { transition-delay: .6s; } .lifecycle.in .lstep:nth-child(6) i { transition-delay: .8s; }
+    .lifecycle.in .lstep:nth-child(7) i { transition-delay: 1s; } .lifecycle.in .lstep:nth-child(8) i { transition-delay: 1.2s; }
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 980px) {
+    .constellation .wrap, .regafy .wrap { grid-template-columns: 1fr; gap: 44px; }
+    .constellation .wrap { padding-bottom: 104px; }
+    .personas, .modules, .plans, .security { grid-template-columns: 1fr 1fr; }
+    .site-footer .cols { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 640px) {
+    .personas, .modules, .plans, .security { grid-template-columns: 1fr; }
+    .hero { padding: 60px 0 52px; }
+    h1 { font-size: 1.66rem; }
+    .lede { font-size: 16px; }
+    .eyebrow { font-size: 11px; letter-spacing: .1em; }
+    .module-wide { flex-direction: column; gap: 12px; }
+    .section { padding: 60px 0; }
+    .lifeline { flex-direction: column; gap: 18px; }
+    .lifeline::before, .lifeline .fill { display: none; }
+    .lstep { display: flex; align-items: center; gap: 14px; text-align: left; }
+    .lstep p { margin-top: 0; }
+    .constellation .wrap { padding-bottom: 64px; }
+    .map-legend { position: static; margin-top: 10px; flex-direction: row; justify-content: flex-end; gap: 14px; }
+    .cov { top: -6px; }
+  }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Aller au contenu</a>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="logo-p" viewBox="0 0 640 640">
+      <path fill="currentColor" d="M610.99,569.98c.48,9.86-.64,18.75-7.05,26.28-5.47,6.42-12.3,10.02-20.7,10.62-1.5.11-3,.12-4.5.12-90.16,0-180.32,0-270.48,0h-4.09v-135.49c13.8,0,27.45.54,41.03-.13,19.93-.98,39.98-1.73,59.69-4.57,30.3-4.38,58.57-14.9,83.28-33.61,29.84-22.6,47.04-52.98,53.52-89.41,5.88-33.04,5.36-66.02-4.73-98.34-11.31-36.21-34.93-61.8-68.91-77.99-24.63-11.74-50.89-17.45-77.95-19.39-14.77-1.06-29.62-1.45-44.43-1.51-47.66-.18-95.32-.07-142.99-.07h-5.5v87.9h3.95c33,0,66-.08,98.99.03,23.14.07,46.3.05,69.43.72,12.2.35,24.01,3.57,35.02,9.02,15.94,7.89,25.51,20.96,29.71,38,3.97,16.09,4.32,32.32.21,48.44-5.99,23.52-21.83,37.72-44.07,45.61-17.35,6.16-35.4,7.6-53.61,7.6-44.65,0-89.3-.13-133.95-.2h-5.66v223.15c-1.66.09-3.08.24-4.5.24-43.16.01-86.33.03-129.49,0-19.78-.02-32.19-12.39-32.19-32.07-.01-169.32-.01-338.64,0-507.95,0-19.39,12.43-31.95,31.78-31.95,172.15-.03,344.3-.03,516.45,0,19.5,0,31.73,12.61,31.73,32.51.01,167.32.01,334.63,0,502.45Z"/>
+    </symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" d="M4 12.5l5 5L20 6.5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 7v5l3.5 2.5"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5M3 17.5l9 5 9-5"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" d="M6 2.5h8L20 8.5v13H6v-19zM14 2.5v6h6"/><path stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M9 13h7M9 17h7"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" d="M21 3L10.5 13.5M21 3l-7 18-3.5-7.5L3 10l18-7z"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.9"/><path fill="none" stroke="currentColor" stroke-width="1.9" d="M16 4.5V4a1.5 1.5 0 0 0-1.5-1.5h-10A1.5 1.5 0 0 0 3 4v10A1.5 1.5 0 0 0 4.5 15.5H5"/></symbol>
+    <symbol id="i-gauge" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 19a9.5 9.5 0 1 1 16 0"/><path fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" d="M12 14l4.2-5.2"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" d="M12 2.5l8 3.5v6c0 5-3.4 8.4-8 9.5-4.6-1.1-8-4.5-8-9.5V6l8-3.5z"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.9"/><path fill="none" stroke="currentColor" stroke-width="1.9" d="M2.8 12h18.4M12 2.8c-5.4 5.8-5.4 12.6 0 18.4 5.4-5.8 5.4-12.6 0-18.4z"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" d="M6 9.5a6 6 0 0 1 12 0c0 5 2 6.5 2 6.5H4s2-1.5 2-6.5zM10 19.5a2.2 2.2 0 0 0 4 0"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" d="M12 2.5l2.1 6.3 6.4 2.2-6.4 2.2L12 19.5l-2.1-6.3-6.4-2.2 6.4-2.2L12 2.5z"/></symbol>
+    <symbol id="i-pulse" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" d="M2.5 12h4l2.5-7 5 14 2.5-7h5"/></symbol>
+  </defs>
+</svg>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="#" aria-label="Pharnos — accueil">
+      <svg aria-hidden="true"><use href="#logo-p"/></svg>
+      <span class="brand-name">Pharnos</span>
+    </a>
+    <nav class="site-nav" aria-label="Navigation principale">
+      <a class="navlink" href="#pourqui">Pour qui</a>
+      <a class="navlink" href="#cycle">Cycle de vie</a>
+      <a class="navlink" href="#modules">Plateforme</a>
+      <a class="navlink" href="#equipe">Équipe</a>
+      <a class="navlink" href="#offres">Offres</a>
+      <span class="lang" role="img" aria-label="Langue : français"><span class="on">FR</span><span class="off">EN</span></span>
+      <a class="btn btn-ghost" href="https://app.pharnos.com">Se connecter</a>
+      <a class="btn btn-primary" href="mailto:contact@pharnos.com?subject=Démo%20Pharnos">Demander une démo</a>
+    </nav>
+    <button class="burger" type="button" aria-expanded="false" aria-controls="mnav" aria-label="Ouvrir le menu">
+      <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <nav class="mnav" id="mnav" hidden aria-label="Menu mobile">
+      <a href="#pourqui">Pour qui</a>
+      <a href="#cycle">Cycle de vie</a>
+      <a href="#modules">Plateforme</a>
+      <a href="#equipe">Équipe</a>
+      <a href="#offres">Offres</a>
+      <a href="https://app.pharnos.com">Se connecter</a>
+      <a class="btn btn-primary" href="mailto:contact@pharnos.com?subject=Démo%20Pharnos">Demander une démo</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ═══════════ COUVERTURE ═══════════ -->
+  <section class="hero">
+    <div class="wrap intro">
+      <p class="eyebrow">Regulatory Information Management · UEMOA / CEDEAO</p>
+      <h1>L'enregistrement pharmaceutique en Afrique, <span class="grad">enfin sous contrôle.</span></h1>
+      <p class="lede">
+        CTD, soumission, suivi en temps réel, correspondance avec les autorités — une seule
+        plateforme pour le laboratoire, son fabricant et son représentant local.
+      </p>
+      <div class="hero-cta">
+        <a class="btn btn-primary btn-lg" href="mailto:contact@pharnos.com?subject=Démo%20Pharnos">Demander une démo</a>
+        <a class="btn btn-ghost btn-lg" href="https://app.pharnos.com">Démarrer — pilote gratuit</a>
+      </div>
+      <ul class="hero-proof">
+        <li><svg aria-hidden="true"><use href="#i-check"/></svg>Conçu par des experts RA de la région</li>
+        <li><svg aria-hidden="true"><use href="#i-check"/></svg>Français &amp; anglais</li>
+        <li><svg aria-hidden="true"><use href="#i-check"/></svg>Fonctionne hors-ligne</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ═══════════ CONSTELLATION · pleine largeur ═══════════ -->
+  <section class="constellation" id="couverture" aria-label="La couverture Pharnos se construit pays par pays ; une carte affiche le dossier suivi à chaque étape">
+    <div class="wrap">
+      <div>
+        <p class="kicker">La couverture</p>
+        <h2>Cockpit &amp; Conformité UEMOA.</h2>
+        <!-- Carte dossier synchronisée — hors de l'illustration -->
+        <div class="dossier-card" id="dcard" aria-hidden="true">
+          <p class="live"><i></i>Dossier · suivi en direct</p>
+          <div class="row1"><span class="dci" id="d-dci">Amoxicilline 500 mg</span><span class="cc" id="d-cc">BJ</span></div>
+          <div class="segs" id="d-segs"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="row2"><span class="stage" id="d-stage">Soumission</span><p id="d-status">J+38 · frais en attente — relance J+14 armée</p></div>
+        </div>
+      </div>
+
+      <div class="cosmos">
+        <span class="cov">Couverture <b id="cov">0</b>/10 pays<em id="covx"> · cap sur le continent</em></span>
+        <svg class="map" id="map" viewBox="14 6 540 566" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <!-- gabarit du continent (révélé après les 10 pays) -->
+          <path class="africa" id="africa" pathLength="1" d="M172,30 C214,20 258,18 300,22 C308,32 306,42 312,48 C318,58 326,64 334,66 C352,58 368,50 386,50 C402,52 414,58 426,64 C436,70 442,76 444,84 C452,106 462,128 472,150 C480,166 488,180 500,190 C514,198 530,204 544,208 C550,211 554,214 554,218 C548,232 522,262 492,286 C484,294 476,300 470,306 C462,314 456,322 452,330 C448,346 446,360 444,376 C440,392 432,406 428,420 C420,438 410,454 400,470 C392,482 384,494 376,506 C362,522 342,536 322,540 C308,540 296,522 292,506 C286,482 284,460 282,436 C278,412 274,386 272,362 C268,348 262,334 258,320 C254,310 252,300 250,292 C250,282 251,272 252,264 C240,262 228,262 216,262 C204,264 192,266 180,266 C170,267 160,268 150,268 C136,264 124,260 112,256 C104,250 98,244 92,238 C82,230 74,222 66,212 C60,202 56,192 56,184 C58,168 60,154 62,140 C66,128 70,116 76,104 C82,90 90,76 98,66 C120,48 146,36 172,30 Z" />
+          <path class="africa mada" pathLength="1" d="M470,380 C478,372 492,376 498,392 C502,410 496,438 482,458 C472,468 462,456 464,436 C466,414 466,396 470,380 Z" />
+          <!-- liaisons UEMOA (9 de croissance + 2 de fermeture, dans l'ordre du script) -->
+          <g>
+            <line class="link" pathLength="1" x1="214" y1="238" x2="200" y2="248" />
+            <line class="link" pathLength="1" x1="200" y1="248" x2="148" y2="250" />
+            <line class="link" pathLength="1" x1="148" y1="250" x2="180" y2="256" />
+            <line class="link" pathLength="1" x1="148" y1="250" x2="174" y2="214" />
+            <line class="link" pathLength="1" x1="174" y1="214" x2="150" y2="168" />
+            <line class="link" pathLength="1" x1="150" y1="168" x2="84" y2="184" />
+            <line class="link" pathLength="1" x1="84" y1="184" x2="90" y2="206" />
+            <line class="link" pathLength="1" x1="174" y1="214" x2="230" y2="178" />
+            <line class="link" pathLength="1" x1="214" y1="238" x2="244" y2="228" />
+            <line class="link" pathLength="1" x1="180" y1="256" x2="200" y2="248" />
+            <line class="link" pathLength="1" x1="174" y1="214" x2="200" y2="248" />
+          </g>
+          <!-- liaisons continentales (créées par le script pendant l'émaillage) -->
+          <g id="dyn"></g>
+          <!-- CEDEAO voisins (rejoignent le réseau pendant l'émaillage) -->
+          <g class="minor" id="m-CV" style="animation-delay:.5s"><circle cx="34" cy="168" r="5"/><text x="34" y="185">CV</text></g>
+          <g class="minor" id="m-MR" style="animation-delay:.6s"><circle cx="108" cy="140" r="5"/><text x="108" y="157">MR</text></g>
+          <g class="minor" id="m-GM" style="animation-delay:.7s"><circle cx="72" cy="198" r="5"/><text x="60" y="202">GM</text></g>
+          <g class="minor" id="m-GN" style="animation-delay:.8s"><circle cx="114" cy="230" r="5"/><text x="114" y="246">GN</text></g>
+          <g class="minor" id="m-SL" style="animation-delay:.9s"><circle cx="102" cy="250" r="5"/><text x="90" y="262">SL</text></g>
+          <g class="minor" id="m-LR" style="animation-delay:1s"><circle cx="120" cy="266" r="5"/><text x="122" y="282">LR</text></g>
+          <!-- le reste du continent (émaillage rapide) -->
+          <g id="rest">
+            <circle class="rest" id="r-MA" cx="150" cy="64" r="6.5"/><circle class="rest" id="r-DZ" cx="232" cy="84" r="6.5"/>
+            <circle class="rest" id="r-TN" cx="294" cy="40" r="6.5"/><circle class="rest" id="r-LY" cx="340" cy="92" r="6.5"/>
+            <circle class="rest" id="r-EG" cx="408" cy="84" r="6.5"/><circle class="rest" id="r-SD" cx="400" cy="152" r="6.5"/>
+            <circle class="rest" id="r-TD" cx="318" cy="168" r="6.5"/><circle class="rest" id="r-ER" cx="450" cy="160" r="6.5"/>
+            <circle class="rest" id="r-DJ" cx="486" cy="190" r="6.5"/><circle class="rest" id="r-ET" cx="452" cy="204" r="6.5"/>
+            <circle class="rest" id="r-SO" cx="508" cy="224" r="6.5"/><circle class="rest" id="r-SS" cx="408" cy="208" r="6.5"/>
+            <circle class="rest" id="r-CM" cx="252" cy="258" r="6.5"/><circle class="rest" id="r-CF" cx="340" cy="232" r="6.5"/>
+            <circle class="rest" id="r-GQ" cx="250" cy="282" r="6.5"/><circle class="rest" id="r-GA" cx="258" cy="300" r="6.5"/>
+            <circle class="rest" id="r-CG" cx="288" cy="300" r="6.5"/><circle class="rest" id="r-CD" cx="340" cy="292" r="6.5"/>
+            <circle class="rest" id="r-UG" cx="408" cy="262" r="6.5"/><circle class="rest" id="r-KE" cx="446" cy="262" r="6.5"/>
+            <circle class="rest" id="r-RW" cx="392" cy="288" r="6.5"/><circle class="rest" id="r-BI" cx="394" cy="302" r="6.5"/>
+            <circle class="rest" id="r-TZ" cx="420" cy="318" r="6.5"/><circle class="rest" id="r-AO" cx="300" cy="352" r="6.5"/>
+            <circle class="rest" id="r-ZM" cx="352" cy="352" r="6.5"/><circle class="rest" id="r-MW" cx="400" cy="340" r="6.5"/>
+            <circle class="rest" id="r-MZ" cx="408" cy="392" r="6.5"/><circle class="rest" id="r-ZW" cx="360" cy="392" r="6.5"/>
+            <circle class="rest" id="r-BW" cx="330" cy="424" r="6.5"/><circle class="rest" id="r-NA" cx="296" cy="412" r="6.5"/>
+            <circle class="rest" id="r-ZA" cx="336" cy="478" r="6.5"/><circle class="rest" id="r-LS" cx="352" cy="478" r="5"/>
+            <circle class="rest" id="r-SZ" cx="378" cy="452" r="5"/><circle class="rest" id="r-MG" cx="483" cy="418" r="6"/>
+          </g>
+          <!-- pays couverts — chaque atome dérive (--fx/--fy) vers sa liaison et s'y fixe -->
+          <g class="node" id="n-BJ" style="--fx:8px;--fy:-52px"><circle class="ping" cx="214" cy="238" r="10"/><circle class="halo" cx="214" cy="238" r="10"/><circle class="core" cx="214" cy="238" r="10"/><text x="214" y="241">BJ</text></g>
+          <g class="node" id="n-TG" style="--fx:-34px;--fy:34px"><circle class="ping" cx="200" cy="248" r="9"/><circle class="core" cx="200" cy="248" r="9"/><text x="200" y="251">TG</text></g>
+          <g class="node" id="n-CI" style="--fx:-44px;--fy:22px"><circle class="ping" cx="148" cy="250" r="11"/><circle class="halo" cx="148" cy="250" r="11"/><circle class="core" cx="148" cy="250" r="11"/><text x="148" y="253">CI</text></g>
+          <g class="node" id="n-GH" style="--fx:26px;--fy:38px"><circle class="ping" cx="180" cy="256" r="10"/><circle class="core" cx="180" cy="256" r="10"/><text x="180" y="259">GH</text></g>
+          <g class="node" id="n-BF" style="--fx:12px;--fy:-44px"><circle class="ping" cx="174" cy="214" r="10"/><circle class="core" cx="174" cy="214" r="10"/><text x="174" y="217">BF</text></g>
+          <g class="node" id="n-ML" style="--fx:-30px;--fy:-38px"><circle class="ping" cx="150" cy="168" r="11"/><circle class="core" cx="150" cy="168" r="11"/><text x="150" y="171">ML</text></g>
+          <g class="node" id="n-SN" style="--fx:-42px;--fy:-16px"><circle class="ping" cx="84" cy="184" r="10"/><circle class="core" cx="84" cy="184" r="10"/><text x="84" y="187">SN</text></g>
+          <g class="node" id="n-GW" style="--fx:-14px;--fy:40px"><circle class="ping" cx="90" cy="206" r="9"/><circle class="core" cx="90" cy="206" r="9"/><text x="90" y="209">GW</text></g>
+          <g class="node" id="n-NE" style="--fx:42px;--fy:-34px"><circle class="ping" cx="230" cy="178" r="11"/><circle class="core" cx="230" cy="178" r="11"/><text x="230" y="181">NE</text></g>
+          <g class="node" id="n-NG" style="--fx:50px;--fy:14px"><circle class="ping" cx="244" cy="228" r="11"/><circle class="core" cx="244" cy="228" r="11"/><text x="244" y="231">NG</text></g>
+          <!-- naissance de la marque, sur le golfe de Guinée : caducée (logo pharmacie) → P → wordmark -->
+          <g class="cadu" id="cadu" aria-hidden="true">
+            <path fill="#3fae60" d="M80,316 C90,311 136,311 146,316 C143,321 136,325 129,329 C123,332 118,334 113,334 C108,334 103,332 97,329 C90,325 83,321 80,316 Z"/>
+            <path fill="#3fae60" d="M110,333 L116,333 L116,351 L110,351 Z M99,351 C104,348 122,348 127,351 L127,356 L99,356 Z"/>
+            <path class="snakefill" fill="none" stroke="#3fae60" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round"
+              d="M118,295 C126,293 129,299 123,303 C112,308 104,313 113,319 C122,325 122,331 112,336 C103,341 104,346 112,350"/>
+          </g>
+          <g class="morphwrap" id="morphwrap">
+            <path class="mpath" id="mp-cup" d="M96,323 C102,318 124,318 130,323 C127,334 119,339 113,339 C107,339 99,334 96,323">
+              <animate attributeName="d" begin="indefinite" dur="0.9s" fill="freeze" calcMode="spline" keySplines="0.4 0 0.2 1"
+                values="M96,323 C102,318 124,318 130,323 C127,334 119,339 113,339 C107,339 99,334 96,323;M107,308 C107,318 107,328 107,338 C107,346 107,352 107,356 C107,356 107,356 107,356"/>
+            </path>
+            <path class="mpath" id="mp-snake" d="M113,306 C121,306 124,311 119,314 C111,318 106,322 113,327 C120,332 120,338 113,342 C106,346 106,350 113,353">
+              <animate attributeName="d" begin="indefinite" dur="0.9s" fill="freeze" calcMode="spline" keySplines="0.4 0 0.2 1"
+                values="M113,306 C121,306 124,311 119,314 C111,318 106,322 113,327 C120,332 120,338 113,342 C106,346 106,350 113,353;M107,310 C121,310 128,316 128,325 C128,334 121,339 110,339 C108,339 107,339 107,339 C107,339 107,339 107,339"/>
+            </path>
+          </g>
+          <g class="brandfinal" aria-hidden="true">
+            <use class="logoP" id="logoP" href="#logo-p" x="98" y="314" width="30" height="30" style="color:#ffffff"/>
+            <text class="wordmark" id="wordmark" x="138" y="338">Pharnos</text>
+          </g>
+        </svg>
+        <div class="map-legend" aria-hidden="true">
+          <span class="u"><i></i>Couverts : UEMOA · 8 + GH, NG</span>
+          <span class="c"><i></i>Demain : le continent</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ POUR QUI ═══════════ -->
+  <section class="section" id="pourqui">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="kicker">Regroupez votre équipe</p>
+        <h2>Collaboration efficace et transparente.</h2>
+        <p class="section-sub">
+          MAH, fabricant, agence ou représentant local : chacun son rôle et son niveau d'accès
+          sur le dossier — et le projet avance, tracé de bout en bout.
+        </p>
+      </div>
+      <div class="personas stagger reveal">
+        <article class="persona">
+          <h3>Expert / Chargé RA</h3>
+          <p class="role">Aujourd'hui : Word, tableurs, relances au téléphone.</p>
+          <h4>Avec Pharnos</h4>
+          <ul class="gains">
+            <li><svg><use href="#i-check"/></svg>CTD Module 1 guidé, PDF compilé en un clic</li>
+            <li><svg><use href="#i-check"/></svg>Exigences par autorité, validité des pièces alertée</li>
+            <li><svg><use href="#i-check"/></svg>Pipeline temps réel, relances automatiques</li>
+          </ul>
+        </article>
+        <article class="persona">
+          <h3>Titulaire / Fabricant</h3>
+          <p class="role">Aujourd'hui : zéro visibilité une fois le dossier confié.</p>
+          <h4>Avec Pharnos</h4>
+          <ul class="gains">
+            <li><svg><use href="#i-check"/></svg>Suivi en direct, du montage à l'AMM</li>
+            <li><svg><use href="#i-check"/></svg>Rôles d'accès définis pour chaque participant au dossier</li>
+            <li><svg><use href="#i-check"/></svg>Alerte renouvellement 6 mois avant l'échéance</li>
+          </ul>
+        </article>
+        <article class="persona">
+          <h3>Agence locale / Représentant</h3>
+          <p class="role">Aujourd'hui : e-mails, WhatsApp, preuves éparpillées.</p>
+          <h4>Avec Pharnos</h4>
+          <ul class="gains">
+            <li><svg><use href="#i-check"/></svg>Compte Pharnos ou lien sécurisé — dépôt et récépissé en 2 clics</li>
+            <li><svg><use href="#i-check"/></svg>Toutes les preuves — soumission, échantillons, frais — sécurisées au même endroit</li>
+            <li><svg><use href="#i-check"/></svg>Notifications de l'autorité relayées et tracées</li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ CYCLE DE VIE ═══════════ -->
+  <section class="section section-muted" id="cycle">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="kicker">La colonne vertébrale</p>
+        <h2>360° de pilotage. Zéro angle mort.</h2>
+        <p class="section-sub">
+          L'état de chaque projet se lit en un coup d'œil, du montage à l'AMM — plus besoin
+          d'enchaîner appels et e-mails pour savoir où on en est.
+        </p>
+      </div>
+      <div class="lifecycle reveal">
+        <div class="lifeline">
+          <div class="fill" aria-hidden="true"></div>
+          <div class="lstep"><i>1</i><p>Montage<span>Labo</span></p></div>
+          <div class="lstep"><i>2</i><p>Revue<span>Agent local</span></p></div>
+          <div class="lstep"><i>3</i><p>Décision<span>Agent local</span></p></div>
+          <div class="lstep"><i>4</i><p>Dépôt<span>Agent local</span></p></div>
+          <div class="lstep"><i>5</i><p>Soumission<span>+ preuves</span></p></div>
+          <div class="lstep"><i>6</i><p>Notifications<span>Autorité</span></p></div>
+          <div class="lstep"><i>7</i><p>AMM<span>Autorité</span></p></div>
+        </div>
+        <div class="life-notes">
+          <span class="life-note"><svg><use href="#i-bell"/></svg>Relance automatique si un dossier stagne — agent 14 j, autorité 30 j</span>
+          <span class="life-note"><svg><use href="#i-check"/></svg>3 conditions suivies : CTD · échantillons · frais</span>
+          <span class="life-note"><svg><use href="#i-copy"/></svg>Renouvellements et variations sur la même spine</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ MODULES ═══════════ -->
+  <section class="section" id="modules">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="kicker">La plateforme</p>
+        <h2>Tout le métier RA. Rien de plus.</h2>
+      </div>
+      <div class="modules stagger reveal">
+        <article class="module">
+          <span class="ic"><svg><use href="#i-layers"/></svg></span>
+          <h3>Une fiche produit, dix pays</h3>
+          <p>Créez la fiche produit une fois ; déclinez-la en quelques clics en Modules 1 adaptés à chaque pays de l'UEMOA. Zéro ressaisie.</p>
+        </article>
+        <article class="module">
+          <span class="ic"><svg><use href="#i-file"/></svg></span>
+          <h3>CTD Builder, framework UEMOA</h3>
+          <p>Arborescence Module 1 au cadre UEMOA, lettres officielles au format de chaque agence, PDF compilé en secondes.</p>
+        </article>
+        <article class="module">
+          <span class="ic"><svg><use href="#i-gauge"/></svg></span>
+          <h3>Cockpit &amp; Dashboard RA</h3>
+          <p>Toutes vos opérations réglementaires sur une seule interface : pipeline, actions requises, échéances, relances.</p>
+        </article>
+        <article class="module">
+          <span class="ic"><svg><use href="#i-send"/></svg></span>
+          <h3>Correspondance &amp; parcours</h3>
+          <p>Échanges structurés avec le correspondant et l'autorité — le parcours du dossier avance en direct.</p>
+        </article>
+        <article class="module">
+          <span class="ic"><svg><use href="#i-copy"/></svg></span>
+          <h3>Templates &amp; variations</h3>
+          <p>Bibliothèque bilingue RCP, notice, étiquetage — et l'annexe de variation préparée automatiquement.</p>
+        </article>
+        <article class="module">
+          <span class="ic"><svg><use href="#i-globe"/></svg></span>
+          <h3>Hors-ligne &amp; bilingue</h3>
+          <p>Pensé pour le terrain : fonctionne sans connexion, se synchronise au retour du réseau. FR / EN.</p>
+        </article>
+        <article class="module module-wide">
+          <span class="ic"><svg><use href="#i-shield"/></svg></span>
+          <h3>Confiance &amp; conformité</h3>
+          <p>Isolation par organisation (RLS) · journal d'audit append-only · corbeille 30 j ·
+             liens tokenisés révocables · sauvegardes chiffrées · chiffrement en transit et au repos.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ REGAFY AI ═══════════ -->
+  <section class="regafy" id="regafy">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="kicker">Regafy AI · bêta</p>
+        <h2>Meet your Regulatory Partner.</h2>
+        <p class="section-sub">
+          Regafy audite la conformité de votre Module 1 CTD contre les références UEMOA —
+          Règlement n° 04/2020/CM/UEMOA, templates en vigueur des agences et Directions
+          nationales du médicament. Chaque constat est validé par l'expert.
+        </p>
+        <ul>
+          <li><svg><use href="#i-check"/></svg>Validité lue dans les documents : ≥ 6 mois pièces admin, ≥ 18 mois COA</li>
+          <li><svg><use href="#i-check"/></svg>Langue de chaque pièce contrôlée contre la langue officielle du pays</li>
+        </ul>
+      </div>
+      <div class="card stagger reveal" aria-label="Exemple de constats Regafy">
+        <h4><span class="dot"></span>Remarques · analyse du dossier</h4>
+        <div class="finding warn">
+          <b>GMP du site de fabrication — expire dans 4 mois</b>
+          Sous le seuil de 6 mois requis au dépôt. Prévoir le renouvellement avant soumission.
+        </div>
+        <div class="finding warn">
+          <b>Notice en anglais — soumission au Bénin</b>
+          La langue officielle attendue est le français. Traduction assistée disponible.
+        </div>
+        <div class="finding ok">
+          <b>Lettre de couverture conforme</b>
+          Structure et mentions alignées sur le template en vigueur de l'agence.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ ÉQUIPE ═══════════ -->
+  <section class="section section-muted team" id="equipe">
+    <div class="wrap reveal">
+      <p class="kicker">L'équipe</p>
+      <h2>Créé par des experts RA, basés en UEMOA.</h2>
+      <p class="section-sub">
+        Chaque procédure vient du terrain — démarches, délais, réalités de chaque pays de la zone.
+        Quand les exigences évoluent, la plateforme s'adapte : la conformité cesse d'être un casse-tête.
+      </p>
+      <div class="founder">
+        <svg class="avatar" viewBox="0 0 96 96" role="img" aria-label="Portrait du fondateur — expert RA basé en UEMOA">
+          <circle cx="48" cy="48" r="48" fill="#16233f"/>
+          <ellipse cx="48" cy="86" rx="30" ry="22" fill="#1f3050"/>
+          <path d="M18 96c2-16 14-24 30-24s28 8 30 24z" fill="#263f73"/>
+          <path d="M40 70h16v10c0 4.4-3.6 8-8 8s-8-3.6-8-8z" fill="#5d3d2a"/>
+          <ellipse cx="48" cy="46" rx="17" ry="20" fill="#6b4a35"/>
+          <path d="M31 42c-1-12 6-20 17-20s18 8 17 20c-2-8-7-11-17-11s-15 3-17 11z" fill="#3a3a3e"/>
+          <path d="M31.5 40c-.9 2.2-1.3 4.6-1.2 7" fill="none" stroke="#9aa0a6" stroke-width="2.4" stroke-linecap="round"/>
+          <path d="M64.5 40c.9 2.2 1.3 4.6 1.2 7" fill="none" stroke="#9aa0a6" stroke-width="2.4" stroke-linecap="round"/>
+          <rect x="33" y="42" width="13" height="10" rx="3.5" fill="none" stroke="#d7dbe0" stroke-width="1.8"/>
+          <rect x="50" y="42" width="13" height="10" rx="3.5" fill="none" stroke="#d7dbe0" stroke-width="1.8"/>
+          <path d="M46 47h4" stroke="#d7dbe0" stroke-width="1.8"/>
+          <path d="M38 60c3 2.8 6.3 4.2 10 4.2s7-1.4 10-4.2c-1 5-4.6 8-10 8s-9-3-10-8z" fill="#3a3a3e" opacity=".55"/>
+          <circle cx="48" cy="48" r="47" fill="none" stroke="#1c2b49" stroke-width="2"/>
+        </svg>
+        <div class="fmeta">
+          <b>L'équipe Pharnos</b>
+          <a href="mailto:team@pharnos.com">team@pharnos.com</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ OFFRES ═══════════ -->
+  <section class="section section-muted" id="offres">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="kicker">Offres</p>
+        <h2>Commencez sur un dossier réel.</h2>
+      </div>
+      <div class="plans stagger reveal">
+        <article class="plan">
+          <h3>Pilote</h3>
+          <p class="price">Gratuit</p>
+          <p class="per">pour démarrer</p>
+          <ul>
+            <li><svg><use href="#i-check"/></svg>Une organisation, le cycle complet</li>
+            <li><svg><use href="#i-check"/></svg>Builder CTD + compilation PDF</li>
+            <li><svg><use href="#i-check"/></svg>Suivi 7 étapes &amp; correspondance</li>
+          </ul>
+          <a class="btn btn-ghost" href="https://app.pharnos.com">Commencer</a>
+        </article>
+        <article class="plan featured">
+          <h3>Pro</h3>
+          <p class="price">Sur devis</p>
+          <p class="per">par organisation / mois</p>
+          <ul>
+            <li><svg><use href="#i-check"/></svg>Volume de dossiers &amp; multi-pays</li>
+            <li><svg><use href="#i-check"/></svg>Regafy AI &amp; traduction assistée</li>
+            <li><svg><use href="#i-check"/></svg>Accompagnement à la prise en main</li>
+          </ul>
+          <a class="btn btn-primary" href="mailto:contact@pharnos.com?subject=Pharnos%20Pro">Nous contacter</a>
+        </article>
+        <article class="plan">
+          <h3>Entreprise</h3>
+          <p class="price">Sur devis</p>
+          <p class="per">annuel</p>
+          <ul>
+            <li><svg><use href="#i-check"/></svg>Multi-organisations &amp; équipes</li>
+            <li><svg><use href="#i-check"/></svg>Périmètres par dossier &amp; par pays</li>
+            <li><svg><use href="#i-check"/></svg>SLA &amp; exigences de conformité avancées</li>
+          </ul>
+          <a class="btn btn-ghost" href="mailto:contact@pharnos.com?subject=Pharnos%20Entreprise">Nous contacter</a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ CTA FINAL ═══════════ -->
+  <section class="cta-final">
+    <div class="wrap reveal">
+      <p class="kicker">Prochaine soumission</p>
+      <h2>Votre prochain dossier mérite mieux qu'un tableur.</h2>
+      <p>Compilez un premier dossier réel — gratuitement, en moins d'une journée.</p>
+      <div class="btns">
+        <a class="btn btn-primary btn-lg" href="mailto:contact@pharnos.com?subject=Démo%20Pharnos">Demander une démo</a>
+        <a class="btn btn-navy btn-lg" href="https://app.pharnos.com">Démarrer — pilote gratuit</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <a class="brand" href="#" aria-label="Pharnos">
+          <svg aria-hidden="true" style="width:28px;height:28px"><use href="#logo-p"/></svg>
+          <span class="brand-name">Pharnos</span>
+        </a>
+        <p class="tag">Le système d'exploitation des affaires réglementaires pharmaceutiques — UEMOA / CEDEAO.</p>
+      </div>
+      <div>
+        <h4>Plateforme</h4>
+        <ul>
+          <li><a href="#modules">Catalogue RIM</a></li>
+          <li><a href="#modules">Builder CTD</a></li>
+          <li><a href="#modules">Correspondance</a></li>
+          <li><a href="#regafy">Regafy AI</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Entreprise</h4>
+        <ul>
+          <li><a href="#couverture">Couverture</a></li>
+          <li><a href="#equipe">Équipe</a></li>
+          <li><a href="#pourqui">Pour qui</a></li>
+          <li><a href="#offres">Offres</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Contact</h4>
+        <ul>
+          <li><a href="mailto:contact@pharnos.com">contact@pharnos.com</a></li>
+          <li><a href="https://app.pharnos.com">app.pharnos.com</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="legal">
+      <span>© 2026 Pharnos — tous droits réservés.</span>
+      <span>Français · English</span>
+    </div>
+  </div>
+</footer>
+
+<span class="ribbon">MOCKUP A · MVP</span>
+
+<script>
+  (function () {
+    var MOTION = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    /* Menu mobile */
+    var burger = document.querySelector('.burger');
+    var mnav = document.getElementById('mnav');
+    if (burger && mnav) {
+      burger.addEventListener('click', function () {
+        var open = mnav.hasAttribute('hidden');
+        if (open) { mnav.removeAttribute('hidden'); } else { mnav.setAttribute('hidden', ''); }
+        burger.setAttribute('aria-expanded', String(open));
+      });
+      mnav.addEventListener('click', function (e) {
+        if (e.target.closest('a')) { mnav.setAttribute('hidden', ''); burger.setAttribute('aria-expanded', 'false'); }
+      });
+    }
+
+    /* Révélation au scroll — une seule fois, discrète. */
+    var targets = document.querySelectorAll('.reveal');
+    if (!MOTION || !('IntersectionObserver' in window)) {
+      targets.forEach(function (el) { el.classList.add('in'); });
+    } else {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+        });
+      }, { threshold: 0.18 });
+      targets.forEach(function (el) { io.observe(el); });
+    }
+
+    /* ── Scène : naissance de la marque → réseau UEMOA → embrasement du continent. ── */
+    var STEPS = [
+      { n: 'BJ', dci: 'Amoxicilline 500 mg',        step: 5, stage: 'Soumission',    status: 'J+38 · frais en attente — relance J+14 armée' },
+      { n: 'TG', dci: 'Paracétamol 500 mg',          step: 3, stage: 'Décision',      status: 'validation du correspondant en cours' },
+      { n: 'CI', dci: 'Amodiaquine 200 mg',          step: 6, stage: 'Notifications', status: 'J+112 · échéance GMP dans 24 j' },
+      { n: 'GH', dci: 'Azithromycine 250 mg',        step: 4, stage: 'Dépôt',         status: 'récépissé joint hier — conforme' },
+      { n: 'BF', dci: 'Metformine 850 mg',           step: 2, stage: 'Revue',         status: 'pièces reçues — revue sous 5 j' },
+      { n: 'ML', dci: 'Artéméther/Lumé. 80/480 mg',  step: 5, stage: 'Soumission',    status: 'échantillons livrés · LTA 057-4412' },
+      { n: 'SN', dci: 'Oméprazole 20 mg',            step: 7, stage: 'AMM',           status: 'délivrée · 5 ans — renouvellement J−6 mois' },
+      { n: 'GW', dci: 'Ceftriaxone 1 g',             step: 1, stage: 'Montage',       status: 'CTD à 82 % — compilation demain' },
+      { n: 'NE', dci: 'Ibuprofène 400 mg',           step: 4, stage: 'Dépôt',         status: 'dépôt confirmé ce matin' },
+      { n: 'NG', dci: 'Quinine 300 mg',              step: 2, stage: 'Revue',         status: 'traduction EN vérifiée par Regafy' }
+    ];
+    /* atomes du reste du continent (id, x, y) — émaillés par vague radiale depuis l'UEMOA */
+    var REST = [
+      ['m-GM',72,198],['m-GN',114,230],['m-SL',102,250],['m-LR',120,266],['m-MR',108,140],['m-CV',34,168],
+      ['r-MA',150,64],['r-DZ',232,84],['r-TN',294,40],['r-LY',340,92],['r-EG',408,84],
+      ['r-SD',400,152],['r-TD',318,168],['r-ER',450,160],['r-DJ',486,190],['r-ET',452,204],
+      ['r-SO',508,224],['r-SS',408,208],['r-CM',252,258],['r-CF',340,232],['r-GQ',250,282],
+      ['r-GA',258,300],['r-CG',288,300],['r-CD',340,292],['r-UG',408,262],['r-KE',446,262],
+      ['r-RW',392,288],['r-BI',394,302],['r-TZ',420,318],['r-AO',300,352],['r-ZM',352,352],
+      ['r-MW',400,340],['r-MZ',408,392],['r-ZW',360,392],['r-BW',330,424],['r-NA',296,412],
+      ['r-ZA',336,478],['r-LS',352,478],['r-SZ',378,452],['r-MG',481,420]
+    ];
+    var COVERED = [[214,238],[200,248],[148,250],[180,256],[174,214],[150,168],[84,184],[90,206],[230,178],[244,228]];
+    var HEART = [176,220];
+    REST.sort(function (a, b) {
+      var da = (a[1]-HEART[0])*(a[1]-HEART[0]) + (a[2]-HEART[1])*(a[2]-HEART[1]);
+      var db = (b[1]-HEART[0])*(b[1]-HEART[0]) + (b[2]-HEART[1])*(b[2]-HEART[1]);
+      return da - db;
+    });
+
+    var svg = document.getElementById('map');
+    if (!svg) return;
+    var links = svg.querySelectorAll('.link');
+    var dyn = document.getElementById('dyn');
+    var cov = document.getElementById('cov');
+    var covx = document.getElementById('covx');
+    var card = document.getElementById('dcard');
+    var segs = document.getElementById('d-segs').children;
+    var cadu = document.getElementById('cadu');
+    var morph = document.getElementById('morphwrap');
+    var manims = morph.querySelectorAll('animate');
+    var logoP = document.getElementById('logoP');
+    var wordmark = document.getElementById('wordmark');
+    var africaEls = svg.querySelectorAll('.africa');
+
+    function fillCard(d) {
+      document.getElementById('d-dci').textContent = d.dci;
+      document.getElementById('d-cc').textContent = d.n;
+      document.getElementById('d-stage').textContent = d.stage;
+      document.getElementById('d-status').textContent = d.status;
+      for (var k = 0; k < 7; k++) segs[k].className = k < d.step - 1 ? 'done' : (k === d.step - 1 ? 'now' : '');
+    }
+    fillCard(STEPS[0]);
+
+    function nearest(p, pts) {
+      var best = pts[0], bd = Infinity;
+      for (var i = 0; i < pts.length; i++) {
+        var dx = pts[i][0]-p[0], dy = pts[i][1]-p[1], d = dx*dx + dy*dy;
+        if (d < bd) { bd = d; best = pts[i]; }
+      }
+      return best;
+    }
+    function link2(from, to) {
+      var ln = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      ln.setAttribute('x1', from[0]); ln.setAttribute('y1', from[1]);
+      ln.setAttribute('x2', to[0]);   ln.setAttribute('y2', to[1]);
+      ln.setAttribute('pathLength', '1'); ln.setAttribute('class', 'dlink');
+      dyn.appendChild(ln);
+      return ln;
+    }
+
+    if (!MOTION) { /* statique : scène finale complète, réseau tissé d'un coup */
+      cov.textContent = '10';
+      var act = COVERED.slice();
+      REST.forEach(function (r) { var p = [r[1], r[2]]; link2(nearest(p, act), p); act.push(p); });
+      return;
+    }
+
+    /* pause hors-écran — l'animation démarre quand la section entre à l'écran
+       (onglet caché : Chrome throttle déjà les timers, pas besoin de verrou supplémentaire) */
+    var inView = false;
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(function (e) { inView = e[0].isIntersecting; }, { threshold: 0.2 })
+        .observe(svg);
+    } else { inView = true; }
+    function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+    function gate() {
+      return new Promise(function (r) {
+        (function check() { inView ? r() : setTimeout(check, 350); })();
+      });
+    }
+    function swapCard(d) {
+      card.classList.add('swap');
+      setTimeout(function () { fillCard(d); card.classList.remove('swap'); }, 200);
+    }
+
+    (async function run() {
+      for (;;) {
+        await gate();
+        /* 1 · naissance de la marque : le logo pharmacie devient Pharnos */
+        cadu.classList.add('show');
+        await sleep(1150);
+        cadu.classList.add('out');
+        morph.classList.add('show');
+        await sleep(420);
+        morph.classList.add('toP');
+        manims.forEach(function (a) { a.beginElement(); });
+        await sleep(1000);
+        logoP.classList.add('on');
+        morph.classList.add('out');
+        await sleep(380);
+        wordmark.classList.add('on');
+        await sleep(800);
+        /* 2 · le réseau UEMOA + Ghana, Nigeria — atome par atome */
+        for (var i = 0; i < STEPS.length; i++) {
+          await gate();
+          if (i > 0) { links[i - 1].classList.add('on'); await sleep(300); }
+          document.getElementById('n-' + STEPS[i].n).classList.add('on');
+          cov.textContent = String(i + 1);
+          swapCard(STEPS[i]);
+          await sleep(i === 0 ? 1200 : 1400);
+        }
+        await gate();
+        links[9].classList.add('on'); await sleep(380);
+        links[10].classList.add('on');
+        await sleep(1000);
+        /* 3 · le gabarit du continent apparaît, l'émaillage s'embrase depuis l'UEMOA */
+        africaEls.forEach(function (el) { el.classList.add('on'); });
+        covx.classList.add('on');
+        await sleep(1600);
+        var active = COVERED.slice();
+        for (var j = 0; j < REST.length; j++) {
+          var r = REST[j], p = [r[1], r[2]];
+          var ln = link2(nearest(p, active), p);
+          void ln.getBoundingClientRect(); /* fixe l'état initial avant la transition */
+          ln.classList.add('on');
+          document.getElementById(r[0]).classList.add('on');
+          active.push(p);
+          await sleep(85);
+        }
+        /* 4 · l'Afrique émaillée, Pharnos à sa place — contemplation */
+        await sleep(6200);
+        /* 5 · fondu, remise à zéro, on rejoue */
+        svg.classList.add('fade');
+        await sleep(560);
+        svg.querySelectorAll('.on').forEach(function (el) { el.classList.remove('on'); });
+        morph.classList.remove('show', 'toP', 'out');
+        cadu.classList.remove('show', 'out');
+        covx.classList.remove('on');
+        dyn.innerHTML = '';
+        cov.textContent = '0';
+        await sleep(80);
+        svg.classList.remove('fade');
+        await sleep(450);
+      }
+    })();
+  })();
+</script>
+</body>
+</html>
