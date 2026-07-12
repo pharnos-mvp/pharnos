@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Eye, FileStack, FolderPlus, Info, Pencil, Route, Trash2 } from 'lucide-react'
+import { Eye, FileStack, FolderPlus, Info, Pencil, Route, Search, Trash2 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -31,6 +31,8 @@ import {
   buildOpsRows,
   dossierRef,
   isDeadlineUrgent,
+  matchesDossierQuery,
+  normalizeSearch,
   opsPipeline,
   opsProcedureCounts,
   opsStatusLabel,
@@ -73,6 +75,7 @@ export function WorkspacePage() {
 
   const [view, setView] = useState<'active' | 'archived' | 'trash'>('active')
   const [proc, setProc] = useState<string>('all') // filtre par procédure
+  const [search, setSearch] = useState('') // recherche board (nom produit, n°, pays, procédure)
   // Préférence « ne plus afficher » du dialogue de suppression (par navigateur + org).
   const [skipDeleteConfirm, setSkipDeleteConfirm] = useState(() => isDeleteConfirmSkipped(orgId))
   function handleSkipPreference(skip: boolean) {
@@ -131,8 +134,13 @@ export function WorkspacePage() {
   )
 
   const rows = view === 'archived' ? archivedRows : activeRows
-  const visible =
-    view === 'active' && proc !== 'all' ? rows.filter((r) => r.dossier.activity === proc) : rows
+  const query = search.trim()
+  const visible = useMemo(() => {
+    const byProc =
+      view === 'active' && proc !== 'all' ? rows.filter((r) => r.dossier.activity === proc) : rows
+    const q = normalizeSearch(query)
+    return q ? byProc.filter((r) => matchesDossierQuery(r, q, lang)) : byProc
+  }, [rows, view, proc, query, lang])
 
   const loading =
     (view === 'archived'
@@ -143,10 +151,10 @@ export function WorkspacePage() {
   const archivedCount = archivedDossiers?.length ?? 0
   const trashCount = trashedDossiers?.length ?? 0
   const belowLg = useBelowLg()
-  // Cockpit hauteur fixe (scroll INTERNE au panneau, jamais de scroll de page) pour les TROIS
-  // vues peuplées — lg+ uniquement (sous lg, un cockpit à hauteur fixe écraserait la table → page
-  // défilante empilée). Archivés/Corbeille passaient par la page défilante → DEUX barres de
-  // défilement côte à côte (recette CEO LOT 9) : elles montent dans le même gabarit cockpit.
+  // `showCockpit` = mise en page « cockpit » (en-tête de SECTION, lg+ peuplé) vs page `<Page>`
+  // (en-tête de PAGE, sous lg / vide / chargement). Les DEUX défilent via <main> (hauteur naturelle
+  // de la carte) : le cockpit n'est PLUS à hauteur fixe — retrait de l'espace vide sous un board
+  // court (demande CEO 2026-07-12). Une seule barre de défilement (celle de <main>).
   const viewCount =
     view === 'active' ? activeRows.length : view === 'archived' ? archivedRows.length : trashCount
   const showCockpit = viewCount > 0 && !loading && !belowLg
@@ -312,6 +320,28 @@ export function WorkspacePage() {
       </div>
     ) : null
 
+  // Module de recherche du board (nom produit, n° d'op, pays, procédure) — actif/archivés peuplés.
+  const searchInput =
+    view !== 'trash' && viewCount > 0 ? (
+      <div className="relative w-full sm:w-64">
+        <Search
+          aria-hidden
+          className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2"
+        />
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={t({ fr: 'Rechercher…', en: 'Search…' })}
+          aria-label={t({
+            fr: 'Rechercher un dossier (produit, n°, pays, procédure)',
+            en: 'Search a dossier (product, no., country, procedure)',
+          })}
+          className="bg-muted/40 focus-visible:ring-ring w-full rounded-lg border py-1.5 pr-3 pl-8 text-xs focus-visible:ring-2 focus-visible:outline-none"
+        />
+      </div>
+    ) : null
+
   const table =
     view === 'trash' ? (
       <TrashTable
@@ -336,21 +366,21 @@ export function WorkspacePage() {
     )
   const isEmpty = view === 'trash' ? trashCount === 0 : rows.length === 0
 
-  // ─── Cockpit hauteur fixe : aucune barre de défilement de page ; la table scrolle dans son
-  //     panneau. `h-full` se résout sur <main> (flex-1 d'un shell `h-svh`). ───
+  // ─── Mises en page « cockpit » (en-tête de section) : carte à HAUTEUR NATURELLE, c'est <main>
+  //     (overflow-auto) qui défile — plus d'espace vide isolé sous un board court (demande CEO). ───
   if (showCockpit && view !== 'active') {
-    // Archivés / Corbeille : panneau unique pleine largeur (pas de KPI/pipeline/inbox — ce sont
-    // des vues de gestion), en-tête figé (titre + pilules + note de rétention) + table à scroll
-    // interne → UNE seule barre de défilement, dans le panneau.
+    // Archivés / Corbeille : panneau unique pleine largeur (pas de pipeline — ce sont des vues de
+    // gestion), en-tête (titre + pilules + recherche + note de rétention) + table à hauteur
+    // naturelle (le thead reste `sticky` grâce à `overflow-clip` — pas de conteneur de scroll piégé).
     return (
-      <div className="flex h-full flex-col pt-6">
+      <div className="flex flex-col gap-3 pt-6">
         <h1 className="sr-only">
           {view === 'archived'
             ? t({ fr: 'Dossiers archivés', en: 'Archived dossiers' })
             : t({ fr: 'Corbeille', en: 'Trash' })}
         </h1>
-        <section className="bg-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border">
-          <div className="shrink-0 border-b p-4">
+        <section className="bg-card flex flex-col overflow-clip rounded-xl border">
+          <div className="border-b p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h2 className="font-display text-sm font-semibold">
@@ -372,47 +402,52 @@ export function WorkspacePage() {
               </div>
               <div className="flex shrink-0 items-center gap-2">{archivedToggle}</div>
             </div>
-            <div className="mt-3">{retentionNote}</div>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">{retentionNote}</div>
+              {searchInput}
+            </div>
           </div>
-          {/* `relative` : ancre les sr-only absolus des lignes DANS le scroller (sinon ils
-              étirent le document → 2ᵉ barre de défilement fantôme — recette CEO LOT 9). */}
-          <div className="relative min-h-0 flex-1 overflow-y-auto">{table}</div>
+          {/* `relative` : ancre les sr-only absolus des lignes (anti-phantom, recette LOT 9). */}
+          <div className="relative overflow-x-auto overflow-y-clip">{table}</div>
         </section>
       </div>
     )
   }
   if (showCockpit) {
     return (
-      <div className="flex h-full flex-col pt-6">
+      <div className="flex flex-col gap-3 pt-6">
         {/* h1 du document (le cockpit ne monte pas PageHeader ; le titre visible est le breadcrumb du shell). */}
         <h1 className="sr-only">{t({ fr: 'Opérations', en: 'Operations' })}</h1>
-        <div className="flex min-h-0 flex-1 flex-col gap-3">
-          <PipelineBar pipeline={pipeline} total={activeRows.length} dueSoon={dueSoon} />
-          <section className="bg-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border">
-            <div className="shrink-0 border-b p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="font-display text-sm font-semibold">
-                    {t({ fr: 'Opérations réglementaires', en: 'Regulatory operations' })}
-                  </h2>
-                  <p className="text-muted-foreground text-xs">
-                    {t({
-                      fr: "Point d'avancement par activité réglementaire",
-                      en: 'Progress by regulatory activity',
-                    })}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  {archivedToggle}
-                  {newDossierBtn}
-                </div>
+        <PipelineBar pipeline={pipeline} total={activeRows.length} dueSoon={dueSoon} />
+        {/* Carte à HAUTEUR NATURELLE (fit-content) : c'est <main> (overflow-auto) qui défile → plus
+            d'espace vide isolé sous les lignes quand le board est court (demande CEO). */}
+        <section className="bg-card flex flex-col overflow-clip rounded-xl border">
+          <div className="border-b p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="font-display text-sm font-semibold">
+                  {t({ fr: 'Opérations réglementaires', en: 'Regulatory operations' })}
+                </h2>
+                <p className="text-muted-foreground text-xs">
+                  {t({
+                    fr: "Point d'avancement par activité réglementaire",
+                    en: 'Progress by regulatory activity',
+                  })}
+                </p>
               </div>
-              <div className="mt-3">{procedureChips}</div>
+              <div className="flex shrink-0 items-center gap-2">
+                {archivedToggle}
+                {newDossierBtn}
+              </div>
             </div>
-            {/* `relative` : ancre les sr-only absolus des lignes dans le scroller (anti-phantom). */}
-            <div className="relative min-h-0 flex-1 overflow-y-auto">{table}</div>
-          </section>
-        </div>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              {procedureChips}
+              {searchInput}
+            </div>
+          </div>
+          {/* `relative` : ancre les sr-only absolus des lignes (anti-phantom, recette LOT 9). */}
+          <div className="relative overflow-x-auto overflow-y-clip">{table}</div>
+        </section>
       </div>
     )
   }
@@ -432,9 +467,10 @@ export function WorkspacePage() {
       {activePopulated ? (
         <PipelineBar pipeline={pipeline} total={activeRows.length} dueSoon={dueSoon} />
       ) : null}
-      {procedureChips || archivedToggle ? (
+      {procedureChips || archivedToggle || searchInput ? (
         <div className="flex flex-wrap items-center gap-2">
           {procedureChips}
+          {searchInput}
           {archivedToggle ? <div className="ml-auto">{archivedToggle}</div> : null}
         </div>
       ) : null}
@@ -465,7 +501,7 @@ export function WorkspacePage() {
           />
         )
       ) : (
-        <div className="bg-card overflow-hidden rounded-xl border">{table}</div>
+        <div className="bg-card overflow-x-auto overflow-y-clip rounded-xl border">{table}</div>
       )}
     </Page>
   )
@@ -586,12 +622,22 @@ function CompletionCell({ pct }: { pct: number }) {
   )
 }
 
-/** Date courte localisée (« Créé le », Archivés, Corbeille) — ex. « 5 juil. 2026 » / “5 Jul 2026”. */
+/** Date courte localisée (Archivés, Corbeille) — ex. « 5 juil. 2026 » / “5 Jul 2026”. */
 const shortDate = (iso: string, lang: Lang): string =>
   new Date(iso).toLocaleDateString(lang === 'en' ? 'en-GB' : 'fr-FR', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
+  })
+
+/** Date + heure courtes localisées (colonne « Créé le ») — ex. « 12 juil. 2026, 14:30 ». */
+const dateTimeLabel = (iso: string, lang: Lang): string =>
+  new Date(iso).toLocaleString(lang === 'en' ? 'en-GB' : 'fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   })
 
 // ───────────────────────── Table dense (clic ligne → Roadmap/statut) ─────────────────────────
@@ -647,13 +693,13 @@ function OperationsTable({
             <span className="sr-only">{t({ fr: 'Procédure', en: 'Procedure' })}</span>
           </th>
           {col({ fr: 'Produit · réf', en: 'Product · ref' }, 'border-b')}
-          {col({ fr: 'Marché', en: 'Market' }, 'border-b')}
+          {col({ fr: 'Créé le', en: 'Created' }, 'border-b')}
           {col({ fr: 'Statut', en: 'Status' }, 'border-b')}
           {col({ fr: 'Avancement CTD', en: 'CTD progress' }, 'border-b')}
-          {col({ fr: 'Créé le', en: 'Created' }, 'border-b')}
           {view === 'archived'
             ? col({ fr: 'Archivé le', en: 'Archived on' }, 'border-b')
             : col({ fr: 'Échéance', en: 'Deadline' }, 'border-b')}
+          {col({ fr: 'Marché', en: 'Market' }, 'border-b')}
           <th scope="col" className="bg-card sticky top-0 z-10 border-b">
             <span className="sr-only">{t({ fr: 'Actions', en: 'Actions' })}</span>
           </th>
@@ -695,10 +741,9 @@ function OperationsTable({
                   <span>· {procedureLabel(d.activity, lang)}</span>
                 </div>
               </td>
-              <td className="px-3 py-2.5 align-middle">
-                <span className="flex items-center gap-1.5 text-xs">
-                  <CountryFlag code={d.country} size={16} />
-                  <span className="hidden sm:inline">{countryLabel(d.country, lang)}</span>
+              <td className="px-3 py-2.5 align-middle whitespace-nowrap">
+                <span className="text-muted-foreground text-xs tabular-nums">
+                  {dateTimeLabel(d.createdAt, lang)}
                 </span>
               </td>
               <td className="px-3 py-2.5 align-middle">
@@ -735,11 +780,6 @@ function OperationsTable({
                 )}
               </td>
               <td className="px-3 py-2.5 align-middle">
-                <span className="text-muted-foreground text-xs tabular-nums">
-                  {shortDate(d.createdAt, lang)}
-                </span>
-              </td>
-              <td className="px-3 py-2.5 align-middle">
                 {view === 'archived' ? (
                   // Vue Archivés : la date d'archivage (enregistrement de rétention) remplace
                   // l'échéance — un dossier archivé n'a plus d'horloge réglementaire qui court.
@@ -763,6 +803,12 @@ function OperationsTable({
                     ) : null}
                   </>
                 )}
+              </td>
+              <td className="px-3 py-2.5 align-middle">
+                <span className="flex items-center gap-1.5 text-xs">
+                  <CountryFlag code={d.country} size={16} />
+                  <span className="hidden sm:inline">{countryLabel(d.country, lang)}</span>
+                </span>
               </td>
               <td
                 className="py-2.5 pr-2 pl-1 text-right align-middle opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"

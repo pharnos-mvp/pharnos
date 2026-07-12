@@ -2,6 +2,7 @@ import { expiringDocs } from '@/features/dashboard/dashboard-data'
 import type { DossierDisplayStatus } from '@/features/correspondence/correspondence-constants'
 import type { DocumentRecord, DossierRecord, ProductRecord } from '@/lib/db'
 import type { Lang, Translatable } from '@/lib/i18n-context'
+import { countryLabel } from './dossier-constants'
 import { buildDocsByNode, completionStats, docsForNode } from './dossier-selectors'
 import { flattenTree } from './tree-utils'
 
@@ -175,4 +176,20 @@ export function opsProcedureCounts(rows: OpsRow[]): { activity: string; count: n
   return PROCEDURE_ORDER.map((activity) => ({ activity, count: counts.get(activity) ?? 0 })).filter(
     (x) => x.count > 0 || x.activity !== 'transfer',
   )
+}
+
+// ───────────────────────── Recherche du board ─────────────────────────
+/** Normalisation pour la recherche : sans accents, minuscule (insensible casse/diacritiques). */
+export const normalizeSearch = (s: string): string =>
+  s
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+
+/** Un dossier matche la requête (nom produit, n° d'opération, pays, procédure). `q` déjà normalisé. */
+export function matchesDossierQuery(r: OpsRow, q: string, lang: Lang): boolean {
+  const hay = normalizeSearch(
+    `${r.dossier.productName} ${r.ref ?? ''} ${countryLabel(r.dossier.country, lang)} ${procedureLabel(r.dossier.activity, lang)}`,
+  )
+  return hay.includes(q)
 }

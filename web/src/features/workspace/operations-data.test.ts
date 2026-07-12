@@ -6,8 +6,11 @@ import {
   buildOpsRows,
   dossierRef,
   isDeadlineUrgent,
+  matchesDossierQuery,
+  normalizeSearch,
   opsPipeline,
   opsProcedureCounts,
+  type OpsRow,
 } from './operations-data'
 
 const NOW = new Date('2026-06-28T00:00:00.000Z')
@@ -164,5 +167,40 @@ describe('operations-data', () => {
     expect(pc.find((x) => x.activity === 'new_ma')?.count).toBe(1)
     expect(pc.find((x) => x.activity === 'renewal')?.count).toBe(1)
     expect(pc.find((x) => x.activity === 'transfer')).toBeUndefined() // 0 → masqué
+  })
+})
+
+describe('recherche du board (normalizeSearch / matchesDossierQuery)', () => {
+  const row = (over: Partial<DossierRecord>, ref: string | null = null): OpsRow => ({
+    dossier: dossier('d', over),
+    ref,
+    status: 'draft',
+    completionPct: 0,
+    deadlineDays: null,
+    lastActivityAt: null,
+  })
+
+  it('normalizeSearch : plie accents + casse', () => {
+    expect(normalizeSearch('CÔTE')).toBe('cote')
+    expect(normalizeSearch('Renouvèlement')).toBe('renouvelement')
+  })
+
+  it('matche nom / n° / pays / procédure, insensible aux accents', () => {
+    const r = row(
+      { productName: 'Amoxicilline', country: 'CI', activity: 'renewal' },
+      'OP-2026-0042',
+    )
+    const m = (q: string) => matchesDossierQuery(r, normalizeSearch(q), 'fr')
+    expect(m('amoxi')).toBe(true) // nom produit
+    expect(m('0042')).toBe(true) // n° d'opération
+    expect(m('cote')).toBe(true) // pays « Côte d’Ivoire » recherché sans accent
+    expect(m('renouv')).toBe(true) // procédure (Renouvellement)
+    expect(m('zzz')).toBe(false)
+  })
+
+  it('ref null (brouillon non synchronisé) ne casse pas la recherche', () => {
+    const r = row({ productName: 'Doliprane' }, null)
+    expect(matchesDossierQuery(r, normalizeSearch('doli'), 'fr')).toBe(true)
+    expect(matchesDossierQuery(r, normalizeSearch('op-2026'), 'fr')).toBe(false)
   })
 })
