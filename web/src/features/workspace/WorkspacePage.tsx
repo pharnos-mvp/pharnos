@@ -11,15 +11,11 @@ import { PageHeader } from '@/components/ui/page-header'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { CountryFlag } from '@/features/dashboard/CountryFlag'
 import { useBelowLg } from '@/hooks/use-below-lg'
-import { useAuth } from '@/features/auth/auth-context'
 import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
 import {
   dossierDisplayStatus,
   type DossierDisplayStatus,
 } from '@/features/correspondence/correspondence-constants'
-import { CorrespondencePanel } from '@/features/correspondence/CorrespondencePanel'
-import { buildInbox } from '@/features/correspondence/correspondence-feed'
-import { unreadIndex } from '@/features/correspondence/correspondence-reads'
 import { listCorrespondences } from '@/features/correspondence/correspondence-repository'
 import { useCorrespondenceSync } from '@/features/correspondence/use-correspondence-sync'
 import { useOrgId } from '@/features/org/org-context'
@@ -35,7 +31,6 @@ import {
   buildOpsRows,
   dossierRef,
   isDeadlineUrgent,
-  opsKpis,
   opsPipeline,
   opsProcedureCounts,
   opsStatusLabel,
@@ -47,7 +42,6 @@ import {
 } from './operations-data'
 import { DossierAction } from './dossier-action'
 import { purgeTrashedDossier } from './dossier-purge'
-import { RegulatoryInbox } from './RegulatoryInbox'
 import {
   archiveDossier,
   deleteDossier,
@@ -66,7 +60,6 @@ export function WorkspacePage() {
   const { t, lang } = useI18n()
   const orgId = useOrgId()
   const navigate = useNavigate()
-  const { user } = useAuth()
   const { scoped } = useMemberScope()
   useCatalogueSync(orgId)
   useDossierSync(orgId)
@@ -75,11 +68,9 @@ export function WorkspacePage() {
   const archivedDossiers = useLiveQuery(() => listArchivedDossiers(orgId), [orgId])
   const trashedDossiers = useLiveQuery(() => listTrashedDossiers(orgId), [orgId])
   const correspondences = useLiveQuery(() => listCorrespondences(orgId), [orgId])
-  const unread = useLiveQuery(() => unreadIndex(orgId), [orgId])
   const products = useLiveQuery(() => db.products.where('orgId').equals(orgId).toArray(), [orgId])
   const documents = useLiveQuery(() => db.documents.where('orgId').equals(orgId).toArray(), [orgId])
 
-  const [reviewDossierId, setReviewDossierId] = useState<string | null>(null)
   const [view, setView] = useState<'active' | 'archived' | 'trash'>('active')
   const [proc, setProc] = useState<string>('all') // filtre par procédure
   // Préférence « ne plus afficher » du dialogue de suppression (par navigateur + org).
@@ -130,13 +121,8 @@ export function WorkspacePage() {
       ),
     [archivedDossiers, statusById, products, documents, lastActivityById, now],
   )
-  const kpis = useMemo(() => opsKpis(activeRows), [activeRows])
   const pipeline = useMemo(() => opsPipeline(activeRows), [activeRows])
   const procCounts = useMemo(() => opsProcedureCounts(activeRows), [activeRows])
-  const inbox = useMemo(
-    () => buildInbox(correspondences ?? [], unread?.byConversation ?? new Map(), now),
-    [correspondences, unread, now],
-  )
 
   const rows = view === 'archived' ? archivedRows : activeRows
   const visible =
@@ -344,8 +330,8 @@ export function WorkspacePage() {
     )
   const isEmpty = view === 'trash' ? trashCount === 0 : rows.length === 0
 
-  // ─── Cockpit hauteur fixe : aucune barre de défilement de page ; table + inbox scrollent chacun
-  //     dans leur panneau. `h-full` se résout sur <main> (flex-1 d'un shell `h-svh`). ───
+  // ─── Cockpit hauteur fixe : aucune barre de défilement de page ; la table scrolle dans son
+  //     panneau. `h-full` se résout sur <main> (flex-1 d'un shell `h-svh`). ───
   if (showCockpit && view !== 'active') {
     // Archivés / Corbeille : panneau unique pleine largeur (pas de KPI/pipeline/inbox — ce sont
     // des vues de gestion), en-tête figé (titre + pilules + note de rétention) + table à scroll
@@ -394,53 +380,33 @@ export function WorkspacePage() {
       <div className="flex h-full flex-col pt-6">
         {/* h1 du document (le cockpit ne monte pas PageHeader ; le titre visible est le breadcrumb du shell). */}
         <h1 className="sr-only">{t({ fr: 'Opérations', en: 'Operations' })}</h1>
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="flex min-h-0 min-w-0 flex-col gap-3">
-            <KpiBand kpis={kpis} />
-            <PipelineBar pipeline={pipeline} total={activeRows.length} />
-            <section className="bg-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border">
-              <div className="shrink-0 border-b p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h2 className="font-display text-sm font-semibold">
-                      {t({ fr: 'Opérations réglementaires', en: 'Regulatory operations' })}
-                    </h2>
-                    <p className="text-muted-foreground text-xs">
-                      {t({
-                        fr: "Point d'avancement par activité réglementaire",
-                        en: 'Progress by regulatory activity',
-                      })}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    {archivedToggle}
-                    {newDossierBtn}
-                  </div>
+        <div className="flex min-h-0 flex-1 flex-col gap-3">
+          <PipelineBar pipeline={pipeline} total={activeRows.length} />
+          <section className="bg-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border">
+            <div className="shrink-0 border-b p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="font-display text-sm font-semibold">
+                    {t({ fr: 'Opérations réglementaires', en: 'Regulatory operations' })}
+                  </h2>
+                  <p className="text-muted-foreground text-xs">
+                    {t({
+                      fr: "Point d'avancement par activité réglementaire",
+                      en: 'Progress by regulatory activity',
+                    })}
+                  </p>
                 </div>
-                <div className="mt-3">{procedureChips}</div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {archivedToggle}
+                  {newDossierBtn}
+                </div>
               </div>
-              {/* `relative` : ancre les sr-only absolus des lignes dans le scroller (anti-phantom). */}
-              <div className="relative min-h-0 flex-1 overflow-y-auto">{table}</div>
-            </section>
-          </div>
-
-          <RegulatoryInbox
-            className="min-h-0"
-            items={inbox}
-            onOpen={(id) => setReviewDossierId(id)}
-            now={now.getTime()}
-          />
+              <div className="mt-3">{procedureChips}</div>
+            </div>
+            {/* `relative` : ancre les sr-only absolus des lignes dans le scroller (anti-phantom). */}
+            <div className="relative min-h-0 flex-1 overflow-y-auto">{table}</div>
+          </section>
         </div>
-
-        {reviewDossierId ? (
-          <CorrespondencePanel
-            orgId={orgId}
-            dossierId={reviewDossierId}
-            senderEmail={user?.email ?? 'local'}
-            onClose={() => setReviewDossierId(null)}
-            onEdit={() => navigate(`/workspace/${reviewDossierId}`)}
-          />
-        ) : null}
       </div>
     )
   }
@@ -457,12 +423,7 @@ export function WorkspacePage() {
         })}
         actions={newDossierBtn}
       />
-      {activePopulated ? (
-        <>
-          <KpiBand kpis={kpis} />
-          <PipelineBar pipeline={pipeline} total={activeRows.length} />
-        </>
-      ) : null}
+      {activePopulated ? <PipelineBar pipeline={pipeline} total={activeRows.length} /> : null}
       {procedureChips || archivedToggle ? (
         <div className="flex flex-wrap items-center gap-2">
           {procedureChips}
@@ -498,68 +459,7 @@ export function WorkspacePage() {
       ) : (
         <div className="bg-card overflow-hidden rounded-xl border">{table}</div>
       )}
-      {activePopulated ? (
-        <RegulatoryInbox
-          className="max-h-[70vh]"
-          items={inbox}
-          onOpen={(id) => setReviewDossierId(id)}
-          now={now.getTime()}
-        />
-      ) : null}
-
-      {reviewDossierId ? (
-        <CorrespondencePanel
-          orgId={orgId}
-          dossierId={reviewDossierId}
-          senderEmail={user?.email ?? 'local'}
-          onClose={() => setReviewDossierId(null)}
-          onEdit={() => navigate(`/workspace/${reviewDossierId}`)}
-        />
-      ) : null}
     </Page>
-  )
-}
-
-// ───────────────────────── KPI ─────────────────────────
-const KPI_TONE = {
-  success: 'text-success-subtle-foreground',
-  warning: 'text-warning-subtle-foreground',
-  danger: 'text-danger-subtle-foreground',
-} as const
-
-function KpiBand({ kpis }: { kpis: ReturnType<typeof opsKpis> }) {
-  const { t } = useI18n()
-  const tiles: { value: number; label: Translatable; tone?: keyof typeof KPI_TONE }[] = [
-    { value: kpis.active, label: { fr: 'Dossiers actifs', en: 'Active dossiers' } },
-    { value: kpis.inReview, label: { fr: 'En évaluation', en: 'Under review' } },
-    {
-      value: kpis.complement,
-      label: { fr: 'Compléments', en: 'Information' },
-      tone: kpis.complement > 0 ? 'warning' : undefined,
-    },
-    { value: kpis.granted, label: { fr: 'Acceptés', en: 'Accepted' }, tone: 'success' },
-    {
-      value: kpis.dueSoon,
-      label: { fr: 'Échéances ≤ 7 j', en: 'Deadlines ≤ 7d' },
-      tone: kpis.dueSoon > 0 ? 'danger' : undefined,
-    },
-  ]
-  return (
-    <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-      {tiles.map((tile) => (
-        <div key={tile.label.en} className="bg-card rounded-xl border px-3.5 py-3">
-          <div
-            className={cn(
-              'font-display text-2xl leading-none font-bold tabular-nums',
-              tile.tone && KPI_TONE[tile.tone],
-            )}
-          >
-            {tile.value}
-          </div>
-          <div className="text-muted-foreground mt-1 text-[11.5px]">{t(tile.label)}</div>
-        </div>
-      ))}
-    </div>
   )
 }
 
@@ -665,7 +565,7 @@ function CompletionCell({ pct }: { pct: number }) {
   )
 }
 
-/** Date courte localisée (vues Archivés / Corbeille) — ex. « 5 juil. 2026 » / “5 Jul 2026”. */
+/** Date courte localisée (« Créé le », Archivés, Corbeille) — ex. « 5 juil. 2026 » / “5 Jul 2026”. */
 const shortDate = (iso: string, lang: Lang): string =>
   new Date(iso).toLocaleDateString(lang === 'en' ? 'en-GB' : 'fr-FR', {
     day: 'numeric',
@@ -729,6 +629,7 @@ function OperationsTable({
           {col({ fr: 'Marché', en: 'Market' }, 'border-b')}
           {col({ fr: 'Statut', en: 'Status' }, 'border-b')}
           {col({ fr: 'Avancement CTD', en: 'CTD progress' }, 'border-b')}
+          {col({ fr: 'Créé le', en: 'Created' }, 'border-b')}
           {view === 'archived'
             ? col({ fr: 'Archivé le', en: 'Archived on' }, 'border-b')
             : col({ fr: 'Échéance', en: 'Deadline' }, 'border-b')}
@@ -811,6 +712,11 @@ function OperationsTable({
                     <CompletionCell pct={r.completionPct} />
                   </Link>
                 )}
+              </td>
+              <td className="px-3 py-2.5 align-middle">
+                <span className="text-muted-foreground text-xs tabular-nums">
+                  {shortDate(d.createdAt, lang)}
+                </span>
               </td>
               <td className="px-3 py-2.5 align-middle">
                 {view === 'archived' ? (

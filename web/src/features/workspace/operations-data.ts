@@ -106,7 +106,7 @@ export interface OpsRow {
 
 const ECHEANCE_URGENT_DAYS = 7
 
-/** Construit les lignes d'opérations (triées : échéance la plus urgente d'abord, puis récence). */
+/** Construit les lignes d'opérations, triées du plus RÉCENT au plus ancien (date de création). */
 export function buildOpsRows(
   dossiers: DossierRecord[],
   statusById: Map<string, DossierDisplayStatus>,
@@ -122,34 +122,32 @@ export function buildOpsRows(
   }
   const productById = new Map(products.map((p) => [p.id, p]))
 
-  return dossiers
-    .map((dossier) => {
-      const pdocs = docsByProduct.get(dossier.productId) ?? []
-      // Avancement CTD : feuilles de l'arbre Module 1 du dossier documentées par les pièces produit.
-      const byNode = buildDocsByNode(dossier, pdocs)
-      const flat = flattenTree(dossier.tree)
-      const completionPct = completionStats(flat, (n) => docsForNode(byNode, n).length).pct
-      // Échéance : la pièce produit datée la PLUS PROCHE (jours bruts). `expiringDocs` trie par
-      // urgence relative (jours/fenêtre) → on reprend le minimum brut pour la colonne « Échéance ».
-      const product = productById.get(dossier.productId)
-      const exp = product ? expiringDocs(pdocs, [product], now) : []
-      const deadlineDays = exp.length > 0 ? Math.min(...exp.map((e) => e.daysLeft)) : null
-      return {
-        dossier,
-        ref: dossierRef(dossier),
-        status: statusById.get(dossier.id) ?? 'draft',
-        completionPct,
-        deadlineDays,
-        lastActivityAt: lastActivityById.get(dossier.id) ?? null,
-      } satisfies OpsRow
-    })
-    .sort((a, b) => {
-      // Échéances urgentes d'abord (les non datées en dernier), puis activité récente.
-      const da = a.deadlineDays ?? Infinity
-      const dbb = b.deadlineDays ?? Infinity
-      if (da !== dbb) return da - dbb
-      return (b.lastActivityAt ?? '').localeCompare(a.lastActivityAt ?? '')
-    })
+  return (
+    dossiers
+      .map((dossier) => {
+        const pdocs = docsByProduct.get(dossier.productId) ?? []
+        // Avancement CTD : feuilles de l'arbre Module 1 du dossier documentées par les pièces produit.
+        const byNode = buildDocsByNode(dossier, pdocs)
+        const flat = flattenTree(dossier.tree)
+        const completionPct = completionStats(flat, (n) => docsForNode(byNode, n).length).pct
+        // Échéance : la pièce produit datée la PLUS PROCHE (jours bruts). `expiringDocs` trie par
+        // urgence relative (jours/fenêtre) → on reprend le minimum brut pour la colonne « Échéance ».
+        const product = productById.get(dossier.productId)
+        const exp = product ? expiringDocs(pdocs, [product], now) : []
+        const deadlineDays = exp.length > 0 ? Math.min(...exp.map((e) => e.daysLeft)) : null
+        return {
+          dossier,
+          ref: dossierRef(dossier),
+          status: statusById.get(dossier.id) ?? 'draft',
+          completionPct,
+          deadlineDays,
+          lastActivityAt: lastActivityById.get(dossier.id) ?? null,
+        } satisfies OpsRow
+      })
+      // Tri du plus RÉCENT au plus ancien par date de création (demande CEO) — `createdAt` ISO,
+      // toujours défini, donc comparaison lexicographique stable et totale.
+      .sort((a, b) => b.dossier.createdAt.localeCompare(a.dossier.createdAt))
+  )
 }
 
 export const isDeadlineUrgent = (days: number | null): boolean =>
@@ -162,29 +160,7 @@ export function avancementLabel(pct: number): Translatable {
   return { fr: 'CTD en cours', en: 'CTD in progress' }
 }
 
-// ───────────────────────── KPI + pipeline ─────────────────────────
-export interface OpsKpis {
-  active: number
-  inReview: number
-  complement: number
-  granted: number
-  dueSoon: number
-}
-
-export function opsKpis(rows: OpsRow[]): OpsKpis {
-  let inReview = 0,
-    complement = 0,
-    granted = 0,
-    dueSoon = 0
-  for (const r of rows) {
-    if (r.status === 'in_review') inReview++
-    if (r.status === 'suspended') complement++
-    if (r.status === 'accepted') granted++
-    if (isDeadlineUrgent(r.deadlineDays)) dueSoon++
-  }
-  return { active: rows.length, inReview, complement, granted, dueSoon }
-}
-
+// ───────────────────────── Pipeline ─────────────────────────
 /** Répartition par statut (ordre canonique) — alimente la barre Pipeline. */
 export function opsPipeline(rows: OpsRow[]): { status: DossierDisplayStatus; count: number }[] {
   const counts = new Map<DossierDisplayStatus, number>()
