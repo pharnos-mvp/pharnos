@@ -70,13 +70,24 @@ export const opsStatusLabel = (s: DossierDisplayStatus, lang: Lang): string =>
 /**
  * N° d'opération CANONIQUE « OP-AAAA-NNNN » attribué CÔTÉ SERVEUR (séquentiel, unique par org+année,
  * migration 0046). `null` tant que le dossier n'a pas été synchronisé (brouillon local) → l'UI
- * affiche « n° en attente ». (Remplace l'ancien hash déterministe, non séquentiel et collisionnable.)
+ * affiche `DOSSIER_REF_PENDING` (« n° en cours d'attribution… »). (Remplace l'ancien hash
+ * déterministe, non séquentiel et collisionnable.)
  */
 export function dossierRef(d: DossierRecord): string | null {
   if (d.opNumber != null && d.opYear != null) {
     return `OP-${d.opYear}-${String(d.opNumber).padStart(4, '0')}`
   }
   return null
+}
+
+/**
+ * Libellé affiché tant que `dossierRef` est `null` (n° pas encore attribué). Formulé « en cours
+ * d'attribution » — et NON « en attente » : c'est un état TRANSITOIRE qui se résout seul dès la
+ * 1re synchro (le trigger serveur 0046 attribue le n° au push, il descend au pull), pas un blocage.
+ */
+export const DOSSIER_REF_PENDING: Translatable = {
+  fr: 'n° en cours d’attribution…',
+  en: 'no. being assigned…',
 }
 
 // ───────────────────────── Ligne d'opération ─────────────────────────

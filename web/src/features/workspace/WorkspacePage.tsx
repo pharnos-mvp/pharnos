@@ -41,6 +41,7 @@ import {
   opsStatusLabel,
   OPS_STATUS_TONE,
   PROCEDURE_DOT,
+  DOSSIER_REF_PENDING,
   procedureLabel,
   type OpsRow,
 } from './operations-data'
@@ -767,7 +768,7 @@ function OperationsTable({
                   {r.ref ? (
                     <span className="font-mono">{r.ref}</span>
                   ) : (
-                    <span className="italic">{t({ fr: 'n° en attente', en: 'no. pending' })}</span>
+                    <span className="italic">{t(DOSSIER_REF_PENDING)}</span>
                   )}
                   <span>· {procedureLabel(d.activity, lang)}</span>
                 </div>

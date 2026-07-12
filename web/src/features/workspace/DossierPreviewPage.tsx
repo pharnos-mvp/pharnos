@@ -44,6 +44,7 @@ import type { CtdNodeDef } from './module1-tree'
 import {
   avancementLabel,
   dossierRef,
+  DOSSIER_REF_PENDING,
   isDeadlineUrgent,
   OPS_STATUS_TONE,
   opsStatusLabel,
@@ -263,9 +264,7 @@ export function DossierPreviewPage() {
             {ref ? (
               <span className="text-muted-foreground font-mono text-xs">{ref}</span>
             ) : (
-              <span className="text-muted-foreground text-xs italic">
-                {t({ fr: 'n° en attente', en: 'no. pending' })}
-              </span>
+              <span className="text-muted-foreground text-xs italic">{t(DOSSIER_REF_PENDING)}</span>
             )}
             <StatusBadge tone={OPS_STATUS_TONE[status]}>{opsStatusLabel(status, lang)}</StatusBadge>
           </div>

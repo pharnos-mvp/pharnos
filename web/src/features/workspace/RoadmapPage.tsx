@@ -143,7 +143,7 @@ export function RoadmapPage() {
   const opRef =
     dossier.opYear != null && dossier.opNumber != null
       ? `OP-${dossier.opYear}-${String(dossier.opNumber).padStart(4, '0')}`
-      : t({ fr: 'N° en attente', en: 'Pending number' })
+      : t({ fr: 'N° en cours d’attribution…', en: 'Number being assigned…' })
 
   // Variation : décompte mineures / majeures pour le total de redevance.
   const refs = dossier.variations ?? []

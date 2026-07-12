@@ -44,7 +44,7 @@ import {
 import { createDossier, listDossiers } from './dossier-repository'
 import { syncDossiers } from './dossier-sync'
 import { getModule1Tree, type CtdNodeDef, type DossierFormat } from './module1-tree'
-import { dossierRef, procedureLabel } from './operations-data'
+import { dossierRef, DOSSIER_REF_PENDING, procedureLabel } from './operations-data'
 import { agencyFor, officialLanguage } from './roadmap-data'
 
 // Métadonnées d'affichage des 4 procédures (cartes de l'étape « Opération »). Titre = `procedureLabel`.
@@ -478,7 +478,7 @@ export function NewDossierPage() {
                     {notifTargets.map((d) => (
                       <SelectItem key={d.id} value={d.id}>
                         {d.productName} · {countryLabel(d.country, lang)} ·{' '}
-                        {dossierRef(d) ?? t({ fr: 'n° en attente', en: 'pending no.' })}
+                        {dossierRef(d) ?? t(DOSSIER_REF_PENDING)}
                       </SelectItem>
                     ))}
                   </SelectContent>
