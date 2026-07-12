@@ -88,22 +88,38 @@ export function rowToDossier(r: DossierRow): DossierRecord {
 
 const lastPullKey = (orgId: string) => `pharnos.lastPull.dossiers.${orgId}`
 let syncing = false
+// Une création survenue PENDANT une sync (ex. `void syncDossiers` juste après createDossier) se
+// heurtait au garde-fou `syncing` et était SILENCIEUSEMENT ignorée → son n° d'opération (attribué
+// côté serveur au push) ne descendait qu'au prochain déclencheur (montage/refresh), d'où le « n° en
+// attente » qui ne se résolvait qu'après un refresh manuel. On COALESCE : toute demande arrivée
+// pendant une sync programme UN 2ᵉ passage, qui draine le dernier outbox et pull le n° tout de suite.
+let rerunRequested = false
 
 /** Réconcilie les dossiers (Dexie ⇄ Postgres). No-op hors-ligne / Supabase non configuré. */
 export async function syncDossiers(orgId: string): Promise<void> {
-  if (syncing || !navigator.onLine || !isSyncEnabled(orgId)) return
+  if (!navigator.onLine || !isSyncEnabled(orgId)) return
+  if (syncing) {
+    // Une sync est déjà en cours (même org, appli mono-org active) → demande un passage
+    // supplémentaire à sa boucle plutôt que d'abandonner cette demande.
+    rerunRequested = true
+    return
+  }
   const supabase = await getSupabase()
   if (!supabase) return
   syncing = true
   try {
-    // Retry borné (transitoires only) : une microcoupure ne repousse pas la sync au prochain déclencheur.
-    await withRetry(() => pushDossiers(supabase, orgId))
-    await withRetry(() => pullDossiers(supabase, orgId))
+    do {
+      rerunRequested = false
+      // Retry borné (transitoires only) : une microcoupure ne repousse pas la sync au prochain déclencheur.
+      await withRetry(() => pushDossiers(supabase, orgId))
+      await withRetry(() => pullDossiers(supabase, orgId))
+    } while (rerunRequested) // une création arrivée pendant ce cycle est prise en compte immédiatement
   } catch (error) {
     console.warn('[sync] dossiers :', error)
     reportError(error, { op: 'sync', entity: 'dossiers' })
   } finally {
     syncing = false
+    rerunRequested = false
   }
 }
 

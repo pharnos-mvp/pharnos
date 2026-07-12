@@ -224,6 +224,26 @@ describe('buildActions', () => {
     expect(suspended).toHaveLength(1)
     expect(suspended[0]?.href).toBe('/workspace/dos1')
     expect(suspended[0]?.country).toBe('CI')
+    // Date de l'événement portée (decidedAt null → repli createdAt de la corr) : tri chrono cloche.
+    expect(suspended[0]?.date).toBe('2026-06-01T10:00:00Z')
+  })
+
+  it('dossier en suspens : la date = decidedAt de la décision quand elle existe', () => {
+    const items = buildActions(
+      emptyInput({
+        dossiers: [dossier({ id: 'dos1' })],
+        correspondences: [
+          corr({
+            id: 'c1',
+            dossierId: 'dos1',
+            status: 'suspended',
+            decidedAt: '2026-06-12T08:00:00Z',
+          }),
+        ],
+      }),
+      NOW,
+    )
+    expect(items.find((i) => i.kind === 'dossier_suspended')?.date).toBe('2026-06-12T08:00:00Z')
   })
 
   it('message agence non lu = unread_reply (avec compteur) ; lu = agency_pending', () => {
@@ -254,6 +274,7 @@ describe('buildActions', () => {
     const nc = items.find((i) => i.kind === 'non_conform')
     expect(nc).toBeTruthy()
     expect(nc?.count).toBe(1)
+    expect(nc?.date).toBe('2026-06-01') // analyzedAt → tri chrono cloche (ne coule plus en bas)
     expect(nc?.href).toBe('/catalogue/p1')
   })
 

@@ -2,6 +2,7 @@ import { ADMIN_DOC_TYPES } from '@/features/catalogue/doc-types'
 import {
   DOSSIER_STATUS_ORDER,
   dossierDisplayStatus,
+  latestDossierCorrespondence,
   type DossierDisplayStatus,
 } from '@/features/correspondence/correspondence-constants'
 import { renewalLeadOverride } from './renewal-config'
@@ -182,7 +183,8 @@ export function buildActions(input: DashboardInput, now: Date): ActionItem[] {
 
   // 2) Dossiers en suspens (décision agence = à retravailler) — état DÉRIVÉ
   for (const dos of dossiers) {
-    if (dossierDisplayStatus(dos.id, correspondences) === 'suspended') {
+    const latest = latestDossierCorrespondence(dos.id, correspondences)
+    if (latest?.status === 'suspended') {
       items.push({
         id: `suspended:${dos.id}`,
         kind: 'dossier_suspended',
@@ -190,6 +192,8 @@ export function buildActions(input: DashboardInput, now: Date): ActionItem[] {
         href: `/workspace/${dos.id}`,
         label: dos.productName,
         country: dos.country,
+        // Date de la décision « complément requis » (repli création) → tri chronologique de la cloche.
+        date: latest.decidedAt ?? latest.createdAt,
       })
     }
   }
@@ -242,6 +246,8 @@ export function buildActions(input: DashboardInput, now: Date): ActionItem[] {
       label: productName.get(doc.productId) ?? '—',
       docType: doc.docType,
       count: nc.length,
+      // Date de l'analyse Regafy → tri chronologique de la cloche (ne coule plus en bas, faute de date).
+      date: a.analyzedAt,
     })
   }
 
