@@ -13,7 +13,7 @@
 - **Mesure** : 1 design-system sur 100 % des surfaces + landing cohérente · Lighthouse perf ≥ 90 / a11y ≥ 95 ·
   FR/EN sur chaque écran · advisors 0 ERROR · 0 Blocker/Major · `GO-LIVE-CHECKLIST.md` signée.
 
-## 📍 État d'avancement (MAJ 2026-07-02)
+## 📍 État d'avancement (MAJ 2026-07-13)
 La refonte est **bien engagée** — plusieurs surfaces majeures sont déjà refondues **dans CE projet** :
 - **PHASE B · LOT 1 Fondation DS** ✅ (PR #249) + **LOT 1.5 verrouillage tokens** ✅ (PR #260) — primitives premium, token layer unifié, z-index tokenisé ; écrans de référence **Dashboard + Catalogue** validés CEO.
 - **PHASE C · LOT 2 Catalogue** ✅ — refonte premium **+ LOT 2 RIM complet (M1→M6)** livré 2026-06-28 (migration `0045`).
@@ -26,13 +26,18 @@ La refonte est **bien engagée** — plusieurs surfaces majeures sont déjà ref
 > ce sont des **LOTs de CE projet de refonte complète de l'app**, qui se poursuit par les surfaces restantes
 > (LOTs 7-10) **puis la refonte du landing (LOT 11)**. Tout converge vers le même design-system.
 
-**Reste (MAJ 2026-07-05 — lifecycle M0–M6+CS1 ✅, LOT 10 ✅ CLOS, LOTs 7-8-9 ✅)** :
-**LOT 11 landing** → LOT 12 i18n+M4 → LOT 13 recette finale →
-**LOT 14 GO-LIVE (= N4)**. Recettes CEO en attente : M4 + CS1 + M7 + **LOT 7 (visuel /compte)** +
-**LOT 8 (visuel /admin + dark : texte sombre sur remplissages primaires — fix AA)** +
-**LOT 9 (corbeille/archive : cycle supprimer → restaurer → note de rétention)**.
+**Reste (MAJ 2026-07-13 — lifecycle M0–M6+CS1 ✅, LOTs 7-8-9-10 ✅, LOT 11 landing ✅ CLOS + PROD)** :
+**LOT 12 i18n + M4** → LOT 13 recette finale → **LOT 14 GO-LIVE (= N4)**.
 **M8 (fin de collaboration + modération) + CS1 phase 2 (éditeurs scopés) = post-GO-LIVE** (M8 gated sur la
 décision « mode Agence multi-clients »).
+
+### 🔧 Correctifs de recette CEO livrés EN PROD (2026-07-12/13 — hors roadmap, retours de test builder/board)
+- **Correspondance** — e-mail de review **monolingue** (langue du pays, plus de FR/EN), Edge `share` redéployée (PR #321).
+- **Cloche** — tri **du plus récent au plus ancien** ; acquittements **conservés à la déconnexion** (purgés au swap de compte) ; items sans date (complément / non-conforme) **datés** → tri chrono (PR #321/#322).
+- **N° d'opération « en attente » = VRAI bug de sync corrigé** — le n° (trigger serveur `0046`) ne **descendait pas** au client (le trigger ne bumpait pas `updated_at`, le pull incrémental « sautait » la ligne). Fix = **migration `0060`** (bump `updated_at` atomique) **DÉJÀ APPLIQUÉE EN PROD** (via MCP) + coalescence de sync + libellé « n° en cours d'attribution… » (PR #322). ⚠️ **PR [#323](https://github.com/pharnos-mvp/pharnos/pull/323) OUVERTE** = le fichier `.sql` de `0060` à merger pour aligner le repo (la migration EST déjà en prod ; CI 6/6).
+- **Board Opérations épuré + peaufiné** — retrait bande KPI + panneau correspondance (table pleine largeur), colonne « Créé le » (avec heure), tri récent→ancien, pastille « N urgentes ≤ 7 j », **recherche** du board (insensible aux accents, au début de la ligne des filtres) (PR #324/#325/#326). Pièges CSS (`overflow-x-auto overflow-y-clip` = thead sticky + scroll horizontal) consignés dans la mémoire du board.
+- **Recettes CEO encore à faire** (avant LOT 13) : M4, CS1, M7, **dark de l'app entière** (texte sombre sur remplissages bleus), visuel `/compte`.
+- **Prochaine migration libre = `0061`.**
 
 ---
 
