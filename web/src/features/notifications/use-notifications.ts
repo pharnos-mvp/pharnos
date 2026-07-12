@@ -6,7 +6,13 @@ import {
   type DashboardInput,
 } from '@/features/dashboard/dashboard-data'
 import { db } from '@/lib/db'
-import { buildEnvoye, NOTIF_READ_ID, unreadCount, type NotifEnvoye } from './notifications-data'
+import {
+  buildEnvoye,
+  NOTIF_READ_ID,
+  sortRecuByRecency,
+  unreadCount,
+  type NotifEnvoye,
+} from './notifications-data'
 
 export interface NotificationsVm {
   /** À traiter (entrant actionnable) — pilote le badge. */
@@ -55,7 +61,8 @@ export function useNotifications(orgId: string): NotificationsVm | undefined {
       reads,
       docAnalysis,
     }
-    const recu = buildActions(input, now)
+    // Cloche : ordre chronologique (plus récent d'abord), ≠ ordre par urgence du panneau Dashboard.
+    const recu = sortRecuByRecency(buildActions(input, now))
     const dossierName = new Map(dossiers.map((d) => [d.id, d.productName]))
     const envoye = buildEnvoye(lifecycleEvents, dossierName)
     return { recu, envoye, unread: unreadCount(recu, notifRead?.seenIds ?? []) }

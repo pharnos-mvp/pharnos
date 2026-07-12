@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { ActionItem } from '@/features/dashboard/dashboard-data'
 import type { LifecycleEventRecord } from '@/lib/db'
-import { buildEnvoye, formatRelative, unreadCount } from './notifications-data'
+import { buildEnvoye, formatRelative, sortRecuByRecency, unreadCount } from './notifications-data'
 
 const ev = (over: Partial<LifecycleEventRecord>): LifecycleEventRecord => ({
   id: 'e1',
@@ -91,5 +91,42 @@ describe('unreadCount', () => {
     expect(unreadCount(recu, ['a', 'b'])).toBe(1)
     expect(unreadCount(recu, ['a', 'b', 'c'])).toBe(0)
     expect(unreadCount(recu, ['a', 'zzz'])).toBe(2) // id acquitté disparu → ignoré
+  })
+})
+
+describe('sortRecuByRecency (ordre de la cloche)', () => {
+  const item = (id: string, date?: string, priority = 1): ActionItem => ({
+    id,
+    kind: 'doc_expired',
+    priority,
+    href: '/x',
+    label: id,
+    date,
+  })
+
+  it('classe les items datés du plus récent au plus ancien', () => {
+    const recu = [
+      item('old', '2026-07-01T00:00:00.000Z'),
+      item('new', '2026-07-10T00:00:00.000Z'),
+      item('mid', '2026-07-05T00:00:00.000Z'),
+    ]
+    expect(sortRecuByRecency(recu).map((i) => i.id)).toEqual(['new', 'mid', 'old'])
+  })
+
+  it('place les items NON datés après les datés, dans leur ordre d’origine (tri stable)', () => {
+    const recu = [
+      item('undated-p1', undefined, 1), // suspended/non_conform : sans échéance
+      item('dated', '2026-07-05T00:00:00.000Z'),
+      item('undated-p2', undefined, 2),
+    ]
+    // Le daté passe devant ; les non datés suivent dans l’ordre d’entrée (priorité conservée).
+    expect(sortRecuByRecency(recu).map((i) => i.id)).toEqual(['dated', 'undated-p1', 'undated-p2'])
+  })
+
+  it('ne mute pas le tableau d’entrée (fonction pure)', () => {
+    const recu = [item('a', '2026-07-01T00:00:00.000Z'), item('b', '2026-07-10T00:00:00.000Z')]
+    const snapshot = recu.map((i) => i.id)
+    sortRecuByRecency(recu)
+    expect(recu.map((i) => i.id)).toEqual(snapshot)
   })
 })
