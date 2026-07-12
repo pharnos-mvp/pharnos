@@ -97,3 +97,14 @@ export function unreadCount(recu: ActionItem[], seenIds: string[]): number {
   const seen = new Set(seenIds)
   return recu.reduce((n, i) => (seen.has(i.id) ? n : n + 1), 0)
 }
+
+/**
+ * Ordonne la file « Reçu » POUR LA CLOCHE : du plus récent au plus ancien (demande CEO).
+ * `buildActions` la rend priorisée par URGENCE (bon pour le panneau « actions requises » du
+ * Dashboard, qu'on NE touche pas) ; la cloche, elle, veut un ordre chronologique. Les items DATÉS
+ * passent en premier (date décroissante) ; les non datés (`dossier_suspended`, `non_conform` — sans
+ * échéance) suivent, dans leur ordre de priorité d'origine (le tri est stable). PUR (copie) → testable.
+ */
+export function sortRecuByRecency(recu: ActionItem[]): ActionItem[] {
+  return [...recu].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
+}

@@ -14,6 +14,7 @@ import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 
 import { corsHeaders, isAllowedOrigin } from '../_shared/cors.ts'
 import { validateAgentLifecycleEvent } from '../_shared/lifecycle-agent-actions.ts'
+import { asMsgLang, officialLang } from '../_shared/lifecycle-reminders-core.ts'
 import { logJson, newReqId } from '../_shared/log.ts'
 import { isValidShareToken, sha256Hex, verifySharePassword } from '../_shared/share-auth.ts'
 
@@ -58,6 +59,8 @@ interface CorrespondenceRow {
   pdf_path: string
   pdf_size: number
   password_hash: string | null
+  // Langue préférée du destinataire (0056) : 'fr' | 'en' | null → repli sur la langue du pays.
+  recipient_lang: string | null
   status: string
   decided_at: string | null
   revoked_at: string | null
@@ -665,7 +668,7 @@ async function handleNotify(
 
   const { data: corr } = await supabase
     .from('correspondences')
-    .select('id, org_id, product_name, country, sender_email, recipient_email, note, token_hash, revoked_at, deleted_at')
+    .select('id, org_id, product_name, country, sender_email, recipient_email, note, token_hash, revoked_at, deleted_at, recipient_lang')
     .eq('id', correspondenceId)
     .maybeSingle<CorrespondenceRow & { token_hash: string }>()
   if (!corr || corr.deleted_at !== null) return json({ error: 'invalid' }, 404)
@@ -710,6 +713,30 @@ async function handleNotify(
   const safeSender = escapeHtml(corr.sender_email)
   const safeProduct = escapeHtml(corr.product_name)
   const note = escapeHtml((corr.note ?? '').slice(0, 500))
+  // Langue du destinataire : sa préférence stockée (`recipient_lang`, 0056), sinon la langue
+  // officielle du pays du dossier (agence UEMOA/CEDEAO). MONOLINGUE — on n'envoie plus FR+EN
+  // (règle « langue par rôle/pays » du moteur de relances, #309). La note de l'expéditeur (texte
+  // libre) n'est jamais traduite (contenu utilisateur).
+  const lang = asMsgLang(corr.recipient_lang) ?? officialLang(corr.country)
+  const subjectProduct = corr.product_name.replace(/[\r\n]/g, ' ')
+  const t =
+    lang === 'en'
+      ? {
+          subject: `Dossier ${subjectProduct} — review requested (Pharnos)`,
+          h2: 'Regulatory dossier review',
+          intro: `<strong>${safeSender}</strong> has shared the dossier <strong>${safeProduct}</strong> with you for review and submission.`,
+          cta: 'Open the dossier',
+          link: 'Personal link — preview, download and submit your decision without creating an account. If the link is protected, the password is sent to you separately by the sender.',
+          footer: 'Pharnos — the OS for pharmaceutical regulatory affairs in UEMOA/ECOWAS',
+        }
+      : {
+          subject: `Dossier ${subjectProduct} — review demandée (Pharnos)`,
+          h2: 'Review de dossier réglementaire',
+          intro: `<strong>${safeSender}</strong> vous a transmis le dossier <strong>${safeProduct}</strong> pour review et soumission.`,
+          cta: 'Ouvrir le dossier',
+          link: "Lien personnel — prévisualisez, téléchargez et rendez votre décision sans créer de compte. Si le lien est protégé, le mot de passe vous est communiqué séparément par l'expéditeur.",
+          footer: 'Pharnos — OS des affaires réglementaires pharmaceutiques UEMOA/CEDEAO',
+        }
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
@@ -717,20 +744,15 @@ async function handleNotify(
       from,
       to: [corr.recipient_email],
       reply_to: corr.sender_email,
-      // Bilingue FR/EN : le correspondant (agence locale UEMOA/CEDEAO) est anonyme côté serveur
-      // — sa langue est inconnue, et la région mêle pays francophones et anglophones. La note de
-      // l'expéditeur (texte libre) n'est jamais traduite (contenu utilisateur).
-      subject: `Dossier ${corr.product_name.replace(/[\r\n]/g, ' ')} — review demandée / requested (Pharnos)`,
+      subject: t.subject,
       html: [
         `<div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:560px;margin:auto;padding:24px">`,
-        `<h2 style="margin:0 0 8px">Review de dossier réglementaire · Regulatory dossier review</h2>`,
-        `<p style="margin:0 0 4px;color:#444"><strong>${safeSender}</strong> vous a transmis le dossier <strong>${safeProduct}</strong> pour review et soumission.</p>`,
-        `<p style="margin:0 0 16px;color:#888;font-size:13px"><strong>${safeSender}</strong> has shared the dossier <strong>${safeProduct}</strong> with you for review and submission.</p>`,
+        `<h2 style="margin:0 0 8px">${t.h2}</h2>`,
+        `<p style="margin:0 0 16px;color:#444">${t.intro}</p>`,
         note ? `<p style="margin:0 0 16px;padding:12px;background:#f6f6f7;border-radius:8px;color:#333">${note}</p>` : '',
-        `<p style="margin:0 0 24px"><a href="${canonicalUrl}" style="background:#18181b;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;display:inline-block">Ouvrir le dossier · Open the dossier</a></p>`,
-        `<p style="margin:0 0 4px;color:#888;font-size:12px">Lien personnel — prévisualisez, téléchargez et rendez votre décision sans créer de compte. Si le lien est protégé, le mot de passe vous est communiqué séparément par l'expéditeur.</p>`,
-        `<p style="margin:0;color:#888;font-size:12px">Personal link — preview, download and submit your decision without creating an account. If the link is protected, the password is sent to you separately by the sender.</p>`,
-        `<p style="margin:16px 0 0;color:#aaa;font-size:11px">Pharnos — OS des affaires réglementaires pharmaceutiques UEMOA/CEDEAO · the OS for pharmaceutical regulatory affairs in UEMOA/ECOWAS</p>`,
+        `<p style="margin:0 0 24px"><a href="${canonicalUrl}" style="background:#18181b;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;display:inline-block">${t.cta}</a></p>`,
+        `<p style="margin:0 0 4px;color:#888;font-size:12px">${t.link}</p>`,
+        `<p style="margin:16px 0 0;color:#aaa;font-size:11px">${t.footer}</p>`,
         `</div>`,
       ].join(''),
     }),

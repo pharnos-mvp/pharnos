@@ -10,8 +10,8 @@ const DATA_OWNER_KEY = 'pharnos.localDataOwner'
 const ORG_KEY = 'pharnos.orgId'
 
 /** Vide toutes les tables Dexie porteuses de DONNÉES (miroir exact du schéma `db.ts`). */
-async function clearAllTables(): Promise<void> {
-  await Promise.all([
+async function clearAllTables(opts?: { preserveNotifReads?: boolean }): Promise<void> {
+  const jobs = [
     db.products.clear(),
     db.parties.clear(),
     db.outbox.clear(),
@@ -30,8 +30,14 @@ async function clearAllTables(): Promise<void> {
     db.savedTemplates.clear(),
     db.variationRequests.clear(),
     db.lifecycleEvents.clear(),
-    db.notificationReads.clear(),
-  ])
+  ]
+  // Marqueur de lecture de la cloche (`notificationReads`, local par appareil, JAMAIS re-synchronisé) :
+  // CONSERVÉ à la déconnexion (`preserveNotifReads`) pour qu'une reconnexion du MÊME compte ne rejoue
+  // pas en « non lu » des notifications déjà acquittées — elles sont re-dérivées des données re-syncées,
+  // mais leur acquittement ne l'est pas. Il reste PURGÉ au changement de compte (garde de swap) : un
+  // autre utilisateur ne doit jamais hériter des acquittements du précédent.
+  if (!opts?.preserveNotifReads) jobs.push(db.notificationReads.clear())
+  await Promise.all(jobs)
 }
 
 /**
@@ -67,8 +73,8 @@ function removeLocalStorageKeys(match: (k: string) => boolean): void {
   }
 }
 
-export async function clearLocalData(): Promise<void> {
-  await clearAllTables()
+export async function clearLocalData(opts?: { preserveNotifReads?: boolean }): Promise<void> {
+  await clearAllTables(opts)
   removeLocalStorageKeys(isDataKey)
 }
 
@@ -115,6 +121,13 @@ export async function reconcileLocalDataOwner(userId: string): Promise<boolean> 
     setLocalDataOwner(userId)
     return true
   }
+  // Ancre de propriétaire absente (`prev === null`) : un marqueur de cloche CONSERVÉ à la déconnexion
+  // (`preserveNotifReads`) pourrait subsister sans être attribuable à `userId` — cas où `localStorage`
+  // a été évincé indépendamment d'IndexedDB (coins ITP/quota). On le purge par SÛRETÉ avant toute
+  // exposition : aucun héritage d'acquittements d'un compte à l'autre (modèle navigateur partagé, CS1).
+  // No-op sur une vraie 1re connexion (table déjà vide) et ne touche PAS aux autres données locales
+  // pré-existantes (travail hors-ligne → login = intégrité ALCOA, invariant conservé).
+  if (prev === null) await db.notificationReads.clear()
   if (prev !== userId) setLocalDataOwner(userId)
   return false
 }
