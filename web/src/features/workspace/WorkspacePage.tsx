@@ -408,7 +408,7 @@ export function WorkspacePage() {
             </div>
           </div>
           {/* `relative` : ancre les sr-only absolus des lignes (anti-phantom, recette LOT 9). */}
-          <div className="relative">{table}</div>
+          <div className="relative overflow-x-auto overflow-y-clip">{table}</div>
         </section>
       </div>
     )
@@ -446,7 +446,7 @@ export function WorkspacePage() {
             </div>
           </div>
           {/* `relative` : ancre les sr-only absolus des lignes (anti-phantom, recette LOT 9). */}
-          <div className="relative">{table}</div>
+          <div className="relative overflow-x-auto overflow-y-clip">{table}</div>
         </section>
       </div>
     )
@@ -501,7 +501,7 @@ export function WorkspacePage() {
           />
         )
       ) : (
-        <div className="bg-card overflow-clip rounded-xl border">{table}</div>
+        <div className="bg-card overflow-x-auto overflow-y-clip rounded-xl border">{table}</div>
       )}
     </Page>
   )
