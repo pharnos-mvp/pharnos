@@ -115,7 +115,7 @@ describe('sortRecuByRecency (ordre de la cloche)', () => {
 
   it('place les items NON datés après les datés, dans leur ordre d’origine (tri stable)', () => {
     const recu = [
-      item('undated-p1', undefined, 1), // suspended/non_conform : sans échéance
+      item('undated-p1', undefined, 1), // cas défensif : plus aucun type n'émet undefined, le tri doit rester robuste
       item('dated', '2026-07-05T00:00:00.000Z'),
       item('undated-p2', undefined, 2),
     ]

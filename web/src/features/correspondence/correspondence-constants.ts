@@ -76,15 +76,27 @@ export const decisionLabel = (
  * SANS décision ne compte plus (l'accès reviewer est coupé) ; révoquée APRÈS décision,
  * la décision reste acquise.
  */
-export function dossierDisplayStatus(
+/**
+ * La correspondance la plus récente (`createdAt`) qui DÉTERMINE le statut affiché d'un dossier —
+ * hors supprimées et hors envois `in_review` révoqués. `undefined` = aucun envoi (→ « brouillon »).
+ * Exportée pour dériver, en plus du statut, la DATE de l'événement (ex. `decidedAt` d'un complément).
+ */
+export function latestDossierCorrespondence(
   dossierId: string,
   correspondences: CorrespondenceRecord[],
-): DossierDisplayStatus {
+): CorrespondenceRecord | undefined {
   let latest: CorrespondenceRecord | undefined
   for (const c of correspondences) {
     if (c.dossierId !== dossierId || c.deletedAt !== null) continue
     if (c.status === 'in_review' && c.revokedAt !== null) continue
     if (!latest || c.createdAt > latest.createdAt) latest = c
   }
-  return latest ? latest.status : 'draft'
+  return latest
+}
+
+export function dossierDisplayStatus(
+  dossierId: string,
+  correspondences: CorrespondenceRecord[],
+): DossierDisplayStatus {
+  return latestDossierCorrespondence(dossierId, correspondences)?.status ?? 'draft'
 }
