@@ -123,6 +123,12 @@ export function WorkspacePage() {
   )
   const pipeline = useMemo(() => opsPipeline(activeRows), [activeRows])
   const procCounts = useMemo(() => opsProcedureCounts(activeRows), [activeRows])
+  // Signal d'urgence conservé (pastille du pipeline) après le retrait de la bande KPI : nombre de
+  // dossiers actifs à échéance imminente (≤ 7 j) — le tri par récence ne les remonte plus en tête.
+  const dueSoon = useMemo(
+    () => activeRows.filter((r) => isDeadlineUrgent(r.deadlineDays)).length,
+    [activeRows],
+  )
 
   const rows = view === 'archived' ? archivedRows : activeRows
   const visible =
@@ -381,7 +387,7 @@ export function WorkspacePage() {
         {/* h1 du document (le cockpit ne monte pas PageHeader ; le titre visible est le breadcrumb du shell). */}
         <h1 className="sr-only">{t({ fr: 'Opérations', en: 'Operations' })}</h1>
         <div className="flex min-h-0 flex-1 flex-col gap-3">
-          <PipelineBar pipeline={pipeline} total={activeRows.length} />
+          <PipelineBar pipeline={pipeline} total={activeRows.length} dueSoon={dueSoon} />
           <section className="bg-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border">
             <div className="shrink-0 border-b p-4">
               <div className="flex items-start justify-between gap-3">
@@ -423,7 +429,9 @@ export function WorkspacePage() {
         })}
         actions={newDossierBtn}
       />
-      {activePopulated ? <PipelineBar pipeline={pipeline} total={activeRows.length} /> : null}
+      {activePopulated ? (
+        <PipelineBar pipeline={pipeline} total={activeRows.length} dueSoon={dueSoon} />
+      ) : null}
       {procedureChips || archivedToggle ? (
         <div className="flex flex-wrap items-center gap-2">
           {procedureChips}
@@ -474,23 +482,36 @@ const SEG_COLOR: Record<DossierDisplayStatus, string> = {
 function PipelineBar({
   pipeline,
   total,
+  dueSoon,
 }: {
   pipeline: { status: DossierDisplayStatus; count: number }[]
   total: number
+  /** Dossiers actifs à échéance imminente (≤ 7 j) — pastille d'urgence (masquée si 0). */
+  dueSoon: number
 }) {
   const { t, lang } = useI18n()
   return (
     <div className="bg-card shrink-0 rounded-xl border p-3.5">
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2 flex items-center justify-between gap-2">
         <h2 className="font-display text-xs font-semibold">
           {t({ fr: 'Pipeline réglementaire', en: 'Regulatory pipeline' })}
         </h2>
-        <span className="text-muted-foreground text-[11px]">
-          {t({
-            fr: `${total} dossier${total > 1 ? 's' : ''}`,
-            en: `${total} dossier${total > 1 ? 's' : ''}`,
-          })}
-        </span>
+        <div className="flex items-center gap-2">
+          {dueSoon > 0 ? (
+            <StatusBadge tone="danger">
+              {t({
+                fr: `${dueSoon} urgente${dueSoon > 1 ? 's' : ''} · ≤ 7 j`,
+                en: `${dueSoon} urgent · ≤ 7d`,
+              })}
+            </StatusBadge>
+          ) : null}
+          <span className="text-muted-foreground text-[11px]">
+            {t({
+              fr: `${total} dossier${total > 1 ? 's' : ''}`,
+              en: `${total} dossier${total > 1 ? 's' : ''}`,
+            })}
+          </span>
+        </div>
       </div>
       <div className="bg-muted flex h-2.5 overflow-hidden rounded-full" role="presentation">
         {pipeline
