@@ -103,6 +103,29 @@ describe('clearLocalData — purge complète du cache local partagé', () => {
     expect(localStorage.getItem('pharnos.localDataOwner')).toBe('user-a')
   })
 
+  it('déconnexion (preserveNotifReads) : CONSERVE le marqueur de lecture de la cloche, vide le reste', async () => {
+    await seed()
+    await db.notificationReads.put({
+      id: 'recu',
+      lastSeenAt: '2026-07-04T00:00:00.000Z',
+      seenIds: ['doc:1'],
+    })
+
+    await clearLocalData({ preserveNotifReads: true })
+
+    // La cloche garde ses acquittements (re-login même compte ne rejoue pas en « non lu »)…
+    expect(await db.notificationReads.count()).toBe(1)
+    // … mais toutes les autres tables de données sont bien vidées.
+    expect(await db.dossiers.count()).toBe(0)
+    expect(await db.lifecycleEvents.count()).toBe(0)
+  })
+
+  it('déconnexion par défaut (sans option) : vide AUSSI le marqueur de lecture', async () => {
+    await db.notificationReads.put({ id: 'recu', lastSeenAt: 't', seenIds: [] })
+    await clearLocalData()
+    expect(await db.notificationReads.count()).toBe(0)
+  })
+
   it('purgeAllLocalData (suppression de compte) retire AUSSI le marqueur de propriétaire', async () => {
     localStorage.setItem('pharnos.localDataOwner', 'user-a')
     await seed()
@@ -121,6 +144,20 @@ describe('reconcileLocalDataOwner — garde de changement de compte', () => {
     expect(await db.dossiers.count()).toBe(1) // données conservées
   })
 
+  it('ancre absente + marqueur cloche orphelin : purge le SEUL marqueur (jamais d’héritage), garde les données hors-ligne', async () => {
+    // localStorage évincé indépendamment d'IndexedDB : `localDataOwner` = null mais un marqueur de
+    // cloche conservé (déconnexion) subsiste. Un login ne doit pas l'exposer au nouveau compte…
+    await seed()
+    localStorage.removeItem('pharnos.orgId') // simule une éviction partielle de localStorage
+    await db.notificationReads.put({ id: 'recu', lastSeenAt: 't', seenIds: ['doc:1'] })
+
+    const purged = await reconcileLocalDataOwner('user-b')
+
+    expect(purged).toBe(false) // pas un swap (prev null) → pas de purge totale
+    expect(await db.notificationReads.count()).toBe(0) // marqueur orphelin purgé
+    expect(await db.dossiers.count()).toBe(1) // …mais le travail hors-ligne pré-existant est conservé
+  })
+
   it('même utilisateur (re-login / refresh) : NE purge PAS', async () => {
     await seed()
     await reconcileLocalDataOwner('user-a')
@@ -131,6 +168,7 @@ describe('reconcileLocalDataOwner — garde de changement de compte', () => {
 
   it('AUTRE utilisateur (swap de session, même navigateur) : PURGE avant exposition', async () => {
     await seed()
+    await db.notificationReads.put({ id: 'recu', lastSeenAt: 't', seenIds: ['doc:1'] })
     await reconcileLocalDataOwner('user-a')
     expect(await db.dossiers.count()).toBe(1)
 
@@ -141,6 +179,9 @@ describe('reconcileLocalDataOwner — garde de changement de compte', () => {
     expect(await db.dossiers.count()).toBe(0)
     expect(await db.lifecycleEvents.count()).toBe(0)
     expect(await db.products.count()).toBe(0)
+    // Invariant de confidentialité : le swap purge AUSSI le marqueur de la cloche (contrairement à la
+    // déconnexion) — user-b ne doit jamais hériter des acquittements de user-a.
+    expect(await db.notificationReads.count()).toBe(0)
   })
 
   it('appels CONCURRENTS pour le MÊME nouvel utilisateur (boot getSession + onAuthStateChange) : jamais de purge', async () => {

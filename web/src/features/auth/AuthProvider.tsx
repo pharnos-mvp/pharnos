@@ -64,7 +64,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase?.auth.signOut()
     // Purge le cache local : le navigateur peut être partagé — le prochain compte ne doit pas
     // hériter des données synchronisées de celui-ci (CS1 : agents externes sur machine commune).
-    await clearLocalData()
+    // On CONSERVE le marqueur de lecture de la cloche : une reconnexion du MÊME compte ne doit pas
+    // rejouer en « non lu » des notifications déjà acquittées (un swap de compte le purgera via la
+    // garde `reconcileLocalDataOwner`, qui appelle `clearLocalData()` sans l'option de conservation).
+    await clearLocalData({ preserveNotifReads: true })
     setRecovery(false)
   }
 
