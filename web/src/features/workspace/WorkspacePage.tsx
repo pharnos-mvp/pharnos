@@ -440,9 +440,9 @@ export function WorkspacePage() {
                 {newDossierBtn}
               </div>
             </div>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              {procedureChips}
+            <div className="mt-3 flex flex-wrap items-center gap-3">
               {searchInput}
+              {procedureChips}
             </div>
           </div>
           {/* `relative` : ancre les sr-only absolus des lignes (anti-phantom, recette LOT 9). */}
@@ -469,8 +469,8 @@ export function WorkspacePage() {
       ) : null}
       {procedureChips || archivedToggle || searchInput ? (
         <div className="flex flex-wrap items-center gap-2">
-          {procedureChips}
           {searchInput}
+          {procedureChips}
           {archivedToggle ? <div className="ml-auto">{archivedToggle}</div> : null}
         </div>
       ) : null}
