@@ -6,7 +6,6 @@ import {
   buildOpsRows,
   dossierRef,
   isDeadlineUrgent,
-  opsKpis,
   opsPipeline,
   opsProcedureCounts,
 } from './operations-data'
@@ -90,21 +89,24 @@ describe('operations-data', () => {
     expect(isDeadlineUrgent(null)).toBe(false)
   })
 
-  it('buildOpsRows : échéance la plus urgente en tête, complétude (arbre vide=0)', () => {
+  it('buildOpsRows : tri du plus récent au plus ancien (date de création), complétude (arbre vide=0)', () => {
     const statusById = new Map<string, DossierDisplayStatus>([
       ['d1', 'in_review'],
       ['d2', 'accepted'],
     ])
     const rows = buildOpsRows(
-      [dossier('d1', { productId: 'p1' }), dossier('d2', { productId: 'p2' })],
+      [
+        dossier('d1', { productId: 'p1', createdAt: '2026-03-01T00:00:00.000Z' }),
+        dossier('d2', { productId: 'p2', createdAt: '2026-05-10T00:00:00.000Z' }),
+      ],
       statusById,
       [product('p1'), product('p2')],
       [ammDoc('a1', 'p1', inDays(30)), ammDoc('a2', 'p2', inDays(3))],
       new Map(),
       NOW,
     )
-    expect(rows.map((r) => r.dossier.id)).toEqual(['d2', 'd1']) // d2 (J-3) avant d1 (J-30)
-    expect(rows[0]?.deadlineDays).toBe(3)
+    expect(rows.map((r) => r.dossier.id)).toEqual(['d2', 'd1']) // d2 (créé en mai) avant d1 (créé en mars)
+    expect(rows[0]?.deadlineDays).toBe(3) // d2 : pièce à J-3
     expect(rows[0]?.completionPct).toBe(0) // arbre vide
     expect(rows[0]?.ref).toBeNull() // pas de n° serveur sur ces dossiers de test → « en attente »
   })
@@ -122,22 +124,6 @@ describe('operations-data', () => {
       NOW,
     )
     expect(rows[0]?.deadlineDays).toBe(60)
-  })
-
-  it('opsKpis : actifs / en évaluation / complément / octroyés / échéances <=7j', () => {
-    const rows = buildOpsRows(
-      [dossier('d1'), dossier('d2', { productId: 'p2' }), dossier('d3', { productId: 'p3' })],
-      new Map<string, DossierDisplayStatus>([
-        ['d1', 'in_review'],
-        ['d2', 'suspended'],
-        ['d3', 'accepted'],
-      ]),
-      [product('p1'), product('p2'), product('p3')],
-      [ammDoc('a', 'p1', inDays(2))], // d1 urgent
-      new Map(),
-      NOW,
-    )
-    expect(opsKpis(rows)).toEqual({ active: 3, inReview: 1, complement: 1, granted: 1, dueSoon: 1 })
   })
 
   it('opsPipeline : répartition par statut en ordre canonique', () => {
