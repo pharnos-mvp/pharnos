@@ -30,7 +30,7 @@ export interface StageWaiting {
  */
 const WAITING_PARTY: Partial<Record<LifecycleStatus, Translatable>> = {
   in_review: { fr: 'l’agent local', en: 'the local agent' }, // décision attendue
-  accepted: { fr: 'l’agent local', en: 'the local agent' }, // réception attendue (Dépôt)
+  accepted: { fr: 'l’agent local', en: 'the local agent' }, // finalisation attendue (Finalisation)
   submitting: { fr: 'l’agent local', en: 'the local agent' }, // dépôt à l'agence attendu
   in_notification: { fr: 'l’agence nationale', en: 'the national agency' }, // instruction en cours
 }

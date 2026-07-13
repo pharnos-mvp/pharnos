@@ -76,7 +76,7 @@ export interface PartyRecord {
 
 /**
  * Type d'événement du cycle de vie — vocabulaire CONTRÔLÉ (miroir du CHECK de la migration 0047).
- * Jalons aval (Dépôt → Soumission → Notifications → AMM) + sous-workflows échantillons/paiement/relances.
+ * Jalons aval (Finalisation → Soumission → Notifications → AMM) + sous-workflows échantillons/paiement/relances.
  */
 export type LifecycleEventType =
   | 'deposited'
@@ -96,7 +96,7 @@ export type LifecycleEventType =
 
 /**
  * Événement du JOURNAL append-only du cycle de vie du dossier (« la spine », ADR-0004). Porte les
- * jalons AVAL (Dépôt → Soumission → Notifications → AMM) + sous-workflows. IMMUABLE (ni updatedAt ni
+ * jalons AVAL (Finalisation → Soumission → Notifications → AMM) + sous-workflows. IMMUABLE (ni updatedAt ni
  * deletedAt, comme audit_log / correspondence_messages) : une correction = un NOUVEL événement.
  * L'étape courante est DÉRIVÉE de ces événements + la correspondance par `deriveLifecycle()` — jamais
  * stockée (cohérent ADR-0003 : zéro écriture serveur dans `dossiers`, zéro conflit offline-first).

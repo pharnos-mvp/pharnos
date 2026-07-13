@@ -9,7 +9,7 @@ import type { Lang, Translatable } from '@/lib/i18n-context'
 /**
  * « La spine » — état du cycle de vie d'un dossier, DÉRIVÉ (jamais stocké) du journal append-only
  * `lifecycle_events` + de la correspondance (ADR-0004). On SUPERPOSE : la correspondance (0017) reste
- * la source des étapes amont (Montage/Revue/Décision) ; le journal porte l'aval (Dépôt → Soumission →
+ * la source des étapes amont (Montage/Revue/Décision) ; le journal porte l'aval (Finalisation → Soumission →
  * Notifications → AMM). Fonction pure, testée — calque exact de `dossierDisplayStatus` (ADR-0003).
  *
  * Le mockup validé (`docs/mockups/roadmap-parcours-dossier.html`) fixe les 7 étapes du parcours.
@@ -52,11 +52,13 @@ export const LIFECYCLE_STAGES: {
     label: { fr: 'Décision', en: 'Decision' },
     actor: { fr: 'Agent local', en: 'Local agent' },
   },
-  // Réalignement M4 (workflow CEO) : Dépôt = réception confirmée par l'agent local ;
-  // Soumission = dépôt du dossier à l'agence nationale. Codes d'étape/événement inchangés.
+  // « Finalisation » (agent local) : point de convergence où le dossier est mis au propre —
+  // compilation, frais et échantillons réunis — et déclaré prêt à soumettre. Soumission = dépôt
+  // du dossier à l’agence nationale. Le libellé seul change ; l'id 'depot' et l'événement
+  // 'deposited' restent inchangés (codes internes + contrat de données des payloads persistés).
   {
     id: 'depot',
-    label: { fr: 'Dépôt', en: 'Deposit' },
+    label: { fr: 'Finalisation', en: 'Finalisation' },
     actor: { fr: 'Agent local', en: 'Local agent' },
   },
   {
@@ -154,8 +156,8 @@ const JOURNAL_LABELS: Record<LifecycleJournalKey, Translatable> = {
   review_sent: { fr: 'Envoyé en revue à l’agent local', en: 'Sent for review to the local agent' },
   decision: { fr: 'Décision rendue', en: 'Decision rendered' },
   deposited: {
-    fr: 'Réception confirmée par l’agent local',
-    en: 'Receipt confirmed by the local agent',
+    fr: 'Dossier finalisé, prêt à soumettre',
+    en: 'Dossier finalised, ready to submit',
   },
   submitted: { fr: 'Déposé à l’agence nationale', en: 'Filed with the national agency' },
   authority_query: {

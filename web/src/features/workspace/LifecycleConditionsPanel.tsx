@@ -506,8 +506,8 @@ function ConditionRow({
             <p className="text-muted-foreground flex items-start gap-2 text-xs">
               <Info className="mt-0.5 size-3.5 shrink-0" />
               {t({
-                fr: 'Condition dérivée automatiquement : elle passe au vert avec le jalon « Dépôt » — aucune saisie en plus.',
-                en: 'Derived automatically: it turns green with the “Deposit” milestone — nothing extra to enter.',
+                fr: 'Condition dérivée automatiquement : elle passe au vert avec le jalon « Finalisation » — aucune saisie en plus.',
+                en: 'Derived automatically: it turns green with the “Finalisation” milestone — nothing extra to enter.',
               })}
             </p>
           ) : (

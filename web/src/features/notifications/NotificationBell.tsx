@@ -80,7 +80,7 @@ const SENT_META: Record<SentKind, { icon: LucideIcon; label: Translatable; tag?:
     label: { fr: 'Relance envoyée', en: 'Reminder sent' },
     tag: { fr: 'Manuel', en: 'Manual' },
   },
-  deposited: { icon: Check, label: { fr: 'Dépôt confirmé', en: 'Filing confirmed' } },
+  deposited: { icon: Check, label: { fr: 'Dossier finalisé', en: 'Dossier finalised' } },
   submitted: { icon: Send, label: { fr: 'Soumission effectuée', en: 'Submission done' } },
   authority_response: {
     icon: Mail,

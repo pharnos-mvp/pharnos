@@ -8,7 +8,7 @@ import type { Translatable } from '@/lib/i18n-context'
  * vocabulaire 0047 (déjà en base depuis M0 — M3 est front-only).
  *
  * Décisions CEO (mockup `docs/mockups/lifecycle-m3-echantillons-frais.html`, GO 2026-07-02) :
- * NON BLOQUANT partout (aucune condition ne verrouille Dépôt/Soumission) ; SAISIE TOLÉRANTE
+ * NON BLOQUANT partout (aucune condition ne verrouille Finalisation/Soumission) ; SAISIE TOLÉRANTE
  * (enregistrer une étape aval marque les amonts franchies — même monotonie que `deriveLifecycle`) ;
  * pièces recommandées, jamais obligatoires.
  */
@@ -62,14 +62,14 @@ export const FEES_CHAIN: LifecycleEventType[] = [
 
 // ── Libellés ─────────────────────────────────────────────────────────────────────────────────────
 export const CONDITION_TITLES: Record<SubmissionConditionId, Translatable> = {
-  ctd: { fr: 'Dossier CTD compilé & déposé', en: 'CTD dossier compiled & filed' },
+  ctd: { fr: 'Dossier CTD compilé & finalisé', en: 'CTD dossier compiled & finalised' },
   samples: { fr: 'Échantillons', en: 'Samples' },
   fees: { fr: 'Paiement des frais', en: 'Fee payment' },
 }
 
 /** Libellé COURT d'une sous-étape (points de la chaîne + pastille d'état). */
 export const CONDITION_STEP_LABELS: Partial<Record<LifecycleEventType, Translatable>> = {
-  deposited: { fr: 'Déposé', en: 'Filed' },
+  deposited: { fr: 'Finalisé', en: 'Finalised' },
   samples_requested: { fr: 'Demandés', en: 'Requested' },
   samples_import_authorized: { fr: 'Import autorisé', en: 'Import authorised' },
   samples_shipped: { fr: 'Expédiés', en: 'Shipped' },
@@ -150,7 +150,7 @@ export function deriveSubmissionConditions(
     }
   }
 
-  // CTD : dérivée du jalon Dépôt (M2) — aucune saisie propre dans le panneau.
+  // CTD : dérivée du jalon Finalisation (M2) — aucune saisie propre dans le panneau.
   const ctd = buildChain('ctd', ['deposited'])
 
   const conditions = [ctd, samples, fees]

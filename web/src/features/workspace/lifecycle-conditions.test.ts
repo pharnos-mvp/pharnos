@@ -51,7 +51,7 @@ describe('deriveSubmissionConditions — les 3 conditions (M3)', () => {
     expect(cond(st, 'ctd').nextType).toBe('deposited')
   })
 
-  it('CTD : dérivée du jalon Dépôt (M2) — `deposited` la remplit', () => {
+  it('CTD : dérivée du jalon Finalisation (M2) — `deposited` la remplit', () => {
     const st = derive({ events: [ev({ type: 'deposited' })] })
     expect(cond(st, 'ctd').status).toBe('done')
     expect(cond(st, 'ctd').steps[0]?.at).toBe('2026-06-10T00:00:00.000Z')
