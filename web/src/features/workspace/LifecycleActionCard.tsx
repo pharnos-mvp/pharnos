@@ -1018,13 +1018,13 @@ function stageDescription(
   switch (stage) {
     case 'depot':
       return t({
-        fr: 'Le dossier est accepté. Confirmez sa réception par l’agent local.',
-        en: 'The dossier is accepted. Confirm the local agent received it.',
+        fr: 'Le dossier est accepté. Finalisez-le (compilation, frais, échantillons), puis confirmez qu’il est prêt à soumettre.',
+        en: 'The dossier is accepted. Finalise it (compilation, fees, samples), then confirm it is ready to submit.',
       })
     case 'soumission':
       return t({
-        fr: `Dossier reçu par l’agent. Enregistrez le dépôt à l’agence nationale (mode : ${submissionModeLabel(mode, lang)}).`,
-        en: `Dossier received by the agent. Record the filing with the national agency (mode: ${submissionModeLabel(mode, lang)}).`,
+        fr: `Dossier finalisé. Enregistrez le dépôt à l’agence nationale (mode : ${submissionModeLabel(mode, lang)}).`,
+        en: `Dossier finalised. Record the filing with the national agency (mode: ${submissionModeLabel(mode, lang)}).`,
       })
     case 'notifications':
       return t({

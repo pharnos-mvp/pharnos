@@ -86,7 +86,7 @@ describe('deriveLifecycle — la spine (étape courante + avancement)', () => {
     expect(st.journal.map((j) => j.key)).toEqual(['montage', 'review_sent'])
   })
 
-  it('décision acceptée, sans dépôt → Dépôt courant, 3/7', () => {
+  it('décision acceptée, sans finalisation → Finalisation courante, 3/7', () => {
     const st = derive({
       correspondences: [corr({ status: 'accepted', decidedAt: '2026-06-05T00:00:00.000Z' })],
     })
@@ -256,13 +256,13 @@ describe('journal — acteur « qui a fait quoi » (restauré du mockup)', () =>
 })
 
 describe('libellés', () => {
-  it('journalLabel — décision selon l’issue + repli (réalignement M4 : Dépôt = réception agent)', () => {
+  it('journalLabel — décision selon l’issue + repli (réalignement M4 : Finalisation = dossier prêt)', () => {
     expect(journalLabel({ key: 'decision', outcome: 'accepted' })).toBe('Dossier accepté')
     expect(journalLabel({ key: 'decision', outcome: 'suspended' })).toBe('Complément requis')
     expect(journalLabel({ key: 'decision', outcome: 'suspended' }, 'en')).toBe(
       'Additional info required',
     )
-    expect(journalLabel({ key: 'deposited' })).toBe('Réception confirmée par l’agent local')
+    expect(journalLabel({ key: 'deposited' })).toBe('Dossier finalisé, prêt à soumettre')
     expect(journalLabel({ key: 'submitted' })).toBe('Déposé à l’agence nationale')
     // M5 : la relance peut être manuelle (Labo) ou auto (Système) — libellé neutre commun.
     expect(journalLabel({ key: 'reminder_sent' }, 'en')).toBe('Reminder sent')

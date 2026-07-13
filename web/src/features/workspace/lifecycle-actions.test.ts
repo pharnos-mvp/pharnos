@@ -5,7 +5,7 @@ import { LIFECYCLE_STAGE_ORDER } from './lifecycle-constants'
 import { nextLifecycleActions } from './lifecycle-actions'
 
 describe('nextLifecycleActions — actions Labo par étape courante (M2)', () => {
-  it('Dépôt → une seule action : Transmettre (deposited)', () => {
+  it('Finalisation → une seule action : Transmettre (deposited)', () => {
     const actions = nextLifecycleActions('depot')
     expect(actions.map((a) => a.type)).toEqual(['deposited'])
     expect(actions[0]?.form).toBe('confirm')

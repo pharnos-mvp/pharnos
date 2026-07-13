@@ -7,7 +7,7 @@ import type { LifecycleStageId } from './lifecycle-constants'
  * un dossier depuis son étape courante. Chaque action = un `lifecycle_events` append-only
  * (`appendLifecycleEvent`) ; l'étape courante reste DÉRIVÉE (`deriveLifecycle`), jamais stockée.
  *
- * Périmètre M2 = jalons AVAL portés par le journal (Dépôt → Soumission → Notifications → AMM). Les
+ * Périmètre M2 = jalons AVAL portés par le journal (Finalisation → Soumission → Notifications → AMM). Les
  * étapes amont (Montage/Revue/Décision) sont pilotées par la correspondance (0017) — pas d'action
  * journal ici. Mapping PUR + testé : le composant reste mince, la règle « quoi faire ensuite » est
  * vérifiable en isolation.
@@ -43,15 +43,16 @@ export interface LifecycleAction {
   form: LifecycleActionForm
 }
 
-// Réalignement M4 (workflow CEO) : Dépôt = réception confirmée par l'agent local ;
+// « Finalisation » (agent local) : dossier mis au propre, prêt à soumettre — compilation, frais,
+// échantillons réunis ;
 // Soumission = dépôt du dossier à l'agence nationale. Types d'événement inchangés.
 const DEPOSIT: LifecycleAction = {
   id: 'deposit',
   type: 'deposited',
-  label: { fr: 'Confirmer la réception par l’agent', en: 'Confirm receipt by the agent' },
+  label: { fr: 'Confirmer la finalisation', en: 'Confirm finalisation' },
   prompt: {
-    fr: 'Confirmer que l’agent local a bien reçu le dossier ? Cette action est journalisée.',
-    en: 'Confirm the local agent received the dossier? This action is logged.',
+    fr: 'Confirmer que le dossier est finalisé (compilation, frais et échantillons réunis) et prêt à être soumis à l’agence ? Cette action est journalisée.',
+    en: 'Confirm the dossier is finalised (compilation, fees and samples in order) and ready for submission? This action is logged.',
   },
   variant: 'primary',
   form: 'confirm',

@@ -102,9 +102,9 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks())
 
 describe('LifecycleActionCard — actions Labo (M2)', () => {
-  it('Dépôt (gestionnaire) : bouton Réception par l’agent → confirme → append `deposited` + sync', async () => {
+  it('Finalisation (gestionnaire) : bouton Confirmer la finalisation → confirme → append `deposited` + sync', async () => {
     renderCard({ currentStageId: 'depot', status: 'accepted' })
-    fireEvent.click(screen.getByRole('button', { name: /réception par l’agent/i }))
+    fireEvent.click(screen.getByRole('button', { name: /finalisation/i }))
     fireEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
     await waitFor(() => expect(appendMock).toHaveBeenCalledTimes(1))
     expect(appendMock).toHaveBeenCalledWith(
@@ -230,7 +230,7 @@ describe('LifecycleActionCard — actions Labo (M2)', () => {
   it('non-gestionnaire : aucune action, message lecture seule', () => {
     state.memberships = []
     renderCard({ currentStageId: 'depot', status: 'accepted' })
-    expect(screen.queryByRole('button', { name: /réception par l’agent/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /finalisation/i })).not.toBeInTheDocument()
     expect(screen.getByText(/gestionnaire de soumission/i)).toBeInTheDocument()
   })
 

@@ -91,7 +91,7 @@ describe('deriveStageWaiting — « en attente depuis N jours » (M5)', () => {
     expect(deriveStageWaiting(st, NOW)).toBeNull()
   })
 
-  it('accepté (Dépôt attendu) → compteur depuis la DERNIÈRE activité (la décision)', () => {
+  it('accepté (Finalisation attendue) → compteur depuis la DERNIÈRE activité (la décision)', () => {
     const st = derive({
       correspondences: [corr({ status: 'accepted', decidedAt: '2026-06-05T00:00:00.000Z' })],
     })

@@ -83,7 +83,7 @@ Deno.test('sous le seuil (13 j < 14) → pas de relance', () => {
   assertEquals(p, null)
 })
 
-Deno.test('accepté (attente Dépôt) → stage depot, compteur = décision', () => {
+Deno.test('accepté (attente Finalisation) → stage depot, compteur = décision', () => {
   const p = plan({
     correspondences: [corr({ status: 'accepted', decided_at: daysAgo(15) })],
   })

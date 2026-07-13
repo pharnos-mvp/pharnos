@@ -53,7 +53,7 @@ export interface ReminderDecisionMsgRow {
 // ── Seuils par pays (jours SANS ACTIVITÉ avant relance auto) ─────────────────────────────────────
 // Référentiel maintenu par PR (même politique que lifecycle-config.ts : invariant codé en dur,
 // variable en config). Deux familles d'attente :
-//   • agent  : on attend l'AGENT LOCAL (revue, réception, dépôt à l'agence) — cycles courts.
+//   • agent  : on attend l'AGENT LOCAL (revue, finalisation, dépôt à l’agence) — cycles courts.
 //   • agency : on attend l'AGENCE NATIONALE (instruction) — cycles réglementaires longs.
 // Défauts prudents validables par le CEO (expert RA) ; les overrides par pays s'ajoutent ici.
 
@@ -185,7 +185,7 @@ export function asMsgLang(x: unknown): MsgLang | null {
 export function recipientAction(stage: ReminderPlan['stage'], lang: MsgLang): string {
   const m: Record<ReminderPlan['stage'], { fr: string; en: string }> = {
     revue: { fr: 'nous transmettre votre décision', en: 'share your decision with us' },
-    depot: { fr: 'confirmer la réception du dossier', en: 'confirm receipt of the dossier' },
+    depot: { fr: 'finaliser le dossier', en: 'finalise the dossier' },
     soumission: {
       fr: 'confirmer le dépôt auprès de l’agence',
       en: 'confirm filing with the agency',

@@ -20,7 +20,7 @@ export type LeadDaysMap = Record<string, number>
 export interface ReminderSettings {
   /** Domaine A — relances auto Roadmap activées. */
   roadmap_auto_enabled: boolean
-  /** Jours d'inactivité avant relance de l'agent local (revue/dépôt/soumission). */
+  /** Jours d'inactivité avant relance de l'agent local (revue/finalisation/soumission). */
   roadmap_agent_days: number
   /** Jours d'inactivité avant relance de l'agence nationale (instruction). */
   roadmap_agency_days: number

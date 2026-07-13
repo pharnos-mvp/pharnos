@@ -146,7 +146,7 @@ test('Roadmap M3 : conditions de soumission dérivées + journal enrichi et tron
 
   await page.goto(`/workspace/${dossierId}/roadmap`)
 
-  // Pipeline : Dépôt franchi (correspondance acceptée + deposited) → étape courante = Soumission.
+  // Pipeline : Finalisation franchie (correspondance acceptée + deposited) → étape courante = Soumission.
   await expect(page.getByText('vous êtes ici')).toBeVisible()
   await expect(page.getByText(/Avancement 4 \/ 7 étapes/)).toBeVisible()
 

@@ -117,7 +117,7 @@ function ProofPicker({
 /**
  * Onglet « Parcours du dossier » de la page tokenisée (M7, LOT 10b — mockup validé CEO) :
  * timeline PARTAGÉE (même dérivateur que la Roadmap du labo) + actions de l'AGENT par étape
- * (confirmer réception / dépôt agence + récépissé / relayer notification / transmettre l'AMM) +
+ * (confirmer finalisation / dépôt agence + récépissé / relayer notification / transmettre l'AMM) +
  * conditions et référence pays en LECTURE (pilotées labo, M3) + journal (relances Système
  * comprises). Chaque action = un événement append-only écrit par l'Edge après validation token.
  */
@@ -276,20 +276,20 @@ export function PublicParcoursTab({
             </div>
           ) : null}
 
-          {/* Étape Dépôt : confirmer la réception */}
+          {/* Étape Finalisation : confirmer que le dossier est prêt */}
           {state.status === 'accepted' ? (
             <div className="rounded-xl border border-amber-300 bg-amber-50/60 p-4 dark:border-amber-800 dark:bg-amber-950/30">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <Building2 className="size-4" />
                 {t({
-                  fr: 'Confirmer la réception du dossier',
-                  en: 'Confirm receipt of the dossier',
+                  fr: 'Finaliser le dossier',
+                  en: 'Finalise the dossier',
                 })}
               </div>
               <p className="text-muted-foreground mt-1 text-xs">
                 {t({
-                  fr: 'Vous confirmez avoir reçu le dossier en vue du dépôt. Action journalisée, visible du labo en temps réel.',
-                  en: 'You confirm you received the dossier ahead of filing. Logged and visible to the lab in real time.',
+                  fr: 'Vous confirmez que le dossier est finalisé (compilation, frais et échantillons réunis) et prêt à être soumis à l’agence. Action journalisée, visible du labo en temps réel.',
+                  en: 'You confirm the dossier is finalised (compilation, fees and samples in order) and ready for submission to the agency. Logged and visible to the lab in real time.',
                 })}
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -319,7 +319,7 @@ export function PublicParcoursTab({
                 ) : (
                   <Button size="sm" onClick={() => setConfirmDeposit(true)}>
                     <Check className="size-4" />{' '}
-                    {t({ fr: 'Confirmer la réception', en: 'Confirm receipt' })}
+                    {t({ fr: 'Confirmer la finalisation', en: 'Confirm finalisation' })}
                   </Button>
                 )}
               </div>

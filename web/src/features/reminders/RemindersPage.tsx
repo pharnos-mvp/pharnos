@@ -226,7 +226,10 @@ function RemindersForm({ initial }: { initial: ReminderSettings }) {
         />
         <DayField
           label={t({ fr: 'Agent local', en: 'Local agent' })}
-          hint={t({ fr: 'revue · dépôt · soumission', en: 'review · filing · submission' })}
+          hint={t({
+            fr: 'revue · finalisation · soumission',
+            en: 'review · finalisation · submission',
+          })}
           value={draft.roadmap_agent_days}
           onChange={(v) => setDraft((d) => ({ ...d, roadmap_agent_days: v }))}
         />

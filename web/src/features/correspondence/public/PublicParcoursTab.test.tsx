@@ -68,7 +68,7 @@ function renderTab(b: LifecycleBlock, onEvent = vi.fn().mockResolvedValue(true))
 }
 
 describe('parcours-data — dérivation depuis le bloc serveur (même dérivateur que le labo)', () => {
-  it('corr acceptée sans événement → étape Dépôt (accepted)', () => {
+  it('corr acceptée sans événement → étape Finalisation (accepted)', () => {
     const st = lifecycleStateFromBlock(block())
     expect(st.status).toBe('accepted')
     expect(st.currentStageId).toBe('depot')
@@ -98,9 +98,9 @@ describe('parcours-data — dérivation depuis le bloc serveur (même dérivateu
 })
 
 describe('PublicParcoursTab — actions de l’agent par étape', () => {
-  it('étape Dépôt : confirmation en 2 temps → deposited {}', async () => {
+  it('étape Finalisation : confirmation en 2 temps → deposited {}', async () => {
     const onEvent = renderTab(block())
-    fireEvent.click(screen.getByRole('button', { name: /Confirmer la réception/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Confirmer la finalisation/ }))
     fireEvent.click(screen.getByRole('button', { name: /Oui, je confirme/ }))
     await waitFor(() => expect(onEvent).toHaveBeenCalledWith('deposited', {}, null))
   })
@@ -173,6 +173,6 @@ describe('PublicParcoursTab — actions de l’agent par étape', () => {
       }),
     )
     expect(screen.getByText(/La revue est en cours/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Confirmer la réception/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Confirmer la finalisation/ })).toBeNull()
   })
 })
