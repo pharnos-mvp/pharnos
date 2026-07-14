@@ -107,10 +107,27 @@ async function pushDocuments(supabase: SupabaseClient, orgId: string): Promise<v
   const items = await db.outbox.where('entity').equals('document').toArray()
   if (items.length === 0) return
 
+  // FK documents.product_id → products : le produit doit être EN BASE avant son document.
+  // `syncCatalogue` pousse les produits en premier, mais l'ordre des appelants ne suffit pas à le
+  // GARANTIR (un cycle déjà en vol rend `syncProducts` no-op) → tant que le produit est en file,
+  // le document attend le cycle suivant. Sans ça : 23503 (et un upload Storage pour rien).
+  const pendingProducts = new Set(
+    (await db.outbox.where('entity').equals('product').toArray()).map((i) => i.entityId),
+  )
+
+  // Drain PAR ITEM traité (cf. parties-sync) : un bulkDelete global supprimerait aussi les ops
+  // SAUTÉES ci-dessous — celles d'une AUTRE org (membre multi-orgs) ou en attente de leur parent —
+  // sans les avoir poussées. Elles ne seraient jamais reprises : divergence silencieuse.
   const ids = [...new Set(items.map((i) => i.entityId))]
+  const drain = new Set<string>()
   for (const id of ids) {
     const rec = await db.documents.get(id)
-    if (!rec || rec.orgId !== orgId) continue
+    if (!rec) {
+      drain.add(id) // plus rien à pousser localement
+      continue
+    }
+    if (rec.orgId !== orgId) continue // autre org → reste en file pour son propre cycle
+    if (pendingProducts.has(rec.productId)) continue // parent pas encore poussé → cycle suivant
 
     // Upload du blob si pas encore fait (et document non supprimé).
     if (!rec.uploaded && rec.deletedAt === null) {
@@ -131,11 +148,15 @@ async function pushDocuments(supabase: SupabaseClient, orgId: string): Promise<v
 
     const { error } = await supabase.from('documents').upsert(documentToRow(rec))
     if (error) {
-      if (isPermanentSyncError(error)) continue // rejet permanent : drainé par le bulkDelete final (anti-boucle/Sentry)
-      throw error
+      if (isPermanentSyncError(error)) {
+        drain.add(id) // rejet permanent : on draine (anti-boucle/Sentry)
+        continue
+      }
+      throw error // transitoire (FK pas encore satisfaite incluse) → conservé, retenté
     }
+    drain.add(id)
   }
-  await db.outbox.bulkDelete(items.map((i) => i.id))
+  await db.outbox.bulkDelete(items.filter((i) => drain.has(i.entityId)).map((i) => i.id))
 }
 
 async function pullDocuments(supabase: SupabaseClient, orgId: string): Promise<void> {

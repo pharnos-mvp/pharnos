@@ -50,7 +50,7 @@ import {
 } from './catalogue-list-data'
 import { ProductIcon } from './product-icon'
 import { deleteProduct } from './repository'
-import { syncProducts } from './sync'
+import { syncCatalogue } from './catalogue-sync'
 import { useCatalogueSync } from './use-catalogue-sync'
 
 export function CataloguePage() {
@@ -395,7 +395,7 @@ function DeleteProductDialog({ id, name }: { id: string; name: string }) {
     setBusy(true)
     try {
       await deleteProduct(id)
-      void syncProducts(orgId)
+      void syncCatalogue(orgId)
       toast.success(t({ fr: 'Produit supprimé', en: 'Product deleted' }))
     } catch {
       toast.error(t({ fr: 'Échec de la suppression', en: 'Deletion failed' }))

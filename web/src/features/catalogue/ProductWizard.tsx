@@ -17,11 +17,10 @@ import {
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
+import { syncCatalogue } from './catalogue-sync'
 import { DocTypeCards, type DraftDocument } from './DocTypeCards'
 import { addDocument } from './documents-repository'
-import { syncDocuments } from './documents-sync'
 import { createProduct } from './repository'
-import { syncProducts } from './sync'
 import { makeProductSchema, type ProductFormValues, type ProductInput } from './types'
 
 /** Champs « produit classique » (session 1, hors titulaire/fabricant qui ont leurs blocs appariés). */
@@ -149,8 +148,9 @@ export function ProductWizard({ orgId, onDone }: { orgId: string; onDone: () => 
           batchNumber: d.batchNumber,
         })
       }
-      void syncProducts(orgId)
-      void syncDocuments(orgId)
+      // `createProduct` a créé les parties (titulaire/fabricant) que le produit référence : la
+      // chaîne ordonnée les pousse AVANT lui, et le produit avant ses documents (FK).
+      void syncCatalogue(orgId)
       onDone()
     } catch (error) {
       toast.error(t({ fr: "Échec de l'enregistrement", en: 'Save failed' }), {

@@ -29,24 +29,23 @@ export async function flushOutbox(orgId: string | null): Promise<void> {
     import('@/features/workspace/dossier-attachments-sync'),
     import('@/features/workspace/generated-docs-sync'),
     import('@/features/workspace/lifecycle-sync'),
-    import('@/features/catalogue/sync'),
-    import('@/features/catalogue/documents-sync'),
-    import('@/features/catalogue/parties-sync'),
+    import('@/features/catalogue/catalogue-sync'),
     import('@/features/profile/pro-settings-sync'),
     import('@/features/correspondence/correspondence-sync'),
     import('@/features/audit/audit-sync'),
   ])
-  const [dossier, attach, gendocs, lifecycle, products, documents, parties, pro, corr, audit] =
-    modules
+  const [dossier, attach, gendocs, lifecycle, catalogue, pro, corr, audit] = modules
 
   await Promise.allSettled([
     dossier.syncDossiers(orgId),
     attach.syncDossierAttachments(orgId),
     gendocs.syncGeneratedDocs(orgId),
     lifecycle.syncLifecycle(orgId),
-    products.syncProducts(orgId),
-    documents.syncDocuments(orgId),
-    parties.syncParties(orgId),
+    // Catalogue : chaîne ORDONNÉE (FK parties → products → documents). Poussés en parallèle,
+    // l'enfant partait avant son parent (23503) — et ici la purge du cache suit immédiatement,
+    // donc l'écriture rejetée était perdue POUR DE BON. Les autres entités n'ont aucune FK
+    // croisée (vérifié en base), leur parallélisme est sans risque.
+    catalogue.syncCatalogue(orgId),
     pro.syncProSettings(orgId),
     corr.syncCorrespondences(orgId),
     audit.syncAudit(orgId),

@@ -20,7 +20,8 @@ import { UPLOAD_ACCEPT } from '@/lib/files'
 import { useI18n } from '@/lib/i18n-context'
 import { docTypeLabel, docTypesFor, requiresExpiry } from './doc-types'
 import { addDocument, deleteDocument, getDocumentBlob, listDocuments } from './documents-repository'
-import { downloadDocumentBlob, syncDocuments } from './documents-sync'
+import { syncCatalogue } from './catalogue-sync'
+import { downloadDocumentBlob } from './documents-sync'
 
 /** Étiquette de validité d'une pièce réglementaire datée (réutilise la fenêtre de renouvellement par type). */
 function validity(
@@ -108,7 +109,7 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
         issueDate: isAmm ? issueDate || null : null,
         reference: isAmm ? reference.trim() || null : null,
       })
-      void syncDocuments(orgId)
+      void syncCatalogue(orgId)
       toast.success(t({ fr: 'Document ajouté', en: 'Document added' }))
       setFile(null)
       setExpiryDate('')
@@ -143,7 +144,7 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
 
   async function handleDelete(id: string) {
     await deleteDocument(id)
-    void syncDocuments(orgId)
+    void syncCatalogue(orgId)
     toast.success(t({ fr: 'Document supprimé', en: 'Document deleted' }))
   }
 

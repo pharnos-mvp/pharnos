@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { DocumentRecord } from '@/lib/db'
-import { documentToRow, rowToDocument } from './documents-sync'
+import { db, type DocumentRecord } from '@/lib/db'
+import { enqueueOutbox } from '@/lib/outbox'
+import { documentToRow, rowToDocument, syncDocuments } from './documents-sync'
 
 const rec: DocumentRecord = {
   id: 'd1',
@@ -21,6 +22,53 @@ const rec: DocumentRecord = {
   updatedAt: '2026-01-02T00:00:00.000Z',
   deletedAt: null,
 }
+
+// --- Mock Supabase : upsert (push) tracé + chaîne select (pull) vide ---
+const upsertCalls: { table: string; row: Record<string, unknown> }[] = []
+
+const supabaseMock = {
+  from: (table: string) => ({
+    upsert: (row: Record<string, unknown>) => {
+      upsertCalls.push({ table, row })
+      return Promise.resolve({ error: null })
+    },
+    select: () => ({
+      eq: () => ({ gt: () => ({ order: () => Promise.resolve({ data: [], error: null }) }) }),
+    }),
+  }),
+}
+
+vi.mock('@/lib/supabase', () => ({ getSupabase: vi.fn(async () => supabaseMock) }))
+vi.mock('@/lib/sentry', () => ({ reportError: vi.fn() }))
+
+/** Exécute syncDocuments en avançant les backoffs de withRetry (timers factices, IDB réelle). */
+async function runSync(orgId: string): Promise<void> {
+  vi.useFakeTimers({ toFake: ['setTimeout'] })
+  try {
+    let settled = false
+    const done = syncDocuments(orgId).finally(() => {
+      settled = true
+    })
+    while (!settled) {
+      // setImmediate RÉEL : laisse fake-indexeddb progresser entre deux avances d'horloge.
+      await new Promise((r) => setImmediate(r))
+      await vi.advanceTimersByTimeAsync(5000)
+    }
+    await done
+  } finally {
+    vi.useRealTimers()
+  }
+}
+
+/** Document en base locale + son op en file. Déjà `uploaded` et sans chemin : aucun accès Storage. */
+async function enfile(patch: Partial<DocumentRecord> & { id: string }): Promise<void> {
+  const full: DocumentRecord = { ...rec, uploaded: true, filePath: null, ...patch }
+  await db.documents.add(full)
+  await enqueueOutbox('document', full.id, 'create', full)
+}
+
+const pousses = () => upsertCalls.filter((c) => c.table === 'documents')
+const enFile = () => db.outbox.where('entity').equals('document').count()
 
 describe('documents sync mapping', () => {
   it('documentToRow → colonnes snake_case', () => {
@@ -59,5 +107,47 @@ describe('documents sync mapping', () => {
     const row = documentToRow(rec)
     expect(row.issue_date).toBeNull()
     expect(row.reference).toBeNull()
+  })
+})
+
+describe('syncDocuments — push', () => {
+  beforeEach(async () => {
+    await db.documents.clear()
+    await db.outbox.clear()
+    localStorage.clear()
+    vi.clearAllMocks()
+    upsertCalls.length = 0
+  })
+
+  it('pousse et draine un document dont le produit est déjà en base (nominal)', async () => {
+    await enfile({ id: 'd1' })
+
+    await runSync('org-1')
+
+    expect(pousses()).toHaveLength(1)
+    expect(pousses()[0]?.row.id).toBe('d1')
+    expect(await enFile()).toBe(0)
+  })
+
+  it('RETIENT le document tant que son PRODUIT est en file (FK documents.product_id → products)', async () => {
+    await enfile({ id: 'd1', productId: 'prod-1' })
+    await enqueueOutbox('product', 'prod-1', 'create', {})
+
+    await runSync('org-1')
+
+    // Ni upsert de métadonnées, ni upload Storage pour un parent absent : on attend le cycle suivant.
+    expect(pousses()).toHaveLength(0)
+    expect(await enFile()).toBe(1)
+  })
+
+  it("ne draine PAS l'op d'une AUTRE org (régression : écriture perdue en silence)", async () => {
+    // Membre multi-orgs (CS1) : un bulkDelete global supprimait l'op d'org-2 pendant le cycle
+    // d'org-1 SANS l'avoir poussée — le document ne remontait jamais au serveur.
+    await enfile({ id: 'd2', orgId: 'org-2' })
+
+    await runSync('org-1')
+
+    expect(pousses()).toHaveLength(0)
+    expect(await enFile()).toBe(1)
   })
 })
