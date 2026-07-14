@@ -47,7 +47,7 @@ import {
 } from './product-cockpit-data'
 import { ProductForm } from './ProductForm'
 import { getProduct, updateProduct } from './repository'
-import { syncProducts } from './sync'
+import { syncCatalogue } from './catalogue-sync'
 import type { ProductFormValues } from './types'
 import { useCatalogueSync } from './use-catalogue-sync'
 import './product-cockpit.css'
@@ -206,7 +206,8 @@ export function ProductCockpit() {
     if (!productId) return
     try {
       await updateProduct(productId, values)
-      void syncProducts(orgId)
+      // `updateProduct` re-dérive les liens vers les parties → chaîne ordonnée (FK), pas de push isolé.
+      void syncCatalogue(orgId)
       if (!silent) toast.success(t({ fr: 'Modifications enregistrées', en: 'Changes saved' }))
     } catch (error) {
       if (!silent)
