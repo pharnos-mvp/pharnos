@@ -2,7 +2,15 @@ import path from 'node:path'
 import { defineConfig, type Plugin } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { sentryVitePlugin } from '@sentry/vite-plugin'
 import { VitePWA } from 'vite-plugin-pwa'
+
+// Upload des sourcemaps vers Sentry, UNIQUEMENT quand le jeton est présent (job Deploy).
+// Sans jeton (local, e2e, forks du repo public) : aucune sourcemap générée → build inchangé.
+// Les .map sont cachées (`hidden` : aucune référence dans les JS servis) et SUPPRIMÉES de
+// dist après upload : le code source ne part jamais chez Cloudflare Pages. Le plugin injecte
+// des Debug IDs dans les bundles → symbolication sans gestion manuelle de release.
+const sentryUpload = !!process.env.SENTRY_AUTH_TOKEN
 
 // Preconnect vers l'API Supabase (auth + REST + Storage) : la poignée de main TLS démarre
 // pendant le parse du HTML au lieu d'attendre le 1er fetch — gain réel sur latences élevées
@@ -68,8 +76,24 @@ export default defineConfig({
         skipWaiting: true,
       },
     }),
+    // En DERNIER : le plugin doit voir les chunks finaux (après PWA/Tailwind) pour uploader.
+    ...(sentryUpload
+      ? [
+          sentryVitePlugin({
+            org: 'pharnos',
+            project: 'javascript-react',
+            // Org hébergée en région EU : l'upload doit cibler le silo de données allemand.
+            url: 'https://de.sentry.io',
+            authToken: process.env.SENTRY_AUTH_TOKEN,
+            telemetry: false,
+            sourcemaps: { filesToDeleteAfterUpload: ['dist/**/*.map'] },
+          }),
+        ]
+      : []),
   ],
   build: {
+    // `hidden` : .map générées pour l'upload mais JAMAIS référencées dans les JS servis.
+    sourcemap: sentryUpload ? 'hidden' : false,
     rollupOptions: {
       output: {
         // Isole Radix UI (shadcn) dans un chunk vendor STABLE → jamais inliné dans `index-*.js`.
