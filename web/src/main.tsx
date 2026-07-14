@@ -10,10 +10,15 @@ import '@fontsource-variable/dm-sans/standard.css'
 import '@fontsource-variable/syne'
 import './index.css'
 import App from '@/App'
+import { installChunkReloadHandler } from '@/lib/chunk-reload'
 import { initSentry } from '@/lib/sentry'
 
 // Observabilité : no-op si VITE_SENTRY_DSN absent ; sinon charge Sentry en chunk séparé.
 void initSentry()
+
+// Filet du rechargement ci-dessous : si l'utilisateur navigue vers une route lazy AVANT que
+// `controllerchange` n'ait rechargé, l'ancien bundle demande un chunk déjà purgé → on récupère.
+installChunkReloadHandler()
 
 const rootEl = document.getElementById('root')
 if (!rootEl) {
