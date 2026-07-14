@@ -126,17 +126,32 @@ export async function syncDossiers(orgId: string): Promise<void> {
 async function pushDossiers(supabase: SupabaseClient, orgId: string): Promise<void> {
   const items = await db.outbox.where('entity').equals('dossier').toArray()
   if (items.length === 0) return
+  // Drain PAR ITEM traité : un bulkDelete global supprimerait aussi les ops SAUTÉES juste en
+  // dessous — celles d'une AUTRE org (membre multi-orgs, CS1) — sans les avoir poussées. Rien ne
+  // les réenfilerait : le dossier ne remonterait JAMAIS au serveur (divergence silencieuse).
   const ids = [...new Set(items.map((i) => i.entityId))]
+  const drain = new Set<string>()
   for (const id of ids) {
     const rec = await db.dossiers.get(id)
-    if (!rec || rec.orgId !== orgId) continue
+    if (!rec) {
+      drain.add(id) // plus rien à pousser localement
+      continue
+    }
+    if (rec.orgId !== orgId) continue // autre org → reste en file pour son propre cycle
     const { error } = await supabase.from('dossiers').upsert(dossierToRow(rec))
     if (error) {
-      if (isPermanentSyncError(error)) continue // rejet permanent : drainé par le bulkDelete final (anti-boucle/Sentry)
+      if (isPermanentSyncError(error)) {
+        // Rejet définitif (RLS/contrainte) : re-tenter rééchouera à l'identique → draine (anti-
+        // boucle) + trace Sentry : le dossier local n'atteindra JAMAIS le serveur (divergence).
+        reportError(error, { op: 'sync', entity: 'dossiers', id, permanent: true })
+        drain.add(id)
+        continue
+      }
       throw error
     }
+    drain.add(id)
   }
-  await db.outbox.bulkDelete(items.map((i) => i.id))
+  await db.outbox.bulkDelete(items.filter((i) => drain.has(i.entityId)).map((i) => i.id))
 }
 
 async function pullDossiers(supabase: SupabaseClient, orgId: string): Promise<void> {

@@ -24,7 +24,9 @@ function isTransient(e: unknown): boolean {
 
 /**
  * Erreur de sync PERMANENTE (rejet métier/contrainte/RLS) : ré-essayer rééchouera à l'identique.
- * → on DRAINE l'item de la file (anti-boucle) et on ne le remonte PAS à Sentry (rejet attendu, pas un bug).
+ * → on DRAINE l'item de la file (anti-boucle) ET on le remonte à Sentry (`permanent: true`) : le
+ * record local existe mais n'atteindra JAMAIS le serveur — divergence de données à tracer, pas un
+ * simple rejet attendu (c'est ce reportError, dans audit-sync, qui a révélé le bug RLS de prod).
  * SQLSTATE Postgres à 5 car. (ex. 23514 check, 23505 unique, 42501 RLS, P0001 raise) OU 4xx non-429.
  */
 export function isPermanentSyncError(e: unknown): boolean {

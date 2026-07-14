@@ -1,7 +1,46 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { db, type DossierRecord } from '@/lib/db'
-import { dossierToRow, purgeLocalChildren, rowToDossier } from './dossier-sync'
+import { enqueueOutbox } from '@/lib/outbox'
+import { reportError } from '@/lib/sentry'
+import { dossierToRow, purgeLocalChildren, rowToDossier, syncDossiers } from './dossier-sync'
+
+// --- Mock Supabase : upsert (push) configurable + chaîne select (pull) vide ---
+const upsertCalls: { table: string; row: Record<string, unknown> }[] = []
+let upsertResult: { error: unknown } = { error: null }
+
+interface SelectChain {
+  eq: () => SelectChain
+  gt: () => SelectChain
+  or: () => SelectChain
+  order: () => SelectChain
+  limit: () => SelectChain
+  then: (onfulfilled: (value: { data: unknown[]; error: null }) => unknown) => Promise<unknown>
+}
+function selectChain(): SelectChain {
+  const chain: SelectChain = {
+    eq: () => chain,
+    gt: () => chain,
+    or: () => chain,
+    order: () => chain,
+    limit: () => chain,
+    then: (onfulfilled) => Promise.resolve({ data: [], error: null }).then(onfulfilled),
+  }
+  return chain
+}
+
+const supabaseMock = {
+  from: (table: string) => ({
+    upsert: (row: Record<string, unknown>) => {
+      upsertCalls.push({ table, row })
+      return Promise.resolve(upsertResult)
+    },
+    select: () => selectChain(),
+  }),
+}
+
+vi.mock('@/lib/supabase', () => ({ getSupabase: vi.fn(async () => supabaseMock) }))
+vi.mock('@/lib/sentry', () => ({ reportError: vi.fn() }))
 
 const rec: DossierRecord = {
   id: 'd1',
@@ -135,5 +174,88 @@ describe('dossier sync mapping', () => {
     expect(await db.documentBlobs.get('att-other')).toBeDefined()
 
     await db.documentBlobs.clear()
+  })
+})
+
+/** Exécute syncDossiers en avançant les backoffs de withRetry (timers factices, IDB réelle). */
+async function runSync(orgId: string): Promise<void> {
+  vi.useFakeTimers({ toFake: ['setTimeout'] })
+  try {
+    let settled = false
+    const done = syncDossiers(orgId).finally(() => {
+      settled = true
+    })
+    while (!settled) {
+      // setImmediate RÉEL : laisse fake-indexeddb progresser entre deux avances d'horloge.
+      await new Promise((r) => setImmediate(r))
+      await vi.advanceTimersByTimeAsync(5000)
+    }
+    await done
+  } finally {
+    vi.useRealTimers()
+  }
+}
+
+const enFile = () => db.outbox.where('entity').equals('dossier').count()
+
+describe('syncDossiers — push (drainage multi-org + rejet permanent)', () => {
+  beforeEach(async () => {
+    await db.dossiers.clear()
+    await db.outbox.clear()
+    localStorage.clear()
+    vi.clearAllMocks()
+    upsertCalls.length = 0
+    upsertResult = { error: null }
+  })
+
+  it('pousse et draine un dossier de l’org active (nominal)', async () => {
+    await db.dossiers.add(rec)
+    await enqueueOutbox('dossier', 'd1', 'create', {})
+
+    await runSync('org-1')
+
+    expect(upsertCalls).toHaveLength(1)
+    expect(upsertCalls[0]?.table).toBe('dossiers')
+    expect(await enFile()).toBe(0)
+  })
+
+  it("ne draine PAS l'op d'une AUTRE org (régression : le dossier ne remontait JAMAIS)", async () => {
+    // Membre multi-orgs (CS1) : écritures hors-ligne dans l'org B, puis bascule vers l'org A
+    // (switchActiveOrg ne purge pas l'outbox — même utilisateur). Le cycle d'A supprimait l'op
+    // de B sans l'avoir poussée : le dossier restait local pour toujours.
+    await db.dossiers.add({ ...rec, id: 'd2', orgId: 'org-2' })
+    await enqueueOutbox('dossier', 'd2', 'create', {})
+
+    await runSync('org-1')
+
+    expect(upsertCalls).toHaveLength(0)
+    expect(await enFile()).toBe(1)
+  })
+
+  it('draine un item orphelin (dossier local disparu) sans rien pousser', async () => {
+    await enqueueOutbox('dossier', 'fantome', 'create', {})
+
+    await runSync('org-1')
+
+    expect(upsertCalls).toHaveLength(0)
+    expect(await enFile()).toBe(0)
+  })
+
+  it('rejet permanent (RLS/contrainte) : draine (anti-boucle) + trace Sentry, dossier local intact', async () => {
+    await db.dossiers.add(rec)
+    await enqueueOutbox('dossier', 'd1', 'create', {})
+    upsertResult = { error: { code: '42501', message: 'row-level security' } }
+
+    await runSync('org-1')
+
+    // Anti-boucle : l'item ne reste pas en file à rééchouer à l'identique…
+    expect(await enFile()).toBe(0)
+    // …le dossier local n'est JAMAIS perdu…
+    expect(await db.dossiers.get('d1')).toBeDefined()
+    // …et la non-propagation laisse une trace (divergence local/serveur à investiguer).
+    expect(reportError).toHaveBeenCalledWith(
+      expect.objectContaining({ code: '42501' }),
+      expect.objectContaining({ entity: 'dossiers', id: 'd1', permanent: true }),
+    )
   })
 })

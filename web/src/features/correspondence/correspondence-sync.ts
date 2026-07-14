@@ -216,9 +216,17 @@ export function updatePayloadToPartial(
 async function pushCorrespondences(supabase: SupabaseClient, orgId: string): Promise<void> {
   const items = await db.outbox.where('entity').equals('correspondence').toArray()
   if (items.length === 0) return
+  // Drain PAR ITEM traité : un bulkDelete global supprimerait aussi les ops SAUTÉES juste en
+  // dessous — celles d'une AUTRE org (membre multi-orgs, CS1) — sans les avoir poussées. Elles ne
+  // seraient jamais reprises : divergence silencieuse.
+  const drain: string[] = []
   for (const item of items.sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
     const rec = await db.correspondences.get(item.entityId)
-    if (!rec || rec.orgId !== orgId) continue
+    if (!rec) {
+      drain.push(item.id) // plus rien à pousser localement
+      continue
+    }
+    if (rec.orgId !== orgId) continue // autre org → reste en file pour son propre cycle
     if (item.op === 'create') {
       // Idempotent (retry après succès partiel) ; jamais ré-émis après création → un upsert
       // complet ne peut pas écraser une décision postérieure de l'Edge.
@@ -231,23 +239,32 @@ async function pushCorrespondences(supabase: SupabaseClient, orgId: string): Pro
       const { error } = await supabase.from('correspondences').update(partial).eq('id', rec.id)
       if (error) throw error
     }
+    drain.push(item.id)
   }
-  await db.outbox.bulkDelete(items.map((i) => i.id))
+  await db.outbox.bulkDelete(drain)
 }
 
 async function pushMessages(supabase: SupabaseClient, orgId: string): Promise<void> {
   const items = await db.outbox.where('entity').equals('correspondence_message').toArray()
   if (items.length === 0) return
+  // Drain PAR ITEM traité (cf. pushCorrespondences) : un bulkDelete global perdrait les ops d'une
+  // AUTRE org, sautées juste en dessous sans avoir été poussées.
+  const drain: string[] = []
   for (const item of items.sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
     const rec = await db.correspondenceMessages.get(item.entityId)
-    if (!rec || rec.orgId !== orgId) continue
+    if (!rec) {
+      drain.push(item.id) // plus rien à pousser localement
+      continue
+    }
+    if (rec.orgId !== orgId) continue // autre org → reste en file pour son propre cycle
     // Append-only : insert idempotent (ON CONFLICT DO NOTHING — pas de policy UPDATE, par design).
     const { error } = await supabase
       .from('correspondence_messages')
       .upsert(messageToRow(rec), { ignoreDuplicates: true })
     if (error) throw error
+    drain.push(item.id)
   }
-  await db.outbox.bulkDelete(items.map((i) => i.id))
+  await db.outbox.bulkDelete(drain)
 }
 
 async function pullCorrespondences(supabase: SupabaseClient, orgId: string): Promise<void> {
