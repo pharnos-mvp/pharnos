@@ -1,13 +1,51 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { CorrespondenceMessageRecord, CorrespondenceRecord } from '@/lib/db'
+import { db, type CorrespondenceMessageRecord, type CorrespondenceRecord } from '@/lib/db'
+import { enqueueOutbox } from '@/lib/outbox'
 import {
   correspondenceToRow,
   messageToRow,
   rowToCorrespondence,
   rowToMessage,
+  syncCorrespondences,
   updatePayloadToPartial,
 } from './correspondence-sync'
+
+// --- Mock Supabase : upsert (push) tracé + chaîne select (pull) vide, quel que soit son shape ---
+const upsertCalls: { table: string; row: Record<string, unknown> }[] = []
+
+interface SelectChain {
+  eq: () => SelectChain
+  gt: () => SelectChain
+  or: () => SelectChain
+  order: () => SelectChain
+  limit: () => SelectChain
+  then: (onfulfilled: (value: { data: unknown[]; error: null }) => unknown) => Promise<unknown>
+}
+function selectChain(): SelectChain {
+  const chain: SelectChain = {
+    eq: () => chain,
+    gt: () => chain,
+    or: () => chain,
+    order: () => chain,
+    limit: () => chain,
+    then: (onfulfilled) => Promise.resolve({ data: [], error: null }).then(onfulfilled),
+  }
+  return chain
+}
+
+const supabaseMock = {
+  from: (table: string) => ({
+    upsert: (row: Record<string, unknown>) => {
+      upsertCalls.push({ table, row })
+      return Promise.resolve({ error: null })
+    },
+    select: () => selectChain(),
+  }),
+}
+
+vi.mock('@/lib/supabase', () => ({ getSupabase: vi.fn(async () => supabaseMock) }))
+vi.mock('@/lib/sentry', () => ({ reportError: vi.fn() }))
 
 const record: CorrespondenceRecord = {
   id: 'c1',
@@ -156,5 +194,75 @@ describe('updatePayloadToPartial — mutation partielle (fail-safe statut)', () 
       recipient_lang: 'fr',
     })
     expect('recipient_email' in partial).toBe(false)
+  })
+})
+
+/** Exécute syncCorrespondences en avançant les backoffs de withRetry (timers factices, IDB réelle). */
+async function runSync(orgId: string): Promise<void> {
+  vi.useFakeTimers({ toFake: ['setTimeout'] })
+  try {
+    let settled = false
+    const done = syncCorrespondences(orgId).finally(() => {
+      settled = true
+    })
+    while (!settled) {
+      // setImmediate RÉEL : laisse fake-indexeddb progresser entre deux avances d'horloge.
+      await new Promise((r) => setImmediate(r))
+      await vi.advanceTimersByTimeAsync(5000)
+    }
+    await done
+  } finally {
+    vi.useRealTimers()
+  }
+}
+
+describe('syncCorrespondences — push (drainage multi-org)', () => {
+  beforeEach(async () => {
+    await db.correspondences.clear()
+    await db.correspondenceMessages.clear()
+    await db.outbox.clear()
+    localStorage.clear()
+    vi.clearAllMocks()
+    upsertCalls.length = 0
+  })
+
+  it('pousse et draine correspondance + message de l’org active (nominal, ordre FK respecté)', async () => {
+    await db.correspondences.add(record)
+    await db.correspondenceMessages.add(message)
+    await enqueueOutbox('correspondence', 'c1', 'create', {})
+    await enqueueOutbox('correspondence_message', 'm1', 'create', {})
+
+    await runSync('org-1')
+
+    // FK correspondence_messages.correspondence_id → correspondences : le parent part en premier.
+    expect(upsertCalls.map((c) => c.table)).toEqual(['correspondences', 'correspondence_messages'])
+    expect(await db.outbox.count()).toBe(0)
+  })
+
+  it("ne draine PAS les ops d'une AUTRE org (régression : échange agence perdu en silence)", async () => {
+    await db.correspondences.add({ ...record, id: 'c2', orgId: 'org-2' })
+    await db.correspondenceMessages.add({
+      ...message,
+      id: 'm2',
+      correspondenceId: 'c2',
+      orgId: 'org-2',
+    })
+    await enqueueOutbox('correspondence', 'c2', 'create', {})
+    await enqueueOutbox('correspondence_message', 'm2', 'create', {})
+
+    await runSync('org-1')
+
+    expect(upsertCalls).toHaveLength(0)
+    expect(await db.outbox.count()).toBe(2)
+  })
+
+  it('draine les items orphelins (records locaux disparus) sans rien pousser', async () => {
+    await enqueueOutbox('correspondence', 'fantome-c', 'create', {})
+    await enqueueOutbox('correspondence_message', 'fantome-m', 'create', {})
+
+    await runSync('org-1')
+
+    expect(upsertCalls).toHaveLength(0)
+    expect(await db.outbox.count()).toBe(0)
   })
 })

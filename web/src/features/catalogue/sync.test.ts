@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { db, type ProductRecord } from '@/lib/db'
 import { enqueueOutbox } from '@/lib/outbox'
+import { reportError } from '@/lib/sentry'
 import { productToRow, rowToProduct, syncProducts } from './sync'
 
 const rec: ProductRecord = {
@@ -25,14 +26,15 @@ const rec: ProductRecord = {
   deletedAt: null,
 }
 
-// --- Mock Supabase : upsert (push) tracé + chaîne select (pull) vide ---
+// --- Mock Supabase : upsert (push) configurable + chaîne select (pull) vide ---
 const upsertCalls: { table: string; row: Record<string, unknown> }[] = []
+let upsertResult: { error: unknown } = { error: null }
 
 const supabaseMock = {
   from: (table: string) => ({
     upsert: (row: Record<string, unknown>) => {
       upsertCalls.push({ table, row })
-      return Promise.resolve({ error: null })
+      return Promise.resolve(upsertResult)
     },
     select: () => ({
       eq: () => ({ gt: () => ({ order: () => Promise.resolve({ data: [], error: null }) }) }),
@@ -93,6 +95,7 @@ describe('syncProducts — push', () => {
     localStorage.clear()
     vi.clearAllMocks()
     upsertCalls.length = 0
+    upsertResult = { error: null }
   })
 
   it('pousse et draine un produit dont les parties sont déjà en base (nominal)', async () => {
@@ -146,5 +149,19 @@ describe('syncProducts — push', () => {
 
     expect(pousses()).toHaveLength(0)
     expect(await db.outbox.count()).toBe(0)
+  })
+
+  it('rejet permanent (RLS/contrainte) : draine (anti-boucle) + trace Sentry, produit local intact', async () => {
+    await enfile({ id: 'p1' })
+    upsertResult = { error: { code: '23514', message: 'check constraint' } }
+
+    await runSync('org-1')
+
+    expect(await enFile()).toBe(0)
+    expect(await db.products.get('p1')).toBeDefined()
+    expect(reportError).toHaveBeenCalledWith(
+      expect.objectContaining({ code: '23514' }),
+      expect.objectContaining({ entity: 'products', id: 'p1', permanent: true }),
+    )
   })
 })

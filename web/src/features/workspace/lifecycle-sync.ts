@@ -99,18 +99,22 @@ export async function syncLifecycle(orgId: string): Promise<void> {
 async function pushLifecycleEvents(supabase: SupabaseClient, orgId: string): Promise<void> {
   const items = await db.outbox.where('entity').equals('lifecycle_event').toArray()
   if (items.length === 0) return
-  const pushed: string[] = []
+  const drain: string[] = []
   for (const item of items.sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
     const rec = await db.lifecycleEvents.get(item.entityId)
-    if (!rec || rec.orgId !== orgId) continue // file d'une autre org : conservée (multi-org)
+    if (!rec) {
+      drain.push(item.id) // orphelin (événement local disparu, ex. purge) : plus rien à pousser
+      continue
+    }
+    if (rec.orgId !== orgId) continue // file d'une autre org : conservée (multi-org)
     // Append-only : insert idempotent (ON CONFLICT DO NOTHING — pas de policy UPDATE, par design).
     const { error } = await supabase
       .from('lifecycle_events')
       .upsert(eventToRow(rec), { ignoreDuplicates: true })
     if (error) throw error
-    pushed.push(item.id)
+    drain.push(item.id)
   }
-  if (pushed.length > 0) await db.outbox.bulkDelete(pushed)
+  if (drain.length > 0) await db.outbox.bulkDelete(drain)
 }
 
 async function pullLifecycleEvents(supabase: SupabaseClient, orgId: string): Promise<void> {

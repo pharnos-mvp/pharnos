@@ -82,17 +82,31 @@ export async function syncProSettings(orgId: string): Promise<void> {
 async function pushProSettings(supabase: SupabaseClient, orgId: string): Promise<void> {
   const items = await db.outbox.where('entity').equals('pro_setting').toArray()
   if (items.length === 0) return
+  // Drain PAR ITEM traité : un bulkDelete global supprimerait aussi les ops SAUTÉES juste en
+  // dessous — celles d'une AUTRE org (membre multi-orgs, CS1) — sans les avoir poussées. Elles ne
+  // seraient jamais reprises : divergence silencieuse.
   const ids = [...new Set(items.map((i) => i.entityId))]
+  const drain = new Set<string>()
   for (const id of ids) {
     const rec = await db.proSettings.get(id)
-    if (!rec || rec.orgId !== orgId) continue
+    if (!rec) {
+      drain.add(id) // plus rien à pousser localement
+      continue
+    }
+    if (rec.orgId !== orgId) continue // autre org → reste en file pour son propre cycle
     const { error } = await supabase.from('pro_settings').upsert(toRow(rec))
     if (error) {
-      if (isPermanentSyncError(error)) continue // rejet permanent : drainé par le bulkDelete final (anti-boucle/Sentry)
+      if (isPermanentSyncError(error)) {
+        // Rejet définitif : draine (anti-boucle) + trace Sentry (divergence local/serveur).
+        reportError(error, { op: 'sync', entity: 'pro_settings', id, permanent: true })
+        drain.add(id)
+        continue
+      }
       throw error
     }
+    drain.add(id)
   }
-  await db.outbox.bulkDelete(items.map((i) => i.id))
+  await db.outbox.bulkDelete(items.filter((i) => drain.has(i.entityId)).map((i) => i.id))
 }
 
 async function pullProSettings(supabase: SupabaseClient, orgId: string): Promise<void> {

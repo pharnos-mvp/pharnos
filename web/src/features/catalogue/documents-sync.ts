@@ -149,7 +149,9 @@ async function pushDocuments(supabase: SupabaseClient, orgId: string): Promise<v
     const { error } = await supabase.from('documents').upsert(documentToRow(rec))
     if (error) {
       if (isPermanentSyncError(error)) {
-        drain.add(id) // rejet permanent : on draine (anti-boucle/Sentry)
+        // Rejet définitif : draine (anti-boucle) + trace Sentry (divergence local/serveur).
+        reportError(error, { op: 'sync', entity: 'documents', id, permanent: true })
+        drain.add(id)
         continue
       }
       throw error // transitoire (FK pas encore satisfaite incluse) → conservé, retenté

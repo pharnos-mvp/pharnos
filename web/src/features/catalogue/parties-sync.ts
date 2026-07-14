@@ -100,7 +100,9 @@ async function pushOutbox(supabase: SupabaseClient, orgId: string): Promise<void
     const { error } = await supabase.from('parties').upsert(partyToRow(rec))
     if (error) {
       if (isPermanentSyncError(error)) {
-        drain.add(id) // rejet permanent : on draine (anti-boucle/Sentry)
+        // Rejet définitif : draine (anti-boucle) + trace Sentry (divergence local/serveur).
+        reportError(error, { op: 'sync', entity: 'parties', id, permanent: true })
+        drain.add(id)
         continue
       }
       throw error // transitoire (FK pas encore satisfaite incluse) → conservé, retenté
