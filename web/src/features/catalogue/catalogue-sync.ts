@@ -1,3 +1,4 @@
+import { reportError } from '@/lib/sentry'
 import { syncDocuments } from './documents-sync'
 import { syncParties } from './parties-sync'
 import { syncProducts } from './sync'
@@ -17,7 +18,9 @@ let chain: Promise<void> = Promise.resolve()
  * (observée en prod le 2026-07-12 depuis /catalogue, Sentry JAVASCRIPT-REACT-9).
  *
  * Chaque `sync<Entité>` avale et remonte déjà ses propres erreurs : la chaîne ne doit JAMAIS rester
- * rejetée, sinon tous les cycles suivants seraient sautés en silence.
+ * rejetée, sinon tous les cycles suivants seraient sautés en silence. Ce qui s'en échappe malgré
+ * tout (ex. `getSupabase()` qui casse sur un chunk lazy manquant) est remonté ICI — sans ça, le
+ * `catch` de survie masquerait une erreur qui atteignait Sentry en rejet non capturé.
  */
 export function syncCatalogue(orgId: string): Promise<void> {
   const next = chain
@@ -26,7 +29,7 @@ export function syncCatalogue(orgId: string): Promise<void> {
       await syncProducts(orgId)
       await syncDocuments(orgId)
     })
-    .catch(() => {})
+    .catch((error: unknown) => reportError(error, { op: 'sync', entity: 'catalogue' }))
   chain = next
   return next
 }
