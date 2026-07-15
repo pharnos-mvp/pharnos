@@ -1,0 +1,42 @@
+# Déploiement du landing statique (pharnos.com) sur Cloudflare Pages — projet `pharnos-landing`.
+# Raison d'être : l'intégration Git NATIVE de Cloudflare pour ce projet ne publiait plus sur les
+# merges `main` (site live figé sur une vieille version malgré #334/#335). On reprend la main via la
+# CI — même mécanisme que l'app (`deploy.yml`, projet `pharnos`) — pour un déploiement observable et
+# reproductible. `landing/` est statique (aucun build). Le secret CLOUDFLARE_API_TOKEN a Pages:Edit.
+# Dépannage local : `npx wrangler pages deploy landing --project-name pharnos-landing --branch main`.
+name: Deploy landing
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'landing/**'
+      - '.github/workflows/deploy-landing.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-landing-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Cloudflare Pages — landing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Garde-fou : on ne déploie que si le token Cloudflare est configuré (sans exposer le secret).
+      - name: Check Cloudflare token
+        id: guard
+        run: echo "ready=${{ secrets.CLOUDFLARE_API_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy landing to Cloudflare Pages
+        if: steps.guard.outputs.ready == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy landing --project-name pharnos-landing --branch ${{ github.ref_name }}
