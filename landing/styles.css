@@ -143,6 +143,12 @@
     border-radius: 999px; padding: 12px 30px; box-shadow: 0 10px 40px rgba(0,0,0,.35); transition: var(--transition); }
   .btn-white:hover { background: #f1eafc; color: #6023c9; }
   .btn-pill { border-radius: 999px; padding: 14px 30px; font-size: 16px; }
+  .hero-signin { display: inline-flex; align-items: center; gap: 7px; margin-top: 16px;
+    font-family: 'Sora', sans-serif; font-size: 14.5px; font-weight: 500;
+    color: rgba(214,201,242,.82); transition: var(--transition); }
+  .hero-signin:hover { color: #ffffff; }
+  .hero-signin span { transition: var(--transition); }
+  .hero-signin:hover span { transform: translateX(3px); }
   .hero-proof { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 8px 28px;
     padding: 0 24px 24px; font-family: 'Sora', sans-serif; font-size: 12.5px; font-weight: 500;
     color: rgba(214,201,242,.7); }
