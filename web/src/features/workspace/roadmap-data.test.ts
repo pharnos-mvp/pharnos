@@ -35,8 +35,12 @@ describe('regulatoryProfileFor', () => {
     }
     expect(p?.fees.notes?.new_ma?.fr).toContain('1 500 000')
     expect(p?.fees.notes?.renewal?.fr).toContain('1 %')
-    // Ni quantités d'échantillons ni délai fixés par le décret → repli générique.
-    expect(p?.samples.new_ma).toBeUndefined()
+    // Échantillons : le décret tarife l'autorisation d'importation (section 3),
+    // mais ne fixe pas le nombre de modèles-vente (réserve) ni le délai de traitement.
+    expect(p?.samples.new_ma?.[0]?.fr).toContain('100 000')
+    expect(p?.samples.new_ma?.[0]?.en).toContain('100,000')
+    expect(p?.samples.renewal_variation?.[0]?.fr).toContain('100 000')
+    expect(p?.samples.reserve?.fr).toBeTruthy()
     expect(p?.processingDays).toBeUndefined()
   })
 })
