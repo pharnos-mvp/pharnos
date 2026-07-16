@@ -164,11 +164,24 @@ export function RoadmapPage() {
       )
     }
     const f = profile.fees
+    // Cas particuliers du barème national (princeps/accélérée, industrie locale…) sous le montant.
+    const note = f.notes?.[activity as 'new_ma' | 'renewal' | 'variation']
+    const noteNode = note ? <p className="text-muted-foreground mt-1 text-xs">{t(note)}</p> : null
     if (activity === 'new_ma' && f.new_ma != null) {
-      return <div className="text-foreground font-medium">{money(f.new_ma)}</div>
+      return (
+        <div>
+          <div className="text-foreground font-medium">{money(f.new_ma)}</div>
+          {noteNode}
+        </div>
+      )
     }
     if (activity === 'renewal' && f.renewal != null) {
-      return <div className="text-foreground font-medium">{money(f.renewal)}</div>
+      return (
+        <div>
+          <div className="text-foreground font-medium">{money(f.renewal)}</div>
+          {noteNode}
+        </div>
+      )
     }
     if (activity === 'variation' && f.variation_minor != null && f.variation_major != null) {
       const total = minorCount * f.variation_minor + majorCount * f.variation_major
@@ -192,6 +205,7 @@ export function RoadmapPage() {
               })}
             </div>
           ) : null}
+          {noteNode}
         </div>
       )
     }

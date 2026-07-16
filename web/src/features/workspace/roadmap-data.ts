@@ -111,8 +111,9 @@ export function officialLanguage(country: string): string {
 
 /**
  * Barème & exigences **nationales** réparties par **activité réglementaire** (redevances, échantillons,
- * délais) — alimentent la Roadmap du dossier. Source CEO. **Bénin (ABMed)** renseigné ; les autres pays
- * retombent sur un texte générique tant que leurs barèmes officiels ne sont pas fournis.
+ * délais) — alimentent la Roadmap du dossier. Source CEO. **Bénin (ABMed)** et **Sénégal (ARP)**
+ * renseignés ; les autres pays retombent sur un texte générique tant que leurs barèmes officiels ne
+ * sont pas fournis.
  */
 export interface RegulatoryProfile {
   /** Devise des redevances (ex. « FCFA »). */
@@ -123,6 +124,11 @@ export interface RegulatoryProfile {
     renewal?: number
     variation_minor?: number
     variation_major?: number
+    /**
+     * Cas particuliers du barème national (princeps/accélérée, industrie locale, pénalités…),
+     * affichés sous le montant de l'activité — le montant nu reste le cas DOMINANT du marché.
+     */
+    notes?: Partial<Record<'new_ma' | 'renewal' | 'variation', Translatable>>
   }
   /** Exigences d'échantillons (lignes bilingues), réparties par activité. */
   samples: {
@@ -164,6 +170,38 @@ const REG_PROFILES: Record<string, RegulatoryProfile> = {
       },
     },
     processingDays: 120,
+  },
+  /**
+   * Sénégal (ARP) — décret n° 2025-1833 du 18 novembre 2025 fixant les redevances issues de la
+   * régulation du secteur pharmaceutique (JO n° 7871 du 29 décembre 2025), section 4
+   * « Homologation des médicaments ». Montants nus = industrie ÉTRANGÈRE, générique (cas dominant
+   * du marché) ; princeps, procédure accélérée et industrie locale portés par `fees.notes`.
+   * Le décret ne fixe ni quantités d'échantillons ni délai de traitement (repli générique).
+   * Source locale : `RA-source/Decret-2025-1833-redevances-ARP-Senegal.pdf`.
+   */
+  SN: {
+    currency: 'FCFA',
+    fees: {
+      new_ma: 1000000,
+      renewal: 500000,
+      variation_minor: 100000,
+      variation_major: 1000000,
+      notes: {
+        new_ma: {
+          fr: 'Générique, industrie étrangère — princeps : 1 500 000 FCFA · procédure accélérée : 2 000 000 FCFA · industrie locale : 500 000 FCFA. AMM valable 5 ans.',
+          en: 'Generic, foreign industry — innovator: 1,500,000 FCFA · fast-track procedure: 2,000,000 FCFA · local industry: 500,000 FCFA. MA valid for 5 years.',
+        },
+        renewal: {
+          fr: 'Industrie étrangère (locale : 250 000 FCFA). Retard de renouvellement : pénalité de 1 % du montant par jour de retard.',
+          en: 'Foreign industry (local: 250,000 FCFA). Late renewal: penalty of 1% of the fee per day of delay.',
+        },
+        variation: {
+          fr: 'Mineure générique (princeps : 150 000 FCFA) — industrie locale : majeure 500 000 FCFA, mineure 50 000 FCFA.',
+          en: 'Minor, generic (innovator: 150,000 FCFA) — local industry: major 500,000 FCFA, minor 50,000 FCFA.',
+        },
+      },
+    },
+    samples: {},
   },
 }
 
