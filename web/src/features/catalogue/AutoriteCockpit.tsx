@@ -28,6 +28,12 @@ const FEE_LABEL: Record<FeeKey, Translatable> = {
   variation_minor: { fr: 'Variation mineure', en: 'Minor variation' },
   variation_major: { fr: 'Variation majeure', en: 'Major variation' },
 }
+/** Libellés des notes de barème (cas particuliers), clés alignées sur `fees.notes`. */
+const FEE_NOTE_LABEL: Record<'new_ma' | 'renewal' | 'variation', Translatable> = {
+  new_ma: FEE_LABEL.new_ma,
+  renewal: FEE_LABEL.renewal,
+  variation: { fr: 'Variations', en: 'Variations' },
+}
 
 export function AutoriteCockpit() {
   const { t, lang } = useI18n()
@@ -143,6 +149,18 @@ export function AutoriteCockpit() {
                     </li>
                   ))}
               </ul>
+              {profile.fees.notes ? (
+                <ul className="text-muted-foreground mt-2 space-y-1 text-xs">
+                  {(['new_ma', 'renewal', 'variation'] as const)
+                    .filter((k) => profile.fees.notes?.[k] != null)
+                    .map((k) => (
+                      <li key={k}>
+                        <span className="font-medium">{t(FEE_NOTE_LABEL[k])}</span> —{' '}
+                        {t(profile.fees.notes![k]!)}
+                      </li>
+                    ))}
+                </ul>
+              ) : null}
             </div>
 
             {profile.processingDays ? (
