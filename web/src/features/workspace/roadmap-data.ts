@@ -111,9 +111,9 @@ export function officialLanguage(country: string): string {
 
 /**
  * Barème & exigences **nationales** réparties par **activité réglementaire** (redevances, échantillons,
- * délais) — alimentent la Roadmap du dossier. Source CEO. **Bénin (ABMed)** et **Sénégal (ARP)**
- * renseignés ; les autres pays retombent sur un texte générique tant que leurs barèmes officiels ne
- * sont pas fournis.
+ * délais) — alimentent la Roadmap du dossier. Source CEO. **Bénin (ABMed)**, **Côte d'Ivoire
+ * (AIRP)** et **Sénégal (ARP)** renseignés ; les autres pays retombent sur un texte générique
+ * tant que leurs barèmes officiels ne sont pas fournis.
  */
 export interface RegulatoryProfile {
   /** Devise des redevances (ex. « FCFA »). */
@@ -130,6 +130,11 @@ export interface RegulatoryProfile {
      */
     notes?: Partial<Record<'new_ma' | 'renewal' | 'variation', Translatable>>
   }
+  /**
+   * Modalités de dépôt nationales (sessions programmées, rendez-vous…) — affichées sous le mode
+   * de soumission (Roadmap) et dans les exigences nationales (fiche Autorité).
+   */
+  submissionNote?: Translatable
   /** Exigences d'échantillons (lignes bilingues), réparties par activité. */
   samples: {
     /** Nouvelle AMM. */
@@ -170,6 +175,62 @@ const REG_PROFILES: Record<string, RegulatoryProfile> = {
       },
     },
     processingDays: 120,
+  },
+  /**
+   * Côte d'Ivoire (AIRP) — décret n° 2015-602 du 02 septembre 2015 portant institution des
+   * redevances pour l'AMM des médicaments (art. 3 : perçues PAR forme galénique ET présentation ;
+   * art. 4 : barème + industries de l'espace UEMOA à moitié prix), précisé par les « Modalités de
+   * demande d'AMM » AIRP n° 01509 du 22 juillet 2024 (génériques et spécialités : mêmes montants,
+   * mêmes échantillons — 30 modèles-vente, CoA ≥ 2/3 de la durée de vie) et la note circulaire
+   * n° 0914/AIRP du 24 mars 2026 (dépôt sur sessions programmées, sur rendez-vous).
+   * Sources locales : `RA-source/RAG_Ivory cost/`. Délai de traitement non fixé par ces textes.
+   */
+  CI: {
+    currency: 'FCFA',
+    fees: {
+      new_ma: 500000,
+      renewal: 250000,
+      variation_minor: 50000,
+      variation_major: 500000,
+      notes: {
+        new_ma: {
+          fr: 'Par forme galénique, par dosage et par présentation — barème identique princeps/génériques. Industries de l’espace UEMOA : moitié prix (250 000 FCFA). Règlement en deux chèques barrés (100 000 F Receveur Général des Finances + 400 000 F AIRP), originaux + 4 copies.',
+          en: 'Per pharmaceutical form, strength and presentation — same schedule for innovators and generics. UEMOA-based industries: half price (250,000 FCFA). Paid by two crossed cheques (100,000 F Receiver General of Finance + 400,000 F AIRP), originals + 4 copies.',
+        },
+        renewal: {
+          fr: 'Par forme, dosage et présentation — industries de l’espace UEMOA : moitié prix.',
+          en: 'Per form, strength and presentation — UEMOA-based industries: half price.',
+        },
+        variation: {
+          fr: 'Majeure = modification avec répercussion sur l’activité du médicament ; mineure = sans répercussion (décret 2015-602). Par forme, dosage et présentation — industries UEMOA : moitié prix.',
+          en: 'Major = change affecting the medicine’s activity; minor = no such impact (Decree 2015-602). Per form, strength and presentation — UEMOA industries: half price.',
+        },
+      },
+    },
+    submissionNote: {
+      fr: 'Sessions d’enregistrement programmées (appel à manifestation d’intérêt, plan annuel de réception) — réception sur rendez-vous, 8 h 30–15 h 30 (note circulaire n° 0914/AIRP du 24 mars 2026).',
+      en: 'Scheduled registration sessions (call for expressions of interest, annual reception plan) — reception by appointment, 8:30 am–3:30 pm (AIRP circular No. 0914 of 24 March 2026).',
+    },
+    samples: {
+      new_ma: [
+        {
+          fr: 'Trente (30) échantillons du produit fini (modèle vente définitif) présentés en français — ou maquette avec lettre d’engagement à fournir les échantillons.',
+          en: 'Thirty (30) samples of the finished product (final sales model) presented in French — or a mock-up with a letter of undertaking to supply the samples.',
+        },
+        {
+          fr: 'Échantillons accompagnés des certificats d’analyse des lots soumis, validité d’au moins 2/3 de la durée de vie du produit.',
+          en: 'Samples accompanied by the certificates of analysis of the submitted batches, with at least 2/3 of the product shelf life remaining.',
+        },
+        {
+          fr: 'Vrac non accepté. Conditionnement hospitalier : boîte de 100 → 5 échantillons ; boîte de 1 000 → 2. PGHT > 100 000 FCFA → 3 échantillons.',
+          en: 'Bulk packaging not accepted. Hospital packs: box of 100 → 5 samples; box of 1,000 → 2. Ex-factory price above 100,000 FCFA → 3 samples.',
+        },
+      ],
+      reserve: {
+        fr: 'Le laboratoire peut être invité à fournir un supplément d’échantillons pour les expertises (modalités AIRP n° 01509 du 22 juillet 2024).',
+        en: 'The laboratory may be asked to supply additional samples for expert assessments (AIRP procedures No. 01509 of 22 July 2024).',
+      },
+    },
   },
   /**
    * Sénégal (ARP) — décret n° 2025-1833 du 18 novembre 2025 fixant les redevances issues de la

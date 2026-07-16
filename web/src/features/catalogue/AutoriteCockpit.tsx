@@ -163,6 +163,15 @@ export function AutoriteCockpit() {
               ) : null}
             </div>
 
+            {profile.submissionNote ? (
+              <div className="text-sm">
+                <span className="text-muted-foreground">
+                  {t({ fr: 'Dépôt : ', en: 'Filing: ' })}
+                </span>
+                {t(profile.submissionNote)}
+              </div>
+            ) : null}
+
             {profile.processingDays ? (
               <div className="text-sm">
                 <span className="text-muted-foreground">

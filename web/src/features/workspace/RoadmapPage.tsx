@@ -437,6 +437,11 @@ export function RoadmapPage() {
                   : t({ fr: 'Sans agent local', en: 'No local agent' })}
                 {config.unconfirmed ? t({ fr: ' · à confirmer', en: ' · to be confirmed' }) : ''}
               </div>
+              {profile?.submissionNote ? (
+                <div className="text-muted-foreground mt-1 text-xs">
+                  {t(profile.submissionNote)}
+                </div>
+              ) : null}
             </RefCard>
             <RefCard
               icon={FlaskConical}
