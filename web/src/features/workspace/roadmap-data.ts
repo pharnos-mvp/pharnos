@@ -176,7 +176,9 @@ const REG_PROFILES: Record<string, RegulatoryProfile> = {
    * régulation du secteur pharmaceutique (JO n° 7871 du 29 décembre 2025), section 4
    * « Homologation des médicaments ». Montants nus = industrie ÉTRANGÈRE, générique (cas dominant
    * du marché) ; princeps, procédure accélérée et industrie locale portés par `fees.notes`.
-   * Le décret ne fixe ni quantités d'échantillons ni délai de traitement (repli générique).
+   * Échantillons : le décret tarife l'AUTORISATION D'IMPORTATION (section 3 — 100 000 FCFA par
+   * produit/forme/dosage, validité 6 mois) mais ne fixe pas le nombre de modèles-vente ; le délai
+   * de traitement n'est pas fixé non plus (repli générique).
    * Source locale : `RA-source/Decret-2025-1833-redevances-ARP-Senegal.pdf`.
    */
   SN: {
@@ -201,7 +203,24 @@ const REG_PROFILES: Record<string, RegulatoryProfile> = {
         },
       },
     },
-    samples: {},
+    samples: {
+      new_ma: [
+        {
+          fr: "Autorisation d'importation des échantillons : 100 000 FCFA par produit, par forme et par dosage (validité 6 mois).",
+          en: 'Sample import authorisation: 100,000 FCFA per product, per form and per strength (valid 6 months).',
+        },
+      ],
+      renewal_variation: [
+        {
+          fr: "Si des échantillons sont requis : autorisation d'importation de 100 000 FCFA par produit, par forme et par dosage (validité 6 mois).",
+          en: 'If samples are required: import authorisation of 100,000 FCFA per product, per form and per strength (valid 6 months).',
+        },
+      ],
+      reserve: {
+        fr: "Le décret n° 2025-1833 ne fixe pas le nombre d'échantillons modèle-vente — à confirmer auprès de l'ARP.",
+        en: 'Decree No. 2025-1833 does not set the number of sales-model samples — to be confirmed with the ARP.',
+      },
+    },
   },
 }
 
