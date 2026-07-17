@@ -451,3 +451,8 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # declarative_schema_path = "./database"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# Résolution publique d'un code d'invitation pour la page pharnos.com/i/CODE : pas de compte —
+# barrière DANS la fonction (CORS landing, rate-limit share_hit, format strict, 404 uniforme).
+[functions.invite-info]
+verify_jwt = false

@@ -1,0 +1,3 @@
+# Cloudflare Pages — réécritures de la landing pharnos.com.
+# Lien d'invitation nominatif d'un expert : /i/CODE → page unique (le JS lit le code dans l'URL).
+/i/* /invite.html 200

@@ -525,3 +525,23 @@
   .demo-dialog.done .demo-error, .demo-dialog.done .demo-actions { display: none; }
   .demo-dialog.done .demo-success { display: block; }
   @media (max-width: 560px) { .demo-grid { grid-template-columns: 1fr; } }
+
+  /* ── Page /i/CODE — invitation nominative (fond encre du hero, carte papier) ── */
+  .invite-body { min-height: 100svh; display: flex; background:
+    radial-gradient(1100px 700px at 72% 30%, rgba(124,58,237,.55), transparent 65%),
+    radial-gradient(900px 600px at 30% 85%, rgba(91,33,182,.4), transparent 70%),
+    linear-gradient(135deg, #171040 0%, #241456 45%, #3b1a7a 100%); }
+  .invite-scene { margin: auto; width: 100%; max-width: 640px; padding: 32px 20px;
+    display: flex; flex-direction: column; gap: 18px; }
+  .invite-card { background: var(--white); border: 1px solid var(--g200); border-radius: var(--radius-lg);
+    box-shadow: 0 24px 70px rgba(0,0,0,.4); padding: clamp(28px, 5vw, 44px); }
+  .invite-brand { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 22px; }
+  .invite-brand svg { width: 26px; height: 26px; color: var(--navy); }
+  .invite-card h1 { font-family: var(--font-serif); font-weight: 600; color: var(--navy);
+    font-size: clamp(1.5rem, 3.4vw, 2rem); line-height: 1.2; margin-top: 6px; text-wrap: pretty; }
+  .invite-sub { margin-top: 14px; color: var(--g600); font-size: 15.5px; max-width: 52ch; }
+  .invite-actions { margin-top: 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .invite-note { margin-top: 16px; font-size: 12.5px; color: var(--g500); }
+  .invite-note b { color: var(--g700); letter-spacing: .04em; }
+  .invite-footer { text-align: center; font-family: 'Sora', sans-serif; font-size: 12px;
+    color: rgba(214,201,242,.7); }
