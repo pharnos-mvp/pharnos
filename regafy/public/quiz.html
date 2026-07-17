@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Le Test RA UEMOA — êtes-vous incollable ? · Regafy</title>
+<meta name="description" content="10 questions sourcées pour tester votre maîtrise de la réglementation pharmaceutique dans l'espace UEMOA. Score immédiat, corrigé sourcé par e-mail.">
+<link rel="stylesheet" href="/styles.css?v=1">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<a class="skip-link" href="#contenu">Aller au contenu</a>
+
+<header class="site">
+  <a class="brand" href="/">Regafy<span class="dot">.</span></a>
+  <span class="byline">Le Test RA UEMOA</span>
+</header>
+
+<main id="contenu">
+
+  <section class="card" id="screen-intro">
+    <span class="kicker">Quiz · Affaires réglementaires</span>
+    <h1>Êtes-vous incollable sur la réglementation pharmaceutique UEMOA&nbsp;?</h1>
+    <p class="lead">10 questions, des plus classiques aux plus pointues — barèmes officiels, textes récents, procédures nationales. <em>Chaque réponse est sourcée : décret, circulaire, règlement.</em></p>
+    <div class="meta-row">
+      <span class="meta-chip">📋 10 questions</span>
+      <span class="meta-chip">⏱️ ~3 minutes</span>
+      <span class="meta-chip">🏅 Votre niveau à la fin</span>
+    </div>
+    <button class="btn btn-primary btn-block" id="start-btn">Commencer le test</button>
+    <p class="fineprint">Gratuit, sans inscription. Votre score s'affiche immédiatement — l'e-mail n'est demandé que si vous voulez recevoir le corrigé sourcé.</p>
+  </section>
+
+  <section class="card hidden" id="screen-quiz">
+    <div class="progress-head">
+      <span class="progress-label" id="q-counter">Question 1 / 10</span>
+      <span class="progress-score" id="q-score">Score : 0</span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="q-progress"></div></div>
+    <span class="q-domain" id="q-domain"></span>
+    <h2 class="q-text" id="q-text"></h2>
+    <div class="options" id="q-options"></div>
+    <div class="explain" id="q-explain" aria-live="polite">
+      <div class="verdict" id="q-verdict"></div>
+      <p id="q-explain-text"></p>
+      <span class="src" id="q-source"></span>
+    </div>
+    <div class="next-row" id="q-next-row">
+      <button class="btn btn-primary btn-block" id="q-next-btn">Question suivante →</button>
+    </div>
+  </section>
+
+  <section class="card hidden" id="screen-result">
+    <div class="result-head">
+      <div class="ring-wrap">
+        <svg width="148" height="148" viewBox="0 0 148 148" aria-hidden="true">
+          <circle class="ring-bg" cx="74" cy="74" r="64"></circle>
+          <circle class="ring-val" id="ring" cx="74" cy="74" r="64" stroke-dasharray="402" stroke-dashoffset="402"></circle>
+        </svg>
+        <div class="ring-center">
+          <span class="num" id="r-num">0</span>
+          <span class="den">sur 10</span>
+        </div>
+      </div>
+      <div class="level-badge" id="r-badge"></div>
+      <p class="result-sub" id="r-sub"></p>
+    </div>
+
+    <div class="gate" id="gate">
+      <form id="gate-form" novalidate>
+        <h3>Recevez votre corrigé sourcé</h3>
+        <p class="pitch">Les 10 réponses détaillées, avec <strong>chaque texte cité</strong> (décrets, circulaires, règlements UEMOA) — le document que vous garderez sous la main.</p>
+        <ul>
+          <li>Corrigé complet, références officielles à jour</li>
+          <li>Votre badge de niveau, partageable sur LinkedIn</li>
+        </ul>
+        <input type="email" name="email" id="email" placeholder="votre.nom@laboratoire.com" autocomplete="email" required aria-label="Votre adresse e-mail">
+        <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <label class="consent">
+          <input type="checkbox" id="consent">
+          <span>Je m'abonne aussi à <b>La Dépêche RA</b> — la liste privée Regafy : nouveaux barèmes, textes publiés, échéances et pratiques des autorités UEMOA. 2 e-mails/mois maximum, désinscription en un clic.</span>
+        </label>
+        <button class="btn btn-primary btn-block" type="submit" id="gate-submit">Recevoir le corrigé</button>
+        <p class="form-msg" role="status" aria-live="polite"></p>
+        <p class="rgpd">Vos données servent uniquement à l'envoi demandé. Abonnement confirmé par double opt-in. <a href="/confidentialite">Politique de confidentialité</a></p>
+      </form>
+      <div class="gate-done" id="gate-done">
+        <div class="big">📬</div>
+        <h3>C'est envoyé !</h3>
+        <p>Vérifiez votre boîte mail — le corrigé arrive, et si vous avez coché l'abonnement, un clic le confirmera.</p>
+      </div>
+    </div>
+
+    <div class="share-row">
+      <button class="btn btn-ghost" id="share-btn">Défier un confrère sur LinkedIn ↗</button>
+      <button class="btn btn-ghost" id="retry-btn">Refaire le test</button>
+    </div>
+
+    <div class="soft-cta">
+      <p>Ces questions viennent du référentiel réglementaire vivant de Pharnos.</p>
+      <a href="https://pharnos.com" rel="noopener">Découvrir comment les équipes RA pilotent leurs dossiers avec Pharnos →</a>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site">© Regafy — un projet <a href="https://pharnos.com" rel="noopener">Pharnos</a> · contenu informatif, ne remplace pas les textes officiels</footer>
+
+<script src="/quiz.js?v=1" defer></script>
+</body>
+</html>

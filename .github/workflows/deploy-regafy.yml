@@ -1,0 +1,55 @@
+# Déploiement de Regafy (regafy.com) sur Cloudflare Pages — projet `regafy`.
+# Même mécanisme CI que la landing (`deploy-landing.yml`) : déploiement observable et reproductible
+# via wrangler, jamais l'intégration Git native.
+# ⚠️ Layout imposé par wrangler : les Functions sont résolues depuis <cwd>/functions — d'où
+# workingDirectory `regafy` et assets dans `regafy/public/` (sinon functions/ partirait en statique).
+# Le secret CLOUDFLARE_API_TOKEN (Pages:Edit) couvre tout le compte, y compris ce projet.
+# Bootstrap : la 1re exécution crée le projet Pages (étape idempotente, en échec toléré s'il existe).
+# Dépannage local : `cd regafy && npx wrangler pages deploy public --project-name regafy --branch main`.
+name: Deploy regafy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'regafy/**'
+      - '.github/workflows/deploy-regafy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-regafy-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Cloudflare Pages — regafy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Garde-fou : on ne déploie que si le token Cloudflare est configuré (sans exposer le secret).
+      - name: Check Cloudflare token
+        id: guard
+        run: echo "ready=${{ secrets.CLOUDFLARE_API_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+
+      - name: Create Pages project (idempotent)
+        if: steps.guard.outputs.ready == 'true'
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: regafy
+          command: pages project create regafy --production-branch main
+
+      - name: Deploy regafy to Cloudflare Pages
+        if: steps.guard.outputs.ready == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: regafy
+          command: pages deploy public --project-name regafy --branch ${{ github.ref_name }}
