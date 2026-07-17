@@ -493,9 +493,15 @@
   .demo-field { display: flex; flex-direction: column; gap: 6px; font-size: 13.5px;
     font-weight: 600; color: var(--g700); }
   .demo-field-full { grid-column: 1 / -1; }
-  .demo-field input { font: inherit; font-weight: 400; padding: 10px 12px; border: 1px solid var(--g300);
-    border-radius: var(--radius); background: var(--white); color: var(--g800); transition: var(--transition); }
-  .demo-field input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(26,86,219,.14); }
+  .demo-field input, .demo-field select { font: inherit; font-weight: 400; padding: 10px 12px;
+    border: 1px solid var(--g300); border-radius: var(--radius); background: var(--white);
+    color: var(--g800); transition: var(--transition); }
+  .demo-field select { appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 34px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='%236b7280' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round' d='M6 9.5l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center; background-size: 14px; }
+  .demo-field select:invalid { color: var(--g500); } /* placeholder « Choisir… » grisé comme un vrai placeholder */
+  .demo-field input:focus, .demo-field select:focus { outline: none; border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(26,86,219,.14); }
   .demo-trap { position: absolute; left: -9999px; top: -9999px; }
   .demo-error { margin-top: 14px; font-size: 13.5px; color: #b91c1c; }
   .demo-error a { text-decoration: underline; }

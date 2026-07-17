@@ -17,6 +17,14 @@ import { logJson, newReqId } from '../_shared/log.ts'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MAX_BODY_BYTES = 8 * 1024
+// Enum fermé, aligné sur le <select> de la landing — toute autre valeur est rejetée.
+const ORG_TYPES = new Set([
+  'Laboratoire pharmaceutique',
+  'Agence de marketing',
+  "Cabinet d'expert RA",
+  'Représentant local',
+  'Autre',
+])
 // Fenêtres de rate-limit (secondes) et plafonds : 5 demandes/h par IP, 60/h au global
 // (protège la base ET le quota Resend d'un flood distribué).
 const IP_WINDOW_S = 3600
@@ -95,7 +103,14 @@ Deno.serve(async (req) => {
     const company = field(body.company, 160)
     const jobTitle = field(body.jobTitle, 120)
     const country = field(body.country, 80)
-    if (!fullName || !email || !company || !jobTitle || !country || !EMAIL_RE.test(email)) {
+    const orgType = field(body.orgType, 60)
+    // « Autre » exige la précision ; pour un type connu, elle est ignorée (null).
+    const orgTypeOther = orgType === 'Autre' ? field(body.orgTypeOther, 120) : null
+    if (
+      !fullName || !email || !company || !jobTitle || !country ||
+      !orgType || !ORG_TYPES.has(orgType) || (orgType === 'Autre' && !orgTypeOther) ||
+      !EMAIL_RE.test(email)
+    ) {
       logJson({ ...log, status: 'invalid_fields' })
       return json({ error: 'invalid_fields' }, 400, origin)
     }
@@ -126,6 +141,8 @@ Deno.serve(async (req) => {
     const { error: insertError } = await supabase.from('demo_requests').insert({
       full_name: fullName,
       email,
+      org_type: orgType,
+      org_type_other: orgTypeOther,
       company,
       job_title: jobTitle,
       country,
@@ -143,12 +160,13 @@ Deno.serve(async (req) => {
     if (apiKey) {
       const from = Deno.env.get('EMAIL_FROM') ?? 'Pharnos <onboarding@resend.dev>'
       const to = Deno.env.get('DEMO_NOTIFY_TO') ?? 'contact@pharnos.com'
-      const [safeName, safeCompany, safeTitle, safeCountry, safeEmail] = [
+      const [safeName, safeCompany, safeTitle, safeCountry, safeEmail, safeOrgType] = [
         fullName,
         company,
         jobTitle,
         country,
         email,
+        orgType === 'Autre' ? `Autre — ${orgTypeOther}` : orgType,
       ].map(escapeHtml)
       try {
         const res = await fetch('https://api.resend.com/emails', {
@@ -164,6 +182,7 @@ Deno.serve(async (req) => {
               '<table cellpadding="6" style="border-collapse:collapse;font-size:14px">',
               `<tr><td><b>Nom et prénoms</b></td><td>${safeName}</td></tr>`,
               `<tr><td><b>E-mail</b></td><td>${safeEmail}</td></tr>`,
+              `<tr><td><b>Type d'organisation</b></td><td>${safeOrgType}</td></tr>`,
               `<tr><td><b>Entreprise</b></td><td>${safeCompany}</td></tr>`,
               `<tr><td><b>Poste</b></td><td>${safeTitle}</td></tr>`,
               `<tr><td><b>Pays</b></td><td>${safeCountry}</td></tr>`,

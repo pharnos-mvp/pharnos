@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Pharnos — La plateforme du réglementaire pharmaceutique en Afrique</title>
 <meta name="description" content="CTD Builder, soumission, collaboration fluide entre laboratoire et représentant local, suivi en temps réel — sur un seul dashboard. UEMOA / CEDEAO." />
-<link rel="stylesheet" href="/styles.css?v=7" />
+<link rel="stylesheet" href="/styles.css?v=8" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <link rel="canonical" href="https://pharnos.com/" />
@@ -484,34 +484,87 @@
         <input name="email" type="email" autocomplete="email" maxlength="254" required />
       </label>
       <label class="demo-field">
+        <span>Type d'organisation</span>
+        <select name="orgType" id="demo-orgtype" required>
+          <option value="" disabled selected>Choisir…</option>
+          <option value="Laboratoire pharmaceutique">Laboratoire pharmaceutique</option>
+          <option value="Agence de marketing">Agence de marketing</option>
+          <option value="Cabinet d'expert RA">Cabinet d'expert RA</option>
+          <option value="Représentant local">Représentant local</option>
+          <option value="Autre">Autre (à préciser)</option>
+        </select>
+      </label>
+      <label class="demo-field">
         <span>Nom de l'entreprise</span>
         <input name="company" type="text" autocomplete="organization" maxlength="160" required />
       </label>
+      <label class="demo-field demo-field-full" id="demo-orgtype-other-field" hidden>
+        <span>Précisez le type d'organisation</span>
+        <input name="orgTypeOther" type="text" maxlength="120" />
+      </label>
       <label class="demo-field">
         <span>Poste</span>
-        <input name="jobTitle" type="text" autocomplete="organization-title" maxlength="120" required list="demo-roles" />
+        <select name="jobTitle" autocomplete="organization-title" required>
+          <option value="" disabled selected>Choisir…</option>
+          <option>Pharmacien(ne) responsable</option>
+          <option>Responsable Affaires Réglementaires</option>
+          <option>Chargé(e) d'Affaires Réglementaires</option>
+          <option>Directeur / Directrice Général(e)</option>
+          <option>Responsable Qualité</option>
+          <option>Consultant(e) / Expert(e) RA</option>
+          <option>Autre</option>
+        </select>
       </label>
-      <label class="demo-field demo-field-full">
+      <label class="demo-field">
         <span>Pays</span>
-        <input name="country" type="text" autocomplete="country-name" maxlength="80" required list="demo-countries" />
+        <select name="country" autocomplete="country-name" required>
+          <option value="" disabled selected>Choisir…</option>
+          <optgroup label="UEMOA">
+            <option>Bénin</option><option>Burkina Faso</option><option>Côte d'Ivoire</option>
+            <option>Guinée-Bissau</option><option>Mali</option><option>Niger</option>
+            <option>Sénégal</option><option>Togo</option>
+          </optgroup>
+          <optgroup label="CEDEAO — autres">
+            <option>Cap-Vert</option><option>Gambie</option><option>Ghana</option>
+            <option>Guinée</option><option>Libéria</option><option>Nigéria</option>
+            <option>Sierra Leone</option>
+          </optgroup>
+          <optgroup label="Afrique — autres">
+            <option>Afrique du Sud</option><option>Algérie</option><option>Angola</option>
+            <option>Botswana</option><option>Burundi</option><option>Cameroun</option>
+            <option>Comores</option><option>Congo</option><option>Djibouti</option>
+            <option>Égypte</option><option>Érythrée</option><option>Eswatini</option>
+            <option>Éthiopie</option><option>Gabon</option><option>Guinée équatoriale</option>
+            <option>Kenya</option><option>Lesotho</option><option>Libye</option>
+            <option>Madagascar</option><option>Malawi</option><option>Maroc</option>
+            <option>Maurice</option><option>Mauritanie</option><option>Mozambique</option>
+            <option>Namibie</option><option>Ouganda</option><option>RD Congo</option>
+            <option>République centrafricaine</option><option>Rwanda</option>
+            <option>São Tomé-et-Príncipe</option><option>Seychelles</option><option>Somalie</option>
+            <option>Soudan</option><option>Soudan du Sud</option><option>Tanzanie</option>
+            <option>Tchad</option><option>Tunisie</option><option>Zambie</option>
+            <option>Zimbabwe</option>
+          </optgroup>
+          <optgroup label="Europe">
+            <option>Allemagne</option><option>Belgique</option><option>Danemark</option>
+            <option>Espagne</option><option>France</option><option>Irlande</option>
+            <option>Italie</option><option>Pays-Bas</option><option>Portugal</option>
+            <option>Royaume-Uni</option><option>Suède</option><option>Suisse</option>
+          </optgroup>
+          <optgroup label="Amériques">
+            <option>Brésil</option><option>Canada</option><option>États-Unis</option>
+            <option>Mexique</option>
+          </optgroup>
+          <optgroup label="Asie &amp; Moyen-Orient">
+            <option>Arabie saoudite</option><option>Bangladesh</option><option>Chine</option>
+            <option>Corée du Sud</option><option>Émirats arabes unis</option><option>Inde</option>
+            <option>Indonésie</option><option>Japon</option><option>Jordanie</option>
+            <option>Malaisie</option><option>Singapour</option><option>Turquie</option>
+          </optgroup>
+          <option>Autre pays</option>
+        </select>
       </label>
     </div>
-    <datalist id="demo-roles">
-      <option value="Responsable Affaires Réglementaires"></option>
-      <option value="Chargé(e) Affaires Réglementaires"></option>
-      <option value="Pharmacien(ne) responsable"></option>
-      <option value="Directeur / Directrice"></option>
-      <option value="Consultant(e)"></option>
-    </datalist>
-    <datalist id="demo-countries">
-      <option value="Bénin"></option><option value="Burkina Faso"></option>
-      <option value="Côte d'Ivoire"></option><option value="Guinée-Bissau"></option>
-      <option value="Mali"></option><option value="Niger"></option>
-      <option value="Sénégal"></option><option value="Togo"></option>
-      <option value="Ghana"></option><option value="Nigéria"></option>
-      <option value="Maroc"></option><option value="Tunisie"></option>
-      <option value="France"></option><option value="Inde"></option>
-    </datalist>
     <!-- Piège à bots : hors écran, doit rester vide (exclu de la tabulation et des lecteurs d'écran) -->
     <div class="demo-trap" aria-hidden="true">
       <label>Site web<input name="website" type="text" tabindex="-1" autocomplete="off" /></label>
@@ -572,6 +625,6 @@
     </div>
   </div>
 </footer>
-<script src="/landing.js?v=7" defer></script>
+<script src="/landing.js?v=8" defer></script>
 </body>
 </html>
