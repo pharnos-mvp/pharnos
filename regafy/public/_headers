@@ -1,0 +1,23 @@
+# Cloudflare Pages — en-têtes Regafy (même politique que la landing pharnos.com).
+# connect-src 'self' : les formulaires parlent uniquement aux Pages Functions du même domaine.
+/*
+  Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# max-age court : fichiers versionnés par query (?v=N) ; borne le risque d'edge qui sert
+# l'ancien contenu sous la nouvelle URL pendant la propagation (leçon landing 2026-07-17).
+/styles.css
+  Cache-Control: public, max-age=300
+
+/quiz.js
+  Cache-Control: public, max-age=300
+
+/regafy.js
+  Cache-Control: public, max-age=300
