@@ -107,7 +107,7 @@ beforeEach(() => {
 })
 
 describe('AdminConsole', () => {
-  it('rend le cockpit : h1, 5 pilules, KPIs, statut santé, répartition IA, top consommateurs, audit', async () => {
+  it('rend le cockpit : h1, 6 pilules, KPIs, statut santé, répartition IA, top consommateurs, audit', async () => {
     overviewMock.mockResolvedValueOnce(OVERVIEW)
     renderConsole()
 
@@ -115,9 +115,9 @@ describe('AdminConsole', () => {
       await screen.findByRole('heading', { level: 1, name: 'Console plateforme' }),
     ).toBeInTheDocument()
 
-    // Sous-navigation en pilules : 5 sections (dont Journal), l'active porte aria-current.
+    // Sous-navigation en pilules : 6 sections (dont Acquisition et Journal), l'active porte aria-current.
     const nav = screen.getByRole('navigation', { name: 'Sections de la console' })
-    expect(within(nav).getAllByRole('button')).toHaveLength(5)
+    expect(within(nav).getAllByRole('button')).toHaveLength(6)
     expect(within(nav).getByRole('button', { name: "Vue d'ensemble" })).toHaveAttribute(
       'aria-current',
       'page',

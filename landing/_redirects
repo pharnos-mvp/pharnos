@@ -1,3 +1,5 @@
 # Cloudflare Pages — réécritures de la landing pharnos.com.
 # Lien d'invitation nominatif d'un expert : /i/CODE → page unique (le JS lit le code dans l'URL).
-/i/* /invite.html 200
+# ⚠️ Cible SANS extension : « /invite.html » déclenche le 308 « pretty URLs » de Pages vers
+# /invite, qui PERD le code du chemin — « /invite » est une réécriture interne, chemin préservé.
+/i/* /invite 200

@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   ScrollText,
   SlidersHorizontal,
+  UserPlus,
   Users,
 } from 'lucide-react'
 
@@ -34,13 +35,14 @@ import {
   trend,
 } from './admin-api'
 import type { AdminOverview } from './admin-api'
+import { AdminAcquisition } from './AdminAcquisition'
 import { AdminJournal } from './AdminJournal'
 import { AdminOrgs } from './AdminOrgs'
 import { AdminPlans } from './AdminPlans'
 import { AdminUsers } from './AdminUsers'
 import { useAsync } from './use-async'
 
-type AdminSection = 'overview' | 'orgs' | 'users' | 'plans' | 'journal'
+type AdminSection = 'overview' | 'orgs' | 'users' | 'acquisition' | 'plans' | 'journal'
 
 /**
  * Jauge de santé plateforme : seuils sémantiques alignés sur la politique stockage
@@ -417,6 +419,7 @@ export function AdminConsole() {
     },
     { key: 'orgs', label: t({ fr: 'Organisations', en: 'Organizations' }), icon: Building2 },
     { key: 'users', label: t({ fr: 'Utilisateurs', en: 'Users' }), icon: Users },
+    { key: 'acquisition', label: t({ fr: 'Acquisition', en: 'Acquisition' }), icon: UserPlus },
     {
       key: 'plans',
       label: t({ fr: 'Plans & quotas', en: 'Plans & quotas' }),
@@ -486,6 +489,7 @@ export function AdminConsole() {
           )}
           {section === 'orgs' && <AdminOrgs />}
           {section === 'users' && <AdminUsers />}
+          {section === 'acquisition' && <AdminAcquisition />}
           {section === 'plans' && <AdminPlans />}
           {section === 'journal' && <AdminJournal />}
         </Page>
