@@ -1,6 +1,9 @@
-/* Regafy — The UEMOA RA Test (CSP script-src 'self': no inline).
-   i18n: English by default, French when the browser language is fr (override: ?lang=fr|en).
-   Question content authored/validated by the CEO (RA expert) — 2026-07-17. */
+/* Regafy — The UEMOA RA Test v3 (CSP script-src 'self': no inline).
+   - i18n : EN par défaut, FR si navigateur fr (?lang=fr|en pour forcer)
+   - Tirage : 10 familles au hasard dans BANK (public/bank.js), 1 variante par famille
+   - Timer : 30 s/question, bips ≤ 10 s (Web Audio, aucun fichier), timeout = question ratée
+     et passage automatique sans retour
+   - Chrono total + classement D1 (/api/score) : rang mondial + rang pays (score puis temps) */
 
 'use strict';
 
@@ -10,19 +13,21 @@ const LANG = (() => {
   return (navigator.language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en';
 })();
 
-/* ── UI strings (HTML ships in English; FR swaps at load) ── */
+const QUESTION_MS = 30000;
+const TIMEOUT_PAUSE_MS = 2600;
+
 const UI_FR = {
   title: 'Le Test RA UEMOA — êtes-vous incollable ? · Regafy',
   kicker: 'Quiz · Affaires réglementaires',
   h1: 'Êtes-vous incollable sur la réglementation pharmaceutique UEMOA&nbsp;?',
-  lead: '10 questions, des fondamentaux aux subtilités du terrain — langue de soumission, échantillons, variations, renouvellements. <em>Chaque réponse est expliquée et sourcée.</em>',
+  lead: '10 questions tirées au sort, 30 secondes chacune — langue de soumission, échantillons, variations, renouvellements. <em>Chaque réponse est expliquée et sourcée.</em>',
   chip1: '📋 10 questions',
-  chip2: '⏱️ ~3 minutes',
-  chip3: '🏅 Votre niveau à la fin',
+  chip2: '⏱️ 30 s par question',
+  chip3: '🏆 Classement mondial & pays',
   start: 'Commencer le test',
   fineprint: "Gratuit, sans inscription. Votre score s'affiche immédiatement — l'e-mail n'est demandé que si vous voulez recevoir le corrigé.",
   gateTitle: 'Recevez votre corrigé détaillé',
-  gatePitch: 'Les 10 réponses expliquées, avec <strong>leurs références</strong> — le document que vous garderez sous la main.',
+  gatePitch: 'Les 10 réponses de VOTRE tirage, expliquées avec <strong>leurs références</strong>.',
   gateLi1: 'Corrigé complet, envoyé immédiatement',
   gateLi2: 'Votre badge de niveau, partageable sur LinkedIn',
   emailPh: 'votre.nom@laboratoire.com',
@@ -36,12 +41,22 @@ const UI_FR = {
   softP: 'Ces questions viennent du référentiel réglementaire vivant de Pharnos.',
   softA: 'Découvrir comment les équipes RA pilotent leurs dossiers avec Pharnos →',
   footer: '© Regafy — un projet <a href="https://pharnos.com" rel="noopener">Pharnos</a> · contenu informatif, ne remplace pas les textes officiels',
+  bTitle: 'Entrez au classement',
+  bSub: 'Score puis chrono décident de votre rang — mondial et dans votre pays.',
+  bPh: 'Votre prénom ou pseudo',
+  bBtn: 'Voir mon rang',
   counter: (i, n) => `Question ${i} / ${n}`,
   score: (s) => `Score : ${s}`,
   ok: '✓ Bonne réponse',
   ko: '✗ Pas tout à fait',
+  timeout: '⏱️ Temps écoulé !',
   next: 'Question suivante →',
   seeResult: 'Voir mon résultat →',
+  time: (m, s) => `⏱️ Temps : ${m} min ${String(s).padStart(2, '0')} s`,
+  rankGlobal: (r, t) => `🌍 nº ${r} sur ${t} au classement général`,
+  rankCountry: (r, t, name) => ` nº ${r} sur ${t} — ${name}`,
+  top10: '🏆 Top 10 !',
+  nameErr: 'Un prénom ou pseudo de 2 à 24 caractères, s’il vous plaît.',
   invalidEmail: 'Adresse e-mail invalide.',
   sending: 'Envoi en cours…',
   sendFail: "L'envoi n'a pas abouti — réessayez dans un instant.",
@@ -52,8 +67,14 @@ const UI_EN = {
   score: (s) => `Score: ${s}`,
   ok: '✓ Correct',
   ko: '✗ Not quite',
+  timeout: "⏱️ Time's up!",
   next: 'Next question →',
   seeResult: 'See my result →',
+  time: (m, s) => `⏱️ Time: ${m} min ${String(s).padStart(2, '0')} s`,
+  rankGlobal: (r, t) => `🌍 #${r} of ${t} worldwide`,
+  rankCountry: (r, t, name) => ` #${r} of ${t} — ${name}`,
+  top10: '🏆 Top 10!',
+  nameErr: 'A first name or alias, 2 to 24 characters, please.',
   invalidEmail: 'Invalid email address.',
   sending: 'Sending…',
   sendFail: "That didn't go through — please try again in a moment.",
@@ -61,274 +82,26 @@ const UI_EN = {
 
 const T = LANG === 'fr' ? UI_FR : UI_EN;
 
-/* ── Questions (answer index identical across languages) ── */
-const QUESTIONS_FR = [
-  {
-    domain: 'Institutions',
-    text: "Combien d'États membres compte l'espace UEMOA ?",
-    options: ['6', '8', '12', '15'],
-    answer: 1,
-    explain:
-      "Huit : Bénin, Burkina Faso, Côte d'Ivoire, Guinée-Bissau, Mali, Niger, Sénégal et Togo — un marché pharmaceutique qui partage le franc CFA et un cadre d'harmonisation commun.",
-    source: "Traité de l'UEMOA",
-  },
-  {
-    domain: 'Langue de soumission',
-    text: "Dans une soumission aux autorités de l'espace UEMOA, quels documents doivent impérativement être en français ?",
-    options: [
-      'Uniquement le RCP et la notice patient',
-      'La correspondance officielle, le RCP, la notice patient et les emballages primaires & secondaires',
-      "Uniquement la correspondance officielle avec l'autorité",
-      "Aucun — l'anglais est accepté pour tout le dossier",
-    ],
-    answer: 1,
-    explain:
-      "Le français s'impose partout où l'autorité et le patient lisent : correspondance officielle, RCP, notice patient et articles de conditionnement primaire et secondaire. Les parties techniques du dossier (modules qualité du CTD) sont plus souvent tolérées en anglais.",
-    source: "Pratiques des autorités de l'espace UEMOA",
-  },
-  {
-    domain: 'Harmonisation régionale',
-    text: "Quel texte régional harmonise les procédures d'homologation des produits pharmaceutiques à usage humain dans les États membres de l'UEMOA ?",
-    options: [
-      'La directive n° 03/2006/CM/UEMOA',
-      'Le règlement n° 06/2010/CM/UEMOA',
-      "La décision n° 09/2015 de l'OOAS",
-      'Le protocole de Ouagadougou',
-    ],
-    answer: 1,
-    explain:
-      "Le règlement n° 06/2010/CM/UEMOA pose le socle commun des procédures d'homologation dans les huit États membres — le texte de référence de l'harmonisation régionale.",
-    source: 'Règlement n° 06/2010/CM/UEMOA',
-  },
-  {
-    domain: "Dossier d'AMM",
-    text: "Sous quel format les dossiers de demande d'AMM sont-ils attendus dans l'espace UEMOA ?",
-    options: [
-      'Format libre, selon le laboratoire',
-      'Format CTD (Common Technical Document)',
-      'eCTD exclusivement, en soumission électronique',
-      'Format ACTD (ASEAN)',
-    ],
-    answer: 1,
-    explain:
-      "Le CTD structure le dossier en 5 modules. L'eCTD n'est pas encore une exigence généralisée dans la région — le dossier structuré au format CTD reste la norme.",
-    source: "Lignes directrices d'homologation UEMOA",
-  },
-  {
-    domain: 'Échantillons',
-    text: 'Quelle durée de vie restante est exigée pour les échantillons soumis avec le dossier ?',
-    options: [
-      '6 mois minimum',
-      '12 mois minimum',
-      'Au moins 18 mois, ou les 2/3 de la durée de conservation',
-      'Aucune exigence particulière',
-    ],
-    answer: 2,
-    explain:
-      'À la soumission, les échantillons doivent conserver au moins 18 mois de validité — ou les deux tiers de leur durée de conservation totale. Un lot trop entamé, et le dossier revient.',
-    source: "Pratiques des autorités de l'espace UEMOA",
-  },
-  {
-    domain: 'Fondamentaux',
-    text: "Comment s'appelle le document qui autorise officiellement un laboratoire à vendre son médicament dans un pays de l'UEMOA ?",
-    options: [
-      'Le certificat GMP',
-      "L'AMM — Autorisation de Mise sur le Marché",
-      'Le CPP',
-      "La licence d'exploitation",
-    ],
-    answer: 1,
-    explain:
-      "L'AMM est LE sésame : sans elle, pas de commercialisation légale. Le certificat GMP et le CPP sont des pièces du dossier — pas l'autorisation elle-même.",
-    source: 'Règlement n° 06/2010/CM/UEMOA',
-  },
-  {
-    domain: 'Cycle de vie',
-    text: "Le renouvellement d'une AMM se prépare à partir de combien de temps avant son expiration ?",
-    options: ['1 mois', '3 mois', 'Au moins 6 mois', 'Il est automatique'],
-    answer: 2,
-    explain:
-      "Au moins 6 mois avant l'échéance : redevances, documents à jour, échantillons selon les pays… C'est l'échéance la plus souvent ratée par les titulaires.",
-    source: "Pratiques des autorités de l'espace UEMOA",
-  },
-  {
-    domain: 'Variations',
-    text: "Le changement du nom commercial d'un produit relève de quel type de variation ?",
-    options: [
-      'Variation majeure',
-      'Variation mineure',
-      "Nouvelle demande d'AMM complète",
-      'Simple information, sans dossier',
-    ],
-    answer: 1,
-    explain:
-      "C'est une variation mineure — mais une variation quand même : elle se déclare et se documente auprès de l'autorité.",
-    source: 'Lignes directrices variations, espace UEMOA',
-  },
-  {
-    domain: "Dossier d'AMM",
-    text: "Quelles pièces administratives sont le plus fréquemment demandées aux laboratoires lors d'une demande d'AMM ?",
-    options: [
-      'Le certificat GMP uniquement',
-      'Certificat GMP, CPP, certificat de libre vente (FSC) et licence de fabrication',
-      'Une simple lettre de demande suffit',
-      "Le rapport d'audit interne du laboratoire",
-    ],
-    answer: 1,
-    explain:
-      'Le quatuor classique : certificat GMP (bonnes pratiques de fabrication), CPP (certificat de produit pharmaceutique, modèle OMS), certificat de libre vente (FSC) et licence de fabrication.',
-    source: "Pratiques des autorités de l'espace UEMOA",
-  },
-  {
-    domain: 'Harmonisation continentale',
-    text: "L'UEMOA étant un espace économique commun, une AMM obtenue en Côte d'Ivoire permet-elle de vendre légalement au Bénin et au Sénégal sans autorisation supplémentaire ?",
-    options: [
-      "Oui, l'AMM vaut pour les 8 États",
-      'Oui, après une simple notification',
-      "Non — chaque État délivre sa propre AMM ; mais l'AMA et l'harmonisation régionale y travaillent",
-      "Non, et aucune harmonisation n'est envisagée",
-    ],
-    answer: 2,
-    explain:
-      "Chaque autorité nationale délivre sa propre AMM. La bonne nouvelle : l'harmonisation avance — règlement UEMOA, OOAS, et l'Agence africaine du médicament (AMA) préparent la reconnaissance mutuelle de demain.",
-    source: 'Traité AMA · règlement n° 06/2010/CM/UEMOA',
-  },
-];
-
-const QUESTIONS_EN = [
-  {
-    domain: 'Institutions',
-    text: 'How many member states make up the WAEMU (UEMOA) area?',
-    options: ['6', '8', '12', '15'],
-    answer: 1,
-    explain:
-      "Eight: Benin, Burkina Faso, Côte d'Ivoire, Guinea-Bissau, Mali, Niger, Senegal and Togo — a pharmaceutical market sharing the CFA franc and a common harmonisation framework.",
-    source: 'WAEMU Treaty',
-  },
-  {
-    domain: 'Submission language',
-    text: 'In a submission to a WAEMU-area authority, which documents must be in French?',
-    options: [
-      'Only the SmPC and the patient leaflet',
-      'Official correspondence, the SmPC, the patient leaflet, and primary & secondary packaging',
-      'Only the official correspondence with the authority',
-      'None — English is accepted for the whole dossier',
-    ],
-    answer: 1,
-    explain:
-      'French is required wherever the authority and the patient read: official correspondence, the SmPC, the patient leaflet, and primary & secondary packaging components. The technical parts of the dossier (CTD quality modules) are more often accepted in English.',
-    source: 'Practice of WAEMU-area authorities',
-  },
-  {
-    domain: 'Regional harmonisation',
-    text: 'Which regional text harmonises the marketing-authorisation procedures for human medicines across WAEMU member states?',
-    options: [
-      'Directive No. 03/2006/CM/UEMOA',
-      'Regulation No. 06/2010/CM/UEMOA',
-      'WAHO Decision No. 09/2015',
-      'The Ouagadougou Protocol',
-    ],
-    answer: 1,
-    explain:
-      'Regulation No. 06/2010/CM/UEMOA lays the common foundation for authorisation procedures across the eight member states — the reference text for regional harmonisation.',
-    source: 'Regulation No. 06/2010/CM/UEMOA',
-  },
-  {
-    domain: 'MA dossier',
-    text: 'In which format are marketing-authorisation dossiers expected in the WAEMU area?',
-    options: [
-      'Free format, at the company’s discretion',
-      'CTD format (Common Technical Document)',
-      'eCTD only, submitted electronically',
-      'ACTD format (ASEAN)',
-    ],
-    answer: 1,
-    explain:
-      'The CTD structures the dossier into 5 modules. eCTD is not yet a general requirement in the region — a structured CTD dossier remains the norm.',
-    source: 'WAEMU authorisation guidelines',
-  },
-  {
-    domain: 'Samples',
-    text: 'What remaining shelf life is required for samples submitted with the dossier?',
-    options: [
-      'At least 6 months',
-      'At least 12 months',
-      'At least 18 months, or two-thirds of the shelf life',
-      'No particular requirement',
-    ],
-    answer: 2,
-    explain:
-      'At submission, samples must retain at least 18 months of validity — or two-thirds of their total shelf life. Too little left, and the dossier comes back.',
-    source: 'Practice of WAEMU-area authorities',
-  },
-  {
-    domain: 'Fundamentals',
-    text: 'What is the document that officially authorises a company to market its medicine in a WAEMU country?',
-    options: [
-      'The GMP certificate',
-      'The Marketing Authorisation (MA / AMM)',
-      'The CPP',
-      'The operating licence',
-    ],
-    answer: 1,
-    explain:
-      'The Marketing Authorisation is THE key: without it, no legal marketing. The GMP certificate and the CPP are supporting documents — not the authorisation itself.',
-    source: 'Regulation No. 06/2010/CM/UEMOA',
-  },
-  {
-    domain: 'Lifecycle',
-    text: 'How long before its expiry should the renewal of a Marketing Authorisation be prepared?',
-    options: ['1 month', '3 months', 'At least 6 months', 'Renewal is automatic'],
-    answer: 2,
-    explain:
-      'At least 6 months before expiry: fees, updated documents, samples depending on the country… It is the deadline most often missed by MA holders.',
-    source: 'Practice of WAEMU-area authorities',
-  },
-  {
-    domain: 'Variations',
-    text: 'A change of a product’s trade name falls under which type of variation?',
-    options: [
-      'Major variation',
-      'Minor variation',
-      'A complete new MA application',
-      'Simple information, no dossier',
-    ],
-    answer: 1,
-    explain:
-      'It is a minor variation — but a variation nonetheless: it must be declared and documented with the authority.',
-    source: 'Variation guidelines, WAEMU area',
-  },
-  {
-    domain: 'MA dossier',
-    text: 'Which administrative documents are most frequently requested from pharmaceutical companies in an MA application?',
-    options: [
-      'The GMP certificate only',
-      'GMP certificate, CPP, Free Sale Certificate (FSC) and Manufacturing Licence',
-      'A simple request letter is enough',
-      'The company’s internal audit report',
-    ],
-    answer: 1,
-    explain:
-      'The classic quartet: GMP certificate (good manufacturing practice), CPP (Certificate of Pharmaceutical Product, WHO scheme), Free Sale Certificate (FSC) and Manufacturing Licence.',
-    source: 'Practice of WAEMU-area authorities',
-  },
-  {
-    domain: 'Continental harmonisation',
-    text: 'WAEMU being a common economic area, does an MA obtained in Côte d’Ivoire allow you to sell legally in Benin and Senegal without further authorisation?',
-    options: [
-      'Yes, the MA is valid across the 8 states',
-      'Yes, after a simple notification',
-      'No — each state issues its own MA; but the AMA and regional harmonisation are working on it',
-      'No, and no harmonisation is planned',
-    ],
-    answer: 2,
-    explain:
-      'Each national authority issues its own MA. The good news: harmonisation is moving — the WAEMU regulation, WAHO, and the African Medicines Agency (AMA) are paving the way for tomorrow’s mutual recognition.',
-    source: 'AMA Treaty · Regulation No. 06/2010/CM/UEMOA',
-  },
-];
-
-const QUESTIONS = LANG === 'fr' ? QUESTIONS_FR : QUESTIONS_EN;
+/* ── Tirage : 10 familles au hasard, 1 variante par famille ── */
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+const RUN = (() => {
+  const byFam = new Map();
+  for (const q of BANK) {
+    if (!byFam.has(q.family)) byFam.set(q.family, []);
+    byFam.get(q.family).push(q);
+  }
+  const fams = shuffle([...byFam.keys()]).slice(0, 10);
+  return fams.map((f) => {
+    const variants = byFam.get(f);
+    return variants[Math.floor(Math.random() * variants.length)];
+  });
+})();
 
 const LEVELS_FR = [
   { min: 9, cls: 'gold', icon: '🏅', label: 'Expert régional', sub: 'Impressionnant. Le terrain n’a plus de secret pour vous — vos confrères devraient vous consulter avant chaque dépôt.' },
@@ -336,23 +109,56 @@ const LEVELS_FR = [
   { min: 4, cls: 'blue', icon: '📚', label: 'En progression', sub: 'Les fondamentaux sont là. Les pratiques évoluent vite dans la région — le corrigé va vous être utile.' },
   { min: 0, cls: 'grey', icon: '🧭', label: 'Explorateur', sub: 'L’espace UEMOA a ses règles propres, pays par pays. Bonne nouvelle : le corrigé est un excellent point de départ.' },
 ];
-
 const LEVELS_EN = [
   { min: 9, cls: 'gold', icon: '🏅', label: 'Regional Expert', sub: 'Impressive. The field holds no secrets for you — your peers should check with you before every submission.' },
   { min: 7, cls: 'blue', icon: '🎯', label: 'Seasoned', sub: 'Solid. Only a few subtleties are missing — exactly what continuous regulatory intelligence brings.' },
   { min: 4, cls: 'blue', icon: '📚', label: 'Building up', sub: 'The fundamentals are there. Practice moves fast in the region — the answer key will serve you well.' },
   { min: 0, cls: 'grey', icon: '🧭', label: 'Explorer', sub: 'The WAEMU area has rules of its own, country by country. Good news: the answer key is a great place to start.' },
 ];
-
 const LEVELS = LANG === 'fr' ? LEVELS_FR : LEVELS_EN;
 
 let current = 0;
 let score = 0;
 let answered = false;
+let totalMs = 0;
+let qStart = 0;
+let timerId = null;
+let lastBeepSec = null;
+let boardSent = false;
 
 const $ = (id) => document.getElementById(id);
 
-/* FR swap of the static English chrome */
+/* ── Sons (Web Audio, généré — CSP sans fichiers) ── */
+let audioCtx = null;
+function initAudio() {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+  } catch {
+    audioCtx = null;
+  }
+}
+function beep(freq, ms, gain) {
+  if (!audioCtx) return;
+  try {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'square';
+    o.frequency.value = freq;
+    g.gain.value = gain;
+    o.connect(g).connect(audioCtx.destination);
+    o.start();
+    o.stop(audioCtx.currentTime + ms / 1000);
+  } catch {
+    /* silencieux */
+  }
+}
+const tickBeep = (sec) => beep(sec <= 3 ? 1100 : 880, 70, 0.045);
+function timeoutSound() {
+  beep(440, 170, 0.06);
+  setTimeout(() => beep(220, 240, 0.06), 170);
+}
+
+/* ── i18n du chrome statique (HTML livré en anglais) ── */
 function applyLang() {
   if (LANG !== 'fr') return;
   document.documentElement.lang = 'fr';
@@ -384,22 +190,58 @@ function applyLang() {
   set('soft-a', UI_FR.softA);
   set('site-footer', UI_FR.footer);
   set('r-den', 'sur 10');
+  set('b-title', UI_FR.bTitle);
+  set('b-sub', UI_FR.bSub);
+  set('board-btn', UI_FR.bBtn);
   const email = $('email');
   if (email) email.placeholder = UI_FR.emailPh;
+  const pname = $('player-name');
+  if (pname) pname.placeholder = UI_FR.bPh;
 }
 
 function startQuiz() {
+  initAudio();
   $('screen-intro').classList.add('hidden');
   $('screen-quiz').classList.remove('hidden');
   renderQuestion();
 }
 
+function startTimer() {
+  qStart = performance.now();
+  lastBeepSec = null;
+  const disp = $('q-timer');
+  disp.classList.remove('warn');
+  disp.textContent = '30';
+  timerId = setInterval(() => {
+    const left = QUESTION_MS - (performance.now() - qStart);
+    const sec = Math.max(0, Math.ceil(left / 1000));
+    disp.textContent = String(sec);
+    if (sec <= 10) {
+      disp.classList.add('warn');
+      if (sec !== lastBeepSec && sec > 0) {
+        lastBeepSec = sec;
+        tickBeep(sec);
+      }
+    }
+    if (left <= 0) {
+      stopTimer();
+      onTimeout();
+    }
+  }, 200);
+}
+function stopTimer() {
+  if (timerId) {
+    clearInterval(timerId);
+    timerId = null;
+  }
+}
+
 function renderQuestion() {
   answered = false;
-  const q = QUESTIONS[current];
-  $('q-counter').textContent = T.counter(current + 1, QUESTIONS.length);
+  const q = RUN[current][LANG];
+  $('q-counter').textContent = T.counter(current + 1, RUN.length);
   $('q-score').textContent = T.score(score);
-  $('q-progress').style.width = `${(current / QUESTIONS.length) * 100}%`;
+  $('q-progress').style.width = `${(current / RUN.length) * 100}%`;
   $('q-domain').textContent = q.domain;
   $('q-text').textContent = q.text;
   const box = $('q-options');
@@ -419,38 +261,56 @@ function renderQuestion() {
   });
   $('q-explain').classList.remove('show');
   $('q-next-row').classList.remove('show');
+  startTimer();
+}
+
+function revealAnswer(pickedIndex, verdictText, verdictCls) {
+  const item = RUN[current];
+  const q = item[LANG];
+  document.querySelectorAll('.opt').forEach((b, j) => {
+    b.disabled = true;
+    if (j === item.answer) b.classList.add('correct');
+    else if (j === pickedIndex) b.classList.add('wrong');
+    else b.classList.add('dim');
+  });
+  const v = $('q-verdict');
+  v.textContent = verdictText;
+  v.className = 'verdict ' + verdictCls;
+  $('q-explain-text').textContent = q.explain;
+  $('q-source').textContent = q.source;
+  $('q-explain').classList.add('show');
+  $('q-score').textContent = T.score(score);
 }
 
 function answer(i) {
   if (answered) return;
   answered = true;
-  const q = QUESTIONS[current];
-  const ok = i === q.answer;
+  stopTimer();
+  totalMs += performance.now() - qStart;
+  const item = RUN[current];
+  const ok = i === item.answer;
   if (ok) score++;
-  document.querySelectorAll('.opt').forEach((b, j) => {
-    b.disabled = true;
-    if (j === q.answer) b.classList.add('correct');
-    else if (j === i) b.classList.add('wrong');
-    else b.classList.add('dim');
-  });
-  const v = $('q-verdict');
-  v.textContent = ok ? T.ok : T.ko;
-  v.className = 'verdict ' + (ok ? 'ok' : 'ko');
-  $('q-explain-text').textContent = q.explain;
-  $('q-source').textContent = q.source;
-  $('q-explain').classList.add('show');
-  $('q-score').textContent = T.score(score);
-  $('q-next-btn').textContent = current === QUESTIONS.length - 1 ? T.seeResult : T.next;
+  revealAnswer(i, ok ? T.ok : T.ko, ok ? 'ok' : 'ko');
+  $('q-next-btn').textContent = current === RUN.length - 1 ? T.seeResult : T.next;
   $('q-next-row').classList.add('show');
-  // Le bouton « suivant » doit être visible sans scroll manuel (recette CEO)
   requestAnimationFrame(() => {
     $('q-next-row').scrollIntoView({ behavior: 'smooth', block: 'end' });
   });
 }
 
+/* Timeout : question ratée, réponse révélée, passage AUTOMATIQUE sans retour */
+function onTimeout() {
+  if (answered) return;
+  answered = true;
+  totalMs += QUESTION_MS;
+  timeoutSound();
+  revealAnswer(-1, T.timeout, 'ko');
+  setTimeout(nextQuestion, TIMEOUT_PAUSE_MS);
+}
+
 function nextQuestion() {
   current++;
-  if (current < QUESTIONS.length) {
+  if (current < RUN.length) {
     renderQuestion();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } else {
@@ -458,7 +318,13 @@ function nextQuestion() {
   }
 }
 
+function fmtTime(ms) {
+  const s = Math.round(ms / 1000);
+  return T.time(Math.floor(s / 60), s % 60);
+}
+
 function showResult() {
+  stopTimer();
   $('screen-quiz').classList.add('hidden');
   $('screen-result').classList.remove('hidden');
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -467,17 +333,84 @@ function showResult() {
   badge.className = 'level-badge ' + lvl.cls;
   badge.textContent = `${lvl.icon} ${lvl.label}`;
   $('r-sub').textContent = lvl.sub;
+  $('r-time').textContent = fmtTime(totalMs);
   let n = 0;
   const numEl = $('r-num');
-  const tick = setInterval(() => {
+  const t = setInterval(() => {
     numEl.textContent = n;
-    if (n >= score) clearInterval(tick);
+    if (n >= score) clearInterval(t);
     n++;
   }, 90);
-  // setTimeout (pas rAF) : l'anim doit partir même si l'onglet est en arrière-plan
   setTimeout(() => {
     $('ring').style.strokeDashoffset = String(402 - (402 * score) / 10);
   }, 60);
+}
+
+/* ── Classement ── */
+function flagEmoji(code) {
+  if (!/^[A-Z]{2}$/.test(code)) return '🌐';
+  return String.fromCodePoint(...[...code].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
+}
+function countryName(code) {
+  try {
+    return new Intl.DisplayNames([LANG], { type: 'region' }).of(code) || code;
+  } catch {
+    return code;
+  }
+}
+
+async function submitBoard() {
+  if (boardSent) return;
+  const nameEl = $('player-name');
+  const msg = $('b-msg');
+  const name = nameEl.value.trim().replace(/\s+/g, ' ');
+  if (name.length < 2 || name.length > 24) {
+    msg.textContent = T.nameErr;
+    msg.className = 'form-msg err';
+    nameEl.focus();
+    return;
+  }
+  const btn = $('board-btn');
+  btn.disabled = true;
+  msg.textContent = T.sending;
+  msg.className = 'form-msg';
+  try {
+    const res = await fetch('/api/score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, score, time_ms: Math.round(totalMs), lang: LANG, website: '' }),
+    });
+    if (!res.ok) throw new Error(String(res.status));
+    const data = await res.json();
+    boardSent = true;
+    msg.textContent = '';
+    $('board-form').classList.add('hidden');
+    const ranks = $('ranks');
+    ranks.classList.remove('hidden');
+    ranks.textContent = '';
+    const g = document.createElement('p');
+    g.className = 'rank-line';
+    g.textContent = T.rankGlobal(data.global.rank, data.global.total);
+    ranks.appendChild(g);
+    if (data.country && data.country.code && data.country.code !== 'XX') {
+      const c = document.createElement('p');
+      c.className = 'rank-line';
+      c.textContent =
+        flagEmoji(data.country.code) +
+        T.rankCountry(data.country.rank, data.country.total, countryName(data.country.code));
+      ranks.appendChild(c);
+    }
+    if (data.global.rank <= 10) {
+      const top = document.createElement('p');
+      top.className = 'rank-top';
+      top.textContent = T.top10;
+      ranks.appendChild(top);
+    }
+  } catch {
+    btn.disabled = false;
+    msg.textContent = T.sendFail;
+    msg.className = 'form-msg err';
+  }
 }
 
 async function submitGate(ev) {
@@ -506,6 +439,7 @@ async function submitGate(ev) {
         source: 'quiz',
         score,
         lang: LANG,
+        ids: RUN.map((q) => q.id),
         website: form.querySelector('.hp').value,
       }),
     });
@@ -527,6 +461,7 @@ function shareLinkedIn() {
 applyLang();
 $('start-btn').addEventListener('click', startQuiz);
 $('q-next-btn').addEventListener('click', nextQuestion);
+$('board-btn').addEventListener('click', submitBoard);
 $('gate-form').addEventListener('submit', submitGate);
 $('share-btn').addEventListener('click', shareLinkedIn);
 $('retry-btn').addEventListener('click', () => window.location.reload());

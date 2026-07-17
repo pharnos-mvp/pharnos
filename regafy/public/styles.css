@@ -202,3 +202,26 @@ h2.q-text { font-family: var(--font-display); font-weight: 700; font-size: 21px;
 .prose h2 { font-family: var(--font-display); font-weight: 700; font-size: 20px; color: var(--ink-1); margin: 22px 0 8px; }
 .prose p, .prose li { font-size: 15px; color: var(--g700); }
 .prose ul { margin: 8px 0 8px 20px; }
+
+/* == v3 : timer, chrono, classement == */
+.q-timer { font-variant-numeric: tabular-nums; font-weight: 800; font-size: 15px;
+  min-width: 44px; text-align: center; color: var(--g700); background: var(--g100);
+  border: 1px solid var(--g200); border-radius: 999px; padding: 3px 10px; }
+.q-timer.warn { color: #fff; background: var(--danger); border-color: var(--danger);
+  animation: timerPulse 1s infinite; }
+@keyframes timerPulse { 50% { transform: scale(1.12); } }
+.time-line { font-size: 15px; font-weight: 700; color: var(--g700); margin: 2px 0 8px; }
+.board { margin-top: 26px; border: 1.5px solid var(--g200); border-radius: var(--radius-lg);
+  background: var(--g50); padding: 24px; text-align: center; }
+.board h3 { font-family: var(--font-display); font-weight: 700; font-size: 19px;
+  color: var(--ink-1); margin-bottom: 4px; }
+.board-sub { font-size: 14px; color: var(--g600); margin-bottom: 14px; }
+.board-form { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.board-form input { flex: 1 1 220px; max-width: 300px; border-radius: 10px;
+  border: 1px solid var(--g300); background: #fff; color: var(--g900); font-size: 15px;
+  padding: 12px 14px; }
+.board-form input:focus { outline: 2px solid var(--blue2); outline-offset: 1px; }
+.ranks { margin-top: 8px; display: grid; gap: 6px; }
+.rank-line { font-size: 16.5px; font-weight: 700; color: var(--ink-1); }
+.rank-top { font-family: var(--font-display); font-weight: 800; font-size: 19px;
+  color: var(--gold); margin-top: 4px; }
