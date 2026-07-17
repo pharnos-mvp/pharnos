@@ -46,25 +46,23 @@ export async function fetchMyMemberships(): Promise<OrgMembership[]> {
   }))
 }
 
-/** Crée une organisation et rattache l'utilisateur courant comme admin (RPC SECURITY DEFINER). */
-export async function createOrg(name: string): Promise<string> {
-  const supabase = await getSupabase()
-  if (!supabase) throw new Error('Supabase non configuré')
-  const { data, error } = await supabase.rpc('create_org', { org_name: name })
-  if (error) throw error
-  return data as string
-}
-
 /**
  * Onboarding : crée l'org avec le plan choisi (octroi immédiat, mode pilote) + admin.
+ * Accès sur invitation (0063) : le code d'invitation est validé côté serveur (quota, révocation,
+ * expiration) et l'inscription est attribuée à l'expert du code.
  * Les infos pro (entreprise/poste/pays) sont écrites séparément côté client (pro_settings).
  */
-export async function createOrgOnboarding(name: string, plan: PlanTier): Promise<string> {
+export async function createOrgOnboarding(
+  name: string,
+  plan: PlanTier,
+  inviteCode: string,
+): Promise<string> {
   const supabase = await getSupabase()
   if (!supabase) throw new Error('Supabase non configuré')
   const { data, error } = await supabase.rpc('create_org_onboarding', {
     p_name: name,
     p_plan: plan,
+    p_invite_code: inviteCode,
   })
   if (error) throw error
   return data as string

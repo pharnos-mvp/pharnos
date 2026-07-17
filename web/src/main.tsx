@@ -11,10 +11,15 @@ import '@fontsource-variable/syne'
 import './index.css'
 import App from '@/App'
 import { installChunkReloadHandler } from '@/lib/chunk-reload'
+import { captureInviteCodeFromUrl } from '@/lib/invite-code'
 import { initSentry } from '@/lib/sentry'
 
 // Observabilité : no-op si VITE_SENTRY_DSN absent ; sinon charge Sentry en chunk séparé.
 void initSentry()
+
+// Accès sur invitation : capturer `?invite=CODE` AVANT l'OAuth (la redirection Google perd la
+// query string) — l'onboarding le relira depuis localStorage.
+captureInviteCodeFromUrl()
 
 // Filet du rechargement ci-dessous : si l'utilisateur navigue vers une route lazy AVANT que
 // `controllerchange` n'ait rechargé, l'ancien bundle demande un chunk déjà purgé → on récupère.

@@ -1,11 +1,12 @@
 /* GET /api/confirm?e=<b64url(email)>&t=<hmac> — double opt-in La Dépêche RA.
-   Vérifie le jeton HMAC puis passe le contact Resend en `unsubscribed: false`.
-   Env requis : RESEND_API_KEY, RESEND_AUDIENCE_ID, CONFIRM_SECRET. */
+   Vérifie le jeton HMAC puis passe le contact Resend en `unsubscribed: false`
+   (nouvelle API Contacts « flat », PATCH /contacts/{email} — pas d'audienceId).
+   Env requis : RESEND_API_KEY, CONFIRM_SECRET. */
 
 const RESEND = 'https://api.resend.com';
 
 export async function onRequestGet({ request, env }) {
-  if (!env.RESEND_API_KEY || !env.RESEND_AUDIENCE_ID || !env.CONFIRM_SECRET) {
+  if (!env.RESEND_API_KEY || !env.CONFIRM_SECRET) {
     return new Response('Service non configuré.', { status: 503 });
   }
   const url = new URL(request.url);
@@ -23,7 +24,7 @@ export async function onRequestGet({ request, env }) {
   }
   try {
     const res = await fetch(
-      `${RESEND}/audiences/${env.RESEND_AUDIENCE_ID}/contacts/${encodeURIComponent(email)}`,
+      `${RESEND}/contacts/${encodeURIComponent(email)}`,
       {
         method: 'PATCH',
         headers: {

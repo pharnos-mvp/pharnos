@@ -24,12 +24,14 @@ Domaine custom `regafy.com` : à attacher dans le dashboard Pages après la rece
 
 Tant qu'elles manquent, `/api/subscribe` répond 503 (le site statique fonctionne, les formulaires affichent une erreur propre).
 
+Compte Resend dédié Regafy (regafy.ai@gmail.com), domaine `regafy.com` vérifié (eu-west-1, DNS posés
+le 2026-07-17). Nouvelle API Contacts « flat » (`POST /contacts`) — pas d'`audienceId`.
+
 | Variable | Rôle |
 | --- | --- |
-| `RESEND_API_KEY` | Envoi e-mails + contacts (secret) |
-| `RESEND_AUDIENCE_ID` | Audience Resend cible des contacts |
+| `RESEND_API_KEY` | Envoi e-mails + contacts (secret, clé du compte Resend REGAFY) |
 | `CONFIRM_SECRET` | Clé HMAC des liens de confirmation (secret, générer 32+ octets aléatoires) |
-| `FROM_ADDR` | Expéditeur (défaut `Regafy <depeche@pharnos.com>` ; passer à `@regafy.com` une fois le domaine vérifié dans Resend) |
+| `FROM_ADDR` | Expéditeur (défaut `La Dépêche RA <depeche@regafy.com>`) |
 | `SITE_URL` | Origine publique pour les liens e-mail (défaut : origine de la requête) |
 
 ## Test local

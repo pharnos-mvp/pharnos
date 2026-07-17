@@ -25,6 +25,12 @@ import { syncProSettings } from '@/features/profile/pro-settings-sync'
 import { ROLE_LABEL, teamApi, type OrgRole } from '@/features/team/team-api'
 import { COUNTRIES } from '@/features/workspace/dossier-constants'
 import { useI18n } from '@/lib/i18n-context'
+import {
+  clearStoredInviteCode,
+  getStoredInviteCode,
+  isValidInviteCodeFormat,
+  normalizeInviteCode,
+} from '@/lib/invite-code'
 import { cn } from '@/lib/utils'
 import { createOrgOnboarding } from './org-repository'
 import { PLAN_CATALOG, planHasTeam } from './plan-catalog'
@@ -66,12 +72,15 @@ export function OnboardingPage({ onCreated }: { onCreated: () => Promise<void> |
   const [planChosen, setPlanChosen] = useState(false)
   const [poste, setPoste] = useState('')
   const [pays, setPays] = useState('')
+  // Accès sur invitation : prérempli depuis le lien /i/CODE (capturé pré-OAuth en localStorage).
+  const [inviteCode, setInviteCode] = useState(() => getStoredInviteCode())
   const [invites, setInvites] = useState<InviteDraft[]>([{ email: '', role: 'ra_officer' }])
   const [submitting, setSubmitting] = useState(false)
 
   const teamEnabled = planHasTeam(plan)
   const stepIndex = STEPS.indexOf(step)
-  const orgValid = orgName.trim().length >= 2
+  const codeValid = isValidInviteCodeFormat(inviteCode)
+  const orgValid = orgName.trim().length >= 2 && codeValid
 
   function goNext() {
     if (step === 'org') {
@@ -110,7 +119,12 @@ export function OnboardingPage({ onCreated }: { onCreated: () => Promise<void> |
     setSubmitting(true)
     try {
       // Plan non choisi → Free (jamais bloquant, jamais facturé sans choix explicite).
-      const orgId = await createOrgOnboarding(orgName.trim(), planChosen ? plan : 'free')
+      const orgId = await createOrgOnboarding(
+        orgName.trim(),
+        planChosen ? plan : 'free',
+        normalizeInviteCode(inviteCode),
+      )
+      clearStoredInviteCode()
       // Identité pro → pro_settings (Dexie + outbox, push immédiat) : le nom de l'org tient lieu
       // d'« entreprise » en tête des documents ; poste/pays facultatifs.
       await setOrgProfile(orgId, {
@@ -197,6 +211,35 @@ export function OnboardingPage({ onCreated }: { onCreated: () => Promise<void> |
         <CardContent>
           {step === 'org' ? (
             <div className="mx-auto w-full max-w-md space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="ob-invite">
+                  {t({ fr: "Code d'invitation", en: 'Invitation code' })}
+                </Label>
+                <Input
+                  id="ob-invite"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                  placeholder={t({ fr: 'Ex. DR-KOUAME', en: 'E.g. DR-KOUAME' })}
+                  autoCapitalize="characters"
+                  autoCorrect="off"
+                  spellCheck={false}
+                />
+                {inviteCode.length > 0 && !codeValid ? (
+                  <p className="text-destructive text-xs">
+                    {t({
+                      fr: 'Format attendu : lettres, chiffres et tirets (3 à 32 caractères).',
+                      en: 'Expected format: letters, digits and dashes (3 to 32 characters).',
+                    })}
+                  </p>
+                ) : (
+                  <p className="text-muted-foreground text-xs">
+                    {t({
+                      fr: "L'accès à Pharnos se fait sur invitation — le code figure sur votre lien ou vous a été remis par votre contact Pharnos.",
+                      en: 'Access to Pharnos is by invitation — the code is on your invite link or was given to you by your Pharnos contact.',
+                    })}
+                  </p>
+                )}
+              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="ob-name">
                   {t({ fr: "Nom de l'organisation", en: 'Organization name' })}
