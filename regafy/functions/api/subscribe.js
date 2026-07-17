@@ -1,5 +1,6 @@
-/* POST /api/subscribe — leads Regafy → Resend (contact + corrigé quiz + double opt-in Dépêche).
+/* POST /api/subscribe — leads Regafy → Resend (contact + corrigé quiz + double opt-in Regafy Pulse).
    JS volontairement (pas de build/typescript sur ce projet statique) ; contrat d'entrée strict.
+   Bilingue : `lang` ('en' par défaut, 'fr' si navigateur francophone) pilote les deux e-mails.
    Env requis : RESEND_API_KEY, CONFIRM_SECRET. Optionnel : FROM_ADDR, SITE_URL.
    Compte Resend Regafy = nouvelle API Contacts « flat » (POST /contacts), PAS d'audienceId.
    Le contact est créé `unsubscribed: true` tant que le double opt-in n'est pas confirmé (/api/confirm). */
@@ -9,6 +10,41 @@ import { CORRIGE } from './corrige.js';
 const EMAIL_RE = /^[^@\s]{1,64}@[^@\s]{1,255}\.[^@\s]{2,24}$/;
 const SOURCES = new Set(['quiz', 'home', 'outils']);
 const RESEND = 'https://api.resend.com';
+
+const MAIL = {
+  fr: {
+    corrigeSubject: (s) => `Votre corrigé détaillé — Le Test RA UEMOA${s === null ? '' : ` (${s}/10)`}`,
+    corrigeTitle: (s) => `Votre corrigé détaillé${s === null ? '' : ` — ${s}/10`}`,
+    corrigeIntro: 'Le Test RA UEMOA : les 10 réponses, chacune avec son explication et sa référence.',
+    corrigeOutro:
+      'Ces questions viennent du référentiel réglementaire vivant de <a href="https://pharnos.com" style="color:#1a56db;">Pharnos</a> — l\'outil avec lequel les équipes RA pilotent leurs dossiers dans l\'espace UEMOA.',
+    corrigeFooter: 'Contenu informatif — ne remplace pas les textes officiels.',
+    question: 'Question',
+    confirmSubject: 'Un clic pour confirmer — Regafy Pulse',
+    confirmTitle: 'Un dernier clic',
+    confirmBody:
+      'Confirmez votre abonnement à <strong>Regafy Pulse</strong> — la liste privée des experts RA UEMOA/CEDEAO : textes officiels, notes de service, masterclass, actus du secteur. Désinscription en un clic.',
+    confirmBtn: 'Je confirme mon abonnement',
+    confirmIgnore: "Vous n'êtes pas à l'origine de cette demande ? Ignorez cet e-mail, vous ne serez pas abonné·e.",
+    privacy: 'Politique de confidentialité',
+  },
+  en: {
+    corrigeSubject: (s) => `Your detailed answer key — The UEMOA RA Test${s === null ? '' : ` (${s}/10)`}`,
+    corrigeTitle: (s) => `Your detailed answer key${s === null ? '' : ` — ${s}/10`}`,
+    corrigeIntro: 'The UEMOA RA Test: all 10 answers, each with its explanation and reference.',
+    corrigeOutro:
+      'These questions come from the living regulatory repository of <a href="https://pharnos.com" style="color:#1a56db;">Pharnos</a> — the tool RA teams use to run their dossiers across the WAEMU area.',
+    corrigeFooter: 'Informational content — does not replace official texts.',
+    question: 'Question',
+    confirmSubject: 'One click to confirm — Regafy Pulse',
+    confirmTitle: 'One last click',
+    confirmBody:
+      'Confirm your subscription to <strong>Regafy Pulse</strong> — the private list for RA professionals across WAEMU/ECOWAS: official texts, agency memos, masterclasses, industry news. One-click unsubscribe.',
+    confirmBtn: 'Confirm my subscription',
+    confirmIgnore: "Didn't request this? Just ignore this email — you won't be subscribed.",
+    privacy: 'Privacy policy',
+  },
+};
 
 export async function onRequestPost({ request, env }) {
   if (!env.RESEND_API_KEY || !env.CONFIRM_SECRET) {
@@ -31,10 +67,12 @@ export async function onRequestPost({ request, env }) {
   if (!EMAIL_RE.test(email)) return json(400, { error: 'invalid_email' });
   const source = SOURCES.has(body.source) ? body.source : 'home';
   const newsletter = body.newsletter === true;
+  const lang = body.lang === 'fr' ? 'fr' : 'en';
+  const t = MAIL[lang];
   const score =
     Number.isInteger(body.score) && body.score >= 0 && body.score <= 10 ? body.score : null;
 
-  const from = env.FROM_ADDR || 'La Dépêche RA <depeche@regafy.com>';
+  const from = env.FROM_ADDR || 'Regafy Pulse <pulse@regafy.com>';
   const site = env.SITE_URL || new URL(request.url).origin;
 
   try {
@@ -49,8 +87,8 @@ export async function onRequestPost({ request, env }) {
       const sent = await resend(env, 'POST', '/emails', {
         from,
         to: [email],
-        subject: `Votre corrigé sourcé — Le Test RA UEMOA${score === null ? '' : ` (${score}/10)`}`,
-        html: corrigeHtml(score, site),
+        subject: t.corrigeSubject(score),
+        html: corrigeHtml(lang, score, site),
       });
       if (!sent.ok) throw new Error(`corrige ${sent.status}`);
     }
@@ -61,8 +99,8 @@ export async function onRequestPost({ request, env }) {
       const sent = await resend(env, 'POST', '/emails', {
         from,
         to: [email],
-        subject: 'Un clic pour confirmer — La Dépêche RA',
-        html: confirmHtml(link, site),
+        subject: t.confirmSubject,
+        html: confirmHtml(lang, link, site),
       });
       if (!sent.ok) throw new Error(`confirm ${sent.status}`);
     }
@@ -117,46 +155,46 @@ function esc(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function corrigeHtml(score, site) {
-  const items = CORRIGE.map(
-    (q, i) => `
+function shell(inner, site, footerText, privacyLabel) {
+  return `<!DOCTYPE html><html><body style="margin:0;background:#f9fafb;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
+  <table role="presentation" width="600" style="max-width:600px;background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;" cellpadding="0" cellspacing="0">
+    <tr><td style="background:#0a1628;border-radius:14px 14px 0 0;padding:18px 28px;">
+      <span style="font-size:18px;font-weight:800;color:#ffffff;">Regafy<span style="color:#e3b341;">.</span></span>
+    </td></tr>
+    <tr><td style="padding:28px;">${inner}</td></tr>
+    <tr><td style="padding:0 28px 24px;"><p style="margin:0;font-size:12px;color:#9ca3af;">${footerText} <a href="${site}/confidentialite" style="color:#9ca3af;">${privacyLabel}</a></p></td></tr>
+  </table></td></tr></table></body></html>`;
+}
+
+function corrigeHtml(lang, score, site) {
+  const t = MAIL[lang];
+  const items = CORRIGE[lang]
+    .map(
+      (q, i) => `
     <tr><td style="padding:14px 0;border-bottom:1px solid #e5e7eb;">
-      <p style="margin:0 0 4px;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;">Question ${i + 1} · ${esc(q.domain)}</p>
+      <p style="margin:0 0 4px;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;">${t.question} ${i + 1} · ${esc(q.domain)}</p>
       <p style="margin:0 0 6px;font-weight:600;color:#0c1b33;">${esc(q.text)}</p>
       <p style="margin:0 0 6px;color:#047857;font-weight:600;">✓ ${esc(q.answer)}</p>
       <p style="margin:0 0 6px;color:#374151;">${esc(q.explain)}</p>
       <p style="margin:0;font-style:italic;color:#6b7280;font-size:13px;">— ${esc(q.source)}</p>
     </td></tr>`
-  ).join('');
-  return `<!DOCTYPE html><html lang="fr"><body style="margin:0;background:#f9fafb;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
-  <table role="presentation" width="600" style="max-width:600px;background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;" cellpadding="0" cellspacing="0">
-    <tr><td style="background:#0a1628;border-radius:14px 14px 0 0;padding:18px 28px;">
-      <span style="font-size:18px;font-weight:800;color:#ffffff;">Regafy<span style="color:#e3b341;">.</span></span>
-    </td></tr>
-    <tr><td style="padding:28px;">
-      <h1 style="margin:0 0 6px;font-size:21px;color:#0c1b33;">Votre corrigé sourcé${score === null ? '' : ` — ${score}/10`}</h1>
-      <p style="margin:0 0 10px;color:#4b5563;">Le Test RA UEMOA : les 10 réponses, chacune avec son texte de référence.</p>
+    )
+    .join('');
+  const inner = `
+      <h1 style="margin:0 0 6px;font-size:21px;color:#0c1b33;">${t.corrigeTitle(score)}</h1>
+      <p style="margin:0 0 10px;color:#4b5563;">${t.corrigeIntro}</p>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${items}</table>
-      <p style="margin:22px 0 0;color:#4b5563;">Ces questions viennent du référentiel réglementaire vivant de <a href="https://pharnos.com" style="color:#1a56db;">Pharnos</a> — l'outil avec lequel les équipes RA pilotent leurs dossiers dans l'espace UEMOA.</p>
-    </td></tr>
-    <tr><td style="padding:0 28px 24px;"><p style="margin:0;font-size:12px;color:#9ca3af;">Contenu informatif — ne remplace pas les textes officiels. <a href="${site}/confidentialite" style="color:#9ca3af;">Confidentialité</a></p></td></tr>
-  </table></td></tr></table></body></html>`;
+      <p style="margin:22px 0 0;color:#4b5563;">${t.corrigeOutro}</p>`;
+  return shell(inner, site, t.corrigeFooter, t.privacy);
 }
 
-function confirmHtml(link, site) {
-  return `<!DOCTYPE html><html lang="fr"><body style="margin:0;background:#f9fafb;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
-  <table role="presentation" width="600" style="max-width:600px;background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;" cellpadding="0" cellspacing="0">
-    <tr><td style="background:#0a1628;border-radius:14px 14px 0 0;padding:18px 28px;">
-      <span style="font-size:18px;font-weight:800;color:#ffffff;">Regafy<span style="color:#e3b341;">.</span></span>
-    </td></tr>
-    <tr><td style="padding:28px;">
-      <h1 style="margin:0 0 6px;font-size:21px;color:#0c1b33;">Un dernier clic</h1>
-      <p style="margin:0 0 18px;color:#4b5563;">Confirmez votre abonnement à <strong>La Dépêche RA</strong> — nouveaux barèmes, textes publiés, échéances et pratiques des autorités UEMOA. 2 e-mails/mois maximum.</p>
-      <p style="margin:0 0 18px;"><a href="${link}" style="display:inline-block;background:#1a56db;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:10px;">Je confirme mon abonnement</a></p>
-      <p style="margin:0;font-size:13px;color:#6b7280;">Vous n'êtes pas à l'origine de cette demande ? Ignorez cet e-mail, vous ne serez pas abonné·e.</p>
-    </td></tr>
-    <tr><td style="padding:0 28px 24px;"><p style="margin:0;font-size:12px;color:#9ca3af;"><a href="${site}/confidentialite" style="color:#9ca3af;">Politique de confidentialité</a></p></td></tr>
-  </table></td></tr></table></body></html>`;
+function confirmHtml(lang, link, site) {
+  const t = MAIL[lang];
+  const inner = `
+      <h1 style="margin:0 0 6px;font-size:21px;color:#0c1b33;">${t.confirmTitle}</h1>
+      <p style="margin:0 0 18px;color:#4b5563;">${t.confirmBody}</p>
+      <p style="margin:0 0 18px;"><a href="${link}" style="display:inline-block;background:#1a56db;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:10px;">${t.confirmBtn}</a></p>
+      <p style="margin:0;font-size:13px;color:#6b7280;">${t.confirmIgnore}</p>`;
+  return shell(inner, site, '', t.privacy);
 }

@@ -1,9 +1,68 @@
-/* Le Test RA UEMOA — logique du quiz (CSP script-src 'self' : aucun inline).
-   Questions issues du référentiel Pharnos (roadmap-data.ts / fiches Autorités) — contenu validé CEO. */
+/* Regafy — The UEMOA RA Test (CSP script-src 'self': no inline).
+   i18n: English by default, French when the browser language is fr (override: ?lang=fr|en).
+   Question content authored/validated by the CEO (RA expert) — 2026-07-17. */
 
 'use strict';
 
-const QUESTIONS = [
+const LANG = (() => {
+  const p = new URLSearchParams(location.search).get('lang');
+  if (p === 'fr' || p === 'en') return p;
+  return (navigator.language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en';
+})();
+
+/* ── UI strings (HTML ships in English; FR swaps at load) ── */
+const UI_FR = {
+  title: 'Le Test RA UEMOA — êtes-vous incollable ? · Regafy',
+  kicker: 'Quiz · Affaires réglementaires',
+  h1: 'Êtes-vous incollable sur la réglementation pharmaceutique UEMOA&nbsp;?',
+  lead: '10 questions, des fondamentaux aux subtilités du terrain — langue de soumission, échantillons, variations, renouvellements. <em>Chaque réponse est expliquée et sourcée.</em>',
+  chip1: '📋 10 questions',
+  chip2: '⏱️ ~3 minutes',
+  chip3: '🏅 Votre niveau à la fin',
+  start: 'Commencer le test',
+  fineprint: "Gratuit, sans inscription. Votre score s'affiche immédiatement — l'e-mail n'est demandé que si vous voulez recevoir le corrigé.",
+  gateTitle: 'Recevez votre corrigé détaillé',
+  gatePitch: 'Les 10 réponses expliquées, avec <strong>leurs références</strong> — le document que vous garderez sous la main.',
+  gateLi1: 'Corrigé complet, envoyé immédiatement',
+  gateLi2: 'Votre badge de niveau, partageable sur LinkedIn',
+  emailPh: 'votre.nom@laboratoire.com',
+  consent: 'Je rejoins aussi <b>Regafy Pulse</b> — la liste privée des experts RA UEMOA/CEDEAO : textes officiels, notes de service, masterclass, actus du secteur. Désinscription en un clic.',
+  submit: 'Recevoir le corrigé',
+  rgpd: 'Vos données servent uniquement à l’envoi demandé. Abonnement confirmé par double opt-in. <a href="/confidentialite">Politique de confidentialité</a>',
+  doneTitle: 'C’est envoyé !',
+  doneText: 'Vérifiez votre boîte mail — le corrigé arrive, et si vous avez coché Regafy Pulse, un clic le confirmera.',
+  share: 'Défier un confrère sur LinkedIn ↗',
+  retry: 'Refaire le test',
+  softP: 'Ces questions viennent du référentiel réglementaire vivant de Pharnos.',
+  softA: 'Découvrir comment les équipes RA pilotent leurs dossiers avec Pharnos →',
+  footer: '© Regafy — un projet <a href="https://pharnos.com" rel="noopener">Pharnos</a> · contenu informatif, ne remplace pas les textes officiels',
+  counter: (i, n) => `Question ${i} / ${n}`,
+  score: (s) => `Score : ${s}`,
+  ok: '✓ Bonne réponse',
+  ko: '✗ Pas tout à fait',
+  next: 'Question suivante →',
+  seeResult: 'Voir mon résultat →',
+  invalidEmail: 'Adresse e-mail invalide.',
+  sending: 'Envoi en cours…',
+  sendFail: "L'envoi n'a pas abouti — réessayez dans un instant.",
+};
+
+const UI_EN = {
+  counter: (i, n) => `Question ${i} / ${n}`,
+  score: (s) => `Score: ${s}`,
+  ok: '✓ Correct',
+  ko: '✗ Not quite',
+  next: 'Next question →',
+  seeResult: 'See my result →',
+  invalidEmail: 'Invalid email address.',
+  sending: 'Sending…',
+  sendFail: "That didn't go through — please try again in a moment.",
+};
+
+const T = LANG === 'fr' ? UI_FR : UI_EN;
+
+/* ── Questions (answer index identical across languages) ── */
+const QUESTIONS_FR = [
   {
     domain: 'Institutions',
     text: "Combien d'États membres compte l'espace UEMOA ?",
@@ -14,18 +73,18 @@ const QUESTIONS = [
     source: "Traité de l'UEMOA",
   },
   {
-    domain: 'Institutions · Sénégal',
-    text: "Au Sénégal, quelle autorité délivre aujourd'hui les autorisations de mise sur le marché (AMM) ?",
+    domain: 'Langue de soumission',
+    text: "Dans une soumission aux autorités de l'espace UEMOA, quels documents doivent impérativement être en français ?",
     options: [
-      'La DPM (Direction de la Pharmacie et du Médicament)',
-      "L'ARP (Agence sénégalaise de Réglementation Pharmaceutique)",
-      'Le LNCM',
-      "L'Ordre des pharmaciens",
+      'Uniquement le RCP et la notice patient',
+      'La correspondance officielle, le RCP, la notice patient et les emballages primaires & secondaires',
+      "Uniquement la correspondance officielle avec l'autorité",
+      "Aucun — l'anglais est accepté pour tout le dossier",
     ],
     answer: 1,
     explain:
-      "L'ARP a pris le relais de la Direction de la Pharmacie et du Médicament comme autorité nationale de réglementation pharmaceutique du Sénégal.",
-    source: 'Cadre institutionnel ARP, Sénégal',
+      "Le français s'impose partout où l'autorité et le patient lisent : correspondance officielle, RCP, notice patient et articles de conditionnement primaire et secondaire. Les parties techniques du dossier (modules qualité du CTD) sont plus souvent tolérées en anglais.",
+    source: "Pratiques des autorités de l'espace UEMOA",
   },
   {
     domain: 'Harmonisation régionale',
@@ -52,121 +111,282 @@ const QUESTIONS = [
     ],
     answer: 1,
     explain:
-      "Le CTD structure le dossier en 5 modules. L'eCTD n'est pas encore une exigence généralisée dans la région — le papier structuré au format CTD reste la norme.",
+      "Le CTD structure le dossier en 5 modules. L'eCTD n'est pas encore une exigence généralisée dans la région — le dossier structuré au format CTD reste la norme.",
     source: "Lignes directrices d'homologation UEMOA",
   },
   {
-    domain: "Barèmes · Côte d'Ivoire",
-    text: "En Côte d'Ivoire, les redevances d'AMM sont perçues…",
+    domain: 'Échantillons',
+    text: 'Quelle durée de vie restante est exigée pour les échantillons soumis avec le dossier ?',
     options: [
-      'Par dossier déposé, quel que soit son contenu',
-      'Par forme galénique, par dosage et par présentation',
-      'Par laboratoire et par an',
-      'Uniquement pour les spécialités, les génériques étant exonérés',
-    ],
-    answer: 1,
-    explain:
-      'Le décret n° 2015-602 les institue par forme galénique et présentation — et le barème est identique pour les princeps et les génériques. Un produit en 3 dosages × 2 présentations = 6 redevances.',
-    source: 'Décret n° 2015-602 du 02/09/2015, art. 3 · modalités AIRP n° 01509 du 22/07/2024',
-  },
-  {
-    domain: "Barèmes · Côte d'Ivoire",
-    text: "Toujours à l'AIRP : quel avantage tarifaire une industrie pharmaceutique implantée dans l'espace UEMOA a-t-elle sur la redevance d'AMM (500 000 FCFA) ?",
-    options: [
-      'Aucun — le barème est identique pour tous',
-      'Une remise de 10 %',
-      'Moitié prix : 250 000 FCFA',
-      'La gratuité totale',
+      '6 mois minimum',
+      '12 mois minimum',
+      'Au moins 18 mois, ou les 2/3 de la durée de conservation',
+      'Aucune exigence particulière',
     ],
     answer: 2,
     explain:
-      "Les industries de l'espace UEMOA paient moitié prix : 250 000 FCFA au lieu de 500 000. Un vrai levier pour la production régionale — et un détail que beaucoup de dossiers budgétaires oublient.",
-    source: "Modalités de demande d'AMM, AIRP n° 01509 du 22/07/2024",
+      'À la soumission, les échantillons doivent conserver au moins 18 mois de validité — ou les deux tiers de leur durée de conservation totale. Un lot trop entamé, et le dossier revient.',
+    source: "Pratiques des autorités de l'espace UEMOA",
   },
   {
-    domain: "Échantillons · Côte d'Ivoire",
-    text: "Combien d'échantillons du produit fini (modèle-vente) l'AIRP exige-t-elle au dépôt d'une demande d'AMM ?",
-    options: ['5', '10', '30', '50'],
-    answer: 2,
-    explain:
-      "Trente échantillons modèle-vente définitif présentés en français — ou une maquette accompagnée d'une lettre d'engagement à fournir les échantillons. Le vrac n'est pas accepté.",
-    source: 'Modalités AIRP n° 01509 du 22/07/2024',
-  },
-  {
-    domain: 'Barèmes · Sénégal',
-    text: "Au Sénégal, le décret n° 2025-1833 fixe l'autorisation d'importation d'échantillons à…",
+    domain: 'Fondamentaux',
+    text: "Comment s'appelle le document qui autorise officiellement un laboratoire à vendre son médicament dans un pays de l'UEMOA ?",
     options: [
-      '50 000 FCFA par dossier, validité 1 an',
-      '100 000 FCFA par produit, par forme et par dosage, validité 6 mois',
-      '250 000 FCFA forfaitaires',
-      'Gratuite sur simple déclaration',
+      'Le certificat GMP',
+      "L'AMM — Autorisation de Mise sur le Marché",
+      'Le CPP',
+      "La licence d'exploitation",
     ],
     answer: 1,
     explain:
-      "100 000 FCFA par produit, par forme et par dosage, valable 6 mois — l'un des apports du tout nouveau barème des redevances de l'ARP.",
-    source: 'Décret n° 2025-1833 du 18/11/2025 (Sénégal)',
+      "L'AMM est LE sésame : sans elle, pas de commercialisation légale. Le certificat GMP et le CPP sont des pièces du dossier — pas l'autorisation elle-même.",
+    source: 'Règlement n° 06/2010/CM/UEMOA',
   },
   {
     domain: 'Cycle de vie',
-    text: "Quelle est la durée de validité classique d'une AMM dans les pays de l'espace UEMOA ?",
-    options: ['2 ans', '3 ans', '5 ans, renouvelable', '10 ans, non renouvelable'],
+    text: "Le renouvellement d'une AMM se prépare à partir de combien de temps avant son expiration ?",
+    options: ['1 mois', '3 mois', 'Au moins 6 mois', 'Il est automatique'],
     answer: 2,
     explain:
-      "Cinq ans renouvelables — et le renouvellement se prépare des mois à l'avance : redevances, échantillons selon les pays, dossier à jour. C'est l'échéance la plus souvent ratée par les titulaires.",
-    source: 'Règlement n° 06/2010/CM/UEMOA et pratiques nationales',
+      "Au moins 6 mois avant l'échéance : redevances, documents à jour, échantillons selon les pays… C'est l'échéance la plus souvent ratée par les titulaires.",
+    source: "Pratiques des autorités de l'espace UEMOA",
   },
   {
-    domain: "Actualité · Côte d'Ivoire",
-    text: "Depuis mars 2026, comment l'AIRP reçoit-elle les dépôts de demandes d'AMM ?",
+    domain: 'Variations',
+    text: "Le changement du nom commercial d'un produit relève de quel type de variation ?",
     options: [
-      'Dépôt libre au guichet, tous les jours ouvrés',
-      'Uniquement par voie électronique',
-      "Sur sessions d'enregistrement programmées, sur rendez-vous",
-      'Par courrier postal exclusivement',
+      'Variation majeure',
+      'Variation mineure',
+      "Nouvelle demande d'AMM complète",
+      'Simple information, sans dossier',
+    ],
+    answer: 1,
+    explain:
+      "C'est une variation mineure — mais une variation quand même : elle se déclare et se documente auprès de l'autorité.",
+    source: 'Lignes directrices variations, espace UEMOA',
+  },
+  {
+    domain: "Dossier d'AMM",
+    text: "Quelles pièces administratives sont le plus fréquemment demandées aux laboratoires lors d'une demande d'AMM ?",
+    options: [
+      'Le certificat GMP uniquement',
+      'Certificat GMP, CPP, certificat de libre vente (FSC) et licence de fabrication',
+      'Une simple lettre de demande suffit',
+      "Le rapport d'audit interne du laboratoire",
+    ],
+    answer: 1,
+    explain:
+      'Le quatuor classique : certificat GMP (bonnes pratiques de fabrication), CPP (certificat de produit pharmaceutique, modèle OMS), certificat de libre vente (FSC) et licence de fabrication.',
+    source: "Pratiques des autorités de l'espace UEMOA",
+  },
+  {
+    domain: 'Harmonisation continentale',
+    text: "L'UEMOA étant un espace économique commun, une AMM obtenue en Côte d'Ivoire permet-elle de vendre légalement au Bénin et au Sénégal sans autorisation supplémentaire ?",
+    options: [
+      "Oui, l'AMM vaut pour les 8 États",
+      'Oui, après une simple notification',
+      "Non — chaque État délivre sa propre AMM ; mais l'AMA et l'harmonisation régionale y travaillent",
+      "Non, et aucune harmonisation n'est envisagée",
     ],
     answer: 2,
     explain:
-      "La note circulaire n° 0914/AIRP du 24 mars 2026 instaure des sessions programmées (appel à manifestation d'intérêt, plan annuel de réception) avec réception sur rendez-vous, 8 h 30 – 15 h 30. Si vous l'ignoriez, votre prochain dépôt attendra la prochaine session…",
-    source: 'Note circulaire n° 0914/AIRP du 24/03/2026',
+      "Chaque autorité nationale délivre sa propre AMM. La bonne nouvelle : l'harmonisation avance — règlement UEMOA, OOAS, et l'Agence africaine du médicament (AMA) préparent la reconnaissance mutuelle de demain.",
+    source: 'Traité AMA · règlement n° 06/2010/CM/UEMOA',
   },
 ];
 
-const LEVELS = [
+const QUESTIONS_EN = [
   {
-    min: 9,
-    cls: 'gold',
-    icon: '🏅',
-    label: 'Expert régional',
-    sub: 'Impressionnant. Vous suivez même les textes publiés il y a quelques mois — vos confrères devraient vous consulter avant chaque dépôt.',
+    domain: 'Institutions',
+    text: 'How many member states make up the WAEMU (UEMOA) area?',
+    options: ['6', '8', '12', '15'],
+    answer: 1,
+    explain:
+      "Eight: Benin, Burkina Faso, Côte d'Ivoire, Guinea-Bissau, Mali, Niger, Senegal and Togo — a pharmaceutical market sharing the CFA franc and a common harmonisation framework.",
+    source: 'WAEMU Treaty',
   },
   {
-    min: 7,
-    cls: 'blue',
-    icon: '🎯',
-    label: 'Confirmé',
-    sub: 'Solide. Il ne vous manque que les toutes dernières évolutions — précisément ce que suit une veille réglementaire continue.',
+    domain: 'Submission language',
+    text: 'In a submission to a WAEMU-area authority, which documents must be in French?',
+    options: [
+      'Only the SmPC and the patient leaflet',
+      'Official correspondence, the SmPC, the patient leaflet, and primary & secondary packaging',
+      'Only the official correspondence with the authority',
+      'None — English is accepted for the whole dossier',
+    ],
+    answer: 1,
+    explain:
+      'French is required wherever the authority and the patient read: official correspondence, the SmPC, the patient leaflet, and primary & secondary packaging components. The technical parts of the dossier (CTD quality modules) are more often accepted in English.',
+    source: 'Practice of WAEMU-area authorities',
   },
   {
-    min: 4,
-    cls: 'blue',
-    icon: '📚',
-    label: 'En progression',
-    sub: 'Les fondamentaux sont là. Les barèmes et textes récents évoluent vite dans la région — le corrigé sourcé va vous être utile.',
+    domain: 'Regional harmonisation',
+    text: 'Which regional text harmonises the marketing-authorisation procedures for human medicines across WAEMU member states?',
+    options: [
+      'Directive No. 03/2006/CM/UEMOA',
+      'Regulation No. 06/2010/CM/UEMOA',
+      'WAHO Decision No. 09/2015',
+      'The Ouagadougou Protocol',
+    ],
+    answer: 1,
+    explain:
+      'Regulation No. 06/2010/CM/UEMOA lays the common foundation for authorisation procedures across the eight member states — the reference text for regional harmonisation.',
+    source: 'Regulation No. 06/2010/CM/UEMOA',
   },
   {
-    min: 0,
-    cls: 'grey',
-    icon: '🧭',
-    label: 'Explorateur',
-    sub: "L'espace UEMOA a ses règles propres, pays par pays. Bonne nouvelle : le corrigé est un excellent point de départ.",
+    domain: 'MA dossier',
+    text: 'In which format are marketing-authorisation dossiers expected in the WAEMU area?',
+    options: [
+      'Free format, at the company’s discretion',
+      'CTD format (Common Technical Document)',
+      'eCTD only, submitted electronically',
+      'ACTD format (ASEAN)',
+    ],
+    answer: 1,
+    explain:
+      'The CTD structures the dossier into 5 modules. eCTD is not yet a general requirement in the region — a structured CTD dossier remains the norm.',
+    source: 'WAEMU authorisation guidelines',
+  },
+  {
+    domain: 'Samples',
+    text: 'What remaining shelf life is required for samples submitted with the dossier?',
+    options: [
+      'At least 6 months',
+      'At least 12 months',
+      'At least 18 months, or two-thirds of the shelf life',
+      'No particular requirement',
+    ],
+    answer: 2,
+    explain:
+      'At submission, samples must retain at least 18 months of validity — or two-thirds of their total shelf life. Too little left, and the dossier comes back.',
+    source: 'Practice of WAEMU-area authorities',
+  },
+  {
+    domain: 'Fundamentals',
+    text: 'What is the document that officially authorises a company to market its medicine in a WAEMU country?',
+    options: [
+      'The GMP certificate',
+      'The Marketing Authorisation (MA / AMM)',
+      'The CPP',
+      'The operating licence',
+    ],
+    answer: 1,
+    explain:
+      'The Marketing Authorisation is THE key: without it, no legal marketing. The GMP certificate and the CPP are supporting documents — not the authorisation itself.',
+    source: 'Regulation No. 06/2010/CM/UEMOA',
+  },
+  {
+    domain: 'Lifecycle',
+    text: 'How long before its expiry should the renewal of a Marketing Authorisation be prepared?',
+    options: ['1 month', '3 months', 'At least 6 months', 'Renewal is automatic'],
+    answer: 2,
+    explain:
+      'At least 6 months before expiry: fees, updated documents, samples depending on the country… It is the deadline most often missed by MA holders.',
+    source: 'Practice of WAEMU-area authorities',
+  },
+  {
+    domain: 'Variations',
+    text: 'A change of a product’s trade name falls under which type of variation?',
+    options: [
+      'Major variation',
+      'Minor variation',
+      'A complete new MA application',
+      'Simple information, no dossier',
+    ],
+    answer: 1,
+    explain:
+      'It is a minor variation — but a variation nonetheless: it must be declared and documented with the authority.',
+    source: 'Variation guidelines, WAEMU area',
+  },
+  {
+    domain: 'MA dossier',
+    text: 'Which administrative documents are most frequently requested from pharmaceutical companies in an MA application?',
+    options: [
+      'The GMP certificate only',
+      'GMP certificate, CPP, Free Sale Certificate (FSC) and Manufacturing Licence',
+      'A simple request letter is enough',
+      'The company’s internal audit report',
+    ],
+    answer: 1,
+    explain:
+      'The classic quartet: GMP certificate (good manufacturing practice), CPP (Certificate of Pharmaceutical Product, WHO scheme), Free Sale Certificate (FSC) and Manufacturing Licence.',
+    source: 'Practice of WAEMU-area authorities',
+  },
+  {
+    domain: 'Continental harmonisation',
+    text: 'WAEMU being a common economic area, does an MA obtained in Côte d’Ivoire allow you to sell legally in Benin and Senegal without further authorisation?',
+    options: [
+      'Yes, the MA is valid across the 8 states',
+      'Yes, after a simple notification',
+      'No — each state issues its own MA; but the AMA and regional harmonisation are working on it',
+      'No, and no harmonisation is planned',
+    ],
+    answer: 2,
+    explain:
+      'Each national authority issues its own MA. The good news: harmonisation is moving — the WAEMU regulation, WAHO, and the African Medicines Agency (AMA) are paving the way for tomorrow’s mutual recognition.',
+    source: 'AMA Treaty · Regulation No. 06/2010/CM/UEMOA',
   },
 ];
+
+const QUESTIONS = LANG === 'fr' ? QUESTIONS_FR : QUESTIONS_EN;
+
+const LEVELS_FR = [
+  { min: 9, cls: 'gold', icon: '🏅', label: 'Expert régional', sub: 'Impressionnant. Le terrain n’a plus de secret pour vous — vos confrères devraient vous consulter avant chaque dépôt.' },
+  { min: 7, cls: 'blue', icon: '🎯', label: 'Confirmé', sub: 'Solide. Il ne vous manque que quelques subtilités — précisément ce qu’une veille continue apporte.' },
+  { min: 4, cls: 'blue', icon: '📚', label: 'En progression', sub: 'Les fondamentaux sont là. Les pratiques évoluent vite dans la région — le corrigé va vous être utile.' },
+  { min: 0, cls: 'grey', icon: '🧭', label: 'Explorateur', sub: 'L’espace UEMOA a ses règles propres, pays par pays. Bonne nouvelle : le corrigé est un excellent point de départ.' },
+];
+
+const LEVELS_EN = [
+  { min: 9, cls: 'gold', icon: '🏅', label: 'Regional Expert', sub: 'Impressive. The field holds no secrets for you — your peers should check with you before every submission.' },
+  { min: 7, cls: 'blue', icon: '🎯', label: 'Seasoned', sub: 'Solid. Only a few subtleties are missing — exactly what continuous regulatory intelligence brings.' },
+  { min: 4, cls: 'blue', icon: '📚', label: 'Building up', sub: 'The fundamentals are there. Practice moves fast in the region — the answer key will serve you well.' },
+  { min: 0, cls: 'grey', icon: '🧭', label: 'Explorer', sub: 'The WAEMU area has rules of its own, country by country. Good news: the answer key is a great place to start.' },
+];
+
+const LEVELS = LANG === 'fr' ? LEVELS_FR : LEVELS_EN;
 
 let current = 0;
 let score = 0;
 let answered = false;
 
 const $ = (id) => document.getElementById(id);
+
+/* FR swap of the static English chrome */
+function applyLang() {
+  if (LANG !== 'fr') return;
+  document.documentElement.lang = 'fr';
+  document.title = UI_FR.title;
+  const set = (id, html) => {
+    const el = $(id);
+    if (el) el.innerHTML = html;
+  };
+  set('i-kicker', UI_FR.kicker);
+  set('i-h1', UI_FR.h1);
+  set('i-lead', UI_FR.lead);
+  set('i-chip1', UI_FR.chip1);
+  set('i-chip2', UI_FR.chip2);
+  set('i-chip3', UI_FR.chip3);
+  set('start-btn', UI_FR.start);
+  set('i-fineprint', UI_FR.fineprint);
+  set('g-title', UI_FR.gateTitle);
+  set('g-pitch', UI_FR.gatePitch);
+  set('g-li1', UI_FR.gateLi1);
+  set('g-li2', UI_FR.gateLi2);
+  set('g-consent-text', UI_FR.consent);
+  set('gate-submit', UI_FR.submit);
+  set('g-rgpd', UI_FR.rgpd);
+  set('done-title', UI_FR.doneTitle);
+  set('done-text', UI_FR.doneText);
+  set('share-btn', UI_FR.share);
+  set('retry-btn', UI_FR.retry);
+  set('soft-p', UI_FR.softP);
+  set('soft-a', UI_FR.softA);
+  set('site-footer', UI_FR.footer);
+  set('r-den', 'sur 10');
+  const email = $('email');
+  if (email) email.placeholder = UI_FR.emailPh;
+}
 
 function startQuiz() {
   $('screen-intro').classList.add('hidden');
@@ -177,8 +397,8 @@ function startQuiz() {
 function renderQuestion() {
   answered = false;
   const q = QUESTIONS[current];
-  $('q-counter').textContent = `Question ${current + 1} / ${QUESTIONS.length}`;
-  $('q-score').textContent = `Score : ${score}`;
+  $('q-counter').textContent = T.counter(current + 1, QUESTIONS.length);
+  $('q-score').textContent = T.score(score);
   $('q-progress').style.width = `${(current / QUESTIONS.length) * 100}%`;
   $('q-domain').textContent = q.domain;
   $('q-text').textContent = q.text;
@@ -214,15 +434,18 @@ function answer(i) {
     else b.classList.add('dim');
   });
   const v = $('q-verdict');
-  v.textContent = ok ? '✓ Bonne réponse' : '✗ Pas tout à fait';
+  v.textContent = ok ? T.ok : T.ko;
   v.className = 'verdict ' + (ok ? 'ok' : 'ko');
   $('q-explain-text').textContent = q.explain;
   $('q-source').textContent = q.source;
   $('q-explain').classList.add('show');
-  $('q-score').textContent = `Score : ${score}`;
-  $('q-next-btn').textContent =
-    current === QUESTIONS.length - 1 ? 'Voir mon résultat →' : 'Question suivante →';
+  $('q-score').textContent = T.score(score);
+  $('q-next-btn').textContent = current === QUESTIONS.length - 1 ? T.seeResult : T.next;
   $('q-next-row').classList.add('show');
+  // Le bouton « suivant » doit être visible sans scroll manuel (recette CEO)
+  requestAnimationFrame(() => {
+    $('q-next-row').scrollIntoView({ behavior: 'smooth', block: 'end' });
+  });
 }
 
 function nextQuestion() {
@@ -264,14 +487,14 @@ async function submitGate(ev) {
   const msg = form.querySelector('.form-msg');
   const email = emailEl.value.trim();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-    msg.textContent = 'Adresse e-mail invalide.';
+    msg.textContent = T.invalidEmail;
     msg.className = 'form-msg err';
     emailEl.focus();
     return;
   }
   const btn = $('gate-submit');
   btn.disabled = true;
-  msg.textContent = 'Envoi en cours…';
+  msg.textContent = T.sending;
   msg.className = 'form-msg';
   try {
     const res = await fetch('/api/subscribe', {
@@ -282,6 +505,7 @@ async function submitGate(ev) {
         newsletter: $('consent').checked,
         source: 'quiz',
         score,
+        lang: LANG,
         website: form.querySelector('.hp').value,
       }),
     });
@@ -290,20 +514,17 @@ async function submitGate(ev) {
     $('gate-done').style.display = 'block';
   } catch {
     btn.disabled = false;
-    msg.textContent = "L'envoi n'a pas abouti — réessayez dans un instant.";
+    msg.textContent = T.sendFail;
     msg.className = 'form-msg err';
   }
 }
 
 function shareLinkedIn() {
-  const url = encodeURIComponent('https://regafy.com/quiz');
-  window.open(
-    `https://www.linkedin.com/sharing/share-offsite/?url=${url}`,
-    '_blank',
-    'noopener'
-  );
+  const url = encodeURIComponent(location.origin + '/');
+  window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, '_blank', 'noopener');
 }
 
+applyLang();
 $('start-btn').addEventListener('click', startQuiz);
 $('q-next-btn').addEventListener('click', nextQuestion);
 $('gate-form').addEventListener('submit', submitGate);
