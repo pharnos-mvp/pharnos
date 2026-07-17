@@ -106,6 +106,54 @@ export interface AdminAuditParams {
   orgId?: string
 }
 
+// ── Console Acquisition (0064) — leads, invitations, apport par expert ─────────────────────
+export type DemoStatus = 'nouveau' | 'contacte' | 'demo_faite' | 'converti' | 'sans_suite'
+
+export interface DemoRequestRow {
+  id: string
+  created_at: string
+  updated_at: string
+  full_name: string
+  email: string
+  org_type: string
+  org_type_other: string | null
+  company: string
+  job_title: string
+  country: string
+  status: DemoStatus
+  notes: string | null
+}
+
+export interface PlatformInviteRow {
+  id: string
+  code: string
+  label: string
+  max_uses: number
+  used_count: number
+  revoked_at: string | null
+  expires_at: string | null
+  note: string | null
+  created_at: string
+}
+
+export interface AcquisitionReport {
+  generated_at: string
+  invites: Array<{
+    id: string
+    code: string
+    label: string
+    max_uses: number
+    used_count: number
+    revoked: boolean
+    expires_at: string | null
+    created_at: string
+    signups: number
+    distinct_users: number
+    orgs_live: number
+    orgs_active: number
+  }>
+}
+
 /** Levée quand l'appelant n'est pas super-admin Pharnos (403) — déclenche l'écran « accès refusé ». */
 export class AdminForbiddenError extends Error {}
 
@@ -136,6 +184,20 @@ export const adminApi = {
     maxStorageBytes: number | null,
   ) => callAdmin('set_quota', { orgId, maxDossiers, monthlyAiTokens, maxStorageBytes }),
   setDisabled: (orgId: string, disabled: boolean) => callAdmin('set_disabled', { orgId, disabled }),
+  // Console Acquisition — la modération des leads et des codes reste 100 % côté Edge/service-role.
+  acqDemos: () => callAdmin<DemoRequestRow[]>('acq_demos'),
+  acqDemoStatus: (id: string, status: DemoStatus, notes?: string | null) =>
+    callAdmin('acq_demo_status', { id, status, notes }),
+  acqInvites: () => callAdmin<PlatformInviteRow[]>('acq_invites'),
+  acqInviteCreate: (input: {
+    label: string
+    code?: string
+    maxUses?: number
+    expiresAt?: string | null
+    note?: string | null
+  }) => callAdmin<PlatformInviteRow>('acq_invite_create', input),
+  acqInviteRevoke: (id: string) => callAdmin('acq_invite_revoke', { id }),
+  acqReport: () => callAdmin<AcquisitionReport>('acq_report'),
   setPlanLimits: (
     plan: PlanTier,
     maxDossiers: number | null,

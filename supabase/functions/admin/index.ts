@@ -16,6 +16,33 @@ import { logJson, newReqId, userHash } from "../_shared/log.ts";
 const PLANS = new Set(["free", "pro", "team", "business", "enterprise"]);
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Console Acquisition (0064) — statuts du pipeline de leads + format des codes d'invitation.
+const DEMO_STATUSES = new Set([
+  "nouveau",
+  "contacte",
+  "demo_faite",
+  "converti",
+  "sans_suite",
+]);
+const INVITE_CODE_RE = /^[A-Z0-9][A-Z0-9-]{2,31}$/;
+
+/** Code par défaut depuis le label : « Dr Kouamé » → DR-KOUAME-X7Q4 (suffixe aléatoire =
+ * défense anti force-brute en profondeur, en plus du throttle du RPC create_org_onboarding). */
+function codeFromLabel(label: string): string {
+  const base = label
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 26)
+    .replace(/-+$/g, "");
+  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const rand = crypto.getRandomValues(new Uint8Array(4));
+  let suffix = "";
+  for (const byte of rand) suffix += alphabet[byte % alphabet.length];
+  return `${base || "INVITE"}-${suffix}`;
+}
 
 /** Borne un entier optionnel (quota) : null (= défaut du plan) ou entier >= 0 borné. */
 function optInt(v: unknown): number | null {
@@ -236,6 +263,100 @@ Deno.serve(async (req: Request) => {
           p_actor_email: actorEmail,
         });
       }
+      // ── Console Acquisition (0064) — leads + invitations + apport par expert ────────────────
+      case "acq_demos": {
+        const { data, error } = await svc
+          .from("demo_requests")
+          .select(
+            "id, created_at, updated_at, full_name, email, org_type, org_type_other, company, job_title, country, status, notes",
+          )
+          .order("created_at", { ascending: false })
+          .limit(200);
+        if (error) {
+          logJson({ ...log, op: action, status: "query_error", err: error.message.slice(0, 200) });
+          return json({ error: "query_failed" }, 500);
+        }
+        logJson({ ...log, op: action, status: "ok" });
+        return json({ ok: true, data });
+      }
+      case "acq_demo_status": {
+        const id = String(b.id ?? "");
+        const status = String(b.status ?? "");
+        const notes =
+          b.notes === undefined || b.notes === null ? undefined : String(b.notes).slice(0, 2000);
+        if (!UUID_RE.test(id) || !DEMO_STATUSES.has(status))
+          return json({ error: "bad_request" }, 400);
+        const patch: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
+        if (notes !== undefined) patch.notes = notes || null;
+        const { error } = await svc.from("demo_requests").update(patch).eq("id", id);
+        if (error) {
+          logJson({ ...log, op: action, status: "query_error", err: error.message.slice(0, 200) });
+          return json({ error: "query_failed" }, 500);
+        }
+        logJson({ ...log, op: action, status: "ok", to: status });
+        return json({ ok: true, data: null });
+      }
+      case "acq_invites": {
+        const { data, error } = await svc
+          .from("platform_invites")
+          .select("id, code, label, max_uses, used_count, revoked_at, expires_at, note, created_at")
+          .order("created_at", { ascending: false });
+        if (error) {
+          logJson({ ...log, op: action, status: "query_error", err: error.message.slice(0, 200) });
+          return json({ error: "query_failed" }, 500);
+        }
+        logJson({ ...log, op: action, status: "ok" });
+        return json({ ok: true, data });
+      }
+      case "acq_invite_create": {
+        const label = String(b.label ?? "").trim();
+        if (label.length < 1 || label.length > 120) return json({ error: "bad_request" }, 400);
+        const code =
+          typeof b.code === "string" && b.code.trim() !== ""
+            ? b.code.trim().toUpperCase()
+            : codeFromLabel(label);
+        if (!INVITE_CODE_RE.test(code)) return json({ error: "bad_code" }, 400);
+        const maxUses = optInt(b.maxUses) ?? 50;
+        if (maxUses < 1 || maxUses > 10000) return json({ error: "bad_request" }, 400);
+        const expiresAt =
+          typeof b.expiresAt === "string" && !Number.isNaN(Date.parse(b.expiresAt))
+            ? b.expiresAt
+            : null;
+        const note = b.note ? String(b.note).slice(0, 400) : null;
+        const { data, error } = await svc
+          .from("platform_invites")
+          .insert({ code, label, max_uses: maxUses, expires_at: expiresAt, note, created_by: actorId })
+          .select("id, code, label, max_uses, used_count, revoked_at, expires_at, note, created_at")
+          .single();
+        if (error) {
+          // 23505 = code déjà pris (contrainte unique) — l'admin choisit un autre code.
+          if (error.code === "23505") return json({ error: "code_taken" }, 409);
+          logJson({ ...log, op: action, status: "query_error", err: error.message.slice(0, 200) });
+          return json({ error: "query_failed" }, 500);
+        }
+        logJson({ ...log, op: action, status: "ok" });
+        return json({ ok: true, data });
+      }
+      case "acq_invite_revoke": {
+        const id = String(b.id ?? "");
+        if (!UUID_RE.test(id)) return json({ error: "bad_request" }, 400);
+        // Révocation, jamais de DELETE : l'attribution (redemptions) doit survivre au code.
+        const { error } = await svc
+          .from("platform_invites")
+          .update({ revoked_at: new Date().toISOString() })
+          .eq("id", id)
+          .is("revoked_at", null);
+        if (error) {
+          logJson({ ...log, op: action, status: "query_error", err: error.message.slice(0, 200) });
+          return json({ error: "query_failed" }, 500);
+        }
+        logJson({ ...log, op: action, status: "ok" });
+        return json({ ok: true, data: null });
+      }
+      case "acq_report":
+        logJson({ ...log, op: "acq_report", status: "ok" });
+        return await callRpc("admin_acquisition_report", {});
+
       default:
         return json({ error: "bad_request" }, 400);
     }
