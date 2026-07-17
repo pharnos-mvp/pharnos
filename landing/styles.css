@@ -50,10 +50,10 @@
   .skip-link:focus { left: 16px; top: 16px; z-index: 100; background: var(--navy); color: #fff; padding: 8px 14px; border-radius: 8px; }
   :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
 
-  /* ── Boutons (recette DS) ── */
-  .btn { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px;
-    border-radius: 10px; padding: 10px 20px; border: 1px solid transparent; cursor: pointer;
-    transition: var(--transition); }
+  /* ── Boutons (recette DS) — `font/color: inherit` : mêmes recettes sur <a> et <button> ── */
+  .btn { display: inline-flex; align-items: center; gap: 8px; font-family: inherit; font-weight: 600;
+    font-size: 15px; color: inherit; background: none; border-radius: 10px; padding: 10px 20px;
+    border: 1px solid transparent; cursor: pointer; transition: var(--transition); }
   .btn-primary { background: var(--blue); color: #fff; }
   .btn-primary:hover { background: var(--blue2); box-shadow: 0 4px 14px rgba(26,86,219,.35); transform: translateY(-1px); }
   .btn-primary:active { transform: translateY(0); }
@@ -140,6 +140,7 @@
   .hero-cta { display: flex; justify-content: center; flex-wrap: wrap; gap: 14px; margin-top: clamp(26px, 2.4vw, 40px); }
   .btn-white { display: inline-flex; align-items: center; justify-content: center; min-width: 240px;
     background: #ffffff; color: #7c3aed; font-family: 'Sora', sans-serif; font-weight: 600; font-size: 16px;
+    border: 0; cursor: pointer;
     border-radius: 999px; padding: 12px 30px; box-shadow: 0 10px 40px rgba(0,0,0,.35); transition: var(--transition); }
   .btn-white:hover { background: #f1eafc; color: #6023c9; }
   .btn-pill { border-radius: 999px; padding: 14px 30px; font-size: 16px; }
@@ -474,3 +475,37 @@
     .map-legend { position: static; margin-top: 10px; flex-direction: row; justify-content: flex-end; gap: 14px; }
     .cov { top: -6px; }
   }
+
+  /* ── Modale « Demander une démo » — carte papier du DS, fond encre estompé.
+       `margin: auto` obligatoire : le reset universel annule le centrage UA du <dialog>. ── */
+  .demo-dialog { margin: auto; width: min(560px, calc(100vw - 32px)); border: 1px solid var(--g200);
+    border-radius: var(--radius-lg); padding: clamp(24px, 4vw, 36px); background: var(--white);
+    color: var(--g800); box-shadow: var(--shadow-soft); }
+  .demo-dialog::backdrop { background: rgba(8, 18, 34, .55); backdrop-filter: blur(3px); }
+  .demo-form { position: relative; }
+  .demo-close { position: absolute; top: -8px; right: -8px; width: 34px; height: 34px; border: 0;
+    border-radius: 8px; background: transparent; color: var(--g500); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; transition: var(--transition); }
+  .demo-close:hover { background: var(--g100); color: var(--g800); }
+  .demo-close svg { width: 15px; height: 15px; }
+  .demo-sub { margin-top: 10px; font-size: 14.5px; color: var(--g600); max-width: 42ch; }
+  .demo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 22px; }
+  .demo-field { display: flex; flex-direction: column; gap: 6px; font-size: 13.5px;
+    font-weight: 600; color: var(--g700); }
+  .demo-field-full { grid-column: 1 / -1; }
+  .demo-field input { font: inherit; font-weight: 400; padding: 10px 12px; border: 1px solid var(--g300);
+    border-radius: var(--radius); background: var(--white); color: var(--g800); transition: var(--transition); }
+  .demo-field input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(26,86,219,.14); }
+  .demo-trap { position: absolute; left: -9999px; top: -9999px; }
+  .demo-error { margin-top: 14px; font-size: 13.5px; color: #b91c1c; }
+  .demo-error a { text-decoration: underline; }
+  .demo-actions { margin-top: 22px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .demo-privacy { font-size: 12.5px; color: var(--g500); max-width: 24ch; }
+  .demo-success { display: none; text-align: center; padding: 18px 0 6px; }
+  .demo-success svg { width: 44px; height: 44px; color: var(--success); }
+  .demo-success h3 { font-family: var(--font-serif); font-size: 22px; color: var(--navy); margin-top: 10px; }
+  .demo-success p { margin: 8px 0 18px; color: var(--g600); }
+  .demo-dialog.done .demo-sub, .demo-dialog.done .demo-grid,
+  .demo-dialog.done .demo-error, .demo-dialog.done .demo-actions { display: none; }
+  .demo-dialog.done .demo-success { display: block; }
+  @media (max-width: 560px) { .demo-grid { grid-template-columns: 1fr; } }
