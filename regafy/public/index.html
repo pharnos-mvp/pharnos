@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The UEMOA RA Test — how sharp are you? · Regafy</title>
-<meta name="description" content="10 sourced questions to test your command of pharmaceutical regulatory affairs in the WAEMU (UEMOA) area. Instant score, detailed answer key by email. Free, by Regafy.">
-<link rel="stylesheet" href="/styles.css?v=2">
+<meta name="description" content="10 timed questions to test your command of pharmaceutical regulatory affairs in the WAEMU (UEMOA) area. Instant score, global & country leaderboard, detailed answer key by email. Free, by Regafy.">
+<link rel="stylesheet" href="/styles.css?v=3">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 </head>
 <body>
@@ -21,11 +21,11 @@
   <section class="card" id="screen-intro">
     <span class="kicker" id="i-kicker">Quiz · Regulatory Affairs</span>
     <h1 id="i-h1">How sharp are you on WAEMU pharmaceutical regulation?</h1>
-    <p class="lead" id="i-lead">10 questions, from the fundamentals to field subtleties — submission language, samples, variations, renewals. <em>Every answer is explained and sourced.</em></p>
+    <p class="lead" id="i-lead">10 questions drawn at random, 30 seconds each — submission language, samples, variations, renewals. <em>Every answer is explained and sourced.</em></p>
     <div class="meta-row">
       <span class="meta-chip" id="i-chip1">📋 10 questions</span>
-      <span class="meta-chip" id="i-chip2">⏱️ ~3 minutes</span>
-      <span class="meta-chip" id="i-chip3">🏅 Your level at the end</span>
+      <span class="meta-chip" id="i-chip2">⏱️ 30 s per question</span>
+      <span class="meta-chip" id="i-chip3">🏆 Global & country leaderboard</span>
     </div>
     <button class="btn btn-primary btn-block" id="start-btn">Start the test</button>
     <p class="fineprint" id="i-fineprint">Free, no sign-up. Your score shows immediately — we only ask for your email if you want the detailed answer key.</p>
@@ -34,6 +34,7 @@
   <section class="card hidden" id="screen-quiz">
     <div class="progress-head">
       <span class="progress-label" id="q-counter">Question 1 / 10</span>
+      <span class="q-timer" id="q-timer" aria-live="off">30</span>
       <span class="progress-score" id="q-score">Score: 0</span>
     </div>
     <div class="progress-track"><div class="progress-fill" id="q-progress"></div></div>
@@ -63,13 +64,25 @@
         </div>
       </div>
       <div class="level-badge" id="r-badge"></div>
+      <p class="time-line" id="r-time"></p>
       <p class="result-sub" id="r-sub"></p>
+    </div>
+
+    <div class="board" id="board">
+      <h3 id="b-title">Enter the leaderboard</h3>
+      <p class="board-sub" id="b-sub">Score then time decide your rank — worldwide and in your country.</p>
+      <div class="board-form" id="board-form">
+        <input type="text" id="player-name" maxlength="24" placeholder="Your first name or alias" autocomplete="nickname" aria-label="Your name for the leaderboard">
+        <button class="btn btn-primary" id="board-btn" type="button">See my rank</button>
+      </div>
+      <p class="form-msg" id="b-msg" role="status" aria-live="polite"></p>
+      <div class="ranks hidden" id="ranks" aria-live="polite"></div>
     </div>
 
     <div class="gate" id="gate">
       <form id="gate-form" novalidate>
         <h3 id="g-title">Get your detailed answer key</h3>
-        <p class="pitch" id="g-pitch">All 10 answers explained, <strong>with their references</strong> — the document you will keep at hand.</p>
+        <p class="pitch" id="g-pitch">The 10 answers of YOUR draw, explained <strong>with their references</strong>.</p>
         <ul>
           <li id="g-li1">Complete answer key, sent immediately</li>
           <li id="g-li2">Your level badge, shareable on LinkedIn</li>
@@ -106,6 +119,7 @@
 
 <footer class="site" id="site-footer">© Regafy — a <a href="https://pharnos.com" rel="noopener">Pharnos</a> project · informational content, does not replace official texts</footer>
 
-<script src="/quiz.js?v=2" defer></script>
+<script src="/bank.js?v=3" defer></script>
+<script src="/quiz.js?v=3" defer></script>
 </body>
 </html>

@@ -1,0 +1,10 @@
+# Config Pages du projet regafy — les BINDINGS sont déployés avec `wrangler pages deploy`
+# (IaC : pas de clic dashboard). La base D1 `regafy` porte le classement du quiz.
+name = "regafy"
+pages_build_output_dir = "public"
+compatibility_date = "2026-07-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "regafy"
+database_id = "943f7708-c4f9-48b2-a537-cda80987aabf"

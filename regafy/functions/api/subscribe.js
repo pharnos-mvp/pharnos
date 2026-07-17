@@ -1,21 +1,23 @@
 /* POST /api/subscribe — leads Regafy → Resend (contact + corrigé quiz + double opt-in Regafy Pulse).
    JS volontairement (pas de build/typescript sur ce projet statique) ; contrat d'entrée strict.
    Bilingue : `lang` ('en' par défaut, 'fr' si navigateur francophone) pilote les deux e-mails.
-   Env requis : RESEND_API_KEY, CONFIRM_SECRET. Optionnel : FROM_ADDR, SITE_URL.
-   Compte Resend Regafy = nouvelle API Contacts « flat » (POST /contacts), PAS d'audienceId.
-   Le contact est créé `unsubscribed: true` tant que le double opt-in n'est pas confirmé (/api/confirm). */
+   Corrigé PERSONNALISÉ : le front envoie les `ids` des 10 questions de SON tirage (banque
+   functions/api/bank.js) ; ids invalides → jeu par défaut (les 10 questions historiques).
+   Env requis : RESEND_API_KEY, CONFIRM_SECRET. Optionnel : FROM_ADDR, SITE_URL. */
 
-import { CORRIGE } from './corrige.js';
+import { BANK } from './bank.js';
 
 const EMAIL_RE = /^[^@\s]{1,64}@[^@\s]{1,255}\.[^@\s]{2,24}$/;
 const SOURCES = new Set(['quiz', 'home', 'outils']);
 const RESEND = 'https://api.resend.com';
+const DEFAULT_IDS = ['q01a', 'q02a', 'q03a', 'q04a', 'q05a', 'q06a', 'q07a', 'q08a', 'q09a', 'q10a'];
+const BY_ID = new Map(BANK.map((q) => [q.id, q]));
 
 const MAIL = {
   fr: {
     corrigeSubject: (s) => `Votre corrigé détaillé — Le Test RA UEMOA${s === null ? '' : ` (${s}/10)`}`,
     corrigeTitle: (s) => `Votre corrigé détaillé${s === null ? '' : ` — ${s}/10`}`,
-    corrigeIntro: 'Le Test RA UEMOA : les 10 réponses, chacune avec son explication et sa référence.',
+    corrigeIntro: 'Le Test RA UEMOA : les 10 questions de votre tirage, chacune avec sa réponse, son explication et sa référence.',
     corrigeOutro:
       'Ces questions viennent du référentiel réglementaire vivant de <a href="https://pharnos.com" style="color:#1a56db;">Pharnos</a> — l\'outil avec lequel les équipes RA pilotent leurs dossiers dans l\'espace UEMOA.',
     corrigeFooter: 'Contenu informatif — ne remplace pas les textes officiels.',
@@ -31,7 +33,7 @@ const MAIL = {
   en: {
     corrigeSubject: (s) => `Your detailed answer key — The UEMOA RA Test${s === null ? '' : ` (${s}/10)`}`,
     corrigeTitle: (s) => `Your detailed answer key${s === null ? '' : ` — ${s}/10`}`,
-    corrigeIntro: 'The UEMOA RA Test: all 10 answers, each with its explanation and reference.',
+    corrigeIntro: 'The UEMOA RA Test: the 10 questions of your draw, each with its answer, explanation and reference.',
     corrigeOutro:
       'These questions come from the living regulatory repository of <a href="https://pharnos.com" style="color:#1a56db;">Pharnos</a> — the tool RA teams use to run their dossiers across the WAEMU area.',
     corrigeFooter: 'Informational content — does not replace official texts.',
@@ -50,7 +52,7 @@ export async function onRequestPost({ request, env }) {
   if (!env.RESEND_API_KEY || !env.CONFIRM_SECRET) {
     return json(503, { error: 'service_not_configured' });
   }
-  if (Number(request.headers.get('content-length') || 0) > 2048) {
+  if (Number(request.headers.get('content-length') || 0) > 4096) {
     return json(413, { error: 'too_large' });
   }
   let body;
@@ -71,16 +73,15 @@ export async function onRequestPost({ request, env }) {
   const t = MAIL[lang];
   const score =
     Number.isInteger(body.score) && body.score >= 0 && body.score <= 10 ? body.score : null;
+  // Le tirage du joueur ; toute anomalie → jeu par défaut
+  let ids = Array.isArray(body.ids) ? body.ids.filter((i) => typeof i === 'string' && BY_ID.has(i)).slice(0, 12) : [];
+  if (ids.length === 0) ids = DEFAULT_IDS;
 
   const from = env.FROM_ADDR || 'Regafy Pulse <pulse@regafy.com>';
   const site = env.SITE_URL || new URL(request.url).origin;
 
   try {
-    // Contact (idempotent : « déjà existant » = succès). unsubscribed tant que non confirmé.
-    const c = await resend(env, 'POST', '/contacts', {
-      email,
-      unsubscribed: true,
-    });
+    const c = await resend(env, 'POST', '/contacts', { email, unsubscribed: true });
     if (!c.ok && c.status !== 409) throw new Error(`contact ${c.status}`);
 
     if (source === 'quiz') {
@@ -88,7 +89,7 @@ export async function onRequestPost({ request, env }) {
         from,
         to: [email],
         subject: t.corrigeSubject(score),
-        html: corrigeHtml(lang, score, site),
+        html: corrigeHtml(lang, score, site, ids),
       });
       if (!sent.ok) throw new Error(`corrige ${sent.status}`);
     }
@@ -107,7 +108,6 @@ export async function onRequestPost({ request, env }) {
 
     return json(200, { ok: true });
   } catch (err) {
-    // Pas de détail amont côté client ; le détail va dans les logs Pages.
     console.error('subscribe failed:', err instanceof Error ? err.message : err);
     return json(502, { error: 'upstream' });
   }
@@ -167,19 +167,22 @@ function shell(inner, site, footerText, privacyLabel) {
   </table></td></tr></table></body></html>`;
 }
 
-function corrigeHtml(lang, score, site) {
+function corrigeHtml(lang, score, site, ids) {
   const t = MAIL[lang];
-  const items = CORRIGE[lang]
-    .map(
-      (q, i) => `
+  const items = ids
+    .map((id, i) => {
+      const item = BY_ID.get(id);
+      const q = item[lang];
+      const answerText = q.options[item.answer];
+      return `
     <tr><td style="padding:14px 0;border-bottom:1px solid #e5e7eb;">
       <p style="margin:0 0 4px;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;">${t.question} ${i + 1} · ${esc(q.domain)}</p>
       <p style="margin:0 0 6px;font-weight:600;color:#0c1b33;">${esc(q.text)}</p>
-      <p style="margin:0 0 6px;color:#047857;font-weight:600;">✓ ${esc(q.answer)}</p>
+      <p style="margin:0 0 6px;color:#047857;font-weight:600;">✓ ${esc(answerText)}</p>
       <p style="margin:0 0 6px;color:#374151;">${esc(q.explain)}</p>
       <p style="margin:0;font-style:italic;color:#6b7280;font-size:13px;">— ${esc(q.source)}</p>
-    </td></tr>`
-    )
+    </td></tr>`;
+    })
     .join('');
   const inner = `
       <h1 style="margin:0 0 6px;font-size:21px;color:#0c1b33;">${t.corrigeTitle(score)}</h1>
