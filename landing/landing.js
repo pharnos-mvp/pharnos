@@ -1,3 +1,63 @@
+/* ── Modale « Demander une démo » — POST JSON vers l'Edge Supabase `demo-request`.
+     IIFE séparée : la scène de la constellation fait un early-return si le SVG manque. ── */
+(function () {
+  var dlg = document.getElementById('demo-dialog');
+  if (!dlg) return;
+  var form = document.getElementById('demo-form');
+  var submit = document.getElementById('demo-submit');
+  var errBox = document.getElementById('demo-error');
+  var API = 'https://uhsireqwzqqymgsxuvqh.supabase.co/functions/v1/demo-request';
+  var FALLBACK = 'mailto:contact@pharnos.com?subject=' + encodeURIComponent('Démo Pharnos');
+  var canModal = typeof dlg.showModal === 'function';
+
+  document.querySelectorAll('[data-demo-open]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (!canModal) { window.location.href = FALLBACK; return; } /* très vieux navigateurs */
+      dlg.classList.remove('done');
+      errBox.hidden = true;
+      dlg.showModal();
+      form.querySelector('input[name="fullName"]').focus();
+    });
+  });
+
+  dlg.addEventListener('click', function (e) {
+    if (e.target === dlg || e.target.closest('[data-demo-close]')) dlg.close();
+  });
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!form.reportValidity()) return;
+    var fd = new FormData(form);
+    submit.disabled = true;
+    submit.textContent = 'Envoi…';
+    errBox.hidden = true;
+    fetch(API, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        fullName: fd.get('fullName'),
+        email: fd.get('email'),
+        company: fd.get('company'),
+        jobTitle: fd.get('jobTitle'),
+        country: fd.get('country'),
+        website: fd.get('website')
+      })
+    }).then(function (res) {
+      if (!res.ok) throw new Error('http_' + res.status);
+      return res.json();
+    }).then(function () {
+      dlg.classList.add('done');
+      form.reset();
+      dlg.querySelector('.demo-success [data-demo-close]').focus();
+    }).catch(function () {
+      errBox.hidden = false;
+    }).finally(function () {
+      submit.disabled = false;
+      submit.textContent = 'Envoyer la demande';
+    });
+  });
+})();
+
 (function () {
     var MOTION = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 

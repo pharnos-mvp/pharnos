@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Pharnos — La plateforme du réglementaire pharmaceutique en Afrique</title>
 <meta name="description" content="CTD Builder, soumission, collaboration fluide entre laboratoire et représentant local, suivi en temps réel — sur un seul dashboard. UEMOA / CEDEAO." />
-<link rel="stylesheet" href="/styles.css?v=6" />
+<link rel="stylesheet" href="/styles.css?v=7" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <link rel="canonical" href="https://pharnos.com/" />
@@ -95,7 +95,7 @@
         suivi en temps réel — sur un seul dashboard.
       </p>
       <div class="hero-cta">
-        <a class="btn-white" href="https://app.pharnos.com">Demander une démo</a>
+        <button class="btn-white" type="button" data-demo-open>Demander une démo</button>
       </div>
     </div>
     <ul class="hero-proof">
@@ -458,12 +458,77 @@
       <h2>Votre prochain dossier mérite mieux qu'un tableur.</h2>
       <p>Compilez un premier dossier réel — gratuitement, en moins d'une journée.</p>
       <div class="btns">
-        <a class="btn btn-primary btn-lg" href="mailto:contact@pharnos.com?subject=Démo%20Pharnos">Demander une démo</a>
+        <button class="btn btn-primary btn-lg" type="button" data-demo-open>Demander une démo</button>
         <a class="btn btn-navy btn-lg" href="https://app.pharnos.com">Démarrer — pilote gratuit</a>
       </div>
     </div>
   </section>
 </main>
+
+<!-- ═══════════ MODALE « DEMANDER UNE DÉMO » — POST vers l'Edge demo-request ═══════════ -->
+<dialog class="demo-dialog" id="demo-dialog" aria-labelledby="demo-title">
+  <form class="demo-form" id="demo-form" novalidate>
+    <button class="demo-close" type="button" data-demo-close aria-label="Fermer">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
+    </button>
+    <p class="kicker">Demander une démo</p>
+    <h2 id="demo-title">Parlons de votre prochain dossier.</h2>
+    <p class="demo-sub">Laissez-nous vos coordonnées — un expert RA vous recontacte sous 24 h ouvrées pour organiser la démonstration.</p>
+    <div class="demo-grid">
+      <label class="demo-field">
+        <span>Nom et prénoms</span>
+        <input name="fullName" type="text" autocomplete="name" maxlength="160" required />
+      </label>
+      <label class="demo-field">
+        <span>E-mail professionnel</span>
+        <input name="email" type="email" autocomplete="email" maxlength="254" required />
+      </label>
+      <label class="demo-field">
+        <span>Nom de l'entreprise</span>
+        <input name="company" type="text" autocomplete="organization" maxlength="160" required />
+      </label>
+      <label class="demo-field">
+        <span>Poste</span>
+        <input name="jobTitle" type="text" autocomplete="organization-title" maxlength="120" required list="demo-roles" />
+      </label>
+      <label class="demo-field demo-field-full">
+        <span>Pays</span>
+        <input name="country" type="text" autocomplete="country-name" maxlength="80" required list="demo-countries" />
+      </label>
+    </div>
+    <datalist id="demo-roles">
+      <option value="Responsable Affaires Réglementaires"></option>
+      <option value="Chargé(e) Affaires Réglementaires"></option>
+      <option value="Pharmacien(ne) responsable"></option>
+      <option value="Directeur / Directrice"></option>
+      <option value="Consultant(e)"></option>
+    </datalist>
+    <datalist id="demo-countries">
+      <option value="Bénin"></option><option value="Burkina Faso"></option>
+      <option value="Côte d'Ivoire"></option><option value="Guinée-Bissau"></option>
+      <option value="Mali"></option><option value="Niger"></option>
+      <option value="Sénégal"></option><option value="Togo"></option>
+      <option value="Ghana"></option><option value="Nigéria"></option>
+      <option value="Maroc"></option><option value="Tunisie"></option>
+      <option value="France"></option><option value="Inde"></option>
+    </datalist>
+    <!-- Piège à bots : hors écran, doit rester vide (exclu de la tabulation et des lecteurs d'écran) -->
+    <div class="demo-trap" aria-hidden="true">
+      <label>Site web<input name="website" type="text" tabindex="-1" autocomplete="off" /></label>
+    </div>
+    <p class="demo-error" id="demo-error" hidden>Une erreur est survenue — réessayez dans un instant, ou écrivez-nous à <a href="mailto:contact@pharnos.com">contact@pharnos.com</a>.</p>
+    <div class="demo-actions">
+      <button class="btn btn-primary btn-lg" id="demo-submit" type="submit">Envoyer la demande</button>
+      <span class="demo-privacy">Vos informations servent uniquement à organiser la démo.</span>
+    </div>
+    <div class="demo-success">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg>
+      <h3>Demande envoyée !</h3>
+      <p>Merci — notre équipe vous recontacte sous 24 h ouvrées.</p>
+      <button class="btn btn-navy" type="button" data-demo-close>Fermer</button>
+    </div>
+  </form>
+</dialog>
 
 <footer class="site-footer">
   <div class="wrap">
@@ -507,6 +572,6 @@
     </div>
   </div>
 </footer>
-<script src="/landing.js?v=6" defer></script>
+<script src="/landing.js?v=7" defer></script>
 </body>
 </html>
