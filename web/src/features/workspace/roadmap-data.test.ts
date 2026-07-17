@@ -1,10 +1,20 @@
 import { describe, expect, it } from 'vitest'
 
-import { regulatoryProfileFor } from './roadmap-data'
+import { agencyFor, regulatoryProfileFor } from './roadmap-data'
 
 describe('regulatoryProfileFor', () => {
   it('retourne undefined pour un pays sans barème (repli générique)', () => {
     expect(regulatoryProfileFor('ML')).toBeUndefined()
+  })
+
+  it('contacts agences (hors bloc destinataire des lettres) — ARP + AIRP', () => {
+    expect(agencyFor('SN')).toMatchObject({
+      telephone: '+221 33 868 11 27',
+      email: 'contact@arp.sn',
+    })
+    expect(agencyFor('CI')?.email).toBe('secretariat@airp.ci')
+    // Pays sans contacts fournis : champs absents (la fiche masque les lignes).
+    expect(agencyFor('ML')?.telephone).toBeUndefined()
   })
 
   it("Côte d'Ivoire (AIRP) — décret n° 2015-602 + modalités n° 01509 + circulaire n° 0914", () => {
