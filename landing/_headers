@@ -10,11 +10,11 @@
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 
+# max-age court : ces fichiers sont versionnés par query (?v=N), mais pendant la propagation
+# d'un déploiement un edge peut cacher l'ANCIEN contenu sous la NOUVELLE URL (vu 2026-07-17 :
+# HTML neuf + vieux landing.js?v=9 pendant 1 h). 5 min borne ce risque, coût origin négligeable.
 /styles.css
-  Cache-Control: public, max-age=3600
-
-/i18n.js
-  Cache-Control: public, max-age=3600
+  Cache-Control: public, max-age=300
 
 /landing.js
-  Cache-Control: public, max-age=3600
+  Cache-Control: public, max-age=300
