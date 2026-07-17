@@ -11,6 +11,10 @@ export interface AgencyInfo {
   sexe: 'M' | 'F'
   /** Adresse postale (sans téléphone/email) — destinataire des lettres. */
   adresse: string
+  /** Téléphone standard de l'agence — contact opérationnel, jamais dans le bloc destinataire. */
+  telephone?: string
+  /** E-mail de contact de l'agence — idem, hors courriers générés. */
+  email?: string
 }
 
 /**
@@ -39,6 +43,9 @@ const AGENCIES: Record<string, AgencyInfo> = {
     directeur: 'Dr Assane Coulibaly',
     sexe: 'M',
     adresse: 'Abidjan, Cocody',
+    // En-tête officiel AIRP (modalités n° 01509 / circulaire n° 0914).
+    telephone: '+225 27 22 22 01 55 / 25 22 00 55 61',
+    email: 'secretariat@airp.ci',
   },
   GW: {
     name: 'DIFALRM',
@@ -67,6 +74,8 @@ const AGENCIES: Record<string, AgencyInfo> = {
     directeur: 'Dr Oumy Kalsoum Ndiaye Ndao',
     sexe: 'F',
     adresse: 'Dakar, Point E, Rue A x Rue 6',
+    telephone: '+221 33 868 11 27',
+    email: 'contact@arp.sn',
   },
   TG: {
     name: 'DPML',

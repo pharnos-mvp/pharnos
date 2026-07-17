@@ -122,6 +122,12 @@ export function AutoriteCockpit() {
             value={[detail.civilite, agency.directeur].filter(Boolean).join(' — ')}
           />
           <Field label={t({ fr: 'Adresse', en: 'Address' })} value={agency.adresse} />
+          {agency.telephone ? (
+            <Field label={t({ fr: 'Téléphone', en: 'Phone' })} value={agency.telephone} />
+          ) : null}
+          {agency.email ? (
+            <Field label={t({ fr: 'E-mail', en: 'Email' })} value={agency.email} />
+          ) : null}
         </dl>
       </div>
 
