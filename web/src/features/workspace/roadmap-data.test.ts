@@ -7,6 +7,31 @@ describe('regulatoryProfileFor', () => {
     expect(regulatoryProfileFor('ML')).toBeUndefined()
   })
 
+  it("Côte d'Ivoire (AIRP) — décret n° 2015-602 + modalités n° 01509 + circulaire n° 0914", () => {
+    const p = regulatoryProfileFor('CI')
+    expect(p?.currency).toBe('FCFA')
+    expect(p?.fees).toMatchObject({
+      new_ma: 500000,
+      renewal: 250000,
+      variation_minor: 50000,
+      variation_major: 500000,
+    })
+    // Réduction UEMOA (moitié prix) + perception par forme/dosage/présentation = notes.
+    for (const k of ['new_ma', 'renewal', 'variation'] as const) {
+      expect(p?.fees.notes?.[k]?.fr, k).toContain('UEMOA')
+      expect(p?.fees.notes?.[k]?.en, k).toBeTruthy()
+    }
+    // Échantillons : 30 modèles-vente + CoA ≥ 2/3 durée de vie + cas hospitaliers/PGHT.
+    expect(p?.samples.new_ma).toHaveLength(3)
+    expect(p?.samples.new_ma?.[0]?.fr).toContain('Trente (30)')
+    expect(p?.samples.reserve?.fr).toBeTruthy()
+    // Dépôt sur sessions programmées (note circulaire n° 0914/AIRP).
+    expect(p?.submissionNote?.fr).toMatch(/sessions/i)
+    expect(p?.submissionNote?.en).toBeTruthy()
+    // Délai non fixé par les textes fournis.
+    expect(p?.processingDays).toBeUndefined()
+  })
+
   it('Bénin (ABMed) — barème CEO', () => {
     const p = regulatoryProfileFor('BJ')
     expect(p?.fees).toMatchObject({
