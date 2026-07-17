@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Pharnos — La plateforme du réglementaire pharmaceutique en Afrique</title>
 <meta name="description" content="CTD Builder, soumission, collaboration fluide entre laboratoire et représentant local, suivi en temps réel — sur un seul dashboard. UEMOA / CEDEAO." />
-<link rel="stylesheet" href="/styles.css?v=8" />
+<link rel="stylesheet" href="/styles.css?v=9" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <link rel="canonical" href="https://pharnos.com/" />
@@ -483,8 +483,10 @@
         <span>E-mail professionnel</span>
         <input name="email" type="email" autocomplete="email" maxlength="254" required />
       </label>
-      <label class="demo-field">
-        <span>Type d'organisation</span>
+      <!-- « Autre » : la MÊME case bascule en saisie libre (bouton × pour revenir à la liste).
+           div + label[for] (pas de <label> englobant : un bouton dans un label déclenche le select) -->
+      <div class="demo-field">
+        <label for="demo-orgtype">Type d'organisation</label>
         <select name="orgType" id="demo-orgtype" required>
           <option value="" disabled selected>Choisir…</option>
           <option value="Laboratoire pharmaceutique">Laboratoire pharmaceutique</option>
@@ -493,18 +495,18 @@
           <option value="Représentant local">Représentant local</option>
           <option value="Autre">Autre (à préciser)</option>
         </select>
-      </label>
+        <span class="demo-swap" hidden>
+          <input name="orgTypeOther" type="text" maxlength="120" aria-label="Précisez le type d'organisation" placeholder="Votre type d'organisation…" />
+          <button class="demo-swap-back" type="button" aria-label="Revenir à la liste" title="Revenir à la liste"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button>
+        </span>
+      </div>
       <label class="demo-field">
         <span>Nom de l'entreprise</span>
         <input name="company" type="text" autocomplete="organization" maxlength="160" required />
       </label>
-      <label class="demo-field demo-field-full" id="demo-orgtype-other-field" hidden>
-        <span>Précisez le type d'organisation</span>
-        <input name="orgTypeOther" type="text" maxlength="120" />
-      </label>
-      <label class="demo-field">
-        <span>Poste</span>
-        <select name="jobTitle" autocomplete="organization-title" required>
+      <div class="demo-field">
+        <label for="demo-jobtitle">Poste</label>
+        <select name="jobTitle" id="demo-jobtitle" autocomplete="organization-title" required>
           <option value="" disabled selected>Choisir…</option>
           <option>Pharmacien(ne) responsable</option>
           <option>Responsable Affaires Réglementaires</option>
@@ -512,13 +514,23 @@
           <option>Directeur / Directrice Général(e)</option>
           <option>Responsable Qualité</option>
           <option>Consultant(e) / Expert(e) RA</option>
-          <option>Autre</option>
+          <option value="Autre">Autre (à préciser)</option>
         </select>
-      </label>
+        <span class="demo-swap" hidden>
+          <input name="jobTitleOther" type="text" maxlength="120" aria-label="Précisez votre poste" placeholder="Votre poste…" />
+          <button class="demo-swap-back" type="button" aria-label="Revenir à la liste" title="Revenir à la liste"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button>
+        </span>
+      </div>
       <label class="demo-field">
         <span>Pays</span>
         <select name="country" autocomplete="country-name" required>
           <option value="" disabled selected>Choisir…</option>
+          <optgroup label="Asie &amp; Moyen-Orient">
+            <option>Arabie saoudite</option><option>Bangladesh</option><option>Chine</option>
+            <option>Corée du Sud</option><option>Émirats arabes unis</option><option>Inde</option>
+            <option>Indonésie</option><option>Japon</option><option>Jordanie</option>
+            <option>Malaisie</option><option>Singapour</option><option>Turquie</option>
+          </optgroup>
           <optgroup label="UEMOA">
             <option>Bénin</option><option>Burkina Faso</option><option>Côte d'Ivoire</option>
             <option>Guinée-Bissau</option><option>Mali</option><option>Niger</option>
@@ -554,12 +566,6 @@
           <optgroup label="Amériques">
             <option>Brésil</option><option>Canada</option><option>États-Unis</option>
             <option>Mexique</option>
-          </optgroup>
-          <optgroup label="Asie &amp; Moyen-Orient">
-            <option>Arabie saoudite</option><option>Bangladesh</option><option>Chine</option>
-            <option>Corée du Sud</option><option>Émirats arabes unis</option><option>Inde</option>
-            <option>Indonésie</option><option>Japon</option><option>Jordanie</option>
-            <option>Malaisie</option><option>Singapour</option><option>Turquie</option>
           </optgroup>
           <option>Autre pays</option>
         </select>
@@ -625,6 +631,6 @@
     </div>
   </div>
 </footer>
-<script src="/landing.js?v=8" defer></script>
+<script src="/landing.js?v=9" defer></script>
 </body>
 </html>
