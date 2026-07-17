@@ -51,12 +51,15 @@ create index invite_redemptions_invite_idx
 alter table public.invite_redemptions enable row level security;
 
 -- ── Le verrou : create_org_onboarding avec code d'invitation ──────────────────────────────────
+-- Retourne un jsonb {ok, org_id | error, message} au lieu de lever une exception sur les refus :
+-- un RAISE annulerait TOUTE la transaction, y compris l'incrément du compteur anti force-brute —
+-- le throttle ne compterait alors que les succès. Un refus RETOURNÉ committe le compteur.
 create or replace function public.create_org_onboarding(
   p_name text,
   p_plan public.plan_tier,
   p_invite_code text
 )
-returns uuid
+returns jsonb
 language plpgsql
 security definer
 set search_path = public
@@ -66,9 +69,20 @@ declare
   v_email text;
   v_code text;
   v_invite public.platform_invites%rowtype;
+  v_is_admin boolean := public.is_platform_admin();
 begin
   if coalesce(trim(p_name), '') = '' then
-    raise exception 'Nom d''organisation requis';
+    return jsonb_build_object('ok', false, 'error', 'name_required',
+      'message', 'Nom d''organisation requis.');
+  end if;
+
+  -- Anti force-brute : les codes sont semi-publics et lisibles (« DR-KOUAME ») — sans throttle,
+  -- un compte Google suffirait à les deviner. Compteur par UTILISATEUR et par heure via
+  -- share_hit (0017), incrémenté à CHAQUE tentative (échec compris) ; admins exemptés (ops).
+  -- Défense en profondeur : la console admin génère les codes avec un suffixe aléatoire.
+  if not v_is_admin and public.share_hit('orggate:' || auth.uid()::text, 3600) > 10 then
+    return jsonb_build_object('ok', false, 'error', 'throttled',
+      'message', 'Trop de tentatives — réessayez dans une heure.');
   end if;
 
   -- Garde anti-abus (0015/0029) : 3 orgs / 24 h / utilisateur.
@@ -80,16 +94,17 @@ begin
       and m.role = 'admin'
       and o.created_at > now() - interval '24 hours'
   ) >= 3 then
-    raise exception 'Limite de création d''organisations atteinte (3 par 24 h) — réessayez plus tard.';
+    return jsonb_build_object('ok', false, 'error', 'rate_limited',
+      'message', 'Limite de création d''organisations atteinte (3 par 24 h) — réessayez plus tard.');
   end if;
 
   -- Verrou d'invitation. FOR UPDATE : deux inscriptions simultanées sur le même code ne
   -- dépassent jamais le quota (l'incrément est sérialisé sur la ligne du code).
   v_code := upper(trim(coalesce(p_invite_code, '')));
   if v_code = '' then
-    if not public.is_platform_admin() then
-      raise exception 'Un code d''invitation est requis pour créer une organisation.'
-        using errcode = 'P0403';
+    if not v_is_admin then
+      return jsonb_build_object('ok', false, 'error', 'invite_required',
+        'message', 'Un code d''invitation est requis pour créer une organisation.');
     end if;
   else
     select * into v_invite
@@ -100,8 +115,9 @@ begin
        or v_invite.revoked_at is not null
        or (v_invite.expires_at is not null and v_invite.expires_at < now())
        or v_invite.used_count >= v_invite.max_uses then
-      raise exception 'Code d''invitation invalide, expiré ou épuisé.'
-        using errcode = 'P0403';
+      -- Message UNIQUE quel que soit le motif : pas d'oracle d'énumération.
+      return jsonb_build_object('ok', false, 'error', 'invite_invalid',
+        'message', 'Code d''invitation invalide, expiré ou épuisé.');
     end if;
   end if;
 
@@ -123,7 +139,7 @@ begin
           new_org_id::text, 'create_org_onboarding',
           'org « ' || trim(p_name) || ' » · plan ' || p_plan::text
             || ' · code ' || coalesce(nullif(v_code, ''), '—'));
-  return new_org_id;
+  return jsonb_build_object('ok', true, 'org_id', new_org_id);
 end;
 $$;
 revoke all on function public.create_org_onboarding(text, public.plan_tier, text) from public, anon;

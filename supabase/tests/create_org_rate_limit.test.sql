@@ -28,11 +28,10 @@ select is(
   'create_org_onboarding : 3 créations en 24 h passent (code valide)'
 );
 
--- La 4e est rejetée (raise exception → SQLSTATE P0001), MÊME avec un code valide.
-select throws_ok(
-  $$ select public.create_org_onboarding('Org D4', 'free', 'RATE-TEST') $$,
-  'P0001',
-  null,
+-- La 4e est refusée (refus RETOURNÉ — cf. contrat jsonb de 0063), MÊME avec un code valide.
+select is(
+  public.create_org_onboarding('Org D4', 'free', 'RATE-TEST') ->> 'error',
+  'rate_limited',
   'create_org_onboarding : la 4e création en 24 h est bloquée (rate limit)'
 );
 

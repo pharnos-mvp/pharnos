@@ -65,7 +65,12 @@ export async function createOrgOnboarding(
     p_invite_code: inviteCode,
   })
   if (error) throw error
-  return data as string
+  // Refus RETOURNÉ (pas levé) par le RPC : un raise annulerait le compteur anti force-brute.
+  const res = data as { ok: boolean; org_id?: string; message?: string }
+  if (!res.ok || !res.org_id) {
+    throw new Error(res.message ?? "Code d'invitation invalide.")
+  }
+  return res.org_id
 }
 
 /** Mise à niveau self-serve : l'admin change le plan de son org (mode pilote, sans paiement). */

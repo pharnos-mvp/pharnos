@@ -117,14 +117,30 @@ export function OnboardingPage({ onCreated }: { onCreated: () => Promise<void> |
   async function finish() {
     if (!orgValid) return
     setSubmitting(true)
+    let orgId: string
     try {
       // Plan non choisi → Free (jamais bloquant, jamais facturé sans choix explicite).
-      const orgId = await createOrgOnboarding(
+      orgId = await createOrgOnboarding(
         orgName.trim(),
         planChosen ? plan : 'free',
         normalizeInviteCode(inviteCode),
       )
       clearStoredInviteCode()
+    } catch (error) {
+      toast.error(t({ fr: 'Échec de la création', en: 'Creation failed' }), {
+        description:
+          error instanceof Error
+            ? error.message
+            : t({ fr: 'Erreur inconnue', en: 'Unknown error' }),
+      })
+      setSubmitting(false)
+      return
+    }
+
+    // L'org EXISTE (et le code d'invitation est consommé) : tout ce qui suit est best-effort —
+    // un échec ici ne doit jamais réafficher « Échec de la création » (un retry recréerait une
+    // 2e org et consommerait le quota une 2e fois).
+    try {
       // Identité pro → pro_settings (Dexie + outbox, push immédiat) : le nom de l'org tient lieu
       // d'« entreprise » en tête des documents ; poste/pays facultatifs.
       await setOrgProfile(orgId, {
@@ -155,17 +171,11 @@ export function OnboardingPage({ onCreated }: { onCreated: () => Promise<void> |
           )
         }
       }
-      toast.success(t({ fr: 'Organisation créée', en: 'Organization created' }))
-      await onCreated()
-    } catch (error) {
-      toast.error(t({ fr: 'Échec de la création', en: 'Creation failed' }), {
-        description:
-          error instanceof Error
-            ? error.message
-            : t({ fr: 'Erreur inconnue', en: 'Unknown error' }),
-      })
-      setSubmitting(false)
+    } catch {
+      // Réglable depuis le compte ensuite — ne bloque pas l'entrée dans l'app.
     }
+    toast.success(t({ fr: 'Organisation créée', en: 'Organization created' }))
+    await onCreated()
   }
 
   const titles: Record<Step, { title: string; desc: string }> = {
