@@ -1,4 +1,4 @@
-/* GET /api/confirm?e=<b64url(email)>&t=<hmac> — double opt-in La Dépêche RA.
+/* GET /api/confirm?e=<b64url(email)>&t=<hmac> — double opt-in Regafy Pulse.
    Vérifie le jeton HMAC puis passe le contact Resend en `unsubscribed: false`
    (nouvelle API Contacts « flat », PATCH /contacts/{email} — pas d'audienceId).
    Env requis : RESEND_API_KEY, CONFIRM_SECRET. */

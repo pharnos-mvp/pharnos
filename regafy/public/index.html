@@ -1,75 +1,111 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Regafy — outils gratuits pour les affaires réglementaires pharma en Afrique de l'Ouest</title>
-<meta name="description" content="Quiz, veille et outils pratiques pour les professionnels des affaires réglementaires pharmaceutiques dans l'espace UEMOA. Gratuit, par Pharnos.">
-<link rel="stylesheet" href="/styles.css?v=1">
+<title>The UEMOA RA Test — how sharp are you? · Regafy</title>
+<meta name="description" content="10 sourced questions to test your command of pharmaceutical regulatory affairs in the WAEMU (UEMOA) area. Instant score, detailed answer key by email. Free, by Regafy.">
+<link rel="stylesheet" href="/styles.css?v=2">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 </head>
 <body>
-<a class="skip-link" href="#contenu">Aller au contenu</a>
+<a class="skip-link" href="#contenu">Skip to content</a>
 
 <header class="site">
   <a class="brand" href="/">Regafy<span class="dot">.</span></a>
   <span class="byline">by <a href="https://pharnos.com" rel="noopener">Pharnos</a></span>
 </header>
 
-<section class="hero" id="contenu">
-  <span class="kicker">La réglementation pharma, côté pratique</span>
-  <h1>Des outils gratuits pour les pros de la réglementation pharmaceutique en Afrique de l'Ouest</h1>
-  <p class="lead">Testez-vous, restez à jour, gagnez du temps — <em>chaque contenu est sourcé : décrets, circulaires, règlements.</em></p>
-</section>
+<main id="contenu">
 
-<main class="wide">
-  <div class="grid">
+  <section class="card" id="screen-intro">
+    <span class="kicker" id="i-kicker">Quiz · Regulatory Affairs</span>
+    <h1 id="i-h1">How sharp are you on WAEMU pharmaceutical regulation?</h1>
+    <p class="lead" id="i-lead">10 questions, from the fundamentals to field subtleties — submission language, samples, variations, renewals. <em>Every answer is explained and sourced.</em></p>
+    <div class="meta-row">
+      <span class="meta-chip" id="i-chip1">📋 10 questions</span>
+      <span class="meta-chip" id="i-chip2">⏱️ ~3 minutes</span>
+      <span class="meta-chip" id="i-chip3">🏅 Your level at the end</span>
+    </div>
+    <button class="btn btn-primary btn-block" id="start-btn">Start the test</button>
+    <p class="fineprint" id="i-fineprint">Free, no sign-up. Your score shows immediately — we only ask for your email if you want the detailed answer key.</p>
+  </section>
 
-    <article class="tile">
-      <span class="emoji">🎯</span>
-      <h2>Le Test RA UEMOA</h2>
-      <p>10 questions pour mesurer votre maîtrise des affaires réglementaires dans l'espace UEMOA — des classiques aux textes tout récents. Score immédiat, corrigé sourcé.</p>
-      <a class="btn btn-primary" href="/quiz">Commencer le test</a>
-    </article>
+  <section class="card hidden" id="screen-quiz">
+    <div class="progress-head">
+      <span class="progress-label" id="q-counter">Question 1 / 10</span>
+      <span class="progress-score" id="q-score">Score: 0</span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="q-progress"></div></div>
+    <span class="q-domain" id="q-domain"></span>
+    <h2 class="q-text" id="q-text"></h2>
+    <div class="options" id="q-options"></div>
+    <div class="explain" id="q-explain" aria-live="polite">
+      <div class="verdict" id="q-verdict"></div>
+      <p id="q-explain-text"></p>
+      <span class="src" id="q-source"></span>
+    </div>
+    <div class="next-row" id="q-next-row">
+      <button class="btn btn-primary btn-block" id="q-next-btn">Next question →</button>
+    </div>
+  </section>
 
-    <article class="tile">
-      <span class="emoji">📬</span>
-      <h2>La Dépêche RA</h2>
-      <p>La liste privée des professionnels RA : nouveaux barèmes, textes publiés, échéances et pratiques des autorités UEMOA. 2 e-mails/mois maximum.</p>
-      <form class="subscribe-form" id="form-depeche" novalidate>
-        <input type="email" name="email" placeholder="votre.nom@laboratoire.com" autocomplete="email" required aria-label="Votre adresse e-mail">
+  <section class="card hidden" id="screen-result">
+    <div class="result-head">
+      <div class="ring-wrap">
+        <svg width="148" height="148" viewBox="0 0 148 148" aria-hidden="true">
+          <circle class="ring-bg" cx="74" cy="74" r="64"></circle>
+          <circle class="ring-val" id="ring" cx="74" cy="74" r="64" stroke-dasharray="402" stroke-dashoffset="402"></circle>
+        </svg>
+        <div class="ring-center">
+          <span class="num" id="r-num">0</span>
+          <span class="den" id="r-den">out of 10</span>
+        </div>
+      </div>
+      <div class="level-badge" id="r-badge"></div>
+      <p class="result-sub" id="r-sub"></p>
+    </div>
+
+    <div class="gate" id="gate">
+      <form id="gate-form" novalidate>
+        <h3 id="g-title">Get your detailed answer key</h3>
+        <p class="pitch" id="g-pitch">All 10 answers explained, <strong>with their references</strong> — the document you will keep at hand.</p>
+        <ul>
+          <li id="g-li1">Complete answer key, sent immediately</li>
+          <li id="g-li2">Your level badge, shareable on LinkedIn</li>
+        </ul>
+        <input type="email" name="email" id="email" placeholder="your.name@company.com" autocomplete="email" required aria-label="Your email address">
         <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-        <button class="btn btn-primary" type="submit">M'abonner</button>
+        <label class="consent">
+          <input type="checkbox" id="consent">
+          <span id="g-consent-text">I'm also joining <b>Regafy Pulse</b> — the private list for RA professionals across WAEMU/ECOWAS: official texts, agency memos, masterclasses, industry news. One-click unsubscribe.</span>
+        </label>
+        <button class="btn btn-primary btn-block" type="submit" id="gate-submit">Send me the answer key</button>
         <p class="form-msg" role="status" aria-live="polite"></p>
+        <p class="rgpd" id="g-rgpd">Your data is used only for the requested delivery. Subscription confirmed by double opt-in. <a href="/confidentialite">Privacy policy</a></p>
       </form>
-      <p class="fineprint">Abonnement confirmé par double opt-in. Désinscription en un clic. <a href="/confidentialite">Confidentialité</a></p>
-    </article>
+      <div class="gate-done" id="gate-done">
+        <div class="big">📬</div>
+        <h3 id="done-title">On its way!</h3>
+        <p id="done-text">Check your inbox — the answer key is coming, and if you ticked Regafy Pulse, one click will confirm it.</p>
+      </div>
+    </div>
 
-    <article class="tile">
-      <span class="badge-soon">Bientôt</span>
-      <span class="emoji">🛠️</span>
-      <h2>Les outils Regafy</h2>
-      <ul class="tools-list">
-        <li>Mise au format de vos RCP &amp; notices (templates conformes)</li>
-        <li>Traduction réglementaire FR ↔ EN</li>
-        <li>Simulateur de coûts d'enregistrement par pays</li>
-      </ul>
-      <p>Dites-nous où vous les attendez — les inscrits essaient en premier.</p>
-      <form class="subscribe-form" id="form-outils" novalidate>
-        <input type="email" name="email" placeholder="votre.nom@laboratoire.com" autocomplete="email" required aria-label="Votre adresse e-mail">
-        <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-        <button class="btn btn-ghost" type="submit">Me prévenir au lancement</button>
-        <p class="form-msg" role="status" aria-live="polite"></p>
-      </form>
-    </article>
+    <div class="share-row">
+      <button class="btn btn-ghost" id="share-btn">Challenge a colleague on LinkedIn ↗</button>
+      <button class="btn btn-ghost" id="retry-btn">Retake the test</button>
+    </div>
 
-  </div>
+    <div class="soft-cta">
+      <p id="soft-p">These questions come from Pharnos' living regulatory repository.</p>
+      <a id="soft-a" href="https://pharnos.com" rel="noopener">See how RA teams run their dossiers with Pharnos →</a>
+    </div>
+  </section>
+
 </main>
 
-<footer class="site">
-  © Regafy — un projet <a href="https://pharnos.com" rel="noopener">Pharnos</a> · contenu informatif, ne remplace pas les textes officiels · <a href="/confidentialite">Politique de confidentialité</a>
-</footer>
+<footer class="site" id="site-footer">© Regafy — a <a href="https://pharnos.com" rel="noopener">Pharnos</a> project · informational content, does not replace official texts</footer>
 
-<script src="/regafy.js?v=1" defer></script>
+<script src="/quiz.js?v=2" defer></script>
 </body>
 </html>

@@ -1,13 +1,13 @@
 # Regafy — by Pharnos
 
-Marque publique d'acquisition de Pharnos : quiz, Dépêche RA (newsletter), puis outils documentaires
+Marque publique d'acquisition de Pharnos : quiz (seule feature actuelle, bilingue EN par défaut/FR) + newsletter Regafy Pulse, puis outils documentaires
 (mise au format RCP/Notice, traduction, simulateur de coûts). Modèle freemium façon iLovePDF.
 **Frontière produit : Regafy = niveau document (individuel, one-shot) ; Pharnos = niveau dossier/équipe.**
 
 ## Structure
 
 - `public/` — site statique sans build (comme `landing/`) : HTML + `styles.css` + JS externes (CSP stricte, cf. `public/_headers`). Liens internes en URL « propres » (`/quiz`, pas `/quiz.html` — Pages redirige les `.html` en 308).
-- `functions/api/subscribe.js` — POST leads : contact Resend + corrigé quiz (transactionnel) + double opt-in Dépêche.
+- `functions/api/subscribe.js` — POST leads : contact Resend + corrigé quiz (transactionnel) + double opt-in Regafy Pulse (bilingue via `lang`).
 - `functions/api/confirm.js` — GET : confirmation double opt-in (HMAC), puis redirection `/merci`.
 - ⚠️ wrangler résout les Functions depuis `<cwd>/functions` : toujours lancer wrangler DEPUIS `regafy/` avec `public` comme dossier d'assets (sinon `functions/` serait uploadé en statique).
 - Fontes self-host copiées de `landing/assets/fonts` (CSP `font-src 'self'`).
@@ -31,7 +31,7 @@ le 2026-07-17). Nouvelle API Contacts « flat » (`POST /contacts`) — pas d'`a
 | --- | --- |
 | `RESEND_API_KEY` | Envoi e-mails + contacts (secret, clé du compte Resend REGAFY) |
 | `CONFIRM_SECRET` | Clé HMAC des liens de confirmation (secret, générer 32+ octets aléatoires) |
-| `FROM_ADDR` | Expéditeur (défaut `La Dépêche RA <depeche@regafy.com>`) |
+| `FROM_ADDR` | Expéditeur (défaut `Regafy Pulse <pulse@regafy.com>`) |
 | `SITE_URL` | Origine publique pour les liens e-mail (défaut : origine de la requête) |
 
 ## Test local

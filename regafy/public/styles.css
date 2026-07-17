@@ -176,9 +176,9 @@ h2.q-text { font-family: var(--font-display); font-weight: 700; font-size: 21px;
 .gate ul { list-style: none; margin: 0 0 18px; display: grid; gap: 7px; }
 .gate li { font-size: 14px; color: #cbd5e1; padding-left: 24px; position: relative; }
 .gate li::before { content: '✓'; position: absolute; left: 2px; color: var(--gold-2); font-weight: 700; }
-.gate input[type="email"] { width: 100%; border-radius: 10px; border: 1px solid var(--navy-border);
-  background: var(--navy-2); color: #fff; font-size: 15px; padding: 12px 14px; margin-bottom: 12px; }
-.gate input[type="email"]::placeholder { color: #64748b; }
+.gate input[type="email"] { width: 100%; border-radius: 10px; border: 1px solid var(--g300);
+  background: #fff; color: var(--g900); font-size: 15px; padding: 12px 14px; margin-bottom: 12px; }
+.gate input[type="email"]::placeholder { color: var(--g500); }
 .gate input[type="email"]:focus { outline: 2px solid var(--blue2); outline-offset: 1px; }
 .consent { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: #94a3b8;
   margin-bottom: 16px; cursor: pointer; }
