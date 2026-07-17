@@ -24,17 +24,30 @@
     if (e.target === dlg || e.target.closest('[data-demo-close]')) dlg.close();
   });
 
-  /* « Autre (à préciser) » : le champ de précision n'apparaît (et n'est requis) que pour ce choix */
-  var orgType = document.getElementById('demo-orgtype');
-  var otherField = document.getElementById('demo-orgtype-other-field');
-  var otherInput = otherField.querySelector('input');
-  function syncOther() {
-    var isOther = orgType.value === 'Autre';
-    otherField.hidden = !isOther;
-    otherInput.required = isOther;
-    if (!isOther) otherInput.value = '';
+  /* « Autre (à préciser) » : la MÊME case bascule en saisie libre. Le select garde la valeur
+     'Autre' (caché mais valide) ; le bouton × vide et ramène la liste. */
+  function swapField(sel) {
+    var wrap = sel.parentElement.querySelector('.demo-swap');
+    var input = wrap.querySelector('input');
+    sel.addEventListener('change', function () {
+      if (sel.value !== 'Autre') return;
+      sel.hidden = true;
+      wrap.hidden = false;
+      input.required = true;
+      input.focus();
+    });
+    function reset(refocus) {
+      wrap.hidden = true;
+      input.required = false;
+      input.value = '';
+      sel.hidden = false;
+      if (refocus) { sel.value = ''; sel.focus(); }
+    }
+    wrap.querySelector('.demo-swap-back').addEventListener('click', function () { reset(true); });
+    return reset;
   }
-  orgType.addEventListener('change', syncOther);
+  var resetOrgSwap = swapField(document.getElementById('demo-orgtype'));
+  var resetJobSwap = swapField(document.getElementById('demo-jobtitle'));
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
@@ -52,7 +65,8 @@
         orgType: fd.get('orgType'),
         orgTypeOther: fd.get('orgTypeOther'),
         company: fd.get('company'),
-        jobTitle: fd.get('jobTitle'),
+        /* poste « Autre » : la saisie libre EST le poste (le serveur accepte du texte libre) */
+        jobTitle: fd.get('jobTitle') === 'Autre' && fd.get('jobTitleOther') ? fd.get('jobTitleOther') : fd.get('jobTitle'),
         country: fd.get('country'),
         website: fd.get('website')
       })
@@ -62,7 +76,8 @@
     }).then(function () {
       dlg.classList.add('done');
       form.reset();
-      syncOther(); /* reset() ne déclenche pas `change` : re-cacher « Précisez » */
+      resetOrgSwap(false); /* reset() ne déclenche pas `change` : re-afficher les listes */
+      resetJobSwap(false);
       dlg.querySelector('.demo-success [data-demo-close]').focus();
     }).catch(function () {
       errBox.hidden = false;

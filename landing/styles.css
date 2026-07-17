@@ -502,6 +502,16 @@
   .demo-field select:invalid { color: var(--g500); } /* placeholder « Choisir… » grisé comme un vrai placeholder */
   .demo-field input:focus, .demo-field select:focus { outline: none; border-color: var(--blue);
     box-shadow: 0 0 0 3px rgba(26,86,219,.14); }
+  /* « Autre » : la même case bascule en saisie libre — input pleine case + bouton × de retour */
+  .demo-swap { position: relative; display: flex; }
+  .demo-swap[hidden] { display: none; }
+  .demo-swap input { flex: 1; width: 100%; padding-right: 38px; }
+  .demo-swap-back { position: absolute; top: 50%; right: 7px; transform: translateY(-50%);
+    width: 26px; height: 26px; border: 0; border-radius: 6px; background: transparent;
+    color: var(--g500); cursor: pointer; display: inline-flex; align-items: center;
+    justify-content: center; transition: var(--transition); }
+  .demo-swap-back:hover { background: var(--g100); color: var(--g800); }
+  .demo-swap-back svg { width: 12px; height: 12px; }
   .demo-trap { position: absolute; left: -9999px; top: -9999px; }
   .demo-error { margin-top: 14px; font-size: 13.5px; color: #b91c1c; }
   .demo-error a { text-decoration: underline; }
