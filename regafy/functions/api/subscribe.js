@@ -1,6 +1,7 @@
 /* POST /api/subscribe — leads Regafy → Resend (contact + corrigé quiz + double opt-in Dépêche).
    JS volontairement (pas de build/typescript sur ce projet statique) ; contrat d'entrée strict.
-   Env requis : RESEND_API_KEY, RESEND_AUDIENCE_ID, CONFIRM_SECRET. Optionnel : FROM_ADDR, SITE_URL.
+   Env requis : RESEND_API_KEY, CONFIRM_SECRET. Optionnel : FROM_ADDR, SITE_URL.
+   Compte Resend Regafy = nouvelle API Contacts « flat » (POST /contacts), PAS d'audienceId.
    Le contact est créé `unsubscribed: true` tant que le double opt-in n'est pas confirmé (/api/confirm). */
 
 import { CORRIGE } from './corrige.js';
@@ -10,7 +11,7 @@ const SOURCES = new Set(['quiz', 'home', 'outils']);
 const RESEND = 'https://api.resend.com';
 
 export async function onRequestPost({ request, env }) {
-  if (!env.RESEND_API_KEY || !env.RESEND_AUDIENCE_ID || !env.CONFIRM_SECRET) {
+  if (!env.RESEND_API_KEY || !env.CONFIRM_SECRET) {
     return json(503, { error: 'service_not_configured' });
   }
   if (Number(request.headers.get('content-length') || 0) > 2048) {
@@ -33,12 +34,12 @@ export async function onRequestPost({ request, env }) {
   const score =
     Number.isInteger(body.score) && body.score >= 0 && body.score <= 10 ? body.score : null;
 
-  const from = env.FROM_ADDR || 'Regafy <depeche@pharnos.com>';
+  const from = env.FROM_ADDR || 'La Dépêche RA <depeche@regafy.com>';
   const site = env.SITE_URL || new URL(request.url).origin;
 
   try {
     // Contact (idempotent : « déjà existant » = succès). unsubscribed tant que non confirmé.
-    const c = await resend(env, 'POST', `/audiences/${env.RESEND_AUDIENCE_ID}/contacts`, {
+    const c = await resend(env, 'POST', '/contacts', {
       email,
       unsubscribed: true,
     });
