@@ -100,7 +100,10 @@ describe('OnboardingPage — 3 étapes, Passer, défaut Free', () => {
   })
 
   it('le code du lien /i/CODE (localStorage pré-OAuth) préremplit le champ', () => {
-    window.localStorage.setItem('pharnos.inviteCode', 'EXPERT-42')
+    window.localStorage.setItem(
+      'pharnos.inviteCode',
+      JSON.stringify({ code: 'EXPERT-42', at: Date.now() }),
+    )
     render0()
     expect(screen.getByLabelText("Code d'invitation")).toHaveValue('EXPERT-42')
   })
