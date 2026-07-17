@@ -24,6 +24,18 @@
     if (e.target === dlg || e.target.closest('[data-demo-close]')) dlg.close();
   });
 
+  /* « Autre (à préciser) » : le champ de précision n'apparaît (et n'est requis) que pour ce choix */
+  var orgType = document.getElementById('demo-orgtype');
+  var otherField = document.getElementById('demo-orgtype-other-field');
+  var otherInput = otherField.querySelector('input');
+  function syncOther() {
+    var isOther = orgType.value === 'Autre';
+    otherField.hidden = !isOther;
+    otherInput.required = isOther;
+    if (!isOther) otherInput.value = '';
+  }
+  orgType.addEventListener('change', syncOther);
+
   form.addEventListener('submit', function (e) {
     e.preventDefault();
     if (!form.reportValidity()) return;
@@ -37,6 +49,8 @@
       body: JSON.stringify({
         fullName: fd.get('fullName'),
         email: fd.get('email'),
+        orgType: fd.get('orgType'),
+        orgTypeOther: fd.get('orgTypeOther'),
         company: fd.get('company'),
         jobTitle: fd.get('jobTitle'),
         country: fd.get('country'),
@@ -48,6 +62,7 @@
     }).then(function () {
       dlg.classList.add('done');
       form.reset();
+      syncOther(); /* reset() ne déclenche pas `change` : re-cacher « Précisez » */
       dlg.querySelector('.demo-success [data-demo-close]').focus();
     }).catch(function () {
       errBox.hidden = false;
