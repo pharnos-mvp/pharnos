@@ -20,8 +20,7 @@ const MAIL = {
     corrigeIntro: 'Le Test RA UEMOA : les 10 questions de votre tirage, chacune avec sa réponse, son explication et sa référence officielle.',
     greeting: (n) => (n ? `Bonjour ${n},` : 'Bonjour,'),
     refsTitle: '\u{1F4DA} Les références citées dans votre corrigé',
-    inlineConfirmTitle: '\u26A1 Activez Regafy Pulse — un clic et c\u2019est fait',
-    inlineConfirmBody: 'Vous avez coché l\u2019abonnement : confirmez-le pour recevoir textes officiels, notes de service, masterclass et actus du secteur. Sans clic, aucun autre e-mail ne vous sera envoyé.',
+    subscribedNote: '\u2713 C\u2019est noté : vous êtes abonné·e à Regafy Pulse — textes officiels, notes de service, masterclass, actus du secteur. Désinscription en un clic dans chaque numéro.',
     refsNote: 'Gardez ce corrigé sous la main : chaque réponse cite son texte — le réflexe qui fait la différence avant un dépôt.',
     corrigeOutro:
       'Ces questions viennent du référentiel réglementaire vivant de <a href="https://pharnos.com" style="color:#1a56db;">Pharnos</a> — l\'outil avec lequel les équipes RA pilotent leurs dossiers dans l\'espace UEMOA.',
@@ -41,8 +40,7 @@ const MAIL = {
     corrigeIntro: 'The UEMOA RA Test: the 10 questions of your draw, each with its answer, explanation and official reference.',
     greeting: (n) => (n ? `Hi ${n},` : 'Hello,'),
     refsTitle: '\u{1F4DA} References cited in your answer key',
-    inlineConfirmTitle: '\u26A1 Activate Regafy Pulse — one click and done',
-    inlineConfirmBody: 'You ticked the subscription box: confirm it to receive official texts, agency memos, masterclasses and industry news. No click, no further emails.',
+    subscribedNote: '\u2713 Noted: you are subscribed to Regafy Pulse — official texts, agency memos, masterclasses, industry news. One-click unsubscribe in every issue.',
     refsNote: 'Keep this answer key at hand: every answer cites its source text — the reflex that makes the difference before a submission.',
     corrigeOutro:
       'These questions come from the living regulatory repository of <a href="https://pharnos.com" style="color:#1a56db;">Pharnos</a> — the tool RA teams use to run their dossiers across the WAEMU area.',
@@ -59,7 +57,7 @@ const MAIL = {
 };
 
 export async function onRequestPost({ request, env }) {
-  if (!env.RESEND_API_KEY || !env.CONFIRM_SECRET) {
+  if (!env.RESEND_API_KEY) {
     return json(503, { error: 'service_not_configured' });
   }
   if (Number(request.headers.get('content-length') || 0) > 4096) {
@@ -103,35 +101,23 @@ export async function onRequestPost({ request, env }) {
   const site = env.SITE_URL || new URL(request.url).origin;
 
   try {
-    const contactPayload = { email, unsubscribed: true };
+    // Opt-in SIMPLE (décision CEO 2026-07-18) : case cochée = abonné immédiatement.
+    // La liste est protégée en amont par Turnstile + honeypot ; consentement = case
+    // non pré-cochée, horodatée par la création du contact.
+    const contactPayload = { email, unsubscribed: !newsletter };
     if (firstName) contactPayload.firstName = firstName;
     const c = await resend(env, 'POST', '/contacts', contactPayload);
     if (!c.ok && c.status !== 409) throw new Error(`contact ${c.status}`);
 
-    // Un seul e-mail : le corrigé embarque le bouton de double opt-in quand la case est cochée.
-    // L'e-mail de confirmation isolé ne sert que pour un futur point d'entrée sans corrigé.
-    let confirmLink = null;
-    if (newsletter) {
-      const token = await hmacHex(env.CONFIRM_SECRET, email);
-      confirmLink = `${site}/api/confirm?e=${b64url(email)}&t=${token}`;
-    }
-
+    // Opt-in simple : pas d'e-mail de confirmation. Le corrigé mentionne l'abonnement.
     if (source === 'quiz') {
       const sent = await resend(env, 'POST', '/emails', {
         from,
         to: [email],
         subject: t.corrigeSubject(score),
-        html: corrigeHtml(lang, score, site, ids, firstName, confirmLink),
+        html: corrigeHtml(lang, score, site, ids, firstName, newsletter),
       });
       if (!sent.ok) throw new Error(`corrige ${sent.status}`);
-    } else if (newsletter) {
-      const sent = await resend(env, 'POST', '/emails', {
-        from,
-        to: [email],
-        subject: t.confirmSubject,
-        html: confirmHtml(lang, confirmLink, site, firstName),
-      });
-      if (!sent.ok) throw new Error(`confirm ${sent.status}`);
     }
 
     return json(200, { ok: true });
@@ -195,7 +181,7 @@ function shell(inner, site, footerText, privacyLabel) {
   </table></td></tr></table></body></html>`;
 }
 
-function corrigeHtml(lang, score, site, ids, firstName, confirmLink) {
+function corrigeHtml(lang, score, site, ids, firstName, subscribed) {
   const t = MAIL[lang];
   const refs = [...new Set(ids.map((id) => BY_ID.get(id)[lang].source))];
   const refsHtml = refs
@@ -220,12 +206,8 @@ function corrigeHtml(lang, score, site, ids, firstName, confirmLink) {
       <h1 style="margin:0 0 6px;font-size:21px;color:#0c1b33;">${t.corrigeTitle(score)}</h1>
       <p style="margin:0 0 4px;color:#0c1b33;font-weight:600;">${esc(t.greeting(firstName || ''))}</p>
       <p style="margin:0 0 10px;color:#4b5563;">${t.corrigeIntro}</p>
-      ${confirmLink ? `
-      <div style="margin:0 0 16px;padding:16px 18px;background:#f3efff;border:1.5px solid #8b5cf6;border-radius:12px;">
-        <p style="margin:0 0 6px;font-weight:700;color:#0c1b33;">${t.inlineConfirmTitle}</p>
-        <p style="margin:0 0 12px;font-size:13.5px;color:#4b5563;">${t.inlineConfirmBody}</p>
-        <a href="${confirmLink}" style="display:inline-block;background:#6d28d9;color:#ffffff;text-decoration:none;font-weight:700;padding:11px 22px;border-radius:10px;">${t.confirmBtn}</a>
-      </div>` : ''}
+      ${subscribed ? `
+      <p style="margin:0 0 14px;padding:10px 14px;background:#f3efff;border:1px solid #8b5cf6;border-radius:10px;font-size:13.5px;color:#0c1b33;">${t.subscribedNote}</p>` : ''}
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${items}</table>
       <div style="margin:22px 0 0;padding:16px 18px;background:#fdf3d7;border:1px solid #e3b341;border-radius:12px;">
         <p style="margin:0 0 8px;font-weight:700;color:#0c1b33;">${t.refsTitle}</p>
