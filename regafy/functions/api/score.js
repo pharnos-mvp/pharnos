@@ -3,14 +3,11 @@
    pas par le client). v1 assumée sans anti-triche forte : score/temps viennent du client,
    avec bornes de vraisemblance ; un durcissement (signature de session) viendra si abus. */
 
+import { SEED_GLOBAL, SEED_BY_COUNTRY } from './seed.js';
+
 const EMAIL_LIKE = /@|https?:|www\./i;
 const CONTROL_OR_TAG = new RegExp('[<>\\u0000-\\u001f]', 'g');
 
-/* Amorcage social (demande CEO 2026-07-18) : 115 participants « de lancement »
-   comptes dans les TOTAUX uniquement - jamais dans les rangs : tout joueur reel
-   les devance tous. Aucune ligne en base, aucun nom : decalage d'affichage. */
-const SEED_GLOBAL = 115;
-const SEED_BY_COUNTRY = { CI: 24, SN: 21, BJ: 14, TG: 11, BF: 10, ML: 9, NE: 7, GW: 3, GN: 4, CM: 4, FR: 5, MA: 3 };
 
 export async function onRequestPost({ request, env }) {
   if (!env.DB) return json(503, { error: 'service_not_configured' });

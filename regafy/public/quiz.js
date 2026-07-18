@@ -34,10 +34,11 @@ const UI_FR = {
   chip1: '📋 10 questions',
   chip2: '⏱️ 30 s par question',
   chip3: '🏆 Classement mondial & pays',
+  proof: (n) => `🔥 ${n} experts RA ont déjà relevé le défi`,
   start: 'Commencer le test',
   fineprint: "Gratuit, sans inscription. Votre score s'affiche immédiatement.",
   gateTitle: 'Recevez votre corrigé détaillé',
-  gatePitch: 'Les 10 réponses de VOTRE tirage, expliquées avec <strong>leurs références</strong>.',
+  gatePitch: 'Gardez une longueur d\u2019avance : recevez le corrigé détaillé de VOTRE tirage — chaque réponse expliquée, <strong>avec son texte officiel de référence</strong>. Le document à ressortir avant chaque dépôt.',
   gateLi1: 'Corrigé complet, envoyé immédiatement',
   gateLi2: 'Votre badge de niveau, partageable sur LinkedIn',
   emailPh: 'votre.nom@laboratoire.com',
@@ -74,6 +75,7 @@ const UI_FR = {
 };
 
 const UI_EN = {
+  proof: (n) => `🔥 ${n} RA experts have already taken the challenge`,
   counter: (i, n) => `Question ${i} / ${n}`,
   pts: (s) => `${s * 10} pts`,
   ok: '✓ Correct',
@@ -491,6 +493,7 @@ async function submitGate(ev) {
       body: JSON.stringify({
         email,
         newsletter: $('consent').checked,
+        name: ($('player-name') ? $('player-name').value : '').trim(),
         source: 'quiz',
         score,
         lang: LANG,
@@ -555,3 +558,17 @@ if (themeBtn) themeBtn.addEventListener('click', () => {
   try { localStorage.setItem('regafy-theme', THEME); } catch { /* navigation privee */ }
   applyTheme(THEME);
 });
+
+/* Preuve sociale : nombre de joueurs (reels + amorcage) */
+(async () => {
+  try {
+    const res = await fetch('/api/stats');
+    if (!res.ok) return;
+    const d = await res.json();
+    const el = $('proof');
+    if (el && d.players > 0) {
+      el.textContent = T.proof(d.players);
+      el.classList.remove('hidden');
+    }
+  } catch { /* silencieux */ }
+})();
