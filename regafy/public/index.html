@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The UEMOA RA Test — how sharp are you? · Regafy</title>
 <meta name="description" content="10 timed questions to test your command of pharmaceutical regulatory affairs in the WAEMU (UEMOA) area. Instant score, global & country leaderboard, detailed answer key by email. Free, by Regafy.">
-<link rel="stylesheet" href="/styles.css?v=7">
+<link rel="stylesheet" href="/styles.css?v=8">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 </head>
 <body>
@@ -110,6 +110,7 @@
           <input type="checkbox" id="consent">
           <span id="g-consent-text">I'm also joining <b>Regafy Pulse</b> — the private list for RA professionals across WAEMU/ECOWAS: official texts, agency memos, masterclasses, industry news. One-click unsubscribe.</span>
         </label>
+        <div id="turnstile-slot"></div>
         <button class="btn btn-primary btn-block" type="submit" id="gate-submit">Send me the answer key</button>
         <p class="form-msg" role="status" aria-live="polite"></p>
         <p class="rgpd" id="g-rgpd">Your data is used only for the requested delivery. Subscription confirmed by double opt-in. <a href="/confidentialite">Privacy policy</a></p>
@@ -136,7 +137,8 @@
 
 <footer class="site" id="site-footer">© Regafy — a <a href="https://pharnos.com" rel="noopener">Pharnos</a> project · informational content, does not replace official texts</footer>
 
-<script src="/bank.js?v=7" defer></script>
-<script src="/quiz.js?v=7" defer></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=regafyTurnstileInit&render=explicit" async defer></script>
+<script src="/bank.js?v=8" defer></script>
+<script src="/quiz.js?v=8" defer></script>
 </body>
 </html>
