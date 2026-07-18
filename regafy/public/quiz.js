@@ -23,7 +23,7 @@ const LANG = (() => {
 })();
 
 // Sitekey Turnstile (PUBLIQUE) — vide = widget desactive, l'API n'exige alors pas de jeton
-const TURNSTILE_SITEKEY = '';
+const TURNSTILE_SITEKEY = '0x4AAAAAAD4nj0by6h3ZlXHW';
 let turnstileWidgetId = null;
 
 const QUESTION_MS = 30000;
