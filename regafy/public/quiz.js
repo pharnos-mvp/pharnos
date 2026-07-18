@@ -76,6 +76,7 @@ const UI_FR = {
   invalidEmail: 'Adresse e-mail invalide.',
   sending: 'Envoi en cours…',
   sendFail: "L'envoi n'a pas abouti — réessayez dans un instant.",
+  botErr: 'Vérification anti-robot incomplète — patientez une seconde puis réessayez.',
 };
 
 const UI_EN = {
@@ -96,6 +97,7 @@ const UI_EN = {
   invalidEmail: 'Invalid email address.',
   sending: 'Sending…',
   sendFail: "That didn't go through — please try again in a moment.",
+  botErr: 'Bot check incomplete — wait a second and try again.',
 };
 
 const T = LANG === 'fr' ? UI_FR : UI_EN;
@@ -491,6 +493,8 @@ async function submitGate(ev) {
   msg.textContent = T.sending;
   msg.className = 'form-msg';
   try {
+    // Filet : si la course de chargement a empeche le rendu, on tente maintenant
+    if (turnstileWidgetId === null && window.regafyTurnstileInit) window.regafyTurnstileInit();
     const res = await fetch('/api/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -509,9 +513,9 @@ async function submitGate(ev) {
     if (!res.ok) throw new Error(String(res.status));
     form.style.display = 'none';
     $('gate-done').style.display = 'block';
-  } catch {
+  } catch (err) {
     btn.disabled = false;
-    msg.textContent = T.sendFail;
+    msg.textContent = err && err.message === '403' ? T.botErr : T.sendFail;
     msg.className = 'form-msg err';
     try { if (turnstileWidgetId !== null && window.turnstile) window.turnstile.reset(turnstileWidgetId); } catch { /* widget absent */ }
   }
@@ -582,7 +586,7 @@ if (themeBtn) themeBtn.addEventListener('click', () => {
 /* Rendu Turnstile (explicit) : uniquement si une sitekey est configuree */
 window.regafyTurnstileInit = () => {
   try {
-    if (TURNSTILE_SITEKEY && window.turnstile && $('turnstile-slot')) {
+    if (turnstileWidgetId === null && TURNSTILE_SITEKEY && window.turnstile && $('turnstile-slot')) {
       turnstileWidgetId = window.turnstile.render('#turnstile-slot', {
         sitekey: TURNSTILE_SITEKEY,
         action: 'turnstile-spin-v1',
@@ -592,3 +596,6 @@ window.regafyTurnstileInit = () => {
     }
   } catch { /* widget indisponible : le serveur decide */ }
 };
+// api.js (async) arrive souvent AVANT ce fichier (defer) : son onload est alors
+// tombe dans le vide -> on initialise aussi nous-memes si turnstile est deja la.
+if (window.turnstile) window.regafyTurnstileInit();
