@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The UEMOA RA Test — how sharp are you? · Regafy</title>
 <meta name="description" content="10 timed questions to test your command of pharmaceutical regulatory affairs in the WAEMU (UEMOA) area. Instant score, global & country leaderboard, detailed answer key by email. Free, by Regafy.">
-<link rel="stylesheet" href="/styles.css?v=8">
+<link rel="stylesheet" href="/styles.css?v=11">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 </head>
 <body>
@@ -96,6 +96,12 @@
       <div class="ranks hidden" id="ranks" aria-live="polite"></div>
     </div>
 
+    <div class="share-row">
+      <button class="btn btn-ghost" id="share-btn">Challenge a colleague on LinkedIn ↗</button>
+      <button class="btn btn-ghost" id="retry-btn">Retake the test</button>
+    </div>
+
+
     <div class="gate" id="gate">
       <form id="gate-form" novalidate>
         <h3 id="g-title">Get your detailed answer key</h3>
@@ -113,18 +119,13 @@
         <div id="turnstile-slot"></div>
         <button class="btn btn-primary btn-block" type="submit" id="gate-submit">Send me the answer key</button>
         <p class="form-msg" role="status" aria-live="polite"></p>
-        <p class="rgpd" id="g-rgpd">Your data is used only for the requested delivery. Subscription confirmed by double opt-in. <a href="/confidentialite">Privacy policy</a></p>
+        <p class="rgpd" id="g-rgpd">Your data is used only for the requested delivery. One-click unsubscribe in every email. <a href="/confidentialite">Privacy policy</a></p>
       </form>
       <div class="gate-done" id="gate-done">
         <div class="big">📬</div>
         <h3 id="done-title">On its way!</h3>
-        <p id="done-text">Check your inbox — the answer key is coming, and if you ticked Regafy Pulse, one click will confirm it.</p>
+        <p id="done-text">Check your inbox — the answer key is on its way, and if you ticked Regafy Pulse, welcome aboard!</p>
       </div>
-    </div>
-
-    <div class="share-row">
-      <button class="btn btn-ghost" id="share-btn">Challenge a colleague on LinkedIn ↗</button>
-      <button class="btn btn-ghost" id="retry-btn">Retake the test</button>
     </div>
 
     <div class="soft-cta">
@@ -138,7 +139,7 @@
 <footer class="site" id="site-footer">© Regafy — a <a href="https://pharnos.com" rel="noopener">Pharnos</a> project · informational content, does not replace official texts</footer>
 
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=regafyTurnstileInit&render=explicit" async defer></script>
-<script src="/bank.js?v=8" defer></script>
-<script src="/quiz.js?v=10" defer></script>
+<script src="/bank.js?v=11" defer></script>
+<script src="/quiz.js?v=11" defer></script>
 </body>
 </html>

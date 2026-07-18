@@ -48,9 +48,9 @@ const UI_FR = {
   emailPh: 'votre.nom@laboratoire.com',
   consent: 'Je rejoins aussi <b>Regafy Pulse</b> — la liste privée des experts RA UEMOA/CEDEAO : textes officiels, notes de service, masterclass, actus du secteur. Désinscription en un clic.',
   submit: 'Recevoir le corrigé',
-  rgpd: 'Vos données servent uniquement à l’envoi demandé. Abonnement confirmé par double opt-in. <a href="/confidentialite">Politique de confidentialité</a>',
+  rgpd: 'Vos données servent uniquement à l’envoi demandé. Désinscription en un clic dans chaque e-mail. <a href="/confidentialite">Politique de confidentialité</a>',
   doneTitle: 'C’est envoyé !',
-  doneText: 'Vérifiez votre boîte mail — le corrigé arrive, et si vous avez coché Regafy Pulse, un clic le confirmera.',
+  doneText: 'Vérifiez votre boîte mail — le corrigé arrive, et si vous avez coché Regafy Pulse, bienvenue à bord !',
   share: 'Défier un confrère sur LinkedIn ↗',
   retry: 'Refaire le test',
   softP: 'Ces questions viennent du référentiel réglementaire vivant de Pharnos.',
@@ -396,6 +396,15 @@ function showResult() {
   badge.textContent = `${lvl.icon} ${lvl.label}`;
   $('r-sub').textContent = lvl.sub;
   $('r-time').textContent = fmtTime(totalMs);
+  // Score < 5 : pas de classement ni de defi LinkedIn — juste « Refaire le test »
+  // place juste apres le resultat. Une seule instance des boutons (deplacement DOM).
+  if (score < 5) {
+    $('board').classList.add('hidden');
+    $('share-btn').classList.add('hidden');
+    const head = document.querySelector('.result-head');
+    const row = document.querySelector('.share-row');
+    if (head && row) head.insertAdjacentElement('afterend', row);
+  }
   let n = 0;
   const numEl = $('r-num');
   const t = setInterval(() => {

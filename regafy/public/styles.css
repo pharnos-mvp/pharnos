@@ -189,13 +189,13 @@ h2.q-text { font-family: var(--font-display); font-weight: 700; font-size: 18.5p
 @keyframes fall { to { transform: translateY(105vh) rotate(720deg); opacity: .2; } }
 
 /* ── Classement ── */
-.board { margin-top: 26px; border-radius: 18px; padding: 26px; text-align: center;
+.board { margin-top: 18px; border-radius: 16px; padding: 16px 18px; text-align: center;
   background: linear-gradient(135deg, var(--gold-soft), #fff 65%); border: 1.5px solid rgba(210, 153, 34, .35); }
-.board h3 { font-family: var(--font-display); font-weight: 800; font-size: 19px; color: var(--ink); margin-bottom: 4px; }
-.board-sub { font-size: 14px; color: var(--ink-soft); margin-bottom: 14px; }
+.board h3 { font-family: var(--font-display); font-weight: 800; font-size: 16.5px; color: var(--ink); margin-bottom: 2px; }
+.board-sub { font-size: 12.5px; color: var(--ink-soft); margin-bottom: 10px; }
 .board-form { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-.board-form input { flex: 1 1 220px; max-width: 300px; border-radius: 14px; border: 2px solid var(--cream-2);
-  background: #fff; color: var(--g900); font-size: 15.5px; padding: 13px 15px; }
+.board-form input { flex: 1 1 200px; max-width: 280px; border-radius: 12px; border: 2px solid var(--cream-2);
+  background: #fff; color: var(--g900); font-size: 14.5px; padding: 9px 13px; }
 .board-form input:focus { outline: 2px solid var(--violet-2); outline-offset: 1px; }
 .ranks { margin-top: 10px; display: grid; gap: 6px; }
 .rank-line { font-size: 16.5px; font-weight: 800; color: var(--ink); }
@@ -228,7 +228,7 @@ h2.q-text { font-family: var(--font-display); font-weight: 700; font-size: 18.5p
 .form-msg.err { color: var(--red); }
 .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 
-.share-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 26px; }
+.share-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 16px; }
 .soft-cta { text-align: center; margin-top: 28px; padding-top: 22px; border-top: 1px dashed var(--cream-2); }
 .soft-cta p { font-size: 14px; color: var(--muted); margin-bottom: 4px; }
 .soft-cta a { color: var(--violet); font-weight: 700; text-decoration: none; font-size: 14.5px; }
