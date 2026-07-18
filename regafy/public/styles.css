@@ -285,3 +285,8 @@ html.dark .level-badge.grey { background: #2b2050; color: var(--ink-soft); }
 html.dark .explain .verdict.ok, html.dark .form-msg.ok { color: #34d399; }
 html.dark .next-row { background: linear-gradient(180deg, transparent, rgba(23, 16, 43, .96) 34%); }
 html.dark .ring-bg { stroke: #33255e; }
+
+/* == Preuve sociale (intro) == */
+.proof { text-align: center; font-weight: 800; font-size: 13.5px; margin-top: 12px;
+  background: linear-gradient(100deg, var(--violet), var(--gold)); -webkit-background-clip: text;
+  background-clip: text; color: transparent; }
