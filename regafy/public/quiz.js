@@ -22,6 +22,10 @@ const LANG = (() => {
   return langs.some((l) => String(l).toLowerCase().startsWith('fr')) ? 'fr' : 'en';
 })();
 
+// Sitekey Turnstile (PUBLIQUE) — vide = widget desactive, l'API n'exige alors pas de jeton
+const TURNSTILE_SITEKEY = '';
+let turnstileWidgetId = null;
+
 const QUESTION_MS = 30000;
 const TIMEOUT_PAUSE_MS = 2600;
 const CONFETTI_MIN_SCORE = 8;
@@ -499,6 +503,7 @@ async function submitGate(ev) {
         lang: LANG,
         ids: RUN.map((q) => q.id),
         website: form.querySelector('.hp').value,
+        turnstile: turnstileWidgetId !== null && window.turnstile ? window.turnstile.getResponse(turnstileWidgetId) || '' : '',
       }),
     });
     if (!res.ok) throw new Error(String(res.status));
@@ -508,6 +513,7 @@ async function submitGate(ev) {
     btn.disabled = false;
     msg.textContent = T.sendFail;
     msg.className = 'form-msg err';
+    try { if (turnstileWidgetId !== null && window.turnstile) window.turnstile.reset(turnstileWidgetId); } catch { /* widget absent */ }
   }
 }
 
@@ -572,3 +578,17 @@ if (themeBtn) themeBtn.addEventListener('click', () => {
     }
   } catch { /* silencieux */ }
 })();
+
+/* Rendu Turnstile (explicit) : uniquement si une sitekey est configuree */
+window.regafyTurnstileInit = () => {
+  try {
+    if (TURNSTILE_SITEKEY && window.turnstile && $('turnstile-slot')) {
+      turnstileWidgetId = window.turnstile.render('#turnstile-slot', {
+        sitekey: TURNSTILE_SITEKEY,
+        action: 'turnstile-spin-v1',
+        theme: 'auto',
+        size: 'flexible',
+      });
+    }
+  } catch { /* widget indisponible : le serveur decide */ }
+};
