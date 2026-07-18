@@ -30,12 +30,12 @@ const UI_FR = {
   title: 'Le Test RA UEMOA — êtes-vous incollable ? · Regafy',
   kicker: 'Quiz · Affaires réglementaires',
   h1: 'Êtes-vous incollable sur la réglementation pharmaceutique UEMOA&nbsp;?',
-  lead: '10 questions tirées au sort, 30 secondes chacune — langue de soumission, échantillons, variations, renouvellements. <em>Chaque réponse est expliquée et sourcée.</em> Enchaînez les bonnes réponses pour allumer votre série 🔥',
+  lead: '10 questions tirées au sort, 30 secondes chacune. <em>Chaque réponse est expliquée et sourcée.</em> Enchaînez les bonnes réponses pour allumer votre série 🔥',
   chip1: '📋 10 questions',
   chip2: '⏱️ 30 s par question',
   chip3: '🏆 Classement mondial & pays',
   start: 'Commencer le test',
-  fineprint: "Gratuit, sans inscription. Votre score s'affiche immédiatement — l'e-mail n'est demandé que si vous voulez recevoir le corrigé.",
+  fineprint: "Gratuit, sans inscription. Votre score s'affiche immédiatement.",
   gateTitle: 'Recevez votre corrigé détaillé',
   gatePitch: 'Les 10 réponses de VOTRE tirage, expliquées avec <strong>leurs références</strong>.',
   gateLi1: 'Corrigé complet, envoyé immédiatement',
@@ -217,7 +217,6 @@ function startQuiz() {
   $('screen-intro').classList.add('hidden');
   $('screen-quiz').classList.remove('hidden');
   $('streak').classList.remove('hidden');
-  $('byline').classList.add('hidden');
   renderQuestion();
 }
 
@@ -536,3 +535,23 @@ if (LANG === 'fr' && langFr) langFr.classList.add('active');
 if (LANG === 'en' && langEn) langEn.classList.add('active');
 if (langFr) langFr.addEventListener('click', () => { if (LANG !== 'fr') setLang('fr'); });
 if (langEn) langEn.addEventListener('click', () => { if (LANG !== 'en') setLang('en'); });
+
+/* Selecteur de theme : choix memorise > systeme ; classe html.dark */
+const themeBtn = $('theme-btn');
+function applyTheme(t) {
+  document.documentElement.classList.toggle('dark', t === 'dark');
+  if (themeBtn) themeBtn.textContent = t === 'dark' ? '☀️' : '🌙';
+}
+let THEME = (() => {
+  try {
+    const t = localStorage.getItem('regafy-theme');
+    if (t === 'dark' || t === 'light') return t;
+  } catch { /* navigation privee */ }
+  return window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+})();
+applyTheme(THEME);
+if (themeBtn) themeBtn.addEventListener('click', () => {
+  THEME = THEME === 'dark' ? 'light' : 'dark';
+  try { localStorage.setItem('regafy-theme', THEME); } catch { /* navigation privee */ }
+  applyTheme(THEME);
+});
