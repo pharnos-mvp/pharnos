@@ -1,8 +1,9 @@
-/* Regafy — The UEMOA RA Test v3 (CSP script-src 'self': no inline).
+/* Regafy — The UEMOA RA Test v4 « Chaleur & Or » (CSP script-src 'self': no inline).
    - i18n : EN par défaut, FR si navigateur fr (?lang=fr|en pour forcer)
    - Tirage : 10 familles au hasard dans BANK (public/bank.js), 1 variante par famille
-   - Timer : 30 s/question, bips ≤ 10 s (Web Audio, aucun fichier), timeout = question ratée
-     et passage automatique sans retour
+   - Timer : 30 s/question, bips ≤ 10 s (Web Audio), timeout = ratée + auto-avance sans retour
+   - Gamification : séries 🔥, points, pastilles de progression, confettis (score ≥ 8),
+     barre d'action FIXE (bouton suivant toujours visible — CSS .next-row)
    - Chrono total + classement D1 (/api/score) : rang mondial + rang pays (score puis temps) */
 
 'use strict';
@@ -15,12 +16,13 @@ const LANG = (() => {
 
 const QUESTION_MS = 30000;
 const TIMEOUT_PAUSE_MS = 2600;
+const CONFETTI_MIN_SCORE = 8;
 
 const UI_FR = {
   title: 'Le Test RA UEMOA — êtes-vous incollable ? · Regafy',
   kicker: 'Quiz · Affaires réglementaires',
   h1: 'Êtes-vous incollable sur la réglementation pharmaceutique UEMOA&nbsp;?',
-  lead: '10 questions tirées au sort, 30 secondes chacune — langue de soumission, échantillons, variations, renouvellements. <em>Chaque réponse est expliquée et sourcée.</em>',
+  lead: '10 questions tirées au sort, 30 secondes chacune — langue de soumission, échantillons, variations, renouvellements. <em>Chaque réponse est expliquée et sourcée.</em> Enchaînez les bonnes réponses pour allumer votre série 🔥',
   chip1: '📋 10 questions',
   chip2: '⏱️ 30 s par question',
   chip3: '🏆 Classement mondial & pays',
@@ -46,12 +48,13 @@ const UI_FR = {
   bPh: 'Votre prénom ou pseudo',
   bBtn: 'Voir mon rang',
   counter: (i, n) => `Question ${i} / ${n}`,
-  score: (s) => `Score : ${s}`,
+  pts: (s) => `${s * 10} pts`,
   ok: '✓ Bonne réponse',
+  okStreak: (n) => `✓ Bonne réponse — série de ${n} ! 🔥`,
   ko: '✗ Pas tout à fait',
   timeout: '⏱️ Temps écoulé !',
   next: 'Question suivante →',
-  seeResult: 'Voir mon résultat →',
+  seeResult: 'Voir mon résultat ✨',
   time: (m, s) => `⏱️ Temps : ${m} min ${String(s).padStart(2, '0')} s`,
   rankGlobal: (r, t) => `🌍 nº ${r} sur ${t} au classement général`,
   rankCountry: (r, t, name) => ` nº ${r} sur ${t} — ${name}`,
@@ -64,12 +67,13 @@ const UI_FR = {
 
 const UI_EN = {
   counter: (i, n) => `Question ${i} / ${n}`,
-  score: (s) => `Score: ${s}`,
+  pts: (s) => `${s * 10} pts`,
   ok: '✓ Correct',
+  okStreak: (n) => `✓ Correct — streak of ${n}! 🔥`,
   ko: '✗ Not quite',
   timeout: "⏱️ Time's up!",
   next: 'Next question →',
-  seeResult: 'See my result →',
+  seeResult: 'See my result ✨',
   time: (m, s) => `⏱️ Time: ${m} min ${String(s).padStart(2, '0')} s`,
   rankGlobal: (r, t) => `🌍 #${r} of ${t} worldwide`,
   rankCountry: (r, t, name) => ` #${r} of ${t} — ${name}`,
@@ -119,6 +123,7 @@ const LEVELS = LANG === 'fr' ? LEVELS_FR : LEVELS_EN;
 
 let current = 0;
 let score = 0;
+let streak = 0;
 let answered = false;
 let totalMs = 0;
 let qStart = 0;
@@ -203,6 +208,8 @@ function startQuiz() {
   initAudio();
   $('screen-intro').classList.add('hidden');
   $('screen-quiz').classList.remove('hidden');
+  $('streak').classList.remove('hidden');
+  $('byline').classList.add('hidden');
   renderQuestion();
 }
 
@@ -236,12 +243,30 @@ function stopTimer() {
   }
 }
 
+function renderDots() {
+  const d = $('q-dots');
+  d.textContent = '';
+  for (let i = 0; i < RUN.length; i++) {
+    const s = document.createElement('span');
+    s.className = 'dot' + (i < current ? ' done' : i === current ? ' now' : '');
+    d.appendChild(s);
+  }
+}
+
+function bumpStreak() {
+  $('streak-n').textContent = String(streak);
+  const st = $('streak');
+  st.classList.remove('pop');
+  void st.offsetWidth;
+  st.classList.add('pop');
+}
+
 function renderQuestion() {
   answered = false;
   const q = RUN[current][LANG];
   $('q-counter').textContent = T.counter(current + 1, RUN.length);
-  $('q-score').textContent = T.score(score);
-  $('q-progress').style.width = `${(current / RUN.length) * 100}%`;
+  $('q-score').textContent = T.pts(score);
+  renderDots();
   $('q-domain').textContent = q.domain;
   $('q-text').textContent = q.text;
   const box = $('q-options');
@@ -279,7 +304,7 @@ function revealAnswer(pickedIndex, verdictText, verdictCls) {
   $('q-explain-text').textContent = q.explain;
   $('q-source').textContent = q.source;
   $('q-explain').classList.add('show');
-  $('q-score').textContent = T.score(score);
+  $('q-score').textContent = T.pts(score);
 }
 
 function answer(i) {
@@ -289,13 +314,17 @@ function answer(i) {
   totalMs += performance.now() - qStart;
   const item = RUN[current];
   const ok = i === item.answer;
-  if (ok) score++;
-  revealAnswer(i, ok ? T.ok : T.ko, ok ? 'ok' : 'ko');
+  if (ok) {
+    score++;
+    streak++;
+  } else {
+    streak = 0;
+  }
+  bumpStreak();
+  revealAnswer(i, ok ? (streak >= 3 ? T.okStreak(streak) : T.ok) : T.ko, ok ? 'ok' : 'ko');
   $('q-next-btn').textContent = current === RUN.length - 1 ? T.seeResult : T.next;
+  // Barre d'action FIXE en bas d'écran : toujours visible, zéro scroll
   $('q-next-row').classList.add('show');
-  requestAnimationFrame(() => {
-    $('q-next-row').scrollIntoView({ behavior: 'smooth', block: 'end' });
-  });
 }
 
 /* Timeout : question ratée, réponse révélée, passage AUTOMATIQUE sans retour */
@@ -303,6 +332,8 @@ function onTimeout() {
   if (answered) return;
   answered = true;
   totalMs += QUESTION_MS;
+  streak = 0;
+  bumpStreak();
   timeoutSound();
   revealAnswer(-1, T.timeout, 'ko');
   setTimeout(nextQuestion, TIMEOUT_PAUSE_MS);
@@ -323,9 +354,25 @@ function fmtTime(ms) {
   return T.time(Math.floor(s / 60), s % 60);
 }
 
+/* Confettis de félicitations (score ≥ 8) */
+function confetti() {
+  const colors = ['#8b5cf6', '#e3b341', '#059669', '#6d28d9', '#f59e0b'];
+  for (let i = 0; i < 90; i++) {
+    const c = document.createElement('span');
+    c.className = 'confetti';
+    c.style.left = Math.random() * 100 + 'vw';
+    c.style.background = colors[i % colors.length];
+    c.style.animationDuration = 2.2 + Math.random() * 2 + 's';
+    c.style.animationDelay = Math.random() * 0.8 + 's';
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 5200);
+  }
+}
+
 function showResult() {
   stopTimer();
   $('screen-quiz').classList.add('hidden');
+  $('q-next-row').classList.remove('show');
   $('screen-result').classList.remove('hidden');
   window.scrollTo({ top: 0, behavior: 'smooth' });
   const lvl = LEVELS.find((l) => score >= l.min);
@@ -344,6 +391,7 @@ function showResult() {
   setTimeout(() => {
     $('ring').style.strokeDashoffset = String(402 - (402 * score) / 10);
   }, 60);
+  if (score >= CONFETTI_MIN_SCORE) confetti();
 }
 
 /* ── Classement ── */
