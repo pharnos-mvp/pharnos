@@ -10,8 +10,16 @@
 
 const LANG = (() => {
   const p = new URLSearchParams(location.search).get('lang');
-  if (p === 'fr' || p === 'en') return p;
-  return (navigator.language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en';
+  if (p === 'fr' || p === 'en') {
+    try { localStorage.setItem('regafy-lang', p); } catch { /* navigation privee */ }
+    return p;
+  }
+  try {
+    const saved = localStorage.getItem('regafy-lang');
+    if (saved === 'fr' || saved === 'en') return saved;
+  } catch { /* navigation privee */ }
+  const langs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'en'];
+  return langs.some((l) => String(l).toLowerCase().startsWith('fr')) ? 'fr' : 'en';
 })();
 
 const QUESTION_MS = 30000;
@@ -513,3 +521,18 @@ $('board-btn').addEventListener('click', submitBoard);
 $('gate-form').addEventListener('submit', submitGate);
 $('share-btn').addEventListener('click', shareLinkedIn);
 $('retry-btn').addEventListener('click', () => window.location.reload());
+
+/* Selecteur de langue (memorise ; prioritaire sur la detection navigateur) */
+function setLang(l) {
+  try { localStorage.setItem('regafy-lang', l); } catch { /* navigation privee */ }
+  const u = new URL(location.href);
+  u.searchParams.delete('lang');
+  if (u.toString() === location.href) location.reload();
+  else location.href = u.toString();
+}
+const langFr = $('lang-fr');
+const langEn = $('lang-en');
+if (LANG === 'fr' && langFr) langFr.classList.add('active');
+if (LANG === 'en' && langEn) langEn.classList.add('active');
+if (langFr) langFr.addEventListener('click', () => { if (LANG !== 'fr') setLang('fr'); });
+if (langEn) langEn.addEventListener('click', () => { if (LANG !== 'en') setLang('en'); });

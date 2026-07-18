@@ -6,6 +6,12 @@
 const EMAIL_LIKE = /@|https?:|www\./i;
 const CONTROL_OR_TAG = new RegExp('[<>\\u0000-\\u001f]', 'g');
 
+/* Amorcage social (demande CEO 2026-07-18) : 115 participants « de lancement »
+   comptes dans les TOTAUX uniquement - jamais dans les rangs : tout joueur reel
+   les devance tous. Aucune ligne en base, aucun nom : decalage d'affichage. */
+const SEED_GLOBAL = 115;
+const SEED_BY_COUNTRY = { CI: 24, SN: 21, BJ: 14, TG: 11, BF: 10, ML: 9, NE: 7, GW: 3, GN: 4, CM: 4, FR: 5, MA: 3 };
+
 export async function onRequestPost({ request, env }) {
   if (!env.DB) return json(503, { error: 'service_not_configured' });
   if (Number(request.headers.get('content-length') || 0) > 1024) {
@@ -58,11 +64,11 @@ export async function onRequestPost({ request, env }) {
 
     return json(200, {
       ok: true,
-      global: { rank: gRank.results[0].n + 1, total: gTotal.results[0].n },
+      global: { rank: gRank.results[0].n + 1, total: gTotal.results[0].n + SEED_GLOBAL },
       country:
         country === 'XX'
           ? null
-          : { rank: cRank.results[0].n + 1, total: cTotal.results[0].n, code: country },
+          : { rank: cRank.results[0].n + 1, total: cTotal.results[0].n + (SEED_BY_COUNTRY[country] || 0), code: country },
     });
   } catch (err) {
     console.error('score failed:', err instanceof Error ? err.message : err);
