@@ -6,6 +6,8 @@ format RCP/Notice, traduction, simulateur de coûts → Regafy Pro payant).
 sur https://regafy.com (projet Cloudflare Pages `regafy`).
 **Frontière produit : Regafy = niveau DOCUMENT (individuel, one-shot) ; Pharnos = niveau
 DOSSIER/cycle de vie/équipe.** Ne jamais mettre de fonctionnalité dossier/équipe ici.
+**Roadmap & cadrage (jalons R1→R3, garde-fous, décisions)** : [docs/PLAN-REGAFY.md](../docs/PLAN-REGAFY.md)
+— ce README reste la référence TECHNIQUE (architecture, env, pièges).
 
 ## Fonctionnalités (état 2026-07-19)
 

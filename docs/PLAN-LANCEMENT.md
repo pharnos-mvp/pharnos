@@ -6,6 +6,11 @@
 > [PLAN.md](PLAN.md) (vision) ; **supersède l'ordonnancement** de [PLAN-FINITION-ZERO-DETTE.md](PLAN-FINITION-ZERO-DETTE.md).
 > **Le CEO pilote chaque étape** (« dis-moi quoi upgrader ») ; le CTO exécute un lot à la fois, **testé en
 > local avant merge**.
+>
+> **Périmètre : le PRODUIT Pharnos uniquement.** La marque d'acquisition **Regafy** (regafy.com —
+> quiz, Pulse, outils documentaires) a **son propre plan : [PLAN-REGAFY.md](PLAN-REGAFY.md)**
+> (cadence et gates distincts). Seuls points de jonction : le funnel d'invitations et la réuse
+> du moteur doc à sens unique `web/` → `regafy/`.
 
 ## Objectif & métrique
 - **Objectif** : app + landing **visuellement uniformes** (un seul design-system, light/dark, FR/EN), tout
