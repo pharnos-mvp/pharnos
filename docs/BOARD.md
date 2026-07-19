@@ -4,10 +4,12 @@
 > qu'on a fait, **comment** et **pourquoi**, et **où on va**. Toute personne (CEO, dev, ou outil/IA)
 > qui arrive ici doit pouvoir reprendre le fil **sans contexte préalable**.
 >
-> **Trois docs complémentaires :**
+> **Docs complémentaires :**
 > - `docs/PLAN.md` — le **plan approuvé** (vision, scope, milestones, DoD). Stable.
 > - `docs/adr/` — **décisions d'architecture** détaillées (ADR). Ajout au fil de l'eau.
 > - `docs/BOARD.md` (ce fichier) — **l'état vivant** : avancement, journal, cap. **À tenir à jour.**
+> - `docs/PLAN-REGAFY.md` — **la marque d'acquisition Regafy (regafy.com), plan SÉPARÉ** :
+>   ce board et les plans ci-dessus ne couvrent que le produit Pharnos.
 >
 > **Protocole de mise à jour** (voir §13) : à chaque tranche livrée (PR mergée), mettre à jour le
 > §1 (état), le §9 (milestones) et le §10 (journal). Garder le reste synchronisé si une décision change.

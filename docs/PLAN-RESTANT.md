@@ -4,6 +4,9 @@
 > Chaîne documentaire : [PLAN.md](PLAN.md) → [ROADMAP-MVP.md](ROADMAP-MVP.md) →
 > [PLAN-COMPILATION-METERING.md](PLAN-COMPILATION-METERING.md) → [PLAN-M-N-GOLIVE.md](PLAN-M-N-GOLIVE.md) →
 > **ce document**. Ici on **cadre, priorise et ordonnance** ; l'exécution se fait en discussions dédiées.
+> **Hors périmètre : la marque d'acquisition Regafy (regafy.com) = plan séparé
+> [PLAN-REGAFY.md](PLAN-REGAFY.md)** (ne pas confondre avec la feature IA in-app historiquement
+> nommée « Regafy », renommée « Audit de conformité »).
 
 ## ⭐ North Star (rappel)
 **Pharnos = l'usine du Module 1 régional UEMOA/CEDEAO, eCTD-v4-ready, qui s'enclenche dans tout dossier
