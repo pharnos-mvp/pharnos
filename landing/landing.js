@@ -6,8 +6,13 @@
      Persistance `pharnos.lang` (localStorage). Les contenus générés en JS (carte dossier, bouton
      d'envoi) s'abonnent via I18N.on(). ── */
 var I18N = (function () {
-  var lang = 'fr';
-  try { if (localStorage.getItem('pharnos.lang') === 'en') lang = 'en'; } catch (e) {}
+  // NATIVE = langue rendue EN DUR dans le HTML de CETTE page (prérendu SEO) : `fr` sur `/`,
+  // `en` sur `/en/`. La langue ALTERNATIVE vit dans `data-<ALT>` (data-en sur /, data-fr sur /en/).
+  // → un crawler sans JS voit la langue native inline ; le toggle swappe vers l'alternative.
+  var NATIVE = document.documentElement.getAttribute('lang') === 'en' ? 'en' : 'fr';
+  var ALT = NATIVE === 'fr' ? 'en' : 'fr';
+  var lang = NATIVE;
+  try { var _s = localStorage.getItem('pharnos.lang'); if (_s === 'fr' || _s === 'en') lang = _s; } catch (e) {}
   var orig = new WeakMap();
   var subs = [];
 
@@ -60,16 +65,16 @@ var I18N = (function () {
 
   function apply() {
     document.documentElement.lang = lang;
-    document.querySelectorAll('[data-en]').forEach(function (el) {
+    document.querySelectorAll('[data-' + ALT + ']').forEach(function (el) {
       guard(el);
-      var fr = remember(el, 't', firstText(el));
-      setText(el, lang === 'en' ? el.getAttribute('data-en') : fr);
+      var nativeText = remember(el, 't', firstText(el));
+      setText(el, lang === NATIVE ? nativeText : el.getAttribute('data-' + ALT));
     });
     Object.keys(ATTRS).forEach(function (k) {
       var attr = ATTRS[k];
-      document.querySelectorAll('[data-en-' + k + ']').forEach(function (el) {
-        var fr = remember(el, attr, el.getAttribute(attr) || '');
-        el.setAttribute(attr, lang === 'en' ? el.getAttribute('data-en-' + k) : fr);
+      document.querySelectorAll('[data-' + ALT + '-' + k + ']').forEach(function (el) {
+        var nativeVal = remember(el, attr, el.getAttribute(attr) || '');
+        el.setAttribute(attr, lang === NATIVE ? nativeVal : el.getAttribute('data-' + ALT + '-' + k));
       });
     });
     subs.forEach(function (fn) { try { fn(lang); } catch (e) {} });
@@ -78,6 +83,12 @@ var I18N = (function () {
     lang = l === 'en' ? 'en' : 'fr';
     try { localStorage.setItem('pharnos.lang', lang); } catch (e) {}
     apply();
+    // Aligne l'URL sur la langue SANS recharger (chaque langue a son URL canonique prérendue :
+    // `/` = FR, `/en/` = EN). Au reload, la bonne page statique se sert d'elle-même.
+    try {
+      var want = lang === 'en' ? '/en/' : '/';
+      if (location.pathname !== want) history.replaceState(null, '', want);
+    } catch (e) {}
   }
   /* Boutons FR/EN (header + menu mobile) : pilotent le vrai swap + l'état visuel. */
   document.querySelectorAll('.lang').forEach(function (grp) {
