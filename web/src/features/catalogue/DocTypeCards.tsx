@@ -130,11 +130,11 @@ function DocCard({
       return
     }
     if (!isAllowedUpload(file)) {
-      toast.error(UPLOAD_TYPE_ERROR)
+      toast.error(t(UPLOAD_TYPE_ERROR))
       return
     }
     if (file.size > MAX_UPLOAD_BYTES) {
-      toast.error(UPLOAD_SIZE_ERROR)
+      toast.error(t(UPLOAD_SIZE_ERROR))
       return
     }
     if (needsExpiry && !expiryDate) {

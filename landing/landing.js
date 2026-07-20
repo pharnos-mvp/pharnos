@@ -1,3 +1,114 @@
+/* ── i18n FR/EN (Lot 12) — le toggle de langue swap le contenu POUR DE VRAI (avant : décoratif).
+     Mécanisme : chaque élément traduisible porte `data-en` (texte) ; le swap remplace le PREMIER
+     nœud texte non vide en PRÉSERVANT les enfants (icônes <svg>) → zéro changement de structure HTML,
+     zéro risque de mise en page. Attributs traduisibles : `data-en-al` (aria-label), `data-en-ph`
+     (placeholder), `data-en-ti` (title). Le FR d'origine est mémorisé (WeakMap) au 1er passage.
+     Persistance `pharnos.lang` (localStorage). Les contenus générés en JS (carte dossier, bouton
+     d'envoi) s'abonnent via I18N.on(). ── */
+var I18N = (function () {
+  // NATIVE = langue rendue EN DUR dans le HTML de CETTE page (prérendu SEO) : `fr` sur `/`,
+  // `en` sur `/en/`. La langue ALTERNATIVE vit dans `data-<ALT>` (data-en sur /, data-fr sur /en/).
+  // → un crawler sans JS voit la langue native inline ; le toggle swappe vers l'alternative.
+  var NATIVE = document.documentElement.getAttribute('lang') === 'en' ? 'en' : 'fr';
+  var ALT = NATIVE === 'fr' ? 'en' : 'fr';
+  var lang = NATIVE;
+  try { var _s = localStorage.getItem('pharnos.lang'); if (_s === 'fr' || _s === 'en') lang = _s; } catch (e) {}
+  var orig = new WeakMap();
+  var subs = [];
+
+  function remember(el, key, val) {
+    var m = orig.get(el);
+    if (!m) { m = {}; orig.set(el, m); }
+    if (!(key in m)) m[key] = val;
+    return m[key];
+  }
+  /* Remplace le 1er nœud texte non vide, garde les éléments enfants (icônes). */
+  function setText(el, str) {
+    var done = false;
+    for (var i = 0; i < el.childNodes.length; i++) {
+      var n = el.childNodes[i];
+      if (n.nodeType === 3 && n.nodeValue.trim()) {
+        if (!done) { n.nodeValue = str; done = true; } else { n.nodeValue = ''; }
+      }
+    }
+    if (!done) el.appendChild(document.createTextNode(str));
+  }
+  function firstText(el) {
+    for (var i = 0; i < el.childNodes.length; i++) {
+      var n = el.childNodes[i];
+      if (n.nodeType === 3 && n.nodeValue.trim()) return n.nodeValue;
+    }
+    return '';
+  }
+  /* Garde-fou : `setText` ne mémorise/restaure QUE le 1er nœud texte. Un `data-en` posé sur un
+     élément qui a du texte AVANT ET APRÈS un enfant perdrait silencieusement le FR de fin au retour.
+     On alerte (une fois) → envelopper le texte dans un <span data-en> (cf. compteur & message d'erreur). */
+  var warned = new WeakSet();
+  function guard(el) {
+    if (warned.has(el)) return;
+    var c = 0;
+    for (var i = 0; i < el.childNodes.length; i++) {
+      if (el.childNodes[i].nodeType === 3 && el.childNodes[i].nodeValue.trim()) c++;
+    }
+    if (c > 1) {
+      warned.add(el);
+      try {
+        console.warn(
+          '[i18n] « data-en » sur un élément à plusieurs nœuds texte — le FR situé après un enfant ' +
+            'sera perdu au retour FR. Enveloppez le texte dans un <span data-en>.',
+          el,
+        );
+      } catch (e) {}
+    }
+  }
+  var ATTRS = { al: 'aria-label', ph: 'placeholder', ti: 'title', lb: 'label' };
+
+  function apply() {
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-' + ALT + ']').forEach(function (el) {
+      guard(el);
+      var nativeText = remember(el, 't', firstText(el));
+      setText(el, lang === NATIVE ? nativeText : el.getAttribute('data-' + ALT));
+    });
+    Object.keys(ATTRS).forEach(function (k) {
+      var attr = ATTRS[k];
+      document.querySelectorAll('[data-' + ALT + '-' + k + ']').forEach(function (el) {
+        var nativeVal = remember(el, attr, el.getAttribute(attr) || '');
+        el.setAttribute(attr, lang === NATIVE ? nativeVal : el.getAttribute('data-' + ALT + '-' + k));
+      });
+    });
+    subs.forEach(function (fn) { try { fn(lang); } catch (e) {} });
+  }
+  function set(l) {
+    lang = l === 'en' ? 'en' : 'fr';
+    try { localStorage.setItem('pharnos.lang', lang); } catch (e) {}
+    apply();
+    // Aligne l'URL sur la langue SANS recharger (chaque langue a son URL canonique prérendue :
+    // `/` = FR, `/en/` = EN). Au reload, la bonne page statique se sert d'elle-même.
+    try {
+      var want = lang === 'en' ? '/en/' : '/';
+      if (location.pathname !== want) history.replaceState(null, '', want);
+    } catch (e) {}
+  }
+  /* Boutons FR/EN (header + menu mobile) : pilotent le vrai swap + l'état visuel. */
+  document.querySelectorAll('.lang').forEach(function (grp) {
+    grp.addEventListener('click', function (e) {
+      var b = e.target.closest('button');
+      if (!b) return;
+      set(b.textContent.trim().toLowerCase() === 'en' ? 'en' : 'fr');
+    });
+  });
+  subs.push(function (l) {
+    document.querySelectorAll('.lang button').forEach(function (b) {
+      var on = b.textContent.trim().toLowerCase() === l;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+  });
+  apply();
+  return { get: function () { return lang; }, on: function (fn) { subs.push(fn); apply(); }, set: set };
+})();
+
 /* ── Modale « Demander une démo » — POST JSON vers l'Edge Supabase `demo-request`.
      IIFE séparée : la scène de la constellation fait un early-return si le SVG manque. ── */
 (function () {
@@ -54,7 +165,7 @@
     if (!form.reportValidity()) return;
     var fd = new FormData(form);
     submit.disabled = true;
-    submit.textContent = 'Envoi…';
+    submit.textContent = I18N.get() === 'en' ? 'Sending…' : 'Envoi…';
     errBox.hidden = true;
     fetch(API, {
       method: 'POST',
@@ -83,7 +194,7 @@
       errBox.hidden = false;
     }).finally(function () {
       submit.disabled = false;
-      submit.textContent = 'Envoyer la demande';
+      submit.textContent = I18N.get() === 'en' ? 'Send request' : 'Envoyer la demande';
     });
   });
 })();
@@ -103,18 +214,7 @@
       }
     }
 
-    /* Sélecteur de langue (état visuel ; traduction du contenu = jalon i18n) */
-    document.querySelectorAll('.lang').forEach(function (grp) {
-      grp.addEventListener('click', function (e) {
-        var btn = e.target.closest('button');
-        if (!btn) return;
-        grp.querySelectorAll('button').forEach(function (b) {
-          var on = b === btn;
-          b.classList.toggle('on', on);
-          b.setAttribute('aria-pressed', String(on));
-        });
-      });
-    });
+    /* Sélecteur de langue : géré par le module I18N en tête de fichier (vrai swap FR/EN). */
 
     /* Menu mobile */
     var burger = document.querySelector('.burger');
@@ -145,16 +245,16 @@
 
     /* ── Scène : naissance de la marque → réseau UEMOA → embrasement du continent. ── */
     var STEPS = [
-      { n: 'BJ', dci: 'Amoxicilline 500 mg',        step: 5, stage: 'Soumission',    status: 'J+38 · frais en attente — relance J+14 armée' },
-      { n: 'TG', dci: 'Paracétamol 500 mg',          step: 3, stage: 'Décision',      status: 'validation du correspondant en cours' },
-      { n: 'CI', dci: 'Amodiaquine 200 mg',          step: 6, stage: 'Notifications', status: 'J+112 · échéance GMP dans 24 j' },
-      { n: 'GH', dci: 'Azithromycine 250 mg',        step: 4, stage: 'Dépôt',         status: 'récépissé joint hier — conforme' },
-      { n: 'BF', dci: 'Metformine 850 mg',           step: 2, stage: 'Revue',         status: 'pièces reçues — revue sous 5 j' },
-      { n: 'ML', dci: 'Artéméther/Lumé. 80/480 mg',  step: 5, stage: 'Soumission',    status: 'échantillons livrés · LTA 057-4412' },
-      { n: 'SN', dci: 'Oméprazole 20 mg',            step: 7, stage: 'AMM',           status: 'délivrée · 5 ans — renouvellement J−6 mois' },
-      { n: 'GW', dci: 'Ceftriaxone 1 g',             step: 1, stage: 'Montage',       status: 'CTD à 82 % — compilation demain' },
-      { n: 'NE', dci: 'Ibuprofène 400 mg',           step: 4, stage: 'Dépôt',         status: 'dépôt confirmé ce matin' },
-      { n: 'NG', dci: 'Quinine 300 mg',              step: 2, stage: 'Revue',         status: 'traduction EN vérifiée par Regafy' }
+      { n: 'BJ', dci: 'Amoxicilline 500 mg',        step: 5, stage: 'Soumission',    stageEn: 'Submission',    status: 'J+38 · frais en attente — relance J+14 armée',      statusEn: 'D+38 · fees pending — D+14 reminder armed' },
+      { n: 'TG', dci: 'Paracétamol 500 mg',          step: 3, stage: 'Décision',      stageEn: 'Decision',      status: 'validation du correspondant en cours',             statusEn: 'correspondent validation in progress' },
+      { n: 'CI', dci: 'Amodiaquine 200 mg',          step: 6, stage: 'Notifications', stageEn: 'Notifications',  status: 'J+112 · échéance GMP dans 24 j',                   statusEn: 'D+112 · GMP deadline in 24 d' },
+      { n: 'GH', dci: 'Azithromycine 250 mg',        step: 4, stage: 'Dépôt',         stageEn: 'Filing',        status: 'récépissé joint hier — conforme',                  statusEn: 'receipt attached yesterday — compliant' },
+      { n: 'BF', dci: 'Metformine 850 mg',           step: 2, stage: 'Revue',         stageEn: 'Review',        status: 'pièces reçues — revue sous 5 j',                   statusEn: 'documents received — review within 5 d' },
+      { n: 'ML', dci: 'Artéméther/Lumé. 80/480 mg',  step: 5, stage: 'Soumission',    stageEn: 'Submission',    status: 'échantillons livrés · LTA 057-4412',              statusEn: 'samples delivered · AWB 057-4412' },
+      { n: 'SN', dci: 'Oméprazole 20 mg',            step: 7, stage: 'AMM',           stageEn: 'MA',            status: 'délivrée · 5 ans — renouvellement J−6 mois',       statusEn: 'granted · 5 years — renewal at M−6' },
+      { n: 'GW', dci: 'Ceftriaxone 1 g',             step: 1, stage: 'Montage',       stageEn: 'Assembly',      status: 'CTD à 82 % — compilation demain',                  statusEn: 'CTD at 82% — compile tomorrow' },
+      { n: 'NE', dci: 'Ibuprofène 400 mg',           step: 4, stage: 'Dépôt',         stageEn: 'Filing',        status: 'dépôt confirmé ce matin',                          statusEn: 'filing confirmed this morning' },
+      { n: 'NG', dci: 'Quinine 300 mg',              step: 2, stage: 'Revue',         stageEn: 'Review',        status: 'traduction EN vérifiée par Regafy',                statusEn: 'EN translation checked by Regafy' }
     ];
     /* atomes du reste du continent (id, x, y) — émaillés par vague radiale depuis l'UEMOA */
     var REST = [
@@ -190,14 +290,19 @@
     var wordmark = document.getElementById('wordmark');
     var africaEls = svg.querySelectorAll('.africa');
 
+    var curStep = STEPS[0];
     function fillCard(d) {
+      curStep = d;
+      var en = I18N.get() === 'en';
       document.getElementById('d-dci').textContent = d.dci;
       document.getElementById('d-cc').textContent = d.n;
-      document.getElementById('d-stage').textContent = d.stage;
-      document.getElementById('d-status').textContent = d.status;
+      document.getElementById('d-stage').textContent = en ? d.stageEn : d.stage;
+      document.getElementById('d-status').textContent = en ? d.statusEn : d.status;
       for (var k = 0; k < 7; k++) segs[k].className = k < d.step - 1 ? 'done' : (k === d.step - 1 ? 'now' : '');
     }
     fillCard(STEPS[0]);
+    /* Re-render la carte dans la nouvelle langue au changement (le DCI = molécule, inchangé). */
+    I18N.on(function () { fillCard(curStep); });
 
     function nearest(p, pts) {
       var best = pts[0], bd = Infinity;

@@ -74,6 +74,13 @@ jobs:
       - name: Headers de sécurité (_headers Cloudflare)
         run: npm run headers
 
+      - name: Landing EN prérendu synchronisé (SEO /en/)
+        # /en/ est GÉNÉRÉ depuis landing/index.html. On régénère et on exige zéro diff : toute modif
+        # de index.html non répercutée dans en/index.html fait échouer la CI (garde anti-dérive).
+        run: |
+          npm run build:landing-en
+          git diff --exit-code -- ../landing/en/index.html
+
   e2e:
     name: e2e (Playwright · offline PWA)
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'

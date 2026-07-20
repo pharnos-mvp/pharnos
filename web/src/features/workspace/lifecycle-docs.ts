@@ -7,6 +7,7 @@ import {
   UPLOAD_SIZE_ERROR,
   UPLOAD_TYPE_ERROR,
 } from '@/lib/files'
+import { tStatic } from '@/lib/i18n-context'
 import { getSupabase } from '@/lib/supabase'
 import { triggerDownload } from './download-utils'
 
@@ -30,10 +31,16 @@ export async function uploadLifecycleDoc(
   dossierId: string,
   file: File,
 ): Promise<LifecycleDocRef> {
-  if (!isAllowedUpload(file)) throw new Error(UPLOAD_TYPE_ERROR)
-  if (file.size > MAX_UPLOAD_BYTES) throw new Error(UPLOAD_SIZE_ERROR)
+  if (!isAllowedUpload(file)) throw new Error(tStatic(UPLOAD_TYPE_ERROR))
+  if (file.size > MAX_UPLOAD_BYTES) throw new Error(tStatic(UPLOAD_SIZE_ERROR))
   const supabase = await getSupabase()
-  if (!supabase) throw new Error('Connexion requise pour joindre une pièce.')
+  if (!supabase)
+    throw new Error(
+      tStatic({
+        fr: 'Connexion requise pour joindre une pièce.',
+        en: 'Sign-in required to attach a file.',
+      }),
+    )
   const name = sanitizeFileName(file.name)
   const mime = contentTypeFor(file)
   // Dossier unique par pièce : deux uploads du même nom de fichier ne se percutent jamais.

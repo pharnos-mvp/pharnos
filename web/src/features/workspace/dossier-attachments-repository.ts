@@ -7,6 +7,7 @@ import {
   UPLOAD_SIZE_ERROR,
   UPLOAD_TYPE_ERROR,
 } from '@/lib/files'
+import { tStatic } from '@/lib/i18n-context'
 import { enqueueOutbox } from '@/lib/outbox'
 
 const now = () => new Date().toISOString()
@@ -30,8 +31,8 @@ export async function addAttachment(
   nodeNumber: string,
   file: File,
 ): Promise<DossierAttachmentRecord> {
-  if (!isAllowedUpload(file)) throw new Error(UPLOAD_TYPE_ERROR)
-  if (file.size > MAX_UPLOAD_BYTES) throw new Error(UPLOAD_SIZE_ERROR)
+  if (!isAllowedUpload(file)) throw new Error(tStatic(UPLOAD_TYPE_ERROR))
+  if (file.size > MAX_UPLOAD_BYTES) throw new Error(tStatic(UPLOAD_SIZE_ERROR))
   const ts = now()
   const id = newId()
   const record: DossierAttachmentRecord = {

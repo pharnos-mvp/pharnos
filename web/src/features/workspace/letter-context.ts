@@ -54,16 +54,17 @@ export const LETTER_CURRENCIES = [
   'AUD',
 ] as const
 
-/** Pays UEMOA (destinataire auto des lettres) — source du sélecteur. */
-export const UEMOA_COUNTRIES: { code: string; name: string }[] = [
-  { code: 'BJ', name: 'Bénin' },
-  { code: 'BF', name: 'Burkina Faso' },
-  { code: 'CI', name: 'Côte d’Ivoire' },
-  { code: 'GW', name: 'Guinée-Bissau' },
-  { code: 'ML', name: 'Mali' },
-  { code: 'NE', name: 'Niger' },
-  { code: 'SN', name: 'Sénégal' },
-  { code: 'TG', name: 'Togo' },
+/** Pays UEMOA (destinataire auto des lettres) — source du sélecteur. `nameEn` = libellé anglais
+ *  (sélecteur + constats localisés) ; `code`/`name` inchangés (consommés ailleurs). */
+export const UEMOA_COUNTRIES: { code: string; name: string; nameEn: string }[] = [
+  { code: 'BJ', name: 'Bénin', nameEn: 'Benin' },
+  { code: 'BF', name: 'Burkina Faso', nameEn: 'Burkina Faso' },
+  { code: 'CI', name: 'Côte d’Ivoire', nameEn: 'Côte d’Ivoire' },
+  { code: 'GW', name: 'Guinée-Bissau', nameEn: 'Guinea-Bissau' },
+  { code: 'ML', name: 'Mali', nameEn: 'Mali' },
+  { code: 'NE', name: 'Niger', nameEn: 'Niger' },
+  { code: 'SN', name: 'Sénégal', nameEn: 'Senegal' },
+  { code: 'TG', name: 'Togo', nameEn: 'Togo' },
 ]
 
 export const LETTER_FIELD_KEYS: (keyof LetterFields)[] = [

@@ -139,7 +139,7 @@ export function LetterEditor({
             <option value="">{t({ fr: 'Choisir un pays', en: 'Choose a country' })}</option>
             {UEMOA_COUNTRIES.map((c) => (
               <option key={c.code} value={c.code}>
-                {c.name}
+                {lang === 'en' ? c.nameEn : c.name}
               </option>
             ))}
           </select>

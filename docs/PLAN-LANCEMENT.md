@@ -31,8 +31,28 @@ La refonte est **bien engagée** — plusieurs surfaces majeures sont déjà ref
 > ce sont des **LOTs de CE projet de refonte complète de l'app**, qui se poursuit par les surfaces restantes
 > (LOTs 7-10) **puis la refonte du landing (LOT 11)**. Tout converge vers le même design-system.
 
-**Reste (MAJ 2026-07-13 — lifecycle M0–M6+CS1 ✅, LOTs 7-8-9-10 ✅, LOT 11 landing ✅ CLOS + PROD)** :
-**LOT 12 i18n + M4** → LOT 13 recette finale → **LOT 14 GO-LIVE (= N4)**.
+**Reste (MAJ 2026-07-20 — lifecycle M0–M6+CS1 ✅, LOTs 7-8-9-10 ✅, LOT 11 landing ✅, LOT 12 i18n+M4 ✅ LIVRÉ [PR à merger])** :
+**LOT 12 i18n + M4 ✅** → LOT 13 recette finale → **LOT 14 GO-LIVE (= N4)**.
+
+> **LOT 12 — LIVRÉ 2026-07-20/21 (branche `feat/lot12-i18n-m4`, PR #368, code-reviewer SHIP ×3, CI 6/6).**
+> (a) **M4 nudge Templates** « langue du document ≠ langue de soumission » (`officialLanguage`) dans
+> l'éditeur de la Bibliothèque — helper pur testé + bannière navy non bloquante, bascule FR/EN 1 clic,
+> masquée par édition. **Clôt la Bibliothèque Templates 6/6.** (b) **Audit i18n FR/EN de l'app**
+> (fan-out 4 surfaces) → ~16 chaînes de dérive corrigées (`Générer`, toasts, throws, constantes d'upload
+> partagées bilingues, sr-only `Close` dialog/sheet, noms pays UEMOA, chrome Notice). (c) **Landing EN**
+> — le toggle FR/EN, jusque-là **décoratif**, swap désormais le contenu pour de vrai (moteur i18n
+> `landing.js` + ~200 `data-en`, carte dossier + modale synchronisées) ; **vérifié en navigateur**
+> (aller-retour sans perte, persistance, 0 erreur console). Front-only, zéro migration.
+> (d) **SEO du landing (demande CEO « 100 % SEO »)** — og:image FR **+ og:image EN dédiée** (1200×630
+> générées), Twitter card, og:locale/site_name, **JSON-LD** (Organization+WebSite+SoftwareApplication),
+> `robots.txt`, `sitemap.xml` ; **SEO BILINGUE** : `/en/` **prérendu** (EN inline, crawler-visible sans
+> JS) + `hreflang` fr/en/x-default réciproques + `canonical` par URL. `en/index.html` = **GÉNÉRÉ** par
+> `web/scripts/build-landing-en.mjs` (jsdom, `npm run build:landing-en`) depuis `index.html` = source
+> unique ; **garde CI** (job `web`) régénère + `git diff --exit-code` (anti-dérive). Preuve crawler :
+> `/` = FR inline, `/en/` = EN inline.
+> **⏳ Recette CEO** : (1) copie marketing EN **validée CEO 2026-07-20** ✅ ; (2) M4 + drift i18n de
+> l'app en local (port 4319). **Différés à trancher** : ~90 noms de pays du formulaire de démo (restés
+> FR) + **`invite.html`** (page d'invitation sans toggle — 1er écran d'un invité anglophone).
 **M8 (fin de collaboration + modération) + CS1 phase 2 (éditeurs scopés) = post-GO-LIVE** (M8 gated sur la
 décision « mode Agence multi-clients »).
 
@@ -41,7 +61,7 @@ décision « mode Agence multi-clients »).
 - **Cloche** — tri **du plus récent au plus ancien** ; acquittements **conservés à la déconnexion** (purgés au swap de compte) ; items sans date (complément / non-conforme) **datés** → tri chrono (PR #321/#322).
 - **N° d'opération « en attente » = VRAI bug de sync corrigé** — le n° (trigger serveur `0046`) ne **descendait pas** au client (le trigger ne bumpait pas `updated_at`, le pull incrémental « sautait » la ligne). Fix = **migration `0060`** (bump `updated_at` atomique) **APPLIQUÉE EN PROD** (via MCP) + coalescence de sync + libellé « n° en cours d'attribution… » (PR #322). Fichier `.sql` de `0060` **mergé au repo (PR #323, `7c0aa6a`)** → repo aligné avec la prod.
 - **Board Opérations épuré + peaufiné** — retrait bande KPI + panneau correspondance (table pleine largeur), colonne « Créé le » (avec heure), tri récent→ancien, pastille « N urgentes ≤ 7 j », **recherche** du board (insensible aux accents, au début de la ligne des filtres) (PR #324/#325/#326). Pièges CSS (`overflow-x-auto overflow-y-clip` = thead sticky + scroll horizontal) consignés dans la mémoire du board.
-- **Recettes CEO encore à faire** (avant LOT 13) : M4, CS1, M7, **dark de l'app entière** (texte sombre sur remplissages bleus), visuel `/compte`.
+- **Recettes CEO encore à faire** (avant LOT 13) : ~~M4~~ (livré LOT 12, à recetter), CS1, M7, **dark de l'app entière** (texte sombre sur remplissages bleus), visuel `/compte`, **copie marketing EN du landing**.
 - **Prochaine migration libre = `0061`.**
 
 ---

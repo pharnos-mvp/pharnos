@@ -1,5 +1,6 @@
 import { recordAudit } from '@/lib/audit'
 import { db, type ProductRecord } from '@/lib/db'
+import { tStatic } from '@/lib/i18n-context'
 import { enqueueOutbox } from '@/lib/outbox'
 import { deriveProductLinks } from './parties-repository'
 import { productSchema, type ProductInput } from './types'
@@ -47,7 +48,7 @@ export async function createProduct(orgId: string, input: ProductInput): Promise
 export async function updateProduct(id: string, input: ProductInput): Promise<ProductRecord> {
   const existing = await db.products.get(id)
   if (!existing || existing.deletedAt !== null) {
-    throw new Error('Produit introuvable')
+    throw new Error(tStatic({ fr: 'Produit introuvable', en: 'Product not found' }))
   }
   const values = productSchema.parse(input)
   // Ré-aligne les liens d'organisation sur les free-text édités (« 0 ressaisie », idempotent).
