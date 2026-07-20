@@ -1,7 +1,7 @@
 <!doctype html>
-<!-- FICHIER GENERE a partir de ../index.html (version EN prerendue pour le SEO). NE PAS EDITER A LA MAIN.
-     Regeneration apres toute modif de index.html : flip data-en->data-fr, inline EN, <html lang=en>,
-     head EN (title/description/og/canonical/og:image-en), hreflang inchanges. Voir memoire lot12-i18n-landing. -->
+<!-- FICHIER GENERE par web/scripts/build-landing-en.mjs a partir de ../index.html (version EN
+     prerendue pour le SEO). NE PAS EDITER A LA MAIN — lancer `npm run build:landing-en` apres
+     toute modif de index.html. La CI verifie que cette page reste synchronisee. -->
 <html lang="en"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -44,7 +44,7 @@
       "name": "Pharnos",
       "url": "https://pharnos.com/",
       "logo": "https://pharnos.com/apple-touch-icon.png",
-      "description": "La plateforme du réglementaire pharmaceutique en Afrique — CTD Builder, soumission, collaboration et suivi en temps réel. UEMOA / CEDEAO.",
+      "description": "The pharmaceutical regulatory platform for Africa — CTD Builder, submission, collaboration and real-time tracking. UEMOA / CEDEAO.",
       "email": "contact@pharnos.com",
       "areaServed": "UEMOA / CEDEAO"
     },
@@ -53,8 +53,13 @@
       "@id": "https://pharnos.com/#website",
       "name": "Pharnos",
       "url": "https://pharnos.com/",
-      "publisher": { "@id": "https://pharnos.com/#organization" },
-      "inLanguage": ["fr", "en"]
+      "publisher": {
+        "@id": "https://pharnos.com/#organization"
+      },
+      "inLanguage": [
+        "fr",
+        "en"
+      ]
     },
     {
       "@type": "SoftwareApplication",
@@ -62,14 +67,16 @@
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web",
       "url": "https://pharnos.com/",
-      "description": "Système d'exploitation des affaires réglementaires pharmaceutiques : catalogue RIM, CTD Builder au cadre UEMOA, correspondance et cycle de vie du dossier, Regafy AI.",
+      "description": "The operating system for pharmaceutical regulatory affairs: RIM catalogue, CTD Builder in the UEMOA framework, correspondence and dossier lifecycle, Regafy AI.",
       "offers": {
         "@type": "Offer",
         "price": "0",
         "priceCurrency": "XOF",
-        "description": "Offre Pilote gratuite ; offres payantes à partir de 100 000 FCFA / mois."
+        "description": "Free Pilot plan; paid plans from 100,000 FCFA / month."
       },
-      "publisher": { "@id": "https://pharnos.com/#organization" }
+      "publisher": {
+        "@id": "https://pharnos.com/#organization"
+      }
     }
   ]
 }
@@ -113,8 +120,8 @@
       <a class="navlink" href="#offres" data-fr="Offres">Pricing</a>
     </nav>
     <div class="lang" role="group" aria-label="Choose language" data-fr-al="Choisir la langue">
-      <button type="button" class="on" aria-pressed="true">FR</button>
-      <button type="button" aria-pressed="false">EN</button>
+      <button type="button" class="" aria-pressed="false">FR</button>
+      <button type="button" aria-pressed="true" class="on">EN</button>
     </div>
     <a class="login" href="https://app.pharnos.com" data-fr="Se connecter">Sign in</a>
     <button class="burger" type="button" aria-expanded="false" aria-controls="mnav" aria-label="Open menu" data-fr-al="Ouvrir le menu">
@@ -127,8 +134,8 @@
       <a href="#equipe" data-fr="Équipe">Team</a>
       <a href="#offres" data-fr="Offres">Pricing</a>
       <div class="lang" role="group" aria-label="Choose language" data-fr-al="Choisir la langue">
-        <button type="button" class="on" aria-pressed="true">FR</button>
-        <button type="button" aria-pressed="false">EN</button>
+        <button type="button" class="" aria-pressed="false">FR</button>
+        <button type="button" aria-pressed="true" class="on">EN</button>
       </div>
       <a href="https://app.pharnos.com" data-fr="Se connecter">Sign in</a>
     </nav>
