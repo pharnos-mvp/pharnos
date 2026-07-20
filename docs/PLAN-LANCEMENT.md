@@ -34,7 +34,7 @@ La refonte est **bien engagée** — plusieurs surfaces majeures sont déjà ref
 **Reste (MAJ 2026-07-20 — lifecycle M0–M6+CS1 ✅, LOTs 7-8-9-10 ✅, LOT 11 landing ✅, LOT 12 i18n+M4 ✅ LIVRÉ [PR à merger])** :
 **LOT 12 i18n + M4 ✅** → LOT 13 recette finale → **LOT 14 GO-LIVE (= N4)**.
 
-> **LOT 12 — LIVRÉ 2026-07-20 (branche `feat/lot12-i18n-m4`, 2 commits, code-reviewer SHIP ×2).**
+> **LOT 12 — LIVRÉ 2026-07-20/21 (branche `feat/lot12-i18n-m4`, PR #368, code-reviewer SHIP ×3, CI 6/6).**
 > (a) **M4 nudge Templates** « langue du document ≠ langue de soumission » (`officialLanguage`) dans
 > l'éditeur de la Bibliothèque — helper pur testé + bannière navy non bloquante, bascule FR/EN 1 clic,
 > masquée par édition. **Clôt la Bibliothèque Templates 6/6.** (b) **Audit i18n FR/EN de l'app**
@@ -43,10 +43,16 @@ La refonte est **bien engagée** — plusieurs surfaces majeures sont déjà ref
 > — le toggle FR/EN, jusque-là **décoratif**, swap désormais le contenu pour de vrai (moteur i18n
 > `landing.js` + ~200 `data-en`, carte dossier + modale synchronisées) ; **vérifié en navigateur**
 > (aller-retour sans perte, persistance, 0 erreur console). Front-only, zéro migration.
-> **⏳ Recette CEO** : (1) valider la **copie marketing EN** du landing (« je rédige, tu valides ») ;
-> (2) M4 + drift i18n de l'app en local (port 4319). **Différés à trancher** : ~90 noms de pays du
-> formulaire de démo (restés FR) + **`invite.html`** (page d'invitation sans toggle — 1er écran d'un
-> invité anglophone).
+> (d) **SEO du landing (demande CEO « 100 % SEO »)** — og:image FR **+ og:image EN dédiée** (1200×630
+> générées), Twitter card, og:locale/site_name, **JSON-LD** (Organization+WebSite+SoftwareApplication),
+> `robots.txt`, `sitemap.xml` ; **SEO BILINGUE** : `/en/` **prérendu** (EN inline, crawler-visible sans
+> JS) + `hreflang` fr/en/x-default réciproques + `canonical` par URL. `en/index.html` = **GÉNÉRÉ** par
+> `web/scripts/build-landing-en.mjs` (jsdom, `npm run build:landing-en`) depuis `index.html` = source
+> unique ; **garde CI** (job `web`) régénère + `git diff --exit-code` (anti-dérive). Preuve crawler :
+> `/` = FR inline, `/en/` = EN inline.
+> **⏳ Recette CEO** : (1) copie marketing EN **validée CEO 2026-07-20** ✅ ; (2) M4 + drift i18n de
+> l'app en local (port 4319). **Différés à trancher** : ~90 noms de pays du formulaire de démo (restés
+> FR) + **`invite.html`** (page d'invitation sans toggle — 1er écran d'un invité anglophone).
 **M8 (fin de collaboration + modération) + CS1 phase 2 (éditeurs scopés) = post-GO-LIVE** (M8 gated sur la
 décision « mode Agence multi-clients »).
 
