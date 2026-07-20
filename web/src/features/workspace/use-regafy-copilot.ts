@@ -265,7 +265,9 @@ export function useRegafyCopilot({
         // remarque (résultat identique → idempotent) — recette n°10.
         if (cached) await new Promise((r) => setTimeout(r, 900))
       } catch (e) {
-        toast.error(`Analyse impossible : ${(e as Error).message}`)
+        toast.error(
+          tStatic({ fr: 'Analyse impossible : ', en: 'Analysis failed: ' }) + (e as Error).message,
+        )
       } finally {
         setAnalyzing(null)
       }
@@ -327,7 +329,9 @@ export function useRegafyCopilot({
         // Doc inchangé (cache) : rejoue l'animation de scan VISIBLE, sans réappel IA (recette n°10).
         if (cached) await new Promise((r) => setTimeout(r, 900))
       } catch (e) {
-        toast.error(`Analyse impossible : ${(e as Error).message}`)
+        toast.error(
+          tStatic({ fr: 'Analyse impossible : ', en: 'Analysis failed: ' }) + (e as Error).message,
+        )
       } finally {
         setAnalyzing(null)
       }

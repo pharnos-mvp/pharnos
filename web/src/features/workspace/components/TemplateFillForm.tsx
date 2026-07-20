@@ -215,22 +215,29 @@ export function TemplateFillForm({
         ) : null}
       </div>
       {def.hasGlobalsBar ? (
-        // Réglages GLOBAUX du gabarit Notice : appliqués à tous les textes dynamiques.
+        // Réglages GLOBAUX du gabarit Notice : appliqués à tous les textes dynamiques. Les VALEURS
+        // (verbe, clés HCP) pilotent la prose du modèle → inchangées ; seuls les libellés affichés
+        // sont localisés (le modèle Notice rend « take/use » en EN).
         <div className="tplform-globals">
-          <span className="tplform-g-label">Verbe employé&nbsp;:</span>
+          <span className="tplform-g-label">
+            {t({ fr: 'Verbe employé', en: 'Verb used' })}&nbsp;:
+          </span>
           <select
             className="tplform-g-select"
-            aria-label="Verbe employé"
+            aria-label={t({ fr: 'Verbe employé', en: 'Verb used' })}
             value={g.verb}
             onChange={(e) =>
               setGlobals({ ...g, verb: e.target.value === 'utiliser' ? 'utiliser' : 'prendre' })
             }
           >
-            <option value="prendre">prendre</option>
-            <option value="utiliser">utiliser</option>
+            <option value="prendre">{t({ fr: 'prendre', en: 'take' })}</option>
+            <option value="utiliser">{t({ fr: 'utiliser', en: 'use' })}</option>
           </select>
           <span className="tplform-g-divider" />
-          <span className="tplform-g-label">Professionnels mentionnés&nbsp;:</span>
+          <span className="tplform-g-label">
+            {t({ fr: 'Professionnels mentionnés', en: 'Healthcare professionals mentioned' })}
+            &nbsp;:
+          </span>
           {(['medecin', 'pharmacien', 'infirmier'] as const).map((k) => (
             <label key={k} className="tplform-g-cb">
               <input
@@ -238,11 +245,20 @@ export function TemplateFillForm({
                 checked={g.hcp[k]}
                 onChange={(e) => setGlobals({ ...g, hcp: { ...g.hcp, [k]: e.target.checked } })}
               />
-              {k === 'medecin' ? 'médecin' : k === 'pharmacien' ? 'pharmacien' : 'infirmier/ère'}
+              {k === 'medecin'
+                ? t({ fr: 'médecin', en: 'doctor' })
+                : k === 'pharmacien'
+                  ? t({ fr: 'pharmacien', en: 'pharmacist' })
+                  : t({ fr: 'infirmier/ère', en: 'nurse' })}
             </label>
           ))}
           <span className="tplform-spacer" />
-          <span className="tplform-g-hint">Ces réglages s’appliquent à tout le document.</span>
+          <span className="tplform-g-hint">
+            {t({
+              fr: 'Ces réglages s’appliquent à tout le document.',
+              en: 'These settings apply to the whole document.',
+            })}
+          </span>
         </div>
       ) : null}
       <div className="tplform-hint">
@@ -359,7 +375,10 @@ export function TemplateFillForm({
                       type="text"
                       className="field-input field-input--narrow"
                       placeholder={b.ph}
-                      aria-label="Durée de conservation (nombre de mois)"
+                      aria-label={t({
+                        fr: 'Durée de conservation (nombre de mois)',
+                        en: 'Shelf life (number of months)',
+                      })}
                       value={state.values[b.key] ?? ''}
                       onChange={(e) => setValue(b.key, e.target.value)}
                     />
@@ -429,7 +448,7 @@ export function TemplateFillForm({
                       value={state.selects[b.key] ?? ''}
                       onChange={(e) => setSelect(b.key, e.target.value)}
                     >
-                      <option value="">— choisir —</option>
+                      <option value="">{t({ fr: '— choisir —', en: '— choose —' })}</option>
                       {b.options.map((o) => (
                         <option key={o} value={o}>
                           {o}

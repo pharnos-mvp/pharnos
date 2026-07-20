@@ -1946,7 +1946,7 @@ export function DossierWorkspacePage() {
                         })}
                       </p>
                       <Button className="mt-3" size="sm" onClick={() => void handleGenerate()}>
-                        <Sparkles className="size-4" /> Générer
+                        <Sparkles className="size-4" /> {t({ fr: 'Générer', en: 'Generate' })}
                       </Button>
                     </div>
                   ) : canFillSelected ? (

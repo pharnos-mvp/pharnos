@@ -258,7 +258,7 @@ function PersonalSection() {
       setSaved({ nom, prenom, username })
       toast.success(t({ fr: 'Profil enregistré', en: 'Profile saved' }))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t({ fr: 'Erreur', en: 'Error' }))
     } finally {
       setSaving(false)
     }
@@ -283,7 +283,7 @@ function PersonalSection() {
       setPw2('')
       toast.success(t({ fr: 'Mot de passe mis à jour', en: 'Password updated' }))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t({ fr: 'Erreur', en: 'Error' }))
     }
   }
 

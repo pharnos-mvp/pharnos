@@ -5,6 +5,7 @@ import { Dialog as DialogPrimitive } from 'radix-ui'
 import { XIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { tStatic } from '@/lib/i18n-context'
 
 function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
@@ -56,7 +57,7 @@ function DialogContent({
         {showClose ? (
           <DialogPrimitive.Close className="ring-offset-background focus-visible:ring-ring absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none">
             <XIcon className="size-4" />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">{tStatic({ fr: 'Fermer', en: 'Close' })}</span>
           </DialogPrimitive.Close>
         ) : null}
       </DialogPrimitive.Content>

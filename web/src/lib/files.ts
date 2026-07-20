@@ -3,6 +3,8 @@
 // on neutralise séparateurs et caractères réservés (anti path-traversal, compat Windows/S3),
 // et on n'accepte que les formats que l'app sait réellement traiter.
 
+import type { Translatable } from './i18n-context'
+
 /** Plafond commun de taille d'un fichier téléversé (documents produit ET pièces jointes). */
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024 // 25 Mo
 
@@ -56,11 +58,17 @@ export function contentTypeFor(file: { name: string; type?: string | null }): st
   return MIME_BY_EXT[extOf(file.name)] ?? 'application/octet-stream'
 }
 
-/** Message d'erreur FR unique (toasts + throw des repositories). */
-export const UPLOAD_TYPE_ERROR =
-  'Format non pris en charge — formats acceptés : PDF, PNG, JPG, WebP, DOCX, XLSX.'
+// Messages d'erreur bilingues (toasts via `t()` en composant, `tStatic()` dans les throws des
+// repositories). Co-localisés FR/EN comme le reste de l'app.
+export const UPLOAD_TYPE_ERROR: Translatable = {
+  fr: 'Format non pris en charge — formats acceptés : PDF, PNG, JPG, WebP, DOCX, XLSX.',
+  en: 'Unsupported format — accepted formats: PDF, PNG, JPG, WebP, DOCX, XLSX.',
+}
 
-export const UPLOAD_SIZE_ERROR = 'Fichier trop lourd (max 25 Mo).'
+export const UPLOAD_SIZE_ERROR: Translatable = {
+  fr: 'Fichier trop lourd (max 25 Mo).',
+  en: 'File too large (max 25 MB).',
+}
 
 /**
  * Assainit un nom de fichier utilisateur avant stockage :

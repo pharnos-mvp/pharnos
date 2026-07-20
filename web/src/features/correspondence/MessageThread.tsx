@@ -96,7 +96,7 @@ function AttachmentCards({
               <div className="min-w-0">
                 <div className="truncate text-xs font-medium">{a.name}</div>
                 <div className="text-[11px] opacity-70">
-                  {(a.mime?.split('/')?.pop() ?? 'fichier').toUpperCase()} ·{' '}
+                  {(a.mime?.split('/')?.pop() ?? t({ fr: 'fichier', en: 'file' })).toUpperCase()} ·{' '}
                   {formatSize(a.size, lang)}
                 </div>
               </div>

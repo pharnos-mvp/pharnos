@@ -10,6 +10,7 @@ import {
   Save,
   Search,
   Trash2,
+  X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -32,6 +33,7 @@ import {
   buildLetterContext,
   emptyLetterFields,
   letterFieldsFromValues,
+  UEMOA_COUNTRIES,
 } from '@/features/workspace/letter-context'
 import type { LetterBrand } from '@/features/workspace/letter-render'
 import { getOrgBranding, getUserSignature } from '@/features/profile/pro-settings-repository'
@@ -46,6 +48,7 @@ const VariationLetterFlow = lazy(() =>
 import { TemplatePreview } from './TemplatePreview'
 import { LetterEditor } from './LetterEditor'
 import { deleteSavedTemplate, saveTemplate } from './saved-templates-repository'
+import { submissionLanguageMismatch } from './submission-language'
 
 /** Types de lettre (cover/PGHT) — éditeur dédié (≠ form-models RCP/Notice/Étiquetage). */
 const isLetterType = (d: string | null): d is 'cover' | 'pght' | 'renewal' =>
@@ -108,6 +111,9 @@ interface Editing {
   title: string
   state: TemplateFormState
   lang: Lang
+  /** Signature (`lang:pays`) du nudge langue de soumission masqué — PORTÉE PAR l'édition en cours,
+   *  pour qu'un « masquer » sur une lettre ne mute pas le constat sur la lettre SUIVANTE (Major fix). */
+  nudgeDismissed?: string | null
 }
 
 /**
@@ -316,6 +322,23 @@ export function TemplatesPage() {
       }
     }
 
+    // M4 — Nudge langue de soumission (lettres seules : elles portent un « Pays cible »).
+    const letterCountry = isLetter ? (editing.state.values['country'] ?? '') : ''
+    const submissionNudge = submissionLanguageMismatch(editing.lang, letterCountry)
+    const nudgeSig = submissionNudge ? `${editing.lang}:${letterCountry}` : null
+    const showNudge = !!submissionNudge && nudgeSig !== (editing.nudgeDismissed ?? null)
+    // Nom du pays LOCALISÉ (le message est co-localisé FR/EN — pas de « Côte d'Ivoire » sous EN).
+    const countryEntry = UEMOA_COUNTRIES.find((c) => c.code === letterCountry)
+    const countryName: Translatable = {
+      fr: countryEntry?.name ?? letterCountry,
+      en: countryEntry?.nameEn ?? letterCountry,
+    }
+    // Langue de bascule seulement si l'éditeur la produit (FR/EN — jamais PT).
+    const switchLang: Lang | null =
+      submissionNudge?.canSwitch && submissionNudge.submissionLang !== 'pt'
+        ? submissionNudge.submissionLang
+        : null
+
     return (
       <div className="flex flex-col gap-3">
         {/* Barre d'actions COLLANTE au défilement (retour + nom + langue + Enregistrer) : reste à
@@ -389,6 +412,47 @@ export function TemplatesPage() {
             </>
           ) : null}
         </div>
+        {/* Constat langue de soumission (M4) — sobre, navy, NON bloquant ; masquable pour l'édition
+            en cours. Bascule FR/EN d'un clic quand l'éditeur produit la langue attendue. */}
+        {showNudge && submissionNudge ? (
+          <div
+            role="note"
+            className="bg-muted/40 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2"
+          >
+            <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+              <Languages className="text-brand size-4 shrink-0" aria-hidden />
+              {t({
+                fr: `Langue de soumission (${countryName.fr}) : ${submissionNudge.submissionLangName.fr}. Fournissez la version ${submissionNudge.submissionLang.toUpperCase()} avant de soumettre.`,
+                en: `Submission language (${countryName.en}): ${submissionNudge.submissionLangName.en}. Provide the ${submissionNudge.submissionLang.toUpperCase()} version before submitting.`,
+              })}
+            </span>
+            <div className="flex shrink-0 items-center gap-1">
+              {switchLang ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-brand text-brand hover:bg-brand/5 h-7 gap-1.5"
+                  onClick={() => setEditing({ ...editing, lang: switchLang })}
+                >
+                  <Languages className="size-3.5" />
+                  {t({
+                    fr: `Passer en ${switchLang.toUpperCase()}`,
+                    en: `Switch to ${switchLang.toUpperCase()}`,
+                  })}
+                </Button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setEditing({ ...editing, nudgeDismissed: nudgeSig })}
+                aria-label={t({ fr: 'Masquer', en: 'Dismiss' })}
+                title={t({ fr: 'Masquer', en: 'Dismiss' })}
+                className="text-muted-foreground hover:text-foreground rounded p-1"
+              >
+                <X className="size-3.5" aria-hidden />
+              </button>
+            </div>
+          </div>
+        ) : null}
         {def ? (
           <TemplatePreview
             model={def.model}

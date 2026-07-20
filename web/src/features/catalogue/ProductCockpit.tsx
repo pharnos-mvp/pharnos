@@ -253,7 +253,11 @@ export function ProductCockpit() {
 
   const p = data.product
   const { vm, soumissions, historique, conformity } = derived
-  const subtitle = [p.forme, p.classeTherapeutique, p.titulaire ? `MAH : ${p.titulaire}` : '']
+  const subtitle = [
+    p.forme,
+    p.classeTherapeutique,
+    p.titulaire ? `${t({ fr: 'Titulaire', en: 'MAH' })} : ${p.titulaire}` : '',
+  ]
     .filter(Boolean)
     .join(' · ')
 
