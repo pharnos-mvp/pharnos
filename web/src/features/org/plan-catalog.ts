@@ -38,6 +38,7 @@ export const PLAN_CATALOG: PlanCatalogEntry[] = [
   {
     tier: 'pro',
     tagline: { fr: 'Pour un expert RA', en: 'For a single RA expert' },
+    price: { fr: '100 000 FCFA / mois', en: '100,000 FCFA / mo' },
     highlights: [
       {
         fr: '5 dépôts / mois · brouillons illimités',
@@ -52,6 +53,7 @@ export const PLAN_CATALOG: PlanCatalogEntry[] = [
   {
     tier: 'team',
     tagline: { fr: 'Pour une équipe', en: 'For a team' },
+    price: { fr: '120 000 FCFA / mois', en: '120,000 FCFA / mo' },
     highlights: [
       { fr: '15 dépôts / mois', en: '15 submissions / month' },
       { fr: '1 000 000 tokens IA', en: '1,000,000 AI tokens' },
@@ -63,6 +65,7 @@ export const PLAN_CATALOG: PlanCatalogEntry[] = [
   {
     tier: 'business',
     tagline: { fr: 'Pour un laboratoire établi', en: 'For an established lab' },
+    price: { fr: '400 000 FCFA / mois', en: '400,000 FCFA / mo' },
     highlights: [
       { fr: '50 dépôts / mois', en: '50 submissions / month' },
       { fr: '5 000 000 tokens IA', en: '5,000,000 AI tokens' },
@@ -74,6 +77,7 @@ export const PLAN_CATALOG: PlanCatalogEntry[] = [
   {
     tier: 'enterprise',
     tagline: { fr: 'Sur-mesure', en: 'Tailored' },
+    price: { fr: 'Sur devis', en: 'Custom quote' },
     highlights: [
       { fr: 'Dépôts illimités', en: 'Unlimited submissions' },
       { fr: 'Tokens IA illimités', en: 'Unlimited AI tokens' },
