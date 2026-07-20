@@ -53,7 +53,7 @@ export const PLAN_CATALOG: PlanCatalogEntry[] = [
   {
     tier: 'team',
     tagline: { fr: 'Pour une équipe', en: 'For a team' },
-    price: { fr: '120 000 FCFA / mois', en: '120,000 FCFA / mo' },
+    price: { fr: '120 000 FCFA / utilisateur / mois', en: '120,000 FCFA / user / mo' },
     highlights: [
       { fr: '15 dépôts / mois', en: '15 submissions / month' },
       { fr: '1 000 000 tokens IA', en: '1,000,000 AI tokens' },
