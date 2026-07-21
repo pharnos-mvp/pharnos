@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
-import { ChevronDown } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -14,7 +13,6 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { cn } from '@/lib/utils'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
 import { FormeControl, OrgBlock, PghtField } from './product-fields'
 import {
@@ -29,55 +27,9 @@ interface ProductFormProps {
   onSubmit: (values: ProductFormValues) => void | Promise<void>
   submitting?: boolean
   submitLabel: string
-  /** Auto-enregistrement quand les champs requis sont valides (création/maj silencieuse). */
-  onAutoSave?: (values: ProductFormValues) => void
   /** Édition cockpit : bouton « Annuler » DANS l'en-tête (à côté d'Enregistrer) — pas de rangée
    *  séparée au-dessus qui décalerait le formulaire vers le bas. */
   onCancel?: () => void
-  /** Variante du bouton d'enregistrement (défaut `default` = cockpit inchangé ; `primary` = CTA bleu création). */
-  submitVariant?: 'default' | 'primary'
-  /** Contenu de la section « Documents d'information » (mode édition). */
-  documentsSlot?: ReactNode
-  /** Contenu de la section « Pièces administratives » (mode édition). */
-  adminSlot?: ReactNode
-}
-
-/** Carte de session repliable (chaînon de la fiche produit) — en-tête cliquable + corps. */
-function SectionCard({
-  title,
-  open,
-  onToggle,
-  action,
-  children,
-}: {
-  title: string
-  open: boolean
-  onToggle: () => void
-  action?: ReactNode
-  children: ReactNode
-}) {
-  return (
-    <Card className="gap-0 overflow-hidden py-0">
-      <div className="flex items-center justify-between gap-3 px-5 py-4">
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={open}
-          className="flex flex-1 items-center gap-2 text-left"
-        >
-          <ChevronDown
-            className={cn(
-              'text-muted-foreground size-4 shrink-0 transition-transform',
-              open ? '' : '-rotate-90',
-            )}
-          />
-          <span className="font-semibold tracking-tight">{title}</span>
-        </button>
-        {action}
-      </div>
-      {open ? <div className="border-t px-5 py-5">{children}</div> : null}
-    </Card>
-  )
 }
 
 const identificationFields: ReadonlyArray<{
@@ -124,20 +76,21 @@ const identificationFields: ReadonlyArray<{
     label: { fr: 'Code ATC', en: 'ATC code' },
     placeholder: { fr: 'Ex. N02BE01', en: 'e.g. N02BE01' },
   },
-  // Titulaire / Fabricant NE sont PLUS des champs plats ici : rendus en blocs appariés `OrgBlock`
-  // (identiques au wizard de création) plus bas dans la session Identification.
+  // Titulaire / Fabricant ne sont PAS des champs plats ici : rendus en blocs appariés `OrgBlock`
+  // (identiques au wizard de création) sous le PGHT.
 ]
 
+/**
+ * Formulaire d'édition de l'identification produit (cockpit). Une seule carte « Identification » :
+ * champs + PGHT + blocs Titulaire/Fabricant, avec Annuler/Enregistrer dans l'en-tête. Les documents
+ * ne sont PAS gérés ici — ils ont leur onglet dédié (« Documents ») sur la fiche produit.
+ */
 export function ProductForm({
   defaultValues,
   onSubmit,
   submitting,
   submitLabel,
-  onAutoSave,
   onCancel,
-  documentsSlot,
-  adminSlot,
-  submitVariant = 'default',
 }: ProductFormProps) {
   const { t } = useI18n()
   const schema = useMemo(() => makeProductSchema(t), [t])
@@ -153,68 +106,26 @@ export function ProductForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t])
 
-  // Auto-enregistrement : dès que les champs requis sont valides, on persiste (silencieux, débouncé)
-  // → la fiche existe, les sections II/III (documents) deviennent disponibles sans clic explicite.
-  const autoTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const lastSaved = useRef<string>('')
-  useEffect(() => {
-    if (!onAutoSave) return
-    const sub = form.watch((values) => {
-      clearTimeout(autoTimer.current)
-      autoTimer.current = setTimeout(() => {
-        const parsed = schema.safeParse(values)
-        if (!parsed.success) return
-        const serialized = JSON.stringify(parsed.data)
-        if (serialized === lastSaved.current) return
-        lastSaved.current = serialized
-        onAutoSave(parsed.data)
-      }, 800)
-    })
-    return () => {
-      sub.unsubscribe()
-      clearTimeout(autoTimer.current)
-    }
-  }, [form, onAutoSave, schema])
-
-  const [open, setOpen] = useState({ id: true, docs: false, admin: false })
-  const toggle = (k: 'id' | 'docs' | 'admin') => setOpen((o) => ({ ...o, [k]: !o[k] }))
-
-  const savePrompt = (
-    <p className="text-muted-foreground text-sm">
-      {t({
-        fr: "Enregistrez d'abord le produit (section I — Identification) pour ajouter des documents.",
-        en: 'Save the product first (section I — Identification) to add documents.',
-      })}
-    </p>
-  )
-
-  // Trois sessions empilées (chaînon l'un sous l'autre) : I (Identification) porte le formulaire
-  // et le bouton d'enregistrement ; II/III reçoivent les documents en mode édition. Repli sur
-  // erreur de validation : on rouvre la section I pour montrer les messages.
   return (
     <Form {...form}>
-      <div className="space-y-4">
-        <form
-          onSubmit={form.handleSubmit(onSubmit, () => setOpen((o) => ({ ...o, id: true })))}
-          noValidate
-        >
-          <SectionCard
-            title={t({ fr: 'I — Identification', en: 'I — Identification' })}
-            open={open.id}
-            onToggle={() => toggle('id')}
-            action={
-              <div className="flex items-center gap-2">
-                {onCancel ? (
-                  <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-                    {t({ fr: 'Annuler', en: 'Cancel' })}
-                  </Button>
-                ) : null}
-                <Button type="submit" size="sm" variant={submitVariant} disabled={submitting}>
-                  {submitLabel}
+      <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
+        <Card className="gap-0 overflow-hidden py-0">
+          <div className="flex items-center justify-between gap-3 px-5 py-4">
+            <span className="font-semibold tracking-tight">
+              {t({ fr: 'Identification', en: 'Identification' })}
+            </span>
+            <div className="flex items-center gap-2">
+              {onCancel ? (
+                <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+                  {t({ fr: 'Annuler', en: 'Cancel' })}
                 </Button>
-              </div>
-            }
-          >
+              ) : null}
+              <Button type="submit" size="sm" disabled={submitting}>
+                {submitLabel}
+              </Button>
+            </div>
+          </div>
+          <div className="border-t px-5 py-5">
             <div className="grid gap-4 sm:grid-cols-2">
               {identificationFields.map((f) => (
                 <FormField
@@ -277,28 +188,9 @@ export function ProductForm({
                 addressField="fabricantAdresse"
               />
             </div>
-          </SectionCard>
-        </form>
-
-        <SectionCard
-          title={t({
-            fr: "II — Documents d'information du produit",
-            en: 'II — Product information',
-          })}
-          open={open.docs}
-          onToggle={() => toggle('docs')}
-        >
-          {documentsSlot ?? savePrompt}
-        </SectionCard>
-
-        <SectionCard
-          title={t({ fr: 'III — Pièces administratives', en: 'III — Administrative documents' })}
-          open={open.admin}
-          onToggle={() => toggle('admin')}
-        >
-          {adminSlot ?? savePrompt}
-        </SectionCard>
-      </div>
+          </div>
+        </Card>
+      </form>
     </Form>
   )
 }
