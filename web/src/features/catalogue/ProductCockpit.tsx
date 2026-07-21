@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
-  AlertTriangle,
   ArrowLeft,
   CheckCircle2,
   Clock3,
   Download,
   FileText,
-  Minus,
   Pencil,
   Pill,
   X,
@@ -25,17 +23,16 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { CountryFlag } from '@/features/dashboard/CountryFlag'
 import {
-  conformityTone,
   expiryTone,
   KPI_BADGE_TONE,
   openCorrespondences,
   type CorrSubState,
-  type KpiTone,
 } from '@/features/dashboard/dashboard-data'
 import { useOrgId } from '@/features/org/org-context'
 import { countryLabel } from '@/features/workspace/dossier-constants'
 import { db } from '@/lib/db'
 import { useI18n } from '@/lib/i18n-context'
+import { eurStringToFcfa } from '@/lib/money'
 import { docTypeLabel } from './doc-types'
 import { DocumentsSection } from './DocumentsSection'
 import { ProductIcon } from './product-icon'
@@ -52,13 +49,6 @@ import type { ProductFormValues } from './types'
 import { useCatalogueSync } from './use-catalogue-sync'
 import './product-cockpit.css'
 
-const TONE_COLOR: Record<KpiTone, string> = {
-  good: 'var(--success)',
-  fair: 'var(--info)',
-  passable: 'var(--warning)',
-  poor: 'var(--danger)',
-  neutral: 'var(--muted-foreground)',
-}
 const SUB_TONE: Record<CorrSubState, 'info' | 'warning' | 'success'> = {
   unread: 'info',
   awaiting_agency: 'warning',
@@ -360,11 +350,15 @@ export function ProductCockpit() {
               </div>
             </div>
             <div className="prod-actions">
-              <Button variant="outline" size="sm" asChild>
-                <Link to="/workspace">
-                  <Download /> {t({ fr: 'Exporter CTD', en: 'Export CTD' })}
-                </Link>
-              </Button>
+              {/* « Exporter CTD » n'a de sens que si le produit a AU MOINS un dossier (= passé par le
+                  CTD Builder) ; masqué sinon (produit neuf sans opération). */}
+              {data.dossiers.length > 0 ? (
+                <Button variant="outline" size="sm" asChild>
+                  <Link to="/workspace">
+                    <Download /> {t({ fr: 'Exporter CTD', en: 'Export CTD' })}
+                  </Link>
+                </Button>
+              ) : null}
               <Button size="sm" asChild variant="primary">
                 <Link to={`/workspace/nouveau?produit=${productId}`}>
                   <Zap /> {t({ fr: 'Lancer une opération', en: 'Start an operation' })}
@@ -462,35 +456,51 @@ export function ProductCockpit() {
                     ) : null}
                   </div>
                 </div>
+                {/* PGHT par pays (lecture seule) — même donnée que la fiche de création. */}
+                {p.pght && p.pght.some((e) => e.country || e.amount.trim()) ? (
+                  <div className="mt-5 border-t pt-4">
+                    <div className="meta-key mb-2">
+                      {t({ fr: 'PGHT par pays', en: 'PGHT by country' })}
+                    </div>
+                    <ul className="space-y-1.5 text-sm">
+                      {p.pght
+                        .filter((e) => e.country || e.amount.trim())
+                        .map((e, i) => {
+                          const fcfa = e.currency === 'EUR' ? eurStringToFcfa(e.amount, lang) : ''
+                          return (
+                            <li key={i} className="flex flex-wrap items-baseline gap-x-2">
+                              <span className="w-28 shrink-0 font-medium break-words">
+                                {countryLabel(e.country, lang) || '—'}
+                              </span>
+                              <span className="text-muted-foreground">
+                                {e.currency === 'EUR'
+                                  ? `${e.amount} €${fcfa ? ` = ${fcfa} FCFA` : ''}`
+                                  : `${e.amount} FCFA`}
+                              </span>
+                            </li>
+                          )
+                        })}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
             )}
           </RadixTabs.Content>
 
           <RadixTabs.Content value="documents" className="outline-none">
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-              <div className="grid min-w-0 gap-5 md:grid-cols-2">
-                <section className="min-w-0 space-y-3">
-                  <h2 className="rim-section-title">
-                    {t({ fr: "Documents d'information", en: 'Product information' })}
-                  </h2>
-                  <DocumentsSection orgId={orgId} productId={p.id} category="info" />
-                </section>
-                <section className="min-w-0 space-y-3">
-                  <h2 className="rim-section-title">
-                    {t({ fr: 'Pièces administratives', en: 'Administrative documents' })}
-                  </h2>
-                  <DocumentsSection orgId={orgId} productId={p.id} category="admin" />
-                </section>
-              </div>
-              <aside className="min-w-0">
-                <ConformityPanel
-                  pct={conformity.pct}
-                  nonConform={conformity.nonConform}
-                  notAnalyzed={conformity.notAnalyzed}
-                  expiring={vm.expiring.length}
-                  expiringTone={vm.expiring.length > 0 ? expiryTone(vm.expiring) : 'good'}
-                />
-              </aside>
+            <div className="grid min-w-0 gap-5 md:grid-cols-2">
+              <section className="min-w-0 space-y-3">
+                <h2 className="rim-section-title">
+                  {t({ fr: "Documents d'information", en: 'Product information' })}
+                </h2>
+                <DocumentsSection orgId={orgId} productId={p.id} category="info" />
+              </section>
+              <section className="min-w-0 space-y-3">
+                <h2 className="rim-section-title">
+                  {t({ fr: 'Pièces administratives', en: 'Administrative documents' })}
+                </h2>
+                <DocumentsSection orgId={orgId} productId={p.id} category="admin" />
+              </section>
             </div>
           </RadixTabs.Content>
 
@@ -577,82 +587,6 @@ export function ProductCockpit() {
           </RadixTabs.Content>
         </div>
       </RadixTabs.Root>
-    </div>
-  )
-}
-
-function ConformityPanel({
-  pct,
-  nonConform,
-  notAnalyzed,
-  expiring,
-  expiringTone,
-}: {
-  pct: number | null
-  nonConform: number
-  notAnalyzed: number
-  expiring: number
-  expiringTone: KpiTone
-}) {
-  const { t } = useI18n()
-  const tone = conformityTone(pct)
-  const items: { tone: 'success' | 'warning' | 'danger' | 'neutral'; label: string }[] = []
-  if (expiring > 0)
-    items.push({
-      tone: KPI_BADGE_TONE[expiringTone] === 'danger' ? 'danger' : 'warning',
-      label: t({ fr: `${expiring} pièce(s) à renouveler`, en: `${expiring} item(s) to renew` }),
-    })
-  if (nonConform > 0)
-    items.push({
-      tone: 'danger',
-      label: t({ fr: `${nonConform} non conforme(s)`, en: `${nonConform} non-compliant` }),
-    })
-  if (notAnalyzed > 0)
-    items.push({
-      tone: 'neutral',
-      label: t({ fr: `${notAnalyzed} à analyser`, en: `${notAnalyzed} to analyze` }),
-    })
-  if (items.length === 0)
-    items.push({ tone: 'success', label: t({ fr: 'Tout est à jour', en: 'All up to date' }) })
-
-  const ItemIcon = (itemTone: string) =>
-    itemTone === 'success' ? (
-      <CheckCircle2 className="text-success size-4 shrink-0" />
-    ) : itemTone === 'neutral' ? (
-      <Minus className="text-muted-foreground size-4 shrink-0" />
-    ) : (
-      <AlertTriangle
-        className={`${itemTone === 'danger' ? 'text-danger' : 'text-warning'} size-4 shrink-0`}
-      />
-    )
-
-  return (
-    <div className="rim-card p-5">
-      <h2 className="rim-section-title">{t({ fr: 'Conformité', en: 'Compliance' })}</h2>
-      <ul className="mt-3 space-y-2.5">
-        {items.map((it, i) => (
-          <li key={i} className="flex items-center gap-2 text-sm">
-            {ItemIcon(it.tone)}
-            <span className="min-w-0">{it.label}</span>
-          </li>
-        ))}
-      </ul>
-      <div className="mt-4 border-t pt-3">
-        <div className="mb-1.5 flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">
-            {t({ fr: 'Conformité globale', en: 'Overall compliance' })}
-          </span>
-          <span className="font-semibold" style={{ color: TONE_COLOR[tone] }}>
-            {pct == null ? '—' : `${pct}%`}
-          </span>
-        </div>
-        <div className="meter-bg">
-          <div
-            className="meter-fill"
-            style={{ width: `${pct ?? 0}%`, background: TONE_COLOR[tone] }}
-          />
-        </div>
-      </div>
     </div>
   )
 }
