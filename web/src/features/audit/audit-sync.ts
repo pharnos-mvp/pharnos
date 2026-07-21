@@ -115,12 +115,16 @@ async function pullAudit(supabase: SupabaseClient, orgId: string): Promise<void>
   if (error) throw error
 
   const rows = (data ?? []) as unknown as AuditRow[]
-  let maxAt = since
-  for (const row of rows) {
-    const incoming = rowTo(row)
-    const local = await db.auditLog.get(incoming.id)
-    if (!local) await db.auditLog.add(incoming)
-    if (incoming.at > maxAt) maxAt = incoming.at
-  }
-  if (rows.length > 0) localStorage.setItem(lastPullKey(orgId), maxAt)
+  if (rows.length === 0) return
+  // `bulkPut` idempotent (une seule transaction IDB, un seul re-render du live-query du Dashboard),
+  // et non un `add`/`put` par ligne : le journal d'audit est append-only + immuable (même id ⇒ même
+  // contenu). IndexedDB est partagé par origine alors que le garde `syncing` est propre à chaque
+  // onglet/contexte JS → au changement de compte (re-pull après purge, 2ᵉ onglet, sync résiduelle),
+  // l'ancien `add` sur une clé déjà présente levait `ConstraintError` et avortait le lot pour rien.
+  // Un upsert ré-écrit à l'identique = no-op sûr, et ne masque aucune divergence : une entrée locale
+  // qui n'atteint pas le serveur reste détectée côté PUSH (reportError `permanent`).
+  await db.auditLog.bulkPut(rows.map(rowTo))
+  // Borne le prochain pull incrémental sur le `at` le plus récent, jamais en deçà du watermark.
+  const maxAt = rows.reduce((max, r) => (r.at > max ? r.at : max), since)
+  localStorage.setItem(lastPullKey(orgId), maxAt)
 }

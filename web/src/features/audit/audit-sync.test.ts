@@ -16,6 +16,7 @@ interface UpsertCall {
 const upsertCalls: UpsertCall[] = []
 let upsertResult: { error: unknown } = { error: null }
 let pullCount = 0
+let pullData: Record<string, unknown>[] = []
 
 const supabaseMock = {
   from: (table: string) => ({
@@ -28,7 +29,7 @@ const supabaseMock = {
       return {
         eq: () => ({
           gt: () => ({
-            order: () => ({ limit: () => Promise.resolve({ data: [], error: null }) }),
+            order: () => ({ limit: () => Promise.resolve({ data: pullData, error: null }) }),
           }),
         }),
       }
@@ -66,6 +67,7 @@ beforeEach(async () => {
   upsertCalls.length = 0
   upsertResult = { error: null }
   pullCount = 0
+  pullData = []
   setAuditActor({ id: 'u1', email: 'ra@labo.com' })
 })
 
@@ -148,5 +150,77 @@ describe('syncAudit — anti-boucle sur rejet permanent (RLS/contrainte)', () =>
     expect(await db.auditLog.count()).toBe(1)
     // withRetry a borné les tentatives (3) puis rendu la main sans drainer.
     expect(upsertCalls.length).toBe(3)
+  })
+})
+
+describe('pullAudit — idempotence (régression ConstraintError au changement de compte)', () => {
+  it('ne lève pas quand un écrivain concurrent a posé la clé pendant la fenêtre de course (upsert, pas add)', async () => {
+    // Reproduit le TOCTOU du changement de compte : la ligne existe PHYSIQUEMENT dans l'IDB partagé
+    // (2ᵉ onglet / sync résiduelle l'a écrite), MAIS le check la voit absente car l'autre transaction
+    // n'a pas encore committé au moment du get. On force cette fenêtre en stubbant get→undefined.
+    // L'ancien `if (!local) add` levait alors `ConstraintError` (→ catch-all → bruit Sentry) ; le
+    // `bulkPut` idempotent, non. Sans ce stub, un simple seed+pull passerait AUSSI sur l'ancien code
+    // (le garde `if (!local)` l'attrape) → le test ne verrouillerait rien : c'est le stub qui mord.
+    await db.auditLog.put({
+      id: 'a1',
+      orgId: 'org-1',
+      actorId: 'u1',
+      actorEmail: 'ra@labo.com',
+      entity: 'product',
+      entityId: 'p1',
+      action: 'create',
+      label: 'Doliprane',
+      at: '2026-07-21T09:00:00.000Z',
+    })
+    pullData = [
+      {
+        id: 'a1',
+        org_id: 'org-1',
+        actor_id: 'u1',
+        actor_email: 'ra@labo.com',
+        entity: 'product',
+        entity_id: 'p1',
+        action: 'create',
+        label: 'Doliprane',
+        at: '2026-07-21T09:00:00.000Z',
+      },
+    ]
+    // Outbox vide → pushAudit sort avant son propre get : le stub ne mord que dans pullAudit.
+    const getSpy = vi.spyOn(db.auditLog, 'get').mockResolvedValue(undefined)
+    try {
+      await runSync('org-1')
+    } finally {
+      getSpy.mockRestore()
+    }
+
+    // Ancien code : add → ConstraintError → reportError. Nouveau : upsert idempotent, rien remonté.
+    expect(reportError).not.toHaveBeenCalled()
+    // Toujours une seule ligne (upsert : pas de doublon ni de perte).
+    expect(await db.auditLog.count()).toBe(1)
+    // Watermark avancé → la ligne a bien été traitée (pull non avorté).
+    expect(localStorage.getItem('pharnos.lastPull.audit.org-1')).toBe('2026-07-21T09:00:00.000Z')
+  })
+
+  it('insère une ligne distante absente en local (nominal pull)', async () => {
+    pullData = [
+      {
+        id: 'a2',
+        org_id: 'org-1',
+        actor_id: 'u9',
+        actor_email: 'autre@labo.com',
+        entity: 'dossier',
+        entity_id: 'd1',
+        action: 'update',
+        label: 'Statut',
+        at: '2026-07-21T10:00:00.000Z',
+      },
+    ]
+
+    await runSync('org-1')
+
+    expect(reportError).not.toHaveBeenCalled()
+    const stored = await db.auditLog.get('a2')
+    expect(stored?.label).toBe('Statut')
+    expect(localStorage.getItem('pharnos.lastPull.audit.org-1')).toBe('2026-07-21T10:00:00.000Z')
   })
 })
