@@ -8,7 +8,6 @@ import {
   FileText,
   Pencil,
   Pill,
-  X,
   Zap,
 } from 'lucide-react'
 import { Tabs as RadixTabs } from 'radix-ui'
@@ -401,22 +400,16 @@ export function ProductCockpit() {
         <div className="rim-content">
           <RadixTabs.Content value="identification" className="outline-none">
             {editingId ? (
-              <div className="space-y-3">
-                <div className="flex justify-end">
-                  <Button variant="ghost" size="sm" onClick={() => setEditingId(false)}>
-                    <X /> {t({ fr: 'Annuler', en: 'Cancel' })}
-                  </Button>
-                </div>
-                <ProductForm
-                  key={p.id}
-                  defaultValues={defaults}
-                  onSubmit={(v) => {
-                    void handleSave(v, false)
-                    setEditingId(false)
-                  }}
-                  submitLabel={t({ fr: 'Enregistrer les modifications', en: 'Save changes' })}
-                />
-              </div>
+              <ProductForm
+                key={p.id}
+                defaultValues={defaults}
+                onCancel={() => setEditingId(false)}
+                onSubmit={(v) => {
+                  void handleSave(v, false)
+                  setEditingId(false)
+                }}
+                submitLabel={t({ fr: 'Enregistrer les modifications', en: 'Save changes' })}
+              />
             ) : (
               <div className="rim-card p-5">
                 <div className="mb-4 flex items-center justify-between gap-3">
