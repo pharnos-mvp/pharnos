@@ -20,6 +20,7 @@ import { useI18n, type Translatable } from '@/lib/i18n-context'
 import { syncCatalogue } from './catalogue-sync'
 import { DocTypeCards, type DraftDocument } from './DocTypeCards'
 import { addDocument } from './documents-repository'
+import { computeStepState } from './product-wizard-steps'
 import { createProduct } from './repository'
 import { makeProductSchema, type ProductFormValues, type ProductInput } from './types'
 
@@ -164,22 +165,13 @@ export function ProductWizard({ orgId, onDone }: { orgId: string; onDone: () => 
   const addDraft = (d: DraftDocument) => setDrafts((list) => [...list, d])
   const removeDraft = (id: string) => setDrafts((list) => list.filter((x) => x.id !== id))
 
-  const stepState = (n: number): 'done' | 'active' | 'error' | 'todo' => {
-    if (n === 1) {
-      if (isValidStep1) return step === 1 ? 'active' : 'done'
-      if (attempted) return 'error'
-      return step === 1 ? 'active' : 'todo'
-    }
-    return step === n ? 'active' : step > n ? 'done' : 'todo'
-  }
-
   return (
     <div className="space-y-6">
       {/* Stepper typeform — titres CLIQUABLES (navigation libre). */}
       <ol className="flex items-center gap-2">
         {STEPS.map((label, i) => {
           const n = i + 1
-          const state = stepState(n)
+          const state = computeStepState(n, { step, isValidStep1, attempted, drafts })
           return (
             <li key={n} className="flex flex-1 items-center gap-2">
               <button
