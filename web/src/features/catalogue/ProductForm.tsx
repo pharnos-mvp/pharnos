@@ -31,6 +31,9 @@ interface ProductFormProps {
   submitLabel: string
   /** Auto-enregistrement quand les champs requis sont valides (création/maj silencieuse). */
   onAutoSave?: (values: ProductFormValues) => void
+  /** Édition cockpit : bouton « Annuler » DANS l'en-tête (à côté d'Enregistrer) — pas de rangée
+   *  séparée au-dessus qui décalerait le formulaire vers le bas. */
+  onCancel?: () => void
   /** Variante du bouton d'enregistrement (défaut `default` = cockpit inchangé ; `primary` = CTA bleu création). */
   submitVariant?: 'default' | 'primary'
   /** Contenu de la section « Documents d'information » (mode édition). */
@@ -131,6 +134,7 @@ export function ProductForm({
   submitting,
   submitLabel,
   onAutoSave,
+  onCancel,
   documentsSlot,
   adminSlot,
   submitVariant = 'default',
@@ -199,9 +203,16 @@ export function ProductForm({
             open={open.id}
             onToggle={() => toggle('id')}
             action={
-              <Button type="submit" size="sm" variant={submitVariant} disabled={submitting}>
-                {submitLabel}
-              </Button>
+              <div className="flex items-center gap-2">
+                {onCancel ? (
+                  <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+                    {t({ fr: 'Annuler', en: 'Cancel' })}
+                  </Button>
+                ) : null}
+                <Button type="submit" size="sm" variant={submitVariant} disabled={submitting}>
+                  {submitLabel}
+                </Button>
+              </div>
             }
           >
             <div className="grid gap-4 sm:grid-cols-2">
