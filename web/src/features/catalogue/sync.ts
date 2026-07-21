@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-import { db, type ProductRecord } from '@/lib/db'
+import { db, type PghtEntry, type ProductRecord } from '@/lib/db'
 import { isPermanentSyncError, withRetry } from '@/lib/retry'
 import { isSyncEnabled } from '@/lib/sync-prefs'
 import { reportError } from '@/lib/sentry'
@@ -24,6 +24,8 @@ export interface ProductRow {
   // Liens vers `parties` (additif `0045`) : dérivés du free-text à l'enregistrement (M4). null sinon.
   titulaire_id: string | null
   fabricant_id: string | null
+  // Table PGHT multi-pays (jsonb, additif `0065`). Défaut serveur '[]' → anciens produits = [].
+  pght: PghtEntry[]
   created_at: string
   updated_at: string
   deleted_at: string | null
@@ -46,6 +48,7 @@ export function productToRow(p: ProductRecord): ProductRow {
     fabricant_adresse: p.fabricantAdresse ?? '',
     titulaire_id: p.titulaireId ?? null,
     fabricant_id: p.fabricantId ?? null,
+    pght: p.pght ?? [],
     created_at: p.createdAt,
     updated_at: p.updatedAt,
     deleted_at: p.deletedAt,
@@ -69,6 +72,8 @@ export function rowToProduct(r: ProductRow): ProductRecord {
     fabricantAdresse: r.fabricant_adresse ?? '',
     titulaireId: r.titulaire_id ?? null,
     fabricantId: r.fabricant_id ?? null,
+    // jsonb → déjà parsé par supabase-js ; défensif si null/forme inattendue.
+    pght: Array.isArray(r.pght) ? r.pght : [],
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     deletedAt: r.deleted_at,

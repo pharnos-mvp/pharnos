@@ -20,13 +20,15 @@ import { useI18n, type Translatable } from '@/lib/i18n-context'
 import { syncCatalogue } from './catalogue-sync'
 import { DocTypeCards, type DraftDocument } from './DocTypeCards'
 import { addDocument } from './documents-repository'
+import { FormeControl, PghtField } from './product-fields'
 import { computeStepState } from './product-wizard-steps'
 import { createProduct } from './repository'
 import { makeProductSchema, type ProductFormValues, type ProductInput } from './types'
 
 /** Champs « produit classique » (session 1, hors titulaire/fabricant qui ont leurs blocs appariés). */
 const coreFields: ReadonlyArray<{
-  name: keyof ProductFormValues
+  // Champs texte uniquement (le PGHT — un tableau — a son propre composant, hors de cette grille).
+  name: Exclude<keyof ProductFormValues, 'pght'>
   label: Translatable
   required?: boolean
   placeholder?: Translatable
@@ -94,6 +96,7 @@ export function ProductWizard({ orgId, onDone }: { orgId: string; onDone: () => 
       presentation: '',
       classeTherapeutique: '',
       codeAtc: '',
+      pght: [],
       titulaire: '',
       titulaireAdresse: '',
       fabricant: '',
@@ -238,11 +241,19 @@ export function ProductWizard({ orgId, onDone }: { orgId: string; onDone: () => 
                           {f.required ? <span className="text-destructive"> *</span> : null}
                         </FormLabel>
                         <FormControl>
-                          <Input
-                            placeholder={f.placeholder ? t(f.placeholder) : undefined}
-                            {...field}
-                            value={field.value ?? ''}
-                          />
+                          {f.name === 'forme' ? (
+                            <FormeControl
+                              value={field.value ?? ''}
+                              onChange={(v) => field.onChange(v)}
+                              placeholder={f.placeholder ? t(f.placeholder) : undefined}
+                            />
+                          ) : (
+                            <Input
+                              placeholder={f.placeholder ? t(f.placeholder) : undefined}
+                              {...field}
+                              value={field.value ?? ''}
+                            />
+                          )}
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -250,6 +261,21 @@ export function ProductWizard({ orgId, onDone }: { orgId: string; onDone: () => 
                   />
                 ))}
               </div>
+            </Card>
+
+            {/* PGHT — dernier bloc de l'identification (après Code ATC), table de prix multi-pays. */}
+            <Card className="p-5">
+              <FormField
+                control={form.control}
+                name="pght"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <PghtField value={field.value ?? []} onChange={(v) => field.onChange(v)} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
             </Card>
 
             {/* Blocs Titulaire d'AMM / Fabricant — appariés (nom + adresse), visuellement cohérents. */}

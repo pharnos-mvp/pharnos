@@ -9,6 +9,7 @@ import {
   letterFieldsFromValues,
   productToLetterFields,
 } from './letter-context'
+import { pghtFcfaForCountry } from '@/lib/pght'
 import { applySignature, letterPdfBytes } from './letter-pdf'
 import { TEMPLATES } from './templates'
 
@@ -67,6 +68,16 @@ describe('M3.1 — désignation autorité, devise PGHT, synchro produit', () => 
     expect(text).toContain('PGHT (Naira)')
     expect(text).toContain('12 500')
     expect(buildLetterContext(emptyLetterFields('SN'), 'fr').pghtCurrency).toBe('FCFA')
+  })
+
+  it('PGHT synchro fiche produit → lettre : prix du pays du dossier, en FCFA (EUR converti)', () => {
+    // Chaîne CTD Builder : table PGHT produit → `pghtFcfaForCountry` (comme `buildContext`) → lettre.
+    // Bénin en euros (3 €) doit s'afficher converti à la parité fixe : 1967,87 FCFA.
+    const pght = pghtFcfaForCountry([{ country: 'BJ', currency: 'EUR', amount: '3' }], 'BJ', 'fr')
+    const ctx = { ...buildLetterContext(emptyLetterFields('BJ'), 'fr'), pght, pghtCurrency: 'FCFA' }
+    const text = docText(TEMPLATES.pght.build(ctx, 'fr'))
+    expect(text).toContain('PGHT (FCFA)')
+    expect(text).toContain('1967,87')
   })
 
   it('productToLetterFields mappe la fiche produit (titulaire→demandeur, fabricant)', () => {
