@@ -16,6 +16,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
+import { FormeControl, PghtField } from './product-fields'
 import {
   EMPTY_PRODUCT,
   makeProductSchema,
@@ -77,7 +78,8 @@ function SectionCard({
 }
 
 const identificationFields: ReadonlyArray<{
-  name: keyof ProductFormValues
+  // Champs texte uniquement (le PGHT — un tableau — a son propre composant, hors de cette grille).
+  name: Exclude<keyof ProductFormValues, 'pght'>
   label: Translatable
   required?: boolean
   placeholder?: Translatable
@@ -239,17 +241,39 @@ export function ProductForm({
                         {f.required ? <span className="text-destructive"> *</span> : null}
                       </FormLabel>
                       <FormControl>
-                        <Input
-                          placeholder={f.placeholder ? t(f.placeholder) : undefined}
-                          {...field}
-                          value={field.value ?? ''}
-                        />
+                        {f.name === 'forme' ? (
+                          <FormeControl
+                            value={field.value ?? ''}
+                            onChange={(v) => field.onChange(v)}
+                            placeholder={f.placeholder ? t(f.placeholder) : undefined}
+                          />
+                        ) : (
+                          <Input
+                            placeholder={f.placeholder ? t(f.placeholder) : undefined}
+                            {...field}
+                            value={field.value ?? ''}
+                          />
+                        )}
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               ))}
+            </div>
+            {/* PGHT — dernier bloc de l'identification (après Code ATC), table de prix multi-pays. */}
+            <div className="mt-5 border-t pt-5">
+              <FormField
+                control={form.control}
+                name="pght"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <PghtField value={field.value ?? []} onChange={(v) => field.onChange(v)} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
             </div>
           </SectionCard>
         </form>

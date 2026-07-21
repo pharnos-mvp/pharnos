@@ -2,6 +2,22 @@ import { z } from 'zod'
 
 import type { I18nValue } from '@/lib/i18n-context'
 
+/** Devises proposées pour le PGHT (ISO — `XOF` = FCFA). Ordre = ordre du sélecteur. */
+export const PGHT_CURRENCIES = ['XOF', 'EUR'] as const
+
+/**
+ * Une ligne de la table PGHT (Prix Grossiste Hors Taxe) — pays + devise + montant SAISI (string).
+ * Structurellement compatible avec `PghtEntry` (lib/db) : le repository l'écrit tel quel dans le
+ * `ProductRecord`. Champs lâches (défauts vides) : une ligne en cours de saisie ne bloque jamais.
+ */
+// Champs REQUIS (pas de `.default()`) : l'UI construit toujours des lignes complètes (chaînes,
+// éventuellement vides) → le type d'entrée RHF reste `PghtEntry` (lib/db), pas des champs optionnels.
+const pghtEntrySchema = z.object({
+  country: z.string().trim().max(3),
+  currency: z.enum(PGHT_CURRENCIES),
+  amount: z.string().trim().max(24),
+})
+
 /**
  * Construit le schéma d'identification produit avec messages de validation localisés.
  * Le formulaire le recrée à la langue courante ; les usages non-UI emploient `productSchema`.
@@ -23,6 +39,8 @@ export function makeProductSchema(t: I18nValue['t']) {
     presentation: z.string().trim().max(200).default(''),
     classeTherapeutique: z.string().trim().max(200).default(''),
     codeAtc: z.string().trim().max(20).default(''),
+    // Table PGHT multi-pays (0..n lignes) — dernier bloc de l'identification, synchronisé lettre PGHT.
+    pght: z.array(pghtEntrySchema).max(30).default([]),
     titulaire: z.string().trim().max(300).default(''),
     titulaireAdresse: z.string().trim().max(300).default(''),
     fabricant: z.string().trim().max(300).default(''),
@@ -47,6 +65,7 @@ export const EMPTY_PRODUCT: ProductFormValues = {
   presentation: '',
   classeTherapeutique: '',
   codeAtc: '',
+  pght: [],
   titulaire: '',
   titulaireAdresse: '',
   fabricant: '',

@@ -60,6 +60,7 @@ import { db, type DossierAttachmentRecord, type GeneratedDocRecord } from '@/lib
 import { env } from '@/lib/env'
 import { UPLOAD_ACCEPT } from '@/lib/files'
 import { tStatic, useI18n } from '@/lib/i18n-context'
+import { pghtFcfaForCountry } from '@/lib/pght'
 import { cn } from '@/lib/utils'
 import { extractCity } from './city'
 import { formatComposition } from './composition'
@@ -1020,7 +1021,10 @@ export function DossierWorkspacePage() {
       }),
       poste: branding?.poste ?? '',
       signataire: branding?.signataire ?? '',
-      pght: '[PGHT en FCFA]',
+      // PGHT du pays du dossier (fiche produit → table multi-pays), converti/formaté en FCFA.
+      // Vide → on garde le marqueur éditable `[…]` (aucune régression si le produit n'a pas de prix).
+      pght: pghtFcfaForCountry(product?.pght, activeDossier.country) || '[PGHT en FCFA]',
+      pghtCurrency: 'FCFA',
       // N° + date d'octroi de l'AMM existante (variation/renouvellement) → réf. de la lettre
       // (« AMM n° X du JJ/MM/AAAA »). `ammDateDelivrance` = la date de délivrance/octroi.
       ammNumero: activeDossier.ammNumero,

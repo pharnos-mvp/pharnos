@@ -10,6 +10,21 @@ import type { CtdNodeDef, DossierFormat } from '@/features/workspace/module1-tre
  * (`documentBlobs`) pour la disponibilité hors-ligne. Étendu au fil des milestones.
  */
 
+/** Devise d'un PGHT : ISO — `XOF` (= FCFA) ou `EUR`. */
+export type PghtCurrency = 'XOF' | 'EUR'
+
+/**
+ * Entrée PGHT (Prix Grossiste Hors Taxe) d'un produit pour UN pays — le produit en porte plusieurs
+ * (table de prix multi-pays). `amount` = montant TEL QUE SAISI (string, parsé à l'usage via
+ * `lib/money`). L'EUR se convertit en FCFA à la parité fixe BCEAO à l'affichage et dans la lettre PGHT.
+ */
+export interface PghtEntry {
+  /** Pays (code ISO alpha-2, ex. 'BJ'). */
+  country: string
+  currency: PghtCurrency
+  amount: string
+}
+
 export interface ProductRecord {
   id: string
   orgId: string
@@ -20,6 +35,12 @@ export interface ProductRecord {
   presentation: string
   classeTherapeutique: string
   codeAtc: string
+  /**
+   * PGHT par pays (table de prix). Additif NON INDEXÉ → aucun bump de version Dexie (anciens
+   * produits : `undefined` → traité `[]`). Serveur : colonne jsonb `products.pght` (migration 0065).
+   * Synchronisé avec la lettre PGHT du CTD Builder (prix du pays du dossier, converti en FCFA).
+   */
+  pght?: PghtEntry[]
   /** Nom du titulaire / demandeur d'AMM. */
   titulaire: string
   /** Adresse du titulaire / demandeur d'AMM (couverture du dossier). */

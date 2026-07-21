@@ -21,6 +21,7 @@ const rec: ProductRecord = {
   fabricantAdresse: 'Zone industrielle, Casablanca',
   titulaireId: 'party-titulaire-1',
   fabricantId: 'party-fabricant-1',
+  pght: [{ country: 'BJ', currency: 'EUR', amount: '3' }],
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-02T00:00:00.000Z',
   deletedAt: null,

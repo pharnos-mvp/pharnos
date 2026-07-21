@@ -269,6 +269,7 @@ export function ProductCockpit() {
     presentation: p.presentation,
     classeTherapeutique: p.classeTherapeutique,
     codeAtc: p.codeAtc,
+    pght: p.pght ?? [],
     titulaire: p.titulaire ?? '',
     titulaireAdresse: p.titulaireAdresse ?? '',
     fabricant: p.fabricant ?? '',
