@@ -20,7 +20,7 @@ import { useI18n, type Translatable } from '@/lib/i18n-context'
 import { syncCatalogue } from './catalogue-sync'
 import { DocTypeCards, type DraftDocument } from './DocTypeCards'
 import { addDocument } from './documents-repository'
-import { FormeControl, PghtField } from './product-fields'
+import { FormeControl, OrgBlock, PghtField } from './product-fields'
 import { computeStepState } from './product-wizard-steps'
 import { createProduct } from './repository'
 import { makeProductSchema, type ProductFormValues, type ProductInput } from './types'
@@ -328,51 +328,6 @@ export function ProductWizard({ orgId, onDone }: { orgId: string; onDone: () => 
         </>
       ) : null}
     </div>
-  )
-}
-
-function OrgBlock({
-  form,
-  title,
-  nameField,
-  addressField,
-}: {
-  form: ReturnType<typeof useForm<ProductInput, unknown, ProductFormValues>>
-  title: string
-  nameField: 'titulaire' | 'fabricant'
-  addressField: 'titulaireAdresse' | 'fabricantAdresse'
-}) {
-  const { t } = useI18n()
-  return (
-    <Card className="gap-4 p-5">
-      <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
-      <FormField
-        control={form.control}
-        name={nameField}
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t({ fr: 'Nom', en: 'Name' })}</FormLabel>
-            <FormControl>
-              <Input {...field} value={field.value ?? ''} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <FormField
-        control={form.control}
-        name={addressField}
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t({ fr: 'Adresse', en: 'Address' })}</FormLabel>
-            <FormControl>
-              <Input {...field} value={field.value ?? ''} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-    </Card>
   )
 }
 

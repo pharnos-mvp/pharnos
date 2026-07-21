@@ -40,7 +40,13 @@ export function makeProductSchema(t: I18nValue['t']) {
     classeTherapeutique: z.string().trim().max(200).default(''),
     codeAtc: z.string().trim().max(20).default(''),
     // Table PGHT multi-pays (0..n lignes) — dernier bloc de l'identification, synchronisé lettre PGHT.
-    pght: z.array(pghtEntrySchema).max(30).default([]),
+    // Les lignes vides (pays ET montant vides) sont abandonnées à l'enregistrement : jamais de bruit
+    // persisté côté serveur ni affiché en lecture seule. L'UI garde une ligne en cours de saisie.
+    pght: z
+      .array(pghtEntrySchema)
+      .max(30)
+      .default([])
+      .transform((rows) => rows.filter((r) => r.country !== '' || r.amount.trim() !== '')),
     titulaire: z.string().trim().max(300).default(''),
     titulaireAdresse: z.string().trim().max(300).default(''),
     fabricant: z.string().trim().max(300).default(''),

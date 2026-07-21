@@ -16,7 +16,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
-import { FormeControl, PghtField } from './product-fields'
+import { FormeControl, OrgBlock, PghtField } from './product-fields'
 import {
   EMPTY_PRODUCT,
   makeProductSchema,
@@ -121,32 +121,8 @@ const identificationFields: ReadonlyArray<{
     label: { fr: 'Code ATC', en: 'ATC code' },
     placeholder: { fr: 'Ex. N02BE01', en: 'e.g. N02BE01' },
   },
-  {
-    name: 'titulaire',
-    label: { fr: "Nom du titulaire / demandeur d'AMM", en: 'MA holder / applicant name' },
-    placeholder: { fr: 'Ex. Sahel Pharma SARL', en: 'e.g. Sahel Pharma SARL' },
-  },
-  {
-    name: 'titulaireAdresse',
-    label: { fr: 'Adresse du titulaire', en: 'Holder address' },
-    placeholder: {
-      fr: 'Ex. 12 rue de la Santé, Cotonou, Bénin',
-      en: 'e.g. 12 rue de la Santé, Cotonou, Benin',
-    },
-  },
-  {
-    name: 'fabricant',
-    label: { fr: 'Nom du fabricant', en: 'Manufacturer name' },
-    placeholder: { fr: 'Ex. Laboratoires Atlas', en: 'e.g. Atlas Laboratories' },
-  },
-  {
-    name: 'fabricantAdresse',
-    label: { fr: 'Adresse du fabricant', en: 'Manufacturer address' },
-    placeholder: {
-      fr: 'Ex. Zone industrielle, Casablanca, Maroc',
-      en: 'e.g. Industrial zone, Casablanca, Morocco',
-    },
-  },
+  // Titulaire / Fabricant NE sont PLUS des champs plats ici : rendus en blocs appariés `OrgBlock`
+  // (identiques au wizard de création) plus bas dans la session Identification.
 ]
 
 export function ProductForm({
@@ -261,7 +237,7 @@ export function ProductForm({
                 />
               ))}
             </div>
-            {/* PGHT — dernier bloc de l'identification (après Code ATC), table de prix multi-pays. */}
+            {/* PGHT — table de prix multi-pays (après Code ATC). */}
             <div className="mt-5 border-t pt-5">
               <FormField
                 control={form.control}
@@ -273,6 +249,21 @@ export function ProductForm({
                     </FormControl>
                   </FormItem>
                 )}
+              />
+            </div>
+            {/* Titulaire d'AMM / Fabricant — blocs appariés, IDENTIQUES au wizard de création. */}
+            <div className="mt-5 grid gap-4 border-t pt-5 md:grid-cols-2">
+              <OrgBlock
+                form={form}
+                title={t({ fr: "Titulaire d'AMM", en: 'MA holder' })}
+                nameField="titulaire"
+                addressField="titulaireAdresse"
+              />
+              <OrgBlock
+                form={form}
+                title={t({ fr: 'Fabricant', en: 'Manufacturer' })}
+                nameField="fabricant"
+                addressField="fabricantAdresse"
               />
             </div>
           </SectionCard>
