@@ -12,6 +12,8 @@ export type PlanTier = 'free' | 'pro' | 'team' | 'business' | 'enterprise'
 export interface OrgPlan {
   plan: PlanTier
   billing_period: string | null
+  /** Client PAYANT (défaut false). NON payant → filigrane « Made with Pharnos » sur les couvertures. */
+  is_paying: boolean
   disabled: boolean
   /** Synchro cloud activée pour l'org (choix opt-in ; enforcement des syncs = M3). */
   sync_enabled: boolean

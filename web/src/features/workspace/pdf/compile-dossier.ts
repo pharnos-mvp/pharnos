@@ -1068,8 +1068,10 @@ function drawGlobalCover(
     }
   }
   // Plus grande taille (parmi `cands`) qui tient le texte en `maxLines` lignes (auto-fit composition).
+  // Mesuré en REGULAR : la DCI (sous-titre) est rendue non grasse.
   const fit = (text: string, cands: number[], maxLines: number): number => {
-    for (const s of cands) if (wrapPlain(text, fonts.bold, s, innerW).length <= maxLines) return s
+    for (const s of cands)
+      if (wrapPlain(text, fonts.regular, s, innerW).length <= maxLines) return s
     return cands[cands.length - 1] ?? 14
   }
 
@@ -1086,7 +1088,9 @@ function drawGlobalCover(
   at(headline1, 12, true, height * 0.783, true)
   at(headline2, 12, true, height * 0.76, true)
   at(cover.nomCommercial, 24, true, height * 0.645)
-  atWrapped(cover.dciDosage, fit(cover.dciDosage, [24, 20, 16, 14], 2), true, height * 0.605, 2)
+  // DCI/dosage = SOUS-TITRE : nettement plus petit que le nom commercial (24) et NON gras →
+  // hiérarchie claire (avant : jusqu'à 24 gras = aussi gros que le nom). Auto-fit 2 lignes max.
+  atWrapped(cover.dciDosage, fit(cover.dciDosage, [16, 15, 14, 13, 12], 2), false, height * 0.61, 2)
   at(input.country, 20, true, height * 0.503)
 
   at('Dossier soumis par :', 14, true, height * 0.4, true)
