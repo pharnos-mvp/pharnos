@@ -392,12 +392,15 @@ describe('filigrane « Made with Pharnos » (comptes non payants)', () => {
     return n
   }
 
-  it('watermark:true → lien pharnos.com sur les couvertures ET les pages de garde (1.1, 1.2…)', async () => {
+  it('watermark:true → couvertures + gardes de section, PAS la TDM', async () => {
     const doc = await PDFDocument.load(await compileDossier(coverInput(true)))
-    // Couvertures globale (0) + Module 1 (1)…
-    expect(linkUris(doc, 0).some((u) => u.includes('pharnos.com'))).toBe(true)
-    expect(linkUris(doc, 1).some((u) => u.includes('pharnos.com'))).toBe(true)
-    // …ET les pages de garde/annonce tamponnées (TDM + gardes de section) → strictement > 2.
+    const has = (i: number) => linkUris(doc, i).some((u) => u.includes('pharnos.com'))
+    // Couvertures globale (0) + Module 1 (1) portent le filigrane…
+    expect(has(0)).toBe(true)
+    expect(has(1)).toBe(true)
+    // …la 1re page TDM (index = coverCount = 2) NON (retour CEO « pas de TDM »)…
+    expect(has(2)).toBe(false)
+    // …et au moins une garde de section l'a → strictement > 2 pages au total.
     expect(pagesWithPharnos(doc)).toBeGreaterThan(2)
   })
 

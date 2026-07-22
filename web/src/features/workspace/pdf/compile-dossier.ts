@@ -769,6 +769,8 @@ function stampAll(
   fonts: Fonts,
   logo: PDFImage | null,
   coverIndices: Set<number>,
+  /** Sous-ensemble de `coverIndices` portant le filigrane : gardes de SECTION, PAS la TDM. */
+  watermarkIndices: Set<number>,
 ): void {
   const pages = final.getPages()
   const total = pages.length
@@ -827,9 +829,9 @@ function stampAll(
       color: GRAY,
     })
 
-    // Filigrane « Made with Pharnos » (offres non payantes) sur CHAQUE page de garde/annonce —
-    // SOUS le bandeau système (pied centré à y = 36) pour ne pas chevaucher le pays.
-    if (input.watermark) drawPharnosWatermark(page, fonts, 20)
+    // Filigrane « Made with Pharnos » (offres non payantes) sur les pages de garde de SECTION —
+    // PAS la TDM (retour CEO) — SOUS le bandeau système (pied à y = 36) pour ne pas chevaucher le pays.
+    if (input.watermark && watermarkIndices.has(idx)) drawPharnosWatermark(page, fonts, 20)
   })
 }
 
@@ -1325,6 +1327,9 @@ export async function compileDossier(
   const coverPageIndices = new Set<number>()
   for (let i = 0; i < tdmPageCount; i++) coverPageIndices.add(coverCount + i)
   for (const ci of coverContentIndices) coverPageIndices.add(coverCount + tdmPageCount + ci)
+  // Filigrane : gardes de SECTION uniquement (jamais la TDM — retour CEO).
+  const guardPageIndices = new Set<number>()
+  for (const ci of coverContentIndices) guardPageIndices.add(coverCount + tdmPageCount + ci)
 
   if (final.getPageCount() === 0) {
     coverPageIndices.add(0)
@@ -1343,7 +1348,7 @@ export async function compileDossier(
   })
 
   // 4) En-tête/pied + pagination sur toutes les pages (hors couvertures).
-  stampAll(final, input, fFonts, logoImg, coverPageIndices)
+  stampAll(final, input, fFonts, logoImg, coverPageIndices, guardPageIndices)
 
   // Page FINALE 1-based de chaque section (couvertures + TDM + index contenu) → TdM cliquable.
   if (out) {
