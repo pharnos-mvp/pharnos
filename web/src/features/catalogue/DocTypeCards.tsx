@@ -1,11 +1,23 @@
-import { useRef, useState } from 'react'
-import { Check, FileText, Plus, Trash2, Upload, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Check,
+  ExternalLink,
+  Eye,
+  FileText,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { PdfViewer } from '@/features/workspace/PdfViewer'
 import { COUNTRIES, countryLabel } from '@/features/workspace/dossier-constants'
 import type { DocumentCategory } from '@/lib/db'
 import {
@@ -17,6 +29,7 @@ import {
 } from '@/lib/files'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n-context'
+import { isIssueAfterExpiry } from './doc-dates'
 import { docTypesFor, requiresExpiry, type DocTypeOption } from './doc-types'
 
 /**
@@ -110,6 +123,13 @@ function DocCard({
   const [batchNumber, setBatchNumber] = useState('')
   const [resetKey, setResetKey] = useState(0)
   const fileRef = useRef<HTMLInputElement>(null)
+  // Pièce dont on prévisualise le fichier (null = dialog fermé).
+  const [preview, setPreview] = useState<File | null>(null)
+  // Remplacement d'un fichier existant : input dédié + pièce ciblée (métadonnées à conserver).
+  const replaceRef = useRef<HTMLInputElement>(null)
+  const replaceTarget = useRef<DraftDocument | null>(null)
+  // Garde-fou Monitor : délivrance postérieure à l'expiration = incohérent (signalé en rouge, ajout bloqué).
+  const dateError = isIssueAfterExpiry(issueDate, expiryDate)
 
   // « + Ajouter » déclenche directement l'explorateur de fichiers ; le formulaire ne se déplie
   // que pour les pièces à métadonnées (admin) — un document d'info s'ajoute sans formulaire.
@@ -158,6 +178,17 @@ function DocCard({
     setFile(f)
   }
 
+  /** Remplace le fichier d'une pièce déjà ajoutée en CONSERVANT ses métadonnées (retrait + réajout). */
+  function handleReplace(f: File | null) {
+    const target = replaceTarget.current
+    replaceTarget.current = null
+    if (!f || !target) return
+    if (!fileOk(f)) return
+    onRemove(target.id)
+    onAdd({ ...target, id: crypto.randomUUID(), file: f })
+    toast.success(t({ fr: 'Fichier remplacé', en: 'File replaced' }))
+  }
+
   function reset() {
     setFile(null)
     setIssueDate('')
@@ -184,6 +215,15 @@ function DocCard({
       )
       return
     }
+    if (dateError) {
+      toast.error(
+        t({
+          fr: 'La date de délivrance ne peut pas être postérieure à la date d’expiration.',
+          en: 'The issue date cannot be later than the expiry date.',
+        }),
+      )
+      return
+    }
     onAdd({
       id: crypto.randomUUID(),
       category,
@@ -201,6 +241,21 @@ function DocCard({
     // Pièce ajoutée → le formulaire se REFERME (point CEO) ; « + Ajouter » le rouvre pour la suivante.
     if (open) onToggle()
   }
+
+  // Titre + compteur — partagés entre l'en-tête cliquable (admin, déplie le formulaire) et
+  // l'en-tête statique (info, dont la liste des pièces est toujours affichée sous l'en-tête).
+  const titleBlock = (
+    <>
+      <span className="block truncate text-sm font-medium">
+        {t({ fr: type.label, en: type.en ?? type.label })}
+      </span>
+      <span className="text-muted-foreground text-xs">
+        {count > 0
+          ? t({ fr: `${count} pièce(s) ajoutée(s)`, en: `${count} added` })
+          : t({ fr: 'Aucune pièce', en: 'None yet' })}
+      </span>
+    </>
+  )
 
   return (
     <div
@@ -220,27 +275,37 @@ function DocCard({
         aria-hidden
         onChange={(e) => handlePick(e.target.files?.[0] ?? null)}
       />
+      {/* Input dédié au REMPLACEMENT d'un fichier existant (value vidée → même nom re-sélectionnable). */}
+      <input
+        ref={replaceRef}
+        type="file"
+        accept={UPLOAD_ACCEPT}
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden
+        onChange={(e) => {
+          handleReplace(e.target.files?.[0] ?? null)
+          e.target.value = ''
+        }}
+      />
       <div className="flex items-center gap-3 px-4 py-3">
         <span className="bg-info-subtle text-info-subtle-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
           <FileText className="size-4" />
         </span>
-        {/* Titre cliquable = ouvre/ferme la carte (indispensable aux cartes info, où l'ajout est
-            direct : c'est le seul chemin pour VOIR/RETIRER les pièces déjà ajoutées). */}
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={open}
-          className="focus-visible:ring-ring/50 min-w-0 flex-1 rounded-md text-left outline-none focus-visible:ring-[3px]"
-        >
-          <span className="block truncate text-sm font-medium">
-            {t({ fr: type.label, en: type.en ?? type.label })}
-          </span>
-          <span className="text-muted-foreground text-xs">
-            {count > 0
-              ? t({ fr: `${count} pièce(s) ajoutée(s)`, en: `${count} added` })
-              : t({ fr: 'Aucune pièce', en: 'None yet' })}
-          </span>
-        </button>
+        {/* Admin : le titre déplie le formulaire à métadonnées. Info : pas de formulaire — la liste
+            des pièces est toujours visible, l'en-tête reste statique. */}
+        {hasMeta ? (
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={open}
+            className="focus-visible:ring-ring/50 min-w-0 flex-1 rounded-md text-left outline-none focus-visible:ring-[3px]"
+          >
+            {titleBlock}
+          </button>
+        ) : (
+          <div className="min-w-0 flex-1">{titleBlock}</div>
+        )}
         {count > 0 ? (
           <StatusBadge tone="success" className="shrink-0">
             <Check /> {count}
@@ -252,9 +317,9 @@ function DocCard({
           variant={open ? 'ghost' : 'outline'}
           size="sm"
           onClick={open ? onToggle : openAndPick}
-          // Carte info fermée : « Ajouter » ouvre l'explorateur, PAS la carte → ne pas annoncer un
-          // contrôle d'expansion mensonger (le titre porte la sémantique de dépliage).
-          aria-expanded={hasMeta || open ? open : undefined}
+          // Info : « Ajouter » ouvre l'explorateur, PAS un panneau → pas d'aria-expanded mensonger
+          // (seul l'en-tête admin porte la sémantique de dépliage du formulaire).
+          aria-expanded={hasMeta ? open : undefined}
         >
           {open ? (
             <>
@@ -268,145 +333,235 @@ function DocCard({
         </Button>
       </div>
 
-      {open ? (
-        <div className="space-y-4 border-t px-4 py-4">
-          {drafts.length > 0 ? (
-            <ul className="divide-y rounded-lg border">
-              {drafts.map((d) => (
-                <li key={d.id} className="flex items-center gap-2 p-2.5 text-sm">
-                  <FileText className="text-muted-foreground size-4 shrink-0" />
-                  <span className="min-w-0 flex-1 truncate" title={d.file.name}>
-                    {d.file.name}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={t({ fr: 'Retirer', en: 'Remove' })}
-                    onClick={() => onRemove(d.id)}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
+      {/* Liste des pièces — TOUJOURS visible dès qu'il y en a (nom + aperçu + remplacer + retirer). */}
+      {drafts.length > 0 ? (
+        <ul className="divide-y border-t">
+          {drafts.map((d) => (
+            <li key={d.id} className="flex items-center gap-1 px-4 py-2 text-sm">
+              <FileText className="text-muted-foreground size-4 shrink-0" />
+              {/* Nom cliquable = aperçu (redondant avec l'œil, mais découvrable). */}
+              <button
+                type="button"
+                onClick={() => setPreview(d.file)}
+                className="focus-visible:ring-ring/50 min-w-0 flex-1 truncate rounded-md text-left outline-none hover:underline focus-visible:ring-[3px]"
+                title={d.file.name}
+              >
+                {d.file.name}
+              </button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t({ fr: 'Prévisualiser', en: 'Preview' })}
+                title={t({ fr: 'Prévisualiser', en: 'Preview' })}
+                onClick={() => setPreview(d.file)}
+              >
+                <Eye className="size-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t({ fr: 'Remplacer le fichier', en: 'Replace file' })}
+                title={t({ fr: 'Remplacer le fichier', en: 'Replace file' })}
+                onClick={() => {
+                  replaceTarget.current = d
+                  replaceRef.current?.click()
+                }}
+              >
+                <RefreshCw className="size-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t({ fr: 'Retirer', en: 'Remove' })}
+                title={t({ fr: 'Retirer', en: 'Remove' })}
+                onClick={() => onRemove(d.id)}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
-          {!hasMeta ? (
-            // Document d'info : pas de formulaire — l'ajout est direct à la sélection du fichier.
+      {/* Formulaire à métadonnées (admin uniquement, quand déplié). */}
+      {hasMeta && open ? (
+        <div className="space-y-4 border-t px-4 py-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {isAmm ? (
+              <Field label={t({ fr: 'N° d’AMM', en: 'MA number' })}>
+                <Input
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                  placeholder={t({ fr: 'Ex. AMM_2015_7457', en: 'e.g. MA_2015_7457' })}
+                />
+              </Field>
+            ) : null}
+
+            {isAmm ? (
+              <Field label={t({ fr: 'Pays', en: 'Country' })}>
+                <select
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  className="border-input dark:bg-input/30 focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
+                >
+                  <option value="">{t({ fr: 'Sélectionner…', en: 'Select…' })}</option>
+                  {COUNTRIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {countryLabel(c.code, lang)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            ) : null}
+
+            {isCoa ? (
+              <Field label={t({ fr: 'Batch N°', en: 'Batch No.' })}>
+                <Input
+                  value={batchNumber}
+                  onChange={(e) => setBatchNumber(e.target.value)}
+                  placeholder={t({ fr: 'Ex. LOT-2026-014', en: 'e.g. LOT-2026-014' })}
+                />
+              </Field>
+            ) : null}
+
+            {isAdmin ? (
+              <Field label={t({ fr: 'Date de délivrance', en: 'Issue date' })}>
+                <Input
+                  type="date"
+                  value={issueDate}
+                  onChange={(e) => setIssueDate(e.target.value)}
+                  aria-invalid={dateError || undefined}
+                />
+              </Field>
+            ) : null}
+
+            {isAdmin ? (
+              <Field
+                label={t({
+                  fr: needsExpiry ? "Date d'expiration *" : "Date d'expiration",
+                  en: needsExpiry ? 'Expiry date *' : 'Expiry date',
+                })}
+              >
+                <Input
+                  type="date"
+                  value={expiryDate}
+                  onChange={(e) => setExpiryDate(e.target.value)}
+                  aria-invalid={dateError || undefined}
+                />
+              </Field>
+            ) : null}
+
+            {dateError ? (
+              <p className="text-destructive text-xs sm:col-span-2" role="alert">
+                {t({
+                  fr: 'La date de délivrance est postérieure à la date d’expiration.',
+                  en: 'The issue date is later than the expiry date.',
+                })}
+              </p>
+            ) : null}
+
+            {isAdmin ? (
+              <Field label={t({ fr: 'Titulaire', en: 'Holder' })}>
+                <Input
+                  value={holder}
+                  onChange={(e) => setHolder(e.target.value)}
+                  placeholder={t({ fr: 'Ex. Sahel Pharma SARL', en: 'e.g. Sahel Pharma SARL' })}
+                />
+              </Field>
+            ) : null}
+
+            <Field label={t({ fr: 'Fichier', en: 'File' })} className="sm:col-span-2">
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="outline" onClick={() => fileRef.current?.click()}>
+                  <Upload />
+                  {file
+                    ? t({ fr: 'Changer le fichier', en: 'Change file' })
+                    : t({ fr: 'Choisir un fichier', en: 'Choose a file' })}
+                </Button>
+                <span className="text-muted-foreground min-w-0 truncate text-sm" title={file?.name}>
+                  {file ? file.name : t({ fr: 'Aucun fichier choisi', en: 'No file chosen' })}
+                </span>
+              </div>
+            </Field>
+          </div>
+
+          <Button type="button" variant="primary" onClick={handleAdd} disabled={dateError}>
+            <Plus /> {t({ fr: 'Ajouter la pièce', en: 'Add document' })}
+          </Button>
+        </div>
+      ) : null}
+
+      <DraftPreviewDialog file={preview} onOpenChange={(o) => !o && setPreview(null)} />
+    </div>
+  )
+}
+
+/**
+ * Aperçu **au premier plan** d'une pièce du buffer (fichier `File` local, pas encore stocké) :
+ * PDF via la visionneuse PDF.js (chargée à la demande), image en ligne, sinon repli « ouvrir dans
+ * un onglet ». L'URL objet est créée à l'ouverture et **révoquée** à la fermeture (pas de fuite).
+ */
+function DraftPreviewDialog({
+  file,
+  onOpenChange,
+}: {
+  file: File | null
+  onOpenChange: (open: boolean) => void
+}) {
+  const { t } = useI18n()
+  const name = file?.name ?? ''
+  const isPdf = file?.type === 'application/pdf' || /\.pdf$/i.test(name)
+  // URL objet dérivée du fichier pour l'aperçu image / le repli « nouvel onglet ». INUTILE pour un
+  // PDF (la visionneuse consomme le File directement) → on ne l'alloue pas. Révoquée au changement /
+  // à la fermeture (le cleanup suit `url`), donc pas de fuite.
+  const url = useMemo(() => (file && !isPdf ? URL.createObjectURL(file) : null), [file, isPdf])
+  useEffect(() => {
+    return () => {
+      if (url) URL.revokeObjectURL(url)
+    }
+  }, [url])
+  const isImage = (file?.type ?? '').startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(name)
+
+  return (
+    <Dialog open={!!file} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle className="truncate pr-8" title={name}>
+            {name}
+          </DialogTitle>
+        </DialogHeader>
+        {file && isPdf ? (
+          <div className="flex h-[70vh] flex-col overflow-hidden rounded-lg border">
+            <PdfViewer blob={file} />
+          </div>
+        ) : file && isImage && url ? (
+          <div className="bg-muted flex max-h-[70vh] items-center justify-center overflow-auto rounded-lg border p-3">
+            <img src={url} alt={name} className="max-w-full" />
+          </div>
+        ) : url ? (
+          <div className="text-muted-foreground flex min-h-[14rem] flex-col items-center justify-center gap-3 py-8 text-sm">
+            <FileText className="size-8" />
+            <p>
+              {t({
+                fr: 'Aperçu non disponible pour ce format.',
+                en: 'Preview not available for this format.',
+              })}
+            </p>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => fileRef.current?.click()}
+              onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
             >
-              <Plus /> {t({ fr: 'Ajouter un fichier', en: 'Add a file' })}
+              <ExternalLink /> {t({ fr: 'Ouvrir dans un nouvel onglet', en: 'Open in a new tab' })}
             </Button>
-          ) : (
-            <>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {isAmm ? (
-                  <Field label={t({ fr: 'N° d’AMM', en: 'MA number' })}>
-                    <Input
-                      value={reference}
-                      onChange={(e) => setReference(e.target.value)}
-                      placeholder={t({ fr: 'Ex. AMM_2015_7457', en: 'e.g. MA_2015_7457' })}
-                    />
-                  </Field>
-                ) : null}
-
-                {isAmm ? (
-                  <Field label={t({ fr: 'Pays', en: 'Country' })}>
-                    <select
-                      value={country}
-                      onChange={(e) => setCountry(e.target.value)}
-                      className="border-input dark:bg-input/30 focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
-                    >
-                      <option value="">{t({ fr: 'Sélectionner…', en: 'Select…' })}</option>
-                      {COUNTRIES.map((c) => (
-                        <option key={c.code} value={c.code}>
-                          {countryLabel(c.code, lang)}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                ) : null}
-
-                {isCoa ? (
-                  <Field label={t({ fr: 'Batch N°', en: 'Batch No.' })}>
-                    <Input
-                      value={batchNumber}
-                      onChange={(e) => setBatchNumber(e.target.value)}
-                      placeholder={t({ fr: 'Ex. LOT-2026-014', en: 'e.g. LOT-2026-014' })}
-                    />
-                  </Field>
-                ) : null}
-
-                {isAdmin ? (
-                  <Field label={t({ fr: 'Date de délivrance', en: 'Issue date' })}>
-                    <Input
-                      type="date"
-                      value={issueDate}
-                      onChange={(e) => setIssueDate(e.target.value)}
-                    />
-                  </Field>
-                ) : null}
-
-                {isAdmin ? (
-                  <Field
-                    label={t({
-                      fr: needsExpiry ? "Date d'expiration *" : "Date d'expiration",
-                      en: needsExpiry ? 'Expiry date *' : 'Expiry date',
-                    })}
-                  >
-                    <Input
-                      type="date"
-                      value={expiryDate}
-                      onChange={(e) => setExpiryDate(e.target.value)}
-                    />
-                  </Field>
-                ) : null}
-
-                {isAdmin ? (
-                  <Field label={t({ fr: 'Titulaire', en: 'Holder' })}>
-                    <Input
-                      value={holder}
-                      onChange={(e) => setHolder(e.target.value)}
-                      placeholder={t({ fr: 'Ex. Sahel Pharma SARL', en: 'e.g. Sahel Pharma SARL' })}
-                    />
-                  </Field>
-                ) : null}
-
-                <Field label={t({ fr: 'Fichier', en: 'File' })} className="sm:col-span-2">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => fileRef.current?.click()}
-                    >
-                      <Upload />
-                      {file
-                        ? t({ fr: 'Changer le fichier', en: 'Change file' })
-                        : t({ fr: 'Choisir un fichier', en: 'Choose a file' })}
-                    </Button>
-                    <span
-                      className="text-muted-foreground min-w-0 truncate text-sm"
-                      title={file?.name}
-                    >
-                      {file ? file.name : t({ fr: 'Aucun fichier choisi', en: 'No file chosen' })}
-                    </span>
-                  </div>
-                </Field>
-              </div>
-
-              <Button type="button" variant="primary" onClick={handleAdd}>
-                <Plus /> {t({ fr: 'Ajouter la pièce', en: 'Add document' })}
-              </Button>
-            </>
-          )}
-        </div>
-      ) : null}
-    </div>
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
   )
 }
 

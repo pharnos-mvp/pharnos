@@ -1,22 +1,50 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { I18nProvider } from '@/lib/I18nProvider'
 import { docTypesFor, requiresExpiry } from './doc-types'
-import { DocTypeCards } from './DocTypeCards'
+import { DocTypeCards, type DraftDocument } from './DocTypeCards'
 
 const renderI = (ui: React.ReactElement) => render(ui, { wrapper: I18nProvider })
 
 const pdf = (name = 'piece.pdf') => new File(['%PDF-1.4'], name, { type: 'application/pdf' })
 
-/** Input fichier caché de la carte à l'index donné (une carte = un input, ordre des types). */
+/** Input fichier caché de la carte à l'index donné (2 inputs/carte : [ajout, remplacement]). */
 function fileInputAt(container: HTMLElement, index: number): HTMLInputElement {
   const inputs = container.querySelectorAll<HTMLInputElement>('input[type="file"]')
   const el = inputs[index]
   if (!el) throw new Error(`Pas d'input fichier à l'index ${index}`)
   return el
 }
+
+const infoDraft = (over: Partial<DraftDocument> = {}): DraftDocument => ({
+  id: 'd1',
+  category: 'info',
+  docType: docTypesFor('info')[0]!.code,
+  file: pdf('notice.pdf'),
+  issueDate: null,
+  expiryDate: null,
+  holder: null,
+  country: null,
+  reference: null,
+  batchNumber: null,
+  ...over,
+})
+
+// L'aperçu crée une URL objet — jsdom ne fournit pas createObjectURL → stub inoffensif.
+beforeAll(() => {
+  Object.defineProperty(URL, 'createObjectURL', {
+    value: () => 'blob:mock',
+    writable: true,
+    configurable: true,
+  })
+  Object.defineProperty(URL, 'revokeObjectURL', {
+    value: () => {},
+    writable: true,
+    configurable: true,
+  })
+})
 
 describe('DocTypeCards — ajout de pièces (wizard produit)', () => {
   it('ADMIN : le formulaire se REFERME après « Ajouter la pièce » (point CEO)', async () => {
@@ -44,6 +72,36 @@ describe('DocTypeCards — ajout de pièces (wizard produit)', () => {
     expect(screen.queryByRole('button', { name: 'Ajouter la pièce' })).not.toBeInTheDocument()
   })
 
+  it('ADMIN : délivrance postérieure à l’expiration → dates en rouge + ajout bloqué (Monitor)', async () => {
+    const user = userEvent.setup()
+    const onAdd = vi.fn()
+    const { container } = renderI(
+      <DocTypeCards category="admin" drafts={[]} onAdd={onAdd} onRemove={() => {}} />,
+    )
+
+    await user.click(screen.getAllByRole('button', { name: 'Ajouter' })[0]!)
+    fireEvent.change(fileInputAt(container, 0), { target: { files: [pdf()] } })
+
+    // Dates du formulaire admin : [délivrance, expiration]. Délivrance APRÈS expiration = incohérent.
+    const dates = container.querySelectorAll<HTMLInputElement>('input[type="date"]')
+    fireEvent.change(dates[0]!, { target: { value: '2031-01-02' } })
+    fireEvent.change(dates[1]!, { target: { value: '2031-01-01' } })
+
+    // Les deux champs passent en erreur (bordure rouge via aria-invalid) et l'ajout est verrouillé.
+    expect(dates[0]!).toHaveAttribute('aria-invalid', 'true')
+    expect(dates[1]!).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByRole('button', { name: 'Ajouter la pièce' })).toBeDisabled()
+
+    // Défense en profondeur : même forcé, l'ajout refuse.
+    fireEvent.click(screen.getByRole('button', { name: 'Ajouter la pièce' }))
+    expect(onAdd).not.toHaveBeenCalled()
+
+    // Correction (délivrance avant expiration) → l'erreur se lève, l'ajout redevient possible.
+    fireEvent.change(dates[0]!, { target: { value: '2030-01-01' } })
+    expect(dates[0]!).not.toHaveAttribute('aria-invalid')
+    expect(screen.getByRole('button', { name: 'Ajouter la pièce' })).toBeEnabled()
+  })
+
   it('INFO : la pièce est ajoutée DIRECTEMENT à la sélection du fichier, sans formulaire', async () => {
     const user = userEvent.setup()
     const onAdd = vi.fn()
@@ -64,32 +122,74 @@ describe('DocTypeCards — ajout de pièces (wizard produit)', () => {
     expect(draft.file.name).toBe('rcp.pdf')
   })
 
-  it("INFO : l'en-tête de carte OUVRE la liste des pièces (voir/retirer après ajout direct)", async () => {
+  it('INFO : la pièce ajoutée est TOUJOURS visible (nom + retrait), sans dépliage', async () => {
     const user = userEvent.setup()
     const onRemove = vi.fn()
-    const info = docTypesFor('info')[0]!
-    const draft = {
-      id: 'd1',
-      category: 'info' as const,
-      docType: info.code,
-      file: pdf('notice.pdf'),
-      issueDate: null,
-      expiryDate: null,
-      holder: null,
-      country: null,
-      reference: null,
-      batchNumber: null,
-    }
-    renderI(<DocTypeCards category="info" drafts={[draft]} onAdd={() => {}} onRemove={onRemove} />)
+    renderI(
+      <DocTypeCards category="info" drafts={[infoDraft()]} onAdd={() => {}} onRemove={onRemove} />,
+    )
 
-    // Clic sur le titre de la carte → la liste se déplie avec la pièce. (Libellé échappé : il
-    // contient des parenthèses, ex. « RCP (Résumé des Caractéristiques du Produit) ».)
-    const esc = info.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    await user.click(screen.getByRole('button', { name: new RegExp(esc) }))
+    // Le nom est visible d'emblée — plus besoin de cliquer sur le titre pour dérouler la liste.
     expect(screen.getByText('notice.pdf')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Retirer' }))
     expect(onRemove).toHaveBeenCalledWith('d1')
+  })
+
+  it('ADMIN : « Remplacer le fichier » conserve les métadonnées (retrait + réajout, nouvel id)', async () => {
+    const user = userEvent.setup()
+    const onAdd = vi.fn()
+    const onRemove = vi.fn()
+    const draft: DraftDocument = {
+      id: 'd1',
+      category: 'admin',
+      docType: docTypesFor('admin')[0]!.code,
+      file: pdf('amm.pdf'),
+      issueDate: '2025-01-01',
+      expiryDate: '2030-06-01',
+      holder: 'Sahel Pharma SARL',
+      country: 'CI',
+      reference: 'AMM_2015_7457',
+      batchNumber: null,
+    }
+    const { container } = renderI(
+      <DocTypeCards category="admin" drafts={[draft]} onAdd={onAdd} onRemove={onRemove} />,
+    )
+
+    // Cible la pièce à remplacer (arme replaceTarget), puis simule le choix du nouveau fichier.
+    await user.click(screen.getByRole('button', { name: 'Remplacer le fichier' }))
+    fireEvent.change(fileInputAt(container, 1), { target: { files: [pdf('amm-v2.pdf')] } })
+
+    expect(onRemove).toHaveBeenCalledWith('d1')
+    expect(onAdd).toHaveBeenCalledTimes(1)
+    const next = onAdd.mock.calls[0]![0] as DraftDocument
+    expect(next.file.name).toBe('amm-v2.pdf')
+    // Toutes les métadonnées réglementaires survivent au remplacement…
+    expect(next.holder).toBe('Sahel Pharma SARL')
+    expect(next.expiryDate).toBe('2030-06-01')
+    expect(next.issueDate).toBe('2025-01-01')
+    expect(next.reference).toBe('AMM_2015_7457')
+    expect(next.country).toBe('CI')
+    // …avec un NOUVEL id (évite toute collision de clé dans la liste).
+    expect(next.id).not.toBe('d1')
+  })
+
+  it('APERÇU : l’œil ouvre la pièce au premier plan (dialog nommé par le fichier)', async () => {
+    const user = userEvent.setup()
+    renderI(
+      <DocTypeCards
+        category="info"
+        drafts={[infoDraft({ file: new File(['x'], 'photo.png', { type: 'image/png' }) })]}
+        onAdd={() => {}}
+        onRemove={() => {}}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Prévisualiser' }))
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText('photo.png')).toBeInTheDocument()
+    // Image → rendu inline (pas le repli « format non disponible »).
+    expect(within(dialog).getByRole('img', { name: 'photo.png' })).toBeInTheDocument()
   })
 
   it('INFO : un fichier de type interdit est REJETÉ (pas d’ajout silencieux)', async () => {
