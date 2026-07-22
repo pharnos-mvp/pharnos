@@ -156,6 +156,14 @@ export const MODULE1_ECTD_CEDEAO: CtdNodeDef[] = [
 
 /* ----------------------------- CTD papier — UEMOA (Règlement 04-2020) ----------------------------- */
 
+/**
+ * Libellé de la section fourre-tout administrative CTD (nœud 1.2.8) — SOURCE UNIQUE, partagée avec le
+ * ciblage du constat « contrat titulaire≠fabricant » (`regafy.ts`). Les arbres de dossier étant FIGÉS
+ * à la création, un dossier existant n'a pas le sous-nœud 1.2.8.2 : « Corriger » retombe sur cette
+ * section, repérée par ce libellé. Le garder ici en un seul point évite toute dérive silencieuse.
+ */
+export const OTHER_ADMIN_LABEL = 'Autres informations administratives'
+
 export const MODULE1_CTD_UEMOA: CtdNodeDef[] = [
   { number: '1.0', label: 'Table des matières (TdM)' },
   {
@@ -215,13 +223,18 @@ export const MODULE1_CTD_UEMOA: CtdNodeDef[] = [
       { number: '1.2.7', label: 'Informations post-autorisation' },
       {
         number: '1.2.8',
-        label: 'Autres informations administratives',
+        label: OTHER_ADMIN_LABEL,
         note: "Informations administratives sans emplacement prévu dans le format CTD. Ne doit pas contenir d'informations scientifiques.",
         children: [
           {
             number: '1.2.8.1',
             label: "Demandes de dispenses d'études de bioéquivalence",
             note: "La justification de la demande de dispense doit être soumise conformément aux lignes directrices sur les dispenses d'études de bioéquivalence.",
+          },
+          {
+            number: '1.2.8.2',
+            label: 'Contrat de licence / fabrication',
+            note: "Contrat entre le titulaire d'AMM et le fabricant (licence / fabrication), lorsqu'ils diffèrent.",
           },
         ],
       },

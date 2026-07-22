@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
 import type { DocumentRecord, GeneratedDocRecord } from '@/lib/db'
-import type { CtdNodeDef } from './module1-tree'
+import { MODULE1_CTD_UEMOA, OTHER_ADMIN_LABEL, type CtdNodeDef } from './module1-tree'
 import { runRegafy } from './regafy'
+import { flattenTree } from './tree-utils'
 
 const tree: CtdNodeDef[] = [
   {
@@ -183,6 +184,45 @@ describe('regafy — validité des pièces & contrat (copilote)', () => {
       ...emptyGenAtt,
     })
     expect(f.some((x) => x.id === 'contract')).toBe(true)
+  })
+
+  const runContract = (tree: CtdNodeDef[]) =>
+    runRegafy({
+      tree,
+      titulaire: 'Labo A',
+      fabricant: 'Usine B',
+      docsByNode: new Map(),
+      genByNode: new Map(),
+      attachByNode: new Map(),
+    }).find((x) => x.id === 'contract')
+
+  it('constat contrat → sous-nœud dédié 1.2.8.2 quand il est dans l’arbre (nouveaux dossiers)', () => {
+    const tree: CtdNodeDef[] = [
+      {
+        number: '1.2.8',
+        label: OTHER_ADMIN_LABEL,
+        children: [{ number: '1.2.8.2', label: 'Contrat de licence / fabrication' }],
+      },
+    ]
+    expect(runContract(tree)?.nodeNumber).toBe('1.2.8.2')
+  })
+
+  it('constat contrat → section 1.2.8 par LIBELLÉ si pas de sous-nœud (arbre figé d’un dossier existant)', () => {
+    const tree: CtdNodeDef[] = [{ number: '1.2.8', label: OTHER_ADMIN_LABEL }]
+    expect(runContract(tree)?.nodeNumber).toBe('1.2.8')
+  })
+
+  it('constat contrat → SANS nœud si pas de section « Autres » (repli eCTD, aucun faux ciblage)', () => {
+    // eCTD : un nœud « 1.2.8 » existe mais c’est « Détails de présélection » → NE doit PAS être visé.
+    const tree: CtdNodeDef[] = [{ number: '1.2.8', label: 'Détails de présélection' }]
+    expect(runContract(tree)?.nodeNumber).toBe('')
+  })
+
+  it('couplage : le vrai arbre CTD porte bien la section fourre-tout 1.2.8 = OTHER_ADMIN_LABEL', () => {
+    // Garde-fou : si quelqu'un renomme 1.2.8 dans l'arbre réel sans passer par la constante, le repli
+    // par libellé casserait en silence pour tous les dossiers figés → ce test l'attrape.
+    const n = flattenTree(MODULE1_CTD_UEMOA).find((x) => x.number === '1.2.8')
+    expect(n?.label).toBe(OTHER_ADMIN_LABEL)
   })
 
   it('titulaire ≠ fabricant AVEC contrat fourni → pas d’avertissement', () => {

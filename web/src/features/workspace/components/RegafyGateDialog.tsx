@@ -40,7 +40,7 @@ export function RegafyGateDialog({
       aria-modal="true"
       aria-label={title}
     >
-      <div className="bg-card flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border shadow-lg">
+      <div className="bg-card flex max-h-[80vh] w-full max-w-xl flex-col overflow-hidden rounded-lg border shadow-lg">
         <div className="flex items-center gap-2 border-b p-4">
           <AlertTriangle className="size-5 text-amber-500" />
           <h2 className="font-semibold">{title}</h2>
@@ -90,14 +90,16 @@ export function RegafyGateDialog({
           )}
         </div>
         {/* Annuler à gauche (sortie claire) · actions à droite, Compiler en primaire (le plus à
-            droite = CTA principal). Ordre logique : Audit Global → Corriger → Compiler. */}
+            droite = CTA principal). Ordre logique : Audit Global → Corriger → Compiler. Boutons
+            `sm` + modale `max-w-xl` → les quatre tiennent sur une seule ligne (repli sur mobile). */}
         <div className="flex flex-wrap items-center justify-between gap-2 border-t p-3">
-          <Button variant="ghost" disabled={auditing} onClick={onClose}>
+          <Button variant="ghost" size="sm" disabled={auditing} onClick={onClose}>
             {t({ fr: 'Annuler', en: 'Cancel' })}
           </Button>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
               variant="outline"
+              size="sm"
               disabled={auditing || auditDisabled}
               title={
                 auditDisabled
@@ -121,12 +123,13 @@ export function RegafyGateDialog({
             </Button>
             <Button
               variant="outline"
+              size="sm"
               disabled={auditing || !findings.some((f) => f.nodeNumber)}
               onClick={onCorrect}
             >
               {t({ fr: 'Corriger', en: 'Fix' })}
             </Button>
-            <Button disabled={auditing} onClick={onCompile}>
+            <Button size="sm" disabled={auditing} onClick={onCompile}>
               {t({ fr: 'Compiler quand même', en: 'Compile anyway' })}
             </Button>
           </div>
