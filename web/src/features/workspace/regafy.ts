@@ -2,7 +2,7 @@ import type { JSONContent } from '@tiptap/core'
 
 import type { DocumentRecord, DossierAttachmentRecord, GeneratedDocRecord } from '@/lib/db'
 import { tStatic } from '@/lib/i18n-context'
-import type { CtdNodeDef } from './module1-tree'
+import { OTHER_ADMIN_LABEL, type CtdNodeDef } from './module1-tree'
 import { flattenTree } from './tree-utils'
 
 /**
@@ -143,10 +143,20 @@ export function runRegafy(input: RegafyInput): RegafyFinding[] {
       }
     }
     if (!hasContract) {
+      // « Corriger » doit amener OÙ déposer le contrat = section « Autres informations
+      // administratives » (fourre-tout admin CTD, 1.2.8). On vise son sous-nœud dédié 1.2.8.2 s'il
+      // est dans l'arbre (nouveaux dossiers) ; sinon la section elle-même, repérée par son LIBELLÉ
+      // (constant partagé `OTHER_ADMIN_LABEL`) — les arbres de dossier sont FIGÉS à la création
+      // (dossier-repository) donc un dossier existant n'a pas le sous-nœud, et le libellé exact évite
+      // de viser par erreur le « 1.2.8 » eCTD (« Détails de présélection »). Aucun des deux (ex. eCTD)
+      // → constat sans nœud (repli).
+      const contractNode =
+        allNodes.find((n) => n.number === '1.2.8.2') ??
+        allNodes.find((n) => n.label === OTHER_ADMIN_LABEL)
       findings.push({
         id: 'contract',
-        nodeNumber: '',
-        nodeLabel: tStatic({ fr: 'Produit', en: 'Product' }),
+        nodeNumber: contractNode?.number ?? '',
+        nodeLabel: contractNode?.label ?? tStatic({ fr: 'Produit', en: 'Product' }),
         severity: 'warning',
         message: tStatic({
           fr: 'Titulaire ≠ fabricant : contrat (licence/fabrication) non fourni.',
