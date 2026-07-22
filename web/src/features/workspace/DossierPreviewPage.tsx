@@ -121,7 +121,7 @@ export function DossierPreviewPage() {
   const sig = ready
     ? `${dossier.id}:${product?.id ?? ''}:${docs.length}:${genDocs.length}:${attachments.length}:` +
       `${[dossier.updatedAt, ...genDocs.map((g) => g.updatedAt), ...attachments.map((a) => a.updatedAt ?? ''), ...docs.map((d) => d.updatedAt ?? '')].reduce((m, x) => (x > m ? x : m), '')}:` +
-      `${branding ? '1' : '0'}:${orgPlan?.plan ?? ''}`
+      `${branding ? '1' : '0'}:${orgPlan?.is_paying ? '1' : '0'}`
     : null
   const previewReady = pdf?.key === sig
 
@@ -140,7 +140,7 @@ export function DossierPreviewPage() {
           attachments: attachments ?? [],
           branding: branding ?? undefined,
           autoStructural: true,
-          watermark: orgPlan?.plan === 'free',
+          watermark: !orgPlan?.is_paying,
         })
         if (cancelled) return
         const blob = new Blob([new Uint8Array(bytes)], { type: 'application/pdf' })

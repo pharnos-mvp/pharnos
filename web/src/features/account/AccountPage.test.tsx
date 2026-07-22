@@ -11,6 +11,7 @@ import { AbonnementSection } from './AccountPage'
 const FREE_PLAN: OrgPlan = {
   plan: 'free',
   billing_period: 'monthly',
+  is_paying: false,
   disabled: false,
   sync_enabled: true,
   max_dossiers: null,
