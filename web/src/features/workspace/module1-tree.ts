@@ -409,7 +409,17 @@ export function getModule1Tree(
   variations?: number[],
 ): CtdNodeDef[] {
   if (activity === 'variation' && format === 'ctd') return variationTree(variations)
-  return format === 'ectd' ? MODULE1_ECTD_CEDEAO : MODULE1_CTD_UEMOA
+  if (format === 'ectd') return MODULE1_ECTD_CEDEAO
+  // 1.2.7 « Informations post-autorisation » (CTD) ne concerne que le POST-AMM (renouvellement,
+  // variation) → retiré d'une NOUVELLE demande d'enregistrement (new_ma). Renouvellement le garde.
+  if (activity === 'new_ma') {
+    return MODULE1_CTD_UEMOA.map((n) =>
+      n.number === '1.2' && n.children
+        ? { ...n, children: n.children.filter((c) => c.number !== '1.2.7') }
+        : n,
+    )
+  }
+  return MODULE1_CTD_UEMOA
 }
 
 /* ----------------------------- Auto-classement (type de doc → nœud) ----------------------------- */

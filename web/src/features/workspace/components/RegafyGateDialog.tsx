@@ -1,4 +1,4 @@
-import { AlertTriangle, Loader2, ScanSearch } from 'lucide-react'
+import { AlertTriangle, ChevronRight, Loader2, ScanSearch } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { useI18n } from '@/lib/i18n-context'
@@ -17,6 +17,7 @@ export function RegafyGateDialog({
   onAudit,
   onClose,
   onCorrect,
+  onCorrectFinding,
   onCompile,
 }: {
   findings: RegafyFinding[]
@@ -26,12 +27,16 @@ export function RegafyGateDialog({
   auditDisabled?: boolean
   onAudit: () => void
   onClose: () => void
+  /** Raccourci : corriger le PREMIER constat qui pointe un nœud. */
   onCorrect: () => void
+  /** Corriger UN constat précis (clic sur la ligne) → navigue vers son nœud. */
+  onCorrectFinding: (f: RegafyFinding) => void
   onCompile: () => void
 }) {
   const { t } = useI18n()
   const errors = findings.filter((f) => f.severity === 'error').length
   const auditing = auditProgress !== null
+  const hasClickable = findings.some((f) => f.nodeNumber)
   const title = t({ fr: 'Remarques avant compilation', en: 'Notes before compiling' })
   return (
     <div
@@ -60,14 +65,20 @@ export function RegafyGateDialog({
                   fr: `${findings.length} observation(s)${errors > 0 ? ` dont ${errors} bloquante(s)` : ''}.`,
                   en: `${findings.length} finding(s)${errors > 0 ? `, ${errors} blocking` : ''}.`,
                 })}{' '}
-                {t({
-                  fr: "Corriger d'abord, lancer l'« Audit de conformité », ou compiler malgré tout ?",
-                  en: 'Fix first, run the Compliance Audit, or compile anyway?',
-                })}
+                {hasClickable
+                  ? t({
+                      fr: 'Cliquez un point pour le corriger, lancez l’« Audit de conformité », ou compilez malgré tout.',
+                      en: 'Click an item to fix it, run the Compliance Audit, or compile anyway.',
+                    })
+                  : t({
+                      fr: 'Lancez l’« Audit de conformité », ou compilez malgré tout.',
+                      en: 'Run the Compliance Audit, or compile anyway.',
+                    })}
               </p>
-              <ul className="space-y-1.5">
-                {findings.map((f) => (
-                  <li key={f.id} className="flex items-start gap-2 text-sm">
+              <ul className="space-y-1">
+                {findings.map((f) => {
+                  // f.nodeNumber + f.message = contenu réglementaire Regafy — NON traduit.
+                  const dot = (
                     <span
                       className={cn(
                         'mt-1.5 size-2 shrink-0 rounded-full',
@@ -78,13 +89,38 @@ export function RegafyGateDialog({
                             : 'bg-sky-500',
                       )}
                     />
-                    {/* f.nodeNumber + f.message = contenu réglementaire Regafy — NON traduit. */}
-                    <span>
+                  )
+                  const body = (
+                    <span className="min-w-0 flex-1">
                       {f.nodeNumber ? <span className="font-medium">{f.nodeNumber} </span> : null}
                       {f.message}
                     </span>
-                  </li>
-                ))}
+                  )
+                  // Un constat qui pointe un nœud = cliquable (navigue pour corriger). Sinon simple ligne.
+                  return f.nodeNumber ? (
+                    <li key={f.id}>
+                      <button
+                        type="button"
+                        disabled={auditing}
+                        onClick={() => onCorrectFinding(f)}
+                        title={t({ fr: 'Corriger ce point', en: 'Fix this item' })}
+                        className="hover:bg-muted focus-visible:ring-ring/50 flex w-full items-start gap-2 rounded-md p-1.5 text-left text-sm transition-colors outline-none focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-60"
+                      >
+                        {dot}
+                        {body}
+                        <ChevronRight
+                          className="text-muted-foreground mt-0.5 size-4 shrink-0"
+                          aria-hidden
+                        />
+                      </button>
+                    </li>
+                  ) : (
+                    <li key={f.id} className="flex items-start gap-2 p-1.5 text-sm">
+                      {dot}
+                      {body}
+                    </li>
+                  )
+                })}
               </ul>
             </>
           )}
