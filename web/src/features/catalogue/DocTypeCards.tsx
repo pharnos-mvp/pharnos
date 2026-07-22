@@ -1,22 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  Check,
-  ExternalLink,
-  Eye,
-  FileText,
-  Plus,
-  RefreshCw,
-  Trash2,
-  Upload,
-  X,
-} from 'lucide-react'
+import { ExternalLink, Eye, FileText, Plus, RefreshCw, Trash2, Upload, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { StatusBadge } from '@/components/ui/status-badge'
 import { PdfViewer } from '@/features/workspace/PdfViewer'
 import { COUNTRIES, countryLabel } from '@/features/workspace/dossier-constants'
 import type { DocumentCategory } from '@/lib/db'
@@ -128,8 +117,11 @@ function DocCard({
   // Remplacement d'un fichier existant : input dédié + pièce ciblée (métadonnées à conserver).
   const replaceRef = useRef<HTMLInputElement>(null)
   const replaceTarget = useRef<DraftDocument | null>(null)
-  // Garde-fou Monitor : délivrance postérieure à l'expiration = incohérent (signalé en rouge, ajout bloqué).
+  // Garde-fou Monitor : délivrance postérieure à l'expiration = incohérent. On ne le SIGNALE qu'une
+  // fois le champ QUITTÉ (blur) — pas pendant la frappe/le choix de date (retour CEO).
   const dateError = isIssueAfterExpiry(issueDate, expiryDate)
+  const [datesTouched, setDatesTouched] = useState(false)
+  const showDateError = dateError && datesTouched
 
   // « + Ajouter » déclenche directement l'explorateur de fichiers ; le formulaire ne se déplie
   // que pour les pièces à métadonnées (admin) — un document d'info s'ajoute sans formulaire.
@@ -178,6 +170,12 @@ function DocCard({
     setFile(f)
   }
 
+  /** Cible la pièce à remplacer puis ouvre l'explorateur (handler stable → pas d'accès ref au rendu). */
+  function startReplace(d: DraftDocument) {
+    replaceTarget.current = d
+    replaceRef.current?.click()
+  }
+
   /** Remplace le fichier d'une pièce déjà ajoutée en CONSERVANT ses métadonnées (retrait + réajout). */
   function handleReplace(f: File | null) {
     const target = replaceTarget.current
@@ -197,6 +195,7 @@ function DocCard({
     setCountry('')
     setReference('')
     setBatchNumber('')
+    setDatesTouched(false)
     setResetKey((k) => k + 1)
   }
 
@@ -216,6 +215,7 @@ function DocCard({
       return
     }
     if (dateError) {
+      setDatesTouched(true)
       toast.error(
         t({
           fr: 'La date de délivrance ne peut pas être postérieure à la date d’expiration.',
@@ -242,19 +242,64 @@ function DocCard({
     if (open) onToggle()
   }
 
-  // Titre + compteur — partagés entre l'en-tête cliquable (admin, déplie le formulaire) et
-  // l'en-tête statique (info, dont la liste des pièces est toujours affichée sous l'en-tête).
-  const titleBlock = (
-    <>
-      <span className="block truncate text-sm font-medium">
-        {t({ fr: type.label, en: type.en ?? type.label })}
-      </span>
-      <span className="text-muted-foreground text-xs">
-        {count > 0
-          ? t({ fr: `${count} pièce(s) ajoutée(s)`, en: `${count} added` })
-          : t({ fr: 'Aucune pièce', en: 'None yet' })}
-      </span>
-    </>
+  const typeLabel = t({ fr: type.label, en: type.en ?? type.label })
+  // 1 seule pièce = cas courant : nom + actions sur la MÊME ligne que l'en-tête (pas de trait).
+  const only = count === 1 ? drafts[0]! : null
+
+  /** Actions d'un fichier (aperçu · remplacer · retirer) — mêmes icônes en en-tête (1 pièce) et en liste. */
+  function fileActions(d: DraftDocument) {
+    return (
+      <>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={t({ fr: 'Prévisualiser', en: 'Preview' })}
+          title={t({ fr: 'Prévisualiser', en: 'Preview' })}
+          onClick={() => setPreview(d.file)}
+        >
+          <Eye className="size-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={t({ fr: 'Remplacer le fichier', en: 'Replace file' })}
+          title={t({ fr: 'Remplacer le fichier', en: 'Replace file' })}
+          onClick={() => startReplace(d)}
+        >
+          <RefreshCw className="size-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={t({ fr: 'Retirer', en: 'Remove' })}
+          title={t({ fr: 'Retirer', en: 'Remove' })}
+          onClick={() => onRemove(d.id)}
+        >
+          <Trash2 className="size-4" />
+        </Button>
+      </>
+    )
+  }
+
+  // « + » = icône d'action (comme les autres). Info : ouvre l'explorateur. Admin : déplie/replie le
+  // formulaire à métadonnées (× quand ouvert). UN SEUL « + » par carte.
+  const addBtn = (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      aria-label={open ? t({ fr: 'Fermer', en: 'Close' }) : t({ fr: 'Ajouter', en: 'Add' })}
+      title={
+        open ? t({ fr: 'Fermer', en: 'Close' }) : t({ fr: 'Ajouter un fichier', en: 'Add a file' })
+      }
+      aria-expanded={hasMeta ? open : undefined}
+      onClick={open ? onToggle : openAndPick}
+    >
+      {open ? <X className="size-4" /> : <Plus className="size-4" />}
+    </Button>
   )
 
   return (
@@ -288,58 +333,41 @@ function DocCard({
           e.target.value = ''
         }}
       />
-      <div className="flex items-center gap-3 px-4 py-3">
+      <div className="flex items-center gap-2 px-4 py-3">
         <span className="bg-info-subtle text-info-subtle-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
           <FileText className="size-4" />
         </span>
-        {/* Admin : le titre déplie le formulaire à métadonnées. Info : pas de formulaire — la liste
-            des pièces est toujours visible, l'en-tête reste statique. */}
-        {hasMeta ? (
-          <button
-            type="button"
-            onClick={onToggle}
-            aria-expanded={open}
-            className="focus-visible:ring-ring/50 min-w-0 flex-1 rounded-md text-left outline-none focus-visible:ring-[3px]"
-          >
-            {titleBlock}
-          </button>
-        ) : (
-          <div className="min-w-0 flex-1">{titleBlock}</div>
-        )}
-        {count > 0 ? (
-          <StatusBadge tone="success" className="shrink-0">
-            <Check /> {count}
-          </StatusBadge>
-        ) : null}
-        {/* Bouton « + Ajouter » explicite sur chaque carte (ouvre l'explorateur + déplie le form). */}
-        <Button
-          type="button"
-          variant={open ? 'ghost' : 'outline'}
-          size="sm"
-          onClick={open ? onToggle : openAndPick}
-          // Info : « Ajouter » ouvre l'explorateur, PAS un panneau → pas d'aria-expanded mensonger
-          // (seul l'en-tête admin porte la sémantique de dépliage du formulaire).
-          aria-expanded={hasMeta ? open : undefined}
-        >
-          {open ? (
-            <>
-              <X /> {t({ fr: 'Fermer', en: 'Close' })}
-            </>
+        <div className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium">{typeLabel}</span>
+          {only ? (
+            // Point 2 : le NOM du fichier remplace « N pièce(s) ajoutée(s) » (cliquable → aperçu).
+            <button
+              type="button"
+              onClick={() => setPreview(only.file)}
+              className="focus-visible:ring-ring/50 text-muted-foreground block max-w-full truncate rounded text-left text-xs outline-none hover:underline focus-visible:ring-[3px]"
+              title={only.file.name}
+            >
+              {only.file.name}
+            </button>
           ) : (
-            <>
-              <Plus /> {t({ fr: 'Ajouter', en: 'Add' })}
-            </>
+            <span className="text-muted-foreground text-xs">
+              {count === 0
+                ? t({ fr: 'Aucune pièce', en: 'None yet' })
+                : t({ fr: `${count} fichiers`, en: `${count} files` })}
+            </span>
           )}
-        </Button>
+        </div>
+        {/* Toutes les icônes d'action sur la même ligne : (1 pièce → ses actions) + « + ». */}
+        {only ? fileActions(only) : null}
+        {addBtn}
       </div>
 
-      {/* Liste des pièces — TOUJOURS visible dès qu'il y en a (nom + aperçu + remplacer + retirer). */}
-      {drafts.length > 0 ? (
+      {/* Plusieurs pièces du MÊME type → traits + un jeu d'actions (aperçu/remplacer/retirer) PAR fichier. */}
+      {count > 1 ? (
         <ul className="divide-y border-t">
           {drafts.map((d) => (
             <li key={d.id} className="flex items-center gap-1 px-4 py-2 text-sm">
               <FileText className="text-muted-foreground size-4 shrink-0" />
-              {/* Nom cliquable = aperçu (redondant avec l'œil, mais découvrable). */}
               <button
                 type="button"
                 onClick={() => setPreview(d.file)}
@@ -348,39 +376,7 @@ function DocCard({
               >
                 {d.file.name}
               </button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t({ fr: 'Prévisualiser', en: 'Preview' })}
-                title={t({ fr: 'Prévisualiser', en: 'Preview' })}
-                onClick={() => setPreview(d.file)}
-              >
-                <Eye className="size-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t({ fr: 'Remplacer le fichier', en: 'Replace file' })}
-                title={t({ fr: 'Remplacer le fichier', en: 'Replace file' })}
-                onClick={() => {
-                  replaceTarget.current = d
-                  replaceRef.current?.click()
-                }}
-              >
-                <RefreshCw className="size-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t({ fr: 'Retirer', en: 'Remove' })}
-                title={t({ fr: 'Retirer', en: 'Remove' })}
-                onClick={() => onRemove(d.id)}
-              >
-                <Trash2 className="size-4" />
-              </Button>
+              {fileActions(d)}
             </li>
           ))}
         </ul>
@@ -433,7 +429,8 @@ function DocCard({
                   type="date"
                   value={issueDate}
                   onChange={(e) => setIssueDate(e.target.value)}
-                  aria-invalid={dateError || undefined}
+                  onBlur={() => setDatesTouched(true)}
+                  aria-invalid={showDateError || undefined}
                 />
               </Field>
             ) : null}
@@ -449,12 +446,13 @@ function DocCard({
                   type="date"
                   value={expiryDate}
                   onChange={(e) => setExpiryDate(e.target.value)}
-                  aria-invalid={dateError || undefined}
+                  onBlur={() => setDatesTouched(true)}
+                  aria-invalid={showDateError || undefined}
                 />
               </Field>
             ) : null}
 
-            {dateError ? (
+            {showDateError ? (
               <p className="text-destructive text-xs sm:col-span-2" role="alert">
                 {t({
                   fr: 'La date de délivrance est postérieure à la date d’expiration.',
@@ -488,7 +486,7 @@ function DocCard({
             </Field>
           </div>
 
-          <Button type="button" variant="primary" onClick={handleAdd} disabled={dateError}>
+          <Button type="button" variant="primary" onClick={handleAdd} disabled={showDateError}>
             <Plus /> {t({ fr: 'Ajouter la pièce', en: 'Add document' })}
           </Button>
         </div>
