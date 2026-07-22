@@ -826,6 +826,10 @@ function stampAll(
       font: fonts.regular,
       color: GRAY,
     })
+
+    // Filigrane « Made with Pharnos » (offres non payantes) sur CHAQUE page de garde/annonce —
+    // SOUS le bandeau système (pied centré à y = 36) pour ne pas chevaucher le pays.
+    if (input.watermark) drawPharnosWatermark(page, fonts, 20)
   })
 }
 
@@ -1112,14 +1116,15 @@ function drawGlobalCover(
  * « Made with » (≠ « by ») : le dossier est rédigé PAR le client AVEC l'outil — Pharnos n'en est
  * pas l'auteur (convention SaaS : Notion/Canva/Webflow), et pas d'ambiguïté de titularité réglementaire.
  */
-function drawPharnosWatermark(page: PDFPage, fonts: Fonts): void {
+function drawPharnosWatermark(page: PDFPage, fonts: Fonts, y = 34): void {
   const { width } = page.getSize()
   const size = 9
   const prefix = 'Made with '
   const brand = 'Pharnos'
   const prefixW = fonts.regular.widthOfTextAtSize(prefix, size)
   const brandW = fonts.bold.widthOfTextAtSize(brand, size)
-  const y = 34 // pied de page centré, en bas de la couverture (cadre de la couverture globale à y = 24)
+  // y = 34 : couvertures (juste au-dessus du cadre à y = 24). Pages de garde tamponnées : y plus
+  // bas (sous le bandeau système, pied centré à y = 36) — passé par l'appelant.
   const x0 = width / 2 - (prefixW + brandW) / 2
   const bx = x0 + prefixW
 
