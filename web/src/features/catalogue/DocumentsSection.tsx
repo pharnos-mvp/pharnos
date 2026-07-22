@@ -18,6 +18,7 @@ import { renewalLeadDays } from '@/features/dashboard/dashboard-data'
 import type { DocumentCategory } from '@/lib/db'
 import { UPLOAD_ACCEPT } from '@/lib/files'
 import { useI18n } from '@/lib/i18n-context'
+import { isIssueAfterExpiry } from './doc-dates'
 import { docTypeLabel, docTypesFor, requiresExpiry } from './doc-types'
 import { addDocument, deleteDocument, getDocumentBlob, listDocuments } from './documents-repository'
 import { syncCatalogue } from './catalogue-sync'
@@ -68,6 +69,10 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
   const [adding, setAdding] = useState(false)
   // AMM : N° + date d'émission (octroi) requis — synchronisés ensuite vers le CTD builder (Renew/Variation).
   const isAmm = docType === 'amm'
+  // Garde-fou Monitor : émission postérieure à l'expiration = incohérent (signalé en rouge, ajout bloqué).
+  // Borné à l'AMM — SEUL type où la date d'émission se saisit : sinon, changer de type après avoir
+  // saisi une émission figerait le formulaire sur un champ devenu invisible (erreur + bouton mort).
+  const dateError = isAmm && isIssueAfterExpiry(issueDate, expiryDate)
 
   async function handleAdd() {
     if (!file) {
@@ -94,6 +99,15 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
         t({
           fr: 'N° d’AMM et date d’émission requis pour une AMM.',
           en: 'MA number and issue date are required for an MA.',
+        }),
+      )
+      return
+    }
+    if (dateError) {
+      toast.error(
+        t({
+          fr: 'La date d’émission ne peut pas être postérieure à la date d’expiration.',
+          en: 'The issue date cannot be later than the expiry date.',
         }),
       )
       return
@@ -190,7 +204,12 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
           {isAmm ? (
             <div className="space-y-1.5">
               <Label>{t({ fr: 'Date d’émission (octroi) *', en: 'Issue date (grant) *' })}</Label>
-              <Input type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
+              <Input
+                type="date"
+                value={issueDate}
+                onChange={(e) => setIssueDate(e.target.value)}
+                aria-invalid={dateError || undefined}
+              />
             </div>
           ) : null}
 
@@ -201,8 +220,18 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
                 type="date"
                 value={expiryDate}
                 onChange={(e) => setExpiryDate(e.target.value)}
+                aria-invalid={dateError || undefined}
               />
             </div>
+          ) : null}
+
+          {dateError ? (
+            <p className="text-destructive text-xs sm:col-span-2" role="alert">
+              {t({
+                fr: 'La date d’émission est postérieure à la date d’expiration.',
+                en: 'The issue date is later than the expiry date.',
+              })}
+            </p>
           ) : null}
 
           <div className="space-y-1.5 sm:col-span-2">
@@ -216,7 +245,7 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
           </div>
 
           <div className="sm:col-span-2">
-            <Button type="button" onClick={() => void handleAdd()} disabled={busy}>
+            <Button type="button" onClick={() => void handleAdd()} disabled={busy || dateError}>
               {busy ? <Loader2 className="animate-spin" /> : null}
               {t({ fr: 'Ajouter le document', en: 'Add document' })}
             </Button>
