@@ -352,7 +352,7 @@ describe('coverHeadline — intitulé de la page de couverture selon l’opérat
   })
 })
 
-describe('filigrane « by Pharnos » (offre Free)', () => {
+describe('filigrane « Made with Pharnos » (comptes non payants)', () => {
   /** URI des annotations lien d'une page (0-based) du PDF compilé. */
   function linkUris(doc: PDFDocument, pageIndex: number): string[] {
     const annots = doc.getPage(pageIndex).node.Annots()
@@ -383,15 +383,26 @@ describe('filigrane « by Pharnos » (offre Free)', () => {
     }
   }
 
-  it('watermark:true → lien pharnos.com cliquable sur les couvertures (globale + Module 1)', async () => {
+  /** Nombre de pages portant le lien pharnos.com. */
+  function pagesWithPharnos(doc: PDFDocument): number {
+    let n = 0
+    for (let i = 0; i < doc.getPageCount(); i++) {
+      if (linkUris(doc, i).some((u) => u.includes('pharnos.com'))) n++
+    }
+    return n
+  }
+
+  it('watermark:true → lien pharnos.com sur les couvertures ET les pages de garde (1.1, 1.2…)', async () => {
     const doc = await PDFDocument.load(await compileDossier(coverInput(true)))
+    // Couvertures globale (0) + Module 1 (1)…
     expect(linkUris(doc, 0).some((u) => u.includes('pharnos.com'))).toBe(true)
     expect(linkUris(doc, 1).some((u) => u.includes('pharnos.com'))).toBe(true)
+    // …ET les pages de garde/annonce tamponnées (TDM + gardes de section) → strictement > 2.
+    expect(pagesWithPharnos(doc)).toBeGreaterThan(2)
   })
 
-  it('watermark:false (offre payante) → aucun lien pharnos.com (défaut inchangé)', async () => {
+  it('watermark:false (offre payante) → AUCUNE page ne porte le lien pharnos.com', async () => {
     const doc = await PDFDocument.load(await compileDossier(coverInput(false)))
-    expect(linkUris(doc, 0).some((u) => u.includes('pharnos.com'))).toBe(false)
-    expect(linkUris(doc, 1).some((u) => u.includes('pharnos.com'))).toBe(false)
+    expect(pagesWithPharnos(doc)).toBe(0)
   })
 })
