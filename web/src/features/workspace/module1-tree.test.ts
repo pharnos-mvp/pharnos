@@ -7,7 +7,7 @@ import {
   treeNodeNumbers,
   variationTree,
 } from './module1-tree'
-import { flattenTree } from './tree-utils'
+import { flattenTree, isTreeOutdated } from './tree-utils'
 
 describe('module1-tree — CTD UEMOA (section 1.2 détaillée)', () => {
   it('expose les sous-rubriques 1.2.3.x / 1.2.5.1 / 1.2.6.x / 1.2.8.1', () => {
@@ -115,10 +115,27 @@ describe('module1-tree — VARIATION (Annexe N°2)', () => {
     }
   })
 
-  it('n’altère pas Nouvelle AMM / Renouvellement (mêmes arbres qu’avant)', () => {
-    expect(getModule1Tree('ctd')).toBe(getModule1Tree('ctd', 'new_ma'))
-    expect(treeNodeNumbers(getModule1Tree('ctd', 'renewal')).has('1.2.8.1')).toBe(true)
+  it('Enregistrement (new_ma) RETIRE 1.2.7 (post-AMM) ; Renouvellement et Variation le GARDENT', () => {
+    const newMa = treeNodeNumbers(getModule1Tree('ctd', 'new_ma'))
+    const renewal = treeNodeNumbers(getModule1Tree('ctd', 'renewal'))
+    // 1.2.7 « Informations post-autorisation » n'a de sens qu'après une AMM.
+    expect(newMa.has('1.2.7')).toBe(false)
+    expect(renewal.has('1.2.7')).toBe(true)
+    expect(treeNodeNumbers(getModule1Tree('ctd', 'variation')).has('1.2.7')).toBe(true)
+    // Le reste de l'arbre est intact des deux côtés (ex. 1.2.8.1).
+    expect(newMa.has('1.2.8.1')).toBe(true)
+    expect(renewal.has('1.2.8.1')).toBe(true)
     // eCTD variation → repli sur l'arbre eCTD standard (cadre validé = CTD UEMOA).
     expect(treeNodeNumbers(getModule1Tree('ectd', 'variation')).has('1.10')).toBe(true)
+  })
+
+  it('un dossier créé n’est jamais « périmé » vs son arbre par défaut ACTIVITÉ-AWARE', () => {
+    // Invariant du fix : les comparaisons de structure (isTreeOutdated / auto-fusion) DOIVENT passer
+    // l'activité + variations. Sinon new_ma (sans 1.2.7) et variation (arbre taillé) paraîtraient
+    // périmés face à l'arbre d'enregistrement complet, et l'auto-fusion re-grefferait des nœuds.
+    for (const act of ['new_ma', 'renewal', 'variation'] as const) {
+      const created = getModule1Tree('ctd', act)
+      expect(isTreeOutdated(created, getModule1Tree('ctd', act))).toBe(false)
+    }
   })
 })

@@ -22,6 +22,7 @@ import {
   Send,
   Sparkles,
   ClipboardList,
+  Upload,
   Wand2,
   X,
 } from 'lucide-react'
@@ -525,8 +526,17 @@ export function DossierWorkspacePage() {
     })()
   }, [dossier, genDocs, product, branding, orgId, lang])
 
+  // Comparaison à l'arbre par défaut de CE dossier — TOUJOURS avec son activité + variations, sinon
+  // un dossier d'enregistrement (sans 1.2.7) ou de variation (arbre taillé) paraîtrait « périmé » face
+  // à l'arbre d'enregistrement complet, et l'auto-fusion re-grefferait des nœuds non voulus.
   const structureOutdated = useMemo(
-    () => (dossier ? isTreeOutdated(dossier.tree, getModule1Tree(dossier.format)) : false),
+    () =>
+      dossier
+        ? isTreeOutdated(
+            dossier.tree,
+            getModule1Tree(dossier.format, dossier.activity, dossier.variations),
+          )
+        : false,
     [dossier],
   )
 
@@ -537,7 +547,10 @@ export function DossierWorkspacePage() {
     const key = `pharnos.autostruct.${dossier.id}`
     if (localStorage.getItem(key)) return
     localStorage.setItem(key, '1')
-    const merged = mergeDefaultTree(dossier.tree, getModule1Tree(dossier.format))
+    const merged = mergeDefaultTree(
+      dossier.tree,
+      getModule1Tree(dossier.format, dossier.activity, dossier.variations),
+    )
     void updateDossierTree(dossier.id, merged).then(() => syncDossiers(orgId))
   }, [dossier, structureOutdated, orgId])
 
@@ -1309,7 +1322,10 @@ export function DossierWorkspacePage() {
   }
 
   async function handleUpdateStructure() {
-    const merged = mergeDefaultTree(activeDossier.tree, getModule1Tree(activeDossier.format))
+    const merged = mergeDefaultTree(
+      activeDossier.tree,
+      getModule1Tree(activeDossier.format, activeDossier.activity, activeDossier.variations),
+    )
     await updateDossierTree(activeDossier.id, merged)
     void syncDossiers(orgId)
     toast.success(t({ fr: 'Structure mise à jour', en: 'Structure updated' }))
@@ -1949,9 +1965,18 @@ export function DossierWorkspacePage() {
                           en: 'Generate this document from the WAEMU template, or upload a file.',
                         })}
                       </p>
-                      <Button className="mt-3" size="sm" onClick={() => void handleGenerate()}>
-                        <Sparkles className="size-4" /> {t({ fr: 'Générer', en: 'Generate' })}
-                      </Button>
+                      <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                        <Button size="sm" onClick={() => void handleGenerate()}>
+                          <Sparkles className="size-4" /> {t({ fr: 'Générer', en: 'Generate' })}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          <Upload className="size-4" /> {t({ fr: 'Téléverser', en: 'Upload' })}
+                        </Button>
+                      </div>
                     </div>
                   ) : canFillSelected ? (
                     <div className="flex min-h-[24rem] flex-col items-center justify-center rounded-lg border border-dashed p-4 text-center">
@@ -1968,22 +1993,43 @@ export function DossierWorkspacePage() {
                           en: 'Fill in the current template (locked structure, compliance checked by Regafy on each save), or upload a document.',
                         })}
                       </p>
+                      <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => selected && void handleFillTemplate(selected)}
+                        >
+                          <ClipboardList className="size-4" />{' '}
+                          {t({ fr: 'Remplir le template', en: 'Fill the template' })}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          <Upload className="size-4" /> {t({ fr: 'Téléverser', en: 'Upload' })}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    // Nœud upload-only : bouton Téléverser CENTRÉ en CTA (comme Générer) pour l'intuitivité.
+                    <div className="flex min-h-[24rem] flex-col items-center justify-center rounded-lg border border-dashed p-4 text-center">
+                      <Upload className="text-primary mb-2 size-8" />
+                      <p className="text-sm font-medium">
+                        {t({ fr: 'Pièce à téléverser', en: 'Document to upload' })}
+                      </p>
+                      <p className="text-muted-foreground mt-1 max-w-sm text-xs">
+                        {t({
+                          fr: 'Aucun document classé sous cette section. Téléversez la pièce correspondante.',
+                          en: 'No document filed under this section. Upload the corresponding file.',
+                        })}
+                      </p>
                       <Button
                         className="mt-3"
                         size="sm"
-                        onClick={() => selected && void handleFillTemplate(selected)}
+                        onClick={() => fileInputRef.current?.click()}
                       >
-                        <ClipboardList className="size-4" />{' '}
-                        {t({ fr: 'Remplir le template', en: 'Fill the template' })}
+                        <Upload className="size-4" /> {t({ fr: 'Téléverser', en: 'Upload' })}
                       </Button>
-                    </div>
-                  ) : (
-                    <div className="text-muted-foreground flex min-h-[24rem] flex-col items-center justify-center rounded-lg border border-dashed text-sm">
-                      <FileText className="mb-2 size-8" />
-                      {t({
-                        fr: 'Aucun document classé sous cette section.',
-                        en: 'No document filed under this section.',
-                      })}
                     </div>
                   )}
                 </div>
@@ -2101,6 +2147,13 @@ export function DossierWorkspacePage() {
               const n = flatNodes.find((x) => x.number === target.nodeNumber)
               if (n) handleSelectNode(n)
             }
+          }}
+          onCorrectFinding={(f) => {
+            // Nœud disparu (section supprimée en cours de session) → on garde la modale ouverte.
+            const n = flatNodes.find((x) => x.number === f.nodeNumber)
+            if (!n) return
+            setGateFindings(null)
+            handleSelectNode(n)
           }}
           onCompile={() => {
             setGateFindings(null)

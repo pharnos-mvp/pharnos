@@ -151,6 +151,43 @@ describe('compileDossier (compilation PDF)', () => {
     expect(m3?.startIndex).toBeUndefined()
   })
 
+  it('TDM liste un nœud AJOUTÉ à l’arbre (ex. 1.2.8.2) — les nouveaux nœuds figurent dans le document compilé', () => {
+    const inp = input(true)
+    inp.tree = [
+      ...tree,
+      {
+        number: '1.2',
+        label: 'Informations administratives',
+        children: [
+          {
+            number: '1.2.8',
+            label: 'Autres informations administratives',
+            children: [{ number: '1.2.8.2', label: 'Contrat de licence / fabrication' }],
+          },
+        ],
+      },
+    ]
+    const lines = buildTdmLines(inp, [])
+    const entry = lines.find((l) => l.kind === 'entry' && l.number === '1.2.8.2')
+    // Listé dans la TdM (la structure complète y figure)…
+    expect(entry).toBeDefined()
+    // …mais SANS n° de page tant qu'il est vide (exclu du corps ; y entre dès qu'une pièce y est classée).
+    expect(entry?.startIndex).toBeUndefined()
+  })
+
+  it('un nœud portant une PIÈCE téléversée est bien intégré au corps du PDF', async () => {
+    const baseline = await PDFDocument.load(await compileDossier(input(true)))
+    const inp = input(true)
+    inp.tree = [...tree, { number: '1.2.8.2', label: 'Contrat de licence / fabrication' }]
+    inp.contentByNumber.set('1.2.8.2', {
+      generated: [],
+      pieces: [{ bytes: pngBytes(), mime: 'image/png', fileName: 'contrat.png' }],
+    })
+    const withPiece = await PDFDocument.load(await compileDossier(inp))
+    // La pièce (image) ajoute au moins une page → le nœud neuf est bien compilé dans le corps.
+    expect(withPiece.getPageCount()).toBeGreaterThan(baseline.getPageCount())
+  })
+
   it('dataUrlToBytes décode une data URL PNG', () => {
     const r = dataUrlToBytes(`data:image/png;base64,${btoa('hi')}`)
     expect(r?.isPng).toBe(true)
