@@ -1103,21 +1103,23 @@ function drawGlobalCover(
 }
 
 /**
- * Filigrane discret « by Pharnos » (offres GRATUITES / essai) — pied de page CENTRÉ, en bas du cadre.
+ * Filigrane discret « Made with Pharnos » (offres GRATUITES) — pied de page CENTRÉ, en bas du cadre.
  * « Pharnos » est un lien cliquable (annotation URI) vers pharnos.com. Absent des offres payantes.
+ * « Made with » (≠ « by ») : le dossier est rédigé PAR le client AVEC l'outil — Pharnos n'en est
+ * pas l'auteur (convention SaaS : Notion/Canva/Webflow), et pas d'ambiguïté de titularité réglementaire.
  */
 function drawPharnosWatermark(page: PDFPage, fonts: Fonts): void {
   const { width } = page.getSize()
   const size = 9
-  const by = 'by '
+  const prefix = 'Made with '
   const brand = 'Pharnos'
-  const byW = fonts.regular.widthOfTextAtSize(by, size)
+  const prefixW = fonts.regular.widthOfTextAtSize(prefix, size)
   const brandW = fonts.bold.widthOfTextAtSize(brand, size)
   const y = 34 // pied de page centré, en bas de la couverture (cadre de la couverture globale à y = 24)
-  const x0 = width / 2 - (byW + brandW) / 2
-  const bx = x0 + byW
+  const x0 = width / 2 - (prefixW + brandW) / 2
+  const bx = x0 + prefixW
 
-  page.drawText(by, { x: x0, y, size, font: fonts.regular, color: GRAY })
+  page.drawText(prefix, { x: x0, y, size, font: fonts.regular, color: GRAY })
   // « Pharnos » en navy souligné → signale visuellement le lien.
   page.drawText(brand, { x: bx, y, size, font: fonts.bold, color: NAVY })
   page.drawLine({
