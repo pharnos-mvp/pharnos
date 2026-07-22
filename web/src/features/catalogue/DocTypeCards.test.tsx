@@ -72,11 +72,10 @@ describe('DocTypeCards — ajout de pièces (wizard produit)', () => {
     expect(screen.queryByRole('button', { name: 'Ajouter la pièce' })).not.toBeInTheDocument()
   })
 
-  it('ADMIN : délivrance postérieure à l’expiration → dates en rouge + ajout bloqué (Monitor)', async () => {
+  it('ADMIN : incohérence de dates signalée au BLUR seulement, pas pendant la frappe (Monitor)', async () => {
     const user = userEvent.setup()
-    const onAdd = vi.fn()
     const { container } = renderI(
-      <DocTypeCards category="admin" drafts={[]} onAdd={onAdd} onRemove={() => {}} />,
+      <DocTypeCards category="admin" drafts={[]} onAdd={() => {}} onRemove={() => {}} />,
     )
 
     await user.click(screen.getAllByRole('button', { name: 'Ajouter' })[0]!)
@@ -87,19 +86,40 @@ describe('DocTypeCards — ajout de pièces (wizard produit)', () => {
     fireEvent.change(dates[0]!, { target: { value: '2031-01-02' } })
     fireEvent.change(dates[1]!, { target: { value: '2031-01-01' } })
 
-    // Les deux champs passent en erreur (bordure rouge via aria-invalid) et l'ajout est verrouillé.
+    // Point 1 : RIEN tant qu'on n'a pas quitté le champ (pas de rouge pendant la saisie).
+    expect(dates[0]!).not.toHaveAttribute('aria-invalid')
+    expect(screen.getByRole('button', { name: 'Ajouter la pièce' })).toBeEnabled()
+
+    // Au blur → les deux champs passent en rouge et l'ajout se verrouille.
+    fireEvent.blur(dates[1]!)
     expect(dates[0]!).toHaveAttribute('aria-invalid', 'true')
     expect(dates[1]!).toHaveAttribute('aria-invalid', 'true')
     expect(screen.getByRole('button', { name: 'Ajouter la pièce' })).toBeDisabled()
-
-    // Défense en profondeur : même forcé, l'ajout refuse.
-    fireEvent.click(screen.getByRole('button', { name: 'Ajouter la pièce' }))
-    expect(onAdd).not.toHaveBeenCalled()
 
     // Correction (délivrance avant expiration) → l'erreur se lève, l'ajout redevient possible.
     fireEvent.change(dates[0]!, { target: { value: '2030-01-01' } })
     expect(dates[0]!).not.toHaveAttribute('aria-invalid')
     expect(screen.getByRole('button', { name: 'Ajouter la pièce' })).toBeEnabled()
+  })
+
+  it('ADMIN : garde défensive — cliquer AVANT blur (bouton actif) n’ajoute pas + révèle l’erreur', async () => {
+    const user = userEvent.setup()
+    const onAdd = vi.fn()
+    const { container } = renderI(
+      <DocTypeCards category="admin" drafts={[]} onAdd={onAdd} onRemove={() => {}} />,
+    )
+
+    await user.click(screen.getAllByRole('button', { name: 'Ajouter' })[0]!)
+    fireEvent.change(fileInputAt(container, 0), { target: { files: [pdf()] } })
+    const dates = container.querySelectorAll<HTMLInputElement>('input[type="date"]')
+    fireEvent.change(dates[0]!, { target: { value: '2031-01-02' } })
+    fireEvent.change(dates[1]!, { target: { value: '2031-01-01' } })
+
+    // Bouton encore actif (pas de blur), mais handleAdd refuse l'ajout ET révèle l'erreur.
+    await user.click(screen.getByRole('button', { name: 'Ajouter la pièce' }))
+    expect(onAdd).not.toHaveBeenCalled()
+    expect(dates[0]!).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByRole('button', { name: 'Ajouter la pièce' })).toBeDisabled()
   })
 
   it('INFO : la pièce est ajoutée DIRECTEMENT à la sélection du fichier, sans formulaire', async () => {

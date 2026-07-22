@@ -35,6 +35,10 @@ describe('DocumentsSection — garde-fou dates (Monitor)', () => {
     fireEvent.change(dates()[0]!, { target: { value: '2031-05-01' } }) // émission
     fireEvent.change(dates()[1]!, { target: { value: '2031-01-01' } }) // expiration (antérieure)
 
+    // Point 1 : rien pendant la frappe ; l'erreur n'apparaît qu'au blur.
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    fireEvent.blur(dates()[1]!)
+
     // Erreur signalée en rouge + submit verrouillé.
     expect(dates()[0]!).toHaveAttribute('aria-invalid', 'true')
     expect(dates()[1]!).toHaveAttribute('aria-invalid', 'true')

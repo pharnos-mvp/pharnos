@@ -72,7 +72,10 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
   // Garde-fou Monitor : émission postérieure à l'expiration = incohérent (signalé en rouge, ajout bloqué).
   // Borné à l'AMM — SEUL type où la date d'émission se saisit : sinon, changer de type après avoir
   // saisi une émission figerait le formulaire sur un champ devenu invisible (erreur + bouton mort).
+  // Signalé seulement une fois le champ QUITTÉ (blur), pas pendant la frappe (retour CEO).
   const dateError = isAmm && isIssueAfterExpiry(issueDate, expiryDate)
+  const [datesTouched, setDatesTouched] = useState(false)
+  const showDateError = dateError && datesTouched
 
   async function handleAdd() {
     if (!file) {
@@ -104,6 +107,7 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
       return
     }
     if (dateError) {
+      setDatesTouched(true)
       toast.error(
         t({
           fr: 'La date d’émission ne peut pas être postérieure à la date d’expiration.',
@@ -129,6 +133,7 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
       setExpiryDate('')
       setIssueDate('')
       setReference('')
+      setDatesTouched(false)
       setResetKey((k) => k + 1)
       setAdding(false)
     } catch (error) {
@@ -208,7 +213,8 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
                 type="date"
                 value={issueDate}
                 onChange={(e) => setIssueDate(e.target.value)}
-                aria-invalid={dateError || undefined}
+                onBlur={() => setDatesTouched(true)}
+                aria-invalid={showDateError || undefined}
               />
             </div>
           ) : null}
@@ -220,12 +226,13 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
                 type="date"
                 value={expiryDate}
                 onChange={(e) => setExpiryDate(e.target.value)}
-                aria-invalid={dateError || undefined}
+                onBlur={() => setDatesTouched(true)}
+                aria-invalid={showDateError || undefined}
               />
             </div>
           ) : null}
 
-          {dateError ? (
+          {showDateError ? (
             <p className="text-destructive text-xs sm:col-span-2" role="alert">
               {t({
                 fr: 'La date d’émission est postérieure à la date d’expiration.',
@@ -245,7 +252,7 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
           </div>
 
           <div className="sm:col-span-2">
-            <Button type="button" onClick={() => void handleAdd()} disabled={busy || dateError}>
+            <Button type="button" onClick={() => void handleAdd()} disabled={busy || showDateError}>
               {busy ? <Loader2 className="animate-spin" /> : null}
               {t({ fr: 'Ajouter le document', en: 'Add document' })}
             </Button>
