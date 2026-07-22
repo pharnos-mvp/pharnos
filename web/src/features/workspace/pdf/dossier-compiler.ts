@@ -78,6 +78,8 @@ export interface CompileArgs {
   attachments: DossierAttachmentRecord[]
   branding?: ProSettingRecord
   autoStructural: boolean
+  /** Filigrane « by Pharnos » (lien pharnos.com) sur les couvertures — réservé à l'offre Free. */
+  watermark?: boolean
 }
 
 export interface CompileResult {
@@ -90,7 +92,16 @@ export interface CompileResult {
 
 /** Rassemble le contenu d'un dossier (lettres, pièces, produit) et le compile en PDF. */
 export async function compileDossierToPdf(args: CompileArgs): Promise<CompileResult> {
-  const { dossier, product, generatedDocs, docs, attachments, branding, autoStructural } = args
+  const {
+    dossier,
+    product,
+    generatedDocs,
+    docs,
+    attachments,
+    branding,
+    autoStructural,
+    watermark,
+  } = args
 
   const contentByNumber = new Map<string, CompileNodeContent>()
   const ensure = (n: string): CompileNodeContent => {
@@ -181,6 +192,7 @@ export async function compileDossierToPdf(args: CompileArgs): Promise<CompileRes
       header,
       footer,
       cover,
+      watermark,
       autoStructural,
       contentByNumber,
     },

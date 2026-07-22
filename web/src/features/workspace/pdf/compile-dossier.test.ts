@@ -1,4 +1,4 @@
-import { PDFDocument } from 'pdf-lib'
+import { PDFDocument, PDFName } from 'pdf-lib'
 import { describe, expect, it } from 'vitest'
 
 import type { GeneratedDocRecord } from '@/lib/db'
@@ -349,5 +349,49 @@ describe('coverHeadline — intitulé de la page de couverture selon l’opérat
   it('nouvelle AMM / inconnu → « D’ENREGISTREMENT » (défaut, inchangé)', () => {
     expect(coverHeadline('new_ma')).toEqual(["DOSSIER CTD D'ENREGISTREMENT D'AUTORISATION", L2])
     expect(coverHeadline('')).toEqual(["DOSSIER CTD D'ENREGISTREMENT D'AUTORISATION", L2])
+  })
+})
+
+describe('filigrane « by Pharnos » (offre Free)', () => {
+  /** URI des annotations lien d'une page (0-based) du PDF compilé. */
+  function linkUris(doc: PDFDocument, pageIndex: number): string[] {
+    const annots = doc.getPage(pageIndex).node.Annots()
+    const uris: string[] = []
+    for (let i = 0; i < (annots?.size() ?? 0); i++) {
+      const a = annots!.lookup(i) as { lookup?: (n: PDFName) => unknown }
+      const action = a.lookup?.(PDFName.of('A')) as { get?: (n: PDFName) => unknown } | undefined
+      const uri = action?.get?.(PDFName.of('URI')) as { asString?: () => string } | undefined
+      if (uri?.asString) uris.push(uri.asString())
+    }
+    return uris
+  }
+
+  function coverInput(watermark: boolean): CompileInput {
+    return {
+      ...input(true),
+      watermark,
+      cover: {
+        activity: 'new_ma',
+        nomCommercial: 'KV-Cold Relief',
+        dciDosage: 'Paracétamol 500 mg',
+        titulaireName: 'Labo X',
+        titulaireAddress: 'Cotonou, Bénin',
+        fabricantName: '',
+        fabricantAddress: '',
+        dateLabel: 'Juillet 2026',
+      },
+    }
+  }
+
+  it('watermark:true → lien pharnos.com cliquable sur les couvertures (globale + Module 1)', async () => {
+    const doc = await PDFDocument.load(await compileDossier(coverInput(true)))
+    expect(linkUris(doc, 0).some((u) => u.includes('pharnos.com'))).toBe(true)
+    expect(linkUris(doc, 1).some((u) => u.includes('pharnos.com'))).toBe(true)
+  })
+
+  it('watermark:false (offre payante) → aucun lien pharnos.com (défaut inchangé)', async () => {
+    const doc = await PDFDocument.load(await compileDossier(coverInput(false)))
+    expect(linkUris(doc, 0).some((u) => u.includes('pharnos.com'))).toBe(false)
+    expect(linkUris(doc, 1).some((u) => u.includes('pharnos.com'))).toBe(false)
   })
 })

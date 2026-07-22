@@ -1,5 +1,13 @@
 import type { JSONContent } from '@tiptap/core'
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from 'pdf-lib'
+import {
+  PDFDocument,
+  PDFString,
+  rgb,
+  StandardFonts,
+  type PDFFont,
+  type PDFImage,
+  type PDFPage,
+} from 'pdf-lib'
 
 import type { GeneratedDocRecord } from '@/lib/db'
 import { CTD_MODULE_TITLES, CTD_OUTLINE_2_5 } from '../ctd-full-outline'
@@ -80,6 +88,11 @@ export interface CompileInput {
   footer?: { bytes: Uint8Array; isPng: boolean } | null
   /** Données des pages de couverture (CTD global + Module 1) ; null = pas de couverture. */
   cover?: CoverInfo | null
+  /**
+   * Filigrane « by Pharnos » (lien pharnos.com) au pied des pages de couverture — réservé aux
+   * offres GRATUITES / essai. Absent des offres payantes. Défaut : absent.
+   */
+  watermark?: boolean
   autoStructural: boolean
   contentByNumber: Map<string, CompileNodeContent>
 }
@@ -1085,6 +1098,48 @@ function drawGlobalCover(
     at(cover.fabricantName, 11, true, height * 0.171)
     atWrapped(cover.fabricantAddress, 9, false, height * 0.147, 3)
   }
+
+  if (input.watermark) drawPharnosWatermark(page, fonts)
+}
+
+/**
+ * Filigrane discret « Made with Pharnos » (offres GRATUITES) — pied de page CENTRÉ, en bas du cadre.
+ * « Pharnos » est un lien cliquable (annotation URI) vers pharnos.com. Absent des offres payantes.
+ * « Made with » (≠ « by ») : le dossier est rédigé PAR le client AVEC l'outil — Pharnos n'en est
+ * pas l'auteur (convention SaaS : Notion/Canva/Webflow), et pas d'ambiguïté de titularité réglementaire.
+ */
+function drawPharnosWatermark(page: PDFPage, fonts: Fonts): void {
+  const { width } = page.getSize()
+  const size = 9
+  const prefix = 'Made with '
+  const brand = 'Pharnos'
+  const prefixW = fonts.regular.widthOfTextAtSize(prefix, size)
+  const brandW = fonts.bold.widthOfTextAtSize(brand, size)
+  const y = 34 // pied de page centré, en bas de la couverture (cadre de la couverture globale à y = 24)
+  const x0 = width / 2 - (prefixW + brandW) / 2
+  const bx = x0 + prefixW
+
+  page.drawText(prefix, { x: x0, y, size, font: fonts.regular, color: GRAY })
+  // « Pharnos » en navy souligné → signale visuellement le lien.
+  page.drawText(brand, { x: bx, y, size, font: fonts.bold, color: NAVY })
+  page.drawLine({
+    start: { x: bx, y: y - 1.5 },
+    end: { x: bx + brandW, y: y - 1.5 },
+    thickness: 0.5,
+    color: NAVY,
+  })
+
+  // Zone cliquable sur « Pharnos » → https://pharnos.com (annotation lien URI PDF standard).
+  const link = page.doc.context.register(
+    page.doc.context.obj({
+      Type: 'Annot',
+      Subtype: 'Link',
+      Rect: [bx, y - 3, bx + brandW, y + size],
+      Border: [0, 0, 0],
+      A: { Type: 'Action', S: 'URI', URI: PDFString.of('https://pharnos.com') },
+    }),
+  )
+  page.node.addAnnot(link)
 }
 
 /** Couverture du Module 1 (page 2). */
@@ -1100,6 +1155,7 @@ function drawModuleCover(page: PDFPage, input: CompileInput, fonts: Fonts): void
     ],
     fonts,
   )
+  if (input.watermark) drawPharnosWatermark(page, fonts)
 }
 
 /** Ajoute les pages de couverture en tête du document final. Renvoie le nombre de pages ajoutées. */

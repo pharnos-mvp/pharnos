@@ -14,6 +14,7 @@ import { ShareDialog } from '@/features/correspondence/ShareDialog'
 import { CountryFlag } from '@/features/dashboard/CountryFlag'
 import { expiringDocs } from '@/features/dashboard/dashboard-data'
 import { useOrgId } from '@/features/org/org-context'
+import { useOrgPlan } from '@/features/org/use-org-plan'
 import { getOrgBranding } from '@/features/profile/pro-settings-repository'
 import { db, type DossierAttachmentRecord, type GeneratedDocRecord } from '@/lib/db'
 import { useI18n } from '@/lib/i18n-context'
@@ -66,6 +67,8 @@ export function DossierPreviewPage() {
   const orgId = useOrgId()
   const navigate = useNavigate()
   const { user } = useAuth()
+  // Filigrane « by Pharnos » : réservé à l'offre Free (aperçu ↔ téléchargement cohérents).
+  const { data: orgPlan } = useOrgPlan()
 
   const dossier = useLiveQuery(
     async () => (dossierId ? ((await getDossier(dossierId)) ?? null) : null),
@@ -118,7 +121,7 @@ export function DossierPreviewPage() {
   const sig = ready
     ? `${dossier.id}:${product?.id ?? ''}:${docs.length}:${genDocs.length}:${attachments.length}:` +
       `${[dossier.updatedAt, ...genDocs.map((g) => g.updatedAt), ...attachments.map((a) => a.updatedAt ?? ''), ...docs.map((d) => d.updatedAt ?? '')].reduce((m, x) => (x > m ? x : m), '')}:` +
-      `${branding ? '1' : '0'}`
+      `${branding ? '1' : '0'}:${orgPlan?.plan ?? ''}`
     : null
   const previewReady = pdf?.key === sig
 
@@ -137,6 +140,7 @@ export function DossierPreviewPage() {
           attachments: attachments ?? [],
           branding: branding ?? undefined,
           autoStructural: true,
+          watermark: orgPlan?.plan === 'free',
         })
         if (cancelled) return
         const blob = new Blob([new Uint8Array(bytes)], { type: 'application/pdf' })
