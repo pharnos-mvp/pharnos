@@ -630,6 +630,8 @@ export function DossierWorkspacePage() {
         attachments: attachments ?? [],
         branding,
         autoStructural,
+        // Filigrane « by Pharnos » réservé à l'offre Free (inconnu/hors-ligne → pas de filigrane).
+        watermark: orgPlan?.plan === 'free',
       })
       const blob = new Blob([new Uint8Array(bytes)], { type: 'application/pdf' })
       showPreview(
