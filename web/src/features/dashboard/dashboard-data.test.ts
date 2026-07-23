@@ -16,6 +16,7 @@ import {
   conformityPct,
   conformitySummary,
   conformityTone,
+  countryStats,
   expiringDocs,
   expiryStatus,
   expiryTone,
@@ -501,5 +502,114 @@ describe('expiryTone', () => {
     expect(
       expiryTone(expiringDocs([doc({ docType: 'gmp', expiryDate: plus(-5) })], [product()], NOW)),
     ).toBe('poor')
+  })
+})
+
+describe('countryStats (tuiles de couverture)', () => {
+  it('un produit déposé dans 2 pays fait compter ses pièces pour CHACUN des pays', () => {
+    const stats = countryStats(
+      emptyInput({
+        products: [product({ id: 'p1' })],
+        dossiers: [
+          dossier({ id: 'dos1', productId: 'p1', country: 'CI' }),
+          dossier({ id: 'dos2', productId: 'p1', country: 'SN' }),
+        ],
+        // Pièce EXPIRÉE du produit p1 → urgente dans les deux pays où il est déposé.
+        documents: [doc({ id: 'd1', productId: 'p1', expiryDate: plus(-5) })],
+      }),
+      NOW,
+    )
+    expect(stats.get('CI')).toEqual({ dossiers: 1, urgent: 1, messages: 0, conformity: null })
+    expect(stats.get('SN')).toEqual({ dossiers: 1, urgent: 1, messages: 0, conformity: null })
+  })
+
+  it('conformité = % des pièces analysées conformes (null si aucune analyse)', () => {
+    const stats = countryStats(
+      emptyInput({
+        dossiers: [dossier({ country: 'CI' })],
+        documents: [doc({ id: 'd1' }), doc({ id: 'd2' })],
+        docAnalysis: [
+          analysis({ docId: 'd1', findings: [finding({ severity: 'error' })] }),
+          analysis({ docId: 'd2', findings: [] }),
+        ],
+      }),
+      NOW,
+    )
+    expect(stats.get('CI')?.conformity).toBe(50)
+  })
+
+  it('dossier en suspens = urgent ; réponse agence non lue = message', () => {
+    const stats = countryStats(
+      emptyInput({
+        dossiers: [dossier({ id: 'dos1', country: 'CI' })],
+        correspondences: [
+          corr({ id: 'c1', dossierId: 'dos1', country: 'CI', status: 'suspended' }),
+        ],
+        messages: [msg({ id: 'm1', correspondenceId: 'c1', author: 'recipient' })],
+      }),
+      NOW,
+    )
+    expect(stats.get('CI')).toMatchObject({ dossiers: 1, urgent: 1, messages: 1 })
+  })
+
+  it('2 dossiers du MÊME produit dans le MÊME pays : pièces comptées UNE fois (dédoublonnage)', () => {
+    const stats = countryStats(
+      emptyInput({
+        dossiers: [
+          dossier({ id: 'dos1', productId: 'p1', country: 'CI' }),
+          dossier({ id: 'dos2', productId: 'p1', country: 'CI' }),
+        ],
+        documents: [doc({ id: 'd1', productId: 'p1', expiryDate: plus(-5) })],
+      }),
+      NOW,
+    )
+    // 2 dossiers, mais la pièce expirée du produit ne compte qu'une seule fois.
+    expect(stats.get('CI')).toMatchObject({ dossiers: 2, urgent: 1 })
+  })
+
+  it('ignore les enregistrements supprimés (deletedAt)', () => {
+    const stats = countryStats(
+      emptyInput({
+        dossiers: [
+          dossier({ id: 'dos1', productId: 'p1', country: 'CI' }),
+          dossier({ id: 'dos2', productId: 'p1', country: 'SN', deletedAt: '2026-06-01' }),
+        ],
+        documents: [
+          doc({ id: 'd1', productId: 'p1', expiryDate: plus(-5), deletedAt: '2026-06-01' }),
+        ],
+      }),
+      NOW,
+    )
+    expect(stats.has('SN')).toBe(false)
+    expect(stats.get('CI')?.urgent).toBe(0)
+  })
+
+  it('une analyse ORPHELINE (pièce absente / autre org) est ignorée par la conformité', () => {
+    const stats = countryStats(
+      emptyInput({
+        dossiers: [dossier({ country: 'CI' })],
+        documents: [doc({ id: 'd1' })],
+        docAnalysis: [
+          analysis({ docId: 'd1', findings: [] }),
+          analysis({ docId: 'ghost', findings: [finding({ severity: 'error' })] }),
+        ],
+      }),
+      NOW,
+    )
+    expect(stats.get('CI')?.conformity).toBe(100)
+  })
+
+  it('un pays SANS dossier actif reste absent, même s’il a une correspondance non lue', () => {
+    const stats = countryStats(
+      emptyInput({
+        dossiers: [dossier({ id: 'dos1', country: 'CI' })],
+        // SN : correspondance + message non lu mais AUCUN dossier → pas de tuile chiffrée.
+        correspondences: [corr({ id: 'c2', dossierId: 'dosX', country: 'SN' })],
+        messages: [msg({ id: 'm2', correspondenceId: 'c2', author: 'recipient' })],
+      }),
+      NOW,
+    )
+    expect(stats.has('CI')).toBe(true)
+    expect(stats.has('SN')).toBe(false)
   })
 })

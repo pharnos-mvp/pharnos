@@ -458,6 +458,120 @@ export function conformitySummary(
   }
 }
 
+// ───────────────── Statistiques par pays (tuiles de couverture) ─────────────────
+
+export interface CountryStat {
+  /** Dossiers déposés pour ce pays. */
+  dossiers: number
+  /** Points urgents : pièces expirées / en fenêtre de renouvellement + dossiers en suspens. */
+  urgent: number
+  /** Messages d'agence NON LUS pour ce pays. */
+  messages: number
+  /** Conformité (%) des pièces analysées des produits présents dans ce pays ; `null` si rien d'analysé. */
+  conformity: number | null
+}
+
+/**
+ * Statistiques PAR PAYS des tuiles de couverture — 100 % dérivées des données locales.
+ *
+ * Les pièces (expiration, conformité) sont portées par le **produit**, jamais par le pays : un
+ * produit déposé dans plusieurs pays fait donc compter ses pièces pour **chacun** de ces pays —
+ * c'est bien le même jeu de pièces à maintenir valide dans chaque pays.
+ *
+ * VOLONTAIRE : seuls les pays ayant au moins un dossier ACTIF sont dans la Map (tuile « Aucun
+ * dossier » sinon). Une correspondance orpheline (dossier supprimé, ou pays différent de celui de
+ * son dossier) n'y crée donc pas d'entrée : la tuile mesure la COUVERTURE (où l'on a des dossiers),
+ * la cloche et la carte Alertes restant la source pour les messages eux-mêmes.
+ */
+export function countryStats(input: DashboardInput, now: Date): Map<string, CountryStat> {
+  const dossiers = active(input.dossiers)
+  const documents = active(input.documents)
+  const correspondences = active(input.correspondences)
+
+  // Pays → produits qui y ont un dossier (+ nombre de dossiers par pays).
+  const productsByCountry = new Map<string, Set<string>>()
+  const dossierCount = new Map<string, number>()
+  for (const d of dossiers) {
+    if (!d.country) continue
+    dossierCount.set(d.country, (dossierCount.get(d.country) ?? 0) + 1)
+    const set = productsByCountry.get(d.country) ?? new Set<string>()
+    set.add(d.productId)
+    productsByCountry.set(d.country, set)
+  }
+
+  // Pièces urgentes (expirées ou dans leur fenêtre de renouvellement), par produit.
+  const urgentDocs = new Map<string, number>()
+  for (const d of documents) {
+    if (!d.expiryDate) continue
+    const daysLeft = Math.round((new Date(d.expiryDate).getTime() - now.getTime()) / 86_400_000)
+    if (daysLeft > renewalLeadDays(d.docType)) continue
+    urgentDocs.set(d.productId, (urgentDocs.get(d.productId) ?? 0) + 1)
+  }
+
+  // Conformité par produit (cache Regafy, restreint aux pièces ACTIVES de l'org via `docById`).
+  const docById = new Map(documents.map((d) => [d.id, d]))
+  const analyzedByProduct = new Map<string, number>()
+  const nonConformByProduct = new Map<string, number>()
+  for (const a of input.docAnalysis) {
+    const doc = docById.get(a.docId)
+    if (!doc) continue
+    analyzedByProduct.set(doc.productId, (analyzedByProduct.get(doc.productId) ?? 0) + 1)
+    const findings = Array.isArray(a.findings) ? (a.findings as RegafyFinding[]) : []
+    if (findings.some(isNonConform)) {
+      nonConformByProduct.set(doc.productId, (nonConformByProduct.get(doc.productId) ?? 0) + 1)
+    }
+  }
+
+  // Dossiers en suspens (« complément requis »), par pays.
+  const suspended = new Map<string, number>()
+  for (const dos of dossiers) {
+    if (!dos.country) continue
+    if (latestDossierCorrespondence(dos.id, correspondences)?.status === 'suspended') {
+      suspended.set(dos.country, (suspended.get(dos.country) ?? 0) + 1)
+    }
+  }
+
+  // Messages d'agence non lus, par pays. Messages groupés UNE fois (évite un balayage par corr.).
+  const msgsByCorr = new Map<string, CorrespondenceMessageRecord[]>()
+  for (const m of input.messages) {
+    const arr = msgsByCorr.get(m.correspondenceId)
+    if (arr) arr.push(m)
+    else msgsByCorr.set(m.correspondenceId, [m])
+  }
+  const lastSeen = new Map(input.reads.map((r) => [r.id, r.lastSeenAt]))
+  const unreadByCountry = new Map<string, number>()
+  for (const c of correspondences) {
+    if (!c.country) continue
+    const seenAt = lastSeen.get(c.id)
+    const n = (msgsByCorr.get(c.id) ?? []).filter(
+      (m) => m.author === 'recipient' && (!seenAt || m.createdAt > seenAt),
+    ).length
+    if (n > 0) unreadByCountry.set(c.country, (unreadByCountry.get(c.country) ?? 0) + n)
+  }
+
+  const out = new Map<string, CountryStat>()
+  for (const [code, productIds] of productsByCountry) {
+    let urgent = suspended.get(code) ?? 0
+    let analyzed = 0
+    let nonConform = 0
+    for (const pid of productIds) {
+      urgent += urgentDocs.get(pid) ?? 0
+      analyzed += analyzedByProduct.get(pid) ?? 0
+      nonConform += nonConformByProduct.get(pid) ?? 0
+    }
+    out.set(code, {
+      dossiers: dossierCount.get(code) ?? 0,
+      urgent,
+      messages: unreadByCountry.get(code) ?? 0,
+      conformity:
+        analyzed > 0
+          ? Math.max(0, Math.min(100, Math.round(((analyzed - nonConform) / analyzed) * 100)))
+          : null,
+    })
+  }
+  return out
+}
+
 /**
  * Taux de conformité (% des documents analysés qui sont conformes), borné [0,100].
  * `null` si aucun document analysé. Source unique du calcul (dashboard + fiche produit).
