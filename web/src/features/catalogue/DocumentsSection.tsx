@@ -376,6 +376,7 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
                         fileName: d.fileName,
                         issueDate: d.issueDate ?? null,
                         expiryDate: d.expiryDate ?? null,
+                        country: d.country ?? null,
                       })
                     }
                   >

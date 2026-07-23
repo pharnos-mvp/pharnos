@@ -98,13 +98,20 @@ export async function addDocument(
  */
 export async function updateDocumentDates(
   id: string,
-  dates: { issueDate: string | null; expiryDate: string | null },
+  patch: { issueDate: string | null; expiryDate: string | null; country?: string | null },
 ): Promise<void> {
   const existing = await db.documents.get(id)
   if (!existing || existing.deletedAt !== null) return
   const ts = now()
   await db.transaction('rw', db.documents, db.outbox, async () => {
-    await db.documents.update(id, { ...dates, updatedAt: ts })
+    // `country` n'est écrit QUE s'il est fourni (édition d'une AMM) → un autre type de pièce n'est
+    // jamais touché sur ce champ.
+    await db.documents.update(id, {
+      issueDate: patch.issueDate,
+      expiryDate: patch.expiryDate,
+      updatedAt: ts,
+      ...(patch.country !== undefined ? { country: patch.country } : {}),
+    })
     await enqueueOutbox('document', id, 'update', { id })
   })
   await recordAudit(existing.orgId, 'document', id, 'update', existing.fileName)

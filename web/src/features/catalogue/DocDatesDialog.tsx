@@ -11,6 +11,14 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { COUNTRIES, countryLabel } from '@/features/workspace/dossier-constants'
 import { useI18n } from '@/lib/i18n-context'
 import { isIssueAfterExpiry } from './doc-dates'
 import { docTypeLabel, requiresExpiry } from './doc-types'
@@ -22,6 +30,8 @@ export interface EditableDoc {
   fileName: string
   issueDate: string | null
   expiryDate: string | null
+  /** Pays de l'AMM (éditable ici pour les AMM déjà saisies sans pays → cartes AMM par pays). */
+  country: string | null
 }
 
 /**
@@ -53,6 +63,7 @@ function DatesForm({ doc, onDone }: { doc: EditableDoc; onDone: () => void }) {
   const { t, lang } = useI18n()
   const [issueDate, setIssueDate] = useState(doc.issueDate ?? '')
   const [expiryDate, setExpiryDate] = useState(doc.expiryDate ?? '')
+  const [country, setCountry] = useState(doc.country ?? '')
   const [busy, setBusy] = useState(false)
   // MÊME garde-fou que la saisie initiale (source unique `isIssueAfterExpiry`) et MÊME règle
   // d'affichage : on ne signale qu'une fois le champ quitté, pas pendant la frappe.
@@ -60,6 +71,7 @@ function DatesForm({ doc, onDone }: { doc: EditableDoc; onDone: () => void }) {
   const dateError = isIssueAfterExpiry(issueDate, expiryDate)
   const showDateError = dateError && touched
   const needsExpiry = requiresExpiry(doc.docType)
+  const isAmm = doc.docType === 'amm'
 
   async function save() {
     if (dateError) {
@@ -86,6 +98,8 @@ function DatesForm({ doc, onDone }: { doc: EditableDoc; onDone: () => void }) {
       await updateDocumentDates(doc.id, {
         issueDate: issueDate || null,
         expiryDate: expiryDate || null,
+        // `country` n'est envoyé que pour une AMM → les autres pièces ne sont jamais touchées.
+        ...(isAmm ? { country: country || null } : {}),
       })
       toast.success(t({ fr: 'Dates mises à jour', en: 'Dates updated' }))
       onDone()
@@ -138,6 +152,23 @@ function DatesForm({ doc, onDone }: { doc: EditableDoc; onDone: () => void }) {
               en: 'The issue date is later than the expiry date.',
             })}
           </p>
+        ) : null}
+        {isAmm ? (
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>{t({ fr: 'Pays', en: 'Country' })}</Label>
+            <Select value={country} onValueChange={setCountry}>
+              <SelectTrigger className="w-full" aria-label={t({ fr: 'Pays', en: 'Country' })}>
+                <SelectValue placeholder={t({ fr: 'Sélectionner…', en: 'Select…' })} />
+              </SelectTrigger>
+              <SelectContent>
+                {COUNTRIES.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>
+                    {countryLabel(c.code, lang)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         ) : null}
       </div>
       <DialogFooter>
