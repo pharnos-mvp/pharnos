@@ -33,26 +33,40 @@ function preconnectSupabase(): Plugin {
   }
 }
 
-// Assets pdf.js NON JS : les CMaps CID (`cmaps/*.bcmap`) et les 14 polices standard
-// (`standard_fonts/*.pfb|ttf`). SANS eux, `getDocument` rend en BLANC les PDF à polices CID (scans,
-// formulaires) et fausse les métriques des polices standard non embarquées. pdf.js les charge par
-// URL (`cMapUrl` / `standardFontDataUrl`) → on les expose sous `/pdf/` : servis depuis node_modules
-// en dev (middleware), copiés dans `dist/pdf/` au build. Runtime-cachés par le SW (offline).
+// Assets pdf.js NON JS, TOUS requis — pdf.js les charge par URL et, si l'URL manque, il ABANDONNE
+// SILENCIEUSEMENT le contenu concerné (page blanche / éléments absents, jamais d'erreur visible) :
+//  • `cmaps/*.bcmap` (`cMapUrl`)          → PDF à polices CID (scans, formulaires) sinon en BLANC ;
+//  • `standard_fonts/*` (`standardFontDataUrl`) → métriques fausses des 14 polices non embarquées ;
+//  • `wasm/*.wasm` (`wasmUrl`)            → décodeurs JBIG2 / JPEG2000 / couleur (qcms). Sans eux,
+//    les scans à couches (MRC : masques JBIG2 + fond JPEG) perdent leur COUCHE DE TEXTE — le
+//    document paraît vide alors qu'il est parfaitement lisible ailleurs (retour CEO, cas réel
+//    `KV-10D_GMP.pdf` : « ignoring XObject: JBig2 failed to initialize ») ;
+//  • `iccs/*.icc` (`iccUrl`)              → profil ICC CMYK (couleurs justes).
+// Exposés sous `/pdf/` : servis depuis node_modules en dev (middleware), copiés dans `dist/pdf/` au
+// build. Runtime-cachés par le SW (offline). CSP : `script-src 'wasm-unsafe-eval'` déjà en place.
 function pdfjsAssets(): Plugin {
   const root = path.resolve(import.meta.dirname, 'node_modules/pdfjs-dist')
-  const SUBDIRS = ['cmaps', 'standard_fonts'] as const
+  const SUBDIRS = ['cmaps', 'standard_fonts', 'wasm', 'iccs'] as const
+  // `WebAssembly.instantiateStreaming` EXIGE `application/wasm` ; les replis `*_nowasm_fallback.js`
+  // sont importés comme MODULES → doivent être servis en JavaScript (sinon import bloqué).
+  const mimeOf = (file: string) =>
+    file.endsWith('.wasm')
+      ? 'application/wasm'
+      : /\.m?js$/.test(file)
+        ? 'text/javascript; charset=utf-8'
+        : 'application/octet-stream'
   return {
     name: 'pharnos:pdfjs-assets',
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
-        const m = /^\/pdf\/(cmaps|standard_fonts)\/([\w.-]+)$/.exec(
+        const m = /^\/pdf\/(cmaps|standard_fonts|wasm|iccs)\/([\w.-]+)$/.exec(
           (req.url ?? '').split('?')[0] ?? '',
         )
         if (!m) return next()
         const file = path.join(root, m[1] ?? '', m[2] ?? '')
         // Confiné au sous-dossier attendu (anti path-traversal) + existence.
         if (!file.startsWith(path.join(root, m[1] ?? '')) || !fs.existsSync(file)) return next()
-        res.setHeader('Content-Type', 'application/octet-stream')
+        res.setHeader('Content-Type', mimeOf(file))
         fs.createReadStream(file).pipe(res)
       })
     },
@@ -103,8 +117,13 @@ export default defineConfig({
         // le workspace n'a pas été visité en ligne dans la session SW). Offline-first prime :
         // la fiabilité de l'aperçu vaut 1,2 Mo d'installation.
         globPatterns: ['**/*.{js,mjs,css,html,svg,png,ico,woff2}'],
-        // Assets pdf.js (cmaps/polices) : hors précache (≈3,5 Mo → installation trop lourde), mais
-        // cachés À L'USAGE → un PDF à polices CID vu une fois en ligne reste lisible hors-ligne.
+        // `dist/pdf/**` HORS précache : sans cette exclusion, le glob `js` happe les replis
+        // `*_nowasm_fallback.js` (~600 Ko) et alourdit l'installation pour tout le monde, alors que
+        // ces assets sont déjà couverts par le cache À L'USAGE ci-dessous.
+        globIgnores: ['pdf/**'],
+        // Assets pdf.js (cmaps, polices, wasm, profils ICC) : hors précache (≈6,8 Mo →
+        // installation trop lourde), mais cachés À L'USAGE → un PDF à polices CID ou un scan à
+        // masques JBIG2 vu une fois en ligne reste lisible hors-ligne.
         // Immuables par version de pdf.js → CacheFirst.
         runtimeCaching: [
           {
