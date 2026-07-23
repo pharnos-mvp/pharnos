@@ -1,6 +1,14 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Building2, PackageOpen, Pencil } from 'lucide-react'
+import {
+  AlertCircle,
+  Building2,
+  ChevronRight,
+  Clock3,
+  PackageOpen,
+  Pencil,
+  ShieldCheck,
+} from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -21,12 +29,15 @@ import { db, type PartyRecord, type PartyRole, type ProductRecord } from '@/lib/
 import { useI18n, type Translatable } from '@/lib/i18n-context'
 import { PieceGrid } from './PieceGrid'
 import { ProductIcon } from './product-icon'
+import { categoryForDocType, docTypeLabel, requiresExpiry } from './doc-types'
 import {
   buildOrgCockpitVm,
-  orgDocCards,
   orgJustificatifCards,
+  orgTypeCards,
   sortRoles,
+  type AmmCountryStat,
   type OrgCockpitVm,
+  type OrgTypeCard,
 } from './parties-data'
 import { updateParty } from './parties-repository'
 import { syncParties } from './parties-sync'
@@ -83,20 +94,27 @@ export function OrganisationCockpit() {
     [party, data, now],
   )
 
-  // Cartes par onglet (un onglet = un prédicat). Pièces admin = catégorie admin HORS AMM (qui a son
-  // propre onglet). Documents d'info = catégorie info. Justificatifs = pièces jointes des corresp.
+  // Cartes par onglet. Pièces admin / Documents d'info = cartes AGRÉGÉES par TYPE (une carte par
+  // type → page dédiée), classées par `docType` CANONIQUE (une COA legacy `category:'info'` reste en
+  // « Pièces admin »). AMM a son propre onglet (cartes par pays, dérivées du portefeuille `vm.amm`).
+  // Justificatifs = pièces jointes des correspondances (grille à plat, sans sous-type).
   const cards = useMemo(() => {
-    if (!party || !data) return { amm: [], admin: [], info: [], justif: [] }
+    if (!party || !data) return { adminTypes: [], infoTypes: [], justif: [] }
     return {
-      amm: orgDocCards(party, data.products, data.documents, now, (d) => d.docType === 'amm'),
-      admin: orgDocCards(
+      adminTypes: orgTypeCards(
         party,
         data.products,
         data.documents,
         now,
-        (d) => d.category === 'admin' && d.docType !== 'amm',
+        (d) => d.docType !== 'amm' && categoryForDocType(d.docType, d.category) === 'admin',
       ),
-      info: orgDocCards(party, data.products, data.documents, now, (d) => d.category === 'info'),
+      infoTypes: orgTypeCards(
+        party,
+        data.products,
+        data.documents,
+        now,
+        (d) => categoryForDocType(d.docType, d.category) === 'info',
+      ),
       justif: orgJustificatifCards(
         party,
         data.products,
@@ -213,23 +231,31 @@ export function OrganisationCockpit() {
         ) : null}
         {isMah ? (
           <TabsContent value="amm" className="space-y-4">
-            {vm && vm.amm.total > 0 ? <AmmPanel vm={vm} /> : null}
-            <PieceGrid
-              cards={cards.amm}
-              emptyText={t({ fr: 'Aucune AMM déposée', en: 'No MA filed' })}
-            />
+            {vm && vm.amm.total > 0 ? (
+              <>
+                <AmmSummary amm={vm.amm} />
+                <AmmCountryCards byCountry={vm.amm.byCountry} partyId={partyId} />
+              </>
+            ) : (
+              <EmptyState
+                icon={<PackageOpen />}
+                title={t({ fr: 'Aucune AMM déposée', en: 'No MA filed' })}
+              />
+            )}
           </TabsContent>
         ) : null}
         <TabsContent value="admin">
-          <PieceGrid
-            cards={cards.admin}
+          <TypeCards
+            cards={cards.adminTypes}
+            partyId={partyId}
             emptyText={t({ fr: 'Aucune pièce administrative', en: 'No administrative document' })}
           />
         </TabsContent>
         {isMah ? (
           <TabsContent value="info">
-            <PieceGrid
-              cards={cards.info}
+            <TypeCards
+              cards={cards.infoTypes}
+              partyId={partyId}
               emptyText={t({ fr: 'Aucun document d’information', en: 'No product information' })}
             />
           </TabsContent>
@@ -321,55 +347,147 @@ function AmmTile({
   )
 }
 
-/** Portefeuille d'AMM (rôle titulaire) : total / actives / à renouveler / périmées + ventilation pays. */
-function AmmPanel({ vm }: { vm: OrgCockpitVm }) {
-  const { t, lang } = useI18n()
-  const { amm } = vm
+/** Synthèse du portefeuille d'AMM (rôle titulaire) : total / actives / à renouveler / périmées. */
+function AmmSummary({ amm }: { amm: OrgCockpitVm['amm'] }) {
+  const { t } = useI18n()
   return (
-    <section className="space-y-3">
-      <h2 className="font-display text-sm font-semibold">
-        {t({ fr: "Portefeuille d'AMM", en: 'MA portfolio' })}
-      </h2>
-      <div className="bg-card space-y-4 rounded-xl border p-4">
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <AmmTile value={amm.total} label={t({ fr: 'Total', en: 'Total' })} tone="total" />
-          <AmmTile value={amm.active} label={t({ fr: 'Actives', en: 'Active' })} tone="active" />
-          <AmmTile
-            value={amm.expiring}
-            label={t({ fr: 'À renouveler', en: 'Renewals' })}
-            tone="expiring"
-          />
-          <AmmTile
-            value={amm.expired}
-            label={t({ fr: 'Expirées', en: 'Expired' })}
-            tone="expired"
-          />
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <AmmTile value={amm.total} label={t({ fr: 'Total', en: 'Total' })} tone="total" />
+      <AmmTile value={amm.active} label={t({ fr: 'Actives', en: 'Active' })} tone="active" />
+      <AmmTile
+        value={amm.expiring}
+        label={t({ fr: 'À renouveler', en: 'Renewals' })}
+        tone="expiring"
+      />
+      <AmmTile value={amm.expired} label={t({ fr: 'Expirées', en: 'Expired' })} tone="expired" />
+    </div>
+  )
+}
+
+/** Cartes des AMM par PAYS (cliquables → page dédiée du pays). `—` = pays non précisé (route `none`). */
+function AmmCountryCards({ byCountry, partyId }: { byCountry: AmmCountryStat[]; partyId: string }) {
+  const { t, lang } = useI18n()
+  if (byCountry.length === 0) return null
+  return (
+    <div className="flex flex-col gap-2">
+      {byCountry.map((c) => {
+        const unspecified = c.code === '—'
+        return (
+          <Link
+            key={c.code}
+            to={`/catalogue/organisations/${partyId}/amm/${unspecified ? 'none' : c.code}`}
+            className="bg-card hover:border-muted-foreground/25 focus-visible:ring-ring/50 flex items-center gap-3 rounded-xl border px-4 py-3 no-underline transition-all outline-none hover:shadow-sm focus-visible:ring-[3px]"
+          >
+            {unspecified ? (
+              <span className="text-muted-foreground w-4 shrink-0 text-center">—</span>
+            ) : (
+              <CountryFlag code={c.code} size={16} />
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="font-display truncate text-sm font-semibold">
+                {unspecified
+                  ? t({ fr: 'Pays non précisé', en: 'Unspecified country' })
+                  : countryLabel(c.code, lang)}
+              </div>
+              <div className="text-muted-foreground mt-0.5 text-xs tabular-nums">
+                {t({ fr: `${c.total} AMM`, en: `${c.total} MA` })}
+              </div>
+            </div>
+            {c.expired > 0 ? <StatusBadge tone="danger">{c.expired}</StatusBadge> : null}
+            {c.expiring > 0 ? <StatusBadge tone="warning">{c.expiring}</StatusBadge> : null}
+            <ChevronRight className="text-muted-foreground size-4 shrink-0" aria-hidden />
+          </Link>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Cartes AGRÉGÉES par TYPE de pièce (onglets Pièces admin / Documents d'info) → page dédiée du type. */
+function TypeCards({
+  cards,
+  partyId,
+  emptyText,
+}: {
+  cards: OrgTypeCard[]
+  partyId: string
+  emptyText: string
+}) {
+  if (cards.length === 0) return <EmptyState icon={<PackageOpen />} title={emptyText} />
+  return (
+    <div className="flex flex-col gap-2">
+      {cards.map((c) => (
+        <TypeCard key={c.docType} card={c} partyId={partyId} />
+      ))}
+    </div>
+  )
+}
+
+function TypeCard({ card, partyId }: { card: OrgTypeCard; partyId: string }) {
+  const { t, lang } = useI18n()
+  // Types à validité (AMM/GMP/COPP/FSC/ML/CoA) → état. Documents d'info (sans date) → simple
+  // décompte, pas de badge. MAIS un type admin hors barème (contract/other_admin) peut recevoir une
+  // date d'expiration via DocDatesDialog : s'il a une pièce réellement en défaut, on ne masque pas
+  // le signal (retour revue — parité avec l'ancienne grille).
+  const hasValidity = requiresExpiry(card.docType) || card.expired > 0 || card.expiring > 0
+  const expiryText = (d: number) =>
+    d < 0
+      ? t({ fr: `Périmé depuis ${-d} j`, en: `${-d}d overdue` })
+      : t({ fr: `Expire dans ${d} j`, en: `in ${d}d` })
+  return (
+    <Link
+      to={`/catalogue/organisations/${partyId}/pieces/${card.docType}`}
+      className="bg-card hover:border-muted-foreground/25 focus-visible:ring-ring/50 flex items-center gap-3 rounded-xl border px-4 py-3 no-underline transition-all outline-none hover:shadow-sm focus-visible:ring-[3px]"
+    >
+      <div className="min-w-0 flex-1">
+        <div className="font-display truncate text-sm font-semibold">
+          {docTypeLabel(card.docType, lang)}
         </div>
-        {amm.byCountry.length > 0 ? (
-          <ul className="divide-border divide-y">
-            {amm.byCountry.map((c) => (
-              <li key={c.code} className="flex items-center gap-2 py-2 text-sm">
-                {c.code === '—' ? (
-                  <span className="text-muted-foreground w-4 text-center">—</span>
-                ) : (
-                  <CountryFlag code={c.code} size={16} />
-                )}
-                <span className="min-w-0 flex-1 truncate">
-                  {c.code === '—'
-                    ? t({ fr: 'Pays non précisé', en: 'Unspecified country' })
-                    : countryLabel(c.code, lang)}
-                </span>
-                <span className="text-muted-foreground text-xs tabular-nums">
-                  {t({ fr: `${c.total} AMM`, en: `${c.total} MA` })}
-                </span>
-                {c.expired > 0 ? <StatusBadge tone="danger">{c.expired}</StatusBadge> : null}
-                {c.expiring > 0 ? <StatusBadge tone="warning">{c.expiring}</StatusBadge> : null}
-              </li>
-            ))}
-          </ul>
-        ) : null}
+        <div className="text-muted-foreground mt-0.5 truncate text-xs">
+          {hasValidity
+            ? t({
+                fr: `${card.valid}/${card.total} à jour`,
+                en: `${card.valid}/${card.total} valid`,
+              })
+            : t({
+                fr: `${card.total} document${card.total > 1 ? 's' : ''}`,
+                en: `${card.total} document${card.total > 1 ? 's' : ''}`,
+              })}
+          {card.nextProductName ? ` · ${card.nextProductName}` : ''}
+        </div>
       </div>
-    </section>
+      {hasValidity && card.nextDaysLeft != null ? (
+        <span className="text-muted-foreground hidden text-xs sm:inline">
+          {expiryText(card.nextDaysLeft)}
+        </span>
+      ) : null}
+      {hasValidity ? <PieceBadge state={card.state} /> : null}
+      <ChevronRight className="text-muted-foreground size-4 shrink-0" aria-hidden />
+    </Link>
+  )
+}
+
+function PieceBadge({ state }: { state: OrgTypeCard['state'] }) {
+  const { t } = useI18n()
+  if (state === 'expired')
+    return (
+      <StatusBadge tone="danger">
+        <AlertCircle />
+        {t({ fr: 'Périmée', en: 'Expired' })}
+      </StatusBadge>
+    )
+  if (state === 'expiring')
+    return (
+      <StatusBadge tone="warning">
+        <Clock3 />
+        {t({ fr: 'À renouveler', en: 'Renew' })}
+      </StatusBadge>
+    )
+  return (
+    <StatusBadge tone="success">
+      <ShieldCheck />
+      {t({ fr: 'Valide', en: 'Valid' })}
+    </StatusBadge>
   )
 }
 

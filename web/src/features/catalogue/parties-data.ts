@@ -239,6 +239,58 @@ export function orgDocCards(
 }
 
 /**
+ * Carte d'AGRÉGATION par TYPE de pièce (onglets « Pièces admin » / « Documents d'information » de la
+ * fiche Organisation) : une carte = un type présent → total + pire état + pièce la plus urgente,
+ * cliquable vers la page dédiée du type. Réutilise `orgDocCards` (source UNIQUE de l'état par pièce,
+ * politique Monitor) → une carte ne peut pas contredire sa page dédiée. Tri par urgence.
+ */
+export interface OrgTypeCard {
+  docType: string
+  total: number
+  valid: number
+  expiring: number
+  expired: number
+  /** Pire état du type (badge de la carte). */
+  state: OrgPieceCard['state']
+  /** Pièce datée la plus urgente : produit porteur + jours restants (négatif = périmée). */
+  nextProductName?: string
+  nextDaysLeft?: number
+}
+
+export function orgTypeCards(
+  party: PartyRecord,
+  products: ProductRecord[],
+  documents: DocumentRecord[],
+  now: Date,
+  keep: (d: DocumentRecord) => boolean,
+): OrgTypeCard[] {
+  const byType = groupBy(orgDocCards(party, products, documents, now, keep), (c) => c.docType)
+  return [...byType.entries()]
+    .map(([docType, cs]): OrgTypeCard => {
+      const expired = cs.filter((c) => c.state === 'expired').length
+      const expiring = cs.filter((c) => c.state === 'expiring').length
+      // `cs` est déjà trié par urgence (orgDocCards) → la 1re pièce datée est la plus pressée du type.
+      const next = cs.find((c) => c.daysLeft != null)
+      return {
+        docType,
+        total: cs.length,
+        valid: cs.length - expired - expiring,
+        expiring,
+        expired,
+        state: expired ? 'expired' : expiring ? 'expiring' : 'valid',
+        nextProductName: next?.productName,
+        nextDaysLeft: next?.daysLeft ?? undefined,
+      }
+    })
+    .sort(
+      (a, b) =>
+        STATE_RANK[a.state] - STATE_RANK[b.state] ||
+        b.total - a.total ||
+        a.docType.localeCompare(b.docType),
+    )
+}
+
+/**
  * **Justificatifs** = toutes les pièces jointes échangées dans les correspondances des dossiers
  * liés à l'organisation (factures, quittances, décharges de dépôt…). Dédoublonnées par chemin
  * Storage (une même pièce peut être renvoyée dans plusieurs messages). `id` synthétique `corr:PATH`

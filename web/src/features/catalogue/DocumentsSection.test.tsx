@@ -46,8 +46,9 @@ describe('DocumentsSection — garde-fou dates (Monitor)', () => {
     expect(screen.getByRole('button', { name: 'Ajouter le document' })).toBeDisabled()
 
     // Bascule vers GMP (aucune date d'émission) : le garde-fou ne s'applique plus (isAmm=false) —
-    // pas de formulaire figé sur un champ devenu invisible (le défaut corrigé).
-    await user.click(screen.getByRole('combobox'))
+    // pas de formulaire figé sur un champ devenu invisible (le défaut corrigé). Deux comboboxes
+    // en AMM (type + pays) → on cible explicitement celui du TYPE.
+    await user.click(screen.getByRole('combobox', { name: 'Type de document' }))
     await user.click(screen.getByRole('option', { name: /GMP/ }))
 
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()

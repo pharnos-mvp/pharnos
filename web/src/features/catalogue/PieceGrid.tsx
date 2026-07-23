@@ -1,5 +1,13 @@
 import { useMemo, useState } from 'react'
-import { AlertCircle, ArrowDownAZ, CalendarClock, Clock3, PackageOpen, Search } from 'lucide-react'
+import {
+  AlertCircle,
+  ArrowDownAZ,
+  CalendarClock,
+  Clock3,
+  PackageOpen,
+  Search,
+  SearchX,
+} from 'lucide-react'
 
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
@@ -18,8 +26,10 @@ type Sort = 'default' | 'date' | 'az'
 
 /**
  * Grille de cartes de pièces (vignette + nom + état) avec **recherche** et **tri** (date / A-Z) —
- * partagée par tous les onglets de la fiche Organisation. `default` = l'ordre reçu (urgence), que
- * les deux boutons de tri remplacent puis rétablissent quand on les re-clique.
+ * la surface FINALE d'une page dédiée (type de pièce, AMM d'un pays, justificatifs). La barre de
+ * recherche reprend l'UX de la page d'accueil Organisations (icône à gauche, `type=search`,
+ * compteur « X sur Y » à droite, état vide `SearchX`). `default` = l'ordre reçu (urgence), que les
+ * deux boutons de tri remplacent puis rétablissent quand on les re-clique.
  */
 export function PieceGrid({ cards, emptyText }: { cards: OrgPieceCard[]; emptyText?: string }) {
   const { t } = useI18n()
@@ -40,20 +50,32 @@ export function PieceGrid({ cards, emptyText }: { cards: OrgPieceCard[]; emptyTe
 
   const toggle = (s: Sort) => setSort((cur) => (cur === s ? 'default' : s))
 
+  // Aucune pièce du tout (≠ « aucun résultat de recherche ») → message propre à la page.
+  if (cards.length === 0) {
+    return (
+      <EmptyState
+        icon={<PackageOpen />}
+        title={emptyText ?? t({ fr: 'Aucune pièce', en: 'No document' })}
+      />
+    )
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-0 flex-1">
+        <div className="relative min-w-0 flex-1 sm:max-w-xs">
           <Search
-            className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
+            className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
             aria-hidden
           />
           <Input
+            type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder={t({ fr: 'Rechercher une pièce…', en: 'Search a document…' })}
-            className="pl-8"
-            aria-label={t({ fr: 'Rechercher', en: 'Search' })}
+            maxLength={100}
+            placeholder={t({ fr: 'Rechercher (nom, produit…)', en: 'Search (name, product…)' })}
+            aria-label={t({ fr: 'Rechercher une pièce', en: 'Search a document' })}
+            className="pl-9"
           />
         </div>
         <SortButton active={sort === 'date'} onClick={() => toggle('date')} Icon={CalendarClock}>
@@ -62,16 +84,27 @@ export function PieceGrid({ cards, emptyText }: { cards: OrgPieceCard[]; emptyTe
         <SortButton active={sort === 'az'} onClick={() => toggle('az')} Icon={ArrowDownAZ}>
           {t({ fr: 'A-Z', en: 'A-Z' })}
         </SortButton>
+        <span className="text-muted-foreground ml-auto text-sm" aria-live="polite">
+          {q.trim()
+            ? t({
+                fr: `${shown.length} sur ${cards.length}`,
+                en: `${shown.length} of ${cards.length}`,
+              })
+            : t({
+                fr: `${cards.length} pièce${cards.length > 1 ? 's' : ''}`,
+                en: `${cards.length} document${cards.length > 1 ? 's' : ''}`,
+              })}
+        </span>
       </div>
 
       {shown.length === 0 ? (
         <EmptyState
-          icon={<PackageOpen />}
-          title={
-            q.trim()
-              ? t({ fr: 'Aucun résultat', en: 'No result' })
-              : (emptyText ?? t({ fr: 'Aucune pièce', en: 'No document' }))
-          }
+          icon={<SearchX />}
+          title={t({ fr: 'Aucun résultat', en: 'No result' })}
+          description={t({
+            fr: 'Aucune pièce ne correspond à votre recherche.',
+            en: 'No document matches your search.',
+          })}
         />
       ) : (
         <ul className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">

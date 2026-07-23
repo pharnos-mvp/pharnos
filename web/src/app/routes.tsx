@@ -22,6 +22,12 @@ const OrganisationCockpit = lazy(() =>
     default: m.OrganisationCockpit,
   })),
 )
+const OrgPiecePage = lazy(() =>
+  import('@/features/catalogue/OrgPiecePage').then((m) => ({ default: m.OrgPiecePage })),
+)
+const OrgAmmCountryPage = lazy(() =>
+  import('@/features/catalogue/OrgPiecePage').then((m) => ({ default: m.OrgAmmCountryPage })),
+)
 const AutoritesPage = lazy(() =>
   import('@/features/catalogue/AutoritesPage').then((m) => ({ default: m.AutoritesPage })),
 )
@@ -77,6 +83,14 @@ export function AppRoutes() {
         <Route path="/catalogue/nouveau" element={<ProductFormPage />} />
         <Route path="/catalogue/organisations" element={<OrganisationsPage />} />
         <Route path="/catalogue/organisations/:partyId" element={<OrganisationCockpit />} />
+        <Route
+          path="/catalogue/organisations/:partyId/pieces/:docType"
+          element={<OrgPiecePage />}
+        />
+        <Route
+          path="/catalogue/organisations/:partyId/amm/:country"
+          element={<OrgAmmCountryPage />}
+        />
         <Route path="/catalogue/autorites" element={<AutoritesPage />} />
         <Route path="/catalogue/autorites/:code" element={<AutoriteCockpit />} />
         <Route path="/catalogue/:productId" element={<ProductCockpit />} />
