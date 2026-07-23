@@ -1,11 +1,19 @@
 import { describe, expect, it } from 'vitest'
 
-import type { DocumentRecord, PartyRecord, ProductRecord } from '@/lib/db'
+import type {
+  CorrespondenceMessageRecord,
+  CorrespondenceRecord,
+  DocumentRecord,
+  DossierRecord,
+  PartyRecord,
+  ProductRecord,
+} from '@/lib/db'
 import {
   buildOrgCockpitVm,
   buildOrgRows,
   filterOrgRows,
-  orgPieceCards,
+  orgDocCards,
+  orgJustificatifCards,
   productsForParty,
   sortRoles,
 } from './parties-data'
@@ -64,6 +72,62 @@ const doc = (id: string, over: Partial<DocumentRecord> = {}): DocumentRecord => 
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
   deletedAt: null,
+  ...over,
+})
+
+const dossier = (over: Partial<DossierRecord> = {}): DossierRecord => ({
+  id: 'dos1',
+  orgId: 'org-1',
+  productId: 'p1',
+  productName: 'Alpha',
+  format: 'ctd',
+  activity: 'new_ma',
+  country: 'CI',
+  status: 'draft',
+  tree: [],
+  excludedDocIds: [],
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+  deletedAt: null,
+  ...over,
+})
+
+const corr = (over: Partial<CorrespondenceRecord> = {}): CorrespondenceRecord => ({
+  id: 'c1',
+  orgId: 'org-1',
+  dossierId: 'dos1',
+  productName: 'Alpha',
+  country: 'CI',
+  activity: 'new_ma',
+  senderEmail: 's@lab.com',
+  recipientEmail: 'a@agence.ci',
+  note: null,
+  pdfPath: 'o/shares/c1/m.pdf',
+  pdfSize: 1,
+  tokenHash: 'h',
+  passwordHash: null,
+  status: 'in_review',
+  decidedAt: null,
+  revokedAt: null,
+  expiresAt: null,
+  autoRevokeOnDecision: true,
+  createdAt: '2026-06-01T00:00:00.000Z',
+  updatedAt: '2026-06-01T00:00:00.000Z',
+  deletedAt: null,
+  ...over,
+})
+
+const msg = (over: Partial<CorrespondenceMessageRecord> = {}): CorrespondenceMessageRecord => ({
+  id: 'm1',
+  orgId: 'org-1',
+  correspondenceId: 'c1',
+  author: 'recipient',
+  authorLabel: 'a@agence.ci',
+  kind: 'comment',
+  decision: null,
+  body: '',
+  attachments: [],
+  createdAt: '2026-06-02T00:00:00.000Z',
   ...over,
 })
 
@@ -213,20 +277,20 @@ describe('buildOrgCockpitVm (cockpit RA)', () => {
   })
 })
 
-describe('orgPieceCards (page dédiée à un type de pièce)', () => {
+describe('orgDocCards (cartes d’un onglet, par prédicat)', () => {
   const holder = party('holder')
   const products = [product('p1', { titulaireId: 'holder', nomCommercial: 'Alpha' })]
 
   it('ne garde que le TYPE demandé, avec nom de produit et taille', () => {
-    const cards = orgPieceCards(
+    const cards = orgDocCards(
       holder,
       products,
       [
         doc('a', { docType: 'amm', fileName: 'amm.pdf', size: 1234, expiryDate: inDays(400) }),
         doc('g', { docType: 'gmp', fileName: 'gmp.pdf', expiryDate: inDays(400) }),
       ],
-      'amm',
       NOW,
+      (d) => d.docType === 'amm',
     )
     expect(cards).toHaveLength(1)
     expect(cards[0]).toMatchObject({
@@ -238,7 +302,7 @@ describe('orgPieceCards (page dédiée à un type de pièce)', () => {
   })
 
   it('classe l’état : périmée / à renouveler / valide (fenêtre Monitor du type)', () => {
-    const cards = orgPieceCards(
+    const cards = orgDocCards(
       holder,
       products,
       [
@@ -246,8 +310,8 @@ describe('orgPieceCards (page dédiée à un type de pièce)', () => {
         doc('soon', { expiryDate: inDays(30) }), // dans la fenêtre
         doc('gone', { expiryDate: inDays(-10) }), // périmée
       ],
-      'amm',
       NOW,
+      (d) => d.docType === 'amm',
     )
     // Tri par urgence : périmée, puis à renouveler, puis valide.
     expect(cards.map((c) => [c.id, c.state])).toEqual([
@@ -259,7 +323,7 @@ describe('orgPieceCards (page dédiée à un type de pièce)', () => {
   })
 
   it('à état égal, la plus urgente d’abord — et J-0 est PÉRIMÉE (comme le panneau)', () => {
-    const cards = orgPieceCards(
+    const cards = orgDocCards(
       holder,
       products,
       [
@@ -267,8 +331,8 @@ describe('orgPieceCards (page dédiée à un type de pièce)', () => {
         doc('today', { expiryDate: inDays(0) }),
         doc('soon', { expiryDate: inDays(30) }),
       ],
-      'amm',
       NOW,
+      (d) => d.docType === 'amm',
     )
     expect(cards.map((c) => [c.id, c.state])).toEqual([
       ['today', 'expired'],
@@ -278,12 +342,18 @@ describe('orgPieceCards (page dédiée à un type de pièce)', () => {
   })
 
   it('pièce SANS date = valide, daysLeft null (rien n’est en défaut)', () => {
-    const cards = orgPieceCards(holder, products, [doc('nd', { expiryDate: null })], 'amm', NOW)
+    const cards = orgDocCards(
+      holder,
+      products,
+      [doc('nd', { expiryDate: null })],
+      NOW,
+      (d) => d.docType === 'amm',
+    )
     expect(cards[0]).toMatchObject({ state: 'valid', daysLeft: null, expiryDate: null })
   })
 
   it('exclut les pièces supprimées et celles d’un produit NON lié à l’organisation', () => {
-    const cards = orgPieceCards(
+    const cards = orgDocCards(
       holder,
       [...products, product('p9', { titulaireId: 'autre' })],
       [
@@ -291,9 +361,76 @@ describe('orgPieceCards (page dédiée à un type de pièce)', () => {
         doc('foreign', { productId: 'p9', expiryDate: inDays(-1) }),
         doc('keep', { expiryDate: inDays(400) }),
       ],
-      'amm',
       NOW,
+      (d) => d.docType === 'amm',
     )
     expect(cards.map((c) => c.id)).toEqual(['keep'])
+  })
+})
+
+describe('orgJustificatifCards (pièces jointes des correspondances de l’org)', () => {
+  const holder = party('holder')
+  const products = [product('p1', { titulaireId: 'holder', nomCommercial: 'Alpha' })]
+  const dossiers = [dossier({ id: 'dos1', productId: 'p1' })]
+
+  const withAttach = (over = {}) =>
+    msg({
+      correspondenceId: 'c1',
+      attachments: [{ path: 'o/x.pdf', name: 'x.pdf', size: 9, mime: 'application/pdf' }],
+      ...over,
+    })
+
+  it('collecte les PJ des corresp. des dossiers liés, avec produit + id synthétique corr:PATH', () => {
+    const cards = orgJustificatifCards(
+      holder,
+      products,
+      dossiers,
+      [corr({ id: 'c1', dossierId: 'dos1' })],
+      [withAttach()],
+    )
+    expect(cards).toHaveLength(1)
+    expect(cards[0]).toMatchObject({
+      id: 'corr:o/x.pdf',
+      filePath: 'o/x.pdf',
+      fileName: 'x.pdf',
+      productName: 'Alpha',
+      state: 'valid',
+    })
+  })
+
+  it('dédoublonne une même PJ renvoyée dans plusieurs messages', () => {
+    const cards = orgJustificatifCards(
+      holder,
+      products,
+      dossiers,
+      [corr({ id: 'c1', dossierId: 'dos1' })],
+      [withAttach({ id: 'm1' }), withAttach({ id: 'm2' })],
+    )
+    expect(cards).toHaveLength(1)
+  })
+
+  it('ignore les corresp. d’un dossier NON lié / d’un dossier supprimé', () => {
+    const cards = orgJustificatifCards(
+      holder,
+      products,
+      [dossier({ id: 'dos1', productId: 'p1' }), dossier({ id: 'dosX', productId: 'p9' })],
+      [
+        corr({ id: 'c1', dossierId: 'dosX' }), // produit non lié
+        corr({ id: 'c2', dossierId: 'dosDel' }), // dossier inexistant
+      ],
+      [
+        msg({
+          id: 'm1',
+          correspondenceId: 'c1',
+          attachments: [{ path: 'a', name: 'a', size: 1, mime: '' }],
+        }),
+        msg({
+          id: 'm2',
+          correspondenceId: 'c2',
+          attachments: [{ path: 'b', name: 'b', size: 1, mime: '' }],
+        }),
+      ],
+    )
+    expect(cards).toHaveLength(0)
   })
 })
