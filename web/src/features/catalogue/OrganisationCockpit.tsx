@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { AlertCircle, Building2, Clock3, PackageOpen, Pencil, ShieldCheck } from 'lucide-react'
+import { Building2, PackageOpen, Pencil } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -12,20 +12,21 @@ import { ListRow, ListRowIcon, ListRowLink } from '@/components/ui/list-row'
 import { Page } from '@/components/ui/page'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useTopbar } from '@/components/layout/topbar'
-import { KPI_BADGE_TONE } from '@/features/dashboard/dashboard-data'
 import { CountryFlag } from '@/features/dashboard/CountryFlag'
 import { countryLabel } from '@/features/workspace/dossier-constants'
 import { useOrgId } from '@/features/org/org-context'
-import { db, type PartyRecord, type PartyRole } from '@/lib/db'
+import { db, type PartyRecord, type PartyRole, type ProductRecord } from '@/lib/db'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
-import { docTypeLabel } from './doc-types'
+import { PieceGrid } from './PieceGrid'
 import { ProductIcon } from './product-icon'
 import {
   buildOrgCockpitVm,
+  orgDocCards,
+  orgJustificatifCards,
   sortRoles,
   type OrgCockpitVm,
-  type PieceTypeValidity,
 } from './parties-data'
 import { updateParty } from './parties-repository'
 import { syncParties } from './parties-sync'
@@ -43,15 +44,22 @@ export function OrganisationCockpit() {
   const [editing, setEditing] = useState(false)
 
   const data = useLiveQuery(async () => {
-    const [party, products, documents] = await Promise.all([
+    const [party, products, documents, dossiers, correspondences, messages] = await Promise.all([
       db.parties.get(partyId),
       db.products.where('orgId').equals(orgId).toArray(),
       db.documents.where('orgId').equals(orgId).toArray(),
+      db.dossiers.where('orgId').equals(orgId).toArray(),
+      db.correspondences.where('orgId').equals(orgId).toArray(),
+      db.correspondenceMessages.where('orgId').equals(orgId).toArray(),
     ])
-    return { party, products, documents }
+    return { party, products, documents, dossiers, correspondences, messages }
   }, [orgId, partyId])
 
-  const party = data?.party && data.party.deletedAt === null ? data.party : undefined
+  const party =
+    data?.party && data.party.orgId === orgId && data.party.deletedAt === null
+      ? data.party
+      : undefined
+  const now = useMemo(() => new Date(), [])
 
   useTopbar({
     title: party?.nom,
@@ -71,11 +79,33 @@ export function OrganisationCockpit() {
   // Cockpit RA : portefeuille AMM + validité des pièces, dérivés des sélecteurs de validité uniques.
   const vm = useMemo<OrgCockpitVm | undefined>(
     () =>
-      party && data
-        ? buildOrgCockpitVm(party, data.products, data.documents, new Date())
-        : undefined,
-    [party, data],
+      party && data ? buildOrgCockpitVm(party, data.products, data.documents, now) : undefined,
+    [party, data, now],
   )
+
+  // Cartes par onglet (un onglet = un prédicat). Pièces admin = catégorie admin HORS AMM (qui a son
+  // propre onglet). Documents d'info = catégorie info. Justificatifs = pièces jointes des corresp.
+  const cards = useMemo(() => {
+    if (!party || !data) return { amm: [], admin: [], info: [], justif: [] }
+    return {
+      amm: orgDocCards(party, data.products, data.documents, now, (d) => d.docType === 'amm'),
+      admin: orgDocCards(
+        party,
+        data.products,
+        data.documents,
+        now,
+        (d) => d.category === 'admin' && d.docType !== 'amm',
+      ),
+      info: orgDocCards(party, data.products, data.documents, now, (d) => d.category === 'info'),
+      justif: orgJustificatifCards(
+        party,
+        data.products,
+        data.dossiers,
+        data.correspondences,
+        data.messages,
+      ),
+    }
+  }, [party, data, now])
 
   if (data === undefined) return <FicheSkeleton />
   if (!party) {
@@ -99,6 +129,8 @@ export function OrganisationCockpit() {
       </Page>
     )
   }
+
+  const isMah = party.roles.includes('titulaire')
 
   return (
     <Page>
@@ -155,63 +187,113 @@ export function OrganisationCockpit() {
         )}
       </div>
 
-      {/* Portefeuille AMM — responsabilité du titulaire d'AMM. */}
-      {vm && party.roles.includes('titulaire') && vm.amm.total > 0 ? <AmmPanel vm={vm} /> : null}
+      {/* Onglets ADAPTÉS AU RÔLE : le titulaire d'AMM détient produits/AMM/docs d'info ; un fabricant
+          (ou distributeur) pur n'a que ses pièces admin + les justificatifs échangés. */}
+      <Tabs defaultValue={isMah ? 'produits' : 'admin'} className="gap-4">
+        <TabsList className="flex-wrap">
+          {isMah ? (
+            <TabsTrigger value="produits">{t({ fr: 'Produits', en: 'Products' })}</TabsTrigger>
+          ) : null}
+          {isMah ? <TabsTrigger value="amm">{t({ fr: 'AMM', en: 'MA' })}</TabsTrigger> : null}
+          <TabsTrigger value="admin">{t({ fr: 'Pièces admin', en: 'Admin docs' })}</TabsTrigger>
+          {isMah ? (
+            <TabsTrigger value="info">
+              {t({ fr: 'Documents d’information', en: 'Product information' })}
+            </TabsTrigger>
+          ) : null}
+          <TabsTrigger value="justif">
+            {t({ fr: 'Justificatifs', en: 'Supporting docs' })}
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Validité des pièces — suivi des échéances (politique Monitor). */}
-      {vm && vm.pieces.length > 0 ? <PiecesPanel pieces={vm.pieces} partyId={partyId} /> : null}
-
-      {/* Produits liés */}
-      <section className="space-y-3">
-        <h2 className="font-display text-sm font-semibold">
-          {t({
-            fr: `Produits liés (${linked.length})`,
-            en: `Linked products (${linked.length})`,
-          })}
-        </h2>
-        {linked.length === 0 ? (
-          <EmptyState
-            icon={<PackageOpen />}
-            title={t({ fr: 'Aucun produit lié', en: 'No linked product' })}
-            description={t({
-              fr: 'Aucun produit ne désigne encore cette organisation comme titulaire ou fabricant.',
-              en: 'No product yet names this organization as holder or manufacturer.',
+        {isMah ? (
+          <TabsContent value="produits">
+            <ProductsList linked={linked} partyId={partyId} />
+          </TabsContent>
+        ) : null}
+        {isMah ? (
+          <TabsContent value="amm" className="space-y-4">
+            {vm && vm.amm.total > 0 ? <AmmPanel vm={vm} /> : null}
+            <PieceGrid
+              cards={cards.amm}
+              emptyText={t({ fr: 'Aucune AMM déposée', en: 'No MA filed' })}
+            />
+          </TabsContent>
+        ) : null}
+        <TabsContent value="admin">
+          <PieceGrid
+            cards={cards.admin}
+            emptyText={t({ fr: 'Aucune pièce administrative', en: 'No administrative document' })}
+          />
+        </TabsContent>
+        {isMah ? (
+          <TabsContent value="info">
+            <PieceGrid
+              cards={cards.info}
+              emptyText={t({ fr: 'Aucun document d’information', en: 'No product information' })}
+            />
+          </TabsContent>
+        ) : null}
+        <TabsContent value="justif">
+          <PieceGrid
+            cards={cards.justif}
+            emptyText={t({
+              fr: 'Aucun justificatif échangé en correspondance',
+              en: 'No supporting document exchanged',
             })}
           />
-        ) : (
-          <div className="flex flex-col gap-2" role="list">
-            {linked.map((p) => {
-              const roles: PartyRole[] = []
-              if (p.titulaireId === partyId) roles.push('titulaire')
-              if (p.fabricantId === partyId) roles.push('fabricant')
-              const sub = [p.dci, p.dosage, p.forme].filter(Boolean).join(' · ')
-              return (
-                <ListRow role="listitem" key={p.id}>
-                  <ListRowIcon>
-                    <ProductIcon forme={p.forme} className="size-5" />
-                  </ListRowIcon>
-                  <div className="min-w-0 flex-1">
-                    <ListRowLink to={`/catalogue/${p.id}`} title={p.nomCommercial}>
-                      {p.nomCommercial}
-                    </ListRowLink>
-                    {sub ? (
-                      <div className="text-muted-foreground mt-0.5 truncate text-xs">{sub}</div>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-wrap items-center justify-end gap-1.5">
-                    {roles.map((r) => (
-                      <StatusBadge key={r} tone="neutral">
-                        {t(ROLE_LABEL[r])}
-                      </StatusBadge>
-                    ))}
-                  </div>
-                </ListRow>
-              )
-            })}
-          </div>
-        )}
-      </section>
+        </TabsContent>
+      </Tabs>
     </Page>
+  )
+}
+
+/** Produits liés à l'organisation (rôle titulaire et/ou fabricant), en lignes cliquables. */
+function ProductsList({ linked, partyId }: { linked: ProductRecord[]; partyId: string }) {
+  const { t } = useI18n()
+  if (linked.length === 0) {
+    return (
+      <EmptyState
+        icon={<PackageOpen />}
+        title={t({ fr: 'Aucun produit lié', en: 'No linked product' })}
+        description={t({
+          fr: 'Aucun produit ne désigne encore cette organisation comme titulaire ou fabricant.',
+          en: 'No product yet names this organization as holder or manufacturer.',
+        })}
+      />
+    )
+  }
+  return (
+    <div className="flex flex-col gap-2" role="list">
+      {linked.map((p) => {
+        const roles: PartyRole[] = []
+        if (p.titulaireId === partyId) roles.push('titulaire')
+        if (p.fabricantId === partyId) roles.push('fabricant')
+        const sub = [p.dci, p.dosage, p.forme].filter(Boolean).join(' · ')
+        return (
+          <ListRow role="listitem" key={p.id}>
+            <ListRowIcon>
+              <ProductIcon forme={p.forme} className="size-5" />
+            </ListRowIcon>
+            <div className="min-w-0 flex-1">
+              <ListRowLink to={`/catalogue/${p.id}`} title={p.nomCommercial}>
+                {p.nomCommercial}
+              </ListRowLink>
+              {sub ? (
+                <div className="text-muted-foreground mt-0.5 truncate text-xs">{sub}</div>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-1.5">
+              {roles.map((r) => (
+                <StatusBadge key={r} tone="neutral">
+                  {t(ROLE_LABEL[r])}
+                </StatusBadge>
+              ))}
+            </div>
+          </ListRow>
+        )
+      })}
+    </div>
   )
 }
 
@@ -288,71 +370,6 @@ function AmmPanel({ vm }: { vm: OrgCockpitVm }) {
         ) : null}
       </div>
     </section>
-  )
-}
-
-/** Suivi de validité par type de pièce (GMP, ML, AMM, CoPP, FSC, CoA…) — politique Monitor. */
-function PiecesPanel({ pieces, partyId }: { pieces: PieceTypeValidity[]; partyId: string }) {
-  const { t, lang } = useI18n()
-  const expiryText = (daysLeft: number) =>
-    daysLeft < 0
-      ? t({ fr: `Périmé depuis ${-daysLeft} j`, en: `${-daysLeft}d overdue` })
-      : t({ fr: `Expire dans ${daysLeft} j`, en: `in ${daysLeft}d` })
-  return (
-    <section className="space-y-3">
-      <h2 className="font-display text-sm font-semibold">
-        {t({ fr: 'Validité des pièces', en: 'Document validity' })}
-      </h2>
-      <div className="flex flex-col gap-2">
-        {pieces.map((pv) => (
-          <Link
-            key={pv.docType}
-            to={`/catalogue/organisations/${partyId}/pieces/${pv.docType}`}
-            className="bg-card hover:border-muted-foreground/25 focus-visible:ring-ring/50 flex items-center gap-3 rounded-xl border px-4 py-3 no-underline transition-all outline-none hover:shadow-sm focus-visible:ring-[3px]"
-          >
-            <div className="min-w-0 flex-1">
-              <div className="font-display truncate text-sm font-semibold">
-                {docTypeLabel(pv.docType, lang)}
-              </div>
-              <div className="text-muted-foreground mt-0.5 truncate text-xs">
-                {t({ fr: `${pv.valid}/${pv.total} à jour`, en: `${pv.valid}/${pv.total} valid` })}
-                {pv.next ? ` · ${pv.next.productName}` : ''}
-              </div>
-            </div>
-            {pv.next ? (
-              <span className="text-muted-foreground hidden text-xs sm:inline">
-                {expiryText(pv.next.daysLeft)}
-              </span>
-            ) : null}
-            <PieceBadge pv={pv} />
-          </Link>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function PieceBadge({ pv }: { pv: PieceTypeValidity }) {
-  const { t } = useI18n()
-  if (pv.expired > 0)
-    return (
-      <StatusBadge tone="danger">
-        <AlertCircle />
-        {t({ fr: 'Périmée', en: 'Expired' })}
-      </StatusBadge>
-    )
-  if (pv.expiring > 0)
-    return (
-      <StatusBadge tone={KPI_BADGE_TONE[pv.tone]}>
-        <Clock3 />
-        {t({ fr: 'À renouveler', en: 'Renew' })}
-      </StatusBadge>
-    )
-  return (
-    <StatusBadge tone="success">
-      <ShieldCheck />
-      {t({ fr: 'Valide', en: 'Valid' })}
-    </StatusBadge>
   )
 }
 

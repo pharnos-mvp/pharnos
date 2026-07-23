@@ -1,6 +1,13 @@
 import { expiringDocs, expiryTone, type KpiTone } from '@/features/dashboard/dashboard-data'
-import type { DocumentRecord, PartyRecord, PartyRole, ProductRecord } from '@/lib/db'
-import { requiresExpiry } from './doc-types'
+import type {
+  CorrespondenceMessageRecord,
+  CorrespondenceRecord,
+  DocumentRecord,
+  DossierRecord,
+  PartyRecord,
+  PartyRole,
+  ProductRecord,
+} from '@/lib/db'
 
 const isActive = <T extends { deletedAt?: string | null }>(r: T): boolean => r.deletedAt == null
 
@@ -96,19 +103,6 @@ export function filterOrgRows(rows: OrgRow[], q: string): OrgRow[] {
 
 // ───────────────────────── Fiche organisation (cockpit RA) ─────────────────────────
 
-/** Validité agrégée d'un type de pièce dans le périmètre d'une organisation. */
-export interface PieceTypeValidity {
-  docType: string
-  /** Pièces de ce type dans le périmètre (datées OU NON — une pièce sans date n'est pas en défaut). */
-  total: number
-  valid: number
-  expiring: number
-  expired: number
-  tone: KpiTone
-  /** Pièce la plus urgente (datée) du type ; négatif = périmée. */
-  next?: { expiryDate: string; daysLeft: number; productName: string }
-}
-
 /** Statut AMM par pays (rôle titulaire). */
 export interface AmmCountryStat {
   code: string
@@ -137,13 +131,7 @@ export interface OrgCockpitVm {
   expiringCount: number
   expiredCount: number
   amm: AmmPortfolio
-  /** Validité par type de pièce, des plus urgentes aux plus saines. */
-  pieces: PieceTypeValidity[]
 }
-
-// Ordre d'urgence (plus petit = plus urgent). `expiryTone` ne renvoie que good/passable/poor ;
-// les autres valeurs de KpiTone complètent le type.
-const toneRank: Record<KpiTone, number> = { poor: 0, fair: 1, passable: 2, neutral: 3, good: 4 }
 
 export function buildOrgCockpitVm(
   party: PartyRecord,
@@ -155,34 +143,6 @@ export function buildOrgCockpitVm(
   const exp = expiringDocs(docs, linked, now) // périmées ∪ dans la fenêtre (politique unique)
   const expById = new Set(exp.map((i) => i.id))
   const expiredIds = new Set(exp.filter((i) => i.daysLeft <= 0).map((i) => i.id))
-  const expByType = groupBy(exp, (i) => i.docType)
-
-  // « Validité des pièces » = pièces à VALIDITÉ uniquement (AMM, GMP, COPP, FSC, ML, CoA). Les
-  // documents d'INFO (RCP, notice, étiquetage, artwork…) n'ont pas de date de validité → ils n'ont
-  // rien à faire dans ce panneau. On groupe TOUS les docs de ces types (datés ou non — une pièce
-  // sans date n'est pas en défaut), pour que le total colle à la page dédiée.
-  const byType = groupBy(
-    docs.filter((d) => requiresExpiry(d.docType)),
-    (d) => d.docType,
-  )
-  const pieces: PieceTypeValidity[] = [...byType.entries()]
-    .map(([docType, ds]) => {
-      const items = expByType.get(docType) ?? []
-      const expired = items.filter((i) => i.daysLeft <= 0).length
-      const next = items[0]
-      return {
-        docType,
-        total: ds.length,
-        valid: ds.length - items.length,
-        expiring: items.length - expired,
-        expired,
-        tone: expiryTone(items),
-        next: next
-          ? { expiryDate: next.expiryDate, daysLeft: next.daysLeft, productName: next.productName }
-          : undefined,
-      }
-    })
-    .sort((a, b) => toneRank[a.tone] - toneRank[b.tone] || b.total - a.total)
 
   // Portefeuille AMM (par pays).
   const ammDocs = docs.filter((d) => d.docType === 'amm')
@@ -207,17 +167,19 @@ export function buildOrgCockpitVm(
     expiringCount: exp.length - expiredCount,
     expiredCount,
     amm,
-    pieces,
   }
 }
 
-/** Une pièce de l'organisation, telle qu'affichée en carte sur la page dédiée à un type. */
+/** Une pièce de l'organisation, telle qu'affichée en carte (onglets de la fiche Organisation). */
 export interface OrgPieceCard {
   id: string
   fileName: string
   filePath: string | null
   size: number
   productName: string
+  docType: string
+  /** Date de dépôt (tri « par date ») — ISO. */
+  createdAt: string
   expiryDate: string | null
   /** Jours restants (négatif = périmé) ; `null` si la pièce n'est pas datée. */
   daysLeft: number | null
@@ -227,24 +189,25 @@ export interface OrgPieceCard {
 const STATE_RANK: Record<OrgPieceCard['state'], number> = { expired: 0, expiring: 1, valid: 2 }
 
 /**
- * Pièces d'un TYPE donné pour une organisation → cartes de la page dédiée.
+ * Documents d'une organisation → cartes, filtrés par `keep` (un onglet = un prédicat : AMM, pièces
+ * admin hors AMM, documents d'info…).
  *
- * L'état vient de la **même** source que le panneau de validité (`expiringDocs`, politique Monitor
- * unique) : la page ne peut donc pas contredire la carte sur laquelle on vient de cliquer. Tri par
- * urgence (périmées, puis à renouveler, puis valides), les plus pressées d'abord.
+ * L'état vient de la **même** source que le panneau/monitoring (`expiringDocs`, politique unique) :
+ * un onglet ne peut pas contredire l'état affiché ailleurs. Tri par urgence (périmées, puis à
+ * renouveler, puis valides), les plus pressées d'abord.
  */
-export function orgPieceCards(
+export function orgDocCards(
   party: PartyRecord,
   products: ProductRecord[],
   documents: DocumentRecord[],
-  docType: string,
   now: Date,
+  keep: (d: DocumentRecord) => boolean,
 ): OrgPieceCard[] {
   const { linked, docs } = orgScope(party.id, products, documents)
   const nameById = new Map(linked.map((p) => [p.id, p.nomCommercial]))
   const inWindow = new Set(expiringDocs(docs, linked, now).map((i) => i.id))
   return docs
-    .filter((d) => d.docType === docType)
+    .filter(keep)
     .map((d): OrgPieceCard => {
       const daysLeft = d.expiryDate
         ? Math.round((new Date(d.expiryDate).getTime() - now.getTime()) / 86_400_000)
@@ -255,6 +218,8 @@ export function orgPieceCards(
         filePath: d.filePath,
         size: d.size,
         productName: nameById.get(d.productId) ?? '—',
+        docType: d.docType,
+        createdAt: d.createdAt,
         expiryDate: d.expiryDate ?? null,
         daysLeft,
         // Périmée / à renouveler = appartenance à la fenêtre Monitor ; sinon valide.
@@ -271,6 +236,60 @@ export function orgPieceCards(
         (a.daysLeft ?? Infinity) - (b.daysLeft ?? Infinity) ||
         a.fileName.localeCompare(b.fileName),
     )
+}
+
+/**
+ * **Justificatifs** = toutes les pièces jointes échangées dans les correspondances des dossiers
+ * liés à l'organisation (factures, quittances, décharges de dépôt…). Dédoublonnées par chemin
+ * Storage (une même pièce peut être renvoyée dans plusieurs messages). `id` synthétique `corr:PATH`
+ * → réutilise la vignette/aperçu des documents (bucket `documents` unique, download par chemin).
+ */
+export function orgJustificatifCards(
+  party: PartyRecord,
+  products: ProductRecord[],
+  dossiers: DossierRecord[],
+  correspondences: CorrespondenceRecord[],
+  messages: CorrespondenceMessageRecord[],
+): OrgPieceCard[] {
+  const productIds = new Set(productsForParty(party.id, products).map((p) => p.id))
+  const nameById = new Map(products.map((p) => [p.id, p.nomCommercial]))
+  // Dossiers actifs des produits liés → produit ; puis correspondances actives de ces dossiers.
+  const dossierProduct = new Map(
+    dossiers
+      .filter((d) => isActive(d) && productIds.has(d.productId))
+      .map((d) => [d.id, d.productId]),
+  )
+  const corrProduct = new Map<string, string>()
+  for (const c of correspondences) {
+    if (isActive(c) && dossierProduct.has(c.dossierId)) {
+      corrProduct.set(c.id, dossierProduct.get(c.dossierId)!)
+    }
+  }
+  const seen = new Set<string>()
+  const cards: OrgPieceCard[] = []
+  for (const m of messages) {
+    const pid = corrProduct.get(m.correspondenceId)
+    if (!pid) continue
+    for (const a of m.attachments ?? []) {
+      if (seen.has(a.path)) continue
+      seen.add(a.path)
+      cards.push({
+        id: `corr:${a.path}`,
+        fileName: a.name,
+        filePath: a.path,
+        size: a.size,
+        productName: nameById.get(pid) ?? '—',
+        docType: 'justificatif',
+        createdAt: m.createdAt,
+        expiryDate: null,
+        daysLeft: null,
+        state: 'valid',
+      })
+    }
+  }
+  return cards.sort(
+    (a, b) => b.createdAt.localeCompare(a.createdAt) || a.fileName.localeCompare(b.fileName),
+  )
 }
 
 /** Ordre d'affichage canonique des rôles (titulaire d'abord). */
