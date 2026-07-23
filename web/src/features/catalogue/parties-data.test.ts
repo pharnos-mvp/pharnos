@@ -199,6 +199,18 @@ describe('buildOrgCockpitVm (cockpit RA)', () => {
     expect(coa?.valid).toBe(1)
     expect(coa?.expiring).toBe(0)
   })
+
+  it('les docs d’INFO (RCP, notice…) sont EXCLUS du panneau de validité (pas de date à vérifier)', () => {
+    const maker = party('maker', { roles: ['fabricant'] })
+    const products = [product('p1', { fabricantId: 'maker' })]
+    const docs = [
+      doc('gmp', { productId: 'p1', docType: 'gmp', expiryDate: inDays(400) }),
+      doc('rcp', { productId: 'p1', category: 'info', docType: 'rcp' }),
+      doc('notice', { productId: 'p1', category: 'info', docType: 'notice' }),
+    ]
+    const vm = buildOrgCockpitVm(maker, products, docs, NOW)
+    expect(vm.pieces.map((p) => p.docType)).toEqual(['gmp'])
+  })
 })
 
 describe('orgPieceCards (page dédiée à un type de pièce)', () => {
