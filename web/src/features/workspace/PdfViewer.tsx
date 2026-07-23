@@ -26,8 +26,14 @@ export interface PdfViewerHandle {
  *  • `watermark` : texte incrusté en diagonale sur chaque canvas (traçabilité reviewer, L1) —
  *    dessiné à l'affichage, ne modifie pas le fichier.
  */
+interface PdfViewport {
+  width: number
+  height: number
+}
 interface PdfPage {
-  getViewport: (o: { scale: number }) => { width: number; height: number }
+  getViewport: (o: { scale: number }) => PdfViewport
+  /** Flux du contenu texte de la page → couche de sélection (pdf.js `TextLayer`). */
+  streamTextContent: () => ReadableStream
   render: (p: {
     canvas: HTMLCanvasElement
     canvasContext: CanvasRenderingContext2D
@@ -107,6 +113,23 @@ export const PdfViewer = forwardRef<
     // Une page corrompue est re-tentée à chaque passage du viewport : ne logguer qu'une fois.
     const warned = new Set<number>()
 
+    // Couche de texte : positions en % (responsive natif), MAIS la taille de police est absolue et
+    // suit `--total-scale-factor` = largeur affichée ÷ largeur de page (en points). On mémorise la
+    // largeur-page en points par `holder` et on réapplique le facteur à chaque redimensionnement.
+    const pagePts = new Map<HTMLElement, number>()
+    const applyScale = (holder: HTMLElement) => {
+      const pts = pagePts.get(holder)
+      if (pts && holder.clientWidth) {
+        holder.style.setProperty('--total-scale-factor', String(holder.clientWidth / pts))
+      }
+    }
+    const resizeObserver =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver((entries) => {
+            for (const e of entries) applyScale(e.target as HTMLElement)
+          })
+        : undefined
+
     void (async () => {
       try {
         const pdfjs = await loadPdfjs()
@@ -180,7 +203,8 @@ export const PdfViewer = forwardRef<
         for (let p = 1; p <= doc.numPages; p++) {
           const holder = document.createElement('div')
           holder.dataset.page = String(p)
-          holder.className = 'mx-auto mb-3 rounded border bg-white shadow'
+          // `relative` : ancre la couche de texte `inset:0` (sélection) exactement sur le canvas.
+          holder.className = 'relative mx-auto mb-3 rounded border bg-white shadow'
           holder.style.maxWidth = `${ref.width}px`
           holder.style.width = '100%'
           holder.style.aspectRatio = `${ref.width} / ${ref.height}`
@@ -211,11 +235,42 @@ export const PdfViewer = forwardRef<
               await page.render({ canvas, canvasContext: ctx, viewport }).promise
               if (watermark) drawWatermark(canvas, ctx, watermark)
               if (cancelled || !rendered.has(pageNum)) return
+
+              // Couche de texte (sélection/copie) — BEST-EFFORT : un échec ici (page sans texte,
+              // scan pur, API absente) laisse le canvas s'afficher normalement. Jamais de régression.
+              let textLayerDiv: HTMLDivElement | undefined
+              try {
+                const div = document.createElement('div')
+                div.className = 'pdf-text-layer'
+                const textLayer = new pdfjs.TextLayer({
+                  textContentSource: page.streamTextContent(),
+                  container: div,
+                  viewport,
+                } as unknown as ConstructorParameters<typeof pdfjs.TextLayer>[0])
+                await textLayer.render()
+                if (cancelled || !rendered.has(pageNum)) {
+                  textLayer.cancel()
+                  return
+                }
+                // pdf.js dimensionne le conteneur via `round(--total-scale-factor * …)` ; on rend la
+                // main au CSS `inset:0` (= boîte exacte du canvas) pour un alignement sans arrondi.
+                div.style.width = ''
+                div.style.height = ''
+                textLayerDiv = div
+              } catch {
+                textLayerDiv = undefined
+              }
+
               // Format différent du gabarit (page paysage…) : le conteneur épouse le rendu
               // réel — pas de réécriture (reflow) quand le ratio est déjà le bon.
               const ratioNow = `${viewport.width} / ${viewport.height}`
               if (holder.style.aspectRatio !== ratioNow) holder.style.aspectRatio = ratioNow
-              holder.replaceChildren(canvas)
+              holder.replaceChildren(...(textLayerDiv ? [canvas, textLayerDiv] : [canvas]))
+              if (textLayerDiv) {
+                pagePts.set(holder, viewport.width / SCALE) // largeur page en points (viewport = pts × SCALE)
+                applyScale(holder)
+                resizeObserver?.observe(holder)
+              }
             } catch (e) {
               rendered.delete(pageNum)
               if (!cancelled && !warned.has(pageNum)) {
@@ -234,9 +289,11 @@ export const PdfViewer = forwardRef<
               if (entry.isIntersecting) {
                 renderPage(holder, pageNum)
               } else if (rendered.has(pageNum)) {
-                // Page loin du viewport : canvas libéré (le conteneur garde sa taille →
-                // aucun saut de scroll), re-rendu à l'approche suivante.
+                // Page loin du viewport : canvas + couche de texte libérés (le conteneur garde sa
+                // taille → aucun saut de scroll), re-rendus à l'approche suivante.
                 rendered.delete(pageNum)
+                resizeObserver?.unobserve(holder)
+                pagePts.delete(holder)
                 holder.replaceChildren()
               }
             }
@@ -260,6 +317,7 @@ export const PdfViewer = forwardRef<
     return () => {
       cancelled = true
       observer?.disconnect()
+      resizeObserver?.disconnect()
       // Optional call : ne plante jamais si l'API diffère selon la version de pdfjs.
       void task?.destroy?.()
     }

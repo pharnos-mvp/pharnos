@@ -453,3 +453,59 @@
     margin: 2rem -22px -28px;
   }
 }
+
+/* ── Couche de texte PDF (sélection / copier-coller) ────────────────────────────────────────────
+   Overlay TRANSPARENT superposé au canvas de PdfViewer : le rendu reste le canvas (image), cette
+   couche ne porte que le texte positionné, invisible, sélectionnable. Le canvas seul n'expose aucun
+   texte → retour CEO « on n'arrive pas à sélectionner du texte ».
+
+   Alignement responsive SANS mesure : pdf.js pose `left`/`top` en POURCENTAGE de la page (l'overlay
+   étant `inset:0` = même boîte que le canvas, ça suit toute largeur d'affichage). Seule la taille de
+   police est absolue → pilotée par `--total-scale-factor` (= largeur affichée ÷ largeur page en pts),
+   posée en JS sur le conteneur (`holder`) et rafraîchie au redimensionnement.
+
+   On N'IMPORTE PAS `pdf_viewer.css` (il embarque l'éditeur de surlignage et rend `::selection`
+   transparent, l'inverse de ce qu'on veut) : voici les seules règles de positionnement de pdf.js v6,
+   scellées sous `.pdf-text-layer`, plus une sélection VISIBLE. */
+.pdf-text-layer {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  opacity: 1;
+  line-height: 1;
+  text-align: initial;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  z-index: 1;
+  --min-font-size: 1; /* pdf.js réécrit cette variable inline sur le conteneur (min. navigateur). */
+  --text-scale-factor: calc(var(--total-scale-factor, 1) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+.pdf-text-layer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0 0;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.pdf-text-layer > :not(.markedContent),
+.pdf-text-layer .markedContent span:not(.markedContent) {
+  --font-height: 0;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  --scale-x: 1;
+  --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+.pdf-text-layer .markedContent {
+  display: contents;
+}
+/* Sélection VISIBLE (bleu Pharnos) — pdf.js la neutralise par défaut, on la rétablit pour le copier. */
+.pdf-text-layer ::-moz-selection {
+  background: rgb(37 99 235 / 0.3);
+}
+.pdf-text-layer ::selection {
+  background: rgb(37 99 235 / 0.3);
+}
