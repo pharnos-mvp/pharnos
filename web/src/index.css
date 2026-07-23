@@ -474,6 +474,7 @@
   opacity: 1;
   line-height: 1;
   text-align: initial;
+  -webkit-text-size-adjust: none; /* iOS Safari : sans préfixe, ignoré → léger désalignement mobile. */
   text-size-adjust: none;
   forced-color-adjust: none;
   transform-origin: 0 0;

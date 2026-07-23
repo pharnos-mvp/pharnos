@@ -239,10 +239,11 @@ export const PdfViewer = forwardRef<
               // Couche de texte (sélection/copie) — BEST-EFFORT : un échec ici (page sans texte,
               // scan pur, API absente) laisse le canvas s'afficher normalement. Jamais de régression.
               let textLayerDiv: HTMLDivElement | undefined
+              let textLayer: InstanceType<typeof pdfjs.TextLayer> | undefined
               try {
                 const div = document.createElement('div')
                 div.className = 'pdf-text-layer'
-                const textLayer = new pdfjs.TextLayer({
+                textLayer = new pdfjs.TextLayer({
                   textContentSource: page.streamTextContent(),
                   container: div,
                   viewport,
@@ -258,6 +259,8 @@ export const PdfViewer = forwardRef<
                 div.style.height = ''
                 textLayerDiv = div
               } catch {
+                // Rejet du rendu (rare) : libère le reader de flux + sort du set statique pdf.js.
+                textLayer?.cancel()
                 textLayerDiv = undefined
               }
 
