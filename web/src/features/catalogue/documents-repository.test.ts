@@ -113,4 +113,33 @@ describe('updateDocumentDates', () => {
     expect((await db.documents.get(d.id))?.expiryDate).toBe('2027-01-01')
     expect(await db.outbox.where('entity').equals('document').count()).toBe(0)
   })
+
+  it('AMM : édite le PAYS quand il est fourni (cartes AMM par pays)', async () => {
+    const d = await addDocument(ORG, PRODUCT, {
+      category: 'admin',
+      docType: 'amm',
+      file: makeFile(),
+      expiryDate: '2028-01-01',
+      country: null,
+    })
+    await updateDocumentDates(d.id, {
+      issueDate: null,
+      expiryDate: '2028-01-01',
+      country: 'CI',
+    })
+    expect((await db.documents.get(d.id))?.country).toBe('CI')
+  })
+
+  it('pays INTACT quand il n’est pas fourni (édition d’un autre type de pièce)', async () => {
+    const d = await addDocument(ORG, PRODUCT, {
+      category: 'admin',
+      docType: 'amm',
+      file: makeFile(),
+      expiryDate: '2028-01-01',
+      country: 'SN',
+    })
+    // Pas de `country` dans le patch → le champ ne doit pas être touché.
+    await updateDocumentDates(d.id, { issueDate: '2026-01-15', expiryDate: '2028-01-01' })
+    expect((await db.documents.get(d.id))?.country).toBe('SN')
+  })
 })
