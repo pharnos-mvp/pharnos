@@ -50,6 +50,22 @@ export function docTypesFor(category: DocumentCategory): DocTypeOption[] {
   return category === 'info' ? INFO_DOC_TYPES : ADMIN_DOC_TYPES
 }
 
+const INFO_DOC_TYPE_CODES = new Set(INFO_DOC_TYPES.map((d) => d.code))
+const ADMIN_DOC_TYPE_CODES = new Set(ADMIN_DOC_TYPES.map((d) => d.code))
+
+/**
+ * Catégorie CANONIQUE d'une pièce, déduite de son `docType` (taxonomie ci-dessus) et NON du champ
+ * `category` stocké. Une COA déposée avant sa reclassification en pièce admin (#252) porte encore
+ * `category: 'info'` en base : classer par `docType` la range correctement en « Pièces admin »
+ * partout (onglets de la fiche Organisation). Repli sur la catégorie stockée pour un `docType`
+ * inconnu (données futures/legacy hors taxonomie).
+ */
+export function categoryForDocType(docType: string, fallback: DocumentCategory): DocumentCategory {
+  if (INFO_DOC_TYPE_CODES.has(docType)) return 'info'
+  if (ADMIN_DOC_TYPE_CODES.has(docType)) return 'admin'
+  return fallback
+}
+
 export function docTypeLabel(code: string, lang: Lang = 'fr'): string {
   const opt = [...INFO_DOC_TYPES, ...ADMIN_DOC_TYPES].find((d) => d.code === code)
   if (!opt) return code

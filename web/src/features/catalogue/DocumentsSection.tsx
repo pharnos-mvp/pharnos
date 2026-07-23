@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/select'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { renewalLeadDays } from '@/features/dashboard/dashboard-data'
+import { COUNTRIES, countryLabel } from '@/features/workspace/dossier-constants'
 import type { DocumentCategory } from '@/lib/db'
 import { UPLOAD_ACCEPT } from '@/lib/files'
 import { useI18n } from '@/lib/i18n-context'
@@ -76,6 +77,8 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
   const [expiryDate, setExpiryDate] = useState('')
   const [issueDate, setIssueDate] = useState('')
   const [reference, setReference] = useState('')
+  // Pays de l'AMM (liste au choix) : alimente les cartes AMM par pays de la fiche Organisation.
+  const [country, setCountry] = useState('')
   const [busy, setBusy] = useState(false)
   const [resetKey, setResetKey] = useState(0)
   // Formulaire d'ajout replié par défaut : on n'affiche que la liste + un bouton « + » (recette CEO).
@@ -142,6 +145,7 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
         expiryDate: expiryDate || null,
         issueDate: isAmm ? issueDate || null : null,
         reference: isAmm ? reference.trim() || null : null,
+        country: isAmm ? country || null : null,
       })
       void syncCatalogue(orgId)
       toast.success(t({ fr: 'Document ajouté', en: 'Document added' }))
@@ -149,6 +153,7 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
       setExpiryDate('')
       setIssueDate('')
       setReference('')
+      setCountry('')
       setDatesTouched(false)
       setResetKey((k) => k + 1)
       setAdding(false)
@@ -198,7 +203,10 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
           <div className="space-y-1.5">
             <Label>{t({ fr: 'Type de document', en: 'Document type' })}</Label>
             <Select value={docType} onValueChange={setDocType}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger
+                className="w-full"
+                aria-label={t({ fr: 'Type de document', en: 'Document type' })}
+              >
                 <SelectValue placeholder={t({ fr: 'Type', en: 'Type' })} />
               </SelectTrigger>
               <SelectContent>
@@ -219,6 +227,24 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
                 onChange={(e) => setReference(e.target.value)}
                 placeholder={t({ fr: 'Ex. AMM_2015_7457', en: 'e.g. MA_2015_7457' })}
               />
+            </div>
+          ) : null}
+
+          {isAmm ? (
+            <div className="space-y-1.5">
+              <Label>{t({ fr: 'Pays', en: 'Country' })}</Label>
+              <Select value={country} onValueChange={setCountry}>
+                <SelectTrigger className="w-full" aria-label={t({ fr: 'Pays', en: 'Country' })}>
+                  <SelectValue placeholder={t({ fr: 'Sélectionner…', en: 'Select…' })} />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRIES.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {countryLabel(c.code, lang)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           ) : null}
 

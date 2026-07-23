@@ -14,6 +14,7 @@ import {
   filterOrgRows,
   orgDocCards,
   orgJustificatifCards,
+  orgTypeCards,
   productsForParty,
   sortRoles,
 } from './parties-data'
@@ -337,6 +338,74 @@ describe('orgDocCards (cartes d’un onglet, par prédicat)', () => {
       (d) => d.docType === 'amm',
     )
     expect(cards.map((c) => c.id)).toEqual(['keep'])
+  })
+})
+
+describe('orgTypeCards (agrégation par type — onglets Pièces admin / Documents d’info)', () => {
+  const holder = party('holder')
+  const products = [
+    product('p1', { titulaireId: 'holder', nomCommercial: 'Alpha' }),
+    product('p2', { titulaireId: 'holder', nomCommercial: 'Beta' }),
+  ]
+
+  it('une carte par type : total + pire état + pièce la plus urgente, type en défaut en tête', () => {
+    const cards = orgTypeCards(
+      holder,
+      products,
+      [
+        doc('g1', { docType: 'gmp', productId: 'p1', expiryDate: inDays(-5) }), // périmée
+        doc('g2', { docType: 'gmp', productId: 'p2', expiryDate: inDays(400) }), // valide (préavis 180 j)
+        doc('c1', { docType: 'coa', expiryDate: inDays(900) }), // valide (fenêtre CoA 547 j)
+      ],
+      NOW,
+      (d) => d.docType !== 'amm',
+    )
+    const gmp = cards.find((c) => c.docType === 'gmp')!
+    expect(gmp).toMatchObject({
+      total: 2,
+      expired: 1,
+      valid: 1,
+      state: 'expired',
+      nextProductName: 'Alpha',
+    })
+    expect(gmp.nextDaysLeft).toBe(-5)
+    expect(cards.find((c) => c.docType === 'coa')).toMatchObject({ total: 1, state: 'valid' })
+    // Le type en défaut passe avant le type sain (tri par urgence).
+    expect(cards[0]?.docType).toBe('gmp')
+  })
+
+  it('documents d’INFO (sans date de validité) → carte « valide », total exact', () => {
+    const cards = orgTypeCards(
+      holder,
+      products,
+      [
+        doc('r1', { docType: 'rcp', category: 'info' }),
+        doc('r2', { docType: 'rcp', category: 'info' }),
+        doc('n1', { docType: 'notice', category: 'info' }),
+      ],
+      NOW,
+      (d) => d.category === 'info',
+    )
+    expect(cards.map((c) => [c.docType, c.total, c.state])).toEqual(
+      expect.arrayContaining([
+        ['rcp', 2, 'valid'],
+        ['notice', 1, 'valid'],
+      ]),
+    )
+  })
+
+  it('respecte le prédicat (n’agrège que les types demandés)', () => {
+    const cards = orgTypeCards(
+      holder,
+      products,
+      [
+        doc('a', { docType: 'amm', expiryDate: inDays(100) }),
+        doc('g', { docType: 'gmp', expiryDate: inDays(100) }),
+      ],
+      NOW,
+      (d) => d.docType === 'amm',
+    )
+    expect(cards.map((c) => c.docType)).toEqual(['amm'])
   })
 })
 
