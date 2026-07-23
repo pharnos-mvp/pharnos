@@ -469,9 +469,30 @@ export function AppShell() {
                 {topbar.title ?? t(pageTitle)}
               </div>
 
-              {/* Recherche globale — placeholder propre (non câblée → toast « bientôt »). Masquée
-                  sur les pages qui ont leur propre recherche (évite deux champs sur un écran). */}
-              {topbar.searchHidden ? null : (
+              {/* Recherche CONTEXTUELLE posée par la page (useTopbar) : champ RÉEL au même
+                  emplacement que la recherche globale, à gauche de langue/thème. Masqué < md
+                  (place insuffisante) → la page garde son champ en ligne sur petit écran. */}
+              {topbar.searchValue !== undefined && topbar.onSearchChange ? (
+                <div className="relative hidden w-60 shrink-0 md:block">
+                  <Search
+                    className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
+                    aria-hidden
+                  />
+                  <input
+                    type="search"
+                    value={topbar.searchValue}
+                    onChange={(e) => topbar.onSearchChange?.(e.target.value)}
+                    maxLength={100}
+                    placeholder={
+                      topbar.searchPlaceholder ?? t({ fr: 'Rechercher…', en: 'Search…' })
+                    }
+                    aria-label={topbar.searchPlaceholder ?? t({ fr: 'Rechercher', en: 'Search' })}
+                    className="bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-lg border pr-3 pl-9 text-[13px] outline-none focus-visible:ring-[3px]"
+                  />
+                </div>
+              ) : /* Recherche globale — placeholder propre (non câblée → toast « bientôt »). Masquée
+                     sur les pages qui ont leur propre recherche (évite deux champs sur un écran). */
+              topbar.searchHidden ? null : (
                 <button
                   type="button"
                   onClick={() =>

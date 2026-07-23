@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Building2 } from 'lucide-react'
 import { useParams } from 'react-router-dom'
@@ -60,11 +60,17 @@ function OrgPieceListView({
   const { t } = useI18n()
   const data = useOrgDocs(partyId)
   const now = useMemo(() => new Date(), [])
+  // La recherche vit dans la BARRE SUPÉRIEURE (à gauche de langue/thème) : l'état est donc porté
+  // ici, puis partagé entre le bandeau et la grille. `setQ` (setter useState) est stable → aucune
+  // boucle dans l'effet de `useTopbar`.
+  const [q, setQ] = useState('')
 
   useTopbar({
     title: data?.party ? `${data.party.nom} · ${title}` : title,
     backTo: `/catalogue/organisations/${partyId}`,
-    searchHidden: true,
+    searchValue: q,
+    onSearchChange: setQ,
+    searchPlaceholder: t({ fr: 'Rechercher (nom, produit…)', en: 'Search (name, product…)' }),
   })
 
   const cards = useMemo(
@@ -102,7 +108,7 @@ function OrgPieceListView({
   return (
     <Page>
       <h1 className="font-display text-base font-semibold">{title}</h1>
-      <PieceGrid cards={cards} emptyText={emptyText} />
+      <PieceGrid cards={cards} emptyText={emptyText} query={q} onQueryChange={setQ} />
     </Page>
   )
 }
