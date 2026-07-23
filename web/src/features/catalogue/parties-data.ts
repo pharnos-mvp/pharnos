@@ -8,7 +8,6 @@ import type {
   PartyRole,
   ProductRecord,
 } from '@/lib/db'
-import { requiresExpiry } from './doc-types'
 
 const isActive = <T extends { deletedAt?: string | null }>(r: T): boolean => r.deletedAt == null
 
@@ -104,19 +103,6 @@ export function filterOrgRows(rows: OrgRow[], q: string): OrgRow[] {
 
 // ───────────────────────── Fiche organisation (cockpit RA) ─────────────────────────
 
-/** Validité agrégée d'un type de pièce dans le périmètre d'une organisation. */
-export interface PieceTypeValidity {
-  docType: string
-  /** Pièces de ce type dans le périmètre (datées OU NON — une pièce sans date n'est pas en défaut). */
-  total: number
-  valid: number
-  expiring: number
-  expired: number
-  tone: KpiTone
-  /** Pièce la plus urgente (datée) du type ; négatif = périmée. */
-  next?: { expiryDate: string; daysLeft: number; productName: string }
-}
-
 /** Statut AMM par pays (rôle titulaire). */
 export interface AmmCountryStat {
   code: string
@@ -145,13 +131,7 @@ export interface OrgCockpitVm {
   expiringCount: number
   expiredCount: number
   amm: AmmPortfolio
-  /** Validité par type de pièce, des plus urgentes aux plus saines. */
-  pieces: PieceTypeValidity[]
 }
-
-// Ordre d'urgence (plus petit = plus urgent). `expiryTone` ne renvoie que good/passable/poor ;
-// les autres valeurs de KpiTone complètent le type.
-const toneRank: Record<KpiTone, number> = { poor: 0, fair: 1, passable: 2, neutral: 3, good: 4 }
 
 export function buildOrgCockpitVm(
   party: PartyRecord,
@@ -163,34 +143,6 @@ export function buildOrgCockpitVm(
   const exp = expiringDocs(docs, linked, now) // périmées ∪ dans la fenêtre (politique unique)
   const expById = new Set(exp.map((i) => i.id))
   const expiredIds = new Set(exp.filter((i) => i.daysLeft <= 0).map((i) => i.id))
-  const expByType = groupBy(exp, (i) => i.docType)
-
-  // « Validité des pièces » = pièces à VALIDITÉ uniquement (AMM, GMP, COPP, FSC, ML, CoA). Les
-  // documents d'INFO (RCP, notice, étiquetage, artwork…) n'ont pas de date de validité → ils n'ont
-  // rien à faire dans ce panneau. On groupe TOUS les docs de ces types (datés ou non — une pièce
-  // sans date n'est pas en défaut), pour que le total colle à la page dédiée.
-  const byType = groupBy(
-    docs.filter((d) => requiresExpiry(d.docType)),
-    (d) => d.docType,
-  )
-  const pieces: PieceTypeValidity[] = [...byType.entries()]
-    .map(([docType, ds]) => {
-      const items = expByType.get(docType) ?? []
-      const expired = items.filter((i) => i.daysLeft <= 0).length
-      const next = items[0]
-      return {
-        docType,
-        total: ds.length,
-        valid: ds.length - items.length,
-        expiring: items.length - expired,
-        expired,
-        tone: expiryTone(items),
-        next: next
-          ? { expiryDate: next.expiryDate, daysLeft: next.daysLeft, productName: next.productName }
-          : undefined,
-      }
-    })
-    .sort((a, b) => toneRank[a.tone] - toneRank[b.tone] || b.total - a.total)
 
   // Portefeuille AMM (par pays).
   const ammDocs = docs.filter((d) => d.docType === 'amm')
@@ -215,7 +167,6 @@ export function buildOrgCockpitVm(
     expiringCount: exp.length - expiredCount,
     expiredCount,
     amm,
-    pieces,
   }
 }
 

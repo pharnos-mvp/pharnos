@@ -247,34 +247,6 @@ describe('buildOrgCockpitVm (cockpit RA)', () => {
       expiring: 1,
     })
   })
-
-  it('validité par type de pièce, la plus urgente en tête', () => {
-    const maker = party('maker', { roles: ['fabricant'] })
-    const products = [product('p1', { fabricantId: 'maker' })]
-    const docs = [
-      doc('gmp', { productId: 'p1', docType: 'gmp', expiryDate: inDays(-3) }), // périmée → poor
-      doc('coa', { productId: 'p1', docType: 'coa', expiryDate: inDays(900) }), // CoA 18 mois → valide
-    ]
-    const vm = buildOrgCockpitVm(maker, products, docs, NOW)
-    expect(vm.pieces[0]?.docType).toBe('gmp') // la plus urgente d'abord
-    expect(vm.pieces[0]?.expired).toBe(1)
-    expect(vm.pieces[0]?.tone).toBe('poor')
-    const coa = vm.pieces.find((p) => p.docType === 'coa')
-    expect(coa?.valid).toBe(1)
-    expect(coa?.expiring).toBe(0)
-  })
-
-  it('les docs d’INFO (RCP, notice…) sont EXCLUS du panneau de validité (pas de date à vérifier)', () => {
-    const maker = party('maker', { roles: ['fabricant'] })
-    const products = [product('p1', { fabricantId: 'maker' })]
-    const docs = [
-      doc('gmp', { productId: 'p1', docType: 'gmp', expiryDate: inDays(400) }),
-      doc('rcp', { productId: 'p1', category: 'info', docType: 'rcp' }),
-      doc('notice', { productId: 'p1', category: 'info', docType: 'notice' }),
-    ]
-    const vm = buildOrgCockpitVm(maker, products, docs, NOW)
-    expect(vm.pieces.map((p) => p.docType)).toEqual(['gmp'])
-  })
 })
 
 describe('orgDocCards (cartes d’un onglet, par prédicat)', () => {
@@ -409,28 +381,28 @@ describe('orgJustificatifCards (pièces jointes des correspondances de l’org)'
     expect(cards).toHaveLength(1)
   })
 
-  it('ignore les corresp. d’un dossier NON lié / d’un dossier supprimé', () => {
+  it('exclut : produit non lié · dossier SUPPRIMÉ · correspondance SUPPRIMÉE', () => {
+    const at = (path: string) => [{ path, name: path, size: 1, mime: '' }]
     const cards = orgJustificatifCards(
       holder,
       products,
-      [dossier({ id: 'dos1', productId: 'p1' }), dossier({ id: 'dosX', productId: 'p9' })],
       [
-        corr({ id: 'c1', dossierId: 'dosX' }), // produit non lié
-        corr({ id: 'c2', dossierId: 'dosDel' }), // dossier inexistant
+        dossier({ id: 'dosForeign', productId: 'p9' }), // produit non lié à l'org
+        dossier({ id: 'dosDeleted', productId: 'p1', deletedAt: '2026-06-01T00:00:00.000Z' }), // supprimé
+        dossier({ id: 'dosOk', productId: 'p1' }), // lié + actif → sert de témoin
       ],
       [
-        msg({
-          id: 'm1',
-          correspondenceId: 'c1',
-          attachments: [{ path: 'a', name: 'a', size: 1, mime: '' }],
-        }),
-        msg({
-          id: 'm2',
-          correspondenceId: 'c2',
-          attachments: [{ path: 'b', name: 'b', size: 1, mime: '' }],
-        }),
+        corr({ id: 'cForeign', dossierId: 'dosForeign' }),
+        corr({ id: 'cOnDeletedDossier', dossierId: 'dosDeleted' }),
+        corr({ id: 'cDeleted', dossierId: 'dosOk', deletedAt: '2026-06-01T00:00:00.000Z' }), // corresp. supprimée
+      ],
+      [
+        msg({ id: 'm1', correspondenceId: 'cForeign', attachments: at('foreign') }),
+        msg({ id: 'm2', correspondenceId: 'cOnDeletedDossier', attachments: at('ondel') }),
+        msg({ id: 'm3', correspondenceId: 'cDeleted', attachments: at('deletedcorr') }),
       ],
     )
+    // Chaque garde (produit lié · dossier actif · correspondance active) exclut sa PJ.
     expect(cards).toHaveLength(0)
   })
 })
