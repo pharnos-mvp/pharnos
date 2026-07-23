@@ -425,9 +425,11 @@ function TypeCards({
 
 function TypeCard({ card, partyId }: { card: OrgTypeCard; partyId: string }) {
   const { t, lang } = useI18n()
-  // Les types à validité (AMM/GMP/COPP/FSC/ML/CoA) portent l'état ; les documents d'info n'ont pas
-  // de date → on n'affiche qu'un décompte, pas de badge (pas de « validité » à signaler).
-  const hasValidity = requiresExpiry(card.docType)
+  // Types à validité (AMM/GMP/COPP/FSC/ML/CoA) → état. Documents d'info (sans date) → simple
+  // décompte, pas de badge. MAIS un type admin hors barème (contract/other_admin) peut recevoir une
+  // date d'expiration via DocDatesDialog : s'il a une pièce réellement en défaut, on ne masque pas
+  // le signal (retour revue — parité avec l'ancienne grille).
+  const hasValidity = requiresExpiry(card.docType) || card.expired > 0 || card.expiring > 0
   const expiryText = (d: number) =>
     d < 0
       ? t({ fr: `Périmé depuis ${-d} j`, en: `${-d}d overdue` })

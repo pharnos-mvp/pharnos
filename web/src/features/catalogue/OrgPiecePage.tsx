@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Building2 } from 'lucide-react'
 import { useParams } from 'react-router-dom'
@@ -51,6 +51,9 @@ function OrgPieceListView({
   partyId: string
   /** Suffixe de titre (type de pièce ou pays) — l'organisation est préfixée si connue. */
   title: string
+  /** Prédicat MÉMOÏSÉ par l'appelant (`useCallback` sur docType/pays) : re-navigation
+   *  `/pieces/coa` → `/pieces/gmp` ne remonte PAS le composant → `keep` DOIT rester une dépendance
+   *  du mémo, sinon les cartes resteraient filtrées sur l'ancien type. */
   keep: (d: DocumentRecord) => boolean
   emptyText: string
 }) {
@@ -66,9 +69,7 @@ function OrgPieceListView({
 
   const cards = useMemo(
     () => (data?.party ? orgDocCards(data.party, data.products, data.documents, now, keep) : []),
-    // `keep` est recréé à chaque rendu par l'appelant : on le fige sur les données (le prédicat est pur).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data, now],
+    [data, now, keep],
   )
 
   if (data === undefined) {
@@ -110,11 +111,13 @@ function OrgPieceListView({
 export function OrgPiecePage() {
   const { t, lang } = useI18n()
   const { partyId = '', docType = '' } = useParams()
+  // Mémoïsé sur `docType` : identité stable tant que le type d'URL ne change pas (voir OrgPieceListView).
+  const keep = useCallback((d: DocumentRecord) => d.docType === docType, [docType])
   return (
     <OrgPieceListView
       partyId={partyId}
       title={docTypeLabel(docType, lang)}
-      keep={(d) => d.docType === docType}
+      keep={keep}
       emptyText={t({ fr: 'Aucune pièce de ce type', en: 'No document of this type' })}
     />
   )
@@ -129,11 +132,15 @@ export function OrgAmmCountryPage() {
     country === 'none'
       ? t({ fr: 'AMM · pays non précisé', en: 'MA · unspecified country' })
       : `AMM · ${countryLabel(country, lang)}`
+  const keep = useCallback(
+    (d: DocumentRecord) => d.docType === 'amm' && (d.country?.trim() || '') === wanted,
+    [wanted],
+  )
   return (
     <OrgPieceListView
       partyId={partyId}
       title={title}
-      keep={(d) => d.docType === 'amm' && (d.country?.trim() || '') === wanted}
+      keep={keep}
       emptyText={t({ fr: 'Aucune AMM pour ce pays', en: 'No MA for this country' })}
     />
   )
