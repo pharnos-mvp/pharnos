@@ -90,6 +90,26 @@ export async function addDocument(
   return record
 }
 
+/**
+ * Corrige les DATES d'une pièce (délivrance / expiration) — la seule métadonnée révisable après
+ * coup : une date se corrige, un fichier se remplace. Offline-first : Dexie + outbox `update`.
+ * Le push documents est op-agnostique (il `upsert` la ligne locale relue par id), donc la
+ * correction remonte telle quelle au prochain cycle, y compris saisie hors-ligne.
+ */
+export async function updateDocumentDates(
+  id: string,
+  dates: { issueDate: string | null; expiryDate: string | null },
+): Promise<void> {
+  const existing = await db.documents.get(id)
+  if (!existing || existing.deletedAt !== null) return
+  const ts = now()
+  await db.transaction('rw', db.documents, db.outbox, async () => {
+    await db.documents.update(id, { ...dates, updatedAt: ts })
+    await enqueueOutbox('document', id, 'update', { id })
+  })
+  await recordAudit(existing.orgId, 'document', id, 'update', existing.fileName)
+}
+
 export async function deleteDocument(id: string): Promise<void> {
   const existing = await db.documents.get(id)
   if (!existing || existing.deletedAt !== null) return
