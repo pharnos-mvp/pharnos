@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { FileText } from 'lucide-react'
 
+import { loadPdfjs, PDF_DOC_ASSETS } from '@/lib/pdfjs'
 import { useI18n } from '@/lib/i18n-context'
 import { downloadDocumentBlob } from './documents-sync'
 import { cacheDocumentBlob, getDocumentBlob } from './documents-repository'
@@ -109,11 +110,9 @@ export function DocThumb({ doc, onPages }: { doc: ThumbDoc; onPages?: (n: number
           }
           return
         }
-        const pdfjs = await import('pdfjs-dist')
-        const workerUrl = await import('pdfjs-dist/build/pdf.worker.min.mjs?url')
-        pdfjs.GlobalWorkerOptions.workerSrc = workerUrl.default
+        const pdfjs = await loadPdfjs()
         const data = new Uint8Array(await blob.arrayBuffer())
-        loading = pdfjs.getDocument({ data }) as unknown as PdfLoadingTask
+        loading = pdfjs.getDocument({ data, ...PDF_DOC_ASSETS }) as unknown as PdfLoadingTask
         const pdf = await loading.promise
         if (cancelled) return
         onPages?.(pdf.numPages)

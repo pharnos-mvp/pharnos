@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import path from 'node:path'
 import { defineConfig, type Plugin } from 'vitest/config'
 import react from '@vitejs/plugin-react'
@@ -32,12 +33,46 @@ function preconnectSupabase(): Plugin {
   }
 }
 
+// Assets pdf.js NON JS : les CMaps CID (`cmaps/*.bcmap`) et les 14 polices standard
+// (`standard_fonts/*.pfb|ttf`). SANS eux, `getDocument` rend en BLANC les PDF à polices CID (scans,
+// formulaires) et fausse les métriques des polices standard non embarquées. pdf.js les charge par
+// URL (`cMapUrl` / `standardFontDataUrl`) → on les expose sous `/pdf/` : servis depuis node_modules
+// en dev (middleware), copiés dans `dist/pdf/` au build. Runtime-cachés par le SW (offline).
+function pdfjsAssets(): Plugin {
+  const root = path.resolve(import.meta.dirname, 'node_modules/pdfjs-dist')
+  const SUBDIRS = ['cmaps', 'standard_fonts'] as const
+  return {
+    name: 'pharnos:pdfjs-assets',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const m = /^\/pdf\/(cmaps|standard_fonts)\/([\w.-]+)$/.exec(
+          (req.url ?? '').split('?')[0] ?? '',
+        )
+        if (!m) return next()
+        const file = path.join(root, m[1] ?? '', m[2] ?? '')
+        // Confiné au sous-dossier attendu (anti path-traversal) + existence.
+        if (!file.startsWith(path.join(root, m[1] ?? '')) || !fs.existsSync(file)) return next()
+        res.setHeader('Content-Type', 'application/octet-stream')
+        fs.createReadStream(file).pipe(res)
+      })
+    },
+    closeBundle() {
+      const out = path.resolve(import.meta.dirname, 'dist/pdf')
+      for (const sub of SUBDIRS) {
+        const src = path.join(root, sub)
+        if (fs.existsSync(src)) fs.cpSync(src, path.join(out, sub), { recursive: true })
+      }
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
     preconnectSupabase(),
+    pdfjsAssets(),
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
@@ -68,6 +103,19 @@ export default defineConfig({
         // le workspace n'a pas été visité en ligne dans la session SW). Offline-first prime :
         // la fiabilité de l'aperçu vaut 1,2 Mo d'installation.
         globPatterns: ['**/*.{js,mjs,css,html,svg,png,ico,woff2}'],
+        // Assets pdf.js (cmaps/polices) : hors précache (≈3,5 Mo → installation trop lourde), mais
+        // cachés À L'USAGE → un PDF à polices CID vu une fois en ligne reste lisible hors-ligne.
+        // Immuables par version de pdf.js → CacheFirst.
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }: { url: URL }) => url.pathname.startsWith('/pdf/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'pharnos-pdfjs-assets',
+              expiration: { maxEntries: 400, maxAgeSeconds: 60 * 60 * 24 * 90 },
+            },
+          },
+        ],
         navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
         // Prise de contrôle immédiate → l'app est servie depuis le cache dès le rechargement
