@@ -82,14 +82,15 @@ export const KPI_BADGE_TONE: Record<
 }
 
 /**
- * Conformité (%) → tonalité. Seuils CEO : ≥ 95 bon · 85-94 assez bien · 70-84 passable · < 70 médiocre.
- * `null` (aucun document analysé) → neutre.
+ * Conformité (%) → tonalité. Barème CEO ALIGNÉ sur le taux binaire « dossiers à jour » : un seul
+ * dossier en défaut doit se voir, quelle que soit la taille du portefeuille.
+ *   100 % → vert (zéro dossier en défaut) · 80-99 % → orange · < 80 % → rouge.
+ * `null` (aucun dossier) → neutre.
  */
 export function conformityTone(pct: number | null): KpiTone {
   if (pct == null) return 'neutral'
-  if (pct >= 95) return 'good'
-  if (pct >= 85) return 'fair'
-  if (pct >= 70) return 'passable'
+  if (pct >= 100) return 'good'
+  if (pct >= 80) return 'passable'
   return 'poor'
 }
 

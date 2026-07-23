@@ -480,10 +480,12 @@ describe('conformityPct', () => {
 
 describe('conformityTone', () => {
   it('mappe les seuils 95 / 85 / 70', () => {
-    expect(conformityTone(96)).toBe('good')
-    expect(conformityTone(88)).toBe('fair')
-    expect(conformityTone(76)).toBe('passable')
-    expect(conformityTone(61)).toBe('poor')
+    // 100 % SEULEMENT = vert : un dossier en défaut doit se voir même sur un gros portefeuille.
+    expect(conformityTone(100)).toBe('good')
+    expect(conformityTone(99)).toBe('passable')
+    expect(conformityTone(80)).toBe('passable')
+    expect(conformityTone(79)).toBe('poor')
+    expect(conformityTone(0)).toBe('poor')
     expect(conformityTone(null)).toBe('neutral')
   })
 })

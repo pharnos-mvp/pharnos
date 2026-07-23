@@ -1,6 +1,17 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Cloud, CloudOff, Download, FileText, Loader2, Plus, Trash2, X } from 'lucide-react'
+import {
+  Cloud,
+  CloudOff,
+  Download,
+  Eye,
+  FileText,
+  Loader2,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -18,6 +29,8 @@ import { renewalLeadDays } from '@/features/dashboard/dashboard-data'
 import type { DocumentCategory } from '@/lib/db'
 import { UPLOAD_ACCEPT } from '@/lib/files'
 import { useI18n } from '@/lib/i18n-context'
+import { DocDatesDialog, type EditableDoc } from './DocDatesDialog'
+import { DocPreviewDialog, type PreviewableDoc } from './DocPreviewDialog'
 import { isIssueAfterExpiry } from './doc-dates'
 import { docTypeLabel, docTypesFor, requiresExpiry } from './doc-types'
 import { addDocument, deleteDocument, getDocumentBlob, listDocuments } from './documents-repository'
@@ -67,6 +80,9 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
   const [resetKey, setResetKey] = useState(0)
   // Formulaire d'ajout replié par défaut : on n'affiche que la liste + un bouton « + » (recette CEO).
   const [adding, setAdding] = useState(false)
+  // Pièce en aperçu / en correction de dates (null = dialogue fermé).
+  const [preview, setPreview] = useState<PreviewableDoc | null>(null)
+  const [editing, setEditing] = useState<EditableDoc | null>(null)
   // AMM : N° + date d'émission (octroi) requis — synchronisés ensuite vers le CTD builder (Renew/Variation).
   const isAmm = docType === 'amm'
   // Garde-fou Monitor : émission postérieure à l'expiration = incohérent (signalé en rouge, ajout bloqué).
@@ -312,6 +328,38 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
                   type="button"
                   variant="ghost"
                   size="icon"
+                  aria-label={t({ fr: 'Prévisualiser', en: 'Preview' })}
+                  title={t({ fr: 'Prévisualiser', en: 'Preview' })}
+                  onClick={() =>
+                    setPreview({ id: d.id, filePath: d.filePath, fileName: d.fileName })
+                  }
+                >
+                  <Eye className="size-4" />
+                </Button>
+                {category === 'admin' ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={t({ fr: 'Modifier les dates', en: 'Edit dates' })}
+                    title={t({ fr: 'Modifier les dates', en: 'Edit dates' })}
+                    onClick={() =>
+                      setEditing({
+                        id: d.id,
+                        docType: d.docType,
+                        fileName: d.fileName,
+                        issueDate: d.issueDate ?? null,
+                        expiryDate: d.expiryDate ?? null,
+                      })
+                    }
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
                   aria-label={t({ fr: 'Télécharger', en: 'Download' })}
                   onClick={() => void handleDownload(d.id, d.fileName, d.filePath)}
                 >
@@ -331,6 +379,9 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
           })}
         </ul>
       )}
+
+      <DocPreviewDialog doc={preview} onOpenChange={(o) => !o && setPreview(null)} />
+      <DocDatesDialog doc={editing} onOpenChange={(o) => !o && setEditing(null)} />
     </div>
   )
 }
