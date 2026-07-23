@@ -246,6 +246,25 @@ describe('orgPieceCards (page dédiée à un type de pièce)', () => {
     expect(cards[0]?.daysLeft).toBe(-10)
   })
 
+  it('à état égal, la plus urgente d’abord — et J-0 est PÉRIMÉE (comme le panneau)', () => {
+    const cards = orgPieceCards(
+      holder,
+      products,
+      [
+        doc('later', { expiryDate: inDays(120) }),
+        doc('today', { expiryDate: inDays(0) }),
+        doc('soon', { expiryDate: inDays(30) }),
+      ],
+      'amm',
+      NOW,
+    )
+    expect(cards.map((c) => [c.id, c.state])).toEqual([
+      ['today', 'expired'],
+      ['soon', 'expiring'],
+      ['later', 'expiring'],
+    ])
+  })
+
   it('pièce SANS date = valide, daysLeft null (rien n’est en défaut)', () => {
     const cards = orgPieceCards(holder, products, [doc('nd', { expiryDate: null })], 'amm', NOW)
     expect(cards[0]).toMatchObject({ state: 'valid', daysLeft: null, expiryDate: null })

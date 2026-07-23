@@ -98,7 +98,7 @@ export function filterOrgRows(rows: OrgRow[], q: string): OrgRow[] {
 /** Validité agrégée d'un type de pièce dans le périmètre d'une organisation. */
 export interface PieceTypeValidity {
   docType: string
-  /** Pièces datées de ce type. */
+  /** Pièces de ce type dans le périmètre (datées OU NON — une pièce sans date n'est pas en défaut). */
   total: number
   valid: number
   expiring: number
@@ -156,12 +156,11 @@ export function buildOrgCockpitVm(
   const expiredIds = new Set(exp.filter((i) => i.daysLeft <= 0).map((i) => i.id))
   const expByType = groupBy(exp, (i) => i.docType)
 
-  // Validité par type (pièces datées uniquement).
-  const datedByType = groupBy(
-    docs.filter((d) => d.expiryDate),
-    (d) => d.docType,
-  )
-  const pieces: PieceTypeValidity[] = [...datedByType.entries()]
+  // Validité par type sur TOUS les documents du type — pas seulement les datés : une pièce sans
+  // date n'est pas en défaut (même règle que le taux de conformité), et surtout le total doit
+  // correspondre à la page dédiée, sinon la ligne « 2/3 à jour » ouvre une page de 5 pièces.
+  const byType = groupBy(docs, (d) => d.docType)
+  const pieces: PieceTypeValidity[] = [...byType.entries()]
     .map(([docType, ds]) => {
       const items = expByType.get(docType) ?? []
       const expired = items.filter((i) => i.daysLeft <= 0).length

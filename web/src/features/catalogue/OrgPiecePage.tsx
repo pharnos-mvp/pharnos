@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { AlertCircle, Clock3, PackageOpen } from 'lucide-react'
 import { useParams } from 'react-router-dom'
@@ -29,8 +29,6 @@ export function OrgPiecePage() {
   const orgId = useOrgId()
   const { partyId = '', docType = '' } = useParams()
   const [preview, setPreview] = useState<PreviewableDoc | null>(null)
-  // Nombre de pages remonté par chaque vignette (rendu paresseux) → infobulle de la carte.
-  const [pages, setPages] = useState<Record<string, number>>({})
 
   const data = useLiveQuery(async () => {
     const [party, products, documents] = await Promise.all([
@@ -38,7 +36,9 @@ export function OrgPiecePage() {
       db.products.where('orgId').equals(orgId).toArray(),
       db.documents.where('orgId').equals(orgId).toArray(),
     ])
-    return { party, products, documents }
+    // Même garde que le cockpit : une org d'une AUTRE org active, ou supprimée, n'existe pas ici.
+    const visible = party && party.orgId === orgId && party.deletedAt === null ? party : undefined
+    return { party: visible, products, documents }
   }, [partyId, orgId])
 
   const typeLabel = docTypeLabel(docType, lang)
@@ -107,8 +107,6 @@ export function OrgPiecePage() {
             <PieceCard
               key={c.id}
               card={c}
-              pageCount={pages[c.id]}
-              onPages={setPages}
               onOpen={() => setPreview({ id: c.id, filePath: c.filePath, fileName: c.fileName })}
             />
           ))}
@@ -120,29 +118,27 @@ export function OrgPiecePage() {
   )
 }
 
-function PieceCard({
-  card,
-  pageCount,
-  onPages,
-  onOpen,
-}: {
-  card: OrgPieceCard
-  pageCount: number | undefined
-  onPages: (fn: (prev: Record<string, number>) => Record<string, number>) => void
-  onOpen: () => void
-}) {
+function PieceCard({ card, onOpen }: { card: OrgPieceCard; onOpen: () => void }) {
   const { t, lang } = useI18n()
-  // Callback stable par carte : sinon la vignette relancerait son effet à chaque rendu du parent.
-  const handlePages = useCallback(
-    (n: number) => onPages((prev) => (prev[card.id] === n ? prev : { ...prev, [card.id]: n })),
-    [card.id, onPages],
-  )
+  // État LOCAL : remonter le compteur au parent re-rendrait les N cartes à chaque vignette peinte.
+  // `setPageCount` a une identité stable → l'effet de la vignette ne se relance pas.
+  const [pageCount, setPageCount] = useState<number>()
 
-  // Infobulle : nom COMPLET (le nom affiché est tronqué par la carte) + pages + taille.
+  const stateText =
+    card.state === 'expired'
+      ? t({ fr: 'Périmée', en: 'Expired' })
+      : card.state === 'expiring'
+        ? t({ fr: 'À renouveler', en: 'Renew' })
+        : t({ fr: 'Valide', en: 'Valid' })
+
+  // Infobulle : nom COMPLET (celui affiché est tronqué par la carte) + pages + taille + échéance.
   const tip = [
     card.fileName,
-    pageCount ? t({ fr: `${pageCount} page(s)`, en: `${pageCount} page(s)` }) : null,
+    pageCount ? `${pageCount} p.` : null,
     formatBytes(card.size, lang),
+    card.expiryDate
+      ? t({ fr: `expire le ${card.expiryDate}`, en: `expires ${card.expiryDate}` })
+      : null,
   ]
     .filter(Boolean)
     .join(' · ')
@@ -153,12 +149,16 @@ function PieceCard({
         type="button"
         onClick={onOpen}
         title={tip}
-        aria-label={t({ fr: `Ouvrir ${card.fileName}`, en: `Open ${card.fileName}` })}
         className="bg-card hover:border-muted-foreground/25 focus-visible:ring-ring/50 flex w-full flex-col gap-2 rounded-xl border p-2.5 text-left transition-all outline-none hover:shadow-sm focus-visible:ring-[3px]"
       >
-        <DocThumb doc={card} onPages={handlePages} />
+        <DocThumb doc={card} onPages={setPageCount} />
         <div className="min-w-0">
-          <div className="truncate text-xs font-medium" title={card.fileName}>
+          {/* Le nom affiché est tronqué et `title` ne sert qu'à la souris : on porte le détail
+              complet (nom, état, taille) pour les lecteurs d'écran. */}
+          <span className="sr-only">
+            {`${card.fileName} · ${stateText} · ${formatBytes(card.size, lang)}`}
+          </span>
+          <div className="truncate text-xs font-medium" aria-hidden>
             {card.fileName}
           </div>
           <div className="text-muted-foreground mt-0.5 truncate text-[11px]">
