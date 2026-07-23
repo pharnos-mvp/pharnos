@@ -22,6 +22,9 @@ import type { OrgPieceCard } from './parties-data'
 /** Sans accents ni casse — recherche tolérante (« cote » trouve « Côté »). */
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
+/** Étiquette COMPACTE : elle partage la ligne du nom de produit, elle doit rester discrète. */
+const BADGE_SM = 'shrink-0 gap-0.5 px-1.5 py-0 text-[10px] [&>svg]:size-2.5'
+
 type Sort = 'default' | 'date' | 'az'
 
 /**
@@ -31,9 +34,26 @@ type Sort = 'default' | 'date' | 'az'
  * compteur « X sur Y » à droite, état vide `SearchX`). `default` = l'ordre reçu (urgence), que les
  * deux boutons de tri remplacent puis rétablissent quand on les re-clique.
  */
-export function PieceGrid({ cards, emptyText }: { cards: OrgPieceCard[]; emptyText?: string }) {
+export function PieceGrid({
+  cards,
+  emptyText,
+  query,
+  onQueryChange,
+}: {
+  cards: OrgPieceCard[]
+  emptyText?: string
+  /**
+   * Recherche CONTRÔLÉE par la page (champ porté par la barre supérieure). Non fournie ⇒ la grille
+   * gère la sienne (cas d'un onglet, p. ex. Justificatifs, où il n'y a pas de barre dédiée).
+   */
+  query?: string
+  onQueryChange?: (value: string) => void
+}) {
   const { t } = useI18n()
-  const [q, setQ] = useState('')
+  const [internalQ, setInternalQ] = useState('')
+  const controlled = query !== undefined
+  const q = controlled ? query : internalQ
+  const setQ = controlled ? (onQueryChange ?? (() => {})) : setInternalQ
   const [sort, setSort] = useState<Sort>('default')
   const [preview, setPreview] = useState<PreviewableDoc | null>(null)
 
@@ -63,7 +83,9 @@ export function PieceGrid({ cards, emptyText }: { cards: OrgPieceCard[]; emptyTe
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-0 flex-1 sm:max-w-xs">
+        {/* Contrôlée : le champ vit dans la barre supérieure (≥ md) → ici on ne garde que le repli
+            petit écran, où la barre n'a pas la place de l'afficher. */}
+        <div className={cn('relative min-w-0 flex-1 sm:max-w-xs', controlled && 'md:hidden')}>
           <Search
             className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
             aria-hidden
@@ -175,15 +197,16 @@ function PieceCard({ card, onOpen }: { card: OrgPieceCard; onOpen: () => void })
     .join(' · ')
 
   return (
-    <li>
+    // `h-full` : la carte remplit sa cellule de grille → hauteur IDENTIQUE avec ou sans étiquette.
+    <li className="h-full">
       <button
         type="button"
         onClick={onOpen}
         title={tip}
-        className="bg-card hover:border-muted-foreground/25 focus-visible:ring-ring/50 flex w-full flex-col gap-2 rounded-xl border p-2.5 text-left transition-all duration-150 outline-none hover:-translate-y-px hover:shadow-md focus-visible:ring-[3px] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+        className="bg-card hover:border-muted-foreground/25 focus-visible:ring-ring/50 flex h-full w-full flex-col gap-2 rounded-xl border p-2.5 text-left transition-all duration-150 outline-none hover:-translate-y-px hover:shadow-md focus-visible:ring-[3px] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
       >
         <DocThumb doc={card} onPages={setPageCount} />
-        <div className="min-w-0">
+        <div className="w-full min-w-0">
           {/* Nom tronqué + `title` souris uniquement → détail complet porté en sr-only. */}
           <span className="sr-only">
             {`${card.fileName} · ${stateText} · ${formatBytes(card.size, lang)}`}
@@ -191,22 +214,26 @@ function PieceCard({ card, onOpen }: { card: OrgPieceCard; onOpen: () => void })
           <div className="truncate text-xs font-medium" aria-hidden>
             {card.fileName}
           </div>
-          <div className="text-muted-foreground mt-0.5 truncate text-[11px]">
-            {card.productName}
+          {/* Produit + étiquette sur la MÊME ligne. `min-h-5` réserve la hauteur de la ligne même
+              quand il n'y a PAS d'étiquette (pièce valide) → aucune carte plus courte qu'une autre. */}
+          <div className="mt-0.5 flex min-h-5 items-center gap-1.5">
+            <span className="text-muted-foreground min-w-0 flex-1 truncate text-[11px]">
+              {card.productName}
+            </span>
+            {/* Valide → aucune étiquette (choix CEO) : seules les pièces à action se signalent. */}
+            {card.state === 'expired' ? (
+              <StatusBadge tone="danger" className={BADGE_SM}>
+                <AlertCircle />
+                {t({ fr: 'Périmée', en: 'Expired' })}
+              </StatusBadge>
+            ) : card.state === 'expiring' ? (
+              <StatusBadge tone="warning" className={BADGE_SM}>
+                <Clock3 />
+                {t({ fr: 'À renouveler', en: 'Renew' })}
+              </StatusBadge>
+            ) : null}
           </div>
         </div>
-        {/* Valide → aucune étiquette (choix CEO) : seules les pièces à action se signalent. */}
-        {card.state === 'expired' ? (
-          <StatusBadge tone="danger" className="self-start">
-            <AlertCircle />
-            {t({ fr: 'Périmée', en: 'Expired' })}
-          </StatusBadge>
-        ) : card.state === 'expiring' ? (
-          <StatusBadge tone="warning" className="self-start">
-            <Clock3 />
-            {t({ fr: 'À renouveler', en: 'Renew' })}
-          </StatusBadge>
-        ) : null}
       </button>
     </li>
   )
