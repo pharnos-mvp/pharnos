@@ -191,6 +191,13 @@
 .pharnos-dash .card-body {
   padding: 16px 20px;
 }
+/* « Voir tout » : la carte NE GRANDIT PAS — le corps se plafonne et défile (barre à droite).
+   `scrollbar-gutter: stable` réserve la gouttière → aucun décalage à l'apparition de la barre. */
+.pharnos-dash .card-body.is-scroll {
+  max-height: 300px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
 
 /* ───── Badges (AA : fond du .html + texte foncé ; dark adaptatif) ───── */
 .pharnos-dash .badge {
@@ -333,18 +340,49 @@
   color: var(--pd-name);
   text-align: center;
 }
-.pharnos-dash .ctry-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  display: inline-block;
-}
 .pharnos-dash .ctry-cnt {
   font-size: 10px;
   color: var(--pd-muted);
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+/* Micro-stats d'une tuile pays : dossiers · urgences · conformité · messages.
+   Seuls les indicateurs ACTIONNABLES se colorent — les zéros restent gris et reculent
+   visuellement (lisible d'un coup d'œil, jamais touffu). */
+.pharnos-dash .ctry-stats {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2px 7px;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--pd-muted);
+}
+.pharnos-dash .ctry-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+/* Texte 10 px → TOUJOURS les tokens `*-subtle-foreground` (AA). `--info`/`--danger` bruts sont
+   des couleurs d'ICÔNE (≥ 3:1) : en sombre ils tombent à ~3,7:1 sur la carte — insuffisant ici. */
+.pharnos-dash .ctry-stat.is-danger {
+  color: var(--danger-subtle-foreground);
+  font-weight: 600;
+}
+.pharnos-dash .ctry-stat.is-warning {
+  color: var(--warning-subtle-foreground);
+  font-weight: 600;
+}
+.pharnos-dash .ctry-stat.is-success {
+  color: var(--success-subtle-foreground);
+}
+.pharnos-dash .ctry-stat.is-info {
+  color: var(--info-subtle-foreground);
+  font-weight: 600;
 }
 
 /* ───── Buttons ───── */

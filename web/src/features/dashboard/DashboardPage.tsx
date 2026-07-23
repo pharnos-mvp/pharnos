@@ -7,6 +7,7 @@ import {
   CalendarClock,
   ClipboardList,
   Clock,
+  FolderOpen,
   Globe,
   History,
   Mail,
@@ -30,25 +31,27 @@ import { useDossierSync } from '@/features/workspace/use-dossier-sync'
 import { db } from '@/lib/db'
 import { useI18n } from '@/lib/i18n-context'
 import { CountryFlag } from './CountryFlag'
-import { VeilleCard } from './components/VeilleCard'
 import {
   buildActions,
   conformityPct,
   conformitySummary,
   conformityTone,
+  countryStats,
   expiringDocs,
   expiryTone,
+  KPI_BADGE_TONE,
   openCorrespondences,
   portfolio,
   recentActivity,
   type ActionKind,
   type CorrSubState,
+  type CountryStat,
   type KpiTone,
 } from './dashboard-data'
+import { statCls } from './dashboard-ui'
 import './dashboard-mockup.css'
 
 const SYNE = "'Syne Variable', 'Syne', sans-serif"
-const TONE_RANK: Record<'info' | 'warning' | 'danger', number> = { info: 1, warning: 2, danger: 3 }
 const PREVIEW = 5
 
 // Couverture pays : UEMOA (8) + Nigeria + Ghana (choix CEO), dans l'ordre source.
@@ -79,14 +82,6 @@ const STATE_TEXT: Record<CorrSubState, string> = {
   awaiting_agency: 'var(--warning-subtle-foreground)',
   decided: 'var(--success-subtle-foreground)',
 }
-const DOT_COLOR: Record<'neutral' | 'success' | 'warning' | 'danger' | 'info', string> = {
-  neutral: 'var(--pd-muted)',
-  success: 'var(--success)',
-  warning: 'var(--warning)',
-  danger: 'var(--danger)',
-  info: 'var(--info)',
-}
-
 const emptyStyle = {
   padding: '24px 0',
   textAlign: 'center' as const,
@@ -183,45 +178,25 @@ export function DashboardPage() {
 
   const vm = useMemo(() => {
     const now = new Date()
+    const input = { products, documents, dossiers, correspondences, messages, reads, docAnalysis }
     return {
-      actions: buildActions(
-        { products, documents, dossiers, correspondences, messages, reads, docAnalysis },
-        now,
-      ),
+      actions: buildActions(input, now),
       corrItems: openCorrespondences(correspondences, messages, reads),
       activity: recentActivity(auditLog, 50),
       echeances: expiringDocs(documents, products, now),
       portfolio: portfolio(products, dossiers),
       conformity: conformitySummary(documents, docAnalysis),
+      /** Stats par pays des tuiles de couverture (dossiers · urgences · conformité · messages). */
+      countries: countryStats(input, now),
     }
   }, [products, documents, dossiers, correspondences, messages, reads, docAnalysis, auditLog])
 
   const derived = useMemo(() => {
     const open = vm.corrItems.filter((c) => c.state !== 'decided')
-    const compliance = conformityPct(vm.conformity)
-    const counts = new Map(vm.portfolio.byCountry.map((c) => [c.code, c.count]))
-    const worst = new Map<string, 'info' | 'warning' | 'danger'>()
-    for (const a of vm.actions) {
-      if (!a.country) continue
-      const tone =
-        a.kind === 'doc_expired' || a.kind === 'non_conform'
-          ? 'danger'
-          : a.kind === 'doc_expiring' || a.kind === 'dossier_suspended'
-            ? 'warning'
-            : 'info'
-      const cur = worst.get(a.country)
-      if (!cur || TONE_RANK[tone] > TONE_RANK[cur]) worst.set(a.country, tone)
-    }
-    const countryTone = (code: string): keyof typeof DOT_COLOR => {
-      const n = counts.get(code) ?? 0
-      return n === 0 ? 'neutral' : (worst.get(code) ?? 'success')
-    }
     return {
       submissionsOpen: open.length,
       submissionsCountries: new Set(open.map((c) => c.country)).size,
-      compliance,
-      counts,
-      countryTone,
+      compliance: conformityPct(vm.conformity),
     }
   }, [vm])
 
@@ -357,6 +332,81 @@ export function DashboardPage() {
   const subs = showAll.subs ? vm.corrItems : vm.corrItems.slice(0, PREVIEW)
   const activity = showAll.activity ? vm.activity : vm.activity.slice(0, PREVIEW)
 
+  /**
+   * Corps de carte. Déplié = la carte NE GRANDIT PAS : le corps est plafonné et défile (barre à
+   * droite) — retour CEO. `total > PREVIEW` suit la condition du bouton : si la liste rétrécit, le
+   * bouton disparaît ET le mode défilement avec (sinon la gouttière resterait réservée à vie).
+   * `tabIndex` : Timeline/Activité n'ont aucun élément focusable → zone inatteignable au clavier sans.
+   */
+  const bodyProps = (key: 'alerts' | 'subs' | 'activity', total: number, label: string) => {
+    const scroll = showAll[key] && total > PREVIEW
+    return {
+      className: `card-body${scroll ? ' is-scroll' : ''}`,
+      ...(scroll ? { tabIndex: 0, 'aria-label': label } : {}),
+    }
+  }
+
+  /** Résumé textuel des stats d'un pays (aria-label de la tuile — la couleur ne porte jamais l'info). */
+  const countrySummary = (st: CountryStat) =>
+    t({
+      fr: `${st.dossiers} dossier(s), ${st.urgent} urgent(s), conformité ${st.conformity == null ? 'non évaluée' : `${st.conformity} %`}, ${st.messages} message(s) non lu(s)`,
+      en: `${st.dossiers} dossier(s), ${st.urgent} urgent, compliance ${st.conformity == null ? 'not assessed' : `${st.conformity}%`}, ${st.messages} unread message(s)`,
+    })
+
+  /**
+   * Micro-stats d'une tuile pays : dossiers · urgences · conformité · messages. Seuls les
+   * indicateurs ACTIONNABLES se colorent — les zéros restent gris (lisible, jamais touffu).
+   * `aria-hidden` : le résumé complet est déjà porté par l'`aria-label` de la tuile.
+   */
+  const countryStatRow = (st: CountryStat) => {
+    const conf = st.conformity
+    // Barème de conformité : SOURCE UNIQUE `conformityTone` + `KPI_BADGE_TONE` (même échelle que
+    // le KPI « Taux de Conformité ») — jamais un second barème dupliqué par surface.
+    const confCls =
+      conf == null ? 'ctry-stat' : `ctry-stat is-${KPI_BADGE_TONE[conformityTone(conf)]}`
+    return (
+      <div className="ctry-stats" aria-hidden>
+        <span
+          className="ctry-stat"
+          title={t({ fr: `${st.dossiers} dossier(s)`, en: `${st.dossiers} dossier(s)` })}
+        >
+          <FolderOpen size={11} strokeWidth={2} />
+          {st.dossiers}
+        </span>
+        <span
+          className={statCls(st.urgent > 0, 'danger')}
+          title={t({
+            fr: `${st.urgent} point(s) urgent(s)`,
+            en: `${st.urgent} urgent item(s)`,
+          })}
+        >
+          <AlertTriangle size={11} strokeWidth={2} />
+          {st.urgent}
+        </span>
+        <span
+          className={confCls}
+          title={t({
+            fr: conf == null ? 'Conformité non évaluée' : `Conformité ${conf} %`,
+            en: conf == null ? 'Compliance not assessed' : `Compliance ${conf}%`,
+          })}
+        >
+          <ShieldCheck size={11} strokeWidth={2} />
+          {conf == null ? '—' : `${conf}%`}
+        </span>
+        <span
+          className={statCls(st.messages > 0, 'info')}
+          title={t({
+            fr: `${st.messages} message(s) non lu(s)`,
+            en: `${st.messages} unread message(s)`,
+          })}
+        >
+          <Mail size={11} strokeWidth={2} />
+          {st.messages}
+        </span>
+      </div>
+    )
+  }
+
   const seeAll = (key: 'alerts' | 'subs' | 'activity', total: number) =>
     total > PREVIEW ? (
       <button
@@ -451,7 +501,60 @@ export function DashboardPage() {
           })}
         </div>
 
-        {/* Alertes | Timeline | Activité — 5 items, « Voir tout » déplie sur place. */}
+        {/* Couverture pays — remontée au-dessus des 3 cartes (retour CEO). UEMOA + Nigeria + Ghana. */}
+        <div className="card" role="region" aria-labelledby="dash-coverage">
+          <div className="card-hd">
+            <h2 className="card-title" id="dash-coverage">
+              <Globe size={15} color="var(--info)" aria-hidden />
+              {t({ fr: 'Couverture Pays UEMOA/CEDEAO', en: 'UEMOA/ECOWAS country coverage' })}
+            </h2>
+            <span className="card-action" style={{ cursor: 'default', color: 'var(--pd-muted)' }}>
+              {DASHBOARD_COUNTRIES.length} {t({ fr: 'pays', en: 'countries' })}
+            </span>
+          </div>
+          <div className="card-body">
+            <div className="grid-cc">
+              {DASHBOARD_COUNTRIES.map((c) => {
+                const st = vm.countries.get(c.code)
+                const name = countryLabel(c.code, lang)
+                const inner = (
+                  <>
+                    <div className="ctry-flag">
+                      <CountryFlag code={c.code} size={30} />
+                    </div>
+                    <div className="ctry-name">{name}</div>
+                    {st ? (
+                      countryStatRow(st)
+                    ) : (
+                      <div className="ctry-cnt">{t({ fr: 'Aucun dossier', en: 'No dossier' })}</div>
+                    )}
+                  </>
+                )
+                // Tuile cliquable seulement si elle a des dossiers → filtre le catalogue par ce pays.
+                return st ? (
+                  <Link
+                    className="ctry-tile"
+                    key={c.code}
+                    to={`/catalogue?country=${c.code}`}
+                    title={name}
+                    aria-label={t({
+                      fr: `${name} — ${countrySummary(st)} — voir le catalogue`,
+                      en: `${name} — ${countrySummary(st)} — view catalogue`,
+                    })}
+                  >
+                    {inner}
+                  </Link>
+                ) : (
+                  <div className="ctry-tile" key={c.code} title={name}>
+                    {inner}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Alertes | Timeline | Activité — descendues sous la couverture pays (retour CEO). */}
         <div className="grid-3">
           <div className="card" role="region" aria-labelledby="dash-alerts">
             <div className="card-hd">
@@ -461,7 +564,14 @@ export function DashboardPage() {
               </h2>
               {seeAll('alerts', vm.actions.length)}
             </div>
-            <div className="card-body" style={{ padding: '8px 20px' }}>
+            <div
+              {...bodyProps(
+                'alerts',
+                vm.actions.length,
+                t({ fr: 'Alertes, liste défilante', en: 'Alerts, scrollable list' }),
+              )}
+              style={{ padding: '8px 20px' }}
+            >
               {alerts.length === 0 ? (
                 <div style={emptyStyle}>
                   {t({ fr: 'Rien à signaler — tout est à jour.', en: 'Nothing to flag.' })}
@@ -509,7 +619,13 @@ export function DashboardPage() {
               </h2>
               {seeAll('subs', vm.corrItems.length)}
             </div>
-            <div className="card-body">
+            <div
+              {...bodyProps(
+                'subs',
+                vm.corrItems.length,
+                t({ fr: 'Soumissions, liste défilante', en: 'Submissions, scrollable list' }),
+              )}
+            >
               {subs.length === 0 ? (
                 <div style={{ padding: '16px 0', fontSize: 13, color: 'var(--pd-muted)' }}>
                   {t({ fr: 'Aucune soumission en cours.', en: 'No submission in progress.' })}
@@ -553,7 +669,14 @@ export function DashboardPage() {
               </h2>
               {seeAll('activity', vm.activity.length)}
             </div>
-            <div className="card-body" style={{ padding: '8px 20px' }}>
+            <div
+              {...bodyProps(
+                'activity',
+                vm.activity.length,
+                t({ fr: 'Activité, liste défilante', en: 'Activity, scrollable list' }),
+              )}
+              style={{ padding: '8px 20px' }}
+            >
               {activity.length === 0 ? (
                 <div style={emptyStyle}>
                   {t({ fr: 'Aucune activité récente.', en: 'No recent activity.' })}
@@ -572,65 +695,6 @@ export function DashboardPage() {
             </div>
           </div>
         </div>
-
-        {/* Couverture pays — UEMOA + Nigeria + Ghana (10), 0 + pastille grise si vide. */}
-        <div className="card" role="region" aria-labelledby="dash-coverage">
-          <div className="card-hd">
-            <h2 className="card-title" id="dash-coverage">
-              <Globe size={15} color="var(--info)" aria-hidden />
-              {t({ fr: 'Couverture Pays UEMOA/CEDEAO', en: 'UEMOA/ECOWAS country coverage' })}
-            </h2>
-            <span className="card-action" style={{ cursor: 'default', color: 'var(--pd-muted)' }}>
-              {DASHBOARD_COUNTRIES.length} {t({ fr: 'pays', en: 'countries' })}
-            </span>
-          </div>
-          <div className="card-body">
-            <div className="grid-cc">
-              {DASHBOARD_COUNTRIES.map((c) => {
-                const n = derived.counts.get(c.code) ?? 0
-                const inner = (
-                  <>
-                    <div className="ctry-flag">
-                      <CountryFlag code={c.code} size={30} />
-                    </div>
-                    <div className="ctry-name">{countryLabel(c.code, lang)}</div>
-                    <div className="ctry-cnt">
-                      <div
-                        className="ctry-dot"
-                        style={{ background: DOT_COLOR[derived.countryTone(c.code)] }}
-                      />
-                      {n} {t({ fr: 'dossier(s)', en: 'dossier(s)' })}
-                    </div>
-                  </>
-                )
-                // Tuile cliquable seulement si elle a des dossiers → filtre le catalogue par ce pays.
-                return n > 0 ? (
-                  <Link
-                    className="ctry-tile"
-                    key={c.code}
-                    to={`/catalogue?country=${c.code}`}
-                    title={countryLabel(c.code, lang)}
-                    aria-label={t({
-                      fr: `${countryLabel(c.code, lang)} — ${n} dossier(s), voir le catalogue`,
-                      en: `${countryLabel(c.code, lang)} — ${n} dossier(s), view catalogue`,
-                    })}
-                  >
-                    {inner}
-                  </Link>
-                ) : (
-                  <div className="ctry-tile" key={c.code} title={countryLabel(c.code, lang)}>
-                    {inner}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Conservée hors mockup (décision CEO) : veille réglementaire. */}
-      <div className="mt-5">
-        <VeilleCard />
       </div>
     </>
   )
