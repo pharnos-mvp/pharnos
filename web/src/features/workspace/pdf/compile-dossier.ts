@@ -788,9 +788,13 @@ function stampAll(
       page.drawImage(logo, { x: MARGIN, y: hy - 4, width: lw, height: lh })
       hx = MARGIN + lw + 6
     }
-    // Noms **complets** (jamais tronqués) : titulaire à gauche, produit à droite.
+    // Noms **complets** (jamais tronqués) : titulaire à gauche ; produit **+ pays** à droite (le
+    // pays quitte le pied → « KV-Cipro · Bénin » ; sa place libérée au centre du pied = filigrane).
     drawBandEntry(page, input.titulaire, fonts.regular, hx, hy, half - (hx - MARGIN), 'left')
-    drawBandEntry(page, input.productName, fonts.regular, width - MARGIN, hy, half, 'right')
+    const headerRight = input.country
+      ? `${input.productName} · ${input.country}`
+      : input.productName
+    drawBandEntry(page, headerRight, fonts.regular, width - MARGIN, hy, half, 'right')
     page.drawLine({
       start: { x: MARGIN, y: hy - 6 },
       end: { x: width - MARGIN, y: hy - 6 },
@@ -812,14 +816,7 @@ function stampAll(
       font: fonts.regular,
       color: GRAY,
     })
-    const country = ellipsize(input.country, fonts.regular, 10, half)
-    page.drawText(country, {
-      x: (width - fonts.regular.widthOfTextAtSize(country, 10)) / 2,
-      y: fy,
-      size: 10,
-      font: fonts.regular,
-      color: GRAY,
-    })
+    // Le pays est désormais en en-tête ; le centre du pied accueille le filigrane (ci-dessous).
     const pageStr = `Page ${idx + 1} / ${total}`
     page.drawText(pageStr, {
       x: width - MARGIN - fonts.regular.widthOfTextAtSize(pageStr, 10),
@@ -829,9 +826,9 @@ function stampAll(
       color: GRAY,
     })
 
-    // Filigrane « Made with Pharnos » (offres non payantes) sur les pages de garde de SECTION —
-    // PAS la TDM (retour CEO) — SOUS le bandeau système (pied à y = 36) pour ne pas chevaucher le pays.
-    if (input.watermark && watermarkIndices.has(idx)) drawPharnosWatermark(page, fonts, 20)
+    // Filigrane « Made with Pharnos » (offres non payantes) sur les pages de garde de SECTION
+    // (PAS la TDM) — au CENTRE du pied (y = fy), place laissée libre par le pays passé en en-tête.
+    if (input.watermark && watermarkIndices.has(idx)) drawPharnosWatermark(page, fonts, fy)
   })
 }
 
@@ -1120,7 +1117,7 @@ function drawGlobalCover(
  */
 function drawPharnosWatermark(page: PDFPage, fonts: Fonts, y = 34): void {
   const { width } = page.getSize()
-  const size = 9
+  const size = 8
   const prefix = 'Made with '
   const brand = 'Pharnos'
   const prefixW = fonts.regular.widthOfTextAtSize(prefix, size)
