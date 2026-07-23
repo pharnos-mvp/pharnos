@@ -29,12 +29,11 @@ import { useOrgId } from '@/features/org/org-context'
 import { COUNTRIES, countryLabel } from '@/features/workspace/dossier-constants'
 import { useDossierSync } from '@/features/workspace/use-dossier-sync'
 import { db } from '@/lib/db'
-import { useI18n } from '@/lib/i18n-context'
+import { useI18n, type Translatable } from '@/lib/i18n-context'
 import { CountryFlag } from './CountryFlag'
 import {
   buildActions,
-  conformityPct,
-  conformitySummary,
+  complianceRate,
   conformityTone,
   countryStats,
   expiringDocs,
@@ -47,8 +46,9 @@ import {
   type CorrSubState,
   type CountryStat,
   type KpiTone,
+  type UrgencyLevel,
 } from './dashboard-data'
-import { statCls } from './dashboard-ui'
+import { statCls, urgencyCls } from './dashboard-ui'
 import './dashboard-mockup.css'
 
 const SYNE = "'Syne Variable', 'Syne', sans-serif"
@@ -130,6 +130,14 @@ const GRADE_SR: Record<KpiTone, { fr: string; en: string }> = {
   neutral: { fr: '', en: '' },
 }
 
+/** Ce que dit la COULEUR du panneau (barème CEO) — repris en infobulle : jamais la couleur seule. */
+const URGENCY_LABEL: Record<UrgencyLevel, Translatable> = {
+  danger: { fr: 'AMM expirée', en: 'MA expired' },
+  warning: { fr: 'pièce administrative expirée', en: 'administrative document expired' },
+  caution: { fr: 'pièce sous préavis de renouvellement', en: 'document within renewal notice' },
+  none: { fr: 'aucune échéance', en: 'no deadline' },
+}
+
 export function DashboardPage() {
   const orgId = useOrgId()
   const { user } = useAuth()
@@ -185,7 +193,8 @@ export function DashboardPage() {
       activity: recentActivity(auditLog, 50),
       echeances: expiringDocs(documents, products, now),
       portfolio: portfolio(products, dossiers),
-      conformity: conformitySummary(documents, docAnalysis),
+      /** Taux de conformité = dossiers À JOUR / dossiers (barème CEO, sans pondération). */
+      compliance: complianceRate(dossiers, documents, now),
       /** Stats par pays des tuiles de couverture (dossiers · urgences · conformité · messages). */
       countries: countryStats(input, now),
     }
@@ -196,7 +205,7 @@ export function DashboardPage() {
     return {
       submissionsOpen: open.length,
       submissionsCountries: new Set(open.map((c) => c.country)).size,
-      compliance: conformityPct(vm.conformity),
+      compliance: vm.compliance.pct,
     }
   }, [vm])
 
@@ -317,12 +326,12 @@ export function DashboardPage() {
     {
       Ico: ShieldCheck,
       tone: conformityTone(derived.compliance),
-      href: '/catalogue?filter=nonconform',
+      href: '/catalogue?filter=expiring',
       label: t({ fr: 'Taux de Conformité', en: 'Compliance rate' }),
       val: derived.compliance == null ? '—' : `${derived.compliance}%`,
       sub: t({
-        fr: `${vm.conformity.analyzedDocs} analysés`,
-        en: `${vm.conformity.analyzedDocs} analyzed`,
+        fr: `${vm.compliance.upToDate}/${vm.compliance.total} à jour`,
+        en: `${vm.compliance.upToDate}/${vm.compliance.total} up to date`,
       }),
       bar: conformityBar,
     },
@@ -349,8 +358,8 @@ export function DashboardPage() {
   /** Résumé textuel des stats d'un pays (aria-label de la tuile — la couleur ne porte jamais l'info). */
   const countrySummary = (st: CountryStat) =>
     t({
-      fr: `${st.dossiers} dossier(s), ${st.urgent} urgent(s), conformité ${st.conformity == null ? 'non évaluée' : `${st.conformity} %`}, ${st.messages} message(s) non lu(s)`,
-      en: `${st.dossiers} dossier(s), ${st.urgent} urgent, compliance ${st.conformity == null ? 'not assessed' : `${st.conformity}%`}, ${st.messages} unread message(s)`,
+      fr: `${st.dossiers} dossier(s), ${st.urgent} urgent(s), conformité ${st.conformity} % (${st.upToDate}/${st.dossiers} à jour), ${t(URGENCY_LABEL[st.urgency])}, ${st.messages} message(s) non lu(s)`,
+      en: `${st.dossiers} dossier(s), ${st.urgent} urgent, compliance ${st.conformity}% (${st.upToDate}/${st.dossiers} up to date), ${t(URGENCY_LABEL[st.urgency])}, ${st.messages} unread message(s)`,
     })
 
   /**
@@ -362,8 +371,7 @@ export function DashboardPage() {
     const conf = st.conformity
     // Barème de conformité : SOURCE UNIQUE `conformityTone` + `KPI_BADGE_TONE` (même échelle que
     // le KPI « Taux de Conformité ») — jamais un second barème dupliqué par surface.
-    const confCls =
-      conf == null ? 'ctry-stat' : `ctry-stat is-${KPI_BADGE_TONE[conformityTone(conf)]}`
+    const confCls = `ctry-stat is-${KPI_BADGE_TONE[conformityTone(conf)]}`
     return (
       <div className="ctry-stats" aria-hidden>
         <span
@@ -374,11 +382,8 @@ export function DashboardPage() {
           {st.dossiers}
         </span>
         <span
-          className={statCls(st.urgent > 0, 'danger')}
-          title={t({
-            fr: `${st.urgent} point(s) urgent(s)`,
-            en: `${st.urgent} urgent item(s)`,
-          })}
+          className={urgencyCls(st.urgency)}
+          title={`${t({ fr: `${st.urgent} point(s) urgent(s)`, en: `${st.urgent} urgent item(s)` })} — ${t(URGENCY_LABEL[st.urgency])}`}
         >
           <AlertTriangle size={11} strokeWidth={2} />
           {st.urgent}
@@ -386,12 +391,12 @@ export function DashboardPage() {
         <span
           className={confCls}
           title={t({
-            fr: conf == null ? 'Conformité non évaluée' : `Conformité ${conf} %`,
-            en: conf == null ? 'Compliance not assessed' : `Compliance ${conf}%`,
+            fr: `Conformité ${conf} % — ${st.upToDate}/${st.dossiers} dossier(s) à jour`,
+            en: `Compliance ${conf}% — ${st.upToDate}/${st.dossiers} dossier(s) up to date`,
           })}
         >
           <ShieldCheck size={11} strokeWidth={2} />
-          {conf == null ? '—' : `${conf}%`}
+          {`${conf}%`}
         </span>
         <span
           className={statCls(st.messages > 0, 'info')}
