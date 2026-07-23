@@ -159,7 +159,7 @@ export function OrganisationCockpit() {
       {vm && party.roles.includes('titulaire') && vm.amm.total > 0 ? <AmmPanel vm={vm} /> : null}
 
       {/* Validité des pièces — suivi des échéances (politique Monitor). */}
-      {vm && vm.pieces.length > 0 ? <PiecesPanel pieces={vm.pieces} /> : null}
+      {vm && vm.pieces.length > 0 ? <PiecesPanel pieces={vm.pieces} partyId={partyId} /> : null}
 
       {/* Produits liés */}
       <section className="space-y-3">
@@ -292,7 +292,7 @@ function AmmPanel({ vm }: { vm: OrgCockpitVm }) {
 }
 
 /** Suivi de validité par type de pièce (GMP, ML, AMM, CoPP, FSC, CoA…) — politique Monitor. */
-function PiecesPanel({ pieces }: { pieces: PieceTypeValidity[] }) {
+function PiecesPanel({ pieces, partyId }: { pieces: PieceTypeValidity[]; partyId: string }) {
   const { t, lang } = useI18n()
   const expiryText = (daysLeft: number) =>
     daysLeft < 0
@@ -305,9 +305,10 @@ function PiecesPanel({ pieces }: { pieces: PieceTypeValidity[] }) {
       </h2>
       <div className="flex flex-col gap-2">
         {pieces.map((pv) => (
-          <div
+          <Link
             key={pv.docType}
-            className="bg-card flex items-center gap-3 rounded-xl border px-4 py-3"
+            to={`/catalogue/organisations/${partyId}/pieces/${pv.docType}`}
+            className="bg-card hover:border-muted-foreground/25 focus-visible:ring-ring/50 flex items-center gap-3 rounded-xl border px-4 py-3 no-underline transition-all outline-none hover:shadow-sm focus-visible:ring-[3px]"
           >
             <div className="min-w-0 flex-1">
               <div className="font-display truncate text-sm font-semibold">
@@ -324,7 +325,7 @@ function PiecesPanel({ pieces }: { pieces: PieceTypeValidity[] }) {
               </span>
             ) : null}
             <PieceBadge pv={pv} />
-          </div>
+          </Link>
         ))}
       </div>
     </section>

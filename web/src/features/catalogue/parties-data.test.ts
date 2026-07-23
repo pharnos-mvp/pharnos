@@ -5,6 +5,7 @@ import {
   buildOrgCockpitVm,
   buildOrgRows,
   filterOrgRows,
+  orgPieceCards,
   productsForParty,
   sortRoles,
 } from './parties-data'
@@ -197,5 +198,71 @@ describe('buildOrgCockpitVm (cockpit RA)', () => {
     const coa = vm.pieces.find((p) => p.docType === 'coa')
     expect(coa?.valid).toBe(1)
     expect(coa?.expiring).toBe(0)
+  })
+})
+
+describe('orgPieceCards (page dédiée à un type de pièce)', () => {
+  const holder = party('holder')
+  const products = [product('p1', { titulaireId: 'holder', nomCommercial: 'Alpha' })]
+
+  it('ne garde que le TYPE demandé, avec nom de produit et taille', () => {
+    const cards = orgPieceCards(
+      holder,
+      products,
+      [
+        doc('a', { docType: 'amm', fileName: 'amm.pdf', size: 1234, expiryDate: inDays(400) }),
+        doc('g', { docType: 'gmp', fileName: 'gmp.pdf', expiryDate: inDays(400) }),
+      ],
+      'amm',
+      NOW,
+    )
+    expect(cards).toHaveLength(1)
+    expect(cards[0]).toMatchObject({
+      id: 'a',
+      fileName: 'amm.pdf',
+      size: 1234,
+      productName: 'Alpha',
+    })
+  })
+
+  it('classe l’état : périmée / à renouveler / valide (fenêtre Monitor du type)', () => {
+    const cards = orgPieceCards(
+      holder,
+      products,
+      [
+        doc('ok', { expiryDate: inDays(400) }), // hors fenêtre (préavis admin = 180 j)
+        doc('soon', { expiryDate: inDays(30) }), // dans la fenêtre
+        doc('gone', { expiryDate: inDays(-10) }), // périmée
+      ],
+      'amm',
+      NOW,
+    )
+    // Tri par urgence : périmée, puis à renouveler, puis valide.
+    expect(cards.map((c) => [c.id, c.state])).toEqual([
+      ['gone', 'expired'],
+      ['soon', 'expiring'],
+      ['ok', 'valid'],
+    ])
+    expect(cards[0]?.daysLeft).toBe(-10)
+  })
+
+  it('pièce SANS date = valide, daysLeft null (rien n’est en défaut)', () => {
+    const cards = orgPieceCards(holder, products, [doc('nd', { expiryDate: null })], 'amm', NOW)
+    expect(cards[0]).toMatchObject({ state: 'valid', daysLeft: null, expiryDate: null })
+  })
+
+  it('exclut les pièces supprimées et celles d’un produit NON lié à l’organisation', () => {
+    const cards = orgPieceCards(
+      holder,
+      [...products, product('p9', { titulaireId: 'autre' })],
+      [
+        doc('del', { expiryDate: inDays(-1), deletedAt: '2026-02-01T00:00:00.000Z' }),
+        doc('foreign', { productId: 'p9', expiryDate: inDays(-1) }),
+        doc('keep', { expiryDate: inDays(400) }),
+      ],
+      'amm',
+      NOW,
+    )
+    expect(cards.map((c) => c.id)).toEqual(['keep'])
   })
 })

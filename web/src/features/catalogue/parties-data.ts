@@ -207,6 +207,68 @@ export function buildOrgCockpitVm(
   }
 }
 
+/** Une pièce de l'organisation, telle qu'affichée en carte sur la page dédiée à un type. */
+export interface OrgPieceCard {
+  id: string
+  fileName: string
+  filePath: string | null
+  size: number
+  productName: string
+  expiryDate: string | null
+  /** Jours restants (négatif = périmé) ; `null` si la pièce n'est pas datée. */
+  daysLeft: number | null
+  state: 'valid' | 'expiring' | 'expired'
+}
+
+const STATE_RANK: Record<OrgPieceCard['state'], number> = { expired: 0, expiring: 1, valid: 2 }
+
+/**
+ * Pièces d'un TYPE donné pour une organisation → cartes de la page dédiée.
+ *
+ * L'état vient de la **même** source que le panneau de validité (`expiringDocs`, politique Monitor
+ * unique) : la page ne peut donc pas contredire la carte sur laquelle on vient de cliquer. Tri par
+ * urgence (périmées, puis à renouveler, puis valides), les plus pressées d'abord.
+ */
+export function orgPieceCards(
+  party: PartyRecord,
+  products: ProductRecord[],
+  documents: DocumentRecord[],
+  docType: string,
+  now: Date,
+): OrgPieceCard[] {
+  const { linked, docs } = orgScope(party.id, products, documents)
+  const nameById = new Map(linked.map((p) => [p.id, p.nomCommercial]))
+  const inWindow = new Set(expiringDocs(docs, linked, now).map((i) => i.id))
+  return docs
+    .filter((d) => d.docType === docType)
+    .map((d): OrgPieceCard => {
+      const daysLeft = d.expiryDate
+        ? Math.round((new Date(d.expiryDate).getTime() - now.getTime()) / 86_400_000)
+        : null
+      return {
+        id: d.id,
+        fileName: d.fileName,
+        filePath: d.filePath,
+        size: d.size,
+        productName: nameById.get(d.productId) ?? '—',
+        expiryDate: d.expiryDate ?? null,
+        daysLeft,
+        // Périmée / à renouveler = appartenance à la fenêtre Monitor ; sinon valide.
+        state: inWindow.has(d.id)
+          ? daysLeft !== null && daysLeft <= 0
+            ? 'expired'
+            : 'expiring'
+          : 'valid',
+      }
+    })
+    .sort(
+      (a, b) =>
+        STATE_RANK[a.state] - STATE_RANK[b.state] ||
+        (a.daysLeft ?? Infinity) - (b.daysLeft ?? Infinity) ||
+        a.fileName.localeCompare(b.fileName),
+    )
+}
+
 /** Ordre d'affichage canonique des rôles (titulaire d'abord). */
 export const ROLE_ORDER: PartyRole[] = ['titulaire', 'fabricant', 'distributeur']
 
