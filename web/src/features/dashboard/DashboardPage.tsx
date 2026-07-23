@@ -502,7 +502,7 @@ export function DashboardPage() {
         </div>
 
         {/* Couverture pays — remontée au-dessus des 3 cartes (retour CEO). UEMOA + Nigeria + Ghana. */}
-        <div className="card" role="region" aria-labelledby="dash-coverage">
+        <div className="card card-block" role="region" aria-labelledby="dash-coverage">
           <div className="card-hd">
             <h2 className="card-title" id="dash-coverage">
               <Globe size={15} color="var(--info)" aria-hidden />
