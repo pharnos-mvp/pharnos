@@ -33,7 +33,7 @@ import { useI18n } from '@/lib/i18n-context'
 import { DocDatesDialog, type EditableDoc } from './DocDatesDialog'
 import { DocPreviewDialog, type PreviewableDoc } from './DocPreviewDialog'
 import { isIssueAfterExpiry } from './doc-dates'
-import { docTypeLabel, docTypesFor, requiresExpiry } from './doc-types'
+import { categoryForDocType, docTypeLabel, docTypesFor, requiresExpiry } from './doc-types'
 import { addDocument, deleteDocument, getDocumentBlob, listDocuments } from './documents-repository'
 import { syncCatalogue } from './catalogue-sync'
 import { downloadDocumentBlob } from './documents-sync'
@@ -70,7 +70,17 @@ function triggerDownload(url: string, fileName: string, revoke: boolean) {
 
 export function DocumentsSection({ orgId, productId, category }: DocumentsSectionProps) {
   const { t, lang } = useI18n()
-  const docs = useLiveQuery(() => listDocuments(productId, category), [productId, category])
+  // Répartition des deux colonnes par le type CANONIQUE (`doc-types`), PAS par le `category`
+  // stocké : les pièces déposées avant la reclassification du COA en pièce administrative (#252)
+  // ont gardé `category:'info'` en base et atterrissaient dans « Documents d'information »
+  // (retour CEO). Le type, lui, ne ment pas — même règle que la fiche Organisation.
+  const docs = useLiveQuery(
+    async () =>
+      (await listDocuments(productId)).filter(
+        (d) => categoryForDocType(d.docType, d.category) === category,
+      ),
+    [productId, category],
+  )
   const types = docTypesFor(category)
   const [docType, setDocType] = useState(types[0]?.code ?? '')
   const [file, setFile] = useState<File | null>(null)
