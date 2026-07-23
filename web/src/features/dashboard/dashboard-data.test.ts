@@ -13,6 +13,7 @@ import type {
 
 import {
   buildActions,
+  complianceRate,
   conformityPct,
   conformitySummary,
   conformityTone,
@@ -519,23 +520,85 @@ describe('countryStats (tuiles de couverture)', () => {
       }),
       NOW,
     )
-    expect(stats.get('CI')).toEqual({ dossiers: 1, urgent: 1, messages: 0, conformity: null })
-    expect(stats.get('SN')).toEqual({ dossiers: 1, urgent: 1, messages: 0, conformity: null })
+    // Le GMP expiré rend le dossier NON à jour dans chacun des deux pays (0/1 → 0 %).
+    const expected = {
+      dossiers: 1,
+      urgent: 1,
+      messages: 0,
+      upToDate: 0,
+      conformity: 0,
+      urgency: 'warning' as const,
+    }
+    expect(stats.get('CI')).toEqual(expected)
+    expect(stats.get('SN')).toEqual(expected)
   })
 
-  it('conformité = % des pièces analysées conformes (null si aucune analyse)', () => {
+  it('taux pays = dossiers À JOUR / dossiers du pays', () => {
     const stats = countryStats(
       emptyInput({
-        dossiers: [dossier({ country: 'CI' })],
-        documents: [doc({ id: 'd1' }), doc({ id: 'd2' })],
-        docAnalysis: [
-          analysis({ docId: 'd1', findings: [finding({ severity: 'error' })] }),
-          analysis({ docId: 'd2', findings: [] }),
+        products: ['p1', 'p2', 'p3', 'p4'].map((id) => product({ id })),
+        dossiers: ['p1', 'p2', 'p3', 'p4'].map((pid, i) =>
+          dossier({ id: `dos${i}`, productId: pid, country: 'CI' }),
+        ),
+        documents: [
+          doc({ id: 'ok', productId: 'p1', expiryDate: plus(400) }), // valide, hors préavis
+          doc({ id: 'ko', productId: 'p4', expiryDate: plus(-1) }), // GMP expiré
+          // p2 et p3 : AUCUNE pièce à validité → à jour (décision CEO : rien n'est en défaut).
         ],
       }),
       NOW,
     )
-    expect(stats.get('CI')?.conformity).toBe(50)
+    expect(stats.get('CI')?.upToDate).toBe(3)
+    expect(stats.get('CI')?.conformity).toBe(75)
+  })
+
+  it('taux pays : pool PAR DOSSIER, jamais par produit', () => {
+    const stats = countryStats(
+      emptyInput({
+        products: [product({ id: 'p1' }), product({ id: 'p2' })],
+        dossiers: [
+          dossier({ id: 'a', productId: 'p1', country: 'CI' }),
+          dossier({ id: 'b', productId: 'p1', country: 'CI' }),
+          dossier({ id: 'c', productId: 'p2', country: 'CI' }),
+        ],
+        documents: [doc({ id: 'ko', productId: 'p2', expiryDate: plus(-1) })],
+      }),
+      NOW,
+    )
+    // Par DOSSIER : 2/3 = 67 %. Par PRODUIT (dédoublonné) on obtiendrait 1/2 = 50 % → faux.
+    expect(stats.get('CI')).toMatchObject({ dossiers: 3, upToDate: 2, conformity: 67 })
+  })
+
+  it('sévérité du panneau : AMM expirée > pièce admin expirée > sous préavis > rien', () => {
+    const urgency = (documents: DocumentRecord[]) =>
+      countryStats(
+        emptyInput({
+          products: [product({ id: 'p1' })],
+          dossiers: [dossier({ productId: 'p1', country: 'CI' })],
+          documents,
+        }),
+        NOW,
+      ).get('CI')?.urgency
+
+    expect(urgency([])).toBe('none')
+    expect(urgency([doc({ productId: 'p1', expiryDate: plus(400) })])).toBe('none')
+    expect(urgency([doc({ productId: 'p1', expiryDate: plus(30) })])).toBe('caution')
+    expect(urgency([doc({ productId: 'p1', expiryDate: plus(-1) })])).toBe('warning')
+    expect(urgency([doc({ productId: 'p1', docType: 'amm', expiryDate: plus(-1) })])).toBe('danger')
+    // Une AMM expirée l'emporte sur une pièce admin expirée (sortie de marché > dette documentaire).
+    expect(
+      urgency([
+        doc({ id: 'x', productId: 'p1', expiryDate: plus(-1) }),
+        doc({ id: 'y', productId: 'p1', docType: 'amm', expiryDate: plus(-1) }),
+      ]),
+    ).toBe('danger')
+    // Une pièce sous préavis ne doit PAS masquer une pièce expirée (ordre strict).
+    expect(
+      urgency([
+        doc({ id: 'soon', productId: 'p1', expiryDate: plus(30) }),
+        doc({ id: 'gone', productId: 'p1', expiryDate: plus(-1) }),
+      ]),
+    ).toBe('warning')
   })
 
   it('dossier en suspens = urgent ; réponse agence non lue = message', () => {
@@ -550,6 +613,8 @@ describe('countryStats (tuiles de couverture)', () => {
       NOW,
     )
     expect(stats.get('CI')).toMatchObject({ dossiers: 1, urgent: 1, messages: 1 })
+    // Un compteur urgent non nul ne doit JAMAIS s'afficher neutre (« 1 urgent — aucune échéance »).
+    expect(stats.get('CI')?.urgency).not.toBe('none')
   })
 
   it('2 dossiers du MÊME produit dans le MÊME pays : pièces comptées UNE fois (dédoublonnage)', () => {
@@ -565,6 +630,8 @@ describe('countryStats (tuiles de couverture)', () => {
     )
     // 2 dossiers, mais la pièce expirée du produit ne compte qu'une seule fois.
     expect(stats.get('CI')).toMatchObject({ dossiers: 2, urgent: 1 })
+    // Le taux se compte PAR DOSSIER : les 2 dossiers du produit expiré sont non à jour (0/2).
+    expect(stats.get('CI')).toMatchObject({ upToDate: 0, conformity: 0 })
   })
 
   it('ignore les enregistrements supprimés (deletedAt)', () => {
@@ -582,21 +649,8 @@ describe('countryStats (tuiles de couverture)', () => {
     )
     expect(stats.has('SN')).toBe(false)
     expect(stats.get('CI')?.urgent).toBe(0)
-  })
-
-  it('une analyse ORPHELINE (pièce absente / autre org) est ignorée par la conformité', () => {
-    const stats = countryStats(
-      emptyInput({
-        dossiers: [dossier({ country: 'CI' })],
-        documents: [doc({ id: 'd1' })],
-        docAnalysis: [
-          analysis({ docId: 'd1', findings: [] }),
-          analysis({ docId: 'ghost', findings: [finding({ severity: 'error' })] }),
-        ],
-      }),
-      NOW,
-    )
-    expect(stats.get('CI')?.conformity).toBe(100)
+    // La pièce expirée est SUPPRIMÉE : elle ne doit ni déclasser le taux ni colorer le panneau.
+    expect(stats.get('CI')).toMatchObject({ upToDate: 1, conformity: 100, urgency: 'none' })
   })
 
   it('un pays SANS dossier actif reste absent, même s’il a une correspondance non lue', () => {
@@ -611,5 +665,77 @@ describe('countryStats (tuiles de couverture)', () => {
     )
     expect(stats.has('CI')).toBe(true)
     expect(stats.has('SN')).toBe(false)
+  })
+})
+
+describe('complianceRate (taux de conformité global)', () => {
+  it('exemple CEO : 6 dossiers à jour sur 10 → 60 %', () => {
+    const ids = Array.from({ length: 10 }, (_, i) => `p${i}`)
+    const dossiers = ids.map((pid, i) => dossier({ id: `dos${i}`, productId: pid, country: 'CI' }))
+    const documents = [
+      // 4 dossiers hors conformité : 2 AMM expirées + 2 pièces admin expirées.
+      doc({ id: 'e0', productId: 'p0', docType: 'amm', expiryDate: plus(-1) }),
+      doc({ id: 'e1', productId: 'p1', docType: 'amm', expiryDate: plus(-30) }),
+      doc({ id: 'e2', productId: 'p2', expiryDate: plus(-1) }),
+      doc({ id: 'e3', productId: 'p3', expiryDate: plus(-1) }),
+      // Sous préavis mais NON expirée → le dossier reste à jour (le taux dit la vérité légale).
+      doc({ id: 'soon', productId: 'p4', expiryDate: plus(30) }),
+    ]
+    expect(complianceRate(dossiers, documents, NOW)).toEqual({ upToDate: 6, total: 10, pct: 60 })
+  })
+
+  it('produit sans aucune pièce à validité = à jour (décision CEO)', () => {
+    const rate = complianceRate([dossier({ productId: 'p1', country: 'CI' })], [], NOW)
+    expect(rate).toEqual({ upToDate: 1, total: 1, pct: 100 })
+  })
+
+  it('pièce expirée SUPPRIMÉE : ne déclasse pas le dossier', () => {
+    const rate = complianceRate(
+      [dossier({ productId: 'p1', country: 'CI' })],
+      [doc({ productId: 'p1', expiryDate: plus(-5), deletedAt: '2026-06-01' })],
+      NOW,
+    )
+    expect(rate).toEqual({ upToDate: 1, total: 1, pct: 100 })
+  })
+
+  it('dossier SUPPRIMÉ exclu du dénominateur', () => {
+    const rate = complianceRate(
+      [
+        dossier({ id: 'a', productId: 'p1', country: 'CI' }),
+        dossier({ id: 'b', productId: 'p2', country: 'CI', deletedAt: '2026-06-01' }),
+      ],
+      [doc({ productId: 'p2', expiryDate: plus(-5) })],
+      NOW,
+    )
+    expect(rate).toEqual({ upToDate: 1, total: 1, pct: 100 })
+  })
+
+  it('2 dossiers du MÊME produit expiré comptent DEUX fois (pool par dossier)', () => {
+    const rate = complianceRate(
+      [
+        dossier({ id: 'a', productId: 'p1', country: 'CI' }),
+        dossier({ id: 'b', productId: 'p1', country: 'SN' }),
+      ],
+      [doc({ productId: 'p1', expiryDate: plus(-5) })],
+      NOW,
+    )
+    expect(rate).toEqual({ upToDate: 0, total: 2, pct: 0 })
+  })
+
+  it('aucun dossier → pct null (pas de division par zéro)', () => {
+    expect(complianceRate([], [], NOW).pct).toBeNull()
+  })
+
+  it('global = POOL de tous les dossiers, jamais la moyenne des taux pays', () => {
+    // CI : 1 dossier à jour (100 %). SN : 3 dossiers dont 0 à jour (0 %).
+    // Moyenne des pays = 50 % ; pool = 1/4 = 25 % → c'est le pool qui fait foi.
+    const dossiers = [
+      dossier({ id: 'a', productId: 'ok', country: 'CI' }),
+      ...['x', 'y', 'z'].map((pid, i) => dossier({ id: `s${i}`, productId: pid, country: 'SN' })),
+    ]
+    const documents = ['x', 'y', 'z'].map((pid) =>
+      doc({ id: `ko-${pid}`, productId: pid, expiryDate: plus(-1) }),
+    )
+    expect(complianceRate(dossiers, documents, NOW).pct).toBe(25)
   })
 })

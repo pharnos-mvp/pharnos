@@ -378,6 +378,19 @@
   color: var(--danger-subtle-foreground);
   font-weight: 600;
 }
+/* Jaune « sous préavis » = cran SOUS l'orange (pièce encore valide). Token local : la fondation DS
+   est verrouillée et n'a pas de jaune. Un jaune pur échouerait l'AA sur fond clair → amber-700 en
+   clair, jaune vif en sombre (fonds inversés). */
+.pharnos-dash {
+  --pd-caution: #a16207;
+}
+.dark .pharnos-dash {
+  --pd-caution: #fde047;
+}
+.pharnos-dash .ctry-stat.is-caution {
+  color: var(--pd-caution);
+  font-weight: 600;
+}
 .pharnos-dash .ctry-stat.is-warning {
   color: var(--warning-subtle-foreground);
   font-weight: 600;

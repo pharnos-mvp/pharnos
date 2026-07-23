@@ -1,4 +1,4 @@
-import { ADMIN_DOC_TYPES } from '@/features/catalogue/doc-types'
+import { ADMIN_DOC_TYPES, requiresExpiry } from '@/features/catalogue/doc-types'
 import {
   DOSSIER_STATUS_ORDER,
   dossierDisplayStatus,
@@ -458,6 +458,81 @@ export function conformitySummary(
   }
 }
 
+// ───────────────── Taux de conformité = dossiers À JOUR / dossiers ─────────────────
+
+/**
+ * Sévérité du panneau d'alerte (barème CEO) — la couleur descend d'un cran par gravité RÉELLE :
+ * `danger` AMM expirée (produit non commercialisable) > `warning` pièce admin expirée (dette
+ * documentaire, l'AMM tient) > `caution` rien d'expiré mais une pièce sous son préavis > `none`.
+ */
+export type UrgencyLevel = 'none' | 'caution' | 'warning' | 'danger'
+
+/** Pièces à validité d'un produit, ventilées par gravité. Clé = productId. */
+interface ValidityBuckets {
+  expiredAmm: Map<string, number>
+  expiredAdmin: Map<string, number>
+  belowLead: Map<string, number>
+}
+
+/**
+ * Ventile les pièces à VALIDITÉ (`requiresExpiry` : AMM, GMP, COPP, FSC, ML, CoA) par produit :
+ * expirées — l'AMM à part, car son expiration sort le produit du marché — et encore valides mais
+ * sous leur préavis. Le seuil vient de `renewalLeadDays` (source unique, configurable par l'org),
+ * jamais d'une constante locale : sinon le dashboard contredirait la porte de compilation.
+ */
+function validityBuckets(documents: DocumentRecord[], now: Date): ValidityBuckets {
+  const b: ValidityBuckets = {
+    expiredAmm: new Map(),
+    expiredAdmin: new Map(),
+    belowLead: new Map(),
+  }
+  const bump = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) ?? 0) + 1)
+  for (const d of documents) {
+    if (!d.expiryDate || !requiresExpiry(d.docType)) continue
+    const daysLeft = Math.round((new Date(d.expiryDate).getTime() - now.getTime()) / 86_400_000)
+    if (daysLeft <= 0) bump(d.docType === 'amm' ? b.expiredAmm : b.expiredAdmin, d.productId)
+    else if (daysLeft <= renewalLeadDays(d.docType)) bump(b.belowLead, d.productId)
+  }
+  return b
+}
+
+/**
+ * Un dossier est **À JOUR** si AUCUNE pièce à validité de son produit n'est expirée. Décision CEO :
+ * un produit sans aucune pièce à validité compte À JOUR (rien n'est en défaut). « Sous préavis »
+ * ne déclasse PAS — le taux dit la vérité légale (expiré / pas expiré), l'alerte reste au panneau.
+ */
+function productUpToDate(productId: string, b: ValidityBuckets): boolean {
+  return (b.expiredAmm.get(productId) ?? 0) + (b.expiredAdmin.get(productId) ?? 0) === 0
+}
+
+export interface ComplianceRate {
+  upToDate: number
+  total: number
+  /** % de dossiers à jour, arrondi et borné [0,100] ; `null` si aucun dossier. */
+  pct: number | null
+}
+
+/**
+ * **Taux de conformité global = dossiers à jour / dossiers totaux** (barème CEO : simple et
+ * universel, aucune pondération à justifier — une AMM et un GMP pèsent pareil, seule la SÉVÉRITÉ
+ * s'affiche, via le panneau). Agrégation sur le **pool de tous les dossiers**, jamais la moyenne
+ * des taux pays (sinon un pays à 1 dossier pèserait autant qu'un pays à 12).
+ */
+export function complianceRate(
+  dossiers: DossierRecord[],
+  documents: DocumentRecord[],
+  now: Date,
+): ComplianceRate {
+  const list = active(dossiers)
+  const b = validityBuckets(active(documents), now)
+  const upToDate = list.filter((d) => productUpToDate(d.productId, b)).length
+  return {
+    upToDate,
+    total: list.length,
+    pct: list.length > 0 ? Math.round((upToDate / list.length) * 100) : null,
+  }
+}
+
 // ───────────────── Statistiques par pays (tuiles de couverture) ─────────────────
 
 export interface CountryStat {
@@ -467,8 +542,13 @@ export interface CountryStat {
   urgent: number
   /** Messages d'agence NON LUS pour ce pays. */
   messages: number
-  /** Conformité (%) des pièces analysées des produits présents dans ce pays ; `null` si rien d'analysé. */
-  conformity: number | null
+  /** Taux de conformité du pays = dossiers À JOUR / dossiers du pays (%). Jamais null : un pays
+   *  présent dans la Map a au moins un dossier. */
+  conformity: number
+  /** Dossiers à jour (numérateur) → permet l'affichage « 6/10 ». */
+  upToDate: number
+  /** Sévérité du panneau : AMM expirée > pièce admin expirée > sous préavis > rien. */
+  urgency: UrgencyLevel
 }
 
 /**
@@ -491,12 +571,17 @@ export function countryStats(input: DashboardInput, now: Date): Map<string, Coun
   // Pays → produits qui y ont un dossier (+ nombre de dossiers par pays).
   const productsByCountry = new Map<string, Set<string>>()
   const dossierCount = new Map<string, number>()
+  const dossierProducts = new Map<string, string[]>()
   for (const d of dossiers) {
     if (!d.country) continue
     dossierCount.set(d.country, (dossierCount.get(d.country) ?? 0) + 1)
     const set = productsByCountry.get(d.country) ?? new Set<string>()
     set.add(d.productId)
     productsByCountry.set(d.country, set)
+    // Un élément PAR DOSSIER (doublons voulus, contrairement au Set) → numérateur « à jour ».
+    const arr = dossierProducts.get(d.country) ?? []
+    arr.push(d.productId)
+    dossierProducts.set(d.country, arr)
   }
 
   // Pièces urgentes (expirées ou dans leur fenêtre de renouvellement), par produit.
@@ -508,19 +593,8 @@ export function countryStats(input: DashboardInput, now: Date): Map<string, Coun
     urgentDocs.set(d.productId, (urgentDocs.get(d.productId) ?? 0) + 1)
   }
 
-  // Conformité par produit (cache Regafy, restreint aux pièces ACTIVES de l'org via `docById`).
-  const docById = new Map(documents.map((d) => [d.id, d]))
-  const analyzedByProduct = new Map<string, number>()
-  const nonConformByProduct = new Map<string, number>()
-  for (const a of input.docAnalysis) {
-    const doc = docById.get(a.docId)
-    if (!doc) continue
-    analyzedByProduct.set(doc.productId, (analyzedByProduct.get(doc.productId) ?? 0) + 1)
-    const findings = Array.isArray(a.findings) ? (a.findings as RegafyFinding[]) : []
-    if (findings.some(isNonConform)) {
-      nonConformByProduct.set(doc.productId, (nonConformByProduct.get(doc.productId) ?? 0) + 1)
-    }
-  }
+  // Validité des pièces par produit → taux « dossiers à jour » + sévérité du panneau.
+  const buckets = validityBuckets(documents, now)
 
   // Dossiers en suspens (« complément requis »), par pays.
   const suspended = new Map<string, number>()
@@ -552,21 +626,38 @@ export function countryStats(input: DashboardInput, now: Date): Map<string, Coun
   const out = new Map<string, CountryStat>()
   for (const [code, productIds] of productsByCountry) {
     let urgent = suspended.get(code) ?? 0
-    let analyzed = 0
-    let nonConform = 0
+    let expiredAmm = 0
+    let expiredAdmin = 0
+    let belowLead = 0
     for (const pid of productIds) {
       urgent += urgentDocs.get(pid) ?? 0
-      analyzed += analyzedByProduct.get(pid) ?? 0
-      nonConform += nonConformByProduct.get(pid) ?? 0
+      expiredAmm += buckets.expiredAmm.get(pid) ?? 0
+      expiredAdmin += buckets.expiredAdmin.get(pid) ?? 0
+      belowLead += buckets.belowLead.get(pid) ?? 0
     }
+    // Taux du pays : un dossier compte UNE fois (pool de ses dossiers), pas une moyenne de produits.
+    const pids = dossierProducts.get(code) ?? []
+    const upToDate = pids.filter((pid) => productUpToDate(pid, buckets)).length
+    const total = pids.length
     out.set(code, {
       dossiers: dossierCount.get(code) ?? 0,
       urgent,
       messages: unreadByCountry.get(code) ?? 0,
-      conformity:
-        analyzed > 0
-          ? Math.max(0, Math.min(100, Math.round(((analyzed - nonConform) / analyzed) * 100)))
-          : null,
+      upToDate,
+      // `total` ≥ 1 par construction : `productsByCountry` et `dossierProducts` sont peuplés dans
+      // la MÊME boucle — un pays présent dans la Map a donc au moins un dossier.
+      conformity: Math.round((upToDate / total) * 100),
+      // PLANCHER : `urgent` (dossier en suspens, pièce hors `requiresExpiry`) et les seaux de
+      // validité sont des ensembles DISJOINTS — un compteur non nul ne doit jamais s'afficher en
+      // gris « aucune échéance ». On remonte donc au minimum en `caution`.
+      urgency:
+        expiredAmm > 0
+          ? 'danger'
+          : expiredAdmin > 0
+            ? 'warning'
+            : belowLead > 0 || urgent > 0
+              ? 'caution'
+              : 'none',
     })
   }
   return out
