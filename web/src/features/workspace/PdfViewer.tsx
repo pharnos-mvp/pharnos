@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 
+import { loadPdfjs, PDF_DOC_ASSETS } from '@/lib/pdfjs'
 import { useI18n } from '@/lib/i18n-context'
 
 /** Poignée impérative : faire défiler l'aperçu jusqu'à une page (table des matières cliquable). */
@@ -108,9 +109,7 @@ export const PdfViewer = forwardRef<
 
     void (async () => {
       try {
-        const pdfjs = await import('pdfjs-dist')
-        const workerUrl = await import('pdfjs-dist/build/pdf.worker.min.mjs?url')
-        pdfjs.GlobalWorkerOptions.workerSrc = workerUrl.default
+        const pdfjs = await loadPdfjs()
 
         if (url && size && size > 0) {
           // Transport Range EXPLICITE : chaque chunk = un GET `Range: bytes=a-b` (header
@@ -148,6 +147,7 @@ export const PdfViewer = forwardRef<
             rangeChunkSize: RANGE_CHUNK,
             disableAutoFetch: true,
             disableStream: true,
+            ...PDF_DOC_ASSETS,
           }) as unknown as PdfTask
         } else if (url) {
           task = pdfjs.getDocument({
@@ -155,10 +155,11 @@ export const PdfViewer = forwardRef<
             rangeChunkSize: RANGE_CHUNK,
             disableAutoFetch: true,
             disableStream: false,
+            ...PDF_DOC_ASSETS,
           }) as unknown as PdfTask
         } else if (blob) {
           const data = new Uint8Array(await blob.arrayBuffer())
-          task = pdfjs.getDocument({ data }) as unknown as PdfTask
+          task = pdfjs.getDocument({ data, ...PDF_DOC_ASSETS }) as unknown as PdfTask
         } else {
           setStatus('error')
           return
