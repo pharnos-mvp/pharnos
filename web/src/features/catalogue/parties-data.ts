@@ -1,5 +1,6 @@
 import { expiringDocs, expiryTone, type KpiTone } from '@/features/dashboard/dashboard-data'
 import type { DocumentRecord, PartyRecord, PartyRole, ProductRecord } from '@/lib/db'
+import { requiresExpiry } from './doc-types'
 
 const isActive = <T extends { deletedAt?: string | null }>(r: T): boolean => r.deletedAt == null
 
@@ -156,10 +157,14 @@ export function buildOrgCockpitVm(
   const expiredIds = new Set(exp.filter((i) => i.daysLeft <= 0).map((i) => i.id))
   const expByType = groupBy(exp, (i) => i.docType)
 
-  // Validité par type sur TOUS les documents du type — pas seulement les datés : une pièce sans
-  // date n'est pas en défaut (même règle que le taux de conformité), et surtout le total doit
-  // correspondre à la page dédiée, sinon la ligne « 2/3 à jour » ouvre une page de 5 pièces.
-  const byType = groupBy(docs, (d) => d.docType)
+  // « Validité des pièces » = pièces à VALIDITÉ uniquement (AMM, GMP, COPP, FSC, ML, CoA). Les
+  // documents d'INFO (RCP, notice, étiquetage, artwork…) n'ont pas de date de validité → ils n'ont
+  // rien à faire dans ce panneau. On groupe TOUS les docs de ces types (datés ou non — une pièce
+  // sans date n'est pas en défaut), pour que le total colle à la page dédiée.
+  const byType = groupBy(
+    docs.filter((d) => requiresExpiry(d.docType)),
+    (d) => d.docType,
+  )
   const pieces: PieceTypeValidity[] = [...byType.entries()]
     .map(([docType, ds]) => {
       const items = expByType.get(docType) ?? []

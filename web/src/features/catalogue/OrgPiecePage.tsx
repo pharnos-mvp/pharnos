@@ -149,7 +149,7 @@ function PieceCard({ card, onOpen }: { card: OrgPieceCard; onOpen: () => void })
         type="button"
         onClick={onOpen}
         title={tip}
-        className="bg-card hover:border-muted-foreground/25 focus-visible:ring-ring/50 flex w-full flex-col gap-2 rounded-xl border p-2.5 text-left transition-all outline-none hover:shadow-sm focus-visible:ring-[3px]"
+        className="bg-card hover:border-muted-foreground/25 focus-visible:ring-ring/50 flex w-full flex-col gap-2 rounded-xl border p-2.5 text-left transition-all duration-150 outline-none hover:-translate-y-px hover:shadow-md focus-visible:ring-[3px] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
       >
         <DocThumb doc={card} onPages={setPageCount} />
         <div className="min-w-0">
