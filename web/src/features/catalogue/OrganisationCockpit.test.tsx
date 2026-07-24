@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { HeaderSlotContext, type HeaderSlotSetter } from '@/components/layout/header-slot'
 import { OrgContext } from '@/features/org/org-context'
+import { getPartyBranding } from '@/features/profile/pro-settings-repository'
 import { db, type PartyRecord, type PartyRole } from '@/lib/db'
 import { I18nProvider } from '@/lib/I18nProvider'
 import { OrganisationCockpit } from './OrganisationCockpit'
@@ -35,6 +36,8 @@ async function seed(roles: PartyRole[]) {
     db.dossiers.clear(),
     db.correspondences.clear(),
     db.correspondenceMessages.clear(),
+    db.proSettings.clear(),
+    db.outbox.clear(),
   ])
   await db.parties.put(party(roles))
 }
@@ -62,21 +65,22 @@ describe('OrganisationCockpit (chrome cockpit partagée avec la fiche produit)',
     await seed(['titulaire'])
   })
 
-  it('fabricant PUR : seulement Identification · Pièces admin · Justificatifs', async () => {
+  it('fabricant PUR : Identification · Pièces admin · Justificatifs (ni Marque ni Produits/AMM)', async () => {
     await seed(['fabricant'])
     renderFiche()
 
     await screen.findByRole('tab', { name: 'Identification' })
-    // Pas de Produits/AMM/Documents d'information : ils relèvent du titulaire d'AMM.
+    // Marque = branding MAH → absente pour un fabricant pur, comme Produits/AMM/Docs info.
     expect(tabNames()).toEqual(['Identification', 'Pièces admin', 'Justificatifs'])
   })
 
-  it('titulaire d’AMM : les 6 onglets', async () => {
+  it('titulaire d’AMM : les 7 onglets, dont « Marque » (branding MAH)', async () => {
     renderFiche()
 
     await screen.findByRole('tab', { name: 'Identification' })
     expect(tabNames()).toEqual([
       'Identification',
+      'Marque',
       'Produits',
       'AMM',
       'Pièces admin',
@@ -107,6 +111,86 @@ describe('OrganisationCockpit (chrome cockpit partagée avec la fiche produit)',
       ),
     )
     expect(screen.getByRole('button', { name: 'Enregistrer' })).toBeInTheDocument()
+  })
+
+  it('le signataire d’un MAH est persisté dans le branding party (store séparé)', async () => {
+    const user = userEvent.setup()
+    renderFiche()
+
+    await user.click(await screen.findByRole('tab', { name: 'Identification' }))
+    await user.click(screen.getAllByRole('button', { name: /Modifier/ })[0]!)
+
+    const nom = await screen.findByLabelText('Signataire (lettres)')
+    const role = screen.getByLabelText('Rôle du signataire')
+    await user.type(nom, 'Dr Aïcha Koné')
+    await user.type(role, 'Pharmacien responsable')
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(async () => {
+      const b = await getPartyBranding(PARTY)
+      expect(b?.signataire).toBe('Dr Aïcha Koné')
+      expect(b?.poste).toBe('Pharmacien responsable')
+      expect(b?.kind).toBe('partyBranding')
+    })
+  })
+
+  it('ANTI-CLOBBER : éditer un champ NON signataire (adresse) ne crée pas de branding null', async () => {
+    // Régression du BLOQUANT de revue : sans garde `dirty`, enregistrer après avoir corrigé une
+    // adresse écrirait un record branding tout-à-null → efface logo/en-tête côté serveur.
+    const user = userEvent.setup()
+    renderFiche()
+
+    await user.click(await screen.findByRole('tab', { name: 'Identification' }))
+    await user.click(screen.getAllByRole('button', { name: /Modifier/ })[0]!)
+
+    const adresse = await screen.findByLabelText('Adresse')
+    await user.clear(adresse)
+    await user.type(adresse, '12 rue de la Paix, Cotonou')
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    // La partie est bien enregistrée…
+    await waitFor(async () =>
+      expect((await db.parties.get(PARTY))?.adresse).toBe('12 rue de la Paix, Cotonou'),
+    )
+    // …mais AUCUN record de branding n'a été touché (signataire inchangé).
+    expect(await getPartyBranding(PARTY)).toBeUndefined()
+  })
+
+  it('éditer le signataire PRÉSERVE les images du branding (patch signataire seul)', async () => {
+    const user = userEvent.setup()
+    await db.proSettings.put({
+      id: `party:${PARTY}`,
+      orgId: ORG,
+      kind: 'partyBranding',
+      entreprise: null,
+      poste: 'Ancien rôle',
+      signataire: 'Ancien Nom',
+      pays: null,
+      headerImage: null,
+      footerImage: null,
+      logoImage: 'data:image/png;base64,LOGO',
+      signatureImage: null,
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      deletedAt: null,
+    })
+    renderFiche()
+
+    await user.click(await screen.findByRole('tab', { name: 'Identification' }))
+    await user.click(screen.getAllByRole('button', { name: /Modifier/ })[0]!)
+
+    const nom = await screen.findByLabelText('Signataire (lettres)')
+    // Le formulaire est HYDRATÉ depuis le branding local (pas vide).
+    await waitFor(() => expect(nom).toHaveValue('Ancien Nom'))
+    await user.clear(nom)
+    await user.type(nom, 'Nouveau Nom')
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(async () => {
+      const b = await getPartyBranding(PARTY)
+      expect(b?.signataire).toBe('Nouveau Nom')
+      // Le logo n'est PAS effacé (patch signataire seul, merge sur le record existant).
+      expect(b?.logoImage).toBe('data:image/png;base64,LOGO')
+    })
   })
 
   it('pose le nom dans le bandeau applicatif et le LIBÈRE au démontage', async () => {
