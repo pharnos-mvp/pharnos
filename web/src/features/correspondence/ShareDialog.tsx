@@ -6,6 +6,15 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { syncCatalogue } from '@/features/catalogue/catalogue-sync'
+import {
+  getParty,
+  listParties,
+  updateParty,
+  upsertParty,
+} from '@/features/catalogue/parties-repository'
+import { NativeSelect } from '@/features/catalogue/product-fields'
+import { countryLabel } from '@/features/workspace/dossier-constants'
 import type { CorrespondenceRecord, DossierRecord } from '@/lib/db'
 import { useI18n, type Lang } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
@@ -30,6 +39,9 @@ interface ShareDialogProps {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+/** Valeur sentinelle « ＋ Nouvelle agence » (caractère de contrôle → jamais un id de partie). */
+const NEW_AGENT = ' new'
+
 const textareaClass = cn(
   'border-input placeholder:text-muted-foreground dark:bg-input/30 w-full min-w-0 rounded-md border bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none md:text-sm',
   'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
@@ -50,6 +62,16 @@ export function ShareDialog({
 }: ShareDialogProps) {
   const { t } = useI18n()
   const [recipientEmail, setRecipientEmail] = useState('')
+  // P3 référentiel d'orgs : le destinataire se choisit dans la base (rôle `agent`) ou s'y crée.
+  // L'e-mail reste LA clé d'identité des fils (aucun lien party persisté sur la correspondance).
+  const [agentChoice, setAgentChoice] = useState('') // '' = saisie libre · id partie · NEW_AGENT
+  const [newAgentName, setNewAgentName] = useState('')
+  const agentParties = useLiveQuery(
+    () => listParties(orgId).then((ps) => ps.filter((p) => p.roles.includes('agent'))),
+    [orgId],
+  )
+  const selectedAgent = agentParties?.find((p) => p.id === agentChoice)
+  const creatingAgent = agentChoice === NEW_AGENT
   // Langue de la relance auto au destinataire (Slice 1b) — défaut = langue officielle du pays cible.
   const [recipientLang, setRecipientLang] = useState<Lang>(() => officialLang(dossier.country))
   const [note, setNote] = useState('')
@@ -69,6 +91,36 @@ export function ShareDialog({
     (corr) => corr.revokedAt === null,
   )
 
+  /** Changement de destinataire : une partie choisie préremplit l'e-mail depuis sa fiche. */
+  function pickAgent(value: string) {
+    setAgentChoice(value)
+    const p = agentParties?.find((x) => x.id === value)
+    // « Nouvelle agence » / saisie libre : on garde l'e-mail déjà tapé (capture sans ressaisie).
+    if (p) setRecipientEmail(p.contactEmail ?? '')
+  }
+
+  /**
+   * Boucle « base vivante » (P3) : crée l'agence choisie « ＋ Nouvelle » (rôle `agent`, pays du
+   * dossier) et complète l'e-mail de la fiche s'il MANQUE — jamais d'écrasement d'une fiche déjà
+   * renseignée (l'envoi part de toute façon vers l'e-mail saisi).
+   */
+  async function captureAgentToBase(email: string) {
+    if (creatingAgent) {
+      const id = await upsertParty(orgId, {
+        nom: newAgentName,
+        roles: ['agent'],
+        pays: countryLabel(dossier.country),
+      })
+      if (!id) return
+      const created = await getParty(id)
+      if (created && !created.contactEmail) await updateParty(id, { contactEmail: email })
+      void syncCatalogue(orgId)
+    } else if (selectedAgent && !selectedAgent.contactEmail && email) {
+      await updateParty(selectedAgent.id, { contactEmail: email })
+      void syncCatalogue(orgId)
+    }
+  }
+
   async function handleSend() {
     const email = recipientEmail.trim()
     if (!EMAIL_RE.test(email)) {
@@ -76,6 +128,15 @@ export function ShareDialog({
         t({
           fr: 'Adresse e-mail du correspondant invalide.',
           en: 'Invalid correspondent e-mail address.',
+        }),
+      )
+      return
+    }
+    if (creatingAgent && !newAgentName.trim()) {
+      toast.error(
+        t({
+          fr: 'Le nom de la nouvelle agence est requis.',
+          en: 'The new agency name is required.',
         }),
       )
       return
@@ -100,6 +161,7 @@ export function ShareDialog({
     }
     setSending(true)
     try {
+      await captureAgentToBase(email)
       const days = Number(ttlDays)
       const { correspondence, url } = await sendCompiledDossier({
         orgId,
@@ -257,20 +319,73 @@ export function ShareDialog({
               </div>
             ) : null}
             <div className="space-y-1.5">
+              <Label htmlFor="share-agent">
+                {t({ fr: 'Destinataire (agence locale)', en: 'Recipient (local agency)' })}
+              </Label>
+              <NativeSelect
+                id="share-agent"
+                autoFocus
+                value={agentChoice}
+                onChange={(e) => pickAgent(e.target.value)}
+              >
+                <option value="">
+                  {(agentParties?.length ?? 0) > 0
+                    ? t({
+                        fr: 'Choisir dans la base — ou saisir un e-mail',
+                        en: 'Pick from the base — or type an e-mail',
+                      })
+                    : t({
+                        fr: 'Saisie libre (aucune agence enregistrée)',
+                        en: 'Free entry (no agency on file)',
+                      })}
+                </option>
+                {agentParties?.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nom}
+                    {p.contactEmail ? ` — ${p.contactEmail}` : ''}
+                  </option>
+                ))}
+                <option value={NEW_AGENT}>
+                  ＋ {t({ fr: 'Nouvelle agence', en: 'New agency' })}
+                </option>
+              </NativeSelect>
+              {creatingAgent ? (
+                <>
+                  <Input
+                    aria-label={t({ fr: 'Nom de la nouvelle agence', en: 'New agency name' })}
+                    placeholder={t({ fr: 'Nom de l’agence', en: 'Agency name' })}
+                    value={newAgentName}
+                    onChange={(e) => setNewAgentName(e.target.value)}
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    {t({
+                      fr: 'Créée dans votre catalogue (rôle Agence locale) au moment de l’envoi.',
+                      en: 'Created in your catalogue (Local agency role) when sending.',
+                    })}
+                  </p>
+                </>
+              ) : null}
+            </div>
+
+            <div className="space-y-1.5">
               <Label htmlFor="share-email">
-                {t({
-                  fr: 'E-mail du correspondant (agence locale)',
-                  en: 'Correspondent e-mail (local agency)',
-                })}
+                {t({ fr: 'E-mail du correspondant', en: 'Correspondent e-mail' })}
               </Label>
               <Input
                 id="share-email"
                 type="email"
-                autoFocus
                 placeholder={t({ fr: 'agence@representant.com', en: 'agency@representative.com' })}
                 value={recipientEmail}
                 onChange={(e) => setRecipientEmail(e.target.value)}
               />
+              {selectedAgent && !selectedAgent.contactEmail ? (
+                <p className="text-muted-foreground text-xs">
+                  {t({
+                    fr: 'La fiche de cette agence n’a pas d’e-mail : celui-ci y sera enregistré.',
+                    en: 'This agency has no e-mail on file: this one will be saved to it.',
+                  })}
+                </p>
+              ) : null}
             </div>
 
             <div className="space-y-1.5">
