@@ -1,7 +1,8 @@
 # PLAN — Le référentiel d'organisations comme colonne vertébrale documentaire
 
-> Cadrage CEO 2026-07-24 (recette fiche org). Statut : **EN COURS — P1 + P2 LIVRÉS (2026-07-24),
-> prochaine étape P3.** Audité sur pièces (2 audits code/DB/RLS, faits cités dans les sections).
+> Cadrage CEO 2026-07-24 (recette fiche org). Statut : **EN COURS — P1 + P2 + P3 LIVRÉS
+> (2026-07-24), prochaine étape P4.** Audité sur pièces (2 audits code/DB/RLS, faits cités
+> dans les sections).
 
 ## 0) Vision — pourquoi ce chantier est structurant
 
@@ -124,7 +125,7 @@ ci-dessous sont des features post-pilotes qui ne bloquent pas le gate.
 |---|---|---|---|
 | **P1** ✅ | Matrice métier §1 : sessions/onglets par rôle, retrait « Titulaire » (contexte org), carte « MAH + Fabricant » — **LIVRÉ 2026-07-24 (#408)** | S (front-only) | 0 |
 | **P2** ✅ | Réutilisation §2 + §3 — **LIVRÉ 2026-07-24 (#409 pioche · #410 upload fiche org)** : `source_doc_id` (0070, prod), `documents-reuse` (`copyDocumentToProduct`, mapping sources §2), pickers « Depuis la base / Depuis mon poste » wizard + fiche produit (`SourceDocPicker` partagé, dédoublonnage), `DocAddForm` extrait + `OrgDocAddButton` (onglets AMM/admin/info + `OrgPiecePage`). Pièges : garde d'ordonnancement FK auto-référente au push (outbox non ordonnée → 2ᵉ passe bornée) ; RLS insert vérifiée (org_id éditable + RESTRICTIVE CS1). Différé : requêtes party-scopées si `documents` grossit ; garde serveur `party.org_id = document.org_id` (belt-and-braces) | M | 0070 ✅ |
-| **P3** | Agences en correspondance : destinataire choisi/créé depuis les Agences locales | S–M | 0 |
+| **P3** ✅ | Agences en correspondance — **LIVRÉ 2026-07-24 (#412)** : ShareDialog = sélecteur des parties rôle `agent` (préremplit l'e-mail), « ＋ Nouvelle agence » inline (collision de nom annoncée : fusion, aucun doublon), capture « base vivante » best-effort APRÈS l'envoi (fill-the-gap `contactEmail`, relecture fraîche, jamais d'écrasement). L'e-mail reste LA clé d'identité des fils (aucun `party_id` persisté). `NativeSelect` promu `components/ui`. Prérequis embarqué : #411 (advisories du jour — postcss 8.5.23 + migration `react-router-dom`→`react-router` 8.3.0) | S–M | 0 ✅ |
 | **P4** | Autorités versionnées + God dashboard (design/mockup d'abord — briefing SaaS déjà donné : contenu versionné, provenance, overrides respectés, dossiers épinglés, consentement par org) | L | oui |
 | **P5** (post-GO-LIVE) | Lien membre↔partie (`memberships.party_id`) + rôles avancés | M | oui |
 
