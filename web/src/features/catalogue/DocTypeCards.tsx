@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ExternalLink, Eye, FileText, Plus, RefreshCw, Trash2, Upload, X } from 'lucide-react'
+import {
+  ExternalLink,
+  Eye,
+  FileText,
+  FolderOpen,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -8,7 +18,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PdfViewer } from '@/features/workspace/PdfViewer'
 import { COUNTRIES, countryLabel } from '@/features/workspace/dossier-constants'
-import type { DocumentCategory } from '@/lib/db'
+import type { DocumentCategory, DocumentRecord } from '@/lib/db'
 import {
   isAllowedUpload,
   MAX_UPLOAD_BYTES,
@@ -16,10 +26,18 @@ import {
   UPLOAD_SIZE_ERROR,
   UPLOAD_TYPE_ERROR,
 } from '@/lib/files'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n-context'
 import { isIssueAfterExpiry } from './doc-dates'
-import { docTypesFor, requiresExpiry, type DocTypeOption } from './doc-types'
+import { categoryForDocType, docTypesFor, requiresExpiry, type DocTypeOption } from './doc-types'
+import { SOURCE_BLOB_UNAVAILABLE, sourceDocFile } from './documents-reuse'
+import { SourceDocPicker, type SourceDocEntry } from './SourceDocPicker'
 
 /**
  * Pièce en attente (buffer du wizard) — AJOUTÉE sans produit. La persistance (création du produit
@@ -36,6 +54,8 @@ export interface DraftDocument {
   country: string | null
   reference: string | null
   batchNumber: string | null
+  /** Pioché « depuis la base » d'une org (§2) : provenance de la copie liée, persistée à la fin. */
+  sourceDocId?: string | null
 }
 
 /**
@@ -50,6 +70,7 @@ export function DocTypeCards({
   onRemove,
   types,
   hideHolder,
+  sources,
 }: {
   category: DocumentCategory
   drafts: DraftDocument[]
@@ -59,6 +80,12 @@ export function DocTypeCards({
   types?: DocTypeOption[]
   /** Contexte ORGANISATION : le champ « Titulaire » est masqué (on est déjà chez le propriétaire). */
   hideHolder?: boolean
+  /**
+   * Base « piochable » (§2) : pièces org-scopées des parties sélectionnées (titulaire/fabricant).
+   * Dès qu'une carte a des sources de son type, « + » propose « Depuis la base » ou « Depuis mon
+   * poste ». Absent (wizard org) → comportement upload inchangé.
+   */
+  sources?: SourceDocEntry[]
 }) {
   const shown = types ?? docTypesFor(category)
   const [openType, setOpenType] = useState<string | null>(null)
@@ -74,6 +101,7 @@ export function DocTypeCards({
           onAdd={onAdd}
           onRemove={onRemove}
           hideHolder={hideHolder}
+          sources={sources?.filter((s) => s.doc.docType === type.code) ?? []}
           open={openType === type.code}
           onToggle={() => setOpenType((o) => (o === type.code ? null : type.code))}
         />
@@ -89,6 +117,7 @@ function DocCard({
   onAdd,
   onRemove,
   hideHolder,
+  sources,
   open,
   onToggle,
 }: {
@@ -98,6 +127,8 @@ function DocCard({
   onAdd: (d: DraftDocument) => void
   onRemove: (id: string) => void
   hideHolder?: boolean
+  /** Pièces de la base DU type de cette carte (déjà filtrées par l'appelant). */
+  sources: SourceDocEntry[]
   open: boolean
   onToggle: () => void
 }) {
@@ -123,6 +154,8 @@ function DocCard({
   const fileRef = useRef<HTMLInputElement>(null)
   // Pièce dont on prévisualise le fichier (null = dialog fermé).
   const [preview, setPreview] = useState<File | null>(null)
+  // Picker « Depuis la base de ‹org› » ouvert (§2) — les entrées viennent de la prop `sources`.
+  const [picking, setPicking] = useState(false)
   // Remplacement d'un fichier existant : input dédié + pièce ciblée (métadonnées à conserver).
   const replaceRef = useRef<HTMLInputElement>(null)
   const replaceTarget = useRef<DraftDocument | null>(null)
@@ -177,6 +210,35 @@ function DocCard({
       return
     }
     setFile(f)
+  }
+
+  /**
+   * Pioche une pièce de la base (§2) : File résolu (blob local, sinon Storage) + métadonnées
+   * HÉRITÉES de la source + provenance `sourceDocId` — aucun formulaire, la pièce est déjà
+   * qualifiée dans la base. La copie réelle se fait à l'enregistrement du wizard (buffer).
+   */
+  async function pickFromBase(src: DocumentRecord): Promise<boolean> {
+    const file = await sourceDocFile(src)
+    if (!file) {
+      toast.error(t(SOURCE_BLOB_UNAVAILABLE))
+      return false
+    }
+    onAdd({
+      id: crypto.randomUUID(),
+      // Catégorie CANONIQUE du type (une COA legacy `info` redevient admin à la copie).
+      category: categoryForDocType(src.docType, category),
+      docType: src.docType,
+      file,
+      issueDate: src.issueDate ?? null,
+      expiryDate: src.expiryDate,
+      holder: src.holder ?? null,
+      country: src.country ?? null,
+      reference: src.reference ?? null,
+      batchNumber: src.batchNumber ?? null,
+      sourceDocId: src.id,
+    })
+    toast.success(t({ fr: 'Pièce reprise de la base', en: 'Document picked from base' }))
+    return true
   }
 
   /** Cible la pièce à remplacer puis ouvre l'explorateur (handler stable → pas d'accès ref au rendu). */
@@ -294,22 +356,53 @@ function DocCard({
   }
 
   // « + » = icône d'action (comme les autres). Info : ouvre l'explorateur. Admin : déplie/replie le
-  // formulaire à métadonnées (× quand ouvert). UN SEUL « + » par carte.
-  const addBtn = (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon-sm"
-      aria-label={open ? t({ fr: 'Fermer', en: 'Close' }) : t({ fr: 'Ajouter', en: 'Add' })}
-      title={
-        open ? t({ fr: 'Fermer', en: 'Close' }) : t({ fr: 'Ajouter un fichier', en: 'Add a file' })
-      }
-      aria-expanded={hasMeta ? open : undefined}
-      onClick={open ? onToggle : openAndPick}
-    >
-      {open ? <X className="size-4" /> : <Plus className="size-4" />}
-    </Button>
-  )
+  // formulaire à métadonnées (× quand ouvert). UN SEUL « + » par carte. Dès que la base des parties
+  // sélectionnées a des pièces de ce type, « + » propose les DEUX chemins (§2) : pioche ou upload.
+  const baseNames = [...new Set(sources.map((s) => s.orgName).filter(Boolean))]
+  const baseLabel =
+    baseNames.length === 1
+      ? t({ fr: `Depuis la base de ${baseNames[0]}`, en: `From ${baseNames[0]}'s base` })
+      : t({ fr: 'Depuis la base', en: 'From the base' })
+  const addBtn =
+    sources.length > 0 && !open ? (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t({ fr: 'Ajouter', en: 'Add' })}
+            title={t({ fr: 'Ajouter un fichier', en: 'Add a file' })}
+          >
+            <Plus className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={() => setPicking(true)}>
+            <FolderOpen className="size-4" /> {baseLabel}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={openAndPick}>
+            <Upload className="size-4" /> {t({ fr: 'Depuis mon poste', en: 'From my computer' })}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ) : (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label={open ? t({ fr: 'Fermer', en: 'Close' }) : t({ fr: 'Ajouter', en: 'Add' })}
+        title={
+          open
+            ? t({ fr: 'Fermer', en: 'Close' })
+            : t({ fr: 'Ajouter un fichier', en: 'Add a file' })
+        }
+        aria-expanded={hasMeta ? open : undefined}
+        onClick={open ? onToggle : openAndPick}
+      >
+        {open ? <X className="size-4" /> : <Plus className="size-4" />}
+      </Button>
+    )
 
   return (
     <div
@@ -503,6 +596,12 @@ function DocCard({
       ) : null}
 
       <DraftPreviewDialog file={preview} onOpenChange={(o) => !o && setPreview(null)} />
+      <SourceDocPicker
+        entries={picking ? sources : null}
+        title={baseLabel}
+        onPick={pickFromBase}
+        onOpenChange={(o) => setPicking(o)}
+      />
     </div>
   )
 }

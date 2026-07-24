@@ -187,6 +187,12 @@ export interface DocumentRecord {
   holder?: string | null
   country?: string | null
   batchNumber?: string | null
+  /**
+   * Provenance « pioché depuis la base » (migration `0070`) : id du document ORG-scopé copié vers ce
+   * document produit. COPIE LIÉE — le blob et les métadonnées sont dupliqués (le dossier reste une
+   * photographie opposable), seule la provenance est référencée. Additif non indexé (pas de bump Dexie).
+   */
+  sourceDocId?: string | null
   status: string
   /** Chemin Storage une fois le blob téléversé ; null tant que local-only. */
   filePath: string | null

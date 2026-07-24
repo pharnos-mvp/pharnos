@@ -1,10 +1,12 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 
+import { db, type DocumentRecord } from '@/lib/db'
 import { I18nProvider } from '@/lib/I18nProvider'
 import { docTypesFor, requiresExpiry } from './doc-types'
 import { DocTypeCards, type DraftDocument } from './DocTypeCards'
+import type { SourceDocEntry } from './SourceDocPicker'
 
 const renderI = (ui: React.ReactElement) => render(ui, { wrapper: I18nProvider })
 
@@ -224,5 +226,97 @@ describe('DocTypeCards — ajout de pièces (wizard produit)', () => {
     fireEvent.change(fileInputAt(container, 0), { target: { files: [exe] } })
 
     expect(onAdd).not.toHaveBeenCalled()
+  })
+})
+
+/** Pièce ORG-scopée « piochable » (base d'une organisation) pour les tests du picker §2. */
+function sourceEntry(over: Partial<DocumentRecord> = {}): SourceDocEntry {
+  const doc: DocumentRecord = {
+    id: 'src-1',
+    orgId: 'org-1',
+    productId: '',
+    partyId: 'party-fab',
+    category: 'info',
+    docType: docTypesFor('info')[0]!.code,
+    fileName: 'rcp-base.pdf',
+    mimeType: 'application/pdf',
+    size: 8,
+    language: 'fr',
+    expiryDate: null,
+    issueDate: null,
+    reference: null,
+    holder: null,
+    country: null,
+    batchNumber: null,
+    status: 'active',
+    filePath: null,
+    uploaded: false,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    deletedAt: null,
+    ...over,
+  }
+  return { doc, orgName: 'Sahel Pharma SARL' }
+}
+
+describe('DocTypeCards — « Depuis la base » (§2, pioche org → produit)', () => {
+  it('avec des sources, « + » propose les DEUX chemins ; la pioche crée un brouillon avec provenance', async () => {
+    const user = userEvent.setup()
+    const onAdd = vi.fn()
+    const entry = sourceEntry({ expiryDate: '2027-06-30', reference: 'REF-9' })
+    // Blob local épinglé (offline-first) — `sourceDocFile` le résout sans réseau.
+    await db.documentBlobs.put({ id: entry.doc.id, blob: pdf('rcp-base.pdf') })
+
+    renderI(
+      <DocTypeCards
+        category="info"
+        drafts={[]}
+        onAdd={onAdd}
+        onRemove={() => {}}
+        sources={[entry]}
+      />,
+    )
+
+    // « + » de la carte RCP (1re carte info) → menu à deux chemins.
+    await user.click(screen.getAllByRole('button', { name: 'Ajouter' })[0]!)
+    expect(
+      screen.getByRole('menuitem', { name: /Depuis la base de Sahel Pharma SARL/ }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Depuis mon poste' })).toBeInTheDocument()
+
+    // Pioche → picker → choisir la pièce.
+    await user.click(screen.getByRole('menuitem', { name: /Depuis la base/ }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: /rcp-base\.pdf/ }))
+
+    await waitFor(() => expect(onAdd).toHaveBeenCalledTimes(1))
+    const draft = onAdd.mock.calls[0]![0] as DraftDocument
+    expect(draft.sourceDocId).toBe('src-1')
+    expect(draft.docType).toBe(entry.doc.docType)
+    expect(draft.expiryDate).toBe('2027-06-30')
+    expect(draft.reference).toBe('REF-9')
+    expect(draft.file.name).toBe('rcp-base.pdf')
+    // Le picker se referme au succès.
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
+
+  it('les sources d’un AUTRE type ne changent rien : « + » reste l’upload direct', async () => {
+    const user = userEvent.setup()
+    const onAdd = vi.fn()
+    // Source de type notice → la carte RCP (1re) n'a AUCUNE source : pas de menu.
+    const entry = sourceEntry({ docType: docTypesFor('info')[1]!.code })
+
+    renderI(
+      <DocTypeCards
+        category="info"
+        drafts={[]}
+        onAdd={onAdd}
+        onRemove={() => {}}
+        sources={[entry]}
+      />,
+    )
+
+    await user.click(screen.getAllByRole('button', { name: 'Ajouter' })[0]!)
+    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument()
   })
 })

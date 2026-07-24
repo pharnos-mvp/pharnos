@@ -26,6 +26,8 @@ export interface AddDocumentInput {
   holder?: string | null
   country?: string | null
   batchNumber?: string | null
+  /** Provenance « pioché depuis la base » (0070) : id du document org-scopé copié vers ce produit. */
+  sourceDocId?: string | null
 }
 
 /** Documents actifs d'un produit (optionnellement filtrés par catégorie). */
@@ -96,6 +98,7 @@ async function addOwnedDocument(
     holder: input.holder ?? null,
     country: input.country ?? null,
     batchNumber: input.batchNumber ?? null,
+    sourceDocId: input.sourceDocId ?? null,
     status: 'active',
     filePath: null,
     uploaded: false,

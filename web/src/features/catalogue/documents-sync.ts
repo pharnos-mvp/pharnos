@@ -32,6 +32,8 @@ export interface DocumentRow {
   holder: string | null
   country: string | null
   batch_number: string | null
+  // Provenance « pioché depuis la base » (additif `0070`) : id du document org-scopé copié.
+  source_doc_id: string | null
   status: string
   created_at: string
   updated_at: string
@@ -55,6 +57,7 @@ export function documentToRow(d: DocumentRecord): DocumentRow {
     holder: d.holder ?? null,
     country: d.country ?? null,
     batch_number: d.batchNumber ?? null,
+    source_doc_id: d.sourceDocId ?? null,
     status: d.status,
     created_at: d.createdAt,
     updated_at: d.updatedAt,
@@ -82,6 +85,7 @@ export function rowToDocument(r: DocumentRow): DocumentRecord {
     holder: r.holder ?? null,
     country: r.country ?? null,
     batchNumber: r.batch_number ?? null,
+    sourceDocId: r.source_doc_id ?? null,
     status: r.status,
     filePath: r.file_path,
     uploaded: true,
