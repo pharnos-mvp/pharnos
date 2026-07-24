@@ -2,12 +2,15 @@ import { type ComponentProps, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ChevronDown, Plus, Trash2 } from 'lucide-react'
 import type { UseFormReturn } from 'react-hook-form'
+import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { useOrgId } from '@/features/org/org-context'
+import { mahPartyLimit, useOrgPlan } from '@/features/org/use-org-plan'
 import type { PghtCurrency, PghtEntry, PartyRole } from '@/lib/db'
 import { eurStringToFcfa, parseAmount } from '@/lib/money'
 import { cn } from '@/lib/utils'
@@ -259,6 +262,8 @@ export function OrgBlock({
 }) {
   const { t } = useI18n()
   const orgId = useOrgId()
+  const navigate = useNavigate()
+  const { data: orgPlan } = useOrgPlan()
   const role: PartyRole = nameField // 'titulaire' | 'fabricant' = rôle homonyme
   const parties = useLiveQuery(
     () => listParties(orgId).then((ps) => ps.filter((p) => p.roles.includes(role))),
@@ -273,11 +278,36 @@ export function OrgBlock({
   // nom déjà saisi n'est PAS une org connue (édition d'un produit ancien, avant les parties).
   const creating = forcedNew || !hasParties || (!!name && parties !== undefined && !known)
 
+  // Gate d'upsell (titulaire uniquement) : gérer PLUSIEURS MAH = mode agence (Business+). Au-delà du
+  // plafond du plan, « Nouveau » propose la mise à niveau au lieu de créer. Plan non chargé → on ne
+  // bloque pas (permissif). Le fabricant n'est jamais gaté.
+  const mahLimit = orgPlan ? mahPartyLimit(orgPlan.plan) : Infinity
+  const mahGated = role === 'titulaire' && (parties?.length ?? 0) >= mahLimit
+
   function pick(partyName: string) {
     const p = parties?.find((x) => x.nom === partyName)
     form.setValue(nameField, partyName, { shouldValidate: true, shouldDirty: true })
     if (p) form.setValue(addressField, p.adresse, { shouldDirty: true })
     setForcedNew(false)
+  }
+  /** Action « Nouveau » gatée : au plafond MAH → toast d'upsell (→ /compte) ; sinon saisie libre. */
+  function requestNew() {
+    if (mahGated) {
+      toast(
+        t({
+          fr: 'Un seul titulaire d’AMM est inclus. Passez à l’offre agence (Business) pour en gérer plusieurs.',
+          en: 'Only one MA holder is included. Upgrade to the agency plan (Business) to manage several.',
+        }),
+        {
+          action: {
+            label: t({ fr: 'Mettre à niveau', en: 'Upgrade' }),
+            onClick: () => navigate('/compte'),
+          },
+        },
+      )
+      return
+    }
+    startNew()
   }
   function startNew() {
     form.setValue(nameField, '', { shouldValidate: true, shouldDirty: true })
@@ -307,7 +337,7 @@ export function OrgBlock({
                   value={known ? (field.value ?? '') : ''}
                   aria-label={title}
                   onChange={(e) =>
-                    e.target.value === NEW_PARTY ? startNew() : pick(e.target.value)
+                    e.target.value === NEW_PARTY ? requestNew() : pick(e.target.value)
                   }
                 >
                   <option value="">{t({ fr: 'Choisir…', en: 'Choose…' })}</option>
@@ -344,7 +374,7 @@ export function OrgBlock({
         <div className="space-y-1">
           <FormLabel>{t({ fr: 'Adresse', en: 'Address' })}</FormLabel>
           <p className="text-muted-foreground text-sm break-words">{selected?.adresse || '—'}</p>
-          <button type="button" onClick={startNew} className="text-info text-xs hover:underline">
+          <button type="button" onClick={requestNew} className="text-info text-xs hover:underline">
             {t({ fr: 'Saisir une autre organisation', en: 'Enter another organization' })}
           </button>
         </div>

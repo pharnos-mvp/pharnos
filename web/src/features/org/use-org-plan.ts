@@ -85,6 +85,17 @@ export const PLAN_LABEL: Record<PlanTier, Translatable> = {
 /** Ordre des plans pour les comparaisons d'upgrade. */
 export const PLAN_ORDER: PlanTier[] = ['free', 'pro', 'team', 'business', 'enterprise']
 
+/**
+ * Nombre de MAH (parties rôle titulaire) inclus avant l'upsell « mode agence ». Free/Pro/Team = 1
+ * (un labo/consultant gère son propre titulaire) ; Business/Entreprise = illimité (agence
+ * multi-clients). Gate d'UPSELL côté client (les parties sont offline-first, sans RPC serveur à leur
+ * création — cohérent avec la philosophie « display only » du catalogue de plans) ; l'existant est
+ * grandfathered (le gate ne bloque QUE la création d'un NOUVEAU MAH au-delà du plafond). PURE.
+ */
+export function mahPartyLimit(plan: PlanTier): number {
+  return plan === 'business' || plan === 'enterprise' ? Infinity : 1
+}
+
 /** Plan effectif de l'org ACTIVE (RPC `my_org_plan`, org explicite CS1) — caché 5 min, lecture seule. */
 export function useOrgPlan() {
   // La bascule d'org recharge l'app (switchActiveOrg) : lire l'org active au montage suffit,
