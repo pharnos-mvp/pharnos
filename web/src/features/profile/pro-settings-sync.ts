@@ -40,11 +40,16 @@ function toRow(d: ProSettingRecord): ProSettingRow {
   }
 }
 
+/** `kind` fidèle (le serveur stocke un `text` libre) — préserve `partyBranding` (mode agence). */
+function toKind(k: string): ProSettingRecord['kind'] {
+  return k === 'userSignature' || k === 'partyBranding' ? k : 'orgBranding'
+}
+
 function rowTo(r: ProSettingRow): ProSettingRecord {
   return {
     id: r.id,
     orgId: r.org_id,
-    kind: r.kind === 'userSignature' ? 'userSignature' : 'orgBranding',
+    kind: toKind(r.kind),
     entreprise: r.entreprise ?? null,
     poste: r.poste ?? null,
     signataire: r.signataire ?? null,

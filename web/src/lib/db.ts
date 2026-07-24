@@ -283,7 +283,14 @@ export interface GeneratedDocRecord {
 export interface ProSettingRecord {
   id: string
   orgId: string
-  kind: 'orgBranding' | 'userSignature'
+  /**
+   * `orgBranding` = papier à en-tête du TENANT (défaut/fallback) · `userSignature` = signature d'un
+   * user · `partyBranding` = branding+signataire propre à UN MAH (`id='party:<partyId>'`), pour le
+   * mode agence multi-clients : les lettres d'un produit portent le branding de SON titulaire, avec
+   * repli sur `orgBranding`. Même table (réutilise synchro + upload d'images) ; `kind` est un `text`
+   * libre côté serveur (aucune contrainte) et la RLS org-scoped couvre déjà les lignes non-user.
+   */
+  kind: 'orgBranding' | 'userSignature' | 'partyBranding'
   /** Nom de l'entreprise (orgBranding) — infos professionnelles partagées. */
   entreprise: string | null
   /** Poste / fonction (orgBranding). */

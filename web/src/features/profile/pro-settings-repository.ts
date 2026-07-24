@@ -5,6 +5,8 @@ const now = () => new Date().toISOString()
 
 export const orgBrandingId = (orgId: string) => `org:${orgId}`
 export const userSignatureId = (userId: string) => `user:${userId}`
+/** Branding propre à UN MAH (mode agence) — même convention d'`id` que `org:`/`user:`. */
+export const partyBrandingId = (partyId: string) => `party:${partyId}`
 
 export async function getOrgBranding(orgId: string): Promise<ProSettingRecord | undefined> {
   const rec = await db.proSettings.get(orgBrandingId(orgId))
@@ -16,12 +18,41 @@ export async function getUserSignature(userId: string): Promise<ProSettingRecord
   return rec && rec.deletedAt === null ? rec : undefined
 }
 
+/** Branding d'un MAH (party rôle titulaire), s'il en a un de défini. */
+export async function getPartyBranding(partyId: string): Promise<ProSettingRecord | undefined> {
+  const rec = await db.proSettings.get(partyBrandingId(partyId))
+  return rec && rec.deletedAt === null ? rec : undefined
+}
+
+/**
+ * RÉSOLUTION EN CASCADE (source unique du branding des lettres/dossiers) : le branding du MAH du
+ * produit s'il existe, SINON celui du tenant. Un compte mono-client (aucun branding MAH) garde donc
+ * exactement le comportement d'avant — zéro régression. `titulaireId` = `product.titulaireId`.
+ */
+export async function getBrandingForParty(
+  orgId: string,
+  titulaireId: string | null | undefined,
+): Promise<ProSettingRecord | undefined> {
+  if (titulaireId) {
+    const party = await getPartyBranding(titulaireId)
+    if (party) return party
+  }
+  return getOrgBranding(orgId)
+}
+
+/** `kind` déduit de la convention d'`id` (source unique, cohérente avec le serveur). */
+function kindFromId(id: string): ProSettingRecord['kind'] {
+  if (id.startsWith('user:')) return 'userSignature'
+  if (id.startsWith('party:')) return 'partyBranding'
+  return 'orgBranding'
+}
+
 async function upsert(id: string, orgId: string, patch: Partial<ProSettingRecord>): Promise<void> {
   const existing = await db.proSettings.get(id)
   const base: ProSettingRecord = existing ?? {
     id,
     orgId,
-    kind: id.startsWith('user:') ? 'userSignature' : 'orgBranding',
+    kind: kindFromId(id),
     entreprise: null,
     poste: null,
     signataire: null,
@@ -74,4 +105,38 @@ export function setUserSignature(
   signatureImage: string | null,
 ): Promise<void> {
   return upsert(userSignatureId(userId), orgId, { signatureImage })
+}
+
+// ── Branding propre à UN MAH (mode agence) — mêmes champs que le branding tenant, clé `party:<id>`.
+/** Signataire d'un MAH : nom (`signataire`) + rôle/fonction (`poste`) portés sur ses lettres. */
+export function setPartySignatory(
+  orgId: string,
+  partyId: string,
+  signatory: { signataire: string | null; poste: string | null },
+): Promise<void> {
+  return upsert(partyBrandingId(partyId), orgId, signatory)
+}
+
+export function setPartyHeader(
+  orgId: string,
+  partyId: string,
+  headerImage: string | null,
+): Promise<void> {
+  return upsert(partyBrandingId(partyId), orgId, { headerImage })
+}
+
+export function setPartyFooter(
+  orgId: string,
+  partyId: string,
+  footerImage: string | null,
+): Promise<void> {
+  return upsert(partyBrandingId(partyId), orgId, { footerImage })
+}
+
+export function setPartyLogo(
+  orgId: string,
+  partyId: string,
+  logoImage: string | null,
+): Promise<void> {
+  return upsert(partyBrandingId(partyId), orgId, { logoImage })
 }

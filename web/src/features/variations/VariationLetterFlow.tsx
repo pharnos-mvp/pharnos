@@ -26,7 +26,7 @@ import { useAuth } from '@/features/auth/auth-context'
 import { useOrgId } from '@/features/org/org-context'
 import { getAmmDocument } from '@/features/catalogue/documents-repository'
 import { listProducts } from '@/features/catalogue/repository'
-import { getOrgBranding, getUserSignature } from '@/features/profile/pro-settings-repository'
+import { getBrandingForParty, getUserSignature } from '@/features/profile/pro-settings-repository'
 import { triggerDownload } from '@/features/workspace/download-utils'
 import {
   emptyLetterFields,
@@ -164,7 +164,6 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
   const { user } = useAuth()
   const userId = user?.id ?? 'local'
   const products = useLiveQuery(() => listProducts(orgId), [orgId])
-  const branding = useLiveQuery(() => getOrgBranding(orgId), [orgId])
   const signature = useLiveQuery(() => getUserSignature(userId), [userId])
 
   const [docLang, setDocLang] = useState<Lang>(appLang)
@@ -177,6 +176,11 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
   const [busy, setBusy] = useState(false)
 
   const product = products?.find((p) => p.id === productId)
+  // Branding résolu par le MAH du produit choisi → repli tenant (mode agence).
+  const branding = useLiveQuery(
+    () => getBrandingForParty(orgId, product?.titulaireId),
+    [orgId, product?.titulaireId],
+  )
 
   const effectiveFields = (): LetterFields => ({
     ...fields,
