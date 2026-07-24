@@ -1,8 +1,9 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { AlertCircle, Building2, Clock3, Search, SearchX } from 'lucide-react'
+import { AlertCircle, Building2, Clock3, Plus, Search, SearchX } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 
+import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { ListRow, ListRowIcon, ListRowLink } from '@/components/ui/list-row'
@@ -17,6 +18,7 @@ import { useOrgId } from '@/features/org/org-context'
 import { db, type PartyRole } from '@/lib/db'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
 import { CatalogueTabs } from './CatalogueTabs'
+import { OrgCreateDialog } from './OrgCreateDialog'
 import { buildOrgRows, filterOrgRows, sortRoles, type OrgRow } from './parties-data'
 import { useCatalogueSync } from './use-catalogue-sync'
 
@@ -24,6 +26,7 @@ const ROLE_LABEL: Record<PartyRole, Translatable> = {
   titulaire: { fr: "Titulaire d'AMM", en: 'MA holder' },
   fabricant: { fr: 'Fabricant', en: 'Manufacturer' },
   distributeur: { fr: 'Distributeur', en: 'Distributor' },
+  agent: { fr: 'Agence réglementaire', en: 'Regulatory agent' },
 }
 
 export function OrganisationsPage() {
@@ -33,6 +36,7 @@ export function OrganisationsPage() {
   useTopbar({ searchHidden: true })
   const [params, setParams] = useSearchParams()
   const q = params.get('q') ?? ''
+  const [createOpen, setCreateOpen] = useState(false)
 
   const data = useLiveQuery(async () => {
     const [parties, products, documents] = await Promise.all([
@@ -67,10 +71,16 @@ export function OrganisationsPage() {
       <PageHeader
         title={t({ fr: 'Organisations', en: 'Organizations' })}
         description={t({
-          fr: 'Titulaires d’AMM, fabricants et distributeurs — alimentés automatiquement par vos produits.',
-          en: 'MA holders, manufacturers and distributors — populated automatically from your products.',
+          fr: 'Titulaires d’AMM, fabricants, agences réglementaires — alimentés par vos produits ou créés directement.',
+          en: 'MA holders, manufacturers, regulatory agents — populated from your products or created directly.',
         })}
+        actions={
+          <Button variant="primary" size="sm" onClick={() => setCreateOpen(true)}>
+            <Plus /> {t({ fr: 'Nouvelle organisation', en: 'New organization' })}
+          </Button>
+        }
       />
+      <OrgCreateDialog orgId={orgId} open={createOpen} onOpenChange={setCreateOpen} />
 
       {rows === undefined ? (
         <OrgSkeleton />
