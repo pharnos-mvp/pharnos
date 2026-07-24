@@ -115,11 +115,14 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
       const parties = await db.parties.bulkGet(ids)
       const nameById = new Map(
         parties
-          .filter((p): p is NonNullable<typeof p> => p !== undefined)
+          // Une partie SUPPRIMÉE (soft delete) encore référencée par le produit n'est plus une base.
+          .filter((p): p is NonNullable<typeof p> => p !== undefined && p.deletedAt === null)
           .map((p) => [p.id, p.nom] as const),
       )
-      const docs = await listPartyDocs(orgId, ids)
-      return docs
+      const liveIds = ids.filter((id) => nameById.has(id))
+      if (liveIds.length === 0) return []
+      const partyDocs = await listPartyDocs(orgId, liveIds)
+      return partyDocs
         .filter((d) => sourcePartyIdsFor(d.docType, tit, fab).includes(d.partyId ?? ''))
         .map((d) => ({ doc: d, orgName: nameById.get(d.partyId ?? '') ?? '' }))
     }, [orgId, productId]) ?? []
@@ -486,6 +489,7 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
       <SourceDocPicker
         entries={picking ? sourcesForType : null}
         title={baseLabel}
+        takenIds={new Set((docs ?? []).flatMap((d) => (d.sourceDocId ? [d.sourceDocId] : [])))}
         onPick={pickFromBase}
         onOpenChange={(o) => setPicking(o)}
       />

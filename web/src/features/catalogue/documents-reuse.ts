@@ -29,7 +29,7 @@ export function sourcePartyIdsFor(
   return [...new Set(ids.filter((id): id is string => !!id))]
 }
 
-/** Documents ORG-scopés actifs des parties données (base « piochable »), récents d'abord. */
+/** Documents ORG-scopés NON SUPPRIMÉS des parties données (base « piochable »), récents d'abord. */
 export async function listPartyDocs(
   orgId: string,
   partyIds: readonly string[],

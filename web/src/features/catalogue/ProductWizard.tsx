@@ -173,7 +173,8 @@ export function ProductWizard({ orgId, onDone }: { orgId: string; onDone: () => 
           category: d.category,
           docType: d.docType,
           file: d.file,
-          language: 'fr',
+          // Pièce piochée → langue de la SOURCE ; upload manuel → 'fr' (défaut historique).
+          language: d.language ?? 'fr',
           issueDate: d.issueDate,
           expiryDate: d.expiryDate,
           reference: d.reference,

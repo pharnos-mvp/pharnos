@@ -56,6 +56,8 @@ export interface DraftDocument {
   batchNumber: string | null
   /** Pioché « depuis la base » d'une org (§2) : provenance de la copie liée, persistée à la fin. */
   sourceDocId?: string | null
+  /** Langue héritée de la source piochée — un upload manuel n'en a pas (défaut 'fr' au save). */
+  language?: string | null
 }
 
 /**
@@ -236,6 +238,7 @@ function DocCard({
       reference: src.reference ?? null,
       batchNumber: src.batchNumber ?? null,
       sourceDocId: src.id,
+      language: src.language,
     })
     toast.success(t({ fr: 'Pièce reprise de la base', en: 'Document picked from base' }))
     return true
@@ -599,6 +602,7 @@ function DocCard({
       <SourceDocPicker
         entries={picking ? sources : null}
         title={baseLabel}
+        takenIds={new Set(drafts.flatMap((d) => (d.sourceDocId ? [d.sourceDocId] : [])))}
         onPick={pickFromBase}
         onOpenChange={(o) => setPicking(o)}
       />
