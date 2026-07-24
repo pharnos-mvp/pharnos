@@ -1,6 +1,6 @@
-import { type ComponentProps, useState } from 'react'
+import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ChevronDown, Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import type { UseFormReturn } from 'react-hook-form'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -9,39 +9,16 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { NativeSelect } from '@/components/ui/native-select'
 import { useOrgId } from '@/features/org/org-context'
 import { mahPartyLimit, useOrgPlan } from '@/features/org/use-org-plan'
 import type { PghtCurrency, PghtEntry, PartyRole } from '@/lib/db'
 import { eurStringToFcfa, parseAmount } from '@/lib/money'
-import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n-context'
 import { COUNTRIES, countryLabel } from '@/features/workspace/dossier-constants'
 import { listParties } from './parties-repository'
 import { AUTRE_FORME, isKnownForm, PHARMA_FORMS } from './pharma-forms'
 import type { ProductFormValues, ProductInput } from './types'
-
-/**
- * Classe d'un `<select>` — CALQUÉE sur le trigger du DS `Select` (bordure + fond + focus identiques)
- * pour que les sélecteurs se voient comme les autres champs. `appearance-none` retire le chevron
- * natif (peu visible / non thématisable) ; on en repose un clair via `NativeSelect` (`pr-9` = sa place).
- */
-export const SELECT_CLASS =
-  'border-input dark:bg-input/30 dark:hover:bg-input/50 focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full appearance-none rounded-md border bg-transparent px-3 pr-9 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50'
-
-/** `<select>` natif habillé DS + chevron visible (léger, sans le coût bundle de Radix Select). */
-export function NativeSelect({ className, children, ...props }: ComponentProps<'select'>) {
-  return (
-    <div className="relative w-full">
-      <select className={cn(SELECT_CLASS, className)} {...props}>
-        {children}
-      </select>
-      <ChevronDown
-        className="text-muted-foreground pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 opacity-60"
-        aria-hidden
-      />
-    </div>
-  )
-}
 
 /**
  * Champ « Forme pharmaceutique » : liste déroulante des formes courantes + option « Autre » en fin.
