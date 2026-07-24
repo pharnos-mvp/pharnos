@@ -1,5 +1,5 @@
 import { Building2, FlaskConical, Landmark } from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { NavLink } from 'react-router'
 
 import { pillVariants } from '@/components/ui/pill'
 import { useI18n } from '@/lib/i18n-context'

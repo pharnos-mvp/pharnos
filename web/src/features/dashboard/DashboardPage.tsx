@@ -18,7 +18,7 @@ import {
   ShieldCheck,
   type LucideIcon,
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 
 import { useAuditSync } from '@/features/audit/use-audit-sync'
 import { useAuth } from '@/features/auth/auth-context'

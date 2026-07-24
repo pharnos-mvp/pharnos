@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useState, type ReactNode } from 'react'
 import { useTheme } from 'next-themes'
-import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import {
   ArrowLeft,
   ArrowUpCircle,

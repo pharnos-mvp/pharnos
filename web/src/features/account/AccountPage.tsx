@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useTheme } from 'next-themes'
 import {

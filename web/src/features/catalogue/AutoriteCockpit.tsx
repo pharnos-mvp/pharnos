@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { FileStack, Landmark, Receipt, ShieldCheck } from 'lucide-react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router'
 
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'

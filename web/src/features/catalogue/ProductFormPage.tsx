@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 
 import { useTopbar } from '@/components/layout/topbar'
 import { Page } from '@/components/ui/page'

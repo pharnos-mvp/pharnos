@@ -32,7 +32,7 @@ vi.mock('./lifecycle-repository', () => ({ appendLifecycleEvent: appendMock }))
 vi.mock('./lifecycle-sync', () => ({ syncLifecycle: syncMock }))
 vi.mock('./dossier-repository', () => ({ createDossier: createDossierMock }))
 vi.mock('./dossier-sync', () => ({ syncDossiers: syncDossiersMock }))
-vi.mock('react-router-dom', () => ({ useNavigate: () => navigateMock }))
+vi.mock('react-router', () => ({ useNavigate: () => navigateMock }))
 vi.mock('@/features/correspondence/correspondence-repository', () => ({
   reopenCorrespondenceForReview: reopenMock,
 }))

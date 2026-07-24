@@ -11,7 +11,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { Tabs as RadixTabs } from 'radix-ui'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 
 import { useHeaderSlot } from '@/components/layout/header-slot'

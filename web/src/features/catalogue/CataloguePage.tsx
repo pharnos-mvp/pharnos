@@ -10,7 +10,7 @@ import {
   SearchX,
   Trash2,
 } from 'lucide-react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 
 import {

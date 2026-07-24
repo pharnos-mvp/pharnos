@@ -1,5 +1,5 @@
 import { lazy } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router'
 
 import { AppShell } from '@/components/layout/app-shell'
 // CataloguePage importée en statique (peint dès le 1er rendu sans 2ᵉ chunk = gain LCP sur la
