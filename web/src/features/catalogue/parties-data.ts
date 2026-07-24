@@ -345,7 +345,7 @@ export function orgJustificatifCards(
 }
 
 /** Ordre d'affichage canonique des rôles (titulaire d'abord). */
-export const ROLE_ORDER: PartyRole[] = ['titulaire', 'fabricant', 'distributeur']
+export const ROLE_ORDER: PartyRole[] = ['titulaire', 'fabricant', 'distributeur', 'agent']
 
 export function sortRoles(roles: PartyRole[]): PartyRole[] {
   return [...roles].sort((a, b) => ROLE_ORDER.indexOf(a) - ROLE_ORDER.indexOf(b))

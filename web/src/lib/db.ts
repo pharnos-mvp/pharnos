@@ -64,7 +64,8 @@ export interface ProductRecord {
 }
 
 /** Rôles cumulables d'une organisation (réalité RA + IDMP) — cf. migration `0045`. */
-export type PartyRole = 'titulaire' | 'fabricant' | 'distributeur'
+/** `agent` = agence réglementaire locale / représentant / consultant (dépose pour le compte d'un MAH). */
+export type PartyRole = 'titulaire' | 'fabricant' | 'distributeur' | 'agent'
 
 /**
  * Organisation du référentiel RIM (table `parties`) — Titulaire d'AMM / Fabricant / Distributeur,
