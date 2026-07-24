@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Building2 } from 'lucide-react'
-import { useParams } from 'react-router-dom'
+import { useParams } from 'react-router'
 
 import { EmptyState } from '@/components/ui/empty-state'
 import { Page } from '@/components/ui/page'

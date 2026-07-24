@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Eye, FileStack, FolderPlus, Info, Pencil, Route, Search, Trash2 } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { Navigate, useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'

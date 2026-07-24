@@ -2,7 +2,7 @@ import { type ComponentProps, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ChevronDown, Plus, Trash2 } from 'lucide-react'
 import type { UseFormReturn } from 'react-hook-form'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'

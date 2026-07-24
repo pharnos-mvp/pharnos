@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ArrowLeft, Download, PanelLeftClose, PanelLeftOpen, Pencil, Send } from 'lucide-react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'

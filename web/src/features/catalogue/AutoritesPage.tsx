@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Landmark, Receipt, Search, SearchX } from 'lucide-react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router'
 
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
