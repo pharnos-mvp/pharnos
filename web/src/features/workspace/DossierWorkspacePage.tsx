@@ -52,7 +52,7 @@ import { featureState } from '@/features/org/feature-state'
 import { recordCompilation, useOrgPlan } from '@/features/org/use-org-plan'
 import { useUpsell } from '@/features/org/use-upsell'
 import {
-  getOrgBranding,
+  getBrandingForParty,
   getUserSignature,
   setUserSignature,
 } from '@/features/profile/pro-settings-repository'
@@ -219,7 +219,13 @@ export function DossierWorkspacePage() {
     () => (dossierId ? listAttachments(dossierId) : Promise.resolve([])),
     [dossierId],
   )
-  const branding = useLiveQuery(() => getOrgBranding(orgId), [orgId])
+  // Branding RÉSOLU par le titulaire (MAH) du produit du dossier → repli tenant (mode agence).
+  // `product` se charge en async : tant qu'il n'est pas là, `titulaireId` est undefined → repli
+  // tenant, comme avant. Ré-évalué quand le produit (donc son titulaire) arrive.
+  const branding = useLiveQuery(
+    () => getBrandingForParty(orgId, product?.titulaireId),
+    [orgId, product?.titulaireId],
+  )
   const signature = useLiveQuery(() => getUserSignature(userId), [userId])
   // Correspondances du dossier → état dérivé (badge du bandeau + panneau).
   const dossierCorrespondences = useLiveQuery(

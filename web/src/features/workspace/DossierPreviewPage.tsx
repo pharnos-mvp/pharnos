@@ -15,7 +15,7 @@ import { CountryFlag } from '@/features/dashboard/CountryFlag'
 import { expiringDocs } from '@/features/dashboard/dashboard-data'
 import { useOrgId } from '@/features/org/org-context'
 import { useOrgPlan } from '@/features/org/use-org-plan'
-import { getOrgBranding } from '@/features/profile/pro-settings-repository'
+import { getBrandingForParty } from '@/features/profile/pro-settings-repository'
 import { db, type DossierAttachmentRecord, type GeneratedDocRecord } from '@/lib/db'
 import { useI18n } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
@@ -96,7 +96,11 @@ export function DossierPreviewPage() {
   )
   // `?? null` : distingue « en cours de chargement » (undefined) de « pas de branding » (null) →
   // le 1er compile attend la résolution du branding (pas de flash non-brandé → bandé).
-  const branding = useLiveQuery(() => getOrgBranding(orgId).then((b) => b ?? null), [orgId])
+  // Branding résolu par le MAH du produit → repli tenant (voir DossierWorkspacePage).
+  const branding = useLiveQuery(
+    () => getBrandingForParty(orgId, product?.titulaireId).then((b) => b ?? null),
+    [orgId, product?.titulaireId],
+  )
 
   const now = useMemo(() => new Date(), [])
   const [pdf, setPdf] = useState<{
