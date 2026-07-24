@@ -6,6 +6,7 @@ import {
   Download,
   Eye,
   FileText,
+  FolderOpen,
   Loader2,
   Pencil,
   Plus,
@@ -27,7 +28,7 @@ import {
 import { StatusBadge } from '@/components/ui/status-badge'
 import { renewalLeadDays } from '@/features/dashboard/dashboard-data'
 import { COUNTRIES, countryLabel } from '@/features/workspace/dossier-constants'
-import type { DocumentCategory } from '@/lib/db'
+import { db, type DocumentCategory, type DocumentRecord } from '@/lib/db'
 import { UPLOAD_ACCEPT } from '@/lib/files'
 import { useI18n } from '@/lib/i18n-context'
 import { DocDatesDialog, type EditableDoc } from './DocDatesDialog'
@@ -35,8 +36,10 @@ import { DocPreviewDialog, type PreviewableDoc } from './DocPreviewDialog'
 import { isIssueAfterExpiry } from './doc-dates'
 import { categoryForDocType, docTypeLabel, docTypesFor, requiresExpiry } from './doc-types'
 import { addDocument, deleteDocument, getDocumentBlob, listDocuments } from './documents-repository'
+import { copyDocumentToProduct, listPartyDocs, sourcePartyIdsFor } from './documents-reuse'
 import { syncCatalogue } from './catalogue-sync'
 import { downloadDocumentBlob } from './documents-sync'
+import { SourceDocPicker, type SourceDocEntry } from './SourceDocPicker'
 
 /** Étiquette de validité d'une pièce réglementaire datée (réutilise la fenêtre de renouvellement par type). */
 function validity(
@@ -96,6 +99,56 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
   // Pièce en aperçu / en correction de dates (null = dialogue fermé).
   const [preview, setPreview] = useState<PreviewableDoc | null>(null)
   const [editing, setEditing] = useState<EditableDoc | null>(null)
+  // Picker « Depuis la base de ‹org› » (§2) ouvert.
+  const [picking, setPicking] = useState(false)
+
+  // Base « piochable » (§2) : pièces ORG-scopées des parties liées au produit (titulaireId /
+  // fabricantId), mapping par type (info+AMM → MAH, admin → fabricant, contrat → les deux).
+  const sources =
+    useLiveQuery<SourceDocEntry[]>(async () => {
+      const product = await db.products.get(productId)
+      if (!product) return []
+      const tit = product.titulaireId ?? null
+      const fab = product.fabricantId ?? null
+      const ids = [...new Set([tit, fab].filter((id): id is string => !!id))]
+      if (ids.length === 0) return []
+      const parties = await db.parties.bulkGet(ids)
+      const nameById = new Map(
+        parties
+          // Une partie SUPPRIMÉE (soft delete) encore référencée par le produit n'est plus une base.
+          .filter((p): p is NonNullable<typeof p> => p !== undefined && p.deletedAt === null)
+          .map((p) => [p.id, p.nom] as const),
+      )
+      const liveIds = ids.filter((id) => nameById.has(id))
+      if (liveIds.length === 0) return []
+      const partyDocs = await listPartyDocs(orgId, liveIds)
+      return partyDocs
+        .filter((d) => sourcePartyIdsFor(d.docType, tit, fab).includes(d.partyId ?? ''))
+        .map((d) => ({ doc: d, orgName: nameById.get(d.partyId ?? '') ?? '' }))
+    }, [orgId, productId]) ?? []
+  // Sources du TYPE choisi dans le formulaire d'ajout (le sélecteur ne montre que cette catégorie).
+  const sourcesForType = sources.filter((s) => s.doc.docType === docType)
+  const baseNames = [...new Set(sourcesForType.map((s) => s.orgName).filter(Boolean))]
+  const baseLabel =
+    baseNames.length === 1
+      ? t({ fr: `Depuis la base de ${baseNames[0]}`, en: `From ${baseNames[0]}'s base` })
+      : t({ fr: 'Depuis la base', en: 'From the base' })
+
+  /** Pioche = COPIE LIÉE immédiate vers le produit (blob + métadonnées + provenance). */
+  async function pickFromBase(doc: DocumentRecord): Promise<boolean> {
+    try {
+      await copyDocumentToProduct(orgId, productId, doc.id)
+      void syncCatalogue(orgId)
+      toast.success(t({ fr: 'Pièce reprise de la base', en: 'Document picked from base' }))
+      setAdding(false)
+      return true
+    } catch (error) {
+      toast.error(t({ fr: 'Échec de la pioche', en: 'Pick failed' }), {
+        description: error instanceof Error ? error.message : undefined,
+      })
+      return false
+    }
+  }
   // AMM : N° + date d'émission (octroi) requis — synchronisés ensuite vers le CTD builder (Renew/Variation).
   const isAmm = docType === 'amm'
   // Garde-fou Monitor : émission postérieure à l'expiration = incohérent (signalé en rouge, ajout bloqué).
@@ -228,6 +281,20 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
               </SelectContent>
             </Select>
           </div>
+
+          {/* Deux chemins (§2) : la base de l'org liée possède des pièces de ce type → pioche
+              (copie liée, métadonnées héritées, aucun champ à ressaisir) OU upload classique. */}
+          {sourcesForType.length > 0 ? (
+            <div className="flex items-end sm:justify-end">
+              <Button type="button" variant="outline" onClick={() => setPicking(true)}>
+                <FolderOpen />
+                {baseLabel}
+                <span className="text-muted-foreground tabular-nums">
+                  ({sourcesForType.length})
+                </span>
+              </Button>
+            </div>
+          ) : null}
 
           {isAmm ? (
             <div className="space-y-1.5">
@@ -419,6 +486,13 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
 
       <DocPreviewDialog doc={preview} onOpenChange={(o) => !o && setPreview(null)} />
       <DocDatesDialog doc={editing} onOpenChange={(o) => !o && setEditing(null)} />
+      <SourceDocPicker
+        entries={picking ? sourcesForType : null}
+        title={baseLabel}
+        takenIds={new Set((docs ?? []).flatMap((d) => (d.sourceDocId ? [d.sourceDocId] : [])))}
+        onPick={pickFromBase}
+        onOpenChange={(o) => setPicking(o)}
+      />
     </div>
   )
 }

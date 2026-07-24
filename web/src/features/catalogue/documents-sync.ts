@@ -32,6 +32,8 @@ export interface DocumentRow {
   holder: string | null
   country: string | null
   batch_number: string | null
+  // Provenance « pioché depuis la base » (additif `0070`) : id du document org-scopé copié.
+  source_doc_id: string | null
   status: string
   created_at: string
   updated_at: string
@@ -55,6 +57,7 @@ export function documentToRow(d: DocumentRecord): DocumentRow {
     holder: d.holder ?? null,
     country: d.country ?? null,
     batch_number: d.batchNumber ?? null,
+    source_doc_id: d.sourceDocId ?? null,
     status: d.status,
     created_at: d.createdAt,
     updated_at: d.updatedAt,
@@ -82,6 +85,7 @@ export function rowToDocument(r: DocumentRow): DocumentRecord {
     holder: r.holder ?? null,
     country: r.country ?? null,
     batchNumber: r.batch_number ?? null,
+    sourceDocId: r.source_doc_id ?? null,
     status: r.status,
     filePath: r.file_path,
     uploaded: true,
@@ -129,16 +133,24 @@ async function pushDocuments(supabase: SupabaseClient, orgId: string): Promise<v
   // SAUTÉES ci-dessous — celles d'une AUTRE org (membre multi-orgs) ou en attente de leur parent —
   // sans les avoir poussées. Elles ne seraient jamais reprises : divergence silencieuse.
   const ids = [...new Set(items.map((i) => i.entityId))]
+  // Même garde pour la FK AUTO-référente source_doc_id (copie liée, 0070) : si la SOURCE est encore
+  // en file (ex. son parent party a été sauté), la copie attend — sinon 23503 transitoire qui
+  // avorte le drain (bruit Sentry). Retirée du set dès qu'elle est poussée.
+  const pendingDocs = new Set(ids)
   const drain = new Set<string>()
-  for (const id of ids) {
+
+  /** Pousse UN document ; `true` = différé uniquement parce que sa SOURCE n'est pas encore en base. */
+  async function pushOne(id: string): Promise<boolean> {
     const rec = await db.documents.get(id)
     if (!rec) {
+      pendingDocs.delete(id)
       drain.add(id) // plus rien à pousser localement
-      continue
+      return false
     }
-    if (rec.orgId !== orgId) continue // autre org → reste en file pour son propre cycle
-    if (rec.productId && pendingProducts.has(rec.productId)) continue // parent pas poussé → cycle suivant
-    if (rec.partyId && pendingParties.has(rec.partyId)) continue // parent org pas poussé → cycle suivant
+    if (rec.orgId !== orgId) return false // autre org → reste en file pour son propre cycle
+    if (rec.productId && pendingProducts.has(rec.productId)) return false // parent pas poussé → cycle suivant
+    if (rec.partyId && pendingParties.has(rec.partyId)) return false // parent org pas poussé → cycle suivant
+    if (rec.sourceDocId && pendingDocs.has(rec.sourceDocId)) return true // source pas poussée → 2ᵉ passe
 
     // Upload du blob si pas encore fait (et document non supprimé).
     if (!rec.uploaded && rec.deletedAt === null) {
@@ -164,13 +176,26 @@ async function pushDocuments(supabase: SupabaseClient, orgId: string): Promise<v
       if (isPermanentSyncError(error)) {
         // Rejet définitif : draine (anti-boucle) + trace Sentry (divergence local/serveur).
         reportError(error, { op: 'sync', entity: 'documents', id, permanent: true })
+        pendingDocs.delete(id)
         drain.add(id)
-        continue
+        return false
       }
       throw error // transitoire (FK pas encore satisfaite incluse) → conservé, retenté
     }
+    pendingDocs.delete(id) // en base → les copies qui la référencent peuvent suivre dans ce cycle
     drain.add(id)
+    return false
   }
+
+  // 1re passe, puis UNE 2ᵉ passe pour les copies différées : l'outbox n'est PAS ordonnée par
+  // insertion (clé d'index), une copie peut précéder sa source dans `ids`. Une source étant
+  // toujours ORG-scopée (jamais elle-même une copie), une seule passe de rattrapage suffit.
+  const deferredForSource: string[] = []
+  for (const id of ids) {
+    if (await pushOne(id)) deferredForSource.push(id)
+  }
+  for (const id of deferredForSource) await pushOne(id)
+
   await db.outbox.bulkDelete(items.filter((i) => drain.has(i.entityId)).map((i) => i.id))
 }
 

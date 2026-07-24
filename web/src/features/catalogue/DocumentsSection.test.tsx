@@ -1,9 +1,11 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { db, type DocumentRecord, type PartyRecord, type ProductRecord } from '@/lib/db'
 import { I18nProvider } from '@/lib/I18nProvider'
 import { DocumentsSection } from './DocumentsSection'
+import { copyDocumentToProduct } from './documents-reuse'
 
 // Pas de Dexie ni de réseau : on isole le formulaire (la liste `useLiveQuery` renvoie []).
 vi.mock('./documents-repository', () => ({
@@ -11,9 +13,15 @@ vi.mock('./documents-repository', () => ({
   addDocument: vi.fn(() => Promise.resolve()),
   deleteDocument: vi.fn(() => Promise.resolve()),
   getDocumentBlob: vi.fn(() => Promise.resolve(null)),
+  cacheDocumentBlob: vi.fn(() => Promise.resolve()),
 }))
 vi.mock('./catalogue-sync', () => ({ syncCatalogue: vi.fn() }))
 vi.mock('./documents-sync', () => ({ downloadDocumentBlob: vi.fn(() => Promise.resolve(null)) }))
+// La COPIE réelle (blob) est testée dans documents-reuse.test — ici on vérifie le CBLAGE UI.
+vi.mock('./documents-reuse', async (importOriginal) => {
+  const real = await importOriginal<typeof import('./documents-reuse')>()
+  return { ...real, copyDocumentToProduct: vi.fn(() => Promise.resolve({})) }
+})
 
 // radix Select s'appuie sur ces API de pointeur que jsdom n'implémente pas.
 beforeAll(() => {
@@ -53,5 +61,79 @@ describe('DocumentsSection — garde-fou dates (Monitor)', () => {
 
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Ajouter le document' })).toBeEnabled()
+  })
+})
+
+describe('DocumentsSection — « Depuis la base » (§2, pioche org → produit)', () => {
+  beforeEach(async () => {
+    await db.products.clear()
+    await db.parties.clear()
+    await db.documents.clear()
+  })
+
+  it('AMM de la base du MAH lié → bouton de pioche, le choix déclenche la copie liée', async () => {
+    const user = userEvent.setup()
+    await db.products.put({
+      id: 'p1',
+      orgId: 'o1',
+      nomCommercial: 'Doliprane',
+      titulaireId: 'party-mah',
+      fabricantId: 'party-fab',
+      deletedAt: null,
+    } as ProductRecord)
+    await db.parties.put({
+      id: 'party-mah',
+      orgId: 'o1',
+      nom: 'Sahel Pharma SARL',
+      roles: ['titulaire'],
+      deletedAt: null,
+    } as PartyRecord)
+    await db.documents.put({
+      id: 'src-amm',
+      orgId: 'o1',
+      productId: '',
+      partyId: 'party-mah',
+      category: 'admin',
+      docType: 'amm',
+      fileName: 'amm-ci.pdf',
+      status: 'active',
+      language: null,
+      expiryDate: '2030-01-01',
+      filePath: null,
+      uploaded: false,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      deletedAt: null,
+    } as DocumentRecord)
+
+    renderI(<DocumentsSection orgId="o1" productId="p1" category="admin" />)
+    await user.click(screen.getByRole('button', { name: 'Ajouter un document' }))
+
+    // Type par défaut = AMM → la base du MAH a 1 pièce de ce type : le chemin pioche apparaît.
+    const pickBtn = await screen.findByRole('button', {
+      name: /Depuis la base de Sahel Pharma SARL/,
+    })
+    await user.click(pickBtn)
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: /amm-ci\.pdf/ }))
+
+    expect(copyDocumentToProduct).toHaveBeenCalledWith('o1', 'p1', 'src-amm')
+  })
+
+  it('aucune source du type choisi → pas de bouton de pioche (upload seul)', async () => {
+    const user = userEvent.setup()
+    await db.products.put({
+      id: 'p1',
+      orgId: 'o1',
+      nomCommercial: 'Doliprane',
+      titulaireId: 'party-mah',
+      fabricantId: null,
+      deletedAt: null,
+    } as ProductRecord)
+
+    renderI(<DocumentsSection orgId="o1" productId="p1" category="admin" />)
+    await user.click(screen.getByRole('button', { name: 'Ajouter un document' }))
+
+    expect(screen.queryByRole('button', { name: /Depuis la base/ })).not.toBeInTheDocument()
   })
 })

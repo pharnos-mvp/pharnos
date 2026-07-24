@@ -187,4 +187,29 @@ describe('syncDocuments — push', () => {
     expect(pousses()).toHaveLength(0)
     expect(await enFile()).toBe(1)
   })
+
+  it('RETIENT la COPIE LIÉE tant que sa SOURCE est retenue (FK source_doc_id, 0070)', async () => {
+    // Course hors-ligne : partie + pièce org + pioche créées avant la 1re sync. La partie est
+    // encore en file → la pièce SOURCE est sautée ; la copie (source_doc_id) doit l'être AUSSI,
+    // sinon 23503 transitoire qui avorte le drain (bruit Sentry).
+    await enqueueOutbox('party', 'party-1', 'create', {})
+    await enfile({ id: 'src-1', productId: '', partyId: 'party-1' })
+    await enfile({ id: 'copy-1', productId: 'prod-1', sourceDocId: 'src-1' })
+
+    await runSync('org-1')
+
+    expect(pousses()).toHaveLength(0)
+    expect(await enFile()).toBe(2)
+  })
+
+  it('pousse source PUIS copie dans le MÊME cycle quand la chaîne est complète', async () => {
+    await enfile({ id: 'src-1', productId: '', partyId: 'party-1' })
+    await enfile({ id: 'copy-1', productId: 'prod-1', sourceDocId: 'src-1' })
+
+    await runSync('org-1')
+
+    expect(pousses().map((c) => c.row.id)).toEqual(['src-1', 'copy-1'])
+    expect(pousses()[1]?.row.source_doc_id).toBe('src-1')
+    expect(await enFile()).toBe(0)
+  })
 })

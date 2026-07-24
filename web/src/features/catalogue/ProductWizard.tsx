@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useForm } from 'react-hook-form'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { useForm, useWatch } from 'react-hook-form'
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -20,9 +21,12 @@ import { useI18n, type Translatable } from '@/lib/i18n-context'
 import { syncCatalogue } from './catalogue-sync'
 import { DocTypeCards, type DraftDocument } from './DocTypeCards'
 import { addDocument } from './documents-repository'
+import { listPartyDocs, sourcePartyIdsFor } from './documents-reuse'
+import { listParties } from './parties-repository'
 import { FormeControl, OrgBlock, PghtField } from './product-fields'
 import { computeStepState } from './product-wizard-steps'
 import { createProduct } from './repository'
+import type { SourceDocEntry } from './SourceDocPicker'
 import { makeProductSchema, type ProductFormValues, type ProductInput } from './types'
 
 /** Champs « produit classique » (session 1, hors titulaire/fabricant qui ont leurs blocs appariés). */
@@ -113,6 +117,32 @@ export function ProductWizard({ orgId, onDone }: { orgId: string; onDone: () => 
   const [drafts, setDrafts] = useState<DraftDocument[]>([])
   const isValidStep1 = form.formState.isValid // live (mode onChange) → pilote l'état du stepper
 
+  // Base « piochable » (§2) : dès qu'un titulaire/fabricant CONNU est sélectionné en session 1, ses
+  // pièces org-scopées deviennent proposables aux sessions 2/3 (mapping par type : info+AMM → MAH,
+  // admin → fabricant, contrat → les deux). Résolution par NOM — même règle qu'`OrgBlock`.
+  const titulaireName = useWatch({ control: form.control, name: 'titulaire' })
+  const fabricantName = useWatch({ control: form.control, name: 'fabricant' })
+  const sources =
+    useLiveQuery<SourceDocEntry[]>(async () => {
+      const parties = await listParties(orgId)
+      const tit =
+        parties.find((p) => p.nom === titulaireName && p.roles.includes('titulaire')) ?? null
+      const fab =
+        parties.find((p) => p.nom === fabricantName && p.roles.includes('fabricant')) ?? null
+      if (!tit && !fab) return []
+      const nameById = new Map(
+        [tit, fab]
+          .filter((p): p is NonNullable<typeof p> => p !== null)
+          .map((p) => [p.id, p.nom] as const),
+      )
+      const docs = await listPartyDocs(orgId, [...nameById.keys()])
+      return docs
+        .filter((d) =>
+          sourcePartyIdsFor(d.docType, tit?.id ?? null, fab?.id ?? null).includes(d.partyId ?? ''),
+        )
+        .map((d) => ({ doc: d, orgName: nameById.get(d.partyId ?? '') ?? '' }))
+    }, [orgId, titulaireName, fabricantName]) ?? []
+
   // Navigation LIBRE entre sessions (clic sur les titres). Sauter la session 1 invalide la marque
   // en rouge, mais n'empêche jamais d'ajouter des pièces aux sessions suivantes.
   function goToStep(n: number) {
@@ -143,13 +173,15 @@ export function ProductWizard({ orgId, onDone }: { orgId: string; onDone: () => 
           category: d.category,
           docType: d.docType,
           file: d.file,
-          language: 'fr',
+          // Pièce piochée → langue de la SOURCE ; upload manuel → 'fr' (défaut historique).
+          language: d.language ?? 'fr',
           issueDate: d.issueDate,
           expiryDate: d.expiryDate,
           reference: d.reference,
           holder: d.holder,
           country: d.country,
           batchNumber: d.batchNumber,
+          sourceDocId: d.sourceDocId ?? null,
         })
       }
       // `createProduct` a créé les parties (titulaire/fabricant) que le produit référence : la
@@ -306,7 +338,13 @@ export function ProductWizard({ orgId, onDone }: { orgId: string; onDone: () => 
       {/* Session 2 — Documents d'information (ajout LIBRE, bufferisé) */}
       {step === 2 ? (
         <>
-          <DocTypeCards category="info" drafts={drafts} onAdd={addDraft} onRemove={removeDraft} />
+          <DocTypeCards
+            category="info"
+            drafts={drafts}
+            onAdd={addDraft}
+            onRemove={removeDraft}
+            sources={sources}
+          />
           <StepNav
             onBack={() => goToStep(1)}
             onNext={() => goToStep(3)}
@@ -318,7 +356,13 @@ export function ProductWizard({ orgId, onDone }: { orgId: string; onDone: () => 
       {/* Session 3 — Pièces administratives (ajout LIBRE, bufferisé) */}
       {step === 3 ? (
         <>
-          <DocTypeCards category="admin" drafts={drafts} onAdd={addDraft} onRemove={removeDraft} />
+          <DocTypeCards
+            category="admin"
+            drafts={drafts}
+            onAdd={addDraft}
+            onRemove={removeDraft}
+            sources={sources}
+          />
           <StepNav
             onBack={() => goToStep(2)}
             onNext={() => void finish()}
