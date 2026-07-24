@@ -2,7 +2,13 @@ import { useState } from 'react'
 import { Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import type { DocumentCategory, PartyRecord } from '@/lib/db'
 import { useI18n } from '@/lib/i18n-context'
 import { syncCatalogue } from './catalogue-sync'
@@ -46,11 +52,21 @@ export function OrgDocAddButton({
             <DialogTitle>
               {t({
                 fr: `Ajouter à la base de ${party.nom}`,
-                en: `Add to ${party.nom}'s base`,
+                en: `Add to the base of ${party.nom}`,
               })}
             </DialogTitle>
+            <DialogDescription>
+              {t({
+                fr: 'Le document entre dans la base propre de l’organisation et devient réutilisable depuis ses produits.',
+                en: 'The document joins the organization’s own base and becomes reusable from its products.',
+              })}
+            </DialogDescription>
           </DialogHeader>
           <DocAddForm
+            // Remonte le formulaire si les types/catégorie changent PENDANT que le dialog est
+            // ouvert (rôles resynchronisés, navigation même-composant) : docType ne peut jamais
+            // pointer un type qui n'est plus proposé — l'invariant de reset devient explicite.
+            key={`${category}:${types.map((o) => o.code).join(',')}`}
             types={types}
             category={category}
             onSubmit={async (input) => {

@@ -116,7 +116,7 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
       ),
     ]
     return names.length === 1
-      ? t({ fr: `Depuis la base de ${names[0]}`, en: `From ${names[0]}'s base` })
+      ? t({ fr: `Depuis la base de ${names[0]}`, en: `From the base of ${names[0]}` })
       : t({ fr: 'Depuis la base', en: 'From the base' })
   }
 

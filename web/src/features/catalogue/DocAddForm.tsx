@@ -117,6 +117,8 @@ export function DocAddForm({
         country: isAmm ? country || null : null,
       })
       toast.success(t({ fr: 'Document ajouté', en: 'Document added' }))
+      // Reset in-place : conservé pour un appelant qui GARDE le formulaire monté après `onDone`
+      // (les consommateurs actuels le démontent — dialog fermé / panneau replié).
       setFile(null)
       setExpiryDate('')
       setIssueDate('')
