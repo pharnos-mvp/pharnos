@@ -1,4 +1,5 @@
 import { type ComponentProps, useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { ChevronDown, Plus, Trash2 } from 'lucide-react'
 import type { UseFormReturn } from 'react-hook-form'
 
@@ -6,11 +7,13 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import type { PghtCurrency, PghtEntry } from '@/lib/db'
+import { useOrgId } from '@/features/org/org-context'
+import type { PghtCurrency, PghtEntry, PartyRole } from '@/lib/db'
 import { eurStringToFcfa, parseAmount } from '@/lib/money'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n-context'
 import { COUNTRIES, countryLabel } from '@/features/workspace/dossier-constants'
+import { listParties } from './parties-repository'
 import { AUTRE_FORME, isKnownForm, PHARMA_FORMS } from './pharma-forms'
 import type { ProductFormValues, ProductInput } from './types'
 
@@ -230,9 +233,18 @@ export function PghtField({
   )
 }
 
+/** Valeur sentinelle de l'option « Nouveau… » (caractère de contrôle → jamais un vrai nom d'org). */
+const NEW_PARTY = ' new'
+
 /**
  * Bloc apparié Titulaire d'AMM / Fabricant (nom + adresse) — PARTAGÉ par le wizard de création et le
  * cockpit d'édition pour que la session Identification soit identique des deux côtés.
+ *
+ * « CHOISIR OU CRÉER » : dès qu'une org du même rôle est déjà enregistrée, un sélecteur la propose
+ * (0 ressaisie, 0 doublon par faute de frappe) ; « ＋ Nouveau » bascule en saisie libre. Aucune org
+ * de ce rôle → saisie directe (comportement historique). L'org choisie remplit nom + adresse ; ces
+ * champs restent la source consommée par le CTD/les lettres (`productToLetterFields`), donc le
+ * pipeline de dérivation des parties (`deriveProductLinks`) est inchangé.
  */
 export function OrgBlock({
   form,
@@ -246,35 +258,121 @@ export function OrgBlock({
   addressField: 'titulaireAdresse' | 'fabricantAdresse'
 }) {
   const { t } = useI18n()
+  const orgId = useOrgId()
+  const role: PartyRole = nameField // 'titulaire' | 'fabricant' = rôle homonyme
+  const parties = useLiveQuery(
+    () => listParties(orgId).then((ps) => ps.filter((p) => p.roles.includes(role))),
+    [orgId, role],
+  )
+  const name = (form.watch(nameField) ?? '') as string
+  const hasParties = (parties?.length ?? 0) > 0
+  const selected = parties?.find((p) => p.nom === name)
+  const known = !!selected
+  const [forcedNew, setForcedNew] = useState(false)
+  // Saisie libre si : l'utilisateur a cliqué « Nouveau », OU aucune org de ce rôle n'existe, OU le
+  // nom déjà saisi n'est PAS une org connue (édition d'un produit ancien, avant les parties).
+  const creating = forcedNew || !hasParties || (!!name && parties !== undefined && !known)
+
+  function pick(partyName: string) {
+    const p = parties?.find((x) => x.nom === partyName)
+    form.setValue(nameField, partyName, { shouldValidate: true, shouldDirty: true })
+    if (p) form.setValue(addressField, p.adresse, { shouldDirty: true })
+    setForcedNew(false)
+  }
+  function startNew() {
+    form.setValue(nameField, '', { shouldValidate: true, shouldDirty: true })
+    form.setValue(addressField, '', { shouldDirty: true })
+    setForcedNew(true)
+  }
+  function backToPick() {
+    // Le nom courant n'est pas une org connue → on le vide pour repartir du sélecteur.
+    if (!known) form.setValue(nameField, '', { shouldValidate: true, shouldDirty: true })
+    setForcedNew(false)
+  }
+
   return (
     <Card className="gap-4 p-5">
       <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
-      <FormField
-        control={form.control}
-        name={nameField}
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t({ fr: 'Nom', en: 'Name' })}</FormLabel>
-            <FormControl>
-              <Input {...field} value={field.value ?? ''} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <FormField
-        control={form.control}
-        name={addressField}
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t({ fr: 'Adresse', en: 'Address' })}</FormLabel>
-            <FormControl>
-              <Input {...field} value={field.value ?? ''} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+
+      {hasParties && !creating ? (
+        // Sélecteur d'org existante (+ « Nouveau »). Le nom reste porté par le champ de formulaire.
+        <FormField
+          control={form.control}
+          name={nameField}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t({ fr: 'Nom', en: 'Name' })}</FormLabel>
+              <FormControl>
+                <NativeSelect
+                  value={known ? (field.value ?? '') : ''}
+                  aria-label={title}
+                  onChange={(e) =>
+                    e.target.value === NEW_PARTY ? startNew() : pick(e.target.value)
+                  }
+                >
+                  <option value="">{t({ fr: 'Choisir…', en: 'Choose…' })}</option>
+                  {parties!.map((p) => (
+                    <option key={p.id} value={p.nom}>
+                      {p.nom}
+                    </option>
+                  ))}
+                  <option value={NEW_PARTY}>＋ {t({ fr: 'Nouveau', en: 'New' })}</option>
+                </NativeSelect>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      ) : (
+        <FormField
+          control={form.control}
+          name={nameField}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t({ fr: 'Nom', en: 'Name' })}</FormLabel>
+              <FormControl>
+                <Input {...field} value={field.value ?? ''} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
+      {known && !creating ? (
+        // Org choisie : adresse en lecture (modifiable sur la fiche organisation).
+        <div className="space-y-1">
+          <FormLabel>{t({ fr: 'Adresse', en: 'Address' })}</FormLabel>
+          <p className="text-muted-foreground text-sm break-words">{selected?.adresse || '—'}</p>
+          <button type="button" onClick={startNew} className="text-info text-xs hover:underline">
+            {t({ fr: 'Saisir une autre organisation', en: 'Enter another organization' })}
+          </button>
+        </div>
+      ) : (
+        <FormField
+          control={form.control}
+          name={addressField}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t({ fr: 'Adresse', en: 'Address' })}</FormLabel>
+              <FormControl>
+                <Input {...field} value={field.value ?? ''} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
+      {creating && hasParties ? (
+        <button
+          type="button"
+          onClick={backToPick}
+          className="text-info self-start text-xs hover:underline"
+        >
+          ← {t({ fr: 'Choisir une organisation existante', en: 'Choose an existing organization' })}
+        </button>
+      ) : null}
     </Card>
   )
 }
