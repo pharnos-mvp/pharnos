@@ -121,12 +121,14 @@ describe('ShareDialog — destinataire depuis la base des agences (P3)', () => {
         expect.objectContaining({ recipientEmail: 'contact@pharmareg.bj' }),
       ),
     )
-    const created = await db.parties.get(partyId(ORG, 'PharmaReg Bénin'))
-    expect(created).toMatchObject({
-      roles: ['agent'],
-      pays: 'Bénin', // dossier.country 'BJ' → libellé
-      contactEmail: 'contact@pharmareg.bj',
-    })
+    await waitFor(async () =>
+      // La capture au catalogue est asynchrone APRÈS l'envoi (best-effort).
+      expect(await db.parties.get(partyId(ORG, 'PharmaReg Bénin'))).toMatchObject({
+        roles: ['agent'],
+        pays: 'Bénin', // dossier.country 'BJ' → libellé
+        contactEmail: 'contact@pharmareg.bj',
+      }),
+    )
   })
 
   it('agence choisie SANS e-mail : l’e-mail saisi est enregistré sur sa fiche (complément, pas d’écrasement)', async () => {
@@ -185,6 +187,62 @@ describe('ShareDialog — destinataire depuis la base des agences (P3)', () => {
       ),
     )
     expect(await db.parties.count()).toBe(0)
+  })
+
+  it('e-mail TAPÉ puis agence sans e-mail choisie : la saisie est conservée et enregistrée (en minuscules) sur la fiche', async () => {
+    const agence = party('Agence Togo', ['agent'])
+    await db.parties.put(agence)
+    const user = userEvent.setup()
+    renderDialog()
+
+    // L'utilisateur tape d'abord l'adresse, PUIS retrouve l'agence dans la base.
+    await user.type(await screen.findByLabelText('E-mail du correspondant'), 'Depots@AgenceTogo.TG')
+    const select = screen.getByLabelText('Destinataire (agence locale)')
+    await user.selectOptions(select, await screen.findByRole('option', { name: 'Agence Togo' }))
+    expect(screen.getByLabelText('E-mail du correspondant')).toHaveValue('Depots@AgenceTogo.TG')
+
+    await user.click(screen.getByRole('button', { name: 'Envoyer' }))
+    await waitFor(async () =>
+      // Normalisé comme la clé du fil (share-send stocke en minuscules).
+      expect((await db.parties.get(agence.id))?.contactEmail).toBe('depots@agencetogo.tg'),
+    )
+  })
+
+  it('échec de l’envoi → AUCUNE agence créée (capture uniquement après un envoi réussi)', async () => {
+    vi.mocked(sendCompiledDossier).mockRejectedValueOnce(new Error('upload KO'))
+    const user = userEvent.setup()
+    renderDialog()
+
+    const select = await screen.findByLabelText('Destinataire (agence locale)')
+    await user.selectOptions(select, screen.getByRole('option', { name: /Nouvelle agence/ }))
+    await user.type(screen.getByLabelText('Nom de la nouvelle agence'), 'PharmaReg Bénin')
+    await user.type(screen.getByLabelText('E-mail du correspondant'), 'contact@pharmareg.bj')
+    await user.click(screen.getByRole('button', { name: 'Envoyer' }))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled())
+    expect(await db.parties.count()).toBe(0)
+  })
+
+  it('nom déjà connu (autre rôle) : annonce la réutilisation et FUSIONNE au lieu de dupliquer', async () => {
+    await db.parties.put(party('PHARMAX', ['fabricant']))
+    const user = userEvent.setup()
+    renderDialog()
+
+    const select = await screen.findByLabelText('Destinataire (agence locale)')
+    await user.selectOptions(select, screen.getByRole('option', { name: /Nouvelle agence/ }))
+    await user.type(screen.getByLabelText('Nom de la nouvelle agence'), 'PHARMAX')
+    // L'UI ne promet PAS une création : elle annonce la fusion avec l'org existante.
+    expect(await screen.findByText(/existe déjà/)).toBeInTheDocument()
+
+    await user.type(screen.getByLabelText('E-mail du correspondant'), 'depots@pharmax.ci')
+    await user.click(screen.getByRole('button', { name: 'Envoyer' }))
+
+    await waitFor(async () => {
+      const merged = await db.parties.get(partyId(ORG, 'PHARMAX'))
+      expect(merged?.roles).toEqual(['agent', 'fabricant'])
+      expect(merged?.contactEmail).toBe('depots@pharmax.ci')
+    })
+    expect(await db.parties.count()).toBe(1)
   })
 
   it('« ＋ Nouvelle agence » sans nom → erreur et AUCUN envoi', async () => {
