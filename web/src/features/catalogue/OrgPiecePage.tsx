@@ -11,9 +11,30 @@ import { countryLabel } from '@/features/workspace/dossier-constants'
 import { useOrgId } from '@/features/org/org-context'
 import { db, type DocumentRecord, type PartyRecord, type ProductRecord } from '@/lib/db'
 import { useI18n } from '@/lib/i18n-context'
+import { OrgDocAddButton } from './OrgDocAddButton'
 import { PieceGrid } from './PieceGrid'
-import { docTypeLabel } from './doc-types'
+import {
+  adminDocTypesForPartyRoles,
+  AMM_DOC_TYPE,
+  categoryForDocType,
+  docTypeLabel,
+  INFO_DOC_TYPES,
+  type DocTypeOption,
+} from './doc-types'
 import { orgDocCards } from './parties-data'
+
+/**
+ * Types que CETTE org peut déposer en propre pour la page d'UN type (matrice §1) : AMM/docs d'info
+ * → MAH seulement ; pièce admin → selon `adminDocTypesForPartyRoles`. `[]` = pas de bouton Ajouter
+ * (le type affiché vient alors des produits liés, pas de la base propre de l'org).
+ */
+function ownTypesFor(party: PartyRecord, docType: string): DocTypeOption[] {
+  const isMah = party.roles.includes('titulaire')
+  if (docType === 'amm') return isMah ? AMM_DOC_TYPE : []
+  const info = INFO_DOC_TYPES.find((o) => o.code === docType)
+  if (info) return isMah ? [info] : []
+  return adminDocTypesForPartyRoles(party.roles).filter((o) => o.code === docType)
+}
 
 interface OrgDocs {
   party: PartyRecord | undefined
@@ -47,6 +68,7 @@ function OrgPieceListView({
   title,
   keep,
   emptyText,
+  renderAction,
 }: {
   partyId: string
   /** Suffixe de titre (type de pièce ou pays) — l'organisation est préfixée si connue. */
@@ -56,6 +78,8 @@ function OrgPieceListView({
    *  du mémo, sinon les cartes resteraient filtrées sur l'ancien type. */
   keep: (d: DocumentRecord) => boolean
   emptyText: string
+  /** Action de l'en-tête (§3 : « Ajouter » à la base propre de l'org) — reçoit la partie chargée. */
+  renderAction?: (party: PartyRecord) => React.ReactNode
 }) {
   const { t } = useI18n()
   const data = useOrgDocs(partyId)
@@ -107,7 +131,10 @@ function OrgPieceListView({
 
   return (
     <Page>
-      <h1 className="font-display text-base font-semibold">{title}</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="font-display text-base font-semibold">{title}</h1>
+        {renderAction?.(data.party)}
+      </div>
       <PieceGrid cards={cards} emptyText={emptyText} query={q} onQueryChange={setQ} />
     </Page>
   )
@@ -116,15 +143,29 @@ function OrgPieceListView({
 /** Page dédiée à UN type de pièce (AMM, CoA, GMP, RCP…) d'une organisation. */
 export function OrgPiecePage() {
   const { t, lang } = useI18n()
+  const orgId = useOrgId()
   const { partyId = '', docType = '' } = useParams()
   // Mémoïsé sur `docType` : identité stable tant que le type d'URL ne change pas (voir OrgPieceListView).
   const keep = useCallback((d: DocumentRecord) => d.docType === docType, [docType])
+  // « Ajouter » (§3) : type PRÉ-SÉLECTIONNÉ (seul proposé), si la matrice §1 l'autorise pour cette org.
+  const renderAction = useCallback(
+    (party: PartyRecord) => (
+      <OrgDocAddButton
+        orgId={orgId}
+        party={party}
+        types={ownTypesFor(party, docType)}
+        category={categoryForDocType(docType, 'admin')}
+      />
+    ),
+    [orgId, docType],
+  )
   return (
     <OrgPieceListView
       partyId={partyId}
       title={docTypeLabel(docType, lang)}
       keep={keep}
       emptyText={t({ fr: 'Aucune pièce de ce type', en: 'No document of this type' })}
+      renderAction={renderAction}
     />
   )
 }
