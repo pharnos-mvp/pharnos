@@ -22,6 +22,9 @@ const OrganisationCockpit = lazy(() =>
     default: m.OrganisationCockpit,
   })),
 )
+const OrgWizardPage = lazy(() =>
+  import('@/features/catalogue/OrgWizardPage').then((m) => ({ default: m.OrgWizardPage })),
+)
 const OrgPiecePage = lazy(() =>
   import('@/features/catalogue/OrgPiecePage').then((m) => ({ default: m.OrgPiecePage })),
 )
@@ -82,6 +85,9 @@ export function AppRoutes() {
         <Route path="/catalogue" element={<CataloguePage />} />
         <Route path="/catalogue/nouveau" element={<ProductFormPage />} />
         <Route path="/catalogue/organisations" element={<OrganisationsPage />} />
+        {/* Statique AVANT le dynamique :partyId (le ranking React Router privilégie déjà le
+            statique, l'ordre le rend lisible). */}
+        <Route path="/catalogue/organisations/nouvelle" element={<OrgWizardPage />} />
         <Route path="/catalogue/organisations/:partyId" element={<OrganisationCockpit />} />
         <Route
           path="/catalogue/organisations/:partyId/pieces/:docType"
