@@ -1,0 +1,872 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mockup — Fiche Organisation en cockpit (chrome de la fiche produit)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ═══ Jetons RÉELS de l'app (index.css, thème sombre GitHub) ═══ */
+      :root {
+        --background: #0d1117;
+        --card: #161b22;
+        --border: #30363d;
+        --muted-foreground: #8b949e;
+        --info-subtle: #0d1b2f;
+        --info-subtle-fg: #6cb6ff;
+        --danger-subtle: #2a1415;
+        --danger-subtle-fg: #ff7b72;
+        --warning-subtle: #271d09;
+        --warning-subtle-fg: #e3b341;
+        --success-subtle: #12261c;
+        --success-subtle-fg: #4ac26b;
+        --muted: #21262d;
+        --info: #1f6feb;
+
+        --pd-card: var(--card);
+        --pd-border: var(--border);
+        --pd-muted: var(--muted-foreground);
+        --pd-strong: #f0f6fc;
+        --pd-text: #e6edf3;
+        --pd-text-2: #c9d1d9;
+        --pd-name: #adbac7;
+        --pd-hover-border: #484f58;
+        --pd-link: #58a6ff;
+        --pd-shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.4);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--background);
+        color: var(--pd-text);
+        font-family:
+          ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        font-size: 14px;
+      }
+      .shell {
+        display: flex;
+        min-height: 100vh;
+      }
+      /* Rail latéral simplifié (contexte visuel seulement) */
+      .rail {
+        width: 64px;
+        flex: none;
+        background: #010409;
+        border-right: 1px solid #21262d;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 14px 0;
+      }
+      .rail .logo {
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        background: linear-gradient(135deg, #1f6feb, #58a6ff);
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        color: #fff;
+        margin-bottom: 10px;
+      }
+      .rail .ri {
+        width: 38px;
+        height: 38px;
+        border-radius: 9px;
+        display: grid;
+        place-items: center;
+        color: #8b949e;
+      }
+      .rail .ri.on {
+        background: #16233f;
+        color: #7dd3fc;
+      }
+      .main {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      /* Bandeau applicatif (headerSlot plein, comme la fiche produit) */
+      .topbar {
+        height: 56px;
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--background);
+      }
+      .topbar .back {
+        width: 30px;
+        height: 30px;
+        border-radius: 7px;
+        border: none;
+        background: none;
+        color: var(--pd-text);
+        cursor: pointer;
+      }
+      .topbar .ttl {
+        font-family: 'Syne', sans-serif;
+        font-weight: 700;
+        font-size: 16px;
+        color: var(--pd-strong);
+        flex: 1;
+        min-width: 0;
+      }
+      .chip {
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--pd-text-2);
+        border-radius: 8px;
+        padding: 5px 9px;
+        font-size: 12px;
+      }
+
+      /* ═══ Chrome cockpit — copie EXACTE de product-cockpit.css ═══ */
+      .rim-cockpit {
+        color: var(--pd-text);
+      }
+      .rim-top {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: var(--pd-card);
+      }
+      .prod-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--pd-border);
+      }
+      .prod-ico {
+        width: 54px;
+        height: 54px;
+        border-radius: 13px;
+        flex: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #14233b, #1c3a5e);
+        color: #7dd3fc;
+      }
+      .prod-name {
+        font-family: 'Syne', sans-serif;
+        font-weight: 700;
+        font-size: 18px;
+        color: var(--pd-strong);
+      }
+      .prod-sub {
+        font-size: 13px;
+        color: var(--pd-name);
+        margin-top: 3px;
+      }
+      .prod-tags {
+        display: flex;
+        gap: 6px;
+        margin-top: 9px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .prod-actions {
+        margin-left: auto;
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        flex: none;
+      }
+      .prod-meta {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+        padding: 14px 24px;
+        border-bottom: 1px solid var(--pd-border);
+      }
+      @media (min-width: 768px) {
+        .prod-meta {
+          grid-template-columns: repeat(4, 1fr);
+        }
+      }
+      .meta-key {
+        font-size: 10.5px;
+        font-weight: 700;
+        color: var(--pd-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 3px;
+      }
+      .meta-val {
+        font-size: 13.5px;
+        font-weight: 500;
+        color: var(--pd-text-2);
+      }
+      .tabs-bar {
+        display: flex;
+        padding: 0 24px;
+        border-bottom: 1px solid var(--pd-border);
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      .tabs-bar::-webkit-scrollbar {
+        display: none;
+      }
+      .tab {
+        padding: 12px 16px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--pd-muted);
+        cursor: pointer;
+        border: none;
+        background: none;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+        white-space: nowrap;
+        font-family: inherit;
+        transition: color 0.18s;
+      }
+      .tab:hover {
+        color: var(--pd-text);
+      }
+      .tab[data-state='active'] {
+        color: var(--pd-link);
+        border-bottom-color: var(--pd-link);
+        font-weight: 600;
+      }
+      .rim-content {
+        padding: 20px 24px;
+      }
+
+      /* ═══ Primitives partagées ═══ */
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 12px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .b-info {
+        background: var(--info-subtle);
+        color: var(--info-subtle-fg);
+      }
+      .b-danger {
+        background: var(--danger-subtle);
+        color: var(--danger-subtle-fg);
+      }
+      .b-warn {
+        background: var(--warning-subtle);
+        color: var(--warning-subtle-fg);
+      }
+      .b-ok {
+        background: var(--success-subtle);
+        color: var(--success-subtle-fg);
+      }
+      .b-neutral {
+        background: var(--muted);
+        color: var(--muted-foreground);
+      }
+      .badge.sm {
+        padding: 0 6px;
+        font-size: 10px;
+        gap: 2px;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 12px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--pd-text);
+      }
+      .btn.primary {
+        background: var(--info);
+        border-color: var(--info);
+        color: #fff;
+      }
+      .card {
+        background: var(--pd-card);
+        border: 1px solid var(--pd-border);
+        border-radius: 12px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        border: 1px solid var(--pd-border);
+        border-radius: 12px;
+        background: var(--pd-card);
+        text-decoration: none;
+        color: inherit;
+        transition: all 0.15s;
+      }
+      .row:hover {
+        border-color: var(--pd-hover-border);
+        box-shadow: var(--pd-shadow-sm);
+      }
+      .ico-sq {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        flex: none;
+        display: grid;
+        place-items: center;
+        background: var(--info-subtle);
+        color: var(--info-subtle-fg);
+      }
+      .stack {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .sec-title {
+        font-family: 'Syne', sans-serif;
+        font-weight: 600;
+        font-size: 14px;
+        margin: 0 0 12px;
+      }
+      .muted {
+        color: var(--pd-muted);
+      }
+      .xs {
+        font-size: 12px;
+      }
+      .grid-types {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      }
+      .grid-pieces {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .piece {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        height: 100%;
+        padding: 10px;
+        border: 1px solid var(--pd-border);
+        border-radius: 12px;
+        background: var(--pd-card);
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .piece:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+        border-color: var(--pd-hover-border);
+      }
+      .thumb {
+        height: 160px;
+        border-radius: 8px;
+        border: 1px solid var(--pd-border);
+        background: #fff;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+      }
+      .thumb .sheet {
+        width: 74%;
+        height: 88%;
+        background:
+          repeating-linear-gradient(
+            transparent 0 6px,
+            #c9ced6 6px 7px,
+            transparent 7px 13px
+          );
+        border: 1px solid #e5e7eb;
+      }
+      .piece .fname {
+        font-size: 12px;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      /* Ligne « produit + étiquette » — hauteur réservée même SANS étiquette (#399) */
+      .piece .prow {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 20px;
+        margin-top: 2px;
+      }
+      .piece .prow .pn {
+        flex: 1;
+        min-width: 0;
+        font-size: 11px;
+        color: var(--pd-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+      }
+      .search {
+        position: relative;
+        flex: 1;
+        max-width: 320px;
+      }
+      .search input {
+        width: 100%;
+        height: 36px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--background);
+        color: var(--pd-text);
+        padding: 0 12px 0 34px;
+        font-size: 13px;
+      }
+      .search svg {
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--pd-muted);
+      }
+      .tiles {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      .tile {
+        border-radius: 10px;
+        padding: 10px;
+        text-align: center;
+      }
+      .tile b {
+        display: block;
+        font-family: 'Syne', sans-serif;
+        font-size: 20px;
+        line-height: 1;
+      }
+      .tile span {
+        font-size: 11px;
+      }
+      .dl {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px 24px;
+      }
+      .note {
+        margin: 0 0 14px;
+        padding: 10px 12px;
+        border-left: 3px solid var(--info);
+        background: var(--info-subtle);
+        color: var(--info-subtle-fg);
+        border-radius: 0 8px 8px 0;
+        font-size: 12.5px;
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <nav class="rail" aria-hidden="true">
+        <div class="logo">P</div>
+        <div class="ri">▦</div>
+        <div class="ri on">⚗</div>
+        <div class="ri">🗂</div>
+        <div class="ri">✉</div>
+        <div class="ri">📚</div>
+      </nav>
+
+      <div class="main">
+        <!-- Bandeau applicatif : identique à la fiche produit (retour + nom + FR/thème) -->
+        <div class="topbar">
+          <button class="back" aria-label="Retour">←</button>
+          <div class="ttl">KESHAVLAL VAJECHAND</div>
+          <span class="chip">FR</span>
+          <span class="chip">☀</span>
+        </div>
+
+        <div class="rim-cockpit">
+          <!-- ══ HAUT FIGÉ : header + méta + onglets ══ -->
+          <div class="rim-top">
+            <header class="prod-header">
+              <span class="prod-ico" aria-hidden="true">
+                <svg
+                  width="26"
+                  height="26"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" />
+                  <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
+                  <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
+                  <path d="M10 6h4M10 10h4M10 14h4M10 18h4" />
+                </svg>
+              </span>
+              <div style="min-width: 0; flex: 1">
+                <div class="prod-name">KESHAVLAL VAJECHAND</div>
+                <div class="prod-sub">Inde · 4 produits liés · 39 documents</div>
+                <div class="prod-tags">
+                  <span class="badge b-info">Titulaire d'AMM</span>
+                  <span class="badge b-info">Fabricant</span>
+                  <span class="badge b-danger">1 expirée</span>
+                  <span class="badge b-warn">2 à renouveler</span>
+                  <span style="margin-left: 4px; font-size: 15px">🇧🇯 🇨🇮 🇸🇳</span>
+                </div>
+              </div>
+              <div class="prod-actions">
+                <button class="btn">✎ Modifier</button>
+              </div>
+            </header>
+
+            <div class="prod-meta">
+              <div>
+                <div class="meta-key">Pays</div>
+                <div class="meta-val">Inde</div>
+              </div>
+              <div>
+                <div class="meta-key">Adresse</div>
+                <div class="meta-val">Aban House, 25/31 Rope Walk Street, Mumbai 400023</div>
+              </div>
+              <div>
+                <div class="meta-key">N° certificat GMP</div>
+                <div class="meta-val">G/28/1628</div>
+              </div>
+              <div>
+                <div class="meta-key">Échéance GMP</div>
+                <div class="meta-val">22/04/2028</div>
+              </div>
+            </div>
+
+            <div class="tabs-bar" role="tablist">
+              <button class="tab" data-tab="identification">Identification</button>
+              <button class="tab" data-tab="produits">Produits</button>
+              <button class="tab" data-tab="amm">AMM</button>
+              <button class="tab" data-tab="admin" data-state="active">Pièces admin</button>
+              <button class="tab" data-tab="info">Documents d'information</button>
+              <button class="tab" data-tab="justif">Justificatifs</button>
+            </div>
+          </div>
+
+          <!-- ══ CONTENU ══ -->
+          <div class="rim-content">
+            <!-- IDENTIFICATION -->
+            <section data-panel="identification" hidden>
+              <p class="note">
+                <b>Onglet à valider</b> — la fiche produit a un onglet « Identification » en
+                premier. Les infos propres à l'organisation (et leur édition) y vivent, puisque le
+                bandeau ne montre que 4 métas en lecture seule. Dites-moi si vous préférez que
+                « Modifier » ouvre plutôt une fenêtre modale et qu'on retire cet onglet.
+              </p>
+              <div class="card" style="padding: 18px">
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    margin-bottom: 16px;
+                  "
+                >
+                  <h2 class="sec-title" style="margin: 0">Identification</h2>
+                  <button class="btn">✎ Modifier</button>
+                </div>
+                <div class="dl">
+                  <div>
+                    <div class="meta-key">Nom</div>
+                    <div class="meta-val">KESHAVLAL VAJECHAND</div>
+                  </div>
+                  <div>
+                    <div class="meta-key">Rôles</div>
+                    <div class="meta-val">Titulaire d'AMM · Fabricant</div>
+                  </div>
+                  <div>
+                    <div class="meta-key">Pays</div>
+                    <div class="meta-val">Inde</div>
+                  </div>
+                  <div style="grid-column: span 2">
+                    <div class="meta-key">Adresse</div>
+                    <div class="meta-val">
+                      Aban House, 1st Floor, 25/31 Rope Walk Street, Off K Dubash Marg, Fort,
+                      Mumbai 400023, Inde
+                    </div>
+                  </div>
+                  <div>
+                    <div class="meta-key">E-mail de contact</div>
+                    <div class="meta-val">contact@keshavlal.in</div>
+                  </div>
+                  <div>
+                    <div class="meta-key">N° certificat GMP</div>
+                    <div class="meta-val">G/28/1628</div>
+                  </div>
+                  <div>
+                    <div class="meta-key">Échéance GMP</div>
+                    <div class="meta-val">22/04/2028</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- PRODUITS -->
+            <section data-panel="produits" hidden>
+              <h2 class="sec-title">Produits liés (4)</h2>
+              <div class="stack">
+                <a class="row" href="#">
+                  <span class="ico-sq">💉</span>
+                  <span style="flex: 1; min-width: 0">
+                    <b style="color: var(--pd-link)">KV-Kacin 500</b>
+                    <div class="xs muted">Amikacine · 500 mg / 2 ml · Solution injectable</div>
+                  </span>
+                  <span class="badge b-neutral">Titulaire</span>
+                  <span class="badge b-neutral">Fabricant</span>
+                </a>
+                <a class="row" href="#">
+                  <span class="ico-sq">💧</span>
+                  <span style="flex: 1; min-width: 0">
+                    <b style="color: var(--pd-link)">KV-5D</b>
+                    <div class="xs muted">Solution pour perfusion · 5 % p/v</div>
+                  </span>
+                  <span class="badge b-neutral">Titulaire</span>
+                </a>
+                <a class="row" href="#">
+                  <span class="ico-sq">💧</span>
+                  <span style="flex: 1; min-width: 0">
+                    <b style="color: var(--pd-link)">KV-10D</b>
+                    <div class="xs muted">Solution pour perfusion · 10 % p/v</div>
+                  </span>
+                  <span class="badge b-neutral">Titulaire</span>
+                </a>
+                <a class="row" href="#">
+                  <span class="ico-sq">💊</span>
+                  <span style="flex: 1; min-width: 0">
+                    <b style="color: var(--pd-link)">KV-Metro</b>
+                    <div class="xs muted">Métronidazole · 500 mg / 100 ml</div>
+                  </span>
+                  <span class="badge b-neutral">Titulaire</span>
+                </a>
+              </div>
+            </section>
+
+            <!-- AMM -->
+            <section data-panel="amm" hidden>
+              <h2 class="sec-title">Portefeuille d'AMM</h2>
+              <div class="tiles">
+                <div class="tile b-neutral"><b>6</b><span>Total</span></div>
+                <div class="tile b-ok"><b>5</b><span>Actives</span></div>
+                <div class="tile b-warn"><b>2</b><span>À renouveler</span></div>
+                <div class="tile b-danger"><b>1</b><span>Expirées</span></div>
+              </div>
+              <h2 class="sec-title">Par pays</h2>
+              <div class="grid-types">
+                <a class="row" href="#">
+                  <span style="font-size: 20px">🇧🇯</span>
+                  <span style="flex: 1; min-width: 0">
+                    <b>Bénin</b>
+                    <div class="xs muted">4 AMM · 1 périmée · 2 à renouveler</div>
+                  </span>
+                  <span class="badge b-danger">Périmée</span>
+                </a>
+                <a class="row" href="#">
+                  <span style="font-size: 20px">🇨🇮</span>
+                  <span style="flex: 1; min-width: 0">
+                    <b>Côte d'Ivoire</b>
+                    <div class="xs muted">1 AMM · à jour</div>
+                  </span>
+                  <span class="badge b-ok">Valide</span>
+                </a>
+                <a class="row" href="#">
+                  <span style="font-size: 20px">🇸🇳</span>
+                  <span style="flex: 1; min-width: 0">
+                    <b>Sénégal</b>
+                    <div class="xs muted">1 AMM · à jour</div>
+                  </span>
+                  <span class="badge b-ok">Valide</span>
+                </a>
+              </div>
+            </section>
+
+            <!-- PIÈCES ADMIN -->
+            <section data-panel="admin">
+              <h2 class="sec-title">Pièces administratives — par type</h2>
+              <div class="grid-types">
+                <a class="row" href="#">
+                  <span class="ico-sq">📄</span>
+                  <span style="flex: 1; min-width: 0">
+                    <b>GMP (Bonnes Pratiques de Fabrication)</b>
+                    <div class="xs muted">4/4 à jour · KV-10D</div>
+                  </span>
+                  <span class="badge b-ok">Valide</span>
+                </a>
+                <a class="row" href="#">
+                  <span class="ico-sq">📄</span>
+                  <span style="flex: 1; min-width: 0">
+                    <b>COA (Certificat d'analyse)</b>
+                    <div class="xs muted">3/4 à jour · KV-5D · expire dans 21 j</div>
+                  </span>
+                  <span class="badge b-warn">À renouveler</span>
+                </a>
+                <a class="row" href="#">
+                  <span class="ico-sq">📄</span>
+                  <span style="flex: 1; min-width: 0">
+                    <b>COPP (Certificat de Produit Pharmaceutique)</b>
+                    <div class="xs muted">4/4 à jour</div>
+                  </span>
+                  <span class="badge b-ok">Valide</span>
+                </a>
+                <a class="row" href="#">
+                  <span class="ico-sq">📄</span>
+                  <span style="flex: 1; min-width: 0">
+                    <b>FSC (Free Sale Certificate)</b>
+                    <div class="xs muted">4/4 à jour</div>
+                  </span>
+                  <span class="badge b-ok">Valide</span>
+                </a>
+                <a class="row" href="#">
+                  <span class="ico-sq">📄</span>
+                  <span style="flex: 1; min-width: 0">
+                    <b>ML (Licence d'Établissement)</b>
+                    <div class="xs muted">1/2 à jour · périmé depuis 12 j</div>
+                  </span>
+                  <span class="badge b-danger">Périmée</span>
+                </a>
+              </div>
+              <p class="xs muted" style="margin-top: 14px">
+                Un clic sur une carte ouvre la page dédiée du type (cartes verticales + recherche
+                dans le bandeau + tri) — inchangé par rapport à aujourd'hui.
+              </p>
+            </section>
+
+            <!-- DOCUMENTS D'INFORMATION -->
+            <section data-panel="info" hidden>
+              <h2 class="sec-title">Documents d'information — par type</h2>
+              <div class="grid-types">
+                <a class="row" href="#">
+                  <span class="ico-sq">📄</span>
+                  <span style="flex: 1; min-width: 0">
+                    <b>RCP (Résumé des Caractéristiques du Produit)</b>
+                    <div class="xs muted">4 documents</div>
+                  </span>
+                </a>
+                <a class="row" href="#">
+                  <span class="ico-sq">📄</span>
+                  <span style="flex: 1; min-width: 0">
+                    <b>Notice</b>
+                    <div class="xs muted">4 documents</div>
+                  </span>
+                </a>
+                <a class="row" href="#">
+                  <span class="ico-sq">📄</span>
+                  <span style="flex: 1; min-width: 0">
+                    <b>Étiquetage</b>
+                    <div class="xs muted">4 documents</div>
+                  </span>
+                </a>
+              </div>
+              <p class="xs muted" style="margin-top: 14px">
+                Pas d'étiquette d'état : ces documents n'ont pas de date de validité.
+              </p>
+            </section>
+
+            <!-- JUSTIFICATIFS -->
+            <section data-panel="justif" hidden>
+              <div class="toolbar">
+                <div class="search">
+                  <svg
+                    width="15"
+                    height="15"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <circle cx="11" cy="11" r="8" />
+                    <path d="m21 21-4.3-4.3" />
+                  </svg>
+                  <input placeholder="Rechercher (nom, produit…)" />
+                </div>
+                <button class="btn">🗓 Date</button>
+                <button class="btn">↓ A-Z</button>
+                <span class="muted xs" style="margin-left: auto">4 pièces</span>
+              </div>
+              <ul class="grid-pieces">
+                <li class="piece">
+                  <div class="thumb"><div class="sheet"></div></div>
+                  <div>
+                    <div class="fname">Quittance_ABMed_2026.pdf</div>
+                    <div class="prow"><span class="pn">KV-Kacin 500</span></div>
+                  </div>
+                </li>
+                <li class="piece">
+                  <div class="thumb"><div class="sheet"></div></div>
+                  <div>
+                    <div class="fname">Decharge_depot_dossier.pdf</div>
+                    <div class="prow"><span class="pn">KV-5D</span></div>
+                  </div>
+                </li>
+                <li class="piece">
+                  <div class="thumb"><div class="sheet"></div></div>
+                  <div>
+                    <div class="fname">Facture_redevance_AIRP.pdf</div>
+                    <div class="prow"><span class="pn">KV-10D</span></div>
+                  </div>
+                </li>
+                <li class="piece">
+                  <div class="thumb"><div class="sheet"></div></div>
+                  <div>
+                    <div class="fname">Accuse_reception_ARP.pdf</div>
+                    <div class="prow"><span class="pn">KV-Metro</span></div>
+                  </div>
+                </li>
+              </ul>
+              <p class="xs muted" style="margin-top: 14px">
+                Les justificatifs n'ont pas de sous-type → grille directe, avec sa propre recherche.
+              </p>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const tabs = document.querySelectorAll('.tab')
+      const panels = document.querySelectorAll('[data-panel]')
+      tabs.forEach((tb) =>
+        tb.addEventListener('click', () => {
+          tabs.forEach((x) => x.removeAttribute('data-state'))
+          tb.setAttribute('data-state', 'active')
+          panels.forEach((p) => {
+            p.hidden = p.dataset.panel !== tb.dataset.tab
+          })
+        }),
+      )
+    </script>
+  </body>
+</html>

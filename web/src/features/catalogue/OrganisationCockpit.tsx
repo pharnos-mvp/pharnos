@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
+import { Tabs as RadixTabs } from 'radix-ui'
 import {
   AlertCircle,
+  ArrowLeft,
   Building2,
   ChevronRight,
   Clock3,
@@ -9,7 +11,7 @@ import {
   Pencil,
   ShieldCheck,
 } from 'lucide-react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -20,8 +22,8 @@ import { ListRow, ListRowIcon, ListRowLink } from '@/components/ui/list-row'
 import { Page } from '@/components/ui/page'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useTopbar } from '@/components/layout/topbar'
+import { useHeaderSlot } from '@/components/layout/header-slot'
+import { LangThemeControls } from '@/components/layout/lang-theme-controls'
 import { CountryFlag } from '@/features/dashboard/CountryFlag'
 import { countryLabel } from '@/features/workspace/dossier-constants'
 import { useOrgId } from '@/features/org/org-context'
@@ -41,6 +43,17 @@ import {
 } from './parties-data'
 import { updateParty } from './parties-repository'
 import { syncParties } from './parties-sync'
+// Chrome du cockpit RIM (bandeau + méta + onglets soulignés, haut figé) — PARTAGÉE avec la fiche
+// produit : même UX/UI pleine largeur, seuls les onglets diffèrent (décision CEO, mockup validé).
+import './product-cockpit.css'
+
+/** Date ISO → jour lisible (22/04/2028). Vide/invalide → tiret, jamais « Invalid Date ». */
+function formatDay(iso: string | null | undefined, lang: 'fr' | 'en'): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB')
+}
 
 const ROLE_LABEL: Record<PartyRole, Translatable> = {
   titulaire: { fr: "Titulaire d'AMM", en: 'MA holder' },
@@ -49,10 +62,13 @@ const ROLE_LABEL: Record<PartyRole, Translatable> = {
 }
 
 export function OrganisationCockpit() {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const orgId = useOrgId()
+  const navigate = useNavigate()
+  const setHeaderSlot = useHeaderSlot()
   const { partyId = '' } = useParams()
   const [editing, setEditing] = useState(false)
+  const [tab, setTab] = useState('identification')
 
   const data = useLiveQuery(async () => {
     const [party, products, documents, dossiers, correspondences, messages] = await Promise.all([
@@ -72,11 +88,35 @@ export function OrganisationCockpit() {
       : undefined
   const now = useMemo(() => new Date(), [])
 
-  useTopbar({
-    title: party?.nom,
-    backTo: '/catalogue/organisations',
-    searchHidden: true,
-  })
+  // En-tête applicatif PLEIN (façon fiche produit) : retour + nom de l'organisation ; libéré au
+  // démontage. Le bandeau plein masquerait langue/thème → on réinjecte la primitive partagée.
+  const partyName = party?.nom
+  useEffect(() => {
+    if (!setHeaderSlot) return
+    if (!partyName) {
+      setHeaderSlot(null)
+      return
+    }
+    setHeaderSlot(
+      <div className="flex min-w-0 flex-1 items-center gap-1.5">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={t({ fr: 'Retour aux organisations', en: 'Back to organizations' })}
+          onClick={() => navigate('/catalogue/organisations')}
+        >
+          <ArrowLeft className="size-4" />
+        </Button>
+        <span className="font-display min-w-0 flex-1 truncate text-base font-bold">
+          {partyName}
+        </span>
+        <div className="hidden shrink-0 items-center gap-2 lg:flex">
+          <LangThemeControls />
+        </div>
+      </div>,
+    )
+    return () => setHeaderSlot(null)
+  }, [setHeaderSlot, partyName, navigate, t])
 
   const linked = useMemo(() => {
     if (!data) return []
@@ -149,128 +189,289 @@ export function OrganisationCockpit() {
   }
 
   const isMah = party.roles.includes('titulaire')
+  // Onglets CONTRÔLÉS : « Modifier » depuis le bandeau doit BASCULER sur Identification (sinon le
+  // formulaire s'ouvre dans un panneau non affiché et le bouton paraît mort). `activeTab` garde le
+  // cas où les rôles changent en direct (isMah → false pendant qu'on est sur Produits) : sans lui,
+  // le trigger ET le contenu disparaissent et il ne reste qu'une zone vide sans onglet actif.
+  const visibleTabs = isMah
+    ? ['identification', 'produits', 'amm', 'admin', 'info', 'justif']
+    : ['identification', 'admin', 'justif']
+  const activeTab = visibleTabs.includes(tab) ? tab : 'identification'
+  const startEdit = () => {
+    setTab('identification')
+    setEditing(true)
+  }
+
+  // Sous-titre : la même densité d'information que la fiche produit (pays + volume rattaché).
+  const subtitle = [
+    party.pays,
+    t({
+      fr: `${linked.length} produit${linked.length > 1 ? 's' : ''} lié${linked.length > 1 ? 's' : ''}`,
+      en: `${linked.length} linked product${linked.length > 1 ? 's' : ''}`,
+    }),
+    t({
+      fr: `${vm?.docCount ?? 0} document${(vm?.docCount ?? 0) > 1 ? 's' : ''}`,
+      en: `${vm?.docCount ?? 0} document${(vm?.docCount ?? 0) > 1 ? 's' : ''}`,
+    }),
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
+  // Bande méta : 4 emplacements (validés CEO sur le mockup) — identité + conformité GMP.
+  const meta: { label: string; value: string }[] = [
+    { label: t({ fr: 'Pays', en: 'Country' }), value: party.pays || '—' },
+    { label: t({ fr: 'Adresse', en: 'Address' }), value: party.adresse || '—' },
+    {
+      label: t({ fr: 'N° certificat GMP', en: 'GMP certificate no.' }),
+      value: party.gmpCertificat || '—',
+    },
+    {
+      label: t({ fr: 'Échéance GMP', en: 'GMP expiry' }),
+      // Date LISIBLE (22/04/2028), pas l'ISO stockée — conforme au mockup validé.
+      value: formatDay(party.gmpExpiry, lang),
+    },
+  ]
 
   return (
-    <Page>
-      {/* En-tête fiche */}
-      <div className="bg-card rounded-xl border p-5">
-        <div className="flex flex-wrap items-start gap-4">
-          <span
-            aria-hidden
-            className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-100 to-sky-200 text-sky-700 dark:from-[#14233b] dark:to-[#1c3a5e] dark:text-sky-300"
-          >
-            <Building2 className="size-6" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <h1
-              className="font-display truncate text-xl font-bold tracking-tight"
-              title={party.nom}
-            >
-              {party.nom}
-            </h1>
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              {sortRoles(party.roles).map((r) => (
-                <StatusBadge key={r} tone="info">
-                  {t(ROLE_LABEL[r])}
-                </StatusBadge>
-              ))}
+    // `-mx-*` : le cockpit déborde le padding du <main> → bandeau/onglets PLEINE LARGEUR, comme la
+    // fiche produit. Les classes `rim-*`/`prod-*` viennent de la feuille partagée importée plus haut.
+    <div className="rim-cockpit -mx-4 md:-mx-6">
+      <RadixTabs.Root value={activeTab} onValueChange={setTab}>
+        {/* ── HAUT FIGÉ : header + méta + onglets (ne bouge pas au scroll) ── */}
+        <div className="rim-top">
+          <header className="prod-header">
+            <span className="prod-ico" aria-hidden>
+              <Building2 className="size-7" />
+            </span>
+            <div className="min-w-0 flex-1">
+              {/* `h1` : la fiche doit garder un titre de niveau 1 (la classe porte tout le style,
+                  la preflight Tailwind neutralise la taille/marge par défaut → rendu identique). */}
+              <h1 className="prod-name truncate" title={party.nom}>
+                {party.nom}
+              </h1>
+              {subtitle ? <div className="prod-sub truncate">{subtitle}</div> : null}
+              <div className="prod-tags">
+                {sortRoles(party.roles).map((r) => (
+                  <StatusBadge key={r} tone="info">
+                    {t(ROLE_LABEL[r])}
+                  </StatusBadge>
+                ))}
+                {vm && vm.expiredCount > 0 ? (
+                  <StatusBadge tone="danger">
+                    <AlertCircle />
+                    {t({
+                      fr: `${vm.expiredCount} expirée${vm.expiredCount > 1 ? 's' : ''}`,
+                      en: `${vm.expiredCount} expired`,
+                    })}
+                  </StatusBadge>
+                ) : null}
+                {vm && vm.expiringCount > 0 ? (
+                  <StatusBadge tone="warning">
+                    <Clock3 />
+                    {t({
+                      fr: `${vm.expiringCount} à renouveler`,
+                      en: `${vm.expiringCount} to renew`,
+                    })}
+                  </StatusBadge>
+                ) : null}
+                {vm && vm.countries.length > 0 ? (
+                  // `role="img"` + noms de pays : `CountryFlag` est aria-hidden, un aria-label sur un
+                  // span générique serait IGNORÉ → sans ça, l'info pays n'a aucun équivalent textuel.
+                  <span
+                    role="img"
+                    className="ml-1 flex items-center gap-1"
+                    aria-label={vm.countries.map((c) => countryLabel(c, lang)).join(', ')}
+                  >
+                    {vm.countries.slice(0, 8).map((c) => (
+                      <CountryFlag key={c} code={c} size={16} />
+                    ))}
+                  </span>
+                ) : null}
+              </div>
             </div>
+            <div className="prod-actions">
+              {!editing ? (
+                <Button variant="outline" size="sm" onClick={startEdit}>
+                  <Pencil /> {t({ fr: 'Modifier', en: 'Edit' })}
+                </Button>
+              ) : null}
+            </div>
+          </header>
+
+          <div className="prod-meta">
+            {meta.map((m) => (
+              <div key={m.label} className="min-w-0">
+                <div className="meta-key">{m.label}</div>
+                <div className="meta-val truncate" title={m.value}>
+                  {m.value}
+                </div>
+              </div>
+            ))}
           </div>
-          {!editing ? (
-            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-              <Pencil /> {t({ fr: 'Modifier', en: 'Edit' })}
-            </Button>
-          ) : null}
+
+          {/* Onglets ADAPTÉS AU RÔLE : le titulaire d'AMM détient produits/AMM/docs d'info ; un
+              fabricant (ou distributeur) pur n'a que ses pièces admin + les justificatifs. */}
+          <RadixTabs.List className="tabs-bar">
+            <RadixTabs.Trigger value="identification" className="tab">
+              {t({ fr: 'Identification', en: 'Identification' })}
+            </RadixTabs.Trigger>
+            {isMah ? (
+              <RadixTabs.Trigger value="produits" className="tab">
+                {t({ fr: 'Produits', en: 'Products' })}
+              </RadixTabs.Trigger>
+            ) : null}
+            {isMah ? (
+              <RadixTabs.Trigger value="amm" className="tab">
+                {t({ fr: 'AMM', en: 'MA' })}
+              </RadixTabs.Trigger>
+            ) : null}
+            <RadixTabs.Trigger value="admin" className="tab">
+              {t({ fr: 'Pièces admin', en: 'Admin docs' })}
+            </RadixTabs.Trigger>
+            {isMah ? (
+              <RadixTabs.Trigger value="info" className="tab">
+                {t({ fr: 'Documents d’information', en: 'Product information' })}
+              </RadixTabs.Trigger>
+            ) : null}
+            <RadixTabs.Trigger value="justif" className="tab">
+              {t({ fr: 'Justificatifs', en: 'Supporting docs' })}
+            </RadixTabs.Trigger>
+          </RadixTabs.List>
         </div>
 
-        {editing ? (
-          <OrgEditForm party={party} orgId={orgId} onDone={() => setEditing(false)} />
-        ) : (
-          <dl className="mt-5 grid gap-x-8 gap-y-3 sm:grid-cols-2">
-            <Field label={t({ fr: 'Pays', en: 'Country' })} value={party.pays} />
-            <Field label={t({ fr: 'Adresse', en: 'Address' })} value={party.adresse} />
-            <Field
-              label={t({ fr: 'N° certificat GMP', en: 'GMP certificate no.' })}
-              value={party.gmpCertificat}
+        {/* ── CONTENU DÉFILANT ── */}
+        <div className="rim-content">
+          {/* `forceMount` : Radix DÉMONTE le panneau inactif. Sans ça, ouvrir « Modifier », aller
+              voir un autre onglet puis revenir REMET le formulaire à zéro — saisie perdue en
+              silence. On le garde monté et simplement masqué (non focusable, invisible aux AT). */}
+          <RadixTabs.Content
+            value="identification"
+            forceMount
+            className="outline-none data-[state=inactive]:hidden"
+          >
+            <OrgIdentification
+              party={party}
+              orgId={orgId}
+              editing={editing}
+              onEdit={startEdit}
+              onDone={() => setEditing(false)}
             />
-            <Field
-              label={t({ fr: 'Échéance GMP', en: 'GMP expiry' })}
-              value={party.gmpExpiry ?? ''}
-            />
-            <Field
-              label={t({ fr: 'E-mail de contact', en: 'Contact e-mail' })}
-              value={party.contactEmail ?? ''}
-            />
-          </dl>
-        )}
-      </div>
+          </RadixTabs.Content>
 
-      {/* Onglets ADAPTÉS AU RÔLE : le titulaire d'AMM détient produits/AMM/docs d'info ; un fabricant
-          (ou distributeur) pur n'a que ses pièces admin + les justificatifs échangés. */}
-      <Tabs defaultValue={isMah ? 'produits' : 'admin'} className="gap-4">
-        <TabsList className="flex-wrap">
           {isMah ? (
-            <TabsTrigger value="produits">{t({ fr: 'Produits', en: 'Products' })}</TabsTrigger>
+            <RadixTabs.Content value="produits" className="outline-none">
+              <ProductsList linked={linked} partyId={partyId} />
+            </RadixTabs.Content>
           ) : null}
-          {isMah ? <TabsTrigger value="amm">{t({ fr: 'AMM', en: 'MA' })}</TabsTrigger> : null}
-          <TabsTrigger value="admin">{t({ fr: 'Pièces admin', en: 'Admin docs' })}</TabsTrigger>
-          {isMah ? (
-            <TabsTrigger value="info">
-              {t({ fr: 'Documents d’information', en: 'Product information' })}
-            </TabsTrigger>
-          ) : null}
-          <TabsTrigger value="justif">
-            {t({ fr: 'Justificatifs', en: 'Supporting docs' })}
-          </TabsTrigger>
-        </TabsList>
 
-        {isMah ? (
-          <TabsContent value="produits">
-            <ProductsList linked={linked} partyId={partyId} />
-          </TabsContent>
-        ) : null}
-        {isMah ? (
-          <TabsContent value="amm" className="space-y-4">
-            {vm && vm.amm.total > 0 ? (
-              <>
-                <AmmSummary amm={vm.amm} />
-                <AmmCountryCards byCountry={vm.amm.byCountry} partyId={partyId} />
-              </>
-            ) : (
-              <EmptyState
-                icon={<PackageOpen />}
-                title={t({ fr: 'Aucune AMM déposée', en: 'No MA filed' })}
-              />
-            )}
-          </TabsContent>
-        ) : null}
-        <TabsContent value="admin">
-          <TypeCards
-            cards={cards.adminTypes}
-            partyId={partyId}
-            emptyText={t({ fr: 'Aucune pièce administrative', en: 'No administrative document' })}
-          />
-        </TabsContent>
-        {isMah ? (
-          <TabsContent value="info">
+          {isMah ? (
+            <RadixTabs.Content value="amm" className="space-y-4 outline-none">
+              {vm && vm.amm.total > 0 ? (
+                <>
+                  <AmmSummary amm={vm.amm} />
+                  <AmmCountryCards byCountry={vm.amm.byCountry} partyId={partyId} />
+                </>
+              ) : (
+                <EmptyState
+                  icon={<PackageOpen />}
+                  title={t({ fr: 'Aucune AMM déposée', en: 'No MA filed' })}
+                />
+              )}
+            </RadixTabs.Content>
+          ) : null}
+
+          <RadixTabs.Content value="admin" className="outline-none">
             <TypeCards
-              cards={cards.infoTypes}
+              cards={cards.adminTypes}
               partyId={partyId}
-              emptyText={t({ fr: 'Aucun document d’information', en: 'No product information' })}
+              emptyText={t({ fr: 'Aucune pièce administrative', en: 'No administrative document' })}
             />
-          </TabsContent>
+          </RadixTabs.Content>
+
+          {isMah ? (
+            <RadixTabs.Content value="info" className="outline-none">
+              <TypeCards
+                cards={cards.infoTypes}
+                partyId={partyId}
+                emptyText={t({ fr: 'Aucun document d’information', en: 'No product information' })}
+              />
+            </RadixTabs.Content>
+          ) : null}
+
+          <RadixTabs.Content value="justif" className="outline-none">
+            <PieceGrid
+              cards={cards.justif}
+              emptyText={t({
+                fr: 'Aucun justificatif échangé en correspondance',
+                en: 'No supporting document exchanged',
+              })}
+            />
+          </RadixTabs.Content>
+        </div>
+      </RadixTabs.Root>
+    </div>
+  )
+}
+
+/**
+ * Onglet « Identification » — miroir de la fiche produit : fiche en lecture seule, le bouton
+ * « Modifier » (bandeau OU carte) révèle le formulaire. Porte les champs que la bande méta ne
+ * montre pas (e-mail de contact, adresse complète).
+ */
+function OrgIdentification({
+  party,
+  orgId,
+  editing,
+  onEdit,
+  onDone,
+}: {
+  party: PartyRecord
+  orgId: string
+  editing: boolean
+  onEdit: () => void
+  onDone: () => void
+}) {
+  const { t, lang } = useI18n()
+  return (
+    // Primitives PARTAGÉES de la chrome cockpit (`rim-card`, `rim-section-title`, `meta-*`) : un
+    // seul chemin de style avec la fiche produit — pas de second jeu de rayons/typos à maintenir.
+    <div className="rim-card p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="rim-section-title">{t({ fr: 'Identification', en: 'Identification' })}</h2>
+        {!editing ? (
+          <Button variant="outline" size="sm" onClick={onEdit}>
+            <Pencil /> {t({ fr: 'Modifier', en: 'Edit' })}
+          </Button>
         ) : null}
-        <TabsContent value="justif">
-          <PieceGrid
-            cards={cards.justif}
-            emptyText={t({
-              fr: 'Aucun justificatif échangé en correspondance',
-              en: 'No supporting document exchanged',
-            })}
+      </div>
+      {editing ? (
+        <OrgEditForm party={party} orgId={orgId} onDone={onDone} />
+      ) : (
+        <dl className="mt-5 grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+          <Field label={t({ fr: 'Nom', en: 'Name' })} value={party.nom} />
+          <Field
+            label={t({ fr: 'Rôles', en: 'Roles' })}
+            value={sortRoles(party.roles)
+              .map((r) => t(ROLE_LABEL[r]))
+              .join(' · ')}
           />
-        </TabsContent>
-      </Tabs>
-    </Page>
+          <Field label={t({ fr: 'Pays', en: 'Country' })} value={party.pays} />
+          <Field label={t({ fr: 'Adresse', en: 'Address' })} value={party.adresse} />
+          <Field
+            label={t({ fr: 'E-mail de contact', en: 'Contact e-mail' })}
+            value={party.contactEmail ?? ''}
+          />
+          <Field
+            label={t({ fr: 'N° certificat GMP', en: 'GMP certificate no.' })}
+            value={party.gmpCertificat}
+          />
+          <Field
+            label={t({ fr: 'Échéance GMP', en: 'GMP expiry' })}
+            value={formatDay(party.gmpExpiry, lang)}
+          />
+        </dl>
+      )}
+    </div>
   )
 }
 
@@ -494,16 +695,12 @@ function PieceBadge({ state }: { state: OrgTypeCard['state'] }) {
 /** Validation e-mail légère du contact fabricant (même motif que ShareDialog). */
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+/** Champ en lecture seule — MÊME typographie que la bande méta du cockpit (`meta-key`/`meta-val`). */
 function Field({ label, value }: { label: string; value: string }) {
-  const { t } = useI18n()
   return (
     <div className="min-w-0">
-      <dt className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
-        {label}
-      </dt>
-      <dd className="mt-0.5 text-sm break-words">
-        {value || <span className="text-muted-foreground/60">{t({ fr: '—', en: '—' })}</span>}
-      </dd>
+      <dt className="meta-key">{label}</dt>
+      <dd className="meta-val break-words">{value || '—'}</dd>
     </div>
   )
 }
