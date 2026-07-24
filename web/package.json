@@ -88,5 +88,10 @@
   },
   "allowScripts": {
     "@sentry/cli@2.58.6": true
+  },
+  "overrides": {
+    "filelist": {
+      "minimatch": "^10.2.5"
+    }
   }
 }
