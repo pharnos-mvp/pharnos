@@ -171,6 +171,27 @@ Autorité branchée provenance (zéro changement de comportement) → P4.2 adopt
 épinglage dossiers → P4.3 overrides org + conflits → P4.4 God dashboard Référentiel (éditeur,
 publication, adoption). NB : les montants « avant » du diff mockup sont ILLUSTRATIFS.
 
-**Décisions CEO en attente** : (a) valider les 3 écrans ; (b) qui adopte pour l'org (proposition :
-admin seul) ; (c) champs adaptables en v1 (proposition : destinataire/adresse/contacts + notes
-internes ; montants officiels NON adaptables) ; (d) bascule de dossier dès P4.2 ou différée.
+**Décisions CEO — VALIDÉES 2026-07-24** : (a) les 3 écrans ✅ go build ; (b) adoption = **admin
+seul** (consentement d'organisation, journalisé) ; (c) adaptables v1 = **contacts/destinataire/
+adresse + notes internes — montants officiels NON adaptables** ; (d) bascule de dossier **dès
+P4.2** (épinglage + bascule volontaire tracée ensemble).
+
+**Mises à jour STRUCTURELLES (composition du Module 1) — question CEO 2026-07-24
+(ex. « le PGHT n'est plus exigé au Togo ») :**
+1. La structure devient une **section du même référentiel versionné** : `ref_entries` section
+   `ctd_structure`, payload = **deltas de nœuds par pays+activité** (`{ node: '1.1.2',
+   op: 'remove' | 'add' | 'optional', label?, source }`) — même provenance, même publication,
+   même consentement que les barèmes. `getModule1Tree(...)` gagne le paramètre pays + version
+   adoptée et applique l'overlay À LA CRÉATION du dossier.
+2. **Les dossiers existants sont déjà protégés** : l'arbre est FIGÉ à la création (invariant
+   existant) — une mise à jour structurelle ne mute jamais un dossier, même après adoption.
+3. **Migration volontaire** : le mécanisme `isTreeOutdated`/`mergeDefaultTree` existant (bannière
+   « la composition a évolué » + fusion explicite) devient **version-aware** — c'est la bascule
+   de l'écran 3, appliquée à la structure. ⚠ invariant connu : toujours passer
+   `getModule1Tree(format, activity, variations, …)` complet.
+4. **Règle de sécurité des données : un retrait ne supprime JAMAIS un nœud rempli.** Nœud non
+   exigé + documents présents → marqué « non exigé (vX) », jamais effacé ; retiré seulement s'il
+   est vide. (Le PGHT du Togo disparaîtrait des NOUVEAUX dossiers ; dans un dossier existant
+   fusionné, il resterait visible tant qu'une lettre PGHT y est montée.)
+Implémentation : slice dédiée **P4.5** (après P4.4) — la machinerie d'arbre est délicate ; le
+modèle de données (section `ctd_structure`) est réservé dès la 0071.
