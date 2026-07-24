@@ -26,7 +26,8 @@ const ROLE_LABEL: Record<PartyRole, Translatable> = {
   titulaire: { fr: "Titulaire d'AMM", en: 'MA holder' },
   fabricant: { fr: 'Fabricant', en: 'Manufacturer' },
   distributeur: { fr: 'Distributeur', en: 'Distributor' },
-  agent: { fr: 'Agence réglementaire', en: 'Regulatory agent' },
+  // ≠ « Agence réglementaire » (= l'AUTORITÉ nationale, référentiel Autorités) — précision CEO.
+  agent: { fr: 'Agence locale / Représentant', en: 'Local agent / Representative' },
 }
 
 export function OrganisationsPage() {

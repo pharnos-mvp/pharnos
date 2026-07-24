@@ -1,15 +1,15 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { OrgContext } from '@/features/org/org-context'
 import { db } from '@/lib/db'
 import { I18nProvider } from '@/lib/I18nProvider'
 import { OrgCreateDialog } from './OrgCreateDialog'
-import { partyId, upsertParty } from './parties-repository'
+import { upsertParty } from './parties-repository'
 
-// Plan piloté par test (le vrai useOrgPlan = react-query + Supabase) ; `mahPartyLimit` reste réel.
+// Plan piloté par test ; `mahPartyLimit` reste réel.
 let mockPlan = 'business'
 vi.mock('@/features/org/use-org-plan', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/features/org/use-org-plan')>()
@@ -22,91 +22,81 @@ import { toast } from 'sonner'
 
 const ORG = 'test-org'
 
-function renderDialog() {
+function renderPicker() {
   return render(
     <I18nProvider>
       <OrgContext.Provider value={ORG}>
-        <MemoryRouter>
-          <OrgCreateDialog orgId={ORG} open onOpenChange={() => {}} />
+        <MemoryRouter initialEntries={['/catalogue/organisations']}>
+          <Routes>
+            <Route
+              path="/catalogue/organisations"
+              element={<OrgCreateDialog orgId={ORG} open onOpenChange={() => {}} />}
+            />
+            {/* Sonde : le wizard est atteint si un type développé est choisi. */}
+            <Route path="/catalogue/organisations/nouvelle" element={<div>WIZARD</div>} />
+          </Routes>
         </MemoryRouter>
       </OrgContext.Provider>
     </I18nProvider>,
   )
 }
 
-describe('OrgCreateDialog (création directe d’une organisation)', () => {
+describe('OrgCreateDialog (étape 1 : choix du type SEUL)', () => {
   beforeEach(async () => {
-    await Promise.all([db.parties.clear(), db.proSettings.clear(), db.outbox.clear()])
+    await db.parties.clear()
     mockPlan = 'business'
     vi.mocked(toast).mockClear()
-    vi.mocked(toast.success).mockClear()
   })
 
-  it('crée une AGENCE réglementaire (rôle agent) — jamais gatée', async () => {
-    mockPlan = 'free' // même en Free : l'agence n'est pas plafonnée
+  it('propose 6 types — 3 développés, 3 annoncés « Bientôt »', () => {
+    renderPicker()
+    for (const nom of [
+      "Titulaire d'AMM",
+      'Fabricant',
+      'Agence locale / Représentant',
+      'Agence Marketing',
+      'Grossiste',
+      'Agence RA',
+    ]) {
+      expect(screen.getByRole('button', { name: new RegExp(nom) })).toBeInTheDocument()
+    }
+    expect(screen.getAllByText('Bientôt')).toHaveLength(3)
+  })
+
+  it('un type développé navigue vers la page de création (wizard)', async () => {
     const user = userEvent.setup()
-    renderDialog()
-
-    await user.click(screen.getByRole('radio', { name: /Agence réglementaire/ }))
-    await user.type(screen.getByLabelText('Nom *'), 'PharmaConseil Bénin')
-    await user.click(screen.getByRole('button', { name: 'Créer' }))
-
-    await waitFor(async () => {
-      const p = await db.parties.get(partyId(ORG, 'PharmaConseil Bénin'))
-      expect(p?.roles).toEqual(['agent'])
-    })
-    expect(toast.success).toHaveBeenCalled()
+    renderPicker()
+    await user.click(screen.getByRole('button', { name: /Agence locale/ }))
+    expect(await screen.findByText('WIZARD')).toBeInTheDocument()
   })
 
-  it('GATE : plan Free + 1 MAH existant → note d’upsell visible et création MAH bloquée', async () => {
+  it('un type « Bientôt » affiche « ça vient après » et NE navigue pas', async () => {
+    const user = userEvent.setup()
+    renderPicker()
+    await user.click(screen.getByRole('button', { name: /Grossiste/ }))
+    expect(toast).toHaveBeenCalled()
+    expect(screen.queryByText('WIZARD')).toBeNull()
+  })
+
+  it('GATE : plan Free + 1 MAH existant → choisir MAH = upsell, pas de wizard', async () => {
     mockPlan = 'free'
     await upsertParty(ORG, { nom: 'KESHAVLAL', roles: ['titulaire'] })
     const user = userEvent.setup()
-    renderDialog()
+    renderPicker()
 
-    // Le type par défaut est MAH → la note d'upsell est affichée d'emblée.
-    expect(await screen.findByText(/Un seul titulaire d’AMM est inclus/)).toBeInTheDocument()
-
-    await user.type(screen.getByLabelText('Nom *'), 'NOUVEAU MAH')
-    await user.click(screen.getByRole('button', { name: 'Créer' }))
-
-    // Upsell au submit, AUCUNE partie créée.
+    await user.click(await screen.findByRole('button', { name: /Titulaire d'AMM/ }))
     expect(toast).toHaveBeenCalled()
-    expect(await db.parties.get(partyId(ORG, 'NOUVEAU MAH'))).toBeUndefined()
+    expect(screen.queryByText('WIZARD')).toBeNull()
   })
 
-  it('le FABRICANT n’est pas gaté (plan Free, fabricant existant) ; GMP enregistré', async () => {
+  it('GATE : Fabricant jamais gaté (plan Free, fabricant existant) → wizard atteint', async () => {
     mockPlan = 'free'
     await upsertParty(ORG, { nom: 'AUTRE FAB', roles: ['fabricant'] })
     const user = userEvent.setup()
-    renderDialog()
+    renderPicker()
 
-    await user.click(screen.getByRole('radio', { name: /Fabricant/ }))
-    await user.type(screen.getByLabelText('Nom *'), 'PHARMAX INDIA')
-    await user.type(screen.getByLabelText('N° certificat GMP'), 'G/28/1628')
-    await user.click(screen.getByRole('button', { name: 'Créer' }))
-
-    await waitFor(async () => {
-      const p = await db.parties.get(partyId(ORG, 'PHARMAX INDIA'))
-      expect(p?.roles).toEqual(['fabricant'])
-      expect(p?.gmpCertificat).toBe('G/28/1628')
-    })
-  })
-
-  it('MAH sous le plafond : créé avec signataire persisté dans le branding party', async () => {
-    mockPlan = 'free' // 0 MAH existant → le 1er est libre
-    const user = userEvent.setup()
-    renderDialog()
-
-    await user.type(screen.getByLabelText('Nom *'), 'HOLDER SARL')
-    await user.type(screen.getByLabelText('Signataire (lettres)'), 'Dr Aïcha Koné')
-    await user.click(screen.getByRole('button', { name: 'Créer' }))
-
-    await waitFor(async () => {
-      const id = partyId(ORG, 'HOLDER SARL')
-      expect((await db.parties.get(id))?.roles).toEqual(['titulaire'])
-      const branding = await db.proSettings.get(`party:${id}`)
-      expect(branding?.signataire).toBe('Dr Aïcha Koné')
-    })
+    await user.click(screen.getByRole('button', { name: /Fabricant/ }))
+    expect(await screen.findByText('WIZARD')).toBeInTheDocument()
+    expect(toast).not.toHaveBeenCalled()
   })
 })
