@@ -214,6 +214,36 @@ describe('buildActions', () => {
     expect(items[0]?.href).toBe('/catalogue/p1')
   })
 
+  it('doc ORG-scopé (0069) : l’alerte route vers la FICHE ORG et porte le nom de l’org', () => {
+    // Régression : sans le routage dédié, un GMP déposé sur un fabricant produisait une alerte
+    // « — » pointant /catalogue/ (lien cassé) au Dashboard ET dans la cloche.
+    const items = buildActions(
+      emptyInput({
+        documents: [doc({ id: 'd1', productId: '', partyId: 'pt1', expiryDate: plus(-5) })],
+        parties: [
+          {
+            id: 'pt1',
+            orgId: 'org-1',
+            nom: 'PHARMAX INDIA',
+            roles: ['fabricant'],
+            pays: '',
+            adresse: '',
+            gmpCertificat: '',
+            gmpExpiry: null,
+            contactEmail: null,
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+            deletedAt: null,
+          },
+        ],
+      }),
+      NOW,
+    )
+    expect(items).toHaveLength(1)
+    expect(items[0]?.href).toBe('/catalogue/organisations/pt1')
+    expect(items[0]?.label).toBe('PHARMAX INDIA')
+  })
+
   it('dossier en suspens (état dérivé) = action ; dossier sans correspondance = aucune', () => {
     const items = buildActions(
       emptyInput({

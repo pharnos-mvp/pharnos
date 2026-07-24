@@ -38,7 +38,13 @@ function renderWizard(type: string) {
 
 describe('OrgWizardPage (création — wizard 3 sessions, chrome Nouveau produit)', () => {
   beforeEach(async () => {
-    await Promise.all([db.parties.clear(), db.proSettings.clear(), db.outbox.clear()])
+    await Promise.all([
+      db.parties.clear(),
+      db.proSettings.clear(),
+      db.outbox.clear(),
+      db.documents.clear(),
+      db.documentBlobs.clear(),
+    ])
     vi.mocked(toast.success).mockClear()
     vi.mocked(toast.error).mockClear()
   })
@@ -94,6 +100,30 @@ describe('OrgWizardPage (création — wizard 3 sessions, chrome Nouveau produit
       const id = partyId(ORG, 'HOLDER SARL')
       expect((await db.parties.get(id))?.roles).toEqual(['titulaire'])
       expect((await db.proSettings.get(`party:${id}`))?.signataire).toBe('Dr Aïcha Koné')
+    })
+  })
+
+  it('sessions II/III : un doc d’info ajouté au wizard est persisté ORG-scopé (partyId)', async () => {
+    const user = userEvent.setup()
+    const { container } = renderWizard('agent')
+
+    await user.type(screen.getByLabelText(/Nom/), 'PharmaConseil')
+    await user.click(screen.getByRole('button', { name: /Suivant/ }))
+
+    // Session II (Documents d'information) : l'ajout d'un doc d'info est DIRECT à la sélection du
+    // fichier (DocTypeCards). 2 inputs par carte [ajout, remplacement] → le 1er de la 1re carte.
+    const input = container.querySelectorAll<HTMLInputElement>('input[type="file"]')[0]!
+    await user.upload(input, new File(['%PDF-1.4'], 'rcp.pdf', { type: 'application/pdf' }))
+
+    await user.click(screen.getByRole('button', { name: /Suivant/ }))
+    await user.click(screen.getByRole('button', { name: /Terminer/ }))
+
+    await waitFor(async () => {
+      const docs = await db.documents.toArray()
+      expect(docs).toHaveLength(1)
+      expect(docs[0]?.partyId).toBe(partyId(ORG, 'PharmaConseil'))
+      expect(docs[0]?.productId).toBe('')
+      expect(docs[0]?.category).toBe('info')
     })
   })
 

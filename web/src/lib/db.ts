@@ -157,7 +157,14 @@ export type DocumentCategory = 'info' | 'admin'
 export interface DocumentRecord {
   id: string
   orgId: string
+  /** Produit propriétaire — `''` pour un document rattaché à une ORGANISATION (voir `partyId`). */
   productId: string
+  /**
+   * Organisation propriétaire (document org-scopé : pièces d'un MAH/fabricant/agence créés depuis
+   * la fiche org — migration `0069`). Additif NON INDEXÉ (les pages org chargent par `orgId` puis
+   * filtrent) → aucun bump de version Dexie. Un document est SOIT produit- SOIT org-scopé.
+   */
+  partyId?: string | null
   category: DocumentCategory
   /** Type issu d'un vocabulaire contrôlé (eCTD-ready). */
   docType: string

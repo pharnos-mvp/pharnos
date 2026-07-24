@@ -40,6 +40,7 @@ export function useNotifications(orgId: string): NotificationsVm | undefined {
       docAnalysis,
       lifecycleEvents,
       notifRead,
+      parties,
     ] = await Promise.all([
       db.products.where('orgId').equals(orgId).toArray(),
       db.documents.where('orgId').equals(orgId).toArray(),
@@ -50,6 +51,8 @@ export function useNotifications(orgId: string): NotificationsVm | undefined {
       db.docAnalysis.toArray(),
       db.lifecycleEvents.where('orgId').equals(orgId).toArray(),
       db.notificationReads.get(NOTIF_READ_ID),
+      // Nomme/route les alertes des documents ORG-scopés (pièces propres d'un MAH/fabricant, 0069).
+      db.parties.where('orgId').equals(orgId).toArray(),
     ])
     const now = new Date()
     const input: DashboardInput = {
@@ -60,6 +63,7 @@ export function useNotifications(orgId: string): NotificationsVm | undefined {
       messages,
       reads,
       docAnalysis,
+      parties,
     }
     // Cloche : ordre chronologique (plus récent d'abord), ≠ ordre par urgence du panneau Dashboard.
     const recu = sortRecuByRecency(buildActions(input, now))

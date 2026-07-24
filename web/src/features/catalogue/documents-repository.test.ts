@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '@/lib/db'
 import {
   addDocument,
+  addPartyDocument,
   deleteDocument,
   getDocumentBlob,
   listDocuments,
@@ -51,6 +52,21 @@ describe('documents repository (offline-first)', () => {
     expect(await listDocuments(PRODUCT, 'info')).toHaveLength(1)
     expect(await listDocuments(PRODUCT, 'admin')).toHaveLength(1)
     expect(await listDocuments(PRODUCT)).toHaveLength(2)
+  })
+
+  it('addPartyDocument : document ORG-scopé (partyId, productId vide) + blob + outbox', async () => {
+    const d = await addPartyDocument(ORG, 'party-1', {
+      category: 'admin',
+      docType: 'gmp',
+      file: makeFile(),
+      expiryDate: '2027-01-01',
+    })
+    expect(d.partyId).toBe('party-1')
+    expect(d.productId).toBe('')
+    expect(await getDocumentBlob(d.id)).toBeDefined()
+    expect(await db.outbox.where('entity').equals('document').count()).toBe(1)
+    // Pas dans les documents d'un produit (propriétaire unique).
+    expect(await listDocuments('party-1')).toHaveLength(0)
   })
 
   it('supprime (soft delete) un document', async () => {

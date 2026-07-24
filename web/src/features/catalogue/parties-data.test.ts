@@ -325,6 +325,20 @@ describe('orgDocCards (cartes d’un onglet, par prédicat)', () => {
     expect(cards[0]).toMatchObject({ state: 'valid', daysLeft: null, expiryDate: null })
   })
 
+  it('inclut les documents ORG-scopés de la partie (0069) — pas ceux d’une AUTRE partie', () => {
+    const cards = orgDocCards(
+      holder,
+      products,
+      [
+        doc('own', { productId: '', partyId: 'holder', expiryDate: inDays(400) }), // doc PROPRE
+        doc('other', { productId: '', partyId: 'autre-org', expiryDate: inDays(400) }), // autre partie
+      ],
+      NOW,
+      (d) => d.docType === 'amm',
+    )
+    expect(cards.map((c) => c.id)).toEqual(['own'])
+  })
+
   it('exclut les pièces supprimées et celles d’un produit NON lié à l’organisation', () => {
     const cards = orgDocCards(
       holder,

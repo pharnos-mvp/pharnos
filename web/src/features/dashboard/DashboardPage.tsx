@@ -150,17 +150,28 @@ export function DashboardPage() {
   const [showAll, setShowAll] = useState({ alerts: false, subs: false, activity: false })
 
   const data = useLiveQuery(async () => {
-    const [products, documents, dossiers, correspondences, messages, reads, docAnalysis, auditLog] =
-      await Promise.all([
-        db.products.where('orgId').equals(orgId).toArray(),
-        db.documents.where('orgId').equals(orgId).toArray(),
-        db.dossiers.where('orgId').equals(orgId).toArray(),
-        db.correspondences.where('orgId').equals(orgId).toArray(),
-        db.correspondenceMessages.where('orgId').equals(orgId).toArray(),
-        db.correspondenceReads.toArray(),
-        db.docAnalysis.toArray(),
-        db.auditLog.where('orgId').equals(orgId).toArray(),
-      ])
+    const [
+      products,
+      documents,
+      dossiers,
+      correspondences,
+      messages,
+      reads,
+      docAnalysis,
+      auditLog,
+      parties,
+    ] = await Promise.all([
+      db.products.where('orgId').equals(orgId).toArray(),
+      db.documents.where('orgId').equals(orgId).toArray(),
+      db.dossiers.where('orgId').equals(orgId).toArray(),
+      db.correspondences.where('orgId').equals(orgId).toArray(),
+      db.correspondenceMessages.where('orgId').equals(orgId).toArray(),
+      db.correspondenceReads.toArray(),
+      db.docAnalysis.toArray(),
+      db.auditLog.where('orgId').equals(orgId).toArray(),
+      // Nomme/route les alertes des documents ORG-scopés (pièces propres d'un MAH/fabricant, 0069).
+      db.parties.where('orgId').equals(orgId).toArray(),
+    ])
     return {
       products,
       documents,
@@ -170,6 +181,7 @@ export function DashboardPage() {
       reads,
       docAnalysis,
       auditLog,
+      parties,
     }
   }, [orgId])
 
@@ -182,11 +194,21 @@ export function DashboardPage() {
     reads = [],
     docAnalysis = [],
     auditLog = [],
+    parties = [],
   } = data ?? {}
 
   const vm = useMemo(() => {
     const now = new Date()
-    const input = { products, documents, dossiers, correspondences, messages, reads, docAnalysis }
+    const input = {
+      products,
+      documents,
+      dossiers,
+      correspondences,
+      messages,
+      reads,
+      docAnalysis,
+      parties,
+    }
     return {
       actions: buildActions(input, now),
       corrItems: openCorrespondences(correspondences, messages, reads),
@@ -198,7 +220,17 @@ export function DashboardPage() {
       /** Stats par pays des tuiles de couverture (dossiers · urgences · conformité · messages). */
       countries: countryStats(input, now),
     }
-  }, [products, documents, dossiers, correspondences, messages, reads, docAnalysis, auditLog])
+  }, [
+    products,
+    documents,
+    dossiers,
+    correspondences,
+    messages,
+    reads,
+    docAnalysis,
+    auditLog,
+    parties,
+  ])
 
   const derived = useMemo(() => {
     const open = vm.corrItems.filter((c) => c.state !== 'decided')
