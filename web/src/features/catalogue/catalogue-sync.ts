@@ -1,6 +1,7 @@
 import { reportError } from '@/lib/sentry'
 import { syncDocuments } from './documents-sync'
 import { syncParties } from './parties-sync'
+import { syncRefContent } from './ref-sync'
 import { syncProducts } from './sync'
 
 // Sérialise les cycles catalogue : deux déclencheurs concurrents (montage, mutation, reconnexion,
@@ -28,6 +29,9 @@ export function syncCatalogue(orgId: string): Promise<void> {
       await syncParties(orgId)
       await syncProducts(orgId)
       await syncDocuments(orgId)
+      // Référentiel réglementaire (0071) : pull-only, sans FK vers le reste — en dernier,
+      // il ne doit jamais retarder le push des données utilisateur.
+      await syncRefContent(orgId)
     })
     .catch((error: unknown) => reportError(error, { op: 'sync', entity: 'catalogue' }))
   chain = next

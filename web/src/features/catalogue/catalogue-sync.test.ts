@@ -31,9 +31,14 @@ vi.mock('./documents-sync', () => ({
     trace.push('documents')
   }),
 }))
+vi.mock('./ref-sync', () => ({
+  syncRefContent: vi.fn(async () => {
+    trace.push('référentiel')
+  }),
+}))
 vi.mock('@/lib/sentry', () => ({ reportError: vi.fn() }))
 
-const cycle = ['parties:début', 'parties:fin', 'produits', 'documents']
+const cycle = ['parties:début', 'parties:fin', 'produits', 'documents', 'référentiel']
 
 beforeEach(() => {
   trace.length = 0

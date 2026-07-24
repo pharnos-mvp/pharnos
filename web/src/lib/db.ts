@@ -523,6 +523,40 @@ export interface VariationRequestRecord {
   deletedAt: string | null
 }
 
+/**
+ * Version PUBLIÉE du référentiel réglementaire (réplique locale de `ref_versions`, migration 0071).
+ * Contenu GLOBAL (hors tenant), lecture seule côté client — le God dashboard publie (P4.4), les
+ * orgs adoptent (P4.2). En P4.1 le client lit la dernière version publiée, repli sur le socle code.
+ */
+export interface RefVersionRecord {
+  id: string
+  /** Libellé lisible (« v2026.1 ») — unique côté serveur. */
+  label: string
+  /** Seules les versions 'published' atteignent le client (RLS) ; gardé pour les évolutions. */
+  status: string
+  /** Date d'effet réglementaire (ISO date) ; null si non fixée. */
+  effectiveDate: string | null
+  /** Note de publication (release note visible par les orgs). */
+  releaseNote: string
+  publishedAt: string | null
+  createdAt: string
+}
+
+/** Entrée du référentiel : (version, pays, section) → payload + provenance (texte officiel, JO). */
+export interface RefEntryRecord {
+  id: string
+  versionId: string
+  /** Code pays ISO2 (BJ, CI, SN…). */
+  country: string
+  /** 'agency' | 'fees' | 'submission' | 'samples' | 'ctd_structure' (réservée P4.5). */
+  section: string
+  /** Contenu typé par section — cast par le résolveur (`ref-content.ts`). */
+  payload: unknown
+  /** { texte, complements?, jo?, note?, pdf_path? } — la source citée, jamais vide en pratique. */
+  provenance: unknown
+  createdAt: string
+}
+
 const db = new Dexie('pharnos') as Dexie & {
   products: EntityTable<ProductRecord, 'id'>
   parties: EntityTable<PartyRecord, 'id'>
@@ -543,6 +577,8 @@ const db = new Dexie('pharnos') as Dexie & {
   variationRequests: EntityTable<VariationRequestRecord, 'id'>
   lifecycleEvents: EntityTable<LifecycleEventRecord, 'id'>
   notificationReads: EntityTable<NotificationReadRecord, 'id'>
+  refVersions: EntityTable<RefVersionRecord, 'id'>
+  refEntries: EntityTable<RefEntryRecord, 'id'>
 }
 
 db.version(1).stores({
@@ -627,6 +663,13 @@ db.version(14).stores({
 // comme correspondenceReads v10). Une seule ligne 'recu' ; seul l'id est indexé.
 db.version(15).stores({
   notificationReads: 'id',
+})
+
+// v16 : référentiel réglementaire versionné (P4.1, migration 0071) — réplique GLOBALE lecture
+// seule (pull-only, remplacée à chaque cycle). `[country+section]` = lookup du résolveur.
+db.version(16).stores({
+  refVersions: 'id, label',
+  refEntries: 'id, versionId, [country+section]',
 })
 
 export { db }
