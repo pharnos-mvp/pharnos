@@ -7,7 +7,6 @@ import {
   Eye,
   FileText,
   FolderOpen,
-  Loader2,
   Pencil,
   Plus,
   Trash2,
@@ -16,24 +15,13 @@ import {
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { renewalLeadDays } from '@/features/dashboard/dashboard-data'
-import { COUNTRIES, countryLabel } from '@/features/workspace/dossier-constants'
 import { db, type DocumentCategory, type DocumentRecord } from '@/lib/db'
-import { UPLOAD_ACCEPT } from '@/lib/files'
 import { useI18n } from '@/lib/i18n-context'
+import { DocAddForm } from './DocAddForm'
 import { DocDatesDialog, type EditableDoc } from './DocDatesDialog'
 import { DocPreviewDialog, type PreviewableDoc } from './DocPreviewDialog'
-import { isIssueAfterExpiry } from './doc-dates'
 import { categoryForDocType, docTypeLabel, docTypesFor, requiresExpiry } from './doc-types'
 import { addDocument, deleteDocument, getDocumentBlob, listDocuments } from './documents-repository'
 import { copyDocumentToProduct, listPartyDocs, sourcePartyIdsFor } from './documents-reuse'
@@ -85,22 +73,13 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
     [productId, category],
   )
   const types = docTypesFor(category)
-  const [docType, setDocType] = useState(types[0]?.code ?? '')
-  const [file, setFile] = useState<File | null>(null)
-  const [expiryDate, setExpiryDate] = useState('')
-  const [issueDate, setIssueDate] = useState('')
-  const [reference, setReference] = useState('')
-  // Pays de l'AMM (liste au choix) : alimente les cartes AMM par pays de la fiche Organisation.
-  const [country, setCountry] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [resetKey, setResetKey] = useState(0)
   // Formulaire d'ajout replié par défaut : on n'affiche que la liste + un bouton « + » (recette CEO).
   const [adding, setAdding] = useState(false)
   // Pièce en aperçu / en correction de dates (null = dialogue fermé).
   const [preview, setPreview] = useState<PreviewableDoc | null>(null)
   const [editing, setEditing] = useState<EditableDoc | null>(null)
-  // Picker « Depuis la base de ‹org› » (§2) ouvert.
-  const [picking, setPicking] = useState(false)
+  // Picker « Depuis la base de ‹org› » (§2) ouvert sur UN type (celui choisi dans le formulaire).
+  const [pickingType, setPickingType] = useState<string | null>(null)
 
   // Base « piochable » (§2) : pièces ORG-scopées des parties liées au produit (titulaireId /
   // fabricantId), mapping par type (info+AMM → MAH, admin → fabricant, contrat → les deux).
@@ -126,13 +105,20 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
         .filter((d) => sourcePartyIdsFor(d.docType, tit, fab).includes(d.partyId ?? ''))
         .map((d) => ({ doc: d, orgName: nameById.get(d.partyId ?? '') ?? '' }))
     }, [orgId, productId]) ?? []
-  // Sources du TYPE choisi dans le formulaire d'ajout (le sélecteur ne montre que cette catégorie).
-  const sourcesForType = sources.filter((s) => s.doc.docType === docType)
-  const baseNames = [...new Set(sourcesForType.map((s) => s.orgName).filter(Boolean))]
-  const baseLabel =
-    baseNames.length === 1
-      ? t({ fr: `Depuis la base de ${baseNames[0]}`, en: `From ${baseNames[0]}'s base` })
+  // Sources d'UN type (bouton pioche du formulaire + entrées du picker).
+  const sourcesFor = (dt: string) => sources.filter((s) => s.doc.docType === dt)
+  const baseLabelFor = (dt: string) => {
+    const names = [
+      ...new Set(
+        sourcesFor(dt)
+          .map((s) => s.orgName)
+          .filter(Boolean),
+      ),
+    ]
+    return names.length === 1
+      ? t({ fr: `Depuis la base de ${names[0]}`, en: `From ${names[0]}'s base` })
       : t({ fr: 'Depuis la base', en: 'From the base' })
+  }
 
   /** Pioche = COPIE LIÉE immédiate vers le produit (blob + métadonnées + provenance). */
   async function pickFromBase(doc: DocumentRecord): Promise<boolean> {
@@ -147,85 +133,6 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
         description: error instanceof Error ? error.message : undefined,
       })
       return false
-    }
-  }
-  // AMM : N° + date d'émission (octroi) requis — synchronisés ensuite vers le CTD builder (Renew/Variation).
-  const isAmm = docType === 'amm'
-  // Garde-fou Monitor : émission postérieure à l'expiration = incohérent (signalé en rouge, ajout bloqué).
-  // Borné à l'AMM — SEUL type où la date d'émission se saisit : sinon, changer de type après avoir
-  // saisi une émission figerait le formulaire sur un champ devenu invisible (erreur + bouton mort).
-  // Signalé seulement une fois le champ QUITTÉ (blur), pas pendant la frappe (retour CEO).
-  const dateError = isAmm && isIssueAfterExpiry(issueDate, expiryDate)
-  const [datesTouched, setDatesTouched] = useState(false)
-  const showDateError = dateError && datesTouched
-
-  async function handleAdd() {
-    if (!file) {
-      toast.error(t({ fr: 'Sélectionne un fichier', en: 'Select a file' }))
-      return
-    }
-    if (!docType) {
-      toast.error(t({ fr: 'Choisis un type de document', en: 'Choose a document type' }))
-      return
-    }
-    // Monitor (jalon O) : la date d'expiration est obligatoire pour les pièces à validité (COA + admin).
-    if (requiresExpiry(docType) && !expiryDate) {
-      toast.error(
-        t({
-          fr: 'Date d’expiration requise pour cette pièce (vérifiée par Monitor).',
-          en: 'Expiry date required for this document (checked by Monitor).',
-        }),
-      )
-      return
-    }
-    // AMM : N° + date d'émission obligatoires (réf. de la lettre + RCP §8/§9 au renouvellement/variation).
-    if (isAmm && (!reference.trim() || !issueDate)) {
-      toast.error(
-        t({
-          fr: 'N° d’AMM et date d’émission requis pour une AMM.',
-          en: 'MA number and issue date are required for an MA.',
-        }),
-      )
-      return
-    }
-    if (dateError) {
-      setDatesTouched(true)
-      toast.error(
-        t({
-          fr: 'La date d’émission ne peut pas être postérieure à la date d’expiration.',
-          en: 'The issue date cannot be later than the expiry date.',
-        }),
-      )
-      return
-    }
-    setBusy(true)
-    try {
-      await addDocument(orgId, productId, {
-        category,
-        docType,
-        file,
-        language: 'fr',
-        expiryDate: expiryDate || null,
-        issueDate: isAmm ? issueDate || null : null,
-        reference: isAmm ? reference.trim() || null : null,
-        country: isAmm ? country || null : null,
-      })
-      void syncCatalogue(orgId)
-      toast.success(t({ fr: 'Document ajouté', en: 'Document added' }))
-      setFile(null)
-      setExpiryDate('')
-      setIssueDate('')
-      setReference('')
-      setCountry('')
-      setDatesTouched(false)
-      setResetKey((k) => k + 1)
-      setAdding(false)
-    } catch (error) {
-      toast.error(t({ fr: "Échec de l'ajout", en: 'Upload failed' }), {
-        description: error instanceof Error ? error.message : undefined,
-      })
-    } finally {
-      setBusy(false)
     }
   }
 
@@ -262,121 +169,30 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
         </Button>
       </div>
       {adding ? (
-        <div className="grid gap-3 rounded-lg border p-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label>{t({ fr: 'Type de document', en: 'Document type' })}</Label>
-            <Select value={docType} onValueChange={setDocType}>
-              <SelectTrigger
-                className="w-full"
-                aria-label={t({ fr: 'Type de document', en: 'Document type' })}
-              >
-                <SelectValue placeholder={t({ fr: 'Type', en: 'Type' })} />
-              </SelectTrigger>
-              <SelectContent>
-                {types.map((opt) => (
-                  <SelectItem key={opt.code} value={opt.code}>
-                    {t({ fr: opt.label, en: opt.en ?? opt.label })}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Deux chemins (§2) : la base de l'org liée possède des pièces de ce type → pioche
-              (copie liée, métadonnées héritées, aucun champ à ressaisir) OU upload classique. */}
-          {sourcesForType.length > 0 ? (
-            <div className="flex items-end sm:justify-end">
-              <Button type="button" variant="outline" onClick={() => setPicking(true)}>
-                <FolderOpen />
-                {baseLabel}
-                <span className="text-muted-foreground tabular-nums">
-                  ({sourcesForType.length})
-                </span>
-              </Button>
-            </div>
-          ) : null}
-
-          {isAmm ? (
-            <div className="space-y-1.5">
-              <Label>{t({ fr: 'N° d’AMM *', en: 'MA number *' })}</Label>
-              <Input
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                placeholder={t({ fr: 'Ex. AMM_2015_7457', en: 'e.g. MA_2015_7457' })}
-              />
-            </div>
-          ) : null}
-
-          {isAmm ? (
-            <div className="space-y-1.5">
-              <Label>{t({ fr: 'Pays', en: 'Country' })}</Label>
-              <Select value={country} onValueChange={setCountry}>
-                <SelectTrigger className="w-full" aria-label={t({ fr: 'Pays', en: 'Country' })}>
-                  <SelectValue placeholder={t({ fr: 'Sélectionner…', en: 'Select…' })} />
-                </SelectTrigger>
-                <SelectContent>
-                  {COUNTRIES.map((c) => (
-                    <SelectItem key={c.code} value={c.code}>
-                      {countryLabel(c.code, lang)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : null}
-
-          {isAmm ? (
-            <div className="space-y-1.5">
-              <Label>{t({ fr: 'Date d’émission (octroi) *', en: 'Issue date (grant) *' })}</Label>
-              <Input
-                type="date"
-                value={issueDate}
-                onChange={(e) => setIssueDate(e.target.value)}
-                onBlur={() => setDatesTouched(true)}
-                aria-invalid={showDateError || undefined}
-              />
-            </div>
-          ) : null}
-
-          {requiresExpiry(docType) ? (
-            <div className="space-y-1.5">
-              <Label>{t({ fr: "Date d'expiration *", en: 'Expiry date *' })}</Label>
-              <Input
-                type="date"
-                value={expiryDate}
-                onChange={(e) => setExpiryDate(e.target.value)}
-                onBlur={() => setDatesTouched(true)}
-                aria-invalid={showDateError || undefined}
-              />
-            </div>
-          ) : null}
-
-          {showDateError ? (
-            <p className="text-destructive text-xs sm:col-span-2" role="alert">
-              {t({
-                fr: 'La date d’émission est postérieure à la date d’expiration.',
-                en: 'The issue date is later than the expiry date.',
-              })}
-            </p>
-          ) : null}
-
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label>{t({ fr: 'Fichier', en: 'File' })}</Label>
-            <Input
-              key={resetKey}
-              type="file"
-              accept={UPLOAD_ACCEPT}
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            />
-          </div>
-
-          <div className="sm:col-span-2">
-            <Button type="button" onClick={() => void handleAdd()} disabled={busy || showDateError}>
-              {busy ? <Loader2 className="animate-spin" /> : null}
-              {t({ fr: 'Ajouter le document', en: 'Add document' })}
-            </Button>
-          </div>
-        </div>
+        <DocAddForm
+          types={types}
+          category={category}
+          onSubmit={async (input) => {
+            await addDocument(orgId, productId, input)
+            void syncCatalogue(orgId)
+          }}
+          onDone={() => setAdding(false)}
+          // Deux chemins (§2) : la base de l'org liée possède des pièces de ce type → pioche
+          // (copie liée, métadonnées héritées, aucun champ à ressaisir) OU upload classique.
+          renderExtra={(dt) =>
+            sourcesFor(dt).length > 0 ? (
+              <div className="flex items-end sm:justify-end">
+                <Button type="button" variant="outline" onClick={() => setPickingType(dt)}>
+                  <FolderOpen />
+                  {baseLabelFor(dt)}
+                  <span className="text-muted-foreground tabular-nums">
+                    ({sourcesFor(dt).length})
+                  </span>
+                </Button>
+              </div>
+            ) : null
+          }
+        />
       ) : null}
 
       {docs === undefined ? (
@@ -487,11 +303,11 @@ export function DocumentsSection({ orgId, productId, category }: DocumentsSectio
       <DocPreviewDialog doc={preview} onOpenChange={(o) => !o && setPreview(null)} />
       <DocDatesDialog doc={editing} onOpenChange={(o) => !o && setEditing(null)} />
       <SourceDocPicker
-        entries={picking ? sourcesForType : null}
-        title={baseLabel}
+        entries={pickingType ? sourcesFor(pickingType) : null}
+        title={pickingType ? baseLabelFor(pickingType) : ''}
         takenIds={new Set((docs ?? []).flatMap((d) => (d.sourceDocId ? [d.sourceDocId] : [])))}
         onPick={pickFromBase}
-        onOpenChange={(o) => setPicking(o)}
+        onOpenChange={(o) => !o && setPickingType(null)}
       />
     </div>
   )

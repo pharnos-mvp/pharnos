@@ -33,12 +33,15 @@ import { getPartyBranding, setPartySignatory } from '@/features/profile/pro-sett
 import { syncProSettings } from '@/features/profile/pro-settings-sync'
 import { useProSettingsSync } from '@/features/profile/use-pro-settings-sync'
 import { OrgBrandingTab } from './OrgBrandingTab'
+import { OrgDocAddButton } from './OrgDocAddButton'
 import { PieceGrid } from './PieceGrid'
 import { ProductIcon } from './product-icon'
 import {
   adminDocTypesForPartyRoles,
+  AMM_DOC_TYPE,
   categoryForDocType,
   docTypeLabel,
+  INFO_DOC_TYPES,
   requiresExpiry,
 } from './doc-types'
 import {
@@ -399,8 +402,11 @@ export function OrganisationCockpit() {
             </RadixTabs.Content>
           ) : null}
 
+          {/* Upload §3 : chaque onglet documentaire porte son « Ajouter » (types = matrice §1) —
+              tout dépôt entre dans la base PROPRE de l'org et devient piochable des produits (§2). */}
           {isMah ? (
             <RadixTabs.Content value="amm" className="space-y-4 outline-none">
+              <OrgDocAddButton orgId={orgId} party={party} types={AMM_DOC_TYPE} category="admin" />
               {vm && vm.amm.total > 0 ? (
                 <>
                   <AmmSummary amm={vm.amm} />
@@ -415,7 +421,13 @@ export function OrganisationCockpit() {
             </RadixTabs.Content>
           ) : null}
 
-          <RadixTabs.Content value="admin" className="outline-none">
+          <RadixTabs.Content value="admin" className="space-y-4 outline-none">
+            <OrgDocAddButton
+              orgId={orgId}
+              party={party}
+              types={adminDocTypesForPartyRoles(party.roles)}
+              category="admin"
+            />
             <TypeCards
               cards={cards.adminTypes}
               partyId={partyId}
@@ -424,7 +436,8 @@ export function OrganisationCockpit() {
           </RadixTabs.Content>
 
           {isMah ? (
-            <RadixTabs.Content value="info" className="outline-none">
+            <RadixTabs.Content value="info" className="space-y-4 outline-none">
+              <OrgDocAddButton orgId={orgId} party={party} types={INFO_DOC_TYPES} category="info" />
               <TypeCards
                 cards={cards.infoTypes}
                 partyId={partyId}
