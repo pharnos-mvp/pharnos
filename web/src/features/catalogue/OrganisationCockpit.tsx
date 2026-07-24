@@ -35,7 +35,12 @@ import { useProSettingsSync } from '@/features/profile/use-pro-settings-sync'
 import { OrgBrandingTab } from './OrgBrandingTab'
 import { PieceGrid } from './PieceGrid'
 import { ProductIcon } from './product-icon'
-import { categoryForDocType, docTypeLabel, requiresExpiry } from './doc-types'
+import {
+  adminDocTypesForPartyRoles,
+  categoryForDocType,
+  docTypeLabel,
+  requiresExpiry,
+} from './doc-types'
 import {
   buildOrgCockpitVm,
   orgJustificatifCards,
@@ -150,13 +155,21 @@ export function OrganisationCockpit() {
   // Justificatifs = pièces jointes des correspondances (grille à plat, sans sous-type).
   const cards = useMemo(() => {
     if (!party || !data) return { adminTypes: [], infoTypes: [], justif: [] }
+    // Matrice par rôle (PLAN-ORG-REFERENTIEL §1) : elle ne contraint QUE les pièces portées EN
+    // PROPRE par l'org (org-scopées) — un MAH pur n'a que le contrat (amendement CEO). Les pièces
+    // des PRODUITS liés (portefeuille GMP/CoA…) restent visibles : c'est le suivi de validité,
+    // la raison d'être du cockpit RA (retour revue : les filtrer créait des cartes fantômes).
+    const allowedAdmin = new Set(adminDocTypesForPartyRoles(party.roles).map((d) => d.code))
     return {
       adminTypes: orgTypeCards(
         party,
         data.products,
         data.documents,
         now,
-        (d) => d.docType !== 'amm' && categoryForDocType(d.docType, d.category) === 'admin',
+        (d) =>
+          d.docType !== 'amm' &&
+          categoryForDocType(d.docType, d.category) === 'admin' &&
+          (d.partyId !== party.id || allowedAdmin.has(d.docType)),
       ),
       infoTypes: orgTypeCards(
         party,

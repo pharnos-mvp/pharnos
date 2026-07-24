@@ -48,18 +48,24 @@ export function DocTypeCards({
   drafts,
   onAdd,
   onRemove,
+  types,
+  hideHolder,
 }: {
   category: DocumentCategory
   drafts: DraftDocument[]
   onAdd: (d: DraftDocument) => void
   onRemove: (id: string) => void
+  /** Sous-ensemble de types proposés (matrice par rôle des orgs) — défaut : toute la catégorie. */
+  types?: DocTypeOption[]
+  /** Contexte ORGANISATION : le champ « Titulaire » est masqué (on est déjà chez le propriétaire). */
+  hideHolder?: boolean
 }) {
-  const types = docTypesFor(category)
+  const shown = types ?? docTypesFor(category)
   const [openType, setOpenType] = useState<string | null>(null)
 
   return (
     <div className="grid gap-3 md:grid-cols-2">
-      {types.map((type) => (
+      {shown.map((type) => (
         <DocCard
           key={type.code}
           type={type}
@@ -67,6 +73,7 @@ export function DocTypeCards({
           drafts={drafts.filter((d) => d.docType === type.code)}
           onAdd={onAdd}
           onRemove={onRemove}
+          hideHolder={hideHolder}
           open={openType === type.code}
           onToggle={() => setOpenType((o) => (o === type.code ? null : type.code))}
         />
@@ -81,6 +88,7 @@ function DocCard({
   drafts,
   onAdd,
   onRemove,
+  hideHolder,
   open,
   onToggle,
 }: {
@@ -89,6 +97,7 @@ function DocCard({
   drafts: DraftDocument[]
   onAdd: (d: DraftDocument) => void
   onRemove: (id: string) => void
+  hideHolder?: boolean
   open: boolean
   onToggle: () => void
 }) {
@@ -461,7 +470,8 @@ function DocCard({
               </p>
             ) : null}
 
-            {isAdmin ? (
+            {/* Masqué en contexte ORG (`hideHolder`) : la fiche appartient déjà au titulaire. */}
+            {isAdmin && !hideHolder ? (
               <Field label={t({ fr: 'Titulaire', en: 'Holder' })}>
                 <Input
                   value={holder}

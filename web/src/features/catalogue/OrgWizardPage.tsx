@@ -16,6 +16,7 @@ import type { PartyRole } from '@/lib/db'
 import { cn } from '@/lib/utils'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
 import { syncCatalogue } from './catalogue-sync'
+import { adminDocTypesForPartyRoles, AMM_DOC_TYPE } from './doc-types'
 import { DocTypeCards, type DraftDocument } from './DocTypeCards'
 import { addPartyDocument } from './documents-repository'
 import { updateParty, upsertParty } from './parties-repository'
@@ -29,21 +30,20 @@ const TYPE_LABEL: Partial<Record<PartyRole, Translatable>> = {
   agent: { fr: 'Agence locale / Représentant', en: 'Local agent / Representative' },
 }
 
-const STEPS: Translatable[] = [
-  { fr: 'Identification', en: 'Identification' },
-  { fr: 'Documents d’information', en: 'Product information' },
-  { fr: 'Pièces administratives', en: 'Administrative documents' },
-]
+/** Une session du wizard — la liste dépend des RÔLES (matrice CEO, PLAN-ORG-REFERENTIEL §1). */
+interface Session {
+  key: 'identif' | 'info' | 'admin' | 'amm'
+  label: Translatable
+}
 
 /**
- * Page de **création d'une organisation** (`/catalogue/organisations/nouvelle?type=…`) — wizard
- * 3 sessions, MÊME chrome que « Nouveau produit » (décision CEO). Le type vient de l'étape 1
- * (dialog de choix, `OrgCreateDialog`) ; un type invalide renvoie aux Organisations.
- *
- * Sessions II/III : les documents rattachés à l'ORGANISATION arrivent dans la PR suivante
- * (décision CEO « Identification d'abord ») — les sessions annoncent la fiche en attendant.
- * Le gate MAH est déjà appliqué au choix du type ; « Terminer » ne re-gate pas (défense au
- * niveau du dialog), il exige seulement le nom.
+ * Page de **création d'une organisation** (`/catalogue/organisations/nouvelle?type=…`) — wizard à
+ * sessions DÉRIVÉES DES RÔLES, même chrome que « Nouveau produit » :
+ *  • MAH pur : Identification · Docs d'information · Pièces admin (contrat) · AMM
+ *  • Fabricant / Agence locale : Identification · Pièces administratives
+ *  • MAH + Fabricant (`?type=titulaire,fabricant`) : Identification · Docs d'info · Pièces admin · AMM
+ * `type` accepte une liste de rôles séparés par des virgules ; invalide → retour aux Organisations.
+ * Le gate MAH est appliqué au choix du type (dialog) ; « Terminer » exige seulement le nom.
  */
 export function OrgWizardPage() {
   const { t } = useI18n()
@@ -51,7 +51,10 @@ export function OrgWizardPage() {
   const orgId = useOrgId()
   useCatalogueSync(orgId)
   const [params] = useSearchParams()
-  const type = params.get('type') as PartyRole | null
+  // Dédoublonné : une URL forgée `?type=titulaire,titulaire` ne double pas le libellé (les données
+  // sont déjà sûres — upsertParty unionne les rôles).
+  const roles = [...new Set((params.get('type') ?? '').split(',').filter(Boolean))] as PartyRole[]
+  const rolesValid = roles.length > 0 && roles.every((r) => !!TYPE_LABEL[r])
 
   useTopbar({
     title: t({ fr: 'Nouvelle organisation', en: 'New organization' }),
@@ -75,8 +78,37 @@ export function OrgWizardPage() {
   const [busy, setBusy] = useState(false)
 
   // Type absent/inconnu (URL forgée, type « bientôt ») → retour au choix.
-  if (!type || !TYPE_LABEL[type]) return <Navigate to="/catalogue/organisations" replace />
+  if (!rolesValid) return <Navigate to="/catalogue/organisations" replace />
 
+  const isMah = roles.includes('titulaire')
+  const isFab = roles.includes('fabricant')
+  // Pièces admin autorisées pour ces rôles (MAH pur → contrat seul ; fabricant/agent → tout sauf AMM).
+  const adminTypes = adminDocTypesForPartyRoles(roles)
+
+  const sessions: Session[] = [
+    { key: 'identif', label: { fr: 'Identification', en: 'Identification' } },
+    ...(isMah
+      ? [
+          {
+            key: 'info',
+            label: { fr: 'Documents d’information', en: 'Product information' },
+          } as Session,
+        ]
+      : []),
+    ...(adminTypes.length > 0
+      ? [
+          {
+            key: 'admin',
+            label: { fr: 'Pièces administratives', en: 'Administrative documents' },
+          } as Session,
+        ]
+      : []),
+    ...(isMah ? [{ key: 'amm', label: { fr: 'AMM', en: 'MA' } } as Session] : []),
+  ]
+  const current = sessions[step - 1]?.key ?? 'identif'
+  const lastStep = sessions.length
+
+  const typeLabel = roles.map((r) => t(TYPE_LABEL[r]!)).join(' + ')
   const isValidStep1 = nom.trim().length > 0
 
   function goToStep(n: number) {
@@ -84,6 +116,14 @@ export function OrgWizardPage() {
     if (step === 1 && n !== 1) setAttempted(!isValidStep1)
     setStep(n)
   }
+
+  /** Drafts d'une session docs (l'AMM est une pièce admin, mais vit dans SA session). */
+  const draftsFor = (key: Session['key']): DraftDocument[] =>
+    key === 'info'
+      ? drafts.filter((d) => d.category === 'info')
+      : key === 'amm'
+        ? drafts.filter((d) => d.docType === 'amm')
+        : drafts.filter((d) => d.category === 'admin' && d.docType !== 'amm')
 
   async function finish() {
     if (!nom.trim()) {
@@ -102,23 +142,23 @@ export function OrgWizardPage() {
     try {
       const id = await upsertParty(orgId, {
         nom,
-        roles: [type as PartyRole],
+        roles,
         pays: pays.trim(),
         adresse: adresse.trim(),
-        gmpCertificat: type === 'fabricant' ? gmpCertificat.trim() : '',
-        gmpExpiry: type === 'fabricant' ? gmpExpiry || null : null,
+        gmpCertificat: isFab ? gmpCertificat.trim() : '',
+        gmpExpiry: isFab ? gmpExpiry || null : null,
       })
       if (!id) return
       if (email) await updateParty(id, { contactEmail: email })
       // Signataire du MAH → branding party (résolu sur ses lettres).
-      if (type === 'titulaire' && (signataire.trim() || poste.trim())) {
+      if (isMah && (signataire.trim() || poste.trim())) {
         await setPartySignatory(orgId, id, {
           signataire: signataire.trim() || null,
           poste: poste.trim() || null,
         })
         void syncProSettings(orgId)
       }
-      // Sessions II/III : persiste les documents bufferisés, rattachés à l'ORGANISATION.
+      // Sessions docs : persiste les documents bufferisés, rattachés à l'ORGANISATION.
       for (const d of drafts) {
         await addPartyDocument(orgId, id, {
           category: d.category,
@@ -148,29 +188,57 @@ export function OrgWizardPage() {
 
   const stepState = (n: number): 'done' | 'active' | 'error' | 'todo' => {
     if (n === step) return 'active'
-    if (n === 1) return isValidStep1 ? 'done' : attempted ? 'error' : 'todo'
-    // Sessions docs : « faite » dès qu'au moins une pièce de la catégorie est bufferisée.
-    const cat = n === 2 ? 'info' : 'admin'
-    return drafts.some((d) => d.category === cat) ? 'done' : 'todo'
+    const key = sessions[n - 1]?.key
+    if (key === 'identif') return isValidStep1 ? 'done' : attempted ? 'error' : 'todo'
+    return key && draftsFor(key).length > 0 ? 'done' : 'todo'
   }
+
+  /** Session de documents (info / pièces admin / AMM) — cartes par type + nav. */
+  const docsSession = (key: Exclude<Session['key'], 'identif'>, stepNo: number) => (
+    <div className="space-y-5">
+      <DocTypeCards
+        category={key === 'info' ? 'info' : 'admin'}
+        types={key === 'admin' ? adminTypes : key === 'amm' ? AMM_DOC_TYPE : undefined}
+        // Contexte ORG : le champ « Titulaire » n'existe pas (on est chez le propriétaire).
+        hideHolder
+        drafts={draftsFor(key)}
+        onAdd={(d) => setDrafts((cur) => [...cur, d])}
+        onRemove={(id) => setDrafts((cur) => cur.filter((d) => d.id !== id))}
+      />
+      <div className="flex justify-between">
+        <Button type="button" variant="outline" onClick={() => goToStep(stepNo - 1)}>
+          <ArrowLeft /> {t({ fr: 'Précédent', en: 'Back' })}
+        </Button>
+        {stepNo === lastStep ? (
+          <Button type="button" variant="primary" disabled={busy} onClick={() => void finish()}>
+            {t({ fr: 'Terminer', en: 'Finish' })} <Check />
+          </Button>
+        ) : (
+          <Button type="button" variant="primary" onClick={() => goToStep(stepNo + 1)}>
+            {t({ fr: 'Suivant', en: 'Next' })} <ArrowRight />
+          </Button>
+        )}
+      </div>
+    </div>
+  )
 
   return (
     <Page className="max-w-3xl">
       <p className="text-muted-foreground text-sm">
         {t({
-          fr: `Renseignez l’organisation (${t(TYPE_LABEL[type]!)}) en 3 étapes. Tout est enregistré localement et disponible hors-ligne.`,
-          en: `Fill in the organization (${t(TYPE_LABEL[type]!)}) in 3 steps. Everything is saved locally and available offline.`,
+          fr: `Renseignez l’organisation (${typeLabel}) en ${lastStep} étapes. Tout est enregistré localement et disponible hors-ligne.`,
+          en: `Fill in the organization (${typeLabel}) in ${lastStep} steps. Everything is saved locally and available offline.`,
         })}
       </p>
 
       <div className="space-y-6">
         {/* Stepper typeform — titres CLIQUABLES (même chrome que Nouveau produit). */}
         <ol className="flex items-center gap-2">
-          {STEPS.map((label, i) => {
+          {sessions.map((s, i) => {
             const n = i + 1
             const state = stepState(n)
             return (
-              <li key={n} className="flex flex-1 items-center gap-2">
+              <li key={s.key} className="flex flex-1 items-center gap-2">
                 <button
                   type="button"
                   onClick={() => goToStep(n)}
@@ -201,16 +269,16 @@ export function OrgWizardPage() {
                           : 'text-muted-foreground',
                     )}
                   >
-                    {t(label)}
+                    {t(s.label)}
                   </span>
                 </button>
-                {n < STEPS.length ? <span className="bg-border h-px flex-1" /> : null}
+                {n < sessions.length ? <span className="bg-border h-px flex-1" /> : null}
               </li>
             )
           })}
         </ol>
 
-        {step === 1 ? (
+        {current === 'identif' ? (
           <form
             onSubmit={(e) => {
               e.preventDefault()
@@ -264,7 +332,7 @@ export function OrgWizardPage() {
                   />
                 </div>
 
-                {type === 'fabricant' ? (
+                {isFab ? (
                   <>
                     <div className="space-y-1.5">
                       <Label htmlFor="worg-gmp">
@@ -291,7 +359,7 @@ export function OrgWizardPage() {
                   </>
                 ) : null}
 
-                {type === 'titulaire' ? (
+                {isMah ? (
                   <>
                     <div className="space-y-1.5">
                       <Label htmlFor="worg-sign">
@@ -328,45 +396,9 @@ export function OrgWizardPage() {
           </form>
         ) : null}
 
-        {/* Sessions II/III — mêmes cartes par type que le wizard produit (buffer, 0 dépendance
-            aux champs : seules les pièces ajoutées ici seront persistées à « Terminer »). */}
-        {step === 2 ? (
-          <div className="space-y-5">
-            <DocTypeCards
-              category="info"
-              drafts={drafts.filter((d) => d.category === 'info')}
-              onAdd={(d) => setDrafts((cur) => [...cur, d])}
-              onRemove={(id) => setDrafts((cur) => cur.filter((d) => d.id !== id))}
-            />
-            <div className="flex justify-between">
-              <Button type="button" variant="outline" onClick={() => goToStep(1)}>
-                <ArrowLeft /> {t({ fr: 'Précédent', en: 'Back' })}
-              </Button>
-              <Button type="button" variant="primary" onClick={() => goToStep(3)}>
-                {t({ fr: 'Suivant', en: 'Next' })} <ArrowRight />
-              </Button>
-            </div>
-          </div>
-        ) : null}
-
-        {step === 3 ? (
-          <div className="space-y-5">
-            <DocTypeCards
-              category="admin"
-              drafts={drafts.filter((d) => d.category === 'admin')}
-              onAdd={(d) => setDrafts((cur) => [...cur, d])}
-              onRemove={(id) => setDrafts((cur) => cur.filter((d) => d.id !== id))}
-            />
-            <div className="flex justify-between">
-              <Button type="button" variant="outline" onClick={() => goToStep(2)}>
-                <ArrowLeft /> {t({ fr: 'Précédent', en: 'Back' })}
-              </Button>
-              <Button type="button" variant="primary" disabled={busy} onClick={() => void finish()}>
-                {t({ fr: 'Terminer', en: 'Finish' })} <Check />
-              </Button>
-            </div>
-          </div>
-        ) : null}
+        {/* Sessions docs — mêmes cartes par type que le wizard produit (buffer). La liste des
+            sessions ET les types proposés suivent la matrice par rôle (PLAN-ORG-REFERENTIEL §1). */}
+        {current !== 'identif' ? docsSession(current, step) : null}
       </div>
     </Page>
   )

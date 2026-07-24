@@ -48,11 +48,11 @@ describe('OrgCreateDialog (étape 1 : choix du type SEUL)', () => {
     vi.mocked(toast).mockClear()
   })
 
-  it('propose 6 types — 3 développés, 3 annoncés « Bientôt »', () => {
+  it('propose 7 types — 4 développés (dont MAH + Fabricant), 3 annoncés « Bientôt »', () => {
     renderPicker()
     for (const nom of [
       "Titulaire d'AMM",
-      'Fabricant',
+      'MAH \\+ Fabricant',
       'Agence locale / Représentant',
       'Agence Marketing',
       'Grossiste',
@@ -60,7 +60,16 @@ describe('OrgCreateDialog (étape 1 : choix du type SEUL)', () => {
     ]) {
       expect(screen.getByRole('button', { name: new RegExp(nom) })).toBeInTheDocument()
     }
+    // « Fabricant » seul (désambiguïsé de « MAH + Fabricant » par son sous-titre).
+    expect(screen.getByRole('button', { name: /Site de fabrication/ })).toBeInTheDocument()
     expect(screen.getAllByText('Bientôt')).toHaveLength(3)
+  })
+
+  it('« MAH + Fabricant » navigue vers le wizard avec les DEUX rôles', async () => {
+    const user = userEvent.setup()
+    renderPicker()
+    await user.click(screen.getByRole('button', { name: /MAH \+ Fabricant/ }))
+    expect(await screen.findByText('WIZARD')).toBeInTheDocument()
   })
 
   it('un type développé navigue vers la page de création (wizard)', async () => {
@@ -95,8 +104,20 @@ describe('OrgCreateDialog (étape 1 : choix du type SEUL)', () => {
     const user = userEvent.setup()
     renderPicker()
 
-    await user.click(screen.getByRole('button', { name: /Fabricant/ }))
+    // « Fabricant » SEUL (le sous-titre le distingue de « MAH + Fabricant », qui lui est gaté).
+    await user.click(screen.getByRole('button', { name: /Site de fabrication/ }))
     expect(await screen.findByText('WIZARD')).toBeInTheDocument()
     expect(toast).not.toHaveBeenCalled()
+  })
+
+  it('GATE : « MAH + Fabricant » est gaté comme un MAH (plan Free + 1 MAH existant)', async () => {
+    mockPlan = 'free'
+    await upsertParty(ORG, { nom: 'KESHAVLAL', roles: ['titulaire'] })
+    const user = userEvent.setup()
+    renderPicker()
+
+    await user.click(await screen.findByRole('button', { name: /MAH \+ Fabricant/ }))
+    expect(toast).toHaveBeenCalled()
+    expect(screen.queryByText('WIZARD')).toBeNull()
   })
 })

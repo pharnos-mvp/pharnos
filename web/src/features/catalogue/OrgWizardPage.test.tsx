@@ -54,12 +54,15 @@ describe('OrgWizardPage (création — wizard 3 sessions, chrome Nouveau produit
     expect(screen.getByText('LISTE')).toBeInTheDocument()
   })
 
-  it('crée une agence locale (Terminer en session 3) et atterrit sur sa fiche', async () => {
+  it('agence locale : 2 sessions (Identification · Pièces admin) → fiche', async () => {
     const user = userEvent.setup()
     renderWizard('agent')
 
+    // Pas de sessions Docs d'info / AMM pour une agence (matrice par rôle).
+    expect(screen.queryByText('Documents d’information')).toBeNull()
+    expect(screen.queryByText('AMM')).toBeNull()
+
     await user.type(screen.getByLabelText(/Nom/), 'PharmaConseil Bénin')
-    await user.click(screen.getByRole('button', { name: /Suivant/ }))
     await user.click(screen.getByRole('button', { name: /Suivant/ }))
     await user.click(screen.getByRole('button', { name: /Terminer/ }))
 
@@ -70,32 +73,44 @@ describe('OrgWizardPage (création — wizard 3 sessions, chrome Nouveau produit
     expect(await screen.findByText('FICHE')).toBeInTheDocument()
   })
 
-  it('fabricant : champs GMP présents et enregistrés', async () => {
+  it('fabricant : 2 sessions, champs GMP enregistrés, SANS champ « Titulaire » sur les pièces', async () => {
     const user = userEvent.setup()
     renderWizard('fabricant')
 
     await user.type(screen.getByLabelText(/Nom/), 'PHARMAX INDIA')
     await user.type(screen.getByLabelText('N° certificat GMP'), 'G/28/1628')
     await user.click(screen.getByRole('button', { name: /Suivant/ }))
-    await user.click(screen.getByRole('button', { name: /Suivant/ }))
-    await user.click(screen.getByRole('button', { name: /Terminer/ }))
 
+    // Session Pièces admin : la carte GMP existe, la carte AMM n'y est PAS (session dédiée MAH),
+    // et le formulaire d'une pièce n'expose pas « Titulaire » (contexte org : on est chez lui).
+    expect(screen.getByText(/GMP \(Bonnes Pratiques/)).toBeInTheDocument()
+    expect(screen.queryByText(/AMM \(Autorisation/)).toBeNull()
+    expect(screen.queryByLabelText('Titulaire')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /Terminer/ }))
     await waitFor(async () => {
       const p = await db.parties.get(partyId(ORG, 'PHARMAX INDIA'))
       expect(p?.gmpCertificat).toBe('G/28/1628')
     })
   })
 
-  it('MAH : le signataire est persisté dans le branding party', async () => {
+  it('MAH : 4 sessions ; Pièces admin = CONTRAT seul ; signataire persisté (branding party)', async () => {
     const user = userEvent.setup()
     renderWizard('titulaire')
 
     await user.type(screen.getByLabelText(/Nom/), 'HOLDER SARL')
     await user.type(screen.getByLabelText('Signataire (lettres)'), 'Dr Aïcha Koné')
-    await user.click(screen.getByRole('button', { name: /Suivant/ }))
-    await user.click(screen.getByRole('button', { name: /Suivant/ }))
-    await user.click(screen.getByRole('button', { name: /Terminer/ }))
+    await user.click(screen.getByRole('button', { name: /Suivant/ })) // → Docs d'info
+    await user.click(screen.getByRole('button', { name: /Suivant/ })) // → Pièces admin (contrat)
 
+    // Amendement CEO : le contrat vit aussi côté MAH — et RIEN d'autre (pas de GMP/COA).
+    expect(screen.getByText(/Contrat titulaire/)).toBeInTheDocument()
+    expect(screen.queryByText(/GMP \(Bonnes Pratiques/)).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /Suivant/ })) // → AMM
+    expect(screen.getByText(/AMM \(Autorisation/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Terminer/ }))
     await waitFor(async () => {
       const id = partyId(ORG, 'HOLDER SARL')
       expect((await db.parties.get(id))?.roles).toEqual(['titulaire'])
@@ -103,25 +118,47 @@ describe('OrgWizardPage (création — wizard 3 sessions, chrome Nouveau produit
     })
   })
 
-  it('sessions II/III : un doc d’info ajouté au wizard est persisté ORG-scopé (partyId)', async () => {
+  it('MAH + Fabricant (?type=titulaire,fabricant) : rôles CUMULÉS + GMP + signataire', async () => {
     const user = userEvent.setup()
-    const { container } = renderWizard('agent')
+    renderWizard('titulaire,fabricant')
 
-    await user.type(screen.getByLabelText(/Nom/), 'PharmaConseil')
-    await user.click(screen.getByRole('button', { name: /Suivant/ }))
+    // Les champs des DEUX rôles sont présents en Identification.
+    await user.type(screen.getByLabelText(/Nom/), 'INTEGRA PHARMA')
+    await user.type(screen.getByLabelText('N° certificat GMP'), 'G/99/0001')
+    await user.type(screen.getByLabelText('Signataire (lettres)'), 'Dr K.')
+    await user.click(screen.getByRole('button', { name: /Suivant/ })) // Docs d'info
+    await user.click(screen.getByRole('button', { name: /Suivant/ })) // Pièces admin (tout)
+    expect(screen.getByText(/GMP \(Bonnes Pratiques/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Suivant/ })) // AMM
+    await user.click(screen.getByRole('button', { name: /Terminer/ }))
 
-    // Session II (Documents d'information) : l'ajout d'un doc d'info est DIRECT à la sélection du
-    // fichier (DocTypeCards). 2 inputs par carte [ajout, remplacement] → le 1er de la 1re carte.
+    await waitFor(async () => {
+      const p = await db.parties.get(partyId(ORG, 'INTEGRA PHARMA'))
+      // L'ordre de stockage des rôles n'est pas un contrat (upsertParty normalise) — le CONTENU si.
+      expect([...(p?.roles ?? [])].sort()).toEqual(['fabricant', 'titulaire'])
+      expect(p?.gmpCertificat).toBe('G/99/0001')
+    })
+  })
+
+  it('sessions docs : un doc d’info ajouté au wizard MAH est persisté ORG-scopé (partyId)', async () => {
+    const user = userEvent.setup()
+    const { container } = renderWizard('titulaire')
+
+    await user.type(screen.getByLabelText(/Nom/), 'HOLDER DOCS')
+    await user.click(screen.getByRole('button', { name: /Suivant/ })) // → Docs d'info
+
+    // L'ajout d'un doc d'info est DIRECT à la sélection du fichier (DocTypeCards).
     const input = container.querySelectorAll<HTMLInputElement>('input[type="file"]')[0]!
     await user.upload(input, new File(['%PDF-1.4'], 'rcp.pdf', { type: 'application/pdf' }))
 
-    await user.click(screen.getByRole('button', { name: /Suivant/ }))
+    await user.click(screen.getByRole('button', { name: /Suivant/ })) // Pièces admin
+    await user.click(screen.getByRole('button', { name: /Suivant/ })) // AMM
     await user.click(screen.getByRole('button', { name: /Terminer/ }))
 
     await waitFor(async () => {
       const docs = await db.documents.toArray()
       expect(docs).toHaveLength(1)
-      expect(docs[0]?.partyId).toBe(partyId(ORG, 'PharmaConseil'))
+      expect(docs[0]?.partyId).toBe(partyId(ORG, 'HOLDER DOCS'))
       expect(docs[0]?.productId).toBe('')
       expect(docs[0]?.category).toBe('info')
     })
@@ -131,7 +168,6 @@ describe('OrgWizardPage (création — wizard 3 sessions, chrome Nouveau produit
     const user = userEvent.setup()
     renderWizard('agent')
 
-    await user.click(screen.getByRole('button', { name: /Suivant/ }))
     await user.click(screen.getByRole('button', { name: /Suivant/ }))
     await user.click(screen.getByRole('button', { name: /Terminer/ }))
 

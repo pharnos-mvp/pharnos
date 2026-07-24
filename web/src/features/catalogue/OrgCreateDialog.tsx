@@ -19,8 +19,8 @@ import { useI18n, type Translatable } from '@/lib/i18n-context'
 import { listParties } from './parties-repository'
 
 interface OrgTypeEntry {
-  /** Rôle DÉVELOPPÉ (navigue vers le wizard) — absent = type annoncé, pas encore disponible. */
-  role?: PartyRole
+  /** Rôles DÉVELOPPÉS (naviguent vers le wizard) — absent = type annoncé, pas encore disponible. */
+  roles?: PartyRole[]
   label: Translatable
   hint: Translatable
   icon: LucideIcon
@@ -33,19 +33,25 @@ interface OrgTypeEntry {
  */
 const TYPES: OrgTypeEntry[] = [
   {
-    role: 'titulaire',
+    roles: ['titulaire'],
     label: { fr: "Titulaire d'AMM", en: 'MA holder' },
     hint: { fr: 'Détenteur des AMM (MAH)', en: 'Marketing authorization holder' },
     icon: Building2,
   },
   {
-    role: 'fabricant',
+    roles: ['fabricant'],
     label: { fr: 'Fabricant', en: 'Manufacturer' },
     hint: { fr: 'Site de fabrication (GMP)', en: 'Manufacturing site (GMP)' },
     icon: Factory,
   },
   {
-    role: 'agent',
+    roles: ['titulaire', 'fabricant'],
+    label: { fr: 'MAH + Fabricant', en: 'MAH + Manufacturer' },
+    hint: { fr: 'Titulaire qui fabrique aussi', en: 'Holder that also manufactures' },
+    icon: Building2,
+  },
+  {
+    roles: ['agent'],
     label: { fr: 'Agence locale / Représentant', en: 'Local agent / Representative' },
     hint: { fr: 'Représentant local, consultant', en: 'Local representative, consultant' },
     icon: Landmark,
@@ -91,7 +97,7 @@ export function OrgCreateDialog({
   const mahGated = (mahCount ?? 0) >= (orgPlan ? mahPartyLimit(orgPlan.plan) : Infinity)
 
   function choose(entry: OrgTypeEntry) {
-    if (!entry.role) {
+    if (!entry.roles) {
       toast(
         t({
           fr: 'Ce type d’organisation arrive bientôt.',
@@ -100,7 +106,7 @@ export function OrgCreateDialog({
       )
       return
     }
-    if (entry.role === 'titulaire' && mahGated) {
+    if (entry.roles.includes('titulaire') && mahGated) {
       toast(
         t({
           fr: 'Un seul titulaire d’AMM est inclus. Passez à l’offre agence (Business) pour en gérer plusieurs.',
@@ -116,7 +122,7 @@ export function OrgCreateDialog({
       return
     }
     onOpenChange(false)
-    navigate(`/catalogue/organisations/nouvelle?type=${entry.role}`)
+    navigate(`/catalogue/organisations/nouvelle?type=${entry.roles.join(',')}`)
   }
 
   return (
@@ -130,7 +136,7 @@ export function OrgCreateDialog({
 
         <div className="grid gap-2 sm:grid-cols-2">
           {TYPES.map((entry) => {
-            const soon = !entry.role
+            const soon = !entry.roles
             const Icon = entry.icon
             return (
               <button

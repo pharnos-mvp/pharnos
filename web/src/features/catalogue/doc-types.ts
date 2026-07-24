@@ -50,6 +50,28 @@ export function docTypesFor(category: DocumentCategory): DocTypeOption[] {
   return category === 'info' ? INFO_DOC_TYPES : ADMIN_DOC_TYPES
 }
 
+/**
+ * Pièces ADMINISTRATIVES qu'une ORGANISATION peut porter en propre, selon ses rôles (matrice CEO,
+ * `PLAN-ORG-REFERENTIEL.md` §1). AMM exclue partout : elle a son propre onglet/session (MAH).
+ *  • titulaire → le CONTRAT titulaire-fabricant seulement (amendement CEO : le contrat vit des
+ *    deux côtés) ; les GMP/COA/ML… relèvent du fabricant.
+ *  • fabricant / agent (agence locale) → tout sauf AMM (GMP, ML, COPP, FSC, COA, contrat…).
+ * Rôles cumulés = UNION. Rôle sans pièce admin (distributeur) → vide.
+ */
+export function adminDocTypesForPartyRoles(roles: readonly string[]): DocTypeOption[] {
+  const codes = new Set<string>()
+  for (const role of roles) {
+    if (role === 'titulaire') codes.add('contract')
+    if (role === 'fabricant' || role === 'agent') {
+      for (const d of ADMIN_DOC_TYPES) if (d.code !== 'amm') codes.add(d.code)
+    }
+  }
+  return ADMIN_DOC_TYPES.filter((d) => codes.has(d.code))
+}
+
+/** Option AMM seule (session/onglet AMM du MAH — carte avec pays + n° d'AMM). */
+export const AMM_DOC_TYPE: DocTypeOption[] = ADMIN_DOC_TYPES.filter((d) => d.code === 'amm')
+
 const INFO_DOC_TYPE_CODES = new Set(INFO_DOC_TYPES.map((d) => d.code))
 const ADMIN_DOC_TYPE_CODES = new Set(ADMIN_DOC_TYPES.map((d) => d.code))
 

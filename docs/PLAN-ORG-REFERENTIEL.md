@@ -25,19 +25,22 @@ Contenus **org-scopés** (documents propres de l'organisation) :
 |---|---|---|---|---|
 | **AMM** | ✅ | ❌ | ✅ | ❌ |
 | **Documents d'information** (RCP, notice, étiquetage…) | ✅ | ❌ | ✅ | ❌ |
-| **Pièces administratives** (GMP, ML, FSC, COPP, **COA**, **contrat titulaire-fabricant**) | ❌ | ✅ | ✅ | ✅ (contrats/mandats) |
+| **Pièces administratives** | **contrat seulement** (amendement CEO) | ✅ tout sauf AMM (GMP, ML, FSC, COPP, COA, contrat) | ✅ tout sauf AMM | ✅ (contrats/mandats) |
+
+Le périmètre des pièces admin par rôle = `adminDocTypesForPartyRoles(roles)` (union pour les rôles
+cumulés) : `titulaire → {contract}` · `fabricant/agent → tout sauf amm`.
 
 **Wizard de création** (sessions dérivées des rôles — union pour les rôles cumulés) :
-- MAH pur : I-Identification · II-Documents d'information · III-AMM
+- MAH pur : I-Identification · II-Documents d'information · III-Pièces admin (contrat) · IV-AMM
 - Fabricant pur : I-Identification · II-Pièces administratives
-- MAH + Fabricant : I · II-Docs d'info · III-Pièces admin · IV-AMM
+- MAH + Fabricant : I · II-Docs d'info · III-Pièces admin (tout) · IV-AMM
 - Agence locale : I-Identification · II-Pièces administratives (mandats/contrats)
 
 **Fiche org** (onglets, même dérivation) :
-- MAH pur : Identification · Marque · Produits · AMM · Documents d'information · Justificatifs
-  (l'onglet Pièces admin **disparaît**)
+- MAH pur : Identification · Marque · Produits · AMM · Pièces admin (**contrat seulement**) ·
+  Documents d'information · Justificatifs
 - Fabricant pur : Identification · Pièces admin · Justificatifs (inchangé)
-- MAH + Fabricant : tous les onglets
+- MAH + Fabricant : tous les onglets (Pièces admin = tout sauf AMM)
 - Agence locale : Identification · Pièces admin · Justificatifs
 
 **Champ « Titulaire » des pièces admin : SUPPRIMÉ en contexte org** (on est déjà chez le
