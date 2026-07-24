@@ -29,6 +29,10 @@ import { countryLabel } from '@/features/workspace/dossier-constants'
 import { useOrgId } from '@/features/org/org-context'
 import { db, type PartyRecord, type PartyRole, type ProductRecord } from '@/lib/db'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
+import { getPartyBranding, setPartySignatory } from '@/features/profile/pro-settings-repository'
+import { syncProSettings } from '@/features/profile/pro-settings-sync'
+import { useProSettingsSync } from '@/features/profile/use-pro-settings-sync'
+import { OrgBrandingTab } from './OrgBrandingTab'
 import { PieceGrid } from './PieceGrid'
 import { ProductIcon } from './product-icon'
 import { categoryForDocType, docTypeLabel, requiresExpiry } from './doc-types'
@@ -69,6 +73,10 @@ export function OrganisationCockpit() {
   const { partyId = '' } = useParams()
   const [editing, setEditing] = useState(false)
   const [tab, setTab] = useState('identification')
+  // Hydrate le branding party (signataire + images) au montage de la FICHE : sans ça, après un
+  // logout (cache purgé) l'onglet Identification lirait un branding vide et l'afficherait « — » —
+  // et une édition écraserait le record réel côté serveur. Cf. garde `dirty` dans OrgEditForm.
+  useProSettingsSync(orgId)
 
   const data = useLiveQuery(async () => {
     const [party, products, documents, dossiers, correspondences, messages] = await Promise.all([
@@ -194,7 +202,7 @@ export function OrganisationCockpit() {
   // cas où les rôles changent en direct (isMah → false pendant qu'on est sur Produits) : sans lui,
   // le trigger ET le contenu disparaissent et il ne reste qu'une zone vide sans onglet actif.
   const visibleTabs = isMah
-    ? ['identification', 'produits', 'amm', 'admin', 'info', 'justif']
+    ? ['identification', 'marque', 'produits', 'amm', 'admin', 'info', 'justif']
     : ['identification', 'admin', 'justif']
   const activeTab = visibleTabs.includes(tab) ? tab : 'identification'
   const startEdit = () => {
@@ -316,6 +324,11 @@ export function OrganisationCockpit() {
               {t({ fr: 'Identification', en: 'Identification' })}
             </RadixTabs.Trigger>
             {isMah ? (
+              <RadixTabs.Trigger value="marque" className="tab">
+                {t({ fr: 'Marque', en: 'Brand' })}
+              </RadixTabs.Trigger>
+            ) : null}
+            {isMah ? (
               <RadixTabs.Trigger value="produits" className="tab">
                 {t({ fr: 'Produits', en: 'Products' })}
               </RadixTabs.Trigger>
@@ -352,11 +365,18 @@ export function OrganisationCockpit() {
             <OrgIdentification
               party={party}
               orgId={orgId}
+              isMah={isMah}
               editing={editing}
               onEdit={startEdit}
               onDone={() => setEditing(false)}
             />
           </RadixTabs.Content>
+
+          {isMah ? (
+            <RadixTabs.Content value="marque" className="outline-none">
+              <OrgBrandingTab orgId={orgId} partyId={party.id} />
+            </RadixTabs.Content>
+          ) : null}
 
           {isMah ? (
             <RadixTabs.Content value="produits" className="outline-none">
@@ -421,17 +441,26 @@ export function OrganisationCockpit() {
 function OrgIdentification({
   party,
   orgId,
+  isMah,
   editing,
   onEdit,
   onDone,
 }: {
   party: PartyRecord
   orgId: string
+  /** MAH → le signataire (nom + rôle) des lettres est édité ici (stocké dans le branding party). */
+  isMah: boolean
   editing: boolean
   onEdit: () => void
   onDone: () => void
 }) {
   const { t, lang } = useI18n()
+  // Signataire du MAH : store SÉPARÉ du record `parties` (pro_settings partyBranding) → chargé ici,
+  // affiché en lecture et repassé au formulaire d'édition. Non pertinent pour un fabricant pur.
+  const branding = useLiveQuery(
+    () => (isMah ? getPartyBranding(party.id) : Promise.resolve(undefined)),
+    [isMah, party.id],
+  )
   return (
     // Primitives PARTAGÉES de la chrome cockpit (`rim-card`, `rim-section-title`, `meta-*`) : un
     // seul chemin de style avec la fiche produit — pas de second jeu de rayons/typos à maintenir.
@@ -445,7 +474,16 @@ function OrgIdentification({
         ) : null}
       </div>
       {editing ? (
-        <OrgEditForm party={party} orgId={orgId} onDone={onDone} />
+        <OrgEditForm
+          party={party}
+          orgId={orgId}
+          isMah={isMah}
+          initialSignatory={{
+            signataire: branding?.signataire ?? '',
+            poste: branding?.poste ?? '',
+          }}
+          onDone={onDone}
+        />
       ) : (
         <dl className="mt-5 grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
           <Field label={t({ fr: 'Nom', en: 'Name' })} value={party.nom} />
@@ -469,6 +507,19 @@ function OrgIdentification({
             label={t({ fr: 'Échéance GMP', en: 'GMP expiry' })}
             value={formatDay(party.gmpExpiry, lang)}
           />
+          {/* Signataire porté sur les lettres où cette org est MAH (bloc signature). */}
+          {isMah ? (
+            <Field
+              label={t({ fr: 'Signataire (lettres)', en: 'Signatory (letters)' })}
+              value={branding?.signataire ?? ''}
+            />
+          ) : null}
+          {isMah ? (
+            <Field
+              label={t({ fr: 'Rôle du signataire', en: 'Signatory role' })}
+              value={branding?.poste ?? ''}
+            />
+          ) : null}
         </dl>
       )}
     </div>
@@ -708,10 +759,15 @@ function Field({ label, value }: { label: string; value: string }) {
 function OrgEditForm({
   party,
   orgId,
+  isMah,
+  initialSignatory,
   onDone,
 }: {
   party: PartyRecord
   orgId: string
+  isMah: boolean
+  /** Signataire (nom + rôle) du MAH, chargé du branding party (store ≠ record `parties`). */
+  initialSignatory: { signataire: string; poste: string }
   onDone: () => void
 }) {
   const { t } = useI18n()
@@ -720,6 +776,8 @@ function OrgEditForm({
   const [gmpCertificat, setGmpCertificat] = useState(party.gmpCertificat)
   const [gmpExpiry, setGmpExpiry] = useState(party.gmpExpiry ?? '')
   const [contactEmail, setContactEmail] = useState(party.contactEmail ?? '')
+  const [signataire, setSignataire] = useState(initialSignatory.signataire)
+  const [poste, setPoste] = useState(initialSignatory.poste)
   const [busy, setBusy] = useState(false)
 
   async function save() {
@@ -740,6 +798,21 @@ function OrgEditForm({
         contactEmail: email || null,
       })
       void syncParties(orgId)
+      // Signataire du MAH → store SÉPARÉ (branding party). GARDE DIRTY OBLIGATOIRE : sans elle, une
+      // édition qui NE touche PAS le signataire (ex. corriger l'adresse) réécrirait quand même le
+      // record branding — et si le branding n'a pas encore été tiré localement (post-logout, cache
+      // purgé), `upsert` repart d'un template tout-à-null → efface logo/en-tête/pied côté serveur
+      // (push avant pull). On n'écrit donc QUE si le signataire a réellement changé.
+      const signatoryDirty =
+        signataire.trim() !== initialSignatory.signataire.trim() ||
+        poste.trim() !== initialSignatory.poste.trim()
+      if (isMah && signatoryDirty) {
+        await setPartySignatory(orgId, party.id, {
+          signataire: signataire.trim() || null,
+          poste: poste.trim() || null,
+        })
+        void syncProSettings(orgId)
+      }
       toast.success(t({ fr: 'Organisation enregistrée', en: 'Organization saved' }))
       onDone()
     } catch {
@@ -806,6 +879,34 @@ function OrgEditForm({
           })}
         </p>
       </div>
+      {/* Signataire des lettres où cette org est MAH — persisté dans le branding party. Le fabricant
+          pur ne signe pas de lettre d'AMM → champs masqués. */}
+      {isMah ? (
+        <div className="space-y-1.5">
+          <Label htmlFor="org-signataire">
+            {t({ fr: 'Signataire (lettres)', en: 'Signatory (letters)' })}
+          </Label>
+          <Input
+            id="org-signataire"
+            value={signataire}
+            maxLength={120}
+            placeholder={t({ fr: 'Ex. Dr Aïcha Koné', en: 'e.g. Dr Aïcha Koné' })}
+            onChange={(e) => setSignataire(e.target.value)}
+          />
+        </div>
+      ) : null}
+      {isMah ? (
+        <div className="space-y-1.5">
+          <Label htmlFor="org-poste">{t({ fr: 'Rôle du signataire', en: 'Signatory role' })}</Label>
+          <Input
+            id="org-poste"
+            value={poste}
+            maxLength={120}
+            placeholder={t({ fr: 'Ex. Pharmacien responsable', en: 'e.g. Responsible pharmacist' })}
+            onChange={(e) => setPoste(e.target.value)}
+          />
+        </div>
+      ) : null}
       <div className="flex items-center gap-2 sm:col-span-2">
         <Button variant="primary" onClick={() => void save()} disabled={busy}>
           {t({ fr: 'Enregistrer', en: 'Save' })}
