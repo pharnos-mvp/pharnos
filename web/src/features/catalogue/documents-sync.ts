@@ -16,7 +16,10 @@ let pinning = false
 export interface DocumentRow {
   id: string
   org_id: string
-  product_id: string
+  /** Null pour un document ORG-scopé (voir `party_id`, migration 0069). */
+  product_id: string | null
+  /** Organisation propriétaire (document org-scopé) — null pour un document produit. */
+  party_id: string | null
   category: string
   doc_type: string
   file_path: string | null
@@ -39,7 +42,9 @@ export function documentToRow(d: DocumentRecord): DocumentRow {
   return {
     id: d.id,
     org_id: d.orgId,
-    product_id: d.productId,
+    // `''` (doc org-scopé) → NULL serveur : la FK products refuse une chaîne vide.
+    product_id: d.productId || null,
+    party_id: d.partyId ?? null,
     category: d.category,
     doc_type: d.docType,
     file_path: d.filePath,
@@ -63,7 +68,8 @@ export function rowToDocument(r: DocumentRow): DocumentRecord {
   return {
     id: r.id,
     orgId: r.org_id,
-    productId: r.product_id,
+    productId: r.product_id ?? '',
+    partyId: r.party_id ?? null,
     category: r.category as DocumentCategory,
     docType: r.doc_type,
     fileName,
@@ -114,6 +120,10 @@ async function pushDocuments(supabase: SupabaseClient, orgId: string): Promise<v
   const pendingProducts = new Set(
     (await db.outbox.where('entity').equals('product').toArray()).map((i) => i.entityId),
   )
+  // Même garde pour les documents ORG-scopés : FK documents.party_id → parties (migration 0069).
+  const pendingParties = new Set(
+    (await db.outbox.where('entity').equals('party').toArray()).map((i) => i.entityId),
+  )
 
   // Drain PAR ITEM traité (cf. parties-sync) : un bulkDelete global supprimerait aussi les ops
   // SAUTÉES ci-dessous — celles d'une AUTRE org (membre multi-orgs) ou en attente de leur parent —
@@ -127,14 +137,17 @@ async function pushDocuments(supabase: SupabaseClient, orgId: string): Promise<v
       continue
     }
     if (rec.orgId !== orgId) continue // autre org → reste en file pour son propre cycle
-    if (pendingProducts.has(rec.productId)) continue // parent pas encore poussé → cycle suivant
+    if (rec.productId && pendingProducts.has(rec.productId)) continue // parent pas poussé → cycle suivant
+    if (rec.partyId && pendingParties.has(rec.partyId)) continue // parent org pas poussé → cycle suivant
 
     // Upload du blob si pas encore fait (et document non supprimé).
     if (!rec.uploaded && rec.deletedAt === null) {
       const blob = await getDocumentBlob(id)
       if (blob) {
         // sanitize au build du chemin : couvre aussi les enregistrements Dexie antérieurs à T5.
-        const path = `${rec.orgId}/${rec.productId}/${rec.id}/${sanitizeFileName(rec.fileName)}`
+        // Doc ORG-scopé → segment `party/<partyId>` (la policy Storage ne regarde que l'org).
+        const owner = rec.partyId ? `party/${rec.partyId}` : rec.productId
+        const path = `${rec.orgId}/${owner}/${rec.id}/${sanitizeFileName(rec.fileName)}`
         const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, {
           upsert: true,
           contentType: contentTypeFor({ name: rec.fileName, type: rec.mimeType }),

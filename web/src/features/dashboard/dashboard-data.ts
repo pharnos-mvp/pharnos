@@ -16,6 +16,7 @@ import type {
   DocAnalysisRecord,
   DocumentRecord,
   DossierRecord,
+  PartyRecord,
   ProductRecord,
 } from '@/lib/db'
 
@@ -145,6 +146,12 @@ export interface DashboardInput {
   messages: CorrespondenceMessageRecord[]
   reads: CorrespondenceReadRecord[]
   docAnalysis: DocAnalysisRecord[]
+  /**
+   * Organisations du tenant — nomme et route les alertes des documents ORG-scopés (`partyId`,
+   * migration 0069 : GMP/COPP déposés sur un fabricant…). Optionnel : absent → repli « — »
+   * (anciens appelants inchangés) ; les deux appelants réels (Dashboard, cloche) le fournissent.
+   */
+  parties?: PartyRecord[]
 }
 
 const active = <T extends { deletedAt?: string | null }>(rows: T[]): T[] =>
@@ -161,7 +168,17 @@ export function buildActions(input: DashboardInput, now: Date): ActionItem[] {
   const dossiers = active(input.dossiers)
   const correspondences = active(input.correspondences)
   const productName = new Map(products.map((p) => [p.id, p.nomCommercial]))
+  const partyName = new Map(active(input.parties ?? []).map((p) => [p.id, p.nom]))
   const docById = new Map(documents.map((d) => [d.id, d]))
+  // Un document ORG-scopé (pièce propre d'un MAH/fabricant — 0069) route vers SA fiche org et
+  // porte le nom de l'org : sans ça, l'alerte pointait `/catalogue/` (liste) avec un label « — ».
+  const docTarget = (d: DocumentRecord): { href: string; label: string } =>
+    !d.productId && d.partyId
+      ? {
+          href: `/catalogue/organisations/${d.partyId}`,
+          label: partyName.get(d.partyId) ?? '—',
+        }
+      : { href: `/catalogue/${d.productId}`, label: productName.get(d.productId) ?? '—' }
 
   // 1) Pièces expirées / dans leur fenêtre de renouvellement (délai requis par type)
   for (const d of documents) {
@@ -175,8 +192,7 @@ export function buildActions(input: DashboardInput, now: Date): ActionItem[] {
       id: `doc:${d.id}`,
       kind,
       priority: PRIORITY[kind],
-      href: `/catalogue/${d.productId}`,
-      label: productName.get(d.productId) ?? '—',
+      ...docTarget(d),
       docType: d.docType,
       date: d.expiryDate,
     })
@@ -243,8 +259,7 @@ export function buildActions(input: DashboardInput, now: Date): ActionItem[] {
       id: `nc:${a.docId}`,
       kind: 'non_conform',
       priority: PRIORITY.non_conform,
-      href: `/catalogue/${doc.productId}`,
-      label: productName.get(doc.productId) ?? '—',
+      ...docTarget(doc),
       docType: doc.docType,
       count: nc.length,
       // Date de l'analyse Regafy → tri chronologique de la cloche (ne coule plus en bas, faute de date).

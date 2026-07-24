@@ -29,7 +29,10 @@ export function productsForParty(partyId: string, products: ProductRecord[]): Pr
   )
 }
 
-/** Produits liés + leurs documents actifs (périmètre RA d'une organisation). */
+/**
+ * Produits liés + documents actifs du périmètre RA d'une organisation : les docs de ses PRODUITS
+ * liés ∪ ses docs PROPRES (org-scopés, `partyId` — fiche d'ajout org, migration 0069).
+ */
 function orgScope(
   partyId: string,
   products: ProductRecord[],
@@ -37,7 +40,9 @@ function orgScope(
 ): { linked: ProductRecord[]; docs: DocumentRecord[] } {
   const linked = productsForParty(partyId, products)
   const ids = new Set(linked.map((p) => p.id))
-  const docs = documents.filter((d) => isActive(d) && ids.has(d.productId))
+  const docs = documents.filter(
+    (d) => isActive(d) && (ids.has(d.productId) || d.partyId === partyId),
+  )
   return { linked, docs }
 }
 

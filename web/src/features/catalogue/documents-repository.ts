@@ -49,9 +49,29 @@ export async function getAmmDocument(productId: string): Promise<DocumentRecord 
 }
 
 /** Ajoute un document : blob stocké en local (offline) + métadonnées + outbox pour upload. */
-export async function addDocument(
+export function addDocument(
   orgId: string,
   productId: string,
+  input: AddDocumentInput,
+): Promise<DocumentRecord> {
+  return addOwnedDocument(orgId, { productId }, input)
+}
+
+/**
+ * Document rattaché à une ORGANISATION (fiche d'ajout org, sessions II/III — migration 0069) :
+ * mêmes règles (blob local + outbox), propriétaire = la partie au lieu d'un produit.
+ */
+export function addPartyDocument(
+  orgId: string,
+  partyId: string,
+  input: AddDocumentInput,
+): Promise<DocumentRecord> {
+  return addOwnedDocument(orgId, { partyId }, input)
+}
+
+async function addOwnedDocument(
+  orgId: string,
+  owner: { productId?: string; partyId?: string },
   input: AddDocumentInput,
 ): Promise<DocumentRecord> {
   if (!isAllowedUpload(input.file)) throw new Error(tStatic(UPLOAD_TYPE_ERROR))
@@ -61,7 +81,9 @@ export async function addDocument(
   const record: DocumentRecord = {
     id,
     orgId,
-    productId,
+    // `productId` reste la clé d'index Dexie (chaîne vide pour un doc org-scopé).
+    productId: owner.productId ?? '',
+    partyId: owner.partyId ?? null,
     category: input.category,
     docType: input.docType,
     fileName: sanitizeFileName(input.file.name),

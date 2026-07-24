@@ -108,6 +108,22 @@ describe('documents sync mapping', () => {
     expect(row.issue_date).toBeNull()
     expect(row.reference).toBeNull()
   })
+
+  it('doc ORG-scopé (0069) : party_id round-trip et product_id NULL (jamais chaîne vide)', () => {
+    const row = documentToRow({ ...rec, productId: '', partyId: 'party-1' })
+    // FK products : une chaîne vide serait rejetée — le doc org-scopé doit partir avec NULL.
+    expect(row.product_id).toBeNull()
+    expect(row.party_id).toBe('party-1')
+    const back = rowToDocument(row)
+    expect(back.productId).toBe('')
+    expect(back.partyId).toBe('party-1')
+  })
+
+  it('doc produit : party_id nul (un document a UN SEUL propriétaire)', () => {
+    const row = documentToRow(rec)
+    expect(row.product_id).toBe('prod-1')
+    expect(row.party_id).toBeNull()
+  })
 })
 
 describe('syncDocuments — push', () => {
@@ -138,6 +154,27 @@ describe('syncDocuments — push', () => {
     // Ni upsert de métadonnées, ni upload Storage pour un parent absent : on attend le cycle suivant.
     expect(pousses()).toHaveLength(0)
     expect(await enFile()).toBe(1)
+  })
+
+  it('RETIENT le document ORG-scopé tant que sa PARTIE est en file (FK documents.party_id → parties)', async () => {
+    await enfile({ id: 'd1', productId: '', partyId: 'party-1' })
+    await enqueueOutbox('party', 'party-1', 'create', {})
+
+    await runSync('org-1')
+
+    expect(pousses()).toHaveLength(0)
+    expect(await enFile()).toBe(1)
+  })
+
+  it('pousse un document ORG-scopé dont la partie est déjà en base', async () => {
+    await enfile({ id: 'd1', productId: '', partyId: 'party-1' })
+
+    await runSync('org-1')
+
+    expect(pousses()).toHaveLength(1)
+    expect(pousses()[0]?.row.party_id).toBe('party-1')
+    expect(pousses()[0]?.row.product_id).toBeNull()
+    expect(await enFile()).toBe(0)
   })
 
   it("ne draine PAS l'op d'une AUTRE org (régression : écriture perdue en silence)", async () => {
