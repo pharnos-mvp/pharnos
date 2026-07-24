@@ -1,7 +1,7 @@
 # PLAN — Le référentiel d'organisations comme colonne vertébrale documentaire
 
-> Cadrage CEO 2026-07-24 (recette fiche org). Statut : **PROPOSÉ — à valider avant dev.**
-> Audité sur pièces (2 audits code/DB/RLS, faits cités dans les sections concernées).
+> Cadrage CEO 2026-07-24 (recette fiche org). Statut : **EN COURS — P1 + P2 LIVRÉS (2026-07-24),
+> prochaine étape P3.** Audité sur pièces (2 audits code/DB/RLS, faits cités dans les sections).
 
 ## 0) Vision — pourquoi ce chantier est structurant
 
@@ -122,8 +122,8 @@ ci-dessous sont des features post-pilotes qui ne bloquent pas le gate.
 
 | Phase | Contenu | Taille | Migration |
 |---|---|---|---|
-| **P1** | Matrice métier §1 : sessions/onglets par rôle, retrait « Titulaire » (contexte org), carte « MAH + Fabricant » | S (front-only) | 0 |
-| **P2** | Réutilisation §2 + §3 : `source_doc_id` (0070), `copyDocumentToProduct`, pickers wizard/fiche produit, upload fiche org | M | 0070 |
+| **P1** ✅ | Matrice métier §1 : sessions/onglets par rôle, retrait « Titulaire » (contexte org), carte « MAH + Fabricant » — **LIVRÉ 2026-07-24 (#408)** | S (front-only) | 0 |
+| **P2** ✅ | Réutilisation §2 + §3 — **LIVRÉ 2026-07-24 (#409 pioche · #410 upload fiche org)** : `source_doc_id` (0070, prod), `documents-reuse` (`copyDocumentToProduct`, mapping sources §2), pickers « Depuis la base / Depuis mon poste » wizard + fiche produit (`SourceDocPicker` partagé, dédoublonnage), `DocAddForm` extrait + `OrgDocAddButton` (onglets AMM/admin/info + `OrgPiecePage`). Pièges : garde d'ordonnancement FK auto-référente au push (outbox non ordonnée → 2ᵉ passe bornée) ; RLS insert vérifiée (org_id éditable + RESTRICTIVE CS1). Différé : requêtes party-scopées si `documents` grossit ; garde serveur `party.org_id = document.org_id` (belt-and-braces) | M | 0070 ✅ |
 | **P3** | Agences en correspondance : destinataire choisi/créé depuis les Agences locales | S–M | 0 |
 | **P4** | Autorités versionnées + God dashboard (design/mockup d'abord — briefing SaaS déjà donné : contenu versionné, provenance, overrides respectés, dossiers épinglés, consentement par org) | L | oui |
 | **P5** (post-GO-LIVE) | Lien membre↔partie (`memberships.party_id`) + rôles avancés | M | oui |
@@ -131,4 +131,4 @@ ci-dessous sont des features post-pilotes qui ne bloquent pas le gate.
 Chaque phase = 1 à 2 PR, revue `code-reviewer` systématique, CI job-par-job, migration appliquée
 et vérifiée en prod AVANT le merge du code qui la consomme.
 
-**Prochaine migration libre : 0070.**
+**Prochaine migration libre : 0071.**
