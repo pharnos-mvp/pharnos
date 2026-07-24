@@ -126,10 +126,51 @@ ci-dessous sont des features post-pilotes qui ne bloquent pas le gate.
 | **P1** ✅ | Matrice métier §1 : sessions/onglets par rôle, retrait « Titulaire » (contexte org), carte « MAH + Fabricant » — **LIVRÉ 2026-07-24 (#408)** | S (front-only) | 0 |
 | **P2** ✅ | Réutilisation §2 + §3 — **LIVRÉ 2026-07-24 (#409 pioche · #410 upload fiche org)** : `source_doc_id` (0070, prod), `documents-reuse` (`copyDocumentToProduct`, mapping sources §2), pickers « Depuis la base / Depuis mon poste » wizard + fiche produit (`SourceDocPicker` partagé, dédoublonnage), `DocAddForm` extrait + `OrgDocAddButton` (onglets AMM/admin/info + `OrgPiecePage`). Pièges : garde d'ordonnancement FK auto-référente au push (outbox non ordonnée → 2ᵉ passe bornée) ; RLS insert vérifiée (org_id éditable + RESTRICTIVE CS1). Différé : requêtes party-scopées si `documents` grossit ; garde serveur `party.org_id = document.org_id` (belt-and-braces) | M | 0070 ✅ |
 | **P3** ✅ | Agences en correspondance — **LIVRÉ 2026-07-24 (#412)** : ShareDialog = sélecteur des parties rôle `agent` (préremplit l'e-mail), « ＋ Nouvelle agence » inline (collision de nom annoncée : fusion, aucun doublon), capture « base vivante » best-effort APRÈS l'envoi (fill-the-gap `contactEmail`, relecture fraîche, jamais d'écrasement). L'e-mail reste LA clé d'identité des fils (aucun `party_id` persisté). `NativeSelect` promu `components/ui`. Prérequis embarqué : #411 (advisories du jour — postcss 8.5.23 + migration `react-router-dom`→`react-router` 8.3.0) | S–M | 0 ✅ |
-| **P4** | Autorités versionnées + God dashboard (design/mockup d'abord — briefing SaaS déjà donné : contenu versionné, provenance, overrides respectés, dossiers épinglés, consentement par org) | L | oui |
+| **P4** | Autorités versionnées + God dashboard — **mockup livré 2026-07-24 (`docs/mockups/autorites-versionnees.html`, 3 écrans), design §6 EN ATTENTE DE VALIDATION CEO** | L | oui |
 | **P5** (post-GO-LIVE) | Lien membre↔partie (`memberships.party_id`) + rôles avancés | M | oui |
 
 Chaque phase = 1 à 2 PR, revue `code-reviewer` systématique, CI job-par-job, migration appliquée
 et vérifiée en prod AVANT le merge du code qui la consomme.
 
 **Prochaine migration libre : 0071.**
+
+---
+
+## 6) P4 — Design « Autorités versionnées + God dashboard » (mockup 2026-07-24, à valider)
+
+Mockup : **`docs/mockups/autorites-versionnees.html`** — 3 écrans (deep-links `#s1/#s2/#s3/#consent`) :
+① fiche Autorité versionnée/adaptable (bannière de mise à jour, provenance par champ, badges
+« Adapté », dialog de consentement sourcé avec diff avant/après) ; ② console admin onglet
+**Référentiel** (versions, éditeur de brouillon avec provenance OBLIGATOIRE, aperçu de notification,
+adoption par org) ; ③ dossier **épinglé** sur sa version (bannière bascule volontaire + journal).
+
+Principes (briefing SaaS 2026-07-24, session « Erreur de notification ») : contenu ≠ code ·
+versions à date d'effet (modèle MedDRA) · dossiers existants épinglés, nouveaux sur la dernière
+version adoptée · adoption = consentement par org, journalisé, source citée (n° décret, JO) ·
+les overrides locaux survivent (« la donnée officielle se propose, la donnée locale se respecte »).
+
+**Modèle de données cible (esquisse, migrations 0071+)** :
+- `ref_versions` (GLOBAL, hors tenant) : `label` (v2026.2), `status` draft/published/archived,
+  `published_at`, `effective_date`, `release_note`. Écriture god-only (service role via Edge,
+  comme les autres surfaces god) ; lecture = tout utilisateur authentifié.
+- `ref_entries` : `version_id`, `country`, `section` (agency/fees/submission/samples),
+  `payload jsonb`, `provenance jsonb` (type de texte, n°, date, JO, pdf). Lecture effective =
+  fusion des versions ≤ version adoptée (dernier écrivain par `(country, section)`).
+- `org_ref_adoptions` (tenant, RLS org) : `org_id`, `version_id`, `adopted_at`, `adopted_by` —
+  le journal DE FAIT du consentement.
+- `org_ref_overrides` (tenant, RLS org) : `org_id`, `country`, `field_path`, `value`,
+  `updated_by/At` — jamais écrasé par une publication ; conflit SIGNALÉ si une version publiée
+  touche le même `field_path`.
+- `dossiers.ref_version_id` : épinglé à la création (dernière version adoptée) ; bascule =
+  action explicite + événement de journal.
+- **Résolution de lecture : override org → version adoptée org → socle code** (`roadmap-data.ts`
+  reste le seed + repli offline-first ; réplication Dexie du contenu adopté).
+
+**Découpage proposé (1 PR chacune)** : P4.1 socle versionné + seed v1 depuis le code + fiche
+Autorité branchée provenance (zéro changement de comportement) → P4.2 adoption/notification +
+épinglage dossiers → P4.3 overrides org + conflits → P4.4 God dashboard Référentiel (éditeur,
+publication, adoption). NB : les montants « avant » du diff mockup sont ILLUSTRATIFS.
+
+**Décisions CEO en attente** : (a) valider les 3 écrans ; (b) qui adopte pour l'org (proposition :
+admin seul) ; (c) champs adaptables en v1 (proposition : destinataire/adresse/contacts + notes
+internes ; montants officiels NON adaptables) ; (d) bascule de dossier dès P4.2 ou différée.

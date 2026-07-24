@@ -1,0 +1,1213 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mockup P4 — Autorités versionnées &amp; God dashboard Référentiel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ═══ Jetons RÉELS de l'app (index.css, thème sombre GitHub) ═══ */
+      :root {
+        --background: #0d1117;
+        --card: #161b22;
+        --border: #30363d;
+        --muted: #21262d;
+        --muted-foreground: #8b949e;
+        --info: #1f6feb;
+        --info-subtle: #0d1b2f;
+        --info-subtle-fg: #6cb6ff;
+        --danger-subtle: #2a1415;
+        --danger-subtle-fg: #ff7b72;
+        --warning-subtle: #271d09;
+        --warning-subtle-fg: #e3b341;
+        --success-subtle: #12261c;
+        --success-subtle-fg: #4ac26b;
+
+        --pd-card: var(--card);
+        --pd-border: var(--border);
+        --pd-muted: var(--muted-foreground);
+        --pd-strong: #f0f6fc;
+        --pd-text: #e6edf3;
+        --pd-text-2: #c9d1d9;
+        --pd-hover-border: #484f58;
+        --pd-link: #58a6ff;
+        --pd-shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.4);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--background);
+        color: var(--pd-text);
+        font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        font-size: 14px;
+      }
+      .syne {
+        font-family: 'Syne', sans-serif;
+      }
+
+      /* ─── Barre mockup (hors app) : bascule entre les 3 écrans ─── */
+      .mockbar {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        padding: 10px 16px;
+        background: #010409;
+        border-bottom: 1px solid #21262d;
+      }
+      .mockbar .mtitle {
+        font-family: 'Syne', sans-serif;
+        font-weight: 700;
+        font-size: 13px;
+        color: #7dd3fc;
+        margin-right: 6px;
+      }
+      .mockbar button {
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--pd-text-2);
+        border-radius: 999px;
+        padding: 6px 14px;
+        font-size: 12.5px;
+        cursor: pointer;
+      }
+      .mockbar button.on {
+        background: #16233f;
+        border-color: #1f6feb;
+        color: #7dd3fc;
+        font-weight: 600;
+      }
+      .screen {
+        display: none;
+      }
+      .screen.on {
+        display: block;
+      }
+
+      /* ─── Chrome app : rail + topbar ─── */
+      .shell {
+        display: flex;
+        min-height: calc(100vh - 49px);
+      }
+      .rail {
+        width: 64px;
+        flex: none;
+        background: #010409;
+        border-right: 1px solid #21262d;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 14px 0;
+      }
+      .rail .logo {
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        background: linear-gradient(135deg, #1f6feb, #58a6ff);
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        color: #fff;
+        margin-bottom: 10px;
+        font-size: 15px;
+      }
+      .rail .ri {
+        width: 38px;
+        height: 38px;
+        border-radius: 9px;
+        display: grid;
+        place-items: center;
+        color: #8b949e;
+        font-size: 16px;
+      }
+      .rail .ri.on {
+        background: #16233f;
+        color: #7dd3fc;
+      }
+      .main {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .topbar {
+        height: 56px;
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--background);
+      }
+      .topbar .back {
+        width: 30px;
+        height: 30px;
+        border-radius: 7px;
+        border: none;
+        background: none;
+        color: var(--pd-text);
+        cursor: pointer;
+        font-size: 15px;
+      }
+      .topbar .ttl {
+        font-family: 'Syne', sans-serif;
+        font-weight: 700;
+        font-size: 16px;
+        color: var(--pd-strong);
+        flex: 1;
+        min-width: 0;
+      }
+      .content {
+        padding: 20px 24px 48px;
+        max-width: 980px;
+        width: 100%;
+        margin: 0 auto;
+        display: grid;
+        gap: 16px;
+      }
+
+      /* ─── Primitives DS ─── */
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+      }
+      .p5 {
+        padding: 20px;
+      }
+      .p4 {
+        padding: 16px;
+      }
+      h1 {
+        font-family: 'Syne', sans-serif;
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin: 0;
+        color: var(--pd-strong);
+      }
+      h2.sec {
+        font-family: 'Syne', sans-serif;
+        font-size: 13.5px;
+        font-weight: 700;
+        margin: 4px 0 0;
+        color: var(--pd-strong);
+      }
+      .sub {
+        color: var(--muted-foreground);
+        font-size: 13px;
+        margin-top: 2px;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        border-radius: 999px;
+        padding: 2px 9px;
+        font-size: 11.5px;
+        font-weight: 600;
+        border: 1px solid transparent;
+        white-space: nowrap;
+      }
+      .b-neutral {
+        background: var(--muted);
+        color: var(--pd-text-2);
+        border-color: var(--border);
+      }
+      .b-info {
+        background: var(--info-subtle);
+        color: var(--info-subtle-fg);
+      }
+      .b-warning {
+        background: var(--warning-subtle);
+        color: var(--warning-subtle-fg);
+      }
+      .b-success {
+        background: var(--success-subtle);
+        color: var(--success-subtle-fg);
+      }
+      .b-danger {
+        background: var(--danger-subtle);
+        color: var(--danger-subtle-fg);
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border-radius: 9px;
+        padding: 8px 14px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--pd-text);
+      }
+      .btn.primary {
+        background: var(--info);
+        border-color: var(--info);
+        color: #0d1117;
+      }
+      .btn.ghost {
+        border-color: transparent;
+        background: none;
+        color: var(--pd-link);
+      }
+      .btn.sm {
+        padding: 5px 10px;
+        font-size: 12px;
+        border-radius: 7px;
+      }
+      .kv-label {
+        color: var(--muted-foreground);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .kv-value {
+        margin-top: 2px;
+        font-size: 13.5px;
+        overflow-wrap: break-word;
+      }
+      .provenance {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 3px;
+        color: var(--muted-foreground);
+        font-size: 11.5px;
+      }
+      .provenance .p-ico {
+        color: var(--info-subtle-fg);
+        font-weight: 700;
+      }
+      .hr {
+        border: 0;
+        border-top: 1px solid var(--border);
+        margin: 0;
+      }
+
+      /* Bannière de mise à jour */
+      .update-banner {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        border: 1px solid #1f6feb55;
+        background: var(--info-subtle);
+        border-radius: 12px;
+        padding: 12px 16px;
+      }
+      .update-banner .ic {
+        width: 34px;
+        height: 34px;
+        flex: none;
+        border-radius: 9px;
+        background: #16233f;
+        display: grid;
+        place-items: center;
+        font-size: 16px;
+      }
+      .update-banner .tx {
+        flex: 1;
+        min-width: 240px;
+      }
+      .update-banner .tx b {
+        color: var(--pd-strong);
+      }
+      .update-banner .tx .src {
+        color: var(--info-subtle-fg);
+        font-size: 12.5px;
+        margin-top: 2px;
+      }
+
+      /* Lignes de redevances */
+      .fee-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+        padding: 8px 0;
+      }
+      .fee-row + .fee-row {
+        border-top: 1px solid var(--border);
+      }
+      .fee-amt {
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+
+      /* Champ adapté (override) */
+      .override-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        margin-left: 6px;
+        border-radius: 999px;
+        padding: 1px 8px;
+        font-size: 10.5px;
+        font-weight: 700;
+        background: var(--warning-subtle);
+        color: var(--warning-subtle-fg);
+      }
+      .conflict {
+        border: 1px solid #e3b34155;
+        background: var(--warning-subtle);
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 12.5px;
+        display: grid;
+        gap: 8px;
+      }
+      .conflict b {
+        color: var(--warning-subtle-fg);
+      }
+
+      /* Note d'annotation design (hors app) */
+      .note {
+        border-left: 3px solid #e3b341;
+        background: #16130a;
+        color: #d4bd7c;
+        font-size: 12px;
+        padding: 8px 12px;
+        border-radius: 0 8px 8px 0;
+      }
+      .note b {
+        color: #e3b341;
+      }
+
+      /* Dialog consentement */
+      .overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(1, 4, 9, 0.72);
+        display: none;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 48px 16px;
+        z-index: 100;
+        overflow: auto;
+      }
+      .overlay.on {
+        display: flex;
+      }
+      .dialog {
+        width: 640px;
+        max-width: 100%;
+        background: var(--card);
+        border: 1px solid var(--pd-hover-border);
+        border-radius: 14px;
+        box-shadow: 0 18px 60px rgba(0, 0, 0, 0.6);
+      }
+      .dialog .dh {
+        padding: 18px 20px 14px;
+        border-bottom: 1px solid var(--border);
+      }
+      .dialog .db {
+        padding: 16px 20px;
+        display: grid;
+        gap: 14px;
+      }
+      .dialog .df {
+        padding: 14px 20px 18px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+      }
+      .diff-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      .diff-table th {
+        text-align: left;
+        color: var(--muted-foreground);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--border);
+      }
+      .diff-table td {
+        padding: 7px 8px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+      }
+      .old {
+        color: var(--danger-subtle-fg);
+        text-decoration: line-through;
+        text-decoration-thickness: 1px;
+        white-space: nowrap;
+      }
+      .new {
+        color: var(--success-subtle-fg);
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .src-block {
+        background: var(--info-subtle);
+        border: 1px solid #1f6feb44;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 12.5px;
+        display: grid;
+        gap: 3px;
+      }
+      .src-block b {
+        color: var(--info-subtle-fg);
+      }
+      .pin-note {
+        display: grid;
+        gap: 6px;
+        font-size: 12.5px;
+        color: var(--pd-text-2);
+      }
+      .pin-note li {
+        margin: 0;
+      }
+
+      /* ─── Console admin (écran 2) ─── */
+      .admin-tabs {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .admin-tabs .at {
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--pd-text-2);
+        border-radius: 999px;
+        padding: 6px 13px;
+        font-size: 12.5px;
+        cursor: default;
+      }
+      .admin-tabs .at.on {
+        background: #16233f;
+        border-color: #1f6feb;
+        color: #7dd3fc;
+        font-weight: 600;
+      }
+      .kpis {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 10px;
+      }
+      .kpi {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px 16px;
+      }
+      .kpi .kl {
+        color: var(--muted-foreground);
+        font-size: 12px;
+      }
+      .kpi .kvv {
+        font-family: 'Syne', sans-serif;
+        font-size: 22px;
+        font-weight: 800;
+        margin-top: 2px;
+        color: var(--pd-strong);
+      }
+      .kpi .ks {
+        font-size: 11.5px;
+        color: var(--muted-foreground);
+        margin-top: 2px;
+      }
+      table.list {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      table.list th {
+        text-align: left;
+        color: var(--muted-foreground);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+      }
+      table.list td {
+        padding: 9px 10px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+      }
+      table.list tr:last-child td {
+        border-bottom: 0;
+      }
+      .two-col {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+      @media (min-width: 900px) {
+        .two-col {
+          grid-template-columns: 5fr 4fr;
+          align-items: start;
+        }
+      }
+      .field {
+        display: grid;
+        gap: 4px;
+      }
+      .field label {
+        font-size: 11.5px;
+        font-weight: 600;
+        color: var(--muted-foreground);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .field input,
+      .field textarea,
+      .field select {
+        background: var(--background);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--pd-text);
+        padding: 7px 10px;
+        font-size: 13px;
+        font-family: inherit;
+        width: 100%;
+      }
+      .field textarea {
+        resize: vertical;
+      }
+      .notif-preview {
+        border: 1px dashed var(--pd-hover-border);
+        border-radius: 10px;
+        padding: 12px 14px;
+        display: grid;
+        gap: 4px;
+        font-size: 12.5px;
+        background: var(--background);
+      }
+
+      /* ─── Écran 3 : dossier épinglé ─── */
+      .dossier-head {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        flex-wrap: wrap;
+      }
+      .dossier-head .dico {
+        width: 46px;
+        height: 46px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #241b3b, #33245e);
+        color: #c4b5fd;
+        display: grid;
+        place-items: center;
+        font-size: 20px;
+        flex: none;
+      }
+      .journal li {
+        display: flex;
+        gap: 10px;
+        padding: 8px 0;
+        font-size: 13px;
+        border-bottom: 1px solid var(--border);
+      }
+      .journal li:last-child {
+        border-bottom: 0;
+      }
+      .journal .jd {
+        color: var(--muted-foreground);
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Barre de navigation du MOCKUP (n'existe pas dans l'app) -->
+    <div class="mockbar">
+      <span class="mtitle">Mockup P4 — Référentiel versionné</span>
+      <button class="on" data-screen="s1">1 · Fiche Autorité (utilisateur)</button>
+      <button data-screen="s2">2 · God dashboard (console admin)</button>
+      <button data-screen="s3">3 · Dossier épinglé (Roadmap)</button>
+    </div>
+
+    <!-- ═══════════════════ ÉCRAN 1 — FICHE AUTORITÉ ═══════════════════ -->
+    <section class="screen on" id="s1">
+      <div class="shell">
+        <aside class="rail">
+          <div class="logo">P</div>
+          <div class="ri">▦</div>
+          <div class="ri on">🗂</div>
+          <div class="ri">📄</div>
+          <div class="ri">✉</div>
+          <div class="ri">⚙</div>
+        </aside>
+        <div class="main">
+          <div class="topbar">
+            <button class="back">←</button>
+            <div class="ttl">ARP</div>
+            <span class="badge b-neutral">🇸🇳 Sénégal</span>
+          </div>
+          <div class="content">
+            <!-- Bannière : une mise à jour publiée attend l'adoption de l'org -->
+            <div class="update-banner">
+              <div class="ic">📜</div>
+              <div class="tx">
+                <div>
+                  <b>Mise à jour du référentiel disponible — v2026.2</b>
+                  <span class="badge b-info" style="margin-left: 6px">Sénégal · Redevances</span>
+                </div>
+                <div class="src">
+                  Décret n° 2025-1833 du 18/11/2025 (JO n° 7871 du 29/12/2025) · publiée le
+                  15/07/2026 par l'équipe Pharnos
+                </div>
+              </div>
+              <button class="btn primary" id="open-consent">Examiner</button>
+              <button class="btn ghost sm">Plus tard</button>
+            </div>
+
+            <!-- En-tête agence -->
+            <div class="card p5">
+              <div style="display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap">
+                <div
+                  style="
+                    width: 48px;
+                    height: 48px;
+                    border-radius: 12px;
+                    background: linear-gradient(135deg, #241b3b, #33245e);
+                    color: #c4b5fd;
+                    display: grid;
+                    place-items: center;
+                    font-size: 22px;
+                    flex: none;
+                  "
+                >
+                  🏛
+                </div>
+                <div style="flex: 1; min-width: 220px">
+                  <h1>ARP</h1>
+                  <div class="sub">Agence Sénégalaise de Réglementation Pharmaceutique</div>
+                  <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px">
+                    <span class="badge b-neutral">Soumission en Français</span>
+                    <span class="badge b-success" title="Version du référentiel adoptée par votre organisation"
+                      >Référentiel v2026.1 · adopté le 02/03/2026 par Adjoua K.</span
+                    >
+                    <span class="badge b-warning">v2026.2 disponible</span>
+                  </div>
+                </div>
+                <button class="btn sm">✎ Adapter la fiche</button>
+              </div>
+
+              <hr class="hr" style="margin: 16px 0" />
+
+              <div style="display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr))">
+                <div>
+                  <div class="kv-label">Destinataire des lettres</div>
+                  <div class="kv-value">Madame la Directrice Générale — Dr Oumy Kalsoum Ndiaye Ndao</div>
+                  <div class="provenance"><span class="p-ico">§</span> Référentiel Pharnos v2026.1</div>
+                </div>
+                <div>
+                  <div class="kv-label">
+                    Adresse
+                    <span class="override-chip">✎ Adapté par votre organisation · 03/06/2026</span>
+                  </div>
+                  <div class="kv-value">Dakar, Point E, Rue A x Rue 6 — dépôt courrier : annexe B2</div>
+                  <div class="provenance">
+                    <span class="p-ico">§</span> Valeur officielle conservée — votre adaptation prime
+                    pour vos lettres
+                  </div>
+                </div>
+                <div>
+                  <div class="kv-label">Téléphone</div>
+                  <div class="kv-value">+221 33 868 11 27</div>
+                </div>
+                <div>
+                  <div class="kv-label">E-mail</div>
+                  <div class="kv-value">contact@arp.sn</div>
+                </div>
+              </div>
+            </div>
+
+            <p class="note">
+              <b>Principe :</b> chaque champ affiche sa <b>provenance</b> (texte officiel, version du
+              référentiel) ; une adaptation locale est marquée <b>« Adapté »</b>, ne quitte jamais
+              l'organisation, et <b>survit aux mises à jour</b> — la donnée officielle se propose, la
+              donnée locale se respecte.
+            </p>
+
+            <!-- Exigences nationales -->
+            <h2 class="sec">Exigences nationales</h2>
+            <div class="card p4">
+              <div class="kv-label" style="display: flex; align-items: center; gap: 6px">
+                🧾 Redevances — Homologation des médicaments
+              </div>
+              <div style="margin-top: 6px">
+                <div class="fee-row">
+                  <span>Nouvelle AMM <span class="sub" style="display:inline">(générique, industrie étrangère)</span></span>
+                  <span class="fee-amt">750 000 FCFA</span>
+                </div>
+                <div class="fee-row">
+                  <span>Renouvellement</span>
+                  <span class="fee-amt">300 000 FCFA</span>
+                </div>
+                <div class="fee-row">
+                  <span>Variation mineure</span>
+                  <span class="fee-amt">75 000 FCFA</span>
+                </div>
+                <div class="fee-row">
+                  <span>Variation majeure</span>
+                  <span class="fee-amt">750 000 FCFA</span>
+                </div>
+              </div>
+              <div class="provenance" style="margin-top: 8px">
+                <span class="p-ico">§</span> Arrêté antérieur — v2026.1 (votre version adoptée) ·
+                effectif jusqu'au 31/12/2025
+              </div>
+            </div>
+
+            <div class="conflict">
+              <div>
+                <b>⚠ Votre version du barème n'est plus la dernière.</b> La v2026.2 (Décret
+                n° 2025-1833) modifie les redevances du Sénégal — vos <b>dossiers existants ne sont
+                pas modifiés</b> ; les montants ci-dessus restent ceux de votre version adoptée.
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap">
+                <button class="btn sm primary" onclick="document.getElementById('consent').classList.add('on')">
+                  Examiner la mise à jour
+                </button>
+                <button class="btn sm">Voir le texte source (PDF)</button>
+              </div>
+            </div>
+
+            <div class="card p4">
+              <div class="kv-label">Dépôt</div>
+              <div class="kv-value" style="margin-top: 4px">
+                Dossiers recevables toute l'année — dépôt physique au siège (Point E) ou télétransmission.
+              </div>
+              <div class="provenance"><span class="p-ico">§</span> Référentiel Pharnos v2026.1</div>
+              <hr class="hr" style="margin: 12px 0" />
+              <div class="kv-label">
+                Échantillons
+                <span class="override-chip">✎ Adapté · note interne</span>
+              </div>
+              <div class="kv-value" style="margin-top: 4px">
+                Autorisation d'importation : 100 000 FCFA par produit, forme et dosage (validité 6 mois).
+                <em style="color: var(--muted-foreground)"
+                  >— Note équipe : prévoir 10 modèles-vente, exigés en pratique lors du dépôt.</em
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dialog de consentement -->
+      <div class="overlay" id="consent">
+        <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="consent-title">
+          <div class="dh">
+            <h1 id="consent-title" style="font-size: 17px">Mise à jour v2026.2 — Sénégal (ARP)</h1>
+            <div class="sub">Publiée le 15/07/2026 · prend effet au 01/01/2026 (rétroactif au JO)</div>
+          </div>
+          <div class="db">
+            <div class="src-block">
+              <div><b>Source officielle</b></div>
+              <div>
+                Décret n° 2025-1833 du 18 novembre 2025 fixant les redevances issues de la régulation
+                du secteur pharmaceutique — section 4 « Homologation des médicaments ».
+              </div>
+              <div>Journal officiel n° 7871 du 29 décembre 2025 · <a href="#" style="color: var(--pd-link)">consulter le PDF ↗</a></div>
+            </div>
+
+            <table class="diff-table">
+              <thead>
+                <tr>
+                  <th>Champ</th>
+                  <th>Avant (v2026.1)</th>
+                  <th>Après (v2026.2)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Nouvelle AMM (générique, étrangère)</td>
+                  <td><span class="old">750 000 FCFA</span></td>
+                  <td><span class="new">1 000 000 FCFA</span></td>
+                </tr>
+                <tr>
+                  <td>Renouvellement</td>
+                  <td><span class="old">300 000 FCFA</span></td>
+                  <td>
+                    <span class="new">500 000 FCFA</span>
+                    <div class="sub">+ pénalité de 1 % par jour de retard</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Variation mineure / majeure</td>
+                  <td><span class="old">75 000 / 750 000</span></td>
+                  <td><span class="new">100 000 / 1 000 000 FCFA</span></td>
+                </tr>
+                <tr>
+                  <td>Destinataire des lettres</td>
+                  <td><span class="old">Dr O. K. Ndiaye Ndao</span></td>
+                  <td>
+                    <span class="new">Dr A. B. Sow</span>
+                    <div class="sub" style="color: var(--warning-subtle-fg)">
+                      ⚠ Vous avez adapté un champ voisin (adresse) — vos adaptations sont conservées.
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="sub" style="margin: 0">
+              Montants « avant » illustratifs pour le mockup — le diff réel viendra du contenu publié.
+            </p>
+
+            <ul class="pin-note" style="padding-left: 18px; margin: 0">
+              <li>✔ Vos <b>dossiers existants restent épinglés</b> sur la v2026.1 — aucun dossier n'est modifié.</li>
+              <li>✔ Les <b>nouveaux dossiers</b> Sénégal utiliseront la v2026.2.</li>
+              <li>✔ Vos <b>adaptations locales sont conservées</b> ; en cas de conflit, vous choisissez champ par champ.</li>
+              <li>✔ L'adoption est <b>journalisée</b> (qui, quand, quelle version) — traçabilité d'audit.</li>
+            </ul>
+          </div>
+          <div class="df">
+            <button class="btn" onclick="document.getElementById('consent').classList.remove('on')">
+              Plus tard
+            </button>
+            <button class="btn primary" id="adopt">Adopter la v2026.2 pour mon organisation</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════ ÉCRAN 2 — GOD DASHBOARD ═══════════════════ -->
+    <section class="screen" id="s2">
+      <div class="shell">
+        <aside class="rail">
+          <div class="logo">P</div>
+          <div class="ri">▦</div>
+          <div class="ri">🗂</div>
+          <div class="ri">📄</div>
+          <div class="ri">✉</div>
+          <div class="ri on">🛡</div>
+        </aside>
+        <div class="main">
+          <div class="topbar">
+            <div class="ttl">Console d'administration</div>
+            <span class="badge b-danger">God mode</span>
+          </div>
+          <div class="content" style="max-width: 1120px">
+            <div class="admin-tabs">
+              <span class="at">Vue d'ensemble</span>
+              <span class="at">Organisations</span>
+              <span class="at">Utilisateurs</span>
+              <span class="at">Acquisition</span>
+              <span class="at">Plans</span>
+              <span class="at on">Référentiel</span>
+              <span class="at">Journal</span>
+            </div>
+
+            <div class="kpis">
+              <div class="kpi">
+                <div class="kl">Version publiée</div>
+                <div class="kvv">v2026.2</div>
+                <div class="ks">15/07/2026 · Décret SN 2025-1833</div>
+              </div>
+              <div class="kpi">
+                <div class="kl">Adoption</div>
+                <div class="kvv">8 / 12 orgs</div>
+                <div class="ks">67 % · relance auto à J+14</div>
+              </div>
+              <div class="kpi">
+                <div class="kl">Brouillon en cours</div>
+                <div class="kvv">v2026.3</div>
+                <div class="ks">2 entrées · Togo, Mali</div>
+              </div>
+              <div class="kpi">
+                <div class="kl">Dossiers épinglés &lt; v2026.2</div>
+                <div class="kvv">23</div>
+                <div class="ks">sur 61 dossiers actifs</div>
+              </div>
+            </div>
+
+            <div class="two-col">
+              <!-- Colonne gauche : versions + adoption -->
+              <div style="display: grid; gap: 16px">
+                <div class="card">
+                  <div class="p4" style="padding-bottom: 8px">
+                    <h2 class="sec">Versions du référentiel</h2>
+                  </div>
+                  <table class="list">
+                    <thead>
+                      <tr>
+                        <th>Version</th>
+                        <th>Contenu</th>
+                        <th>Statut</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><b>v2026.3</b><div class="sub">brouillon</div></td>
+                        <td>
+                          Togo — barème DPML (arrêté attendu) · Mali — contact DPM
+                          <div class="sub">2 entrées · 0 source manquante</div>
+                        </td>
+                        <td><span class="badge b-warning">Brouillon</span></td>
+                      </tr>
+                      <tr>
+                        <td><b>v2026.2</b><div class="sub">15/07/2026</div></td>
+                        <td>
+                          Sénégal — redevances (Décret n° 2025-1833, JO n° 7871)
+                          <div class="sub">effet 01/01/2026 · 1 pays · 6 champs</div>
+                        </td>
+                        <td><span class="badge b-success">Publiée · 8/12</span></td>
+                      </tr>
+                      <tr>
+                        <td><b>v2026.1</b><div class="sub">02/03/2026</div></td>
+                        <td>
+                          Côte d'Ivoire — sessions de dépôt (circulaire n° 0914/AIRP du 24/03/2026)
+                          <div class="sub">1 pays · 2 champs</div>
+                        </td>
+                        <td><span class="badge b-success">Publiée · 12/12</span></td>
+                      </tr>
+                      <tr>
+                        <td><b>v2025.2</b><div class="sub">10/11/2025</div></td>
+                        <td>Socle initial — 8 agences UEMOA + barèmes BJ/CI</td>
+                        <td><span class="badge b-neutral">Archivée</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="card">
+                  <div class="p4" style="padding-bottom: 8px">
+                    <h2 class="sec">Adoption de la v2026.2 par organisation</h2>
+                  </div>
+                  <table class="list">
+                    <tbody>
+                      <tr>
+                        <td>Laborex Pharma</td>
+                        <td><span class="badge b-success">Adoptée</span></td>
+                        <td class="sub">16/07/2026 · Adjoua K.</td>
+                      </tr>
+                      <tr>
+                        <td>WestAfrica Santé</td>
+                        <td><span class="badge b-success">Adoptée</span></td>
+                        <td class="sub">17/07/2026 · M. Diallo</td>
+                      </tr>
+                      <tr>
+                        <td>Pharma Sahel SARL</td>
+                        <td><span class="badge b-warning">En attente</span></td>
+                        <td class="sub">notifiée le 15/07/2026</td>
+                      </tr>
+                      <tr>
+                        <td>Continental RA Services</td>
+                        <td><span class="badge b-warning">En attente</span></td>
+                        <td class="sub">notifiée le 15/07/2026</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Colonne droite : éditeur de brouillon -->
+              <div class="card p4" style="display: grid; gap: 12px">
+                <h2 class="sec">Brouillon v2026.3 — nouvelle entrée</h2>
+                <div class="field">
+                  <label>Pays / Autorité</label>
+                  <select><option>Togo — DPML</option></select>
+                </div>
+                <div class="field">
+                  <label>Section</label>
+                  <select><option>Redevances (par activité)</option></select>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+                  <div class="field">
+                    <label>Nouvelle AMM (FCFA)</label>
+                    <input value="400 000" />
+                  </div>
+                  <div class="field">
+                    <label>Renouvellement (FCFA)</label>
+                    <input value="200 000" />
+                  </div>
+                </div>
+                <div class="field">
+                  <label>Provenance — texte officiel (obligatoire)</label>
+                  <input value="Arrêté n° 2026-041/MSPS du 12/06/2026" />
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+                  <div class="field">
+                    <label>JO / publication</label>
+                    <input value="JO RT du 30/06/2026" />
+                  </div>
+                  <div class="field">
+                    <label>Date d'effet</label>
+                    <input value="01/09/2026" />
+                  </div>
+                </div>
+                <div class="field">
+                  <label>PDF source</label>
+                  <input value="Arrete-2026-041-DPML.pdf ✔ téléversé" readonly />
+                </div>
+                <div class="field">
+                  <label>Note de publication (visible par les orgs)</label>
+                  <textarea rows="2">Le Togo officialise son barème de redevances : première grille publiée pour la DPML.</textarea>
+                </div>
+
+                <div class="notif-preview">
+                  <div class="kv-label">Aperçu de la notification (cloche + e-mail)</div>
+                  <div style="margin-top: 4px">
+                    📜 <b>Référentiel v2026.3 — Togo (DPML)</b> : barème de redevances officialisé
+                    (Arrêté n° 2026-041/MSPS, JO du 30/06/2026). Examinez et adoptez la mise à jour
+                    pour votre organisation.
+                  </div>
+                </div>
+
+                <div style="display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap">
+                  <button class="btn sm">Enregistrer le brouillon</button>
+                  <button class="btn sm primary">Publier la v2026.3…</button>
+                </div>
+                <p class="note" style="margin: 0">
+                  <b>Publier</b> notifie toutes les organisations mais <b>n'impose rien</b> :
+                  l'adoption reste à la main de chaque org (consentement tracé). Provenance
+                  obligatoire — pas de source, pas de publication.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════ ÉCRAN 3 — DOSSIER ÉPINGLÉ ═══════════════════ -->
+    <section class="screen" id="s3">
+      <div class="shell">
+        <aside class="rail">
+          <div class="logo">P</div>
+          <div class="ri">▦</div>
+          <div class="ri">🗂</div>
+          <div class="ri on">📄</div>
+          <div class="ri">✉</div>
+          <div class="ri">⚙</div>
+        </aside>
+        <div class="main">
+          <div class="topbar">
+            <button class="back">←</button>
+            <div class="ttl">PARAX 500 mg — Sénégal · Nouvelle AMM</div>
+            <span class="badge b-neutral">Roadmap</span>
+          </div>
+          <div class="content">
+            <div class="card p5">
+              <div class="dossier-head">
+                <div class="dico">📄</div>
+                <div style="flex: 1; min-width: 240px">
+                  <h1 style="font-size: 18px">PARAX 500 mg, comprimé</h1>
+                  <div class="sub">Nouvelle AMM · 🇸🇳 Sénégal (ARP) · déposé le 12/05/2026</div>
+                  <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px">
+                    <span class="badge b-neutral">Étape 5/7 — Évaluation</span>
+                    <span
+                      class="badge b-info"
+                      title="Version du référentiel sous laquelle ce dossier a été monté"
+                      >📌 Monté sous référentiel v2026.1</span
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="update-banner" style="border-color: #e3b34155; background: var(--warning-subtle)">
+              <div class="ic" style="background: #2a230e">📌</div>
+              <div class="tx">
+                <div style="color: var(--warning-subtle-fg)">
+                  <b>Ce dossier est épinglé sur la v2026.1.</b> La v2026.2 (Décret n° 2025-1833)
+                  change les redevances applicables au Sénégal.
+                </div>
+                <div class="src" style="color: var(--muted-foreground)">
+                  Rien n'a été modifié automatiquement — la mise à jour d'un dossier est une action
+                  volontaire et tracée.
+                </div>
+              </div>
+              <button class="btn sm">Voir les changements</button>
+              <button class="btn sm primary">Basculer sous v2026.2…</button>
+            </div>
+
+            <p class="note">
+              <b>Règle :</b> un dossier déposé est une <b>photographie opposable</b> — il reste sur la
+              version du référentiel avec laquelle il a été monté (exigence d'audit GxP). Les
+              <b>nouveaux dossiers</b> prennent la dernière version adoptée par l'org. La bascule
+              recalcule les redevances/exigences de la Roadmap et se journalise.
+            </p>
+
+            <div class="card p4">
+              <h2 class="sec" style="margin-bottom: 8px">Journal du dossier (extrait)</h2>
+              <ul class="journal" style="list-style: none; margin: 0; padding: 0">
+                <li>
+                  <span class="jd">18/07/2026 14:22</span>
+                  <span
+                    ><b>Référentiel :</b> bascule v2026.1 → v2026.2 par Adjoua K. — redevance
+                    « Nouvelle AMM » recalculée (750 000 → 1 000 000 FCFA), source Décret
+                    n° 2025-1833 (JO n° 7871).</span
+                  >
+                </li>
+                <li>
+                  <span class="jd">16/07/2026 09:05</span>
+                  <span><b>Organisation :</b> v2026.2 adoptée pour l'org par Adjoua K.</span>
+                </li>
+                <li>
+                  <span class="jd">12/05/2026 11:40</span>
+                  <span><b>Dossier :</b> créé et monté sous référentiel v2026.1 (dernière version adoptée).</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <script>
+      // Bascule d'écran (barre mockup)
+      document.querySelectorAll('.mockbar button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          document.querySelectorAll('.mockbar button').forEach(function (x) {
+            x.classList.remove('on')
+          })
+          document.querySelectorAll('.screen').forEach(function (s) {
+            s.classList.remove('on')
+          })
+          b.classList.add('on')
+          document.getElementById(b.dataset.screen).classList.add('on')
+        })
+      })
+      // Dialog de consentement
+      document.getElementById('open-consent').addEventListener('click', function () {
+        document.getElementById('consent').classList.add('on')
+      })
+      document.getElementById('adopt').addEventListener('click', function () {
+        document.getElementById('consent').classList.remove('on')
+        alert(
+          'Mockup : v2026.2 adoptée pour votre organisation.\n— Journalisé : qui, quand, quelle version.\n— Dossiers existants inchangés (épinglés v2026.1).\n— Nouveaux dossiers : v2026.2.',
+        )
+      })
+      document.getElementById('consent').addEventListener('click', function (e) {
+        if (e.target === this) this.classList.remove('on')
+      })
+      // Deep-linking : #s1 / #s2 / #s3 sélectionnent l'écran, #consent ouvre le dialog (écran 1).
+      var h = location.hash.replace('#', '')
+      if (h === 'consent') {
+        document.getElementById('consent').classList.add('on')
+      } else if (document.getElementById(h) && document.getElementById(h).classList.contains('screen')) {
+        document.querySelector('.mockbar button[data-screen="' + h + '"]').click()
+      }
+    </script>
+  </body>
+</html>
