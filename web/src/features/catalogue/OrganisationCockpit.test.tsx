@@ -60,6 +60,47 @@ function renderFiche(setHeaderSlot: HeaderSlotSetter = vi.fn()) {
 
 const tabNames = () => screen.getAllByRole('tab').map((el) => el.textContent?.trim())
 
+/** Produit minimal lié à la partie (titulaireId) — pour le portefeuille de pièces. */
+const product = (id: string) => ({
+  id,
+  orgId: ORG,
+  nomCommercial: 'KV-5D',
+  dci: '',
+  dosage: '',
+  forme: '',
+  presentation: '',
+  classeTherapeutique: '',
+  codeAtc: '',
+  titulaire: 'ABARIS HEALTHCARE',
+  fabricant: '',
+  titulaireId: PARTY,
+  fabricantId: null,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+  deletedAt: null,
+})
+
+/** Document minimal — produit-scopé (productId) OU org-scopé (partyId). */
+const docRec = (id: string, docType: string, owner: { productId?: string; partyId?: string }) => ({
+  id,
+  orgId: ORG,
+  productId: owner.productId ?? '',
+  partyId: owner.partyId ?? null,
+  category: 'admin' as const,
+  docType,
+  fileName: `${id}.pdf`,
+  mimeType: 'application/pdf',
+  size: 10,
+  language: null,
+  expiryDate: docType === 'contract' ? null : '2027-06-30',
+  status: 'active',
+  filePath: null,
+  uploaded: false,
+  createdAt: '2026-01-02T00:00:00.000Z',
+  updatedAt: '2026-01-02T00:00:00.000Z',
+  deletedAt: null,
+})
+
 describe('OrganisationCockpit (chrome cockpit partagée avec la fiche produit)', () => {
   beforeEach(async () => {
     await seed(['titulaire'])
@@ -87,6 +128,31 @@ describe('OrganisationCockpit (chrome cockpit partagée avec la fiche produit)',
       'Documents d’information',
       'Justificatifs',
     ])
+  })
+
+  it('MAH pur : le PORTEFEUILLE (GMP des produits liés) reste visible en Pièces admin', async () => {
+    // Régression du Majeur de revue : la matrice par rôle ne contraint que les pièces PORTÉES EN
+    // PROPRE — filtrer aussi les pièces des produits liés vidait le suivi de validité du cockpit.
+    const user = userEvent.setup()
+    await db.products.put(product('prod1'))
+    await db.documents.put(docRec('d-gmp-prod', 'gmp', { productId: 'prod1' }))
+    renderFiche()
+
+    await user.click(await screen.findByRole('tab', { name: 'Pièces admin' }))
+    expect(await screen.findByText(/GMP \(Bonnes Pratiques/)).toBeInTheDocument()
+  })
+
+  it('MAH pur : une pièce org-scopée HORS matrice (GMP) est masquée, le CONTRAT est visible', async () => {
+    const user = userEvent.setup()
+    await db.documents.bulkPut([
+      docRec('d-gmp-org', 'gmp', { partyId: PARTY }), // hors matrice MAH → masquée
+      docRec('d-contract-org', 'contract', { partyId: PARTY }), // amendement CEO → visible
+    ])
+    renderFiche()
+
+    await user.click(await screen.findByRole('tab', { name: 'Pièces admin' }))
+    expect(await screen.findByText(/Contrat titulaire/)).toBeInTheDocument()
+    expect(screen.queryByText(/GMP \(Bonnes Pratiques/)).toBeNull()
   })
 
   it('« Modifier » depuis le bandeau BASCULE sur Identification (sinon bouton mort)', async () => {
