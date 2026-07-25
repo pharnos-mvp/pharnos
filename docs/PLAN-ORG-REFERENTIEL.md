@@ -166,10 +166,24 @@ les overrides locaux survivent (« la donnée officielle se propose, la donnée 
 - **Résolution de lecture : override org → version adoptée org → socle code** (`roadmap-data.ts`
   reste le seed + repli offline-first ; réplication Dexie du contenu adopté).
 
-**Découpage proposé (1 PR chacune)** : P4.1 socle versionné + seed v1 depuis le code + fiche
-Autorité branchée provenance (zéro changement de comportement) → P4.2 adoption/notification +
-épinglage dossiers → P4.3 overrides org + conflits → P4.4 God dashboard Référentiel (éditeur,
-publication, adoption). NB : les montants « avant » du diff mockup sont ILLUSTRATIFS.
+**Découpage proposé (1 PR chacune)** : **P4.1 ✅ (PR #414, 2026-07-25)** socle versionné
+(migration `0071` : `ref_versions`/`ref_entries`, RLS select-authentifié publié-seul, zéro write
+client, pgTAP `ref_versions_rls`) + seed `v2026.1` GÉNÉRÉ depuis le code (`ref-seed.ts` +
+test de parité) + réplique Dexie v16 pull-only (throttle 15 min, pull borné/paginé, HORS chaîne
+`syncCatalogue` — jamais devant un push ni dans le flush de déconnexion) + résolveur
+`ref-content.ts` (publié-seul **et à date d'effet atteinte**, payloads normalisés — un contenu
+malformé retombe sur le socle code, sections inconnues ignorées) + fiche Autorité (badge version,
+lignes « Source : … ») → P4.2 adoption/notification + épinglage dossiers → P4.3 overrides org +
+conflits → P4.4 God dashboard Référentiel (éditeur, publication, adoption). NB : les montants
+« avant » du diff mockup sont ILLUSTRATIFS.
+
+**⚠ GARDE-FOU P4.1→P4.4 (revue #414, M7)** : lettres (`letter-context`), Roadmap
+(`regulatoryProfileFor`), `NewDossierPage`/`DossierPreviewPage`/`submission-language` et la LISTE
+des autorités (`listAgencies`) lisent encore `roadmap-data.ts` en direct. Tant qu'ils ne passent
+pas par le résolveur, **publier un contenu qui diffère du code est INTERDIT** (la fiche
+afficherait le nouveau barème sourcé pendant que lettres/Roadmap serviraient l'ancien). Le test
+de parité `ref-seed.test.ts` casse volontairement si l'un des deux bouge seul. Brancher ces
+consommateurs = préalable de P4.4 (ou premier lot de P4.2).
 
 **Décisions CEO — VALIDÉES 2026-07-24** : (a) les 3 écrans ✅ go build ; (b) adoption = **admin
 seul** (consentement d'organisation, journalisé) ; (c) adaptables v1 = **contacts/destinataire/

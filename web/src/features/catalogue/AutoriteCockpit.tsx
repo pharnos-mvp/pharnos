@@ -14,6 +14,7 @@ import { useOrgId } from '@/features/org/org-context'
 import { db } from '@/lib/db'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
 import { authorityDetail } from './authorities-data'
+import { resolvedAuthorityDetail, type RefProvenance } from './ref-content'
 
 const LANG_FULL: Record<string, Translatable> = {
   fr: { fr: 'Français', en: 'French' },
@@ -39,7 +40,14 @@ export function AutoriteCockpit() {
   const { t, lang } = useI18n()
   const orgId = useOrgId()
   const { code = '' } = useParams()
-  const detail = useMemo(() => authorityDetail(code), [code])
+  // Rendu immédiat sur le socle code, remplacé par le référentiel publié (0071) dès que la
+  // réplique locale répond — même contenu tant que seed == code, mais avec provenance + version.
+  // `resolved` : undefined = chargement (useLiveQuery), null = pays inconnu des deux sources.
+  const fallback = useMemo(() => authorityDetail(code), [code])
+  const resolved = useLiveQuery(() => resolvedAuthorityDetail(code), [code])
+  const detail = resolved?.detail ?? fallback
+  const provenance = resolved?.provenance
+  const versionLabel = resolved?.versionLabel ?? null
 
   useTopbar({
     title: detail?.agency.name,
@@ -59,6 +67,10 @@ export function AutoriteCockpit() {
       ).length,
     }
   }, [orgId, code])
+
+  // Pays absent du socle code mais potentiellement servi par le référentiel (raison d'être de
+  // P4) : pendant la résolution, ne pas flasher « introuvable » — page vide un frame.
+  if (resolved === undefined && !fallback) return <Page />
 
   if (!detail) {
     return (
@@ -112,6 +124,11 @@ export function AutoriteCockpit() {
                   },
                 )}
               </StatusBadge>
+              {versionLabel ? (
+                <StatusBadge tone="info">
+                  {t({ fr: 'Référentiel', en: 'Reference data' })} {versionLabel}
+                </StatusBadge>
+              ) : null}
             </div>
           </div>
         </div>
@@ -129,6 +146,7 @@ export function AutoriteCockpit() {
             <Field label={t({ fr: 'E-mail', en: 'Email' })} value={agency.email} />
           ) : null}
         </dl>
+        <SourceLine provenance={provenance?.agency} />
       </div>
 
       {/* Exigences nationales (barème) */}
@@ -212,6 +230,10 @@ export function AutoriteCockpit() {
                 ) : null}
               </div>
             ) : null}
+
+            <SourceLine
+              provenance={provenance?.fees ?? provenance?.submission ?? provenance?.samples}
+            />
           </div>
         ) : (
           <div className="bg-card text-muted-foreground rounded-xl border p-4 text-sm">
@@ -262,6 +284,26 @@ function Stat({ icon, value, label }: { icon: ReactNode; value: number; label: s
         <div className="text-muted-foreground text-xs">{label}</div>
       </div>
     </div>
+  )
+}
+
+/**
+ * Ligne de provenance d'une section — la source officielle citée par le référentiel versionné
+ * (0071). Rien n'est rendu sur le socle code (pas de provenance structurée) : l'affichage
+ * apparaît dès que la réplique locale est peuplée.
+ */
+function SourceLine({ provenance }: { provenance?: RefProvenance }) {
+  const { t } = useI18n()
+  if (!provenance?.texte) return null
+  const parts = [provenance.texte, provenance.jo, provenance.complements].filter(Boolean)
+  return (
+    <p className="text-muted-foreground text-xs">
+      <span aria-hidden className="text-info font-semibold">
+        §
+      </span>{' '}
+      <span className="font-medium">{t({ fr: 'Source : ', en: 'Source: ' })}</span>
+      {parts.join(' — ')}
+    </p>
   )
 }
 

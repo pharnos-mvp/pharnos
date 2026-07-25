@@ -54,6 +54,26 @@ async function seed() {
     updatedAt: ts,
     deletedAt: null,
   })
+  // Référentiel réglementaire (0071) : peuplé pour que la garde « TOUTES les tables vides »
+  // ci-dessous couvre réellement les nouvelles tables (sinon un oubli passerait faux-vert).
+  await db.refVersions.add({
+    id: 'v1',
+    label: 'v2026.1',
+    status: 'published',
+    effectiveDate: null,
+    releaseNote: '',
+    publishedAt: ts,
+    createdAt: ts,
+  })
+  await db.refEntries.add({
+    id: 're1',
+    versionId: 'v1',
+    country: 'SN',
+    section: 'fees',
+    payload: {},
+    provenance: {},
+    createdAt: ts,
+  })
   localStorage.setItem('pharnos.lastPull.dossiers.org-a', ts)
   localStorage.setItem('pharnos.orgId', 'org-a')
 }

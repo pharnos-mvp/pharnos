@@ -1,6 +1,7 @@
 import { reportError } from '@/lib/sentry'
 import { syncDocuments } from './documents-sync'
 import { syncParties } from './parties-sync'
+import { syncRefContent } from './ref-sync'
 import { syncProducts } from './sync'
 
 // Sérialise les cycles catalogue : deux déclencheurs concurrents (montage, mutation, reconnexion,
@@ -31,5 +32,10 @@ export function syncCatalogue(orgId: string): Promise<void> {
     })
     .catch((error: unknown) => reportError(error, { op: 'sync', entity: 'catalogue' }))
   chain = next
+  // Référentiel réglementaire (0071) : pull-only, AUCUNE FK avec la chaîne → HORS file
+  // sérialisée. Dans la chaîne, il retarderait le cycle suivant (donc un push utilisateur)
+  // et consommerait la fenêtre du flush de déconnexion (`flush-outbox` await ce retour).
+  // Fire-and-forget sûr : syncRefContent avale et trace ses propres erreurs, et se throttle.
+  void syncRefContent(orgId)
   return next
 }

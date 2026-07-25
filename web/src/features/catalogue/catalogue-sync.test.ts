@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { reportError } from '@/lib/sentry'
 import { syncCatalogue } from './catalogue-sync'
+import { syncRefContent } from './ref-sync'
 
 const { trace, panne } = vi.hoisted(() => ({
   trace: [] as string[],
@@ -31,6 +32,8 @@ vi.mock('./documents-sync', () => ({
     trace.push('documents')
   }),
 }))
+// HORS chaîne sérialisée (fire-and-forget) : ne doit PAS apparaître dans la trace ordonnée.
+vi.mock('./ref-sync', () => ({ syncRefContent: vi.fn(async () => {}) }))
 vi.mock('@/lib/sentry', () => ({ reportError: vi.fn() }))
 
 const cycle = ['parties:début', 'parties:fin', 'produits', 'documents']
@@ -46,6 +49,8 @@ describe('syncCatalogue', () => {
     await syncCatalogue('org-1')
 
     expect(trace).toEqual(cycle)
+    // Le référentiel est déclenché mais HORS chaîne (fire-and-forget, cf. M1 revue P4.1).
+    expect(syncRefContent).toHaveBeenCalledTimes(1)
   })
 
   it('sérialise deux cycles concurrents (régression 23503 : l’enfant partait avant son parent)', async () => {
@@ -68,6 +73,8 @@ describe('syncCatalogue', () => {
       expect.objectContaining({ entity: 'catalogue' }),
     )
     expect(trace).toEqual([])
+    // Indépendant de la chaîne : le pull référentiel part même quand un maillon casse.
+    expect(syncRefContent).toHaveBeenCalledTimes(1)
 
     // …et le cycle suivant repart : une chaîne laissée REJETÉE les sauterait tous, en silence.
     await syncCatalogue('org-1')
