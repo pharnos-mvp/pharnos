@@ -1,14 +1,21 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { db } from '@/lib/db'
 import {
   pullRefContent,
   rowToRefEntry,
   rowToRefVersion,
+  syncRefContent,
   type RefEntryRow,
   type RefVersionRow,
 } from './ref-sync'
+
+vi.mock('@/lib/sentry', () => ({ reportError: vi.fn() }))
+const { supaHolder } = vi.hoisted(() => ({
+  supaHolder: { current: null as unknown },
+}))
+vi.mock('@/lib/supabase', () => ({ getSupabase: vi.fn(async () => supaHolder.current) }))
 
 const versionRow: RefVersionRow = {
   id: 'v-1',
@@ -30,21 +37,43 @@ const entryRow: RefEntryRow = {
   created_at: '2026-07-25T00:00:00.000Z',
 }
 
-/** Stub Supabase minimal : `from(table).select('*')` → data fournie par table. */
-const supabaseWith = (versions: RefVersionRow[], entries: RefEntryRow[]) =>
+/** Chaîne de requête PostgREST factice : tous les modificateurs renvoient la même thenable. */
+interface Chain extends PromiseLike<{ data: unknown; error: unknown }> {
+  eq: () => Chain
+  in: () => Chain
+  order: () => Chain
+  limit: () => Chain
+  range: () => Chain
+}
+function chain(rows: unknown[], error: unknown = null): Chain {
+  const p = Promise.resolve({ data: error ? null : rows, error })
+  const c = {
+    eq: () => c,
+    in: () => c,
+    order: () => c,
+    limit: () => c,
+    range: () => c,
+    then: p.then.bind(p),
+  } as Chain
+  return c
+}
+
+/** Stub Supabase : `from(table).select(cols)…` → data fournie par table (+ compteur d'appels). */
+const supabaseWith = (versions: RefVersionRow[], entries: RefEntryRow[], onSelect?: () => void) =>
   ({
     from: (table: string) => ({
-      select: () =>
-        Promise.resolve({
-          data: table === 'ref_versions' ? versions : entries,
-          error: null,
-        }),
+      select: () => {
+        onSelect?.()
+        return chain(table === 'ref_versions' ? versions : entries)
+      },
     }),
   }) as unknown as SupabaseClient
 
 beforeEach(async () => {
   await db.refVersions.clear()
   await db.refEntries.clear()
+  localStorage.removeItem('pharnos.lastPull.ref')
+  vi.restoreAllMocks()
 })
 
 describe('ref-sync mapping', () => {
@@ -81,8 +110,13 @@ describe('pullRefContent — remplacement atomique de la réplique', () => {
     expect((await db.refVersions.get('v-1'))?.label).toBe('v2026.1')
   })
 
-  it('est idempotent (re-pull identique → mêmes lignes, pas de doublon)', async () => {
+  it('écriture IDEMPOTENTE sur lignes existantes (bulkPut, pas bulkAdd) — clear() neutralisé', async () => {
+    // Sans neutraliser clear(), ce test ne prouverait rien : le clear efface tout conflit
+    // possible et un bulkAdd passerait aussi (motif de faux-vert ciblé par l'invariant repo).
     await pullRefContent(supabaseWith([versionRow], [entryRow]))
+    vi.spyOn(db.refVersions, 'clear').mockResolvedValue(undefined)
+    vi.spyOn(db.refEntries, 'clear').mockResolvedValue(undefined)
+
     await pullRefContent(supabaseWith([versionRow], [entryRow]))
 
     expect(await db.refVersions.count()).toBe(1)
@@ -101,13 +135,32 @@ describe('pullRefContent — remplacement atomique de la réplique', () => {
     await pullRefContent(supabaseWith([versionRow], [entryRow]))
 
     const enPanne = {
-      from: () => ({
-        select: () => Promise.resolve({ data: null, error: new Error('503') }),
-      }),
+      from: () => ({ select: () => chain([], new Error('503')) }),
     } as unknown as SupabaseClient
     await expect(pullRefContent(enPanne)).rejects.toThrow('503')
 
     expect(await db.refVersions.count()).toBe(1)
     expect(await db.refEntries.count()).toBe(1)
+  })
+})
+
+describe('syncRefContent — throttle TTL', () => {
+  it('un pull par fenêtre de 15 min : le second cycle ne touche pas le réseau', async () => {
+    let selects = 0
+    supaHolder.current = supabaseWith([versionRow], [entryRow], () => {
+      selects += 1
+    })
+
+    await syncRefContent('org-1')
+    expect(await db.refVersions.count()).toBe(1)
+    expect(selects).toBeGreaterThan(0)
+    const after = selects
+
+    await syncRefContent('org-1')
+    expect(selects).toBe(after) // TTL non écoulé → aucun nouvel appel réseau
+
+    localStorage.removeItem('pharnos.lastPull.ref') // TTL « écoulé »
+    await syncRefContent('org-1')
+    expect(selects).toBeGreaterThan(after)
   })
 })

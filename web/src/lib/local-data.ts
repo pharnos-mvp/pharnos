@@ -30,6 +30,10 @@ async function clearAllTables(opts?: { preserveNotifReads?: boolean }): Promise<
     db.savedTemplates.clear(),
     db.variationRequests.clear(),
     db.lifecycleEvents.clear(),
+    // Référentiel réglementaire (0071) : contenu GLOBAL public (aucune donnée tenant) — purgé
+    // quand même pour garder le miroir exact du schéma ; re-tiré au prochain cycle (~20 Ko).
+    db.refVersions.clear(),
+    db.refEntries.clear(),
   ]
   // Marqueur de lecture de la cloche (`notificationReads`, local par appareil, JAMAIS re-synchronisé) :
   // CONSERVÉ à la déconnexion (`preserveNotifReads`) pour qu'une reconnexion du MÊME compte ne rejoue

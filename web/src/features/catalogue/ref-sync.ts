@@ -28,6 +28,11 @@ export interface RefEntryRow {
   created_at: string
 }
 
+// Colonnes EXPLICITES (pas de `*`) : une colonne future (auteur de brouillon, note interne…)
+// ne doit jamais partir chez tous les authentifiés par simple oubli.
+const VERSION_COLUMNS = 'id,label,status,effective_date,release_note,published_at,created_at'
+const ENTRY_COLUMNS = 'id,version_id,country,section,payload,provenance,created_at'
+
 export function rowToRefVersion(r: RefVersionRow): RefVersionRecord {
   return {
     id: r.id,
@@ -52,20 +57,45 @@ export function rowToRefEntry(r: RefEntryRow): RefEntryRecord {
   }
 }
 
+// Throttle : contenu quasi-statique (quelques publications par an) — un pull toutes les 15 min
+// suffit, pas à CHAQUE cycle catalogue (montage, mutation, reconnexion…). La clé partage le
+// préfixe `pharnos.lastPull` → purgée par `clearLocalData` comme les autres curseurs.
+const LAST_PULL_KEY = 'pharnos.lastPull.ref'
+const PULL_TTL_MS = 15 * 60 * 1000
+
+function isStale(): boolean {
+  try {
+    return Date.now() - Number(localStorage.getItem(LAST_PULL_KEY) ?? 0) >= PULL_TTL_MS
+  } catch {
+    return true // stockage indisponible → on tente le pull (idempotent)
+  }
+}
+
+function markPulled(): void {
+  try {
+    localStorage.setItem(LAST_PULL_KEY, String(Date.now()))
+  } catch {
+    /* non bloquant */
+  }
+}
+
 let syncing = false
 
 /**
  * Réplique locale du référentiel réglementaire versionné — PULL SEUL (le client ne peut rien
  * écrire : aucune policy insert/update, publication réservée au God dashboard/service role).
- * No-op hors-ligne / Supabase absent (mode local/tests) / synchro désactivée pour l'org.
+ * Volontairement HORS chaîne `syncCatalogue` sérialisée (appelé en fire-and-forget) : aucune FK
+ * avec les données utilisateur, il ne doit ni retarder un push ni consommer la fenêtre du flush
+ * de déconnexion. No-op hors-ligne / Supabase absent / synchro désactivée / TTL non écoulé.
  */
 export async function syncRefContent(orgId: string): Promise<void> {
-  if (syncing || !navigator.onLine || !isSyncEnabled(orgId)) return
+  if (syncing || !navigator.onLine || !isSyncEnabled(orgId) || !isStale()) return
   const supabase = await getSupabase()
   if (!supabase) return
   syncing = true
   try {
     await withRetry(() => pullRefContent(supabase))
+    markPulled() // uniquement après un pull COMMITTÉ — un échec re-tentera au prochain cycle
   } catch (error) {
     console.warn('[sync] référentiel :', error)
     reportError(error, { op: 'sync', entity: 'ref' })
@@ -75,20 +105,49 @@ export async function syncRefContent(orgId: string): Promise<void> {
 }
 
 /**
- * Remplacement ATOMIQUE des deux tables : le contenu est global et minuscule (quelques dizaines
- * de lignes), pas de curseur incrémental — une version dépubliée/archivée côté serveur disparaît
- * aussi localement au cycle suivant. Idempotent (`bulkPut`) ; hors-ligne, la réplique reste
- * intacte et le résolveur (`ref-content`) garde son repli sur le socle code.
+ * Remplacement ATOMIQUE des deux tables, PULL BORNÉ : versions PUBLIÉES les plus récentes
+ * (limit 50) puis leurs entrées PAGINÉES par `range` — jamais de troncature PostgREST
+ * silencieuse (le « Max rows » serveur coupe un `select` nu sans erreur : un référentiel
+ * partiel afficherait des montants périmés SOURCÉS — pire mode de défaillance possible).
+ * Idempotent (`bulkPut`) ; en panne, on `throw` AVANT la transaction : réplique intacte,
+ * le résolveur garde son repli sur le socle code (offline-first).
  */
 export async function pullRefContent(supabase: SupabaseClient): Promise<void> {
-  const [vRes, eRes] = await Promise.all([
-    supabase.from('ref_versions').select('*'),
-    supabase.from('ref_entries').select('*'),
-  ])
+  const vRes = await supabase
+    .from('ref_versions')
+    .select(VERSION_COLUMNS)
+    .eq('status', 'published')
+    .order('published_at', { ascending: false })
+    .limit(50)
   if (vRes.error) throw vRes.error
-  if (eRes.error) throw eRes.error
   const versions = ((vRes.data ?? []) as unknown as RefVersionRow[]).map(rowToRefVersion)
-  const entries = ((eRes.data ?? []) as unknown as RefEntryRow[]).map(rowToRefEntry)
+  if (versions.length === 50) {
+    // Cap volontaire : le résolveur ne sert que la version la plus récente par section, les
+    // 50 dernières couvrent des années de publications. Tracé pour ne pas tronquer en silence.
+    reportError(new Error('ref_versions : cap de 50 versions publiées atteint'), {
+      op: 'sync',
+      entity: 'ref',
+    })
+  }
+
+  const entries: RefEntryRecord[] = []
+  if (versions.length > 0) {
+    const ids = versions.map((v) => v.id)
+    const PAGE = 1000
+    for (let from = 0; ; from += PAGE) {
+      const eRes = await supabase
+        .from('ref_entries')
+        .select(ENTRY_COLUMNS)
+        .in('version_id', ids)
+        .order('id', { ascending: true })
+        .range(from, from + PAGE - 1)
+      if (eRes.error) throw eRes.error
+      const rows = (eRes.data ?? []) as unknown as RefEntryRow[]
+      entries.push(...rows.map(rowToRefEntry))
+      if (rows.length < PAGE) break
+    }
+  }
+
   await db.transaction('rw', db.refVersions, db.refEntries, async () => {
     await db.refVersions.clear()
     await db.refEntries.clear()

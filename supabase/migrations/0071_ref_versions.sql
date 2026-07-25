@@ -14,10 +14,20 @@
 -- le client lit la dernière version publiée, avec repli sur le socle code (offline-first).
 --
 -- Le seed v2026.1 ci-dessous est GÉNÉRÉ depuis `web/src/features/workspace/roadmap-data.ts`
--- (scripts one-shot esbuild+node) — contenu strictement identique au code : zéro changement de
+-- (générateur committé : `web/src/features/catalogue/ref-seed.ts`, parité verrouillée par
+-- `ref-seed.test.ts`) — contenu strictement identique au code : zéro changement de
 -- comportement, la provenance (jusqu'ici en commentaires) devient une donnée.
+--
+-- ⚠ GARDE-FOU (P4.1) : tant que les consommateurs code-only (letter-context, RoadmapPage,
+-- NewDossierPage, DossierPreviewPage, submission-language, listAgencies) ne passent PAS par le
+-- résolveur `ref-content.ts`, publier un contenu qui DIFFÈRE de `roadmap-data.ts` est INTERDIT —
+-- la fiche Autorité afficherait le nouveau barème pendant que la Roadmap/les lettres serviraient
+-- l'ancien. Le test de parité `ref-seed.test.ts` casse volontairement si l'un des deux bouge seul.
+--
+-- Sémantique `effective_date` : une version publiée avec une date d'effet FUTURE n'est PAS
+-- servie par le résolveur avant cette date (modèle MedDRA « à date d'effet », plan §6).
 
-create table public.ref_versions (
+create table if not exists public.ref_versions (
   id uuid primary key default gen_random_uuid(),
   label text not null unique,
   status text not null default 'draft' check (status in ('draft', 'published', 'archived')),
@@ -27,7 +37,7 @@ create table public.ref_versions (
   created_at timestamptz not null default now()
 );
 
-create table public.ref_entries (
+create table if not exists public.ref_entries (
   id uuid primary key default gen_random_uuid(),
   version_id uuid not null references public.ref_versions (id) on delete cascade,
   country text not null,
@@ -40,23 +50,25 @@ create table public.ref_entries (
 );
 
 -- FK + parcours « toutes les entrées d'une version » (pull client, éditeur god).
-create index ref_entries_version_idx on public.ref_entries (version_id);
+create index if not exists ref_entries_version_idx on public.ref_entries (version_id);
 
 alter table public.ref_versions enable row level security;
 alter table public.ref_entries enable row level security;
 
 -- Défaut deny ; SELECT seul, versions publiées seules. Pas de policy insert/update/delete :
 -- le service role (God dashboard P4.4, migrations) bypasse la RLS, les clients ne peuvent RIEN écrire.
+drop policy if exists ref_versions_select on public.ref_versions;
 create policy ref_versions_select on public.ref_versions
   for select to authenticated
   using (status = 'published');
 
+drop policy if exists ref_entries_select on public.ref_entries;
 create policy ref_entries_select on public.ref_entries
   for select to authenticated
   using (
     exists (
       select 1 from public.ref_versions v
-      where v.id = version_id and v.status = 'published'
+      where v.id = ref_entries.version_id and v.status = 'published'
     )
   );
 

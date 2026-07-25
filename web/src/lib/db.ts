@@ -552,7 +552,8 @@ export interface RefEntryRecord {
   section: string
   /** Contenu typé par section — cast par le résolveur (`ref-content.ts`). */
   payload: unknown
-  /** { texte, complements?, jo?, note?, pdf_path? } — la source citée, jamais vide en pratique. */
+  /** { texte, complements?, jo? } = rendus (ligne « Source : … ») ; `note`/`pdf_path` =
+   *  internes (curation), JAMAIS rendus côté client. Cf. `RefProvenance` (ref-content). */
   provenance: unknown
   createdAt: string
 }

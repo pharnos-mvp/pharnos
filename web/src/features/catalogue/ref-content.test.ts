@@ -36,8 +36,80 @@ describe('resolvedAuthorityDetail', () => {
     expect(r).toEqual({ detail: authorityDetail('SN'), provenance: {}, versionLabel: null })
   })
 
-  it('pays inconnu des deux sources → undefined (EmptyState)', async () => {
-    expect(await resolvedAuthorityDetail('ZZ')).toBeUndefined()
+  it('pays inconnu des deux sources → null (EmptyState — distinct du undefined de chargement)', async () => {
+    expect(await resolvedAuthorityDetail('ZZ')).toBeNull()
+  })
+
+  it('un BROUILLON présent dans la réplique n’est JAMAIS servi (double barrière avec la RLS)', async () => {
+    await db.refVersions.put(version({ id: 'v-d', label: 'v2026.9-draft', status: 'draft' }))
+    await db.refEntries.put(
+      entry({ id: 'e-d', versionId: 'v-d', payload: { fees: { new_ma: 9999999 } } }),
+    )
+
+    const r = await resolvedAuthorityDetail('SN')
+
+    expect(r?.versionLabel).toBe(null)
+    expect(r?.detail).toEqual(authorityDetail('SN'))
+  })
+
+  it('une version publiée à date d’effet FUTURE ne s’applique pas encore (modèle MedDRA)', async () => {
+    await db.refVersions.put(version({ id: 'v-f', label: 'v2027.1', effectiveDate: '2100-01-01' }))
+    await db.refEntries.put(
+      entry({ id: 'e-f', versionId: 'v-f', payload: { fees: { new_ma: 9999999 } } }),
+    )
+
+    const r = await resolvedAuthorityDetail('SN')
+
+    expect(r?.versionLabel).toBe(null)
+    expect(r?.detail.profile?.fees.new_ma).toBe(authorityDetail('SN')?.profile?.fees.new_ma)
+  })
+
+  it('payload malformé (samples non-tableau, montants en string) → repli code, AUCUN crash', async () => {
+    await db.refVersions.put(version({ id: 'v-1', label: 'v2026.1' }))
+    // L'erreur d'édition la plus probable du futur éditeur god : objet au lieu de tableau.
+    await db.refEntries.put(
+      entry({
+        id: 'e-1',
+        section: 'samples',
+        payload: { samples: { new_ma: { fr: 'Trois échantillons', en: 'Three samples' } } },
+      }),
+    )
+    await db.refEntries.put(
+      entry({ id: 'e-2', section: 'fees', payload: { fees: { new_ma: '500000' } } }),
+    )
+
+    const r = await resolvedAuthorityDetail('SN')
+
+    // Aucune section valide → la fiche reste ENTIÈREMENT sur le socle code, sans badge.
+    expect(r?.versionLabel).toBe(null)
+    expect(r?.detail).toEqual(authorityDetail('SN'))
+    expect(r?.provenance).toEqual({})
+  })
+
+  it('une section inconnue (ctd_structure, P4.5) ne déplace NI le badge NI la provenance', async () => {
+    await db.refVersions.put(
+      version({ id: 'v-1', label: 'v2026.1', publishedAt: '2026-03-01T00:00:00.000Z' }),
+    )
+    await db.refVersions.put(
+      version({ id: 'v-9', label: 'v2026.9', publishedAt: '2026-07-20T00:00:00.000Z' }),
+    )
+    await db.refEntries.put(
+      entry({ id: 'e-1', versionId: 'v-1', payload: { fees: { new_ma: 1234567 } } }),
+    )
+    await db.refEntries.put(
+      entry({
+        id: 'e-9',
+        versionId: 'v-9',
+        section: 'ctd_structure',
+        payload: { ops: [{ node: '1.1.2', op: 'remove' }] },
+      }),
+    )
+
+    const r = await resolvedAuthorityDetail('SN')
+
+    expect(r?.versionLabel).toBe('v2026.1')
+    expect(r?.detail.profile?.fees.new_ma).toBe(1234567)
+    expect(Object.keys(r?.provenance ?? {})).toEqual(['fees'])
   })
 
   it('section fees publiée → montants du référentiel, agence du socle, provenance + version', async () => {

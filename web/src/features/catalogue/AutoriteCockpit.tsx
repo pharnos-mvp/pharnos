@@ -42,6 +42,7 @@ export function AutoriteCockpit() {
   const { code = '' } = useParams()
   // Rendu immédiat sur le socle code, remplacé par le référentiel publié (0071) dès que la
   // réplique locale répond — même contenu tant que seed == code, mais avec provenance + version.
+  // `resolved` : undefined = chargement (useLiveQuery), null = pays inconnu des deux sources.
   const fallback = useMemo(() => authorityDetail(code), [code])
   const resolved = useLiveQuery(() => resolvedAuthorityDetail(code), [code])
   const detail = resolved?.detail ?? fallback
@@ -66,6 +67,10 @@ export function AutoriteCockpit() {
       ).length,
     }
   }, [orgId, code])
+
+  // Pays absent du socle code mais potentiellement servi par le référentiel (raison d'être de
+  // P4) : pendant la résolution, ne pas flasher « introuvable » — page vide un frame.
+  if (resolved === undefined && !fallback) return <Page />
 
   if (!detail) {
     return (
@@ -121,7 +126,7 @@ export function AutoriteCockpit() {
               </StatusBadge>
               {versionLabel ? (
                 <StatusBadge tone="info">
-                  {t({ fr: 'Référentiel', en: 'Referential' })} {versionLabel}
+                  {t({ fr: 'Référentiel', en: 'Reference data' })} {versionLabel}
                 </StatusBadge>
               ) : null}
             </div>
@@ -293,7 +298,9 @@ function SourceLine({ provenance }: { provenance?: RefProvenance }) {
   const parts = [provenance.texte, provenance.jo, provenance.complements].filter(Boolean)
   return (
     <p className="text-muted-foreground text-xs">
-      <span className="text-info font-semibold">§</span>{' '}
+      <span aria-hidden className="text-info font-semibold">
+        §
+      </span>{' '}
       <span className="font-medium">{t({ fr: 'Source : ', en: 'Source: ' })}</span>
       {parts.join(' — ')}
     </p>
