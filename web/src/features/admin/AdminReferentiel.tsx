@@ -315,6 +315,10 @@ export function AdminReferentiel() {
                         </Button>
                       </span>
                     ) : (
+                      // 3ᵉ état autorisé par le CHECK de 0071, qu'AUCUN bouton ne produit
+                      // aujourd'hui (l'archivage se fait en SQL, cf. FK `on delete restrict` :
+                      // une version épinglée s'archive, ne se supprime pas). Rendu d'avance pour
+                      // qu'une version archivée à la main ne s'affiche jamais comme un brouillon.
                       <StatusBadge tone="neutral">
                         {t({ fr: 'Archivée', en: 'Archived' })}
                       </StatusBadge>

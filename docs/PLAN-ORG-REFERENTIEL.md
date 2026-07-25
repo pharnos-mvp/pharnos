@@ -224,6 +224,29 @@ avant merge)** :
   sans dupliquer les RPC 0063 ; pgTAP `ref_auto_adopt` (jamais une version future ni un brouillon ;
   UPDATE d'une org existante ne ré-adopte rien) + isolation positive côté B (1 ligne exactement).
 
+**DETTE ZÉRO avant P4.3 — audit demandé par le CEO 2026-07-25.** Un seul point de dette réelle
+trouvé sur P4.1→P4.4, payé avant d'ouvrir P4.3 :
+- **Contrat d'efficacité des payloads DÉ-DUPLIQUÉ** : `refPayloadEffective` (Edge, garde de
+  publication) doublait les normalisateurs du résolveur client — dérive = panne SILENCIEUSE dans
+  les deux sens (« version publiée qui ne rend rien », ou publication refusée à tort). Deno (Edge)
+  et Vite (bundle) ne peuvent pas partager un module → le contrat vit dans
+  `supabase/functions/_shared/ref-payload.ts` + une **table de fixtures
+  `ref-payload-fixtures.json` assertée par les DEUX runtimes** (test Deno côté Edge dans le job
+  `edge` ; `ref-payload-parity.test.ts` côté web, qui exerce le VRAI `resolveAuthority` et lit les
+  fixtures sur disque). Même technique que `ref-seed.test.ts` pour la parité socle ↔ seed.
+- **Le test de parité a immédiatement révélé 2 divergences RÉELLES du résolveur**, corrigées :
+  (a) un sigle d'agence BLANC (`"   "`) était accepté et masquait celui du socle dans l'en-tête des
+  lettres (`strOrUndef` ne trimait pas) ; (b) une entrée `fees` **« notes sans aucun montant »**
+  était rendue — or un barème publié REMPLACE celui du socle en bloc (jamais de barème hybride
+  qu'aucun décret ne dit) : elle aurait donc **effacé les montants** et affiché un barème sans
+  chiffres. Négatifs et paires bilingues vides retombent désormais sur le socle des DEUX côtés.
+- **Non-dette vérifiée** : advisors Supabase inchangés par 0071→0076 — les RPC god n'apparaissent
+  PAS parmi les fonctions exécutables par `authenticated` (le `revoke all` a bien pris) ;
+  `adopt_ref_version` y figure PAR CONCEPTION (authz interne admin d'org). Zéro TODO/FIXME dans les
+  modules `ref-*`. Badge « Archivée » = rendu d'avance d'un état que seul SQL produit (aucun bouton
+  ne le promet, commenté sur place). Hors périmètre, à traiter un jour : protection des mots de
+  passe compromis désactivée côté Supabase Auth (1 réglage).
+
 **P4.2 livré (migrations `0072` + `0073`, appliquées prod avant merge)** :
 - **Consentement** : `org_ref_adoptions` (journal append-only, RLS lecture membres + RESTRICTIVE
   CS1, **zéro policy d'écriture**) + RPC `adopt_ref_version` (security definer : **admin d'org

@@ -67,12 +67,28 @@ export interface ResolvedAuthority {
 // casser la fiche (TypeError → ErrorBoundary = fiche inutilisable pour TOUS les clients jusqu'à
 // republication) ni rendre un objet brut. Toute valeur non conforme retombe sur le socle code.
 
+// ⚠ CONTRAT PARTAGÉ AVEC L'EDGE : ces trois prédicats sont le miroir exact de
+// `supabase/functions/_shared/ref-payload.ts` (`isUsefulNumber`/`isUsefulT`), qui décide ce que le
+// God dashboard a le droit de PUBLIER. Les deux implémentations sont verrouillées par la table
+// `ref-payload-fixtures.json` (test Deno d'un côté, `ref-payload-parity.test.ts` de l'autre) :
+// assouplir ici sans y toucher = publication refusée d'un contenu que le client rendrait ;
+// durcir ici sans y toucher = « version publiée qui ne rend rien ».
 const isObj = isPlainObject
-const strOrUndef = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined)
+/** Chaîne UTILE : non blanche, et TRIMÉE (un sigle « &nbsp;&nbsp; » masquerait celui du socle
+ *  dans l'en-tête d'une lettre officielle ; l'Edge refuse déjà de publier ça). */
+const strOrUndef = (v: unknown): string | undefined =>
+  typeof v === 'string' && v.trim() !== '' ? v.trim() : undefined
+/** Montant/durée : fini et ≥ 0 — un négatif est une coquille, le socle vaut mieux. */
 const numOrUndef = (v: unknown): number | undefined =>
-  typeof v === 'number' && Number.isFinite(v) ? v : undefined
+  typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : undefined
+/** Traduisible UTILE : `fr` ET `en` non vides — une paire blanche laisserait un trou dans une
+ *  lettre officielle, alors que le socle bilingue du code a toujours une valeur. */
 const isTranslatable = (v: unknown): v is Translatable =>
-  isObj(v) && typeof v.fr === 'string' && typeof v.en === 'string'
+  isObj(v) &&
+  typeof v.fr === 'string' &&
+  v.fr.trim() !== '' &&
+  typeof v.en === 'string' &&
+  v.en.trim() !== ''
 const translatableList = (v: unknown): Translatable[] | undefined =>
   Array.isArray(v) ? v.filter(isTranslatable) : undefined
 
@@ -142,7 +158,11 @@ function feesFromPayload(
     }
     if (Object.keys(notes).length > 0) fees.notes = notes
   }
-  if (Object.keys(fees).length === 0) return undefined // aucun montant valide → socle code
+  // Au moins un MONTANT, pas seulement des notes : un barème publié REMPLACE celui du socle en
+  // bloc (jamais de barème hybride qu'aucun décret ne dit) — accepter « notes sans montant »
+  // effacerait donc les montants du socle et afficherait un barème sans chiffres. L'Edge refuse
+  // déjà de publier une telle entrée ; les deux côtés restent alignés (fixtures de parité).
+  if (!FEE_KEYS.some((k) => fees[k] !== undefined)) return undefined
   return {
     currency: strOrUndef(payload.currency),
     fees,

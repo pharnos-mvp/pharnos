@@ -1,0 +1,144 @@
+[
+  {
+    "case": "agency — sigle seul suffit (patch partiel fusionné au socle)",
+    "section": "agency",
+    "payload": { "name": "ARP" },
+    "effective": true
+  },
+  {
+    "case": "agency — dénomination seule suffit",
+    "section": "agency",
+    "payload": { "full": "Agence de Réglementation Pharmaceutique" },
+    "effective": true
+  },
+  {
+    "case": "agency — sigle blanc n'est pas une identité",
+    "section": "agency",
+    "payload": { "name": "   ", "directeur": "Dr X" },
+    "effective": false
+  },
+  {
+    "case": "agency — contacts sans sigle ni dénomination : rien à publier",
+    "section": "agency",
+    "payload": { "directeur": "Dr X", "telephone": "+221 33 000 00 00" },
+    "effective": false
+  },
+  { "case": "agency — objet vide", "section": "agency", "payload": {}, "effective": false },
+  {
+    "case": "agency — sigle non textuel ignoré",
+    "section": "agency",
+    "payload": { "name": 42 },
+    "effective": false
+  },
+  {
+    "case": "fees — un seul montant suffit",
+    "section": "fees",
+    "payload": { "currency": "FCFA", "fees": { "new_ma": 1500000 } },
+    "effective": true
+  },
+  {
+    "case": "fees — zéro est un montant valide (gratuité officielle)",
+    "section": "fees",
+    "payload": { "fees": { "renewal": 0 } },
+    "effective": true
+  },
+  {
+    "case": "fees — montant négatif = coquille, jamais servi",
+    "section": "fees",
+    "payload": { "fees": { "new_ma": -1000 } },
+    "effective": false
+  },
+  {
+    "case": "fees — montant en chaîne de caractères refusé",
+    "section": "fees",
+    "payload": { "fees": { "new_ma": "1500000" } },
+    "effective": false
+  },
+  {
+    "case": "fees — devise et délai seuls ne sont pas un barème",
+    "section": "fees",
+    "payload": { "currency": "FCFA", "processingDays": 90, "fees": {} },
+    "effective": false
+  },
+  {
+    "case": "fees — notes sans aucun montant : rien à publier",
+    "section": "fees",
+    "payload": { "fees": { "notes": { "new_ma": { "fr": "Voir décret", "en": "See decree" } } } },
+    "effective": false
+  },
+  {
+    "case": "fees — bloc fees absent",
+    "section": "fees",
+    "payload": { "currency": "FCFA" },
+    "effective": false
+  },
+  {
+    "case": "submission — note bilingue complète",
+    "section": "submission",
+    "payload": { "note": { "fr": "Dépôt en 3 exemplaires", "en": "File in triplicate" } },
+    "effective": true
+  },
+  {
+    "case": "submission — EN manquant : la moitié d'une note n'est pas publiable",
+    "section": "submission",
+    "payload": { "note": { "fr": "Dépôt en 3 exemplaires" } },
+    "effective": false
+  },
+  {
+    "case": "submission — paire vide = champ blanc dans une lettre : refusée",
+    "section": "submission",
+    "payload": { "note": { "fr": "   ", "en": "" } },
+    "effective": false
+  },
+  {
+    "case": "samples — une exigence bilingue suffit",
+    "section": "samples",
+    "payload": { "samples": { "new_ma": [{ "fr": "3 échantillons", "en": "3 samples" }] } },
+    "effective": true
+  },
+  {
+    "case": "samples — réserve seule suffit",
+    "section": "samples",
+    "payload": { "samples": { "reserve": { "fr": "Sous réserve", "en": "Subject to" } } },
+    "effective": true
+  },
+  {
+    "case": "samples — renouvellement/variation seul suffit",
+    "section": "samples",
+    "payload": {
+      "samples": { "renewal_variation": [{ "fr": "2 échantillons", "en": "2 samples" }] }
+    },
+    "effective": true
+  },
+  {
+    "case": "samples — liste vide",
+    "section": "samples",
+    "payload": { "samples": { "new_ma": [] } },
+    "effective": false
+  },
+  {
+    "case": "samples — liste d'éléments non traduisibles",
+    "section": "samples",
+    "payload": { "samples": { "new_ma": ["3 échantillons"] } },
+    "effective": false
+  },
+  {
+    "case": "samples — bloc samples vide",
+    "section": "samples",
+    "payload": { "samples": {} },
+    "effective": false
+  },
+  {
+    "case": "section hors liste blanche (ctd_structure, P4.5) : rien ne la rend",
+    "section": "ctd_structure",
+    "payload": { "nodes": [{ "node": "1.2.7", "op": "remove" }] },
+    "effective": false
+  },
+  {
+    "case": "payload tableau (jsonb valide mais insensé)",
+    "section": "fees",
+    "payload": [{ "new_ma": 1000 }],
+    "effective": false
+  },
+  { "case": "payload null", "section": "agency", "payload": null, "effective": false }
+]
