@@ -51,13 +51,21 @@ beforeEach(async () => {
   await db.refVersions.clear()
   await db.refEntries.clear()
   await db.orgRefAdoptions.clear()
+  // P4.3 : le résolveur lit aussi les adaptations locales — une réplique laissée sale ferait
+  // passer une valeur d'org pour du contenu officiel dans les assertions suivantes.
+  await db.orgRefOverrides.clear()
 })
 
 describe('resolvedAuthorityDetail — socle et plafond adopté', () => {
   it('réplique vide → repli intégral sur le socle code, sans version ni provenance', async () => {
     const r = await resolvedAuthorityDetail('SN', ORG)
 
-    expect(r).toEqual({ detail: authorityDetail('SN'), provenance: {}, versionLabel: null })
+    expect(r).toEqual({
+      detail: authorityDetail('SN'),
+      provenance: {},
+      versionLabel: null,
+      adapted: [],
+    })
   })
 
   it('pays inconnu des deux sources → null (EmptyState — distinct du undefined de chargement)', async () => {

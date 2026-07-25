@@ -147,6 +147,9 @@ function AuthorityListRow({ row }: { row: AuthorityRow }) {
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-1.5">
+        {row.adapted ? (
+          <StatusBadge tone="warning">{t({ fr: 'Adapté', en: 'Adapted' })}</StatusBadge>
+        ) : null}
         {row.hasProfile ? (
           <StatusBadge tone="info">
             <Receipt />

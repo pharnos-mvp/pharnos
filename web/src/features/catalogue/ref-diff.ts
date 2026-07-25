@@ -9,6 +9,7 @@ import {
   type RefProvenance,
   type ResolvedAuthority,
 } from './ref-content'
+import { overridesByCountry } from './ref-overrides'
 import {
   entriesForCountry,
   isPlainObject as isObj,
@@ -36,11 +37,27 @@ export interface RefDiffRow {
   after: string
 }
 
+/**
+ * Champ que la version candidate MODIFIE mais que l'org a ADAPTÉ (0077) : il ne changera pas à
+ * l'adoption. Annoncé à part — le mettre dans `rows` ferait croire à l'admin que ses courriers
+ * vont changer de destinataire, alors que sa valeur locale gagne (et c'est le contrat P4.3).
+ */
+export interface RefKeptRow {
+  country: string
+  field: Translatable
+  /** Ce que la nouvelle version propose officiellement. */
+  official: string
+  /** Ce que l'org continuera d'utiliser. */
+  local: string
+}
+
 export interface RefUpdatePreview {
   target: RefVersionRecord
   /** Version actuellement appliquée à l'org (libellé), null si aucune. */
   ceilingLabel: string | null
   rows: RefDiffRow[]
+  /** Champs adaptés localement que cette version NE changera PAS (P4.3). */
+  kept: RefKeptRow[]
   /** Sources citées par les entrées entrantes, dédupliquées (bloc « Source officielle »). */
   sources: RefProvenance[]
 }
@@ -160,9 +177,16 @@ export async function refUpdatePreview(
 
   const before = upTo(state, fromRank)
   const after = upTo(state, targetRank)
+  const overridesAll = await overridesByCountry(orgId)
   const rows: RefDiffRow[] = []
+  const kept: RefKeptRow[] = []
   for (const country of [...new Set(incomingEntries.map((e) => e.country))].sort()) {
     const entries = await entriesForCountry(country)
+    // Le diff se lit sur le contenu OFFICIEL des deux côtés (c'est bien lui qui change), mais un
+    // champ ADAPTÉ par l'org ne bougera PAS à l'adoption : l'annoncer comme « avant → après »
+    // serait un mensonge actif (l'admin croirait ses lettres redirigées). On le sort du diff et on
+    // l'annonce explicitement comme CONSERVÉ.
+    const adaptedPaths = new Set([...(overridesAll.get(country) ?? new Map()).keys()])
     const a = fieldsOf(resolveAuthority(country, entries, before, state.rank), lang)
     const b = fieldsOf(resolveAuthority(country, entries, after, state.rank), lang)
     for (const key of new Set([...a.keys(), ...b.keys()])) {
@@ -170,6 +194,15 @@ export async function refUpdatePreview(
       const bv = b.get(key)
       if (av?.value === bv?.value) continue
       const meta = bv ?? av!
+      if (adaptedPaths.has(key)) {
+        kept.push({
+          country,
+          field: meta.field,
+          official: bv?.value ?? '',
+          local: (overridesAll.get(country)?.get(key)?.value ?? '') as string,
+        })
+        continue
+      }
       rows.push({
         country,
         section: meta.section,
@@ -195,6 +228,7 @@ export async function refUpdatePreview(
     target,
     ceilingLabel: state.versions.find((v) => v.id === fromId)?.label ?? null,
     rows,
+    kept,
     sources,
   }
 }

@@ -82,6 +82,18 @@ async function seed() {
     adoptedAt: ts,
     adoptedByEmail: 'admin@ex.com',
   })
+  // Adaptation locale (0077) : la plus CONFIDENTIELLE des tables tenant (note interne, destinataire
+  // adapté) — sa présence ici est ce qui rend la garde « toutes les tables vides » non tautologique.
+  await db.orgRefOverrides.add({
+    id: 'org-a|SN|notes.internal',
+    orgId: 'org-a',
+    country: 'SN',
+    fieldPath: 'notes.internal',
+    value: 'confidentiel : remettre au DG en personne',
+    updatedByEmail: 'admin@ex.com',
+    createdAt: ts,
+    updatedAt: ts,
+  })
   localStorage.setItem('pharnos.lastPull.dossiers.org-a', ts)
   localStorage.setItem('pharnos.orgId', 'org-a')
 }

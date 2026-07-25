@@ -132,7 +132,53 @@ ci-dessous sont des features post-pilotes qui ne bloquent pas le gate.
 Chaque phase = 1 à 2 PR, revue `code-reviewer` systématique, CI job-par-job, migration appliquée
 et vérifiée en prod AVANT le merge du code qui la consomme.
 
-**Prochaine migration libre : 0077.**
+**Prochaine migration libre : 0078.**
+
+**P4.3 livré — adaptations locales (migration `0077`, appliquée prod avant merge)** : la seconde
+moitié du contrat, « la donnée officielle SE PROPOSE, la donnée LOCALE SE RESPECTE ».
+- `org_ref_overrides` (tenant) : `(org_id, country, field_path, value jsonb)`, unique par couple
+  métier. **Frontière produit GRAVÉE EN CONTRAINTE** (`org_ref_overrides_path_chk`) : adaptables =
+  `agency.directeur|sexe|adresse|telephone|email` + `notes.internal` ; **refusés = tout montant/
+  délai/échantillon ET `agency.name`/`full`** (identité officielle de l'agence). Décision CEO : un
+  barème est opposable, il se cite et se publie — il ne se bricole pas par client. L'UI peut
+  mentir, la base non.
+- **Table ÉCRIVABLE PAR LE CLIENT** (≠ `org_ref_adoptions` écrite par RPC) : l'app est
+  offline-first et l'outbox pousse en `upsert` PostgREST. Gardes : RLS écriture = **admin d'org**
+  (insert/update/delete), RESTRICTIVE CS1 fail-safe, whitelist en CHECK, et **trigger
+  `stamp_ref_override`** qui pose `updated_by`/`updated_by_email`/`updated_at` côté SERVEUR (un
+  client hors ligne ne signe pas une adaptation au nom d'un autre ; `created_at` immuable).
+  pgTAP `org_ref_overrides_rls` : 14 assertions (non-admin, cross-org, montant refusé, sigle
+  refusé, pays non normalisé, anti-usurpation d'auteur, lecture positive, CS1, isolation, retrait).
+- **Ordre de résolution FIGÉ : socle code ← version publiée applicable ← ADAPTATION LOCALE** (la
+  locale a le dernier mot), appliqué aux CINQ points d'entrée (`resolvedAuthorityDetail`,
+  `…AtVersion`, `resolvedAgencyBlock` + son repli, `loadRefCountryLookup`,
+  `resolvedAuthorityRows`). **Les adaptations s'appliquent AUSSI sous une version épinglée** :
+  l'épinglage fige le contenu opposable (barèmes, exigences), pas le destinataire courant — une
+  lettre éditée aujourd'hui part au bon interlocuteur, même sur un dossier ancien.
+- **La civilité est RECALCULÉE** après adaptation (sinon une lettre s'adresse à « Madame la
+  Directrice » sous un nom d'homme). Une valeur locale illisible (type inattendu, chaîne vide) est
+  IGNORÉE — même philosophie défensive que les payloads publiés.
+- UI fiche Autorité : badge « Adapté · N », marquage par champ, note interne encadrée, dialog
+  « Adapter à mon organisation » **admin-only** (valeur officielle en repère + « revenir à la
+  valeur officielle » = champ vidé), `officialAgency` conservée dans le résultat résolu plutôt
+  qu'une seconde résolution (coût de page doublé sinon).
+- **Fraîcheur : la clé `pays|version` reste une clé d'IDENTITÉ** (tout ce que le hook peut
+  vérifier sans relire l'IDB). Y glisser une « révision d'adaptations » serait invérifiable donc
+  trompeur : la fraîcheur vient de ce que le résolveur LIT `orgRefOverrides` **dans** la
+  live-query → Dexie ré-exécute dès qu'une adaptation change. Ne jamais sortir cette lecture.
+- **Push reformulé en réconciliation d'ÉTAT, pas en rejeu d'OPÉRATIONS** : `db.outbox.where(...)`
+  rend les items dans l'ordre de la clé primaire (uuid **aléatoire**), jamais d'insertion → un
+  `delete` pouvait partir AVANT son `create` et laisser une ligne serveur orpheline. Désormais :
+  regroupement par ligne, présente localement → `upsert`, absente → `delete`. L'`orgId` voyage
+  dans le payload du `delete` (la ligne locale n'existe plus : sans lui, un membre multi-orgs
+  ferait drainer l'op par le mauvais cycle et la ligne survivrait au serveur, en silence).
+- Bug attrapé par les tests pendant le build : une première version « annulait » une civilité
+  invalide via `adapted.pop()` — ce qui retirait l'entrée PRÉCÉDENTE (destinataire bien adapté
+  privé de son badge). Remplacé par du code explicite + test de régression.
+- **Reste de P4.3 : le SIGNALEMENT DE CONFLIT** à l'adoption (une version publiée qui touche un
+  `field_path` adapté doit être annoncée dans le dialog de consentement — aujourd'hui la valeur
+  locale gagne silencieusement, ce qui est le comportement voulu mais mérite d'être dit).
+  Slice suivante, à ne pas confondre avec du différé optionnel.
 
 ---
 

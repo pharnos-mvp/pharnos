@@ -9,6 +9,7 @@ import {
   db,
   type DocumentRecord,
   type DossierRecord,
+  type OrgRefOverrideRecord,
   type RefEntryRecord,
   type RefVersionRecord,
 } from '@/lib/db'
@@ -19,6 +20,12 @@ import {
   type AuthorityDetail,
   type AuthorityRow,
 } from './authorities-data'
+import {
+  OVERRIDE_PATHS,
+  overridesByCountry,
+  overridesForCountry,
+  type OverridePath,
+} from './ref-overrides'
 import {
   entriesForCountry,
   isPlainObject,
@@ -60,6 +67,18 @@ export interface ResolvedAuthority {
   provenance: Partial<Record<SectionKey, RefProvenance>>
   /** Version du référentiel qui fournit le contenu ; null = socle code seul (hors-ligne, vide). */
   versionLabel: string | null
+  /** Champs ADAPTÉS localement par l'org (0077, P4.3) — badge « Adapté » + retour à l'officiel. */
+  adapted: OverridePath[]
+  /**
+   * Agence telle qu'elle est OFFICIELLEMENT (socle ← version publiée), AVANT adaptations — la
+   * valeur de repère de l'éditeur (« Officiel : … ») et du bouton « revenir à l'officiel ».
+   * Conservée ici plutôt que re-résolue : une seconde résolution doublerait le coût de la page.
+   */
+  officialAgency?: AgencyInfo
+  /** Note interne de l'org pour ce pays (jamais publiée, jamais dans un courrier). */
+  internalNote?: string
+  /** E-mail de l'admin ayant posé la dernière adaptation (estampille serveur). */
+  adaptedByEmail?: string
 }
 
 // ─── Normalisation défensive des payloads jsonb ───────────────────────────────────────────────
@@ -214,7 +233,7 @@ export function resolveAuthority(
   }
 
   const asFallback = (): ResolvedAuthority | null =>
-    fallback ? { detail: fallback, provenance: {}, versionLabel: null } : null
+    fallback ? { detail: fallback, provenance: {}, versionLabel: null, adapted: [] } : null
 
   if (picked.size === 0) return asFallback()
 
@@ -268,6 +287,81 @@ export function resolveAuthority(
     },
     provenance,
     versionLabel: latest?.label ?? null,
+    adapted: [],
+  }
+}
+
+// ─── Adaptations locales (0077, P4.3) : « la donnée locale se respecte » ───────────────────────
+
+/**
+ * Superpose les adaptations de l'org sur une fiche résolue. Appliquées APRÈS la version officielle
+ * et **indépendamment de l'épinglage d'un dossier** : l'épinglage fige le contenu OPPOSABLE
+ * (barèmes, exigences), pas le destinataire courant — une lettre éditée aujourd'hui doit partir au
+ * bon interlocuteur, même sur un dossier ancien.
+ *
+ * Défensif comme les payloads publiés : une valeur locale illisible (type inattendu, chaîne vide)
+ * est IGNORÉE plutôt que rendue — la valeur officielle reste alors affichée.
+ */
+export function overrideAgency(
+  base: AgencyInfo,
+  overrides: Map<string, OrgRefOverrideRecord>,
+): { agency: AgencyInfo; adapted: OverridePath[] } {
+  if (overrides.size === 0) return { agency: base, adapted: [] }
+  const agency: AgencyInfo = { ...base }
+  const adapted: OverridePath[] = []
+  const str = (path: OverridePath): string | undefined => {
+    const v = overrides.get(path)?.value
+    return typeof v === 'string' && v.trim() !== '' ? v.trim() : undefined
+  }
+  // Texte libre : la valeur locale prime dès qu'elle est lisible.
+  const TEXT: [OverridePath, (v: string) => void][] = [
+    ['agency.directeur', (v) => (agency.directeur = v)],
+    ['agency.adresse', (v) => (agency.adresse = v)],
+    ['agency.telephone', (v) => (agency.telephone = v)],
+    ['agency.email', (v) => (agency.email = v)],
+  ]
+  for (const [path, apply] of TEXT) {
+    const v = str(path)
+    if (v === undefined) continue
+    apply(v)
+    adapted.push(path)
+  }
+  // Civilité : seules 'M'/'F' ont un sens — toute autre valeur laisse l'officielle en place et
+  // n'est PAS comptée comme adaptée (sinon le badge mentirait sur un champ resté officiel).
+  const sexe = str('agency.sexe')
+  if (sexe === 'M' || sexe === 'F') {
+    agency.sexe = sexe
+    adapted.push('agency.sexe')
+  }
+  if (str('notes.internal') !== undefined) adapted.push('notes.internal')
+  // L'ordre de `adapted` suit la whitelist, pas l'ordre d'insertion des adaptations.
+  adapted.sort((a, b) => OVERRIDE_PATHS.indexOf(a) - OVERRIDE_PATHS.indexOf(b))
+
+  return { agency, adapted }
+}
+
+/** Idem, appliqué à une fiche complète : recalcule la civilité et expose la trace d'adaptation. */
+export function applyOverrides(
+  resolved: ResolvedAuthority,
+  overrides: Map<string, OrgRefOverrideRecord>,
+): ResolvedAuthority {
+  if (overrides.size === 0) return resolved
+  const { agency, adapted } = overrideAgency(resolved.detail.agency, overrides)
+  const note = overrides.get('notes.internal')?.value
+  const lastStamp = [...overrides.values()]
+    .filter((o) => adapted.includes(o.fieldPath as OverridePath))
+    .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
+    .at(-1)
+
+  return {
+    ...resolved,
+    // La civilité DÉRIVE du destinataire : adapter le nom ou le sexe doit la recalculer, sinon une
+    // lettre s'adresse à « Madame la Directrice » sous un nom d'homme (ou l'inverse).
+    detail: { ...resolved.detail, agency, civilite: agencyCivilite(agency) },
+    adapted,
+    officialAgency: resolved.detail.agency,
+    internalNote: typeof note === 'string' && note.trim() !== '' ? note.trim() : undefined,
+    adaptedByEmail: lastStamp?.updatedByEmail || undefined,
   }
 }
 
@@ -279,9 +373,16 @@ export async function resolvedAuthorityDetail(
   code: string,
   orgId: string,
 ): Promise<ResolvedAuthority | null> {
-  const [state, entries] = await Promise.all([loadRefState(orgId), entriesForCountry(code)])
+  // La lecture des adaptations reste DANS la live-query : Dexie ré-exécute donc la résolution dès
+  // qu'une adaptation change (c'est ce qui garantit la fraîcheur, cf. note de `ref-overrides`).
+  const [state, entries, overrides] = await Promise.all([
+    loadRefState(orgId),
+    entriesForCountry(code),
+    overridesForCountry(orgId, code),
+  ])
   const allowed = state.ceiling ? upTo(state, state.rank.get(state.ceiling.id)!) : []
-  return resolveAuthority(code, entries, allowed, state.rank)
+  const resolved = resolveAuthority(code, entries, allowed, state.rank)
+  return resolved ? applyOverrides(resolved, overrides) : null
 }
 
 /**
@@ -324,7 +425,9 @@ export async function resolvedAgencyBlock(
       officialLang: r.detail.officialLang,
     }
   }
-  const agency = agencyFor(country)
+  // Pays inconnu des deux sources : générique du socle, mais les adaptations locales s'appliquent
+  // quand même (une org peut avoir renseigné le destinataire d'un pays pas encore curé).
+  const { agency } = overrideAgency(agencyFor(country), await overridesForCountry(orgId, country))
   return { key, agency, civilite: agencyCivilite(agency), officialLang: officialLanguage(country) }
 }
 
@@ -338,8 +441,14 @@ export async function resolvedAgencyBlock(
 async function loadRefCountryIndex(orgId: string): Promise<{
   agencies: Map<string, AgencyPatch>
   fees: Set<string>
+  overrides: Map<string, Map<string, OrgRefOverrideRecord>>
 }> {
-  const [state, all] = await Promise.all([loadRefState(orgId), db.refEntries.toArray()])
+  const [state, all, overrides] = await Promise.all([
+    loadRefState(orgId),
+    db.refEntries.toArray(),
+    // UNE requête pour toutes les adaptations de l'org (anti N+1 sur les surfaces liste).
+    overridesByCountry(orgId),
+  ])
   const ceilingRank = state.ceiling ? state.rank.get(state.ceiling.id)! : -1
   const allowed = new Set(upTo(state, ceilingRank).map((v) => v.id))
   const best = new Map<string, { rank: number; agency: AgencyPatch }>()
@@ -358,22 +467,25 @@ async function loadRefCountryIndex(orgId: string): Promise<{
       fees.add(code)
     }
   }
-  return { agencies: new Map([...best].map(([c, v]) => [c, v.agency])), fees }
+  return { agencies: new Map([...best].map(([c, v]) => [c, v.agency])), fees, overrides }
 }
 
 export async function loadRefCountryLookup(
   orgId: string,
 ): Promise<(country: string) => { agency: AgencyInfo; officialLang: string }> {
-  const { agencies } = await loadRefCountryIndex(orgId)
+  const { agencies, overrides } = await loadRefCountryIndex(orgId)
+  const EMPTY = new Map<string, OrgRefOverrideRecord>()
   return (country) => {
     const patch = agencies.get(country)
     const base = agencyFor(country)
-    return patch
-      ? {
-          agency: mergeAgency(patch, base),
-          officialLang: patch.officialLang ?? officialLanguage(country),
-        }
-      : { agency: base, officialLang: officialLanguage(country) }
+    // Officiel d'abord (socle ← version publiée), adaptation locale ENSUITE : c'est l'ordre de
+    // priorité du contrat P4.3 — la donnée locale a toujours le dernier mot.
+    const official = patch ? mergeAgency(patch, base) : base
+    const { agency } = overrideAgency(official, overrides.get(country) ?? EMPTY)
+    return {
+      agency,
+      officialLang: patch?.officialLang ?? officialLanguage(country),
+    }
   }
 }
 
@@ -390,21 +502,24 @@ export async function resolvedAuthorityRows(
 ): Promise<AuthorityRow[]> {
   const rows = buildAuthorityRows(dossiers, documents)
   const known = new Set(rows.map((r) => r.code))
-  const { agencies, fees } = await loadRefCountryIndex(orgId)
-  const resolve = (code: string): { agency: AgencyInfo; officialLang: string } => {
+  const { agencies, fees, overrides } = await loadRefCountryIndex(orgId)
+  const EMPTY = new Map<string, OrgRefOverrideRecord>()
+  const resolve = (
+    code: string,
+  ): { agency: AgencyInfo; officialLang: string; adapted: boolean } => {
     const patch = agencies.get(code)
-    const base = agencyFor(code)
-    return patch
-      ? {
-          agency: mergeAgency(patch, base),
-          officialLang: patch.officialLang ?? officialLanguage(code),
-        }
-      : { agency: base, officialLang: officialLanguage(code) }
+    const official = patch ? mergeAgency(patch, agencyFor(code)) : agencyFor(code)
+    const { agency, adapted } = overrideAgency(official, overrides.get(code) ?? EMPTY)
+    return {
+      agency,
+      officialLang: patch?.officialLang ?? officialLanguage(code),
+      adapted: adapted.length > 0,
+    }
   }
 
   const overlaid = rows.map((r) => {
-    const { agency, officialLang } = resolve(r.code)
-    return { ...r, agency, officialLang, hasProfile: r.hasProfile || fees.has(r.code) }
+    const { agency, officialLang, adapted } = resolve(r.code)
+    return { ...r, agency, officialLang, adapted, hasProfile: r.hasProfile || fees.has(r.code) }
   })
   const activeDossiers = dossiers.filter((d) => d.deletedAt == null)
   const activeAmm = documents.filter((d) => d.deletedAt == null && d.docType === 'amm')
@@ -412,11 +527,12 @@ export async function resolvedAuthorityRows(
     .filter((code) => !known.has(code))
     .sort()
     .map((code) => {
-      const { agency, officialLang } = resolve(code)
+      const { agency, officialLang, adapted } = resolve(code)
       return {
         code,
         agency,
         officialLang,
+        adapted,
         hasProfile: fees.has(code),
         dossierCount: activeDossiers.filter((d) => d.country === code).length,
         ammCount: activeAmm.filter((d) => d.country?.trim() === code).length,
@@ -436,7 +552,13 @@ export async function resolvedAuthorityDetailAtVersion(
   versionId: string | null,
 ): Promise<ResolvedAuthority | null> {
   if (!versionId) return resolvedAuthorityDetail(code, orgId)
-  const [state, entries] = await Promise.all([loadRefState(orgId), entriesForCountry(code)])
+  const [state, entries, overrides] = await Promise.all([
+    loadRefState(orgId),
+    entriesForCountry(code),
+    // Les adaptations LOCALES s'appliquent aussi sous une version épinglée : l'épinglage fige le
+    // contenu opposable (barèmes, exigences), pas le destinataire courant des courriers.
+    overridesForCountry(orgId, code),
+  ])
   // BORNÉ AU PLAFOND ADOPTÉ : `dossiers.ref_version_id` est une colonne cliente (RLS = rôles
   // éditeurs). Sans ce min, un éditeur non-admin pouvait y écrire l'id d'une version que son org
   // n'a PAS consentie et s'en servir le barème — contournement du gate « admin seul ». Le trigger
@@ -444,5 +566,11 @@ export async function resolvedAuthorityDetailAtVersion(
   const ceilingRank = state.ceiling ? state.rank.get(state.ceiling.id)! : -1
   const pinnedRank = state.rank.get(versionId)
   const maxRank = pinnedRank === undefined ? -1 : Math.min(pinnedRank, ceilingRank)
-  return resolveAuthority(code, entries, maxRank < 0 ? [] : upTo(state, maxRank), state.rank)
+  const resolved = resolveAuthority(
+    code,
+    entries,
+    maxRank < 0 ? [] : upTo(state, maxRank),
+    state.rank,
+  )
+  return resolved ? applyOverrides(resolved, overrides) : null
 }

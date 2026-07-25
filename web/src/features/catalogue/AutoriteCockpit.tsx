@@ -20,6 +20,8 @@ import {
   resolvedAuthorityDetail,
   type RefProvenance,
 } from './ref-content'
+import { RefOverrideDialog, type OverrideField } from './RefOverrideDialog'
+import type { OverridePath } from './ref-overrides'
 import { RefUpdateBanner } from './RefUpdateBanner'
 
 const LANG_FULL: Record<string, Translatable> = {
@@ -40,6 +42,31 @@ export function AutoriteCockpit() {
   const detail = resolved?.detail ?? fallback
   const provenance = resolved?.provenance
   const versionLabel = resolved?.versionLabel ?? null
+  // Adaptations locales (P4.3) : le résolveur les a déjà appliquées — ici on ne fait que les
+  // SIGNALER (badge « Adapté ») et offrir l'édition. La valeur OFFICIELLE de repère du formulaire
+  // vient du socle/version, donc du détail NON adapté.
+  const adapted = resolved?.adapted ?? []
+  const isAdapted = (path: OverridePath) => adapted.includes(path)
+  const overrideFields: OverrideField[] = useMemo(() => {
+    // Repère officiel : l'agence AVANT adaptations quand il y en a, sinon l'agence résolue.
+    const off = resolved?.officialAgency ?? resolved?.detail.agency ?? fallback?.agency
+    const cur = resolved?.detail.agency
+    const a = resolved?.adapted ?? []
+    const f = (path: OverridePath, officialValue: string, localValue: string): OverrideField => ({
+      path,
+      official: officialValue,
+      local: a.includes(path) ? localValue : '',
+      adapted: a.includes(path),
+    })
+    return [
+      f('agency.directeur', off?.directeur ?? '', cur?.directeur ?? ''),
+      f('agency.sexe', off?.sexe ?? '', cur?.sexe ?? ''),
+      f('agency.adresse', off?.adresse ?? '', cur?.adresse ?? ''),
+      f('agency.telephone', off?.telephone ?? '', cur?.telephone ?? ''),
+      f('agency.email', off?.email ?? '', cur?.email ?? ''),
+      f('notes.internal', '', resolved?.internalNote ?? ''),
+    ]
+  }, [resolved, fallback])
 
   useTopbar({
     title: detail?.agency.name,
@@ -124,24 +151,67 @@ export function AutoriteCockpit() {
                   {t({ fr: 'Référentiel', en: 'Reference data' })} {versionLabel}
                 </StatusBadge>
               ) : null}
+              {adapted.length > 0 ? (
+                <StatusBadge tone="warning">
+                  {t({ fr: 'Adapté', en: 'Adapted' })} · {adapted.length}
+                </StatusBadge>
+              ) : null}
             </div>
           </div>
+          {/* Adapter = admin d'org seul (le dialog se masque de lui-même sinon). */}
+          <RefOverrideDialog
+            country={code}
+            orgId={orgId}
+            fields={overrideFields}
+            onDone={() => undefined}
+          />
         </div>
 
         <dl className="mt-5 grid gap-x-8 gap-y-3 sm:grid-cols-2">
           <Field
             label={t({ fr: 'Destinataire des lettres', en: 'Letter recipient' })}
             value={[detail.civilite, agency.directeur].filter(Boolean).join(' — ')}
+            adapted={isAdapted('agency.directeur') || isAdapted('agency.sexe')}
           />
-          <Field label={t({ fr: 'Adresse', en: 'Address' })} value={agency.adresse} />
+          <Field
+            label={t({ fr: 'Adresse', en: 'Address' })}
+            value={agency.adresse}
+            adapted={isAdapted('agency.adresse')}
+          />
           {agency.telephone ? (
-            <Field label={t({ fr: 'Téléphone', en: 'Phone' })} value={agency.telephone} />
+            <Field
+              label={t({ fr: 'Téléphone', en: 'Phone' })}
+              value={agency.telephone}
+              adapted={isAdapted('agency.telephone')}
+            />
           ) : null}
           {agency.email ? (
-            <Field label={t({ fr: 'E-mail', en: 'Email' })} value={agency.email} />
+            <Field
+              label={t({ fr: 'E-mail', en: 'Email' })}
+              value={agency.email}
+              adapted={isAdapted('agency.email')}
+            />
           ) : null}
         </dl>
         <SourceLine provenance={provenance?.agency} />
+        {adapted.length > 0 ? (
+          <p className="text-muted-foreground mt-1 text-xs">
+            {t({
+              fr: 'Valeurs adaptées par votre organisation — une mise à jour du référentiel ne les écrasera pas',
+              en: 'Values adapted by your organisation — a reference-data update will not overwrite them',
+            })}
+            {resolved?.adaptedByEmail ? ` · ${resolved.adaptedByEmail}` : ''}
+          </p>
+        ) : null}
+        {resolved?.internalNote ? (
+          <p className="border-info/30 bg-info-subtle/50 mt-3 rounded-lg border p-2.5 text-sm">
+            <span className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+              {t({ fr: 'Note interne', en: 'Internal note' })}
+            </span>
+            <br />
+            {resolved.internalNote}
+          </p>
+        ) : null}
       </div>
 
       {/* Exigences nationales (barème) */}
@@ -302,12 +372,26 @@ function SourceLine({ provenance }: { provenance?: RefProvenance }) {
   )
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({
+  label,
+  value,
+  adapted = false,
+}: {
+  label: string
+  value: string
+  /** Champ dont la valeur vient de l'ORG, pas du référentiel officiel (P4.3). */
+  adapted?: boolean
+}) {
   const { t } = useI18n()
   return (
     <div className="min-w-0">
-      <dt className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
+      <dt className="text-muted-foreground flex items-center gap-1.5 text-[11px] font-semibold tracking-wide uppercase">
         {label}
+        {adapted ? (
+          <span className="text-warning-subtle-foreground normal-case">
+            · {t({ fr: 'adapté', en: 'adapted' })}
+          </span>
+        ) : null}
       </dt>
       <dd className="mt-0.5 text-sm break-words">
         {value || <span className="text-muted-foreground/60">{t({ fr: '—', en: '—' })}</span>}
