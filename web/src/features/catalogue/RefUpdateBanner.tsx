@@ -225,13 +225,47 @@ export function RefUpdateBanner({ country }: { country?: string }) {
                 </tbody>
               </table>
             </div>
-          ) : preview && preview.kept.length === 0 ? (
+          ) : preview && preview.kept.length === 0 && preview.structure.length === 0 ? (
             <p className="text-muted-foreground text-sm">
               {t({
                 fr: 'Cette version ne modifie aucune valeur que vous affichez aujourd’hui.',
                 en: 'This version changes none of the values you currently display.',
               })}
             </p>
+          ) : null}
+
+          {/* Structure du Module 1 (P4.5) — JAMAIS silencieuse : sans ce bloc, une version qui ne
+              porte qu'un changement d'arborescence s'annonçait « sans effet » juste avant de
+              changer le plan de montage de tous les futurs dossiers du pays. */}
+          {preview && preview.structure.length > 0 ? (
+            <div className="border-info/30 bg-info-subtle/50 space-y-1.5 rounded-lg border p-2.5">
+              <p className="text-xs font-semibold">
+                {t({
+                  fr: 'Structure du Module 1 — vos PROCHAINS dossiers',
+                  en: 'Module 1 structure — your NEXT submissions',
+                })}
+              </p>
+              {preview.structure.map((s, i) => (
+                <p key={i} className="text-muted-foreground text-xs">
+                  <span className="inline-flex items-center gap-1.5">
+                    <CountryFlag code={s.country} size={12} />
+                    <span className="font-mono font-semibold">{s.number}</span>
+                  </span>
+                  {' — '}
+                  {s.kind === 'remove'
+                    ? t({ fr: 'plus exigée', en: 'no longer required' })
+                    : s.kind === 'add'
+                      ? `${t({ fr: 'nouvelle section', en: 'new section' })} : ${s.label ?? ''}`
+                      : `${t({ fr: 'intitulé', en: 'title' })} : ${s.label ?? ''}`}
+                </p>
+              ))}
+              <p className="text-muted-foreground text-[11px]">
+                {t({
+                  fr: 'Vos dossiers EXISTANTS ne changent pas : chacun se met à jour depuis son propre écran, section par section.',
+                  en: 'Your EXISTING submissions do not change: each one updates from its own screen, section by section.',
+                })}
+              </p>
+            </div>
           ) : null}
 
           {/* Champs ADAPTÉS que cette version ne changera PAS — sans ce bloc, le tableau ci-dessus

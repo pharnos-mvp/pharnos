@@ -57,6 +57,7 @@ import {
   setUserSignature,
 } from '@/features/profile/pro-settings-repository'
 import { useProSettingsSync } from '@/features/profile/use-pro-settings-sync'
+import { resolvedModule1Tree } from '@/features/catalogue/ref-content'
 import { db, type DossierAttachmentRecord, type GeneratedDocRecord } from '@/lib/db'
 import { env } from '@/lib/env'
 import { UPLOAD_ACCEPT } from '@/lib/files'
@@ -100,7 +101,7 @@ import { useDossierSync } from './use-dossier-sync'
 import { useGeneratedDocsSync } from './use-generated-docs-sync'
 import { useLifecycleSync } from './use-lifecycle-sync'
 import { buildAuditReport, type AuditReport } from './audit-report'
-import { docTypeForNode, getModule1Tree, type CtdNodeDef } from './module1-tree'
+import { docTypeForNode, type CtdNodeDef } from './module1-tree'
 import { useRefAgency } from '@/features/catalogue/use-ref-agency'
 import { agencyCivilite, agencyFor, officialLanguage } from './roadmap-data'
 import { PdfPreviewDialog } from './PdfPreviewDialog'
@@ -540,33 +541,61 @@ export function DossierWorkspacePage() {
     })()
   }, [dossier, genDocs, product, branding, orgId, lang])
 
-  // Comparaison à l'arbre par défaut de CE dossier — TOUJOURS avec son activité + variations, sinon
-  // un dossier d'enregistrement (sans 1.2.7) ou de variation (arbre taillé) paraîtrait « périmé » face
-  // à l'arbre d'enregistrement complet, et l'auto-fusion re-grefferait des nœuds non voulus.
+  // Arbre par défaut de CE dossier — TOUJOURS avec son activité + variations, sinon un dossier
+  // d'enregistrement (sans 1.2.7) ou de variation (arbre taillé) paraîtrait « périmé » face à
+  // l'arbre d'enregistrement complet, et l'auto-fusion re-grefferait des nœuds non voulus.
+  // Deux structures RÉSOLUES, deux usages distincts (P4.5) — chacune porte sa CLÉ d'identité :
+  // `useLiveQuery` conserve son résultat précédent quand ses deps changent, donc un arbre calculé
+  // pour un AUTRE dossier/pays pourrait être servi puis PERSISTÉ par une fusion (leçon #416).
+  const treeKey = dossier
+    ? `${dossier.id}|${dossier.country}|${dossier.format}|${dossier.activity ?? ''}|${dossier.refVersionId ?? ''}`
+    : ''
+  const structures = useLiveQuery(async () => {
+    if (!dossier) return undefined
+    const q = {
+      country: dossier.country,
+      orgId,
+      format: dossier.format,
+      activity: dossier.activity,
+      variations: dossier.variations,
+      refVersionId: dossier.refVersionId ?? null,
+    }
+    const [official, autoTarget] = await Promise.all([
+      resolvedModule1Tree(q),
+      // Cible d'auto-fusion : le socle MOINS les retraits/renommages du pays. Les `add` publiés
+      // en sont exclus — ils exigent le clic de l'utilisateur.
+      resolvedModule1Tree({ ...q, kinds: ['remove', 'relabel'] }),
+    ])
+    return { key: treeKey, official, autoTarget }
+  }, [treeKey, orgId, dossier?.variations])
+  // Résultat d'un AUTRE dossier encore en mémoire → ignoré (jamais persisté par mégarde).
+  const trees = structures?.key === treeKey ? structures : undefined
+  const resolvedTree = trees?.official
+
+  // Bannière « structure à mettre à jour » : comparée à la structure OFFICIELLE (pays + version),
+  // pas au socle — sinon un nœud exigé par le pays n'apparaîtrait jamais comme manquant.
   const structureOutdated = useMemo(
-    () =>
-      dossier
-        ? isTreeOutdated(
-            dossier.tree,
-            getModule1Tree(dossier.format, dossier.activity, dossier.variations),
-          )
-        : false,
-    [dossier],
+    () => (dossier && resolvedTree ? isTreeOutdated(dossier.tree, resolvedTree) : false),
+    [dossier, resolvedTree],
   )
 
-  // Fusion automatique de la structure à jour, une seule fois par dossier (respecte ensuite les
-  // personnalisations de l'utilisateur : une section supprimée volontairement ne revient pas).
+  // Fusion AUTOMATIQUE (une seule fois par dossier), cible = socle MOINS les retraits du pays.
+  //
+  // Un nœud qui apparaît parce que l'APPLICATION a évolué se greffe sans cérémonie (aucune décision
+  // réglementaire en jeu, comportement historique). Un nœud qui apparaît parce qu'une VERSION DU
+  // RÉFÉRENTIEL l'exige, non : ce serait appliquer une exigence nationale au dossier de quelqu'un
+  // sans son accord (invariant P4.2). Mais la cible ne peut PAS être le socle nu : un dossier neuf
+  // naît déjà privé des sections retirées par son pays, et l'auto-fusion les re-grefferait aussitôt
+  // — annulant en silence « le PGHT n'est plus exigé au Togo » (bloquant B1 de la revue P4.5).
   useEffect(() => {
-    if (!dossier || !structureOutdated) return
+    if (!dossier || !trees) return
+    if (!isTreeOutdated(dossier.tree, trees.autoTarget)) return
     const key = `pharnos.autostruct.${dossier.id}`
     if (localStorage.getItem(key)) return
     localStorage.setItem(key, '1')
-    const merged = mergeDefaultTree(
-      dossier.tree,
-      getModule1Tree(dossier.format, dossier.activity, dossier.variations),
-    )
+    const merged = mergeDefaultTree(dossier.tree, trees.autoTarget)
     void updateDossierTree(dossier.id, merged).then(() => syncDossiers(orgId))
-  }, [dossier, structureOutdated, orgId])
+  }, [dossier, trees, orgId])
 
   // À l'ouverture, sélectionne automatiquement la 1re section contenant un document (sinon la 1re
   // feuille) → l'utilisateur voit immédiatement ses pièces auto-classées sans avoir à chercher.
@@ -1339,11 +1368,19 @@ export function DossierWorkspacePage() {
     setSigPanelOpen(false)
   }
 
+  /**
+   * Mise à jour EXPLICITE de la structure (bouton de la bannière) — la seule voie par laquelle une
+   * exigence nationale publiée entre dans un dossier existant.
+   *
+   * `mergeDefaultTree` n'AJOUTE que les nœuds manquants : aucune section validée n'est touchée et
+   * AUCUN document n'est jamais supprimé, y compris si le référentiel déclare une section « plus
+   * exigée » (elle reste en place — cf. mockup P4.5 ③, `docs/mockups/ctd-structure-fusion.html`).
+   */
   async function handleUpdateStructure() {
-    const merged = mergeDefaultTree(
-      activeDossier.tree,
-      getModule1Tree(activeDossier.format, activeDossier.activity, activeDossier.variations),
-    )
+    // Jamais sans arbre résolu POUR CE DOSSIER : appliquer un socle nu (ou l'arbre d'un autre
+    // dossier encore en mémoire) écrirait une structure fausse dans une photographie opposable.
+    if (!resolvedTree) return
+    const merged = mergeDefaultTree(activeDossier.tree, resolvedTree)
     await updateDossierTree(activeDossier.id, merged)
     void syncDossiers(orgId)
     toast.success(t({ fr: 'Structure mise à jour', en: 'Structure updated' }))

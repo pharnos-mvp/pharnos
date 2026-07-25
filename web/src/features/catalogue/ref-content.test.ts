@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
+import { getModule1Tree, type CtdNodeDef } from '@/features/workspace/module1-tree'
+import { flattenTree, isTreeOutdated } from '@/features/workspace/tree-utils'
 import { db, type RefEntryRecord, type RefVersionRecord } from '@/lib/db'
 import { authorityDetail } from './authorities-data'
 import {
@@ -8,6 +10,7 @@ import {
   resolvedAuthorityDetail,
   resolvedAuthorityDetailAtVersion,
   resolvedAuthorityRows,
+  resolvedModule1Tree,
 } from './ref-content'
 import { dossierRefStatus, loadRefState, pendingRefUpdate } from './ref-state'
 import { refUpdatePreview } from './ref-diff'
@@ -407,8 +410,23 @@ describe('pendingRefUpdate — ciblage par pays', () => {
     expect(await pendingRefUpdate(ORG, 'TG')).toBeNull()
   })
 
-  it('une version en attente ne portant QUE des sections non rendues (P4.5) n’alerte pas', async () => {
-    await db.refEntries.update('e-2', { section: 'ctd_structure' })
+  it('une version ne portant QUE `ctd_structure` alerte BIEN (P4.5 : la section est rendue)', async () => {
+    // Avant P4.5, `ctd_structure` était hors liste blanche → aucune alerte (rien ne la rendait).
+    // Depuis, `resolvedModule1Tree` applique ses deltas : une structure nationale qui change EST
+    // une mise à jour à adopter, sinon les nouveaux dossiers du pays naîtraient sur l'ancien arbre
+    // sans que personne ne le sache.
+    await db.refEntries.update('e-2', {
+      section: 'ctd_structure',
+      payload: { deltas: [{ kind: 'remove', number: '1.2.6' }] },
+    })
+
+    expect((await pendingRefUpdate(ORG))?.countries).toEqual(['TG'])
+  })
+
+  it('une section VRAIMENT inconnue n’alerte toujours pas (garde-fou conservé)', async () => {
+    // Le critère d'entrée dans la liste blanche reste « un consommateur réel » : publier une
+    // section que rien ne rend ne doit jamais déclencher de bannière (piège d'origine).
+    await db.refEntries.update('e-2', { section: 'ctd_labels_v3' })
 
     expect(await pendingRefUpdate(ORG)).toBeNull()
   })
@@ -689,5 +707,157 @@ describe('dossierRefStatus — état d’épinglage', () => {
       behind: false,
       pinnedMissing: true,
     })
+  })
+})
+
+describe('resolvedModule1Tree — la structure du Module 1 par pays (P4.5)', () => {
+  const socle = () => getModule1Tree('ctd', 'new_ma')
+  const nums = (t: CtdNodeDef[]) => flattenTree(t).map((n) => n.number)
+
+  beforeEach(async () => {
+    await db.refVersions.bulkPut([
+      version({ id: 'v-1', label: 'v2026.1', publishedAt: '2026-03-01T00:00:00.000Z' }),
+      version({ id: 'v-2', label: 'v2026.2', publishedAt: '2026-07-15T00:00:00.000Z' }),
+    ])
+    await db.refEntries.put(
+      entry({
+        id: 'e-struct',
+        versionId: 'v-2',
+        country: 'TG',
+        section: 'ctd_structure',
+        payload: {
+          deltas: [
+            { kind: 'remove', number: '1.2.6' },
+            { kind: 'add', number: '1.2.9', label: 'Attestation de pharmacovigilance' },
+          ],
+        },
+        provenance: { texte: 'Arrêté 2026-042/MSHP' },
+      }),
+    )
+  })
+
+  it('sans adoption, la structure reste celle du SOCLE (aucun consentement contourné)', async () => {
+    expect(
+      nums(
+        await resolvedModule1Tree({ country: 'TG', orgId: ORG, format: 'ctd', activity: 'new_ma' }),
+      ),
+    ).toEqual(nums(socle()))
+  })
+
+  it('après adoption, applique les deltas du pays', async () => {
+    await adopt('v-2')
+
+    const out = nums(
+      await resolvedModule1Tree({ country: 'TG', orgId: ORG, format: 'ctd', activity: 'new_ma' }),
+    )
+    expect(out).not.toContain('1.2.6')
+    expect(out).toContain('1.2.9')
+  })
+
+  it('n’affecte PAS un autre pays (les deltas sont nationaux)', async () => {
+    await adopt('v-2')
+
+    expect(
+      nums(
+        await resolvedModule1Tree({ country: 'SN', orgId: ORG, format: 'ctd', activity: 'new_ma' }),
+      ),
+    ).toEqual(nums(socle()))
+  })
+
+  it('un dossier ÉPINGLÉ sur v2026.1 garde sa structure d’origine (photographie opposable)', async () => {
+    await adopt('v-2')
+
+    const pinned = await resolvedModule1Tree({
+      country: 'TG',
+      orgId: ORG,
+      format: 'ctd',
+      activity: 'new_ma',
+      refVersionId: 'v-1',
+    })
+    expect(nums(pinned)).toEqual(nums(socle()))
+    // …alors que le plafond de l'org, lui, a bien bougé.
+    const ceiling = await resolvedModule1Tree({
+      country: 'TG',
+      orgId: ORG,
+      format: 'ctd',
+      activity: 'new_ma',
+    })
+    expect(nums(ceiling)).toContain('1.2.9')
+  })
+
+  it('l’AUTO-FUSION reste bornée au socle : un delta publié n’entre jamais tout seul', async () => {
+    await adopt('v-2')
+    // Reproduit la règle du workspace : `isTreeOutdated(tree, SOCLE)` pilote l'auto-fusion,
+    // `isTreeOutdated(tree, RÉSOLU)` pilote la bannière. Un dossier monté sur le socle est donc
+    // « à jour » pour l'auto-fusion (rien ne se greffe en silence) et « périmé » pour la bannière.
+    const tree = socle()
+    expect(isTreeOutdated(tree, socle())).toBe(false)
+    expect(
+      isTreeOutdated(
+        tree,
+        await resolvedModule1Tree({ country: 'TG', orgId: ORG, format: 'ctd', activity: 'new_ma' }),
+      ),
+    ).toBe(true)
+  })
+
+  it('un payload de deltas malformé retombe sur le socle (jamais d’arbre cassé)', async () => {
+    await adopt('v-2')
+    await db.refEntries.update('e-struct', { payload: { deltas: [{ kind: 'oops' }] } })
+
+    expect(
+      nums(
+        await resolvedModule1Tree({ country: 'TG', orgId: ORG, format: 'ctd', activity: 'new_ma' }),
+      ),
+    ).toEqual(nums(socle()))
+  })
+})
+
+describe('B1 — un dossier NEUF ne se voit pas re-greffer ce que son pays a retiré', () => {
+  // Le scénario exact que la revue a trouvé : sans cible d'auto-fusion filtrée, `createDossier`
+  // faisait naître le dossier sans 1.1.2 (correct), puis l'ouverture du workspace comparait au
+  // SOCLE (qui contient 1.1.2) et re-greffait la section — annulant « le PGHT n'est plus exigé au
+  // Togo » trois secondes après, en silence et définitivement (clé localStorage posée).
+  beforeEach(async () => {
+    await db.refVersions.bulkPut([
+      version({ id: 'v-1', label: 'v2026.1', publishedAt: '2026-03-01T00:00:00.000Z' }),
+      version({ id: 'v-2', label: 'v2026.2', publishedAt: '2026-07-15T00:00:00.000Z' }),
+    ])
+    await db.refEntries.put(
+      entry({
+        id: 'e-rm',
+        versionId: 'v-2',
+        country: 'TG',
+        section: 'ctd_structure',
+        payload: { deltas: [{ kind: 'remove', number: '1.1.2' }] },
+        provenance: { texte: 'Arrêté 2026-042/MSHP' },
+      }),
+    )
+    await adopt('v-2')
+  })
+
+  it('la CIBLE d’auto-fusion ne contient pas la section retirée (donc rien à re-greffer)', async () => {
+    const q = { country: 'TG', orgId: ORG, format: 'ctd' as const, activity: 'new_ma' }
+    const officiel = await resolvedModule1Tree(q)
+    const cible = await resolvedModule1Tree({ ...q, kinds: ['remove', 'relabel'] })
+
+    expect(flattenTree(officiel).map((n) => n.number)).not.toContain('1.1.2')
+    expect(flattenTree(cible).map((n) => n.number)).not.toContain('1.1.2')
+    // Un dossier neuf (monté sur l'officiel) n'est donc PAS « périmé » face à la cible.
+    expect(isTreeOutdated(officiel, cible)).toBe(false)
+  })
+
+  it('un AJOUT publié n’entre jamais par l’auto-fusion (il attend le clic)', async () => {
+    await db.refEntries.update('e-rm', {
+      payload: { deltas: [{ kind: 'add', number: '1.2.9', label: 'Pharmacovigilance' }] },
+    })
+    const q = { country: 'TG', orgId: ORG, format: 'ctd' as const, activity: 'new_ma' }
+    const cible = await resolvedModule1Tree({ ...q, kinds: ['remove', 'relabel'] })
+
+    // La cible d'auto-fusion IGNORE l'ajout : un dossier existant ne le reçoit pas tout seul…
+    expect(flattenTree(cible).map((n) => n.number)).not.toContain('1.2.9')
+    // …mais la structure OFFICIELLE le contient, donc la bannière le proposera.
+    const officiel = await resolvedModule1Tree(q)
+    expect(flattenTree(officiel).map((n) => n.number)).toContain('1.2.9')
+    expect(isTreeOutdated(getModule1Tree('ctd', 'new_ma'), officiel)).toBe(true)
   })
 })

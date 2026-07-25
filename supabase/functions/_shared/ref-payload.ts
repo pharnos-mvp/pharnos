@@ -15,8 +15,14 @@
 // Function, testable en pur) et purement défensif — il ne corrige jamais un payload, il répond
 // « ce contenu produira-t-il quelque chose ? ».
 
-/** Sections RENDUES par le client. `ctd_structure` (P4.5) absente tant que rien ne la rend. */
-export const REF_SECTIONS = ["agency", "fees", "submission", "samples"] as const;
+/** Sections RENDUES par le client (une section que rien ne rend serait un piège à publier). */
+export const REF_SECTIONS = [
+  "agency",
+  "fees",
+  "submission",
+  "samples",
+  "ctd_structure",
+] as const;
 export type RefSection = typeof REF_SECTIONS[number];
 
 export function isRefSection(v: unknown): v is RefSection {
@@ -41,6 +47,52 @@ export function isUsefulNumber(v: unknown): boolean {
 }
 
 const FEE_KEYS = ["new_ma", "renewal", "variation_minor", "variation_major"] as const;
+
+// ── Structure du Module 1 (P4.5) ───────────────────────────────────────────────────────────────
+// L'arborescence du Module 1 est le SEUL module CTD qui varie par pays (« checking standard »).
+// Elle vient du socle code (`getModule1Tree`) ; une entrée `ctd_structure` publie des DELTAS par
+// pays plutôt qu'un arbre complet : un arbre complet publié figerait le pays hors de toute
+// évolution du socle (nouveaux formats, corrections) et rendrait la moindre coquille catastrophique.
+
+/** Numérotation CTD — c'est l'IDENTITÉ d'un nœud : elle ne se renomme jamais. */
+const CTD_NUMBER_RE = /^\d+(\.\d+)*$/;
+export const CTD_DELTA_KINDS = ["add", "remove", "relabel"] as const;
+/** Formats d'arbre visés par un delta ; absent = les deux. */
+export const CTD_FORMATS = ["ctd", "ectd"] as const;
+
+/**
+ * Un delta est-il APPLICABLE par le client ? (miroir de `applyStructureDeltas`, ref-structure.ts)
+ * - `add` : numéro valide + libellé non vide (le parent est déduit du numéro, `1.2.9` → `1.2`) ;
+ * - `remove` : numéro valide (« plus exigé » — le client ne supprime QUE du vide, cf. P4.5c) ;
+ * - `relabel` : numéro valide + libellé non vide.
+ * `activities` optionnel borne le delta (décision A : par défaut toutes les activités, une
+ * restriction explicite reste possible SANS changer la forme du payload).
+ */
+function ctdDeltaEffective(v: unknown): boolean {
+  if (!isObj(v)) return false;
+  const kind = v.kind;
+  if (typeof kind !== "string" || !(CTD_DELTA_KINDS as readonly string[]).includes(kind)) {
+    return false;
+  }
+  // TRIM avant test, comme le client (`deltaFromPayload`) : sans lui, « 1.1.2 » entouré d'espaces
+  // était refusé ici et appliqué là-bas — divergence invisible à l'œil (Major M5, revue P4.5).
+  const number = typeof v.number === "string" ? v.number.trim() : "";
+  if (!CTD_NUMBER_RE.test(number)) return false;
+  // Un `remove` ne vise qu'un nœud de profondeur ≥ 3 segments : retirer « 1.2 » effacerait une
+  // branche entière et rendrait ses pièces déjà déposées invisibles ET absentes du PDF (M2).
+  if (kind === "remove" && number.split(".").length < 3) return false;
+  if (kind !== "remove") {
+    if (typeof v.label !== "string" || v.label.trim() === "") return false;
+  }
+  if (v.format !== undefined && !(CTD_FORMATS as readonly string[]).includes(v.format as string)) {
+    return false;
+  }
+  if (v.activities !== undefined) {
+    if (!Array.isArray(v.activities) || v.activities.length === 0) return false;
+    if (!v.activities.every((a) => typeof a === "string" && a.trim() !== "")) return false;
+  }
+  return true;
+}
 
 /**
  * Ce payload produira-t-il du contenu une fois normalisé par le résolveur client ?
@@ -69,6 +121,12 @@ export function refPayloadEffective(section: string, payload: unknown): boolean 
       const s = payload.samples;
       const list = (v: unknown) => Array.isArray(v) && v.some(isUsefulT);
       return list(s.new_ma) || list(s.renewal_variation) || isUsefulT(s.reserve);
+    }
+    case "ctd_structure": {
+      // Au moins UN delta applicable. Un tableau vide (ou 100 % de deltas malformés) publierait
+      // une structure « à jour » qui ne change rien : bannière de mise à jour pour du néant.
+      if (!Array.isArray(payload.deltas)) return false;
+      return payload.deltas.some(ctdDeltaEffective);
     }
     default:
       // Section hors liste blanche : le client l'ignore, donc publier serait un piège.

@@ -10,6 +10,7 @@ import {
   type ResolvedAuthority,
 } from './ref-content'
 import { overridesByCountry } from './ref-overrides'
+import { structureFromPayload } from './ref-structure'
 import {
   entriesForCountry,
   isPlainObject as isObj,
@@ -51,11 +52,28 @@ export interface RefKeptRow {
   local: string
 }
 
+/**
+ * Changement d'ARBORESCENCE du Module 1 apporté par la version candidate (P4.5).
+ *
+ * Séparé de `rows` : un delta de structure ne se lit pas en « avant → après » d'un champ, et
+ * SURTOUT il ne doit pas être invisible. Sans ce bloc, une version ne portant qu'un
+ * `ctd_structure` faisait afficher « cette version ne modifie aucune valeur » juste avant de
+ * changer l'arborescence de tous les futurs dossiers du pays (bloquant B2 de la revue P4.5).
+ */
+export interface RefStructureRow {
+  country: string
+  kind: 'add' | 'remove' | 'relabel'
+  number: string
+  label?: string
+}
+
 export interface RefUpdatePreview {
   target: RefVersionRecord
   /** Version actuellement appliquée à l'org (libellé), null si aucune. */
   ceilingLabel: string | null
   rows: RefDiffRow[]
+  /** Changements d'arborescence du Module 1 (P4.5) — jamais silencieux. */
+  structure: RefStructureRow[]
   /** Champs adaptés localement que cette version NE changera PAS (P4.3). */
   kept: RefKeptRow[]
   /** Sources citées par les entrées entrantes, dédupliquées (bloc « Source officielle »). */
@@ -175,6 +193,20 @@ export async function refUpdatePreview(
       .toArray()
   ).filter((e) => !opts?.country || e.country === opts.country)
 
+  // Structure du Module 1 (P4.5) : lue directement sur les entrées ENTRANTES — c'est ce que
+  // l'adoption va appliquer aux futurs dossiers du pays.
+  const structure: RefStructureRow[] = incomingEntries
+    .filter((e) => e.section === 'ctd_structure')
+    .flatMap((e) =>
+      (structureFromPayload(e.payload) ?? []).map((d) => ({
+        country: String(e.country).trim().toUpperCase(),
+        kind: d.kind,
+        number: d.number,
+        ...(d.label ? { label: d.label } : {}),
+      })),
+    )
+    .sort((a, b) => a.country.localeCompare(b.country) || a.number.localeCompare(b.number))
+
   const before = upTo(state, fromRank)
   const after = upTo(state, targetRank)
   const overridesAll = await overridesByCountry(orgId)
@@ -228,6 +260,7 @@ export async function refUpdatePreview(
     target,
     ceilingLabel: state.versions.find((v) => v.id === fromId)?.label ?? null,
     rows,
+    structure,
     kept,
     sources,
   }

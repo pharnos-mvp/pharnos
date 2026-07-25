@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>P4.5 — Structure du Module 1 versionnée (mockup)</title>
+    <style>
+      /* Tokens alignés sur l'app (index.css) — clair/sombre, aucune ressource externe (CSP). */
+      :root {
+        --page: #f9fafb;
+        --card: #fff;
+        --border: #e5e7eb;
+        --fg: #111827;
+        --muted: #6b7280;
+        --info: #1a56db;
+        --info-subtle: #eff4ff;
+        --warning: #b45309;
+        --warning-subtle: #fffbeb;
+        --danger: #b42318;
+        --danger-subtle: #fef3f2;
+        --success: #067647;
+        --success-subtle: #ecfdf3;
+        --radius: 14px;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --page: #0d1117;
+          --card: #161b22;
+          --border: #30363d;
+          --fg: #e6edf3;
+          --muted: #9198a1;
+          --info: #1f6feb;
+          --info-subtle: #0d1b2f;
+          --warning: #d29922;
+          --warning-subtle: #241c０8;
+          --warning-subtle: #241c08;
+          --danger: #f85149;
+          --danger-subtle: #2a1416;
+          --success: #3fb950;
+          --success-subtle: #0f2417;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--page);
+        color: var(--fg);
+        font:
+          15px/1.5 ui-sans-serif,
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          sans-serif;
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 28px 20px 80px;
+      }
+      h1 {
+        font-size: 22px;
+        letter-spacing: -0.02em;
+        margin: 0 0 4px;
+      }
+      h2 {
+        font-size: 16px;
+        margin: 32px 0 10px;
+        letter-spacing: -0.01em;
+      }
+      .sub {
+        color: var(--muted);
+        font-size: 13px;
+        margin: 0 0 18px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid;
+      }
+      .b-info {
+        color: var(--info);
+        background: var(--info-subtle);
+        border-color: color-mix(in srgb, var(--info) 30%, transparent);
+      }
+      .b-warn {
+        color: var(--warning);
+        background: var(--warning-subtle);
+        border-color: color-mix(in srgb, var(--warning) 30%, transparent);
+      }
+      .b-danger {
+        color: var(--danger);
+        background: var(--danger-subtle);
+        border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+      }
+      .b-ok {
+        color: var(--success);
+        background: var(--success-subtle);
+        border-color: color-mix(in srgb, var(--success) 30%, transparent);
+      }
+      .banner {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        border: 1px solid color-mix(in srgb, var(--info) 30%, transparent);
+        background: var(--info-subtle);
+        border-radius: var(--radius);
+        padding: 12px 14px;
+      }
+      .btn {
+        font: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        padding: 7px 13px;
+        border-radius: 9px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--fg);
+        cursor: pointer;
+      }
+      .btn-primary {
+        background: var(--info);
+        border-color: var(--info);
+        color: #fff;
+      }
+      @media (prefers-color-scheme: dark) {
+        .btn-primary {
+          color: #0d1117;
+        }
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .spacer {
+        flex: 1;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13.5px;
+      }
+      th {
+        text-align: left;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        border-bottom: 1px solid var(--border);
+        padding: 6px 8px 6px 0;
+      }
+      td {
+        border-bottom: 1px solid var(--border);
+        padding: 9px 8px 9px 0;
+        vertical-align: top;
+      }
+      code {
+        font-family: ui-monospace, monospace;
+        font-size: 12.5px;
+        background: color-mix(in srgb, var(--muted) 12%, transparent);
+        padding: 1px 5px;
+        border-radius: 5px;
+      }
+      .node {
+        font-family: ui-monospace, monospace;
+        font-size: 12.5px;
+        font-weight: 700;
+      }
+      .guarantees {
+        list-style: none;
+        padding: 0;
+        margin: 12px 0 0;
+        font-size: 12.5px;
+        color: var(--muted);
+      }
+      .guarantees li {
+        padding: 2px 0;
+      }
+      .src {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .src b {
+        color: var(--info);
+      }
+      .tree {
+        font-size: 13.5px;
+      }
+      .tree div {
+        padding: 5px 0;
+        border-bottom: 1px dashed var(--border);
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .tree .ind {
+        padding-left: 22px;
+      }
+      .strike .lbl {
+        text-decoration: line-through;
+        color: var(--muted);
+      }
+      .note {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+      .grid2 {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: 1fr;
+      }
+      @media (min-width: 860px) {
+        .grid2 {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      .rule {
+        border-left: 3px solid var(--info);
+        padding-left: 12px;
+        margin: 10px 0;
+        font-size: 13.5px;
+      }
+      .rule.danger {
+        border-color: var(--danger);
+      }
+      .rule.warn {
+        border-color: var(--warning);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>P4.5 — La structure du Module 1 devient une donnée versionnée</h1>
+      <p class="sub">
+        Cas d'école du CEO : <em>« le PGHT n'est plus exigé au Togo »</em>. Aujourd'hui
+        l'arborescence vient du CODE (<code>getModule1Tree(format, activity, variations)</code>) et
+        ne connaît PAS le pays. Après P4.5, une section <code>ctd_structure</code> publiée par pays
+        la corrige — sans jamais toucher un dossier déjà monté.
+      </p>
+
+      <h2>① Publication god — l'éditeur de la section « Structure du Module 1 »</h2>
+      <div class="card">
+        <div class="row" style="margin-bottom: 10px">
+          <span class="badge b-warn">Brouillon v2026.2</span>
+          <span class="node">TG · Togo</span>
+          <span class="spacer"></span>
+          <span class="src">Format <b>CTD</b> · activité <b>toutes</b></span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Delta</th>
+              <th>Nœud</th>
+              <th>Effet</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="badge b-danger">Plus exigé</span></td>
+              <td class="node">1.2.6</td>
+              <td>
+                Lettre de prix (PGHT)
+                <div class="note">
+                  Retirée des NOUVEAUX dossiers Togo. Les dossiers existants la conservent.
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td><span class="badge b-ok">Nouveau</span></td>
+              <td class="node">1.2.9</td>
+              <td>
+                Attestation d'engagement de pharmacovigilance
+                <div class="note">Sous <span class="node">1.2</span> · après 1.2.8</div>
+              </td>
+            </tr>
+            <tr>
+              <td><span class="badge b-info">Libellé</span></td>
+              <td class="node">1.3.3</td>
+              <td>
+                « Étiquetage » → « Étiquetage et conditionnement »
+                <div class="note">Le numéro ne change JAMAIS (c'est l'identité du nœud).</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="src" style="margin-top: 12px">
+          <b>§ Source obligatoire</b> — Arrêté n° 2026-042/MSHP du 14 mars 2026 · JO Togo n° 12
+        </div>
+      </div>
+
+      <h2>② Dossier en cours — la bannière, et surtout ce qu'elle NE fait pas</h2>
+      <div class="banner">
+        <span class="badge b-info" style="margin-top: 2px">v2026.2</span>
+        <div style="flex: 1">
+          <strong style="font-size: 14px"
+            >La structure officielle du Module 1 a changé pour le Togo</strong
+          >
+          <div class="note" style="font-size: 13px; margin-top: 3px">
+            Votre dossier reste monté sur <strong>v2026.1</strong> — rien n'a bougé. Vous pouvez
+            examiner la mise à jour et décider, section par section.
+          </div>
+        </div>
+        <button class="btn btn-primary">Examiner…</button>
+      </div>
+
+      <h2>③ L'écran de fusion — le cœur de la confiance</h2>
+      <div class="card">
+        <div class="row" style="margin-bottom: 4px">
+          <strong style="font-size: 15px">Mettre à jour la structure — KV-10D · Togo</strong>
+          <span class="spacer"></span>
+          <span class="badge b-info">v2026.1 → v2026.2</span>
+        </div>
+        <p class="sub" style="margin: 0 0 14px">
+          Chaque ligne est un choix. Rien ne s'applique avant votre confirmation, et
+          <strong>aucun document n'est jamais supprimé</strong>.
+        </p>
+
+        <div class="grid2">
+          <div>
+            <div style="font-size: 12px; font-weight: 700; margin-bottom: 6px">
+              À AJOUTER (2)
+              <span class="badge b-ok" style="margin-left: 6px">recommandé</span>
+            </div>
+            <div class="tree">
+              <div>
+                <input type="checkbox" checked />
+                <span class="node">1.2.9</span>
+                <span class="lbl">Attestation de pharmacovigilance</span>
+              </div>
+              <div>
+                <input type="checkbox" checked />
+                <span class="node">1.3.3</span>
+                <span class="lbl">Étiquetage et conditionnement</span>
+                <span class="badge b-info">libellé</span>
+              </div>
+            </div>
+            <div class="rule" style="margin-top: 12px">
+              Une section ajoutée arrive <strong>vide</strong> et n'invalide pas les sections déjà
+              validées : votre avancement ne recule pas.
+            </div>
+          </div>
+
+          <div>
+            <div style="font-size: 12px; font-weight: 700; margin-bottom: 6px">
+              PLUS EXIGÉES (1)
+            </div>
+            <div class="tree">
+              <div class="strike">
+                <input type="checkbox" disabled />
+                <span class="node">1.2.6</span>
+                <span class="lbl">Lettre de prix (PGHT)</span>
+                <span class="badge b-warn">1 document</span>
+              </div>
+            </div>
+            <div class="rule danger" style="margin-top: 12px">
+              <strong>Cette section contient une pièce : elle est CONSERVÉE.</strong> Pharnos ne
+              supprime jamais un document que vous avez déposé. La section est simplement marquée
+              « plus exigée » et vous pouvez l'exclure de la compilation quand vous le décidez.
+            </div>
+            <div class="rule warn">
+              Une section « plus exigée » et <strong>vide</strong> est, elle, retirée du plan de
+              montage — elle n'a jamais rien porté.
+            </div>
+          </div>
+        </div>
+
+        <div class="src" style="margin-top: 14px">
+          <b>§ Source</b> — Arrêté n° 2026-042/MSHP du 14 mars 2026 · JO Togo n° 12
+        </div>
+
+        <ul class="guarantees">
+          <li>✔ Vos sections validées gardent leur horodatage de validation.</li>
+          <li>✔ Vos documents restent en place, y compris dans une section devenue facultative.</li>
+          <li>✔ Aucune numérotation existante n'est renommée (le numéro = l'identité du nœud).</li>
+          <li>✔ La bascule est tracée au journal d'audit (qui, quand, v2026.1 → v2026.2).</li>
+        </ul>
+
+        <div class="row" style="margin-top: 16px">
+          <span class="spacer"></span>
+          <button class="btn">Plus tard</button>
+          <button class="btn btn-primary">Appliquer les 2 changements retenus</button>
+        </div>
+      </div>
+
+      <h2>④ Les règles que le code devra faire respecter</h2>
+      <div class="card">
+        <div class="rule danger">
+          <strong>JAMAIS de suppression d'un nœud qui porte un document</strong> (ni d'un nœud
+          validé). Un delta « plus exigé » ne supprime que du VIDE ; sinon il dégrade en marquage.
+        </div>
+        <div class="rule">
+          <strong>Un dossier existant ne bouge que sur action explicite.</strong> La structure
+          résolue à sa version épinglée est sa photographie opposable — comme les barèmes (P4.2).
+        </div>
+        <div class="rule">
+          <strong>Les NOUVEAUX dossiers naissent sur la structure résolue</strong> du pays, à la
+          version appliquée par l'organisation (plafond adopté, P4.2).
+        </div>
+        <div class="rule warn">
+          <strong>Invariant technique connu</strong> :
+          <code>isTreeOutdated</code>/<code>mergeDefaultTree</code> doivent comparer à la structure
+          <em>résolue pour ce pays et cette version</em>. S'ils continuent d'appeler le socle code,
+          ils afficheront une fausse bannière et fusionneront à tort (déjà corrigé une fois en
+          #372-#376 pour l'activité/les variations).
+        </div>
+        <div class="rule">
+          <strong>Un delta qui ne rend rien est refusé à la publication</strong> — même garde que
+          les autres sections (<code>refPayloadEffective</code>) : numéro inconnu, nœud parent
+          absent, ou libellé vide = 409.
+        </div>
+      </div>
+
+      <h2>⑤ Ce qui reste à trancher (CEO)</h2>
+      <div class="card">
+        <div class="rule">
+          <strong>A. Portée d'un delta de structure.</strong> Proposé :
+          <em>par pays × format</em>, toutes activités confondues, avec une exception explicite
+          possible (ex. « uniquement renouvellement »). Alternative : un delta par
+          (pays, format, activité) — plus fin, mais 3× plus de saisie god pour un gain rare.
+        </div>
+        <div class="rule">
+          <strong>B. Faut-il un mode « appliquer à tous mes dossiers en cours » ?</strong> Proposé :
+          <em>non</em> — une confirmation par dossier. Un bouton global ferait muter des dizaines de
+          photographies opposables d'un clic, sans regarder ce que chacune contient.
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

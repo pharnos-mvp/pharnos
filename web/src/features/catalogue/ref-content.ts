@@ -1,4 +1,9 @@
 import {
+  getModule1Tree,
+  type CtdNodeDef,
+  type DossierFormat,
+} from '@/features/workspace/module1-tree'
+import {
   agencyCivilite,
   agencyFor,
   officialLanguage,
@@ -26,6 +31,12 @@ import {
   overridesForCountry,
   type OverridePath,
 } from './ref-overrides'
+import {
+  applyStructureDeltas,
+  deltasFor,
+  structureFromPayload,
+  type CtdDelta,
+} from './ref-structure'
 import {
   entriesForCountry,
   isPlainObject,
@@ -79,6 +90,11 @@ export interface ResolvedAuthority {
   internalNote?: string
   /** E-mail de l'admin ayant posé la dernière adaptation (estampille serveur). */
   adaptedByEmail?: string
+  /**
+   * Deltas de STRUCTURE du Module 1 publiés pour ce pays (P4.5) — `undefined` = aucun applicable.
+   * Consommés par `resolvedModule1Tree`, pas par la fiche Autorité.
+   */
+  structureDeltas?: CtdDelta[]
 }
 
 // ─── Normalisation défensive des payloads jsonb ───────────────────────────────────────────────
@@ -255,12 +271,39 @@ export function resolveAuthority(
     submissionFromPayload(picked.get('submission')?.entry.payload),
   )
   const samples = take('samples', samplesFromPayload(picked.get('samples')?.entry.payload))
+  // Structure du Module 1 (P4.5) : deltas d'arborescence, consommés par `resolvedModule1Tree`
+  // (pas par la fiche Autorité) — mais comptés ici pour le badge de version et la provenance.
+  const structureDeltas = take(
+    'ctd_structure',
+    structureFromPayload(picked.get('ctd_structure')?.entry.payload),
+  )
 
   // Fusion champ par champ avec le socle (M4) : un patch partiel n'efface jamais un champ.
   const mergedAgency: AgencyInfo | undefined = agency
     ? mergeAgency(agency, fallback?.agency)
     : fallback?.agency
-  if (!mergedAgency || used.length === 0) return asFallback()
+  if (!mergedAgency || used.length === 0) {
+    // Pays SANS agence curée (le socle `AGENCIES` en couvre 10, les dossiers en proposent 15) :
+    // pas de fiche Autorité à rendre… mais les deltas de STRUCTURE, eux, s'appliquent — ils ne
+    // dépendent pas de l'agence. Sans ce retour, une version publiée pour un tel pays serait
+    // annoncée, adoptée, journalisée, et n'aurait AUCUN effet (Major M8, revue P4.5).
+    if (structureDeltas) {
+      const latestStruct = [...used].sort((a, b) => rank.get(b.id)! - rank.get(a.id)!)[0]
+      return {
+        detail: fallback ?? {
+          code,
+          agency: agencyFor(code),
+          civilite: agencyCivilite(agencyFor(code)),
+          officialLang: officialLanguage(code),
+        },
+        provenance,
+        versionLabel: latestStruct?.label ?? null,
+        adapted: [],
+        structureDeltas,
+      }
+    }
+    return asFallback()
+  }
 
   // Le profil réglementaire se reconstruit dès qu'UNE section « exigences » vient du référentiel ;
   // chaque morceau manquant retombe sur le socle code du pays (profil partiel possible).
@@ -288,7 +331,56 @@ export function resolveAuthority(
     provenance,
     versionLabel: latest?.label ?? null,
     adapted: [],
+    structureDeltas,
   }
+}
+
+// ─── Structure du Module 1 résolue par pays (P4.5) ─────────────────────────────────────────────
+
+/**
+ * Arborescence OFFICIELLE du Module 1 pour un pays : socle code ← deltas publiés applicables.
+ *
+ * ⚠️ C'est LA fonction que doivent appeler tous les consommateurs — `getModule1Tree` seul ne
+ * connaît PAS le pays. En particulier `isTreeOutdated`/`mergeDefaultTree` doivent comparer à CETTE
+ * structure : comparer au socle afficherait une fausse bannière et fusionnerait à tort (même piège
+ * que l'activité/les variations, corrigé en #372→#376).
+ *
+ * `refVersionId` = version ÉPINGLÉE du dossier (photographie opposable) ; `null`/absent = plafond
+ * adopté par l'org. Aucun contenu publié ⇒ le socle, à l'octet près (comportement historique).
+ */
+export interface Module1TreeQuery {
+  country: string
+  orgId: string
+  format: DossierFormat
+  activity?: string
+  variations?: number[]
+  /** Version ÉPINGLÉE du dossier ; `null`/absent = plafond adopté par l'org. */
+  refVersionId?: string | null
+  /**
+   * Genres de deltas à appliquer. Défaut = tous (la structure officielle complète).
+   *
+   * `['remove', 'relabel']` sert la CIBLE D'AUTO-FUSION du workspace : ce que l'application
+   * apporte, MOINS ce que le pays a retiré. Sans ce filtre, l'auto-fusion (qui greffe les nœuds
+   * manquants face à sa cible) re-grefferait sur un dossier NEUF les sections que le pays vient
+   * de retirer — le cas « le PGHT n'est plus exigé au Togo » serait annulé trois secondes après la
+   * création du dossier, en silence (bloquant B1 de la revue P4.5).
+   */
+  kinds?: CtdDelta['kind'][]
+}
+
+export async function resolvedModule1Tree(q: Module1TreeQuery): Promise<CtdNodeDef[]> {
+  const base = getModule1Tree(q.format, q.activity, q.variations)
+  const resolved = await resolvedAuthorityDetailAtVersion(
+    q.country,
+    q.orgId,
+    q.refVersionId ?? null,
+  )
+  const deltas = resolved?.structureDeltas
+  if (!deltas || deltas.length === 0) return base
+  const scoped = deltasFor(deltas, q.format, q.activity).filter(
+    (d) => q.kinds === undefined || q.kinds.includes(d.kind),
+  )
+  return scoped.length === 0 ? base : applyStructureDeltas(base, scoped)
 }
 
 // ─── Adaptations locales (0077, P4.3) : « la donnée locale se respecte » ───────────────────────

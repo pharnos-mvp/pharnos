@@ -60,10 +60,13 @@ Deno.test('isUsefulNumber : fini et ≥ 0 (un négatif est une coquille)', () =>
   assertEquals(isUsefulNumber(null), false)
 })
 
-Deno.test('isRefSection : liste blanche stricte (ctd_structure exclue tant que rien ne la rend)', () => {
+Deno.test('isRefSection : liste blanche stricte (une section que rien ne rend reste exclue)', () => {
   assertEquals(isRefSection('agency'), true)
   assertEquals(isRefSection('samples'), true)
-  assertEquals(isRefSection('ctd_structure'), false)
+  // `ctd_structure` est RENDUE depuis P4.5 (`resolvedModule1Tree` applique ses deltas) — elle
+  // rejoint donc la liste blanche. Le critère d'entrée reste le même : un consommateur réel.
+  assertEquals(isRefSection('ctd_structure'), true)
+  assertEquals(isRefSection('agency.directeur'), false) // chemin d'override, pas une section
   assertEquals(isRefSection('AGENCY'), false)
   assertEquals(isRefSection(''), false)
   assertEquals(isRefSection(undefined), false)

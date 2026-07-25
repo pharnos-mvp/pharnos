@@ -203,14 +203,42 @@ export function DossierRefBanner({
                 </tbody>
               </table>
             </div>
-          ) : (
+          ) : !preview?.structure.length ? (
             <p className="text-muted-foreground text-sm">
               {t({
                 fr: 'Aucune valeur de ce dossier ne change sous la nouvelle version.',
                 en: 'No value of this submission changes under the new version.',
               })}
             </p>
-          )}
+          ) : null}
+
+          {/* La structure du Module 1 peut changer sans qu'aucune VALEUR ne bouge : le dire, sinon
+              le message ci-dessus contredirait la bannière « Nouvelle structure disponible ». */}
+          {preview?.structure.length ? (
+            <p className="border-info/30 bg-info-subtle/50 rounded-lg border p-2.5 text-xs">
+              <span className="font-semibold">
+                {t({ fr: 'Structure du Module 1 : ', en: 'Module 1 structure: ' })}
+              </span>
+              {preview.structure
+                .map(
+                  (s) =>
+                    `${s.number} ${
+                      s.kind === 'remove'
+                        ? t({ fr: 'plus exigée', en: 'no longer required' })
+                        : s.kind === 'add'
+                          ? t({ fr: 'à ajouter', en: 'to add' })
+                          : t({ fr: 'renommée', en: 'renamed' })
+                    }`,
+                )
+                .join(' · ')}
+              <span className="text-muted-foreground block">
+                {t({
+                  fr: 'Rien ne s’applique tant que vous ne mettez pas à jour la structure de ce dossier — et aucun document déposé n’est jamais supprimé.',
+                  en: 'Nothing applies until you update this submission’s structure — and no uploaded document is ever deleted.',
+                })}
+              </span>
+            </p>
+          ) : null}
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)} disabled={busy}>
