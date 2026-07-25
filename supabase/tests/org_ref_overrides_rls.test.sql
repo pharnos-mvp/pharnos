@@ -11,7 +11,7 @@
 -- violation de whitelist lève 23514. Les deux sont testés.
 
 begin;
-select plan(19);
+select plan(20);
 
 insert into auth.users (instance_id, id, aud, role, email)
 values
