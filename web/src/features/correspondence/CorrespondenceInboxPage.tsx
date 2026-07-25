@@ -296,6 +296,7 @@ export function CorrespondenceInboxPage() {
                     t={t}
                     active={row.dossierId === displayedDossierId}
                     onOpen={() => setOpenDossierId(row.dossierId)}
+                    agencyName={countryInfo(row.country).agency.name}
                   />
                 ))}
               </ul>
@@ -457,15 +458,17 @@ function InboxRowItem({
   t,
   active,
   onOpen,
+  agencyName,
 }: {
   row: InboxRow
   lang: Lang
   t: (v: Translatable) => string
   active: boolean
   onOpen: () => void
+  /** Nom d'agence résolu par le LOOKUP du parent (revue #416 M2 : un hook par ligne = N
+   *  abonnements pour la même donnée ; recherche et affichage partagent le même chemin). */
+  agencyName: string
 }) {
-  // Agence résolue au plafond de l'org (P4.4-pré) — repli code au chargement.
-  const agency = useRefAgency(row.country)?.agency ?? agencyFor(row.country)
   const { status, currentStageId, progress } = row.lifecycle
   const stageDef = LIFECYCLE_STAGES.find((s) => s.id === currentStageId)!
   const StageIcon = STAGE_ICON[currentStageId]
@@ -510,8 +513,7 @@ function InboxRowItem({
           <span className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-[11px]">
             <CountryFlag code={row.country} size={13} />
             <span className="truncate">
-              {countryLabel(row.country, lang)} · {agency.name} ·{' '}
-              {activityLabel(row.activity, lang)}
+              {countryLabel(row.country, lang)} · {agencyName} · {activityLabel(row.activity, lang)}
             </span>
           </span>
           <span

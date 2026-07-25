@@ -226,14 +226,16 @@ avant merge, tous *dormants aujourd'hui* mais armés dès que le God dashboard p
   déterministe (plus de `v2026.10 < v2026.9`), stub de test indexé par table (faux-vert prouvé),
   cloche muette pour un membre scopé, bascule réservée aux rôles éditeurs.
 
-**⚠ GARDE-FOU P4.1→P4.4 (revue #414, M7 — partiellement levé par P4.2)** : la **Roadmap est
-branchée** sur le résolveur (barème de la version épinglée, #415). Restent code-only : les lettres
-(`letter-context`), `NewDossierPage`/`DossierPreviewPage`/`submission-language`, la vue agent
-publique (`PublicParcoursTab`) et la LISTE des autorités (`listAgencies`). Tant qu'ils ne passent
-pas par le résolveur, **publier un contenu qui diffère du code est INTERDIT** (la fiche et la
-Roadmap afficheraient le nouveau barème sourcé pendant que les lettres serviraient l'ancien). Le
-test de parité `ref-seed.test.ts` casse volontairement si l'un des deux bouge seul. Brancher le
-reste = **préalable de P4.4**.
+**⚠ GARDE-FOU P4.1→P4.4 (revue #414, M7) — LEVÉ par P4.4-pré (#416)** : lettres
+(`buildLetterContext` + Workspace/Bibliothèque/variation), aperçu dossier, wizard de création,
+boîte de réception (lignes + recherche) et LISTE des autorités passent par le résolveur (bloc
+agence à CLÉ `pays|version` — un bloc périmé d'un autre pays est rejeté, jamais servi ; patch
+agence partiel fusionné champ par champ avec le socle). **Inventaire code-only ASSUMÉ** (documenté
+sur place) : `PublicParcoursTab` (page publique tokenisée sans session), `submission-language`
+(langue officielle seule), `use-regafy-copilot` (nom d'agence en contexte IA — la LANGUE cible,
+elle, descend résolue de la page), `recipient-lang` (contrat avec le cron Edge, e-mails de relance
+seulement), `lifecycleConfigFor` (à traiter en P4.5). Le test de parité `ref-seed.test.ts` reste le
+verrou tant que `roadmap-data.ts` sert de socle/seed.
 
 **Décisions CEO — VALIDÉES 2026-07-24** : (a) les 3 écrans ✅ go build ; (b) adoption = **admin
 seul** (consentement d'organisation, journalisé) ; (c) adaptables v1 = **contacts/destinataire/

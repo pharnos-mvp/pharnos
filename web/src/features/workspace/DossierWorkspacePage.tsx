@@ -381,6 +381,9 @@ export function DossierWorkspacePage() {
     flatNodes,
     orgId,
     onOpenTranslation,
+    // Langue cible RÉSOLUE (version épinglée) : les traductions persistées et les libellés
+    // « Traduire en X » doivent parler d'une seule voix (revue #416, M3).
+    targetLang: refAgency?.officialLang,
   })
 
   // Sauvegarde débouncée des éditions TipTap (T7.3).

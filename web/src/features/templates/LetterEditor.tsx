@@ -3,9 +3,9 @@ import { useLiveQuery } from 'dexie-react-hooks'
 
 import { db } from '@/lib/db'
 import { useI18n, type Lang } from '@/lib/i18n-context'
+import type { ResolvedAgencyBlock } from '@/features/catalogue/ref-content'
 import { cn } from '@/lib/utils'
 import { useOrgId } from '@/features/org/org-context'
-import { useRefAgency } from '@/features/catalogue/use-ref-agency'
 import {
   buildLetterContext,
   LETTER_CURRENCIES,
@@ -31,6 +31,7 @@ export function LetterEditor({
   headerImage,
   footerImage,
   signatureImage,
+  refAgency,
 }: {
   docType: 'cover' | 'pght' | 'renewal'
   values: Record<string, string>
@@ -39,12 +40,13 @@ export function LetterEditor({
   headerImage?: string | null
   footerImage?: string | null
   signatureImage?: string | null
+  /** Destinataire résolu par le PARENT (référentiel versionné) — une seule timeline de
+   *  résolution pour l'aperçu ET l'export : affiché == exporté (revue #416, m5). */
+  refAgency?: ResolvedAgencyBlock
 }) {
   const { t } = useI18n()
   const orgId = useOrgId()
   const fields = useMemo(() => letterFieldsFromValues(values), [values])
-  // Destinataire résolu par le référentiel versionné (plafond org) — repli code pendant le chargement.
-  const refAgency = useRefAgency(fields.country || undefined)
   const ctx = useMemo(() => buildLetterContext(fields, lang, refAgency), [fields, lang, refAgency])
   const products = useLiveQuery(
     () =>

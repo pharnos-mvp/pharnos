@@ -50,6 +50,7 @@ describe('buildLetterContext (lettre standalone Bibliothèque, pilotée par pays
 
   it('bloc destinataire RÉSOLU (référentiel versionné, P4.4-pré) : il PRIME sur le socle code', () => {
     const resolved = {
+      key: 'SN|',
       agency: {
         name: 'ARP',
         full: 'Agence Sénégalaise de Réglementation Pharmaceutique',

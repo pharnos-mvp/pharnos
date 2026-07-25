@@ -548,6 +548,7 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
             headerImage={branding?.headerImage}
             footerImage={branding?.footerImage}
             signatureImage={signature?.signatureImage}
+            refAgency={refAgency}
           />
         </TabsContent>
 

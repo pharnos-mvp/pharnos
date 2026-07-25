@@ -478,6 +478,7 @@ export function TemplatesPage() {
             headerImage={branding?.headerImage}
             footerImage={branding?.footerImage}
             signatureImage={signature?.signatureImage}
+            refAgency={refAgency}
           />
         ) : null}
       </div>
