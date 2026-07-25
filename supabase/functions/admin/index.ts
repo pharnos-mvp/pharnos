@@ -12,14 +12,16 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 import { corsHeaders, isAllowedOrigin } from "../_shared/cors.ts";
 import { logJson, newReqId, userHash } from "../_shared/log.ts";
+import { isRefSection, refPayloadEffective } from "../_shared/ref-payload.ts";
 
 const PLANS = new Set(["free", "pro", "team", "business", "enterprise"]);
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-// Référentiel réglementaire versionné (P4.4). `ctd_structure` (P4.5) volontairement ABSENTE tant
+// Référentiel réglementaire versionné (P4.4). Liste blanche des sections + contrat d'efficacité
+// des payloads : `_shared/ref-payload.ts` (verrouillé par fixtures partagées + test de parité
+// côté web — une dérive Edge/résolveur casse la CI). `ctd_structure` (P4.5) en est absente tant
 // que la machinerie d'arbre n'est pas livrée : publier une section que personne ne rend serait
 // un piège (le client l'ignore, le god croit avoir publié).
-const REF_SECTIONS = new Set(["agency", "fees", "submission", "samples"]);
 const COUNTRY_RE = /^[A-Z]{2}$/;
 const REF_LABEL_RE = /^v\d{4}\.\d{1,3}$/; // « v2026.2 » — cohérent avec le tri d'applicabilité
 /** Cap de taille d'un payload/provenance sérialisé (anti-abus, le contenu réel fait < 5 Ko). */
@@ -34,50 +36,6 @@ function isIsoDate(v: unknown): v is string {
   return Number.isFinite(t) && new Date(t).toISOString().slice(0, 10) === v;
 }
 
-/** Traduisible non vide (fr ET en) — la brique des contrôles d'efficacité. */
-function isT(v: unknown): boolean {
-  if (!v || typeof v !== "object" || Array.isArray(v)) return false;
-  const o = v as Record<string, unknown>;
-  return (
-    typeof o.fr === "string" && o.fr.trim() !== "" &&
-    typeof o.en === "string" && o.en.trim() !== ""
-  );
-}
-
-/**
- * Un payload est-il EFFECTIF pour sa section — c.-à-d. produira-t-il quelque chose une fois
- * normalisé par le résolveur client (`ref-content.ts`) ? Sans ce contrôle, une entrée vide/
- * malformée donnait une « version publiée qui ne rend rien » : le god croit avoir publié, le
- * client l'ignore (revue #417, M7). Miroir volontairement STRICT des normalisateurs client.
- */
-function refPayloadEffective(section: string, p: Record<string, unknown>): boolean {
-  switch (section) {
-    case "agency": {
-      const name = typeof p.name === "string" ? p.name.trim() : "";
-      const full = typeof p.full === "string" ? p.full.trim() : "";
-      return name !== "" || full !== "";
-    }
-    case "fees": {
-      const fees = p.fees;
-      if (!fees || typeof fees !== "object" || Array.isArray(fees)) return false;
-      const f = fees as Record<string, unknown>;
-      return ["new_ma", "renewal", "variation_minor", "variation_major"].some(
-        (k) => typeof f[k] === "number" && Number.isFinite(f[k] as number),
-      );
-    }
-    case "submission":
-      return isT(p.note);
-    case "samples": {
-      const s = p.samples;
-      if (!s || typeof s !== "object" || Array.isArray(s)) return false;
-      const o = s as Record<string, unknown>;
-      const list = (v: unknown) => Array.isArray(v) && v.some(isT);
-      return list(o.new_ma) || list(o.renewal_variation) || isT(o.reserve);
-    }
-    default:
-      return false;
-  }
-}
 // Console Acquisition (0064) — statuts du pipeline de leads + format des codes d'invitation.
 const DEMO_STATUSES = new Set([
   "nouveau",
@@ -471,7 +429,7 @@ Deno.serve(async (req: Request) => {
           const country = String(e.country ?? "");
           const section = String(e.section ?? "");
           const key = `${country}/${section}`;
-          if (!COUNTRY_RE.test(country) || !REF_SECTIONS.has(section) || seen.has(key))
+          if (!COUNTRY_RE.test(country) || !isRefSection(section) || seen.has(key))
             return json({ error: "bad_entry" }, 400);
           seen.add(key);
           const payload = e.payload;
@@ -480,7 +438,7 @@ Deno.serve(async (req: Request) => {
             return json({ error: "bad_entry" }, 400);
           // Un payload qui ne RENDRAIT rien (vide/malformé après normalisation client) est
           // refusé : « version publiée qui ne rend rien » = le piège exact de ctd_structure.
-          if (!refPayloadEffective(section, payload as Record<string, unknown>))
+          if (!refPayloadEffective(section, payload))
             return json({ error: "payload_ineffective", country, section }, 400);
           // PROVENANCE OBLIGATOIRE : pas de texte officiel cité, pas d'entrée.
           if (
