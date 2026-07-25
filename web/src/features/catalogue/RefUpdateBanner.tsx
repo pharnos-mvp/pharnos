@@ -18,10 +18,19 @@ import { useIsOrgAdmin } from '@/features/org/use-current-org'
 import { useOrgId } from '@/features/org/org-context'
 import { countryLabel } from '@/features/workspace/dossier-constants'
 import { reportError } from '@/lib/sentry'
-import { useI18n } from '@/lib/i18n-context'
+import { useI18n, type Lang } from '@/lib/i18n-context'
 import { pendingRefUpdate } from './ref-state'
 import { refUpdatePreview } from './ref-diff'
-import { adoptRefVersion } from './ref-repository'
+import { adoptRefVersion, AdoptError } from './ref-repository'
+
+/** Date d'effet (DATE ISO) localisée — jamais l'ISO brut à l'écran. */
+const formatDate = (iso: string, lang: Lang): string =>
+  new Date(`${iso}T00:00:00Z`).toLocaleDateString(lang === 'en' ? 'en-GB' : 'fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
 
 /**
  * Bannière « une mise à jour du référentiel est disponible » + dialog de CONSENTEMENT (P4.2).
@@ -64,11 +73,26 @@ export function RefUpdateBanner({ country }: { country?: string }) {
       setOpen(false)
     } catch (error) {
       reportError(error, { op: 'adopt', entity: 'ref_version' })
+      // Dire la VRAIE cause : « vérifiez votre connexion » sur un refus de droits envoie
+      // l'utilisateur chercher un problème qui n'existe pas.
+      const reason = error instanceof AdoptError ? error.reason : 'unknown'
       toast.error(
-        t({
-          fr: "L'adoption a échoué — vérifiez votre connexion, puis réessayez.",
-          en: 'Adoption failed — check your connection, then try again.',
-        }),
+        t(
+          reason === 'forbidden'
+            ? {
+                fr: "Adoption refusée : elle est réservée à l'administrateur de l'organisation.",
+                en: 'Adoption refused: it is reserved to the organisation administrator.',
+              }
+            : reason === 'version_not_published'
+              ? {
+                  fr: "Cette version n'est plus publiée — actualisez la page.",
+                  en: 'This version is no longer published — refresh the page.',
+                }
+              : {
+                  fr: "L'adoption a échoué — vérifiez votre connexion, puis réessayez.",
+                  en: 'Adoption failed — check your connection, then try again.',
+                },
+        ),
       )
     } finally {
       setBusy(false)
@@ -134,8 +158,8 @@ export function RefUpdateBanner({ country }: { country?: string }) {
             <DialogDescription>
               {target.effectiveDate
                 ? t({
-                    fr: `Prend effet au ${target.effectiveDate}`,
-                    en: `Effective from ${target.effectiveDate}`,
+                    fr: `Effective depuis le ${formatDate(target.effectiveDate, lang)}`,
+                    en: `Effective since ${formatDate(target.effectiveDate, lang)}`,
                   })
                 : t({ fr: 'Effet immédiat après adoption', en: 'Effective once adopted' })}
               {preview?.ceilingLabel
@@ -165,7 +189,12 @@ export function RefUpdateBanner({ country }: { country?: string }) {
               {t({ fr: 'Calcul…', en: 'Computing…' })}
             </p>
           ) : preview && preview.rows.length > 0 ? (
-            <div className="overflow-x-auto">
+            <div
+              className="overflow-x-auto"
+              tabIndex={0}
+              role="group"
+              aria-label={t({ fr: 'Tableau des changements', en: 'Table of changes' })}
+            >
               <table className="w-full border-collapse text-sm">
                 <thead>
                   <tr className="text-muted-foreground border-border border-b text-left text-[11px] tracking-wide uppercase">

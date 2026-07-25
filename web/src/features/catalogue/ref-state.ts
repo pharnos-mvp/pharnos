@@ -23,6 +23,22 @@ export const isPlainObject = (v: unknown): v is Record<string, unknown> =>
 const applicability = (v: RefVersionRecord) => v.effectiveDate ?? v.publishedAt ?? v.createdAt
 
 /**
+ * Ordre d'applicabilité, DÉTERMINISTE : date d'effet, puis publication, puis création. Jamais le
+ * libellé en clé de tri (`v2026.10 < v2026.9` en lexicographique — l'ordre s'inverserait à la
+ * 10ᵉ version, et `effective_date` étant une DATE, deux textes du même jour sont fréquents).
+ */
+function byApplicability(a: RefVersionRecord, b: RefVersionRecord): number {
+  const keys: [string, string][] = [
+    [applicability(a), applicability(b)],
+    [a.publishedAt ?? '', b.publishedAt ?? ''],
+    [a.createdAt, b.createdAt],
+    [a.id, b.id], // départage ultime stable (ids opaques) — jamais le libellé
+  ]
+  for (const [ka, kb] of keys) if (ka !== kb) return ka < kb ? -1 : 1
+  return 0
+}
+
+/**
  * État du référentiel POUR UNE ORG (P4.2) : versions applicables, plafond adopté, et ce qui
  * reste à adopter. Le contenu publié se PROPOSE, il ne s'impose pas — tant qu'une version n'est
  * pas adoptée par l'org (RPC `adopt_ref_version`, admin), elle ne change rien à ses écrans.
@@ -52,16 +68,16 @@ export async function loadRefState(orgId: string): Promise<RefState> {
   // l'admin god lira SES brouillons) — statut et date d'effet se re-filtrent ICI.
   const versions = all
     .filter((v) => v.status === 'published' && (!v.effectiveDate || v.effectiveDate <= today))
-    .sort((a, b) => {
-      const ka = applicability(a)
-      const kb = applicability(b)
-      if (ka !== kb) return ka < kb ? -1 : 1
-      return a.label < b.label ? -1 : 1 // départage déterministe (même instant de publication)
-    })
+    .sort(byApplicability)
   const rank = new Map(versions.map((v, i) => [v.id, i] as const))
 
   const adopted = new Set(adoptions.map((a) => a.versionId))
-  let ceiling: RefVersionRecord | null = versions[0] ?? null // socle = plancher implicite
+  // Plancher = le SOCLE DÉCLARÉ (`is_baseline`, 0074), jamais « la plus ancienne version présente
+  // dans la réplique » : cette inférence faisait glisser le plafond sur une version JAMAIS adoptée
+  // dès que le socle était archivé ou absent (cap de pull) — du contenu réglementaire appliqué
+  // sans consentement, et sans signal puisque `pending` devenait vide. Aucun socle lisible ⇒
+  // plafond null ⇒ le résolveur retombe sur le socle CODE (comportement P4.1), jamais sur un tiers.
+  let ceiling: RefVersionRecord | null = versions.find((v) => v.isBaseline) ?? null
   for (const v of versions) {
     if (adopted.has(v.id)) ceiling = v // `versions` est trié → le dernier adopté gagne
   }
@@ -114,12 +130,19 @@ export async function pendingRefUpdate(
 
 /** Où en est un dossier épinglé par rapport à la version appliquée par son org (P4.2b) ? */
 export interface DossierRefStatus {
-  /** Libellé de la version épinglée sur le dossier (null = non épinglé / version purgée). */
+  /** Libellé de la version épinglée sur le dossier (null = non épinglé, ou version introuvable). */
   pinnedLabel: string | null
   /** Version que l'org applique aujourd'hui (plafond adopté). */
   applied: RefVersionRecord | null
   /** L'org applique une version PLUS RÉCENTE → bascule volontaire possible. */
   behind: boolean
+  /**
+   * Le dossier est épinglé sur une version INTROUVABLE localement (hors-ligne avant le 1er pull,
+   * version retirée côté serveur, cap de pull) : la Roadmap sert alors les valeurs de référence
+   * par défaut. On l'affiche au lieu de rester muet — un chiffre réglementaire silencieusement
+   * différent de celui du dossier est le pire des deux maux.
+   */
+  pinnedMissing: boolean
 }
 
 export async function dossierRefStatus(
@@ -135,5 +158,6 @@ export async function dossierRefStatus(
     applied,
     // Un dossier NON épinglé (antérieur à P4.2b) suit déjà l'org : rien à basculer.
     behind: pinnedRank !== undefined && appliedRank > pinnedRank,
+    pinnedMissing: !!pinnedId && pinnedRank === undefined,
   }
 }

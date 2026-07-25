@@ -541,6 +541,13 @@ export interface RefVersionRecord {
   label: string
   /** Seules les versions 'published' atteignent le client (RLS) ; gardé pour les évolutions. */
   status: string
+  /**
+   * SOCLE du référentiel (migration 0074, une seule ligne vraie) : la version qu'une org applique
+   * tant qu'elle n'a rien adopté. Propriété EXPLICITE de la donnée — le plafond de résolution ne
+   * doit jamais être inféré de « la plus ancienne version présente dans la réplique » (archiver
+   * le socle ferait alors glisser le plafond sur une version jamais consentie).
+   */
+  isBaseline: boolean
   /** Date d'effet réglementaire (ISO date) ; null si non fixée. */
   effectiveDate: string | null
   /** Note de publication (release note visible par les orgs). */

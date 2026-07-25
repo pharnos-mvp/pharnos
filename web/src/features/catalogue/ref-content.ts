@@ -232,6 +232,12 @@ export async function resolvedAuthorityDetailAtVersion(
 ): Promise<ResolvedAuthority | null> {
   if (!versionId) return resolvedAuthorityDetail(code, orgId)
   const [state, entries] = await Promise.all([loadRefState(orgId), entriesForCountry(code)])
-  const r = state.rank.get(versionId)
-  return resolveAuthority(code, entries, r === undefined ? [] : upTo(state, r), state.rank)
+  // BORNÉ AU PLAFOND ADOPTÉ : `dossiers.ref_version_id` est une colonne cliente (RLS = rôles
+  // éditeurs). Sans ce min, un éditeur non-admin pouvait y écrire l'id d'une version que son org
+  // n'a PAS consentie et s'en servir le barème — contournement du gate « admin seul ». Le trigger
+  // serveur `dossiers_ref_version_guard` (0074) est la ceinture ; ceci est la bretelle.
+  const ceilingRank = state.ceiling ? state.rank.get(state.ceiling.id)! : -1
+  const pinnedRank = state.rank.get(versionId)
+  const maxRank = pinnedRank === undefined ? -1 : Math.min(pinnedRank, ceilingRank)
+  return resolveAuthority(code, entries, maxRank < 0 ? [] : upTo(state, maxRank), state.rank)
 }

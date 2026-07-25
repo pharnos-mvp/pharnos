@@ -194,10 +194,10 @@ export async function switchDossierRefVersion(
   id: string,
   versionId: string,
   labels: { from: string | null; to: string },
-): Promise<void> {
+): Promise<boolean> {
   const existing = await db.dossiers.get(id)
-  if (!existing || existing.deletedAt !== null) return
-  if (existing.refVersionId === versionId) return // idempotent (double clic, deux onglets)
+  if (!existing || existing.deletedAt !== null) return false
+  if (existing.refVersionId === versionId) return false // idempotent (double clic, deux onglets)
   const updated: DossierRecord = { ...existing, refVersionId: versionId, updatedAt: now() }
   await db.transaction('rw', db.dossiers, db.outbox, async () => {
     await db.dossiers.put(updated)
@@ -212,6 +212,7 @@ export async function switchDossierRefVersion(
     'update',
     `${existing.productName} · référentiel ${labels.from ?? '—'} → ${labels.to}`,
   )
+  return true
 }
 
 /** Motif d'audit (ALCOA : « reason for change ») accolé au libellé. */

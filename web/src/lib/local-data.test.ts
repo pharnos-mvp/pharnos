@@ -64,6 +64,7 @@ async function seed() {
     releaseNote: '',
     publishedAt: ts,
     createdAt: ts,
+    isBaseline: true,
   })
   await db.refEntries.add({
     id: 're1',

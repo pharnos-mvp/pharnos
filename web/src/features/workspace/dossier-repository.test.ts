@@ -38,6 +38,7 @@ async function seedRefVersions(adopted?: 'v-1' | 'v-2') {
       releaseNote: '',
       publishedAt: '2026-03-01T00:00:00.000Z',
       createdAt: '2026-03-01T00:00:00.000Z',
+      isBaseline: true, // socle explicite (0074)
     },
     {
       id: 'v-2',
@@ -47,6 +48,7 @@ async function seedRefVersions(adopted?: 'v-1' | 'v-2') {
       releaseNote: '',
       publishedAt: '2026-07-15T00:00:00.000Z',
       createdAt: '2026-07-15T00:00:00.000Z',
+      isBaseline: false,
     },
   ])
   if (adopted) {

@@ -3,11 +3,13 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { db, type RefEntryRecord, type RefVersionRecord } from '@/lib/db'
 import { authorityDetail } from './authorities-data'
 import { resolvedAuthorityDetail, resolvedAuthorityDetailAtVersion } from './ref-content'
-import { loadRefState, pendingRefUpdate } from './ref-state'
+import { dossierRefStatus, loadRefState, pendingRefUpdate } from './ref-state'
 import { refUpdatePreview } from './ref-diff'
 
 const ORG = 'org-1'
 
+/** `isBaseline` par défaut sur `v-1` : le SOCLE est une propriété EXPLICITE de la donnée (0074),
+ *  jamais « la plus ancienne version de la réplique » (cf. bloquant B1 de la revue P4.2). */
 const version = (patch: Partial<RefVersionRecord> & { id: string }): RefVersionRecord => ({
   label: patch.id,
   status: 'published',
@@ -15,6 +17,7 @@ const version = (patch: Partial<RefVersionRecord> & { id: string }): RefVersionR
   releaseNote: '',
   publishedAt: '2026-07-01T00:00:00.000Z',
   createdAt: '2026-07-01T00:00:00.000Z',
+  isBaseline: patch.id === 'v-1',
   ...patch,
 })
 
@@ -266,6 +269,65 @@ describe('resolvedAuthorityDetail — socle et plafond adopté', () => {
   })
 })
 
+describe('plafond = SOCLE DÉCLARÉ, jamais « la plus ancienne de la réplique » (bloquant B1)', () => {
+  /** Deux versions publiées ; le socle est déclaré sur `v-1` sauf mention contraire. */
+  const seedTwo = async (opts?: { baseline?: 'v-1' | 'v-2' | 'aucun' }) => {
+    const base = opts?.baseline ?? 'v-1'
+    await db.refVersions.bulkPut([
+      version({
+        id: 'v-1',
+        label: 'v2026.1',
+        publishedAt: '2026-03-01T00:00:00.000Z',
+        isBaseline: base === 'v-1',
+      }),
+      version({
+        id: 'v-2',
+        label: 'v2026.2',
+        publishedAt: '2026-07-15T00:00:00.000Z',
+        isBaseline: base === 'v-2',
+      }),
+    ])
+    await db.refEntries.bulkPut([
+      entry({ id: 'e-1', versionId: 'v-1', payload: { fees: { new_ma: 750000 } } }),
+      entry({ id: 'e-2', versionId: 'v-2', payload: { fees: { new_ma: 1000000 } } }),
+    ])
+  }
+
+  it('socle ARCHIVÉ (donc absent) → AUCUNE version tierce appliquée : repli socle code', async () => {
+    // Avant le fix : `versions[0]` = v2026.2 → 1 000 000 appliqué SANS adoption et SANS bannière.
+    await seedTwo({ baseline: 'aucun' })
+
+    const r = await resolvedAuthorityDetail('SN', ORG)
+    const s = await loadRefState(ORG)
+
+    expect(s.ceiling).toBe(null)
+    expect(r?.versionLabel).toBe(null)
+    expect(r?.detail).toEqual(authorityDetail('SN'))
+    // …et la mise à jour reste ANNONCÉE (la file n'est pas vidée en silence).
+    expect(s.pending.map((v) => v.label)).toEqual(['v2026.1', 'v2026.2'])
+  })
+
+  it('version ADOPTÉE absente de la réplique (cap de pull) → plafond = socle, pas un tiers', async () => {
+    await seedTwo()
+    await adopt('v-inconnue')
+
+    const s = await loadRefState(ORG)
+
+    expect(s.ceiling?.label).toBe('v2026.1')
+    expect((await resolvedAuthorityDetail('SN', ORG))?.detail.profile?.fees.new_ma).toBe(750000)
+  })
+
+  it('la version ADOPTÉE archivée ne rétrograde pas au-dessous du socle', async () => {
+    await seedTwo()
+    await adopt('v-2')
+    await db.refVersions.update('v-2', { status: 'archived' })
+
+    const s = await loadRefState(ORG)
+
+    expect(s.ceiling?.label).toBe('v2026.1') // socle, jamais une version non consentie
+  })
+})
+
 describe('loadRefState — plafond et file d’attente', () => {
   beforeEach(async () => {
     await db.refVersions.bulkPut([
@@ -416,5 +478,58 @@ describe('resolvedAuthorityDetailAtVersion — dossier épinglé (P4.2b)', () =>
 
     expect(r?.versionLabel).toBe(null)
     expect(r?.detail).toEqual(authorityDetail('SN'))
+  })
+
+  it('épinglage BORNÉ au plafond : une version non adoptée par l’org ne sert pas son barème', async () => {
+    // Majeur M1 : `dossiers.ref_version_id` est écrivable par un éditeur non-admin (PostgREST) —
+    // sans borne, il se servait le barème d'une version que l'org n'a jamais consentie.
+    await db.orgRefAdoptions.clear() // l'org retombe au socle v-1
+    const r = await resolvedAuthorityDetailAtVersion('SN', ORG, 'v-2')
+
+    expect(r?.detail.profile?.fees.new_ma).toBe(750000)
+    expect(r?.versionLabel).toBe('v2026.1')
+  })
+})
+
+describe('dossierRefStatus — état d’épinglage', () => {
+  beforeEach(async () => {
+    await db.refVersions.bulkPut([
+      version({ id: 'v-1', label: 'v2026.1', publishedAt: '2026-03-01T00:00:00.000Z' }),
+      version({ id: 'v-2', label: 'v2026.2', publishedAt: '2026-07-15T00:00:00.000Z' }),
+    ])
+  })
+
+  it('org en avance sur le dossier → bascule proposée', async () => {
+    await adopt('v-2')
+
+    const s = await dossierRefStatus(ORG, 'v-1')
+
+    expect(s).toMatchObject({ pinnedLabel: 'v2026.1', behind: true, pinnedMissing: false })
+    expect(s.applied?.label).toBe('v2026.2')
+  })
+
+  it('dossier aligné sur l’org → rien à signaler', async () => {
+    expect(await dossierRefStatus(ORG, 'v-1')).toMatchObject({
+      behind: false,
+      pinnedMissing: false,
+    })
+  })
+
+  it('dossier NON épinglé (antérieur à P4.2b) → suit l’org, aucune bascule', async () => {
+    await adopt('v-2')
+
+    expect(await dossierRefStatus(ORG, null)).toMatchObject({
+      pinnedLabel: null,
+      behind: false,
+      pinnedMissing: false,
+    })
+  })
+
+  it('version épinglée introuvable → signalée (pas de silence) et aucune bascule', async () => {
+    expect(await dossierRefStatus(ORG, 'v-purgée')).toMatchObject({
+      pinnedLabel: null,
+      behind: false,
+      pinnedMissing: true,
+    })
   })
 })

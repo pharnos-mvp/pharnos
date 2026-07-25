@@ -55,20 +55,48 @@ export function DossierRefBanner({
     [open, applied?.id, dossier.orgId, dossier.refVersionId, dossier.country, lang],
   )
 
+  // Version épinglée INTROUVABLE localement (hors-ligne avant le 1er pull, version retirée, cap de
+  // pull) : la Roadmap sert les valeurs de référence par défaut → on le DIT, et on ne propose
+  // aucune bascule (on ne sait pas de quoi on partirait).
+  if (status.pinnedMissing) {
+    return (
+      <div className="bg-muted border-border flex flex-wrap items-center gap-3 rounded-xl border p-3">
+        <span
+          aria-hidden
+          className="bg-background text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-lg"
+        >
+          <Pin className="size-4" />
+        </span>
+        <p className="text-muted-foreground min-w-0 flex-1 text-xs">
+          {t({
+            fr: 'Le référentiel réglementaire de ce dossier n’est pas disponible sur cet appareil (hors-ligne, ou version retirée) : les montants et exigences affichés sont ceux du référentiel par défaut.',
+            en: 'This submission’s reference data is unavailable on this device (offline, or version withdrawn): the amounts and requirements shown are the default reference ones.',
+          })}
+        </p>
+      </div>
+    )
+  }
+
   if (!status.behind || !applied) return null
 
   const doSwitch = async () => {
     setBusy(true)
     try {
-      await switchDossierRefVersion(dossier.id, applied.id, {
+      const switched = await switchDossierRefVersion(dossier.id, applied.id, {
         from: status.pinnedLabel,
         to: applied.label,
       })
-      toast.success(
-        t({
-          fr: `Ce dossier suit désormais le référentiel ${applied.label}.`,
-          en: `This submission now follows reference data ${applied.label}.`,
-        }),
+      // No-op (dossier supprimé entre-temps, déjà basculé) → pas de confirmation mensongère.
+      toast[switched ? 'success' : 'info'](
+        switched
+          ? t({
+              fr: `Ce dossier suit désormais le référentiel ${applied.label}.`,
+              en: `This submission now follows reference data ${applied.label}.`,
+            })
+          : t({
+              fr: 'Aucun changement à appliquer sur ce dossier.',
+              en: 'No change to apply to this submission.',
+            }),
       )
       setOpen(false)
     } catch (error) {
@@ -142,7 +170,12 @@ export function DossierRefBanner({
               {t({ fr: 'Calcul…', en: 'Computing…' })}
             </p>
           ) : preview && preview.rows.length > 0 ? (
-            <div className="overflow-x-auto">
+            <div
+              className="overflow-x-auto"
+              tabIndex={0}
+              role="group"
+              aria-label={t({ fr: 'Tableau des changements', en: 'Table of changes' })}
+            >
               <table className="w-full border-collapse text-sm">
                 <thead>
                   <tr className="text-muted-foreground border-border border-b text-left text-[11px] tracking-wide uppercase">

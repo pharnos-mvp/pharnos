@@ -30,7 +30,7 @@ import {
   listByDossier,
   listMessagesByDossier,
 } from '@/features/correspondence/correspondence-repository'
-import { useMemberScope } from '@/features/org/use-current-org'
+import { useCanEditContent, useMemberScope } from '@/features/org/use-current-org'
 import { useI18n, type Lang, type Translatable } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import { lookupVariation } from '@/features/variations/variation-request'
@@ -92,6 +92,7 @@ export function RoadmapPage() {
   const { dossierId } = useParams()
   const navigate = useNavigate()
   const { scoped } = useMemberScope()
+  const canEditContent = useCanEditContent()
   const [showAllJournal, setShowAllJournal] = useState(false)
 
   const data = useLiveQuery(async () => {
@@ -310,10 +311,11 @@ export function RoadmapPage() {
         <ArrowLeft /> {t({ fr: 'Dossiers', en: 'Dossiers' })}
       </Button>
 
-      {/* Épinglage du référentiel : annonce SANS rien changer (P4.2b). Un membre scopé (agence
-          invitée) suit le dossier mais n'édite pas son montage → pas de bascule pour lui. */}
+      {/* Épinglage du référentiel : annonce SANS rien changer (P4.2b). La bascule écrit le dossier
+          → réservée aux rôles ÉDITEURS (miroir de `current_user_editable_org_ids`, 0028) : la
+          proposer à un Lecteur produirait un rejet permanent drainé + Sentry, pas un simple refus. */}
       {refStatus ? (
-        <DossierRefBanner dossier={dossier} status={refStatus} canEdit={!scoped} />
+        <DossierRefBanner dossier={dossier} status={refStatus} canEdit={canEditContent} />
       ) : null}
 
       {/* ── En-tête dossier ───────────────────────────────────────────── */}

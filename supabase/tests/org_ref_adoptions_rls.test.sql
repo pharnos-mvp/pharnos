@@ -8,7 +8,7 @@
 -- le contenu INCHANGÉ, pas une exception.
 
 begin;
-select plan(12);
+select plan(15);
 
 insert into auth.users (instance_id, id, aud, role, email)
 values
@@ -107,9 +107,39 @@ select is(
 
 -- Écritures directes : silencieuses (aucune policy) — la preuve est le contenu intact.
 select lives_ok(
+  $$ update public.org_ref_adoptions set version_id = '00000000-0000-0000-0000-0000000000d2'
+     where org_id = '00000000-0000-0000-0000-00000000ca01' $$,
+  'UPDATE sans policy : silencieux (0 ligne touchée)'
+);
+select lives_ok(
   $$ delete from public.org_ref_adoptions
      where org_id = '00000000-0000-0000-0000-00000000ca01' $$,
   'DELETE sans policy : silencieux (0 ligne touchée)'
+);
+
+-- ----------------------------------------------------------------------------
+-- Côté POSITIF : sans lui, une régression de `current_user_org_ids()` passerait
+-- inaperçue — le client retomberait au socle en SILENCE (panne muette).
+-- ----------------------------------------------------------------------------
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000c2"}', true);
+select is(
+  (select count(*)::int from public.org_ref_adoptions
+   where org_id = '00000000-0000-0000-0000-00000000ca01'),
+  1,
+  'un membre NON scopé LIT l''adoption de son org (le plafond se calcule côté client)'
+);
+
+-- CS1 : un membre SCOPÉ (agence invitée sur des dossiers précis) ne lit pas la config de l'org.
+reset role;
+insert into public.membership_scopes (org_id, user_id, dossier_ids)
+values ('00000000-0000-0000-0000-00000000ca01', '00000000-0000-0000-0000-0000000000c2',
+        array['00000000-0000-0000-0000-0000000000e9']::uuid[]);
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000c2"}', true);
+select is(
+  (select count(*)::int from public.org_ref_adoptions),
+  0,
+  'un membre SCOPÉ ne lit AUCUNE adoption (RESTRICTIVE CS1)'
 );
 
 -- ----------------------------------------------------------------------------

@@ -27,9 +27,8 @@ create table if not exists public.org_ref_adoptions (
   unique (org_id, version_id)
 );
 
--- Lecture « les adoptions de mon org » (pull client) : l'unique + org_id ne couvre pas l'ordre
--- des colonnes du prédicat, on indexe explicitement.
-create index if not exists org_ref_adoptions_org_idx on public.org_ref_adoptions (org_id);
+-- NB : l'unique `(org_id, version_id)` sert déjà les lectures « adoptions de mon org » (org_id est
+-- la colonne de tête) — un index dédié serait redondant (retiré par 0074).
 
 alter table public.org_ref_adoptions enable row level security;
 

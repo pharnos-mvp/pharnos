@@ -65,6 +65,17 @@ export function useIsOrgAdmin(): boolean {
   return memberships.find((m) => m.orgId === orgId)?.role === 'admin'
 }
 
+/** L'utilisateur peut-il ÉCRIRE le contenu de l'org (produits, dossiers, documents) ? Miroir UI de
+ *  `current_user_editable_org_ids` (0028) : tous les rôles SAUF Lecteur (`reviewer`) — et jamais un
+ *  membre scopé CS1 (0048 réserve les écritures aux non scopés). Proposer une action qu'un Lecteur
+ *  ne peut pas écrire produit un rejet PERMANENT drainé + Sentry, pas une simple erreur d'UI. */
+export function useCanEditContent(): boolean {
+  const { orgId, memberships } = useCurrentOrg()
+  const role = memberships.find((m) => m.orgId === orgId)?.role
+  const { scoped } = useMemberScope()
+  return !!role && role !== 'reviewer' && !scoped
+}
+
 /**
  * Périmètre CS1 du membre courant dans l'org active (miroir UI de `membership_scopes`, 0048).
  * `scoped` = membre limité à la couche SUIVI de ses dossiers grantés → l'UI masque catalogue,
