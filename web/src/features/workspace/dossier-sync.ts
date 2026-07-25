@@ -27,6 +27,9 @@ export interface DossierRow {
   updated_at: string
   deleted_at: string | null
   archived_at: string | null
+  // Version du référentiel réglementaire sous laquelle le dossier est monté (0073) — épinglée à la
+  // création, changée seulement par une bascule VOLONTAIRE. null = dossier antérieur à P4.2b.
+  ref_version_id?: string | null
   // N° d'opération attribué CÔTÉ SERVEUR (0046) : descend au pull, JAMAIS poussé par le client
   // (absent de `dossierToRow` → l'upsert ne les écrase pas, le trigger les attribue à l'insert).
   op_year?: number | null
@@ -57,6 +60,7 @@ export function dossierToRow(d: DossierRecord): DossierRow {
     updated_at: d.updatedAt,
     deleted_at: d.deletedAt,
     archived_at: d.archivedAt ?? null,
+    ref_version_id: d.refVersionId ?? null,
   }
 }
 
@@ -83,6 +87,7 @@ export function rowToDossier(r: DossierRow): DossierRecord {
     opYear: r.op_year ?? null,
     opNumber: r.op_number ?? null,
     purgedAt: r.purged_at ?? null,
+    refVersionId: r.ref_version_id ?? null,
   }
 }
 

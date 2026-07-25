@@ -262,6 +262,13 @@ export interface DossierRecord {
    */
   opYear?: number | null
   opNumber?: number | null
+  /**
+   * Version du référentiel réglementaire sous laquelle le dossier est MONTÉ (P4.2b, migration
+   * 0073) : épinglée à la création (dernière version adoptée par l'org) et changée seulement par
+   * une bascule VOLONTAIRE et tracée — un dossier déposé est une photographie opposable. `null` =
+   * dossier antérieur à P4.2b → résolution sur la version appliquée par l'org.
+   */
+  refVersionId?: string | null
 }
 
 /**
@@ -558,6 +565,21 @@ export interface RefEntryRecord {
   createdAt: string
 }
 
+/**
+ * Adoption d'une version du référentiel PAR L'ORGANISATION (réplique locale de `org_ref_adoptions`,
+ * migration 0072) — le consentement tracé : tant qu'une version publiée n'est pas adoptée, elle ne
+ * s'applique pas à l'org. Écriture serveur seule (RPC `adopt_ref_version`, admin d'org) ; côté
+ * client, lecture seule. Journal append-only : 1 ligne = 1 adoption.
+ */
+export interface OrgRefAdoptionRecord {
+  id: string
+  orgId: string
+  versionId: string
+  adoptedAt: string
+  /** E-mail de l'admin qui a adopté (trace lisible, cf. `audit_log.actor_email`). */
+  adoptedByEmail: string
+}
+
 const db = new Dexie('pharnos') as Dexie & {
   products: EntityTable<ProductRecord, 'id'>
   parties: EntityTable<PartyRecord, 'id'>
@@ -580,6 +602,7 @@ const db = new Dexie('pharnos') as Dexie & {
   notificationReads: EntityTable<NotificationReadRecord, 'id'>
   refVersions: EntityTable<RefVersionRecord, 'id'>
   refEntries: EntityTable<RefEntryRecord, 'id'>
+  orgRefAdoptions: EntityTable<OrgRefAdoptionRecord, 'id'>
 }
 
 db.version(1).stores({
@@ -671,6 +694,12 @@ db.version(15).stores({
 db.version(16).stores({
   refVersions: 'id, label',
   refEntries: 'id, versionId, [country+section]',
+})
+
+// v17 : adoptions du référentiel par org (P4.2, migration 0072) — TENANT (indexé `orgId` : le
+// remplacement du pull ne touche que les lignes de l'org synchronisée, cf. membre multi-orgs).
+db.version(17).stores({
+  orgRefAdoptions: 'id, orgId, [orgId+versionId]',
 })
 
 export { db }

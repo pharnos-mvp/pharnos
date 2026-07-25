@@ -2,6 +2,7 @@ import { recordAudit } from '@/lib/audit'
 import { db, type DossierRecord } from '@/lib/db'
 import { enqueueOutbox } from '@/lib/outbox'
 import { requestPersistentStorage } from '@/lib/persist'
+import { loadRefState } from '@/features/catalogue/ref-state'
 import type { VariationItem } from '@/features/variations/variation-request'
 import { getModule1Tree, type DossierFormat } from './module1-tree'
 import { assignIds } from './tree-utils'
@@ -89,6 +90,13 @@ export async function createDossier(
   input: CreateDossierInput,
 ): Promise<DossierRecord> {
   const ts = now()
+  // Épinglage du référentiel (P4.2b) : le dossier est monté sous la version que l'org APPLIQUE au
+  // moment de sa création, et la garde même si l'org adopte plus récent ensuite. Best-effort :
+  // une réplique vide (1re session, hors-ligne) laisse `null` = « résolution sur l'org » — jamais
+  // un échec de création de dossier pour un attribut de traçabilité.
+  const refVersionId = await loadRefState(orgId)
+    .then((s) => s.ceiling?.id ?? null)
+    .catch(() => null)
   const record: DossierRecord = {
     id: newId(),
     orgId,
@@ -112,6 +120,7 @@ export async function createDossier(
     updatedAt: ts,
     deletedAt: null,
     archivedAt: null,
+    refVersionId,
   }
   await db.transaction('rw', db.dossiers, db.outbox, async () => {
     await db.dossiers.add(record)
@@ -173,6 +182,36 @@ export async function excludeProductDoc(id: string, docId: string): Promise<void
     await db.dossiers.put(updated)
     await enqueueOutbox('dossier', id, 'update', updated)
   })
+}
+
+/**
+ * Bascule VOLONTAIRE d'un dossier vers une autre version du référentiel (P4.2b) : recalcule ses
+ * redevances/exigences sous la nouvelle version. Jamais automatique — un dossier déposé est une
+ * photographie opposable. Tracée à l'audit (« vX → vY »), avec les libellés lisibles : la trace
+ * doit rester compréhensible même si la version est purgée plus tard.
+ */
+export async function switchDossierRefVersion(
+  id: string,
+  versionId: string,
+  labels: { from: string | null; to: string },
+): Promise<void> {
+  const existing = await db.dossiers.get(id)
+  if (!existing || existing.deletedAt !== null) return
+  if (existing.refVersionId === versionId) return // idempotent (double clic, deux onglets)
+  const updated: DossierRecord = { ...existing, refVersionId: versionId, updatedAt: now() }
+  await db.transaction('rw', db.dossiers, db.outbox, async () => {
+    await db.dossiers.put(updated)
+    await enqueueOutbox('dossier', id, 'update', updated)
+  })
+  // Action `update` (le vocabulaire d'audit est CLOS côté serveur) — c'est le libellé qui porte
+  // le sens : « référentiel vX → vY », lisible même si la version est purgée plus tard.
+  await recordAudit(
+    existing.orgId,
+    'dossier',
+    id,
+    'update',
+    `${existing.productName} · référentiel ${labels.from ?? '—'} → ${labels.to}`,
+  )
 }
 
 /** Motif d'audit (ALCOA : « reason for change ») accolé au libellé. */

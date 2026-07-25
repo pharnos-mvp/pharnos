@@ -110,6 +110,7 @@ export type ActionKind =
   | 'non_conform'
   | 'doc_expiring'
   | 'agency_pending'
+  | 'ref_update'
 
 /** Urgence (plus petit = plus haut dans la liste). */
 const PRIORITY: Record<ActionKind, number> = {
@@ -119,6 +120,9 @@ const PRIORITY: Record<ActionKind, number> = {
   non_conform: 4,
   doc_expiring: 5,
   agency_pending: 6,
+  // Mise à jour du référentiel à adopter (P4.2) : importante mais jamais urgente — rien ne casse
+  // tant qu'elle n'est pas adoptée (le contenu appliqué reste celui de la version en vigueur).
+  ref_update: 7,
 }
 
 export interface ActionItem {
@@ -152,6 +156,12 @@ export interface DashboardInput {
    * (anciens appelants inchangés) ; les deux appelants réels (Dashboard, cloche) le fournissent.
    */
   parties?: PartyRecord[]
+  /**
+   * Mise à jour du référentiel réglementaire publiée mais PAS encore adoptée par l'org (P4.2,
+   * `pendingRefUpdate`). Calculée par l'appelant (qui connaît l'org) et injectée ici pour que
+   * `buildActions` reste pure. Absente = rien à adopter.
+   */
+  refUpdate?: { label: string; publishedAt: string }
 }
 
 const active = <T extends { deletedAt?: string | null }>(rows: T[]): T[] =>
@@ -264,6 +274,20 @@ export function buildActions(input: DashboardInput, now: Date): ActionItem[] {
       count: nc.length,
       // Date de l'analyse Regafy → tri chronologique de la cloche (ne coule plus en bas, faute de date).
       date: a.analyzedAt,
+    })
+  }
+
+  // 5) Référentiel réglementaire : une version publiée attend l'adoption de l'org (P4.2).
+  // Un SEUL item quel que soit le nombre de versions en attente (adopter la plus récente les
+  // prend toutes) → la file ne se remplit pas de bruit à chaque publication.
+  if (input.refUpdate) {
+    items.push({
+      id: `ref:${input.refUpdate.label}`,
+      kind: 'ref_update',
+      priority: PRIORITY.ref_update,
+      href: '/catalogue/autorites',
+      label: input.refUpdate.label,
+      date: input.refUpdate.publishedAt,
     })
   }
 

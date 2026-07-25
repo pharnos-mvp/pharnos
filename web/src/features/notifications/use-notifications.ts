@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 
+import { pendingRefUpdate } from '@/features/catalogue/ref-state'
 import {
   buildActions,
   type ActionItem,
@@ -41,6 +42,7 @@ export function useNotifications(orgId: string): NotificationsVm | undefined {
       lifecycleEvents,
       notifRead,
       parties,
+      pendingRef,
     ] = await Promise.all([
       db.products.where('orgId').equals(orgId).toArray(),
       db.documents.where('orgId').equals(orgId).toArray(),
@@ -53,6 +55,8 @@ export function useNotifications(orgId: string): NotificationsVm | undefined {
       db.notificationReads.get(NOTIF_READ_ID),
       // Nomme/route les alertes des documents ORG-scopés (pièces propres d'un MAH/fabricant, 0069).
       db.parties.where('orgId').equals(orgId).toArray(),
+      // Référentiel publié en attente d'adoption par l'org (0072) → ligne « à adopter ».
+      pendingRefUpdate(orgId),
     ])
     const now = new Date()
     const input: DashboardInput = {
@@ -64,6 +68,9 @@ export function useNotifications(orgId: string): NotificationsVm | undefined {
       reads,
       docAnalysis,
       parties,
+      refUpdate: pendingRef
+        ? { label: pendingRef.target.label, publishedAt: pendingRef.target.publishedAt ?? '' }
+        : undefined,
     }
     // Cloche : ordre chronologique (plus récent d'abord), ≠ ordre par urgence du panneau Dashboard.
     const recu = sortRecuByRecency(buildActions(input, now))

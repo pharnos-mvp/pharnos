@@ -34,6 +34,8 @@ async function clearAllTables(opts?: { preserveNotifReads?: boolean }): Promise<
     // quand même pour garder le miroir exact du schéma ; re-tiré au prochain cycle (~20 Ko).
     db.refVersions.clear(),
     db.refEntries.clear(),
+    // Adoptions (0072) : donnée TENANT (quelle version l'org applique) → purge obligatoire.
+    db.orgRefAdoptions.clear(),
   ]
   // Marqueur de lecture de la cloche (`notificationReads`, local par appareil, JAMAIS re-synchronisé) :
   // CONSERVÉ à la déconnexion (`preserveNotifReads`) pour qu'une reconnexion du MÊME compte ne rejoue

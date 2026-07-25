@@ -132,7 +132,7 @@ ci-dessous sont des features post-pilotes qui ne bloquent pas le gate.
 Chaque phase = 1 à 2 PR, revue `code-reviewer` systématique, CI job-par-job, migration appliquée
 et vérifiée en prod AVANT le merge du code qui la consomme.
 
-**Prochaine migration libre : 0071.**
+**Prochaine migration libre : 0074.**
 
 ---
 
@@ -173,9 +173,37 @@ test de parité) + réplique Dexie v16 pull-only (throttle 15 min, pull borné/p
 `syncCatalogue` — jamais devant un push ni dans le flush de déconnexion) + résolveur
 `ref-content.ts` (publié-seul **et à date d'effet atteinte**, payloads normalisés — un contenu
 malformé retombe sur le socle code, sections inconnues ignorées) + fiche Autorité (badge version,
-lignes « Source : … ») → P4.2 adoption/notification + épinglage dossiers → P4.3 overrides org +
-conflits → P4.4 God dashboard Référentiel (éditeur, publication, adoption). NB : les montants
-« avant » du diff mockup sont ILLUSTRATIFS.
+lignes « Source : … ») → **P4.2 ✅ (2026-07-25)** adoption/notification + épinglage dossiers →
+P4.3 overrides org + conflits → P4.4 God dashboard Référentiel (éditeur, publication, adoption).
+NB : les montants « avant » du diff mockup sont ILLUSTRATIFS.
+
+**P4.2 livré (migrations `0072` + `0073`, appliquées prod avant merge)** :
+- **Consentement** : `org_ref_adoptions` (journal append-only, RLS lecture membres + RESTRICTIVE
+  CS1, **zéro policy d'écriture**) + RPC `adopt_ref_version` (security definer : **admin d'org
+  seul**, refuse un brouillon, audite dans la même transaction) — pgTAP `org_ref_adoptions_rls`
+  (12 assertions).
+- **Résolution au PLAFOND adopté** : sans aucune adoption, plafond = **version socle** → une org
+  ne voit jamais son contenu changer sans consentement ; adopter la plus récente prend les
+  intermédiaires. Isolation par org vérifiée.
+- **Notification** : bannière ciblée par pays (fiche Autorité) / globale (liste), dialog de
+  consentement avec diff avant/après + sources citées + garanties, et ligne « Référentiel à
+  adopter » dans la **cloche + Alertes du Dashboard** (`ActionKind: 'ref_update'`, un seul item
+  quel que soit le nombre de versions en attente).
+- **Épinglage** : `dossiers.ref_version_id` posé à la création (version appliquée par l'org) ; la
+  **Roadmap lit le barème de la version épinglée** (fin de la divergence M7 sur ce chemin) ;
+  bannière « épinglé sur vX » + **bascule volontaire** confirmée sur un diff limité au pays du
+  dossier, idempotente, tracée à l'audit (« référentiel vX → vY »).
+- **Découpage de modules imposé par le budget** : `ref-state` (versions/adoptions, SANS contenu —
+  chargé par l'entrée pour la cloche) · `ref-content` (résolveur + socle bilingue) · `ref-diff`
+  (dialogs). Sans ce découpage, la cloche tirait tout `roadmap-data` dans le bundle d'entrée
+  (**+5,9 Ko gzip mesurés, budget à 98,7 %**) ; après, +0,4 Ko.
+- **Écart assumé vs mockup écran 3** : la bascule est tracée dans le **journal d'audit** (org), pas
+  dans la timeline du dossier — le vocabulaire `lifecycle_events` est verrouillé (ADR-0004) et
+  alimente la **vue agent externe tokenisée** : y publier un événement de configuration serait une
+  décision d'exposition à part entière. À arbitrer (migration d'un type `ref_version_switched`) si
+  le CEO veut la ligne dans le parcours du dossier.
+- Suite naturelle : auto-adoption de la dernière version à la **création d'une org** (sinon une org
+  neuve démarre sur le socle et doit adopter) — à traiter avec P4.4.
 
 **⚠ GARDE-FOU P4.1→P4.4 (revue #414, M7)** : lettres (`letter-context`), Roadmap
 (`regulatoryProfileFor`), `NewDossierPage`/`DossierPreviewPage`/`submission-language` et la LISTE

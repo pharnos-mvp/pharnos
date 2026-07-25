@@ -103,7 +103,7 @@ describe('ref-sync mapping', () => {
 
 describe('pullRefContent — remplacement atomique de la réplique', () => {
   it('peuple les deux tables depuis le serveur', async () => {
-    await pullRefContent(supabaseWith([versionRow], [entryRow]))
+    await pullRefContent(supabaseWith([versionRow], [entryRow]), 'org-1')
 
     expect(await db.refVersions.count()).toBe(1)
     expect(await db.refEntries.count()).toBe(1)
@@ -113,31 +113,31 @@ describe('pullRefContent — remplacement atomique de la réplique', () => {
   it('écriture IDEMPOTENTE sur lignes existantes (bulkPut, pas bulkAdd) — clear() neutralisé', async () => {
     // Sans neutraliser clear(), ce test ne prouverait rien : le clear efface tout conflit
     // possible et un bulkAdd passerait aussi (motif de faux-vert ciblé par l'invariant repo).
-    await pullRefContent(supabaseWith([versionRow], [entryRow]))
+    await pullRefContent(supabaseWith([versionRow], [entryRow]), 'org-1')
     vi.spyOn(db.refVersions, 'clear').mockResolvedValue(undefined)
     vi.spyOn(db.refEntries, 'clear').mockResolvedValue(undefined)
 
-    await pullRefContent(supabaseWith([versionRow], [entryRow]))
+    await pullRefContent(supabaseWith([versionRow], [entryRow]), 'org-1')
 
     expect(await db.refVersions.count()).toBe(1)
     expect(await db.refEntries.count()).toBe(1)
   })
 
   it('une version dépubliée côté serveur disparaît aussi localement', async () => {
-    await pullRefContent(supabaseWith([versionRow], [entryRow]))
-    await pullRefContent(supabaseWith([], []))
+    await pullRefContent(supabaseWith([versionRow], [entryRow]), 'org-1')
+    await pullRefContent(supabaseWith([], []), 'org-1')
 
     expect(await db.refVersions.count()).toBe(0)
     expect(await db.refEntries.count()).toBe(0)
   })
 
   it('une erreur serveur laisse la réplique locale INTACTE (offline-first)', async () => {
-    await pullRefContent(supabaseWith([versionRow], [entryRow]))
+    await pullRefContent(supabaseWith([versionRow], [entryRow]), 'org-1')
 
     const enPanne = {
       from: () => ({ select: () => chain([], new Error('503')) }),
     } as unknown as SupabaseClient
-    await expect(pullRefContent(enPanne)).rejects.toThrow('503')
+    await expect(pullRefContent(enPanne, 'org-1')).rejects.toThrow('503')
 
     expect(await db.refVersions.count()).toBe(1)
     expect(await db.refEntries.count()).toBe(1)

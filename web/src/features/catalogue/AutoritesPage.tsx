@@ -17,6 +17,7 @@ import { db } from '@/lib/db'
 import { useI18n } from '@/lib/i18n-context'
 import { buildAuthorityRows, filterAuthorityRows, type AuthorityRow } from './authorities-data'
 import { CatalogueTabs } from './CatalogueTabs'
+import { RefUpdateBanner } from './RefUpdateBanner'
 
 const LANG_LABEL: Record<string, string> = { fr: 'FR', en: 'EN', pt: 'PT' }
 
@@ -63,6 +64,9 @@ export function AutoritesPage() {
           en: 'National medicines regulatory authorities (UEMOA/ECOWAS) — recipients of your submissions.',
         })}
       />
+
+      {/* Mise à jour du référentiel en attente d'adoption, tous pays confondus (P4.2). */}
+      <RefUpdateBanner />
 
       {rows === undefined ? (
         <AuthSkeleton />

@@ -14,6 +14,7 @@ import {
   Package,
   PauseCircle,
   RefreshCw,
+  ScrollText,
   Send,
   ShieldCheck,
   type LucideIcon,
@@ -23,6 +24,7 @@ import { Link } from 'react-router'
 import { useAuditSync } from '@/features/audit/use-audit-sync'
 import { useAuth } from '@/features/auth/auth-context'
 import { docTypeLabel } from '@/features/catalogue/doc-types'
+import { pendingRefUpdate } from '@/features/catalogue/ref-state'
 import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
 import { useCorrespondenceSync } from '@/features/correspondence/use-correspondence-sync'
 import { useOrgId } from '@/features/org/org-context'
@@ -70,6 +72,12 @@ const KIND_BADGE: Record<ActionKind, { cls: string; Icon: LucideIcon; fr: string
   },
   unread_reply: { cls: 'badge-blue', Icon: Mail, fr: 'Réponse agence', en: 'Agency reply' },
   agency_pending: { cls: 'badge-blue', Icon: Clock, fr: 'En attente', en: 'Pending' },
+  ref_update: {
+    cls: 'badge-blue',
+    Icon: ScrollText,
+    fr: 'Référentiel à adopter',
+    en: 'Reference data to adopt',
+  },
 }
 
 const STATE_DOT: Record<CorrSubState, string> = {
@@ -160,6 +168,7 @@ export function DashboardPage() {
       docAnalysis,
       auditLog,
       parties,
+      pendingRef,
     ] = await Promise.all([
       db.products.where('orgId').equals(orgId).toArray(),
       db.documents.where('orgId').equals(orgId).toArray(),
@@ -171,6 +180,8 @@ export function DashboardPage() {
       db.auditLog.where('orgId').equals(orgId).toArray(),
       // Nomme/route les alertes des documents ORG-scopés (pièces propres d'un MAH/fabricant, 0069).
       db.parties.where('orgId').equals(orgId).toArray(),
+      // Référentiel publié en attente d'adoption par l'org (0072) → alerte « à adopter ».
+      pendingRefUpdate(orgId),
     ])
     return {
       products,
@@ -182,6 +193,7 @@ export function DashboardPage() {
       docAnalysis,
       auditLog,
       parties,
+      pendingRef,
     }
   }, [orgId])
 
@@ -195,6 +207,7 @@ export function DashboardPage() {
     docAnalysis = [],
     auditLog = [],
     parties = [],
+    pendingRef = null,
   } = data ?? {}
 
   const vm = useMemo(() => {
@@ -208,6 +221,9 @@ export function DashboardPage() {
       reads,
       docAnalysis,
       parties,
+      refUpdate: pendingRef
+        ? { label: pendingRef.target.label, publishedAt: pendingRef.target.publishedAt ?? '' }
+        : undefined,
     }
     return {
       actions: buildActions(input, now),
@@ -230,6 +246,7 @@ export function DashboardPage() {
     docAnalysis,
     auditLog,
     parties,
+    pendingRef,
   ])
 
   const derived = useMemo(() => {

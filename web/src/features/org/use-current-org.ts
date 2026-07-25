@@ -57,6 +57,14 @@ export function useCanManageSubmission(): boolean {
   return canManageSubmission(memberships.find((m) => m.orgId === orgId)?.role)
 }
 
+/** L'utilisateur est-il ADMINISTRATEUR de l'org active ? Miroir UI de `is_org_admin` (SQL) — la
+ *  vraie barrière reste le RPC/la RLS ; ce gating évite d'afficher une action qui ferait 42501.
+ *  Hors-ligne sans cache de memberships → `false` (fail-safe : on ne propose pas l'action). */
+export function useIsOrgAdmin(): boolean {
+  const { orgId, memberships } = useCurrentOrg()
+  return memberships.find((m) => m.orgId === orgId)?.role === 'admin'
+}
+
 /**
  * Périmètre CS1 du membre courant dans l'org active (miroir UI de `membership_scopes`, 0048).
  * `scoped` = membre limité à la couche SUIVI de ses dossiers grantés → l'UI masque catalogue,
