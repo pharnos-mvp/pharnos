@@ -83,6 +83,12 @@ begin
   values (v_org, p_version, auth.uid(), coalesce(v_email, ''))
   on conflict (org_id, version_id) do nothing;
 
+  -- Rejeu (double clic, deux onglets, retry réseau) : la table est protégée par l'unique, mais
+  -- l'audit ne doit PAS accumuler des traces d'un consentement déjà donné → on sort ici.
+  if not found then
+    return;
+  end if;
+
   insert into public.audit_log (id, org_id, actor_id, actor_email, entity, entity_id, action, label)
   values (gen_random_uuid(), v_org, auth.uid()::text, coalesce(v_email, ''), 'ref_version',
           p_version::text, 'adopt', 'référentiel ' || v_label || ' adopté');

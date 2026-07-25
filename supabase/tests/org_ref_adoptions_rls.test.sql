@@ -95,12 +95,14 @@ select is(
   'refadmin@pharnos.test',
   'la trace nomme QUI a adopté (journal du consentement)'
 );
+-- Une SEULE trace malgré le rejeu : l'`on conflict` protège la table, la garde `if not found`
+-- protège le JOURNAL (un consentement déjà donné ne se re-journalise pas).
 select is(
   (select count(*)::int from public.audit_log
    where org_id = '00000000-0000-0000-0000-00000000ca01' and action = 'adopt'
      and entity = 'ref_version'),
   1,
-  'l''adoption est journalisée à l''audit dans la même transaction'
+  'l''adoption est journalisée UNE fois à l''audit, dans la même transaction'
 );
 
 -- Écritures directes : silencieuses (aucune policy) — la preuve est le contenu intact.
