@@ -174,8 +174,26 @@ test de parité) + réplique Dexie v16 pull-only (throttle 15 min, pull borné/p
 `ref-content.ts` (publié-seul **et à date d'effet atteinte**, payloads normalisés — un contenu
 malformé retombe sur le socle code, sections inconnues ignorées) + fiche Autorité (badge version,
 lignes « Source : … ») → **P4.2 ✅ (2026-07-25)** adoption/notification + épinglage dossiers →
-P4.3 overrides org + conflits → P4.4 God dashboard Référentiel (éditeur, publication, adoption).
-NB : les montants « avant » du diff mockup sont ILLUSTRATIFS.
+**P4.4-pré ✅ (#416)** consommateurs au résolveur → **P4.4 ✅ (2026-07-25)** God dashboard →
+P4.3 overrides org + conflits (reste). NB : les montants « avant » du diff mockup sont ILLUSTRATIFS.
+
+**P4.4 livré (Edge `admin` v7 déployée + migration `0075` appliquées prod avant merge)** :
+- **Onglet « Référentiel » de la console god** (mockup écran 2) : KPIs (version publiée, adoption
+  x/y orgs actives, brouillon, dossiers épinglés en retard), liste des versions + **suivi
+  d'adoption par organisation** (qui, quand), **éditeur de brouillon** par (pays, section) —
+  agency/fees(+notes bilingues)/submission/samples — **préremplis depuis le socle** (jamais un
+  formulaire vide), **provenance OBLIGATOIRE** par entrée, publication avec confirmation
+  (« immuable, notifie sans imposer »).
+- **Edge `admin` actions `ref_*`** (double barrière : gate `is_platform_admin` + service-role,
+  seul chemin d'écriture de 0071) : `ref_overview` · `ref_entries` · `ref_save_draft` (une version
+  publiée est IMMUABLE — brouillons seuls éditables ; provenance `texte` ≥ 3 car. sinon 400) ·
+  `ref_publish` (re-vérifie non-vide + provenance AU MOMENT de publier, audit DB) ·
+  `ref_delete_draft` (brouillons seuls). `ctd_structure` volontairement ABSENTE de l'éditeur
+  (publier une section que rien ne rend = piège) — P4.5.
+- **Auto-adoption à la création d'org** (0075, trigger `orgs_auto_adopt_ref`) : une org NEUVE naît
+  sur la dernière version publiée applicable (état initial tracé à l'audit — pas un consentement
+  contourné : aucun état antérieur à protéger) ; couvre create_org/onboarding et tout futur chemin
+  sans dupliquer les RPC 0063 ; pgTAP `ref_auto_adopt` (jamais une version future ni un brouillon).
 
 **P4.2 livré (migrations `0072` + `0073`, appliquées prod avant merge)** :
 - **Consentement** : `org_ref_adoptions` (journal append-only, RLS lecture membres + RESTRICTIVE

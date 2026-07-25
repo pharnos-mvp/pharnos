@@ -16,6 +16,14 @@ import { logJson, newReqId, userHash } from "../_shared/log.ts";
 const PLANS = new Set(["free", "pro", "team", "business", "enterprise"]);
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Référentiel réglementaire versionné (P4.4). `ctd_structure` (P4.5) volontairement ABSENTE tant
+// que la machinerie d'arbre n'est pas livrée : publier une section que personne ne rend serait
+// un piège (le client l'ignore, le god croit avoir publié).
+const REF_SECTIONS = new Set(["agency", "fees", "submission", "samples"]);
+const COUNTRY_RE = /^[A-Z]{2}$/;
+const REF_LABEL_RE = /^v\d{4}\.\d{1,3}$/; // « v2026.2 » — cohérent avec le tri d'applicabilité
+/** Cap de taille d'un payload/provenance sérialisé (anti-abus, le contenu réel fait < 5 Ko). */
+const REF_JSON_CAP = 20_000;
 // Console Acquisition (0064) — statuts du pipeline de leads + format des codes d'invitation.
 const DEMO_STATUSES = new Set([
   "nouveau",
@@ -356,6 +364,258 @@ Deno.serve(async (req: Request) => {
       case "acq_report":
         logJson({ ...log, op: "acq_report", status: "ok" });
         return await callRpc("admin_acquisition_report", {});
+
+      // ── Référentiel réglementaire versionné (P4.4) — publication god-only ──────────────────
+      // Le service role est le SEUL chemin d'écriture de ref_versions/ref_entries (0071 : aucune
+      // policy d'écriture). Invariants tenus ici : une version PUBLIÉE est immuable (photographie
+      // opposable — on republie, on ne réécrit pas) ; provenance OBLIGATOIRE sur chaque entrée
+      // (pas de source, pas de publication — briefing CEO) ; le socle ne s'archive jamais.
+      case "ref_overview": {
+        const [vRes, eRes, oRes, aRes] = await Promise.all([
+          svc
+            .from("ref_versions")
+            .select(
+              "id,label,status,effective_date,release_note,published_at,created_at,is_baseline",
+            )
+            .order("created_at", { ascending: false })
+            .limit(200),
+          svc.from("ref_entries").select("version_id,country,section"),
+          svc.from("orgs").select("id,name,disabled_at").order("name"),
+          svc
+            .from("org_ref_adoptions")
+            .select("org_id,version_id,adopted_at,adopted_by_email"),
+        ]);
+        const err = vRes.error ?? eRes.error ?? oRes.error ?? aRes.error;
+        if (err) {
+          logJson({ ...log, op: action, status: "query_error", err: err.message.slice(0, 200) });
+          return json({ error: "query_failed" }, 500);
+        }
+        // Dossiers actifs épinglés sur AUTRE CHOSE que la dernière publiée (KPI « en retard »).
+        const published = (vRes.data ?? []).filter((v) => v.status === "published");
+        const latest = published.sort((a, b) =>
+          String(b.published_at ?? "").localeCompare(String(a.published_at ?? "")),
+        )[0];
+        let pinnedBehind = 0;
+        let activeDossiers = 0;
+        {
+          const base = svc
+            .from("dossiers")
+            .select("id", { count: "exact", head: true })
+            .is("deleted_at", null);
+          const totalRes = await base;
+          activeDossiers = totalRes.count ?? 0;
+          if (latest) {
+            const behindRes = await svc
+              .from("dossiers")
+              .select("id", { count: "exact", head: true })
+              .is("deleted_at", null)
+              .not("ref_version_id", "is", null)
+              .neq("ref_version_id", latest.id);
+            pinnedBehind = behindRes.count ?? 0;
+          }
+        }
+        logJson({ ...log, op: action, status: "ok" });
+        return json({
+          ok: true,
+          data: {
+            versions: vRes.data,
+            entries: eRes.data,
+            orgs: oRes.data,
+            adoptions: aRes.data,
+            pinnedBehind,
+            activeDossiers,
+          },
+        });
+      }
+      case "ref_entries": {
+        // Entrées COMPLÈTES d'une version (payload+provenance) — l'éditeur de brouillon les précharge.
+        const versionId = String(b.versionId ?? "");
+        if (!UUID_RE.test(versionId)) return json({ error: "bad_request" }, 400);
+        const { data, error } = await svc
+          .from("ref_entries")
+          .select("id,version_id,country,section,payload,provenance,created_at")
+          .eq("version_id", versionId)
+          .order("country");
+        if (error) {
+          logJson({ ...log, op: action, status: "query_error", err: error.message.slice(0, 200) });
+          return json({ error: "query_failed" }, 500);
+        }
+        logJson({ ...log, op: action, status: "ok" });
+        return json({ ok: true, data });
+      }
+      case "ref_save_draft": {
+        const versionId =
+          b.versionId === undefined || b.versionId === null ? null : String(b.versionId);
+        if (versionId !== null && !UUID_RE.test(versionId))
+          return json({ error: "bad_request" }, 400);
+        const label = String(b.label ?? "").trim();
+        if (!REF_LABEL_RE.test(label)) return json({ error: "bad_label" }, 400);
+        const releaseNote = String(b.releaseNote ?? "").slice(0, 2000);
+        const effectiveDate =
+          typeof b.effectiveDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(b.effectiveDate)
+            ? b.effectiveDate
+            : null;
+        const entries = Array.isArray(b.entries) ? b.entries : [];
+        if (entries.length === 0 || entries.length > 200)
+          return json({ error: "bad_request" }, 400);
+        const seen = new Set<string>();
+        const rows: {
+          country: string;
+          section: string;
+          payload: unknown;
+          provenance: unknown;
+        }[] = [];
+        for (const raw of entries) {
+          const e = (raw ?? {}) as Record<string, unknown>;
+          const country = String(e.country ?? "");
+          const section = String(e.section ?? "");
+          const key = `${country}/${section}`;
+          if (!COUNTRY_RE.test(country) || !REF_SECTIONS.has(section) || seen.has(key))
+            return json({ error: "bad_entry" }, 400);
+          seen.add(key);
+          const payload = e.payload;
+          const provenance = e.provenance as Record<string, unknown> | undefined;
+          if (!payload || typeof payload !== "object" || Array.isArray(payload))
+            return json({ error: "bad_entry" }, 400);
+          // PROVENANCE OBLIGATOIRE : pas de texte officiel cité, pas d'entrée.
+          if (
+            !provenance ||
+            typeof provenance !== "object" ||
+            typeof provenance.texte !== "string" ||
+            provenance.texte.trim().length < 3
+          )
+            return json({ error: "provenance_required" }, 400);
+          if (
+            JSON.stringify(payload).length > REF_JSON_CAP ||
+            JSON.stringify(provenance).length > REF_JSON_CAP
+          )
+            return json({ error: "too_large" }, 400);
+          rows.push({ country, section, payload, provenance });
+        }
+
+        let vid = versionId;
+        if (vid) {
+          // Une version publiée/archivée est IMMUABLE : on n'édite que les brouillons.
+          const { data: v, error } = await svc
+            .from("ref_versions")
+            .select("id,status")
+            .eq("id", vid)
+            .maybeSingle();
+          if (error || !v) return json({ error: "not_found" }, 404);
+          if (v.status !== "draft") return json({ error: "not_a_draft" }, 409);
+          const upd = await svc
+            .from("ref_versions")
+            .update({ label, release_note: releaseNote, effective_date: effectiveDate })
+            .eq("id", vid)
+            .eq("status", "draft");
+          if (upd.error) {
+            if (upd.error.code === "23505") return json({ error: "label_taken" }, 409);
+            logJson({ ...log, op: action, status: "query_error", err: upd.error.message.slice(0, 200) });
+            return json({ error: "query_failed" }, 500);
+          }
+          const del = await svc.from("ref_entries").delete().eq("version_id", vid);
+          if (del.error) {
+            logJson({ ...log, op: action, status: "query_error", err: del.error.message.slice(0, 200) });
+            return json({ error: "query_failed" }, 500);
+          }
+        } else {
+          const ins = await svc
+            .from("ref_versions")
+            .insert({ label, status: "draft", release_note: releaseNote, effective_date: effectiveDate })
+            .select("id")
+            .single();
+          if (ins.error) {
+            if (ins.error.code === "23505") return json({ error: "label_taken" }, 409);
+            logJson({ ...log, op: action, status: "query_error", err: ins.error.message.slice(0, 200) });
+            return json({ error: "query_failed" }, 500);
+          }
+          vid = (ins.data as { id: string }).id;
+        }
+        const insE = await svc
+          .from("ref_entries")
+          .insert(rows.map((r) => ({ ...r, version_id: vid })));
+        if (insE.error) {
+          logJson({ ...log, op: action, status: "query_error", err: insE.error.message.slice(0, 200) });
+          return json({ error: "query_failed" }, 500);
+        }
+        logJson({ ...log, op: action, status: "ok", entries: rows.length });
+        return json({ ok: true, data: { versionId: vid } });
+      }
+      case "ref_publish": {
+        const versionId = String(b.versionId ?? "");
+        if (!UUID_RE.test(versionId)) return json({ error: "bad_request" }, 400);
+        const { data: v, error } = await svc
+          .from("ref_versions")
+          .select("id,label,status")
+          .eq("id", versionId)
+          .maybeSingle();
+        if (error || !v) return json({ error: "not_found" }, 404);
+        if (v.status !== "draft") return json({ error: "not_a_draft" }, 409);
+        // Jamais de version vide, jamais d'entrée sans source (re-vérifié au moment de PUBLIER :
+        // la table a pu être écrite par une migration/un autre canal).
+        const { data: ents, error: entErr } = await svc
+          .from("ref_entries")
+          .select("provenance")
+          .eq("version_id", versionId);
+        if (entErr) {
+          logJson({ ...log, op: action, status: "query_error", err: entErr.message.slice(0, 200) });
+          return json({ error: "query_failed" }, 500);
+        }
+        if (!ents || ents.length === 0) return json({ error: "empty_version" }, 409);
+        const missing = ents.some((e) => {
+          const p = e.provenance as Record<string, unknown> | null;
+          return !p || typeof p.texte !== "string" || p.texte.trim().length < 3;
+        });
+        if (missing) return json({ error: "provenance_required" }, 409);
+        const upd = await svc
+          .from("ref_versions")
+          .update({ status: "published", published_at: new Date().toISOString() })
+          .eq("id", versionId)
+          .eq("status", "draft");
+        if (upd.error) {
+          logJson({ ...log, op: action, status: "query_error", err: upd.error.message.slice(0, 200) });
+          return json({ error: "query_failed" }, 500);
+        }
+        // Trace d'audit DB (ancre = org de l'admin, pattern set_plan_limits).
+        const { data: m } = await svc
+          .from("memberships")
+          .select("org_id")
+          .eq("user_id", actorId)
+          .limit(1)
+          .maybeSingle();
+        const actorOrg = (m as { org_id?: string } | null)?.org_id;
+        if (actorOrg) {
+          await svc.from("audit_log").insert({
+            id: crypto.randomUUID(),
+            org_id: actorOrg,
+            actor_id: actorId,
+            actor_email: actorEmail,
+            entity: "ref_version",
+            entity_id: versionId,
+            action: "update",
+            label: `référentiel ${v.label} publié`,
+          });
+        }
+        logJson({ ...log, op: action, status: "ok", label: v.label });
+        return json({ ok: true, data: null });
+      }
+      case "ref_delete_draft": {
+        const versionId = String(b.versionId ?? "");
+        if (!UUID_RE.test(versionId)) return json({ error: "bad_request" }, 400);
+        // DELETE réservé aux BROUILLONS (cascade sur les entrées). Une publiée s'archive (plus tard),
+        // ne se supprime pas — et la FK restrict des dossiers épinglés la protège de toute façon.
+        const { error } = await svc
+          .from("ref_versions")
+          .delete()
+          .eq("id", versionId)
+          .eq("status", "draft");
+        if (error) {
+          logJson({ ...log, op: action, status: "query_error", err: error.message.slice(0, 200) });
+          return json({ error: "query_failed" }, 500);
+        }
+        logJson({ ...log, op: action, status: "ok" });
+        return json({ ok: true, data: null });
+      }
 
       default:
         return json({ error: "bad_request" }, 400);
