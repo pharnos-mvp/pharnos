@@ -126,13 +126,13 @@ ci-dessous sont des features post-pilotes qui ne bloquent pas le gate.
 | **P1** ✅ | Matrice métier §1 : sessions/onglets par rôle, retrait « Titulaire » (contexte org), carte « MAH + Fabricant » — **LIVRÉ 2026-07-24 (#408)** | S (front-only) | 0 |
 | **P2** ✅ | Réutilisation §2 + §3 — **LIVRÉ 2026-07-24 (#409 pioche · #410 upload fiche org)** : `source_doc_id` (0070, prod), `documents-reuse` (`copyDocumentToProduct`, mapping sources §2), pickers « Depuis la base / Depuis mon poste » wizard + fiche produit (`SourceDocPicker` partagé, dédoublonnage), `DocAddForm` extrait + `OrgDocAddButton` (onglets AMM/admin/info + `OrgPiecePage`). Pièges : garde d'ordonnancement FK auto-référente au push (outbox non ordonnée → 2ᵉ passe bornée) ; RLS insert vérifiée (org_id éditable + RESTRICTIVE CS1). Différé : requêtes party-scopées si `documents` grossit ; garde serveur `party.org_id = document.org_id` (belt-and-braces) | M | 0070 ✅ |
 | **P3** ✅ | Agences en correspondance — **LIVRÉ 2026-07-24 (#412)** : ShareDialog = sélecteur des parties rôle `agent` (préremplit l'e-mail), « ＋ Nouvelle agence » inline (collision de nom annoncée : fusion, aucun doublon), capture « base vivante » best-effort APRÈS l'envoi (fill-the-gap `contactEmail`, relecture fraîche, jamais d'écrasement). L'e-mail reste LA clé d'identité des fils (aucun `party_id` persisté). `NativeSelect` promu `components/ui`. Prérequis embarqué : #411 (advisories du jour — postcss 8.5.23 + migration `react-router-dom`→`react-router` 8.3.0) | S–M | 0 ✅ |
-| **P4** | Autorités versionnées + God dashboard — mockup + design §6 **VALIDÉS CEO 2026-07-24** ; **P4.1 (#414) et P4.2 (#415) LIVRÉS** ; reste P4.3 overrides · P4.4 God dashboard · P4.5 structure CTD | L | 0071→0074 ✅ |
+| **P4** | Autorités versionnées + God dashboard — mockup + design §6 **VALIDÉS CEO 2026-07-24** ; **P4.1 (#414), P4.2 (#415), P4.4-pré (#416) et P4.4 (#417) LIVRÉS** ; reste P4.3 overrides · P4.5 structure CTD | L | 0071→0076 ✅ |
 | **P5** (post-GO-LIVE) | Lien membre↔partie (`memberships.party_id`) + rôles avancés | M | oui |
 
 Chaque phase = 1 à 2 PR, revue `code-reviewer` systématique, CI job-par-job, migration appliquée
 et vérifiée en prod AVANT le merge du code qui la consomme.
 
-**Prochaine migration libre : 0074.**
+**Prochaine migration libre : 0077.**
 
 ---
 
@@ -177,23 +177,52 @@ lignes « Source : … ») → **P4.2 ✅ (2026-07-25)** adoption/notification +
 **P4.4-pré ✅ (#416)** consommateurs au résolveur → **P4.4 ✅ (2026-07-25)** God dashboard →
 P4.3 overrides org + conflits (reste). NB : les montants « avant » du diff mockup sont ILLUSTRATIFS.
 
-**P4.4 livré (Edge `admin` v7 déployée + migration `0075` appliquées prod avant merge)** :
+**P4.4 livré (PR #417 — Edge `admin` v8 déployée + migrations `0075`+`0076` appliquées prod
+avant merge)** :
 - **Onglet « Référentiel » de la console god** (mockup écran 2) : KPIs (version publiée, adoption
-  x/y orgs actives, brouillon, dossiers épinglés en retard), liste des versions + **suivi
+  x/y orgs actives, brouillon, dossiers sur une version antérieure), liste des versions + **suivi
   d'adoption par organisation** (qui, quand), **éditeur de brouillon** par (pays, section) —
-  agency/fees(+notes bilingues)/submission/samples — **préremplis depuis le socle** (jamais un
-  formulaire vide), **provenance OBLIGATOIRE** par entrée, publication avec confirmation
-  (« immuable, notifie sans imposer »).
+  agency/fees(+notes bilingues)/submission/samples — **préremplis depuis le CONTENU RÉSOLU
+  COURANT** (`admin_ref_overview.current`, repli socle ; préremplir du socle quand v2 est publiée
+  aurait ANNULÉ v2 en silence à la publication suivante — revue M2), **provenance OBLIGATOIRE**
+  par entrée (et JAMAIS reprise de la version précédente par inertie), publication et suppression
+  de brouillon avec confirmation. Logique pure extraite en `ref-draft.ts` (tests aller-retour
+  préremplissage↔payload 8 pays × 4 sections, `eslint react-refresh` interdit d'exporter des
+  fonctions depuis un fichier composant).
 - **Edge `admin` actions `ref_*`** (double barrière : gate `is_platform_admin` + service-role,
-  seul chemin d'écriture de 0071) : `ref_overview` · `ref_entries` · `ref_save_draft` (une version
-  publiée est IMMUABLE — brouillons seuls éditables ; provenance `texte` ≥ 3 car. sinon 400) ·
-  `ref_publish` (re-vérifie non-vide + provenance AU MOMENT de publier, audit DB) ·
-  `ref_delete_draft` (brouillons seuls). `ctd_structure` volontairement ABSENTE de l'éditeur
-  (publier une section que rien ne rend = piège) — P4.5.
+  seul chemin d'écriture de 0071) : `ref_overview` · `ref_entries` · `ref_save_draft` ·
+  `ref_publish` · `ref_delete_draft` (brouillons seuls ; 0 ligne = 404 honnête, jamais un faux
+  succès). `ctd_structure` volontairement ABSENTE de l'éditeur (publier une section que rien ne
+  rend = piège) — P4.5.
+- **Durcissements revue #417 (DO NOT SHIP → corrigés avant merge)** :
+  - **B1 — rétro-datation INTERDITE à la publication** : le rang d'applicabilité =
+    `coalesce(effective_date, published_at, created_at)` → publier « le décret de 2025 » avec
+    `effective_date` 2025 aurait classé la version SOUS le socle : inerte (jamais servie), et
+    pire, appliquée SANS consentement pour les sections hors socle. Règle : la date d'effet d'une
+    publication ne peut précéder aucune version DÉJÀ applicable (les versions à effet futur ne
+    bornent pas) ; **la date du décret se cite dans la PROVENANCE, pas en date d'effet** (UI :
+    `min=today` + hint ; Edge : 409 `effective_date_backdated`).
+  - **RPC transactionnelles 0076** : `admin_ref_save_draft` (verrou `for update`, brouillon seul —
+    fin de la fenêtre où un publish concurrent laissait muter une PUBLIÉE, et du brouillon vidé
+    par un insert en échec) ; `admin_ref_overview` (agrégats SQL bornés + « latest » + contenu
+    résolu par (pays, section) — fin des selects nus tronqués à `max_rows` en silence et de la
+    règle d'applicabilité dupliquée-fausse) ; `auto_adopt_latest_ref` re-créée avec bloc
+    `exception` (« bookkeeping jamais bloquant » : une org naît TOUJOURS).
+  - `ref_publish` : re-vérifie provenance ET efficacité de payload (`refPayloadEffective`, miroir
+    strict des normalisateurs client — une « version publiée qui ne rend rien » = le piège
+    ctd_structure) AU MOMENT de publier ; acteur sans org = 409 (pattern set_plan_limits) ; échec
+    d'audit LOGGÉ ; update conditionnel `status='draft'` avec `.select()` (un concurrent ne crée
+    jamais un faux succès).
+  - UI : erreurs Edge mappées en messages actionnables (`AdminApiError.code` lu dans le CORPS de
+    la réponse, pattern dossier-purge) ; doublons (pays, section) refusés à l'enregistrement et
+    évités à l'« Ajouter » (premier couple libre) ; montants saisis mais illisibles REFUSÉS
+    (sinon omis en silence du payload) ; civilité inconnue → repli socle ; provenance saisie
+    survit au changement de pays/section.
 - **Auto-adoption à la création d'org** (0075, trigger `orgs_auto_adopt_ref`) : une org NEUVE naît
   sur la dernière version publiée applicable (état initial tracé à l'audit — pas un consentement
   contourné : aucun état antérieur à protéger) ; couvre create_org/onboarding et tout futur chemin
-  sans dupliquer les RPC 0063 ; pgTAP `ref_auto_adopt` (jamais une version future ni un brouillon).
+  sans dupliquer les RPC 0063 ; pgTAP `ref_auto_adopt` (jamais une version future ni un brouillon ;
+  UPDATE d'une org existante ne ré-adopte rien) + isolation positive côté B (1 ligne exactement).
 
 **P4.2 livré (migrations `0072` + `0073`, appliquées prod avant merge)** :
 - **Consentement** : `org_ref_adoptions` (journal append-only, RLS lecture membres + RESTRICTIVE

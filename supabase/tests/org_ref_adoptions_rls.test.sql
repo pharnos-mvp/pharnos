@@ -10,7 +10,7 @@
 -- → chaque assertion cible explicitement la version du test (jamais un count brut par org).
 
 begin;
-select plan(15);
+select plan(16);
 
 insert into auth.users (instance_id, id, aud, role, email)
 values
@@ -157,6 +157,14 @@ select is(
    where org_id = '00000000-0000-0000-0000-00000000ca01'),
   0,
   'Org RefB ne voit AUCUNE adoption d''Org RefA (il ne voit que la sienne, auto-adoptée 0075)'
+);
+-- Côté POSITIF de la même preuve : SANS filtre, l'admin de B voit EXACTEMENT 1 ligne — la
+-- sienne (auto-adoption 0075 du seed à la création d'Org RefB). 0 = régression RLS muette,
+-- 2+ = fuite cross-org : les deux bords sont couverts.
+select is(
+  (select count(*)::int from public.org_ref_adoptions),
+  1,
+  'l''admin de B voit EXACTEMENT sa propre adoption (1 ligne au total, rien de A)'
 );
 
 reset role;

@@ -186,14 +186,36 @@ export interface RefAdoptionRow {
   adopted_by_email: string
 }
 
+/** Version + agrégats calculés côté SQL (RPC `admin_ref_overview`, 0076) — jamais tronqués. */
+export interface RefVersionSummary extends RefVersionRow {
+  entry_count: number
+  countries: string[]
+  adoption_count: number
+}
+
+/**
+ * Contenu RÉSOLU courant d'un couple (pays, section) — ce que l'éditeur doit préremplir.
+ * Toujours issu de la version publiée la plus applicable, JAMAIS du socle code (préremplir
+ * du socle puis publier annulerait la dernière version en silence).
+ */
+export interface RefCurrentEntry {
+  country: string
+  section: string
+  payload: unknown
+  provenance: unknown
+  version_label: string
+}
+
 export interface RefOverview {
-  versions: RefVersionRow[]
-  entries: RefEntryLite[]
+  versions: RefVersionSummary[]
+  /** Version publiée la plus applicable AUJOURD'HUI (règle unique 0075/ref-state). */
+  latest_id: string | null
   orgs: { id: string; name: string; disabled_at: string | null }[]
   adoptions: RefAdoptionRow[]
-  /** Dossiers actifs épinglés sur AUTRE CHOSE que la dernière version publiée. */
-  pinnedBehind: number
-  activeDossiers: number
+  current: RefCurrentEntry[]
+  active_dossiers: number
+  /** Dossiers actifs épinglés sur AUTRE CHOSE que la version applicable courante. */
+  pinned_behind: number
 }
 
 export interface RefDraftEntryInput {
@@ -207,6 +229,31 @@ export interface RefDraftEntryInput {
 /** Levée quand l'appelant n'est pas super-admin Pharnos (403) — déclenche l'écran « accès refusé ». */
 export class AdminForbiddenError extends Error {}
 
+/**
+ * Échec Edge avec un code métier exploitable (`label_taken`, `effective_date_backdated`…).
+ * Le `message` de FunctionsHttpError est toujours générique — le vrai code est dans le CORPS
+ * de la réponse (pattern `dossier-purge.ts`), d'où l'extraction asynchrone ci-dessous.
+ */
+export class AdminApiError extends Error {
+  code: string
+  constructor(code: string) {
+    super(code)
+    this.code = code
+  }
+}
+
+/** Extrait le code d'erreur JSON d'un échec `functions.invoke` (FunctionsHttpError.context). */
+async function invokeErrorCode(error: unknown): Promise<string> {
+  try {
+    const ctx = (error as { context?: Response }).context
+    const body = (await ctx?.clone().json()) as { error?: string } | undefined
+    if (body?.error) return String(body.error)
+  } catch {
+    // corps illisible → code générique
+  }
+  return 'admin_failed'
+}
+
 async function callAdmin<T>(action: string, params: Record<string, unknown> = {}): Promise<T> {
   const supabase = await getSupabase()
   if (!supabase) throw new Error('connexion requise')
@@ -214,7 +261,7 @@ async function callAdmin<T>(action: string, params: Record<string, unknown> = {}
   if (error) {
     const ctx = (error as { context?: Response }).context
     if (ctx?.status === 403 || ctx?.status === 401) throw new AdminForbiddenError('forbidden')
-    throw new Error((error as Error).message || 'admin_failed')
+    throw new AdminApiError(await invokeErrorCode(error))
   }
   return (data?.data ?? null) as T
 }

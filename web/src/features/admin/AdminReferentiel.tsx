@@ -17,19 +17,22 @@ import { NativeSelect } from '@/components/ui/native-select'
 import { Section } from '@/components/ui/section'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
-import {
-  agencyFor,
-  officialLanguage,
-  regulatoryProfileFor,
-} from '@/features/workspace/roadmap-data'
 import { COUNTRIES, countryLabel } from '@/features/workspace/dossier-constants'
-import { useI18n, type Lang, type Translatable } from '@/lib/i18n-context'
+import { useI18n } from '@/lib/i18n-context'
+import { adminApi, type RefVersionRow } from './admin-api'
 import {
-  adminApi,
-  type RefDraftEntryInput,
-  type RefEntryFull,
-  type RefVersionRow,
-} from './admin-api'
+  currentKey,
+  entryError,
+  fromServerEntry,
+  nextLabel,
+  prefillEntry,
+  refErrorLabel,
+  SECTION_LABEL,
+  toPayload,
+  type CurrentMap,
+  type DraftEntry,
+  type SectionKey,
+} from './ref-draft'
 import { useAsync } from './use-async'
 
 /**
@@ -43,263 +46,6 @@ import { useAsync } from './use-async'
  * serait un piège.
  */
 
-type SectionKey = RefDraftEntryInput['section']
-
-const SECTION_LABEL: Record<SectionKey, Translatable> = {
-  agency: { fr: 'Agence (destinataire)', en: 'Agency (recipient)' },
-  fees: { fr: 'Redevances', en: 'Fees' },
-  submission: { fr: 'Modalités de dépôt', en: 'Filing procedure' },
-  samples: { fr: 'Échantillons', en: 'Samples' },
-}
-
-/** Brouillon d'entrée — état PLAT de formulaire, sérialisé en payload jsonb à l'enregistrement. */
-interface DraftEntry {
-  country: string
-  section: SectionKey
-  // fees
-  feeNewMa: string
-  feeRenewal: string
-  feeVarMin: string
-  feeVarMaj: string
-  currency: string
-  processingDays: string
-  noteNewMaFr: string
-  noteNewMaEn: string
-  noteRenewalFr: string
-  noteRenewalEn: string
-  noteVariationFr: string
-  noteVariationEn: string
-  // agency
-  agName: string
-  agFull: string
-  agDirecteur: string
-  agSexe: 'M' | 'F'
-  agAdresse: string
-  agTel: string
-  agEmail: string
-  agLang: string
-  // submission
-  subFr: string
-  subEn: string
-  // samples — « une exigence par ligne », FR/EN appariés par index
-  samplesNewMaFr: string
-  samplesNewMaEn: string
-  samplesRenewFr: string
-  samplesRenewEn: string
-  reserveFr: string
-  reserveEn: string
-  // provenance (OBLIGATOIRE : texte)
-  provTexte: string
-  provJo: string
-  provComplements: string
-}
-
-// `\s` couvre déjà les espaces insécables (fine incluse) des montants collés depuis un texte.
-const num = (s: string): number | undefined => {
-  const n = Number(s.replace(/\s/g, ''))
-  return s.trim() !== '' && Number.isFinite(n) && n >= 0 ? Math.floor(n) : undefined
-}
-const lines = (s: string): string[] =>
-  s
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean)
-const pair = (fr: string, en: string): Translatable[] | undefined => {
-  const f = lines(fr)
-  const e = lines(en)
-  if (f.length === 0) return undefined
-  return f.map((t, i) => ({ fr: t, en: e[i] ?? t }))
-}
-const tOpt = (fr: string, en: string): Translatable | undefined =>
-  fr.trim() && en.trim() ? { fr: fr.trim(), en: en.trim() } : undefined
-
-/** Entrée vierge PRÉREMPLIE depuis le socle code (== seed publié tant que la parité tient) :
- *  le god part toujours de l'état courant, jamais d'un formulaire vide (anti-régression). */
-function prefillEntry(country: string, section: SectionKey): DraftEntry {
-  const ag = agencyFor(country)
-  const p = regulatoryProfileFor(country)
-  const t = (v: Translatable | undefined) => ({ fr: v?.fr ?? '', en: v?.en ?? '' })
-  const joinT = (v: Translatable[] | undefined, l: Lang) => (v ?? []).map((x) => x[l]).join('\n')
-  return {
-    country,
-    section,
-    feeNewMa: p?.fees.new_ma != null ? String(p.fees.new_ma) : '',
-    feeRenewal: p?.fees.renewal != null ? String(p.fees.renewal) : '',
-    feeVarMin: p?.fees.variation_minor != null ? String(p.fees.variation_minor) : '',
-    feeVarMaj: p?.fees.variation_major != null ? String(p.fees.variation_major) : '',
-    currency: p?.currency ?? 'FCFA',
-    processingDays: p?.processingDays != null ? String(p.processingDays) : '',
-    noteNewMaFr: t(p?.fees.notes?.new_ma).fr,
-    noteNewMaEn: t(p?.fees.notes?.new_ma).en,
-    noteRenewalFr: t(p?.fees.notes?.renewal).fr,
-    noteRenewalEn: t(p?.fees.notes?.renewal).en,
-    noteVariationFr: t(p?.fees.notes?.variation).fr,
-    noteVariationEn: t(p?.fees.notes?.variation).en,
-    agName: ag.name,
-    agFull: ag.full,
-    agDirecteur: ag.directeur,
-    agSexe: ag.sexe,
-    agAdresse: ag.adresse,
-    agTel: ag.telephone ?? '',
-    agEmail: ag.email ?? '',
-    agLang: officialLanguage(country),
-    subFr: p?.submissionNote?.fr ?? '',
-    subEn: p?.submissionNote?.en ?? '',
-    samplesNewMaFr: joinT(p?.samples.new_ma, 'fr'),
-    samplesNewMaEn: joinT(p?.samples.new_ma, 'en'),
-    samplesRenewFr: joinT(p?.samples.renewal_variation, 'fr'),
-    samplesRenewEn: joinT(p?.samples.renewal_variation, 'en'),
-    reserveFr: p?.samples.reserve?.fr ?? '',
-    reserveEn: p?.samples.reserve?.en ?? '',
-    provTexte: '',
-    provJo: '',
-    provComplements: '',
-  }
-}
-
-/** Sérialise l'état plat → payload jsonb par section (miroir EXACT des payloads du seed 0071). */
-function toPayload(e: DraftEntry): unknown {
-  switch (e.section) {
-    case 'agency':
-      return {
-        name: e.agName.trim(),
-        full: e.agFull.trim(),
-        directeur: e.agDirecteur.trim(),
-        sexe: e.agSexe,
-        adresse: e.agAdresse.trim(),
-        ...(e.agTel.trim() ? { telephone: e.agTel.trim() } : {}),
-        ...(e.agEmail.trim() ? { email: e.agEmail.trim() } : {}),
-        officialLang: e.agLang,
-      }
-    case 'fees': {
-      const fees: Record<string, unknown> = {}
-      const put = (k: string, v: number | undefined) => {
-        if (v !== undefined) fees[k] = v
-      }
-      put('new_ma', num(e.feeNewMa))
-      put('renewal', num(e.feeRenewal))
-      put('variation_minor', num(e.feeVarMin))
-      put('variation_major', num(e.feeVarMaj))
-      const notes: Record<string, Translatable> = {}
-      const n1 = tOpt(e.noteNewMaFr, e.noteNewMaEn)
-      const n2 = tOpt(e.noteRenewalFr, e.noteRenewalEn)
-      const n3 = tOpt(e.noteVariationFr, e.noteVariationEn)
-      if (n1) notes.new_ma = n1
-      if (n2) notes.renewal = n2
-      if (n3) notes.variation = n3
-      if (Object.keys(notes).length > 0) fees.notes = notes
-      return {
-        currency: e.currency.trim() || 'FCFA',
-        fees,
-        ...(num(e.processingDays) !== undefined ? { processingDays: num(e.processingDays) } : {}),
-      }
-    }
-    case 'submission':
-      return { note: { fr: e.subFr.trim(), en: e.subEn.trim() } }
-    case 'samples':
-      return {
-        samples: {
-          ...(pair(e.samplesNewMaFr, e.samplesNewMaEn)
-            ? { new_ma: pair(e.samplesNewMaFr, e.samplesNewMaEn) }
-            : {}),
-          ...(pair(e.samplesRenewFr, e.samplesRenewEn)
-            ? { renewal_variation: pair(e.samplesRenewFr, e.samplesRenewEn) }
-            : {}),
-          ...(tOpt(e.reserveFr, e.reserveEn) ? { reserve: tOpt(e.reserveFr, e.reserveEn) } : {}),
-        },
-      }
-  }
-}
-
-/** Erreur de validation LOCALE d'une entrée (l'Edge re-vérifie tout) — null si publiable. */
-function entryError(e: DraftEntry): Translatable | null {
-  if (e.provTexte.trim().length < 3)
-    return {
-      fr: 'Provenance obligatoire : citez le texte officiel (n° de décret/arrêté, date).',
-      en: 'Provenance required: cite the official text (decree/order number, date).',
-    }
-  if (e.section === 'fees' && num(e.feeNewMa) === undefined && num(e.feeRenewal) === undefined)
-    return { fr: 'Redevances : au moins un montant.', en: 'Fees: at least one amount.' }
-  if (e.section === 'agency' && !e.agName.trim() && !e.agFull.trim())
-    return { fr: 'Agence : sigle ou dénomination requis.', en: 'Agency: name required.' }
-  if (e.section === 'submission' && (!e.subFr.trim() || !e.subEn.trim()))
-    return { fr: 'Dépôt : note FR et EN requises.', en: 'Filing: FR and EN notes required.' }
-  if (e.section === 'samples' && lines(e.samplesNewMaFr).length !== lines(e.samplesNewMaEn).length)
-    return {
-      fr: 'Échantillons : FR et EN doivent avoir le même nombre de lignes.',
-      en: 'Samples: FR and EN must have the same number of lines.',
-    }
-  return null
-}
-
-/** Désérialise une entrée serveur → état plat (rechargement d'un brouillon existant). */
-function fromServerEntry(row: RefEntryFull): DraftEntry {
-  const base = prefillEntry(row.country, row.section as SectionKey)
-  const p = (row.payload ?? {}) as Record<string, unknown>
-  const prov = (row.provenance ?? {}) as Record<string, string>
-  const s = (v: unknown, d = '') => (typeof v === 'string' ? v : d)
-  const n = (v: unknown) => (typeof v === 'number' ? String(v) : '')
-  const tr = (v: unknown): { fr: string; en: string } => {
-    const o = (v ?? {}) as Record<string, unknown>
-    return { fr: s(o.fr), en: s(o.en) }
-  }
-  const list = (v: unknown, l: 'fr' | 'en') =>
-    Array.isArray(v) ? v.map((x) => tr(x)[l]).join('\n') : ''
-  const out: DraftEntry = {
-    ...base,
-    provTexte: s(prov.texte),
-    provJo: s(prov.jo),
-    provComplements: s(prov.complements),
-  }
-  if (row.section === 'agency') {
-    out.agName = s(p.name)
-    out.agFull = s(p.full)
-    out.agDirecteur = s(p.directeur)
-    out.agSexe = p.sexe === 'F' ? 'F' : 'M'
-    out.agAdresse = s(p.adresse)
-    out.agTel = s(p.telephone)
-    out.agEmail = s(p.email)
-    out.agLang = s(p.officialLang, 'fr')
-  } else if (row.section === 'fees') {
-    const fees = (p.fees ?? {}) as Record<string, unknown>
-    const notes = (fees.notes ?? {}) as Record<string, unknown>
-    out.feeNewMa = n(fees.new_ma)
-    out.feeRenewal = n(fees.renewal)
-    out.feeVarMin = n(fees.variation_minor)
-    out.feeVarMaj = n(fees.variation_major)
-    out.currency = s(p.currency, 'FCFA')
-    out.processingDays = n(p.processingDays)
-    out.noteNewMaFr = tr(notes.new_ma).fr
-    out.noteNewMaEn = tr(notes.new_ma).en
-    out.noteRenewalFr = tr(notes.renewal).fr
-    out.noteRenewalEn = tr(notes.renewal).en
-    out.noteVariationFr = tr(notes.variation).fr
-    out.noteVariationEn = tr(notes.variation).en
-  } else if (row.section === 'submission') {
-    out.subFr = tr(p.note).fr
-    out.subEn = tr(p.note).en
-  } else if (row.section === 'samples') {
-    const sm = (p.samples ?? {}) as Record<string, unknown>
-    out.samplesNewMaFr = list(sm.new_ma, 'fr')
-    out.samplesNewMaEn = list(sm.new_ma, 'en')
-    out.samplesRenewFr = list(sm.renewal_variation, 'fr')
-    out.samplesRenewEn = list(sm.renewal_variation, 'en')
-    out.reserveFr = tr(sm.reserve).fr
-    out.reserveEn = tr(sm.reserve).en
-  }
-  return out
-}
-
-/** Prochain libellé proposé : dernière version connue « vAAAA.N » → « vAAAA.N+1 » (année courante). */
-function nextLabel(versions: RefVersionRow[]): string {
-  const year = new Date().getFullYear()
-  const nums = versions
-    .map((v) => /^v(\d{4})\.(\d{1,3})$/.exec(v.label))
-    .filter((m): m is RegExpExecArray => !!m && Number(m[1]) === year)
-    .map((m) => Number(m[2]))
-  return `v${year}.${nums.length > 0 ? Math.max(...nums) + 1 : 1}`
-}
-
 export function AdminReferentiel() {
   const { t, lang } = useI18n()
   const overview = useAsync(adminApi.refOverview)
@@ -311,7 +57,8 @@ export function AdminReferentiel() {
     entries: DraftEntry[]
   } | null>(null)
   const [busy, setBusy] = useState(false)
-  const [publishing, setPublishing] = useState<RefVersionRow | null>(null)
+  const [publishing, setPublishing] = useState<{ id: string; label: string } | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [adoptionOf, setAdoptionOf] = useState<string | null>(null)
 
   const data = overview.data
@@ -341,20 +88,15 @@ export function AdminReferentiel() {
     )
   }
 
-  const published = data.versions.filter((v) => v.status === 'published')
-  const latest = [...published].sort((a, b) =>
-    String(b.published_at ?? '').localeCompare(String(a.published_at ?? '')),
-  )[0]
+  const latest = data.versions.find((v) => v.id === data.latest_id) ?? null
   const draftVersions = data.versions.filter((v) => v.status === 'draft')
   const activeOrgs = data.orgs.filter((o) => !o.disabled_at)
-  const adoptedOf = (versionId: string) =>
-    new Set(data.adoptions.filter((a) => a.version_id === versionId).map((a) => a.org_id))
-  const entryStats = (versionId: string) => {
-    const rows = data.entries.filter((e) => e.version_id === versionId)
-    return { count: rows.length, countries: [...new Set(rows.map((e) => e.country))].sort() }
-  }
+  // Contenu résolu courant (pays|section) : la base de préremplissage de l'éditeur (revue M2).
+  const currentMap: CurrentMap = new Map(
+    data.current.map((c) => [currentKey(c.country, c.section), c]),
+  )
 
-  async function openDraft(v?: RefVersionRow) {
+  const openDraft = async (v?: RefVersionRow) => {
     if (v) {
       setBusy(true)
       try {
@@ -374,17 +116,29 @@ export function AdminReferentiel() {
     } else {
       setDraft({
         versionId: null,
-        label: nextLabel(data!.versions),
+        label: nextLabel(data.versions),
         effectiveDate: '',
         releaseNote: '',
-        entries: [prefillEntry('SN', 'fees')],
+        entries: [prefillEntry('SN', 'fees', currentMap)],
       })
     }
   }
 
-  async function saveDraft(): Promise<string | null> {
+  const saveDraft = async (): Promise<string | null> => {
     if (!draft) return null
+    const seen = new Set<string>()
     for (const e of draft.entries) {
+      const key = currentKey(e.country, e.section)
+      if (seen.has(key)) {
+        toast.error(
+          t({
+            fr: `${e.country} · ${t(SECTION_LABEL[e.section])} — entrée en double : fusionnez-les.`,
+            en: `${e.country} · ${t(SECTION_LABEL[e.section])} — duplicate entry: merge them.`,
+          }),
+        )
+        return null
+      }
+      seen.add(key)
       const err = entryError(e)
       if (err) {
         toast.error(`${e.country} · ${t(SECTION_LABEL[e.section])} — ${t(err)}`)
@@ -414,22 +168,14 @@ export function AdminReferentiel() {
       toast.success(t({ fr: 'Brouillon enregistré.', en: 'Draft saved.' }))
       return versionId
     } catch (err) {
-      const msg = err instanceof Error ? err.message : ''
-      toast.error(
-        msg.includes('label_taken')
-          ? t({
-              fr: 'Ce libellé de version existe déjà.',
-              en: 'This version label already exists.',
-            })
-          : t({ fr: "L'enregistrement a échoué.", en: 'Save failed.' }),
-      )
+      toast.error(t(refErrorLabel(err, { fr: "L'enregistrement a échoué.", en: 'Save failed.' })))
       return null
     } finally {
       setBusy(false)
     }
   }
 
-  async function publish() {
+  const publish = async () => {
     if (!publishing) return
     setBusy(true)
     try {
@@ -443,13 +189,31 @@ export function AdminReferentiel() {
       setPublishing(null)
       setDraft(null)
       overview.reload()
-    } catch {
+    } catch (err) {
       toast.error(
-        t({
-          fr: 'Publication refusée (version vide ou provenance manquante ?).',
-          en: 'Publish refused (empty version or missing provenance?).',
-        }),
+        t(
+          refErrorLabel(err, {
+            fr: 'Publication refusée (version vide ou provenance manquante ?).',
+            en: 'Publish refused (empty version or missing provenance?).',
+          }),
+        ),
       )
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const deleteDraft = async () => {
+    if (!draft?.versionId) return
+    setBusy(true)
+    try {
+      await adminApi.refDeleteDraft(draft.versionId)
+      toast.success(t({ fr: 'Brouillon supprimé.', en: 'Draft deleted.' }))
+      setConfirmDelete(false)
+      setDraft(null)
+      overview.reload()
+    } catch (err) {
+      toast.error(t(refErrorLabel(err, { fr: 'Suppression impossible.', en: 'Could not delete.' })))
     } finally {
       setBusy(false)
     }
@@ -474,7 +238,7 @@ export function AdminReferentiel() {
         />
         <RefKpi
           label={t({ fr: 'Adoption (dernière version)', en: 'Adoption (latest)' })}
-          value={latest ? `${adoptedOf(latest.id).size} / ${activeOrgs.length}` : '—'}
+          value={latest ? `${latest.adoption_count} / ${activeOrgs.length}` : '—'}
           sub={t({ fr: 'organisations actives', en: 'active organisations' })}
           icon={Landmark}
         />
@@ -483,15 +247,18 @@ export function AdminReferentiel() {
           value={draftVersions[0]?.label ?? '—'}
           sub={
             draftVersions[0]
-              ? `${entryStats(draftVersions[0].id).count} ${t({ fr: 'entrées', en: 'entries' })}`
+              ? `${draftVersions[0].entry_count} ${t({ fr: 'entrées', en: 'entries' })}`
               : t({ fr: 'aucun', en: 'none' })
           }
           icon={ScrollText}
         />
         <RefKpi
-          label={t({ fr: 'Dossiers épinglés en retard', en: 'Pinned submissions behind' })}
-          value={String(data.pinnedBehind)}
-          sub={`${t({ fr: 'sur', en: 'of' })} ${data.activeDossiers} ${t({ fr: 'actifs', en: 'active' })}`}
+          label={t({
+            fr: 'Dossiers sur une version antérieure',
+            en: 'Submissions on an earlier version',
+          })}
+          value={String(data.pinned_behind)}
+          sub={`${t({ fr: 'sur', en: 'of' })} ${data.active_dossiers} ${t({ fr: 'actifs', en: 'active' })}`}
           icon={Send}
         />
       </div>
@@ -509,14 +276,13 @@ export function AdminReferentiel() {
           >
             <ul className="divide-border divide-y">
               {data.versions.map((v) => {
-                const stats = entryStats(v.id)
                 return (
                   <li key={v.id} className="flex flex-wrap items-center gap-2 py-2.5 text-sm">
                     <span className="font-display min-w-16 font-bold">{v.label}</span>
                     <span className="text-muted-foreground min-w-0 flex-1 truncate">
                       {v.release_note ||
-                        t({ fr: `${stats.count} entrées`, en: `${stats.count} entries` })}
-                      {stats.countries.length > 0 ? ` · ${stats.countries.join(', ')}` : ''}
+                        t({ fr: `${v.entry_count} entrées`, en: `${v.entry_count} entries` })}
+                      {v.countries.length > 0 ? ` · ${v.countries.join(', ')}` : ''}
                       {v.is_baseline ? ` · ${t({ fr: 'socle', en: 'baseline' })}` : ''}
                     </span>
                     {v.status === 'published' ? (
@@ -527,7 +293,7 @@ export function AdminReferentiel() {
                         aria-expanded={adoptionOf === v.id}
                       >
                         <StatusBadge tone="success">
-                          {t({ fr: 'Publiée', en: 'Published' })} · {adoptedOf(v.id).size}/
+                          {t({ fr: 'Publiée', en: 'Published' })} · {v.adoption_count}/
                           {activeOrgs.length}
                         </StatusBadge>
                       </button>
@@ -625,8 +391,17 @@ export function AdminReferentiel() {
                   <Input
                     type="date"
                     value={draft.effectiveDate}
+                    // Jamais antérieure à AUJOURD'HUI : une version rétro-datée se classerait
+                    // SOUS les versions applicables → publiée mais inerte (B1). L'Edge re-vérifie.
+                    min={new Date().toISOString().slice(0, 10)}
                     onChange={(e) => setDraft({ ...draft, effectiveDate: e.target.value })}
                   />
+                  <span className="text-muted-foreground mt-1 block text-[11px]">
+                    {t({
+                      fr: 'Vide = effet immédiat. La date du décret se cite dans la provenance.',
+                      en: 'Empty = immediate effect. The decree date belongs in the provenance.',
+                    })}
+                  </span>
                 </Field>
                 <Field label={t({ fr: 'Note de publication', en: 'Release note' })}>
                   <Input
@@ -644,6 +419,7 @@ export function AdminReferentiel() {
                 <EntryEditor
                   key={i}
                   entry={e}
+                  current={currentMap}
                   onChange={(patch) => upd(i, patch)}
                   onRemove={() =>
                     setDraft({ ...draft, entries: draft.entries.filter((_, j) => j !== i) })
@@ -655,9 +431,24 @@ export function AdminReferentiel() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() =>
-                    setDraft({ ...draft, entries: [...draft.entries, prefillEntry('SN', 'fees')] })
-                  }
+                  onClick={() => {
+                    // Premier couple (pays, section) LIBRE — ajouter un doublon serait refusé
+                    // à l'enregistrement, autant ne jamais le créer.
+                    const taken = new Set(
+                      draft.entries.map((x) => currentKey(x.country, x.section)),
+                    )
+                    for (const c of COUNTRIES) {
+                      for (const s of Object.keys(SECTION_LABEL) as SectionKey[]) {
+                        if (!taken.has(currentKey(c.code, s))) {
+                          setDraft({
+                            ...draft,
+                            entries: [...draft.entries, prefillEntry(c.code, s, currentMap)],
+                          })
+                          return
+                        }
+                      }
+                    }
+                  }}
                 >
                   <Plus /> {t({ fr: 'Ajouter une entrée', en: 'Add an entry' })}
                 </Button>
@@ -667,12 +458,7 @@ export function AdminReferentiel() {
                     variant="ghost"
                     size="sm"
                     disabled={busy}
-                    onClick={async () => {
-                      if (!draft.versionId) return
-                      await adminApi.refDeleteDraft(draft.versionId)
-                      setDraft(null)
-                      overview.reload()
-                    }}
+                    onClick={() => setConfirmDelete(true)}
                   >
                     <Trash2 /> {t({ fr: 'Supprimer le brouillon', en: 'Delete draft' })}
                   </Button>
@@ -691,8 +477,7 @@ export function AdminReferentiel() {
                   onClick={async () => {
                     const id = await saveDraft()
                     if (!id) return
-                    const v = { id, label: draft.label } as RefVersionRow
-                    setPublishing(v)
+                    setPublishing({ id, label: draft.label })
                   }}
                 >
                   <Send /> {t({ fr: 'Publier…', en: 'Publish…' })}
@@ -723,8 +508,35 @@ export function AdminReferentiel() {
         )}
       </div>
 
+      {/* ── Confirmation de suppression de brouillon ── */}
+      <Dialog open={confirmDelete} onOpenChange={(o) => !o && !busy && setConfirmDelete(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {t({ fr: 'Supprimer ce brouillon ?', en: 'Delete this draft?' })}
+            </DialogTitle>
+            <DialogDescription>
+              {t({
+                fr: 'Les entrées préparées (et leurs sources citées) seront perdues. Les versions publiées ne sont jamais touchées.',
+                en: 'Prepared entries (and their cited sources) will be lost. Published versions are never affected.',
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)} disabled={busy}>
+              {t({ fr: 'Annuler', en: 'Cancel' })}
+            </Button>
+            <Button variant="destructive" onClick={() => void deleteDraft()} disabled={busy}>
+              {busy
+                ? t({ fr: 'Suppression…', en: 'Deleting…' })
+                : t({ fr: 'Supprimer', en: 'Delete' })}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Confirmation de publication ── */}
-      <Dialog open={!!publishing} onOpenChange={(o) => (o ? null : setPublishing(null))}>
+      <Dialog open={!!publishing} onOpenChange={(o) => !o && !busy && setPublishing(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -823,24 +635,32 @@ function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
 
 function EntryEditor({
   entry,
+  current,
   onChange,
   onRemove,
 }: {
   entry: DraftEntry
+  current: CurrentMap
   onChange: (patch: Partial<DraftEntry>) => void
   onRemove: () => void
 }) {
   const { t, lang } = useI18n()
   const err = entryError(entry)
+  // Changer de pays/section re-préremplit depuis le contenu courant, mais la PROVENANCE déjà
+  // saisie survit : c'est le travail du god, pas un dérivé du contenu (revue #417 m8).
+  const repick = (country: string, section: SectionKey) =>
+    onChange({
+      ...prefillEntry(country, section, current),
+      provTexte: entry.provTexte,
+      provJo: entry.provJo,
+      provComplements: entry.provComplements,
+    })
   return (
     <div className="bg-muted/30 space-y-3 rounded-xl border p-3">
       <div className="flex flex-wrap items-center gap-2">
         <NativeSelect
           value={entry.country}
-          onChange={(e) => {
-            // Changer de pays re-préremplit depuis le socle (repartir de l'état courant).
-            onChange(prefillEntry(e.target.value, entry.section))
-          }}
+          onChange={(e) => repick(e.target.value, entry.section)}
           aria-label={t({ fr: 'Pays', en: 'Country' })}
           className="w-44"
         >
@@ -852,7 +672,7 @@ function EntryEditor({
         </NativeSelect>
         <NativeSelect
           value={entry.section}
-          onChange={(e) => onChange(prefillEntry(entry.country, e.target.value as SectionKey))}
+          onChange={(e) => repick(entry.country, e.target.value as SectionKey)}
           aria-label={t({ fr: 'Section', en: 'Section' })}
           className="w-52"
         >
@@ -930,26 +750,11 @@ function EntryEditor({
             <div className="mt-2 space-y-2">
               {(
                 [
-                  [
-                    'noteNewMaFr',
-                    'noteNewMaEn',
-                    SECTION_LABEL.fees,
-                    { fr: 'Nouvelle AMM', en: 'New MA' },
-                  ],
-                  [
-                    'noteRenewalFr',
-                    'noteRenewalEn',
-                    SECTION_LABEL.fees,
-                    { fr: 'Renouvellement', en: 'Renewal' },
-                  ],
-                  [
-                    'noteVariationFr',
-                    'noteVariationEn',
-                    SECTION_LABEL.fees,
-                    { fr: 'Variations', en: 'Variations' },
-                  ],
+                  ['noteNewMaFr', 'noteNewMaEn', { fr: 'Nouvelle AMM', en: 'New MA' }],
+                  ['noteRenewalFr', 'noteRenewalEn', { fr: 'Renouvellement', en: 'Renewal' }],
+                  ['noteVariationFr', 'noteVariationEn', { fr: 'Variations', en: 'Variations' }],
                 ] as const
-              ).map(([frKey, enKey, , lbl]) => (
+              ).map(([frKey, enKey, lbl]) => (
                 <div key={frKey} className="grid gap-2 sm:grid-cols-2">
                   <Field label={`${t(lbl)} — FR`}>
                     <TextArea

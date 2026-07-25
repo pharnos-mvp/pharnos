@@ -5,7 +5,7 @@
 -- choisis. Les orgs existantes restent régies par l'adoption explicite (P4.2, non re-testé ici).
 
 begin;
-select plan(4);
+select plan(5);
 
 -- Versions du test : une publiée ancienne, une publiée récente, une future, un brouillon.
 -- (Le seed 0071 v2026.1 existe aussi — publié à now() pendant la migration du conteneur de test,
@@ -49,6 +49,16 @@ select is(
      and entity = 'ref_version' and action = 'adopt'),
   1,
   'l''état initial est tracé à l''audit de la nouvelle org'
+);
+
+-- Le trigger est AFTER INSERT SEUL : renommer/modifier une org existante ne doit JAMAIS
+-- lui « ré-adopter » quoi que ce soit (l'adoption post-création = consentement explicite P4.2).
+update public.orgs set name = 'Org Renommée' where id = '00000000-0000-0000-0000-00000000da01';
+select is(
+  (select count(*)::int from public.org_ref_adoptions
+   where org_id = '00000000-0000-0000-0000-00000000da01'),
+  1,
+  'modifier une org EXISTANTE ne déclenche aucune nouvelle adoption'
 );
 
 select * from finish();
