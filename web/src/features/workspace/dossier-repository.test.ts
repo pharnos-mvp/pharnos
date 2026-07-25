@@ -11,6 +11,7 @@ import {
   listTrashedDossiers,
   restoreDossier,
   restoreTrashedDossier,
+  switchDossierRefVersion,
   TRASH_RETENTION_DAYS,
   trashDaysLeft,
   trashPurgeAt,
@@ -22,7 +23,44 @@ beforeEach(async () => {
   await db.dossiers.clear()
   await db.outbox.clear()
   await db.auditLog.clear()
+  await db.refVersions.clear()
+  await db.orgRefAdoptions.clear()
 })
+
+/** Deux versions publiées ; l'org adopte (ou non) la plus récente. */
+async function seedRefVersions(adopted?: 'v-1' | 'v-2') {
+  await db.refVersions.bulkPut([
+    {
+      id: 'v-1',
+      label: 'v2026.1',
+      status: 'published',
+      effectiveDate: null,
+      releaseNote: '',
+      publishedAt: '2026-03-01T00:00:00.000Z',
+      createdAt: '2026-03-01T00:00:00.000Z',
+      isBaseline: true, // socle explicite (0074)
+    },
+    {
+      id: 'v-2',
+      label: 'v2026.2',
+      status: 'published',
+      effectiveDate: null,
+      releaseNote: '',
+      publishedAt: '2026-07-15T00:00:00.000Z',
+      createdAt: '2026-07-15T00:00:00.000Z',
+      isBaseline: false,
+    },
+  ])
+  if (adopted) {
+    await db.orgRefAdoptions.put({
+      id: `a-${adopted}`,
+      orgId: ORG,
+      versionId: adopted,
+      adoptedAt: '2026-07-16T00:00:00.000Z',
+      adoptedByEmail: 'admin@ex.com',
+    })
+  }
+}
 
 const seed = (name = 'X') =>
   createDossier(ORG, {
@@ -169,5 +207,66 @@ describe('corbeille : brouillons supprimés restaurables, purge après fenêtre 
     expect(await listArchivedDossiers(ORG)).toHaveLength(0)
     expect(await listTrashedDossiers(ORG)).toHaveLength(0)
     expect(await getDossier(d.id)).toBeUndefined()
+  })
+})
+
+describe('épinglage du référentiel (P4.2b)', () => {
+  it('épingle le dossier sur la version APPLIQUÉE par l’org à sa création', async () => {
+    await seedRefVersions('v-2')
+
+    const d = await seed()
+
+    expect(d.refVersionId).toBe('v-2')
+    expect((await getDossier(d.id))?.refVersionId).toBe('v-2')
+  })
+
+  it('sans adoption : épinglé sur le SOCLE, pas sur la dernière publiée', async () => {
+    await seedRefVersions()
+
+    expect((await seed()).refVersionId).toBe('v-1')
+  })
+
+  it('réplique vide (1re session / hors-ligne) : création OK, épinglage null', async () => {
+    const d = await seed()
+
+    expect(d.refVersionId).toBe(null)
+    expect(await listDossiers(ORG)).toHaveLength(1)
+  })
+
+  it('bascule volontaire : met à jour, met en file de synchro et TRACE l’audit vX → vY', async () => {
+    await seedRefVersions('v-1')
+    const d = await seed()
+    await db.outbox.clear()
+    await db.auditLog.clear()
+
+    await switchDossierRefVersion(d.id, 'v-2', { from: 'v2026.1', to: 'v2026.2' })
+
+    expect((await getDossier(d.id))?.refVersionId).toBe('v-2')
+    expect(await db.outbox.where('entity').equals('dossier').count()).toBe(1)
+    const audit = await db.auditLog.toArray()
+    expect(audit[0]?.label).toContain('référentiel v2026.1 → v2026.2')
+  })
+
+  it('bascule idempotente (double clic) : aucune écriture, aucune trace en double', async () => {
+    await seedRefVersions('v-1')
+    const d = await seed()
+    await switchDossierRefVersion(d.id, 'v-2', { from: 'v2026.1', to: 'v2026.2' })
+    await db.outbox.clear()
+    await db.auditLog.clear()
+
+    await switchDossierRefVersion(d.id, 'v-2', { from: 'v2026.1', to: 'v2026.2' })
+
+    expect(await db.outbox.count()).toBe(0)
+    expect(await db.auditLog.count()).toBe(0)
+  })
+
+  it('un dossier supprimé ne bascule pas', async () => {
+    await seedRefVersions('v-1')
+    const d = await seed()
+    await deleteDossier(d.id, 'test')
+
+    await switchDossierRefVersion(d.id, 'v-2', { from: 'v2026.1', to: 'v2026.2' })
+
+    expect((await db.dossiers.get(d.id))?.refVersionId).toBe('v-1')
   })
 })

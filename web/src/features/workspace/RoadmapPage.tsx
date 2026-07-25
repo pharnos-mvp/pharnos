@@ -30,7 +30,7 @@ import {
   listByDossier,
   listMessagesByDossier,
 } from '@/features/correspondence/correspondence-repository'
-import { useMemberScope } from '@/features/org/use-current-org'
+import { useCanEditContent, useMemberScope } from '@/features/org/use-current-org'
 import { useI18n, type Lang, type Translatable } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import { lookupVariation } from '@/features/variations/variation-request'
@@ -58,6 +58,9 @@ import { deriveRenewalAlert } from './lifecycle-renewal'
 import { deriveStageWaiting } from './lifecycle-waiting'
 import { LifecycleConditionsPanel } from './LifecycleConditionsPanel'
 import { listLifecycleEvents } from './lifecycle-repository'
+import { resolvedAuthorityDetailAtVersion } from '@/features/catalogue/ref-content'
+import { dossierRefStatus } from '@/features/catalogue/ref-state'
+import { DossierRefBanner } from './DossierRefBanner'
 import { agencyFor, officialLanguage, regulatoryProfileFor } from './roadmap-data'
 import { STAGE_ICON } from './roadmap-mini-utils'
 import type { ReactNode } from 'react'
@@ -89,18 +92,27 @@ export function RoadmapPage() {
   const { dossierId } = useParams()
   const navigate = useNavigate()
   const { scoped } = useMemberScope()
+  const canEditContent = useCanEditContent()
   const [showAllJournal, setShowAllJournal] = useState(false)
 
   const data = useLiveQuery(async () => {
     if (!dossierId) return null
     const dossier = (await getDossier(dossierId)) ?? null
     if (!dossier) return { dossier: null }
-    const [events, correspondences, messages] = await Promise.all([
+    const [events, correspondences, messages, resolved, refStatus] = await Promise.all([
       listLifecycleEvents(dossierId),
       listByDossier(dossierId),
       listMessagesByDossier(dossierId),
+      // Barème/exigences de la version SOUS LAQUELLE le dossier est monté (P4.2b) : une adoption
+      // plus récente de l'org ne mute pas un dossier — photographie opposable.
+      resolvedAuthorityDetailAtVersion(
+        dossier.country,
+        dossier.orgId,
+        dossier.refVersionId ?? null,
+      ),
+      dossierRefStatus(dossier.orgId, dossier.refVersionId ?? null),
     ])
-    return { dossier, events, correspondences, messages }
+    return { dossier, events, correspondences, messages, resolved, refStatus }
   }, [dossierId])
 
   if (data === undefined) {
@@ -123,7 +135,7 @@ export function RoadmapPage() {
     )
   }
 
-  const { dossier, events, correspondences, messages } = data
+  const { dossier, events, correspondences, messages, resolved, refStatus } = data
   const lifecycle = deriveLifecycle({
     dossierId: dossier.id,
     dossierCreatedAt: dossier.createdAt,
@@ -135,11 +147,13 @@ export function RoadmapPage() {
   // cible du « Renvoyer en revue ». Même règle que la dérivation : dernière ACTIVE, non in_review.
   const decidedCorrespondence = latestDecidedCorrespondence(dossier.id, correspondences)
 
-  const agency = agencyFor(dossier.country)
-  const profile = regulatoryProfileFor(dossier.country)
+  // Référentiel versionné (P4.1/P4.2b) : contenu de la version épinglée, repli socle code tant que
+  // la réplique locale n'a pas répondu (même contenu — le seed est généré depuis le code).
+  const agency = resolved?.detail.agency ?? agencyFor(dossier.country)
+  const profile = resolved?.detail.profile ?? regulatoryProfileFor(dossier.country)
   const config = lifecycleConfigFor(dossier.country)
   const activity = dossier.activity
-  const officialLang = officialLanguage(dossier.country)
+  const officialLang = resolved?.detail.officialLang ?? officialLanguage(dossier.country)
   const opRef =
     dossier.opYear != null && dossier.opNumber != null
       ? `OP-${dossier.opYear}-${String(dossier.opNumber).padStart(4, '0')}`
@@ -296,6 +310,13 @@ export function RoadmapPage() {
       >
         <ArrowLeft /> {t({ fr: 'Dossiers', en: 'Dossiers' })}
       </Button>
+
+      {/* Épinglage du référentiel : annonce SANS rien changer (P4.2b). La bascule écrit le dossier
+          → réservée aux rôles ÉDITEURS (miroir de `current_user_editable_org_ids`, 0028) : la
+          proposer à un Lecteur produirait un rejet permanent drainé + Sentry, pas un simple refus. */}
+      {refStatus ? (
+        <DossierRefBanner dossier={dossier} status={refStatus} canEdit={canEditContent} />
+      ) : null}
 
       {/* ── En-tête dossier ───────────────────────────────────────────── */}
       <div className="bg-card flex flex-wrap items-center gap-4 rounded-xl border p-5">

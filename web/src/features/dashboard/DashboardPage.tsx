@@ -14,6 +14,7 @@ import {
   Package,
   PauseCircle,
   RefreshCw,
+  ScrollText,
   Send,
   ShieldCheck,
   type LucideIcon,
@@ -23,9 +24,11 @@ import { Link } from 'react-router'
 import { useAuditSync } from '@/features/audit/use-audit-sync'
 import { useAuth } from '@/features/auth/auth-context'
 import { docTypeLabel } from '@/features/catalogue/doc-types'
+import { pendingRefUpdate } from '@/features/catalogue/ref-state'
 import { useCatalogueSync } from '@/features/catalogue/use-catalogue-sync'
 import { useCorrespondenceSync } from '@/features/correspondence/use-correspondence-sync'
 import { useOrgId } from '@/features/org/org-context'
+import { useMemberScope } from '@/features/org/use-current-org'
 import { COUNTRIES, countryLabel } from '@/features/workspace/dossier-constants'
 import { useDossierSync } from '@/features/workspace/use-dossier-sync'
 import { db } from '@/lib/db'
@@ -70,6 +73,12 @@ const KIND_BADGE: Record<ActionKind, { cls: string; Icon: LucideIcon; fr: string
   },
   unread_reply: { cls: 'badge-blue', Icon: Mail, fr: 'Réponse agence', en: 'Agency reply' },
   agency_pending: { cls: 'badge-blue', Icon: Clock, fr: 'En attente', en: 'Pending' },
+  ref_update: {
+    cls: 'badge-blue',
+    Icon: ScrollText,
+    fr: 'Référentiel à adopter',
+    en: 'Reference data to adopt',
+  },
 }
 
 const STATE_DOT: Record<CorrSubState, string> = {
@@ -140,6 +149,7 @@ const URGENCY_LABEL: Record<UrgencyLevel, Translatable> = {
 
 export function DashboardPage() {
   const orgId = useOrgId()
+  const { scoped } = useMemberScope()
   const { user } = useAuth()
   const { t, lang } = useI18n()
   useCatalogueSync(orgId)
@@ -160,6 +170,7 @@ export function DashboardPage() {
       docAnalysis,
       auditLog,
       parties,
+      pendingRef,
     ] = await Promise.all([
       db.products.where('orgId').equals(orgId).toArray(),
       db.documents.where('orgId').equals(orgId).toArray(),
@@ -171,6 +182,9 @@ export function DashboardPage() {
       db.auditLog.where('orgId').equals(orgId).toArray(),
       // Nomme/route les alertes des documents ORG-scopés (pièces propres d'un MAH/fabricant, 0069).
       db.parties.where('orgId').equals(orgId).toArray(),
+      // Référentiel publié en attente d'adoption par l'org (0072) → alerte « à adopter ». Jamais
+      // pour un membre SCOPÉ : il ne lit pas les adoptions (CS1) et le catalogue lui est fermé.
+      scoped ? Promise.resolve(null) : pendingRefUpdate(orgId),
     ])
     return {
       products,
@@ -182,8 +196,9 @@ export function DashboardPage() {
       docAnalysis,
       auditLog,
       parties,
+      pendingRef,
     }
-  }, [orgId])
+  }, [orgId, scoped])
 
   const {
     products = [],
@@ -195,6 +210,7 @@ export function DashboardPage() {
     docAnalysis = [],
     auditLog = [],
     parties = [],
+    pendingRef = null,
   } = data ?? {}
 
   const vm = useMemo(() => {
@@ -208,6 +224,9 @@ export function DashboardPage() {
       reads,
       docAnalysis,
       parties,
+      refUpdate: pendingRef
+        ? { label: pendingRef.target.label, publishedAt: pendingRef.target.publishedAt ?? '' }
+        : undefined,
     }
     return {
       actions: buildActions(input, now),
@@ -230,6 +249,7 @@ export function DashboardPage() {
     docAnalysis,
     auditLog,
     parties,
+    pendingRef,
   ])
 
   const derived = useMemo(() => {

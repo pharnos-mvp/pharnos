@@ -3,9 +3,17 @@ import {
   type AgencyInfo,
   type RegulatoryProfile,
 } from '@/features/workspace/roadmap-data'
-import { db, type RefEntryRecord, type RefVersionRecord } from '@/lib/db'
+import type { RefEntryRecord, RefVersionRecord } from '@/lib/db'
 import type { Translatable } from '@/lib/i18n-context'
 import { authorityDetail, type AuthorityDetail } from './authorities-data'
+import {
+  entriesForCountry,
+  isPlainObject,
+  loadRefState,
+  SECTIONS,
+  upTo,
+  type SectionKey,
+} from './ref-state'
 
 /** Provenance d'une entrée du référentiel — la source officielle citée. Seuls `texte`,
  *  `complements` et `jo` sont rendus ; `note`/`pdf_path` restent internes (curation). */
@@ -17,10 +25,21 @@ export interface RefProvenance {
   pdf_path?: string
 }
 
-type SectionKey = 'agency' | 'fees' | 'submission' | 'samples'
-// Liste blanche : une section future (`ctd_structure`, P4.5) ne doit ni déplacer le badge de
-// version ni polluer la provenance d'une fiche qui ne la rend pas.
-const SECTIONS: readonly SectionKey[] = ['agency', 'fees', 'submission', 'samples']
+type FeeKey = 'new_ma' | 'renewal' | 'variation_minor' | 'variation_major'
+
+/** Libellés des redevances — source unique (fiche Autorité + diff d'adoption). */
+export const FEE_LABEL: Record<FeeKey, Translatable> = {
+  new_ma: { fr: 'Nouvelle AMM', en: 'New MA' },
+  renewal: { fr: 'Renouvellement', en: 'Renewal' },
+  variation_minor: { fr: 'Variation mineure', en: 'Minor variation' },
+  variation_major: { fr: 'Variation majeure', en: 'Major variation' },
+}
+/** Libellés des notes de barème (cas particuliers), clés alignées sur `fees.notes`. */
+export const FEE_NOTE_LABEL: Record<'new_ma' | 'renewal' | 'variation', Translatable> = {
+  new_ma: FEE_LABEL.new_ma,
+  renewal: FEE_LABEL.renewal,
+  variation: { fr: 'Variations', en: 'Variations' },
+}
 
 export interface ResolvedAuthority {
   detail: AuthorityDetail
@@ -35,7 +54,7 @@ export interface ResolvedAuthority {
 // casser la fiche (TypeError → ErrorBoundary = fiche inutilisable pour TOUS les clients jusqu'à
 // republication) ni rendre un objet brut. Toute valeur non conforme retombe sur le socle code.
 
-const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
+const isObj = isPlainObject
 const strOr = (v: unknown, d = ''): string => (typeof v === 'string' ? v : d)
 const strOrUndef = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined)
 const numOrUndef = (v: unknown): number | undefined =>
@@ -62,8 +81,8 @@ function agencyFromPayload(payload: unknown): (AgencyInfo & { officialLang?: str
   }
 }
 
-const FEE_KEYS = ['new_ma', 'renewal', 'variation_minor', 'variation_major'] as const
-const FEE_NOTE_KEYS = ['new_ma', 'renewal', 'variation'] as const
+export const FEE_KEYS = ['new_ma', 'renewal', 'variation_minor', 'variation_major'] as const
+export const FEE_NOTE_KEYS = ['new_ma', 'renewal', 'variation'] as const
 
 function feesFromPayload(
   payload: unknown,
@@ -106,52 +125,26 @@ function samplesFromPayload(payload: unknown): RegulatoryProfile['samples'] | un
   return out
 }
 
-// ───────────────────────────────────────────────────────────────────────────────────────────────
-
 /**
- * Résout la fiche Autorité d'un pays : contenu de la dernière version PUBLIÉE **et à date
- * d'effet atteinte** du référentiel (réplique locale de 0071), section par section, repli sur
- * le socle code (`authorityDetail`). Un décret publié en avance (effet au 01/01) ne s'applique
- * qu'à sa date — modèle MedDRA du plan §6. P4.1 : pas encore d'adoption par org ni d'overrides
- * (P4.2/P4.3), résolution « dernière publiée applicable > code ».
- *
- * `null` = pays inconnu des deux sources (l'appelant affiche « introuvable » ; distinct du
- * `undefined` de chargement renvoyé par `useLiveQuery`).
+ * Résolution PURE d'une fiche Autorité à partir d'un ensemble de versions AUTORISÉES : la
+ * section d'une version plus applicable masque celle d'une version antérieure (packs
+ * cumulatifs), et tout ce qui manque retombe sur le socle code (`authorityDetail`).
+ * `null` = pays inconnu des deux sources.
  */
-export async function resolvedAuthorityDetail(code: string): Promise<ResolvedAuthority | null> {
+export function resolveAuthority(
+  code: string,
+  entries: RefEntryRecord[],
+  allowed: RefVersionRecord[],
+  rank: Map<string, number>,
+): ResolvedAuthority | null {
   const fallback = authorityDetail(code)
-  const today = new Date().toISOString().slice(0, 10)
-  const [allVersions, allEntries] = await Promise.all([
-    db.refVersions.toArray(),
-    db.refEntries.where('[country+section]').between([code, ''], [code, '￿']).toArray(),
-  ])
-  // La RLS ne sert que du publié, mais la réplique locale peut en contenir d'autres (P4.4 :
-  // l'admin god lira SES brouillons) — le statut et la date d'effet se re-filtrent ICI.
-  const versions = allVersions.filter(
-    (v) => v.status === 'published' && (!v.effectiveDate || v.effectiveDate <= today),
-  )
-
-  // Rang d'applicabilité : date d'effet (repli publication, repli création), départage par
-  // label — déterministe même pour deux versions publiées dans la même transaction. La section
-  // d'une version plus récente MASQUE celle d'une version antérieure (packs cumulatifs).
-  const applicability = (v: RefVersionRecord) => v.effectiveDate ?? v.publishedAt ?? v.createdAt
-  const rank = new Map(
-    [...versions]
-      .sort((a, b) => {
-        const ka = applicability(a)
-        const kb = applicability(b)
-        if (ka !== kb) return ka < kb ? -1 : 1
-        return a.label < b.label ? -1 : 1
-      })
-      .map((v, i) => [v.id, i] as const),
-  )
+  const byId = new Map(allowed.map((v) => [v.id, v]))
 
   const picked = new Map<SectionKey, { entry: RefEntryRecord; version: RefVersionRecord }>()
-  const byId = new Map(versions.map((v) => [v.id, v]))
-  for (const entry of allEntries) {
+  for (const entry of entries) {
     if (!SECTIONS.includes(entry.section as SectionKey)) continue // section non rendue (P4.5…)
     const version = byId.get(entry.versionId)
-    if (!version) continue // brouillon/orpheline/date d'effet future → jamais servie
+    if (!version) continue // brouillon / orpheline / effet futur / au-dessus du plafond adopté
     const key = entry.section as SectionKey
     const current = picked.get(key)
     if (!current || rank.get(entry.versionId)! > rank.get(current.entry.versionId)!) {
@@ -199,7 +192,7 @@ export async function resolvedAuthorityDetail(code: string): Promise<ResolvedAut
     }
   }
 
-  const latest = used.sort((a, b) => rank.get(b.id)! - rank.get(a.id)!)[0]
+  const latest = [...used].sort((a, b) => rank.get(b.id)! - rank.get(a.id)!)[0]
 
   return {
     detail: {
@@ -212,4 +205,39 @@ export async function resolvedAuthorityDetail(code: string): Promise<ResolvedAut
     provenance,
     versionLabel: latest?.label ?? null,
   }
+}
+
+/**
+ * Fiche Autorité telle qu'elle s'applique à l'ORG : contenu résolu au PLAFOND ADOPTÉ (P4.2).
+ * `null` = pays inconnu des deux sources (distinct du `undefined` de chargement d'`useLiveQuery`).
+ */
+export async function resolvedAuthorityDetail(
+  code: string,
+  orgId: string,
+): Promise<ResolvedAuthority | null> {
+  const [state, entries] = await Promise.all([loadRefState(orgId), entriesForCountry(code)])
+  const allowed = state.ceiling ? upTo(state, state.rank.get(state.ceiling.id)!) : []
+  return resolveAuthority(code, entries, allowed, state.rank)
+}
+
+/**
+ * Fiche Autorité telle qu'elle s'appliquait SOUS UNE VERSION DONNÉE — pour un dossier ÉPINGLÉ
+ * (P4.2b) : un dossier déposé est une photographie opposable, il garde le barème de la version
+ * avec laquelle il a été monté. Version inconnue localement → socle code (repli sûr).
+ */
+export async function resolvedAuthorityDetailAtVersion(
+  code: string,
+  orgId: string,
+  versionId: string | null,
+): Promise<ResolvedAuthority | null> {
+  if (!versionId) return resolvedAuthorityDetail(code, orgId)
+  const [state, entries] = await Promise.all([loadRefState(orgId), entriesForCountry(code)])
+  // BORNÉ AU PLAFOND ADOPTÉ : `dossiers.ref_version_id` est une colonne cliente (RLS = rôles
+  // éditeurs). Sans ce min, un éditeur non-admin pouvait y écrire l'id d'une version que son org
+  // n'a PAS consentie et s'en servir le barème — contournement du gate « admin seul ». Le trigger
+  // serveur `dossiers_ref_version_guard` (0074) est la ceinture ; ceci est la bretelle.
+  const ceilingRank = state.ceiling ? state.rank.get(state.ceiling.id)! : -1
+  const pinnedRank = state.rank.get(versionId)
+  const maxRank = pinnedRank === undefined ? -1 : Math.min(pinnedRank, ceilingRank)
+  return resolveAuthority(code, entries, maxRank < 0 ? [] : upTo(state, maxRank), state.rank)
 }

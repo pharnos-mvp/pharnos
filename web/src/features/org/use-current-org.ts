@@ -57,6 +57,25 @@ export function useCanManageSubmission(): boolean {
   return canManageSubmission(memberships.find((m) => m.orgId === orgId)?.role)
 }
 
+/** L'utilisateur est-il ADMINISTRATEUR de l'org active ? Miroir UI de `is_org_admin` (SQL) — la
+ *  vraie barrière reste le RPC/la RLS ; ce gating évite d'afficher une action qui ferait 42501.
+ *  Hors-ligne sans cache de memberships → `false` (fail-safe : on ne propose pas l'action). */
+export function useIsOrgAdmin(): boolean {
+  const { orgId, memberships } = useCurrentOrg()
+  return memberships.find((m) => m.orgId === orgId)?.role === 'admin'
+}
+
+/** L'utilisateur peut-il ÉCRIRE le contenu de l'org (produits, dossiers, documents) ? Miroir UI de
+ *  `current_user_editable_org_ids` (0028) : tous les rôles SAUF Lecteur (`reviewer`) — et jamais un
+ *  membre scopé CS1 (0048 réserve les écritures aux non scopés). Proposer une action qu'un Lecteur
+ *  ne peut pas écrire produit un rejet PERMANENT drainé + Sentry, pas une simple erreur d'UI. */
+export function useCanEditContent(): boolean {
+  const { orgId, memberships } = useCurrentOrg()
+  const role = memberships.find((m) => m.orgId === orgId)?.role
+  const { scoped } = useMemberScope()
+  return !!role && role !== 'reviewer' && !scoped
+}
+
 /**
  * Périmètre CS1 du membre courant dans l'org active (miroir UI de `membership_scopes`, 0048).
  * `scoped` = membre limité à la couche SUIVI de ses dossiers grantés → l'UI masque catalogue,

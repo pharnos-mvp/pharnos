@@ -126,13 +126,13 @@ ci-dessous sont des features post-pilotes qui ne bloquent pas le gate.
 | **P1** ✅ | Matrice métier §1 : sessions/onglets par rôle, retrait « Titulaire » (contexte org), carte « MAH + Fabricant » — **LIVRÉ 2026-07-24 (#408)** | S (front-only) | 0 |
 | **P2** ✅ | Réutilisation §2 + §3 — **LIVRÉ 2026-07-24 (#409 pioche · #410 upload fiche org)** : `source_doc_id` (0070, prod), `documents-reuse` (`copyDocumentToProduct`, mapping sources §2), pickers « Depuis la base / Depuis mon poste » wizard + fiche produit (`SourceDocPicker` partagé, dédoublonnage), `DocAddForm` extrait + `OrgDocAddButton` (onglets AMM/admin/info + `OrgPiecePage`). Pièges : garde d'ordonnancement FK auto-référente au push (outbox non ordonnée → 2ᵉ passe bornée) ; RLS insert vérifiée (org_id éditable + RESTRICTIVE CS1). Différé : requêtes party-scopées si `documents` grossit ; garde serveur `party.org_id = document.org_id` (belt-and-braces) | M | 0070 ✅ |
 | **P3** ✅ | Agences en correspondance — **LIVRÉ 2026-07-24 (#412)** : ShareDialog = sélecteur des parties rôle `agent` (préremplit l'e-mail), « ＋ Nouvelle agence » inline (collision de nom annoncée : fusion, aucun doublon), capture « base vivante » best-effort APRÈS l'envoi (fill-the-gap `contactEmail`, relecture fraîche, jamais d'écrasement). L'e-mail reste LA clé d'identité des fils (aucun `party_id` persisté). `NativeSelect` promu `components/ui`. Prérequis embarqué : #411 (advisories du jour — postcss 8.5.23 + migration `react-router-dom`→`react-router` 8.3.0) | S–M | 0 ✅ |
-| **P4** | Autorités versionnées + God dashboard — **mockup livré 2026-07-24 (`docs/mockups/autorites-versionnees.html`, 3 écrans), design §6 EN ATTENTE DE VALIDATION CEO** | L | oui |
+| **P4** | Autorités versionnées + God dashboard — mockup + design §6 **VALIDÉS CEO 2026-07-24** ; **P4.1 (#414) et P4.2 (#415) LIVRÉS** ; reste P4.3 overrides · P4.4 God dashboard · P4.5 structure CTD | L | 0071→0074 ✅ |
 | **P5** (post-GO-LIVE) | Lien membre↔partie (`memberships.party_id`) + rôles avancés | M | oui |
 
 Chaque phase = 1 à 2 PR, revue `code-reviewer` systématique, CI job-par-job, migration appliquée
 et vérifiée en prod AVANT le merge du code qui la consomme.
 
-**Prochaine migration libre : 0071.**
+**Prochaine migration libre : 0074.**
 
 ---
 
@@ -173,17 +173,67 @@ test de parité) + réplique Dexie v16 pull-only (throttle 15 min, pull borné/p
 `syncCatalogue` — jamais devant un push ni dans le flush de déconnexion) + résolveur
 `ref-content.ts` (publié-seul **et à date d'effet atteinte**, payloads normalisés — un contenu
 malformé retombe sur le socle code, sections inconnues ignorées) + fiche Autorité (badge version,
-lignes « Source : … ») → P4.2 adoption/notification + épinglage dossiers → P4.3 overrides org +
-conflits → P4.4 God dashboard Référentiel (éditeur, publication, adoption). NB : les montants
-« avant » du diff mockup sont ILLUSTRATIFS.
+lignes « Source : … ») → **P4.2 ✅ (2026-07-25)** adoption/notification + épinglage dossiers →
+P4.3 overrides org + conflits → P4.4 God dashboard Référentiel (éditeur, publication, adoption).
+NB : les montants « avant » du diff mockup sont ILLUSTRATIFS.
 
-**⚠ GARDE-FOU P4.1→P4.4 (revue #414, M7)** : lettres (`letter-context`), Roadmap
-(`regulatoryProfileFor`), `NewDossierPage`/`DossierPreviewPage`/`submission-language` et la LISTE
-des autorités (`listAgencies`) lisent encore `roadmap-data.ts` en direct. Tant qu'ils ne passent
-pas par le résolveur, **publier un contenu qui diffère du code est INTERDIT** (la fiche
-afficherait le nouveau barème sourcé pendant que lettres/Roadmap serviraient l'ancien). Le test
-de parité `ref-seed.test.ts` casse volontairement si l'un des deux bouge seul. Brancher ces
-consommateurs = préalable de P4.4 (ou premier lot de P4.2).
+**P4.2 livré (migrations `0072` + `0073`, appliquées prod avant merge)** :
+- **Consentement** : `org_ref_adoptions` (journal append-only, RLS lecture membres + RESTRICTIVE
+  CS1, **zéro policy d'écriture**) + RPC `adopt_ref_version` (security definer : **admin d'org
+  seul**, refuse un brouillon, audite dans la même transaction) — pgTAP `org_ref_adoptions_rls`
+  (12 assertions).
+- **Résolution au PLAFOND adopté** : sans aucune adoption, plafond = **version socle** → une org
+  ne voit jamais son contenu changer sans consentement ; adopter la plus récente prend les
+  intermédiaires. Isolation par org vérifiée.
+- **Notification** : bannière ciblée par pays (fiche Autorité) / globale (liste), dialog de
+  consentement avec diff avant/après + sources citées + garanties, et ligne « Référentiel à
+  adopter » dans la **cloche + Alertes du Dashboard** (`ActionKind: 'ref_update'`, un seul item
+  quel que soit le nombre de versions en attente).
+- **Épinglage** : `dossiers.ref_version_id` posé à la création (version appliquée par l'org) ; la
+  **Roadmap lit le barème de la version épinglée** (fin de la divergence M7 sur ce chemin) ;
+  bannière « épinglé sur vX » + **bascule volontaire** confirmée sur un diff limité au pays du
+  dossier, idempotente, tracée à l'audit (« référentiel vX → vY »).
+- **Découpage de modules imposé par le budget** : `ref-state` (versions/adoptions, SANS contenu —
+  chargé par l'entrée pour la cloche) · `ref-content` (résolveur + socle bilingue) · `ref-diff`
+  (dialogs). Sans ce découpage, la cloche tirait tout `roadmap-data` dans le bundle d'entrée
+  (**+5,9 Ko gzip mesurés, budget à 98,7 %**) ; après, +0,4 Ko.
+- **Écart assumé vs mockup écran 3** : la bascule est tracée dans le **journal d'audit** (org), pas
+  dans la timeline du dossier — le vocabulaire `lifecycle_events` est verrouillé (ADR-0004) et
+  alimente la **vue agent externe tokenisée** : y publier un événement de configuration serait une
+  décision d'exposition à part entière. À arbitrer (migration d'un type `ref_version_switched`) si
+  le CEO veut la ligne dans le parcours du dossier.
+- Suite naturelle : auto-adoption de la dernière version à la **création d'une org** (sinon une org
+  neuve démarre sur le socle et doit adopter) — à traiter avec P4.4.
+
+**Durcissements de revue (#415, migration `0074`)** — deux bloquants et quatre majeurs corrigés
+avant merge, tous *dormants aujourd'hui* mais armés dès que le God dashboard publiera :
+- **Socle EXPLICITE (`ref_versions.is_baseline`)** : le plafond était inféré (« la plus ancienne
+  version de la réplique ») → archiver le socle faisait glisser le plafond sur une version JAMAIS
+  adoptée, sans signal (`pending` vide). Aucun socle lisible ⇒ repli socle CODE, jamais un tiers.
+- **TTL de pull PAR ORG** : la clé était globale alors que le pull embarque les adoptions → un
+  membre multi-orgs (cas nominal CS1) changeant d'org dans les 15 min calculait son plafond sur les
+  adoptions de l'org précédente **et épinglait ses nouveaux dossiers sur la mauvaise version**
+  (valeur poussée au serveur, durable).
+- **Épinglage borné au plafond** + **trigger serveur `dossiers_ref_version_guard`** (null / socle /
+  adoptée) : `ref_version_id` est écrivable par un éditeur non-admin (PostgREST) — sans borne, il
+  se servait le barème d'une version non consentie, contournant le gate « admin seul ».
+- **Backfill des 137 dossiers de prod** (+ bump `updated_at`, sinon le pull incrémental ne le voit
+  jamais — leçon 0060) : sans lui, la promesse « vos dossiers existants restent épinglés » affichée
+  dans le dialog de consentement était FAUSSE pour tout le parc.
+- **FK `on delete restrict`** (une version référencée s'archive, ne se supprime pas), état
+  « version épinglée introuvable » affiché au lieu d'un silence, RPC durci (org active + membre non
+  scopé, `p_org` obligatoire), cap + alerte sur le pull d'adoptions, tri d'applicabilité
+  déterministe (plus de `v2026.10 < v2026.9`), stub de test indexé par table (faux-vert prouvé),
+  cloche muette pour un membre scopé, bascule réservée aux rôles éditeurs.
+
+**⚠ GARDE-FOU P4.1→P4.4 (revue #414, M7 — partiellement levé par P4.2)** : la **Roadmap est
+branchée** sur le résolveur (barème de la version épinglée, #415). Restent code-only : les lettres
+(`letter-context`), `NewDossierPage`/`DossierPreviewPage`/`submission-language`, la vue agent
+publique (`PublicParcoursTab`) et la LISTE des autorités (`listAgencies`). Tant qu'ils ne passent
+pas par le résolveur, **publier un contenu qui diffère du code est INTERDIT** (la fiche et la
+Roadmap afficheraient le nouveau barème sourcé pendant que les lettres serviraient l'ancien). Le
+test de parité `ref-seed.test.ts` casse volontairement si l'un des deux bouge seul. Brancher le
+reste = **préalable de P4.4**.
 
 **Décisions CEO — VALIDÉES 2026-07-24** : (a) les 3 écrans ✅ go build ; (b) adoption = **admin
 seul** (consentement d'organisation, journalisé) ; (c) adaptables v1 = **contacts/destinataire/

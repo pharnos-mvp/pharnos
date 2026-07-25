@@ -64,6 +64,7 @@ async function seed() {
     releaseNote: '',
     publishedAt: ts,
     createdAt: ts,
+    isBaseline: true,
   })
   await db.refEntries.add({
     id: 're1',
@@ -73,6 +74,13 @@ async function seed() {
     payload: {},
     provenance: {},
     createdAt: ts,
+  })
+  await db.orgRefAdoptions.add({
+    id: 'ra1',
+    orgId: 'org-a',
+    versionId: 'v1',
+    adoptedAt: ts,
+    adoptedByEmail: 'admin@ex.com',
   })
   localStorage.setItem('pharnos.lastPull.dossiers.org-a', ts)
   localStorage.setItem('pharnos.orgId', 'org-a')

@@ -60,6 +60,7 @@ const rec: DossierRecord = {
   opYear: null,
   opNumber: null,
   purgedAt: null,
+  refVersionId: null,
 }
 
 describe('dossier sync mapping', () => {
@@ -97,6 +98,16 @@ describe('dossier sync mapping', () => {
     expect(row.variations).toBeNull()
     expect(row.variation_items).toBeNull()
     expect(row.amm_numero).toBeNull()
+  })
+
+  it('version du référentiel épinglée (0073) : poussée ET relue, absente = null', () => {
+    const pinned = dossierToRow({ ...rec, refVersionId: 'v-1' })
+    expect(pinned.ref_version_id).toBe('v-1')
+    expect(rowToDossier(pinned).refVersionId).toBe('v-1')
+    // Dossier antérieur à P4.2b (colonne absente de la row serveur) → null, jamais undefined.
+    const legacy = { ...dossierToRow(rec) }
+    delete (legacy as { ref_version_id?: unknown }).ref_version_id
+    expect(rowToDossier(legacy).refVersionId).toBe(null)
   })
 
   it("n° d'opération (0046) : JAMAIS poussé par le client, mais mappé au pull", () => {

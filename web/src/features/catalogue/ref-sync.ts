@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-import { db, type RefEntryRecord, type RefVersionRecord } from '@/lib/db'
+import { db, type OrgRefAdoptionRecord, type RefEntryRecord, type RefVersionRecord } from '@/lib/db'
 import { withRetry } from '@/lib/retry'
 import { isSyncEnabled } from '@/lib/sync-prefs'
 import { reportError } from '@/lib/sentry'
@@ -15,6 +15,8 @@ export interface RefVersionRow {
   release_note: string
   published_at: string | null
   created_at: string
+  /** Socle explicite (0074) — absent d'une row antérieure ⇒ false. */
+  is_baseline?: boolean | null
 }
 
 /** Ligne Postgres (snake_case) de `ref_entries`. */
@@ -28,10 +30,21 @@ export interface RefEntryRow {
   created_at: string
 }
 
+/** Ligne Postgres (snake_case) de `org_ref_adoptions` (migration 0072). */
+export interface OrgRefAdoptionRow {
+  id: string
+  org_id: string
+  version_id: string
+  adopted_at: string
+  adopted_by_email: string
+}
+
 // Colonnes EXPLICITES (pas de `*`) : une colonne future (auteur de brouillon, note interne…)
 // ne doit jamais partir chez tous les authentifiés par simple oubli.
-const VERSION_COLUMNS = 'id,label,status,effective_date,release_note,published_at,created_at'
+const VERSION_COLUMNS =
+  'id,label,status,effective_date,release_note,published_at,created_at,is_baseline'
 const ENTRY_COLUMNS = 'id,version_id,country,section,payload,provenance,created_at'
+const ADOPTION_COLUMNS = 'id,org_id,version_id,adopted_at,adopted_by_email'
 
 export function rowToRefVersion(r: RefVersionRow): RefVersionRecord {
   return {
@@ -42,6 +55,7 @@ export function rowToRefVersion(r: RefVersionRow): RefVersionRecord {
     releaseNote: r.release_note ?? '',
     publishedAt: r.published_at,
     createdAt: r.created_at,
+    isBaseline: r.is_baseline === true,
   }
 }
 
@@ -57,23 +71,39 @@ export function rowToRefEntry(r: RefEntryRow): RefEntryRecord {
   }
 }
 
+export function rowToOrgRefAdoption(r: OrgRefAdoptionRow): OrgRefAdoptionRecord {
+  return {
+    id: r.id,
+    orgId: r.org_id,
+    versionId: r.version_id,
+    adoptedAt: r.adopted_at,
+    adoptedByEmail: r.adopted_by_email ?? '',
+  }
+}
+
 // Throttle : contenu quasi-statique (quelques publications par an) — un pull toutes les 15 min
-// suffit, pas à CHAQUE cycle catalogue (montage, mutation, reconnexion…). La clé partage le
+// suffit, pas à CHAQUE cycle catalogue (montage, mutation, reconnexion…). Clé partageant le
 // préfixe `pharnos.lastPull` → purgée par `clearLocalData` comme les autres curseurs.
-const LAST_PULL_KEY = 'pharnos.lastPull.ref'
+//
+// ⚠ PAR ORG, pas globale : le pull embarque les ADOPTIONS de l'org (0072). Avec une clé unique, un
+// membre multi-orgs (cas nominal CS1 : une agence sert plusieurs labos) qui change d'org dans les
+// 15 min sautait le pull → plafond calculé sur les adoptions de l'org PRÉCÉDENTE, bannière
+// mensongère, et surtout tout dossier créé dans cette fenêtre ÉPINGLÉ sur la mauvaise version
+// (valeur poussée au serveur, durable) — l'inverse exact de la photographie opposable.
+const lastPullKey = (orgId: string) => `pharnos.lastPull.ref.${orgId}`
 const PULL_TTL_MS = 15 * 60 * 1000
 
-function isStale(): boolean {
+function isStale(orgId: string): boolean {
   try {
-    return Date.now() - Number(localStorage.getItem(LAST_PULL_KEY) ?? 0) >= PULL_TTL_MS
+    return Date.now() - Number(localStorage.getItem(lastPullKey(orgId)) ?? 0) >= PULL_TTL_MS
   } catch {
     return true // stockage indisponible → on tente le pull (idempotent)
   }
 }
 
-function markPulled(): void {
+function markPulled(orgId: string): void {
   try {
-    localStorage.setItem(LAST_PULL_KEY, String(Date.now()))
+    localStorage.setItem(lastPullKey(orgId), String(Date.now()))
   } catch {
     /* non bloquant */
   }
@@ -82,20 +112,22 @@ function markPulled(): void {
 let syncing = false
 
 /**
- * Réplique locale du référentiel réglementaire versionné — PULL SEUL (le client ne peut rien
- * écrire : aucune policy insert/update, publication réservée au God dashboard/service role).
- * Volontairement HORS chaîne `syncCatalogue` sérialisée (appelé en fire-and-forget) : aucune FK
- * avec les données utilisateur, il ne doit ni retarder un push ni consommer la fenêtre du flush
- * de déconnexion. No-op hors-ligne / Supabase absent / synchro désactivée / TTL non écoulé.
+ * Réplique locale du référentiel réglementaire versionné + des adoptions de l'org — PULL SEUL
+ * (le client ne peut rien écrire : aucune policy insert/update ; publication = service role,
+ * adoption = RPC `adopt_ref_version`). Volontairement HORS chaîne `syncCatalogue` sérialisée
+ * (appelé en fire-and-forget) : aucune FK avec les données utilisateur, il ne doit ni retarder un
+ * push ni consommer la fenêtre du flush de déconnexion. No-op hors-ligne / Supabase absent /
+ * synchro désactivée / TTL non écoulé — sauf `force` (après une adoption : on veut l'état frais).
  */
-export async function syncRefContent(orgId: string): Promise<void> {
-  if (syncing || !navigator.onLine || !isSyncEnabled(orgId) || !isStale()) return
+export async function syncRefContent(orgId: string, opts?: { force?: boolean }): Promise<void> {
+  if (syncing || !navigator.onLine || !isSyncEnabled(orgId)) return
+  if (!opts?.force && !isStale(orgId)) return
   const supabase = await getSupabase()
   if (!supabase) return
   syncing = true
   try {
-    await withRetry(() => pullRefContent(supabase))
-    markPulled() // uniquement après un pull COMMITTÉ — un échec re-tentera au prochain cycle
+    await withRetry(() => pullRefContent(supabase, orgId))
+    markPulled(orgId) // uniquement après un pull COMMITTÉ — un échec re-tentera au prochain cycle
   } catch (error) {
     console.warn('[sync] référentiel :', error)
     reportError(error, { op: 'sync', entity: 'ref' })
@@ -105,14 +137,14 @@ export async function syncRefContent(orgId: string): Promise<void> {
 }
 
 /**
- * Remplacement ATOMIQUE des deux tables, PULL BORNÉ : versions PUBLIÉES les plus récentes
- * (limit 50) puis leurs entrées PAGINÉES par `range` — jamais de troncature PostgREST
- * silencieuse (le « Max rows » serveur coupe un `select` nu sans erreur : un référentiel
- * partiel afficherait des montants périmés SOURCÉS — pire mode de défaillance possible).
- * Idempotent (`bulkPut`) ; en panne, on `throw` AVANT la transaction : réplique intacte,
- * le résolveur garde son repli sur le socle code (offline-first).
+ * Remplacement ATOMIQUE de la réplique, PULL BORNÉ : versions PUBLIÉES les plus récentes
+ * (limit 50), leurs entrées PAGINÉES par `range`, et les adoptions de l'org — jamais de
+ * troncature PostgREST silencieuse (le « Max rows » serveur coupe un `select` nu sans erreur :
+ * un référentiel partiel afficherait des montants périmés SOURCÉS — pire mode de défaillance
+ * possible). Idempotent (`bulkPut`) ; en panne, on `throw` AVANT la transaction : réplique
+ * intacte, le résolveur garde son repli sur le socle code (offline-first).
  */
-export async function pullRefContent(supabase: SupabaseClient): Promise<void> {
+export async function pullRefContent(supabase: SupabaseClient, orgId: string): Promise<void> {
   const vRes = await supabase
     .from('ref_versions')
     .select(VERSION_COLUMNS)
@@ -148,10 +180,29 @@ export async function pullRefContent(supabase: SupabaseClient): Promise<void> {
     }
   }
 
-  await db.transaction('rw', db.refVersions, db.refEntries, async () => {
+  // Adoptions de CETTE org (0072) — donnée tenant : on ne remplace que ses lignes (un membre
+  // multi-orgs garde celles de ses autres orgs, cf. drain par item des autres syncs).
+  const ADOPTION_CAP = 200
+  const aRes = await supabase
+    .from('org_ref_adoptions')
+    .select(ADOPTION_COLUMNS)
+    .eq('org_id', orgId)
+    .order('adopted_at', { ascending: false })
+    .limit(ADOPTION_CAP)
+  if (aRes.error) throw aRes.error
+  const adoptions = ((aRes.data ?? []) as unknown as OrgRefAdoptionRow[]).map(rowToOrgRefAdoption)
+  if (adoptions.length === ADOPTION_CAP) {
+    // Une troncature silencieuse ferait TOMBER le plafond (adoption récente absente) = contenu
+    // rétrogradé sans signal. Cap large (200 adoptions = des décennies) mais jamais muet.
+    reportError(new Error('org_ref_adoptions : cap de pull atteint'), { op: 'sync', entity: 'ref' })
+  }
+
+  await db.transaction('rw', db.refVersions, db.refEntries, db.orgRefAdoptions, async () => {
     await db.refVersions.clear()
     await db.refEntries.clear()
+    await db.orgRefAdoptions.where('orgId').equals(orgId).delete()
     await db.refVersions.bulkPut(versions)
     await db.refEntries.bulkPut(entries)
+    await db.orgRefAdoptions.bulkPut(adoptions)
   })
 }

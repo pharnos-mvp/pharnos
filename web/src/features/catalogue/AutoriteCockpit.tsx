@@ -14,26 +14,18 @@ import { useOrgId } from '@/features/org/org-context'
 import { db } from '@/lib/db'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
 import { authorityDetail } from './authorities-data'
-import { resolvedAuthorityDetail, type RefProvenance } from './ref-content'
+import {
+  FEE_LABEL,
+  FEE_NOTE_LABEL,
+  resolvedAuthorityDetail,
+  type RefProvenance,
+} from './ref-content'
+import { RefUpdateBanner } from './RefUpdateBanner'
 
 const LANG_FULL: Record<string, Translatable> = {
   fr: { fr: 'Français', en: 'French' },
   en: { fr: 'Anglais', en: 'English' },
   pt: { fr: 'Portugais', en: 'Portuguese' },
-}
-
-type FeeKey = 'new_ma' | 'renewal' | 'variation_minor' | 'variation_major'
-const FEE_LABEL: Record<FeeKey, Translatable> = {
-  new_ma: { fr: 'Nouvelle AMM', en: 'New MA' },
-  renewal: { fr: 'Renouvellement', en: 'Renewal' },
-  variation_minor: { fr: 'Variation mineure', en: 'Minor variation' },
-  variation_major: { fr: 'Variation majeure', en: 'Major variation' },
-}
-/** Libellés des notes de barème (cas particuliers), clés alignées sur `fees.notes`. */
-const FEE_NOTE_LABEL: Record<'new_ma' | 'renewal' | 'variation', Translatable> = {
-  new_ma: FEE_LABEL.new_ma,
-  renewal: FEE_LABEL.renewal,
-  variation: { fr: 'Variations', en: 'Variations' },
 }
 
 export function AutoriteCockpit() {
@@ -44,7 +36,7 @@ export function AutoriteCockpit() {
   // réplique locale répond — même contenu tant que seed == code, mais avec provenance + version.
   // `resolved` : undefined = chargement (useLiveQuery), null = pays inconnu des deux sources.
   const fallback = useMemo(() => authorityDetail(code), [code])
-  const resolved = useLiveQuery(() => resolvedAuthorityDetail(code), [code])
+  const resolved = useLiveQuery(() => resolvedAuthorityDetail(code, orgId), [code, orgId])
   const detail = resolved?.detail ?? fallback
   const provenance = resolved?.provenance
   const versionLabel = resolved?.versionLabel ?? null
@@ -98,6 +90,9 @@ export function AutoriteCockpit() {
 
   return (
     <Page>
+      {/* Mise à jour publiée mais pas encore adoptée par l'org (P4.2) — consentement explicite. */}
+      <RefUpdateBanner country={code} />
+
       {/* En-tête */}
       <div className="bg-card rounded-xl border p-5">
         <div className="flex flex-wrap items-start gap-4">

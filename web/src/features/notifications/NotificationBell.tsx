@@ -10,6 +10,7 @@ import {
   Inbox,
   Mail,
   RefreshCw,
+  ScrollText,
   Send,
   type LucideIcon,
 } from 'lucide-react'
@@ -66,6 +67,11 @@ const RECU_META: Record<ActionKind, { icon: LucideIcon; tone: Tone; label: Trans
     icon: AlertCircle,
     tone: 'danger',
     label: { fr: 'Document non conforme', en: 'Non-compliant' },
+  },
+  ref_update: {
+    icon: ScrollText,
+    tone: 'info',
+    label: { fr: 'Référentiel à adopter', en: 'Reference data to adopt' },
   },
 }
 

@@ -1,5 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 
+import { pendingRefUpdate } from '@/features/catalogue/ref-state'
+import { useMemberScope } from '@/features/org/use-current-org'
 import {
   buildActions,
   type ActionItem,
@@ -29,6 +31,10 @@ export interface NotificationsVm {
  * spine. `undefined` pendant le chargement Dexie initial.
  */
 export function useNotifications(orgId: string): NotificationsVm | undefined {
+  // Un membre SCOPÉ (agence invitée) ne lit aucune adoption (RESTRICTIVE CS1) → son plafond serait
+  // toujours le socle et l'item « Référentiel à adopter » resterait affiché en permanence, avec un
+  // `href` /catalogue que la garde de route lui REFUSE (clic = éjection). On ne le lui montre pas.
+  const { scoped } = useMemberScope()
   return useLiveQuery(async () => {
     const [
       products,
@@ -41,6 +47,7 @@ export function useNotifications(orgId: string): NotificationsVm | undefined {
       lifecycleEvents,
       notifRead,
       parties,
+      pendingRef,
     ] = await Promise.all([
       db.products.where('orgId').equals(orgId).toArray(),
       db.documents.where('orgId').equals(orgId).toArray(),
@@ -53,6 +60,8 @@ export function useNotifications(orgId: string): NotificationsVm | undefined {
       db.notificationReads.get(NOTIF_READ_ID),
       // Nomme/route les alertes des documents ORG-scopés (pièces propres d'un MAH/fabricant, 0069).
       db.parties.where('orgId').equals(orgId).toArray(),
+      // Référentiel publié en attente d'adoption par l'org (0072) → ligne « à adopter ».
+      scoped ? Promise.resolve(null) : pendingRefUpdate(orgId),
     ])
     const now = new Date()
     const input: DashboardInput = {
@@ -64,13 +73,16 @@ export function useNotifications(orgId: string): NotificationsVm | undefined {
       reads,
       docAnalysis,
       parties,
+      refUpdate: pendingRef
+        ? { label: pendingRef.target.label, publishedAt: pendingRef.target.publishedAt ?? '' }
+        : undefined,
     }
     // Cloche : ordre chronologique (plus récent d'abord), ≠ ordre par urgence du panneau Dashboard.
     const recu = sortRecuByRecency(buildActions(input, now))
     const dossierName = new Map(dossiers.map((d) => [d.id, d.productName]))
     const envoye = buildEnvoye(lifecycleEvents, dossierName)
     return { recu, envoye, unread: unreadCount(recu, notifRead?.seenIds ?? []) }
-  }, [orgId])
+  }, [orgId, scoped])
 }
 
 /** Acquitte les items Reçu courants (badge → 0) — marqueur LOCAL par appareil. */
