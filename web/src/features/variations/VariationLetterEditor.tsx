@@ -2,6 +2,7 @@ import { useMemo, type ReactNode } from 'react'
 
 import { useI18n, type Lang } from '@/lib/i18n-context'
 import { buildLetterContext, type LetterFields } from '@/features/workspace/letter-context'
+import { useRefAgency } from '@/features/catalogue/use-ref-agency'
 import type { VariationClass } from './variation-catalog'
 import '@/features/workspace/template-form/template-form.css'
 
@@ -33,7 +34,9 @@ export function VariationLetterEditor({
   signatureImage?: string | null
 }) {
   const { t } = useI18n()
-  const ctx = useMemo(() => buildLetterContext(fields, lang), [fields, lang])
+  // Destinataire résolu (plafond org — la demande de variation est org-level, pas épinglée).
+  const refAgency = useRefAgency(fields.country || undefined)
+  const ctx = useMemo(() => buildLetterContext(fields, lang, refAgency), [fields, lang, refAgency])
 
   const L = (fr: string, en: string) => (lang === 'en' ? en : fr)
   const civ = lang === 'en' ? (ctx.agencyCiviliteEn ?? ctx.agencyCivilite) : ctx.agencyCivilite

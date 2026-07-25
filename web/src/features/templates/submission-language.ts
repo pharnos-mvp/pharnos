@@ -1,4 +1,8 @@
 import type { Lang, Translatable } from '@/lib/i18n-context'
+// SOCLE CODE assumé (P4.4-pré) : ce nudge ne lit que la LANGUE OFFICIELLE du pays — une donnée
+// quasi-immuable (constitutionnelle), hors du périmètre des publications du référentiel (barèmes,
+// contacts, exigences). Si une publication changeait un jour `officialLang`, seule la pertinence
+// du nudge serait affectée (jamais un montant ni un destinataire).
 import { officialLanguage } from '@/features/workspace/roadmap-data'
 
 /**

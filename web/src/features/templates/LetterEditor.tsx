@@ -5,6 +5,7 @@ import { db } from '@/lib/db'
 import { useI18n, type Lang } from '@/lib/i18n-context'
 import { cn } from '@/lib/utils'
 import { useOrgId } from '@/features/org/org-context'
+import { useRefAgency } from '@/features/catalogue/use-ref-agency'
 import {
   buildLetterContext,
   LETTER_CURRENCIES,
@@ -42,7 +43,9 @@ export function LetterEditor({
   const { t } = useI18n()
   const orgId = useOrgId()
   const fields = useMemo(() => letterFieldsFromValues(values), [values])
-  const ctx = useMemo(() => buildLetterContext(fields, lang), [fields, lang])
+  // Destinataire résolu par le référentiel versionné (plafond org) — repli code pendant le chargement.
+  const refAgency = useRefAgency(fields.country || undefined)
+  const ctx = useMemo(() => buildLetterContext(fields, lang, refAgency), [fields, lang, refAgency])
   const products = useLiveQuery(
     () =>
       db.products

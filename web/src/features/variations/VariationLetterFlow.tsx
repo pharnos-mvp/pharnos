@@ -26,6 +26,7 @@ import { useAuth } from '@/features/auth/auth-context'
 import { useOrgId } from '@/features/org/org-context'
 import { getAmmDocument } from '@/features/catalogue/documents-repository'
 import { listProducts } from '@/features/catalogue/repository'
+import { useRefAgency } from '@/features/catalogue/use-ref-agency'
 import { getBrandingForParty, getUserSignature } from '@/features/profile/pro-settings-repository'
 import { triggerDownload } from '@/features/workspace/download-utils'
 import {
@@ -168,6 +169,9 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
 
   const [docLang, setDocLang] = useState<Lang>(appLang)
   const [fields, setFields] = useState<LetterFields>(emptyLetterFields())
+  // Destinataire résolu (référentiel versionné, plafond org) — l'EXPORT doit citer la même
+  // agence que l'éditeur (`VariationLetterEditor` utilise le même hook) : affiché = exporté.
+  const refAgency = useRefAgency(fields.country || undefined)
   const [productId, setProductId] = useState('')
   const [refs, setRefs] = useState<number[]>([])
   const [items, setItems] = useState<VariationItem[]>([])
@@ -297,7 +301,7 @@ export function VariationLetterFlow({ onBack }: { onBack: () => void }) {
   async function downloadCombined(kind: 'pdf' | 'docx') {
     setBusy(true)
     try {
-      const doc = buildVariationLetterDoc(request(), docLang)
+      const doc = buildVariationLetterDoc(request(), docLang, refAgency)
       const table = annexTable()
       if (kind === 'pdf') {
         const { combinedVariationPdfBytes } = await import('./variation-combined')

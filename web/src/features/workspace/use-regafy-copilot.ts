@@ -14,6 +14,10 @@ import { activityLabel, countryLabel, formatLabel } from './dossier-constants'
 import { createTranslationDoc, createUpgradeDoc } from './generated-docs-repository'
 import { syncGeneratedDocs } from './generated-docs-sync'
 import { docTypeForNode, type CtdNodeDef } from './module1-tree'
+// SOCLE CODE assumé (P4.4-pré) : le copilote ne passe à l'IA que le NOM d'agence et la LANGUE de
+// soumission (contexte d'analyse), jamais un barème ni un destinataire de lettre. Brancher ces
+// 6 sites sur le résolveur exigerait de re-tresser les deps des useCallback pour un gain nul tant
+// que noms/langues ne divergent pas — à faire si une publication les touche un jour.
 import { agencyFor, officialLanguage } from './roadmap-data'
 import { runRegafy, tiptapText, type RegafyFinding } from './regafy'
 import {

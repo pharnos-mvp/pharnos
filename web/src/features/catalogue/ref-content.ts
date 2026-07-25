@@ -1,11 +1,24 @@
 import {
   agencyCivilite,
+  agencyFor,
+  officialLanguage,
   type AgencyInfo,
   type RegulatoryProfile,
 } from '@/features/workspace/roadmap-data'
-import type { RefEntryRecord, RefVersionRecord } from '@/lib/db'
+import {
+  db,
+  type DocumentRecord,
+  type DossierRecord,
+  type RefEntryRecord,
+  type RefVersionRecord,
+} from '@/lib/db'
 import type { Translatable } from '@/lib/i18n-context'
-import { authorityDetail, type AuthorityDetail } from './authorities-data'
+import {
+  authorityDetail,
+  buildAuthorityRows,
+  type AuthorityDetail,
+  type AuthorityRow,
+} from './authorities-data'
 import {
   entriesForCountry,
   isPlainObject,
@@ -218,6 +231,114 @@ export async function resolvedAuthorityDetail(
   const [state, entries] = await Promise.all([loadRefState(orgId), entriesForCountry(code)])
   const allowed = state.ceiling ? upTo(state, state.rank.get(state.ceiling.id)!) : []
   return resolveAuthority(code, entries, allowed, state.rank)
+}
+
+/**
+ * Bloc « agence destinataire » résolu — LE point d'entrée des consommateurs non-fiche (lettres,
+ * aperçus, wizard, P4.4-pré) : agence + civilité + langue de soumission, au plafond adopté de
+ * l'org, ou sous la version ÉPINGLÉE d'un dossier quand `refVersionId` est fourni. Ne renvoie
+ * jamais null : pays inconnu des deux sources → générique du socle code (comportement historique
+ * d'`agencyFor`).
+ */
+export interface ResolvedAgencyBlock {
+  agency: AgencyInfo
+  civilite: string
+  officialLang: string
+}
+
+export async function resolvedAgencyBlock(
+  country: string,
+  orgId: string,
+  refVersionId?: string | null,
+): Promise<ResolvedAgencyBlock> {
+  const r =
+    refVersionId !== undefined
+      ? await resolvedAuthorityDetailAtVersion(country, orgId, refVersionId)
+      : await resolvedAuthorityDetail(country, orgId)
+  if (r) {
+    return {
+      agency: r.detail.agency,
+      civilite: r.detail.civilite,
+      officialLang: r.detail.officialLang,
+    }
+  }
+  const agency = agencyFor(country)
+  return { agency, civilite: agencyCivilite(agency), officialLang: officialLanguage(country) }
+}
+
+/**
+ * Lookup pays → { agence, langue } résolu au PLAFOND de l'org, construit UNE fois par live-query —
+ * pour les surfaces LISTE (boîte de réception, recherche) où un hook par ligne est impossible.
+ * Repli code pour tout pays sans contenu publié.
+ */
+export async function loadRefCountryLookup(
+  orgId: string,
+): Promise<(country: string) => { agency: AgencyInfo; officialLang: string }> {
+  const state = await loadRefState(orgId)
+  const ceilingRank = state.ceiling ? state.rank.get(state.ceiling.id)! : -1
+  const allowed = new Set(upTo(state, ceilingRank).map((v) => v.id))
+  const best = new Map<string, { rank: number; agency: AgencyInfo & { officialLang?: string } }>()
+  for (const e of await db.refEntries.toArray()) {
+    if (e.section !== 'agency' || !allowed.has(e.versionId)) continue
+    const agency = agencyFromPayload(e.payload)
+    if (!agency) continue
+    const rank = state.rank.get(e.versionId)!
+    const cur = best.get(e.country)
+    if (!cur || rank > cur.rank) best.set(e.country, { rank, agency })
+  }
+  return (country) => {
+    const hit = best.get(country)
+    return hit
+      ? { agency: hit.agency, officialLang: hit.agency.officialLang ?? officialLanguage(country) }
+      : { agency: agencyFor(country), officialLang: officialLanguage(country) }
+  }
+}
+
+/**
+ * Lignes du référentiel « Autorités » RÉSOLUES au plafond de l'org (P4.4-pré) : le socle code
+ * (liste curée + empreinte RA) OVERLAYÉ par le contenu publié — noms/langue à jour, badge
+ * « Barème » reflétant le contenu résolu, et pays servis par le SEUL référentiel (future
+ * publication god) ajoutés en fin de liste.
+ */
+export async function resolvedAuthorityRows(
+  orgId: string,
+  dossiers: DossierRecord[],
+  documents: DocumentRecord[],
+): Promise<AuthorityRow[]> {
+  const rows = buildAuthorityRows(dossiers, documents)
+  const known = new Set(rows.map((r) => r.code))
+  const lookup = await loadRefCountryLookup(orgId)
+  const state = await loadRefState(orgId)
+  const ceilingRank = state.ceiling ? state.rank.get(state.ceiling.id)! : -1
+  const allowed = new Set(upTo(state, ceilingRank).map((v) => v.id))
+
+  // Pays « en propre » du référentiel + sections barème valides (badge « Barème » honnête).
+  const dbCountries = new Set<string>()
+  const dbFees = new Set<string>()
+  for (const e of await db.refEntries.toArray()) {
+    if (!allowed.has(e.versionId)) continue
+    if (e.section === 'agency' && agencyFromPayload(e.payload)) dbCountries.add(e.country)
+    if (e.section === 'fees' && feesFromPayload(e.payload)) dbFees.add(e.country)
+  }
+
+  const overlaid = rows.map((r) => {
+    const { agency, officialLang } = lookup(r.code)
+    return { ...r, agency, officialLang, hasProfile: r.hasProfile || dbFees.has(r.code) }
+  })
+  const activeDossiers = dossiers.filter((d) => d.deletedAt == null)
+  const activeAmm = documents.filter((d) => d.deletedAt == null && d.docType === 'amm')
+  const added = [...dbCountries]
+    .filter((code) => !known.has(code))
+    .sort()
+    .map((code) => ({
+      code,
+      agency: lookup(code).agency,
+      officialLang: lookup(code).officialLang,
+      hasProfile: dbFees.has(code),
+      dossierCount: activeDossiers.filter((d) => d.country === code).length,
+      ammCount: activeAmm.filter((d) => d.country?.trim() === code).length,
+    }))
+  return [...overlaid, ...added]
 }
 
 /**

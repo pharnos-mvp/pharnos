@@ -47,6 +47,27 @@ describe('buildLetterContext (lettre standalone Bibliothèque, pilotée par pays
     expect(f.nomCommercial).toBe('X')
     expect(f.pght).toBe('')
   })
+
+  it('bloc destinataire RÉSOLU (référentiel versionné, P4.4-pré) : il PRIME sur le socle code', () => {
+    const resolved = {
+      agency: {
+        name: 'ARP',
+        full: 'Agence Sénégalaise de Réglementation Pharmaceutique',
+        directeur: 'Dr A. B. Sow',
+        sexe: 'M' as const,
+        adresse: 'Dakar, nouvelle adresse publiée',
+      },
+      civilite: 'Monsieur le Directeur Général',
+      officialLang: 'fr',
+    }
+    const ctx = buildLetterContext(emptyLetterFields('SN'), 'fr', resolved)
+    expect(ctx.agencyAdresse).toBe('Dakar, nouvelle adresse publiée')
+    expect(ctx.agencyCivilite).toBe('Monsieur le Directeur Général')
+    // Sans bloc résolu (offline, tests) : socle code inchangé.
+    expect(buildLetterContext(emptyLetterFields('SN'), 'fr').agencyCivilite).toBe(
+      'Madame la Directrice Générale',
+    )
+  })
 })
 
 describe('M3.1 — désignation autorité, devise PGHT, synchro produit', () => {

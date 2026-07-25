@@ -1,6 +1,7 @@
 import type { JSONContent } from '@tiptap/core'
 
 import type { Lang } from '@/lib/i18n-context'
+import type { ResolvedAgencyBlock } from '@/features/catalogue/ref-content'
 import { buildLetterContext } from '@/features/workspace/letter-context'
 import { TEMPLATES } from '@/features/workspace/templates'
 import { PIECE_LABEL, type VariationClass } from './variation-catalog'
@@ -18,8 +19,12 @@ import {
  * classe globale, les natures de modification et l'union des pièces (libellés localisés). Le rendu
  * PDF/DOCX passe par le moteur de lettres partagé (`letter-pdf` / `letter-docx`). PURE.
  */
-export function buildVariationLetterDoc(req: VariationRequest, lang: Lang): JSONContent {
-  const base = buildLetterContext(req.fields, lang)
+export function buildVariationLetterDoc(
+  req: VariationRequest,
+  lang: Lang,
+  resolved?: ResolvedAgencyBlock | null,
+): JSONContent {
+  const base = buildLetterContext(req.fields, lang, resolved)
   return TEMPLATES.variation.build(
     {
       ...base,

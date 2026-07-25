@@ -2,8 +2,13 @@
 // Bibliothèque : les champs sont saisis à la main + un **pays cible** pilote le destinataire
 // (agence / civilité / ville), exactement comme le montage CTD côté Workspace — mais sans dossier.
 // Réutilise les sources pays (roadmap-data, city) en LECTURE SEULE ; le chemin Workspace est inchangé.
+//
+// P4.4-pré : le bloc destinataire (agence/civilité/adresse) accepte un bloc RÉSOLU par le
+// référentiel versionné (`useRefAgency` — plafond de l'org, ou version épinglée du dossier) ;
+// sans lui, repli sur le socle code (offline, tests, parité seed==code).
 import type { Lang } from '@/lib/i18n-context'
 import type { ProductRecord } from '@/lib/db'
+import type { ResolvedAgencyBlock } from '@/features/catalogue/ref-content'
 import { formatComposition } from './composition'
 import { extractCity } from './city'
 import { agencyCivilite, agencyCiviliteEn, agencyFor } from './roadmap-data'
@@ -150,8 +155,13 @@ export function letterFieldsFromValues(values: Record<string, string>): LetterFi
  * Construit le `TemplateContext` (consommé par `buildCover`/`buildPght`) depuis les champs saisis et
  * le pays cible. Marqueurs `[…]` localisés pour les champs vides (édition in-place ensuite). PURE.
  */
-export function buildLetterContext(f: LetterFields, lang: Lang): TemplateContext {
-  const ag = agencyFor(f.country)
+export function buildLetterContext(
+  f: LetterFields,
+  lang: Lang,
+  resolved?: ResolvedAgencyBlock | null,
+): TemplateContext {
+  const ag = resolved?.agency ?? agencyFor(f.country)
+  const civilite = resolved?.civilite ?? agencyCivilite(ag)
   const ph = (fr: string, en: string) => (lang === 'en' ? en : fr)
   const v = (s: string) => s.trim()
   return {
@@ -167,7 +177,7 @@ export function buildLetterContext(f: LetterFields, lang: Lang): TemplateContext
     fabricantAdresse: v(f.fabricantAdresse),
     agencyName: ag.name,
     agencyFull: ag.name ? `${ag.full} (${ag.name})` : ag.full,
-    agencyCivilite: agencyCivilite(ag),
+    agencyCivilite: civilite,
     agencyCiviliteEn: agencyCiviliteEn(),
     agencyAdresse: ag.adresse || ph('[Adresse de l’agence]', '[Agency address]'),
     country: f.country,
