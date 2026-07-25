@@ -16,6 +16,68 @@ import { logJson, newReqId, userHash } from "../_shared/log.ts";
 const PLANS = new Set(["free", "pro", "team", "business", "enterprise"]);
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Référentiel réglementaire versionné (P4.4). `ctd_structure` (P4.5) volontairement ABSENTE tant
+// que la machinerie d'arbre n'est pas livrée : publier une section que personne ne rend serait
+// un piège (le client l'ignore, le god croit avoir publié).
+const REF_SECTIONS = new Set(["agency", "fees", "submission", "samples"]);
+const COUNTRY_RE = /^[A-Z]{2}$/;
+const REF_LABEL_RE = /^v\d{4}\.\d{1,3}$/; // « v2026.2 » — cohérent avec le tri d'applicabilité
+/** Cap de taille d'un payload/provenance sérialisé (anti-abus, le contenu réel fait < 5 Ko). */
+const REF_JSON_CAP = 20_000;
+/** Cap CUMULÉ d'un brouillon (200 entrées × 2 × 20 Ko ≈ 8 Mo sinon — revue #417 m11). */
+const REF_TOTAL_CAP = 1_000_000;
+
+/** Date ISO stricte (le regex seul accepte « 2026-13-45 » → 500 opaque, revue #417 m5). */
+function isIsoDate(v: unknown): v is string {
+  if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  const t = Date.parse(`${v}T00:00:00Z`);
+  return Number.isFinite(t) && new Date(t).toISOString().slice(0, 10) === v;
+}
+
+/** Traduisible non vide (fr ET en) — la brique des contrôles d'efficacité. */
+function isT(v: unknown): boolean {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return false;
+  const o = v as Record<string, unknown>;
+  return (
+    typeof o.fr === "string" && o.fr.trim() !== "" &&
+    typeof o.en === "string" && o.en.trim() !== ""
+  );
+}
+
+/**
+ * Un payload est-il EFFECTIF pour sa section — c.-à-d. produira-t-il quelque chose une fois
+ * normalisé par le résolveur client (`ref-content.ts`) ? Sans ce contrôle, une entrée vide/
+ * malformée donnait une « version publiée qui ne rend rien » : le god croit avoir publié, le
+ * client l'ignore (revue #417, M7). Miroir volontairement STRICT des normalisateurs client.
+ */
+function refPayloadEffective(section: string, p: Record<string, unknown>): boolean {
+  switch (section) {
+    case "agency": {
+      const name = typeof p.name === "string" ? p.name.trim() : "";
+      const full = typeof p.full === "string" ? p.full.trim() : "";
+      return name !== "" || full !== "";
+    }
+    case "fees": {
+      const fees = p.fees;
+      if (!fees || typeof fees !== "object" || Array.isArray(fees)) return false;
+      const f = fees as Record<string, unknown>;
+      return ["new_ma", "renewal", "variation_minor", "variation_major"].some(
+        (k) => typeof f[k] === "number" && Number.isFinite(f[k] as number),
+      );
+    }
+    case "submission":
+      return isT(p.note);
+    case "samples": {
+      const s = p.samples;
+      if (!s || typeof s !== "object" || Array.isArray(s)) return false;
+      const o = s as Record<string, unknown>;
+      const list = (v: unknown) => Array.isArray(v) && v.some(isT);
+      return list(o.new_ma) || list(o.renewal_variation) || isT(o.reserve);
+    }
+    default:
+      return false;
+  }
+}
 // Console Acquisition (0064) — statuts du pipeline de leads + format des codes d'invitation.
 const DEMO_STATUSES = new Set([
   "nouveau",
@@ -356,6 +418,228 @@ Deno.serve(async (req: Request) => {
       case "acq_report":
         logJson({ ...log, op: "acq_report", status: "ok" });
         return await callRpc("admin_acquisition_report", {});
+
+      // ── Référentiel réglementaire versionné (P4.4) — publication god-only ──────────────────
+      // Le service role est le SEUL chemin d'écriture de ref_versions/ref_entries (0071 : aucune
+      // policy d'écriture). Invariants tenus ici : une version PUBLIÉE est immuable (photographie
+      // opposable — on republie, on ne réécrit pas) ; provenance OBLIGATOIRE sur chaque entrée
+      // (pas de source, pas de publication — briefing CEO) ; le socle ne s'archive jamais.
+      case "ref_overview":
+        // Agrégats + « latest » + contenu RÉSOLU calculés EN SQL (RPC 0076) : pas de selects nus
+        // tronqués à max_rows sans erreur, et UNE seule implémentation de la règle
+        // d'applicabilité (celle du trigger 0075 et de ref-state.ts) — revue #417 M3/M9.
+        logJson({ ...log, op: action, status: "ok" });
+        return await callRpc("admin_ref_overview", {});
+      case "ref_entries": {
+        // Entrées COMPLÈTES d'une version (payload+provenance) — l'éditeur de brouillon les précharge.
+        const versionId = String(b.versionId ?? "");
+        if (!UUID_RE.test(versionId)) return json({ error: "bad_request" }, 400);
+        const { data, error } = await svc
+          .from("ref_entries")
+          .select("id,version_id,country,section,payload,provenance,created_at")
+          .eq("version_id", versionId)
+          .order("country");
+        if (error) {
+          logJson({ ...log, op: action, status: "query_error", err: error.message.slice(0, 200) });
+          return json({ error: "query_failed" }, 500);
+        }
+        logJson({ ...log, op: action, status: "ok" });
+        return json({ ok: true, data });
+      }
+      case "ref_save_draft": {
+        const versionId =
+          b.versionId === undefined || b.versionId === null ? null : String(b.versionId);
+        if (versionId !== null && !UUID_RE.test(versionId))
+          return json({ error: "bad_request" }, 400);
+        const label = String(b.label ?? "").trim();
+        if (!REF_LABEL_RE.test(label)) return json({ error: "bad_label" }, 400);
+        const releaseNote = String(b.releaseNote ?? "").slice(0, 2000);
+        const effectiveDate = isIsoDate(b.effectiveDate) ? b.effectiveDate : null;
+        const entries = Array.isArray(b.entries) ? b.entries : [];
+        if (entries.length === 0 || entries.length > 200)
+          return json({ error: "bad_request" }, 400);
+        const seen = new Set<string>();
+        let totalBytes = 0;
+        const rows: {
+          country: string;
+          section: string;
+          payload: unknown;
+          provenance: unknown;
+        }[] = [];
+        for (const raw of entries) {
+          const e = (raw ?? {}) as Record<string, unknown>;
+          const country = String(e.country ?? "");
+          const section = String(e.section ?? "");
+          const key = `${country}/${section}`;
+          if (!COUNTRY_RE.test(country) || !REF_SECTIONS.has(section) || seen.has(key))
+            return json({ error: "bad_entry" }, 400);
+          seen.add(key);
+          const payload = e.payload;
+          const provenance = e.provenance as Record<string, unknown> | undefined;
+          if (!payload || typeof payload !== "object" || Array.isArray(payload))
+            return json({ error: "bad_entry" }, 400);
+          // Un payload qui ne RENDRAIT rien (vide/malformé après normalisation client) est
+          // refusé : « version publiée qui ne rend rien » = le piège exact de ctd_structure.
+          if (!refPayloadEffective(section, payload as Record<string, unknown>))
+            return json({ error: "payload_ineffective", country, section }, 400);
+          // PROVENANCE OBLIGATOIRE : pas de texte officiel cité, pas d'entrée.
+          if (
+            !provenance ||
+            typeof provenance !== "object" ||
+            typeof provenance.texte !== "string" ||
+            provenance.texte.trim().length < 3
+          )
+            return json({ error: "provenance_required" }, 400);
+          const size = JSON.stringify(payload).length + JSON.stringify(provenance).length;
+          if (size > REF_JSON_CAP * 2) return json({ error: "too_large" }, 400);
+          totalBytes += size;
+          if (totalBytes > REF_TOTAL_CAP) return json({ error: "too_large" }, 400);
+          rows.push({ country, section, payload, provenance });
+        }
+
+        // ATOMIQUE (RPC 0076, verrou `for update`) : plus de fenêtre où un publish concurrent
+        // laissait muter les entrées d'une PUBLIÉE, plus de brouillon vidé par un insert en échec.
+        const { data: vid, error } = await svc.rpc("admin_ref_save_draft", {
+          p_version: versionId,
+          p_label: label,
+          p_effective: effectiveDate,
+          p_note: releaseNote,
+          p_entries: rows,
+        });
+        if (error) {
+          const m = String(error.message);
+          if (m.includes("not_a_draft")) return json({ error: "not_a_draft" }, 409);
+          if (m.includes("not_found")) return json({ error: "not_found" }, 404);
+          if (m.includes("bad_label") || m.includes("bad_entr"))
+            return json({ error: "bad_request" }, 400);
+          if (m.includes("ref_versions_label_key") || error.code === "23505")
+            return json({ error: "label_taken" }, 409);
+          logJson({ ...log, op: action, status: "rpc_error", err: m.slice(0, 200) });
+          return json({ error: "query_failed" }, 500);
+        }
+        logJson({ ...log, op: action, status: "ok", entries: rows.length });
+        return json({ ok: true, data: { versionId: vid } });
+      }
+      case "ref_publish": {
+        const versionId = String(b.versionId ?? "");
+        if (!UUID_RE.test(versionId)) return json({ error: "bad_request" }, 400);
+        // Publier du contenu réglementaire mondial SANS trace DB serait pire que refuser :
+        // même règle stricte que set_plan_limits (actor_without_org = 409, revue #417 M5).
+        const { data: m } = await svc
+          .from("memberships")
+          .select("org_id")
+          .eq("user_id", actorId)
+          .limit(1)
+          .maybeSingle();
+        const actorOrg = (m as { org_id?: string } | null)?.org_id;
+        if (!actorOrg) return json({ error: "actor_without_org" }, 409);
+
+        const { data: v, error } = await svc
+          .from("ref_versions")
+          .select("id,label,status,effective_date")
+          .eq("id", versionId)
+          .maybeSingle();
+        if (error || !v) return json({ error: "not_found" }, 404);
+        if (v.status !== "draft") return json({ error: "not_a_draft" }, 409);
+
+        // ── B1 : JAMAIS de rétro-datation. Le rang d'applicabilité = effective_date d'abord :
+        // publier « le décret de 2025 » daté 2025 classerait la version SOUS le socle — inerte,
+        // sans bannière, non-adoptable, et appliquée SANS consentement pour les sections que le
+        // socle ne couvre pas (violation de l'invariant P4.2). La date du décret se cite dans
+        // la PROVENANCE ; la date d'effet ne peut pas précéder les versions déjà applicables.
+        const { data: pubs, error: pubErr } = await svc
+          .from("ref_versions")
+          .select("effective_date,published_at,created_at")
+          .eq("status", "published");
+        if (pubErr) {
+          logJson({ ...log, op: action, status: "query_error", err: pubErr.message.slice(0, 200) });
+          return json({ error: "query_failed" }, 500);
+        }
+        const today = new Date().toISOString().slice(0, 10);
+        const applicability = (r: {
+          effective_date: string | null;
+          published_at: string | null;
+          created_at: string;
+        }) => r.effective_date ?? r.published_at ?? r.created_at;
+        // Seules les versions DÉJÀ applicables bornent (une version à effet FUTUR ne doit pas
+        // empêcher de publier « effet immédiat » maintenant — les deux coexistent par rang).
+        const maxApplicable = (pubs ?? [])
+          .filter((r) => !r.effective_date || r.effective_date <= today)
+          .map(applicability)
+          .sort()
+          .at(-1);
+        const mine = v.effective_date ?? new Date().toISOString();
+        if (maxApplicable && mine < maxApplicable)
+          return json({ error: "effective_date_backdated" }, 409);
+
+        // Jamais de version vide, jamais d'entrée sans source ni payload inerte (re-vérifié AU
+        // MOMENT de publier : la table a pu être écrite par un autre canal).
+        const { data: ents, error: entErr } = await svc
+          .from("ref_entries")
+          .select("country,section,payload,provenance")
+          .eq("version_id", versionId);
+        if (entErr) {
+          logJson({ ...log, op: action, status: "query_error", err: entErr.message.slice(0, 200) });
+          return json({ error: "query_failed" }, 500);
+        }
+        if (!ents || ents.length === 0) return json({ error: "empty_version" }, 409);
+        for (const e of ents) {
+          const p = e.provenance as Record<string, unknown> | null;
+          if (!p || typeof p.texte !== "string" || p.texte.trim().length < 3)
+            return json({ error: "provenance_required" }, 409);
+          if (!refPayloadEffective(e.section, (e.payload ?? {}) as Record<string, unknown>))
+            return json({ error: "payload_ineffective", country: e.country, section: e.section }, 409);
+        }
+
+        const upd = await svc
+          .from("ref_versions")
+          .update({ status: "published", published_at: new Date().toISOString() })
+          .eq("id", versionId)
+          .eq("status", "draft")
+          .select("id");
+        if (upd.error || !upd.data || upd.data.length === 0) {
+          if (upd.error)
+            logJson({ ...log, op: action, status: "query_error", err: upd.error.message.slice(0, 200) });
+          // 0 ligne = un concurrent a publié/supprimé entre-temps — jamais un faux succès.
+          return json({ error: upd.error ? "query_failed" : "not_a_draft" }, upd.error ? 500 : 409);
+        }
+        const audit = await svc.from("audit_log").insert({
+          id: crypto.randomUUID(),
+          org_id: actorOrg,
+          actor_id: actorId,
+          actor_email: actorEmail,
+          entity: "ref_version",
+          entity_id: versionId,
+          action: "update",
+          label: `référentiel ${v.label} publié`,
+        });
+        if (audit.error) {
+          // La publication est faite (ne pas la rollback) mais une trace perdue doit se VOIR.
+          logJson({ ...log, op: action, status: "audit_failed", err: audit.error.message.slice(0, 200) });
+        }
+        logJson({ ...log, op: action, status: "ok", label: v.label });
+        return json({ ok: true, data: null });
+      }
+      case "ref_delete_draft": {
+        const versionId = String(b.versionId ?? "");
+        if (!UUID_RE.test(versionId)) return json({ error: "bad_request" }, 400);
+        // DELETE réservé aux BROUILLONS (cascade sur les entrées). Une publiée s'archive (plus tard),
+        // ne se supprime pas — et la FK restrict des dossiers épinglés la protège de toute façon.
+        const { data, error } = await svc
+          .from("ref_versions")
+          .delete()
+          .eq("id", versionId)
+          .eq("status", "draft")
+          .select("id,label");
+        if (error) {
+          logJson({ ...log, op: action, status: "query_error", err: error.message.slice(0, 200) });
+          return json({ error: "query_failed" }, 500);
+        }
+        // 0 ligne = id publié/inexistant : dire la vérité, pas un faux succès qui ferme l'éditeur.
+        if (!data || data.length === 0) return json({ error: "not_found" }, 404);
+        logJson({ ...log, op: action, status: "ok", label: data[0].label });
+        return json({ ok: true, data: null });
+      }
 
       default:
         return json({ error: "bad_request" }, 400);

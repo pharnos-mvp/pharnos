@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import {
+  BookMarked,
   Building2,
   ClipboardList,
   Cpu,
@@ -39,10 +40,18 @@ import { AdminAcquisition } from './AdminAcquisition'
 import { AdminJournal } from './AdminJournal'
 import { AdminOrgs } from './AdminOrgs'
 import { AdminPlans } from './AdminPlans'
+import { AdminReferentiel } from './AdminReferentiel'
 import { AdminUsers } from './AdminUsers'
 import { useAsync } from './use-async'
 
-type AdminSection = 'overview' | 'orgs' | 'users' | 'acquisition' | 'plans' | 'journal'
+type AdminSection =
+  | 'overview'
+  | 'orgs'
+  | 'users'
+  | 'acquisition'
+  | 'plans'
+  | 'referentiel'
+  | 'journal'
 
 /**
  * Jauge de santé plateforme : seuils sémantiques alignés sur la politique stockage
@@ -425,6 +434,7 @@ export function AdminConsole() {
       label: t({ fr: 'Plans & quotas', en: 'Plans & quotas' }),
       icon: SlidersHorizontal,
     },
+    { key: 'referentiel', label: t({ fr: 'Référentiel', en: 'Reference data' }), icon: BookMarked },
     { key: 'journal', label: t({ fr: 'Journal', en: 'Audit log' }), icon: ScrollText },
   ]
 
@@ -491,6 +501,7 @@ export function AdminConsole() {
           {section === 'users' && <AdminUsers />}
           {section === 'acquisition' && <AdminAcquisition />}
           {section === 'plans' && <AdminPlans />}
+          {section === 'referentiel' && <AdminReferentiel />}
           {section === 'journal' && <AdminJournal />}
         </Page>
       </main>

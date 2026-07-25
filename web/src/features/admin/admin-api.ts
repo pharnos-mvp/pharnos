@@ -154,8 +154,105 @@ export interface AcquisitionReport {
   }>
 }
 
+// ── Référentiel réglementaire versionné (P4.4) ────────────────────────────────────────────────
+export interface RefVersionRow {
+  id: string
+  label: string
+  status: 'draft' | 'published' | 'archived'
+  effective_date: string | null
+  release_note: string
+  published_at: string | null
+  created_at: string
+  is_baseline: boolean
+}
+
+export interface RefEntryLite {
+  version_id: string
+  country: string
+  section: string
+}
+
+export interface RefEntryFull extends RefEntryLite {
+  id: string
+  payload: unknown
+  provenance: unknown
+  created_at: string
+}
+
+export interface RefAdoptionRow {
+  org_id: string
+  version_id: string
+  adopted_at: string
+  adopted_by_email: string
+}
+
+/** Version + agrégats calculés côté SQL (RPC `admin_ref_overview`, 0076) — jamais tronqués. */
+export interface RefVersionSummary extends RefVersionRow {
+  entry_count: number
+  countries: string[]
+  adoption_count: number
+}
+
+/**
+ * Contenu RÉSOLU courant d'un couple (pays, section) — ce que l'éditeur doit préremplir.
+ * Toujours issu de la version publiée la plus applicable, JAMAIS du socle code (préremplir
+ * du socle puis publier annulerait la dernière version en silence).
+ */
+export interface RefCurrentEntry {
+  country: string
+  section: string
+  payload: unknown
+  provenance: unknown
+  version_label: string
+}
+
+export interface RefOverview {
+  versions: RefVersionSummary[]
+  /** Version publiée la plus applicable AUJOURD'HUI (règle unique 0075/ref-state). */
+  latest_id: string | null
+  orgs: { id: string; name: string; disabled_at: string | null }[]
+  adoptions: RefAdoptionRow[]
+  current: RefCurrentEntry[]
+  active_dossiers: number
+  /** Dossiers actifs épinglés sur AUTRE CHOSE que la version applicable courante. */
+  pinned_behind: number
+}
+
+export interface RefDraftEntryInput {
+  country: string
+  section: 'agency' | 'fees' | 'submission' | 'samples'
+  payload: unknown
+  /** Source officielle citée — OBLIGATOIRE (l'Edge refuse sans `texte`). */
+  provenance: { texte: string; jo?: string; complements?: string; note?: string }
+}
+
 /** Levée quand l'appelant n'est pas super-admin Pharnos (403) — déclenche l'écran « accès refusé ». */
 export class AdminForbiddenError extends Error {}
+
+/**
+ * Échec Edge avec un code métier exploitable (`label_taken`, `effective_date_backdated`…).
+ * Le `message` de FunctionsHttpError est toujours générique — le vrai code est dans le CORPS
+ * de la réponse (pattern `dossier-purge.ts`), d'où l'extraction asynchrone ci-dessous.
+ */
+export class AdminApiError extends Error {
+  code: string
+  constructor(code: string) {
+    super(code)
+    this.code = code
+  }
+}
+
+/** Extrait le code d'erreur JSON d'un échec `functions.invoke` (FunctionsHttpError.context). */
+async function invokeErrorCode(error: unknown): Promise<string> {
+  try {
+    const ctx = (error as { context?: Response }).context
+    const body = (await ctx?.clone().json()) as { error?: string } | undefined
+    if (body?.error) return String(body.error)
+  } catch {
+    // corps illisible → code générique
+  }
+  return 'admin_failed'
+}
 
 async function callAdmin<T>(action: string, params: Record<string, unknown> = {}): Promise<T> {
   const supabase = await getSupabase()
@@ -164,7 +261,7 @@ async function callAdmin<T>(action: string, params: Record<string, unknown> = {}
   if (error) {
     const ctx = (error as { context?: Response }).context
     if (ctx?.status === 403 || ctx?.status === 401) throw new AdminForbiddenError('forbidden')
-    throw new Error((error as Error).message || 'admin_failed')
+    throw new AdminApiError(await invokeErrorCode(error))
   }
   return (data?.data ?? null) as T
 }
@@ -198,6 +295,18 @@ export const adminApi = {
   }) => callAdmin<PlatformInviteRow>('acq_invite_create', input),
   acqInviteRevoke: (id: string) => callAdmin('acq_invite_revoke', { id }),
   acqReport: () => callAdmin<AcquisitionReport>('acq_report'),
+  // Référentiel réglementaire versionné (P4.4) — le service role est le seul chemin d'écriture.
+  refOverview: () => callAdmin<RefOverview>('ref_overview'),
+  refEntries: (versionId: string) => callAdmin<RefEntryFull[]>('ref_entries', { versionId }),
+  refSaveDraft: (input: {
+    versionId?: string | null
+    label: string
+    effectiveDate?: string | null
+    releaseNote: string
+    entries: RefDraftEntryInput[]
+  }) => callAdmin<{ versionId: string }>('ref_save_draft', input),
+  refPublish: (versionId: string) => callAdmin('ref_publish', { versionId }),
+  refDeleteDraft: (versionId: string) => callAdmin('ref_delete_draft', { versionId }),
   setPlanLimits: (
     plan: PlanTier,
     maxDossiers: number | null,
