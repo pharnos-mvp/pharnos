@@ -52,6 +52,7 @@ import {
   procedureLabel,
 } from './operations-data'
 import { PdfViewer, type PdfViewerHandle } from './PdfViewer'
+import { useRefAgency } from '@/features/catalogue/use-ref-agency'
 import { agencyFor } from './roadmap-data'
 import { flattenTree } from './tree-utils'
 
@@ -74,6 +75,7 @@ export function DossierPreviewPage() {
     async () => (dossierId ? ((await getDossier(dossierId)) ?? null) : null),
     [dossierId],
   )
+  const refAgency = useRefAgency(dossier?.country, dossier?.refVersionId ?? null)
   const product = useLiveQuery(
     async () => (dossier ? ((await db.products.get(dossier.productId)) ?? null) : null),
     [dossier?.productId],
@@ -220,7 +222,8 @@ export function DossierPreviewPage() {
   const completion = dossierCompletion(dossier, docs ?? [], genDocs ?? [], attachments ?? [])
   const exp = product ? expiringDocs(docs ?? [], [product], now) : []
   const deadlineDays = exp.length > 0 ? Math.min(...exp.map((e) => e.daysLeft)) : null
-  const agency = agencyFor(dossier.country)
+  // Agence résolue sous la version ÉPINGLÉE du dossier (P4.4-pré) — repli code au chargement.
+  const agency = refAgency?.agency ?? agencyFor(dossier.country)
   const downloadName = `${dossierBaseName(dossier.productName, dossier.country)}.pdf`
   const isArchived = !!dossier.archivedAt
   const lifecycleMode = isArchived ? 'restore' : status === 'draft' ? 'delete' : 'archive'

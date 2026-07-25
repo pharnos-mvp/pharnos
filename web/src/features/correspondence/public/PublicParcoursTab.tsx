@@ -30,6 +30,10 @@ import {
   lifecycleStatusLabel,
   type LifecycleJournalEntry,
 } from '@/features/workspace/lifecycle-constants'
+// SOCLE CODE assumé (P4.4-pré) : page PUBLIQUE tokenisée (agent externe SANS session Supabase ni
+// réplique Dexie de l'org) → aucun accès au référentiel versionné. Seul le NOM d'agence est
+// affiché (jamais un barème) ; si un jour le nom doit suivre les publications, il devra descendre
+// par l'Edge `share` avec le reste de la correspondance.
 import { agencyFor } from '@/features/workspace/roadmap-data'
 import { countryLabel } from '@/features/workspace/dossier-constants'
 import { useI18n, type Lang } from '@/lib/i18n-context'

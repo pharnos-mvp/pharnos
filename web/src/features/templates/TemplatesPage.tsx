@@ -29,6 +29,7 @@ import {
 } from '@/features/workspace/template-form/form-types'
 import { printForm } from '@/features/workspace/template-form/form-print'
 import { TEMPLATES as LETTER_DEFS } from '@/features/workspace/templates'
+import { useRefAgency } from '@/features/catalogue/use-ref-agency'
 import {
   buildLetterContext,
   emptyLetterFields,
@@ -132,6 +133,13 @@ export function TemplatesPage() {
   const [saving, setSaving] = useState(false)
   // Carte « Lettre de variation » → flux dédié (sélecteur 2 colonnes + produit) ≠ éditeur de lettre classique.
   const [variationFlow, setVariationFlow] = useState(false)
+  // Destinataire résolu (référentiel versionné, plafond org) pour l'EXPORT des lettres — même
+  // source que l'éditeur (`LetterEditor` utilise le même hook) : affiché = exporté.
+  const editingCountry =
+    editing && isLetterType(editing.docType)
+      ? editing.state.values['country'] || undefined
+      : undefined
+  const refAgency = useRefAgency(editingCountry)
 
   const saved = useLiveQuery(
     () =>
@@ -236,7 +244,7 @@ export function TemplatesPage() {
     const letterDoc = () => {
       const dt = editing.docType as 'cover' | 'pght' | 'renewal'
       const f = letterFieldsFromValues(editing.state.values)
-      return LETTER_DEFS[dt].build(buildLetterContext(f, editing.lang), editing.lang)
+      return LETTER_DEFS[dt].build(buildLetterContext(f, editing.lang, refAgency), editing.lang)
     }
     /** Nom de fichier d'export d'une lettre : « <Titre>[_<produit>] » (≤ 60 car.). */
     const letterFileName = () => {
@@ -470,6 +478,7 @@ export function TemplatesPage() {
             headerImage={branding?.headerImage}
             footerImage={branding?.footerImage}
             signatureImage={signature?.signatureImage}
+            refAgency={refAgency}
           />
         ) : null}
       </div>

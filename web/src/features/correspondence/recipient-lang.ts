@@ -11,6 +11,10 @@ import type { Lang } from '@/lib/i18n-context'
  * répercutée des deux côtés (les Edge Functions ne peuvent pas importer `web/src`).
  *
  * L'app ne gère que FR/EN → la Guinée-Bissau (lusophone) replie sur FR, comme le cœur Edge.
+ *
+ * SOCLE CODE assumé (P4.4-pré) : hors du référentiel versionné À DESSEIN — cette carte est un
+ * contrat avec le cron Edge (qui ne lit ni Dexie ni le plafond d'une org) et ne pilote que la
+ * langue d'un E-MAIL de relance, jamais un barème ni un destinataire de lettre.
  */
 export const COUNTRY_OFFICIAL_LANG: Readonly<Record<string, Lang>> = Object.freeze({
   BJ: 'fr',

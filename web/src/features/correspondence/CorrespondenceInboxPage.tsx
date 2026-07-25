@@ -40,6 +40,7 @@ import {
 } from '@/features/workspace/lifecycle-constants'
 import { dossierRef } from '@/features/workspace/operations-data'
 import { agencyFor } from '@/features/workspace/roadmap-data'
+import { useRefAgency, useRefCountryLookup } from '@/features/catalogue/use-ref-agency'
 import { STAGE_ICON } from '@/features/workspace/roadmap-mini-utils'
 import { useBelowLg } from '@/hooks/use-below-lg'
 import { useI18n, type Lang, type Translatable } from '@/lib/i18n-context'
@@ -105,6 +106,7 @@ export function CorrespondenceInboxPage() {
   const navigate = useNavigate()
   const belowLg = useBelowLg()
   const rows = useLiveQuery(() => listInboxRows(orgId), [orgId])
+  const countryInfo = useRefCountryLookup()
   const [openDossierId, setOpenDossierId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<InboxFilter>('all')
@@ -152,10 +154,11 @@ export function CorrespondenceInboxPage() {
       return (
         r.productName.toLowerCase().includes(q) ||
         countryLabel(r.country, lang).toLowerCase().includes(q) ||
-        agencyFor(r.country).name.toLowerCase().includes(q)
+        // Recherche par sigle d'agence — résolu au plafond de l'org (P4.4-pré), repli code.
+        countryInfo(r.country).agency.name.toLowerCase().includes(q)
       )
     })
-  }, [rows, filter, search, lang])
+  }, [rows, filter, search, lang, countryInfo])
 
   // Fil affiché = openDossierId, VERROUILLÉ en état (jamais dérivé de la liste triée) : ouvrir un
   // fil le marque lu → la liste « non-lus d'abord » se réordonne ; une sélection qui suivrait
@@ -293,6 +296,7 @@ export function CorrespondenceInboxPage() {
                     t={t}
                     active={row.dossierId === displayedDossierId}
                     onOpen={() => setOpenDossierId(row.dossierId)}
+                    agencyName={countryInfo(row.country).agency.name}
                   />
                 ))}
               </ul>
@@ -454,14 +458,17 @@ function InboxRowItem({
   t,
   active,
   onOpen,
+  agencyName,
 }: {
   row: InboxRow
   lang: Lang
   t: (v: Translatable) => string
   active: boolean
   onOpen: () => void
+  /** Nom d'agence résolu par le LOOKUP du parent (revue #416 M2 : un hook par ligne = N
+   *  abonnements pour la même donnée ; recherche et affichage partagent le même chemin). */
+  agencyName: string
 }) {
-  const agency = agencyFor(row.country)
   const { status, currentStageId, progress } = row.lifecycle
   const stageDef = LIFECYCLE_STAGES.find((s) => s.id === currentStageId)!
   const StageIcon = STAGE_ICON[currentStageId]
@@ -506,8 +513,7 @@ function InboxRowItem({
           <span className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-[11px]">
             <CountryFlag code={row.country} size={13} />
             <span className="truncate">
-              {countryLabel(row.country, lang)} · {agency.name} ·{' '}
-              {activityLabel(row.activity, lang)}
+              {countryLabel(row.country, lang)} · {agencyName} · {activityLabel(row.activity, lang)}
             </span>
           </span>
           <span
@@ -562,9 +568,10 @@ const InboxConversation = memo(function InboxConversation({
   const navigate = useNavigate()
   const conv = useDossierConversation(orgId, dossierId, senderEmail)
   const { selected, canSubmit, shareLink } = conv
+  const refAgency = useRefAgency(selected?.country)
 
   if (!selected) return null
-  const agency = agencyFor(selected.country)
+  const agency = refAgency?.agency ?? agencyFor(selected.country)
   const opRef = conv.dossier ? dossierRef(conv.dossier) : null
 
   return (

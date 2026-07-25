@@ -45,6 +45,7 @@ import { createDossier, listDossiers } from './dossier-repository'
 import { syncDossiers } from './dossier-sync'
 import { getModule1Tree, type CtdNodeDef, type DossierFormat } from './module1-tree'
 import { dossierRef, DOSSIER_REF_PENDING, procedureLabel } from './operations-data'
+import { useRefAgency } from '@/features/catalogue/use-ref-agency'
 import { agencyFor, officialLanguage } from './roadmap-data'
 
 // Métadonnées d'affichage des 4 procédures (cartes de l'étape « Opération »). Titre = `procedureLabel`.
@@ -103,6 +104,9 @@ export function NewDossierPage() {
     const c = searchParams.get('pays')
     return c && COUNTRIES.some((o) => o.code === c) ? c : ''
   })
+  // Agence + langue résolues au PLAFOND de l'org (P4.4-pré) — cohérent avec l'épinglage : le
+  // dossier créé ici sera épinglé sur cette même version (createDossier). Repli code au chargement.
+  const refAgency = useRefAgency(country || undefined)
   const [variations, setVariations] = useState<number[]>([])
   // AMM repris SILENCIEUSEMENT de la fiche produit (plus de saisie dans le formulaire) — sert à la
   // création + à l'invite non bloquante si absent.
@@ -295,7 +299,7 @@ export function NewDossierPage() {
           <span className="truncate font-medium">{product?.nomCommercial ?? '—'}</span>
           <span className="text-muted-foreground truncate">
             · {country ? countryLabel(country, lang) : '—'}
-            {country ? ` (${agencyFor(country).name})` : ''}
+            {country ? ` (${(refAgency?.agency ?? agencyFor(country)).name})` : ''}
           </span>
           <button
             type="button"
@@ -532,13 +536,19 @@ export function NewDossierPage() {
           <dl className="flex flex-col gap-2.5 text-sm">
             <ApercuRow
               label={t({ fr: 'Marché', en: 'Market' })}
-              value={country ? `${countryLabel(country, lang)} · ${agencyFor(country).name}` : '—'}
+              value={
+                country
+                  ? `${countryLabel(country, lang)} · ${(refAgency?.agency ?? agencyFor(country)).name}`
+                  : '—'
+              }
             />
             <ApercuRow
               label={t({ fr: 'Langue de soumission', en: 'Submission language' })}
-              value={
-                country ? (LANG_LABEL[officialLanguage(country)] ?? officialLanguage(country)) : '—'
-              }
+              value={(() => {
+                if (!country) return '—'
+                const code = refAgency?.officialLang ?? officialLanguage(country)
+                return LANG_LABEL[code] ?? code
+              })()}
             />
             <ApercuRow
               label={t({ fr: 'Opération', en: 'Operation' })}

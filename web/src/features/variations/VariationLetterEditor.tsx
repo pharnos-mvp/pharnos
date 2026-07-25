@@ -2,6 +2,7 @@ import { useMemo, type ReactNode } from 'react'
 
 import { useI18n, type Lang } from '@/lib/i18n-context'
 import { buildLetterContext, type LetterFields } from '@/features/workspace/letter-context'
+import type { ResolvedAgencyBlock } from '@/features/catalogue/ref-content'
 import type { VariationClass } from './variation-catalog'
 import '@/features/workspace/template-form/template-form.css'
 
@@ -21,6 +22,7 @@ export function VariationLetterEditor({
   headerImage,
   footerImage,
   signatureImage,
+  refAgency,
 }: {
   fields: LetterFields
   /** Libellés des natures de variation (déjà localisés) — affichés en puces read-only. */
@@ -31,9 +33,11 @@ export function VariationLetterEditor({
   headerImage?: string | null
   footerImage?: string | null
   signatureImage?: string | null
+  /** Destinataire résolu par le PARENT (flux) — même bloc pour l'aperçu et l'export combiné. */
+  refAgency?: ResolvedAgencyBlock
 }) {
   const { t } = useI18n()
-  const ctx = useMemo(() => buildLetterContext(fields, lang), [fields, lang])
+  const ctx = useMemo(() => buildLetterContext(fields, lang, refAgency), [fields, lang, refAgency])
 
   const L = (fr: string, en: string) => (lang === 'en' ? en : fr)
   const civ = lang === 'en' ? (ctx.agencyCiviliteEn ?? ctx.agencyCivilite) : ctx.agencyCivilite

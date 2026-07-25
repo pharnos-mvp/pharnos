@@ -15,7 +15,8 @@ import { CountryFlag } from '@/features/dashboard/CountryFlag'
 import { useOrgId } from '@/features/org/org-context'
 import { db } from '@/lib/db'
 import { useI18n } from '@/lib/i18n-context'
-import { buildAuthorityRows, filterAuthorityRows, type AuthorityRow } from './authorities-data'
+import { filterAuthorityRows, type AuthorityRow } from './authorities-data'
+import { resolvedAuthorityRows } from './ref-content'
 import { CatalogueTabs } from './CatalogueTabs'
 import { RefUpdateBanner } from './RefUpdateBanner'
 
@@ -28,19 +29,16 @@ export function AutoritesPage() {
   const [params, setParams] = useSearchParams()
   const q = params.get('q') ?? ''
 
-  // Empreinte RA de l'org (dossiers + AMM) — le référentiel agences est statique (curé).
-  const data = useLiveQuery(async () => {
+  // Empreinte RA de l'org (dossiers + AMM) + référentiel RÉSOLU au plafond adopté (P4.4-pré) :
+  // noms/langue à jour, badge « Barème » honnête, pays servis par le seul référentiel ajoutés.
+  const rows = useLiveQuery(async () => {
     const [dossiers, documents] = await Promise.all([
       db.dossiers.where('orgId').equals(orgId).toArray(),
       db.documents.where('orgId').equals(orgId).toArray(),
     ])
-    return { dossiers, documents }
+    return resolvedAuthorityRows(orgId, dossiers, documents)
   }, [orgId])
 
-  const rows = useMemo(
-    () => (data ? buildAuthorityRows(data.dossiers, data.documents) : undefined),
-    [data],
-  )
   const filtered = useMemo(() => (rows ? filterAuthorityRows(rows, q) : []), [rows, q])
 
   const setQ = (v: string) =>

@@ -1,11 +1,24 @@
 import {
   agencyCivilite,
+  agencyFor,
+  officialLanguage,
   type AgencyInfo,
   type RegulatoryProfile,
 } from '@/features/workspace/roadmap-data'
-import type { RefEntryRecord, RefVersionRecord } from '@/lib/db'
+import {
+  db,
+  type DocumentRecord,
+  type DossierRecord,
+  type RefEntryRecord,
+  type RefVersionRecord,
+} from '@/lib/db'
 import type { Translatable } from '@/lib/i18n-context'
-import { authorityDetail, type AuthorityDetail } from './authorities-data'
+import {
+  authorityDetail,
+  buildAuthorityRows,
+  type AuthorityDetail,
+  type AuthorityRow,
+} from './authorities-data'
 import {
   entriesForCountry,
   isPlainObject,
@@ -55,7 +68,6 @@ export interface ResolvedAuthority {
 // republication) ni rendre un objet brut. Toute valeur non conforme retombe sur le socle code.
 
 const isObj = isPlainObject
-const strOr = (v: unknown, d = ''): string => (typeof v === 'string' ? v : d)
 const strOrUndef = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined)
 const numOrUndef = (v: unknown): number | undefined =>
   typeof v === 'number' && Number.isFinite(v) ? v : undefined
@@ -64,20 +76,49 @@ const isTranslatable = (v: unknown): v is Translatable =>
 const translatableList = (v: unknown): Translatable[] | undefined =>
   Array.isArray(v) ? v.filter(isTranslatable) : undefined
 
-function agencyFromPayload(payload: unknown): (AgencyInfo & { officialLang?: string }) | undefined {
+/** Payload agence PARTIEL : seuls les champs réellement publiés sont présents. */
+interface AgencyPatch {
+  name?: string
+  full?: string
+  directeur?: string
+  sexe?: 'M' | 'F'
+  adresse?: string
+  telephone?: string
+  email?: string
+  officialLang?: string
+}
+
+function agencyFromPayload(payload: unknown): AgencyPatch | undefined {
   if (!isObj(payload)) return undefined
-  const name = strOr(payload.name)
-  const full = strOr(payload.full)
+  const name = strOrUndef(payload.name)
+  const full = strOrUndef(payload.full)
   if (!name && !full) return undefined // entrée vide/malformée → socle code
   return {
     name,
     full,
-    directeur: strOr(payload.directeur),
-    sexe: payload.sexe === 'F' ? 'F' : 'M',
-    adresse: strOr(payload.adresse),
+    directeur: strOrUndef(payload.directeur),
+    sexe: payload.sexe === 'F' ? 'F' : payload.sexe === 'M' ? 'M' : undefined,
+    adresse: strOrUndef(payload.adresse),
     telephone: strOrUndef(payload.telephone),
     email: strOrUndef(payload.email),
     officialLang: strOrUndef(payload.officialLang),
+  }
+}
+
+/**
+ * Fusion CHAMP PAR CHAMP d'un patch publié avec le socle code (revue #416, M4) : une publication
+ * partielle (« je corrige le sigle ») ne doit JAMAIS effacer directeur/adresse/civilité d'une
+ * lettre opposable — champ absent du payload = champ du socle conservé.
+ */
+function mergeAgency(patch: AgencyPatch, base: AgencyInfo | undefined): AgencyInfo {
+  return {
+    name: patch.name ?? base?.name ?? '',
+    full: patch.full ?? base?.full ?? '',
+    directeur: patch.directeur ?? base?.directeur ?? '',
+    sexe: patch.sexe ?? base?.sexe ?? 'M',
+    adresse: patch.adresse ?? base?.adresse ?? '',
+    telephone: patch.telephone ?? base?.telephone,
+    email: patch.email ?? base?.email,
   }
 }
 
@@ -176,7 +217,10 @@ export function resolveAuthority(
   )
   const samples = take('samples', samplesFromPayload(picked.get('samples')?.entry.payload))
 
-  const mergedAgency: AgencyInfo | undefined = agency ?? fallback?.agency
+  // Fusion champ par champ avec le socle (M4) : un patch partiel n'efface jamais un champ.
+  const mergedAgency: AgencyInfo | undefined = agency
+    ? mergeAgency(agency, fallback?.agency)
+    : fallback?.agency
   if (!mergedAgency || used.length === 0) return asFallback()
 
   // Le profil réglementaire se reconstruit dès qu'UNE section « exigences » vient du référentiel ;
@@ -218,6 +262,147 @@ export async function resolvedAuthorityDetail(
   const [state, entries] = await Promise.all([loadRefState(orgId), entriesForCountry(code)])
   const allowed = state.ceiling ? upTo(state, state.rank.get(state.ceiling.id)!) : []
   return resolveAuthority(code, entries, allowed, state.rank)
+}
+
+/**
+ * Bloc « agence destinataire » résolu — LE point d'entrée des consommateurs non-fiche (lettres,
+ * aperçus, wizard, P4.4-pré) : agence + civilité + langue de soumission, au plafond adopté de
+ * l'org, ou sous la version ÉPINGLÉE d'un dossier quand `refVersionId` est fourni. Ne renvoie
+ * jamais null : pays inconnu des deux sources → générique du socle code (comportement historique
+ * d'`agencyFor`).
+ */
+export interface ResolvedAgencyBlock {
+  /**
+   * Clé `pays|version` POUR LAQUELLE ce bloc a été résolu (revue #416, M1) : `useLiveQuery`
+   * conserve le résultat précédent quand ses deps changent — sans cette clé, le bloc du pays
+   * PRÉCÉDENT primait sur le socle pendant un aller-retour IDB et pouvait entrer dans une
+   * lettre PERSISTÉE. Le hook rejette tout bloc dont la clé ne correspond plus.
+   */
+  key: string
+  agency: AgencyInfo
+  civilite: string
+  officialLang: string
+}
+
+/** Clé de résolution d'un bloc agence — partagée entre `resolvedAgencyBlock` et le hook. */
+export const agencyBlockKey = (country: string, refVersionId?: string | null): string =>
+  `${country}|${refVersionId ?? ''}`
+
+export async function resolvedAgencyBlock(
+  country: string,
+  orgId: string,
+  refVersionId?: string | null,
+): Promise<ResolvedAgencyBlock> {
+  const key = agencyBlockKey(country, refVersionId)
+  // `undefined` ≡ `null` (dossier non épinglé → plafond) : AtVersion(null) délègue au plafond.
+  const r = await resolvedAuthorityDetailAtVersion(country, orgId, refVersionId ?? null)
+  if (r) {
+    return {
+      key,
+      agency: r.detail.agency,
+      civilite: r.detail.civilite,
+      officialLang: r.detail.officialLang,
+    }
+  }
+  const agency = agencyFor(country)
+  return { key, agency, civilite: agencyCivilite(agency), officialLang: officialLanguage(country) }
+}
+
+/**
+ * Lookup pays → { agence, langue } résolu au PLAFOND de l'org, construit UNE fois par live-query —
+ * pour les surfaces LISTE (boîte de réception, recherche) où un hook par ligne est impossible.
+ * Repli code pour tout pays sans contenu publié.
+ */
+/** Index interne : pays (normalisé) → { patch agence le plus applicable, barème valide ? } —
+ *  construit en UNE passe sur un instantané UNIQUE (state + entrées), cf. revue #416 m2/m3. */
+async function loadRefCountryIndex(orgId: string): Promise<{
+  agencies: Map<string, AgencyPatch>
+  fees: Set<string>
+}> {
+  const [state, all] = await Promise.all([loadRefState(orgId), db.refEntries.toArray()])
+  const ceilingRank = state.ceiling ? state.rank.get(state.ceiling.id)! : -1
+  const allowed = new Set(upTo(state, ceilingRank).map((v) => v.id))
+  const best = new Map<string, { rank: number; agency: AgencyPatch }>()
+  const fees = new Set<string>()
+  for (const e of all) {
+    if (!allowed.has(e.versionId)) continue
+    // Codes NORMALISÉS : une entrée curée « sn » / «  SN » ne crée jamais de ligne fantôme.
+    const code = String(e.country).trim().toUpperCase()
+    if (e.section === 'agency') {
+      const agency = agencyFromPayload(e.payload)
+      if (!agency) continue
+      const rank = state.rank.get(e.versionId)!
+      const cur = best.get(code)
+      if (!cur || rank > cur.rank) best.set(code, { rank, agency })
+    } else if (e.section === 'fees' && feesFromPayload(e.payload)) {
+      fees.add(code)
+    }
+  }
+  return { agencies: new Map([...best].map(([c, v]) => [c, v.agency])), fees }
+}
+
+export async function loadRefCountryLookup(
+  orgId: string,
+): Promise<(country: string) => { agency: AgencyInfo; officialLang: string }> {
+  const { agencies } = await loadRefCountryIndex(orgId)
+  return (country) => {
+    const patch = agencies.get(country)
+    const base = agencyFor(country)
+    return patch
+      ? {
+          agency: mergeAgency(patch, base),
+          officialLang: patch.officialLang ?? officialLanguage(country),
+        }
+      : { agency: base, officialLang: officialLanguage(country) }
+  }
+}
+
+/**
+ * Lignes du référentiel « Autorités » RÉSOLUES au plafond de l'org (P4.4-pré) : le socle code
+ * (liste curée + empreinte RA) OVERLAYÉ par le contenu publié — noms/langue à jour, badge
+ * « Barème » reflétant le contenu résolu, et pays servis par le SEUL référentiel (future
+ * publication god) ajoutés en fin de liste. Une passe, un instantané.
+ */
+export async function resolvedAuthorityRows(
+  orgId: string,
+  dossiers: DossierRecord[],
+  documents: DocumentRecord[],
+): Promise<AuthorityRow[]> {
+  const rows = buildAuthorityRows(dossiers, documents)
+  const known = new Set(rows.map((r) => r.code))
+  const { agencies, fees } = await loadRefCountryIndex(orgId)
+  const resolve = (code: string): { agency: AgencyInfo; officialLang: string } => {
+    const patch = agencies.get(code)
+    const base = agencyFor(code)
+    return patch
+      ? {
+          agency: mergeAgency(patch, base),
+          officialLang: patch.officialLang ?? officialLanguage(code),
+        }
+      : { agency: base, officialLang: officialLanguage(code) }
+  }
+
+  const overlaid = rows.map((r) => {
+    const { agency, officialLang } = resolve(r.code)
+    return { ...r, agency, officialLang, hasProfile: r.hasProfile || fees.has(r.code) }
+  })
+  const activeDossiers = dossiers.filter((d) => d.deletedAt == null)
+  const activeAmm = documents.filter((d) => d.deletedAt == null && d.docType === 'amm')
+  const added = [...agencies.keys()]
+    .filter((code) => !known.has(code))
+    .sort()
+    .map((code) => {
+      const { agency, officialLang } = resolve(code)
+      return {
+        code,
+        agency,
+        officialLang,
+        hasProfile: fees.has(code),
+        dossierCount: activeDossiers.filter((d) => d.country === code).length,
+        ammCount: activeAmm.filter((d) => d.country?.trim() === code).length,
+      }
+    })
+  return [...overlaid, ...added]
 }
 
 /**

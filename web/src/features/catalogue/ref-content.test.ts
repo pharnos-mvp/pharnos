@@ -2,7 +2,13 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { db, type RefEntryRecord, type RefVersionRecord } from '@/lib/db'
 import { authorityDetail } from './authorities-data'
-import { resolvedAuthorityDetail, resolvedAuthorityDetailAtVersion } from './ref-content'
+import {
+  loadRefCountryLookup,
+  resolvedAgencyBlock,
+  resolvedAuthorityDetail,
+  resolvedAuthorityDetailAtVersion,
+  resolvedAuthorityRows,
+} from './ref-content'
 import { dossierRefStatus, loadRefState, pendingRefUpdate } from './ref-state'
 import { refUpdatePreview } from './ref-diff'
 
@@ -488,6 +494,150 @@ describe('resolvedAuthorityDetailAtVersion — dossier épinglé (P4.2b)', () =>
 
     expect(r?.detail.profile?.fees.new_ma).toBe(750000)
     expect(r?.versionLabel).toBe('v2026.1')
+  })
+})
+
+describe('resolvedAgencyBlock + lookup + lignes Autorités (P4.4-pré)', () => {
+  const arp = {
+    name: 'ARP',
+    full: 'Agence Sénégalaise (publiée)',
+    directeur: 'Dr A. B. Sow',
+    sexe: 'M',
+    adresse: 'Dakar, adresse publiée',
+    officialLang: 'fr',
+  }
+
+  beforeEach(async () => {
+    await db.refVersions.put(version({ id: 'v-1', label: 'v2026.1' }))
+    await db.refEntries.put(entry({ id: 'e-a', section: 'agency', payload: arp }))
+  })
+
+  it('resolvedAgencyBlock : agence publiée au plafond, repli code pour les autres pays', async () => {
+    const sn = await resolvedAgencyBlock('SN', ORG)
+    expect(sn.agency.adresse).toBe('Dakar, adresse publiée')
+    expect(sn.civilite).toBe('Monsieur le Directeur Général')
+
+    const bj = await resolvedAgencyBlock('BJ', ORG) // pas d'entrée publiée → socle code
+    expect(bj.agency.name).toBe('ABMed')
+    // Pays inconnu des deux sources → générique du socle (jamais null : comportement agencyFor).
+    expect((await resolvedAgencyBlock('ZZ', ORG)).agency.name).toBe('ANRP')
+  })
+
+  it('resolvedAgencyBlock sous une version ÉPINGLÉE : ne sert pas plus récent que le dossier', async () => {
+    await db.refVersions.put(
+      version({ id: 'v-2', label: 'v2026.2', publishedAt: '2026-07-15T00:00:00.000Z' }),
+    )
+    await db.refEntries.put(
+      entry({
+        id: 'e-a2',
+        versionId: 'v-2',
+        section: 'agency',
+        payload: { ...arp, directeur: 'Dr Successeur' },
+      }),
+    )
+    await adopt('v-2')
+
+    expect((await resolvedAgencyBlock('SN', ORG)).agency.directeur).toBe('Dr Successeur')
+    expect((await resolvedAgencyBlock('SN', ORG, 'v-1')).agency.directeur).toBe('Dr A. B. Sow')
+  })
+
+  it('loadRefCountryLookup : une passe, tous pays — publié au plafond, code sinon', async () => {
+    const lookup = await loadRefCountryLookup(ORG)
+    expect(lookup('SN').agency.adresse).toBe('Dakar, adresse publiée')
+    expect(lookup('CI').agency.name).toBe('AIRP')
+    expect(lookup('GW').officialLang).toBe('pt')
+  })
+
+  it('resolvedAuthorityRows : noms overlayés + pays servi par le SEUL référentiel ajouté', async () => {
+    await db.refEntries.put(
+      entry({
+        id: 'e-cv',
+        country: 'CV',
+        section: 'agency',
+        payload: {
+          name: 'ARFA',
+          full: 'Agência de Regulação',
+          directeur: '',
+          sexe: 'M',
+          adresse: 'Praia',
+        },
+      }),
+    )
+    await db.refEntries.put(
+      entry({ id: 'e-cvf', country: 'CV', section: 'fees', payload: { fees: { new_ma: 200000 } } }),
+    )
+    // L'empreinte RA du pays ajouté (compteurs dossiers/AMM) doit être calculée comme pour le socle.
+    const dossierCv = {
+      id: 'd-cv',
+      orgId: ORG,
+      productId: 'p1',
+      productName: 'X',
+      format: 'ctd',
+      activity: 'new_ma',
+      country: 'CV',
+      status: 'draft',
+      tree: [],
+      excludedDocIds: [],
+      createdAt: '2026-07-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      deletedAt: null,
+      archivedAt: null,
+    }
+
+    const rows = await resolvedAuthorityRows(ORG, [dossierCv as never], [])
+
+    expect(rows.find((r) => r.code === 'SN')?.agency.adresse).toBe('Dakar, adresse publiée')
+    const cv = rows.find((r) => r.code === 'CV')
+    expect(cv?.agency.name).toBe('ARFA')
+    expect(cv?.hasProfile).toBe(true) // badge « Barème » sur le contenu résolu, pas le code
+    expect(cv?.dossierCount).toBe(1)
+    expect(rows.filter((r) => r.code === 'CV')).toHaveLength(1)
+  })
+
+  it('une version publiée NON ADOPTÉE n’ajoute NI pays NI nom à la liste (plafond respecté)', async () => {
+    await db.refVersions.put(
+      version({ id: 'v-2', label: 'v2026.2', publishedAt: '2026-07-15T00:00:00.000Z' }),
+    )
+    await db.refEntries.put(
+      entry({
+        id: 'e-tg2',
+        versionId: 'v-2',
+        country: 'CV',
+        section: 'agency',
+        payload: { name: 'ARFA', full: 'Agência', directeur: '', sexe: 'M', adresse: 'Praia' },
+      }),
+    )
+
+    const rows = await resolvedAuthorityRows(ORG, [], [])
+
+    expect(rows.find((r) => r.code === 'CV')).toBeUndefined()
+  })
+
+  it('un patch agence PARTIEL ne vide JAMAIS directeur/adresse/civilité (fusion champ par champ)', async () => {
+    // L'erreur god la plus probable : « je corrige le sigle » ({name, full} seuls). Sans fusion,
+    // la civilité retombait sur le générique et l'adresse partait en « [Adresse de l'agence] »
+    // dans une lettre OPPOSABLE (revue #416, M4).
+    await db.refEntries.put(
+      entry({
+        id: 'e-patch',
+        country: 'BJ',
+        section: 'agency',
+        payload: { name: 'ABMED', full: 'Agence Béninoise du Médicament (nouvelle dénomination)' },
+      }),
+    )
+
+    const block = await resolvedAgencyBlock('BJ', ORG)
+
+    expect(block.agency.name).toBe('ABMED')
+    expect(block.agency.directeur).toBe('Dr Yossounon Chabi') // socle conservé
+    expect(block.agency.adresse).toBe('Cotonou, Zone résidentielle')
+    expect(block.civilite).toBe('Monsieur le Directeur Général') // sexe du socle, pas le défaut
+  })
+
+  it('le bloc résolu porte la CLÉ pays|version pour laquelle il a été calculé (garde M1)', async () => {
+    expect((await resolvedAgencyBlock('SN', ORG)).key).toBe('SN|')
+    expect((await resolvedAgencyBlock('SN', ORG, 'v-1')).key).toBe('SN|v-1')
+    expect((await resolvedAgencyBlock('SN', ORG, null)).key).toBe('SN|')
   })
 })
 

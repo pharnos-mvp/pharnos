@@ -101,6 +101,7 @@ import { useGeneratedDocsSync } from './use-generated-docs-sync'
 import { useLifecycleSync } from './use-lifecycle-sync'
 import { buildAuditReport, type AuditReport } from './audit-report'
 import { docTypeForNode, getModule1Tree, type CtdNodeDef } from './module1-tree'
+import { useRefAgency } from '@/features/catalogue/use-ref-agency'
 import { agencyCivilite, agencyFor, officialLanguage } from './roadmap-data'
 import { PdfPreviewDialog } from './PdfPreviewDialog'
 import { runRegafy, tiptapText, type RegafyFinding } from './regafy'
@@ -200,6 +201,10 @@ export function DossierWorkspacePage() {
     async () => (dossierId ? ((await getDossier(dossierId)) ?? null) : null),
     [dossierId],
   )
+  // Agence + langue de soumission résolues par le référentiel versionné, SOUS LA VERSION ÉPINGLÉE
+  // du dossier (P4.4-pré) : le bloc destinataire des lettres générées est une surface opposable.
+  // Repli code pendant le chargement (même contenu tant que la parité seed==code tient).
+  const refAgency = useRefAgency(dossier?.country, dossier?.refVersionId ?? null)
   const product = useLiveQuery(
     async () => (dossier ? ((await db.products.get(dossier.productId)) ?? undefined) : undefined),
     [dossier?.productId],
@@ -376,6 +381,9 @@ export function DossierWorkspacePage() {
     flatNodes,
     orgId,
     onOpenTranslation,
+    // Langue cible RÉSOLUE (version épinglée) : les traductions persistées et les libellés
+    // « Traduire en X » doivent parler d'une seule voix (revue #416, M3).
+    targetLang: refAgency?.officialLang,
   })
 
   // Sauvegarde débouncée des éditions TipTap (T7.3).
@@ -865,7 +873,8 @@ export function DossierWorkspacePage() {
       : attachmentsFor(selected)
     : []
   // Langue cible (code pays → 'FR'/'PT'/'EN') pour les libellés (« Traduire en FR », « …_FR.docx »).
-  const targetLangLabel = officialLanguage(dossier.country).toUpperCase()
+  const targetLang = refAgency?.officialLang ?? officialLanguage(dossier.country)
+  const targetLangLabel = targetLang.toUpperCase()
 
   // Documents visualisables du nœud : lettre générée + pièces jointes + documents produit.
   // Aperçu in-place automatique du 1er (ou de l'onglet choisi), même cadre que la lettre.
@@ -954,8 +963,7 @@ export function DossierWorkspacePage() {
     activeGenDoc?.templateKey === 'upgrade' && activeGenDoc.sourceDocId
       ? allFindings.find((f) => f.pieceId === activeGenDoc.sourceDocId && f.upgrade)?.language
       : undefined
-  const activeConformNeedsTranslation =
-    !!activeUpgradeLang && activeUpgradeLang !== officialLanguage(activeDossier.country)
+  const activeConformNeedsTranslation = !!activeUpgradeLang && activeUpgradeLang !== targetLang
 
   // « Remplir le template » disponible sur les nœuds dont le type est couvert par un template
   // officiel (RCP, Notice, Étiquetage… — 1.3.x), même sans aucun document.
@@ -1018,7 +1026,8 @@ export function DossierWorkspacePage() {
   const errCount = allFindings.filter((f) => !f.ok && f.severity === 'error').length
 
   function buildContext(): TemplateContext {
-    const ag = agencyFor(activeDossier.country)
+    const ag = refAgency?.agency ?? agencyFor(activeDossier.country)
+    const civilite = refAgency?.civilite ?? agencyCivilite(ag)
     return {
       nomCommercial: product?.nomCommercial ?? activeDossier.productName,
       dci: product?.dci ?? '',
@@ -1032,7 +1041,7 @@ export function DossierWorkspacePage() {
       fabricantAdresse: product?.fabricantAdresse?.trim() ?? '',
       agencyName: ag.name,
       agencyFull: ag.name ? `${ag.full} (${ag.name})` : ag.full,
-      agencyCivilite: agencyCivilite(ag),
+      agencyCivilite: civilite,
       agencyAdresse: ag.adresse || '[Adresse de l’agence]',
       country: activeDossier.country,
       ville: extractCity(product?.titulaireAdresse) || '[Ville]',

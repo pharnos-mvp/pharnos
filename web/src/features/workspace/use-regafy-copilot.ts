@@ -14,6 +14,10 @@ import { activityLabel, countryLabel, formatLabel } from './dossier-constants'
 import { createTranslationDoc, createUpgradeDoc } from './generated-docs-repository'
 import { syncGeneratedDocs } from './generated-docs-sync'
 import { docTypeForNode, type CtdNodeDef } from './module1-tree'
+// P4.4-pré : la LANGUE CIBLE (celle des traductions PERSISTÉES et des libellés « Traduire en X »)
+// descend RÉSOLUE de la page (`targetLang`, version épinglée du dossier) — repli socle code.
+// Reste code-only ici : le NOM d'agence passé en contexte d'analyse IA (jamais un barème ni un
+// destinataire de lettre).
 import { agencyFor, officialLanguage } from './roadmap-data'
 import { runRegafy, tiptapText, type RegafyFinding } from './regafy'
 import {
@@ -47,6 +51,7 @@ export function useRegafyCopilot({
   flatNodes,
   orgId,
   onOpenTranslation,
+  targetLang,
 }: {
   dossier: DossierRecord | null | undefined
   product: ProductRecord | undefined
@@ -57,6 +62,10 @@ export function useRegafyCopilot({
   orgId: string
   /** Ouvre l'onglet d'une traduction (sélection du nœud + mode édition) — fourni par la page. */
   onOpenTranslation: (node: CtdNodeDef, genId: string) => void
+  /** Langue de soumission RÉSOLUE (référentiel versionné, version épinglée du dossier) — la
+   *  langue des documents TRADUITS persistés doit être LA MÊME que celle des libellés/exports de
+   *  la page (revue #416 M3 : bouton « Traduire en PT » qui produirait du FR). Repli code. */
+  targetLang?: string
 }) {
   /** Remarques de la SESSION, par pièce analysée — vide par défaut, ré-analyser REMPLACE. */
   const [analysisByPiece, setAnalysisByPiece] = useState<Record<string, RegafyFinding[]>>({})
@@ -249,7 +258,7 @@ export function useRegafyCopilot({
             [piece],
             new Date().toISOString().slice(0, 10),
             agencyFor(dossier.country).name || '',
-            officialLanguage(dossier.country),
+            targetLang ?? officialLanguage(dossier.country),
             dossier.productName ?? product?.nomCommercial ?? '',
             countryName,
             dossier.country,
@@ -377,7 +386,7 @@ export function useRegafyCopilot({
                   [piece],
                   today,
                   agency,
-                  officialLanguage(dossier.country),
+                  targetLang ?? officialLanguage(dossier.country),
                   productName,
                   countryName,
                   dossier.country,
@@ -528,7 +537,7 @@ export function useRegafyCopilot({
         openTab(existing.id)
         return
       }
-      const lang = officialLanguage(dossier.country)
+      const lang = targetLang ?? officialLanguage(dossier.country)
       setTranslating(f.pieceId ?? null)
       setStreamText('')
       try {
@@ -681,7 +690,7 @@ export function useRegafyCopilot({
       const docType =
         docTypeForNode(dossier.format, genDoc.nodeNumber) ??
         (genDoc.nodeNumber.startsWith('1.3') ? 'labeling' : 'document')
-      const lang = officialLanguage(dossier.country)
+      const lang = targetLang ?? officialLanguage(dossier.country)
       setTranslating(genDoc.id)
       setStreamText('')
       try {
