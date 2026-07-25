@@ -587,6 +587,32 @@ export interface OrgRefAdoptionRecord {
   adoptedByEmail: string
 }
 
+/**
+ * Adaptation LOCALE d'un champ du référentiel (réplique de `org_ref_overrides`, migration 0077,
+ * P4.3) — « la donnée officielle se propose, la donnée locale se respecte » : une publication
+ * ultérieure n'écrase JAMAIS ces valeurs. Contrairement aux versions/adoptions, la table est
+ * ÉCRITE PAR LE CLIENT (offline-first, outbox → upsert) ; le serveur borne le `fieldPath` par
+ * whitelist (les contacts s'adaptent, les MONTANTS jamais) et estampille l'auteur.
+ */
+export interface OrgRefOverrideRecord {
+  id: string
+  orgId: string
+  /** Code pays ISO-2 majuscule (contrainte serveur). */
+  country: string
+  /** Chemin whitelisté côté base : `agency.directeur|sexe|adresse|telephone|email`, `notes.internal`. */
+  fieldPath: string
+  /**
+   * Valeur locale. jsonb côté serveur, mais le résolveur n'accepte AUJOURD'HUI qu'une CHAÎNE non
+   * vide (toute autre forme est ignorée au profit de la valeur officielle) : le type large prépare
+   * les formes riches de P4.5 sans promettre qu'elles se rendent déjà.
+   */
+  value: unknown
+  /** E-mail de l'admin qui a adapté — posé par le SERVEUR (trigger), jamais par le client. */
+  updatedByEmail: string
+  createdAt: string
+  updatedAt: string
+}
+
 const db = new Dexie('pharnos') as Dexie & {
   products: EntityTable<ProductRecord, 'id'>
   parties: EntityTable<PartyRecord, 'id'>
@@ -610,6 +636,7 @@ const db = new Dexie('pharnos') as Dexie & {
   refVersions: EntityTable<RefVersionRecord, 'id'>
   refEntries: EntityTable<RefEntryRecord, 'id'>
   orgRefAdoptions: EntityTable<OrgRefAdoptionRecord, 'id'>
+  orgRefOverrides: EntityTable<OrgRefOverrideRecord, 'id'>
 }
 
 db.version(1).stores({
@@ -707,6 +734,14 @@ db.version(16).stores({
 // remplacement du pull ne touche que les lignes de l'org synchronisée, cf. membre multi-orgs).
 db.version(17).stores({
   orgRefAdoptions: 'id, orgId, [orgId+versionId]',
+})
+
+// v18 : adaptations locales du référentiel (P4.3, migration 0077) — TENANT et ÉCRIVABLE hors ligne
+// (outbox). La clé primaire `id` est la clé MÉTIER `orgId|PAYS|fieldPath` (jamais l'uuid serveur) :
+// deux appareils hors ligne qui adaptent le même champ convergent ainsi sur UNE ligne.
+// `[orgId+country]` = lecture du résolveur pour un pays ; `updatedAt` = tri d'affichage.
+db.version(18).stores({
+  orgRefOverrides: 'id, orgId, [orgId+country], updatedAt',
 })
 
 export { db }

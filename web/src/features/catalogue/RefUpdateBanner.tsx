@@ -225,14 +225,43 @@ export function RefUpdateBanner({ country }: { country?: string }) {
                 </tbody>
               </table>
             </div>
-          ) : (
+          ) : preview && preview.kept.length === 0 ? (
             <p className="text-muted-foreground text-sm">
               {t({
                 fr: 'Cette version ne modifie aucune valeur que vous affichez aujourd’hui.',
                 en: 'This version changes none of the values you currently display.',
               })}
             </p>
-          )}
+          ) : null}
+
+          {/* Champs ADAPTÉS que cette version ne changera PAS — sans ce bloc, le tableau ci-dessus
+              annoncerait un changement qui n'aura pas lieu (P4.3 : la valeur locale gagne). */}
+          {preview && preview.kept.length > 0 ? (
+            <div className="border-warning/30 bg-warning-subtle/40 space-y-1.5 rounded-lg border p-2.5">
+              <p className="text-xs font-semibold">
+                {t({
+                  fr: 'Vos valeurs adaptées sont CONSERVÉES (elles ne changeront pas)',
+                  en: 'Your adapted values are KEPT (they will not change)',
+                })}
+              </p>
+              {preview.kept.map((k, i) => (
+                <p key={i} className="text-muted-foreground text-xs">
+                  <span className="inline-flex items-center gap-1.5">
+                    <CountryFlag code={k.country} size={12} />
+                    {t(k.field)}
+                  </span>
+                  {' : '}
+                  <span className="text-foreground">{k.local || '—'}</span>
+                  {k.official ? (
+                    <>
+                      {' · '}
+                      {t({ fr: 'officiel proposé', en: 'official proposal' })} : {k.official}
+                    </>
+                  ) : null}
+                </p>
+              ))}
+            </div>
+          ) : null}
 
           {/* Garanties — ce que l'adoption ne fait PAS (le cœur de la confiance) */}
           <ul className="text-muted-foreground space-y-1 text-xs">

@@ -1,6 +1,7 @@
 import { reportError } from '@/lib/sentry'
 import { syncDocuments } from './documents-sync'
 import { syncParties } from './parties-sync'
+import { syncRefOverrides } from './ref-overrides'
 import { syncRefContent } from './ref-sync'
 import { syncProducts } from './sync'
 
@@ -29,6 +30,11 @@ export function syncCatalogue(orgId: string): Promise<void> {
       await syncParties(orgId)
       await syncProducts(orgId)
       await syncDocuments(orgId)
+      // Adaptations locales du référentiel (0077) : DANS la chaîne, contrairement au pull de
+      // contenu — elles portent des ÉCRITURES utilisateur (outbox), qui doivent partir avec le
+      // flush de déconnexion. Aucune FK avec les maillons amont : la place en fin est un choix
+      // de priorité (ne pas retarder la chaîne critique), pas une contrainte d'ordre.
+      await syncRefOverrides(orgId)
     })
     .catch((error: unknown) => reportError(error, { op: 'sync', entity: 'catalogue' }))
   chain = next

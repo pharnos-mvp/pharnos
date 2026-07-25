@@ -36,6 +36,11 @@ async function clearAllTables(opts?: { preserveNotifReads?: boolean }): Promise<
     db.refEntries.clear(),
     // Adoptions (0072) : donnée TENANT (quelle version l'org applique) → purge obligatoire.
     db.orgRefAdoptions.clear(),
+    // Adaptations locales (0077) : donnée TENANT et CONFIDENTIELLE (destinataire adapté, note
+    // interne). Sa policy serveur est RESTRICTIVE (un membre scopé n'y a AUCUN accès) : la laisser
+    // en cache la rendrait lisible au compte suivant sur le même navigateur — précisément ce que
+    // la RLS interdit, et la classe de bug corrigée en #290. Purge OBLIGATOIRE.
+    db.orgRefOverrides.clear(),
   ]
   // Marqueur de lecture de la cloche (`notificationReads`, local par appareil, JAMAIS re-synchronisé) :
   // CONSERVÉ à la déconnexion (`preserveNotifReads`) pour qu'une reconnexion du MÊME compte ne rejoue

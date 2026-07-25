@@ -20,6 +20,8 @@ export interface AuthorityRow {
   officialLang: string
   /** Barème national (redevances/échantillons/délais) renseigné ? */
   hasProfile: boolean
+  /** Au moins un champ ADAPTÉ localement par l'org (0077, P4.3) — badge « Adapté » de la liste. */
+  adapted?: boolean
   /** Mes dossiers (montages CTD) actifs ciblant ce pays. */
   dossierCount: number
   /** Mes AMM ENREGISTRÉES (non supprimées) dans ce pays — pas de filtre d'expiration ici. */
