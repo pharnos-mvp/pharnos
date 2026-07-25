@@ -6,6 +6,8 @@
 --   3) RPC : ADMIN seul, version PUBLIÉE seule, idempotent, audité.
 -- Piège pgTAP rappelé : UPDATE/DELETE sans policy ne lèvent RIEN (0 ligne visible) → on prouve
 -- le contenu INCHANGÉ, pas une exception.
+-- NB 0075 : créer une org AUTO-ADOPTE la dernière version publiée (trigger orgs_auto_adopt_ref)
+-- → chaque assertion cible explicitement la version du test (jamais un count brut par org).
 
 begin;
 select plan(15);
@@ -85,13 +87,15 @@ select lives_ok(
 );
 select is(
   (select count(*)::int from public.org_ref_adoptions
-   where org_id = '00000000-0000-0000-0000-00000000ca01'),
+   where org_id = '00000000-0000-0000-0000-00000000ca01'
+     and version_id = '00000000-0000-0000-0000-0000000000f2'),
   1,
   'une seule ligne d''adoption malgré le rejeu'
 );
 select is(
   (select adopted_by_email from public.org_ref_adoptions
-   where org_id = '00000000-0000-0000-0000-00000000ca01'),
+   where org_id = '00000000-0000-0000-0000-00000000ca01'
+     and version_id = '00000000-0000-0000-0000-0000000000f2'),
   'refadmin@pharnos.test',
   'la trace nomme QUI a adopté (journal du consentement)'
 );
@@ -100,7 +104,8 @@ select is(
 select is(
   (select count(*)::int from public.audit_log
    where org_id = '00000000-0000-0000-0000-00000000ca01' and action = 'adopt'
-     and entity = 'ref_version'),
+     and entity = 'ref_version'
+     and entity_id = '00000000-0000-0000-0000-0000000000f2'),
   1,
   'l''adoption est journalisée UNE fois à l''audit, dans la même transaction'
 );
@@ -124,7 +129,8 @@ select lives_ok(
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000c2"}', true);
 select is(
   (select count(*)::int from public.org_ref_adoptions
-   where org_id = '00000000-0000-0000-0000-00000000ca01'),
+   where org_id = '00000000-0000-0000-0000-00000000ca01'
+     and version_id = '00000000-0000-0000-0000-0000000000f2'),
   1,
   'un membre NON scopé LIT l''adoption de son org (le plafond se calcule côté client)'
 );
@@ -147,15 +153,17 @@ select is(
 -- ----------------------------------------------------------------------------
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000c3"}', true);
 select is(
-  (select count(*)::int from public.org_ref_adoptions),
+  (select count(*)::int from public.org_ref_adoptions
+   where org_id = '00000000-0000-0000-0000-00000000ca01'),
   0,
-  'Org RefB ne voit AUCUNE adoption d''Org RefA'
+  'Org RefB ne voit AUCUNE adoption d''Org RefA (il ne voit que la sienne, auto-adoptée 0075)'
 );
 
 reset role;
 select is(
   (select count(*)::int from public.org_ref_adoptions
-   where org_id = '00000000-0000-0000-0000-00000000ca01'),
+   where org_id = '00000000-0000-0000-0000-00000000ca01'
+     and version_id = '00000000-0000-0000-0000-0000000000f2'),
   1,
   'la trace d''adoption a survécu au DELETE client (journal append-only)'
 );

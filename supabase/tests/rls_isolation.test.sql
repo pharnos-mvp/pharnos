@@ -123,7 +123,9 @@ select is(
   'A ne voit que les pièces jointes de son organisation'
 );
 select is(
-  (select count(*)::int from public.audit_log),
+  -- 0075 : la création d'org trace une auto-adoption (entity='ref_version') → on compte le
+  -- journal APPLICATIF seul, l'isolation reste le sujet du test.
+  (select count(*)::int from public.audit_log where entity <> 'ref_version'),
   1,
   'A ne voit que le journal d''audit de son organisation'
 );
