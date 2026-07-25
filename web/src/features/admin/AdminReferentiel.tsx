@@ -263,9 +263,12 @@ export function AdminReferentiel() {
         />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[5fr_4fr] xl:items-start">
+      {/* `minmax(0, …)` et non `5fr_4fr` nu : une piste `fr` a pour minimum son CONTENU, et la
+          note de publication (`truncate` = white-space: nowrap) impose sa longueur ENTIÈRE en
+          min-content → la colonne de gauche mangeait ~80 % et l'éditeur était écrasé. */}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,5fr)_minmax(0,4fr)] xl:items-start">
         {/* ── Versions + adoption ── */}
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <Section
             title={t({ fr: 'Versions du référentiel', en: 'Reference data versions' })}
             actions={
@@ -376,8 +379,10 @@ export function AdminReferentiel() {
               en: 'Each entry is prefilled from current content — edit, CITE the source, publish.',
             })}
           >
-            <div className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-3">
+            <div className="min-w-0 space-y-4">
+              {/* 2 colonnes, pas 3 : dans la colonne de l'éditeur, trois champs côte à côte
+                  hachaient les libellés sur 3 lignes et rognaient les saisies. */}
+              <div className="grid gap-3 sm:grid-cols-2">
                 <Field label={t({ fr: 'Libellé', en: 'Label' })}>
                   <Input
                     value={draft.label}
@@ -403,16 +408,18 @@ export function AdminReferentiel() {
                     })}
                   </span>
                 </Field>
-                <Field label={t({ fr: 'Note de publication', en: 'Release note' })}>
-                  <Input
-                    value={draft.releaseNote}
-                    onChange={(e) => setDraft({ ...draft, releaseNote: e.target.value })}
-                    placeholder={t({
-                      fr: 'Sénégal — redevances (décret…)',
-                      en: 'Senegal — fees (decree…)',
-                    })}
-                  />
-                </Field>
+                <div className="sm:col-span-2">
+                  <Field label={t({ fr: 'Note de publication', en: 'Release note' })}>
+                    <Input
+                      value={draft.releaseNote}
+                      onChange={(e) => setDraft({ ...draft, releaseNote: e.target.value })}
+                      placeholder={t({
+                        fr: 'Sénégal — redevances (décret…)',
+                        en: 'Senegal — fees (decree…)',
+                      })}
+                    />
+                  </Field>
+                </div>
               </div>
 
               {draft.entries.map((e, i) => (
