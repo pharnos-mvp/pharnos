@@ -4,6 +4,7 @@ import {
   isAllowedUpload,
   MAX_UPLOAD_BYTES,
   sanitizeFileName,
+  storageObjectKey,
   UPLOAD_SIZE_ERROR,
   UPLOAD_TYPE_ERROR,
 } from '@/lib/files'
@@ -44,7 +45,9 @@ export async function uploadLifecycleDoc(
   const name = sanitizeFileName(file.name)
   const mime = contentTypeFor(file)
   // Dossier unique par pièce : deux uploads du même nom de fichier ne se percutent jamais.
-  const path = `${orgId}/dossiers/${dossierId}/lifecycle/${crypto.randomUUID()}/${name}`
+  // La CLÉ est ASCII (Storage refuse les accents : `Invalid key`) ; `name` — ce que l'utilisateur
+  // lit et retrouve au téléchargement — conserve les siens.
+  const path = `${orgId}/dossiers/${dossierId}/lifecycle/${crypto.randomUUID()}/${storageObjectKey(file.name)}`
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
     contentType: mime,
     upsert: false,

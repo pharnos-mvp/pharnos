@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { contentTypeFor, isAllowedUpload, sanitizeFileName } from './files'
+import { contentTypeFor, isAllowedUpload, sanitizeFileName, storageObjectKey } from './files'
 
 describe('sanitizeFileName', () => {
   it('laisse passer un nom sain (accents inclus)', () => {
@@ -31,6 +31,42 @@ describe('sanitizeFileName', () => {
   it('repli sur « document » si le nom est vide après nettoyage', () => {
     expect(sanitizeFileName('')).toBe('document')
     expect(sanitizeFileName('\u0001\u0002 . ')).toBe('document')
+  })
+})
+
+describe('storageObjectKey — la CLÉ Storage, pas le nom affiché', () => {
+  it('RÉGRESSION : un nom accentué ne fait plus échouer l’upload (Invalid key)', () => {
+    // Cas réel de production (Sentry JAVASCRIPT-REACT-B) : Supabase Storage refusait la clé à
+    // cause du « é » de « complétude », et la pièce ne partait jamais.
+    expect(storageObjectKey('KV-NS_Fiche de complétude ENR (2).pdf')).toBe(
+      'KV-NS_Fiche de completude ENR (2).pdf',
+    )
+  })
+
+  it('translittère les diacritiques français, casse préservée', () => {
+    expect(storageObjectKey('ÉTIQUETAGE_çà-et-là.docx')).toBe('ETIQUETAGE_ca-et-la.docx')
+  })
+
+  it('ne produit QUE des caractères déjà observés en production dans le bucket', () => {
+    const exotiques = 'Ωμέγα 日本語 emoji🙂 «guillemets» ™.pdf'
+    expect(storageObjectKey(exotiques)).toMatch(/^[A-Za-z0-9 ._'()-]+$/)
+  })
+
+  it('laisse intact ce qui est déjà conforme (aucun renommage gratuit)', () => {
+    // Ces caractères existent déjà dans les 198 objets du bucket : ils DOIVENT survivre.
+    const conforme = "KV-Para_Lettre de demande de Variation mineur d'AMM.pdf"
+    expect(storageObjectKey(conforme)).toBe(conforme)
+  })
+
+  it('n’est jamais vide (une clé vide ferait un chemin terminé par « / »)', () => {
+    expect(storageObjectKey('🙂🙂🙂')).not.toBe('')
+    expect(storageObjectKey('')).toBe('document')
+  })
+
+  it('le nom AFFICHÉ garde ses accents — les deux ne se confondent pas', () => {
+    const name = 'Fiche de complétude.pdf'
+    expect(sanitizeFileName(name)).toBe(name)
+    expect(storageObjectKey(name)).not.toBe(name)
   })
 })
 

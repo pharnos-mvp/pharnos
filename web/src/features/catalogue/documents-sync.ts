@@ -4,7 +4,7 @@ import { db, type DocumentCategory, type DocumentRecord } from '@/lib/db'
 import { isPermanentSyncError, withRetry } from '@/lib/retry'
 import { isSyncEnabled } from '@/lib/sync-prefs'
 import { reportError } from '@/lib/sentry'
-import { contentTypeFor, sanitizeFileName } from '@/lib/files'
+import { contentTypeFor, storageObjectKey } from '@/lib/files'
 import { getSupabase } from '@/lib/supabase'
 import { cacheDocumentBlob, getDocumentBlob } from './documents-repository'
 
@@ -156,10 +156,12 @@ async function pushDocuments(supabase: SupabaseClient, orgId: string): Promise<v
     if (!rec.uploaded && rec.deletedAt === null) {
       const blob = await getDocumentBlob(id)
       if (blob) {
-        // sanitize au build du chemin : couvre aussi les enregistrements Dexie antérieurs à T5.
+        // Clé ASCII au build du chemin : couvre aussi les enregistrements Dexie antérieurs à T5,
+        // et surtout les noms accentués que Storage refusait (`Invalid key`) — le nom AFFICHÉ
+        // (`rec.fileName`) garde, lui, ses accents.
         // Doc ORG-scopé → segment `party/<partyId>` (la policy Storage ne regarde que l'org).
         const owner = rec.partyId ? `party/${rec.partyId}` : rec.productId
-        const path = `${rec.orgId}/${owner}/${rec.id}/${sanitizeFileName(rec.fileName)}`
+        const path = `${rec.orgId}/${owner}/${rec.id}/${storageObjectKey(rec.fileName)}`
         const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, {
           upsert: true,
           contentType: contentTypeFor({ name: rec.fileName, type: rec.mimeType }),

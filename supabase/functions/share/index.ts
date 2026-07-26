@@ -101,6 +101,26 @@ function sanitizeName(name: string): string {
   return normalized.length <= 120 ? normalized : normalized.slice(-120)
 }
 
+/**
+ * CLÉ d'objet Storage (≠ nom affiché). Supabase Storage refuse toute clé non-ASCII
+ * (`Invalid key`, 400) : une pièce jointe nommée « réponse.pdf » échouait, et la réponse de
+ * l'agence était perdue. Même règle que `storageObjectKey` (web/src/lib/files.ts).
+ *
+ * Aucune parité inter-runtime à verrouiller ici, volontairement : chaque runtime construit SES
+ * chemins et les persiste tels quels (`attachments[].path`) — personne ne recalcule le chemin de
+ * l'autre. Une divergence serait cosmétique, pas silencieusement destructrice.
+ */
+function storageKey(name: string): string {
+  const key = sanitizeName(name)
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^A-Za-z0-9 ._'()-]/g, '_')
+    .replace(/_{2,}/g, '_')
+    .replace(/[. ]+$/, '')
+    .trim()
+  return key || 'document'
+}
+
 function decodeBase64(b64: string): Uint8Array | null {
   try {
     const bin = atob(b64)
@@ -604,7 +624,9 @@ async function storeAttachments(
     const bytes = decodeBase64(b64)
     if (!bytes || bytes.length === 0 || bytes.length > MAX_ATTACHMENT_BYTES) return 'invalid'
 
-    const path = pathFor(name)
+    // Le nom AFFICHÉ (`name`, figé dans les métadonnées du fil) garde ses accents ; seule la CLÉ
+    // Storage est translittérée en ASCII — sinon `Invalid key` (400).
+    const path = pathFor(storageKey(name))
     const { error } = await supabase.storage.from(BUCKET).upload(path, bytes.slice().buffer, {
       contentType: ALLOWED_ATTACH_MIMES.has(mime) ? mime : 'application/octet-stream',
       upsert: false,

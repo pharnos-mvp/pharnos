@@ -1,5 +1,5 @@
 import type { CorrespondenceMessageRecord } from '@/lib/db'
-import { contentTypeFor } from '@/lib/files'
+import { contentTypeFor, storageObjectKey } from '@/lib/files'
 import { tStatic } from '@/lib/i18n-context'
 import { getSupabase } from '@/lib/supabase'
 
@@ -117,7 +117,9 @@ export async function uploadSenderAttachments(
   const stored: MessageAttachment[] = []
   for (const file of files) {
     const name = sanitizeAttachmentName(file.name)
-    const path = `${orgId}/shares/${correspondenceId}/sender/${crypto.randomUUID()}-${name}`
+    // La CLÉ est ASCII (Storage refuse les accents : `Invalid key`) ; `name`, poussé en métadonnée
+    // du message et affiché dans le fil, conserve les siens.
+    const path = `${orgId}/shares/${correspondenceId}/sender/${crypto.randomUUID()}-${storageObjectKey(file.name)}`
     // `contentTypeFor` : MIME canonique par extension quand le navigateur n'en donne pas
     // (fréquent sous Windows) — `octet-stream` serait REJETÉ par l'allowlist du bucket.
     // ⚠ Re-typer le Blob soi-même : avec un `File`, supabase-js envoie le type DU fichier
