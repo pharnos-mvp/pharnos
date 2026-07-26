@@ -4,7 +4,7 @@ import { db, type DossierAttachmentRecord } from '@/lib/db'
 import { isPermanentSyncError, withRetry } from '@/lib/retry'
 import { isSyncEnabled } from '@/lib/sync-prefs'
 import { reportError } from '@/lib/sentry'
-import { contentTypeFor, sanitizeFileName } from '@/lib/files'
+import { contentTypeFor, storageObjectKey } from '@/lib/files'
 import { getSupabase } from '@/lib/supabase'
 import { cacheAttachmentBlob, getAttachmentBlob } from './dossier-attachments-repository'
 
@@ -94,8 +94,10 @@ async function pushAttachments(supabase: SupabaseClient, orgId: string): Promise
     if (!rec.uploaded && rec.deletedAt === null) {
       const blob = await getAttachmentBlob(id)
       if (blob) {
-        // sanitize au build du chemin : couvre aussi les enregistrements Dexie antérieurs à T5.
-        const path = `${rec.orgId}/dossiers/${rec.dossierId}/${rec.id}/${sanitizeFileName(rec.fileName)}`
+        // Clé ASCII au build du chemin : couvre aussi les enregistrements Dexie antérieurs à T5,
+        // et surtout les noms accentués que Storage refusait (`Invalid key`) — le nom AFFICHÉ
+        // (`rec.fileName`) garde, lui, ses accents.
+        const path = `${rec.orgId}/dossiers/${rec.dossierId}/${rec.id}/${storageObjectKey(rec.fileName)}`
         const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, {
           upsert: true,
           contentType: contentTypeFor({ name: rec.fileName, type: rec.mimeType }),

@@ -98,3 +98,31 @@ export function sanitizeFileName(name: string): string {
   }
   return normalized.slice(0, MAX).replace(/[. ]+$/, '')
 }
+
+/** Marques diacritiques combinantes laissées par la décomposition NFD (U+0300 → U+036F). */
+const COMBINING_MARKS = /[̀-ͯ]/g
+
+/**
+ * CLÉ D'OBJET Storage dérivée d'un nom de fichier utilisateur — à n'utiliser que pour construire
+ * un chemin, jamais pour l'affichage.
+ *
+ * Supabase Storage REFUSE toute clé non-ASCII (`StorageApiError: Invalid key`, HTTP 400) : en
+ * production, « Fiche de complétude ENR (2).pdf » ne se téléversait tout simplement pas — soit la
+ * casse NOMINALE sur un marché francophone (Sentry JAVASCRIPT-REACT-B). Le nom AFFICHÉ conserve
+ * ses accents (`sanitizeFileName`) ; seule la clé est translittérée.
+ *
+ * Le jeu de caractères retenu est VÉRIFIÉ contre la production plutôt que déduit d'une hypothèse
+ * sur la regex du serveur : les 198 objets du bucket n'utilisent, hors alphanumérique, que
+ * ` _ - . ' ( )`. Rester dans ce sous-ensemble, c'est n'exposer aucun pari.
+ */
+export function storageObjectKey(name: string): string {
+  const key = sanitizeFileName(name)
+    // NFD sépare la lettre de son diacritique, qu'on retire ensuite : « é » → « e », « ç » → « c ».
+    .normalize('NFD')
+    .replace(COMBINING_MARKS, '')
+    .replace(/[^A-Za-z0-9 ._'()-]/g, '_')
+    .replace(/_{2,}/g, '_')
+    .replace(/[. ]+$/, '')
+    .trim()
+  return key || 'document'
+}
