@@ -1,4 +1,3 @@
-import { lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router'
 
 import { AppShell } from '@/components/layout/app-shell'
@@ -6,72 +5,73 @@ import { AppShell } from '@/components/layout/app-shell'
 // surface produit, cœur de l'app). L'atterrissage « / » est désormais le Dashboard (resté lazy :
 // le squelette d'app-shell couvre son chargement). Les autres pages restent en code-splitting.
 import { CataloguePage } from '@/features/catalogue/CataloguePage'
+import { lazyChunk } from '@/lib/lazy-chunk'
 
 // Code-splitting par route : l'app-shell reste léger, chaque page charge son chunk à la demande.
-const ProductFormPage = lazy(() =>
+const ProductFormPage = lazyChunk(() =>
   import('@/features/catalogue/ProductFormPage').then((m) => ({ default: m.ProductFormPage })),
 )
-const ProductCockpit = lazy(() =>
+const ProductCockpit = lazyChunk(() =>
   import('@/features/catalogue/ProductCockpit').then((m) => ({ default: m.ProductCockpit })),
 )
-const OrganisationsPage = lazy(() =>
+const OrganisationsPage = lazyChunk(() =>
   import('@/features/catalogue/OrganisationsPage').then((m) => ({ default: m.OrganisationsPage })),
 )
-const OrganisationCockpit = lazy(() =>
+const OrganisationCockpit = lazyChunk(() =>
   import('@/features/catalogue/OrganisationCockpit').then((m) => ({
     default: m.OrganisationCockpit,
   })),
 )
-const OrgWizardPage = lazy(() =>
+const OrgWizardPage = lazyChunk(() =>
   import('@/features/catalogue/OrgWizardPage').then((m) => ({ default: m.OrgWizardPage })),
 )
-const OrgPiecePage = lazy(() =>
+const OrgPiecePage = lazyChunk(() =>
   import('@/features/catalogue/OrgPiecePage').then((m) => ({ default: m.OrgPiecePage })),
 )
-const OrgAmmCountryPage = lazy(() =>
+const OrgAmmCountryPage = lazyChunk(() =>
   import('@/features/catalogue/OrgPiecePage').then((m) => ({ default: m.OrgAmmCountryPage })),
 )
-const AutoritesPage = lazy(() =>
+const AutoritesPage = lazyChunk(() =>
   import('@/features/catalogue/AutoritesPage').then((m) => ({ default: m.AutoritesPage })),
 )
-const AutoriteCockpit = lazy(() =>
+const AutoriteCockpit = lazyChunk(() =>
   import('@/features/catalogue/AutoriteCockpit').then((m) => ({ default: m.AutoriteCockpit })),
 )
-const WorkspacePage = lazy(() =>
+const WorkspacePage = lazyChunk(() =>
   import('@/features/workspace/WorkspacePage').then((m) => ({ default: m.WorkspacePage })),
 )
-const NewDossierPage = lazy(() =>
+const NewDossierPage = lazyChunk(() =>
   import('@/features/workspace/NewDossierPage').then((m) => ({ default: m.NewDossierPage })),
 )
-const DossierWorkspacePage = lazy(() =>
+const DossierWorkspacePage = lazyChunk(() =>
   import('@/features/workspace/DossierWorkspacePage').then((m) => ({
     default: m.DossierWorkspacePage,
   })),
 )
-const RoadmapPage = lazy(() =>
+const RoadmapPage = lazyChunk(() =>
   import('@/features/workspace/RoadmapPage').then((m) => ({ default: m.RoadmapPage })),
 )
-const DossierPreviewPage = lazy(() =>
+const DossierPreviewPage = lazyChunk(() =>
   import('@/features/workspace/DossierPreviewPage').then((m) => ({
     default: m.DossierPreviewPage,
   })),
 )
-const DashboardPage = lazy(() =>
+const DashboardPage = lazyChunk(() =>
   import('@/features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })),
 )
-const TemplatesPage = lazy(() =>
+const TemplatesPage = lazyChunk(() =>
   import('@/features/templates/TemplatesPage').then((m) => ({ default: m.TemplatesPage })),
 )
-const VariationsPage = lazy(() =>
+const VariationsPage = lazyChunk(() =>
   import('@/features/variations/VariationsPage').then((m) => ({ default: m.VariationsPage })),
 )
-const AccountPage = lazy(() =>
+const AccountPage = lazyChunk(() =>
   import('@/features/account/AccountPage').then((m) => ({ default: m.AccountPage })),
 )
-const RemindersPage = lazy(() =>
+const RemindersPage = lazyChunk(() =>
   import('@/features/reminders/RemindersPage').then((m) => ({ default: m.RemindersPage })),
 )
-const CorrespondenceInboxPage = lazy(() =>
+const CorrespondenceInboxPage = lazyChunk(() =>
   import('@/features/correspondence/CorrespondenceInboxPage').then((m) => ({
     default: m.CorrespondenceInboxPage,
   })),

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react'
+import { Suspense, useMemo, useState, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   ArrowLeft,
@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { db } from '@/lib/db'
 import { useI18n, type Lang, type Translatable } from '@/lib/i18n-context'
+import { lazyChunk } from '@/lib/lazy-chunk'
 import { cn } from '@/lib/utils'
 import { useOrgId } from '@/features/org/org-context'
 import { triggerDownload } from '@/features/workspace/download-utils'
@@ -41,7 +42,7 @@ import { getOrgBranding, getUserSignature } from '@/features/profile/pro-setting
 import { useAuth } from '@/features/auth/auth-context'
 // Lazy : flux « Lettre de variation » lourd (catalogue 42 variations + éditeurs lettre/tableau) →
 // chunk dédié, hors du bundle d'entrée et du chunk principal de la Bibliothèque.
-const VariationLetterFlow = lazy(() =>
+const VariationLetterFlow = lazyChunk(() =>
   import('@/features/variations/VariationLetterFlow').then((m) => ({
     default: m.VariationLetterFlow,
   })),

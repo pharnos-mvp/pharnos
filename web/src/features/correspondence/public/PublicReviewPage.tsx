@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import {
   Check,
   ChevronRight,
@@ -35,6 +35,7 @@ import '@/features/correspondence/correspondence-chat.css'
 import { activityLabel, countryLabel } from '@/features/workspace/dossier-constants'
 import { formatBytes } from '@/lib/format-bytes'
 import { useI18n, type Lang } from '@/lib/i18n-context'
+import { lazyChunk } from '@/lib/lazy-chunk'
 import { cn } from '@/lib/utils'
 import { PublicParcoursTab } from './PublicParcoursTab'
 import {
@@ -47,7 +48,7 @@ import {
 } from './review-api'
 
 // PDF.js (lourd) chargé à la demande, uniquement quand l'aperçu est prêt à s'afficher.
-const PdfViewer = lazy(() =>
+const PdfViewer = lazyChunk(() =>
   import('@/features/workspace/PdfViewer').then((m) => ({ default: m.PdfViewer })),
 )
 

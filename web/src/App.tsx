@@ -1,8 +1,9 @@
-import { lazy, Suspense } from 'react'
+import { Suspense, type ReactNode } from 'react'
 import { BrowserRouter } from 'react-router'
 
 import { Providers } from '@/app/providers'
 import { AppRoutes } from '@/app/routes'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { Toaster } from '@/components/ui/sonner'
 import { AuthProvider } from '@/features/auth/AuthProvider'
 import { useAuth } from '@/features/auth/auth-context'
@@ -10,29 +11,30 @@ import { OrgContext } from '@/features/org/org-context'
 import { useCurrentOrg } from '@/features/org/use-current-org'
 import { env } from '@/lib/env'
 import { useI18n } from '@/lib/i18n-context'
+import { lazyChunk } from '@/lib/lazy-chunk'
 import { LOCAL_ORG_ID } from '@/lib/session'
 
-const LoginPage = lazy(() =>
+const LoginPage = lazyChunk(() =>
   import('@/features/auth/LoginPage').then((m) => ({ default: m.LoginPage })),
 )
-const PublicReviewPage = lazy(() =>
+const PublicReviewPage = lazyChunk(() =>
   import('@/features/correspondence/public/PublicReviewPage').then((m) => ({
     default: m.PublicReviewPage,
   })),
 )
-const ResetPasswordPage = lazy(() =>
+const ResetPasswordPage = lazyChunk(() =>
   import('@/features/auth/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })),
 )
-const OnboardingPage = lazy(() =>
+const OnboardingPage = lazyChunk(() =>
   import('@/features/org/OnboardingPage').then((m) => ({ default: m.OnboardingPage })),
 )
 // Console admin Pharnos (jalon M) — chunk séparé, chargé uniquement sur /admin. Elle s'auto-protège
 // (l'Edge `admin` refuse les non super-admins → écran « accès refusé »).
-const AdminConsole = lazy(() =>
+const AdminConsole = lazyChunk(() =>
   import('@/features/admin/AdminConsole').then((m) => ({ default: m.AdminConsole })),
 )
 // Acceptation d'invitation d'équipe (jalon M4) — chunk séparé, chargé uniquement sur /invite/{token}.
-const InvitePage = lazy(() =>
+const InvitePage = lazyChunk(() =>
   import('@/features/team/InvitePage').then((m) => ({ default: m.InvitePage })),
 )
 
@@ -42,6 +44,20 @@ function FullScreenLoader() {
     <div className="text-muted-foreground flex min-h-svh items-center justify-center text-sm">
       {t({ fr: 'Chargement…', en: 'Loading…' })}
     </div>
+  )
+}
+
+/**
+ * Écran de tête (hors app-shell). L'`ErrorBoundary` est INDISPENSABLE ici : `/`, `/admin`,
+ * `/invite/…`, `/r/…` et la réinitialisation de mot de passe vivent en dehors de l'app-shell, donc
+ * en dehors de SA frontière d'erreur. Sans elle, un chunk qui ne se charge pas laissait une page
+ * définitivement blanche — la panne exacte remontée en production (juillet 2026).
+ */
+function Screen({ children }: { children: ReactNode }) {
+  return (
+    <ErrorBoundary fullScreen>
+      <Suspense fallback={<FullScreenLoader />}>{children}</Suspense>
+    </ErrorBoundary>
   )
 }
 
@@ -59,9 +75,9 @@ function AuthedApp() {
   if (loading) return <FullScreenLoader />
   if (!orgId) {
     return (
-      <Suspense fallback={<FullScreenLoader />}>
+      <Screen>
         <OnboardingPage onCreated={refresh} />
-      </Suspense>
+      </Screen>
     )
   }
   return <OrgScopedRoutes orgId={orgId} />
@@ -79,17 +95,17 @@ function AppGate() {
   // de récupération est active, donc ce test précède celui de `session`).
   if (recovery) {
     return (
-      <Suspense fallback={<FullScreenLoader />}>
+      <Screen>
         <ResetPasswordPage />
-      </Suspense>
+      </Screen>
     )
   }
 
   if (!session) {
     return (
-      <Suspense fallback={<FullScreenLoader />}>
+      <Screen>
         <LoginPage />
-      </Suspense>
+      </Screen>
     )
   }
 
@@ -98,18 +114,18 @@ function AppGate() {
   const inviteToken = /^\/invite\/([A-Za-z0-9_-]{43})\/?$/.exec(window.location.pathname)?.[1]
   if (inviteToken) {
     return (
-      <Suspense fallback={<FullScreenLoader />}>
+      <Screen>
         <InvitePage token={inviteToken} />
-      </Suspense>
+      </Screen>
     )
   }
 
   // Console admin plateforme (hors shell RA org-scoped) — réservée aux super-admins Pharnos.
   if (window.location.pathname.startsWith('/admin')) {
     return (
-      <Suspense fallback={<FullScreenLoader />}>
+      <Screen>
         <AdminConsole />
-      </Suspense>
+      </Screen>
     )
   }
 
@@ -126,9 +142,9 @@ export default function App() {
   if (shareToken) {
     return (
       <Providers>
-        <Suspense fallback={<FullScreenLoader />}>
+        <Screen>
           <PublicReviewPage token={shareToken} />
-        </Suspense>
+        </Screen>
         <Toaster richColors position="top-right" />
       </Providers>
     )
