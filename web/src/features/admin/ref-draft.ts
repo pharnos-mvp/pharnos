@@ -1,6 +1,7 @@
 import {
   CTD_ACTIVITY_CODES,
   deltaFromPayload,
+  applyStructureDeltas,
   deltasFor,
   findByNumber,
   structureDeltaIssues,
@@ -12,6 +13,7 @@ import {
   type CtdDeltaKind,
 } from '@/features/catalogue/ref-structure'
 import { getModule1Tree } from '@/features/workspace/module1-tree'
+import { flattenTree } from '@/features/workspace/tree-utils'
 import {
   agencyFor,
   officialLanguage,
@@ -233,6 +235,59 @@ export function draftDeltaIssues(entry: DraftEntry): (DraftDeltaIssue | null)[] 
 /** Deltas ACTUELLEMENT publiés pour ce pays (base de comparaison de l'inertie d'une entrée). */
 const publishedDeltas = (country: string, current?: CurrentMap): CtdDelta[] =>
   structureFromPayload(current?.get(currentKey(country, 'ctd_structure'))?.payload) ?? []
+
+/** Un nœud proposable dans la liste de l'éditeur de structure. */
+export interface PickableNode {
+  number: string
+  label: string
+  /** Profondeur en segments (« 1.2 » = 2) — pilote l'indentation ET la garde de retrait. */
+  depth: number
+}
+
+/**
+ * Nœuds SÉLECTIONNABLES pour un delta de structure : l'arborescence OFFICIELLE COURANTE du pays,
+ * c'est-à-dire le socle du format ← les deltas DÉJÀ PUBLIÉS pour ce pays.
+ *
+ * POURQUOI UNE LISTE ET NON UNE SAISIE : l'Edge sait dire « ce payload est bien formé », jamais
+ * « ce numéro existe » — l'arborescence vit dans le bundle web et la dupliquer côté Deno
+ * recréerait la dette payée en #419. Une faute de frappe publiait donc un delta INERTE : bannière,
+ * adoption, source citée… et aucun effet. Le contrôle d'existence appartient à l'éditeur.
+ *
+ * L'arbre de référence est pris SANS activité : un nœud absent du socle d'une activité (1.2.7 hors
+ * `new_ma`) reste ciblable pour les autres, et la liste ne change pas sous les doigts du god quand
+ * il cochera les activités. Les cas restés inertes sont signalés par `draftDeltaIssues`.
+ */
+export function pickableNodes(
+  country: string,
+  format: '' | 'ctd' | 'ectd',
+  current?: CurrentMap,
+): PickableNode[] {
+  const fmt = format === '' ? 'ctd' : format
+  const base = getModule1Tree(fmt)
+  const published = deltasFor(publishedDeltas(country, current), fmt, undefined)
+  const tree = published.length > 0 ? applyStructureDeltas(base, published) : base
+  return flattenTree(tree).map((n) => ({
+    number: n.number,
+    label: n.label,
+    depth: n.number.split('.').length,
+  }))
+}
+
+/**
+ * Premier numéro d'enfant LIBRE sous un parent (« 1.2 » → « 1.2.9 » si 1..8 existent).
+ *
+ * Sert la suggestion d'un AJOUT : aucune liste ne peut énumérer un numéro qui n'existe pas encore,
+ * donc le god choisit le PARENT et on propose le suivant — ce qui élimine à la fois la faute de
+ * frappe et l'orphelin (un ajout sous un parent inconnu est ignoré à l'application).
+ */
+export function nextFreeChildNumber(nodes: PickableNode[], parentNumber: string): string {
+  const taken = new Set(nodes.map((n) => n.number))
+  for (let i = 1; i <= 99; i++) {
+    const candidate = `${parentNumber}.${i}`
+    if (!taken.has(candidate)) return candidate
+  }
+  return `${parentNumber}.1`
+}
 
 /**
  * Nombre de SOUS-SECTIONS emportées par un retrait (0 pour une feuille).

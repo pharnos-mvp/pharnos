@@ -17,6 +17,9 @@ import {
   toPayload,
   type CurrentMap,
   type DraftDelta,
+  currentMapOf,
+  nextFreeChildNumber,
+  pickableNodes,
 } from './ref-draft'
 import type { RefEntryFull, RefVersionRow } from './admin-api'
 
@@ -377,5 +380,68 @@ describe('nextLabel', () => {
 
   it('plafonne à 999 (la regex serveur refuse 4 chiffres)', () => {
     expect(nextLabel([v(`v${year}.999`)])).toBe(`v${year}.999`)
+  })
+})
+
+describe('pickableNodes — le nœud se CHOISIT, il ne se tape pas', () => {
+  it('propose l’arborescence RÉELLE du pays : socle ← deltas DÉJÀ publiés', () => {
+    const current = currentMapOf([
+      {
+        country: 'TG',
+        section: 'ctd_structure',
+        payload: { deltas: [{ kind: 'add', number: '1.2.9', label: 'Pharmacovigilance' }] },
+        provenance: {},
+        version_label: 'v2026.2',
+      },
+    ])
+    const withDelta = pickableNodes('TG', 'ctd', current)
+    const sansDelta = pickableNodes('SN', 'ctd', current)
+
+    // Le nœud publié pour le Togo est proposé…
+    expect(withDelta.find((n) => n.number === '1.2.9')?.label).toBe('Pharmacovigilance')
+    // …et PAS pour un autre pays (les deltas sont nationaux).
+    expect(sansDelta.some((n) => n.number === '1.2.9')).toBe(false)
+  })
+
+  it('un retrait publié disparaît de la liste (on ne re-retire pas ce qui n’existe plus)', () => {
+    const current = currentMapOf([
+      {
+        country: 'TG',
+        section: 'ctd_structure',
+        payload: { deltas: [{ kind: 'remove', number: '1.1.2' }] },
+        provenance: {},
+        version_label: 'v2026.2',
+      },
+    ])
+    expect(pickableNodes('TG', 'ctd', current).some((n) => n.number === '1.1.2')).toBe(false)
+    expect(pickableNodes('TG', 'ctd', undefined).some((n) => n.number === '1.1.2')).toBe(true)
+  })
+
+  it('porte la profondeur (l’UI en tire l’indentation ET la garde de retrait)', () => {
+    const nodes = pickableNodes('SN', 'ctd')
+    expect(nodes.find((n) => n.number === '1.1')?.depth).toBe(2)
+    expect(nodes.find((n) => n.number === '1.1.1')?.depth).toBe(3)
+    // Une liste de retrait ne gardera que les ≥ 3 : aucune branche de 1er niveau retirable.
+    expect(nodes.filter((n) => n.depth >= 3).some((n) => n.number === '1.1')).toBe(false)
+  })
+
+  it('format vide = CTD par défaut (la liste ne doit jamais être vide)', () => {
+    expect(pickableNodes('SN', '').length).toBeGreaterThan(10)
+    expect(pickableNodes('SN', 'ectd').length).toBeGreaterThan(10)
+  })
+})
+
+describe('nextFreeChildNumber — la suggestion d’un AJOUT', () => {
+  it('propose le premier numéro LIBRE sous le parent', () => {
+    const nodes = pickableNodes('SN', 'ctd')
+    const proposed = nextFreeChildNumber(nodes, '1.2')
+
+    expect(proposed.startsWith('1.2.')).toBe(true)
+    // Il est libre : c'est tout le point (aucun doublon, aucun écrasement).
+    expect(nodes.some((n) => n.number === proposed)).toBe(false)
+  })
+
+  it('un parent sans enfant connu reçoit « .1 »', () => {
+    expect(nextFreeChildNumber([], '1.9')).toBe('1.9.1')
   })
 })

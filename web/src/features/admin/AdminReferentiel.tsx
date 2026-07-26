@@ -37,7 +37,9 @@ import {
   fromServerEntry,
   isBlockingDeltaIssue,
   newDelta,
+  nextFreeChildNumber,
   nextLabel,
+  pickableNodes,
   prefillEntry,
   refErrorLabel,
   removedSubtreeCount,
@@ -933,7 +935,7 @@ function EntryEditor({
       ) : null}
 
       {entry.section === 'ctd_structure' ? (
-        <StructureEditor entry={entry} onChange={onChange} />
+        <StructureEditor entry={entry} onChange={onChange} current={current} />
       ) : null}
 
       {/* Provenance — OBLIGATOIRE (le cœur de la confiance : la source citée). */}
@@ -979,12 +981,23 @@ const KIND_LABEL: Record<CtdDeltaKind, Translatable> = {
 function StructureEditor({
   entry,
   onChange,
+  current,
 }: {
   entry: DraftEntry
   onChange: (patch: Partial<DraftEntry>) => void
+  /** Contenu publié courant : la liste des nœuds part de l'arborescence RÉELLE du pays. */
+  current: CurrentMap
 }) {
   const { t, lang } = useI18n()
   const issues = useMemo(() => draftDeltaIssues(entry), [entry])
+  // Arborescence RÉELLE du pays (socle ← deltas déjà publiés). Le format de la 1re ligne suffit :
+  // mélanger CTD et eCTD dans une même liste rendrait les numéros ambigus à l'œil.
+  const nodes = useMemo(
+    () => pickableNodes(entry.country, entry.deltas[0]?.format ?? '', current),
+    [entry.country, entry.deltas, current],
+  )
+  /** Parent déduit du numéro en cours (« 1.2.9 » → « 1.2 ») — présélectionne la liste « Sous ». */
+  const parentOf = (n: string) => (n.includes('.') ? n.slice(0, n.lastIndexOf('.')) : '')
   const setDelta = (i: number, patch: Partial<DraftDelta>) =>
     onChange({ deltas: entry.deltas.map((d, j) => (j === i ? { ...d, ...patch } : d)) })
 
@@ -1049,17 +1062,73 @@ function StructureEditor({
                       ))}
                     </NativeSelect>
                   </Field>
-                  <Field label={t({ fr: 'Nœud', en: 'Node' })}>
-                    <Input
-                      value={d.number}
-                      onChange={(e) => setDelta(i, { number: e.target.value })}
-                      placeholder="1.1.2"
-                      inputMode="decimal"
-                      className="w-28"
-                      aria-invalid={isBlockingDeltaIssue(issue, d.kind) || undefined}
-                      aria-describedby={issue ? errId : undefined}
-                    />
-                  </Field>
+                  {/* Le nœud se CHOISIT, il ne se tape pas : une coquille publiait un delta
+                      INERTE (l'Edge ne connaît pas l'arborescence, cf. `pickableNodes`).
+                      • « Plus exigé »/« Libellé » visent un nœud EXISTANT → liste des nœuds réels.
+                        Un retrait n'offre que la profondeur ≥ 3 : la garde de branche devient
+                        invisible au lieu d'être punitive.
+                      • « Nouveau » vise un numéro qui n'existe PAS encore → on choisit le PARENT
+                        et le premier numéro libre est proposé (modifiable). */}
+                  {d.kind === 'add' ? (
+                    <>
+                      <Field label={t({ fr: 'Sous', en: 'Under' })}>
+                        <NativeSelect
+                          value={parentOf(d.number)}
+                          onChange={(e) =>
+                            setDelta(i, { number: nextFreeChildNumber(nodes, e.target.value) })
+                          }
+                          className="w-72"
+                        >
+                          <option value="">{t({ fr: '— choisir —', en: '— choose —' })}</option>
+                          {nodes.map((n) => (
+                            <option key={n.number} value={n.number}>
+                              {' '.repeat((n.depth - 1) * 2)}
+                              {n.number} · {n.label}
+                            </option>
+                          ))}
+                        </NativeSelect>
+                      </Field>
+                      <Field label={t({ fr: 'Numéro', en: 'Number' })}>
+                        <Input
+                          value={d.number}
+                          onChange={(e) => setDelta(i, { number: e.target.value })}
+                          placeholder="1.2.9"
+                          inputMode="decimal"
+                          className="w-28"
+                          aria-invalid={isBlockingDeltaIssue(issue, d.kind) || undefined}
+                          aria-describedby={issue ? errId : undefined}
+                        />
+                      </Field>
+                    </>
+                  ) : (
+                    <Field label={t({ fr: 'Nœud', en: 'Node' })}>
+                      <NativeSelect
+                        value={d.number}
+                        onChange={(e) => setDelta(i, { number: e.target.value })}
+                        className="w-80"
+                        aria-invalid={isBlockingDeltaIssue(issue, d.kind) || undefined}
+                        aria-describedby={issue ? errId : undefined}
+                      >
+                        <option value="">{t({ fr: '— choisir —', en: '— choose —' })}</option>
+                        {nodes
+                          .filter((n) => d.kind !== 'remove' || n.depth >= 3)
+                          .map((n) => (
+                            <option key={n.number} value={n.number}>
+                              {' '.repeat((n.depth - 1) * 2)}
+                              {n.number} · {n.label}
+                            </option>
+                          ))}
+                        {/* Un numéro déjà saisi mais absent de l'arbre (delta hérité d'une version
+                            antérieure, socle qui a bougé) doit rester VISIBLE et sélectionné, sinon
+                            le select l'effacerait en silence. */}
+                        {d.number && !nodes.some((n) => n.number === d.number) ? (
+                          <option value={d.number}>
+                            {d.number} · {t({ fr: 'hors arborescence', en: 'outside the tree' })}
+                          </option>
+                        ) : null}
+                      </NativeSelect>
+                    </Field>
+                  )}
                   {d.kind === 'remove' ? null : (
                     <Field label={t({ fr: 'Libellé', en: 'Label' })}>
                       <Input
