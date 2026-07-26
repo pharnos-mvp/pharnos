@@ -220,7 +220,8 @@ export interface RefOverview {
 
 export interface RefDraftEntryInput {
   country: string
-  section: 'agency' | 'fees' | 'submission' | 'samples'
+  /** Miroir de `REF_SECTIONS` (`_shared/ref-payload.ts`) et de la liste blanche de la RPC 0078. */
+  section: 'agency' | 'fees' | 'submission' | 'samples' | 'ctd_structure'
   payload: unknown
   /** Source officielle citée — OBLIGATOIRE (l'Edge refuse sans `texte`). */
   provenance: { texte: string; jo?: string; complements?: string; note?: string }

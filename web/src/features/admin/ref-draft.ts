@@ -1,4 +1,18 @@
 import {
+  CTD_ACTIVITY_CODES,
+  deltaFromPayload,
+  deltasFor,
+  findByNumber,
+  structureDeltaIssues,
+  isStructureReset,
+  structureFromPayload,
+  structureIsInert,
+  type CtdDelta,
+  type CtdDeltaIssue,
+  type CtdDeltaKind,
+} from '@/features/catalogue/ref-structure'
+import { getModule1Tree } from '@/features/workspace/module1-tree'
+import {
   agencyFor,
   officialLanguage,
   regulatoryProfileFor,
@@ -26,6 +40,7 @@ export const SECTION_LABEL: Record<SectionKey, Translatable> = {
   fees: { fr: 'Redevances', en: 'Fees' },
   submission: { fr: 'Modalités de dépôt', en: 'Filing procedure' },
   samples: { fr: 'Échantillons', en: 'Samples' },
+  ctd_structure: { fr: 'Structure du Module 1', en: 'Module 1 structure' },
 }
 
 /** Codes d'erreur Edge → message actionnable (le générique cache la cause, revue #417 m4). */
@@ -72,6 +87,9 @@ export const refErrorLabel = (err: unknown, fallback: Translatable): Translatabl
 
 /** Brouillon d'entrée — état PLAT de formulaire, sérialisé en payload jsonb à l'enregistrement. */
 export interface DraftEntry {
+  /** Identité de LIGNE (jamais publiée) — clé React stable : `key={index}` recyclait le nœud DOM
+   *  d'une entrée supprimée et déplaçait la saisie en cours sur une autre entrée. */
+  id: string
   country: string
   section: SectionKey
   // fees
@@ -106,10 +124,136 @@ export interface DraftEntry {
   samplesRenewEn: string
   reserveFr: string
   reserveEn: string
+  // ctd_structure — deltas d'arborescence du Module 1 (P4.5)
+  deltas: DraftDelta[]
+  /** ABROGATION : ce pays revient à l'arborescence de référence (aucun écart national). */
+  structureReset: boolean
   // provenance (OBLIGATOIRE : texte)
   provTexte: string
   provJo: string
   provComplements: string
+}
+
+/**
+ * Un delta de structure en cours de saisie. `format: ''` = les deux formats ; `activities: []` =
+ * toutes les activités SAUF la variation (l'arbre de variation est opt-in — sa numérotation est
+ * homonyme sans être synonyme, cf. `deltasFor`).
+ */
+export interface DraftDelta {
+  /** Identité de LIGNE (jamais publiée) : `key={index}` réutilisait le nœud DOM d'une ligne
+   *  supprimée, déplaçant le curseur du god sur une autre valeur en pleine saisie. */
+  id: string
+  kind: CtdDeltaKind
+  number: string
+  label: string
+  note: string
+  format: '' | 'ctd' | 'ectd'
+  activities: string[]
+}
+
+export const newDelta = (): DraftDelta => ({
+  id: crypto.randomUUID(),
+  kind: 'remove',
+  number: '',
+  label: '',
+  note: '',
+  format: '',
+  activities: [],
+})
+
+/** État de saisie → delta canonique (`undefined` si le contrat le refuserait). */
+export function draftToDelta(d: DraftDelta): CtdDelta | undefined {
+  const activities = [...new Set(d.activities)]
+  return deltaFromPayload({
+    kind: d.kind,
+    number: d.number,
+    ...(d.label.trim() ? { label: d.label } : {}),
+    ...(d.note.trim() ? { note: d.note } : {}),
+    ...(d.format ? { format: d.format } : {}),
+    ...(activities.length > 0 ? { activities } : {}),
+  })
+}
+
+/**
+ * Activités RÉELLEMENT touchées par un delta, **format par format** — ce que l'éditeur affiche au
+ * god pour qu'il le voie au lieu de le deviner.
+ *
+ * Le détail par format n'est pas du zèle : l'exception M4 vise l'ARBRE de variation (CTD UEMOA),
+ * pas l'étiquette d'activité. En eCTD, une variation est montée sur l'arbre standard — un delta
+ * non scopé l'atteint donc bel et bien. Une portée agrégée (« variation exclue ») serait fausse
+ * pour la moitié des dossiers.
+ */
+export function deltaScopeByFormat(
+  d: CtdDelta,
+): { format: 'ctd' | 'ectd'; activities: string[] }[] {
+  const formats: ('ctd' | 'ectd')[] = d.format ? [d.format] : ['ctd', 'ectd']
+  return formats
+    .map((format) => ({
+      format,
+      activities: CTD_ACTIVITY_CODES.filter((a) => deltasFor([d], format, a).length > 0),
+    }))
+    .filter((s) => s.activities.length > 0)
+}
+
+/** `malformed` = le contrat partagé refuserait ce delta ; sinon, le verdict d'effet réel. */
+export type DraftDeltaIssue = CtdDeltaIssue | 'malformed'
+
+/**
+ * Problème BLOQUANT ? Tout ce qui est inerte ne se vaut pas :
+ * - `no_change` (redondance, doublon) : même arbre sans la ligne — un AVIS. Bloquer interdirait
+ *   au god un geste légitime (revenir au libellé du socle = retirer la ligne) et ferait échouer
+ *   l'enregistrement du brouillon ENTIER, tous pays confondus (B1, revue P4.5b).
+ * - `masked` : le nœud a déjà été emporté par une autre ligne. Pour un `remove`, c'est le décret
+ *   qui cite le chapitre ET sa sous-section — inoffensif, donc un avis. Pour un `add`, c'est une
+ *   contradiction dans l'entrée (on ajoute sous ce qu'on retire) : le god doit trancher.
+ * - `unknown_node` / `orphan` / `malformed` : coquille de saisie — bloquant.
+ */
+export const isBlockingDeltaIssue = (
+  i: DraftDeltaIssue | null | undefined,
+  kind?: CtdDeltaKind,
+): boolean => {
+  if (i == null || i === 'no_change') return false
+  if (i === 'masked') return kind === 'add'
+  return true
+}
+
+/**
+ * Problème de chaque delta d'une entrée, **index par index** (`null` = produit un effet quelque
+ * part). Les malformés sont écartés du calcul d'effet mais gardent leur place : un tableau
+ * décalé rattacherait le message d'erreur à la mauvaise ligne de l'éditeur.
+ */
+export function draftDeltaIssues(entry: DraftEntry): (DraftDeltaIssue | null)[] {
+  const canonical = entry.deltas.map(draftToDelta)
+  const valid = canonical.filter((d): d is CtdDelta => d !== undefined)
+  const issues = structureDeltaIssues(valid, getModule1Tree)
+  let i = 0
+  return canonical.map((d) => (d === undefined ? 'malformed' : (issues[i++] ?? null)))
+}
+
+/** Deltas ACTUELLEMENT publiés pour ce pays (base de comparaison de l'inertie d'une entrée). */
+const publishedDeltas = (country: string, current?: CurrentMap): CtdDelta[] =>
+  structureFromPayload(current?.get(currentKey(country, 'ctd_structure'))?.payload) ?? []
+
+/**
+ * Nombre de SOUS-SECTIONS emportées par un retrait (0 pour une feuille).
+ *
+ * Le contrat interdit de retirer une branche de 1er niveau, mais « retirer 1.2.6 » emporte quand
+ * même ses deux nœuds AMM. Aucun document n'est perdu (l'auto-classement remonte sur l'ancêtre
+ * survivant) — reste que le god doit le voir AVANT de publier, pas le découvrir chez un client.
+ */
+export function removedSubtreeCount(d: CtdDelta): number {
+  if (d.kind !== 'remove') return 0
+  const count = (n: { children?: { children?: unknown[] }[] }): number =>
+    (n.children ?? []).reduce((acc, c) => acc + 1 + count(c as never), 0)
+  let max = 0
+  for (const format of ['ctd', 'ectd'] as const) {
+    for (const activity of CTD_ACTIVITY_CODES) {
+      if (deltasFor([d], format, activity).length === 0) continue
+      const node = findByNumber(getModule1Tree(format, activity), d.number)
+      if (node) max = Math.max(max, count(node))
+    }
+  }
+  return max
 }
 
 // `\s` couvre déjà les espaces insécables (fine incluse) des montants collés depuis un texte.
@@ -135,6 +279,22 @@ const tOpt = (fr: string, en: string): Translatable | undefined =>
 export const currentKey = (country: string, section: string) => `${country}|${section}`
 export type CurrentMap = Map<string, RefCurrentEntry>
 
+/**
+ * Carte du contenu courant, mémoïsée sur l'IDENTITÉ du tableau source.
+ *
+ * Elle ne peut pas vivre dans un `useMemo` : le composant retourne tôt (chargement, erreur) et un
+ * hook après un `return` conditionnel est interdit. Or la validation de structure fait des calculs
+ * d'arbre à chaque frappe — une carte reconstruite à chaque rendu invaliderait tout en aval.
+ */
+const CURRENT_MAP_CACHE = new WeakMap<RefCurrentEntry[], CurrentMap>()
+export function currentMapOf(rows: RefCurrentEntry[]): CurrentMap {
+  const hit = CURRENT_MAP_CACHE.get(rows)
+  if (hit) return hit
+  const map: CurrentMap = new Map(rows.map((c) => [currentKey(c.country, c.section), c]))
+  CURRENT_MAP_CACHE.set(rows, map)
+  return map
+}
+
 /** Entrée préremplie depuis le SOCLE code — repli quand rien n'est publié pour ce couple. */
 function soclePrefill(country: string, section: SectionKey): DraftEntry {
   const ag = agencyFor(country)
@@ -142,6 +302,7 @@ function soclePrefill(country: string, section: SectionKey): DraftEntry {
   const t = (v: Translatable | undefined) => ({ fr: v?.fr ?? '', en: v?.en ?? '' })
   const joinT = (v: Translatable[] | undefined, l: Lang) => (v ?? []).map((x) => x[l]).join('\n')
   return {
+    id: crypto.randomUUID(),
     country,
     section,
     feeNewMa: p?.fees.new_ma != null ? String(p.fees.new_ma) : '',
@@ -172,6 +333,10 @@ function soclePrefill(country: string, section: SectionKey): DraftEntry {
     samplesRenewEn: joinT(p?.samples.renewal_variation, 'en'),
     reserveFr: p?.samples.reserve?.fr ?? '',
     reserveEn: p?.samples.reserve?.en ?? '',
+    // Le socle n'a PAS de deltas : il EST l'arborescence de référence. Une entrée neuve part donc
+    // d'une liste vide ; le contenu déjà publié, lui, arrive par `prefillEntry` (contenu courant).
+    deltas: [],
+    structureReset: false,
     provTexte: '',
     provJo: '',
     provComplements: '',
@@ -226,6 +391,19 @@ function applyPayload(base: DraftEntry, section: SectionKey, payload: unknown): 
     out.samplesRenewEn = list(sm.renewal_variation, 'en')
     out.reserveFr = tr(sm.reserve).fr
     out.reserveEn = tr(sm.reserve).en
+  } else if (section === 'ctd_structure') {
+    out.structureReset = isStructureReset(payload)
+    // Deltas NORMALISÉS (ce que le client applique vraiment), jamais le jsonb brut : un delta que
+    // le résolveur ignore ne doit pas se rouvrir dans l'éditeur comme s'il était en vigueur.
+    out.deltas = (structureFromPayload(payload) ?? []).map((d) => ({
+      id: crypto.randomUUID(),
+      kind: d.kind,
+      number: d.number,
+      label: d.label ?? '',
+      note: d.note ?? '',
+      format: d.format ?? '',
+      activities: d.activities ?? [],
+    }))
   }
   return out
 }
@@ -297,11 +475,25 @@ export function toPayload(e: DraftEntry): unknown {
           ...(tOpt(e.reserveFr, e.reserveEn) ? { reserve: tOpt(e.reserveFr, e.reserveEn) } : {}),
         },
       }
+    case 'ctd_structure':
+      // Abrogation : marqueur EXPLICITE + liste vide. Une liste vide seule serait indistinguable
+      // d'un oubli (et refusée comme telle des deux côtés).
+      if (e.structureReset) return { reset: true, deltas: [] }
+      // Sérialisation via le NORMALISEUR partagé : le payload publié est, à l'octet près, ce que
+      // le résolveur relira (champs vides omis, numéro trimé) — aucun aller-retour ne dérive.
+      return {
+        deltas: e.deltas.map(draftToDelta).filter((d): d is CtdDelta => d !== undefined),
+      }
   }
 }
 
-/** Erreur de validation LOCALE d'une entrée (l'Edge re-vérifie tout) — null si publiable. */
-export function entryError(e: DraftEntry): Translatable | null {
+/**
+ * Erreur de validation LOCALE d'une entrée (l'Edge re-vérifie tout) — null si publiable.
+ *
+ * `current` (contenu résolu en vigueur) sert la section `ctd_structure` : sans lui, impossible de
+ * savoir qu'une entrée re-déclare simplement ce qui est déjà publié. Absent = « rien n'est publié ».
+ */
+export function entryError(e: DraftEntry, current?: CurrentMap): Translatable | null {
   if (e.provTexte.trim().length < 3)
     return {
       fr: 'Provenance obligatoire : citez le texte officiel (n° de décret/arrêté, date).',
@@ -330,7 +522,69 @@ export function entryError(e: DraftEntry): Translatable | null {
       fr: 'Échantillons : FR et EN doivent avoir le même nombre de lignes.',
       en: 'Samples: FR and EN must have the same number of lines.',
     }
+  if (e.section === 'ctd_structure') {
+    if (e.structureReset) {
+      // Abroger ce qui n'existe pas = publier du néant. Le test d'inertie ci-dessous le dirait
+      // aussi, mais le message serait obscur pour un god qui vient de cocher la case.
+      if (publishedDeltas(e.country, current).length === 0)
+        return {
+          fr: 'Aucun écart national n’est publié pour ce pays : il n’y a rien à abroger.',
+          en: 'No national deviation is published for this country: there is nothing to repeal.',
+        }
+      return null
+    }
+    if (e.deltas.length === 0)
+      return {
+        fr: 'Structure : ajoutez au moins un changement de nœud (ou cochez « revenir à l’arborescence de référence »).',
+        en: 'Structure: add at least one node change (or tick “return to the reference tree”).',
+      }
+    // Le contrat serveur ne peut PAS vérifier qu'un numéro existe (l'arborescence vit dans le
+    // bundle web). C'est donc ICI, avant l'enregistrement, qu'un delta fautif est arrêté —
+    // sinon il se publie, se fait adopter, et ne change rien nulle part (règle ⑤ du mockup).
+    const issues = draftDeltaIssues(e)
+    for (const [i, issue] of issues.entries()) {
+      if (!isBlockingDeltaIssue(issue, e.deltas[i]?.kind)) continue
+      // Repère de la ligne fautive : les deltas n'ont pas d'autre nom que leur rang et leur numéro.
+      return DELTA_ISSUE_LABEL[issue!](`#${i + 1} ${e.deltas[i]?.number.trim() || '—'}`)
+    }
+    // Inertie de l'ENTRÉE : le payload REMPLACE celui de la version précédente. Une entrée qui
+    // re-déclare l'existant est bien formée, ligne à ligne effective… et ne change rien pour
+    // personne. Sans ce test, la cloche sonne chez tous les clients pour du néant.
+    const next = e.deltas.map(draftToDelta).filter((d): d is CtdDelta => d !== undefined)
+    if (structureIsInert(next, publishedDeltas(e.country, current), getModule1Tree))
+      return {
+        fr: 'Cette entrée produirait exactement l’arborescence déjà en vigueur pour ce pays : publier annoncerait une mise à jour sans effet.',
+        en: 'This entry would produce exactly the tree already in force for this country: publishing would announce an update with no effect.',
+      }
+  }
   return null
+}
+
+/** Message actionnable par problème de delta — partagé entre la validation et l'éditeur. */
+export const DELTA_ISSUE_LABEL: Record<DraftDeltaIssue, (at: string) => Translatable> = {
+  malformed: (at) => ({
+    fr: `Delta ${at} : incomplet (numéro CTD attendu ; libellé requis pour un ajout/renommage ; un retrait vise un nœud de 3 niveaux minimum).`,
+    en: `Delta ${at}: incomplete (CTD number expected; label required for add/rename; a removal targets a 3-level node at minimum).`,
+  }),
+  unknown_node: (at) => ({
+    fr: `Delta ${at} : ce numéro n’existe dans aucune arborescence visée — il ne changerait rien. Vérifiez le numéro ou la portée.`,
+    en: `Delta ${at}: this number exists in none of the targeted trees — it would change nothing. Check the number or the scope.`,
+  }),
+  orphan: (at) => ({
+    fr: `Delta ${at} : le nœud parent n’existe pas, l’ajout serait ignoré. Publiez d’abord le parent.`,
+    en: `Delta ${at}: the parent node does not exist, the addition would be ignored. Publish the parent first.`,
+  }),
+  masked: (at) => ({
+    fr: `Delta ${at} : ce nœud est déjà emporté par une autre ligne de cette entrée — cette ligne n’ajoute rien (un ajout sous un nœud retiré, lui, ne montera jamais).`,
+    en: `Delta ${at}: this node is already carried away by another line in this entry — this line adds nothing (an addition under a removed node will never mount).`,
+  }),
+  // AVIS, pas faute : la retirer donne le même arbre. Le « pourquoi » compte — un god qui veut
+  // revenir au libellé du socle doit comprendre que le geste est de SUPPRIMER la ligne, parce que
+  // le payload remplace la version précédente au lieu de s'y ajouter.
+  no_change: (at) => ({
+    fr: `Delta ${at} : sans effet sur l’arborescence (valeur déjà en vigueur, ligne en double, ou annulée par une autre ligne). Vous pouvez la retirer : ce contenu REMPLACE la version précédente, il ne s’y ajoute pas.`,
+    en: `Delta ${at}: no effect on the tree (value already in force, duplicate line, or cancelled by another line). You may remove it: this content REPLACES the previous version, it does not add to it.`,
+  }),
 }
 
 /** Désérialise une entrée serveur → état plat (rechargement d'un brouillon existant). */

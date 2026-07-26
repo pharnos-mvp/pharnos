@@ -126,13 +126,13 @@ ci-dessous sont des features post-pilotes qui ne bloquent pas le gate.
 | **P1** ✅ | Matrice métier §1 : sessions/onglets par rôle, retrait « Titulaire » (contexte org), carte « MAH + Fabricant » — **LIVRÉ 2026-07-24 (#408)** | S (front-only) | 0 |
 | **P2** ✅ | Réutilisation §2 + §3 — **LIVRÉ 2026-07-24 (#409 pioche · #410 upload fiche org)** : `source_doc_id` (0070, prod), `documents-reuse` (`copyDocumentToProduct`, mapping sources §2), pickers « Depuis la base / Depuis mon poste » wizard + fiche produit (`SourceDocPicker` partagé, dédoublonnage), `DocAddForm` extrait + `OrgDocAddButton` (onglets AMM/admin/info + `OrgPiecePage`). Pièges : garde d'ordonnancement FK auto-référente au push (outbox non ordonnée → 2ᵉ passe bornée) ; RLS insert vérifiée (org_id éditable + RESTRICTIVE CS1). Différé : requêtes party-scopées si `documents` grossit ; garde serveur `party.org_id = document.org_id` (belt-and-braces) | M | 0070 ✅ |
 | **P3** ✅ | Agences en correspondance — **LIVRÉ 2026-07-24 (#412)** : ShareDialog = sélecteur des parties rôle `agent` (préremplit l'e-mail), « ＋ Nouvelle agence » inline (collision de nom annoncée : fusion, aucun doublon), capture « base vivante » best-effort APRÈS l'envoi (fill-the-gap `contactEmail`, relecture fraîche, jamais d'écrasement). L'e-mail reste LA clé d'identité des fils (aucun `party_id` persisté). `NativeSelect` promu `components/ui`. Prérequis embarqué : #411 (advisories du jour — postcss 8.5.23 + migration `react-router-dom`→`react-router` 8.3.0) | S–M | 0 ✅ |
-| **P4** | Autorités versionnées + God dashboard — mockup + design §6 **VALIDÉS CEO 2026-07-24** ; **P4.1 (#414), P4.2 (#415), P4.4-pré (#416) et P4.4 (#417) LIVRÉS** ; reste P4.3 overrides · P4.5 structure CTD | L | 0071→0076 ✅ |
+| **P4** | Autorités versionnées + God dashboard — mockup + design §6 **VALIDÉS CEO 2026-07-24** ; **P4.1 (#414), P4.2 (#415), P4.4-pré (#416), P4.4 (#417), P4.3 (#420) et P4.5 (§7) LIVRÉS** — chantier CLOS | L | 0071→0078 ✅ |
 | **P5** (post-GO-LIVE) | Lien membre↔partie (`memberships.party_id`) + rôles avancés | M | oui |
 
 Chaque phase = 1 à 2 PR, revue `code-reviewer` systématique, CI job-par-job, migration appliquée
 et vérifiée en prod AVANT le merge du code qui la consomme.
 
-**Prochaine migration libre : 0078.**
+**Prochaine migration libre : 0079** (0078 = liste blanche `ctd_structure`, cf. §7).
 
 **P4.3 livré — adaptations locales (migration `0077`, appliquée prod avant merge)** : la seconde
 moitié du contrat, « la donnée officielle SE PROPOSE, la donnée LOCALE SE RESPECTE ».
@@ -377,3 +377,66 @@ P4.2** (épinglage + bascule volontaire tracée ensemble).
    fusionné, il resterait visible tant qu'une lettre PGHT y est montée.)
 Implémentation : slice dédiée **P4.5** (après P4.4) — la machinerie d'arbre est délicate ; le
 modèle de données (section `ctd_structure`) est réservé dès la 0071.
+
+---
+
+## 7) P4.5 — la structure du Module 1 devient une donnée versionnée (LIVRÉ)
+
+Mockup validé : `docs/mockups/ctd-structure-fusion.html`. Migration `0078` (liste blanche de
+sections de `admin_ref_save_draft`) — **à appliquer en prod AVANT le merge**.
+
+**1ʳᵉ moitié (`f70f209`)** : contrat de deltas partagé Edge/client, résolveur `resolvedModule1Tree`,
+bannière + cible d'auto-fusion « socle MOINS les retraits consentis », bloc Structure dans les
+diffs d'adoption.
+
+**2ᵉ moitié** : l'éditeur god de la section + les deux points laissés ouverts.
+- **Éditeur god** (mockup ①) : tableau de deltas (genre, nœud, libellé, guidance, format,
+  activités), préremplissage depuis le CONTENU COURANT (règle M2), portée EFFECTIVE affichée
+  format par format, et refus des deltas inertes avant enregistrement.
+- **M6 — activités bornées** aux codes réellement portés par `dossiers.activity` (`CTD_ACTIVITIES`
+  côté Edge / `CTD_ACTIVITY_CODES` côté web) : « variations » au pluriel se publiait, s'adoptait,
+  et ne s'appliquait à aucun dossier.
+- **M4 — l'arbre de VARIATION est opt-in** : sa numérotation est homonyme sans être synonyme
+  (« 1.2.1 » = formulaire de VARIATION). Un delta non scopé ne l'atteint plus ; le viser se
+  déclare. Exception limitée au CTD UEMOA — en eCTD, une variation est montée sur l'arbre standard.
+- **Abrogation possible** (`reset: true`) : le payload d'une section REMPLACE le précédent, donc
+  « revenir au socle » s'écrivait… une liste vide, refusée comme un oubli. Sans ce marqueur, un
+  pays restait prisonnier À VIE de ses écarts publiés. Un décret s'abroge.
+- **Contrôle d'effet côté client** : le contrat serveur sait dire « bien formé », pas « ce numéro
+  existe » (l'arborescence vit dans le bundle web ; la dupliquer en Deno recréerait la dette payée
+  en #419). Test DIFFÉRENTIEL par scope (l'arbre change-t-il sans cette ligne ?) + inertie de
+  l'ENTRÉE face au contenu publié.
+
+**Pièges payés par les 3 revues (tous corrigés avant merge)** :
+- **Juger une ligne contre le socle nu est faux** : le payload remplace la version précédente. Une
+  ligne « redondante » est un AVIS (la retirer donne le même arbre), pas une faute — bloquer
+  dessus interdisait un retour au libellé officiel et faisait échouer l'enregistrement du
+  brouillon ENTIER, tous pays confondus.
+- **Diagnostiquer l'existence d'un nœud sur un arbre déjà muté par les lignes voisines** faisait
+  accuser « numéro inconnu » un simple retrait DUPLIQUÉ (`remove` est le genre par défaut d'une
+  nouvelle ligne). L'existence se juge sur le socle ; l'arbre appliqué ne sert qu'à distinguer
+  « masqué par une autre ligne ».
+- **Rapporter le verdict du premier scope** accusait de « numéro inconnu » un nœud absent du seul
+  arbre « nouvelle AMM » et présent dans les quatre autres → on rapporte le MOINS sévère.
+- **Le diff d'adoption ne doit JAMAIS empiler les deltas des versions entrantes** : v2 « 1.1.2
+  plus exigée » puis v3 qui ne la reconduit pas REMET 1.1.2 en vigueur. Le cumul annonçait le
+  retrait et taisait le retour — l'inverse de ce qui allait se produire, dans un dialogue de
+  CONSENTEMENT. Le diff se lit sur les états RÉSOLUS de part et d'autre (`structureDiff`).
+- **La clé de comparaison d'un delta doit inclure sa PORTÉE** : resserrer `activities` s'annonçait
+  « ne change rien » alors que l'exigence revenait pour 3 activités sur 4.
+- **Ne jamais promettre à un dossier un changement qui ne l'atteindra pas** : les bannières
+  filtrent par (format, activité) du dossier, et les paires posée/révoquée qui se neutralisent
+  pour CE dossier disparaissent des deux côtés.
+- Parité Edge/web : un `add` de numéro à un seul segment était publiable et jamais appliqué ; la
+  liste d'activités Deno n'était verrouillée par AUCUN test malgré son commentaire (fixture par
+  code ajoutée).
+
+**Reste ouvert, tracé** :
+- `isTreeOutdated` ne compare que des NUMÉROS → un `relabel` (ou son retour au socle) n'allume
+  jamais la bannière « structure à mettre à jour » d'un dossier. Antérieur à P4.5 ; à traiter avec
+  l'écran de fusion ③ (choix ligne par ligne), non livré : la mise à jour reste globale.
+- `structureRowsFor` ignore `dossier.variations` (l'arbre de variation est élagué par la sélection)
+  → sur-promesse possible sur un dossier de variation scopé.
+- Abroger un écart publié à date d'effet FUTURE est refusé (`admin_ref_overview.current` ne sert
+  que l'applicable du jour).
+- `lifecycleConfigFor` : 5ᵉ source encore indexée pays (inventaire code-only assumé, cf. M7).

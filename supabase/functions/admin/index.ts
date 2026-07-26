@@ -19,9 +19,11 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Référentiel réglementaire versionné (P4.4). Liste blanche des sections + contrat d'efficacité
 // des payloads : `_shared/ref-payload.ts` (verrouillé par fixtures partagées + test de parité
-// côté web — une dérive Edge/résolveur casse la CI). `ctd_structure` (P4.5) en est absente tant
-// que la machinerie d'arbre n'est pas livrée : publier une section que personne ne rend serait
-// un piège (le client l'ignore, le god croit avoir publié).
+// côté web — une dérive Edge/résolveur casse la CI). `ctd_structure` y est entrée avec P4.5,
+// quand `resolvedModule1Tree` a commencé à appliquer ses deltas ET que l'éditeur god a su les
+// saisir : une section publiable que rien ne rend serait un piège (le god croit avoir publié).
+// Ce que le contrat NE peut pas juger : l'existence du nœud visé (l'arborescence vit dans le
+// bundle web) — ce contrôle-là est tenu par l'éditeur, avant enregistrement.
 const COUNTRY_RE = /^[A-Z]{2}$/;
 const REF_LABEL_RE = /^v\d{4}\.\d{1,3}$/; // « v2026.2 » — cohérent avec le tri d'applicabilité
 /** Cap de taille d'un payload/provenance sérialisé (anti-abus, le contenu réel fait < 5 Ko). */

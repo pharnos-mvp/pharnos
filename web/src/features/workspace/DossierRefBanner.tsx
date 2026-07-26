@@ -13,7 +13,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import type { DossierRefStatus } from '@/features/catalogue/ref-state'
-import { refUpdatePreview } from '@/features/catalogue/ref-diff'
+import {
+  refUpdatePreview,
+  structureRowLabel,
+  structureRowsFor,
+} from '@/features/catalogue/ref-diff'
 import { reportError } from '@/lib/sentry'
 import { useI18n } from '@/lib/i18n-context'
 import type { DossierRecord } from '@/lib/db'
@@ -76,6 +80,10 @@ export function DossierRefBanner({
       </div>
     )
   }
+
+  // Changements de structure qui atteindront CE dossier (M4 : un delta non scopé n'entre pas dans
+  // l'arbre de variation). Annoncer les autres promettrait un « mettre à jour » sans effet.
+  const structureRows = structureRowsFor(preview?.structure ?? [], dossier.format, dossier.activity)
 
   if (!status.behind || !applied) return null
 
@@ -203,14 +211,31 @@ export function DossierRefBanner({
                 </tbody>
               </table>
             </div>
-          ) : (
+          ) : !structureRows.length ? (
             <p className="text-muted-foreground text-sm">
               {t({
                 fr: 'Aucune valeur de ce dossier ne change sous la nouvelle version.',
                 en: 'No value of this submission changes under the new version.',
               })}
             </p>
-          )}
+          ) : null}
+
+          {/* La structure du Module 1 peut changer sans qu'aucune VALEUR ne bouge : le dire, sinon
+              le message ci-dessus contredirait la bannière « Nouvelle structure disponible ». */}
+          {structureRows.length ? (
+            <p className="border-info/30 bg-info-subtle/50 rounded-lg border p-2.5 text-xs">
+              <span className="font-semibold">
+                {t({ fr: 'Structure du Module 1 : ', en: 'Module 1 structure: ' })}
+              </span>
+              {structureRows.map((s) => `${s.number} ${structureRowLabel(s, t)}`).join(' · ')}
+              <span className="text-muted-foreground block">
+                {t({
+                  fr: 'Rien ne s’applique tant que vous ne mettez pas à jour la structure de ce dossier — et aucun document déposé n’est jamais supprimé.',
+                  en: 'Nothing applies until you update this submission’s structure — and no uploaded document is ever deleted.',
+                })}
+              </span>
+            </p>
+          ) : null}
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)} disabled={busy}>

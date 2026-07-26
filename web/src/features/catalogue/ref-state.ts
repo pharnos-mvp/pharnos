@@ -11,10 +11,16 @@ import { db, type RefEntryRecord, type RefVersionRecord } from '@/lib/db'
  * dialogs dans `ref-diff` : trois modules, trois portées de chargement.
  */
 
-export type SectionKey = 'agency' | 'fees' | 'submission' | 'samples'
-/** Liste blanche : une section future (`ctd_structure`, P4.5) ne doit ni déplacer le badge de
- *  version ni polluer la provenance d'une fiche qui ne la rend pas. */
-export const SECTIONS: readonly SectionKey[] = ['agency', 'fees', 'submission', 'samples']
+export type SectionKey = 'agency' | 'fees' | 'submission' | 'samples' | 'ctd_structure'
+/** Liste blanche : une section hors de cette liste ne doit ni déplacer le badge de version ni
+ *  polluer la provenance d'une fiche qui ne la rend pas. `ctd_structure` = P4.5 (deltas d'arbre). */
+export const SECTIONS: readonly SectionKey[] = [
+  'agency',
+  'fees',
+  'submission',
+  'samples',
+  'ctd_structure',
+]
 
 export const isPlainObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null

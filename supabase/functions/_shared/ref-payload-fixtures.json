@@ -2,143 +2,556 @@
   {
     "case": "agency — sigle seul suffit (patch partiel fusionné au socle)",
     "section": "agency",
-    "payload": { "name": "ARP" },
+    "payload": {
+      "name": "ARP"
+    },
     "effective": true
   },
   {
     "case": "agency — dénomination seule suffit",
     "section": "agency",
-    "payload": { "full": "Agence de Réglementation Pharmaceutique" },
+    "payload": {
+      "full": "Agence de Réglementation Pharmaceutique"
+    },
     "effective": true
   },
   {
     "case": "agency — sigle blanc n'est pas une identité",
     "section": "agency",
-    "payload": { "name": "   ", "directeur": "Dr X" },
+    "payload": {
+      "name": "   ",
+      "directeur": "Dr X"
+    },
     "effective": false
   },
   {
     "case": "agency — contacts sans sigle ni dénomination : rien à publier",
     "section": "agency",
-    "payload": { "directeur": "Dr X", "telephone": "+221 33 000 00 00" },
+    "payload": {
+      "directeur": "Dr X",
+      "telephone": "+221 33 000 00 00"
+    },
     "effective": false
   },
-  { "case": "agency — objet vide", "section": "agency", "payload": {}, "effective": false },
+  {
+    "case": "agency — objet vide",
+    "section": "agency",
+    "payload": {},
+    "effective": false
+  },
   {
     "case": "agency — sigle non textuel ignoré",
     "section": "agency",
-    "payload": { "name": 42 },
+    "payload": {
+      "name": 42
+    },
     "effective": false
   },
   {
     "case": "fees — un seul montant suffit",
     "section": "fees",
-    "payload": { "currency": "FCFA", "fees": { "new_ma": 1500000 } },
+    "payload": {
+      "currency": "FCFA",
+      "fees": {
+        "new_ma": 1500000
+      }
+    },
     "effective": true
   },
   {
     "case": "fees — zéro est un montant valide (gratuité officielle)",
     "section": "fees",
-    "payload": { "fees": { "renewal": 0 } },
+    "payload": {
+      "fees": {
+        "renewal": 0
+      }
+    },
     "effective": true
   },
   {
     "case": "fees — montant négatif = coquille, jamais servi",
     "section": "fees",
-    "payload": { "fees": { "new_ma": -1000 } },
+    "payload": {
+      "fees": {
+        "new_ma": -1000
+      }
+    },
     "effective": false
   },
   {
     "case": "fees — montant en chaîne de caractères refusé",
     "section": "fees",
-    "payload": { "fees": { "new_ma": "1500000" } },
+    "payload": {
+      "fees": {
+        "new_ma": "1500000"
+      }
+    },
     "effective": false
   },
   {
     "case": "fees — devise et délai seuls ne sont pas un barème",
     "section": "fees",
-    "payload": { "currency": "FCFA", "processingDays": 90, "fees": {} },
+    "payload": {
+      "currency": "FCFA",
+      "processingDays": 90,
+      "fees": {}
+    },
     "effective": false
   },
   {
     "case": "fees — notes sans aucun montant : rien à publier",
     "section": "fees",
-    "payload": { "fees": { "notes": { "new_ma": { "fr": "Voir décret", "en": "See decree" } } } },
+    "payload": {
+      "fees": {
+        "notes": {
+          "new_ma": {
+            "fr": "Voir décret",
+            "en": "See decree"
+          }
+        }
+      }
+    },
     "effective": false
   },
   {
     "case": "fees — bloc fees absent",
     "section": "fees",
-    "payload": { "currency": "FCFA" },
+    "payload": {
+      "currency": "FCFA"
+    },
     "effective": false
   },
   {
     "case": "submission — note bilingue complète",
     "section": "submission",
-    "payload": { "note": { "fr": "Dépôt en 3 exemplaires", "en": "File in triplicate" } },
+    "payload": {
+      "note": {
+        "fr": "Dépôt en 3 exemplaires",
+        "en": "File in triplicate"
+      }
+    },
     "effective": true
   },
   {
     "case": "submission — EN manquant : la moitié d'une note n'est pas publiable",
     "section": "submission",
-    "payload": { "note": { "fr": "Dépôt en 3 exemplaires" } },
+    "payload": {
+      "note": {
+        "fr": "Dépôt en 3 exemplaires"
+      }
+    },
     "effective": false
   },
   {
     "case": "submission — paire vide = champ blanc dans une lettre : refusée",
     "section": "submission",
-    "payload": { "note": { "fr": "   ", "en": "" } },
+    "payload": {
+      "note": {
+        "fr": "   ",
+        "en": ""
+      }
+    },
     "effective": false
   },
   {
     "case": "samples — une exigence bilingue suffit",
     "section": "samples",
-    "payload": { "samples": { "new_ma": [{ "fr": "3 échantillons", "en": "3 samples" }] } },
+    "payload": {
+      "samples": {
+        "new_ma": [
+          {
+            "fr": "3 échantillons",
+            "en": "3 samples"
+          }
+        ]
+      }
+    },
     "effective": true
   },
   {
     "case": "samples — réserve seule suffit",
     "section": "samples",
-    "payload": { "samples": { "reserve": { "fr": "Sous réserve", "en": "Subject to" } } },
+    "payload": {
+      "samples": {
+        "reserve": {
+          "fr": "Sous réserve",
+          "en": "Subject to"
+        }
+      }
+    },
     "effective": true
   },
   {
     "case": "samples — renouvellement/variation seul suffit",
     "section": "samples",
     "payload": {
-      "samples": { "renewal_variation": [{ "fr": "2 échantillons", "en": "2 samples" }] }
+      "samples": {
+        "renewal_variation": [
+          {
+            "fr": "2 échantillons",
+            "en": "2 samples"
+          }
+        ]
+      }
     },
     "effective": true
   },
   {
     "case": "samples — liste vide",
     "section": "samples",
-    "payload": { "samples": { "new_ma": [] } },
+    "payload": {
+      "samples": {
+        "new_ma": []
+      }
+    },
     "effective": false
   },
   {
     "case": "samples — liste d'éléments non traduisibles",
     "section": "samples",
-    "payload": { "samples": { "new_ma": ["3 échantillons"] } },
+    "payload": {
+      "samples": {
+        "new_ma": [
+          "3 échantillons"
+        ]
+      }
+    },
     "effective": false
   },
   {
     "case": "samples — bloc samples vide",
     "section": "samples",
-    "payload": { "samples": {} },
+    "payload": {
+      "samples": {}
+    },
     "effective": false
   },
   {
-    "case": "section hors liste blanche (ctd_structure, P4.5) : rien ne la rend",
-    "section": "ctd_structure",
-    "payload": { "nodes": [{ "node": "1.2.7", "op": "remove" }] },
+    "case": "section INCONNUE (aucun consommateur) : rien ne la rend",
+    "section": "ctd_labels_v3",
+    "payload": {
+      "nodes": [
+        {
+          "node": "1.2.7",
+          "op": "remove"
+        }
+      ]
+    },
     "effective": false
   },
   {
     "case": "payload tableau (jsonb valide mais insensé)",
     "section": "fees",
-    "payload": [{ "new_ma": 1000 }],
+    "payload": [
+      {
+        "new_ma": 1000
+      }
+    ],
     "effective": false
   },
-  { "case": "payload null", "section": "agency", "payload": null, "effective": false }
+  {
+    "case": "payload null",
+    "section": "agency",
+    "payload": null,
+    "effective": false
+  },
+  {
+    "case": "ctd_structure — un retrait « plus exigé » suffit (cas réel : PGHT Togo = nœud 1.1.2)",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": [
+        {
+          "kind": "remove",
+          "number": "1.1.2"
+        }
+      ]
+    },
+    "effective": true
+  },
+  {
+    "case": "ctd_structure — un ajout exige un libellé",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": [
+        {
+          "kind": "add",
+          "number": "1.2.9",
+          "label": "Attestation de pharmacovigilance"
+        }
+      ]
+    },
+    "effective": true
+  },
+  {
+    "case": "ctd_structure — un ajout SANS libellé ne rend rien",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": [
+        {
+          "kind": "add",
+          "number": "1.2.9",
+          "label": "   "
+        }
+      ]
+    },
+    "effective": false
+  },
+  {
+    "case": "ctd_structure — renommage borné à une activité (filtre optionnel)",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": [
+        {
+          "kind": "relabel",
+          "number": "1.3.3",
+          "label": "Étiquetage et conditionnement",
+          "activities": [
+            "renewal"
+          ]
+        }
+      ]
+    },
+    "effective": true
+  },
+  {
+    "case": "ctd_structure — activités déclarées mais vides = payload malformé",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": [
+        {
+          "kind": "relabel",
+          "number": "1.3.3",
+          "label": "X",
+          "activities": []
+        }
+      ]
+    },
+    "effective": false
+  },
+  {
+    "case": "ctd_structure — numéro non CTD refusé (l'identité du nœud est sa numérotation)",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": [
+        {
+          "kind": "remove",
+          "number": "1.2.x"
+        }
+      ]
+    },
+    "effective": false
+  },
+  {
+    "case": "ctd_structure — numéro entouré d'espaces : TRIMÉ des deux côtés (parité invisible à l'œil)",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": [
+        {
+          "kind": "remove",
+          "number": "  1.1.2  "
+        }
+      ]
+    },
+    "effective": true
+  },
+  {
+    "case": "ctd_structure — retirer une BRANCHE de 1er niveau (1.2) est refusé : ses pièces déjà déposées disparaîtraient du dossier ET du PDF",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": [
+        {
+          "kind": "remove",
+          "number": "1.2"
+        }
+      ]
+    },
+    "effective": false
+  },
+  {
+    "case": "ctd_structure — retirer une racine (1) est refusé",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": [
+        {
+          "kind": "remove",
+          "number": "1"
+        }
+      ]
+    },
+    "effective": false
+  },
+  {
+    "case": "ctd_structure — un AJOUT de 1er niveau reste permis (nouvelle rubrique nationale)",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": [
+        {
+          "kind": "add",
+          "number": "1.9",
+          "label": "Rubrique nationale"
+        }
+      ]
+    },
+    "effective": true
+  },
+  {
+    "case": "ctd_structure — genre de delta inconnu ignoré (client d'une version antérieure)",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": [
+        {
+          "kind": "reorder",
+          "number": "1.2.6"
+        }
+      ]
+    },
+    "effective": false
+  },
+  {
+    "case": "ctd_structure — liste vide : bannière de mise à jour pour du néant",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": []
+    },
+    "effective": false
+  },
+  {
+    "case": "ctd_structure — deltas absents",
+    "section": "ctd_structure",
+    "payload": {},
+    "effective": false
+  },
+  {
+    "case": "ctd_structure — un seul delta valide parmi des malformés suffit à publier",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": [
+        {
+          "kind": "remove",
+          "number": "zz"
+        },
+        {
+          "kind": "remove",
+          "number": "1.1.2"
+        }
+      ]
+    },
+    "effective": true
+  },
+  {
+    "case": "ctd_structure — format inconnu refusé",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": [
+        {
+          "kind": "remove",
+          "number": "1.1.2",
+          "format": "pdf"
+        }
+      ]
+    },
+    "effective": false
+  },
+  {
+    "case": "ctd_structure — activité inconnue refusée (« variations » au pluriel ne vise aucun dossier)",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": [
+        {
+          "kind": "remove",
+          "number": "1.1.2",
+          "activities": [
+            "variations"
+          ]
+        }
+      ]
+    },
+    "effective": false
+  },
+  {
+    "case": "ctd_structure — activité connue acceptée, espaces compris (parité de trim)",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": [
+        {
+          "kind": "remove",
+          "number": "1.1.2",
+          "activities": [
+            " variation "
+          ]
+        }
+      ]
+    },
+    "effective": true
+  },
+  {
+    "case": "ctd_structure — une SEULE activité inconnue disqualifie le delta entier (jamais de scope partiel silencieux)",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": [
+        {
+          "kind": "relabel",
+          "number": "1.3.3",
+          "label": "Étiquetage et conditionnement",
+          "activities": [
+            "renewal",
+            "renouvellement"
+          ]
+        }
+      ]
+    },
+    "effective": false
+  },
+  {
+    "case": "ctd_structure — un AJOUT sans parent déductible (« 2 ») est refusé : le client l'ignore, un delta ne crée pas un module",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": [
+        {
+          "kind": "add",
+          "number": "2",
+          "label": "Module national"
+        }
+      ]
+    },
+    "effective": false
+  },
+  {
+    "case": "ctd_structure — ABROGATION explicite : retour à l'arborescence de référence (une liste vide seule reste refusée)",
+    "section": "ctd_structure",
+    "payload": {
+      "reset": true,
+      "deltas": []
+    },
+    "effective": true
+  },
+  {
+    "case": "ctd_structure — `reset` non booléen ne vaut PAS abrogation (jamais d'intention devinée)",
+    "section": "ctd_structure",
+    "payload": {
+      "reset": "true",
+      "deltas": []
+    },
+    "effective": false
+  },
+  {
+    "case": "ctd_structure — CHAQUE code d'activité réel est accepté (seul verrou de la liste Deno)",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": [
+        {
+          "kind": "remove",
+          "number": "1.1.2",
+          "activities": [
+            "new_ma",
+            "renewal",
+            "variation",
+            "notif_response",
+            "transfer"
+          ]
+        }
+      ]
+    },
+    "effective": true
+  }
 ]

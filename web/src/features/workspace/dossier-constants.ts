@@ -50,6 +50,18 @@ const labelOf = (opts: Option[], code: string, lang: Lang) => {
 }
 export const activityLabel = (code: string, lang: Lang = 'fr') =>
   labelOf(REG_ACTIVITIES, code, lang)
+
+/**
+ * Libellé de N'IMPORTE QUELLE activité portée par un dossier, `transfer` compris — celui-ci a
+ * quitté `REG_ACTIVITIES` (retiré du sélecteur) mais reste porté par des dossiers existants et
+ * ciblable par un delta de référentiel. Sans ce repli, l'app affichait le code brut « transfer ».
+ */
+export const anyActivityLabel = (code: string, lang: Lang = 'fr') =>
+  code === 'transfer'
+    ? lang === 'en'
+      ? 'Transfer (legacy)'
+      : 'Transfert (historique)'
+    : activityLabel(code, lang)
 export const countryLabel = (code: string, lang: Lang = 'fr') => labelOf(COUNTRIES, code, lang)
 export const formatLabel = (code: string) => (code === 'ectd' ? 'eCTD v4' : 'CTD (PDF)')
 

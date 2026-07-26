@@ -2,6 +2,7 @@ import { recordAudit } from '@/lib/audit'
 import { db, type DossierRecord } from '@/lib/db'
 import { enqueueOutbox } from '@/lib/outbox'
 import { requestPersistentStorage } from '@/lib/persist'
+import { resolvedModule1Tree } from '@/features/catalogue/ref-content'
 import { loadRefState } from '@/features/catalogue/ref-state'
 import type { VariationItem } from '@/features/variations/variation-request'
 import { getModule1Tree, type DossierFormat } from './module1-tree'
@@ -97,6 +98,18 @@ export async function createDossier(
   const refVersionId = await loadRefState(orgId)
     .then((s) => s.ceiling?.id ?? null)
     .catch(() => null)
+  // Structure du Module 1 (P4.5) : un dossier NEUF naît sur l'arborescence OFFICIELLE de son pays,
+  // à la version qu'on vient d'épingler — c'est le seul moment où elle s'applique sans cérémonie
+  // (rien à protéger : le dossier n'existe pas encore). Même repli best-effort que ci-dessus : une
+  // réplique vide rend le socle code, jamais une création en échec.
+  const tree = await resolvedModule1Tree({
+    country: input.country,
+    orgId,
+    format: input.format,
+    activity: input.activity,
+    variations: input.variations,
+    refVersionId,
+  }).catch(() => getModule1Tree(input.format, input.activity, input.variations))
   const record: DossierRecord = {
     id: newId(),
     orgId,
@@ -108,9 +121,7 @@ export async function createDossier(
     status: 'draft',
     // Copie indépendante de l'arborescence par défaut, avec id stables → éditable par dossier.
     // L'opération « variation » reçoit un arbre dédié, taillé par les variations cochées.
-    tree: assignIds(
-      structuredClone(getModule1Tree(input.format, input.activity, input.variations)),
-    ),
+    tree: assignIds(structuredClone(tree)),
     excludedDocIds: [],
     ...(input.variations?.length ? { variations: input.variations } : {}),
     ...(input.ammNumero ? { ammNumero: input.ammNumero } : {}),
