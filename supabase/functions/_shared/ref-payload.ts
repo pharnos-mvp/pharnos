@@ -59,6 +59,21 @@ const CTD_NUMBER_RE = /^\d+(\.\d+)*$/;
 export const CTD_DELTA_KINDS = ["add", "remove", "relabel"] as const;
 /** Formats d'arbre visés par un delta ; absent = les deux. */
 export const CTD_FORMATS = ["ctd", "ectd"] as const;
+/**
+ * Activités qu'un delta peut viser — les codes RÉELLEMENT portés par `dossiers.activity`, pas du
+ * texte libre (Major M6, revue P4.5). Une chaîne quelconque (« variations » au pluriel, « AMM »)
+ * passait la validation, se publiait, se faisait adopter… et ne s'appliquait à AUCUN dossier :
+ * exactement la panne silencieuse « version publiée qui ne rend rien » que ce module existe pour
+ * empêcher. `transfer` est retiré du sélecteur mais reste porté par des dossiers existants.
+ * Miroir de `REG_ACTIVITIES` (web), verrouillé par `ref-structure.test.ts`.
+ */
+export const CTD_ACTIVITIES = [
+  "new_ma",
+  "renewal",
+  "variation",
+  "notif_response",
+  "transfer",
+] as const;
 
 /**
  * Un delta est-il APPLICABLE par le client ? (miroir de `applyStructureDeltas`, ref-structure.ts)
@@ -81,6 +96,10 @@ function ctdDeltaEffective(v: unknown): boolean {
   // Un `remove` ne vise qu'un nœud de profondeur ≥ 3 segments : retirer « 1.2 » effacerait une
   // branche entière et rendrait ses pièces déjà déposées invisibles ET absentes du PDF (M2).
   if (kind === "remove" && number.split(".").length < 3) return false;
+  // Le parent d'un `add` se DÉDUIT du numéro (« 1.2.9 » → « 1.2 ») : un numéro à un seul segment
+  // n'a pas de parent, et le client l'ignore (`applyStructureDeltas` — un delta ne crée pas un
+  // module CTD entier). L'accepter ici publierait un ajout qui ne s'applique nulle part.
+  if (kind === "add" && number.split(".").length < 2) return false;
   if (kind !== "remove") {
     if (typeof v.label !== "string" || v.label.trim() === "") return false;
   }
@@ -89,7 +108,16 @@ function ctdDeltaEffective(v: unknown): boolean {
   }
   if (v.activities !== undefined) {
     if (!Array.isArray(v.activities) || v.activities.length === 0) return false;
-    if (!v.activities.every((a) => typeof a === "string" && a.trim() !== "")) return false;
+    // Codes d'activité RÉELS uniquement (M6) : « variations » au pluriel ne viserait aucun dossier.
+    if (
+      !v.activities.every(
+        (a) =>
+          typeof a === "string" &&
+          (CTD_ACTIVITIES as readonly string[]).includes(a.trim()),
+      )
+    ) {
+      return false;
+    }
   }
   return true;
 }
@@ -123,8 +151,14 @@ export function refPayloadEffective(section: string, payload: unknown): boolean 
       return list(s.new_ma) || list(s.renewal_variation) || isUsefulT(s.reserve);
     }
     case "ctd_structure": {
-      // Au moins UN delta applicable. Un tableau vide (ou 100 % de deltas malformés) publierait
-      // une structure « à jour » qui ne change rien : bannière de mise à jour pour du néant.
+      // ABROGATION explicite : le payload d'une section REMPLACE celui de la version précédente,
+      // donc « revenir à l'arborescence de référence » s'écrit… une liste vide — indistinguable
+      // d'un oubli, et refusée à ce titre. Un décret s'abroge : sans ce marqueur, un pays restait
+      // prisonnier à VIE de ses deltas publiés (Major M2, revue P4.5b). Le résolveur n'a rien à
+      // apprendre : zéro delta applicable = socle, c'est déjà son comportement.
+      if (payload.reset === true) return true;
+      // Sinon : au moins UN delta applicable. Un tableau vide (ou 100 % de deltas malformés)
+      // publierait une structure « à jour » qui ne change rien : mise à jour pour du néant.
       if (!Array.isArray(payload.deltas)) return false;
       return payload.deltas.some(ctdDeltaEffective);
     }

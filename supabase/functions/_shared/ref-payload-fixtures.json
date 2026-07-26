@@ -451,5 +451,107 @@
       ]
     },
     "effective": false
+  },
+  {
+    "case": "ctd_structure — activité inconnue refusée (« variations » au pluriel ne vise aucun dossier)",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": [
+        {
+          "kind": "remove",
+          "number": "1.1.2",
+          "activities": [
+            "variations"
+          ]
+        }
+      ]
+    },
+    "effective": false
+  },
+  {
+    "case": "ctd_structure — activité connue acceptée, espaces compris (parité de trim)",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": [
+        {
+          "kind": "remove",
+          "number": "1.1.2",
+          "activities": [
+            " variation "
+          ]
+        }
+      ]
+    },
+    "effective": true
+  },
+  {
+    "case": "ctd_structure — une SEULE activité inconnue disqualifie le delta entier (jamais de scope partiel silencieux)",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": [
+        {
+          "kind": "relabel",
+          "number": "1.3.3",
+          "label": "Étiquetage et conditionnement",
+          "activities": [
+            "renewal",
+            "renouvellement"
+          ]
+        }
+      ]
+    },
+    "effective": false
+  },
+  {
+    "case": "ctd_structure — un AJOUT sans parent déductible (« 2 ») est refusé : le client l'ignore, un delta ne crée pas un module",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": [
+        {
+          "kind": "add",
+          "number": "2",
+          "label": "Module national"
+        }
+      ]
+    },
+    "effective": false
+  },
+  {
+    "case": "ctd_structure — ABROGATION explicite : retour à l'arborescence de référence (une liste vide seule reste refusée)",
+    "section": "ctd_structure",
+    "payload": {
+      "reset": true,
+      "deltas": []
+    },
+    "effective": true
+  },
+  {
+    "case": "ctd_structure — `reset` non booléen ne vaut PAS abrogation (jamais d'intention devinée)",
+    "section": "ctd_structure",
+    "payload": {
+      "reset": "true",
+      "deltas": []
+    },
+    "effective": false
+  },
+  {
+    "case": "ctd_structure — CHAQUE code d'activité réel est accepté (seul verrou de la liste Deno)",
+    "section": "ctd_structure",
+    "payload": {
+      "deltas": [
+        {
+          "kind": "remove",
+          "number": "1.1.2",
+          "activities": [
+            "new_ma",
+            "renewal",
+            "variation",
+            "notif_response",
+            "transfer"
+          ]
+        }
+      ]
+    },
+    "effective": true
   }
 ]

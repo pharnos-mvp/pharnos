@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { RefEntryRecord, RefVersionRecord } from '@/lib/db'
 import { resolveAuthority } from './ref-content'
+import { CTD_ACTIVITY_CODES } from './ref-structure'
 
 /**
  * PARITÉ Edge ↔ résolveur client sur le contrat d'efficacité des payloads du référentiel.
@@ -68,6 +69,22 @@ describe('parité Edge ↔ résolveur client (contrat des payloads publiables)',
     expect(FIXTURES.length).toBeGreaterThanOrEqual(20)
     expect(FIXTURES.some((f) => f.effective)).toBe(true)
     expect(FIXTURES.some((f) => !f.effective)).toBe(true)
+  })
+
+  it('CHAQUE code d’activité est exercé par une fixture (la liste Edge n’a pas d’autre verrou)', () => {
+    // `CTD_ACTIVITY_CODES` (web) est verrouillé contre `REG_ACTIVITIES` par `ref-structure.test.ts`.
+    // `CTD_ACTIVITIES` (Deno) n'est verrouillé QUE par ces fixtures : sans une fixture par code,
+    // ajouter une activité des deux côtés web laisserait l'Edge la refuser, CI verte — et le god
+    // recevrait « entrée vide » sur une entrée qu'il voit remplie (Major M2, revue P4.5b).
+    const exercised = new Set(
+      FIXTURES.filter((f) => f.section === 'ctd_structure')
+        .flatMap((f) => (f.payload as { deltas?: { activities?: string[] }[] })?.deltas ?? [])
+        .flatMap((d) => d.activities ?? [])
+        .map((a) => a.trim()),
+    )
+    for (const code of CTD_ACTIVITY_CODES) {
+      expect(exercised, `activité « ${code} » non couverte par les fixtures`).toContain(code)
+    }
   })
 
   for (const f of FIXTURES) {

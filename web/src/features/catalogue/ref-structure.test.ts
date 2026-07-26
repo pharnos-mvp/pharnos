@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
+import { REG_ACTIVITIES } from '@/features/workspace/dossier-constants'
 import { getModule1Tree, type CtdNodeDef } from '@/features/workspace/module1-tree'
 import { flattenTree } from '@/features/workspace/tree-utils'
 import {
   applyStructureDeltas,
+  CTD_ACTIVITY_CODES,
   deltaFromPayload,
   deltasFor,
+  structureDeltaIssues,
   structureFromPayload,
   type CtdDelta,
 } from './ref-structure'
@@ -102,6 +105,141 @@ describe('deltasFor — filtres format/activité (décision A)', () => {
   it('respecte l’activité, et une activité inconnue n’attrape pas un delta restreint', () => {
     expect(deltasFor(deltas, 'ctd', 'renewal').map((d) => d.number)).toEqual(['1.1.2', '1.3.3'])
     expect(deltasFor(deltas, 'ctd', undefined).map((d) => d.number)).toEqual(['1.1.2'])
+  })
+})
+
+describe('M4 — l’arbre de VARIATION est opt-in', () => {
+  // L'arbre de variation n'est pas l'arbre standard amputé : sa numérotation est homonyme sans
+  // être synonyme (« 1.2.1 » = formulaire de demande de VARIATION). Un delta rédigé face à
+  // l'arbre d'enregistrement ne s'y transpose donc pas tout seul.
+  const unscoped: CtdDelta[] = [{ kind: 'relabel', number: '1.2.1', label: 'Nouveau libellé' }]
+
+  it('un delta NON scopé épargne l’arbre de variation (CTD)', () => {
+    expect(deltasFor(unscoped, 'ctd', 'variation')).toEqual([])
+    // …alors qu'il s'applique bien partout ailleurs.
+    expect(deltasFor(unscoped, 'ctd', 'renewal')).toHaveLength(1)
+    expect(deltasFor(unscoped, 'ctd', 'notif_response')).toHaveLength(1)
+  })
+
+  it('viser la variation reste possible — il faut le DIRE', () => {
+    const scoped: CtdDelta[] = [
+      { kind: 'relabel', number: '1.2.1', label: 'X', activities: ['variation'] },
+    ]
+    expect(deltasFor(scoped, 'ctd', 'variation')).toHaveLength(1)
+    expect(deltasFor(scoped, 'ctd', 'new_ma')).toEqual([])
+  })
+
+  it('en eCTD, « variation » retombe sur l’arbre standard : le delta non scopé s’applique', () => {
+    // `getModule1Tree('ectd', 'variation')` sert MODULE1_ECTD_CEDEAO — l'exception M4 vise
+    // l'arbre de variation CTD UEMOA, pas l'étiquette d'activité.
+    expect(deltasFor(unscoped, 'ectd', 'variation')).toHaveLength(1)
+  })
+
+  it('l’arbre de variation reste INTACT sous un delta non scopé (bout en bout)', () => {
+    const varBase = getModule1Tree('ctd', 'variation')
+    const applied = applyStructureDeltas(varBase, deltasFor(unscoped, 'ctd', 'variation'))
+    expect(find(applied, '1.2.1')?.label).toBe(find(varBase, '1.2.1')?.label)
+  })
+})
+
+describe('M6 — les activités visées sont des codes RÉELS, pas du texte libre', () => {
+  it('rejette une coquille (« variations ») : sans cela, publié, adopté… et sans effet', () => {
+    expect(
+      deltaFromPayload({ kind: 'remove', number: '1.1.2', activities: ['variations'] }),
+    ).toBeUndefined()
+    expect(
+      deltaFromPayload({ kind: 'remove', number: '1.1.2', activities: ['Nouvelle AMM'] }),
+    ).toBeUndefined()
+  })
+
+  it('une SEULE activité inconnue disqualifie le delta (jamais de scope partiel silencieux)', () => {
+    expect(
+      deltaFromPayload({
+        kind: 'relabel',
+        number: '1.3.3',
+        label: 'X',
+        activities: ['renewal', 'renouvellement'],
+      }),
+    ).toBeUndefined()
+  })
+
+  it('accepte les codes connus, espaces compris', () => {
+    expect(
+      deltaFromPayload({ kind: 'remove', number: '1.1.2', activities: [' variation '] })
+        ?.activities,
+    ).toEqual(['variation'])
+  })
+
+  it('la liste est le MIROIR des activités qu’un dossier peut porter', () => {
+    // Si le produit gagne une activité, ce test tombe : le référentiel doit pouvoir la viser.
+    for (const a of REG_ACTIVITIES) {
+      expect(CTD_ACTIVITY_CODES, a.code).toContain(a.code)
+    }
+    // `transfer` a quitté le sélecteur mais reste porté par des dossiers existants.
+    expect(CTD_ACTIVITY_CODES).toContain('transfer')
+  })
+
+  it('un AJOUT sans parent déductible est refusé des deux côtés', () => {
+    expect(deltaFromPayload({ kind: 'add', number: '2', label: 'Module national' })).toBeUndefined()
+    expect(deltaFromPayload({ kind: 'add', number: '1.9', label: 'Rubrique' })?.kind).toBe('add')
+  })
+})
+
+describe('structureDeltaIssues — « un delta qui ne rend rien est refusé » (règle ⑤ du mockup)', () => {
+  const treeFor = (format: 'ctd' | 'ectd', activity: string) => getModule1Tree(format, activity)
+  const issues = (deltas: CtdDelta[]) => structureDeltaIssues(deltas, treeFor)
+
+  it('signale un numéro inconnu (retrait et renommage)', () => {
+    expect(issues([{ kind: 'remove', number: '9.9.9' }])).toEqual(['unknown_node'])
+    expect(issues([{ kind: 'relabel', number: '9.9.9', label: 'Fantôme' }])).toEqual([
+      'unknown_node',
+    ])
+  })
+
+  it('signale un ajout orphelin (parent absent ⇒ nœud jamais monté)', () => {
+    expect(issues([{ kind: 'add', number: '1.99.1', label: 'Orphelin' }])).toEqual(['orphan'])
+  })
+
+  it('accepte un enfant ajouté sous un parent ajouté DANS LA MÊME entrée', () => {
+    expect(
+      issues([
+        { kind: 'add', number: '1.2.9.1', label: 'Enfant' },
+        { kind: 'add', number: '1.2.9', label: 'Parent' },
+      ]),
+    ).toEqual([null, null])
+  })
+
+  it('signale un renommage qui ne change rien (bannière de mise à jour pour du néant)', () => {
+    // Delta SCOPÉ à un seul arbre : sans le scope, le même numéro porte un autre libellé en eCTD,
+    // donc le delta y produirait bien un effet — et ne serait pas fautif.
+    const base = getModule1Tree('ctd', 'renewal')
+    const existing = find(base, '1.3.3')!
+    expect(
+      issues([
+        {
+          kind: 'relabel',
+          number: existing.number,
+          label: existing.label,
+          format: 'ctd',
+          activities: ['renewal'],
+        },
+      ]),
+    ).toEqual(['no_change'])
+  })
+
+  it('EFFECTIF dans un seul arbre visé suffit (1.2.7 : absent en nouvelle AMM, présent en renouvellement)', () => {
+    expect(numbers(getModule1Tree('ctd', 'new_ma'))).not.toContain('1.2.7')
+    expect(numbers(getModule1Tree('ctd', 'renewal'))).toContain('1.2.7')
+    expect(issues([{ kind: 'remove', number: '1.2.7' }])).toEqual([null])
+  })
+
+  it('un delta scopé à la VARIATION est jugé sur l’arbre de variation, pas sur le socle', () => {
+    // 1.4.2 « Dossier présentant la variation » n'existe QUE dans l'arbre de variation.
+    expect(
+      issues([{ kind: 'remove', number: '1.4.2', activities: ['variation'], format: 'ctd' }]),
+    ).toEqual([null])
+    // Le même retrait, non scopé, ne vise plus l'arbre de variation (M4) → inerte, donc signalé.
+    expect(issues([{ kind: 'remove', number: '1.4.2', format: 'ctd' }])).toEqual(['unknown_node'])
   })
 })
 

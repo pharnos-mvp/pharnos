@@ -16,12 +16,29 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { CountryFlag } from '@/features/dashboard/CountryFlag'
 import { useIsOrgAdmin } from '@/features/org/use-current-org'
 import { useOrgId } from '@/features/org/org-context'
-import { countryLabel } from '@/features/workspace/dossier-constants'
+import { anyActivityLabel, countryLabel } from '@/features/workspace/dossier-constants'
 import { reportError } from '@/lib/sentry'
-import { useI18n, type Lang } from '@/lib/i18n-context'
+import { useI18n, type Lang, type Translatable } from '@/lib/i18n-context'
 import { pendingRefUpdate } from './ref-state'
-import { refUpdatePreview } from './ref-diff'
+import { refUpdatePreview, structureRowLabel, type RefStructureRow } from './ref-diff'
 import { adoptRefVersion, AdoptError } from './ref-repository'
+
+/**
+ * Restriction de portée d'un changement de structure, en clair (« pour les nouvelles AMM »,
+ * « hors variations CTD »). Sans elle, un admin lit « 1.2.1 renommée » et l'attend sur TOUS ses
+ * dossiers, y compris ceux que le delta n'atteindra jamais (arbre de variation opt-in, M4).
+ */
+function scopeNote(s: RefStructureRow, t: (v: Translatable) => string, lang: Lang): string {
+  const bits: string[] = []
+  if (s.format) bits.push(s.format === 'ctd' ? 'CTD' : 'eCTD')
+  if (s.activities?.length) {
+    bits.push(s.activities.map((a) => anyActivityLabel(a, lang)).join(', '))
+  } else if (s.format !== 'ectd') {
+    // Non scopé ⇒ toutes les activités SAUF l'arbre de variation CTD (M4).
+    bits.push(t({ fr: 'hors variations CTD', en: 'excluding CTD variations' }))
+  }
+  return bits.length > 0 ? ` (${bits.join(' · ')})` : ''
+}
 
 /** Date d'effet (DATE ISO) localisée — jamais l'ISO brut à l'écran. */
 const formatDate = (iso: string, lang: Lang): string =>
@@ -252,11 +269,10 @@ export function RefUpdateBanner({ country }: { country?: string }) {
                     <span className="font-mono font-semibold">{s.number}</span>
                   </span>
                   {' — '}
-                  {s.kind === 'remove'
-                    ? t({ fr: 'plus exigée', en: 'no longer required' })
-                    : s.kind === 'add'
-                      ? `${t({ fr: 'nouvelle section', en: 'new section' })} : ${s.label ?? ''}`
-                      : `${t({ fr: 'intitulé', en: 'title' })} : ${s.label ?? ''}`}
+                  {structureRowLabel(s, t)}
+                  {/* Portée : cette bannière est celle de l'ORG (tous formats, toutes activités).
+                      Taire une restriction ferait attendre le changement là où il ne viendra pas. */}
+                  {scopeNote(s, t, lang)}
                 </p>
               ))}
               <p className="text-muted-foreground text-[11px]">

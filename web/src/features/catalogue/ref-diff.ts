@@ -10,7 +10,7 @@ import {
   type ResolvedAuthority,
 } from './ref-content'
 import { overridesByCountry } from './ref-overrides'
-import { structureFromPayload } from './ref-structure'
+import { deltaKey, deltasFor, type CtdDelta } from './ref-structure'
 import {
   entriesForCountry,
   isPlainObject as isObj,
@@ -65,6 +65,99 @@ export interface RefStructureRow {
   kind: 'add' | 'remove' | 'relabel'
   number: string
   label?: string
+  /**
+   * Portée du delta — indispensable pour ne PAS promettre à un dossier un changement qui ne
+   * l'atteindra jamais. Un delta non scopé épargne l'arbre de variation CTD (M4) : sans ces
+   * champs, la bannière d'un dossier de variation annonçait « 1.2.1 renommée », l'utilisateur
+   * cliquait « mettre à jour »… et rien ne bougeait.
+   */
+  format?: 'ctd' | 'ectd'
+  activities?: string[]
+  /** L'écart national DISPARAÎT (abrogation, ou version qui ne le reconduit pas). */
+  reverted?: boolean
+}
+
+/**
+ * Changements d'arborescence entre l'état RÉSOLU d'avant et celui d'après.
+ *
+ * ⚠️ Ne JAMAIS lister les deltas des versions entrantes bout à bout : le payload d'une section
+ * REMPLACE celui de la version précédente (le résolveur ne garde que la dernière entrée
+ * applicable). Enchaîner v2 « 1.1.2 plus exigée » puis v3 « 1.3.3 renommée » remet 1.1.2 en
+ * vigueur — le cumul annonçait donc un retrait qui n'aura pas lieu, ET taisait le retour de
+ * l'exigence. Sur un dialogue de CONSENTEMENT, c'est l'inverse de ce qui va se produire.
+ */
+function structureDiff(
+  country: string,
+  before: ResolvedAuthority | null,
+  after: ResolvedAuthority | null,
+): RefStructureRow[] {
+  // Clé CANONIQUE (portée comprise) : resserrer `activities` ou changer de format, c'est une
+  // règle différente. Une clé courte les confondait et le dialogue affichait « ne modifie aucune
+  // valeur » juste avant de remettre une section en exigence (Major M-1, revue P4.5c).
+  const beforeDeltas = before?.structureDeltas ?? []
+  const afterDeltas = after?.structureDeltas ?? []
+  const wasThere = new Set(beforeDeltas.map(deltaKey))
+  const stillThere = new Set(afterDeltas.map(deltaKey))
+  const row = (d: CtdDelta, reverted: boolean): RefStructureRow => ({
+    country,
+    kind: d.kind,
+    number: d.number,
+    reverted,
+    ...(d.label ? { label: d.label } : {}),
+    ...(d.format ? { format: d.format } : {}),
+    ...(d.activities ? { activities: d.activities } : {}),
+  })
+  return [
+    ...afterDeltas.filter((d) => !wasThere.has(deltaKey(d))).map((d) => row(d, false)),
+    // Un écart national qui DISPARAÎT est un changement à part entière : la section redevient
+    // exigée / l'ajout national s'en va. Le taire laisserait l'admin adopter à l'aveugle.
+    ...beforeDeltas.filter((d) => !stillThere.has(deltaKey(d))).map((d) => row(d, true)),
+  ].sort((a, b) => a.number.localeCompare(b.number))
+}
+
+/**
+ * Libellé d'un changement d'arborescence — le sens s'INVERSE quand l'écart national disparaît
+ * (« plus exigée » devient « de nouveau exigée »). Partagé par les deux bannières pour qu'elles ne
+ * puissent pas raconter deux histoires différentes du même fait.
+ */
+export function structureRowLabel(s: RefStructureRow, t: (v: Translatable) => string): string {
+  if (s.reverted) {
+    return s.kind === 'remove'
+      ? t({ fr: 'de nouveau exigée', en: 'required again' })
+      : s.kind === 'add'
+        ? `${t({ fr: 'section nationale retirée', en: 'national section removed' })}${s.label ? ` : ${s.label}` : ''}`
+        : t({ fr: 'intitulé rétabli', en: 'title restored' })
+  }
+  return s.kind === 'remove'
+    ? t({ fr: 'plus exigée', en: 'no longer required' })
+    : s.kind === 'add'
+      ? `${t({ fr: 'nouvelle section', en: 'new section' })} : ${s.label ?? ''}`
+      : `${t({ fr: 'intitulé', en: 'title' })} : ${s.label ?? ''}`
+}
+
+/**
+ * Lignes de structure qui atteindront RÉELLEMENT un dossier de ce format et de cette activité.
+ *
+ * Même filtre que `resolvedModule1Tree` — une bannière doit annoncer ce qui va se passer POUR CE
+ * DOSSIER, pas ce que la version contient dans l'absolu. Promettre puis ne rien faire est pire
+ * que se taire sur un produit vendu sur la traçabilité.
+ */
+export const structureRowsFor = (
+  rows: RefStructureRow[],
+  format: 'ctd' | 'ectd',
+  activity?: string,
+): RefStructureRow[] => {
+  const live = rows.filter((r) => deltasFor([r], format, activity).length > 0)
+  // Un resserrage de portée produit DEUX lignes (l'ancienne règle révoquée, la nouvelle posée).
+  // Pour un dossier que les deux atteignent, elles se neutralisent : n'annoncer que le net, sinon
+  // la bannière dirait « plus exigée » ET « de nouveau exigée » du même nœud.
+  const sig = (r: RefStructureRow) => `${r.kind}|${r.number}|${r.label ?? ''}`
+  const posed = new Set(live.filter((r) => !r.reverted).map(sig))
+  const revoked = new Set(live.filter((r) => r.reverted).map(sig))
+  // Les DEUX lignes disparaissent, pas seulement la révoquée : pour ce dossier, l'ancienne règle
+  // et la nouvelle disent la même chose. N'en garder qu'une annoncerait « 1.1.2 plus exigée » à
+  // un dossier où elle ne l'est déjà plus.
+  return live.filter((r) => !(posed.has(sig(r)) && revoked.has(sig(r))))
 }
 
 export interface RefUpdatePreview {
@@ -193,25 +286,12 @@ export async function refUpdatePreview(
       .toArray()
   ).filter((e) => !opts?.country || e.country === opts.country)
 
-  // Structure du Module 1 (P4.5) : lue directement sur les entrées ENTRANTES — c'est ce que
-  // l'adoption va appliquer aux futurs dossiers du pays.
-  const structure: RefStructureRow[] = incomingEntries
-    .filter((e) => e.section === 'ctd_structure')
-    .flatMap((e) =>
-      (structureFromPayload(e.payload) ?? []).map((d) => ({
-        country: String(e.country).trim().toUpperCase(),
-        kind: d.kind,
-        number: d.number,
-        ...(d.label ? { label: d.label } : {}),
-      })),
-    )
-    .sort((a, b) => a.country.localeCompare(b.country) || a.number.localeCompare(b.number))
-
   const before = upTo(state, fromRank)
   const after = upTo(state, targetRank)
   const overridesAll = await overridesByCountry(orgId)
   const rows: RefDiffRow[] = []
   const kept: RefKeptRow[] = []
+  const structure: RefStructureRow[] = []
   for (const country of [...new Set(incomingEntries.map((e) => e.country))].sort()) {
     const entries = await entriesForCountry(country)
     // Le diff se lit sur le contenu OFFICIEL des deux côtés (c'est bien lui qui change), mais un
@@ -219,8 +299,11 @@ export async function refUpdatePreview(
     // serait un mensonge actif (l'admin croirait ses lettres redirigées). On le sort du diff et on
     // l'annonce explicitement comme CONSERVÉ.
     const adaptedPaths = new Set([...(overridesAll.get(country) ?? new Map()).keys()])
-    const a = fieldsOf(resolveAuthority(country, entries, before, state.rank), lang)
-    const b = fieldsOf(resolveAuthority(country, entries, after, state.rank), lang)
+    const resolvedBefore = resolveAuthority(country, entries, before, state.rank)
+    const resolvedAfter = resolveAuthority(country, entries, after, state.rank)
+    structure.push(...structureDiff(country, resolvedBefore, resolvedAfter))
+    const a = fieldsOf(resolvedBefore, lang)
+    const b = fieldsOf(resolvedAfter, lang)
     for (const key of new Set([...a.keys(), ...b.keys()])) {
       const av = a.get(key)
       const bv = b.get(key)

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { BookMarked, Landmark, Plus, ScrollText, Send, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -17,19 +17,34 @@ import { NativeSelect } from '@/components/ui/native-select'
 import { Section } from '@/components/ui/section'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { COUNTRIES, countryLabel } from '@/features/workspace/dossier-constants'
-import { useI18n } from '@/lib/i18n-context'
+import { CTD_ACTIVITY_CODES, type CtdDeltaKind } from '@/features/catalogue/ref-structure'
+import {
+  anyActivityLabel,
+  COUNTRIES,
+  countryLabel,
+  formatLabel,
+} from '@/features/workspace/dossier-constants'
+import { useI18n, type Translatable } from '@/lib/i18n-context'
 import { adminApi, type RefVersionRow } from './admin-api'
 import {
   currentKey,
+  currentMapOf,
+  DELTA_ISSUE_LABEL,
+  deltaScopeByFormat,
+  draftDeltaIssues,
+  draftToDelta,
   entryError,
   fromServerEntry,
+  isBlockingDeltaIssue,
+  newDelta,
   nextLabel,
   prefillEntry,
   refErrorLabel,
+  removedSubtreeCount,
   SECTION_LABEL,
   toPayload,
   type CurrentMap,
+  type DraftDelta,
   type DraftEntry,
   type SectionKey,
 } from './ref-draft'
@@ -42,8 +57,12 @@ import { useAsync } from './use-async'
  * (l'adoption reste un consentement d'admin d'org, 0072), suivi d'adoption par organisation.
  *
  * Une version PUBLIÉE est immuable (photographie opposable) : corriger = publier une nouvelle
- * version. `ctd_structure` (P4.5) absente à dessein : publier une section que rien ne rend
- * serait un piège.
+ * version.
+ *
+ * Depuis P4.5, la section « Structure du Module 1 » (`ctd_structure`) s'y publie aussi : le
+ * SEUL module CTD qui varie par pays (cas d'école « le PGHT n'est plus exigé au Togo »). Elle
+ * publie des DELTAS de nœuds, jamais une arborescence entière — un arbre publié figerait le pays
+ * hors de toute évolution du socle.
  */
 
 export function AdminReferentiel() {
@@ -92,9 +111,9 @@ export function AdminReferentiel() {
   const draftVersions = data.versions.filter((v) => v.status === 'draft')
   const activeOrgs = data.orgs.filter((o) => !o.disabled_at)
   // Contenu résolu courant (pays|section) : la base de préremplissage de l'éditeur (revue M2).
-  const currentMap: CurrentMap = new Map(
-    data.current.map((c) => [currentKey(c.country, c.section), c]),
-  )
+  // Référence STABLE : la validation de structure (calculs d'arbre) en dépend, un `new Map` par
+  // rendu invaliderait toutes les mémoïsations en aval à chaque frappe du god.
+  const currentMap: CurrentMap = currentMapOf(data.current)
 
   const openDraft = async (v?: RefVersionRow) => {
     if (v) {
@@ -139,7 +158,7 @@ export function AdminReferentiel() {
         return null
       }
       seen.add(key)
-      const err = entryError(e)
+      const err = entryError(e, currentMap)
       if (err) {
         toast.error(`${e.country} · ${t(SECTION_LABEL[e.section])} — ${t(err)}`)
         return null
@@ -428,7 +447,7 @@ export function AdminReferentiel() {
 
               {draft.entries.map((e, i) => (
                 <EntryEditor
-                  key={i}
+                  key={e.id}
                   entry={e}
                   current={currentMap}
                   onChange={(patch) => upd(i, patch)}
@@ -656,12 +675,17 @@ function EntryEditor({
   onRemove: () => void
 }) {
   const { t, lang } = useI18n()
-  const err = entryError(entry)
+  // Mémoïsé : la validation de `ctd_structure` fait des calculs d'arbre sur tous les scopes, et ce
+  // composant se re-rend à chaque frappe n'importe où dans le brouillon.
+  const err = useMemo(() => entryError(entry, current), [entry, current])
   // Changer de pays/section re-préremplit depuis le contenu courant, mais la PROVENANCE déjà
   // saisie survit : c'est le travail du god, pas un dérivé du contenu (revue #417 m8).
   const repick = (country: string, section: SectionKey) =>
     onChange({
       ...prefillEntry(country, section, current),
+      // L'identité de LIGNE survit au changement de pays/section (sinon React remonte le bloc et
+      // le focus saute), tout comme la provenance déjà saisie (revue #417 m8).
+      id: entry.id,
       provTexte: entry.provTexte,
       provJo: entry.provJo,
       provComplements: entry.provComplements,
@@ -910,6 +934,10 @@ function EntryEditor({
         </div>
       ) : null}
 
+      {entry.section === 'ctd_structure' ? (
+        <StructureEditor entry={entry} onChange={onChange} />
+      ) : null}
+
       {/* Provenance — OBLIGATOIRE (le cœur de la confiance : la source citée). */}
       <div className="border-info/30 bg-info-subtle/50 grid gap-2 rounded-lg border p-2.5 sm:grid-cols-3">
         <Field label={t({ fr: 'Texte officiel (OBLIGATOIRE)', en: 'Official text (REQUIRED)' })}>
@@ -930,6 +958,246 @@ function EntryEditor({
         </Field>
       </div>
       {err ? <p className="text-danger-subtle-foreground text-xs">{t(err)}</p> : null}
+    </div>
+  )
+}
+
+const KIND_LABEL: Record<CtdDeltaKind, Translatable> = {
+  remove: { fr: 'Plus exigé', en: 'No longer required' },
+  add: { fr: 'Nouveau', en: 'New' },
+  relabel: { fr: 'Libellé', en: 'Rename' },
+}
+
+/**
+ * Éditeur de la section « Structure du Module 1 » (mockup ①) — un tableau de deltas de nœuds.
+ *
+ * Deux garanties tenues ICI et nulle part ailleurs :
+ * 1. **La portée est montrée, pas devinée** : chaque ligne affiche les activités réellement
+ *    touchées. C'est ainsi que le god voit que l'arbre de VARIATION reste dehors tant qu'il ne
+ *    le demande pas (M4) — sa numérotation est homonyme sans être synonyme.
+ * 2. **Un delta inerte est signalé avant l'enregistrement** : l'Edge sait dire « ce payload est
+ *    bien formé », pas « ce numéro existe » (l'arborescence vit dans le bundle web).
+ */
+function StructureEditor({
+  entry,
+  onChange,
+}: {
+  entry: DraftEntry
+  onChange: (patch: Partial<DraftEntry>) => void
+}) {
+  const { t, lang } = useI18n()
+  const issues = useMemo(() => draftDeltaIssues(entry), [entry])
+  const setDelta = (i: number, patch: Partial<DraftDelta>) =>
+    onChange({ deltas: entry.deltas.map((d, j) => (j === i ? { ...d, ...patch } : d)) })
+
+  return (
+    <div className="space-y-2">
+      <p className="text-muted-foreground text-xs">
+        {t({
+          fr: 'Le socle reste la référence : on publie des CHANGEMENTS de nœuds, jamais une arborescence entière. Le numéro est l’identité du nœud — il ne se renomme jamais.',
+          en: 'The baseline stays the reference: publish node CHANGES, never a whole tree. The number is the node’s identity — it is never renamed.',
+        })}
+      </p>
+
+      {/* ABROGATION — le contenu d'une section REMPLACE celui de la version précédente : sans
+          cette case, un pays resterait prisonnier à vie de ses écarts publiés (un décret,
+          ça s'abroge). Elle vide la liste : les deux ne se publient pas ensemble. */}
+      <label className="border-warning/30 bg-warning-subtle/40 flex items-start gap-2 rounded-lg border p-2.5 text-xs">
+        <input
+          type="checkbox"
+          checked={entry.structureReset}
+          onChange={(e) => onChange({ structureReset: e.target.checked, deltas: [] })}
+          className="mt-0.5"
+        />
+        <span>
+          <span className="font-semibold">
+            {t({
+              fr: 'Revenir à l’arborescence de référence pour ce pays',
+              en: 'Return to the reference tree for this country',
+            })}
+          </span>
+          <span className="text-muted-foreground block">
+            {t({
+              fr: 'Abroge tous les écarts nationaux publiés. Les dossiers existants ne changent pas : chacun se met à jour depuis son propre écran.',
+              en: 'Repeals every published national deviation. Existing submissions do not change: each updates from its own screen.',
+            })}
+          </span>
+        </span>
+      </label>
+
+      {entry.structureReset
+        ? null
+        : entry.deltas.map((d, i) => {
+            const canonical = draftToDelta(d)
+            const scope = canonical ? deltaScopeByFormat(canonical) : []
+            // Une ligne encore VIERGE ne crie pas « incomplet » avant la première frappe.
+            const pristine = d.number.trim() === '' && d.label.trim() === ''
+            const issue = pristine ? null : issues[i]
+            const carries = canonical ? removedSubtreeCount(canonical) : 0
+            const errId = `delta-err-${d.id}`
+            return (
+              <div key={d.id} className="bg-background space-y-2 rounded-lg border p-2.5">
+                <div className="flex flex-wrap items-end gap-2">
+                  <Field label={t({ fr: 'Changement', en: 'Change' })}>
+                    <NativeSelect
+                      value={d.kind}
+                      onChange={(e) => setDelta(i, { kind: e.target.value as CtdDeltaKind })}
+                      className="w-40"
+                    >
+                      {(Object.keys(KIND_LABEL) as CtdDeltaKind[]).map((k) => (
+                        <option key={k} value={k}>
+                          {t(KIND_LABEL[k])}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  </Field>
+                  <Field label={t({ fr: 'Nœud', en: 'Node' })}>
+                    <Input
+                      value={d.number}
+                      onChange={(e) => setDelta(i, { number: e.target.value })}
+                      placeholder="1.1.2"
+                      inputMode="decimal"
+                      className="w-28"
+                      aria-invalid={isBlockingDeltaIssue(issue, d.kind) || undefined}
+                      aria-describedby={issue ? errId : undefined}
+                    />
+                  </Field>
+                  {d.kind === 'remove' ? null : (
+                    <Field label={t({ fr: 'Libellé', en: 'Label' })}>
+                      <Input
+                        value={d.label}
+                        onChange={(e) => setDelta(i, { label: e.target.value })}
+                        className="w-72"
+                      />
+                    </Field>
+                  )}
+                  <span className="flex-1" />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onChange({ deltas: entry.deltas.filter((_, j) => j !== i) })}
+                    aria-label={t({ fr: 'Retirer ce changement', en: 'Remove this change' })}
+                  >
+                    <Trash2 />
+                  </Button>
+                </div>
+
+                <div className="flex flex-wrap items-end gap-2">
+                  <Field label={t({ fr: 'Format', en: 'Format' })}>
+                    <NativeSelect
+                      value={d.format}
+                      onChange={(e) =>
+                        setDelta(i, { format: e.target.value as DraftDelta['format'] })
+                      }
+                      className="w-40"
+                    >
+                      <option value="">{t({ fr: 'Les deux', en: 'Both' })}</option>
+                      <option value="ctd">CTD (PDF)</option>
+                      <option value="ectd">eCTD v4</option>
+                    </NativeSelect>
+                  </Field>
+                  {d.kind === 'remove' ? null : (
+                    <Field label={t({ fr: 'Guidance (optionnelle)', en: 'Guidance (optional)' })}>
+                      <Input
+                        value={d.note}
+                        onChange={(e) => setDelta(i, { note: e.target.value })}
+                        className="w-72"
+                      />
+                    </Field>
+                  )}
+                </div>
+
+                <fieldset className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <legend className="text-muted-foreground mb-1 text-[11px] font-semibold tracking-wide uppercase">
+                    {t({ fr: 'Activités visées', en: 'Targeted activities' })}
+                  </legend>
+                  {/* TOUTES les activités qu'un dossier peut porter, `transfer` compris : un payload
+                  scopé dessus doit rester visible et modifiable, sinon l'éditeur cache un état
+                  qu'il prétend montrer. Aucune case cochée = toutes (variation CTD exceptée). */}
+                  {CTD_ACTIVITY_CODES.map((code) => (
+                    <label key={code} className="flex items-center gap-1.5 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={d.activities.includes(code)}
+                        onChange={(e) =>
+                          setDelta(i, {
+                            activities: e.target.checked
+                              ? [...d.activities, code]
+                              : d.activities.filter((x) => x !== code),
+                          })
+                        }
+                      />
+                      {anyActivityLabel(code, lang)}
+                    </label>
+                  ))}
+                </fieldset>
+
+                {/* Portée EFFECTIVE, calculée format par format — pas une promesse d'étiquette.
+                « Aucune case cochée » ne veut PAS dire « toutes » : en CTD, l'arbre de variation
+                reste dehors (numérotation homonyme, contenu différent), en eCTD non (arbre
+                standard). Le dire ici évite au god de le découvrir en production. */}
+                {scope.length > 0 ? (
+                  <p className="text-muted-foreground text-[11px]">
+                    {t({ fr: 'S’appliquera à : ', en: 'Will apply to: ' })}
+                    {scope.map((s, k) => (
+                      <span key={s.format}>
+                        {k > 0 ? ' · ' : ''}
+                        <span className="font-medium">{formatLabel(s.format)}</span>
+                        {' — '}
+                        {s.activities.map((a) => anyActivityLabel(a, lang)).join(', ')}
+                      </span>
+                    ))}
+                    {d.activities.length === 0 &&
+                    scope.some((s) => s.format === 'ctd' && !s.activities.includes('variation')) ? (
+                      <span className="block">
+                        {t({
+                          fr: 'La variation CTD en est exclue (son arborescence est différente) — cochez-la pour la viser.',
+                          en: 'CTD variations are excluded (their tree differs) — tick it to target them.',
+                        })}
+                      </span>
+                    ) : null}
+                  </p>
+                ) : null}
+
+                {/* Un retrait emporte son sous-arbre : le contrat interdit d'effacer une branche de
+                1er niveau, mais « retirer 1.2.6 » emporte quand même ses deux nœuds AMM. Aucun
+                document n'est perdu (l'auto-classement remonte sur l'ancêtre survivant) — encore
+                faut-il que le god le sache avant de publier. */}
+                {carries > 0 ? (
+                  <p className="text-warning-subtle-foreground text-[11px]">
+                    {t({
+                      fr: `Retire aussi ${carries} sous-section${carries > 1 ? 's' : ''} sous ce nœud.`,
+                      en: `Also removes ${carries} sub-section${carries > 1 ? 's' : ''} under this node.`,
+                    })}
+                  </p>
+                ) : null}
+
+                {issue ? (
+                  <p
+                    id={errId}
+                    role={isBlockingDeltaIssue(issue, d.kind) ? 'alert' : undefined}
+                    className={
+                      isBlockingDeltaIssue(issue, d.kind)
+                        ? 'text-danger-subtle-foreground text-xs'
+                        : 'text-muted-foreground text-xs'
+                    }
+                  >
+                    {t(DELTA_ISSUE_LABEL[issue](`#${i + 1} ${d.number.trim() || '—'}`))}
+                  </p>
+                ) : null}
+              </div>
+            )
+          })}
+
+      {entry.structureReset ? null : (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onChange({ deltas: [...entry.deltas, newDelta()] })}
+        >
+          <Plus /> {t({ fr: 'Ajouter un changement', en: 'Add a change' })}
+        </Button>
+      )}
     </div>
   )
 }
