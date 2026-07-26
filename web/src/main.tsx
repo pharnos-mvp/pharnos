@@ -10,20 +10,22 @@ import '@fontsource-variable/dm-sans/standard.css'
 import '@fontsource-variable/syne'
 import './index.css'
 import App from '@/App'
-import { installChunkReloadHandler } from '@/lib/chunk-reload'
 import { captureInviteCodeFromUrl } from '@/lib/invite-code'
 import { initSentry } from '@/lib/sentry'
 
-// Observabilité : no-op si VITE_SENTRY_DSN absent ; sinon charge Sentry en chunk séparé.
-void initSentry()
+// Observabilité : no-op si VITE_SENTRY_DSN absent ; sinon charge Sentry en chunk séparé. Un chunk
+// injoignable (lien coupé) ne doit pas laisser un rejet non traité au démarrage — et Sentry ne peut,
+// par construction, pas remonter sa propre panne de chargement.
+void initSentry().catch(() => {})
 
 // Accès sur invitation : capturer `?invite=CODE` AVANT l'OAuth (la redirection Google perd la
 // query string) — l'onboarding le relira depuis localStorage.
 captureInviteCodeFromUrl()
 
-// Filet du rechargement ci-dessous : si l'utilisateur navigue vers une route lazy AVANT que
-// `controllerchange` n'ait rechargé, l'ancien bundle demande un chunk déjà purgé → on récupère.
-installChunkReloadHandler()
+// Le filet des chunks lazy vit désormais DANS le chargement lui-même (`lazyChunk`, cf.
+// `lib/lazy-chunk.ts`) : réessayer, puis recharger, puis rendre la main à l'`ErrorBoundary`.
+// L'ancien écouteur `vite:preloadError` neutralisait l'événement — ce qui faisait résoudre
+// l'import avec `undefined` et tuait l'app au lieu de la sauver.
 
 const rootEl = document.getElementById('root')
 if (!rootEl) {

@@ -1,5 +1,4 @@
 import {
-  lazy,
   Suspense,
   useCallback,
   useEffect,
@@ -62,6 +61,7 @@ import { db, type DossierAttachmentRecord, type GeneratedDocRecord } from '@/lib
 import { env } from '@/lib/env'
 import { UPLOAD_ACCEPT } from '@/lib/files'
 import { tStatic, useI18n } from '@/lib/i18n-context'
+import { lazyChunk } from '@/lib/lazy-chunk'
 import { pghtFcfaForCountry } from '@/lib/pght'
 import { cn } from '@/lib/utils'
 import { extractCity } from './city'
@@ -152,10 +152,10 @@ import { countMarker, countMissing } from './upgrade-doc'
 // concentrent l'essentiel du poids du chunk de la route workspace. Chargés à la demande (rendu
 // conditionnel, sous <Suspense>) → la page s'affiche sans eux ; précachés par le service worker
 // (offline-safe) + préchargés à l'idle quand on est en ligne (cf. warm()).
-const RichTextEditor = lazy(() =>
+const RichTextEditor = lazyChunk(() =>
   import('./RichTextEditor').then((m) => ({ default: m.RichTextEditor })),
 )
-const TemplateFillForm = lazy(() =>
+const TemplateFillForm = lazyChunk(() =>
   import('./components/TemplateFillForm').then((m) => ({ default: m.TemplateFillForm })),
 )
 

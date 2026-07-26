@@ -3,9 +3,15 @@ import { Component, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { useI18n } from '@/lib/i18n-context'
 import { reportError } from '@/lib/sentry'
+import { cn } from '@/lib/utils'
 
 interface Props {
   children: ReactNode
+  /**
+   * Écrans HORS app-shell (`/`, `/admin`, `/invite/…`, `/r/…`) : ils n'ont aucun parent qui donne
+   * sa hauteur, donc le repli doit occuper la fenêtre — sinon il se tasse en haut de page.
+   */
+  fullScreen?: boolean
 }
 interface State {
   error: Error | null
@@ -15,10 +21,23 @@ interface State {
  * UI de repli (fonctionnelle → peut utiliser `useI18n`, contrairement à la classe).
  * Rendue sous `I18nProvider` (la frontière est par route, à l'intérieur des providers).
  */
-function ErrorFallback({ error, onRetry }: { error: Error; onRetry: () => void }) {
+function ErrorFallback({
+  error,
+  onRetry,
+  fullScreen,
+}: {
+  error: Error
+  onRetry: () => void
+  fullScreen?: boolean
+}) {
   const { t } = useI18n()
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
+    <div
+      className={cn(
+        'flex flex-col items-center justify-center gap-4 p-8 text-center',
+        fullScreen ? 'min-h-svh' : 'h-full',
+      )}
+    >
       <div>
         <p className="text-lg font-semibold">
           {t({
@@ -67,7 +86,13 @@ export class ErrorBoundary extends Component<Props, State> {
   override render(): ReactNode {
     const { error } = this.state
     if (error) {
-      return <ErrorFallback error={error} onRetry={() => this.setState({ error: null })} />
+      return (
+        <ErrorFallback
+          error={error}
+          onRetry={() => this.setState({ error: null })}
+          fullScreen={this.props.fullScreen}
+        />
+      )
     }
     return this.props.children
   }
