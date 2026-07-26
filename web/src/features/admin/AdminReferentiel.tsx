@@ -25,7 +25,8 @@ import {
   formatLabel,
 } from '@/features/workspace/dossier-constants'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
-import { adminApi, type RefVersionRow } from './admin-api'
+import { adminApi, type RefVersionRow, type RefVersionSummary } from './admin-api'
+import { RefVersionDialog } from './RefVersionDialog'
 import {
   currentKey,
   currentMapOf,
@@ -81,6 +82,8 @@ export function AdminReferentiel() {
   const [publishing, setPublishing] = useState<{ id: string; label: string } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [adoptionOf, setAdoptionOf] = useState<string | null>(null)
+  // Fiche d'une version (lecture seule) — porte aussi la restauration de son contenu.
+  const [detailOf, setDetailOf] = useState<RefVersionSummary | null>(null)
 
   const data = overview.data
   const fmtDate = (iso: string | null) =>
@@ -305,7 +308,15 @@ export function AdminReferentiel() {
               {data.versions.map((v) => {
                 return (
                   <li key={v.id} className="flex flex-wrap items-center gap-2 py-2.5 text-sm">
-                    <span className="font-display min-w-16 font-bold">{v.label}</span>
+                    {/* Le libellé ouvre la FICHE de la version : en un clic, le god relit ce
+                        qu'il a publié (lecture seule — une version publiée est immuable). */}
+                    <button
+                      type="button"
+                      onClick={() => setDetailOf(v)}
+                      className="font-display hover:text-info min-w-16 text-left font-bold underline-offset-2 hover:underline"
+                    >
+                      {v.label}
+                    </button>
                     <span className="text-muted-foreground min-w-0 flex-1 truncate">
                       {v.release_note ||
                         t({ fr: `${v.entry_count} entrées`, en: `${v.entry_count} entries` })}
@@ -394,6 +405,40 @@ export function AdminReferentiel() {
           ) : null}
         </div>
       </div>
+
+      {/* ── Fiche d'une version (lecture seule) + restauration de son contenu ── */}
+      {detailOf ? (
+        <RefVersionDialog
+          version={detailOf}
+          activeOrgs={activeOrgs.length}
+          onClose={() => setDetailOf(null)}
+          onRestore={(v, entries) => {
+            // On ne revient pas en arrière, on PUBLIE l'état à rétablir : brouillon prérempli du
+            // contenu choisi, avec la note déjà écrite. Seule la SOURCE reste à saisir — c'est
+            // l'acte qui RESTAURE qu'il faut citer, pas celui d'origine (qui, lui, est rappelé en
+            // complément pour que le god n'ait pas à le rechercher).
+            setDraft({
+              versionId: null,
+              label: nextLabel(data.versions),
+              effectiveDate: '',
+              releaseNote: t({
+                fr: `Restauration du contenu de ${v.label}`,
+                en: `Restoring the content of ${v.label}`,
+              }),
+              entries: entries.map((e) => ({
+                ...e,
+                provTexte: '',
+                provJo: '',
+                provComplements: t({
+                  fr: `reprend le contenu de ${v.label}${e.provTexte ? ` (source d'origine : ${e.provTexte})` : ''}`,
+                  en: `restores the content of ${v.label}${e.provTexte ? ` (original source: ${e.provTexte})` : ''}`,
+                }),
+              })),
+            })
+            setDetailOf(null)
+          }}
+        />
+      ) : null}
 
       {/* ── Éditeur de brouillon : MODALE centrée au premier plan ──────────────────────────────
           Préparer une version est une TÂCHE longue et engageante (elle finit en publication
