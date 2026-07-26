@@ -285,8 +285,11 @@ export function AdminReferentiel() {
       {/* `minmax(0, …)` et non `5fr_4fr` nu : une piste `fr` a pour minimum son CONTENU, et la
           note de publication (`truncate` = white-space: nowrap) impose sa longueur ENTIÈRE en
           min-content → la colonne de gauche mangeait ~80 % et l'éditeur était écrasé. */}
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,5fr)_minmax(0,4fr)] xl:items-start">
-        {/* ── Versions + adoption ── */}
+      {/* La liste est une VUE DE RÉFÉRENCE (notes de publication, pays, adoption : elle doit
+          respirer), l'éditeur est une TÂCHE (il exige la concentration). Les mettre côte à côte
+          rabougrissait les deux — c'est ce qui avait produit la colonne écrasée de #418. Donc :
+          liste PLEINE LARGEUR, éditeur en MODALE centrée au premier plan. */}
+      <div className="space-y-4">
         <div className="min-w-0 space-y-4">
           <Section
             title={t({ fr: 'Versions du référentiel', en: 'Reference data versions' })}
@@ -388,24 +391,33 @@ export function AdminReferentiel() {
             </Section>
           ) : null}
         </div>
+      </div>
 
-        {/* ── Éditeur de brouillon ── */}
-        {draft ? (
-          <Section
-            title={
-              draft.versionId
+      {/* ── Éditeur de brouillon : MODALE centrée au premier plan ──────────────────────────────
+          Préparer une version est une TÂCHE longue et engageante (elle finit en publication
+          immuable) : elle mérite la largeur et l'attention exclusive, pas une colonne latérale.
+          Fermer par l'extérieur est bloqué pendant une écriture (`busy`) — on ne perd pas une
+          curation à cause d'un clic à côté. */}
+      <Dialog open={!!draft} onOpenChange={(o) => !o && !busy && setDraft(null)}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>
+              {draft?.versionId
                 ? t({ fr: `Brouillon ${draft.label}`, en: `Draft ${draft.label}` })
-                : t({ fr: 'Nouveau brouillon', en: 'New draft' })
-            }
-            description={t({
-              fr: 'Chaque entrée est préremplie depuis le contenu courant — modifiez, CITEZ la source, publiez.',
-              en: 'Each entry is prefilled from current content — edit, CITE the source, publish.',
-            })}
-          >
-            <div className="min-w-0 space-y-4">
-              {/* 2 colonnes, pas 3 : dans la colonne de l'éditeur, trois champs côte à côte
-                  hachaient les libellés sur 3 lignes et rognaient les saisies. */}
-              <div className="grid gap-3 sm:grid-cols-2">
+                : t({ fr: 'Nouveau brouillon', en: 'New draft' })}
+            </DialogTitle>
+            <DialogDescription>
+              {t({
+                fr: 'Chaque entrée est préremplie depuis le contenu courant — modifiez, CITEZ la source, publiez.',
+                en: 'Each entry is prefilled from current content — edit, CITE the source, publish.',
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          {draft ? (
+            <div className="max-h-[70vh] min-w-0 space-y-4 overflow-y-auto pr-1">
+              {/* La modale est large : trois champs tiennent enfin sur une ligne sans hacher
+                  les libellés (contrainte qui imposait 2 colonnes en panneau latéral, #418). */}
+              <div className="grid gap-3 sm:grid-cols-3">
                 <Field label={t({ fr: 'Libellé', en: 'Label' })}>
                   <Input
                     value={draft.label}
@@ -520,23 +532,9 @@ export function AdminReferentiel() {
                 })}
               </p>
             </div>
-          </Section>
-        ) : (
-          <EmptyState
-            icon={<ScrollText />}
-            title={t({ fr: 'Aucun brouillon ouvert', en: 'No draft open' })}
-            description={t({
-              fr: 'Créez un brouillon pour préparer une mise à jour sourcée du référentiel.',
-              en: 'Create a draft to prepare a sourced reference data update.',
-            })}
-            action={
-              <Button size="sm" onClick={() => void openDraft()}>
-                <Plus /> {t({ fr: 'Nouveau brouillon', en: 'New draft' })}
-              </Button>
-            }
-          />
-        )}
-      </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       {/* ── Confirmation de suppression de brouillon ── */}
       <Dialog open={confirmDelete} onOpenChange={(o) => !o && !busy && setConfirmDelete(false)}>
