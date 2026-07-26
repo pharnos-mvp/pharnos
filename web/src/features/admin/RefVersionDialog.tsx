@@ -15,9 +15,16 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { CountryFlag } from '@/features/dashboard/CountryFlag'
 import { countryLabel } from '@/features/workspace/dossier-constants'
-import { useI18n, type Lang, type Translatable } from '@/lib/i18n-context'
+import { useI18n } from '@/lib/i18n-context'
 import { adminApi, type RefVersionSummary } from './admin-api'
-import { fromServerEntry, SECTION_LABEL, type DraftEntry } from './ref-draft'
+import {
+  describeEntry,
+  entryIsInert,
+  fromServerEntry,
+  SECTION_LABEL,
+  type CurrentMap,
+  type DraftEntry,
+} from './ref-draft'
 
 /**
  * Fiche d'une version du référentiel — LECTURE SEULE (point 2 de la série UX CEO).
@@ -34,73 +41,29 @@ import { fromServerEntry, SECTION_LABEL, type DraftEntry } from './ref-draft'
  * celui d'origine.
  */
 
-/** Lignes lisibles d'une entrée — miroir d'affichage des sections, jamais du JSON brut. */
-function describe(e: DraftEntry, lang: Lang): { label: Translatable; value: string }[] {
-  const out: { label: Translatable; value: string }[] = []
-  const put = (label: Translatable, value: string) => {
-    if (value.trim()) out.push({ label, value })
-  }
-  if (e.section === 'agency') {
-    put({ fr: 'Sigle', en: 'Acronym' }, e.agName)
-    put({ fr: 'Dénomination', en: 'Full name' }, e.agFull)
-    put({ fr: 'Destinataire', en: 'Recipient' }, e.agDirecteur)
-    put({ fr: 'Adresse', en: 'Address' }, e.agAdresse)
-    put({ fr: 'Téléphone', en: 'Phone' }, e.agTel)
-    put({ fr: 'E-mail', en: 'Email' }, e.agEmail)
-  } else if (e.section === 'fees') {
-    const cur = e.currency || 'FCFA'
-    put({ fr: 'Nouvelle AMM', en: 'New MA' }, e.feeNewMa && `${e.feeNewMa} ${cur}`)
-    put({ fr: 'Renouvellement', en: 'Renewal' }, e.feeRenewal && `${e.feeRenewal} ${cur}`)
-    put({ fr: 'Variation mineure', en: 'Minor variation' }, e.feeVarMin && `${e.feeVarMin} ${cur}`)
-    put({ fr: 'Variation majeure', en: 'Major variation' }, e.feeVarMaj && `${e.feeVarMaj} ${cur}`)
-    put({ fr: 'Délai indicatif', en: 'Indicative timeline' }, e.processingDays)
-  } else if (e.section === 'submission') {
-    put({ fr: 'Modalités de dépôt', en: 'Filing procedure' }, lang === 'en' ? e.subEn : e.subFr)
-  } else if (e.section === 'samples') {
-    put(
-      { fr: 'Échantillons', en: 'Samples' },
-      (lang === 'en' ? e.samplesNewMaEn : e.samplesNewMaFr).split('\n').filter(Boolean).join(' · '),
-    )
-    put({ fr: 'Réserve', en: 'Reservation' }, lang === 'en' ? e.reserveEn : e.reserveFr)
-  } else if (e.section === 'ctd_structure') {
-    if (e.structureReset) {
-      put(
-        { fr: 'Structure', en: 'Structure' },
-        lang === 'en'
-          ? 'Back to the reference tree (all national deltas repealed)'
-          : 'Retour à l’arborescence de référence (tous les écarts nationaux abrogés)',
-      )
-    }
-    for (const d of e.deltas) {
-      const kind =
-        d.kind === 'remove'
-          ? { fr: 'plus exigé', en: 'no longer required' }
-          : d.kind === 'add'
-            ? { fr: 'nouveau', en: 'new' }
-            : { fr: 'intitulé', en: 'title' }
-      put(
-        { fr: `Nœud ${d.number}`, en: `Node ${d.number}` },
-        `${lang === 'en' ? kind.en : kind.fr}${d.label ? ` — ${d.label}` : ''}`,
-      )
-    }
-  }
-  return out
-}
-
 export function RefVersionDialog({
   version,
   activeOrgs,
+  current,
   onClose,
   onRestore,
 }: {
   version: RefVersionSummary
   activeOrgs: number
+  /** Contenu EN VIGUEUR : restaurer ce qui l'est déjà publierait une mise à jour vide (M5). */
+  current: CurrentMap
   onClose: () => void
   /** Ouvre un brouillon prérempli du contenu de cette version (point 3). */
   onRestore: (version: RefVersionSummary, entries: DraftEntry[]) => void
 }) {
   const { t, lang } = useI18n()
   const [entries, setEntries] = useState<DraftEntry[] | null>(null)
+  // M4 — une lecture ÉCHOUÉE tombait sur `[]`, c'est-à-dire sur le rendu « Aucune entrée ». Le god
+  // lisait donc « cette version ne contient rien » alors que le réseau avait lâché : conclusion
+  // fausse sur un registre opposable, et « Restaurer » grisé sans qu'il sache pourquoi. L'échec est
+  // désormais un état À PART, avec de quoi réessayer.
+  const [failed, setFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
 
   // Le parent ne monte ce composant que pour la version ouverte : l'état repart donc de zéro à
   // chaque ouverture. Réutiliser une liste précédente afficherait le contenu d'une AUTRE version
@@ -115,13 +78,39 @@ export function RefVersionDialog({
       .catch(() => {
         if (alive) {
           toast.error(t({ fr: 'Contenu illisible.', en: 'Could not read content.' }))
-          setEntries([])
+          setFailed(true)
         }
       })
     return () => {
       alive = false
     }
-  }, [version.id, t])
+  }, [version.id, t, attempt])
+
+  /**
+   * « Restaurer » est-il un geste QUI CHANGE QUELQUE CHOSE ? Deux refus (M5) :
+   * - un BROUILLON n'a jamais été en vigueur, il n'y a rien à y restaurer — et il est déjà éditable ;
+   * - une version dont TOUTES les entrées sont déjà en vigueur produirait un brouillon inerte, que
+   *   `entryError` refuserait à l'enregistrement. Autant le dire ici plutôt que de laisser le god
+   *   remplir une provenance de décret pour rien.
+   */
+  const allInForce =
+    !!entries && entries.length > 0 && entries.every((e) => entryIsInert(e, current))
+  const restorable =
+    !!entries && entries.length > 0 && !failed && version.status !== 'draft' && !allInForce
+  const restoreBlockedWhy =
+    !entries || entries.length === 0 || failed
+      ? null
+      : version.status === 'draft'
+        ? t({
+            fr: 'Ce brouillon n’a jamais été en vigueur : il n’y a rien à restaurer, ouvrez-le pour l’éditer.',
+            en: 'This draft was never in force: there is nothing to restore, open it to edit.',
+          })
+        : allInForce
+          ? t({
+              fr: 'Ce contenu est déjà celui en vigueur : le restaurer publierait une mise à jour sans effet.',
+              en: 'This content is already the one in force: restoring it would publish an update with no effect.',
+            })
+          : null
 
   const fmt = (iso: string | null) =>
     iso ? new Date(iso).toLocaleDateString(lang === 'en' ? 'en-GB' : 'fr-FR') : '—'
@@ -154,7 +143,32 @@ export function RefVersionDialog({
         </DialogHeader>
 
         <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
-          {entries === null ? (
+          {failed ? (
+            <div className="border-destructive/40 bg-destructive/5 space-y-2 rounded-lg border p-3">
+              <p className="text-sm font-semibold">
+                {t({
+                  fr: 'Le contenu de cette version n’a pas pu être lu.',
+                  en: 'This version’s content could not be read.',
+                })}
+              </p>
+              <p className="text-muted-foreground text-xs">
+                {t({
+                  fr: 'Rien n’est perdu : la version reste publiée telle quelle. Ne concluez pas qu’elle est vide.',
+                  en: 'Nothing is lost: the version stays published as is. Do not conclude it is empty.',
+                })}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setFailed(false)
+                  setAttempt((n) => n + 1)
+                }}
+              >
+                {t({ fr: 'Réessayer', en: 'Retry' })}
+              </Button>
+            </div>
+          ) : entries === null ? (
             <Skeleton className="h-32 w-full" />
           ) : entries.length === 0 ? (
             <p className="text-muted-foreground text-sm">
@@ -171,7 +185,7 @@ export function RefVersionDialog({
                   </span>
                 </p>
                 <dl className="mt-1.5 grid gap-x-6 gap-y-1 sm:grid-cols-2">
-                  {describe(e, lang).map((r, j) => (
+                  {describeEntry(e, lang).map((r, j) => (
                     <div key={j} className="min-w-0">
                       <dt className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
                         {t(r.label)}
@@ -193,16 +207,17 @@ export function RefVersionDialog({
           )}
         </div>
 
+        {restoreBlockedWhy ? (
+          <p className="text-muted-foreground text-xs">{restoreBlockedWhy}</p>
+        ) : null}
+
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             {t({ fr: 'Fermer', en: 'Close' })}
           </Button>
           {/* On ne « revient » jamais en arrière : on PUBLIE l'état à rétablir. Le bouton ouvre un
               brouillon prérempli — disponible sur toute version publiée, pas que les abrogations. */}
-          <Button
-            onClick={() => entries && onRestore(version, entries)}
-            disabled={!entries || entries.length === 0}
-          >
+          <Button onClick={() => entries && onRestore(version, entries)} disabled={!restorable}>
             <RotateCcw />
             {t({ fr: 'Restaurer ce contenu', en: 'Restore this content' })}
           </Button>

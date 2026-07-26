@@ -40,7 +40,10 @@ import {
   newDelta,
   nextFreeChildNumber,
   nextLabel,
-  pickableNodes,
+  pickableScopes,
+  toProvenance,
+  type PickableNode,
+  type PickableScope,
   prefillEntry,
   refErrorLabel,
   removedSubtreeCount,
@@ -183,11 +186,7 @@ export function AdminReferentiel() {
           country: e.country,
           section: e.section,
           payload: toPayload(e),
-          provenance: {
-            texte: e.provTexte.trim(),
-            ...(e.provJo.trim() ? { jo: e.provJo.trim() } : {}),
-            ...(e.provComplements.trim() ? { complements: e.provComplements.trim() } : {}),
-          },
+          provenance: toProvenance(e),
         })),
       })
       setDraft((d) => (d ? { ...d, versionId } : d))
@@ -312,6 +311,7 @@ export function AdminReferentiel() {
                   <button
                     type="button"
                     onClick={() => setDetailOf(v)}
+                    aria-haspopup="dialog"
                     className="font-display hover:text-info min-w-16 text-left font-bold underline-offset-2 hover:underline"
                   >
                     {v.label}
@@ -407,7 +407,9 @@ export function AdminReferentiel() {
       {/* ── Fiche d'une version (lecture seule) + restauration de son contenu ── */}
       {detailOf ? (
         <RefVersionDialog
+          key={detailOf.id}
           version={detailOf}
+          current={currentMap}
           activeOrgs={activeOrgs.length}
           onClose={() => setDetailOf(null)}
           onRestore={(v, entries) => {
@@ -929,7 +931,7 @@ function EntryEditor({
               onChange={(e) => onChange({ agAdresse: e.target.value })}
             />
           </Field>
-          <Field label={t({ fr: 'Langue de soumission', en: 'Submission language' })}>
+          <Field label={t({ fr: 'Langue officielle', en: 'Official language' })}>
             <NativeSelect
               value={entry.agLang}
               onChange={(e) => onChange({ agLang: e.target.value })}
@@ -1056,6 +1058,9 @@ const KIND_LABEL: Record<CtdDeltaKind, Translatable> = {
   relabel: { fr: 'Libellé', en: 'Rename' },
 }
 
+/** Identité de PORTÉE d'une ligne — deux lignes de même portée partagent la même liste de nœuds. */
+const scopeKey = (d: DraftDelta) => `${d.format}|${[...d.activities].sort().join(',')}`
+
 /**
  * Éditeur de la section « Structure du Module 1 » (mockup ①) — un tableau de deltas de nœuds.
  *
@@ -1066,7 +1071,7 @@ const KIND_LABEL: Record<CtdDeltaKind, Translatable> = {
  * 2. **Un delta inerte est signalé avant l'enregistrement** : l'Edge sait dire « ce payload est
  *    bien formé », pas « ce numéro existe » (l'arborescence vit dans le bundle web).
  */
-function StructureEditor({
+export function StructureEditor({
   entry,
   onChange,
   current,
@@ -1078,12 +1083,25 @@ function StructureEditor({
 }) {
   const { t, lang } = useI18n()
   const issues = useMemo(() => draftDeltaIssues(entry), [entry])
-  // Arborescence RÉELLE du pays (socle ← deltas déjà publiés). Le format de la 1re ligne suffit :
-  // mélanger CTD et eCTD dans une même liste rendrait les numéros ambigus à l'œil.
-  const nodes = useMemo(
-    () => pickableNodes(entry.country, entry.deltas[0]?.format ?? '', current),
-    [entry.country, entry.deltas, current],
-  )
+  /**
+   * Arborescence RÉELLE du pays (socle ← deltas déjà publiés), calculée LIGNE PAR LIGNE : chaque
+   * delta a sa propre portée (format, activités) et donc son propre arbre (M1). Les lignes de même
+   * portée partagent une seule liste — l'entrée d'un décret en compte souvent quatre identiques.
+   *
+   * Recalculé quand `entry.deltas` change d'identité, donc à chaque frappe : la mémoïsation par
+   * portée dans une `Map` persistante est refusée par le compilateur React (mutation après rendu),
+   * et le coût réel est de quelques arbres statiques aplatis. On ne trafique pas la correction pour
+   * une micro-optimisation invisible.
+   */
+  const nodesByScope = useMemo(() => {
+    const m = new Map<string, PickableScope[]>()
+    for (const d of entry.deltas) {
+      const key = scopeKey(d)
+      if (!m.has(key)) m.set(key, pickableScopes(entry.country, d, current))
+    }
+    return m
+  }, [entry.country, entry.deltas, current])
+  const scopesFor = (d: DraftDelta) => nodesByScope.get(scopeKey(d)) ?? []
   /** Parent déduit du numéro en cours (« 1.2.9 » → « 1.2 ») — présélectionne la liste « Sous ». */
   const parentOf = (n: string) => (n.includes('.') ? n.slice(0, n.lastIndexOf('.')) : '')
   const reserved = useMemo(() => reservedNumbers(entry), [entry])
@@ -1135,6 +1153,42 @@ function StructureEditor({
             const issue = pristine ? null : issues[i]
             const carries = canonical ? removedSubtreeCount(canonical) : 0
             const errId = `delta-err-${d.id}`
+            // Listes propres à CETTE ligne : sa portée, ses arbres — un par format (M-A).
+            const scopes = scopesFor(d)
+            const allNodes = scopes.flatMap((g) => g.nodes)
+            /** Valeur d'option : le format VOYAGE avec le numéro, sinon 1.2.6 est ambigu. */
+            const optValue = (format: string, number: string) => `${format}|${number}`
+            /**
+             * Choisir un nœud FIXE le format de la ligne. Sans cela, un numéro pris dans l'arbre
+             * CTD restait applicable à l'eCTD, où il désigne une AUTRE pièce : le renommage partait
+             * chez tous les clients en eCTD sur un document sans rapport. Le god garde la main (il
+             * peut rebasculer le format), mais l'éditeur ne fabrique plus ce piège tout seul.
+             */
+            const pickNode = (raw: string) => {
+              const [format, number] = raw.split('|')
+              return { format: (format || '') as DraftDelta['format'], number: number ?? '' }
+            }
+            /** « (Renouvellement, Transfert seulement) » — dans SON format, jamais entre formats. */
+            const nodeOption = (n: PickableNode, format: 'ctd' | 'ectd') => (
+              <option key={`${format}|${n.number}`} value={optValue(format, n.number)}>
+                {' '.repeat((n.depth - 1) * 2)}
+                {n.number} · {n.label}
+                {n.partial
+                  ? ` (${n.partial.map((a) => anyActivityLabel(a, lang)).join(', ')} ${t({ fr: 'seulement', en: 'only' })})`
+                  : ''}
+              </option>
+            )
+            /** Groupe seulement s'il y a deux arbres : un seul en-tête inutile est du bruit. */
+            const options = (filter: (n: PickableNode) => boolean) =>
+              scopes.map((g) =>
+                scopes.length > 1 ? (
+                  <optgroup key={g.format} label={formatLabel(g.format)}>
+                    {g.nodes.filter(filter).map((n) => nodeOption(n, g.format))}
+                  </optgroup>
+                ) : (
+                  g.nodes.filter(filter).map((n) => nodeOption(n, g.format))
+                ),
+              )
             return (
               <div key={d.id} className="bg-background space-y-2 rounded-lg border p-2.5">
                 <div className="flex flex-wrap items-end gap-2">
@@ -1152,7 +1206,7 @@ function StructureEditor({
                     </NativeSelect>
                   </Field>
                   {/* Le nœud se CHOISIT, il ne se tape pas : une coquille publiait un delta
-                      INERTE (l'Edge ne connaît pas l'arborescence, cf. `pickableNodes`).
+                      INERTE (l'Edge ne connaît pas l'arborescence, cf. `pickableScopes`).
                       • « Plus exigé »/« Libellé » visent un nœud EXISTANT → liste des nœuds réels.
                         Un retrait n'offre que la profondeur ≥ 3 : la garde de branche devient
                         invisible au lieu d'être punitive.
@@ -1162,26 +1216,23 @@ function StructureEditor({
                     <>
                       <Field label={t({ fr: 'Sous', en: 'Under' })}>
                         <NativeSelect
-                          value={parentOf(d.number)}
-                          onChange={(e) =>
+                          value={d.number ? optValue(d.format, parentOf(d.number)) : ''}
+                          onChange={(e) => {
+                            const p = pickNode(e.target.value)
+                            // Réserve = socle NU + fratrie de l'entrée : ne jamais recycler un
+                            // numéro qu'un delta publié n'a fait que RETIRER (il ressusciterait
+                            // la section retirée), ni en donner deux fois le même (B1).
                             setDelta(i, {
-                              // Réserve = socle NU + fratrie de l'entrée : ne jamais recycler un
-                              // numéro qu'un delta publié n'a fait que RETIRER (il ressusciterait
-                              // la section retirée), ni en donner deux fois le même (B1).
-                              number: e.target.value
-                                ? nextFreeChildNumber(nodes, e.target.value, reserved)
+                              format: p.number ? p.format : d.format,
+                              number: p.number
+                                ? nextFreeChildNumber(allNodes, p.number, reserved)
                                 : '',
                             })
-                          }
+                          }}
                           className="w-72"
                         >
                           <option value="">{t({ fr: '— choisir —', en: '— choose —' })}</option>
-                          {nodes.map((n) => (
-                            <option key={n.number} value={n.number}>
-                              {' '.repeat((n.depth - 1) * 2)}
-                              {n.number} · {n.label}
-                            </option>
-                          ))}
+                          {options(() => true)}
                         </NativeSelect>
                       </Field>
                       <Field label={t({ fr: 'Numéro', en: 'Number' })}>
@@ -1197,33 +1248,48 @@ function StructureEditor({
                       </Field>
                     </>
                   ) : (
-                    <Field label={t({ fr: 'Nœud', en: 'Node' })}>
-                      <NativeSelect
-                        value={d.number}
-                        onChange={(e) => setDelta(i, { number: e.target.value })}
-                        className="w-80"
-                        aria-invalid={isBlockingDeltaIssue(issue, d.kind) || undefined}
-                        aria-describedby={issue ? errId : undefined}
-                      >
-                        <option value="">{t({ fr: '— choisir —', en: '— choose —' })}</option>
-                        {nodes
-                          .filter((n) => d.kind !== 'remove' || n.depth >= 3)
-                          .map((n) => (
-                            <option key={n.number} value={n.number}>
-                              {' '.repeat((n.depth - 1) * 2)}
-                              {n.number} · {n.label}
-                            </option>
-                          ))}
-                        {/* Un numéro déjà saisi mais absent de l'arbre (delta hérité d'une version
+                    /* `Field` enveloppe tout dans un <label> : la note reste DEHORS, sinon elle
+                       devient le nom accessible du select (« Nœud Les deux premiers… »). */
+                    <div>
+                      <Field label={t({ fr: 'Nœud', en: 'Node' })}>
+                        <NativeSelect
+                          value={d.number ? optValue(d.format, d.number) : ''}
+                          onChange={(e) => {
+                            const p = pickNode(e.target.value)
+                            setDelta(i, {
+                              format: p.number ? p.format : d.format,
+                              number: p.number,
+                            })
+                          }}
+                          className="w-80"
+                          aria-invalid={isBlockingDeltaIssue(issue, d.kind) || undefined}
+                          aria-describedby={issue ? errId : undefined}
+                        >
+                          <option value="">{t({ fr: '— choisir —', en: '— choose —' })}</option>
+                          {options((n) => d.kind !== 'remove' || n.depth >= 3)}
+                          {/* Un numéro déjà saisi mais absent de l'arbre (delta hérité d'une version
                             antérieure, socle qui a bougé) doit rester VISIBLE et sélectionné, sinon
                             le select l'effacerait en silence. */}
-                        {d.number && !nodes.some((n) => n.number === d.number) ? (
-                          <option value={d.number}>
-                            {d.number} · {t({ fr: 'hors arborescence', en: 'outside the tree' })}
-                          </option>
-                        ) : null}
-                      </NativeSelect>
-                    </Field>
+                          {d.number && !allNodes.some((n) => n.number === d.number) ? (
+                            <option value={optValue(d.format, d.number)}>
+                              {d.number} · {t({ fr: 'hors arborescence', en: 'outside the tree' })}
+                            </option>
+                          ) : null}
+                        </NativeSelect>
+                      </Field>
+                      {/* m2 — sans cette phrase, la liste plus courte d'un retrait passe pour un
+                          bug d'affichage. Le contrat refuse de retirer une branche de 1er ou 2e
+                          niveau : elle porte l'ossature du Module 1 (et l'auto-classement des
+                          documents remonterait sur du vide). */}
+                      {d.kind === 'remove' ? (
+                        <p className="text-muted-foreground mt-1 text-[11px]">
+                          {t({
+                            fr: 'Les deux premiers niveaux ne sont pas retirables : ils portent l’ossature du Module 1.',
+                            en: 'The first two levels cannot be removed: they carry the Module 1 backbone.',
+                          })}
+                        </p>
+                      ) : null}
+                    </div>
                   )}
                   {d.kind === 'remove' ? null : (
                     <Field label={t({ fr: 'Libellé', en: 'Label' })}>
