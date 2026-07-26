@@ -56,9 +56,13 @@ import {
   setUserSignature,
 } from '@/features/profile/pro-settings-repository'
 import { useProSettingsSync } from '@/features/profile/use-pro-settings-sync'
-import { resolvedModule1Tree } from '@/features/catalogue/ref-content'
+import {
+  resolvedAuthorityDetailAtVersion,
+  resolvedModule1Tree,
+} from '@/features/catalogue/ref-content'
 import { db, type DossierAttachmentRecord, type GeneratedDocRecord } from '@/lib/db'
 import { env } from '@/lib/env'
+import { reportError } from '@/lib/sentry'
 import { UPLOAD_ACCEPT } from '@/lib/files'
 import { tStatic, useI18n } from '@/lib/i18n-context'
 import { lazyChunk } from '@/lib/lazy-chunk'
@@ -119,6 +123,8 @@ import { seedVariationItems, type VariationItem } from '@/features/variations/va
 import { emptyLetterFields } from './letter-context'
 import { TEMPLATES, templateKeyForNode, type TemplateContext } from './templates'
 import { flattenTree, isTreeOutdated, mergeDefaultTree } from './tree-utils'
+import { StructureMergeDialog } from './StructureMergeDialog'
+import { applyMergePlan, buildMergePlan, chosenCount, sanitizeChosen } from './structure-merge'
 import { useDebouncedDocSave } from './use-debounced-doc-save'
 import { useRegafyCopilot } from './use-regafy-copilot'
 import { CompletionPanel } from './components/CompletionPanel'
@@ -256,6 +262,9 @@ export function DossierWorkspacePage() {
 
   const [selected, setSelected] = useState<CtdNodeDef | null>(null)
   const [treeEditing, setTreeEditing] = useState(false)
+  // Écran de fusion de structure (P4.5c) — ouvert par la bannière, jamais automatiquement.
+  const [mergeOpen, setMergeOpen] = useState(false)
+  const [mergeBusy, setMergeBusy] = useState(false)
   const [docEditing, setDocEditing] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [rightCollapsed, setRightCollapsed] = useState(false)
@@ -548,7 +557,7 @@ export function DossierWorkspacePage() {
   // `useLiveQuery` conserve son résultat précédent quand ses deps changent, donc un arbre calculé
   // pour un AUTRE dossier/pays pourrait être servi puis PERSISTÉ par une fusion (leçon #416).
   const treeKey = dossier
-    ? `${dossier.id}|${dossier.country}|${dossier.format}|${dossier.activity ?? ''}|${dossier.refVersionId ?? ''}`
+    ? `${dossier.id}|${dossier.country}|${dossier.format}|${dossier.activity ?? ''}|${dossier.refVersionId ?? ''}|${(dossier.variations ?? []).join(',')}`
     : ''
   const structures = useLiveQuery(async () => {
     if (!dossier) return undefined
@@ -560,24 +569,25 @@ export function DossierWorkspacePage() {
       variations: dossier.variations,
       refVersionId: dossier.refVersionId ?? null,
     }
-    const [official, autoTarget] = await Promise.all([
+    const [official, autoTarget, detail] = await Promise.all([
       resolvedModule1Tree(q),
       // Cible d'auto-fusion : le socle MOINS les retraits/renommages du pays. Les `add` publiés
       // en sont exclus — ils exigent le clic de l'utilisateur.
       resolvedModule1Tree({ ...q, kinds: ['remove', 'relabel'] }),
+      // La SOURCE du changement : ce qui légitime la proposition dans l'écran de fusion.
+      resolvedAuthorityDetailAtVersion(dossier.country, orgId, dossier.refVersionId ?? null),
     ])
-    return { key: treeKey, official, autoTarget }
+    return {
+      key: treeKey,
+      official,
+      autoTarget,
+      provenance: detail?.provenance.ctd_structure,
+      versionLabel: detail?.versionLabel ?? null,
+    }
   }, [treeKey, orgId, dossier?.variations])
   // Résultat d'un AUTRE dossier encore en mémoire → ignoré (jamais persisté par mégarde).
   const trees = structures?.key === treeKey ? structures : undefined
   const resolvedTree = trees?.official
-
-  // Bannière « structure à mettre à jour » : comparée à la structure OFFICIELLE (pays + version),
-  // pas au socle — sinon un nœud exigé par le pays n'apparaîtrait jamais comme manquant.
-  const structureOutdated = useMemo(
-    () => (dossier && resolvedTree ? isTreeOutdated(dossier.tree, resolvedTree) : false),
-    [dossier, resolvedTree],
-  )
 
   // Fusion AUTOMATIQUE (une seule fois par dossier), cible = socle MOINS les retraits du pays.
   //
@@ -841,6 +851,25 @@ export function DossierWorkspacePage() {
   const attachmentsFor = (node: CtdNodeDef) => attachmentsForNode(attachByNode, node)
   const countFor = (node: CtdNodeDef) =>
     docsFor(node).length + genDocsFor(node).length + attachmentsFor(node).length
+
+  /**
+   * Plan de fusion (P4.5c) : ce que la structure officielle propose à CE dossier, ligne par ligne.
+   * Il pilote la bannière (non vide = quelque chose à décider) ET l'écran de fusion — une seule
+   * source, donc le bandeau ne peut pas annoncer un changement que la boîte ne montrerait pas.
+   */
+  const mergePlan = useMemo(
+    () => (dossier && resolvedTree ? buildMergePlan(dossier.tree, resolvedTree, countFor) : []),
+    // `countFor` dérive de `docs`/`genDocs`/`attachments` : recalculé à chaque rendu, il ne peut pas
+    // être une dépendance stable — le plan se recalcule avec le dossier et la structure résolue.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dossier, resolvedTree, docs, genDocs, attachments],
+  )
+  // La bannière ne s'allume que sur un AJOUT ou un RETRAIT officiel. Deux exclusions volontaires :
+  //  • une section « conservée » est un état, pas une action (boîte sans bouton actif) ;
+  //  • un RENOMMAGE seul peut venir de l'utilisateur lui-même (le mode édition permet de renommer
+  //    n'importe quelle section) — allumer une bannière « nouvelle structure » parce qu'il a écrit
+  //    « Lettre de demande (signée DG) » serait un reproche permanent adressé à son propre travail.
+  const structureOutdated = mergePlan.some((l) => l.kind === 'add' || l.kind === 'drop')
 
   async function handleTreeChange(tree: CtdNodeDef[]) {
     if (dossierId) await updateDossierTree(dossierId, tree)
@@ -1369,21 +1398,43 @@ export function DossierWorkspacePage() {
   }
 
   /**
-   * Mise à jour EXPLICITE de la structure (bouton de la bannière) — la seule voie par laquelle une
-   * exigence nationale publiée entre dans un dossier existant.
+   * Applique la SÉLECTION de l'écran de fusion (P4.5c) — la seule voie par laquelle une exigence
+   * nationale publiée entre dans un dossier existant, et seulement pour les lignes cochées.
    *
-   * `mergeDefaultTree` n'AJOUTE que les nœuds manquants : aucune section validée n'est touchée et
-   * AUCUN document n'est jamais supprimé, y compris si le référentiel déclare une section « plus
-   * exigée » (elle reste en place — cf. mockup P4.5 ③, `docs/mockups/ctd-structure-fusion.html`).
+   * Les deux garanties vivent dans `structure-merge` : `buildMergePlan` ne propose jamais le retrait
+   * d'une section porteuse d'un document ou validée, et `applyMergePlan` n'applique que le coché.
    */
-  async function handleUpdateStructure() {
-    // Jamais sans arbre résolu POUR CE DOSSIER : appliquer un socle nu (ou l'arbre d'un autre
-    // dossier encore en mémoire) écrirait une structure fausse dans une photographie opposable.
+  async function handleApplyMerge(chosen: Set<string>) {
+    // Jamais sans arbre résolu POUR CE DOSSIER : appliquer l'arbre d'un autre dossier encore en
+    // mémoire écrirait une structure fausse dans une photographie opposable.
     if (!resolvedTree) return
-    const merged = mergeDefaultTree(activeDossier.tree, resolvedTree)
-    await updateDossierTree(activeDossier.id, merged)
-    void syncDossiers(orgId)
-    toast.success(t({ fr: 'Structure mise à jour', en: 'Structure updated' }))
+    setMergeBusy(true)
+    try {
+      // La sélection est restreinte au plan COURANT : une case cochée sur un plan périmé (pièce
+      // déposée entre-temps, autre onglet) ne s'applique pas et n'est pas comptée.
+      const safe = sanitizeChosen(mergePlan, chosen)
+      const applied = chosenCount(mergePlan, safe)
+      const merged = applyMergePlan(activeDossier.tree, resolvedTree, safe, countFor)
+      await updateDossierTree(activeDossier.id, merged)
+      // La section sélectionnée a pu être retirée : sans ce recalage, le prochain téléversement
+      // rattacherait la pièce à un numéro ABSENT de l'arbre (invisible + hors PDF compilé).
+      if (selected && !flattenTree(merged).some((n) => n.number === selected.number)) {
+        setSelected(null)
+      }
+      void syncDossiers(orgId)
+      setMergeOpen(false)
+      toast.success(
+        t({
+          fr: `Structure mise à jour — ${applied} changement${applied > 1 ? 's' : ''} appliqué${applied > 1 ? 's' : ''}.`,
+          en: `Structure updated — ${applied} change${applied > 1 ? 's' : ''} applied.`,
+        }),
+      )
+    } catch (error) {
+      reportError(error, { op: 'structure.merge', entity: 'dossier', id: activeDossier.id })
+      toast.error(t({ fr: 'La mise à jour a échoué.', en: 'The update failed.' }))
+    } finally {
+      setMergeBusy(false)
+    }
   }
 
   async function handleRemoveActive() {
@@ -1573,7 +1624,7 @@ export function DossierWorkspacePage() {
     treeEditing,
     setTreeEditing,
     structureOutdated,
-    onUpdateStructure: () => void handleUpdateStructure(),
+    onUpdateStructure: () => setMergeOpen(true),
     tree: dossier.tree,
     flatNodes,
     selected,
@@ -1651,6 +1702,22 @@ export function DossierWorkspacePage() {
     // neutralisé du shell, cf. app-shell) → plus de scroll global, bordures verticales pleine
     // hauteur. Les overlays (dialogs) sont SORTIS du conteneur overflow-hidden (fragment) → jamais rognés.
     <>
+      {/* Écran de fusion de structure (P4.5c) — hors du conteneur `overflow-hidden`, comme les
+          autres overlays, sinon la boîte serait rognée. */}
+      {mergeOpen ? (
+        <StructureMergeDialog
+          key={activeDossier.id}
+          open
+          onOpenChange={setMergeOpen}
+          plan={mergePlan}
+          productName={activeDossier.productName}
+          country={activeDossier.country}
+          versionLabel={trees?.versionLabel ?? null}
+          provenance={trees?.provenance}
+          busy={mergeBusy}
+          onApply={(chosen) => void handleApplyMerge(chosen)}
+        />
+      ) : null}
       <div className="bg-canvas -mx-4 -mb-4 flex h-[calc(100%+1rem)] flex-col overflow-hidden md:-mx-6 md:-mb-6 md:h-[calc(100%+1.5rem)]">
         {/* Barre d'ONGLETS de documents (mockup `.legend`) — pleine largeur, ENTRE l'en-tête
             global et l'en-tête de document. WAI-ARIA `tablist` (M3) : ←/→ + Début/Fin déplacent et

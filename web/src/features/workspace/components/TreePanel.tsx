@@ -91,8 +91,10 @@ export function TreePanel({
           className="border-b bg-amber-50 px-3 py-2 text-left text-xs text-amber-800 hover:bg-amber-100"
         >
           {t({
-            fr: 'Nouvelle structure disponible — Mettre à jour',
-            en: 'New structure available — Update',
+            // « Examiner » et non « Mettre à jour » : le clic OUVRE l'écran de fusion (P4.5c), il
+            // n'applique plus rien tout seul. Promettre l'application serait mentir sur l'action.
+            fr: 'Nouvelle structure disponible — Examiner…',
+            en: 'New structure available — Review…',
           })}
         </button>
       ) : null}
