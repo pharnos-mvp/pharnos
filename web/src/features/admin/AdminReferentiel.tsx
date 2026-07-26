@@ -25,7 +25,8 @@ import {
   formatLabel,
 } from '@/features/workspace/dossier-constants'
 import { useI18n, type Translatable } from '@/lib/i18n-context'
-import { adminApi, type RefVersionRow } from './admin-api'
+import { adminApi, type RefVersionRow, type RefVersionSummary } from './admin-api'
+import { RefVersionDialog } from './RefVersionDialog'
 import {
   currentKey,
   currentMapOf,
@@ -37,10 +38,16 @@ import {
   fromServerEntry,
   isBlockingDeltaIssue,
   newDelta,
+  nextFreeChildNumber,
   nextLabel,
+  pickableScopes,
+  toProvenance,
+  type PickableNode,
+  type PickableScope,
   prefillEntry,
   refErrorLabel,
   removedSubtreeCount,
+  reservedNumbers,
   SECTION_LABEL,
   toPayload,
   type CurrentMap,
@@ -78,7 +85,11 @@ export function AdminReferentiel() {
   const [busy, setBusy] = useState(false)
   const [publishing, setPublishing] = useState<{ id: string; label: string } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  /** Fermeture de l'éditeur : toujours confirmée — un brouillon non enregistré n'a pas de undo. */
+  const [confirmClose, setConfirmClose] = useState(false)
   const [adoptionOf, setAdoptionOf] = useState<string | null>(null)
+  // Fiche d'une version (lecture seule) — porte aussi la restauration de son contenu.
+  const [detailOf, setDetailOf] = useState<RefVersionSummary | null>(null)
 
   const data = overview.data
   const fmtDate = (iso: string | null) =>
@@ -175,11 +186,7 @@ export function AdminReferentiel() {
           country: e.country,
           section: e.section,
           payload: toPayload(e),
-          provenance: {
-            texte: e.provTexte.trim(),
-            ...(e.provJo.trim() ? { jo: e.provJo.trim() } : {}),
-            ...(e.provComplements.trim() ? { complements: e.provComplements.trim() } : {}),
-          },
+          provenance: toProvenance(e),
         })),
       })
       setDraft((d) => (d ? { ...d, versionId } : d))
@@ -282,64 +289,111 @@ export function AdminReferentiel() {
         />
       </div>
 
-      {/* `minmax(0, …)` et non `5fr_4fr` nu : une piste `fr` a pour minimum son CONTENU, et la
-          note de publication (`truncate` = white-space: nowrap) impose sa longueur ENTIÈRE en
-          min-content → la colonne de gauche mangeait ~80 % et l'éditeur était écrasé. */}
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,5fr)_minmax(0,4fr)] xl:items-start">
-        {/* ── Versions + adoption ── */}
-        <div className="min-w-0 space-y-4">
+      {/* La liste est une VUE DE RÉFÉRENCE (notes de publication, pays, adoption : elle doit
+          respirer), l'éditeur est une TÂCHE (il exige la concentration). Les mettre côte à côte
+          rabougrissait les deux — c'est ce qui avait produit la colonne écrasée de #418. Donc :
+          liste PLEINE LARGEUR, éditeur en MODALE centrée au premier plan. */}
+      <div className="min-w-0 space-y-4">
+        <Section
+          title={t({ fr: 'Versions du référentiel', en: 'Reference data versions' })}
+          actions={
+            <Button size="sm" onClick={() => void openDraft()} disabled={busy}>
+              <Plus /> {t({ fr: 'Nouveau brouillon', en: 'New draft' })}
+            </Button>
+          }
+        >
+          <ul className="divide-border divide-y">
+            {data.versions.map((v) => {
+              return (
+                <li key={v.id} className="flex flex-wrap items-center gap-2 py-2.5 text-sm">
+                  {/* Le libellé ouvre la FICHE de la version : en un clic, le god relit ce
+                        qu'il a publié (lecture seule — une version publiée est immuable). */}
+                  <button
+                    type="button"
+                    onClick={() => setDetailOf(v)}
+                    aria-haspopup="dialog"
+                    className="font-display hover:text-info min-w-16 text-left font-bold underline-offset-2 hover:underline"
+                  >
+                    {v.label}
+                  </button>
+                  <span className="text-muted-foreground min-w-0 flex-1 truncate">
+                    {v.release_note ||
+                      t({ fr: `${v.entry_count} entrées`, en: `${v.entry_count} entries` })}
+                    {v.countries.length > 0 ? ` · ${v.countries.join(', ')}` : ''}
+                    {v.is_baseline ? ` · ${t({ fr: 'socle', en: 'baseline' })}` : ''}
+                  </span>
+                  {v.status === 'published' ? (
+                    <button
+                      type="button"
+                      className="shrink-0"
+                      onClick={() => setAdoptionOf(adoptionOf === v.id ? null : v.id)}
+                      aria-expanded={adoptionOf === v.id}
+                    >
+                      <StatusBadge tone="success">
+                        {t({ fr: 'Publiée', en: 'Published' })} · {v.adoption_count}/
+                        {activeOrgs.length}
+                      </StatusBadge>
+                    </button>
+                  ) : v.status === 'draft' ? (
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      <StatusBadge tone="warning">
+                        {t({ fr: 'Brouillon', en: 'Draft' })}
+                      </StatusBadge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void openDraft(v)}
+                        disabled={busy}
+                      >
+                        {t({ fr: 'Éditer', en: 'Edit' })}
+                      </Button>
+                    </span>
+                  ) : (
+                    // 3ᵉ état autorisé par le CHECK de 0071, qu'AUCUN bouton ne produit
+                    // aujourd'hui (l'archivage se fait en SQL, cf. FK `on delete restrict` :
+                    // une version épinglée s'archive, ne se supprime pas). Rendu d'avance pour
+                    // qu'une version archivée à la main ne s'affiche jamais comme un brouillon.
+                    <StatusBadge tone="neutral">
+                      {t({ fr: 'Archivée', en: 'Archived' })}
+                    </StatusBadge>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </Section>
+
+        {adoptionOf ? (
           <Section
-            title={t({ fr: 'Versions du référentiel', en: 'Reference data versions' })}
-            actions={
-              <Button size="sm" onClick={() => void openDraft()} disabled={busy}>
-                <Plus /> {t({ fr: 'Nouveau brouillon', en: 'New draft' })}
-              </Button>
-            }
+            title={t({
+              fr: `Adoption de ${data.versions.find((v) => v.id === adoptionOf)?.label ?? ''}`,
+              en: `Adoption of ${data.versions.find((v) => v.id === adoptionOf)?.label ?? ''}`,
+            })}
+            description={t({
+              fr: "Le consentement est journalisé côté org (qui, quand) — rien n'est imposé.",
+              en: 'Consent is logged on the org side (who, when) — nothing is imposed.',
+            })}
           >
             <ul className="divide-border divide-y">
-              {data.versions.map((v) => {
+              {activeOrgs.map((o) => {
+                const a = data.adoptions.find(
+                  (x) => x.version_id === adoptionOf && x.org_id === o.id,
+                )
                 return (
-                  <li key={v.id} className="flex flex-wrap items-center gap-2 py-2.5 text-sm">
-                    <span className="font-display min-w-16 font-bold">{v.label}</span>
-                    <span className="text-muted-foreground min-w-0 flex-1 truncate">
-                      {v.release_note ||
-                        t({ fr: `${v.entry_count} entrées`, en: `${v.entry_count} entries` })}
-                      {v.countries.length > 0 ? ` · ${v.countries.join(', ')}` : ''}
-                      {v.is_baseline ? ` · ${t({ fr: 'socle', en: 'baseline' })}` : ''}
-                    </span>
-                    {v.status === 'published' ? (
-                      <button
-                        type="button"
-                        className="shrink-0"
-                        onClick={() => setAdoptionOf(adoptionOf === v.id ? null : v.id)}
-                        aria-expanded={adoptionOf === v.id}
-                      >
+                  <li key={o.id} className="flex items-center gap-3 py-2 text-sm">
+                    <span className="min-w-0 flex-1 truncate">{o.name}</span>
+                    {a ? (
+                      <>
                         <StatusBadge tone="success">
-                          {t({ fr: 'Publiée', en: 'Published' })} · {v.adoption_count}/
-                          {activeOrgs.length}
+                          {t({ fr: 'Adoptée', en: 'Adopted' })}
                         </StatusBadge>
-                      </button>
-                    ) : v.status === 'draft' ? (
-                      <span className="flex shrink-0 items-center gap-1.5">
-                        <StatusBadge tone="warning">
-                          {t({ fr: 'Brouillon', en: 'Draft' })}
-                        </StatusBadge>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => void openDraft(v)}
-                          disabled={busy}
-                        >
-                          {t({ fr: 'Éditer', en: 'Edit' })}
-                        </Button>
-                      </span>
+                        <span className="text-muted-foreground shrink-0 text-xs">
+                          {fmtDate(a.adopted_at)} · {a.adopted_by_email}
+                        </span>
+                      </>
                     ) : (
-                      // 3ᵉ état autorisé par le CHECK de 0071, qu'AUCUN bouton ne produit
-                      // aujourd'hui (l'archivage se fait en SQL, cf. FK `on delete restrict` :
-                      // une version épinglée s'archive, ne se supprime pas). Rendu d'avance pour
-                      // qu'une version archivée à la main ne s'affiche jamais comme un brouillon.
-                      <StatusBadge tone="neutral">
-                        {t({ fr: 'Archivée', en: 'Archived' })}
+                      <StatusBadge tone="warning">
+                        {t({ fr: 'En attente', en: 'Pending' })}
                       </StatusBadge>
                     )}
                   </li>
@@ -347,65 +401,84 @@ export function AdminReferentiel() {
               })}
             </ul>
           </Section>
+        ) : null}
+      </div>
 
-          {adoptionOf ? (
-            <Section
-              title={t({
-                fr: `Adoption de ${data.versions.find((v) => v.id === adoptionOf)?.label ?? ''}`,
-                en: `Adoption of ${data.versions.find((v) => v.id === adoptionOf)?.label ?? ''}`,
-              })}
-              description={t({
-                fr: "Le consentement est journalisé côté org (qui, quand) — rien n'est imposé.",
-                en: 'Consent is logged on the org side (who, when) — nothing is imposed.',
-              })}
-            >
-              <ul className="divide-border divide-y">
-                {activeOrgs.map((o) => {
-                  const a = data.adoptions.find(
-                    (x) => x.version_id === adoptionOf && x.org_id === o.id,
-                  )
-                  return (
-                    <li key={o.id} className="flex items-center gap-3 py-2 text-sm">
-                      <span className="min-w-0 flex-1 truncate">{o.name}</span>
-                      {a ? (
-                        <>
-                          <StatusBadge tone="success">
-                            {t({ fr: 'Adoptée', en: 'Adopted' })}
-                          </StatusBadge>
-                          <span className="text-muted-foreground shrink-0 text-xs">
-                            {fmtDate(a.adopted_at)} · {a.adopted_by_email}
-                          </span>
-                        </>
-                      ) : (
-                        <StatusBadge tone="warning">
-                          {t({ fr: 'En attente', en: 'Pending' })}
-                        </StatusBadge>
-                      )}
-                    </li>
-                  )
-                })}
-              </ul>
-            </Section>
-          ) : null}
-        </div>
+      {/* ── Fiche d'une version (lecture seule) + restauration de son contenu ── */}
+      {detailOf ? (
+        <RefVersionDialog
+          key={detailOf.id}
+          version={detailOf}
+          current={currentMap}
+          activeOrgs={activeOrgs.length}
+          onClose={() => setDetailOf(null)}
+          onRestore={(v, entries) => {
+            // On ne revient pas en arrière, on PUBLIE l'état à rétablir : brouillon prérempli du
+            // contenu choisi, avec la note déjà écrite. Seule la SOURCE reste à saisir — c'est
+            // l'acte qui RESTAURE qu'il faut citer, pas celui d'origine (qui, lui, est rappelé en
+            // complément pour que le god n'ait pas à le rechercher).
+            setDraft({
+              versionId: null,
+              label: nextLabel(data.versions),
+              effectiveDate: '',
+              releaseNote: t({
+                fr: `Restauration du contenu de ${v.label}`,
+                en: `Restoring the content of ${v.label}`,
+              }),
+              entries: entries.map((e) => ({
+                ...e,
+                provTexte: '',
+                provJo: '',
+                provComplements: t({
+                  fr: `reprend le contenu de ${v.label}${e.provTexte ? ` (source d'origine : ${e.provTexte})` : ''}`,
+                  en: `restores the content of ${v.label}${e.provTexte ? ` (original source: ${e.provTexte})` : ''}`,
+                }),
+              })),
+            })
+            setDetailOf(null)
+          }}
+        />
+      ) : null}
 
-        {/* ── Éditeur de brouillon ── */}
-        {draft ? (
-          <Section
-            title={
-              draft.versionId
+      {/* ── Éditeur de brouillon : MODALE centrée au premier plan ──────────────────────────────
+          Préparer une version est une TÂCHE longue et engageante (elle finit en publication
+          immuable) : elle mérite la largeur et l'attention exclusive, pas une colonne latérale.
+          Fermer par l'extérieur est bloqué pendant une écriture (`busy`) — on ne perd pas une
+          curation à cause d'un clic à côté. */}
+      <Dialog open={!!draft} onOpenChange={(o) => !o && setConfirmClose(true)}>
+        <DialogContent
+          className="max-w-4xl"
+          // ⚠️ RÉGRESSION CORRIGÉE (revue, bloquant B2) : `DialogContent` est un Radix `modal` — il
+          // fermait sur Échap ET sur un pointerdown hors contenu. Un réflexe suffisait donc à
+          // détruire quatre entrées et leurs provenances de décrets, sans confirmation ni undo,
+          // alors que l'éditeur en panneau (avant la modale) ne pouvait pas être fermé par un clic.
+          // La garde `busy` n'y changeait rien : elle n'est vraie que pendant l'écriture réseau.
+          // Les deux gestes sont donc NEUTRALISÉS ; toute fermeture passe par une confirmation.
+          onEscapeKeyDown={(e) => {
+            e.preventDefault()
+            setConfirmClose(true)
+          }}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle>
+              {draft?.versionId
                 ? t({ fr: `Brouillon ${draft.label}`, en: `Draft ${draft.label}` })
-                : t({ fr: 'Nouveau brouillon', en: 'New draft' })
-            }
-            description={t({
-              fr: 'Chaque entrée est préremplie depuis le contenu courant — modifiez, CITEZ la source, publiez.',
-              en: 'Each entry is prefilled from current content — edit, CITE the source, publish.',
-            })}
-          >
+                : t({ fr: 'Nouveau brouillon', en: 'New draft' })}
+            </DialogTitle>
+            <DialogDescription>
+              {t({
+                fr: 'Chaque entrée est préremplie depuis le contenu courant — modifiez, CITEZ la source, publiez.',
+                en: 'Each entry is prefilled from current content — edit, CITE the source, publish.',
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          {draft ? (
             <div className="min-w-0 space-y-4">
-              {/* 2 colonnes, pas 3 : dans la colonne de l'éditeur, trois champs côte à côte
-                  hachaient les libellés sur 3 lignes et rognaient les saisies. */}
-              <div className="grid gap-3 sm:grid-cols-2">
+              {/* La modale est large : trois champs tiennent enfin sur une ligne sans hacher
+                  les libellés (contrainte qui imposait 2 colonnes en panneau latéral, #418). */}
+              <div className="grid gap-3 sm:grid-cols-3">
                 <Field label={t({ fr: 'Libellé', en: 'Label' })}>
                   <Input
                     value={draft.label}
@@ -520,23 +593,40 @@ export function AdminReferentiel() {
                 })}
               </p>
             </div>
-          </Section>
-        ) : (
-          <EmptyState
-            icon={<ScrollText />}
-            title={t({ fr: 'Aucun brouillon ouvert', en: 'No draft open' })}
-            description={t({
-              fr: 'Créez un brouillon pour préparer une mise à jour sourcée du référentiel.',
-              en: 'Create a draft to prepare a sourced reference data update.',
-            })}
-            action={
-              <Button size="sm" onClick={() => void openDraft()}>
-                <Plus /> {t({ fr: 'Nouveau brouillon', en: 'New draft' })}
-              </Button>
-            }
-          />
-        )}
-      </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Confirmation de FERMETURE de l'éditeur (bloquant B2) ── */}
+      <Dialog open={confirmClose} onOpenChange={(o) => !o && setConfirmClose(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {t({ fr: 'Fermer sans enregistrer ?', en: 'Close without saving?' })}
+            </DialogTitle>
+            <DialogDescription>
+              {t({
+                fr: 'Les entrées et les sources saisies depuis le dernier enregistrement seront perdues — il n’y a pas de retour en arrière.',
+                en: 'Entries and sources typed since the last save will be lost — there is no undo.',
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmClose(false)}>
+              {t({ fr: 'Continuer l’édition', en: 'Keep editing' })}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setConfirmClose(false)
+                setDraft(null)
+              }}
+            >
+              {t({ fr: 'Fermer', en: 'Close' })}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Confirmation de suppression de brouillon ── */}
       <Dialog open={confirmDelete} onOpenChange={(o) => !o && !busy && setConfirmDelete(false)}>
@@ -841,7 +931,7 @@ function EntryEditor({
               onChange={(e) => onChange({ agAdresse: e.target.value })}
             />
           </Field>
-          <Field label={t({ fr: 'Langue de soumission', en: 'Submission language' })}>
+          <Field label={t({ fr: 'Langue officielle', en: 'Official language' })}>
             <NativeSelect
               value={entry.agLang}
               onChange={(e) => onChange({ agLang: e.target.value })}
@@ -935,7 +1025,7 @@ function EntryEditor({
       ) : null}
 
       {entry.section === 'ctd_structure' ? (
-        <StructureEditor entry={entry} onChange={onChange} />
+        <StructureEditor entry={entry} onChange={onChange} current={current} />
       ) : null}
 
       {/* Provenance — OBLIGATOIRE (le cœur de la confiance : la source citée). */}
@@ -968,6 +1058,9 @@ const KIND_LABEL: Record<CtdDeltaKind, Translatable> = {
   relabel: { fr: 'Libellé', en: 'Rename' },
 }
 
+/** Identité de PORTÉE d'une ligne — deux lignes de même portée partagent la même liste de nœuds. */
+const scopeKey = (d: DraftDelta) => `${d.format}|${[...d.activities].sort().join(',')}`
+
 /**
  * Éditeur de la section « Structure du Module 1 » (mockup ①) — un tableau de deltas de nœuds.
  *
@@ -978,15 +1071,40 @@ const KIND_LABEL: Record<CtdDeltaKind, Translatable> = {
  * 2. **Un delta inerte est signalé avant l'enregistrement** : l'Edge sait dire « ce payload est
  *    bien formé », pas « ce numéro existe » (l'arborescence vit dans le bundle web).
  */
-function StructureEditor({
+export function StructureEditor({
   entry,
   onChange,
+  current,
 }: {
   entry: DraftEntry
   onChange: (patch: Partial<DraftEntry>) => void
+  /** Contenu publié courant : la liste des nœuds part de l'arborescence RÉELLE du pays. */
+  current: CurrentMap
 }) {
   const { t, lang } = useI18n()
   const issues = useMemo(() => draftDeltaIssues(entry), [entry])
+  /**
+   * Arborescence RÉELLE du pays (socle ← deltas déjà publiés), calculée LIGNE PAR LIGNE : chaque
+   * delta a sa propre portée (format, activités) et donc son propre arbre (M1). Les lignes de même
+   * portée partagent une seule liste — l'entrée d'un décret en compte souvent quatre identiques.
+   *
+   * Recalculé quand `entry.deltas` change d'identité, donc à chaque frappe : la mémoïsation par
+   * portée dans une `Map` persistante est refusée par le compilateur React (mutation après rendu),
+   * et le coût réel est de quelques arbres statiques aplatis. On ne trafique pas la correction pour
+   * une micro-optimisation invisible.
+   */
+  const nodesByScope = useMemo(() => {
+    const m = new Map<string, PickableScope[]>()
+    for (const d of entry.deltas) {
+      const key = scopeKey(d)
+      if (!m.has(key)) m.set(key, pickableScopes(entry.country, d, current))
+    }
+    return m
+  }, [entry.country, entry.deltas, current])
+  const scopesFor = (d: DraftDelta) => nodesByScope.get(scopeKey(d)) ?? []
+  /** Parent déduit du numéro en cours (« 1.2.9 » → « 1.2 ») — présélectionne la liste « Sous ». */
+  const parentOf = (n: string) => (n.includes('.') ? n.slice(0, n.lastIndexOf('.')) : '')
+  const reserved = useMemo(() => reservedNumbers(entry), [entry])
   const setDelta = (i: number, patch: Partial<DraftDelta>) =>
     onChange({ deltas: entry.deltas.map((d, j) => (j === i ? { ...d, ...patch } : d)) })
 
@@ -1035,6 +1153,42 @@ function StructureEditor({
             const issue = pristine ? null : issues[i]
             const carries = canonical ? removedSubtreeCount(canonical) : 0
             const errId = `delta-err-${d.id}`
+            // Listes propres à CETTE ligne : sa portée, ses arbres — un par format (M-A).
+            const scopes = scopesFor(d)
+            const allNodes = scopes.flatMap((g) => g.nodes)
+            /** Valeur d'option : le format VOYAGE avec le numéro, sinon 1.2.6 est ambigu. */
+            const optValue = (format: string, number: string) => `${format}|${number}`
+            /**
+             * Choisir un nœud FIXE le format de la ligne. Sans cela, un numéro pris dans l'arbre
+             * CTD restait applicable à l'eCTD, où il désigne une AUTRE pièce : le renommage partait
+             * chez tous les clients en eCTD sur un document sans rapport. Le god garde la main (il
+             * peut rebasculer le format), mais l'éditeur ne fabrique plus ce piège tout seul.
+             */
+            const pickNode = (raw: string) => {
+              const [format, number] = raw.split('|')
+              return { format: (format || '') as DraftDelta['format'], number: number ?? '' }
+            }
+            /** « (Renouvellement, Transfert seulement) » — dans SON format, jamais entre formats. */
+            const nodeOption = (n: PickableNode, format: 'ctd' | 'ectd') => (
+              <option key={`${format}|${n.number}`} value={optValue(format, n.number)}>
+                {' '.repeat((n.depth - 1) * 2)}
+                {n.number} · {n.label}
+                {n.partial
+                  ? ` (${n.partial.map((a) => anyActivityLabel(a, lang)).join(', ')} ${t({ fr: 'seulement', en: 'only' })})`
+                  : ''}
+              </option>
+            )
+            /** Groupe seulement s'il y a deux arbres : un seul en-tête inutile est du bruit. */
+            const options = (filter: (n: PickableNode) => boolean) =>
+              scopes.map((g) =>
+                scopes.length > 1 ? (
+                  <optgroup key={g.format} label={formatLabel(g.format)}>
+                    {g.nodes.filter(filter).map((n) => nodeOption(n, g.format))}
+                  </optgroup>
+                ) : (
+                  g.nodes.filter(filter).map((n) => nodeOption(n, g.format))
+                ),
+              )
             return (
               <div key={d.id} className="bg-background space-y-2 rounded-lg border p-2.5">
                 <div className="flex flex-wrap items-end gap-2">
@@ -1051,17 +1205,92 @@ function StructureEditor({
                       ))}
                     </NativeSelect>
                   </Field>
-                  <Field label={t({ fr: 'Nœud', en: 'Node' })}>
-                    <Input
-                      value={d.number}
-                      onChange={(e) => setDelta(i, { number: e.target.value })}
-                      placeholder="1.1.2"
-                      inputMode="decimal"
-                      className="w-28"
-                      aria-invalid={isBlockingDeltaIssue(issue, d.kind) || undefined}
-                      aria-describedby={issue ? errId : undefined}
-                    />
-                  </Field>
+                  {/* Le nœud se CHOISIT, il ne se tape pas : une coquille publiait un delta
+                      INERTE (l'Edge ne connaît pas l'arborescence, cf. `pickableScopes`).
+                      • « Plus exigé »/« Libellé » visent un nœud EXISTANT → liste des nœuds réels.
+                        Un retrait n'offre que la profondeur ≥ 3 : la garde de branche devient
+                        invisible au lieu d'être punitive.
+                      • « Nouveau » vise un numéro qui n'existe PAS encore → on choisit le PARENT
+                        et le premier numéro libre est proposé (modifiable). */}
+                  {d.kind === 'add' ? (
+                    <>
+                      <Field label={t({ fr: 'Sous', en: 'Under' })}>
+                        <NativeSelect
+                          value={d.number ? optValue(d.format, parentOf(d.number)) : ''}
+                          onChange={(e) => {
+                            const p = pickNode(e.target.value)
+                            // Réserve = socle NU + fratrie de l'entrée : ne jamais recycler un
+                            // numéro qu'un delta publié n'a fait que RETIRER (il ressusciterait
+                            // la section retirée), ni en donner deux fois le même (B1).
+                            setDelta(i, {
+                              format: p.number ? p.format : d.format,
+                              number: p.number
+                                ? nextFreeChildNumber(allNodes, p.number, reserved)
+                                : '',
+                            })
+                          }}
+                          className="w-72"
+                        >
+                          <option value="">{t({ fr: '— choisir —', en: '— choose —' })}</option>
+                          {options(() => true)}
+                        </NativeSelect>
+                      </Field>
+                      <Field label={t({ fr: 'Numéro', en: 'Number' })}>
+                        <Input
+                          value={d.number}
+                          onChange={(e) => setDelta(i, { number: e.target.value })}
+                          placeholder="1.2.9"
+                          inputMode="decimal"
+                          className="w-28"
+                          aria-invalid={isBlockingDeltaIssue(issue, d.kind) || undefined}
+                          aria-describedby={issue ? errId : undefined}
+                        />
+                      </Field>
+                    </>
+                  ) : (
+                    /* `Field` enveloppe tout dans un <label> : la note reste DEHORS, sinon elle
+                       devient le nom accessible du select (« Nœud Les deux premiers… »). */
+                    <div>
+                      <Field label={t({ fr: 'Nœud', en: 'Node' })}>
+                        <NativeSelect
+                          value={d.number ? optValue(d.format, d.number) : ''}
+                          onChange={(e) => {
+                            const p = pickNode(e.target.value)
+                            setDelta(i, {
+                              format: p.number ? p.format : d.format,
+                              number: p.number,
+                            })
+                          }}
+                          className="w-80"
+                          aria-invalid={isBlockingDeltaIssue(issue, d.kind) || undefined}
+                          aria-describedby={issue ? errId : undefined}
+                        >
+                          <option value="">{t({ fr: '— choisir —', en: '— choose —' })}</option>
+                          {options((n) => d.kind !== 'remove' || n.depth >= 3)}
+                          {/* Un numéro déjà saisi mais absent de l'arbre (delta hérité d'une version
+                            antérieure, socle qui a bougé) doit rester VISIBLE et sélectionné, sinon
+                            le select l'effacerait en silence. */}
+                          {d.number && !allNodes.some((n) => n.number === d.number) ? (
+                            <option value={optValue(d.format, d.number)}>
+                              {d.number} · {t({ fr: 'hors arborescence', en: 'outside the tree' })}
+                            </option>
+                          ) : null}
+                        </NativeSelect>
+                      </Field>
+                      {/* m2 — sans cette phrase, la liste plus courte d'un retrait passe pour un
+                          bug d'affichage. Le contrat refuse de retirer une branche de 1er ou 2e
+                          niveau : elle porte l'ossature du Module 1 (et l'auto-classement des
+                          documents remonterait sur du vide). */}
+                      {d.kind === 'remove' ? (
+                        <p className="text-muted-foreground mt-1 text-[11px]">
+                          {t({
+                            fr: 'Les deux premiers niveaux ne sont pas retirables : ils portent l’ossature du Module 1.',
+                            en: 'The first two levels cannot be removed: they carry the Module 1 backbone.',
+                          })}
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
                   {d.kind === 'remove' ? null : (
                     <Field label={t({ fr: 'Libellé', en: 'Label' })}>
                       <Input

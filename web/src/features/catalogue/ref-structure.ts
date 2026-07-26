@@ -261,6 +261,14 @@ export type CtdDeltaIssue =
   | 'masked'
   /** Ligne REDONDANTE (doublon, ou valeur déjà celle du socle) : même arbre sans elle. Avis. */
   | 'no_change'
+  /**
+   * `add` dont le numéro EXISTE DÉJÀ au socle d'un arbre visé. FAUTE — et la plus sournoise :
+   * l'arbre CHANGE (donc aucun test d'inertie ne l'attrape), mais il change par un RENOMMAGE du
+   * nœud existant, ce que le genre « nouveau » n'annonce pas. Le cas réel : le Togo publie
+   * `remove 1.1.2`, la suggestion de numéro le croit libre, et l'`add` fait RESSUSCITER la Lettre
+   * de PGHT sous le titre de la nouvelle section (bloquant B1 de la revue UX).
+   */
+  | 'add_exists'
 
 /**
  * Du plus clément au plus grave. Un delta inerte l'est souvent pour des raisons DIFFÉRENTES selon
@@ -273,6 +281,9 @@ const SEVERITY: Record<CtdDeltaIssue, number> = {
   masked: 1,
   orphan: 2,
   unknown_node: 2,
+  // Le plus grave : contrairement aux autres, ce delta AGIT — il renomme un nœud existant (voire
+  // ressuscite une section retirée) sous couvert d'« ajouter ». Aucune clémence possible.
+  add_exists: 3,
 }
 
 /** Couples (format, activité) possibles — l'ensemble des arbres socle qu'un delta peut viser. */
@@ -341,6 +352,19 @@ export function structureDeltaIssues(
     const k = deltaKey(d)
     if (!firstIndexByKey.has(k)) firstIndexByKey.set(k, i)
   })
+  // Un `add` sur un numéro DÉJÀ au socle se juge AVANT le test différentiel : il produit bien un
+  // effet (il renomme), donc aucune mesure d'inertie ne peut le voir — c'est précisément pourquoi
+  // il passait inaperçu.
+  const addOnExisting = deltas.map((d) => {
+    if (d.kind !== 'add') return false
+    for (const format of ['ctd', 'ectd'] as const) {
+      for (const activity of CTD_ACTIVITY_CODES) {
+        if (deltasFor([d], format, activity).length === 0) continue
+        if (hasNumber(treeFor(format, activity), d.number)) return true
+      }
+    }
+    return false
+  })
   // Le différentiel se joue sur la liste DÉDOUBLONNÉE : sinon deux lignes jumelles se couvrent
   // l'une l'autre (retirer l'une laisse l'autre agir) et TOUTES DEUX passent pour inutiles —
   // alors que la première fait le travail. C'est la seconde qui est en trop, et elle seule.
@@ -356,6 +380,9 @@ export function structureDeltaIssues(
   }
 
   return deltas.map((d, i) => {
+    // Priorité absolue : un `add` sur un numéro existant AGIT (il renomme), donc le différentiel
+    // ci-dessous le déclarerait innocent. C'est pourtant une faute — le genre annonce « nouveau ».
+    if (addOnExisting[i]) return 'add_exists'
     if (firstIndexByKey.get(deltaKey(d)) !== i) return 'no_change' // doublon d'une ligne au-dessus
     let worst: CtdDeltaIssue | null = null
     for (const [f, a] of SCOPES) {

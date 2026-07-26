@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { COUNTRIES } from '@/features/workspace/dossier-constants'
 import { getModule1Tree } from '@/features/workspace/module1-tree'
+import { findByNumber } from '@/features/catalogue/ref-structure'
 import { flattenTree } from '@/features/workspace/tree-utils'
 import {
   deltaScopeByFormat,
@@ -17,6 +18,10 @@ import {
   toPayload,
   type CurrentMap,
   type DraftDelta,
+  currentMapOf,
+  nextFreeChildNumber,
+  reservedNumbers,
+  pickableScopes,
 } from './ref-draft'
 import type { RefEntryFull, RefVersionRow } from './admin-api'
 
@@ -377,5 +382,193 @@ describe('nextLabel', () => {
 
   it('plafonne à 999 (la regex serveur refuse 4 chiffres)', () => {
     expect(nextLabel([v(`v${year}.999`)])).toBe(`v${year}.999`)
+  })
+})
+
+describe('pickableNodes — le nœud se CHOISIT, il ne se tape pas', () => {
+  it('propose l’arborescence RÉELLE du pays : socle ← deltas DÉJÀ publiés', () => {
+    const current = currentMapOf([
+      {
+        country: 'TG',
+        section: 'ctd_structure',
+        payload: { deltas: [{ kind: 'add', number: '1.2.9', label: 'Pharmacovigilance' }] },
+        provenance: {},
+        version_label: 'v2026.2',
+      },
+    ])
+    const withDelta = nodesOf('TG', { format: 'ctd' }, current)
+    const sansDelta = nodesOf('SN', { format: 'ctd' }, current)
+
+    // Le nœud publié pour le Togo est proposé…
+    expect(withDelta.find((n) => n.number === '1.2.9')?.label).toBe('Pharmacovigilance')
+    // …et PAS pour un autre pays (les deltas sont nationaux).
+    expect(sansDelta.some((n) => n.number === '1.2.9')).toBe(false)
+  })
+
+  it('un retrait publié disparaît de la liste (on ne re-retire pas ce qui n’existe plus)', () => {
+    const current = currentMapOf([
+      {
+        country: 'TG',
+        section: 'ctd_structure',
+        payload: { deltas: [{ kind: 'remove', number: '1.1.2' }] },
+        provenance: {},
+        version_label: 'v2026.2',
+      },
+    ])
+    expect(nodesOf('TG', { format: 'ctd' }, current).some((n) => n.number === '1.1.2')).toBe(false)
+    expect(nodesOf('TG', { format: 'ctd' }, undefined).some((n) => n.number === '1.1.2')).toBe(true)
+  })
+
+  it('porte la profondeur (l’UI en tire l’indentation ET la garde de retrait)', () => {
+    const nodes = nodesOf('SN', { format: 'ctd' })
+    expect(nodes.find((n) => n.number === '1.1')?.depth).toBe(2)
+    expect(nodes.find((n) => n.number === '1.1.1')?.depth).toBe(3)
+    // Une liste de retrait ne gardera que les ≥ 3 : aucune branche de 1er niveau retirable.
+    expect(nodes.filter((n) => n.depth >= 3).some((n) => n.number === '1.1')).toBe(false)
+  })
+
+  it('format vide = les DEUX arbres, jamais une liste vide', () => {
+    expect(nodesOf('SN', { format: '' }).length).toBeGreaterThan(10)
+    expect(nodesOf('SN', { format: 'ectd' }).length).toBeGreaterThan(10)
+  })
+})
+
+describe('nextFreeChildNumber — la suggestion d’un AJOUT', () => {
+  it('propose le premier numéro LIBRE sous le parent', () => {
+    const nodes = nodesOf('SN', { format: 'ctd' })
+    const proposed = nextFreeChildNumber(nodes, '1.2')
+
+    expect(proposed.startsWith('1.2.')).toBe(true)
+    // Il est libre : c'est tout le point (aucun doublon, aucun écrasement).
+    expect(nodes.some((n) => n.number === proposed)).toBe(false)
+  })
+
+  it('un parent sans enfant connu reçoit « .1 »', () => {
+    expect(nextFreeChildNumber([], '1.9')).toBe('1.9.1')
+  })
+})
+
+/** Nœuds d'un format unique — aplatir n'a de sens que là (les deux arbres ne se mélangent pas). */
+const nodesOf = (
+  country: string,
+  delta: { format: '' | 'ctd' | 'ectd'; activities?: readonly string[] },
+  current?: Parameters<typeof pickableScopes>[2],
+) => pickableScopes(country, delta, current).flatMap((g) => g.nodes)
+
+describe('B1 — la suggestion de numéro ne recycle JAMAIS un numéro retiré ni une fratrie', () => {
+  const entryWith = (deltas: { kind: 'add' | 'remove' | 'relabel'; number: string }[]) => {
+    const e = prefillEntry('TG', 'ctd_structure')
+    e.deltas = deltas.map((d) => ({ ...newDelta(), ...d }))
+    return e
+  }
+
+  it('un numéro RETIRÉ par un delta publié reste RÉSERVÉ (sinon la section ressuscite)', () => {
+    // Le cas réel : le Togo a publié `remove 1.1.2` (PGHT). L'arbre AFFICHÉ ne le contient plus,
+    // donc la suggestion le croyait libre — et l'`add` publié se dégradait en RENOMMAGE du nœud
+    // PGHT, qui réapparaissait sous le titre de la nouvelle section, sans un mot d'avertissement.
+    const current = currentMapOf([
+      {
+        country: 'TG',
+        section: 'ctd_structure',
+        payload: { deltas: [{ kind: 'remove', number: '1.1.2' }] },
+        provenance: {},
+        version_label: 'v2026.2',
+      },
+    ])
+    const nodes = nodesOf('TG', { format: 'ctd' }, current)
+    expect(nodes.some((n) => n.number === '1.1.2')).toBe(false) // absent de l'arbre affiché…
+
+    const proposed = nextFreeChildNumber(nodes, '1.1', reservedNumbers(entryWith([])))
+    expect(proposed).not.toBe('1.1.2') // …mais JAMAIS proposé (il est au socle)
+  })
+
+  it('deux ajouts sous le même parent ne reçoivent pas le MÊME numéro', () => {
+    const nodes = nodesOf('SN', { format: 'ctd' })
+    const first = nextFreeChildNumber(nodes, '1.2', reservedNumbers(entryWith([])))
+    // Le god a déjà posé `first` sur une ligne : la suggestion suivante doit l'éviter.
+    const second = nextFreeChildNumber(
+      nodes,
+      '1.2',
+      reservedNumbers(entryWith([{ kind: 'add', number: first }])),
+    )
+    expect(second).not.toBe(first)
+  })
+
+  it('un « nouveau » sur un numéro EXISTANT est une FAUTE BLOQUANTE, pas un avis', () => {
+    // Il produit un effet (il renomme), donc aucun test d'inertie ne pouvait l'attraper.
+    const e = entryWith([{ kind: 'add', number: '1.1.2' }])
+    e.deltas[0]!.label = 'Attestation de pharmacovigilance'
+    e.provTexte = 'Arrêté de test'
+
+    expect(draftDeltaIssues(e)[0]).toBe('add_exists')
+    expect(isBlockingDeltaIssue(draftDeltaIssues(e)[0], 'add')).toBe(true)
+    expect(entryError(e)).not.toBeNull()
+  })
+})
+
+describe('M1/M2/M-A — la liste suit la portée de CHAQUE ligne et ne fond JAMAIS les deux arbres', () => {
+  const scope = (format: '' | 'ctd' | 'ectd', activities: string[] = []) => ({ format, activities })
+
+  it('les deux formats restent SÉPARÉS, chacun avec ses libellés', () => {
+    // Le défaut le plus grave : une liste unique fondait les deux numérotations et n'affichait
+    // qu'un libellé sur deux. En CTD 1.2.6 = « Statut réglementaire au plan régional » ; en eCTD,
+    // « Déclaration électronique ». Un renommage choisi sur le libellé CTD réécrivait, chez tous
+    // les clients en eCTD, un document SANS RAPPORT — et aucun test d'inertie ne pouvait le voir,
+    // puisque le delta produit bel et bien un effet.
+    const groups = pickableScopes('SN', scope(''))
+    expect(groups.map((g) => g.format)).toEqual(['ctd', 'ectd'])
+    const collisions = groups[0]!.nodes.filter((n) => {
+      const twin = groups[1]!.nodes.find((o) => o.number === n.number)
+      return twin && twin.label !== n.label
+    })
+    expect(collisions.length).toBeGreaterThan(0) // la collision est RÉELLE dans les données
+    // …et chaque groupe porte le libellé de SON arbre, jamais celui de l'autre.
+    for (const g of groups)
+      for (const n of g.nodes)
+        expect(findByNumber(getModule1Tree(g.format), n.number)?.label ?? n.label).toBe(n.label)
+  })
+
+  it('une ligne eCTD ne reçoit JAMAIS les numéros de l’arbre CTD', () => {
+    const ctd = nodesOf('SN', scope('ctd')).map((n) => n.number)
+    const ectd = nodesOf('SN', scope('ectd')).map((n) => n.number)
+    expect(ctd).not.toEqual(ectd)
+    for (const n of ectd) expect(!!findByNumber(getModule1Tree('ectd'), n)).toBe(true)
+  })
+
+  it('une ligne scopée sur la VARIATION CTD liste l’arbre de variation, pas le standard', () => {
+    // L'arbre de variation a sa propre numérotation : homonyme sans être synonyme. Avant, il
+    // n'apparaissait JAMAIS dans la liste — alors que c'est là que les États divergent le plus.
+    const std = nodesOf('SN', scope('ctd', ['new_ma']))
+    const varia = nodesOf('SN', scope('ctd', ['variation']))
+    expect(varia.length).toBeGreaterThan(0)
+    expect(varia.map((n) => n.number)).not.toEqual(std.map((n) => n.number))
+    for (const n of varia)
+      expect(!!findByNumber(getModule1Tree('ctd', 'variation'), n.number)).toBe(true)
+  })
+
+  it('un nœud absent d’une activité visée est OFFERT mais ANNOTÉ (jamais masqué)', () => {
+    // Union à l'INTÉRIEUR d'un format : masquer 1.2.7 parce qu'il ne vit pas en Nouvelle AMM
+    // interdirait un geste légitime. On l'offre en disant où il vit.
+    const nodes = nodesOf('SN', scope('ctd', ['new_ma', 'renewal']))
+    const target = nodes.find((n) => n.number === '1.2.7')
+    expect(target).toBeDefined()
+    // 1.2.7 n'existe PAS en Nouvelle AMM : l'annotation doit donc dire « Renouvellement seulement ».
+    expect(findByNumber(getModule1Tree('ctd', 'new_ma'), '1.2.7')).toBeUndefined()
+    expect(target!.partial).toEqual(['renewal'])
+    // …et un nœud présent dans les deux activités n'est PAS annoté (pas de bruit inutile).
+    const shared = nodes.find((n) => n.number === '1.2')
+    expect(shared).toBeDefined()
+    expect(shared!.partial).toBeUndefined()
+  })
+
+  it('les numéros sont triés en NOMBRES : 1.10 après 1.9, jamais l’ordre lexical', () => {
+    for (const g of pickableScopes('SN', scope(''))) {
+      const nums = g.nodes.map((n) => n.number)
+      const tens = nums.filter((n) => n.split('.').length === 2 && Number(n.split('.')[1]) >= 10)
+      for (const n of tens) {
+        const nine = `${n.split('.')[0]}.9`
+        if (nums.includes(nine)) expect(nums.indexOf(nine)).toBeLessThan(nums.indexOf(n))
+      }
+    }
   })
 })

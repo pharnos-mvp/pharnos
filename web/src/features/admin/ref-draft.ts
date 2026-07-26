@@ -1,6 +1,7 @@
 import {
   CTD_ACTIVITY_CODES,
   deltaFromPayload,
+  applyStructureDeltas,
   deltasFor,
   findByNumber,
   structureDeltaIssues,
@@ -11,7 +12,9 @@ import {
   type CtdDeltaIssue,
   type CtdDeltaKind,
 } from '@/features/catalogue/ref-structure'
+import { anyActivityLabel } from '@/features/workspace/dossier-constants'
 import { getModule1Tree } from '@/features/workspace/module1-tree'
+import { flattenTree } from '@/features/workspace/tree-utils'
 import {
   agencyFor,
   officialLanguage,
@@ -214,7 +217,7 @@ export const isBlockingDeltaIssue = (
 ): boolean => {
   if (i == null || i === 'no_change') return false
   if (i === 'masked') return kind === 'add'
-  return true
+  return true // `add_exists` compris : le delta agit, mais pas comme son genre l'annonce (B1)
 }
 
 /**
@@ -233,6 +236,152 @@ export function draftDeltaIssues(entry: DraftEntry): (DraftDeltaIssue | null)[] 
 /** Deltas ACTUELLEMENT publiés pour ce pays (base de comparaison de l'inertie d'une entrée). */
 const publishedDeltas = (country: string, current?: CurrentMap): CtdDelta[] =>
   structureFromPayload(current?.get(currentKey(country, 'ctd_structure'))?.payload) ?? []
+
+/** Un nœud proposable dans la liste de l'éditeur de structure. */
+export interface PickableNode {
+  number: string
+  label: string
+  /** Profondeur en segments (« 1.2 » = 2) — pilote l'indentation ET la garde de retrait. */
+  depth: number
+  /**
+   * Activités de CE format où le nœud existe, **uniquement s'il manque à l'une** de celles que la
+   * ligne vise (absent sinon). L'UI en fait « (Renouvellement, Transfert seulement) ». Le rendu des
+   * libellés ne descend pas ici : la couche logique reste sans traduction.
+   */
+  partial?: string[]
+}
+
+/** Les nœuds proposables d'UN format — jamais fondus avec ceux de l'autre (voir ci-dessous). */
+export interface PickableScope {
+  format: 'ctd' | 'ectd'
+  nodes: PickableNode[]
+}
+
+/** Ordre documentaire : segment par segment, en NOMBRES (1.10 après 1.9, jamais l'ordre lexical). */
+const bySegment = (a: string, b: string): number => {
+  const x = a.split('.').map(Number)
+  const y = b.split('.').map(Number)
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    const d = (x[i] ?? -1) - (y[i] ?? -1)
+    if (d !== 0) return d
+  }
+  return 0
+}
+
+/**
+ * Nœuds SÉLECTIONNABLES pour UNE ligne de delta, **groupés par format** : l'arborescence OFFICIELLE
+ * COURANTE du pays (socle ← deltas déjà publiés), sur la portée EXACTE que cette ligne vise.
+ *
+ * POURQUOI UNE LISTE ET NON UNE SAISIE : l'Edge sait dire « ce payload est bien formé », jamais
+ * « ce numéro existe » — l'arborescence vit dans le bundle web et la dupliquer côté Deno recréerait
+ * la dette payée en #419. Une faute de frappe publiait donc un delta INERTE : bannière, adoption,
+ * source citée… et aucun effet. Le contrôle d'existence appartient à l'éditeur.
+ *
+ * POURQUOI PAR LIGNE (Major M1) : la liste dérivait du format de la PREMIÈRE ligne et d'un arbre
+ * sans activité. Une ligne eCTD dans une entrée dont la 1re ligne était CTD se voyait offrir les
+ * numéros de l'AUTRE arbre — et l'arbre de variation CTD, qui a sa propre numérotation,
+ * n'apparaissait JAMAIS alors que c'est précisément là que les États divergent.
+ *
+ * POURQUOI GROUPÉ PAR FORMAT ET JAMAIS FONDU : les deux arbres partagent des NUMÉROS sans partager
+ * les PIÈCES. En CTD, 1.2.6 est « Statut réglementaire au plan régional » ; en eCTD, « Déclaration
+ * électronique ». Une liste unique n'affichait qu'un libellé sur les deux : un renommage choisi sur
+ * le libellé CTD réécrivait, chez tous les clients en eCTD, un document SANS RAPPORT — et aucun test
+ * d'inertie ne pouvait le voir, puisque le delta produit bel et bien un effet. C'est le piège
+ * « homonyme sans être synonyme » du moteur, que l'union avait recréé côté éditeur. Choisir un nœud
+ * FIXE donc aussi le format de la ligne (cf. l'éditeur) : sur un registre opposable, une
+ * publication doit dire de quel arbre elle parle.
+ *
+ * L'union subsiste, mais À L'INTÉRIEUR d'un format seulement : masquer 1.2.7 parce qu'il n'existe
+ * pas en Nouvelle AMM interdirait un geste légitime. On l'offre en DISANT où il vit (`partial`).
+ */
+export function pickableScopes(
+  country: string,
+  delta: { format: '' | 'ctd' | 'ectd'; activities?: readonly string[] },
+  current?: CurrentMap,
+): PickableScope[] {
+  // Sonde canonique : seule la PORTÉE compte ici, pas le contenu de la ligne — souvent incomplète
+  // pendant la saisie, où `draftToDelta` renverrait `undefined` et la liste disparaîtrait.
+  // `deltasFor` ne filtre ni sur le genre ni sur le numéro : la sonde a donc exactement la portée
+  // qu'aura le vrai delta de cette ligne.
+  const probe: CtdDelta = {
+    kind: 'relabel',
+    number: '1',
+    label: 'probe',
+    ...(delta.format ? { format: delta.format } : {}),
+    ...(delta.activities?.length ? { activities: [...delta.activities] } : {}),
+  }
+  const published = publishedDeltas(country, current)
+  const out: PickableScope[] = []
+  for (const format of (delta.format ? [delta.format] : ['ctd', 'ectd']) as ('ctd' | 'ectd')[]) {
+    const trees: { activity: string; nodes: Map<string, string> }[] = []
+    for (const activity of CTD_ACTIVITY_CODES) {
+      if (deltasFor([probe], format, activity).length === 0) continue
+      const base = getModule1Tree(format, activity)
+      const scoped = deltasFor(published, format, activity)
+      const tree = scoped.length > 0 ? applyStructureDeltas(base, scoped) : base
+      trees.push({ activity, nodes: new Map(flattenTree(tree).map((n) => [n.number, n.label])) })
+    }
+    if (trees.length === 0) continue
+    const numbers = [...new Set(trees.flatMap((t) => [...t.nodes.keys()]))].sort(bySegment)
+    out.push({
+      format,
+      nodes: numbers.map((number) => {
+        const holders = trees.filter((t) => t.nodes.has(number))
+        return {
+          number,
+          label: holders[0]!.nodes.get(number)!,
+          depth: number.split('.').length,
+          ...(holders.length === trees.length ? {} : { partial: holders.map((h) => h.activity) }),
+        }
+      }),
+    })
+  }
+  return out
+}
+
+/**
+ * Premier numéro d'enfant LIBRE sous un parent (« 1.2 » → « 1.2.9 » si 1..8 existent).
+ *
+ * Sert la suggestion d'un AJOUT : aucune liste ne peut énumérer un numéro qui n'existe pas encore,
+ * donc le god choisit le PARENT et on propose le suivant — ce qui élimine à la fois la faute de
+ * frappe et l'orphelin (un ajout sous un parent inconnu est ignoré à l'application).
+ */
+export function nextFreeChildNumber(
+  nodes: PickableNode[],
+  parentNumber: string,
+  /** Numéros à considérer comme PRIS en plus de l'arbre affiché (socle nu, fratrie de l'entrée). */
+  reserved: readonly string[] = [],
+): string {
+  const taken = new Set([...nodes.map((n) => n.number), ...reserved])
+  for (let i = 1; i <= 99; i++) {
+    const candidate = `${parentNumber}.${i}`
+    if (!taken.has(candidate)) return candidate
+  }
+  return `${parentNumber}.1`
+}
+
+/**
+ * Numéros que la suggestion d'un AJOUT doit considérer comme PRIS, en plus de l'arbre affiché
+ * (bloquant B1 de la revue).
+ *
+ * DEUX PIÈGES, tous deux vérifiés :
+ * 1. **Un numéro RETIRÉ par un delta publié paraît libre** — le Togo a publié `remove 1.1.2`, donc
+ *    l'arbre affiché ne le contient plus et la suggestion proposait `1.1.2`. Mais le SOCLE le
+ *    contient toujours : `applyStructureDeltas` traite alors l'`add` comme un `relabel` et la
+ *    Lettre de PGHT RESSUSCITE sous le titre de la nouvelle section. On réserve donc le socle NU.
+ * 2. **Deux ajouts sous le même parent recevaient le MÊME numéro** (la suggestion ignorait les
+ *    autres lignes) : le god publiait deux exigences, les clients en recevaient une. On réserve
+ *    donc aussi la fratrie déjà saisie dans l'entrée.
+ */
+export function reservedNumbers(entry: DraftEntry): string[] {
+  const socle = new Set<string>()
+  for (const format of ['ctd', 'ectd'] as const) {
+    for (const activity of [undefined, ...CTD_ACTIVITY_CODES]) {
+      for (const n of flattenTree(getModule1Tree(format, activity))) socle.add(n.number)
+    }
+  }
+  return [...socle, ...entry.deltas.map((d) => d.number.trim()).filter(Boolean)]
+}
 
 /**
  * Nombre de SOUS-SECTIONS emportées par un retrait (0 pour une feuille).
@@ -493,6 +642,63 @@ export function toPayload(e: DraftEntry): unknown {
  * `current` (contenu résolu en vigueur) sert la section `ctd_structure` : sans lui, impossible de
  * savoir qu'une entrée re-déclare simplement ce qui est déjà publié. Absent = « rien n'est publié ».
  */
+/**
+ * Provenance SÉRIALISÉE — une seule définition, partagée par l'enregistrement et par le verdict
+ * d'inertie. Dupliquée, elle aurait fini par diverger de ce qui est réellement publié, et le
+ * verdict aurait porté sur autre chose que le contenu opposable.
+ */
+export function toProvenance(e: DraftEntry): RefDraftEntryInput['provenance'] {
+  return {
+    texte: e.provTexte.trim(),
+    ...(e.provJo.trim() ? { jo: e.provJo.trim() } : {}),
+    ...(e.provComplements.trim() ? { complements: e.provComplements.trim() } : {}),
+  }
+}
+
+/** JSON à clés ORDONNÉES : deux payloads égaux au contenu près ne doivent pas différer à l'octet. */
+const stableJson = (v: unknown): string =>
+  JSON.stringify(v, (_k, x) =>
+    x && typeof x === 'object' && !Array.isArray(x)
+      ? Object.fromEntries(
+          Object.entries(x as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : 1)),
+        )
+      : x,
+  )
+
+/**
+ * Cette entrée ne changerait RIEN pour le pays visé ?
+ *
+ * Le payload d'une section REMPLACE celui de la version précédente : republier l'existant à
+ * l'identique est bien formé, sourcé… et sonne la cloche chez tous les clients pour du néant, chacun
+ * devant « adopter » une mise à jour vide. Le garde-fou n'existait que pour la structure (M5 de la
+ * revue) alors que « Restaurer ce contenu » rend justement trivial de republier l'état en vigueur.
+ *
+ * Deux tests, parce que les deux natures diffèrent :
+ * - `ctd_structure` : test SÉMANTIQUE — deux listes de deltas différentes peuvent produire le même
+ *   arbre (une ligne redondante, un retrait déjà couvert par un autre).
+ * - les autres : égalité du PAYLOAD, qui est exactement ce que le résolveur relira.
+ */
+export function entryIsInert(e: DraftEntry, current?: CurrentMap): boolean {
+  if (e.section === 'ctd_structure') {
+    const next = e.deltas.map(draftToDelta).filter((d): d is CtdDelta => d !== undefined)
+    return (
+      !e.structureReset &&
+      structureIsInert(next, publishedDeltas(e.country, current), getModule1Tree)
+    )
+  }
+  const cur = current?.get(currentKey(e.country, e.section))
+  if (!cur) return false
+  // La PROVENANCE fait partie de ce qui est publié : c'est elle que la fiche Autorité cite aux
+  // clients comme source opposable. L'exclure de la comparaison rendait IMPOSSIBLE de corriger un
+  // numéro de décret erroné sur un contenu par ailleurs juste — la fausse source restait opposable
+  // pour toujours, sans aucun contournement. Republier le même contenu sous la BONNE source est
+  // donc un changement, et la cloche qui sonne chez les clients dit vrai : la référence a changé.
+  return (
+    stableJson(cur.provenance) === stableJson(toProvenance(e)) &&
+    stableJson(cur.payload) === stableJson(toPayload(e))
+  )
+}
+
 export function entryError(e: DraftEntry, current?: CurrentMap): Translatable | null {
   if (e.provTexte.trim().length < 3)
     return {
@@ -550,12 +756,16 @@ export function entryError(e: DraftEntry, current?: CurrentMap): Translatable | 
     // Inertie de l'ENTRÉE : le payload REMPLACE celui de la version précédente. Une entrée qui
     // re-déclare l'existant est bien formée, ligne à ligne effective… et ne change rien pour
     // personne. Sans ce test, la cloche sonne chez tous les clients pour du néant.
-    const next = e.deltas.map(draftToDelta).filter((d): d is CtdDelta => d !== undefined)
-    if (structureIsInert(next, publishedDeltas(e.country, current), getModule1Tree))
+    if (entryIsInert(e, current))
       return {
         fr: 'Cette entrée produirait exactement l’arborescence déjà en vigueur pour ce pays : publier annoncerait une mise à jour sans effet.',
         en: 'This entry would produce exactly the tree already in force for this country: publishing would announce an update with no effect.',
       }
+  } else if (entryIsInert(e, current)) {
+    return {
+      fr: 'Cette entrée est identique au contenu déjà en vigueur pour ce pays : publier annoncerait une mise à jour sans effet.',
+      en: 'This entry is identical to the content already in force for this country: publishing would announce an update with no effect.',
+    }
   }
   return null
 }
@@ -565,6 +775,10 @@ export const DELTA_ISSUE_LABEL: Record<DraftDeltaIssue, (at: string) => Translat
   malformed: (at) => ({
     fr: `Delta ${at} : incomplet (numéro CTD attendu ; libellé requis pour un ajout/renommage ; un retrait vise un nœud de 3 niveaux minimum).`,
     en: `Delta ${at}: incomplete (CTD number expected; label required for add/rename; a removal targets a 3-level node at minimum).`,
+  }),
+  add_exists: (at) => ({
+    fr: `Delta ${at} : ce numéro EXISTE déjà — un « nouveau » sur un nœud existant le RENOMME au lieu de l’ajouter (et fait réapparaître une section retirée). Choisissez un autre numéro.`,
+    en: `Delta ${at}: this number ALREADY EXISTS — a “new” on an existing node RENAMES it instead of adding it (and revives a removed section). Pick another number.`,
   }),
   unknown_node: (at) => ({
     fr: `Delta ${at} : ce numéro n’existe dans aucune arborescence visée — il ne changerait rien. Vérifiez le numéro ou la portée.`,
@@ -607,4 +821,123 @@ export function nextLabel(versions: RefVersionRow[]): string {
     .filter((m): m is RegExpExecArray => !!m && Number(m[1]) === year)
     .map((m) => Number(m[2]))
   return `v${year}.${nums.length > 0 ? Math.min(999, Math.max(...nums) + 1) : 1}`
+}
+
+/**
+ * Lignes LISIBLES d'une entrée — le contenu d'une version publiée rendu en clair, jamais en JSON :
+ * sur un registre opposable, le god doit relire ce qu'il a publié comme un lecteur.
+ *
+ * EXHAUSTIVITÉ GARANTIE PAR UN TEST (Major M3 de la revue) : la fiche taisait `sexe`, la langue
+ * officielle, les trois notes de barème, les échantillons de renouvellement, la note et la PORTÉE
+ * des deltas, et ne montrait qu'UNE langue. Or c'est cette fiche que le god relit avant de cliquer
+ * « Restaurer » : un champ absent de l'affichage était restauré à l'aveugle. Le test parcourt les
+ * clés que `toPayload` produit réellement et échoue si l'une n'a pas de ligne ici — ajouter un
+ * champ au payload sans l'afficher casse donc le build, ce qui est le seul rempart durable.
+ */
+const LANG_NAME: Record<string, Translatable> = {
+  fr: { fr: 'Français', en: 'French' },
+  en: { fr: 'Anglais', en: 'English' },
+  pt: { fr: 'Portugais', en: 'Portuguese' },
+}
+
+export function describeEntry(e: DraftEntry, lang: Lang): { label: Translatable; value: string }[] {
+  const out: { label: Translatable; value: string }[] = []
+  const t = (v: Translatable | undefined, l: Lang) => (v ? (l === 'en' ? v.en : v.fr) : '')
+  const put = (label: Translatable, value: string | undefined) => {
+    if (value && value.trim()) out.push({ label, value: value.trim() })
+  }
+  /** Paire bilingue : les DEUX langues, et une seule ligne quand elles sont identiques. */
+  const putT = (label: Translatable, fr: string, en: string) => {
+    const a = fr.trim()
+    const b = en.trim()
+    if (a && b && a !== b) {
+      put({ fr: `${label.fr} (FR)`, en: `${label.en} (FR)` }, a)
+      put({ fr: `${label.fr} (EN)`, en: `${label.en} (EN)` }, b)
+    } else put(label, a || b)
+  }
+  const lines = (v: string) => v.split('\n').filter(Boolean).join(' · ')
+
+  if (e.section === 'agency') {
+    put({ fr: 'Sigle', en: 'Acronym' }, e.agName)
+    put({ fr: 'Dénomination', en: 'Full name' }, e.agFull)
+    put({ fr: 'Destinataire', en: 'Recipient' }, e.agDirecteur)
+    // `sexe` pilote la civilité de TOUTES les lettres générées : « Madame le Directeur » ou
+    // « Monsieur ». Invisible dans la fiche, il se restaurait à l'aveugle.
+    put(
+      { fr: 'Civilité', en: 'Title' },
+      e.agSexe === 'F' ? (lang === 'en' ? 'Madam' : 'Madame') : lang === 'en' ? 'Sir' : 'Monsieur',
+    )
+    put({ fr: 'Adresse', en: 'Address' }, e.agAdresse)
+    put({ fr: 'Téléphone', en: 'Phone' }, e.agTel)
+    put({ fr: 'E-mail', en: 'Email' }, e.agEmail)
+    // GW et CV sont LUSOPHONES et sélectionnables : la fiche affirmait « Français » là où le
+    // payload dit `pt`. Sur la seule surface qui répond « qu'ai-je publié ? », un mensonge.
+    put(
+      { fr: 'Langue officielle', en: 'Official language' },
+      t(LANG_NAME[e.agLang] ?? { fr: e.agLang, en: e.agLang }, lang),
+    )
+  } else if (e.section === 'fees') {
+    const cur = e.currency.trim() || 'FCFA'
+    put({ fr: 'Monnaie', en: 'Currency' }, cur)
+    put({ fr: 'Nouvelle AMM', en: 'New MA' }, e.feeNewMa && `${e.feeNewMa} ${cur}`)
+    putT({ fr: 'Note nouvelle AMM', en: 'New MA note' }, e.noteNewMaFr, e.noteNewMaEn)
+    put({ fr: 'Renouvellement', en: 'Renewal' }, e.feeRenewal && `${e.feeRenewal} ${cur}`)
+    putT({ fr: 'Note renouvellement', en: 'Renewal note' }, e.noteRenewalFr, e.noteRenewalEn)
+    put({ fr: 'Variation mineure', en: 'Minor variation' }, e.feeVarMin && `${e.feeVarMin} ${cur}`)
+    put({ fr: 'Variation majeure', en: 'Major variation' }, e.feeVarMaj && `${e.feeVarMaj} ${cur}`)
+    putT({ fr: 'Note variation', en: 'Variation note' }, e.noteVariationFr, e.noteVariationEn)
+    put({ fr: 'Délai indicatif', en: 'Indicative timeline' }, e.processingDays)
+  } else if (e.section === 'submission') {
+    putT({ fr: 'Modalités de dépôt', en: 'Filing procedure' }, e.subFr, e.subEn)
+  } else if (e.section === 'samples') {
+    putT(
+      { fr: 'Échantillons — nouvelle AMM', en: 'Samples — new MA' },
+      lines(e.samplesNewMaFr),
+      lines(e.samplesNewMaEn),
+    )
+    putT(
+      { fr: 'Échantillons — renouvellement / variation', en: 'Samples — renewal / variation' },
+      lines(e.samplesRenewFr),
+      lines(e.samplesRenewEn),
+    )
+    putT({ fr: 'Réserve', en: 'Reservation' }, e.reserveFr, e.reserveEn)
+  } else if (e.section === 'ctd_structure') {
+    if (e.structureReset) {
+      put(
+        { fr: 'Structure', en: 'Structure' },
+        lang === 'en'
+          ? 'Back to the reference tree (all national deltas repealed)'
+          : 'Retour à l’arborescence de référence (tous les écarts nationaux abrogés)',
+      )
+    }
+    for (const d of e.deltas) {
+      const kind =
+        d.kind === 'remove'
+          ? { fr: 'plus exigé', en: 'no longer required' }
+          : d.kind === 'add'
+            ? { fr: 'nouveau', en: 'new' }
+            : { fr: 'intitulé', en: 'title' }
+      // La PORTÉE fait partie du contenu publié : le même delta appliqué à l'arbre de variation ou
+      // au seul eCTD n'est pas la même exigence. La taire rendait deux versions indiscernables.
+      const canonical = draftToDelta(d)
+      const scope = canonical ? deltaScopeByFormat(canonical) : []
+      const scopeText = scope
+        .map(
+          (sc) =>
+            `${sc.format.toUpperCase()} : ${sc.activities.map((a) => anyActivityLabel(a, lang)).join(', ')}`,
+        )
+        .join(' — ')
+      put(
+        { fr: `Nœud ${d.number}`, en: `Node ${d.number}` },
+        [
+          `${lang === 'en' ? kind.en : kind.fr}${d.label.trim() ? ` — ${d.label.trim()}` : ''}`,
+          d.note.trim(),
+          scopeText,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      )
+    }
+  }
+  return out
 }
