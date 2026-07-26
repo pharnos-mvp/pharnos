@@ -44,6 +44,7 @@ import {
   prefillEntry,
   refErrorLabel,
   removedSubtreeCount,
+  reservedNumbers,
   SECTION_LABEL,
   toPayload,
   type CurrentMap,
@@ -81,6 +82,8 @@ export function AdminReferentiel() {
   const [busy, setBusy] = useState(false)
   const [publishing, setPublishing] = useState<{ id: string; label: string } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  /** Fermeture de l'éditeur : toujours confirmée — un brouillon non enregistré n'a pas de undo. */
+  const [confirmClose, setConfirmClose] = useState(false)
   const [adoptionOf, setAdoptionOf] = useState<string | null>(null)
   // Fiche d'une version (lecture seule) — porte aussi la restauration de son contenu.
   const [detailOf, setDetailOf] = useState<RefVersionSummary | null>(null)
@@ -287,75 +290,110 @@ export function AdminReferentiel() {
         />
       </div>
 
-      {/* `minmax(0, …)` et non `5fr_4fr` nu : une piste `fr` a pour minimum son CONTENU, et la
-          note de publication (`truncate` = white-space: nowrap) impose sa longueur ENTIÈRE en
-          min-content → la colonne de gauche mangeait ~80 % et l'éditeur était écrasé. */}
       {/* La liste est une VUE DE RÉFÉRENCE (notes de publication, pays, adoption : elle doit
           respirer), l'éditeur est une TÂCHE (il exige la concentration). Les mettre côte à côte
           rabougrissait les deux — c'est ce qui avait produit la colonne écrasée de #418. Donc :
           liste PLEINE LARGEUR, éditeur en MODALE centrée au premier plan. */}
-      <div className="space-y-4">
-        <div className="min-w-0 space-y-4">
-          <Section
-            title={t({ fr: 'Versions du référentiel', en: 'Reference data versions' })}
-            actions={
-              <Button size="sm" onClick={() => void openDraft()} disabled={busy}>
-                <Plus /> {t({ fr: 'Nouveau brouillon', en: 'New draft' })}
-              </Button>
-            }
-          >
-            <ul className="divide-border divide-y">
-              {data.versions.map((v) => {
-                return (
-                  <li key={v.id} className="flex flex-wrap items-center gap-2 py-2.5 text-sm">
-                    {/* Le libellé ouvre la FICHE de la version : en un clic, le god relit ce
+      <div className="min-w-0 space-y-4">
+        <Section
+          title={t({ fr: 'Versions du référentiel', en: 'Reference data versions' })}
+          actions={
+            <Button size="sm" onClick={() => void openDraft()} disabled={busy}>
+              <Plus /> {t({ fr: 'Nouveau brouillon', en: 'New draft' })}
+            </Button>
+          }
+        >
+          <ul className="divide-border divide-y">
+            {data.versions.map((v) => {
+              return (
+                <li key={v.id} className="flex flex-wrap items-center gap-2 py-2.5 text-sm">
+                  {/* Le libellé ouvre la FICHE de la version : en un clic, le god relit ce
                         qu'il a publié (lecture seule — une version publiée est immuable). */}
+                  <button
+                    type="button"
+                    onClick={() => setDetailOf(v)}
+                    className="font-display hover:text-info min-w-16 text-left font-bold underline-offset-2 hover:underline"
+                  >
+                    {v.label}
+                  </button>
+                  <span className="text-muted-foreground min-w-0 flex-1 truncate">
+                    {v.release_note ||
+                      t({ fr: `${v.entry_count} entrées`, en: `${v.entry_count} entries` })}
+                    {v.countries.length > 0 ? ` · ${v.countries.join(', ')}` : ''}
+                    {v.is_baseline ? ` · ${t({ fr: 'socle', en: 'baseline' })}` : ''}
+                  </span>
+                  {v.status === 'published' ? (
                     <button
                       type="button"
-                      onClick={() => setDetailOf(v)}
-                      className="font-display hover:text-info min-w-16 text-left font-bold underline-offset-2 hover:underline"
+                      className="shrink-0"
+                      onClick={() => setAdoptionOf(adoptionOf === v.id ? null : v.id)}
+                      aria-expanded={adoptionOf === v.id}
                     >
-                      {v.label}
+                      <StatusBadge tone="success">
+                        {t({ fr: 'Publiée', en: 'Published' })} · {v.adoption_count}/
+                        {activeOrgs.length}
+                      </StatusBadge>
                     </button>
-                    <span className="text-muted-foreground min-w-0 flex-1 truncate">
-                      {v.release_note ||
-                        t({ fr: `${v.entry_count} entrées`, en: `${v.entry_count} entries` })}
-                      {v.countries.length > 0 ? ` · ${v.countries.join(', ')}` : ''}
-                      {v.is_baseline ? ` · ${t({ fr: 'socle', en: 'baseline' })}` : ''}
-                    </span>
-                    {v.status === 'published' ? (
-                      <button
-                        type="button"
-                        className="shrink-0"
-                        onClick={() => setAdoptionOf(adoptionOf === v.id ? null : v.id)}
-                        aria-expanded={adoptionOf === v.id}
+                  ) : v.status === 'draft' ? (
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      <StatusBadge tone="warning">
+                        {t({ fr: 'Brouillon', en: 'Draft' })}
+                      </StatusBadge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void openDraft(v)}
+                        disabled={busy}
                       >
+                        {t({ fr: 'Éditer', en: 'Edit' })}
+                      </Button>
+                    </span>
+                  ) : (
+                    // 3ᵉ état autorisé par le CHECK de 0071, qu'AUCUN bouton ne produit
+                    // aujourd'hui (l'archivage se fait en SQL, cf. FK `on delete restrict` :
+                    // une version épinglée s'archive, ne se supprime pas). Rendu d'avance pour
+                    // qu'une version archivée à la main ne s'affiche jamais comme un brouillon.
+                    <StatusBadge tone="neutral">
+                      {t({ fr: 'Archivée', en: 'Archived' })}
+                    </StatusBadge>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </Section>
+
+        {adoptionOf ? (
+          <Section
+            title={t({
+              fr: `Adoption de ${data.versions.find((v) => v.id === adoptionOf)?.label ?? ''}`,
+              en: `Adoption of ${data.versions.find((v) => v.id === adoptionOf)?.label ?? ''}`,
+            })}
+            description={t({
+              fr: "Le consentement est journalisé côté org (qui, quand) — rien n'est imposé.",
+              en: 'Consent is logged on the org side (who, when) — nothing is imposed.',
+            })}
+          >
+            <ul className="divide-border divide-y">
+              {activeOrgs.map((o) => {
+                const a = data.adoptions.find(
+                  (x) => x.version_id === adoptionOf && x.org_id === o.id,
+                )
+                return (
+                  <li key={o.id} className="flex items-center gap-3 py-2 text-sm">
+                    <span className="min-w-0 flex-1 truncate">{o.name}</span>
+                    {a ? (
+                      <>
                         <StatusBadge tone="success">
-                          {t({ fr: 'Publiée', en: 'Published' })} · {v.adoption_count}/
-                          {activeOrgs.length}
+                          {t({ fr: 'Adoptée', en: 'Adopted' })}
                         </StatusBadge>
-                      </button>
-                    ) : v.status === 'draft' ? (
-                      <span className="flex shrink-0 items-center gap-1.5">
-                        <StatusBadge tone="warning">
-                          {t({ fr: 'Brouillon', en: 'Draft' })}
-                        </StatusBadge>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => void openDraft(v)}
-                          disabled={busy}
-                        >
-                          {t({ fr: 'Éditer', en: 'Edit' })}
-                        </Button>
-                      </span>
+                        <span className="text-muted-foreground shrink-0 text-xs">
+                          {fmtDate(a.adopted_at)} · {a.adopted_by_email}
+                        </span>
+                      </>
                     ) : (
-                      // 3ᵉ état autorisé par le CHECK de 0071, qu'AUCUN bouton ne produit
-                      // aujourd'hui (l'archivage se fait en SQL, cf. FK `on delete restrict` :
-                      // une version épinglée s'archive, ne se supprime pas). Rendu d'avance pour
-                      // qu'une version archivée à la main ne s'affiche jamais comme un brouillon.
-                      <StatusBadge tone="neutral">
-                        {t({ fr: 'Archivée', en: 'Archived' })}
+                      <StatusBadge tone="warning">
+                        {t({ fr: 'En attente', en: 'Pending' })}
                       </StatusBadge>
                     )}
                   </li>
@@ -363,47 +401,7 @@ export function AdminReferentiel() {
               })}
             </ul>
           </Section>
-
-          {adoptionOf ? (
-            <Section
-              title={t({
-                fr: `Adoption de ${data.versions.find((v) => v.id === adoptionOf)?.label ?? ''}`,
-                en: `Adoption of ${data.versions.find((v) => v.id === adoptionOf)?.label ?? ''}`,
-              })}
-              description={t({
-                fr: "Le consentement est journalisé côté org (qui, quand) — rien n'est imposé.",
-                en: 'Consent is logged on the org side (who, when) — nothing is imposed.',
-              })}
-            >
-              <ul className="divide-border divide-y">
-                {activeOrgs.map((o) => {
-                  const a = data.adoptions.find(
-                    (x) => x.version_id === adoptionOf && x.org_id === o.id,
-                  )
-                  return (
-                    <li key={o.id} className="flex items-center gap-3 py-2 text-sm">
-                      <span className="min-w-0 flex-1 truncate">{o.name}</span>
-                      {a ? (
-                        <>
-                          <StatusBadge tone="success">
-                            {t({ fr: 'Adoptée', en: 'Adopted' })}
-                          </StatusBadge>
-                          <span className="text-muted-foreground shrink-0 text-xs">
-                            {fmtDate(a.adopted_at)} · {a.adopted_by_email}
-                          </span>
-                        </>
-                      ) : (
-                        <StatusBadge tone="warning">
-                          {t({ fr: 'En attente', en: 'Pending' })}
-                        </StatusBadge>
-                      )}
-                    </li>
-                  )
-                })}
-              </ul>
-            </Section>
-          ) : null}
-        </div>
+        ) : null}
       </div>
 
       {/* ── Fiche d'une version (lecture seule) + restauration de son contenu ── */}
@@ -445,8 +443,22 @@ export function AdminReferentiel() {
           immuable) : elle mérite la largeur et l'attention exclusive, pas une colonne latérale.
           Fermer par l'extérieur est bloqué pendant une écriture (`busy`) — on ne perd pas une
           curation à cause d'un clic à côté. */}
-      <Dialog open={!!draft} onOpenChange={(o) => !o && !busy && setDraft(null)}>
-        <DialogContent className="max-w-4xl">
+      <Dialog open={!!draft} onOpenChange={(o) => !o && setConfirmClose(true)}>
+        <DialogContent
+          className="max-w-4xl"
+          // ⚠️ RÉGRESSION CORRIGÉE (revue, bloquant B2) : `DialogContent` est un Radix `modal` — il
+          // fermait sur Échap ET sur un pointerdown hors contenu. Un réflexe suffisait donc à
+          // détruire quatre entrées et leurs provenances de décrets, sans confirmation ni undo,
+          // alors que l'éditeur en panneau (avant la modale) ne pouvait pas être fermé par un clic.
+          // La garde `busy` n'y changeait rien : elle n'est vraie que pendant l'écriture réseau.
+          // Les deux gestes sont donc NEUTRALISÉS ; toute fermeture passe par une confirmation.
+          onEscapeKeyDown={(e) => {
+            e.preventDefault()
+            setConfirmClose(true)
+          }}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>
               {draft?.versionId
@@ -461,7 +473,7 @@ export function AdminReferentiel() {
             </DialogDescription>
           </DialogHeader>
           {draft ? (
-            <div className="max-h-[70vh] min-w-0 space-y-4 overflow-y-auto pr-1">
+            <div className="min-w-0 space-y-4">
               {/* La modale est large : trois champs tiennent enfin sur une ligne sans hacher
                   les libellés (contrainte qui imposait 2 colonnes en panneau latéral, #418). */}
               <div className="grid gap-3 sm:grid-cols-3">
@@ -580,6 +592,37 @@ export function AdminReferentiel() {
               </p>
             </div>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Confirmation de FERMETURE de l'éditeur (bloquant B2) ── */}
+      <Dialog open={confirmClose} onOpenChange={(o) => !o && setConfirmClose(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {t({ fr: 'Fermer sans enregistrer ?', en: 'Close without saving?' })}
+            </DialogTitle>
+            <DialogDescription>
+              {t({
+                fr: 'Les entrées et les sources saisies depuis le dernier enregistrement seront perdues — il n’y a pas de retour en arrière.',
+                en: 'Entries and sources typed since the last save will be lost — there is no undo.',
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmClose(false)}>
+              {t({ fr: 'Continuer l’édition', en: 'Keep editing' })}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setConfirmClose(false)
+                setDraft(null)
+              }}
+            >
+              {t({ fr: 'Fermer', en: 'Close' })}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -1043,6 +1086,7 @@ function StructureEditor({
   )
   /** Parent déduit du numéro en cours (« 1.2.9 » → « 1.2 ») — présélectionne la liste « Sous ». */
   const parentOf = (n: string) => (n.includes('.') ? n.slice(0, n.lastIndexOf('.')) : '')
+  const reserved = useMemo(() => reservedNumbers(entry), [entry])
   const setDelta = (i: number, patch: Partial<DraftDelta>) =>
     onChange({ deltas: entry.deltas.map((d, j) => (j === i ? { ...d, ...patch } : d)) })
 
@@ -1120,7 +1164,14 @@ function StructureEditor({
                         <NativeSelect
                           value={parentOf(d.number)}
                           onChange={(e) =>
-                            setDelta(i, { number: nextFreeChildNumber(nodes, e.target.value) })
+                            setDelta(i, {
+                              // Réserve = socle NU + fratrie de l'entrée : ne jamais recycler un
+                              // numéro qu'un delta publié n'a fait que RETIRER (il ressusciterait
+                              // la section retirée), ni en donner deux fois le même (B1).
+                              number: e.target.value
+                                ? nextFreeChildNumber(nodes, e.target.value, reserved)
+                                : '',
+                            })
                           }
                           className="w-72"
                         >

@@ -216,7 +216,7 @@ export const isBlockingDeltaIssue = (
 ): boolean => {
   if (i == null || i === 'no_change') return false
   if (i === 'masked') return kind === 'add'
-  return true
+  return true // `add_exists` compris : le delta agit, mais pas comme son genre l'annonce (B1)
 }
 
 /**
@@ -280,13 +280,41 @@ export function pickableNodes(
  * donc le god choisit le PARENT et on propose le suivant — ce qui élimine à la fois la faute de
  * frappe et l'orphelin (un ajout sous un parent inconnu est ignoré à l'application).
  */
-export function nextFreeChildNumber(nodes: PickableNode[], parentNumber: string): string {
-  const taken = new Set(nodes.map((n) => n.number))
+export function nextFreeChildNumber(
+  nodes: PickableNode[],
+  parentNumber: string,
+  /** Numéros à considérer comme PRIS en plus de l'arbre affiché (socle nu, fratrie de l'entrée). */
+  reserved: readonly string[] = [],
+): string {
+  const taken = new Set([...nodes.map((n) => n.number), ...reserved])
   for (let i = 1; i <= 99; i++) {
     const candidate = `${parentNumber}.${i}`
     if (!taken.has(candidate)) return candidate
   }
   return `${parentNumber}.1`
+}
+
+/**
+ * Numéros que la suggestion d'un AJOUT doit considérer comme PRIS, en plus de l'arbre affiché
+ * (bloquant B1 de la revue).
+ *
+ * DEUX PIÈGES, tous deux vérifiés :
+ * 1. **Un numéro RETIRÉ par un delta publié paraît libre** — le Togo a publié `remove 1.1.2`, donc
+ *    l'arbre affiché ne le contient plus et la suggestion proposait `1.1.2`. Mais le SOCLE le
+ *    contient toujours : `applyStructureDeltas` traite alors l'`add` comme un `relabel` et la
+ *    Lettre de PGHT RESSUSCITE sous le titre de la nouvelle section. On réserve donc le socle NU.
+ * 2. **Deux ajouts sous le même parent recevaient le MÊME numéro** (la suggestion ignorait les
+ *    autres lignes) : le god publiait deux exigences, les clients en recevaient une. On réserve
+ *    donc aussi la fratrie déjà saisie dans l'entrée.
+ */
+export function reservedNumbers(entry: DraftEntry): string[] {
+  const socle = new Set<string>()
+  for (const format of ['ctd', 'ectd'] as const) {
+    for (const activity of [undefined, ...CTD_ACTIVITY_CODES]) {
+      for (const n of flattenTree(getModule1Tree(format, activity))) socle.add(n.number)
+    }
+  }
+  return [...socle, ...entry.deltas.map((d) => d.number.trim()).filter(Boolean)]
 }
 
 /**
@@ -620,6 +648,10 @@ export const DELTA_ISSUE_LABEL: Record<DraftDeltaIssue, (at: string) => Translat
   malformed: (at) => ({
     fr: `Delta ${at} : incomplet (numéro CTD attendu ; libellé requis pour un ajout/renommage ; un retrait vise un nœud de 3 niveaux minimum).`,
     en: `Delta ${at}: incomplete (CTD number expected; label required for add/rename; a removal targets a 3-level node at minimum).`,
+  }),
+  add_exists: (at) => ({
+    fr: `Delta ${at} : ce numéro EXISTE déjà — un « nouveau » sur un nœud existant le RENOMME au lieu de l’ajouter (et fait réapparaître une section retirée). Choisissez un autre numéro.`,
+    en: `Delta ${at}: this number ALREADY EXISTS — a “new” on an existing node RENAMES it instead of adding it (and revives a removed section). Pick another number.`,
   }),
   unknown_node: (at) => ({
     fr: `Delta ${at} : ce numéro n’existe dans aucune arborescence visée — il ne changerait rien. Vérifiez le numéro ou la portée.`,

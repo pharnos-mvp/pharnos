@@ -19,6 +19,7 @@ import {
   type DraftDelta,
   currentMapOf,
   nextFreeChildNumber,
+  reservedNumbers,
   pickableNodes,
 } from './ref-draft'
 import type { RefEntryFull, RefVersionRow } from './admin-api'
@@ -443,5 +444,56 @@ describe('nextFreeChildNumber — la suggestion d’un AJOUT', () => {
 
   it('un parent sans enfant connu reçoit « .1 »', () => {
     expect(nextFreeChildNumber([], '1.9')).toBe('1.9.1')
+  })
+})
+
+describe('B1 — la suggestion de numéro ne recycle JAMAIS un numéro retiré ni une fratrie', () => {
+  const entryWith = (deltas: { kind: 'add' | 'remove' | 'relabel'; number: string }[]) => {
+    const e = prefillEntry('TG', 'ctd_structure')
+    e.deltas = deltas.map((d) => ({ ...newDelta(), ...d }))
+    return e
+  }
+
+  it('un numéro RETIRÉ par un delta publié reste RÉSERVÉ (sinon la section ressuscite)', () => {
+    // Le cas réel : le Togo a publié `remove 1.1.2` (PGHT). L'arbre AFFICHÉ ne le contient plus,
+    // donc la suggestion le croyait libre — et l'`add` publié se dégradait en RENOMMAGE du nœud
+    // PGHT, qui réapparaissait sous le titre de la nouvelle section, sans un mot d'avertissement.
+    const current = currentMapOf([
+      {
+        country: 'TG',
+        section: 'ctd_structure',
+        payload: { deltas: [{ kind: 'remove', number: '1.1.2' }] },
+        provenance: {},
+        version_label: 'v2026.2',
+      },
+    ])
+    const nodes = pickableNodes('TG', 'ctd', current)
+    expect(nodes.some((n) => n.number === '1.1.2')).toBe(false) // absent de l'arbre affiché…
+
+    const proposed = nextFreeChildNumber(nodes, '1.1', reservedNumbers(entryWith([])))
+    expect(proposed).not.toBe('1.1.2') // …mais JAMAIS proposé (il est au socle)
+  })
+
+  it('deux ajouts sous le même parent ne reçoivent pas le MÊME numéro', () => {
+    const nodes = pickableNodes('SN', 'ctd')
+    const first = nextFreeChildNumber(nodes, '1.2', reservedNumbers(entryWith([])))
+    // Le god a déjà posé `first` sur une ligne : la suggestion suivante doit l'éviter.
+    const second = nextFreeChildNumber(
+      nodes,
+      '1.2',
+      reservedNumbers(entryWith([{ kind: 'add', number: first }])),
+    )
+    expect(second).not.toBe(first)
+  })
+
+  it('un « nouveau » sur un numéro EXISTANT est une FAUTE BLOQUANTE, pas un avis', () => {
+    // Il produit un effet (il renomme), donc aucun test d'inertie ne pouvait l'attraper.
+    const e = entryWith([{ kind: 'add', number: '1.1.2' }])
+    e.deltas[0]!.label = 'Attestation de pharmacovigilance'
+    e.provTexte = 'Arrêté de test'
+
+    expect(draftDeltaIssues(e)[0]).toBe('add_exists')
+    expect(isBlockingDeltaIssue(draftDeltaIssues(e)[0], 'add')).toBe(true)
+    expect(entryError(e)).not.toBeNull()
   })
 })
