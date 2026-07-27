@@ -28,7 +28,16 @@
 /checking.js
   Cache-Control: public, max-age=300
 
-# Modules ES du Checking Standard (barème versionné) — importés par /checking.js.
+# Modules ES du Checking Standard, importés par /checking.js.
+#
+# REVALIDATION SYSTÉMATIQUE, et pas un max-age comme les autres fichiers. Raison : ces modules
+# sont importés PAR un module (`import './checking/referentiel.js'`), donc leur URL ne peut pas
+# porter de `?v=` piloté depuis le HTML — et propager la version dans les imports casserait la
+# copie Deno de l'Edge, qui n'accepte pas de query string sur un chemin local.
+# Vu en production le 2026-07-27 : `checking.js?v=2` servi frais AVEC un `referentiel.js` encore
+# en cache — la page affichait le nouveau HTML et l'ANCIEN barème, sans la moindre erreur.
+# Un couple entry/dépendance désaccordé sur un outil réglementaire est pire qu'un octet de trafic :
+# la revalidation coûte un 304 sur ~45 Ko, la fausse réponse coûte la crédibilité du diagnostic.
 /checking/*
-  Cache-Control: public, max-age=300
+  Cache-Control: public, max-age=0, must-revalidate
   Content-Type: text/javascript; charset=utf-8
