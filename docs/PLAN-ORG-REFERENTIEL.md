@@ -440,3 +440,57 @@ diffs d'adoption.
 - Abroger un écart publié à date d'effet FUTURE est refusé (`admin_ref_overview.current` ne sert
   que l'applicable du jour).
 - `lifecycleConfigFor` : 5ᵉ source encore indexée pays (inventaire code-only assumé, cf. M7).
+
+## 8) Phase de construction vs. protocole — et la bascule GO-LIVE
+
+**Décision CEO du 2026-07-27.** Le protocole de référentiel versionné est bâti à l'instar des grands
+RIM et **reste intégralement en place** : publication sourcée, adoption par organisation, épinglage
+des dossiers, adaptations locales, fusion volontaire des arborescences. Mais il **ne prend effet
+qu'au GO-LIVE, avec de vrais utilisateurs pilotes**. Aujourd'hui il n'y a qu'un utilisateur, aucun
+pilote, et le socle n'est pas finalisé pour plusieurs pays : s'imposer une procédure de publication
+pour corriger une redevance en cours de construction est un frottement pur, sans le bénéfice qui la
+justifie — l'opposabilité.
+
+### Ce qui est vrai pendant la construction
+
+- **Le socle vit dans le CODE** : `web/src/features/workspace/roadmap-data.ts`. On le corrige
+  librement, sans numéro de version, sans provenance à citer, sans adoption à faire.
+- La migration **`0080`** a vidé les entrées de la version socle en base. Le résolveur ne trouve
+  donc rien et retombe sur le code, **pays par pays et section par section**. Sans elle, corriger le
+  Bénin dans le code n'aurait **rien** changé à l'écran : la version publiée masquait le code —
+  exactement la divergence silencieuse que ce chantier existe pour empêcher.
+- La **ligne** de version socle est conservée : `ref_versions.is_baseline` est le plafond
+  d'adoption, et 137 dossiers y sont épinglés avec `on delete restrict`. Une version sans entrée est
+  parfaitement légitime ; le compteur affiche 0 dans la console god, c'est la vérité.
+- Le test de parité code ↔ seed a été **retiré** : il verrouillait précisément ce qu'on veut pouvoir
+  modifier. Il est remplacé par `ref-seed.test.ts`, qui vérifie que **le générateur couvre tout le
+  socle** — la propriété qui compte pour le jour J.
+- Les versions publiées pendant la recette de production (`v2026.2` retrait TG `1.1.2`, `v2026.3`
+  abrogation) sont **conservées comme traces**. L'abrogation étant la plus récente, l'arborescence
+  togolaise est déjà celle du code.
+
+### Bascule GO-LIVE du référentiel — la procédure
+
+À exécuter **au signal explicite du CEO**, jamais avant. Elle est ordonnée : chaque étape suppose la
+précédente.
+
+1. **Geler le socle du code.** Plus aucune modification de `roadmap-data.ts` après cette étape sans
+   repasser par le protocole.
+2. **Vérifier la santé du générateur** : `npm test -- ref-seed`. Il doit prouver qu'aucun pays ni
+   aucune section renseignée dans le code n'est oubliée — un socle publié amputé serait opposable.
+3. **Générer** : `npm run ref:seed-sql`. La sortie est écrite dans `web/.ref-seed/` (ignorée par
+   git : un SQL de socle commité serait périmé dès la correction suivante, ce qui est pire
+   qu'absent).
+4. **Relire la sortie ligne à ligne** — c'est du contenu réglementaire opposable. Vérifier en
+   particulier les provenances citées : la RPC et l'Edge refusent une entrée sans source.
+5. **En faire une migration** : copier en `supabase/migrations/00NN_ref_baseline_golive.sql`,
+   l'appliquer en prod **avant** tout déploiement de code qui en dépend (règle de la maison).
+6. **Contrôler l'effet** : la console god doit afficher la version socle avec son compte d'entrées
+   réel, et une fiche Autorité doit citer « Source : … » au lieu du repli code.
+7. **À partir de cet instant**, toute correction réglementaire passe par une **nouvelle version
+   publiée** puis adoptée par chaque organisation. La date du texte se cite dans la **provenance**,
+   jamais en date d'effet (règle anti-rétro-datation, cf. §6).
+
+**Retour arrière** : rejouer `0080` (idempotente) vide à nouveau le socle et rend la main au code.
+Légitime avant les pilotes, **exclu** après — une fois qu'un client a adopté une version, on ne
+supprime pas, on publie l'abrogation.
