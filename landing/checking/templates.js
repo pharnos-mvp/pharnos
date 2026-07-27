@@ -19,6 +19,70 @@
 export const GROUP_PREFIX = '__GRP__'
 
 export const MODELES = {
+  /**
+   * L'arborescence Module 1 attendue au dépôt — Annexe I du Règlement n° 04/2020/CM/UEMOA.
+   * Ce n'est pas un « modèle de document » mais la STRUCTURE que le PDF combiné doit suivre :
+   * c'est ce que le déclarant doit voir avant de dire comment son Module 1 se présente.
+   * Source unique côté application : `web/src/features/workspace/module1-tree.ts`.
+   */
+  ctd: {
+    nom: ['Arborescence du Module 1 (CTD papier)', 'Module 1 tree (paper CTD)'],
+    short: ['mon Module 1', 'my Module 1'],
+    src: ['Annexe I, Règlement n° 04/2020/CM/UEMOA', 'Annex I, Regulation No. 04/2020/CM/WAEMU'],
+    doct: ['MODULE 1 — INFORMATIONS ADMINISTRATIVES ET INFORMATIONS SUR LE PRODUIT', 'MODULE 1 — ADMINISTRATIVE AND PRODUCT INFORMATION'],
+    perCountry: false,
+    secs: [
+      ['1.0  Table des matières (TdM)', '1.0  Table of contents'],
+      [
+        '1.1  Correspondance',
+        '1.1  Correspondence',
+        [
+          "1.1.1 Lettre de demande · 1.1.2 Lettre de PGHT · 1.1.3 Informations sollicitées par l'Autorité · 1.1.4 Rencontres demandeur / autorité · 1.1.5 Demande de documents d'appel · 1.1.6 Note générale à l'évaluateur",
+          '1.1.1 Application letter · 1.1.2 Ex-factory price letter · 1.1.3 Information requested by the authority · 1.1.4 Applicant / authority meetings · 1.1.5 Appeal document request · 1.1.6 General note to the assessor',
+        ],
+      ],
+      [
+        '1.2  Informations administratives',
+        '1.2  Administrative information',
+        [
+          "1.2.1 Formulaires de demande · 1.2.2 Formulaire de paiement des frais d'homologation · 1.2.3 Certification et attestation (COPP, AMM du pays d'origine, certificats d'analyse) · 1.2.4 Conformité et site (BPF, licence de fabrication, certificat de vente libre) · 1.2.5 Partage d'informations (lettre d'accès au DMF) · 1.2.6 Statut réglementaire régional et international · 1.2.7 Informations post-autorisation · 1.2.8 Autres informations administratives (dispenses de bioéquivalence, contrat de licence ou de fabrication)",
+          '1.2.1 Application forms · 1.2.2 Registration fee payment form · 1.2.3 Certification and attestation (COPP, MA from country of origin, certificates of analysis) · 1.2.4 Compliance and site (GMP, manufacturing licence, free sale certificate) · 1.2.5 Information sharing (DMF access letter) · 1.2.6 Regional and international regulatory status · 1.2.7 Post-authorisation information · 1.2.8 Other administrative information (bioequivalence waivers, licence or manufacturing agreement)',
+        ],
+      ],
+      [
+        '1.3  Informations sur le produit',
+        '1.3  Product information',
+        [
+          "1.3.1 Résumé des caractéristiques du produit (RCP) · 1.3.2 Notice à l'intention du patient · 1.3.3 Étiquettes des conditionnements (primaire et emballage extérieur) · 1.3.4 Étiquetage étranger · 1.3.5 Étiquetage des produits de référence",
+          '1.3.1 Summary of product characteristics (SmPC) · 1.3.2 Patient information leaflet · 1.3.3 Packaging labels (immediate and outer) · 1.3.4 Foreign labelling · 1.3.5 Reference product labelling',
+        ],
+      ],
+      [
+        '1.4  Résumés régionaux',
+        '1.4  Regional summaries',
+        ["1.4.1 Informations sur l'étude de bioéquivalence (BTIF)", '1.4.1 Bioequivalence trial information (BTIF)'],
+      ],
+    ],
+    rules: [
+      [
+        "Un PDF unique, combiné, avec table des matières et signets reprenant cette numérotation — c'est le format attendu à la réception.",
+        'A single combined PDF, with a table of contents and bookmarks following this numbering — that is the format expected at reception.',
+      ],
+      [
+        "La numérotation ne s'invente pas : une organisation propre au laboratoire, même soignée, est relevée comme non conforme au format CTD.",
+        'The numbering is not open to interpretation: an in-house organisation, however tidy, is flagged as non-compliant with the CTD format.',
+      ],
+      [
+        "Une section sans objet reste dans l'arborescence, avec la mention « sans objet » — elle ne se supprime pas.",
+        'A section that does not apply stays in the tree, marked “not applicable” — it is not deleted.',
+      ],
+      [
+        "La rubrique 1.2.8 accueille l'administratif sans emplacement prévu ; elle ne doit contenir aucune information scientifique.",
+        'Section 1.2.8 holds administrative items with no dedicated slot; it must contain no scientific information.',
+      ],
+    ],
+  },
+
   rcp: {
     nom: ['Résumé des Caractéristiques du Produit (RCP)', 'Summary of Product Characteristics (SmPC)'],
     short: ['mon RCP', 'my SmPC'],

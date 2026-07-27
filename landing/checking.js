@@ -28,9 +28,10 @@ const WA_NUMBER = ''
 let lang = window.I18N && typeof window.I18N.get === 'function' ? window.I18N.get() : 'fr'
 const L = (v) => (Array.isArray(v) ? (v[lang === 'en' ? 1 : 0] ?? v[0]) : v)
 
-/* ══ Devises — prix fixés par marché, jamais convertis à la volée (un taux qui bouge ferait
-     varier un prix affiché sans décision commerciale). ══ */
-let cur = 'xof'
+/* ══ Prix — FCFA en principal, EUR en secondaire, les DEUX toujours affichés.
+     Pas de sélecteur de devise : le visiteur n'a rien à choisir, il lit le prix dans sa monnaie
+     sans geste. Les montants sont fixés par marché, jamais convertis à la volée — un taux qui
+     bouge ferait varier un prix affiché sans décision commerciale. ══ */
 const PRICE = {
   ai: { xof: 75000, eur: 119 },
   aiLaunch: { xof: 50000, eur: 79 },
@@ -43,14 +44,7 @@ const PRICE = {
 // selon la locale et le moteur. On les normalise par POINT DE CODE : écrits littéralement dans
 // une regex, ces caractères sont invisibles à la relecture et se perdent au premier copier-coller.
 const fmt = (n) => n.toLocaleString(lang === 'en' ? 'en-GB' : 'fr-FR').replace(/[\u202F\u00A0]/g, ' ')
-const price = (p, alt) =>
-  alt
-    ? cur === 'eur'
-      ? `${fmt(p.xof)} FCFA`
-      : `${fmt(p.eur)} €`
-    : cur === 'eur'
-      ? `${fmt(p.eur)} €`
-      : `${fmt(p.xof)} FCFA`
+const price = (p, alt) => (alt ? `${fmt(p.eur)} €` : `${fmt(p.xof)} FCFA`)
 
 /* ══ État ══ */
 /* `answers` porte EXACTEMENT le nom attendu par le moteur : `computeResult(S)` et `buildFlow(S)`
@@ -178,14 +172,25 @@ function renderQ() {
   $('#qtext').textContent = L(it.q)
   $('#qwhy').textContent = L(it.why)
 
-  // Barre « voir le modèle » : seulement pour les pièces opposables à un modèle officiel.
+  // Barre « voir un exemplaire » : pour les pièces opposables à un modèle officiel, et pour le
+  // Module 1 dont l'arborescence CTD est elle-même le référentiel. Voir AVANT de répondre est
+  // tout l'intérêt du mode descriptif : on ne décrit bien que ce à quoi on peut se comparer.
   const bar = $('#tplbar')
   if (it.tpl && MODELES[it.tpl]) {
     bar.hidden = false
-    $('#tpltext').textContent = L([
-      `Ce document est opposable à un modèle officiel — regardez-le avant de répondre.`,
-      `This document is checked against an official template — look at it before answering.`,
-    ])
+    const isTree = it.tpl === 'ctd'
+    $('#tpltext').textContent = isTree
+      ? L([
+          "Le format CTD est un verrou de réception — regardez l'arborescence attendue avant de répondre.",
+          'The CTD format is a reception gate — look at the expected tree before answering.',
+        ])
+      : L([
+          'Cette pièce est opposable à un modèle officiel — regardez-le avant de répondre.',
+          'This document is checked against an official template — look at it before answering.',
+        ])
+    $('#tplbtnlabel').textContent = isTree
+      ? L(["Voir l'arborescence attendue", 'View the expected tree'])
+      : L(['Voir un exemplaire du modèle', 'View a sample of the template'])
     $('#tplbtn').onclick = () => openTpl(it.tpl, $('#tplbtn'))
   } else {
     bar.hidden = true
@@ -693,17 +698,6 @@ function applyLang(l) {
 }
 if (window.I18N && typeof window.I18N.on === 'function') window.I18N.on(applyLang)
 
-$$('.cur button').forEach((b) =>
-  b.addEventListener('click', () => {
-    cur = b.dataset.cur === 'eur' ? 'eur' : 'xof'
-    $$('.cur button').forEach((x) => {
-      const on = x.dataset.cur === cur
-      x.classList.toggle('on', on)
-      x.setAttribute('aria-pressed', String(on))
-    })
-    paintPrices()
-  }),
-)
 
 /* ══ Exemple — un dossier industriel réel, anonymisé ══ */
 $('#demoBtn').addEventListener('click', () => {

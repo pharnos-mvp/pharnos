@@ -46,8 +46,11 @@
  * @property {{nc: Bi, ko: Bi}} [fixMap]       Recommandation sur mesure (sinon « À prévoir : … »).
  */
 
-/** Version du barème — à incrémenter à CHAQUE modification de contenu réglementaire. */
-export const BAREME_VERSION = 'uemoa-2026.1'
+/** Version du barème — à incrémenter à CHAQUE modification de contenu réglementaire.
+ *  2026.2 : questionnaire passé en mode DESCRIPTIF (« comment se présente… » au lieu de « est-ce
+ *  conforme ? »). Les entrées du calcul changent, donc la version aussi — un rapport de la 2026.1
+ *  ne se compare pas item par item à un rapport de la 2026.2. */
+export const BAREME_VERSION = 'uemoa-2026.2'
 
 /**
  * Pays couverts. `ag` = nom de l'autorité tel qu'il s'insère dans une phrase (« … refusée par
@@ -105,54 +108,42 @@ const OPT_NA = {
   sub: ['Exigence conditionnelle', 'Conditional requirement'],
 }
 
-/** Jeu d'options pour les pièces opposables à un modèle officiel (présence ≠ conformité). */
-export const OPTS_TPL = [
-  {
-    k: 'ok',
-    ico: '✓',
-    cls: 'ok',
-    label: ['Oui — rédigé sur le modèle officiel, en Word et PDF', 'Yes — drafted on the official template, in Word and PDF'],
-    sub: ['Rubriques, ordre et langue conformes', 'Sections, order and language compliant'],
-  },
-  {
-    k: 'nc',
-    ico: '⚠',
-    cls: 'nc',
-    label: ['Le document existe, mais pas sur le modèle officiel', 'The document exists, but not on the official template'],
-    sub: ['Ou format Word manquant, ou langue non conforme', 'Or missing Word format, or non-compliant language'],
-  },
-  { k: 'ko', ico: '✗', cls: 'ko', label: ['Pas encore rédigé', 'Not drafted yet'], sub: ['À produire avant le dépôt', 'To be produced before filing'] },
-]
-
-/** Jeu d'options standard, pour les pièces sans modèle opposable. */
+/**
+ * Jeu d'options par défaut, pour les pièces dont l'état se résume à un avancement.
+ *
+ * DOCTRINE DU QUESTIONNAIRE — on décrit, on ne s'auto-note pas. Une question fermée (« votre RCP
+ * est-il conforme ? ») reçoit « oui » de presque tout le monde : le déclarant croit sincèrement
+ * l'être. Une question descriptive (« comment votre RCP est-il rédigé ? ») avec des états
+ * concrets et exclusifs oblige à reconnaître le sien, et c'est LE BARÈME qui juge. Les items à
+ * fort enjeu portent donc leurs propres options ordonnées du plus conforme au moins conforme.
+ */
 export const OPTS_STD = [
   {
     k: 'ok',
     ico: '✓',
     cls: 'ok',
-    label: ['Oui — prêt et conforme', 'Yes — ready and compliant'],
-    sub: ['La pièce est disponible, au bon format', 'The document is available, in the right format'],
+    label: ['Prête et disponible pour le dépôt', 'Ready and available for filing'],
+    sub: ['Rien ne reste à produire sur ce point', 'Nothing left to produce on this point'],
   },
   {
     k: 'nc',
     ico: '⚠',
     cls: 'nc',
-    label: ['En cours — incomplet ou à mettre en conformité', 'In progress — incomplete or to be brought into compliance'],
-    sub: ['La pièce existe mais un élément manque', 'The document exists but something is missing'],
+    label: ['En cours — la pièce existe, un élément manque', 'In progress — the document exists, something is missing'],
+    sub: ['À compléter avant le dépôt', 'To be completed before filing'],
   },
-  { k: 'ko', ico: '✗', cls: 'ko', label: ['Pas encore', 'Not yet'], sub: ['Rien de disponible à ce stade', 'Nothing available at this stage'] },
+  { k: 'ko', ico: '✗', cls: 'ko', label: ['Pas encore engagée', 'Not started yet'], sub: ['Rien de disponible à ce stade', 'Nothing available at this stage'] },
 ]
 
 /**
- * Options d'un item : sur mesure si l'item en définit, sinon le jeu correspondant à sa nature,
- * complété par « non applicable » quand l'exigence est conditionnelle.
+ * Options d'un item : sur mesure si l'item en définit (cas général des pièces à fort enjeu),
+ * sinon le jeu par défaut, complété par « non applicable » quand l'exigence est conditionnelle.
  * @param {Item} item
  * @returns {Option[]}
  */
 export function optionsFor(item) {
   if (item.opts) return item.opts
-  const base = item.tpl ? OPTS_TPL : OPTS_STD
-  return item.na ? [...base, OPT_NA] : base
+  return item.na ? [...OPTS_STD, OPT_NA] : OPTS_STD
 }
 
 /** @type {Item[]} Enregistrement — nouvelle AMM. */
@@ -162,52 +153,155 @@ export const ITEMS_ENR = [
     axis: 'rec',
     w: 12,
     gate: 'ctd',
-    q: ['Votre Module 1 sera-t-il déposé consolidé et au format CTD UEMOA ?', 'Will your Module 1 be filed consolidated and in the WAEMU CTD format?'],
+    tpl: 'ctd',
+    q: ['Comment se présente votre Module 1 ?', 'How is your Module 1 presented?'],
     why: [
-      "Premier verrou de réception : un Module 1 hors format CTD est refusé à la réception — c'est le motif n° 1 relevé sur les fiches réelles.",
-      'First reception gate: a Module 1 outside the CTD format is rejected at reception — the number-one reason found on real completeness forms.',
+      "Premier verrou de réception : un Module 1 hors format CTD est refusé à la réception — c'est le motif n° 1 relevé sur les fiches réelles. Regardez l'arborescence attendue avant de répondre.",
+      'First reception gate: a Module 1 outside the CTD format is rejected at reception — the number-one reason found on real completeness forms. Look at the expected tree before answering.',
     ],
     piece: ['un Module 1 conforme au format CTD', 'a Module 1 compliant with the CTD format'],
-    ncNote: ['Non conforme au format CTD', 'Not compliant with the CTD format'],
+    ncNote: ['Non conforme au format CTD attendu', 'Not compliant with the expected CTD format'],
+    opts: [
+      {
+        k: 'ok',
+        ico: '✓',
+        cls: 'ok',
+        label: ['Un PDF unique, combiné et structuré selon l’arborescence CTD', 'A single combined PDF, structured along the CTD tree'],
+        sub: ['Avec table des matières et signets, de 1.0 à 1.4', 'With table of contents and bookmarks, from 1.0 to 1.4'],
+      },
+      {
+        k: 'nc',
+        ico: '⚠',
+        cls: 'nc',
+        label: ['Des fichiers séparés, rangés selon l’arborescence CTD', 'Separate files, arranged along the CTD tree'],
+        sub: ['La structure y est ; le PDF combiné manque', 'The structure is there; the combined PDF is missing'],
+      },
+      {
+        k: 'nc',
+        ico: '⚠',
+        cls: 'nc',
+        label: ['Un PDF unique, mais sans l’arborescence CTD', 'A single PDF, but without the CTD tree'],
+        sub: ['Le combiné y est ; la numérotation attendue manque', 'The combined file is there; the expected numbering is missing'],
+      },
+      {
+        k: 'ko',
+        ico: '✗',
+        cls: 'ko',
+        label: ['Une organisation propre au laboratoire, ou rien d’assemblé', 'An in-house organisation, or nothing assembled yet'],
+        sub: ['À reprendre entièrement au format CTD', 'To be rebuilt entirely in the CTD format'],
+      },
+    ],
   },
   {
     id: 'rcp',
     axis: 'adm',
     w: 8,
     tpl: 'rcp',
-    q: ['Votre RCP sera-t-il rédigé sur le modèle officiel du pays, en Word et PDF ?', "Will your SmPC be drafted on the country's official template, in Word and PDF?"],
+    q: ['Comment votre RCP est-il rédigé ?', 'How is your SmPC drafted?'],
     why: [
       "Présent ne suffit pas : le RCP doit suivre le modèle de l'autorité, rubrique par rubrique, et être fourni en français (ou en anglais accompagné du français). Le « format Word non fourni » est l'annotation la plus fréquente.",
       'Being present is not enough: the SmPC must follow the authority’s template section by section and be supplied in French (or English together with French). “Word format not supplied” is the most frequent annotation.',
     ],
     piece: ['un RCP conforme au modèle officiel, en Word et PDF', 'an SmPC compliant with the official template, in Word and PDF'],
     ncNote: ['Non conforme au modèle officiel', 'Not compliant with the official template'],
+    opts: [
+      {
+        k: 'ok',
+        ico: '✓',
+        cls: 'ok',
+        label: ['Sur le modèle officiel du pays, fourni en Word et en PDF', 'On the country’s official template, supplied in Word and PDF'],
+        sub: ['Les 10 rubriques dans l’ordre, numérotation inchangée', 'The 10 sections in order, numbering unchanged'],
+      },
+      {
+        k: 'nc',
+        ico: '⚠',
+        cls: 'nc',
+        label: ['Sur le modèle officiel, mais en PDF seulement', 'On the official template, but in PDF only'],
+        sub: ['Le format Word est exigé au dépôt', 'The Word format is required at filing'],
+      },
+      {
+        k: 'nc',
+        ico: '⚠',
+        cls: 'nc',
+        label: ['Un RCP repris d’un autre pays, ou de format maison', 'An SmPC carried over from another country, or in-house'],
+        sub: ['Rubriques et numérotation à réaligner sur le modèle', 'Sections and numbering to realign with the template'],
+      },
+      { k: 'ko', ico: '✗', cls: 'ko', label: ['Pas encore rédigé', 'Not drafted yet'], sub: ['À produire avant le dépôt', 'To be produced before filing'] },
+    ],
   },
   {
     id: 'not',
     axis: 'adm',
     w: 8,
     tpl: 'notice',
-    q: ['Votre notice patient sera-t-elle rédigée sur la maquette officielle, en Word et PDF ?', 'Will your patient leaflet be drafted on the official template, in Word and PDF?'],
+    q: ['Comment votre notice patient est-elle rédigée ?', 'How is your patient leaflet drafted?'],
     why: [
       "Les six rubriques, dans l'ordre, avec l'encadré d'avertissement — et une cohérence stricte avec le RCP. Toute divergence entre notice et RCP est relevée en instruction.",
       'The six sections, in order, with the warning box — and strict consistency with the SmPC. Any divergence between leaflet and SmPC is flagged during assessment.',
     ],
     piece: ['une notice conforme à la maquette officielle, en Word et PDF', 'a leaflet compliant with the official template, in Word and PDF'],
     ncNote: ['Non conforme à la maquette officielle', 'Not compliant with the official template'],
+    opts: [
+      {
+        k: 'ok',
+        ico: '✓',
+        cls: 'ok',
+        label: ['Sur la maquette officielle, en Word et PDF, cohérente avec le RCP', 'On the official template, in Word and PDF, consistent with the SmPC'],
+        sub: ['Les 6 rubriques dans l’ordre, encadré d’avertissement en tête', 'The 6 sections in order, warning box at the top'],
+      },
+      {
+        k: 'nc',
+        ico: '⚠',
+        cls: 'nc',
+        label: ['Sur la maquette officielle, mais en PDF seulement', 'On the official template, but in PDF only'],
+        sub: ['« Fournir la notice en format Word » revient sur les fiches', '“Supply the leaflet in Word format” recurs on the forms'],
+      },
+      {
+        k: 'nc',
+        ico: '⚠',
+        cls: 'nc',
+        label: ['Une notice reprise d’un autre marché, ou de format maison', 'A leaflet carried over from another market, or in-house'],
+        sub: ['Structure et cohérence avec le RCP à reprendre', 'Structure and consistency with the SmPC to rework'],
+      },
+      { k: 'ko', ico: '✗', cls: 'ko', label: ['Pas encore rédigée', 'Not drafted yet'], sub: ['À produire avant le dépôt', 'To be produced before filing'] },
+    ],
   },
   {
     id: 'etiq',
     axis: 'adm',
     w: 6,
     tpl: 'etiq',
-    q: ['Vos maquettes d’étiquetage reprendront-elles toutes les mentions du modèle officiel ?', 'Will your labelling mock-ups carry every particular of the official template?'],
+    q: ['Que portent vos maquettes d’étiquetage ?', 'What do your labelling mock-ups carry?'],
     why: [
       "Trois jeux de mentions à ne pas confondre : emballage extérieur (17 mentions), plaquettes (5), petits conditionnements primaires (6). L'autorité contrôle directement sur la maquette.",
       'Three sets of particulars not to be confused: outer packaging (17), blisters (5), small immediate packs (6). The authority checks directly on the mock-up.',
     ],
     piece: ["des maquettes d'étiquetage conformes au modèle officiel", 'labelling mock-ups compliant with the official template'],
     ncNote: ['Mentions obligatoires incomplètes', 'Mandatory particulars incomplete'],
+    opts: [
+      {
+        k: 'ok',
+        ico: '✓',
+        cls: 'ok',
+        label: ['Les trois jeux de mentions du modèle officiel', 'The three sets of particulars from the official template'],
+        sub: ['Emballage extérieur, plaquettes, petits conditionnements', 'Outer packaging, blisters, small immediate packs'],
+      },
+      {
+        k: 'nc',
+        ico: '⚠',
+        cls: 'nc',
+        label: ['Les mentions de l’emballage extérieur seulement', 'The outer packaging particulars only'],
+        sub: ['Plaquettes et petits conditionnements manquent', 'Blisters and small packs are missing'],
+      },
+      {
+        k: 'nc',
+        ico: '⚠',
+        cls: 'nc',
+        label: ['Des maquettes existantes, non alignées sur le modèle du pays', 'Existing mock-ups, not aligned with the country’s template'],
+        sub: ['Mentions à recenser une par une', 'Particulars to check one by one'],
+      },
+      { k: 'ko', ico: '✗', cls: 'ko', label: ['Pas encore préparées', 'Not prepared yet'], sub: ['À produire avant le dépôt', 'To be produced before filing'] },
+    ],
   },
   {
     id: 'btif',
@@ -215,13 +309,43 @@ export const ITEMS_ENR = [
     w: 6,
     na: true,
     tpl: 'btif',
-    q: ['Le BTIF sera-t-il fourni sur le formulaire OMS, sans modification du format ?', 'Will the BTIF be supplied on the WHO form, with no change to the format?'],
+    q: ['Sous quelle forme le BTIF sera-t-il fourni ?', 'In what form will the BTIF be supplied?'],
     why: [
       "L'OMS l'écrit en tête du formulaire : ni le format ni le contenu ne doivent être modifiés. À défaut de BTIF, il faut une dispense justifiée — pas un silence.",
       'The WHO states it at the top of the form: neither the format nor the content may be changed. Without a BTIF, a justified waiver is required — not silence.',
     ],
     piece: ['le BTIF sur formulaire OMS non modifié, ou la justification de sa dispense', 'the BTIF on the unmodified WHO form, or the justification for its waiver'],
     ncNote: ['Formulaire OMS modifié ou incomplet', 'WHO form modified or incomplete'],
+    opts: [
+      {
+        k: 'ok',
+        ico: '✓',
+        cls: 'ok',
+        label: ['Sur le formulaire OMS, format et contenu inchangés', 'On the WHO form, format and content unchanged'],
+        sub: ['Annexes localisées par leur numéro', 'Annexes located by their number'],
+      },
+      {
+        k: 'nc',
+        ico: '⚠',
+        cls: 'nc',
+        label: ['Sur le formulaire OMS, mais adapté ou partiellement rempli', 'On the WHO form, but adapted or partly completed'],
+        sub: ['Toute modification du gabarit est relevée', 'Any change to the template is flagged'],
+      },
+      {
+        k: 'ko',
+        ico: '✗',
+        cls: 'ko',
+        label: ['Ni BTIF, ni justification de dispense', 'Neither BTIF nor waiver justification'],
+        sub: ['Le silence ne vaut pas dispense', 'Silence does not count as a waiver'],
+      },
+      {
+        k: 'na',
+        ico: '—',
+        cls: 'na',
+        label: ['Non applicable — dispense justifiée par écrit', 'Not applicable — waiver justified in writing'],
+        sub: ['La justification accompagne le dossier', 'The justification accompanies the dossier'],
+      },
+    ],
   },
   {
     id: 'dis',
@@ -229,7 +353,7 @@ export const ITEMS_ENR = [
     w: 6,
     na: true,
     only: ['gen'],
-    q: ['Disposerez-vous de l’étude de dissolution comparée ou du Biowaiver (BCS) ?', 'Will you have the comparative dissolution study or the BCS Biowaiver?'],
+    q: ['Où en est l’étude de dissolution comparée, ou le Biowaiver (BCS) ?', 'Where does the comparative dissolution study, or the BCS Biowaiver, stand?'],
     why: [
       "Exigée pour les génériques et multisources ; l'exemption se justifie par écrit, elle ne se suppose pas.",
       'Required for generics and multisource products; an exemption is justified in writing, never assumed.',
@@ -241,7 +365,7 @@ export const ITEMS_ENR = [
     axis: 'saf',
     w: 4,
     na: true,
-    q: ['Un Plan de Gestion des Risques sera-t-il joint (si votre produit y est soumis) ?', 'Will a Risk Management Plan be included (if your product is subject to one)?'],
+    q: ['Où en est le Plan de Gestion des Risques, si votre produit y est soumis ?', 'Where does the Risk Management Plan stand, if your product is subject to one?'],
     why: [
       'Requis selon le profil du produit — choisissez « non applicable » si le vôtre n’y est pas soumis.',
       'Required depending on the product profile — choose “not applicable” if yours is not subject to one.',
@@ -253,18 +377,37 @@ export const ITEMS_ENR = [
     axis: 'tec',
     w: 4,
     na: true,
-    q: ["La lettre d'accès au DMF passera-t-elle par le canal confidentiel de l'autorité ?", "Will the DMF access letter go through the authority's confidential channel?"],
+    q: ["Par quel canal la lettre d'accès au DMF sera-t-elle transmise ?", 'Through which channel will the DMF access letter be sent?'],
     why: [
       "La lettre d'accès au DMF appartient au socle UEMOA (1.2.5) ; chaque autorité définit son canal de dépôt confidentiel — un envoi par le canal ordinaire ne vaut pas dépôt.",
       'The DMF access letter belongs to the WAEMU core (1.2.5); each authority defines its own confidential channel — sending it through the ordinary channel does not count as filing.',
     ],
     piece: ['la preuve de soumission du DMF par le canal confidentiel', 'proof of DMF submission through the confidential channel'],
+    ncNote: ['Transmis hors du canal confidentiel', 'Sent outside the confidential channel'],
+    opts: [
+      {
+        k: 'ok',
+        ico: '✓',
+        cls: 'ok',
+        label: ["Par le canal confidentiel de l'autorité", 'Through the authority’s confidential channel'],
+        sub: ['Avec la preuve de soumission', 'With proof of submission'],
+      },
+      {
+        k: 'nc',
+        ico: '⚠',
+        cls: 'nc',
+        label: ['Dans le dossier, par le canal ordinaire', 'Inside the dossier, through the ordinary channel'],
+        sub: ['Un envoi hors canal confidentiel ne vaut pas dépôt', 'Sending outside the confidential channel does not count as filing'],
+      },
+      { k: 'ko', ico: '✗', cls: 'ko', label: ['Pas encore obtenue du fabricant', 'Not yet obtained from the manufacturer'], sub: ['À demander sans attendre', 'To request without delay'] },
+      { k: 'na', ico: '—', cls: 'na', label: ['Non applicable — pas de DMF dans ce dossier', 'Not applicable — no DMF in this dossier'], sub: ['Exigence conditionnelle', 'Conditional requirement'] },
+    ],
   },
   {
     id: 'm2',
     axis: 'tec',
     w: 8,
-    q: ['Le Module 2 sera-t-il consolidé en un fichier unique, résumés signés par vos experts ?', 'Will Module 2 be consolidated into a single file, with summaries signed by your experts?'],
+    q: ['Où en est le Module 2 — résumés consolidés et signés par vos experts ?', 'Where does Module 2 stand — summaries consolidated and signed by your experts?'],
     why: [
       'Le Module 2 engage nommément vos experts : résumés qualité, non-clinique et clinique.',
       'Module 2 formally commits your experts: quality, non-clinical and clinical summaries.',
@@ -276,7 +419,31 @@ export const ITEMS_ENR = [
     axis: 'tec',
     w: 6,
     tpl: 'qos',
-    q: ['Le QOS-PD sera-t-il rempli sur le modèle OMS, en Word et PDF ?', 'Will the QOS-PD be completed on the WHO template, in Word and PDF?'],
+    q: ['Sous quelle forme le QOS-PD sera-t-il fourni ?', 'In what form will the QOS-PD be supplied?'],
+    opts: [
+      {
+        k: 'ok',
+        ico: '✓',
+        cls: 'ok',
+        label: ['Sur le modèle OMS, en Word et PDF, chaque rubrique renseignée', 'On the WHO template, in Word and PDF, every section filled in'],
+        sub: ['2.3.S et 2.3.P portent la donnée elle-même', '2.3.S and 2.3.P carry the data itself'],
+      },
+      {
+        k: 'nc',
+        ico: '⚠',
+        cls: 'nc',
+        label: ['Sur le modèle OMS, mais avec des renvois « voir Module 3 »', 'On the WHO template, but with “see Module 3” cross-references'],
+        sub: ['Un résumé qualité n’est pas un renvoi', 'A quality summary is not a cross-reference'],
+      },
+      {
+        k: 'nc',
+        ico: '⚠',
+        cls: 'nc',
+        label: ['Un résumé qualité de format maison', 'An in-house quality summary'],
+        sub: ['À reprendre sur le gabarit OMS', 'To be rebuilt on the WHO template'],
+      },
+      { k: 'ko', ico: '✗', cls: 'ko', label: ['Pas encore rédigé', 'Not drafted yet'], sub: ['À produire avant le dépôt', 'To be produced before filing'] },
+    ],
     why: [
       'Un résumé qualité, pas un renvoi : chaque rubrique doit porter la donnée, pas un « voir Module 3 ». Les deux formats sont exigés.',
       'A quality summary, not a cross-reference: each section must carry the data, not a “see Module 3”. Both formats are required.',
@@ -288,7 +455,7 @@ export const ITEMS_ENR = [
     id: 'm3',
     axis: 'tec',
     w: 8,
-    q: ['Le Module 3 sera-t-il complet — substance active ET produit fini ?', 'Will Module 3 be complete — drug substance AND finished product?'],
+    q: ['Où en est le Module 3 — substance active ET produit fini ?', 'Where does Module 3 stand — drug substance AND finished product?'],
     why: ['Le cœur du dossier : 3.2.S et 3.2.P, certificats à jour à la date du dépôt.', 'The heart of the dossier: 3.2.S and 3.2.P, with certificates valid at the filing date.'],
     piece: ['un Module 3 complet', 'a complete Module 3'],
   },
@@ -296,7 +463,7 @@ export const ITEMS_ENR = [
     id: 'm4',
     axis: 'tec',
     w: 5,
-    q: ['Le Module 4 sera-t-il fourni — ou sa dispense justifiée par écrit ?', 'Will Module 4 be supplied — or its waiver justified in writing?'],
+    q: ['Où en est le Module 4, ou la justification écrite de sa dispense ?', 'Where does Module 4 stand, or the written justification for its waiver?'],
     why: [
       'Pour un générique, la dispense se justifie formellement (littérature, usage médical établi).',
       'For a generic, the waiver must be formally justified (literature, well-established use).',
@@ -307,7 +474,7 @@ export const ITEMS_ENR = [
     id: 'm5',
     axis: 'tec',
     w: 5,
-    q: ['Le Module 5 sera-t-il fourni — cliniques ou bioéquivalence selon votre produit ?', 'Will Module 5 be supplied — clinical or bioequivalence data depending on your product?'],
+    q: ['Où en est le Module 5 — cliniques ou bioéquivalence selon votre produit ?', 'Where does Module 5 stand — clinical or bioequivalence data depending on your product?'],
     why: [
       'Pour un multisource, la bioéquivalence est la pièce maîtresse du Module 5.',
       'For a multisource product, bioequivalence is the centrepiece of Module 5.',
@@ -319,26 +486,79 @@ export const ITEMS_ENR = [
     axis: 'rec',
     w: 10,
     gate: 'ech',
-    q: ['Aurez-vous les échantillons modèle-vente et le certificat d’analyse du lot déposé ?', 'Will you have the sales-model samples and the certificate of analysis of the filed batch?'],
+    q: ['Où en sont les échantillons et leur certificat d’analyse ?', 'Where do the samples and their certificate of analysis stand?'],
     why: [
       "Deuxième verrou de réception : échantillons plus certificat d'analyse du lot, avec une durée de vie restante d'au moins 18 mois.",
       'Second reception gate: samples plus the batch certificate of analysis, with at least 18 months of remaining shelf life.',
     ],
     piece: ["les échantillons et le certificat d'analyse du lot", 'the samples and the batch certificate of analysis'],
+    ncNote: ['Échantillons ou certificat incomplets', 'Samples or certificate incomplete'],
+    opts: [
+      {
+        k: 'ok',
+        ico: '✓',
+        cls: 'ok',
+        label: ['Échantillons modèle-vente prêts, avec le certificat d’analyse du lot', 'Sales-model samples ready, with the batch certificate of analysis'],
+        sub: ['Durée de vie restante d’au moins 18 mois', 'At least 18 months of remaining shelf life'],
+      },
+      {
+        k: 'nc',
+        ico: '⚠',
+        cls: 'nc',
+        label: ['Échantillons disponibles, certificat d’analyse manquant', 'Samples available, certificate of analysis missing'],
+        sub: ['Les deux sont exigés à la réception', 'Both are required at reception'],
+      },
+      {
+        k: 'nc',
+        ico: '⚠',
+        cls: 'nc',
+        label: ['Échantillons dont la durée de vie restante est inférieure à 18 mois', 'Samples with less than 18 months of remaining shelf life'],
+        sub: ['Un lot plus récent sera demandé', 'A more recent batch will be requested'],
+      },
+      { k: 'ko', ico: '✗', cls: 'ko', label: ['Pas encore disponibles', 'Not available yet'], sub: ['À produire avant le dépôt', 'To be produced before filing'] },
+    ],
   },
   {
     id: 'pay',
     axis: 'rec',
     w: 10,
     gate: 'pay',
-    q: ['Le paiement des frais d’homologation sera-t-il effectué avant le dépôt ?', 'Will the registration fees be paid before filing?'],
+    q: ['Où en est le paiement des frais d’homologation ?', 'Where does the payment of the registration fees stand?'],
     why: [
       "Troisième verrou : sans récépissé de paiement au moment du dépôt, le dossier n'est pas réceptionné. Vérifiez le barème en vigueur du pays.",
       "Third gate: without a payment receipt at filing, the dossier is not accepted. Check the country's current fee schedule.",
     ],
     piece: ["la preuve de paiement des frais d'homologation", 'proof of payment of the registration fees'],
+    ncNote: ['Récépissé de paiement non disponible', 'Payment receipt not available'],
+    opts: [
+      {
+        k: 'ok',
+        ico: '✓',
+        cls: 'ok',
+        label: ['Payés, récépissé disponible pour le dépôt', 'Paid, receipt available for filing'],
+        sub: ['Le récépissé accompagne le dossier', 'The receipt accompanies the dossier'],
+      },
+      {
+        k: 'nc',
+        ico: '⚠',
+        cls: 'nc',
+        label: ['Paiement engagé, récépissé pas encore reçu', 'Payment initiated, receipt not yet received'],
+        sub: ['C’est le récépissé qui est exigé, pas l’ordre de virement', 'The receipt is required, not the transfer order'],
+      },
+      { k: 'ko', ico: '✗', cls: 'ko', label: ['Pas encore payés', 'Not paid yet'], sub: ['Vérifiez le barème en vigueur du pays', 'Check the country’s current fee schedule'] },
+    ],
   },
 ]
+
+/**
+ * Réutilise le jeu d'options d'un item d'enregistrement. La façon de DÉCRIRE un RCP, une notice
+ * ou un QOS-PD ne dépend pas de l'opération — seuls l'énoncé, le poids et l'enjeu changent.
+ * Recopier ces listes garantirait qu'un jour l'enregistrement et le renouvellement proposeraient
+ * des états différents pour la même pièce.
+ * @param {string} id
+ * @returns {Option[]}
+ */
+const enrOpts = (id) => /** @type {Option[]} */ (ITEMS_ENR.find((it) => it.id === id).opts)
 
 /** @type {Item[]} Renouvellement d'AMM. */
 export const ITEMS_REN = [
@@ -375,55 +595,83 @@ export const ITEMS_REN = [
     axis: 'rec',
     w: 10,
     gate: 'ctd',
-    q: ['Votre Module 1 sera-t-il à jour et identique en structure au dossier initial ?', 'Will your Module 1 be up to date and structurally identical to the initial dossier?'],
+    tpl: 'ctd',
+    q: ['Comment se présente le Module 1 que vous allez redéposer ?', 'How is the Module 1 you are about to re-file presented?'],
     why: [
       'Modules 1 et 2 doivent être « en tout point identiques » au dossier initial — et refléter les variations approuvées depuis.',
       'Modules 1 and 2 must be “identical in every respect” to the initial dossier — and reflect the variations approved since.',
     ],
     piece: ['un Module 1 à jour, conforme au format CTD', 'an up-to-date Module 1, compliant with the CTD format'],
-    ncNote: ['Non conforme au format CTD', 'Not compliant with the CTD format'],
+    ncNote: ['Non conforme au format CTD attendu', 'Not compliant with the expected CTD format'],
+    opts: [
+      {
+        k: 'ok',
+        ico: '✓',
+        cls: 'ok',
+        label: ['Repris du dossier initial, à jour des variations approuvées', 'Carried over from the initial dossier, updated with the approved variations'],
+        sub: ['Structure CTD identique, PDF combiné', 'Identical CTD structure, combined PDF'],
+      },
+      {
+        k: 'nc',
+        ico: '⚠',
+        cls: 'nc',
+        label: ['Repris du dossier initial, sans les variations approuvées depuis', 'Carried over from the initial dossier, without the variations approved since'],
+        sub: ['L’écart avec la version en vigueur sera relevé', 'The gap with the version in force will be flagged'],
+      },
+      {
+        k: 'nc',
+        ico: '⚠',
+        cls: 'nc',
+        label: ['Reconstitué, avec une structure qui diffère du dossier initial', 'Rebuilt, with a structure differing from the initial dossier'],
+        sub: ['« En tout point identiques » est la règle', '“Identical in every respect” is the rule'],
+      },
+      { k: 'ko', ico: '✗', cls: 'ko', label: ['Pas encore reconstitué', 'Not rebuilt yet'], sub: ['À reprendre au format CTD', 'To be rebuilt in the CTD format'] },
+    ],
   },
   {
     id: 'rcp',
     axis: 'adm',
     w: 7,
     tpl: 'rcp',
-    q: ['Votre RCP sera-t-il fourni sur le modèle officiel, dans sa dernière version approuvée ?', 'Will your SmPC be supplied on the official template, in its latest approved version?'],
+    q: ['Comment le RCP que vous allez déposer est-il rédigé ?', 'How is the SmPC you are about to file drafted?'],
     why: [
       "La version en vigueur — celle issue de vos variations approuvées — sur le modèle du pays, en Word et PDF.",
       "The version in force — the one resulting from your approved variations — on the country's template, in Word and PDF.",
     ],
     piece: ['un RCP conforme au modèle officiel, en Word et PDF', 'an SmPC compliant with the official template, in Word and PDF'],
     ncNote: ['Non conforme au modèle officiel', 'Not compliant with the official template'],
+    opts: enrOpts('rcp'),
   },
   {
     id: 'not',
     axis: 'adm',
     w: 7,
     tpl: 'notice',
-    q: ['La notice sera-t-elle fournie sur la maquette officielle, en Word et PDF ?', 'Will the leaflet be supplied on the official template, in Word and PDF?'],
+    q: ['Comment la notice que vous allez déposer est-elle rédigée ?', 'How is the leaflet you are about to file drafted?'],
     why: [
       'Annotation récurrente des fiches réelles de renouvellement : « fournir la notice en format Word ».',
       'A recurring annotation on real renewal forms: “supply the leaflet in Word format”.',
     ],
     piece: ['une notice conforme à la maquette officielle, en Word et PDF', 'a leaflet compliant with the official template, in Word and PDF'],
     ncNote: ['Non conforme à la maquette officielle', 'Not compliant with the official template'],
+    opts: enrOpts('not'),
   },
   {
     id: 'etiq',
     axis: 'adm',
     w: 5,
     tpl: 'etiq',
-    q: ['Vos maquettes d’étiquetage seront-elles celles du produit réellement commercialisé ?', 'Will your labelling mock-ups be those of the product actually marketed?'],
+    q: ['Que portent les maquettes d’étiquetage du produit réellement commercialisé ?', 'What do the labelling mock-ups of the product actually marketed carry?'],
     why: ['Les maquettes à jour, avec toutes les mentions obligatoires du modèle officiel.', 'Up-to-date mock-ups, carrying every mandatory particular of the official template.'],
     piece: ["des maquettes d'étiquetage à jour et conformes", 'up-to-date and compliant labelling mock-ups'],
     ncNote: ['Mentions obligatoires incomplètes', 'Mandatory particulars incomplete'],
+    opts: enrOpts('etiq'),
   },
   {
     id: 'm2',
     axis: 'tec',
     w: 7,
-    q: ['Le Module 2 sera-t-il joint, identique en structure au dossier initial ?', 'Will Module 2 be included, structurally identical to the initial dossier?'],
+    q: ['Où en est le Module 2, identique en structure au dossier initial ?', 'Where does Module 2 stand, structurally identical to the initial dossier?'],
     why: ['Comme le Module 1 : reconduit à l’identique, mis à jour des variations approuvées.', 'Like Module 1: carried over identically, updated with the approved variations.'],
     piece: ['le Module 2', 'Module 2'],
   },
@@ -432,16 +680,17 @@ export const ITEMS_REN = [
     axis: 'tec',
     w: 5,
     tpl: 'qos',
-    q: ['Le QOS-PD sera-t-il fourni sur le modèle OMS, en Word et PDF ?', 'Will the QOS-PD be supplied on the WHO template, in Word and PDF?'],
+    q: ['Sous quelle forme le QOS-PD sera-t-il fourni ?', 'In what form will the QOS-PD be supplied?'],
     why: ['Manque observé sur les fiches réelles de renouvellement, au même titre que le RCP.', 'A gap observed on real renewal forms, just like the SmPC.'],
     piece: ['le QOS-PD sur modèle OMS, en Word et PDF', 'the QOS-PD on the WHO template, in Word and PDF'],
     ncNote: ['Non conforme au modèle OMS', 'Not compliant with the WHO template'],
+    opts: enrOpts('qos'),
   },
   {
     id: 'psur',
     axis: 'saf',
     w: 9,
-    q: ['Le PSUR couvrira-t-il toute la période écoulée de l’AMM ?', 'Will the PSUR cover the entire elapsed MA period?'],
+    q: ['Où en est le PSUR couvrant toute la période écoulée de l’AMM ?', 'Where does the PSUR covering the entire elapsed MA period stand?'],
     why: [
       'La pièce la plus souvent manquante des renouvellements — elle démontre la surveillance continue du produit.',
       'The most frequently missing document in renewals — it demonstrates continuous product surveillance.',
@@ -452,7 +701,7 @@ export const ITEMS_REN = [
     id: 'smf',
     axis: 'tec',
     w: 7,
-    q: ['Le Site Master File de l’usine de fabrication sera-t-il joint ?', 'Will the Site Master File of the manufacturing plant be included?'],
+    q: ['Où en est le Site Master File de l’usine qui fabrique aujourd’hui ?', 'Where does the Site Master File of the plant manufacturing today stand?'],
     why: [
       "Le SMF de l'usine où le produit est réellement fabriqué aujourd'hui, pas celle du dossier initial si elle a changé.",
       'The SMF of the plant where the product is actually manufactured today, not the initial one if it has changed.',
@@ -463,7 +712,7 @@ export const ITEMS_REN = [
     id: 'bmr',
     axis: 'tec',
     w: 7,
-    q: ['Aurez-vous le dossier de lot (BMR) d’un lot réel de moins de 6 mois ?', 'Will you have the batch record (BMR) of an actual batch less than 6 months old?'],
+    q: ['Où en est le dossier de lot (BMR) d’un lot réel de moins de 6 mois ?', 'Where does the batch record (BMR) of an actual batch less than 6 months old stand?'],
     why: ['Un lot réel, fabriqué dans les six mois précédant la soumission — pas un lot d’archive.', 'An actual batch, manufactured within the six months preceding submission — not an archived one.'],
     piece: ['le dossier de fabrication (BMR) d’un lot de moins de 6 mois', 'the batch record (BMR) of a batch less than 6 months old'],
   },
@@ -471,7 +720,7 @@ export const ITEMS_REN = [
     id: 'amm',
     axis: 'adm',
     w: 6,
-    q: ['La dernière AMM en cours de validité sera-t-elle jointe ?', 'Will the latest valid MA be included?'],
+    q: ['Où en est la dernière AMM en cours de validité ?', 'Where does the latest valid MA stand?'],
     why: ['La décision en cours de validité, base juridique du renouvellement.', 'The decision currently in force, the legal basis for the renewal.'],
     piece: ['la dernière AMM du produit', 'the latest MA for the product'],
   },
@@ -479,7 +728,7 @@ export const ITEMS_REN = [
     id: 'att',
     axis: 'adm',
     w: 7,
-    q: ['Aurez-vous l’attestation de non-modification, ou la liste chronologique des variations approuvées ?', 'Will you have the statement of no change, or the chronological list of approved variations?'],
+    q: ['Où en est l’attestation de non-modification, ou la liste chronologique des variations approuvées ?', 'Where does the statement of no change, or the chronological list of approved variations, stand?'],
     why: [
       "Toutes les modifications depuis la première AMM, avec dates et références d'approbation. Rien d'oublié.",
       'Every change since the first MA, with approval dates and references. Nothing left out.',
@@ -492,7 +741,7 @@ export const ITEMS_REN = [
     w: 5,
     na: true,
     only: ['gen'],
-    q: ['La preuve d’interchangeabilité sera-t-elle jointe ?', 'Will the proof of interchangeability be included?'],
+    q: ['Où en est la preuve d’interchangeabilité ?', 'Where does the proof of interchangeability stand?'],
     why: ['Exigée pour les multisources au renouvellement.', 'Required for multisource products at renewal.'],
     piece: ["la preuve d'interchangeabilité", 'the proof of interchangeability'],
   },
@@ -501,31 +750,58 @@ export const ITEMS_REN = [
     axis: 'rec',
     w: 8,
     gate: 'ech',
-    q: ['Aurez-vous les échantillons (moitié du nombre initial) et leur certificat d’analyse ?', 'Will you have the samples (half the initial number) and their certificate of analysis?'],
+    q: ['Où en sont les échantillons (moitié du nombre initial) et leur certificat d’analyse ?', 'Where do the samples (half the initial number) and their certificate of analysis stand?'],
     why: [
       "Au renouvellement, l'autorité exige la moitié des échantillons de l'AMM initiale — verrou de réception.",
       'At renewal, the authority requires half the samples of the initial MA — a reception gate.',
     ],
     piece: ["les échantillons (½ du nombre initial) et le certificat d'analyse", 'the samples (½ of the initial number) and the certificate of analysis'],
+    ncNote: ['Échantillons ou certificat incomplets', 'Samples or certificate incomplete'],
+    opts: [
+      {
+        k: 'ok',
+        ico: '✓',
+        cls: 'ok',
+        label: ['La moitié du nombre initial, avec le certificat d’analyse du lot', 'Half the initial number, with the batch certificate of analysis'],
+        sub: ['Prêts à accompagner le dépôt', 'Ready to accompany the filing'],
+      },
+      {
+        k: 'nc',
+        ico: '⚠',
+        cls: 'nc',
+        label: ['Échantillons disponibles, certificat d’analyse manquant', 'Samples available, certificate of analysis missing'],
+        sub: ['Les deux sont exigés à la réception', 'Both are required at reception'],
+      },
+      {
+        k: 'nc',
+        ico: '⚠',
+        cls: 'nc',
+        label: ['Moins que la moitié du nombre initial', 'Fewer than half the initial number'],
+        sub: ['Le compte est vérifié à la réception', 'The count is checked at reception'],
+      },
+      { k: 'ko', ico: '✗', cls: 'ko', label: ['Pas encore disponibles', 'Not available yet'], sub: ['À produire avant le dépôt', 'To be produced before filing'] },
+    ],
   },
   {
     id: 'pay',
     axis: 'rec',
     w: 8,
     gate: 'pay',
-    q: ['Le paiement des frais de renouvellement sera-t-il effectué avant le dépôt ?', 'Will the renewal fees be paid before filing?'],
+    q: ['Où en est le paiement des frais de renouvellement ?', 'Where does the payment of the renewal fees stand?'],
     why: [
       'Verrou de réception — et les pénalités éventuelles se règlent en plus, sur quittance séparée.',
       'A reception gate — and any penalties are paid on top, with a separate receipt.',
     ],
     piece: ['la quittance de paiement des frais de renouvellement', 'the receipt for payment of the renewal fees'],
+    ncNote: ['Quittance de paiement non disponible', 'Payment receipt not available'],
+    opts: enrOpts('pay'),
   },
   {
     id: 'pen',
     axis: 'adm',
     w: 3,
     na: true,
-    q: ['Des pénalités s’appliqueront-elles — et leur quittance sera-t-elle jointe ?', 'Will penalties apply — and will their receipt be included?'],
+    q: ['Où en est la quittance des pénalités, si votre dépôt est tardif ?', 'Where does the penalty receipt stand, if your filing is late?'],
     why: [
       'En cas de dépôt tardif, la quittance des pénalités est exigée. « Non applicable » si vous êtes dans les délais.',
       'In case of late filing, the penalty receipt is required. Choose “not applicable” if you are within the deadline.',

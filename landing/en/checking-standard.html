@@ -8,7 +8,7 @@
 <title data-fr="Checking Standard — votre dossier d'AMM est-il prêt pour la réception ? · Pharnos">Checking Standard — is your MA dossier ready for reception? · Pharnos</title>
 <meta name="description" content="Preparing a marketing authorisation filing in the WAEMU zone? Measure your dossier’s completeness against the reception standard in 3 minutes, without sharing a single document. Score, preparation plan, official templates.">
 <link rel="stylesheet" href="/styles.css?v=15">
-<link rel="stylesheet" href="/checking.css?v=1">
+<link rel="stylesheet" href="/checking.css?v=2">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="canonical" href="https://pharnos.com/en/checking-standard">
@@ -78,10 +78,6 @@
       </div>
       <a class="navlink" href="/en/#offres" data-fr="Tarifs">Pricing</a>
     </nav>
-    <div class="cur" role="group" aria-label="Choose currency" data-fr-al="Choisir la devise">
-      <button type="button" data-cur="xof" class="on" aria-pressed="true">FCFA</button>
-      <button type="button" data-cur="eur" aria-pressed="false">EUR</button>
-    </div>
     <div class="lang" role="group" aria-label="Choose language" data-fr-al="Choisir la langue">
       <button type="button" class="" aria-pressed="false">FR</button>
       <button type="button" aria-pressed="true" class="on">EN</button>
@@ -190,9 +186,12 @@
           <p class="qwhy" id="qwhy"></p>
           <div class="tplbar" id="tplbar" hidden="">
             <span class="tl" id="tpltext"></span>
+            <!-- Libellé posé par le JS (il dépend de la pièce : arborescence CTD ou modèle de
+                 document), donc pas de `data-en` ici — sinon deux traductions se disputeraient
+                 le même nœud texte. -->
             <button class="eye" type="button" id="tplbtn">
               <svg aria-hidden="true"><use href="#i-eye"></use></svg>
-              <span data-fr="Voir le modèle officiel">View the official template</span>
+              <span id="tplbtnlabel">Voir un exemplaire</span>
             </button>
           </div>
           <div class="opts" id="qopts"></div>
@@ -475,7 +474,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="/landing.js?v=14" defer=""></script>
-<script type="module" src="/checking.js?v=1"></script>
+<script type="module" src="/checking.js?v=2"></script>
 
 
 </body></html>
