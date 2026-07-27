@@ -75,11 +75,18 @@ jobs:
         run: npm run headers
 
       - name: Landing EN prérendu synchronisé (SEO /en/)
-        # /en/ est GÉNÉRÉ depuis landing/index.html. On régénère et on exige zéro diff : toute modif
-        # de index.html non répercutée dans en/index.html fait échouer la CI (garde anti-dérive).
+        # /en/ est GÉNÉRÉ depuis les sources FR de landing/. On régénère et on exige zéro diff :
+        # toute modif d'une source non répercutée dans son miroir fait échouer la CI (anti-dérive).
         run: |
           npm run build:landing-en
-          git diff --exit-code -- ../landing/en/index.html
+          git diff --exit-code -- ../landing/en/
+
+      - name: Barème Checking Standard synchronisé (page ↔ Edge)
+        # `supabase/functions/_shared/checking/` est une COPIE de `landing/checking/` : l'Edge doit
+        # rester autonome (aucun import hors de supabase/) SANS pouvoir diverger de la page.
+        run: |
+          npm run build:checking-bareme
+          git diff --exit-code -- ../supabase/functions/_shared/checking/
 
   e2e:
     name: e2e (Playwright · offline PWA)
@@ -190,7 +197,7 @@ jobs:
         run: deno test supabase/functions/_shared/
 
       - name: Type-check des Edge Functions
-        run: deno check supabase/functions/regafy-ai/index.ts supabase/functions/translate/index.ts supabase/functions/upgrade/index.ts supabase/functions/share/index.ts supabase/functions/admin/index.ts supabase/functions/team/index.ts supabase/functions/lifecycle-reminders/index.ts supabase/functions/retention-purge/index.ts supabase/functions/purge-dossier/index.ts supabase/functions/demo-request/index.ts supabase/functions/invite-info/index.ts
+        run: deno check supabase/functions/regafy-ai/index.ts supabase/functions/translate/index.ts supabase/functions/upgrade/index.ts supabase/functions/share/index.ts supabase/functions/admin/index.ts supabase/functions/team/index.ts supabase/functions/lifecycle-reminders/index.ts supabase/functions/retention-purge/index.ts supabase/functions/purge-dossier/index.ts supabase/functions/demo-request/index.ts supabase/functions/invite-info/index.ts supabase/functions/checking-report/index.ts
 
   secrets:
     name: secrets (gitleaks · historique complet)

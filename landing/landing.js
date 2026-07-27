@@ -83,10 +83,13 @@ var I18N = (function () {
     lang = l === 'en' ? 'en' : 'fr';
     try { localStorage.setItem('pharnos.lang', lang); } catch (e) {}
     apply();
-    // Aligne l'URL sur la langue SANS recharger (chaque langue a son URL canonique prérendue :
-    // `/` = FR, `/en/` = EN). Au reload, la bonne page statique se sert d'elle-même.
+    // Aligne l'URL sur la langue SANS recharger : chaque langue a son URL canonique prérendue
+    // (`/` ↔ `/en/`, `/checking-standard` ↔ `/en/checking-standard`). Au reload, la bonne page
+    // statique se sert d'elle-même. Le miroir se DÉDUIT du chemin courant — hardcoder « / » ici
+    // renverrait le visiteur d'une page interne à l'accueil au premier changement de langue.
     try {
-      var want = lang === 'en' ? '/en/' : '/';
+      var base = location.pathname.replace(/^\/en(?=\/|$)/, '') || '/';
+      var want = lang === 'en' ? '/en' + (base === '/' ? '/' : base) : base;
       if (location.pathname !== want) history.replaceState(null, '', want);
     } catch (e) {}
   }
@@ -107,6 +110,45 @@ var I18N = (function () {
   });
   apply();
   return { get: function () { return lang; }, on: function (fn) { subs.push(fn); apply(); }, set: set };
+})();
+
+/* ── Menu « Outils » du header (patron disclosure : bouton + aria-expanded).
+     Ce sont des liens de navigation, pas des commandes : on garde la sémantique native plutôt
+     qu'un menu ARIA, plus fragile et sans bénéfice ici. Le menu se ferme au clic extérieur, à
+     Échap (focus rendu au déclencheur) et au départ du focus — sinon il reste ouvert derrière
+     le contenu quand on tabule au clavier. ── */
+(function () {
+  var trigger = document.getElementById('tools-trigger');
+  var menu = document.getElementById('tools-menu');
+  if (!trigger || !menu) return; /* pages sans menu Outils */
+
+  function setOpen(open) {
+    menu.hidden = !open;
+    trigger.setAttribute('aria-expanded', String(open));
+  }
+  var isOpen = function () { return trigger.getAttribute('aria-expanded') === 'true'; };
+
+  trigger.addEventListener('click', function (e) {
+    e.stopPropagation();
+    setOpen(!isOpen());
+  });
+  document.addEventListener('click', function (e) {
+    if (isOpen() && !menu.contains(e.target) && e.target !== trigger) setOpen(false);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && isOpen()) { setOpen(false); trigger.focus(); }
+  });
+  document.addEventListener('focusin', function (e) {
+    if (isOpen() && !menu.contains(e.target) && e.target !== trigger) setOpen(false);
+  });
+  /* Flèche bas depuis le déclencheur : ouvre et pose le focus sur la première entrée. */
+  trigger.addEventListener('keydown', function (e) {
+    if (e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    setOpen(true);
+    var first = menu.querySelector('a');
+    if (first) first.focus();
+  });
 })();
 
 /* ── Modale « Demander une démo » — POST JSON vers l'Edge Supabase `demo-request`.

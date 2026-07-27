@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title data-fr="Pharnos — La plateforme du réglementaire pharmaceutique en Afrique">Pharnos — The pharmaceutical regulatory platform for Africa</title>
 <meta name="description" content="CTD Builder, submission, seamless collaboration between manufacturer and local representative, real-time tracking — on a single dashboard. UEMOA / CEDEAO.">
-<link rel="stylesheet" href="/styles.css?v=14">
+<link rel="stylesheet" href="/styles.css?v=15">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="canonical" href="https://pharnos.com/en/">
@@ -113,11 +113,28 @@
       <span class="brand-name">Pharnos</span>
     </a>
     <nav class="site-nav" aria-label="Main navigation" data-fr-al="Navigation principale">
-      <a class="navlink" href="#pourqui" data-fr="Pour qui">Who it's for</a>
-      <a class="navlink" href="#cycle" data-fr="Cycle de vie">Lifecycle</a>
       <a class="navlink" href="#modules" data-fr="Plateforme">Platform</a>
-      <a class="navlink" href="#equipe" data-fr="Équipe">Team</a>
-      <a class="navlink" href="#offres" data-fr="Offres">Pricing</a>
+      <div class="navitem">
+        <button type="button" class="navtrigger" id="tools-trigger" aria-expanded="false" aria-controls="tools-menu">
+          <span data-fr="Outils">Tools</span>
+          <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+        </button>
+        <div class="navmenu" id="tools-menu" hidden="">
+          <a href="/en/checking-standard">
+            <span class="mt">Checking Standard <span class="tag" data-fr="Gratuit">Free</span></span>
+            <span class="md" data-fr="Votre dossier d'AMM est-il prêt pour la réception ? Un diagnostic en 3 minutes, sans téléverser de document.">Is your MA dossier ready for reception? A diagnostic in 3 minutes, no document to upload.</span>
+          </a>
+          <span class="soon">
+            <span class="mt"><span data-fr="Modèles réglementaires">Regulatory templates</span> <span class="tag" data-fr="Bientôt">Soon</span></span>
+            <span class="md" data-fr="RCP, notice et étiquetage sur le modèle officiel de chaque pays.">SmPC, leaflet and labelling on the official template of each country.</span>
+          </span>
+          <span class="soon">
+            <span class="mt"><span data-fr="Traduction réglementaire">Regulatory translation</span> <span class="tag" data-fr="Bientôt">Soon</span></span>
+            <span class="md" data-fr="FR ⇄ EN ⇄ PT, avec le vocabulaire du dossier respecté.">FR ⇄ EN ⇄ PT, with the vocabulary of the dossier preserved.</span>
+          </span>
+        </div>
+      </div>
+      <a class="navlink" href="#offres" data-fr="Tarifs">Pricing</a>
     </nav>
     <div class="lang" role="group" aria-label="Choose language" data-fr-al="Choisir la langue">
       <button type="button" class="" aria-pressed="false">FR</button>
@@ -128,11 +145,14 @@
       <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
     </button>
     <nav class="mnav" id="mnav" hidden="" aria-label="Mobile menu" data-fr-al="Menu mobile">
-      <a href="#pourqui" data-fr="Pour qui">Who it's for</a>
-      <a href="#cycle" data-fr="Cycle de vie">Lifecycle</a>
       <a href="#modules" data-fr="Plateforme">Platform</a>
-      <a href="#equipe" data-fr="Équipe">Team</a>
-      <a href="#offres" data-fr="Offres">Pricing</a>
+      <div class="mgroup">
+        <span class="mglabel" data-fr="Outils">Tools</span>
+        <a href="/en/checking-standard">Checking Standard</a>
+        <span class="msoon"><span data-fr="Modèles réglementaires">Regulatory templates</span> <span class="tag" data-fr="Bientôt">Soon</span></span>
+        <span class="msoon"><span data-fr="Traduction réglementaire">Regulatory translation</span> <span class="tag" data-fr="Bientôt">Soon</span></span>
+      </div>
+      <a href="#offres" data-fr="Tarifs">Pricing</a>
       <div class="lang" role="group" aria-label="Choose language" data-fr-al="Choisir la langue">
         <button type="button" class="" aria-pressed="false">FR</button>
         <button type="button" aria-pressed="true" class="on">EN</button>
@@ -697,6 +717,7 @@
           <li><a href="#modules" data-fr="Builder CTD">CTD Builder</a></li>
           <li><a href="#modules" data-fr="Correspondance">Correspondence</a></li>
           <li><a href="#regafy">Regafy AI</a></li>
+          <li><a href="/en/checking-standard">Checking Standard</a></li>
         </ul>
       </div>
       <div>
@@ -722,7 +743,7 @@
     </div>
   </div>
 </footer>
-<script src="/landing.js?v=12" defer=""></script>
+<script src="/landing.js?v=14" defer=""></script>
 
 
 </body></html>

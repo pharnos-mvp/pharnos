@@ -14,6 +14,10 @@
 
     /* Bundler mode */
     "moduleResolution": "bundler",
+    /* Le barème du Checking Standard vit dans `landing/checking/*.js` : la landing est servie
+       SANS build, le navigateur charge ces modules tels quels. `allowJs` laisse TS les typer par
+       inférence JSDoc pour les tests, sans dupliquer un `.d.ts` qui dériverait. */
+    "allowJs": true,
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
