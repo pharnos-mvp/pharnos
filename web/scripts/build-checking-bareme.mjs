@@ -26,9 +26,14 @@ const BANNER = (name) =>
   ` * Modifier la source, puis lancer \`npm run build:checking-bareme\` (depuis web/).\n` +
   ` * La CI regenere et exige zero diff : la copie ne peut pas deriver de la source. */\n`
 
+/* Les sources portent un `?v=` sur leurs imports : c'est le seul moyen de casser le cache
+   navigateur, Cloudflare ignorant le Cache-Control de `_headers`. Deno, lui, refuse une query
+   string sur un chemin de fichier local — on la retire à la copie. */
+const stripVersion = (src) => src.replace(/(from\s+'\.\/[\w./-]+\.js)\?v=[\w.-]+'/g, "$1'")
+
 fs.mkdirSync(OUT_DIR, { recursive: true })
 for (const name of FILES) {
-  const src = fs.readFileSync(path.join(SRC_DIR, name), 'utf8')
+  const src = stripVersion(fs.readFileSync(path.join(SRC_DIR, name), 'utf8'))
   const out = path.join(OUT_DIR, name)
   fs.writeFileSync(out, BANNER(name) + src, 'utf8')
   process.stdout.write(

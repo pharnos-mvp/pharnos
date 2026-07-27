@@ -7,9 +7,17 @@
      Tout texte interpolé passe par `esc()` : aujourd'hui le contenu vient de nos modules, mais
      le jour où le barème viendra du référentiel en base, l'échappement sera déjà en place. ── */
 
-import { AXES, GATES, PAYS, SOURCES, UPGRADABLE, optionsFor } from './checking/referentiel.js'
-import { BAREME_VERSION, buildFlow, computeResult, THRESHOLD_PARTIAL } from './checking/scoring.js'
-import { GROUP_PREFIX, MODELES } from './checking/templates.js'
+/* ⚠️ Le `?v=` des imports N'EST PAS décoratif — c'est le SEUL levier de fraîcheur.
+   Cloudflare impose `max-age=14400` à tous les assets de la landing et ignore le Cache-Control
+   du fichier `_headers` (vérifié en prod le 2026-07-27 : `no-cache` et `max-age=0` réécrits).
+   Un module importé par un module ne peut pas hériter du `?v=` posé dans le HTML : sans version
+   ici, un visiteur déjà venu garderait l'ANCIEN barème jusqu'à 4 h, avec la nouvelle page — un
+   diagnostic faux qui ne lève aucune erreur.
+   → À CHAQUE modification du barème : bumper ces trois versions ET `?v=` dans le HTML.
+   La copie Deno de l'Edge, elle, est générée sans query string (build-checking-bareme.mjs). */
+import { AXES, GATES, PAYS, SOURCES, UPGRADABLE, optionsFor } from './checking/referentiel.js?v=2026.2'
+import { BAREME_VERSION, buildFlow, computeResult, THRESHOLD_PARTIAL } from './checking/scoring.js?v=2026.2'
+import { GROUP_PREFIX, MODELES } from './checking/templates.js?v=2026.2'
 
 const $ = (s) => document.querySelector(s)
 const $$ = (s) => Array.from(document.querySelectorAll(s))

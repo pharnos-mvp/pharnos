@@ -14,6 +14,9 @@
  * Règl. 04/2020). Ne jamais dériver le verdict du seul score.
  */
 
+/* `?v=` obligatoire : Cloudflare impose max-age=14400 et ignore `_headers`. Sans lui, un
+   `scoring.js` frais pourrait s'exécuter contre un `referentiel.js` périmé. La copie Deno de
+   l'Edge est générée sans query string (web/scripts/build-checking-bareme.mjs). */
 import { AXES, GATES, ITEMS_ENR, ITEMS_REN, VAL, BAREME_VERSION, optionsFor } from './referentiel.js'
 
 export { BAREME_VERSION }
