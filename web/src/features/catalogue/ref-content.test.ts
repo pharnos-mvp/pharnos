@@ -70,6 +70,24 @@ describe('resolvedAuthorityDetail — socle et plafond adopté', () => {
       adapted: [],
     })
   })
+  it('socle PUBLIÉ mais SANS AUCUNE ENTRÉE → repli intégral sur le code (état de construction)', async () => {
+    // C'est la configuration EXACTE de la production depuis la migration 0080 (décision CEO
+    // 2026-07-27) : la ligne de version socle survit — elle porte le plafond d'adoption et
+    // l'épinglage de 137 dossiers — mais ses entrées sont vidées pour que le CODE redevienne seul
+    // maître pendant la construction. Distinct du cas « réplique vide » ci-dessus : ici une version
+    // publiée EXISTE et est même adoptée. Si le résolveur se contentait de constater sa présence
+    // pour cesser de replier, la fiche Autorité se viderait pour tous les pays.
+    await db.refVersions.put(version({ id: 'v-1', label: 'v2026.1', isBaseline: true }))
+    await adopt('v-1')
+
+    const r = await resolvedAuthorityDetail('SN', ORG)
+
+    expect(r?.detail).toEqual(authorityDetail('SN'))
+    // Aucune source citée : il n'y a pas de contenu publié à sourcer, et prétendre le contraire
+    // serait un faux sur une surface opposable.
+    expect(r?.provenance).toEqual({})
+    expect(r?.versionLabel).toBeNull()
+  })
 
   it('pays inconnu des deux sources → null (EmptyState — distinct du undefined de chargement)', async () => {
     expect(await resolvedAuthorityDetail('ZZ', ORG)).toBeNull()

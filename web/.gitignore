@@ -29,3 +29,6 @@ deno.lock
 # Recette visuelle locale (captures tablette) — ne pas committer
 recette-*.png
 sample-*.pdf
+
+# Sortie de `npm run ref:seed-sql` — socle généré depuis le code, jamais commité (périmerait).
+.ref-seed/
