@@ -39,5 +39,5 @@
 # Un couple entry/dépendance désaccordé sur un outil réglementaire est pire qu'un octet de trafic :
 # la revalidation coûte un 304 sur ~45 Ko, la fausse réponse coûte la crédibilité du diagnostic.
 /checking/*
-  Cache-Control: public, max-age=0, must-revalidate
+  Cache-Control: no-cache
   Content-Type: text/javascript; charset=utf-8
