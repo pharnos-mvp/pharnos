@@ -153,18 +153,25 @@ const VERDICT_TXT: Record<string, [string, string]> = {
   incomplete: ['Dossier incomplet — à sécuriser avant dépôt', 'Incomplete dossier — secure before filing'],
   not_ready: ['Dossier non prêt pour le dépôt', 'Dossier not ready for filing'],
 }
+/* Signalétique de l'e-mail — volontairement SOBRE.
+   Un rapport réglementaire qui arrive en boîte de réception n'est pas un tableau de bord : les
+   aplats saturés (rouge vif, vert vif) y lisent comme une alarme publicitaire et abîment la
+   crédibilité du constat. On garde donc un fond neutre, un FILET vertical coloré pour porter le
+   statut, et un texte sombre lisible. La couleur informe, elle ne crie pas. */
 const VERDICT_FG: Record<string, string> = {
-  gate_fail: '#b91c1c',
-  ready: '#047857',
-  incomplete: '#92400e',
-  not_ready: '#b91c1c',
+  gate_fail: '#8c2f2f',
+  ready: '#1f6f5c',
+  incomplete: '#8a6321',
+  not_ready: '#8c2f2f',
 }
-const VERDICT_BG: Record<string, string> = {
-  gate_fail: '#fee2e2',
-  ready: '#d1fae5',
-  incomplete: '#fef3c7',
-  not_ready: '#fee2e2',
+const VERDICT_RULE: Record<string, string> = {
+  gate_fail: '#b45454',
+  ready: '#4f9b86',
+  incomplete: '#c2933f',
+  not_ready: '#b45454',
 }
+const NEUTRAL_BG = '#f7f8fa'
+const NEUTRAL_BORDER = '#e3e6ec'
 
 /** Recommandation d'un manquant, dans le ton exact de la page (« À prévoir : … »). */
 export function fixLine(item: Record<string, unknown>, kind: string, lang: Lang): string {
@@ -209,10 +216,12 @@ export function buildReportEmail(
     })
     .join('')
 
+  // Puces de verrous : fond neutre uniforme, seul le glyphe ✓/✗ porte la teinte — l'œil repère
+  // l'état sans qu'une rangée de pastilles rouges ne domine le rapport.
   const gates = r.gates
     .map(
       (g) =>
-        `<span style="display:inline-block;margin:0 6px 6px 0;padding:3px 10px;border-radius:99px;font-size:12px;background:${g.ok ? '#d1fae5' : '#fee2e2'};color:${g.ok ? '#047857' : '#b91c1c'}">${g.ok ? '✓' : '✗'} ${escapeHtml(pickLang(GATES[g.key as keyof typeof GATES], lang))}</span>`,
+        `<span style="display:inline-block;margin:0 6px 6px 0;padding:4px 11px;border-radius:99px;font-size:12px;background:${NEUTRAL_BG};border:1px solid ${NEUTRAL_BORDER};color:#3f4657"><span style="color:${g.ok ? VERDICT_FG.ready : VERDICT_FG.gate_fail};font-weight:700">${g.ok ? '✓' : '✗'}</span> ${escapeHtml(pickLang(GATES[g.key as keyof typeof GATES], lang))}</span>`,
     )
     .join('')
 
@@ -237,7 +246,7 @@ export function buildReportEmail(
     <div style="text-align:center;padding:6px 0 14px">
       <div style="font-size:44px;font-weight:800;color:#0a1628;line-height:1">${r.score}<span style="font-size:18px;color:#9ca3af"> / 100</span></div>
       <div style="font-size:12px;color:#6b7280;margin-top:4px">${en ? 'declared completeness against the WAEMU reception standard' : 'complétude déclarée au regard de la norme de réception UEMOA'}</div>
-      <div style="margin-top:12px;display:inline-block;padding:8px 18px;border-radius:99px;font-weight:700;font-size:15px;color:${VERDICT_FG[r.verdict]};background:${VERDICT_BG[r.verdict]}">${escapeHtml(pickLang(VERDICT_TXT[r.verdict], lang))}</div>
+      <div style="margin:14px auto 0;max-width:420px;padding:11px 16px;text-align:left;background:${NEUTRAL_BG};border:1px solid ${NEUTRAL_BORDER};border-left:3px solid ${VERDICT_RULE[r.verdict]};border-radius:6px;font-weight:700;font-size:15px;color:${VERDICT_FG[r.verdict]}">${escapeHtml(pickLang(VERDICT_TXT[r.verdict], lang))}</div>
     </div>
 
     <h2 style="font-size:14px;margin:20px 0 8px;color:#0a1628">${en ? 'Reception gates' : 'Verrous de réception'} — ${r.gateOk}/${r.gateTotal}</h2>
@@ -255,7 +264,7 @@ export function buildReportEmail(
       plan
         ? `<h2 style="font-size:14px;margin:22px 0 8px;color:#0a1628">${en ? 'Your preparation plan, in priority order' : 'Votre plan de préparation, par ordre de priorité'}</h2>
     <table style="font-size:13.5px;border-collapse:collapse;width:100%">${plan}</table>`
-        : `<p style="font-size:13.5px;margin:22px 0 0;color:#047857">${en ? 'Nothing is missing from your declaration. What remains is the actual content of each document.' : 'Rien ne manque à votre déclaration. Reste le contenu réel des pièces.'}</p>`
+        : `<p style="font-size:13.5px;margin:22px 0 0;color:${VERDICT_FG.ready}">${en ? 'Nothing is missing from your declaration. What remains is the actual content of each document.' : 'Rien ne manque à votre déclaration. Reste le contenu réel des pièces.'}</p>`
     }
 
     <div style="margin-top:24px;padding:16px;background:#0a1628;border-radius:10px;color:#e9eef7">

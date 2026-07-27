@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'vitest'
 
-import { ITEMS_ENR, ITEMS_REN } from '../../../../landing/checking/referentiel.js'
+import { ITEMS_ENR, ITEMS_REN, optionsFor } from '../../../../landing/checking/referentiel.js'
 import {
   BAREME_VERSION,
   buildFlow,
@@ -45,6 +45,57 @@ describe('buildFlow', () => {
   it('couvre les deux opérations sans identifiant en double', () => {
     for (const items of [ITEMS_ENR, ITEMS_REN]) {
       expect(new Set(items.map((i) => i.id)).size).toBe(items.length)
+    }
+  })
+})
+
+describe('questionnaire descriptif — cohérence des options', () => {
+  const allItems = [...ITEMS_ENR, ...ITEMS_REN]
+
+  it('propose au moins trois états, tous reconnus par le moteur', () => {
+    for (const it of allItems) {
+      const opts = optionsFor(it)
+      expect(opts.length, `${it.id}`).toBeGreaterThanOrEqual(3)
+      for (const o of opts) expect(['ok', 'nc', 'ko', 'na'], `${it.id}/${o.k}`).toContain(o.k)
+    }
+  })
+
+  it('ouvre exactement un état conforme par item', () => {
+    // Deux « ok » sur un même item rendraient le barème ambigu pour le déclarant.
+    for (const it of allItems) {
+      expect(optionsFor(it).filter((o) => o.k === 'ok').length, `${it.id}`).toBe(1)
+    }
+  })
+
+  it("n'offre « non applicable » que sur les exigences conditionnelles", () => {
+    for (const it of allItems) {
+      const hasNa = optionsFor(it).some((o) => o.k === 'na')
+      expect(hasNa, `${it.id}`).toBe(Boolean(it.na))
+    }
+  })
+
+  it('ouvre chaque question par un mot interrogatif, jamais en oui/non', () => {
+    // Une question fermée (« votre RCP sera-t-il conforme ? ») reçoit « oui » de presque tout le
+    // monde : le déclarant se croit sincèrement conforme. Une question ouverte l'oblige à
+    // DÉCRIRE, et c'est le barème qui juge. Ce garde-fou empêche de réintroduire le biais.
+    const OUVERTURES = /^(Comment |Où |Que |Sous quelle |Par quel |À quelle )/
+    for (const it of allItems) {
+      const fr = Array.isArray(it.q) ? it.q[0] : it.q
+      expect(fr, `${it.id} : « ${fr} »`).toMatch(OUVERTURES)
+    }
+  })
+
+  it('réutilise le même jeu d’états pour une pièce commune aux deux opérations', () => {
+    for (const id of ['rcp', 'not', 'etiq', 'qos', 'pay']) {
+      const enr = ITEMS_ENR.find((i) => i.id === id)
+      const ren = ITEMS_REN.find((i) => i.id === id)
+      expect(ren?.opts, id).toBe(enr?.opts)
+    }
+  })
+
+  it('rattache le Module 1 à l’arborescence CTD, seul référentiel opposable', () => {
+    for (const items of [ITEMS_ENR, ITEMS_REN]) {
+      expect(items.find((i) => i.id === 'm1')?.tpl).toBe('ctd')
     }
   })
 })

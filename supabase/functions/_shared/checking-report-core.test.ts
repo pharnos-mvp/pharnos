@@ -225,6 +225,18 @@ Deno.test('buildReportEmail — cite l’autorité du pays choisi, pas une autre
   assert(!sn.html.includes('ABMed'))
 })
 
+Deno.test('buildReportEmail — signalétique sobre, aucun aplat saturé', () => {
+  // Un rapport réglementaire n'est pas un tableau de bord : les aplats vifs y lisent comme une
+  // alarme publicitaire et abîment la crédibilité du constat. Le statut passe par un filet
+  // coloré sur fond neutre.
+  const v = validateRequest(baseBody())!
+  const { html } = buildReportEmail(v, resultFor(v))
+  for (const vif of ['#fee2e2', '#d1fae5', '#fef3c7', '#b91c1c', '#047857', '#92400e']) {
+    assert(!html.includes(vif), `couleur trop vive présente : ${vif}`)
+  }
+  assertStringIncludes(html, '#f7f8fa') // fond neutre du bloc de verdict
+})
+
 Deno.test('buildReportEmail — bascule intégralement en anglais', () => {
   const v = validateRequest(baseBody({ lang: 'en' }))!
   const { html } = buildReportEmail(v, resultFor(v))

@@ -361,12 +361,6 @@
   pointer-events: none; transition: all .3s ease; max-width: 90vw; text-align: center; }
 .toast.on { opacity: 1; transform: translate(-50%, 0); }
 
-/* Sélecteur de devise, à côté du sélecteur de langue du header. */
-.cur { display: flex; border: 1px solid var(--g300); border-radius: 999px; overflow: hidden; background: #fff; flex-shrink: 0; }
-.cur button { font-family: var(--font-ui); font-size: 11.5px; font-weight: 700; letter-spacing: .03em;
-  color: var(--g500); background: none; border: 0; padding: 5px 11px; cursor: pointer; transition: var(--transition); }
-.cur button.on { background: var(--brand-doc); color: #fff; }
-
 @media (max-width: 900px) {
   .offers { grid-template-columns: 1fr; max-width: 460px; margin-left: auto; margin-right: auto; }
   .offer.featured { order: -1; }
@@ -381,5 +375,4 @@
   .page { padding: 22px 18px; }
   .miss li { flex-wrap: wrap; }
   .miss li .fixbtn { margin-left: 33px; }
-  .cur { display: none; }
 }
