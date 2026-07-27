@@ -21,3 +21,14 @@
 
 /invite.js
   Cache-Control: public, max-age=300
+
+/checking.css
+  Cache-Control: public, max-age=300
+
+/checking.js
+  Cache-Control: public, max-age=300
+
+# Modules ES du Checking Standard (barème versionné) — importés par /checking.js.
+/checking/*
+  Cache-Control: public, max-age=300
+  Content-Type: text/javascript; charset=utf-8

@@ -411,6 +411,13 @@ verify_jwt = false
 [functions.demo-request]
 verify_jwt = false
 
+# Livraison du rapport du Checking Standard public (pharnos.com/checking-standard) : le prospect
+# n'a pas de compte — même barrière que demo-request (CORS dédié, honeypot, rate-limit share_hit,
+# validation stricte ; écriture service-role sur checking_leads, RLS sans policy). Le score est
+# recalculé côté serveur : le navigateur n'est pas une source de vérité.
+[functions.checking-report]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

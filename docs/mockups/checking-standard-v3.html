@@ -1,0 +1,1544 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Checking Standard — Votre dossier d'AMM est-il prêt pour la réception ? · Pharnos</title>
+<meta name="description" content="Vous préparez un dépôt d'AMM en UEMOA ? Mesurez en 3 minutes la complétude de votre dossier au regard de la norme de réception, sans transmettre le moindre document. Score, plan de préparation, modèles officiels.">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --white:#fff; --g50:#f9fafb; --g100:#f3f4f6; --g200:#e5e7eb; --g300:#d1d5db;
+  --g400:#9ca3af; --g500:#6b7280; --g600:#4b5563; --g700:#374151; --g800:#1f2937; --g900:#111827;
+  --blue:#1a56db; --blue2:#2563eb; --blue-ghost:#eff6ff;
+  --navy:#0a1628; --navy-2:#16233f; --brand-doc:#263f73;
+  --gold:#d29922; --gold-2:#e3b341; --green:#4ac26b;
+  --success:#059669; --success-subtle:#d1fae5; --success-fg:#047857;
+  --warning:#b45309; --warning-subtle:#fef3c7; --warning-fg:#92400e;
+  --danger:#dc2626; --danger-subtle:#fee2e2; --danger-fg:#b91c1c;
+  --info-subtle:#eff6ff; --info-fg:#1e40af;
+  --radius:10px; --radius-lg:18px;
+  --shadow-soft:0 14px 34px rgba(10,22,40,.10);
+  --shadow:0 2px 12px rgba(0,0,0,.08); --shadow-sm:0 1px 4px rgba(0,0,0,.06);
+  --transition:all .18s cubic-bezier(.4,0,.2,1);
+  --font-serif:'Source Serif 4',Georgia,serif;
+  --font-sans:'DM Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --font-ui:'Sora','Helvetica Neue',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{font-family:var(--font-sans);color:var(--g800);background:var(--white);-webkit-font-smoothing:antialiased;font-size:16px;line-height:1.6}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+a{color:inherit;text-decoration:none}
+button{font:inherit}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:4px}
+
+/* Header */
+.site-header{position:sticky;top:0;z-index:50;font-family:var(--font-ui);background:rgba(255,255,255,.9);backdrop-filter:blur(8px);border-bottom:1px solid var(--g200)}
+.site-header .wrap{display:flex;align-items:center;gap:18px;height:58px;max-width:1180px}
+.brand{display:flex;align-items:center;gap:11px;flex-shrink:0}
+.brand svg{width:27px;height:27px;color:var(--navy)}
+.brand-name{font-weight:800;font-size:18px;letter-spacing:-.02em;color:var(--navy)}
+.brand-sep{width:1px;height:20px;background:var(--g300)}
+.brand-tag{font-weight:600;font-size:13px;color:var(--gold);letter-spacing:.02em}
+.site-nav{display:flex;gap:26px;margin:0 auto;font-size:14px;font-weight:500;color:var(--g600)}
+.site-nav a:hover{color:var(--g900)}
+.hswitch{display:flex;gap:6px;flex-shrink:0}
+.sw{display:flex;border:1px solid var(--g300);border-radius:999px;overflow:hidden;background:#fff}
+.sw button{font-family:var(--font-ui);font-size:11.5px;font-weight:700;letter-spacing:.03em;color:var(--g500);background:none;border:0;padding:5px 11px;cursor:pointer;transition:var(--transition)}
+.sw button.on{background:var(--brand-doc);color:#fff}
+.login{flex-shrink:0;font-size:13.5px;font-weight:600;color:var(--g800);border:1px solid var(--g300);border-radius:999px;padding:7px 16px;transition:var(--transition)}
+.login:hover{background:var(--g50)}
+@media(max-width:1000px){.site-nav{display:none}}
+
+/* Hero */
+.hero{position:relative;color:#e9eef7;text-align:center;overflow:hidden;
+  background:radial-gradient(900px 520px at 74% 18%,rgba(38,63,115,.55),transparent 62%),linear-gradient(150deg,#0a1628 0%,#16233f 60%,#1c2b49 100%)}
+.hero::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
+  background:repeating-linear-gradient(0deg,rgba(255,255,255,.03) 0 1px,transparent 1px 116px),repeating-linear-gradient(90deg,rgba(255,255,255,.03) 0 1px,transparent 1px 116px)}
+.hero .wrap{position:relative;z-index:1;padding:62px 24px 72px}
+.eyebrow{display:inline-flex;align-items:center;gap:9px;font-family:var(--font-ui);font-size:12.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-2);border:1px solid rgba(226,179,65,.35);border-radius:999px;padding:6px 15px;background:rgba(226,179,65,.06)}
+.hero h1{font-family:var(--font-ui);font-weight:800;font-size:clamp(2.05rem,4vw,3.25rem);line-height:1.08;letter-spacing:-.03em;color:#fff;max-width:17em;margin:22px auto 0;text-wrap:balance}
+.hero h1 .grad{background:linear-gradient(92deg,#8ab8ff,#e3b341);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .lede{margin:20px auto 0;font-family:var(--font-ui);font-weight:400;font-size:16.5px;color:#c3d0e6;max-width:38em;text-wrap:pretty}
+.privacy-badge{display:inline-flex;align-items:center;gap:10px;margin-top:26px;padding:10px 18px;border-radius:999px;background:rgba(74,194,107,.12);border:1px solid rgba(74,194,107,.35);color:#bfe9cc;font-family:var(--font-ui);font-size:13.5px;font-weight:600;text-align:left}
+.privacy-badge svg{width:17px;height:17px;color:var(--green);flex-shrink:0}
+.hero-cta{margin-top:28px;display:flex;justify-content:center;gap:14px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:var(--font-ui);font-weight:600;font-size:15px;border-radius:999px;padding:12px 26px;border:1px solid transparent;cursor:pointer;transition:var(--transition);background:none;color:inherit;text-align:center}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover{background:var(--blue2);box-shadow:0 8px 22px rgba(26,86,219,.4);transform:translateY(-1px)}
+.btn-gold{background:linear-gradient(92deg,#d29922,#e3b341);color:#20160a}
+.btn-gold:hover{filter:brightness(1.05);transform:translateY(-1px);box-shadow:0 8px 22px rgba(210,153,34,.35)}
+.btn-ghost{border-color:var(--g300);color:var(--g800);background:#fff}
+.btn-ghost:hover{background:var(--g50);border-color:var(--g400)}
+.btn-ghost-light{border-color:rgba(255,255,255,.4);color:#fff;background:transparent}
+.btn-ghost-light:hover{background:rgba(255,255,255,.12)}
+.btn-sm{font-size:13.5px;padding:9px 18px}
+.hero-proof{margin-top:32px;display:flex;justify-content:center;flex-wrap:wrap;gap:8px 24px;font-family:var(--font-ui);font-size:12.5px;color:rgba(195,208,230,.75)}
+.hero-proof .dot{opacity:.4}
+
+/* App shell */
+.app{background:var(--g50);border-top:1px solid var(--g200);padding:52px 0 72px}
+.app .wrap{max-width:830px}
+.card{background:#fff;border:1px solid var(--g200);border-radius:var(--radius-lg);box-shadow:var(--shadow-soft)}
+.panel{display:none}
+.panel.on{display:block;animation:fade .3s ease}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* Contexte */
+.ctx{padding:34px}
+.ctx h2,.result h2{font-family:var(--font-serif);font-weight:600;font-size:26px;color:var(--navy);letter-spacing:-.01em}
+.ctx p.sub{color:var(--g500);margin-top:6px;font-size:15px}
+.field{margin-top:24px}
+.field>label{display:block;font-family:var(--font-ui);font-weight:600;font-size:13.5px;color:var(--g700);margin-bottom:10px}
+.field .hint{font-weight:400;color:var(--g400);font-size:12.5px}
+select{width:100%;font:inherit;font-size:15px;color:var(--g800);padding:12px 14px;border:1px solid var(--g300);border-radius:var(--radius);background:#fff;cursor:pointer}
+select:focus{border-color:var(--blue);outline:none;box-shadow:0 0 0 3px var(--blue-ghost)}
+.seg{display:flex;gap:8px;flex-wrap:wrap}
+.seg button{font-family:var(--font-ui);font-weight:600;font-size:14px;color:var(--g600);background:#fff;border:1px solid var(--g300);border-radius:var(--radius);padding:11px 18px;cursor:pointer;transition:var(--transition)}
+.seg button:hover{border-color:var(--g400)}
+.seg button.on{background:var(--brand-doc);color:#fff;border-color:var(--brand-doc);box-shadow:0 4px 12px rgba(38,63,115,.25)}
+.typenote{margin-top:10px;font-size:13px;color:var(--info-fg);background:var(--info-subtle);border-radius:8px;padding:9px 13px;display:none}
+.typenote.on{display:block}
+.ctx-foot{margin-top:30px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.ctx-recap{font-size:13px;color:var(--g500);font-family:var(--font-ui)}
+.ctx-recap b{color:var(--brand-doc)}
+
+/* Questionnaire */
+.qshell{padding:26px 34px 30px}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:14px;font-family:var(--font-ui);flex-wrap:wrap}
+.hud .count{font-size:13px;font-weight:700;color:var(--g500);letter-spacing:.04em}
+.locks{display:flex;gap:8px;flex-wrap:wrap}
+.lock{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:999px;background:var(--g100);color:var(--g500);border:1px solid var(--g200)}
+.lock.ok{background:var(--success-subtle);color:var(--success-fg);border-color:#a7f3d0}
+.lock.ko{background:var(--danger-subtle);color:var(--danger-fg);border-color:#fecaca}
+.track{margin-top:14px;height:6px;border-radius:999px;background:var(--g200);overflow:hidden}
+.fill{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,var(--blue),#6ea8fe);transition:width .35s ease}
+.dots{display:flex;gap:2px;margin-top:10px;flex-wrap:wrap}
+.qdot{width:25px;height:25px;border-radius:999px;background:var(--g200);background-clip:content-box;border:0;padding:8px;cursor:default}
+.qdot.done{background-color:var(--brand-doc);cursor:pointer}
+.qdot.now{background-color:var(--gold);transform:scale(1.15)}
+.qbody{margin-top:24px;min-height:320px}
+.qkick{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{font-family:var(--font-ui);font-size:11.5px;font-weight:700;padding:4px 11px;border-radius:999px;background:var(--g100);color:var(--g600)}
+.pill.gate{background:#fdf1dc;color:#8a5a09;border:1px solid #f3ddb0}
+.pill.src{background:var(--blue-ghost);color:var(--info-fg)}
+.qtext{margin-top:14px;font-family:var(--font-serif);font-weight:600;font-size:clamp(20px,2.4vw,25px);line-height:1.3;color:var(--navy);text-wrap:balance}
+.qwhy{margin-top:10px;font-size:14px;color:var(--g500);max-width:56em}
+.tplbar{margin-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--blue-ghost);border:1px solid #cfe0fb;border-radius:12px;padding:10px 14px}
+.tplbar .tl{font-family:var(--font-ui);font-size:13px;font-weight:600;color:var(--info-fg);flex:1;min-width:180px}
+.eye{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;color:#fff;background:var(--blue);border:0;border-radius:999px;padding:8px 16px;cursor:pointer;transition:var(--transition)}
+.eye:hover{background:var(--blue2);transform:translateY(-1px);box-shadow:0 6px 16px rgba(26,86,219,.3)}
+.eye svg{width:16px;height:16px}
+.opts{margin-top:20px;display:grid;gap:10px}
+.opt{display:flex;align-items:center;gap:14px;text-align:left;width:100%;background:#fff;border:1.5px solid var(--g200);border-radius:12px;padding:14px 16px;cursor:pointer;transition:var(--transition);font-size:15px;color:var(--g800)}
+.opt:hover{border-color:var(--g400);transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+.opt .key{flex-shrink:0;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-family:var(--font-ui);font-size:12.5px;font-weight:700;background:var(--g100);color:var(--g500)}
+.opt .ico{flex-shrink:0;width:22px;text-align:center;font-size:15px}
+.opt small{display:block;color:var(--g400);font-size:12.5px;line-height:1.35}
+.opt.sel-ok{border-color:var(--success);background:#f2fdf8;box-shadow:0 4px 14px rgba(5,150,105,.15)}
+.opt.sel-nc{border-color:var(--gold);background:#fffaf0;box-shadow:0 4px 14px rgba(210,153,34,.18)}
+.opt.sel-ko{border-color:var(--danger);background:#fef6f6;box-shadow:0 4px 14px rgba(220,38,38,.13)}
+.opt.sel-na{border-color:var(--g400);background:var(--g50)}
+.qfoot{margin-top:22px;display:flex;justify-content:space-between;align-items:center;gap:12px;font-family:var(--font-ui);font-size:13px;color:var(--g400);flex-wrap:wrap}
+.qback{background:none;border:0;color:var(--g500);font-weight:600;cursor:pointer;padding:6px 2px}
+.qback:hover{color:var(--g800)}
+.qback[disabled]{opacity:.35;cursor:default}
+.qnext{background:none;border:0;color:var(--blue);font-family:var(--font-ui);font-weight:700;font-size:13px;cursor:pointer;padding:6px 8px}
+.qnext:hover{color:var(--blue2)}
+.qnext[hidden]{display:none}
+kbd{font-family:var(--font-ui);font-size:11px;border:1px solid var(--g300);border-bottom-width:2px;border-radius:5px;padding:1px 5px;color:var(--g500);background:#fff}
+
+/* Résultat */
+.result{padding:36px 34px 40px;text-align:center}
+.rpills{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+.gauge{margin:26px auto 0;max-width:430px}
+.gauge .val{font-family:var(--font-ui);font-weight:800;font-size:clamp(38px,7vw,54px);color:var(--navy);letter-spacing:-.03em;line-height:1}
+.gauge .val small{font-size:.42em;font-weight:700;color:var(--g400);letter-spacing:0}
+.gauge .cap{font-family:var(--font-ui);font-size:13px;font-weight:600;color:var(--g500);margin-top:8px}
+.pbar{position:relative;margin-top:16px;height:12px;border-radius:999px;background:linear-gradient(90deg,#fecaca 0%,#fde68a 45%,#a7f3d0 100%);overflow:visible}
+.pband{position:absolute;top:-3px;height:18px;border-radius:999px;background:rgba(10,22,40,.86);box-shadow:0 3px 10px rgba(0,0,0,.3);transition:left .9s cubic-bezier(.2,.7,.3,1),width .9s cubic-bezier(.2,.7,.3,1)}
+.pscale{display:flex;justify-content:space-between;font-family:var(--font-ui);font-size:11px;color:var(--g400);margin-top:9px}
+.verdict{display:inline-flex;align-items:center;gap:9px;margin-top:22px;font-family:var(--font-ui);font-weight:700;font-size:16.5px;padding:10px 22px;border-radius:999px;text-align:left}
+.verdict.v-ok{background:var(--success-subtle);color:var(--success-fg)}
+.verdict.v-mid{background:var(--warning-subtle);color:var(--warning-fg)}
+.verdict.v-ko{background:var(--danger-subtle);color:var(--danger-fg)}
+.verdict-sub{margin:12px auto 0;font-size:14.5px;color:var(--g500);max-width:40em}
+.estim{margin:16px auto 0;max-width:44em;font-size:12.5px;color:var(--g500);background:var(--g50);border:1px solid var(--g200);border-radius:10px;padding:11px 15px;text-align:left;line-height:1.5}
+.estim b{color:var(--g700)}
+.locks-row{display:flex;justify-content:center;gap:10px;margin-top:20px;flex-wrap:wrap}
+.axes{margin:30px auto 0;max-width:520px;text-align:left;display:grid;gap:12px}
+.axis .lbl{display:flex;justify-content:space-between;font-family:var(--font-ui);font-size:12.5px;font-weight:600;color:var(--g600);margin-bottom:5px}
+.axis .bar{height:8px;border-radius:999px;background:var(--g200);overflow:hidden}
+.axis .bar i{display:block;height:100%;border-radius:999px;background:var(--brand-doc);transition:width .8s ease}
+.rscore{margin-top:14px;font-family:var(--font-ui);font-size:12.5px;color:var(--g400)}
+.rscore b{color:var(--g700);font-size:14px}
+
+/* Fiche simulée */
+.fiche{margin:32px auto 0;max-width:660px;text-align:left;border:1.5px solid var(--g800);border-radius:6px;overflow:hidden;font-size:13.5px}
+.fiche-head{display:flex;justify-content:space-between;gap:10px;padding:10px 14px;border-bottom:1.5px solid var(--g800);font-family:var(--font-serif);background:var(--g50);flex-wrap:wrap}
+.fiche-head b{font-size:13px;letter-spacing:.02em}
+.fiche-head span{font-size:11.5px;color:var(--g500)}
+.fiche table{width:100%;border-collapse:collapse}
+.fiche th,.fiche td{border-top:1px solid var(--g300);padding:8px 12px;vertical-align:top}
+.fiche th{font-family:var(--font-ui);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--g500);text-align:left;border-top:0}
+.fiche th.c,.fiche td.c{text-align:center;width:56px}
+.fiche td.x{font-weight:800;color:var(--navy)}
+.fiche td .note{display:block;font-size:11.5px;color:var(--warning-fg)}
+.fiche-avis{padding:11px 14px;border-top:1.5px solid var(--g800);font-family:var(--font-serif);display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.fiche-avis b{font-size:13.5px}
+.avis-chip{font-family:var(--font-ui);font-size:12px;font-weight:700;padding:3px 12px;border-radius:6px}
+.avis-chip.ok{background:var(--success-subtle);color:var(--success-fg)}
+.avis-chip.ko{background:var(--danger-subtle);color:var(--danger-fg)}
+
+.miss-wrap{margin:26px auto 0;max-width:660px;text-align:left}
+.miss-title{font-family:var(--font-ui);font-weight:700;font-size:14px;color:var(--g700)}
+.miss{list-style:none;margin-top:10px;display:grid;gap:8px}
+.miss li{display:flex;gap:11px;align-items:flex-start;background:var(--g50);border:1px solid var(--g200);border-radius:10px;padding:11px 14px;font-size:14px}
+.miss li .n{flex-shrink:0;width:22px;height:22px;border-radius:999px;background:var(--danger-subtle);color:var(--danger-fg);display:grid;place-items:center;font-family:var(--font-ui);font-size:12px;font-weight:800}
+.miss li.warn .n{background:var(--warning-subtle);color:var(--warning-fg)}
+.miss li .fixbtn{margin-left:auto;flex-shrink:0;font-family:var(--font-ui);font-size:12px;font-weight:700;color:var(--blue);background:#fff;border:1px solid #cfe0fb;border-radius:999px;padding:5px 12px;cursor:pointer;white-space:nowrap}
+.miss li .fixbtn:hover{background:var(--blue-ghost)}
+.nb{margin:24px auto 0;max-width:660px;text-align:left;font-size:13px;color:var(--warning-fg);background:var(--warning-subtle);border:1px solid #fde68a;border-radius:10px;padding:12px 16px}
+
+/* Bandeau CTD Builder */
+.builder{margin:30px auto 0;max-width:660px;text-align:left;border-radius:16px;padding:24px;color:#e9eef7;position:relative;overflow:hidden;
+  background:radial-gradient(600px 300px at 88% 10%,rgba(38,63,115,.6),transparent 60%),linear-gradient(140deg,#0a1628,#1c2b49)}
+.builder .bk{font-family:var(--font-ui);font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-2)}
+.builder h3{font-family:var(--font-serif);font-size:21px;font-weight:600;color:#fff;margin-top:8px;letter-spacing:-.01em}
+.builder p{font-size:14px;color:#c3d0e6;margin-top:8px;max-width:44em}
+.builder ul{list-style:none;margin:14px 0 0;display:grid;gap:7px;font-size:13.5px;color:#d6e0f0}
+.builder ul li{display:flex;gap:9px}
+.builder ul li::before{content:"✓";color:var(--green);font-weight:800;flex-shrink:0}
+.builder .bcta{margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.builder .free{font-family:var(--font-ui);font-size:12px;color:#bfe9cc}
+
+/* Livraison rapport */
+.deliver{margin:30px auto 0;max-width:660px;background:var(--g50);border:1px solid var(--g200);border-radius:14px;padding:22px;text-align:left}
+.deliver h3{font-family:var(--font-ui);font-size:15.5px;font-weight:700;color:var(--navy)}
+.deliver p{font-size:13.5px;color:var(--g500);margin-top:4px}
+.dgrid{display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:14px}
+.dgrid input{font:inherit;font-size:14.5px;padding:11px 14px;border:1px solid var(--g300);border-radius:var(--radius);background:#fff;min-width:0}
+.dgrid input:focus{border-color:var(--blue);outline:none;box-shadow:0 0 0 3px var(--blue-ghost)}
+.deliver .consent{display:flex;gap:9px;align-items:flex-start;margin-top:12px;font-size:12px;color:var(--g500)}
+.deliver .consent input{margin-top:3px;flex-shrink:0}
+.res-cta{margin-top:26px;display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+
+/* Upsell */
+.upsell{padding:70px 0 80px;background:linear-gradient(180deg,#fff 0%,var(--g50) 100%)}
+.upsell .kick{text-align:center;font-family:var(--font-ui);font-size:12.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.upsell h2{text-align:center;font-family:var(--font-serif);font-weight:600;font-size:clamp(26px,3vw,34px);color:var(--navy);margin-top:10px;letter-spacing:-.01em}
+.upsell .sub{text-align:center;color:var(--g500);max-width:46em;margin:12px auto 0;font-size:15.5px}
+.offers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;margin-top:46px;align-items:stretch}
+.offer{position:relative;background:#fff;border:1px solid var(--g200);border-radius:var(--radius-lg);padding:28px 26px;display:flex;flex-direction:column;box-shadow:var(--shadow-sm);transition:var(--transition);min-width:0}
+.offer:hover{transform:translateY(-3px);box-shadow:var(--shadow-soft)}
+.offer.featured{border:2px solid var(--gold);box-shadow:0 18px 44px rgba(210,153,34,.18)}
+.offer .badge{position:absolute;top:-13px;left:50%;transform:translateX(-50%);white-space:nowrap;font-family:var(--font-ui);font-size:11.5px;font-weight:800;letter-spacing:.05em;padding:5px 14px;border-radius:999px;background:var(--navy);color:#fff}
+.offer.featured .badge{background:linear-gradient(92deg,#d29922,#e3b341);color:#20160a}
+.offer h3{font-family:var(--font-ui);font-weight:800;font-size:19px;color:var(--navy)}
+.offer .who{font-size:13px;color:var(--g500);margin-top:5px;min-height:60px}
+.offer .price{margin-top:16px;font-family:var(--font-ui)}
+.offer .price .from{display:block;font-size:11.5px;font-weight:600;color:var(--g400);letter-spacing:.04em;text-transform:uppercase}
+.offer .price b{font-size:26px;font-weight:800;color:var(--navy);letter-spacing:-.02em}
+.offer .price .alt{display:block;font-size:13px;color:var(--g500);margin-top:2px}
+.offer .price .unit{font-size:12.5px;color:var(--g400)}
+.offer .launch{margin-top:7px;font-size:12px;color:var(--success-fg);background:var(--success-subtle);display:inline-block;border-radius:6px;padding:2px 9px;font-weight:600}
+.offer ul{list-style:none;margin:18px 0 22px;display:grid;gap:9px;font-size:14px;color:var(--g700)}
+.offer ul li{display:flex;gap:9px;align-items:flex-start}
+.offer ul li::before{content:"✓";flex-shrink:0;font-weight:800;color:var(--success)}
+.offer ul li.star::before{content:"★";color:var(--gold)}
+.offer .cta{margin-top:auto}
+.offer .cta .btn{width:100%}
+.upsell-trust{margin-top:30px;display:flex;justify-content:center;gap:8px 28px;flex-wrap:wrap;font-family:var(--font-ui);font-size:12.5px;color:var(--g500)}
+.upsell-note{margin-top:14px;text-align:center;font-size:13px;color:var(--g500)}
+.upsell-note b{color:var(--g700)}
+@media(max-width:900px){.offers{grid-template-columns:1fr;max-width:460px;margin-left:auto;margin-right:auto}.offer.featured{order:-1}.offer .who{min-height:0}}
+
+/* Modales */
+.modal-back{position:fixed;inset:0;z-index:80;background:rgba(10,22,40,.6);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;padding:20px}
+.modal-back.on{display:flex}
+.modal{background:#fff;border-radius:16px;max-width:480px;width:100%;padding:30px;position:relative;box-shadow:0 30px 80px rgba(0,0,0,.35);max-height:92vh;overflow:auto}
+.modal.wide{max-width:760px;padding:0}
+.mclose{position:absolute;top:14px;right:16px;background:none;border:0;font-size:22px;color:var(--g400);cursor:pointer;line-height:1;z-index:2}
+.mclose:hover{color:var(--g800)}
+.mkick{font-family:var(--font-ui);font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gold)}
+.modal h3{font-family:var(--font-serif);font-size:23px;font-weight:600;color:var(--navy);margin-top:8px}
+.modal .mdesc{font-size:14px;color:var(--g500);margin-top:8px}
+.modal .mprice{margin:18px 0 6px;font-family:var(--font-ui)}
+.modal .mprice b{font-size:25px;font-weight:800;color:var(--navy)}
+.modal .mprice span{font-size:13px;color:var(--g500)}
+.msteps{margin-top:14px;display:grid;gap:8px;font-size:13.5px;color:var(--g600)}
+.msteps div{display:flex;gap:10px;align-items:flex-start}
+.msteps .s{flex-shrink:0;width:20px;height:20px;border-radius:999px;background:var(--blue-ghost);color:var(--info-fg);display:grid;place-items:center;font-family:var(--font-ui);font-size:11px;font-weight:800}
+.msafe{margin-top:14px;font-size:12.5px;color:var(--success-fg);background:var(--success-subtle);border-radius:8px;padding:9px 13px}
+.mfoot{margin-top:20px;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+
+/* Prévisualiseur de modèle */
+.tplhead{padding:22px 28px 16px;border-bottom:1px solid var(--g200);position:sticky;top:0;background:#fff;z-index:1;border-radius:16px 16px 0 0}
+.tplhead .tk{font-family:var(--font-ui);font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gold)}
+.tplhead h3{margin-top:6px;font-size:21px}
+.tplhead .ts{font-size:12.5px;color:var(--g500);margin-top:5px}
+.tplbody{padding:22px 28px;background:var(--g50)}
+.page{background:#fff;border:1px solid var(--g300);border-radius:4px;box-shadow:0 3px 14px rgba(10,22,40,.09);padding:30px 34px;font-family:var(--font-serif);font-size:13.5px;line-height:1.65;color:var(--g800)}
+.page .doct{text-align:center;font-weight:600;font-size:15px;letter-spacing:.06em;text-transform:uppercase;padding-bottom:14px;border-bottom:1px solid var(--g300);margin-bottom:16px}
+.page .sec{margin-top:13px}
+.page .sec b{display:block;font-weight:600;color:var(--navy)}
+.page .sec .ph{color:var(--g400);font-style:italic;font-size:12.5px}
+.page .sub2{margin:6px 0 0 18px;color:var(--g600);font-size:12.8px}
+.page .grp{margin-top:18px;padding-top:12px;border-top:1px dashed var(--g300);font-family:var(--font-ui);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--g500)}
+.tplrules{margin-top:16px;background:#fff;border:1px solid var(--g200);border-left:3px solid var(--gold);border-radius:10px;padding:14px 16px;font-size:13px;color:var(--g600)}
+.tplrules b{color:var(--navy);font-family:var(--font-ui);font-size:12.5px}
+.tplrules ul{list-style:none;margin-top:8px;display:grid;gap:6px}
+.tplrules li{display:flex;gap:8px}
+.tplrules li::before{content:"▸";color:var(--gold);flex-shrink:0}
+.tplfoot{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--g200);padding:16px 28px;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;border-radius:0 0 16px 16px}
+.tplfoot .fl{font-size:12px;color:var(--g500);flex:1;min-width:160px}
+
+/* Upgrade */
+.updrop{margin-top:16px;border:2px dashed var(--g300);border-radius:14px;padding:26px 20px;text-align:center;background:var(--g50);transition:var(--transition)}
+.updrop:hover{border-color:var(--blue);background:var(--blue-ghost)}
+.updrop .ic{font-size:26px}
+.updrop .t{font-family:var(--font-ui);font-weight:700;font-size:14.5px;color:var(--navy);margin-top:6px}
+.updrop .s{font-size:12.5px;color:var(--g500);margin-top:3px}
+.uppick{margin-top:16px;display:grid;gap:10px}
+.uprow{display:flex;align-items:center;gap:12px;border:1.5px solid var(--g200);border-radius:12px;padding:13px 15px;cursor:pointer;transition:var(--transition);background:#fff;text-align:left;width:100%}
+.uprow:hover{border-color:var(--g400)}
+.uprow.on{border-color:var(--blue);background:var(--blue-ghost);box-shadow:0 4px 14px rgba(26,86,219,.14)}
+.uprow .rt{flex:1;min-width:0}
+.uprow .rt b{display:block;font-family:var(--font-ui);font-size:14px;font-weight:700;color:var(--navy)}
+.uprow .rt span{font-size:12.5px;color:var(--g500)}
+.uprow .rp{font-family:var(--font-ui);font-weight:800;font-size:15px;color:var(--navy);text-align:right;white-space:nowrap}
+.uprow .rp small{display:block;font-weight:600;font-size:11.5px;color:var(--g400)}
+.upsave{display:inline-block;margin-left:8px;font-family:var(--font-ui);font-size:10.5px;font-weight:800;color:var(--success-fg);background:var(--success-subtle);border-radius:5px;padding:1px 7px;vertical-align:middle}
+
+/* Toast + footer */
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);z-index:99;background:var(--navy);color:#fff;font-family:var(--font-ui);font-size:13.5px;font-weight:600;padding:12px 22px;border-radius:999px;box-shadow:0 12px 34px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:all .3s ease;max-width:90vw;text-align:center}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.site-footer{background:var(--navy);color:#8b9bb8;padding:34px 0;font-family:var(--font-ui);font-size:12.5px}
+.site-footer .wrap{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;max-width:1180px}
+.site-footer .legal{max-width:58em;line-height:1.55}
+
+@media(max-width:640px){
+  .brand-sep,.brand-tag{display:none}
+  .ctx,.qshell,.result{padding:24px 20px}
+  .dgrid{grid-template-columns:1fr}
+  .hud .locks{width:100%;justify-content:flex-start}
+  .fiche{font-size:12.5px}
+  .tplhead,.tplbody,.tplfoot{padding-left:18px;padding-right:18px}
+  .page{padding:22px 18px}
+  .miss li{flex-wrap:wrap}
+  .miss li .fixbtn{margin-left:33px}
+}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7l-9-5z"/><path d="M12 22V12"/><path d="m3 7 9 5 9-5"/></svg>
+      <span class="brand-name">pharnos</span>
+      <span class="brand-sep"></span>
+      <span class="brand-tag">Checking Standard</span>
+    </a>
+    <nav class="site-nav">
+      <a href="#diagnostic" data-en="The diagnostic">Le diagnostic</a>
+      <a href="#offres" data-en="Expert audits">Audits experts</a>
+      <a href="#" data-en="The method">La méthode</a>
+    </nav>
+    <div class="hswitch">
+      <div class="sw" id="swLang" role="group" aria-label="Langue / Language">
+        <button type="button" data-v="fr" class="on" aria-pressed="true">FR</button>
+        <button type="button" data-v="en" aria-pressed="false">EN</button>
+      </div>
+      <div class="sw" id="swCur" role="group" aria-label="Devise / Currency">
+        <button type="button" data-v="xof" class="on" aria-pressed="true">FCFA</button>
+        <button type="button" data-v="eur" aria-pressed="false">EUR</button>
+      </div>
+    </div>
+    <a class="login" href="#" data-en="Open Pharnos">Ouvrir Pharnos</a>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <span class="eyebrow" data-en="✦ The Checking Standard · free · no sign-up">✦ Le Checking Standard · gratuit · sans inscription</span>
+    <h1 data-en-html="Your AMM dossier — <span class=&quot;grad&quot;>is it ready for reception</span>?">Votre dossier d'AMM <span class="grad">est-il prêt pour la réception</span>&nbsp;?</h1>
+    <p class="lede" data-en="You are preparing a submission in the WAEMU zone. Before you file, measure what is ready and what is still missing: around fifteen questions, your completeness score against the reception standard, and your preparation plan — the field-born audit method behind Pharnos, industrialised.">Vous préparez un dépôt en zone UEMOA. Avant de déposer, mesurez ce qui est prêt et ce qui manque encore : une quinzaine de questions, votre niveau de complétude au regard de la norme de réception et votre plan de préparation — la méthode d'audit née sur le terrain, industrialisée.</p>
+    <div class="privacy-badge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <span data-en="No document to upload — the diagnostic runs on your answers, never on your files">Aucun document à téléverser — le diagnostic se fait à partir de vos réponses, jamais de vos fichiers</span>
+    </div>
+    <div class="hero-cta">
+      <a class="btn btn-gold" href="#diagnostic" data-en="Start my diagnostic →">Lancer mon diagnostic →</a>
+      <button class="btn btn-ghost-light" id="demoBtn" data-en="See a sample result">Voir un exemple de résultat</button>
+    </div>
+    <div class="hero-proof">
+      <span>Règlement n° 04/2020/CM/UEMOA</span><span class="dot">•</span>
+      <span data-en="Official templates: SmPC · Leaflet · Labelling · BTIF · QOS-PD">Modèles officiels : RCP · Notice · Étiquetage · BTIF · QOS-PD</span><span class="dot">•</span>
+      <span data-en="8 WAEMU countries">8 pays UEMOA</span><span class="dot">•</span>
+      <span data-en="~3 minutes">~3 minutes</span>
+    </div>
+  </div>
+</section>
+
+<section class="app" id="diagnostic">
+  <div class="wrap">
+
+    <!-- Étape 1 : contexte -->
+    <div class="panel on card" id="p-ctx">
+      <div class="ctx">
+        <h2 data-en="Your project, in three choices">Votre projet, en trois choix</h2>
+        <p class="sub" data-en="Common WAEMU core, requirements specific to your operation and product type — and the official templates of the country you are filing in.">Socle UEMOA commun, exigences propres à l'opération et au type de produit — et modèles officiels du pays où vous déposez.</p>
+        <div class="field">
+          <label for="pays"><span data-en="Country of submission">Pays de dépôt</span> <span class="hint" data-en="— authority, channels and templates specific to the country">— autorité, canaux et modèles propres au pays</span></label>
+          <select id="pays"></select>
+        </div>
+        <div class="field">
+          <label id="lop" data-en="Regulatory operation">Opération réglementaire</label>
+          <div class="seg" id="op" role="group" aria-labelledby="lop">
+            <button type="button" data-v="enr" class="on" aria-pressed="true" data-en="Registration (new MA)">Enregistrement (nouvelle AMM)</button>
+            <button type="button" data-v="ren" aria-pressed="false" data-en="MA renewal">Renouvellement d'AMM</button>
+          </div>
+        </div>
+        <div class="field">
+          <label id="ltype" data-en="Product type">Type de produit</label>
+          <div class="seg" id="type" role="group" aria-labelledby="ltype">
+            <button type="button" data-v="spec" class="on" aria-pressed="true" data-en="Originator">Spécialité</button>
+            <button type="button" data-v="gen" aria-pressed="false" data-en="Generic / multisource">Générique / multisource</button>
+            <button type="button" data-v="vac" aria-pressed="false" data-en="Vaccine">Vaccin</button>
+          </div>
+          <div class="typenote" id="typenote" data-en="The “vaccine” Module 1 has its own structure (1.1 – 1.7). The diagnostic covers the common core; for a vaccine, an expert audit is strongly recommended.">Le Module 1 « vaccin » possède sa propre structure (1.1 – 1.7). Le diagnostic couvre le tronc commun ; pour un vaccin, l'audit expert est fortement recommandé.</div>
+        </div>
+        <div class="ctx-foot">
+          <div class="ctx-recap" id="recap"></div>
+          <button class="btn btn-primary" id="startBtn" data-en="Start →">Commencer →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Étape 2 : une question à la fois -->
+    <div class="panel card" id="p-q">
+      <div class="qshell">
+        <div class="hud">
+          <span class="count" id="qcount"></span>
+          <div class="locks" id="locks"></div>
+        </div>
+        <div class="track"><div class="fill" id="qfill"></div></div>
+        <div class="dots" id="qdots"></div>
+        <div class="qbody" role="group" aria-live="polite">
+          <div class="qkick" id="qkick"></div>
+          <h2 class="qtext" id="qtext" tabindex="-1"></h2>
+          <p class="qwhy" id="qwhy"></p>
+          <div id="qtpl"></div>
+          <div class="opts" id="qopts"></div>
+        </div>
+        <div class="qfoot">
+          <span>
+            <button class="qback" id="qback" data-en="← Previous question">← Question précédente</button>
+            <button class="qnext" id="qnext" hidden></button>
+          </span>
+          <span data-en-html="Answer with <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd>">Répondez avec <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Étape 3 : résultat -->
+    <div class="panel card result" id="p-res">
+      <div class="rpills" id="rpills"></div>
+
+      <div class="gauge">
+        <div class="val" id="rprob">—</div>
+        <div class="cap" id="rprobcap" data-en="declared completeness against the WAEMU reception standard">complétude déclarée au regard de la norme de réception UEMOA</div>
+        <div class="pbar"><div class="pband" id="rband" style="left:0;width:8px"></div></div>
+        <div class="pscale"><span data-en="Not ready">Non prêt</span><span data-en="Incomplete">Incomplet</span><span data-en="Ready">Prêt</span></div>
+      </div>
+
+      <div class="verdict" id="rverdict"></div>
+      <p class="verdict-sub" id="rsub"></p>
+      <div class="estim" id="restim"></div>
+      <div class="locks-row" id="rlocks"></div>
+      <div class="axes" id="raxes"></div>
+      <div class="rscore" id="rscoretxt"></div>
+
+      <div class="fiche" id="rfiche">
+        <div class="fiche-head">
+          <b data-en="COMPLETENESS FORM — SIMULATION">FICHE DE COMPLÉTUDE — SIMULATION</b>
+          <span id="rfref"></span>
+        </div>
+        <table>
+          <thead><tr><th data-en="Dossier composition">Composition du dossier</th><th class="c" data-en="Yes">Oui</th><th class="c" data-en="No">Non</th></tr></thead>
+          <tbody id="rfbody"></tbody>
+        </table>
+        <div class="fiche-avis">
+          <b data-en="Simulated opinion:">Avis simulé :</b>
+          <span class="avis-chip" id="ravis"></span>
+        </div>
+      </div>
+
+      <div class="miss-wrap" id="rmisswrap">
+        <div class="miss-title" id="rmisstitle" data-en="Your preparation plan, in priority order">Votre plan de préparation, par ordre de priorité</div>
+        <ul class="miss" id="rmiss"></ul>
+      </div>
+
+      <div class="nb" id="rnb"></div>
+
+      <!-- CTA CTD Builder -->
+      <div class="builder">
+        <div class="bk" data-en="Prepare it in Pharnos">Préparez-le dans Pharnos</div>
+        <h3 data-en="This plan is exactly what the CTD Builder does for you">Ce plan, le CTD Builder le déroule pour vous</h3>
+        <p data-en="The diagnostic tells you what is missing. Pharnos builds it: the WAEMU Module 1 tree country by country, official templates pre-filled, cover letters and price letters, automatic completeness checks before you submit.">Le diagnostic vous dit ce qui manque. Pharnos le construit : arborescence Module 1 UEMOA pays par pays, modèles officiels pré-remplis, lettres de couverture et PGHT, contrôle de complétude automatique avant dépôt.</p>
+        <ul>
+          <li data-en="Module 1 tree per country, always up to date with the regulation">Arborescence Module 1 par pays, à jour du règlement</li>
+          <li data-en="SmPC, leaflet and labelling generated on the official templates">RCP, notice et étiquetage générés sur les modèles officiels</li>
+          <li data-en="Built-in Regafy AI audit, deadline tracking and authority correspondence">Audit Regafy AI intégré, suivi des délais et correspondance avec l'autorité</li>
+        </ul>
+        <div class="bcta">
+          <a class="btn btn-gold btn-sm" href="#" id="ctaBuilder" data-en="Try the CTD Builder free →">Essayer le CTD Builder gratuitement →</a>
+          <span class="free" data-en="30-day trial · no card required">Essai 30 jours · sans carte bancaire</span>
+        </div>
+      </div>
+
+      <div class="deliver">
+        <h3 data-en="📄 Get your report and detailed recommendations">📄 Recevez votre rapport et vos recommandations détaillées</h3>
+        <p data-en="The PDF includes the simulated form, your preparation plan in priority order and the regulatory references — shareable with your manufacturer.">Le PDF reprend la fiche simulée, votre plan de préparation priorisé et les références réglementaires — partageable avec votre fabricant.</p>
+        <div class="dgrid">
+          <input type="email" id="demail" placeholder="votre.nom@laboratoire.com" autocomplete="email" aria-label="E-mail" data-en-ph="your.name@company.com">
+          <button class="btn btn-primary" id="sendMail" data-en="Send by e-mail">Recevoir par e-mail</button>
+        </div>
+        <div class="dgrid">
+          <input type="tel" id="dwa" placeholder="WhatsApp : +229 …" autocomplete="tel" aria-label="WhatsApp" data-en-ph="WhatsApp: +229 …">
+          <button class="btn btn-ghost" id="sendWa" data-en="Send on WhatsApp">Recevoir sur WhatsApp</button>
+        </div>
+        <label class="consent"><input type="checkbox" id="cReport"> <span data-en-html="I agree to receive my report at the contact provided <b>(required to send)</b> — no product data is collected.">J'accepte que mon rapport me soit envoyé au contact indiqué <b>(requis pour l'envoi)</b> — aucune donnée produit n'est collectée.</span></label>
+        <label class="consent"><input type="checkbox" id="cPulse"> <span data-en-html="Also send me Pharnos WAEMU regulatory alerts <b>(optional)</b> — one-click unsubscribe.">Recevoir aussi les alertes réglementaires UEMOA de Pharnos <b>(optionnel)</b> — désinscription en un clic.</span></label>
+      </div>
+
+      <div class="res-cta">
+        <a class="btn btn-gold" href="#offres" data-en="Have my dossier audited →">Faire auditer mon dossier →</a>
+        <button class="btn btn-ghost" id="dlBtn" data-en="⤓ Download the PDF">⤓ Télécharger le PDF</button>
+        <button class="btn btn-ghost" id="restart" data-en="Start over">Recommencer</button>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- Upsell : 3 offres -->
+<section class="upsell" id="offres">
+  <div class="wrap">
+    <div class="kick" data-en="From declaration to verification">De la déclaration à la vérification</div>
+    <h2 data-en="Three levels of audit, one goal: clearing reception at the first attempt">Trois niveaux d'audit, un objectif : passer la réception du premier coup</h2>
+    <p class="sub" data-en-html="The diagnostic measures what you declare. The audit verifies what your dossier actually contains — a dossier stopped at reception means fees already paid and a filing cycle to start over. Your documents are only requested <b>after</b> ordering, in an encrypted space.">Le diagnostic mesure ce que vous déclarez. L'audit vérifie ce que votre dossier contient réellement — un dossier arrêté à la réception, ce sont des redevances déjà engagées et un cycle de dépôt à recommencer. Vos documents ne sont demandés qu'<b>après</b> commande, dans un espace chiffré.</p>
+
+    <div class="offers">
+      <div class="offer">
+        <div class="badge" data-en="Delivered in minutes">Livré en quelques minutes</div>
+        <h3>Audit Regafy AI</h3>
+        <p class="who" data-en="The automated audit engine of the Pharnos CTD Builder, in a reinforced version — to check fast before filing.">Le moteur d'audit automatisé du CTD Builder Pharnos, en version renforcée — pour valider vite avant un dépôt.</p>
+        <div class="price" data-price="ai"></div>
+        <ul>
+          <li data-en="Secure upload of your Module 1 (encrypted)">Dépôt sécurisé de votre Module 1 (chiffré)</li>
+          <li data-en="200+ checkpoints: CTD structure, documents, formats, consistency">+200 points de contrôle : structure CTD, pièces, formats, cohérences</li>
+          <li class="star" data-en="Report delivered a few minutes after payment">Rapport livré quelques minutes après le paiement</li>
+          <li data-en="Template conformity checked: SmPC, leaflet, labelling, BTIF, QOS">Conformité aux modèles vérifiée : RCP, notice, étiquetage, BTIF, QOS</li>
+          <li data-en="Free re-scan after your corrections">Re-scan gratuit après vos corrections</li>
+        </ul>
+        <div class="cta"><button class="btn btn-ghost" data-offer="ai" data-en="Choose the AI audit">Choisir l'audit AI</button></div>
+      </div>
+
+      <div class="offer featured">
+        <div class="badge" data-en="★ Most chosen · 7 business days">★ Le plus choisi · 7 jours ouvrés</div>
+        <h3>Audit Expert RA</h3>
+        <p class="who" data-en="A practising WAEMU regulatory affairs expert goes through your dossier line by line — the historical checking standard itself.">Un expert RA UEMOA en exercice reprend votre dossier ligne à ligne — le checking standard historique lui-même.</p>
+        <div class="price" data-price="exp"></div>
+        <ul>
+          <li data-en="Everything in the Regafy AI audit, then a full human review">Tout l'Audit Regafy AI, puis revue humaine intégrale</li>
+          <li class="star" data-en="Expert report + prioritised action plan within 7 business days">Rapport d'expertise + plan d'action priorisé sous 7 jours ouvrés</li>
+          <li class="star" data-en="45-minute video debrief with the expert">Restitution en visio (45 min) avec l'expert</li>
+          <li data-en="Free upgrade of your SmPC, leaflet and labelling">Mise à niveau de vos RCP, notice et étiquetage offerte</li>
+          <li data-en="Questions and answers for 7 days · vetted expert under NDA">Questions / réponses 7 jours · expert vérifié, sous NDA</li>
+        </ul>
+        <div class="cta"><button class="btn btn-primary" data-offer="exp" data-en="Choose the Expert audit">Choisir l'audit Expert</button></div>
+      </div>
+
+      <div class="offer">
+        <div class="badge" data-en="Board level · 10 business days">Comité de direction · 10 jours ouvrés</div>
+        <h3>Audit Expert Senior</h3>
+        <p class="who" data-en="Led by a PharmD or a former senior officer of a national medicines agency — strategy view and masterclass.">Mené par un Dr en pharmacie ou un ancien cadre d'agence nationale d'homologation — vision stratégie et masterclass.</p>
+        <div class="price" data-price="sen"></div>
+        <ul>
+          <li data-en="In-depth audit: Module 1 + M2–M5 consistency, within 10 business days">Audit approfondi : Module 1 + cohérence M2–M5, sous 10 jours ouvrés</li>
+          <li class="star" data-en="Multi-country WAEMU filing strategy">Stratégie de dépôt multi-pays UEMOA</li>
+          <li class="star" data-en="Private 2-hour masterclass for your RA team">Masterclass privée (2 h) pour votre équipe RA</li>
+          <li data-en="Dedicated 30-day hotline + signed recommendation letter">Hotline dédiée 30 jours + lettre de recommandations signée</li>
+          <li data-en="Multi-country &amp; portfolio: on quotation">Multi-pays &amp; portefeuille : sur devis</li>
+        </ul>
+        <div class="cta"><button class="btn btn-ghost" data-offer="sen" data-en="Talk to a senior expert">Parler à un senior</button></div>
+      </div>
+    </div>
+
+    <div class="upsell-trust">
+      <span data-en="🔐 Encrypted document space">🔐 Espace documentaire chiffré</span>
+      <span data-en="🤝 NDA on request">🤝 NDA sur simple demande</span>
+      <span data-en="💳 Card, bank transfer &amp; mobile money">💳 Carte, virement &amp; mobile money</span>
+      <span data-en="🎓 Experts vetted by Pharnos">🎓 Experts vérifiés par Pharnos</span>
+    </div>
+    <p class="upsell-note" data-en-html="<b>Reception guarantee:</b> if a dossier corrected according to our Expert or Senior audit is not accepted at reception, we re-audit free of charge until it is."><b>Garantie recevabilité :</b> si un dossier corrigé selon notre audit Expert ou Senior n'est pas réceptionné, nous ré-auditons gratuitement jusqu'à la recevabilité.</p>
+  </div>
+</section>
+
+<!-- Modale offre -->
+<div class="modal-back" id="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mtitle" aria-describedby="mdesc">
+    <button class="mclose" id="mclose" aria-label="Fermer">×</button>
+    <div class="mkick" id="mkick">Audit</div>
+    <h3 id="mtitle"></h3>
+    <p class="mdesc" id="mdesc"></p>
+    <div class="mprice"><b id="mprice"></b> <span id="mper"></span></div>
+    <div class="msteps" id="msteps"></div>
+    <div class="msafe" id="msafe"></div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" id="mcancel" data-en="Cancel">Annuler</button>
+      <button class="btn btn-gold" id="mpay" data-en="Pay and open my space">Régler et ouvrir mon espace</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modale prévisualisation de modèle -->
+<div class="modal-back" id="tplModal">
+  <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="tpltitle">
+    <button class="mclose" id="tplclose" aria-label="Fermer">×</button>
+    <div class="tplhead">
+      <div class="tk" id="tplkick"></div>
+      <h3 id="tpltitle"></h3>
+      <div class="ts" id="tplsrc"></div>
+    </div>
+    <div class="tplbody">
+      <div class="page" id="tplpage"></div>
+      <div class="tplrules" id="tplrules"></div>
+    </div>
+    <div class="tplfoot">
+      <span class="fl" id="tplnote"></span>
+      <span style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" id="tplDl"></button>
+        <button class="btn btn-gold btn-sm" id="tplUp"></button>
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- Modale mise à niveau -->
+<div class="modal-back" id="upModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="uptitle" aria-describedby="updesc">
+    <button class="mclose" id="upclose" aria-label="Fermer">×</button>
+    <div class="mkick" data-en="Regafy AI · document upgrade">Regafy AI · mise à niveau documentaire</div>
+    <h3 id="uptitle"></h3>
+    <p class="mdesc" id="updesc"></p>
+    <div class="updrop" id="updrop">
+      <div class="ic">⤒</div>
+      <div class="t" data-en="Drop your existing document here">Déposez ici votre document existant</div>
+      <div class="s" data-en="Word or PDF · 20 MB max · encrypted, deleted after 30 days">Word ou PDF · 20 Mo max · chiffré, supprimé sous 30 jours</div>
+    </div>
+    <div class="uppick" id="uppick"></div>
+    <div class="msteps" id="upsteps"></div>
+    <div class="msafe" id="upsafe"></div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" id="upcancel" data-en="Cancel">Annuler</button>
+      <button class="btn btn-gold" id="uppay"></button>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="legal" data-en="The Checking Standard is a self-assessment tool based on Regulation No. 04/2020/CM/UEMOA and on the completeness forms and templates published by the national authorities. It measures the declared completeness of a dossier. It is neither a regulatory opinion, nor a decision, nor a guarantee of admissibility — admissibility rests with the competent national authorities. Your answers are never linked to an identifiable product.">Le Checking Standard est un outil d'auto-évaluation fondé sur le Règlement n° 04/2020/CM/UEMOA et sur les fiches de complétude et modèles publiés par les autorités nationales. Il mesure la complétude déclarée d'un dossier. Il ne constitue ni un avis réglementaire, ni une décision, ni une garantie de recevabilité — celle-ci relève des autorités nationales compétentes. Vos réponses ne sont jamais associées à un produit identifiable.</div>
+    <div data-en="© Pharnos — design mock-up · mechanics faithful to the future production build">© Pharnos — maquette DA · mécanique fidèle à la future prod</div>
+  </div>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const RM = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ══ i18n : les valeurs bilingues s'écrivent ["fr","en"] ══ */
+let lang = "fr";
+const L = v => Array.isArray(v) ? (v[lang === "en" ? 1 : 0] ?? v[0]) : v;
+
+/* ══ Devises — prix fixés par marché, pas convertis à la volée ══ */
+let cur = "xof";
+const CUR = {xof:{c:"FCFA", sep:" "}, eur:{c:"€", sep:" "}};
+const fmt = n => n.toLocaleString(lang === "en" ? "en-GB" : "fr-FR").replace(/ | /g, " ");
+/* prix principal dans la devise choisie, secondaire entre parenthèses */
+function price(p, opt){
+  const primary = cur === "eur" ? `${fmt(p.eur)} €` : `${fmt(p.xof)} FCFA`;
+  const secondary = cur === "eur" ? `${fmt(p.xof)} FCFA` : `${fmt(p.eur)} €`;
+  return opt === "alt" ? secondary : primary;
+}
+const PRICE = {
+  ai:     {xof:75000,  eur:119},
+  aiLaunch:{xof:50000, eur:79},
+  exp:    {xof:250000, eur:389},
+  sen:    {xof:750000, eur:1149},
+  up1:    {xof:25000,  eur:39},
+  up3:    {xof:60000,  eur:92},
+};
+
+/* ══ Référentiel ══ */
+const PAYS = [
+  {k:"bj", nom:["Bénin","Benin"], ag:["l'ABMed","ABMed"]},
+  {k:"bf", nom:["Burkina Faso","Burkina Faso"], ag:["l'ANRP","ANRP"]},
+  {k:"ci", nom:["Côte d'Ivoire","Côte d'Ivoire"], ag:["l'AIRP","AIRP"]},
+  {k:"gw", nom:["Guinée-Bissau","Guinea-Bissau"], ag:["l'autorité nationale","the national authority"]},
+  {k:"ml", nom:"Mali", ag:["la DPM","DPM"]},
+  {k:"ne", nom:"Niger", ag:["l'autorité nationale","the national authority"]},
+  {k:"sn", nom:["Sénégal","Senegal"], ag:["l'ARP","ARP"]},
+  {k:"tg", nom:"Togo", ag:["la DPML","DPML"]},
+];
+const AXES = {
+  adm:["Administratif & produit","Administrative & product"],
+  tec:["Modules techniques","Technical modules"],
+  saf:["Sécurité & vigilance","Safety & vigilance"],
+  rec:["Recevabilité","Reception"],
+};
+const GATES = {ctd:["Format CTD","CTD format"], ech:["Échantillons","Samples"], pay:["Paiement","Payment"]};
+const SRC_ENR = ["Fiche officielle enregistrement · Annexes I & IV, Règl. 04/2020/UEMOA","Official registration form · Annexes I & IV, Reg. 04/2020/WAEMU"];
+const SRC_REN = ["Fiche officielle renouvellement · Annexes III & IV, Règl. 04/2020/UEMOA","Official renewal form · Annexes III & IV, Reg. 04/2020/WAEMU"];
+
+/* ══ Modèles officiels — squelettes réels extraits des documents sources ══ */
+const TPL = {
+  rcp:{
+    nom:["Résumé des Caractéristiques du Produit (RCP)","Summary of Product Characteristics (SmPC)"],
+    short:["mon RCP","my SmPC"],
+    src:["Modèle ABMed — Bénin, 2026","ABMed template — Benin, 2026"],
+    doct:["RESUME DES CARACTERISTIQUES DU PRODUIT","SUMMARY OF PRODUCT CHARACTERISTICS"],
+    upgradable:true,
+    secs:[
+      ["1. DENOMINATION DU MEDICAMENT","1. NAME OF THE MEDICINAL PRODUCT"],
+      ["2. COMPOSITION QUALITATIVE ET QUANTITATIVE","2. QUALITATIVE AND QUANTITATIVE COMPOSITION", ["Excipient(s) à effet notoire · renvoi à la rubrique 6.1","Excipients with known effect · cross-reference to section 6.1"]],
+      ["3. FORME PHARMACEUTIQUE","3. PHARMACEUTICAL FORM"],
+      ["4. DONNEES CLINIQUES","4. CLINICAL PARTICULARS", ["4.1 Indications · 4.2 Posologie et mode d'administration · 4.3 Contre-indications · 4.4 Mises en garde · 4.5 Interactions · 4.6 Fertilité, grossesse, allaitement · 4.7 Aptitude à conduire · 4.8 Effets indésirables · 4.9 Surdosage","4.1 Indications · 4.2 Posology · 4.3 Contraindications · 4.4 Warnings · 4.5 Interactions · 4.6 Fertility, pregnancy, lactation · 4.7 Driving · 4.8 Undesirable effects · 4.9 Overdose"]],
+      ["5. PROPRIETES PHARMACOLOGIQUES","5. PHARMACOLOGICAL PROPERTIES", ["5.1 Pharmacodynamie (classe + code ATC) · 5.2 Pharmacocinétique · 5.3 Sécurité préclinique","5.1 Pharmacodynamics (class + ATC code) · 5.2 Pharmacokinetics · 5.3 Preclinical safety"]],
+      ["6. DONNEES PHARMACEUTIQUES","6. PHARMACEUTICAL PARTICULARS", ["6.1 Excipients · 6.2 Incompatibilités · 6.3 Durée de conservation · 6.4 Précautions de conservation · 6.5 Nature et contenu de l'emballage · 6.6 Élimination et manipulation","6.1 Excipients · 6.2 Incompatibilities · 6.3 Shelf life · 6.4 Storage · 6.5 Container · 6.6 Disposal and handling"]],
+      ["7. TITULAIRE DE L'AUTORISATION DE MISE SUR LE MARCHE","7. MARKETING AUTHORISATION HOLDER"],
+      ["8. NUMERO(S) D'AUTORISATION DE MISE SUR LE MARCHE","8. MARKETING AUTHORISATION NUMBER(S)"],
+      ["9. DATE DE PREMIERE AUTORISATION / DE RENOUVELLEMENT","9. DATE OF FIRST AUTHORISATION / RENEWAL"],
+      ["10. DATE DE MISE A JOUR DU TEXTE","10. DATE OF REVISION OF THE TEXT"],
+      ["CONDITIONS DE PRESCRIPTION ET DE DELIVRANCE","CONDITIONS OF PRESCRIPTION AND SUPPLY", ["Non soumis à prescription · Liste I · Liste II · Stupéfiant","Not subject to prescription · List I · List II · Narcotic"]],
+    ],
+    rules:[
+      ["La rubrique 4.8 doit renvoyer au système national de déclaration — au Bénin : vigilances.abmed@gouv.bj.","Section 4.8 must refer to the national reporting system — in Benin: vigilances.abmed@gouv.bj."],
+      ["Les libellés entre chevrons < > sont des options : on garde ceux qui s'appliquent, on supprime les autres.","Text in angle brackets < > is optional: keep what applies, delete the rest."],
+      ["Numérotation et intitulés des 10 rubriques non modifiables — un RCP « maison » est la cause n° 1 de non-conformité relevée.","The numbering and headings of the 10 sections cannot be changed — an in-house SmPC is the number-one non-conformity observed."],
+      ["Fourni en Word ET PDF, en français (ou anglais accompagné du français).","Supplied in Word AND PDF, in French (or English together with French)."],
+    ],
+  },
+  notice:{
+    nom:["Notice patient","Patient information leaflet"],
+    short:["ma notice","my leaflet"],
+    src:["Maquette Notice ABMed — Bénin, 2026","ABMed leaflet template — Benin, 2026"],
+    doct:["NOTICE : INFORMATION DE L'UTILISATEUR","PACKAGE LEAFLET: INFORMATION FOR THE USER"],
+    upgradable:true,
+    secs:[
+      ["Dénomination du médicament + substance(s) active(s)","Name of the medicinal product + active substance(s)"],
+      ["Encadré d'avertissement","Warning box", ["« Veuillez lire attentivement cette notice… » — gardez la notice, interrogez votre médecin ou pharmacien, ne la donnez pas à d'autres, déclarez tout effet indésirable (voir rubrique 4).","“Read all of this leaflet carefully…” — keep the leaflet, ask your doctor or pharmacist, do not pass it on, report any side effect (see section 4)."]],
+      ["1. QU'EST-CE QUE X ET DANS QUELS CAS EST-IL UTILISE ?","1. WHAT X IS AND WHAT IT IS USED FOR", ["Classe pharmacothérapeutique et code ATC","Pharmacotherapeutic class and ATC code"]],
+      ["2. QUELLES SONT LES INFORMATIONS A CONNAITRE AVANT D'UTILISER X ?","2. WHAT YOU NEED TO KNOW BEFORE YOU USE X", ["Ne prenez jamais · Avertissements et précautions · Enfants et adolescents · Autres médicaments · Aliments et boissons · Grossesse, allaitement, fertilité · Conduite de véhicules · Excipients à effet notoire","Do not take · Warnings and precautions · Children and adolescents · Other medicines · Food and drink · Pregnancy, lactation, fertility · Driving · Excipients with known effect"]],
+      ["3. COMMENT UTILISER X ?","3. HOW TO USE X", ["Posologie · Mode d'administration · Durée du traitement · Si vous avez pris plus · Si vous oubliez · Si vous arrêtez","Posology · Method of administration · Duration · If you take more · If you forget · If you stop"]],
+      ["4. QUELS SONT LES EFFETS INDESIRABLES EVENTUELS ?","4. POSSIBLE SIDE EFFECTS", ["Effets chez l'enfant · Déclaration des effets secondaires","Effects in children · Reporting of side effects"]],
+      ["5. COMMENT CONSERVER X ?","5. HOW TO STORE X", ["Hors de vue et de portée des enfants · température · date de péremption · élimination","Out of sight and reach of children · temperature · expiry date · disposal"]],
+      ["6. CONTENU DE L'EMBALLAGE ET AUTRES INFORMATIONS","6. CONTENTS OF THE PACK AND OTHER INFORMATION", ["Substances actives · excipients · présentation · Titulaire · Exploitant · Fabricant · date de révision","Active substances · excipients · pack · MA holder · Distributor · Manufacturer · revision date"]],
+    ],
+    rules:[
+      ["Rédigée pour le patient : phrases courtes, pas de jargon — c'est un critère d'évaluation, pas une préférence de style.","Written for the patient: short sentences, no jargon — this is an assessment criterion, not a style preference."],
+      ["La notice doit être strictement cohérente avec le RCP : toute divergence est relevée en instruction.","The leaflet must be strictly consistent with the SmPC: any divergence is flagged during assessment."],
+      ["Les 6 rubriques, dans cet ordre, avec l'encadré d'avertissement en tête.","The 6 sections, in this order, with the warning box at the top."],
+      ["Fournie en Word ET PDF, en français (ou anglais accompagné du français).","Supplied in Word AND PDF, in French (or English together with French)."],
+    ],
+  },
+  etiq:{
+    nom:["Étiquetage et maquettes de conditionnement","Labelling and packaging mock-ups"],
+    short:["mon étiquetage","my labelling"],
+    src:["Template étiquetage ABMed — Bénin, 2026","ABMed labelling template — Benin, 2026"],
+    doct:["MENTIONS DEVANT FIGURER SUR L'EMBALLAGE EXTERIEUR ET SUR LE CONDITIONNEMENT PRIMAIRE","PARTICULARS TO APPEAR ON THE OUTER PACKAGING AND THE IMMEDIATE PACKAGING"],
+    upgradable:true,
+    secs:[
+      ["1. DENOMINATION DU MEDICAMENT","1. NAME OF THE MEDICINAL PRODUCT"],
+      ["2. COMPOSITION EN SUBSTANCES ACTIVES","2. STATEMENT OF ACTIVE SUBSTANCES"],
+      ["3. LISTE DES EXCIPIENTS","3. LIST OF EXCIPIENTS"],
+      ["4. FORME PHARMACEUTIQUE ET CONTENU","4. PHARMACEUTICAL FORM AND CONTENTS"],
+      ["5. MODE ET VOIE(S) D'ADMINISTRATION","5. METHOD AND ROUTE(S) OF ADMINISTRATION", ["« Lire la notice avant utilisation. »","“Read the package leaflet before use.”"]],
+      ["6. MISE EN GARDE — TENIR HORS DE VUE ET DE PORTEE DES ENFANTS","6. WARNING — KEEP OUT OF SIGHT AND REACH OF CHILDREN"],
+      ["7. AUTRE(S) MISE(S) EN GARDE SPECIALE(S)","7. OTHER SPECIAL WARNING(S)"],
+      ["8. DATES DE FABRICATION ET DE PEREMPTION","8. MANUFACTURING AND EXPIRY DATES", ["FAB {MM/AAAA} · EXP {MM/AAAA}","MFD {MM/YYYY} · EXP {MM/YYYY}"]],
+      ["9. PRECAUTIONS PARTICULIERES DE CONSERVATION","9. SPECIAL STORAGE PRECAUTIONS"],
+      ["10. PRECAUTIONS D'ELIMINATION","10. SPECIAL PRECAUTIONS FOR DISPOSAL"],
+      ["11. NOM ET ADRESSE DU TITULAIRE DE L'AMM","11. NAME AND ADDRESS OF THE MA HOLDER", ["Titulaire ET exploitant","MA holder AND distributor"]],
+      ["12. NUMERO DU LOT","12. BATCH NUMBER"],
+      ["13. CONDITIONS DE PRESCRIPTION ET DE DELIVRANCE","13. CONDITIONS OF PRESCRIPTION AND SUPPLY", ["À copier à l'identique depuis le RCP","To be copied verbatim from the SmPC"]],
+      ["14. INDICATIONS D'UTILISATION","14. INSTRUCTIONS ON USE"],
+      ["15. INFORMATIONS EN BRAILLE","15. INFORMATION IN BRAILLE"],
+      ["16 – 17. IDENTIFIANT UNIQUE (code-barres 2D et données lisibles)","16 – 17. UNIQUE IDENTIFIER (2D barcode and human-readable data)"],
+      ["__GRP__MENTIONS MINIMALES — PLAQUETTES ET FILMS THERMOSOUDES","__GRP__MINIMUM PARTICULARS — BLISTERS AND STRIPS"],
+      ["1 à 5 : dénomination · titulaire · dates FAB/EXP · numéro de lot · autres","1 to 5: name · MA holder · MFD/EXP dates · batch number · other"],
+      ["__GRP__MENTIONS MINIMALES — PETITS CONDITIONNEMENTS PRIMAIRES","__GRP__MINIMUM PARTICULARS — SMALL IMMEDIATE PACKAGING"],
+      ["1 à 6 : dénomination et voie · mode d'administration · dates · lot · contenu · autres","1 to 6: name and route · method of administration · dates · batch · contents · other"],
+    ],
+    rules:[
+      ["Trois jeux de mentions distincts : emballage extérieur (17), plaquettes (5), petits conditionnements (6). Oublier les deux derniers est une erreur classique.","Three distinct sets of particulars: outer packaging (17), blisters (5), small packs (6). Forgetting the last two is a classic mistake."],
+      ["La rubrique 13 doit reprendre mot pour mot les conditions de prescription du RCP.","Section 13 must reproduce the SmPC prescription conditions verbatim."],
+      ["Les maquettes sont fournies en couleur, à l'échelle, lisibles — l'autorité contrôle les mentions directement dessus.","Mock-ups are supplied in colour, to scale and legible — the authority checks the particulars directly on them."],
+    ],
+  },
+  btif:{
+    nom:["BTIF — Bioequivalence Trial Information Form","BTIF — Bioequivalence Trial Information Form"],
+    src:["Modèle OMS / WHO — 13 janvier 2023","WHO template — 13 January 2023"],
+    doct:["BIOEQUIVALENCE TRIAL INFORMATION","BIOEQUIVALENCE TRIAL INFORMATION"],
+    upgradable:false,
+    secs:[
+      ["1. SUMMARY","1. SUMMARY", ["1.1 Résumé des études de bioéquivalence · 1.2 Composition des formulations proposées et des lots de bioéquivalence (tableaux comparatifs par dosage)","1.1 Summary of bioequivalence studies · 1.2 Composition of the proposed formulations and biobatches (comparative tables per strength)"]],
+      ["2. CLINICAL STUDY REPORT","2. CLINICAL STUDY REPORT", ["Numéro et titre d'étude, localisation du protocole, dates de chaque phase et d'administration du produit","Study number and title, protocol location, dates of each phase and of product administration"]],
+      ["2.1 ETHICS","2.1 ETHICS", ["Comité d'éthique, date d'approbation, localisation de la lettre et du formulaire de consentement","Ethics committee, approval date, location of the approval letter and consent form"]],
+      ["2.2 INVESTIGATORS AND STUDY ADMINISTRATIVE STRUCTURE","2.2 INVESTIGATORS AND STUDY ADMINISTRATIVE STRUCTURE", ["Investigateur principal (CV), site clinique, laboratoires cliniques et analytiques, société d'analyse PK/statistique","Principal investigator (CV), clinical site, clinical and analytical laboratories, PK/statistics company"]],
+      ["2.3 STUDY OBJECTIVES","2.3 STUDY OBJECTIVES"],
+      ["2.4 INVESTIGATIONAL PLAN","2.4 INVESTIGATIONAL PLAN", ["Plan d'étude · critères d'inclusion et d'exclusion · vérification de l'état de santé · retrait des sujets · sujets remplaçants","Study design · inclusion and exclusion criteria · health verification · withdrawal of subjects · alternates"]],
+      ["Suite : produits étudiés, procédures, méthodes analytiques, pharmacocinétique et statistiques, annexes","Continued: study products, procedures, analytical methods, pharmacokinetics and statistics, annexes"],
+    ],
+    rules:[
+      ["« Ni le format ni le contenu du document (textes et tableaux) ne doivent être modifiés » — instruction explicite de l'OMS en tête du formulaire.","“Neither the format nor the content of the document (text and tables) should be changed” — the WHO's explicit instruction at the top of the form."],
+      ["Les zones grisées sont réservées à l'autorité : ne pas les remplir.","Greyed areas are reserved for the authority: do not fill them in."],
+      ["Chaque document annexé doit être localisé par son numéro d'annexe, et le fichier électronique porter exactement ce nom.","Every appended document must be located by its annex number, and the electronic file must carry exactly that name."],
+      ["Un original signé accompagne le dossier ; une version électronique est incluse dès la soumission initiale.","A signed original accompanies the dossier; an electronic version is included from the initial submission."],
+    ],
+  },
+  qos:{
+    nom:["QOS-PD — Quality Overall Summary (Module 2.3)","QOS-PD — Quality Overall Summary (Module 2.3)"],
+    src:["Modèle OMS / WHO — janvier 2025","WHO template — January 2025"],
+    doct:["MODULE 2.3 — QUALITY OVERALL SUMMARY: PRODUCT DOSSIER","MODULE 2.3 — QUALITY OVERALL SUMMARY: PRODUCT DOSSIER"],
+    upgradable:false,
+    secs:[
+      ["INTRODUCTION — Résumé des informations produit","INTRODUCTION — Summary of product information", ["DCI et noms commerciaux · substance(s) active(s) avec forme (sel, hydrate, polymorphe) · demandeur · forme galénique · dosages · voie d'administration · indications proposées","INN and trade names · active substance(s) with form (salt, hydrate, polymorph) · applicant · dosage form · strengths · route of administration · proposed indications"]],
+      ["Personnes de contact","Contact persons", ["Contact principal et contacts additionnels, adresse postale complète, e-mail, téléphone","Primary and additional contacts, full postal address, e-mail, phone"]],
+      ["Dossiers liés et références bibliographiques","Related dossiers and literature references", ["Numéro de référence, statut de préqualification, fabricant de la substance active","Reference number, prequalification status, API manufacturer"]],
+      ["2.3.S — SUBSTANCE ACTIVE","2.3.S — DRUG SUBSTANCE", ["Nomenclature · structure · propriétés · fabricant · procédé · contrôle · normes · conditionnement · stabilité","Nomenclature · structure · properties · manufacturer · process · control · standards · packaging · stability"]],
+      ["2.3.P — PRODUIT FINI","2.3.P — DRUG PRODUCT", ["Description et composition · développement pharmaceutique · fabrication · contrôle des excipients · contrôle du produit fini · normes de référence · système de fermeture · stabilité","Description and composition · pharmaceutical development · manufacture · control of excipients · control of drug product · reference standards · container closure · stability"]],
+      ["2.3.A / 2.3.R — Annexes et informations régionales","2.3.A / 2.3.R — Appendices and regional information"],
+    ],
+    rules:[
+      ["Le QOS-PD se remplit en suivant les sections 1.5, 3 et 4 de la ligne directrice OMS sur la partie qualité des multisources.","The QOS-PD is completed following sections 1.5, 3 and 4 of the WHO guideline on the quality part for multisource products."],
+      ["C'est un résumé, pas un renvoi : chaque rubrique doit contenir la donnée, pas un « voir Module 3 ».","It is a summary, not a cross-reference: each section must contain the data, not a “see Module 3”."],
+      ["Fourni en Word ET PDF — le format Word manquant est l'annotation la plus fréquente des examinateurs.","Supplied in Word AND PDF — the missing Word format is the most frequent assessor annotation."],
+    ],
+  },
+};
+const UPGRADABLE = ["rcp", "notice", "etiq"];
+
+/* ══ Questionnaire — ton prospectif : ce qui sera déposé, pas ce qui l'a été ══ */
+const OPTS_TPL = na => {
+  const o = [
+    {k:"ok", ico:"✓", cls:"ok",
+      label:["Oui — rédigé sur le modèle officiel, en Word et PDF","Yes — drafted on the official template, in Word and PDF"],
+      sub:["Rubriques, ordre et langue conformes","Sections, order and language compliant"]},
+    {k:"nc", ico:"⚠", cls:"nc",
+      label:["Le document existe, mais pas sur le modèle officiel","The document exists, but not on the official template"],
+      sub:["Ou format Word manquant, ou langue non conforme","Or missing Word format, or non-compliant language"]},
+    {k:"ko", ico:"✗", cls:"ko",
+      label:["Pas encore rédigé","Not drafted yet"],
+      sub:["À produire avant le dépôt","To be produced before filing"]},
+  ];
+  if (na) o.push({k:"na", ico:"—", cls:"na", label:["Non applicable à mon produit","Not applicable to my product"], sub:["Exigence conditionnelle","Conditional requirement"]});
+  return o;
+};
+const OPTS_STD = na => {
+  const o = [
+    {k:"ok", ico:"✓", cls:"ok", label:["Oui — prêt et conforme","Yes — ready and compliant"], sub:["La pièce est disponible, au bon format","The document is available, in the right format"]},
+    {k:"nc", ico:"⚠", cls:"nc", label:["En cours — incomplet ou à mettre en conformité","In progress — incomplete or to be brought into compliance"], sub:["La pièce existe mais un élément manque","The document exists but something is missing"]},
+    {k:"ko", ico:"✗", cls:"ko", label:["Pas encore","Not yet"], sub:["Rien de disponible à ce stade","Nothing available at this stage"]},
+  ];
+  if (na) o.push({k:"na", ico:"—", cls:"na", label:["Non applicable à mon produit","Not applicable to my product"], sub:["Exigence conditionnelle","Conditional requirement"]});
+  return o;
+};
+
+/* item : {id, axis, w, gate?, na?, tpl?, only?, fiche?, q, why, piece, ncNote?, opts?, fixMap?} */
+const ENR = [
+  {id:"m1", axis:"rec", w:12, gate:"ctd",
+    q:["Votre Module 1 sera-t-il déposé consolidé et au format CTD UEMOA ?","Will your Module 1 be filed consolidated and in the WAEMU CTD format?"],
+    why:["Premier verrou de réception : un Module 1 hors format CTD est refusé à la réception — c'est le motif n° 1 relevé sur les fiches réelles.","First reception gate: a Module 1 outside the CTD format is rejected at reception — the number-one reason found on real completeness forms."],
+    piece:["un Module 1 conforme au format CTD","a Module 1 compliant with the CTD format"],
+    ncNote:["Non conforme au format CTD","Not compliant with the CTD format"]},
+  {id:"rcp", axis:"adm", w:8, tpl:"rcp",
+    q:["Votre RCP sera-t-il rédigé sur le modèle officiel du pays, en Word et PDF ?","Will your SmPC be drafted on the country's official template, in Word and PDF?"],
+    why:["Présent ne suffit pas : le RCP doit suivre le modèle de l'autorité, rubrique par rubrique, et être fourni en français (ou en anglais accompagné du français). Le « format Word non fourni » est l'annotation la plus fréquente.","Being present is not enough: the SmPC must follow the authority's template section by section and be supplied in French (or English together with French). “Word format not supplied” is the most frequent annotation."],
+    piece:["un RCP conforme au modèle officiel, en Word et PDF","an SmPC compliant with the official template, in Word and PDF"],
+    ncNote:["Non conforme au modèle officiel","Not compliant with the official template"]},
+  {id:"not", axis:"adm", w:8, tpl:"notice",
+    q:["Votre notice patient sera-t-elle rédigée sur la maquette officielle, en Word et PDF ?","Will your patient leaflet be drafted on the official template, in Word and PDF?"],
+    why:["Les six rubriques, dans l'ordre, avec l'encadré d'avertissement — et une cohérence stricte avec le RCP. Toute divergence entre notice et RCP est relevée en instruction.","The six sections, in order, with the warning box — and strict consistency with the SmPC. Any divergence between leaflet and SmPC is flagged during assessment."],
+    piece:["une notice conforme à la maquette officielle, en Word et PDF","a leaflet compliant with the official template, in Word and PDF"],
+    ncNote:["Non conforme à la maquette officielle","Not compliant with the official template"]},
+  {id:"etiq", axis:"adm", w:6, tpl:"etiq",
+    q:["Vos maquettes d'étiquetage reprendront-elles toutes les mentions du modèle officiel ?","Will your labelling mock-ups carry every particular of the official template?"],
+    why:["Trois jeux de mentions à ne pas confondre : emballage extérieur (17 mentions), plaquettes (5), petits conditionnements primaires (6). L'autorité contrôle directement sur la maquette.","Three sets of particulars not to be confused: outer packaging (17), blisters (5), small immediate packs (6). The authority checks directly on the mock-up."],
+    piece:["des maquettes d'étiquetage conformes au modèle officiel","labelling mock-ups compliant with the official template"],
+    ncNote:["Mentions obligatoires incomplètes","Mandatory particulars incomplete"]},
+  {id:"btif", axis:"adm", w:6, na:true, tpl:"btif",
+    q:["Le BTIF sera-t-il fourni sur le formulaire OMS, sans modification du format ?","Will the BTIF be supplied on the WHO form, with no change to the format?"],
+    why:["L'OMS l'écrit en tête du formulaire : ni le format ni le contenu ne doivent être modifiés. À défaut de BTIF, il faut une dispense justifiée — pas un silence.","The WHO states it at the top of the form: neither the format nor the content may be changed. Without a BTIF, a justified waiver is required — not silence."],
+    piece:["le BTIF sur formulaire OMS non modifié, ou la justification de sa dispense","the BTIF on the unmodified WHO form, or the justification for its waiver"],
+    ncNote:["Formulaire OMS modifié ou incomplet","WHO form modified or incomplete"]},
+  {id:"dis", axis:"tec", w:6, na:true, only:["gen"],
+    q:["Disposerez-vous de l'étude de dissolution comparée ou du Biowaiver (BCS) ?","Will you have the comparative dissolution study or the BCS Biowaiver?"],
+    why:["Exigée pour les génériques et multisources ; l'exemption se justifie par écrit, elle ne se suppose pas.","Required for generics and multisource products; an exemption is justified in writing, never assumed."],
+    piece:["l'étude de dissolution comparée / le Biowaiver ou la justification d'exemption","the comparative dissolution study / Biowaiver or the exemption justification"]},
+  {id:"pgr", axis:"saf", w:4, na:true,
+    q:["Un Plan de Gestion des Risques sera-t-il joint (si votre produit y est soumis) ?","Will a Risk Management Plan be included (if your product is subject to one)?"],
+    why:["Requis selon le profil du produit — choisissez « non applicable » si le vôtre n'y est pas soumis.","Required depending on the product profile — choose “not applicable” if yours is not subject to one."],
+    piece:["le Plan de Gestion des Risques","the Risk Management Plan"]},
+  {id:"dmf", axis:"tec", w:4, na:true,
+    q:["La lettre d'accès au DMF passera-t-elle par le canal confidentiel de l'autorité ?","Will the DMF access letter go through the authority's confidential channel?"],
+    why:["La lettre d'accès au DMF appartient au socle UEMOA (1.2.5) ; chaque autorité définit son canal de dépôt confidentiel — un envoi par le canal ordinaire ne vaut pas dépôt.","The DMF access letter belongs to the WAEMU core (1.2.5); each authority defines its own confidential channel — sending it through the ordinary channel does not count as filing."],
+    piece:["la preuve de soumission du DMF par le canal confidentiel","proof of DMF submission through the confidential channel"]},
+  {id:"m2", axis:"tec", w:8,
+    q:["Le Module 2 sera-t-il consolidé en un fichier unique, résumés signés par vos experts ?","Will Module 2 be consolidated into a single file, with summaries signed by your experts?"],
+    why:["Le Module 2 engage nommément vos experts : résumés qualité, non-clinique et clinique.","Module 2 formally commits your experts: quality, non-clinical and clinical summaries."],
+    piece:["un Module 2 consolidé et signé","a consolidated and signed Module 2"]},
+  {id:"qos", axis:"tec", w:6, tpl:"qos",
+    q:["Le QOS-PD sera-t-il rempli sur le modèle OMS, en Word et PDF ?","Will the QOS-PD be completed on the WHO template, in Word and PDF?"],
+    why:["Un résumé qualité, pas un renvoi : chaque rubrique doit porter la donnée, pas un « voir Module 3 ». Les deux formats sont exigés.","A quality summary, not a cross-reference: each section must carry the data, not a “see Module 3”. Both formats are required."],
+    piece:["le QOS-PD sur modèle OMS, en Word et PDF","the QOS-PD on the WHO template, in Word and PDF"],
+    ncNote:["Non conforme au modèle OMS","Not compliant with the WHO template"]},
+  {id:"m3", axis:"tec", w:8,
+    q:["Le Module 3 sera-t-il complet — substance active ET produit fini ?","Will Module 3 be complete — drug substance AND finished product?"],
+    why:["Le cœur du dossier : 3.2.S et 3.2.P, certificats à jour à la date du dépôt.","The heart of the dossier: 3.2.S and 3.2.P, with certificates valid at the filing date."],
+    piece:["un Module 3 complet","a complete Module 3"]},
+  {id:"m4", axis:"tec", w:5,
+    q:["Le Module 4 sera-t-il fourni — ou sa dispense justifiée par écrit ?","Will Module 4 be supplied — or its waiver justified in writing?"],
+    why:["Pour un générique, la dispense se justifie formellement (littérature, usage médical établi).","For a generic, the waiver must be formally justified (literature, well-established use)."],
+    piece:["le Module 4 ou la justification de sa dispense","Module 4 or the justification for its waiver"]},
+  {id:"m5", axis:"tec", w:5,
+    q:["Le Module 5 sera-t-il fourni — cliniques ou bioéquivalence selon votre produit ?","Will Module 5 be supplied — clinical or bioequivalence data depending on your product?"],
+    why:["Pour un multisource, la bioéquivalence est la pièce maîtresse du Module 5.","For a multisource product, bioequivalence is the centrepiece of Module 5."],
+    piece:["le Module 5 (ou les données de bioéquivalence)","Module 5 (or the bioequivalence data)"]},
+  {id:"ech", axis:"rec", w:10, gate:"ech",
+    q:["Aurez-vous les échantillons modèle-vente et le certificat d'analyse du lot déposé ?","Will you have the sales-model samples and the certificate of analysis of the filed batch?"],
+    why:["Deuxième verrou de réception : échantillons plus certificat d'analyse du lot, avec une durée de vie restante d'au moins 18 mois.","Second reception gate: samples plus the batch certificate of analysis, with at least 18 months of remaining shelf life."],
+    piece:["les échantillons et le certificat d'analyse du lot","the samples and the batch certificate of analysis"]},
+  {id:"pay", axis:"rec", w:10, gate:"pay",
+    q:["Le paiement des frais d'homologation sera-t-il effectué avant le dépôt ?","Will the registration fees be paid before filing?"],
+    why:["Troisième verrou : sans récépissé de paiement au moment du dépôt, le dossier n'est pas réceptionné. Vérifiez le barème en vigueur du pays.","Third gate: without a payment receipt at filing, the dossier is not accepted. Check the country's current fee schedule."],
+    piece:["la preuve de paiement des frais d'homologation","proof of payment of the registration fees"]},
+];
+
+const REN = [
+  {id:"tim", axis:"adm", w:8, special:"timing", fiche:false,
+    q:["À quelle distance de l'expiration de l'AMM prévoyez-vous de déposer ?","How far ahead of the MA expiry do you plan to file?"],
+    why:["Le règlement impose un dépôt au moins 120 jours avant l'expiration de l'enregistrement en cours.","The regulation requires filing at least 120 days before the current registration expires."],
+    piece:["un dépôt dans les délais (≥ 120 jours avant expiration)","a timely filing (≥ 120 days before expiry)"],
+    fixMap:{
+      nc:["Avancer le dépôt : à moins de 120 jours de l'expiration, des pénalités peuvent s'appliquer.","Bring the filing forward: within 120 days of expiry, penalties may apply."],
+      ko:["Contacter l'autorité sans attendre : l'AMM étant expirée, un circuit de nouvel enregistrement — redevances comprises — peut être exigé.","Contact the authority immediately: with the MA expired, a new registration route — fees included — may be required."]},
+    opts:[
+      {k:"ok", ico:"✓", cls:"ok", label:["Plus de 120 jours avant l'expiration","More than 120 days before expiry"], sub:["Dans les délais réglementaires","Within the regulatory deadline"]},
+      {k:"nc", ico:"⚠", cls:"nc", label:["Moins de 120 jours","Less than 120 days"], sub:["Dépôt sous pression — pénalités possibles","Filing under pressure — penalties possible"]},
+      {k:"ko", ico:"✗", cls:"ko", label:["L'AMM est déjà expirée","The MA has already expired"], sub:["Risque de repartir sur un nouvel enregistrement","Risk of restarting a new registration"]},
+    ]},
+  {id:"m1", axis:"rec", w:10, gate:"ctd",
+    q:["Votre Module 1 sera-t-il à jour et identique en structure au dossier initial ?","Will your Module 1 be up to date and structurally identical to the initial dossier?"],
+    why:["Modules 1 et 2 doivent être « en tout point identiques » au dossier initial — et refléter les variations approuvées depuis.","Modules 1 and 2 must be “identical in every respect” to the initial dossier — and reflect the variations approved since."],
+    piece:["un Module 1 à jour, conforme au format CTD","an up-to-date Module 1, compliant with the CTD format"],
+    ncNote:["Non conforme au format CTD","Not compliant with the CTD format"]},
+  {id:"rcp", axis:"adm", w:7, tpl:"rcp",
+    q:["Votre RCP sera-t-il fourni sur le modèle officiel, dans sa dernière version approuvée ?","Will your SmPC be supplied on the official template, in its latest approved version?"],
+    why:["La version en vigueur — celle issue de vos variations approuvées — sur le modèle du pays, en Word et PDF.","The version in force — the one resulting from your approved variations — on the country's template, in Word and PDF."],
+    piece:["un RCP conforme au modèle officiel, en Word et PDF","an SmPC compliant with the official template, in Word and PDF"],
+    ncNote:["Non conforme au modèle officiel","Not compliant with the official template"]},
+  {id:"not", axis:"adm", w:7, tpl:"notice",
+    q:["La notice sera-t-elle fournie sur la maquette officielle, en Word et PDF ?","Will the leaflet be supplied on the official template, in Word and PDF?"],
+    why:["Annotation récurrente des fiches réelles de renouvellement : « fournir la notice en format Word ».","A recurring annotation on real renewal forms: “supply the leaflet in Word format”."],
+    piece:["une notice conforme à la maquette officielle, en Word et PDF","a leaflet compliant with the official template, in Word and PDF"],
+    ncNote:["Non conforme à la maquette officielle","Not compliant with the official template"]},
+  {id:"etiq", axis:"adm", w:5, tpl:"etiq",
+    q:["Vos maquettes d'étiquetage seront-elles celles du produit réellement commercialisé ?","Will your labelling mock-ups be those of the product actually marketed?"],
+    why:["Les maquettes à jour, avec toutes les mentions obligatoires du modèle officiel.","Up-to-date mock-ups, carrying every mandatory particular of the official template."],
+    piece:["des maquettes d'étiquetage à jour et conformes","up-to-date and compliant labelling mock-ups"],
+    ncNote:["Mentions obligatoires incomplètes","Mandatory particulars incomplete"]},
+  {id:"m2", axis:"tec", w:7,
+    q:["Le Module 2 sera-t-il joint, identique en structure au dossier initial ?","Will Module 2 be included, structurally identical to the initial dossier?"],
+    why:["Comme le Module 1 : reconduit à l'identique, mis à jour des variations approuvées.","Like Module 1: carried over identically, updated with the approved variations."],
+    piece:["le Module 2","Module 2"]},
+  {id:"qos", axis:"tec", w:5, tpl:"qos",
+    q:["Le QOS-PD sera-t-il fourni sur le modèle OMS, en Word et PDF ?","Will the QOS-PD be supplied on the WHO template, in Word and PDF?"],
+    why:["Manque observé sur les fiches réelles de renouvellement, au même titre que le RCP.","A gap observed on real renewal forms, just like the SmPC."],
+    piece:["le QOS-PD sur modèle OMS, en Word et PDF","the QOS-PD on the WHO template, in Word and PDF"],
+    ncNote:["Non conforme au modèle OMS","Not compliant with the WHO template"]},
+  {id:"psur", axis:"saf", w:9,
+    q:["Le PSUR couvrira-t-il toute la période écoulée de l'AMM ?","Will the PSUR cover the entire elapsed MA period?"],
+    why:["La pièce la plus souvent manquante des renouvellements — elle démontre la surveillance continue du produit.","The most frequently missing document in renewals — it demonstrates continuous product surveillance."],
+    piece:["le rapport périodique actualisé de sécurité (PSUR)","the periodic safety update report (PSUR)"]},
+  {id:"smf", axis:"tec", w:7,
+    q:["Le Site Master File de l'usine de fabrication sera-t-il joint ?","Will the Site Master File of the manufacturing plant be included?"],
+    why:["Le SMF de l'usine où le produit est réellement fabriqué aujourd'hui, pas celle du dossier initial si elle a changé.","The SMF of the plant where the product is actually manufactured today, not the initial one if it has changed."],
+    piece:["le Site Master File (SMF)","the Site Master File (SMF)"]},
+  {id:"bmr", axis:"tec", w:7,
+    q:["Aurez-vous le dossier de lot (BMR) d'un lot réel de moins de 6 mois ?","Will you have the batch record (BMR) of an actual batch less than 6 months old?"],
+    why:["Un lot réel, fabriqué dans les six mois précédant la soumission — pas un lot d'archive.","An actual batch, manufactured within the six months preceding submission — not an archived one."],
+    piece:["le dossier de fabrication (BMR) d'un lot de moins de 6 mois","the batch record (BMR) of a batch less than 6 months old"]},
+  {id:"amm", axis:"adm", w:6,
+    q:["La dernière AMM en cours de validité sera-t-elle jointe ?","Will the latest valid MA be included?"],
+    why:["La décision en cours de validité, base juridique du renouvellement.","The decision currently in force, the legal basis for the renewal."],
+    piece:["la dernière AMM du produit","the latest MA for the product"]},
+  {id:"att", axis:"adm", w:7,
+    q:["Aurez-vous l'attestation de non-modification, ou la liste chronologique des variations approuvées ?","Will you have the statement of no change, or the chronological list of approved variations?"],
+    why:["Toutes les modifications depuis la première AMM, avec dates et références d'approbation. Rien d'oublié.","Every change since the first MA, with approval dates and references. Nothing left out."],
+    piece:["l'attestation de non-modification ou la liste chronologique des variations approuvées","the statement of no change or the chronological list of approved variations"]},
+  {id:"int", axis:"tec", w:5, na:true, only:["gen"],
+    q:["La preuve d'interchangeabilité sera-t-elle jointe ?","Will the proof of interchangeability be included?"],
+    why:["Exigée pour les multisources au renouvellement.","Required for multisource products at renewal."],
+    piece:["la preuve d'interchangeabilité","the proof of interchangeability"]},
+  {id:"ech", axis:"rec", w:8, gate:"ech",
+    q:["Aurez-vous les échantillons (moitié du nombre initial) et leur certificat d'analyse ?","Will you have the samples (half the initial number) and their certificate of analysis?"],
+    why:["Au renouvellement, l'autorité exige la moitié des échantillons de l'AMM initiale — verrou de réception.","At renewal, the authority requires half the samples of the initial MA — a reception gate."],
+    piece:["les échantillons (½ du nombre initial) et le certificat d'analyse","the samples (½ of the initial number) and the certificate of analysis"]},
+  {id:"pay", axis:"rec", w:8, gate:"pay",
+    q:["Le paiement des frais de renouvellement sera-t-il effectué avant le dépôt ?","Will the renewal fees be paid before filing?"],
+    why:["Verrou de réception — et les pénalités éventuelles se règlent en plus, sur quittance séparée.","A reception gate — and any penalties are paid on top, with a separate receipt."],
+    piece:["la quittance de paiement des frais de renouvellement","the receipt for payment of the renewal fees"]},
+  {id:"pen", axis:"adm", w:3, na:true,
+    q:["Des pénalités s'appliqueront-elles — et leur quittance sera-t-elle jointe ?","Will penalties apply — and will their receipt be included?"],
+    why:["En cas de dépôt tardif, la quittance des pénalités est exigée. « Non applicable » si vous êtes dans les délais.","In case of late filing, the penalty receipt is required. Choose “not applicable” if you are within the deadline."],
+    piece:["la quittance des pénalités","the penalty receipt"]},
+];
+
+const VAL = {ok:1, nc:.45, ko:0};
+
+/* ══ État ══ */
+const S = {pays:"bj", op:"enr", type:"spec", i:0, ans:{}};
+const flow = () => (S.op === "enr" ? ENR : REN).filter(it => !it.only || it.only.includes(S.type));
+const paysObj = () => PAYS.find(p => p.k === S.pays) ?? PAYS[0];
+const optsFor = it => it.opts || (it.tpl ? OPTS_TPL(it.na) : OPTS_STD(it.na));
+
+/* ══ Moteur i18n des chaînes statiques ══ */
+function applyLang(){
+  document.documentElement.lang = lang;
+  $$("[data-en]").forEach(el => {
+    if (el.dataset.fr === undefined) el.dataset.fr = el.textContent;
+    el.textContent = lang === "en" ? el.dataset.en : el.dataset.fr;
+  });
+  $$("[data-en-html]").forEach(el => {
+    if (el.dataset.frHtml === undefined) el.dataset.frHtml = el.innerHTML;
+    el.innerHTML = lang === "en" ? el.dataset.enHtml : el.dataset.frHtml;
+  });
+  $$("[data-en-ph]").forEach(el => {
+    if (el.dataset.frPh === undefined) el.dataset.frPh = el.placeholder;
+    el.placeholder = lang === "en" ? el.dataset.enPh : el.dataset.frPh;
+  });
+}
+
+/* ══ Contexte ══ */
+function fillPays(){
+  const cur = S.pays;
+  $("#pays").innerHTML = PAYS.map(p => `<option value="${esc(p.k)}">${esc(L(p.nom))}</option>`).join("");
+  $("#pays").value = cur;
+}
+$("#pays").addEventListener("change", e => {S.pays = e.target.value; recap();});
+function setSeg(groupSel, v){
+  $$(groupSel + " button").forEach(x => {
+    const on = x.dataset.v === v;
+    x.classList.toggle("on", on); x.setAttribute("aria-pressed", on);
+  });
+}
+$$("#op button").forEach(b => b.addEventListener("click", () => {
+  setSeg("#op", b.dataset.v); S.op = b.dataset.v; S.ans = {}; S.i = 0; recap();
+}));
+$$("#type button").forEach(b => b.addEventListener("click", () => {
+  setSeg("#type", b.dataset.v); S.type = b.dataset.v; S.ans = {}; S.i = 0;
+  $("#typenote").classList.toggle("on", S.type === "vac"); recap();
+}));
+function recap(){
+  const op = L(S.op === "enr" ? ["Enregistrement","Registration"] : ["Renouvellement","Renewal"]);
+  const ty = L({spec:["spécialité","originator"], gen:["générique","generic"], vac:["vaccin","vaccine"]}[S.type]);
+  const n = flow().length;
+  $("#recap").innerHTML = `<b>${esc(op)}</b> · ${esc(ty)} · ${esc(L(paysObj().nom))} — ` +
+    esc(L([`${n} questions, ~3 min`, `${n} questions, ~3 min`]));
+}
+
+/* ══ Navigation ══ */
+function show(id){
+  $$(".panel").forEach(p => p.classList.remove("on"));
+  $(id).classList.add("on");
+  const y = $("#diagnostic").getBoundingClientRect().top + window.scrollY - 70;
+  if (Math.abs(window.scrollY - y) > 120) window.scrollTo({top:y, behavior:RM ? "auto" : "smooth"});
+}
+$("#startBtn").addEventListener("click", () => {S.i = 0; renderQ(); show("#p-q");});
+$("#restart").addEventListener("click", () => {S.ans = {}; S.i = 0; show("#p-ctx");});
+
+/* ══ Questionnaire ══ */
+function renderLocks(el){
+  const f = flow();
+  el.innerHTML = Object.keys(GATES).map(g => {
+    const it = f.find(x => x.gate === g);
+    if (!it) return "";
+    const a = S.ans[it.id];
+    const st = a == null ? "" : (a === "ok" ? "ok" : "ko");
+    const ico = a == null ? "🔒" : (a === "ok" ? "✓" : "✗");
+    return `<span class="lock ${st}">${ico} ${esc(L(GATES[g]))}</span>`;
+  }).join("");
+}
+function renderQ(){
+  const f = flow(), it = f[S.i];
+  if (!it) return;
+  $("#qcount").textContent = `${S.i + 1} / ${f.length}`;
+  renderLocks($("#locks"));
+  const answered = f.filter(x => S.ans[x.id] != null).length;
+  $("#qfill").style.width = (answered / f.length * 100) + "%";
+  $("#qdots").innerHTML = f.map((x, j) => {
+    const done = S.ans[x.id] != null;
+    return `<button type="button" class="qdot ${done ? "done" : ""} ${j === S.i ? "now" : ""}" data-j="${j}" ${done || j === S.i ? "" : "disabled"} aria-label="${esc(L(["Question","Question"]))} ${j+1}" ${j === S.i ? 'aria-current="step"' : ""}></button>`;
+  }).join("");
+  $$("#qdots .qdot.done").forEach(d => d.addEventListener("click", () => {clearTimeout(pending); pending = null; S.i = +d.dataset.j; renderQ();}));
+  $("#qkick").innerHTML =
+    `<span class="pill">${esc(L(AXES[it.axis]))}</span>` +
+    (it.gate ? `<span class="pill gate">🔒 ${esc(L(["Verrou de réception","Reception gate"]))}</span>` : "") +
+    `<span class="pill src">${esc(L(S.op === "enr" ? SRC_ENR : SRC_REN))}</span>`;
+  $("#qtext").textContent = L(it.q);
+  $("#qwhy").textContent = L(it.why);
+
+  /* barre « voir le modèle » */
+  const tw = $("#qtpl");
+  if (it.tpl){
+    const t = TPL[it.tpl];
+    tw.innerHTML = `<div class="tplbar">
+      <span class="tl">${esc(L(["Modèle officiel exigé :","Official template required:"]))} ${esc(L(t.nom))}</span>
+      <button type="button" class="eye" id="eyeBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        ${esc(L(["Voir le modèle","View the template"]))}
+      </button></div>`;
+    $("#eyeBtn").addEventListener("click", () => openTpl(it.tpl, $("#eyeBtn")));
+  } else tw.innerHTML = "";
+
+  const opts = optsFor(it);
+  $("#qopts").innerHTML = opts.map((o, k) =>
+    `<button type="button" class="opt ${S.ans[it.id] === o.k ? "sel-" + o.cls : ""}" data-k="${o.k}" data-cls="${o.cls}">
+       <span class="key" aria-hidden="true">${k + 1}</span><span class="ico" aria-hidden="true">${o.ico}</span>
+       <span>${esc(L(o.label))}${o.sub ? `<small>${esc(L(o.sub))}</small>` : ""}</span>
+     </button>`).join("");
+  $$("#qopts .opt").forEach(b => b.addEventListener("click", () => pick(it, b)));
+  $("#qback").disabled = S.i === 0;
+  const allDone = f.every(x => S.ans[x.id] != null);
+  const nxt = $("#qnext");
+  nxt.hidden = S.ans[it.id] == null;
+  nxt.textContent = L(allDone ? ["Voir mon résultat →","See my result →"] : ["Suivant →","Next →"]);
+  $("#qtext").focus({preventScroll:true});
+}
+let pending = null;
+function advance(){
+  pending = null;
+  const f = flow();
+  const hole = f.findIndex(x => S.ans[x.id] == null);
+  if (hole === -1){ computeResult(); show("#p-res"); return; }
+  const next = f.findIndex((x, j) => j > S.i && S.ans[x.id] == null);
+  S.i = next !== -1 ? next : hole;
+  renderQ();
+}
+function pick(it, btn){
+  S.ans[it.id] = btn.dataset.k;
+  $$("#qopts .opt").forEach(x => x.classList.remove("sel-ok", "sel-nc", "sel-ko", "sel-na"));
+  btn.classList.add("sel-" + btn.dataset.cls);
+  renderLocks($("#locks"));
+  const f = flow();
+  const answered = f.filter(x => S.ans[x.id] != null).length;
+  $("#qfill").style.width = (answered / f.length * 100) + "%";
+  clearTimeout(pending);
+  pending = setTimeout(advance, 320);
+}
+$("#qback").addEventListener("click", () => {clearTimeout(pending); pending = null; if (S.i > 0) {S.i--; renderQ();}});
+$("#qnext").addEventListener("click", () => {clearTimeout(pending); advance();});
+document.addEventListener("keydown", e => {
+  if (!$("#p-q").classList.contains("on")) return;
+  if (anyModalOpen()) return;
+  if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+  const it = flow()[S.i];
+  if (!it) return;
+  const n = parseInt(e.key, 10);
+  if (n >= 1 && n <= optsFor(it).length){ const b = $$("#qopts .opt")[n - 1]; if (b) b.click(); }
+  if (e.key === "ArrowLeft" && S.i > 0){ e.preventDefault(); clearTimeout(pending); pending = null; S.i--; renderQ(); }
+});
+
+/* ══ Résultat ══ */
+function computeResult(){
+  const f = flow();
+  let earned = 0, possible = 0;
+  const ax = {}; Object.keys(AXES).forEach(a => ax[a] = {e:0, p:0});
+  const gates = {}; const miss = []; const flags = [];
+  f.forEach(it => {
+    const a = S.ans[it.id];
+    if (a === "na") return;
+    const v = VAL[a] ?? 0;
+    earned += v * it.w; possible += it.w;
+    ax[it.axis].e += v * it.w; ax[it.axis].p += it.w;
+    if (it.gate) gates[it.gate] = (a === "ok");
+    const prio = it.w + (it.gate ? 100 : 0);
+    if (a === "ko") miss.push({t:it.fixMap ? L(it.fixMap.ko) : L(["À prévoir : ","To prepare: "]) + L(it.piece) + ".", warn:false, w:prio, tpl:it.tpl});
+    else if (a === "nc") miss.push({t:it.fixMap ? L(it.fixMap.nc) : L(["À reprendre : ","To rework: "]) + L(it.piece) + (it.ncNote ? L([` — écart relevé : « ${L(it.ncNote)} »`, ` — gap noted: “${L(it.ncNote)}”`]) : "") + ".", warn:true, w:prio, tpl:it.tpl});
+    if (it.special === "timing" && a === "nc") flags.push(L(["Le délai réglementaire de 120 jours avant expiration n'est pas respecté. Déposez sans attendre et signalez le calendrier à l'autorité.","The regulatory 120-day pre-expiry deadline is not met. File without delay and flag the timeline to the authority."]));
+    if (it.special === "timing" && a === "ko") flags.push(L(["L'AMM est expirée : la voie du renouvellement est fermée. Confirmez le circuit applicable auprès de l'autorité avant d'engager des redevances.","The MA has expired: the renewal route is closed. Confirm the applicable route with the authority before committing any fees."]));
+  });
+  const score = possible ? Math.round(earned / possible * 100) : 0;
+  const gateVals = Object.values(gates);
+  const gateOk = gateVals.filter(Boolean).length;
+  const gateFail = gateVals.some(v => v === false);
+  const p = paysObj();
+  const opTxt = L(S.op === "enr" ? ["Enregistrement","Registration"] : ["Renouvellement","Renewal"]);
+
+  $("#rpills").innerHTML =
+    `<span class="pill" style="background:var(--blue-ghost);color:var(--info-fg)">${esc(opTxt)}</span>
+     <span class="pill">${esc(L({spec:["Spécialité","Originator"], gen:["Générique","Generic"], vac:["Vaccin","Vaccine"]}[S.type]))}</span>
+     <span class="pill">${esc(L(p.nom))} · ${esc(L(["norme de réception de","reception standard of"]))} ${esc(L(p.ag))}</span>`;
+
+  /* jauge de complétude */
+  $("#rprob").innerHTML = `${score} <small>/ 100</small>`;
+  const band = $("#rband");
+  band.style.left = `calc(${score}% - 4px)`;
+
+  /* verdict — état du dossier, au présent */
+  const v = $("#rverdict");
+  let cls, txt, sub;
+  if (gateFail){
+    cls = "v-ko";
+    txt = L(["✗ Verrou de réception non satisfait","✗ Reception gate not met"]);
+    sub = L([`Au moins un verrou de réception n'est pas prêt. L'Annexe IV du Règlement 04/2020 en fait un motif de refus de réception par ${L(p.ag)}. Traitez ces points avant toute autre correction.`,
+             `At least one reception gate is not ready. Annex IV of Regulation 04/2020 makes it a ground for refusal of reception by ${L(p.ag)}. Address these points before any other correction.`]);
+  } else if (score >= 85){
+    cls = "v-ok";
+    txt = L(["✓ Dossier prêt pour le dépôt","✓ Dossier ready for filing"]);
+    sub = L(["Votre déclaration couvre les exigences de réception. Reste le contenu réel des pièces : c'est l'objet d'un audit.",
+             "Your declaration covers the reception requirements. What remains is the actual content of each document: that is what an audit covers."]);
+  } else if (score >= 60){
+    cls = "v-mid";
+    txt = L(["△ Dossier incomplet — à sécuriser avant dépôt","△ Incomplete dossier — secure before filing"]);
+    sub = L(["La structure est en place, mais des pièces manquent ou s'écartent des modèles officiels. Chaque écart relevé en réception coûte des semaines d'aller-retour.",
+             "The structure is in place, but documents are missing or deviate from the official templates. Every gap raised at reception costs weeks of back-and-forth."]);
+  } else {
+    cls = "v-ko";
+    txt = L(["✗ Dossier non prêt pour le dépôt","✗ Dossier not ready for filing"]);
+    sub = L(["Trop de pièces restent à produire ou à mettre en conformité. Déroulez le plan ci-dessous, puis relancez le diagnostic — il est gratuit et illimité.",
+             "Too many documents remain to be produced or brought into compliance. Work through the plan below, then run the diagnostic again — it is free and unlimited."]);
+  }
+  v.className = "verdict " + cls; v.textContent = txt; $("#rsub").textContent = sub;
+
+  $("#restim").innerHTML = "<b>" + esc(L(["Portée du diagnostic. ","Scope of this diagnostic. "])) + "</b>" +
+    esc(L([`Le Checking Standard mesure la complétude de votre dossier au regard des exigences publiées — Règlement n° 04/2020/CM/UEMOA et exigences nationales de ${L(p.ag)}. Il porte sur ce que vous déclarez et ne préjuge pas du contenu réel des pièces. Il ne constitue ni un avis ni une décision de l'autorité compétente : la recevabilité relève exclusivement de ${L(p.ag)}.`,
+           `The Checking Standard measures the completeness of your dossier against published requirements — Regulation No. 04/2020/CM/UEMOA and the national requirements of ${L(p.ag)}. It covers what you declare and does not prejudge the actual content of your documents. It is neither an opinion nor a decision of the competent authority: admissibility rests solely with ${L(p.ag)}.`]));
+
+  renderLocks($("#rlocks"));
+
+  $("#raxes").innerHTML = Object.keys(AXES).filter(a => ax[a].p > 0).map(a => {
+    const pct = Math.round(ax[a].e / ax[a].p * 100);
+    const c = pct >= 85 ? "var(--success)" : pct >= 60 ? "var(--gold)" : "var(--danger)";
+    return `<div class="axis"><div class="lbl"><span>${esc(L(AXES[a]))}</span><span>${pct} %</span></div>
+      <div class="bar"><i style="width:${pct}%;background:${c}"></i></div></div>`;
+  }).join("");
+  $("#rscoretxt").innerHTML = esc(L(["Verrous de réception : ","Reception gates: "])) +
+    `<b>${gateOk} / ${gateVals.length}</b>` + esc(L([" satisfaits"," met"]));
+
+  /* fiche simulée */
+  $("#rfref").textContent = `${opTxt} · ${L(p.nom)} · Checking Standard Pharnos`;
+  $("#rfbody").innerHTML = f.filter(it => it.fiche !== false).map(it => {
+    const a = S.ans[it.id];
+    const oui = a === "ok" || a === "nc", non = a === "ko";
+    const piece = L(it.piece);
+    const note = a === "nc" ? `<span class="note">${esc(L(it.ncNote) || L(["Présent mais non conforme","Present but not compliant"]))}</span>`
+              : (a === "na" ? `<span class="note" style="color:var(--g400)">${esc(L(["Non applicable","Not applicable"]))}</span>` : "");
+    return `<tr><td>${esc(piece.charAt(0).toUpperCase() + piece.slice(1))}${note}</td>
+      <td class="c x">${oui ? "X" : ""}</td><td class="c x">${non ? "X" : ""}</td></tr>`;
+  }).join("");
+  const complet = !gateFail && miss.length === 0;
+  $("#ravis").className = "avis-chip " + (complet ? "ok" : "ko");
+  $("#ravis").textContent = complet ? L(["Complet ☑","Complete ☑"]) : L(["Incomplet ☒","Incomplete ☒"]);
+
+  /* plan de préparation */
+  miss.sort((a, b) => b.w - a.w);
+  $("#rmisswrap").style.display = miss.length ? "" : "none";
+  $("#rmiss").innerHTML = miss.map((m, i) => {
+    const fix = m.tpl && UPGRADABLE.includes(m.tpl)
+      ? `<button type="button" class="fixbtn" data-fixtpl="${esc(m.tpl)}">${esc(L(["Voir le modèle","View template"]))}</button>` : "";
+    return `<li class="${m.warn ? "warn" : ""}"><span class="n">${i + 1}</span><span>${esc(m.t)}</span>${fix}</li>`;
+  }).join("");
+  $$("#rmiss .fixbtn").forEach(b => b.addEventListener("click", () => openTpl(b.dataset.fixtpl, b)));
+
+  const nb = [];
+  if (!complet) nb.push(L(["En conditions réelles, l'autorité notifie les manquants avec un délai de mise en conformité ; passé ce délai, la demande est clôturée sur la plateforme de soumission et une nouvelle soumission — redevances comprises — devient nécessaire.",
+                           "In real conditions, the authority notifies the gaps with a compliance deadline; once that deadline passes, the application is closed on the submission platform and a new submission — fees included — becomes necessary."]));
+  nb.push(...flags);
+  $("#rnb").style.display = nb.length ? "" : "none";
+  $("#rnb").innerHTML = "<b>NB — </b>" + nb.map(esc).join(" ");
+}
+
+/* ══ Prévisualiseur de modèle ══ */
+let tplOpener = null, curTpl = null;
+function openTpl(key, opener){
+  const t = TPL[key];
+  if (!t) return;
+  curTpl = key; tplOpener = opener || null;
+  $("#tplkick").textContent = L(["Modèle officiel","Official template"]);
+  $("#tpltitle").textContent = L(t.nom);
+  const src = key === "rcp" || key === "notice" || key === "etiq"
+    ? `${L(t.src)} · ${L(["adapté au pays sélectionné","adapted to the selected country"])} : ${L(paysObj().nom)}`
+    : L(t.src);
+  $("#tplsrc").textContent = src;
+  $("#tplpage").innerHTML =
+    `<div class="doct">${esc(L(t.doct))}</div>` +
+    t.secs.map(s => {
+      const title = L([s[0], s[1]]);
+      if (title.startsWith("__GRP__")) return `<div class="grp">${esc(title.slice(7))}</div>`;
+      const sub = s[2] ? `<div class="sub2">${esc(L(s[2]))}</div>` : `<div class="ph">xxxxxxxxx</div>`;
+      return `<div class="sec"><b>${esc(title)}</b>${sub}</div>`;
+    }).join("");
+  $("#tplrules").innerHTML = `<b>${esc(L(["Ce que l'examinateur vérifie","What the assessor checks"]))}</b><ul>` +
+    t.rules.map(r => `<li>${esc(L(r))}</li>`).join("") + "</ul>";
+  const up = UPGRADABLE.includes(key);
+  $("#tplDl").textContent = L(["⤓ Télécharger le modèle vierge","⤓ Download the blank template"]);
+  $("#tplUp").textContent = L(["✦ Mettre mon document à niveau","✦ Upgrade my document"]);
+  $("#tplUp").style.display = up ? "" : "none";
+  $("#tplnote").textContent = up
+    ? L(["Vous avez déjà un document ? Regafy AI le reformate sur ce modèle.","Already have a document? Regafy AI reformats it onto this template."])
+    : L(["Modèle OMS à remplir tel quel — format et contenu non modifiables.","WHO template to be completed as is — format and content must not be changed."]);
+  $("#tplModal").classList.add("on");
+  $("#tplclose").focus();
+}
+const closeTpl = () => {
+  if (!$("#tplModal").classList.contains("on")) return;
+  $("#tplModal").classList.remove("on");
+  if (tplOpener && document.body.contains(tplOpener)) tplOpener.focus();
+  tplOpener = null;
+};
+$("#tplclose").addEventListener("click", closeTpl);
+$("#tplModal").addEventListener("click", e => {if (e.target.id === "tplModal") closeTpl();});
+$("#tplDl").addEventListener("click", () => toast(L(["Maquette : téléchargement du modèle officiel (.docx)","Mock-up: downloading the official template (.docx)"])));
+$("#tplUp").addEventListener("click", () => {const k = curTpl; closeTpl(); openUp(k);});
+
+/* ══ Mise à niveau documentaire ══ */
+let upPack = "one", upOpener = null;
+function openUp(key){
+  const t = TPL[key] || TPL.rcp;
+  upOpener = document.activeElement;
+  $("#uptitle").textContent = L(["Mettre ","Bring "]) + L(t.short || ["mon document","my document"]) + L([" au format officiel"," up to the official format"]);
+  $("#updesc").textContent = L([
+    "Vous avez déjà rédigé ce document ? Regafy AI le restructure sur le modèle officiel du pays : rubriques dans l'ordre, intitulés exacts, mentions obligatoires vérifiées, cohérence RCP / notice / étiquetage. Vous récupérez un Word éditable et son PDF.",
+    "Already drafted this document? Regafy AI restructures it onto the country's official template: sections in order, exact headings, mandatory particulars checked, SmPC / leaflet / labelling consistency. You get an editable Word file and its PDF."]);
+  renderUpPack();
+  $("#upsteps").innerHTML = [
+    L(["Vous téléversez votre document (Word ou PDF) dans un espace chiffré.","You upload your document (Word or PDF) into an encrypted space."]),
+    L(["Regafy AI le remet sur le modèle officiel et signale ce qui manque pour le compléter.","Regafy AI puts it back onto the official template and flags what is missing to complete it."]),
+    L(["Vous recevez le Word éditable et le PDF en quelques minutes.","You receive the editable Word file and the PDF within minutes."]),
+  ].map((s, i) => `<div><span class="s">${i + 1}</span> ${esc(s)}</div>`).join("");
+  $("#upsafe").textContent = L([
+    "🔐 Document chiffré, jamais réutilisé pour entraîner un modèle, supprimé sous 30 jours. Cette mise à niveau est offerte dans les audits Expert RA et Expert Senior.",
+    "🔐 Encrypted document, never reused to train a model, deleted within 30 days. This upgrade is included free in the Expert RA and Senior Expert audits."]);
+  $("#upModal").classList.add("on");
+  $("#upclose").focus();
+}
+function renderUpPack(){
+  const rows = [
+    {k:"one", t:["Ce document seul","This document only"], s:["RCP, notice ou étiquetage — au choix","SmPC, leaflet or labelling — your choice"], p:PRICE.up1},
+    {k:"pack", t:["Pack Textes du produit","Product texts pack"], s:["RCP + notice + étiquetage, mis en cohérence entre eux","SmPC + leaflet + labelling, made consistent with each other"], p:PRICE.up3, save:true},
+  ];
+  $("#uppick").innerHTML = rows.map(r =>
+    `<button type="button" class="uprow ${upPack === r.k ? "on" : ""}" data-pack="${r.k}" aria-pressed="${upPack === r.k}">
+       <span class="rt"><b>${esc(L(r.t))}${r.save ? `<span class="upsave">−20 %</span>` : ""}</b><span>${esc(L(r.s))}</span></span>
+       <span class="rp">${esc(price(r.p))}<small>${esc(price(r.p, "alt"))}</small></span>
+     </button>`).join("");
+  $$("#uppick .uprow").forEach(b => b.addEventListener("click", () => {upPack = b.dataset.pack; renderUpPack(); updateUpPay();}));
+  updateUpPay();
+}
+function updateUpPay(){
+  const p = upPack === "pack" ? PRICE.up3 : PRICE.up1;
+  $("#uppay").textContent = L(["Régler ","Pay "]) + price(p) + L([" et téléverser"," and upload"]);
+}
+const closeUp = () => {
+  if (!$("#upModal").classList.contains("on")) return;
+  $("#upModal").classList.remove("on");
+  if (upOpener && document.body.contains(upOpener)) upOpener.focus();
+  upOpener = null;
+};
+$("#upclose").addEventListener("click", closeUp);
+$("#upcancel").addEventListener("click", closeUp);
+$("#upModal").addEventListener("click", e => {if (e.target.id === "upModal") closeUp();});
+$("#updrop").addEventListener("click", () => toast(L(["Maquette : le téléversement s'ouvre après le paiement","Mock-up: upload opens after payment"])));
+$("#uppay").addEventListener("click", () => toast(L(["Maquette : paiement puis espace de téléversement chiffré","Mock-up: payment then encrypted upload space"])));
+
+/* ══ Modale offre ══ */
+const OFFERS = {
+  ai:{
+    kick:"Audit Regafy AI",
+    t:["Audit automatisé de votre Module 1","Automated audit of your Module 1"],
+    d:["Le moteur d'audit du CTD Builder Pharnos, en version renforcée : +200 points de contrôle, conformité aux modèles officiels, rapport livré quelques minutes après le paiement, re-scan gratuit après corrections.",
+       "The Pharnos CTD Builder audit engine, reinforced: 200+ checkpoints, official template conformity, report delivered within minutes of payment, free re-scan after corrections."],
+    p:PRICE.aiLaunch,
+    per:["/ dossier / pays · prix de lancement","/ dossier / country · launch price"],
+    steps:[
+      ["Vous réglez en ligne — carte, virement ou mobile money.","You pay online — card, bank transfer or mobile money."],
+      ["Votre espace chiffré s'ouvre : vous téléversez votre Module 1.","Your encrypted space opens: you upload your Module 1."],
+      ["Le rapport annoté arrive par e-mail quelques minutes plus tard.","The annotated report arrives by e-mail a few minutes later."],
+    ]},
+  exp:{
+    kick:"Audit Expert RA",
+    t:["Revue humaine par un expert RA UEMOA","Human review by a WAEMU regulatory expert"],
+    d:["L'audit AI, puis une revue humaine intégrale par un expert en exercice : rapport d'expertise, plan d'action priorisé, restitution en visio de 45 minutes, mise à niveau de vos textes produit offerte.",
+       "The AI audit, then a full human review by a practising expert: expert report, prioritised action plan, 45-minute video debrief, product texts upgrade included."],
+    p:PRICE.exp,
+    per:["/ dossier / pays · sous 7 jours ouvrés","/ dossier / country · within 7 business days"],
+    steps:[
+      ["Vous réglez en ligne et signez le NDA si vous le souhaitez.","You pay online and sign the NDA if you wish."],
+      ["Vous téléversez votre dossier ; un expert vérifié vous est affecté.","You upload your dossier; a vetted expert is assigned to you."],
+      ["Rapport sous 7 jours ouvrés, puis restitution en visio planifiée en un clic.","Report within 7 business days, then a video debrief booked in one click."],
+    ]},
+  sen:{
+    kick:"Audit Expert Senior",
+    t:["Audit approfondi et masterclass","In-depth audit and masterclass"],
+    d:["Mené par un Dr en pharmacie ou un ancien cadre d'agence nationale : Module 1 et cohérence M2–M5, stratégie de dépôt multi-pays, masterclass de 2 heures pour votre équipe et hotline dédiée 30 jours.",
+       "Led by a PharmD or a former national agency officer: Module 1 and M2–M5 consistency, multi-country filing strategy, a 2-hour masterclass for your team and a dedicated 30-day hotline."],
+    p:PRICE.sen,
+    per:["/ dossier · à partir de · sous 10 jours ouvrés","/ dossier · from · within 10 business days"],
+    steps:[
+      ["Vous échangez 20 minutes avec le senior pour cadrer le périmètre.","You spend 20 minutes with the senior expert to frame the scope."],
+      ["Vous recevez un devis ferme, puis votre espace chiffré s'ouvre.","You receive a firm quote, then your encrypted space opens."],
+      ["Rapport et lettre de recommandations sous 10 jours ouvrés, masterclass planifiée.","Report and recommendation letter within 10 business days, masterclass scheduled."],
+    ]},
+};
+let modalOpener = null;
+function openOffer(key, opener){
+  const o = OFFERS[key];
+  if (!o) return;
+  $("#mkick").textContent = o.kick;
+  $("#mtitle").textContent = L(o.t);
+  $("#mdesc").textContent = L(o.d);
+  $("#mprice").textContent = price(o.p);
+  $("#mper").textContent = `${price(o.p, "alt")} · ${L(o.per)}`;
+  $("#msteps").innerHTML = o.steps.map((s, i) => `<div><span class="s">${i + 1}</span> ${esc(L(s))}</div>`).join("");
+  $("#msafe").textContent = L(["🔐 Aucun document n'est demandé avant paiement. Chiffrement de bout en bout, suppression sur demande, NDA disponible.",
+                               "🔐 No document is requested before payment. End-to-end encryption, deletion on request, NDA available."]);
+  modalOpener = opener || null;
+  $("#modal").classList.add("on");
+  $("#mclose").focus();
+}
+$$("[data-offer]").forEach(b => b.addEventListener("click", () => openOffer(b.dataset.offer, b)));
+const closeModal = () => {
+  if (!$("#modal").classList.contains("on")) return;
+  $("#modal").classList.remove("on");
+  if (modalOpener && document.body.contains(modalOpener)) modalOpener.focus();
+  modalOpener = null;
+};
+$("#mclose").addEventListener("click", closeModal);
+$("#mcancel").addEventListener("click", closeModal);
+$("#modal").addEventListener("click", e => {if (e.target.id === "modal") closeModal();});
+$("#mpay").addEventListener("click", () => toast(L(["Maquette : agrégateur de paiement UEMOA + carte internationale","Mock-up: WAEMU payment aggregator + international card"])));
+
+/* ══ Modales : Échap et piège à focus, sur la modale du dessus ══ */
+const MODALS = ["#upModal", "#tplModal", "#modal"];
+const topModal = () => MODALS.map($).find(m => m.classList.contains("on")) || null;
+const anyModalOpen = () => !!topModal();
+const closers = {"#modal":closeModal, "#tplModal":closeTpl, "#upModal":closeUp};
+document.addEventListener("keydown", e => {
+  const m = topModal();
+  if (!m) return;
+  if (e.key === "Escape"){ e.preventDefault(); closers["#" + m.id](); return; }
+  if (e.key !== "Tab") return;
+  const foc = Array.from(m.querySelectorAll("button, input, select, a[href]"))
+    .filter(x => !x.disabled && x.offsetParent !== null);
+  if (!foc.length) return;
+  const first = foc[0], last = foc[foc.length - 1];
+  if (e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+});
+
+/* ══ Prix affichés dans les cartes ══ */
+function renderPrices(){
+  const card = (p, opts) => {
+    const from = opts && opts.from ? `<span class="from">${esc(L(["à partir de","from"]))}</span>` : "";
+    const launch = opts && opts.launch
+      ? `<span class="launch">${esc(L(["Prix de lancement — ensuite ","Launch price — then "]))}${esc(price(PRICE.ai))}</span>` : "";
+    return `${from}<b>${esc(price(p))}</b>
+      <span class="alt">${esc(price(p, "alt"))}</span>
+      <span class="unit">${esc(L(opts && opts.unit ? opts.unit : ["/ dossier / pays","/ dossier / country"]))}</span>
+      ${launch ? "<br>" + launch : ""}`;
+  };
+  $('[data-price="ai"]').innerHTML = card(PRICE.aiLaunch, {launch:true});
+  $('[data-price="exp"]').innerHTML = card(PRICE.exp);
+  $('[data-price="sen"]').innerHTML = card(PRICE.sen, {from:true, unit:["/ dossier","/ dossier"]});
+}
+
+/* ══ Switches langue / devise ══ */
+$$("#swLang button").forEach(b => b.addEventListener("click", () => {
+  lang = b.dataset.v; setSeg("#swLang", lang); applyLang(); refreshAll();
+}));
+$$("#swCur button").forEach(b => b.addEventListener("click", () => {
+  cur = b.dataset.v; setSeg("#swCur", cur); refreshAll();
+}));
+function refreshAll(){
+  fillPays(); recap(); renderPrices();
+  if ($("#p-q").classList.contains("on")) renderQ();
+  if ($("#p-res").classList.contains("on")) computeResult();
+  if ($("#upModal").classList.contains("on")) renderUpPack();
+  if ($("#tplModal").classList.contains("on")) openTpl(curTpl, tplOpener);
+}
+/* devise par défaut : FCFA en Afrique de l'Ouest, EUR ailleurs */
+(function detectCurrency(){
+  try{
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    if (!/^Africa\//.test(tz)){ cur = "eur"; setSeg("#swCur", "eur"); }
+  } catch(_){ /* devise par défaut conservée */ }
+})();
+
+/* ══ Démo : dossier industriel réel ══ */
+$("#demoBtn").addEventListener("click", () => {
+  S.pays = "bj"; S.op = "enr"; S.type = "gen"; S.i = 0;
+  $("#pays").value = "bj";
+  setSeg("#op", "enr"); setSeg("#type", "gen");
+  $("#typenote").classList.remove("on");
+  S.ans = {m1:"nc", rcp:"nc", not:"nc", etiq:"ok", btif:"ko", dis:"ko", pgr:"na", dmf:"na",
+           m2:"ok", qos:"ok", m3:"ok", m4:"ok", m5:"ok", ech:"ok", pay:"ko"};
+  recap(); computeResult(); show("#p-res");
+  toast(L(["Exemple : un dossier industriel réel, tel que reçu en réception",
+           "Example: a real industrial dossier, as received at reception"]));
+});
+
+/* ══ Livraison du rapport ══ */
+const toast = msg => {
+  const el = $("#toast"); el.textContent = msg; el.classList.add("on");
+  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("on"), 3200);
+};
+const canSend = () => $("#cReport").checked ? true
+  : (toast(L(["Cochez la case « envoi du rapport » pour le recevoir","Tick the “send my report” box to receive it"])), $("#cReport").focus(), false);
+$("#sendMail").addEventListener("click", () => {
+  if (!canSend()) return;
+  const ok = $("#demail").value.includes("@");
+  if (!ok) $("#demail").focus();
+  toast(ok ? L(["Maquette : rapport envoyé par e-mail (Edge + Resend + Turnstile)","Mock-up: report sent by e-mail (Edge + Resend + Turnstile)"])
+           : L(["Saisissez votre e-mail professionnel","Enter your work e-mail"]));
+});
+$("#sendWa").addEventListener("click", () => {
+  if (!canSend()) return;
+  const ok = $("#dwa").value.trim().length > 5;
+  if (!ok) $("#dwa").focus();
+  toast(ok ? L(["Maquette : lien wa.me ouvert avec votre rapport signé","Mock-up: wa.me link opened with your signed report"])
+           : L(["Saisissez votre numéro WhatsApp","Enter your WhatsApp number"]));
+});
+$("#dlBtn").addEventListener("click", () => toast(L(["Maquette : PDF généré côté client — identique à la fiche simulée","Mock-up: PDF generated client-side — identical to the simulated form"])));
+$("#ctaBuilder").addEventListener("click", e => {e.preventDefault(); toast(L(["Maquette : ouverture de l'essai CTD Builder (30 j, sans carte)","Mock-up: opening the CTD Builder trial (30 days, no card)"]));});
+
+/* ══ Amorçage ══ */
+fillPays(); recap(); renderPrices(); applyLang();
+</script>
+</body>
+</html>

@@ -21,7 +21,8 @@
     "e2e:ui": "playwright test --ui",
     "e2e:report": "playwright show-report",
     "headers": "node scripts/check-headers.mjs",
-    "build:landing-en": "node scripts/build-landing-en.mjs"
+    "build:landing-en": "node scripts/build-landing-en.mjs",
+    "build:checking-bareme": "node scripts/build-checking-bareme.mjs"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.2.8",

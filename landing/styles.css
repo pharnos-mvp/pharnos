@@ -77,6 +77,33 @@
     font-size: clamp(13px,1vw,15px); font-weight: 500; color: var(--g600); white-space: nowrap; }
   .site-nav a { transition: var(--transition); }
   .site-nav a:hover { color: var(--g900); }
+  .site-nav a[aria-current="page"] { color: var(--g900); font-weight: 600; }
+
+  /* ── Menu « Outils » : une seule entrée déroulante, la surface d'acquisition. Chaque nouvel
+     outil gratuit y ajoute une ligne au lieu d'un lien de premier niveau — le header ne grossit
+     plus. Patron « disclosure » (bouton + aria-expanded), pas un menu ARIA : ce sont des liens
+     de navigation, la sémantique native suffit et reste robuste sans JS. ── */
+  .navitem { position: relative; display: flex; align-items: center; }
+  .navtrigger { display: inline-flex; align-items: center; gap: 5px; font: inherit; color: inherit;
+    background: none; border: 0; padding: 0; cursor: pointer; transition: var(--transition); }
+  .navtrigger:hover, .navtrigger[aria-expanded="true"] { color: var(--g900); }
+  .navtrigger .chev { width: 13px; height: 13px; transition: transform .18s ease; }
+  .navtrigger[aria-expanded="true"] .chev { transform: rotate(180deg); }
+  .navmenu { position: absolute; top: calc(100% + 12px); left: 50%; transform: translateX(-50%);
+    min-width: 310px; background: #fff; border: 1px solid var(--g200); border-radius: 14px;
+    box-shadow: var(--shadow-soft); padding: 8px; display: grid; gap: 2px; z-index: 60; white-space: normal; }
+  .navmenu[hidden] { display: none; }
+  .navmenu a, .navmenu .soon { display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; }
+  .navmenu a:hover { background: var(--g50); }
+  .navmenu .mt { font-size: 14px; font-weight: 700; color: var(--navy); }
+  .navmenu .md { font-size: 12.5px; font-weight: 400; color: var(--g500); line-height: 1.45; }
+  .navmenu .soon { cursor: default; }
+  .navmenu .soon .mt { color: var(--g400); }
+  .navmenu .soon .md { color: var(--g400); }
+  .navmenu .tag { display: inline-block; margin-left: 8px; font-size: 10px; font-weight: 800;
+    letter-spacing: .06em; text-transform: uppercase; color: var(--g500); background: var(--g100);
+    border-radius: 5px; padding: 2px 7px; vertical-align: middle; }
+  .navmenu a .tag { color: var(--success-fg); background: var(--success-subtle); }
   .login { flex-shrink: 0; font-size: clamp(13px,1vw,15px); font-weight: 600; color: var(--g800);
     border: 1px solid var(--g300); border-radius: 999px; padding: 7px 18px; white-space: nowrap; transition: var(--transition); }
   .login:hover { background: var(--g50); border-color: var(--g400); }
@@ -99,7 +126,21 @@
     .mnav[hidden] { display: none; }
     .mnav a { padding: 11px 2px; font-size: 15px; font-weight: 600; color: var(--g800); border-bottom: 1px solid var(--g100); }
     .mnav a.btn { justify-content: center; margin-top: 10px; border-bottom: 0; color: #fff; }
+    /* Sur mobile, « Outils » n'est pas un déroulant : un déroulant dans un menu déjà déroulant
+       coûte un geste pour rien. Le groupe est déplié, simplement intitulé. */
+    .mgroup { display: grid; gap: 2px; padding: 8px 0 4px; }
+    .mglabel { font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+      color: var(--g400); padding: 4px 2px; }
+    .mnav .mgroup a { padding-left: 12px; }
+    .msoon { padding: 11px 2px 11px 12px; font-size: 15px; font-weight: 600; color: var(--g400);
+      border-bottom: 1px solid var(--g100); }
+    .msoon .tag { font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--g500); background: var(--g100); border-radius: 5px; padding: 2px 7px; margin-left: 8px; }
   }
+  /* En superposition sur la couverture, le menu reste une carte blanche lisible ; seul le
+     déclencheur suit la teinte claire du header transparent. */
+  .site-header.on-cover .navtrigger:hover,
+  .site-header.on-cover .navtrigger[aria-expanded="true"] { color: #fff; }
 
   /* ── Hero = couverture PLEIN ÉCRAN (DA CEO : immersive, header fondu, preuves en pied) ── */
   .hero { margin-top: -58px; padding-top: 58px; min-height: 100vh; display: flex; flex-direction: column;
