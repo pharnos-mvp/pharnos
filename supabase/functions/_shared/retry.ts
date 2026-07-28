@@ -24,7 +24,11 @@ export interface RetryOptions {
 
 const isTransient = (e: unknown): boolean => {
   if (e instanceof HttpError) return e.status === 429 || e.status >= 500
-  // AbortError (timeout) et TypeError (réseau coupé) : transitoires.
+  // TypeError (réseau coupé) et AbortError (annulation explicite) : transitoires.
+  // ⚠️ Un timeout de fetch (`AbortSignal.timeout`) remonte en `TimeoutError`, PAS en `AbortError` :
+  // il n'est donc VOLONTAIREMENT pas re-tenté. C'est l'invariant qui tient le budget : sous un mur
+  // de wall clock de 150 s, une seconde tentative après 120 s ne peut pas aboutir — elle
+  // transformerait un 502 propre en 546 plateforme. Ne pas « corriger » en ajoutant TimeoutError.
   return e instanceof Error && (e.name === 'AbortError' || e.name === 'TypeError')
 }
 

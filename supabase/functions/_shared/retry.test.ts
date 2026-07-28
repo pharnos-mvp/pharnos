@@ -73,6 +73,25 @@ Deno.test('withRetry : erreur réseau (TypeError) → transitoire', async () => 
   assertEquals(calls, 2)
 })
 
+Deno.test('withRetry : timeout de fetch (TimeoutError) → AUCUN retry', async () => {
+  // Invariant de budget : sous un mur de wall clock de 150 s, re-tenter après un timeout de 120 s
+  // ne peut pas aboutir. `AbortSignal.timeout` remonte un TimeoutError (≠ AbortError) : il doit
+  // rester déterministe. Ce test verrouille l'écart de nom, facile à « corriger » par erreur.
+  let calls = 0
+  await assertRejects(
+    () =>
+      withRetry(
+        () => {
+          calls++
+          throw new DOMException('Signal timed out.', 'TimeoutError')
+        },
+        { baseMs: 1 },
+      ),
+    DOMException,
+  )
+  assertEquals(calls, 1)
+})
+
 Deno.test('CircuitBreaker : s’ouvre après le seuil, échec immédiat ensuite', async () => {
   const breaker = new CircuitBreaker(2, 60_000)
   const boom = () => breaker.run(() => Promise.reject(new HttpError(500, 'down')))

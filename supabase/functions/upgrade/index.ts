@@ -22,7 +22,10 @@ import { generateParts, streamParts, type Part } from '../_shared/vertex.ts'
 const MAX_FILE_BYTES = 12 * 1024 * 1024
 const MAX_TEXT_CHARS = 60_000
 const STORAGE_BUCKET = 'documents'
-const UPGRADE_TIMEOUT_MS = 180_000
+// 120 s et non 180 : le mur de wall clock Edge est à 150 s (plan `free`). Un garde-fou au-delà
+// ne se déclenche jamais — la plateforme tue le worker en 546 avant. Les 30 s de marge couvrent
+// le téléchargement Storage (jusqu'à 12 Mo), l'encodage base64 et l'écriture de la réponse.
+const UPGRADE_TIMEOUT_MS = 120_000
 
 /** Marqueur officiel des rubriques sans information source — contrat avec le client (compteur). */
 export const MISSING_MARKER = '[NON FOURNI DANS LE DOCUMENT SOURCE]'
