@@ -10,12 +10,16 @@ import { buildTranslateSystem } from '../_shared/pharma-glossary.ts'
 import { activeOrgFromRequest, checkAiQuota, recordAiUsage } from '../_shared/quota.ts'
 import { vertexSseToSimple } from '../_shared/sse.ts'
 import { withUsage } from '../_shared/usage.ts'
-import { generateParts, streamParts, type Part } from '../_shared/vertex.ts'
+import { generateParts, MAX_CALL_TIMEOUT_MS, streamParts, type Part } from '../_shared/vertex.ts'
 
 const MAX_FILE_BYTES = 12 * 1024 * 1024
 const MAX_TEXT_CHARS = 60_000
 // Traduction multimodale d'un PDF complet : l'appel Vertex le plus long de l'app.
 const TRANSLATE_TIMEOUT_MS = 90_000
+// Le mode FLUX vit plus longtemps que le mode bloquant : le premier texte est déjà chez le client,
+// et un document long tient jusqu'à `maxOutputTokens`. On lui laisse tout le budget disponible
+// sous le mur plateforme (`MAX_CALL_TIMEOUT_MS`), pas les 90 s du mode bloquant.
+const TRANSLATE_STREAM_TIMEOUT_MS = MAX_CALL_TIMEOUT_MS
 const STORAGE_BUCKET = 'documents'
 const LANG_NAMES: Record<string, string> = {
   fr: 'français',
@@ -165,7 +169,7 @@ Deno.serve(async (req: Request) => {
         system,
         maxOutputTokens: 8192,
         temperature: 0.1,
-        timeoutMs: TRANSLATE_TIMEOUT_MS,
+        timeoutMs: TRANSLATE_STREAM_TIMEOUT_MS,
       })
       const out = vertexSseToSimple(
         vertexRes.body!,
