@@ -165,7 +165,7 @@ Deno.serve(async (req: Request) => {
         system,
         maxOutputTokens: 8192,
         temperature: 0.1,
-        timeoutMs: 180_000,
+        timeoutMs: TRANSLATE_TIMEOUT_MS,
       })
       const out = vertexSseToSimple(
         vertexRes.body!,

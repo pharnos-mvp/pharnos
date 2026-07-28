@@ -12,6 +12,31 @@ import { addUsage } from './usage.ts'
 const OAUTH_TIMEOUT_MS = 10_000
 const breaker = new CircuitBreaker()
 
+/**
+ * Mur de la plateforme Edge (plan `free`) : le worker est tué à 150 s de wall clock, quel que soit
+ * NOTRE timeout. Un garde-fou au-delà de ce mur ne peut donc JAMAIS se déclencher — la requête
+ * meurt en 546 côté plateforme au lieu de rendre un 502 propre au client.
+ */
+export const EDGE_WALL_CLOCK_MS = 150_000
+
+/**
+ * Plafond de tout appel sortant : 120 s. Les 30 s restantes couvrent ce qui se passe AVANT et
+ * APRÈS l'appel dans la même invocation (JWT, téléchargement Storage, base64, écriture de la
+ * réponse). Voir PLAN-MOTEUR-IA.md §2 (S0) et §9 (M0).
+ */
+export const MAX_CALL_TIMEOUT_MS = 120_000
+
+/**
+ * Timeout effectif d'un appel : défaut du mode, borné au plafond plateforme. La garantie vit ici,
+ * dans la fonction qui LANCE le fetch — aucun appelant ne peut poser un garde-fou mort.
+ */
+export function boundedTimeout(requested: number | undefined, fallbackMs: number): number {
+  const wanted = Number.isFinite(requested) && (requested as number) > 0
+    ? (requested as number)
+    : fallbackMs
+  return Math.min(wanted, MAX_CALL_TIMEOUT_MS)
+}
+
 interface ServiceAccount {
   client_email: string
   private_key: string
@@ -115,7 +140,11 @@ export interface GenerateOptions {
   json?: boolean
   /** Modèle Gemini pour CET appel (surcharge le défaut `GCP_MODEL`). Ex. validité → flash. */
   model?: string
-  /** Timeout de l'appel Vertex (défaut 60 s ; traduction de gros PDF → 90 s). */
+  /**
+   * Timeout de l'appel Vertex (défaut 60 s ; traduction de gros PDF → 90 s).
+   * Toujours borné à `MAX_CALL_TIMEOUT_MS` : une valeur supérieure au mur plateforme serait un
+   * garde-fou mort.
+   */
   timeoutMs?: number
 }
 
@@ -137,7 +166,7 @@ export function generateParts(parts: Part[], opts: GenerateOptions = {}): Promis
   }
   if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] }
   const payload = JSON.stringify(body)
-  const timeoutMs = opts.timeoutMs ?? 60_000
+  const timeoutMs = boundedTimeout(opts.timeoutMs, 60_000)
 
   // Retry borné (transitoires only) autour de l'appel complet, breaker partagé par isolate.
   return breaker.run(() =>
@@ -191,7 +220,7 @@ export function streamParts(parts: Part[], opts: GenerateOptions = {}): Promise<
   if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] }
   const payload = JSON.stringify(body)
   // Le signal borne TOUT le flux (établissement + lecture) — garde-fou global.
-  const timeoutMs = opts.timeoutMs ?? 180_000
+  const timeoutMs = boundedTimeout(opts.timeoutMs, MAX_CALL_TIMEOUT_MS)
 
   return breaker.run(() =>
     withRetry(async () => {
