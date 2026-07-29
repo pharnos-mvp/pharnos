@@ -123,6 +123,7 @@ Deno.serve(async (req: Request) => {
   // d'abord : on traduit la VERSION CONFORME, un document généré).
   let sourcePart: Part
   let sourceBytes = 0
+  let inputTruncated = false
   if (b.filePath) {
     const { data, error } = await supabase.storage.from(STORAGE_BUCKET).download(b.filePath)
     if (error || !data) return json({ error: 'document introuvable' }, 404)
@@ -135,7 +136,11 @@ Deno.serve(async (req: Request) => {
       inlineData: { mimeType: mimeFor(b.fileName ?? 'document'), data: bytesToBase64(buf) },
     }
   } else {
-    const text = String(b.text).slice(0, MAX_TEXT_CHARS)
+    const rawText = String(b.text)
+    // Couper l'ENTRÉE sans le dire produit une traduction « complète » d'un document amputé —
+    // indétectable côté client. On tronque toujours (borne de sécurité), mais on le signale.
+    inputTruncated = rawText.length > MAX_TEXT_CHARS
+    const text = rawText.slice(0, MAX_TEXT_CHARS)
     if (!text.trim()) return json({ error: 'texte source vide' }, 400)
     sourceBytes = text.length
     sourcePart = { text: `DOCUMENT À TRADUIRE :\n${text}` }
@@ -158,6 +163,7 @@ Deno.serve(async (req: Request) => {
   logJson({
     ...log,
     op: 'start',
+    inputTruncated,
     bytes: sourceBytes,
     fromText: !b.filePath,
     docType,
@@ -218,5 +224,11 @@ Deno.serve(async (req: Request) => {
   }
 
   logJson({ ...log, op: 'translate', ms: Date.now() - started, status: 'ok', chars: text.length })
-  return json({ text, targetLang: b.targetLang || 'fr' })
+  // Champ ADDITIF : le client peut avertir que la source a été coupée avant traduction. Les
+  // clients existants l'ignorent — aucune rupture de contrat.
+  return json({
+    text,
+    targetLang: b.targetLang || 'fr',
+    ...(inputTruncated ? { inputTruncated: true } : {}),
+  })
 })

@@ -6,6 +6,7 @@
 // Confidentialité : Vertex no-train ; les secrets restent côté Edge (jamais exposés au client).
 // Robustesse (T2, PLAN-V2) : timeout sur chaque fetch, retry borné sur transitoires uniquement
 // (429/5xx/réseau — jamais un 400), circuit breaker partagé par isolate.
+import { finishProblem, finishProblemMessage } from './ai/finish.ts'
 import { boundedTimeout, MAX_CALL_TIMEOUT_MS } from './ai/limits.ts'
 import type { Part } from './ai/types.ts'
 import { CircuitBreaker, HttpError, withRetry } from './retry.ts'
@@ -166,6 +167,12 @@ export function generateParts(parts: Part[], opts: GenerateOptions = {}): Promis
         )
       }
       const data = await res.json()
+      // Une génération peut s'arrêter AVANT la fin sans erreur HTTP : le JSON est valide, le texte
+      // est incomplet. C'est le pire mode de panne — il ne ressemble pas à une panne. On le lève
+      // ici, dans la fonction qui produit le texte, plutôt que de rendre un document tronqué.
+      // Erreur DÉTERMINISTE (pas un HttpError) : re-tenter donnerait la même troncature.
+      const problem = finishProblem(data?.candidates?.[0]?.finishReason)
+      if (problem) throw new Error(finishProblemMessage(problem, 'vertex.generate'))
       const out = data?.candidates?.[0]?.content?.parts ?? []
       const text = out.map((p: { text?: string }) => p.text ?? '').join('')
       // Comptage des tokens IA (quota par org, M1) : usageMetadata si fourni par Vertex, sinon
