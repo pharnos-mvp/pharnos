@@ -74,7 +74,7 @@ produire un JSON invalide. Ce n'est pas une consigne de prompt, c'est mécanique
 1. **`section_id` en `enum`**, alimenté depuis `conformity-specs.ts` → inventer une rubrique absente
    du gabarit devient **structurellement impossible**.
 2. **`status` en `enum` remplace le marqueur texte.** Aujourd'hui le compteur fait un `grep` sur
-   `[NON FOURNI DANS LE DOCUMENT SOURCE]` — un contrat fragile fondé sur une chaîne de caractères.
+   `[Non fourni, à compléter]` — un contrat fragile fondé sur une chaîne de caractères.
    Demain c'est un champ typé ; le marqueur devient une **conséquence d'affichage**.
    ⚠️ La constante `MISSING_MARKER` reste le libellé rendu : elle ne disparaît pas, elle cesse
    d'être le mécanisme.

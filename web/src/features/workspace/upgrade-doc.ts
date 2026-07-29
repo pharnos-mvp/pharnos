@@ -7,7 +7,7 @@ import { getSupabase } from '@/lib/supabase'
  * Marqueur des rubriques sans information source (contrat avec l'Edge `upgrade`) — compté par
  * la bannière de revue : l'utilisateur doit compléter ces rubriques avant usage.
  */
-export const MISSING_MARKER = '[NON FOURNI DANS LE DOCUMENT SOURCE]'
+export const MISSING_MARKER = '[Non fourni, à compléter]'
 
 /** Nombre d'occurrences d'un marqueur dans un texte (bannières de revue upgrade/fill). */
 export function countMarker(text: string, marker: string): number {
@@ -40,7 +40,7 @@ export interface UpgradeInput {
 /**
  * Mise en conformité (Regafy Upgrade) — appelle l'Edge `upgrade` qui restructure le document
  * selon le template officiel en vigueur, ZÉRO invention (rubriques absentes marquées
- * [NON FOURNI DANS LE DOCUMENT SOURCE]). Assistif : la version produite est à relire.
+ * [Non fourni, à compléter]). Assistif : la version produite est à relire.
  *
  * Avec `onChunk` : streaming SSE (le document s'écrit au fil de l'eau) ; repli JSON sinon.
  */

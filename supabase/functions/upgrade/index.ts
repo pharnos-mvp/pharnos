@@ -4,7 +4,7 @@
 //
 // ZÉRO HALLUCINATION (règle absolue) : chaque information du document produit provient du
 // document source ; toute rubrique du template sans information correspondante reçoit EXACTEMENT
-// le marqueur [NON FOURNI DANS LE DOCUMENT SOURCE]. Température 0.
+// le marqueur [Non fourni, à compléter]. Température 0.
 //
 // Contrat sécurité (ADR 0002) : JWT vérifié, CORS whitelist, bornes d'entrée, Storage via le
 // JWT appelant (RLS), logs JSON sans PII, Vertex no-train.

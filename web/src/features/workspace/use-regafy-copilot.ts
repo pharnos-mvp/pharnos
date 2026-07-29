@@ -654,8 +654,8 @@ export function useRegafyCopilot({
           }),
           {
             description: tStatic({
-              fr: 'Complétez les rubriques marquées [NON FOURNI DANS LE DOCUMENT SOURCE].',
-              en: 'Complete the sections marked [NON FOURNI DANS LE DOCUMENT SOURCE].',
+              fr: 'Complétez les rubriques marquées [Non fourni, à compléter].',
+              en: 'Complete the sections marked [Non fourni, à compléter].',
             }),
           },
         )
