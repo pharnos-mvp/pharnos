@@ -31,6 +31,12 @@ export interface AiOptions {
   timeoutMs?: number
   /** Fournisseur pour CET appel (défaut : variable `AI_PROVIDER`, sinon `vertex`). */
   provider?: Provider
+  /**
+   * Repli serveur en cas de refus des classificateurs — ACTIF PAR DÉFAUT côté Anthropic.
+   * `false` le désactive : à ne faire que pour mesurer le taux de refus brut (banc d'essai M3),
+   * jamais sur un livrable client, où un refus non rattrapé est une panne produit.
+   */
+  fallbacks?: boolean
 }
 
 /** Observabilité du mode flux : appelés à la fin du flux, jamais dans la boucle chaude. */
