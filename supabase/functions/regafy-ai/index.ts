@@ -25,7 +25,7 @@ import {
 } from '../_shared/regafy-i18n.ts'
 import { activeOrgFromRequest, checkAiQuota, recordAiUsage } from '../_shared/quota.ts'
 import { withUsage } from '../_shared/usage.ts'
-import { generateParts, generateText, type Part } from '../_shared/vertex.ts'
+import { generateParts, generateText, type Part } from '../_shared/ai/provider.ts'
 
 interface LetterInput {
   nodeNumber: string

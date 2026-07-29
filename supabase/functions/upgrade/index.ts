@@ -15,9 +15,8 @@ import { corsHeaders, isAllowedOrigin } from '../_shared/cors.ts'
 import { logJson, newReqId, userHash } from '../_shared/log.ts'
 import { frenchCalibration } from '../_shared/pharma-glossary.ts'
 import { activeOrgFromRequest, checkAiQuota, recordAiUsage } from '../_shared/quota.ts'
-import { vertexSseToSimple } from '../_shared/sse.ts'
+import { generateParts, streamSimpleSse, type Part } from '../_shared/ai/provider.ts'
 import { withUsage } from '../_shared/usage.ts'
-import { generateParts, streamParts, type Part } from '../_shared/vertex.ts'
 
 const MAX_FILE_BYTES = 12 * 1024 * 1024
 const MAX_TEXT_CHARS = 60_000
@@ -242,16 +241,15 @@ Deno.serve(async (req: Request) => {
   // traduction) ; sans le flag, réponse JSON complète.
   if (b.stream === true) {
     try {
-      const vertexRes = await streamParts(parts, {
-        system,
-        maxOutputTokens: 8192,
-        temperature: 0,
-        timeoutMs: UPGRADE_TIMEOUT_MS,
-      })
-      const out = vertexSseToSimple(
-        vertexRes.body!,
-        (chars) => logJson({ ...log, op: 'upgrade', ms: Date.now() - started, status: 'ok', chars }),
-        (uin, uout) => recordAiUsage(supabase, 'upgrade', { in: uin, out: uout }, activeOrg),
+      const out = await streamSimpleSse(
+        parts,
+        { system, maxOutputTokens: 8192, temperature: 0, timeoutMs: UPGRADE_TIMEOUT_MS },
+        {
+          onDone: (chars) =>
+            logJson({ ...log, op: 'upgrade', ms: Date.now() - started, status: 'ok', chars }),
+          onUsage: (uin, uout) =>
+            recordAiUsage(supabase, 'upgrade', { in: uin, out: uout }, activeOrg),
+        },
       )
       return new Response(out, {
         status: 200,
