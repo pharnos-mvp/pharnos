@@ -1954,8 +1954,8 @@ export function DossierWorkspacePage() {
                           <Wand2 className="size-3.5 shrink-0" />
                           {upgradeMissingCount > 0
                             ? t({
-                                fr: `Mise en conformité assistée — à relire : ${upgradeMissingCount} rubrique(s) marquée(s) [NON FOURNI DANS LE DOCUMENT SOURCE] à compléter.`,
-                                en: `Assisted compliance upgrade — to review: ${upgradeMissingCount} section(s) marked [NON FOURNI DANS LE DOCUMENT SOURCE] to complete.`,
+                                fr: `Mise en conformité assistée — à relire : ${upgradeMissingCount} rubrique(s) marquée(s) [Non fourni, à compléter] à compléter.`,
+                                en: `Assisted compliance upgrade — to review: ${upgradeMissingCount} section(s) marked [Non fourni, à compléter] to complete.`,
                               })
                             : t({
                                 fr: 'Mise en conformité assistée — à relire. Toutes les rubriques portent une information issue du document source.',

@@ -83,7 +83,26 @@ export const DOSAGE_FORM_FR: Record<string, string> = {
   ointment: 'pommade',
   gel: 'gel',
   'eye drops, solution': 'collyre en solution',
+  'eye drops, suspension': 'collyre en suspension',
+  'ear drops, solution': 'solution auriculaire',
+  'nasal spray, solution': 'solution pour pulvérisation nasale',
   suppository: 'suppositoire',
+  // Formes vaginales — absentes jusqu'au 2026-07-29 alors qu'elles sont courantes en UEMOA.
+  // « Ovule » se traduit par « pessary », jamais par « ovule » ni « vaginal suppository ».
+  pessary: 'ovule',
+  'vaginal tablet': 'comprimé vaginal',
+  'vaginal capsule, soft': 'capsule vaginale molle',
+  'vaginal cream': 'crème vaginale',
+  'vaginal gel': 'gel vaginal',
+  'coated tablet': 'comprimé enrobé',
+  'dispersible tablet': 'comprimé dispersible',
+  'orodispersible tablet': 'comprimé orodispersible',
+  'prolonged-release tablet': 'comprimé à libération prolongée',
+  'gastro-resistant tablet': 'comprimé gastro-résistant',
+  'oral drops, solution': 'solution buvable en gouttes',
+  'granules for oral suspension': 'granulés pour suspension buvable',
+  'oral powder': 'poudre orale',
+  lotion: 'lotion',
 }
 
 /** Voies d'administration usuelles (termes standard EDQM) — EN → FR. */
@@ -98,6 +117,9 @@ export const ROUTE_FR: Record<string, string> = {
   'ocular use': 'voie ophtalmique',
   'inhalation use': 'voie inhalée',
   'nasal use': 'voie nasale',
+  'sublingual use': 'voie sublinguale',
+  'auricular use': 'voie auriculaire',
+  'transdermal use': 'voie transdermique',
 }
 
 /** Formules réglementaires types FR (reprises des templates officiels UEMOA/ABMed). */

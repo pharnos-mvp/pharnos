@@ -6,7 +6,7 @@
 //  1. `section_id` en `enum` alimenté depuis `conformity-specs.ts` : inventer une rubrique absente
 //     du gabarit devient structurellement impossible. En génération par rubrique, l'énumération est
 //     réduite à LA rubrique demandée : le modèle ne peut pas répondre à côté.
-//  2. `status` en `enum` remplace le `grep` sur `[NON FOURNI DANS LE DOCUMENT SOURCE]`. Le marqueur
+//  2. `status` en `enum` remplace le `grep` sur `[Non fourni, à compléter]`. Le marqueur
 //     reste le libellé RENDU (contrat client), il cesse d'être le mécanisme.
 //  3. `source_evidence` rend la garantie zéro-hallucination vérifiable par la machine (`evidence.ts`).
 //

@@ -34,7 +34,7 @@ import type { ConformitySpec, RubricSpec } from './conformity-specs.ts'
  * l'affiche et le compte). Depuis M2 il n'est plus le mécanisme : `status` est un champ typé, le
  * marqueur n'est plus qu'une conséquence d'affichage (§3.2). Il est rendu ICI, jamais par le modèle.
  */
-export const MISSING_MARKER = '[NON FOURNI DANS LE DOCUMENT SOURCE]'
+export const MISSING_MARKER = '[Non fourni, à compléter]'
 
 /** Une génération + un rejeu. Au-delà, on constate l'échec : rejouer indéfiniment coûte et ment. */
 export const MAX_SECTION_ATTEMPTS = 2
