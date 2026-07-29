@@ -14,8 +14,10 @@
 //     donc levée en erreur ici, dans la fonction qui écrit — jamais laissée passer silencieusement.
 import Anthropic from 'npm:@anthropic-ai/sdk@0.115.0'
 
+import { logJson } from '../log.ts'
 import { CircuitBreaker, HttpError } from '../retry.ts'
 import { addUsage } from '../usage.ts'
+import { servedByFallback, type UsageIteration } from './fallback.ts'
 import { boundedTimeout } from './limits.ts'
 import type { AiOptions, Part, SimpleSseHooks } from './types.ts'
 
@@ -26,6 +28,18 @@ const DEFAULT_MODEL = 'claude-opus-5'
 /** Plancher de `max_tokens` : la réflexion Opus 5 partage ce budget avec le texte rendu. */
 const MIN_MAX_TOKENS = 16_000
 const DEFAULT_TIMEOUT_MS = 90_000
+
+/**
+ * Repli serveur. Opus 5 embarque des classificateurs (`cyber`, `bio`) qui peuvent DÉCLINER une
+ * requête : réponse HTTP 200 normale, `stop_reason: "refusal"`, contenu vide. Sur un dossier d'AMM
+ * payé, un refus est une panne produit.
+ *
+ * `"default"` laisse l'API choisir le modèle de repli SELON LA CATÉGORIE du refus et rejoue la
+ * requête dans le même appel — le refus survenu avant toute sortie n'est pas facturé. On préfère
+ * `"default"` à un modèle épinglé : la bonne cible dépend de la raison du refus, et un modèle
+ * épinglé devient une dette le jour où il est déprécié.
+ */
+const FALLBACK_BETA = 'server-side-fallback-2026-07-01'
 
 const encoder = new TextEncoder()
 
@@ -48,7 +62,7 @@ function client(timeoutMs: number): Anthropic {
 }
 
 /** Traduit un fragment neutre en bloc de contenu Anthropic (texte, document PDF ou image). */
-function toBlock(part: Part): Anthropic.ContentBlockParam {
+function toBlock(part: Part): Anthropic.Beta.BetaContentBlockParam {
   if (part.inlineData) {
     const { mimeType, data } = part.inlineData
     if (mimeType === 'application/pdf') {
@@ -67,7 +81,10 @@ function toBlock(part: Part): Anthropic.ContentBlockParam {
 }
 
 /** Corps de requête commun aux deux modes (bloquant et flux). */
-function buildBody(parts: Part[], opts: AiOptions): Anthropic.MessageCreateParamsNonStreaming {
+function buildBody(
+  parts: Part[],
+  opts: AiOptions,
+): Anthropic.Beta.MessageCreateParamsNonStreaming {
   if (opts.json && !opts.jsonSchema) {
     // Sur Anthropic il n'existe pas de mode « JSON libre » : le décodage contraint EXIGE un schéma.
     // Échouer ici est plus honnête que rendre du texte libre là où l'appelant attend du JSON.
@@ -80,6 +97,7 @@ function buildBody(parts: Part[], opts: AiOptions): Anthropic.MessageCreateParam
     model: opts.model || Deno.env.get('ANTHROPIC_MODEL') || DEFAULT_MODEL,
     // Le plancher protège de la troncature : l'appelant borne le TEXTE, pas la réflexion.
     max_tokens: Math.max(opts.maxOutputTokens ?? 0, MIN_MAX_TOKENS),
+    ...(opts.fallbacks === false ? {} : { betas: [FALLBACK_BETA], fallbacks: 'default' }),
     ...(opts.system ? { system: opts.system } : {}),
     thinking: { type: 'adaptive', display: 'summarized' },
     output_config: {
@@ -110,7 +128,11 @@ function toPolicyError(e: unknown): unknown {
 }
 
 /** Refus de sécurité ou troncature : deux états à constater AVANT de lire le contenu. */
-function assertUsableStop(stopReason: string | null | undefined, where: string): void {
+function assertUsableStop(
+  stopReason: string | null | undefined,
+  where: string,
+  category?: string | null,
+): void {
   if (stopReason === 'max_tokens') {
     throw new AnthropicOutputError(
       'truncated',
@@ -118,8 +140,19 @@ function assertUsableStop(stopReason: string | null | undefined, where: string):
     )
   }
   if (stopReason === 'refusal') {
-    throw new AnthropicOutputError('refusal', `${where} : requête refusée par le modèle`)
+    // Avec `fallbacks`, un refus FINAL signifie que TOUTE la chaîne a décliné (modèle principal
+    // puis repli) — pas un simple refus rattrapable. La catégorie oriente le diagnostic.
+    throw new AnthropicOutputError(
+      'refusal',
+      `${where} : requête refusée par la chaîne de modèles${category ? ` (${category})` : ''}`,
+    )
   }
+}
+
+/** Journalise un rattrapage : un document CLIENT a été décliné par le modèle principal. */
+function logIfFallback(where: string, model: string, iterations: unknown): void {
+  if (!servedByFallback(iterations as UsageIteration[] | undefined)) return
+  logJson({ fn: 'ai', op: where, status: 'fallback', servedBy: model })
 }
 
 interface AnthropicUsage {
@@ -145,18 +178,20 @@ export async function generateParts(parts: Part[], opts: AiOptions = {}): Promis
   const body = buildBody(parts, opts)
 
   return await breaker.run(async () => {
-    let message: Anthropic.Message
+    let message: Anthropic.Beta.BetaMessage
     try {
-      message = await client(timeoutMs).messages.create(body)
+      message = await client(timeoutMs).beta.messages.create(body)
     } catch (e) {
       throw toPolicyError(e)
     }
-    assertUsableStop(message.stop_reason, 'anthropic.generate')
+    assertUsableStop(message.stop_reason, 'anthropic.generate', message.stop_details?.category)
+    logIfFallback('generate', message.model, message.usage?.iterations)
     recordUsage(message.usage as AnthropicUsage)
     // `content` est une union : blocs de réflexion PUIS blocs de texte. Seul le texte est le
     // livrable ; la réflexion (`display: summarized`) sert la mesure du lot M3, pas le document.
+    // Un bloc `fallback` (marqueur de bascule) n'est pas du texte : il est ignoré ici.
     return message.content
-      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+      .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === 'text')
       .map((b) => b.text)
       .join('')
   })
@@ -176,7 +211,7 @@ export async function streamSimpleSse(
 
   const stream = await breaker.run(() => {
     try {
-      return Promise.resolve(client(timeoutMs).messages.stream(body))
+      return Promise.resolve(client(timeoutMs).beta.messages.stream(body))
     } catch (e) {
       throw toPolicyError(e)
     }
@@ -198,6 +233,9 @@ export async function streamSimpleSse(
           }
         }
         const final = await stream.finalMessage()
+        // En flux, une bascule se produit SUR LE MÊME flux : le texte déjà émis reste valable, le
+        // modèle de repli poursuit. Rien à annuler côté client — mais le rattrapage doit se voir.
+        logIfFallback('stream', final.model, final.usage?.iterations)
         recordUsage(final.usage as AnthropicUsage)
         hooks.onUsage?.(
           (final.usage?.input_tokens ?? 0) + (final.usage?.cache_read_input_tokens ?? 0),
