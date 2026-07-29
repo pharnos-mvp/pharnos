@@ -6,36 +6,17 @@
 // Confidentialité : Vertex no-train ; les secrets restent côté Edge (jamais exposés au client).
 // Robustesse (T2, PLAN-V2) : timeout sur chaque fetch, retry borné sur transitoires uniquement
 // (429/5xx/réseau — jamais un 400), circuit breaker partagé par isolate.
+import { boundedTimeout, MAX_CALL_TIMEOUT_MS } from './ai/limits.ts'
+import type { Part } from './ai/types.ts'
 import { CircuitBreaker, HttpError, withRetry } from './retry.ts'
 import { addUsage } from './usage.ts'
 
 const OAUTH_TIMEOUT_MS = 10_000
 const breaker = new CircuitBreaker()
 
-/**
- * Mur de la plateforme Edge (plan `free`) : le worker est tué à 150 s de wall clock, quel que soit
- * NOTRE timeout. Un garde-fou au-delà de ce mur ne peut donc JAMAIS se déclencher — la requête
- * meurt en 546 côté plateforme au lieu de rendre un 502 propre au client.
- */
-export const EDGE_WALL_CLOCK_MS = 150_000
-
-/**
- * Plafond de tout appel sortant : 120 s. Les 30 s restantes couvrent ce qui se passe AVANT et
- * APRÈS l'appel dans la même invocation (JWT, téléchargement Storage, base64, écriture de la
- * réponse). Voir PLAN-MOTEUR-IA.md §2 (S0) et §9 (M0).
- */
-export const MAX_CALL_TIMEOUT_MS = 120_000
-
-/**
- * Timeout effectif d'un appel : défaut du mode, borné au plafond plateforme. La garantie vit ici,
- * dans la fonction qui LANCE le fetch — aucun appelant ne peut poser un garde-fou mort.
- */
-export function boundedTimeout(requested: number | undefined, fallbackMs: number): number {
-  const wanted = Number.isFinite(requested) && (requested as number) > 0
-    ? (requested as number)
-    : fallbackMs
-  return Math.min(wanted, MAX_CALL_TIMEOUT_MS)
-}
+// Les bornes de temps sont communes à tous les fournisseurs (`ai/limits.ts`) — ré-exportées ici
+// pour les appelants historiques (`translate`, tests) qui les importent depuis ce module.
+export { boundedTimeout, EDGE_WALL_CLOCK_MS, MAX_CALL_TIMEOUT_MS } from './ai/limits.ts'
 
 interface ServiceAccount {
   client_email: string
@@ -148,11 +129,9 @@ export interface GenerateOptions {
   timeoutMs?: number
 }
 
-/** Un fragment de contenu : texte ou donnée binaire inline (base64) — pour le multimodal. */
-export interface Part {
-  text?: string
-  inlineData?: { mimeType: string; data: string }
-}
+// Le fragment de contenu est un type NEUTRE (partagé avec le fournisseur Anthropic) : il vit
+// dans `ai/types.ts` et n'est ré-exporté ici que pour les appelants historiques.
+export type { Part } from './ai/types.ts'
 
 /** Génère du texte via Gemini sur Vertex à partir de fragments (texte + documents/images). */
 export function generateParts(parts: Part[], opts: GenerateOptions = {}): Promise<string> {

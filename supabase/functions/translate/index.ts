@@ -8,9 +8,13 @@ import { corsHeaders, isAllowedOrigin } from '../_shared/cors.ts'
 import { logJson, newReqId, userHash } from '../_shared/log.ts'
 import { buildTranslateSystem } from '../_shared/pharma-glossary.ts'
 import { activeOrgFromRequest, checkAiQuota, recordAiUsage } from '../_shared/quota.ts'
-import { vertexSseToSimple } from '../_shared/sse.ts'
+import {
+  generateParts,
+  MAX_CALL_TIMEOUT_MS,
+  streamSimpleSse,
+  type Part,
+} from '../_shared/ai/provider.ts'
 import { withUsage } from '../_shared/usage.ts'
-import { generateParts, MAX_CALL_TIMEOUT_MS, streamParts, type Part } from '../_shared/vertex.ts'
 
 const MAX_FILE_BYTES = 12 * 1024 * 1024
 const MAX_TEXT_CHARS = 60_000
@@ -165,16 +169,15 @@ Deno.serve(async (req: Request) => {
   // Premier texte à l'écran en ~2 s au lieu d'attendre la traduction complète — terrain bas débit.
   if (b.stream === true) {
     try {
-      const vertexRes = await streamParts(parts, {
-        system,
-        maxOutputTokens: 8192,
-        temperature: 0.1,
-        timeoutMs: TRANSLATE_STREAM_TIMEOUT_MS,
-      })
-      const out = vertexSseToSimple(
-        vertexRes.body!,
-        (chars) => logJson({ ...log, op: 'translate', ms: Date.now() - started, status: 'ok', chars }),
-        (uin, uout) => recordAiUsage(supabase, 'translate', { in: uin, out: uout }, activeOrg),
+      const out = await streamSimpleSse(
+        parts,
+        { system, maxOutputTokens: 8192, temperature: 0.1, timeoutMs: TRANSLATE_STREAM_TIMEOUT_MS },
+        {
+          onDone: (chars) =>
+            logJson({ ...log, op: 'translate', ms: Date.now() - started, status: 'ok', chars }),
+          onUsage: (uin, uout) =>
+            recordAiUsage(supabase, 'translate', { in: uin, out: uout }, activeOrg),
+        },
       )
       return new Response(out, {
         status: 200,

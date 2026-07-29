@@ -6,7 +6,7 @@
 import { specForDocType, specPromptText, type ConformitySpec } from './conformity-specs.ts'
 import { logJson } from './log.ts'
 import { regafyMessages, respondIn, type RegafyLocale } from './regafy-i18n.ts'
-import { generateParts, type Part } from './vertex.ts'
+import { generateParts, type Part } from './ai/provider.ts'
 
 export interface ConformityResult {
   conforme: boolean
