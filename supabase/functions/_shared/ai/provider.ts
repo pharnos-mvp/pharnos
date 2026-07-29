@@ -7,11 +7,11 @@
 // ne paient pas l'évaluation du SDK au démarrage à froid.
 import { vertexSseToSimple } from '../sse.ts'
 import { generateParts as vertexGenerate, streamParts as vertexStream } from '../vertex.ts'
-import { resolveProvider } from './select.ts'
+import { assertStructuredOutputSupported, resolveProvider } from './select.ts'
 import type { AiOptions, Part, SimpleSseHooks } from './types.ts'
 
 export { boundedTimeout, EDGE_WALL_CLOCK_MS, MAX_CALL_TIMEOUT_MS } from './limits.ts'
-export { resolveProvider } from './select.ts'
+export { assertStructuredOutputSupported, resolveProvider } from './select.ts'
 export type { AiOptions, Effort, Part, Provider, SimpleSseHooks } from './types.ts'
 
 /** Fournisseur de CET appel : option explicite, sinon la variable d'environnement. */
@@ -19,7 +19,11 @@ function providerFor(opts: AiOptions) {
   return resolveProvider(opts.provider, Deno.env.get('AI_PROVIDER'))
 }
 
-/** Les options neutres qui ont un sens côté Gemini (le reste est propre à Anthropic). */
+/**
+ * Les options neutres qui ont un sens côté Gemini (le reste est propre à Anthropic).
+ * ⚠️ `jsonSchema` n'en fait PAS partie — voir `assertStructuredOutputSupported`, appelé à l'entrée
+ * de chaque mode : un appel structuré ne doit jamais être servi en JSON libre.
+ */
 function vertexOptions(opts: AiOptions) {
   return {
     system: opts.system,
@@ -33,7 +37,9 @@ function vertexOptions(opts: AiOptions) {
 
 /** Génère du texte à partir de fragments (texte + documents/images), fournisseur au choix. */
 export async function generateParts(parts: Part[], opts: AiOptions = {}): Promise<string> {
-  if (providerFor(opts) === 'anthropic') {
+  const provider = providerFor(opts)
+  assertStructuredOutputSupported(provider, Boolean(opts.jsonSchema))
+  if (provider === 'anthropic') {
     const anthropic = await import('./anthropic.ts')
     return anthropic.generateParts(parts, opts)
   }
@@ -55,7 +61,9 @@ export async function streamSimpleSse(
   opts: AiOptions = {},
   hooks: SimpleSseHooks = {},
 ): Promise<ReadableStream<Uint8Array>> {
-  if (providerFor(opts) === 'anthropic') {
+  const provider = providerFor(opts)
+  assertStructuredOutputSupported(provider, Boolean(opts.jsonSchema))
+  if (provider === 'anthropic') {
     const anthropic = await import('./anthropic.ts')
     return anthropic.streamSimpleSse(parts, opts, hooks)
   }

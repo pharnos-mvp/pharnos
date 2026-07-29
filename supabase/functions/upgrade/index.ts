@@ -15,8 +15,15 @@ import { corsHeaders, isAllowedOrigin } from '../_shared/cors.ts'
 import { logJson, newReqId, userHash } from '../_shared/log.ts'
 import { frenchCalibration } from '../_shared/pharma-glossary.ts'
 import { activeOrgFromRequest, checkAiQuota, recordAiUsage } from '../_shared/quota.ts'
+import { prepareSource } from '../_shared/ai/evidence.ts'
+import { findRubric } from '../_shared/ai/section-schema.ts'
 import { generateParts, streamSimpleSse, type Part } from '../_shared/ai/provider.ts'
-import { withUsage } from '../_shared/usage.ts'
+import {
+  generateSection,
+  MISSING_MARKER,
+  SECTION_BUDGET_MS,
+} from '../_shared/upgrade-section-core.ts'
+import { runWithUsage, withUsage, type Usage } from '../_shared/usage.ts'
 
 const MAX_FILE_BYTES = 12 * 1024 * 1024
 const MAX_TEXT_CHARS = 60_000
@@ -25,9 +32,12 @@ const STORAGE_BUCKET = 'documents'
 // ne se déclenche jamais — la plateforme tue le worker en 546 avant. Les 30 s de marge couvrent
 // le téléchargement Storage (jusqu'à 12 Mo), l'encodage base64 et l'écriture de la réponse.
 const UPGRADE_TIMEOUT_MS = 120_000
+/** En deçà, le mode rubrique refuse de partir : un appel qui ne peut pas finir est un 546 déguisé. */
+const MIN_SECTION_BUDGET_MS = 20_000
 
-/** Marqueur officiel des rubriques sans information source — contrat avec le client (compteur). */
-export const MISSING_MARKER = '[NON FOURNI DANS LE DOCUMENT SOURCE]'
+// Le marqueur vit désormais dans `_shared/upgrade-section-core.ts` (source unique côté Edge : le
+// mode rubrique le REND, le mode document l'exige du modèle). Ré-exporté pour les appelants.
+export { MISSING_MARKER }
 
 function bytesToBase64(bytes: Uint8Array): string {
   let bin = ''
@@ -70,6 +80,17 @@ interface DossierContext {
 }
 
 /**
+ * Borne de chaque champ du contexte certifié. Le texte source est plafonné (`MAX_TEXT_CHARS`) ; ces
+ * champs ne l'étaient pas, alors qu'ils entrent dans le prompt en position de CONFIANCE (« données
+ * vérifiées ») et, en mode rubrique, une fois par rubrique. Une raison sociale tient dans 200
+ * caractères ; au-delà, c'est un abus, pas une donnée.
+ */
+const MAX_CONTEXT_FIELD_CHARS = 200
+
+const ctxField = (v: unknown): string =>
+  typeof v === 'string' ? v.trim().slice(0, MAX_CONTEXT_FIELD_CHARS) : ''
+
+/**
  * Contexte certifié du dossier (fiche produit Pharnos) : données VÉRIFIÉES utilisables au même
  * titre que le document source — rubrique 9 auto-résolue pour une nouvelle AMM, structure
  * 7.1 Titulaire / 7.2 Fabricant quand ils diffèrent. Ce ne sont pas des inventions du modèle.
@@ -84,16 +105,18 @@ function dossierContextBlock(ctx?: DossierContext): string {
         "« Sans objet — première demande d'AMM en cours d'instruction. »",
     )
   }
-  const titulaire = (ctx.titulaire ?? '').trim()
-  const fabricant = (ctx.fabricant ?? '').trim()
+  const titulaire = ctxField(ctx.titulaire)
+  const fabricant = ctxField(ctx.fabricant)
+  const titulaireAdresse = ctxField(ctx.titulaireAdresse)
+  const fabricantAdresse = ctxField(ctx.fabricantAdresse)
   if (titulaire) {
     lines.push(
-      `- Titulaire de l'AMM (certifié) : ${titulaire}${ctx.titulaireAdresse ? ` — ${ctx.titulaireAdresse}` : ''}`,
+      `- Titulaire de l'AMM (certifié) : ${titulaire}${titulaireAdresse ? ` — ${titulaireAdresse}` : ''}`,
     )
   }
   if (fabricant) {
     lines.push(
-      `- Fabricant (certifié) : ${fabricant}${ctx.fabricantAdresse ? ` — ${ctx.fabricantAdresse}` : ''}`,
+      `- Fabricant (certifié) : ${fabricant}${fabricantAdresse ? ` — ${fabricantAdresse}` : ''}`,
     )
   }
   if (titulaire && fabricant && titulaire.toLowerCase() !== fabricant.toLowerCase()) {
@@ -124,6 +147,10 @@ function buildInstruction(docTypeLabel: string, spec: string, ctx?: DossierConte
 }
 
 Deno.serve(async (req: Request) => {
+  // Horodatage À L'ENTRÉE, et non juste avant l'appel IA : l'auth, le quota, le téléchargement
+  // Storage (jusqu'à 12 Mo) et l'encodage base64 consomment du wall clock eux aussi. Un budget
+  // calculé après eux ne retrancherait rien — le garde-fou serait mort-né (même piège que S0).
+  const invokedAt = Date.now()
   const origin = req.headers.get('origin')
   const reqId = newReqId()
   if (!isAllowedOrigin(origin)) {
@@ -171,6 +198,11 @@ Deno.serve(async (req: Request) => {
     docType?: string
     countryCode?: string
     stream?: boolean
+    /**
+     * M2 — identifiant d'UNE rubrique du gabarit. Présent : protocole par rubrique (sortie
+     * structurée + contrôle de citation). Absent : mode document historique, inchangé.
+     */
+    section?: string
     /** Contexte certifié du dossier (fiche produit Pharnos) — données vérifiées, pas des inventions. */
     dossierContext?: {
       activity?: string
@@ -184,6 +216,16 @@ Deno.serve(async (req: Request) => {
   const spec = specForDocType(docType)
   if (!spec) return json({ error: 'type de document non couvert par un template' }, 400)
   if (!b.filePath && !b.text) return json({ error: 'filePath ou text requis' }, 400)
+  // `section` absent ⇒ mode document. Toute autre valeur qu'une chaîne est une ERREUR d'appelant,
+  // pas un repli silencieux : retomber en mode document ferait produire un document entier
+  // (~440 s) là où le worker n'attendait qu'une rubrique — un 546 garanti.
+  if (b.section !== undefined && (typeof b.section !== 'string' || !b.section.trim())) {
+    return json({ error: 'section doit être un identifiant de rubrique non vide' }, 400)
+  }
+  if (b.section && b.stream === true) {
+    // Le mode rubrique rend un objet vérifié, pas un fil de texte : les deux ne se composent pas.
+    return json({ error: 'section et stream sont exclusifs' }, 400)
+  }
   const countryCode = b.countryCode
     ? String(b.countryCode).toUpperCase().slice(0, 2)
     : undefined
@@ -204,6 +246,13 @@ Deno.serve(async (req: Request) => {
   let sourcePart: Part
   let sourceBytes = 0
   let inputTruncated = false
+  /**
+   * Texte source EXPLOITABLE pour le contrôle de citation (M2). Il n'existe qu'en mode texte : une
+   * pièce PDF part telle quelle au modèle, sans extraction côté Edge (2 s de CPU, §8.6). Le mode
+   * rubrique le dit alors franchement — verdict `unverifiable` — au lieu de faire croire à un
+   * contrôle qui n'a pas eu lieu.
+   */
+  let sourceText: string | null = null
   if (b.filePath) {
     const { data, error } = await supabase.storage.from(STORAGE_BUCKET).download(String(b.filePath))
     if (error || !data) return json({ error: 'document introuvable' }, 404)
@@ -223,16 +272,13 @@ Deno.serve(async (req: Request) => {
     const text = rawText.slice(0, MAX_TEXT_CHARS)
     if (!text.trim()) return json({ error: 'texte source vide' }, 400)
     sourceBytes = text.length
+    sourceText = text
     sourcePart = { text: `DOCUMENT SOURCE :\n${text}` }
   }
 
   const system = buildSystem(docType)
-  const parts: Part[] = [
-    { text: buildInstruction(spec.label, specPromptText(spec, countryCode), b.dossierContext) },
-    sourcePart,
-  ]
-
   const started = Date.now()
+  const sectionId = b.section ? String(b.section).slice(0, 40) : ''
   logJson({
     ...log,
     op: 'start',
@@ -241,7 +287,107 @@ Deno.serve(async (req: Request) => {
     bytes: sourceBytes,
     fromText: !b.filePath,
     stream: b.stream === true,
+    ...(sectionId ? { section: sectionId } : {}),
   })
+
+  // ── Mode RUBRIQUE (M2) ───────────────────────────────────────────────────────────────────────
+  // Une rubrique du gabarit = un appel (§8.1). Sortie structurée + citation source vérifiée en
+  // code : c'est la brique que le worker asynchrone (M4) appellera 28 fois pour un RCP complet.
+  if (sectionId) {
+    const rubric = findRubric(spec, sectionId)
+    if (!rubric) return json({ error: 'rubrique inconnue pour ce template' }, 400)
+    // Sans texte source, le contrôle de citation ne peut PAS s'exercer : la réponse serait
+    // indistinguable d'une rubrique vérifiée, et la pièce (jusqu'à 12 Mo) repartirait à chaque
+    // rubrique pour rien. L'extraction PDF appartient au navigateur (§8.6), pas à l'Edge.
+    if (!sourceText) {
+      return json({ error: 'mode rubrique : texte source requis (extraction côté client)' }, 400)
+    }
+    const budgetMs = Math.min(SECTION_BUDGET_MS, UPGRADE_TIMEOUT_MS - (Date.now() - invokedAt))
+    if (budgetMs < MIN_SECTION_BUDGET_MS) {
+      // Le prélude a mangé le budget : lancer un appel qui ne peut pas finir sous le mur produirait
+      // un 546 opaque de la plateforme. On le dit franchement, et le worker (M4) peut rejouer.
+      logJson({ ...log, op: 'section', section: sectionId, status: 'no_budget', budgetMs })
+      return json({ error: 'budget insuffisant pour cette rubrique', reason: 'no_budget' }, 503)
+    }
+    // Accumulateur de tokens EXTERNALISÉ : sur le chemin d'erreur (troncature, refus final), les
+    // appels déjà payés doivent quand même débiter le quota — sinon il suffit de faire échouer la
+    // génération pour consommer l'IA gratuitement.
+    const usage: Usage = { in: 0, out: 0 }
+    const certifiedContext = dossierContextBlock(b.dossierContext)
+    try {
+      const s = await runWithUsage(usage, () =>
+        generateSection(generateParts, {
+          spec,
+          rubric,
+          sourceParts: [sourcePart],
+          source: prepareSource(sourceText),
+          // La CITATION doit vivre dans le document ; l'ANCRAGE des chiffres accepte en plus le
+          // contexte certifié. Sans cela, un numéro de RCCM ou une adresse fournis par Pharnos
+          // feraient rétrograder la rubrique 7 comme s'ils étaient inventés.
+          grounding: prepareSource(`${sourceText}\n${certifiedContext}`),
+          system,
+          countryCode,
+          extraContext: certifiedContext,
+          // Fournisseur ÉPINGLÉ : le décodage contraint n'existe pas chez tous (§3.2), et
+          // `AI_PROVIDER=vertex` ferait rendre du texte libre là où on attend un schéma.
+          provider: 'anthropic',
+          budgetMs,
+        }))
+      logJson({
+        ...log,
+        op: 'section',
+        section: s.sectionId,
+        ms: Date.now() - started,
+        status: 'ok',
+        verdict: s.verdict,
+        attempts: s.attempts,
+        downgraded: s.downgraded,
+        ...(s.downgradeReason ? { downgradeReason: s.downgradeReason } : {}),
+        ungrounded: s.ungrounded.length,
+        chars: s.content.length,
+      })
+      return json({
+        docType,
+        section: {
+          id: s.sectionId,
+          title: s.title,
+          status: s.status,
+          content: s.content,
+          // Traçabilité ALCOA++ : l'expert RA voit LE passage source qui justifie la rubrique, et
+          // le verdict dit si ce passage a pu être retrouvé automatiquement dans le document.
+          evidence: s.evidence,
+          verdict: s.verdict,
+          attempts: s.attempts,
+          downgraded: s.downgraded,
+          ...(s.downgradeReason ? { downgradeReason: s.downgradeReason } : {}),
+          // Les valeurs en cause, pas seulement leur nombre : l'expert RA doit savoir CE QUI n'a
+          // pas été retrouvé pour trancher entre coquille d'extraction et invention.
+          ...(s.ungrounded.length ? { ungrounded: s.ungrounded } : {}),
+        },
+        ...(inputTruncated ? { inputTruncated: true } : {}),
+      })
+    } catch (e) {
+      const err = String((e as Error).message).slice(0, 300)
+      logJson({
+        ...log,
+        op: 'section',
+        section: sectionId,
+        ms: Date.now() - started,
+        status: 'error',
+        err,
+      })
+      // Le détail reste dans les journaux : il porte des messages internes (secret manquant, corps
+      // d'erreur du fournisseur) qui n'apprennent rien au client et renseignent un attaquant.
+      return json({ error: 'mise en conformité indisponible', reason: 'provider_error' }, 502)
+    } finally {
+      recordAiUsage(supabase, 'upgrade', usage, activeOrg)
+    }
+  }
+
+  const parts: Part[] = [
+    { text: buildInstruction(spec.label, specPromptText(spec, countryCode), b.dossierContext) },
+    sourcePart,
+  ]
 
   // Mode STREAMING (opt-in) : le document conforme s'écrit au fil de l'eau (même UX que la
   // traduction) ; sans le flag, réponse JSON complète.
@@ -269,7 +415,7 @@ Deno.serve(async (req: Request) => {
     } catch (e) {
       const err = String((e as Error).message).slice(0, 300)
       logJson({ ...log, op: 'upgrade', ms: Date.now() - started, status: 'error', err })
-      return json({ error: 'mise en conformité indisponible', detail: err }, 502)
+      return json({ error: 'mise en conformité indisponible', reason: 'provider_error' }, 502)
     }
   }
 
@@ -288,7 +434,7 @@ Deno.serve(async (req: Request) => {
   } catch (e) {
     const err = String((e as Error).message).slice(0, 300)
     logJson({ ...log, op: 'upgrade', ms: Date.now() - started, status: 'error', err })
-    return json({ error: 'mise en conformité indisponible', detail: err }, 502)
+    return json({ error: 'mise en conformité indisponible', reason: 'provider_error' }, 502)
   }
   if (!text.trim()) {
     logJson({ ...log, op: 'upgrade', ms: Date.now() - started, status: 'empty' })
