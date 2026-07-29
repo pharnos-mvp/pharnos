@@ -36,6 +36,16 @@ import type { ConformitySpec, RubricSpec } from './conformity-specs.ts'
  */
 export const MISSING_MARKER = '[Non fourni, à compléter]'
 
+/** Le même marqueur dans la langue cible — la lacune se traduit, elle ne disparaît pas (étape 2). */
+export const MISSING_MARKER_EN = '[Not provided, to be completed]'
+
+/** Langue du document PRODUIT. La langue de la source, elle, n'a pas à être déclarée : le modèle la lit. */
+export type OutputLang = 'fr' | 'en'
+
+const LANGUAGE_LABEL: Record<OutputLang, string> = { fr: 'FRANÇAIS', en: 'ANGLAIS' }
+
+const MARKER_BY_LANG: Record<OutputLang, string> = { fr: MISSING_MARKER, en: MISSING_MARKER_EN }
+
 /** Une génération + un rejeu. Au-delà, on constate l'échec : rejouer indéfiniment coûte et ment. */
 export const MAX_SECTION_ATTEMPTS = 2
 
@@ -82,6 +92,12 @@ export interface SectionRequest {
   countryCode?: string
   /** Contexte certifié du dossier (fiche produit Pharnos) — données vérifiées, pas des inventions. */
   extraContext?: string
+  /**
+   * Langue du document PRODUIT. Défaut `fr` : le gabarit UEMOA est français, donc l'étape 1 rend du
+   * français même à partir d'une source anglaise. Ce réglage NE touche pas `source_evidence`, qui
+   * reste toujours dans la langue de la source — c'est ce qui permet de la retrouver.
+   */
+  outputLang?: OutputLang
   /** Fournisseur imposé pour CET appel — la sortie structurée n'existe pas chez tous (§3.2). */
   provider?: Provider
   /** Budget total de la rubrique, rejeu compris. */
@@ -184,6 +200,16 @@ export function buildSectionInstruction(req: SectionRequest, rejected?: Rejected
     '',
     'Périmètre : rien pour une autre rubrique, pas d’introduction, pas de conclusion, pas de ' +
       'recommandation, pas de connaissance générale sur ce médicament.',
+    '',
+    // ⚠️ Clause DÉCISIVE quand la source n'est pas dans la langue du gabarit. Sans elle, le modèle
+    // traduit AUSSI la citation pour rester cohérent avec `content` — et le contrôle, qui cherche
+    // la citation dans le document ORIGINAL, échoue sur CHAQUE rubrique. Le dossier entier
+    // ressortirait « non fourni » alors qu'il est complet.
+    `LANGUES — le document source peut être rédigé dans une autre langue que le gabarit.\n` +
+      `- « content » est rédigé en ${LANGUAGE_LABEL[req.outputLang ?? 'fr']}, quelle que soit la ` +
+      'langue de la source.\n' +
+      '- « source_evidence » reste au contraire dans la LANGUE DE LA SOURCE, copié caractère pour ' +
+      'caractère. Ne le traduis JAMAIS : il est recherché tel quel dans le document original.',
   )
 
   if (rejected?.reason === 'evidence') {
@@ -306,13 +332,15 @@ export async function generateSection(
   }
 
   const title = req.rubric.title
+  // Le marqueur suit la langue du document produit : une lacune se traduit, elle ne disparait pas.
+  const marker = MARKER_BY_LANG[req.outputLang ?? 'fr']
   if (!parsed) {
     // Aucune tentative n'a pu être lancée (budget épuisé avant même le premier appel).
     return {
       sectionId: req.rubric.id,
       title,
       status: 'missing',
-      content: MISSING_MARKER,
+      content: marker,
       evidence: '',
       verdict,
       ungrounded,
@@ -343,7 +371,7 @@ export async function generateSection(
       sectionId: parsed.section_id,
       title,
       status: 'missing',
-      content: MISSING_MARKER,
+      content: marker,
       evidence: '',
       verdict,
       ungrounded,

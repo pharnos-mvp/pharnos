@@ -124,14 +124,36 @@ export function normalizeForEvidence(input: string): string {
 const deHyphen = (s: string) => s.replace(/-/g, '')
 
 /**
- * Forme canonique d'une valeur chiffrée : espaces (séparateurs de milliers) retirés, virgule
- * décimale ramenée au point. « 1 500 » et « 1500 » deviennent le même jeton, « 12,5 » et « 12.5 »
- * aussi — sans quoi une simple différence de typographie ferait rejeter une rubrique correcte.
+ * Forme canonique d'une valeur chiffrée, INDÉPENDANTE de la convention de langue.
+ *
+ * ⚠️ C'est le point où un dossier anglais rencontre un gabarit français. L'anglais sépare les
+ * milliers par une VIRGULE (« 35,000 IU »), le français par une ESPACE (« 35 000 UI ») — et le
+ * français utilise la virgule comme séparateur DÉCIMAL (« 12,5 mg »). Un traitement naïf
+ * (« virgule → point ») transformerait « 35,000 » en « 35.000 » et « 35 000 » en « 35000 » : deux
+ * jetons différents pour la même valeur. La rubrique 2 d'un RCP traduit serait alors rétrogradée
+ * en « non fourni » à chaque fois, alors que le dosage est correct.
+ *
+ * Règle : un séparateur suivi d'EXACTEMENT trois chiffres, puis la fin du nombre ou un autre
+ * séparateur, est un séparateur de MILLIERS et disparaît. Tout autre séparateur est DÉCIMAL et
+ * devient un point.
+ *
+ *   « 35,000 » · « 35 000 » · « 35000 »   → 35000
+ *   « 1,234,567 » · « 1 234 567 »         → 1234567
+ *   « 12,5 » · « 12.5 »                   → 12.5
  */
-const canonFigure = (s: string) => s.replace(/\s/g, '').replace(/,/g, '.')
+const THOUSANDS = /[.,](\d{3})(?=$|[.,])/
+const canonFigure = (s: string) => {
+  let t = s.replace(/\s/g, '')
+  let prev: string
+  do {
+    prev = t
+    t = t.replace(THOUSANDS, '$1')
+  } while (t !== prev)
+  return t.replace(/,/g, '.')
+}
 
-/** Valeur chiffrée ENTIÈRE (« 325 », « 1 500 », « 12,5 ») — jamais un fragment. */
-const FIGURE_TOKEN = /\d+(?: \d{3})*(?:[.,]\d+)*/g
+/** Valeur chiffrée ENTIÈRE (« 325 », « 1 500 », « 35,000 », « 12,5 ») — jamais un fragment. */
+const FIGURE_TOKEN = /\d+(?:[ ,.]\d{3})*(?:[.,]\d+)?/g
 
 /** Références croisées au gabarit (« voir rubrique 4.2 ») : structure du document, pas donnée produit. */
 const CROSS_REFERENCE = /(?:rubriques?|sections?|points?|voir|cf\.?)\s*n?°?\s*[\d]+(?:\.\d+)*/g
