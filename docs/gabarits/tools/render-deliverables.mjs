@@ -17,7 +17,7 @@ const {
   AlignmentType, BorderStyle, Document, Footer, Header, LeaderType, PageNumber, Packer,
   Paragraph, ShadingType, Table, TableCell, TableRow, Tab, TabStopType, TextRun, WidthType,
 } = require('docx')
-const { PDFDocument, StandardFonts, rgb } = require('pdf-lib')
+const { PDFDocument, PDFString, StandardFonts, rgb } = require('pdf-lib')
 
 const BLUE = '0B3D92'
 const GREY = '595959'
@@ -303,7 +303,14 @@ async function toPdf(blocks, { header, signature = false }) {
   // ce qui serait perdu — un caractère supprimé en silence dans un document réglementaire est un
   // défaut. La sortie définitive devra embarquer une police Unicode (voir note de portage).
   const dropped = new Set()
-  const SUBST = { '→': '->', '●': '•', '≡': '=' }
+  // ⚠️ `≥` porte du SENS dans un tableau de fréquences : « très fréquent (1/10) » au lieu de
+  // « (≥ 1/10) » est précisément le défaut que le rapport reproche à la source. Tant qu'une police
+  // Unicode n'est pas embarquée, on écrit l'opérateur en ASCII plutôt que de le perdre.
+  const SUBST = {
+    '→': '->', '●': '•', '≡': '=',
+    '≥': '>=', '≤': '<=', '≠': '!=', '±': '+/-', '×': 'x', 'ᵉ': 'e', '−': '-', '‰': 'o/oo',
+    'µ': 'µ', // MICRO SIGN (WinAnsi) et non GREEK SMALL LETTER MU
+  }
   const WINANSI_EXTRA = new Set('€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ')
   const pdfSafe = (s) => [...String(s)].map((ch) => {
     if (SUBST[ch]) return SUBST[ch]
@@ -503,7 +510,10 @@ async function toPdf(blocks, { header, signature = false }) {
     p.drawLine({ start: { x: bx, y: y0 - 1.5 }, end: { x: bx + bw, y: y0 - 1.5 }, thickness: 0.5, color: blue })
     const link = p.doc.context.register(p.doc.context.obj({
       Type: 'Annot', Subtype: 'Link', Rect: [bx, y0 - 3, bx + bw, y0 + size],
-      Border: [0, 0, 0], A: { Type: 'Action', S: 'URI', URI: 'https://pharnos.com' },
+      Border: [0, 0, 0], // ⚠️ `PDFString.of` est OBLIGATOIRE : une chaîne JS brute est encodée comme un NOM PDF
+      // (`/https://pharnos.com`), ce qui est illégal pour un URI — le lien est alors mort et
+      // les lecteurs signalent « Illegal URI-type link ».
+      A: { Type: 'Action', S: 'URI', URI: PDFString.of('https://pharnos.com') },
     }))
     p.node.addAnnot(link)
   }
@@ -523,6 +533,13 @@ const jobs = [
   {
     src: 'Gynoril-rapport-analyse', out: 'Gynoril-rapport-analyse', profile: 'report',
     docx: false, signature: true, header: 'GYNORIL \u2014 Rapport d\u2019upgrade',
+  },
+  // Cas reel : KV-Kacin 500 (amikacine injectable), source ANGLAISE, depot Benin.
+  { src: 'KV-Kacin-conforme-FR', out: 'KV-Kacin-RCP-FR', profile: 'document', docx: true },
+  { src: 'KV-Kacin-conforme-EN', out: 'KV-Kacin-SmPC-EN', profile: 'document', docx: true },
+  {
+    src: 'KV-Kacin-rapport-analyse', out: 'KV-Kacin-upgrade-report', profile: 'report',
+    docx: false, signature: true, header: 'KV-KACIN 500 \u2014 Upgrade report',
   },
   // Gabarit de R\u00c9F\u00c9RENCE en anglais (miroir de la maquette ABMed) : ce n'est pas un livrable
   // client, c'est le socle que le CEO archive dans RA-source/Template/RCP/.
