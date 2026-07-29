@@ -205,6 +205,32 @@ Deno.test('generateSection : le contexte certifié du dossier ancre aussi les ch
   assertEquals(r.attempts, 1)
 })
 
+Deno.test('generateSection : source d’une AUTRE langue — le contenu se traduit, la citation JAMAIS', async () => {
+  // Sans cette clause, le modèle traduit aussi la citation pour rester cohérent avec le contenu,
+  // et le contrôle — qui la cherche dans le document ORIGINAL — échoue sur CHAQUE rubrique : un
+  // dossier complet ressortirait intégralement « non fourni ».
+  const en = 'Each pessary contains: Neomycin sulfate 35,000 IU. Torpedo-shaped pessary.'
+  const s = scripted([out('filled', 'Chaque ovule contient 35 000 UI de sulfate de néomycine.', 'Neomycin sulfate 35,000 IU')])
+  const r = await generateSection(s.generate, req({
+    sourceParts: [{ text: `DOCUMENT SOURCE :\n${en}` }],
+    source: prepareSource(en),
+  }))
+  assertEquals(r.verdict, 'verified')
+  assertEquals(r.ungrounded, [])
+  assertEquals(r.status, 'filled')
+  const instruction = String(s.calls[0].parts[1].text)
+  assertStringIncludes(instruction, 'rédigé en FRANÇAIS')
+  assertStringIncludes(instruction, 'LANGUE DE LA SOURCE')
+})
+
+Deno.test('generateSection : le marqueur suit la langue du document produit', async () => {
+  const s = scripted([out('missing', '', ''), out('missing', '', '')])
+  assertEquals((await generateSection(s.generate, req())).content, MISSING_MARKER)
+  const en = await generateSection(s.generate, req({ outputLang: 'en' }))
+  assertEquals(en.content, '[Not provided, to be completed]')
+  assertStringIncludes(String(s.calls[1].parts[1].text), 'rédigé en ANGLAIS')
+})
+
 Deno.test('buildSectionInstruction : un extrait refusé ne peut pas refermer son délimiteur', () => {
   // L'extrait dérive d'un document fourni par l'utilisateur : il entre dans le prompt comme une
   // DONNÉE. S'il pouvait fermer le guillemet, il enchaînerait sur du texte d'allure système.

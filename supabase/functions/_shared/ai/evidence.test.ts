@@ -137,6 +137,28 @@ Deno.test('ungroundedFigures : les séparateurs de milliers ne créent pas de fa
   assertEquals(ungroundedFigures('PGHT : 1500 FCFA.', src), [])
 })
 
+Deno.test('ungroundedFigures : une source ANGLAISE et un contenu FRANÇAIS parlent des mêmes chiffres', () => {
+  // LE cas qui aurait fait échouer tout dossier anglais : l'anglais sépare les milliers par une
+  // virgule, le français par une espace. Sans canonisation, « 35,000 » et « 35 000 » sont deux
+  // jetons différents et la rubrique 2 est rétrogradée alors que le dosage est exact.
+  const src = prepareSource('Each pessary contains: Neomycin sulfate 35,000 IU; Nystatin 100,000 IU.')
+  assertEquals(ungroundedFigures('Sulfate de néomycine 35 000 UI, nystatine 100 000 UI.', src), [])
+  // ...et l'inverse, source FR vers contenu EN.
+  const fr = prepareSource('Chaque ovule contient 35 000 UI de sulfate de néomycine.')
+  assertEquals(ungroundedFigures('Each pessary contains 35,000 IU of neomycin sulfate.', fr), [])
+  // Un dosage réellement différent reste signalé, quelle que soit la convention.
+  assertEquals(ungroundedFigures('Sulfate de néomycine 45 000 UI.', src), ['45 000'])
+})
+
+Deno.test('ungroundedFigures : la virgule DÉCIMALE ne se confond pas avec un séparateur de milliers', () => {
+  // « 12,5 » est un nombre décimal ; « 12,500 » est douze mille cinq cents. Les confondre
+  // laisserait passer un dosage cent fois trop élevé.
+  const src = prepareSource('Dose : 12,5 mg par prise. Conditionnement de 12 500 unités.')
+  assertEquals(ungroundedFigures('Dose of 12.5 mg per intake.', src), [])
+  assertEquals(ungroundedFigures('Pack of 12,500 units.', src), [])
+  assertEquals(ungroundedFigures('Dose de 125 mg.', src), ['125'])
+})
+
 Deno.test('ungroundedFigures : sans source, aucun chiffre n’est déclaré non fondé', () => {
   // Mode fichier : le contrôle ne peut pas s'exercer, il ne PRÉTEND donc rien — ni dans un sens,
   // ni dans l'autre. Rendre « tout est non fondé » rétrograderait toutes les rubriques.

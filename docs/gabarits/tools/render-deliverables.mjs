@@ -524,6 +524,12 @@ const jobs = [
     src: 'Gynoril-rapport-analyse', out: 'Gynoril-rapport-analyse', profile: 'report',
     docx: false, signature: true, header: 'GYNORIL \u2014 Rapport d\u2019upgrade',
   },
+  // Gabarit de R\u00c9F\u00c9RENCE en anglais (miroir de la maquette ABMed) : ce n'est pas un livrable
+  // client, c'est le socle que le CEO archive dans RA-source/Template/RCP/.
+  {
+    src: 'Gabarit-SmPC-EN-UEMOA', out: 'Gabarit-SmPC-EN-UEMOA', profile: 'document',
+    docx: true, header: 'SmPC template \u2014 UEMOA',
+  },
 ]
 for (const job of jobs) {
   const blocks = parse(readFileSync(`${base}/${job.src}.md`, 'utf8'), job.profile)
