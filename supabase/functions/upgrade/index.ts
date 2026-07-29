@@ -203,6 +203,7 @@ Deno.serve(async (req: Request) => {
   // Source : pièce téléchargée (Storage, RLS via le JWT appelant) ou texte borné.
   let sourcePart: Part
   let sourceBytes = 0
+  let inputTruncated = false
   if (b.filePath) {
     const { data, error } = await supabase.storage.from(STORAGE_BUCKET).download(String(b.filePath))
     if (error || !data) return json({ error: 'document introuvable' }, 404)
@@ -215,7 +216,11 @@ Deno.serve(async (req: Request) => {
       inlineData: { mimeType: mimeFor(String(b.fileName ?? 'document')), data: bytesToBase64(buf) },
     }
   } else {
-    const text = String(b.text).slice(0, MAX_TEXT_CHARS)
+    const rawText = String(b.text)
+    // Couper l'ENTRÉE sans le dire produit une mise en conformité « complète » d'un document
+    // amputé — indétectable côté client. On tronque toujours (borne de sécurité), mais on le signale.
+    inputTruncated = rawText.length > MAX_TEXT_CHARS
+    const text = rawText.slice(0, MAX_TEXT_CHARS)
     if (!text.trim()) return json({ error: 'texte source vide' }, 400)
     sourceBytes = text.length
     sourcePart = { text: `DOCUMENT SOURCE :\n${text}` }
@@ -231,6 +236,7 @@ Deno.serve(async (req: Request) => {
   logJson({
     ...log,
     op: 'start',
+    inputTruncated,
     docType,
     bytes: sourceBytes,
     fromText: !b.filePath,
@@ -290,5 +296,7 @@ Deno.serve(async (req: Request) => {
   }
 
   logJson({ ...log, op: 'upgrade', ms: Date.now() - started, status: 'ok', chars: text.length })
-  return json({ text, docType })
+  // Champ ADDITIF : le client peut avertir que la source a été coupée avant traitement. Les
+  // clients existants l'ignorent — aucune rupture de contrat.
+  return json({ text, docType, ...(inputTruncated ? { inputTruncated: true } : {}) })
 })

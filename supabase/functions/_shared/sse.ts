@@ -2,6 +2,8 @@
 // Vertex émet `data: {candidates:[{content:{parts:[{text}]}}], usageMetadata?, …}` par fragment ;
 // le client n'a besoin que des deltas de texte : on émet `data: {"text":"…"}` puis `data: [DONE]`.
 
+import { finishProblem, type FinishProblem } from './ai/finish.ts'
+
 const encoder = new TextEncoder()
 
 /** Extrait le delta de texte d'un événement JSON Vertex (chaîne vide si fragment sans texte). */
@@ -13,6 +15,19 @@ export function vertexEventText(json: string): string {
     return (parsed.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join('')
   } catch {
     return ''
+  }
+}
+
+/**
+ * Extrait le motif d'arrêt d'un événement Vertex (présent sur le dernier fragment).
+ * Sans cette lecture, un flux tronqué se termine par un `[DONE]` indiscernable d'un flux complet.
+ */
+export function vertexEventFinish(json: string): string | null {
+  try {
+    const parsed = JSON.parse(json) as { candidates?: Array<{ finishReason?: string }> }
+    return parsed.candidates?.[0]?.finishReason ?? null
+  } catch {
+    return null
   }
 }
 
@@ -48,6 +63,7 @@ export function vertexSseToSimple(
   let usageIn = 0
   let usageOut = 0
   let sawUsage = false
+  let problem: FinishProblem | null = null
 
   const emit = (controller: ReadableStreamDefaultController<Uint8Array>, text: string) => {
     total += text.length
@@ -64,10 +80,18 @@ export function vertexSseToSimple(
       usageOut = usage.out
       sawUsage = true
     }
+    const reason = vertexEventFinish(payload)
+    if (reason) problem = finishProblem(reason)
     return text.length > 0
   }
 
   const finish = (controller: ReadableStreamDefaultController<Uint8Array>) => {
+    // Le client a déjà reçu du texte : impossible d'annuler. On signale donc explicitement que le
+    // flux est incomplet — sans cela, un `[DONE]` après une troncature est indiscernable d'une
+    // génération réussie, et le document part au client comme s'il était entier.
+    if (problem) {
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: problem })}\n\n`))
+    }
     controller.enqueue(encoder.encode('data: [DONE]\n\n'))
     onDone?.(total)
     // usageMetadata si vu, sinon estimation sur la sortie émise (l'entrée est inconnue ici).
