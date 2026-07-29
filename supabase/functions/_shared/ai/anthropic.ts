@@ -184,9 +184,12 @@ export async function generateParts(parts: Part[], opts: AiOptions = {}): Promis
     } catch (e) {
       throw toPolicyError(e)
     }
-    assertUsableStop(message.stop_reason, 'anthropic.generate', message.stop_details?.category)
-    logIfFallback('generate', message.model, message.usage?.iterations)
+    // Comptabiliser AVANT de constater un arrêt inexploitable : une réponse tronquée ou refusée a
+    // été produite, donc facturée. Lever d'abord ferait perdre ces tokens pour le quota — il
+    // suffirait alors de faire échouer la génération pour consommer l'IA gratuitement.
     recordUsage(message.usage as AnthropicUsage)
+    logIfFallback('generate', message.model, message.usage?.iterations)
+    assertUsableStop(message.stop_reason, 'anthropic.generate', message.stop_details?.category)
     // `content` est une union : blocs de réflexion PUIS blocs de texte. Seul le texte est le
     // livrable ; la réflexion (`display: summarized`) sert la mesure du lot M3, pas le document.
     // Un bloc `fallback` (marqueur de bascule) n'est pas du texte : il est ignoré ici.
