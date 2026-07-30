@@ -38,11 +38,27 @@ import { MAX_CONTROL_CHARS, MAX_READ_PAGES } from './pdf-text'
 const OCR_BASE = `${import.meta.env.BASE_URL}ocr`
 
 /**
- * Résolution de rendu, en points par pouce. En dessous de 200, Tesseract perd les petits corps d'un
- * RCP (notes de bas de tableau, mentions en 7 points) ; au-dessus, le temps de reconnaissance croît
- * en carré sans gain mesurable. 200 dpi est la recommandation de Tesseract pour du texte imprimé.
+ * Résolution de rendu, en points par pouce — **mesurée**, pas choisie par convention.
+ *
+ * Le cas dimensionnant est la NOTICE, et il est particulier : les titulaires d'AMM ne disposent
+ * souvent que du bon à tirer de l'imprimeur (artwork CorelDRAW exporté en PDF), où le texte est
+ * VECTORISÉ. Contrairement à un scan raster — plafonné par la résolution du scanner — un vectoriel
+ * se rend à n'importe quelle résolution sans perte : y monter est du gain de qualité gratuit, et le
+ * corps 5 à 6 points d'un dépliant en a besoin.
+ *
+ * Mesuré sur une notice réelle (KV-Kacin 500, A4 dense, neuf repères relevés à l'œil) :
+ *
+ * | dpi | temps OCR | confiance | repères retrouvés |
+ * |-----|-----------|-----------|-------------------|
+ * | 200 |    18,1 s |        91 |               8/9 |
+ * | 300 |    22,4 s |        94 |           **9/9** |
+ * | 400 |    27,0 s |        94 |               9/9 |
+ *
+ * 300 récupère le dernier repère (« 2 ml emballé dans un carton ») pour un quart de temps en plus ;
+ * 400 n'apporte plus rien et coûte 20 % de plus. Le plafond de surface reste respecté : une A4 à
+ * 300 dpi fait 8,7 Mpx, contre 16 autorisés.
  */
-const RENDER_DPI = 200
+const RENDER_DPI = 300
 
 /** pdf.js exprime les dimensions en points PostScript : 72 par pouce. */
 const PDF_POINTS_PER_INCH = 72
