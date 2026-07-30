@@ -87,6 +87,42 @@ Deno.test('boundedMap : un lot vide est complet et instantané', async () => {
   assertEquals(isComplete(report), true)
 })
 
+Deno.test('boundedMap : le préchauffage lance le PREMIER item seul, puis parallélise', async () => {
+  // Sans lui, six appels démarrent avant que le premier n'ait écrit le cache de préfixe : les six
+  // paient l'écriture (1,25×) au lieu d'une, et cinq relectures à 0,1× sont perdues.
+  let live = 0
+  const peaks: number[] = []
+  const report = await boundedMap(Array.from({ length: 9 }, (_, i) => i), async () => {
+    live++
+    peaks.push(live)
+    await sleep(5)
+    live--
+  }, { concurrency: 4, warmupFirst: true })
+
+  // Le premier item a été seul : au moment où il tourne, la simultanéité valait 1.
+  assertEquals(peaks[0], 1)
+  assertEquals(Math.max(...peaks), 4)
+  assertEquals(report.ok, 9)
+  assertEquals(report.outcomes.length, 9)
+})
+
+Deno.test('boundedMap : un préchauffage qui ÉCHOUE ne bloque pas le reste du lot', async () => {
+  const report = await boundedMap([0, 1, 2, 3], (n) =>
+    n === 0 ? Promise.reject(new Error('préfixe en panne')) : Promise.resolve(n), {
+    concurrency: 3,
+    warmupFirst: true,
+  })
+  assertEquals(report.failed, 1)
+  assertEquals(report.ok, 3)
+  assertEquals(values(report), [1, 2, 3])
+})
+
+Deno.test('boundedMap : le préchauffage est sans effet sur un lot d’un seul item', async () => {
+  const report = await boundedMap([7], (n) => Promise.resolve(n * 2), { warmupFirst: true })
+  assertEquals(values(report), [14])
+  assertEquals(report.ok, 1)
+})
+
 Deno.test('boundedMap : la progression est notifiée item par item', async () => {
   const seen: number[] = []
   await boundedMap([3, 1, 2], async (ms, i) => {

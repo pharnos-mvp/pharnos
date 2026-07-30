@@ -56,6 +56,26 @@ Deno.test('generateSection : citation retrouvée → rubrique conservée en un s
   assertEquals(r.title, 'DÉNOMINATION DU MÉDICAMENT')
 })
 
+Deno.test('generateSection : le cache de préfixe s’arrête AVANT l’instruction', async () => {
+  // Le préfixe (système + source) est identique pour les 29 rubriques et pèse 72 % du coût d'entrée.
+  // Le point de rupture doit donc désigner le dernier fragment SOURCE : marquer l'instruction
+  // ferait entrer la partie variable dans le cache, et chaque appel paierait l'écriture.
+  const s = scripted([out('filled', 'x'.repeat(20), 'GYNORIL 500 mg, comprimé pelliculé.')])
+  await generateSection(s.generate, req())
+  const { parts, opts } = s.calls[0]
+  assertEquals(opts.cacheBreakpointAfter, 0)
+  assertEquals(parts.length, 2)
+  // Le fragment marqué est bien la source, l'instruction reste dehors.
+  assertStringIncludes(String(parts[0].text), 'DOCUMENT SOURCE')
+  assertEquals(opts.cacheBreakpointAfter! < parts.length - 1, true)
+})
+
+Deno.test('generateSection : sans fragment source, aucun cache n’est demandé', async () => {
+  const s = scripted([out('filled', 'GYNORIL 500 mg.', 'GYNORIL 500 mg, comprimé pelliculé.')])
+  await generateSection(s.generate, req({ sourceParts: [] }))
+  assertEquals(s.calls[0].opts.cacheBreakpointAfter, undefined)
+})
+
 Deno.test('generateSection : l’appel est contraint à LA rubrique demandée', async () => {
   const s = scripted([out('filled', 'x'.repeat(20), 'GYNORIL 500 mg, comprimé pelliculé.')])
   await generateSection(s.generate, req())

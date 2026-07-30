@@ -37,6 +37,31 @@ export interface AiOptions {
    * jamais sur un livrable client, où un refus non rattrapé est une panne produit.
    */
   fallbacks?: boolean
+  /**
+   * Index (0-based) du DERNIER fragment appartenant au préfixe mis en cache. Tout ce qui précède —
+   * consigne système comprise — devient un préfixe réutilisable ; ce qui suit reste variable.
+   *
+   * ⚠️ **Doit désigner un fragment autre que le dernier.** Marquer le dernier mettrait en cache la
+   * requête ENTIÈRE, partie variable incluse : chaque appel paierait l'écriture (1,25×) sans jamais
+   * relire. Le fournisseur refuse ce cas plutôt que de le laisser coûter en silence.
+   *
+   * Ne sert que là où le préfixe est réellement partagé : la génération par rubrique renvoie le même
+   * document source 29 fois, soit **72 % du coût d'entrée** mesuré sur KV-Kacin. La traduction et la
+   * revue n'ont rien à partager entre appels — l'option y serait un coût net.
+   */
+  cacheBreakpointAfter?: number
+  /**
+   * Met en cache la CONSIGNE SYSTÈME seule.
+   *
+   * Utile là où le contenu diffère à chaque appel mais la consigne non — la passe de traduction, dont
+   * chaque rubrique porte un texte différent alors que la posture du terminologue et le termbase
+   * pèsent ~2 500 jetons répétés à chaque appel. `cacheBreakpointAfter` n'y sert à rien : il n'y a
+   * qu'un seul fragment de contenu, et le marquer ferait entrer le texte variable dans le cache.
+   *
+   * Sans effet si la consigne est plus courte que le minimum cachable du modèle (1 024 jetons) : le
+   * marqueur est alors ignoré par l'API, sans surcoût.
+   */
+  cacheSystem?: boolean
 }
 
 /** Observabilité du mode flux : appelés à la fin du flux, jamais dans la boucle chaude. */

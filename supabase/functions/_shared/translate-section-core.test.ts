@@ -156,6 +156,16 @@ Deno.test('translateSection : la posture de terminologue est posée MÊME sans s
   assertStringIncludes(sys, 'Tu n’AMÉLIORES pas')
 })
 
+Deno.test('translateSection : c’est la CONSIGNE qui est mise en cache, pas le contenu', async () => {
+  // Chaque rubrique porte un texte différent : un point de rupture sur l'unique fragment ferait
+  // entrer le variable dans le cache et chaque appel paierait l'écriture. La posture et le termbase,
+  // eux, sont identiques d'une rubrique à l'autre.
+  const s = scripted([out('36 months.')])
+  await translateSection(s.generate, req())
+  assertEquals(s.calls[0].opts.cacheSystem, true)
+  assertEquals(s.calls[0].opts.cacheBreakpointAfter, undefined)
+})
+
 Deno.test('parityReport : la parité est MÉCANIQUE, pas déclarative', () => {
   const src = [{ status: 'filled' as const }, { status: 'missing' as const }, { status: 'partial' as const }]
   assertEquals(parityReport(src, src).ok, true)
