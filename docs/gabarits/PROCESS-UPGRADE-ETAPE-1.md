@@ -124,7 +124,16 @@ Adresse électronique seule ; les autres canaux vont au rapport.
 
 Le RCP conforme, seul. Aucune annotation, aucun commentaire, aucune recommandation à l'intérieur.
 
-### Le rapport — une à deux pages, pas davantage
+### La revue réglementaire — une à deux pages, pas davantage
+
+**Nom du livrable**, arrêté le 30/07/2026 : « **Revue réglementaire du RCP** » en français,
+« **SmPC Regulatory Review** » en anglais. L'ordre des mots diffère volontairement — la traduction
+littérale « Regulatory Review of the SmPC » n'est pas idiomatique. Il se décline par gabarit
+(`DOC_SHORT` dans `conformity-specs.ts`) : de la notice, de l'étiquetage, de la lettre de demande…
+
+⚠️ **Jamais « avis » ni « attestation » ni « certificat » de conformité.** Le document ne certifie
+rien : il constate et recommande. Un nom qui suggère une conformité créerait l'ambiguïté que
+l'avertissement passe deux paragraphes à dissiper.
 
 **Langue du rapport** : celle du document téléversé par l'utilisateur. Source FR → rapport FR ;
 source EN → rapport EN ; **toute autre langue source → rapport EN par défaut**. Le rapport suit le

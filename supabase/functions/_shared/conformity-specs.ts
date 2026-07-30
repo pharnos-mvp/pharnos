@@ -418,6 +418,22 @@ export const CONFORMITY_SPECS: Record<ConformityDocType, ConformitySpec> = {
   labeling: LABELING_SPEC,
 }
 
+/**
+ * Libellés COURTS bilingues par type de document — titres de livrables et noms de fichiers.
+ *
+ * `frOf` porte le complément français avec sa contraction d'article (« du RCP », « de la notice ») :
+ * la construire par concaténation produirait « de le RCP ». L'ordre des mots diffère d'une langue à
+ * l'autre — « Revue réglementaire du RCP » mais « SmPC Regulatory Review » — car la traduction
+ * littérale (« Regulatory Review of the SmPC ») n'est pas idiomatique.
+ */
+export const DOC_SHORT: Record<ConformityDocType, { fr: string; en: string; frOf: string }> = {
+  rcp: { fr: 'RCP', en: 'SmPC', frOf: 'du RCP' },
+  notice: { fr: 'notice', en: 'Package Leaflet', frOf: 'de la notice' },
+  labeling: { fr: 'étiquetage', en: 'Labelling', frOf: "de l'étiquetage" },
+  cover: { fr: 'lettre de demande', en: 'Cover Letter', frOf: 'de la lettre de demande' },
+  pght: { fr: 'lettre de PGHT', en: 'PGHT Letter', frOf: 'de la lettre de PGHT' },
+}
+
 /** Mapping des docTypes Pharnos (vocabulaire module1-tree) vers une spec de conformité. */
 const DOCTYPE_TO_SPEC: Record<string, ConformityDocType> = {
   cover: 'cover',

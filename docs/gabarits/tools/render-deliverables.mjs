@@ -531,15 +531,15 @@ const jobs = [
   { src: 'Gynoril-conforme-FR', out: 'Gynoril-RCP-FR', profile: 'document', docx: true },
   { src: 'Gynoril-conforme-EN', out: 'Gynoril-SmPC-EN', profile: 'document', docx: true },
   {
-    src: 'Gynoril-rapport-analyse', out: 'Gynoril-rapport-analyse', profile: 'report',
-    docx: false, signature: true, header: 'GYNORIL \u2014 Rapport d\u2019upgrade',
+    src: 'Gynoril-rapport-analyse', out: 'Gynoril-revue-reglementaire-RCP', profile: 'report',
+    docx: false, signature: true, header: 'GYNORIL \u2014 Revue r\u00e9glementaire',
   },
   // Cas reel : KV-Kacin 500 (amikacine injectable), source ANGLAISE, depot Benin.
   { src: 'KV-Kacin-conforme-FR', out: 'KV-Kacin-RCP-FR', profile: 'document', docx: true },
   { src: 'KV-Kacin-conforme-EN', out: 'KV-Kacin-SmPC-EN', profile: 'document', docx: true },
   {
-    src: 'KV-Kacin-rapport-analyse', out: 'KV-Kacin-upgrade-report', profile: 'report',
-    docx: false, signature: true, header: 'KV-KACIN 500 \u2014 Upgrade report',
+    src: 'KV-Kacin-rapport-analyse', out: 'KV-Kacin-SmPC-regulatory-review', profile: 'report',
+    docx: false, signature: true, header: 'KV-KACIN 500 \u2014 Regulatory Review',
   },
   // Gabarit de R\u00c9F\u00c9RENCE en anglais (miroir de la maquette ABMed) : ce n'est pas un livrable
   // client, c'est le socle que le CEO archive dans RA-source/Template/RCP/.
