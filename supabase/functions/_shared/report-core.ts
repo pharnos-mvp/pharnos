@@ -24,6 +24,7 @@
 // sur le document du client est vérifiable**. « Votre rubrique 7 s'intitule Fabricant » se contrôle
 // — la chaîne doit figurer dans la source. Ce qui ne se retrouve pas est écarté.
 import { normalizeForEvidence, prepareSource, type PreparedSource } from './ai/evidence.ts'
+import { reviewSystem } from './ai/personas.ts'
 import { SectionOutputError } from './ai/section-schema.ts'
 import type { AiOptions, Part, Provider } from './ai/types.ts'
 import { DOC_SHORT, type ConformityDocType, type ConformitySpec } from './conformity-specs.ts'
@@ -405,7 +406,9 @@ export async function generateReport(
   req: ReportRequest,
 ): Promise<ReportOutcome> {
   const raw = await generate([{ text: buildReportInstruction(req) }], {
-    system: req.system,
+    // Sans posture, la revue perdrait ce que le client achète : c'est la SEULE passe où la
+    // connaissance générale est un actif, et elle doit être autorisée explicitement.
+    system: req.system ?? reviewSystem(req.lang),
     json: true,
     jsonSchema: reportSchema(),
     maxOutputTokens: REPORT_MAX_OUTPUT_TOKENS,

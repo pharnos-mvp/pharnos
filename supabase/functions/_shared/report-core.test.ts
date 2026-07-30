@@ -245,6 +245,24 @@ Deno.test('generateReport : l’instruction ne demande PAS l’avertissement au 
   assertEquals(/double-check|vérifie avant de répondre/i.test(instruction), false)
 })
 
+Deno.test('generateReport : la posture d’expert est posée, dans la langue du rapport', async () => {
+  // C'est la SEULE passe où la connaissance générale est un actif : sans posture, la revue perdrait
+  // ce que le client achète. Le repli ne doit pas pouvoir disparaître en silence.
+  const seen: string[] = []
+  const run = (lang: 'fr' | 'en') =>
+    generateReport((_p, opts) => {
+      seen.push(String(opts.system))
+      return Promise.resolve(out(ANALYSIS))
+    }, req({ lang }))
+
+  await run('fr')
+  await run('en')
+  assertStringIncludes(seen[0], 'expert senior en affaires réglementaires')
+  assertStringIncludes(seen[0], 'Tu SIGNALES, tu ne complètes jamais le document')
+  assertStringIncludes(seen[1], 'senior regulatory affairs expert')
+  assertStringIncludes(seen[1], 'You FLAG; you never complete the document')
+})
+
 Deno.test('generateReport : une sortie inexploitable remonte, elle ne produit pas un rapport vide', async () => {
   await assertRejects(
     () => generateReport(() => Promise.resolve('pas du json'), req()),

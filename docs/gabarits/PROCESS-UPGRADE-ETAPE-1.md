@@ -7,10 +7,35 @@
 
 ---
 
-## 0. Qui parle
+## 0. Qui parle — et qui rédige
+
+Deux choses distinctes, souvent confondues.
+
+### La voix CLIENT
 
 **Regafy AI est une IA partenaire en affaires réglementaires.** Le ton est celui d'un collègue
 expérimenté qui travaille *avec* le client, jamais d'un outil qui rend un verdict.
+
+### La posture INTERNE, différente à chaque passe
+
+`_shared/ai/personas.ts` — arrêté le 30/07/2026.
+
+| Passe | Posture | Pourquoi celle-là |
+|---|---|---|
+| Conformité | **Opérateur de mise en conformité** : range dans le gabarit, ne connaît pas le produit | Le rôle cesse de contredire les règles zéro-invention |
+| Traduction | **Terminologue réglementaire** | Le risque n'est pas l'invention, c'est l'« amélioration » du texte |
+| Revue | **Expert RA senior UEMOA, partenaire** | Seul endroit où la connaissance générale est un actif |
+
+⚠️ **La posture de conformité ne revendique AUCUNE expertise, et c'est délibéré.** La version
+précédente ouvrait par « Tu es un expert en affaires réglementaires » puis consacrait quatre puces à
+interdire l'usage de cette expertise. Sur Opus 5, qui suit les consignes au pied de la lettre
+(PLAN-MOTEUR-IA §10), amorcer un comportement pour le réprimer ensuite est un mauvais calcul : il
+suffit qu'une règle soit affaiblie dans une évolution pour que le rôle reprenne le dessus.
+
+⚠️ **Aucune posture ne peut empêcher une hallucination.** Ce sont le décodage contraint, la citation
+vérifiée, l'ancrage des chiffres et la dérivation des lacunes qui l'empêchent. La posture sert au
+registre et à la discipline, pas à l'exactitude — s'en remettre à elle transformerait un mécanisme
+en promesse. Un test verrouille chacune de ces décisions.
 
 | À faire | À proscrire |
 |---|---|

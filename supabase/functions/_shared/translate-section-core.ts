@@ -16,6 +16,7 @@
 //     produit bien plus grave qu'une phrase maladroite : il se contrôle donc, il ne s'espère pas.
 //  3. **Le gabarit ne change pas** : `section_id` reste verrouillé par `enum`.
 import { ungroundedFigures, prepareSource } from './ai/evidence.ts'
+import { translationSystem } from './ai/personas.ts'
 import { SectionOutputError } from './ai/section-schema.ts'
 import type { SectionStatus } from './ai/section-schema.ts'
 import type { AiOptions, Part, Provider } from './ai/types.ts'
@@ -47,7 +48,11 @@ export interface TranslateRequest {
   content: string
   /** Langue du contenu produit. */
   targetLang: OutputLang
-  /** Consigne système (rôle du traducteur, termbase). */
+  /**
+   * Consigne système. Laissée optionnelle pour les tests, mais en production elle vient TOUJOURS de
+   * `personas.translationSystem(targetLang)` : sans elle, le modèle traduit sans savoir qu'il lui
+   * est interdit d'« améliorer » le texte — le risque propre à cette passe.
+   */
   system?: string
   provider?: Provider
   budgetMs?: number
@@ -154,7 +159,7 @@ export function buildTranslateInstruction(req: TranslateRequest, drifted?: strin
 
 function attemptOptions(req: TranslateRequest, timeoutMs: number): AiOptions {
   return {
-    system: req.system,
+    system: req.system ?? translationSystem(req.targetLang),
     json: true,
     jsonSchema: translateSchema(req.sectionId),
     maxOutputTokens: TRANSLATE_MAX_OUTPUT_TOKENS,

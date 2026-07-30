@@ -146,6 +146,16 @@ Deno.test('buildTranslateInstruction : le titre n’est pas soumis à la traduct
   assertEquals(/vérifie|double-check|relis/i.test(i), false)
 })
 
+Deno.test('translateSection : la posture de terminologue est posée MÊME sans système fourni', async () => {
+  // Sans elle, le modèle traduit sans savoir qu'il lui est interdit d'« améliorer » le texte — le
+  // risque propre à cette passe. Ce repli ne doit pas pouvoir disparaître en silence.
+  const s = scripted([out('36 months.')])
+  await translateSection(s.generate, { ...req(), system: undefined })
+  const sys = String(s.calls[0].opts.system)
+  assertStringIncludes(sys, 'terminologue réglementaire')
+  assertStringIncludes(sys, 'Tu n’AMÉLIORES pas')
+})
+
 Deno.test('parityReport : la parité est MÉCANIQUE, pas déclarative', () => {
   const src = [{ status: 'filled' as const }, { status: 'missing' as const }, { status: 'partial' as const }]
   assertEquals(parityReport(src, src).ok, true)
