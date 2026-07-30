@@ -19,12 +19,40 @@ export function countMissing(text: string): number {
   return countMarker(text, MISSING_MARKER)
 }
 
+/**
+ * Le flux n'a pas démarré. Porte le STATUT, seul moyen de distinguer un défaut de transport (à
+ * replier) d'un refus de l'Edge (à propager tel quel).
+ */
+class StreamUnavailableError extends Error {
+  readonly status: number
+  constructor(status: number) {
+    super(`flux indisponible (${status})`)
+    this.name = 'StreamUnavailableError'
+    this.status = status
+  }
+}
+
+/** Un refus DÉTERMINISTE de l'Edge : le rejouer coûterait une seconde génération pour le même refus. */
+function isClientRefusal(e: unknown): boolean {
+  return e instanceof StreamUnavailableError && e.status >= 400 && e.status < 500
+}
+
 export interface UpgradeInput {
-  /** Pièce uploadée (chemin Storage) — exclusif avec `text`. */
+  /** Pièce uploadée (chemin Storage). */
   filePath?: string
   fileName?: string
-  /** Texte source (traduction déjà produite) — exclusif avec `filePath`. */
+  /**
+   * Texte source. Deux rôles selon le contexte, et c'est `sourceKind` qui les distingue :
+   *  - SEUL, c'est l'entrée du modèle (traduction déjà produite, document généré) ;
+   *  - AVEC `filePath`, c'est le CORPUS DE CONTRÔLE d'un scan — le modèle lit la pièce.
+   */
   text?: string
+  /**
+   * Provenance de `text` — déclarée, jamais devinée. `'ocr'` **exige** `filePath` : sans pièce, il
+   * n'y a pas d'image fidèle à lire et c'est le texte reconstruit qui partirait au modèle, avec les
+   * coquilles de notre propre lecture attribuées au client.
+   */
+  sourceKind?: 'text' | 'ocr'
   docType: string
   countryCode?: string
   /** Contexte certifié du dossier (fiche produit) — données vérifiées, pas des inventions. */
@@ -48,11 +76,27 @@ export async function upgradeDoc(
   input: UpgradeInput,
   onChunk?: (textSoFar: string) => void,
 ): Promise<string> {
+  // Invariant vérifié ICI et pas seulement côté Edge : un aller-retour pour se faire répondre 400
+  // coûte une seconde à l'utilisateur et n'apprend rien de plus qu'une garde locale. L'Edge le
+  // revérifie — il ne fait jamais confiance au client — mais l'appelant fautif est nous.
+  if (input.sourceKind === 'ocr' && !input.filePath) {
+    throw new Error(
+      tStatic({
+        fr: 'Document scanné : la pièce d’origine est requise en plus du texte reconnu.',
+        en: 'Scanned document: the original file is required alongside the recognised text.',
+      }),
+    )
+  }
   if (onChunk) {
     try {
       return await upgradeDocStream(input, onChunk)
-    } catch {
-      // Repli : flux indisponible (proxy qui bufferise…) → réponse JSON classique.
+    } catch (e) {
+      // ⚠️ Repli sur un défaut de TRANSPORT seulement (proxy qui bufferise, coupure réseau).
+      // Attraper tout relançait une génération COMPLÈTE et facturée après un refus de l'Edge —
+      // un 400 ou un 413 se reproduira à l'identique, et la cause réelle serait perdue au passage.
+      // C'est aussi la règle du moteur : un appel qui a échoué pour une raison déterministe ne se
+      // rejoue pas.
+      if (isClientRefusal(e)) throw e
     }
   }
   const supabase = await getSupabase()
@@ -111,7 +155,7 @@ async function upgradeDocStream(
     body: JSON.stringify({ ...input, stream: true }),
   })
   if (!res.ok || !res.body || !res.headers.get('content-type')?.includes('text/event-stream')) {
-    throw new Error(`flux indisponible (${res.status})`)
+    throw new StreamUnavailableError(res.status)
   }
 
   const reader = res.body.getReader()
