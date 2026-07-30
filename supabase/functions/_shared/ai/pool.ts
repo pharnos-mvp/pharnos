@@ -55,6 +55,17 @@ export interface PoolOptions {
   now?: () => number
   /** Appelé à la fin de chaque item — journalisation de progression, jamais dans la boucle chaude. */
   onSettled?: (outcome: PoolOutcome<unknown>) => void
+  /**
+   * Exécute le PREMIER item seul, puis parallélise le reste.
+   *
+   * Indispensable dès qu'un cache de préfixe est en jeu. Six appels lancés ensemble démarrent avant
+   * que le premier n'ait écrit le cache : les six paient l'écriture (1,25×) au lieu d'une seule, et
+   * cinq relectures à 0,1× sont perdues. Sur un RCP, ce préchauffage coûte la latence d'un appel
+   * (~15 s) et épargne l'équivalent de cinq écritures d'un préfixe de 10 000 jetons.
+   *
+   * Sans cache de préfixe, il ne sert à rien : il ne fait que rallonger le lot.
+   */
+  warmupFirst?: boolean
 }
 
 export const DEFAULT_CONCURRENCY = 6
@@ -75,6 +86,24 @@ export async function boundedMap<I, O>(
   const outcomes: PoolOutcome<O>[] = new Array(items.length)
 
   let next = 0
+  // Préchauffage : le premier item part SEUL, pour qu'il ait écrit le cache de préfixe avant que
+  // les suivants ne démarrent. `next` étant déjà avancé, la vague parallèle reprend après lui.
+  if (options.warmupFirst && items.length > 1) {
+    next = 1
+    const t0 = now()
+    try {
+      outcomes[0] = { index: 0, value: await worker(items[0], 0), skipped: false, ms: now() - t0 }
+    } catch (e) {
+      outcomes[0] = {
+        index: 0,
+        error: e instanceof Error ? e : new Error(String(e)),
+        skipped: false,
+        ms: now() - t0,
+      }
+    }
+    options.onSettled?.(outcomes[0] as PoolOutcome<unknown>)
+  }
+
   const runOne = async (): Promise<void> => {
     for (;;) {
       const index = next++
@@ -105,7 +134,7 @@ export async function boundedMap<I, O>(
   }
 
   await Promise.all(
-    Array.from({ length: Math.min(concurrency, items.length) }, () => runOne()),
+    Array.from({ length: Math.min(concurrency, items.length - next) }, () => runOne()),
   )
 
   let ok = 0

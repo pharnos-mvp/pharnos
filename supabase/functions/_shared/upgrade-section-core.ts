@@ -253,6 +253,11 @@ function attemptOptions(req: SectionRequest, timeoutMs: number): AiOptions {
     maxOutputTokens: SECTION_MAX_OUTPUT_TOKENS,
     timeoutMs,
     provider: req.provider,
+    // Cache de préfixe : consigne système + document source sont IDENTIQUES pour les 29 rubriques
+    // d'un même document, et pèsent 72 % du coût d'entrée (mesuré sur KV-Kacin). Le point de
+    // rupture se place donc après le dernier fragment source ; l'instruction, variable, reste
+    // dehors. Sans fragment source (cas de test), pas de préfixe à partager.
+    ...(req.sourceParts.length > 0 ? { cacheBreakpointAfter: req.sourceParts.length - 1 } : {}),
     // `effort` laissé au défaut du fournisseur (`medium`, §10) : sur une réécriture structurée à
     // invention nulle, un effort supérieur fabrique du contenu non demandé.
   }

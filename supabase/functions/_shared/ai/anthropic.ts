@@ -80,6 +80,34 @@ function toBlock(part: Part): Anthropic.Beta.BetaContentBlockParam {
   return { type: 'text', text: part.text ?? '' }
 }
 
+/**
+ * Place le point de rupture du cache de préfixe.
+ *
+ * Anthropic met en cache tout ce qui PRÉCÈDE le bloc marqué, bloc compris — donc la consigne
+ * système aussi, sans qu'il faille la marquer séparément. Écriture facturée 1,25×, relecture 0,1× :
+ * le gain n'existe que si le préfixe est relu plusieurs fois avant expiration (5 min par défaut).
+ *
+ * ⚠️ Marquer le DERNIER bloc mettrait la requête entière en cache, partie variable comprise :
+ * chaque appel paierait l'écriture sans jamais relire. On refuse plutôt que de coûter en silence.
+ */
+function withCacheBreakpoint(
+  blocks: Anthropic.Beta.BetaContentBlockParam[],
+  at: number | undefined,
+): Anthropic.Beta.BetaContentBlockParam[] {
+  if (at === undefined) return blocks
+  if (!Number.isInteger(at) || at < 0 || at >= blocks.length - 1) {
+    throw new AnthropicOutputError(
+      'bad_cache_breakpoint',
+      `cacheBreakpointAfter=${at} invalide : il doit désigner un fragment AUTRE que le dernier ` +
+        `(${blocks.length} fragments) — sinon la partie variable entre dans le cache et chaque ` +
+        `appel paie l'écriture sans jamais relire`,
+    )
+  }
+  return blocks.map((b, i) =>
+    i === at ? { ...b, cache_control: { type: 'ephemeral' as const } } : b
+  )
+}
+
 /** Corps de requête commun aux deux modes (bloquant et flux). */
 function buildBody(
   parts: Part[],
@@ -98,13 +126,28 @@ function buildBody(
     // Le plancher protège de la troncature : l'appelant borne le TEXTE, pas la réflexion.
     max_tokens: Math.max(opts.maxOutputTokens ?? 0, MIN_MAX_TOKENS),
     ...(opts.fallbacks === false ? {} : { betas: [FALLBACK_BETA], fallbacks: 'default' }),
-    ...(opts.system ? { system: opts.system } : {}),
+    // La consigne système part en BLOC quand elle doit être mise en cache : `cache_control` ne
+    // s'attache pas à une chaîne nue.
+    ...(opts.system
+      ? {
+        system: opts.cacheSystem
+          ? [{
+            type: 'text' as const,
+            text: opts.system,
+            cache_control: { type: 'ephemeral' as const },
+          }]
+          : opts.system,
+      }
+      : {}),
     thinking: { type: 'adaptive', display: 'summarized' },
     output_config: {
       effort: opts.effort ?? 'medium',
       ...(opts.jsonSchema ? { format: { type: 'json_schema', schema: opts.jsonSchema } } : {}),
     },
-    messages: [{ role: 'user', content: parts.map(toBlock) }],
+    messages: [{
+      role: 'user',
+      content: withCacheBreakpoint(parts.map(toBlock), opts.cacheBreakpointAfter),
+    }],
   }
 }
 
@@ -162,14 +205,26 @@ interface AnthropicUsage {
   cache_creation_input_tokens?: number
 }
 
-/** Comptabilise les tokens pour le quota par organisation (les lectures de cache sont facturées). */
-function recordUsage(usage: AnthropicUsage | undefined): { in: number; out: number } {
-  const input = (usage?.input_tokens ?? 0) +
-    (usage?.cache_read_input_tokens ?? 0) +
-    (usage?.cache_creation_input_tokens ?? 0)
+/**
+ * Comptabilise les tokens pour le quota par organisation (les lectures de cache sont facturées).
+ *
+ * ⚠️ Les trois compteurs d'entrée sont additionnés pour le QUOTA mais journalisés SÉPARÉMENT : sans
+ * cela, un cache qui ne prend jamais serait invisible — le total resterait identique et l'on
+ * croirait économiser. `cacheRead` proche de zéro sur une série de rubriques signale un préfixe qui
+ * n'est pas réellement stable, ou une série plus longue que les 5 minutes de rétention.
+ */
+function recordUsage(usage: AnthropicUsage | undefined): {
+  in: number
+  out: number
+  cacheRead: number
+  cacheWrite: number
+} {
+  const cacheRead = usage?.cache_read_input_tokens ?? 0
+  const cacheWrite = usage?.cache_creation_input_tokens ?? 0
+  const input = (usage?.input_tokens ?? 0) + cacheRead + cacheWrite
   const output = usage?.output_tokens ?? 0
   addUsage(input, output)
-  return { in: input, out: output }
+  return { in: input, out: output, cacheRead, cacheWrite }
 }
 
 /** Génère du texte (mode bloquant). */
@@ -187,7 +242,18 @@ export async function generateParts(parts: Part[], opts: AiOptions = {}): Promis
     // Comptabiliser AVANT de constater un arrêt inexploitable : une réponse tronquée ou refusée a
     // été produite, donc facturée. Lever d'abord ferait perdre ces tokens pour le quota — il
     // suffirait alors de faire échouer la génération pour consommer l'IA gratuitement.
-    recordUsage(message.usage as AnthropicUsage)
+    const used = recordUsage(message.usage as AnthropicUsage)
+    // Journalisé même sans cache demandé : un `cacheRead` nul sur une série de rubriques est le
+    // signal qu'un préfixe cesse d'être partagé, et il ne se voit nulle part ailleurs.
+    if (opts.cacheBreakpointAfter !== undefined || opts.cacheSystem) {
+      logJson({
+        fn: 'anthropic',
+        op: 'cache',
+        read: used.cacheRead,
+        write: used.cacheWrite,
+        fresh: used.in - used.cacheRead - used.cacheWrite,
+      })
+    }
     logIfFallback('generate', message.model, message.usage?.iterations)
     assertUsableStop(message.stop_reason, 'anthropic.generate', message.stop_details?.category)
     // `content` est une union : blocs de réflexion PUIS blocs de texte. Seul le texte est le

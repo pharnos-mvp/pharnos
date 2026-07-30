@@ -160,6 +160,11 @@ export function buildTranslateInstruction(req: TranslateRequest, drifted?: strin
 function attemptOptions(req: TranslateRequest, timeoutMs: number): AiOptions {
   return {
     system: req.system ?? translationSystem(req.targetLang),
+    // La posture du terminologue et le termbase sont IDENTIQUES pour toutes les rubriques d'un
+    // document, alors que leur texte diffère : c'est la consigne système qu'il faut mettre en cache
+    // ici, pas le contenu. Un point de rupture sur l'unique fragment ferait entrer le texte variable
+    // dans le cache et chaque appel paierait l'écriture.
+    cacheSystem: true,
     json: true,
     jsonSchema: translateSchema(req.sectionId),
     maxOutputTokens: TRANSLATE_MAX_OUTPUT_TOKENS,
