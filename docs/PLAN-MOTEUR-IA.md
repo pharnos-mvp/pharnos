@@ -174,6 +174,12 @@ Schéma d'audit par rubrique : `section_id` (enum) · `verdict` (`conforme` / `�
 Bénéfice direct : le rapport d'audit devient **trié par criticité par construction**, et l'upsell
 Upgrade se calcule — on sait exactement quels documents sont non conformes et lesquels vendre.
 
+**Les scans sont couverts sans travail supplémentaire**, et c'est la conséquence directe d'avoir mis
+le contrôle dans `_shared/ai/evidence.ts` plutôt que dans chaque passe : l'audit partage le champ
+`source_evidence`, donc il hérite tel quel de `sourceKind`, du verdict `verified_ocr` et du caractère
+consultatif des chiffres. Une seule implémentation pour l'upgrade, l'audit et la traduction — trois
+implémentations auraient fini par diverger, et la plus laxiste aurait fixé la garantie réelle.
+
 ---
 
 ## 7. Ce qu'on mesure (et qui décide de tout le reste)
@@ -213,9 +219,79 @@ Banc d'essai : documents réels de `Test/` (Gynoril, KV-Super Muscle) et `RA-sou
 11. **Le mode rubrique EXIGE un texte source.** Sans lui, le contrôle de citation ne peut pas
     s'exercer et la réponse serait indistinguable d'une rubrique vérifiée. L'extraction PDF vit dans
     le navigateur (§8.6), et l'Edge refuse l'appel en 400 plutôt que de rendre une garantie décorative.
+    ⚠️ Sur un **scan**, ce texte est celui de la reconnaissance de caractères, faite elle aussi par le
+    navigateur, et l'Edge en est informé par `sourceKind: 'ocr'`.
 12. **La source précède l'instruction dans les fragments** : le préfixe stable (système + document)
     devient cachable pour les 28 rubriques, et c'est le contrat de sortie — non le document fourni par
     l'utilisateur — qui occupe la position de récence.
+13. **Un corpus de contrôle océrisé ne sert QU'AU contrôle** — il n'entre jamais dans le prompt. Le
+    modèle lit l'image, qui est fidèle. L'y ajouter coûterait des jetons ET ferait attribuer au
+    document du client les coquilles de notre propre lecture : des constats faux qu'aucun contrôle en
+    aval ne peut démentir, puisqu'ils figurent bel et bien dans le corpus.
+    ⚠️ **Opus 5 est multimodal et océrise nativement — c'est justement pourquoi une SECONDE lecture,
+    indépendante, est nécessaire.** Un contrôle produit par ce qu'il contrôle n'est pas un contrôle :
+    si le corpus venait du modèle, `verifyEvidence` comparerait sa citation à sa propre lecture, et
+    toute invention cohérente avec elle-même passerait. Ce qui compte dans l'OCR navigateur n'est pas
+    sa qualité, c'est son **indépendance**. Ne jamais la remplacer par un appel au modèle.
+14. **La rigueur d'un contrôle suit la PROVENANCE du corpus, jamais son contenu.** `sourceKind` est
+    déclaré par l'appelant, jamais deviné, et **`'ocr'` exige la pièce d'origine** (sans elle il n'y a
+    pas d'image fidèle à lire, et c'est le texte reconstruit qui partirait au modèle). Sur `'ocr'` :
+    citation tolérante à **8 % des caractères**, sur un passage **CONTIGU** (`verified_ocr`, verdict
+    distinct), et valeurs chiffrées **consultatives** (`figuresAdvisory`) — jamais approximatives.
+    Rapprocher des chiffres « à peu près » ferait accepter 8 mg pour 3 mg ; les rendre consultatifs
+    déplace la décision vers l'expert. Une seule variable porte la condition de rétrogradation
+    (`figuresRejected`), et une seule porte la provenance (`req.source.kind`) : dupliquées, elles
+    divergent, et l'on rétrograde ce que la boucle vient d'accepter.
+15. **La MAGNITUDE d'une valeur est intouchable, et elle ne vit pas que dans les chiffres.** Trois
+    défauts réels, trouvés en revue, tous de la même famille — un budget d'édition aveugle au SENS du
+    caractère :
+    - chiffre ↔ chiffre : une posologie **doublée** passait « citation vérifiée » ;
+    - `dp[i] = i` en colonne initiale : les chiffres de **tête** redevenaient supprimables, donc
+      « 250 comprimés par jour » s'alignait sur « comprimés par jour » — atteignable à la rubrique 1,
+      celle qui porte le dosage ;
+    - l'**unité** : `250 g` sur `250 mg`, `5 μg/kg/min` sur `5 mg/kg/min`, `1,25` sur `12,5`.
+      Facteur mille, et **sans aucun signal** — le jeton chiffré étant intact, l'ancrage n'a rien à
+      lister.
+
+    Sont donc gelés des deux côtés (ni suppression, ni saut, ni substitution contre une espace) : les
+    chiffres, le séparateur encadré de chiffres, et l'unité qui suit un nombre. Les seules
+    substitutions admises dans cette zone sont chiffre ↔ lettre homographe (`0/o`, `1/l`, `5/s`,
+    `8/b`) et `i`/`l`/`|`, `μ`/`u`. **L'unité se reconnaît par un vocabulaire FERMÉ**, jamais par sa
+    longueur : « 5.3 Sécurité préclinique » est le motif le plus courant d'un RCP, et geler le titre
+    qui suit un numéro de rubrique ferait refuser presque toutes les citations.
+    ⚠️ Ce vocabulaire est **ENGENDRÉ** (bases × préfixes SI) et non énuméré : `kui/dose` d'un titre
+    vaccinal, `μmol/l`, `mg/24 h` d'un patch, `mg/pulverisation` d'un spray sont des notations
+    réelles, et chaque forme oubliée rendait le NUMÉRATEUR libre — donc `ui` pour `kui`, facteur
+    mille, sans aucun signal d'ancrage. Fermer la famille, jamais courir après les instances.
+    Une partie vide de la composition par `/` est admise : le balayage s'arrête sur un chiffre, donc
+    `mg/24 h` ne livre que `mg/`. Et **l'espace entre le nombre et son unité reste LIBRE** —
+    « 500mg » pour « 500 mg » est l'artefact OCR le plus courant après la confusion de lettres.
+    ⚠️ Les unités **en toutes lettres** appartiennent au même bloc, dans les deux langues. C'est même
+    la forme la plus dangereuse à laisser nue : la réglementation demande de l'écrire précisément
+    pour ÉVITER la confusion μg/mg, donc elle apparaît là où cette confusion coûte le plus cher.
+    Trois substitutions séparent « micro » de « milli » — sous le budget dès qu'une citation dépasse
+    80 caractères, c'est-à-dire toujours. La protection apparente sur les citations courtes n'était
+    qu'un **accident d'arithmétique**, pas une garantie : le genre de faux positif de recette qui
+    fait clore un défaut ouvert.
+    ⚠️ `μ` est le **mu grec** : NFKC replie le signe micro dessus. Une table écrite avec le signe
+    micro serait inopérante — et muette, puisqu'elle échouerait en refusant.
+    ⚠️ Ces prédicats vivent dans la boucle interne : en **numérique**, sans allocation. Une table de
+    chaînes interrogée par `String.fromCharCode` coûtait le triple (1 141 ms au lieu de 303) et
+    rapprochait le mur des 2 s de CPU.
+16. **⚠️ Un score de recouvrement par MOTS ne vaut RIEN comme contrôle de citation.** Sans exigence
+    de contiguïté, il ne prouve que l'existence du vocabulaire : une phrase recombinée à partir de
+    mots pris à trois rubriques différentes obtient un score parfait. Défaut réel, trouvé en revue —
+    il faisait livrer « chez l'enfant, 250 mg » à partir d'une source qui ne posologie que l'adulte,
+    sous la mention « citation vérifiée » et sans rétrogradation. Le rapprochement approché est donc
+    une **distance d'édition à une sous-chaîne** (Sellers), pas un score.
+17. **Un contrôle dont le coût dépend de la SORTIE du modèle doit être borné** — et dégrader vers la
+    RIGUEUR — et **se compter en caractères, pas en appels** : le coût est proportionnel à la longueur
+    (~0,5 ms/caractère sur 60 000, mesuré), donc soixante intitulés d'un paragraphe chacun passeraient
+    le mur des 2 s. `pruneUnverifiable` accorde 800 caractères (~0,45 s), **facturés seulement quand le
+    rapprochement approché tourne réellement** — sinon les correspondances littérales, gratuites,
+    épuiseraient le crédit — puis s'en tient au littéral et **retourne le compte** (`strictClaims`).
+    Dégrader vers la permissivité laisserait passer des affirmations non vérifiées ; une borne muette
+    se lit comme une absence de borne.
 
 ---
 
@@ -228,6 +304,7 @@ Banc d'essai : documents réels de `Test/` (Gynoril, KV-Super Muscle) et `RA-sou
 | **M2** ✅ | Schéma par rubrique + contrôle `source_evidence` | M1 |
 | **Postures** ✅ | `_shared/ai/personas.ts` — trois, une par passe (#441) | M2 |
 | **Cache** ✅ | Préfixe + consigne, préchauffage du lot (#443) — **entrée passe 1 : −82 %** | M2 |
+| **Scans** ✅ | Sources océrisées : deux canaux, tolérance de lecture, chiffres consultatifs, encart de revue — côté moteur. **L'OCR navigateur reste à écrire** (PLAN-UPGRADE-FRONTEND §C bis) | M2 |
 | **M3** | Harnais de mesure + passage du banc d'essai | M2 |
 | **M4** | Worker asynchrone `upgrade_jobs` (pg_cron) | M2 |
 | **M5** | Passe traduction EN | M4 |

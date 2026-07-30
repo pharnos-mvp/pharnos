@@ -20,19 +20,57 @@
 //  3. **Le rapport est trié par criticité PAR CONSTRUCTION** (§6 du plan) : `criticality` est un
 //     `enum`, le tri est mécanique.
 //
+// 4. **La portée réelle des garanties sur CE document est dite en code** : quand la source est un
+//    scan, l'encart « votre document est un scan » et la liste des valeurs à relire sont assemblés
+//    ici. Confiés au modèle, ils seraient adoucis ou omis exactement quand ils comptent.
+//
 // Et un contrôle qui reste applicable malgré la liberté d'analyse : **toute affirmation FACTUELLE
 // sur le document du client est vérifiable**. « Votre rubrique 7 s'intitule Fabricant » se contrôle
 // — la chaîne doit figurer dans la source. Ce qui ne se retrouve pas est écarté.
-import { normalizeForEvidence, prepareSource, type PreparedSource } from './ai/evidence.ts'
+import {
+  findInSource,
+  findInSourceExact,
+  OCR_MAX_ANCHOR_CHARS,
+  normalizeForEvidence,
+  prepareSource,
+  type PreparedSource,
+  type SourceKind,
+} from './ai/evidence.ts'
 import { reviewSystem } from './ai/personas.ts'
 import { SectionOutputError } from './ai/section-schema.ts'
 import type { AiOptions, Part, Provider } from './ai/types.ts'
 import { DOC_SHORT, type ConformityDocType, type ConformitySpec } from './conformity-specs.ts'
-import type { OutputLang } from './upgrade-section-core.ts'
+import type { OutputLang, SectionOutcome } from './upgrade-section-core.ts'
 
 export const REPORT_BUDGET_MS = 100_000
 const REPORT_ATTEMPT_TIMEOUT_MS = 90_000
 const REPORT_MAX_OUTPUT_TOKENS = 8_000
+
+/**
+ * Budget du rapprochement APPROCHÉ des affirmations d'une revue, **en caractères**.
+ *
+ * ⚠️ Ni le nombre de lignes ni leur longueur ne sont contraints par `reportSchema()`, et les DEUX
+ * pèsent : le coût mesuré sur un corpus de 60 000 caractères est de **~8 ms fixes + ~0,58 ms par
+ * caractère** (16 ms pour 25 caractères, 354 ms pour 590). Compter des appels laisserait passer les
+ * lignes longues ; compter des caractères seuls laisserait passer la multitude de lignes courtes.
+ * D'où un coût à deux termes, et un crédit calibré pour que le pire cas — une vingtaine d'intitulés
+ * courts, ou une seule ligne au maximum de l'ancrage — reste vers 0,4 s, contre 2 s de CPU (§8.6).
+ * Au-delà, un rapport déjà payé serait perdu après cent secondes de génération.
+ */
+const OCR_CLAIM_BUDGET = 1_100
+
+/**
+ * Part forfaitaire prélevée par rapprochement — un coût RÉEL et mesuré : **~10 ms par appel sur un
+ * corpus de 60 000 caractères, indépendamment de la longueur de l'affirmation**. La programmation
+ * dynamique balaie tout le corpus même pour une affirmation d'un caractère (O(citation × corpus), le
+ * terme en corpus domine quand la citation est courte).
+ *
+ * ⚠️ Ne pas « nettoyer » ce forfait au prétexte qu'il ne dépend pas de la longueur : c'est
+ * précisément ce qu'il borne. Sans lui, 1 100 affirmations d'un caractère coûteraient ~11 s de CPU,
+ * contre 2 s autorisées (§8.6). Il plafonne le NOMBRE d'appels à 55 ; le terme en caractères plafonne
+ * le TRAVAIL. Les deux dimensions viennent du modèle ; aucune ne doit rester libre.
+ */
+const OCR_CLAIM_FIXED_COST = 20
 
 /** Criticité — `enum` : le tri du rapport en découle, il n'est pas confié à la rédaction. */
 export type Criticality = 'blocking' | 'major' | 'minor'
@@ -52,6 +90,15 @@ export interface ReportSection {
   sectionId: string
   title: string
   status: 'filled' | 'partial' | 'missing'
+  /**
+   * Valeurs chiffrées que le contrôle d'ancrage n'a pas retrouvées dans le corpus océrisé
+   * (`SectionOutcome.ungrounded` quand `figuresAdvisory`). Rendues TELLES QUELLES, en liste, jamais
+   * racontées par le modèle : sur un scan, une valeur non retrouvée est presque toujours une lecture
+   * fautive, et l'expert a besoin de savoir LAQUELLE relire, pas d'un avertissement général.
+   * Ignoré hors source océrisée : sur une source fidèle, une valeur non ancrée a déjà rétrogradé
+   * sa rubrique, et l'afficher ici reviendrait à recopier une lacune en « à vérifier ».
+   */
+  figuresToVerify?: readonly string[]
 }
 
 export interface ReportRequest {
@@ -62,6 +109,26 @@ export interface ReportRequest {
   sourceName: string
   /** Texte source — sert aussi à vérifier les affirmations factuelles de l'analyse. */
   sourceText: string
+  /**
+   * Provenance de `sourceText`. `'ocr'` change trois choses, et seulement ces trois-là : la
+   * tolérance du contrôle des affirmations factuelles, une consigne de plus au modèle (aucun constat
+   * de FORME sur un texte reconstruit), et un encart déterministe dans le rapport.
+   *
+   * ⚠️ **Obligatoire, et non optionnel avec repli `text`.** L'oublier sur un scan est silencieux et
+   * coûteux : comparaison littérale contre un corpus reconstruit, donc une revue vidée de ses propres
+   * constats justes, sans encart et sans liste de valeurs à relire. Le mieux placé pour le renseigner
+   * est `reportInputFrom`, qui le pose avec `figuresToVerify`.
+   */
+  sourceKind: SourceKind
+  /**
+   * Source envoyée au modèle en PIÈCE (PDF, image) plutôt qu'en texte dans l'instruction.
+   *
+   * ⚠️ Obligatoire pour un scan. Sans elle, l'analyse porterait sur le texte océrisé et le modèle
+   * attribuerait au document du client les coquilles de la reconnaissance de caractères — un constat
+   * FAUX que le contrôle d'ancrage ne peut pas rattraper, puisque la coquille figure bel et bien
+   * dans le corpus de contrôle. Le modèle lit l'image ; l'OCR ne sert qu'à vérifier en code.
+   */
+  sourceParts?: readonly Part[]
   sections: readonly ReportSection[]
   /** Langue du rapport : celle du document téléversé (§ étape 1). */
   lang: OutputLang
@@ -70,6 +137,33 @@ export interface ReportRequest {
   system?: string
   provider?: Provider
   budgetMs?: number
+}
+
+/**
+ * Construit l'entrée factuelle de la revue depuis les rubriques produites par la passe 1.
+ *
+ * ⚠️ **Passer par ici, jamais construire `sections` à la main.** `sourceKind` et `figuresToVerify`
+ * sont les deux faces d'une même contrepartie : sur un scan, le contrôle des valeurs a été rendu
+ * consultatif, et la seule chose offerte au client en échange est la LISTE de ce qu'il doit relire.
+ * Les renseigner séparément permettrait de livrer l'encart sans la liste — un avertissement sans
+ * contenu, invisible en recette puisque l'encart, lui, serait bien là.
+ */
+export function reportInputFrom(outcomes: readonly SectionOutcome[]): {
+  sections: ReportSection[]
+  sourceKind: SourceKind
+} {
+  return {
+    sections: outcomes.map((o) => ({
+      sectionId: o.sectionId,
+      title: o.title,
+      status: o.status,
+      ...(o.figuresAdvisory && o.ungrounded.length ? { figuresToVerify: o.ungrounded } : {}),
+    })),
+    // `figuresAdvisory` vaut la provenance du document pour TOUTE rubrique d'une même exécution,
+    // qu'elle porte des valeurs non retrouvées ou non : le drapeau est donc fiable ici, là où un
+    // test sur `ungrounded` aurait manqué un scan dont toutes les valeurs se relisent bien.
+    sourceKind: outcomes.some((o) => o.figuresAdvisory) ? 'ocr' : 'text',
+  }
 }
 
 /* ───────────────────────────── Textes fixes, jamais confiés au modèle ───────────────────────── */
@@ -86,6 +180,10 @@ interface Locale {
    */
   warningBody: string[]
   h: [string, string, string, string, string]
+  /** Encart « source scannée » — déterministe, jamais demandé au modèle (cf. l'avertissement). */
+  scanHead: string
+  scanBody: string[]
+  scanFiguresLead: string
   gapsLead: (n: number) => string
   gapsMostSerious: string
   gapsThen: string
@@ -114,6 +212,24 @@ const LOCALES: Record<OutputLang, Locale> = {
       'Constats qui demandent une décision',
       'Recommandations',
     ],
+    scanHead: '### 📄 Votre document source a été lu par reconnaissance de caractères',
+    scanBody: [
+      // Formulé au niveau de ce qui est SU — notre mode de lecture — et non de ce qui est supposé.
+      // Affirmer « aucun texte n'est enregistré dans ce PDF » énoncerait un fait sur le fichier du
+      // client alors que la bascule peut venir d'une couche de texte pauvre ou de pages mixtes.
+      'Son contenu a été reconstitué à partir de l’image des pages, faute de texte exploitable dans ' +
+        'le fichier. Si votre lecteur vous affiche du texte sélectionnable, il provient de sa propre ' +
+        'reconnaissance, pas du fichier.',
+      'Les mots se relisent de façon fiable ; **les chiffres, non** — une reconnaissance confond ' +
+        '0 et O, 1 et l, 5 et S, 8 et B. Le contrôle automatique des valeurs a donc été laissé ' +
+        "consultatif pour ce document : exiger l'exactitude sur un texte reconstruit aurait fait " +
+        'rétrograder des rubriques correctes.',
+      '**Relisez les valeurs chiffrées du document mis en conformité contre votre original** — ' +
+        'dosages, dates, durées de conservation, numéros. Un dossier fourni avec sa couche de texte ' +
+        "n'appelle pas cette relecture.",
+    ],
+    scanFiguresLead: 'Valeurs lues par reconnaissance de caractères et non retrouvées à ' +
+      "l'identique — à relire en priorité :",
     gapsLead: (n) =>
       `Toute rubrique du gabarit non renseignée par votre document porte la mention ` +
       `« Non fourni, à compléter » — ${n} au total. Le gabarit est le socle : rien n'est passé ` +
@@ -150,6 +266,20 @@ const LOCALES: Record<OutputLang, Locale> = {
       'Findings that need a decision',
       'Recommendations',
     ],
+    scanHead: '### 📄 Your source document was read by character recognition',
+    scanBody: [
+      'Its content was reconstructed from the page images, for want of usable text in the file. If ' +
+        'your reader shows you selectable text, that text comes from its own recognition, not from ' +
+        'the file.',
+      'Words are read back reliably; **figures are not** — recognition confuses 0 with O, 1 with l, ' +
+        '5 with S, 8 with B. The automatic check on values was therefore left advisory for this ' +
+        'document: requiring an exact match against reconstructed text would have downgraded ' +
+        'correct sections.',
+      '**Read the figures in the upgraded document against your original** — strengths, dates, ' +
+        'shelf life, numbers. A dossier supplied with its text layer does not call for this review.',
+    ],
+    scanFiguresLead: 'Values read by character recognition and not found identically — read these ' +
+      'first:',
     gapsLead: (n) =>
       `Every maquette element left unfilled by your document carries "Not provided, to be ` +
       `completed" — ${n} in total. The maquette is the baseline: nothing is passed over in silence.`,
@@ -250,14 +380,42 @@ export function parseReportAnalysis(raw: string): ReportAnalysis {
 export function pruneUnverifiable(analysis: ReportAnalysis, source: PreparedSource): {
   analysis: ReportAnalysis
   dropped: string[]
+  /**
+   * Nombre d'affirmations jugées SANS la tolérance de lecture, faute de budget CPU. Retourné et non
+   * tu : une borne silencieuse se lit comme « tout a été contrôlé de la même façon ».
+   */
+  strictClaims: number
 } {
   const dropped: string[] = []
+  // Au-delà du budget on n'abandonne pas le contrôle : on s'en tient au LITTÉRAL, donc à plus de
+  // rigueur. Dégrader dans l'autre sens laisserait passer des affirmations non vérifiées, et
+  // personne ne le verrait.
+  let budgetLeft = OCR_CLAIM_BUDGET
+  let strictClaims = 0
   const present = (s: string) => {
     const n = normalizeForEvidence(s)
     // Trop court pour être une affirmation vérifiable : on laisse passer plutôt que de rejeter
     // sur du bruit (« 7 », « 5.2 » se retrouvent partout de toute façon).
     if (n.length < 4) return true
-    if (source.normalized.includes(n) || source.deHyphenated.includes(n.replace(/-/g, ''))) return true
+    // Le LITTÉRAL d'abord, et hors budget : c'est le cas courant et il ne coûte rien. Facturer les
+    // correspondances exactes épuiserait le crédit sur ce qui n'en consomme pas, et la seule
+    // affirmation qui avait besoin de la tolérance serait écartée.
+    if (findInSourceExact(n, source)) return true
+    // Recherche PARTAGÉE avec le contrôle de citation : sur une source océrisée, elle tolère les
+    // caractères mal reconnus. Sans cela, une revue portant sur un scan écarterait ses propres
+    // constats justes — le client paierait une analyse vidée par notre outil de lecture.
+    if (source.kind === 'ocr') {
+      // Facturé au travail RÉELLEMENT possible : au-delà de l'ancrage, `findInSource` refuse sans
+      // lancer le moindre calcul — prélever la longueur entière ferait payer deux intitulés bavards
+      // au prix de tous les suivants, basculés en littéral strict pour rien.
+      const cost = Math.min(n.length, OCR_MAX_ANCHOR_CHARS) + OCR_CLAIM_FIXED_COST
+      if (budgetLeft >= cost) {
+        budgetLeft -= cost
+        if (findInSource(n, source) !== 'absent') return true
+      } else {
+        strictClaims++
+      }
+    }
     dropped.push(s)
     return false
   }
@@ -268,6 +426,7 @@ export function pruneUnverifiable(analysis: ReportAnalysis, source: PreparedSour
       terminology: analysis.terminology.filter((t) => present(t.before)),
     },
     dropped,
+    strictClaims,
   }
 }
 
@@ -303,9 +462,20 @@ export function buildReportInstruction(req: ReportRequest): string {
       'Explique le risque, jamais le reproche. N\'écris pas « non conforme ».',
     '',
     `Rubriques restées à compléter (${missing.length}) : ${missing.map((s) => s.sectionId).join(', ') || '—'}`,
+    // Sur un scan, le modèle lit la PIÈCE — jamais le texte océrisé. Il ne verra donc pas les
+    // coquilles de la reconnaissance ; cette consigne ferme le cas inverse, celui où il en
+    // devinerait une depuis une image de mauvaise qualité et l'attribuerait au client.
+    ...(req.sourceKind === 'ocr'
+      ? [
+        '',
+        'Ce document source est un SCAN, lu depuis son image. N\'en tire AUCUN constat de FORME — ' +
+          'orthographe, ponctuation, casse, mot coupé : une anomalie de ce genre viendrait de la ' +
+          'qualité de l\'image, pas du document du client. Les constats de FOND restent attendus, ' +
+          'à l\'identique.',
+      ]
+      : []),
     '',
-    'DOCUMENT SOURCE :',
-    req.sourceText,
+    ...(req.sourceParts?.length ? ['DOCUMENT SOURCE : voir la pièce fournie.'] : ['DOCUMENT SOURCE :', req.sourceText]),
   ].join('\n')
 }
 
@@ -339,6 +509,20 @@ export function renderReportMarkdown(analysis: ReportAnalysis, req: ReportReques
     '---',
     '',
   ]
+  // Encart « scan » : déterministe comme l'avertissement, et pour la même raison — c'est la portée
+  // exacte de nos garanties sur CE document. Un modèle pourrait l'omettre ou l'adoucir.
+  if (req.sourceKind === 'ocr') {
+    const toVerify = [...new Set(req.sections.flatMap((s) => s.figuresToVerify ?? []))]
+    out.push(
+      `> ${L.scanHead}`,
+      '>',
+      ...L.scanBody.flatMap((p) => [`> ${p}`, '>']).slice(0, -1),
+    )
+    if (toVerify.length) {
+      out.push('>', `> ${L.scanFiguresLead}`, '>', `> ${toVerify.map((v) => `\`${v}\``).join(' · ')}`)
+    }
+    out.push('', '---', '')
+  }
   let n = 0
   const section = (title: string) => out.push(`## ${++n}. ${title}`, '')
 
@@ -398,6 +582,12 @@ export interface ReportOutcome {
   analysis: ReportAnalysis
   /** Affirmations écartées faute d'être retrouvées dans le document — signal de qualité. */
   droppedClaims: string[]
+  /**
+   * Affirmations jugées sans la tolérance de lecture, faute de budget CPU (source océrisée bavarde).
+   * Non nul = le contrôle a été plus STRICT que prévu sur ces lignes, donc certaines ont pu être
+   * écartées à tort. À journaliser : une borne qu'on ne voit pas se lit comme une absence de borne.
+   */
+  strictClaims: number
 }
 
 /** Produit le rapport : un seul appel, analyse contrainte, assemblage déterministe. */
@@ -405,7 +595,21 @@ export async function generateReport(
   generate: (parts: Part[], opts: AiOptions) => Promise<string>,
   req: ReportRequest,
 ): Promise<ReportOutcome> {
-  const raw = await generate([{ text: buildReportInstruction(req) }], {
+  // L'invariant « le texte océrisé n'entre jamais dans le prompt » se tient ICI, dans la fonction
+  // qui assemble les fragments — pas dans le commentaire du champ. Sans la pièce, le repli enverrait
+  // le texte reconstruit AVEC la consigne qui affirme au modèle qu'il lit une image : il reprocherait
+  // alors au client des coquilles fabriquées par notre propre lecture, et `pruneUnverifiable` ne
+  // pourrait pas les écarter puisqu'elles figurent bel et bien dans le corpus de contrôle.
+  // La NATURE de la pièce compte, pas sa présence : `sourceParts: [{ text: ocr }]` satisferait un
+  // simple test de longueur et enverrait le texte reconstruit au modèle, avec la consigne qui lui
+  // affirme qu'il lit une image. C'est l'invariant que ce garde-fou prétend tenir.
+  if (req.sourceKind === 'ocr' && !req.sourceParts?.some((p) => p.inlineData)) {
+    throw new Error('revue sur source océrisée : la pièce d’origine (image ou PDF) est obligatoire')
+  }
+  // Pièce d'abord, instruction ensuite — même ordre que la passe de conformité : le préfixe stable
+  // reste cachable et la consigne de sortie garde la position la plus récente.
+  const parts: Part[] = [...(req.sourceParts ?? []), { text: buildReportInstruction(req) }]
+  const raw = await generate(parts, {
     // Sans posture, la revue perdrait ce que le client achète : c'est la SEULE passe où la
     // connaissance générale est un actif, et elle doit être autorisée explicitement.
     system: req.system ?? reviewSystem(req.lang),
@@ -415,6 +619,14 @@ export async function generateReport(
     timeoutMs: Math.min(REPORT_ATTEMPT_TIMEOUT_MS, req.budgetMs ?? REPORT_BUDGET_MS),
     provider: req.provider,
   })
-  const { analysis, dropped } = pruneUnverifiable(parseReportAnalysis(raw), prepareSource(req.sourceText))
-  return { markdown: renderReportMarkdown(analysis, req), analysis, droppedClaims: dropped }
+  const { analysis, dropped, strictClaims } = pruneUnverifiable(
+    parseReportAnalysis(raw),
+    prepareSource(req.sourceText, req.sourceKind),
+  )
+  return {
+    markdown: renderReportMarkdown(analysis, req),
+    analysis,
+    droppedClaims: dropped,
+    strictClaims,
+  }
 }

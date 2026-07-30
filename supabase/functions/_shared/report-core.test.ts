@@ -5,10 +5,12 @@ import { prepareSource } from './ai/evidence.ts'
 import { SectionOutputError } from './ai/section-schema.ts'
 import { CONFORMITY_SPECS } from './conformity-specs.ts'
 import {
+  buildReportInstruction,
   generateReport,
   parseReportAnalysis,
   pruneUnverifiable,
   renderReportMarkdown,
+  reportInputFrom,
   reportSchema,
   type ReportAnalysis,
   type ReportRequest,
@@ -33,6 +35,7 @@ function req(over: Partial<ReportRequest> = {}): ReportRequest {
       { sectionId: '4.6-fertilite', title: 'Fertilité', status: 'missing' },
     ],
     lang: 'fr',
+    sourceKind: 'text',
     reportDate: '30 juillet 2026',
     ...over,
   }
@@ -268,4 +271,196 @@ Deno.test('generateReport : une sortie inexploitable remonte, elle ne produit pa
     () => generateReport(() => Promise.resolve('pas du json'), req()),
     SectionOutputError,
   )
+})
+
+/* ─────────────────────────────── Source SCANNÉE (océrisée) ─────────────────────────────────── */
+
+/** Le même document, tel qu'une reconnaissance de caractères le restitue : l → I, O → 0, S → 5. */
+const OCR_SOURCE = [
+  '1. Name of the proprietary product: KV-Kacin 5OO',
+  '5.3 Pre-clinlcal Safety:',
+  '7. Marketing Authorization Holder:',
+  'Infections and Infestatiosn',
+].join('\n')
+
+Deno.test('pruneUnverifiable : sur un scan, un constat juste n’est pas écarté pour une lettre mal lue', () => {
+  // Sans tolérance, la revue d'un document scanné écarterait ses PROPRES constats justes : le client
+  // paierait une analyse vidée par notre outil de lecture, sans qu'aucun message le lui dise.
+  const ocr = pruneUnverifiable(ANALYSIS, prepareSource(OCR_SOURCE, 'ocr'))
+  assertEquals(ocr.analysis.relocations.length, 1)
+  assertEquals(ocr.dropped, [])
+  // Déclaré fidèle, le même corpus écarte la ligne — c'est bien la provenance qui décide.
+  const strict = pruneUnverifiable(ANALYSIS, prepareSource(OCR_SOURCE, 'text'))
+  assertEquals(strict.analysis.relocations.length, 0)
+  assertEquals(strict.dropped, ['5.3 Pre-clinical Safety:'])
+})
+
+Deno.test('pruneUnverifiable : la tolérance OCR n’ouvre pas la porte aux affirmations inventées', () => {
+  const invented: ReportAnalysis = {
+    ...ANALYSIS,
+    relocations: [{
+      content: 'Posologie',
+      source_position: '4.2 Posology and method of administration',
+      template_position: '4.2',
+      risk: 'aucun',
+    }],
+  }
+  const { analysis, dropped } = pruneUnverifiable(invented, prepareSource(OCR_SOURCE, 'ocr'))
+  assertEquals(analysis.relocations.length, 0)
+  assertEquals(dropped.length, 1)
+})
+
+Deno.test('renderReportMarkdown : un document scanné le DIT, et dit quoi relire', () => {
+  const md = renderReportMarkdown(ANALYSIS, req({
+    sourceKind: 'ocr',
+    sections: [
+      { sectionId: '1', title: 'DÉNOMINATION DU MÉDICAMENT', status: 'filled', figuresToVerify: ['500'] },
+      { sectionId: '2', title: 'COMPOSITION', status: 'filled', figuresToVerify: ['500', '35 000'] },
+      { sectionId: '4.6-fertilite', title: 'Fertilité', status: 'missing' },
+    ],
+  }))
+  assertStringIncludes(md, 'lu par reconnaissance de caractères')
+  // La cause est NOMMÉE : le client verra du texte dans son lecteur et doit comprendre pourquoi.
+  assertStringIncludes(md, 'reconnaissance de caractères')
+  assertStringIncludes(md, 'propre reconnaissance')
+  // Les valeurs à relire sont LISTÉES, dédoublonnées, jamais seulement comptées.
+  assertStringIncludes(md, '`500` · `35 000`')
+  assertEquals(md.split('`500`').length - 1, 1)
+})
+
+Deno.test('renderReportMarkdown : une source fidèle ne porte AUCUN encart de scan', () => {
+  // Un avertissement affiché à tort userait celui qui compte, et laisserait croire à une faiblesse
+  // du livrable là où il n'y en a pas.
+  const md = renderReportMarkdown(ANALYSIS, req({
+    sections: [{ sectionId: '1', title: 'DÉNOMINATION', status: 'filled', figuresToVerify: ['500'] }],
+  }))
+  assertEquals(md.includes('reconnaissance de caractères'), false)
+  assertEquals(md.includes('`500`'), false)
+})
+
+Deno.test('renderReportMarkdown : l’encart de scan existe dans les DEUX langues', () => {
+  const en = renderReportMarkdown(ANALYSIS, req({ lang: 'en', sourceKind: 'ocr' }))
+  assertStringIncludes(en, 'read by character recognition')
+  assertStringIncludes(en, 'reconstructed from the page images')
+  // La cause est nommée en anglais aussi : le client voit du texte dans son lecteur.
+  assertStringIncludes(en, 'its own recognition')
+})
+
+Deno.test('buildReportInstruction : sur un scan, aucun constat de FORME n’est autorisé', () => {
+  // Le modèle lit l'image ; une anomalie d'orthographe viendrait de la qualité du scan, pas du
+  // document du client. La lui reprocher serait un constat FAUX que rien en aval ne rattrape.
+  const withScan = buildReportInstruction(req({ sourceKind: 'ocr' }))
+  assertStringIncludes(withScan, 'AUCUN constat de FORME')
+  assertEquals(buildReportInstruction(req()).includes('constat de FORME'), false)
+})
+
+Deno.test('buildReportInstruction : source en PIÈCE — le texte océrisé n’entre pas dans le prompt', () => {
+  // Deux raisons qui vont dans le même sens : aucun jeton payé pour l'OCR, et aucune coquille de
+  // lecture soumise au modèle comme si elle venait du client.
+  const inst = buildReportInstruction(req({
+    sourceKind: 'ocr',
+    sourceText: OCR_SOURCE,
+    sourceParts: [{ inlineData: { mimeType: 'application/pdf', data: 'AAAA' } }],
+  }))
+  assertEquals(inst.includes('Pre-clinlcal'), false)
+  assertStringIncludes(inst, 'voir la pièce fournie')
+})
+
+Deno.test('generateReport : la pièce précède l’instruction (préfixe cachable, récence sur le contrat)', async () => {
+  let seen: unknown[] = []
+  const empty = JSON.stringify({ relocations: [], terminology: [], findings: [], recommendations: [] })
+  await generateReport((parts) => {
+    seen = parts
+    return Promise.resolve(empty)
+  }, req({
+    sourceKind: 'ocr',
+    sourceParts: [{ inlineData: { mimeType: 'application/pdf', data: 'AAAA' } }],
+  }))
+  assertEquals(seen.length, 2)
+  assertEquals('inlineData' in (seen[0] as Record<string, unknown>), true)
+})
+
+Deno.test('generateReport : une revue sur source océrisée SANS la pièce est refusée', async () => {
+  // L'invariant se tient dans la fonction qui assemble les fragments. Sinon le repli enverrait le
+  // texte océrisé au modèle AVEC la consigne qui lui affirme qu'il lit une image, et il reprocherait
+  // au client des coquilles fabriquées par notre propre lecture.
+  await assertRejects(
+    () => generateReport(() => Promise.resolve(out(ANALYSIS)), req({ sourceKind: 'ocr' })),
+    Error,
+    'pièce d’origine (image ou PDF) est obligatoire',
+  )
+})
+
+Deno.test('reportInputFrom : provenance et valeurs à relire se posent ENSEMBLE', () => {
+  // Les deux faces d'une même contrepartie : sur un scan le contrôle des valeurs devient
+  // consultatif, et la seule chose offerte en échange est la liste de ce qu'il faut relire.
+  // Les renseigner séparément permettrait de livrer l'encart sans la liste.
+  const base = { title: 'T', evidence: '', verdict: 'verified' as const, attempts: 1, downgraded: false }
+  const ocr = reportInputFrom([
+    { ...base, sectionId: '1', status: 'filled', content: 'x', ungrounded: ['500'], figuresAdvisory: true },
+    { ...base, sectionId: '2', status: 'filled', content: 'y', ungrounded: [], figuresAdvisory: true },
+  ])
+  assertEquals(ocr.sourceKind, 'ocr')
+  assertEquals(ocr.sections[0].figuresToVerify, ['500'])
+  // Une rubrique sans valeur en cause ne porte pas de liste vide.
+  assertEquals(ocr.sections[1].figuresToVerify, undefined)
+
+  // Source fidèle : `ungrounded` y signale une rubrique DÉJÀ rétrogradée. La recopier en « à
+  // vérifier » présenterait une lacune comme une simple relecture.
+  const text = reportInputFrom([
+    { ...base, sectionId: '1', status: 'missing', content: '', ungrounded: ['500'], figuresAdvisory: false },
+  ])
+  assertEquals(text.sourceKind, 'text')
+  assertEquals(text.sections[0].figuresToVerify, undefined)
+})
+
+Deno.test('pruneUnverifiable : le budget CPU épuisé dégrade vers la RIGUEUR, et le dit', () => {
+  // Le coût du rapprochement approché est proportionnel à la LONGUEUR de l'affirmation, et ni le
+  // nombre de lignes ni leur longueur ne sont bornés par le schéma : compter des appels ne bornerait
+  // donc rien. Au-delà du crédit on s'en tient au littéral — on écarte davantage. Dégrader vers la
+  // permissivité laisserait passer des affirmations non vérifiées, sans que personne le voie.
+  const claim = '5.3 Pre-clinlcal Safety:' // 24 caractères après normalisation
+  const many: ReportAnalysis = {
+    ...ANALYSIS,
+    relocations: Array.from({ length: 80 }, () => ({
+      content: 'x',
+      // Présente à une lettre près : retenue tant que le crédit dure, écartée après.
+      source_position: claim,
+      template_position: '5.3',
+      risk: 'y',
+    })),
+  }
+  const { analysis, strictClaims } = pruneUnverifiable(many, prepareSource(SOURCE, 'ocr'))
+  // 1 100 / (24 + 20 de part fixe) = 25 rapprochements approchés, puis 55 jugements littéraux.
+  assertEquals(analysis.relocations.length, 25)
+  assertEquals(strictClaims, 55)
+  // La ligne de terminologie est retrouvée LITTÉRALEMENT : elle ne dépense rien et survit au budget.
+  assertEquals(analysis.terminology.length, 1)
+  // Sur une source fidèle, aucun budget ne s'applique : la comparaison y est littérale de bout en bout.
+  assertEquals(pruneUnverifiable(many, prepareSource(SOURCE)).strictClaims, 0)
+})
+
+Deno.test('pruneUnverifiable : le crédit ne se dépense QUE pour ce qui en a besoin', () => {
+  // Facturer les correspondances exactes — qui ne coûtent rien — épuiserait le crédit sur elles, et
+  // la seule affirmation qui avait besoin de la tolérance serait écartée.
+  const many: ReportAnalysis = {
+    ...ANALYSIS,
+    relocations: [
+      ...Array.from({ length: 200 }, () => ({
+        content: 'x',
+        source_position: '5.3 Pre-clinical Safety:', // littérale
+        template_position: '5.3',
+        risk: 'y',
+      })),
+      {
+        content: 'x',
+        source_position: '5.3 Pre-clinlcal Safety:', // a besoin de la tolérance
+        template_position: '5.3',
+        risk: 'y',
+      },
+    ],
+  }
+  const { analysis, strictClaims } = pruneUnverifiable(many, prepareSource(SOURCE, 'ocr'))
+  assertEquals(analysis.relocations.length, 201)
+  assertEquals(strictClaims, 0)
 })

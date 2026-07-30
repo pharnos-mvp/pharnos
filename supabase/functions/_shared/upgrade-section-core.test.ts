@@ -287,3 +287,106 @@ Deno.test('generateSection : le timeout d’une tentative est borné par le budg
   await generateSection(s.generate, req({ budgetMs: 12_000 }))
   assertEquals(s.calls[0].opts.timeoutMs! <= 12_000, true)
 })
+
+/* ─────────────────────────────── Source SCANNÉE (océrisée) ─────────────────────────────────── */
+
+// Sur un scan, le modèle lit l'IMAGE — fidèle — et l'OCR ne sert qu'au contrôle en code. Le corpus
+// ci-dessous porte les substitutions réelles d'une reconnaissance : l → I, O → 0. Les MOTS se
+// retrouvent à une erreur de lecture près, les CHIFFRES non. Exiger l'exactitude sur les valeurs rétrograderait des rubriques
+// correctes ; elles deviennent donc consultatives.
+const OCR_TEXT = 'GYNORlL 5OO mg, comprimé pelliculé. Chaque comprimé pelliculé contient de la ' +
+  'substance active mlcronisée dosée à 5OO mg. Boîte de 3O comprimés.'
+/** Ce que le modèle écrit en lisant l'image : juste, et porteur d'un chiffre absent du corpus. */
+const GOOD = 'Comprimé pelliculé contenant 500 mg de substance active micronisée.'
+/** Citation réellement présente, entamée par l'OCR : c'est le rapprochement approché qui la sauve. */
+const EVIDENCE_OCR = 'Chaque comprimé pelliculé contient de la substance active micronisée'
+/** Citation littéralement présente dans le corpus, quelle que soit sa provenance déclarée. */
+const EVIDENCE_EXACT = 'Chaque comprimé pelliculé contient de la substance active'
+
+Deno.test('generateSection : sur une source océrisée, un chiffre non retrouvé NE rétrograde PAS', async () => {
+  const s = scripted([out('filled', GOOD, EVIDENCE_OCR)])
+  const r = await generateSection(s.generate, req({
+    source: prepareSource(OCR_TEXT, 'ocr'),
+    grounding: prepareSource(OCR_TEXT, 'ocr'),
+  }))
+  // La rubrique est LIVRÉE, telle que le modèle l'a lue sur l'image.
+  assertEquals(r.status, 'filled')
+  assertEquals(r.content, GOOD)
+  assertEquals(r.downgraded, false)
+  assertEquals(r.downgradeReason, undefined)
+  // ...et la garantie est nommée pour ce qu'elle est : réelle, mais moindre.
+  assertEquals(r.verdict, 'verified_ocr')
+  assertEquals(r.figuresAdvisory, true)
+  // Le « 500 » absent du corpus océrisé est REMONTÉ, comme valeur à relire.
+  assertEquals(r.ungrounded, ['500'])
+  // Et aucun rejeu : reprocher au modèle une valeur correcte l'amènerait à écrire « 5OO ».
+  assertEquals(r.attempts, 1)
+  assertEquals(s.calls.length, 1)
+})
+
+Deno.test('generateSection : la MÊME valeur rétrograde bien sur une source fidèle', async () => {
+  // Garde-fou du dispositif : c'est la PROVENANCE qui rend les chiffres consultatifs, rien d'autre.
+  // Sans ce test, un `figuresAdvisory` posé trop largement désarmerait le contrôle pour tous — et le
+  // défaut serait invisible, puisque le livrable resterait « complet ».
+  const s = scripted([out('filled', GOOD, EVIDENCE_EXACT), out('filled', GOOD, EVIDENCE_EXACT)])
+  const r = await generateSection(s.generate, req({
+    source: prepareSource(OCR_TEXT),
+    grounding: prepareSource(OCR_TEXT),
+  }))
+  assertEquals(r.verdict, 'verified')
+  assertEquals(r.status, 'missing')
+  assertEquals(r.content, MISSING_MARKER)
+  assertEquals(r.downgradeReason, 'figures')
+  assertEquals(r.figuresAdvisory, false)
+  assertEquals(r.attempts, 2)
+})
+
+Deno.test('generateSection : sur une source océrisée, une citation ÉTRANGÈRE est toujours rejetée', async () => {
+  // La tolérance porte sur la lecture, jamais sur l'invention : le premier contrôle reste debout.
+  const invented = 'Contre-indiqué chez la femme enceinte et pendant l’allaitement.'
+  const s = scripted([out('filled', invented, invented), out('filled', invented, invented)])
+  const r = await generateSection(s.generate, req({
+    source: prepareSource(OCR_TEXT, 'ocr'),
+    grounding: prepareSource(OCR_TEXT, 'ocr'),
+  }))
+  assertEquals(r.status, 'missing')
+  assertEquals(r.downgradeReason, 'evidence')
+  assertEquals(r.verdict, 'not_found')
+  assertEquals(r.attempts, 2)
+})
+
+Deno.test('generateSection : une posologie INVENTÉE sous citation recombinée est rétrogradée', async () => {
+  // Régression de bout en bout du défaut le plus grave possible ici : sur un scan, une citation
+  // faite de mots tous présents dans le document — mais jamais côte à côte — faisait livrer
+  // « chez l'enfant, 250 mg » à partir d'une source qui ne posologie que l'adulte, sous la mention
+  // « citation vérifiée » et sans rétrogradation. Un dossier d'AMM faux, indétectable côté client.
+  const posology = "La dose recommandée chez l'adulte est de 5OO mg deux fois par jour pendant " +
+    "7 jours. L'utilisation chez l'enfant de moins de 12 ans n'a pas été étudiée."
+  const invented = "Chez l'enfant de moins de 12 ans, la dose recommandée est de 250 mg deux fois par jour."
+  const evidence = "La dose recommandée chez l'enfant est de 250 mg deux fois par jour"
+  const s = scripted([out('filled', invented, evidence), out('filled', invented, evidence)])
+  const r = await generateSection(s.generate, req({
+    source: prepareSource(posology, 'ocr'),
+    grounding: prepareSource(posology, 'ocr'),
+  }))
+  assertEquals(r.verdict, 'not_found')
+  assertEquals(r.status, 'missing')
+  assertEquals(r.content, MISSING_MARKER)
+  assertEquals(r.downgradeReason, 'evidence')
+})
+
+Deno.test('generateSection : une provenance incohérente entre source et ancrage est refusée', async () => {
+  // Sans ce garde-fou, un appelant obtiendrait citation tolérante + chiffres exigeants, donc un
+  // rejeu qui INVITE le modèle à « corriger » 300 en 3OO. Casser bruyamment vaut mieux qu'un
+  // livrable au contrôle mal réglé.
+  const s = scripted([out('filled', GOOD, EVIDENCE_EXACT)])
+  await assertRejects(
+    () =>
+      generateSection(s.generate, req({
+        source: prepareSource(OCR_TEXT, 'ocr'),
+        grounding: prepareSource(OCR_TEXT, 'text'),
+      })),
+    Error,
+    'provenance incohérente',
+  )
+})
