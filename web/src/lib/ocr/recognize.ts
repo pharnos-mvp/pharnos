@@ -31,6 +31,7 @@ import type { PDFPageProxy } from 'pdfjs-dist'
 import { loadChunk } from '@/lib/lazy-chunk'
 import { loadPdfjs, PDF_DOC_ASSETS } from '@/lib/pdfjs'
 
+import { readingOrder, type LineBox } from './columns'
 import { MAX_CONTROL_CHARS, MAX_READ_PAGES } from './pdf-text'
 
 /** Racine des assets servis en même origine — voir le greffon `pharnos:ocr-assets` de Vite. */
@@ -55,6 +56,26 @@ const LANGS = 'fra+eng'
 
 /** LSTM seul — cohérent avec le noyau `-lstm` et les modèles `best_int`. */
 const OEM_LSTM_ONLY = 1
+
+/**
+ * Segmentation de page AUTOMATIQUE (`PSM.AUTO`) — le réglage le plus important de ce module, et
+ * celui que le défaut de tesseract.js ne donne PAS.
+ *
+ * ⚠️ Constaté en direct sur une notice client réelle (KV-Kacin 500, dépliant bilingue FR/EN à deux
+ * colonnes) : sans ce réglage, Tesseract traite la page comme un BLOC UNIQUE et balaie les lignes en
+ * traversant les colonnes. Le corpus de contrôle ressortait avec l'anglais et le français soudés sur
+ * la même ligne — 66 lignes pleine largeur au lieu de 141 lignes en colonnes — et une phrase
+ * française coupée par quatre-vingt-dix caractères d'anglais.
+ *
+ * Le modèle, lui, lit l'image correctement et cite un passage français CONTIGU. Cette citation
+ * n'existait alors nulle part dans le corpus : verdict `not_found`, rejeu, puis rubrique rétrogradée
+ * en « Non fourni » sur un document parfaitement correct. Les notices bilingues à deux colonnes sont
+ * la norme en UEMOA : ce n'était pas un cas limite.
+ *
+ * ⚠️ `AUTO` (3) et non `AUTO_OSD` (1) : la détection d'orientation exige `osd.traineddata`, que nous
+ * ne servons pas. La demander ferait échouer l'initialisation pour un gain nul sur des pages droites.
+ */
+const PSM_AUTO = '3'
 
 export interface RecognizeOptions {
   signal?: AbortSignal
@@ -119,8 +140,14 @@ export async function recognizePdf(
       let canvas: OffscreenCanvas | undefined
       try {
         canvas = await renderPage(page)
-        const { data: result } = await worker.recognize(await canvas.convertToBlob())
-        const text = String(result.text ?? '')
+        // `blocks` et non `text` : la géométrie des lignes est indispensable pour rétablir l'ordre
+        // de lecture d'une page à colonnes — voir `columns.ts`.
+        const { data: result } = await worker.recognize(
+          await canvas.convertToBlob(),
+          {},
+          { text: false, blocks: true },
+        )
+        const text = readingOrder(linesOf(result)).join('\n')
         out.set(index, text)
         chars += text.length
       } finally {
@@ -145,9 +172,44 @@ export async function recognizePdf(
 
 /** Ce que nous utilisons de tesseract.js — surface volontairement minuscule. */
 interface OcrWorker {
-  recognize: (image: unknown) => Promise<{ data: { text?: unknown } }>
+  recognize: (
+    image: unknown,
+    options?: unknown,
+    output?: unknown,
+  ) => Promise<{ data: { blocks?: unknown } }>
+  setParameters: (params: Record<string, string>) => Promise<unknown>
   terminate: () => Promise<unknown>
 }
+
+/**
+ * Extrait les lignes AVEC LEUR GÉOMÉTRIE, au lieu de prendre le texte tout fait.
+ *
+ * ⚠️ C'est ce qui permet de rétablir l'ordre de lecture d'une page à colonnes (`readingOrder`).
+ * Le champ `text` de Tesseract est un balayage LIGNE PAR LIGNE qui traverse les colonnes : sur une
+ * notice bilingue, il entrelace le français et l'anglais et coupe les phrases. Sans la géométrie,
+ * rien ne permet de le démêler.
+ */
+function linesOf(data: { blocks?: unknown }): LineBox[] {
+  const out: LineBox[] = []
+  for (const block of asArray(data.blocks)) {
+    for (const par of asArray((block as { paragraphs?: unknown }).paragraphs)) {
+      for (const line of asArray((par as { lines?: unknown }).lines)) {
+        const l = line as { text?: unknown; bbox?: { x0?: unknown; y0?: unknown; x1?: unknown } }
+        const text = typeof l.text === 'string' ? l.text.replace(/\s+$/, '') : ''
+        if (text.trim().length === 0) continue
+        out.push({
+          x0: Number(l.bbox?.x0 ?? 0),
+          y0: Number(l.bbox?.y0 ?? 0),
+          x1: Number(l.bbox?.x1 ?? 0),
+          text,
+        })
+      }
+    }
+  }
+  return out
+}
+
+const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : [])
 
 /**
  * Crée le worker Tesseract avec des chemins EXPLICITES.
@@ -174,7 +236,14 @@ async function createOcrWorker(): Promise<OcrWorker> {
   // toute URL absente, donc un asset manquant EST un modèle illisible — fait échouer l'init sans
   // jamais rejeter la promesse. Sans ce garde-fou, l'utilisateur reste sur « Reconnaissance… »
   // indéfiniment, sans erreur et sans recours.
-  return await withTimeout(start as unknown as Promise<OcrWorker>, WORKER_INIT_TIMEOUT_MS)
+  const worker = await withTimeout(start as unknown as Promise<OcrWorker>, WORKER_INIT_TIMEOUT_MS)
+  await worker.setParameters({
+    tessedit_pageseg_mode: PSM_AUTO,
+    // Résolution DÉCLARÉE. Sans elle, Tesseract la devine — 143 dpi au lieu de 200 sur la notice
+    // KV-Kacin — et cale ses seuils de segmentation sur une valeur fausse.
+    user_defined_dpi: String(RENDER_DPI),
+  })
+  return worker
 }
 
 /**
