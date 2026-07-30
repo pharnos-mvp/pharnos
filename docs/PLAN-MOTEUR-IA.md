@@ -284,7 +284,15 @@ Banc d'essai : documents réels de `Test/` (Gynoril, KV-Super Muscle) et `RA-sou
     il faisait livrer « chez l'enfant, 250 mg » à partir d'une source qui ne posologie que l'adulte,
     sous la mention « citation vérifiée » et sans rétrogradation. Le rapprochement approché est donc
     une **distance d'édition à une sous-chaîne** (Sellers), pas un score.
-17. **Un contrôle dont le coût dépend de la SORTIE du modèle doit être borné** — et dégrader vers la
+17. **Le moteur ne travaille pas sur un document qu'il n'a pas reconnu.** Une porte de recevabilité
+    précède les 59 appels ([PLAN-RECEVABILITE.md](PLAN-RECEVABILITE.md)) : empreinte du gabarit
+    (gratuite, déterministe) puis, si besoin, UN appel de classification à sortie contrainte — ≈ 0,02 $
+    contre ≈ 1,15 $ pour l'upgrade complet. Elle juge la RECEVABILITÉ, jamais la qualité : un RCP
+    médiocre est le cas d'usage normal de l'upgrade, le refuser écarterait les clients qui ont le plus
+    besoin de nous. ⚠️ Un laboratoire qui évalue Regafy commencera souvent par déposer n'importe quoi :
+    produire consciencieusement un « RCP » à partir d'un journal officiel perd le client en un essai,
+    sur le terrain même où nous prétendons être forts.
+18. **Un contrôle dont le coût dépend de la SORTIE du modèle doit être borné** — et dégrader vers la
     RIGUEUR — et **se compter en caractères, pas en appels** : le coût est proportionnel à la longueur
     (~0,5 ms/caractère sur 60 000, mesuré), donc soixante intitulés d'un paragraphe chacun passeraient
     le mur des 2 s. `pruneUnverifiable` accorde 800 caractères (~0,45 s), **facturés seulement quand le
@@ -304,7 +312,8 @@ Banc d'essai : documents réels de `Test/` (Gynoril, KV-Super Muscle) et `RA-sou
 | **M2** ✅ | Schéma par rubrique + contrôle `source_evidence` | M1 |
 | **Postures** ✅ | `_shared/ai/personas.ts` — trois, une par passe (#441) | M2 |
 | **Cache** ✅ | Préfixe + consigne, préchauffage du lot (#443) — **entrée passe 1 : −82 %** | M2 |
-| **Scans** ✅ | Sources océrisées : deux canaux, tolérance de lecture, chiffres consultatifs, encart de revue — côté moteur. **L'OCR navigateur reste à écrire** (PLAN-UPGRADE-FRONTEND §C bis) | M2 |
+| **Scans** ✅ | Sources océrisées : deux canaux, tolérance de lecture, chiffres consultatifs, encart de revue. OCR navigateur livrée (#446) | M2 |
+| **Porte** | Recevabilité du document déposé — [PLAN-RECEVABILITE.md](PLAN-RECEVABILITE.md). **Avant la validation du moteur sur tous les gabarits** | M2 |
 | **M3** | Harnais de mesure + passage du banc d'essai | M2 |
 | **M4** | Worker asynchrone `upgrade_jobs` (pg_cron) | M2 |
 | **M5** | Passe traduction EN | M4 |

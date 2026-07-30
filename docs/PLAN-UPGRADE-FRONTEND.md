@@ -228,6 +228,24 @@ qu'en mode texte. Le cache de préfixe protège les jetons, pas ce CPU-là. **Co
 avec §B : pour les scans volumineux, une seule invocation par rubrique avec une pièce de 12 Mo est
 la contrainte dimensionnante**, pas le mur de 150 s.
 
+### C ter. La porte d'entrée et la seconde chance
+
+Conception complète : **[PLAN-RECEVABILITE.md](PLAN-RECEVABILITE.md)**. Ce que le front doit porter :
+
+- **Annoncer le refus avec sa preuve.** Jamais « document non conforme » : le type réellement lu, un
+  passage cité DU document déposé, et la marche à suivre. Un prospect qui testait doit voir que nous
+  avons lu son fichier, pas deviné.
+- **Dire que la tentative n'a rien coûté**, dans le message de refus lui-même. C'est là que se joue
+  la confiance, pas dans une page d'aide.
+- **Le dépôt suivant reprend la même commande** — aucun nouveau paiement, aucun nouveau parcours.
+- **Trois refus**, puis la commande reste ouverte et le support prend la main. Jamais un client
+  bloqué avec un crédit payé et rien en face.
+- **Bandeau d'avertissement** — et non refus — quand le produit du document diffère de celui du
+  dossier : un même produit porte des noms commerciaux différents selon le pays.
+
+⚠️ La décision appartient à l'**Edge**, jamais au navigateur : c'est elle qui autorise la dépense.
+Le front affiche un verdict, il ne le calcule pas.
+
 ### D. Module d'achat
 
 Rail retenu par le CEO : **Chariow**, one-shot, 15 % de commission
@@ -297,4 +315,8 @@ lot M0 avait déjà corrigé côté moteur.
 - [ ] Sur un scan : numéros de page et en-têtes répétés retirés du texte de contrôle
 - [ ] Sur un scan : un dosage volontairement altéré dans le document produit est bien REFUSÉ
 - [ ] Un fichier illisible même après OCR nomme la cause (`reason: 'no_text_layer'`)
+- [ ] Un journal ou une lettre déposé comme RCP est refusé, avec le type réel nommé et une citation
+- [ ] Un refus ne consomme aucun crédit, et le message le DIT
+- [ ] Le dépôt suivant reprend la même commande, sans nouveau paiement
+- [ ] Un RCP médiocre ou scanné PASSE — recevabilité n'est pas qualité
 - [ ] Achat Chariow sur `services.pharnos.com`, `frame-src` seul ajouté à la CSP
