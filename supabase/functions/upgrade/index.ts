@@ -13,9 +13,9 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { specForDocType, specPromptText } from '../_shared/conformity-specs.ts'
 import { corsHeaders, isAllowedOrigin } from '../_shared/cors.ts'
 import { logJson, newReqId, userHash } from '../_shared/log.ts'
-import { frenchCalibration } from '../_shared/pharma-glossary.ts'
 import { activeOrgFromRequest, checkAiQuota, recordAiUsage } from '../_shared/quota.ts'
 import { prepareSource } from '../_shared/ai/evidence.ts'
+import { conformitySystem } from '../_shared/ai/personas.ts'
 import { findRubric } from '../_shared/ai/section-schema.ts'
 import { generateParts, streamSimpleSse, type Part } from '../_shared/ai/provider.ts'
 import {
@@ -56,20 +56,11 @@ function mimeFor(fileName: string): string {
   return 'application/pdf'
 }
 
-function buildSystem(docType: string): string {
-  return (
-    'Tu es un expert en affaires réglementaires pharmaceutiques (UEMOA/CEDEAO). Tu restructures ' +
-    'un document fourni pour le rendre CONFORME au template officiel en vigueur, en utilisant ' +
-    'EXCLUSIVEMENT les informations présentes dans le document source.\n' +
-    'RÈGLE ABSOLUE — ZÉRO INVENTION :\n' +
-    '- Chaque information du document produit provient du document source (recopie fidèle ; ' +
-    'reformulation minimale uniquement pour l’intégration dans une rubrique).\n' +
-    `- Si une rubrique du template n’a AUCUNE information correspondante dans la source, écris EXACTEMENT : ${MISSING_MARKER}\n` +
-    '- N’utilise JAMAIS tes connaissances générales pour compléter une rubrique, même si tu connais ce médicament.\n' +
-    '- Recopie VERBATIM : nombres, dosages, unités, dates, codes ATC, noms commerciaux, DCI, sociétés, adresses.\n' +
-    frenchCalibration(docType)
-  )
-}
+// La posture vit désormais dans `_shared/ai/personas.ts` — testable, et partagée par les trois
+// passes. Elle y a perdu son ouverture « Tu es un expert en affaires réglementaires », qui amorçait
+// exactement le comportement que les quatre règles zéro-invention doivent réprimer.
+const buildSystem = (docType: string): string =>
+  conformitySystem({ docType, missingMarker: MISSING_MARKER })
 
 interface DossierContext {
   activity?: string
