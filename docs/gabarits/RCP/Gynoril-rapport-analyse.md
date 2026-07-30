@@ -1,4 +1,4 @@
-# Rapport d'upgrade — RCP GYNORIL
+# Revue réglementaire du RCP — GYNORIL
 
 `Gynoril Ovule_RCP.pdf` → Maquette RCP ABMed 2026 (structure harmonisée UEMOA) · 29 juillet 2026
 

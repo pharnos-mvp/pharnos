@@ -1,4 +1,4 @@
-# Upgrade report — KV-KACIN 500 SmPC
+# SmPC Regulatory Review — KV-KACIN 500
 
 `KV-Kacin_SmPC.pdf` -> ABMed 2026 SmPC maquette (harmonised UEMOA structure) · Benin · new MA
 application · 29 July 2026
