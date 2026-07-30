@@ -12,7 +12,7 @@
  */
 import { loadPdfjs, PDF_DOC_ASSETS } from '@/lib/pdfjs'
 
-import { isTextlessPage } from './scan-text'
+import { isTextlessPage, pageAreaCm2 } from './scan-text'
 
 /**
  * Pages au-delà desquelles on cesse de lire.
@@ -81,7 +81,10 @@ export async function readPdfPages(
       try {
         const text = pageText(await page.getTextContent())
         pages.push(text)
-        if (isTextlessPage(text.trim().length)) textless.push(n - 1)
+        // La DENSITÉ, donc l'aire de la page : ces notices vont de 180 × 350 mm à 400 × 500 mm, et
+        // un seuil en nombre absolu serait faux pour la moitié d'entre elles.
+        const { width, height } = page.getViewport({ scale: 1 })
+        if (isTextlessPage(text.trim().length, pageAreaCm2(width, height))) textless.push(n - 1)
         chars += text.length
       } finally {
         // Sans ce nettoyage, un document de cent pages garde cent pages d'objets en mémoire — et le

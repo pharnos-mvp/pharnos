@@ -3,31 +3,55 @@ import { describe, expect, it } from 'vitest'
 /** Retour à la ligne, nommé pour rester lisible dans les fixtures multi-lignes. */
 const BR = String.fromCharCode(10)
 
-import {
-  buildControlCorpus,
-  isTextlessPage,
-  MIN_CHARS_PER_PAGE,
-  stripRunningLines,
-} from './scan-text'
+import { buildControlCorpus, isTextlessPage, pageAreaCm2, stripRunningLines } from './scan-text'
+
+/** A4 en points PostScript — le format de référence des mesures ci-dessous. */
+const A4 = pageAreaCm2(595, 842)
+/** Le bon à tirer KV-Cipro : 400 × 500 mm, et 201 caractères d'annotations d'imprimeur. */
+const GRAND_FORMAT = pageAreaCm2(1134, 1417)
 
 describe('isTextlessPage', () => {
   it('sépare une page-image d’une page de texte', () => {
-    expect(isTextlessPage(0)).toBe(true)
-    expect(isTextlessPage(MIN_CHARS_PER_PAGE - 1)).toBe(true)
-    expect(isTextlessPage(MIN_CHARS_PER_PAGE)).toBe(false)
-    expect(isTextlessPage(1200)).toBe(false)
+    expect(isTextlessPage(0, A4)).toBe(true)
+    expect(isTextlessPage(2500, A4)).toBe(false)
+  })
+
+  it('un BON À TIRER d’imprimeur est reconnu comme vectorisé, malgré son texte technique', () => {
+    // LE cas trouvé sur dossier réel (notice KV-Cipro). Un artwork porte quelques annotations en
+    // vrai texte — cotes « 150 x 220 mm », adresse du fabricant — pendant que TOUT le corps est
+    // vectorisé. Un seuil en nombre absolu le déclarait « textuel » : aucune reconnaissance n'était
+    // lancée, le corpus se réduisait aux cotes de l'imprimeur, et chaque rubrique du dossier serait
+    // ressortie « Non fourni » sur un document complet.
+    expect(isTextlessPage(201, GRAND_FORMAT)).toBe(true)
+    // Le même nombre de caractères sur une page de RCP reste... rare, mais la densité tranche.
+    expect(isTextlessPage(2457, A4)).toBe(false)
+  })
+
+  it('la DENSITÉ s’adapte au format, un nombre absolu non', () => {
+    // Ces notices vont de 180 × 350 mm à 400 × 500 mm : un seuil absolu serait faux pour la moitié.
+    const petit = pageAreaCm2(510, 992) // KV-Super Muscle
+    const grand = pageAreaCm2(1134, 1417) // KV-Cipro
+    // 700 caractères couvrent un petit dépliant (1,1 car./cm²) mais se perdent sur un grand
+    // artwork (0,35) : le MÊME nombre absolu ne dit pas la même chose selon le format.
+    expect(isTextlessPage(700, petit)).toBe(false)
+    expect(isTextlessPage(700, grand)).toBe(true)
   })
 
   it('la décision est PAR PAGE — un seuil global se trompait dans les deux sens', () => {
-    // Cinq pages-images dans un document de vingt-cinq : un seuil global les déclarait « textuelles »
-    // et elles contribuaient ZÉRO caractère au corpus, sans que rien ne le signale. Dans l'autre sens,
-    // une page de garde clairsemée faisait océriser un RCP parfaitement textuel et REMPLAÇAIT un
-    // corpus exact par un corpus reconstruit.
-    const pages = [...Array<number>(20).fill(1200), ...Array<number>(5).fill(0)]
-    expect(pages.map(isTextlessPage).filter(Boolean)).toHaveLength(5)
-    const rcp = [40, 1200, 1100, 60]
-    // Seules les deux pages pauvres sont océrisées ; les deux autres gardent leur texte EXACT.
-    expect(rcp.map(isTextlessPage)).toEqual([true, false, false, true])
+    const pages = [...Array<number>(20).fill(2500), ...Array<number>(5).fill(0)]
+    expect(pages.map((c) => isTextlessPage(c, A4)).filter(Boolean)).toHaveLength(5)
+    // Seules les pages pauvres sont océrisées ; les autres gardent leur texte EXACT.
+    expect([40, 2500, 2200, 60].map((c) => isTextlessPage(c, A4))).toEqual([
+      true,
+      false,
+      false,
+      true,
+    ])
+  })
+
+  it('une page sans dimensions connues retombe sur la seule présence de texte', () => {
+    expect(isTextlessPage(0, 0)).toBe(true)
+    expect(isTextlessPage(10, 0)).toBe(false)
   })
 })
 

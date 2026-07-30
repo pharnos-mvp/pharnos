@@ -17,11 +17,38 @@
 export type SourceKind = 'text' | 'ocr'
 
 /**
- * Caractères en deçà desquels une page est tenue pour SANS texte. Un numéro de page seul en donne
- * 1 à 4, un en-tête courant 30 à 60 : le seuil doit passer au-dessus de l'ornement sans avaler une
- * page de garde ou une page de tableau clairsemée.
+ * Densité de texte, en caractères par centimètre carré, en deçà de laquelle la couche texte n'est
+ * PAS représentative du contenu de la page.
+ *
+ * ⚠️ Une DENSITÉ et non un décompte, et cela a été trouvé sur un dossier réel. Un bon à tirer
+ * d'imprimeur (le format normal d'une notice chez un titulaire d'AMM) porte quelques annotations
+ * techniques en vrai texte — cotes « 150 x 220 mm », adresse du fabricant — pendant que TOUT le
+ * corps de la notice est vectorisé. La notice KV-Cipro en compte 201 sur une page de 400 × 500 mm :
+ * un seuil en nombre absolu la déclarait « textuelle », donc aucune reconnaissance n'était lancée,
+ * donc le corpus de contrôle se réduisait aux cotes de l'imprimeur — et chaque rubrique du dossier
+ * serait ressortie « Non fourni » sur un document complet.
+ *
+ * L'écart mesuré est de deux ordres de grandeur, ce qui rend le seuil confortable :
+ *
+ * | document                          | densité |
+ * |-----------------------------------|---------|
+ * | RCP textuel (KV-Kacin, A4)        |    4,0  |
+ * | notice KV-Cipro (400 × 500 mm)    |    0,10 |
+ * | notice KV-Kacin (A4, tampon seul) |    0,08 |
+ * | scan pur                          |    0    |
+ *
+ * La densité a un second mérite : elle s'adapte au FORMAT. Ces notices vont de 180 × 350 mm à
+ * 400 × 500 mm, et un seuil absolu aurait été faux pour la moitié d'entre elles.
  */
-export const MIN_CHARS_PER_PAGE = 80
+export const MIN_CHARS_PER_CM2 = 1
+
+/** Un point PostScript vaut 1/72 pouce ; 2,54 cm par pouce. */
+const PT_TO_CM = 2.54 / 72
+
+/** Aire d'une page, en centimètres carrés, depuis ses dimensions en points. */
+export function pageAreaCm2(widthPt: number, heightPt: number): number {
+  return widthPt * PT_TO_CM * (heightPt * PT_TO_CM)
+}
 
 /**
  * Cette page est-elle SANS couche texte exploitable ?
@@ -37,8 +64,9 @@ export const MIN_CHARS_PER_PAGE = 80
  *
  * Page par page, on lit la couche texte là où elle existe et on n'océrise que ce qui manque.
  */
-export function isTextlessPage(chars: number): boolean {
-  return chars < MIN_CHARS_PER_PAGE
+export function isTextlessPage(chars: number, areaCm2: number): boolean {
+  if (areaCm2 <= 0) return chars === 0
+  return chars / areaCm2 < MIN_CHARS_PER_CM2
 }
 
 /**

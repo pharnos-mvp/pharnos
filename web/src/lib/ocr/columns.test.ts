@@ -103,3 +103,34 @@ describe('readingOrder', () => {
     expect(out).toContain('fr un\nfr deux\nfr trois\nfr quatre\nfr cinq')
   })
 })
+
+describe('readingOrder — les bandes préservent l’ordre du document', () => {
+  it('un titre pleine largeur reste À SA PLACE, il n’est pas hissé en tête', () => {
+    // Hisser les lignes pleine largeur garantissait la contiguïté des colonnes mais détruisait
+    // l'ordre global : sur une notice réelle (KV-Super Relief), le corpus commençait par la FIN du
+    // document. Une ligne pleine largeur est un titre — elle clôt ce qui précède et ouvre ce qui suit.
+    const lignes = [
+      gauche(50, 'en debut'),
+      droite(50, 'fr debut'),
+      gauche(90, 'en debut deux'),
+      droite(90, 'fr debut deux'),
+      pleine(140, 'CONSERVATION'),
+      gauche(180, 'en fin'),
+      droite(180, 'fr fin'),
+      gauche(220, 'en fin deux'),
+      droite(220, 'fr fin deux'),
+    ]
+    const out = readingOrder(lignes)
+    expect(out).toEqual([
+      'en debut',
+      'en debut deux',
+      'fr debut',
+      'fr debut deux',
+      'CONSERVATION',
+      'en fin',
+      'en fin deux',
+      'fr fin',
+      'fr fin deux',
+    ])
+  })
+})

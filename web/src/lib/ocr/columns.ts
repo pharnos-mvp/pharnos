@@ -43,8 +43,9 @@ const MIN_LINES_FOR_COLUMNS = 8
  * Rend le texte des lignes dans un ordre où CHAQUE COLONNE EST CONTIGUË.
  *
  * L'ordre produit n'est pas destiné à être lu par un humain — c'est un corpus de CONTRÔLE. Ce qui
- * compte est qu'un passage cité par le modèle s'y retrouve d'un seul tenant. D'où l'ordre choisi :
- * les lignes pleine largeur d'abord (titres, en-têtes), puis chaque colonne entière.
+ * compte est qu'un passage cité par le modèle s'y retrouve d'un seul tenant. D'où le découpage en
+ * BANDES : une ligne pleine largeur est un titre, elle clôt ce qui précède et ouvre ce qui suit, et
+ * chaque bande est vidée colonne par colonne à sa place dans le document.
  *
  * Sans gouttière franche, on rend l'ordre d'origine : inventer des colonnes là où il n'y en a pas
  * disperserait un texte qui, lui, était contigu.
@@ -52,11 +53,34 @@ const MIN_LINES_FOR_COLUMNS = 8
 export function readingOrder(lines: readonly LineBox[]): string[] {
   const gutter = findGutter(lines)
   if (gutter === null) return lines.map((l) => l.text)
+
   const byY = (a: LineBox, b: LineBox) => a.y0 - b.y0
-  const full = lines.filter((l) => l.x0 < gutter && l.x1 > gutter).sort(byY)
-  const left = lines.filter((l) => l.x1 <= gutter).sort(byY)
-  const right = lines.filter((l) => l.x0 >= gutter).sort(byY)
-  return [...full, ...left, ...right].map((l) => l.text)
+  const ordered = [...lines].sort(byY)
+  const out: string[] = []
+  let band: LineBox[] = []
+
+  // ⚠️ Découpage en BANDES, et non hissage des lignes pleine largeur en tête. Hisser garantissait la
+  // contiguïté des colonnes mais détruisait l'ordre global : sur une notice réelle (KV-Super Relief),
+  // le corpus commençait par la FIN du document. Une ligne pleine largeur est un titre : elle clôt ce
+  // qui précède et ouvre ce qui suit. Chaque bande est donc vidée colonne par colonne, à sa place.
+  const flush = () => {
+    if (band.length === 0) return
+    const left = band.filter((l) => l.x1 <= gutter)
+    const right = band.filter((l) => l.x0 >= gutter)
+    for (const l of [...left, ...right]) out.push(l.text)
+    band = []
+  }
+
+  for (const line of ordered) {
+    if (line.x0 < gutter && line.x1 > gutter) {
+      flush()
+      out.push(line.text)
+      continue
+    }
+    band.push(line)
+  }
+  flush()
+  return out
 }
 
 /**
