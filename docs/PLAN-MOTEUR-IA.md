@@ -226,6 +226,8 @@ Banc d'essai : documents réels de `Test/` (Gynoril, KV-Super Muscle) et `RA-sou
 | **M0** ✅ | `UPGRADE_TIMEOUT_MS → 120_000` + écrêtage `boundedTimeout` | — |
 | **M1** ✅ | `_shared/ai/provider.ts` + `anthropic.ts` (Opus 5) | — |
 | **M2** ✅ | Schéma par rubrique + contrôle `source_evidence` | M1 |
+| **Postures** ✅ | `_shared/ai/personas.ts` — trois, une par passe (#441) | M2 |
+| **Cache** ✅ | Préfixe + consigne, préchauffage du lot (#443) — **entrée passe 1 : −82 %** | M2 |
 | **M3** | Harnais de mesure + passage du banc d'essai | M2 |
 | **M4** | Worker asynchrone `upgrade_jobs` (pg_cron) | M2 |
 | **M5** | Passe traduction EN | M4 |
@@ -234,6 +236,18 @@ Banc d'essai : documents réels de `Test/` (Gynoril, KV-Super Muscle) et `RA-sou
 
 **M3 est le point de décision** : les chiffres du banc d'essai valident ou invalident le modèle
 économique de PLAN-CHARIOW §3. Rien ne se vend avant M3.
+
+> **⚠️ Le découpage ci-dessus a été RÉORDONNÉ par le CEO le 29/07/2026** : on avance **gabarit par
+> gabarit** (tranche verticale) et non lot par lot. Le RCP est verrouillé de bout en bout —
+> conformité, traduction, revue réglementaire, mise en page — voir `docs/gabarits/PROCESS-UPGRADE-ETAPE-{1,2,3}.md`.
+>
+> **Le moteur est complet.** La suite est du front et de l'encaissement :
+> **[docs/PLAN-UPGRADE-FRONTEND.md](PLAN-UPGRADE-FRONTEND.md)**.
+>
+> Estimation mesurée sur les prompts réels (KV-Kacin, 29 rubriques feuilles, 59 appels) :
+> **≈ 1,00–1,30 $ par upgrade**, **≈ 2,6 min** à 6 appels simultanés. Le séquentiel demande 11 à
+> 23 min et ne passe pas : le parallélisme est une exigence d'architecture. ⚠️ La réflexion d'Opus 5
+> compte dans la durée — l'oublier fait sous-estimer d'un facteur deux.
 
 ---
 
