@@ -74,13 +74,28 @@ réglementaire, **l'extractibilité fait partie de la conformité** : un évalua
 rubrique doit obtenir la rubrique.
 
 **Les polices standard de `pdf-lib` ne codent que le WinAnsi** — un caractère hors jeu fait *échouer*
-la génération, pas seulement mal rendre. Un filtre traduit ce qui a un équivalent (`→` → `->`,
-`●` → `•`) et **journalise ce qu'il retire** : un caractère disparu en silence est un défaut.
+la génération, pas seulement mal rendre.
 
-> **Décision en attente avant le portage dans `web/`** : le PDF utilise Helvetica, proche d'Arial en
-> métrique mais pas Arial. Embarquer **Liberation Sans** — métriquement compatible et librement
-> redistribuable, contrairement à Arial — réglerait d'un coup la fidélité au gabarit et le jeu de
-> caractères.
+**Résolu le 30/07/2026 sans dépendance ni téléchargement.** Deux des **14 polices standard du PDF**
+portent ce qui manque : `Symbol` a `≥ ≤ ≠ ± × µ ∞`, `ZapfDingbats` a `●`. Elles sont toujours
+présentes et ne s'embarquent pas. Le générateur découpe donc chaque texte en tronçons homogènes de
+police et dessine **le vrai glyphe** — « très fréquent (≥ 1/10) » et non « (>= 1/10) ».
+
+> ⚠️ Sur un tableau de fréquences MedDRA, **l'opérateur porte du sens**. L'écrire en ASCII
+> reproduisait exactement le défaut que la revue reproche à la source (« Very common (1/10) »).
+
+⚠️ **Conséquence à ne jamais oublier** : `pdfSafe` ne substitue plus les signes à police de secours.
+**Tout tracé doit passer par `drawMixed`** — un `drawText` direct avec une seule police *lèverait*
+sur `≥` ou `µ`. Mesure et tracé partagent le même découpage, sinon la largeur calculée ne correspond
+pas au texte tracé et toute la ligne se décale.
+
+Le repli ASCII ne subsiste que pour ce qu'aucune police standard ne sait tracer (`→`, exposants),
+et le journal des caractères retirés reste actif : un caractère disparu en silence est un défaut.
+
+> **Décision encore ouverte, mais désormais SANS urgence** : le PDF utilise Helvetica, proche
+> d'Arial en métrique mais pas Arial. Embarquer **Liberation Sans** — métriquement compatible et
+> librement redistribuable — améliorerait la fidélité au gabarit. Ce n'est plus une correction, c'est
+> un raffinement : le jeu de caractères, lui, est réglé.
 
 ## 6. Recette de l'étape 3
 
@@ -93,3 +108,5 @@ la génération, pas seulement mal rendre. Un filtre traduit ce qui a un équiva
 - [ ] Mentions de lacune en 9,5 pt gris, sans gras, entre crochets
 - [ ] Texte du PDF extractible sans recollement de mots
 - [ ] Aucun caractère retiré à la génération (le journal du générateur doit rester muet)
+- [ ] `pdffonts` sur le PDF montre `Symbol` dès qu'une fréquence MedDRA est présente, et
+      l'extraction rend `≥` — pas `>=`
