@@ -126,6 +126,11 @@ export interface SectionOutcome {
    */
   downgraded: boolean
   downgradeReason?: DowngradeReason
+  /**
+   * `true` quand le corpus de contrôle est issu d'une reconnaissance de caractères : les valeurs de
+   * `ungrounded` sont alors **à vérifier**, pas des inventions constatées. La revue doit le dire.
+   */
+  figuresAdvisory: boolean
 }
 
 export type DowngradeReason =
@@ -224,6 +229,14 @@ export function buildSectionInstruction(req: SectionRequest, rejected?: Rejected
         '« source_evidence » le passage D’OÙ PROVIENT ce que tu écris. Si le document ne dit rien ' +
         'sur cette rubrique, réponds « status: missing » avec « content » et « source_evidence » vides.',
     )
+  } else if (rejected?.reason === 'too_long') {
+    lines.push(
+      '',
+      'TENTATIVE PRÉCÉDENTE REJETÉE — la citation était TROP LONGUE pour être vérifiée d’un seul ' +
+        'tenant.',
+      'Recommence à l’identique, mais cite en « source_evidence » UNE SEULE phrase — la plus ' +
+        'précise — d’où provient « content ». Ne change rien d’autre.',
+    )
   } else if (rejected?.reason === 'figures') {
     lines.push(
       '',
@@ -239,7 +252,7 @@ export function buildSectionInstruction(req: SectionRequest, rejected?: Rejected
 
 /** Ce que le rejeu doit corriger — le message d'un rejet de citation ne vaut rien pour l'autre. */
 interface RejectedAttempt {
-  reason: 'evidence' | 'figures'
+  reason: 'evidence' | 'figures' | 'too_long'
   result: SectionResult
   figures: string[]
 }
@@ -286,6 +299,17 @@ export async function generateSection(
   // certifié du dossier (titulaire, fabricant, RCCM, adresses) est une donnée vérifiée par Pharnos.
   // La citation, elle, doit rester dans le DOCUMENT — d'où deux sources distinctes.
   const grounding = req.grounding ?? req.source
+  // La provenance a UNE source de vérité : celle du document. Lire `grounding.kind` ici laisserait
+  // un appelant construire une base d'ancrage sans la déclarer océrisée — on obtiendrait alors une
+  // citation tolérante ET des chiffres exigeants, donc un rejeu qui INVITE le modèle à « corriger »
+  // 300 en 3OO. C'est exactement le scénario que le rejeu ne doit jamais produire.
+  // Une erreur d'APPELANT, pas une sortie de modèle inexploitable : elle doit casser bruyamment en
+  // test plutôt que produire un livrable au contrôle mal réglé.
+  if (grounding.kind !== req.source.kind) {
+    throw new Error('provenance incohérente entre le document source et la base d’ancrage')
+  }
+  // Corpus de contrôle océrisé ⇒ les chiffres deviennent CONSULTATIFS (voir la boucle ci-dessous).
+  const figuresAdvisory = req.source.kind === 'ocr'
 
   let parsed: SectionResult | null = null
   let verdict: EvidenceVerdict = 'not_attempted'
@@ -305,7 +329,15 @@ export async function generateSection(
 
     const correction: RejectedAttempt | undefined = i > 0 && parsed
       ? {
-        reason: isEvidenceRejected(verdict) ? 'evidence' : 'figures',
+        // Sur un corpus océrisé, la boucle ne rejoue QUE sur la citation : `'figures'` y est
+        // inatteignable, et c'est essentiel. Reprocher au modèle des valeurs correctes lues de
+        // travers l'amènerait à les « corriger » vers la lecture fautive — nous ferions écrire
+        // 8 mg là où le document dit 3 mg, en croyant renforcer un contrôle.
+        // ⚠️ `too_long` a son propre message. Le confondre avec `evidence` ferait affirmer au modèle
+        // que sa citation « n'a pas été retrouvée » — c'est FAUX, elle est trop longue pour être
+        // jugée d'un tenant — et ne lui demanderait jamais de la raccourcir : la seconde tentative
+        // serait identique, et une rubrique correcte finirait « Non fourni ».
+        reason: verdict === 'too_long' ? 'too_long' : isEvidenceRejected(verdict) ? 'evidence' : 'figures',
         result: parsed,
         figures: ungrounded,
       }
@@ -333,7 +365,10 @@ export async function generateSection(
     ungrounded = parsed.status === 'missing'
       ? []
       : ungroundedFigures(parsed.content, grounding, ownId)
-    if (!isEvidenceRejected(verdict) && ungrounded.length === 0) break
+    // Sur un corpus océrisé, un chiffre non retrouvé n'est PAS une invention constatée : l'OCR
+    // confond 0/O, 1/l, 5/S, 8/B. Rejouer puis rétrograder sur ce signal ferait tomber des rubriques
+    // justes. Les valeurs sont donc SIGNALÉES à vérifier, jamais opposées au livrable.
+    if (!isEvidenceRejected(verdict) && (figuresAdvisory || ungrounded.length === 0)) break
   }
 
   const title = req.rubric.title
@@ -351,6 +386,7 @@ export async function generateSection(
       ungrounded,
       attempts,
       downgraded: false,
+      figuresAdvisory,
     }
   }
 
@@ -358,14 +394,20 @@ export async function generateSection(
   // justifiée : sur un dossier d'AMM, se tromper dans ce sens coûte une relecture, dans l'autre
   // coûte le dossier. La CAUSE est conservée — sans elle, la métrique du §7 ne se lit pas : un
   // rejet faute de budget est un défaut de PLATEFORME, pas une tentation d'inventer.
-  const rejected = isEvidenceRejected(verdict) || ungrounded.length > 0
+  //
+  // ⚠️ `figuresRejected` — et non `ungrounded.length > 0` — dans TOUTE la chaîne : sur un corpus
+  // océrisé les valeurs sont consultatives, et un test oublié ici rétrograderait précisément les
+  // rubriques que la boucle vient d'accepter. La condition vit dans une seule variable pour que les
+  // deux endroits ne puissent pas diverger.
+  const figuresRejected = !figuresAdvisory && ungrounded.length > 0
+  const rejected = isEvidenceRejected(verdict) || figuresRejected
   const downgradeReason: DowngradeReason | undefined = parsed.status === 'missing'
     ? undefined
     : rejected && budgetExhausted
     ? 'budget'
     : isEvidenceRejected(verdict)
     ? 'evidence'
-    : ungrounded.length > 0
+    : figuresRejected
     ? 'figures'
     : parsed.content.length === 0
     ? 'empty_content'
@@ -383,6 +425,7 @@ export async function generateSection(
       attempts,
       downgraded: Boolean(downgradeReason),
       ...(downgradeReason ? { downgradeReason } : {}),
+      figuresAdvisory,
     }
   }
   return {
@@ -395,5 +438,6 @@ export async function generateSection(
     ungrounded,
     attempts,
     downgraded: false,
+    figuresAdvisory,
   }
 }

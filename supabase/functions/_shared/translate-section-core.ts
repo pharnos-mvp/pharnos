@@ -203,6 +203,12 @@ export async function translateSection(
   const now = req.now ?? Date.now
   const deadline = now() + (req.budgetMs ?? TRANSLATE_BUDGET_MS)
   // La référence de la traduction est le contenu VALIDÉ, pas le document du client.
+  //
+  // ⚠️ Volontairement `'text'`, même quand le document d'origine était un SCAN : les deux côtés de
+  // cette comparaison sont produits par le moteur, donc fidèles au caractère près. Une tolérance
+  // OCR n'aurait ici aucune justification et laisserait passer une dérive de dosage entre le FR et
+  // l'EN — le seul défaut que cette passe existe pour empêcher. La provenance du document source se
+  // traite en amont (passe 1) et se DIT en aval (encart de la revue), jamais ici.
   const reference = prepareSource(req.content)
 
   let translation = ''

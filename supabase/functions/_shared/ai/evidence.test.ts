@@ -2,6 +2,7 @@
 import { assertEquals } from 'jsr:@std/assert@1'
 
 import {
+  findInSource,
   isEvidenceRejected,
   MAX_EVIDENCE_CHARS,
   MIN_EVIDENCE_CHARS,
@@ -186,4 +187,275 @@ Deno.test('isEvidenceRejected : seuls les verdicts qu’un rejeu peut corriger s
   assertEquals(isEvidenceRejected('unverifiable'), false)
   assertEquals(isEvidenceRejected('not_required'), false)
   assertEquals(isEvidenceRejected('verified'), false)
+})
+
+/* ──────────────────────────── Sources SCANNÉES (reconnaissance de caractères) ──────────────── */
+
+// Ce que l'OCR fait réellement, observé sur les PDF du guide sénégalais : les mots se reconstituent,
+// des lettres se substituent (0/O, 1/l, 5/S, 8/B, rn/m). La citation du modèle vient de l'IMAGE, donc
+// du texte JUSTE ; le corpus de contrôle, lui, porte les coquilles. Sans tolérance, chaque rubrique
+// d'un dossier scanné serait rétrogradée alors que le livrable est correct.
+const OCR_SOURCE = [
+  'RESUME DES CARACTERISTIQUES DU PRODU1T',
+  'GYNORlL 500 mg, comprimé pelliculé.',
+  "4.1 Indications thérapeutiques : traitement de l'endométriose chez la femme aduIte.",
+].join('\n')
+
+Deno.test('verifyEvidence : sur une source OCÉRISÉE, une lettre mal lue ne fait pas échouer la citation', () => {
+  const ocr = prepareSource(OCR_SOURCE, 'ocr')
+  const verdict = verifyEvidence(
+    "traitement de l'endométriose chez la femme adulte",
+    ocr,
+    'filled',
+  )
+  // Verdict DISTINCT : la garantie est réelle mais moindre, et rien ne doit pouvoir la présenter
+  // comme une correspondance exacte.
+  assertEquals(verdict, 'verified_ocr')
+  // Le même texte déclaré fidèle échoue — c'est bien la provenance qui décide, pas le contenu.
+  assertEquals(
+    verifyEvidence("traitement de l'endométriose chez la femme adulte", prepareSource(OCR_SOURCE), 'filled'),
+    'not_found',
+  )
+})
+
+Deno.test('verifyEvidence : la tolérance OCR ne va pas jusqu’à accepter une citation étrangère', () => {
+  const ocr = prepareSource(OCR_SOURCE, 'ocr')
+  // Aucun mot significatif en commun : c'est une invention, pas une lecture fautive.
+  assertEquals(
+    verifyEvidence('contre-indiqué pendant la grossesse et l’allaitement', ocr, 'filled'),
+    'not_found',
+  )
+})
+
+Deno.test('findInSource : une source fidèle n’accorde JAMAIS la tolérance OCR', () => {
+  const approx = "traitement de l'endométriose chez la femme adulte"
+  assertEquals(findInSource(approx, prepareSource(OCR_SOURCE, 'ocr')), 'ocr')
+  assertEquals(findInSource(approx, prepareSource(OCR_SOURCE, 'text')), 'absent')
+  // Et une correspondance littérale reste 'exact' même sur un corpus océrisé.
+  assertEquals(findInSource('GYNORlL 500 mg', prepareSource(OCR_SOURCE, 'ocr')), 'exact')
+})
+
+Deno.test('ungroundedFigures : AUCUNE tolérance OCR sur les chiffres, dans les deux sens', () => {
+  // Décision centrale du dispositif : l'OCR confond précisément les chiffres. Rapprocher « à peu
+  // près » ferait accepter 8 mg pour 3 mg — la comparaison reste donc EXACTE, et c'est l'appelant
+  // qui rend le signal consultatif (`figuresAdvisory`) au lieu de rétrograder la rubrique.
+  const ocr = prepareSource('Chaque comprimé contient 3OO mg de substance active.', 'ocr')
+  assertEquals(ungroundedFigures('Chaque comprimé contient 300 mg.', ocr), ['300'])
+  const clean = prepareSource('Chaque comprimé contient 300 mg de substance active.', 'ocr')
+  assertEquals(ungroundedFigures('Chaque comprimé contient 300 mg.', clean), [])
+})
+
+Deno.test('findInSource : le budget d’erreurs de lecture est PROPORTIONNEL à la longueur', () => {
+  // La frontière est ce qui donne sa valeur à la tolérance : 8 % des caractères, quand une
+  // reconnaissance correcte se trompe sur 1 à 2 %. Au-delà, ce n'est plus une lecture fautive.
+  const src = prepareSource('5.3 Sécurité préclinique et données pharmacocinétiques.', 'ocr')
+  // Une lettre par mot (é → e, i → l) : retrouvé.
+  assertEquals(findInSource('5.3 Sécurite préclinlque et données pharmacocinétiques.', src), 'ocr')
+  // Deux lettres dans le même mot : le mot ne compte plus. Deux mots ainsi abîmés sur quatre font
+  // tomber le recouvrement sous le seuil, et la citation est refusée.
+  assertEquals(findInSource('5.3 Sécurite prellnlque et dones pharmacocintiques.', src), 'absent')
+})
+
+Deno.test('findInSource : une citation RECOMBINÉE ne passe pas, même mot pour mot du document', () => {
+  // ⚠️ LE défaut qu'un score de recouvrement par MOTS laissait passer, et la raison pour laquelle
+  // le rapprochement porte sur un passage CONTIGU. Ici chaque mot de la citation existe dans le
+  // document — mais dans deux phrases différentes, et la posologie pédiatrique est INVENTÉE.
+  const src = prepareSource(
+    "La dose recommandée chez l'adulte est de 5OO mg deux fois par jour pendant 7 jours. " +
+      "L'utilisation chez l'enfant de moins de 12 ans n'a pas été étudiée.",
+    'ocr',
+  )
+  assertEquals(
+    findInSource("La dose recommandée chez l'enfant est de 250 mg deux fois par jour", src),
+    'absent',
+  )
+  // Le passage réellement présent, lui, est bien retrouvé malgré « 5OO » lu de travers.
+  assertEquals(
+    findInSource("La dose recommandée chez l'adulte est de 500 mg deux fois par jour", src),
+    'ocr',
+  )
+})
+
+Deno.test('findInSource : sur un scan, un CHIFFRE faux n’est jamais toléré', () => {
+  // ⚠️ LE défaut le plus grave du dispositif, trouvé en revue : la tolérance de 8 % ne distinguait
+  // pas une lettre d'un chiffre. Conjuguée aux valeurs consultatives, elle annulait LES DEUX
+  // contrôles sur le même chemin — une posologie doublée sortait « citation vérifiée », et « 500 »
+  // existant ailleurs dans le document (« boîte de 500 comprimés »), rien n'était même signalé.
+  const src = prepareSource(
+    '2. COMPOSITION : chaque comprimé contient 250 mg de kacinamide. ' +
+      "4.2 Posologie : la posologie usuelle est de 250 mg par jour chez l'adulte. " +
+      'Boîte de 500 comprimés sous plaquettes thermoformées.',
+    'ocr',
+  )
+  // Le dosage doublé : refusé, alors que le budget d'édition (4 sur 57 caractères) le couvrirait.
+  assertEquals(
+    findInSource("la posologie usuelle est de 500 mg par jour chez l'adulte", src),
+    'absent',
+  )
+  // Un chiffre ajouté ou retiré ne se rattrape pas non plus : 250 ≠ 2500 ≠ 25.
+  assertEquals(findInSource('chaque comprimé contient 2500 mg de kacinamide', src), 'absent')
+  assertEquals(findInSource('chaque comprimé contient 25 mg de kacinamide', src), 'absent')
+  // Et le passage réellement présent reste retrouvé, malgré une LETTRE mal lue.
+  assertEquals(findInSource('chaque comprimé contlent 250 mg de kacinamide', src), 'ocr')
+})
+
+Deno.test('findInSource : seules les confusions chiffre ↔ LETTRE sont accordées', () => {
+  // Ce qu'une reconnaissance produit vraiment : 0/O, 1/l, 5/S, 8/B. Jamais 2 pour 5.
+  const src = prepareSource('Chaque ovule contient 35 OOO Ul de sulfate de néomycine.', 'ocr')
+  assertEquals(findInSource('Chaque ovule contient 35 000 UI de sulfate de néomycine.', src), 'ocr')
+  // La même longueur, un chiffre réellement différent : refusé.
+  assertEquals(findInSource('Chaque ovule contient 45 000 UI de sulfate de néomycine.', src), 'absent')
+})
+
+Deno.test('verifyEvidence : sur un scan, une citation trop longue pour être APPROCHÉE est rejouée', () => {
+  // Juger 600 caractères sur 700 laisserait la queue de la citation vérifiée par rien — et c'est
+  // exactement là qu'une invention se cache. `too_long` est rejouable, avec un message qui demande
+  // une citation plus COURTE : mieux vaut cela qu'un contrôle partiel présenté comme complet.
+  const body = 'Chaque comprimé pelliculé contient de la substance active. '
+  const long = body.repeat(12) // ~700 caractères
+  // Une LETTRE mal lue dans le corpus : le littéral échoue, l'approché ne peut pas juger 700
+  // caractères d'un tenant ⇒ rejeu.
+  const ocr = prepareSource(body.repeat(20) + 'Chaque comprlmé pelliculé contient. ', 'ocr')
+  assertEquals(verifyEvidence(long.slice(0, 700), ocr, 'filled'), 'verified')
+  const drifted = long.replace('Chaque comprimé pelliculé contient de la substance active. ', 'Chaque comprlmé pelliculé contient de la substance active. ')
+  assertEquals(verifyEvidence(drifted, ocr, 'filled'), 'too_long')
+  assertEquals(isEvidenceRejected('too_long'), true)
+  // ⚠️ Une citation LITTÉRALEMENT présente n'est jamais rejetée pour dépassement : le plafond du
+  // scan protège le rapprochement approché, pas le contrôle exact. La rejeter rétrograderait une
+  // rubrique dont chaque caractère a été vérifié.
+  assertEquals(verifyEvidence(long, prepareSource(body.repeat(40), 'ocr'), 'filled'), 'verified')
+  assertEquals(verifyEvidence(long, prepareSource(body.repeat(40)), 'filled'), 'verified')
+})
+
+Deno.test('findInSource : les chiffres de TÊTE de la citation ne se suppriment pas', () => {
+  // ⚠️ Fuite trouvée en contre-revue : la colonne initiale de la programmation dynamique encodait
+  // « supprimer les i premiers caractères » à 1 par caractère, en exception à la règle que le reste
+  // du calcul applique. Atteignable là où c'est le plus grave — la rubrique 1, dont la citation est
+  // la première ligne du document et porte le dosage.
+  const src = prepareSource('comprimes par jour pendant la duree du traitement prescrit', 'ocr')
+  assertEquals(findInSource('250 comprimes par jour pendant la duree du traitement', src), 'absent')
+  assertEquals(findInSource('12 comprimes par jour pendant la duree du traitement', src), 'absent')
+  // Le même passage sans chiffre ajouté reste retrouvé, à une lettre près.
+  assertEquals(findInSource('comprimes par jour pendant la duree du traltement', src), 'ocr')
+})
+
+Deno.test('findInSource : l’UNITÉ d’un dosage est protégée comme le chiffre', () => {
+  // La magnitude d'une posologie vit pour MOITIÉ dans des lettres. Protéger les chiffres seuls
+  // laissait « 250 g » s'aligner sur « 250 mg » — facteur mille, et cette fois sans AUCUN signal :
+  // le jeton chiffré étant intact, `ungroundedFigures` n'a rien à lister.
+  const src = prepareSource('la dose est de 250 mg par jour chez l’adulte traite', 'ocr')
+  assertEquals(findInSource('la dose est de 250 g par jour chez l’adulte traite', src), 'absent')
+  assertEquals(findInSource('la dose est de 250 mcg par jour chez l’adulte traite', src), 'absent')
+  const vol = prepareSource('administrer 10 l de solution par voie intraveineuse lente', 'ocr')
+  assertEquals(findInSource('administrer 10 ml de solution par voie intraveineuse lente', vol), 'absent')
+  // Et l'unité correctement citée passe, y compris avec une lettre mal lue AILLEURS.
+  assertEquals(findInSource('la dose est de 250 mg par jour chez l’adulte tralte', src), 'ocr')
+})
+
+Deno.test('findInSource : le séparateur décimal ne se déplace pas', () => {
+  // Chiffres identiques, dans l'ordre : seule la virgule bouge, et une virgule n'est pas un chiffre.
+  // Facteur dix sur une dose, que l'ancrage des valeurs ne rattrape pas si « 1,25 » traîne ailleurs.
+  const src = prepareSource('dose de 12,5 mg par prise quotidienne le matin', 'ocr')
+  assertEquals(findInSource('dose de 1,25 mg par prise quotidienne le matin', src), 'absent')
+  assertEquals(findInSource('dose de 125 mg par prise quotidienne le matin', src), 'absent')
+  assertEquals(findInSource('dose de 12,5 mg par prise quotldienne le matin', src), 'ocr')
+})
+
+Deno.test('findInSource : les unités COMPOSÉES d’une posologie sont protégées elles aussi', () => {
+  // Un plafond calibré sur « mg » et « ml » laissait `mg/kg/j` et `µg/kg/min` sans protection — donc
+  // un facteur mille sur une posologie pédiatrique, la population la plus exposée.
+  const src = prepareSource('la dose pediatrique est de 10 mg/kg/j en deux prises espacees', 'ocr')
+  assertEquals(findInSource('la dose pediatrique est de 10 g/kg/j en deux prises espacees', src), 'absent')
+  const perf = prepareSource('perfusion continue de 5 µg/kg/min sous surveillance continue', 'ocr')
+  assertEquals(findInSource('perfusion continue de 5 mg/kg/min sous surveillance continue', perf), 'absent')
+  // L'unité correctement citée passe, malgré une lettre mal lue ailleurs dans la phrase.
+  assertEquals(findInSource('la dose pediatrlque est de 10 mg/kg/j en deux prises espacees', src), 'ocr')
+})
+
+Deno.test('findInSource : un TITRE de rubrique après un numéro n’est pas pris pour une unité', () => {
+  // ⚠️ Le motif le plus fréquent d'un RCP : « 5.3 Sécurité préclinique », « 4.2 Posologie ». Geler
+  // le mot qui suit un numéro sur un simple critère de longueur ferait refuser presque toutes les
+  // citations d'un scan — d'où un vocabulaire d'unités FERMÉ plutôt qu'une heuristique.
+  const src = prepareSource('5.3 Sécurité préclinique et données pharmacocinétiques du produit', 'ocr')
+  assertEquals(findInSource('5.3 Sécurite préclinlque et données pharmacocinétiques du produit', src), 'ocr')
+  const poso = prepareSource('4.2 Posologie et mode d’administration chez l’adulte et l’enfant', 'ocr')
+  assertEquals(findInSource('4.2 Posologle et mode d’administration chez l’adulte et l’enfant', poso), 'ocr')
+})
+
+Deno.test('findInSource : le micro devient un mu GREC après normalisation', () => {
+  // NFKC replie le signe micro sur le mu grec. Une table écrite avec le signe micro serait
+  // inopérante — et muette, puisqu'elle échouerait en REFUSANT, ce qui ressemble à un contrôle actif.
+  const src = prepareSource('perfusion de 5 µg/kg/min pendant douze heures consecutives', 'ocr')
+  // « ug » pour « µg » est une confusion de lecture sans effet sur la magnitude : acceptée.
+  assertEquals(findInSource('perfusion de 5 ug/kg/min pendant douze heures consecutives', src), 'ocr')
+  // « mg » pour « µg » multiplie la dose par mille : refusée.
+  assertEquals(findInSource('perfusion de 5 mg/kg/min pendant douze heures consecutives', src), 'absent')
+})
+
+Deno.test('findInSource : l’espace entre nombre et unité peut être collée ou séparée', () => {
+  // Après la confusion de lettres, l'artefact OCR le plus fréquent : « 500mg » pour « 500 mg ».
+  // Geler cette espace faisait refuser une citation JUSTE — donc rejeu, donc « Non fourni ». Les
+  // attaques par décalage restent tuées par la règle de substitution contre une espace.
+  const colle = prepareSource('chaque comprime contient 500mg de substance active', 'ocr')
+  assertEquals(findInSource('chaque comprime contient 500 mg de substance active', colle), 'ocr')
+  const separe = prepareSource('chaque comprime contient 500 mg de substance active', 'ocr')
+  assertEquals(findInSource('chaque comprime contient 500mg de substance active', separe), 'ocr')
+  // ...et l'unité elle-même reste intouchable dans les deux formes.
+  assertEquals(findInSource('chaque comprime contient 500 g de substance active', colle), 'absent')
+  assertEquals(findInSource('chaque comprime contient 500ng de substance active', separe), 'absent')
+})
+
+Deno.test('findInSource : les unités de temps en TOUTES LETTRES sont protégées', () => {
+  // `h` et `j` étaient protégés, `heures` et `jours` non — alors que « 24 heures » et « 24 jours »
+  // se confondent aussi sûrement, et qu'un intervalle d'administration faux est un défaut clinique.
+  const src = prepareSource('a renouveler toutes les 24 jours si necessaire selon avis', 'ocr')
+  assertEquals(findInSource('a renouveler toutes les 24 heures si necessaire selon avis', src), 'absent')
+  const sem = prepareSource('traitement pendant 3 semaines consecutives sans interruption', 'ocr')
+  assertEquals(findInSource('traitement pendant 3 secondes consecutives sans interruption', sem), 'absent')
+  // La forme correcte, avec une lettre mal lue ailleurs, passe toujours.
+  assertEquals(findInSource('a renouveler toutes les 24 jours si necessalre selon avis', src), 'ocr')
+})
+
+Deno.test('findInSource : les DOSES UNITAIRES protègent aussi leur numérateur', () => {
+  // ⚠️ Notations standard des patches, inhalateurs, sprays et vaccins. Le balayage du jeton s'arrête
+  // sur un chiffre (« mg/24 h » ne livre que « mg/ ») et le dénominateur d'une dose n'était pas du
+  // vocabulaire : dans les deux cas le NUMÉRATEUR redevenait libre, et « g » remplaçait « mg » pour
+  // un facteur mille — sans aucun signal, le chiffre étant intact.
+  const patch = prepareSource('libere 5 mg/24 h pendant sept jours consecutifs apres pose', 'ocr')
+  assertEquals(findInSource('libere 5 g/24 h pendant sept jours consecutifs apres pose', patch), 'absent')
+  const colle = prepareSource('libere 5 mg/24h pendant sept jours consecutifs apres pose', 'ocr')
+  assertEquals(findInSource('libere 5 g/24h pendant sept jours consecutifs apres pose', colle), 'absent')
+  const inhal = prepareSource('chaque bouffee delivre 0,5 mg/dose de principe actif', 'ocr')
+  assertEquals(findInSource('chaque bouffee delivre 0,5 g/dose de principe actif', inhal), 'absent')
+  const vaccin = prepareSource('titre vaccinal de 500 kui/dose apres reconstitution du lyophilisat', 'ocr')
+  assertEquals(findInSource('titre vaccinal de 500 ui/dose apres reconstitution du lyophilisat', vaccin), 'absent')
+  const spray = prepareSource('50 mg/pulverisation dans chaque narine matin et soir', 'ocr')
+  assertEquals(findInSource('50 g/pulverisation dans chaque narine matin et soir', spray), 'absent')
+  // Et les formes correctes passent, malgré une lettre mal lue ailleurs.
+  assertEquals(findInSource('libere 5 mg/24 h pendant sept jours consecutlfs apres pose', patch), 'ocr')
+  assertEquals(findInSource('chaque bouffee delivre 0,5 mg/dose de principe actlf', inhal), 'ocr')
+})
+
+Deno.test('findInSource : les unités écrites en TOUTES LETTRES sont protégées', () => {
+  // ⚠️ La forme la plus dangereuse à laisser nue : la réglementation demande de l'écrire pour ÉVITER
+  // la confusion μg/mg, donc elle apparaît là où cette confusion coûte le plus cher. Trois
+  // substitutions séparent « micro » de « milli » — sous le budget dès qu'une citation dépasse
+  // ~80 caractères, c'est-à-dire toujours. La protection n'était qu'un accident d'arithmétique.
+  const mg = 'chaque comprime pellicule contient 250 milligrammes de substance active micronisee ' +
+    'et des excipients a effet notoire selon la liste ci-dessous'
+  const src = prepareSource(mg, 'ocr')
+  assertEquals(findInSource(mg.replace('milligrammes', 'microgrammes'), src), 'absent')
+  assertEquals(findInSource(mg.replace('milligrammes', 'grammes'), src), 'absent')
+  // ...dans les deux sens, et en anglais.
+  const microSrc = prepareSource(mg.replace('milligrammes', 'microgrammes'), 'ocr')
+  assertEquals(findInSource(mg, microSrc), 'absent')
+  const en = 'each film coated tablet contains 250 milligrams of micronised active substance and ' +
+    'excipients with known effect as listed below in this section'
+  assertEquals(findInSource(en.replace('milligrams', 'micrograms'), prepareSource(en, 'ocr')), 'absent')
+  // Nutrition parentérale : « 200 cal » n'est pas « 200 kcal ».
+  const cal = prepareSource('apport energetique de 200 kcal par poche de solution nutritive', 'ocr')
+  assertEquals(findInSource('apport energetique de 200 cal par poche de solution nutritive', cal), 'absent')
+  // Et un mot GELÉ dont l'OCR a abîmé une lettre reste toléré : le gel interdit la suppression,
+  // pas la confusion graphique.
+  assertEquals(findInSource(mg.replace('milligrammes', 'mllligrammes'), src), 'ocr')
 })

@@ -63,6 +63,49 @@ on lui signale ce qu'il ne pouvait pas voir.
 En conditions réelles, le moteur n'a accès à rien d'autre que le fichier téléversé. Le comportement
 doit être identique quand d'autres pièces sont disponibles.
 
+### Le cas du document SCANNÉ
+
+Un scan reste un document source désigné : il se traite, il ne se refuse pas. Le client, lui, ne
+verrait pas de raison d'être refusé — **son lecteur PDF océrise à l'affichage**, il croit donc que son
+fichier contient du texte.
+
+La règle de périmètre est inchangée ; c'est la **lecture** qui se dédouble :
+
+| | Ce qui la fait | Ce qu'elle vaut |
+|---|---|---|
+| **Contenu** | le modèle lit l'IMAGE de la page | fidèle : l'image est le document |
+| **Vérification** | une reconnaissance de caractères produit un texte de CONTRÔLE | reconstruction : les mots survivent, les chiffres pas toujours |
+
+Trois conséquences, toutes tenues en code :
+
+1. Le texte océrisé **n'est jamais soumis au modèle**. Sinon les coquilles de la reconnaissance
+   deviendraient des « constats » sur le document du client — des affirmations fausses, que rien en
+   aval ne peut démentir puisqu'elles figurent dans le corpus de contrôle.
+   ⚠️ Le modèle sait pourtant lire une image, et le fait mieux que notre reconnaissance. C'est
+   exactement pour cela qu'une **seconde lecture indépendante** existe : un contrôle produit par ce
+   qu'il contrôle n'en est pas un. Ce qui compte ici n'est pas la qualité de la reconnaissance, c'est
+   qu'elle ne sorte pas du modèle.
+2. Le contrôle des **valeurs chiffrées** devient **consultatif** : une reconnaissance confond 0 et O,
+   1 et l, 5 et S, 8 et B. Exiger l'exactitude ferait rétrograder en « Non fourni » des rubriques
+   parfaitement correctes — précisément l'erreur que l'étape 1 existe pour éviter, dans l'autre sens.
+   Les valeurs non retrouvées sont donc **listées à relire**, jamais opposées au livrable.
+3. Le contrôle de **citation** reste exigé. La tolérance porte sur 8 % des caractères d'un passage
+   **contigu** — une reconnaissance correcte se trompe sur 1 à 2 %. Au-delà, ce n'est plus une lecture
+   fautive : c'est une invention, et elle est rejetée comme n'importe quelle autre.
+   ⚠️ La contiguïté est essentielle : sans elle, une phrase recombinée à partir de mots pris à trois
+   rubriques différentes passerait pour une citation — c'est ainsi qu'une posologie pédiatrique
+   inventée pourrait sortir d'une source qui ne posologie que l'adulte.
+4. **Aucune tolérance ne touche la MAGNITUDE d'une valeur**, et celle-ci ne vit pas que dans les
+   chiffres : `250 g` n'est pas `250 mg`, `5 μg/kg/min` n'est pas `5 mg/kg/min`, `250 microgrammes`
+   n'est pas `250 milligrammes`, `1,25` n'est pas `12,5`. Chiffres, séparateur décimal et unité —
+   abrégée, composée ou **écrite en toutes lettres**, en français comme en anglais — forment un bloc
+   intouchable. Sur tous ces cas, le contrôle des valeurs ne verrait rien : le nombre lui-même est
+   intact. D'où l'importance d'en faire une règle de la CITATION.
+
+**La revue le dit.** Un encart déterministe — jamais rédigé par le modèle — annonce que la source est
+un scan, explique pourquoi le lecteur du client lui montrait du texte, et liste les valeurs à relire.
+Une garantie dont on cache la portée n'est pas une garantie.
+
 ## 2. Le gabarit est le socle — rien ne passe sous silence
 
 **Tout élément mentionné dans le gabarit est attendu par le régulateur, donc apparaît dans le
@@ -197,3 +240,5 @@ source ne s'invente pas, même en rapport.
 - [ ] Document et rapport dans deux fichiers distincts
 - [ ] Avertissement du rapport reproduit au mot près
 - [ ] Ton partenaire : le produit est nommé, le risque est expliqué
+- [ ] Source scannée : traitée et non refusée, encart présent dans la revue, valeurs à relire listées
+- [ ] Source scannée : aucune rubrique rétrogradée au seul motif d'une valeur chiffrée

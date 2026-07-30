@@ -14,7 +14,7 @@ import { specForDocType, specPromptText } from '../_shared/conformity-specs.ts'
 import { corsHeaders, isAllowedOrigin } from '../_shared/cors.ts'
 import { logJson, newReqId, userHash } from '../_shared/log.ts'
 import { activeOrgFromRequest, checkAiQuota, recordAiUsage } from '../_shared/quota.ts'
-import { prepareSource } from '../_shared/ai/evidence.ts'
+import { prepareSource, type SourceKind } from '../_shared/ai/evidence.ts'
 import { conformitySystem } from '../_shared/ai/personas.ts'
 import { findRubric } from '../_shared/ai/section-schema.ts'
 import { generateParts, streamSimpleSse, type Part } from '../_shared/ai/provider.ts'
@@ -194,6 +194,11 @@ Deno.serve(async (req: Request) => {
      * structurée + contrôle de citation). Absent : mode document historique, inchangé.
      */
     section?: string
+    /**
+     * Provenance de `text` : `'ocr'` quand le client a océrisé un PDF scanné. Combiné à `filePath`,
+     * c'est le protocole des scans — le modèle lit l'image, l'OCR sert au contrôle en code.
+     */
+    sourceKind?: string
     /** Contexte certifié du dossier (fiche produit Pharnos) — données vérifiées, pas des inventions. */
     dossierContext?: {
       activity?: string
@@ -206,7 +211,35 @@ Deno.serve(async (req: Request) => {
   const docType = String(b.docType ?? '')
   const spec = specForDocType(docType)
   if (!spec) return json({ error: 'type de document non couvert par un template' }, 400)
-  if (!b.filePath && !b.text) return json({ error: 'filePath ou text requis' }, 400)
+  // Le texte doit être une CHAÎNE, avec ou sans pièce : `String(autre chose)` fabriquerait un corpus
+  // de contrôle (« 42 », « [object Object] ») contre lequel toute citation échouerait, et l'upgrade
+  // rétrograderait 29 rubriques correctes sans qu'aucun message n'en dise la cause. Validé même en
+  // présence d'une pièce, sinon une erreur d'appelant serait diagnostiquée au client comme un défaut
+  // de SON fichier.
+  if (b.text !== undefined && typeof b.text !== 'string') {
+    return json({ error: 'text doit être une chaîne' }, 400)
+  }
+  if (!b.filePath && typeof b.text !== 'string') {
+    return json({ error: 'filePath ou text requis' }, 400)
+  }
+  // Provenance du corpus : deux valeurs, et aucun repli silencieux. « OCR », « scan » ou `true`
+  // retomberaient sur `text` — donc citations approximatives refusées, rubriques justes
+  // rétrogradées, et AUCUN encart de scan dans la revue. Le mode `section` refuse déjà de la même
+  // façon toute valeur inattendue, et pour la même raison.
+  if (b.sourceKind !== undefined && b.sourceKind !== 'text' && b.sourceKind !== 'ocr') {
+    return json({ error: 'sourceKind doit valoir « text » ou « ocr »' }, 400)
+  }
+  // Un corpus océrisé ne sert QU'AU contrôle (invariant n°13 du plan moteur) : sans la pièce
+  // d'origine, il n'y a pas d'image fidèle à lire et c'est le texte reconstruit qui partirait au
+  // modèle — avec la tolérance de citation et les chiffres consultatifs par-dessus. L'invariant se
+  // tient ICI ou nulle part.
+  if (b.sourceKind === 'ocr' && !b.filePath) {
+    return json({
+      error: 'sourceKind « ocr » exige la pièce d’origine : le modèle doit lire l’image, ' +
+        'le texte océrisé ne sert qu’au contrôle',
+      reason: 'ocr_without_file',
+    }, 400)
+  }
   // `section` absent ⇒ mode document. Toute autre valeur qu'une chaîne est une ERREUR d'appelant,
   // pas un repli silencieux : retomber en mode document ferait produire un document entier
   // (~440 s) là où le worker n'attendait qu'une rubrique — un 546 garanti.
@@ -238,12 +271,41 @@ Deno.serve(async (req: Request) => {
   let sourceBytes = 0
   let inputTruncated = false
   /**
-   * Texte source EXPLOITABLE pour le contrôle de citation (M2). Il n'existe qu'en mode texte : une
-   * pièce PDF part telle quelle au modèle, sans extraction côté Edge (2 s de CPU, §8.6). Le mode
-   * rubrique le dit alors franchement — verdict `unverifiable` — au lieu de faire croire à un
-   * contrôle qui n'a pas eu lieu.
+   * Texte source EXPLOITABLE pour le contrôle de citation (M2) — le CORPUS DE CONTRÔLE, pas
+   * forcément ce que le modèle lit. Deux provenances possibles :
+   *
+   *  - `text` seul : le client a extrait la couche texte du PDF. Corpus fidèle au caractère près,
+   *    et c'est aussi ce qui part au modèle.
+   *  - `filePath` + `text` + `sourceKind: 'ocr'` : le PDF est un SCAN. Le modèle lit l'IMAGE (elle
+   *    est fidèle) et le texte océrisé ne sert qu'à vérifier en code. L'OCR n'entre donc pas dans
+   *    le prompt : aucun jeton de plus, et aucune coquille de lecture attribuée au client.
+   *
+   * `filePath` seul reste possible en mode document ; le mode rubrique le refuse, faute de corpus.
    */
   let sourceText: string | null = null
+  // Posée AVANT tout usage du texte, et sans dépendre de son exploitabilité : sinon un scan dont
+  // l'OCR n'a rien rendu se journaliserait comme un dossier textuel, et le taux de rétrogradation
+  // des deux lots se mélangerait — précisément ce que la provenance sert à séparer (§7).
+  const sourceKind: SourceKind = b.sourceKind === 'ocr' ? 'ocr' : 'text'
+  /** Texte fourni mais coupé. Son SENS dépend de la présence d'une pièce — voir ci-dessous. */
+  let textTruncated = false
+  if (typeof b.text === 'string') {
+    textTruncated = b.text.length > MAX_TEXT_CHARS
+    // Couper l'ENTRÉE sans le dire produit une mise en conformité « complète » d'un document
+    // amputé — indétectable côté client. On tronque toujours (borne de sécurité), mais on le signale.
+    // Avec une pièce, le texte n'est PAS l'entrée du modèle mais le corpus de contrôle : annoncer
+    // `inputTruncated` y serait faux, et le mode rubrique traite ce cas à part (413 plus bas).
+    inputTruncated = textTruncated && !b.filePath
+    const text = b.text.slice(0, MAX_TEXT_CHARS)
+    // Un texte vide fourni SEUL n'a rien à traiter. Accompagné d'une pièce, il signifie seulement
+    // qu'aucun corpus de contrôle n'accompagne le document : le mode document s'en passe, le mode
+    // rubrique le refuse plus bas — chacun pour la bonne raison.
+    if (!text.trim()) {
+      if (!b.filePath) return json({ error: 'texte source vide' }, 400)
+    } else {
+      sourceText = text
+    }
+  }
   if (b.filePath) {
     const { data, error } = await supabase.storage.from(STORAGE_BUCKET).download(String(b.filePath))
     if (error || !data) return json({ error: 'document introuvable' }, 404)
@@ -256,15 +318,9 @@ Deno.serve(async (req: Request) => {
       inlineData: { mimeType: mimeFor(String(b.fileName ?? 'document')), data: bytesToBase64(buf) },
     }
   } else {
-    const rawText = String(b.text)
-    // Couper l'ENTRÉE sans le dire produit une mise en conformité « complète » d'un document
-    // amputé — indétectable côté client. On tronque toujours (borne de sécurité), mais on le signale.
-    inputTruncated = rawText.length > MAX_TEXT_CHARS
-    const text = rawText.slice(0, MAX_TEXT_CHARS)
-    if (!text.trim()) return json({ error: 'texte source vide' }, 400)
-    sourceBytes = text.length
-    sourceText = text
-    sourcePart = { text: `DOCUMENT SOURCE :\n${text}` }
+    // Pas de pièce : `sourceText` est nécessairement rempli (validé plus haut, vide refusé).
+    sourceBytes = sourceText!.length
+    sourcePart = { text: `DOCUMENT SOURCE :\n${sourceText}` }
   }
 
   const system = buildSystem(docType)
@@ -277,6 +333,10 @@ Deno.serve(async (req: Request) => {
     docType,
     bytes: sourceBytes,
     fromText: !b.filePath,
+    // Provenance du corpus de contrôle : sans elle, un lot de scans se lirait dans les journaux
+    // comme un lot ordinaire, et le taux de rétrogradation des deux se mélangerait (§7).
+    sourceKind,
+    ...(sourceText ? { controlChars: sourceText.length } : {}),
     stream: b.stream === true,
     ...(sectionId ? { section: sectionId } : {}),
   })
@@ -287,11 +347,33 @@ Deno.serve(async (req: Request) => {
   if (sectionId) {
     const rubric = findRubric(spec, sectionId)
     if (!rubric) return json({ error: 'rubrique inconnue pour ce template' }, 400)
-    // Sans texte source, le contrôle de citation ne peut PAS s'exercer : la réponse serait
-    // indistinguable d'une rubrique vérifiée, et la pièce (jusqu'à 12 Mo) repartirait à chaque
-    // rubrique pour rien. L'extraction PDF appartient au navigateur (§8.6), pas à l'Edge.
+    // Sans corpus de contrôle, le contrôle de citation ne peut PAS s'exercer : la réponse serait
+    // indistinguable d'une rubrique vérifiée. L'extraction — et l'OCR si le PDF est un scan —
+    // appartiennent au navigateur (§8.6), pas à l'Edge.
+    //
+    // La cause est NOMMÉE et le code de raison est distinct : le client verra du texte dans son
+    // PDF scanné (son lecteur l'océrise à l'affichage) et se le fera refuser ici. Un « texte source
+    // requis » générique ferait passer un défaut de fichier pour une panne de notre service.
     if (!sourceText) {
-      return json({ error: 'mode rubrique : texte source requis (extraction côté client)' }, 400)
+      return json({
+        error: b.filePath
+          ? "aucun texte n'a été extrait de ce document : s'il s'agit d'un scan, il doit être " +
+            'océrisé avant envoi'
+          : 'mode rubrique : texte source requis (extraction côté client)',
+        reason: b.filePath ? 'no_text_layer' : 'source_text_required',
+      }, 400)
+    }
+    // ⚠️ Troncature ASYMÉTRIQUE. En mode deux canaux, la pièce part ENTIÈRE au modèle et seul le
+    // corpus de contrôle est coupé à `MAX_TEXT_CHARS` : toute rubrique dont la citation vit dans la
+    // queue du document ressortirait `not_found`, donc « Non fourni » — sur des rubriques que le
+    // document couvre. Le défaut serait attribué au modèle, et la métrique du §7 faussée dans le
+    // sens qui compte. Sans pièce, les deux côtés sont coupés ensemble : le cas ne se pose pas.
+    if (b.filePath && textTruncated) {
+      logJson({ ...log, op: 'section', section: sectionId, status: 'control_truncated' })
+      return json({
+        error: 'le texte de contrôle de ce document dépasse la taille traitable par rubrique',
+        reason: 'control_truncated',
+      }, 413)
     }
     const budgetMs = Math.min(SECTION_BUDGET_MS, UPGRADE_TIMEOUT_MS - (Date.now() - invokedAt))
     if (budgetMs < MIN_SECTION_BUDGET_MS) {
@@ -311,11 +393,11 @@ Deno.serve(async (req: Request) => {
           spec,
           rubric,
           sourceParts: [sourcePart],
-          source: prepareSource(sourceText),
+          source: prepareSource(sourceText, sourceKind),
           // La CITATION doit vivre dans le document ; l'ANCRAGE des chiffres accepte en plus le
           // contexte certifié. Sans cela, un numéro de RCCM ou une adresse fournis par Pharnos
           // feraient rétrograder la rubrique 7 comme s'ils étaient inventés.
-          grounding: prepareSource(`${sourceText}\n${certifiedContext}`),
+          grounding: prepareSource(`${sourceText}\n${certifiedContext}`, sourceKind),
           system,
           countryCode,
           extraContext: certifiedContext,
@@ -335,6 +417,7 @@ Deno.serve(async (req: Request) => {
         downgraded: s.downgraded,
         ...(s.downgradeReason ? { downgradeReason: s.downgradeReason } : {}),
         ungrounded: s.ungrounded.length,
+        ...(s.figuresAdvisory ? { figuresAdvisory: true } : {}),
         chars: s.content.length,
       })
       return json({
@@ -354,6 +437,9 @@ Deno.serve(async (req: Request) => {
           // Les valeurs en cause, pas seulement leur nombre : l'expert RA doit savoir CE QUI n'a
           // pas été retrouvé pour trancher entre coquille d'extraction et invention.
           ...(s.ungrounded.length ? { ungrounded: s.ungrounded } : {}),
+          // Source océrisée : ces valeurs sont à VÉRIFIER, pas des inventions constatées. Sans ce
+          // drapeau, le front présenterait une lecture douteuse comme une hallucination du moteur.
+          ...(s.figuresAdvisory ? { figuresAdvisory: true } : {}),
         },
         ...(inputTruncated ? { inputTruncated: true } : {}),
       })
