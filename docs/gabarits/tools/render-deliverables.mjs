@@ -291,6 +291,10 @@ async function toPdf(blocks, { header, signature = false }) {
   const reg = await pdf.embedFont(StandardFonts.Helvetica)
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold)
   const ital = await pdf.embedFont(StandardFonts.HelveticaOblique)
+  // Polices de SECOURS pour les signes hors WinAnsi. Toutes deux font partie des 14 polices
+  // standard du PDF : rien à embarquer, rien à licencier.
+  const sym = await pdf.embedFont(StandardFonts.Symbol)
+  const ding = await pdf.embedFont(StandardFonts.ZapfDingbats)
   const hex = (h) => rgb(parseInt(h.slice(0, 2), 16) / 255, parseInt(h.slice(2, 4), 16) / 255, parseInt(h.slice(4), 16) / 255)
   const blue = hex(BLUE)
   const grey = hex(GREY)
@@ -299,25 +303,66 @@ async function toPdf(blocks, { header, signature = false }) {
   const black = rgb(0, 0, 0)
 
   // ⚠️ Les polices standard de pdf-lib ne codent que le WinAnsi : un caractère hors jeu fait
-  // ÉCHOUER la génération, pas seulement le rendu. On traduit les signes utilisés, et l'on trace
-  // ce qui serait perdu — un caractère supprimé en silence dans un document réglementaire est un
-  // défaut. La sortie définitive devra embarquer une police Unicode (voir note de portage).
+  // ÉCHOUER la génération, pas seulement mal rendre.
+  //
+  // Mais deux des 14 polices STANDARD du PDF portent ce qui manque : `Symbol` a ≥ ≤ ≠ ± × µ ∞,
+  // `ZapfDingbats` a ●. Elles sont toujours présentes, sans embarquement, sans dépendance et sans
+  // question de licence. On dessine donc le VRAI glyphe au lieu de le translittérer — « très
+  // fréquent (≥ 1/10) » et non « (>= 1/10) ». Sur un tableau de fréquences MedDRA, l'opérateur
+  // porte du sens : l'écrire en ASCII reproduisait le défaut même que la revue reproche à la source.
+  //
+  // Le repli ASCII ne subsiste que pour ce qu'aucune police standard ne sait tracer.
   const dropped = new Set()
-  // ⚠️ `≥` porte du SENS dans un tableau de fréquences : « très fréquent (1/10) » au lieu de
-  // « (≥ 1/10) » est précisément le défaut que le rapport reproche à la source. Tant qu'une police
-  // Unicode n'est pas embarquée, on écrit l'opérateur en ASCII plutôt que de le perdre.
-  const SUBST = {
-    '→': '->', '●': '•', '≡': '=',
-    '≥': '>=', '≤': '<=', '≠': '!=', '±': '+/-', '×': 'x', 'ᵉ': 'e', '−': '-', '‰': 'o/oo',
-    'µ': 'µ', // MICRO SIGN (WinAnsi) et non GREEK SMALL LETTER MU
-  }
+  const GLYPH_FONT = { '≥': sym, '≤': sym, '≠': sym, '±': sym, '×': sym, '∞': sym, '●': ding }
+  const SUBST = { '→': '->', '≡': '=', 'ᵉ': 'e', '−': '-', '‰': 'o/oo' }
   const WINANSI_EXTRA = new Set('€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ')
+  const encodable = (ch) => ch.codePointAt(0) < 256 || WINANSI_EXTRA.has(ch)
+
+  /** Normalise ce qui n'a NI police de secours NI codage direct. */
   const pdfSafe = (s) => [...String(s)].map((ch) => {
+    if (GLYPH_FONT[ch]) return ch
     if (SUBST[ch]) return SUBST[ch]
-    if (ch.codePointAt(0) < 256 || WINANSI_EXTRA.has(ch)) return ch
+    if (encodable(ch)) return ch
     dropped.add(ch)
     return ''
   }).join('')
+
+  /**
+   * Découpe un texte en tronçons homogènes de police : le texte courant, ou une police de secours
+   * pour un signe isolé. Mesure ET tracé passent par ce même découpage — sinon la largeur calculée
+   * ne correspond pas au texte tracé et tout ce qui suit se décale.
+   */
+  const runsByFont = (text, base) => {
+    const out = []
+    for (const ch of pdfSafe(text)) {
+      const f = GLYPH_FONT[ch] ?? base
+      const last = out[out.length - 1]
+      if (last && last.font === f) last.text += ch
+      else out.push({ font: f, text: ch })
+    }
+    return out
+  }
+
+  const widthOf = (text, base, size) =>
+    runsByFont(text, base).reduce((w, r) => w + r.font.widthOfTextAtSize(r.text, size), 0)
+
+  /**
+   * Trace un texte pouvant mêler plusieurs polices, et rend la largeur consommée.
+   *
+   * ⚠️ TOUT tracé doit passer par ici. `pdfSafe` ne substitue plus les signes à police de secours :
+   * un `drawText` direct avec une seule police LÈVERAIT sur « ≥ » ou « µ ». C'est le prix du vrai
+   * glyphe, et il vaut d'être payé — mais il n'admet pas d'exception.
+   */
+  const drawMixedOn = (p, text, x, y0, base, size, color) => {
+    let dx = 0
+    for (const r of runsByFont(text, base)) {
+      p.drawText(r.text, { x: x + dx, y: y0, size, font: r.font, color })
+      dx += r.font.widthOfTextAtSize(r.text, size)
+    }
+    return dx
+  }
+  const drawMixed = (text, x, y0, base, size, color) =>
+    drawMixedOn(page, text, x, y0, base, size, color)
 
   const TOP = A4[1] - M
   let page = pdf.addPage(A4)
@@ -335,7 +380,7 @@ async function toPdf(blocks, { header, signature = false }) {
     let cur = []; let curW = 0
     for (const t of words) {
       const f = fontOf(t.seg)
-      const ww = f.widthOfTextAtSize(t.word, size)
+      const ww = widthOf(t.word, f, size)
       const sw = f.widthOfTextAtSize(' ', size)
       const add = cur.length ? sw + ww : ww
       if (cur.length && curW + add > w) { lines.push(cur); cur = []; curW = ww } else curW += add
@@ -356,8 +401,8 @@ async function toPdf(blocks, { header, signature = false }) {
   const drawLine = (line, x0, y0, size) => {
     let x = x0
     line.forEach((g, i) => {
-      page.drawText(g.text, { x, y: y0, size, font: fontOf(g.seg), color: g.seg.color ?? black })
-      x += fontOf(g.seg).widthOfTextAtSize(g.text, size) + (i < line.length - 1 ? reg.widthOfTextAtSize(' ', size) : 0)
+      x += drawMixed(g.text, x, y0, fontOf(g.seg), size, g.seg.color ?? black)
+      if (i < line.length - 1) x += reg.widthOfTextAtSize(' ', size)
     })
     return x - x0
   }
@@ -366,7 +411,7 @@ async function toPdf(blocks, { header, signature = false }) {
     const w = W - indent
     for (const line of layout(segments, size, w)) {
       newline(lead)
-      const total = line.reduce((s, g) => s + fontOf(g.seg).widthOfTextAtSize(g.text, size), 0)
+      const total = line.reduce((s, g) => s + widthOf(g.text, fontOf(g.seg), size), 0)
         + (line.length - 1) * reg.widthOfTextAtSize(' ', size)
       const x0 = M + indent + (centre ? Math.max(0, (w - total) / 2) : right ? Math.max(0, w - total) : 0)
       drawLine(line, x0, y, size)
@@ -379,13 +424,13 @@ async function toPdf(blocks, { header, signature = false }) {
   const drawLead = (b) => {
     newline(13)
     const x0 = M + 17
-    const lbl = pdfSafe('\u2022  ' + b.label)
-    const num = pdfSafe(b.num)
-    page.drawText(lbl, { x: x0, y, size: PT, font: reg })
-    const numW = reg.widthOfTextAtSize(num, PT)
-    page.drawText(num, { x: PDF_LEADER_AT - numW, y, size: PT, font: reg })
-    if (b.unit) page.drawText(pdfSafe(b.unit), { x: PDF_UNIT_AT, y, size: PT, font: reg })
-    const from = x0 + reg.widthOfTextAtSize(lbl + ' ', PT)
+    const lbl = '\u2022  ' + b.label
+    // `\u00b5` d'une unit\u00e9 (\u00b5g/mL) est trac\u00e9 par Symbol : la largeur doit venir du m\u00eame d\u00e9coupage.
+    const numW = widthOf(b.num, reg, PT)
+    drawMixed(lbl, x0, y, reg, PT, black)
+    drawMixed(b.num, PDF_LEADER_AT - numW, y, reg, PT, black)
+    if (b.unit) drawMixed(b.unit, PDF_UNIT_AT, y, reg, PT, black)
+    const from = x0 + widthOf(lbl + ' ', reg, PT)
     const to = PDF_LEADER_AT - numW - reg.widthOfTextAtSize(' ', PT)
     const dw = reg.widthOfTextAtSize('.', PT)
     if (to > from) page.drawText('.'.repeat(Math.floor((to - from) / dw)), { x: from, y, size: PT, font: reg, color: grey })
@@ -423,7 +468,8 @@ async function toPdf(blocks, { header, signature = false }) {
         const segs = runs(c)
         const dot = dotOf(c)
         return layout(
-          [...(dot ? [{ text: '\u2022', color: hex(dot) }] : []), ...segs.map((r) => ({ ...r, bold: r.bold || isHead }))],
+          // Rond plein, comme dans le DOCX : ZapfDingbats le trace, plus besoin de le d\u00e9grader en puce.
+          [...(dot ? [{ text: '\u25cf', color: hex(dot) }] : []), ...segs.map((r) => ({ ...r, bold: r.bold || isHead }))],
           size, widths[i] - 10,
         )
       })
@@ -474,20 +520,14 @@ async function toPdf(blocks, { header, signature = false }) {
   // En-tête + pagination — posés après coup : le total de pages n'est connu qu'à la fin.
   // Conventions reprises du compilateur CTD : pagination en bas à DROITE, filigrane centré au pied.
   const pages = pdf.getPages()
-  const head = pdfSafe(header)
+  const headW = widthOf(header, reg, SMALL_PT)
   pages.forEach((p, i) => {
     // Pas d'en-tête sur la PREMIÈRE page : elle porte déjà le titre du document.
     if (i > 0) {
-      p.drawText(head, {
-        x: A4[0] - M - reg.widthOfTextAtSize(head, SMALL_PT),
-        y: A4[1] - M + 16, size: SMALL_PT, font: reg, color: grey,
-      })
+      drawMixedOn(p, header, A4[0] - M - headW, A4[1] - M + 16, reg, SMALL_PT, grey)
     }
     const n = `${i + 1} / ${pages.length}`
-    p.drawText(n, {
-      x: A4[0] - M - reg.widthOfTextAtSize(n, SMALL_PT),
-      y: M - 26, size: SMALL_PT, font: reg, color: grey,
-    })
+    drawMixedOn(p, n, A4[0] - M - widthOf(n, reg, SMALL_PT), M - 26, reg, SMALL_PT, grey)
     if (signature) drawSignature(p)
   })
 
@@ -510,9 +550,10 @@ async function toPdf(blocks, { header, signature = false }) {
     p.drawLine({ start: { x: bx, y: y0 - 1.5 }, end: { x: bx + bw, y: y0 - 1.5 }, thickness: 0.5, color: blue })
     const link = p.doc.context.register(p.doc.context.obj({
       Type: 'Annot', Subtype: 'Link', Rect: [bx, y0 - 3, bx + bw, y0 + size],
-      Border: [0, 0, 0], // ⚠️ `PDFString.of` est OBLIGATOIRE : une chaîne JS brute est encodée comme un NOM PDF
-      // (`/https://pharnos.com`), ce qui est illégal pour un URI — le lien est alors mort et
-      // les lecteurs signalent « Illegal URI-type link ».
+      Border: [0, 0, 0],
+      // ⚠️ `PDFString.of` est OBLIGATOIRE : une chaîne JS brute serait encodée comme un NOM PDF
+      // (`/https://pharnos.com`), ce qui est illégal pour un URI. Le lien serait mort et les
+      // lecteurs signaleraient « Illegal URI-type link ».
       A: { Type: 'Action', S: 'URI', URI: PDFString.of('https://pharnos.com') },
     }))
     p.node.addAnnot(link)
