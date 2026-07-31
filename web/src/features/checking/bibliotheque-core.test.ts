@@ -103,8 +103,10 @@ describe('fichier servi — le pays commande le fichier', () => {
   it('dit la vérité sur ce qui varie', () => {
     expect(varieParPays('rcp')).toBe(true)
     expect(varieParPays('notice')).toBe(false)
-    for (const slug of Object.keys(MODELES_FICHIERS)) {
-      expect(varieParPays(slug)).toBe(MODELES_FICHIERS[slug].perPays)
+    // Le manifeste généré est un littéral : on le relit en enregistrement pour l'indexer.
+    const manifeste = MODELES_FICHIERS as unknown as Record<string, { perPays: boolean }>
+    for (const [slug, m] of Object.entries(manifeste)) {
+      expect(varieParPays(slug), slug).toBe(m.perPays)
     }
   })
 })

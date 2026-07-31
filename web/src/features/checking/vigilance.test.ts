@@ -18,6 +18,11 @@ import {
   VIGILANCE,
 } from '../../../../landing/checking/vigilance.js'
 
+// `VIGILANCE` est un littéral aux huit clés pays : TypeScript refuse de l'indexer par une
+// variable. On le relit une fois sous sa forme réelle plutôt que de caster à chaque accès.
+type Vigilance = { organisme: string; contact: string | null; extra: string | null; source: string }
+const VIG = VIGILANCE as unknown as Record<string, Vigilance>
+
 /** Les SEULES adresses établies par une source déposée, au 30/07/2026. */
 const ADRESSES_SOURCEES = [
   'vigilances.abmed@gouv.bj',
@@ -26,7 +31,13 @@ const ADRESSES_SOURCEES = [
 ]
 const PAYS_AVEC_CONTACT = ['bj', 'ci', 'sn']
 
-const codes = () => Object.keys(VIGILANCE)
+const codes = (): string[] => Object.keys(VIG)
+/** `noUncheckedIndexedAccess` : on échoue en nommant le pays plutôt que d'ajouter un `!`. */
+const vigDe = (k: string): Vigilance => {
+  const v = VIG[k]
+  if (!v) throw new Error(`vigilance : pays « ${k} » absent`)
+  return v
+}
 
 describe('couverture des pays', () => {
   it('couvre exactement les pays du référentiel — ni plus, ni moins', () => {
@@ -50,7 +61,7 @@ describe('couverture des pays', () => {
 describe('aucune adresse non sourcée', () => {
   it("ne contient aucune adresse électronique en dehors des trois qu'une source publie", () => {
     const tout = codes()
-      .flatMap((k) => [...mention48(k).paragraphes, VIGILANCE[k].organisme])
+      .flatMap((k) => [...mention48(k).paragraphes, vigDe(k).organisme])
       .join('\n')
     const trouvees = tout.match(/[\w.+-]+@[\w.-]+\.\w+/g) ?? []
     for (const a of trouvees) expect(ADRESSES_SOURCEES).toContain(a)
@@ -74,7 +85,7 @@ describe('aucune adresse non sourcée', () => {
   })
 
   it('cite la source qui établit chaque pays', () => {
-    for (const k of codes()) expect(VIGILANCE[k].source).toMatch(/\.(pdf|md|docx?)$/i)
+    for (const k of codes()) expect(vigDe(k).source).toMatch(/\.(pdf|md|docx?)$/i)
   })
 })
 
