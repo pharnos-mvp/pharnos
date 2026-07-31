@@ -148,14 +148,22 @@ Deno.serve(async (req) => {
     }
     const lu = lireReponseChariow(res.status, corps)
     if (!lu.ok) {
+      // Le MOTIF du refus est journalisé : sans lui, un échec d'encaissement se diagnostique
+      // à l'aveugle. `message` de Chariow décrit la règle violée et ne porte pas de PII —
+      // les champs fautifs (`errors`) sont réduits à leurs NOMS, jamais à leurs valeurs.
+      const detail = corps as { message?: unknown; errors?: Record<string, unknown> } | null
       logJson({
         ...log,
         status: lu.erreur,
         httpStatus: res.status,
         offre: v.cmd.offre,
         ref: v.cmd.ref.slice(0, 8),
+        motif: typeof detail?.message === 'string' ? detail.message.slice(0, 300) : null,
+        champs: detail?.errors ? Object.keys(detail.errors).slice(0, 12) : null,
       })
-      return json({ error: lu.erreur }, lu.erreur === 'deja_achete' ? 409 : 502, origin)
+      // `donnees` → 400 : c'est la saisie du client qu'il faut corriger, sur NOTRE formulaire.
+      const code = lu.erreur === 'deja_achete' ? 409 : lu.erreur === 'donnees' ? 400 : 502
+      return json({ error: lu.erreur, champs: lu.champs ?? [] }, code, origin)
     }
 
     logJson({ ...log, status: 'ok', offre: v.cmd.offre, ref: v.cmd.ref.slice(0, 8) })
