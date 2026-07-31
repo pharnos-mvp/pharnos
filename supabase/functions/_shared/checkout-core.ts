@@ -29,7 +29,9 @@ export const RETOURS = {
 const HOTES_PAIEMENT = /(^|\.)chariow\.com$|(^|\.)moneroo\.io$/
 
 /** Indicatifs des pays proposés par le formulaire — pour dédoublonner une saisie
- *  internationale : `country_code` porte déjà le pays, le numéro n'a pas à répéter le préfixe. */
+ *  internationale : `country_code` porte déjà le pays, le numéro n'a pas à répéter le préfixe.
+ *  La liste suit celle du sélecteur (`INDICATIFS` de `landing/modele.js`) — un pays absent ici
+ *  n'est pas rejeté, il perd seulement le dédoublonnage. */
 const INDICATIFS: Record<string, string> = {
   BJ: '229',
   BF: '226',
@@ -39,7 +41,49 @@ const INDICATIFS: Record<string, string> = {
   NE: '227',
   SN: '221',
   TG: '228',
+  // Voisins et places d'affaires fréquentes du secteur.
+  CM: '237',
+  CD: '243',
+  CG: '242',
+  GA: '241',
+  GN: '224',
+  GH: '233',
+  NG: '234',
+  MR: '222',
+  TD: '235',
+  MA: '212',
+  DZ: '213',
+  TN: '216',
+  EG: '20',
+  KE: '254',
+  ZA: '27',
+  // Sièges, filiales et diaspora.
   FR: '33',
+  BE: '32',
+  CH: '41',
+  DE: '49',
+  GB: '44',
+  PT: '351',
+  ES: '34',
+  US: '1',
+  CA: '1',
+  AE: '971',
+  TR: '90',
+  IN: '91',
+  CN: '86',
+}
+
+/** Devise de règlement selon le pays de l'acheteur. Les moyens de paiement affichés par le
+ *  processeur dépendent du couple pays/devise : un acheteur hors zone XOF sur une offre en
+ *  francs CFA se voit proposer un corridor carte qui peut ne pas exister (« Request failed »,
+ *  vu le 31/07 sur l'Inde). Zone UEMOA → rien (le XOF natif de la boutique) ; zone euro → EUR ;
+ *  tout le reste → USD, la devise carte universelle. */
+const ZONE_XOF = new Set(['BJ', 'BF', 'CI', 'GW', 'ML', 'NE', 'SN', 'TG'])
+const ZONE_EUR = new Set(['FR', 'BE', 'DE', 'ES', 'PT', 'IT', 'NL', 'LU', 'AT', 'IE', 'FI', 'GR'])
+export function deviseDePaiement(paysTel: string): string | null {
+  if (ZONE_XOF.has(paysTel)) return null
+  if (ZONE_EUR.has(paysTel)) return 'EUR'
+  return 'USD'
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -127,6 +171,7 @@ export function validerCommande(
  *  webhooks Pulse ; `customer_ip` porte l'IP réelle de l'acheteur (sinon Chariow verrait
  *  celle de l'infrastructure Supabase — géolocalisation et anti-fraude faussées). */
 export function corpsChariow(cmd: CommandeValidee, ip: string): Record<string, unknown> {
+  const devise = deviseDePaiement(cmd.paysTel)
   return {
     product_id: OFFRES_CHARIOW[cmd.offre].productId,
     email: cmd.email,
@@ -135,6 +180,7 @@ export function corpsChariow(cmd: CommandeValidee, ip: string): Record<string, u
     phone: { number: cmd.telephone, country_code: cmd.paysTel },
     redirect_url: RETOURS[cmd.langue],
     custom_metadata: { ref: cmd.ref, offre: cmd.offre },
+    ...(devise ? { payment_currency: devise } : {}),
     ...(ip !== 'unknown' ? { customer_ip: ip } : {}),
   }
 }
