@@ -1152,6 +1152,122 @@
   margin: 10px 0 0;
 }
 
+/* ══ « Générer ma lettre » — LE TEMPLATE DEVIENT LA FEUILLE (patron de l'éditeur du builder) :
+   une page A4 Times dans le lecteur, cases remplissables incrustées à leur place exacte. ══ */
+.rb-edit {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.lettre-edit {
+  background: var(--g100);
+  padding: 22px 12px;
+  overflow-y: auto;
+  height: clamp(420px, calc(100vh - 220px), 900px);
+}
+.lettre-feuille {
+  background: #fff;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 56px 58px;
+  box-shadow: 0 3px 18px rgba(10, 22, 40, 0.14);
+  font-family: "Times New Roman", Times, serif;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: #111827;
+}
+.lettre-feuille .lft,
+.lettre-feuille .lfp {
+  text-align: center;
+  font-weight: 700;
+  margin: 4px 0 12px;
+}
+.lettre-feuille .lfh,
+.lettre-feuille .lfh3 {
+  font-weight: 700;
+  margin: 10px 0 5px;
+}
+.lettre-feuille .lfx {
+  margin: 6px 0;
+}
+.lettre-feuille .lfl {
+  margin: 4px 0 4px 22px;
+  position: relative;
+}
+.lettre-feuille .lfl::before {
+  content: "•";
+  position: absolute;
+  left: -14px;
+}
+/* Blocs « à droite » du moteur : décalés à 56 %, alignés à gauche. */
+.lettre-feuille .lfd {
+  margin: 4px 0 4px 56%;
+}
+.lf-saut {
+  border: 0;
+  border-top: 1px dashed var(--g300);
+  margin: 22px 0;
+}
+/* Les cases : dans le fil du texte, discrètes mais trouvables — la recette de l'éditeur du builder. */
+.lf-in {
+  font: inherit;
+  color: #0b3d92;
+  background: #f4f7fd;
+  border: 1px solid #c7d7f2;
+  border-radius: 4px;
+  padding: 2px 7px;
+  min-width: 12ch;
+  max-width: 100%;
+}
+.lf-in::placeholder {
+  color: #7d96bd;
+  font-style: italic;
+}
+.lf-in:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+  background: #fff;
+}
+.lf-in.lf-date {
+  min-width: 16ch;
+}
+.lf-in.lf-sel {
+  min-width: auto;
+}
+.lf-in.lf-area {
+  display: block;
+  width: 100%;
+  resize: vertical;
+}
+.lf-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 13.5px;
+}
+.lf-table th,
+.lf-table td {
+  border: 1px solid #6b7280;
+  padding: 5px 7px;
+  text-align: left;
+}
+.lf-table th {
+  font-weight: 700;
+}
+.lf-table .lf-in {
+  width: 100%;
+  min-width: 0;
+}
+@media (max-width: 680px) {
+  .lettre-feuille {
+    padding: 28px 20px;
+  }
+  .lettre-feuille .lfd {
+    margin-left: 38%;
+  }
+}
+
 .toast {
   position: fixed;
   left: 50%;

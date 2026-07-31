@@ -264,12 +264,41 @@
                   data-en="Word · FR + EN · free"
                   >Word · FR + EN · gratuit</span
                 >
+                <span class="rb-edit" id="rbedit" hidden>
+                  <button
+                    class="btn btn-ghost btn-sm"
+                    type="button"
+                    id="lfretour"
+                    data-en="← Official template"
+                  >
+                    ← Modèle officiel
+                  </button>
+                  <button
+                    class="btn btn-ghost btn-sm"
+                    type="button"
+                    id="lfreset"
+                    data-en="Reset"
+                  >
+                    Réinitialiser
+                  </button>
+                  <button
+                    class="btn btn-primary btn-sm"
+                    type="button"
+                    id="lfgo"
+                    data-en="Download (DOCX)"
+                  >
+                    Télécharger (DOCX)
+                  </button>
+                </span>
               </div>
               <iframe
                 id="docview"
                 title="Aperçu du modèle officiel"
                 data-en-title="Preview of the official template"
               ></iframe>
+              <div class="lettre-edit" id="lfedit" hidden>
+                <div class="lettre-feuille" id="lffeuille"></div>
+              </div>
               <p class="doc-fall" id="docfall" hidden></p>
             </div>
 
@@ -881,47 +910,6 @@
             data-en="← Back to the library"
             >← Retour à la bibliothèque</a
           >
-        </div>
-      </div>
-    </div>
-
-    <!-- ══ Formulaire « Générer ma lettre » — rempli sur place, DOCX conforme, généré sur l'appareil ══ -->
-    <div class="modal-back" id="letform">
-      <div
-        class="modal letmodal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="lftitle"
-      >
-        <button
-          class="mclose"
-          type="button"
-          id="lfclose"
-          aria-label="Fermer"
-          data-en-al="Close"
-        >
-          ×
-        </button>
-        <div class="mkick" data-en="Generate my letter">Générer ma lettre</div>
-        <h3 id="lftitle"></h3>
-        <p class="mdesc" id="lfsub"></p>
-        <form id="lffields" class="lf-grid"></form>
-        <div class="mfield stack">
-          <button
-            class="btn btn-primary btn-block"
-            type="button"
-            id="lfgo"
-            data-en="Download my letter (Word)"
-          >
-            Télécharger ma lettre (Word)
-          </button>
-          <p
-            class="mfoot-note"
-            data-en="Generated on your device — your product details are never sent to us."
-          >
-            Générée sur votre appareil — vos informations produit ne nous sont
-            jamais transmises.
-          </p>
         </div>
       </div>
     </div>

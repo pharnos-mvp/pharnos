@@ -131,8 +131,22 @@
                   <span data-fr="Télécharger">Download</span>
                 </button>
                 <span class="rb-note" id="dlnote" data-fr="Word · FR + EN · gratuit">Word · FR + EN · free</span>
+                <span class="rb-edit" id="rbedit" hidden="">
+                  <button class="btn btn-ghost btn-sm" type="button" id="lfretour" data-fr="
+                    ← Modèle officiel
+                  ">← Official template</button>
+                  <button class="btn btn-ghost btn-sm" type="button" id="lfreset" data-fr="
+                    Réinitialiser
+                  ">Reset</button>
+                  <button class="btn btn-primary btn-sm" type="button" id="lfgo" data-fr="
+                    Télécharger (DOCX)
+                  ">Download (DOCX)</button>
+                </span>
               </div>
               <iframe id="docview" title="Aperçu du modèle officiel" data-en-title="Preview of the official template"></iframe>
+              <div class="lettre-edit" id="lfedit" hidden="">
+                <div class="lettre-feuille" id="lffeuille"></div>
+              </div>
               <p class="doc-fall" id="docfall" hidden=""></p>
             </div>
 
@@ -484,28 +498,6 @@
             Afficher ma lettre
           ">Show my letter</button>
           <a class="linklike" id="premretour" href="/en/regulatory-library" data-fr="← Retour à la bibliothèque">← Back to the library</a>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══ Formulaire « Générer ma lettre » — rempli sur place, DOCX conforme, généré sur l'appareil ══ -->
-    <div class="modal-back" id="letform">
-      <div class="modal letmodal" role="dialog" aria-modal="true" aria-labelledby="lftitle">
-        <button class="mclose" type="button" id="lfclose" aria-label="Close" data-fr-al="Fermer">
-          ×
-        </button>
-        <div class="mkick" data-fr="Générer ma lettre">Generate my letter</div>
-        <h3 id="lftitle"></h3>
-        <p class="mdesc" id="lfsub"></p>
-        <form id="lffields" class="lf-grid"></form>
-        <div class="mfield stack">
-          <button class="btn btn-primary btn-block" type="button" id="lfgo" data-fr="
-            Télécharger ma lettre (Word)
-          ">Download my letter (Word)</button>
-          <p class="mfoot-note" data-fr="
-            Générée sur votre appareil — vos informations produit ne nous sont
-            jamais transmises.
-          ">Generated on your device — your product details are never sent to us.</p>
         </div>
       </div>
     </div>

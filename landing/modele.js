@@ -256,6 +256,7 @@ function telecharger() {
   a.click();
   a.remove();
   fermerModale("#dlm");
+  fermerFeuille();
   peindre(); // le lecteur suit le pays choisi dans la popup
   toast(
     m.perPays
@@ -624,7 +625,6 @@ function fermerModale(sel) {
   if (o && typeof o.focus === "function") o.focus();
 }
 
-$("#lfclose").addEventListener("click", () => fermerModale("#letform"));
 for (const [sel, bouton] of [
   ["#dlm", "#dlmclose"],
   ["#upg", "#upgclose"],
@@ -741,63 +741,142 @@ $("#premgo").addEventListener("click", () => {
   peindre();
 });
 
-/* ── Formulaire « Générer ma lettre » — les blocs du manifeste, remplis sur place ── */
-
-const CHAMP_LIBRE = /\s*:\s*…\s*$/;
+/* ── « Générer ma lettre » — LE TEMPLATE DEVIENT LA FEUILLE (patron du builder).
+     Pas de popup de collecte : la feuille A4 HTML remplace l'aperçu PDF DANS le lecteur, avec
+     les cases remplissables incrustées à leur place exacte. Civilité, agence, adresse, activité
+     et date du jour sont déjà posées — l'utilisateur ne complète que son produit, puis télécharge
+     le DOCX, généré sur l'appareil. ── */
 
 /** Les blocs de la lettre du pays courant, ou null (modèle officiel servi tel quel). */
 const blocsLettre = () => fichierModele(S.doc, S.pays)?.blocs ?? null;
 
-function ouvrirFormulaire(declencheur) {
-  const blocs = blocsLettre();
-  if (!blocs) return;
-  const m = MODELES_FICHIERS[S.doc];
-  $("#lftitle").textContent = L(m.nom);
-  const ag = VIGILANCE[S.pays];
-  $("#lfsub").textContent = L([
-    `${nomPays(S.pays)} · autorité, activité et date du jour déjà en place — il ne manque que votre produit.`,
-    `${nomPays(S.pays)} · authority, activity and today's date already set — only your product is missing.`,
-  ]);
+/** Tout emplacement à compléter du modèle devient une case : « … » et « {…} ». */
+const TOKENS = /…|\{[^}]+\}/g;
 
-  // Un champ par ligne à compléter du modèle (« Nom commercial : … »), plus la nature de la
-  // variation et le tableau PGHT. Les libellés VIENNENT des blocs : le formulaire ne peut pas
-  // diverger de la lettre servie.
-  let html = "";
-  blocs.forEach((b, i) => {
-    if (b.t === "li" && CHAMP_LIBRE.test(b.x)) {
-      const libelle = b.x.replace(CHAMP_LIBRE, "");
-      html += `<label class="lf-field"><span>${esc(libelle)}</span><input type="text" data-bloc="${i}" autocomplete="off" /></label>`;
-    }
-    if (b.t === "li" && /^<Nature/.test(b.x)) {
-      html += `<label class="lf-field lf-wide"><span>${esc(L(["Nature de la ou des modifications", "Nature of the change(s)"]))}</span><textarea rows="2" data-bloc="${i}"></textarea></label>`;
-    }
-    if (b.t === "table") {
-      const tetes = b.rows[0];
-      html += tetes
-        .map(
-          (t, c) =>
-            `<label class="lf-field"><span>${esc(t)}</span><input type="text" data-table="${i}" data-col="${c}" autocomplete="off" /></label>`,
-        )
-        .join("");
-    }
-  });
-  html += `<label class="lf-field"><span>${esc(L(["Poste du signataire", "Signatory position"]))}</span><input type="text" id="lf-poste" autocomplete="organization-title" /></label>`;
-  html += `<label class="lf-field"><span>${esc(L(["Nom et prénom(s)", "Full name"]))}</span><input type="text" id="lf-nom" autocomplete="name" /></label>`;
-  $("#lffields").innerHTML = html;
-  ouvrirModale("#letform", declencheur);
-}
-
-$("#genletbtn").addEventListener("click", () =>
-  ouvrirFormulaire($("#genletbtn")),
-);
-
-/** La date du jour, en toutes lettres dans la langue de la lettre (la lettre est française). */
+/** La date du jour, en toutes lettres — la lettre est française. */
 const dateDuJour = () =>
   new Date().toLocaleDateString("fr-FR", {
     day: "numeric",
     month: "long",
     year: "numeric",
   });
+
+/** Placeholder d'une case : le libellé du champ quand la ligne en porte un, sinon le token. */
+function placeholderDe(bloc, token) {
+  if (token === "{date}") return "";
+  if (token.startsWith("{")) return token.slice(1, -1);
+  const avant = bloc.x
+    .split(token)[0]
+    .replace(/\s*:\s*$/, "")
+    .trim();
+  // La case au fil d'une PHRASE (objet, réf.) porte un placeholder qui dit QUOI saisir — pas la
+  // phrase entière tronquée, illisible dans une case de 12ch.
+  if (/produit$/.test(avant)) return L(["Nom commercial", "Trade name"]);
+  if (/n°$/.test(avant)) return L(["n° d'AMM", "MA number"]);
+  if (bloc.t === "li" && avant.length > 2 && avant.length < 60) return avant;
+  return L(["à compléter", "to fill in"]);
+}
+
+/** Le HTML d'un bloc de lettre, cases incrustées. `i` relie chaque case à son bloc source. */
+function htmlBlocLettre(b, i) {
+  if (b.t === "table") {
+    const [tete, ...corps] = b.rows;
+    return (
+      '<table class="lf-table"><tr>' +
+      tete.map((c) => `<th>${esc(c)}</th>`).join("") +
+      "</tr>" +
+      corps
+        .map(
+          (r, ri) =>
+            "<tr>" +
+            r
+              .map(
+                (c, ci) =>
+                  `<td><input type="text" class="lf-in" data-bloc="${i}" data-cell="${ri + 1}:${ci}" aria-label="${esc(tete[ci])}" /></td>`,
+              )
+              .join("") +
+            "</tr>",
+        )
+        .join("") +
+      "</table>"
+    );
+  }
+  // Choix <mineure> <majeure> : un vrai sélecteur, pas deux options à raturer.
+  if (/<mineure> <majeure>/.test(b.x)) {
+    const html = esc(b.x).replace(
+      esc("<mineure> <majeure>"),
+      `<select class="lf-in lf-sel" data-bloc="${i}" data-slot="0" aria-label="${esc(L(["Classe de la variation", "Variation class"]))}"><option value="mineure">mineure</option><option value="majeure">majeure</option></select>`,
+    );
+    return rendreTokens(html, b, i, 1);
+  }
+  if (/^<Nature/.test(b.x)) {
+    return `<textarea class="lf-in lf-area" rows="2" data-bloc="${i}" data-slot="0" aria-label="${esc(
+      L(["Nature de la ou des modifications", "Nature of the change(s)"]),
+    )}" placeholder="${esc(L(["Nature de la ou des modifications", "Nature of the change(s)"]))}"></textarea>`;
+  }
+  if (b.x === "Poste" || b.x === "Nom et Prénom(s)") {
+    const lib =
+      b.x === "Poste"
+        ? L(["Poste", "Position"])
+        : L(["Nom et prénom(s)", "Full name"]);
+    return `<input type="text" class="lf-in" data-bloc="${i}" data-slot="0" data-tout="1" aria-label="${esc(lib)}" placeholder="${esc(lib)}" />`;
+  }
+  return rendreTokens(esc(b.x), b, i, 0);
+}
+
+/** Remplace chaque token d'un texte DÉJÀ échappé par sa case, slots numérotés dans l'ordre. */
+function rendreTokens(html, b, i, slotDepart) {
+  let slot = slotDepart;
+  return html.replace(TOKENS, (token) => {
+    const date = token === "{date}";
+    const ph = placeholderDe(b, token);
+    const attrs = `class="lf-in${date ? " lf-date" : ""}" data-bloc="${i}" data-slot="${slot++}" aria-label="${esc(ph || L(["Date", "Date"]))}"`;
+    return `<input type="text" ${attrs} ${date ? `value="${esc(dateDuJour())}"` : `placeholder="${esc(ph)}"`} />`;
+  });
+}
+
+const CLASSE_LETTRE = {
+  doctitle: "lft",
+  part: "lfp",
+  h1: "lfh",
+  h2: "lfh",
+  h3: "lfh3",
+  p: "lfx",
+  li: "lfl",
+  right: "lfd",
+};
+
+function ouvrirFeuille() {
+  const blocs = blocsLettre();
+  if (!blocs) return;
+  $("#lffeuille").innerHTML = blocs
+    .map((b, i) => {
+      if (b.t === "break") return '<hr class="lf-saut" />';
+      if (b.t === "table") return htmlBlocLettre(b, i);
+      return `<div class="${CLASSE_LETTRE[b.t] ?? "lfx"}">${htmlBlocLettre(b, i)}</div>`;
+    })
+    .join("");
+  $("#docview").hidden = true;
+  $("#lfedit").hidden = false;
+  $("#rbedit").hidden = false;
+  $("#dlbtn").hidden = true;
+  $("#dlnote").hidden = true;
+  const premiere = $("#lffeuille").querySelector(".lf-in:not(.lf-date)");
+  if (premiere) premiere.focus();
+}
+
+function fermerFeuille() {
+  $("#lfedit").hidden = true;
+  $("#docview").hidden = false;
+  $("#rbedit").hidden = true;
+  $("#dlbtn").hidden = false;
+  $("#dlnote").hidden = false;
+  $("#genletbtn").focus();
+}
+
+$("#genletbtn").addEventListener("click", ouvrirFeuille);
+$("#lfretour").addEventListener("click", fermerFeuille);
+$("#lfreset").addEventListener("click", () => ouvrirFeuille());
 
 let generation = false;
 $("#lfgo").addEventListener("click", async () => {
@@ -809,25 +888,45 @@ $("#lfgo").addEventListener("click", async () => {
   bouton.textContent = L(["Génération…", "Generating…"]);
   try {
     const blocs = structuredClone(blocsLettre());
-    // Valeurs du formulaire injectées dans LES BLOCS MÊMES du modèle.
-    for (const inp of $("#lffields").querySelectorAll("[data-bloc]")) {
-      const b = blocs[Number(inp.dataset.bloc)];
-      const v = inp.value.trim();
-      if (!v) continue;
-      if (CHAMP_LIBRE.test(b.x)) b.x = b.x.replace(CHAMP_LIBRE, " : ") + v;
-      else b.x = v;
+    // Les valeurs des cases retournent DANS les blocs mêmes, token par token, dans l'ordre.
+    const parBloc = new Map();
+    for (const inp of $("#lffeuille").querySelectorAll(".lf-in")) {
+      const i = Number(inp.dataset.bloc);
+      if (!parBloc.has(i)) parBloc.set(i, []);
+      parBloc.get(i).push(inp);
     }
-    for (const inp of $("#lffields").querySelectorAll("[data-table]")) {
-      const b = blocs[Number(inp.dataset.table)];
-      const v = inp.value.trim();
-      if (v) b.rows[1][Number(inp.dataset.col)] = v;
-    }
-    const poste = $("#lf-poste").value.trim();
-    const nom = $("#lf-nom").value.trim();
-    for (const b of blocs) {
-      if (b.x === "Le {date}") b.x = `Le ${dateDuJour()}`;
-      if (b.x === "Poste" && poste) b.x = poste;
-      if (b.x === "Nom et Prénom(s)" && nom) b.x = nom;
+    for (const [i, inputs] of parBloc) {
+      const b = blocs[i];
+      if (b.t === "table") {
+        for (const inp of inputs) {
+          const [r, c] = inp.dataset.cell.split(":").map(Number);
+          const v = inp.value.trim();
+          if (v) b.rows[r][c] = v;
+        }
+        continue;
+      }
+      if (inputs[0]?.dataset.tout) {
+        const v = inputs[0].value.trim();
+        if (v) b.x = v;
+        continue;
+      }
+      if (/^<Nature/.test(b.x)) {
+        const v = inputs[0]?.value.trim();
+        b.x = v || b.x;
+        continue;
+      }
+      inputs.sort((a, z) => Number(a.dataset.slot) - Number(z.dataset.slot));
+      let idx = 0;
+      const valeurs = inputs.map((inp) => inp.value.trim());
+      b.x = b.x
+        .replace(
+          /<mineure> <majeure>/,
+          () => valeurs[idx++] || "<mineure> <majeure>",
+        )
+        .replace(TOKENS, (token) => {
+          const v = valeurs[idx++];
+          return v || (token === "{date}" ? `{date}` : token);
+        });
     }
     const octets = await genererDocxLettre(blocs);
     const a = document.createElement("a");
@@ -842,7 +941,6 @@ $("#lfgo").addEventListener("click", async () => {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    fermerModale("#letform");
     toast(
       L([
         "Votre lettre est prête — relisez-la, signez-la, déposez-la.",
@@ -866,7 +964,7 @@ $("#lfgo").addEventListener("click", async () => {
 
 /** Le DOCX, généré sur l'appareil avec la MÊME mise en page que le générateur des modèles
  *  (Times 12, blocs décalés à 56 % alignés à gauche). Le moteur `docx` est chargé au premier
- *  clic seulement — 358 Ko qu'un simple visiteur ne paie jamais. */
+ *  clic seulement. */
 async function genererDocxLettre(blocs) {
   const d = await import("/vendor/docx.esm.js?v=1");
   const INDENT = Math.round(16 * 0.56 * 567);
