@@ -34,6 +34,9 @@
 /bibliotheque.js
   Cache-Control: public, max-age=300
 
+/modele.js
+  Cache-Control: public, max-age=300
+
 # Modèles officiels servis par la Bibliothèque réglementaire (PDF + DOCX générés).
 #
 # LE VOLET GAUCHE DU LECTEUR EST UN <iframe> VERS CES PDF, servi par le lecteur natif du

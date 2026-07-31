@@ -567,8 +567,235 @@ const ETIQUETAGE = [
   { t: 'p', x: '<Pour usage autologue uniquement.>' },
 ]
 
+/* ═════════════════ Lettres réglementaires — Annexe N°2, Règlement 04/2020 UEMOA ═════════════════
+   Sources : `Template/Cover Lettre/UEMOA_Cover letter template_New MA.pdf`,
+   `Template/PGHT/UEMOA_PGHT letter template_New MA.pdf`, et les gabarits vivants de l'application
+   (`web/src/features/workspace/templates.ts` — renouvellement et variation), qui sont déjà en
+   production dans la Bibliothèque RIM.
+
+   ⚠️ Le destinataire reste le LIBELLÉ GÉNÉRIQUE du modèle officiel (« Nom de la Direction du
+   Médicament / Agence réglementaire nationale »), jamais une autorité nommée : nous n'avons pas
+   d'adresse postale sourcée pour les huit agences, et une adresse à moitié remplie serait recopiée
+   telle quelle dans un courrier réel. Les lettres sont donc COMMUNES aux huit pays. */
+
+/** Ouverture commune des quatre lettres : en-tête, ville/date, bloc destinataire. */
+const LETTRE_OUVERTURE = [
+  { t: 'part', x: 'ENTETE' },
+  { t: 'p', x: '…………………………………………………………………………………………………' },
+  { t: 'right', x: 'Ville, le {date}' },
+  { t: 'right', x: 'À' },
+  { t: 'right', x: 'Monsieur / Madame …' },
+  { t: 'right', x: 'Nom de la Direction du Médicament / Agence réglementaire nationale' },
+  { t: 'right', x: 'Adresse' },
+]
+
+/** Clôture commune : formule de politesse puis bloc signature. */
+const LETTRE_CLOTURE = [
+  {
+    t: 'p',
+    x:
+      "Nous vous prions d'agréer, Madame / Monsieur, l'expression de notre sincère " +
+      'collaboration.',
+  },
+  { t: 'right', x: 'Poste' },
+  { t: 'right', x: 'Signature et Cachet' },
+  { t: 'right', x: 'Nom et Prénom(s)' },
+]
+
+const LETTRE_DEMANDE = [
+  ...LETTRE_OUVERTURE,
+  { t: 'h3', x: "Objet : Demande d'enregistrement d'AMM du produit …" },
+  { t: 'p', x: 'Madame / Monsieur,' },
+  {
+    t: 'p',
+    x:
+      "Nous avons l'honneur de soumettre à votre haute bienveillance, le dossier de demande " +
+      "d'autorisation de mise sur le marché (AMM) pour notre spécialité pharmaceutique suivante :",
+  },
+  { t: 'li', x: 'Nom commercial : …' },
+  { t: 'li', x: 'DCI et dosage : …' },
+  { t: 'li', x: 'Forme et présentation : …' },
+  { t: 'li', x: "Nom et adresse du demandeur d'AMM : …" },
+  { t: 'li', x: 'Nom et adresse du fabricant : …' },
+  {
+    t: 'p',
+    x:
+      "Le dossier technique ci-joint a été constitué en conformité avec les directives de l'UEMOA " +
+      'et les exigences spécifiques de votre Agence. Nous restons à votre entière disposition pour ' +
+      "tout complément d'information.",
+  },
+  ...LETTRE_CLOTURE,
+]
+
+const LETTRE_RENOUVELLEMENT = [
+  ...LETTRE_OUVERTURE,
+  { t: 'h3', x: "Objet : Demande de renouvellement d'AMM du produit …" },
+  { t: 'h3', x: "Réf. : AMM n° … du {date d'octroi}" },
+  { t: 'p', x: 'Madame / Monsieur,' },
+  {
+    t: 'p',
+    x:
+      "Nous avons l'honneur de soumettre à votre haute bienveillance, le dossier de demande de " +
+      "renouvellement de l'autorisation de mise sur le marché (AMM) pour notre spécialité " +
+      'pharmaceutique suivante :',
+  },
+  { t: 'li', x: 'Nom commercial : …' },
+  { t: 'li', x: 'DCI et dosage : …' },
+  { t: 'li', x: 'Forme et présentation : …' },
+  { t: 'li', x: "N° d'AMM et date d'octroi : …" },
+  { t: 'li', x: "Nom et adresse du titulaire de l'AMM : …" },
+  { t: 'li', x: 'Nom et adresse du fabricant : …' },
+  {
+    t: 'p',
+    x:
+      "Le dossier technique ci-joint a été constitué en conformité avec les directives de l'UEMOA " +
+      'et les exigences spécifiques de votre Agence. Nous restons à votre entière disposition pour ' +
+      "tout complément d'information.",
+  },
+  ...LETTRE_CLOTURE,
+]
+
+const LETTRE_VARIATION = [
+  ...LETTRE_OUVERTURE,
+  { t: 'h3', x: "Objet : Demande de variation <mineure> <majeure> de l'AMM du produit …" },
+  { t: 'h3', x: "Réf. : AMM n° … du {date d'octroi}" },
+  { t: 'p', x: 'Madame / Monsieur,' },
+  {
+    t: 'p',
+    x:
+      "Nous avons l'honneur de soumettre à votre haute bienveillance une demande de variation de " +
+      "l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique, identifiée " +
+      'comme suit :',
+  },
+  { t: 'li', x: 'Nom commercial : …' },
+  { t: 'li', x: 'DCI : …' },
+  { t: 'p', x: 'La (les) variation(s) sollicitée(s) porte(nt) sur :' },
+  { t: 'li', x: '<Nature de la modification>' },
+  {
+    t: 'p',
+    x:
+      'Le tableau comparatif « avant / après » et les pièces justificatives correspondantes sont ' +
+      'joints en annexe.',
+  },
+  ...LETTRE_CLOTURE,
+]
+
+const LETTRE_PGHT = [
+  ...LETTRE_OUVERTURE,
+  { t: 'h3', x: 'Objet : Attestation de PGHT' },
+  { t: 'p', x: 'Monsieur / Madame le …,' },
+  {
+    t: 'p',
+    x:
+      'Nous venons par la présente, solliciter auprès de votre haute bienveillance, ' +
+      "l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité " +
+      'pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés ' +
+      'dans le tableau suivant :',
+  },
+  {
+    t: 'table',
+    rows: [
+      ['Nom commercial', 'DCI et dosage', 'Forme et présentation', 'PGHT (FCFA)'],
+      ['…', '…', '…', '…'],
+    ],
+  },
+  { t: 'p', x: "Nous restons à votre entière disposition pour tout complément d'information." },
+  {
+    t: 'p',
+    x:
+      "Dans l'espoir d'une suite favorable, nous vous prions de recevoir Monsieur / Madame le …, " +
+      "l'expression de notre sincère collaboration.",
+  },
+  { t: 'right', x: 'Poste' },
+  { t: 'right', x: 'Signature et Cachet' },
+  { t: 'right', x: 'Nom et Prénom(s)' },
+]
+
+/* ═════════════════ Résumés OMS — QOS-PD et BTIF ═════════════════
+   Ossatures des modèles OMS (QOS-PD janvier 2025, BTIF 13 janvier 2023), reprises du référentiel
+   du Checking Standard (`landing/checking/templates.js`). L'OMS interdit de modifier le format :
+   ces squelettes donnent la structure à remplir, section par section. */
+
+const QOS = [
+  { t: 'doctitle', x: 'MODULE 2.3 — QUALITY OVERALL SUMMARY : PRODUCT DOSSIER (QOS-PD)' },
+  { t: 'h1', x: 'INTRODUCTION — RÉSUMÉ DES INFORMATIONS PRODUIT' },
+  { t: 'li', x: 'DCI et noms commerciaux : …' },
+  { t: 'li', x: 'Substance(s) active(s), avec forme (sel, hydrate, polymorphe) : …' },
+  { t: 'li', x: 'Demandeur : …' },
+  { t: 'li', x: 'Forme galénique et dosage(s) : …' },
+  { t: 'li', x: "Voie d'administration : …" },
+  { t: 'li', x: 'Indications proposées : …' },
+  { t: 'h3', x: 'Personnes de contact' },
+  {
+    t: 'p',
+    x: 'Contact principal et contacts additionnels : adresse postale complète, e-mail, téléphone.',
+  },
+  { t: 'h3', x: 'Dossiers liés et références bibliographiques' },
+  {
+    t: 'p',
+    x: 'Numéro de référence · statut de préqualification · fabricant de la substance active.',
+  },
+  { t: 'h1', x: '2.3.S — SUBSTANCE ACTIVE (DRUG SUBSTANCE)' },
+  { t: 'p', x: 'Nomenclature · structure · propriétés générales.' },
+  { t: 'p', x: 'Fabricant · description du procédé · contrôle des matières.' },
+  {
+    t: 'p',
+    x: 'Contrôle de la substance active · normes de référence · conditionnement · stabilité.',
+  },
+  { t: 'h1', x: '2.3.P — PRODUIT FINI (DRUG PRODUCT)' },
+  { t: 'p', x: 'Description et composition · développement pharmaceutique.' },
+  { t: 'p', x: 'Fabrication · contrôle des excipients · contrôle du produit fini.' },
+  { t: 'p', x: 'Normes de référence · système de fermeture · stabilité.' },
+  { t: 'h1', x: '2.3.A / 2.3.R — ANNEXES ET INFORMATIONS RÉGIONALES' },
+  {
+    t: 'p',
+    x: '<Installations et équipements> <Évaluation de sécurité des agents adventices> <Excipients nouveaux> <Informations régionales>',
+  },
+]
+
+const BTIF = [
+  { t: 'doctitle', x: 'BIOEQUIVALENCE TRIAL INFORMATION FORM (BTIF)' },
+  { t: 'h1', x: '1. SUMMARY' },
+  { t: 'h3', x: '1.1 Summary of bioequivalence studies' },
+  { t: 'p', x: '…' },
+  { t: 'h3', x: '1.2 Composition of the proposed formulations and biobatches' },
+  { t: 'p', x: 'Tableaux comparatifs par dosage.' },
+  { t: 'h1', x: '2. CLINICAL STUDY REPORT' },
+  {
+    t: 'p',
+    x: "Numéro et titre d'étude · localisation du protocole · dates de chaque phase et d'administration du produit.",
+  },
+  { t: 'h3', x: '2.1 Ethics' },
+  {
+    t: 'p',
+    x: "Comité d'éthique · date d'approbation · localisation de la lettre et du formulaire de consentement.",
+  },
+  { t: 'h3', x: '2.2 Investigators and study administrative structure' },
+  {
+    t: 'p',
+    x: 'Investigateur principal (CV) · site clinique · laboratoires cliniques et analytiques · société PK/statistique.',
+  },
+  { t: 'h3', x: '2.3 Study objectives' },
+  { t: 'p', x: '…' },
+  { t: 'h3', x: '2.4 Investigational plan' },
+  {
+    t: 'p',
+    x: "Plan d'étude · critères d'inclusion et d'exclusion · vérification de l'état de santé · retrait des sujets · remplaçants.",
+  },
+  { t: 'h1', x: 'SUITE' },
+  {
+    t: 'p',
+    x: 'Produits étudiés · procédures · méthodes analytiques · pharmacocinétique et statistiques · annexes.',
+  },
+  {
+    t: 'p',
+    x: '« Ni le format ni le contenu du document (textes et tableaux) ne doivent être modifiés » — instruction OMS en tête du formulaire. Les zones grisées sont réservées à l’autorité.',
+  },
+]
+
 /**
- * Les trois documents servis par la Bibliothèque.
+ * Les documents servis par la Bibliothèque, groupés comme sur la page :
+ * `produit` (RCP · Notice · Étiquetage) · `lettres` (les 4 lettres) · `resumes` (QOS-PD · BTIF).
  * `slug` sert de nom de fichier (`rcp-bj.pdf`) ; `upgradable` reprend `UPGRADABLE` du référentiel.
  */
 export const DOCS = [
@@ -581,6 +808,7 @@ export const DOCS = [
       'The reference document for healthcare professionals — 10 sections, numbering not modifiable.',
     ],
     source: ['Maquette ABMed 2026', 'ABMed 2026 template'],
+    groupe: 'produit',
     blocks: RCP,
     upgradable: true,
   },
@@ -593,6 +821,7 @@ export const DOCS = [
       'The warning box and the six sections, in the imposed order.',
     ],
     source: ['Maquette ABMed 2026', 'ABMed 2026 template'],
+    groupe: 'produit',
     blocks: NOTICE,
     upgradable: true,
   },
@@ -605,8 +834,90 @@ export const DOCS = [
       'The three sets of particulars: outer packaging, blisters, small immediate packs.',
     ],
     source: ['Modèle ABMed 2026', 'ABMed 2026 template'],
+    groupe: 'produit',
     blocks: ETIQUETAGE,
     upgradable: true,
+  },
+  {
+    slug: 'lettre-demande',
+    nom: ["Lettre de demande d'AMM", 'MA application letter'],
+    court: ['Lettre de demande', 'Application letter'],
+    resume: [
+      'La lettre qui ouvre le dossier — objet, identification du produit, demandeur et fabricant.',
+      'The letter that opens the dossier — subject, product identification, applicant and manufacturer.',
+    ],
+    source: ['Modèle UEMOA — nouvelle AMM', 'UEMOA template — new MA'],
+    groupe: 'lettres',
+    blocks: LETTRE_DEMANDE,
+    upgradable: false,
+  },
+  {
+    slug: 'lettre-renouvellement',
+    nom: ['Lettre de demande de renouvellement', 'MA renewal application letter'],
+    court: ['Lettre de renouvellement', 'Renewal letter'],
+    resume: [
+      "La demande de renouvellement, avec la référence de l'AMM existante et sa date d'octroi.",
+      'The renewal application, with the existing MA reference and its grant date.',
+    ],
+    source: ['Modèle UEMOA — renouvellement', 'UEMOA template — renewal'],
+    groupe: 'lettres',
+    blocks: LETTRE_RENOUVELLEMENT,
+    upgradable: false,
+  },
+  {
+    slug: 'lettre-variation',
+    nom: ['Lettre de demande de variation', 'MA variation application letter'],
+    court: ['Lettre de variation', 'Variation letter'],
+    resume: [
+      "La déclaration d'une modification sur une AMM existante — classe, natures, annexe comparative.",
+      'The declaration of a change to an existing MA — class, natures, comparative annex.',
+    ],
+    source: ['Annexe N°2, Règlement 04/2020 UEMOA', 'Annex No. 2, Regulation 04/2020 WAEMU'],
+    groupe: 'lettres',
+    blocks: LETTRE_VARIATION,
+    upgradable: false,
+  },
+  {
+    slug: 'lettre-pght',
+    nom: ['Lettre de PGHT', 'Ex-factory price (PGHT) letter'],
+    court: ['Lettre de PGHT', 'PGHT letter'],
+    resume: [
+      'Le Prix Grossiste Hors Taxe, déclaré dans le tableau attendu par les autorités.',
+      'The ex-factory wholesale price, declared in the table expected by the authorities.',
+    ],
+    source: ['Modèle UEMOA — PGHT', 'UEMOA template — PGHT'],
+    groupe: 'lettres',
+    blocks: LETTRE_PGHT,
+    upgradable: false,
+  },
+  {
+    slug: 'qos-pd',
+    nom: ['QOS-PD — Quality Overall Summary', 'QOS-PD — Quality Overall Summary'],
+    court: ['QOS-PD', 'QOS-PD'],
+    resume: [
+      'Le résumé qualité du Module 2.3 — un résumé, pas un renvoi : chaque rubrique porte la donnée.',
+      'The Module 2.3 quality summary — a summary, not a cross-reference: each section holds the data.',
+    ],
+    source: ['Modèle OMS — janvier 2025', 'WHO template — January 2025'],
+    groupe: 'resumes',
+    blocks: QOS,
+    upgradable: false,
+  },
+  {
+    slug: 'btif',
+    nom: [
+      'BTIF — Bioequivalence Trial Information Form',
+      'BTIF — Bioequivalence Trial Information Form',
+    ],
+    court: ['BTIF', 'BTIF'],
+    resume: [
+      "Le formulaire OMS de l'étude de bioéquivalence — format et contenu non modifiables.",
+      'The WHO bioequivalence trial form — format and content not modifiable.',
+    ],
+    source: ['Modèle OMS — 13 janvier 2023', 'WHO template — 13 January 2023'],
+    groupe: 'resumes',
+    blocks: BTIF,
+    upgradable: false,
   },
 ]
 

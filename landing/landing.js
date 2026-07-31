@@ -93,7 +93,10 @@ var I18N = (function () {
       // rien), mais tout rechargement, partage ou retour arrière tomberait en 404.
       // Toute entrée ici DOIT exister dans PAGES de web/scripts/build-landing-en.mjs : ce build
       // vérifie la réciproque et échoue si un slug divergent manque à cette table.
-      var MIROIR = { '/bibliotheque-reglementaire': '/en/regulatory-library' };
+      var MIROIR = {
+        '/bibliotheque-reglementaire': '/en/regulatory-library',
+        '/modele': '/en/template',
+      };
       var VERS_FR = {};
       for (var k in MIROIR) VERS_FR[MIROIR[k]] = k;
 
@@ -108,7 +111,10 @@ var I18N = (function () {
         want = VERS_FR[p] || p.replace(/^\/en(?=\/|$)/, '') || '/';
       }
       want += want === '/' || /\/$/.test(want) ? '' : ext;
-      if (location.pathname !== want) history.replaceState(null, '', want);
+      // search + hash conservés : sur /modele?doc=rcp, les perdre ferait retomber la page
+      // sur son document par défaut au premier changement de langue.
+      if (location.pathname !== want)
+        history.replaceState(null, '', want + location.search + location.hash);
     } catch (e) {}
   }
   /* Boutons FR/EN (header + menu mobile) : pilotent le vrai swap + l'état visuel. */

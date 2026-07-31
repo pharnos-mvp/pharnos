@@ -64,6 +64,20 @@ const PAGES = [
         'Pharnos — the regulatory library: official SmPC, leaflet and labelling templates for the WAEMU zone.',
     },
   },
+  {
+    src: 'modele.html',
+    out: path.join('en', 'template.html'),
+    canonical: 'https://pharnos.com/en/regulatory-library',
+    head: {
+      title: 'Official template — regulatory library · Pharnos',
+      description:
+        'The official template in a reader, free to download in your filing country’s version — and the upgrade of your existing document by Regafy AI.',
+      ogDescription:
+        'The official template in a reader, free to download in your filing country’s version.',
+      ogImage: 'https://pharnos.com/assets/og-image-en.png?v=1',
+      ogImageAlt: 'Pharnos — official template, regulatory library for the WAEMU zone.',
+    },
+  },
 ]
 
 const BANNER = (src) =>

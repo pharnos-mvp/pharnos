@@ -23,7 +23,18 @@
  * recollent le texte (« QUALITATIVEET » observé) — or l'extractibilité fait partie de la
  * conformité d'un document réglementaire.
  */
-import { AlignmentType, Document, HeadingLevel, Packer, Paragraph, TextRun } from 'docx'
+import {
+  AlignmentType,
+  Document,
+  HeadingLevel,
+  Packer,
+  Paragraph,
+  Table,
+  TableCell,
+  TableRow,
+  TextRun,
+  WidthType,
+} from 'docx'
 import fs from 'node:fs'
 import path from 'node:path'
 import JSZip from 'jszip'
@@ -39,7 +50,7 @@ const MANIFESTE = path.join(RACINE, 'landing', 'checking', 'modeles-manifest.js'
 
 /** Version du contenu des modèles — reportée dans le manifeste et affichée sur la page.
  *  À incrémenter à CHAQUE modification de `modeles-source.mjs` ou de la mention 4.8. */
-const VERSION = '2026.1'
+const VERSION = '2026.2'
 
 /** Date figée : sans elle, deux exécutions produisent des octets différents et toute
  *  vérification de dérive (CI, revue de diff) devient illisible. */
@@ -61,6 +72,8 @@ const STYLE = {
   h3: { taille: 10.5, gras: true, centre: false, avant: 8, apres: 2 },
   p: { taille: CORPS, gras: false, centre: false, avant: 0, apres: 5 },
   li: { taille: CORPS, gras: false, centre: false, avant: 0, apres: 5, puce: true },
+  // Lettres : ville/date, bloc destinataire et signature vivent à droite de la page.
+  right: { taille: CORPS, gras: false, centre: false, droite: true, avant: 0, apres: 5 },
 }
 
 /* ═══════════════════════ résolution du contenu ═══════════════════════ */
@@ -158,9 +171,41 @@ async function versPdf(doc, blocs, paysNom) {
   }
   nouvellePage()
 
+  const ENCRE = rgb(0.07, 0.09, 0.13)
   for (const b of blocs) {
     if (b.t === 'break') {
       nouvellePage()
+      continue
+    }
+    if (b.t === 'table') {
+      // Grille simple à colonnes égales — la lettre PGHT est UN tableau, le rendre en lignes de
+      // texte ferait disparaître ce que l'autorité attend. Une cellule reste sur une ligne : les
+      // en-têtes officiels sont courts, on échoue si l'un déborde plutôt que de le tronquer.
+      const cols = b.rows[0].length
+      const wCol = largeur / cols
+      const hL = 22
+      y -= 6
+      for (const [ri, row] of b.rows.entries()) {
+        if (y - hL < MARGE.bas) nouvellePage()
+        const font = ri === 0 ? gras : reg
+        for (const [ci, cell] of row.entries()) {
+          const s = assainir(String(cell), `${doc.slug}/table`)
+          if (font.widthOfTextAtSize(s, 9) > wCol - 10)
+            throw new Error(`table ${doc.slug} : cellule trop large « ${s} »`)
+          const x0 = MARGE.g + ci * wCol
+          page.drawRectangle({
+            x: x0,
+            y: y - hL,
+            width: wCol,
+            height: hL,
+            borderColor: ENCRE,
+            borderWidth: 0.7,
+          })
+          page.drawText(s, { x: x0 + 5, y: y - hL + 7, size: 9, font, color: ENCRE })
+        }
+        y -= hL
+      }
+      y -= 8
       continue
     }
     const st = STYLE[b.t]
@@ -176,9 +221,11 @@ async function versPdf(doc, blocs, paysNom) {
       if (y < MARGE.bas) nouvellePage()
       const x = st.centre
         ? MARGE.g + (largeur - font.widthOfTextAtSize(l, st.taille)) / 2
-        : MARGE.g + retrait
+        : st.droite
+          ? A4.l - MARGE.d - font.widthOfTextAtSize(l, st.taille)
+          : MARGE.g + retrait
       // UNE chaîne entière par appel — jamais mot à mot (cf. en-tête de fichier).
-      page.drawText(l, { x, y: y - st.taille, size: st.taille, font, color: rgb(0.07, 0.09, 0.13) })
+      page.drawText(l, { x, y: y - st.taille, size: st.taille, font, color: ENCRE })
       y -= INTER
     }
     y -= st.apres
@@ -216,12 +263,43 @@ const HEADING = {
 async function versDocx(doc, blocs, paysNom) {
   const enfants = blocs.map((b) => {
     if (b.t === 'break') return new Paragraph({ text: '', pageBreakBefore: true })
+    if (b.t === 'table') {
+      return new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        rows: b.rows.map(
+          (row, ri) =>
+            new TableRow({
+              children: row.map(
+                (cell) =>
+                  new TableCell({
+                    children: [
+                      new Paragraph({
+                        children: [
+                          new TextRun({
+                            text: String(cell),
+                            bold: ri === 0,
+                            size: 19,
+                            font: 'Arial',
+                          }),
+                        ],
+                      }),
+                    ],
+                  }),
+              ),
+            }),
+        ),
+      })
+    }
     const st = STYLE[b.t]
     return new Paragraph({
       // Les niveaux de titre ne sont pas décoratifs : ils alimentent le volet Navigation de Word
       // et les signets du PDF exporté — un examinateur s'y déplace.
       heading: HEADING[b.t],
-      alignment: st.centre ? AlignmentType.CENTER : AlignmentType.LEFT,
+      alignment: st.centre
+        ? AlignmentType.CENTER
+        : st.droite
+          ? AlignmentType.RIGHT
+          : AlignmentType.LEFT,
       bullet: st.puce ? { level: 0 } : undefined,
       spacing: { before: st.avant * 20, after: st.apres * 20 },
       children: [new TextRun({ text: b.x, bold: st.gras, size: st.taille * 2, font: 'Arial' })],
@@ -332,13 +410,28 @@ for (const doc of DOCS) {
   // documents et n'a rien à faire dans le navigateur, mais la page a besoin des mêmes titres que
   // les fichiers. Les recopier à la main dans le JS de la page les ferait diverger au premier
   // renommage.
+  //
+  // `apercu` = la première page en fac-similé, pour la vignette des cartes. Dérivé des MÊMES
+  // blocs que les fichiers : la vignette ne peut pas montrer autre chose que ce qui se télécharge.
+  // Résolu sur le premier pays du référentiel quand le document varie — la page 1 du RCP ne
+  // contient pas la rubrique 4.8, donc l'aperçu est identique pour les huit pays.
+  const blocsApercu = resoudre(doc, perPays ? PAYS[0].k : null)
+    .filter((b) => b.t !== 'break')
+    .slice(0, 16)
+    .map((b) =>
+      b.t === 'table'
+        ? { t: 'table', rows: b.rows }
+        : { t: b.t, x: b.x.length > 140 ? b.x.slice(0, 140) + '…' : b.x },
+    )
   manifeste[doc.slug] = {
     nom: doc.nom,
     court: doc.court,
     resume: doc.resume,
     source: doc.source,
+    groupe: doc.groupe,
     upgradable: doc.upgradable,
     perPays,
+    apercu: blocsApercu,
     fichiers,
   }
 }

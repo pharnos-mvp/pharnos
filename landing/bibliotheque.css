@@ -1,13 +1,13 @@
-/* ── Bibliothèque réglementaire (/bibliotheque-reglementaire) — feuille ADDITIVE, chargée après
-     styles.css et UNIQUEMENT sur cette page.
+/* ── Bibliothèque réglementaire (/bibliotheque-reglementaire + /modele) — feuille ADDITIVE,
+     chargée après styles.css et UNIQUEMENT sur ces deux pages.
 
-     Contrainte CSP `style-src 'self'` : aucun attribut `style="…"` dans le HTML, et innerHTML
-     n'a pas le droit d'en produire. Ce qui varie se pose par CLASSE d'état ou par CSSOM
-     (`el.style.width`), que la CSP n'intercepte pas.
+     PATRON VISUEL : les fiches produit / org de l'application (cockpit « Encre & Signature »).
+     Les recettes reprennent `product-cockpit.css` et `PieceGrid.tsx` de web/ — en-tête à pastille
+     dégradée, cartes `rounded-xl border` à vignette 160 px, hover -1px + ombre. Les tokens
+     viennent de styles.css.
 
-     Les tokens viennent de styles.css. Les primitives de modale (.modal-back, .modal, .mclose,
-     .toast) sont redéfinies ici plutôt qu'importées de checking.css : charger 378 lignes de
-     styles du diagnostic pour six règles ferait payer à cette page le poids d'une autre. ── */
+     Contrainte CSP `style-src 'self'` : aucun attribut `style="…"` dans le HTML ni produit par
+     innerHTML — ce qui varie passe par une CLASSE ou par CSSOM. ── */
 
 :root {
   --font-ui: 'Sora', 'DM Sans', system-ui, sans-serif;
@@ -15,11 +15,9 @@
   --warning-border: #fcd34d;
 }
 
-/* ⚠️ `hidden` est le SEUL levier d'affichage utilisé par bibliotheque.js (la CSP interdit un
-   `style="display:none"` généré). Or la règle UA `[hidden] { display: none }` a une spécificité
-   de 0,1,0 : la moindre règle de classe posant un `display` la bat, et l'élément « masqué »
-   reste à l'écran. Vu ici : la ligne de fichier et le « Prêt » s'affichaient avant tout dépôt.
-   Cette règle doit rester AU-DESSUS de toutes les autres, et garder son `!important`. */
+/* L'attribut `hidden` vient de la feuille UA : n'importe quel `display:flex` posé par une classe
+   le bat. Sans cette règle, la ligne « fichier déposé » s'affichait VIDE avant tout dépôt —
+   vu en recette Chrome. */
 .bib [hidden] { display: none !important; }
 
 .bib .btn-block { width: 100%; justify-content: center; }
@@ -28,142 +26,163 @@
 .bib .btn-dark { background: var(--navy); color: #fff; }
 .bib .btn-dark:hover { background: var(--navy-2); transform: translateY(-1px); }
 
-/* Champ de fichier natif : masqué à l'œil, JAMAIS à la technologie d'assistance ni au clavier.
-   `display:none` le sortirait de l'ordre de tabulation et rendrait le dépôt inatteignable. */
+/* Champ de fichier natif : masqué à l'œil, JAMAIS à la technologie d'assistance ni au clavier. */
 .vh { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
   clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 
-/* ── Hero ── */
-.bib-hero { position: relative; color: #e9eef7; overflow: hidden;
-  background: radial-gradient(820px 460px at 78% 16%, rgba(38,63,115,.55), transparent 62%),
-              linear-gradient(150deg, #0a1628 0%, #16233f 60%, #1c2b49 100%); }
-.bib-hero .wrap { padding: 54px 24px 62px; max-width: 1080px; }
-.bib-hero .eyebrow { display: inline-flex; align-items: center; gap: 9px; font-family: var(--font-ui);
-  font-size: 12px; font-weight: 600; letter-spacing: .13em; text-transform: uppercase; color: var(--gold-2);
-  border: 1px solid rgba(226,179,65,.35); border-radius: 999px; padding: 6px 15px; background: rgba(226,179,65,.06); }
-.bib-hero h1 { font-family: var(--font-ui); font-weight: 800; font-size: clamp(1.95rem, 3.6vw, 2.9rem);
-  line-height: 1.1; letter-spacing: -.03em; color: #fff; max-width: 18em; margin: 20px 0 0; text-wrap: balance; }
-/* `margin: 16px 0 0` et non `margin-top` seul : styles.css centre `.lede` par des marges `auto`
-   (recette du hero du Checking Standard, qui est centré). Ici le hero est aligné à gauche, et un
-   chapô centré sous un titre à gauche se voit immédiatement. */
-.bib-hero .lede { margin: 16px 0 0; font-family: var(--font-ui); font-size: 16.5px; color: #c3d0e6;
-  max-width: 44em; text-wrap: pretty; }
-.freebadge { display: inline-flex; align-items: center; gap: 9px; margin-top: 24px; padding: 8px 16px;
-  border-radius: 999px; background: rgba(74,194,107,.12); border: 1px solid rgba(74,194,107,.35);
-  color: #bfe9cc; font-family: var(--font-ui); font-size: 13.5px; font-weight: 600; }
-.freebadge svg { width: 16px; height: 16px; color: var(--green); flex-shrink: 0; }
+/* ══ En-tête de fiche — recette .prod-header du cockpit ══ */
+.fiche-top { background: #fff; border-bottom: 1px solid var(--g200); }
+.fiche-head { display: flex; align-items: flex-start; gap: 16px; padding: 20px 24px;
+  max-width: 1180px; margin: 0 auto; }
+.fiche-ico { width: 54px; height: 54px; border-radius: 13px; flex-shrink: 0;
+  background: linear-gradient(135deg, #e0f2fe, #bae6fd); color: #0369a1;
+  display: flex; align-items: center; justify-content: center; }
+.fiche-ico svg { width: 26px; height: 26px; }
+.fiche-head .tx { min-width: 0; flex: 1; }
+/* `max-width: none` + `margin: 0` : styles.css borne et centre les h1 de la landing (recette des
+   pages marketing) — hérité tel quel, le titre de fiche flottait au centre de l'écran. */
+.fiche-head h1 { font-family: var(--font-ui); font-weight: 700; font-size: 19px; color: var(--g900);
+  letter-spacing: -.01em; max-width: none; margin: 0; text-align: left; }
+.fiche-head .sub { font-size: 13px; color: var(--g500); margin-top: 3px; }
+.fiche-head .tags { display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap; }
+.fiche-actions { margin-left: auto; display: flex; gap: 8px; align-items: flex-start; flex-shrink: 0; }
+.fiche-back { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px;
+  border-radius: 9px; border: 1px solid transparent; color: var(--g600); flex-shrink: 0; margin-top: 8px; }
+.fiche-back:hover { background: var(--g100); }
+.fiche-back svg { width: 17px; height: 17px; }
+/* Bande méta — recette .prod-meta */
+.fiche-meta { border-top: 1px solid var(--g200); }
+.fiche-meta .in { max-width: 1180px; margin: 0 auto; padding: 14px 24px; display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (min-width: 768px) { .fiche-meta .in { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.meta-key { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--g400); font-family: var(--font-ui); }
+.meta-val { font-size: 13.5px; font-weight: 500; color: var(--g800); margin-top: 2px; }
+.meta-val select { font: inherit; font-weight: 600; color: var(--g800); border: 1px solid var(--g300);
+  border-radius: 8px; padding: 5px 9px; background: #fff; cursor: pointer; max-width: 100%; }
 
-/* ── Sélecteur de pays ── */
-.bib-app { background: var(--g50); border-top: 1px solid var(--g200); padding: 0 0 76px; }
-.bib-app .wrap { max-width: 1080px; }
-.bib-picker { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: #fff;
-  border: 1px solid var(--g200); border-radius: var(--radius-lg); box-shadow: var(--shadow-soft);
-  padding: 16px 20px; margin-top: -30px; position: relative; z-index: 3; }
-.bib-picker label { font-family: var(--font-ui); font-size: 13.5px; font-weight: 600; color: var(--g700); }
-.bib-picker select { font: inherit; font-size: 15px; font-weight: 600; color: var(--g800); padding: 10px 13px;
-  border: 1.5px solid var(--g200); border-radius: var(--radius); background: #fff; cursor: pointer; min-width: 200px; }
-.bib-picker .ag { margin-left: auto; font-size: 13.5px; color: var(--g500); }
-.bib-picker .ag b { color: var(--g800); }
-.bib-note { margin: 12px 2px 0; font-size: 13px; color: var(--g500); line-height: 1.5; }
-.bib-note b { color: var(--g700); }
-
-/* ── Cartes ── */
-.bib-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 24px; }
-.tplcard { display: flex; flex-direction: column; text-align: left; gap: 8px; background: #fff;
-  border: 1px solid var(--g200); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
-  padding: 20px; cursor: pointer; font: inherit; color: inherit; transition: var(--transition); }
-.tplcard:hover { border-color: #bfdbfe; box-shadow: var(--shadow-soft); transform: translateY(-2px); }
-.tplcard .ct { display: flex; align-items: center; gap: 10px; }
-.tplcard .ct b { font-family: var(--font-ui); font-size: 16px; font-weight: 700; color: var(--navy); }
-.tplcard .gl { font-size: 19px; color: var(--brand-doc); line-height: 1; }
-.tplcard .cs2 { font-size: 13px; color: var(--g500); line-height: 1.45; min-height: 2.9em; }
-.tplcard .cm { font-size: 12px; color: var(--g400); font-variant-numeric: tabular-nums; }
-.tplcard .cf { margin-top: auto; padding-top: 12px; display: flex; align-items: center; gap: 8px; }
-.tplcard .see { font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: var(--blue); }
-.badge { display: inline-flex; align-items: center; font-size: 11px; font-weight: 600; padding: 3px 9px;
-  border-radius: 999px; font-family: var(--font-ui); }
-.b-info { background: var(--info-subtle); color: var(--info-fg); margin-left: auto; }
+.badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600;
+  padding: 3px 9px; border-radius: 999px; font-family: var(--font-ui); }
+.b-info { background: var(--info-subtle); color: var(--info-fg); }
+.b-free { background: var(--success-subtle); color: var(--success-fg); }
 .b-pays { background: var(--warning-subtle); color: var(--warning-fg); }
 
-.bib-sec { padding: 34px 0 0; }
-.bib-quiet { display: flex; gap: 12px; align-items: flex-start; max-width: 76ch; background: #fff;
-  border: 1px solid var(--g200); border-radius: var(--radius); padding: 14px 16px; font-size: 14px; color: var(--g600); }
-.bib-quiet svg { width: 20px; height: 20px; flex-shrink: 0; color: var(--blue); margin-top: 1px; }
+/* ══ Contenu ══ */
+.bib-app { background: var(--g50); padding: 20px 0 76px; }
+.bib-app .wrap { max-width: 1180px; }
+.bib-sec { margin-top: 26px; }
+.bib-sec > h2 { font-family: var(--font-ui); font-size: 15px; font-weight: 700; color: var(--g900); }
+.bib-sec > p { font-size: 13px; color: var(--g500); margin-top: 2px; }
 
-/* ── Modales (primitives locales) ── */
-.modal-back { position: fixed; inset: 0; z-index: 80; background: rgba(10,22,40,.6); backdrop-filter: blur(3px);
-  display: none; align-items: center; justify-content: center; padding: 24px; overflow-y: auto; }
+/* ══ Cartes verticales à vignette — recette PieceCard ══ */
+.piece-grid { list-style: none; display: grid; gap: 16px; margin-top: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 640px) { .piece-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .piece-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.piece-card { display: flex; flex-direction: column; gap: 8px; height: 100%; width: 100%;
+  background: #fff; border: 1px solid var(--g200); border-radius: 12px; padding: 10px;
+  text-align: left; color: inherit; transition: all .15s ease; }
+.piece-card:hover { border-color: var(--g400); transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(10, 22, 40, .10); }
+@media (prefers-reduced-motion: reduce) { .piece-card:hover { transform: none; } }
+/* Vignette : hauteur fixe 160 px comme DocThumb, page centrée */
+.piece-thumb { height: 160px; display: flex; align-items: flex-start; justify-content: center;
+  background: var(--g100); border: 1px solid var(--g200); border-radius: 8px; overflow: hidden; }
+/* Fac-similé A4 : peint à 340 px de large puis réduit — dérivé des MÊMES blocs que le fichier. */
+.a4mini { width: 340px; height: 480px; flex-shrink: 0; background: #fff; padding: 26px 28px;
+  font-family: Arial, Helvetica, sans-serif; font-size: 8.6px; line-height: 1.5; color: #111827;
+  overflow: hidden; transform: scale(.3335); transform-origin: top center;
+  box-shadow: 0 1px 6px rgba(10, 22, 40, .18); }
+/* -337px = 480×(1−.3335) : ramène la place occupée à la hauteur RÉELLE après réduction, sinon la
+   vignette réserve 480 px et pousse tout le texte de carte hors champ. */
+.piece-thumb .a4mini { margin-bottom: -337px; }
+.a4mini .db { display: block; }
+.a4mini .bt { font-weight: 700; text-align: center; font-size: 10px; color: #0b3d92; margin-bottom: 8px; }
+.a4mini .bp2 { font-weight: 700; text-align: center; margin: 6px 0 4px; }
+.a4mini .bh { font-weight: 700; color: #0b3d92; margin-top: 6px; }
+.a4mini .bh3 { font-weight: 700; margin-top: 4px; }
+.a4mini .bd { text-align: right; }
+.a4mini .bl { padding-left: 9px; }
+.a4mini table { width: 100%; border-collapse: collapse; margin: 4px 0; font-size: 7.6px; }
+.a4mini td, .a4mini th { border: .6px solid #9ca3af; padding: 2px 4px; text-align: left; }
+.a4mini th { font-weight: 700; }
+.piece-card .nm { font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: var(--g900);
+  line-height: 1.3; }
+.piece-card .mt2 { display: flex; align-items: center; gap: 6px; min-height: 20px; flex-wrap: wrap; }
+.piece-card .mt2 .m { font-size: 11px; color: var(--g500); min-width: 0; flex: 1; }
+
+/* ══ Page /modele : lecteur + colonne droite sticky ══ */
+.doc-layout { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 20px;
+  align-items: start; margin-top: 20px; }
+@media (max-width: 900px) { .doc-layout { grid-template-columns: 1fr; } }
+.doc-reader { background: #fff; border: 1px solid var(--g200); border-radius: 12px; overflow: hidden; }
+.doc-reader iframe { display: block; width: 100%; border: 0; background: #eef1f6;
+  height: clamp(420px, calc(100vh - 220px), 900px); }
+.doc-fall { padding: 22px; font-size: 13.5px; color: var(--g600); line-height: 1.55; }
+/* Colonne droite : sticky — elle suit le lecteur pendant le défilement. */
+.doc-rail { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 14px; }
+@media (max-width: 900px) { .doc-rail { position: static; } }
+.rail-card { background: #fff; border: 1px solid var(--g200); border-radius: 12px; padding: 16px; }
+.rail-card h2 { font-family: var(--font-ui); font-size: 14px; font-weight: 700; color: var(--g900);
+  display: flex; align-items: center; gap: 8px; }
+.rail-card .rc-sub { font-size: 12.5px; color: var(--g500); margin-top: 4px; line-height: 1.45; }
+.rail-card .stack { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.advs { display: grid; gap: 7px; margin-top: 12px; }
+.advs li { display: flex; gap: 9px; align-items: flex-start; font-size: 12.6px; line-height: 1.4;
+  color: var(--g600); }
+.advs li .ai { flex-shrink: 0; width: 18px; height: 18px; border-radius: 999px;
+  background: var(--success-subtle); color: var(--success-fg); font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; }
+.advs li b { color: var(--g800); font-weight: 600; }
+.pline { display: flex; align-items: baseline; gap: 9px; margin: 14px 0 10px; flex-wrap: wrap; }
+.pline .amt { font-family: var(--font-ui); font-size: 21px; font-weight: 800; letter-spacing: -.02em;
+  color: var(--navy); }
+.pline .un { font-size: 12px; color: var(--g500); margin-left: auto; }
+/* Le bundle vit SOUS le prix, avec son propre bouton. */
+.bundle { margin-top: 12px; border: 1px solid var(--warning-border); background: var(--warning-subtle);
+  border-radius: 9px; padding: 11px 12px; }
+.bundle .bt { font-size: 13px; color: var(--warning-fg); font-weight: 700; }
+.bundle .bt .old { text-decoration: line-through; font-weight: 400; opacity: .75; margin-left: 6px; }
+.bundle .bt .save { margin-left: 6px; background: #fde68a; border-radius: 999px; padding: 1px 8px;
+  font-size: 11px; }
+.bundle .bd { font-size: 12px; color: var(--warning-fg); margin: 5px 0 9px; line-height: 1.45; }
+.bundle .btn { background: #fff; border-color: #e2b25c; color: var(--warning-fg); }
+
+/* ══ Popup pays + activité (téléchargement) ══ */
+.modal-back { position: fixed; inset: 0; z-index: 80; background: rgba(10, 22, 40, .6);
+  backdrop-filter: blur(3px); display: none; align-items: center; justify-content: center;
+  padding: 24px; overflow-y: auto; }
 .modal-back.on { display: flex; }
-.modal { background: #fff; border-radius: 16px; max-width: 500px; width: 100%; padding: 30px;
-  position: relative; box-shadow: 0 30px 70px rgba(10,22,40,.36); margin: auto; }
+.modal { background: #fff; border-radius: 16px; max-width: 460px; width: 100%; padding: 28px;
+  position: relative; box-shadow: 0 30px 70px rgba(10, 22, 40, .36); margin: auto; }
 .mclose { position: absolute; top: 10px; right: 12px; background: none; border: 0; font-size: 22px;
   line-height: 1; color: var(--g400); cursor: pointer; padding: 4px; }
 .mclose:hover { color: var(--g800); }
 .mkick { font-family: var(--font-ui); font-size: 11px; font-weight: 700; letter-spacing: .09em;
   text-transform: uppercase; color: var(--blue); }
-.modal h3 { font-family: var(--font-serif); font-size: 23px; font-weight: 600; color: var(--navy); margin-top: 6px; }
+.modal h3 { font-family: var(--font-serif); font-size: 22px; font-weight: 600; color: var(--navy);
+  margin-top: 6px; }
 .modal .mdesc { font-size: 14px; color: var(--g500); margin-top: 8px; }
-.toast { position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 20px); z-index: 120;
-  background: var(--navy); color: #fff; font-size: 14px; padding: 12px 20px; border-radius: 999px;
-  box-shadow: var(--shadow-soft); opacity: 0; pointer-events: none; transition: var(--transition); max-width: 90vw; }
-.toast.on { opacity: 1; transform: translate(-50%, 0); }
 
-/* ── Lecteur deux volets ── */
-.modal.lecteur { max-width: 980px; padding: 0; overflow: hidden; }
-.lect-head { display: flex; align-items: flex-start; gap: 12px; padding: 18px 22px 15px; border-bottom: 1px solid var(--g200); }
-.lect-kick { font-family: var(--font-ui); font-size: 11px; font-weight: 700; letter-spacing: .08em;
-  text-transform: uppercase; color: var(--blue); }
-.lect-head h3 { margin-top: 3px; font-size: 21px; }
-.lect-sub { font-size: 12.5px; color: var(--g400); margin-top: 4px; }
-.lect-two { display: grid; grid-template-columns: minmax(0, 1.06fr) minmax(0, 1fr); }
-.pane-doc { background: #eef1f6; border-right: 1px solid var(--g200); display: flex; flex-direction: column; min-width: 0; }
-.docbar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #fff;
-  border-bottom: 1px solid var(--g200); flex-wrap: wrap; }
-.docbar .vt { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600;
-  color: var(--warning-fg); background: var(--warning-subtle); border: 1px solid var(--warning-border);
-  border-radius: 999px; padding: 2px 9px; min-width: 0; }
-.docbar .dl { margin-left: auto; display: flex; gap: 6px; flex-shrink: 0; }
-/* Deux réglages, deux défauts vus en recette Chrome :
-   • `flex: 1` — l'aperçu REMPLIT son volet. À hauteur fixe, il s'arrêtait avant le bas et
-     laissait une bande grise vide sous le document.
-   • `min-height` en `vh` plutôt qu'une hauteur en dur — à 512 px, la modale dépassait le bas de
-     l'écran sur un portable et le bouton d'achat se retrouvait hors champ. */
-.docview { width: 100%; flex: 1 1 auto; min-height: clamp(260px, 46vh, 460px);
-  border: 0; background: #eef1f6; display: block; }
-.docfall { padding: 20px; font-size: 13.5px; color: var(--g600); line-height: 1.55; }
+/* ══ Panneau de mise à niveau — ancré au bord DROIT, pleine hauteur ══ */
+.drawer-back { position: fixed; inset: 0; z-index: 90; background: rgba(10, 22, 40, .45);
+  backdrop-filter: blur(2px); display: none; justify-content: flex-end; }
+.drawer-back.on { display: flex; }
+.drawer { background: #fff; width: min(440px, 100vw); height: 100%; overflow-y: auto;
+  box-shadow: -18px 0 50px rgba(10, 22, 40, .25); display: flex; flex-direction: column;
+  animation: drawer-in .22s ease; position: relative; }
+@keyframes drawer-in { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+.drawer > header { padding: 18px 22px 14px; border-bottom: 1px solid var(--g200); }
+.drawer .body { padding: 4px 22px 10px; flex: 1; }
+.drawer h3 { font-family: var(--font-serif); font-size: 21px; font-weight: 600; color: var(--navy);
+  margin-top: 5px; }
 
-.pane-offer { display: flex; flex-direction: column; min-width: 0; }
-.offer-top { flex: 1; padding: 22px 22px 18px; background: linear-gradient(160deg, #f4f7fc 0%, #eaf0f9 100%); }
-.offer-fg .oh { font-family: var(--font-ui); font-size: 19px; font-weight: 700; line-height: 1.22;
-  letter-spacing: -.02em; color: var(--navy); max-width: 17ch; }
-.advs { display: grid; gap: 7px; margin-top: 16px; }
-.advs li { display: flex; gap: 9px; align-items: flex-start; background: rgba(255,255,255,.92);
-  border: 1px solid rgba(255,255,255,.9); box-shadow: 0 2px 8px rgba(10,22,40,.07); border-radius: 8px;
-  padding: 8px 11px; font-size: 12.8px; line-height: 1.4; color: var(--g600); }
-.advs li .ai { flex-shrink: 0; width: 18px; height: 18px; border-radius: 999px; background: var(--success-subtle);
-  color: var(--success-fg); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
-.advs li b { color: var(--g800); font-weight: 600; }
-
-.offer-buy { border-top: 1px solid var(--g200); background: #fff; padding: 14px 22px 16px; }
-.pline { display: flex; align-items: baseline; gap: 9px; margin-bottom: 10px; flex-wrap: wrap; }
-.pline .amt { font-family: var(--font-ui); font-size: 22px; font-weight: 800; letter-spacing: -.02em; color: var(--navy); }
-.pline .un { font-size: 12.5px; color: var(--g500); margin-left: auto; }
-/* Le bundle vit SOUS le prix, avec son propre bouton : au-dessus, il ferait du prix unitaire un
-   prix d'appel. */
-.bundle-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; border: 1px solid var(--warning-border);
-  background: var(--warning-subtle); border-radius: 9px; padding: 8px 9px 8px 12px; font-size: 12.5px;
-  color: var(--warning-fg); line-height: 1.35; }
-.bundle-row .bx { min-width: 0; }
-.bundle-row .old { text-decoration: line-through; opacity: .75; }
-.bundle-row .btn { margin-left: auto; flex-shrink: 0; background: #fff; border-color: #e2b25c; color: var(--warning-fg); }
-.bundle-row .btn:hover { background: #fffdf5; }
-
-/* ── Modale de mise à niveau ── */
 .mfield { margin-top: 18px; }
 .mlab { display: block; font-family: var(--font-ui); font-size: 11.5px; font-weight: 700;
   text-transform: uppercase; letter-spacing: .05em; color: var(--g400); margin-bottom: 8px; }
-.bib .modal select { width: 100%; font: inherit; font-size: 15px; color: var(--g800); padding: 11px 13px;
-  border: 1.5px solid var(--g200); border-radius: var(--radius); background: #fff; cursor: pointer; }
+.bib .modal select, .bib .drawer select { width: 100%; font: inherit; font-size: 15px; color: var(--g800);
+  padding: 11px 13px; border: 1.5px solid var(--g200); border-radius: var(--radius); background: #fff;
+  cursor: pointer; }
 .chips { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .chip { font: inherit; font-size: 14px; font-weight: 600; color: var(--g700); background: #fff;
   border: 1.5px solid var(--g200); border-radius: var(--radius); padding: 10px 8px; cursor: pointer;
@@ -171,14 +190,17 @@
 .chip:hover { border-color: var(--g300); }
 .chip[aria-checked='true'] { border-color: var(--blue); background: var(--blue-ghost); color: var(--info-fg); }
 .updrop { display: block; width: 100%; font: inherit; text-align: center; border: 1.5px dashed var(--g300);
-  border-radius: var(--radius); background: var(--g50); padding: 18px; cursor: pointer; transition: var(--transition); }
+  border-radius: var(--radius); background: var(--g50); padding: 18px; cursor: pointer;
+  transition: var(--transition); }
 .updrop:hover, .updrop.over { border-color: var(--blue); background: var(--blue-ghost); }
 .updrop .ic { display: block; font-size: 22px; color: var(--g400); }
-.updrop .t { display: block; font-family: var(--font-ui); font-weight: 600; font-size: 14.5px; color: var(--g800); margin-top: 4px; }
+.updrop .t { display: block; font-family: var(--font-ui); font-weight: 600; font-size: 14.5px;
+  color: var(--g800); margin-top: 4px; }
 .updrop .s { display: block; font-size: 13px; color: var(--g500); margin-top: 2px; }
-.mfile { display: flex; align-items: center; gap: 11px; border: 1.5px solid var(--g200); border-radius: var(--radius); padding: 11px 13px; }
-.mfile .ico { width: 30px; height: 30px; border-radius: 7px; background: var(--blue-ghost); color: var(--blue);
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.mfile { display: flex; align-items: center; gap: 11px; border: 1.5px solid var(--g200);
+  border-radius: var(--radius); padding: 11px 13px; }
+.mfile .ico { width: 30px; height: 30px; border-radius: 7px; background: var(--blue-ghost);
+  color: var(--blue); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .mfile .fx { min-width: 0; }
 .mfile .nm { display: block; font-weight: 600; font-size: 13.5px; color: var(--g800);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -189,31 +211,19 @@
 .readyline { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--success-fg);
   font-weight: 600; margin-top: 9px; }
 .readyline::before { content: '✓'; }
-
-.sect-buy { border-top: 1px solid var(--g200); margin: 20px -30px 0; padding: 18px 30px 0;
+.sect-buy { border-top: 1px solid var(--g200); margin-top: 20px; padding: 16px 22px 18px;
   background: linear-gradient(180deg, #fff, #fbfcfe); }
-.bundle { margin-top: 14px; border: 1px solid var(--warning-border); background: var(--warning-subtle);
-  border-radius: var(--radius); padding: 12px 14px; }
-.bundle .bt { font-size: 13.5px; color: var(--warning-fg); font-weight: 700; }
-.bundle .bt .old { text-decoration: line-through; font-weight: 400; opacity: .75; margin-left: 6px; }
-.bundle .bt .save { margin-left: 6px; background: #fde68a; border-radius: 999px; padding: 1px 8px; font-size: 11.5px; }
-.bundle .bd { font-size: 12.5px; color: var(--warning-fg); margin: 6px 0 10px; line-height: 1.45; }
-.bundle .btn { background: #fff; border-color: #e2b25c; color: var(--warning-fg); }
 .mfoot-note { font-size: 12px; color: var(--g400); text-align: center; margin: 10px 0 0; }
 
-/* ── Adaptations ── */
-@media (max-width: 940px) {
-  .lect-two { grid-template-columns: 1fr; }
-  .pane-doc { border-right: 0; border-bottom: 1px solid var(--g200); }
-  /* `min-height` et non `height` : sous 940 px les volets s'empilent, et une hauteur fixe
-     rouvrirait la bande grise que `flex: 1` vient de supprimer. */
-  .docview { min-height: 340px; }
-  .bib-grid { grid-template-columns: 1fr 1fr; }
-}
+.toast { position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 20px); z-index: 120;
+  background: var(--navy); color: #fff; font-size: 14px; padding: 12px 20px; border-radius: 999px;
+  box-shadow: var(--shadow-soft); opacity: 0; pointer-events: none; transition: var(--transition);
+  max-width: 90vw; }
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+
 @media (max-width: 680px) {
-  .bib-grid { grid-template-columns: 1fr; }
-  .bib-picker .ag { margin-left: 0; width: 100%; }
+  .fiche-head { padding: 14px 16px; }
+  .fiche-meta .in { padding: 12px 16px; }
+  .piece-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .modal { padding: 24px 18px; }
-  .sect-buy { margin-left: -18px; margin-right: -18px; padding-left: 18px; padding-right: 18px; }
-  .modal.lecteur { padding: 0; }
 }

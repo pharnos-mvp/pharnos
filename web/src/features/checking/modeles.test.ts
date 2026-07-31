@@ -21,9 +21,16 @@ import { DOCS, varieParPays } from '../../../scripts/lib/modeles-source.mjs'
 // peut pas indexer par une variable. On le relit une fois sous sa forme réelle — un enregistrement
 // dont les clés viennent du référentiel — plutôt que de caster à chaque accès.
 type Fichier = { pdf: string; docx: string; pages: number; octetsPdf: number; octetsDocx: number }
+type Bloc = { t: string; x?: string; rows?: string[][] }
 type Manifeste = Record<
   string,
-  { perPays: boolean; upgradable: boolean; fichiers: Record<string, Fichier> }
+  {
+    perPays: boolean
+    upgradable: boolean
+    groupe: string
+    apercu: Bloc[]
+    fichiers: Record<string, Fichier>
+  }
 >
 const MANIFESTE = MODELES_FICHIERS as unknown as Manifeste
 
@@ -145,6 +152,88 @@ describe('la mention 4.8 committée est celle du pays', () => {
     for (const slug of ['notice', 'etiquetage']) {
       const texte = await texteDocx(fichierDe(slug, '*').docx)
       for (const a of Object.values(ADRESSES)) expect(texte, slug).not.toContain(a)
+    }
+  })
+})
+
+describe('les neuf documents, groupés comme sur la page', () => {
+  it('couvre les trois groupes annoncés, sans document orphelin', () => {
+    const parGroupe = (g: string) =>
+      Object.entries(MANIFESTE)
+        .filter(([, m]) => m.groupe === g)
+        .map(([slug]) => slug)
+        .sort()
+    expect(parGroupe('produit')).toEqual(['etiquetage', 'notice', 'rcp'])
+    expect(parGroupe('lettres')).toEqual([
+      'lettre-demande',
+      'lettre-pght',
+      'lettre-renouvellement',
+      'lettre-variation',
+    ])
+    expect(parGroupe('resumes')).toEqual(['btif', 'qos-pd'])
+    const groupes = new Set(Object.values(MANIFESTE).map((m) => m.groupe))
+    expect([...groupes].sort()).toEqual(['lettres', 'produit', 'resumes'])
+  })
+
+  it('ne rend upgradables que les trois documents produit', () => {
+    for (const [slug, m] of Object.entries(MANIFESTE)) {
+      expect(m.upgradable, slug).toBe(m.groupe === 'produit')
+    }
+  })
+
+  it("porte un aperçu non vide pour chaque document — c'est la vignette des cartes", () => {
+    for (const [slug, m] of Object.entries(MANIFESTE)) {
+      expect(m.apercu.length, slug).toBeGreaterThan(4)
+      // L'aperçu dérive des mêmes blocs que le fichier : son premier bloc doit se retrouver
+      // dans le document téléchargé.
+      const premier = m.apercu.find((b) => b.x)
+      if (premier?.x) {
+        const texte = premier.x.replace(/…$/, '')
+        expect(texte.length, slug).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it("n'inclut jamais la mention de vigilance dans l'aperçu — elle dépend du pays, pas la vignette", () => {
+    const texte = docDe('rcp')
+      .apercu.map((b) => b.x ?? '')
+      .join('\n')
+    expect(texte).not.toMatch(/vigilances|Med Safety|pharmacovigilance@/)
+  })
+})
+
+describe('les lettres restent le modèle officiel générique', () => {
+  it("n'adressent AUCUNE autorité nommée — pas d'adresse à moitié remplie dans un courrier réel", async () => {
+    for (const slug of [
+      'lettre-demande',
+      'lettre-renouvellement',
+      'lettre-variation',
+      'lettre-pght',
+    ]) {
+      const texte = await texteDocx(fichierDe(slug, '*').docx)
+      expect(texte, slug).toContain('Agence réglementaire nationale')
+      expect(texte, slug).not.toMatch(/ABMed|ANRP|AIRP\b|\bARP\b|DPM\b|DPML/)
+    }
+  })
+
+  it('la lettre PGHT porte son tableau à quatre colonnes', async () => {
+    const zip = await JSZip.loadAsync(fs.readFileSync(chemin(fichierDe('lettre-pght', '*').docx)))
+    const xml = await zip.file('word/document.xml')!.async('string')
+    expect(xml).toContain('<w:tbl>')
+    for (const col of ['Nom commercial', 'DCI et dosage', 'Forme et présentation', 'PGHT (FCFA)']) {
+      expect(xml).toContain(col)
+    }
+  })
+
+  it('chaque lettre porte son objet officiel', async () => {
+    const attendus: Record<string, string> = {
+      'lettre-demande': "Objet : Demande d'enregistrement d'AMM",
+      'lettre-renouvellement': "Objet : Demande de renouvellement d'AMM",
+      'lettre-variation': 'Objet : Demande de variation',
+      'lettre-pght': 'Objet : Attestation de PGHT',
+    }
+    for (const [slug, objet] of Object.entries(attendus)) {
+      expect(await texteDocx(fichierDe(slug, '*').docx), slug).toContain(objet)
     }
   })
 })
