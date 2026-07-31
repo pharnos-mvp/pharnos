@@ -950,8 +950,9 @@ const ETIQUETAGE = [
    (`web/src/features/workspace/roadmap-data.ts` : agence, civilité, adresse — déjà en production
    dans les lettres compilées des dossiers). Les lettres varient donc par pays. */
 
+// ⚠️ Pas de case ville (directive CEO du 31/07/2026) : la date seule, décalée à droite.
 const LETTRE_OUVERTURE = [
-  { t: 'right', x: '{Ville}, le {date}', en: '{City}, {date}' },
+  { t: 'right', x: 'Le {date}', en: '{date}' },
   { t: 'right', x: 'À', en: 'To' },
   { t: 'agence' },
 ]
@@ -959,8 +960,8 @@ const LETTRE_OUVERTURE = [
 const LETTRE_CLOTURE = [
   {
     t: 'p',
-    x: "Nous vous prions d'agréer, Madame / Monsieur, l'expression de notre sincère collaboration.",
-    en: 'Please accept, Madam / Sir, the expression of our sincere collaboration.',
+    x: "Nous vous prions d'agréer, {CIV}, l'expression de notre sincère collaboration.",
+    en: 'Please accept, {CIV}, the expression of our sincere collaboration.',
   },
   { t: 'right', x: 'Poste', en: 'Position' },
   { t: 'right', x: 'Signature et Cachet', en: 'Signature and stamp' },
@@ -1123,10 +1124,10 @@ const LETTRE_PGHT = [
   {
     t: 'p',
     x:
-      "Dans l'espoir d'une suite favorable, nous vous prions de recevoir Monsieur / Madame le …, " +
+      "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, {CIV}, " +
       "l'expression de notre sincère collaboration.",
     en:
-      'Hoping for a favourable outcome, please accept, Sir / Madam, the expression of our ' +
+      'Hoping for a favourable outcome, please accept, {CIV}, the expression of our ' +
       'sincere collaboration.',
   },
   { t: 'right', x: 'Poste', en: 'Position' },
@@ -1275,6 +1276,12 @@ export const DOCS = [
     upgradable: false,
     bilingue: true,
     layout: 'lettre',
+    // ⚠️ TEL QUEL, à l'octet près (directive CEO du 31/07/2026) : quand une autorité publie son
+    // propre modèle de lettre, on SERT LE FICHIER OFFICIEL — affiché et téléchargé sans aucune
+    // réinterprétation. La génération ne vaut que pour les pays sans modèle déposé.
+    officiels: {
+      bj: 'RA-source/Template/Cover Lettre/Benin_Cover letter_template official_ABMed.pdf',
+    },
   },
   {
     slug: 'lettre-renouvellement',

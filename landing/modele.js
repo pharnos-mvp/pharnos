@@ -142,14 +142,25 @@ function peindre() {
     ]);
   }
 
-  // Note de la barre du lecteur : ce que contient le téléchargement.
-  $("#dlnote").textContent = m.bilingue
-    ? L(["Word · FR + EN · gratuit", "Word · FR + EN · free"])
-    : L(["Word · gratuit", "Word · free"]);
+  // Note de la barre du lecteur : ce que contient le téléchargement. Un modèle OFFICIEL servi
+  // tel quel l'annonce — on ne fabrique rien sur le document d'une autorité.
+  const fOff = Boolean(fichierModele(S.doc, paysApercu())?.officiel);
+  $("#dlnote").textContent = fOff
+    ? L([
+        "PDF officiel de l'autorité · servi tel quel · gratuit",
+        "Authority's official PDF · served as-is · free",
+      ])
+    : m.bilingue
+      ? L(["Word · FR + EN · gratuit", "Word · FR + EN · free"])
+      : L(["Word · gratuit", "Word · free"]);
 
   // Offre — seulement pour les documents que le moteur sait mettre au standard.
+  const lettre = m.groupe === "lettres";
+  const genPossible =
+    lettre && S.pays && Boolean(fichierModele(S.doc, S.pays)?.blocs);
   $("#offre").hidden = !m.upgradable;
-  $("#inf").hidden = m.upgradable;
+  $("#genlet").hidden = !genPossible;
+  $("#inf").hidden = m.upgradable || genPossible;
   if (m.upgradable) {
     // Un sigle garde sa casse (« votre RCP »), un nom commun se plie à la phrase (« votre notice »).
     const court = L(m.court);
@@ -206,6 +217,11 @@ function majDlGo() {
 
 $("#dlbtn").addEventListener("click", () => {
   const m = MODELES_FICHIERS[S.doc];
+  // Pour une lettre, le préalable a déjà capturé pays et activité : servir sans re-demander.
+  if (m.groupe === "lettres" && S.pays) {
+    telechargerDirect();
+    return;
+  }
   remplirPays($("#dlpays"), S.pays);
   majChips("#dlact", S.activite);
   majDlGo();
@@ -608,6 +624,7 @@ function fermerModale(sel) {
   if (o && typeof o.focus === "function") o.focus();
 }
 
+$("#lfclose").addEventListener("click", () => fermerModale("#letform"));
 for (const [sel, bouton] of [
   ["#dlm", "#dlmclose"],
   ["#upg", "#upgclose"],
@@ -624,7 +641,9 @@ document.addEventListener("keydown", (e) => {
   if (!ouvertes.length) return;
   const back = ouvertes[ouvertes.length - 1];
   if (e.key === "Escape") {
-    fermerModale("#" + back.id);
+    // Le PRÉALABLE d'une lettre ne se contourne pas : sans pays ni activité il n'y a rien à
+    // afficher. Ses deux issues sont « Afficher ma lettre » et le retour à la bibliothèque.
+    if (back.id !== "prem") fermerModale("#" + back.id);
     return;
   }
   if (e.key !== "Tab") return;
@@ -667,6 +686,254 @@ function appliquerLangue(l) {
 }
 if (window.I18N && typeof window.I18N.on === "function")
   window.I18N.on(appliquerLangue);
+
+/* ══════════════════ Lettres — préalable, lecteur adapté, génération sur l'appareil ══════════════════ */
+
+/** L'activité réglementaire CHOISIT la lettre : cliquer « Lettre de demande » puis répondre
+ *  « Variation » doit servir la lettre de variation, pas une demande maquillée. */
+const LETTRE_PAR_ACTIVITE = {
+  enr: "lettre-demande",
+  renouv: "lettre-renouvellement",
+  variation: "lettre-variation",
+};
+const estLettre = () => MODELES_FICHIERS[S.doc].groupe === "lettres";
+const estLettreActivite = () =>
+  Object.values(LETTRE_PAR_ACTIVITE).includes(S.doc);
+
+/** Popup PRÉALABLE : pays + activité avant l'affichage du template (directive CEO 31/07/2026).
+ *  Tant qu'elle n'est pas validée, le lecteur reste derrière elle. */
+function ouvrirPrealable() {
+  remplirPays($("#prempays"), S.pays);
+  majChips("#premact", S.activiteLettre ?? null);
+  ouvrirModale("#prem", null);
+}
+
+$$("#premact .chip").forEach((c) =>
+  c.addEventListener("click", () => {
+    S.activiteLettre = c.dataset.v;
+    majChips("#premact", S.activiteLettre);
+  }),
+);
+
+$("#premgo").addEventListener("click", () => {
+  const pays = $("#prempays").value;
+  if (!pays || !S.activiteLettre) {
+    toast(
+      L([
+        "Choisissez votre pays et votre activité.",
+        "Choose your country and activity.",
+      ]),
+    );
+    return;
+  }
+  S.pays = pays;
+  // `amm`/`renouv` restent le vocabulaire de la COMMANDE d'upgrade ; les lettres ont le leur.
+  if (estLettreActivite()) {
+    const cible = LETTRE_PAR_ACTIVITE[S.activiteLettre];
+    if (cible !== S.doc) {
+      S.doc = cible;
+      const u = new URL(window.location.href);
+      u.searchParams.set("doc", cible);
+      history.replaceState(null, "", u.pathname + u.search);
+    }
+  }
+  fermerModale("#prem");
+  peindre();
+});
+
+/* ── Formulaire « Générer ma lettre » — les blocs du manifeste, remplis sur place ── */
+
+const CHAMP_LIBRE = /\s*:\s*…\s*$/;
+
+/** Les blocs de la lettre du pays courant, ou null (modèle officiel servi tel quel). */
+const blocsLettre = () => fichierModele(S.doc, S.pays)?.blocs ?? null;
+
+function ouvrirFormulaire(declencheur) {
+  const blocs = blocsLettre();
+  if (!blocs) return;
+  const m = MODELES_FICHIERS[S.doc];
+  $("#lftitle").textContent = L(m.nom);
+  const ag = VIGILANCE[S.pays];
+  $("#lfsub").textContent = L([
+    `${nomPays(S.pays)} · autorité, activité et date du jour déjà en place — il ne manque que votre produit.`,
+    `${nomPays(S.pays)} · authority, activity and today's date already set — only your product is missing.`,
+  ]);
+
+  // Un champ par ligne à compléter du modèle (« Nom commercial : … »), plus la nature de la
+  // variation et le tableau PGHT. Les libellés VIENNENT des blocs : le formulaire ne peut pas
+  // diverger de la lettre servie.
+  let html = "";
+  blocs.forEach((b, i) => {
+    if (b.t === "li" && CHAMP_LIBRE.test(b.x)) {
+      const libelle = b.x.replace(CHAMP_LIBRE, "");
+      html += `<label class="lf-field"><span>${esc(libelle)}</span><input type="text" data-bloc="${i}" autocomplete="off" /></label>`;
+    }
+    if (b.t === "li" && /^<Nature/.test(b.x)) {
+      html += `<label class="lf-field lf-wide"><span>${esc(L(["Nature de la ou des modifications", "Nature of the change(s)"]))}</span><textarea rows="2" data-bloc="${i}"></textarea></label>`;
+    }
+    if (b.t === "table") {
+      const tetes = b.rows[0];
+      html += tetes
+        .map(
+          (t, c) =>
+            `<label class="lf-field"><span>${esc(t)}</span><input type="text" data-table="${i}" data-col="${c}" autocomplete="off" /></label>`,
+        )
+        .join("");
+    }
+  });
+  html += `<label class="lf-field"><span>${esc(L(["Poste du signataire", "Signatory position"]))}</span><input type="text" id="lf-poste" autocomplete="organization-title" /></label>`;
+  html += `<label class="lf-field"><span>${esc(L(["Nom et prénom(s)", "Full name"]))}</span><input type="text" id="lf-nom" autocomplete="name" /></label>`;
+  $("#lffields").innerHTML = html;
+  ouvrirModale("#letform", declencheur);
+}
+
+$("#genletbtn").addEventListener("click", () =>
+  ouvrirFormulaire($("#genletbtn")),
+);
+
+/** La date du jour, en toutes lettres dans la langue de la lettre (la lettre est française). */
+const dateDuJour = () =>
+  new Date().toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+let generation = false;
+$("#lfgo").addEventListener("click", async () => {
+  if (generation) return;
+  generation = true;
+  const bouton = $("#lfgo");
+  const libelle = bouton.textContent;
+  bouton.disabled = true;
+  bouton.textContent = L(["Génération…", "Generating…"]);
+  try {
+    const blocs = structuredClone(blocsLettre());
+    // Valeurs du formulaire injectées dans LES BLOCS MÊMES du modèle.
+    for (const inp of $("#lffields").querySelectorAll("[data-bloc]")) {
+      const b = blocs[Number(inp.dataset.bloc)];
+      const v = inp.value.trim();
+      if (!v) continue;
+      if (CHAMP_LIBRE.test(b.x)) b.x = b.x.replace(CHAMP_LIBRE, " : ") + v;
+      else b.x = v;
+    }
+    for (const inp of $("#lffields").querySelectorAll("[data-table]")) {
+      const b = blocs[Number(inp.dataset.table)];
+      const v = inp.value.trim();
+      if (v) b.rows[1][Number(inp.dataset.col)] = v;
+    }
+    const poste = $("#lf-poste").value.trim();
+    const nom = $("#lf-nom").value.trim();
+    for (const b of blocs) {
+      if (b.x === "Le {date}") b.x = `Le ${dateDuJour()}`;
+      if (b.x === "Poste" && poste) b.x = poste;
+      if (b.x === "Nom et Prénom(s)" && nom) b.x = nom;
+    }
+    const octets = await genererDocxLettre(blocs);
+    const a = document.createElement("a");
+    const url = URL.createObjectURL(
+      new Blob([octets], {
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      }),
+    );
+    a.href = url;
+    a.download = `${S.doc}-${S.pays}.docx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    fermerModale("#letform");
+    toast(
+      L([
+        "Votre lettre est prête — relisez-la, signez-la, déposez-la.",
+        "Your letter is ready — review it, sign it, file it.",
+      ]),
+    );
+  } catch (e) {
+    console.error("génération lettre", e);
+    toast(
+      L([
+        "La génération a échoué sur cet appareil — téléchargez le modèle et remplissez-le dans Word.",
+        "Generation failed on this device — download the template and fill it in Word.",
+      ]),
+    );
+  } finally {
+    generation = false;
+    bouton.disabled = false;
+    bouton.textContent = libelle;
+  }
+});
+
+/** Le DOCX, généré sur l'appareil avec la MÊME mise en page que le générateur des modèles
+ *  (Times 12, blocs décalés à 56 % alignés à gauche). Le moteur `docx` est chargé au premier
+ *  clic seulement — 358 Ko qu'un simple visiteur ne paie jamais. */
+async function genererDocxLettre(blocs) {
+  const d = await import("/vendor/docx.esm.js?v=1");
+  const INDENT = Math.round(16 * 0.56 * 567);
+  const enfants = blocs.map((b) => {
+    if (b.t === "table") {
+      return new d.Table({
+        width: { size: 100, type: d.WidthType.PERCENTAGE },
+        rows: b.rows.map(
+          (row, ri) =>
+            new d.TableRow({
+              children: row.map(
+                (cell) =>
+                  new d.TableCell({
+                    children: [
+                      new d.Paragraph({
+                        children: [
+                          new d.TextRun({
+                            text: String(cell),
+                            bold: ri === 0,
+                            size: 19,
+                            font: "Times New Roman",
+                          }),
+                        ],
+                      }),
+                    ],
+                  }),
+              ),
+            }),
+        ),
+      });
+    }
+    const gras = b.t === "h3" || b.t === "part" || b.t === "doctitle";
+    return new d.Paragraph({
+      alignment:
+        b.t === "part" || b.t === "doctitle"
+          ? d.AlignmentType.CENTER
+          : d.AlignmentType.LEFT,
+      indent: b.t === "right" ? { left: INDENT } : undefined,
+      bullet: b.t === "li" ? { level: 0 } : undefined,
+      spacing: { after: 120 },
+      children: [
+        new d.TextRun({
+          text: b.x ?? "",
+          bold: gras,
+          size: 24,
+          font: "Times New Roman",
+        }),
+      ],
+    });
+  });
+  const docx = new d.Document({
+    styles: {
+      default: { document: { run: { font: "Times New Roman", size: 24 } } },
+    },
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 },
+          },
+        },
+        children: enfants,
+      },
+    ],
+  });
+  return d.Packer.toBlob(docx);
+}
 
 /* ══════════════════ Démo — spécimen DEMOCILLINE, écrans réels ══════════════════ */
 
@@ -748,5 +1015,8 @@ $("#demoup").addEventListener("click", () => {
 });
 
 peindre();
+// Une lettre ne s'affiche qu'APRÈS le choix du pays et de l'activité (directive CEO) : le
+// préalable s'ouvre immédiatement, le lecteur attend derrière.
+if (estLettre() && !S.pays) ouvrirPrealable();
 purger().catch((e) => console.error("purge", e));
 reprendre().catch((e) => console.error("reprise", e));

@@ -20,7 +20,16 @@ import { DOCS, varieParPays } from '../../../scripts/lib/modeles-source.mjs'
 // Le manifeste est GÉNÉRÉ : TypeScript en infère un littéral aux huit clés pays connues, qu'on ne
 // peut pas indexer par une variable. On le relit une fois sous sa forme réelle — un enregistrement
 // dont les clés viennent du référentiel — plutôt que de caster à chaque accès.
-type Fichier = { pdf: string; zip: string; pages: number; octetsPdf: number; octetsZip: number }
+type Bloc0 = { t: string; x?: string; rows?: string[][] }
+type Fichier = {
+  pdf: string
+  zip: string
+  pages: number
+  octetsPdf: number
+  octetsZip: number
+  officiel?: boolean
+  blocs?: Bloc0[]
+}
 type Bloc = { t: string; x?: string; rows?: string[][] }
 type Manifeste = Record<
   string,
@@ -134,7 +143,7 @@ describe('manifeste et fichiers restent accordés', () => {
 
   it("le ZIP d'un document bilingue porte le FR et l'EN de courtoisie ; un formulaire OMS, un seul fichier", async () => {
     for (const [slug, m] of Object.entries(MANIFESTE)) {
-      const f = Object.values(m.fichiers)[0]!
+      const f = Object.values(m.fichiers).find((x) => !x.officiel)!
       const zip = await JSZip.loadAsync(fs.readFileSync(chemin(f.zip)))
       const noms = Object.keys(zip.files)
       if (m.bilingue) {
@@ -250,7 +259,7 @@ describe('les neuf documents, groupés comme sur la page', () => {
 describe("les lettres sont adressées à l'autorité du pays — le référentiel du builder", () => {
   it("portent la civilité, l'agence et l'adresse du pays servi, jamais celles d'un autre", async () => {
     const attendu: Record<string, [string, string]> = {
-      bj: ['Agence Béninoise du Médicament', 'Monsieur le Directeur Général'],
+      ci: ['Autorité Ivoirienne de Régulation Pharmaceutique', 'Monsieur le Directeur Général'],
       sn: ['Agence Sénégalaise de Réglementation Pharmaceutique', 'Madame la Directrice Générale'],
     }
     for (const slug of [
@@ -267,20 +276,20 @@ describe("les lettres sont adressées à l'autorité du pays — le référentie
       }
       // Servir la lettre d'un pays avec l'agence d'un autre enverrait un courrier réel au
       // mauvais destinataire : le croisement est vérifié, pas seulement la présence.
-      const bj = await texteDocx(fichierDe(slug, 'bj').zip)
-      expect(bj, slug).not.toContain('Agence Sénégalaise')
+      const ci = await texteDocx(fichierDe(slug, 'ci').zip)
+      expect(ci, slug).not.toContain('Agence Sénégalaise')
     }
   })
 
   it('suivent la mise en page du moteur de lettres du builder : Times New Roman', async () => {
-    const docx = await docxDuZip(fichierDe('lettre-demande', 'bj').zip)
+    const docx = await docxDuZip(fichierDe('lettre-demande', 'sn').zip)
     const zip = await JSZip.loadAsync(docx)
     const xml = await zip.file('word/document.xml')!.async('string')
     expect(xml).toContain('Times New Roman')
   })
 
   it('la lettre PGHT porte son tableau à quatre colonnes', async () => {
-    const docx = await docxDuZip(fichierDe('lettre-pght', 'bj').zip)
+    const docx = await docxDuZip(fichierDe('lettre-pght', 'sn').zip)
     const zip = await JSZip.loadAsync(docx)
     const xml = await zip.file('word/document.xml')!.async('string')
     expect(xml).toContain('<w:tbl>')
@@ -297,7 +306,7 @@ describe("les lettres sont adressées à l'autorité du pays — le référentie
       'lettre-pght': 'Objet : Attestation de PGHT',
     }
     for (const [slug, objet] of Object.entries(attendus)) {
-      expect(await texteDocx(fichierDe(slug, 'bj').zip), slug).toContain(objet)
+      expect(await texteDocx(fichierDe(slug, 'sn').zip), slug).toContain(objet)
     }
   })
 })
@@ -306,6 +315,7 @@ describe('le document reste un document officiel', () => {
   it("ne porte aucune marque Pharnos — il repart dans un dossier d'AMM", async () => {
     for (const [slug, m] of Object.entries(MANIFESTE)) {
       for (const [k, f] of Object.entries(m.fichiers)) {
+        if (f.officiel) continue // le document de l'autorité, servi tel quel
         const texte = await texteDocx(f.zip)
         expect(texte, `${slug}/${k}`).not.toMatch(/pharnos|regafy/i)
       }
@@ -335,5 +345,49 @@ describe('le document reste un document officiel', () => {
     expect(texte).toContain("MENTIONS DEVANT FIGURER SUR L'EMBALLAGE EXTERIEUR")
     expect(texte).toContain('PLAQUETTES OU LES FILMS THERMOSOUDES')
     expect(texte).toContain('PETITS CONDITIONNEMENTS PRIMAIRES')
+  })
+})
+
+describe('lettres v3 — directives CEO du 31/07/2026', () => {
+  it("le Bénin reçoit SON modèle officiel TEL QUEL, à l'octet près", () => {
+    const f = fichierDe('lettre-demande', 'bj')
+    expect(f.officiel).toBe(true)
+    const servi = fs.readFileSync(chemin(f.pdf))
+    const source = fs.readFileSync(
+      path.resolve(
+        LANDING,
+        '../RA-source/Template/Cover Lettre/Benin_Cover letter_template official_ABMed.pdf',
+      ),
+    )
+    expect(servi.equals(source)).toBe(true)
+    // Et rien n'est fabriqué autour : le zip ne contient que le PDF officiel.
+    expect(f.blocs).toBeUndefined()
+  })
+
+  it('aucune lettre générée ne porte de case ville ni de « Madame / Monsieur »', () => {
+    for (const slug of [
+      'lettre-demande',
+      'lettre-renouvellement',
+      'lettre-variation',
+      'lettre-pght',
+    ]) {
+      for (const [k, f] of Object.entries(docDe(slug).fichiers)) {
+        if (f.officiel) continue
+        const texte = (f.blocs ?? []).map((b) => b.x ?? '').join('\n')
+        expect(texte, `${slug}/${k}`).not.toContain('{Ville}')
+        expect(texte, `${slug}/${k}`).not.toMatch(/Madame \/ Monsieur|Monsieur \/ Madame/)
+        // La clôture porte la CIVILITÉ du pays — le pays suffit à identifier l'autorité.
+        expect(texte, `${slug}/${k}`).toMatch(/Directeur Général|Directrice Générale/)
+      }
+    }
+  })
+
+  it('les blocs embarqués sont EXACTEMENT la lettre servie — le formulaire ne peut pas diverger', async () => {
+    const f = fichierDe('lettre-demande', 'sn')
+    expect(f.blocs!.length).toBeGreaterThan(10)
+    const texte = await texteDocx(f.zip)
+    for (const b of f.blocs!) {
+      if (b.x && b.t !== 'table') expect(texte, b.x.slice(0, 40)).toContain(b.x)
+    }
   })
 })

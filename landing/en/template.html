@@ -145,6 +145,15 @@
           </div>
         </div>
 
+        <div class="rail-card" id="genlet" hidden="">
+          <h2 data-fr="Votre lettre, prête à signer">Your letter, ready to sign</h2>
+          <p class="rc-sub" data-fr="Le modèle est déjà rempli : autorité, activité, date du jour. Ajoutez vos informations produit — le Word conforme est à vous en une minute.">The template is filled with your authority, activity and today’s date. Add your product details — the compliant Word file is yours in a minute.</p>
+          <div class="stack">
+            <button class="btn btn-primary btn-block" type="button" id="genletbtn" data-fr="Générer ma lettre">Generate my letter</button>
+          </div>
+          <p class="mfoot-note" data-fr="Générée sur votre appareil — rien ne nous est transmis.">Generated on your device — nothing is sent to us.</p>
+        </div>
+
         <div class="rail-card" id="inf" hidden="">
           <h2><span class="badge b-free" data-fr="Gratuit">Free</span> <span data-fr="Modèle officiel">Official template</span></h2>
           <p class="rc-sub" id="infsub"></p>
@@ -288,6 +297,48 @@
       <button class="linklike" type="button" id="bxretour" data-fr="← Retour">← Back</button>
     </div>
   </aside>
+</div>
+
+<!-- ══ Popup PRÉALABLE des lettres : pays et activité AVANT l'affichage du template ══ -->
+<div class="modal-back" id="prem">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="premtitle">
+    <div class="mkick" data-fr="Lettre réglementaire">Regulatory letter</div>
+    <h3 id="premtitle" data-fr="Deux choix, et votre lettre prend forme">Two choices, and your letter takes shape</h3>
+    <p class="mdesc" data-fr="La lettre s'adresse à l'autorité de votre pays et s'écrit selon votre activité — choisissez les deux, nous remplissons le reste.">The letter is addressed to your country’s authority and worded for your activity — choose both, we fill in the rest.</p>
+
+    <div class="mfield">
+      <label class="mlab" for="prempays" data-fr="Pays de dépôt">Country of filing</label>
+      <select id="prempays"></select>
+    </div>
+    <div class="mfield">
+      <span class="mlab" id="premactlab" data-fr="Activité réglementaire">Regulatory activity</span>
+      <div class="chips chips-3" role="radiogroup" aria-labelledby="premactlab" id="premact">
+        <button class="chip" type="button" role="radio" aria-checked="false" data-v="enr" data-fr="Enregistrement">Registration</button>
+        <button class="chip" type="button" role="radio" aria-checked="false" data-v="renouv" data-fr="Renouvellement">Renewal</button>
+        <button class="chip" type="button" role="radio" aria-checked="false" data-v="variation" data-fr="Variation">Variation</button>
+      </div>
+    </div>
+
+    <div class="mfield stack">
+      <button class="btn btn-primary btn-block" type="button" id="premgo" data-fr="Afficher ma lettre">Show my letter</button>
+      <a class="linklike" id="premretour" href="/en/regulatory-library" data-fr="← Retour à la bibliothèque">← Back to the library</a>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Formulaire « Générer ma lettre » — rempli sur place, DOCX conforme, généré sur l'appareil ══ -->
+<div class="modal-back" id="letform">
+  <div class="modal letmodal" role="dialog" aria-modal="true" aria-labelledby="lftitle">
+    <button class="mclose" type="button" id="lfclose" aria-label="Close" data-fr-al="Fermer">×</button>
+    <div class="mkick" data-fr="Générer ma lettre">Generate my letter</div>
+    <h3 id="lftitle"></h3>
+    <p class="mdesc" id="lfsub"></p>
+    <form id="lffields" class="lf-grid"></form>
+    <div class="mfield stack">
+      <button class="btn btn-primary btn-block" type="button" id="lfgo" data-fr="Télécharger ma lettre (Word)">Download my letter (Word)</button>
+      <p class="mfoot-note" data-fr="Générée sur votre appareil — vos informations produit ne nous sont jamais transmises.">Generated on your device — your product details are never sent to us.</p>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>

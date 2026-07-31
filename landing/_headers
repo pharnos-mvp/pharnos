@@ -37,6 +37,11 @@
 /modele.js
   Cache-Control: public, max-age=300
 
+# Bundle navigateur de `docx` (généré par build-landing-vendor.mjs) — importé en `import()`
+# paresseux par modele.js avec un `?v=` : le contenu ne change qu'avec la version de la lib.
+/vendor/*
+  Cache-Control: public, max-age=86400
+
 # Modèles officiels servis par la Bibliothèque réglementaire (PDF + DOCX générés).
 #
 # LE VOLET GAUCHE DU LECTEUR EST UN <iframe> VERS CES PDF, servi par le lecteur natif du

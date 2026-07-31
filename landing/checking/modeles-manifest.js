@@ -5,7 +5,7 @@
  * `zip` est le téléchargement (DOCX français + DOCX anglais de courtoisie quand `bilingue`) ;
  * `pdf` est l'aperçu du lecteur. `perPays: false` = un seul fichier pour les huit pays.
  */
-export const MODELES_VERSION = "2026.3"
+export const MODELES_VERSION = "2026.4"
 
 export const MODELES_FICHIERS = {
   "rcp": {
@@ -372,7 +372,7 @@ export const MODELES_FICHIERS = {
     "apercu": [
       {
         "t": "right",
-        "x": "{Ville}, le {date}"
+        "x": "Le {date}"
       },
       {
         "t": "right",
@@ -428,7 +428,7 @@ export const MODELES_FICHIERS = {
       },
       {
         "t": "p",
-        "x": "Nous vous prions d'agréer, Madame / Monsieur, l'expression de notre sincère collaboration."
+        "x": "Nous vous prions d'agréer, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
       },
       {
         "t": "right",
@@ -440,57 +440,576 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-demande-bj.pdf",
         "zip": "/modeles/lettre-demande-bj.zip",
         "pages": 1,
-        "octetsPdf": 2198,
-        "octetsZip": 15065
+        "octetsPdf": 123747,
+        "octetsZip": 93664,
+        "officiel": true
       },
       "bf": {
         "pdf": "/modeles/lettre-demande-bf.pdf",
         "zip": "/modeles/lettre-demande-bf.zip",
         "pages": 1,
-        "octetsPdf": 2200,
-        "octetsZip": 15044
+        "octetsPdf": 2211,
+        "octetsZip": 15019,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Agence Nationale de Régulation Pharmaceutique (ANRP)"
+          },
+          {
+            "t": "right",
+            "x": "Ouagadougou, 01 BP 7009"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Demande d'enregistrement d'AMM du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous avons l'honneur de soumettre à votre haute bienveillance, le dossier de demande d'autorisation de mise sur le marché (AMM) pour notre spécialité pharmaceutique suivante :"
+          },
+          {
+            "t": "li",
+            "x": "Nom commercial : …"
+          },
+          {
+            "t": "li",
+            "x": "DCI et dosage : …"
+          },
+          {
+            "t": "li",
+            "x": "Forme et présentation : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du demandeur d'AMM : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du fabricant : …"
+          },
+          {
+            "t": "p",
+            "x": "Le dossier technique ci-joint a été constitué en conformité avec les directives de l'UEMOA et les exigences spécifiques de votre Agence. Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Nous vous prions d'agréer, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "ci": {
         "pdf": "/modeles/lettre-demande-ci.pdf",
         "zip": "/modeles/lettre-demande-ci.zip",
         "pages": 1,
-        "octetsPdf": 2196,
-        "octetsZip": 15040
+        "octetsPdf": 2206,
+        "octetsZip": 15016,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Autorité Ivoirienne de Régulation Pharmaceutique (AIRP)"
+          },
+          {
+            "t": "right",
+            "x": "Abidjan, Cocody"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Demande d'enregistrement d'AMM du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous avons l'honneur de soumettre à votre haute bienveillance, le dossier de demande d'autorisation de mise sur le marché (AMM) pour notre spécialité pharmaceutique suivante :"
+          },
+          {
+            "t": "li",
+            "x": "Nom commercial : …"
+          },
+          {
+            "t": "li",
+            "x": "DCI et dosage : …"
+          },
+          {
+            "t": "li",
+            "x": "Forme et présentation : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du demandeur d'AMM : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du fabricant : …"
+          },
+          {
+            "t": "p",
+            "x": "Le dossier technique ci-joint a été constitué en conformité avec les directives de l'UEMOA et les exigences spécifiques de votre Agence. Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Nous vous prions d'agréer, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "gw": {
         "pdf": "/modeles/lettre-demande-gw.pdf",
         "zip": "/modeles/lettre-demande-gw.zip",
         "pages": 1,
-        "octetsPdf": 2230,
-        "octetsZip": 15104
+        "octetsPdf": 2241,
+        "octetsZip": 15077,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Direção dos Serviços de Farmácia e Medicamentos (DIFALRM)"
+          },
+          {
+            "t": "right",
+            "x": "Bissau, Ministère de la Santé Publique"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Demande d'enregistrement d'AMM du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous avons l'honneur de soumettre à votre haute bienveillance, le dossier de demande d'autorisation de mise sur le marché (AMM) pour notre spécialité pharmaceutique suivante :"
+          },
+          {
+            "t": "li",
+            "x": "Nom commercial : …"
+          },
+          {
+            "t": "li",
+            "x": "DCI et dosage : …"
+          },
+          {
+            "t": "li",
+            "x": "Forme et présentation : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du demandeur d'AMM : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du fabricant : …"
+          },
+          {
+            "t": "p",
+            "x": "Le dossier technique ci-joint a été constitué en conformité avec les directives de l'UEMOA et les exigences spécifiques de votre Agence. Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Nous vous prions d'agréer, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "ml": {
         "pdf": "/modeles/lettre-demande-ml.pdf",
         "zip": "/modeles/lettre-demande-ml.zip",
         "pages": 1,
-        "octetsPdf": 2184,
-        "octetsZip": 15010
+        "octetsPdf": 2195,
+        "octetsZip": 14988,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Direction de la Pharmacie et du Médicament (DPM)"
+          },
+          {
+            "t": "right",
+            "x": "Bamako, Darsalam, BPE 5202"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Demande d'enregistrement d'AMM du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous avons l'honneur de soumettre à votre haute bienveillance, le dossier de demande d'autorisation de mise sur le marché (AMM) pour notre spécialité pharmaceutique suivante :"
+          },
+          {
+            "t": "li",
+            "x": "Nom commercial : …"
+          },
+          {
+            "t": "li",
+            "x": "DCI et dosage : …"
+          },
+          {
+            "t": "li",
+            "x": "Forme et présentation : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du demandeur d'AMM : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du fabricant : …"
+          },
+          {
+            "t": "p",
+            "x": "Le dossier technique ci-joint a été constitué en conformité avec les directives de l'UEMOA et les exigences spécifiques de votre Agence. Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Nous vous prions d'agréer, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "ne": {
         "pdf": "/modeles/lettre-demande-ne.pdf",
         "zip": "/modeles/lettre-demande-ne.zip",
         "pages": 1,
-        "octetsPdf": 2199,
-        "octetsZip": 15044
+        "octetsPdf": 2209,
+        "octetsZip": 15009,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Direction de la Pharmacie et de la Médecine Traditionnelle (DPM/MT)"
+          },
+          {
+            "t": "right",
+            "x": "Niamey, Ministère de la Santé"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Demande d'enregistrement d'AMM du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous avons l'honneur de soumettre à votre haute bienveillance, le dossier de demande d'autorisation de mise sur le marché (AMM) pour notre spécialité pharmaceutique suivante :"
+          },
+          {
+            "t": "li",
+            "x": "Nom commercial : …"
+          },
+          {
+            "t": "li",
+            "x": "DCI et dosage : …"
+          },
+          {
+            "t": "li",
+            "x": "Forme et présentation : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du demandeur d'AMM : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du fabricant : …"
+          },
+          {
+            "t": "p",
+            "x": "Le dossier technique ci-joint a été constitué en conformité avec les directives de l'UEMOA et les exigences spécifiques de votre Agence. Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Nous vous prions d'agréer, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "sn": {
         "pdf": "/modeles/lettre-demande-sn.pdf",
         "zip": "/modeles/lettre-demande-sn.zip",
         "pages": 1,
-        "octetsPdf": 2189,
-        "octetsZip": 15044
+        "octetsPdf": 2200,
+        "octetsZip": 15015,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Agence Sénégalaise de Réglementation Pharmaceutique (ARP)"
+          },
+          {
+            "t": "right",
+            "x": "Dakar, Point E, Rue A x Rue 6"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Demande d'enregistrement d'AMM du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous avons l'honneur de soumettre à votre haute bienveillance, le dossier de demande d'autorisation de mise sur le marché (AMM) pour notre spécialité pharmaceutique suivante :"
+          },
+          {
+            "t": "li",
+            "x": "Nom commercial : …"
+          },
+          {
+            "t": "li",
+            "x": "DCI et dosage : …"
+          },
+          {
+            "t": "li",
+            "x": "Forme et présentation : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du demandeur d'AMM : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du fabricant : …"
+          },
+          {
+            "t": "p",
+            "x": "Le dossier technique ci-joint a été constitué en conformité avec les directives de l'UEMOA et les exigences spécifiques de votre Agence. Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Nous vous prions d'agréer, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "tg": {
         "pdf": "/modeles/lettre-demande-tg.pdf",
         "zip": "/modeles/lettre-demande-tg.zip",
         "pages": 1,
-        "octetsPdf": 2199,
-        "octetsZip": 15047
+        "octetsPdf": 2208,
+        "octetsZip": 15003,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Direction de la Pharmacie, du Médicament et des Laboratoires (DPML)"
+          },
+          {
+            "t": "right",
+            "x": "Lomé, Avenue du 2 Février"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Demande d'enregistrement d'AMM du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous avons l'honneur de soumettre à votre haute bienveillance, le dossier de demande d'autorisation de mise sur le marché (AMM) pour notre spécialité pharmaceutique suivante :"
+          },
+          {
+            "t": "li",
+            "x": "Nom commercial : …"
+          },
+          {
+            "t": "li",
+            "x": "DCI et dosage : …"
+          },
+          {
+            "t": "li",
+            "x": "Forme et présentation : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du demandeur d'AMM : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du fabricant : …"
+          },
+          {
+            "t": "p",
+            "x": "Le dossier technique ci-joint a été constitué en conformité avec les directives de l'UEMOA et les exigences spécifiques de votre Agence. Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Nous vous prions d'agréer, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       }
     }
   },
@@ -518,7 +1037,7 @@ export const MODELES_FICHIERS = {
     "apercu": [
       {
         "t": "right",
-        "x": "{Ville}, le {date}"
+        "x": "Le {date}"
       },
       {
         "t": "right",
@@ -586,57 +1105,713 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-renouvellement-bj.pdf",
         "zip": "/modeles/lettre-renouvellement-bj.zip",
         "pages": 1,
-        "octetsPdf": 2322,
-        "octetsZip": 15175
+        "octetsPdf": 2332,
+        "octetsZip": 15145,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Agence Béninoise du Médicament et des autres produits de santé (ABMed)"
+          },
+          {
+            "t": "right",
+            "x": "Cotonou, Zone résidentielle"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Demande de renouvellement d'AMM du produit …"
+          },
+          {
+            "t": "h3",
+            "x": "Réf. : AMM n° … du {date d'octroi}"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous avons l'honneur de soumettre à votre haute bienveillance, le dossier de demande de renouvellement de l'autorisation de mise sur le marché (AMM) pour notre spécialité pharmaceutique suivante :"
+          },
+          {
+            "t": "li",
+            "x": "Nom commercial : …"
+          },
+          {
+            "t": "li",
+            "x": "DCI et dosage : …"
+          },
+          {
+            "t": "li",
+            "x": "Forme et présentation : …"
+          },
+          {
+            "t": "li",
+            "x": "N° d'AMM et date d'octroi : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du titulaire de l'AMM : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du fabricant : …"
+          },
+          {
+            "t": "p",
+            "x": "Le dossier technique ci-joint a été constitué en conformité avec les directives de l'UEMOA et les exigences spécifiques de votre Agence. Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Nous vous prions d'agréer, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "bf": {
         "pdf": "/modeles/lettre-renouvellement-bf.pdf",
         "zip": "/modeles/lettre-renouvellement-bf.zip",
         "pages": 1,
-        "octetsPdf": 2317,
-        "octetsZip": 15159
+        "octetsPdf": 2331,
+        "octetsZip": 15130,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Agence Nationale de Régulation Pharmaceutique (ANRP)"
+          },
+          {
+            "t": "right",
+            "x": "Ouagadougou, 01 BP 7009"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Demande de renouvellement d'AMM du produit …"
+          },
+          {
+            "t": "h3",
+            "x": "Réf. : AMM n° … du {date d'octroi}"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous avons l'honneur de soumettre à votre haute bienveillance, le dossier de demande de renouvellement de l'autorisation de mise sur le marché (AMM) pour notre spécialité pharmaceutique suivante :"
+          },
+          {
+            "t": "li",
+            "x": "Nom commercial : …"
+          },
+          {
+            "t": "li",
+            "x": "DCI et dosage : …"
+          },
+          {
+            "t": "li",
+            "x": "Forme et présentation : …"
+          },
+          {
+            "t": "li",
+            "x": "N° d'AMM et date d'octroi : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du titulaire de l'AMM : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du fabricant : …"
+          },
+          {
+            "t": "p",
+            "x": "Le dossier technique ci-joint a été constitué en conformité avec les directives de l'UEMOA et les exigences spécifiques de votre Agence. Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Nous vous prions d'agréer, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "ci": {
         "pdf": "/modeles/lettre-renouvellement-ci.pdf",
         "zip": "/modeles/lettre-renouvellement-ci.zip",
         "pages": 1,
-        "octetsPdf": 2315,
-        "octetsZip": 15170
+        "octetsPdf": 2326,
+        "octetsZip": 15142,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Autorité Ivoirienne de Régulation Pharmaceutique (AIRP)"
+          },
+          {
+            "t": "right",
+            "x": "Abidjan, Cocody"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Demande de renouvellement d'AMM du produit …"
+          },
+          {
+            "t": "h3",
+            "x": "Réf. : AMM n° … du {date d'octroi}"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous avons l'honneur de soumettre à votre haute bienveillance, le dossier de demande de renouvellement de l'autorisation de mise sur le marché (AMM) pour notre spécialité pharmaceutique suivante :"
+          },
+          {
+            "t": "li",
+            "x": "Nom commercial : …"
+          },
+          {
+            "t": "li",
+            "x": "DCI et dosage : …"
+          },
+          {
+            "t": "li",
+            "x": "Forme et présentation : …"
+          },
+          {
+            "t": "li",
+            "x": "N° d'AMM et date d'octroi : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du titulaire de l'AMM : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du fabricant : …"
+          },
+          {
+            "t": "p",
+            "x": "Le dossier technique ci-joint a été constitué en conformité avec les directives de l'UEMOA et les exigences spécifiques de votre Agence. Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Nous vous prions d'agréer, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "gw": {
         "pdf": "/modeles/lettre-renouvellement-gw.pdf",
         "zip": "/modeles/lettre-renouvellement-gw.zip",
         "pages": 1,
-        "octetsPdf": 2347,
-        "octetsZip": 15221
+        "octetsPdf": 2363,
+        "octetsZip": 15198,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Direção dos Serviços de Farmácia e Medicamentos (DIFALRM)"
+          },
+          {
+            "t": "right",
+            "x": "Bissau, Ministère de la Santé Publique"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Demande de renouvellement d'AMM du produit …"
+          },
+          {
+            "t": "h3",
+            "x": "Réf. : AMM n° … du {date d'octroi}"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous avons l'honneur de soumettre à votre haute bienveillance, le dossier de demande de renouvellement de l'autorisation de mise sur le marché (AMM) pour notre spécialité pharmaceutique suivante :"
+          },
+          {
+            "t": "li",
+            "x": "Nom commercial : …"
+          },
+          {
+            "t": "li",
+            "x": "DCI et dosage : …"
+          },
+          {
+            "t": "li",
+            "x": "Forme et présentation : …"
+          },
+          {
+            "t": "li",
+            "x": "N° d'AMM et date d'octroi : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du titulaire de l'AMM : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du fabricant : …"
+          },
+          {
+            "t": "p",
+            "x": "Le dossier technique ci-joint a été constitué en conformité avec les directives de l'UEMOA et les exigences spécifiques de votre Agence. Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Nous vous prions d'agréer, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "ml": {
         "pdf": "/modeles/lettre-renouvellement-ml.pdf",
         "zip": "/modeles/lettre-renouvellement-ml.zip",
         "pages": 1,
-        "octetsPdf": 2303,
-        "octetsZip": 15122
+        "octetsPdf": 2316,
+        "octetsZip": 15088,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Direction de la Pharmacie et du Médicament (DPM)"
+          },
+          {
+            "t": "right",
+            "x": "Bamako, Darsalam, BPE 5202"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Demande de renouvellement d'AMM du produit …"
+          },
+          {
+            "t": "h3",
+            "x": "Réf. : AMM n° … du {date d'octroi}"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous avons l'honneur de soumettre à votre haute bienveillance, le dossier de demande de renouvellement de l'autorisation de mise sur le marché (AMM) pour notre spécialité pharmaceutique suivante :"
+          },
+          {
+            "t": "li",
+            "x": "Nom commercial : …"
+          },
+          {
+            "t": "li",
+            "x": "DCI et dosage : …"
+          },
+          {
+            "t": "li",
+            "x": "Forme et présentation : …"
+          },
+          {
+            "t": "li",
+            "x": "N° d'AMM et date d'octroi : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du titulaire de l'AMM : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du fabricant : …"
+          },
+          {
+            "t": "p",
+            "x": "Le dossier technique ci-joint a été constitué en conformité avec les directives de l'UEMOA et les exigences spécifiques de votre Agence. Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Nous vous prions d'agréer, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "ne": {
         "pdf": "/modeles/lettre-renouvellement-ne.pdf",
         "zip": "/modeles/lettre-renouvellement-ne.zip",
         "pages": 1,
-        "octetsPdf": 2317,
-        "octetsZip": 15152
+        "octetsPdf": 2327,
+        "octetsZip": 15125,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Direction de la Pharmacie et de la Médecine Traditionnelle (DPM/MT)"
+          },
+          {
+            "t": "right",
+            "x": "Niamey, Ministère de la Santé"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Demande de renouvellement d'AMM du produit …"
+          },
+          {
+            "t": "h3",
+            "x": "Réf. : AMM n° … du {date d'octroi}"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous avons l'honneur de soumettre à votre haute bienveillance, le dossier de demande de renouvellement de l'autorisation de mise sur le marché (AMM) pour notre spécialité pharmaceutique suivante :"
+          },
+          {
+            "t": "li",
+            "x": "Nom commercial : …"
+          },
+          {
+            "t": "li",
+            "x": "DCI et dosage : …"
+          },
+          {
+            "t": "li",
+            "x": "Forme et présentation : …"
+          },
+          {
+            "t": "li",
+            "x": "N° d'AMM et date d'octroi : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du titulaire de l'AMM : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du fabricant : …"
+          },
+          {
+            "t": "p",
+            "x": "Le dossier technique ci-joint a été constitué en conformité avec les directives de l'UEMOA et les exigences spécifiques de votre Agence. Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Nous vous prions d'agréer, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "sn": {
         "pdf": "/modeles/lettre-renouvellement-sn.pdf",
         "zip": "/modeles/lettre-renouvellement-sn.zip",
         "pages": 1,
-        "octetsPdf": 2312,
-        "octetsZip": 15153
+        "octetsPdf": 2324,
+        "octetsZip": 15129,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Agence Sénégalaise de Réglementation Pharmaceutique (ARP)"
+          },
+          {
+            "t": "right",
+            "x": "Dakar, Point E, Rue A x Rue 6"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Demande de renouvellement d'AMM du produit …"
+          },
+          {
+            "t": "h3",
+            "x": "Réf. : AMM n° … du {date d'octroi}"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous avons l'honneur de soumettre à votre haute bienveillance, le dossier de demande de renouvellement de l'autorisation de mise sur le marché (AMM) pour notre spécialité pharmaceutique suivante :"
+          },
+          {
+            "t": "li",
+            "x": "Nom commercial : …"
+          },
+          {
+            "t": "li",
+            "x": "DCI et dosage : …"
+          },
+          {
+            "t": "li",
+            "x": "Forme et présentation : …"
+          },
+          {
+            "t": "li",
+            "x": "N° d'AMM et date d'octroi : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du titulaire de l'AMM : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du fabricant : …"
+          },
+          {
+            "t": "p",
+            "x": "Le dossier technique ci-joint a été constitué en conformité avec les directives de l'UEMOA et les exigences spécifiques de votre Agence. Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Nous vous prions d'agréer, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "tg": {
         "pdf": "/modeles/lettre-renouvellement-tg.pdf",
         "zip": "/modeles/lettre-renouvellement-tg.zip",
         "pages": 1,
-        "octetsPdf": 2319,
-        "octetsZip": 15150
+        "octetsPdf": 2330,
+        "octetsZip": 15122,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Direction de la Pharmacie, du Médicament et des Laboratoires (DPML)"
+          },
+          {
+            "t": "right",
+            "x": "Lomé, Avenue du 2 Février"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Demande de renouvellement d'AMM du produit …"
+          },
+          {
+            "t": "h3",
+            "x": "Réf. : AMM n° … du {date d'octroi}"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous avons l'honneur de soumettre à votre haute bienveillance, le dossier de demande de renouvellement de l'autorisation de mise sur le marché (AMM) pour notre spécialité pharmaceutique suivante :"
+          },
+          {
+            "t": "li",
+            "x": "Nom commercial : …"
+          },
+          {
+            "t": "li",
+            "x": "DCI et dosage : …"
+          },
+          {
+            "t": "li",
+            "x": "Forme et présentation : …"
+          },
+          {
+            "t": "li",
+            "x": "N° d'AMM et date d'octroi : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du titulaire de l'AMM : …"
+          },
+          {
+            "t": "li",
+            "x": "Nom et adresse du fabricant : …"
+          },
+          {
+            "t": "p",
+            "x": "Le dossier technique ci-joint a été constitué en conformité avec les directives de l'UEMOA et les exigences spécifiques de votre Agence. Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Nous vous prions d'agréer, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       }
     }
   },
@@ -664,7 +1839,7 @@ export const MODELES_FICHIERS = {
     "apercu": [
       {
         "t": "right",
-        "x": "{Ville}, le {date}"
+        "x": "Le {date}"
       },
       {
         "t": "right",
@@ -720,7 +1895,7 @@ export const MODELES_FICHIERS = {
       },
       {
         "t": "p",
-        "x": "Nous vous prions d'agréer, Madame / Monsieur, l'expression de notre sincère collaboration."
+        "x": "Nous vous prions d'agréer, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
       },
       {
         "t": "right",
@@ -732,57 +1907,649 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-variation-bj.pdf",
         "zip": "/modeles/lettre-variation-bj.zip",
         "pages": 1,
-        "octetsPdf": 2228,
-        "octetsZip": 15086
+        "octetsPdf": 2233,
+        "octetsZip": 15059,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Agence Béninoise du Médicament et des autres produits de santé (ABMed)"
+          },
+          {
+            "t": "right",
+            "x": "Cotonou, Zone résidentielle"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Demande de variation <mineure> <majeure> de l'AMM du produit …"
+          },
+          {
+            "t": "h3",
+            "x": "Réf. : AMM n° … du {date d'octroi}"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous avons l'honneur de soumettre à votre haute bienveillance une demande de variation de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique, identifiée comme suit :"
+          },
+          {
+            "t": "li",
+            "x": "Nom commercial : …"
+          },
+          {
+            "t": "li",
+            "x": "DCI : …"
+          },
+          {
+            "t": "p",
+            "x": "La (les) variation(s) sollicitée(s) porte(nt) sur :"
+          },
+          {
+            "t": "li",
+            "x": "<Nature de la modification>"
+          },
+          {
+            "t": "p",
+            "x": "Le tableau comparatif « avant / après » et les pièces justificatives correspondantes sont joints en annexe."
+          },
+          {
+            "t": "p",
+            "x": "Nous vous prions d'agréer, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "bf": {
         "pdf": "/modeles/lettre-variation-bf.pdf",
         "zip": "/modeles/lettre-variation-bf.zip",
         "pages": 1,
-        "octetsPdf": 2233,
-        "octetsZip": 15057
+        "octetsPdf": 2237,
+        "octetsZip": 15039,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Agence Nationale de Régulation Pharmaceutique (ANRP)"
+          },
+          {
+            "t": "right",
+            "x": "Ouagadougou, 01 BP 7009"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Demande de variation <mineure> <majeure> de l'AMM du produit …"
+          },
+          {
+            "t": "h3",
+            "x": "Réf. : AMM n° … du {date d'octroi}"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous avons l'honneur de soumettre à votre haute bienveillance une demande de variation de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique, identifiée comme suit :"
+          },
+          {
+            "t": "li",
+            "x": "Nom commercial : …"
+          },
+          {
+            "t": "li",
+            "x": "DCI : …"
+          },
+          {
+            "t": "p",
+            "x": "La (les) variation(s) sollicitée(s) porte(nt) sur :"
+          },
+          {
+            "t": "li",
+            "x": "<Nature de la modification>"
+          },
+          {
+            "t": "p",
+            "x": "Le tableau comparatif « avant / après » et les pièces justificatives correspondantes sont joints en annexe."
+          },
+          {
+            "t": "p",
+            "x": "Nous vous prions d'agréer, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "ci": {
         "pdf": "/modeles/lettre-variation-ci.pdf",
         "zip": "/modeles/lettre-variation-ci.zip",
         "pages": 1,
-        "octetsPdf": 2223,
-        "octetsZip": 15072
+        "octetsPdf": 2227,
+        "octetsZip": 15044,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Autorité Ivoirienne de Régulation Pharmaceutique (AIRP)"
+          },
+          {
+            "t": "right",
+            "x": "Abidjan, Cocody"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Demande de variation <mineure> <majeure> de l'AMM du produit …"
+          },
+          {
+            "t": "h3",
+            "x": "Réf. : AMM n° … du {date d'octroi}"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous avons l'honneur de soumettre à votre haute bienveillance une demande de variation de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique, identifiée comme suit :"
+          },
+          {
+            "t": "li",
+            "x": "Nom commercial : …"
+          },
+          {
+            "t": "li",
+            "x": "DCI : …"
+          },
+          {
+            "t": "p",
+            "x": "La (les) variation(s) sollicitée(s) porte(nt) sur :"
+          },
+          {
+            "t": "li",
+            "x": "<Nature de la modification>"
+          },
+          {
+            "t": "p",
+            "x": "Le tableau comparatif « avant / après » et les pièces justificatives correspondantes sont joints en annexe."
+          },
+          {
+            "t": "p",
+            "x": "Nous vous prions d'agréer, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "gw": {
         "pdf": "/modeles/lettre-variation-gw.pdf",
         "zip": "/modeles/lettre-variation-gw.zip",
         "pages": 1,
-        "octetsPdf": 2248,
-        "octetsZip": 15123
+        "octetsPdf": 2258,
+        "octetsZip": 15091,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Direção dos Serviços de Farmácia e Medicamentos (DIFALRM)"
+          },
+          {
+            "t": "right",
+            "x": "Bissau, Ministère de la Santé Publique"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Demande de variation <mineure> <majeure> de l'AMM du produit …"
+          },
+          {
+            "t": "h3",
+            "x": "Réf. : AMM n° … du {date d'octroi}"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous avons l'honneur de soumettre à votre haute bienveillance une demande de variation de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique, identifiée comme suit :"
+          },
+          {
+            "t": "li",
+            "x": "Nom commercial : …"
+          },
+          {
+            "t": "li",
+            "x": "DCI : …"
+          },
+          {
+            "t": "p",
+            "x": "La (les) variation(s) sollicitée(s) porte(nt) sur :"
+          },
+          {
+            "t": "li",
+            "x": "<Nature de la modification>"
+          },
+          {
+            "t": "p",
+            "x": "Le tableau comparatif « avant / après » et les pièces justificatives correspondantes sont joints en annexe."
+          },
+          {
+            "t": "p",
+            "x": "Nous vous prions d'agréer, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "ml": {
         "pdf": "/modeles/lettre-variation-ml.pdf",
         "zip": "/modeles/lettre-variation-ml.zip",
         "pages": 1,
-        "octetsPdf": 2217,
-        "octetsZip": 15036
+        "octetsPdf": 2221,
+        "octetsZip": 15005,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Direction de la Pharmacie et du Médicament (DPM)"
+          },
+          {
+            "t": "right",
+            "x": "Bamako, Darsalam, BPE 5202"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Demande de variation <mineure> <majeure> de l'AMM du produit …"
+          },
+          {
+            "t": "h3",
+            "x": "Réf. : AMM n° … du {date d'octroi}"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous avons l'honneur de soumettre à votre haute bienveillance une demande de variation de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique, identifiée comme suit :"
+          },
+          {
+            "t": "li",
+            "x": "Nom commercial : …"
+          },
+          {
+            "t": "li",
+            "x": "DCI : …"
+          },
+          {
+            "t": "p",
+            "x": "La (les) variation(s) sollicitée(s) porte(nt) sur :"
+          },
+          {
+            "t": "li",
+            "x": "<Nature de la modification>"
+          },
+          {
+            "t": "p",
+            "x": "Le tableau comparatif « avant / après » et les pièces justificatives correspondantes sont joints en annexe."
+          },
+          {
+            "t": "p",
+            "x": "Nous vous prions d'agréer, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "ne": {
         "pdf": "/modeles/lettre-variation-ne.pdf",
         "zip": "/modeles/lettre-variation-ne.zip",
         "pages": 1,
-        "octetsPdf": 2226,
-        "octetsZip": 15064
+        "octetsPdf": 2230,
+        "octetsZip": 15027,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Direction de la Pharmacie et de la Médecine Traditionnelle (DPM/MT)"
+          },
+          {
+            "t": "right",
+            "x": "Niamey, Ministère de la Santé"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Demande de variation <mineure> <majeure> de l'AMM du produit …"
+          },
+          {
+            "t": "h3",
+            "x": "Réf. : AMM n° … du {date d'octroi}"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous avons l'honneur de soumettre à votre haute bienveillance une demande de variation de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique, identifiée comme suit :"
+          },
+          {
+            "t": "li",
+            "x": "Nom commercial : …"
+          },
+          {
+            "t": "li",
+            "x": "DCI : …"
+          },
+          {
+            "t": "p",
+            "x": "La (les) variation(s) sollicitée(s) porte(nt) sur :"
+          },
+          {
+            "t": "li",
+            "x": "<Nature de la modification>"
+          },
+          {
+            "t": "p",
+            "x": "Le tableau comparatif « avant / après » et les pièces justificatives correspondantes sont joints en annexe."
+          },
+          {
+            "t": "p",
+            "x": "Nous vous prions d'agréer, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "sn": {
         "pdf": "/modeles/lettre-variation-sn.pdf",
         "zip": "/modeles/lettre-variation-sn.zip",
         "pages": 1,
-        "octetsPdf": 2223,
-        "octetsZip": 15069
+        "octetsPdf": 2226,
+        "octetsZip": 15040,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Agence Sénégalaise de Réglementation Pharmaceutique (ARP)"
+          },
+          {
+            "t": "right",
+            "x": "Dakar, Point E, Rue A x Rue 6"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Demande de variation <mineure> <majeure> de l'AMM du produit …"
+          },
+          {
+            "t": "h3",
+            "x": "Réf. : AMM n° … du {date d'octroi}"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous avons l'honneur de soumettre à votre haute bienveillance une demande de variation de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique, identifiée comme suit :"
+          },
+          {
+            "t": "li",
+            "x": "Nom commercial : …"
+          },
+          {
+            "t": "li",
+            "x": "DCI : …"
+          },
+          {
+            "t": "p",
+            "x": "La (les) variation(s) sollicitée(s) porte(nt) sur :"
+          },
+          {
+            "t": "li",
+            "x": "<Nature de la modification>"
+          },
+          {
+            "t": "p",
+            "x": "Le tableau comparatif « avant / après » et les pièces justificatives correspondantes sont joints en annexe."
+          },
+          {
+            "t": "p",
+            "x": "Nous vous prions d'agréer, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "tg": {
         "pdf": "/modeles/lettre-variation-tg.pdf",
         "zip": "/modeles/lettre-variation-tg.zip",
         "pages": 1,
-        "octetsPdf": 2222,
-        "octetsZip": 15058
+        "octetsPdf": 2231,
+        "octetsZip": 15031,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Direction de la Pharmacie, du Médicament et des Laboratoires (DPML)"
+          },
+          {
+            "t": "right",
+            "x": "Lomé, Avenue du 2 Février"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Demande de variation <mineure> <majeure> de l'AMM du produit …"
+          },
+          {
+            "t": "h3",
+            "x": "Réf. : AMM n° … du {date d'octroi}"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous avons l'honneur de soumettre à votre haute bienveillance une demande de variation de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique, identifiée comme suit :"
+          },
+          {
+            "t": "li",
+            "x": "Nom commercial : …"
+          },
+          {
+            "t": "li",
+            "x": "DCI : …"
+          },
+          {
+            "t": "p",
+            "x": "La (les) variation(s) sollicitée(s) porte(nt) sur :"
+          },
+          {
+            "t": "li",
+            "x": "<Nature de la modification>"
+          },
+          {
+            "t": "p",
+            "x": "Le tableau comparatif « avant / après » et les pièces justificatives correspondantes sont joints en annexe."
+          },
+          {
+            "t": "p",
+            "x": "Nous vous prions d'agréer, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       }
     }
   },
@@ -810,7 +2577,7 @@ export const MODELES_FICHIERS = {
     "apercu": [
       {
         "t": "right",
-        "x": "{Ville}, le {date}"
+        "x": "Le {date}"
       },
       {
         "t": "right",
@@ -863,7 +2630,7 @@ export const MODELES_FICHIERS = {
       },
       {
         "t": "p",
-        "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir Monsieur / Madame le …, l'expression de notre sincère collaboration."
+        "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboratio…"
       },
       {
         "t": "right",
@@ -883,57 +2650,625 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-pght-bj.pdf",
         "zip": "/modeles/lettre-pght-bj.zip",
         "pages": 1,
-        "octetsPdf": 2334,
-        "octetsZip": 15203
+        "octetsPdf": 2321,
+        "octetsZip": 15174,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Agence Béninoise du Médicament et des autres produits de santé (ABMed)"
+          },
+          {
+            "t": "right",
+            "x": "Cotonou, Zone résidentielle"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "bf": {
         "pdf": "/modeles/lettre-pght-bf.pdf",
         "zip": "/modeles/lettre-pght-bf.zip",
         "pages": 1,
-        "octetsPdf": 2332,
-        "octetsZip": 15178
+        "octetsPdf": 2315,
+        "octetsZip": 15144,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Agence Nationale de Régulation Pharmaceutique (ANRP)"
+          },
+          {
+            "t": "right",
+            "x": "Ouagadougou, 01 BP 7009"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "ci": {
         "pdf": "/modeles/lettre-pght-ci.pdf",
         "zip": "/modeles/lettre-pght-ci.zip",
         "pages": 1,
-        "octetsPdf": 2330,
-        "octetsZip": 15195
+        "octetsPdf": 2317,
+        "octetsZip": 15165,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Autorité Ivoirienne de Régulation Pharmaceutique (AIRP)"
+          },
+          {
+            "t": "right",
+            "x": "Abidjan, Cocody"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "gw": {
         "pdf": "/modeles/lettre-pght-gw.pdf",
         "zip": "/modeles/lettre-pght-gw.zip",
         "pages": 1,
-        "octetsPdf": 2359,
-        "octetsZip": 15241
+        "octetsPdf": 2344,
+        "octetsZip": 15207,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Direção dos Serviços de Farmácia e Medicamentos (DIFALRM)"
+          },
+          {
+            "t": "right",
+            "x": "Bissau, Ministère de la Santé Publique"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "ml": {
         "pdf": "/modeles/lettre-pght-ml.pdf",
         "zip": "/modeles/lettre-pght-ml.zip",
         "pages": 1,
-        "octetsPdf": 2313,
-        "octetsZip": 15152
+        "octetsPdf": 2298,
+        "octetsZip": 15129,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Direction de la Pharmacie et du Médicament (DPM)"
+          },
+          {
+            "t": "right",
+            "x": "Bamako, Darsalam, BPE 5202"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "ne": {
         "pdf": "/modeles/lettre-pght-ne.pdf",
         "zip": "/modeles/lettre-pght-ne.zip",
         "pages": 1,
-        "octetsPdf": 2327,
-        "octetsZip": 15177
+        "octetsPdf": 2312,
+        "octetsZip": 15146,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Direction de la Pharmacie et de la Médecine Traditionnelle (DPM/MT)"
+          },
+          {
+            "t": "right",
+            "x": "Niamey, Ministère de la Santé"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "sn": {
         "pdf": "/modeles/lettre-pght-sn.pdf",
         "zip": "/modeles/lettre-pght-sn.zip",
         "pages": 1,
-        "octetsPdf": 2324,
-        "octetsZip": 15180
+        "octetsPdf": 2309,
+        "octetsZip": 15144,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Agence Sénégalaise de Réglementation Pharmaceutique (ARP)"
+          },
+          {
+            "t": "right",
+            "x": "Dakar, Point E, Rue A x Rue 6"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       },
       "tg": {
         "pdf": "/modeles/lettre-pght-tg.pdf",
         "zip": "/modeles/lettre-pght-tg.zip",
         "pages": 1,
-        "octetsPdf": 2327,
-        "octetsZip": 15180
+        "octetsPdf": 2310,
+        "octetsZip": 15144,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Direction de la Pharmacie, du Médicament et des Laboratoires (DPML)"
+          },
+          {
+            "t": "right",
+            "x": "Lomé, Avenue du 2 Février"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
       }
     }
   },

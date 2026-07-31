@@ -58,7 +58,7 @@ const SORTIE = path.join(RACINE, 'landing', 'modeles')
 const MANIFESTE = path.join(RACINE, 'landing', 'checking', 'modeles-manifest.js')
 
 /** Version du contenu — à incrémenter à CHAQUE modification de source, vigilance ou agences. */
-const VERSION = '2026.3'
+const VERSION = '2026.4'
 
 /** Date figée : sans elle, deux exécutions produisent des octets différents. */
 const FIGEE = new Date('2026-07-30T00:00:00Z')
@@ -143,7 +143,17 @@ function resoudre(doc, pays, langue) {
       out.push({ t: 'table', rows: langue === 'en' && b.rowsEn ? b.rowsEn : b.rows })
       continue
     }
-    out.push({ t: b.t, x: tx(b) })
+    if (b.t === 'break') {
+      out.push({ t: 'break' })
+      continue
+    }
+    let x = tx(b)
+    if (x.includes('{CIV}')) {
+      if (!pays) throw new Error(`${doc.slug} : {CIV} sans pays`)
+      const ag = agencyFor(codeAgence(pays))
+      x = x.replaceAll('{CIV}', langue === 'en' ? agencyCiviliteEn() : agencyCivilite(ag))
+    }
+    out.push({ t: b.t, x })
   }
   return langue === 'en' ? [...AVERTISSEMENT_EN, ...out] : out
 }
@@ -465,6 +475,39 @@ for (const doc of DOCS) {
     const pays = k === '*' ? null : k
     const suffixe = pays ? `-${pays}` : ''
     const libelle = pays ? nomPays(pays) : null
+
+    // Modèle OFFICIEL déposé pour ce pays : servi TEL QUEL, à l'octet près — affiché et
+    // téléchargé sans réinterprétation (directive CEO du 31/07/2026). Le ZIP ne contient que
+    // lui : on ne fabrique ni DOCX ni version anglaise sur le document d'une autorité.
+    const officiel = doc.officiels?.[k]
+    if (officiel) {
+      const octetsOfficiel = fs.readFileSync(path.join(RACINE, officiel))
+      const pdfDoc = await PDFDocument.load(octetsOfficiel, { updateMetadata: false })
+      const asciiOff = (t) =>
+        t
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '')
+          .replace(/[^A-Za-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
+      const zipOfficiel = await versZip([
+        [`${asciiOff(doc.court[0])}_${asciiOff(libelle)}_officiel.pdf`, octetsOfficiel],
+      ])
+      const basePdf = `${doc.slug}${suffixe}.pdf`
+      const baseZip = `${doc.slug}${suffixe}.zip`
+      fs.writeFileSync(path.join(SORTIE, basePdf), octetsOfficiel)
+      fs.writeFileSync(path.join(SORTIE, baseZip), zipOfficiel)
+      ecrits += 2
+      fichiers[k] = {
+        pdf: `/modeles/${basePdf}`,
+        zip: `/modeles/${baseZip}`,
+        pages: pdfDoc.getPageCount(),
+        octetsPdf: octetsOfficiel.length,
+        octetsZip: zipOfficiel.length,
+        officiel: true,
+      }
+      continue
+    }
+
     const blocsFr = resoudre(doc, pays, 'fr')
 
     const { octets: pdf, pages } = await versPdf(doc, blocsFr, libelle)
@@ -500,6 +543,9 @@ for (const doc of DOCS) {
       pages,
       octetsPdf: pdf.length,
       octetsZip: zip.length,
+      // Les lettres embarquent leurs blocs résolus : le formulaire « Générer ma lettre » de la
+      // page les remplit puis produit le DOCX dans le navigateur — même source, zéro divergence.
+      ...(doc.layout === 'lettre' ? { blocs: blocsFr } : {}),
     }
   }
 
