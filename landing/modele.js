@@ -751,8 +751,58 @@ async function sessionPaiement(cmd, identite) {
   }
 }
 
+/* ── Paiement EN MODALE : la page du processeur s'affiche sur pharnos.com. ── */
+
+let veilleRetour = null;
+
+/** Ferme la modale de paiement et rend la main au panneau. */
+function fermerPaiement() {
+  if (veilleRetour) {
+    clearInterval(veilleRetour);
+    veilleRetour = null;
+  }
+  // Vider le cadre AVANT de masquer : une page de paiement laissée vivante derrière une
+  // modale fermée continuerait sa navigation, et un OTP saisi plus tard n'irait nulle part.
+  $("#paymframe").src = "about:blank";
+  fermerModale("#paym");
+}
+
+/**
+ * Ouvre le paiement dans la modale et guette le retour.
+ *
+ * Le processeur redirige, une fois payé, vers `RETOURS[lang]` — une page de pharnos.com, donc
+ * de MÊME origine que le parent : c'est le seul moment où `contentWindow.location` devient
+ * lisible. Tant que le cadre est chez le processeur, la lecture lève (cross-origin) — c'est
+ * attendu, on l'avale. Aucun `postMessage` n'est possible : la page du processeur n'est pas
+ * la nôtre et n'en émet pas.
+ */
+function ouvrirPaiement(url, cmd) {
+  const cadre = $("#paymframe");
+  $("#paymtab").href = url;
+  cadre.src = url;
+  ouvrirModale("#paym", $("#paygo"));
+  if (veilleRetour) clearInterval(veilleRetour);
+  veilleRetour = setInterval(() => {
+    let ici = null;
+    try {
+      ici = cadre.contentWindow?.location?.href ?? null;
+    } catch {
+      return; // encore chez le processeur — rien à lire, rien à faire
+    }
+    if (!ici || ici === "about:blank") return;
+    if (!ici.includes("paiement=ok") && !ici.includes("commande=")) return;
+    fermerPaiement();
+    // Le document est déjà sous les yeux du client : on ne recharge pas la page, on bascule
+    // simplement sur la confirmation — c'est le même écran qu'un retour par navigation.
+    ouvrirConfirmation(cmd);
+    sauverCommande({ ...cmd, regle: true, regleeLe: Date.now() }).catch((e) =>
+      console.error("statut commande", e),
+    );
+  }, 700);
+}
+$("#paymclose").addEventListener("click", fermerPaiement);
+
 let enCours = false;
-let partiAuPaiement = false;
 async function acheter(offre) {
   if (enCours) return;
   const v = validerFichier(S.fichier);
@@ -846,19 +896,17 @@ async function acheter(offre) {
     // refusée ne doit pas laisser traîner un marqueur « paiement en cours ».
     if (session.ok) {
       marquerEnAttente(cmd.id);
-      partiAuPaiement = true;
-      window.location.assign(session.url);
+      ouvrirPaiement(session.url, cmd);
       return;
     }
     // Repli : la boutique encaisse en direct, référence relayée dans l'URL. Moins beau,
     // jamais bloquant — y compris pour un « déjà acheté » Chariow, qui n'est pas notre refus.
     if (checkoutOuvert(offre)) {
       marquerEnAttente(cmd.id);
-      partiAuPaiement = true;
       const u = new URL(CHECKOUT[offre]);
       // Référence opaque, jamais de donnée personnelle en clair dans une URL.
       u.searchParams.set("ref", cmd.id);
-      window.location.assign(u.toString());
+      ouvrirPaiement(u.toString(), cmd);
       return;
     }
     ouvrirRappel(cmd);
@@ -872,13 +920,11 @@ async function acheter(offre) {
       ]),
     );
   } finally {
-    // ⚠️ Pas de restauration si la navigation est partie : rendre le bouton cliquable pendant
-    // que la page s'en va ouvrirait une SECONDE session sur un double-clic.
-    if (!partiAuPaiement) {
-      enCours = false;
-      bouton.disabled = false;
-      bouton.textContent = libelle;
-    }
+    // Le paiement s'ouvre en modale : la page reste vivante, le bouton reprend son état.
+    // Le double-clic est déjà tenu par `enCours` pendant l'appel, et par la modale ensuite.
+    enCours = false;
+    bouton.disabled = false;
+    bouton.textContent = libelle;
   }
 }
 // Le clic de commande OUVRE l'écran unique offre + identité — un seul écran entre l'envie et
