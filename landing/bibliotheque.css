@@ -43,7 +43,10 @@
   border: 1px solid rgba(226,179,65,.35); border-radius: 999px; padding: 6px 15px; background: rgba(226,179,65,.06); }
 .bib-hero h1 { font-family: var(--font-ui); font-weight: 800; font-size: clamp(1.95rem, 3.6vw, 2.9rem);
   line-height: 1.1; letter-spacing: -.03em; color: #fff; max-width: 18em; margin: 20px 0 0; text-wrap: balance; }
-.bib-hero .lede { margin-top: 16px; font-family: var(--font-ui); font-size: 16.5px; color: #c3d0e6;
+/* `margin: 16px 0 0` et non `margin-top` seul : styles.css centre `.lede` par des marges `auto`
+   (recette du hero du Checking Standard, qui est centré). Ici le hero est aligné à gauche, et un
+   chapô centré sous un titre à gauche se voit immédiatement. */
+.bib-hero .lede { margin: 16px 0 0; font-family: var(--font-ui); font-size: 16.5px; color: #c3d0e6;
   max-width: 44em; text-wrap: pretty; }
 .freebadge { display: inline-flex; align-items: center; gap: 9px; margin-top: 24px; padding: 8px 16px;
   border-radius: 999px; background: rgba(74,194,107,.12); border: 1px solid rgba(74,194,107,.35);
@@ -120,7 +123,13 @@
   color: var(--warning-fg); background: var(--warning-subtle); border: 1px solid var(--warning-border);
   border-radius: 999px; padding: 2px 9px; min-width: 0; }
 .docbar .dl { margin-left: auto; display: flex; gap: 6px; flex-shrink: 0; }
-.docview { width: 100%; height: 512px; border: 0; background: #eef1f6; display: block; }
+/* Deux réglages, deux défauts vus en recette Chrome :
+   • `flex: 1` — l'aperçu REMPLIT son volet. À hauteur fixe, il s'arrêtait avant le bas et
+     laissait une bande grise vide sous le document.
+   • `min-height` en `vh` plutôt qu'une hauteur en dur — à 512 px, la modale dépassait le bas de
+     l'écran sur un portable et le bouton d'achat se retrouvait hors champ. */
+.docview { width: 100%; flex: 1 1 auto; min-height: clamp(260px, 46vh, 460px);
+  border: 0; background: #eef1f6; display: block; }
 .docfall { padding: 20px; font-size: 13.5px; color: var(--g600); line-height: 1.55; }
 
 .pane-offer { display: flex; flex-direction: column; min-width: 0; }
@@ -196,7 +205,9 @@
 @media (max-width: 940px) {
   .lect-two { grid-template-columns: 1fr; }
   .pane-doc { border-right: 0; border-bottom: 1px solid var(--g200); }
-  .docview { height: 380px; }
+  /* `min-height` et non `height` : sous 940 px les volets s'empilent, et une hauteur fixe
+     rouvrirait la bande grise que `flex: 1` vient de supprimer. */
+  .docview { min-height: 340px; }
   .bib-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 680px) {

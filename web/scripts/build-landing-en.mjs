@@ -71,7 +71,46 @@ const BANNER = (src) =>
   '     prerendue pour le SEO). NE PAS EDITER A LA MAIN — lancer `npm run build:landing-en` apres\n' +
   `     toute modif de ${src}. La CI verifie que cette page reste synchronisee. -->`
 
+verifierTableDesMiroirs()
 for (const page of PAGES) buildPage(page)
+
+/**
+ * Le sélecteur de langue de `landing.js` réaligne l'URL sur la langue courante. Il déduit le
+ * miroir en préfixant « /en », ce qui ne marche QUE si les deux langues partagent le slug.
+ * Une page au slug différent doit donc figurer dans sa table `MIROIR` — sans quoi la bascule
+ * fabrique une URL inexistante : la page continue de s'afficher, et c'est le rechargement, le
+ * partage du lien ou le retour arrière qui tombe en 404, longtemps après la mise en ligne.
+ * On échoue ici plutôt que de laisser cette divergence partir en production.
+ */
+function verifierTableDesMiroirs() {
+  const js = fs.readFileSync(path.join(LANDING, 'landing.js'), 'utf8')
+  const manquants = PAGES.filter((p) => {
+    const fr = '/' + p.src.replace(/\.html$/, '')
+    const en =
+      '/' +
+      p.out
+        .split(path.sep)
+        .join('/')
+        .replace(/\.html$/, '')
+    if (en === '/en' + fr) return false // slug identique : la déduction suffit
+    return !js.includes(`'${fr}': '${en}'`)
+  })
+  if (manquants.length) {
+    const lignes = manquants
+      .map(
+        (p) =>
+          `  '/${p.src.replace(/\.html$/, '')}': '/${p.out
+            .split(path.sep)
+            .join('/')
+            .replace(/\.html$/, '')}',`,
+      )
+      .join('\n')
+    throw new Error(
+      `landing.js : la table MIROIR ne couvre pas ces pages au slug divergent.\n` +
+        `La bascule de langue y produirait une URL inexistante. À ajouter :\n${lignes}`,
+    )
+  }
+}
 
 function buildPage({ src, out, canonical, head: EN, jsonLd }) {
   const SRC = path.join(LANDING, src)

@@ -88,8 +88,26 @@ var I18N = (function () {
     // statique se sert d'elle-même. Le miroir se DÉDUIT du chemin courant — hardcoder « / » ici
     // renverrait le visiteur d'une page interne à l'accueil au premier changement de langue.
     try {
-      var base = location.pathname.replace(/^\/en(?=\/|$)/, '') || '/';
-      var want = lang === 'en' ? '/en' + (base === '/' ? '/' : base) : base;
+      // ⚠️ Certaines pages changent de SLUG d'une langue à l'autre : préfixer « /en » y fabrique
+      // une URL qui n'existe pas. La page continuerait de s'afficher (replaceState ne recharge
+      // rien), mais tout rechargement, partage ou retour arrière tomberait en 404.
+      // Toute entrée ici DOIT exister dans PAGES de web/scripts/build-landing-en.mjs : ce build
+      // vérifie la réciproque et échoue si un slug divergent manque à cette table.
+      var MIROIR = { '/bibliotheque-reglementaire': '/en/regulatory-library' };
+      var VERS_FR = {};
+      for (var k in MIROIR) VERS_FR[MIROIR[k]] = k;
+
+      // L'extension est conservée telle quelle : en production les URL sont « propres », mais un
+      // serveur statique local sert « /page.html » — la retirer y casserait le rechargement.
+      var ext = /\.html$/.test(location.pathname) ? '.html' : '';
+      var p = location.pathname.replace(/\.html$/, '');
+      var want;
+      if (lang === 'en') {
+        want = MIROIR[p] || (/^\/en(\/|$)/.test(p) ? p : '/en' + (p === '/' ? '/' : p));
+      } else {
+        want = VERS_FR[p] || p.replace(/^\/en(?=\/|$)/, '') || '/';
+      }
+      want += want === '/' || /\/$/.test(want) ? '' : ext;
       if (location.pathname !== want) history.replaceState(null, '', want);
     } catch (e) {}
   }

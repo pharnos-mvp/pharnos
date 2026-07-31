@@ -167,7 +167,11 @@ function ouvrirLecteur(slug, declencheur) {
   const supporte = navigator.pdfViewerEnabled !== false
   apercu.hidden = !supporte
   repli.hidden = supporte
-  if (supporte) apercu.src = `${f.pdf}?v=${encodeURIComponent(MODELES_VERSION)}`
+  // `#toolbar=0&navpanes=0` : sans cela le lecteur natif empile SA barre (pagination, zoom,
+  // téléchargement, impression) sous la nôtre — deux paginations et deux boutons « télécharger »
+  // dans le même volet. Paramètres ignorés par les lecteurs qui ne les connaissent pas, donc
+  // sans risque : au pire la barre native reste.
+  if (supporte) apercu.src = `${f.pdf}?v=${encodeURIComponent(MODELES_VERSION)}#toolbar=0&navpanes=0`
   else {
     apercu.removeAttribute('src')
     repli.textContent = L([
