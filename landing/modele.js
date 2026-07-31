@@ -15,9 +15,10 @@ import { PAYS } from "./checking/referentiel.js?v=2026.2";
 import {
   MODELES_FICHIERS,
   MODELES_VERSION,
-} from "./checking/modeles-manifest.js?v=2026.3";
+} from "./checking/modeles-manifest.js?v=2026.5";
 import { VIGILANCE } from "./checking/vigilance.js?v=2026.1";
 import {
+  activitesDe,
   fichierModele,
   MAX_OCTETS,
   nouvelleCommande,
@@ -29,7 +30,7 @@ import {
   tailleLisible,
   TTL_MS,
   validerFichier,
-} from "./checking/bibliotheque-core.js?v=2026.3";
+} from "./checking/bibliotheque-core.js?v=2026.5";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -94,7 +95,7 @@ const monDoc = () => L(MON[S.doc] ?? MON.rcp);
 
 function peindre() {
   const m = MODELES_FICHIERS[S.doc];
-  const f = fichierModele(S.doc, paysApercu());
+  const f = fichierModele(S.doc, paysApercu(), S.activiteLettre);
   const v = VIGILANCE[paysApercu()];
 
   document.title = `${L(m.nom)} — ${L(["modèle officiel", "official template"])} · Pharnos`;
@@ -144,7 +145,9 @@ function peindre() {
 
   // Note de la barre du lecteur : ce que contient le téléchargement. Un modèle OFFICIEL servi
   // tel quel l'annonce — on ne fabrique rien sur le document d'une autorité.
-  const fOff = Boolean(fichierModele(S.doc, paysApercu())?.officiel);
+  const fOff = Boolean(
+    fichierModele(S.doc, paysApercu(), S.activiteLettre)?.officiel,
+  );
   $("#dlnote").textContent = fOff
     ? L([
         "PDF officiel de l'autorité · servi tel quel · gratuit",
@@ -157,7 +160,9 @@ function peindre() {
   // Offre — seulement pour les documents que le moteur sait mettre au standard.
   const lettre = m.groupe === "lettres";
   const genPossible =
-    lettre && S.pays && Boolean(fichierModele(S.doc, S.pays)?.blocs);
+    lettre &&
+    S.pays &&
+    Boolean(fichierModele(S.doc, S.pays, S.activiteLettre)?.blocs);
   $("#offre").hidden = !m.upgradable;
   $("#genlet").hidden = !genPossible;
   $("#inf").hidden = m.upgradable || genPossible;
@@ -689,54 +694,74 @@ if (window.I18N && typeof window.I18N.on === "function")
 
 /* ══════════════════ Lettres — préalable, lecteur adapté, génération sur l'appareil ══════════════════ */
 
-/** L'activité réglementaire CHOISIT la lettre : cliquer « Lettre de demande » puis répondre
- *  « Variation » doit servir la lettre de variation, pas une demande maquillée. */
-const LETTRE_PAR_ACTIVITE = {
-  enr: "lettre-demande",
-  renouv: "lettre-renouvellement",
-  variation: "lettre-variation",
-};
+/** Chaque carte de lettre PORTE déjà son activité : la redemander serait faire choisir deux fois
+ *  la même chose. Seule la lettre de PGHT accompagne indifféremment un enregistrement ou un
+ *  renouvellement — et jamais une variation, qui ne redéclare pas le prix grossiste. */
 const estLettre = () => MODELES_FICHIERS[S.doc].groupe === "lettres";
-const estLettreActivite = () =>
-  Object.values(LETTRE_PAR_ACTIVITE).includes(S.doc);
+const activitesDemandees = () => activitesDe(S.doc);
+const LIBELLE_ACTIVITE = {
+  enr: ["Enregistrement", "Registration"],
+  renouv: ["Renouvellement", "Renewal"],
+};
 
-/** Popup PRÉALABLE : pays + activité avant l'affichage du template (directive CEO 31/07/2026).
- *  Tant qu'elle n'est pas validée, le lecteur reste derrière elle. */
+/** Popup PRÉALABLE : le contexte manquant AVANT l'affichage du template (directive CEO
+ *  31/07/2026). Tant qu'elle n'est pas validée, le lecteur reste derrière elle. */
 function ouvrirPrealable() {
+  const actes = activitesDemandees();
   remplirPays($("#prempays"), S.pays);
-  majChips("#premact", S.activiteLettre ?? null);
+  // Le groupe d'activité n'existe que pour les documents qui en distinguent plusieurs.
+  $("#premactwrap").hidden = !actes;
+  if (actes) {
+    $("#premact").innerHTML = actes
+      .map(
+        (a) =>
+          `<button class="chip" type="button" role="radio" aria-checked="false" data-v="${esc(a)}">${esc(L(LIBELLE_ACTIVITE[a]))}</button>`,
+      )
+      .join("");
+    $$("#premact .chip").forEach((c) =>
+      c.addEventListener("click", () => {
+        S.activiteLettre = c.dataset.v;
+        majChips("#premact", S.activiteLettre);
+      }),
+    );
+    majChips("#premact", S.activiteLettre ?? null);
+  }
+  $("#premtitle").textContent = actes
+    ? L([
+        "Deux choix, et votre lettre prend forme",
+        "Two choices, and your letter takes shape",
+      ])
+    : L([
+        "Un choix, et votre lettre prend forme",
+        "One choice, and your letter takes shape",
+      ]);
+  $("#premsub").textContent = actes
+    ? L([
+        "La lettre s'adresse à l'autorité de votre pays et s'écrit selon votre activité — choisissez les deux, nous remplissons le reste.",
+        "The letter is addressed to your country's authority and worded for your activity — choose both, we fill in the rest.",
+      ])
+    : L([
+        "La lettre s'adresse à l'autorité de votre pays de dépôt — choisissez-le, nous remplissons le reste.",
+        "The letter is addressed to your filing country's authority — choose it, we fill in the rest.",
+      ]);
   ouvrirModale("#prem", null);
 }
 
-$$("#premact .chip").forEach((c) =>
-  c.addEventListener("click", () => {
-    S.activiteLettre = c.dataset.v;
-    majChips("#premact", S.activiteLettre);
-  }),
-);
-
 $("#premgo").addEventListener("click", () => {
   const pays = $("#prempays").value;
-  if (!pays || !S.activiteLettre) {
+  const actes = activitesDemandees();
+  if (!pays || (actes && !S.activiteLettre)) {
     toast(
-      L([
-        "Choisissez votre pays et votre activité.",
-        "Choose your country and activity.",
-      ]),
+      actes
+        ? L([
+            "Choisissez votre pays et votre activité.",
+            "Choose your country and activity.",
+          ])
+        : L(["Choisissez votre pays de dépôt.", "Choose your filing country."]),
     );
     return;
   }
   S.pays = pays;
-  // `amm`/`renouv` restent le vocabulaire de la COMMANDE d'upgrade ; les lettres ont le leur.
-  if (estLettreActivite()) {
-    const cible = LETTRE_PAR_ACTIVITE[S.activiteLettre];
-    if (cible !== S.doc) {
-      S.doc = cible;
-      const u = new URL(window.location.href);
-      u.searchParams.set("doc", cible);
-      history.replaceState(null, "", u.pathname + u.search);
-    }
-  }
   fermerModale("#prem");
   peindre();
 });
@@ -748,7 +773,8 @@ $("#premgo").addEventListener("click", () => {
      le DOCX, généré sur l'appareil. ── */
 
 /** Les blocs de la lettre du pays courant, ou null (modèle officiel servi tel quel). */
-const blocsLettre = () => fichierModele(S.doc, S.pays)?.blocs ?? null;
+const blocsLettre = () =>
+  fichierModele(S.doc, S.pays, S.activiteLettre)?.blocs ?? null;
 
 /** Tout emplacement à compléter du modèle devient une case : « … » et « {…} ». */
 const TOKENS = /…|\{[^}]+\}/g;
@@ -760,6 +786,26 @@ const dateDuJour = () =>
     month: "long",
     year: "numeric",
   });
+
+/** Ce qui peut contenir une adresse, une présentation ou une phrase : la case doit grandir
+ *  avec la frappe plutôt que de faire défiler le texte hors de vue. */
+const CHAMP_LONG =
+  /adresse|présentation|forme|indication|nature|dénomination|composition|objet/i;
+const estChampLong = (bloc, token) => {
+  if (bloc.t !== "li") return false;
+  const avant = bloc.x.split(token)[0];
+  return CHAMP_LONG.test(avant);
+};
+
+/** Une zone auto-extensible : la hauteur suit le contenu, la largeur reste celle de la feuille. */
+function autoGrandir(el) {
+  // ⚠️ `height = 0` avant de lire, pas `auto` : avec une hauteur minimale (CSS ou implicite),
+  // `scrollHeight` renvoie cette hauteur au lieu de celle du contenu — la case naît figée et ne
+  // grandit plus jamais. Remise à zéro d'abord, mesure ensuite, plancher d'une ligne à la fin.
+  el.style.height = "0px";
+  const ligne = parseFloat(getComputedStyle(el).lineHeight) || 20;
+  el.style.height = `${Math.max(el.scrollHeight, Math.round(ligne) + 8)}px`;
+}
 
 /** Placeholder d'une case : le libellé du champ quand la ligne en porte un, sinon le token. */
 function placeholderDe(bloc, token) {
@@ -792,7 +838,7 @@ function htmlBlocLettre(b, i) {
             r
               .map(
                 (c, ci) =>
-                  `<td><input type="text" class="lf-in" data-bloc="${i}" data-cell="${ri + 1}:${ci}" aria-label="${esc(tete[ci])}" /></td>`,
+                  `<td><textarea class="lf-in lf-grow" rows="1" data-bloc="${i}" data-cell="${ri + 1}:${ci}" aria-label="${esc(tete[ci])}"></textarea></td>`,
               )
               .join("") +
             "</tr>",
@@ -830,8 +876,11 @@ function rendreTokens(html, b, i, slotDepart) {
   return html.replace(TOKENS, (token) => {
     const date = token === "{date}";
     const ph = placeholderDe(b, token);
-    const attrs = `class="lf-in${date ? " lf-date" : ""}" data-bloc="${i}" data-slot="${slot++}" aria-label="${esc(ph || L(["Date", "Date"]))}"`;
-    return `<input type="text" ${attrs} ${date ? `value="${esc(dateDuJour())}"` : `placeholder="${esc(ph)}"`} />`;
+    const commun = `data-bloc="${i}" data-slot="${slot++}" aria-label="${esc(ph || L(["Date", "Date"]))}"`;
+    // Champ potentiellement long : une zone qui grandit à la frappe, bornée à la largeur utile.
+    if (!date && estChampLong(b, token))
+      return `<textarea class="lf-in lf-grow" rows="1" ${commun} placeholder="${esc(ph)}"></textarea>`;
+    return `<input type="text" class="lf-in${date ? " lf-date" : ""}" ${commun} ${date ? `value="${esc(dateDuJour())}"` : `placeholder="${esc(ph)}"`} />`;
   });
 }
 
@@ -856,6 +905,10 @@ function ouvrirFeuille() {
       return `<div class="${CLASSE_LETTRE[b.t] ?? "lfx"}">${htmlBlocLettre(b, i)}</div>`;
     })
     .join("");
+  for (const z of $("#lffeuille").querySelectorAll(".lf-grow")) {
+    autoGrandir(z);
+    z.addEventListener("input", () => autoGrandir(z));
+  }
   $("#docview").hidden = true;
   $("#lfedit").hidden = false;
   $("#rbedit").hidden = false;
@@ -966,8 +1019,19 @@ $("#lfgo").addEventListener("click", async () => {
  *  (Times 12, blocs décalés à 56 % alignés à gauche). Le moteur `docx` est chargé au premier
  *  clic seulement. */
 async function genererDocxLettre(blocs) {
-  const d = await import("/vendor/docx.esm.js?v=1");
+  const d = await import("/vendor/docx.esm.js?v=2");
   const INDENT = Math.round(16 * 0.56 * 567);
+  // Les MÊMES valeurs que le générateur des modèles (build-landing-modeles.mjs) : un courrier
+  // généré au clic doit être indiscernable du modèle téléchargé.
+  const ESPACE = {
+    doctitle: { before: 0, after: 320 },
+    part: { before: 240, after: 200 },
+    h3: { before: 240, after: 120 },
+    p: { before: 0, after: 200 },
+    li: { before: 0, after: 120 },
+    right: { before: 0, after: 60 },
+  };
+  const INTERLIGNE = 276;
   const enfants = blocs.map((b) => {
     if (b.t === "table") {
       return new d.Table({
@@ -975,16 +1039,29 @@ async function genererDocxLettre(blocs) {
         rows: b.rows.map(
           (row, ri) =>
             new d.TableRow({
+              tableHeader: ri === 0,
+              height: { value: 420, rule: "atLeast" },
               children: row.map(
                 (cell) =>
                   new d.TableCell({
+                    margins: { top: 90, bottom: 90, left: 130, right: 130 },
+                    verticalAlign: d.VerticalAlign.CENTER,
+                    shading:
+                      ri === 0
+                        ? {
+                            type: d.ShadingType.CLEAR,
+                            fill: "F1F4F9",
+                            color: "auto",
+                          }
+                        : undefined,
                     children: [
                       new d.Paragraph({
+                        spacing: { before: 0, after: 0, line: 240 },
                         children: [
                           new d.TextRun({
                             text: String(cell),
                             bold: ri === 0,
-                            size: 19,
+                            size: 20,
                             font: "Times New Roman",
                           }),
                         ],
@@ -1015,6 +1092,8 @@ async function genererDocxLettre(blocs) {
       ],
     });
   });
+  const m = MODELES_FICHIERS[S.doc];
+  const legende = [L(m.source), nomPays(S.pays)].filter(Boolean).join(" — ");
   const docx = new d.Document({
     styles: {
       default: { document: { run: { font: "Times New Roman", size: 24 } } },
@@ -1023,8 +1102,39 @@ async function genererDocxLettre(blocs) {
       {
         properties: {
           page: {
-            margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 },
+            margin: { top: 1134, right: 1134, bottom: 1418, left: 1134 },
           },
+        },
+        // Pied de page signé — la MÊME légende que les modèles générés au build.
+        footers: {
+          default: new d.Footer({
+            children: [
+              new d.Paragraph({
+                alignment: d.AlignmentType.RIGHT,
+                spacing: { before: 120 },
+                children: [
+                  new d.TextRun({
+                    text: `${legende} — by `,
+                    size: 15,
+                    color: "9AA1A9",
+                    font: "Arial",
+                  }),
+                  new d.ExternalHyperlink({
+                    link: "https://pharnos.com/",
+                    children: [
+                      new d.TextRun({
+                        text: "Pharnos",
+                        size: 15,
+                        color: "9AA1A9",
+                        font: "Arial",
+                        underline: {},
+                      }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
         },
         children: enfants,
       },

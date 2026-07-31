@@ -22,13 +22,17 @@
 import {
   AlignmentType,
   Document,
+  ExternalHyperlink,
+  Footer,
   HeadingLevel,
   Packer,
   Paragraph,
+  ShadingType,
   Table,
   TableCell,
   TableRow,
   TextRun,
+  VerticalAlign,
   WidthType,
 } from 'docx'
 import fs from 'node:fs'
@@ -58,7 +62,7 @@ const SORTIE = path.join(RACINE, 'landing', 'modeles')
 const MANIFESTE = path.join(RACINE, 'landing', 'checking', 'modeles-manifest.js')
 
 /** Version du contenu — à incrémenter à CHAQUE modification de source, vigilance ou agences. */
-const VERSION = '2026.4'
+const VERSION = '2026.5'
 
 /** Date figée : sans elle, deux exécutions produisent des octets différents. */
 const FIGEE = new Date('2026-07-30T00:00:00Z')
@@ -90,15 +94,25 @@ const AVERTISSEMENT_EN = [
   },
 ]
 
-/* ═══════════════ résolution du contenu (pays + langue) ═══════════════ */
+/* ═══════════════ résolution du contenu (pays + activité + langue) ═══════════════ */
 
 const codeAgence = (k) => k.toUpperCase()
+
+/** Ce que la lettre SOLLICITE, selon l'activité — jamais « l'enregistrement » par défaut. */
+const ACTE = {
+  enr: { fr: "l'enregistrement", en: 'the registration' },
+  renouv: { fr: 'le renouvellement', en: 'the renewal' },
+}
+const ACTE_OBJET = {
+  enr: { fr: 'enregistrement', en: 'registration' },
+  renouv: { fr: 'renouvellement', en: 'renewal' },
+}
 
 /**
  * Développe les blocs pour un pays et une langue. `vig`, `agence` et `salut` sont résolus ici ;
  * les autres blocs choisissent `en` quand elle existe, sinon gardent le texte.
  */
-function resoudre(doc, pays, langue) {
+function resoudre(doc, pays, langue, activite) {
   const tx = (b) => (langue === 'en' && b.en ? b.en : b.x)
   const out = []
   for (const b of doc.blocks) {
@@ -152,6 +166,12 @@ function resoudre(doc, pays, langue) {
       if (!pays) throw new Error(`${doc.slug} : {CIV} sans pays`)
       const ag = agencyFor(codeAgence(pays))
       x = x.replaceAll('{CIV}', langue === 'en' ? agencyCiviliteEn() : agencyCivilite(ag))
+    }
+    if (x.includes('{ACTE')) {
+      if (!activite) throw new Error(`${doc.slug} : {ACTE} sans activité`)
+      x = x
+        .replaceAll('{ACTE_OBJET}', ACTE_OBJET[activite][langue === 'en' ? 'en' : 'fr'])
+        .replaceAll('{ACTE}', ACTE[activite][langue === 'en' ? 'en' : 'fr'])
     }
     out.push({ t: b.t, x })
   }
@@ -349,6 +369,56 @@ async function versPdf(doc, blocs, paysNom) {
 
 /* ═══════════════ DOCX ═══════════════ */
 
+/**
+ * ESPACEMENTS DE COURRIER, en vingtièmes de point (`spacing`). Un courrier officiel respire :
+ * des paragraphes collés se lisent comme une note interne, pas comme une lettre à une autorité.
+ * `line: 276` = interligne 1,15 — la valeur des lettres compilées du builder.
+ */
+const ESPACE = {
+  doctitle: { before: 0, after: 320 },
+  part: { before: 240, after: 200 },
+  h1: { before: 280, after: 120 },
+  h2: { before: 240, after: 100 },
+  h3: { before: 240, after: 120 },
+  p: { before: 0, after: 200 },
+  li: { before: 0, after: 120 },
+  right: { before: 0, after: 60 },
+}
+const INTERLIGNE = 276
+
+/** Marges intérieures des cellules (twips) — sans elles le texte touche le trait. */
+const MARGE_CELLULE = { top: 90, bottom: 90, left: 130, right: 130 }
+
+/**
+ * Pied de page des modèles GÉNÉRÉS : la source, le pays, et notre signature discrète.
+ *
+ * ⚠️ Décision CEO du 31/07/2026 — elle ne vaut QUE pour les modèles que nous fabriquons et
+ * offrons. Deux documents n'en portent jamais : le PDF officiel d'une autorité, servi tel quel,
+ * et le livrable d'une mise à niveau, qui part au dépôt sous le seul nom du titulaire
+ * (étape 3 §3 du process d'upgrade).
+ */
+function piedPharnos(doc, paysNom) {
+  const legende = [doc.source[0], paysNom].filter(Boolean).join(' — ')
+  const gris = '9AA1A9'
+  return new Footer({
+    children: [
+      new Paragraph({
+        alignment: AlignmentType.RIGHT,
+        spacing: { before: 120 },
+        children: [
+          new TextRun({ text: `${legende} — by `, size: 15, color: gris, font: 'Arial' }),
+          new ExternalHyperlink({
+            link: 'https://pharnos.com/',
+            children: [
+              new TextRun({ text: 'Pharnos', size: 15, color: gris, font: 'Arial', underline: {} }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  })
+}
+
 const HEADING = {
   doctitle: HeadingLevel.TITLE,
   part: HeadingLevel.HEADING_1,
@@ -367,19 +437,30 @@ async function versDocx(doc, blocs, paysNom) {
     if (b.t === 'table') {
       return new Table({
         width: { size: 100, type: WidthType.PERCENTAGE },
+        // Une ligne d'en-tête qui se répète si le tableau passe la page, et des cellules qui
+        // ne collent pas au trait : c'est ce qui sépare un tableau de courrier d'une grille brute.
         rows: b.rows.map(
           (row, ri) =>
             new TableRow({
+              tableHeader: ri === 0,
+              height: { value: 420, rule: 'atLeast' },
               children: row.map(
                 (cell) =>
                   new TableCell({
+                    margins: MARGE_CELLULE,
+                    verticalAlign: VerticalAlign.CENTER,
+                    shading:
+                      ri === 0
+                        ? { type: ShadingType.CLEAR, fill: 'F1F4F9', color: 'auto' }
+                        : undefined,
                     children: [
                       new Paragraph({
+                        spacing: { before: 0, after: 0, line: 240 },
                         children: [
                           new TextRun({
                             text: String(cell),
                             bold: ri === 0,
-                            size: 19,
+                            size: 20,
                             font: G.fonteDocx,
                           }),
                         ],
@@ -392,6 +473,7 @@ async function versDocx(doc, blocs, paysNom) {
       })
     }
     const st = G.style[b.t]
+    const esp = ESPACE[b.t] ?? ESPACE.p
     return new Paragraph({
       heading: HEADING[b.t],
       alignment: st.centre ? AlignmentType.CENTER : AlignmentType.LEFT,
@@ -399,7 +481,7 @@ async function versDocx(doc, blocs, paysNom) {
       // alignement droit, qui ferait flotter chaque ligne différemment.
       indent: st.droite ? { left: INDENT_DOCX } : undefined,
       bullet: st.puce ? { level: 0 } : undefined,
-      spacing: { before: st.avant * 20, after: st.apres * 20 },
+      spacing: { ...esp, line: INTERLIGNE },
       children: [new TextRun({ text: b.x, bold: st.gras, size: st.taille * 2, font: G.fonteDocx })],
     })
   })
@@ -412,7 +494,8 @@ async function versDocx(doc, blocs, paysNom) {
     styles: { default: { document: { run: { font: G.fonteDocx, size: G.style.p.taille * 2 } } } },
     sections: [
       {
-        properties: { page: { margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 } } },
+        properties: { page: { margin: { top: 1134, right: 1134, bottom: 1418, left: 1134 } } },
+        footers: { default: piedPharnos(doc, paysNom) },
         children: enfants,
       },
     ],
@@ -468,12 +551,17 @@ let ecrits = 0
 
 for (const doc of DOCS) {
   const perPays = varieParPays(doc)
-  const cles = perPays ? PAYS.map((p) => p.k) : ['*']
+  const activites = doc.activites ?? [null]
+  // Une clé = un pays (et, quand le document se décline, une activité) : `bj`, ou `bj-renouv`.
+  const cles = (perPays ? PAYS.map((p) => p.k) : ['*']).flatMap((k) =>
+    activites.map((a) => (a ? `${k}-${a}` : k)),
+  )
   const fichiers = {}
 
   for (const k of cles) {
-    const pays = k === '*' ? null : k
-    const suffixe = pays ? `-${pays}` : ''
+    const [codePays, activite = null] = doc.activites ? k.split('-') : [k, null]
+    const pays = codePays === '*' ? null : codePays
+    const suffixe = pays ? `-${k}` : ''
     const libelle = pays ? nomPays(pays) : null
 
     // Modèle OFFICIEL déposé pour ce pays : servi TEL QUEL, à l'octet près — affiché et
@@ -508,7 +596,7 @@ for (const doc of DOCS) {
       continue
     }
 
-    const blocsFr = resoudre(doc, pays, 'fr')
+    const blocsFr = resoudre(doc, pays, 'fr', activite)
 
     const { octets: pdf, pages } = await versPdf(doc, blocsFr, libelle)
     const docxFr = await versDocx(doc, blocsFr, libelle)
@@ -526,7 +614,7 @@ for (const doc of DOCS) {
     const basePays = libelle ? `${base}_${ascii(libelle)}` : base
     const entrees = [[`${basePays}${doc.bilingue ? '_FR' : ''}.docx`, docxFr]]
     if (doc.bilingue) {
-      const docxEn = await versDocx(doc, resoudre(doc, pays, 'en'), libelle)
+      const docxEn = await versDocx(doc, resoudre(doc, pays, 'en', activite), libelle)
       entrees.push([`${base}_EN_courtesy.docx`, docxEn])
     }
     const zip = await versZip(entrees)
@@ -550,7 +638,7 @@ for (const doc of DOCS) {
   }
 
   // `apercu` = première page en fac-similé, dérivé des MÊMES blocs que le fichier servi.
-  const blocsApercu = resoudre(doc, perPays ? PAYS[0].k : null, 'fr')
+  const blocsApercu = resoudre(doc, perPays ? PAYS[0].k : null, 'fr', doc.activites?.[0] ?? null)
     .filter((b) => b.t !== 'break')
     .slice(0, 16)
     .map((b) =>
@@ -559,6 +647,7 @@ for (const doc of DOCS) {
         : { t: b.t, x: b.x.length > 140 ? b.x.slice(0, 140) + '…' : b.x },
     )
   manifeste[doc.slug] = {
+    activites: doc.activites ?? null,
     nom: doc.nom,
     court: doc.court,
     resume: doc.resume,

@@ -5,10 +5,11 @@
  * `zip` est le téléchargement (DOCX français + DOCX anglais de courtoisie quand `bilingue`) ;
  * `pdf` est l'aperçu du lecteur. `perPays: false` = un seul fichier pour les huit pays.
  */
-export const MODELES_VERSION = "2026.4"
+export const MODELES_VERSION = "2026.5"
 
 export const MODELES_FICHIERS = {
   "rcp": {
+    "activites": null,
     "nom": [
       "Résumé des Caractéristiques du Produit",
       "Summary of Product Characteristics"
@@ -101,60 +102,61 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/rcp-bj.zip",
         "pages": 4,
         "octetsPdf": 7107,
-        "octetsZip": 18170
+        "octetsZip": 19941
       },
       "bf": {
         "pdf": "/modeles/rcp-bf.pdf",
         "zip": "/modeles/rcp-bf.zip",
         "pages": 4,
         "octetsPdf": 7120,
-        "octetsZip": 18149
+        "octetsZip": 19928
       },
       "ci": {
         "pdf": "/modeles/rcp-ci.pdf",
         "zip": "/modeles/rcp-ci.zip",
         "pages": 4,
         "octetsPdf": 7126,
-        "octetsZip": 18190
+        "octetsZip": 19983
       },
       "gw": {
         "pdf": "/modeles/rcp-gw.pdf",
         "zip": "/modeles/rcp-gw.zip",
         "pages": 4,
         "octetsPdf": 7106,
-        "octetsZip": 18068
+        "octetsZip": 19857
       },
       "ml": {
         "pdf": "/modeles/rcp-ml.pdf",
         "zip": "/modeles/rcp-ml.zip",
         "pages": 4,
         "octetsPdf": 7061,
-        "octetsZip": 18028
+        "octetsZip": 19789
       },
       "ne": {
         "pdf": "/modeles/rcp-ne.pdf",
         "zip": "/modeles/rcp-ne.zip",
         "pages": 4,
         "octetsPdf": 7072,
-        "octetsZip": 18033
+        "octetsZip": 19794
       },
       "sn": {
         "pdf": "/modeles/rcp-sn.pdf",
         "zip": "/modeles/rcp-sn.zip",
         "pages": 4,
         "octetsPdf": 7106,
-        "octetsZip": 18155
+        "octetsZip": 19938
       },
       "tg": {
         "pdf": "/modeles/rcp-tg.pdf",
         "zip": "/modeles/rcp-tg.zip",
         "pages": 4,
         "octetsPdf": 7066,
-        "octetsZip": 18029
+        "octetsZip": 19795
       }
     }
   },
   "notice": {
+    "activites": null,
     "nom": [
       "Notice : information de l'utilisateur",
       "Package leaflet: information for the user"
@@ -247,11 +249,12 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/notice.zip",
         "pages": 4,
         "octetsPdf": 8307,
-        "octetsZip": 19428
+        "octetsZip": 21192
       }
     }
   },
   "etiquetage": {
+    "activites": null,
     "nom": [
       "Étiquetage et conditionnement",
       "Labelling and packaging"
@@ -344,11 +347,12 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/etiquetage.zip",
         "pages": 4,
         "octetsPdf": 6609,
-        "octetsZip": 17294
+        "octetsZip": 19030
       }
     }
   },
   "lettre-demande": {
+    "activites": null,
     "nom": [
       "Lettre de demande d'AMM",
       "MA application letter"
@@ -449,7 +453,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-demande-bf.zip",
         "pages": 1,
         "octetsPdf": 2211,
-        "octetsZip": 15019,
+        "octetsZip": 16778,
         "blocs": [
           {
             "t": "right",
@@ -530,7 +534,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-demande-ci.zip",
         "pages": 1,
         "octetsPdf": 2206,
-        "octetsZip": 15016,
+        "octetsZip": 16796,
         "blocs": [
           {
             "t": "right",
@@ -611,7 +615,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-demande-gw.zip",
         "pages": 1,
         "octetsPdf": 2241,
-        "octetsZip": 15077,
+        "octetsZip": 16845,
         "blocs": [
           {
             "t": "right",
@@ -692,7 +696,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-demande-ml.zip",
         "pages": 1,
         "octetsPdf": 2195,
-        "octetsZip": 14988,
+        "octetsZip": 16727,
         "blocs": [
           {
             "t": "right",
@@ -773,7 +777,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-demande-ne.zip",
         "pages": 1,
         "octetsPdf": 2209,
-        "octetsZip": 15009,
+        "octetsZip": 16765,
         "blocs": [
           {
             "t": "right",
@@ -854,7 +858,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-demande-sn.zip",
         "pages": 1,
         "octetsPdf": 2200,
-        "octetsZip": 15015,
+        "octetsZip": 16776,
         "blocs": [
           {
             "t": "right",
@@ -935,7 +939,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-demande-tg.zip",
         "pages": 1,
         "octetsPdf": 2208,
-        "octetsZip": 15003,
+        "octetsZip": 16771,
         "blocs": [
           {
             "t": "right",
@@ -1014,6 +1018,7 @@ export const MODELES_FICHIERS = {
     }
   },
   "lettre-renouvellement": {
+    "activites": null,
     "nom": [
       "Lettre de demande de renouvellement",
       "MA renewal application letter"
@@ -1106,7 +1111,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-bj.zip",
         "pages": 1,
         "octetsPdf": 2332,
-        "octetsZip": 15145,
+        "octetsZip": 16896,
         "blocs": [
           {
             "t": "right",
@@ -1195,7 +1200,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-bf.zip",
         "pages": 1,
         "octetsPdf": 2331,
-        "octetsZip": 15130,
+        "octetsZip": 16893,
         "blocs": [
           {
             "t": "right",
@@ -1284,7 +1289,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-ci.zip",
         "pages": 1,
         "octetsPdf": 2326,
-        "octetsZip": 15142,
+        "octetsZip": 16924,
         "blocs": [
           {
             "t": "right",
@@ -1373,7 +1378,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-gw.zip",
         "pages": 1,
         "octetsPdf": 2363,
-        "octetsZip": 15198,
+        "octetsZip": 16965,
         "blocs": [
           {
             "t": "right",
@@ -1462,7 +1467,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-ml.zip",
         "pages": 1,
         "octetsPdf": 2316,
-        "octetsZip": 15088,
+        "octetsZip": 16853,
         "blocs": [
           {
             "t": "right",
@@ -1551,7 +1556,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-ne.zip",
         "pages": 1,
         "octetsPdf": 2327,
-        "octetsZip": 15125,
+        "octetsZip": 16872,
         "blocs": [
           {
             "t": "right",
@@ -1640,7 +1645,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-sn.zip",
         "pages": 1,
         "octetsPdf": 2324,
-        "octetsZip": 15129,
+        "octetsZip": 16890,
         "blocs": [
           {
             "t": "right",
@@ -1729,7 +1734,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-tg.zip",
         "pages": 1,
         "octetsPdf": 2330,
-        "octetsZip": 15122,
+        "octetsZip": 16873,
         "blocs": [
           {
             "t": "right",
@@ -1816,6 +1821,7 @@ export const MODELES_FICHIERS = {
     }
   },
   "lettre-variation": {
+    "activites": null,
     "nom": [
       "Lettre de demande de variation",
       "MA variation application letter"
@@ -1908,7 +1914,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-bj.zip",
         "pages": 1,
         "octetsPdf": 2233,
-        "octetsZip": 15059,
+        "octetsZip": 16833,
         "blocs": [
           {
             "t": "right",
@@ -1989,7 +1995,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-bf.zip",
         "pages": 1,
         "octetsPdf": 2237,
-        "octetsZip": 15039,
+        "octetsZip": 16823,
         "blocs": [
           {
             "t": "right",
@@ -2070,7 +2076,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-ci.zip",
         "pages": 1,
         "octetsPdf": 2227,
-        "octetsZip": 15044,
+        "octetsZip": 16846,
         "blocs": [
           {
             "t": "right",
@@ -2151,7 +2157,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-gw.zip",
         "pages": 1,
         "octetsPdf": 2258,
-        "octetsZip": 15091,
+        "octetsZip": 16883,
         "blocs": [
           {
             "t": "right",
@@ -2232,7 +2238,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-ml.zip",
         "pages": 1,
         "octetsPdf": 2221,
-        "octetsZip": 15005,
+        "octetsZip": 16774,
         "blocs": [
           {
             "t": "right",
@@ -2313,7 +2319,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-ne.zip",
         "pages": 1,
         "octetsPdf": 2230,
-        "octetsZip": 15027,
+        "octetsZip": 16808,
         "blocs": [
           {
             "t": "right",
@@ -2394,7 +2400,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-sn.zip",
         "pages": 1,
         "octetsPdf": 2226,
-        "octetsZip": 15040,
+        "octetsZip": 16821,
         "blocs": [
           {
             "t": "right",
@@ -2475,7 +2481,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-tg.zip",
         "pages": 1,
         "octetsPdf": 2231,
-        "octetsZip": 15031,
+        "octetsZip": 16791,
         "blocs": [
           {
             "t": "right",
@@ -2554,6 +2560,10 @@ export const MODELES_FICHIERS = {
     }
   },
   "lettre-pght": {
+    "activites": [
+      "enr",
+      "renouv"
+    ],
     "nom": [
       "Lettre de PGHT",
       "Ex-factory price (PGHT) letter"
@@ -2597,7 +2607,7 @@ export const MODELES_FICHIERS = {
       },
       {
         "t": "h3",
-        "x": "Objet : Attestation de PGHT"
+        "x": "Objet : Attestation de PGHT — enregistrement du produit …"
       },
       {
         "t": "p",
@@ -2646,12 +2656,12 @@ export const MODELES_FICHIERS = {
       }
     ],
     "fichiers": {
-      "bj": {
-        "pdf": "/modeles/lettre-pght-bj.pdf",
-        "zip": "/modeles/lettre-pght-bj.zip",
+      "bj-enr": {
+        "pdf": "/modeles/lettre-pght-bj-enr.pdf",
+        "zip": "/modeles/lettre-pght-bj-enr.zip",
         "pages": 1,
-        "octetsPdf": 2321,
-        "octetsZip": 15174,
+        "octetsPdf": 2333,
+        "octetsZip": 17233,
         "blocs": [
           {
             "t": "right",
@@ -2675,7 +2685,7 @@ export const MODELES_FICHIERS = {
           },
           {
             "t": "h3",
-            "x": "Objet : Attestation de PGHT"
+            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
           },
           {
             "t": "p",
@@ -2724,12 +2734,90 @@ export const MODELES_FICHIERS = {
           }
         ]
       },
-      "bf": {
-        "pdf": "/modeles/lettre-pght-bf.pdf",
-        "zip": "/modeles/lettre-pght-bf.zip",
+      "bj-renouv": {
+        "pdf": "/modeles/lettre-pght-bj-renouv.pdf",
+        "zip": "/modeles/lettre-pght-bj-renouv.zip",
         "pages": 1,
-        "octetsPdf": 2315,
-        "octetsZip": 15144,
+        "octetsPdf": 2333,
+        "octetsZip": 17227,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Agence Béninoise du Médicament et des autres produits de santé (ABMed)"
+          },
+          {
+            "t": "right",
+            "x": "Cotonou, Zone résidentielle"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
+      },
+      "bf-enr": {
+        "pdf": "/modeles/lettre-pght-bf-enr.pdf",
+        "zip": "/modeles/lettre-pght-bf-enr.zip",
+        "pages": 1,
+        "octetsPdf": 2332,
+        "octetsZip": 17216,
         "blocs": [
           {
             "t": "right",
@@ -2753,7 +2841,7 @@ export const MODELES_FICHIERS = {
           },
           {
             "t": "h3",
-            "x": "Objet : Attestation de PGHT"
+            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
           },
           {
             "t": "p",
@@ -2802,12 +2890,90 @@ export const MODELES_FICHIERS = {
           }
         ]
       },
-      "ci": {
-        "pdf": "/modeles/lettre-pght-ci.pdf",
-        "zip": "/modeles/lettre-pght-ci.zip",
+      "bf-renouv": {
+        "pdf": "/modeles/lettre-pght-bf-renouv.pdf",
+        "zip": "/modeles/lettre-pght-bf-renouv.zip",
         "pages": 1,
-        "octetsPdf": 2317,
-        "octetsZip": 15165,
+        "octetsPdf": 2329,
+        "octetsZip": 17214,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Agence Nationale de Régulation Pharmaceutique (ANRP)"
+          },
+          {
+            "t": "right",
+            "x": "Ouagadougou, 01 BP 7009"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
+      },
+      "ci-enr": {
+        "pdf": "/modeles/lettre-pght-ci-enr.pdf",
+        "zip": "/modeles/lettre-pght-ci-enr.zip",
+        "pages": 1,
+        "octetsPdf": 2330,
+        "octetsZip": 17252,
         "blocs": [
           {
             "t": "right",
@@ -2831,7 +2997,7 @@ export const MODELES_FICHIERS = {
           },
           {
             "t": "h3",
-            "x": "Objet : Attestation de PGHT"
+            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
           },
           {
             "t": "p",
@@ -2880,12 +3046,90 @@ export const MODELES_FICHIERS = {
           }
         ]
       },
-      "gw": {
-        "pdf": "/modeles/lettre-pght-gw.pdf",
-        "zip": "/modeles/lettre-pght-gw.zip",
+      "ci-renouv": {
+        "pdf": "/modeles/lettre-pght-ci-renouv.pdf",
+        "zip": "/modeles/lettre-pght-ci-renouv.zip",
         "pages": 1,
-        "octetsPdf": 2344,
-        "octetsZip": 15207,
+        "octetsPdf": 2334,
+        "octetsZip": 17265,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Autorité Ivoirienne de Régulation Pharmaceutique (AIRP)"
+          },
+          {
+            "t": "right",
+            "x": "Abidjan, Cocody"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
+      },
+      "gw-enr": {
+        "pdf": "/modeles/lettre-pght-gw-enr.pdf",
+        "zip": "/modeles/lettre-pght-gw-enr.zip",
+        "pages": 1,
+        "octetsPdf": 2359,
+        "octetsZip": 17288,
         "blocs": [
           {
             "t": "right",
@@ -2909,7 +3153,7 @@ export const MODELES_FICHIERS = {
           },
           {
             "t": "h3",
-            "x": "Objet : Attestation de PGHT"
+            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
           },
           {
             "t": "p",
@@ -2958,12 +3202,90 @@ export const MODELES_FICHIERS = {
           }
         ]
       },
-      "ml": {
-        "pdf": "/modeles/lettre-pght-ml.pdf",
-        "zip": "/modeles/lettre-pght-ml.zip",
+      "gw-renouv": {
+        "pdf": "/modeles/lettre-pght-gw-renouv.pdf",
+        "zip": "/modeles/lettre-pght-gw-renouv.zip",
         "pages": 1,
-        "octetsPdf": 2298,
-        "octetsZip": 15129,
+        "octetsPdf": 2360,
+        "octetsZip": 17285,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Direção dos Serviços de Farmácia e Medicamentos (DIFALRM)"
+          },
+          {
+            "t": "right",
+            "x": "Bissau, Ministère de la Santé Publique"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
+      },
+      "ml-enr": {
+        "pdf": "/modeles/lettre-pght-ml-enr.pdf",
+        "zip": "/modeles/lettre-pght-ml-enr.zip",
+        "pages": 1,
+        "octetsPdf": 2312,
+        "octetsZip": 17173,
         "blocs": [
           {
             "t": "right",
@@ -2987,7 +3309,7 @@ export const MODELES_FICHIERS = {
           },
           {
             "t": "h3",
-            "x": "Objet : Attestation de PGHT"
+            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
           },
           {
             "t": "p",
@@ -3036,12 +3358,90 @@ export const MODELES_FICHIERS = {
           }
         ]
       },
-      "ne": {
-        "pdf": "/modeles/lettre-pght-ne.pdf",
-        "zip": "/modeles/lettre-pght-ne.zip",
+      "ml-renouv": {
+        "pdf": "/modeles/lettre-pght-ml-renouv.pdf",
+        "zip": "/modeles/lettre-pght-ml-renouv.zip",
         "pages": 1,
-        "octetsPdf": 2312,
-        "octetsZip": 15146,
+        "octetsPdf": 2311,
+        "octetsZip": 17174,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Direction de la Pharmacie et du Médicament (DPM)"
+          },
+          {
+            "t": "right",
+            "x": "Bamako, Darsalam, BPE 5202"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
+      },
+      "ne-enr": {
+        "pdf": "/modeles/lettre-pght-ne-enr.pdf",
+        "zip": "/modeles/lettre-pght-ne-enr.zip",
+        "pages": 1,
+        "octetsPdf": 2328,
+        "octetsZip": 17197,
         "blocs": [
           {
             "t": "right",
@@ -3065,7 +3465,7 @@ export const MODELES_FICHIERS = {
           },
           {
             "t": "h3",
-            "x": "Objet : Attestation de PGHT"
+            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
           },
           {
             "t": "p",
@@ -3114,12 +3514,90 @@ export const MODELES_FICHIERS = {
           }
         ]
       },
-      "sn": {
-        "pdf": "/modeles/lettre-pght-sn.pdf",
-        "zip": "/modeles/lettre-pght-sn.zip",
+      "ne-renouv": {
+        "pdf": "/modeles/lettre-pght-ne-renouv.pdf",
+        "zip": "/modeles/lettre-pght-ne-renouv.zip",
         "pages": 1,
-        "octetsPdf": 2309,
-        "octetsZip": 15144,
+        "octetsPdf": 2326,
+        "octetsZip": 17205,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Direction de la Pharmacie et de la Médecine Traditionnelle (DPM/MT)"
+          },
+          {
+            "t": "right",
+            "x": "Niamey, Ministère de la Santé"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
+      },
+      "sn-enr": {
+        "pdf": "/modeles/lettre-pght-sn-enr.pdf",
+        "zip": "/modeles/lettre-pght-sn-enr.zip",
+        "pages": 1,
+        "octetsPdf": 2325,
+        "octetsZip": 17217,
         "blocs": [
           {
             "t": "right",
@@ -3143,7 +3621,7 @@ export const MODELES_FICHIERS = {
           },
           {
             "t": "h3",
-            "x": "Objet : Attestation de PGHT"
+            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
           },
           {
             "t": "p",
@@ -3192,12 +3670,90 @@ export const MODELES_FICHIERS = {
           }
         ]
       },
-      "tg": {
-        "pdf": "/modeles/lettre-pght-tg.pdf",
-        "zip": "/modeles/lettre-pght-tg.zip",
+      "sn-renouv": {
+        "pdf": "/modeles/lettre-pght-sn-renouv.pdf",
+        "zip": "/modeles/lettre-pght-sn-renouv.zip",
         "pages": 1,
-        "octetsPdf": 2310,
-        "octetsZip": 15144,
+        "octetsPdf": 2321,
+        "octetsZip": 17203,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Agence Sénégalaise de Réglementation Pharmaceutique (ARP)"
+          },
+          {
+            "t": "right",
+            "x": "Dakar, Point E, Rue A x Rue 6"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
+      },
+      "tg-enr": {
+        "pdf": "/modeles/lettre-pght-tg-enr.pdf",
+        "zip": "/modeles/lettre-pght-tg-enr.zip",
+        "pages": 1,
+        "octetsPdf": 2323,
+        "octetsZip": 17204,
         "blocs": [
           {
             "t": "right",
@@ -3221,7 +3777,7 @@ export const MODELES_FICHIERS = {
           },
           {
             "t": "h3",
-            "x": "Objet : Attestation de PGHT"
+            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
           },
           {
             "t": "p",
@@ -3230,6 +3786,84 @@ export const MODELES_FICHIERS = {
           {
             "t": "p",
             "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ]
+      },
+      "tg-renouv": {
+        "pdf": "/modeles/lettre-pght-tg-renouv.pdf",
+        "zip": "/modeles/lettre-pght-tg-renouv.zip",
+        "pages": 1,
+        "octetsPdf": 2326,
+        "octetsZip": 17202,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Direction de la Pharmacie, du Médicament et des Laboratoires (DPML)"
+          },
+          {
+            "t": "right",
+            "x": "Lomé, Avenue du 2 Février"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
           },
           {
             "t": "table",
@@ -3273,6 +3907,7 @@ export const MODELES_FICHIERS = {
     }
   },
   "qos-pd": {
+    "activites": null,
     "nom": [
       "QOS-PD — Quality Overall Summary",
       "QOS-PD — Quality Overall Summary"
@@ -3365,11 +4000,12 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/qos-pd.zip",
         "pages": 1,
         "octetsPdf": 2468,
-        "octetsZip": 7642
+        "octetsZip": 8506
       }
     }
   },
   "btif": {
+    "activites": null,
     "nom": [
       "BTIF — Bioequivalence Trial Information Form",
       "BTIF — Bioequivalence Trial Information Form"
@@ -3462,7 +4098,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/btif.zip",
         "pages": 1,
         "octetsPdf": 2363,
-        "octetsZip": 7532
+        "octetsZip": 8404
       }
     }
   }

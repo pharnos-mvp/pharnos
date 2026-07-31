@@ -24,7 +24,7 @@ fs.mkdirSync(path.dirname(SORTIE), { recursive: true })
 
 const resultat = await build({
   stdin: {
-    contents: `export { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, HeadingLevel } from 'docx'`,
+    contents: `export { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, HeadingLevel, Footer, ExternalHyperlink, ShadingType, VerticalAlign } from 'docx'`,
     resolveDir: path.resolve(import.meta.dirname, '..'),
   },
   bundle: true,

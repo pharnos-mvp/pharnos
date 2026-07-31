@@ -1091,17 +1091,23 @@ const LETTRE_VARIATION = [
 
 const LETTRE_PGHT = [
   ...LETTRE_OUVERTURE,
-  { t: 'h3', x: 'Objet : Attestation de PGHT', en: 'Subject: Ex-factory price (PGHT) statement' },
+  {
+    t: 'h3',
+    x: 'Objet : Attestation de PGHT — {ACTE_OBJET} du produit …',
+    en: 'Subject: Ex-factory price (PGHT) statement — {ACTE_OBJET} of the product …',
+  },
   { t: 'salut' },
   {
     t: 'p',
+    // ⚠️ {ACTE} : la lettre de PGHT accompagne un ENREGISTREMENT ou un RENOUVELLEMENT — écrire
+    // « l'enregistrement » dans les deux cas ferait mentir un courrier officiel sur son objet.
     x:
       'Nous venons par la présente, solliciter auprès de votre haute bienveillance, ' +
-      "l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité " +
+      "{ACTE} de l'autorisation de mise sur le marché (AMM) de notre spécialité " +
       'pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés ' +
       'dans le tableau suivant :',
     en:
-      'We hereby request from your kind consideration the registration of the marketing ' +
+      'We hereby request from your kind consideration {ACTE} of the marketing ' +
       'authorisation (MA) of our pharmaceutical specialty, whose particulars and ex-factory ' +
       'wholesale price (PGHT) are recorded in the following table:',
   },
@@ -1327,6 +1333,9 @@ export const DOCS = [
     upgradable: false,
     bilingue: true,
     layout: 'lettre',
+    // La VARIATION ne concerne pas le PGHT : une variation ne redéclare pas le prix grossiste.
+    // Les trois autres lettres portent leur activité dans leur nom — seule celle-ci se décline.
+    activites: ['enr', 'renouv'],
   },
   {
     slug: 'qos-pd',

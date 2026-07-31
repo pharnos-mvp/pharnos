@@ -839,6 +839,7 @@
         </h3>
         <p
           class="mdesc"
+          id="premsub"
           data-en="The letter is addressed to your country’s authority and worded for your activity — choose both, we fill in the rest."
         >
           La lettre s'adresse à l'autorité de votre pays et s'écrit selon votre
@@ -851,47 +852,16 @@
           >
           <select id="prempays"></select>
         </div>
-        <div class="mfield">
+        <div class="mfield" id="premactwrap" hidden>
           <span class="mlab" id="premactlab" data-en="Regulatory activity"
             >Activité réglementaire</span
           >
           <div
-            class="chips chips-3"
+            class="chips"
             role="radiogroup"
             aria-labelledby="premactlab"
             id="premact"
-          >
-            <button
-              class="chip"
-              type="button"
-              role="radio"
-              aria-checked="false"
-              data-v="enr"
-              data-en="Registration"
-            >
-              Enregistrement
-            </button>
-            <button
-              class="chip"
-              type="button"
-              role="radio"
-              aria-checked="false"
-              data-v="renouv"
-              data-en="Renewal"
-            >
-              Renouvellement
-            </button>
-            <button
-              class="chip"
-              type="button"
-              role="radio"
-              aria-checked="false"
-              data-v="variation"
-              data-en="Variation"
-            >
-              Variation
-            </button>
-          </div>
+          ></div>
         </div>
 
         <div class="mfield stack">

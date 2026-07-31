@@ -37,6 +37,7 @@ type Manifeste = Record<
     perPays: boolean
     upgradable: boolean
     bilingue: boolean
+    activites: string[] | null
     groupe: string
     apercu: Bloc[]
     fichiers: Record<string, Fichier>
@@ -269,14 +270,15 @@ describe("les lettres sont adressées à l'autorité du pays — le référentie
       'lettre-pght',
     ]) {
       expect(docDe(slug).perPays, slug).toBe(true)
+      const cle = (pays: string) => (docDe(slug).activites ? `${pays}-enr` : pays)
       for (const [k, [agence, civ]] of Object.entries(attendu)) {
-        const texte = await texteDocx(fichierDe(slug, k).zip)
+        const texte = await texteDocx(fichierDe(slug, cle(k)).zip)
         expect(texte, `${slug}/${k}`).toContain(agence)
         expect(texte, `${slug}/${k}`).toContain(civ)
       }
       // Servir la lettre d'un pays avec l'agence d'un autre enverrait un courrier réel au
       // mauvais destinataire : le croisement est vérifié, pas seulement la présence.
-      const ci = await texteDocx(fichierDe(slug, 'ci').zip)
+      const ci = await texteDocx(fichierDe(slug, cle('ci')).zip)
       expect(ci, slug).not.toContain('Agence Sénégalaise')
     }
   })
@@ -289,7 +291,7 @@ describe("les lettres sont adressées à l'autorité du pays — le référentie
   })
 
   it('la lettre PGHT porte son tableau à quatre colonnes', async () => {
-    const docx = await docxDuZip(fichierDe('lettre-pght', 'sn').zip)
+    const docx = await docxDuZip(fichierDe('lettre-pght', 'sn-enr').zip)
     const zip = await JSZip.loadAsync(docx)
     const xml = await zip.file('word/document.xml')!.async('string')
     expect(xml).toContain('<w:tbl>')
@@ -303,10 +305,11 @@ describe("les lettres sont adressées à l'autorité du pays — le référentie
       'lettre-demande': "Objet : Demande d'enregistrement d'AMM",
       'lettre-renouvellement': "Objet : Demande de renouvellement d'AMM",
       'lettre-variation': 'Objet : Demande de variation',
-      'lettre-pght': 'Objet : Attestation de PGHT',
+      'lettre-pght': 'Objet : Attestation de PGHT — enregistrement',
     }
     for (const [slug, objet] of Object.entries(attendus)) {
-      expect(await texteDocx(fichierDe(slug, 'sn').zip), slug).toContain(objet)
+      const k = docDe(slug).activites ? 'sn-enr' : 'sn'
+      expect(await texteDocx(fichierDe(slug, k).zip), slug).toContain(objet)
     }
   })
 })
@@ -389,5 +392,61 @@ describe('lettres v3 — directives CEO du 31/07/2026', () => {
     for (const b of f.blocs!) {
       if (b.x && b.t !== 'table') expect(texte, b.x.slice(0, 40)).toContain(b.x)
     }
+  })
+})
+
+describe('PGHT — la lettre suit l’activité, la variation en est exclue', () => {
+  it('ne distingue une activité QUE pour le PGHT, et jamais la variation', () => {
+    for (const [slug, m] of Object.entries(MANIFESTE)) {
+      expect(m.activites, slug).toEqual(slug === 'lettre-pght' ? ['enr', 'renouv'] : null)
+    }
+    // Une variation ne redéclare pas le prix grossiste : la proposer serait un contresens.
+    expect(docDe('lettre-pght').activites).not.toContain('variation')
+  })
+
+  it('écrit ce qu’elle sollicite — jamais « enregistrement » sur un renouvellement', async () => {
+    const enr = await texteDocx(fichierDe('lettre-pght', 'ci-enr').zip)
+    expect(enr).toContain("solliciter auprès de votre haute bienveillance, l'enregistrement")
+    expect(enr).toContain('Objet : Attestation de PGHT — enregistrement')
+
+    const ren = await texteDocx(fichierDe('lettre-pght', 'ci-renouv').zip)
+    expect(ren).toContain('solliciter auprès de votre haute bienveillance, le renouvellement')
+    expect(ren).toContain('Objet : Attestation de PGHT — renouvellement')
+    expect(ren).not.toContain("l'enregistrement de l'autorisation")
+  })
+})
+
+describe('mise en page de courrier officiel', () => {
+  it('signe le pied de page des modèles générés, avec le lien Pharnos', async () => {
+    const docx = await docxDuZip(fichierDe('lettre-demande', 'ci').zip)
+    const zip = await JSZip.loadAsync(docx)
+    const pied = Object.keys(zip.files).find((n) => /word\/footer\d+\.xml$/.test(n))
+    expect(pied, 'aucun pied de page').toBeTruthy()
+    const xml = await zip.file(pied!)!.async('string')
+    expect(xml).toContain('Modèle UEMOA — nouvelle AMM — Côte d')
+    expect(xml).toContain('Pharnos')
+    const rels = await zip.file('word/_rels/footer1.xml.rels')!.async('string')
+    expect(rels).toContain('https://pharnos.com/')
+    // Le document DOIT référencer son pied, sinon Word ne l'affiche pas.
+    expect(await zip.file('word/document.xml')!.async('string')).toContain('footerReference')
+  })
+
+  it('aère les paragraphes et les cellules — un courrier, pas une note interne', async () => {
+    const zip = await JSZip.loadAsync(await docxDuZip(fichierDe('lettre-pght', 'sn-enr').zip))
+    const xml = await zip.file('word/document.xml')!.async('string')
+    // Interligne 1,15 et espacement après paragraphe : les deux marqueurs de la recette courrier.
+    expect(xml).toMatch(/w:line="276"/)
+    expect(xml).toMatch(/w:after="200"/)
+    // Marges intérieures de cellule : sans elles le texte touche le trait du tableau.
+    expect(xml).toMatch(/w:tcMar/)
+  })
+
+  it('ne signe JAMAIS le document officiel d’une autorité', async () => {
+    const zip = await JSZip.loadAsync(
+      fs.readFileSync(chemin(fichierDe('lettre-demande', 'bj').zip)),
+    )
+    const noms = Object.keys(zip.files)
+    expect(noms).toHaveLength(1)
+    expect(noms[0]).toMatch(/officiel\.pdf$/)
   })
 })

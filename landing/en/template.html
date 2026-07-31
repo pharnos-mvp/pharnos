@@ -469,7 +469,7 @@
         <h3 id="premtitle" data-fr="
           Deux choix, et votre lettre prend forme
         ">Two choices, and your letter takes shape</h3>
-        <p class="mdesc" data-fr="
+        <p class="mdesc" id="premsub" data-fr="
           La lettre s'adresse à l'autorité de votre pays et s'écrit selon votre
           activité — choisissez les deux, nous remplissons le reste.
         ">The letter is addressed to your country’s authority and worded for your activity — choose both, we fill in the rest.</p>
@@ -478,19 +478,9 @@
           <label class="mlab" for="prempays" data-fr="Pays de dépôt">Country of filing</label>
           <select id="prempays"></select>
         </div>
-        <div class="mfield">
+        <div class="mfield" id="premactwrap" hidden="">
           <span class="mlab" id="premactlab" data-fr="Activité réglementaire">Regulatory activity</span>
-          <div class="chips chips-3" role="radiogroup" aria-labelledby="premactlab" id="premact">
-            <button class="chip" type="button" role="radio" aria-checked="false" data-v="enr" data-fr="
-              Enregistrement
-            ">Registration</button>
-            <button class="chip" type="button" role="radio" aria-checked="false" data-v="renouv" data-fr="
-              Renouvellement
-            ">Renewal</button>
-            <button class="chip" type="button" role="radio" aria-checked="false" data-v="variation" data-fr="
-              Variation
-            ">Variation</button>
-          </div>
+          <div class="chips" role="radiogroup" aria-labelledby="premactlab" id="premact"></div>
         </div>
 
         <div class="mfield stack">

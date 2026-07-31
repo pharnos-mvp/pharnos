@@ -1240,6 +1240,17 @@
   width: 100%;
   resize: vertical;
 }
+/* Zone qui grandit à la frappe : hauteur pilotée par le JS, largeur BORNÉE à la feuille — un
+   champ qui déborderait ferait perdre de vue ce qu'on vient de taper. */
+.lf-in.lf-grow {
+  display: inline-block;
+  width: 100%;
+  max-width: 100%;
+  resize: none;
+  overflow: hidden;
+  vertical-align: top;
+  line-height: 1.45;
+}
 .lf-table {
   width: 100%;
   border-collapse: collapse;
