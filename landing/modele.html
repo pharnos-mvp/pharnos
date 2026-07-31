@@ -1,0 +1,917 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title data-en="Official template — regulatory library · Pharnos">
+      Modèle officiel — bibliothèque réglementaire · Pharnos
+    </title>
+    <meta
+      name="description"
+      content="Le modèle officiel dans un lecteur, à télécharger librement dans la version de votre pays de dépôt — et la mise à niveau de votre document existant par Regafy AI."
+    />
+    <meta name="robots" content="noindex, follow" />
+    <link rel="stylesheet" href="/styles.css?v=15" />
+    <link rel="stylesheet" href="/bibliotheque.css?v=2" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link
+      rel="canonical"
+      href="https://pharnos.com/bibliotheque-reglementaire"
+    />
+    <meta name="theme-color" content="#171040" />
+  </head>
+  <body class="bib">
+    <a class="skip-link" href="#main" data-en="Skip to content"
+      >Aller au contenu</a
+    >
+
+    <svg width="0" height="0" aria-hidden="true">
+      <defs>
+        <symbol id="logo-p" viewBox="0 0 640 640">
+          <path
+            fill="currentColor"
+            d="M610.99,569.98c.48,9.86-.64,18.75-7.05,26.28-5.47,6.42-12.3,10.02-20.7,10.62-1.5.11-3,.12-4.5.12-90.16,0-180.32,0-270.48,0h-4.09v-135.49c13.8,0,27.45.54,41.03-.13,19.93-.98,39.98-1.73,59.69-4.57,30.3-4.38,58.57-14.9,83.28-33.61,29.84-22.6,47.04-52.98,53.52-89.41,5.88-33.04,5.36-66.02-4.73-98.34-11.31-36.21-34.93-61.8-68.91-77.99-24.63-11.74-50.89-17.45-77.95-19.39-14.77-1.06-29.62-1.45-44.43-1.51-47.66-.18-95.32-.07-142.99-.07h-5.5v87.9h3.95c33,0,66-.08,98.99.03,23.14.07,46.3.05,69.43.72,12.2.35,24.01,3.57,35.02,9.02,15.94,7.89,25.51,20.96,29.71,38,3.97,16.09,4.32,32.32.21,48.44-5.99,23.52-21.83,37.72-44.07,45.61-17.35,6.16-35.4,7.6-53.61,7.6-44.65,0-89.3-.13-133.95-.2h-5.66v223.15c-1.66.09-3.08.24-4.5.24-43.16.01-86.33.03-129.49,0-19.78-.02-32.19-12.39-32.19-32.07-.01-169.32-.01-338.64,0-507.95,0-19.39,12.43-31.95,31.78-31.95,172.15-.03,344.3-.03,516.45,0,19.5,0,31.73,12.61,31.73,32.51.01,167.32.01,334.63,0,502.45Z"
+          />
+        </symbol>
+        <symbol id="i-doc" viewBox="0 0 24 24">
+          <path
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.9"
+            stroke-linejoin="round"
+            d="M6 2.5h8L20 8.5v13H6v-19zM14 2.5v6h6"
+          />
+          <path
+            stroke="currentColor"
+            stroke-width="1.9"
+            stroke-linecap="round"
+            d="M9 13h7M9 17h7"
+          />
+        </symbol>
+        <symbol id="i-back" viewBox="0 0 24 24">
+          <path
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M19 12H5m6-7-7 7 7 7"
+          />
+        </symbol>
+        <symbol id="i-dl" viewBox="0 0 24 24">
+          <path
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M12 3v12m0 0 5-5m-5 5-5-5M4 21h16"
+          />
+        </symbol>
+      </defs>
+    </svg>
+
+    <header class="site-header">
+      <div class="wrap">
+        <a
+          class="brand"
+          href="/"
+          aria-label="Pharnos — accueil"
+          data-en-al="Pharnos — home"
+        >
+          <svg aria-hidden="true"><use href="#logo-p" /></svg>
+          <span class="brand-name">Pharnos</span>
+        </a>
+        <nav
+          class="site-nav"
+          aria-label="Navigation principale"
+          data-en-al="Main navigation"
+        >
+          <a class="navlink" href="/#modules" data-en="Platform">Plateforme</a>
+          <div class="navitem">
+            <button
+              type="button"
+              class="navtrigger"
+              id="tools-trigger"
+              aria-expanded="false"
+              aria-controls="tools-menu"
+            >
+              <span data-en="Tools">Outils</span>
+              <svg class="chev" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M6 9l6 6 6-6"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+            <div class="navmenu" id="tools-menu" hidden>
+              <a href="/checking-standard">
+                <span class="mt"
+                  >Checking Standard
+                  <span class="tag" data-en="Free">Gratuit</span></span
+                >
+                <span
+                  class="md"
+                  data-en="Is your MA dossier ready for reception? A diagnostic in 3 minutes, no document to upload."
+                  >Votre dossier d'AMM est-il prêt pour la réception ? Un
+                  diagnostic en 3 minutes, sans téléverser de document.</span
+                >
+              </a>
+              <a href="/bibliotheque-reglementaire">
+                <span class="mt"
+                  ><span data-en="Regulatory templates"
+                    >Modèles réglementaires</span
+                  >
+                  <span class="tag" data-en="Free">Gratuit</span></span
+                >
+                <span
+                  class="md"
+                  data-en="SmPC, leaflet, labelling, letters, QOS-PD and BTIF on the official template."
+                  >RCP, notice, étiquetage, lettres, QOS-PD et BTIF sur le
+                  modèle officiel.</span
+                >
+              </a>
+              <span class="soon">
+                <span class="mt"
+                  ><span data-en="Regulatory translation"
+                    >Traduction réglementaire</span
+                  >
+                  <span class="tag" data-en="Soon">Bientôt</span></span
+                >
+                <span
+                  class="md"
+                  data-en="FR ⇄ EN ⇄ PT, with the vocabulary of the dossier preserved."
+                  >FR ⇄ EN ⇄ PT, avec le vocabulaire du dossier respecté.</span
+                >
+              </span>
+            </div>
+          </div>
+          <a class="navlink" href="/#offres" data-en="Pricing">Tarifs</a>
+        </nav>
+        <div
+          class="lang"
+          role="group"
+          aria-label="Choisir la langue"
+          data-en-al="Choose language"
+        >
+          <button type="button" class="on" aria-pressed="true">FR</button>
+          <button type="button" aria-pressed="false">EN</button>
+        </div>
+        <a class="login" href="https://app.pharnos.com" data-en="Sign in"
+          >Se connecter</a
+        >
+        <button
+          class="burger"
+          type="button"
+          aria-expanded="false"
+          aria-controls="mnav"
+          aria-label="Ouvrir le menu"
+          data-en-al="Open menu"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M4 7h16M4 12h16M4 17h16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+        <nav
+          class="mnav"
+          id="mnav"
+          hidden
+          aria-label="Menu mobile"
+          data-en-al="Mobile menu"
+        >
+          <a href="/#modules" data-en="Platform">Plateforme</a>
+          <div class="mgroup">
+            <span class="mglabel" data-en="Tools">Outils</span>
+            <a
+              href="/checking-standard"
+              data-en="Checking Standard — diagnostic"
+              >Checking Standard — diagnostic</a
+            >
+            <a href="/bibliotheque-reglementaire" data-en="Regulatory templates"
+              >Modèles réglementaires</a
+            >
+            <span class="msoon"
+              ><span data-en="Regulatory translation"
+                >Traduction réglementaire</span
+              >
+              <span class="tag" data-en="Soon">Bientôt</span></span
+            >
+          </div>
+          <a href="/#offres" data-en="Pricing">Tarifs</a>
+          <div
+            class="lang"
+            role="group"
+            aria-label="Choisir la langue"
+            data-en-al="Choose language"
+          >
+            <button type="button" class="on" aria-pressed="true">FR</button>
+            <button type="button" aria-pressed="false">EN</button>
+          </div>
+          <a href="https://app.pharnos.com" data-en="Sign in">Se connecter</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- En-tête de fiche du document -->
+      <div class="fiche-top">
+        <header class="fiche-head">
+          <a
+            class="fiche-back"
+            id="back"
+            href="/bibliotheque-reglementaire"
+            aria-label="Retour à la bibliothèque"
+            data-en-al="Back to the library"
+            ><svg><use href="#i-back" /></svg
+          ></a>
+          <span class="fiche-ico" aria-hidden="true"
+            ><svg><use href="#i-doc" /></svg
+          ></span>
+          <div class="tx">
+            <h1 id="doctitle">…</h1>
+            <p class="sub" id="docsub"></p>
+            <div class="tags" id="doctags"></div>
+          </div>
+        </header>
+      </div>
+
+      <div class="bib-app">
+        <div class="wrap">
+          <div class="doc-layout">
+            <!-- Le document lui-même, dans un lecteur — le téléchargement vit dans SA barre, à gauche -->
+            <div class="doc-reader">
+              <div class="reader-bar">
+                <button class="btn btn-dark btn-sm" type="button" id="dlbtn">
+                  <svg width="15" height="15" aria-hidden="true">
+                    <use href="#i-dl" />
+                  </svg>
+                  <span data-en="Download">Télécharger</span>
+                </button>
+                <span
+                  class="rb-note"
+                  id="dlnote"
+                  data-en="Word · FR + EN · free"
+                  >Word · FR + EN · gratuit</span
+                >
+                <span class="rb-edit" id="rbedit" hidden>
+                  <button
+                    class="btn btn-ghost btn-sm"
+                    type="button"
+                    id="lfretour"
+                    data-en="← Official template"
+                  >
+                    ← Modèle officiel
+                  </button>
+                  <button
+                    class="btn btn-ghost btn-sm"
+                    type="button"
+                    id="lfreset"
+                    data-en="Reset"
+                  >
+                    Réinitialiser
+                  </button>
+                  <button
+                    class="btn btn-primary btn-sm"
+                    type="button"
+                    id="lfgo"
+                    data-en="Download (DOCX)"
+                  >
+                    Télécharger (DOCX)
+                  </button>
+                </span>
+              </div>
+              <iframe
+                id="docview"
+                title="Aperçu du modèle officiel"
+                data-en-title="Preview of the official template"
+              ></iframe>
+              <div class="lettre-edit" id="lfedit" hidden>
+                <div class="lettre-feuille" id="lffeuille"></div>
+              </div>
+              <p class="doc-fall" id="docfall" hidden></p>
+            </div>
+
+            <!-- Colonne droite, sticky : l'offre Regafy AI (documents produit) ou la carte du modèle -->
+            <aside class="doc-rail">
+              <div class="rail-card offer" id="offre" hidden>
+                <div class="peek" aria-hidden="true">
+                  <span class="pk1"
+                    >RÉSUMÉ DES CARACTÉRISTIQUES DU PRODUIT</span
+                  >
+                  <span class="pkh"
+                    >2. COMPOSITION QUALITATIVE ET QUANTITATIVE</span
+                  >
+                  <span class="pkl">Sulfate de néomycine ……………… 35 000 UI</span>
+                  <span class="pkl">Nystatine ……………………………… 100 000 UI</span>
+                  <span class="pkh">4.8 Effets indésirables</span>
+                  <span class="pkl">Liste tabulée MedDRA, par fréquence…</span>
+                  <span class="pkh">7.1 Titulaire de l'AMM</span>
+                  <span class="pkl">ABMED PHARMA SA</span>
+                  <span class="stamp" data-en="✓ To standard"
+                    >✓ Au standard</span
+                  >
+                </div>
+                <div class="offer-fg">
+                  <h2
+                    id="offreh"
+                    data-en="From the official template to a filing-ready document"
+                  >
+                    Du modèle officiel au document prêt à déposer
+                  </h2>
+                  <p class="rc-sub" id="offresub"></p>
+                  <ul class="advs">
+                    <li>
+                      <span class="ai" aria-hidden="true">⇄</span>
+                      <span
+                        data-en="Every piece of content moved back to its section"
+                        >Chaque contenu remis à sa rubrique</span
+                      >
+                    </li>
+                    <li>
+                      <span class="ai" aria-hidden="true">A</span>
+                      <span data-en="Official terminology applied"
+                        >Terminologie officielle appliquée</span
+                      >
+                    </li>
+                    <li>
+                      <span class="ai" aria-hidden="true">Fr</span>
+                      <span data-en="Translation into French"
+                        >Traduction en français</span
+                      >
+                    </li>
+                    <li>
+                      <span class="ai" aria-hidden="true">5</span>
+                      <span
+                        data-en="5 deliverables: Word and PDF, EN and FR, plus the suggestions report"
+                        >5 fichiers livrables : Word et PDF, EN et FR, plus le
+                        rapport des suggestions</span
+                      >
+                    </li>
+                  </ul>
+                  <div class="pline">
+                    <span class="amt" id="p1"></span>
+                    <span class="un" data-en="one document · about 4 minutes"
+                      >un document · 4 minutes environ</span
+                    >
+                  </div>
+                  <button
+                    class="btn btn-primary btn-block"
+                    type="button"
+                    id="upbtn"
+                  ></button>
+                  <button
+                    class="btn btn-ghost btn-block btn-sm"
+                    type="button"
+                    id="demobtn"
+                    data-en="Watch it run on a sample SmPC"
+                  >
+                    Voir la démo sur un RCP d'exemple
+                  </button>
+                </div>
+              </div>
+
+              <div class="rail-card" id="genlet" hidden>
+                <h2 data-en="Your letter, ready to sign">
+                  Votre lettre, prête à signer
+                </h2>
+                <p
+                  class="rc-sub"
+                  data-en="The template is filled with your authority, activity and today’s date. Add your product details — the compliant Word file is yours in a minute."
+                >
+                  Le modèle est déjà rempli : autorité, activité, date du jour.
+                  Ajoutez vos informations produit — le Word conforme est à vous
+                  en une minute.
+                </p>
+                <div class="stack">
+                  <button
+                    class="btn btn-primary btn-block"
+                    type="button"
+                    id="genletbtn"
+                    data-en="Generate my letter"
+                  >
+                    Générer ma lettre
+                  </button>
+                </div>
+                <p
+                  class="mfoot-note"
+                  data-en="Generated on your device — nothing is sent to us."
+                >
+                  Générée sur votre appareil — rien ne nous est transmis.
+                </p>
+              </div>
+
+              <div class="rail-card" id="inf" hidden>
+                <h2>
+                  <span class="badge b-free" data-en="Free">Gratuit</span>
+                  <span data-en="Official template">Modèle officiel</span>
+                </h2>
+                <p class="rc-sub" id="infsub"></p>
+              </div>
+            </aside>
+          </div>
+
+          <!-- Démo — spécimen fabriqué, jamais un fichier client -->
+          <section
+            class="demo"
+            id="demo"
+            hidden
+            aria-label="Démonstration sur un spécimen"
+            data-en-al="Demonstration on a sample"
+          >
+            <div class="demo-ribbon">
+              <span
+                data-en="DEMO — DEMOCILLINE 500 mg sample. Your document never leaves your device."
+                >DÉMONSTRATION — spécimen DEMOCILLINE 500 mg. Votre document,
+                lui, ne quitte jamais votre appareil.</span
+              >
+              <button
+                class="mclose"
+                type="button"
+                id="demoferme"
+                aria-label="Fermer la démonstration"
+                data-en-al="Close the demonstration"
+              >
+                ×
+              </button>
+            </div>
+
+            <div class="rail-card" id="demo-gen">
+              <h2 data-en="We rework the SmPC, section by section">
+                Nous reprenons le RCP, rubrique par rubrique
+              </h2>
+              <p class="rc-sub">
+                DEMOCILLINE 500 mg · Bénin ·
+                <span data-en="New MA · English to French"
+                  >Nouvelle AMM · anglais vers français</span
+                >
+              </p>
+              <div class="demo-prog">
+                <span class="dp-lab" id="dplab"></span
+                ><span class="dp-eta" id="dpeta"></span>
+              </div>
+              <div class="pbar"><i id="dpfill"></i></div>
+              <ul class="rub" id="dprub"></ul>
+              <ul class="demo-doing">
+                <li
+                  data-en="We look for each section in your whole document, not under the number that merely resembles it."
+                >
+                  Nous cherchons chaque rubrique dans tout le document, pas sous
+                  le numéro qui lui ressemble.
+                </li>
+                <li
+                  data-en="Every sentence must be found word for word in the source."
+                >
+                  Chaque phrase doit se retrouver mot pour mot dans la source.
+                </li>
+                <li data-en="Every dose is checked: 250 mg is not 250 µg.">
+                  Chaque dosage est vérifié : 250 mg n'est pas 250 µg.
+                </li>
+              </ul>
+            </div>
+
+            <div class="rail-card" id="demo-liv" hidden>
+              <h2
+                data-en="The sample SmPC is up to standard. Six sections await real data."
+              >
+                Le RCP d'exemple est au standard. Six rubriques attendent de
+                vraies données.
+              </h2>
+              <div class="kpis">
+                <div class="kpi ok">
+                  <b>23</b
+                  ><span data-en="sections reworked and verified"
+                    >rubriques reprises et vérifiées</span
+                  >
+                </div>
+                <div class="kpi warn">
+                  <b>6</b
+                  ><span data-en="sections to complete"
+                    >rubriques à compléter</span
+                  >
+                </div>
+                <div class="kpi info">
+                  <b>11</b
+                  ><span data-en="contents moved back in place"
+                    >contenus remis à leur place</span
+                  >
+                </div>
+                <div class="kpi">
+                  <b>4</b
+                  ><span data-en="figures to re-read">valeurs à relire</span>
+                </div>
+              </div>
+              <ul class="deliv">
+                <li>
+                  <span>SmPC — <span data-en="English">anglais</span></span
+                  ><span class="ext">DOCX + PDF</span>
+                </li>
+                <li>
+                  <span>RCP — <span data-en="French">français</span></span
+                  ><span class="ext">DOCX + PDF</span>
+                </li>
+                <li class="hl">
+                  <span
+                    ><b>SmPC Regulatory Review</b> —
+                    <span data-en="what was done, what remains"
+                      >ce qui a été fait, ce qui reste</span
+                    ></span
+                  ><span class="ext">PDF</span>
+                </li>
+              </ul>
+              <table class="demo-t">
+                <caption class="vh" data-en="Contents moved back in place">
+                  Contenus remis à leur place
+                </caption>
+                <thead>
+                  <tr>
+                    <th data-en="Content">Contenu</th>
+                    <th data-en="In the source">Chez vous</th>
+                    <th data-en="In the template">Au modèle</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td data-en="Manufacturer name and address">
+                      Nom et adresse du fabricant
+                    </td>
+                    <td>7</td>
+                    <td><b>7.2</b></td>
+                  </tr>
+                  <tr>
+                    <td data-en="MA holder">Titulaire de l'AMM</td>
+                    <td>8</td>
+                    <td><b>7.1</b></td>
+                  </tr>
+                  <tr>
+                    <td data-en="Absorption sentence">
+                      Phrase sur l'absorption
+                    </td>
+                    <td>5.1</td>
+                    <td><b>5.2</b></td>
+                  </tr>
+                </tbody>
+              </table>
+              <button
+                class="btn btn-primary btn-block"
+                type="button"
+                id="demoup"
+                data-en="Do the same with my document"
+              >
+                Faire la même chose avec mon document
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <!-- ══ Popup avant téléchargement : pays puis activité ══ -->
+    <div class="modal-back" id="dlm">
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dlmtitle"
+      >
+        <button
+          class="mclose"
+          type="button"
+          id="dlmclose"
+          aria-label="Fermer"
+          data-en-al="Close"
+        >
+          ×
+        </button>
+        <div class="mkick" data-en="Free download">Téléchargement gratuit</div>
+        <h3 id="dlmtitle" data-en="One question, the right file">
+          Une question, le bon fichier
+        </h3>
+        <p
+          class="mdesc"
+          data-en="Section 4.8 carries your country’s pharmacovigilance statement: the file changes with the country."
+        >
+          La rubrique 4.8 porte la mention de pharmacovigilance de votre pays :
+          le fichier change avec le pays.
+        </p>
+
+        <div class="mfield">
+          <label class="mlab" for="dlpays" data-en="Country of filing"
+            >Pays de dépôt</label
+          >
+          <select id="dlpays"></select>
+        </div>
+        <div class="mfield">
+          <span class="mlab" id="dlactlab" data-en="Regulatory activity"
+            >Activité réglementaire</span
+          >
+          <div
+            class="chips"
+            role="radiogroup"
+            aria-labelledby="dlactlab"
+            id="dlact"
+          >
+            <button
+              class="chip"
+              type="button"
+              role="radio"
+              aria-checked="false"
+              data-v="amm"
+              data-en="New MA"
+            >
+              Nouvelle AMM
+            </button>
+            <button
+              class="chip"
+              type="button"
+              role="radio"
+              aria-checked="false"
+              data-v="renouv"
+              data-en="Renewal"
+            >
+              Renouvellement
+            </button>
+          </div>
+        </div>
+
+        <div class="mfield stack" id="dlgo">
+          <button
+            class="btn btn-dark btn-block"
+            type="button"
+            id="dlzip"
+          ></button>
+          <p
+            class="mfoot-note"
+            id="dlenote"
+            data-en="The download includes an English courtesy version. The file to submit remains the French one, and the English file says so on page one."
+          >
+            Le téléchargement inclut une version anglaise de courtoisie. Le
+            fichier à déposer reste le français, et le fichier anglais l'annonce
+            en première page.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ Panneau de mise à niveau — ancré au bord droit de l'écran ══ -->
+    <div class="drawer-back" id="upg">
+      <aside
+        class="drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="upgtitle"
+      >
+        <header>
+          <button
+            class="mclose"
+            type="button"
+            id="upgclose"
+            aria-label="Fermer"
+            data-en-al="Close"
+          >
+            ×
+          </button>
+          <div class="mkick" data-en="Document upgrade">
+            Mise à niveau documentaire
+          </div>
+          <h3 id="upgtitle"></h3>
+          <p class="mdesc" id="upgdesc"></p>
+        </header>
+
+        <div class="body" id="upgbody">
+          <div class="mfield">
+            <label class="mlab" for="upays" data-en="Country of filing"
+              >Pays de dépôt</label
+            >
+            <select id="upays"></select>
+          </div>
+
+          <div class="mfield">
+            <span class="mlab" id="uactlab" data-en="Regulatory activity"
+              >Activité réglementaire</span
+            >
+            <div
+              class="chips"
+              role="radiogroup"
+              aria-labelledby="uactlab"
+              id="uact"
+            >
+              <button
+                class="chip"
+                type="button"
+                role="radio"
+                aria-checked="false"
+                data-v="amm"
+                data-en="New MA"
+              >
+                Nouvelle AMM
+              </button>
+              <button
+                class="chip"
+                type="button"
+                role="radio"
+                aria-checked="false"
+                data-v="renouv"
+                data-en="Renewal"
+              >
+                Renouvellement
+              </button>
+            </div>
+          </div>
+
+          <div class="mfield">
+            <span class="mlab" id="ufilelab" data-en="Your document"
+              >Votre document</span
+            >
+            <input
+              type="file"
+              id="ufile"
+              class="vh"
+              accept=".pdf,.doc,.docx"
+              aria-labelledby="ufilelab"
+            />
+            <button class="updrop" type="button" id="udrop">
+              <span class="ic" aria-hidden="true">⤒</span>
+              <span class="t" data-en="Upload my document"
+                >Déposer mon document</span
+              >
+              <span class="s" data-en="Word or PDF, scanned or not"
+                >Word ou PDF, scanné ou non</span
+              >
+            </button>
+            <div class="mfile" id="ufilerow" hidden>
+              <span class="ico" aria-hidden="true">▤</span>
+              <span class="fx"
+                ><span class="nm" id="ufilename"></span
+                ><span class="mt" id="ufilesize"></span
+              ></span>
+              <button
+                class="x"
+                type="button"
+                id="ufileclear"
+                aria-label="Retirer le document"
+                data-en-al="Remove the document"
+              >
+                ×
+              </button>
+            </div>
+            <p
+              class="readyline"
+              id="ureadyline"
+              hidden
+              data-en="Ready — it will be sent for processing as soon as you order"
+            >
+              Prêt — il partira au traitement dès la commande
+            </p>
+          </div>
+        </div>
+
+        <div class="sect-buy" id="upg-e1">
+          <div class="pline">
+            <span class="amt" id="up1"></span>
+            <span class="un" data-en="one document · one-off payment"
+              >un document · paiement unique</span
+            >
+          </div>
+          <button
+            class="btn btn-primary btn-block btn-lg"
+            type="button"
+            id="buy1"
+          ></button>
+          <p
+            class="mfoot-note"
+            data-en="Your document stays on your device until payment."
+          >
+            Votre document reste sur votre appareil jusqu'au paiement.
+          </p>
+        </div>
+
+        <div class="sect-buy" id="upg-e2" hidden>
+          <h4
+            class="upsell-t"
+            data-en="One more thing — the SmPC rarely travels alone"
+          >
+            Une dernière chose — le RCP voyage rarement seul
+          </h4>
+          <p class="upsell-d" id="bxsave"></p>
+          <div class="stack">
+            <button
+              class="btn btn-primary btn-block"
+              type="button"
+              id="bx3"
+            ></button>
+            <button
+              class="btn btn-ghost btn-block"
+              type="button"
+              id="bx1"
+            ></button>
+          </div>
+          <button class="linklike" type="button" id="bxretour" data-en="← Back">
+            ← Retour
+          </button>
+        </div>
+
+        <!-- Étape 3 — RETOUR DE PAIEMENT. Aucun bouton d'achat ici : reproposer « Commander »
+             à un client qui vient de régler le ferait payer deux fois. -->
+        <div class="sect-buy" id="upg-e3" hidden>
+          <h4 class="upsell-t" data-en="Your order is recorded">
+            Votre commande est enregistrée
+          </h4>
+          <p class="upsell-d" id="cfmrecap"></p>
+          <p class="upsell-d" id="cfmnext"></p>
+          <div class="stack">
+            <button
+              class="btn btn-primary btn-block"
+              type="button"
+              id="cfmsend"
+            ></button>
+            <a class="btn btn-ghost btn-block" id="cfmback" href="/"></a>
+          </div>
+          <p
+            class="mfoot-note"
+            data-en="Nothing has left this device — you send it yourself, with the reference already filled in."
+          >
+            Rien n'a quitté cet appareil — c'est vous qui transmettez, la
+            référence est déjà inscrite.
+          </p>
+        </div>
+      </aside>
+    </div>
+
+    <!-- ══ Popup PRÉALABLE des lettres : pays et activité AVANT l'affichage du template ══ -->
+    <div class="modal-back" id="prem">
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="premtitle"
+      >
+        <div class="mkick" data-en="Regulatory letter">
+          Lettre réglementaire
+        </div>
+        <h3 id="premtitle" data-en="Two choices, and your letter takes shape">
+          Deux choix, et votre lettre prend forme
+        </h3>
+        <p
+          class="mdesc"
+          id="premsub"
+          data-en="The letter is addressed to your country’s authority and worded for your activity — choose both, we fill in the rest."
+        >
+          La lettre s'adresse à l'autorité de votre pays et s'écrit selon votre
+          activité — choisissez les deux, nous remplissons le reste.
+        </p>
+
+        <div class="mfield">
+          <label class="mlab" for="prempays" data-en="Country of filing"
+            >Pays de dépôt</label
+          >
+          <select id="prempays"></select>
+        </div>
+        <div class="mfield" id="premactwrap" hidden>
+          <span class="mlab" id="premactlab" data-en="Regulatory activity"
+            >Activité réglementaire</span
+          >
+          <div
+            class="chips"
+            role="radiogroup"
+            aria-labelledby="premactlab"
+            id="premact"
+          ></div>
+        </div>
+
+        <div class="mfield stack">
+          <button
+            class="btn btn-primary btn-block"
+            type="button"
+            id="premgo"
+            data-en="Show my letter"
+          >
+            Afficher ma lettre
+          </button>
+          <a
+            class="linklike"
+            id="premretour"
+            href="/bibliotheque-reglementaire"
+            data-en="← Back to the library"
+            >← Retour à la bibliothèque</a
+          >
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="/landing.js?v=15" defer></script>
+    <script type="module" src="/modele.js?v=1"></script>
+  </body>
+</html>

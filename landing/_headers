@@ -28,6 +28,38 @@
 /checking.js
   Cache-Control: public, max-age=300
 
+/bibliotheque.css
+  Cache-Control: public, max-age=300
+
+/bibliotheque.js
+  Cache-Control: public, max-age=300
+
+/modele.js
+  Cache-Control: public, max-age=300
+
+# Bundle navigateur de `docx` (généré par build-landing-vendor.mjs) — importé en `import()`
+# paresseux par modele.js avec un `?v=` : le contenu ne change qu'avec la version de la lib.
+/vendor/*
+  Cache-Control: public, max-age=86400
+
+# Modèles officiels servis par la Bibliothèque réglementaire (PDF + DOCX générés).
+#
+# LE VOLET GAUCHE DU LECTEUR EST UN <iframe> VERS CES PDF, servi par le lecteur natif du
+# navigateur — aucun moteur PDF de 1,5 Mo à embarquer sur une landing sans build.
+# Deux en-têtes de `/*` l'interdiraient sans cette exception, et les DEUX doivent tomber :
+#   • `X-Frame-Options: DENY` bloque le cadrage y compris depuis la MÊME origine ;
+#   • `frame-ancestors 'none'` de la CSP le bloque aussi, et prime sur XFO dans les navigateurs
+#     modernes — ne corriger que l'un des deux laisse un volet gauche vide.
+# La CSP posée ici est plus stricte que celle de `/*` pour tout le reste : `default-src 'none'`
+# sur un fichier statique qui n'exécute rien.
+#
+# max-age court, pas `immutable` : ces fichiers changent avec la mention 4.8 d'un pays, et un
+# modèle réglementaire périmé servi pendant un an depuis un cache serait une faute.
+/modeles/*
+  Content-Security-Policy: default-src 'none'; frame-ancestors 'self'
+  X-Frame-Options: SAMEORIGIN
+  Cache-Control: public, max-age=3600
+
 # Modules ES du Checking Standard, importés par /checking.js.
 #
 # REVALIDATION SYSTÉMATIQUE, et pas un max-age comme les autres fichiers. Raison : ces modules

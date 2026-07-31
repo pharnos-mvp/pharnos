@@ -22,7 +22,9 @@
     "e2e:report": "playwright show-report",
     "headers": "node scripts/check-headers.mjs",
     "build:landing-en": "node scripts/build-landing-en.mjs",
-    "build:checking-bareme": "node scripts/build-checking-bareme.mjs"
+    "build:checking-bareme": "node scripts/build-checking-bareme.mjs",
+    "build:landing-modeles": "node scripts/build-landing-modeles.mjs",
+    "build:landing-vendor": "node scripts/build-landing-vendor.mjs"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.2.8",
@@ -74,6 +76,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "@vitest/coverage-v8": "^4.1.8",
+    "esbuild": "^0.27.4",
     "eslint": "^10.3.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
@@ -81,6 +84,7 @@
     "fake-indexeddb": "^6.2.5",
     "globals": "^17.6.0",
     "jsdom": "^29.1.1",
+    "jszip": "^3.10.1",
     "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "tailwindcss": "^4.3.0",

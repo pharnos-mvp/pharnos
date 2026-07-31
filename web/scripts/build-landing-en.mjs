@@ -49,6 +49,35 @@ const PAGES = [
         'Pharnos — the Checking Standard, MA dossier completeness diagnostic for the WAEMU zone.',
     },
   },
+  {
+    src: 'bibliotheque-reglementaire.html',
+    out: path.join('en', 'regulatory-library.html'),
+    canonical: 'https://pharnos.com/en/regulatory-library',
+    head: {
+      title: 'Regulatory library — the official templates, country by country · Pharnos',
+      description:
+        'SmPC, leaflet, labelling: the official template expected where you file, free to download — with your country’s pharmacovigilance statement already in section 4.8. Eight WAEMU countries.',
+      ogDescription:
+        'The template expected where you file, with your country’s pharmacovigilance statement already in place. Free, no sign-up.',
+      ogImage: 'https://pharnos.com/assets/og-image-en.png?v=1',
+      ogImageAlt:
+        'Pharnos — the regulatory library: official SmPC, leaflet and labelling templates for the WAEMU zone.',
+    },
+  },
+  {
+    src: 'modele.html',
+    out: path.join('en', 'template.html'),
+    canonical: 'https://pharnos.com/en/regulatory-library',
+    head: {
+      title: 'Official template — regulatory library · Pharnos',
+      description:
+        'The official template in a reader, free to download in your filing country’s version — and the upgrade of your existing document by Regafy AI.',
+      ogDescription:
+        'The official template in a reader, free to download in your filing country’s version.',
+      ogImage: 'https://pharnos.com/assets/og-image-en.png?v=1',
+      ogImageAlt: 'Pharnos — official template, regulatory library for the WAEMU zone.',
+    },
+  },
 ]
 
 const BANNER = (src) =>
@@ -56,7 +85,46 @@ const BANNER = (src) =>
   '     prerendue pour le SEO). NE PAS EDITER A LA MAIN — lancer `npm run build:landing-en` apres\n' +
   `     toute modif de ${src}. La CI verifie que cette page reste synchronisee. -->`
 
+verifierTableDesMiroirs()
 for (const page of PAGES) buildPage(page)
+
+/**
+ * Le sélecteur de langue de `landing.js` réaligne l'URL sur la langue courante. Il déduit le
+ * miroir en préfixant « /en », ce qui ne marche QUE si les deux langues partagent le slug.
+ * Une page au slug différent doit donc figurer dans sa table `MIROIR` — sans quoi la bascule
+ * fabrique une URL inexistante : la page continue de s'afficher, et c'est le rechargement, le
+ * partage du lien ou le retour arrière qui tombe en 404, longtemps après la mise en ligne.
+ * On échoue ici plutôt que de laisser cette divergence partir en production.
+ */
+function verifierTableDesMiroirs() {
+  const js = fs.readFileSync(path.join(LANDING, 'landing.js'), 'utf8')
+  const manquants = PAGES.filter((p) => {
+    const fr = '/' + p.src.replace(/\.html$/, '')
+    const en =
+      '/' +
+      p.out
+        .split(path.sep)
+        .join('/')
+        .replace(/\.html$/, '')
+    if (en === '/en' + fr) return false // slug identique : la déduction suffit
+    return !js.includes(`'${fr}': '${en}'`)
+  })
+  if (manquants.length) {
+    const lignes = manquants
+      .map(
+        (p) =>
+          `  '/${p.src.replace(/\.html$/, '')}': '/${p.out
+            .split(path.sep)
+            .join('/')
+            .replace(/\.html$/, '')}',`,
+      )
+      .join('\n')
+    throw new Error(
+      `landing.js : la table MIROIR ne couvre pas ces pages au slug divergent.\n` +
+        `La bascule de langue y produirait une URL inexistante. À ajouter :\n${lignes}`,
+    )
+  }
+}
 
 function buildPage({ src, out, canonical, head: EN, jsonLd }) {
   const SRC = path.join(LANDING, src)
@@ -112,7 +180,20 @@ function buildPage({ src, out, canonical, head: EN, jsonLd }) {
   // 3b. Liens internes → leur miroir EN. Sans ça, un visiteur anglophone qui clique « Checking
   // Standard » depuis /en/ atterrit sur la page FR (et un crawler indexe un lien inter-langues).
   // Seuls les chemins qui ONT un miroir sont réécrits ; le reste est laissé intact.
-  const MIRRORED = new Set(['/', ...PAGES.map((p) => '/' + p.src.replace(/\.html$/, ''))])
+  // ⚠️ La cible se lit dans `out`, PAS dans `src` : une page miroir peut porter un autre slug en
+  // anglais (`bibliotheque-reglementaire` → `regulatory-library`). Déduire l'URL de `src`
+  // fabriquerait `/en/bibliotheque-reglementaire`, un 404 que rien ne signale au build.
+  const MIRRORED = new Map([
+    ['/', '/en/'],
+    ...PAGES.map((p) => [
+      '/' + p.src.replace(/\.html$/, ''),
+      '/' +
+        p.out
+          .split(path.sep)
+          .join('/')
+          .replace(/\.html$/, ''),
+    ]),
+  ])
   for (const a of D.querySelectorAll('a[href]')) {
     const href = a.getAttribute('href')
     if (!href.startsWith('/') || href.startsWith('/en/')) continue
@@ -120,8 +201,9 @@ function buildPage({ src, out, canonical, head: EN, jsonLd }) {
     const p = hashAt === -1 ? href : href.slice(0, hashAt)
     const hash = hashAt === -1 ? '' : href.slice(hashAt)
     const pathname = p || '/'
-    if (!MIRRORED.has(pathname)) continue
-    a.setAttribute('href', (pathname === '/' ? '/en/' : '/en' + pathname) + hash)
+    const cible = MIRRORED.get(pathname)
+    if (!cible) continue
+    a.setAttribute('href', cible + hash)
   }
 
   // 4. <head> anglais (les hreflang, réciproques, sont hérités inchangés de index.html).

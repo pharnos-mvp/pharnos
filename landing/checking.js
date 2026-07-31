@@ -32,6 +32,13 @@ const REPORT_API = 'https://uhsireqwzqqymgsxuvqh.supabase.co/functions/v1/checki
  *  un bouton qui ouvrirait une conversation vers un numéro inexistant. */
 const WA_NUMBER = ''
 
+/** Bibliothèque réglementaire — le slug diffère d'une langue à l'autre, et le miroir EN est
+ *  prérendu : on se cale sur le chemin servi, pas sur la langue choisie au clavier (un visiteur
+ *  de `/checking-standard` qui bascule en anglais reste sur des URL françaises). */
+const BIBLIO_URL = window.location.pathname.startsWith('/en/')
+  ? '/en/regulatory-library'
+  : '/bibliotheque-reglementaire'
+
 /* ══ i18n — les valeurs bilingues s'écrivent ["fr","en"] ══ */
 let lang = window.I18N && typeof window.I18N.get === 'function' ? window.I18N.get() : 'fr'
 const L = (v) => (Array.isArray(v) ? (v[lang === 'en' ? 1 : 0] ?? v[0]) : v)
@@ -45,14 +52,23 @@ const PRICE = {
   aiLaunch: { xof: 50000, eur: 79 },
   exp: { xof: 250000, eur: 389 },
   sen: { xof: 750000, eur: 1149 },
-  up1: { xof: 25000, eur: 39 },
-  up3: { xof: 60000, eur: 92 },
+  // Mise à niveau documentaire — barème ARRÊTÉ par le CEO le 30/07/2026. Un paiement = UN
+  // document : ni abonnement, ni crédit reportable, ni solde de mises en conformité.
+  up1: { xof: 19000, eur: 29 },
+  up3: { xof: 45000, eur: 69 },
 }
+/** Prix plein des trois documents pris séparément — sert le montant barré du bundle. */
+const UP3_PLEIN = { xof: PRICE.up1.xof * 3, eur: PRICE.up1.eur * 3 }
 // Les séparateurs de milliers de toLocaleString sont des espaces INSÉCABLES (U+202F ou U+00A0)
 // selon la locale et le moteur. On les normalise par POINT DE CODE : écrits littéralement dans
 // une regex, ces caractères sont invisibles à la relecture et se perdent au premier copier-coller.
 const fmt = (n) => n.toLocaleString(lang === 'en' ? 'en-GB' : 'fr-FR').replace(/[\u202F\u00A0]/g, ' ')
 const price = (p, alt) => (alt ? `${fmt(p.eur)} €` : `${fmt(p.xof)} FCFA`)
+/** Mise à niveau : les DEUX devises sur une ligne, euro d'abord, DANS LES DEUX LANGUES.
+ *  ⚠️ `price()` rend l'une OU l'autre selon un drapeau ; un lecteur ivoirien y lisait un prix en
+ *  euros sans savoir ce qu'il paierait. Les offres d'audit gardent `price()` (deux lignes, format
+ *  validé et en production) ; seule la mise à niveau passe au format conjoint. */
+const priceBoth = (p) => `${fmt(p.eur)} € (${fmt(p.xof)} FCFA)`
 
 /* ══ État ══ */
 /* `answers` porte EXACTEMENT le nom attendu par le moteur : `computeResult(S)` et `buildFlow(S)`
@@ -519,8 +535,8 @@ function openUpgrade(key) {
   if (!t) return
   $('#uptitle').textContent = L([`Mettre ${L(t.short)} au standard officiel`, `Bring ${L(t.short)} up to the official standard`])
   $('#updesc').textContent = L([
-    `Regafy AI reprend votre document et le reconstruit sur le modèle de ${L(paysObj().ag)}, rubrique par rubrique. Vous recevez un Word éditable et son PDF.`,
-    `Regafy AI takes your document and rebuilds it on the ${L(paysObj().ag)} template, section by section. You receive an editable Word file and its PDF.`,
+    `Regafy AI reprend votre document et le reconstruit sur le modèle de ${L(paysObj().ag)}, rubrique par rubrique.`,
+    `Regafy AI takes your document and rebuilds it on the ${L(paysObj().ag)} template, section by section.`,
   ])
   const ROWS = [
     { k: 'up1', t: ['Un document', 'One document'], s: ['RCP, notice ou étiquetage', 'SmPC, leaflet or labelling'], p: PRICE.up1 },
@@ -532,11 +548,12 @@ function openUpgrade(key) {
       save: true,
     },
   ]
+  // Le bundle vit SOUS le prix unitaire — au-dessus, il ferait du 29 € un prix d'appel.
   $('#uppick').innerHTML = ROWS.map(
-    (r, i) =>
-      `<button type="button" class="uprow ${i === 1 ? 'on' : ''}" data-up="${esc(r.k)}">
-         <span class="rt"><b>${esc(L(r.t))}${r.save ? `<span class="upsave">−20 %</span>` : ''}</b><span>${esc(L(r.s))}</span></span>
-         <span class="rp">${esc(price(r.p))}<small>${esc(price(r.p, true))}</small></span>
+    (r) =>
+      `<button type="button" class="uprow ${r.save ? '' : 'on'}" data-up="${esc(r.k)}">
+         <span class="rt"><b>${esc(L(r.t))}${r.save ? `<span class="upsave">−${esc(price({ eur: UP3_PLEIN.eur - PRICE.up3.eur }, true))}</span>` : ''}</b><span>${esc(L(r.s))}</span></span>
+         <span class="rp">${esc(priceBoth(r.p))}${r.save ? `<small>${esc(price(UP3_PLEIN, true))}</small>` : ''}</span>
        </button>`,
   ).join('')
   $$('#uppick .uprow').forEach((b) =>
@@ -545,8 +562,12 @@ function openUpgrade(key) {
       b.classList.add('on')
     }),
   )
-  const subject = L([`Mise à niveau documentaire — ${L(t.nom)}`, `Document upgrade — ${L(t.nom)}`])
-  $('#upgo').href = `mailto:contact@pharnos.com?subject=${encodeURIComponent(subject)}`
+  // ⚠️ Plus de `mailto:` : la commande se prend sur la Bibliothèque réglementaire, qui recueille
+  // le pays, l'activité et le document AVANT tout prix. Deux entonnoirs d'achat en produiraient
+  // deux versions de la même règle commerciale.
+  // La page miroir porte un AUTRE slug (`/en/regulatory-library`) : poser le chemin FR en dur
+  // renverrait un visiteur anglophone sur la page française, sans erreur visible.
+  $('#upgo').href = BIBLIO_URL + '#modeles'
   openModal('#upmodal', null)
 }
 
