@@ -50,12 +50,20 @@
 #   • `X-Frame-Options: DENY` bloque le cadrage y compris depuis la MÊME origine ;
 #   • `frame-ancestors 'none'` de la CSP le bloque aussi, et prime sur XFO dans les navigateurs
 #     modernes — ne corriger que l'un des deux laisse un volet gauche vide.
+#
+# ⚠️ Les règles _headers de Cloudflare Pages sont CUMULATIVES, jamais substitutives : poser ici
+# une CSP plus douce AJOUTE une seconde politique à côté de celle de `/*`, et en CSP toutes les
+# politiques présentes doivent passer — la plus stricte gagne, l'iframe reste bloquée (vu en prod
+# le 2026-07-31 : volet gauche vide, deux `content-security-policy` sur la réponse). Le seul
+# mécanisme qui retire l'en-tête hérité est le DÉTACHEMENT `! Nom-Header`, puis on repose le nôtre.
 # La CSP posée ici est plus stricte que celle de `/*` pour tout le reste : `default-src 'none'`
 # sur un fichier statique qui n'exécute rien.
 #
 # max-age court, pas `immutable` : ces fichiers changent avec la mention 4.8 d'un pays, et un
 # modèle réglementaire périmé servi pendant un an depuis un cache serait une faute.
 /modeles/*
+  ! Content-Security-Policy
+  ! X-Frame-Options
   Content-Security-Policy: default-src 'none'; frame-ancestors 'self'
   X-Frame-Options: SAMEORIGIN
   Cache-Control: public, max-age=3600
