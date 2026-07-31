@@ -86,8 +86,16 @@ Deno.test('corpsChariow — porte le produit mappé, la référence en métadonn
   assertEquals(corps.product_id, OFFRES_CHARIOW.up1.productId)
   assertEquals(corps.redirect_url, RETOURS.fr)
   assertEquals(corps.custom_metadata, { ref: v.cmd.ref, offre: 'up1' })
-  assertEquals(corps.customer_ip, '203.0.113.7')
   assertEquals(corps.phone, { number: '0196441776', country_code: 'BJ' })
+})
+
+Deno.test("corpsChariow — l'IP de l'acheteur est transmise : sans elle, tout le monde est en DE", () => {
+  // Mesuré le 31/07 : sans `customer_ip`, Chariow voit l'IP de notre Edge (Francfort) et
+  // renvoie `country=DE` pour un déposant béninois — mobile money local inaccessible.
+  const v = validerCommande(base())
+  assert(v.ok)
+  assertEquals(corpsChariow(v.cmd, '203.0.113.7').customer_ip, '203.0.113.7')
+  assert(!('customer_ip' in corpsChariow(v.cmd, 'unknown')))
 })
 
 Deno.test("corpsChariow — l'anglophone revient sur le miroir EN, jamais sur la page FR", () => {
@@ -129,11 +137,6 @@ Deno.test('validerCommande — le dédoublonnage d’indicatif couvre aussi les 
   assertEquals(inTel.cmd.telephone, '9876543210')
 })
 
-Deno.test('corpsChariow — sans IP fiable, ne transmet PAS customer_ip (mieux vaut rien que faux)', () => {
-  const v = validerCommande(base())
-  assert(v.ok)
-  assert(!('customer_ip' in corpsChariow(v.cmd, 'unknown')))
-})
 
 Deno.test('lireReponseChariow — accepte le seul cas payant : step payment + hôte de paiement connu', () => {
   for (

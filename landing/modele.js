@@ -450,6 +450,9 @@ function etapePanneau(n) {
   $("#upg-e3").hidden = n !== 3;
   $("#upg-e4").hidden = n !== 4;
   $("#upgbody").hidden = n === 3 || n === 4;
+  // L'argumentaire a fait son travail : au moment de payer, il ne fait plus que pousser le
+  // bouton vers le bas. On rend au panneau la hauteur qu'il coûtait.
+  $("#upgdesc").hidden = n === 4;
   const premier = $(
     n === 4 ? "#payprenom" : n === 3 ? "#cfmsend" : "#upgclose",
   );
