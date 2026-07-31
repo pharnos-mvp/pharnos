@@ -1141,6 +1141,87 @@ const LETTRE_PGHT = [
   { t: 'right', x: 'Nom et Prénom(s)', en: 'Full name' },
 ]
 
+/**
+ * Déclaration de certification des numéros DMF — obligation de l'AIRP (Côte d'Ivoire), note
+ * d'information n° 1668. Même prose que le modèle déjà en production dans le builder
+ * (`web/src/features/workspace/templates.ts`). Ces blocs ne servent que de REPLI : tant que le
+ * fichier de l'AIRP est déposé, c'est LUI qui est servi, à l'octet près.
+ *
+ * Le tableau récapitulatif de l'AIRP est rendu en deux colonnes (libellé / valeur) : le rendu PDF
+ * refuse une cellule qui déborde sa colonne, d'où le libellé court du site de fabrication — ce que
+ * la cellule doit contenir est écrit dans la colonne de droite, sans rien retrancher à l'exigence.
+ */
+const LETTRE_DMF = [
+  ...LETTRE_OUVERTURE,
+  {
+    t: 'h3',
+    x: 'Objet : Déclaration relative à la certification des numéros DMF',
+    en: 'Subject: Declaration on the certification of DMF numbers',
+  },
+  { t: 'salut' },
+  {
+    t: 'p',
+    x:
+      'Je soussigné(e), …, agissant en qualité de … au sein du laboratoire …, certifie que le ' +
+      'numéro de Drug Master File (DMF) relatif à la substance active (API) du produit ci-dessous ' +
+      'est exact, valide et conforme aux informations fournies par le fabricant.',
+    en:
+      'I, the undersigned, …, acting as … within the laboratory …, certify that the Drug Master ' +
+      'File (DMF) number for the active pharmaceutical ingredient (API) of the product below is ' +
+      'accurate, valid and consistent with the information provided by the manufacturer.',
+  },
+  {
+    t: 'p',
+    x:
+      'Je déclare également que ces informations ont été vérifiées auprès de l’autorité de ' +
+      'réglementation pharmaceutique du pays d’origine de cette substance active.',
+    en:
+      'I further declare that this information has been verified with the pharmaceutical ' +
+      'regulatory authority of the country of origin of that active ingredient.',
+  },
+  {
+    t: 'p',
+    x: 'Le tableau ci-dessous récapitule les informations concernées :',
+    en: 'The table below summarises the information concerned:',
+  },
+  {
+    t: 'table',
+    // Sept lignes, sans ligne d'en-tête : c'est la forme du tableau de la note n° 1668, et celle
+    // que produit déjà le builder. En inventer une huitième ferait diverger les deux.
+    rows: [
+      ['Dénomination du produit fini', '…'],
+      ['Titulaire de l’AMM', '…'],
+      ['Fabricant du produit fini', '…'],
+      ['Substance active (API)', '…'],
+      ['Site de fabrication de la substance active', 'Nom, adresse, e-mail et téléphone'],
+      ['Autorité approbatrice du numéro de DMF', '…'],
+      ['N° DMF', '…'],
+    ],
+    rowsEn: [
+      ['Name of the finished product', '…'],
+      ['MA holder', '…'],
+      ['Manufacturer of the finished product', '…'],
+      ['Active ingredient (API)', '…'],
+      ['API manufacturing site', 'Name, address, e-mail and telephone'],
+      ['Authority that approved the DMF number', '…'],
+      ['DMF No.', '…'],
+    ],
+  },
+  {
+    t: 'p',
+    x: 'Je m’engage à informer au préalable l’autorité de toute variation relative à ces informations.',
+    en: 'I undertake to inform the authority in advance of any variation concerning this information.',
+  },
+  {
+    t: 'p',
+    x: 'La présente déclaration est établie pour servir et valoir ce que de droit.',
+    en: 'This declaration is issued to serve and avail as of right.',
+  },
+  { t: 'right', x: 'Poste', en: 'Position' },
+  { t: 'right', x: 'Signature et Cachet', en: 'Signature and stamp' },
+  { t: 'right', x: 'Nom et Prénom(s)', en: 'Full name' },
+]
+
 /* ═════════════════ Résumés OMS — formulaires anglais par nature ═════════════════ */
 
 const QOS = [
@@ -1239,6 +1320,14 @@ export const DOCS = [
     blocks: RCP,
     upgradable: true,
     bilingue: true,
+    // Côte d'Ivoire : l'AIRP publie SON modèle de RCP et l'impose — les modalités d'AMM et de
+    // renouvellement exigent le RCP « selon le modèle disponible sur le site de l'AIRP », en
+    // français, en Word ou PDF modifiable. On sert donc le fichier de l'autorité tel quel, à
+    // l'octet près, et la mise à niveau Regafy AI reconstruit vers CE gabarit-là, pas la maquette
+    // ABMed. Les sept autres pays gardent la maquette régionale.
+    officiels: {
+      ci: 'RA-source/AIRP/CIV_Template RCP.pdf',
+    },
   },
   {
     slug: 'notice',
@@ -1336,6 +1425,34 @@ export const DOCS = [
     // La VARIATION ne concerne pas le PGHT : une variation ne redéclare pas le prix grossiste.
     // Les trois autres lettres portent leur activité dans leur nom — seule celle-ci se décline.
     activites: ['enr', 'renouv'],
+  },
+  {
+    slug: 'lettre-dmf',
+    nom: [
+      'Déclaration de certification des numéros DMF',
+      'Declaration on the certification of DMF numbers',
+    ],
+    court: ['Déclaration DMF', 'DMF declaration'],
+    resume: [
+      'La certification du numéro de Drug Master File de la substance active, exigée par l’AIRP.',
+      'Certification of the active ingredient’s Drug Master File number, required by the AIRP.',
+    ],
+    source: ['Modèle AIRP — note n° 1668', 'AIRP template — note No. 1668'],
+    groupe: 'lettres',
+    blocks: LETTRE_DMF,
+    upgradable: false,
+    bilingue: true,
+    layout: 'lettre',
+    // Obligation NATIONALE : seule la Côte d'Ivoire l'impose. Ne pas l'étendre aux sept autres
+    // pays sans le texte qui l'y étend — la bibliothèque annoncerait une pièce inexistante.
+    pays: ['ci'],
+    // L'AIRP publie SON modèle : on le sert tel quel, à l'octet près (directive CEO du 31/07/2026).
+    officiels: {
+      // Nom volontairement ASCII : le fichier d'origine portait ses accents en unicode
+      // DÉCOMPOSÉ, et toute normalisation (git sur macOS, re-téléchargement, aller-retour ZIP)
+      // aurait rendu ce chemin introuvable — build cassé sans que rien ne dise pourquoi.
+      ci: 'RA-source/AIRP/AIRP_Note-1668_declaration-numeros-DMF.pdf',
+    },
   },
   {
     slug: 'qos-pd',

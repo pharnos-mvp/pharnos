@@ -688,7 +688,7 @@
           <p class="mdesc" id="upgdesc"></p>
         </header>
 
-        <div class="body">
+        <div class="body" id="upgbody">
           <div class="mfield">
             <label class="mlab" for="upays" data-en="Country of filing"
               >Pays de dépôt</label
@@ -819,6 +819,31 @@
           <button class="linklike" type="button" id="bxretour" data-en="← Back">
             ← Retour
           </button>
+        </div>
+
+        <!-- Étape 3 — RETOUR DE PAIEMENT. Aucun bouton d'achat ici : reproposer « Commander »
+             à un client qui vient de régler le ferait payer deux fois. -->
+        <div class="sect-buy" id="upg-e3" hidden>
+          <h4 class="upsell-t" data-en="Your order is recorded">
+            Votre commande est enregistrée
+          </h4>
+          <p class="upsell-d" id="cfmrecap"></p>
+          <p class="upsell-d" id="cfmnext"></p>
+          <div class="stack">
+            <button
+              class="btn btn-primary btn-block"
+              type="button"
+              id="cfmsend"
+            ></button>
+            <a class="btn btn-ghost btn-block" id="cfmback" href="/"></a>
+          </div>
+          <p
+            class="mfoot-note"
+            data-en="Nothing has left this device — you send it yourself, with the reference already filled in."
+          >
+            Rien n'a quitté cet appareil — c'est vous qui transmettez, la
+            référence est déjà inscrite.
+          </p>
         </div>
       </aside>
     </div>

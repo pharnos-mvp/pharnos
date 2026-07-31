@@ -62,7 +62,7 @@ const SORTIE = path.join(RACINE, 'landing', 'modeles')
 const MANIFESTE = path.join(RACINE, 'landing', 'checking', 'modeles-manifest.js')
 
 /** Version du contenu — à incrémenter à CHAQUE modification de source, vigilance ou agences. */
-const VERSION = '2026.5'
+const VERSION = '2026.6'
 
 /** Date figée : sans elle, deux exécutions produisent des octets différents. */
 const FIGEE = new Date('2026-07-30T00:00:00Z')
@@ -552,8 +552,18 @@ let ecrits = 0
 for (const doc of DOCS) {
   const perPays = varieParPays(doc)
   const activites = doc.activites ?? [null]
+  // `doc.pays` restreint le document aux pays qui l'IMPOSENT : une obligation nationale ne doit
+  // pas être servie sous les huit drapeaux, sinon la bibliothèque laisse croire que le Bénin
+  // exige une pièce que seule la Côte d'Ivoire réclame. Absent → les huit pays, comme avant.
+  const paysDoc = doc.pays ?? PAYS.map((p) => p.k)
+  for (const k of paysDoc)
+    if (!PAYS.some((p) => p.k === k)) throw new Error(`pays inconnu « ${k} »`)
+  // Un document qui ne varie pas par pays est servi sous une clé unique `*` : une restriction y
+  // serait ignorée EN SILENCE, et la pièce nationale repartirait sous les huit drapeaux.
+  if (doc.pays && !perPays)
+    throw new Error(`« ${doc.slug} » : restriction par pays sur un document qui ne varie pas`)
   // Une clé = un pays (et, quand le document se décline, une activité) : `bj`, ou `bj-renouv`.
-  const cles = (perPays ? PAYS.map((p) => p.k) : ['*']).flatMap((k) =>
+  const cles = (perPays ? paysDoc : ['*']).flatMap((k) =>
     activites.map((a) => (a ? `${k}-${a}` : k)),
   )
   const fichiers = {}
@@ -585,6 +595,9 @@ for (const doc of DOCS) {
       fs.writeFileSync(path.join(SORTIE, basePdf), octetsOfficiel)
       fs.writeFileSync(path.join(SORTIE, baseZip), zipOfficiel)
       ecrits += 2
+      // La provenance affichée doit être celle de l'AUTORITÉ, pas la maquette régionale du
+      // document : servir le fichier de l'AIRP sous l'étiquette « Maquette ABMed » serait faux.
+      const sigle = agencyFor(codeAgence(pays)).name
       fichiers[k] = {
         pdf: `/modeles/${basePdf}`,
         zip: `/modeles/${baseZip}`,
@@ -592,6 +605,7 @@ for (const doc of DOCS) {
         octetsPdf: octetsOfficiel.length,
         octetsZip: zipOfficiel.length,
         officiel: true,
+        source: [`Modèle officiel ${sigle}`, `Official ${sigle} template`],
       }
       continue
     }
@@ -638,7 +652,10 @@ for (const doc of DOCS) {
   }
 
   // `apercu` = première page en fac-similé, dérivé des MÊMES blocs que le fichier servi.
-  const blocsApercu = resoudre(doc, perPays ? PAYS[0].k : null, 'fr', doc.activites?.[0] ?? null)
+  // Le fac-similé se peint sur le premier pays SERVI, pas sur le premier du référentiel : la
+  // vignette d'une pièce que seule la Côte d'Ivoire impose montrerait sinon une lettre adressée
+  // à l'ABMed du Bénin — la toute première chose que voit l'utilisateur, et elle serait fausse.
+  const blocsApercu = resoudre(doc, perPays ? paysDoc[0] : null, 'fr', doc.activites?.[0] ?? null)
     .filter((b) => b.t !== 'break')
     .slice(0, 16)
     .map((b) =>

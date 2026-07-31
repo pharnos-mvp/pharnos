@@ -55,6 +55,10 @@ Le chiffre exact viendra du premier passage par l'API.
 
 ### A. Écran pays + activité, AVANT la génération
 
+> **Conçu — voir §D bis.** Ces deux champs vivent désormais dans la **modale de mise à niveau**, en
+> positions 1 et 2, avant le dépôt du fichier et avant tout prix. Le pays commande en plus le
+> **modèle servi** dans la Bibliothèque, pas seulement le prompt.
+
 La plomberie existe déjà : l'Edge `upgrade` accepte `countryCode` et `dossierContext.activity`. Il
 manque l'écran qui les renseigne.
 
@@ -230,7 +234,15 @@ la contrainte dimensionnante**, pas le mur de 150 s.
 
 ### C ter. La porte d'entrée et la seconde chance
 
-Conception complète : **[PLAN-RECEVABILITE.md](PLAN-RECEVABILITE.md)**. Ce que le front doit porter :
+Conception complète : **[PLAN-RECEVABILITE.md](PLAN-RECEVABILITE.md)**.
+
+> ⚠️ **Cette porte s'ouvre APRÈS le paiement** (§D bis.3 — le fichier ne quitte pas le navigateur
+> avant). C'est donc le **seul** filet contre un mauvais fichier, et la formulation du refus porte
+> tout le poids : le client a déjà payé. « La tentative n'a rien coûté » devient « **votre commande
+> reste ouverte, redéposez le bon fichier** » — la reprise vaut pour cette commande et ce document,
+> jamais comme crédit (§D).
+
+Ce que le front doit porter :
 
 - **Annoncer le refus avec sa preuve.** Jamais « document non conforme » : le type réellement lu, un
   passage cité DU document déposé, et la marche à suivre. Un prospect qui testait doit voir que nous
@@ -255,8 +267,183 @@ Rail retenu par le CEO : **Chariow**, one-shot, 15 % de commission
 Snap sur `pharnos.com`. Le contenu vit sur `pharnos.com/services/<x>`, **le paiement est isolé sur
 `services.pharnos.com`** ; le delta CSP est `frame-src` seul.
 
-Marge : à ~1,15 $ de coût contre un Audit Expert RA publié à 64 900 FCFA, le modèle tient très
-largement. **Confirmer avec les jetons réels avant d'annoncer un prix.**
+#### Prix — ARRÊTÉ par le CEO le 30 juillet 2026
+
+| | Prix | Marge brute sur ~1,15 $ de coût moteur |
+|---|---|---|
+| **Un document** | **29 € (19 000 FCFA)** | ≈ 32 $ de revenu net après 15 % Chariow — **×24** |
+| **Les trois documents** d'un même produit (RCP + notice + étiquetage) | **69 € (45 000 FCFA)** | 3 upgrades ≈ 3,45 $ de coût — **×17** |
+
+⚠️ **Ne pas confondre avec l'Audit Expert RA (64 900 FCFA), qui porte sur le Module 1 COMPLET.**
+L'upgrade traite **un document**, pas un dossier. Les deux offres ne se comparent pas et ne se
+substituent pas.
+
+**Format d'affichage, dans TOUTES les langues : `29 € (19 000 FCFA)`** — euro d'abord, FCFA entre
+parenthèses. ⚠️ `price()` (`landing/checking.js:53`) rend aujourd'hui l'un **ou** l'autre selon un
+booléen : la signature change, pas seulement les constantes.
+
+Le bundle est un **upsell posé SOUS le prix affiché**, jamais au-dessus : on lit 29 €, puis
+« les trois — 69 €, 87 € barré, −18 € ». Au-dessus, il ferait du 29 € un prix d'appel. **Chaque bloc
+porte son propre bouton.** Il ne vaut que pour **un même produit** — trois documents de trois
+produits différents sont trois commandes.
+
+#### Portée du paiement — VERROUILLÉE par le CEO le 30 juillet 2026
+
+**Un paiement = un document.** Ni abonnement, ni crédit reportable, ni solde de mises en conformité.
+Un autre document, un autre paiement.
+
+La **reprise gratuite** existe pour un seul cas : l'utilisateur s'est trompé de fichier ou de
+gabarit. Elle est attachée à **la commande et au document**, jamais au compte, et ne survit pas au
+document. Sans cette borne, un paiement unique financerait la reprise de tout un dossier.
+
+| Interdit dans l'interface | Pourquoi |
+|---|---|
+| « votre crédit reste disponible » | transforme un one-shot en solde |
+| « vous pourrez l'utiliser plus tard » | crée un droit dans le temps |
+| tout compteur de mises en conformité restantes | promet un forfait qui n'existe pas |
+
+⚠️ **Le garde-fou vit dans l'Edge**, contre un identifiant de commande lié au document — jamais dans
+le libellé. Le front affiche un verdict, il ne l'accorde pas.
+
+> **Toute évolution vers plusieurs upgrades par paiement, ou vers un droit qui dure, passe d'abord
+> par une analyse conjointe CEO — coût, rentabilité, délivrabilité.** Ne pas la décider en cours
+> d'implémentation.
+
+### D bis. La Bibliothèque réglementaire — SPÉCIFICATION DE DÉVELOPPEMENT
+
+**Maquette de référence, validée CEO le 30/07/2026 :**
+[`docs/mockups/bibliotheque-reglementaire.html`](mockups/bibliotheque-reglementaire.html).
+*(Les trois maquettes antérieures — `upgrade-mise-en-conformite*.html` — sont conservées pour
+l'historique des arbitrages ; elles ne font plus foi.)*
+
+#### Le parcours réel, et pourquoi il commande la conception
+
+**L'utilisateur vient chercher un modèle. Il découvre le service à côté.** Ce n'est pas une page de
+vente sur laquelle on tomberait par hasard : c'est un outil gratuit dont l'offre payante est le
+prolongement naturel. Trois conséquences non négociables :
+
+1. La page est **entièrement utile sans payer** — aucun e-mail demandé, aucun compte, aucun mur.
+2. **L'offre naît du téléchargement, pas de la page.** Le moment où l'utilisateur voit le modèle vide
+   à côté de son propre document est le seul où la mise à niveau se vend seule.
+3. Le texte se tait partout ailleurs. *(Retour CEO : « trop de détails, trop de garde-fous, les pages
+   semblent touffues ».)* Les garanties d'exécution vivent dans la **revue livrée** et dans les specs
+   — pas sur la page qui vend.
+
+#### Ce qui se branche sur l'existant
+
+La page **remplace l'entrée « Modèles réglementaires — Bientôt »** du menu Outils
+(`landing/checking-standard.html`, `.navmenu` et `.mnav`). Le workflow est déjà à moitié écrit :
+
+| Existant | Devenir |
+|---|---|
+| `#tplmodal` — prévisualiseur | devient le **lecteur deux volets** (§ ci-dessous) |
+| `#upmodal` — mise à niveau | garde son rôle, **change d'ordre** (§ ci-dessous) |
+| `#tplup` « Mettre mon document au standard » | inchangé — le libellé est bon |
+| `UPGRADABLE = ['rcp','notice','etiq']` (`referentiel.js:97`) | inchangé |
+| `#upgo` → `mailto:contact@pharnos.com` (`checking.js:549`) | **remplacé** par le checkout Chariow |
+| `MODELES` (`templates.js`) — ossatures reconstruites | **servent le vrai fichier** (§ ci-dessous) |
+
+**Lexique verrouillé** — celui de la production, pas un nouveau : *modèle* (jamais « gabarit »),
+*mise à niveau documentaire* (jamais « mise en conformité » côté client), *Mettre mon document au
+standard*, *Un document* / *Les trois documents, mis en cohérence entre eux*.
+
+#### 1. Le lecteur de modèle — deux volets
+
+Le clic sur une carte ouvre un panneau au premier plan, en deux colonnes.
+
+**Volet gauche — le vrai document.** Le fichier lui-même, rendu par `pdfjs-dist` (déjà présent,
+`lib/pdfjs.ts`), barre de pagination, et un bouton **« Télécharger le modèle »** en évidence.
+⚠️ **Pas d'ossature reconstruite** : le commentaire de `templates.js` (« *on ne redistribue pas un
+document officiel sous notre marque* ») et le renvoi « obtenir auprès de l'autorité » **tombent** —
+le modèle est public, officiel et libre de droit (CEO, 30/07/2026).
+
+**Volet droit — l'offre.** L'accroche exploite l'instant, et rien d'autre :
+
+> **Ce modèle est vide. Votre RCP, lui, ne l'est pas.**
+> Le remplir, ce n'est pas du copier-coller : il faut retrouver chaque contenu dans votre document,
+> le remettre à la rubrique que le modèle lui donne, et repérer ce qui manque. C'est ce que
+> Regafy AI fait en quatre minutes.
+
+Puis quatre preuves, le prix `29 € (19 000 FCFA)`, son bouton, et **sous lui** le bundle avec le sien.
+
+#### 2. Un modèle par PAYS — la mention de vigilance 4.8
+
+**Le fichier servi dépend du pays choisi**, parce que la rubrique 4.8 porte la mention de
+pharmacovigilance nationale. Changer de pays **change le fichier**, pas seulement une étiquette.
+
+Source unique : [`RA-source/Vigilance/INDEX-vigilance-UEMOA.md`](../RA-source/Vigilance/INDEX-vigilance-UEMOA.md),
+déjà encodée dans `conformity-specs.ts` (`mentions[].requiredFor`).
+
+| Pays | Mention en 4.8 |
+|---|---|
+| **Bénin** | formule neutre + ABMed — `vigilances.abmed@gouv.bj` |
+| **Côte d'Ivoire** | formule neutre + AIRP — `pharmacovigilance@airp.ci` |
+| **Sénégal** | formule neutre + ARP — `vigilances@arp.sn` |
+| **Burkina Faso** | formule neutre + application **Med Safety** |
+| Mali · Niger · Togo · Guinée-Bissau | **formule neutre seule** |
+
+⚠️ **Trois pays sur huit publient une adresse. Le repli neutre est le cas COURANT, pas un cas
+dégradé** — l'interface ne doit jamais le présenter comme une lacune.
+⚠️ **Aucune adresse qui ne figure pas dans une source déposée.** Une adresse de vigilance inventée
+serait recopiée dans des dossiers d'AMM réels.
+⚠️ **Med Safety n'est pas propre au Burkina** (les lignes directrices AIRP la citent aussi) : c'est un
+canal de notification, jamais un contact national.
+
+**Implémentation** : 3 documents × 8 pays = **24 fichiers**, pré-générés ou produits à la volée
+depuis `conformity-specs.ts`. La seconde voie est préférable — un modèle qui dérive de la même source
+que le moteur ne peut pas diverger de lui.
+
+#### 3. La modale de mise à niveau — l'ordre est la spécification
+
+**Ne jamais ouvrir sur un prix.** L'ordre exact :
+
+1. **Pays de dépôt**
+2. **Activité réglementaire** — Nouvelle AMM / Renouvellement
+3. **Dépôt du document**
+4. *puis seulement* **le prix** `29 € (19 000 FCFA)` + son bouton
+5. *sous lui* **le bundle** `69 € (45 000 FCFA)`, 87 € barré, −18 € + son bouton
+
+⚠️ **Le fichier ne quitte pas le navigateur avant le paiement.** Il est sélectionné, affiché comme
+déposé (« Prêt — il partira au traitement dès la commande »), mais **rien n'est envoyé au backend ni
+au moteur**. Le sentiment que le document est déjà en place fait la conversion ; l'envoi réel se
+fait au retour de paiement.
+
+> **Conséquence technique à ne pas manquer** : le fichier doit **survivre au passage par
+> `services.pharnos.com`**. Le conserver côté navigateur (mémoire ou IndexedDB, clé liée à la
+> commande) et ne le poster qu'au retour. Sans cela, le client paie et se retrouve sans document —
+> le pire échec possible de ce parcours.
+
+⚠️ **La lecture de recevabilité passe donc APRÈS le paiement** (arbitrage CEO du 30/07/2026, il
+annule ma proposition d'une lecture gratuite en amont). C'est ce qui donne son sens à la reprise
+gratuite décrite plus haut : le seul filet contre un mauvais fichier est en aval.
+
+#### 4. Démonstration
+
+Un **spécimen fabriqué** (DEMOCILLINE 500 mg), joué sur les **écrans réels** de génération et de
+livraison, avec bandeau. ⚠️ **Jamais un fichier client** — ni Gynoril ni KV-Kacin, ce sont des pièces
+confiées. Le spécimen porte les défauts réels que le moteur sait corriger : numérotation décalée,
+préclinique rangée dans la pharmacocinétique, tableau MedDRA absent.
+
+#### 5. Avec et sans session
+
+Même page, même URL. Seule la destination des livrables change : **lien tokenisé 30 jours** pour un
+visiteur (même mécanique que la vue Agent en production), **espace de l'organisation** pour un compte.
+
+⚠️ **Conséquence sur §B :** un paiement one-shot signifie que le client ferme l'onglet. Le pilotage
+navigateur ne suffit plus — **le worker asynchrone devient obligatoire**, et non plus une option.
+
+#### 6. Les quatre deltas de code, à faire ensemble
+
+| Fichier | Aujourd'hui | À faire |
+|---|---|---|
+| `landing/checking.js:48` | `up1 = {xof:25000, eur:39}` · `up3 = {xof:60000, eur:92}` | `up1 = {xof:19000, eur:29}` · `up3 = {xof:45000, eur:69}` |
+| `landing/checking.js:53` | `price()` rend € **ou** FCFA | rendre `29 € (19 000 FCFA)`, les deux langues |
+| `landing/checking/templates.js` | ossatures + « on ne redistribue pas » | sert le fichier réel, par pays ; commentaire supprimé |
+| `landing/checking.js:549` | `#upgo` → `mailto:` | checkout Chariow sur `services.pharnos.com` |
+
+⚠️ **La landing promet encore « un Word éditable et son PDF »** (`.msafe` de `#upmodal`). Le livrable
+verrouillé est de **cinq fichiers**. La promesse est en retard sur le produit, et en défaveur de la
+vente.
 
 ---
 
@@ -274,6 +461,12 @@ largement. **Confirmer avec les jetons réels avant d'annoncer un prix.**
 | **Aucune marque de fournisseur** sur le document déposé | étape 3 §3 |
 | Rapport dans la **langue du document téléversé** | étape 1 §7 |
 | Marqueur : `[Non fourni, à compléter]` | étape 1 §2 |
+| **Un paiement = un document** — ni abonnement, ni crédit, ni solde | §D |
+| Prix **29 € (19 000 FCFA)** · bundle **69 € (45 000 FCFA)**, affiché SOUS le prix | §D |
+| Le modèle officiel est **public et libre de droit** : servi et téléchargeable | §D bis |
+| **Un modèle par pays** — la mention 4.8 en dépend | §D bis |
+| Le fichier **ne quitte pas le navigateur avant paiement** | §D bis |
+| Lexique client : **modèle**, **mise à niveau documentaire**, jamais « gabarit » | §D bis |
 
 ---
 
@@ -320,3 +513,27 @@ lot M0 avait déjà corrigé côté moteur.
 - [ ] Le dépôt suivant reprend la même commande, sans nouveau paiement
 - [ ] Un RCP médiocre ou scanné PASSE — recevabilité n'est pas qualité
 - [ ] Achat Chariow sur `services.pharnos.com`, `frame-src` seul ajouté à la CSP
+
+### Bibliothèque réglementaire (§D bis)
+
+- [ ] Le modèle se télécharge **sans compte, sans e-mail, sans clic supplémentaire**
+- [ ] Le volet gauche affiche le **fichier réel**, pas une ossature reconstruite
+- [ ] Changer de pays **change le fichier téléchargé**, pas seulement le libellé
+- [ ] Rubrique 4.8 : BJ / CI / SN portent leur adresse ; BF porte Med Safety ; les 4 autres la
+      formule neutre **seule** — et aucun écran ne présente le repli neutre comme une lacune
+- [ ] Aucune adresse de vigilance absente de `INDEX-vigilance-UEMOA.md` n'apparaît nulle part
+- [ ] La modale de mise à niveau s'ouvre sur **le pays**, jamais sur un prix
+- [ ] Ordre respecté : pays → activité → dépôt → prix → bundle
+- [ ] Le bundle est **sous** le prix, avec **son propre bouton**
+- [ ] Prix affiché `29 € (19 000 FCFA)` / `69 € (45 000 FCFA)` — **dans les deux langues**
+- [ ] **Aucune requête réseau portant le fichier avant le paiement** (à vérifier dans l'onglet Réseau)
+- [ ] Le fichier **survit au passage par `services.pharnos.com`** et part au retour de paiement
+- [ ] La démonstration tourne sur un **spécimen fabriqué**, jamais sur un fichier client
+- [ ] La démonstration emprunte les écrans réels de génération et de livraison, avec bandeau
+- [ ] Aucun écran n'affiche de solde, de crédit restant ni de forfait
+- [ ] Un second paiement est exigé pour un second document
+- [ ] Un refus après paiement ne rouvre la commande que pour **ce document**, 3 dépôts au plus
+- [ ] Sans session : livrables par lien tokenisé 30 jours ; avec session : dans l'espace de l'org
+- [ ] L'entrée « Modèles réglementaires — Bientôt » du menu Outils pointe vers la page
+- [ ] La promesse `.msafe` annonce bien **cinq fichiers**, pas « un Word et son PDF »
+- [ ] Sans compte : les livrables arrivent par lien tokenisé (30 j) et l'e-mail le dit

@@ -5,7 +5,7 @@
  * `zip` est le téléchargement (DOCX français + DOCX anglais de courtoisie quand `bilingue`) ;
  * `pdf` est l'aperçu du lecteur. `perPays: false` = un seul fichier pour les huit pays.
  */
-export const MODELES_VERSION = "2026.5"
+export const MODELES_VERSION = "2026.6"
 
 export const MODELES_FICHIERS = {
   "rcp": {
@@ -102,7 +102,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/rcp-bj.zip",
         "pages": 4,
         "octetsPdf": 7107,
-        "octetsZip": 19941
+        "octetsZip": 19945
       },
       "bf": {
         "pdf": "/modeles/rcp-bf.pdf",
@@ -114,44 +114,49 @@ export const MODELES_FICHIERS = {
       "ci": {
         "pdf": "/modeles/rcp-ci.pdf",
         "zip": "/modeles/rcp-ci.zip",
-        "pages": 4,
-        "octetsPdf": 7126,
-        "octetsZip": 19983
+        "pages": 2,
+        "octetsPdf": 279133,
+        "octetsZip": 265264,
+        "officiel": true,
+        "source": [
+          "Modèle officiel AIRP",
+          "Official AIRP template"
+        ]
       },
       "gw": {
         "pdf": "/modeles/rcp-gw.pdf",
         "zip": "/modeles/rcp-gw.zip",
         "pages": 4,
         "octetsPdf": 7106,
-        "octetsZip": 19857
+        "octetsZip": 19860
       },
       "ml": {
         "pdf": "/modeles/rcp-ml.pdf",
         "zip": "/modeles/rcp-ml.zip",
         "pages": 4,
         "octetsPdf": 7061,
-        "octetsZip": 19789
+        "octetsZip": 19794
       },
       "ne": {
         "pdf": "/modeles/rcp-ne.pdf",
         "zip": "/modeles/rcp-ne.zip",
         "pages": 4,
         "octetsPdf": 7072,
-        "octetsZip": 19794
+        "octetsZip": 19798
       },
       "sn": {
         "pdf": "/modeles/rcp-sn.pdf",
         "zip": "/modeles/rcp-sn.zip",
         "pages": 4,
         "octetsPdf": 7106,
-        "octetsZip": 19938
+        "octetsZip": 19935
       },
       "tg": {
         "pdf": "/modeles/rcp-tg.pdf",
         "zip": "/modeles/rcp-tg.zip",
         "pages": 4,
         "octetsPdf": 7066,
-        "octetsZip": 19795
+        "octetsZip": 19796
       }
     }
   },
@@ -249,7 +254,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/notice.zip",
         "pages": 4,
         "octetsPdf": 8307,
-        "octetsZip": 21192
+        "octetsZip": 21186
       }
     }
   },
@@ -446,14 +451,18 @@ export const MODELES_FICHIERS = {
         "pages": 1,
         "octetsPdf": 123747,
         "octetsZip": 93664,
-        "officiel": true
+        "officiel": true,
+        "source": [
+          "Modèle officiel ABMed",
+          "Official ABMed template"
+        ]
       },
       "bf": {
         "pdf": "/modeles/lettre-demande-bf.pdf",
         "zip": "/modeles/lettre-demande-bf.zip",
         "pages": 1,
         "octetsPdf": 2211,
-        "octetsZip": 16778,
+        "octetsZip": 16781,
         "blocs": [
           {
             "t": "right",
@@ -534,7 +543,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-demande-ci.zip",
         "pages": 1,
         "octetsPdf": 2206,
-        "octetsZip": 16796,
+        "octetsZip": 16800,
         "blocs": [
           {
             "t": "right",
@@ -615,7 +624,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-demande-gw.zip",
         "pages": 1,
         "octetsPdf": 2241,
-        "octetsZip": 16845,
+        "octetsZip": 16832,
         "blocs": [
           {
             "t": "right",
@@ -696,7 +705,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-demande-ml.zip",
         "pages": 1,
         "octetsPdf": 2195,
-        "octetsZip": 16727,
+        "octetsZip": 16730,
         "blocs": [
           {
             "t": "right",
@@ -777,7 +786,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-demande-ne.zip",
         "pages": 1,
         "octetsPdf": 2209,
-        "octetsZip": 16765,
+        "octetsZip": 16763,
         "blocs": [
           {
             "t": "right",
@@ -939,7 +948,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-demande-tg.zip",
         "pages": 1,
         "octetsPdf": 2208,
-        "octetsZip": 16771,
+        "octetsZip": 16759,
         "blocs": [
           {
             "t": "right",
@@ -1111,7 +1120,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-bj.zip",
         "pages": 1,
         "octetsPdf": 2332,
-        "octetsZip": 16896,
+        "octetsZip": 16905,
         "blocs": [
           {
             "t": "right",
@@ -1200,7 +1209,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-bf.zip",
         "pages": 1,
         "octetsPdf": 2331,
-        "octetsZip": 16893,
+        "octetsZip": 16905,
         "blocs": [
           {
             "t": "right",
@@ -1289,7 +1298,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-ci.zip",
         "pages": 1,
         "octetsPdf": 2326,
-        "octetsZip": 16924,
+        "octetsZip": 16931,
         "blocs": [
           {
             "t": "right",
@@ -1378,7 +1387,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-gw.zip",
         "pages": 1,
         "octetsPdf": 2363,
-        "octetsZip": 16965,
+        "octetsZip": 16969,
         "blocs": [
           {
             "t": "right",
@@ -1467,7 +1476,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-ml.zip",
         "pages": 1,
         "octetsPdf": 2316,
-        "octetsZip": 16853,
+        "octetsZip": 16850,
         "blocs": [
           {
             "t": "right",
@@ -1556,7 +1565,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-ne.zip",
         "pages": 1,
         "octetsPdf": 2327,
-        "octetsZip": 16872,
+        "octetsZip": 16878,
         "blocs": [
           {
             "t": "right",
@@ -1645,7 +1654,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-sn.zip",
         "pages": 1,
         "octetsPdf": 2324,
-        "octetsZip": 16890,
+        "octetsZip": 16883,
         "blocs": [
           {
             "t": "right",
@@ -1734,7 +1743,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-tg.zip",
         "pages": 1,
         "octetsPdf": 2330,
-        "octetsZip": 16873,
+        "octetsZip": 16876,
         "blocs": [
           {
             "t": "right",
@@ -1914,7 +1923,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-bj.zip",
         "pages": 1,
         "octetsPdf": 2233,
-        "octetsZip": 16833,
+        "octetsZip": 16835,
         "blocs": [
           {
             "t": "right",
@@ -1995,7 +2004,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-bf.zip",
         "pages": 1,
         "octetsPdf": 2237,
-        "octetsZip": 16823,
+        "octetsZip": 16821,
         "blocs": [
           {
             "t": "right",
@@ -2076,7 +2085,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-ci.zip",
         "pages": 1,
         "octetsPdf": 2227,
-        "octetsZip": 16846,
+        "octetsZip": 16854,
         "blocs": [
           {
             "t": "right",
@@ -2157,7 +2166,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-gw.zip",
         "pages": 1,
         "octetsPdf": 2258,
-        "octetsZip": 16883,
+        "octetsZip": 16878,
         "blocs": [
           {
             "t": "right",
@@ -2238,7 +2247,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-ml.zip",
         "pages": 1,
         "octetsPdf": 2221,
-        "octetsZip": 16774,
+        "octetsZip": 16785,
         "blocs": [
           {
             "t": "right",
@@ -2319,7 +2328,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-ne.zip",
         "pages": 1,
         "octetsPdf": 2230,
-        "octetsZip": 16808,
+        "octetsZip": 16811,
         "blocs": [
           {
             "t": "right",
@@ -2400,7 +2409,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-sn.zip",
         "pages": 1,
         "octetsPdf": 2226,
-        "octetsZip": 16821,
+        "octetsZip": 16812,
         "blocs": [
           {
             "t": "right",
@@ -2481,7 +2490,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-tg.zip",
         "pages": 1,
         "octetsPdf": 2231,
-        "octetsZip": 16791,
+        "octetsZip": 16800,
         "blocs": [
           {
             "t": "right",
@@ -2661,7 +2670,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-bj-enr.zip",
         "pages": 1,
         "octetsPdf": 2333,
-        "octetsZip": 17233,
+        "octetsZip": 17238,
         "blocs": [
           {
             "t": "right",
@@ -2817,7 +2826,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-bf-enr.zip",
         "pages": 1,
         "octetsPdf": 2332,
-        "octetsZip": 17216,
+        "octetsZip": 17221,
         "blocs": [
           {
             "t": "right",
@@ -2895,7 +2904,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-bf-renouv.zip",
         "pages": 1,
         "octetsPdf": 2329,
-        "octetsZip": 17214,
+        "octetsZip": 17209,
         "blocs": [
           {
             "t": "right",
@@ -2973,7 +2982,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-ci-enr.zip",
         "pages": 1,
         "octetsPdf": 2330,
-        "octetsZip": 17252,
+        "octetsZip": 17250,
         "blocs": [
           {
             "t": "right",
@@ -3051,7 +3060,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-ci-renouv.zip",
         "pages": 1,
         "octetsPdf": 2334,
-        "octetsZip": 17265,
+        "octetsZip": 17260,
         "blocs": [
           {
             "t": "right",
@@ -3129,7 +3138,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-gw-enr.zip",
         "pages": 1,
         "octetsPdf": 2359,
-        "octetsZip": 17288,
+        "octetsZip": 17275,
         "blocs": [
           {
             "t": "right",
@@ -3207,7 +3216,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-gw-renouv.zip",
         "pages": 1,
         "octetsPdf": 2360,
-        "octetsZip": 17285,
+        "octetsZip": 17284,
         "blocs": [
           {
             "t": "right",
@@ -3285,7 +3294,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-ml-enr.zip",
         "pages": 1,
         "octetsPdf": 2312,
-        "octetsZip": 17173,
+        "octetsZip": 17169,
         "blocs": [
           {
             "t": "right",
@@ -3363,7 +3372,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-ml-renouv.zip",
         "pages": 1,
         "octetsPdf": 2311,
-        "octetsZip": 17174,
+        "octetsZip": 17171,
         "blocs": [
           {
             "t": "right",
@@ -3441,7 +3450,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-ne-enr.zip",
         "pages": 1,
         "octetsPdf": 2328,
-        "octetsZip": 17197,
+        "octetsZip": 17200,
         "blocs": [
           {
             "t": "right",
@@ -3519,7 +3528,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-ne-renouv.zip",
         "pages": 1,
         "octetsPdf": 2326,
-        "octetsZip": 17205,
+        "octetsZip": 17209,
         "blocs": [
           {
             "t": "right",
@@ -3597,7 +3606,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-sn-enr.zip",
         "pages": 1,
         "octetsPdf": 2325,
-        "octetsZip": 17217,
+        "octetsZip": 17213,
         "blocs": [
           {
             "t": "right",
@@ -3675,7 +3684,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-sn-renouv.zip",
         "pages": 1,
         "octetsPdf": 2321,
-        "octetsZip": 17203,
+        "octetsZip": 17216,
         "blocs": [
           {
             "t": "right",
@@ -3753,7 +3762,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-tg-enr.zip",
         "pages": 1,
         "octetsPdf": 2323,
-        "octetsZip": 17204,
+        "octetsZip": 17206,
         "blocs": [
           {
             "t": "right",
@@ -3831,7 +3840,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-tg-renouv.zip",
         "pages": 1,
         "octetsPdf": 2326,
-        "octetsZip": 17202,
+        "octetsZip": 17199,
         "blocs": [
           {
             "t": "right",
@@ -3902,6 +3911,138 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
+        ]
+      }
+    }
+  },
+  "lettre-dmf": {
+    "activites": null,
+    "nom": [
+      "Déclaration de certification des numéros DMF",
+      "Declaration on the certification of DMF numbers"
+    ],
+    "court": [
+      "Déclaration DMF",
+      "DMF declaration"
+    ],
+    "resume": [
+      "La certification du numéro de Drug Master File de la substance active, exigée par l’AIRP.",
+      "Certification of the active ingredient’s Drug Master File number, required by the AIRP."
+    ],
+    "source": [
+      "Modèle AIRP — note n° 1668",
+      "AIRP template — note No. 1668"
+    ],
+    "groupe": "lettres",
+    "upgradable": false,
+    "bilingue": true,
+    "perPays": true,
+    "apercu": [
+      {
+        "t": "right",
+        "x": "Le {date}"
+      },
+      {
+        "t": "right",
+        "x": "À"
+      },
+      {
+        "t": "right",
+        "x": "Monsieur le Directeur Général"
+      },
+      {
+        "t": "right",
+        "x": "Autorité Ivoirienne de Régulation Pharmaceutique (AIRP)"
+      },
+      {
+        "t": "right",
+        "x": "Abidjan, Cocody"
+      },
+      {
+        "t": "h3",
+        "x": "Objet : Déclaration relative à la certification des numéros DMF"
+      },
+      {
+        "t": "p",
+        "x": "Monsieur le Directeur Général,"
+      },
+      {
+        "t": "p",
+        "x": "Je soussigné(e), …, agissant en qualité de … au sein du laboratoire …, certifie que le numéro de Drug Master File (DMF) relatif à la substan…"
+      },
+      {
+        "t": "p",
+        "x": "Je déclare également que ces informations ont été vérifiées auprès de l’autorité de réglementation pharmaceutique du pays d’origine de cette…"
+      },
+      {
+        "t": "p",
+        "x": "Le tableau ci-dessous récapitule les informations concernées :"
+      },
+      {
+        "t": "table",
+        "rows": [
+          [
+            "Dénomination du produit fini",
+            "…"
+          ],
+          [
+            "Titulaire de l’AMM",
+            "…"
+          ],
+          [
+            "Fabricant du produit fini",
+            "…"
+          ],
+          [
+            "Substance active (API)",
+            "…"
+          ],
+          [
+            "Site de fabrication de la substance active",
+            "Nom, adresse, e-mail et téléphone"
+          ],
+          [
+            "Autorité approbatrice du numéro de DMF",
+            "…"
+          ],
+          [
+            "N° DMF",
+            "…"
+          ]
+        ]
+      },
+      {
+        "t": "p",
+        "x": "Je m’engage à informer au préalable l’autorité de toute variation relative à ces informations."
+      },
+      {
+        "t": "p",
+        "x": "La présente déclaration est établie pour servir et valoir ce que de droit."
+      },
+      {
+        "t": "right",
+        "x": "Poste"
+      },
+      {
+        "t": "right",
+        "x": "Signature et Cachet"
+      },
+      {
+        "t": "right",
+        "x": "Nom et Prénom(s)"
+      }
+    ],
+    "fichiers": {
+      "ci": {
+        "pdf": "/modeles/lettre-dmf-ci.pdf",
+        "zip": "/modeles/lettre-dmf-ci.zip",
+        "pages": 2,
+        "octetsPdf": 900816,
+        "octetsZip": 687854,
+        "officiel": true,
+        "source": [
+          "Modèle officiel AIRP",
+          "Official AIRP template"
         ]
       }
     }
@@ -4000,7 +4141,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/qos-pd.zip",
         "pages": 1,
         "octetsPdf": 2468,
-        "octetsZip": 8506
+        "octetsZip": 8505
       }
     }
   },
@@ -4098,7 +4239,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/btif.zip",
         "pages": 1,
         "octetsPdf": 2363,
-        "octetsZip": 8404
+        "octetsZip": 8402
       }
     }
   }

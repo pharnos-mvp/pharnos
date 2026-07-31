@@ -49,6 +49,22 @@ export const prixCourt = (p, lang) => `${fmtMontant(p.eur, lang)} €`;
 /* ══════════════════ fichier servi ══════════════════ */
 
 /**
+ * Les pays pour lesquels ce document est RÉELLEMENT servi, dans l'ordre du référentiel.
+ *
+ * Tous les documents ne couvrent pas les huit pays : une obligation nationale (la déclaration DMF
+ * de l'AIRP, par exemple) n'existe que sous son drapeau. Proposer les huit ferait échouer
+ * `fichierModele` sur les sept autres — et surtout, laisserait croire à une exigence qui n'existe
+ * pas. Un document qui ne varie pas rend `[]` : il n'y a pas de pays à choisir.
+ */
+export function paysDuModele(slug) {
+  const m = MODELES_FICHIERS[slug];
+  if (!m) throw new Error(`modèle inconnu « ${slug} »`);
+  if (!m.perPays) return [];
+  // Clés d'activité (`ci-enr`) réduites au code pays, sans doublon et dans l'ordre rencontré.
+  return [...new Set(Object.keys(m.fichiers).map((k) => k.split("-")[0]))];
+}
+
+/**
  * Le fichier à servir pour un document, un pays et — quand le document se décline — une activité.
  *
  * ⚠️ Un document déclaré `perPays` DOIT avoir une entrée par pays ; on échoue plutôt que de

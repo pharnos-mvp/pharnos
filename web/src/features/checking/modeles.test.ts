@@ -28,6 +28,8 @@ type Fichier = {
   octetsPdf: number
   octetsZip: number
   officiel?: boolean
+  /** Provenance propre au fichier officiel d'une autorité (prime sur celle du document). */
+  source?: [string, string]
   blocs?: Bloc0[]
 }
 type Bloc = { t: string; x?: string; rows?: string[][] }
@@ -144,7 +146,10 @@ describe('manifeste et fichiers restent accordés', () => {
 
   it("le ZIP d'un document bilingue porte le FR et l'EN de courtoisie ; un formulaire OMS, un seul fichier", async () => {
     for (const [slug, m] of Object.entries(MANIFESTE)) {
-      const f = Object.values(m.fichiers).find((x) => !x.officiel)!
+      // Un document dont TOUS les fichiers sont ceux d'une autorité n'a rien de fabriqué à
+      // vérifier ici — son ZIP est couvert par la recette « servi tel quel ».
+      const f = Object.values(m.fichiers).find((x) => !x.officiel)
+      if (!f) continue
       const zip = await JSZip.loadAsync(fs.readFileSync(chemin(f.zip)))
       const noms = Object.keys(zip.files)
       if (m.bilingue) {
@@ -175,8 +180,45 @@ describe('manifeste et fichiers restent accordés', () => {
   })
 })
 
+/** Le RCP de ce pays est le modèle de l'autorité, servi tel quel : nous n'y injectons RIEN,
+ *  donc aucune assertion sur une mention 4.8 « committée » ne s'y applique. */
+const rcpOfficiel = (code: string) => Boolean(fichierDe('rcp', code).officiel)
+
+describe('une obligation nationale ne se sert que sous son drapeau', () => {
+  it("la déclaration DMF n'existe que pour la Côte d'Ivoire", () => {
+    // La servir sous huit pays laisserait croire que le Bénin ou le Togo réclament une pièce
+    // que seule l'AIRP impose (note n° 1668). Le manifeste doit dire cette restriction.
+    expect(Object.keys(docDe('lettre-dmf').fichiers)).toEqual(['ci'])
+    const f = fichierDe('lettre-dmf', 'ci')
+    expect(f.officiel).toBe(true)
+    expect(f.source?.[0]).toContain('AIRP')
+  })
+
+  it('les documents régionaux couvrent bien les huit pays', () => {
+    for (const slug of ['lettre-demande', 'lettre-renouvellement', 'lettre-variation'])
+      expect(Object.keys(docDe(slug).fichiers).sort(), slug).toEqual([...CODES].sort())
+  })
+})
+
+describe("un modèle officiel d'autorité est servi tel quel", () => {
+  it('le RCP ivoirien est le PDF de l’AIRP, à l’octet près, sans DOCX fabriqué', async () => {
+    const f = fichierDe('rcp', 'ci')
+    expect(f.officiel).toBe(true)
+    // Provenance affichée = celle de l'autorité (jamais la maquette régionale du document).
+    expect(f.source?.[0]).toContain('AIRP')
+    // Le PDF servi est celui déposé par l'autorité, octet pour octet.
+    const source = path.resolve(LANDING, '..', 'RA-source/AIRP/CIV_Template RCP.pdf')
+    expect(fs.readFileSync(chemin(f.pdf)).equals(fs.readFileSync(source))).toBe(true)
+    // Le ZIP ne contient QUE lui : on ne fabrique ni Word ni version anglaise sur le document
+    // d'une autorité (directive CEO du 31/07/2026).
+    const noms = Object.keys((await JSZip.loadAsync(fs.readFileSync(chemin(f.zip)))).files)
+    expect(noms).toHaveLength(1)
+    expect(noms[0]).toMatch(/\.pdf$/)
+  })
+})
+
 describe('la mention 4.8 committée est celle du pays', () => {
-  it.each(Object.entries(ADRESSES))(
+  it.each(Object.entries(ADRESSES).filter(([code]) => !rcpOfficiel(code)))(
     'le RCP %s porte son adresse, et aucune autre',
     async (code, adresse) => {
       const texte = await texteDocx(fichierDe('rcp', code).zip)
@@ -187,7 +229,7 @@ describe('la mention 4.8 committée est celle du pays', () => {
     },
   )
 
-  it.each(CODES.filter((k: string) => !(k in ADRESSES)))(
+  it.each(CODES.filter((k: string) => !(k in ADRESSES) && !rcpOfficiel(k)))(
     'le RCP %s emploie la formule neutre, sans adresse empruntée',
     async (code: string) => {
       const texte = await texteDocx(fichierDe('rcp', code).zip)
@@ -211,7 +253,7 @@ describe('la mention 4.8 committée est celle du pays', () => {
   })
 })
 
-describe('les neuf documents, groupés comme sur la page', () => {
+describe('les dix documents, groupés comme sur la page', () => {
   it('couvre les trois groupes annoncés, sans document orphelin', () => {
     const parGroupe = (g: string) =>
       Object.entries(MANIFESTE)
@@ -221,6 +263,7 @@ describe('les neuf documents, groupés comme sur la page', () => {
     expect(parGroupe('produit')).toEqual(['etiquetage', 'notice', 'rcp'])
     expect(parGroupe('lettres')).toEqual([
       'lettre-demande',
+      'lettre-dmf',
       'lettre-pght',
       'lettre-renouvellement',
       'lettre-variation',

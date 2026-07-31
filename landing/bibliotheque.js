@@ -11,6 +11,7 @@
 import { MODELES_FICHIERS } from "./checking/modeles-manifest.js?v=2026.3";
 import {
   fichierModele,
+  paysDuModele,
   tailleLisible,
 } from "./checking/bibliotheque-core.js?v=2026.3";
 
@@ -84,8 +85,19 @@ function facSimile(apercu) {
 
 function carte(slug) {
   const m = MODELES_FICHIERS[slug];
-  const f = fichierModele(slug, "bj");
-  const langues = m.bilingue ? "Word FR + EN" : "Word";
+  // La vignette se lit sur le PREMIER pays servi, jamais sur un pays codé en dur : un document
+  // restreint à une obligation nationale n'a pas de fichier béninois, et l'y chercher faisait
+  // échouer le rendu de tout son groupe.
+  const f = fichierModele(slug, paysDuModele(slug)[0]);
+  // « PDF officiel » seulement si TOUS les pays servis le sont : la lettre de demande est le
+  // fichier de l'ABMed au Bénin mais un Word bilingue ailleurs — l'annoncer officielle sur la
+  // grille tromperait sept déposants sur huit. La page du document, elle, sait le pays choisi.
+  const tousOfficiels = Object.values(m.fichiers).every((x) => x.officiel);
+  const langues = tousOfficiels
+    ? L(["PDF officiel", "Official PDF"])
+    : m.bilingue
+      ? "Word FR + EN"
+      : "Word";
   const meta = `${f.pages} p. · ${langues}`;
   // Un LIEN, pas un bouton : la carte ouvre la page dédiée du document — ouvrable dans un nouvel
   // onglet, partageable. Pays et activité se choisissent AU TÉLÉCHARGEMENT, pas ici.

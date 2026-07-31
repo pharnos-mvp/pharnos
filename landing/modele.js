@@ -23,6 +23,7 @@ import {
   MAX_OCTETS,
   nouvelleCommande,
   OFFRES,
+  paysDuModele,
   PRIX,
   PRIX_UP3_PLEIN,
   prixCourt,
@@ -55,13 +56,58 @@ const PAGE_BIBLIO = EN
   : "/bibliotheque-reglementaire";
 
 /**
- * Liens de règlement Chariow, isolés sur `services.pharnos.com` — la CSP de pharnos.com
- * (`script-src 'self'`) interdit le script Snap ici.
+ * Origine de la boutique de paiement. UN SEUL endroit à changer le jour où le domaine bascule.
+ *
+ * ⚠️ Le domaine de marque `services.pharnos.com` est déclaré côté Chariow et attend son CNAME
+ * (`services` → `cc54deb46d638802.vercel-dns-016.com`, DNS only). Tant qu'il ne résout pas et que
+ * son certificat n'est pas émis, l'origine reste celle de la boutique : poser ici un domaine qui
+ * ne répond pas enverrait le client payer dans le vide. La bascule = cette ligne, rien d'autre.
+ */
+const BOUTIQUE = "https://adbhrqbd.mychariow.com";
+
+/**
+ * Liens de règlement Chariow. Ce sont les liens « accès direct au paiement » (`/checkout`) : le
+ * client a déjà lu l'offre ici, la page produit de la boutique ne lui apprendrait rien.
+ * La CSP de pharnos.com (`script-src 'self'`) interdit le script Snap sur cette page, d'où la
+ * redirection pleine page plutôt qu'une modale.
  * ⚠️ Tant qu'une offre n'a pas son lien, le bouton NE PROMET PAS un paiement : il propose d'être
  * rappelé. Renseigner ces deux valeurs suffit à ouvrir la vente.
  */
-const CHECKOUT = { up1: "", up3: "" };
+const CHECKOUT = {
+  up1: `${BOUTIQUE}/prd_hf86pys5/checkout`,
+  up3: `${BOUTIQUE}/prd_1u8jrq16/checkout`,
+};
 const checkoutOuvert = (offre) => Boolean(CHECKOUT[offre]);
+
+/** Référence de la commande en cours de règlement, gardée côté navigateur.
+ *
+ *  ⚠️ Le retour de paiement ne DÉPEND PAS de ce que le prestataire veut bien renvoyer. Chariow
+ *  peut relayer notre `ref`, ou ne rediriger que vers une URL fixe : dans les deux cas le client
+ *  doit retrouver son document. On garde donc la référence ici AVANT de partir, et le retour la
+ *  relit — `?commande=<id>` quand elle est relayée, `?paiement=ok` sinon. Sans cette ceinture,
+ *  un prestataire qui n'échoit pas le paramètre ferait payer un client puis perdre son fichier.
+ *  Elle n'est PAS effacée au retour : le client rafraîchit sa page de confirmation sans la perdre.
+ *  Elle expire au TTL de la commande, et la commande suivante l'écrase. */
+const CLE_ATTENTE = "pharnos.commande";
+const marquerEnAttente = (id) => {
+  try {
+    localStorage.setItem(CLE_ATTENTE, JSON.stringify({ id, cree: Date.now() }));
+  } catch {
+    // Navigation privée ou stockage plein : la commande reste dans IndexedDB, seule la reprise
+    // automatique se perd. On n'empêche pas l'achat pour autant.
+  }
+};
+const referenceEnAttente = () => {
+  try {
+    const brut = localStorage.getItem(CLE_ATTENTE);
+    if (!brut) return null;
+    const { id, cree } = JSON.parse(brut);
+    // Au-delà de la durée de conservation, la commande a été purgée : la référence ne vaut plus.
+    return Date.now() - cree > TTL_MS ? null : id;
+  } catch {
+    return null;
+  }
+};
 
 /* ══ État ══ */
 const params = new URLSearchParams(window.location.search);
@@ -77,9 +123,19 @@ const S = {
   fichier: null,
 };
 
-/** L'aperçu du lecteur a besoin d'UN fichier avant tout choix : le premier pays du référentiel.
- *  La première page est identique pour les huit — la version téléchargée, elle, attend le choix. */
-const paysApercu = () => S.pays ?? PAYS[0].k;
+/** Les pays que CE document sert — un document restreint à une obligation nationale n'en a qu'un. */
+const paysServis = () => paysDuModele(S.doc);
+// Un `?pays=` hors des pays SERVIS par ce document (`/modele?doc=lettre-dmf&pays=bj`, un lien
+// périmé, une URL bricolée) ferait échouer `fichierModele` DANS `peindre()`, appelée à
+// l'amorçage : la page resterait à moitié peinte, sans lecteur et sans même le préalable qui
+// aurait permis d'en sortir. On retombe donc sur « aucun pays choisi », l'état déjà prévu.
+if (S.pays && paysServis().length && !paysServis().includes(S.pays))
+  S.pays = null;
+/** L'aperçu du lecteur a besoin d'UN fichier avant tout choix : le premier pays SERVI par ce
+ *  document, jamais le premier du référentiel — chercher le Bénin sur un document que seule la
+ *  Côte d'Ivoire impose ferait échouer la résolution. La première page est identique pour les pays
+ *  servis ; la version téléchargée, elle, attend le choix. */
+const paysApercu = () => S.pays ?? paysServis()[0] ?? PAYS[0].k;
 
 const nomPays = (k) => L((PAYS.find((p) => p.k === k) ?? PAYS[0]).nom);
 
@@ -100,20 +156,25 @@ function peindre() {
 
   document.title = `${L(m.nom)} — ${L(["modèle officiel", "official template"])} · Pharnos`;
   $("#doctitle").textContent = L(m.nom);
+  // Modèle officiel d'une autorité : sa PROVENANCE est celle de l'autorité (jamais la maquette
+  // régionale), et on n'annonce AUCUNE mention de pharmacovigilance — le fichier est servi intact,
+  // rien n'y a été injecté. L'annoncer serait affirmer une retouche qui n'a pas eu lieu.
   $("#docsub").textContent = [
-    L(m.source),
+    L(f.source ?? m.source),
     `${f.pages} ${f.pages > 1 ? L(["pages", "pages"]) : L(["page", "page"])}`,
-    m.perPays
-      ? S.pays
-        ? `${L(["mention de pharmacovigilance", "pharmacovigilance statement"])} : ${v.organisme}`
+    f.officiel
+      ? L(["servi tel quel", "served as-is"])
+      : m.perPays
+        ? S.pays
+          ? `${L(["mention de pharmacovigilance", "pharmacovigilance statement"])} : ${v.organisme}`
+          : L([
+              "réglé sur votre pays de dépôt au téléchargement",
+              "set for your filing country at download",
+            ])
         : L([
-            "réglé sur votre pays de dépôt au téléchargement",
-            "set for your filing country at download",
-          ])
-      : L([
-          "identique dans les huit pays",
-          "identical across the eight countries",
-        ]),
+            "identique dans les huit pays",
+            "identical across the eight countries",
+          ]),
   ].join(" · ");
   $("#doctags").innerHTML =
     `<span class="badge b-free">${esc(L(["Gratuit", "Free"]))}</span>` +
@@ -181,17 +242,21 @@ function peindre() {
       `Bring ${monDoc()} up to standard`,
     ]);
   } else {
+    // Même règle que `#docsub` : sur le fichier d'une autorité, la provenance est la sienne et on
+    // n'annonce aucun réglage de notre fait — nous ne l'adressons pas, il l'est déjà.
     $("#infsub").textContent = [
-      L(m.source),
-      m.perPays
-        ? L([
-            "adressé à l'autorité du pays choisi au téléchargement",
-            "addressed to the authority of the country chosen at download",
-          ])
-        : L([
-            "identique dans les huit pays",
-            "identical across the eight countries",
-          ]),
+      L(f.source ?? m.source),
+      f.officiel
+        ? L(["servi tel quel", "served as-is"])
+        : m.perPays
+          ? L([
+              "adressé à l'autorité du pays choisi au téléchargement",
+              "addressed to the authority of the country chosen at download",
+            ])
+          : L([
+              "identique dans les huit pays",
+              "identical across the eight countries",
+            ]),
     ].join(" · ");
   }
 }
@@ -202,11 +267,17 @@ function remplirPays(sel, valeur) {
   const placeholder = `<option value="" disabled ${valeur ? "" : "selected"}>${esc(
     L(["Choisissez votre pays de dépôt…", "Choose your filing country…"]),
   )}</option>`;
+  // N'offrir que les pays réellement servis : proposer le Togo sur une pièce que seule l'AIRP
+  // impose annoncerait une exigence togolaise inexistante, puis échouerait au téléchargement.
+  const servis = paysServis();
+  const offerts = servis.length
+    ? PAYS.filter((p) => servis.includes(p.k))
+    : PAYS;
   sel.innerHTML =
     placeholder +
-    PAYS.map(
-      (p) => `<option value="${esc(p.k)}">${esc(L(p.nom))}</option>`,
-    ).join("");
+    offerts
+      .map((p) => `<option value="${esc(p.k)}">${esc(L(p.nom))}</option>`)
+      .join("");
   if (valeur) sel.value = valeur;
 }
 
@@ -218,6 +289,33 @@ function majChips(groupe, valeur) {
 
 function majDlGo() {
   $("#dlzip").disabled = !$("#dlpays").value || !S.activite;
+  majDlLibelles();
+}
+
+/**
+ * Ce que le bouton PROMET doit être ce que le ZIP contient. Le modèle officiel d'une autorité est
+ * servi seul, en PDF : annoncer « Word FR + EN » livrerait autre chose que l'annonce. Le fichier
+ * dépend du pays choisi — d'où la remise à jour à chaque changement de pays, et le repli sur la
+ * nature du document tant qu'aucun pays n'est choisi.
+ */
+function majDlLibelles() {
+  const m = MODELES_FICHIERS[S.doc];
+  const pays = $("#dlpays").value;
+  // `S.activite` — celle que CETTE modale capture (`#dlact`), pas `S.activiteLettre` du préalable :
+  // sinon le libellé se calculerait sur « enregistrement » pendant qu'on a coché « renouvellement ».
+  const f = pays ? fichierModele(S.doc, pays, S.activite) : null;
+  if (f?.officiel) {
+    $("#dlzip").textContent = L([
+      "Télécharger — PDF officiel",
+      "Download — official PDF",
+    ]);
+    $("#dlenote").hidden = true;
+    return;
+  }
+  $("#dlzip").textContent = m.bilingue
+    ? L(["Télécharger — Word FR + EN (ZIP)", "Download — Word FR + EN (ZIP)"])
+    : L(["Télécharger — Word (ZIP)", "Download — Word (ZIP)"]);
+  $("#dlenote").hidden = !m.bilingue;
 }
 
 $("#dlbtn").addEventListener("click", () => {
@@ -229,13 +327,43 @@ $("#dlbtn").addEventListener("click", () => {
   }
   remplirPays($("#dlpays"), S.pays);
   majChips("#dlact", S.activite);
+  // `majDlGo` porte désormais les libellés (ils dépendent du pays choisi) — voir `majDlLibelles`.
   majDlGo();
-  $("#dlzip").textContent = m.bilingue
-    ? L(["Télécharger — Word FR + EN (ZIP)", "Download — Word FR + EN (ZIP)"])
-    : L(["Télécharger — Word (ZIP)", "Download — Word (ZIP)"]);
-  $("#dlenote").hidden = !m.bilingue;
   ouvrirModale("#dlm", $("#dlbtn"));
 });
+
+/**
+ * Sert le fichier SANS repasser par la popup : pour une lettre, le préalable a déjà capturé le
+ * pays (et l'activité quand le document se décline), les redemander serait une seconde question
+ * pour la même réponse.
+ *
+ * ⚠️ Cette fonction était APPELÉE sans être définie (`$("#dlbtn")`, ci-dessus) : le clic sur
+ * « Télécharger » levait une `ReferenceError` avalée par le listener, et les cinq lettres ne se
+ * téléchargeaient pas — en silence, sans message ni fichier.
+ */
+function telechargerDirect() {
+  const m = MODELES_FICHIERS[S.doc];
+  const f = fichierModele(S.doc, S.pays, S.activiteLettre);
+  // Un modèle d'autorité est un PDF servi tel quel ; les autres partent en ZIP (Word FR + EN).
+  const url = f.officiel ? f.pdf : f.zip;
+  const ext = f.officiel ? "pdf" : "zip";
+  const a = document.createElement("a");
+  // `?v=` : `/modeles/*` est mis en cache une heure — sans lui, un fichier régénéré continue
+  // d'être servi depuis le cache alors que la page annonce déjà le nouveau.
+  a.href = `${url}?v=${encodeURIComponent(MODELES_VERSION)}`;
+  a.download = `${S.doc}${m.perPays ? `-${S.pays}` : ""}.${ext}`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  toast(
+    m.perPays
+      ? L([
+          `Modèle ${nomPays(S.pays)} téléchargé — réglé sur votre pays de dépôt.`,
+          `${nomPays(S.pays)} template downloaded — set for your filing country.`,
+        ])
+      : L(["Modèle téléchargé.", "Template downloaded."]),
+  );
+}
 
 /** Le téléchargement part d'un clic UTILISATEUR — jamais automatiquement à la fermeture de la
  *  popup. Il sert le ZIP : le Word français à déposer et, quand elle existe, la version anglaise
@@ -255,8 +383,10 @@ function telecharger() {
   const m = MODELES_FICHIERS[S.doc];
   const f = fichierModele(S.doc, S.pays);
   const a = document.createElement("a");
-  a.href = f.zip;
-  a.download = `${S.doc}${m.perPays ? `-${S.pays}` : ""}.zip`;
+  // Même règle que `telechargerDirect` : PDF de l'autorité tel quel, ZIP sinon ; `?v=` obligatoire
+  // (cache d'une heure sur `/modeles/*`).
+  a.href = `${f.officiel ? f.pdf : f.zip}?v=${encodeURIComponent(MODELES_VERSION)}`;
+  a.download = `${S.doc}${m.perPays ? `-${S.pays}` : ""}.${f.officiel ? "pdf" : "zip"}`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -319,11 +449,15 @@ function peindreAchat() {
     `<b>${esc(prixDouble(PRIX.up3, lang))}</b>`;
 }
 
-/** Bascule entre l'étape « commande » et l'étape « upsell » du panneau. */
+/** Bascule entre les trois états du panneau : commande, upsell, confirmation de retour.
+ *  ⚠️ À l'étape 3 le formulaire disparaît AVEC les boutons d'achat : la commande est passée, il
+ *  n'y a plus rien à choisir ni à régler. */
 function etapePanneau(n) {
   $("#upg-e1").hidden = n !== 1;
   $("#upg-e2").hidden = n !== 2;
-  const premier = $(n === 2 ? "#bx3" : "#upgclose");
+  $("#upg-e3").hidden = n !== 3;
+  $("#upgbody").hidden = n === 3;
+  const premier = $(n === 3 ? "#cfmsend" : n === 2 ? "#bx3" : "#upgclose");
   if (premier) premier.focus();
 }
 
@@ -471,7 +605,10 @@ async function acheter(offre) {
     return;
   }
   enCours = true;
-  const bouton = offre === "up3" ? $("#buy3") : $("#buy1");
+  // Les deux boutons qui déclenchent le règlement vivent à l'ÉTAPE 2 : `#bx1` et `#bx3`.
+  // ⚠️ Viser un bouton inexistant lèverait ici, hors du `try` — `enCours` resterait à true et
+  // la page n'accepterait plus aucun achat. Le repli garde la fonction debout dans tous les cas.
+  const bouton = $(offre === "up3" ? "#bx3" : "#bx1") ?? $("#buy1");
   const libelle = bouton.textContent;
   bouton.disabled = true;
   try {
@@ -501,6 +638,7 @@ async function acheter(offre) {
     await sauverCommande(cmd);
 
     if (checkoutOuvert(offre)) {
+      marquerEnAttente(cmd.id);
       const u = new URL(CHECKOUT[offre]);
       // Référence opaque, jamais de donnée personnelle en clair dans une URL.
       u.searchParams.set("ref", cmd.id);
@@ -549,25 +687,33 @@ $("#bx1").addEventListener("click", () => acheter("up1"));
 $("#bx3").addEventListener("click", () => acheter("up3"));
 $("#bxretour").addEventListener("click", () => etapePanneau(1));
 
+const libelleActivite = (a) =>
+  L(
+    a === "renouv" ? ["Renouvellement", "Renewal"] : ["Nouvelle AMM", "New MA"],
+  );
+
+/** Le courriel qui porte la commande : sa référence, ce qui a été choisi, ce qui a été réglé.
+ *  Le document N'EST PAS joint par nous — le navigateur ne sait pas le faire, et c'est très bien
+ *  ainsi : c'est le client qui l'attache, en connaissance de cause. */
+function mailtoCommande(cmd) {
+  const m = MODELES_FICHIERS[cmd.doc];
+  const sujet = L([
+    `Mise à niveau ${L(m.court)} — ${nomPays(cmd.pays)} — ${cmd.id.slice(0, 8)}`,
+    `Upgrade ${L(m.court)} — ${nomPays(cmd.pays)} — ${cmd.id.slice(0, 8)}`,
+  ]);
+  const activite = libelleActivite(cmd.activite);
+  const corps = L([
+    `Document : ${L(m.nom)}\nPays de dépôt : ${nomPays(cmd.pays)}\nActivité : ${activite}\nOffre : ${prixDouble(OFFRES[cmd.offre].prix, lang)}\nRéférence : ${cmd.id}\n\n(Joignez ici le document à mettre à niveau : ${cmd.nomFichier})`,
+    `Document: ${L(m.nom)}\nCountry of filing: ${nomPays(cmd.pays)}\nActivity: ${activite}\nOffer: ${prixDouble(OFFRES[cmd.offre].prix, lang)}\nReference: ${cmd.id}\n\n(Attach here the document to upgrade: ${cmd.nomFichier})`,
+  ]);
+  return `mailto:contact@pharnos.com?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
+}
+
 /** Sans lien de règlement configuré, la commande part par e-mail avec sa référence — le
  *  document, lui, reste sur l'appareil, il n'est pas joint. Dès que les liens Chariow sont
  *  posés dans CHECKOUT, ce repli disparaît de lui-même. */
 function ouvrirRappel(cmd) {
-  const m = MODELES_FICHIERS[cmd.doc];
-  const sujet = L([
-    `Mise à niveau ${L(m.court)} — ${nomPays(cmd.pays)}`,
-    `Upgrade ${L(m.court)} — ${nomPays(cmd.pays)}`,
-  ]);
-  const activite = L(
-    cmd.activite === "renouv"
-      ? ["Renouvellement", "Renewal"]
-      : ["Nouvelle AMM", "New MA"],
-  );
-  const corps = L([
-    `Document : ${L(m.nom)}\nPays de dépôt : ${nomPays(cmd.pays)}\nActivité : ${activite}\nOffre : ${prixDouble(OFFRES[cmd.offre].prix, lang)}\nRéférence : ${cmd.id}`,
-    `Document: ${L(m.nom)}\nCountry of filing: ${nomPays(cmd.pays)}\nActivity: ${activite}\nOffer: ${prixDouble(OFFRES[cmd.offre].prix, lang)}\nReference: ${cmd.id}`,
-  ]);
-  window.location.href = `mailto:contact@pharnos.com?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
+  window.location.href = mailtoCommande(cmd);
   toast(
     L([
       "Votre document reste sur cet appareil — nous ne l’avons pas reçu.",
@@ -576,10 +722,56 @@ function ouvrirRappel(cmd) {
   );
 }
 
+/** Confirmation de retour de paiement. Elle dit ce que nous SAVONS — la commande est enregistrée,
+ *  le document est retrouvé — et ce qu'il reste à faire : nous le transmettre. Elle ne prétend
+ *  pas avoir reçu le fichier, et elle ne revend rien. */
+function ouvrirConfirmation(cmd) {
+  const m = MODELES_FICHIERS[cmd.doc];
+  $("#upgtitle").textContent = L([
+    `Commande ${cmd.id.slice(0, 8)}`,
+    `Order ${cmd.id.slice(0, 8)}`,
+  ]);
+  $("#upgdesc").textContent = L([
+    "Merci — nous avons ce qu'il faut pour lancer la mise à niveau.",
+    "Thank you — we have what we need to start the upgrade.",
+  ]);
+  const trois = cmd.offre === "up3";
+  const offre = trois
+    ? L(["les trois documents", "all three documents"])
+    : L(["un document", "one document"]);
+  $("#cfmrecap").textContent =
+    `${L(m.nom)} · ${nomPays(cmd.pays)} · ${libelleActivite(cmd.activite)} · ${offre}` +
+    ` · ${cmd.nomFichier} (${tailleLisible(cmd.octets, lang)})`;
+  $("#cfmnext").textContent = trois
+    ? L([
+        "Dernière étape : envoyez-nous vos documents. Nous ouvrons l'e-mail, référence déjà inscrite — joignez le RCP, la notice et l'étiquetage, ensemble ou au fil de l'eau. Les fichiers vous reviennent par le même canal.",
+        "Last step: send us your documents. We open the e-mail with the reference already filled in — attach the SmPC, the leaflet and the labelling, together or as they come. The deliverables come back the same way.",
+      ])
+    : L([
+        "Dernière étape : envoyez-nous votre document. Nous ouvrons l'e-mail, référence déjà inscrite — il ne vous reste qu'à joindre le fichier. Les 5 fichiers vous reviennent par le même canal.",
+        "Last step: send us your document. We open the e-mail with the reference already filled in — you only attach the file. The 5 deliverables come back the same way.",
+      ]);
+  $("#cfmsend").textContent = trois
+    ? L(["Envoyer mes documents", "Send my documents"])
+    : L(["Envoyer mon document", "Send my document"]);
+  const retour = $("#cfmback");
+  retour.href = PAGE_BIBLIO;
+  retour.textContent = L(["Retour à la bibliothèque", "Back to the library"]);
+  $("#cfmsend").onclick = () => {
+    window.location.href = mailtoCommande(cmd);
+  };
+  etapePanneau(3);
+  ouvrirModale("#upg", null);
+}
+
 /** Retour de paiement : on retrouve le document conservé et on le remet sous les yeux du client.
  *  L'envoi au traitement appartient au worker, pas à cette page. */
 async function reprendre() {
-  const ref = params.get("commande");
+  // `?commande=` si le prestataire relaie notre référence ; sinon `?paiement=ok` et la référence
+  // gardée avant le départ. Les deux chemins mènent au même document.
+  const ref =
+    params.get("commande") ??
+    (params.get("paiement") ? referenceEnAttente() : null);
   if (!ref) return;
   let cmd = null;
   try {
@@ -601,8 +793,17 @@ async function reprendre() {
   S.activite = cmd.activite;
   S.fichier = cmd.fichier;
   peindre();
-  ouvrirUpgrade(null);
   poserFichier(cmd.fichier);
+  // La référence reste en attente : un simple rafraîchissement de la page de retour doit
+  // ramener la même confirmation, pas une page vierge. Elle s'efface d'elle-même au TTL, et
+  // la commande suivante l'écrase.
+  try {
+    await sauverCommande({ ...cmd, regle: true, regleeLe: Date.now() });
+  } catch (e) {
+    // La commande est déjà en base ; ne pas empêcher la confirmation pour un champ de statut.
+    console.error("statut commande", e);
+  }
+  ouvrirConfirmation(cmd);
   toast(
     L([
       `Commande ${cmd.id.slice(0, 8)} — votre document a bien été conservé.`,
