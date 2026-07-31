@@ -56,15 +56,19 @@
 # politiques présentes doivent passer — la plus stricte gagne, l'iframe reste bloquée (vu en prod
 # le 2026-07-31 : volet gauche vide, deux `content-security-policy` sur la réponse). Le seul
 # mécanisme qui retire l'en-tête hérité est le DÉTACHEMENT `! Nom-Header`, puis on repose le nôtre.
-# La CSP posée ici est plus stricte que celle de `/*` pour tout le reste : `default-src 'none'`
-# sur un fichier statique qui n'exécute rien.
+#
+# ⚠️ PAS de `default-src 'none'` ici : le lecteur PDF intégré de Chrome incorpore le flux via un
+# `<embed>` SOUMIS à la CSP de la réponse — sans `object-src` autorisé, `default-src 'none'`
+# bloque le plugin et le volet affiche l'icône « document cassé » (vu en prod le 2026-07-31,
+# y compris en navigation directe). Sur un PDF statique servi `application/pdf` + `nosniff`,
+# cette directive ne protégeait rien : la seule qui compte est `frame-ancestors`.
 #
 # max-age court, pas `immutable` : ces fichiers changent avec la mention 4.8 d'un pays, et un
 # modèle réglementaire périmé servi pendant un an depuis un cache serait une faute.
 /modeles/*
   ! Content-Security-Policy
   ! X-Frame-Options
-  Content-Security-Policy: default-src 'none'; frame-ancestors 'self'
+  Content-Security-Policy: frame-ancestors 'self'
   X-Frame-Options: SAMEORIGIN
   Cache-Control: public, max-age=3600
 
