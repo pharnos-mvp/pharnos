@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Paiement · Pharnos</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <!--
+    Page de RETOUR de paiement — minuscule, et cadrable.
+
+    Pourquoi elle existe : `/*` de `landing/_headers` pose `X-Frame-Options: DENY` et
+    `frame-ancestors 'none'`, qui interdisent le cadrage Y COMPRIS depuis la même origine.
+    Faire revenir le processeur directement sur `/modele` condamnait donc le cadre à afficher
+    « pharnos.com a refusé la connexion » : l'acheteur payait et n'atteignait jamais l'écran
+    qui lui dit de nous envoyer son document. Cette page-ci est exceptée dans `_headers`
+    (`/paiement/*`), et elle seule.
+
+    Elle ne fait rien d'autre que se laisser lire par la page parente, qui guette son URL. Si
+    elle se retrouve SANS parent — l'acheteur a cliqué « Ouvrir dans un onglet » — elle renvoie
+    sur `/modele`, où la reprise par référence prend le relais.
+  -->
+  <body>
+    <!-- Aucun `style=` : la CSP de la landing est `style-src 'self'`. -->
+    <p>Paiement terminé — retour à votre document…</p>
+    <script src="/paiement/retour.js"></script>
+  </body>
+</html>

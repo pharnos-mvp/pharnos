@@ -6,6 +6,7 @@ import { assert, assertEquals } from 'jsr:@std/assert@1'
 import {
   CHARIOW_ENDPOINT,
   corpsChariow,
+  HOTES_PAIEMENT,
   lireReponseChariow,
   OFFRES_CHARIOW,
   RETOURS,
@@ -102,7 +103,8 @@ Deno.test("corpsChariow — l'anglophone revient sur le miroir EN, jamais sur la
   const v = validerCommande(base({ langue: 'en' }))
   assert(v.ok)
   assertEquals(corpsChariow(v.cmd, 'unknown').redirect_url, RETOURS.en)
-  assert(RETOURS.en.startsWith('https://pharnos.com/en/'))
+  assert(RETOURS.en.includes('lang=en'))
+  assert(RETOURS.fr.includes('lang=fr'))
 })
 
 Deno.test('corpsChariow — la devise de règlement suit le pays de l’acheteur', () => {
@@ -141,9 +143,9 @@ Deno.test('validerCommande — le dédoublonnage d’indicatif couvre aussi les 
 Deno.test('lireReponseChariow — accepte le seul cas payant : step payment + hôte de paiement connu', () => {
   for (
     const url of [
-      'https://payment.chariow.com/checkout?token=abc',
       // Observé en live le 31/07/2026 : Chariow délègue à son PSP Moneroo.
       'https://checkout.moneroo.io/py_0ej4xpfpob79?country=BJ',
+      'https://adbhrqbd.mychariow.com/prd_x/checkout',
     ]
   ) {
     const r = lireReponseChariow(200, {
@@ -163,8 +165,10 @@ Deno.test('lireReponseChariow — un hôte inconnu ne devient JAMAIS une redirec
   for (
     const url of [
       'https://mal.example/checkout',
-      'https://chariow.com.mal.example/x',
-      'https://payment-chariow.com/x',
+      'https://moneroo.io.mal.example/x',
+      'https://payment-moneroo.io/x',
+      // Accepté avant le 31/07 mais ABSENT du `frame-src` : cadre blanc silencieux.
+      'https://payment.chariow.com/checkout?token=abc',
     ]
   ) {
     const r = lireReponseChariow(200, {
@@ -181,6 +185,19 @@ Deno.test('lireReponseChariow — « déjà acheté » est un cas nommé, pas un
   assertEquals(r.erreur, 'deja_achete')
 })
 
+Deno.test('lireReponseChariow — un 422 est un refus de DONNÉES, pas une panne', () => {
+  // Cas nominal du marché : un déposant béninois dépose au Niger et garde son numéro
+  // béninois. Chariow refuse le couple indicatif/numéro — l'acheteur doit le savoir et
+  // corriger sur NOTRE formulaire, jamais être renvoyé vers la boutique.
+  const r = lireReponseChariow(422, {
+    message: 'The phone.number field is invalid.',
+    errors: { 'phone.number': ['invalid'] },
+  })
+  assert(!r.ok)
+  assertEquals(r.erreur, 'donnees')
+  assertEquals(r.champs, ['phone.number'])
+})
+
 Deno.test('lireReponseChariow — tout le reste est une erreur franche', () => {
   // Un lien http, une étape inconnue, un corps vide, un 4xx : jamais de redirection hasardeuse.
   for (
@@ -188,8 +205,8 @@ Deno.test('lireReponseChariow — tout le reste est une erreur franche', () => {
       [200, { data: { step: 'payment', payment: { checkout_url: 'http://mal.example' } } }],
       [200, { data: { step: 'completed', payment: { checkout_url: null } } }],
       [200, {}],
-      [422, { message: 'Validation failure' }],
       [401, { message: 'Non autorisé' }],
+      [500, { message: 'Erreur interne' }],
     ] as const
   ) {
     const r = lireReponseChariow(status as number, corps)
@@ -198,8 +215,40 @@ Deno.test('lireReponseChariow — tout le reste est une erreur franche', () => {
   }
 })
 
-Deno.test('constantes — endpoint Chariow en https, retours sur pharnos.com', () => {
+Deno.test('constantes — endpoint Chariow en https, retours sur la page CADRABLE', () => {
   assert(CHARIOW_ENDPOINT.startsWith('https://api.chariow.com/'))
-  assert(RETOURS.fr.startsWith('https://pharnos.com/modele'))
-  assert(RETOURS.en.startsWith('https://pharnos.com/en/template'))
+  // `/paiement/retour` est la seule page exceptée de `frame-ancestors 'none'` : y revenir est
+  // la condition pour que le cadre de paiement puisse se lire au retour.
+  for (const url of [RETOURS.fr, RETOURS.en]) {
+    assert(url.startsWith('https://pharnos.com/paiement/retour?'), url)
+    assert(url.includes('paiement=ok'), url)
+  }
+})
+
+Deno.test('hotes-jumeaux — tout hôte accepté par le serveur est cadrable par la CSP', async () => {
+  // Un hôte accepté ici mais absent du `frame-src` donne un cadre BLANC, sans erreur ni
+  // repli. Les deux listes vivent dans deux fichiers : ce test est leur seul lien.
+  const headers = await Deno.readTextFile(
+    new URL('../../../landing/_headers', import.meta.url),
+  )
+  // La DIRECTIVE, pas le commentaire qui la documente juste au-dessus.
+  const ligne = headers
+    .split('\n')
+    .find((l) => l.includes('Content-Security-Policy:') && l.includes('frame-src'))
+  assert(ligne, 'aucune directive frame-src dans landing/_headers')
+  const frameSrc = /frame-src ([^;]+)/.exec(ligne)?.[1] ?? ''
+  for (
+    const hote of ['checkout.moneroo.io', 'pay.moneroo.io', 'adbhrqbd.mychariow.com']
+  ) {
+    assert(HOTES_PAIEMENT.test(hote), `${hote} refusé par le serveur`)
+    const couvert = frameSrc
+      .split(/\s+/)
+      .filter(Boolean)
+      .some((src) =>
+        src.startsWith('https://*.')
+          ? hote.endsWith(src.slice('https://*.'.length))
+          : src === `https://${hote}`
+      )
+    assert(couvert, `${hote} accepté par le serveur mais absent du frame-src`)
+  }
 })

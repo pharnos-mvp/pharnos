@@ -679,6 +679,9 @@ const NOMS_INDICATIFS = {
   CN: ["Chine", "China"],
 };
 
+/** Indicatif retenu sur cet appareil — un acheteur garde son numéro d'un dépôt à l'autre. */
+const CLE_INDICATIF = "pharnos.indicatif";
+
 /** L'offre retenue sur l'écran offre + identité. */
 let offreChoisie = "up1";
 
@@ -721,9 +724,17 @@ function ouvrirIdentite(offre) {
     o.textContent = `${NOMS_INDICATIFS[iso] ? L(NOMS_INDICATIFS[iso]) : nomPays(iso.toLowerCase())} ${code}`;
     ind.appendChild(o);
   }
-  // Le choix déjà fait prime ; sinon le pays de dépôt est le meilleur pari — jamais imposé.
-  const depot = deja || ($("#upays").value || "").toUpperCase();
-  if (INDICATIFS.some(([iso]) => iso === depot)) ind.value = depot;
+  // ⚠️ L'indicatif ne se déduit PAS du pays de dépôt : un consultant RA béninois dépose au
+  // Niger avec son numéro béninois — c'est la norme du métier. Déduire l'un de l'autre faisait
+  // refuser le paiement par le processeur (« Niger +227 » sur un numéro béninois, vu le 31/07).
+  // On garde donc le dernier indicatif choisi SUR CET APPAREIL, à défaut le premier de la liste.
+  let prefere = deja;
+  try {
+    prefere = prefere || localStorage.getItem(CLE_INDICATIF) || "";
+  } catch {
+    /* navigation privée : on retombe sur le premier de la liste */
+  }
+  if (INDICATIFS.some(([iso]) => iso === prefere)) ind.value = prefere;
   etapePanneau(4);
 }
 
@@ -750,7 +761,12 @@ async function sessionPaiement(cmd, identite) {
         return { ok: true, url };
       return { repli: true };
     }
-    if (res.status === 400) return { erreur: "champs" };
+    if (res.status === 400) {
+      // Le serveur nomme les champs fautifs — les siens (`prenom`…) ou ceux du processeur
+      // (`phone.number`…). On garde le premier pour y renvoyer le curseur.
+      const { champs } = await res.json().catch(() => ({}));
+      return { erreur: "champs", champs: Array.isArray(champs) ? champs : [] };
+    }
     if (res.status === 429) return { erreur: "plafond" };
     return { repli: true };
   } catch {
@@ -892,12 +908,22 @@ async function acheter(offre) {
       return;
     }
     if (session.erreur === "champs") {
+      // Le refus le plus fréquent : un numéro qui ne colle pas à l'indicatif choisi. Un
+      // déposant béninois qui dépose au Niger garde son numéro béninois — le dire, plutôt
+      // que de le renvoyer vers un formulaire qui le refusera pareil.
+      const tel = (session.champs ?? []).some((c) => String(c).includes("phone"));
       toast(
-        L([
-          "Vérifiez vos coordonnées (e-mail et téléphone).",
-          "Check your details (e-mail and phone).",
-        ]),
+        tel
+          ? L([
+              "Ce numéro ne correspond pas à l'indicatif choisi — vérifiez les deux.",
+              "This number does not match the selected dialling code — check both.",
+            ])
+          : L([
+              "Vérifiez vos coordonnées (e-mail et téléphone).",
+              "Check your details (e-mail and phone).",
+            ]),
       );
+      $(tel ? "#paytel" : "#payemail").focus();
       return;
     }
     // La référence d'attente se pose au moment de PARTIR, jamais avant : une tentative
@@ -961,6 +987,13 @@ $("#buy1").addEventListener("click", () => {
 $$("#upg-e4 .offer-opt").forEach((b) =>
   b.addEventListener("click", () => choisirOffre(b.dataset.offre)),
 );
+$("#payind").addEventListener("change", (e) => {
+  try {
+    localStorage.setItem(CLE_INDICATIF, e.target.value);
+  } catch {
+    /* le choix vaut pour cette session, c'est déjà l'essentiel */
+  }
+});
 // `submit` et non `click` : Entrée dans n'importe quel champ vaut « Payer ».
 $("#payform").addEventListener("submit", (e) => {
   e.preventDefault();
@@ -1106,6 +1139,10 @@ function ouvrirModale(sel, declencheur) {
 function fermerModale(sel) {
   const back = $(sel);
   if (!back.classList.contains("on")) return;
+  // ⚠️ Fermer le panneau doit COUPER le paiement : sans cela le sondage tourne indéfiniment
+  // et le cadre reste vivant derrière un écran masqué — un paiement qui se confirme plus tard
+  // rouvrirait le panneau de force sur une page où le visiteur fait autre chose.
+  if (sel === "#upg") fermerPaiement(0);
   back.classList.remove("on");
   const o = ouvreurs.get(sel);
   ouvreurs.delete(sel);
@@ -1134,8 +1171,12 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (e.key !== "Tab") return;
+  // ⚠️ À l'étape paiement, le piège est LEVÉ : le formulaire de règlement vit dans le cadre,
+  // qu'aucun `querySelectorAll` du parent ne peut atteindre. Le retenir ici rendrait le
+  // paiement impossible au clavier et au lecteur d'écran.
+  if (back.id === "upg" && !$("#upg-e5").hidden) return;
   const foc = Array.from(
-    back.querySelectorAll("button, a[href], input, select, textarea"),
+    back.querySelectorAll("button, a[href], input, select, textarea, iframe"),
   ).filter((el) => !el.disabled && !el.hidden && el.offsetParent !== null);
   if (!foc.length) return;
   const premier = foc[0];

@@ -15,18 +15,26 @@ export const OFFRES_CHARIOW: Record<string, { productId: string; libelle: string
 export const CHARIOW_ENDPOINT = 'https://api.chariow.com/v1/checkout'
 
 /** Retour de paiement — DEUX constantes serveur, jamais une URL reçue du navigateur : le
- *  navigateur nomme une langue, le serveur nomme la page. L'anglophone revient sur le miroir
- *  EN, sinon sa confirmation d'achat serait en français. */
+ *  navigateur nomme une langue, le serveur nomme la page.
+ *
+ *  ⚠️ On revient sur `/paiement/retour`, PAS sur `/modele` : c'est la seule page de
+ *  pharnos.com qui accepte d'être cadrée (`frame-ancestors 'self'` dans `_headers`). Le
+ *  reste du site est en `frame-ancestors 'none'` — y revenir directement afficherait
+ *  « connexion refusée » dans le cadre à l'acheteur qui vient de payer. `lang` sert au repli
+ *  hors cadre, qui renvoie sur le bon miroir. */
 export const RETOURS = {
-  fr: 'https://pharnos.com/modele?paiement=ok',
-  en: 'https://pharnos.com/en/template?paiement=ok',
+  fr: 'https://pharnos.com/paiement/retour?paiement=ok&lang=fr',
+  en: 'https://pharnos.com/paiement/retour?paiement=ok&lang=en',
 } as const
 
-/** Hôtes de paiement admis en redirection. Chariow encaisse via sa page (`payment.chariow.com`)
- *  ou son PSP Moneroo (`checkout.moneroo.io` — observé en live le 31/07/2026). Tout autre hôte
- *  dans la réponse est traité en erreur : rediriger un acheteur au milieu d'un paiement vers un
- *  domaine inattendu est la position de phishing idéale. */
-const HOTES_PAIEMENT = /(^|\.)chariow\.com$|(^|\.)moneroo\.io$/
+/** Hôtes de paiement admis en redirection. Tout autre hôte dans la réponse est traité en
+ *  erreur : rediriger un acheteur au milieu d'un paiement vers un domaine inattendu est la
+ *  position de phishing idéale.
+ *
+ *  ⚠️ Cette liste et le `frame-src` de `landing/_headers` doivent rester JUMELLES : un hôte
+ *  accepté ici mais absent de la CSP donne un cadre blanc, sans erreur ni repli — le pire des
+ *  échecs, celui qui ne dit rien. Le test `hotes-jumeaux` échoue si elles divergent. */
+export const HOTES_PAIEMENT = /^([a-z0-9-]+\.)*moneroo\.io$|^([a-z0-9-]+\.)*mychariow\.com$/
 
 /** Indicatifs des pays proposés par le formulaire — pour dédoublonner une saisie
  *  internationale : `country_code` porte déjà le pays, le numéro n'a pas à répéter le préfixe.
@@ -196,7 +204,9 @@ export function corpsChariow(cmd: CommandeValidee, ip: string): Record<string, u
 export function lireReponseChariow(
   status: number,
   corps: unknown,
-): { ok: true; url: string } | { ok: false; erreur: 'deja_achete' | 'chariow' } {
+):
+  | { ok: true; url: string }
+  | { ok: false; erreur: 'deja_achete' | 'donnees' | 'chariow'; champs?: string[] } {
   const data =
     typeof corps === 'object' && corps !== null
       ? (corps as { data?: Record<string, unknown> }).data
@@ -216,6 +226,28 @@ export function lireReponseChariow(
       }
       if (HOTES_PAIEMENT.test(hote)) return { ok: true, url }
     }
+  }
+  // 422 = Chariow refuse les DONNÉES du client, pas notre requête. Le cas nominal : un numéro
+  // qui ne correspond pas à l'indicatif choisi (un déposant béninois qui dépose au Niger garde
+  // son numéro béninois — c'est la norme du métier, pas l'exception). Ce refus doit revenir à
+  // l'acheteur avec le champ fautif ; le renvoyer vers la boutique lui ferait ressaisir le
+  // même formulaire pour se faire refuser pareil.
+  // 400 comme 422 : le processeur a compris la requête et refuse ce qu'elle CONTIENT. Un 401
+  // (clé) ou un 5xx, eux, ne regardent pas l'acheteur et gardent le repli.
+  if (status === 400 || status === 422) {
+    const detail = corps as
+      | { errors?: Record<string, unknown>; message?: unknown }
+      | null
+    const champs = detail?.errors ? Object.keys(detail.errors).slice(0, 12) : []
+    // Certaines réponses ne portent pas `errors` mais nomment le champ dans `message`
+    // (« The phone.number field… ») : on le récupère, sinon l'acheteur ne saurait pas où
+    // regarder.
+    if (champs.length === 0 && typeof detail?.message === 'string') {
+      for (const candidat of ['phone', 'email', 'first_name', 'last_name']) {
+        if (detail.message.includes(candidat)) champs.push(candidat)
+      }
+    }
+    return { ok: false, erreur: 'donnees', champs }
   }
   return { ok: false, erreur: 'chariow' }
 }
