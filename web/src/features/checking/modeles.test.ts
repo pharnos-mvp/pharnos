@@ -31,6 +31,8 @@ type Fichier = {
   /** Provenance propre au fichier officiel d'une autorité (prime sur celle du document). */
   source?: [string, string]
   blocs?: Bloc0[]
+  /** Texte d'aide ANGLAIS des cases à remplir, indexé par numéro de bloc français. */
+  aidesEn?: Record<string, { x?: string; rows?: string[][] }>
 }
 type Bloc = { t: string; x?: string; rows?: string[][] }
 type Manifeste = Record<
@@ -183,6 +185,52 @@ describe('manifeste et fichiers restent accordés', () => {
 /** Le RCP de ce pays est le modèle de l'autorité, servi tel quel : nous n'y injectons RIEN,
  *  donc aucune assertion sur une mention 4.8 « committée » ne s'y applique. */
 const rcpOfficiel = (code: string) => Boolean(fichierDe('rcp', code).officiel)
+
+describe('un anglophone peut remplir une lettre française sans lire le français', () => {
+  /** Les blocs qui portent une case à remplir — « … » ou « {…} ». */
+  const TOKEN = /…|\{[^}]+\}/
+
+  it.each(['lettre-demande', 'lettre-renouvellement', 'lettre-variation'])(
+    '%s : chaque case a son aide anglaise, au bon index',
+    (slug) => {
+      const f = fichierDe(slug, 'ci')
+      const blocs = f.blocs ?? []
+      expect(blocs.length, slug).toBeGreaterThan(0)
+      const aides = f.aidesEn ?? {}
+      for (const [i, b] of blocs.entries()) {
+        if (b.t === 'table' || !b.x || !TOKEN.test(b.x)) continue
+        const aide = aides[String(i)]
+        // Pas d'aide = l'anglais est identique au français (montant, sigle) — jamais un oubli
+        // silencieux : dans ce cas la case retombe sur le texte français, qui dit la même chose.
+        if (!aide) continue
+        expect(aide.x, `${slug} bloc ${i}`).toBeTruthy()
+        // L'aide vise LE MÊME bloc : elle doit porter autant de cases que son jumeau français,
+        // sinon les intitulés glissent d'un cran et guident vers le mauvais champ.
+        const cases = (s: string) => (s.match(/…|\{[^}]+\}/g) ?? []).length
+        expect(cases(aide.x!), `${slug} bloc ${i} : cases désalignées`).toBe(cases(b.x))
+      }
+    },
+  )
+
+  it('la ligne « DCI et dosage » guide un anglophone vers « INN and strength »', () => {
+    // Le cas nommé par le CEO : la lettre reste française, l'aide parle anglais.
+    const f = fichierDe('lettre-demande', 'ci')
+    const i = (f.blocs ?? []).findIndex((b) => b.x?.startsWith('DCI et dosage'))
+    expect(i).toBeGreaterThanOrEqual(0)
+    expect(f.aidesEn?.[String(i)]?.x).toContain('INN and strength')
+  })
+
+  it('le tableau de la lettre de PGHT porte ses en-têtes anglais', () => {
+    const f = fichierDe('lettre-pght', 'ci-enr')
+    const i = (f.blocs ?? []).findIndex((b) => b.t === 'table')
+    expect(i).toBeGreaterThanOrEqual(0)
+    const rows = f.aidesEn?.[String(i)]?.rows
+    expect(rows?.[0]).toContain('INN and strength')
+    // Même géométrie que le tableau français : une aide décalée guide vers la mauvaise colonne.
+    expect(rows?.length).toBe(f.blocs?.[i]?.rows?.length)
+    expect(rows?.[0]?.length).toBe(f.blocs?.[i]?.rows?.[0]?.length)
+  })
+})
 
 describe('une obligation nationale ne se sert que sous son drapeau', () => {
   it("la déclaration DMF n'existe que pour la Côte d'Ivoire", () => {

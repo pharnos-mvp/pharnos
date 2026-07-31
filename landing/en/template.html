@@ -11,7 +11,7 @@
     <meta name="description" content="The official template in a reader, free to download in your filing country’s version — and the upgrade of your existing document by Regafy AI.">
     <meta name="robots" content="noindex, follow">
     <link rel="stylesheet" href="/styles.css?v=15">
-    <link rel="stylesheet" href="/bibliotheque.css?v=2">
+    <link rel="stylesheet" href="/bibliotheque.css?v=3">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <link rel="canonical" href="https://pharnos.com/en/regulatory-library">
@@ -458,6 +458,48 @@
           ">← Back</button>
         </div>
 
+        <!-- Étape 4 — IDENTITÉ, dans NOTRE design : la boutique Chariow n'apparaît jamais.
+             Ces quatre champs partent à l'Edge `checkout`, qui seul parle à l'API — le
+             navigateur ne voit ni clé ni identifiant produit. -->
+        <div class="sect-buy" id="upg-e4" hidden="">
+          <h4 class="upsell-t" data-fr="
+            Où livrons-nous&nbsp;?
+          ">Where do we deliver?</h4>
+          <p class="upsell-d" id="payrecap"></p>
+          <form id="payform" novalidate="">
+            <div class="mfield">
+              <label class="mlab" for="payprenom" data-fr="Prénom">First name</label>
+              <input id="payprenom" type="text" autocomplete="given-name" maxlength="50" required="">
+            </div>
+            <div class="mfield">
+              <label class="mlab" for="paynom" data-fr="Nom">Last name</label>
+              <input id="paynom" type="text" autocomplete="family-name" maxlength="50" required="">
+            </div>
+            <div class="mfield">
+              <label class="mlab" for="payemail" data-fr="E-mail — les livrables arrivent ici">E-mail — the deliverables arrive here</label>
+              <input id="payemail" type="email" autocomplete="email" maxlength="254" required="">
+            </div>
+            <div class="mfield">
+              <label class="mlab" for="paytel" data-fr="Téléphone (WhatsApp de préférence)">Phone (WhatsApp preferred)</label>
+              <div class="tel-row">
+                <select id="payind" aria-label="Dialing code" data-fr-al="Indicatif"></select>
+                <input id="paytel" type="tel" autocomplete="tel-national" inputmode="tel" maxlength="24" required="">
+              </div>
+            </div>
+            <div class="stack">
+              <button class="btn btn-primary btn-block btn-lg" type="submit" id="paygo"></button>
+            </div>
+          </form>
+          <button class="linklike" type="button" id="payretour" data-fr="
+            ← Retour
+          ">← Back</button>
+          <p class="mfoot-note" data-fr="
+            Paiement sécurisé par mobile money ou carte (Chariow). Vos
+            coordonnées ne servent qu'à cette commande ; votre document reste
+            sur votre appareil jusqu'au paiement.
+          ">Secure payment by mobile money or card (Chariow). Your details serve this order only; your document stays on your device until payment.</p>
+        </div>
+
         <!-- Étape 3 — RETOUR DE PAIEMENT. Aucun bouton d'achat ici : reproposer « Commander »
              à un client qui vient de régler le ferait payer deux fois. -->
         <div class="sect-buy" id="upg-e3" hidden="">
@@ -513,7 +555,7 @@
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <script src="/landing.js?v=15" defer=""></script>
-    <script type="module" src="/modele.js?v=1"></script>
+    <script type="module" src="/modele.js?v=2"></script>
   
 
 </body></html>

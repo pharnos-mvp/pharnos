@@ -449,15 +449,26 @@ function peindreAchat() {
     `<b>${esc(prixDouble(PRIX.up3, lang))}</b>`;
 }
 
-/** Bascule entre les trois états du panneau : commande, upsell, confirmation de retour.
- *  ⚠️ À l'étape 3 le formulaire disparaît AVEC les boutons d'achat : la commande est passée, il
- *  n'y a plus rien à choisir ni à régler. */
+/** Bascule entre les quatre états du panneau : commande (1), upsell (2), identité (4),
+ *  confirmation de retour (3 — numéro historique, il précède l'étape identité).
+ *  ⚠️ Aux étapes 3 et 4 le formulaire document disparaît : à l'étape 4 tout est déjà choisi
+ *  (on ne laisse pas changer de fichier pendant qu'on nomme l'acheteur), à l'étape 3 la
+ *  commande est passée, il n'y a plus rien à choisir ni à régler. */
 function etapePanneau(n) {
   $("#upg-e1").hidden = n !== 1;
   $("#upg-e2").hidden = n !== 2;
   $("#upg-e3").hidden = n !== 3;
-  $("#upgbody").hidden = n === 3;
-  const premier = $(n === 3 ? "#cfmsend" : n === 2 ? "#bx3" : "#upgclose");
+  $("#upg-e4").hidden = n !== 4;
+  $("#upgbody").hidden = n === 3 || n === 4;
+  const premier = $(
+    n === 4
+      ? "#payprenom"
+      : n === 3
+        ? "#cfmsend"
+        : n === 2
+          ? "#bx3"
+          : "#upgclose",
+  );
   if (premier) premier.focus();
 }
 
@@ -593,7 +604,96 @@ async function purger() {
   db.close();
 }
 
+/* ── Étape identité : l'acheteur se nomme dans NOTRE design, jamais dans la boutique. ── */
+
+/** Endpoint public d'ouverture de session de paiement (Edge Supabase, verify_jwt = false).
+ *  L'Edge parle seul à l'API Chariow : le navigateur nomme une OFFRE, jamais un produit. */
+const CHECKOUT_API =
+  "https://uhsireqwzqqymgsxuvqh.supabase.co/functions/v1/checkout";
+
+/** Indicatifs proposés : les huit pays servis + la France (sièges et filiales). L'ISO part
+ *  au serveur, l'indicatif n'est là que pour l'œil. */
+const INDICATIFS = [
+  ["BJ", "+229"],
+  ["BF", "+226"],
+  ["CI", "+225"],
+  ["GW", "+245"],
+  ["ML", "+223"],
+  ["NE", "+227"],
+  ["SN", "+221"],
+  ["TG", "+228"],
+  ["FR", "+33"],
+];
+
+/** L'offre retenue à l'étape upsell — l'étape identité ne la redemande pas. */
+let offreChoisie = "up1";
+
+function ouvrirIdentite(offre) {
+  offreChoisie = offre;
+  const m = MODELES_FICHIERS[S.doc];
+  $("#payrecap").textContent =
+    `${L(m.nom)} · ${nomPays($("#upays").value)} · ` +
+    (offre === "up3"
+      ? L(["les trois documents", "all three documents"])
+      : L(["un document", "one document"])) +
+    ` · ${prixDouble(PRIX[offre], lang)}`;
+  // Reconstruit à CHAQUE ouverture (et non une fois) : les libellés portent des noms de pays
+  // traduits — un panneau rouvert après bascule de langue garderait sinon l'ancienne.
+  const ind = $("#payind");
+  const deja = ind.value;
+  ind.innerHTML = "";
+  for (const [iso, code] of INDICATIFS) {
+    const o = document.createElement("option");
+    o.value = iso;
+    // ⚠️ `nomPays` ne connaît que les huit pays servis — la France se nomme à la main,
+    // sinon le repli silencieux de `nomPays` l'étiquetterait « Bénin ».
+    o.textContent =
+      iso === "FR" ? `France ${code}` : `${nomPays(iso.toLowerCase())} ${code}`;
+    ind.appendChild(o);
+  }
+  // Le choix déjà fait prime ; sinon le pays de dépôt est le meilleur pari — jamais imposé.
+  const depot = deja || ($("#upays").value || "").toUpperCase();
+  if (INDICATIFS.some(([iso]) => iso === depot)) ind.value = depot;
+  $("#paygo").textContent = L([
+    `Payer — ${prixCourt(PRIX[offre], lang)}`,
+    `Pay — ${prixCourt(PRIX[offre], lang)}`,
+  ]);
+  etapePanneau(4);
+}
+
+/** Ouvre la session de paiement côté serveur. Seuls DEUX refus se disent à l'acheteur : ses
+ *  champs (400) et son propre excès (429, plafond par IP). TOUT le reste — panne d'Edge,
+ *  plafond global saturé, « déjà acheté » — retombe sur le lien de paiement direct : une gêne
+ *  technique ou un doublon Chariow ne doivent jamais coûter une vente. */
+async function sessionPaiement(cmd, identite) {
+  try {
+    const res = await fetch(CHECKOUT_API, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        offre: cmd.offre,
+        ref: cmd.id,
+        langue: lang,
+        ...identite,
+      }),
+      signal: AbortSignal.timeout(20000),
+    });
+    if (res.ok) {
+      const { url } = await res.json();
+      if (typeof url === "string" && url.startsWith("https://"))
+        return { ok: true, url };
+      return { repli: true };
+    }
+    if (res.status === 400) return { erreur: "champs" };
+    if (res.status === 429) return { erreur: "plafond" };
+    return { repli: true };
+  } catch {
+    return { repli: true };
+  }
+}
+
 let enCours = false;
+let partiAuPaiement = false;
 async function acheter(offre) {
   if (enCours) return;
   const v = validerFichier(S.fichier);
@@ -604,13 +704,39 @@ async function acheter(offre) {
     $("#udrop").focus();
     return;
   }
+  const identite = {
+    prenom: $("#payprenom").value.trim(),
+    nom: $("#paynom").value.trim(),
+    email: $("#payemail").value.trim(),
+    telephone: $("#paytel").value.trim(),
+    paysTel: $("#payind").value,
+  };
+  // Le nom du champ métier n'est PAS l'id du nœud (`telephone` → `#paytel`) : la table évite
+  // un focus sur un sélecteur fantôme.
+  const CHAMP_ID = {
+    prenom: "payprenom",
+    nom: "paynom",
+    email: "payemail",
+    telephone: "paytel",
+  };
+  const manquant = ["prenom", "nom", "email", "telephone"].find(
+    (k) => !identite[k],
+  );
+  if (manquant || !$("#payemail").checkValidity()) {
+    toast(
+      L([
+        "Complétez vos coordonnées — les livrables partent à cet e-mail.",
+        "Fill in your details — the deliverables go to this e-mail.",
+      ]),
+    );
+    $(`#${CHAMP_ID[manquant ?? "email"]}`).focus();
+    return;
+  }
   enCours = true;
-  // Les deux boutons qui déclenchent le règlement vivent à l'ÉTAPE 2 : `#bx1` et `#bx3`.
-  // ⚠️ Viser un bouton inexistant lèverait ici, hors du `try` — `enCours` resterait à true et
-  // la page n'accepterait plus aucun achat. Le repli garde la fonction debout dans tous les cas.
-  const bouton = $(offre === "up3" ? "#bx3" : "#bx1") ?? $("#buy1");
+  const bouton = $("#paygo");
   const libelle = bouton.textContent;
   bouton.disabled = true;
+  bouton.textContent = L(["Ouverture du paiement…", "Opening payment…"]);
   try {
     if (!$("#upays").value || !S.activite) {
       toast(
@@ -633,12 +759,43 @@ async function acheter(offre) {
       id: crypto.randomUUID(),
       cree: Date.now(),
     });
-    // Conservé AVANT la navigation : le fichier doit survivre au passage par
-    // services.pharnos.com. Sans cela, le client paie et se retrouve sans document.
+    // Conservé AVANT la navigation : le fichier doit survivre au passage par le paiement.
+    // Sans cela, le client paie et se retrouve sans document. L'identité, elle, n'est PAS
+    // conservée ici — elle ne sert qu'à la session, Chariow en devient le dépositaire.
     await sauverCommande(cmd);
 
+    const session = await sessionPaiement(cmd, identite);
+    if (session.erreur === "plafond") {
+      toast(
+        L([
+          "Trop de tentatives depuis votre connexion — réessayez dans une heure.",
+          "Too many attempts from your connection — try again in an hour.",
+        ]),
+      );
+      return;
+    }
+    if (session.erreur === "champs") {
+      toast(
+        L([
+          "Vérifiez vos coordonnées (e-mail et téléphone).",
+          "Check your details (e-mail and phone).",
+        ]),
+      );
+      return;
+    }
+    // La référence d'attente se pose au moment de PARTIR, jamais avant : une tentative
+    // refusée ne doit pas laisser traîner un marqueur « paiement en cours ».
+    if (session.ok) {
+      marquerEnAttente(cmd.id);
+      partiAuPaiement = true;
+      window.location.assign(session.url);
+      return;
+    }
+    // Repli : la boutique encaisse en direct, référence relayée dans l'URL. Moins beau,
+    // jamais bloquant — y compris pour un « déjà acheté » Chariow, qui n'est pas notre refus.
     if (checkoutOuvert(offre)) {
       marquerEnAttente(cmd.id);
+      partiAuPaiement = true;
       const u = new URL(CHECKOUT[offre]);
       // Référence opaque, jamais de donnée personnelle en clair dans une URL.
       u.searchParams.set("ref", cmd.id);
@@ -656,12 +813,17 @@ async function acheter(offre) {
       ]),
     );
   } finally {
-    enCours = false;
-    bouton.disabled = false;
-    bouton.textContent = libelle;
+    // ⚠️ Pas de restauration si la navigation est partie : rendre le bouton cliquable pendant
+    // que la page s'en va ouvrirait une SECONDE session sur un double-clic.
+    if (!partiAuPaiement) {
+      enCours = false;
+      bouton.disabled = false;
+      bouton.textContent = libelle;
+    }
   }
 }
-// Le clic de commande OUVRE l'étape upsell — le paiement part de l'étape 2.
+// Le clic de commande OUVRE l'étape upsell — l'offre se choisit à l'étape 2, l'acheteur se
+// nomme à l'étape 4, et le paiement part de là.
 $("#buy1").addEventListener("click", () => {
   if (!$("#upays").value || !S.activite) {
     toast(
@@ -683,9 +845,15 @@ $("#buy1").addEventListener("click", () => {
   }
   etapePanneau(2);
 });
-$("#bx1").addEventListener("click", () => acheter("up1"));
-$("#bx3").addEventListener("click", () => acheter("up3"));
+$("#bx1").addEventListener("click", () => ouvrirIdentite("up1"));
+$("#bx3").addEventListener("click", () => ouvrirIdentite("up3"));
 $("#bxretour").addEventListener("click", () => etapePanneau(1));
+// `submit` et non `click` : Entrée dans n'importe quel champ vaut « Payer ».
+$("#payform").addEventListener("submit", (e) => {
+  e.preventDefault();
+  acheter(offreChoisie);
+});
+$("#payretour").addEventListener("click", () => etapePanneau(2));
 
 const libelleActivite = (a) =>
   L(
@@ -886,6 +1054,9 @@ function appliquerLangue(l) {
   if ($("#upg").classList.contains("on")) {
     remplirPays($("#upays"), $("#upays").value || S.pays);
     peindreAchat();
+    // L'étape identité porte ses propres libellés dynamiques (récap, indicatifs, bouton) —
+    // la rouvrir dans la nouvelle langue les repeint tous.
+    if (!$("#upg-e4").hidden) ouvrirIdentite(offreChoisie);
   }
   if (S.fichier)
     $("#ufilesize").textContent = tailleLisible(S.fichier.size, lang);
@@ -977,6 +1148,16 @@ $("#premgo").addEventListener("click", () => {
 const blocsLettre = () =>
   fichierModele(S.doc, S.pays, S.activiteLettre)?.blocs ?? null;
 
+/**
+ * Le texte d'AIDE anglais des cases, indexé par numéro de bloc.
+ *
+ * La lettre reste FRANÇAISE : c'est la version à déposer, on ne la traduit pas. Mais un
+ * utilisateur anglophone doit pouvoir la remplir sans lire le français — l'aide de chaque case
+ * vient donc de la traduction déjà produite pour le fichier de courtoisie.
+ */
+const aidesEnLettre = () =>
+  fichierModele(S.doc, S.pays, S.activiteLettre)?.aidesEn ?? null;
+
 /** Tout emplacement à compléter du modèle devient une case : « … » et « {…} ». */
 const TOKENS = /…|\{[^}]+\}/g;
 
@@ -1008,18 +1189,38 @@ function autoGrandir(el) {
   el.style.height = `${Math.max(el.scrollHeight, Math.round(ligne) + 8)}px`;
 }
 
-/** Placeholder d'une case : le libellé du champ quand la ligne en porte un, sinon le token. */
-function placeholderDe(bloc, token) {
+/**
+ * Placeholder d'une case : le libellé du champ quand la ligne en porte un, sinon le token.
+ *
+ * ⚠️ Le libellé est lu dans le bloc de la LANGUE DE L'UTILISATEUR, pas dans la lettre. La lettre
+ * reste française — c'est la version à déposer — mais un anglophone qui lit « DCI et dosage » dans
+ * une case ne sait pas quoi y mettre. Il lira « INN and strength », et remplira juste sans avoir
+ * eu à comprendre le français. `blocEn` manquant (modèle plus ancien) → repli sur le français,
+ * exactement le comportement d'avant.
+ */
+function placeholderDe(bloc, token, blocEn, rang) {
   if (token === "{date}") return "";
-  if (token.startsWith("{")) return token.slice(1, -1);
-  const avant = bloc.x
-    .split(token)[0]
+  if (token.startsWith("{")) {
+    // Jeton nommé (« {date d'octroi} ») : prendre son équivalent anglais au MÊME rang dans le
+    // bloc — sinon l'anglophone lit un intitulé français au milieu d'une lettre par ailleurs
+    // entièrement guidée.
+    const jetons =
+      lang === "en" && blocEn?.x ? (blocEn.x.match(/…|\{[^}]+\}/g) ?? []) : [];
+    const jeton = jetons[rang];
+    return (jeton?.startsWith("{") ? jeton : token).slice(1, -1);
+  }
+  const source = lang === "en" && blocEn ? blocEn : bloc;
+  // Le token est cherché dans la source lue : « … » est commun aux deux langues, mais si la
+  // traduction ne le portait pas, on retomberait sur le texte entier — d'où le garde-fou.
+  const segments = source.x.split(token);
+  const avant = (segments.length > 1 ? segments[0] : bloc.x.split(token)[0])
     .replace(/\s*:\s*$/, "")
     .trim();
   // La case au fil d'une PHRASE (objet, réf.) porte un placeholder qui dit QUOI saisir — pas la
   // phrase entière tronquée, illisible dans une case de 12ch.
-  if (/produit$/.test(avant)) return L(["Nom commercial", "Trade name"]);
-  if (/n°$/.test(avant)) return L(["n° d'AMM", "MA number"]);
+  if (/produit$|product$/.test(avant))
+    return L(["Nom commercial", "Trade name"]);
+  if (/n°$|No\.$/.test(avant)) return L(["n° d'AMM", "MA number"]);
   if (bloc.t === "li" && avant.length > 2 && avant.length < 60) return avant;
   return L(["à compléter", "to fill in"]);
 }
@@ -1028,6 +1229,11 @@ function placeholderDe(bloc, token) {
 function htmlBlocLettre(b, i) {
   if (b.t === "table") {
     const [tete, ...corps] = b.rows;
+    // En-têtes dans la langue de l'utilisateur pour l'AIDE (le tableau affiché, lui, reste celui
+    // de la lettre française) : sans cela, une case de tableau n'a aucun texte d'aide du tout —
+    // ni placeholder ni libellé compréhensible — et l'anglophone remplit à l'aveugle.
+    const rowsAide = (lang === "en" && aidesEnLettre()?.[i]?.rows) || b.rows;
+    const teteAide = rowsAide[0] ?? tete;
     return (
       '<table class="lf-table"><tr>' +
       tete.map((c) => `<th>${esc(c)}</th>`).join("") +
@@ -1037,10 +1243,15 @@ function htmlBlocLettre(b, i) {
           (r, ri) =>
             "<tr>" +
             r
-              .map(
-                (c, ci) =>
-                  `<td><textarea class="lf-in lf-grow" rows="1" data-bloc="${i}" data-cell="${ri + 1}:${ci}" aria-label="${esc(tete[ci])}"></textarea></td>`,
-              )
+              .map((c, ci) => {
+                // Un tableau « libellé / valeur » (déclaration DMF) : la 1re colonne EST le
+                // libellé de la ligne — c'est lui qui guide, pas l'en-tête de colonne.
+                const aide =
+                  r.length === 2 && ci === 1
+                    ? (rowsAide[ri + 1] ?? r)[0]
+                    : (teteAide[ci] ?? tete[ci]);
+                return `<td><textarea class="lf-in lf-grow" rows="1" data-bloc="${i}" data-cell="${ri + 1}:${ci}" aria-label="${esc(aide)}" placeholder="${esc(aide)}"></textarea></td>`;
+              })
               .join("") +
             "</tr>",
         )
@@ -1074,9 +1285,12 @@ function htmlBlocLettre(b, i) {
 /** Remplace chaque token d'un texte DÉJÀ échappé par sa case, slots numérotés dans l'ordre. */
 function rendreTokens(html, b, i, slotDepart) {
   let slot = slotDepart;
+  // Aide anglaise du MÊME index — la source du texte d'aide quand l'utilisateur est en EN.
+  const bEn = aidesEnLettre()?.[i];
+  let rang = 0;
   return html.replace(TOKENS, (token) => {
     const date = token === "{date}";
-    const ph = placeholderDe(b, token);
+    const ph = placeholderDe(b, token, bEn, rang++);
     const commun = `data-bloc="${i}" data-slot="${slot++}" aria-label="${esc(ph || L(["Date", "Date"]))}"`;
     // Champ potentiellement long : une zone qui grandit à la frappe, bornée à la largeur utile.
     if (!date && estChampLong(b, token))
