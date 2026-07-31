@@ -1211,6 +1211,51 @@
   padding: 16px 22px 18px;
   background: linear-gradient(180deg, #fff, #fbfcfe);
 }
+
+/* ══ Écran offre + identité : COMPACT, et le bouton de paiement TOUJOURS à l'écran.
+   Un CTA sous la ligne de flottaison se paie en conversion — sur un panneau qui porte six
+   champs, aucune hauteur d'écran ne garantit qu'il soit visible. On le colle en bas. ══ */
+#upg-e4 {
+  margin-top: 0;
+  padding-bottom: 0;
+}
+#upg-e4 .mfield {
+  margin-top: 10px;
+}
+#upg-e4 .mlab {
+  margin-bottom: 5px;
+}
+.bib .drawer #upg-e4 .mfield input,
+.bib .drawer #upg-e4 select {
+  padding: 8px 12px;
+}
+/* Prénom et nom tiennent sur une ligne : deux libellés courts, deux champs courts. */
+#upg-e4 .duo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+#upg-e4 .duo .mfield {
+  margin-top: 10px;
+}
+.bib .drawer #upg-e4 .offer-opt {
+  padding: 8px 12px;
+}
+/* Barre d'action collante — fond opaque obligatoire, sinon les champs défilent dessous. */
+#upg-e4 .paybar {
+  position: sticky;
+  bottom: 0;
+  margin: 12px -22px 0;
+  padding: 12px 22px 14px;
+  background: #fff;
+  border-top: 1px solid var(--g200);
+}
+#upg-e4 .paybar .mfoot-note {
+  margin-top: 8px;
+}
+#upg-e4 .paybar .btn {
+  margin: 0;
+}
 .mfoot-note {
   font-size: 12px;
   color: var(--g400);

@@ -181,6 +181,11 @@ export function corpsChariow(cmd: CommandeValidee, ip: string): Record<string, u
     redirect_url: RETOURS[cmd.langue],
     custom_metadata: { ref: cmd.ref, offre: cmd.offre },
     ...(devise ? { payment_currency: devise } : {}),
+    // ⚠️ `customer_ip` est OBLIGATOIRE ici, contre-intuitif mais mesuré le 31/07 : sans lui,
+    // Chariow voit l'IP de notre Edge (Francfort) et classe TOUS les acheteurs en `country=DE`.
+    // Avec lui, un déposant béninois obtient bien `country=BJ` et ses corridors mobile money.
+    // Corollaire assumé : derrière un VPN, l'acheteur est classé au pays du VPN — c'est le
+    // comportement du processeur, pas le nôtre, et il vaut mieux que « tout le monde en DE ».
     ...(ip !== 'unknown' ? { customer_ip: ip } : {}),
   }
 }

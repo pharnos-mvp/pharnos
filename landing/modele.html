@@ -12,7 +12,7 @@
     />
     <meta name="robots" content="noindex, follow" />
     <link rel="stylesheet" href="/styles.css?v=15" />
-    <link rel="stylesheet" href="/bibliotheque.css?v=3" />
+    <link rel="stylesheet" href="/bibliotheque.css?v=4" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link
@@ -828,27 +828,29 @@
                 id="off3"
               ></button>
             </div>
-            <div class="mfield">
-              <label class="mlab" for="payprenom" data-en="First name"
-                >Prénom</label
-              >
-              <input
-                id="payprenom"
-                type="text"
-                autocomplete="given-name"
-                maxlength="50"
-                required
-              />
-            </div>
-            <div class="mfield">
-              <label class="mlab" for="paynom" data-en="Last name">Nom</label>
-              <input
-                id="paynom"
-                type="text"
-                autocomplete="family-name"
-                maxlength="50"
-                required
-              />
+            <div class="duo">
+              <div class="mfield">
+                <label class="mlab" for="payprenom" data-en="First name"
+                  >Prénom</label
+                >
+                <input
+                  id="payprenom"
+                  type="text"
+                  autocomplete="given-name"
+                  maxlength="50"
+                  required
+                />
+              </div>
+              <div class="mfield">
+                <label class="mlab" for="paynom" data-en="Last name">Nom</label>
+                <input
+                  id="paynom"
+                  type="text"
+                  autocomplete="family-name"
+                  maxlength="50"
+                  required
+                />
+              </div>
             </div>
             <div class="mfield">
               <label
@@ -888,25 +890,25 @@
                 />
               </div>
             </div>
-            <div class="stack">
+            <!-- Barre collante : le bouton de paiement ne descend jamais sous l'écran. -->
+            <div class="paybar">
               <button
                 class="btn btn-primary btn-block btn-lg"
                 type="submit"
                 id="paygo"
               ></button>
+              <p
+                class="mfoot-note"
+                data-en="Secure payment by mobile money or card. Your document stays on your device until payment."
+              >
+                Paiement sécurisé par mobile money ou carte. Votre document
+                reste sur votre appareil jusqu'au paiement.
+              </p>
             </div>
           </form>
           <button class="linklike" type="button" id="payretour" data-en="← Back">
             ← Retour
           </button>
-          <p
-            class="mfoot-note"
-            data-en="Secure payment by mobile money or card (Chariow). Your details serve this order only; your document stays on your device until payment."
-          >
-            Paiement sécurisé par mobile money ou carte (Chariow). Vos
-            coordonnées ne servent qu'à cette commande ; votre document reste
-            sur votre appareil jusqu'au paiement.
-          </p>
         </div>
 
         <!-- Étape 3 — RETOUR DE PAIEMENT. Aucun bouton d'achat ici : reproposer « Commander »
@@ -1000,6 +1002,6 @@
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <script src="/landing.js?v=15" defer></script>
-    <script type="module" src="/modele.js?v=3"></script>
+    <script type="module" src="/modele.js?v=4"></script>
   </body>
 </html>
