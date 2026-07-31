@@ -20,13 +20,14 @@ import { DOCS, varieParPays } from '../../../scripts/lib/modeles-source.mjs'
 // Le manifeste est GÉNÉRÉ : TypeScript en infère un littéral aux huit clés pays connues, qu'on ne
 // peut pas indexer par une variable. On le relit une fois sous sa forme réelle — un enregistrement
 // dont les clés viennent du référentiel — plutôt que de caster à chaque accès.
-type Fichier = { pdf: string; docx: string; pages: number; octetsPdf: number; octetsDocx: number }
+type Fichier = { pdf: string; zip: string; pages: number; octetsPdf: number; octetsZip: number }
 type Bloc = { t: string; x?: string; rows?: string[][] }
 type Manifeste = Record<
   string,
   {
     perPays: boolean
     upgradable: boolean
+    bilingue: boolean
     groupe: string
     apercu: Bloc[]
     fichiers: Record<string, Fichier>
@@ -65,11 +66,23 @@ const ENTITES: Record<string, string> = {
   '&apos;': "'",
 }
 
+/** Le DOCX voulu, extrait du ZIP DE TÉLÉCHARGEMENT — c'est l'octet que le visiteur obtient. */
+async function docxDuZip(url: string, langue: 'fr' | 'en' = 'fr'): Promise<Buffer> {
+  const zip = await JSZip.loadAsync(fs.readFileSync(chemin(url)))
+  const noms = Object.keys(zip.files)
+  const nom =
+    langue === 'en'
+      ? noms.find((n) => n.includes('_EN_'))
+      : (noms.find((n) => n.endsWith('_FR.docx')) ?? noms.find((n) => n.endsWith('.docx')))
+  expect(nom, `${url} : docx ${langue} absent (${noms.join(' · ')})`).toBeTruthy()
+  return zip.file(nom!)!.async('nodebuffer')
+}
+
 /** Texte brut de `word/document.xml` — suffisant pour vérifier la PRÉSENCE d'une mention.
  *  Les entités XML sont décodées : sans cela `d&apos;administration` ne contiendrait pas
  *  `d'administration`, et le test passerait à côté d'un titre pourtant présent. */
-async function texteDocx(url: string): Promise<string> {
-  const zip = await JSZip.loadAsync(fs.readFileSync(chemin(url)))
+async function texteDocx(url: string, langue: 'fr' | 'en' = 'fr'): Promise<string> {
+  const zip = await JSZip.loadAsync(await docxDuZip(url, langue))
   const doc = zip.file('word/document.xml')
   expect(doc, `${url} : word/document.xml absent`).not.toBeNull()
   return (await doc!.async('string'))
@@ -107,16 +120,48 @@ describe('manifeste et fichiers restent accordés', () => {
 
   it('référence des fichiers réellement présents, à la taille annoncée', () => {
     // Un manifeste régénéré sans committer `landing/modeles/` sert un 404 sous un bouton
-    // « Télécharger le modèle » — l'échec le plus coûteux de cette page.
+    // « Télécharger » — l'échec le plus coûteux de cette page.
     for (const [slug, m] of Object.entries(MANIFESTE)) {
       for (const [k, f] of Object.entries(m.fichiers)) {
         expect(fs.existsSync(chemin(f.pdf)), `${slug}/${k} pdf`).toBe(true)
-        expect(fs.existsSync(chemin(f.docx)), `${slug}/${k} docx`).toBe(true)
+        expect(fs.existsSync(chemin(f.zip)), `${slug}/${k} zip`).toBe(true)
         expect(fs.statSync(chemin(f.pdf)).size, `${slug}/${k} taille pdf`).toBe(f.octetsPdf)
-        expect(fs.statSync(chemin(f.docx)).size, `${slug}/${k} taille docx`).toBe(f.octetsDocx)
+        expect(fs.statSync(chemin(f.zip)).size, `${slug}/${k} taille zip`).toBe(f.octetsZip)
         expect(f.pages, `${slug}/${k} pages`).toBeGreaterThan(0)
       }
     }
+  })
+
+  it("le ZIP d'un document bilingue porte le FR et l'EN de courtoisie ; un formulaire OMS, un seul fichier", async () => {
+    for (const [slug, m] of Object.entries(MANIFESTE)) {
+      const f = Object.values(m.fichiers)[0]!
+      const zip = await JSZip.loadAsync(fs.readFileSync(chemin(f.zip)))
+      const noms = Object.keys(zip.files)
+      if (m.bilingue) {
+        expect(
+          noms.some((n) => n.endsWith('_FR.docx')),
+          slug,
+        ).toBe(true)
+        expect(
+          noms.some((n) => n.includes('_EN_')),
+          slug,
+        ).toBe(true)
+      } else {
+        expect(noms, slug).toHaveLength(1)
+        expect(noms[0], slug).not.toMatch(/_FR|_EN_/)
+      }
+      // Des noms LISIBLES : jamais d'accent mutilé (« B-nin ») dans une archive client.
+      for (const n of noms) expect(n, slug).toMatch(/^[A-Za-z0-9._-]+$/)
+    }
+  })
+
+  it('la version anglaise annonce en tête que la version à déposer est la française', async () => {
+    const texte = await texteDocx(fichierDe('rcp', 'bj').zip, 'en')
+    expect(texte).toContain('ENGLISH COURTESY VERSION')
+    expect(texte).toContain('must be in FRENCH')
+    // Et c'est bien la traduction : les rubriques QRD anglaises, pas le français recopié.
+    expect(texte).toContain('SUMMARY OF PRODUCT CHARACTERISTICS')
+    expect(texte).toContain('4.8. Undesirable effects')
   })
 })
 
@@ -124,7 +169,7 @@ describe('la mention 4.8 committée est celle du pays', () => {
   it.each(Object.entries(ADRESSES))(
     'le RCP %s porte son adresse, et aucune autre',
     async (code, adresse) => {
-      const texte = await texteDocx(fichierDe('rcp', code).docx)
+      const texte = await texteDocx(fichierDe('rcp', code).zip)
       expect(texte).toContain(adresse)
       for (const autre of Object.values(ADRESSES)) {
         if (autre !== adresse) expect(texte).not.toContain(autre)
@@ -135,14 +180,14 @@ describe('la mention 4.8 committée est celle du pays', () => {
   it.each(CODES.filter((k: string) => !(k in ADRESSES)))(
     'le RCP %s emploie la formule neutre, sans adresse empruntée',
     async (code: string) => {
-      const texte = await texteDocx(fichierDe('rcp', code).docx)
+      const texte = await texteDocx(fichierDe('rcp', code).zip)
       expect(texte).toContain('via le système national de pharmacovigilance')
       for (const a of Object.values(ADRESSES)) expect(texte).not.toContain(a)
     },
   )
 
   it('donne au Burkina Faso Med Safety en complément, jamais en contact', async () => {
-    const texte = await texteDocx(fichierDe('rcp', 'bf').docx)
+    const texte = await texteDocx(fichierDe('rcp', 'bf').zip)
     expect(texte).toContain('Med Safety')
     expect(texte).toContain('via le système national de pharmacovigilance')
     expect(texte).not.toContain('système national de déclaration')
@@ -150,7 +195,7 @@ describe('la mention 4.8 committée est celle du pays', () => {
 
   it("ne fait entrer aucune mention de vigilance dans la notice ni dans l'étiquetage", async () => {
     for (const slug of ['notice', 'etiquetage']) {
-      const texte = await texteDocx(fichierDe(slug, '*').docx)
+      const texte = await texteDocx(fichierDe(slug, '*').zip)
       for (const a of Object.values(ADRESSES)) expect(texte, slug).not.toContain(a)
     }
   })
@@ -202,22 +247,41 @@ describe('les neuf documents, groupés comme sur la page', () => {
   })
 })
 
-describe('les lettres restent le modèle officiel générique', () => {
-  it("n'adressent AUCUNE autorité nommée — pas d'adresse à moitié remplie dans un courrier réel", async () => {
+describe("les lettres sont adressées à l'autorité du pays — le référentiel du builder", () => {
+  it("portent la civilité, l'agence et l'adresse du pays servi, jamais celles d'un autre", async () => {
+    const attendu: Record<string, [string, string]> = {
+      bj: ['Agence Béninoise du Médicament', 'Monsieur le Directeur Général'],
+      sn: ['Agence Sénégalaise de Réglementation Pharmaceutique', 'Madame la Directrice Générale'],
+    }
     for (const slug of [
       'lettre-demande',
       'lettre-renouvellement',
       'lettre-variation',
       'lettre-pght',
     ]) {
-      const texte = await texteDocx(fichierDe(slug, '*').docx)
-      expect(texte, slug).toContain('Agence réglementaire nationale')
-      expect(texte, slug).not.toMatch(/ABMed|ANRP|AIRP\b|\bARP\b|DPM\b|DPML/)
+      expect(docDe(slug).perPays, slug).toBe(true)
+      for (const [k, [agence, civ]] of Object.entries(attendu)) {
+        const texte = await texteDocx(fichierDe(slug, k).zip)
+        expect(texte, `${slug}/${k}`).toContain(agence)
+        expect(texte, `${slug}/${k}`).toContain(civ)
+      }
+      // Servir la lettre d'un pays avec l'agence d'un autre enverrait un courrier réel au
+      // mauvais destinataire : le croisement est vérifié, pas seulement la présence.
+      const bj = await texteDocx(fichierDe(slug, 'bj').zip)
+      expect(bj, slug).not.toContain('Agence Sénégalaise')
     }
   })
 
+  it('suivent la mise en page du moteur de lettres du builder : Times New Roman', async () => {
+    const docx = await docxDuZip(fichierDe('lettre-demande', 'bj').zip)
+    const zip = await JSZip.loadAsync(docx)
+    const xml = await zip.file('word/document.xml')!.async('string')
+    expect(xml).toContain('Times New Roman')
+  })
+
   it('la lettre PGHT porte son tableau à quatre colonnes', async () => {
-    const zip = await JSZip.loadAsync(fs.readFileSync(chemin(fichierDe('lettre-pght', '*').docx)))
+    const docx = await docxDuZip(fichierDe('lettre-pght', 'bj').zip)
+    const zip = await JSZip.loadAsync(docx)
     const xml = await zip.file('word/document.xml')!.async('string')
     expect(xml).toContain('<w:tbl>')
     for (const col of ['Nom commercial', 'DCI et dosage', 'Forme et présentation', 'PGHT (FCFA)']) {
@@ -233,7 +297,7 @@ describe('les lettres restent le modèle officiel générique', () => {
       'lettre-pght': 'Objet : Attestation de PGHT',
     }
     for (const [slug, objet] of Object.entries(attendus)) {
-      expect(await texteDocx(fichierDe(slug, '*').docx), slug).toContain(objet)
+      expect(await texteDocx(fichierDe(slug, 'bj').zip), slug).toContain(objet)
     }
   })
 })
@@ -242,14 +306,14 @@ describe('le document reste un document officiel', () => {
   it("ne porte aucune marque Pharnos — il repart dans un dossier d'AMM", async () => {
     for (const [slug, m] of Object.entries(MANIFESTE)) {
       for (const [k, f] of Object.entries(m.fichiers)) {
-        const texte = await texteDocx(f.docx)
+        const texte = await texteDocx(f.zip)
         expect(texte, `${slug}/${k}`).not.toMatch(/pharnos|regafy/i)
       }
     }
   })
 
   it('conserve les dix rubriques du RCP dans leur numérotation officielle', async () => {
-    const texte = await texteDocx(fichierDe('rcp', 'bj').docx)
+    const texte = await texteDocx(fichierDe('rcp', 'bj').zip)
     for (const titre of [
       '1. DENOMINATION DU MEDICAMENT',
       '2. COMPOSITION QUALITATIVE ET QUANTITATIVE',
@@ -267,7 +331,7 @@ describe('le document reste un document officiel', () => {
   })
 
   it("conserve les trois jeux de mentions de l'étiquetage", async () => {
-    const texte = await texteDocx(fichierDe('etiquetage', '*').docx)
+    const texte = await texteDocx(fichierDe('etiquetage', '*').zip)
     expect(texte).toContain("MENTIONS DEVANT FIGURER SUR L'EMBALLAGE EXTERIEUR")
     expect(texte).toContain('PLAQUETTES OU LES FILMS THERMOSOUDES')
     expect(texte).toContain('PETITS CONDITIONNEMENTS PRIMAIRES')

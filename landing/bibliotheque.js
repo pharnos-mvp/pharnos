@@ -8,13 +8,11 @@
 
 /* ⚠️ Le `?v=` des imports N'EST PAS décoratif — Cloudflare impose `max-age=14400` et un module
    importé PAR un module n'hérite pas du `?v=` du HTML. À bumper avec le HTML. */
-import { PAYS } from "./checking/referentiel.js?v=2026.2";
-import { MODELES_FICHIERS } from "./checking/modeles-manifest.js?v=2026.2";
-import { VIGILANCE } from "./checking/vigilance.js?v=2026.1";
+import { MODELES_FICHIERS } from "./checking/modeles-manifest.js?v=2026.3";
 import {
   fichierModele,
   tailleLisible,
-} from "./checking/bibliotheque-core.js?v=2026.2";
+} from "./checking/bibliotheque-core.js?v=2026.3";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -36,8 +34,6 @@ const L = (v) => (Array.isArray(v) ? (v[lang === "en" ? 1 : 0] ?? v[0]) : v);
 /** La page dédiée porte un AUTRE slug en anglais — on se cale sur le chemin servi. */
 const EN = window.location.pathname.startsWith("/en/");
 const PAGE_MODELE = EN ? "/en/template" : "/modele";
-
-const S = { pays: "bj" };
 
 /* ══ Fac-similé de première page — la vignette des cartes ══
    Peint depuis `apercu` du manifeste : les MÊMES blocs que le fichier téléchargé, donc la
@@ -88,24 +84,17 @@ function facSimile(apercu) {
 
 function carte(slug) {
   const m = MODELES_FICHIERS[slug];
-  const f = fichierModele(slug, S.pays);
-  const badges = [
-    m.perPays
-      ? `<span class="badge b-pays">${esc(L(["Selon le pays", "Country-specific"]))}</span>`
-      : "",
-    m.upgradable
-      ? `<span class="badge b-info">${esc(L(["Mise à niveau", "Upgrade"]))}</span>`
-      : "",
-  ].join("");
-  const meta = `${f.pages} p. · PDF + Word · ${esc(tailleLisible(f.octetsPdf + f.octetsDocx, lang))}`;
+  const f = fichierModele(slug, "bj");
+  const langues = m.bilingue ? "Word FR + EN" : "Word";
+  const meta = `${f.pages} p. · ${langues}`;
   // Un LIEN, pas un bouton : la carte ouvre la page dédiée du document — ouvrable dans un nouvel
-  // onglet, partageable, indexable. Le pays choisi voyage dans l'URL.
-  const href = `${PAGE_MODELE}?doc=${encodeURIComponent(slug)}&pays=${encodeURIComponent(S.pays)}`;
+  // onglet, partageable. Pays et activité se choisissent AU TÉLÉCHARGEMENT, pas ici.
+  const href = `${PAGE_MODELE}?doc=${encodeURIComponent(slug)}`;
   return `<li>
     <a class="piece-card" href="${esc(href)}">
       <span class="piece-thumb">${facSimile(m.apercu)}</span>
       <span class="nm">${esc(L(m.nom))}</span>
-      <span class="mt2"><span class="m">${meta}</span>${badges}</span>
+      <span class="mt2"><span class="m">${meta}</span></span>
     </a>
   </li>`;
 }
@@ -119,35 +108,15 @@ function peindre() {
     if (el) el.innerHTML = slugs.map(carte).join("");
   }
   $("#tagcount").textContent =
-    `${Object.keys(MODELES_FICHIERS).length} ${L(["modèles", "templates"])}`;
-
-  const v = VIGILANCE[S.pays];
-  $("#agline").textContent = v ? v.organisme : "";
+    `${Object.keys(MODELES_FICHIERS).length} ${L(["modèles officiels", "official templates"])}`;
 }
-
-function remplirPays() {
-  const sel = $("#pays");
-  sel.innerHTML = PAYS.map(
-    (p) => `<option value="${esc(p.k)}">${esc(L(p.nom))}</option>`,
-  ).join("");
-  sel.value = S.pays;
-}
-
-$("#pays")?.addEventListener("change", (e) => {
-  S.pays = e.target.value;
-  peindre();
-});
 
 function appliquerLangue(l) {
   lang = l === "en" ? "en" : "fr";
-  remplirPays();
   peindre();
 }
 if (window.I18N && typeof window.I18N.on === "function")
   window.I18N.on(appliquerLangue);
 
 /* ══ Amorçage ══ */
-const paysUrl = new URLSearchParams(window.location.search).get("pays");
-if (paysUrl && PAYS.some((p) => p.k === paysUrl)) S.pays = paysUrl;
-remplirPays();
 peindre();

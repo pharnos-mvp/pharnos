@@ -2,26 +2,22 @@
  * Génère les MODÈLES OFFICIELS servis par la Bibliothèque réglementaire de pharnos.com.
  *
  *   Régénérer : `npm run build:landing-modeles` (depuis web/). À relancer après toute modif de
- *   `lib/modeles-source.mjs` ou de `landing/checking/vigilance.js`, puis COMMITTER la sortie —
- *   `landing/` est déployé tel quel, sans build (cf. .github/workflows/deploy-landing.yml).
+ *   `lib/modeles-source.mjs`, de `landing/checking/vigilance.js` ou du référentiel d'agences,
+ *   puis COMMITTER la sortie — `landing/` est déployé tel quel, sans build.
  *
- * POURQUOI GÉNÉRER PLUTÔT QUE DÉPOSER DES FICHIERS
- * Le fichier servi doit porter la mention de pharmacovigilance du pays de dépôt (rubrique 4.8).
- * En le dérivant de `landing/checking/vigilance.js` — la source que la page affiche aussi — un
- * modèle téléchargé ne peut pas diverger de ce que l'écran annonce.
+ * CE QUI EST PRODUIT, par document (et par pays quand il varie) :
+ *   • un PDF français — l'aperçu du lecteur ;
+ *   • un ZIP de téléchargement : le DOCX français (la version à déposer) et, pour les documents
+ *     bilingues, un DOCX anglais DE COURTOISIE qui l'annonce en tête — la version opposable est
+ *     la française. Les formulaires OMS (QOS-PD, BTIF) sont anglais par nature : fichier unique.
  *
- * ⚠️ SEUL LE RCP VARIE PAR PAYS. La notice et l'étiquetage de la maquette ABMed 2026 ne portent
- * aucun contact national : en produire huit copies identiques sous huit noms différents ferait
- * passer la recette « changer de pays change le fichier » tout en ne changeant rien. Un document
- * est décliné par pays si, et seulement si, il contient un bloc `vig`.
+ * LES LETTRES suivent la mise en page du moteur de lettres du builder (`pdf/compile-dossier`) :
+ * Times 12, interligne 1,45, marges 2,5 cm, blocs « à droite » décalés à 56 % de la largeur puis
+ * ALIGNÉS À GAUCHE. Leur bloc destinataire vient du même référentiel d'agences que les lettres
+ * compilées des dossiers (`roadmap-data.ts`) — civilité, agence, adresse déjà en production.
  *
- * ⚠️ AUCUNE MARQUE PHARNOS dans le document. Ces fichiers repartent dans des dossiers d'AMM ;
- * l'étape 3 du process d'upgrade l'interdit sur toute pièce déposée, et le modèle en est une.
- *
- * PIÈGE PDF déjà payé (cf. docs/PLAN-UPGRADE-FRONTEND.md §C) : on trace UNE CHAÎNE ENTIÈRE par
- * ligne, jamais mot à mot. Le positionnement manuel mot à mot produit un PDF dont les extracteurs
- * recollent le texte (« QUALITATIVEET » observé) — or l'extractibilité fait partie de la
- * conformité d'un document réglementaire.
+ * ⚠️ AUCUNE MARQUE PHARNOS dans les documents : ils repartent dans des dossiers d'AMM.
+ * PIÈGE PDF payé : UNE CHAÎNE ENTIÈRE par ligne, jamais mot à mot (extractibilité).
  */
 import {
   AlignmentType,
@@ -41,76 +37,170 @@ import JSZip from 'jszip'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 
 import { PAYS } from '../../landing/checking/referentiel.js'
-import { mention48 } from '../../landing/checking/vigilance.js'
+import {
+  VIG_CANAL_NEUTRE,
+  VIG_CORPS,
+  VIG_TITRE,
+  VIGILANCE,
+  vigCanalNomme,
+} from '../../landing/checking/vigilance.js'
+// Node ≥ 23 exécute le TypeScript par retrait des types : le référentiel d'agences est celui des
+// lettres DU BUILDER — même source, mêmes destinataires, aucune divergence possible.
+import {
+  agencyCivilite,
+  agencyCiviliteEn,
+  agencyFor,
+} from '../src/features/workspace/roadmap-data.ts'
 import { DOCS, varieParPays } from './lib/modeles-source.mjs'
 
 const RACINE = path.resolve(import.meta.dirname, '../..')
 const SORTIE = path.join(RACINE, 'landing', 'modeles')
 const MANIFESTE = path.join(RACINE, 'landing', 'checking', 'modeles-manifest.js')
 
-/** Version du contenu des modèles — reportée dans le manifeste et affichée sur la page.
- *  À incrémenter à CHAQUE modification de `modeles-source.mjs` ou de la mention 4.8. */
-const VERSION = '2026.2'
+/** Version du contenu — à incrémenter à CHAQUE modification de source, vigilance ou agences. */
+const VERSION = '2026.3'
 
-/** Date figée : sans elle, deux exécutions produisent des octets différents et toute
- *  vérification de dérive (CI, revue de diff) devient illisible. */
+/** Date figée : sans elle, deux exécutions produisent des octets différents. */
 const FIGEE = new Date('2026-07-30T00:00:00Z')
 
-/* ═══════════════════════ mise en page ═══════════════════════ */
+/* ═══════════════ traduction de courtoisie du bloc 4.8 ═══════════════ */
 
-const A4 = { l: 595.28, h: 841.89 }
-const MARGE = { g: 56, d: 56, haut: 56, bas: 62 }
-const CORPS = 10.5
-const INTER = 14.6
-
-/** Style de chaque type de bloc. `avant` = espace vertical injecté avant la première ligne. */
-const STYLE = {
-  doctitle: { taille: 13, gras: true, centre: true, avant: 0, apres: 18 },
-  part: { taille: 11.5, gras: true, centre: true, avant: 20, apres: 10 },
-  h1: { taille: 11, gras: true, centre: false, avant: 14, apres: 4 },
-  h2: { taille: 10.5, gras: true, centre: false, avant: 11, apres: 3 },
-  h3: { taille: 10.5, gras: true, centre: false, avant: 8, apres: 2 },
-  p: { taille: CORPS, gras: false, centre: false, avant: 0, apres: 5 },
-  li: { taille: CORPS, gras: false, centre: false, avant: 0, apres: 5, puce: true },
-  // Lettres : ville/date, bloc destinataire et signature vivent à droite de la page.
-  right: { taille: CORPS, gras: false, centre: false, droite: true, avant: 0, apres: 5 },
+const VIG_EN = {
+  titre: 'Reporting of suspected adverse reactions',
+  corps:
+    'Reporting suspected adverse reactions after authorisation of the medicinal product is ' +
+    'important. It allows continued monitoring of the benefit/risk balance of the medicinal product.',
+  canalNeutre:
+    'Healthcare professionals report any suspected adverse reaction via the national ' +
+    'pharmacovigilance system.',
+  canalNomme: (contact) =>
+    `Healthcare professionals report any suspected adverse reaction via the national reporting ` +
+    `system: ${contact}.`,
 }
 
-/* ═══════════════════════ résolution du contenu ═══════════════════════ */
+/** Avertissement en tête de TOUTE version anglaise : la version opposable est la française. */
+const AVERTISSEMENT_EN = [
+  { t: 'part', x: 'ENGLISH COURTESY VERSION' },
+  {
+    t: 'p',
+    x:
+      'This English version is provided so you can fully understand the document. The version to ' +
+      'be filed with the authority must be in FRENCH — use the French file included in this ' +
+      'download.',
+  },
+]
+
+/* ═══════════════ résolution du contenu (pays + langue) ═══════════════ */
+
+const codeAgence = (k) => k.toUpperCase()
 
 /**
- * Développe les blocs d'un document pour un pays : le bloc `vig` devient son titre et ses
- * paragraphes. Aucun autre bloc ne dépend du pays — c'est ce qui rend la déclinaison vérifiable.
- *
- * @param {{blocks: Array<{t: string, x?: string}>}} doc
- * @param {string|null} pays  Code pays, ou `null` pour un document qui ne varie pas.
+ * Développe les blocs pour un pays et une langue. `vig`, `agence` et `salut` sont résolus ici ;
+ * les autres blocs choisissent `en` quand elle existe, sinon gardent le texte.
  */
-function resoudre(doc, pays) {
+function resoudre(doc, pays, langue) {
+  const tx = (b) => (langue === 'en' && b.en ? b.en : b.x)
   const out = []
   for (const b of doc.blocks) {
-    if (b.t !== 'vig') {
-      out.push(b)
+    if (b.t === 'vig') {
+      if (!pays) throw new Error(`${doc.slug} contient un bloc vig mais n'est pas décliné par pays`)
+      const v = VIGILANCE[pays]
+      if (langue === 'en') {
+        const canal = v.contact ? VIG_EN.canalNomme(v.contact) : VIG_EN.canalNeutre
+        out.push({ t: 'h3', x: VIG_EN.titre }, { t: 'p', x: `${VIG_EN.corps} ${canal}` })
+        if (v.extra)
+          out.push({
+            t: 'p',
+            x: 'Notification may also be made through the national Med Safety application.',
+          })
+      } else {
+        const canal = v.contact ? vigCanalNomme(v.contact) : VIG_CANAL_NEUTRE
+        out.push({ t: 'h3', x: VIG_TITRE }, { t: 'p', x: `${VIG_CORPS} ${canal}` })
+        if (v.extra) out.push({ t: 'p', x: v.extra })
+      }
       continue
     }
-    if (!pays) throw new Error(`${doc.slug} contient un bloc vig mais n'est pas décliné par pays`)
-    const m = mention48(pays)
-    out.push({ t: 'h3', x: m.titre })
-    for (const p of m.paragraphes) out.push({ t: 'p', x: p })
+    if (b.t === 'agence') {
+      if (!pays)
+        throw new Error(`${doc.slug} contient un bloc agence mais n'est pas décliné par pays`)
+      const ag = agencyFor(codeAgence(pays))
+      const civ = langue === 'en' ? agencyCiviliteEn() : agencyCivilite(ag)
+      out.push(
+        { t: 'right', x: civ },
+        { t: 'right', x: ag.name ? `${ag.full} (${ag.name})` : ag.full },
+        { t: 'right', x: ag.adresse },
+      )
+      continue
+    }
+    if (b.t === 'salut') {
+      if (!pays)
+        throw new Error(`${doc.slug} contient un bloc salut mais n'est pas décliné par pays`)
+      const ag = agencyFor(codeAgence(pays))
+      out.push({ t: 'p', x: `${langue === 'en' ? agencyCiviliteEn() : agencyCivilite(ag)},` })
+      continue
+    }
+    if (b.t === 'table') {
+      out.push({ t: 'table', rows: langue === 'en' && b.rowsEn ? b.rowsEn : b.rows })
+      continue
+    }
+    out.push({ t: b.t, x: tx(b) })
   }
-  return out
+  return langue === 'en' ? [...AVERTISSEMENT_EN, ...out] : out
 }
 
-/* ═══════════════════════ PDF ═══════════════════════ */
+/* ═══════════════ mise en page ═══════════════ */
 
-/** WinAnsi ne code pas tout. On échoue AVANT pdf-lib, avec le caractère et son contexte : une
- *  erreur « Cannot encode » sans position coûte une demi-heure de recherche à l'aveugle. */
+const A4 = { l: 595.28, h: 841.89 }
+
+/** Deux gabarits : `document` (maquettes ABMed/OMS, Helvetica) et `lettre` — la mise en page du
+ *  moteur de lettres du builder : Times 12, interligne 1,45, marges 2,5 cm, blocs décalés à 56 %. */
+const GABARITS = {
+  document: {
+    marge: { g: 56, d: 56, haut: 56, bas: 62 },
+    fontes: { reg: StandardFonts.Helvetica, gras: StandardFonts.HelveticaBold },
+    fonteDocx: 'Arial',
+    style: {
+      doctitle: { taille: 13, gras: true, centre: true, avant: 0, apres: 18 },
+      part: { taille: 11.5, gras: true, centre: true, avant: 20, apres: 10 },
+      h1: { taille: 11, gras: true, avant: 14, apres: 4 },
+      h2: { taille: 10.5, gras: true, avant: 11, apres: 3 },
+      h3: { taille: 10.5, gras: true, avant: 8, apres: 2 },
+      p: { taille: 10.5, avant: 0, apres: 5 },
+      li: { taille: 10.5, avant: 0, apres: 5, puce: true },
+      right: { taille: 10.5, avant: 0, apres: 5, droite: true },
+    },
+    inter: (taille) => taille * 1.39,
+  },
+  lettre: {
+    marge: { g: 70.9, d: 70.9, haut: 70.9, bas: 70.9 },
+    fontes: { reg: StandardFonts.TimesRoman, gras: StandardFonts.TimesRomanBold },
+    fonteDocx: 'Times New Roman',
+    style: {
+      doctitle: { taille: 13, gras: true, centre: true, avant: 0, apres: 16 },
+      part: { taille: 12, gras: true, centre: true, avant: 4, apres: 8 },
+      h1: { taille: 12, gras: true, avant: 10, apres: 4 },
+      h2: { taille: 12, gras: true, avant: 8, apres: 3 },
+      h3: { taille: 12, gras: true, avant: 8, apres: 4 },
+      p: { taille: 12, avant: 0, apres: 7 },
+      li: { taille: 12, avant: 0, apres: 4, puce: true },
+      right: { taille: 12, avant: 0, apres: 4, droite: true },
+    },
+    inter: (taille) => taille * 1.45,
+  },
+}
+
+/** Bloc « à droite » des lettres : décalé à 56 % de la largeur du contenu puis aligné à GAUCHE —
+ *  la recette exacte du moteur (`RIGHT_BLOCK_INDENT = CONTENT_WIDTH * 0.56`). */
+const INDENT_DROIT = 0.56
+
+/* ═══════════════ PDF ═══════════════ */
+
 const REMPLACEMENTS = new Map([
-  ['‑', '-'], // tiret insécable
-  ['–', '–'], // en-dash : présent en WinAnsi, listé pour mémoire
-  [' ', ' '], // espace insécable → espace, la césure PDF est manuelle de toute façon
-  [' ', ' '], // espace fine insécable
+  ['‑', '-'],
+  [' ', ' '],
+  [' ', ' '],
 ])
-const WINANSI_OK = /^[ -~ -ÿŒœŠšŸŽžƒˆ˜–—‘’‚“”„†‡•…‰‹›€™]*$/
+const WINANSI_OK = /^[ -~ -ÿŒœŠšŸŽžƒˆ˜–—‘’‚“”„†‡•…‰‹›€™]*$/
 
 function assainir(texte, ou) {
   let s = texte
@@ -124,8 +214,6 @@ function assainir(texte, ou) {
   return s
 }
 
-/** Découpe en lignes tenant dans `largeur`. Un mot plus long que la ligne est coupé plutôt que
- *  de déborder en silence hors de la marge. */
 function lignes(texte, font, taille, largeur) {
   const out = []
   for (const brut of texte.split('\n')) {
@@ -151,15 +239,16 @@ function lignes(texte, font, taille, largeur) {
 }
 
 async function versPdf(doc, blocs, paysNom) {
+  const G = GABARITS[doc.layout === 'lettre' ? 'lettre' : 'document']
   const pdf = await PDFDocument.create()
   pdf.setTitle(`${doc.nom[0]} — modèle officiel`)
   pdf.setSubject(paysNom ? `Modèle officiel — ${paysNom}` : 'Modèle officiel')
   pdf.setCreationDate(FIGEE)
   pdf.setModificationDate(FIGEE)
 
-  const reg = await pdf.embedFont(StandardFonts.Helvetica)
-  const gras = await pdf.embedFont(StandardFonts.HelveticaBold)
-  const largeur = A4.l - MARGE.g - MARGE.d
+  const reg = await pdf.embedFont(G.fontes.reg)
+  const gras = await pdf.embedFont(G.fontes.gras)
+  const largeur = A4.l - G.marge.g - G.marge.d
 
   const pages = []
   let page = null
@@ -167,7 +256,7 @@ async function versPdf(doc, blocs, paysNom) {
   const nouvellePage = () => {
     page = pdf.addPage([A4.l, A4.h])
     pages.push(page)
-    y = A4.h - MARGE.haut
+    y = A4.h - G.marge.haut
   }
   nouvellePage()
 
@@ -178,21 +267,20 @@ async function versPdf(doc, blocs, paysNom) {
       continue
     }
     if (b.t === 'table') {
-      // Grille simple à colonnes égales — la lettre PGHT est UN tableau, le rendre en lignes de
-      // texte ferait disparaître ce que l'autorité attend. Une cellule reste sur une ligne : les
-      // en-têtes officiels sont courts, on échoue si l'un déborde plutôt que de le tronquer.
+      // La lettre PGHT EST un tableau : une grille réelle, pas des lignes de texte. Une cellule
+      // reste sur une ligne — on échoue si elle déborde plutôt que de la tronquer.
       const cols = b.rows[0].length
       const wCol = largeur / cols
       const hL = 22
       y -= 6
       for (const [ri, row] of b.rows.entries()) {
-        if (y - hL < MARGE.bas) nouvellePage()
+        if (y - hL < G.marge.bas) nouvellePage()
         const font = ri === 0 ? gras : reg
         for (const [ci, cell] of row.entries()) {
           const s = assainir(String(cell), `${doc.slug}/table`)
           if (font.widthOfTextAtSize(s, 9) > wCol - 10)
             throw new Error(`table ${doc.slug} : cellule trop large « ${s} »`)
-          const x0 = MARGE.g + ci * wCol
+          const x0 = G.marge.g + ci * wCol
           page.drawRectangle({
             x: x0,
             y: y - hL,
@@ -208,30 +296,29 @@ async function versPdf(doc, blocs, paysNom) {
       y -= 8
       continue
     }
-    const st = STYLE[b.t]
+    const st = G.style[b.t]
     if (!st) throw new Error(`bloc inconnu « ${b.t} » dans ${doc.slug}`)
     const font = st.gras ? gras : reg
     const puce = st.puce ? '• ' : ''
-    const retrait = st.puce ? 14 : 0
+    const retraitPuce = st.puce ? 14 : 0
+    const retraitDroit = st.droite ? largeur * INDENT_DROIT : 0
+    const retrait = retraitPuce + retraitDroit
     const texte = assainir(puce + b.x, `${doc.slug}/${b.t}`)
     const ls = lignes(texte, font, st.taille, largeur - retrait)
+    const inter = G.inter(st.taille)
 
     y -= st.avant
     for (const l of ls) {
-      if (y < MARGE.bas) nouvellePage()
+      if (y < G.marge.bas) nouvellePage()
       const x = st.centre
-        ? MARGE.g + (largeur - font.widthOfTextAtSize(l, st.taille)) / 2
-        : st.droite
-          ? A4.l - MARGE.d - font.widthOfTextAtSize(l, st.taille)
-          : MARGE.g + retrait
-      // UNE chaîne entière par appel — jamais mot à mot (cf. en-tête de fichier).
+        ? G.marge.g + (largeur - font.widthOfTextAtSize(l, st.taille)) / 2
+        : G.marge.g + retrait
       page.drawText(l, { x, y: y - st.taille, size: st.taille, font, color: ENCRE })
-      y -= INTER
+      y -= inter
     }
     y -= st.apres
   }
 
-  // Pied de page : la pagination seule, plus le pays quand le document en dépend. Aucune marque.
   const total = pages.length
   pages.forEach((p, i) => {
     const pied = paysNom
@@ -239,8 +326,8 @@ async function versPdf(doc, blocs, paysNom) {
       : `${doc.source[0]} — ${i + 1} / ${total}`
     const s = assainir(pied, `${doc.slug}/pied`)
     p.drawText(s, {
-      x: A4.l - MARGE.d - reg.widthOfTextAtSize(s, 7.5),
-      y: MARGE.bas - 26,
+      x: A4.l - G.marge.d - reg.widthOfTextAtSize(s, 7.5),
+      y: 34,
       size: 7.5,
       font: reg,
       color: rgb(0.55, 0.58, 0.62),
@@ -250,7 +337,7 @@ async function versPdf(doc, blocs, paysNom) {
   return { octets: Buffer.from(await pdf.save()), pages: total }
 }
 
-/* ═══════════════════════ DOCX ═══════════════════════ */
+/* ═══════════════ DOCX ═══════════════ */
 
 const HEADING = {
   doctitle: HeadingLevel.TITLE,
@@ -260,7 +347,11 @@ const HEADING = {
   h3: HeadingLevel.HEADING_4,
 }
 
+/** 56 % de la largeur utile (16 cm) en vingtièmes de point : le décalage des blocs « à droite ». */
+const INDENT_DOCX = Math.round(16 * 0.56 * 567)
+
 async function versDocx(doc, blocs, paysNom) {
+  const G = GABARITS[doc.layout === 'lettre' ? 'lettre' : 'document']
   const enfants = blocs.map((b) => {
     if (b.t === 'break') return new Paragraph({ text: '', pageBreakBefore: true })
     if (b.t === 'table') {
@@ -279,7 +370,7 @@ async function versDocx(doc, blocs, paysNom) {
                             text: String(cell),
                             bold: ri === 0,
                             size: 19,
-                            font: 'Arial',
+                            font: G.fonteDocx,
                           }),
                         ],
                       }),
@@ -290,19 +381,16 @@ async function versDocx(doc, blocs, paysNom) {
         ),
       })
     }
-    const st = STYLE[b.t]
+    const st = G.style[b.t]
     return new Paragraph({
-      // Les niveaux de titre ne sont pas décoratifs : ils alimentent le volet Navigation de Word
-      // et les signets du PDF exporté — un examinateur s'y déplace.
       heading: HEADING[b.t],
-      alignment: st.centre
-        ? AlignmentType.CENTER
-        : st.droite
-          ? AlignmentType.RIGHT
-          : AlignmentType.LEFT,
+      alignment: st.centre ? AlignmentType.CENTER : AlignmentType.LEFT,
+      // Bloc « à droite » du moteur de lettres : DÉCALÉ à 56 %, aligné à gauche — pas un
+      // alignement droit, qui ferait flotter chaque ligne différemment.
+      indent: st.droite ? { left: INDENT_DOCX } : undefined,
       bullet: st.puce ? { level: 0 } : undefined,
       spacing: { before: st.avant * 20, after: st.apres * 20 },
-      children: [new TextRun({ text: b.x, bold: st.gras, size: st.taille * 2, font: 'Arial' })],
+      children: [new TextRun({ text: b.x, bold: st.gras, size: st.taille * 2, font: G.fonteDocx })],
     })
   })
 
@@ -310,15 +398,11 @@ async function versDocx(doc, blocs, paysNom) {
     creator: doc.source[0],
     title: `${doc.nom[0]} — modèle officiel`,
     description: paysNom ? `Modèle officiel — ${paysNom}` : 'Modèle officiel',
-    // ⚠️ Ne PAS passer `created`/`modified` ici : `docx` v9 les ignore et horodate malgré tout à
-    // `Date.now()`. Les dates sont figées après coup, dans `figerLesDates()`.
     lastModifiedBy: doc.source[0],
-    styles: { default: { document: { run: { font: 'Arial', size: CORPS * 2 } } } },
+    styles: { default: { document: { run: { font: G.fonteDocx, size: G.style.p.taille * 2 } } } },
     sections: [
       {
-        properties: {
-          page: { margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 } },
-        },
+        properties: { page: { margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 } } },
         children: enfants,
       },
     ],
@@ -326,20 +410,7 @@ async function versDocx(doc, blocs, paysNom) {
   return figerLesDates(await Packer.toBuffer(d))
 }
 
-/**
- * Rejoue l'archive DOCX en figeant les DEUX horodatages qu'elle porte.
- *
- * Sans cela, deux exécutions du générateur produisent dix fichiers binaires différents pour un
- * contenu identique : le diff devient illisible en revue, et on perd la seule question qui compte
- * devant un document réglementaire — « ce fichier a-t-il changé ? ». Le PDF, lui, est déjà figé
- * par `setCreationDate`.
- *
- * Deux sources d'horodatage, et il faut les deux :
- *   1. la date d'entrée ZIP, posée par JSZip à `Date.now()` ;
- *   2. `dcterms:created` / `dcterms:modified` de `docProps/core.xml`, que `docx` v9 écrit lui-même
- *      en ignorant les options `created`/`modified` du `Document`.
- * N'en corriger qu'une laisse la sortie instable — vérifié, c'était le cas ici.
- */
+/** Fige les DEUX horodatages du DOCX (entrées ZIP + docProps/core.xml) — reproductibilité. */
 async function figerLesDates(buffer) {
   const zip = await JSZip.loadAsync(buffer)
   const rejoue = new JSZip()
@@ -364,7 +435,14 @@ async function figerLesDates(buffer) {
   return rejoue.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
 }
 
-/* ═══════════════════════ orchestration ═══════════════════════ */
+/** ZIP de téléchargement — dates figées pour la même raison. */
+async function versZip(entrees) {
+  const zip = new JSZip()
+  for (const [nom, octets] of entrees) zip.file(nom, octets, { date: FIGEE, createFolders: false })
+  return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
+}
+
+/* ═══════════════ orchestration ═══════════════ */
 
 const nomPays = (k) => {
   const p = PAYS.find((x) => x.k === k)
@@ -372,6 +450,7 @@ const nomPays = (k) => {
   return Array.isArray(p.nom) ? p.nom[0] : p.nom
 }
 
+fs.rmSync(SORTIE, { recursive: true, force: true })
 fs.mkdirSync(SORTIE, { recursive: true })
 
 const manifeste = {}
@@ -385,37 +464,47 @@ for (const doc of DOCS) {
   for (const k of cles) {
     const pays = k === '*' ? null : k
     const suffixe = pays ? `-${pays}` : ''
-    const blocs = resoudre(doc, pays)
     const libelle = pays ? nomPays(pays) : null
+    const blocsFr = resoudre(doc, pays, 'fr')
 
-    const { octets: pdf, pages } = await versPdf(doc, blocs, libelle)
-    const docx = await versDocx(doc, blocs, libelle)
+    const { octets: pdf, pages } = await versPdf(doc, blocsFr, libelle)
+    const docxFr = await versDocx(doc, blocsFr, libelle)
+
+    // Noms LISIBLES dans l'archive : translittération des accents (« Bénin » → « Benin »),
+    // jamais un remplacement aveugle qui rendrait « B-nin ». `_FR` n'apparaît que quand une
+    // version EN existe — un formulaire OMS anglais suffixé FR serait un contresens.
+    const ascii = (s) =>
+      s
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/[^A-Za-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+    const base = ascii(doc.court[0])
+    const basePays = libelle ? `${base}_${ascii(libelle)}` : base
+    const entrees = [[`${basePays}${doc.bilingue ? '_FR' : ''}.docx`, docxFr]]
+    if (doc.bilingue) {
+      const docxEn = await versDocx(doc, resoudre(doc, pays, 'en'), libelle)
+      entrees.push([`${base}_EN_courtesy.docx`, docxEn])
+    }
+    const zip = await versZip(entrees)
 
     const basePdf = `${doc.slug}${suffixe}.pdf`
-    const baseDocx = `${doc.slug}${suffixe}.docx`
+    const baseZip = `${doc.slug}${suffixe}.zip`
     fs.writeFileSync(path.join(SORTIE, basePdf), pdf)
-    fs.writeFileSync(path.join(SORTIE, baseDocx), docx)
+    fs.writeFileSync(path.join(SORTIE, baseZip), zip)
     ecrits += 2
 
     fichiers[k] = {
       pdf: `/modeles/${basePdf}`,
-      docx: `/modeles/${baseDocx}`,
+      zip: `/modeles/${baseZip}`,
       pages,
       octetsPdf: pdf.length,
-      octetsDocx: docx.length,
+      octetsZip: zip.length,
     }
   }
 
-  // Les libellés voyagent DANS le manifeste : `modeles-source.mjs` pèse 25 Ko de corps de
-  // documents et n'a rien à faire dans le navigateur, mais la page a besoin des mêmes titres que
-  // les fichiers. Les recopier à la main dans le JS de la page les ferait diverger au premier
-  // renommage.
-  //
-  // `apercu` = la première page en fac-similé, pour la vignette des cartes. Dérivé des MÊMES
-  // blocs que les fichiers : la vignette ne peut pas montrer autre chose que ce qui se télécharge.
-  // Résolu sur le premier pays du référentiel quand le document varie — la page 1 du RCP ne
-  // contient pas la rubrique 4.8, donc l'aperçu est identique pour les huit pays.
-  const blocsApercu = resoudre(doc, perPays ? PAYS[0].k : null)
+  // `apercu` = première page en fac-similé, dérivé des MÊMES blocs que le fichier servi.
+  const blocsApercu = resoudre(doc, perPays ? PAYS[0].k : null, 'fr')
     .filter((b) => b.t !== 'break')
     .slice(0, 16)
     .map((b) =>
@@ -430,6 +519,7 @@ for (const doc of DOCS) {
     source: doc.source,
     groupe: doc.groupe,
     upgradable: doc.upgradable,
+    bilingue: doc.bilingue,
     perPays,
     apercu: blocsApercu,
     fichiers,
@@ -440,9 +530,8 @@ const entete = `/**
  * FICHIER GÉNÉRÉ par web/scripts/build-landing-modeles.mjs — NE PAS ÉDITER À LA MAIN.
  * Régénérer : \`npm run build:landing-modeles\` (depuis web/), puis committer landing/modeles/.
  *
- * \`perPays: false\` signifie que le document ne porte AUCUNE mention nationale : un seul fichier
- * sert les huit pays. Le déclarer par pays donnerait huit copies identiques — une variation de
- * façade que la page présenterait comme un choix.
+ * \`zip\` est le téléchargement (DOCX français + DOCX anglais de courtoisie quand \`bilingue\`) ;
+ * \`pdf\` est l'aperçu du lecteur. \`perPays: false\` = un seul fichier pour les huit pays.
  */
 `
 fs.writeFileSync(
@@ -455,5 +544,7 @@ fs.writeFileSync(
 console.log(`${ecrits} fichiers écrits dans landing/modeles/ · manifeste ${VERSION}`)
 for (const [slug, m] of Object.entries(manifeste)) {
   const n = Object.keys(m.fichiers).length
-  console.log(`  ${slug.padEnd(11)} ${m.perPays ? `${n} pays` : 'commun aux 8 pays'}`)
+  console.log(
+    `  ${slug.padEnd(22)} ${m.perPays ? `${n} pays` : 'commun'} · ${m.bilingue ? 'FR+EN' : 'fichier unique'}`,
+  )
 }

@@ -2,11 +2,10 @@
  * FICHIER GÉNÉRÉ par web/scripts/build-landing-modeles.mjs — NE PAS ÉDITER À LA MAIN.
  * Régénérer : `npm run build:landing-modeles` (depuis web/), puis committer landing/modeles/.
  *
- * `perPays: false` signifie que le document ne porte AUCUNE mention nationale : un seul fichier
- * sert les huit pays. Le déclarer par pays donnerait huit copies identiques — une variation de
- * façade que la page présenterait comme un choix.
+ * `zip` est le téléchargement (DOCX français + DOCX anglais de courtoisie quand `bilingue`) ;
+ * `pdf` est l'aperçu du lecteur. `perPays: false` = un seul fichier pour les huit pays.
  */
-export const MODELES_VERSION = "2026.2"
+export const MODELES_VERSION = "2026.3"
 
 export const MODELES_FICHIERS = {
   "rcp": {
@@ -28,6 +27,7 @@ export const MODELES_FICHIERS = {
     ],
     "groupe": "produit",
     "upgradable": true,
+    "bilingue": true,
     "perPays": true,
     "apercu": [
       {
@@ -98,59 +98,59 @@ export const MODELES_FICHIERS = {
     "fichiers": {
       "bj": {
         "pdf": "/modeles/rcp-bj.pdf",
-        "docx": "/modeles/rcp-bj.docx",
+        "zip": "/modeles/rcp-bj.zip",
         "pages": 4,
-        "octetsPdf": 7100,
-        "octetsDocx": 10779
+        "octetsPdf": 7107,
+        "octetsZip": 18170
       },
       "bf": {
         "pdf": "/modeles/rcp-bf.pdf",
-        "docx": "/modeles/rcp-bf.docx",
+        "zip": "/modeles/rcp-bf.zip",
         "pages": 4,
-        "octetsPdf": 7110,
-        "octetsDocx": 10769
+        "octetsPdf": 7120,
+        "octetsZip": 18149
       },
       "ci": {
         "pdf": "/modeles/rcp-ci.pdf",
-        "docx": "/modeles/rcp-ci.docx",
+        "zip": "/modeles/rcp-ci.zip",
         "pages": 4,
-        "octetsPdf": 7115,
-        "octetsDocx": 10785
+        "octetsPdf": 7126,
+        "octetsZip": 18190
       },
       "gw": {
         "pdf": "/modeles/rcp-gw.pdf",
-        "docx": "/modeles/rcp-gw.docx",
+        "zip": "/modeles/rcp-gw.zip",
         "pages": 4,
-        "octetsPdf": 7041,
-        "octetsDocx": 10728
+        "octetsPdf": 7106,
+        "octetsZip": 18068
       },
       "ml": {
         "pdf": "/modeles/rcp-ml.pdf",
-        "docx": "/modeles/rcp-ml.docx",
+        "zip": "/modeles/rcp-ml.zip",
         "pages": 4,
-        "octetsPdf": 6996,
-        "octetsDocx": 10719
+        "octetsPdf": 7061,
+        "octetsZip": 18028
       },
       "ne": {
         "pdf": "/modeles/rcp-ne.pdf",
-        "docx": "/modeles/rcp-ne.docx",
+        "zip": "/modeles/rcp-ne.zip",
         "pages": 4,
-        "octetsPdf": 7003,
-        "octetsDocx": 10720
+        "octetsPdf": 7072,
+        "octetsZip": 18033
       },
       "sn": {
         "pdf": "/modeles/rcp-sn.pdf",
-        "docx": "/modeles/rcp-sn.docx",
+        "zip": "/modeles/rcp-sn.zip",
         "pages": 4,
-        "octetsPdf": 7095,
-        "octetsDocx": 10769
+        "octetsPdf": 7106,
+        "octetsZip": 18155
       },
       "tg": {
         "pdf": "/modeles/rcp-tg.pdf",
-        "docx": "/modeles/rcp-tg.docx",
+        "zip": "/modeles/rcp-tg.zip",
         "pages": 4,
-        "octetsPdf": 7002,
-        "octetsDocx": 10719
+        "octetsPdf": 7066,
+        "octetsZip": 18029
       }
     }
   },
@@ -173,6 +173,7 @@ export const MODELES_FICHIERS = {
     ],
     "groupe": "produit",
     "upgradable": true,
+    "bilingue": true,
     "perPays": false,
     "apercu": [
       {
@@ -243,10 +244,10 @@ export const MODELES_FICHIERS = {
     "fichiers": {
       "*": {
         "pdf": "/modeles/notice.pdf",
-        "docx": "/modeles/notice.docx",
+        "zip": "/modeles/notice.zip",
         "pages": 4,
-        "octetsPdf": 8194,
-        "octetsDocx": 11585
+        "octetsPdf": 8307,
+        "octetsZip": 19428
       }
     }
   },
@@ -269,6 +270,7 @@ export const MODELES_FICHIERS = {
     ],
     "groupe": "produit",
     "upgradable": true,
+    "bilingue": true,
     "perPays": false,
     "apercu": [
       {
@@ -339,10 +341,10 @@ export const MODELES_FICHIERS = {
     "fichiers": {
       "*": {
         "pdf": "/modeles/etiquetage.pdf",
-        "docx": "/modeles/etiquetage.docx",
+        "zip": "/modeles/etiquetage.zip",
         "pages": 4,
-        "octetsPdf": 6556,
-        "octetsDocx": 10323
+        "octetsPdf": 6609,
+        "octetsZip": 17294
       }
     }
   },
@@ -356,8 +358,8 @@ export const MODELES_FICHIERS = {
       "Application letter"
     ],
     "resume": [
-      "La lettre qui ouvre le dossier — objet, identification du produit, demandeur et fabricant.",
-      "The letter that opens the dossier — subject, product identification, applicant and manufacturer."
+      "La lettre qui ouvre le dossier, adressée à l'autorité de votre pays de dépôt.",
+      "The letter that opens the dossier, addressed to your filing country’s authority."
     ],
     "source": [
       "Modèle UEMOA — nouvelle AMM",
@@ -365,19 +367,12 @@ export const MODELES_FICHIERS = {
     ],
     "groupe": "lettres",
     "upgradable": false,
-    "perPays": false,
+    "bilingue": true,
+    "perPays": true,
     "apercu": [
       {
-        "t": "part",
-        "x": "ENTETE"
-      },
-      {
-        "t": "p",
-        "x": "…………………………………………………………………………………………………"
-      },
-      {
         "t": "right",
-        "x": "Ville, le {date}"
+        "x": "{Ville}, le {date}"
       },
       {
         "t": "right",
@@ -385,15 +380,15 @@ export const MODELES_FICHIERS = {
       },
       {
         "t": "right",
-        "x": "Monsieur / Madame …"
+        "x": "Monsieur le Directeur Général"
       },
       {
         "t": "right",
-        "x": "Nom de la Direction du Médicament / Agence réglementaire nationale"
+        "x": "Agence Béninoise du Médicament et des autres produits de santé (ABMed)"
       },
       {
         "t": "right",
-        "x": "Adresse"
+        "x": "Cotonou, Zone résidentielle"
       },
       {
         "t": "h3",
@@ -401,7 +396,7 @@ export const MODELES_FICHIERS = {
       },
       {
         "t": "p",
-        "x": "Madame / Monsieur,"
+        "x": "Monsieur le Directeur Général,"
       },
       {
         "t": "p",
@@ -430,15 +425,72 @@ export const MODELES_FICHIERS = {
       {
         "t": "p",
         "x": "Le dossier technique ci-joint a été constitué en conformité avec les directives de l'UEMOA et les exigences spécifiques de votre Agence. Nou…"
+      },
+      {
+        "t": "p",
+        "x": "Nous vous prions d'agréer, Madame / Monsieur, l'expression de notre sincère collaboration."
+      },
+      {
+        "t": "right",
+        "x": "Poste"
       }
     ],
     "fichiers": {
-      "*": {
-        "pdf": "/modeles/lettre-demande.pdf",
-        "docx": "/modeles/lettre-demande.docx",
+      "bj": {
+        "pdf": "/modeles/lettre-demande-bj.pdf",
+        "zip": "/modeles/lettre-demande-bj.zip",
         "pages": 1,
-        "octetsPdf": 2238,
-        "octetsDocx": 9066
+        "octetsPdf": 2198,
+        "octetsZip": 15065
+      },
+      "bf": {
+        "pdf": "/modeles/lettre-demande-bf.pdf",
+        "zip": "/modeles/lettre-demande-bf.zip",
+        "pages": 1,
+        "octetsPdf": 2200,
+        "octetsZip": 15044
+      },
+      "ci": {
+        "pdf": "/modeles/lettre-demande-ci.pdf",
+        "zip": "/modeles/lettre-demande-ci.zip",
+        "pages": 1,
+        "octetsPdf": 2196,
+        "octetsZip": 15040
+      },
+      "gw": {
+        "pdf": "/modeles/lettre-demande-gw.pdf",
+        "zip": "/modeles/lettre-demande-gw.zip",
+        "pages": 1,
+        "octetsPdf": 2230,
+        "octetsZip": 15104
+      },
+      "ml": {
+        "pdf": "/modeles/lettre-demande-ml.pdf",
+        "zip": "/modeles/lettre-demande-ml.zip",
+        "pages": 1,
+        "octetsPdf": 2184,
+        "octetsZip": 15010
+      },
+      "ne": {
+        "pdf": "/modeles/lettre-demande-ne.pdf",
+        "zip": "/modeles/lettre-demande-ne.zip",
+        "pages": 1,
+        "octetsPdf": 2199,
+        "octetsZip": 15044
+      },
+      "sn": {
+        "pdf": "/modeles/lettre-demande-sn.pdf",
+        "zip": "/modeles/lettre-demande-sn.zip",
+        "pages": 1,
+        "octetsPdf": 2189,
+        "octetsZip": 15044
+      },
+      "tg": {
+        "pdf": "/modeles/lettre-demande-tg.pdf",
+        "zip": "/modeles/lettre-demande-tg.zip",
+        "pages": 1,
+        "octetsPdf": 2199,
+        "octetsZip": 15047
       }
     }
   },
@@ -461,19 +513,12 @@ export const MODELES_FICHIERS = {
     ],
     "groupe": "lettres",
     "upgradable": false,
-    "perPays": false,
+    "bilingue": true,
+    "perPays": true,
     "apercu": [
       {
-        "t": "part",
-        "x": "ENTETE"
-      },
-      {
-        "t": "p",
-        "x": "…………………………………………………………………………………………………"
-      },
-      {
         "t": "right",
-        "x": "Ville, le {date}"
+        "x": "{Ville}, le {date}"
       },
       {
         "t": "right",
@@ -481,15 +526,15 @@ export const MODELES_FICHIERS = {
       },
       {
         "t": "right",
-        "x": "Monsieur / Madame …"
+        "x": "Monsieur le Directeur Général"
       },
       {
         "t": "right",
-        "x": "Nom de la Direction du Médicament / Agence réglementaire nationale"
+        "x": "Agence Béninoise du Médicament et des autres produits de santé (ABMed)"
       },
       {
         "t": "right",
-        "x": "Adresse"
+        "x": "Cotonou, Zone résidentielle"
       },
       {
         "t": "h3",
@@ -501,7 +546,7 @@ export const MODELES_FICHIERS = {
       },
       {
         "t": "p",
-        "x": "Madame / Monsieur,"
+        "x": "Monsieur le Directeur Général,"
       },
       {
         "t": "p",
@@ -526,15 +571,72 @@ export const MODELES_FICHIERS = {
       {
         "t": "li",
         "x": "Nom et adresse du titulaire de l'AMM : …"
+      },
+      {
+        "t": "li",
+        "x": "Nom et adresse du fabricant : …"
+      },
+      {
+        "t": "p",
+        "x": "Le dossier technique ci-joint a été constitué en conformité avec les directives de l'UEMOA et les exigences spécifiques de votre Agence. Nou…"
       }
     ],
     "fichiers": {
-      "*": {
-        "pdf": "/modeles/lettre-renouvellement.pdf",
-        "docx": "/modeles/lettre-renouvellement.docx",
+      "bj": {
+        "pdf": "/modeles/lettre-renouvellement-bj.pdf",
+        "zip": "/modeles/lettre-renouvellement-bj.zip",
         "pages": 1,
-        "octetsPdf": 2372,
-        "octetsDocx": 9114
+        "octetsPdf": 2322,
+        "octetsZip": 15175
+      },
+      "bf": {
+        "pdf": "/modeles/lettre-renouvellement-bf.pdf",
+        "zip": "/modeles/lettre-renouvellement-bf.zip",
+        "pages": 1,
+        "octetsPdf": 2317,
+        "octetsZip": 15159
+      },
+      "ci": {
+        "pdf": "/modeles/lettre-renouvellement-ci.pdf",
+        "zip": "/modeles/lettre-renouvellement-ci.zip",
+        "pages": 1,
+        "octetsPdf": 2315,
+        "octetsZip": 15170
+      },
+      "gw": {
+        "pdf": "/modeles/lettre-renouvellement-gw.pdf",
+        "zip": "/modeles/lettre-renouvellement-gw.zip",
+        "pages": 1,
+        "octetsPdf": 2347,
+        "octetsZip": 15221
+      },
+      "ml": {
+        "pdf": "/modeles/lettre-renouvellement-ml.pdf",
+        "zip": "/modeles/lettre-renouvellement-ml.zip",
+        "pages": 1,
+        "octetsPdf": 2303,
+        "octetsZip": 15122
+      },
+      "ne": {
+        "pdf": "/modeles/lettre-renouvellement-ne.pdf",
+        "zip": "/modeles/lettre-renouvellement-ne.zip",
+        "pages": 1,
+        "octetsPdf": 2317,
+        "octetsZip": 15152
+      },
+      "sn": {
+        "pdf": "/modeles/lettre-renouvellement-sn.pdf",
+        "zip": "/modeles/lettre-renouvellement-sn.zip",
+        "pages": 1,
+        "octetsPdf": 2312,
+        "octetsZip": 15153
+      },
+      "tg": {
+        "pdf": "/modeles/lettre-renouvellement-tg.pdf",
+        "zip": "/modeles/lettre-renouvellement-tg.zip",
+        "pages": 1,
+        "octetsPdf": 2319,
+        "octetsZip": 15150
       }
     }
   },
@@ -557,19 +659,12 @@ export const MODELES_FICHIERS = {
     ],
     "groupe": "lettres",
     "upgradable": false,
-    "perPays": false,
+    "bilingue": true,
+    "perPays": true,
     "apercu": [
       {
-        "t": "part",
-        "x": "ENTETE"
-      },
-      {
-        "t": "p",
-        "x": "…………………………………………………………………………………………………"
-      },
-      {
         "t": "right",
-        "x": "Ville, le {date}"
+        "x": "{Ville}, le {date}"
       },
       {
         "t": "right",
@@ -577,15 +672,15 @@ export const MODELES_FICHIERS = {
       },
       {
         "t": "right",
-        "x": "Monsieur / Madame …"
+        "x": "Monsieur le Directeur Général"
       },
       {
         "t": "right",
-        "x": "Nom de la Direction du Médicament / Agence réglementaire nationale"
+        "x": "Agence Béninoise du Médicament et des autres produits de santé (ABMed)"
       },
       {
         "t": "right",
-        "x": "Adresse"
+        "x": "Cotonou, Zone résidentielle"
       },
       {
         "t": "h3",
@@ -597,7 +692,7 @@ export const MODELES_FICHIERS = {
       },
       {
         "t": "p",
-        "x": "Madame / Monsieur,"
+        "x": "Monsieur le Directeur Général,"
       },
       {
         "t": "p",
@@ -622,15 +717,72 @@ export const MODELES_FICHIERS = {
       {
         "t": "p",
         "x": "Le tableau comparatif « avant / après » et les pièces justificatives correspondantes sont joints en annexe."
+      },
+      {
+        "t": "p",
+        "x": "Nous vous prions d'agréer, Madame / Monsieur, l'expression de notre sincère collaboration."
+      },
+      {
+        "t": "right",
+        "x": "Poste"
       }
     ],
     "fichiers": {
-      "*": {
-        "pdf": "/modeles/lettre-variation.pdf",
-        "docx": "/modeles/lettre-variation.docx",
+      "bj": {
+        "pdf": "/modeles/lettre-variation-bj.pdf",
+        "zip": "/modeles/lettre-variation-bj.zip",
+        "pages": 1,
+        "octetsPdf": 2228,
+        "octetsZip": 15086
+      },
+      "bf": {
+        "pdf": "/modeles/lettre-variation-bf.pdf",
+        "zip": "/modeles/lettre-variation-bf.zip",
+        "pages": 1,
+        "octetsPdf": 2233,
+        "octetsZip": 15057
+      },
+      "ci": {
+        "pdf": "/modeles/lettre-variation-ci.pdf",
+        "zip": "/modeles/lettre-variation-ci.zip",
+        "pages": 1,
+        "octetsPdf": 2223,
+        "octetsZip": 15072
+      },
+      "gw": {
+        "pdf": "/modeles/lettre-variation-gw.pdf",
+        "zip": "/modeles/lettre-variation-gw.zip",
+        "pages": 1,
+        "octetsPdf": 2248,
+        "octetsZip": 15123
+      },
+      "ml": {
+        "pdf": "/modeles/lettre-variation-ml.pdf",
+        "zip": "/modeles/lettre-variation-ml.zip",
+        "pages": 1,
+        "octetsPdf": 2217,
+        "octetsZip": 15036
+      },
+      "ne": {
+        "pdf": "/modeles/lettre-variation-ne.pdf",
+        "zip": "/modeles/lettre-variation-ne.zip",
         "pages": 1,
         "octetsPdf": 2226,
-        "octetsDocx": 9083
+        "octetsZip": 15064
+      },
+      "sn": {
+        "pdf": "/modeles/lettre-variation-sn.pdf",
+        "zip": "/modeles/lettre-variation-sn.zip",
+        "pages": 1,
+        "octetsPdf": 2223,
+        "octetsZip": 15069
+      },
+      "tg": {
+        "pdf": "/modeles/lettre-variation-tg.pdf",
+        "zip": "/modeles/lettre-variation-tg.zip",
+        "pages": 1,
+        "octetsPdf": 2222,
+        "octetsZip": 15058
       }
     }
   },
@@ -653,19 +805,12 @@ export const MODELES_FICHIERS = {
     ],
     "groupe": "lettres",
     "upgradable": false,
-    "perPays": false,
+    "bilingue": true,
+    "perPays": true,
     "apercu": [
       {
-        "t": "part",
-        "x": "ENTETE"
-      },
-      {
-        "t": "p",
-        "x": "…………………………………………………………………………………………………"
-      },
-      {
         "t": "right",
-        "x": "Ville, le {date}"
+        "x": "{Ville}, le {date}"
       },
       {
         "t": "right",
@@ -673,15 +818,15 @@ export const MODELES_FICHIERS = {
       },
       {
         "t": "right",
-        "x": "Monsieur / Madame …"
+        "x": "Monsieur le Directeur Général"
       },
       {
         "t": "right",
-        "x": "Nom de la Direction du Médicament / Agence réglementaire nationale"
+        "x": "Agence Béninoise du Médicament et des autres produits de santé (ABMed)"
       },
       {
         "t": "right",
-        "x": "Adresse"
+        "x": "Cotonou, Zone résidentielle"
       },
       {
         "t": "h3",
@@ -689,7 +834,7 @@ export const MODELES_FICHIERS = {
       },
       {
         "t": "p",
-        "x": "Monsieur / Madame le …,"
+        "x": "Monsieur le Directeur Général,"
       },
       {
         "t": "p",
@@ -734,12 +879,61 @@ export const MODELES_FICHIERS = {
       }
     ],
     "fichiers": {
-      "*": {
-        "pdf": "/modeles/lettre-pght.pdf",
-        "docx": "/modeles/lettre-pght.docx",
+      "bj": {
+        "pdf": "/modeles/lettre-pght-bj.pdf",
+        "zip": "/modeles/lettre-pght-bj.zip",
         "pages": 1,
-        "octetsPdf": 2365,
-        "octetsDocx": 9138
+        "octetsPdf": 2334,
+        "octetsZip": 15203
+      },
+      "bf": {
+        "pdf": "/modeles/lettre-pght-bf.pdf",
+        "zip": "/modeles/lettre-pght-bf.zip",
+        "pages": 1,
+        "octetsPdf": 2332,
+        "octetsZip": 15178
+      },
+      "ci": {
+        "pdf": "/modeles/lettre-pght-ci.pdf",
+        "zip": "/modeles/lettre-pght-ci.zip",
+        "pages": 1,
+        "octetsPdf": 2330,
+        "octetsZip": 15195
+      },
+      "gw": {
+        "pdf": "/modeles/lettre-pght-gw.pdf",
+        "zip": "/modeles/lettre-pght-gw.zip",
+        "pages": 1,
+        "octetsPdf": 2359,
+        "octetsZip": 15241
+      },
+      "ml": {
+        "pdf": "/modeles/lettre-pght-ml.pdf",
+        "zip": "/modeles/lettre-pght-ml.zip",
+        "pages": 1,
+        "octetsPdf": 2313,
+        "octetsZip": 15152
+      },
+      "ne": {
+        "pdf": "/modeles/lettre-pght-ne.pdf",
+        "zip": "/modeles/lettre-pght-ne.zip",
+        "pages": 1,
+        "octetsPdf": 2327,
+        "octetsZip": 15177
+      },
+      "sn": {
+        "pdf": "/modeles/lettre-pght-sn.pdf",
+        "zip": "/modeles/lettre-pght-sn.zip",
+        "pages": 1,
+        "octetsPdf": 2324,
+        "octetsZip": 15180
+      },
+      "tg": {
+        "pdf": "/modeles/lettre-pght-tg.pdf",
+        "zip": "/modeles/lettre-pght-tg.zip",
+        "pages": 1,
+        "octetsPdf": 2327,
+        "octetsZip": 15180
       }
     }
   },
@@ -762,6 +956,7 @@ export const MODELES_FICHIERS = {
     ],
     "groupe": "resumes",
     "upgradable": false,
+    "bilingue": false,
     "perPays": false,
     "apercu": [
       {
@@ -832,10 +1027,10 @@ export const MODELES_FICHIERS = {
     "fichiers": {
       "*": {
         "pdf": "/modeles/qos-pd.pdf",
-        "docx": "/modeles/qos-pd.docx",
+        "zip": "/modeles/qos-pd.zip",
         "pages": 1,
-        "octetsPdf": 2449,
-        "octetsDocx": 9295
+        "octetsPdf": 2468,
+        "octetsZip": 7642
       }
     }
   },
@@ -858,6 +1053,7 @@ export const MODELES_FICHIERS = {
     ],
     "groupe": "resumes",
     "upgradable": false,
+    "bilingue": false,
     "perPays": false,
     "apercu": [
       {
@@ -928,10 +1124,10 @@ export const MODELES_FICHIERS = {
     "fichiers": {
       "*": {
         "pdf": "/modeles/btif.pdf",
-        "docx": "/modeles/btif.docx",
+        "zip": "/modeles/btif.zip",
         "pages": 1,
-        "octetsPdf": 2354,
-        "octetsDocx": 9187
+        "octetsPdf": 2363,
+        "octetsZip": 7532
       }
     }
   }

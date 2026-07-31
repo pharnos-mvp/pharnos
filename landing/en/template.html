@@ -103,68 +103,99 @@
 <div class="bib-app">
   <div class="wrap">
     <div class="doc-layout">
-      <!-- Le document lui-même, dans un lecteur -->
+      <!-- Le document lui-même, dans un lecteur — le téléchargement vit dans SA barre, à gauche -->
       <div class="doc-reader">
+        <div class="reader-bar">
+          <button class="btn btn-dark btn-sm" type="button" id="dlbtn"><svg width="15" height="15" aria-hidden="true"><use href="#i-dl"></use></svg> <span data-fr="Télécharger">Download</span></button>
+          <span class="rb-note" id="dlnote" data-fr="Word · FR + EN · gratuit">Word · FR + EN · free</span>
+        </div>
         <iframe id="docview" title="Aperçu du modèle officiel" data-en-title="Preview of the official template"></iframe>
         <p class="doc-fall" id="docfall" hidden=""></p>
       </div>
 
-      <!-- Colonne droite, sticky : téléchargement puis offre -->
+      <!-- Colonne droite, sticky : l'offre Regafy AI (documents produit) ou la carte du modèle -->
       <aside class="doc-rail">
-        <div class="rail-card">
-          <h2><span class="badge b-free" data-fr="Gratuit">Free</span> <span data-fr="Télécharger le modèle">Download the template</span></h2>
-          <p class="rc-sub" id="dlsub" data-fr="PDF et Word, dans la version de votre pays de dépôt. Sans compte, sans e-mail.">PDF and Word, in your filing country’s version. No account, no e-mail.</p>
-          <div class="stack">
-            <button class="btn btn-dark btn-block" type="button" id="dlbtn"><svg width="16" height="16" aria-hidden="true"><use href="#i-dl"></use></svg> <span data-fr="Télécharger">Download</span></button>
+        <div class="rail-card offer" id="offre" hidden="">
+          <div class="peek" aria-hidden="true">
+            <span class="pk1">RÉSUMÉ DES CARACTÉRISTIQUES DU PRODUIT</span>
+            <span class="pkh">2. COMPOSITION QUALITATIVE ET QUANTITATIVE</span>
+            <span class="pkl">Sulfate de néomycine ……………… 35 000 UI</span>
+            <span class="pkl">Nystatine ……………………………… 100 000 UI</span>
+            <span class="pkh">4.8 Effets indésirables</span>
+            <span class="pkl">Liste tabulée MedDRA, par fréquence…</span>
+            <span class="pkh">7.1 Titulaire de l'AMM</span>
+            <span class="pkl">ABMED PHARMA SA</span>
+            <span class="stamp" data-fr="✓ Au standard">✓ To standard</span>
+          </div>
+          <div class="offer-fg">
+            <h2 id="offreh" data-fr="Du modèle officiel au document prêt à déposer">From the official template to a filing-ready document</h2>
+            <p class="rc-sub" id="offresub"></p>
+            <ul class="advs">
+              <li><span class="ai" aria-hidden="true">⇄</span> <span data-fr="Chaque contenu remis à sa rubrique">Every piece of content moved back to its section</span></li>
+              <li><span class="ai" aria-hidden="true">A</span> <span data-fr="Terminologie officielle appliquée">Official terminology applied</span></li>
+              <li><span class="ai" aria-hidden="true">Fr</span> <span data-fr="Traduction en français">Translation into French</span></li>
+              <li><span class="ai" aria-hidden="true">5</span> <span data-fr="5 fichiers livrables : Word et PDF, EN et FR, plus le rapport des suggestions">5 deliverables: Word and PDF, EN and FR, plus the suggestions report</span></li>
+            </ul>
+            <div class="pline">
+              <span class="amt" id="p1"></span>
+              <span class="un" data-fr="un document · 4 minutes environ">one document · about 4 minutes</span>
+            </div>
+            <button class="btn btn-primary btn-block" type="button" id="upbtn"></button>
+            <button class="btn btn-ghost btn-block btn-sm" type="button" id="demobtn" data-fr="Voir la démo sur un RCP d'exemple">Watch it run on a sample SmPC</button>
           </div>
         </div>
 
-        <div class="rail-card" id="offre" hidden="">
-          <h2 id="offreh"></h2>
-          <ul class="advs">
-            <li>
-              <span class="ai" aria-hidden="true">⇄</span>
-              <span>
-                <span data-fr="Chaque contenu">Every piece of content</span>
-                <b><span data-fr="remis à sa rubrique">put back in its section</span></b>
-                <span data-fr="— même mal numéroté chez vous">— even if numbered otherwise in your file</span>
-              </span>
-            </li>
-            <li>
-              <span class="ai" aria-hidden="true">A</span>
-              <span>
-                <span data-fr="Français">French</span>
-                <b><span data-fr="et">and</span></b>
-                <span data-fr="anglais, terminologie officielle appliquée">English, official terminology applied</span>
-              </span>
-            </li>
-            <li>
-              <span class="ai" aria-hidden="true">!</span>
-              <span>
-                <span data-fr="Ce qui manque est">What is missing is</span>
-                <b><span data-fr="signalé">flagged</span></b><span data-fr=", jamais inventé">, never invented</span>
-              </span>
-            </li>
-            <li>
-              <span class="ai" aria-hidden="true">≡</span>
-              <span>
-                <b><span data-fr="5 fichiers">5 files</span></b><span data-fr=" : Word et PDF, plus la revue — en quatre minutes environ">: Word and PDF, plus the review — in about four minutes</span>
-              </span>
-            </li>
-          </ul>
-          <div class="pline">
-            <span class="amt" id="p1"></span>
-            <span class="un" data-fr="un document">one document</span>
-          </div>
-          <button class="btn btn-primary btn-block" type="button" id="upbtn"></button>
-          <div class="bundle">
-            <p class="bt" id="bundlet"></p>
-            <p class="bd" data-fr="Ajoutez la notice et l'étiquetage du même produit — nous les mettons en cohérence entre eux.">Add the leaflet and the labelling of the same product — we make them consistent with each other.</p>
-            <button class="btn btn-block btn-sm" type="button" id="upbtn3"></button>
-          </div>
+        <div class="rail-card" id="inf" hidden="">
+          <h2><span class="badge b-free" data-fr="Gratuit">Free</span> <span data-fr="Modèle officiel">Official template</span></h2>
+          <p class="rc-sub" id="infsub"></p>
         </div>
       </aside>
     </div>
+
+    <!-- Démo — spécimen fabriqué, jamais un fichier client -->
+    <section class="demo" id="demo" hidden="" aria-label="Demonstration on a sample" data-fr-al="Démonstration sur un spécimen">
+      <div class="demo-ribbon"><span data-fr="DÉMONSTRATION — spécimen DEMOCILLINE 500 mg. Votre document, lui, ne quitte jamais votre appareil.">DEMO — DEMOCILLINE 500 mg sample. Your document never leaves your device.</span>
+        <button class="mclose" type="button" id="demoferme" aria-label="Close the demonstration" data-fr-al="Fermer la démonstration">×</button>
+      </div>
+
+      <div class="rail-card" id="demo-gen">
+        <h2 data-fr="Nous reprenons le RCP, rubrique par rubrique">We rework the SmPC, section by section</h2>
+        <p class="rc-sub">DEMOCILLINE 500 mg · Bénin · <span data-fr="Nouvelle AMM · anglais vers français">New MA · English to French</span></p>
+        <div class="demo-prog"><span class="dp-lab" id="dplab"></span><span class="dp-eta" id="dpeta"></span></div>
+        <div class="pbar"><i id="dpfill"></i></div>
+        <ul class="rub" id="dprub"></ul>
+        <ul class="demo-doing">
+          <li data-fr="Nous cherchons chaque rubrique dans tout le document, pas sous le numéro qui lui ressemble.">We look for each section in your whole document, not under the number that merely resembles it.</li>
+          <li data-fr="Chaque phrase doit se retrouver mot pour mot dans la source.">Every sentence must be found word for word in the source.</li>
+          <li data-fr="Chaque dosage est vérifié : 250 mg n'est pas 250 µg.">Every dose is checked: 250 mg is not 250 µg.</li>
+        </ul>
+      </div>
+
+      <div class="rail-card" id="demo-liv" hidden="">
+        <h2 data-fr="Le RCP d'exemple est au standard. Six rubriques attendent de vraies données.">The sample SmPC is up to standard. Six sections await real data.</h2>
+        <div class="kpis">
+          <div class="kpi ok"><b>23</b><span data-fr="rubriques reprises et vérifiées">sections reworked and verified</span></div>
+          <div class="kpi warn"><b>6</b><span data-fr="rubriques à compléter">sections to complete</span></div>
+          <div class="kpi info"><b>11</b><span data-fr="contenus remis à leur place">contents moved back in place</span></div>
+          <div class="kpi"><b>4</b><span data-fr="valeurs à relire">figures to re-read</span></div>
+        </div>
+        <ul class="deliv">
+          <li><span>SmPC — <span data-fr="anglais">English</span></span><span class="ext">DOCX + PDF</span></li>
+          <li><span>RCP — <span data-fr="français">French</span></span><span class="ext">DOCX + PDF</span></li>
+          <li class="hl"><span><b>SmPC Regulatory Review</b> — <span data-fr="ce qui a été fait, ce qui reste">what was done, what remains</span></span><span class="ext">PDF</span></li>
+        </ul>
+        <table class="demo-t">
+          <caption class="vh" data-fr="Contenus remis à leur place">Contents moved back in place</caption>
+          <thead><tr><th data-fr="Contenu">Content</th><th data-fr="Chez vous">In the source</th><th data-fr="Au modèle">In the template</th></tr></thead>
+          <tbody>
+            <tr><td data-fr="Nom et adresse du fabricant">Manufacturer name and address</td><td>7</td><td><b>7.2</b></td></tr>
+            <tr><td data-fr="Titulaire de l'AMM">MA holder</td><td>8</td><td><b>7.1</b></td></tr>
+            <tr><td data-fr="Phrase sur l'absorption">Absorption sentence</td><td>5.1</td><td><b>5.2</b></td></tr>
+          </tbody>
+        </table>
+        <button class="btn btn-primary btn-block" type="button" id="demoup" data-fr="Faire la même chose avec mon document">Do the same with my document</button>
+      </div>
+    </section>
   </div>
 </div>
 
@@ -185,14 +216,14 @@
     <div class="mfield">
       <span class="mlab" id="dlactlab" data-fr="Activité réglementaire">Regulatory activity</span>
       <div class="chips" role="radiogroup" aria-labelledby="dlactlab" id="dlact">
-        <button class="chip" type="button" role="radio" aria-checked="true" data-v="amm" data-fr="Nouvelle AMM">New MA</button>
+        <button class="chip" type="button" role="radio" aria-checked="false" data-v="amm" data-fr="Nouvelle AMM">New MA</button>
         <button class="chip" type="button" role="radio" aria-checked="false" data-v="renouv" data-fr="Renouvellement">Renewal</button>
       </div>
     </div>
 
     <div class="mfield stack" id="dlgo">
-      <button class="btn btn-dark btn-block" type="button" id="dlpdf" data-fr="Télécharger le PDF">Download the PDF</button>
-      <button class="btn btn-ghost btn-block" type="button" id="dldocx" data-fr="Télécharger le Word">Download the Word file</button>
+      <button class="btn btn-dark btn-block" type="button" id="dlzip"></button>
+      <p class="mfoot-note" id="dlenote" data-fr="Le téléchargement inclut une version anglaise de courtoisie. Le fichier à déposer reste le français, et le fichier anglais l'annonce en première page.">The download includes an English courtesy version. The file to submit remains the French one, and the English file says so on page one.</p>
     </div>
   </div>
 </div>
@@ -216,7 +247,7 @@
       <div class="mfield">
         <span class="mlab" id="uactlab" data-fr="Activité réglementaire">Regulatory activity</span>
         <div class="chips" role="radiogroup" aria-labelledby="uactlab" id="uact">
-          <button class="chip" type="button" role="radio" aria-checked="true" data-v="amm" data-fr="Nouvelle AMM">New MA</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-v="amm" data-fr="Nouvelle AMM">New MA</button>
           <button class="chip" type="button" role="radio" aria-checked="false" data-v="renouv" data-fr="Renouvellement">Renewal</button>
         </div>
       </div>
@@ -238,20 +269,23 @@
       </div>
     </div>
 
-    <div class="sect-buy">
+    <div class="sect-buy" id="upg-e1">
       <div class="pline">
         <span class="amt" id="up1"></span>
         <span class="un" data-fr="un document · paiement unique">one document · one-off payment</span>
       </div>
       <button class="btn btn-primary btn-block btn-lg" type="button" id="buy1"></button>
-
-      <div class="bundle">
-        <p class="bt" id="bundlet2"></p>
-        <p class="bd" data-fr="Ajoutez la notice et l'étiquetage du même produit — nous les mettons en cohérence entre eux. Vous les déposerez après la commande.">Add the leaflet and the labelling of the same product — we make them consistent with each other. You will upload them after ordering.</p>
-        <button class="btn btn-ghost btn-block btn-sm" type="button" id="buy3"></button>
-      </div>
-
       <p class="mfoot-note" data-fr="Votre document reste sur votre appareil jusqu'au paiement.">Your document stays on your device until payment.</p>
+    </div>
+
+    <div class="sect-buy" id="upg-e2" hidden="">
+      <h4 class="upsell-t" data-fr="Une dernière chose — le RCP voyage rarement seul">One more thing — the SmPC rarely travels alone</h4>
+      <p class="upsell-d" id="bxsave"></p>
+      <div class="stack">
+        <button class="btn btn-primary btn-block" type="button" id="bx3"></button>
+        <button class="btn btn-ghost btn-block" type="button" id="bx1"></button>
+      </div>
+      <button class="linklike" type="button" id="bxretour" data-fr="← Retour">← Back</button>
     </div>
   </aside>
 </div>

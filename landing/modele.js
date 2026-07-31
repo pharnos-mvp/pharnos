@@ -15,7 +15,7 @@ import { PAYS } from "./checking/referentiel.js?v=2026.2";
 import {
   MODELES_FICHIERS,
   MODELES_VERSION,
-} from "./checking/modeles-manifest.js?v=2026.2";
+} from "./checking/modeles-manifest.js?v=2026.3";
 import { VIGILANCE } from "./checking/vigilance.js?v=2026.1";
 import {
   fichierModele,
@@ -29,7 +29,7 @@ import {
   tailleLisible,
   TTL_MS,
   validerFichier,
-} from "./checking/bibliotheque-core.js?v=2026.2";
+} from "./checking/bibliotheque-core.js?v=2026.3";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -66,12 +66,19 @@ const checkoutOuvert = (offre) => Boolean(CHECKOUT[offre]);
 const params = new URLSearchParams(window.location.search);
 const docParam = params.get("doc");
 const paysParam = params.get("pays");
+// ⚠️ AUCUN pays ni activité par défaut (directive CEO du 31/07/2026) : un défaut silencieux
+// ferait télécharger le modèle d'un pays que personne n'a choisi — et la mention 4.8 est
+// nationale. Tant que les deux choix ne sont pas faits, les boutons restent inertes.
 const S = {
   doc: MODELES_FICHIERS[docParam] ? docParam : "rcp",
-  pays: PAYS.some((p) => p.k === paysParam) ? paysParam : "bj",
-  activite: "amm",
+  pays: PAYS.some((p) => p.k === paysParam) ? paysParam : null,
+  activite: null,
   fichier: null,
 };
+
+/** L'aperçu du lecteur a besoin d'UN fichier avant tout choix : le premier pays du référentiel.
+ *  La première page est identique pour les huit — la version téléchargée, elle, attend le choix. */
+const paysApercu = () => S.pays ?? PAYS[0].k;
 
 const nomPays = (k) => L((PAYS.find((p) => p.k === k) ?? PAYS[0]).nom);
 
@@ -82,21 +89,13 @@ const MON = {
   etiquetage: ["mon étiquetage", "my labelling"],
 };
 const monDoc = () => L(MON[S.doc] ?? MON.rcp);
-const POSSESSIF = {
-  rcp: ["Votre RCP, lui, ne l’est pas.", "Your SmPC is not."],
-  notice: ["Votre notice, elle, ne l’est pas.", "Your leaflet is not."],
-  etiquetage: [
-    "Votre étiquetage, lui, ne l’est pas.",
-    "Your labelling is not.",
-  ],
-};
 
 /* ══════════════════ Rendu de la fiche ══════════════════ */
 
 function peindre() {
   const m = MODELES_FICHIERS[S.doc];
-  const f = fichierModele(S.doc, S.pays);
-  const v = VIGILANCE[S.pays];
+  const f = fichierModele(S.doc, paysApercu());
+  const v = VIGILANCE[paysApercu()];
 
   document.title = `${L(m.nom)} — ${L(["modèle officiel", "official template"])} · Pharnos`;
   $("#doctitle").textContent = L(m.nom);
@@ -104,7 +103,12 @@ function peindre() {
     L(m.source),
     `${f.pages} ${f.pages > 1 ? L(["pages", "pages"]) : L(["page", "page"])}`,
     m.perPays
-      ? `${L(["mention de pharmacovigilance", "pharmacovigilance statement"])} : ${v.organisme}`
+      ? S.pays
+        ? `${L(["mention de pharmacovigilance", "pharmacovigilance statement"])} : ${v.organisme}`
+        : L([
+            "réglé sur votre pays de dépôt au téléchargement",
+            "set for your filing country at download",
+          ])
       : L([
           "identique dans les huit pays",
           "identical across the eight countries",
@@ -112,7 +116,7 @@ function peindre() {
   ].join(" · ");
   $("#doctags").innerHTML =
     `<span class="badge b-free">${esc(L(["Gratuit", "Free"]))}</span>` +
-    (m.perPays
+    (m.perPays && S.pays
       ? `<span class="badge b-pays">${esc(nomPays(S.pays))}</span>`
       : "") +
     (m.upgradable
@@ -120,7 +124,7 @@ function peindre() {
       : "");
 
   // Retour vers la bibliothèque, pays conservé.
-  $("#back").href = `${PAGE_BIBLIO}?pays=${encodeURIComponent(S.pays)}`;
+  $("#back").href = PAGE_BIBLIO;
 
   // Le document lui-même — le lecteur natif, sans sa barre (doublon avec la nôtre).
   const apercu = $("#docview");
@@ -138,33 +142,56 @@ function peindre() {
     ]);
   }
 
+  // Note de la barre du lecteur : ce que contient le téléchargement.
+  $("#dlnote").textContent = m.bilingue
+    ? L(["Word · FR + EN · gratuit", "Word · FR + EN · free"])
+    : L(["Word · gratuit", "Word · free"]);
+
   // Offre — seulement pour les documents que le moteur sait mettre au standard.
   $("#offre").hidden = !m.upgradable;
+  $("#inf").hidden = m.upgradable;
   if (m.upgradable) {
-    $("#offreh").textContent =
-      `${L(["Ce modèle est vide.", "This template is empty."])} ${L(POSSESSIF[S.doc] ?? POSSESSIF.rcp)}`;
+    // Un sigle garde sa casse (« votre RCP »), un nom commun se plie à la phrase (« votre notice »).
+    const court = L(m.court);
+    const courtPhrase =
+      court === court.toUpperCase() ? court : court.toLowerCase();
+    $("#offresub").textContent = L([
+      `Regafy AI reprend votre ${courtPhrase} existant et le reconstruit dans ce modèle — vous relisez, vous déposez.`,
+      `Regafy AI takes your existing ${court} and rebuilds it in this template — you review, you file.`,
+    ]);
     $("#p1").textContent = prixDouble(PRIX.up1, lang);
     $("#upbtn").textContent = L([
       `Mettre ${monDoc()} au standard`,
       `Bring ${monDoc()} up to standard`,
     ]);
-    $("#bundlet").innerHTML = ligneBundle();
-    $("#upbtn3").textContent = L(["Prendre les trois", "Take all three"]);
+  } else {
+    $("#infsub").textContent = [
+      L(m.source),
+      m.perPays
+        ? L([
+            "adressé à l'autorité du pays choisi au téléchargement",
+            "addressed to the authority of the country chosen at download",
+          ])
+        : L([
+            "identique dans les huit pays",
+            "identical across the eight countries",
+          ]),
+    ].join(" · ");
   }
 }
-
-const ligneBundle = () =>
-  `${esc(L(["Les trois documents — ", "All three documents — "]))}${esc(prixDouble(PRIX.up3, lang))}` +
-  `<span class="old">${esc(prixCourt(PRIX_UP3_PLEIN, lang))}</span>` +
-  `<span class="save">−${esc(prixCourt({ eur: PRIX_UP3_PLEIN.eur - PRIX.up3.eur }, lang))}</span>`;
 
 /* ══════════════════ Téléchargement — pays et activité d'abord ══════════════════ */
 
 function remplirPays(sel, valeur) {
-  sel.innerHTML = PAYS.map(
-    (p) => `<option value="${esc(p.k)}">${esc(L(p.nom))}</option>`,
-  ).join("");
-  sel.value = valeur;
+  const placeholder = `<option value="" disabled ${valeur ? "" : "selected"}>${esc(
+    L(["Choisissez votre pays de dépôt…", "Choose your filing country…"]),
+  )}</option>`;
+  sel.innerHTML =
+    placeholder +
+    PAYS.map(
+      (p) => `<option value="${esc(p.k)}">${esc(L(p.nom))}</option>`,
+    ).join("");
+  if (valeur) sel.value = valeur;
 }
 
 function majChips(groupe, valeur) {
@@ -173,21 +200,42 @@ function majChips(groupe, valeur) {
   );
 }
 
+function majDlGo() {
+  $("#dlzip").disabled = !$("#dlpays").value || !S.activite;
+}
+
 $("#dlbtn").addEventListener("click", () => {
+  const m = MODELES_FICHIERS[S.doc];
   remplirPays($("#dlpays"), S.pays);
   majChips("#dlact", S.activite);
+  majDlGo();
+  $("#dlzip").textContent = m.bilingue
+    ? L(["Télécharger — Word FR + EN (ZIP)", "Download — Word FR + EN (ZIP)"])
+    : L(["Télécharger — Word (ZIP)", "Download — Word (ZIP)"]);
+  $("#dlenote").hidden = !m.bilingue;
   ouvrirModale("#dlm", $("#dlbtn"));
 });
 
-/** Le téléchargement part d'un clic UTILISATEUR sur PDF ou Word — jamais automatiquement à la
- *  fermeture de la popup : le choix du format lui appartient. */
-function telecharger(format) {
+/** Le téléchargement part d'un clic UTILISATEUR — jamais automatiquement à la fermeture de la
+ *  popup. Il sert le ZIP : le Word français à déposer et, quand elle existe, la version anglaise
+ *  de courtoisie qui l'annonce en première page. */
+function telecharger() {
+  // Ceinture en plus du `disabled` : aucun téléchargement sans choix explicite.
+  if (!$("#dlpays").value || !S.activite) {
+    toast(
+      L([
+        "Choisissez votre pays et votre activité.",
+        "Choose your country and activity.",
+      ]),
+    );
+    return;
+  }
   S.pays = $("#dlpays").value;
   const m = MODELES_FICHIERS[S.doc];
   const f = fichierModele(S.doc, S.pays);
   const a = document.createElement("a");
-  a.href = f[format];
-  a.download = `${S.doc}${m.perPays ? `-${S.pays}` : ""}.${format === "pdf" ? "pdf" : "docx"}`;
+  a.href = f.zip;
+  a.download = `${S.doc}${m.perPays ? `-${S.pays}` : ""}.zip`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -196,19 +244,20 @@ function telecharger(format) {
   toast(
     m.perPays
       ? L([
-          `Modèle ${nomPays(S.pays)} téléchargé — la mention 4.8 de votre pays est en place.`,
-          `${nomPays(S.pays)} template downloaded — your country’s 4.8 statement is in place.`,
+          `Modèle ${nomPays(S.pays)} téléchargé — réglé sur votre pays de dépôt.`,
+          `${nomPays(S.pays)} template downloaded — set for your filing country.`,
         ])
       : L(["Modèle téléchargé.", "Template downloaded."]),
   );
 }
-$("#dlpdf").addEventListener("click", () => telecharger("pdf"));
-$("#dldocx").addEventListener("click", () => telecharger("docx"));
+$("#dlzip").addEventListener("click", telecharger);
+$("#dlpays").addEventListener("change", majDlGo);
 $$("#dlact .chip").forEach((c) =>
   c.addEventListener("click", () => {
     S.activite = c.dataset.v;
     majChips("#dlact", S.activite);
     majChips("#uact", S.activite);
+    majDlGo();
   }),
 );
 
@@ -226,35 +275,47 @@ function ouvrirUpgrade(declencheur) {
   remplirPays($("#upays"), S.pays);
   majChips("#uact", S.activite);
   peindreAchat();
+  etapePanneau(1);
   ouvrirModale("#upg", declencheur);
 }
 
 function peindreAchat() {
   $("#up1").textContent = prixDouble(PRIX.up1, lang);
-  $("#bundlet2").innerHTML = ligneBundle();
-  const pret = S.fichier !== null;
-  for (const [sel, offre, libelle] of [
-    ["#buy1", "up1", ["Commander la mise à niveau", "Order the upgrade"]],
-    ["#buy3", "up3", ["Prendre les trois", "Take all three"]],
-  ]) {
-    const b = $(sel);
-    b.textContent = checkoutOuvert(offre)
-      ? `${L(libelle)} — ${prixCourt(OFFRES[offre].prix, lang)}`
-      : `${L(["Être rappelé — ", "Request a call back — "])}${prixCourt(OFFRES[offre].prix, lang)}`;
-    b.disabled = !pret;
-  }
+  const pret =
+    S.fichier !== null && Boolean($("#upays")?.value) && Boolean(S.activite);
+  $("#buy1").textContent =
+    `${L(["Commander la mise à niveau", "Order the upgrade"])} — ${prixCourt(PRIX.up1, lang)}`;
+  $("#buy1").disabled = !pret;
+  // Étape 2 — l'upsell n'apparaît qu'APRÈS le clic de commande, jamais sur le premier écran.
+  $("#bx1").textContent =
+    `${L(["Continuer avec un document", "Continue with one document"])} — ${prixCourt(PRIX.up1, lang)}`;
+  $("#bx3").textContent =
+    `${L(["Prendre les trois", "Take all three"])} — ${prixDouble(PRIX.up3, lang)}`;
+  $("#bxsave").innerHTML =
+    `${esc(L(["Notice et étiquetage du même produit inclus — ", "Leaflet and labelling of the same product included — "]))}` +
+    `<span class="old">${esc(prixCourt(PRIX_UP3_PLEIN, lang))}</span> ` +
+    `<b>${esc(prixDouble(PRIX.up3, lang))}</b>`;
+}
+
+/** Bascule entre l'étape « commande » et l'étape « upsell » du panneau. */
+function etapePanneau(n) {
+  $("#upg-e1").hidden = n !== 1;
+  $("#upg-e2").hidden = n !== 2;
+  const premier = $(n === 2 ? "#bx3" : "#upgclose");
+  if (premier) premier.focus();
 }
 
 $("#upbtn").addEventListener("click", () => ouvrirUpgrade($("#upbtn")));
-$("#upbtn3").addEventListener("click", () => ouvrirUpgrade($("#upbtn3")));
 $("#upays").addEventListener("change", (e) => {
   S.pays = e.target.value;
   peindre();
+  peindreAchat();
 });
 $$("#uact .chip").forEach((c) =>
   c.addEventListener("click", () => {
     S.activite = c.dataset.v;
     majChips("#uact", S.activite);
+    peindreAchat();
   }),
 );
 
@@ -392,6 +453,16 @@ async function acheter(offre) {
   const libelle = bouton.textContent;
   bouton.disabled = true;
   try {
+    if (!$("#upays").value || !S.activite) {
+      toast(
+        L([
+          "Choisissez votre pays et votre activité.",
+          "Choose your country and activity.",
+        ]),
+      );
+      etapePanneau(1);
+      return;
+    }
     const cmd = nouvelleCommande({
       doc: S.doc,
       pays: $("#upays").value,
@@ -430,11 +501,35 @@ async function acheter(offre) {
     bouton.textContent = libelle;
   }
 }
-$("#buy1").addEventListener("click", () => acheter("up1"));
-$("#buy3").addEventListener("click", () => acheter("up3"));
+// Le clic de commande OUVRE l'étape upsell — le paiement part de l'étape 2.
+$("#buy1").addEventListener("click", () => {
+  if (!$("#upays").value || !S.activite) {
+    toast(
+      L([
+        "Choisissez votre pays et votre activité.",
+        "Choose your country and activity.",
+      ]),
+    );
+    $("#upays").focus();
+    return;
+  }
+  const v = validerFichier(S.fichier);
+  if (!v.ok) {
+    toast(
+      L(["Déposez d’abord votre document.", "Upload your document first."]),
+    );
+    $("#udrop").focus();
+    return;
+  }
+  etapePanneau(2);
+});
+$("#bx1").addEventListener("click", () => acheter("up1"));
+$("#bx3").addEventListener("click", () => acheter("up3"));
+$("#bxretour").addEventListener("click", () => etapePanneau(1));
 
-/** Sans lien de règlement configuré, on n'invente pas un paiement : e-mail portant le contexte.
- *  Le document, lui, reste sur l'appareil — il n'est pas joint. */
+/** Sans lien de règlement configuré, la commande part par e-mail avec sa référence — le
+ *  document, lui, reste sur l'appareil, il n'est pas joint. Dès que les liens Chariow sont
+ *  posés dans CHECKOUT, ce repli disparaît de lui-même. */
 function ouvrirRappel(cmd) {
   const m = MODELES_FICHIERS[cmd.doc];
   const sujet = L([
@@ -572,6 +667,85 @@ function appliquerLangue(l) {
 }
 if (window.I18N && typeof window.I18N.on === "function")
   window.I18N.on(appliquerLangue);
+
+/* ══════════════════ Démo — spécimen DEMOCILLINE, écrans réels ══════════════════ */
+
+const DEMO_RUBS = [
+  [
+    "4.6",
+    [
+      "Fertilité, grossesse et allaitement",
+      "Fertility, pregnancy and lactation",
+    ],
+  ],
+  ["4.7", ["Aptitude à conduire", "Ability to drive"]],
+  ["4.8", ["Effets indésirables", "Undesirable effects"]],
+  ["4.9", ["Surdosage", "Overdose"]],
+  ["5.1", ["Propriétés pharmacodynamiques", "Pharmacodynamic properties"]],
+  ["5.2", ["Propriétés pharmacocinétiques", "Pharmacokinetic properties"]],
+  ["5.3", ["Sécurité préclinique", "Preclinical safety"]],
+  ["6.1", ["Liste des excipients", "List of excipients"]],
+];
+let demoTimer = null;
+let demoIdx = 0;
+
+function peindreDemo() {
+  const done = demoIdx;
+  $("#dprub").innerHTML = DEMO_RUBS.map(([n, lib], i) => {
+    const etat =
+      i < done
+        ? `<span class="badge b-free">✓ ${esc(L(["Reprise", "Reworked"]))}</span>`
+        : i === done
+          ? `<span class="spin" aria-hidden="true"></span><span class="vh">${esc(L(["en cours", "in progress"]))}</span>`
+          : `<span class="badge">${esc(L(["En attente", "Waiting"]))}</span>`;
+    return `<li class="${i === done ? "doing" : i > done ? "todo" : ""}"><span class="n">${esc(n)}</span> <span class="rl">${esc(L(lib))}</span> <span class="st">${etat}</span></li>`;
+  }).join("");
+  const total = 29;
+  const courant = 14 + done;
+  $("#dplab").textContent = L([
+    `Rubrique ${courant} sur ${total}`,
+    `Section ${courant} of ${total}`,
+  ]);
+  $("#dpeta").textContent = L([
+    `environ ${Math.max(1, 8 - done)} × 12 s restantes`,
+    `about ${Math.max(1, 8 - done)} × 12 s left`,
+  ]);
+  $("#dpfill").style.width = `${Math.round((courant / total) * 100)}%`;
+}
+
+function lancerDemo() {
+  clearInterval(demoTimer);
+  demoIdx = 0;
+  $("#demo-gen").hidden = false;
+  $("#demo-liv").hidden = true;
+  peindreDemo();
+  // Démonstration accélérée — une vraie mise à niveau prend environ quatre minutes.
+  demoTimer = setInterval(() => {
+    demoIdx += 1;
+    if (demoIdx >= DEMO_RUBS.length) {
+      clearInterval(demoTimer);
+      $("#demo-gen").hidden = true;
+      $("#demo-liv").hidden = false;
+      return;
+    }
+    peindreDemo();
+  }, 900);
+}
+
+$("#demobtn").addEventListener("click", () => {
+  $("#demo").hidden = false;
+  lancerDemo();
+  $("#demo").scrollIntoView({ behavior: "smooth", block: "start" });
+});
+$("#demoferme").addEventListener("click", () => {
+  clearInterval(demoTimer);
+  $("#demo").hidden = true;
+  $("#demobtn").focus();
+});
+$("#demoup").addEventListener("click", () => {
+  $("#demo").hidden = true;
+  ouvrirUpgrade($("#demoup"));
+});
 
 peindre();
 purger().catch((e) => console.error("purge", e));
