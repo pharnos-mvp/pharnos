@@ -449,12 +449,19 @@ function etapePanneau(n) {
   $("#upg-e1").hidden = n !== 1;
   $("#upg-e3").hidden = n !== 3;
   $("#upg-e4").hidden = n !== 4;
-  $("#upgbody").hidden = n === 3 || n === 4;
+  $("#upg-e5").hidden = n !== 5;
+  $("#upgbody").hidden = n === 3 || n === 4 || n === 5;
   // L'argumentaire a fait son travail : au moment de payer, il ne fait plus que pousser le
   // bouton vers le bas. On rend au panneau la hauteur qu'il coûtait.
-  $("#upgdesc").hidden = n === 4;
+  $("#upgdesc").hidden = n === 4 || n === 5;
   const premier = $(
-    n === 4 ? "#payprenom" : n === 3 ? "#cfmsend" : "#upgclose",
+    n === 5
+      ? "#paymclose"
+      : n === 4
+        ? "#payprenom"
+        : n === 3
+          ? "#cfmsend"
+          : "#upgclose",
   );
   if (premier) premier.focus();
 }
@@ -755,20 +762,20 @@ async function sessionPaiement(cmd, identite) {
 
 let veilleRetour = null;
 
-/** Ferme la modale de paiement et rend la main au panneau. */
-function fermerPaiement() {
+/** Quitte l'étape paiement et rend la main au formulaire. */
+function fermerPaiement(etape = 4) {
   if (veilleRetour) {
     clearInterval(veilleRetour);
     veilleRetour = null;
   }
-  // Vider le cadre AVANT de masquer : une page de paiement laissée vivante derrière une
-  // modale fermée continuerait sa navigation, et un OTP saisi plus tard n'irait nulle part.
+  // Vider le cadre AVANT de changer d'étape : une page de paiement laissée vivante derrière
+  // un écran refermé continuerait sa navigation, et un OTP saisi plus tard n'irait nulle part.
   $("#paymframe").src = "about:blank";
-  fermerModale("#paym");
+  if (etape) etapePanneau(etape);
 }
 
 /**
- * Ouvre le paiement dans la modale et guette le retour.
+ * Affiche le paiement DANS le panneau et guette le retour.
  *
  * Le processeur redirige, une fois payé, vers `RETOURS[lang]` — une page de pharnos.com, donc
  * de MÊME origine que le parent : c'est le seul moment où `contentWindow.location` devient
@@ -780,7 +787,8 @@ function ouvrirPaiement(url, cmd) {
   const cadre = $("#paymframe");
   $("#paymtab").href = url;
   cadre.src = url;
-  ouvrirModale("#paym", $("#paygo"));
+  $("#upgtitle").textContent = L(["Paiement sécurisé", "Secure payment"]);
+  etapePanneau(5);
   if (veilleRetour) clearInterval(veilleRetour);
   veilleRetour = setInterval(() => {
     let ici = null;
@@ -791,16 +799,16 @@ function ouvrirPaiement(url, cmd) {
     }
     if (!ici || ici === "about:blank") return;
     if (!ici.includes("paiement=ok") && !ici.includes("commande=")) return;
-    fermerPaiement();
     // Le document est déjà sous les yeux du client : on ne recharge pas la page, on bascule
     // simplement sur la confirmation — c'est le même écran qu'un retour par navigation.
+    fermerPaiement(0);
     ouvrirConfirmation(cmd);
     sauverCommande({ ...cmd, regle: true, regleeLe: Date.now() }).catch((e) =>
       console.error("statut commande", e),
     );
   }, 700);
 }
-$("#paymclose").addEventListener("click", fermerPaiement);
+$("#paymclose").addEventListener("click", () => fermerPaiement(4));
 
 let enCours = false;
 async function acheter(offre) {

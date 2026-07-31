@@ -12,7 +12,7 @@
     />
     <meta name="robots" content="noindex, follow" />
     <link rel="stylesheet" href="/styles.css?v=15" />
-    <link rel="stylesheet" href="/bibliotheque.css?v=5" />
+    <link rel="stylesheet" href="/bibliotheque.css?v=6" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link
@@ -935,53 +935,41 @@
             référence est déjà inscrite.
           </p>
         </div>
-      </aside>
-    </div>
-
-    <!-- ══ PAIEMENT EN MODALE — l'acheteur ne quitte jamais pharnos.com.
-         La page du processeur s'affiche dans ce cadre ; au retour (`?paiement=ok`, même
-         origine) le script lit l'URL du cadre, le referme et bascule sur la confirmation.
-         Le lien « ouvrir dans un onglet » reste offert : certaines banques cassent le cadre
-         à l'étape 3-D Secure, et un paiement bloqué doit toujours avoir une porte de sortie. ══ -->
-    <div class="modal-back pay-back" id="paym">
-      <div
-        class="modal pay-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="paymtitle"
-      >
-        <div class="pay-head">
-          <span class="pay-brand">
-            <svg aria-hidden="true"><use href="#logo-p" /></svg>
-            <span id="paymtitle" data-en="Secure payment">Paiement sécurisé</span>
-          </span>
-          <a
-            id="paymtab"
-            href="#"
-            target="_blank"
-            rel="noopener"
-            class="linklike"
-            data-en="Open in a tab"
-            >Ouvrir dans un onglet</a
-          >
-          <button
-            class="mclose"
-            type="button"
-            id="paymclose"
-            aria-label="Fermer"
-            data-en-al="Close"
-          >
-            ×
-          </button>
+        <!-- Étape 5 — PAIEMENT, DANS LE MÊME PANNEAU. L'acheteur ne quitte ni la page ni
+             le cadre où il vient de se nommer : la page du processeur prend la place du
+             formulaire, sous notre en-tête. Au retour (`?paiement=ok`, même origine) le
+             script lit l'URL du cadre et bascule sur la confirmation.
+             « Ouvrir dans un onglet » reste offert : certaines banques cassent le cadre à
+             l'étape 3-D Secure, et un paiement bloqué doit toujours avoir une issue. -->
+        <div class="pay-step" id="upg-e5" hidden>
+          <div class="pay-bar">
+            <a
+              id="paymtab"
+              href="#"
+              target="_blank"
+              rel="noopener"
+              class="linklike"
+              data-en="Open in a tab"
+              >Ouvrir dans un onglet</a
+            >
+            <button
+              class="linklike"
+              type="button"
+              id="paymclose"
+              data-en="← Back"
+            >
+              ← Retour
+            </button>
+          </div>
+          <iframe
+            id="paymframe"
+            title="Paiement"
+            data-en-al="Payment"
+            src="about:blank"
+            allow="payment"
+          ></iframe>
         </div>
-        <iframe
-          id="paymframe"
-          title="Paiement"
-          data-en-al="Payment"
-          src="about:blank"
-          allow="payment"
-        ></iframe>
-      </div>
+      </aside>
     </div>
 
     <!-- ══ Popup PRÉALABLE des lettres : pays et activité AVANT l'affichage du template ══ -->
@@ -1048,6 +1036,6 @@
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <script src="/landing.js?v=15" defer></script>
-    <script type="module" src="/modele.js?v=5"></script>
+    <script type="module" src="/modele.js?v=6"></script>
   </body>
 </html>

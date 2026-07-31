@@ -1212,58 +1212,37 @@
   background: linear-gradient(180deg, #fff, #fbfcfe);
 }
 
-/* ══ Modale de paiement — la page du processeur s'affiche SUR pharnos.com.
-   Le cadre occupe presque tout l'écran : un paiement mobile money peut demander une saisie
-   d'OTP, il ne doit jamais se retrouver dans une lucarne. ══ */
-.pay-back.on {
-  align-items: center;
-  justify-content: center;
-}
-.pay-modal {
-  width: min(520px, 96vw);
-  max-width: none;
-  height: min(760px, 92vh);
-  padding: 0;
+/* ══ Paiement DANS le panneau — la page du processeur prend la place du formulaire, sous
+   notre en-tête. Le panneau est déjà une colonne flex pleine hauteur : cette étape en occupe
+   tout le reste, sinon le cadre s'affaisserait à la hauteur de son contenu vide. ══ */
+.pay-step {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  min-height: 0;
 }
-.pay-head {
+.pay-bar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
-  padding: 12px 14px 12px 18px;
-  border-bottom: 1px solid var(--g200);
-  background: #fff;
+  padding: 8px 22px 10px;
 }
-.pay-brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-ui);
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--navy);
-  margin-right: auto;
-}
-.pay-brand svg {
-  width: 18px;
-  height: 18px;
-  color: var(--navy);
-}
-.pay-head .linklike {
-  font-size: 12px;
+.pay-bar .linklike {
+  font-size: 12.5px;
   margin: 0;
-}
-.pay-head .mclose {
-  position: static;
-  flex: none;
 }
 #paymframe {
   flex: 1;
   width: 100%;
   border: 0;
+  border-top: 1px solid var(--g200);
   background: var(--g100);
+}
+/* Le panneau ne défile plus quand il porte le paiement : c'est le cadre qui défile,
+   sinon deux barres de défilement s'empilent et l'OTP se perd hors de l'écran. */
+.drawer:has(#upg-e5:not([hidden])) {
+  overflow-y: hidden;
 }
 
 /* ══ Écran offre + identité : COMPACT, et le bouton de paiement TOUJOURS à l'écran.
