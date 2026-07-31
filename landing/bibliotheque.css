@@ -1016,6 +1016,31 @@
   background: #fff;
   cursor: pointer;
 }
+/* Champs texte de l'étape identité — même peau que les selects du panneau. */
+.bib .drawer .mfield input {
+  width: 100%;
+  font: inherit;
+  font-size: 15px;
+  color: var(--g800);
+  padding: 11px 13px;
+  border: 1.5px solid var(--g200);
+  border-radius: var(--radius);
+  background: #fff;
+}
+.bib .drawer .mfield input:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+/* Indicatif + numéro sur une ligne ; l'indicatif ne grandit pas, le numéro tronque.
+   `minmax(0, 1fr)` : dès qu'une colonne peut tronquer du texte, jamais `1fr` nu. */
+.tel-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+}
+.bib .drawer .tel-row select {
+  width: auto;
+}
 .chips {
   display: grid;
   grid-template-columns: 1fr 1fr;

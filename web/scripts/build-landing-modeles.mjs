@@ -178,6 +178,46 @@ function resoudre(doc, pays, langue, activite) {
   return langue === 'en' ? [...AVERTISSEMENT_EN, ...out] : out
 }
 
+/** Un emplacement à compléter dans un modèle — même motif que la feuille de remplissage. */
+const TOKENS_AIDE = /…|\{[^}]+\}/
+
+/**
+ * Texte d'AIDE anglais des cases à remplir, indexé par numéro de bloc.
+ *
+ * À quoi ça sert : la feuille de remplissage sert un document FRANÇAIS (c'est la version à
+ * déposer) ; un utilisateur anglophone y verrait sinon « DCI et dosage » écrit dans une case et ne
+ * saurait pas quoi taper. La page pioche donc son aide ICI, dans la traduction qui existe déjà —
+ * jamais dans un glossaire parallèle, qui divergerait au premier ajout.
+ *
+ * On ne garde QUE les blocs qui portent une case, et d'eux que le strict nécessaire : embarquer
+ * les blocs anglais entiers ferait grossir de 68 % un manifeste rechargé à chaque visite.
+ *
+ * ⚠️ L'index est celui du bloc FRANÇAIS : l'aide de la case n° 3 est lue au bloc n° 3. On échoue
+ * si les deux langues ne se développent pas pareil, plutôt que de décaler toutes les aides d'un
+ * cran — une aide décalée est pire que pas d'aide.
+ */
+function aidesEn(doc, pays, activite) {
+  const en = resoudre(doc, pays, 'en', activite).slice(AVERTISSEMENT_EN.length)
+  const fr = resoudre(doc, pays, 'fr', activite)
+  if (en.length !== fr.length)
+    throw new Error(
+      `${doc.slug} : blocs FR (${fr.length}) et EN (${en.length}) désalignés — ` +
+        "le texte d'aide des cases serait décalé",
+    )
+  const out = {}
+  const memeTexte = (a, b) => JSON.stringify(a) === JSON.stringify(b)
+  fr.forEach((b, i) => {
+    // Rien à stocker quand l'anglais est identique au français (« {date} », un montant, un
+    // libellé déjà international) : l'aide retombe sur le bloc français et dit la même chose.
+    if (b.t === 'table') {
+      if (!memeTexte(b.rows, en[i].rows)) out[i] = { rows: en[i].rows }
+    } else if (typeof b.x === 'string' && TOKENS_AIDE.test(b.x) && b.x !== en[i].x) {
+      out[i] = { x: en[i].x }
+    }
+  })
+  return out
+}
+
 /* ═══════════════ mise en page ═══════════════ */
 
 const A4 = { l: 595.28, h: 841.89 }
@@ -647,7 +687,7 @@ for (const doc of DOCS) {
       octetsZip: zip.length,
       // Les lettres embarquent leurs blocs résolus : le formulaire « Générer ma lettre » de la
       // page les remplit puis produit le DOCX dans le navigateur — même source, zéro divergence.
-      ...(doc.layout === 'lettre' ? { blocs: blocsFr } : {}),
+      ...(doc.layout === 'lettre' ? { blocs: blocsFr, aidesEn: aidesEn(doc, pays, activite) } : {}),
     }
   }
 

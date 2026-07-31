@@ -102,14 +102,14 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/rcp-bj.zip",
         "pages": 4,
         "octetsPdf": 7107,
-        "octetsZip": 19945
+        "octetsZip": 19950
       },
       "bf": {
         "pdf": "/modeles/rcp-bf.pdf",
         "zip": "/modeles/rcp-bf.zip",
         "pages": 4,
         "octetsPdf": 7120,
-        "octetsZip": 19928
+        "octetsZip": 19921
       },
       "ci": {
         "pdf": "/modeles/rcp-ci.pdf",
@@ -128,21 +128,21 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/rcp-gw.zip",
         "pages": 4,
         "octetsPdf": 7106,
-        "octetsZip": 19860
+        "octetsZip": 19850
       },
       "ml": {
         "pdf": "/modeles/rcp-ml.pdf",
         "zip": "/modeles/rcp-ml.zip",
         "pages": 4,
         "octetsPdf": 7061,
-        "octetsZip": 19794
+        "octetsZip": 19789
       },
       "ne": {
         "pdf": "/modeles/rcp-ne.pdf",
         "zip": "/modeles/rcp-ne.zip",
         "pages": 4,
         "octetsPdf": 7072,
-        "octetsZip": 19798
+        "octetsZip": 19804
       },
       "sn": {
         "pdf": "/modeles/rcp-sn.pdf",
@@ -156,7 +156,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/rcp-tg.zip",
         "pages": 4,
         "octetsPdf": 7066,
-        "octetsZip": 19796
+        "octetsZip": 19799
       }
     }
   },
@@ -254,7 +254,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/notice.zip",
         "pages": 4,
         "octetsPdf": 8307,
-        "octetsZip": 21186
+        "octetsZip": 21193
       }
     }
   },
@@ -352,7 +352,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/etiquetage.zip",
         "pages": 4,
         "octetsPdf": 6609,
-        "octetsZip": 19030
+        "octetsZip": 19026
       }
     }
   },
@@ -462,7 +462,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-demande-bf.zip",
         "pages": 1,
         "octetsPdf": 2211,
-        "octetsZip": 16781,
+        "octetsZip": 16782,
         "blocs": [
           {
             "t": "right",
@@ -536,14 +536,37 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Application for marketing authorisation (MA) of the product …"
+          },
+          "8": {
+            "x": "Trade name: …"
+          },
+          "9": {
+            "x": "INN and strength: …"
+          },
+          "10": {
+            "x": "Form and presentation: …"
+          },
+          "11": {
+            "x": "Name and address of the MA applicant: …"
+          },
+          "12": {
+            "x": "Name and address of the manufacturer: …"
+          }
+        }
       },
       "ci": {
         "pdf": "/modeles/lettre-demande-ci.pdf",
         "zip": "/modeles/lettre-demande-ci.zip",
         "pages": 1,
         "octetsPdf": 2206,
-        "octetsZip": 16800,
+        "octetsZip": 16797,
         "blocs": [
           {
             "t": "right",
@@ -617,14 +640,37 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Application for marketing authorisation (MA) of the product …"
+          },
+          "8": {
+            "x": "Trade name: …"
+          },
+          "9": {
+            "x": "INN and strength: …"
+          },
+          "10": {
+            "x": "Form and presentation: …"
+          },
+          "11": {
+            "x": "Name and address of the MA applicant: …"
+          },
+          "12": {
+            "x": "Name and address of the manufacturer: …"
+          }
+        }
       },
       "gw": {
         "pdf": "/modeles/lettre-demande-gw.pdf",
         "zip": "/modeles/lettre-demande-gw.zip",
         "pages": 1,
         "octetsPdf": 2241,
-        "octetsZip": 16832,
+        "octetsZip": 16841,
         "blocs": [
           {
             "t": "right",
@@ -698,14 +744,37 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Application for marketing authorisation (MA) of the product …"
+          },
+          "8": {
+            "x": "Trade name: …"
+          },
+          "9": {
+            "x": "INN and strength: …"
+          },
+          "10": {
+            "x": "Form and presentation: …"
+          },
+          "11": {
+            "x": "Name and address of the MA applicant: …"
+          },
+          "12": {
+            "x": "Name and address of the manufacturer: …"
+          }
+        }
       },
       "ml": {
         "pdf": "/modeles/lettre-demande-ml.pdf",
         "zip": "/modeles/lettre-demande-ml.zip",
         "pages": 1,
         "octetsPdf": 2195,
-        "octetsZip": 16730,
+        "octetsZip": 16728,
         "blocs": [
           {
             "t": "right",
@@ -779,14 +848,37 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Application for marketing authorisation (MA) of the product …"
+          },
+          "8": {
+            "x": "Trade name: …"
+          },
+          "9": {
+            "x": "INN and strength: …"
+          },
+          "10": {
+            "x": "Form and presentation: …"
+          },
+          "11": {
+            "x": "Name and address of the MA applicant: …"
+          },
+          "12": {
+            "x": "Name and address of the manufacturer: …"
+          }
+        }
       },
       "ne": {
         "pdf": "/modeles/lettre-demande-ne.pdf",
         "zip": "/modeles/lettre-demande-ne.zip",
         "pages": 1,
         "octetsPdf": 2209,
-        "octetsZip": 16763,
+        "octetsZip": 16753,
         "blocs": [
           {
             "t": "right",
@@ -860,14 +952,37 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Application for marketing authorisation (MA) of the product …"
+          },
+          "8": {
+            "x": "Trade name: …"
+          },
+          "9": {
+            "x": "INN and strength: …"
+          },
+          "10": {
+            "x": "Form and presentation: …"
+          },
+          "11": {
+            "x": "Name and address of the MA applicant: …"
+          },
+          "12": {
+            "x": "Name and address of the manufacturer: …"
+          }
+        }
       },
       "sn": {
         "pdf": "/modeles/lettre-demande-sn.pdf",
         "zip": "/modeles/lettre-demande-sn.zip",
         "pages": 1,
         "octetsPdf": 2200,
-        "octetsZip": 16776,
+        "octetsZip": 16769,
         "blocs": [
           {
             "t": "right",
@@ -941,14 +1056,37 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Application for marketing authorisation (MA) of the product …"
+          },
+          "8": {
+            "x": "Trade name: …"
+          },
+          "9": {
+            "x": "INN and strength: …"
+          },
+          "10": {
+            "x": "Form and presentation: …"
+          },
+          "11": {
+            "x": "Name and address of the MA applicant: …"
+          },
+          "12": {
+            "x": "Name and address of the manufacturer: …"
+          }
+        }
       },
       "tg": {
         "pdf": "/modeles/lettre-demande-tg.pdf",
         "zip": "/modeles/lettre-demande-tg.zip",
         "pages": 1,
         "octetsPdf": 2208,
-        "octetsZip": 16759,
+        "octetsZip": 16768,
         "blocs": [
           {
             "t": "right",
@@ -1022,7 +1160,30 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Application for marketing authorisation (MA) of the product …"
+          },
+          "8": {
+            "x": "Trade name: …"
+          },
+          "9": {
+            "x": "INN and strength: …"
+          },
+          "10": {
+            "x": "Form and presentation: …"
+          },
+          "11": {
+            "x": "Name and address of the MA applicant: …"
+          },
+          "12": {
+            "x": "Name and address of the manufacturer: …"
+          }
+        }
       }
     }
   },
@@ -1120,7 +1281,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-bj.zip",
         "pages": 1,
         "octetsPdf": 2332,
-        "octetsZip": 16905,
+        "octetsZip": 16898,
         "blocs": [
           {
             "t": "right",
@@ -1202,14 +1363,43 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Application for renewal of the marketing authorisation (MA) of the product …"
+          },
+          "6": {
+            "x": "Ref.: MA No. … of {grant date}"
+          },
+          "9": {
+            "x": "Trade name: …"
+          },
+          "10": {
+            "x": "INN and strength: …"
+          },
+          "11": {
+            "x": "Form and presentation: …"
+          },
+          "12": {
+            "x": "MA number and grant date: …"
+          },
+          "13": {
+            "x": "Name and address of the MA holder: …"
+          },
+          "14": {
+            "x": "Name and address of the manufacturer: …"
+          }
+        }
       },
       "bf": {
         "pdf": "/modeles/lettre-renouvellement-bf.pdf",
         "zip": "/modeles/lettre-renouvellement-bf.zip",
         "pages": 1,
         "octetsPdf": 2331,
-        "octetsZip": 16905,
+        "octetsZip": 16893,
         "blocs": [
           {
             "t": "right",
@@ -1291,14 +1481,43 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Application for renewal of the marketing authorisation (MA) of the product …"
+          },
+          "6": {
+            "x": "Ref.: MA No. … of {grant date}"
+          },
+          "9": {
+            "x": "Trade name: …"
+          },
+          "10": {
+            "x": "INN and strength: …"
+          },
+          "11": {
+            "x": "Form and presentation: …"
+          },
+          "12": {
+            "x": "MA number and grant date: …"
+          },
+          "13": {
+            "x": "Name and address of the MA holder: …"
+          },
+          "14": {
+            "x": "Name and address of the manufacturer: …"
+          }
+        }
       },
       "ci": {
         "pdf": "/modeles/lettre-renouvellement-ci.pdf",
         "zip": "/modeles/lettre-renouvellement-ci.zip",
         "pages": 1,
         "octetsPdf": 2326,
-        "octetsZip": 16931,
+        "octetsZip": 16927,
         "blocs": [
           {
             "t": "right",
@@ -1380,14 +1599,43 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Application for renewal of the marketing authorisation (MA) of the product …"
+          },
+          "6": {
+            "x": "Ref.: MA No. … of {grant date}"
+          },
+          "9": {
+            "x": "Trade name: …"
+          },
+          "10": {
+            "x": "INN and strength: …"
+          },
+          "11": {
+            "x": "Form and presentation: …"
+          },
+          "12": {
+            "x": "MA number and grant date: …"
+          },
+          "13": {
+            "x": "Name and address of the MA holder: …"
+          },
+          "14": {
+            "x": "Name and address of the manufacturer: …"
+          }
+        }
       },
       "gw": {
         "pdf": "/modeles/lettre-renouvellement-gw.pdf",
         "zip": "/modeles/lettre-renouvellement-gw.zip",
         "pages": 1,
         "octetsPdf": 2363,
-        "octetsZip": 16969,
+        "octetsZip": 16966,
         "blocs": [
           {
             "t": "right",
@@ -1469,14 +1717,43 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Application for renewal of the marketing authorisation (MA) of the product …"
+          },
+          "6": {
+            "x": "Ref.: MA No. … of {grant date}"
+          },
+          "9": {
+            "x": "Trade name: …"
+          },
+          "10": {
+            "x": "INN and strength: …"
+          },
+          "11": {
+            "x": "Form and presentation: …"
+          },
+          "12": {
+            "x": "MA number and grant date: …"
+          },
+          "13": {
+            "x": "Name and address of the MA holder: …"
+          },
+          "14": {
+            "x": "Name and address of the manufacturer: …"
+          }
+        }
       },
       "ml": {
         "pdf": "/modeles/lettre-renouvellement-ml.pdf",
         "zip": "/modeles/lettre-renouvellement-ml.zip",
         "pages": 1,
         "octetsPdf": 2316,
-        "octetsZip": 16850,
+        "octetsZip": 16844,
         "blocs": [
           {
             "t": "right",
@@ -1558,14 +1835,43 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Application for renewal of the marketing authorisation (MA) of the product …"
+          },
+          "6": {
+            "x": "Ref.: MA No. … of {grant date}"
+          },
+          "9": {
+            "x": "Trade name: …"
+          },
+          "10": {
+            "x": "INN and strength: …"
+          },
+          "11": {
+            "x": "Form and presentation: …"
+          },
+          "12": {
+            "x": "MA number and grant date: …"
+          },
+          "13": {
+            "x": "Name and address of the MA holder: …"
+          },
+          "14": {
+            "x": "Name and address of the manufacturer: …"
+          }
+        }
       },
       "ne": {
         "pdf": "/modeles/lettre-renouvellement-ne.pdf",
         "zip": "/modeles/lettre-renouvellement-ne.zip",
         "pages": 1,
         "octetsPdf": 2327,
-        "octetsZip": 16878,
+        "octetsZip": 16875,
         "blocs": [
           {
             "t": "right",
@@ -1647,14 +1953,43 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Application for renewal of the marketing authorisation (MA) of the product …"
+          },
+          "6": {
+            "x": "Ref.: MA No. … of {grant date}"
+          },
+          "9": {
+            "x": "Trade name: …"
+          },
+          "10": {
+            "x": "INN and strength: …"
+          },
+          "11": {
+            "x": "Form and presentation: …"
+          },
+          "12": {
+            "x": "MA number and grant date: …"
+          },
+          "13": {
+            "x": "Name and address of the MA holder: …"
+          },
+          "14": {
+            "x": "Name and address of the manufacturer: …"
+          }
+        }
       },
       "sn": {
         "pdf": "/modeles/lettre-renouvellement-sn.pdf",
         "zip": "/modeles/lettre-renouvellement-sn.zip",
         "pages": 1,
         "octetsPdf": 2324,
-        "octetsZip": 16883,
+        "octetsZip": 16887,
         "blocs": [
           {
             "t": "right",
@@ -1736,14 +2071,43 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Application for renewal of the marketing authorisation (MA) of the product …"
+          },
+          "6": {
+            "x": "Ref.: MA No. … of {grant date}"
+          },
+          "9": {
+            "x": "Trade name: …"
+          },
+          "10": {
+            "x": "INN and strength: …"
+          },
+          "11": {
+            "x": "Form and presentation: …"
+          },
+          "12": {
+            "x": "MA number and grant date: …"
+          },
+          "13": {
+            "x": "Name and address of the MA holder: …"
+          },
+          "14": {
+            "x": "Name and address of the manufacturer: …"
+          }
+        }
       },
       "tg": {
         "pdf": "/modeles/lettre-renouvellement-tg.pdf",
         "zip": "/modeles/lettre-renouvellement-tg.zip",
         "pages": 1,
         "octetsPdf": 2330,
-        "octetsZip": 16876,
+        "octetsZip": 16867,
         "blocs": [
           {
             "t": "right",
@@ -1825,7 +2189,36 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Application for renewal of the marketing authorisation (MA) of the product …"
+          },
+          "6": {
+            "x": "Ref.: MA No. … of {grant date}"
+          },
+          "9": {
+            "x": "Trade name: …"
+          },
+          "10": {
+            "x": "INN and strength: …"
+          },
+          "11": {
+            "x": "Form and presentation: …"
+          },
+          "12": {
+            "x": "MA number and grant date: …"
+          },
+          "13": {
+            "x": "Name and address of the MA holder: …"
+          },
+          "14": {
+            "x": "Name and address of the manufacturer: …"
+          }
+        }
       }
     }
   },
@@ -1923,7 +2316,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-bj.zip",
         "pages": 1,
         "octetsPdf": 2233,
-        "octetsZip": 16835,
+        "octetsZip": 16831,
         "blocs": [
           {
             "t": "right",
@@ -1997,14 +2390,31 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Application for a <minor> <major> variation to the MA of the product …"
+          },
+          "6": {
+            "x": "Ref.: MA No. … of {grant date}"
+          },
+          "9": {
+            "x": "Trade name: …"
+          },
+          "10": {
+            "x": "INN: …"
+          }
+        }
       },
       "bf": {
         "pdf": "/modeles/lettre-variation-bf.pdf",
         "zip": "/modeles/lettre-variation-bf.zip",
         "pages": 1,
         "octetsPdf": 2237,
-        "octetsZip": 16821,
+        "octetsZip": 16816,
         "blocs": [
           {
             "t": "right",
@@ -2078,14 +2488,31 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Application for a <minor> <major> variation to the MA of the product …"
+          },
+          "6": {
+            "x": "Ref.: MA No. … of {grant date}"
+          },
+          "9": {
+            "x": "Trade name: …"
+          },
+          "10": {
+            "x": "INN: …"
+          }
+        }
       },
       "ci": {
         "pdf": "/modeles/lettre-variation-ci.pdf",
         "zip": "/modeles/lettre-variation-ci.zip",
         "pages": 1,
         "octetsPdf": 2227,
-        "octetsZip": 16854,
+        "octetsZip": 16842,
         "blocs": [
           {
             "t": "right",
@@ -2159,14 +2586,31 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Application for a <minor> <major> variation to the MA of the product …"
+          },
+          "6": {
+            "x": "Ref.: MA No. … of {grant date}"
+          },
+          "9": {
+            "x": "Trade name: …"
+          },
+          "10": {
+            "x": "INN: …"
+          }
+        }
       },
       "gw": {
         "pdf": "/modeles/lettre-variation-gw.pdf",
         "zip": "/modeles/lettre-variation-gw.zip",
         "pages": 1,
         "octetsPdf": 2258,
-        "octetsZip": 16878,
+        "octetsZip": 16881,
         "blocs": [
           {
             "t": "right",
@@ -2240,14 +2684,31 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Application for a <minor> <major> variation to the MA of the product …"
+          },
+          "6": {
+            "x": "Ref.: MA No. … of {grant date}"
+          },
+          "9": {
+            "x": "Trade name: …"
+          },
+          "10": {
+            "x": "INN: …"
+          }
+        }
       },
       "ml": {
         "pdf": "/modeles/lettre-variation-ml.pdf",
         "zip": "/modeles/lettre-variation-ml.zip",
         "pages": 1,
         "octetsPdf": 2221,
-        "octetsZip": 16785,
+        "octetsZip": 16776,
         "blocs": [
           {
             "t": "right",
@@ -2321,14 +2782,31 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Application for a <minor> <major> variation to the MA of the product …"
+          },
+          "6": {
+            "x": "Ref.: MA No. … of {grant date}"
+          },
+          "9": {
+            "x": "Trade name: …"
+          },
+          "10": {
+            "x": "INN: …"
+          }
+        }
       },
       "ne": {
         "pdf": "/modeles/lettre-variation-ne.pdf",
         "zip": "/modeles/lettre-variation-ne.zip",
         "pages": 1,
         "octetsPdf": 2230,
-        "octetsZip": 16811,
+        "octetsZip": 16821,
         "blocs": [
           {
             "t": "right",
@@ -2402,14 +2880,31 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Application for a <minor> <major> variation to the MA of the product …"
+          },
+          "6": {
+            "x": "Ref.: MA No. … of {grant date}"
+          },
+          "9": {
+            "x": "Trade name: …"
+          },
+          "10": {
+            "x": "INN: …"
+          }
+        }
       },
       "sn": {
         "pdf": "/modeles/lettre-variation-sn.pdf",
         "zip": "/modeles/lettre-variation-sn.zip",
         "pages": 1,
         "octetsPdf": 2226,
-        "octetsZip": 16812,
+        "octetsZip": 16814,
         "blocs": [
           {
             "t": "right",
@@ -2483,14 +2978,31 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Application for a <minor> <major> variation to the MA of the product …"
+          },
+          "6": {
+            "x": "Ref.: MA No. … of {grant date}"
+          },
+          "9": {
+            "x": "Trade name: …"
+          },
+          "10": {
+            "x": "INN: …"
+          }
+        }
       },
       "tg": {
         "pdf": "/modeles/lettre-variation-tg.pdf",
         "zip": "/modeles/lettre-variation-tg.zip",
         "pages": 1,
         "octetsPdf": 2231,
-        "octetsZip": 16800,
+        "octetsZip": 16806,
         "blocs": [
           {
             "t": "right",
@@ -2564,7 +3076,24 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Application for a <minor> <major> variation to the MA of the product …"
+          },
+          "6": {
+            "x": "Ref.: MA No. … of {grant date}"
+          },
+          "9": {
+            "x": "Trade name: …"
+          },
+          "10": {
+            "x": "INN: …"
+          }
+        }
       }
     }
   },
@@ -2670,7 +3199,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-bj-enr.zip",
         "pages": 1,
         "octetsPdf": 2333,
-        "octetsZip": 17238,
+        "octetsZip": 17244,
         "blocs": [
           {
             "t": "right",
@@ -2741,14 +3270,38 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Ex-factory price (PGHT) statement — registration of the product …"
+          },
+          "8": {
+            "rows": [
+              [
+                "Trade name",
+                "INN and strength",
+                "Form and presentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          }
+        }
       },
       "bj-renouv": {
         "pdf": "/modeles/lettre-pght-bj-renouv.pdf",
         "zip": "/modeles/lettre-pght-bj-renouv.zip",
         "pages": 1,
         "octetsPdf": 2333,
-        "octetsZip": 17227,
+        "octetsZip": 17237,
         "blocs": [
           {
             "t": "right",
@@ -2819,871 +3372,37 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Ex-factory price (PGHT) statement — renewal of the product …"
+          },
+          "8": {
+            "rows": [
+              [
+                "Trade name",
+                "INN and strength",
+                "Form and presentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          }
+        }
       },
       "bf-enr": {
         "pdf": "/modeles/lettre-pght-bf-enr.pdf",
         "zip": "/modeles/lettre-pght-bf-enr.zip",
         "pages": 1,
         "octetsPdf": 2332,
-        "octetsZip": 17221,
-        "blocs": [
-          {
-            "t": "right",
-            "x": "Le {date}"
-          },
-          {
-            "t": "right",
-            "x": "À"
-          },
-          {
-            "t": "right",
-            "x": "Madame la Directrice Générale"
-          },
-          {
-            "t": "right",
-            "x": "Agence Nationale de Régulation Pharmaceutique (ANRP)"
-          },
-          {
-            "t": "right",
-            "x": "Ouagadougou, 01 BP 7009"
-          },
-          {
-            "t": "h3",
-            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
-          },
-          {
-            "t": "p",
-            "x": "Madame la Directrice Générale,"
-          },
-          {
-            "t": "p",
-            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
-          },
-          {
-            "t": "table",
-            "rows": [
-              [
-                "Nom commercial",
-                "DCI et dosage",
-                "Forme et présentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          },
-          {
-            "t": "p",
-            "x": "Nous restons à votre entière disposition pour tout complément d'information."
-          },
-          {
-            "t": "p",
-            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
-          },
-          {
-            "t": "right",
-            "x": "Poste"
-          },
-          {
-            "t": "right",
-            "x": "Signature et Cachet"
-          },
-          {
-            "t": "right",
-            "x": "Nom et Prénom(s)"
-          }
-        ]
-      },
-      "bf-renouv": {
-        "pdf": "/modeles/lettre-pght-bf-renouv.pdf",
-        "zip": "/modeles/lettre-pght-bf-renouv.zip",
-        "pages": 1,
-        "octetsPdf": 2329,
-        "octetsZip": 17209,
-        "blocs": [
-          {
-            "t": "right",
-            "x": "Le {date}"
-          },
-          {
-            "t": "right",
-            "x": "À"
-          },
-          {
-            "t": "right",
-            "x": "Madame la Directrice Générale"
-          },
-          {
-            "t": "right",
-            "x": "Agence Nationale de Régulation Pharmaceutique (ANRP)"
-          },
-          {
-            "t": "right",
-            "x": "Ouagadougou, 01 BP 7009"
-          },
-          {
-            "t": "h3",
-            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
-          },
-          {
-            "t": "p",
-            "x": "Madame la Directrice Générale,"
-          },
-          {
-            "t": "p",
-            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
-          },
-          {
-            "t": "table",
-            "rows": [
-              [
-                "Nom commercial",
-                "DCI et dosage",
-                "Forme et présentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          },
-          {
-            "t": "p",
-            "x": "Nous restons à votre entière disposition pour tout complément d'information."
-          },
-          {
-            "t": "p",
-            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
-          },
-          {
-            "t": "right",
-            "x": "Poste"
-          },
-          {
-            "t": "right",
-            "x": "Signature et Cachet"
-          },
-          {
-            "t": "right",
-            "x": "Nom et Prénom(s)"
-          }
-        ]
-      },
-      "ci-enr": {
-        "pdf": "/modeles/lettre-pght-ci-enr.pdf",
-        "zip": "/modeles/lettre-pght-ci-enr.zip",
-        "pages": 1,
-        "octetsPdf": 2330,
-        "octetsZip": 17250,
-        "blocs": [
-          {
-            "t": "right",
-            "x": "Le {date}"
-          },
-          {
-            "t": "right",
-            "x": "À"
-          },
-          {
-            "t": "right",
-            "x": "Monsieur le Directeur Général"
-          },
-          {
-            "t": "right",
-            "x": "Autorité Ivoirienne de Régulation Pharmaceutique (AIRP)"
-          },
-          {
-            "t": "right",
-            "x": "Abidjan, Cocody"
-          },
-          {
-            "t": "h3",
-            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
-          },
-          {
-            "t": "p",
-            "x": "Monsieur le Directeur Général,"
-          },
-          {
-            "t": "p",
-            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
-          },
-          {
-            "t": "table",
-            "rows": [
-              [
-                "Nom commercial",
-                "DCI et dosage",
-                "Forme et présentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          },
-          {
-            "t": "p",
-            "x": "Nous restons à votre entière disposition pour tout complément d'information."
-          },
-          {
-            "t": "p",
-            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
-          },
-          {
-            "t": "right",
-            "x": "Poste"
-          },
-          {
-            "t": "right",
-            "x": "Signature et Cachet"
-          },
-          {
-            "t": "right",
-            "x": "Nom et Prénom(s)"
-          }
-        ]
-      },
-      "ci-renouv": {
-        "pdf": "/modeles/lettre-pght-ci-renouv.pdf",
-        "zip": "/modeles/lettre-pght-ci-renouv.zip",
-        "pages": 1,
-        "octetsPdf": 2334,
-        "octetsZip": 17260,
-        "blocs": [
-          {
-            "t": "right",
-            "x": "Le {date}"
-          },
-          {
-            "t": "right",
-            "x": "À"
-          },
-          {
-            "t": "right",
-            "x": "Monsieur le Directeur Général"
-          },
-          {
-            "t": "right",
-            "x": "Autorité Ivoirienne de Régulation Pharmaceutique (AIRP)"
-          },
-          {
-            "t": "right",
-            "x": "Abidjan, Cocody"
-          },
-          {
-            "t": "h3",
-            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
-          },
-          {
-            "t": "p",
-            "x": "Monsieur le Directeur Général,"
-          },
-          {
-            "t": "p",
-            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
-          },
-          {
-            "t": "table",
-            "rows": [
-              [
-                "Nom commercial",
-                "DCI et dosage",
-                "Forme et présentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          },
-          {
-            "t": "p",
-            "x": "Nous restons à votre entière disposition pour tout complément d'information."
-          },
-          {
-            "t": "p",
-            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
-          },
-          {
-            "t": "right",
-            "x": "Poste"
-          },
-          {
-            "t": "right",
-            "x": "Signature et Cachet"
-          },
-          {
-            "t": "right",
-            "x": "Nom et Prénom(s)"
-          }
-        ]
-      },
-      "gw-enr": {
-        "pdf": "/modeles/lettre-pght-gw-enr.pdf",
-        "zip": "/modeles/lettre-pght-gw-enr.zip",
-        "pages": 1,
-        "octetsPdf": 2359,
-        "octetsZip": 17275,
-        "blocs": [
-          {
-            "t": "right",
-            "x": "Le {date}"
-          },
-          {
-            "t": "right",
-            "x": "À"
-          },
-          {
-            "t": "right",
-            "x": "Monsieur le Directeur Général"
-          },
-          {
-            "t": "right",
-            "x": "Direção dos Serviços de Farmácia e Medicamentos (DIFALRM)"
-          },
-          {
-            "t": "right",
-            "x": "Bissau, Ministère de la Santé Publique"
-          },
-          {
-            "t": "h3",
-            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
-          },
-          {
-            "t": "p",
-            "x": "Monsieur le Directeur Général,"
-          },
-          {
-            "t": "p",
-            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
-          },
-          {
-            "t": "table",
-            "rows": [
-              [
-                "Nom commercial",
-                "DCI et dosage",
-                "Forme et présentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          },
-          {
-            "t": "p",
-            "x": "Nous restons à votre entière disposition pour tout complément d'information."
-          },
-          {
-            "t": "p",
-            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
-          },
-          {
-            "t": "right",
-            "x": "Poste"
-          },
-          {
-            "t": "right",
-            "x": "Signature et Cachet"
-          },
-          {
-            "t": "right",
-            "x": "Nom et Prénom(s)"
-          }
-        ]
-      },
-      "gw-renouv": {
-        "pdf": "/modeles/lettre-pght-gw-renouv.pdf",
-        "zip": "/modeles/lettre-pght-gw-renouv.zip",
-        "pages": 1,
-        "octetsPdf": 2360,
-        "octetsZip": 17284,
-        "blocs": [
-          {
-            "t": "right",
-            "x": "Le {date}"
-          },
-          {
-            "t": "right",
-            "x": "À"
-          },
-          {
-            "t": "right",
-            "x": "Monsieur le Directeur Général"
-          },
-          {
-            "t": "right",
-            "x": "Direção dos Serviços de Farmácia e Medicamentos (DIFALRM)"
-          },
-          {
-            "t": "right",
-            "x": "Bissau, Ministère de la Santé Publique"
-          },
-          {
-            "t": "h3",
-            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
-          },
-          {
-            "t": "p",
-            "x": "Monsieur le Directeur Général,"
-          },
-          {
-            "t": "p",
-            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
-          },
-          {
-            "t": "table",
-            "rows": [
-              [
-                "Nom commercial",
-                "DCI et dosage",
-                "Forme et présentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          },
-          {
-            "t": "p",
-            "x": "Nous restons à votre entière disposition pour tout complément d'information."
-          },
-          {
-            "t": "p",
-            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
-          },
-          {
-            "t": "right",
-            "x": "Poste"
-          },
-          {
-            "t": "right",
-            "x": "Signature et Cachet"
-          },
-          {
-            "t": "right",
-            "x": "Nom et Prénom(s)"
-          }
-        ]
-      },
-      "ml-enr": {
-        "pdf": "/modeles/lettre-pght-ml-enr.pdf",
-        "zip": "/modeles/lettre-pght-ml-enr.zip",
-        "pages": 1,
-        "octetsPdf": 2312,
-        "octetsZip": 17169,
-        "blocs": [
-          {
-            "t": "right",
-            "x": "Le {date}"
-          },
-          {
-            "t": "right",
-            "x": "À"
-          },
-          {
-            "t": "right",
-            "x": "Madame la Directrice Générale"
-          },
-          {
-            "t": "right",
-            "x": "Direction de la Pharmacie et du Médicament (DPM)"
-          },
-          {
-            "t": "right",
-            "x": "Bamako, Darsalam, BPE 5202"
-          },
-          {
-            "t": "h3",
-            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
-          },
-          {
-            "t": "p",
-            "x": "Madame la Directrice Générale,"
-          },
-          {
-            "t": "p",
-            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
-          },
-          {
-            "t": "table",
-            "rows": [
-              [
-                "Nom commercial",
-                "DCI et dosage",
-                "Forme et présentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          },
-          {
-            "t": "p",
-            "x": "Nous restons à votre entière disposition pour tout complément d'information."
-          },
-          {
-            "t": "p",
-            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
-          },
-          {
-            "t": "right",
-            "x": "Poste"
-          },
-          {
-            "t": "right",
-            "x": "Signature et Cachet"
-          },
-          {
-            "t": "right",
-            "x": "Nom et Prénom(s)"
-          }
-        ]
-      },
-      "ml-renouv": {
-        "pdf": "/modeles/lettre-pght-ml-renouv.pdf",
-        "zip": "/modeles/lettre-pght-ml-renouv.zip",
-        "pages": 1,
-        "octetsPdf": 2311,
-        "octetsZip": 17171,
-        "blocs": [
-          {
-            "t": "right",
-            "x": "Le {date}"
-          },
-          {
-            "t": "right",
-            "x": "À"
-          },
-          {
-            "t": "right",
-            "x": "Madame la Directrice Générale"
-          },
-          {
-            "t": "right",
-            "x": "Direction de la Pharmacie et du Médicament (DPM)"
-          },
-          {
-            "t": "right",
-            "x": "Bamako, Darsalam, BPE 5202"
-          },
-          {
-            "t": "h3",
-            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
-          },
-          {
-            "t": "p",
-            "x": "Madame la Directrice Générale,"
-          },
-          {
-            "t": "p",
-            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
-          },
-          {
-            "t": "table",
-            "rows": [
-              [
-                "Nom commercial",
-                "DCI et dosage",
-                "Forme et présentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          },
-          {
-            "t": "p",
-            "x": "Nous restons à votre entière disposition pour tout complément d'information."
-          },
-          {
-            "t": "p",
-            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
-          },
-          {
-            "t": "right",
-            "x": "Poste"
-          },
-          {
-            "t": "right",
-            "x": "Signature et Cachet"
-          },
-          {
-            "t": "right",
-            "x": "Nom et Prénom(s)"
-          }
-        ]
-      },
-      "ne-enr": {
-        "pdf": "/modeles/lettre-pght-ne-enr.pdf",
-        "zip": "/modeles/lettre-pght-ne-enr.zip",
-        "pages": 1,
-        "octetsPdf": 2328,
-        "octetsZip": 17200,
-        "blocs": [
-          {
-            "t": "right",
-            "x": "Le {date}"
-          },
-          {
-            "t": "right",
-            "x": "À"
-          },
-          {
-            "t": "right",
-            "x": "Madame la Directrice Générale"
-          },
-          {
-            "t": "right",
-            "x": "Direction de la Pharmacie et de la Médecine Traditionnelle (DPM/MT)"
-          },
-          {
-            "t": "right",
-            "x": "Niamey, Ministère de la Santé"
-          },
-          {
-            "t": "h3",
-            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
-          },
-          {
-            "t": "p",
-            "x": "Madame la Directrice Générale,"
-          },
-          {
-            "t": "p",
-            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
-          },
-          {
-            "t": "table",
-            "rows": [
-              [
-                "Nom commercial",
-                "DCI et dosage",
-                "Forme et présentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          },
-          {
-            "t": "p",
-            "x": "Nous restons à votre entière disposition pour tout complément d'information."
-          },
-          {
-            "t": "p",
-            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
-          },
-          {
-            "t": "right",
-            "x": "Poste"
-          },
-          {
-            "t": "right",
-            "x": "Signature et Cachet"
-          },
-          {
-            "t": "right",
-            "x": "Nom et Prénom(s)"
-          }
-        ]
-      },
-      "ne-renouv": {
-        "pdf": "/modeles/lettre-pght-ne-renouv.pdf",
-        "zip": "/modeles/lettre-pght-ne-renouv.zip",
-        "pages": 1,
-        "octetsPdf": 2326,
-        "octetsZip": 17209,
-        "blocs": [
-          {
-            "t": "right",
-            "x": "Le {date}"
-          },
-          {
-            "t": "right",
-            "x": "À"
-          },
-          {
-            "t": "right",
-            "x": "Madame la Directrice Générale"
-          },
-          {
-            "t": "right",
-            "x": "Direction de la Pharmacie et de la Médecine Traditionnelle (DPM/MT)"
-          },
-          {
-            "t": "right",
-            "x": "Niamey, Ministère de la Santé"
-          },
-          {
-            "t": "h3",
-            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
-          },
-          {
-            "t": "p",
-            "x": "Madame la Directrice Générale,"
-          },
-          {
-            "t": "p",
-            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
-          },
-          {
-            "t": "table",
-            "rows": [
-              [
-                "Nom commercial",
-                "DCI et dosage",
-                "Forme et présentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          },
-          {
-            "t": "p",
-            "x": "Nous restons à votre entière disposition pour tout complément d'information."
-          },
-          {
-            "t": "p",
-            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
-          },
-          {
-            "t": "right",
-            "x": "Poste"
-          },
-          {
-            "t": "right",
-            "x": "Signature et Cachet"
-          },
-          {
-            "t": "right",
-            "x": "Nom et Prénom(s)"
-          }
-        ]
-      },
-      "sn-enr": {
-        "pdf": "/modeles/lettre-pght-sn-enr.pdf",
-        "zip": "/modeles/lettre-pght-sn-enr.zip",
-        "pages": 1,
-        "octetsPdf": 2325,
-        "octetsZip": 17213,
-        "blocs": [
-          {
-            "t": "right",
-            "x": "Le {date}"
-          },
-          {
-            "t": "right",
-            "x": "À"
-          },
-          {
-            "t": "right",
-            "x": "Madame la Directrice Générale"
-          },
-          {
-            "t": "right",
-            "x": "Agence Sénégalaise de Réglementation Pharmaceutique (ARP)"
-          },
-          {
-            "t": "right",
-            "x": "Dakar, Point E, Rue A x Rue 6"
-          },
-          {
-            "t": "h3",
-            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
-          },
-          {
-            "t": "p",
-            "x": "Madame la Directrice Générale,"
-          },
-          {
-            "t": "p",
-            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
-          },
-          {
-            "t": "table",
-            "rows": [
-              [
-                "Nom commercial",
-                "DCI et dosage",
-                "Forme et présentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          },
-          {
-            "t": "p",
-            "x": "Nous restons à votre entière disposition pour tout complément d'information."
-          },
-          {
-            "t": "p",
-            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
-          },
-          {
-            "t": "right",
-            "x": "Poste"
-          },
-          {
-            "t": "right",
-            "x": "Signature et Cachet"
-          },
-          {
-            "t": "right",
-            "x": "Nom et Prénom(s)"
-          }
-        ]
-      },
-      "sn-renouv": {
-        "pdf": "/modeles/lettre-pght-sn-renouv.pdf",
-        "zip": "/modeles/lettre-pght-sn-renouv.zip",
-        "pages": 1,
-        "octetsPdf": 2321,
         "octetsZip": 17216,
         "blocs": [
           {
@@ -3700,6 +3419,1128 @@ export const MODELES_FICHIERS = {
           },
           {
             "t": "right",
+            "x": "Agence Nationale de Régulation Pharmaceutique (ANRP)"
+          },
+          {
+            "t": "right",
+            "x": "Ouagadougou, 01 BP 7009"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Ex-factory price (PGHT) statement — registration of the product …"
+          },
+          "8": {
+            "rows": [
+              [
+                "Trade name",
+                "INN and strength",
+                "Form and presentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          }
+        }
+      },
+      "bf-renouv": {
+        "pdf": "/modeles/lettre-pght-bf-renouv.pdf",
+        "zip": "/modeles/lettre-pght-bf-renouv.zip",
+        "pages": 1,
+        "octetsPdf": 2329,
+        "octetsZip": 17224,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Agence Nationale de Régulation Pharmaceutique (ANRP)"
+          },
+          {
+            "t": "right",
+            "x": "Ouagadougou, 01 BP 7009"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Ex-factory price (PGHT) statement — renewal of the product …"
+          },
+          "8": {
+            "rows": [
+              [
+                "Trade name",
+                "INN and strength",
+                "Form and presentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          }
+        }
+      },
+      "ci-enr": {
+        "pdf": "/modeles/lettre-pght-ci-enr.pdf",
+        "zip": "/modeles/lettre-pght-ci-enr.zip",
+        "pages": 1,
+        "octetsPdf": 2330,
+        "octetsZip": 17254,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Autorité Ivoirienne de Régulation Pharmaceutique (AIRP)"
+          },
+          {
+            "t": "right",
+            "x": "Abidjan, Cocody"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Ex-factory price (PGHT) statement — registration of the product …"
+          },
+          "8": {
+            "rows": [
+              [
+                "Trade name",
+                "INN and strength",
+                "Form and presentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          }
+        }
+      },
+      "ci-renouv": {
+        "pdf": "/modeles/lettre-pght-ci-renouv.pdf",
+        "zip": "/modeles/lettre-pght-ci-renouv.zip",
+        "pages": 1,
+        "octetsPdf": 2334,
+        "octetsZip": 17253,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Autorité Ivoirienne de Régulation Pharmaceutique (AIRP)"
+          },
+          {
+            "t": "right",
+            "x": "Abidjan, Cocody"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Ex-factory price (PGHT) statement — renewal of the product …"
+          },
+          "8": {
+            "rows": [
+              [
+                "Trade name",
+                "INN and strength",
+                "Form and presentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          }
+        }
+      },
+      "gw-enr": {
+        "pdf": "/modeles/lettre-pght-gw-enr.pdf",
+        "zip": "/modeles/lettre-pght-gw-enr.zip",
+        "pages": 1,
+        "octetsPdf": 2359,
+        "octetsZip": 17287,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Direção dos Serviços de Farmácia e Medicamentos (DIFALRM)"
+          },
+          {
+            "t": "right",
+            "x": "Bissau, Ministère de la Santé Publique"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Ex-factory price (PGHT) statement — registration of the product …"
+          },
+          "8": {
+            "rows": [
+              [
+                "Trade name",
+                "INN and strength",
+                "Form and presentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          }
+        }
+      },
+      "gw-renouv": {
+        "pdf": "/modeles/lettre-pght-gw-renouv.pdf",
+        "zip": "/modeles/lettre-pght-gw-renouv.zip",
+        "pages": 1,
+        "octetsPdf": 2360,
+        "octetsZip": 17292,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Direção dos Serviços de Farmácia e Medicamentos (DIFALRM)"
+          },
+          {
+            "t": "right",
+            "x": "Bissau, Ministère de la Santé Publique"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Ex-factory price (PGHT) statement — renewal of the product …"
+          },
+          "8": {
+            "rows": [
+              [
+                "Trade name",
+                "INN and strength",
+                "Form and presentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          }
+        }
+      },
+      "ml-enr": {
+        "pdf": "/modeles/lettre-pght-ml-enr.pdf",
+        "zip": "/modeles/lettre-pght-ml-enr.zip",
+        "pages": 1,
+        "octetsPdf": 2312,
+        "octetsZip": 17188,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Direction de la Pharmacie et du Médicament (DPM)"
+          },
+          {
+            "t": "right",
+            "x": "Bamako, Darsalam, BPE 5202"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Ex-factory price (PGHT) statement — registration of the product …"
+          },
+          "8": {
+            "rows": [
+              [
+                "Trade name",
+                "INN and strength",
+                "Form and presentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          }
+        }
+      },
+      "ml-renouv": {
+        "pdf": "/modeles/lettre-pght-ml-renouv.pdf",
+        "zip": "/modeles/lettre-pght-ml-renouv.zip",
+        "pages": 1,
+        "octetsPdf": 2311,
+        "octetsZip": 17174,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Direction de la Pharmacie et du Médicament (DPM)"
+          },
+          {
+            "t": "right",
+            "x": "Bamako, Darsalam, BPE 5202"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Ex-factory price (PGHT) statement — renewal of the product …"
+          },
+          "8": {
+            "rows": [
+              [
+                "Trade name",
+                "INN and strength",
+                "Form and presentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          }
+        }
+      },
+      "ne-enr": {
+        "pdf": "/modeles/lettre-pght-ne-enr.pdf",
+        "zip": "/modeles/lettre-pght-ne-enr.zip",
+        "pages": 1,
+        "octetsPdf": 2328,
+        "octetsZip": 17194,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Direction de la Pharmacie et de la Médecine Traditionnelle (DPM/MT)"
+          },
+          {
+            "t": "right",
+            "x": "Niamey, Ministère de la Santé"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Ex-factory price (PGHT) statement — registration of the product …"
+          },
+          "8": {
+            "rows": [
+              [
+                "Trade name",
+                "INN and strength",
+                "Form and presentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          }
+        }
+      },
+      "ne-renouv": {
+        "pdf": "/modeles/lettre-pght-ne-renouv.pdf",
+        "zip": "/modeles/lettre-pght-ne-renouv.zip",
+        "pages": 1,
+        "octetsPdf": 2326,
+        "octetsZip": 17208,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Direction de la Pharmacie et de la Médecine Traditionnelle (DPM/MT)"
+          },
+          {
+            "t": "right",
+            "x": "Niamey, Ministère de la Santé"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Ex-factory price (PGHT) statement — renewal of the product …"
+          },
+          "8": {
+            "rows": [
+              [
+                "Trade name",
+                "INN and strength",
+                "Form and presentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          }
+        }
+      },
+      "sn-enr": {
+        "pdf": "/modeles/lettre-pght-sn-enr.pdf",
+        "zip": "/modeles/lettre-pght-sn-enr.zip",
+        "pages": 1,
+        "octetsPdf": 2325,
+        "octetsZip": 17220,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Agence Sénégalaise de Réglementation Pharmaceutique (ARP)"
+          },
+          {
+            "t": "right",
+            "x": "Dakar, Point E, Rue A x Rue 6"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Ex-factory price (PGHT) statement — registration of the product …"
+          },
+          "8": {
+            "rows": [
+              [
+                "Trade name",
+                "INN and strength",
+                "Form and presentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          }
+        }
+      },
+      "sn-renouv": {
+        "pdf": "/modeles/lettre-pght-sn-renouv.pdf",
+        "zip": "/modeles/lettre-pght-sn-renouv.zip",
+        "pages": 1,
+        "octetsPdf": 2321,
+        "octetsZip": 17215,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
             "x": "Agence Sénégalaise de Réglementation Pharmaceutique (ARP)"
           },
           {
@@ -3755,13 +4596,139 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Ex-factory price (PGHT) statement — renewal of the product …"
+          },
+          "8": {
+            "rows": [
+              [
+                "Trade name",
+                "INN and strength",
+                "Form and presentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          }
+        }
       },
       "tg-enr": {
         "pdf": "/modeles/lettre-pght-tg-enr.pdf",
         "zip": "/modeles/lettre-pght-tg-enr.zip",
         "pages": 1,
         "octetsPdf": 2323,
+        "octetsZip": 17191,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Direction de la Pharmacie, du Médicament et des Laboratoires (DPML)"
+          },
+          {
+            "t": "right",
+            "x": "Lomé, Avenue du 2 Février"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Ex-factory price (PGHT) statement — registration of the product …"
+          },
+          "8": {
+            "rows": [
+              [
+                "Trade name",
+                "INN and strength",
+                "Form and presentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          }
+        }
+      },
+      "tg-renouv": {
+        "pdf": "/modeles/lettre-pght-tg-renouv.pdf",
+        "zip": "/modeles/lettre-pght-tg-renouv.zip",
+        "pages": 1,
+        "octetsPdf": 2326,
         "octetsZip": 17206,
         "blocs": [
           {
@@ -3786,84 +4753,6 @@ export const MODELES_FICHIERS = {
           },
           {
             "t": "h3",
-            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
-          },
-          {
-            "t": "p",
-            "x": "Monsieur le Directeur Général,"
-          },
-          {
-            "t": "p",
-            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
-          },
-          {
-            "t": "table",
-            "rows": [
-              [
-                "Nom commercial",
-                "DCI et dosage",
-                "Forme et présentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          },
-          {
-            "t": "p",
-            "x": "Nous restons à votre entière disposition pour tout complément d'information."
-          },
-          {
-            "t": "p",
-            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
-          },
-          {
-            "t": "right",
-            "x": "Poste"
-          },
-          {
-            "t": "right",
-            "x": "Signature et Cachet"
-          },
-          {
-            "t": "right",
-            "x": "Nom et Prénom(s)"
-          }
-        ]
-      },
-      "tg-renouv": {
-        "pdf": "/modeles/lettre-pght-tg-renouv.pdf",
-        "zip": "/modeles/lettre-pght-tg-renouv.zip",
-        "pages": 1,
-        "octetsPdf": 2326,
-        "octetsZip": 17199,
-        "blocs": [
-          {
-            "t": "right",
-            "x": "Le {date}"
-          },
-          {
-            "t": "right",
-            "x": "À"
-          },
-          {
-            "t": "right",
-            "x": "Monsieur le Directeur Général"
-          },
-          {
-            "t": "right",
-            "x": "Direction de la Pharmacie, du Médicament et des Laboratoires (DPML)"
-          },
-          {
-            "t": "right",
-            "x": "Lomé, Avenue du 2 Février"
-          },
-          {
-            "t": "h3",
             "x": "Objet : Attestation de PGHT — renouvellement du produit …"
           },
           {
@@ -3911,7 +4800,31 @@ export const MODELES_FICHIERS = {
             "t": "right",
             "x": "Nom et Prénom(s)"
           }
-        ]
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Ex-factory price (PGHT) statement — renewal of the product …"
+          },
+          "8": {
+            "rows": [
+              [
+                "Trade name",
+                "INN and strength",
+                "Form and presentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          }
+        }
       }
     }
   },
@@ -4141,7 +5054,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/qos-pd.zip",
         "pages": 1,
         "octetsPdf": 2468,
-        "octetsZip": 8505
+        "octetsZip": 8511
       }
     }
   },
@@ -4239,7 +5152,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/btif.zip",
         "pages": 1,
         "octetsPdf": 2363,
-        "octetsZip": 8402
+        "octetsZip": 8398
       }
     }
   }
