@@ -97,6 +97,38 @@ Deno.test("corpsChariow — l'anglophone revient sur le miroir EN, jamais sur la
   assert(RETOURS.en.startsWith('https://pharnos.com/en/'))
 })
 
+Deno.test('corpsChariow — la devise de règlement suit le pays de l’acheteur', () => {
+  // Zone UEMOA : le XOF natif de la boutique, on ne transmet RIEN.
+  const bj = validerCommande(base())
+  assert(bj.ok)
+  assert(!('payment_currency' in corpsChariow(bj.cmd, 'unknown')))
+  // Zone euro → EUR ; ailleurs → USD (le corridor carte universel — un Indien sur une offre
+  // en francs CFA voyait « Request failed with status code 400 », vu en live le 31/07).
+  for (
+    const [pays, devise] of [
+      ['FR', 'EUR'],
+      ['BE', 'EUR'],
+      ['US', 'USD'],
+      ['IN', 'USD'],
+      ['TR', 'USD'],
+      ['CN', 'USD'],
+    ] as const
+  ) {
+    const v = validerCommande(base({ paysTel: pays, telephone: '612345678' }))
+    assert(v.ok, pays)
+    assertEquals(corpsChariow(v.cmd, 'unknown').payment_currency, devise, pays)
+  }
+})
+
+Deno.test('validerCommande — le dédoublonnage d’indicatif couvre aussi les pays hors UEMOA', () => {
+  const us = validerCommande(base({ paysTel: 'US', telephone: '+1 415 555 01 99' }))
+  assert(us.ok)
+  assertEquals(us.cmd.telephone, '4155550199')
+  const inTel = validerCommande(base({ paysTel: 'IN', telephone: '+91 98765 43210' }))
+  assert(inTel.ok)
+  assertEquals(inTel.cmd.telephone, '9876543210')
+})
+
 Deno.test('corpsChariow — sans IP fiable, ne transmet PAS customer_ip (mieux vaut rien que faux)', () => {
   const v = validerCommande(base())
   assert(v.ok)

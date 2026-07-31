@@ -444,29 +444,20 @@
           ">Your document stays on your device until payment.</p>
         </div>
 
-        <div class="sect-buy" id="upg-e2" hidden="">
-          <h4 class="upsell-t" data-fr="
-            Une dernière chose — le RCP voyage rarement seul
-          ">One more thing — the SmPC rarely travels alone</h4>
-          <p class="upsell-d" id="bxsave"></p>
-          <div class="stack">
-            <button class="btn btn-primary btn-block" type="button" id="bx3"></button>
-            <button class="btn btn-ghost btn-block" type="button" id="bx1"></button>
-          </div>
-          <button class="linklike" type="button" id="bxretour" data-fr="
-            ← Retour
-          ">← Back</button>
-        </div>
-
-        <!-- Étape 4 — IDENTITÉ, dans NOTRE design : la boutique Chariow n'apparaît jamais.
-             Ces quatre champs partent à l'Edge `checkout`, qui seul parle à l'API — le
-             navigateur ne voit ni clé ni identifiant produit. -->
+        <!-- Étape 4 — OFFRE + IDENTITÉ en un seul écran : chaque étape retirée avant le
+             paiement se lit sur le taux de conversion. Le bundle se propose ICI, après le clic
+             « Commander » (invariant CEO : jamais sur le premier écran) — en choix, pas en
+             détour. Les quatre champs partent à l'Edge `checkout`, qui seul parle à l'API :
+             le navigateur ne voit ni clé ni identifiant produit. -->
         <div class="sect-buy" id="upg-e4" hidden="">
-          <h4 class="upsell-t" data-fr="
-            Où livrons-nous&nbsp;?
-          ">Where do we deliver?</h4>
+          <h4 class="upsell-t" data-fr="Votre commande">Your order</h4>
           <p class="upsell-d" id="payrecap"></p>
           <form id="payform" novalidate="">
+            <div class="offer-pick" role="radiogroup" aria-labelledby="payofflab">
+              <span class="mlab" id="payofflab" data-fr="Périmètre">Scope</span>
+              <button class="offer-opt" type="button" role="radio" aria-checked="true" data-offre="up1" id="off1"></button>
+              <button class="offer-opt" type="button" role="radio" aria-checked="false" data-offre="up3" id="off3"></button>
+            </div>
             <div class="mfield">
               <label class="mlab" for="payprenom" data-fr="Prénom">First name</label>
               <input id="payprenom" type="text" autocomplete="given-name" maxlength="50" required="">

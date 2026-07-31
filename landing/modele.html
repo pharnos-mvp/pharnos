@@ -796,40 +796,38 @@
           </p>
         </div>
 
-        <div class="sect-buy" id="upg-e2" hidden>
-          <h4
-            class="upsell-t"
-            data-en="One more thing — the SmPC rarely travels alone"
-          >
-            Une dernière chose — le RCP voyage rarement seul
-          </h4>
-          <p class="upsell-d" id="bxsave"></p>
-          <div class="stack">
-            <button
-              class="btn btn-primary btn-block"
-              type="button"
-              id="bx3"
-            ></button>
-            <button
-              class="btn btn-ghost btn-block"
-              type="button"
-              id="bx1"
-            ></button>
-          </div>
-          <button class="linklike" type="button" id="bxretour" data-en="← Back">
-            ← Retour
-          </button>
-        </div>
-
-        <!-- Étape 4 — IDENTITÉ, dans NOTRE design : la boutique Chariow n'apparaît jamais.
-             Ces quatre champs partent à l'Edge `checkout`, qui seul parle à l'API — le
-             navigateur ne voit ni clé ni identifiant produit. -->
+        <!-- Étape 4 — OFFRE + IDENTITÉ en un seul écran : chaque étape retirée avant le
+             paiement se lit sur le taux de conversion. Le bundle se propose ICI, après le clic
+             « Commander » (invariant CEO : jamais sur le premier écran) — en choix, pas en
+             détour. Les quatre champs partent à l'Edge `checkout`, qui seul parle à l'API :
+             le navigateur ne voit ni clé ni identifiant produit. -->
         <div class="sect-buy" id="upg-e4" hidden>
-          <h4 class="upsell-t" data-en="Where do we deliver?">
-            Où livrons-nous&nbsp;?
-          </h4>
+          <h4 class="upsell-t" data-en="Your order">Votre commande</h4>
           <p class="upsell-d" id="payrecap"></p>
           <form id="payform" novalidate>
+            <div
+              class="offer-pick"
+              role="radiogroup"
+              aria-labelledby="payofflab"
+            >
+              <span class="mlab" id="payofflab" data-en="Scope">Périmètre</span>
+              <button
+                class="offer-opt"
+                type="button"
+                role="radio"
+                aria-checked="true"
+                data-offre="up1"
+                id="off1"
+              ></button>
+              <button
+                class="offer-opt"
+                type="button"
+                role="radio"
+                aria-checked="false"
+                data-offre="up3"
+                id="off3"
+              ></button>
+            </div>
             <div class="mfield">
               <label class="mlab" for="payprenom" data-en="First name"
                 >Prénom</label

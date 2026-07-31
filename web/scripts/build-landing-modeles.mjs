@@ -62,7 +62,10 @@ const SORTIE = path.join(RACINE, 'landing', 'modeles')
 const MANIFESTE = path.join(RACINE, 'landing', 'checking', 'modeles-manifest.js')
 
 /** Version du contenu — à incrémenter à CHAQUE modification de source, vigilance ou agences. */
-const VERSION = '2026.6'
+// 2026.7 : purge de cache forcée — des copies de PDF antérieures au correctif CSP du 31/07
+// (double `content-security-policy`) traînaient dans les caches navigateurs et rendaient le
+// volet lecteur intermittent ; changer la version change la clé de cache de TOUS les fichiers.
+const VERSION = '2026.7'
 
 /** Date figée : sans elle, deux exécutions produisent des octets différents. */
 const FIGEE = new Date('2026-07-30T00:00:00Z')

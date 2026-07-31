@@ -8,12 +8,12 @@
 
 /* ⚠️ Le `?v=` des imports N'EST PAS décoratif — Cloudflare impose `max-age=14400` et un module
    importé PAR un module n'hérite pas du `?v=` du HTML. À bumper avec le HTML. */
-import { MODELES_FICHIERS } from "./checking/modeles-manifest.js?v=2026.3";
+import { MODELES_FICHIERS } from "./checking/modeles-manifest.js?v=2026.7";
 import {
   fichierModele,
   paysDuModele,
   tailleLisible,
-} from "./checking/bibliotheque-core.js?v=2026.3";
+} from "./checking/bibliotheque-core.js?v=2026.7";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));

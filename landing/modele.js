@@ -15,7 +15,7 @@ import { PAYS } from "./checking/referentiel.js?v=2026.2";
 import {
   MODELES_FICHIERS,
   MODELES_VERSION,
-} from "./checking/modeles-manifest.js?v=2026.5";
+} from "./checking/modeles-manifest.js?v=2026.7";
 import { VIGILANCE } from "./checking/vigilance.js?v=2026.1";
 import {
   activitesDe,
@@ -31,7 +31,7 @@ import {
   tailleLisible,
   TTL_MS,
   validerFichier,
-} from "./checking/bibliotheque-core.js?v=2026.5";
+} from "./checking/bibliotheque-core.js?v=2026.7";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -438,36 +438,20 @@ function peindreAchat() {
   $("#buy1").textContent =
     `${L(["Commander la mise à niveau", "Order the upgrade"])} — ${prixCourt(PRIX.up1, lang)}`;
   $("#buy1").disabled = !pret;
-  // Étape 2 — l'upsell n'apparaît qu'APRÈS le clic de commande, jamais sur le premier écran.
-  $("#bx1").textContent =
-    `${L(["Continuer avec un document", "Continue with one document"])} — ${prixCourt(PRIX.up1, lang)}`;
-  $("#bx3").textContent =
-    `${L(["Prendre les trois", "Take all three"])} — ${prixDouble(PRIX.up3, lang)}`;
-  $("#bxsave").innerHTML =
-    `${esc(L(["Notice et étiquetage du même produit inclus — ", "Leaflet and labelling of the same product included — "]))}` +
-    `<span class="old">${esc(prixCourt(PRIX_UP3_PLEIN, lang))}</span> ` +
-    `<b>${esc(prixDouble(PRIX.up3, lang))}</b>`;
 }
 
-/** Bascule entre les quatre états du panneau : commande (1), upsell (2), identité (4),
- *  confirmation de retour (3 — numéro historique, il précède l'étape identité).
+/** Bascule entre les trois états du panneau : commande (1), offre + identité (4),
+ *  confirmation de retour (3 — numéro historique, il précède la fusion offre/identité).
  *  ⚠️ Aux étapes 3 et 4 le formulaire document disparaît : à l'étape 4 tout est déjà choisi
  *  (on ne laisse pas changer de fichier pendant qu'on nomme l'acheteur), à l'étape 3 la
  *  commande est passée, il n'y a plus rien à choisir ni à régler. */
 function etapePanneau(n) {
   $("#upg-e1").hidden = n !== 1;
-  $("#upg-e2").hidden = n !== 2;
   $("#upg-e3").hidden = n !== 3;
   $("#upg-e4").hidden = n !== 4;
   $("#upgbody").hidden = n === 3 || n === 4;
   const premier = $(
-    n === 4
-      ? "#payprenom"
-      : n === 3
-        ? "#cfmsend"
-        : n === 2
-          ? "#bx3"
-          : "#upgclose",
+    n === 4 ? "#payprenom" : n === 3 ? "#cfmsend" : "#upgclose",
   );
   if (premier) premier.focus();
 }
@@ -611,8 +595,9 @@ async function purger() {
 const CHECKOUT_API =
   "https://uhsireqwzqqymgsxuvqh.supabase.co/functions/v1/checkout";
 
-/** Indicatifs proposés : les huit pays servis + la France (sièges et filiales). L'ISO part
- *  au serveur, l'indicatif n'est là que pour l'œil. */
+/** Indicatifs proposés : les huit pays servis d'abord (le marché), puis voisins, places
+ *  d'affaires du secteur et diaspora. L'ISO part au serveur, l'indicatif n'est là que pour
+ *  l'œil — et le serveur dédoublonne le préfixe d'une saisie internationale. */
 const INDICATIFS = [
   ["BJ", "+229"],
   ["BF", "+226"],
@@ -622,21 +607,97 @@ const INDICATIFS = [
   ["NE", "+227"],
   ["SN", "+221"],
   ["TG", "+228"],
+  ["CM", "+237"],
+  ["CD", "+243"],
+  ["CG", "+242"],
+  ["GA", "+241"],
+  ["GN", "+224"],
+  ["GH", "+233"],
+  ["NG", "+234"],
+  ["MR", "+222"],
+  ["TD", "+235"],
+  ["MA", "+212"],
+  ["DZ", "+213"],
+  ["TN", "+216"],
+  ["EG", "+20"],
+  ["KE", "+254"],
+  ["ZA", "+27"],
   ["FR", "+33"],
+  ["BE", "+32"],
+  ["CH", "+41"],
+  ["DE", "+49"],
+  ["GB", "+44"],
+  ["PT", "+351"],
+  ["ES", "+34"],
+  ["US", "+1"],
+  ["CA", "+1"],
+  ["AE", "+971"],
+  ["TR", "+90"],
+  ["IN", "+91"],
+  ["CN", "+86"],
 ];
 
-/** L'offre retenue à l'étape upsell — l'étape identité ne la redemande pas. */
+/** Noms des pays HORS référentiel UEMOA — `nomPays` ne connaît que les huit servis. */
+const NOMS_INDICATIFS = {
+  CM: ["Cameroun", "Cameroon"],
+  CD: ["RD Congo", "DR Congo"],
+  CG: ["Congo", "Congo"],
+  GA: ["Gabon", "Gabon"],
+  GN: ["Guinée", "Guinea"],
+  GH: ["Ghana", "Ghana"],
+  NG: ["Nigéria", "Nigeria"],
+  MR: ["Mauritanie", "Mauritania"],
+  TD: ["Tchad", "Chad"],
+  MA: ["Maroc", "Morocco"],
+  DZ: ["Algérie", "Algeria"],
+  TN: ["Tunisie", "Tunisia"],
+  EG: ["Égypte", "Egypt"],
+  KE: ["Kenya", "Kenya"],
+  ZA: ["Afrique du Sud", "South Africa"],
+  FR: ["France", "France"],
+  BE: ["Belgique", "Belgium"],
+  CH: ["Suisse", "Switzerland"],
+  DE: ["Allemagne", "Germany"],
+  GB: ["Royaume-Uni", "United Kingdom"],
+  PT: ["Portugal", "Portugal"],
+  ES: ["Espagne", "Spain"],
+  US: ["États-Unis", "United States"],
+  CA: ["Canada", "Canada"],
+  AE: ["Émirats arabes unis", "United Arab Emirates"],
+  TR: ["Turquie", "Türkiye"],
+  IN: ["Inde", "India"],
+  CN: ["Chine", "China"],
+};
+
+/** L'offre retenue sur l'écran offre + identité. */
 let offreChoisie = "up1";
 
-function ouvrirIdentite(offre) {
+/** Peint ce qui dépend de l'OFFRE : les deux options, le récapitulatif, le bouton payer.
+ *  Appelée au choix ET à l'ouverture — l'écran unique offre + identité vit de cette fonction. */
+function choisirOffre(offre) {
   offreChoisie = offre;
   const m = MODELES_FICHIERS[S.doc];
+  $("#off1").innerHTML =
+    `<b>${esc(L(["Un document", "One document"]))}</b>` +
+    `<span>${esc(`${L(m.court)} · ${prixDouble(PRIX.up1, lang)}`)}</span>`;
+  // L'économie du bundle se montre SUR l'option : c'est elle qui vend, pas un écran de plus.
+  $("#off3").innerHTML =
+    `<b>${esc(L(["Les trois documents", "All three documents"]))}</b>` +
+    `<span>${esc(L(["RCP + notice + étiquetage · ", "SmPC + leaflet + labelling · "]))}` +
+    `<s>${esc(prixCourt(PRIX_UP3_PLEIN, lang))}</s> ${esc(prixDouble(PRIX.up3, lang))}</span>`;
+  $$("#upg-e4 .offer-opt").forEach((b) =>
+    b.setAttribute("aria-checked", String(b.dataset.offre === offre)),
+  );
   $("#payrecap").textContent =
-    `${L(m.nom)} · ${nomPays($("#upays").value)} · ` +
-    (offre === "up3"
-      ? L(["les trois documents", "all three documents"])
-      : L(["un document", "one document"])) +
-    ` · ${prixDouble(PRIX[offre], lang)}`;
+    `${L(m.nom)} · ${nomPays($("#upays").value)} · ${libelleActivite(S.activite)}`;
+  $("#paygo").textContent = L([
+    `Payer — ${prixCourt(PRIX[offre], lang)}`,
+    `Pay — ${prixCourt(PRIX[offre], lang)}`,
+  ]);
+}
+
+function ouvrirIdentite(offre) {
+  choisirOffre(offre);
   // Reconstruit à CHAQUE ouverture (et non une fois) : les libellés portent des noms de pays
   // traduits — un panneau rouvert après bascule de langue garderait sinon l'ancienne.
   const ind = $("#payind");
@@ -645,19 +706,14 @@ function ouvrirIdentite(offre) {
   for (const [iso, code] of INDICATIFS) {
     const o = document.createElement("option");
     o.value = iso;
-    // ⚠️ `nomPays` ne connaît que les huit pays servis — la France se nomme à la main,
-    // sinon le repli silencieux de `nomPays` l'étiquetterait « Bénin ».
-    o.textContent =
-      iso === "FR" ? `France ${code}` : `${nomPays(iso.toLowerCase())} ${code}`;
+    // ⚠️ `nomPays` ne connaît que les huit pays servis — les autres portent leur nom dans la
+    // liste, sinon le repli silencieux de `nomPays` les étiquetterait tous « Bénin ».
+    o.textContent = `${NOMS_INDICATIFS[iso] ? L(NOMS_INDICATIFS[iso]) : nomPays(iso.toLowerCase())} ${code}`;
     ind.appendChild(o);
   }
   // Le choix déjà fait prime ; sinon le pays de dépôt est le meilleur pari — jamais imposé.
   const depot = deja || ($("#upays").value || "").toUpperCase();
   if (INDICATIFS.some(([iso]) => iso === depot)) ind.value = depot;
-  $("#paygo").textContent = L([
-    `Payer — ${prixCourt(PRIX[offre], lang)}`,
-    `Pay — ${prixCourt(PRIX[offre], lang)}`,
-  ]);
   etapePanneau(4);
 }
 
@@ -822,8 +878,8 @@ async function acheter(offre) {
     }
   }
 }
-// Le clic de commande OUVRE l'étape upsell — l'offre se choisit à l'étape 2, l'acheteur se
-// nomme à l'étape 4, et le paiement part de là.
+// Le clic de commande OUVRE l'écran unique offre + identité — un seul écran entre l'envie et
+// le paiement : chaque étape retirée se lit sur le taux de conversion.
 $("#buy1").addEventListener("click", () => {
   if (!$("#upays").value || !S.activite) {
     toast(
@@ -843,17 +899,17 @@ $("#buy1").addEventListener("click", () => {
     $("#udrop").focus();
     return;
   }
-  etapePanneau(2);
+  ouvrirIdentite("up1");
 });
-$("#bx1").addEventListener("click", () => ouvrirIdentite("up1"));
-$("#bx3").addEventListener("click", () => ouvrirIdentite("up3"));
-$("#bxretour").addEventListener("click", () => etapePanneau(1));
+$$("#upg-e4 .offer-opt").forEach((b) =>
+  b.addEventListener("click", () => choisirOffre(b.dataset.offre)),
+);
 // `submit` et non `click` : Entrée dans n'importe quel champ vaut « Payer ».
 $("#payform").addEventListener("submit", (e) => {
   e.preventDefault();
   acheter(offreChoisie);
 });
-$("#payretour").addEventListener("click", () => etapePanneau(2));
+$("#payretour").addEventListener("click", () => etapePanneau(1));
 
 const libelleActivite = (a) =>
   L(
