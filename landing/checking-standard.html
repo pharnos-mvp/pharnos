@@ -64,10 +64,10 @@
             <span class="mt">Checking Standard <span class="tag" data-en="Free">Gratuit</span></span>
             <span class="md" data-en="Is your MA dossier ready for reception? A diagnostic in 3 minutes, no document to upload.">Votre dossier d'AMM est-il prêt pour la réception ? Un diagnostic en 3 minutes, sans téléverser de document.</span>
           </a>
-          <span class="soon">
-            <span class="mt"><span data-en="Regulatory templates">Modèles réglementaires</span> <span class="tag" data-en="Soon">Bientôt</span></span>
+          <a href="/bibliotheque-reglementaire">
+            <span class="mt"><span data-en="Regulatory templates">Modèles réglementaires</span> <span class="tag" data-en="Free">Gratuit</span></span>
             <span class="md" data-en="SmPC, leaflet and labelling on the official template of each country.">RCP, notice et étiquetage sur le modèle officiel de chaque pays.</span>
-          </span>
+          </a>
           <span class="soon">
             <span class="mt"><span data-en="Regulatory translation">Traduction réglementaire</span> <span class="tag" data-en="Soon">Bientôt</span></span>
             <span class="md" data-en="FR ⇄ EN ⇄ PT, with the vocabulary of the dossier preserved.">FR ⇄ EN ⇄ PT, avec le vocabulaire du dossier respecté.</span>
@@ -90,7 +90,7 @@
         <span class="mglabel" data-en="Tools">Outils</span>
         <a href="#diagnostic" data-en="Checking Standard — diagnostic">Checking Standard — diagnostic</a>
         <a href="#offres" data-en="Checking Standard — audits">Checking Standard — audits</a>
-        <span class="msoon"><span data-en="Regulatory templates">Modèles réglementaires</span> <span class="tag" data-en="Soon">Bientôt</span></span>
+        <a href="/bibliotheque-reglementaire" data-en="Regulatory templates">Modèles réglementaires</a>
         <span class="msoon"><span data-en="Regulatory translation">Traduction réglementaire</span> <span class="tag" data-en="Soon">Bientôt</span></span>
       </div>
       <a href="/#offres" data-en="Pricing">Tarifs</a>
@@ -440,7 +440,7 @@
       </div>
     </div>
     <div class="tplfoot">
-      <span class="fl" data-en="Official structure, reproduced from the authority's template — the template itself is obtained from the authority. You can also have your existing document brought up to this standard.">Structure officielle, reproduite d'après le modèle de l'autorité — le modèle lui-même s'obtient auprès de l'autorité. Vous pouvez aussi faire mettre votre document existant à ce standard.</span>
+      <span class="fl" data-en="Official structure. The template itself — free, in your filing country’s version — is downloadable from the regulatory library. You can also have your existing document brought up to this standard.">Structure officielle. Le modèle lui-même — gratuit, dans la version de votre pays de dépôt — se télécharge dans la bibliothèque réglementaire. Vous pouvez aussi faire mettre votre document existant à ce standard.</span>
       <span>
         <button class="btn btn-primary btn-sm" type="button" id="tplup" data-en="Bring my document up to standard">Mettre mon document au standard</button>
       </span>
@@ -458,13 +458,15 @@
     <div class="updrop">
       <div class="ic" aria-hidden="true">⤒</div>
       <div class="t" data-en="Upload your existing document">Téléversez votre document existant</div>
-      <div class="s" data-en="Word or PDF · encrypted space, opened after ordering">Word ou PDF · espace chiffré, ouvert après commande</div>
+      <div class="s" data-en="Word or PDF, scanned or not · your document stays on your device until payment">Word ou PDF, scanné ou non · votre document reste sur votre appareil jusqu'au paiement</div>
     </div>
     <div class="uppick" id="uppick"></div>
-    <div class="msafe" data-en="Regafy AI rebuilds your document on the official template of the selected country, section by section — you receive an editable Word file plus its PDF.">Regafy AI reconstruit votre document sur le modèle officiel du pays choisi, rubrique par rubrique — vous recevez un Word éditable et son PDF.</div>
+    <!-- Livrable VERROUILLÉ à cinq fichiers (étape 3 du process d'upgrade). Annoncer « un Word et
+         son PDF » était en retard sur le produit, et en défaveur de la vente. -->
+    <div class="msafe" data-en="You receive 5 files: the document in Word and PDF, in French and in English, plus the regulatory review — what was reworked, and what is still waiting for your data.">Vous recevez 5 fichiers : le document en Word et en PDF, en français et en anglais, plus la revue réglementaire — ce qui a été repris, et ce qui attend encore vos données.</div>
     <div class="mfoot">
       <button class="btn btn-ghost" type="button" id="upcancel" data-en="Cancel">Annuler</button>
-      <a class="btn btn-primary" id="upgo" href="mailto:contact@pharnos.com" data-en="Contact the team">Contacter l'équipe</a>
+      <a class="btn btn-primary" id="upgo" href="/bibliotheque-reglementaire#modeles" data-en="Choose my template and order">Choisir mon modèle et commander</a>
     </div>
   </div>
 </div>
@@ -472,6 +474,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="/landing.js?v=14" defer></script>
-<script type="module" src="/checking.js?v=3"></script>
+<script type="module" src="/checking.js?v=4"></script>
 </body>
 </html>

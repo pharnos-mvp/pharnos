@@ -6,8 +6,14 @@
  * transforme une auto-déclaration optimiste en constat — et qui rend la page enseignante.
  *
  * Ce ne sont PAS les documents officiels eux-mêmes : ce sont leurs ossatures (titres de
- * rubriques et règles opposables). Le téléchargement du modèle complet pointe vers la source
- * de l'autorité ; on ne redistribue pas un document officiel sous notre marque.
+ * rubriques et règles opposables), affichées pendant le questionnaire pour que le déclarant
+ * puisse se comparer sans quitter la page.
+ *
+ * Le MODÈLE COMPLET, lui, se télécharge — gratuitement, dans la version du pays de dépôt — sur
+ * `/bibliotheque-reglementaire` (`landing/checking/modeles-manifest.js`). Le modèle officiel est
+ * public et libre de droit : arbitrage CEO du 30/07/2026, qui annule la doctrine précédente
+ * (« on ne redistribue pas un document officiel sous notre marque ») et le renvoi « à obtenir
+ * auprès de l'autorité ».
  *
  * `__GRP__` en tête d'un intitulé = séparateur de bloc dans le rendu (pas une rubrique).
  *

@@ -49,6 +49,21 @@ const PAGES = [
         'Pharnos — the Checking Standard, MA dossier completeness diagnostic for the WAEMU zone.',
     },
   },
+  {
+    src: 'bibliotheque-reglementaire.html',
+    out: path.join('en', 'regulatory-library.html'),
+    canonical: 'https://pharnos.com/en/regulatory-library',
+    head: {
+      title: 'Regulatory library — the official templates, country by country · Pharnos',
+      description:
+        'SmPC, leaflet, labelling: the official template expected where you file, free to download — with your country’s pharmacovigilance statement already in section 4.8. Eight WAEMU countries.',
+      ogDescription:
+        'The template expected where you file, with your country’s pharmacovigilance statement already in place. Free, no sign-up.',
+      ogImage: 'https://pharnos.com/assets/og-image-en.png?v=1',
+      ogImageAlt:
+        'Pharnos — the regulatory library: official SmPC, leaflet and labelling templates for the WAEMU zone.',
+    },
+  },
 ]
 
 const BANNER = (src) =>
@@ -112,7 +127,20 @@ function buildPage({ src, out, canonical, head: EN, jsonLd }) {
   // 3b. Liens internes → leur miroir EN. Sans ça, un visiteur anglophone qui clique « Checking
   // Standard » depuis /en/ atterrit sur la page FR (et un crawler indexe un lien inter-langues).
   // Seuls les chemins qui ONT un miroir sont réécrits ; le reste est laissé intact.
-  const MIRRORED = new Set(['/', ...PAGES.map((p) => '/' + p.src.replace(/\.html$/, ''))])
+  // ⚠️ La cible se lit dans `out`, PAS dans `src` : une page miroir peut porter un autre slug en
+  // anglais (`bibliotheque-reglementaire` → `regulatory-library`). Déduire l'URL de `src`
+  // fabriquerait `/en/bibliotheque-reglementaire`, un 404 que rien ne signale au build.
+  const MIRRORED = new Map([
+    ['/', '/en/'],
+    ...PAGES.map((p) => [
+      '/' + p.src.replace(/\.html$/, ''),
+      '/' +
+        p.out
+          .split(path.sep)
+          .join('/')
+          .replace(/\.html$/, ''),
+    ]),
+  ])
   for (const a of D.querySelectorAll('a[href]')) {
     const href = a.getAttribute('href')
     if (!href.startsWith('/') || href.startsWith('/en/')) continue
@@ -120,8 +148,9 @@ function buildPage({ src, out, canonical, head: EN, jsonLd }) {
     const p = hashAt === -1 ? href : href.slice(0, hashAt)
     const hash = hashAt === -1 ? '' : href.slice(hashAt)
     const pathname = p || '/'
-    if (!MIRRORED.has(pathname)) continue
-    a.setAttribute('href', (pathname === '/' ? '/en/' : '/en' + pathname) + hash)
+    const cible = MIRRORED.get(pathname)
+    if (!cible) continue
+    a.setAttribute('href', cible + hash)
   }
 
   // 4. <head> anglais (les hreflang, réciproques, sont hérités inchangés de index.html).
