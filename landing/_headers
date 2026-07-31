@@ -1,6 +1,11 @@
 # Cloudflare Pages — en-têtes de la landing statique pharnos.com.
+#
+# `frame-src` : la page de paiement s'affiche DANS une modale de pharnos.com — l'acheteur ne
+# quitte jamais notre domaine. Deux hôtes, et deux seulement : le processeur (moneroo.io) et la
+# boutique du prestataire (mychariow.com), qui sert de repli. `default-src 'self'` couvrirait
+# `frame-src` et interdirait donc les deux : la directive est explicite pour cette raison.
 /*
-  Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src https://uhsireqwzqqymgsxuvqh.supabase.co; form-action 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'
+  Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src https://uhsireqwzqqymgsxuvqh.supabase.co; frame-src 'self' https://checkout.moneroo.io https://*.moneroo.io https://*.mychariow.com; form-action 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
