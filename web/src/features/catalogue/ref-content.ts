@@ -170,6 +170,11 @@ function mergeAgency(patch: AgencyPatch, base: AgencyInfo | undefined): AgencyIn
     adresse: patch.adresse ?? base?.adresse ?? '',
     telephone: patch.telephone ?? base?.telephone,
     email: patch.email ?? base?.email,
+    // Forme élidée (« l'AIRP », « la DPM ») : elle suit le socle code. Le payload publié ne la
+    // porte pas encore ; à défaut, la formule NEUTRE — jamais un article accordé au hasard sur un
+    // sigle publié, qui écrirait « l'DPM » dans un courrier opposable.
+    elide: base?.elide ?? 'l’autorité nationale',
+    elideEn: base?.elideEn ?? 'the national authority',
   }
 }
 

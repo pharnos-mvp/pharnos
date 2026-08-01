@@ -38,6 +38,8 @@ const baseResolved = (): ResolvedAuthority => ({
       adresse: 'Dakar, Sénégal',
       telephone: '+221 33 000 00 00',
       email: 'contact@arp.sn',
+      elide: 'l’ARP',
+      elideEn: 'the ARP',
     },
     civilite: 'Monsieur le Directeur Général',
     officialLang: 'fr',

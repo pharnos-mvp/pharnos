@@ -916,7 +916,7 @@ export function DossierWorkspacePage() {
       : docsFor(selected)
     : []
   const selectedTplKey = selected
-    ? templateKeyForNode(dossier.format, selected.number, dossier.activity)
+    ? templateKeyForNode(dossier.format, selected.number, dossier.activity, dossier.country)
     : undefined
   const selectedGenDocs = selected ? (genListByNode.get(selected.number) ?? []) : []
   // Le document de TEMPLATE du nœud (lettre cover/PGHT générée) — pilote « Générer » : tant qu'il
@@ -1476,7 +1476,16 @@ export function DossierWorkspacePage() {
     headerKind === null
       ? undefined
       : headerKind === 'cover'
-        ? { tone: 'auto', label: t({ fr: 'Autogénéré', en: 'Auto-generated' }), icon: Sparkles }
+        ? // Une section de garde qui porte un modèle officiel encore à produire n'est pas
+          // « Autogénérée » : le titre annonce la pièce à faire et le bouton « Générer » est là.
+          // Dire « autogénéré » à côté d'un bouton « générer » se contredit à l'écran.
+          canGenerate
+          ? {
+              tone: 'todo',
+              label: t({ fr: 'À générer', en: 'To generate' }),
+              icon: CircleDashed,
+            }
+          : { tone: 'auto', label: t({ fr: 'Autogénéré', en: 'Auto-generated' }), icon: Sparkles }
         : headerKind === 'piece'
           ? { tone: 'file', label: t({ fr: 'Pièce', en: 'File' }), icon: FileText }
           : headerKind === 'empty'
@@ -1502,9 +1511,13 @@ export function DossierWorkspacePage() {
           : headerKind === 'letter'
             ? t({ fr: 'Module 1 · Correspondance', en: 'Module 1 · Correspondence' })
             : t({ fr: 'Module 1', en: 'Module 1' })
+  // Une SECTION de garde garde son propre intitulé, même quand elle porte un modèle officiel :
+  // 1.2.3 regroupe quatre sous-sections (CEP, COPP, AMM du pays d'origine, CoA) et la renommer du
+  // nom d'une seule lettre ferait disparaître les trois autres de l'écran. Ce que le bouton va
+  // produire est dit par « Générer », pas par le titre de la section.
   const headerTitle =
     active?.label ??
-    (selectedTplKey ? TEMPLATES[selectedTplKey].title : undefined) ??
+    (headerKind !== 'cover' && selectedTplKey ? TEMPLATES[selectedTplKey].title : undefined) ??
     selected?.label ??
     ''
   const runHeaderAnalyze = () => {

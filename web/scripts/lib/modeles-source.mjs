@@ -1142,33 +1142,60 @@ const LETTRE_PGHT = [
 ]
 
 /**
- * Déclaration de certification des numéros DMF — obligation de l'AIRP (Côte d'Ivoire), note
- * d'information n° 1668. Même prose que le modèle déjà en production dans le builder
- * (`web/src/features/workspace/templates.ts`). Ces blocs ne servent que de REPLI : tant que le
- * fichier de l'AIRP est déposé, c'est LUI qui est servi, à l'octet près.
+ * Déclaration de certification des numéros DMF — transcription FIDÈLE du modèle de lettre de
+ * l'AIRP (note d'information n° 1668, pièce jointe), DÉCLINÉE PAR PAYS.
  *
- * Le tableau récapitulatif de l'AIRP est rendu en deux colonnes (libellé / valeur) : le rendu PDF
- * refuse une cellule qui déborde sa colonne, d'où le libellé court du site de fabrication — ce que
- * la cellule doit contenir est écrit dans la colonne de droite, sans rien retrancher à l'exigence.
+ * Le corps de la déclaration est standard : il ne nomme aucune autorité, il certifie un numéro de
+ * DMF. Seuls le destinataire et l'autorité citée dans l'engagement changent d'un pays à l'autre —
+ * d'où les jetons {CIV}, {AGENCE_FULL}, {PAYS} et {AGENCE}, résolus sur le référentiel d'agences
+ * du builder. Rien n'est retranché au modèle d'origine, rien n'y est ajouté.
+ *
+ * Deux points de forme viennent du document et NON de notre patron de lettres :
+ *   • l'en-tête du laboratoire est écrit DANS la lettre (la bibliothèque n'a pas de profil où le
+ *     prendre, contrairement au builder) ;
+ *   • la date est en PIED, avec « Fait à …, le … » — le modèle ne date pas en tête.
+ * La salutation reste « Madame, Monsieur, » : c'est celle du modèle, on ne la remplace pas par la
+ * civilité du directeur alors que l'autorité l'a écrite ainsi.
+ *
+ * Le tableau récapitulatif est en deux colonnes (libellé / valeur) : le rendu PDF refuse une
+ * cellule qui déborde sa colonne, d'où le libellé court du site de fabrication — ce que la
+ * cellule doit contenir est écrit dans la colonne de droite, sans rien retrancher à l'exigence.
  */
 const LETTRE_DMF = [
-  ...LETTRE_OUVERTURE,
+  // Lignes SERRÉES (style `entete`) : c'est un bloc d'adresse, pas cinq paragraphes.
+  { t: 'entete', x: '[En-tête du laboratoire]', en: '[Laboratory letterhead]' },
+  {
+    t: 'entete',
+    x: 'Raison sociale : {Nom du laboratoire}',
+    en: 'Company name: {Name of the laboratory}',
+  },
+  { t: 'entete', x: 'Adresse : {Adresse complète}', en: 'Address: {Full address}' },
+  { t: 'entete', x: 'Téléphone : {Numéro}', en: 'Telephone: {Number}' },
+  { t: 'entete', x: 'Email : {Adresse email}', en: 'Email: {Email address}' },
+
+  { t: 'right', x: 'À', en: 'To' },
+  { t: 'right', x: '{CIV}' },
+  { t: 'right', x: '{AGENCE_FULL}' },
+  { t: 'right', x: '{PAYS}' },
+
   {
     t: 'h3',
     x: 'Objet : Déclaration relative à la certification des numéros DMF',
     en: 'Subject: Declaration on the certification of DMF numbers',
   },
-  { t: 'salut' },
+  { t: 'p', x: 'Madame, Monsieur,', en: 'Dear Sir or Madam,' },
   {
     t: 'p',
     x:
-      'Je soussigné(e), …, agissant en qualité de … au sein du laboratoire …, certifie que le ' +
-      'numéro de Drug Master File (DMF) relatif à la substance active (API) du produit ci-dessous ' +
-      'est exact, valide et conforme aux informations fournies par le fabricant.',
+      'Je soussigné(e), {Nom et prénom}, agissant en qualité de {Fonction} au sein du laboratoire ' +
+      '{Nom du laboratoire}, certifie que le numéro de Drug Master File (DMF) relatif à la ' +
+      'substance active (API) du produit ci-dessous est exact, valide et conforme aux informations ' +
+      'fournies par le fabricant.',
     en:
-      'I, the undersigned, …, acting as … within the laboratory …, certify that the Drug Master ' +
-      'File (DMF) number for the active pharmaceutical ingredient (API) of the product below is ' +
-      'accurate, valid and consistent with the information provided by the manufacturer.',
+      'I, the undersigned, {Full name}, acting as {Position} within the laboratory ' +
+      '{Name of the laboratory}, certify that the Drug Master File (DMF) number for the active ' +
+      'pharmaceutical ingredient (API) of the product below is accurate, valid and consistent with ' +
+      'the information provided by the manufacturer.',
   },
   {
     t: 'p',
@@ -1186,40 +1213,55 @@ const LETTRE_DMF = [
   },
   {
     t: 'table',
-    // Sept lignes, sans ligne d'en-tête : c'est la forme du tableau de la note n° 1668, et celle
-    // que produit déjà le builder. En inventer une huitième ferait diverger les deux.
+    // Tableau « libellé / valeur » : pas de ligne d'en-tête, et la colonne de gauche ne se
+    // remplit pas — c'est l'intitulé de la ligne, pas une donnée.
+    libelles: true,
+    // Sept lignes, dans l'ordre exact du tableau du modèle.
     rows: [
-      ['Dénomination du produit fini', '…'],
-      ['Titulaire de l’AMM', '…'],
-      ['Fabricant du produit fini', '…'],
-      ['Substance active (API)', '…'],
-      ['Site de fabrication de la substance active', 'Nom, adresse, e-mail et téléphone'],
-      ['Autorité approbatrice du numéro de DMF', '…'],
-      ['N° DMF', '…'],
+      ['Dénomination du produit fini', '{Nom produit}'],
+      ['Titulaire de l’AMM', '{Titulaire AMM}'],
+      ['Fabricant du produit fini', '{Nom fabricant PF}'],
+      ['Substance active (API)', '{Nom API}'],
+      // Libellés VERBATIM du modèle : les cellules s'enroulent, rien n'a besoin d'être raccourci.
+      [
+        'Nom, adresse, contacts e-mail et numéro de téléphone du site de fabrication de la substance active (API)',
+        '{Nom, adresse, e-mail et téléphone}',
+      ],
+      [
+        'Nom de l’autorité de réglementation approbatrice du numéro de DMF',
+        '{Autorité de réglementation}',
+      ],
+      ['N° DMF', '{N° DMF}'],
     ],
     rowsEn: [
-      ['Name of the finished product', '…'],
-      ['MA holder', '…'],
-      ['Manufacturer of the finished product', '…'],
-      ['Active ingredient (API)', '…'],
-      ['API manufacturing site', 'Name, address, e-mail and telephone'],
-      ['Authority that approved the DMF number', '…'],
-      ['DMF No.', '…'],
+      ['Name of the finished product', '{Product name}'],
+      ['MA holder', '{MA holder}'],
+      ['Manufacturer of the finished product', '{Finished product manufacturer}'],
+      ['Active ingredient (API)', '{API name}'],
+      [
+        'Name, address, e-mail contacts and telephone number of the API manufacturing site',
+        '{Name, address, e-mail and telephone}',
+      ],
+      ['Name of the regulatory authority that approved the DMF number', '{Regulatory authority}'],
+      ['DMF No.', '{DMF number}'],
     ],
   },
   {
     t: 'p',
-    x: 'Je m’engage à informer au préalable l’autorité de toute variation relative à ces informations.',
-    en: 'I undertake to inform the authority in advance of any variation concerning this information.',
+    x: 'Je m’engage à informer au préalable {AGENCE} de toute variation relative à ces informations.',
+    en: 'I undertake to inform {AGENCE} in advance of any variation concerning this information.',
   },
   {
     t: 'p',
     x: 'La présente déclaration est établie pour servir et valoir ce que de droit.',
     en: 'This declaration is issued to serve and avail as of right.',
   },
-  { t: 'right', x: 'Poste', en: 'Position' },
-  { t: 'right', x: 'Signature et Cachet', en: 'Signature and stamp' },
-  { t: 'right', x: 'Nom et Prénom(s)', en: 'Full name' },
+
+  { t: 'right', x: 'Fait à {Ville}, le {date}', en: 'Done at {City}, on {date}' },
+  { t: 'right', x: 'Signature :', en: 'Signature:' },
+  { t: 'right', x: '{Nom et prénom}', en: '{Full name}' },
+  { t: 'right', x: '{Fonction}', en: '{Position}' },
+  { t: 'right', x: '[Cachet du laboratoire]', en: '[Laboratory stamp]' },
 ]
 
 /* ═════════════════ Résumés OMS — formulaires anglais par nature ═════════════════ */
@@ -1434,25 +1476,26 @@ export const DOCS = [
     ],
     court: ['Déclaration DMF', 'DMF declaration'],
     resume: [
-      'La certification du numéro de Drug Master File de la substance active, exigée par l’AIRP.',
-      'Certification of the active ingredient’s Drug Master File number, required by the AIRP.',
+      'La certification du numéro de Drug Master File de la substance active, adressée à votre autorité.',
+      'Certification of the active ingredient’s Drug Master File number, addressed to your authority.',
     ],
-    source: ['Modèle AIRP — note n° 1668', 'AIRP template — note No. 1668'],
+    // La provenance doit rester LISIBLE — un pied qui dit seulement « Déclaration de certification
+    // DMF » ne fait que répéter le titre et efface l'origine du texte. « D'après » est exact
+    // partout : c'est bien le modèle de l'AIRP, transposé, et non un modèle publié par l'ABMed ou
+    // la DPM. Le déposant sait donc ce qu'il tient, et sur quel texte s'appuyer s'il est questionné.
+    source: ['D’après le modèle AIRP — note n° 1668', 'Based on the AIRP template — note No. 1668'],
     groupe: 'lettres',
     blocks: LETTRE_DMF,
     upgradable: false,
     bilingue: true,
     layout: 'lettre',
-    // Obligation NATIONALE : seule la Côte d'Ivoire l'impose. Ne pas l'étendre aux sept autres
-    // pays sans le texte qui l'y étend — la bibliothèque annoncerait une pièce inexistante.
-    pays: ['ci'],
-    // L'AIRP publie SON modèle : on le sert tel quel, à l'octet près (directive CEO du 31/07/2026).
-    officiels: {
-      // Nom volontairement ASCII : le fichier d'origine portait ses accents en unicode
-      // DÉCOMPOSÉ, et toute normalisation (git sur macOS, re-téléchargement, aller-retour ZIP)
-      // aurait rendu ce chemin introuvable — build cassé sans que rien ne dise pourquoi.
-      ci: 'RA-source/AIRP/AIRP_Note-1668_declaration-numeros-DMF.pdf',
-    },
+    // GÉNÉRÉ, et pour les huit pays (décision CEO) : le corps de la déclaration ne nomme aucune
+    // autorité — il certifie un numéro de DMF — donc le modèle est transposable tel quel, à
+    // condition de mettre à jour le destinataire et l'autorité citée dans l'engagement.
+    //
+    // ⚠️ Le modèle est offert partout ; l'OBLIGATION, elle, n'est établie que pour la Côte
+    // d'Ivoire (note n° 1668). C'est pourquoi le CTD Builder, lui, ne le propose qu'aux dossiers
+    // ivoiriens : une bibliothèque propose, un dossier engage.
   },
   {
     slug: 'qos-pd',
@@ -1487,5 +1530,20 @@ export const DOCS = [
   },
 ]
 
-/** Vrai si le document dépend du pays — mention 4.8 ou bloc destinataire d'une lettre. */
-export const varieParPays = (doc) => doc.blocks.some((b) => b.t === 'vig' || b.t === 'agence')
+/**
+ * Vrai si le document dépend du pays — mention 4.8, bloc destinataire, ou tout jeton qui a besoin
+ * du pays pour se résoudre ({CIV}, {AGENCE…}, {PAYS}).
+ *
+ * ⚠️ Cette réponse commande TOUT le reste : un document déclaré indépendant du pays est généré une
+ * seule fois, sans pays, et ses jetons d'agence échouent — ou pire, passeraient inaperçus. La règle
+ * doit donc suivre le CONTENU, pas la seule présence d'un bloc `agence`.
+ */
+const BESOIN_PAYS = /\{(CIV|AGENCE|AGENCE_FULL|PAYS)\}/
+export const varieParPays = (doc) =>
+  doc.blocks.some(
+    (b) =>
+      b.t === 'vig' ||
+      b.t === 'agence' ||
+      b.t === 'salut' ||
+      (typeof b.x === 'string' && BESOIN_PAYS.test(b.x)),
+  )

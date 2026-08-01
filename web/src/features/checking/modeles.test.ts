@@ -20,7 +20,7 @@ import { DOCS, varieParPays } from '../../../scripts/lib/modeles-source.mjs'
 // Le manifeste est GÉNÉRÉ : TypeScript en infère un littéral aux huit clés pays connues, qu'on ne
 // peut pas indexer par une variable. On le relit une fois sous sa forme réelle — un enregistrement
 // dont les clés viennent du référentiel — plutôt que de caster à chaque accès.
-type Bloc0 = { t: string; x?: string; rows?: string[][] }
+type Bloc0 = { t: string; x?: string; rows?: string[][]; libelles?: boolean }
 type Fichier = {
   pdf: string
   zip: string
@@ -190,7 +190,7 @@ describe('un anglophone peut remplir une lettre française sans lire le françai
   /** Les blocs qui portent une case à remplir — « … » ou « {…} ». */
   const TOKEN = /…|\{[^}]+\}/
 
-  it.each(['lettre-demande', 'lettre-renouvellement', 'lettre-variation'])(
+  it.each(['lettre-demande', 'lettre-renouvellement', 'lettre-variation', 'lettre-dmf'])(
     '%s : chaque case a son aide anglaise, au bon index',
     (slug) => {
       const f = fichierDe(slug, 'ci')
@@ -232,14 +232,73 @@ describe('un anglophone peut remplir une lettre française sans lire le françai
   })
 })
 
-describe('une obligation nationale ne se sert que sous son drapeau', () => {
-  it("la déclaration DMF n'existe que pour la Côte d'Ivoire", () => {
-    // La servir sous huit pays laisserait croire que le Bénin ou le Togo réclament une pièce
-    // que seule l'AIRP impose (note n° 1668). Le manifeste doit dire cette restriction.
-    expect(Object.keys(docDe('lettre-dmf').fichiers)).toEqual(['ci'])
-    const f = fichierDe('lettre-dmf', 'ci')
-    expect(f.officiel).toBe(true)
-    expect(f.source?.[0]).toContain('AIRP')
+describe('la déclaration DMF est adressée à l’autorité du pays choisi', () => {
+  it('couvre les huit pays, chacun avec SA propre autorité', () => {
+    expect(Object.keys(docDe('lettre-dmf').fichiers).sort()).toEqual([...CODES].sort())
+    // Le corps de la déclaration ne nomme aucune autorité : seuls le destinataire et
+    // l'engagement la citent. Servir huit copies du texte ivoirien serait le pire des faux —
+    // crédible, et adressé à la mauvaise agence.
+    const nomme = (code: string) =>
+      (fichierDe('lettre-dmf', code).blocs ?? []).map((b) => b.x ?? '').join(' § ')
+    expect(nomme('ci')).toContain('Autorité Ivoirienne de Régulation Pharmaceutique (AIRP)')
+    expect(nomme('ci')).not.toContain('ABMed')
+    expect(nomme('bj')).toContain('Agence Béninoise du Médicament')
+    expect(nomme('bj')).not.toContain('AIRP')
+  })
+
+  it('accorde l’article de l’autorité citée dans l’engagement', () => {
+    // « informer au préalable l'AIRP » mais « informer au préalable LA DPM » : l'élision est une
+    // donnée du pays, pas une règle déductible du sigle. Une lettre qui écrit « l'DPM » se voit.
+    const engagement = (code: string) =>
+      (fichierDe('lettre-dmf', code).blocs ?? [])
+        .map((b) => b.x ?? '')
+        .find((x) => x.includes('m’engage'))
+    expect(engagement('ci')).toContain('l’AIRP')
+    expect(engagement('bj')).toContain('l’ABMed')
+    expect(engagement('ml')).toContain('la DPM')
+    expect(engagement('tg')).toContain('la DPML')
+    // Et l'agence NOMMÉE dans l'engagement est celle du bloc destinataire : deux référentiels
+    // donnaient une lettre qui nommait la DPM/MT en tête et disait « l'autorité nationale »
+    // douze lignes plus bas — un courrier officiel qui se lit comme un texte non relu.
+    for (const code of CODES) {
+      const blocs = (fichierDe('lettre-dmf', code).blocs ?? []).map((b) => b.x ?? '')
+      const sigle = blocs.find((x) => x.includes('('))?.match(/\(([^)]+)\)/)?.[1]
+      expect(sigle, code).toBeTruthy()
+      expect(engagement(code), `${code} : engagement ≠ destinataire`).toContain(sigle!)
+      expect(engagement(code), code).not.toContain('autorité nationale')
+    }
+  })
+
+  it('le Word livré met en gras la COLONNE des intitulés, pas une ligne d’en-tête', async () => {
+    // Le DOCX est le livrable ; l'aperçu n'est qu'une vignette. Le drapeau `libelles` était
+    // honoré au PDF et ignoré ici : le déposant téléchargeait un Word où « Dénomination du
+    // produit fini | <son produit> » sortait grisé en en-tête RÉPÉTABLE, les six autres
+    // intitulés en maigre. Exactement l'inverse de ce qu'il avait relu.
+    const zip = await JSZip.loadAsync(fs.readFileSync(chemin(fichierDe('lettre-dmf', 'bj').zip)))
+    const nom = Object.keys(zip.files).find((n) => n.endsWith('_FR.docx'))!
+    const docx = await JSZip.loadAsync(await zip.file(nom)!.async('nodebuffer'))
+    const xml = await docx.file('word/document.xml')!.async('string')
+    const table = xml.slice(xml.indexOf('<w:tbl>'), xml.indexOf('</w:tbl>'))
+    const lignes = table.split('<w:tr>').slice(1)
+    expect(lignes).toHaveLength(7)
+    for (const [i, ligne] of lignes.entries()) {
+      const cellules = ligne.split('<w:tc>').slice(1)
+      expect(cellules.length, `ligne ${i}`).toBe(2)
+      expect(/<w:b\/>/.test(cellules[0]!), `ligne ${i} : intitulé en gras`).toBe(true)
+      expect(/<w:b\/>/.test(cellules[1]!), `ligne ${i} : valeur en maigre`).toBe(false)
+    }
+    // Aucune ligne d'en-tête répétable : ce tableau n'en a pas.
+    expect(table).not.toMatch(/<w:tblHeader\/>/)
+  })
+
+  it('son tableau récapitulatif est un « libellé / valeur » : la colonne de gauche ne se remplit pas', () => {
+    const t = (fichierDe('lettre-dmf', 'bj').blocs ?? []).find((b) => b.t === 'table')
+    expect(t?.libelles).toBe(true)
+    expect(t?.rows).toHaveLength(7)
+    // Les sept intitulés du modèle, verbatim — la colonne de droite est ce que l'on saisit.
+    expect(t?.rows?.[0]?.[0]).toBe('Dénomination du produit fini')
+    expect(t?.rows?.[6]?.[0]).toBe('N° DMF')
+    for (const r of t?.rows ?? []) expect(r[1]).toMatch(/^\{.+\}$/)
   })
 
   it('les documents régionaux couvrent bien les huit pays', () => {

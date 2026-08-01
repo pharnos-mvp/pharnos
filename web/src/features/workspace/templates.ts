@@ -20,7 +20,7 @@ import type { DossierFormat } from './module1-tree'
  * `lang` → comportement FR identique.
  */
 
-export type TemplateKey = 'cover' | 'pght' | 'renewal' | 'variation'
+export type TemplateKey = 'cover' | 'pght' | 'renewal' | 'variation' | 'dmf'
 
 export interface TemplateContext {
   nomCommercial: string
@@ -72,6 +72,18 @@ export interface TemplateContext {
   variationItems?: string[]
   /** Variation — pièces jointes (libellés déjà localisés) à énumérer en fin de lettre. */
   variationPieces?: string[]
+  /**
+   * Déclaration DMF (Côte d'Ivoire) — le dossier ne porte AUCUN de ces trois champs : la fiche
+   * produit ne connaît ni le site de fabrication de la substance active, ni l'autorité qui a
+   * approuvé le DMF, ni son numéro. Laissés vides, ils rendent un marqueur `[…]` éditable
+   * in-place, comme partout ailleurs — jamais une valeur devinée.
+   */
+  /** Nom, adresse, e-mail et téléphone du site de fabrication de la substance active. */
+  apiFabricantSite?: string
+  /** Autorité de réglementation ayant approuvé le numéro de DMF. */
+  dmfAutorite?: string
+  /** Numéro de Drug Master File. */
+  dmfNumero?: string
 }
 
 export interface TemplateDef {
@@ -442,6 +454,158 @@ function buildPght(c: TemplateContext, lang: Lang = 'fr'): JSONContent {
   }
 }
 
+/* -------------------- Déclaration de certification des numéros DMF -------------------- */
+
+/**
+ * Déclaration relative à la **certification des numéros DMF** — modèle officiel de l'AIRP
+ * (note d'information n° 1668, « Obligation de déclaration des Numéros de DMF »,
+ * `RA-source/AIRP/`). Le laboratoire certifie que le n° de Drug Master File de la substance
+ * active est exact, valide et conforme, et s'engage à signaler toute variation.
+ *
+ * Les PARAGRAPHES sont ceux de la note, mot pour mot. Ce qui est normalisé sur le moteur de
+ * lettres : la mise en page (dateline en tête — le modèle AIRP datait en pied, on ne date pas deux
+ * fois ; bloc signature à droite), l'en-tête du laboratoire (branding du profil) et la CIVILITÉ,
+ * prise au référentiel d'agences (« Monsieur le Directeur Général ») là où la note s'en tient à
+ * « Madame, Monsieur » — comme toutes nos autres lettres, qui s'adressent nommément.
+ *
+ * Les trois informations que le dossier ne détient pas (site de fabrication de l'API, autorité
+ * approbatrice, n° de DMF) restent des marqueurs `[…]` éditables : rien n'est deviné.
+ */
+function buildDmf(c: TemplateContext, lang: Lang = 'fr'): JSONContent {
+  const L = (fr: string, en: string) => (lang === 'en' ? en : fr)
+  const cv = civ(c, lang)
+  const mark = (v: string | undefined, fr: string, en: string): string =>
+    (v ?? '').trim() || L(fr, en)
+  // Cellule de tableau : un nœud `text` vide est invalide → paragraphe sans contenu.
+  const cell = (text: string, header = false): JSONContent => ({
+    type: header ? 'tableHeader' : 'tableCell',
+    content: [{ type: 'paragraph', content: text ? [txt(text)] : undefined }],
+  })
+  const row = (label: string, value: string): JSONContent => ({
+    type: 'tableRow',
+    content: [cell(label, true), cell(value)],
+  })
+  const signataire = mark(c.signataire, '[Nom et prénom]', '[Full name]')
+  const fonction = mark(c.poste, '[Fonction]', '[Position]')
+  const laboratoire = mark(c.demandeurNom, '[Nom du laboratoire]', '[Name of the laboratory]')
+  return {
+    type: 'doc',
+    content: [
+      paraR(txt(L(`${c.ville}, le ${c.date}`, `${c.ville}, ${c.date}`))),
+      blank(),
+      paraR(txt(L('À', 'To'))),
+      paraR(txt(cv), br(), txt(c.agencyFull), br(), txt(c.agencyAdresse)),
+      blank(),
+      para(
+        strong(L('Objet : ', 'Subject: ')),
+        txt(
+          L(
+            'Déclaration relative à la certification des numéros DMF',
+            'Declaration on the certification of DMF numbers',
+          ),
+        ),
+      ),
+      blank(),
+      para(txt(`${cv},`)),
+      para(
+        txt(
+          L(
+            `Je soussigné(e), ${signataire}, agissant en qualité de ${fonction} au sein du ` +
+              `laboratoire ${laboratoire}, certifie que le numéro de Drug Master File (DMF) relatif ` +
+              'à la substance active (API) du produit ci-dessous est exact, valide et conforme aux ' +
+              'informations fournies par le fabricant.',
+            `I, the undersigned, ${signataire}, acting as ${fonction} within the laboratory ` +
+              `${laboratoire}, certify that the Drug Master File (DMF) number for the active ` +
+              'pharmaceutical ingredient (API) of the product below is accurate, valid and ' +
+              'consistent with the information provided by the manufacturer.',
+          ),
+        ),
+      ),
+      para(
+        txt(
+          L(
+            'Je déclare également que ces informations ont été vérifiées auprès de l’autorité de ' +
+              'réglementation pharmaceutique du pays d’origine de cette substance active.',
+            'I further declare that this information has been verified with the pharmaceutical ' +
+              'regulatory authority of the country of origin of that active ingredient.',
+          ),
+        ),
+      ),
+      para(
+        txt(
+          L(
+            'Le tableau ci-dessous récapitule les informations concernées :',
+            'The table below summarises the information concerned:',
+          ),
+        ),
+      ),
+      {
+        type: 'table',
+        content: [
+          row(
+            L('Dénomination du produit fini', 'Name of the finished product'),
+            c.nomCommercial || L('[Nom du produit]', '[Product name]'),
+          ),
+          row(
+            L('Titulaire de l’AMM', 'MA holder'),
+            mark(c.demandeurNom, '[Titulaire de l’AMM]', '[MA holder]'),
+          ),
+          row(
+            L('Fabricant du produit fini', 'Manufacturer of the finished product'),
+            mark(c.fabricantNom, '[Nom du fabricant]', '[Manufacturer name]'),
+          ),
+          row(
+            L('Substance active (API)', 'Active ingredient (API)'),
+            mark(c.dci, '[Nom de la substance active]', '[Active ingredient name]'),
+          ),
+          // Libellés VERBATIM du modèle — les mêmes que la bibliothèque publique
+          // (`scripts/lib/modeles-source.mjs`), pour qu'un même document ne change pas de mots
+          // selon l'endroit d'où le client le sort.
+          row(
+            L(
+              'Nom, adresse, contacts e-mail et numéro de téléphone du site de fabrication de la substance active (API)',
+              'Name, address, e-mail contacts and telephone number of the API manufacturing site',
+            ),
+            mark(
+              c.apiFabricantSite,
+              '[Site de fabrication de la substance active]',
+              '[API manufacturing site]',
+            ),
+          ),
+          row(
+            L(
+              'Nom de l’autorité de réglementation approbatrice du numéro de DMF',
+              'Name of the regulatory authority that approved the DMF number',
+            ),
+            mark(c.dmfAutorite, '[Autorité de réglementation]', '[Regulatory authority]'),
+          ),
+          row(L('N° DMF', 'DMF No.'), mark(c.dmfNumero, '[N° DMF]', '[DMF number]')),
+        ],
+      },
+      para(
+        txt(
+          L(
+            `Je m’engage à informer au préalable l’${c.agencyName} de toute variation relative à ces informations.`,
+            `I undertake to inform the ${c.agencyName} in advance of any variation concerning this information.`,
+          ),
+        ),
+      ),
+      para(
+        txt(
+          L(
+            'La présente déclaration est établie pour servir et valoir ce que de droit.',
+            'This declaration is issued to serve and avail as of right.',
+          ),
+        ),
+      ),
+      blank(),
+      paraR(txt(fonction)),
+      paraR(txt(L('[Signature et cachet]', '[Signature and stamp]'))),
+      paraR(txt(signataire)),
+    ],
+  }
+}
+
 /* ----------------------------- Registre + liaison aux nœuds ----------------------------- */
 
 export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
@@ -469,6 +633,34 @@ export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
     titleEn: 'Marketing Authorisation Variation Application Letter',
     build: buildVariation,
   },
+  dmf: {
+    key: 'dmf',
+    title: 'Déclaration de certification des numéros DMF',
+    titleEn: 'Declaration on the Certification of DMF Numbers',
+    build: buildDmf,
+  },
+}
+
+/**
+ * Templates dont l'obligation est NATIONALE : ils n'apparaissent que sur un dossier du pays qui
+ * les impose, ET pour les seules opérations que le texte vise. Ne jamais élargir un modèle sans
+ * le texte qui l'y étend — la déclaration DMF est une obligation de l'AIRP (note n° 1668), pas
+ * une exigence régionale, et elle ne couvre pas toutes les opérations.
+ */
+const TEMPLATE_BY_COUNTRY: Record<
+  string,
+  Record<string, { key: TemplateKey; activities: string[] }>
+> = {
+  CI: {
+    // 1.2.3 « Formulaires de certification et d'attestation » : le document EST une certification,
+    // et ce numéro porte le même intitulé dans les deux formats (eCTD CEDEAO et CTD UEMOA).
+    //
+    // La note n° 1668 énumère DEUX cas, et deux seulement : « Toute nouvelle demande
+    // d'enregistrement en vue de l'obtention d'une Autorisation de Mise sur le Marché ; Toute
+    // demande de renouvellement d'une Autorisation de Mise sur le Marché. » La VARIATION n'y
+    // figure pas — la proposer y ferait annoncer par Pharnos une pièce que l'AIRP ne réclame pas.
+    '1.2.3': { key: 'dmf', activities: ['new_ma', 'renewal'] },
+  },
 }
 
 /** Nœud (par numéro CTD) → template applicable, selon le format réglementaire. */
@@ -483,14 +675,25 @@ const TEMPLATE_BY_NUMBER: Record<DossierFormat, Record<string, TemplateKey>> = {
  * Renvoie la clé de template générable pour un nœud (par numéro), ou `undefined`.
  * Selon l'**opération du dossier** : pour un **renouvellement** (`activity === 'renewal'`), la lettre
  * de demande (cover, au 1.1.1 CTD / 1.0.1 eCTD) devient la **lettre de renouvellement**.
+ *
+ * `country` (code ISO du dossier) ouvre en plus les modèles d'obligation NATIONALE. Il est
+ * optionnel : sans lui, seul le socle régional répond — un appelant qui l'ignore garde donc
+ * exactement le comportement d'avant.
  */
 export function templateKeyForNode(
   format: DossierFormat,
   nodeNumber: string,
   activity?: string,
+  country?: string,
 ): TemplateKey | undefined {
   const key = TEMPLATE_BY_NUMBER[format]?.[nodeNumber]
   if (key === 'cover' && activity === 'renewal') return 'renewal'
   if (key === 'cover' && activity === 'variation') return 'variation'
-  return key
+  if (key) return key
+  // Le socle régional prime : un modèle national ne peut pas évincer la lettre d'un nœud déjà
+  // servi. Et il ne s'ouvre que pour les opérations que son texte vise — sans opération connue,
+  // on ne propose rien plutôt que de proposer à tort.
+  const national = country ? TEMPLATE_BY_COUNTRY[country]?.[nodeNumber] : undefined
+  if (!national || !activity || !national.activities.includes(activity)) return undefined
+  return national.key
 }

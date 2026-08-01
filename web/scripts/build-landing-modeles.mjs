@@ -65,7 +65,7 @@ const MANIFESTE = path.join(RACINE, 'landing', 'checking', 'modeles-manifest.js'
 // 2026.7 : purge de cache forcée — des copies de PDF antérieures au correctif CSP du 31/07
 // (double `content-security-policy`) traînaient dans les caches navigateurs et rendaient le
 // volet lecteur intermittent ; changer la version change la clé de cache de TOUS les fichiers.
-const VERSION = '2026.7'
+const VERSION = '2026.8'
 
 /** Date figée : sans elle, deux exécutions produisent des octets différents. */
 const FIGEE = new Date('2026-07-30T00:00:00Z')
@@ -157,7 +157,15 @@ function resoudre(doc, pays, langue, activite) {
       continue
     }
     if (b.t === 'table') {
-      out.push({ t: 'table', rows: langue === 'en' && b.rowsEn ? b.rowsEn : b.rows })
+      // `libelles` : tableau « libellé / valeur » (pas de ligne d'en-tête, colonne de gauche
+      // fixe). Le drapeau suit le bloc jusqu'à la feuille de remplissage, qui doit savoir NE PAS
+      // rendre la colonne des libellés saisissable — sinon l'utilisateur peut effacer
+      // « Titulaire de l'AMM » et déposer un tableau qui ne dit plus ce qu'il montre.
+      out.push({
+        t: 'table',
+        rows: langue === 'en' && b.rowsEn ? b.rowsEn : b.rows,
+        ...(b.libelles ? { libelles: true } : {}),
+      })
       continue
     }
     if (b.t === 'break') {
@@ -175,6 +183,27 @@ function resoudre(doc, pays, langue, activite) {
       x = x
         .replaceAll('{ACTE_OBJET}', ACTE_OBJET[activite][langue === 'en' ? 'en' : 'fr'])
         .replaceAll('{ACTE}', ACTE[activite][langue === 'en' ? 'en' : 'fr'])
+    }
+    // L'autorité NOMMÉE au fil du texte — « je m'engage à informer l'AIRP » devient « l'ABMed »
+    // au Bénin. Sans ces jetons, décliner un modèle par pays laisserait le sigle ivoirien dans
+    // les sept autres lettres : le pire des faux, parce qu'il est crédible.
+    //
+    // ⚠️ `{AGENCE}` prend la forme ÉLIDÉE du référentiel, pas le sigle nu : le français ne dit pas
+    // « informer l'DPM » mais « informer LA DPM ». L'élision est une donnée du pays, pas une règle
+    // qu'on pourrait deviner à partir du sigle.
+    if (x.includes('{AGENCE') || x.includes('{PAYS}')) {
+      if (!pays) throw new Error(`${doc.slug} : {AGENCE}/{PAYS} sans pays`)
+      const ag = agencyFor(codeAgence(pays))
+      const p = PAYS.find((q) => q.k === pays)
+      const iLangue = langue === 'en' ? 1 : 0
+      // L'élidée vient du MÊME référentiel que le bloc destinataire (`roadmap-data`), pas du
+      // référentiel du Checking : celui-ci dit « l'autorité nationale » pour GW et NE, ce qui
+      // donnait une lettre nommant la DPM/MT en tête et l'appelant « l'autorité nationale » douze
+      // lignes plus bas. Sur un courrier officiel, ça se lit comme un texte non relu.
+      x = x
+        .replaceAll('{AGENCE_FULL}', ag.name ? `${ag.full} (${ag.name})` : ag.full)
+        .replaceAll('{AGENCE}', langue === 'en' ? ag.elideEn : ag.elide)
+        .replaceAll('{PAYS}', Array.isArray(p.nom) ? p.nom[iLangue] : p.nom)
     }
     out.push({ t: b.t, x })
   }
@@ -257,6 +286,12 @@ const GABARITS = {
       p: { taille: 12, avant: 0, apres: 7 },
       li: { taille: 12, avant: 0, apres: 4, puce: true },
       right: { taille: 12, avant: 0, apres: 4, droite: true },
+      // En-tête du laboratoire : des lignes SERRÉES, comme un bloc d'adresse — les espacer comme
+      // des paragraphes coûtait une page entière. La déclaration DMF tient ainsi sur une page
+      // pour six pays sur huit ; la Guinée-Bissau et le Niger en prennent deux, leurs noms
+      // d'autorité étant plus longs. Ce n'est pas un défaut : le bloc signature reste solidaire
+      // (garde anti-orphelin), et la grille n'annonce plus une pagination qui varie.
+      entete: { taille: 11, avant: 0, apres: 0 },
     },
     inter: (taille) => taille * 1.45,
   },
@@ -334,25 +369,60 @@ async function versPdf(doc, blocs, paysNom) {
   nouvellePage()
 
   const ENCRE = rgb(0.07, 0.09, 0.13)
-  for (const b of blocs) {
+
+  /**
+   * Premier bloc du BLOC SIGNATURE — la suite de lignes « à droite » qui ferme la lettre.
+   *
+   * Une signature séparée de son nom par un saut de page n'est pas une lettre : c'est une lettre
+   * abîmée. Quand la fin ne tient pas entière, elle part ensemble sur la page suivante. Calculé
+   * ici, une fois, plutôt qu'au fil du dessin où l'on ne sait plus ce qui reste à venir.
+   */
+  let debutSignature = blocs.length
+  while (debutSignature > 0 && blocs[debutSignature - 1].t === 'right') debutSignature--
+  // La hauteur À RÉSERVER n'est pas la hauteur totale du bloc : le dessin teste `y < marge.bas`
+  // AVANT chaque ligne, donc la dernière ligne s'écrit encore juste au-dessus de la marge. On
+  // retranche sa hauteur et son espacement, sinon la garde se déclenche alors que ça tenait —
+  // et renvoie en page 2 des lettres qui tenaient sur une seule.
+  const coutBloc = (b) => G.style[b.t].avant + G.inter(G.style[b.t].taille) + G.style[b.t].apres
+  const signature = blocs.slice(debutSignature)
+  const hauteurSignature =
+    signature.reduce((h, b) => h + coutBloc(b), 0) - coutBloc(signature.at(-1) ?? blocs[0])
+
+  for (const [iBloc, b] of blocs.entries()) {
+    // La fin de lettre ne se coupe pas : si elle ne tient pas, on tourne la page avant elle.
+    // `iBloc > 0` : un document fait ENTIÈREMENT de blocs « à droite » commencerait sinon par une
+    // page blanche, la garde se déclenchant sur la première page encore vide.
+    if (
+      iBloc > 0 &&
+      iBloc === debutSignature &&
+      debutSignature < blocs.length &&
+      y - hauteurSignature < G.marge.bas
+    )
+      nouvellePage()
     if (b.t === 'break') {
       nouvellePage()
       continue
     }
     if (b.t === 'table') {
-      // La lettre PGHT EST un tableau : une grille réelle, pas des lignes de texte. Une cellule
-      // reste sur une ligne — on échoue si elle déborde plutôt que de la tronquer.
+      // Une grille réelle, pas des lignes de texte. Les cellules S'ENROULENT : le tableau de la
+      // déclaration DMF porte des libellés longs (« Autorité de réglementation approbatrice du
+      // numéro de DMF ») que le modèle de l'autorité écrit lui-même sur deux lignes. Raccourcir
+      // ces libellés pour tenir sur une ligne reviendrait à réécrire un document officiel.
       const cols = b.rows[0].length
       const wCol = largeur / cols
-      const hL = 22
-      y -= 6
+      const PAD = 5
+      const hLigne = 11
+      y -= 4
       for (const [ri, row] of b.rows.entries()) {
+        const font = ri === 0 && !b.libelles ? gras : reg
+        // Première colonne d'un tableau « libellé / valeur » : c'est un intitulé, il est en gras.
+        const fonteCell = (ci) => (b.libelles && ci === 0 ? gras : font)
+        const cellules = row.map((cell, ci) =>
+          lignes(assainir(String(cell), `${doc.slug}/table`), fonteCell(ci), 9, wCol - 2 * PAD),
+        )
+        const hL = Math.max(20, Math.max(...cellules.map((l) => l.length)) * hLigne + 9)
         if (y - hL < G.marge.bas) nouvellePage()
-        const font = ri === 0 ? gras : reg
-        for (const [ci, cell] of row.entries()) {
-          const s = assainir(String(cell), `${doc.slug}/table`)
-          if (font.widthOfTextAtSize(s, 9) > wCol - 10)
-            throw new Error(`table ${doc.slug} : cellule trop large « ${s} »`)
+        cellules.forEach((ls, ci) => {
           const x0 = G.marge.g + ci * wCol
           page.drawRectangle({
             x: x0,
@@ -362,8 +432,16 @@ async function versPdf(doc, blocs, paysNom) {
             borderColor: ENCRE,
             borderWidth: 0.7,
           })
-          page.drawText(s, { x: x0 + 5, y: y - hL + 7, size: 9, font, color: ENCRE })
-        }
+          ls.forEach((l, li) => {
+            page.drawText(l, {
+              x: x0 + PAD,
+              y: y - 11 - li * hLigne,
+              size: 9,
+              font: fonteCell(ci),
+              color: ENCRE,
+            })
+          })
+        })
         y -= hL
       }
       y -= 8
@@ -426,6 +504,7 @@ const ESPACE = {
   p: { before: 0, after: 200 },
   li: { before: 0, after: 120 },
   right: { before: 0, after: 60 },
+  entete: { before: 0, after: 0 },
 }
 const INTERLIGNE = 276
 
@@ -482,35 +561,38 @@ async function versDocx(doc, blocs, paysNom) {
         width: { size: 100, type: WidthType.PERCENTAGE },
         // Une ligne d'en-tête qui se répète si le tableau passe la page, et des cellules qui
         // ne collent pas au trait : c'est ce qui sépare un tableau de courrier d'une grille brute.
+        // Un tableau « libellé / valeur » n'a PAS de ligne d'en-tête : ce qui se détache est sa
+        // COLONNE de gauche. Sans cette distinction, le Word livré grisait « Dénomination du
+        // produit fini | <nom réel du produit> » comme un en-tête répétable et laissait les six
+        // autres intitulés en maigre — l'inverse de ce que l'aperçu montrait.
         rows: b.rows.map(
           (row, ri) =>
             new TableRow({
-              tableHeader: ri === 0,
+              tableHeader: !b.libelles && ri === 0,
               height: { value: 420, rule: 'atLeast' },
-              children: row.map(
-                (cell) =>
-                  new TableCell({
-                    margins: MARGE_CELLULE,
-                    verticalAlign: VerticalAlign.CENTER,
-                    shading:
-                      ri === 0
-                        ? { type: ShadingType.CLEAR, fill: 'F1F4F9', color: 'auto' }
-                        : undefined,
-                    children: [
-                      new Paragraph({
-                        spacing: { before: 0, after: 0, line: 240 },
-                        children: [
-                          new TextRun({
-                            text: String(cell),
-                            bold: ri === 0,
-                            size: 20,
-                            font: G.fonteDocx,
-                          }),
-                        ],
-                      }),
-                    ],
-                  }),
-              ),
+              children: row.map((cell, ci) => {
+                const intitule = b.libelles ? ci === 0 : ri === 0
+                return new TableCell({
+                  margins: MARGE_CELLULE,
+                  verticalAlign: VerticalAlign.CENTER,
+                  shading: intitule
+                    ? { type: ShadingType.CLEAR, fill: 'F1F4F9', color: 'auto' }
+                    : undefined,
+                  children: [
+                    new Paragraph({
+                      spacing: { before: 0, after: 0, line: 240 },
+                      children: [
+                        new TextRun({
+                          text: String(cell),
+                          bold: intitule,
+                          size: 20,
+                          font: G.fonteDocx,
+                        }),
+                      ],
+                    }),
+                  ],
+                })
+              }),
             }),
         ),
       })
@@ -566,6 +648,21 @@ async function figerLesDates(buffer) {
         'utf8',
       )
     }
+    // La bibliothèque `docx` tire un identifiant ALÉATOIRE pour le lien du pied de page : deux
+    // exécutions sans le moindre changement produisaient 54 ZIP différents. Conséquences réelles :
+    // le diff noyait 8 vrais fichiers sous 60 de bruit, `octetsZip` (affiché à l'utilisateur)
+    // bougeait sans raison, et surtout AUCUNE barrière CI « source ↔ sortie » n'était posable —
+    // c'est ce trou qui a laissé partir en production un manifeste désaccordé de son code.
+    // Le quantifieur ≥ 8 épargne les `rId1`, `rId2` structurels. La classe DOIT inclure `_` et les
+    // majuscules : ces identifiants n'ont pas de forme fixe, et une classe trop étroite coupe au
+    // milieu — laissant une queue aléatoire (`rIdPharnosPied_gspwzb1y9jnx`) et un build toujours
+    // instable, mais qui en a l'air moins.
+    if (nom.endsWith('.xml') || nom.endsWith('.rels')) {
+      contenu = Buffer.from(
+        contenu.toString('utf8').replace(/rId[A-Za-z0-9_-]{8,}/g, 'rIdPharnosPied'),
+        'utf8',
+      )
+    }
     rejoue.file(nom, contenu, { date: FIGEE, createFolders: false })
   }
   return rejoue.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
@@ -595,9 +692,11 @@ let ecrits = 0
 for (const doc of DOCS) {
   const perPays = varieParPays(doc)
   const activites = doc.activites ?? [null]
-  // `doc.pays` restreint le document aux pays qui l'IMPOSENT : une obligation nationale ne doit
-  // pas être servie sous les huit drapeaux, sinon la bibliothèque laisse croire que le Bénin
-  // exige une pièce que seule la Côte d'Ivoire réclame. Absent → les huit pays, comme avant.
+  // `doc.pays` restreint un document aux pays qui le servent. AUCUN document ne l'emploie
+  // aujourd'hui — la déclaration DMF, un temps réservée à la Côte d'Ivoire, est désormais
+  // transposée aux huit. On garde le mécanisme et ses deux gardes : le jour où une autorité
+  // publie une pièce qui n'existe que chez elle, la restriction doit être déclarative, pas
+  // réinventée. Absent → les huit pays.
   const paysDoc = doc.pays ?? PAYS.map((p) => p.k)
   for (const k of paysDoc)
     if (!PAYS.some((p) => p.k === k)) throw new Error(`pays inconnu « ${k} »`)
@@ -690,7 +789,18 @@ for (const doc of DOCS) {
       octetsZip: zip.length,
       // Les lettres embarquent leurs blocs résolus : le formulaire « Générer ma lettre » de la
       // page les remplit puis produit le DOCX dans le navigateur — même source, zéro divergence.
-      ...(doc.layout === 'lettre' ? { blocs: blocsFr, aidesEn: aidesEn(doc, pays, activite) } : {}),
+      //
+      // `agence` : l'agence nommée, article compris, telle qu'elle apparaît DANS la lettre. La
+      // page l'affiche au-dessus du document (« adressée à … ») ; sans elle, elle lisait l'autre
+      // référentiel et annonçait « l'autorité nationale » au-dessus d'une lettre qui nomme la
+      // DPM/MT. Deux sources pour un même fait finissent toujours par se contredire.
+      ...(doc.layout === 'lettre'
+        ? {
+            blocs: blocsFr,
+            aidesEn: aidesEn(doc, pays, activite),
+            agence: [agencyFor(codeAgence(pays)).elide, agencyFor(codeAgence(pays)).elideEn],
+          }
+        : {}),
     }
   }
 
@@ -703,7 +813,9 @@ for (const doc of DOCS) {
     .slice(0, 16)
     .map((b) =>
       b.t === 'table'
-        ? { t: 'table', rows: b.rows }
+        ? // `libelles` suit jusqu'à la vignette : sans lui, le fac-similé rendait une ligne
+          // d'en-tête que le document n'a pas — alors qu'il promet de montrer les MÊMES blocs.
+          { t: 'table', rows: b.rows, ...(b.libelles ? { libelles: true } : {}) }
         : { t: b.t, x: b.x.length > 140 ? b.x.slice(0, 140) + '…' : b.x },
     )
   manifeste[doc.slug] = {

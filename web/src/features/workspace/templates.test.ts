@@ -66,6 +66,81 @@ describe('templates (génération de documents)', () => {
     const text = plain(TEMPLATES.cover.build({ ...ctx, dci: '', dosage: '', dciDosage: '' }))
     expect(text).toContain('[DCI et dosage]')
   })
+
+  describe('déclaration DMF (obligation AIRP — note n° 1668)', () => {
+    it("ne s'ouvre qu'au 1.2.3 d'un dossier ivoirien", () => {
+      expect(templateKeyForNode('ctd', '1.2.3', 'new_ma', 'CI')).toBe('dmf')
+      expect(templateKeyForNode('ectd', '1.2.3', 'new_ma', 'CI')).toBe('dmf')
+      // Aucun autre pays n'impose cette déclaration : le nœud reste sans modèle.
+      expect(templateKeyForNode('ctd', '1.2.3', 'new_ma', 'BJ')).toBeUndefined()
+      expect(templateKeyForNode('ctd', '1.2.3', 'new_ma', 'SN')).toBeUndefined()
+      // Sans pays (appelant historique), le socle régional répond seul — comportement inchangé.
+      expect(templateKeyForNode('ctd', '1.2.3')).toBeUndefined()
+      expect(templateKeyForNode('ctd', '1.2.4', 'new_ma', 'CI')).toBeUndefined()
+    })
+
+    it('ne vaut que pour les DEUX opérations que la note n° 1668 énumère', () => {
+      // « Toute nouvelle demande d'enregistrement […] ; Toute demande de renouvellement […] ».
+      expect(templateKeyForNode('ctd', '1.2.3', 'new_ma', 'CI')).toBe('dmf')
+      expect(templateKeyForNode('ctd', '1.2.3', 'renewal', 'CI')).toBe('dmf')
+      // La VARIATION n'y figure pas : ne pas annoncer une pièce que l'AIRP ne réclame pas là.
+      expect(templateKeyForNode('ctd', '1.2.3', 'variation', 'CI')).toBeUndefined()
+      expect(templateKeyForNode('ectd', '1.2.3', 'variation', 'CI')).toBeUndefined()
+      // Opération inconnue : on ne propose rien plutôt que de proposer à tort.
+      expect(templateKeyForNode('ctd', '1.2.3', undefined, 'CI')).toBeUndefined()
+    })
+
+    it("le socle régional prime : un modèle national n'évince aucune lettre existante", () => {
+      expect(templateKeyForNode('ctd', '1.1.1', 'new_ma', 'CI')).toBe('cover')
+      expect(templateKeyForNode('ctd', '1.1.2', 'new_ma', 'CI')).toBe('pght')
+      expect(templateKeyForNode('ctd', '1.1.1', 'renewal', 'CI')).toBe('renewal')
+    })
+
+    it('reprend la prose de la note AIRP et récapitule les 7 informations', () => {
+      const doc = TEMPLATES.dmf.build(ctx)
+      const text = plain(doc)
+      expect(text).toContain('Déclaration relative à la certification des numéros DMF')
+      expect(text).toContain('est exact, valide et conforme')
+      expect(text).toContain('pays d’origine de cette substance active')
+      expect(text).toContain('pour servir et valoir ce que de droit')
+      // L'engagement vise l'agence du dossier, pas un sigle codé en dur.
+      expect(text).toContain('informer au préalable l’AIRP')
+      // Le récapitulatif est un VRAI tableau (compilé par drawTable / exporté en DOCX), 7 lignes.
+      const table = (doc.content ?? []).find((n) => n.type === 'table')
+      expect(table).toBeDefined()
+      expect((table?.content ?? []).filter((r) => r.type === 'tableRow')).toHaveLength(7)
+      // Ce que le dossier sait est pré-rempli.
+      expect(text).toContain('KV-Kacin 500')
+      expect(text).toContain('Amikacine')
+      expect(text).toContain('PHARMAX INDIA PRIVATE LIMITED')
+    })
+
+    it('ce que le dossier ignore reste un marqueur éditable, jamais une valeur devinée', () => {
+      const text = plain(TEMPLATES.dmf.build(ctx))
+      expect(text).toContain('[Site de fabrication de la substance active]')
+      expect(text).toContain('[Autorité de réglementation]')
+      expect(text).toContain('[N° DMF]')
+      // Renseignés, les mêmes champs remplacent le marqueur.
+      const rempli = plain(
+        TEMPLATES.dmf.build({
+          ...ctx,
+          apiFabricantSite: 'Zhejiang Ruibang, Hangzhou, Chine — qa@ruibang.cn — +86 571 000',
+          dmfAutorite: 'US FDA',
+          dmfNumero: 'DMF 032145',
+        }),
+      )
+      expect(rempli).toContain('DMF 032145')
+      expect(rempli).toContain('US FDA')
+      expect(rempli).not.toContain('[N° DMF]')
+    })
+
+    it('version anglaise de courtoisie', () => {
+      const text = plain(TEMPLATES.dmf.build(ctx, 'en'))
+      expect(text).toContain('Declaration on the certification of DMF numbers')
+      expect(text).toContain('accurate, valid and consistent')
+      expect(text).toContain('DMF No.')
+    })
+  })
 })
 
 describe('templates bilingues (M3 — EN additif, FR par défaut inchangé)', () => {

@@ -57,6 +57,8 @@ describe('buildLetterContext (lettre standalone Bibliothèque, pilotée par pays
         directeur: 'Dr A. B. Sow',
         sexe: 'M' as const,
         adresse: 'Dakar, nouvelle adresse publiée',
+        elide: 'l’ARP',
+        elideEn: 'the ARP',
       },
       civilite: 'Monsieur le Directeur Général',
       officialLang: 'fr',

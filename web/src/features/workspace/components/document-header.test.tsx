@@ -67,6 +67,11 @@ describe('buildDocActions — boutons adaptatifs par type de document', () => {
     const cover = buildDocActions({ kind: 'cover', handlers: {} }, t)
     expect(cover.map((a) => a.key)).toEqual(['auto', 'upload'])
     expect(cover[0]!.pressed).toBe(true)
+    // Section de garde qui porte un modèle officiel (1.2.3 CTD UEMOA + déclaration DMF) :
+    // « Générer » s'ajoute en tête, sinon le modèle serait injoignable sur ce format.
+    expect(
+      buildDocActions({ kind: 'cover', canGenerate: true, handlers: {} }, t).map((a) => a.key),
+    ).toEqual(['generate', 'auto', 'upload'])
     // Nœud à template sans doc → Générer + Téléverser ; nœud sans template → Téléverser seul.
     const empty = buildDocActions({ kind: 'empty', canGenerate: true, handlers: {} }, t)
     expect(empty.map((a) => a.key)).toEqual(['generate', 'upload'])
