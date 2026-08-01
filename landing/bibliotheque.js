@@ -55,6 +55,20 @@ function facSimile(apercu) {
     `<span class="a4mini" aria-hidden="true">` +
     apercu
       .map((b) => {
+        // Tableau « libellé / valeur » : pas de ligne d'en-tête, la colonne de GAUCHE est
+        // l'intitulé. Sans ce cas, la vignette montrait un en-tête que le document n'a pas.
+        if (b.t === "table" && b.rows && b.libelles) {
+          return (
+            "<table>" +
+            b.rows
+              .map(
+                (r) =>
+                  `<tr><th scope="row">${esc(r[0])}</th><td>${esc(r[1])}</td></tr>`,
+              )
+              .join("") +
+            "</table>"
+          );
+        }
         if (b.t === "table" && b.rows) {
           const [tete, ...corps] = b.rows;
           return (
@@ -98,7 +112,12 @@ function carte(slug) {
     : m.bilingue
       ? "Word FR + EN"
       : "Word";
-  const meta = `${f.pages} p. · ${langues}`;
+  // La pagination n'est annoncée que si elle est la MÊME pour tous les pays servis : la
+  // déclaration DMF tient sur une page au Bénin et sur deux au Niger (nom d'autorité plus long).
+  // Afficher « 1 p. » d'après le premier pays ferait mentir la carte à un déposant sur quatre —
+  // la fiche du document, elle, connaît le pays choisi et donne le compte exact.
+  const pages = [...new Set(Object.values(m.fichiers).map((x) => x.pages))];
+  const meta = pages.length === 1 ? `${pages[0]} p. · ${langues}` : langues;
   // Un LIEN, pas un bouton : la carte ouvre la page dédiée du document — ouvrable dans un nouvel
   // onglet, partageable. Pays et activité se choisissent AU TÉLÉCHARGEMENT, pas ici.
   const href = `${PAGE_MODELE}?doc=${encodeURIComponent(slug)}`;

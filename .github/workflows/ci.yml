@@ -81,6 +81,17 @@ jobs:
           npm run build:landing-en
           git diff --exit-code -- ../landing/en/
 
+      - name: Modèles de la Bibliothèque synchronisés (source ↔ sortie générée)
+        # `landing/modeles/` et son manifeste sont GÉNÉRÉS depuis `scripts/lib/modeles-source.mjs`,
+        # et `landing/` est déployé TEL QUEL : committer la source sans régénérer la sortie met en
+        # ligne un code et une donnée désaccordés. C'est arrivé — le manifeste servi n'avait pas le
+        # drapeau `libelles`, et le tableau de la déclaration DMF retombait sur un rendu grille,
+        # sans que rien ne le signale. Le générateur est reproductible à l'octet près : deux
+        # exécutions donnent les mêmes fichiers, donc un diff non vide est une vraie dérive.
+        run: |
+          npm run build:landing-modeles
+          git diff --exit-code -- ../landing/modeles/ ../landing/checking/modeles-manifest.js
+
       - name: Barème Checking Standard synchronisé (page ↔ Edge)
         # `supabase/functions/_shared/checking/` est une COPIE de `landing/checking/` : l'Edge doit
         # rester autonome (aucun import hors de supabase/) SANS pouvoir diverger de la page.

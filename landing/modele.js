@@ -166,17 +166,25 @@ function peindre() {
     `${f.pages} ${f.pages > 1 ? L(["pages", "pages"]) : L(["page", "page"])}`,
     f.officiel
       ? L(["servi tel quel", "served as-is"])
-      : m.perPays
-        ? S.pays
-          ? `${L(["mention de pharmacovigilance", "pharmacovigilance statement"])} : ${v.organisme}`
-          : L([
+      : !m.perPays
+        ? L([
+            "identique dans les huit pays",
+            "identical across the eight countries",
+          ])
+        : !S.pays
+          ? L([
               "réglé sur votre pays de dépôt au téléchargement",
               "set for your filing country at download",
             ])
-        : L([
-            "identique dans les huit pays",
-            "identical across the eight countries",
-          ]),
+          : // Ce qui varie n'est PAS le même selon le document : une LETTRE change de
+            // destinataire, un RCP porte la mention de pharmacovigilance du pays. Annoncer une
+            // mention 4.8 sur une lettre de demande décrivait un contenu qu'elle n'a jamais eu.
+            m.groupe === "lettres"
+            ? // `f.agence` vient du MÊME référentiel que le bloc destinataire de la lettre.
+              // Lire ailleurs annonçait « l'autorité nationale » au-dessus d'un courrier qui
+              // nomme la DPM/MT trois lignes plus bas.
+              `${L(["adressée à", "addressed to"])} ${L(f.agence ?? PAYS.find((p) => p.k === S.pays)?.ag ?? [""])}`
+            : `${L(["mention de pharmacovigilance", "pharmacovigilance statement"])} : ${v.organisme}`,
   ].join(" · ");
   $("#doctags").innerHTML =
     `<span class="badge b-free">${esc(L(["Gratuit", "Free"]))}</span>` +
@@ -913,7 +921,9 @@ async function acheter(offre) {
       // Le refus le plus fréquent : un numéro qui ne colle pas à l'indicatif choisi. Un
       // déposant béninois qui dépose au Niger garde son numéro béninois — le dire, plutôt
       // que de le renvoyer vers un formulaire qui le refusera pareil.
-      const tel = (session.champs ?? []).some((c) => String(c).includes("phone"));
+      const tel = (session.champs ?? []).some((c) =>
+        String(c).includes("phone"),
+      );
       toast(
         tel
           ? L([
@@ -1615,45 +1625,49 @@ async function genererDocxLettre(blocs) {
     p: { before: 0, after: 200 },
     li: { before: 0, after: 120 },
     right: { before: 0, after: 60 },
+    // Bloc d'adresse en tête de lettre : des lignes serrées, jamais des paragraphes.
+    entete: { before: 0, after: 0 },
   };
   const INTERLIGNE = 276;
   const enfants = blocs.map((b) => {
     if (b.t === "table") {
       return new d.Table({
         width: { size: 100, type: d.WidthType.PERCENTAGE },
+        // Un tableau « libellé / valeur » n'a pas de ligne d'en-tête : ce qui se détache est sa
+        // COLONNE de gauche. Même règle que le générateur des modèles — sans elle, la lettre
+        // produite au clic grisait le nom du produit comme un intitulé.
         rows: b.rows.map(
           (row, ri) =>
             new d.TableRow({
-              tableHeader: ri === 0,
+              tableHeader: !b.libelles && ri === 0,
               height: { value: 420, rule: "atLeast" },
-              children: row.map(
-                (cell) =>
-                  new d.TableCell({
-                    margins: { top: 90, bottom: 90, left: 130, right: 130 },
-                    verticalAlign: d.VerticalAlign.CENTER,
-                    shading:
-                      ri === 0
-                        ? {
-                            type: d.ShadingType.CLEAR,
-                            fill: "F1F4F9",
-                            color: "auto",
-                          }
-                        : undefined,
-                    children: [
-                      new d.Paragraph({
-                        spacing: { before: 0, after: 0, line: 240 },
-                        children: [
-                          new d.TextRun({
-                            text: String(cell),
-                            bold: ri === 0,
-                            size: 20,
-                            font: "Times New Roman",
-                          }),
-                        ],
-                      }),
-                    ],
-                  }),
-              ),
+              children: row.map((cell, ci) => {
+                const intitule = b.libelles ? ci === 0 : ri === 0;
+                return new d.TableCell({
+                  margins: { top: 90, bottom: 90, left: 130, right: 130 },
+                  verticalAlign: d.VerticalAlign.CENTER,
+                  shading: intitule
+                    ? {
+                        type: d.ShadingType.CLEAR,
+                        fill: "F1F4F9",
+                        color: "auto",
+                      }
+                    : undefined,
+                  children: [
+                    new d.Paragraph({
+                      spacing: { before: 0, after: 0, line: 240 },
+                      children: [
+                        new d.TextRun({
+                          text: String(cell),
+                          bold: intitule,
+                          size: 20,
+                          font: "Times New Roman",
+                        }),
+                      ],
+                    }),
+                  ],
+                });
+              }),
             }),
         ),
       });
@@ -1666,7 +1680,9 @@ async function genererDocxLettre(blocs) {
           : d.AlignmentType.LEFT,
       indent: b.t === "right" ? { left: INDENT } : undefined,
       bullet: b.t === "li" ? { level: 0 } : undefined,
-      spacing: { after: 120 },
+      // Les MÊMES espacements que le générateur — ils étaient déclarés puis ignorés, si bien que
+      // l'en-tête laboratoire sortait aéré comme des paragraphes et la lettre débordait.
+      spacing: { ...(ESPACE[b.t] ?? ESPACE.p), line: INTERLIGNE },
       children: [
         new d.TextRun({
           text: b.x ?? "",

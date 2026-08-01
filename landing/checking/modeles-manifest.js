@@ -5,7 +5,7 @@
  * `zip` est le téléchargement (DOCX français + DOCX anglais de courtoisie quand `bilingue`) ;
  * `pdf` est l'aperçu du lecteur. `perPays: false` = un seul fichier pour les huit pays.
  */
-export const MODELES_VERSION = "2026.7"
+export const MODELES_VERSION = "2026.8"
 
 export const MODELES_FICHIERS = {
   "rcp": {
@@ -102,14 +102,14 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/rcp-bj.zip",
         "pages": 4,
         "octetsPdf": 7107,
-        "octetsZip": 19946
+        "octetsZip": 19890
       },
       "bf": {
         "pdf": "/modeles/rcp-bf.pdf",
         "zip": "/modeles/rcp-bf.zip",
         "pages": 4,
         "octetsPdf": 7120,
-        "octetsZip": 19926
+        "octetsZip": 19884
       },
       "ci": {
         "pdf": "/modeles/rcp-ci.pdf",
@@ -128,35 +128,35 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/rcp-gw.zip",
         "pages": 4,
         "octetsPdf": 7106,
-        "octetsZip": 19852
+        "octetsZip": 19804
       },
       "ml": {
         "pdf": "/modeles/rcp-ml.pdf",
         "zip": "/modeles/rcp-ml.zip",
         "pages": 4,
         "octetsPdf": 7061,
-        "octetsZip": 19789
+        "octetsZip": 19736
       },
       "ne": {
         "pdf": "/modeles/rcp-ne.pdf",
         "zip": "/modeles/rcp-ne.zip",
         "pages": 4,
         "octetsPdf": 7072,
-        "octetsZip": 19795
+        "octetsZip": 19745
       },
       "sn": {
         "pdf": "/modeles/rcp-sn.pdf",
         "zip": "/modeles/rcp-sn.zip",
         "pages": 4,
         "octetsPdf": 7106,
-        "octetsZip": 19930
+        "octetsZip": 19880
       },
       "tg": {
         "pdf": "/modeles/rcp-tg.pdf",
         "zip": "/modeles/rcp-tg.zip",
         "pages": 4,
         "octetsPdf": 7066,
-        "octetsZip": 19796
+        "octetsZip": 19739
       }
     }
   },
@@ -254,7 +254,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/notice.zip",
         "pages": 4,
         "octetsPdf": 8307,
-        "octetsZip": 21174
+        "octetsZip": 21140
       }
     }
   },
@@ -352,7 +352,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/etiquetage.zip",
         "pages": 4,
         "octetsPdf": 6609,
-        "octetsZip": 19025
+        "octetsZip": 18973
       }
     }
   },
@@ -462,7 +462,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-demande-bf.zip",
         "pages": 1,
         "octetsPdf": 2211,
-        "octetsZip": 16777,
+        "octetsZip": 16721,
         "blocs": [
           {
             "t": "right",
@@ -559,14 +559,18 @@ export const MODELES_FICHIERS = {
           "12": {
             "x": "Name and address of the manufacturer: …"
           }
-        }
+        },
+        "agence": [
+          "l’ANRP",
+          "the ANRP"
+        ]
       },
       "ci": {
         "pdf": "/modeles/lettre-demande-ci.pdf",
         "zip": "/modeles/lettre-demande-ci.zip",
         "pages": 1,
         "octetsPdf": 2206,
-        "octetsZip": 16798,
+        "octetsZip": 16750,
         "blocs": [
           {
             "t": "right",
@@ -663,14 +667,18 @@ export const MODELES_FICHIERS = {
           "12": {
             "x": "Name and address of the manufacturer: …"
           }
-        }
+        },
+        "agence": [
+          "l’AIRP",
+          "the AIRP"
+        ]
       },
       "gw": {
         "pdf": "/modeles/lettre-demande-gw.pdf",
         "zip": "/modeles/lettre-demande-gw.zip",
         "pages": 1,
         "octetsPdf": 2241,
-        "octetsZip": 16849,
+        "octetsZip": 16792,
         "blocs": [
           {
             "t": "right",
@@ -767,14 +775,18 @@ export const MODELES_FICHIERS = {
           "12": {
             "x": "Name and address of the manufacturer: …"
           }
-        }
+        },
+        "agence": [
+          "la DIFALRM",
+          "the DIFALRM"
+        ]
       },
       "ml": {
         "pdf": "/modeles/lettre-demande-ml.pdf",
         "zip": "/modeles/lettre-demande-ml.zip",
         "pages": 1,
         "octetsPdf": 2195,
-        "octetsZip": 16728,
+        "octetsZip": 16673,
         "blocs": [
           {
             "t": "right",
@@ -871,14 +883,18 @@ export const MODELES_FICHIERS = {
           "12": {
             "x": "Name and address of the manufacturer: …"
           }
-        }
+        },
+        "agence": [
+          "la DPM",
+          "the DPM"
+        ]
       },
       "ne": {
         "pdf": "/modeles/lettre-demande-ne.pdf",
         "zip": "/modeles/lettre-demande-ne.zip",
         "pages": 1,
         "octetsPdf": 2209,
-        "octetsZip": 16759,
+        "octetsZip": 16709,
         "blocs": [
           {
             "t": "right",
@@ -975,14 +991,18 @@ export const MODELES_FICHIERS = {
           "12": {
             "x": "Name and address of the manufacturer: …"
           }
-        }
+        },
+        "agence": [
+          "la DPM/MT",
+          "the DPM/MT"
+        ]
       },
       "sn": {
         "pdf": "/modeles/lettre-demande-sn.pdf",
         "zip": "/modeles/lettre-demande-sn.zip",
         "pages": 1,
         "octetsPdf": 2200,
-        "octetsZip": 16771,
+        "octetsZip": 16718,
         "blocs": [
           {
             "t": "right",
@@ -1079,14 +1099,18 @@ export const MODELES_FICHIERS = {
           "12": {
             "x": "Name and address of the manufacturer: …"
           }
-        }
+        },
+        "agence": [
+          "l’ARP",
+          "the ARP"
+        ]
       },
       "tg": {
         "pdf": "/modeles/lettre-demande-tg.pdf",
         "zip": "/modeles/lettre-demande-tg.zip",
         "pages": 1,
         "octetsPdf": 2208,
-        "octetsZip": 16754,
+        "octetsZip": 16710,
         "blocs": [
           {
             "t": "right",
@@ -1183,7 +1207,11 @@ export const MODELES_FICHIERS = {
           "12": {
             "x": "Name and address of the manufacturer: …"
           }
-        }
+        },
+        "agence": [
+          "la DPML",
+          "the DPML"
+        ]
       }
     }
   },
@@ -1281,7 +1309,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-bj.zip",
         "pages": 1,
         "octetsPdf": 2332,
-        "octetsZip": 16895,
+        "octetsZip": 16853,
         "blocs": [
           {
             "t": "right",
@@ -1392,14 +1420,18 @@ export const MODELES_FICHIERS = {
           "14": {
             "x": "Name and address of the manufacturer: …"
           }
-        }
+        },
+        "agence": [
+          "l’ABMed",
+          "the ABMed"
+        ]
       },
       "bf": {
         "pdf": "/modeles/lettre-renouvellement-bf.pdf",
         "zip": "/modeles/lettre-renouvellement-bf.zip",
         "pages": 1,
         "octetsPdf": 2331,
-        "octetsZip": 16888,
+        "octetsZip": 16843,
         "blocs": [
           {
             "t": "right",
@@ -1510,14 +1542,18 @@ export const MODELES_FICHIERS = {
           "14": {
             "x": "Name and address of the manufacturer: …"
           }
-        }
+        },
+        "agence": [
+          "l’ANRP",
+          "the ANRP"
+        ]
       },
       "ci": {
         "pdf": "/modeles/lettre-renouvellement-ci.pdf",
         "zip": "/modeles/lettre-renouvellement-ci.zip",
         "pages": 1,
         "octetsPdf": 2326,
-        "octetsZip": 16918,
+        "octetsZip": 16875,
         "blocs": [
           {
             "t": "right",
@@ -1628,14 +1664,18 @@ export const MODELES_FICHIERS = {
           "14": {
             "x": "Name and address of the manufacturer: …"
           }
-        }
+        },
+        "agence": [
+          "l’AIRP",
+          "the AIRP"
+        ]
       },
       "gw": {
         "pdf": "/modeles/lettre-renouvellement-gw.pdf",
         "zip": "/modeles/lettre-renouvellement-gw.zip",
         "pages": 1,
         "octetsPdf": 2363,
-        "octetsZip": 16964,
+        "octetsZip": 16912,
         "blocs": [
           {
             "t": "right",
@@ -1746,14 +1786,18 @@ export const MODELES_FICHIERS = {
           "14": {
             "x": "Name and address of the manufacturer: …"
           }
-        }
+        },
+        "agence": [
+          "la DIFALRM",
+          "the DIFALRM"
+        ]
       },
       "ml": {
         "pdf": "/modeles/lettre-renouvellement-ml.pdf",
         "zip": "/modeles/lettre-renouvellement-ml.zip",
         "pages": 1,
         "octetsPdf": 2316,
-        "octetsZip": 16843,
+        "octetsZip": 16793,
         "blocs": [
           {
             "t": "right",
@@ -1864,14 +1908,18 @@ export const MODELES_FICHIERS = {
           "14": {
             "x": "Name and address of the manufacturer: …"
           }
-        }
+        },
+        "agence": [
+          "la DPM",
+          "the DPM"
+        ]
       },
       "ne": {
         "pdf": "/modeles/lettre-renouvellement-ne.pdf",
         "zip": "/modeles/lettre-renouvellement-ne.zip",
         "pages": 1,
         "octetsPdf": 2327,
-        "octetsZip": 16877,
+        "octetsZip": 16822,
         "blocs": [
           {
             "t": "right",
@@ -1982,14 +2030,18 @@ export const MODELES_FICHIERS = {
           "14": {
             "x": "Name and address of the manufacturer: …"
           }
-        }
+        },
+        "agence": [
+          "la DPM/MT",
+          "the DPM/MT"
+        ]
       },
       "sn": {
         "pdf": "/modeles/lettre-renouvellement-sn.pdf",
         "zip": "/modeles/lettre-renouvellement-sn.zip",
         "pages": 1,
         "octetsPdf": 2324,
-        "octetsZip": 16885,
+        "octetsZip": 16835,
         "blocs": [
           {
             "t": "right",
@@ -2100,14 +2152,18 @@ export const MODELES_FICHIERS = {
           "14": {
             "x": "Name and address of the manufacturer: …"
           }
-        }
+        },
+        "agence": [
+          "l’ARP",
+          "the ARP"
+        ]
       },
       "tg": {
         "pdf": "/modeles/lettre-renouvellement-tg.pdf",
         "zip": "/modeles/lettre-renouvellement-tg.zip",
         "pages": 1,
         "octetsPdf": 2330,
-        "octetsZip": 16867,
+        "octetsZip": 16830,
         "blocs": [
           {
             "t": "right",
@@ -2218,7 +2274,11 @@ export const MODELES_FICHIERS = {
           "14": {
             "x": "Name and address of the manufacturer: …"
           }
-        }
+        },
+        "agence": [
+          "la DPML",
+          "the DPML"
+        ]
       }
     }
   },
@@ -2316,7 +2376,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-bj.zip",
         "pages": 1,
         "octetsPdf": 2233,
-        "octetsZip": 16833,
+        "octetsZip": 16792,
         "blocs": [
           {
             "t": "right",
@@ -2407,14 +2467,18 @@ export const MODELES_FICHIERS = {
           "10": {
             "x": "INN: …"
           }
-        }
+        },
+        "agence": [
+          "l’ABMed",
+          "the ABMed"
+        ]
       },
       "bf": {
         "pdf": "/modeles/lettre-variation-bf.pdf",
         "zip": "/modeles/lettre-variation-bf.zip",
         "pages": 1,
         "octetsPdf": 2237,
-        "octetsZip": 16820,
+        "octetsZip": 16779,
         "blocs": [
           {
             "t": "right",
@@ -2505,14 +2569,18 @@ export const MODELES_FICHIERS = {
           "10": {
             "x": "INN: …"
           }
-        }
+        },
+        "agence": [
+          "l’ANRP",
+          "the ANRP"
+        ]
       },
       "ci": {
         "pdf": "/modeles/lettre-variation-ci.pdf",
         "zip": "/modeles/lettre-variation-ci.zip",
         "pages": 1,
         "octetsPdf": 2227,
-        "octetsZip": 16851,
+        "octetsZip": 16802,
         "blocs": [
           {
             "t": "right",
@@ -2603,14 +2671,18 @@ export const MODELES_FICHIERS = {
           "10": {
             "x": "INN: …"
           }
-        }
+        },
+        "agence": [
+          "l’AIRP",
+          "the AIRP"
+        ]
       },
       "gw": {
         "pdf": "/modeles/lettre-variation-gw.pdf",
         "zip": "/modeles/lettre-variation-gw.zip",
         "pages": 1,
         "octetsPdf": 2258,
-        "octetsZip": 16886,
+        "octetsZip": 16843,
         "blocs": [
           {
             "t": "right",
@@ -2701,14 +2773,18 @@ export const MODELES_FICHIERS = {
           "10": {
             "x": "INN: …"
           }
-        }
+        },
+        "agence": [
+          "la DIFALRM",
+          "the DIFALRM"
+        ]
       },
       "ml": {
         "pdf": "/modeles/lettre-variation-ml.pdf",
         "zip": "/modeles/lettre-variation-ml.zip",
         "pages": 1,
         "octetsPdf": 2221,
-        "octetsZip": 16781,
+        "octetsZip": 16732,
         "blocs": [
           {
             "t": "right",
@@ -2799,14 +2875,18 @@ export const MODELES_FICHIERS = {
           "10": {
             "x": "INN: …"
           }
-        }
+        },
+        "agence": [
+          "la DPM",
+          "the DPM"
+        ]
       },
       "ne": {
         "pdf": "/modeles/lettre-variation-ne.pdf",
         "zip": "/modeles/lettre-variation-ne.zip",
         "pages": 1,
         "octetsPdf": 2230,
-        "octetsZip": 16806,
+        "octetsZip": 16757,
         "blocs": [
           {
             "t": "right",
@@ -2897,14 +2977,18 @@ export const MODELES_FICHIERS = {
           "10": {
             "x": "INN: …"
           }
-        }
+        },
+        "agence": [
+          "la DPM/MT",
+          "the DPM/MT"
+        ]
       },
       "sn": {
         "pdf": "/modeles/lettre-variation-sn.pdf",
         "zip": "/modeles/lettre-variation-sn.zip",
         "pages": 1,
         "octetsPdf": 2226,
-        "octetsZip": 16827,
+        "octetsZip": 16768,
         "blocs": [
           {
             "t": "right",
@@ -2995,14 +3079,18 @@ export const MODELES_FICHIERS = {
           "10": {
             "x": "INN: …"
           }
-        }
+        },
+        "agence": [
+          "l’ARP",
+          "the ARP"
+        ]
       },
       "tg": {
         "pdf": "/modeles/lettre-variation-tg.pdf",
         "zip": "/modeles/lettre-variation-tg.zip",
         "pages": 1,
         "octetsPdf": 2231,
-        "octetsZip": 16789,
+        "octetsZip": 16747,
         "blocs": [
           {
             "t": "right",
@@ -3093,7 +3181,11 @@ export const MODELES_FICHIERS = {
           "10": {
             "x": "INN: …"
           }
-        }
+        },
+        "agence": [
+          "la DPML",
+          "the DPML"
+        ]
       }
     }
   },
@@ -3199,6 +3291,642 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-bj-enr.zip",
         "pages": 1,
         "octetsPdf": 2333,
+        "octetsZip": 17190,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Agence Béninoise du Médicament et des autres produits de santé (ABMed)"
+          },
+          {
+            "t": "right",
+            "x": "Cotonou, Zone résidentielle"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Ex-factory price (PGHT) statement — registration of the product …"
+          },
+          "8": {
+            "rows": [
+              [
+                "Trade name",
+                "INN and strength",
+                "Form and presentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          }
+        },
+        "agence": [
+          "l’ABMed",
+          "the ABMed"
+        ]
+      },
+      "bj-renouv": {
+        "pdf": "/modeles/lettre-pght-bj-renouv.pdf",
+        "zip": "/modeles/lettre-pght-bj-renouv.zip",
+        "pages": 1,
+        "octetsPdf": 2332,
+        "octetsZip": 17188,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Agence Béninoise du Médicament et des autres produits de santé (ABMed)"
+          },
+          {
+            "t": "right",
+            "x": "Cotonou, Zone résidentielle"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Ex-factory price (PGHT) statement — renewal of the product …"
+          },
+          "8": {
+            "rows": [
+              [
+                "Trade name",
+                "INN and strength",
+                "Form and presentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          }
+        },
+        "agence": [
+          "l’ABMed",
+          "the ABMed"
+        ]
+      },
+      "bf-enr": {
+        "pdf": "/modeles/lettre-pght-bf-enr.pdf",
+        "zip": "/modeles/lettre-pght-bf-enr.zip",
+        "pages": 1,
+        "octetsPdf": 2331,
+        "octetsZip": 17162,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Agence Nationale de Régulation Pharmaceutique (ANRP)"
+          },
+          {
+            "t": "right",
+            "x": "Ouagadougou, 01 BP 7009"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Ex-factory price (PGHT) statement — registration of the product …"
+          },
+          "8": {
+            "rows": [
+              [
+                "Trade name",
+                "INN and strength",
+                "Form and presentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          }
+        },
+        "agence": [
+          "l’ANRP",
+          "the ANRP"
+        ]
+      },
+      "bf-renouv": {
+        "pdf": "/modeles/lettre-pght-bf-renouv.pdf",
+        "zip": "/modeles/lettre-pght-bf-renouv.zip",
+        "pages": 1,
+        "octetsPdf": 2329,
+        "octetsZip": 17161,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Agence Nationale de Régulation Pharmaceutique (ANRP)"
+          },
+          {
+            "t": "right",
+            "x": "Ouagadougou, 01 BP 7009"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Madame la Directrice Générale,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Ex-factory price (PGHT) statement — renewal of the product …"
+          },
+          "8": {
+            "rows": [
+              [
+                "Trade name",
+                "INN and strength",
+                "Form and presentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          }
+        },
+        "agence": [
+          "l’ANRP",
+          "the ANRP"
+        ]
+      },
+      "ci-enr": {
+        "pdf": "/modeles/lettre-pght-ci-enr.pdf",
+        "zip": "/modeles/lettre-pght-ci-enr.zip",
+        "pages": 1,
+        "octetsPdf": 2330,
+        "octetsZip": 17201,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Autorité Ivoirienne de Régulation Pharmaceutique (AIRP)"
+          },
+          {
+            "t": "right",
+            "x": "Abidjan, Cocody"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Ex-factory price (PGHT) statement — registration of the product …"
+          },
+          "8": {
+            "rows": [
+              [
+                "Trade name",
+                "INN and strength",
+                "Form and presentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          }
+        },
+        "agence": [
+          "l’AIRP",
+          "the AIRP"
+        ]
+      },
+      "ci-renouv": {
+        "pdf": "/modeles/lettre-pght-ci-renouv.pdf",
+        "zip": "/modeles/lettre-pght-ci-renouv.zip",
+        "pages": 1,
+        "octetsPdf": 2334,
+        "octetsZip": 17194,
+        "blocs": [
+          {
+            "t": "right",
+            "x": "Le {date}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Autorité Ivoirienne de Régulation Pharmaceutique (AIRP)"
+          },
+          {
+            "t": "right",
+            "x": "Abidjan, Cocody"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
+          },
+          {
+            "t": "p",
+            "x": "Monsieur le Directeur Général,"
+          },
+          {
+            "t": "p",
+            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Nom commercial",
+                "DCI et dosage",
+                "Forme et présentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Nous restons à votre entière disposition pour tout complément d'information."
+          },
+          {
+            "t": "p",
+            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
+          },
+          {
+            "t": "right",
+            "x": "Poste"
+          },
+          {
+            "t": "right",
+            "x": "Signature et Cachet"
+          },
+          {
+            "t": "right",
+            "x": "Nom et Prénom(s)"
+          }
+        ],
+        "aidesEn": {
+          "0": {
+            "x": "{date}"
+          },
+          "5": {
+            "x": "Subject: Ex-factory price (PGHT) statement — renewal of the product …"
+          },
+          "8": {
+            "rows": [
+              [
+                "Trade name",
+                "INN and strength",
+                "Form and presentation",
+                "PGHT (FCFA)"
+              ],
+              [
+                "…",
+                "…",
+                "…",
+                "…"
+              ]
+            ]
+          }
+        },
+        "agence": [
+          "l’AIRP",
+          "the AIRP"
+        ]
+      },
+      "gw-enr": {
+        "pdf": "/modeles/lettre-pght-gw-enr.pdf",
+        "zip": "/modeles/lettre-pght-gw-enr.zip",
+        "pages": 1,
+        "octetsPdf": 2359,
         "octetsZip": 17241,
         "blocs": [
           {
@@ -3215,618 +3943,6 @@ export const MODELES_FICHIERS = {
           },
           {
             "t": "right",
-            "x": "Agence Béninoise du Médicament et des autres produits de santé (ABMed)"
-          },
-          {
-            "t": "right",
-            "x": "Cotonou, Zone résidentielle"
-          },
-          {
-            "t": "h3",
-            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
-          },
-          {
-            "t": "p",
-            "x": "Monsieur le Directeur Général,"
-          },
-          {
-            "t": "p",
-            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
-          },
-          {
-            "t": "table",
-            "rows": [
-              [
-                "Nom commercial",
-                "DCI et dosage",
-                "Forme et présentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          },
-          {
-            "t": "p",
-            "x": "Nous restons à votre entière disposition pour tout complément d'information."
-          },
-          {
-            "t": "p",
-            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
-          },
-          {
-            "t": "right",
-            "x": "Poste"
-          },
-          {
-            "t": "right",
-            "x": "Signature et Cachet"
-          },
-          {
-            "t": "right",
-            "x": "Nom et Prénom(s)"
-          }
-        ],
-        "aidesEn": {
-          "0": {
-            "x": "{date}"
-          },
-          "5": {
-            "x": "Subject: Ex-factory price (PGHT) statement — registration of the product …"
-          },
-          "8": {
-            "rows": [
-              [
-                "Trade name",
-                "INN and strength",
-                "Form and presentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          }
-        }
-      },
-      "bj-renouv": {
-        "pdf": "/modeles/lettre-pght-bj-renouv.pdf",
-        "zip": "/modeles/lettre-pght-bj-renouv.zip",
-        "pages": 1,
-        "octetsPdf": 2332,
-        "octetsZip": 17223,
-        "blocs": [
-          {
-            "t": "right",
-            "x": "Le {date}"
-          },
-          {
-            "t": "right",
-            "x": "À"
-          },
-          {
-            "t": "right",
-            "x": "Monsieur le Directeur Général"
-          },
-          {
-            "t": "right",
-            "x": "Agence Béninoise du Médicament et des autres produits de santé (ABMed)"
-          },
-          {
-            "t": "right",
-            "x": "Cotonou, Zone résidentielle"
-          },
-          {
-            "t": "h3",
-            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
-          },
-          {
-            "t": "p",
-            "x": "Monsieur le Directeur Général,"
-          },
-          {
-            "t": "p",
-            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
-          },
-          {
-            "t": "table",
-            "rows": [
-              [
-                "Nom commercial",
-                "DCI et dosage",
-                "Forme et présentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          },
-          {
-            "t": "p",
-            "x": "Nous restons à votre entière disposition pour tout complément d'information."
-          },
-          {
-            "t": "p",
-            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
-          },
-          {
-            "t": "right",
-            "x": "Poste"
-          },
-          {
-            "t": "right",
-            "x": "Signature et Cachet"
-          },
-          {
-            "t": "right",
-            "x": "Nom et Prénom(s)"
-          }
-        ],
-        "aidesEn": {
-          "0": {
-            "x": "{date}"
-          },
-          "5": {
-            "x": "Subject: Ex-factory price (PGHT) statement — renewal of the product …"
-          },
-          "8": {
-            "rows": [
-              [
-                "Trade name",
-                "INN and strength",
-                "Form and presentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          }
-        }
-      },
-      "bf-enr": {
-        "pdf": "/modeles/lettre-pght-bf-enr.pdf",
-        "zip": "/modeles/lettre-pght-bf-enr.zip",
-        "pages": 1,
-        "octetsPdf": 2331,
-        "octetsZip": 17217,
-        "blocs": [
-          {
-            "t": "right",
-            "x": "Le {date}"
-          },
-          {
-            "t": "right",
-            "x": "À"
-          },
-          {
-            "t": "right",
-            "x": "Madame la Directrice Générale"
-          },
-          {
-            "t": "right",
-            "x": "Agence Nationale de Régulation Pharmaceutique (ANRP)"
-          },
-          {
-            "t": "right",
-            "x": "Ouagadougou, 01 BP 7009"
-          },
-          {
-            "t": "h3",
-            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
-          },
-          {
-            "t": "p",
-            "x": "Madame la Directrice Générale,"
-          },
-          {
-            "t": "p",
-            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
-          },
-          {
-            "t": "table",
-            "rows": [
-              [
-                "Nom commercial",
-                "DCI et dosage",
-                "Forme et présentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          },
-          {
-            "t": "p",
-            "x": "Nous restons à votre entière disposition pour tout complément d'information."
-          },
-          {
-            "t": "p",
-            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
-          },
-          {
-            "t": "right",
-            "x": "Poste"
-          },
-          {
-            "t": "right",
-            "x": "Signature et Cachet"
-          },
-          {
-            "t": "right",
-            "x": "Nom et Prénom(s)"
-          }
-        ],
-        "aidesEn": {
-          "0": {
-            "x": "{date}"
-          },
-          "5": {
-            "x": "Subject: Ex-factory price (PGHT) statement — registration of the product …"
-          },
-          "8": {
-            "rows": [
-              [
-                "Trade name",
-                "INN and strength",
-                "Form and presentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          }
-        }
-      },
-      "bf-renouv": {
-        "pdf": "/modeles/lettre-pght-bf-renouv.pdf",
-        "zip": "/modeles/lettre-pght-bf-renouv.zip",
-        "pages": 1,
-        "octetsPdf": 2329,
-        "octetsZip": 17217,
-        "blocs": [
-          {
-            "t": "right",
-            "x": "Le {date}"
-          },
-          {
-            "t": "right",
-            "x": "À"
-          },
-          {
-            "t": "right",
-            "x": "Madame la Directrice Générale"
-          },
-          {
-            "t": "right",
-            "x": "Agence Nationale de Régulation Pharmaceutique (ANRP)"
-          },
-          {
-            "t": "right",
-            "x": "Ouagadougou, 01 BP 7009"
-          },
-          {
-            "t": "h3",
-            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
-          },
-          {
-            "t": "p",
-            "x": "Madame la Directrice Générale,"
-          },
-          {
-            "t": "p",
-            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
-          },
-          {
-            "t": "table",
-            "rows": [
-              [
-                "Nom commercial",
-                "DCI et dosage",
-                "Forme et présentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          },
-          {
-            "t": "p",
-            "x": "Nous restons à votre entière disposition pour tout complément d'information."
-          },
-          {
-            "t": "p",
-            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Madame la Directrice Générale, l'expression de notre sincère collaboration."
-          },
-          {
-            "t": "right",
-            "x": "Poste"
-          },
-          {
-            "t": "right",
-            "x": "Signature et Cachet"
-          },
-          {
-            "t": "right",
-            "x": "Nom et Prénom(s)"
-          }
-        ],
-        "aidesEn": {
-          "0": {
-            "x": "{date}"
-          },
-          "5": {
-            "x": "Subject: Ex-factory price (PGHT) statement — renewal of the product …"
-          },
-          "8": {
-            "rows": [
-              [
-                "Trade name",
-                "INN and strength",
-                "Form and presentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          }
-        }
-      },
-      "ci-enr": {
-        "pdf": "/modeles/lettre-pght-ci-enr.pdf",
-        "zip": "/modeles/lettre-pght-ci-enr.zip",
-        "pages": 1,
-        "octetsPdf": 2330,
-        "octetsZip": 17255,
-        "blocs": [
-          {
-            "t": "right",
-            "x": "Le {date}"
-          },
-          {
-            "t": "right",
-            "x": "À"
-          },
-          {
-            "t": "right",
-            "x": "Monsieur le Directeur Général"
-          },
-          {
-            "t": "right",
-            "x": "Autorité Ivoirienne de Régulation Pharmaceutique (AIRP)"
-          },
-          {
-            "t": "right",
-            "x": "Abidjan, Cocody"
-          },
-          {
-            "t": "h3",
-            "x": "Objet : Attestation de PGHT — enregistrement du produit …"
-          },
-          {
-            "t": "p",
-            "x": "Monsieur le Directeur Général,"
-          },
-          {
-            "t": "p",
-            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, l'enregistrement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
-          },
-          {
-            "t": "table",
-            "rows": [
-              [
-                "Nom commercial",
-                "DCI et dosage",
-                "Forme et présentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          },
-          {
-            "t": "p",
-            "x": "Nous restons à votre entière disposition pour tout complément d'information."
-          },
-          {
-            "t": "p",
-            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
-          },
-          {
-            "t": "right",
-            "x": "Poste"
-          },
-          {
-            "t": "right",
-            "x": "Signature et Cachet"
-          },
-          {
-            "t": "right",
-            "x": "Nom et Prénom(s)"
-          }
-        ],
-        "aidesEn": {
-          "0": {
-            "x": "{date}"
-          },
-          "5": {
-            "x": "Subject: Ex-factory price (PGHT) statement — registration of the product …"
-          },
-          "8": {
-            "rows": [
-              [
-                "Trade name",
-                "INN and strength",
-                "Form and presentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          }
-        }
-      },
-      "ci-renouv": {
-        "pdf": "/modeles/lettre-pght-ci-renouv.pdf",
-        "zip": "/modeles/lettre-pght-ci-renouv.zip",
-        "pages": 1,
-        "octetsPdf": 2334,
-        "octetsZip": 17262,
-        "blocs": [
-          {
-            "t": "right",
-            "x": "Le {date}"
-          },
-          {
-            "t": "right",
-            "x": "À"
-          },
-          {
-            "t": "right",
-            "x": "Monsieur le Directeur Général"
-          },
-          {
-            "t": "right",
-            "x": "Autorité Ivoirienne de Régulation Pharmaceutique (AIRP)"
-          },
-          {
-            "t": "right",
-            "x": "Abidjan, Cocody"
-          },
-          {
-            "t": "h3",
-            "x": "Objet : Attestation de PGHT — renouvellement du produit …"
-          },
-          {
-            "t": "p",
-            "x": "Monsieur le Directeur Général,"
-          },
-          {
-            "t": "p",
-            "x": "Nous venons par la présente, solliciter auprès de votre haute bienveillance, le renouvellement de l'autorisation de mise sur le marché (AMM) de notre spécialité pharmaceutique dont les informations et le Prix Grossiste Hors Taxe (PGHT) sont consignés dans le tableau suivant :"
-          },
-          {
-            "t": "table",
-            "rows": [
-              [
-                "Nom commercial",
-                "DCI et dosage",
-                "Forme et présentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          },
-          {
-            "t": "p",
-            "x": "Nous restons à votre entière disposition pour tout complément d'information."
-          },
-          {
-            "t": "p",
-            "x": "Dans l'espoir d'une suite favorable, nous vous prions de recevoir, Monsieur le Directeur Général, l'expression de notre sincère collaboration."
-          },
-          {
-            "t": "right",
-            "x": "Poste"
-          },
-          {
-            "t": "right",
-            "x": "Signature et Cachet"
-          },
-          {
-            "t": "right",
-            "x": "Nom et Prénom(s)"
-          }
-        ],
-        "aidesEn": {
-          "0": {
-            "x": "{date}"
-          },
-          "5": {
-            "x": "Subject: Ex-factory price (PGHT) statement — renewal of the product …"
-          },
-          "8": {
-            "rows": [
-              [
-                "Trade name",
-                "INN and strength",
-                "Form and presentation",
-                "PGHT (FCFA)"
-              ],
-              [
-                "…",
-                "…",
-                "…",
-                "…"
-              ]
-            ]
-          }
-        }
-      },
-      "gw-enr": {
-        "pdf": "/modeles/lettre-pght-gw-enr.pdf",
-        "zip": "/modeles/lettre-pght-gw-enr.zip",
-        "pages": 1,
-        "octetsPdf": 2359,
-        "octetsZip": 17283,
-        "blocs": [
-          {
-            "t": "right",
-            "x": "Le {date}"
-          },
-          {
-            "t": "right",
-            "x": "À"
-          },
-          {
-            "t": "right",
-            "x": "Monsieur le Directeur Général"
-          },
-          {
-            "t": "right",
             "x": "Direção dos Serviços de Farmácia e Medicamentos (DIFALRM)"
           },
           {
@@ -3906,14 +4022,18 @@ export const MODELES_FICHIERS = {
               ]
             ]
           }
-        }
+        },
+        "agence": [
+          "la DIFALRM",
+          "the DIFALRM"
+        ]
       },
       "gw-renouv": {
         "pdf": "/modeles/lettre-pght-gw-renouv.pdf",
         "zip": "/modeles/lettre-pght-gw-renouv.zip",
         "pages": 1,
         "octetsPdf": 2359,
-        "octetsZip": 17285,
+        "octetsZip": 17240,
         "blocs": [
           {
             "t": "right",
@@ -4008,14 +4128,18 @@ export const MODELES_FICHIERS = {
               ]
             ]
           }
-        }
+        },
+        "agence": [
+          "la DIFALRM",
+          "the DIFALRM"
+        ]
       },
       "ml-enr": {
         "pdf": "/modeles/lettre-pght-ml-enr.pdf",
         "zip": "/modeles/lettre-pght-ml-enr.zip",
         "pages": 1,
         "octetsPdf": 2312,
-        "octetsZip": 17174,
+        "octetsZip": 17140,
         "blocs": [
           {
             "t": "right",
@@ -4110,14 +4234,18 @@ export const MODELES_FICHIERS = {
               ]
             ]
           }
-        }
+        },
+        "agence": [
+          "la DPM",
+          "the DPM"
+        ]
       },
       "ml-renouv": {
         "pdf": "/modeles/lettre-pght-ml-renouv.pdf",
         "zip": "/modeles/lettre-pght-ml-renouv.zip",
         "pages": 1,
         "octetsPdf": 2311,
-        "octetsZip": 17177,
+        "octetsZip": 17136,
         "blocs": [
           {
             "t": "right",
@@ -4212,14 +4340,18 @@ export const MODELES_FICHIERS = {
               ]
             ]
           }
-        }
+        },
+        "agence": [
+          "la DPM",
+          "the DPM"
+        ]
       },
       "ne-enr": {
         "pdf": "/modeles/lettre-pght-ne-enr.pdf",
         "zip": "/modeles/lettre-pght-ne-enr.zip",
         "pages": 1,
         "octetsPdf": 2329,
-        "octetsZip": 17205,
+        "octetsZip": 17158,
         "blocs": [
           {
             "t": "right",
@@ -4314,14 +4446,18 @@ export const MODELES_FICHIERS = {
               ]
             ]
           }
-        }
+        },
+        "agence": [
+          "la DPM/MT",
+          "the DPM/MT"
+        ]
       },
       "ne-renouv": {
         "pdf": "/modeles/lettre-pght-ne-renouv.pdf",
         "zip": "/modeles/lettre-pght-ne-renouv.zip",
         "pages": 1,
         "octetsPdf": 2327,
-        "octetsZip": 17212,
+        "octetsZip": 17160,
         "blocs": [
           {
             "t": "right",
@@ -4416,14 +4552,18 @@ export const MODELES_FICHIERS = {
               ]
             ]
           }
-        }
+        },
+        "agence": [
+          "la DPM/MT",
+          "the DPM/MT"
+        ]
       },
       "sn-enr": {
         "pdf": "/modeles/lettre-pght-sn-enr.pdf",
         "zip": "/modeles/lettre-pght-sn-enr.zip",
         "pages": 1,
         "octetsPdf": 2325,
-        "octetsZip": 17215,
+        "octetsZip": 17166,
         "blocs": [
           {
             "t": "right",
@@ -4518,14 +4658,18 @@ export const MODELES_FICHIERS = {
               ]
             ]
           }
-        }
+        },
+        "agence": [
+          "l’ARP",
+          "the ARP"
+        ]
       },
       "sn-renouv": {
         "pdf": "/modeles/lettre-pght-sn-renouv.pdf",
         "zip": "/modeles/lettre-pght-sn-renouv.zip",
         "pages": 1,
         "octetsPdf": 2321,
-        "octetsZip": 17220,
+        "octetsZip": 17164,
         "blocs": [
           {
             "t": "right",
@@ -4620,14 +4764,18 @@ export const MODELES_FICHIERS = {
               ]
             ]
           }
-        }
+        },
+        "agence": [
+          "l’ARP",
+          "the ARP"
+        ]
       },
       "tg-enr": {
         "pdf": "/modeles/lettre-pght-tg-enr.pdf",
         "zip": "/modeles/lettre-pght-tg-enr.zip",
         "pages": 1,
         "octetsPdf": 2323,
-        "octetsZip": 17202,
+        "octetsZip": 17146,
         "blocs": [
           {
             "t": "right",
@@ -4722,14 +4870,18 @@ export const MODELES_FICHIERS = {
               ]
             ]
           }
-        }
+        },
+        "agence": [
+          "la DPML",
+          "the DPML"
+        ]
       },
       "tg-renouv": {
         "pdf": "/modeles/lettre-pght-tg-renouv.pdf",
         "zip": "/modeles/lettre-pght-tg-renouv.zip",
         "pages": 1,
         "octetsPdf": 2326,
-        "octetsZip": 17209,
+        "octetsZip": 17151,
         "blocs": [
           {
             "t": "right",
@@ -4824,7 +4976,11 @@ export const MODELES_FICHIERS = {
               ]
             ]
           }
-        }
+        },
+        "agence": [
+          "la DPML",
+          "the DPML"
+        ]
       }
     }
   },
@@ -4843,8 +4999,8 @@ export const MODELES_FICHIERS = {
       "Certification of the active ingredient’s Drug Master File number, addressed to your authority."
     ],
     "source": [
-      "Déclaration de certification DMF",
-      "DMF certification declaration"
+      "D’après le modèle AIRP — note n° 1668",
+      "Based on the AIRP template — note No. 1668"
     ],
     "groupe": "lettres",
     "upgradable": false,
@@ -4927,22 +5083,23 @@ export const MODELES_FICHIERS = {
             "{Nom API}"
           ],
           [
-            "Site de fabrication de la substance active (API)",
+            "Nom, adresse, contacts e-mail et numéro de téléphone du site de fabrication de la substance active (API)",
             "{Nom, adresse, e-mail et téléphone}"
           ],
           [
-            "Autorité de réglementation approbatrice du numéro de DMF",
+            "Nom de l’autorité de réglementation approbatrice du numéro de DMF",
             "{Autorité de réglementation}"
           ],
           [
             "N° DMF",
             "{N° DMF}"
           ]
-        ]
+        ],
+        "libelles": true
       },
       {
         "t": "p",
-        "x": "Je m’engage à informer au préalable l'ABMed de toute variation relative à ces informations."
+        "x": "Je m’engage à informer au préalable l’ABMed de toute variation relative à ces informations."
       }
     ],
     "fichiers": {
@@ -4950,8 +5107,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-dmf-bj.pdf",
         "zip": "/modeles/lettre-dmf-bj.zip",
         "pages": 1,
-        "octetsPdf": 3048,
-        "octetsZip": 17920,
+        "octetsPdf": 3119,
+        "octetsZip": 18007,
         "blocs": [
           {
             "t": "entete",
@@ -5029,22 +5186,23 @@ export const MODELES_FICHIERS = {
                 "{Nom API}"
               ],
               [
-                "Site de fabrication de la substance active (API)",
+                "Nom, adresse, contacts e-mail et numéro de téléphone du site de fabrication de la substance active (API)",
                 "{Nom, adresse, e-mail et téléphone}"
               ],
               [
-                "Autorité de réglementation approbatrice du numéro de DMF",
+                "Nom de l’autorité de réglementation approbatrice du numéro de DMF",
                 "{Autorité de réglementation}"
               ],
               [
                 "N° DMF",
                 "{N° DMF}"
               ]
-            ]
+            ],
+            "libelles": true
           },
           {
             "t": "p",
-            "x": "Je m’engage à informer au préalable l'ABMed de toute variation relative à ces informations."
+            "x": "Je m’engage à informer au préalable l’ABMed de toute variation relative à ces informations."
           },
           {
             "t": "p",
@@ -5106,11 +5264,11 @@ export const MODELES_FICHIERS = {
                 "{API name}"
               ],
               [
-                "API manufacturing site",
+                "Name, address, e-mail contacts and telephone number of the API manufacturing site",
                 "{Name, address, e-mail and telephone}"
               ],
               [
-                "Regulatory authority that approved the DMF number",
+                "Name of the regulatory authority that approved the DMF number",
                 "{Regulatory authority}"
               ],
               [
@@ -5128,14 +5286,18 @@ export const MODELES_FICHIERS = {
           "20": {
             "x": "{Position}"
           }
-        }
+        },
+        "agence": [
+          "l’ABMed",
+          "the ABMed"
+        ]
       },
       "bf": {
         "pdf": "/modeles/lettre-dmf-bf.pdf",
         "zip": "/modeles/lettre-dmf-bf.zip",
         "pages": 1,
-        "octetsPdf": 3048,
-        "octetsZip": 17933,
+        "octetsPdf": 3111,
+        "octetsZip": 18001,
         "blocs": [
           {
             "t": "entete",
@@ -5213,22 +5375,23 @@ export const MODELES_FICHIERS = {
                 "{Nom API}"
               ],
               [
-                "Site de fabrication de la substance active (API)",
+                "Nom, adresse, contacts e-mail et numéro de téléphone du site de fabrication de la substance active (API)",
                 "{Nom, adresse, e-mail et téléphone}"
               ],
               [
-                "Autorité de réglementation approbatrice du numéro de DMF",
+                "Nom de l’autorité de réglementation approbatrice du numéro de DMF",
                 "{Autorité de réglementation}"
               ],
               [
                 "N° DMF",
                 "{N° DMF}"
               ]
-            ]
+            ],
+            "libelles": true
           },
           {
             "t": "p",
-            "x": "Je m’engage à informer au préalable l'ANRP de toute variation relative à ces informations."
+            "x": "Je m’engage à informer au préalable l’ANRP de toute variation relative à ces informations."
           },
           {
             "t": "p",
@@ -5290,11 +5453,11 @@ export const MODELES_FICHIERS = {
                 "{API name}"
               ],
               [
-                "API manufacturing site",
+                "Name, address, e-mail contacts and telephone number of the API manufacturing site",
                 "{Name, address, e-mail and telephone}"
               ],
               [
-                "Regulatory authority that approved the DMF number",
+                "Name of the regulatory authority that approved the DMF number",
                 "{Regulatory authority}"
               ],
               [
@@ -5312,14 +5475,18 @@ export const MODELES_FICHIERS = {
           "20": {
             "x": "{Position}"
           }
-        }
+        },
+        "agence": [
+          "l’ANRP",
+          "the ANRP"
+        ]
       },
       "ci": {
         "pdf": "/modeles/lettre-dmf-ci.pdf",
         "zip": "/modeles/lettre-dmf-ci.zip",
         "pages": 1,
-        "octetsPdf": 3054,
-        "octetsZip": 17976,
+        "octetsPdf": 3122,
+        "octetsZip": 18060,
         "blocs": [
           {
             "t": "entete",
@@ -5397,22 +5564,23 @@ export const MODELES_FICHIERS = {
                 "{Nom API}"
               ],
               [
-                "Site de fabrication de la substance active (API)",
+                "Nom, adresse, contacts e-mail et numéro de téléphone du site de fabrication de la substance active (API)",
                 "{Nom, adresse, e-mail et téléphone}"
               ],
               [
-                "Autorité de réglementation approbatrice du numéro de DMF",
+                "Nom de l’autorité de réglementation approbatrice du numéro de DMF",
                 "{Autorité de réglementation}"
               ],
               [
                 "N° DMF",
                 "{N° DMF}"
               ]
-            ]
+            ],
+            "libelles": true
           },
           {
             "t": "p",
-            "x": "Je m’engage à informer au préalable l'AIRP de toute variation relative à ces informations."
+            "x": "Je m’engage à informer au préalable l’AIRP de toute variation relative à ces informations."
           },
           {
             "t": "p",
@@ -5474,11 +5642,11 @@ export const MODELES_FICHIERS = {
                 "{API name}"
               ],
               [
-                "API manufacturing site",
+                "Name, address, e-mail contacts and telephone number of the API manufacturing site",
                 "{Name, address, e-mail and telephone}"
               ],
               [
-                "Regulatory authority that approved the DMF number",
+                "Name of the regulatory authority that approved the DMF number",
                 "{Regulatory authority}"
               ],
               [
@@ -5496,14 +5664,18 @@ export const MODELES_FICHIERS = {
           "20": {
             "x": "{Position}"
           }
-        }
+        },
+        "agence": [
+          "l’AIRP",
+          "the AIRP"
+        ]
       },
       "gw": {
         "pdf": "/modeles/lettre-dmf-gw.pdf",
         "zip": "/modeles/lettre-dmf-gw.zip",
-        "pages": 1,
-        "octetsPdf": 3099,
-        "octetsZip": 17981,
+        "pages": 2,
+        "octetsPdf": 3485,
+        "octetsZip": 18051,
         "blocs": [
           {
             "t": "entete",
@@ -5581,22 +5753,23 @@ export const MODELES_FICHIERS = {
                 "{Nom API}"
               ],
               [
-                "Site de fabrication de la substance active (API)",
+                "Nom, adresse, contacts e-mail et numéro de téléphone du site de fabrication de la substance active (API)",
                 "{Nom, adresse, e-mail et téléphone}"
               ],
               [
-                "Autorité de réglementation approbatrice du numéro de DMF",
+                "Nom de l’autorité de réglementation approbatrice du numéro de DMF",
                 "{Autorité de réglementation}"
               ],
               [
                 "N° DMF",
                 "{N° DMF}"
               ]
-            ]
+            ],
+            "libelles": true
           },
           {
             "t": "p",
-            "x": "Je m’engage à informer au préalable l'autorité nationale de toute variation relative à ces informations."
+            "x": "Je m’engage à informer au préalable la DIFALRM de toute variation relative à ces informations."
           },
           {
             "t": "p",
@@ -5658,11 +5831,11 @@ export const MODELES_FICHIERS = {
                 "{API name}"
               ],
               [
-                "API manufacturing site",
+                "Name, address, e-mail contacts and telephone number of the API manufacturing site",
                 "{Name, address, e-mail and telephone}"
               ],
               [
-                "Regulatory authority that approved the DMF number",
+                "Name of the regulatory authority that approved the DMF number",
                 "{Regulatory authority}"
               ],
               [
@@ -5680,14 +5853,18 @@ export const MODELES_FICHIERS = {
           "20": {
             "x": "{Position}"
           }
-        }
+        },
+        "agence": [
+          "la DIFALRM",
+          "the DIFALRM"
+        ]
       },
       "ml": {
         "pdf": "/modeles/lettre-dmf-ml.pdf",
         "zip": "/modeles/lettre-dmf-ml.zip",
         "pages": 1,
-        "octetsPdf": 3014,
-        "octetsZip": 17849,
+        "octetsPdf": 3085,
+        "octetsZip": 17954,
         "blocs": [
           {
             "t": "entete",
@@ -5765,18 +5942,19 @@ export const MODELES_FICHIERS = {
                 "{Nom API}"
               ],
               [
-                "Site de fabrication de la substance active (API)",
+                "Nom, adresse, contacts e-mail et numéro de téléphone du site de fabrication de la substance active (API)",
                 "{Nom, adresse, e-mail et téléphone}"
               ],
               [
-                "Autorité de réglementation approbatrice du numéro de DMF",
+                "Nom de l’autorité de réglementation approbatrice du numéro de DMF",
                 "{Autorité de réglementation}"
               ],
               [
                 "N° DMF",
                 "{N° DMF}"
               ]
-            ]
+            ],
+            "libelles": true
           },
           {
             "t": "p",
@@ -5842,11 +6020,11 @@ export const MODELES_FICHIERS = {
                 "{API name}"
               ],
               [
-                "API manufacturing site",
+                "Name, address, e-mail contacts and telephone number of the API manufacturing site",
                 "{Name, address, e-mail and telephone}"
               ],
               [
-                "Regulatory authority that approved the DMF number",
+                "Name of the regulatory authority that approved the DMF number",
                 "{Regulatory authority}"
               ],
               [
@@ -5864,14 +6042,18 @@ export const MODELES_FICHIERS = {
           "20": {
             "x": "{Position}"
           }
-        }
+        },
+        "agence": [
+          "la DPM",
+          "the DPM"
+        ]
       },
       "ne": {
         "pdf": "/modeles/lettre-dmf-ne.pdf",
         "zip": "/modeles/lettre-dmf-ne.zip",
-        "pages": 1,
-        "octetsPdf": 3071,
-        "octetsZip": 17908,
+        "pages": 2,
+        "octetsPdf": 3454,
+        "octetsZip": 17981,
         "blocs": [
           {
             "t": "entete",
@@ -5949,22 +6131,23 @@ export const MODELES_FICHIERS = {
                 "{Nom API}"
               ],
               [
-                "Site de fabrication de la substance active (API)",
+                "Nom, adresse, contacts e-mail et numéro de téléphone du site de fabrication de la substance active (API)",
                 "{Nom, adresse, e-mail et téléphone}"
               ],
               [
-                "Autorité de réglementation approbatrice du numéro de DMF",
+                "Nom de l’autorité de réglementation approbatrice du numéro de DMF",
                 "{Autorité de réglementation}"
               ],
               [
                 "N° DMF",
                 "{N° DMF}"
               ]
-            ]
+            ],
+            "libelles": true
           },
           {
             "t": "p",
-            "x": "Je m’engage à informer au préalable l'autorité nationale de toute variation relative à ces informations."
+            "x": "Je m’engage à informer au préalable la DPM/MT de toute variation relative à ces informations."
           },
           {
             "t": "p",
@@ -6026,11 +6209,11 @@ export const MODELES_FICHIERS = {
                 "{API name}"
               ],
               [
-                "API manufacturing site",
+                "Name, address, e-mail contacts and telephone number of the API manufacturing site",
                 "{Name, address, e-mail and telephone}"
               ],
               [
-                "Regulatory authority that approved the DMF number",
+                "Name of the regulatory authority that approved the DMF number",
                 "{Regulatory authority}"
               ],
               [
@@ -6048,14 +6231,18 @@ export const MODELES_FICHIERS = {
           "20": {
             "x": "{Position}"
           }
-        }
+        },
+        "agence": [
+          "la DPM/MT",
+          "the DPM/MT"
+        ]
       },
       "sn": {
         "pdf": "/modeles/lettre-dmf-sn.pdf",
         "zip": "/modeles/lettre-dmf-sn.zip",
         "pages": 1,
-        "octetsPdf": 3029,
-        "octetsZip": 17902,
+        "octetsPdf": 3099,
+        "octetsZip": 17983,
         "blocs": [
           {
             "t": "entete",
@@ -6133,22 +6320,23 @@ export const MODELES_FICHIERS = {
                 "{Nom API}"
               ],
               [
-                "Site de fabrication de la substance active (API)",
+                "Nom, adresse, contacts e-mail et numéro de téléphone du site de fabrication de la substance active (API)",
                 "{Nom, adresse, e-mail et téléphone}"
               ],
               [
-                "Autorité de réglementation approbatrice du numéro de DMF",
+                "Nom de l’autorité de réglementation approbatrice du numéro de DMF",
                 "{Autorité de réglementation}"
               ],
               [
                 "N° DMF",
                 "{N° DMF}"
               ]
-            ]
+            ],
+            "libelles": true
           },
           {
             "t": "p",
-            "x": "Je m’engage à informer au préalable l'ARP de toute variation relative à ces informations."
+            "x": "Je m’engage à informer au préalable l’ARP de toute variation relative à ces informations."
           },
           {
             "t": "p",
@@ -6210,11 +6398,11 @@ export const MODELES_FICHIERS = {
                 "{API name}"
               ],
               [
-                "API manufacturing site",
+                "Name, address, e-mail contacts and telephone number of the API manufacturing site",
                 "{Name, address, e-mail and telephone}"
               ],
               [
-                "Regulatory authority that approved the DMF number",
+                "Name of the regulatory authority that approved the DMF number",
                 "{Regulatory authority}"
               ],
               [
@@ -6232,14 +6420,18 @@ export const MODELES_FICHIERS = {
           "20": {
             "x": "{Position}"
           }
-        }
+        },
+        "agence": [
+          "l’ARP",
+          "the ARP"
+        ]
       },
       "tg": {
         "pdf": "/modeles/lettre-dmf-tg.pdf",
         "zip": "/modeles/lettre-dmf-tg.zip",
         "pages": 1,
-        "octetsPdf": 3028,
-        "octetsZip": 17879,
+        "octetsPdf": 3102,
+        "octetsZip": 17968,
         "blocs": [
           {
             "t": "entete",
@@ -6317,18 +6509,19 @@ export const MODELES_FICHIERS = {
                 "{Nom API}"
               ],
               [
-                "Site de fabrication de la substance active (API)",
+                "Nom, adresse, contacts e-mail et numéro de téléphone du site de fabrication de la substance active (API)",
                 "{Nom, adresse, e-mail et téléphone}"
               ],
               [
-                "Autorité de réglementation approbatrice du numéro de DMF",
+                "Nom de l’autorité de réglementation approbatrice du numéro de DMF",
                 "{Autorité de réglementation}"
               ],
               [
                 "N° DMF",
                 "{N° DMF}"
               ]
-            ]
+            ],
+            "libelles": true
           },
           {
             "t": "p",
@@ -6394,11 +6587,11 @@ export const MODELES_FICHIERS = {
                 "{API name}"
               ],
               [
-                "API manufacturing site",
+                "Name, address, e-mail contacts and telephone number of the API manufacturing site",
                 "{Name, address, e-mail and telephone}"
               ],
               [
-                "Regulatory authority that approved the DMF number",
+                "Name of the regulatory authority that approved the DMF number",
                 "{Regulatory authority}"
               ],
               [
@@ -6416,7 +6609,11 @@ export const MODELES_FICHIERS = {
           "20": {
             "x": "{Position}"
           }
-        }
+        },
+        "agence": [
+          "la DPML",
+          "the DPML"
+        ]
       }
     }
   },
@@ -6514,7 +6711,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/qos-pd.zip",
         "pages": 1,
         "octetsPdf": 2468,
-        "octetsZip": 8510
+        "octetsZip": 8483
       }
     }
   },
@@ -6612,7 +6809,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/btif.zip",
         "pages": 1,
         "octetsPdf": 2363,
-        "octetsZip": 8401
+        "octetsZip": 8378
       }
     }
   }

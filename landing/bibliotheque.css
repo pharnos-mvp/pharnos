@@ -1414,6 +1414,14 @@
   width: 100%;
   min-width: 0;
 }
+/* Tableau « libellé / valeur » (déclaration DMF) : la colonne de gauche est un intitulé fixe,
+   pas une donnée. On lui donne une largeur stable pour que les cases de droite s'alignent, et
+   on la laisse s'enrouler — certains libellés du modèle tiennent sur deux lignes. */
+.lf-table-lib th[scope="row"] {
+  width: 52%;
+  font-weight: 600;
+  vertical-align: top;
+}
 @media (max-width: 680px) {
   .lettre-feuille {
     padding: 28px 20px;
