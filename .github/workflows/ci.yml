@@ -205,7 +205,12 @@ jobs:
       # Politique de retry (transitoires only), circuit breaker, whitelist CORS : la logique
       # partagée des Edge Functions est testée en pur (sans réseau ni Supabase).
       - name: Tests modules partagés Edge
-        run: deno test supabase/functions/_shared/
+        # `--allow-read` : la recette « hôtes-jumeaux » de `checkout-core.test.ts` LIT
+        # `landing/_headers` — c'est son seul moyen de vérifier qu'un hôte accepté par le serveur
+        # est bien cadrable par la CSP, les deux listes vivant dans deux fichiers. Sans ce droit,
+        # Deno la refuse et le job échoue en bloquant toute la branche. Lecture seule, périmètre
+        # limité au dépôt : aucun test n'écrit ni n'ouvre le réseau.
+        run: deno test --allow-read supabase/functions/_shared/
 
       - name: Type-check des Edge Functions
         run: deno check supabase/functions/regafy-ai/index.ts supabase/functions/translate/index.ts supabase/functions/upgrade/index.ts supabase/functions/share/index.ts supabase/functions/admin/index.ts supabase/functions/team/index.ts supabase/functions/lifecycle-reminders/index.ts supabase/functions/retention-purge/index.ts supabase/functions/purge-dossier/index.ts supabase/functions/demo-request/index.ts supabase/functions/invite-info/index.ts supabase/functions/checking-report/index.ts supabase/functions/checkout/index.ts

@@ -20,7 +20,7 @@ import { DOCS, varieParPays } from '../../../scripts/lib/modeles-source.mjs'
 // Le manifeste est GÉNÉRÉ : TypeScript en infère un littéral aux huit clés pays connues, qu'on ne
 // peut pas indexer par une variable. On le relit une fois sous sa forme réelle — un enregistrement
 // dont les clés viennent du référentiel — plutôt que de caster à chaque accès.
-type Bloc0 = { t: string; x?: string; rows?: string[][] }
+type Bloc0 = { t: string; x?: string; rows?: string[][]; libelles?: boolean }
 type Fichier = {
   pdf: string
   zip: string

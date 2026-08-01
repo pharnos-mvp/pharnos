@@ -371,6 +371,9 @@ export function agencyFor(country: string): AgencyInfo {
       directeur: '',
       sexe: 'M',
       adresse: '',
+      // Pays sans agence curée : la formule NEUTRE, jamais un sigle inventé.
+      elide: 'l’autorité nationale',
+      elideEn: 'the national authority',
     }
   )
 }
