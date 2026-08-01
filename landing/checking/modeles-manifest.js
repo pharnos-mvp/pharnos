@@ -5,7 +5,7 @@
  * `zip` est le téléchargement (DOCX français + DOCX anglais de courtoisie quand `bilingue`) ;
  * `pdf` est l'aperçu du lecteur. `perPays: false` = un seul fichier pour les huit pays.
  */
-export const MODELES_VERSION = "2026.8"
+export const MODELES_VERSION = "2026.9"
 
 export const MODELES_FICHIERS = {
   "rcp": {
@@ -461,8 +461,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-demande-bf.pdf",
         "zip": "/modeles/lettre-demande-bf.zip",
         "pages": 1,
-        "octetsPdf": 2211,
-        "octetsZip": 16721,
+        "octetsPdf": 2306,
+        "octetsZip": 18172,
         "blocs": [
           {
             "t": "right",
@@ -569,8 +569,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-demande-ci.pdf",
         "zip": "/modeles/lettre-demande-ci.zip",
         "pages": 1,
-        "octetsPdf": 2206,
-        "octetsZip": 16750,
+        "octetsPdf": 2300,
+        "octetsZip": 18193,
         "blocs": [
           {
             "t": "right",
@@ -677,8 +677,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-demande-gw.pdf",
         "zip": "/modeles/lettre-demande-gw.zip",
         "pages": 1,
-        "octetsPdf": 2241,
-        "octetsZip": 16792,
+        "octetsPdf": 2339,
+        "octetsZip": 18236,
         "blocs": [
           {
             "t": "right",
@@ -785,8 +785,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-demande-ml.pdf",
         "zip": "/modeles/lettre-demande-ml.zip",
         "pages": 1,
-        "octetsPdf": 2195,
-        "octetsZip": 16673,
+        "octetsPdf": 2293,
+        "octetsZip": 18122,
         "blocs": [
           {
             "t": "right",
@@ -893,8 +893,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-demande-ne.pdf",
         "zip": "/modeles/lettre-demande-ne.zip",
         "pages": 1,
-        "octetsPdf": 2209,
-        "octetsZip": 16709,
+        "octetsPdf": 2306,
+        "octetsZip": 18149,
         "blocs": [
           {
             "t": "right",
@@ -1001,8 +1001,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-demande-sn.pdf",
         "zip": "/modeles/lettre-demande-sn.zip",
         "pages": 1,
-        "octetsPdf": 2200,
-        "octetsZip": 16718,
+        "octetsPdf": 2297,
+        "octetsZip": 18167,
         "blocs": [
           {
             "t": "right",
@@ -1109,8 +1109,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-demande-tg.pdf",
         "zip": "/modeles/lettre-demande-tg.zip",
         "pages": 1,
-        "octetsPdf": 2208,
-        "octetsZip": 16710,
+        "octetsPdf": 2298,
+        "octetsZip": 18141,
         "blocs": [
           {
             "t": "right",
@@ -1308,8 +1308,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-renouvellement-bj.pdf",
         "zip": "/modeles/lettre-renouvellement-bj.zip",
         "pages": 1,
-        "octetsPdf": 2332,
-        "octetsZip": 16853,
+        "octetsPdf": 2429,
+        "octetsZip": 18302,
         "blocs": [
           {
             "t": "right",
@@ -1430,8 +1430,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-renouvellement-bf.pdf",
         "zip": "/modeles/lettre-renouvellement-bf.zip",
         "pages": 1,
-        "octetsPdf": 2331,
-        "octetsZip": 16843,
+        "octetsPdf": 2426,
+        "octetsZip": 18282,
         "blocs": [
           {
             "t": "right",
@@ -1552,8 +1552,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-renouvellement-ci.pdf",
         "zip": "/modeles/lettre-renouvellement-ci.zip",
         "pages": 1,
-        "octetsPdf": 2326,
-        "octetsZip": 16875,
+        "octetsPdf": 2420,
+        "octetsZip": 18312,
         "blocs": [
           {
             "t": "right",
@@ -1674,8 +1674,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-renouvellement-gw.pdf",
         "zip": "/modeles/lettre-renouvellement-gw.zip",
         "pages": 1,
-        "octetsPdf": 2363,
-        "octetsZip": 16912,
+        "octetsPdf": 2462,
+        "octetsZip": 18349,
         "blocs": [
           {
             "t": "right",
@@ -1796,8 +1796,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-renouvellement-ml.pdf",
         "zip": "/modeles/lettre-renouvellement-ml.zip",
         "pages": 1,
-        "octetsPdf": 2316,
-        "octetsZip": 16793,
+        "octetsPdf": 2412,
+        "octetsZip": 18237,
         "blocs": [
           {
             "t": "right",
@@ -1918,8 +1918,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-renouvellement-ne.pdf",
         "zip": "/modeles/lettre-renouvellement-ne.zip",
         "pages": 1,
-        "octetsPdf": 2327,
-        "octetsZip": 16822,
+        "octetsPdf": 2424,
+        "octetsZip": 18260,
         "blocs": [
           {
             "t": "right",
@@ -2040,8 +2040,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-renouvellement-sn.pdf",
         "zip": "/modeles/lettre-renouvellement-sn.zip",
         "pages": 1,
-        "octetsPdf": 2324,
-        "octetsZip": 16835,
+        "octetsPdf": 2419,
+        "octetsZip": 18277,
         "blocs": [
           {
             "t": "right",
@@ -2162,8 +2162,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-renouvellement-tg.pdf",
         "zip": "/modeles/lettre-renouvellement-tg.zip",
         "pages": 1,
-        "octetsPdf": 2330,
-        "octetsZip": 16830,
+        "octetsPdf": 2415,
+        "octetsZip": 18267,
         "blocs": [
           {
             "t": "right",
@@ -2375,8 +2375,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-variation-bj.pdf",
         "zip": "/modeles/lettre-variation-bj.zip",
         "pages": 1,
-        "octetsPdf": 2233,
-        "octetsZip": 16792,
+        "octetsPdf": 2325,
+        "octetsZip": 18224,
         "blocs": [
           {
             "t": "right",
@@ -2477,8 +2477,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-variation-bf.pdf",
         "zip": "/modeles/lettre-variation-bf.zip",
         "pages": 1,
-        "octetsPdf": 2237,
-        "octetsZip": 16779,
+        "octetsPdf": 2324,
+        "octetsZip": 18200,
         "blocs": [
           {
             "t": "right",
@@ -2579,8 +2579,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-variation-ci.pdf",
         "zip": "/modeles/lettre-variation-ci.zip",
         "pages": 1,
-        "octetsPdf": 2227,
-        "octetsZip": 16802,
+        "octetsPdf": 2315,
+        "octetsZip": 18236,
         "blocs": [
           {
             "t": "right",
@@ -2681,8 +2681,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-variation-gw.pdf",
         "zip": "/modeles/lettre-variation-gw.zip",
         "pages": 1,
-        "octetsPdf": 2258,
-        "octetsZip": 16843,
+        "octetsPdf": 2352,
+        "octetsZip": 18270,
         "blocs": [
           {
             "t": "right",
@@ -2783,8 +2783,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-variation-ml.pdf",
         "zip": "/modeles/lettre-variation-ml.zip",
         "pages": 1,
-        "octetsPdf": 2221,
-        "octetsZip": 16732,
+        "octetsPdf": 2311,
+        "octetsZip": 18165,
         "blocs": [
           {
             "t": "right",
@@ -2885,8 +2885,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-variation-ne.pdf",
         "zip": "/modeles/lettre-variation-ne.zip",
         "pages": 1,
-        "octetsPdf": 2230,
-        "octetsZip": 16757,
+        "octetsPdf": 2321,
+        "octetsZip": 18196,
         "blocs": [
           {
             "t": "right",
@@ -2987,8 +2987,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-variation-sn.pdf",
         "zip": "/modeles/lettre-variation-sn.zip",
         "pages": 1,
-        "octetsPdf": 2226,
-        "octetsZip": 16768,
+        "octetsPdf": 2315,
+        "octetsZip": 18202,
         "blocs": [
           {
             "t": "right",
@@ -3089,8 +3089,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-variation-tg.pdf",
         "zip": "/modeles/lettre-variation-tg.zip",
         "pages": 1,
-        "octetsPdf": 2231,
-        "octetsZip": 16747,
+        "octetsPdf": 2310,
+        "octetsZip": 18187,
         "blocs": [
           {
             "t": "right",
@@ -3290,8 +3290,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-pght-bj-enr.pdf",
         "zip": "/modeles/lettre-pght-bj-enr.zip",
         "pages": 1,
-        "octetsPdf": 2333,
-        "octetsZip": 17190,
+        "octetsPdf": 2419,
+        "octetsZip": 18619,
         "blocs": [
           {
             "t": "right",
@@ -3396,8 +3396,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-pght-bj-renouv.pdf",
         "zip": "/modeles/lettre-pght-bj-renouv.zip",
         "pages": 1,
-        "octetsPdf": 2332,
-        "octetsZip": 17188,
+        "octetsPdf": 2418,
+        "octetsZip": 18614,
         "blocs": [
           {
             "t": "right",
@@ -3502,8 +3502,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-pght-bf-enr.pdf",
         "zip": "/modeles/lettre-pght-bf-enr.zip",
         "pages": 1,
-        "octetsPdf": 2331,
-        "octetsZip": 17162,
+        "octetsPdf": 2417,
+        "octetsZip": 18602,
         "blocs": [
           {
             "t": "right",
@@ -3608,8 +3608,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-pght-bf-renouv.pdf",
         "zip": "/modeles/lettre-pght-bf-renouv.zip",
         "pages": 1,
-        "octetsPdf": 2329,
-        "octetsZip": 17161,
+        "octetsPdf": 2418,
+        "octetsZip": 18600,
         "blocs": [
           {
             "t": "right",
@@ -3714,8 +3714,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-pght-ci-enr.pdf",
         "zip": "/modeles/lettre-pght-ci-enr.zip",
         "pages": 1,
-        "octetsPdf": 2330,
-        "octetsZip": 17201,
+        "octetsPdf": 2413,
+        "octetsZip": 18637,
         "blocs": [
           {
             "t": "right",
@@ -3820,8 +3820,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-pght-ci-renouv.pdf",
         "zip": "/modeles/lettre-pght-ci-renouv.zip",
         "pages": 1,
-        "octetsPdf": 2334,
-        "octetsZip": 17194,
+        "octetsPdf": 2417,
+        "octetsZip": 18638,
         "blocs": [
           {
             "t": "right",
@@ -3926,8 +3926,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-pght-gw-enr.pdf",
         "zip": "/modeles/lettre-pght-gw-enr.zip",
         "pages": 1,
-        "octetsPdf": 2359,
-        "octetsZip": 17241,
+        "octetsPdf": 2448,
+        "octetsZip": 18671,
         "blocs": [
           {
             "t": "right",
@@ -4032,8 +4032,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-pght-gw-renouv.pdf",
         "zip": "/modeles/lettre-pght-gw-renouv.zip",
         "pages": 1,
-        "octetsPdf": 2359,
-        "octetsZip": 17240,
+        "octetsPdf": 2449,
+        "octetsZip": 18672,
         "blocs": [
           {
             "t": "right",
@@ -4138,8 +4138,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-pght-ml-enr.pdf",
         "zip": "/modeles/lettre-pght-ml-enr.zip",
         "pages": 1,
-        "octetsPdf": 2312,
-        "octetsZip": 17140,
+        "octetsPdf": 2401,
+        "octetsZip": 18554,
         "blocs": [
           {
             "t": "right",
@@ -4244,8 +4244,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-pght-ml-renouv.pdf",
         "zip": "/modeles/lettre-pght-ml-renouv.zip",
         "pages": 1,
-        "octetsPdf": 2311,
-        "octetsZip": 17136,
+        "octetsPdf": 2400,
+        "octetsZip": 18553,
         "blocs": [
           {
             "t": "right",
@@ -4350,8 +4350,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-pght-ne-enr.pdf",
         "zip": "/modeles/lettre-pght-ne-enr.zip",
         "pages": 1,
-        "octetsPdf": 2329,
-        "octetsZip": 17158,
+        "octetsPdf": 2416,
+        "octetsZip": 18589,
         "blocs": [
           {
             "t": "right",
@@ -4456,8 +4456,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-pght-ne-renouv.pdf",
         "zip": "/modeles/lettre-pght-ne-renouv.zip",
         "pages": 1,
-        "octetsPdf": 2327,
-        "octetsZip": 17160,
+        "octetsPdf": 2412,
+        "octetsZip": 18592,
         "blocs": [
           {
             "t": "right",
@@ -4562,8 +4562,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-pght-sn-enr.pdf",
         "zip": "/modeles/lettre-pght-sn-enr.zip",
         "pages": 1,
-        "octetsPdf": 2325,
-        "octetsZip": 17166,
+        "octetsPdf": 2407,
+        "octetsZip": 18593,
         "blocs": [
           {
             "t": "right",
@@ -4668,8 +4668,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-pght-sn-renouv.pdf",
         "zip": "/modeles/lettre-pght-sn-renouv.zip",
         "pages": 1,
-        "octetsPdf": 2321,
-        "octetsZip": 17164,
+        "octetsPdf": 2406,
+        "octetsZip": 18592,
         "blocs": [
           {
             "t": "right",
@@ -4774,8 +4774,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-pght-tg-enr.pdf",
         "zip": "/modeles/lettre-pght-tg-enr.zip",
         "pages": 1,
-        "octetsPdf": 2323,
-        "octetsZip": 17146,
+        "octetsPdf": 2402,
+        "octetsZip": 18593,
         "blocs": [
           {
             "t": "right",
@@ -4880,8 +4880,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-pght-tg-renouv.pdf",
         "zip": "/modeles/lettre-pght-tg-renouv.zip",
         "pages": 1,
-        "octetsPdf": 2326,
-        "octetsZip": 17151,
+        "octetsPdf": 2405,
+        "octetsZip": 18589,
         "blocs": [
           {
             "t": "right",
@@ -5009,10 +5009,6 @@ export const MODELES_FICHIERS = {
     "apercu": [
       {
         "t": "entete",
-        "x": "[En-tête du laboratoire]"
-      },
-      {
-        "t": "entete",
         "x": "Raison sociale : {Nom du laboratoire}"
       },
       {
@@ -5049,7 +5045,7 @@ export const MODELES_FICHIERS = {
       },
       {
         "t": "p",
-        "x": "Madame, Monsieur,"
+        "x": "Monsieur le Directeur Général,"
       },
       {
         "t": "p",
@@ -5100,6 +5096,10 @@ export const MODELES_FICHIERS = {
       {
         "t": "p",
         "x": "Je m’engage à informer au préalable l’ABMed de toute variation relative à ces informations."
+      },
+      {
+        "t": "p",
+        "x": "La présente déclaration est établie pour servir et valoir ce que de droit."
       }
     ],
     "fichiers": {
@@ -5107,13 +5107,9 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-dmf-bj.pdf",
         "zip": "/modeles/lettre-dmf-bj.zip",
         "pages": 1,
-        "octetsPdf": 3119,
-        "octetsZip": 18007,
+        "octetsPdf": 3151,
+        "octetsZip": 19401,
         "blocs": [
-          {
-            "t": "entete",
-            "x": "[En-tête du laboratoire]"
-          },
           {
             "t": "entete",
             "x": "Raison sociale : {Nom du laboratoire}"
@@ -5152,7 +5148,7 @@ export const MODELES_FICHIERS = {
           },
           {
             "t": "p",
-            "x": "Madame, Monsieur,"
+            "x": "Monsieur le Directeur Général,"
           },
           {
             "t": "p",
@@ -5230,22 +5226,22 @@ export const MODELES_FICHIERS = {
           }
         ],
         "aidesEn": {
-          "1": {
+          "0": {
             "x": "Company name: {Name of the laboratory}"
           },
-          "2": {
+          "1": {
             "x": "Address: {Full address}"
           },
-          "3": {
+          "2": {
             "x": "Telephone: {Number}"
           },
-          "4": {
+          "3": {
             "x": "Email: {Email address}"
           },
-          "11": {
+          "10": {
             "x": "I, the undersigned, {Full name}, acting as {Position} within the laboratory {Name of the laboratory}, certify that the Drug Master File (DMF) number for the active pharmaceutical ingredient (API) of the product below is accurate, valid and consistent with the information provided by the manufacturer."
           },
-          "14": {
+          "13": {
             "rows": [
               [
                 "Name of the finished product",
@@ -5277,13 +5273,13 @@ export const MODELES_FICHIERS = {
               ]
             ]
           },
-          "17": {
+          "16": {
             "x": "Done at {City}, on {date}"
           },
-          "19": {
+          "18": {
             "x": "{Full name}"
           },
-          "20": {
+          "19": {
             "x": "{Position}"
           }
         },
@@ -5296,13 +5292,9 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-dmf-bf.pdf",
         "zip": "/modeles/lettre-dmf-bf.zip",
         "pages": 1,
-        "octetsPdf": 3111,
-        "octetsZip": 18001,
+        "octetsPdf": 3142,
+        "octetsZip": 19400,
         "blocs": [
-          {
-            "t": "entete",
-            "x": "[En-tête du laboratoire]"
-          },
           {
             "t": "entete",
             "x": "Raison sociale : {Nom du laboratoire}"
@@ -5341,7 +5333,7 @@ export const MODELES_FICHIERS = {
           },
           {
             "t": "p",
-            "x": "Madame, Monsieur,"
+            "x": "Madame la Directrice Générale,"
           },
           {
             "t": "p",
@@ -5419,22 +5411,22 @@ export const MODELES_FICHIERS = {
           }
         ],
         "aidesEn": {
-          "1": {
+          "0": {
             "x": "Company name: {Name of the laboratory}"
           },
-          "2": {
+          "1": {
             "x": "Address: {Full address}"
           },
-          "3": {
+          "2": {
             "x": "Telephone: {Number}"
           },
-          "4": {
+          "3": {
             "x": "Email: {Email address}"
           },
-          "11": {
+          "10": {
             "x": "I, the undersigned, {Full name}, acting as {Position} within the laboratory {Name of the laboratory}, certify that the Drug Master File (DMF) number for the active pharmaceutical ingredient (API) of the product below is accurate, valid and consistent with the information provided by the manufacturer."
           },
-          "14": {
+          "13": {
             "rows": [
               [
                 "Name of the finished product",
@@ -5466,13 +5458,13 @@ export const MODELES_FICHIERS = {
               ]
             ]
           },
-          "17": {
+          "16": {
             "x": "Done at {City}, on {date}"
           },
-          "19": {
+          "18": {
             "x": "{Full name}"
           },
-          "20": {
+          "19": {
             "x": "{Position}"
           }
         },
@@ -5485,13 +5477,9 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-dmf-ci.pdf",
         "zip": "/modeles/lettre-dmf-ci.zip",
         "pages": 1,
-        "octetsPdf": 3122,
-        "octetsZip": 18060,
+        "octetsPdf": 168527,
+        "octetsZip": 11128,
         "blocs": [
-          {
-            "t": "entete",
-            "x": "[En-tête du laboratoire]"
-          },
           {
             "t": "entete",
             "x": "Raison sociale : {Nom du laboratoire}"
@@ -5530,7 +5518,7 @@ export const MODELES_FICHIERS = {
           },
           {
             "t": "p",
-            "x": "Madame, Monsieur,"
+            "x": "Monsieur le Directeur Général,"
           },
           {
             "t": "p",
@@ -5608,22 +5596,22 @@ export const MODELES_FICHIERS = {
           }
         ],
         "aidesEn": {
-          "1": {
+          "0": {
             "x": "Company name: {Name of the laboratory}"
           },
-          "2": {
+          "1": {
             "x": "Address: {Full address}"
           },
-          "3": {
+          "2": {
             "x": "Telephone: {Number}"
           },
-          "4": {
+          "3": {
             "x": "Email: {Email address}"
           },
-          "11": {
+          "10": {
             "x": "I, the undersigned, {Full name}, acting as {Position} within the laboratory {Name of the laboratory}, certify that the Drug Master File (DMF) number for the active pharmaceutical ingredient (API) of the product below is accurate, valid and consistent with the information provided by the manufacturer."
           },
-          "14": {
+          "13": {
             "rows": [
               [
                 "Name of the finished product",
@@ -5655,13 +5643,13 @@ export const MODELES_FICHIERS = {
               ]
             ]
           },
-          "17": {
+          "16": {
             "x": "Done at {City}, on {date}"
           },
-          "19": {
+          "18": {
             "x": "{Full name}"
           },
-          "20": {
+          "19": {
             "x": "{Position}"
           }
         },
@@ -5673,14 +5661,10 @@ export const MODELES_FICHIERS = {
       "gw": {
         "pdf": "/modeles/lettre-dmf-gw.pdf",
         "zip": "/modeles/lettre-dmf-gw.zip",
-        "pages": 2,
-        "octetsPdf": 3485,
-        "octetsZip": 18051,
+        "pages": 1,
+        "octetsPdf": 3199,
+        "octetsZip": 19454,
         "blocs": [
-          {
-            "t": "entete",
-            "x": "[En-tête du laboratoire]"
-          },
           {
             "t": "entete",
             "x": "Raison sociale : {Nom du laboratoire}"
@@ -5719,7 +5703,7 @@ export const MODELES_FICHIERS = {
           },
           {
             "t": "p",
-            "x": "Madame, Monsieur,"
+            "x": "Monsieur le Directeur Général,"
           },
           {
             "t": "p",
@@ -5797,22 +5781,22 @@ export const MODELES_FICHIERS = {
           }
         ],
         "aidesEn": {
-          "1": {
+          "0": {
             "x": "Company name: {Name of the laboratory}"
           },
-          "2": {
+          "1": {
             "x": "Address: {Full address}"
           },
-          "3": {
+          "2": {
             "x": "Telephone: {Number}"
           },
-          "4": {
+          "3": {
             "x": "Email: {Email address}"
           },
-          "11": {
+          "10": {
             "x": "I, the undersigned, {Full name}, acting as {Position} within the laboratory {Name of the laboratory}, certify that the Drug Master File (DMF) number for the active pharmaceutical ingredient (API) of the product below is accurate, valid and consistent with the information provided by the manufacturer."
           },
-          "14": {
+          "13": {
             "rows": [
               [
                 "Name of the finished product",
@@ -5844,13 +5828,13 @@ export const MODELES_FICHIERS = {
               ]
             ]
           },
-          "17": {
+          "16": {
             "x": "Done at {City}, on {date}"
           },
-          "19": {
+          "18": {
             "x": "{Full name}"
           },
-          "20": {
+          "19": {
             "x": "{Position}"
           }
         },
@@ -5863,13 +5847,9 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-dmf-ml.pdf",
         "zip": "/modeles/lettre-dmf-ml.zip",
         "pages": 1,
-        "octetsPdf": 3085,
-        "octetsZip": 17954,
+        "octetsPdf": 3116,
+        "octetsZip": 19348,
         "blocs": [
-          {
-            "t": "entete",
-            "x": "[En-tête du laboratoire]"
-          },
           {
             "t": "entete",
             "x": "Raison sociale : {Nom du laboratoire}"
@@ -5908,7 +5888,7 @@ export const MODELES_FICHIERS = {
           },
           {
             "t": "p",
-            "x": "Madame, Monsieur,"
+            "x": "Madame la Directrice Générale,"
           },
           {
             "t": "p",
@@ -5986,22 +5966,22 @@ export const MODELES_FICHIERS = {
           }
         ],
         "aidesEn": {
-          "1": {
+          "0": {
             "x": "Company name: {Name of the laboratory}"
           },
-          "2": {
+          "1": {
             "x": "Address: {Full address}"
           },
-          "3": {
+          "2": {
             "x": "Telephone: {Number}"
           },
-          "4": {
+          "3": {
             "x": "Email: {Email address}"
           },
-          "11": {
+          "10": {
             "x": "I, the undersigned, {Full name}, acting as {Position} within the laboratory {Name of the laboratory}, certify that the Drug Master File (DMF) number for the active pharmaceutical ingredient (API) of the product below is accurate, valid and consistent with the information provided by the manufacturer."
           },
-          "14": {
+          "13": {
             "rows": [
               [
                 "Name of the finished product",
@@ -6033,13 +6013,13 @@ export const MODELES_FICHIERS = {
               ]
             ]
           },
-          "17": {
+          "16": {
             "x": "Done at {City}, on {date}"
           },
-          "19": {
+          "18": {
             "x": "{Full name}"
           },
-          "20": {
+          "19": {
             "x": "{Position}"
           }
         },
@@ -6051,14 +6031,10 @@ export const MODELES_FICHIERS = {
       "ne": {
         "pdf": "/modeles/lettre-dmf-ne.pdf",
         "zip": "/modeles/lettre-dmf-ne.zip",
-        "pages": 2,
-        "octetsPdf": 3454,
-        "octetsZip": 17981,
+        "pages": 1,
+        "octetsPdf": 3170,
+        "octetsZip": 19374,
         "blocs": [
-          {
-            "t": "entete",
-            "x": "[En-tête du laboratoire]"
-          },
           {
             "t": "entete",
             "x": "Raison sociale : {Nom du laboratoire}"
@@ -6097,7 +6073,7 @@ export const MODELES_FICHIERS = {
           },
           {
             "t": "p",
-            "x": "Madame, Monsieur,"
+            "x": "Madame la Directrice Générale,"
           },
           {
             "t": "p",
@@ -6175,22 +6151,22 @@ export const MODELES_FICHIERS = {
           }
         ],
         "aidesEn": {
-          "1": {
+          "0": {
             "x": "Company name: {Name of the laboratory}"
           },
-          "2": {
+          "1": {
             "x": "Address: {Full address}"
           },
-          "3": {
+          "2": {
             "x": "Telephone: {Number}"
           },
-          "4": {
+          "3": {
             "x": "Email: {Email address}"
           },
-          "11": {
+          "10": {
             "x": "I, the undersigned, {Full name}, acting as {Position} within the laboratory {Name of the laboratory}, certify that the Drug Master File (DMF) number for the active pharmaceutical ingredient (API) of the product below is accurate, valid and consistent with the information provided by the manufacturer."
           },
-          "14": {
+          "13": {
             "rows": [
               [
                 "Name of the finished product",
@@ -6222,13 +6198,13 @@ export const MODELES_FICHIERS = {
               ]
             ]
           },
-          "17": {
+          "16": {
             "x": "Done at {City}, on {date}"
           },
-          "19": {
+          "18": {
             "x": "{Full name}"
           },
-          "20": {
+          "19": {
             "x": "{Position}"
           }
         },
@@ -6241,13 +6217,9 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-dmf-sn.pdf",
         "zip": "/modeles/lettre-dmf-sn.zip",
         "pages": 1,
-        "octetsPdf": 3099,
-        "octetsZip": 17983,
+        "octetsPdf": 3131,
+        "octetsZip": 19379,
         "blocs": [
-          {
-            "t": "entete",
-            "x": "[En-tête du laboratoire]"
-          },
           {
             "t": "entete",
             "x": "Raison sociale : {Nom du laboratoire}"
@@ -6286,7 +6258,7 @@ export const MODELES_FICHIERS = {
           },
           {
             "t": "p",
-            "x": "Madame, Monsieur,"
+            "x": "Madame la Directrice Générale,"
           },
           {
             "t": "p",
@@ -6364,22 +6336,22 @@ export const MODELES_FICHIERS = {
           }
         ],
         "aidesEn": {
-          "1": {
+          "0": {
             "x": "Company name: {Name of the laboratory}"
           },
-          "2": {
+          "1": {
             "x": "Address: {Full address}"
           },
-          "3": {
+          "2": {
             "x": "Telephone: {Number}"
           },
-          "4": {
+          "3": {
             "x": "Email: {Email address}"
           },
-          "11": {
+          "10": {
             "x": "I, the undersigned, {Full name}, acting as {Position} within the laboratory {Name of the laboratory}, certify that the Drug Master File (DMF) number for the active pharmaceutical ingredient (API) of the product below is accurate, valid and consistent with the information provided by the manufacturer."
           },
-          "14": {
+          "13": {
             "rows": [
               [
                 "Name of the finished product",
@@ -6411,13 +6383,13 @@ export const MODELES_FICHIERS = {
               ]
             ]
           },
-          "17": {
+          "16": {
             "x": "Done at {City}, on {date}"
           },
-          "19": {
+          "18": {
             "x": "{Full name}"
           },
-          "20": {
+          "19": {
             "x": "{Position}"
           }
         },
@@ -6430,13 +6402,9 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-dmf-tg.pdf",
         "zip": "/modeles/lettre-dmf-tg.zip",
         "pages": 1,
-        "octetsPdf": 3102,
-        "octetsZip": 17968,
+        "octetsPdf": 3137,
+        "octetsZip": 19369,
         "blocs": [
-          {
-            "t": "entete",
-            "x": "[En-tête du laboratoire]"
-          },
           {
             "t": "entete",
             "x": "Raison sociale : {Nom du laboratoire}"
@@ -6475,7 +6443,7 @@ export const MODELES_FICHIERS = {
           },
           {
             "t": "p",
-            "x": "Madame, Monsieur,"
+            "x": "Monsieur le Directeur Général,"
           },
           {
             "t": "p",
@@ -6553,22 +6521,22 @@ export const MODELES_FICHIERS = {
           }
         ],
         "aidesEn": {
-          "1": {
+          "0": {
             "x": "Company name: {Name of the laboratory}"
           },
-          "2": {
+          "1": {
             "x": "Address: {Full address}"
           },
-          "3": {
+          "2": {
             "x": "Telephone: {Number}"
           },
-          "4": {
+          "3": {
             "x": "Email: {Email address}"
           },
-          "11": {
+          "10": {
             "x": "I, the undersigned, {Full name}, acting as {Position} within the laboratory {Name of the laboratory}, certify that the Drug Master File (DMF) number for the active pharmaceutical ingredient (API) of the product below is accurate, valid and consistent with the information provided by the manufacturer."
           },
-          "14": {
+          "13": {
             "rows": [
               [
                 "Name of the finished product",
@@ -6600,13 +6568,13 @@ export const MODELES_FICHIERS = {
               ]
             ]
           },
-          "17": {
+          "16": {
             "x": "Done at {City}, on {date}"
           },
-          "19": {
+          "18": {
             "x": "{Full name}"
           },
-          "20": {
+          "19": {
             "x": "{Position}"
           }
         },

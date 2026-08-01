@@ -1154,16 +1154,18 @@ const LETTRE_PGHT = [
  *   • l'en-tête du laboratoire est écrit DANS la lettre (la bibliothèque n'a pas de profil où le
  *     prendre, contrairement au builder) ;
  *   • la date est en PIED, avec « Fait à …, le … » — le modèle ne date pas en tête.
- * La salutation reste « Madame, Monsieur, » : c'est celle du modèle, on ne la remplace pas par la
- * civilité du directeur alors que l'autorité l'a écrite ainsi.
+ * La salutation NOMME le destinataire (« Monsieur le Directeur Général, ») : le modèle vierge de
+ * l'AIRP écrit « Madame, Monsieur », mais l'exemple rempli fourni par le CEO nomme l'autorité, et
+ * c'est l'usage de tous nos autres courriers.
  *
  * Le tableau récapitulatif est en deux colonnes (libellé / valeur) : le rendu PDF refuse une
  * cellule qui déborde sa colonne, d'où le libellé court du site de fabrication — ce que la
  * cellule doit contenir est écrit dans la colonne de droite, sans rien retrancher à l'exigence.
  */
 const LETTRE_DMF = [
-  // Lignes SERRÉES (style `entete`) : c'est un bloc d'adresse, pas cinq paragraphes.
-  { t: 'entete', x: '[En-tête du laboratoire]', en: '[Laboratory letterhead]' },
+  // Lignes SERRÉES (style `entete`) : c'est un bloc d'adresse, pas cinq paragraphes. Le marqueur
+  // « [En-tête du laboratoire] » n'est PAS ici mais dans la partie en-tête du document, comme
+  // dans le gabarit fourni — l'écrire aux deux endroits le ferait apparaître deux fois.
   {
     t: 'entete',
     x: 'Raison sociale : {Nom du laboratoire}',
@@ -1183,7 +1185,9 @@ const LETTRE_DMF = [
     x: 'Objet : Déclaration relative à la certification des numéros DMF',
     en: 'Subject: Declaration on the certification of DMF numbers',
   },
-  { t: 'p', x: 'Madame, Monsieur,', en: 'Dear Sir or Madam,' },
+  // La lettre s'adresse NOMMÉMENT : « Monsieur le Directeur Général, », pas « Madame, Monsieur ».
+  // C'est ce que montre l'exemple rempli fourni par le CEO, et ce que font nos autres courriers.
+  { t: 'salut' },
   {
     t: 'p',
     x:
@@ -1489,6 +1493,16 @@ export const DOCS = [
     upgradable: false,
     bilingue: true,
     layout: 'lettre',
+    // FICHIER FOURNI pour la Côte d'Ivoire : le gabarit de l'AIRP en Word, servi à l'octet près.
+    // C'est CE fichier que le déposant ivoirien télécharge — aucune réinterprétation. Les sept
+    // autres pays reçoivent notre transposition, qui suit la même mise en page et nomme LEUR
+    // autorité. La feuille de remplissage, elle, reste disponible partout.
+    fournis: {
+      ci: {
+        docx: 'RA-source/AIRP/DMF/Template-DMF.docx',
+        pdf: 'RA-source/AIRP/DMF/Template-DMF.pdf',
+      },
+    },
     // GÉNÉRÉ, et pour les huit pays (décision CEO) : le corps de la déclaration ne nomme aucune
     // autorité — il certifie un numéro de DMF — donc le modèle est transposable tel quel, à
     // condition de mettre à jour le destinataire et l'autorité citée dans l'engagement.

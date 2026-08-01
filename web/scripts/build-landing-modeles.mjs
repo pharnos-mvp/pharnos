@@ -21,9 +21,11 @@
  */
 import {
   AlignmentType,
+  BorderStyle,
   Document,
   ExternalHyperlink,
   Footer,
+  Header,
   HeadingLevel,
   Packer,
   Paragraph,
@@ -65,7 +67,7 @@ const MANIFESTE = path.join(RACINE, 'landing', 'checking', 'modeles-manifest.js'
 // 2026.7 : purge de cache forcée — des copies de PDF antérieures au correctif CSP du 31/07
 // (double `content-security-policy`) traînaient dans les caches navigateurs et rendaient le
 // volet lecteur intermittent ; changer la version change la clé de cache de TOUS les fichiers.
-const VERSION = '2026.8'
+const VERSION = '2026.9'
 
 /** Date figée : sans elle, deux exécutions produisent des octets différents. */
 const FIGEE = new Date('2026-07-30T00:00:00Z')
@@ -365,6 +367,25 @@ async function versPdf(doc, blocs, paysNom) {
     page = pdf.addPage([A4.l, A4.h])
     pages.push(page)
     y = A4.h - G.marge.haut
+    // Emplacement du PAPIER À EN-TÊTE (lettres) : marqueur puis filet, la forme du gabarit
+    // fourni. L'aperçu doit montrer cette place, sinon le lecteur croit qu'elle n'existe pas et
+    // découvre le décalage seulement en ouvrant le Word.
+    if (doc.layout === 'lettre') {
+      const yEntete = A4.h - 34
+      page.drawText('[En-tête du laboratoire]', {
+        x: G.marge.g,
+        y: yEntete,
+        size: 8.5,
+        font: reg,
+        color: rgb(0.6, 0.63, 0.66),
+      })
+      page.drawLine({
+        start: { x: G.marge.g, y: yEntete - 6 },
+        end: { x: A4.l - G.marge.d, y: yEntete - 6 },
+        thickness: 0.6,
+        color: rgb(0.6, 0.63, 0.66),
+      })
+    }
   }
   nouvellePage()
 
@@ -524,6 +545,10 @@ function piedPharnos(doc, paysNom) {
   const gris = '9AA1A9'
   return new Footer({
     children: [
+      // Emplacement de PIED du laboratoire (lettres) : le courrier repart sur son papier, il lui
+      // faut sa ligne de pied — coordonnées, RCS, mentions. Un modèle qui n'en laisse pas la
+      // place oblige à défaire la mise en page pour l'ajouter.
+      ...(doc.layout === 'lettre' ? [new Paragraph({ children: [PIED_LABO()] })] : []),
       new Paragraph({
         alignment: AlignmentType.RIGHT,
         spacing: { before: 120 },
@@ -536,6 +561,36 @@ function piedPharnos(doc, paysNom) {
             ],
           }),
         ],
+      }),
+    ],
+  })
+}
+
+/** Marqueur de pied du laboratoire — à remplacer par ses propres mentions. */
+const PIED_LABO = () =>
+  new TextRun({ text: '[Pied de page]', size: 20, color: '9AA1A9', font: 'Times New Roman' })
+
+/**
+ * En-tête de lettre : l'emplacement du PAPIER À EN-TÊTE du laboratoire, marqueur puis filet —
+ * la forme exacte du gabarit fourni (« Header » suivi d'un trait). Le laboratoire y dépose son
+ * logo ; sans cet emplacement, il doit recréer un en-tête et la mise en page bouge.
+ */
+function enteteLaboratoire() {
+  return new Header({
+    children: [
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: '[En-tête du laboratoire]',
+            size: 20,
+            color: '9AA1A9',
+            font: 'Times New Roman',
+          }),
+        ],
+      }),
+      new Paragraph({
+        border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '9AA1A9', space: 1 } },
+        children: [],
       }),
     ],
   })
@@ -558,7 +613,11 @@ async function versDocx(doc, blocs, paysNom) {
     if (b.t === 'break') return new Paragraph({ text: '', pageBreakBefore: true })
     if (b.t === 'table') {
       return new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
+        // Largeur et colonnes du gabarit : 9560 dxa, réparties 3712 / 5848 — l'intitulé tient sur
+        // deux lignes au plus, la valeur respire. Une largeur en pourcentage donnait deux
+        // colonnes égales, et des intitulés qui débordaient sur quatre lignes.
+        width: { size: 9560, type: WidthType.DXA },
+        columnWidths: b.libelles ? [3712, 5848] : undefined,
         // Une ligne d'en-tête qui se répète si le tableau passe la page, et des cellules qui
         // ne collent pas au trait : c'est ce qui sépare un tableau de courrier d'une grille brute.
         // Un tableau « libellé / valeur » n'a PAS de ligne d'en-tête : ce qui se détache est sa
@@ -619,7 +678,20 @@ async function versDocx(doc, blocs, paysNom) {
     styles: { default: { document: { run: { font: G.fonteDocx, size: G.style.p.taille * 2 } } } },
     sections: [
       {
-        properties: { page: { margin: { top: 1134, right: 1134, bottom: 1418, left: 1134 } } },
+        properties: {
+          // Marges du GABARIT fourni pour les lettres (pgMar du Word de référence), afin que le
+          // document produit se superpose au modèle : un déposant qui colle son en-tête ne doit
+          // pas voir la mise en page glisser. Les autres documents gardent les marges maison.
+          page: {
+            margin:
+              doc.layout === 'lettre'
+                ? { top: 1340, right: 850, bottom: 280, left: 1275, header: 720, footer: 720 }
+                : { top: 1134, right: 1134, bottom: 1418, left: 1134 },
+          },
+        },
+        // Emplacement d'en-tête : sur les LETTRES seulement — un RCP ou une notice n'a pas de
+        // papier à en-tête, ils partent en annexe d'un dossier, pas en courrier.
+        ...(doc.layout === 'lettre' ? { headers: { default: enteteLaboratoire() } } : {}),
         footers: { default: piedPharnos(doc, paysNom) },
         children: enfants,
       },
@@ -754,8 +826,25 @@ for (const doc of DOCS) {
 
     const blocsFr = resoudre(doc, pays, 'fr', activite)
 
-    const { octets: pdf, pages } = await versPdf(doc, blocsFr, libelle)
-    const docxFr = await versDocx(doc, blocsFr, libelle)
+    // FICHIER FOURNI par l'autorité (ou par le CEO) pour ce pays : c'est LUI que l'utilisateur
+    // télécharge, à l'octet près — pas notre transposition. À la différence de `officiels`, les
+    // BLOCS restent calculés : la feuille « Générer ma lettre » continue de fonctionner, et le
+    // document qu'elle produit suit la même mise en page. Un gabarit servi tel quel ET une
+    // feuille qui le remplit ne s'excluent pas — les confondre supprimait la seconde.
+    const fourni = doc.fournis?.[pays]
+    const octetsFournis = fourni
+      ? {
+          docx: fs.readFileSync(path.join(RACINE, fourni.docx)),
+          pdf: fs.readFileSync(path.join(RACINE, fourni.pdf)),
+        }
+      : null
+
+    const rendu = await versPdf(doc, blocsFr, libelle)
+    const pdf = octetsFournis ? octetsFournis.pdf : rendu.octets
+    const pages = octetsFournis
+      ? (await PDFDocument.load(octetsFournis.pdf, { updateMetadata: false })).getPageCount()
+      : rendu.pages
+    const docxFr = octetsFournis ? octetsFournis.docx : await versDocx(doc, blocsFr, libelle)
 
     // Noms LISIBLES dans l'archive : translittération des accents (« Bénin » → « Benin »),
     // jamais un remplacement aveugle qui rendrait « B-nin ». `_FR` n'apparaît que quand une
@@ -768,8 +857,10 @@ for (const doc of DOCS) {
         .replace(/^-|-$/g, '')
     const base = ascii(doc.court[0])
     const basePays = libelle ? `${base}_${ascii(libelle)}` : base
-    const entrees = [[`${basePays}${doc.bilingue ? '_FR' : ''}.docx`, docxFr]]
-    if (doc.bilingue) {
+    // Un fichier fourni part SEUL : on ne joint pas une traduction de courtoisie fabriquée par
+    // nous à un document que nous servons tel quel.
+    const entrees = [[`${basePays}${doc.bilingue && !octetsFournis ? '_FR' : ''}.docx`, docxFr]]
+    if (doc.bilingue && !octetsFournis) {
       const docxEn = await versDocx(doc, resoudre(doc, pays, 'en', activite), libelle)
       entrees.push([`${base}_EN_courtesy.docx`, docxEn])
     }
