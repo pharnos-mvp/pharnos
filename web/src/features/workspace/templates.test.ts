@@ -68,26 +68,31 @@ describe('templates (génération de documents)', () => {
   })
 
   describe('déclaration DMF (obligation AIRP — note n° 1668)', () => {
-    it("ne s'ouvre qu'au 1.2.3 d'un dossier ivoirien", () => {
-      expect(templateKeyForNode('ctd', '1.2.3', 'new_ma', 'CI')).toBe('dmf')
-      expect(templateKeyForNode('ectd', '1.2.3', 'new_ma', 'CI')).toBe('dmf')
+    it('se classe avec le DMF, au numéro que chaque format lui donne', () => {
+      // CTD UEMOA : la sous-section dédiée. eCTD CEDEAO : le 1.2.5, qui y est une feuille.
+      expect(templateKeyForNode('ctd', '1.2.5.1', 'new_ma', 'CI')).toBe('dmf')
+      expect(templateKeyForNode('ectd', '1.2.5', 'new_ma', 'CI')).toBe('dmf')
+      // Et NULLE PART ailleurs : en CTD, le 1.2.5 est la section de garde de cette sous-section —
+      // l'y ouvrir aussi proposerait deux fois la même pièce, à deux endroits du même dossier.
+      expect(templateKeyForNode('ctd', '1.2.5', 'new_ma', 'CI')).toBeUndefined()
+      expect(templateKeyForNode('ectd', '1.2.5.1', 'new_ma', 'CI')).toBeUndefined()
+      expect(templateKeyForNode('ctd', '1.2.3', 'new_ma', 'CI')).toBeUndefined()
       // Aucun autre pays n'impose cette déclaration : le nœud reste sans modèle.
-      expect(templateKeyForNode('ctd', '1.2.3', 'new_ma', 'BJ')).toBeUndefined()
-      expect(templateKeyForNode('ctd', '1.2.3', 'new_ma', 'SN')).toBeUndefined()
+      expect(templateKeyForNode('ctd', '1.2.5.1', 'new_ma', 'BJ')).toBeUndefined()
+      expect(templateKeyForNode('ctd', '1.2.5.1', 'new_ma', 'SN')).toBeUndefined()
       // Sans pays (appelant historique), le socle régional répond seul — comportement inchangé.
-      expect(templateKeyForNode('ctd', '1.2.3')).toBeUndefined()
-      expect(templateKeyForNode('ctd', '1.2.4', 'new_ma', 'CI')).toBeUndefined()
+      expect(templateKeyForNode('ctd', '1.2.5.1')).toBeUndefined()
     })
 
     it('ne vaut que pour les DEUX opérations que la note n° 1668 énumère', () => {
       // « Toute nouvelle demande d'enregistrement […] ; Toute demande de renouvellement […] ».
-      expect(templateKeyForNode('ctd', '1.2.3', 'new_ma', 'CI')).toBe('dmf')
-      expect(templateKeyForNode('ctd', '1.2.3', 'renewal', 'CI')).toBe('dmf')
+      expect(templateKeyForNode('ctd', '1.2.5.1', 'new_ma', 'CI')).toBe('dmf')
+      expect(templateKeyForNode('ctd', '1.2.5.1', 'renewal', 'CI')).toBe('dmf')
       // La VARIATION n'y figure pas : ne pas annoncer une pièce que l'AIRP ne réclame pas là.
-      expect(templateKeyForNode('ctd', '1.2.3', 'variation', 'CI')).toBeUndefined()
-      expect(templateKeyForNode('ectd', '1.2.3', 'variation', 'CI')).toBeUndefined()
+      expect(templateKeyForNode('ctd', '1.2.5.1', 'variation', 'CI')).toBeUndefined()
+      expect(templateKeyForNode('ectd', '1.2.5', 'variation', 'CI')).toBeUndefined()
       // Opération inconnue : on ne propose rien plutôt que de proposer à tort.
-      expect(templateKeyForNode('ctd', '1.2.3', undefined, 'CI')).toBeUndefined()
+      expect(templateKeyForNode('ctd', '1.2.5.1', undefined, 'CI')).toBeUndefined()
     })
 
     it("le socle régional prime : un modèle national n'évince aucune lettre existante", () => {

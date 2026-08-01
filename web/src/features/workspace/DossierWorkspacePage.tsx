@@ -2147,6 +2147,8 @@ export function DossierWorkspacePage() {
                     </div>
                   ) : (
                     // Nœud upload-only : bouton Téléverser CENTRÉ en CTA (comme Générer) pour l'intuitivité.
+                    // Un nœud qui PORTE un modèle passe par la branche `selectedTplKey` ci-dessus,
+                    // qui offre déjà « Générer » et « Téléverser » côte à côte au centre.
                     <div className="flex min-h-[24rem] flex-col items-center justify-center rounded-lg border border-dashed p-4 text-center">
                       <Upload className="text-primary mb-2 size-8" />
                       <p className="text-sm font-medium">
