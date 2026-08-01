@@ -109,7 +109,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/rcp-bf.zip",
         "pages": 4,
         "octetsPdf": 7120,
-        "octetsZip": 19930
+        "octetsZip": 19926
       },
       "ci": {
         "pdf": "/modeles/rcp-ci.pdf",
@@ -128,35 +128,35 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/rcp-gw.zip",
         "pages": 4,
         "octetsPdf": 7106,
-        "octetsZip": 19851
+        "octetsZip": 19852
       },
       "ml": {
         "pdf": "/modeles/rcp-ml.pdf",
         "zip": "/modeles/rcp-ml.zip",
         "pages": 4,
         "octetsPdf": 7061,
-        "octetsZip": 19798
+        "octetsZip": 19789
       },
       "ne": {
         "pdf": "/modeles/rcp-ne.pdf",
         "zip": "/modeles/rcp-ne.zip",
         "pages": 4,
         "octetsPdf": 7072,
-        "octetsZip": 19797
+        "octetsZip": 19795
       },
       "sn": {
         "pdf": "/modeles/rcp-sn.pdf",
         "zip": "/modeles/rcp-sn.zip",
         "pages": 4,
         "octetsPdf": 7106,
-        "octetsZip": 19934
+        "octetsZip": 19930
       },
       "tg": {
         "pdf": "/modeles/rcp-tg.pdf",
         "zip": "/modeles/rcp-tg.zip",
         "pages": 4,
         "octetsPdf": 7066,
-        "octetsZip": 19793
+        "octetsZip": 19796
       }
     }
   },
@@ -254,7 +254,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/notice.zip",
         "pages": 4,
         "octetsPdf": 8307,
-        "octetsZip": 21190
+        "octetsZip": 21174
       }
     }
   },
@@ -352,7 +352,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/etiquetage.zip",
         "pages": 4,
         "octetsPdf": 6609,
-        "octetsZip": 19031
+        "octetsZip": 19025
       }
     }
   },
@@ -462,7 +462,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-demande-bf.zip",
         "pages": 1,
         "octetsPdf": 2211,
-        "octetsZip": 16779,
+        "octetsZip": 16777,
         "blocs": [
           {
             "t": "right",
@@ -566,7 +566,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-demande-ci.zip",
         "pages": 1,
         "octetsPdf": 2206,
-        "octetsZip": 16803,
+        "octetsZip": 16798,
         "blocs": [
           {
             "t": "right",
@@ -670,7 +670,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-demande-gw.zip",
         "pages": 1,
         "octetsPdf": 2241,
-        "octetsZip": 16848,
+        "octetsZip": 16849,
         "blocs": [
           {
             "t": "right",
@@ -774,7 +774,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-demande-ml.zip",
         "pages": 1,
         "octetsPdf": 2195,
-        "octetsZip": 16727,
+        "octetsZip": 16728,
         "blocs": [
           {
             "t": "right",
@@ -982,7 +982,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-demande-sn.zip",
         "pages": 1,
         "octetsPdf": 2200,
-        "octetsZip": 16781,
+        "octetsZip": 16771,
         "blocs": [
           {
             "t": "right",
@@ -1086,7 +1086,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-demande-tg.zip",
         "pages": 1,
         "octetsPdf": 2208,
-        "octetsZip": 16761,
+        "octetsZip": 16754,
         "blocs": [
           {
             "t": "right",
@@ -1281,7 +1281,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-bj.zip",
         "pages": 1,
         "octetsPdf": 2332,
-        "octetsZip": 16901,
+        "octetsZip": 16895,
         "blocs": [
           {
             "t": "right",
@@ -1399,7 +1399,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-bf.zip",
         "pages": 1,
         "octetsPdf": 2331,
-        "octetsZip": 16885,
+        "octetsZip": 16888,
         "blocs": [
           {
             "t": "right",
@@ -1517,7 +1517,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-ci.zip",
         "pages": 1,
         "octetsPdf": 2326,
-        "octetsZip": 16924,
+        "octetsZip": 16918,
         "blocs": [
           {
             "t": "right",
@@ -1635,7 +1635,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-gw.zip",
         "pages": 1,
         "octetsPdf": 2363,
-        "octetsZip": 16960,
+        "octetsZip": 16964,
         "blocs": [
           {
             "t": "right",
@@ -1753,7 +1753,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-ml.zip",
         "pages": 1,
         "octetsPdf": 2316,
-        "octetsZip": 16841,
+        "octetsZip": 16843,
         "blocs": [
           {
             "t": "right",
@@ -1871,7 +1871,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-ne.zip",
         "pages": 1,
         "octetsPdf": 2327,
-        "octetsZip": 16871,
+        "octetsZip": 16877,
         "blocs": [
           {
             "t": "right",
@@ -1989,7 +1989,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-sn.zip",
         "pages": 1,
         "octetsPdf": 2324,
-        "octetsZip": 16881,
+        "octetsZip": 16885,
         "blocs": [
           {
             "t": "right",
@@ -2107,7 +2107,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-renouvellement-tg.zip",
         "pages": 1,
         "octetsPdf": 2330,
-        "octetsZip": 16872,
+        "octetsZip": 16867,
         "blocs": [
           {
             "t": "right",
@@ -2316,7 +2316,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-bj.zip",
         "pages": 1,
         "octetsPdf": 2233,
-        "octetsZip": 16839,
+        "octetsZip": 16833,
         "blocs": [
           {
             "t": "right",
@@ -2414,7 +2414,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-bf.zip",
         "pages": 1,
         "octetsPdf": 2237,
-        "octetsZip": 16817,
+        "octetsZip": 16820,
         "blocs": [
           {
             "t": "right",
@@ -2512,7 +2512,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-ci.zip",
         "pages": 1,
         "octetsPdf": 2227,
-        "octetsZip": 16841,
+        "octetsZip": 16851,
         "blocs": [
           {
             "t": "right",
@@ -2708,7 +2708,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-ml.zip",
         "pages": 1,
         "octetsPdf": 2221,
-        "octetsZip": 16778,
+        "octetsZip": 16781,
         "blocs": [
           {
             "t": "right",
@@ -2806,7 +2806,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-ne.zip",
         "pages": 1,
         "octetsPdf": 2230,
-        "octetsZip": 16807,
+        "octetsZip": 16806,
         "blocs": [
           {
             "t": "right",
@@ -2904,7 +2904,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-sn.zip",
         "pages": 1,
         "octetsPdf": 2226,
-        "octetsZip": 16819,
+        "octetsZip": 16827,
         "blocs": [
           {
             "t": "right",
@@ -3002,7 +3002,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-variation-tg.zip",
         "pages": 1,
         "octetsPdf": 2231,
-        "octetsZip": 16796,
+        "octetsZip": 16789,
         "blocs": [
           {
             "t": "right",
@@ -3199,7 +3199,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-bj-enr.zip",
         "pages": 1,
         "octetsPdf": 2333,
-        "octetsZip": 17239,
+        "octetsZip": 17241,
         "blocs": [
           {
             "t": "right",
@@ -3300,8 +3300,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-pght-bj-renouv.pdf",
         "zip": "/modeles/lettre-pght-bj-renouv.zip",
         "pages": 1,
-        "octetsPdf": 2333,
-        "octetsZip": 17228,
+        "octetsPdf": 2332,
+        "octetsZip": 17223,
         "blocs": [
           {
             "t": "right",
@@ -3402,8 +3402,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-pght-bf-enr.pdf",
         "zip": "/modeles/lettre-pght-bf-enr.zip",
         "pages": 1,
-        "octetsPdf": 2332,
-        "octetsZip": 17211,
+        "octetsPdf": 2331,
+        "octetsZip": 17217,
         "blocs": [
           {
             "t": "right",
@@ -3505,7 +3505,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-bf-renouv.zip",
         "pages": 1,
         "octetsPdf": 2329,
-        "octetsZip": 17208,
+        "octetsZip": 17217,
         "blocs": [
           {
             "t": "right",
@@ -3607,7 +3607,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-ci-enr.zip",
         "pages": 1,
         "octetsPdf": 2330,
-        "octetsZip": 17256,
+        "octetsZip": 17255,
         "blocs": [
           {
             "t": "right",
@@ -3709,7 +3709,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-ci-renouv.zip",
         "pages": 1,
         "octetsPdf": 2334,
-        "octetsZip": 17247,
+        "octetsZip": 17262,
         "blocs": [
           {
             "t": "right",
@@ -3811,7 +3811,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-gw-enr.zip",
         "pages": 1,
         "octetsPdf": 2359,
-        "octetsZip": 17285,
+        "octetsZip": 17283,
         "blocs": [
           {
             "t": "right",
@@ -3912,8 +3912,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-pght-gw-renouv.pdf",
         "zip": "/modeles/lettre-pght-gw-renouv.zip",
         "pages": 1,
-        "octetsPdf": 2360,
-        "octetsZip": 17289,
+        "octetsPdf": 2359,
+        "octetsZip": 17285,
         "blocs": [
           {
             "t": "right",
@@ -4015,7 +4015,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-ml-enr.zip",
         "pages": 1,
         "octetsPdf": 2312,
-        "octetsZip": 17169,
+        "octetsZip": 17174,
         "blocs": [
           {
             "t": "right",
@@ -4117,7 +4117,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-ml-renouv.zip",
         "pages": 1,
         "octetsPdf": 2311,
-        "octetsZip": 17176,
+        "octetsZip": 17177,
         "blocs": [
           {
             "t": "right",
@@ -4218,8 +4218,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-pght-ne-enr.pdf",
         "zip": "/modeles/lettre-pght-ne-enr.zip",
         "pages": 1,
-        "octetsPdf": 2328,
-        "octetsZip": 17204,
+        "octetsPdf": 2329,
+        "octetsZip": 17205,
         "blocs": [
           {
             "t": "right",
@@ -4320,8 +4320,8 @@ export const MODELES_FICHIERS = {
         "pdf": "/modeles/lettre-pght-ne-renouv.pdf",
         "zip": "/modeles/lettre-pght-ne-renouv.zip",
         "pages": 1,
-        "octetsPdf": 2326,
-        "octetsZip": 17210,
+        "octetsPdf": 2327,
+        "octetsZip": 17212,
         "blocs": [
           {
             "t": "right",
@@ -4525,7 +4525,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-sn-renouv.zip",
         "pages": 1,
         "octetsPdf": 2321,
-        "octetsZip": 17210,
+        "octetsZip": 17220,
         "blocs": [
           {
             "t": "right",
@@ -4627,7 +4627,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-tg-enr.zip",
         "pages": 1,
         "octetsPdf": 2323,
-        "octetsZip": 17197,
+        "octetsZip": 17202,
         "blocs": [
           {
             "t": "right",
@@ -4729,7 +4729,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/lettre-pght-tg-renouv.zip",
         "pages": 1,
         "octetsPdf": 2326,
-        "octetsZip": 17207,
+        "octetsZip": 17209,
         "blocs": [
           {
             "t": "right",
@@ -4839,12 +4839,12 @@ export const MODELES_FICHIERS = {
       "DMF declaration"
     ],
     "resume": [
-      "La certification du numéro de Drug Master File de la substance active, exigée par l’AIRP.",
-      "Certification of the active ingredient’s Drug Master File number, required by the AIRP."
+      "La certification du numéro de Drug Master File de la substance active, adressée à votre autorité.",
+      "Certification of the active ingredient’s Drug Master File number, addressed to your authority."
     ],
     "source": [
-      "Modèle AIRP — note n° 1668",
-      "AIRP template — note No. 1668"
+      "Déclaration de certification DMF",
+      "DMF certification declaration"
     ],
     "groupe": "lettres",
     "upgradable": false,
@@ -4852,8 +4852,24 @@ export const MODELES_FICHIERS = {
     "perPays": true,
     "apercu": [
       {
-        "t": "right",
-        "x": "Le {date}"
+        "t": "entete",
+        "x": "[En-tête du laboratoire]"
+      },
+      {
+        "t": "entete",
+        "x": "Raison sociale : {Nom du laboratoire}"
+      },
+      {
+        "t": "entete",
+        "x": "Adresse : {Adresse complète}"
+      },
+      {
+        "t": "entete",
+        "x": "Téléphone : {Numéro}"
+      },
+      {
+        "t": "entete",
+        "x": "Email : {Adresse email}"
       },
       {
         "t": "right",
@@ -4865,11 +4881,11 @@ export const MODELES_FICHIERS = {
       },
       {
         "t": "right",
-        "x": "Autorité Ivoirienne de Régulation Pharmaceutique (AIRP)"
+        "x": "Agence Béninoise du Médicament et des autres produits de santé (ABMed)"
       },
       {
         "t": "right",
-        "x": "Abidjan, Cocody"
+        "x": "Bénin"
       },
       {
         "t": "h3",
@@ -4877,11 +4893,11 @@ export const MODELES_FICHIERS = {
       },
       {
         "t": "p",
-        "x": "Monsieur le Directeur Général,"
+        "x": "Madame, Monsieur,"
       },
       {
         "t": "p",
-        "x": "Je soussigné(e), …, agissant en qualité de … au sein du laboratoire …, certifie que le numéro de Drug Master File (DMF) relatif à la substan…"
+        "x": "Je soussigné(e), {Nom et prénom}, agissant en qualité de {Fonction} au sein du laboratoire {Nom du laboratoire}, certifie que le numéro de D…"
       },
       {
         "t": "p",
@@ -4896,67 +4912,1511 @@ export const MODELES_FICHIERS = {
         "rows": [
           [
             "Dénomination du produit fini",
-            "…"
+            "{Nom produit}"
           ],
           [
             "Titulaire de l’AMM",
-            "…"
+            "{Titulaire AMM}"
           ],
           [
             "Fabricant du produit fini",
-            "…"
+            "{Nom fabricant PF}"
           ],
           [
             "Substance active (API)",
-            "…"
+            "{Nom API}"
           ],
           [
-            "Site de fabrication de la substance active",
-            "Nom, adresse, e-mail et téléphone"
+            "Site de fabrication de la substance active (API)",
+            "{Nom, adresse, e-mail et téléphone}"
           ],
           [
-            "Autorité approbatrice du numéro de DMF",
-            "…"
+            "Autorité de réglementation approbatrice du numéro de DMF",
+            "{Autorité de réglementation}"
           ],
           [
             "N° DMF",
-            "…"
+            "{N° DMF}"
           ]
         ]
       },
       {
         "t": "p",
-        "x": "Je m’engage à informer au préalable l’autorité de toute variation relative à ces informations."
-      },
-      {
-        "t": "p",
-        "x": "La présente déclaration est établie pour servir et valoir ce que de droit."
-      },
-      {
-        "t": "right",
-        "x": "Poste"
-      },
-      {
-        "t": "right",
-        "x": "Signature et Cachet"
-      },
-      {
-        "t": "right",
-        "x": "Nom et Prénom(s)"
+        "x": "Je m’engage à informer au préalable l'ABMed de toute variation relative à ces informations."
       }
     ],
     "fichiers": {
+      "bj": {
+        "pdf": "/modeles/lettre-dmf-bj.pdf",
+        "zip": "/modeles/lettre-dmf-bj.zip",
+        "pages": 1,
+        "octetsPdf": 3048,
+        "octetsZip": 17920,
+        "blocs": [
+          {
+            "t": "entete",
+            "x": "[En-tête du laboratoire]"
+          },
+          {
+            "t": "entete",
+            "x": "Raison sociale : {Nom du laboratoire}"
+          },
+          {
+            "t": "entete",
+            "x": "Adresse : {Adresse complète}"
+          },
+          {
+            "t": "entete",
+            "x": "Téléphone : {Numéro}"
+          },
+          {
+            "t": "entete",
+            "x": "Email : {Adresse email}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Agence Béninoise du Médicament et des autres produits de santé (ABMed)"
+          },
+          {
+            "t": "right",
+            "x": "Bénin"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Déclaration relative à la certification des numéros DMF"
+          },
+          {
+            "t": "p",
+            "x": "Madame, Monsieur,"
+          },
+          {
+            "t": "p",
+            "x": "Je soussigné(e), {Nom et prénom}, agissant en qualité de {Fonction} au sein du laboratoire {Nom du laboratoire}, certifie que le numéro de Drug Master File (DMF) relatif à la substance active (API) du produit ci-dessous est exact, valide et conforme aux informations fournies par le fabricant."
+          },
+          {
+            "t": "p",
+            "x": "Je déclare également que ces informations ont été vérifiées auprès de l’autorité de réglementation pharmaceutique du pays d’origine de cette substance active."
+          },
+          {
+            "t": "p",
+            "x": "Le tableau ci-dessous récapitule les informations concernées :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Dénomination du produit fini",
+                "{Nom produit}"
+              ],
+              [
+                "Titulaire de l’AMM",
+                "{Titulaire AMM}"
+              ],
+              [
+                "Fabricant du produit fini",
+                "{Nom fabricant PF}"
+              ],
+              [
+                "Substance active (API)",
+                "{Nom API}"
+              ],
+              [
+                "Site de fabrication de la substance active (API)",
+                "{Nom, adresse, e-mail et téléphone}"
+              ],
+              [
+                "Autorité de réglementation approbatrice du numéro de DMF",
+                "{Autorité de réglementation}"
+              ],
+              [
+                "N° DMF",
+                "{N° DMF}"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Je m’engage à informer au préalable l'ABMed de toute variation relative à ces informations."
+          },
+          {
+            "t": "p",
+            "x": "La présente déclaration est établie pour servir et valoir ce que de droit."
+          },
+          {
+            "t": "right",
+            "x": "Fait à {Ville}, le {date}"
+          },
+          {
+            "t": "right",
+            "x": "Signature :"
+          },
+          {
+            "t": "right",
+            "x": "{Nom et prénom}"
+          },
+          {
+            "t": "right",
+            "x": "{Fonction}"
+          },
+          {
+            "t": "right",
+            "x": "[Cachet du laboratoire]"
+          }
+        ],
+        "aidesEn": {
+          "1": {
+            "x": "Company name: {Name of the laboratory}"
+          },
+          "2": {
+            "x": "Address: {Full address}"
+          },
+          "3": {
+            "x": "Telephone: {Number}"
+          },
+          "4": {
+            "x": "Email: {Email address}"
+          },
+          "11": {
+            "x": "I, the undersigned, {Full name}, acting as {Position} within the laboratory {Name of the laboratory}, certify that the Drug Master File (DMF) number for the active pharmaceutical ingredient (API) of the product below is accurate, valid and consistent with the information provided by the manufacturer."
+          },
+          "14": {
+            "rows": [
+              [
+                "Name of the finished product",
+                "{Product name}"
+              ],
+              [
+                "MA holder",
+                "{MA holder}"
+              ],
+              [
+                "Manufacturer of the finished product",
+                "{Finished product manufacturer}"
+              ],
+              [
+                "Active ingredient (API)",
+                "{API name}"
+              ],
+              [
+                "API manufacturing site",
+                "{Name, address, e-mail and telephone}"
+              ],
+              [
+                "Regulatory authority that approved the DMF number",
+                "{Regulatory authority}"
+              ],
+              [
+                "DMF No.",
+                "{DMF number}"
+              ]
+            ]
+          },
+          "17": {
+            "x": "Done at {City}, on {date}"
+          },
+          "19": {
+            "x": "{Full name}"
+          },
+          "20": {
+            "x": "{Position}"
+          }
+        }
+      },
+      "bf": {
+        "pdf": "/modeles/lettre-dmf-bf.pdf",
+        "zip": "/modeles/lettre-dmf-bf.zip",
+        "pages": 1,
+        "octetsPdf": 3048,
+        "octetsZip": 17933,
+        "blocs": [
+          {
+            "t": "entete",
+            "x": "[En-tête du laboratoire]"
+          },
+          {
+            "t": "entete",
+            "x": "Raison sociale : {Nom du laboratoire}"
+          },
+          {
+            "t": "entete",
+            "x": "Adresse : {Adresse complète}"
+          },
+          {
+            "t": "entete",
+            "x": "Téléphone : {Numéro}"
+          },
+          {
+            "t": "entete",
+            "x": "Email : {Adresse email}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Agence Nationale de Régulation Pharmaceutique (ANRP)"
+          },
+          {
+            "t": "right",
+            "x": "Burkina Faso"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Déclaration relative à la certification des numéros DMF"
+          },
+          {
+            "t": "p",
+            "x": "Madame, Monsieur,"
+          },
+          {
+            "t": "p",
+            "x": "Je soussigné(e), {Nom et prénom}, agissant en qualité de {Fonction} au sein du laboratoire {Nom du laboratoire}, certifie que le numéro de Drug Master File (DMF) relatif à la substance active (API) du produit ci-dessous est exact, valide et conforme aux informations fournies par le fabricant."
+          },
+          {
+            "t": "p",
+            "x": "Je déclare également que ces informations ont été vérifiées auprès de l’autorité de réglementation pharmaceutique du pays d’origine de cette substance active."
+          },
+          {
+            "t": "p",
+            "x": "Le tableau ci-dessous récapitule les informations concernées :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Dénomination du produit fini",
+                "{Nom produit}"
+              ],
+              [
+                "Titulaire de l’AMM",
+                "{Titulaire AMM}"
+              ],
+              [
+                "Fabricant du produit fini",
+                "{Nom fabricant PF}"
+              ],
+              [
+                "Substance active (API)",
+                "{Nom API}"
+              ],
+              [
+                "Site de fabrication de la substance active (API)",
+                "{Nom, adresse, e-mail et téléphone}"
+              ],
+              [
+                "Autorité de réglementation approbatrice du numéro de DMF",
+                "{Autorité de réglementation}"
+              ],
+              [
+                "N° DMF",
+                "{N° DMF}"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Je m’engage à informer au préalable l'ANRP de toute variation relative à ces informations."
+          },
+          {
+            "t": "p",
+            "x": "La présente déclaration est établie pour servir et valoir ce que de droit."
+          },
+          {
+            "t": "right",
+            "x": "Fait à {Ville}, le {date}"
+          },
+          {
+            "t": "right",
+            "x": "Signature :"
+          },
+          {
+            "t": "right",
+            "x": "{Nom et prénom}"
+          },
+          {
+            "t": "right",
+            "x": "{Fonction}"
+          },
+          {
+            "t": "right",
+            "x": "[Cachet du laboratoire]"
+          }
+        ],
+        "aidesEn": {
+          "1": {
+            "x": "Company name: {Name of the laboratory}"
+          },
+          "2": {
+            "x": "Address: {Full address}"
+          },
+          "3": {
+            "x": "Telephone: {Number}"
+          },
+          "4": {
+            "x": "Email: {Email address}"
+          },
+          "11": {
+            "x": "I, the undersigned, {Full name}, acting as {Position} within the laboratory {Name of the laboratory}, certify that the Drug Master File (DMF) number for the active pharmaceutical ingredient (API) of the product below is accurate, valid and consistent with the information provided by the manufacturer."
+          },
+          "14": {
+            "rows": [
+              [
+                "Name of the finished product",
+                "{Product name}"
+              ],
+              [
+                "MA holder",
+                "{MA holder}"
+              ],
+              [
+                "Manufacturer of the finished product",
+                "{Finished product manufacturer}"
+              ],
+              [
+                "Active ingredient (API)",
+                "{API name}"
+              ],
+              [
+                "API manufacturing site",
+                "{Name, address, e-mail and telephone}"
+              ],
+              [
+                "Regulatory authority that approved the DMF number",
+                "{Regulatory authority}"
+              ],
+              [
+                "DMF No.",
+                "{DMF number}"
+              ]
+            ]
+          },
+          "17": {
+            "x": "Done at {City}, on {date}"
+          },
+          "19": {
+            "x": "{Full name}"
+          },
+          "20": {
+            "x": "{Position}"
+          }
+        }
+      },
       "ci": {
         "pdf": "/modeles/lettre-dmf-ci.pdf",
         "zip": "/modeles/lettre-dmf-ci.zip",
-        "pages": 2,
-        "octetsPdf": 900816,
-        "octetsZip": 687854,
-        "officiel": true,
-        "source": [
-          "Modèle officiel AIRP",
-          "Official AIRP template"
-        ]
+        "pages": 1,
+        "octetsPdf": 3054,
+        "octetsZip": 17976,
+        "blocs": [
+          {
+            "t": "entete",
+            "x": "[En-tête du laboratoire]"
+          },
+          {
+            "t": "entete",
+            "x": "Raison sociale : {Nom du laboratoire}"
+          },
+          {
+            "t": "entete",
+            "x": "Adresse : {Adresse complète}"
+          },
+          {
+            "t": "entete",
+            "x": "Téléphone : {Numéro}"
+          },
+          {
+            "t": "entete",
+            "x": "Email : {Adresse email}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Autorité Ivoirienne de Régulation Pharmaceutique (AIRP)"
+          },
+          {
+            "t": "right",
+            "x": "Côte d'Ivoire"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Déclaration relative à la certification des numéros DMF"
+          },
+          {
+            "t": "p",
+            "x": "Madame, Monsieur,"
+          },
+          {
+            "t": "p",
+            "x": "Je soussigné(e), {Nom et prénom}, agissant en qualité de {Fonction} au sein du laboratoire {Nom du laboratoire}, certifie que le numéro de Drug Master File (DMF) relatif à la substance active (API) du produit ci-dessous est exact, valide et conforme aux informations fournies par le fabricant."
+          },
+          {
+            "t": "p",
+            "x": "Je déclare également que ces informations ont été vérifiées auprès de l’autorité de réglementation pharmaceutique du pays d’origine de cette substance active."
+          },
+          {
+            "t": "p",
+            "x": "Le tableau ci-dessous récapitule les informations concernées :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Dénomination du produit fini",
+                "{Nom produit}"
+              ],
+              [
+                "Titulaire de l’AMM",
+                "{Titulaire AMM}"
+              ],
+              [
+                "Fabricant du produit fini",
+                "{Nom fabricant PF}"
+              ],
+              [
+                "Substance active (API)",
+                "{Nom API}"
+              ],
+              [
+                "Site de fabrication de la substance active (API)",
+                "{Nom, adresse, e-mail et téléphone}"
+              ],
+              [
+                "Autorité de réglementation approbatrice du numéro de DMF",
+                "{Autorité de réglementation}"
+              ],
+              [
+                "N° DMF",
+                "{N° DMF}"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Je m’engage à informer au préalable l'AIRP de toute variation relative à ces informations."
+          },
+          {
+            "t": "p",
+            "x": "La présente déclaration est établie pour servir et valoir ce que de droit."
+          },
+          {
+            "t": "right",
+            "x": "Fait à {Ville}, le {date}"
+          },
+          {
+            "t": "right",
+            "x": "Signature :"
+          },
+          {
+            "t": "right",
+            "x": "{Nom et prénom}"
+          },
+          {
+            "t": "right",
+            "x": "{Fonction}"
+          },
+          {
+            "t": "right",
+            "x": "[Cachet du laboratoire]"
+          }
+        ],
+        "aidesEn": {
+          "1": {
+            "x": "Company name: {Name of the laboratory}"
+          },
+          "2": {
+            "x": "Address: {Full address}"
+          },
+          "3": {
+            "x": "Telephone: {Number}"
+          },
+          "4": {
+            "x": "Email: {Email address}"
+          },
+          "11": {
+            "x": "I, the undersigned, {Full name}, acting as {Position} within the laboratory {Name of the laboratory}, certify that the Drug Master File (DMF) number for the active pharmaceutical ingredient (API) of the product below is accurate, valid and consistent with the information provided by the manufacturer."
+          },
+          "14": {
+            "rows": [
+              [
+                "Name of the finished product",
+                "{Product name}"
+              ],
+              [
+                "MA holder",
+                "{MA holder}"
+              ],
+              [
+                "Manufacturer of the finished product",
+                "{Finished product manufacturer}"
+              ],
+              [
+                "Active ingredient (API)",
+                "{API name}"
+              ],
+              [
+                "API manufacturing site",
+                "{Name, address, e-mail and telephone}"
+              ],
+              [
+                "Regulatory authority that approved the DMF number",
+                "{Regulatory authority}"
+              ],
+              [
+                "DMF No.",
+                "{DMF number}"
+              ]
+            ]
+          },
+          "17": {
+            "x": "Done at {City}, on {date}"
+          },
+          "19": {
+            "x": "{Full name}"
+          },
+          "20": {
+            "x": "{Position}"
+          }
+        }
+      },
+      "gw": {
+        "pdf": "/modeles/lettre-dmf-gw.pdf",
+        "zip": "/modeles/lettre-dmf-gw.zip",
+        "pages": 1,
+        "octetsPdf": 3099,
+        "octetsZip": 17981,
+        "blocs": [
+          {
+            "t": "entete",
+            "x": "[En-tête du laboratoire]"
+          },
+          {
+            "t": "entete",
+            "x": "Raison sociale : {Nom du laboratoire}"
+          },
+          {
+            "t": "entete",
+            "x": "Adresse : {Adresse complète}"
+          },
+          {
+            "t": "entete",
+            "x": "Téléphone : {Numéro}"
+          },
+          {
+            "t": "entete",
+            "x": "Email : {Adresse email}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Direção dos Serviços de Farmácia e Medicamentos (DIFALRM)"
+          },
+          {
+            "t": "right",
+            "x": "Guinée-Bissau"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Déclaration relative à la certification des numéros DMF"
+          },
+          {
+            "t": "p",
+            "x": "Madame, Monsieur,"
+          },
+          {
+            "t": "p",
+            "x": "Je soussigné(e), {Nom et prénom}, agissant en qualité de {Fonction} au sein du laboratoire {Nom du laboratoire}, certifie que le numéro de Drug Master File (DMF) relatif à la substance active (API) du produit ci-dessous est exact, valide et conforme aux informations fournies par le fabricant."
+          },
+          {
+            "t": "p",
+            "x": "Je déclare également que ces informations ont été vérifiées auprès de l’autorité de réglementation pharmaceutique du pays d’origine de cette substance active."
+          },
+          {
+            "t": "p",
+            "x": "Le tableau ci-dessous récapitule les informations concernées :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Dénomination du produit fini",
+                "{Nom produit}"
+              ],
+              [
+                "Titulaire de l’AMM",
+                "{Titulaire AMM}"
+              ],
+              [
+                "Fabricant du produit fini",
+                "{Nom fabricant PF}"
+              ],
+              [
+                "Substance active (API)",
+                "{Nom API}"
+              ],
+              [
+                "Site de fabrication de la substance active (API)",
+                "{Nom, adresse, e-mail et téléphone}"
+              ],
+              [
+                "Autorité de réglementation approbatrice du numéro de DMF",
+                "{Autorité de réglementation}"
+              ],
+              [
+                "N° DMF",
+                "{N° DMF}"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Je m’engage à informer au préalable l'autorité nationale de toute variation relative à ces informations."
+          },
+          {
+            "t": "p",
+            "x": "La présente déclaration est établie pour servir et valoir ce que de droit."
+          },
+          {
+            "t": "right",
+            "x": "Fait à {Ville}, le {date}"
+          },
+          {
+            "t": "right",
+            "x": "Signature :"
+          },
+          {
+            "t": "right",
+            "x": "{Nom et prénom}"
+          },
+          {
+            "t": "right",
+            "x": "{Fonction}"
+          },
+          {
+            "t": "right",
+            "x": "[Cachet du laboratoire]"
+          }
+        ],
+        "aidesEn": {
+          "1": {
+            "x": "Company name: {Name of the laboratory}"
+          },
+          "2": {
+            "x": "Address: {Full address}"
+          },
+          "3": {
+            "x": "Telephone: {Number}"
+          },
+          "4": {
+            "x": "Email: {Email address}"
+          },
+          "11": {
+            "x": "I, the undersigned, {Full name}, acting as {Position} within the laboratory {Name of the laboratory}, certify that the Drug Master File (DMF) number for the active pharmaceutical ingredient (API) of the product below is accurate, valid and consistent with the information provided by the manufacturer."
+          },
+          "14": {
+            "rows": [
+              [
+                "Name of the finished product",
+                "{Product name}"
+              ],
+              [
+                "MA holder",
+                "{MA holder}"
+              ],
+              [
+                "Manufacturer of the finished product",
+                "{Finished product manufacturer}"
+              ],
+              [
+                "Active ingredient (API)",
+                "{API name}"
+              ],
+              [
+                "API manufacturing site",
+                "{Name, address, e-mail and telephone}"
+              ],
+              [
+                "Regulatory authority that approved the DMF number",
+                "{Regulatory authority}"
+              ],
+              [
+                "DMF No.",
+                "{DMF number}"
+              ]
+            ]
+          },
+          "17": {
+            "x": "Done at {City}, on {date}"
+          },
+          "19": {
+            "x": "{Full name}"
+          },
+          "20": {
+            "x": "{Position}"
+          }
+        }
+      },
+      "ml": {
+        "pdf": "/modeles/lettre-dmf-ml.pdf",
+        "zip": "/modeles/lettre-dmf-ml.zip",
+        "pages": 1,
+        "octetsPdf": 3014,
+        "octetsZip": 17849,
+        "blocs": [
+          {
+            "t": "entete",
+            "x": "[En-tête du laboratoire]"
+          },
+          {
+            "t": "entete",
+            "x": "Raison sociale : {Nom du laboratoire}"
+          },
+          {
+            "t": "entete",
+            "x": "Adresse : {Adresse complète}"
+          },
+          {
+            "t": "entete",
+            "x": "Téléphone : {Numéro}"
+          },
+          {
+            "t": "entete",
+            "x": "Email : {Adresse email}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Direction de la Pharmacie et du Médicament (DPM)"
+          },
+          {
+            "t": "right",
+            "x": "Mali"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Déclaration relative à la certification des numéros DMF"
+          },
+          {
+            "t": "p",
+            "x": "Madame, Monsieur,"
+          },
+          {
+            "t": "p",
+            "x": "Je soussigné(e), {Nom et prénom}, agissant en qualité de {Fonction} au sein du laboratoire {Nom du laboratoire}, certifie que le numéro de Drug Master File (DMF) relatif à la substance active (API) du produit ci-dessous est exact, valide et conforme aux informations fournies par le fabricant."
+          },
+          {
+            "t": "p",
+            "x": "Je déclare également que ces informations ont été vérifiées auprès de l’autorité de réglementation pharmaceutique du pays d’origine de cette substance active."
+          },
+          {
+            "t": "p",
+            "x": "Le tableau ci-dessous récapitule les informations concernées :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Dénomination du produit fini",
+                "{Nom produit}"
+              ],
+              [
+                "Titulaire de l’AMM",
+                "{Titulaire AMM}"
+              ],
+              [
+                "Fabricant du produit fini",
+                "{Nom fabricant PF}"
+              ],
+              [
+                "Substance active (API)",
+                "{Nom API}"
+              ],
+              [
+                "Site de fabrication de la substance active (API)",
+                "{Nom, adresse, e-mail et téléphone}"
+              ],
+              [
+                "Autorité de réglementation approbatrice du numéro de DMF",
+                "{Autorité de réglementation}"
+              ],
+              [
+                "N° DMF",
+                "{N° DMF}"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Je m’engage à informer au préalable la DPM de toute variation relative à ces informations."
+          },
+          {
+            "t": "p",
+            "x": "La présente déclaration est établie pour servir et valoir ce que de droit."
+          },
+          {
+            "t": "right",
+            "x": "Fait à {Ville}, le {date}"
+          },
+          {
+            "t": "right",
+            "x": "Signature :"
+          },
+          {
+            "t": "right",
+            "x": "{Nom et prénom}"
+          },
+          {
+            "t": "right",
+            "x": "{Fonction}"
+          },
+          {
+            "t": "right",
+            "x": "[Cachet du laboratoire]"
+          }
+        ],
+        "aidesEn": {
+          "1": {
+            "x": "Company name: {Name of the laboratory}"
+          },
+          "2": {
+            "x": "Address: {Full address}"
+          },
+          "3": {
+            "x": "Telephone: {Number}"
+          },
+          "4": {
+            "x": "Email: {Email address}"
+          },
+          "11": {
+            "x": "I, the undersigned, {Full name}, acting as {Position} within the laboratory {Name of the laboratory}, certify that the Drug Master File (DMF) number for the active pharmaceutical ingredient (API) of the product below is accurate, valid and consistent with the information provided by the manufacturer."
+          },
+          "14": {
+            "rows": [
+              [
+                "Name of the finished product",
+                "{Product name}"
+              ],
+              [
+                "MA holder",
+                "{MA holder}"
+              ],
+              [
+                "Manufacturer of the finished product",
+                "{Finished product manufacturer}"
+              ],
+              [
+                "Active ingredient (API)",
+                "{API name}"
+              ],
+              [
+                "API manufacturing site",
+                "{Name, address, e-mail and telephone}"
+              ],
+              [
+                "Regulatory authority that approved the DMF number",
+                "{Regulatory authority}"
+              ],
+              [
+                "DMF No.",
+                "{DMF number}"
+              ]
+            ]
+          },
+          "17": {
+            "x": "Done at {City}, on {date}"
+          },
+          "19": {
+            "x": "{Full name}"
+          },
+          "20": {
+            "x": "{Position}"
+          }
+        }
+      },
+      "ne": {
+        "pdf": "/modeles/lettre-dmf-ne.pdf",
+        "zip": "/modeles/lettre-dmf-ne.zip",
+        "pages": 1,
+        "octetsPdf": 3071,
+        "octetsZip": 17908,
+        "blocs": [
+          {
+            "t": "entete",
+            "x": "[En-tête du laboratoire]"
+          },
+          {
+            "t": "entete",
+            "x": "Raison sociale : {Nom du laboratoire}"
+          },
+          {
+            "t": "entete",
+            "x": "Adresse : {Adresse complète}"
+          },
+          {
+            "t": "entete",
+            "x": "Téléphone : {Numéro}"
+          },
+          {
+            "t": "entete",
+            "x": "Email : {Adresse email}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Direction de la Pharmacie et de la Médecine Traditionnelle (DPM/MT)"
+          },
+          {
+            "t": "right",
+            "x": "Niger"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Déclaration relative à la certification des numéros DMF"
+          },
+          {
+            "t": "p",
+            "x": "Madame, Monsieur,"
+          },
+          {
+            "t": "p",
+            "x": "Je soussigné(e), {Nom et prénom}, agissant en qualité de {Fonction} au sein du laboratoire {Nom du laboratoire}, certifie que le numéro de Drug Master File (DMF) relatif à la substance active (API) du produit ci-dessous est exact, valide et conforme aux informations fournies par le fabricant."
+          },
+          {
+            "t": "p",
+            "x": "Je déclare également que ces informations ont été vérifiées auprès de l’autorité de réglementation pharmaceutique du pays d’origine de cette substance active."
+          },
+          {
+            "t": "p",
+            "x": "Le tableau ci-dessous récapitule les informations concernées :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Dénomination du produit fini",
+                "{Nom produit}"
+              ],
+              [
+                "Titulaire de l’AMM",
+                "{Titulaire AMM}"
+              ],
+              [
+                "Fabricant du produit fini",
+                "{Nom fabricant PF}"
+              ],
+              [
+                "Substance active (API)",
+                "{Nom API}"
+              ],
+              [
+                "Site de fabrication de la substance active (API)",
+                "{Nom, adresse, e-mail et téléphone}"
+              ],
+              [
+                "Autorité de réglementation approbatrice du numéro de DMF",
+                "{Autorité de réglementation}"
+              ],
+              [
+                "N° DMF",
+                "{N° DMF}"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Je m’engage à informer au préalable l'autorité nationale de toute variation relative à ces informations."
+          },
+          {
+            "t": "p",
+            "x": "La présente déclaration est établie pour servir et valoir ce que de droit."
+          },
+          {
+            "t": "right",
+            "x": "Fait à {Ville}, le {date}"
+          },
+          {
+            "t": "right",
+            "x": "Signature :"
+          },
+          {
+            "t": "right",
+            "x": "{Nom et prénom}"
+          },
+          {
+            "t": "right",
+            "x": "{Fonction}"
+          },
+          {
+            "t": "right",
+            "x": "[Cachet du laboratoire]"
+          }
+        ],
+        "aidesEn": {
+          "1": {
+            "x": "Company name: {Name of the laboratory}"
+          },
+          "2": {
+            "x": "Address: {Full address}"
+          },
+          "3": {
+            "x": "Telephone: {Number}"
+          },
+          "4": {
+            "x": "Email: {Email address}"
+          },
+          "11": {
+            "x": "I, the undersigned, {Full name}, acting as {Position} within the laboratory {Name of the laboratory}, certify that the Drug Master File (DMF) number for the active pharmaceutical ingredient (API) of the product below is accurate, valid and consistent with the information provided by the manufacturer."
+          },
+          "14": {
+            "rows": [
+              [
+                "Name of the finished product",
+                "{Product name}"
+              ],
+              [
+                "MA holder",
+                "{MA holder}"
+              ],
+              [
+                "Manufacturer of the finished product",
+                "{Finished product manufacturer}"
+              ],
+              [
+                "Active ingredient (API)",
+                "{API name}"
+              ],
+              [
+                "API manufacturing site",
+                "{Name, address, e-mail and telephone}"
+              ],
+              [
+                "Regulatory authority that approved the DMF number",
+                "{Regulatory authority}"
+              ],
+              [
+                "DMF No.",
+                "{DMF number}"
+              ]
+            ]
+          },
+          "17": {
+            "x": "Done at {City}, on {date}"
+          },
+          "19": {
+            "x": "{Full name}"
+          },
+          "20": {
+            "x": "{Position}"
+          }
+        }
+      },
+      "sn": {
+        "pdf": "/modeles/lettre-dmf-sn.pdf",
+        "zip": "/modeles/lettre-dmf-sn.zip",
+        "pages": 1,
+        "octetsPdf": 3029,
+        "octetsZip": 17902,
+        "blocs": [
+          {
+            "t": "entete",
+            "x": "[En-tête du laboratoire]"
+          },
+          {
+            "t": "entete",
+            "x": "Raison sociale : {Nom du laboratoire}"
+          },
+          {
+            "t": "entete",
+            "x": "Adresse : {Adresse complète}"
+          },
+          {
+            "t": "entete",
+            "x": "Téléphone : {Numéro}"
+          },
+          {
+            "t": "entete",
+            "x": "Email : {Adresse email}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Madame la Directrice Générale"
+          },
+          {
+            "t": "right",
+            "x": "Agence Sénégalaise de Réglementation Pharmaceutique (ARP)"
+          },
+          {
+            "t": "right",
+            "x": "Sénégal"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Déclaration relative à la certification des numéros DMF"
+          },
+          {
+            "t": "p",
+            "x": "Madame, Monsieur,"
+          },
+          {
+            "t": "p",
+            "x": "Je soussigné(e), {Nom et prénom}, agissant en qualité de {Fonction} au sein du laboratoire {Nom du laboratoire}, certifie que le numéro de Drug Master File (DMF) relatif à la substance active (API) du produit ci-dessous est exact, valide et conforme aux informations fournies par le fabricant."
+          },
+          {
+            "t": "p",
+            "x": "Je déclare également que ces informations ont été vérifiées auprès de l’autorité de réglementation pharmaceutique du pays d’origine de cette substance active."
+          },
+          {
+            "t": "p",
+            "x": "Le tableau ci-dessous récapitule les informations concernées :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Dénomination du produit fini",
+                "{Nom produit}"
+              ],
+              [
+                "Titulaire de l’AMM",
+                "{Titulaire AMM}"
+              ],
+              [
+                "Fabricant du produit fini",
+                "{Nom fabricant PF}"
+              ],
+              [
+                "Substance active (API)",
+                "{Nom API}"
+              ],
+              [
+                "Site de fabrication de la substance active (API)",
+                "{Nom, adresse, e-mail et téléphone}"
+              ],
+              [
+                "Autorité de réglementation approbatrice du numéro de DMF",
+                "{Autorité de réglementation}"
+              ],
+              [
+                "N° DMF",
+                "{N° DMF}"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Je m’engage à informer au préalable l'ARP de toute variation relative à ces informations."
+          },
+          {
+            "t": "p",
+            "x": "La présente déclaration est établie pour servir et valoir ce que de droit."
+          },
+          {
+            "t": "right",
+            "x": "Fait à {Ville}, le {date}"
+          },
+          {
+            "t": "right",
+            "x": "Signature :"
+          },
+          {
+            "t": "right",
+            "x": "{Nom et prénom}"
+          },
+          {
+            "t": "right",
+            "x": "{Fonction}"
+          },
+          {
+            "t": "right",
+            "x": "[Cachet du laboratoire]"
+          }
+        ],
+        "aidesEn": {
+          "1": {
+            "x": "Company name: {Name of the laboratory}"
+          },
+          "2": {
+            "x": "Address: {Full address}"
+          },
+          "3": {
+            "x": "Telephone: {Number}"
+          },
+          "4": {
+            "x": "Email: {Email address}"
+          },
+          "11": {
+            "x": "I, the undersigned, {Full name}, acting as {Position} within the laboratory {Name of the laboratory}, certify that the Drug Master File (DMF) number for the active pharmaceutical ingredient (API) of the product below is accurate, valid and consistent with the information provided by the manufacturer."
+          },
+          "14": {
+            "rows": [
+              [
+                "Name of the finished product",
+                "{Product name}"
+              ],
+              [
+                "MA holder",
+                "{MA holder}"
+              ],
+              [
+                "Manufacturer of the finished product",
+                "{Finished product manufacturer}"
+              ],
+              [
+                "Active ingredient (API)",
+                "{API name}"
+              ],
+              [
+                "API manufacturing site",
+                "{Name, address, e-mail and telephone}"
+              ],
+              [
+                "Regulatory authority that approved the DMF number",
+                "{Regulatory authority}"
+              ],
+              [
+                "DMF No.",
+                "{DMF number}"
+              ]
+            ]
+          },
+          "17": {
+            "x": "Done at {City}, on {date}"
+          },
+          "19": {
+            "x": "{Full name}"
+          },
+          "20": {
+            "x": "{Position}"
+          }
+        }
+      },
+      "tg": {
+        "pdf": "/modeles/lettre-dmf-tg.pdf",
+        "zip": "/modeles/lettre-dmf-tg.zip",
+        "pages": 1,
+        "octetsPdf": 3028,
+        "octetsZip": 17879,
+        "blocs": [
+          {
+            "t": "entete",
+            "x": "[En-tête du laboratoire]"
+          },
+          {
+            "t": "entete",
+            "x": "Raison sociale : {Nom du laboratoire}"
+          },
+          {
+            "t": "entete",
+            "x": "Adresse : {Adresse complète}"
+          },
+          {
+            "t": "entete",
+            "x": "Téléphone : {Numéro}"
+          },
+          {
+            "t": "entete",
+            "x": "Email : {Adresse email}"
+          },
+          {
+            "t": "right",
+            "x": "À"
+          },
+          {
+            "t": "right",
+            "x": "Monsieur le Directeur Général"
+          },
+          {
+            "t": "right",
+            "x": "Direction de la Pharmacie, du Médicament et des Laboratoires (DPML)"
+          },
+          {
+            "t": "right",
+            "x": "Togo"
+          },
+          {
+            "t": "h3",
+            "x": "Objet : Déclaration relative à la certification des numéros DMF"
+          },
+          {
+            "t": "p",
+            "x": "Madame, Monsieur,"
+          },
+          {
+            "t": "p",
+            "x": "Je soussigné(e), {Nom et prénom}, agissant en qualité de {Fonction} au sein du laboratoire {Nom du laboratoire}, certifie que le numéro de Drug Master File (DMF) relatif à la substance active (API) du produit ci-dessous est exact, valide et conforme aux informations fournies par le fabricant."
+          },
+          {
+            "t": "p",
+            "x": "Je déclare également que ces informations ont été vérifiées auprès de l’autorité de réglementation pharmaceutique du pays d’origine de cette substance active."
+          },
+          {
+            "t": "p",
+            "x": "Le tableau ci-dessous récapitule les informations concernées :"
+          },
+          {
+            "t": "table",
+            "rows": [
+              [
+                "Dénomination du produit fini",
+                "{Nom produit}"
+              ],
+              [
+                "Titulaire de l’AMM",
+                "{Titulaire AMM}"
+              ],
+              [
+                "Fabricant du produit fini",
+                "{Nom fabricant PF}"
+              ],
+              [
+                "Substance active (API)",
+                "{Nom API}"
+              ],
+              [
+                "Site de fabrication de la substance active (API)",
+                "{Nom, adresse, e-mail et téléphone}"
+              ],
+              [
+                "Autorité de réglementation approbatrice du numéro de DMF",
+                "{Autorité de réglementation}"
+              ],
+              [
+                "N° DMF",
+                "{N° DMF}"
+              ]
+            ]
+          },
+          {
+            "t": "p",
+            "x": "Je m’engage à informer au préalable la DPML de toute variation relative à ces informations."
+          },
+          {
+            "t": "p",
+            "x": "La présente déclaration est établie pour servir et valoir ce que de droit."
+          },
+          {
+            "t": "right",
+            "x": "Fait à {Ville}, le {date}"
+          },
+          {
+            "t": "right",
+            "x": "Signature :"
+          },
+          {
+            "t": "right",
+            "x": "{Nom et prénom}"
+          },
+          {
+            "t": "right",
+            "x": "{Fonction}"
+          },
+          {
+            "t": "right",
+            "x": "[Cachet du laboratoire]"
+          }
+        ],
+        "aidesEn": {
+          "1": {
+            "x": "Company name: {Name of the laboratory}"
+          },
+          "2": {
+            "x": "Address: {Full address}"
+          },
+          "3": {
+            "x": "Telephone: {Number}"
+          },
+          "4": {
+            "x": "Email: {Email address}"
+          },
+          "11": {
+            "x": "I, the undersigned, {Full name}, acting as {Position} within the laboratory {Name of the laboratory}, certify that the Drug Master File (DMF) number for the active pharmaceutical ingredient (API) of the product below is accurate, valid and consistent with the information provided by the manufacturer."
+          },
+          "14": {
+            "rows": [
+              [
+                "Name of the finished product",
+                "{Product name}"
+              ],
+              [
+                "MA holder",
+                "{MA holder}"
+              ],
+              [
+                "Manufacturer of the finished product",
+                "{Finished product manufacturer}"
+              ],
+              [
+                "Active ingredient (API)",
+                "{API name}"
+              ],
+              [
+                "API manufacturing site",
+                "{Name, address, e-mail and telephone}"
+              ],
+              [
+                "Regulatory authority that approved the DMF number",
+                "{Regulatory authority}"
+              ],
+              [
+                "DMF No.",
+                "{DMF number}"
+              ]
+            ]
+          },
+          "17": {
+            "x": "Done at {City}, on {date}"
+          },
+          "19": {
+            "x": "{Full name}"
+          },
+          "20": {
+            "x": "{Position}"
+          }
+        }
       }
     }
   },
@@ -5054,7 +6514,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/qos-pd.zip",
         "pages": 1,
         "octetsPdf": 2468,
-        "octetsZip": 8505
+        "octetsZip": 8510
       }
     }
   },
@@ -5152,7 +6612,7 @@ export const MODELES_FICHIERS = {
         "zip": "/modeles/btif.zip",
         "pages": 1,
         "octetsPdf": 2363,
-        "octetsZip": 8399
+        "octetsZip": 8401
       }
     }
   }

@@ -5,7 +5,7 @@
 # boutique du prestataire (mychariow.com), qui sert de repli. `default-src 'self'` couvrirait
 # `frame-src` et interdirait donc les deux : la directive est explicite pour cette raison.
 /*
-  Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src https://uhsireqwzqqymgsxuvqh.supabase.co; frame-src 'self' https://*.moneroo.io https://*.mychariow.com; form-action 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'
+  Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src https://uhsireqwzqqymgsxuvqh.supabase.co; frame-src 'self' https://*.moneroo.io https://*.mychariow.com https://services.pharnos.com; form-action 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
