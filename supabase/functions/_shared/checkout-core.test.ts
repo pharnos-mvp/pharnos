@@ -238,7 +238,13 @@ Deno.test('hotes-jumeaux — tout hôte accepté par le serveur est cadrable par
   assert(ligne, 'aucune directive frame-src dans landing/_headers')
   const frameSrc = /frame-src ([^;]+)/.exec(ligne)?.[1] ?? ''
   for (
-    const hote of ['checkout.moneroo.io', 'pay.moneroo.io', 'adbhrqbd.mychariow.com']
+    const hote of [
+      'checkout.moneroo.io',
+      'pay.moneroo.io',
+      'pharnos.mychariow.com',
+      // Domaine de marque de la boutique (CNAME → Vercel), vérifié côté Chariow le 01/08.
+      'services.pharnos.com',
+    ]
   ) {
     assert(HOTES_PAIEMENT.test(hote), `${hote} refusé par le serveur`)
     const couvert = frameSrc

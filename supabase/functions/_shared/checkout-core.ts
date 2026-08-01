@@ -34,7 +34,8 @@ export const RETOURS = {
  *  ⚠️ Cette liste et le `frame-src` de `landing/_headers` doivent rester JUMELLES : un hôte
  *  accepté ici mais absent de la CSP donne un cadre blanc, sans erreur ni repli — le pire des
  *  échecs, celui qui ne dit rien. Le test `hotes-jumeaux` échoue si elles divergent. */
-export const HOTES_PAIEMENT = /^([a-z0-9-]+\.)*moneroo\.io$|^([a-z0-9-]+\.)*mychariow\.com$/
+export const HOTES_PAIEMENT =
+  /^([a-z0-9-]+\.)*moneroo\.io$|^([a-z0-9-]+\.)*mychariow\.com$|^services\.pharnos\.com$/
 
 /** Indicatifs des pays proposés par le formulaire — pour dédoublonner une saisie
  *  internationale : `country_code` porte déjà le pays, le numéro n'a pas à répéter le préfixe.

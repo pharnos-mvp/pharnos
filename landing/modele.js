@@ -56,20 +56,22 @@ const PAGE_BIBLIO = EN
   : "/bibliotheque-reglementaire";
 
 /**
- * Origine de la boutique de paiement. UN SEUL endroit à changer le jour où le domaine bascule.
+ * Origine de la boutique — REPLI seulement : le parcours nominal passe par l'Edge `checkout`,
+ * qui renvoie une page de paiement pur. Cette boutique ne se voit que si l'Edge échoue.
  *
- * ⚠️ Le domaine de marque `services.pharnos.com` est déclaré côté Chariow et attend son CNAME
- * (`services` → `cc54deb46d638802.vercel-dns-016.com`, DNS only). Tant qu'il ne résout pas et que
- * son certificat n'est pas émis, l'origine reste celle de la boutique : poser ici un domaine qui
- * ne répond pas enverrait le client payer dans le vide. La bascule = cette ligne, rien d'autre.
+ * ⚠️ `services.pharnos.com` — notre domaine de marque — est prêt à un détail près : CNAME posé
+ * (`services` → `cc54deb46d638802.vercel-dns-016.com`, DNS only), vérifié côté Chariow, et il
+ * SERT DÉJÀ la boutique en HTTP (01/08/2026). Mais son certificat TLS n'est pas encore émis par
+ * Vercel : en HTTPS la poignée de main échoue. Le poser ici avant serait envoyer l'acheteur sur
+ * un domaine muet. Dès que `curl https://services.pharnos.com/` répond, cette ligne bascule —
+ * la CSP `frame-src` et `HOTES_PAIEMENT` l'acceptent déjà, le test « hôtes jumeaux » les garde
+ * accordés.
  */
-const BOUTIQUE = "https://adbhrqbd.mychariow.com";
+const BOUTIQUE = "https://pharnos.mychariow.com";
 
 /**
  * Liens de règlement Chariow. Ce sont les liens « accès direct au paiement » (`/checkout`) : le
  * client a déjà lu l'offre ici, la page produit de la boutique ne lui apprendrait rien.
- * La CSP de pharnos.com (`script-src 'self'`) interdit le script Snap sur cette page, d'où la
- * redirection pleine page plutôt qu'une modale.
  * ⚠️ Tant qu'une offre n'a pas son lien, le bouton NE PROMET PAS un paiement : il propose d'être
  * rappelé. Renseigner ces deux valeurs suffit à ouvrir la vente.
  */
@@ -1382,11 +1384,33 @@ function placeholderDe(bloc, token, blocEn, rang) {
 /** Le HTML d'un bloc de lettre, cases incrustées. `i` relie chaque case à son bloc source. */
 function htmlBlocLettre(b, i) {
   if (b.t === "table") {
-    const [tete, ...corps] = b.rows;
-    // En-têtes dans la langue de l'utilisateur pour l'AIDE (le tableau affiché, lui, reste celui
-    // de la lettre française) : sans cela, une case de tableau n'a aucun texte d'aide du tout —
-    // ni placeholder ni libellé compréhensible — et l'anglophone remplit à l'aveugle.
+    // Aide dans la langue de l'utilisateur (le tableau AFFICHÉ, lui, reste celui de la lettre
+    // française) : sans cela, une case de tableau n'a aucun texte d'aide — ni placeholder ni
+    // libellé compréhensible — et l'anglophone remplit à l'aveugle.
     const rowsAide = (lang === "en" && aidesEnLettre()?.[i]?.rows) || b.rows;
+    const caseHtml = (aide, r, c) =>
+      `<td><textarea class="lf-in lf-grow" rows="1" data-bloc="${i}" data-cell="${r}:${c}"` +
+      ` aria-label="${esc(aide)}" placeholder="${esc(aide)}"></textarea></td>`;
+
+    // Tableau « libellé / valeur » (déclaration DMF) : aucune ligne d'en-tête, et la colonne de
+    // gauche est un INTITULÉ — la rendre saisissable laisserait effacer « Titulaire de l'AMM »
+    // et déposer un tableau qui ne dit plus ce qu'il montre. C'est cet intitulé qui guide la
+    // saisie, pas un en-tête de colonne : il devient donc le texte d'aide de la ligne.
+    if (b.libelles)
+      return (
+        '<table class="lf-table lf-table-lib">' +
+        b.rows
+          .map(
+            (r, ri) =>
+              `<tr><th scope="row">${esc(r[0])}</th>` +
+              caseHtml((rowsAide[ri] ?? r)[0], ri, 1) +
+              "</tr>",
+          )
+          .join("") +
+        "</table>"
+      );
+
+    const [tete, ...corps] = b.rows;
     const teteAide = rowsAide[0] ?? tete;
     return (
       '<table class="lf-table"><tr>' +
@@ -1397,15 +1421,7 @@ function htmlBlocLettre(b, i) {
           (r, ri) =>
             "<tr>" +
             r
-              .map((c, ci) => {
-                // Un tableau « libellé / valeur » (déclaration DMF) : la 1re colonne EST le
-                // libellé de la ligne — c'est lui qui guide, pas l'en-tête de colonne.
-                const aide =
-                  r.length === 2 && ci === 1
-                    ? (rowsAide[ri + 1] ?? r)[0]
-                    : (teteAide[ci] ?? tete[ci]);
-                return `<td><textarea class="lf-in lf-grow" rows="1" data-bloc="${i}" data-cell="${ri + 1}:${ci}" aria-label="${esc(aide)}" placeholder="${esc(aide)}"></textarea></td>`;
-              })
+              .map((c, ci) => caseHtml(teteAide[ci] ?? tete[ci], ri + 1, ci))
               .join("") +
             "</tr>",
         )
