@@ -649,17 +649,21 @@ export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
  */
 const TEMPLATE_BY_COUNTRY: Record<
   string,
-  Record<string, { key: TemplateKey; activities: string[] }>
+  Partial<Record<DossierFormat, Record<string, { key: TemplateKey; activities: string[] }>>>
 > = {
   CI: {
-    // 1.2.3 « Formulaires de certification et d'attestation » : le document EST une certification,
-    // et ce numéro porte le même intitulé dans les deux formats (eCTD CEDEAO et CTD UEMOA).
+    // La déclaration DMF se classe avec le DMF, décision CEO : le 1.2.5 est LA section du dossier
+    // maître de la substance active. En CTD UEMOA elle a une sous-section dédiée, « 1.2.5.1 Lettre
+    // d'accès au DMF » ; l'eCTD CEDEAO n'en a pas et s'arrête au 1.2.5, qui est une feuille — d'où
+    // une entrée par format plutôt qu'un numéro unique, qui aurait ouvert le modèle sur la section
+    // de garde du CTD en même temps que sur sa sous-section.
     //
     // La note n° 1668 énumère DEUX cas, et deux seulement : « Toute nouvelle demande
     // d'enregistrement en vue de l'obtention d'une Autorisation de Mise sur le Marché ; Toute
     // demande de renouvellement d'une Autorisation de Mise sur le Marché. » La VARIATION n'y
     // figure pas — la proposer y ferait annoncer par Pharnos une pièce que l'AIRP ne réclame pas.
-    '1.2.3': { key: 'dmf', activities: ['new_ma', 'renewal'] },
+    ctd: { '1.2.5.1': { key: 'dmf', activities: ['new_ma', 'renewal'] } },
+    ectd: { '1.2.5': { key: 'dmf', activities: ['new_ma', 'renewal'] } },
   },
 }
 
@@ -693,7 +697,7 @@ export function templateKeyForNode(
   // Le socle régional prime : un modèle national ne peut pas évincer la lettre d'un nœud déjà
   // servi. Et il ne s'ouvre que pour les opérations que son texte vise — sans opération connue,
   // on ne propose rien plutôt que de proposer à tort.
-  const national = country ? TEMPLATE_BY_COUNTRY[country]?.[nodeNumber] : undefined
+  const national = country ? TEMPLATE_BY_COUNTRY[country]?.[format]?.[nodeNumber] : undefined
   if (!national || !activity || !national.activities.includes(activity)) return undefined
   return national.key
 }

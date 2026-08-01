@@ -269,6 +269,86 @@ describe('la déclaration DMF est adressée à l’autorité du pays choisi', ()
     }
   })
 
+  it('la Côte d’Ivoire reçoit le gabarit Word de l’AIRP, à l’octet près', async () => {
+    // « C'est exactement ce fichier que reçoit l'user » (CEO) : aucune réinterprétation. Le ZIP
+    // ne porte que lui — on ne joint pas une traduction fabriquée à un document servi tel quel.
+    const f = fichierDe('lettre-dmf', 'ci')
+    const source = path.resolve(LANDING, '..', 'RA-source/AIRP/DMF/Template-DMF.docx')
+    const zip = await JSZip.loadAsync(fs.readFileSync(chemin(f.zip)))
+    const noms = Object.keys(zip.files)
+    expect(noms).toHaveLength(1)
+    expect(await zip.file(noms[0]!)!.async('nodebuffer')).toEqual(fs.readFileSync(source))
+    // L'aperçu aussi est le PDF fourni, pas un rendu maison.
+    expect(fs.readFileSync(chemin(f.pdf))).toEqual(
+      fs.readFileSync(path.resolve(LANDING, '..', 'RA-source/AIRP/DMF/Template-DMF.pdf')),
+    )
+    // ⚠️ ET la feuille de remplissage survit : servir un gabarit tel quel ne doit pas supprimer
+    // le formulaire qui le remplit — c'est ce que faisait l'ancien mécanisme `officiels`.
+    expect((f.blocs ?? []).length).toBeGreaterThan(0)
+    expect(f.aidesEn).toBeTruthy()
+  })
+
+  it('le document généré se superpose au gabarit : mêmes marges, même grille', async () => {
+    // Un déposant qui colle son en-tête sur notre Word ne doit pas voir la mise en page glisser.
+    // Un `.zip` porte le DOCX ; un `.docx` EST le document. `Buffer` typé large : `readFileSync`
+    // et `JSZip.async('nodebuffer')` ne rendent pas exactement le même type de Buffer.
+    const docXml = async (p: string): Promise<string> => {
+      const brut: Uint8Array = fs.readFileSync(p)
+      const source = p.endsWith('.zip')
+        ? await (async () => {
+            const z = await JSZip.loadAsync(brut)
+            const nom = Object.keys(z.files).find((n) => n.endsWith('.docx'))
+            expect(nom, `${p} : aucun .docx dans l'archive`).toBeTruthy()
+            return z.file(nom!)!.async('nodebuffer')
+          })()
+        : brut
+      return (await JSZip.loadAsync(source)).file('word/document.xml')!.async('string')
+    }
+    const gabarit = await docXml(
+      path.resolve(LANDING, '..', 'RA-source/AIRP/DMF/Template-DMF.docx'),
+    )
+    const genere = await docXml(chemin(fichierDe('lettre-dmf', 'bj').zip))
+    const marges = (x: string) =>
+      Object.fromEntries(
+        ['top', 'right', 'bottom', 'left', 'header', 'footer'].map((k) => [
+          k,
+          x.match(new RegExp(`<w:pgMar[^>]*w:${k}="(\\d+)"`))?.[1],
+        ]),
+      )
+    expect(marges(genere)).toEqual(marges(gabarit))
+    const colonnes = (x: string) =>
+      [...x.matchAll(/<w:gridCol w:w="(\d+)"/g)].slice(0, 2).map((m) => m[1])
+    expect(colonnes(genere)).toEqual(colonnes(gabarit))
+  })
+
+  it('les lettres laissent une place à l’en-tête et au pied du laboratoire', async () => {
+    // Le courrier repart sur le papier du labo : sans ces emplacements, il faut défaire la mise
+    // en page pour y coller son logo et ses mentions.
+    const zip = await JSZip.loadAsync(fs.readFileSync(chemin(fichierDe('lettre-dmf', 'bj').zip)))
+    const docx = await JSZip.loadAsync(
+      await zip
+        .file(Object.keys(zip.files).find((n) => n.endsWith('_FR.docx'))!)!
+        .async('nodebuffer'),
+    )
+    const partie = async (motif: RegExp) => {
+      const nom = Object.keys(docx.files).find((n) => motif.test(n))
+      return nom ? (await docx.file(nom)!.async('string')).replace(/<[^>]+>/g, '') : ''
+    }
+    expect(await partie(/^word\/header\d*\.xml$/)).toContain('[En-tête du laboratoire]')
+    expect(await partie(/^word\/footer\d*\.xml$/)).toContain('[Pied de page]')
+  })
+
+  it('la lettre s’adresse NOMMÉMENT, pas « Madame, Monsieur »', async () => {
+    for (const [code, attendu] of [
+      ['bj', 'Monsieur le Directeur Général,'],
+      ['ml', 'Madame la Directrice Générale,'],
+    ] as const) {
+      const blocs = (fichierDe('lettre-dmf', code).blocs ?? []).map((b) => b.x ?? '')
+      expect(blocs, code).toContain(attendu)
+      expect(blocs.join(' § '), code).not.toContain('Madame, Monsieur')
+    }
+  })
+
   it('le Word livré met en gras la COLONNE des intitulés, pas une ligne d’en-tête', async () => {
     // Le DOCX est le livrable ; l'aperçu n'est qu'une vignette. Le drapeau `libelles` était
     // honoré au PDF et ignoré ici : le déposant téléchargeait un Word où « Dénomination du
