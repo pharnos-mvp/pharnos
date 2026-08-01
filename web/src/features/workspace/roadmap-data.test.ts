@@ -42,6 +42,38 @@ describe('regulatoryProfileFor', () => {
     expect(p?.processingDays).toBeUndefined()
   })
 
+  it("Côte d'Ivoire — modalités n° 01416/01420/01421 (juillet 2024) : chèques, échantillons, baisse de PGHT", () => {
+    const p = regulatoryProfileFor('CI')
+    // Répartition en DEUX chèques, propre à chaque activité — c'est elle qui rend le dépôt
+    // recevable au guichet, pas le seul montant total.
+    expect(p?.fees.notes?.renewal?.fr).toContain('150 000')
+    expect(p?.fees.notes?.renewal?.en).toContain('150,000')
+    expect(p?.fees.notes?.variation?.fr).toContain('400 000')
+    expect(p?.fees.notes?.variation?.fr).toContain('30 000')
+    // La demande de BAISSE du PGHT est gratuite (modalités variations mineures) — ne jamais
+    // laisser le montant nu de la variation mineure la couvrir.
+    expect(p?.fees.notes?.variation?.fr).toMatch(/gratuite/i)
+    expect(p?.fees.notes?.variation?.en).toMatch(/free of charge/i)
+    // Renouvellement & variations : le profil CI ne retombait sur AUCUNE ligne d'échantillon.
+    const sr = p?.samples.renewal_variation
+    expect(sr).toHaveLength(4)
+    expect(sr?.[0]?.fr).toContain('sept (07)')
+    expect(sr?.[1]?.fr).toContain('500 000')
+    expect(sr?.[2]?.fr).toContain('douze (12) mois')
+    expect(sr?.[3]?.fr).toContain('deux (02)')
+    for (const s of sr ?? []) expect(s.en).toBeTruthy()
+    // Contrôle qualité post-commercialisation : 20 échantillons aux frais du titulaire.
+    expect(p?.samples.reserve?.fr).toContain('vingt (20)')
+  })
+
+  it("Côte d'Ivoire — le rendez-vous passe par l'adresse dédiée puis l'espace agence AIRP", () => {
+    const p = regulatoryProfileFor('CI')
+    expect(p?.submissionNote?.fr).toContain('renouvellement_produit_sante@airp.ci')
+    expect(p?.submissionNote?.fr).toContain('variation_produit_sante@airp.ci')
+    expect(p?.submissionNote?.fr).toContain('www.airp.ci')
+    expect(p?.submissionNote?.en).toContain('variation_produit_sante@airp.ci')
+  })
+
   it('Bénin (ABMed) — barème CEO', () => {
     const p = regulatoryProfileFor('BJ')
     expect(p?.fees).toMatchObject({

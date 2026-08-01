@@ -11,6 +11,16 @@ export interface AgencyInfo {
   sexe: 'M' | 'F'
   /** Adresse postale (sans téléphone/email) — destinataire des lettres. */
   adresse: string
+  /**
+   * L'agence NOMMÉE au fil d'une phrase, article compris : « informer au préalable **l'AIRP** »,
+   * mais « informer au préalable **la DPM** ». L'élision est une donnée de l'agence, pas une règle
+   * déductible du sigle — et elle vit ICI, avec le nom complet qui sert le bloc destinataire.
+   * Deux référentiels donneraient une lettre qui nomme l'agence en tête et l'appelle « l'autorité
+   * nationale » douze lignes plus bas : le défaut se lit à l'œil sur un courrier officiel.
+   */
+  elide: string
+  /** Idem en anglais (« the DPM ») — la traduction de courtoisie a besoin de l'article. */
+  elideEn: string
   /** Téléphone standard de l'agence — contact opérationnel, jamais dans le bloc destinataire. */
   telephone?: string
   /** E-mail de contact de l'agence — idem, hors courriers générés. */
@@ -29,6 +39,8 @@ const AGENCIES: Record<string, AgencyInfo> = {
     directeur: 'Dr Yossounon Chabi',
     sexe: 'M',
     adresse: 'Cotonou, Zone résidentielle',
+    elide: 'l’ABMed',
+    elideEn: 'the ABMed',
   },
   BF: {
     name: 'ANRP',
@@ -36,6 +48,8 @@ const AGENCIES: Record<string, AgencyInfo> = {
     directeur: 'Dr Aminata P. Nacoulma',
     sexe: 'F',
     adresse: 'Ouagadougou, 01 BP 7009',
+    elide: 'l’ANRP',
+    elideEn: 'the ANRP',
   },
   CI: {
     name: 'AIRP',
@@ -43,6 +57,8 @@ const AGENCIES: Record<string, AgencyInfo> = {
     directeur: 'Dr Assane Coulibaly',
     sexe: 'M',
     adresse: 'Abidjan, Cocody',
+    elide: 'l’AIRP',
+    elideEn: 'the AIRP',
     // En-tête officiel AIRP (modalités n° 01509 / circulaire n° 0914).
     telephone: '+225 27 22 22 01 55 / 25 22 00 55 61',
     email: 'secretariat@airp.ci',
@@ -53,6 +69,8 @@ const AGENCIES: Record<string, AgencyInfo> = {
     directeur: 'Dr. Edson Moniz',
     sexe: 'M',
     adresse: 'Bissau, Ministère de la Santé Publique',
+    elide: 'la DIFALRM',
+    elideEn: 'the DIFALRM',
   },
   ML: {
     name: 'DPM',
@@ -60,6 +78,8 @@ const AGENCIES: Record<string, AgencyInfo> = {
     directeur: 'Pr Fanta Sangho',
     sexe: 'F',
     adresse: 'Bamako, Darsalam, BPE 5202',
+    elide: 'la DPM',
+    elideEn: 'the DPM',
   },
   NE: {
     name: 'DPM/MT',
@@ -67,6 +87,8 @@ const AGENCIES: Record<string, AgencyInfo> = {
     directeur: 'Dr Abdou Bagoudou Rakia',
     sexe: 'F',
     adresse: 'Niamey, Ministère de la Santé',
+    elide: 'la DPM/MT',
+    elideEn: 'the DPM/MT',
   },
   SN: {
     name: 'ARP',
@@ -74,6 +96,8 @@ const AGENCIES: Record<string, AgencyInfo> = {
     directeur: 'Dr Oumy Kalsoum Ndiaye Ndao',
     sexe: 'F',
     adresse: 'Dakar, Point E, Rue A x Rue 6',
+    elide: 'l’ARP',
+    elideEn: 'the ARP',
     telephone: '+221 33 868 11 27',
     email: 'contact@arp.sn',
   },
@@ -83,6 +107,8 @@ const AGENCIES: Record<string, AgencyInfo> = {
     directeur: 'Dr NYANSA A. T. Atany',
     sexe: 'M',
     adresse: 'Lomé, Avenue du 2 Février',
+    elide: 'la DPML',
+    elideEn: 'the DPML',
   },
   // CEDEAO hors UEMOA — directeur/adresse à compléter (destinataire en marqueurs éditables).
   NG: {
@@ -91,6 +117,8 @@ const AGENCIES: Record<string, AgencyInfo> = {
     directeur: '',
     sexe: 'M',
     adresse: '',
+    elide: 'la NAFDAC',
+    elideEn: 'NAFDAC',
   },
   GH: {
     name: 'FDA',
@@ -98,6 +126,8 @@ const AGENCIES: Record<string, AgencyInfo> = {
     directeur: 'Dr Delese Mimi Darko',
     sexe: 'F',
     adresse: 'Accra',
+    elide: 'la FDA',
+    elideEn: 'the FDA',
   },
 }
 
@@ -192,7 +222,14 @@ const REG_PROFILES: Record<string, RegulatoryProfile> = {
    * demande d'AMM » AIRP n° 01509 du 22 juillet 2024 (génériques et spécialités : mêmes montants,
    * mêmes échantillons — 30 modèles-vente, CoA ≥ 2/3 de la durée de vie) et la note circulaire
    * n° 0914/AIRP du 24 mars 2026 (dépôt sur sessions programmées, sur rendez-vous).
-   * Sources locales : `RA-source/RAG_Ivory cost/`. Délai de traitement non fixé par ces textes.
+   *
+   * Renouvellement et variations : modalités AIRP n° 01416 du 9 juillet 2024 (renouvellement),
+   * n° 01421 et n° 01420 du 10 juillet 2024 (variations majeures / mineures) — répartition des
+   * chèques, échantillons par activité, gratuité de la demande de BAISSE du PGHT. Le circuit de
+   * rendez-vous (adresse e-mail par activité + espace agence airp.ci) vient des formulaires de
+   * dépôt officiels de l'AIRP.
+   * Sources locales : `RA-source/RAG_Ivory cost/` et `RA-source/AIRP/`. Délai de traitement non
+   * fixé par ces textes.
    */
   CI: {
     currency: 'FCFA',
@@ -207,18 +244,18 @@ const REG_PROFILES: Record<string, RegulatoryProfile> = {
           en: 'Per pharmaceutical form, strength and presentation — same schedule for innovators and generics. UEMOA-based industries: half price (250,000 FCFA). Paid by two crossed cheques (100,000 F Receiver General of Finance + 400,000 F AIRP), originals + 4 copies.',
         },
         renewal: {
-          fr: 'Par forme, dosage et présentation — industries de l’espace UEMOA : moitié prix.',
-          en: 'Per form, strength and presentation — UEMOA-based industries: half price.',
+          fr: 'Par forme, dosage et présentation — industries de l’espace UEMOA : moitié prix (125 000 FCFA). Règlement en deux chèques barrés (100 000 F Receveur Général des Finances + 150 000 F AIRP ; moitié prix : 50 000 F + 75 000 F), originaux + 4 copies.',
+          en: 'Per form, strength and presentation — UEMOA-based industries: half price (125,000 FCFA). Paid by two crossed cheques (100,000 F Receiver General of Finance + 150,000 F AIRP; half price: 50,000 F + 75,000 F), originals + 4 copies.',
         },
         variation: {
-          fr: 'Majeure = modification avec répercussion sur l’activité du médicament ; mineure = sans répercussion (décret 2015-602). Par forme, dosage et présentation — industries UEMOA : moitié prix.',
-          en: 'Major = change affecting the medicine’s activity; minor = no such impact (Decree 2015-602). Per form, strength and presentation — UEMOA industries: half price.',
+          fr: 'Majeure = modification affectant la qualité, l’efficacité, la sécurité, l’innocuité ou les propriétés du médicament ; mineure = sans cet effet. Industries de l’espace UEMOA : moitié prix. Règlement en deux chèques barrés — majeure : 100 000 F Receveur Général des Finances + 400 000 F AIRP ; mineure : 20 000 F + 30 000 F. La demande de BAISSE du Prix Grossiste Hors Taxe est gratuite.',
+          en: 'Major = change affecting the quality, efficacy, safety, harmlessness or properties of the medicine; minor = no such effect. UEMOA-based industries: half price. Paid by two crossed cheques — major: 100,000 F Receiver General of Finance + 400,000 F AIRP; minor: 20,000 F + 30,000 F. An application to LOWER the ex-factory wholesale price is free of charge.',
         },
       },
     },
     submissionNote: {
-      fr: 'Sessions d’enregistrement programmées (appel à manifestation d’intérêt, plan annuel de réception) — réception sur rendez-vous, 8 h 30–15 h 30 (note circulaire n° 0914/AIRP du 24 mars 2026).',
-      en: 'Scheduled registration sessions (call for expressions of interest, annual reception plan) — reception by appointment, 8:30 am–3:30 pm (AIRP circular No. 0914 of 24 March 2026).',
+      fr: 'Sessions d’enregistrement programmées (appel à manifestation d’intérêt, plan annuel de réception) — réception sur rendez-vous, 8 h 30–15 h 30 (note circulaire n° 0914/AIRP du 24 mars 2026). Le rendez-vous s’obtient en transmettant le formulaire de demande de l’AIRP à l’adresse dédiée à l’activité (renouvellement_produit_sante@airp.ci, variation_produit_sante@airp.ci) ; les informations du dossier se saisissent ensuite sur l’espace agence de www.airp.ci, d’où s’impriment la fiche de rendez-vous et le formulaire de demande à joindre au dossier.',
+      en: 'Scheduled registration sessions (call for expressions of interest, annual reception plan) — reception by appointment, 8:30 am–3:30 pm (AIRP circular No. 0914 of 24 March 2026). The appointment is obtained by sending the AIRP application form to the address dedicated to the activity (renouvellement_produit_sante@airp.ci, variation_produit_sante@airp.ci); dossier details are then entered in the agency workspace on www.airp.ci, from which the appointment slip and the application form to be enclosed with the dossier are printed.',
     },
     samples: {
       new_ma: [
@@ -235,9 +272,27 @@ const REG_PROFILES: Record<string, RegulatoryProfile> = {
           en: 'Bulk packaging not accepted. Hospital packs: box of 100 → 5 samples; box of 1,000 → 2. Ex-factory price above 100,000 FCFA → 3 samples.',
         },
       ],
+      renewal_variation: [
+        {
+          fr: 'Renouvellement : sept (07) échantillons provenant d’officines de pharmacie en Côte d’Ivoire, de chaque modèle vente définitif, présentés en français (emballages primaire et secondaire, notice).',
+          en: 'Renewal: seven (07) samples sourced from pharmacies in Côte d’Ivoire, of each final sales model, presented in French (primary and secondary packaging, package leaflet).',
+        },
+        {
+          fr: 'Renouvellement — conditionnement hospitalier en boîte de 100 et plus : 3 échantillons. PGHT > 100 000 FCFA : 2 échantillons. PGHT > 500 000 FCFA : 1 échantillon. Certificats d’analyse des lots joints, validité d’au moins 2/3 de la durée de vie.',
+          en: 'Renewal — hospital packs of 100 units or more: 3 samples. Ex-factory price above 100,000 FCFA: 2 samples. Above 500,000 FCFA: 1 sample. Batch certificates of analysis attached, with at least 2/3 of the shelf life remaining.',
+        },
+        {
+          fr: 'Variation majeure : nombre fonction de la nature de la variation. En cas d’analyse en laboratoire — conditionnement hospitalier boîte de 100 : 10 échantillons, boîte de 1 000 : 3 ; PGHT > 100 000 FCFA : 5. Certificat d’analyse du lot soumis, péremption à plus de douze (12) mois. Vrac non accepté.',
+          en: 'Major variation: number depending on the nature of the variation. Where laboratory testing applies — hospital packs of 100: 10 samples, of 1,000: 3; ex-factory price above 100,000 FCFA: 5. Certificate of analysis of the submitted batch, with more than twelve (12) months before expiry. Bulk packaging not accepted.',
+        },
+        {
+          fr: 'Variation mineure, en cas de dépôt d’échantillons : deux (02) échantillons ou maquettes du modèle vente proposé et un (01) échantillon du modèle vente déjà commercialisé.',
+          en: 'Minor variation, where samples are filed: two (02) samples or mock-ups of the proposed sales model and one (01) sample of the sales model already marketed.',
+        },
+      ],
       reserve: {
-        fr: 'Le laboratoire peut être invité à fournir un supplément d’échantillons pour les expertises (modalités AIRP n° 01509 du 22 juillet 2024).',
-        en: 'The laboratory may be asked to supply additional samples for expert assessments (AIRP procedures No. 01509 of 22 July 2024).',
+        fr: 'Le laboratoire peut être invité à fournir un supplément d’échantillons pour les expertises (modalités AIRP n° 01509 du 22 juillet 2024). Au renouvellement, vingt (20) échantillons peuvent être demandés pour un contrôle qualité post-commercialisation, aux frais du titulaire / exploitant.',
+        en: 'The laboratory may be asked to supply additional samples for expert assessments (AIRP procedures No. 01509 of 22 July 2024). At renewal, twenty (20) samples may be requested for post-marketing quality control, at the expense of the MA holder / operator.',
       },
     },
   },

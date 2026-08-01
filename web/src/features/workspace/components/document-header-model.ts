@@ -266,6 +266,11 @@ export function buildDocActions(ctx: DocActionsContext, t: TFn): DocAction[] {
 
     case 'cover':
       return [
+        // Une section de garde PEUT porter un modèle officiel (1.2.3 « Certification et
+        // attestation » en CTD UEMOA a des sous-sections ET la déclaration DMF de l'AIRP) : sans
+        // « Générer » ici, le modèle serait injoignable sur ce format. Strictement additif — les
+        // sections de garde sans template gardent `canGenerate` faux et l'en-tête d'avant.
+        ...(ctx.canGenerate ? [generateBtn()] : []),
         {
           key: 'auto',
           kind: 'toggle',
