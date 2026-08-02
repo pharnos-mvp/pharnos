@@ -90,7 +90,7 @@ jobs:
         # exécutions donnent les mêmes fichiers, donc un diff non vide est une vraie dérive.
         run: |
           npm run build:landing-modeles
-          git diff --exit-code -- ../landing/modeles/ ../landing/checking/modeles-manifest.js
+          git diff --exit-code -- ../landing/modeles/ ../landing/checking/modeles-manifest.js ../landing/checking/modeles-index.js
 
       - name: Barème Checking Standard synchronisé (page ↔ Edge)
         # `supabase/functions/_shared/checking/` est une COPIE de `landing/checking/` : l'Edge doit
