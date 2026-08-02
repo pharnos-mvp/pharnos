@@ -123,10 +123,15 @@
     <span class="fiche-ico" aria-hidden="true"><svg><use href="#i-doc"></use></svg></span>
     <div class="tx">
       <h1 data-fr="Bibliothèque réglementaire">Regulatory library</h1>
-      <p class="sub" data-fr="Chaque modèle attendu par les autorités de la zone — prêt à télécharger, déjà réglé sur votre pays de dépôt. Choisissez un document, choisissez votre pays, déposez en confiance.">Every template the region’s authorities expect — ready to download, already set for your filing country. Pick a document, choose your country, file with confidence.</p>
+      <p class="sub" data-fr="Chaque modèle attendu par les autorités de la zone — prêt à télécharger, déjà réglé sur votre pays de dépôt. Choisissez votre pays, prenez votre modèle, déposez en confiance.">Every template the region’s authorities expect — ready to download, already set for your filing country. Choose your country, take your template, file with confidence.</p>
+      <!-- Le pays retenu se lit DANS le titre de la page, sur l'étiquette, et s'y change : c'est
+           là que la page se nomme, donc là qu'on vérifie pour qui l'on télécharge. Un bandeau
+           séparé plus bas répétait l'information à un endroit qu'on dépasse en défilant. -->
       <div class="tags">
         <span class="badge b-free" data-fr="Gratuit · sans inscription · sans e-mail">Free · no sign-up · no e-mail</span>
         <span class="badge b-info" id="tagcount"></span>
+        <span class="badge b-pays" id="tagpays" hidden=""><span class="fl-in" aria-hidden="true"><svg><use id="tagpays-fl" href="#fl-bj"></use></svg></span><span id="tagpays-nom"></span></span>
+        <button class="tag-chg" type="button" id="pays-chg" hidden="" data-fr="Changer de pays">Change country</button>
       </div>
     </div>
   </header>
@@ -145,16 +150,6 @@
       <p data-fr="Les modèles qui varient d’un pays à l’autre seront réglés pour lui — autorité, destinataire, mention de pharmacovigilance nationale. Les autres sont identiques d’un pays à l’autre.">The templates that vary from one country to the next will be set for it — authority, addressee, national pharmacovigilance statement. The others are identical from one country to the next.</p>
       <ul class="piece-grid" id="grid-pays"></ul>
     </section>
-
-    <!-- Bandeau du pays retenu — et le moyen d'en changer sans revenir en arrière. -->
-    <div class="pays-bar" id="pays-bar" hidden="">
-      <span class="pays-bar-fl" aria-hidden="true"><svg><use id="pays-bar-use" href="#fl-bj"></use></svg></span>
-      <span class="pays-bar-tx">
-        <span class="k" data-fr="Pays de dépôt">Filing country</span>
-        <strong id="pays-bar-nom"></strong>
-      </span>
-      <button class="btn btn-ghost btn-sm" type="button" id="pays-bar-chg" data-fr="Changer de pays">Change country</button>
-    </div>
 
     <section class="bib-sec" id="sec-produit">
       <h2 data-fr="Documents d'information produit">Product information documents</h2>
@@ -223,7 +218,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="/landing.js?v=15" defer=""></script>
-<script type="module" src="/bibliotheque.js?v=8"></script>
+<script type="module" src="/bibliotheque.js?v=9"></script>
 
 
 </body></html>

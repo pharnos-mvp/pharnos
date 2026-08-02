@@ -203,6 +203,23 @@
   background: var(--warning-subtle);
   color: var(--warning-fg);
 }
+/* « Changer de pays », posé parmi les étiquettes du titre : discret comme elles, mais lisible
+   comme une action — souligné, donc reconnaissable sans couleur ni bordure. */
+.tag-chg {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 4px;
+  color: var(--g600);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.tag-chg:hover {
+  color: var(--g900);
+}
 
 /* ══ Contenu ══ */
 .bib-app {
@@ -230,103 +247,26 @@
 /* ══ Choix du pays — l'entrée de la bibliothèque ══
    La carte de pays reprend EXACTEMENT le patron de la carte de modèle (`.piece-card`) : même
    vignette, même titre, même ligne de méta. « Je choisis mon pays » puis « je choisis mon
-   document » se lisent alors comme une seule suite. Seules deux choses s'ajoutent ici : le
-   bouton (une carte de pays agit, elle ne navigue pas) et la pastille de drapeau. */
-.pays-card {
-  cursor: pointer;
-}
-/* Pastille de drapeau — posée SUR la vignette, en bas à droite : on reconnaît un pays à l'œil,
-   avant de lire son nom. `position: absolute` exige un contexte : la vignette le fournit. */
-.pays-card .piece-thumb {
-  position: relative;
-}
-.fl-sticker {
-  position: absolute;
-  right: 8px;
-  bottom: 8px;
-  width: 30px;
-  height: 20px;
-  border-radius: 3px;
-  overflow: hidden;
-  display: block;
-  background: #fff;
-  box-shadow:
-    0 0 0 2px #fff,
-    0 1px 4px rgba(10, 22, 40, 0.28);
-}
-.fl-sticker svg {
-  width: 30px;
-  height: 20px;
-  display: block;
-}
+   document » se lisent alors comme une seule suite. */
 
-/* Bandeau du pays retenu — discret, mais toujours visible : le déposant doit pouvoir vérifier
-   d'un coup d'œil POUR QUEL pays il télécharge. */
-.pays-bar {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  background: #fff;
-  border: 1px solid var(--g200);
-  border-radius: 12px;
-  padding: 11px 14px;
-  margin-top: 18px;
-}
-/* Drapeau du bandeau — même dessin et même ratio 3:2 que la pastille des cartes. */
-.pays-bar-fl {
-  flex-shrink: 0;
-  width: 30px;
-  height: 20px;
-  border-radius: 3px;
+/* Drapeau EN LIGNE, devant le nom, à la taille d'un emoji (CEO, 02/08/2026) : il se lit comme
+   une lettre du mot, pas comme une image posée à côté. Dimensionné en `em` — il suit la fonte du
+   titre au lieu d'être figé en pixels, et reste juste si la taille du titre change.
+   Ratio 3:2, celui des `viewBox` du sprite : toute autre proportion déformerait le dessin. */
+.fl-in {
+  display: inline-block;
+  width: 1.08em;
+  height: 0.72em;
+  margin-right: 0.42em;
+  vertical-align: -0.02em;
+  border-radius: 2px;
   overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(10, 22, 40, 0.14);
+}
+.fl-in svg {
+  width: 100%;
+  height: 100%;
   display: block;
-  box-shadow: 0 0 0 1px rgba(10, 22, 40, 0.12);
-}
-.pays-bar-fl svg {
-  width: 30px;
-  height: 20px;
-  display: block;
-}
-.pays-bar-tx {
-  min-width: 0;
-  flex: 1;
-}
-.pays-bar-tx .k {
-  display: block;
-  font-size: 10.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--g400);
-  font-family: var(--font-ui);
-}
-.pays-bar-tx strong {
-  display: block;
-  font-family: var(--font-ui);
-  font-size: 14px;
-  color: var(--g900);
-}
-
-/* Activité réglementaire — le SEUL choix qui reste, et seulement sur les modèles concernés. */
-.acte-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
-.acte-chip {
-  font-family: var(--font-ui);
-  font-size: 11.5px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--g300);
-  color: var(--g700);
-  background: #fff;
-}
-.acte-chip:hover {
-  border-color: var(--g500);
-  background: var(--g100);
 }
 
 /* ══ Cartes verticales à vignette — recette PieceCard ══ */
