@@ -227,8 +227,12 @@ jobs:
       # Binaire officiel via Docker (licence MIT, pas de clé requise — contrairement à
       # gitleaks-action qui exige une licence pour les organisations). --redact : ne jamais
       # afficher la valeur d'un secret détecté dans les logs CI.
+      # ⚠️ `--gitleaks-ignore-path` est INDISPENSABLE ici : sa valeur par défaut est « . », le
+      # répertoire courant DU CONTENEUR (/), pas `--source`. Sans lui, le `.gitleaksignore` du
+      # dépôt n'est jamais lu et une exception épinglée reste invisible — la CI échoue sans rien
+      # dire de plus qu'avant, ce qui se diagnostique très mal.
       - name: Gitleaks (scan des secrets sur tout l'historique git)
         run: >
           docker run --rm -v "$PWD:/repo"
           ghcr.io/gitleaks/gitleaks:latest
-          detect --source=/repo --redact --no-banner
+          detect --source=/repo --gitleaks-ignore-path=/repo --redact --no-banner
