@@ -18,6 +18,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import {
   CHARIOW_ENDPOINT,
   corpsChariow,
+  essaiAutorise,
   lireReponseChariow,
   validerCommande,
 } from '../_shared/checkout-core.ts'
@@ -92,6 +93,11 @@ Deno.serve(async (req) => {
       return json({ error: 'invalid_fields', champs: v.champs }, 400, origin)
     }
 
+    // Recette : le navigateur PRÉSENTE un jeton, il ne le choisit pas. Sans `CHECKOUT_ESSAI_TOKEN`
+    // en secret, aucun essai n'est possible — l'absence de configuration ferme le mode, elle ne
+    // l'ouvre pas.
+    const essai = essaiAutorise(body.essai, Deno.env.get('CHECKOUT_ESSAI_TOKEN'))
+
     // Rate-limit fail-closed : par IP puis global. `clientIp` lit le XFF par la FIN — la
     // première entrée est celle que l'appelant a bien voulu écrire.
     const supabase = createClient(
@@ -133,7 +139,7 @@ Deno.serve(async (req) => {
       res = await fetch(CHARIOW_ENDPOINT, {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
-        body: JSON.stringify(corpsChariow(v.cmd, ip)),
+        body: JSON.stringify(corpsChariow(v.cmd, ip, essai)),
         signal: ctrl.signal,
       })
     } finally {
@@ -157,6 +163,7 @@ Deno.serve(async (req) => {
         status: lu.erreur,
         httpStatus: res.status,
         offre: v.cmd.offre,
+        essai,
         ref: v.cmd.ref.slice(0, 8),
         motif: typeof detail?.message === 'string' ? detail.message.slice(0, 300) : null,
         champs: detail?.errors ? Object.keys(detail.errors).slice(0, 12) : null,
@@ -166,7 +173,7 @@ Deno.serve(async (req) => {
       return json({ error: lu.erreur, champs: lu.champs ?? [] }, code, origin)
     }
 
-    logJson({ ...log, status: 'ok', offre: v.cmd.offre, ref: v.cmd.ref.slice(0, 8) })
+    logJson({ ...log, status: 'ok', offre: v.cmd.offre, essai, ref: v.cmd.ref.slice(0, 8) })
     return json({ url: lu.url }, 200, origin)
   } catch (e) {
     const aborted = e instanceof DOMException && e.name === 'AbortError'

@@ -117,6 +117,11 @@ const referenceEnAttente = () => {
 const params = new URLSearchParams(window.location.search);
 const docParam = params.get("doc");
 const paysParam = params.get("pays");
+/** Jeton de RECETTE (`?essai=…`) — présenté tel quel au serveur, qui seul décide. La page
+ *  n'ouvre aucun tarif : elle transporte une chaîne. Un jeton faux ou absent fait payer le
+ *  prix public, et c'est l'Edge qui l'établit, pas ce fichier. Borné : la seule chose qu'un
+ *  paramètre d'URL peut faire ici, c'est occuper de la place dans une requête de 4 Ko. */
+const essaiToken = (params.get("essai") ?? "").slice(0, 120);
 // ⚠️ AUCUN pays ni activité par défaut (directive CEO du 31/07/2026) : un défaut silencieux
 // ferait télécharger le modèle d'un pays que personne n'a choisi — et la mention 4.8 est
 // nationale. Tant que les deux choix ne sont pas faits, les boutons restent inertes.
@@ -936,6 +941,7 @@ async function sessionPaiement(cmd, identite) {
         offre: cmd.offre,
         ref: cmd.id,
         langue: lang,
+        ...(essaiToken ? { essai: essaiToken } : {}),
         ...identite,
       }),
       signal: AbortSignal.timeout(20000),
@@ -1436,6 +1442,28 @@ function toast(msg) {
   toastEl._t = setTimeout(() => toastEl.classList.remove("on"), 4200);
 }
 
+/** Bandeau de RECETTE. Un mode de test qui ressemble trait pour trait à la production finit par
+ *  faire régler le plein tarif à quelqu'un qui croyait tester : dès qu'un jeton `?essai=` est
+ *  présenté, le panneau le dit. Il ne PROUVE rien — seul l'Edge sait si le jeton est bon — il
+ *  signale qu'un jeton part avec la commande, et c'est exactement ce que l'opérateur doit voir.
+ *
+ *  ⚠️ Déclaré AVANT `appliquerLangue` : `I18N.on()` rejoue ses abonnés à l'inscription, donc
+ *  `appliquerLangue` s'exécute pendant l'évaluation du fichier. Plus bas, `bandeauEssai` serait
+ *  encore en zone morte et la page mourrait au chargement. */
+let bandeauEssai = null;
+function peindreEssai() {
+  if (!essaiToken) return;
+  if (!bandeauEssai) {
+    bandeauEssai = document.createElement("p");
+    bandeauEssai.className = "essai-note";
+    $("#upgbody").prepend(bandeauEssai);
+  }
+  bandeauEssai.textContent = L([
+    "Mode recette — si le jeton est valide, le règlement partira au tarif de test (570 / 575 F CFA), pas au prix affiché.",
+    "Test mode — if the token is valid, payment will use the test price (570 / 575 F CFA), not the price shown.",
+  ]);
+}
+
 function appliquerLangue(l) {
   lang = l === "en" ? "en" : "fr";
   peindre();
@@ -1450,6 +1478,7 @@ function appliquerLangue(l) {
   }
   if (S.fichier)
     $("#ufilesize").textContent = tailleLisible(S.fichier.size, lang);
+  peindreEssai();
 }
 if (window.I18N && typeof window.I18N.on === "function")
   window.I18N.on(appliquerLangue);
