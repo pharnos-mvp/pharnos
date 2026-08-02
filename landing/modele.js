@@ -62,15 +62,13 @@ const retourBiblio = () =>
  * Origine de la boutique — REPLI seulement : le parcours nominal passe par l'Edge `checkout`,
  * qui renvoie une page de paiement pur. Cette boutique ne se voit que si l'Edge échoue.
  *
- * ⚠️ `services.pharnos.com` — notre domaine de marque — est prêt à un détail près : CNAME posé
- * (`services` → `cc54deb46d638802.vercel-dns-016.com`, DNS only), vérifié côté Chariow, et il
- * SERT DÉJÀ la boutique en HTTP (01/08/2026). Mais son certificat TLS n'est pas encore émis par
- * Vercel : en HTTPS la poignée de main échoue. Le poser ici avant serait envoyer l'acheteur sur
- * un domaine muet. Dès que `curl https://services.pharnos.com/` répond, cette ligne bascule —
- * la CSP `frame-src` et `HOTES_PAIEMENT` l'acceptent déjà, le test « hôtes jumeaux » les garde
- * accordés.
+ * `services.pharnos.com` — notre domaine de marque — est actif depuis le 02/08/2026 : CNAME
+ * `services` → `cc54deb46d638802.vercel-dns-016.com` (DNS only), vérifié côté Chariow,
+ * certificat TLS émis. Il doit rester JUMEAU du `frame-src` de `landing/_headers` et de
+ * `HOTES_PAIEMENT` côté Edge — un hôte accepté d'un côté et refusé de l'autre donne un cadre
+ * blanc silencieux ; le test « hôtes jumeaux » échoue si les deux listes divergent.
  */
-const BOUTIQUE = "https://pharnos.mychariow.com";
+const BOUTIQUE = "https://services.pharnos.com";
 
 /**
  * Liens de règlement Chariow. Ce sont les liens « accès direct au paiement » (`/checkout`) : le
