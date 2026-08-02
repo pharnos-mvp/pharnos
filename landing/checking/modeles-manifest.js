@@ -7,6 +7,108 @@
  */
 export const MODELES_VERSION = "2026.9"
 
+export const MODELES_PAYS = [
+  {
+    "k": "bj",
+    "nom": [
+      "Bénin",
+      "Benin"
+    ],
+    "agence": [
+      "l’ABMed",
+      "the ABMed"
+    ]
+  },
+  {
+    "k": "bf",
+    "nom": [
+      "Burkina Faso",
+      "Burkina Faso"
+    ],
+    "agence": [
+      "l’ANRP",
+      "the ANRP"
+    ]
+  },
+  {
+    "k": "ci",
+    "nom": [
+      "Côte d'Ivoire",
+      "Côte d'Ivoire"
+    ],
+    "agence": [
+      "l’AIRP",
+      "the AIRP"
+    ]
+  },
+  {
+    "k": "gw",
+    "nom": [
+      "Guinée-Bissau",
+      "Guinea-Bissau"
+    ],
+    "agence": [
+      "la DIFALRM",
+      "the DIFALRM"
+    ]
+  },
+  {
+    "k": "ml",
+    "nom": [
+      "Mali",
+      "Mali"
+    ],
+    "agence": [
+      "la DPM",
+      "the DPM"
+    ]
+  },
+  {
+    "k": "ne",
+    "nom": [
+      "Niger",
+      "Niger"
+    ],
+    "agence": [
+      "la DPM/MT",
+      "the DPM/MT"
+    ]
+  },
+  {
+    "k": "sn",
+    "nom": [
+      "Sénégal",
+      "Senegal"
+    ],
+    "agence": [
+      "l’ARP",
+      "the ARP"
+    ]
+  },
+  {
+    "k": "tg",
+    "nom": [
+      "Togo",
+      "Togo"
+    ],
+    "agence": [
+      "la DPML",
+      "the DPML"
+    ]
+  },
+  {
+    "k": "ng",
+    "nom": [
+      "Nigeria",
+      "Nigeria"
+    ],
+    "agence": [
+      "la NAFDAC",
+      "NAFDAC"
+    ]
+  }
+]
+
 export const MODELES_FICHIERS = {
   "rcp": {
     "activites": null,
@@ -30,6 +132,17 @@ export const MODELES_FICHIERS = {
     "upgradable": true,
     "bilingue": true,
     "perPays": true,
+    "pays": [
+      "bj",
+      "bf",
+      "ci",
+      "gw",
+      "ml",
+      "ne",
+      "sn",
+      "tg",
+      "ng"
+    ],
     "apercu": [
       {
         "t": "doctitle",
@@ -157,6 +270,18 @@ export const MODELES_FICHIERS = {
         "pages": 4,
         "octetsPdf": 7066,
         "octetsZip": 19739
+      },
+      "ng": {
+        "pdf": "/modeles/rcp-ng.pdf",
+        "zip": "/modeles/rcp-ng.zip",
+        "pages": 10,
+        "octetsPdf": 230440,
+        "octetsZip": 221325,
+        "officiel": true,
+        "source": [
+          "Modèle officiel NAFDAC",
+          "Official NAFDAC template"
+        ]
       }
     }
   },
@@ -182,6 +307,16 @@ export const MODELES_FICHIERS = {
     "upgradable": true,
     "bilingue": true,
     "perPays": false,
+    "pays": [
+      "bj",
+      "bf",
+      "ci",
+      "gw",
+      "ml",
+      "ne",
+      "sn",
+      "tg"
+    ],
     "apercu": [
       {
         "t": "doctitle",
@@ -280,6 +415,16 @@ export const MODELES_FICHIERS = {
     "upgradable": true,
     "bilingue": true,
     "perPays": false,
+    "pays": [
+      "bj",
+      "bf",
+      "ci",
+      "gw",
+      "ml",
+      "ne",
+      "sn",
+      "tg"
+    ],
     "apercu": [
       {
         "t": "doctitle",
@@ -378,6 +523,16 @@ export const MODELES_FICHIERS = {
     "upgradable": false,
     "bilingue": true,
     "perPays": true,
+    "pays": [
+      "bj",
+      "bf",
+      "ci",
+      "gw",
+      "ml",
+      "ne",
+      "sn",
+      "tg"
+    ],
     "apercu": [
       {
         "t": "right",
@@ -1237,6 +1392,16 @@ export const MODELES_FICHIERS = {
     "upgradable": false,
     "bilingue": true,
     "perPays": true,
+    "pays": [
+      "bj",
+      "bf",
+      "ci",
+      "gw",
+      "ml",
+      "ne",
+      "sn",
+      "tg"
+    ],
     "apercu": [
       {
         "t": "right",
@@ -2304,6 +2469,16 @@ export const MODELES_FICHIERS = {
     "upgradable": false,
     "bilingue": true,
     "perPays": true,
+    "pays": [
+      "bj",
+      "bf",
+      "ci",
+      "gw",
+      "ml",
+      "ne",
+      "sn",
+      "tg"
+    ],
     "apercu": [
       {
         "t": "right",
@@ -3214,6 +3389,16 @@ export const MODELES_FICHIERS = {
     "upgradable": false,
     "bilingue": true,
     "perPays": true,
+    "pays": [
+      "bj",
+      "bf",
+      "ci",
+      "gw",
+      "ml",
+      "ne",
+      "sn",
+      "tg"
+    ],
     "apercu": [
       {
         "t": "right",
@@ -5006,6 +5191,16 @@ export const MODELES_FICHIERS = {
     "upgradable": false,
     "bilingue": true,
     "perPays": true,
+    "pays": [
+      "bj",
+      "bf",
+      "ci",
+      "gw",
+      "ml",
+      "ne",
+      "sn",
+      "tg"
+    ],
     "apercu": [
       {
         "t": "entete",
@@ -6607,6 +6802,16 @@ export const MODELES_FICHIERS = {
     "upgradable": false,
     "bilingue": false,
     "perPays": false,
+    "pays": [
+      "bj",
+      "bf",
+      "ci",
+      "gw",
+      "ml",
+      "ne",
+      "sn",
+      "tg"
+    ],
     "apercu": [
       {
         "t": "doctitle",
@@ -6705,6 +6910,16 @@ export const MODELES_FICHIERS = {
     "upgradable": false,
     "bilingue": false,
     "perPays": false,
+    "pays": [
+      "bj",
+      "bf",
+      "ci",
+      "gw",
+      "ml",
+      "ne",
+      "sn",
+      "tg"
+    ],
     "apercu": [
       {
         "t": "doctitle",

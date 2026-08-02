@@ -65,6 +65,21 @@ export function paysDuModele(slug) {
 }
 
 /**
+ * Les pays sous le drapeau desquels ce document est PROPOSÉ — question différente de
+ * `paysDuModele`, qui répond « y a-t-il un pays à choisir ? ».
+ *
+ * Un document qui ne varie pas rend `[]` là-haut ; ici il rend quand même sa liste, car il est bel
+ * et bien proposé à ces pays-là. Sans cette distinction, un fichier commun (`*`) se lisait « servi
+ * partout » : la maquette Notice de l'ABMed serait apparue dans le dossier nigérian, sous une
+ * autorité qui ne l'a jamais publiée.
+ */
+export function paysServisPar(slug) {
+  const m = MODELES_FICHIERS[slug];
+  if (!m) throw new Error(`modèle inconnu « ${slug} »`);
+  return m.pays ?? [];
+}
+
+/**
  * Le fichier à servir pour un document, un pays et — quand le document se décline — une activité.
  *
  * ⚠️ Un document déclaré `perPays` DOIT avoir une entrée par pays ; on échoue plutôt que de
@@ -173,6 +188,23 @@ export function nouvelleCommande(p) {
     // produirait un document mis à niveau sur un contexte que personne n'a choisi.
     throw new Error(`activité inconnue « ${p.activite} »`);
   }
+  // Le bundle vend TROIS documents : la commande doit les porter tous les trois, sinon on
+  // encaisse puis on réclame le reste par e-mail — le client travaille après avoir payé.
+  const annexes = Array.isArray(p.annexes) ? p.annexes : [];
+  for (const a of annexes) {
+    if (!MODELES_FICHIERS[a?.doc])
+      throw new Error(`annexe inconnue « ${a?.doc} »`);
+    if (!(a.fichier instanceof Blob))
+      throw new Error(`annexe ${a.doc} sans fichier`);
+  }
+  if (p.offre === "up3" && annexes.length !== OFFRES.up3.documents - 1) {
+    throw new Error(
+      `le bundle attend ${OFFRES.up3.documents - 1} annexes, ${annexes.length} reçue(s)`,
+    );
+  }
+  if (p.offre !== "up3" && annexes.length > 0) {
+    throw new Error("une offre à un document ne porte pas d'annexe");
+  }
   return {
     id: p.id,
     cree: p.cree,
@@ -183,5 +215,11 @@ export function nouvelleCommande(p) {
     nomFichier: p.nomFichier,
     octets: p.octets,
     fichier: p.fichier,
+    annexes: annexes.map((a) => ({
+      doc: a.doc,
+      nomFichier: a.fichier.name,
+      octets: a.fichier.size,
+      fichier: a.fichier,
+    })),
   };
 }

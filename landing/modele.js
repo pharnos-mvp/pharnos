@@ -11,11 +11,11 @@
        • « Télécharger » demande le pays ET l'activité en popup, PUIS lance le téléchargement ;
        • « Mettre au standard » ouvre un panneau ancré au bord DROIT de l'écran. ── */
 
-import { PAYS } from "./checking/referentiel.js?v=2026.2";
 import {
   MODELES_FICHIERS,
+  MODELES_PAYS,
   MODELES_VERSION,
-} from "./checking/modeles-manifest.js?v=2026.7";
+} from "./checking/modeles-manifest.js?v=2026.10";
 import { VIGILANCE } from "./checking/vigilance.js?v=2026.1";
 import {
   activitesDe,
@@ -31,7 +31,7 @@ import {
   tailleLisible,
   TTL_MS,
   validerFichier,
-} from "./checking/bibliotheque-core.js?v=2026.7";
+} from "./checking/bibliotheque-core.js?v=2026.10";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -123,7 +123,7 @@ const S = {
   doc: MODELES_FICHIERS[docParam] ? docParam : "rcp",
   // `?pays=CI` en majuscules reste un code ISO valide : le rejeter renverrait au sélecteur un
   // lien parfaitement légitime.
-  pays: PAYS.some((p) => p.k === paysParam?.toLowerCase())
+  pays: MODELES_PAYS.some((p) => p.k === paysParam?.toLowerCase())
     ? paysParam.toLowerCase()
     : null,
   activite: null,
@@ -154,9 +154,10 @@ if (S.pays && paysServis().length && !paysServis().includes(S.pays))
  *  document, jamais le premier du référentiel — chercher le Bénin sur un document que seule la
  *  Côte d'Ivoire impose ferait échouer la résolution. La première page est identique pour les pays
  *  servis ; la version téléchargée, elle, attend le choix. */
-const paysApercu = () => S.pays ?? paysServis()[0] ?? PAYS[0].k;
+const paysApercu = () => S.pays ?? paysServis()[0] ?? MODELES_PAYS[0].k;
 
-const nomPays = (k) => L((PAYS.find((p) => p.k === k) ?? PAYS[0]).nom);
+const nomPays = (k) =>
+  L((MODELES_PAYS.find((p) => p.k === k) ?? MODELES_PAYS[0]).nom);
 
 /** Le français accorde le possessif : « mon RCP » mais « ma notice ». */
 const MON = {
@@ -200,7 +201,7 @@ function peindre() {
             ? // `f.agence` vient du MÊME référentiel que le bloc destinataire de la lettre.
               // Lire ailleurs annonçait « l'autorité nationale » au-dessus d'un courrier qui
               // nomme la DPM/MT trois lignes plus bas.
-              `${L(["adressée à", "addressed to"])} ${L(f.agence ?? PAYS.find((p) => p.k === S.pays)?.ag ?? [""])}`
+              `${L(["adressée à", "addressed to"])} ${L(f.agence ?? MODELES_PAYS.find((p) => p.k === S.pays)?.agence ?? [""])}`
             : `${L(["mention de pharmacovigilance", "pharmacovigilance statement"])} : ${v.organisme}`,
   ].join(" · ");
   $("#doctags").innerHTML =
@@ -299,8 +300,8 @@ function remplirPays(sel, valeur) {
   // impose annoncerait une exigence togolaise inexistante, puis échouerait au téléchargement.
   const servis = paysServis();
   const offerts = servis.length
-    ? PAYS.filter((p) => servis.includes(p.k))
-    : PAYS;
+    ? MODELES_PAYS.filter((p) => servis.includes(p.k))
+    : MODELES_PAYS;
   sel.innerHTML =
     placeholder +
     offerts

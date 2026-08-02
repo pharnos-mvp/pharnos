@@ -26,7 +26,8 @@ export const MODELES_INDEX = [
       "ml",
       "ne",
       "sn",
-      "tg"
+      "tg",
+      "ng"
     ]
   },
   {
@@ -42,7 +43,14 @@ export const MODELES_INDEX = [
     "groupe": "produit",
     "activites": null,
     "pays": [
-      "*"
+      "bj",
+      "bf",
+      "ci",
+      "gw",
+      "ml",
+      "ne",
+      "sn",
+      "tg"
     ]
   },
   {
@@ -58,7 +66,14 @@ export const MODELES_INDEX = [
     "groupe": "produit",
     "activites": null,
     "pays": [
-      "*"
+      "bj",
+      "bf",
+      "ci",
+      "gw",
+      "ml",
+      "ne",
+      "sn",
+      "tg"
     ]
   },
   {
@@ -192,7 +207,14 @@ export const MODELES_INDEX = [
     "groupe": "resumes",
     "activites": null,
     "pays": [
-      "*"
+      "bj",
+      "bf",
+      "ci",
+      "gw",
+      "ml",
+      "ne",
+      "sn",
+      "tg"
     ]
   },
   {
@@ -208,7 +230,14 @@ export const MODELES_INDEX = [
     "groupe": "resumes",
     "activites": null,
     "pays": [
-      "*"
+      "bj",
+      "bf",
+      "ci",
+      "gw",
+      "ml",
+      "ne",
+      "sn",
+      "tg"
     ]
   }
 ]

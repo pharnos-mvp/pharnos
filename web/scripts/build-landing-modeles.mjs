@@ -57,7 +57,17 @@ import {
   agencyCiviliteEn,
   agencyFor,
 } from '../src/features/workspace/roadmap-data.ts'
-import { DOCS, varieParPays } from './lib/modeles-source.mjs'
+import { DOCS, PAYS_HORS_UEMOA, varieParPays } from './lib/modeles-source.mjs'
+
+/**
+ * Les pays que la BIBLIOTHÈQUE peut servir : les huit de l'UEMOA, plus ceux dont nous détenons le
+ * gabarit officiel. Sert au nommage et à la validation — pas au champ des documents, qui reste
+ * l'UEMOA sauf déclaration explicite dans `officiels`.
+ */
+const PAYS_LIB = [
+  ...PAYS.map((p) => ({ k: p.k, nom: Array.isArray(p.nom) ? p.nom : [p.nom, p.nom] })),
+  ...PAYS_HORS_UEMOA,
+]
 
 const RACINE = path.resolve(import.meta.dirname, '../..')
 const SORTIE = path.join(RACINE, 'landing', 'modeles')
@@ -750,9 +760,9 @@ async function versZip(entrees) {
 /* ═══════════════ orchestration ═══════════════ */
 
 const nomPays = (k) => {
-  const p = PAYS.find((x) => x.k === k)
+  const p = PAYS_LIB.find((x) => x.k === k)
   if (!p) throw new Error(`pays inconnu « ${k} »`)
-  return Array.isArray(p.nom) ? p.nom[0] : p.nom
+  return p.nom[0]
 }
 
 fs.rmSync(SORTIE, { recursive: true, force: true })
@@ -769,9 +779,13 @@ for (const doc of DOCS) {
   // transposée aux huit. On garde le mécanisme et ses deux gardes : le jour où une autorité
   // publie une pièce qui n'existe que chez elle, la restriction doit être déclarative, pas
   // réinventée. Absent → les huit pays.
-  const paysDoc = doc.pays ?? PAYS.map((p) => p.k)
+  // Un pays HORS UEMOA n'entre dans le champ d'un document que par `officiels` : la seule façon
+  // de l'y faire figurer est de détenir le gabarit de son autorité. Aucune maquette régionale, et
+  // surtout aucune lettre, ne peut donc partir sous un drapeau non-UEMOA par simple oubli.
+  const horsDefaut = Object.keys(doc.officiels ?? {}).filter((k) => !PAYS.some((p) => p.k === k))
+  const paysDoc = [...(doc.pays ?? PAYS.map((p) => p.k)), ...horsDefaut]
   for (const k of paysDoc)
-    if (!PAYS.some((p) => p.k === k)) throw new Error(`pays inconnu « ${k} »`)
+    if (!PAYS_LIB.some((p) => p.k === k)) throw new Error(`pays inconnu « ${k} »`)
   // Un document qui ne varie pas par pays est servi sous une clé unique `*` : une restriction y
   // serait ignorée EN SILENCE, et la pièce nationale repartirait sous les huit drapeaux.
   if (doc.pays && !perPays)
@@ -919,6 +933,11 @@ for (const doc of DOCS) {
     upgradable: doc.upgradable,
     bilingue: doc.bilingue,
     perPays,
+    // Les pays que ce document SERT — distinct des clés de `fichiers`, qui valent `*` quand un
+    // seul fichier couvre tout le monde. « Tout le monde » n'est pas la même chose selon le
+    // document : la maquette Notice couvre les huit de l'UEMOA, pas le Nigeria. Sans cette liste,
+    // une clé `*` se lisait « tous les pays de la page » et gonflait le compte des cartes.
+    pays: paysDoc,
     apercu: blocsApercu,
     fichiers,
   }
@@ -932,9 +951,24 @@ const entete = `/**
  * \`pdf\` est l'aperçu du lecteur. \`perPays: false\` = un seul fichier pour les huit pays.
  */
 `
+/**
+ * Les pays que la BIBLIOTHÈQUE sert, avec leur nom et leur autorité.
+ *
+ * ⚠️ Dérivé du manifeste, PAS du référentiel du Checking (`referentiel.js`) — celui-ci est copié
+ * vers l'Edge et pilote le sélecteur du Checking Standard, dont le barème est UEMOA. Y ajouter un
+ * pays pour la bibliothèque l'aurait offert dans un produit qui ne sait pas le noter. Deux
+ * catalogues différents : deux listes.
+ */
+const servis = new Set(Object.values(manifeste).flatMap((m) => m.pays))
+const paysBibliotheque = PAYS_LIB.filter((p) => servis.has(p.k)).map((p) => {
+  const ag = agencyFor(codeAgence(p.k))
+  return { k: p.k, nom: p.nom, agence: [ag.elide, ag.elideEn] }
+})
+
 fs.writeFileSync(
   MANIFESTE,
   `${entete}export const MODELES_VERSION = ${JSON.stringify(VERSION)}\n\n` +
+    `export const MODELES_PAYS = ${JSON.stringify(paysBibliotheque, null, 2)}\n\n` +
     `export const MODELES_FICHIERS = ${JSON.stringify(manifeste, null, 2)}\n`,
   'utf8',
 )
@@ -956,9 +990,10 @@ fs.writeFileSync(
       court: m.court,
       groupe: m.groupe,
       activites: m.activites,
-      // DÉDOUBLONNÉ : un document à activités a deux clés par pays (`bj-enr`, `bj-renouv`),
-      // et la liste répétait chaque pays autant de fois qu'il a d'activités.
-      pays: [...new Set(Object.keys(m.fichiers).map((k) => k.split('-')[0]))],
+      // Les pays SERVIS, tels que déclarés — et non déduits des clés de `fichiers`, où un fichier
+      // commun s'écrit `*`. Le lecteur devait alors traduire « `*` » en « tous les pays », une
+      // traduction devenue fausse le jour où la bibliothèque a servi un pays hors UEMOA.
+      pays: m.pays,
     })),
     null,
     2,

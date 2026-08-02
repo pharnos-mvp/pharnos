@@ -44,6 +44,8 @@ type Manifeste = Record<
     bilingue: boolean
     activites: string[] | null
     groupe: string
+    /** Les pays SERVIS — distinct des clés de `fichiers`, qui valent `*` pour un fichier commun. */
+    pays: string[]
     apercu: Bloc[]
     fichiers: Record<string, Fichier>
   }
@@ -122,8 +124,36 @@ describe('manifeste et fichiers restent accordés', () => {
     }
   })
 
-  it('couvre les huit pays pour le RCP', () => {
-    expect(Object.keys(docDe('rcp').fichiers).sort()).toEqual([...CODES].sort())
+  it('couvre les huit pays pour le RCP, et le Nigeria par le gabarit de la NAFDAC', () => {
+    expect(Object.keys(docDe('rcp').fichiers).sort()).toEqual([...CODES, 'ng'].sort())
+    // Un pays hors UEMOA n'est servi QUE par le fichier de son autorité. Le jour où il repartirait
+    // avec notre maquette régionale — celle de l'ABMed — la bibliothèque signerait au nom d'une
+    // agence qui n'a rien publié.
+    const ng = fichierDe('rcp', 'ng')
+    expect(ng.officiel).toBe(true)
+    expect(ng.source?.[0]).toContain('NAFDAC')
+  })
+
+  it('ne sert au Nigeria que le RCP — ni notice, ni étiquetage, ni la moindre lettre', () => {
+    // La consigne CEO du 02/08/2026 : « juste le template et pas de module de génération de
+    // lettre ». Le tenir par le MANIFESTE, pas par l'écran : une lettre non filtrée serait partie
+    // avec le destinataire d'une agence UEMOA sous un dossier nigérian.
+    const servis = Object.entries(MANIFESTE).filter(([, m]) => m.pays.includes('ng'))
+    expect(servis.map(([slug]) => slug)).toEqual(['rcp'])
+  })
+
+  it('déclare, pour chaque document, les pays qu’il sert', () => {
+    // `fichiers` répond « quel fichier ? », `pays` répond « pour qui ? ». Les confondre faisait
+    // lire la clé `*` comme « tous les pays de la page » : la maquette Notice de l'ABMed se
+    // comptait dans le dossier nigérian.
+    for (const [slug, m] of Object.entries(MANIFESTE)) {
+      expect(m.pays.length, slug).toBeGreaterThan(0)
+      if (!m.perPays) expect(m.pays, slug).toEqual([...CODES])
+      else
+        expect(m.pays, slug).toEqual([
+          ...new Set(Object.keys(m.fichiers).map((k) => k.split('-')[0])),
+        ])
+    }
   })
 
   it('sert un fichier unique pour les documents sans mention nationale', () => {
@@ -256,35 +286,30 @@ describe("l'index léger dit la même chose que le manifeste", () => {
       const src = docDe(m.slug)
       expect(m.groupe, m.slug).toBe(src.groupe)
       expect(m.activites, m.slug).toEqual(src.activites)
-      // Clés d'activité (`ci-enr`) réduites au code pays, comme le fait la page.
-      const attendus = [...new Set(Object.keys(src.fichiers).map((k) => k.split('-')[0]))]
-      expect(m.pays, m.slug).toEqual(attendus)
+      expect(m.pays, m.slug).toEqual(src.pays)
     }
   })
 
   it('le filtrage par pays donne ce que la fiche Autorité doit afficher', () => {
-    // Un document commun (`*`) apparaît partout ; un document par pays n'apparaît que chez lui.
-    const pour = (code: string) =>
-      INDEX.filter((m) => m.pays.includes('*') || m.pays.includes(code)).map((m) => m.slug)
+    // Un seul filtre, `pays.includes(code)` — c'est LUI que la fiche Autorité applique.
+    const pour = (code: string) => INDEX.filter((m) => m.pays.includes(code)).map((m) => m.slug)
     expect(pour('ci')).toContain('lettre-dmf')
     expect(pour('bj')).toContain('notice')
     expect(pour('bj')).toContain('qos-pd')
-    // Un code inconnu ne rend QUE les documents communs.
-    expect(pour('zz')).toEqual(INDEX.filter((m) => m.pays.includes('*')).map((m) => m.slug))
   })
 
   it("un pays que la bibliothèque NE SERT PAS n'a aucun modèle à annoncer", () => {
-    // Le référentiel d'agences couvre le Nigeria et le Ghana, hors UEMOA. Le filtre « pays ou
-    // commun » les laissait passer sur les 4 documents communs : leur fiche Autorité annonçait
-    // « 4 modèles déjà réglés pour Nigeria » et renvoyait vers une bibliothèque qui rejette `ng`
-    // et redemande un pays. La fiche doit rester muette, pas promettre puis se dédire.
-    const servis = new Set(INDEX.flatMap((m) => m.pays).filter((p) => p !== '*'))
-    const pourFiche = (code: string) =>
-      servis.has(code) ? INDEX.filter((m) => m.pays.includes('*') || m.pays.includes(code)) : []
-    expect(pourFiche('ng')).toEqual([])
+    // Le référentiel d'agences couvre le Ghana, hors UEMOA et sans gabarit chez nous. L'ancien
+    // filtre « pays OU commun » le laissait passer sur les documents communs : sa fiche Autorité
+    // annonçait « 4 modèles déjà réglés pour Ghana » et renvoyait vers une bibliothèque qui
+    // rejette `gh`. La fiche doit rester muette, pas promettre puis se dédire.
+    const pourFiche = (code: string) => INDEX.filter((m) => m.pays.includes(code))
     expect(pourFiche('gh')).toEqual([])
-    // Et les huit pays servis, eux, ont bien leurs modèles.
-    for (const k of CODES) expect(pourFiche(k).length, k).toBeGreaterThan(0)
+    expect(pourFiche('zz')).toEqual([])
+    // Le Nigeria, lui, est servi — mais par son seul gabarit, pas par les documents communs.
+    expect(pourFiche('ng').map((m) => m.slug)).toEqual(['rcp'])
+    // Et les huit pays de l'UEMOA ont bien tous leurs modèles.
+    for (const k of CODES) expect(pourFiche(k).length, k).toBe(INDEX.length)
   })
 })
 

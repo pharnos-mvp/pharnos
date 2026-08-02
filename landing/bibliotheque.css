@@ -228,76 +228,36 @@
 }
 
 /* ══ Choix du pays — l'entrée de la bibliothèque ══
-   Le pays se choisit UNE fois : ces cartes sont donc la première chose que voit le déposant.
-   Même grille et même survol que les cartes de modèle, pour que l'enchaînement se lise comme
-   une suite et non comme deux écrans étrangers. */
-.pays-grid {
-  list-style: none;
-  display: grid;
-  gap: 12px;
-  margin-top: 14px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-@media (min-width: 640px) {
-  .pays-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
+   La carte de pays reprend EXACTEMENT le patron de la carte de modèle (`.piece-card`) : même
+   vignette, même titre, même ligne de méta. « Je choisis mon pays » puis « je choisis mon
+   document » se lisent alors comme une seule suite. Seules deux choses s'ajoutent ici : le
+   bouton (une carte de pays agit, elle ne navigue pas) et la pastille de drapeau. */
 .pays-card {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  width: 100%;
-  background: #fff;
-  border: 1px solid var(--g200);
-  border-radius: 12px;
-  padding: 13px 14px;
-  text-align: left;
   cursor: pointer;
-  transition: all 0.15s ease;
 }
-.pays-card:hover {
-  border-color: var(--g400);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(10, 22, 40, 0.1);
+/* Pastille de drapeau — posée SUR la vignette, en bas à droite : on reconnaît un pays à l'œil,
+   avant de lire son nom. `position: absolute` exige un contexte : la vignette le fournit. */
+.pays-card .piece-thumb {
+  position: relative;
 }
-@media (prefers-reduced-motion: reduce) {
-  .pays-card:hover {
-    transform: none;
-  }
-}
-/* Le drapeau garde son ratio 3:2 et ne se déforme jamais : un drapeau étiré se remarque. */
-.pays-card .fl,
-.pays-bar-fl {
-  flex-shrink: 0;
+.fl-sticker {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
   width: 30px;
   height: 20px;
   border-radius: 3px;
   overflow: hidden;
-  box-shadow: 0 0 0 1px rgba(10, 22, 40, 0.12);
   display: block;
+  background: #fff;
+  box-shadow:
+    0 0 0 2px #fff,
+    0 1px 4px rgba(10, 22, 40, 0.28);
 }
-.pays-card .fl svg,
-.pays-bar-fl svg {
+.fl-sticker svg {
   width: 30px;
   height: 20px;
   display: block;
-}
-.pays-card .tx {
-  min-width: 0;
-}
-.pays-card .nm {
-  display: block;
-  font-family: var(--font-ui);
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--g900);
-}
-.pays-card .ag {
-  display: block;
-  font-size: 11.5px;
-  color: var(--g500);
-  margin-top: 1px;
 }
 
 /* Bandeau du pays retenu — discret, mais toujours visible : le déposant doit pouvoir vérifier
@@ -311,6 +271,21 @@
   border-radius: 12px;
   padding: 11px 14px;
   margin-top: 18px;
+}
+/* Drapeau du bandeau — même dessin et même ratio 3:2 que la pastille des cartes. */
+.pays-bar-fl {
+  flex-shrink: 0;
+  width: 30px;
+  height: 20px;
+  border-radius: 3px;
+  overflow: hidden;
+  display: block;
+  box-shadow: 0 0 0 1px rgba(10, 22, 40, 0.12);
+}
+.pays-bar-fl svg {
+  width: 30px;
+  height: 20px;
+  display: block;
 }
 .pays-bar-tx {
   min-width: 0;

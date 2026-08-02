@@ -8,14 +8,17 @@
 
 /* ⚠️ Le `?v=` des imports N'EST PAS décoratif — Cloudflare impose `max-age=14400` et un module
    importé PAR un module n'hérite pas du `?v=` du HTML. À bumper avec le HTML. */
-import { MODELES_FICHIERS } from "./checking/modeles-manifest.js?v=2026.7";
+import {
+  MODELES_FICHIERS,
+  MODELES_PAYS,
+} from "./checking/modeles-manifest.js?v=2026.10";
 import {
   activitesDe,
   fichierModele,
   paysDuModele,
+  paysServisPar,
   tailleLisible,
-} from "./checking/bibliotheque-core.js?v=2026.7";
-import { PAYS } from "./checking/referentiel.js?v=2026.2";
+} from "./checking/bibliotheque-core.js?v=2026.10";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -107,11 +110,17 @@ function carte(slug) {
   const servis = paysDuModele(slug);
   const pays = servis.includes(S.pays) ? S.pays : servis[0];
   const f = fichierModele(slug, pays);
-  // « PDF officiel » seulement si TOUS les pays servis le sont : la lettre de demande est le
-  // fichier de l'ABMed au Bénin mais un Word bilingue ailleurs — l'annoncer officielle sur la
-  // grille tromperait sept déposants sur huit. La page du document, elle, sait le pays choisi.
-  const tousOfficiels = Object.values(m.fichiers).every((x) => x.officiel);
-  const langues = tousOfficiels
+  // Le format annoncé est celui du fichier DU PAYS RETENU : le RCP est un PDF de l'AIRP en Côte
+  // d'Ivoire et de la NAFDAC au Nigeria, un Word bilingue ailleurs.
+  //
+  // ⚠️ Tant qu'aucun pays n'est choisi, `pays` vaut le PREMIER servi — le Bénin. S'y fier
+  // annonçait « PDF officiel » sur la lettre de demande, vraie au Bénin seulement : sept
+  // déposants sur huit lisaient une provenance qui n'était pas la leur. Sans pays, on ne
+  // l'affirme donc que si TOUS les fichiers du document le sont.
+  const officiel = S.pays
+    ? f.officiel
+    : Object.values(m.fichiers).every((x) => x.officiel);
+  const langues = officiel
     ? L(["PDF officiel", "Official PDF"])
     : m.bilingue
       ? "Word FR + EN"
@@ -163,31 +172,36 @@ const LIBELLE_ACTE = {
 
 const S = { pays: null };
 
-/**
- * L'agence d'un pays, NOMMÉE — telle qu'elle apparaît dans les lettres.
- *
- * Lue dans le manifeste, qui la tient du référentiel d'agences du builder : c'est la même source
- * que le bloc destinataire. Le référentiel du Checking, lui, dit « l'autorité nationale » pour la
- * Guinée-Bissau et le Niger — une carte qui l'afficherait promettrait autre chose que la lettre
- * qu'elle ouvre, qui nomme la DIFALRM et la DPM/MT.
- */
-function agenceDe(k) {
-  for (const m of Object.values(MODELES_FICHIERS))
-    for (const [cle, f] of Object.entries(m.fichiers))
-      if (f.agence && cle.split("-")[0] === k) return L(f.agence);
-  return null;
-}
+/** Les documents que contient le dossier d'un pays — c'est le chiffre annoncé sur sa carte. */
+const docsDuPays = (k) =>
+  Object.keys(MODELES_FICHIERS).filter((slug) =>
+    paysServisPar(slug).includes(k),
+  );
 
-/** Carte de pays : drapeau, nom, et l'autorité à qui les lettres seront adressées. */
+/**
+ * Carte de PAYS — même patron vertical que les cartes de modèle : une vignette, un titre, une
+ * ligne de méta. L'enchaînement « je choisis mon pays » puis « je choisis mon document » se lit
+ * alors comme une seule suite, et non comme deux écrans étrangers.
+ *
+ * La vignette reprend le fac-similé du premier document du dossier — la structure d'un RCP, pas
+ * une illustration décorative. Le drapeau est une PASTILLE posée dessus : reconnaître son pays
+ * doit se faire à l'œil, avant de lire.
+ */
 function cartePays(p) {
-  const agence = agenceDe(p.k) ?? L(Array.isArray(p.ag) ? p.ag : [p.ag, p.ag]);
+  const docs = docsDuPays(p.k);
+  const agence = L(p.agence);
+  const n = docs.length;
+  const meta = `${n} document${n > 1 ? "s" : ""} · ${agence}`;
+  // Aperçu : celui du premier document servi à ce pays, faute de quoi la carte serait vide.
+  const apercu = MODELES_FICHIERS[docs[0]]?.apercu ?? [];
   return `<li>
-    <button class="pays-card" type="button" data-pays="${esc(p.k)}">
-      <span class="fl" aria-hidden="true"><svg><use href="#fl-${esc(p.k)}"/></svg></span>
-      <span class="tx">
-        <span class="nm">${esc(L(p.nom))}</span>
-        <span class="ag">${esc(agence)}</span>
+    <button class="piece-card pays-card" type="button" data-pays="${esc(p.k)}">
+      <span class="piece-thumb">
+        ${facSimile(apercu)}
+        <span class="fl-sticker" aria-hidden="true"><svg><use href="#fl-${esc(p.k)}"/></svg></span>
       </span>
+      <span class="nm">${esc(L(p.nom))}</span>
+      <span class="mt2"><span class="m">${esc(meta)}</span></span>
     </button>
   </li>`;
 }
@@ -202,7 +216,7 @@ const masquer = (sel, v) => {
 
 function peindre() {
   const choisi = Boolean(S.pays);
-  const p = choisi ? PAYS.find((x) => x.k === S.pays) : null;
+  const p = choisi ? MODELES_PAYS.find((x) => x.k === S.pays) : null;
 
   // L'étape pays est une INVITATION, pas une porte : les grilles se peignent TOUJOURS.
   // Les enfermer derrière le choix aurait vidé la page pour deux publics à la fois — les moteurs
@@ -217,27 +231,43 @@ function peindre() {
     if (nom) nom.textContent = L(p.nom);
   } else {
     const g = $("#grid-pays");
-    if (g) g.innerHTML = PAYS.map(cartePays).join("");
+    if (g) g.innerHTML = MODELES_PAYS.map(cartePays).join("");
   }
+
+  // Le DOSSIER DU PAYS, pas le catalogue filtré à l'affichage : un pays ne voit que ce que son
+  // autorité reconnaît. Sans cela, la carte « lettre de demande » serait retombée sur le fichier
+  // béninois faute d'entrée nigériane — un déposant de Lagos serait reparti avec une lettre
+  // adressée à l'ABMed. Tant qu'aucun pays n'est choisi, tout est peint : c'est la vitrine.
+  const visibles = choisi ? docsDuPays(S.pays) : Object.keys(MODELES_FICHIERS);
 
   const tag = $("#tagcount");
   if (tag) {
-    const compte = `${Object.keys(MODELES_FICHIERS).length} ${L(["modèles officiels", "official templates"])}`;
+    // Accordé : le dossier nigérian ne contient qu'une pièce, et « 1 modèles officiels » se
+    // remarque autant qu'une faute d'orthographe sur la page d'accueil du produit gratuit.
+    const n = visibles.length;
+    const compte = `${n} ${
+      n > 1
+        ? L(["modèles officiels", "official templates"])
+        : L(["modèle officiel", "official template"])
+    }`;
     tag.textContent = p ? `${compte} · ${L(p.nom)}` : compte;
   }
 
   const groupes = { produit: [], lettres: [], resumes: [] };
-  for (const slug of Object.keys(MODELES_FICHIERS))
+  for (const slug of visibles)
     groupes[MODELES_FICHIERS[slug].groupe]?.push(slug);
   for (const [g, slugs] of Object.entries(groupes)) {
     const el = $(`#grid-${g}`);
     if (el) el.innerHTML = slugs.map(carte).join("");
+    // Un groupe vide garderait son titre et sa phrase d'introduction au-dessus du vide — la page
+    // promettrait des lettres au Nigeria alors qu'elle n'en sert aucune.
+    masquer(`#sec-${g}`, slugs.length === 0);
   }
 }
 
 /** Retient le pays et l'écrit dans l'URL — sans recharger, pour garder la position de lecture. */
 function choisirPays(k) {
-  S.pays = PAYS.some((p) => p.k === k) ? k : null;
+  S.pays = MODELES_PAYS.some((p) => p.k === k) ? k : null;
   const u = new URL(window.location.href);
   if (S.pays) u.searchParams.set("pays", S.pays);
   else u.searchParams.delete("pays");
@@ -279,6 +309,6 @@ if (window.I18N && typeof window.I18N.on === "function")
   const k = new URLSearchParams(window.location.search)
     .get("pays")
     ?.toLowerCase();
-  S.pays = PAYS.some((p) => p.k === k) ? k : null;
+  S.pays = MODELES_PAYS.some((p) => p.k === k) ? k : null;
 }
 peindre();
