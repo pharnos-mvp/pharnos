@@ -8,7 +8,7 @@
 <title data-fr="Bibliothèque réglementaire — les modèles officiels, pays par pays · Pharnos">Regulatory library — the official templates, country by country · Pharnos</title>
 <meta name="description" content="SmPC, leaflet, labelling: the official template expected where you file, free to download — with your country’s pharmacovigilance statement already in section 4.8. Eight WAEMU countries.">
 <link rel="stylesheet" href="/styles.css?v=15">
-<link rel="stylesheet" href="/bibliotheque.css?v=9">
+<link rel="stylesheet" href="/bibliotheque.css?v=10">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="canonical" href="https://pharnos.com/en/regulatory-library">
@@ -55,6 +55,7 @@
     <symbol id="fl-ne" viewBox="0 0 30 20"><rect width="30" height="6.67" fill="#e05206"></rect><rect y="6.67" width="30" height="6.66" fill="#ffffff"></rect><rect y="13.33" width="30" height="6.67" fill="#0db02b"></rect><circle cx="15" cy="10" r="3" fill="#e05206"></circle></symbol>
     <symbol id="fl-sn" viewBox="0 0 30 20"><rect width="10" height="20" fill="#00853f"></rect><rect x="10" width="10" height="20" fill="#fdef42"></rect><rect x="20" width="10" height="20" fill="#e31b23"></rect><polygon points="15.00,6.40 15.81,8.89 18.42,8.89 16.31,10.42 17.12,12.91 15.00,11.38 12.88,12.91 13.69,10.42 11.58,8.89 14.19,8.89" fill="#00853f"></polygon></symbol>
     <symbol id="fl-tg" viewBox="0 0 30 20"><rect width="30" height="4" fill="#006a4e"></rect><rect y="4" width="30" height="4" fill="#ffce00"></rect><rect y="8" width="30" height="4" fill="#006a4e"></rect><rect y="12" width="30" height="4" fill="#ffce00"></rect><rect y="16" width="30" height="4" fill="#006a4e"></rect><rect width="12" height="12" fill="#d21034"></rect><polygon points="6.00,3.00 6.67,5.07 8.85,5.07 7.09,6.35 7.76,8.43 6.00,7.15 4.24,8.43 4.91,6.35 3.15,5.07 5.33,5.07" fill="#ffffff"></polygon></symbol>
+    <symbol id="fl-ng" viewBox="0 0 30 20"><rect width="10" height="20" fill="#008751"></rect><rect x="10" width="10" height="20" fill="#ffffff"></rect><rect x="20" width="10" height="20" fill="#008751"></rect></symbol>
   </defs>
 </svg>
 
@@ -122,7 +123,7 @@
     <span class="fiche-ico" aria-hidden="true"><svg><use href="#i-doc"></use></svg></span>
     <div class="tx">
       <h1 data-fr="Bibliothèque réglementaire">Regulatory library</h1>
-      <p class="sub" data-fr="Chaque modèle attendu par les autorités UEMOA — prêt à télécharger, déjà réglé sur votre pays de dépôt. Choisissez un document, choisissez votre pays, déposez en confiance.">Every template the WAEMU authorities expect — ready to download, already set for your filing country. Pick a document, choose your country, file with confidence.</p>
+      <p class="sub" data-fr="Chaque modèle attendu par les autorités de la zone — prêt à télécharger, déjà réglé sur votre pays de dépôt. Choisissez un document, choisissez votre pays, déposez en confiance.">Every template the region’s authorities expect — ready to download, already set for your filing country. Pick a document, choose your country, file with confidence.</p>
       <div class="tags">
         <span class="badge b-free" data-fr="Gratuit · sans inscription · sans e-mail">Free · no sign-up · no e-mail</span>
         <span class="badge b-info" id="tagcount"></span>
@@ -141,8 +142,8 @@
          défaut silencieux ferait télécharger le modèle d'un pays que personne n'a choisi. -->
     <section class="bib-sec" id="etape-pays">
       <h2 data-fr="Choisissez votre pays de dépôt">Choose your filing country</h2>
-      <p data-fr="Les modèles qui varient d’un pays à l’autre seront réglés pour lui — autorité, destinataire, mention de pharmacovigilance nationale. Les autres sont identiques dans les huit pays.">The templates that vary from one country to the next will be set for it — authority, addressee, national pharmacovigilance statement. The others are identical across the eight countries.</p>
-      <ul class="pays-grid" id="grid-pays"></ul>
+      <p data-fr="Les modèles qui varient d’un pays à l’autre seront réglés pour lui — autorité, destinataire, mention de pharmacovigilance nationale. Les autres sont identiques d’un pays à l’autre.">The templates that vary from one country to the next will be set for it — authority, addressee, national pharmacovigilance statement. The others are identical from one country to the next.</p>
+      <ul class="piece-grid" id="grid-pays"></ul>
     </section>
 
     <!-- Bandeau du pays retenu — et le moyen d'en changer sans revenir en arrière. -->
@@ -222,7 +223,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="/landing.js?v=15" defer=""></script>
-<script type="module" src="/bibliotheque.js?v=7"></script>
+<script type="module" src="/bibliotheque.js?v=8"></script>
 
 
 </body></html>

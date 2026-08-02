@@ -1348,6 +1348,20 @@ const BTIF = [
 ]
 
 /**
+ * Les pays HORS UEMOA que la bibliothèque sert, en plus des huit.
+ *
+ * ⚠️ Un pays n'entre ici QUE parce que nous détenons le gabarit de son autorité : il n'est servi
+ * que par les documents qui le déclarent dans `officiels`, jamais par nos maquettes régionales ni
+ * par les lettres. La règle n'est pas cosmétique — la maquette RCP est celle de l'ABMed et les
+ * lettres s'adressent à une agence UEMOA ; les proposer sous drapeau nigérian promettrait une
+ * conformité que nous ne pouvons pas tenir.
+ *
+ * Ils ne rejoignent PAS `PAYS` du référentiel du Checking : ce fichier-là est copié vers l'Edge
+ * et pilote le sélecteur du Checking Standard, dont le barème est UEMOA.
+ */
+export const PAYS_HORS_UEMOA = [{ k: 'ng', nom: ['Nigeria', 'Nigeria'] }]
+
+/**
  * Les documents servis, groupés comme sur la page :
  * `produit` (RCP · Notice · Étiquetage — mise à niveau possible) · `lettres` · `resumes`.
  * `bilingue: false` (résumés OMS) = un seul fichier, le formulaire est anglais par nature.
@@ -1371,8 +1385,13 @@ export const DOCS = [
     // français, en Word ou PDF modifiable. On sert donc le fichier de l'autorité tel quel, à
     // l'octet près, et la mise à niveau Regafy AI reconstruit vers CE gabarit-là, pas la maquette
     // ABMed. Les sept autres pays gardent la maquette régionale.
+    // Nigeria : la NAFDAC publie son propre « SmPC Template » (R & R Directorate), calé sur les
+    // lignes directrices WHOPAR. C'est le seul document que la bibliothèque sert sous ce drapeau —
+    // ni notice, ni étiquetage, ni lettre : nos maquettes sont UEMOA et nos lettres s'adressent à
+    // une agence UEMOA. Le déclarer ici, et nulle part ailleurs, suffit à tenir cette limite.
     officiels: {
       ci: 'RA-source/AIRP/CIV_Template RCP.pdf',
+      ng: 'RA-source/Nig_SmPC_Guidance_RAG.pdf',
     },
   },
   {

@@ -44,19 +44,13 @@ export function AutoriteCockpit() {
 
   // Modèles servis POUR CE PAYS.
   //
-  // ⚠️ La section ne s'affiche QUE si la bibliothèque sert ce pays. Le référentiel d'agences
-  // couvre aussi le Nigeria et le Ghana, hors UEMOA : sans cette garde, leur fiche annonçait
-  // « 4 modèles déjà réglés pour Nigeria » et renvoyait vers une bibliothèque qui rejette `ng`
-  // et redemande un pays. L'ensemble servi est DÉRIVÉ de l'index — un neuvième pays ajouté au
-  // manifeste allumera la section tout seul.
+  // ⚠️ La section liste EXACTEMENT ce que la bibliothèque sert sous ce drapeau, et se tait quand
+  // elle ne sert rien. Le référentiel d'agences couvre aussi le Ghana, hors UEMOA : sans cela, sa
+  // fiche annonçait « 4 modèles déjà réglés » et renvoyait vers une bibliothèque qui rejette `gh`.
+  // Le Nigeria, lui, n'a qu'un modèle — le gabarit RCP de la NAFDAC — et n'en montre qu'un.
   const pays = countryLabel(code, lang)
   const k = code.toLowerCase()
-  const modeles = useMemo(() => {
-    const servis = new Set(MODELES_INDEX.flatMap((m) => m.pays).filter((p) => p !== '*'))
-    return servis.has(k)
-      ? MODELES_INDEX.filter((m) => m.pays.includes('*') || m.pays.includes(k))
-      : []
-  }, [k])
+  const modeles = useMemo(() => MODELES_INDEX.filter((m) => m.pays.includes(k)), [k])
   // Liens vers la bibliothèque PUBLIQUE, déjà réglée sur ce pays — l'expert n'y refait pas le
   // choix qu'il vient de faire en ouvrant cette fiche. Les pages EN existent : y envoyer un
   // utilisateur anglophone sur la version française serait un aller simple hors de sa langue.
