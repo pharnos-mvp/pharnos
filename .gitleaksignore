@@ -1,0 +1,15 @@
+# Faux positifs gitleaks, épinglés au COMMIT près.
+#
+# Format : <sha>:<fichier>:<règle>:<ligne>. Un fingerprint ne couvre qu'un commit figé : il ne
+# peut pas s'étendre à un vrai secret déposé plus tard, et il devient caduc de lui-même le jour
+# où l'historique est réécrit. C'est la seule forme d'exception acceptable ici — jamais une règle
+# désactivée, jamais un chemin exclu en bloc.
+#
+# Le scanner CI lit tout l'historique : corriger le fichier ne suffit donc pas, le commit fautif
+# reste. Réécrire une branche déjà poussée coûte plus cher que d'épingler la ligne.
+
+# `const secret = 'jeton-de-recette-assez-long-01'` — valeur de RÉFÉRENCE d'un test unitaire de
+# `essaiAutorise`, inventée pour l'occasion, jamais posée nulle part. La règle `generic-api-key`
+# lit l'affectation à un identifiant nommé `secret`. La variable a été renommée `attendu` dans le
+# commit suivant ; il ne reste que cette empreinte morte.
+fb233954dc18980b2760689cd328a8198a42f6f0:supabase/functions/_shared/checkout-core.test.ts:generic-api-key:120

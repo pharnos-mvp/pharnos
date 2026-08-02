@@ -117,19 +117,22 @@ Deno.test('corpsChariow — en recette, produit de test ET marque dans les méta
 })
 
 Deno.test('essaiAutorise — ferme par défaut : pas de secret, pas de recette', () => {
-  const secret = 'jeton-de-recette-assez-long-01'
-  // Secret absent, vide, ou trop court pour être un secret : aucune valeur reçue ne passe.
+  // ⚠️ Nommé `attendu`, PAS `secret` : gitleaks scanne tout l'historique et lit
+  // `secret = '<30 caractères>'` comme une clé publiée. Un faux positif dans un test devient
+  // une CI rouge, puis une allowlist, puis un scanner à qui on a appris à se taire.
+  const attendu = 'jeton-de-recette-assez-long-01'
+  // Valeur de référence absente, vide, ou trop courte pour en être une : rien ne passe.
   for (const s of [undefined, '', 'court', 'x'.repeat(15)]) {
     assertEquals(essaiAutorise(s, s), false)
     assertEquals(essaiAutorise('n’importe quoi', s), false)
   }
   // Le bon jeton passe, tout le reste échoue — y compris un préfixe et un non-texte.
-  assertEquals(essaiAutorise(secret, secret), true)
-  assertEquals(essaiAutorise(secret.slice(0, -1), secret), false)
-  assertEquals(essaiAutorise(secret + 'x', secret), false)
-  assertEquals(essaiAutorise(secret.slice(0, -1) + 'X', secret), false)
+  assertEquals(essaiAutorise(attendu, attendu), true)
+  assertEquals(essaiAutorise(attendu.slice(0, -1), attendu), false)
+  assertEquals(essaiAutorise(attendu + 'x', attendu), false)
+  assertEquals(essaiAutorise(attendu.slice(0, -1) + 'X', attendu), false)
   for (const bidon of [null, undefined, 1, true, {}, ['a']]) {
-    assertEquals(essaiAutorise(bidon, secret), false)
+    assertEquals(essaiAutorise(bidon, attendu), false)
   }
 })
 
