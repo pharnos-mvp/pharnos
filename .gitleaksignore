@@ -7,9 +7,16 @@
 #
 # Le scanner CI lit tout l'historique : corriger le fichier ne suffit donc pas, le commit fautif
 # reste. Réécrire une branche déjà poussée coûte plus cher que d'épingler la ligne.
+#
+# ⚠️ NE JAMAIS RECOPIER ICI LA LIGNE INCRIMINÉE. Ce fichier est scanné comme les autres : y citer
+# le texte détecté crée un second faux positif, dans le fichier même censé les éteindre. C'est
+# arrivé une fois, d'où la deuxième empreinte ci-dessous. Décrire, ne pas reproduire.
 
-# `const secret = 'jeton-de-recette-assez-long-01'` — valeur de RÉFÉRENCE d'un test unitaire de
-# `essaiAutorise`, inventée pour l'occasion, jamais posée nulle part. La règle `generic-api-key`
-# lit l'affectation à un identifiant nommé `secret`. La variable a été renommée `attendu` dans le
-# commit suivant ; il ne reste que cette empreinte morte.
+# 1) Test unitaire d'`essaiAutorise` : une valeur de référence inventée pour l'occasion était
+#    affectée à une variable dont le NOM déclenche `generic-api-key`. Jamais posée nulle part.
+#    La variable s'appelle `attendu` depuis le commit suivant.
 fb233954dc18980b2760689cd328a8198a42f6f0:supabase/functions/_shared/checkout-core.test.ts:generic-api-key:120
+
+# 2) La première version de CE fichier citait la ligne du point 1 dans son commentaire — et se
+#    faisait donc détecter à son tour. Commentaire réécrit, empreinte morte épinglée.
+561318455b32678603120037ae4ed078a2d22282:.gitleaksignore:generic-api-key:11
