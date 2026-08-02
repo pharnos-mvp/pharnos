@@ -29,6 +29,7 @@ import {
   prixCourt,
   prixDouble,
   tailleLisible,
+  TRIO_UPGRADABLE,
   TTL_MS,
   validerFichier,
 } from "./checking/bibliotheque-core.js?v=2026.10";
@@ -509,25 +510,32 @@ $$("#uact .chip").forEach((c) =>
   }),
 );
 
+/** Le refus d'un fichier se dit d'UNE seule voix : la cause nommée, et la vraie limite —
+ *  écrire « 12 Mo » quelque part alors que `MAX_OCTETS` en vaut 40 envoie le client corriger
+ *  un problème qu'il n'a pas. */
+function messageFichierRefuse(raison) {
+  toast(
+    L(
+      {
+        absent: ["Choisissez un document.", "Choose a document."],
+        extension: [
+          "Formats acceptés : PDF, Word (.doc, .docx).",
+          "Accepted formats: PDF, Word (.doc, .docx).",
+        ],
+        vide: ["Ce fichier est vide.", "This file is empty."],
+        trop_gros: [
+          `Ce document dépasse ${tailleLisible(MAX_OCTETS, lang)}. Envoyez-nous-le à contact@pharnos.com.`,
+          `This document exceeds ${tailleLisible(MAX_OCTETS, lang)}. Send it to contact@pharnos.com.`,
+        ],
+      }[raison],
+    ),
+  );
+}
+
 function poserFichier(file) {
   const v = validerFichier(file);
   if (!v.ok) {
-    toast(
-      L(
-        {
-          absent: ["Choisissez un document.", "Choose a document."],
-          extension: [
-            "Formats acceptés : PDF, Word (.doc, .docx).",
-            "Accepted formats: PDF, Word (.doc, .docx).",
-          ],
-          vide: ["Ce fichier est vide.", "This file is empty."],
-          trop_gros: [
-            `Ce document dépasse ${tailleLisible(MAX_OCTETS, lang)}. Envoyez-nous-le à contact@pharnos.com.`,
-            `This document exceeds ${tailleLisible(MAX_OCTETS, lang)}. Send it to contact@pharnos.com.`,
-          ],
-        }[v.raison],
-      ),
-    );
+    messageFichierRefuse(v.raison);
     return;
   }
   S.fichier = file;
@@ -547,6 +555,90 @@ function retirerFichier() {
   $("#udrop").hidden = false;
   peindreAchat();
   $("#udrop").focus();
+}
+
+/* ── Bundle : les DEUX autres documents se déposent avant le paiement ────────────────────
+   Vendre « les trois documents » puis n'en collecter qu'un obligeait à réclamer le reste par
+   e-mail après encaissement — la commande partait sans sa matière, et le client devait
+   travailler après avoir payé. Les trois documents d'information sont un TRIO fermé : celui
+   qu'on regarde, plus les deux autres. ── */
+
+/** Les deux documents qui manquent au trio quand on regarde `S.doc`. La liste vient du
+ *  manifeste (`TRIO_UPGRADABLE`), jamais d'une copie : elle doit rester celle que
+ *  `nouvelleCommande` exige, sinon le formulaire collecte ce que la commande refuse. */
+const autresDuTrio = () => TRIO_UPGRADABLE.filter((s) => s !== S.doc);
+
+/** Fichiers du bundle, par slug. Vidé dès qu'on repasse à l'offre simple : garder un fichier
+ *  pour une offre qu'on n'achète plus le ferait voyager jusqu'à la commande. */
+const bundleFichiers = new Map();
+
+function peindreBundle() {
+  const trois = offreChoisie === "up3";
+  $("#bundlezone").hidden = !trois;
+  if (!trois) return;
+  const manquants = autresDuTrio();
+  $("#bundlelab").textContent = L([
+    "Les deux autres documents",
+    "The two other documents",
+  ]);
+  const slots = $("#bundleslots");
+  // Reconstruit à chaque peinture : le document regardé peut changer, donc le duo aussi.
+  slots.innerHTML = "";
+  for (const slug of manquants) {
+    const m = MODELES_FICHIERS[slug];
+    const f = bundleFichiers.get(slug) ?? null;
+    const ligne = document.createElement("div");
+    ligne.className = "bundle-slot";
+    if (f) {
+      ligne.innerHTML =
+        `<span class="ico" aria-hidden="true">▤</span>` +
+        `<span class="fx"><span class="nm">${esc(L(m.court))}</span>` +
+        `<span class="mt">${esc(f.name)} · ${esc(tailleLisible(f.size, lang))}</span></span>`;
+      const x = document.createElement("button");
+      x.type = "button";
+      x.className = "x";
+      x.textContent = "×";
+      x.setAttribute(
+        "aria-label",
+        L([`Retirer ${L(m.court)}`, `Remove ${L(m.court)}`]),
+      );
+      x.addEventListener("click", () => {
+        bundleFichiers.delete(slug);
+        peindreBundle();
+      });
+      ligne.appendChild(x);
+    } else {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "bundle-add";
+      b.innerHTML =
+        `<span class="ic" aria-hidden="true">⤒</span>` +
+        `<span class="t">${esc(L([`Déposer ${L(m.court)}`, `Upload ${L(m.court)}`]))}</span>`;
+      b.addEventListener("click", () => choisirFichierBundle(slug));
+      ligne.appendChild(b);
+    }
+    slots.appendChild(ligne);
+  }
+}
+
+/** Ouvre le sélecteur natif pour un document du bundle. Un `<input>` jetable plutôt qu'un champ
+ *  par slug : le duo change avec le document regardé, un champ figé mentirait. */
+function choisirFichierBundle(slug) {
+  const inp = document.createElement("input");
+  inp.type = "file";
+  inp.accept = ".pdf,.doc,.docx";
+  inp.addEventListener("change", () => {
+    const f = inp.files && inp.files[0];
+    if (!f) return;
+    const v = validerFichier(f);
+    if (!v.ok) {
+      messageFichierRefuse(v.raison);
+      return;
+    }
+    bundleFichiers.set(slug, f);
+    peindreBundle();
+  });
+  inp.click();
 }
 
 $("#udrop").addEventListener("click", () => $("#ufile").click());
@@ -634,79 +726,139 @@ async function purger() {
 const CHECKOUT_API =
   "https://uhsireqwzqqymgsxuvqh.supabase.co/functions/v1/checkout";
 
-/** Indicatifs proposés : les huit pays servis d'abord (le marché), puis voisins, places
- *  d'affaires du secteur et diaspora. L'ISO part au serveur, l'indicatif n'est là que pour
- *  l'œil — et le serveur dédoublonne le préfixe d'une saisie internationale. */
+/**
+ * Indicatifs proposés au paiement — les huit pays servis d'abord (le marché), puis la CEDEAO,
+ * l'Afrique centrale, le Maghreb, l'Afrique de l'Est et australe, l'Europe, les Amériques,
+ * le Moyen-Orient, l'Asie et l'Océanie. `[ISO, indicatif, [nom FR, nom EN]]`.
+ *
+ * ⚠️ Tout ISO ajouté ici doit exister dans `INDICATIFS` de `supabase/functions/_shared/
+ * checkout-core.ts`, qui s'en sert pour DÉDOUBLONNER l'indicatif d'une saisie internationale.
+ * Un pays présent ici et absent là-bas envoie « +229229… » au processeur, qui refuse — et le
+ * refus ressemble à une faute du client. Le test « indicatifs-jumeaux » échoue si ça arrive.
+ */
 const INDICATIFS = [
-  ["BJ", "+229"],
-  ["BF", "+226"],
-  ["CI", "+225"],
-  ["GW", "+245"],
-  ["ML", "+223"],
-  ["NE", "+227"],
-  ["SN", "+221"],
-  ["TG", "+228"],
-  ["CM", "+237"],
-  ["CD", "+243"],
-  ["CG", "+242"],
-  ["GA", "+241"],
-  ["GN", "+224"],
-  ["GH", "+233"],
-  ["NG", "+234"],
-  ["MR", "+222"],
-  ["TD", "+235"],
-  ["MA", "+212"],
-  ["DZ", "+213"],
-  ["TN", "+216"],
-  ["EG", "+20"],
-  ["KE", "+254"],
-  ["ZA", "+27"],
-  ["FR", "+33"],
-  ["BE", "+32"],
-  ["CH", "+41"],
-  ["DE", "+49"],
-  ["GB", "+44"],
-  ["PT", "+351"],
-  ["ES", "+34"],
-  ["US", "+1"],
-  ["CA", "+1"],
-  ["AE", "+971"],
-  ["TR", "+90"],
-  ["IN", "+91"],
-  ["CN", "+86"],
+  ["BJ", "229", ["Bénin", "Benin"]],
+  ["BF", "226", ["Burkina Faso", "Burkina Faso"]],
+  ["CI", "225", ["Côte d'Ivoire", "Côte d'Ivoire"]],
+  ["GW", "245", ["Guinée-Bissau", "Guinea-Bissau"]],
+  ["ML", "223", ["Mali", "Mali"]],
+  ["NE", "227", ["Niger", "Niger"]],
+  ["SN", "221", ["Sénégal", "Senegal"]],
+  ["TG", "228", ["Togo", "Togo"]],
+  ["GH", "233", ["Ghana", "Ghana"]],
+  ["GN", "224", ["Guinée", "Guinea"]],
+  ["LR", "231", ["Liberia", "Liberia"]],
+  ["NG", "234", ["Nigéria", "Nigeria"]],
+  ["SL", "232", ["Sierra Leone", "Sierra Leone"]],
+  ["CV", "238", ["Cap-Vert", "Cape Verde"]],
+  ["GM", "220", ["Gambie", "Gambia"]],
+  ["MR", "222", ["Mauritanie", "Mauritania"]],
+  ["TD", "235", ["Tchad", "Chad"]],
+  ["CM", "237", ["Cameroun", "Cameroon"]],
+  ["CF", "236", ["Centrafrique", "Central African Rep."]],
+  ["CG", "242", ["Congo", "Congo"]],
+  ["CD", "243", ["RD Congo", "DR Congo"]],
+  ["GA", "241", ["Gabon", "Gabon"]],
+  ["GQ", "240", ["Guinée équatoriale", "Equatorial Guinea"]],
+  ["ST", "239", ["Sao Tomé-et-Principe", "São Tomé & Príncipe"]],
+  ["AO", "244", ["Angola", "Angola"]],
+  ["MA", "212", ["Maroc", "Morocco"]],
+  ["DZ", "213", ["Algérie", "Algeria"]],
+  ["TN", "216", ["Tunisie", "Tunisia"]],
+  ["LY", "218", ["Libye", "Libya"]],
+  ["EG", "20", ["Égypte", "Egypt"]],
+  ["KE", "254", ["Kenya", "Kenya"]],
+  ["TZ", "255", ["Tanzanie", "Tanzania"]],
+  ["UG", "256", ["Ouganda", "Uganda"]],
+  ["RW", "250", ["Rwanda", "Rwanda"]],
+  ["BI", "257", ["Burundi", "Burundi"]],
+  ["ET", "251", ["Éthiopie", "Ethiopia"]],
+  ["ZA", "27", ["Afrique du Sud", "South Africa"]],
+  ["MU", "230", ["Maurice", "Mauritius"]],
+  ["MG", "261", ["Madagascar", "Madagascar"]],
+  ["ZM", "260", ["Zambie", "Zambia"]],
+  ["ZW", "263", ["Zimbabwe", "Zimbabwe"]],
+  ["MZ", "258", ["Mozambique", "Mozambique"]],
+  ["BW", "267", ["Botswana", "Botswana"]],
+  ["NA", "264", ["Namibie", "Namibia"]],
+  ["FR", "33", ["France", "France"]],
+  ["BE", "32", ["Belgique", "Belgium"]],
+  ["CH", "41", ["Suisse", "Switzerland"]],
+  ["DE", "49", ["Allemagne", "Germany"]],
+  ["ES", "34", ["Espagne", "Spain"]],
+  ["PT", "351", ["Portugal", "Portugal"]],
+  ["IT", "39", ["Italie", "Italy"]],
+  ["NL", "31", ["Pays-Bas", "Netherlands"]],
+  ["LU", "352", ["Luxembourg", "Luxembourg"]],
+  ["GB", "44", ["Royaume-Uni", "United Kingdom"]],
+  ["IE", "353", ["Irlande", "Ireland"]],
+  ["AT", "43", ["Autriche", "Austria"]],
+  ["SE", "46", ["Suède", "Sweden"]],
+  ["DK", "45", ["Danemark", "Denmark"]],
+  ["NO", "47", ["Norvège", "Norway"]],
+  ["FI", "358", ["Finlande", "Finland"]],
+  ["PL", "48", ["Pologne", "Poland"]],
+  ["GR", "30", ["Grèce", "Greece"]],
+  ["RO", "40", ["Roumanie", "Romania"]],
+  ["US", "1", ["États-Unis", "United States"]],
+  ["CA", "1", ["Canada", "Canada"]],
+  ["BR", "55", ["Brésil", "Brazil"]],
+  ["MX", "52", ["Mexique", "Mexico"]],
+  ["AR", "54", ["Argentine", "Argentina"]],
+  ["HT", "509", ["Haïti", "Haiti"]],
+  ["AE", "971", ["Émirats arabes unis", "United Arab Emirates"]],
+  ["SA", "966", ["Arabie saoudite", "Saudi Arabia"]],
+  ["QA", "974", ["Qatar", "Qatar"]],
+  ["LB", "961", ["Liban", "Lebanon"]],
+  ["TR", "90", ["Turquie", "Türkiye"]],
+  ["IN", "91", ["Inde", "India"]],
+  ["PK", "92", ["Pakistan", "Pakistan"]],
+  ["BD", "880", ["Bangladesh", "Bangladesh"]],
+  ["CN", "86", ["Chine", "China"]],
+  ["JP", "81", ["Japon", "Japan"]],
+  ["KR", "82", ["Corée du Sud", "South Korea"]],
+  ["SG", "65", ["Singapour", "Singapore"]],
+  ["MY", "60", ["Malaisie", "Malaysia"]],
+  ["ID", "62", ["Indonésie", "Indonesia"]],
+  ["TH", "66", ["Thaïlande", "Thailand"]],
+  ["VN", "84", ["Viêt Nam", "Vietnam"]],
+  ["PH", "63", ["Philippines", "Philippines"]],
+  ["AU", "61", ["Australie", "Australia"]],
+  ["NZ", "64", ["Nouvelle-Zélande", "New Zealand"]],
 ];
 
-/** Noms des pays HORS référentiel UEMOA — `nomPays` ne connaît que les huit servis. */
-const NOMS_INDICATIFS = {
-  CM: ["Cameroun", "Cameroon"],
-  CD: ["RD Congo", "DR Congo"],
-  CG: ["Congo", "Congo"],
-  GA: ["Gabon", "Gabon"],
-  GN: ["Guinée", "Guinea"],
-  GH: ["Ghana", "Ghana"],
-  NG: ["Nigéria", "Nigeria"],
-  MR: ["Mauritanie", "Mauritania"],
-  TD: ["Tchad", "Chad"],
-  MA: ["Maroc", "Morocco"],
-  DZ: ["Algérie", "Algeria"],
-  TN: ["Tunisie", "Tunisia"],
-  EG: ["Égypte", "Egypt"],
-  KE: ["Kenya", "Kenya"],
-  ZA: ["Afrique du Sud", "South Africa"],
-  FR: ["France", "France"],
-  BE: ["Belgique", "Belgium"],
-  CH: ["Suisse", "Switzerland"],
-  DE: ["Allemagne", "Germany"],
-  GB: ["Royaume-Uni", "United Kingdom"],
-  PT: ["Portugal", "Portugal"],
-  ES: ["Espagne", "Spain"],
-  US: ["États-Unis", "United States"],
-  CA: ["Canada", "Canada"],
-  AE: ["Émirats arabes unis", "United Arab Emirates"],
-  TR: ["Turquie", "Türkiye"],
-  IN: ["Inde", "India"],
-  CN: ["Chine", "China"],
-};
+/* ── Le champ d'indicatif : un texte cherchable, pas un menu de 88 lignes ───────────────────
+   Le `<datalist>` du navigateur fait la recherche ; nous ne gardons que la traduction entre ce
+   que l'acheteur LIT (« Bénin +229 ») et ce que le serveur ATTEND (« BJ »). Un libellé libre
+   qui ne correspond à rien n'est jamais deviné : mieux vaut le dire que facturer sous un pays
+   qu'on a supposé. ── */
+
+/** « Bénin +229 » — ce qui s'affiche dans le champ et ce sur quoi porte la recherche. */
+const libelleIndicatif = ([, code, nom]) => `${L(nom)} +${code}`;
+
+/** ISO du pays dont le libellé (ou le seul nom) correspond à la saisie. `""` si rien ne colle.
+ *  La comparaison ignore casse, accents et espaces : « cote divoire » trouve la Côte d'Ivoire. */
+function isoIndicatif(saisie) {
+  const norm = (x) =>
+    String(x)
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9+]/g, "");
+  const cible = norm(saisie);
+  if (!cible) return "";
+  const exact = INDICATIFS.find((e) => norm(libelleIndicatif(e)) === cible);
+  if (exact) return exact[0];
+  // Repli : le nom seul, sans l'indicatif — l'acheteur peut avoir effacé le « +229 ».
+  const parNom = INDICATIFS.find((e) => e[2].some((n) => norm(n) === cible));
+  return parNom ? parNom[0] : "";
+}
+
+/** Écrit dans le champ le libellé complet d'un ISO — l'acheteur voit toujours un pays nommé. */
+function poserIndicatif(iso) {
+  const e = INDICATIFS.find(([i]) => i === iso);
+  if (e) $("#payind").value = libelleIndicatif(e);
+}
 
 /** Indicatif retenu sur cet appareil — un acheteur garde son numéro d'un dépôt à l'autre. */
 const CLE_INDICATIF = "pharnos.indicatif";
@@ -736,34 +888,36 @@ function choisirOffre(offre) {
     `Payer — ${prixCourt(PRIX[offre], lang)}`,
     `Pay — ${prixCourt(PRIX[offre], lang)}`,
   ]);
+  // Repasser à l'offre simple VIDE les deux autres dépôts : un fichier gardé pour une offre
+  // qu'on n'achète plus voyagerait jusqu'à la commande.
+  if (offre !== "up3") bundleFichiers.clear();
+  peindreBundle();
 }
 
 function ouvrirIdentite(offre) {
   choisirOffre(offre);
-  // Reconstruit à CHAQUE ouverture (et non une fois) : les libellés portent des noms de pays
+  // Reconstruite à CHAQUE ouverture (et non une fois) : les libellés portent des noms de pays
   // traduits — un panneau rouvert après bascule de langue garderait sinon l'ancienne.
-  const ind = $("#payind");
-  const deja = ind.value;
-  ind.innerHTML = "";
-  for (const [iso, code] of INDICATIFS) {
+  const liste = $("#payindlist");
+  liste.innerHTML = "";
+  for (const e of INDICATIFS) {
     const o = document.createElement("option");
-    o.value = iso;
-    // ⚠️ `nomPays` ne connaît que les huit pays servis — les autres portent leur nom dans la
-    // liste, sinon le repli silencieux de `nomPays` les étiquetterait tous « Bénin ».
-    o.textContent = `${NOMS_INDICATIFS[iso] ? L(NOMS_INDICATIFS[iso]) : nomPays(iso.toLowerCase())} ${code}`;
-    ind.appendChild(o);
+    o.value = libelleIndicatif(e);
+    liste.appendChild(o);
   }
   // ⚠️ L'indicatif ne se déduit PAS du pays de dépôt : un consultant RA béninois dépose au
   // Niger avec son numéro béninois — c'est la norme du métier. Déduire l'un de l'autre faisait
   // refuser le paiement par le processeur (« Niger +227 » sur un numéro béninois, vu le 31/07).
   // On garde donc le dernier indicatif choisi SUR CET APPAREIL, à défaut le premier de la liste.
-  let prefere = deja;
-  try {
-    prefere = prefere || localStorage.getItem(CLE_INDICATIF) || "";
-  } catch {
-    /* navigation privée : on retombe sur le premier de la liste */
+  let prefere = isoIndicatif($("#payind").value);
+  if (!prefere) {
+    try {
+      prefere = localStorage.getItem(CLE_INDICATIF) || "";
+    } catch {
+      /* navigation privée : on retombe sur le premier de la liste */
+    }
   }
-  if (INDICATIFS.some(([iso]) => iso === prefere)) ind.value = prefere;
+  poserIndicatif(INDICATIFS.some(([iso]) => iso === prefere) ? prefere : "BJ");
   etapePanneau(4);
 }
 
@@ -871,7 +1025,7 @@ async function acheter(offre) {
     nom: $("#paynom").value.trim(),
     email: $("#payemail").value.trim(),
     telephone: $("#paytel").value.trim(),
-    paysTel: $("#payind").value,
+    paysTel: isoIndicatif($("#payind").value),
   };
   // Le nom du champ métier n'est PAS l'id du nœud (`telephone` → `#paytel`) : la table évite
   // un focus sur un sélecteur fantôme.
@@ -880,7 +1034,33 @@ async function acheter(offre) {
     nom: "paynom",
     email: "payemail",
     telephone: "paytel",
+    paysTel: "payind",
   };
+  // Le champ d'indicatif accepte une saisie libre : une valeur qui ne se résout pas est une
+  // faute à dire, jamais un pays à deviner — on ne facture pas sous un drapeau supposé.
+  if (!identite.paysTel) {
+    toast(
+      L([
+        "Choisissez le pays de votre indicatif dans la liste.",
+        "Pick your dialling code country from the list.",
+      ]),
+    );
+    $("#payind").focus();
+    return;
+  }
+  // Le bundle SANS ses deux documents ne doit pas partir dans `nouvelleCommande`, qui lèverait
+  // et afficherait « Impossible d'enregistrer la commande » — un message qui accuse l'appareil
+  // du client alors qu'il lui manque simplement deux fichiers.
+  if (offre === "up3" && bundleFichiers.size !== autresDuTrio().length) {
+    toast(
+      L([
+        "Déposez les deux autres documents avant de payer.",
+        "Upload the two other documents before paying.",
+      ]),
+    );
+    $("#bundleslots button")?.focus();
+    return;
+  }
   const manquant = ["prenom", "nom", "email", "telephone"].find(
     (k) => !identite[k],
   );
@@ -918,6 +1098,10 @@ async function acheter(offre) {
       fichier: S.fichier,
       nomFichier: S.fichier.name,
       octets: S.fichier.size,
+      annexes:
+        offre === "up3"
+          ? [...bundleFichiers].map(([doc, fichier]) => ({ doc, fichier }))
+          : [],
       id: crypto.randomUUID(),
       cree: Date.now(),
     });
@@ -925,6 +1109,9 @@ async function acheter(offre) {
     // Sans cela, le client paie et se retrouve sans document. L'identité, elle, n'est PAS
     // conservée ici — elle ne sert qu'à la session, Chariow en devient le dépositaire.
     await sauverCommande(cmd);
+    // La commande porte désormais les fichiers : les garder en mémoire ferait rouvrir le
+    // panneau avec les dépôts d'une commande déjà passée.
+    bundleFichiers.clear();
 
     const session = await sessionPaiement(cmd, identite);
     if (session.erreur === "plafond") {
@@ -1013,14 +1200,21 @@ $("#buy1").addEventListener("click", () => {
     $("#udrop").focus();
     return;
   }
-  ouvrirIdentite("up1");
+  // ⚠️ `offreChoisie`, PAS "up1" : revenir en arrière puis recommander rétrogradait la
+  // commande de 69 € à 29 € et effaçait les deux dépôts, sans un mot.
+  ouvrirIdentite(offreChoisie);
 });
 $$("#upg-e4 .offer-opt").forEach((b) =>
   b.addEventListener("click", () => choisirOffre(b.dataset.offre)),
 );
-$("#payind").addEventListener("change", (e) => {
+$("#payind").addEventListener("change", () => {
+  // On ne retient QUE ce qui se résout : mémoriser une saisie libre reviendrait à la reproposer
+  // à la visite suivante, toujours aussi invalide.
+  const iso = isoIndicatif($("#payind").value);
+  if (!iso) return;
+  poserIndicatif(iso);
   try {
-    localStorage.setItem(CLE_INDICATIF, e.target.value);
+    localStorage.setItem(CLE_INDICATIF, iso);
   } catch {
     /* le choix vaut pour cette session, c'est déjà l'essentiel */
   }
@@ -1084,19 +1278,28 @@ function ouvrirConfirmation(cmd) {
   const offre = trois
     ? L(["les trois documents", "all three documents"])
     : L(["un document", "one document"]);
+  // Le récapitulatif nomme TOUS les fichiers reçus : sur un bundle, l'acheteur doit voir que
+  // ses trois documents sont bien là et n'a plus rien à envoyer.
+  const recus = [
+    `${cmd.nomFichier} (${tailleLisible(cmd.octets, lang)})`,
+    ...(cmd.annexes ?? []).map(
+      (a) => `${a.nomFichier} (${tailleLisible(a.octets, lang)})`,
+    ),
+  ];
   $("#cfmrecap").textContent =
     `${L(m.nom)} · ${nomPays(cmd.pays)} · ${libelleActivite(cmd.activite)} · ${offre}` +
-    ` · ${cmd.nomFichier} (${tailleLisible(cmd.octets, lang)})`;
-  $("#cfmnext").textContent = trois
-    ? L([
-        "Dernière étape : envoyez-nous vos documents. Nous ouvrons l'e-mail, référence déjà inscrite — joignez le RCP, la notice et l'étiquetage, ensemble ou au fil de l'eau. Les fichiers vous reviennent par le même canal.",
-        "Last step: send us your documents. We open the e-mail with the reference already filled in — attach the SmPC, the leaflet and the labelling, together or as they come. The deliverables come back the same way.",
-      ])
-    : L([
-        "Dernière étape : envoyez-nous votre document. Nous ouvrons l'e-mail, référence déjà inscrite — il ne vous reste qu'à joindre le fichier. Les 5 fichiers vous reviennent par le même canal.",
-        "Last step: send us your document. We open the e-mail with the reference already filled in — you only attach the file. The 5 deliverables come back the same way.",
-      ]);
-  $("#cfmsend").textContent = trois
+    ` · ${recus.join(" · ")}`;
+  // ⚠️ NE JAMAIS écrire que les documents sont « entre nos mains ». Ils ne le sont pas : rien
+  // dans ce dépôt ne les téléverse — ils vivent dans l'IndexedDB de l'acheteur, purgée au TTL.
+  // Le bouton ci-dessous EST le transport. Annoncer une réception qui n'existe pas ferait
+  // fermer l'onglet à un client qui a payé, et son document disparaîtrait sept jours plus tard.
+  const pluriel = recus.length > 1;
+  $("#cfmnext").textContent = L([
+    `Dernière étape : ${pluriel ? "vos documents sont prêts" : "votre document est prêt"} à partir. Nous ouvrons l'e-mail, référence déjà inscrite — ${pluriel ? "joignez-les" : "joignez-le"} et envoyez. Les livrables vous reviennent par le même canal.`,
+    `Last step: your ${pluriel ? "documents are" : "document is"} ready to go. We open the e-mail with the reference already filled in — attach and send. The deliverables come back the same way.`,
+  ]);
+  $("#cfmsend").hidden = false;
+  $("#cfmsend").textContent = pluriel
     ? L(["Envoyer mes documents", "Send my documents"])
     : L(["Envoyer mon document", "Send my document"]);
   const retour = $("#cfmback");

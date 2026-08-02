@@ -39,9 +39,12 @@ export const HOTES_PAIEMENT =
 
 /** Indicatifs des pays proposés par le formulaire — pour dédoublonner une saisie
  *  internationale : `country_code` porte déjà le pays, le numéro n'a pas à répéter le préfixe.
- *  La liste suit celle du sélecteur (`INDICATIFS` de `landing/modele.js`) — un pays absent ici
- *  n'est pas rejeté, il perd seulement le dédoublonnage. */
-const INDICATIFS: Record<string, string> = {
+ *
+ *  ⚠️ JUMELLE de la liste `INDICATIFS` de `landing/modele.js`. Un pays proposé au formulaire
+ *  mais absent ici perd le dédoublonnage : « +229 01 96… » part en `229019…`, le processeur
+ *  refuse, et le refus ressemble à une faute de l'acheteur. Le test `indicatifs-jumeaux`
+ *  échoue si la liste du formulaire déborde celle-ci. */
+export const INDICATIFS: Record<string, string> = {
   BJ: '229',
   BF: '226',
   CI: '225',
@@ -50,49 +53,104 @@ const INDICATIFS: Record<string, string> = {
   NE: '227',
   SN: '221',
   TG: '228',
-  // Voisins et places d'affaires fréquentes du secteur.
-  CM: '237',
-  CD: '243',
-  CG: '242',
-  GA: '241',
-  GN: '224',
   GH: '233',
+  GN: '224',
+  LR: '231',
   NG: '234',
+  SL: '232',
+  CV: '238',
+  GM: '220',
   MR: '222',
   TD: '235',
+  CM: '237',
+  CF: '236',
+  CG: '242',
+  CD: '243',
+  GA: '241',
+  GQ: '240',
+  ST: '239',
+  AO: '244',
   MA: '212',
   DZ: '213',
   TN: '216',
+  LY: '218',
   EG: '20',
   KE: '254',
+  TZ: '255',
+  UG: '256',
+  RW: '250',
+  BI: '257',
+  ET: '251',
   ZA: '27',
-  // Sièges, filiales et diaspora.
+  MU: '230',
+  MG: '261',
+  ZM: '260',
+  ZW: '263',
+  MZ: '258',
+  BW: '267',
+  NA: '264',
   FR: '33',
   BE: '32',
   CH: '41',
   DE: '49',
-  GB: '44',
-  PT: '351',
   ES: '34',
+  PT: '351',
+  IT: '39',
+  NL: '31',
+  LU: '352',
+  GB: '44',
+  IE: '353',
+  AT: '43',
+  SE: '46',
+  DK: '45',
+  NO: '47',
+  FI: '358',
+  PL: '48',
+  GR: '30',
+  RO: '40',
   US: '1',
   CA: '1',
+  BR: '55',
+  MX: '52',
+  AR: '54',
+  HT: '509',
   AE: '971',
+  SA: '966',
+  QA: '974',
+  LB: '961',
   TR: '90',
   IN: '91',
+  PK: '92',
+  BD: '880',
   CN: '86',
+  JP: '81',
+  KR: '82',
+  SG: '65',
+  MY: '60',
+  ID: '62',
+  TH: '66',
+  VN: '84',
+  PH: '63',
+  AU: '61',
+  NZ: '64',
 }
 
-/** Devise de règlement selon le pays de l'acheteur. Les moyens de paiement affichés par le
- *  processeur dépendent du couple pays/devise : un acheteur hors zone XOF sur une offre en
- *  francs CFA se voit proposer un corridor carte qui peut ne pas exister (« Request failed »,
- *  vu le 31/07 sur l'Inde). Zone UEMOA → rien (le XOF natif de la boutique) ; zone euro → EUR ;
- *  tout le reste → USD, la devise carte universelle. */
 const ZONE_XOF = new Set(['BJ', 'BF', 'CI', 'GW', 'ML', 'NE', 'SN', 'TG'])
-const ZONE_EUR = new Set(['FR', 'BE', 'DE', 'ES', 'PT', 'IT', 'NL', 'LU', 'AT', 'IE', 'FI', 'GR'])
+
+/**
+ * Devise de règlement selon le pays de l'acheteur — DEUX valeurs, jamais trois.
+ *
+ * Le prix est annoncé partout `29 € (19 000 FCFA)` : ce sont les deux seules devises que le
+ * client a lues avant de cliquer. Facturer dans une troisième — le dollar, que le processeur
+ * proposait par défaut hors zone — lui montre au paiement un montant qu'il n'a jamais vu
+ * (« $33.68 » pour 19 000 FCFA, vu le 31/07), et le pousse à recalculer notre prix lui-même.
+ * L'euro est aussi le bon choix technique : le franc CFA lui est arrimé à parité fixe, donc
+ * 29 € et 19 000 FCFA désignent le même montant, pas deux prix qui dérivent.
+ *
+ * `null` = on ne transmet rien et la boutique facture en XOF natif.
+ */
 export function deviseDePaiement(paysTel: string): string | null {
-  if (ZONE_XOF.has(paysTel)) return null
-  if (ZONE_EUR.has(paysTel)) return 'EUR'
-  return 'USD'
+  return ZONE_XOF.has(paysTel) ? null : 'EUR'
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/

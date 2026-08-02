@@ -167,6 +167,13 @@ export const estPerimee = (cmd, maintenant) =>
 /** Les deux offres, et ce qu'elles couvrent. `documents` sert à écrire le libellé, jamais un
  *  solde : le second document d'un bundle se dépose après la commande, il ne se « consomme »
  *  pas sur un compteur. */
+/** Les documents que la mise à niveau sait traiter — DÉRIVÉS du manifeste, jamais recopiés :
+ *  un quatrième document `upgradable` ferait autrement un bundle à trois annexes qu'aucune
+ *  interface ne collecte, et toute commande groupée échouerait sans qu'on sache pourquoi. */
+export const TRIO_UPGRADABLE = Object.keys(MODELES_FICHIERS).filter(
+  (s) => MODELES_FICHIERS[s].upgradable,
+);
+
 export const OFFRES = {
   up1: { prix: PRIX.up1, documents: 1 },
   up3: { prix: PRIX.up3, documents: 3 },
@@ -177,7 +184,8 @@ export const OFFRES = {
  * teste, `crypto.randomUUID()` et `Date.now()` appartiennent à l'appelant.
  *
  * @param {{doc: string, pays: string, activite: string, offre: string, fichier: File|Blob,
- *          nomFichier: string, octets: number, id: string, cree: number}} p
+ *          nomFichier: string, octets: number, id: string, cree: number,
+ *          annexes?: Array<{doc: string, fichier: File|Blob}>}} p
  */
 export function nouvelleCommande(p) {
   if (!OFFRES[p.offre]) throw new Error(`offre inconnue « ${p.offre} »`);
@@ -197,13 +205,20 @@ export function nouvelleCommande(p) {
     if (!(a.fichier instanceof Blob))
       throw new Error(`annexe ${a.doc} sans fichier`);
   }
-  if (p.offre === "up3" && annexes.length !== OFFRES.up3.documents - 1) {
-    throw new Error(
-      `le bundle attend ${OFFRES.up3.documents - 1} annexes, ${annexes.length} reçue(s)`,
-    );
-  }
   if (p.offre !== "up3" && annexes.length > 0) {
     throw new Error("une offre à un document ne porte pas d'annexe");
+  }
+  if (p.offre === "up3") {
+    // ⚠️ Compter les annexes ne suffit pas : `[rcp, rcp]` en ferait deux et se vendrait comme
+    // « les trois documents ». La garantie vit ICI, dans la fonction qui écrit la commande —
+    // jamais dans le calcul de l'affichage, qui n'engage rien.
+    const attendus = TRIO_UPGRADABLE.filter((s) => s !== p.doc).sort();
+    const recus = [...new Set(annexes.map((a) => a.doc))].sort();
+    if (recus.join("+") !== attendus.join("+")) {
+      throw new Error(
+        `le bundle attend ${attendus.join(" + ")}, reçu ${recus.join(" + ") || "rien"}`,
+      );
+    }
   }
   return {
     id: p.id,
