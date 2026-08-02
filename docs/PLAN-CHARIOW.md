@@ -177,10 +177,25 @@ modèle, exporté en DOCX et PDF.
 ### 4.4 Offres de recette — 570 / 575 F CFA, jamais 0
 
 **Chariow impose un montant minimum de 570 F CFA par commande** (mesuré le 2026-08-02 : saisir `0`
-ou `100` renvoie « Le prix minimum du produit doit être de 570 F CFA »). Une offre à **0 F CFA est
-donc impossible** — et le serait deux fois, puisque l'API `/v1/checkout` refuse par ailleurs les
-produits à prix libre (422, « Prix libre non pris en charge »). Les deux offres de recette sont donc
-au plancher, séparées d'un franc pour se distinguer dans le tableau des ventes :
+ou `100` renvoie « Le prix minimum du produit doit être de 570 F CFA »).
+
+**Et la gratuité nous est fermée par construction.** Le modèle « Gratuit (Lead magnet) » existe bien
+dans la console — mais l'enregistrer sur un de nos produits renvoie : *« Les produits de type licence
+ne peuvent pas être gratuits. »* Or **tout notre catalogue DOIT être en Licence** (§4.1) : l'API
+refuse Service et Coaching, et la Licence est le seul type qui autorise le rachat — un labo
+commandant un 2ᵉ upgrade se ferait sinon renvoyer `already_purchased`. Les trois contraintes se
+referment l'une sur l'autre :
+
+| Ce qu'on voudrait | Ce que Chariow répond |
+|---|---|
+| Prix `0` ou `100` sur un produit payant | « Le prix minimum du produit doit être de 570 F CFA » |
+| Modèle **Gratuit (Lead magnet)** | « Les produits de type licence ne peuvent pas être gratuits » |
+| Quitter le type Licence pour être gratuit | perte du rachat (`already_purchased`) — et Service/Coaching sont refusés par l'API |
+| Modèle **Prix libre** | refusé par `/v1/checkout` (422) |
+
+**Il n'existe donc aucun moyen d'exercer le rail Chariow sans payer.** 570 F CFA est le ticket
+d'entrée minimum, et c'est un fait de la plateforme, pas un choix de conception. Les deux offres de
+recette sont au plancher, séparées d'un franc pour se distinguer dans le tableau des ventes :
 
 | Offre de recette | `product_id` | Prix |
 |---|---|---|
