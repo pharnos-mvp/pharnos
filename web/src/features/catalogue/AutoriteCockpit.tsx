@@ -494,10 +494,18 @@ export function AutoriteCockpit() {
               <section className="space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-muted-foreground text-sm">
-                    {t({
-                      fr: `${modeles.length} modèle${modeles.length > 1 ? 's' : ''} officiel${modeles.length > 1 ? 's' : ''} — ceux qui varient d’un pays à l’autre sont réglés pour ${pays}. Gratuits, sans inscription.`,
-                      en: `${modeles.length} official template${modeles.length > 1 ? 's' : ''} — those that vary by country are set for ${pays}. Free, no sign-up.`,
-                    })}
+                    {/* Accordé jusqu'au bout : le dossier nigérian ne contient qu'une pièce, et
+                        « 1 modèle officiel … Gratuits » se remarque autant qu'une faute de frappe
+                        sur la page qu'un expert ouvre pour vérifier ce que l'agence attend. */}
+                    {modeles.length > 1
+                      ? t({
+                          fr: `${modeles.length} modèles officiels — ceux qui varient d’un pays à l’autre sont réglés pour ${pays}. Gratuits, sans inscription.`,
+                          en: `${modeles.length} official templates — those that vary by country are set for ${pays}. Free, no sign-up.`,
+                        })
+                      : t({
+                          fr: `1 modèle officiel, réglé pour ${pays}. Gratuit, sans inscription.`,
+                          en: `1 official template, set for ${pays}. Free, no sign-up.`,
+                        })}
                   </p>
                   <Button asChild size="sm" variant="outline">
                     <a href={lienBibliotheque()} target="_blank" rel="noreferrer">
