@@ -227,6 +227,133 @@
   margin-top: 2px;
 }
 
+/* ══ Choix du pays — l'entrée de la bibliothèque ══
+   Le pays se choisit UNE fois : ces cartes sont donc la première chose que voit le déposant.
+   Même grille et même survol que les cartes de modèle, pour que l'enchaînement se lise comme
+   une suite et non comme deux écrans étrangers. */
+.pays-grid {
+  list-style: none;
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 640px) {
+  .pays-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.pays-card {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  background: #fff;
+  border: 1px solid var(--g200);
+  border-radius: 12px;
+  padding: 13px 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.pays-card:hover {
+  border-color: var(--g400);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(10, 22, 40, 0.1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pays-card:hover {
+    transform: none;
+  }
+}
+/* Le drapeau garde son ratio 3:2 et ne se déforme jamais : un drapeau étiré se remarque. */
+.pays-card .fl,
+.pays-bar-fl {
+  flex-shrink: 0;
+  width: 30px;
+  height: 20px;
+  border-radius: 3px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(10, 22, 40, 0.12);
+  display: block;
+}
+.pays-card .fl svg,
+.pays-bar-fl svg {
+  width: 30px;
+  height: 20px;
+  display: block;
+}
+.pays-card .tx {
+  min-width: 0;
+}
+.pays-card .nm {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--g900);
+}
+.pays-card .ag {
+  display: block;
+  font-size: 11.5px;
+  color: var(--g500);
+  margin-top: 1px;
+}
+
+/* Bandeau du pays retenu — discret, mais toujours visible : le déposant doit pouvoir vérifier
+   d'un coup d'œil POUR QUEL pays il télécharge. */
+.pays-bar {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  background: #fff;
+  border: 1px solid var(--g200);
+  border-radius: 12px;
+  padding: 11px 14px;
+  margin-top: 18px;
+}
+.pays-bar-tx {
+  min-width: 0;
+  flex: 1;
+}
+.pays-bar-tx .k {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--g400);
+  font-family: var(--font-ui);
+}
+.pays-bar-tx strong {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--g900);
+}
+
+/* Activité réglementaire — le SEUL choix qui reste, et seulement sur les modèles concernés. */
+.acte-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.acte-chip {
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--g300);
+  color: var(--g700);
+  background: #fff;
+}
+.acte-chip:hover {
+  border-color: var(--g500);
+  background: var(--g100);
+}
+
 /* ══ Cartes verticales à vignette — recette PieceCard ══ */
 .piece-grid {
   list-style: none;

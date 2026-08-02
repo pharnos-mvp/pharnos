@@ -54,6 +54,9 @@ const EN = window.location.pathname.startsWith("/en/");
 const PAGE_BIBLIO = EN
   ? "/en/regulatory-library"
   : "/bibliotheque-reglementaire";
+/** La bibliothèque, RÉGLÉE sur le pays courant : revenir ne doit pas défaire le choix fait. */
+const retourBiblio = () =>
+  S.pays ? `${PAGE_BIBLIO}?pays=${encodeURIComponent(S.pays)}` : PAGE_BIBLIO;
 
 /**
  * Origine de la boutique — REPLI seulement : le parcours nominal passe par l'Edge `checkout`,
@@ -120,10 +123,26 @@ const paysParam = params.get("pays");
 // nationale. Tant que les deux choix ne sont pas faits, les boutons restent inertes.
 const S = {
   doc: MODELES_FICHIERS[docParam] ? docParam : "rcp",
-  pays: PAYS.some((p) => p.k === paysParam) ? paysParam : null,
+  // `?pays=CI` en majuscules reste un code ISO valide : le rejeter renverrait au sélecteur un
+  // lien parfaitement légitime.
+  pays: PAYS.some((p) => p.k === paysParam?.toLowerCase())
+    ? paysParam.toLowerCase()
+    : null,
   activite: null,
   fichier: null,
 };
+// L'activité peut venir de l'URL, comme le pays : la bibliothèque range les modèles PAR PAYS et
+// pose l'activité sur les cartes qui s'y adaptent. Arriver de là, c'est avoir déjà choisi — le
+// préalable ne doit pas reposer la question. Valeur inconnue → on ne devine rien.
+{
+  const a = params.get("activite");
+  const permises = activitesDe(S.doc);
+  // `S.activiteLettre` SEULE porte le vocabulaire du manifeste (`enr`/`renouv`). `S.activite`
+  // appartient aux chips d'achat, qui parlent `amm`/`renouv` et dont `nouvelleCommande` REFUSE
+  // toute autre valeur : y écrire « enr » ferait échouer une commande le jour où ce document
+  // deviendrait payant.
+  if (permises?.includes(a)) S.activiteLettre = a;
+}
 
 /** Les pays que CE document sert — un document restreint à une obligation nationale n'en a qu'un. */
 const paysServis = () => paysDuModele(S.doc);
@@ -195,8 +214,9 @@ function peindre() {
       ? `<span class="badge b-info">${esc(L(["Mise à niveau disponible", "Upgrade available"]))}</span>`
       : "");
 
-  // Retour vers la bibliothèque, pays conservé.
-  $("#back").href = PAGE_BIBLIO;
+  // Retour vers la bibliothèque, pays conservé — le commentaire le promettait, le code non :
+  // on renvoyait au choix de pays celui qui venait de le faire.
+  $("#back").href = retourBiblio();
 
   // Le document lui-même — le lecteur natif, sans sa barre (doublon avec la nôtre).
   const apercu = $("#docview");
@@ -1081,7 +1101,7 @@ function ouvrirConfirmation(cmd) {
     ? L(["Envoyer mes documents", "Send my documents"])
     : L(["Envoyer mon document", "Send my document"]);
   const retour = $("#cfmback");
-  retour.href = PAGE_BIBLIO;
+  retour.href = retourBiblio();
   retour.textContent = L(["Retour à la bibliothèque", "Back to the library"]);
   $("#cfmsend").onclick = () => {
     window.location.href = mailtoCommande(cmd);
@@ -1826,6 +1846,10 @@ $("#demoup").addEventListener("click", () => {
 peindre();
 // Une lettre ne s'affiche qu'APRÈS le choix du pays et de l'activité (directive CEO) : le
 // préalable s'ouvre immédiatement, le lecteur attend derrière.
-if (estLettre() && !S.pays) ouvrirPrealable();
+// Le préalable s'ouvre tant qu'un choix NÉCESSAIRE manque — le pays, mais aussi l'activité
+// quand le document s'y décline. Ne tester que le pays laissait servir « enregistrement »
+// à un déposant venu pour un renouvellement, sans le lui dire nulle part.
+if (estLettre() && (!S.pays || (activitesDe(S.doc) && !S.activiteLettre)))
+  ouvrirPrealable();
 purger().catch((e) => console.error("purge", e));
 reprendre().catch((e) => console.error("reprise", e));

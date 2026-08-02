@@ -939,6 +939,34 @@ fs.writeFileSync(
   'utf8',
 )
 
+/**
+ * INDEX LÉGER — ce qu'il faut pour LISTER les modèles, rien de plus.
+ *
+ * L'application (fiche Autorité) affiche les modèles disponibles pour un pays. Lui faire importer
+ * le manifeste complet ferait entrer 140 Ko de blocs, d'aides et de fac-similés dans le bundle
+ * pour n'y lire que des noms. Cet index en fait ~2 Ko, et il est GÉNÉRÉ depuis la même source :
+ * un modèle ajouté apparaît des deux côtés, ou la barrière CI échoue.
+ */
+fs.writeFileSync(
+  path.join(RACINE, 'landing', 'checking', 'modeles-index.js'),
+  `${entete}export const MODELES_INDEX = ${JSON.stringify(
+    Object.entries(manifeste).map(([slug, m]) => ({
+      slug,
+      nom: m.nom,
+      court: m.court,
+      groupe: m.groupe,
+      activites: m.activites,
+      // DÉDOUBLONNÉ : un document à activités a deux clés par pays (`bj-enr`, `bj-renouv`),
+      // et la liste répétait chaque pays autant de fois qu'il a d'activités.
+      pays: [...new Set(Object.keys(m.fichiers).map((k) => k.split('-')[0]))],
+    })),
+    null,
+    2,
+  )}
+`,
+  'utf8',
+)
+
 console.log(`${ecrits} fichiers écrits dans landing/modeles/ · manifeste ${VERSION}`)
 for (const [slug, m] of Object.entries(manifeste)) {
   const n = Object.keys(m.fichiers).length

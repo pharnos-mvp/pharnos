@@ -16,6 +16,7 @@ import { describe, expect, it } from 'vitest'
 import { PAYS } from '../../../../landing/checking/referentiel.js'
 import { MODELES_FICHIERS, MODELES_VERSION } from '../../../../landing/checking/modeles-manifest.js'
 import { DOCS, varieParPays } from '../../../scripts/lib/modeles-source.mjs'
+import { MODELES_INDEX } from '../../../../landing/checking/modeles-index.js'
 
 // Le manifeste est GÉNÉRÉ : TypeScript en infère un littéral aux huit clés pays connues, qu'on ne
 // peut pas indexer par une variable. On le relit une fois sous sa forme réelle — un enregistrement
@@ -229,6 +230,61 @@ describe('un anglophone peut remplir une lettre française sans lire le françai
     // Même géométrie que le tableau français : une aide décalée guide vers la mauvaise colonne.
     expect(rows?.length).toBe(f.blocs?.[i]?.rows?.length)
     expect(rows?.[0]?.length).toBe(f.blocs?.[i]?.rows?.[0]?.length)
+  })
+})
+
+describe("l'index léger dit la même chose que le manifeste", () => {
+  // La fiche Autorité de l'application liste les modèles d'un pays depuis cet index — lui faire
+  // importer le manifeste entier ferait entrer 140 Ko dans le bundle pour n'y lire que des noms.
+  // Deux sources pour un même fait : elles doivent être vérifiées l'une contre l'autre.
+  type Entree = {
+    slug: string
+    nom: [string, string]
+    court: [string, string]
+    groupe: string
+    activites: string[] | null
+    pays: string[]
+  }
+  const INDEX = MODELES_INDEX as unknown as Entree[]
+
+  it('couvre exactement les mêmes documents', () => {
+    expect(INDEX.map((m) => m.slug).sort()).toEqual(Object.keys(MANIFESTE).sort())
+  })
+
+  it('dit les mêmes pays, les mêmes activités, le même groupe', () => {
+    for (const m of INDEX) {
+      const src = docDe(m.slug)
+      expect(m.groupe, m.slug).toBe(src.groupe)
+      expect(m.activites, m.slug).toEqual(src.activites)
+      // Clés d'activité (`ci-enr`) réduites au code pays, comme le fait la page.
+      const attendus = [...new Set(Object.keys(src.fichiers).map((k) => k.split('-')[0]))]
+      expect(m.pays, m.slug).toEqual(attendus)
+    }
+  })
+
+  it('le filtrage par pays donne ce que la fiche Autorité doit afficher', () => {
+    // Un document commun (`*`) apparaît partout ; un document par pays n'apparaît que chez lui.
+    const pour = (code: string) =>
+      INDEX.filter((m) => m.pays.includes('*') || m.pays.includes(code)).map((m) => m.slug)
+    expect(pour('ci')).toContain('lettre-dmf')
+    expect(pour('bj')).toContain('notice')
+    expect(pour('bj')).toContain('qos-pd')
+    // Un code inconnu ne rend QUE les documents communs.
+    expect(pour('zz')).toEqual(INDEX.filter((m) => m.pays.includes('*')).map((m) => m.slug))
+  })
+
+  it("un pays que la bibliothèque NE SERT PAS n'a aucun modèle à annoncer", () => {
+    // Le référentiel d'agences couvre le Nigeria et le Ghana, hors UEMOA. Le filtre « pays ou
+    // commun » les laissait passer sur les 4 documents communs : leur fiche Autorité annonçait
+    // « 4 modèles déjà réglés pour Nigeria » et renvoyait vers une bibliothèque qui rejette `ng`
+    // et redemande un pays. La fiche doit rester muette, pas promettre puis se dédire.
+    const servis = new Set(INDEX.flatMap((m) => m.pays).filter((p) => p !== '*'))
+    const pourFiche = (code: string) =>
+      servis.has(code) ? INDEX.filter((m) => m.pays.includes('*') || m.pays.includes(code)) : []
+    expect(pourFiche('ng')).toEqual([])
+    expect(pourFiche('gh')).toEqual([])
+    // Et les huit pays servis, eux, ont bien leurs modèles.
+    for (const k of CODES) expect(pourFiche(k).length, k).toBeGreaterThan(0)
   })
 })
 

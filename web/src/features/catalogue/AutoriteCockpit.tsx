@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { FileStack, Landmark, Receipt, ShieldCheck } from 'lucide-react'
+import { FileStack, FileText, Landmark, Receipt, ShieldCheck } from 'lucide-react'
 import { Link, useParams } from 'react-router'
 
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,9 @@ import { Page } from '@/components/ui/page'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { useTopbar } from '@/components/layout/topbar'
 import { CountryFlag } from '@/features/dashboard/CountryFlag'
+// Index GÉNÉRÉ par `build:landing-modeles` — même source que la bibliothèque publique. Léger
+// (~4 Ko) là où le manifeste complet en pèse 140 : on n'a besoin ici que de noms et de pays.
+import { MODELES_INDEX } from '../../../../landing/checking/modeles-index.js'
 import { countryLabel } from '@/features/workspace/dossier-constants'
 import { useOrgId } from '@/features/org/org-context'
 import { db } from '@/lib/db'
@@ -38,6 +41,30 @@ export function AutoriteCockpit() {
   // réplique locale répond — même contenu tant que seed == code, mais avec provenance + version.
   // `resolved` : undefined = chargement (useLiveQuery), null = pays inconnu des deux sources.
   const fallback = useMemo(() => authorityDetail(code), [code])
+
+  // Modèles servis POUR CE PAYS.
+  //
+  // ⚠️ La section ne s'affiche QUE si la bibliothèque sert ce pays. Le référentiel d'agences
+  // couvre aussi le Nigeria et le Ghana, hors UEMOA : sans cette garde, leur fiche annonçait
+  // « 4 modèles déjà réglés pour Nigeria » et renvoyait vers une bibliothèque qui rejette `ng`
+  // et redemande un pays. L'ensemble servi est DÉRIVÉ de l'index — un neuvième pays ajouté au
+  // manifeste allumera la section tout seul.
+  const pays = countryLabel(code, lang)
+  const k = code.toLowerCase()
+  const modeles = useMemo(() => {
+    const servis = new Set(MODELES_INDEX.flatMap((m) => m.pays).filter((p) => p !== '*'))
+    return servis.has(k)
+      ? MODELES_INDEX.filter((m) => m.pays.includes('*') || m.pays.includes(k))
+      : []
+  }, [k])
+  // Liens vers la bibliothèque PUBLIQUE, déjà réglée sur ce pays — l'expert n'y refait pas le
+  // choix qu'il vient de faire en ouvrant cette fiche. Les pages EN existent : y envoyer un
+  // utilisateur anglophone sur la version française serait un aller simple hors de sa langue.
+  const PUBLIC = 'https://pharnos.com'
+  const lienBibliotheque = () =>
+    `${PUBLIC}${lang === 'en' ? '/en/regulatory-library' : '/bibliotheque-reglementaire'}?pays=${encodeURIComponent(k)}`
+  const lienModele = (slug: string) =>
+    `${PUBLIC}${lang === 'en' ? '/en/template' : '/modele'}?doc=${encodeURIComponent(slug)}&pays=${encodeURIComponent(k)}`
   const resolved = useLiveQuery(() => resolvedAuthorityDetail(code, orgId), [code, orgId])
   const detail = resolved?.detail ?? fallback
   const provenance = resolved?.provenance
@@ -309,6 +336,60 @@ export function AutoriteCockpit() {
           </div>
         )}
       </section>
+
+      {/* Modèles réglementaires — le pont vers la bibliothèque publique, DÉJÀ réglée sur ce pays.
+          Les fiches Autorité sont l'endroit où l'expert vient se rappeler ce que l'agence attend ;
+          y lister les modèles disponibles évite de ressortir de l'application pour les chercher. */}
+      {modeles.length > 0 ? (
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-display text-sm font-semibold">
+              {t({ fr: 'Modèles réglementaires', en: 'Regulatory templates' })}
+            </h2>
+            <Button asChild size="sm" variant="outline">
+              <a href={lienBibliotheque()} target="_blank" rel="noreferrer">
+                <FileText className="size-4" />
+                {t({ fr: 'Ouvrir la bibliothèque', en: 'Open the library' })}
+              </a>
+            </Button>
+          </div>
+          <p className="text-muted-foreground text-sm">
+            {t({
+              fr: `${modeles.length} modèles officiels — ceux qui varient d’un pays à l’autre sont réglés pour ${pays}. Gratuits, sans inscription.`,
+              en: `${modeles.length} official templates — those that vary by country are set for ${pays}. Free, no sign-up.`,
+            })}
+          </p>
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {modeles.map((m) => (
+              <li key={m.slug}>
+                <a
+                  className="bg-card hover:border-muted-foreground/40 flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors"
+                  href={lienModele(m.slug)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <span
+                    aria-hidden
+                    className="bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-lg"
+                  >
+                    <FileText className="size-4" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium">
+                      {lang === 'en' ? m.nom[1] : m.nom[0]}
+                    </span>
+                    <span className="text-muted-foreground block text-xs">
+                      {m.activites
+                        ? t({ fr: 'Selon l’activité', en: 'Depends on the activity' })
+                        : t({ fr: 'Prêt à télécharger', en: 'Ready to download' })}
+                    </span>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {/* Mon empreinte */}
       <section className="space-y-3">
