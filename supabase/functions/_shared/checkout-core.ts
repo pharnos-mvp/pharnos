@@ -12,6 +12,34 @@ export const OFFRES_CHARIOW: Record<string, { productId: string; libelle: string
   up3: { productId: 'prd_1u8jrq16', libelle: 'Mise à niveau documentaire — les trois documents' },
 }
 
+/** Offres de RECETTE — mêmes produits, même parcours, prix plancher. 570 et 575 F CFA parce
+ *  que Chariow refuse toute commande sous 570 F CFA (« Le prix minimum du produit doit être de
+ *  570 F CFA », mesuré le 02/08) : ni 100 ni 0 n'existent chez ce processeur.
+ *
+ *  Elles ne s'ouvrent qu'avec le jeton `CHECKOUT_ESSAI_TOKEN`. Sans jeton valide, le serveur
+ *  vend au prix public quoi que le navigateur envoie — un paramètre d'URL deviné ne doit jamais
+ *  diviser le prix par 33. */
+export const OFFRES_ESSAI: Record<string, { productId: string; libelle: string }> = {
+  up1: { productId: 'prd_g3norblb', libelle: 'TEST — Mise à niveau documentaire — 1 document' },
+  up3: {
+    productId: 'prd_abtk4i8b',
+    libelle: 'TEST — Mise à niveau documentaire — les trois documents',
+  },
+}
+
+/**
+ * Le jeton de recette se compare en temps CONSTANT, et FERME par défaut : secret absent, vide
+ * ou trop court ⇒ jamais d'essai. Un `===` sur une chaîne rend son préfixe devinable par le
+ * temps de réponse ; ici l'enjeu est un prix divisé par 33, la boucle vaut ses six lignes.
+ */
+export function essaiAutorise(recu: unknown, secret: string | undefined): boolean {
+  if (typeof recu !== 'string' || typeof secret !== 'string') return false
+  if (secret.length < 16 || recu.length !== secret.length) return false
+  let diff = 0
+  for (let i = 0; i < secret.length; i++) diff |= recu.charCodeAt(i) ^ secret.charCodeAt(i)
+  return diff === 0
+}
+
 export const CHARIOW_ENDPOINT = 'https://api.chariow.com/v1/checkout'
 
 /** Retour de paiement — DEUX constantes serveur, jamais une URL reçue du navigateur : le
@@ -237,16 +265,25 @@ export function validerCommande(
 /** Corps de la requête Chariow. `custom_metadata.ref` porte NOTRE référence jusque dans les
  *  webhooks Pulse ; `customer_ip` porte l'IP réelle de l'acheteur (sinon Chariow verrait
  *  celle de l'infrastructure Supabase — géolocalisation et anti-fraude faussées). */
-export function corpsChariow(cmd: CommandeValidee, ip: string): Record<string, unknown> {
+export function corpsChariow(
+  cmd: CommandeValidee,
+  ip: string,
+  essai = false,
+): Record<string, unknown> {
   const devise = deviseDePaiement(cmd.paysTel)
   return {
-    product_id: OFFRES_CHARIOW[cmd.offre].productId,
+    // Le catalogue est choisi ICI, jamais par le navigateur : `essai` arrive déjà tranché par
+    // `essaiAutorise`, et par défaut vaut faux — un appel qui oublie l'argument vend au prix
+    // public, pas l'inverse.
+    product_id: (essai ? OFFRES_ESSAI : OFFRES_CHARIOW)[cmd.offre].productId,
     email: cmd.email,
     first_name: cmd.prenom,
     last_name: cmd.nom,
     phone: { number: cmd.telephone, country_code: cmd.paysTel },
     redirect_url: RETOURS[cmd.langue],
-    custom_metadata: { ref: cmd.ref, offre: cmd.offre },
+    // `essai` voyage jusque dans les webhooks : une commande de recette doit se reconnaître
+    // dans le back-office Chariow sans avoir à recouper les montants.
+    custom_metadata: { ref: cmd.ref, offre: cmd.offre, ...(essai ? { essai: '1' } : {}) },
     ...(devise ? { payment_currency: devise } : {}),
     // ⚠️ `customer_ip` est OBLIGATOIRE ici, contre-intuitif mais mesuré le 31/07 : sans lui,
     // Chariow voit l'IP de notre Edge (Francfort) et classe TOUS les acheteurs en `country=DE`.

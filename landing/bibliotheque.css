@@ -1325,6 +1325,19 @@
 .readyline::before {
   content: "✓";
 }
+/* Bandeau de recette — délibérément voyant : il n'existe que sur `?essai=`, et son seul rôle
+   est qu'on ne confonde JAMAIS un règlement de test avec un règlement au prix public. */
+.essai-note {
+  margin: 0 0 14px;
+  padding: 9px 12px;
+  border: 1px dashed #b45309;
+  border-radius: 8px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.45;
+}
 .sect-buy {
   border-top: 1px solid var(--g200);
   margin-top: 20px;

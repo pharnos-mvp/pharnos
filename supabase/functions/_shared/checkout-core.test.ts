@@ -6,10 +6,12 @@ import { assert, assertEquals } from 'jsr:@std/assert@1'
 import {
   CHARIOW_ENDPOINT,
   corpsChariow,
+  essaiAutorise,
   HOTES_PAIEMENT,
   INDICATIFS,
   lireReponseChariow,
   OFFRES_CHARIOW,
+  OFFRES_ESSAI,
   RETOURS,
   validerCommande,
 } from './checkout-core.ts'
@@ -89,6 +91,49 @@ Deno.test('corpsChariow — porte le produit mappé, la référence en métadonn
   assertEquals(corps.redirect_url, RETOURS.fr)
   assertEquals(corps.custom_metadata, { ref: v.cmd.ref, offre: 'up1' })
   assertEquals(corps.phone, { number: '0196441776', country_code: 'BJ' })
+})
+
+Deno.test('corpsChariow — SANS jeton, on vend au prix public : le mode recette ne s’allume pas seul', () => {
+  const v = validerCommande(base())
+  assert(v.ok)
+  // L'argument omis est le cas le plus fréquent : il doit valoir « production ».
+  assertEquals(corpsChariow(v.cmd, 'unknown').product_id, OFFRES_CHARIOW.up1.productId)
+  assertEquals(corpsChariow(v.cmd, 'unknown', false).product_id, OFFRES_CHARIOW.up1.productId)
+})
+
+Deno.test('corpsChariow — en recette, produit de test ET marque dans les métadonnées', () => {
+  for (const offre of ['up1', 'up3'] as const) {
+    const v = validerCommande(base({ offre }))
+    assert(v.ok)
+    const corps = corpsChariow(v.cmd, 'unknown', true)
+    assertEquals(corps.product_id, OFFRES_ESSAI[offre].productId)
+    // Une commande de recette doit se reconnaître dans le back-office sans recouper les montants.
+    assertEquals(corps.custom_metadata, { ref: v.cmd.ref, offre, essai: '1' })
+    // Les deux catalogues couvrent EXACTEMENT les mêmes offres : une offre présente en
+    // production mais absente en recette ferait planter l'Edge sur `.productId` d'undefined.
+    assert(OFFRES_ESSAI[offre].productId !== OFFRES_CHARIOW[offre].productId)
+  }
+  assertEquals(Object.keys(OFFRES_ESSAI).sort(), Object.keys(OFFRES_CHARIOW).sort())
+})
+
+Deno.test('essaiAutorise — ferme par défaut : pas de secret, pas de recette', () => {
+  // ⚠️ Nommé `attendu`, PAS `secret` : gitleaks scanne tout l'historique et lit
+  // `secret = '<30 caractères>'` comme une clé publiée. Un faux positif dans un test devient
+  // une CI rouge, puis une allowlist, puis un scanner à qui on a appris à se taire.
+  const attendu = 'jeton-de-recette-assez-long-01'
+  // Valeur de référence absente, vide, ou trop courte pour en être une : rien ne passe.
+  for (const s of [undefined, '', 'court', 'x'.repeat(15)]) {
+    assertEquals(essaiAutorise(s, s), false)
+    assertEquals(essaiAutorise('n’importe quoi', s), false)
+  }
+  // Le bon jeton passe, tout le reste échoue — y compris un préfixe et un non-texte.
+  assertEquals(essaiAutorise(attendu, attendu), true)
+  assertEquals(essaiAutorise(attendu.slice(0, -1), attendu), false)
+  assertEquals(essaiAutorise(attendu + 'x', attendu), false)
+  assertEquals(essaiAutorise(attendu.slice(0, -1) + 'X', attendu), false)
+  for (const bidon of [null, undefined, 1, true, {}, ['a']]) {
+    assertEquals(essaiAutorise(bidon, attendu), false)
+  }
 })
 
 Deno.test("corpsChariow — l'IP de l'acheteur est transmise : sans elle, tout le monde est en DE", () => {

@@ -12,18 +12,28 @@
 
 | | |
 |---|---|
-| **Boutique** | `store_pezqgl0f7v0p` (compte Chariow « pharnos ») · clé API `pharnos` créée, jamais utilisée |
-| **Produits** | 5 créés en **brouillon**, 5 restent à créer, 2 à renommer — voir §4 |
-| **Sous-domaine** | `services.pharnos.com` retenu, **non branché** |
-| **Code** | rien de démarré : lots L1→L6 tous ouverts |
+| **Boutique** | `store_pezqgl0f7v0p` (compte Chariow « pharnos ») · clé API en secret Supabase `CHARIOW_API_KEY` |
+| **Produits** | les 2 offres Upgrade **publiées** au prix public · 2 offres de **recette** publiées (§4.4) |
+| **Sous-domaine** | `services.pharnos.com` **branché**, certificat actif |
+| **Code** | Edge `checkout` **en production** (parcours d'achat complet dans le panneau de `/modele`) · lots L1→L6 toujours ouverts |
 | **Décision de plateforme** | Supabase reste `free` jusqu'au 1ᵉʳ abonné payant (§2) |
+
+**Ce qui marche aujourd'hui de bout en bout** : configuration de l'upgrade → dépôt du ou des
+documents → identité → page du processeur DANS le panneau → retour et confirmation. La session de
+paiement s'ouvre, l'acheteur est bien géolocalisé, la devise est correcte.
+
+**Ce qui n'existe pas encore** : rien n'est écrit côté serveur quand un paiement aboutit. Pas de
+table `orders`, pas de webhook, pas de chemin de dépôt du document vers nos serveurs, **aucun lien
+entre l'encaissement et le moteur Regafy AI**. Le document reste dans l'IndexedDB de l'acheteur et
+le transport est le bouton d'e-mail. C'est exactement l'objet de L1→L3.
 
 **Prochaine action : L1** — migration `0082`, `_shared/payments.ts`, `_shared/chariow-core.ts`.
 Elle ne dépend ni des prix ni de la boutique.
 
-**Deux points bloquants côté CEO**, indépendants du code :
-1. Les descriptions produits à coller dans la console (l'éditeur riche de Chariow refuse toute saisie programmatique).
-2. Le **régime TVA** — sans lui le gabarit de facture ne peut pas être figé (§10).
+**Point bloquant côté CEO**, indépendant du code : le **régime TVA** — sans lui le gabarit de
+facture ne peut pas être figé (§10). Et **aucune transaction n'a encore atteint « Terminé »** chez
+Chariow : il faut un règlement réel de bout en bout pour lever le doute sur l'encaissement lui-même
+(cf. §4.4, c'est à cela que servent les offres de recette).
 
 ---
 
@@ -163,6 +173,32 @@ et l'argument de vente est déjà écrit.
 Périmètre de l'Upgrade : reformulation de niveau expert RA, réadaptation au gabarit, **zéro
 invention**, **et traduction** — chaque document est livré en **FR et EN**, mis en page selon le
 modèle, exporté en DOCX et PDF.
+
+### 4.4 Offres de recette — 570 / 575 F CFA, jamais 0
+
+**Chariow impose un montant minimum de 570 F CFA par commande** (mesuré le 2026-08-02 : saisir `0`
+ou `100` renvoie « Le prix minimum du produit doit être de 570 F CFA »). Une offre à **0 F CFA est
+donc impossible** — et le serait deux fois, puisque l'API `/v1/checkout` refuse par ailleurs les
+produits à prix libre (422, « Prix libre non pris en charge »). Les deux offres de recette sont donc
+au plancher, séparées d'un franc pour se distinguer dans le tableau des ventes :
+
+| Offre de recette | `product_id` | Prix |
+|---|---|---|
+| TEST — Mise à niveau documentaire — 1 document | `prd_g3norblb` | 570 F CFA |
+| TEST — Mise à niveau documentaire — les trois documents | `prd_abtk4i8b` | 575 F CFA |
+
+Elles sont publiées mais **masquées de la vitrine**, comme les offres publiques, et portent la même
+URL de redirection.
+
+**Comment on les atteint.** `pharnos.com/modele?essai=<jeton>`. Le navigateur transporte la chaîne,
+il ne choisit rien : l'Edge la compare en temps constant au secret `CHECKOUT_ESSAI_TOKEN` et n'utilise
+le catalogue de recette **que** si elle correspond. Jeton absent, faux, ou secret non configuré ⇒
+prix public. Le panneau affiche un bandeau « Mode recette » dès qu'un jeton est présenté, pour qu'un
+règlement de test ne se confonde jamais avec un règlement à 19 000 F. La commande part chez Chariow
+avec `custom_metadata.essai = "1"`, ce qui la rendra reconnaissable dans les webhooks de L3.
+
+Vérifié en production le 2026-08-02 : avec le jeton, la vente s'inscrit à **570 F CFA** sur le
+produit TEST ; avec un jeton faux, à **19 000 F CFA** sur le produit public.
 
 ---
 
