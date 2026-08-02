@@ -207,8 +207,10 @@ function peindre() {
   ].join(" · ");
   $("#doctags").innerHTML =
     `<span class="badge b-free">${esc(L(["Gratuit", "Free"]))}</span>` +
+    // Drapeau DEVANT le nom, à la taille d'un emoji — même règle que sur la bibliothèque : d'une
+    // page à l'autre, un pays se reconnaît au même signe, au même endroit.
     (m.perPays && S.pays
-      ? `<span class="badge b-pays">${esc(nomPays(S.pays))}</span>`
+      ? `<span class="badge b-pays"><span class="fl-in" aria-hidden="true"><svg><use href="#fl-${esc(S.pays)}"/></svg></span>${esc(nomPays(S.pays))}</span>`
       : "") +
     (m.upgradable
       ? `<span class="badge b-info">${esc(L(["Mise à niveau disponible", "Upgrade available"]))}</span>`

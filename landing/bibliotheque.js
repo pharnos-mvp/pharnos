@@ -13,7 +13,6 @@ import {
   MODELES_PAYS,
 } from "./checking/modeles-manifest.js?v=2026.10";
 import {
-  activitesDe,
   fichierModele,
   paysDuModele,
   paysServisPar,
@@ -132,38 +131,23 @@ function carte(slug) {
   // Un LIEN, pas un bouton : la carte ouvre la page dédiée du document — ouvrable dans un nouvel
   // onglet, partageable. Le pays voyage dans l'URL : la fiche s'ouvre déjà réglée, sans reposer
   // la question.
-  const lien = (activite) =>
-    `${PAGE_MODELE}?doc=${encodeURIComponent(slug)}` +
-    (S.pays ? `&pays=${encodeURIComponent(S.pays)}` : "") +
-    (activite ? `&activite=${encodeURIComponent(activite)}` : "");
-  // Le SEUL choix qui reste : l'activité, et uniquement pour les documents qui s'y adaptent.
-  // Deux entrées EXPLICITES sur la carte — la carte elle-même n'en impose aucune. En encoder une
-  // « par défaut » ferait repartir un déposant en renouvellement avec la lettre d'enregistrement,
-  // sans qu'un seul écran le lui dise.
-  const actes = activitesDe(slug);
-  const chips = actes
-    ? `<span class="acte-chips">${actes
-        .map(
-          (a) =>
-            `<a class="acte-chip" href="${esc(lien(a))}">${esc(L(LIBELLE_ACTE[a] ?? [a, a]))}</a>`,
-        )
-        .join("")}</span>`
-    : "";
+  //
+  // L'ACTIVITÉ, elle, ne voyage PAS : la carte ne porte plus les deux puces
+  // « Enregistrement / Renouvellement » (retirées le 02/08/2026 sur demande CEO). Elles
+  // dupliquaient une question que la page du document pose déjà, en préalable non contournable,
+  // et flottaient hors de la grille sous la seule carte concernée. Rien n'est perdu : sans
+  // activité dans l'URL, `/modele` ouvre son écran de préalable — et n'en présume aucune.
+  const lien = `${PAGE_MODELE}?doc=${encodeURIComponent(slug)}${
+    S.pays ? `&pays=${encodeURIComponent(S.pays)}` : ""
+  }`;
   return `<li>
-    <a class="piece-card" href="${esc(lien(null))}">
+    <a class="piece-card" href="${esc(lien)}">
       <span class="piece-thumb">${facSimile(m.apercu)}</span>
       <span class="nm">${esc(L(m.nom))}</span>
       <span class="mt2"><span class="m">${meta}</span></span>
     </a>
-    ${chips}
   </li>`;
 }
-
-/** Les activités réglementaires, nommées — « enr » ne veut rien dire pour un déposant. */
-const LIBELLE_ACTE = {
-  enr: ["Enregistrement", "Registration"],
-  renouv: ["Renouvellement", "Renewal"],
-};
 
 /* ══ Le pays — choisi UNE FOIS, à l'entrée ══
    Il vit dans l'URL (`?pays=ci`) : la page est partageable, et un lien envoyé à un collègue
@@ -184,25 +168,26 @@ const docsDuPays = (k) =>
  * alors comme une seule suite, et non comme deux écrans étrangers.
  *
  * La vignette reprend le fac-similé du premier document du dossier — la structure d'un RCP, pas
- * une illustration décorative. Le drapeau est une PASTILLE posée dessus : reconnaître son pays
- * doit se faire à l'œil, avant de lire.
+ * une illustration décorative. Le drapeau se lit DEVANT le nom, à la taille d'un emoji : c'est
+ * une lettre du mot, pas une image posée à côté de lui.
+ *
+ * Un LIEN `?pays=xx`, pas un bouton. Le clic est intercepté pour garder la page en place, mais
+ * l'adresse existe vraiment : la carte s'ouvre dans un nouvel onglet, se partage, et un moteur de
+ * recherche atteint le dossier de chaque pays — alors que la page d'entrée, elle, ne montre plus
+ * un seul document.
  */
 function cartePays(p) {
   const docs = docsDuPays(p.k);
-  const agence = L(p.agence);
   const n = docs.length;
-  const meta = `${n} document${n > 1 ? "s" : ""} · ${agence}`;
+  const meta = `${n} document${n > 1 ? "s" : ""} · ${L(p.agence)}`;
   // Aperçu : celui du premier document servi à ce pays, faute de quoi la carte serait vide.
   const apercu = MODELES_FICHIERS[docs[0]]?.apercu ?? [];
   return `<li>
-    <button class="piece-card pays-card" type="button" data-pays="${esc(p.k)}">
-      <span class="piece-thumb">
-        ${facSimile(apercu)}
-        <span class="fl-sticker" aria-hidden="true"><svg><use href="#fl-${esc(p.k)}"/></svg></span>
-      </span>
-      <span class="nm">${esc(L(p.nom))}</span>
+    <a class="piece-card" href="?pays=${encodeURIComponent(p.k)}" data-pays="${esc(p.k)}">
+      <span class="piece-thumb">${facSimile(apercu)}</span>
+      <span class="nm"><span class="fl-in" aria-hidden="true"><svg><use href="#fl-${esc(p.k)}"/></svg></span>${esc(L(p.nom))}</span>
       <span class="mt2"><span class="m">${esc(meta)}</span></span>
-    </button>
+    </a>
   </li>`;
 }
 
@@ -218,39 +203,43 @@ function peindre() {
   const choisi = Boolean(S.pays);
   const p = choisi ? MODELES_PAYS.find((x) => x.k === S.pays) : null;
 
-  // L'étape pays est une INVITATION, pas une porte : les grilles se peignent TOUJOURS.
-  // Les enfermer derrière le choix aurait vidé la page pour deux publics à la fois — les moteurs
-  // de recherche, qui rendent le JS mais ne cliquent pas (et cette page est l'entrée organique du
-  // produit gratuit), et tout visiteur servi par un edge resté sur l'ancien script.
+  // DEUX ÉCRANS, jamais les deux à la fois (CEO, 02/08/2026) : soit on choisit son pays, soit on
+  // parcourt SON dossier. Laisser les documents en dessous des drapeaux défaisait le rangement
+  // qu'on venait d'annoncer — le déposant voyait un catalogue en vrac et n'avait plus de raison
+  // de choisir. Le référencement n'y perd rien : chaque carte de pays est un lien `?pays=xx`, et
+  // c'est ce dossier-là qu'un moteur indexe, déjà réglé.
   masquer("#etape-pays", choisi);
-  masquer("#pays-bar", !choisi);
-
-  if (choisi) {
-    $("#pays-bar-use")?.setAttribute("href", `#fl-${S.pays}`);
-    const nom = $("#pays-bar-nom");
-    if (nom) nom.textContent = L(p.nom);
-  } else {
+  if (!choisi) {
     const g = $("#grid-pays");
     if (g) g.innerHTML = MODELES_PAYS.map(cartePays).join("");
+  }
+
+  // Le pays retenu, DANS le titre de la page, et le moyen d'en changer juste à côté.
+  masquer("#tagpays", !choisi);
+  masquer("#pays-chg", !choisi);
+  if (choisi) {
+    $("#tagpays-fl")?.setAttribute("href", `#fl-${S.pays}`);
+    const nom = $("#tagpays-nom");
+    if (nom) nom.textContent = L(p.nom);
   }
 
   // Le DOSSIER DU PAYS, pas le catalogue filtré à l'affichage : un pays ne voit que ce que son
   // autorité reconnaît. Sans cela, la carte « lettre de demande » serait retombée sur le fichier
   // béninois faute d'entrée nigériane — un déposant de Lagos serait reparti avec une lettre
-  // adressée à l'ABMed. Tant qu'aucun pays n'est choisi, tout est peint : c'est la vitrine.
-  const visibles = choisi ? docsDuPays(S.pays) : Object.keys(MODELES_FICHIERS);
+  // adressée à l'ABMed.
+  const visibles = choisi ? docsDuPays(S.pays) : [];
 
   const tag = $("#tagcount");
   if (tag) {
-    // Accordé : le dossier nigérian ne contient qu'une pièce, et « 1 modèles officiels » se
-    // remarque autant qu'une faute d'orthographe sur la page d'accueil du produit gratuit.
-    const n = visibles.length;
-    const compte = `${n} ${
+    // Le compte est celui du DOSSIER quand un pays est retenu, celui du catalogue sinon. Accordé :
+    // le dossier nigérian ne contient qu'une pièce, et « 1 modèles officiels » se remarque autant
+    // qu'une faute d'orthographe sur la page d'accueil du produit gratuit.
+    const n = choisi ? visibles.length : Object.keys(MODELES_FICHIERS).length;
+    tag.textContent = `${n} ${
       n > 1
         ? L(["modèles officiels", "official templates"])
         : L(["modèle officiel", "official template"])
     }`;
-    tag.textContent = p ? `${compte} · ${L(p.nom)}` : compte;
   }
 
   const groupes = { produit: [], lettres: [], resumes: [] };
@@ -273,26 +262,33 @@ function choisirPays(k) {
   else u.searchParams.delete("pays");
   window.history.replaceState(null, "", u);
   peindre();
-  // Le bouton qui vient d'être cliqué est masqué par `peindre()` : sans reprise explicite, le
+  // L'élément qui vient d'être cliqué est masqué par `peindre()` : sans reprise explicite, le
   // focus retombe sur <body>, l'utilisateur clavier repart du haut du document et le lecteur
   // d'écran n'annonce rien. On le pose sur la contrepartie de l'action.
-  const cible = S.pays
-    ? $("#pays-bar-chg")
-    : $("#etape-pays")?.querySelector("h2");
+  const cible = S.pays ? $("#pays-chg") : $("#etape-pays")?.querySelector("h2");
   if (cible) {
     cible.setAttribute("tabindex", "-1");
     cible.focus();
   }
-  // Le déposant vient de choisir : on le ramène en haut des modèles, pas au milieu d'une grille.
-  document.querySelector("#modeles")?.scrollIntoView({ block: "start" });
+  // Le déposant vient de choisir : on le ramène en haut de la page, où son pays est désormais
+  // écrit sur l'étiquette du titre — pas au milieu d'une grille.
+  document.querySelector("#main")?.scrollIntoView({ block: "start" });
 }
 
 document.querySelector("#grid-pays")?.addEventListener("click", (e) => {
-  const b = e.target.closest("[data-pays]");
-  if (b) choisirPays(b.dataset.pays);
+  const a = e.target.closest("[data-pays]");
+  if (!a) return;
+  // La carte est un VRAI lien : on n'intercepte que le clic ordinaire. Ctrl/⌘/molette et
+  // « ouvrir dans un nouvel onglet » doivent continuer à ouvrir `?pays=xx` pour de bon — les
+  // confisquer ferait d'un lien un bouton déguisé, ce que ni le navigateur ni l'utilisateur
+  // n'attendent.
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0)
+    return;
+  e.preventDefault();
+  choisirPays(a.dataset.pays);
 });
 document
-  .querySelector("#pays-bar-chg")
+  .querySelector("#pays-chg")
   ?.addEventListener("click", () => choisirPays(null));
 
 function appliquerLangue(l) {

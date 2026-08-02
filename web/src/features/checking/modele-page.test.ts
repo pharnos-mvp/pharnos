@@ -18,9 +18,16 @@ const lire = (p: string) => fs.readFileSync(path.join(racine, p), 'utf8')
 const JS = lire('modele.js')
 const PAGES = ['modele.html', 'en/template.html'] as const
 
-/** Les `"#xxx"` littéraux du script — un sélecteur construit dynamiquement échappe au contrôle,
- *  et c'est assumé : on garde ce qui est vérifiable sans deviner. */
-const idsCherches = [...JS.matchAll(/"#([A-Za-z][\w-]*)/g)].map((m) => m[1] as string)
+/**
+ * Les `"#xxx"` littéraux du script — un sélecteur construit dynamiquement échappe au contrôle,
+ * et c'est assumé : on garde ce qui est vérifiable sans deviner.
+ *
+ * Le GUILLEMET FERMANT fait partie du motif, sinon un identifiant interpolé laisse son préfixe
+ * derrière lui : `href="#fl-${pays}"` était lu comme un `id="fl-"` littéral, qu'aucune page ne
+ * porte — la garde échouait sur un nœud qui n'a jamais été cherché. Exiger la fermeture ne perd
+ * aucun vrai sélecteur (vérifié : 88 des 89, le 89ᵉ étant précisément ce préfixe).
+ */
+const idsCherches = [...JS.matchAll(/"#([A-Za-z][\w-]*)"/g)].map((m) => m[1] as string)
 
 describe('page /modele — câblage script ↔ page', () => {
   it('cherche au moins la trentaine de nœuds attendus', () => {
