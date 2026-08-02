@@ -12,7 +12,7 @@
     />
     <meta name="robots" content="noindex, follow" />
     <link rel="stylesheet" href="/styles.css?v=15" />
-    <link rel="stylesheet" href="/bibliotheque.css?v=10" />
+    <link rel="stylesheet" href="/bibliotheque.css?v=11" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link
@@ -828,6 +828,20 @@
                 id="off3"
               ></button>
             </div>
+            <!-- Les deux AUTRES documents du bundle. Ils se déposent ICI, avant le paiement :
+                 réclamer par e-mail après coup ce qu'on vient de vendre casse la promesse et
+                 laisse la commande sans matière. Rendu par le script, qui seul sait quels deux
+                 documents manquent selon celui qu'on regarde. -->
+            <div
+              class="mfield"
+              id="bundlezone"
+              role="group"
+              aria-labelledby="bundlelab"
+              hidden
+            >
+              <span class="mlab" id="bundlelab"></span>
+              <div id="bundleslots"></div>
+            </div>
             <div class="duo">
               <div class="mfield">
                 <label class="mlab" for="payprenom" data-en="First name"
@@ -875,11 +889,19 @@
                 >Téléphone (WhatsApp de préférence)</label
               >
               <div class="tel-row">
-                <select
+                <!-- Champ + `datalist` plutôt qu'un `<select>` : à 88 pays, dérouler une liste
+                     est un supplice, alors que taper « cam » suffit. La recherche est celle du
+                     navigateur — rien à écrire, rien à casser au clavier ni au lecteur d'écran,
+                     et aucune dépendance sur une page servie sans build. -->
+                <input
                   id="payind"
-                  aria-label="Indicatif"
-                  data-en-al="Dialing code"
-                ></select>
+                  list="payindlist"
+                  autocomplete="country-name"
+                  aria-label="Pays de l'indicatif — tapez pour chercher"
+                  data-en-al="Dialling code country — type to search"
+                  required
+                />
+                <datalist id="payindlist"></datalist>
                 <input
                   id="paytel"
                   type="tel"
@@ -1036,6 +1058,6 @@
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <script src="/landing.js?v=15" defer></script>
-    <script type="module" src="/modele.js?v=14"></script>
+    <script type="module" src="/modele.js?v=15"></script>
   </body>
 </html>

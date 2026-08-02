@@ -1140,8 +1140,86 @@
   grid-template-columns: auto minmax(0, 1fr);
   gap: 8px;
 }
-.bib .drawer .tel-row select {
-  width: auto;
+/* Le champ d'indicatif est un texte cherchable : il lui faut de la place pour « Émirats arabes
+   unis +971 », mais pas au point d'écraser le numéro. */
+.bib .drawer .tel-row #payind {
+  width: 100%;
+  min-width: 0;
+}
+
+/* ══ Bundle : les deux autres documents, déposés avant le paiement ══ */
+.bundle-slot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  border: 1px solid var(--g200);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 8px 11px;
+}
+.bundle-slot .ico {
+  color: var(--blue);
+  flex: none;
+}
+.bundle-slot .fx {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+}
+.bundle-slot .nm {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--g800);
+}
+/* `min-width: 0` sur la grille + troncature ici : un nom de fichier long ne pousse jamais la
+   croix hors du panneau. */
+.bundle-slot .mt {
+  font-size: 11.5px;
+  color: var(--g500);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bundle-slot .x {
+  font-size: 17px;
+  line-height: 1;
+  color: var(--g400);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  flex: none;
+  padding: 2px 4px;
+}
+.bundle-slot .x:hover {
+  color: var(--g700);
+}
+/* Une case vide EST le bouton : pas de zone morte qui laisse croire qu'on a déjà déposé. */
+.bundle-slot:has(.bundle-add) {
+  border-style: dashed;
+  padding: 0;
+  background: var(--g50);
+}
+.bundle-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  font: inherit;
+  font-size: 13px;
+  color: var(--g600);
+  background: none;
+  border: 0;
+  padding: 10px 11px;
+  cursor: pointer;
+  text-align: left;
+}
+.bundle-add:hover {
+  color: var(--navy);
+}
+.bundle-add .ic {
+  font-size: 15px;
+  color: var(--blue);
 }
 /* Choix d'offre de l'écran fusionné — même peau que les chips, mais sur deux lignes :
    le libellé porte le périmètre, la seconde ligne porte le prix (et l'économie du bundle). */

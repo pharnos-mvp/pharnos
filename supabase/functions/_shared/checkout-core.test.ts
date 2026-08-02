@@ -7,6 +7,7 @@ import {
   CHARIOW_ENDPOINT,
   corpsChariow,
   HOTES_PAIEMENT,
+  INDICATIFS,
   lireReponseChariow,
   OFFRES_CHARIOW,
   RETOURS,
@@ -112,16 +113,18 @@ Deno.test('corpsChariow — la devise de règlement suit le pays de l’acheteur
   const bj = validerCommande(base())
   assert(bj.ok)
   assert(!('payment_currency' in corpsChariow(bj.cmd, 'unknown')))
-  // Zone euro → EUR ; ailleurs → USD (le corridor carte universel — un Indien sur une offre
-  // en francs CFA voyait « Request failed with status code 400 », vu en live le 31/07).
+  // Hors zone franc : TOUJOURS l'euro, jamais le dollar. Le prix est annonce « 29 EUR
+  // (19 000 FCFA) » — facturer dans une troisieme devise montre au client un montant qu'il
+  // n'a jamais lu (« $33.68 » vu en live le 31/07).
   for (
     const [pays, devise] of [
       ['FR', 'EUR'],
       ['BE', 'EUR'],
-      ['US', 'USD'],
-      ['IN', 'USD'],
-      ['TR', 'USD'],
-      ['CN', 'USD'],
+      ['US', 'EUR'],
+      ['IN', 'EUR'],
+      ['TR', 'EUR'],
+      ['CN', 'EUR'],
+      ['CM', 'EUR'],
     ] as const
   ) {
     const v = validerCommande(base({ paysTel: pays, telephone: '612345678' }))
@@ -256,5 +259,24 @@ Deno.test('hotes-jumeaux — tout hôte accepté par le serveur est cadrable par
           : src === `https://${hote}`
       )
     assert(couvert, `${hote} accepté par le serveur mais absent du frame-src`)
+  }
+})
+
+Deno.test('indicatifs-jumeaux — tout pays proposé au formulaire est dédoublonnable ici', async () => {
+  // Un pays offert au choix mais absent de la table serveur perd le dédoublonnage : « +229 01
+  // 96… » part en `229019…`, le processeur refuse, et le refus ressemble à une faute du client.
+  // Les deux listes vivent dans deux fichiers : ce test est leur seul lien.
+  const js = await Deno.readTextFile(new URL('../../../landing/modele.js', import.meta.url))
+  const bloc = js.slice(js.indexOf('const INDICATIFS = ['))
+  const front = [...bloc.slice(0, bloc.indexOf('];')).matchAll(/\["([A-Z]{2})", "(\d+)"/g)]
+  // Exact et bidirectionnel : un pays serveur-seulement est du code mort, un pays
+  // formulaire-seulement casse le dédoublonnage. Le comptage strict attrape les deux.
+  assertEquals(
+    front.length,
+    Object.keys(INDICATIFS).length,
+    'les deux listes n’ont pas le même nombre de pays',
+  )
+  for (const [, iso, code] of front) {
+    assertEquals(INDICATIFS[iso as string], code, `${iso} absent ou divergent côté serveur`)
   }
 })
