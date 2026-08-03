@@ -72,14 +72,17 @@ export const FORBIDDEN_RULES: readonly ForbiddenRule[] = [
     why: 'module de synchronisation — la frontière même du produit autonome',
   },
   {
-    label: 'src/lib/outbox.ts',
-    matches: contains('/src/lib/outbox.ts'),
-    why: "file d'attente de remontée vers le serveur",
-  },
-  {
     label: 'src/lib/flush-outbox.ts',
+    // ⚠️ LE SENDER, et lui seul. `src/lib/outbox.ts` n'est PAS interdit : vérifié, il n'importe
+    // que Dexie et ne contient aucun appel réseau — c'est une file d'attente purement LOCALE.
+    // L'interdire bloquait `dossier-repository`, `catalogue/repository` et
+    // `dossier-attachments-repository`, c'est-à-dire tout le socle qu'on veut justement
+    // réutiliser (§5.1). Même erreur que d'interdire `roadmap-data.ts` pour son nom : ce qui
+    // compte est ce qu'un module FAIT, pas ce qu'il évoque.
+    // Conséquence assumée : dans le builder, la file se remplit et personne ne la vide. Elle est
+    // locale et bornée par le stockage ; sa purge est un sujet du lot B2 (export/compilation).
     matches: contains('/src/lib/flush-outbox.ts'),
-    why: "vidange de la file d'attente vers le serveur",
+    why: "vidange de la file d'attente VERS LE SERVEUR — le seul module de l'outbox qui émet",
   },
   {
     label: '@sentry/*',

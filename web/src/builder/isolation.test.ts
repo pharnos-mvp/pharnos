@@ -120,12 +120,25 @@ describe('findForbiddenModules', () => {
     expect(hits).toHaveLength(2)
   })
 
-  it('signale la file de remontée serveur', () => {
+  it('refuse la VIDANGE de la file vers le serveur', () => {
+    const hits = findForbiddenModules([`${ROOT}/src/lib/flush-outbox.ts`])
+    expect(hits).toHaveLength(1)
+    expect(hits[0]?.rule.label).toBe('src/lib/flush-outbox.ts')
+  })
+
+  it('laisse passer la file elle-même, qui est purement LOCALE', () => {
+    // `src/lib/outbox.ts` n'importe que Dexie et ne fait aucun appel réseau — vérifié.
+    // L'interdire bloquait `dossier-repository`, `catalogue/repository` et
+    // `dossier-attachments-repository`, donc tout le socle que le builder doit RÉUTILISER.
+    // Ce qui compte est ce qu'un module FAIT, pas ce que son nom évoque.
     const hits = findForbiddenModules([
       `${ROOT}/src/lib/outbox.ts`,
-      `${ROOT}/src/lib/flush-outbox.ts`,
+      `${ROOT}/src/lib/db.ts`,
+      `${ROOT}/src/lib/audit.ts`,
+      `${ROOT}/src/features/catalogue/repository.ts`,
+      `${ROOT}/src/features/workspace/dossier-repository.ts`,
     ])
-    expect(hits).toHaveLength(2)
+    expect(hits).toEqual([])
   })
 })
 

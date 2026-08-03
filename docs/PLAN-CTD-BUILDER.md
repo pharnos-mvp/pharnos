@@ -20,18 +20,57 @@ s'ouvre **après M3** (banc d'essai du moteur IA) — sauf B1 et B2, indépendan
 **Aucun projet Cloudflare supplémentaire** (arbitrage CEO du 2026-08-03) : le builder est assemblé
 dans le déploiement de la vitrine, cf. §10.1. Rien n'est en attente côté infrastructure.
 
-**Prochaine action : B1** — le SCINDEMENT du workspace. C'est là qu'est le travail réel, et il a
-un point dur identifié : `NewDossierPage.tsx` importe `syncDossiers` **en statique**
-(`from './dossier-sync'`), ce que le garde-fou d'isolation refuse — à juste titre. Il faut rendre
-la synchronisation **injectée** plutôt qu'importée, pour que le même écran serve les deux offres.
+✅ **Tranché par le CEO (2026-08-03) : le builder embarque un CATALOGUE MINIMAL** — un dossier s'y
+crée depuis un produit, comme sur la plateforme. On ne simplifie pas la création : c'est un clone
+sans écosystème, pas un produit différent. Corollaire : `features/catalogue/` entre dans le
+périmètre réutilisé, avec la même règle de scindement que le workspace.
 
-⏳ **Question ouverte, à trancher avant B1** : un dossier se crée aujourd'hui à partir d'un
-**produit du Catalogue** (`listProducts`) et de `@/features/variations/*`. Le builder embarque-t-il
-un catalogue minimal (produit + organisations), ou bien la création de dossier est-elle
-simplifiée pour cette offre ? Les deux sont défendables, ils ne coûtent pas la même chose.
+**Prochaine action : B1 — et sa première étape est identifiée, mesurée, non triviale.**
 
-**L'entrée dans le header de `pharnos.com` n'est PAS encore posée**, et c'est délibéré : elle
-pointerait aujourd'hui vers une coquille. Elle arrive avec B1 (§7.3).
+### B1.0 — Découpler `ref-overrides` du réseau (préalable à TOUT le reste)
+
+Chaîne constatée en branchant le vrai dépôt dans la coquille (le garde-fou l'a refusée) :
+
+```
+dossier-repository → catalogue/ref-content → catalogue/ref-overrides → @supabase/supabase-js
+```
+
+Autrement dit : **le socle de données n'est pas réutilisable en l'état**, contrairement à ce que
+laissait entendre la §5.1. La bonne nouvelle est que la coupe est nette — sur les **douze exports**
+de `ref-overrides.ts`, **un seul** parle au serveur (`syncRefOverrides`, l. 234) ; les onze autres
+lisent et écrivent dans Dexie.
+
+⚠️ **Le piège, et c'est lui le travail** : `setOverride` (l. 192) et `removeOverride` (l. 220)
+appellent eux-mêmes `void syncRefOverrides(orgId)` en *fire-and-forget*. Sortir la fonction dans un
+`ref-overrides-sync.ts` ne suffit donc pas — le module local le réimporterait. Il faut **injecter**
+le déclencheur :
+
+```ts
+let onOverrideChanged: (orgId: string) => void = () => {}
+export function setOverrideSyncHook(fn: typeof onOverrideChanged) { onOverrideChanged = fn }
+```
+
+…et l'enregistrer depuis l'entrée de la PLATEFORME (`src/main.tsx`), **pas** depuis
+`catalogue-sync.ts` : un enregistrement au chargement d'un module de feature laisserait une fenêtre
+où une pose d'adaptation ne déclencherait aucune synchronisation. Le seul appelant en production
+est `catalogue-sync.ts` ; le test existant s'appelle déjà `ref-overrides-sync.test.ts`.
+
+**Ce lot touche un module qui sert `app.pharnos.com` : il mérite sa propre PR et une revue.**
+
+### Ce qui reste ensuite
+
+Même exercice, module par module, sur les pages du workspace qui importent la synchronisation en
+statique (`WorkspacePage`, `NewDossierPage`, `DossierWorkspacePage`, `LifecycleActionCard`…), puis
+sur le catalogue minimal.
+
+⚠️ **Ne PAS neutraliser les `*-sync.ts` en bloc par un alias de build** : `dossier-sync.ts` exporte
+aussi `purgeLocalChildren`, qui est une purge **locale** dont `dossier-purge.ts` dépend. Un module
+nommé « sync » n'est pas intégralement du réseau — ici encore, ce qui compte est ce que le code
+FAIT.
+
+**L'entrée « CTD Builder » du header est posée depuis le 2026-08-03** et mène à la page de vente
+`pharnos.com/ctdbuilder`, dont le bouton ouvre l'application. Ce que le bouton ouvre reste une
+coquille tant que B1 n'est pas livré.
 
 ---
 
