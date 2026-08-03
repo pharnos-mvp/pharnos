@@ -1,4 +1,4 @@
-// BANC D'ESSAI — mesure UNE VAGUE de rubriques là où vit la clé (jalon U0.2).
+// BANC D'ESSAI — mesure les passes du moteur là où vit la clé (jalons U0.2 puis U0.3).
 //
 // POURQUOI CETTE FONCTION EXISTE. Le plan annonce « 6 appels simultanés ≈ 2,6 min » et le dit
 // lui-même : ces jetons sont une ESTIMATION, convertie par ratio caractères/jeton. Aucun de ces
@@ -13,9 +13,16 @@
 //   - Une invocation = une vague : c'est la forme exacte du `job-tick` du worker asynchrone (U4).
 //     Le banc n'est pas jetable, c'est le prototype de la boucle qui livrera.
 //
-// CE QUE LE BANC NE FAIT PAS. Il ne juge pas la QUALITÉ des rubriques produites : il rend leur
-// statut et leur verdict tels quels, sans les interpréter. Le jugement réglementaire appartient au
-// harnais local (U0.3), qui compare aux références.
+// TROIS PHASES, une par passe du processus verrouillé (étapes 1 à 3) — l'appelant tient l'état
+// entre les invocations, exactement comme le worker le tiendra en base :
+//
+//   `sections`  — mise en conformité FR par rubrique (une vague)
+//   `translate` — traduction EN des rubriques produites (une vague)
+//   `report`    — la revue réglementaire (un seul appel)
+//
+// CE QUE LE BANC NE FAIT PAS. Il ne juge pas la QUALITÉ des sorties : il rend statuts et verdicts
+// tels quels, sans les interpréter. Le jugement réglementaire appartient au harnais local (U0.3),
+// qui compare aux références.
 //
 // FERMÉ PAR DÉFAUT. Sans `BENCH_TOKEN` posé, la fonction refuse tout — un banc qui coûte de l'IA
 // à chaque appel ne doit jamais être ouvert par oubli.
@@ -23,44 +30,88 @@ import { specForDocType, flattenRubrics } from '../_shared/conformity-specs.ts'
 import { logJson, newReqId } from '../_shared/log.ts'
 import { sha256Hex, timingSafeEqual } from '../_shared/share-auth.ts'
 import { prepareSource, type SourceKind } from '../_shared/ai/evidence.ts'
-import { conformitySystem } from '../_shared/ai/personas.ts'
-import { boundedMap, DEFAULT_CONCURRENCY } from '../_shared/ai/pool.ts'
+import { conformitySystem, reviewSystem, translationSystem } from '../_shared/ai/personas.ts'
+import { boundedMap, DEFAULT_CONCURRENCY, type PoolReport } from '../_shared/ai/pool.ts'
 import { generateParts, type Part } from '../_shared/ai/provider.ts'
 import { EDGE_WALL_CLOCK_MS } from '../_shared/ai/limits.ts'
 import {
   generateSection,
   MISSING_MARKER,
   SECTION_BUDGET_MS,
+  type OutputLang,
 } from '../_shared/upgrade-section-core.ts'
+import {
+  translateSection,
+  TRANSLATE_BUDGET_MS,
+  type TranslateOutcome,
+} from '../_shared/translate-section-core.ts'
+import { generateReport, REPORT_BUDGET_MS, type ReportSection } from '../_shared/report-core.ts'
+import type { SectionStatus } from '../_shared/ai/section-schema.ts'
 import { emptyUsage, runWithUsage, type Usage } from '../_shared/usage.ts'
 
 const MAX_TEXT_CHARS = 60_000
+/** Borne par ITEM de traduction — une rubrique validée ne dépasse jamais cet ordre de grandeur. */
+const MAX_ITEM_CHARS = 20_000
+/** Une vague reste une vague : au-delà, c'est plusieurs invocations que l'appelant doit faire. */
+const MAX_ITEMS = 30
 /**
  * Marge sous le mur de 150 s. Elle couvre la lecture du corps (jusqu'à 60 000 caractères), la
  * sérialisation de la réponse et la latence de sortie. Un banc tué en 546 ne rendrait AUCUNE
  * mesure — l'échec le plus coûteux possible, puisque les appels IA auraient été payés.
  */
 const BENCH_MARGIN_MS = 20_000
-/** En deçà, une rubrique n'est pas lancée : un appel qui ne peut pas finir est un 546 déguisé. */
-const MIN_SECTION_BUDGET_MS = 20_000
+/** En deçà, un item n'est pas lancé : un appel qui ne peut pas finir est un 546 déguisé. */
+const MIN_SLICE_MS = 20_000
 
 const enc = new TextEncoder()
 
-interface SectionMeasure {
-  sectionId: string
-  title: string
+/** Mesure d'un item : la sortie du cœur, plus la durée et les jetons que lui seul a coûtés. */
+interface ItemMeasure<T> {
   ms: number
-  /** `null` quand la rubrique a échoué ou n'a pas été lancée. */
-  status: string | null
-  verdict: string | null
-  attempts: number
-  downgraded: boolean
-  downgradeReason?: string
-  ungrounded: number
-  chars: number
   usage: Usage
-  error?: string
   skipped: boolean
+  error?: string
+  value?: T
+}
+
+function measured<I, O>(
+  worker: (item: I, budgetMs: number) => Promise<O>,
+  deadline: number,
+): (item: I) => Promise<{ usage: Usage; value?: O; error?: string }> {
+  return async (item) => {
+    // Accumulateur EXTERNALISÉ, comme en production : un appel payé puis suivi d'une erreur doit
+    // rester compté. Un banc qui perd les jetons des items en échec sous-estime le coût réel — et
+    // c'est justement sur les items difficiles que le rejeu double la facture.
+    const usage = emptyUsage()
+    try {
+      const budgetMs = deadline - Date.now()
+      if (budgetMs < MIN_SLICE_MS) throw new Error('budget insuffisant')
+      const value = await runWithUsage(usage, () => worker(item, budgetMs))
+      return { usage, value }
+    } catch (e) {
+      return { usage, error: e instanceof Error ? e.message : String(e) }
+    }
+  }
+}
+
+function collect<I, O>(
+  report: PoolReport<{ usage: Usage; value?: O; error?: string }>,
+): { items: ItemMeasure<O>[]; totals: Usage } {
+  const items: ItemMeasure<O>[] = report.outcomes.map((o) => ({
+    ms: o.ms,
+    usage: o.value?.usage ?? emptyUsage(),
+    skipped: o.skipped,
+    error: o.error?.message ?? o.value?.error,
+    value: o.value?.value,
+  }))
+  const totals = items.reduce((a, s) => {
+    a.in += s.usage.in
+    a.out += s.usage.out
+    a.cacheRead += s.usage.cacheRead
+    a.cacheWrite += s.usage.cacheWrite
+    return a
+  }, emptyUsage())
+  return { items, totals }
 }
 
 Deno.serve(async (req: Request) => {
@@ -96,22 +147,176 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'JSON invalide' }, 400)
   }
   const b = (raw ?? {}) as {
+    phase?: string
+    // sections
     sourceText?: string
     docType?: string
     countryCode?: string
     sourceKind?: string
     sections?: string[]
+    limit?: number
+    // translate
+    items?: { sectionId?: string; title?: string; status?: string; content?: string }[]
+    targetLang?: string
+    // report
+    productName?: string
+    sourceName?: string
+    lang?: string
+    reportDate?: string
+    reportSections?: {
+      sectionId?: string
+      title?: string
+      status?: string
+      figuresToVerify?: string[]
+    }[]
+    // commun
     concurrency?: number
     warmupFirst?: boolean
-    limit?: number
   }
 
-  const sourceText = typeof b.sourceText === 'string' ? b.sourceText.slice(0, MAX_TEXT_CHARS) : ''
-  if (!sourceText) return json({ error: 'sourceText requis' }, 400)
-
+  const phase = b.phase === 'translate' || b.phase === 'report' ? b.phase : 'sections'
+  const concurrency = Math.max(1, Math.min(Number(b.concurrency) || DEFAULT_CONCURRENCY, 12))
+  const warmupFirst = b.warmupFirst !== false
+  const deadline = invokedAt + EDGE_WALL_CLOCK_MS - BENCH_MARGIN_MS
   const docType = String(b.docType ?? 'rcp')
   const spec = specForDocType(docType)
   if (!spec) return json({ error: 'docType inconnu' }, 400)
+
+  // ── Phase TRADUCTION ─────────────────────────────────────────────────────────────────────────
+  if (phase === 'translate') {
+    const targetLang: OutputLang = b.targetLang === 'fr' ? 'fr' : 'en'
+    const items = (Array.isArray(b.items) ? b.items : []).slice(0, MAX_ITEMS).map((i) => ({
+      sectionId: String(i.sectionId ?? '').slice(0, 40),
+      title: String(i.title ?? '').slice(0, 200),
+      status: String(i.status ?? 'filled') as SectionStatus,
+      content: String(i.content ?? '').slice(0, MAX_ITEM_CHARS),
+    }))
+    if (!items.length || items.some((i) => !i.sectionId || !i.title || !i.content)) {
+      return json({ error: 'items requis : sectionId, title (langue cible), content' }, 400)
+    }
+    const system = translationSystem(targetLang)
+    logJson({ fn: 'bench', reqId, op: 'start', phase, items: items.length, concurrency })
+
+    const report = await boundedMap(
+      items,
+      measured(
+        (item, budgetMs) =>
+          translateSection(generateParts, {
+            ...item,
+            targetLang,
+            system,
+            // Fournisseur ÉPINGLÉ, comme en production : le décodage contraint n'existe pas chez
+            // tous les fournisseurs, et c'est cette chaîne-là qui livrera.
+            provider: 'anthropic',
+            budgetMs: Math.min(TRANSLATE_BUDGET_MS, budgetMs),
+          }),
+        deadline,
+      ),
+      // Pas de préchauffage : chaque item traduit SON contenu, il n'y a pas de long préfixe commun
+      // dont la première écriture servirait les suivants. Le préchauffage ne ferait qu'allonger.
+      { concurrency, warmupFirst: false, deadline, minSliceMs: MIN_SLICE_MS },
+    )
+    const { items: measures, totals } = collect<(typeof items)[number], TranslateOutcome>(report)
+    logJson({ fn: 'bench', reqId, op: 'done', phase, ms: report.ms, ok: report.ok, ...totals })
+    return json({
+      reqId,
+      phase,
+      wave: {
+        ms: report.ms,
+        slowestMs: report.slowestMs,
+        ok: report.ok,
+        failed: report.failed,
+        skipped: report.skipped,
+      },
+      totals,
+      invocationMs: Date.now() - invokedAt,
+      items: measures.map((m, i) => ({
+        sectionId: items[i].sectionId,
+        ms: m.ms,
+        skipped: m.skipped,
+        error: m.error,
+        usage: m.usage,
+        ...(m.value
+          ? {
+            translated: m.value.translated,
+            attempts: m.value.attempts,
+            driftedFigures: m.value.driftedFigures,
+            content: m.value.content,
+            status: m.value.status,
+          }
+          : {}),
+      })),
+    })
+  }
+
+  // ── Phase REVUE ──────────────────────────────────────────────────────────────────────────────
+  if (phase === 'report') {
+    const sourceText = typeof b.sourceText === 'string' ? b.sourceText.slice(0, MAX_TEXT_CHARS) : ''
+    if (!sourceText) return json({ error: 'sourceText requis' }, 400)
+    const sections = (Array.isArray(b.reportSections) ? b.reportSections : [])
+      .slice(0, MAX_ITEMS)
+      .map((s) => ({
+        sectionId: String(s.sectionId ?? '').slice(0, 40),
+        title: String(s.title ?? '').slice(0, 200),
+        status: (['filled', 'partial', 'missing'].includes(String(s.status))
+          ? s.status
+          : 'missing') as ReportSection['status'],
+        ...(Array.isArray(s.figuresToVerify) && s.figuresToVerify.length
+          ? { figuresToVerify: s.figuresToVerify.map((f) => String(f).slice(0, 80)) }
+          : {}),
+      }))
+    if (!sections.length) return json({ error: 'reportSections requis' }, 400)
+    const lang: OutputLang = b.lang === 'en' ? 'en' : 'fr'
+    const sourceKind = (b.sourceKind === 'ocr' ? 'ocr' : 'text') as SourceKind
+    logJson({ fn: 'bench', reqId, op: 'start', phase, sections: sections.length })
+
+    const usage = emptyUsage()
+    const t0 = Date.now()
+    try {
+      const out = await runWithUsage(usage, () =>
+        generateReport(generateParts, {
+          spec,
+          productName: String(b.productName ?? 'Produit').slice(0, 120),
+          sourceName: String(b.sourceName ?? 'document.pdf').slice(0, 120),
+          sourceText,
+          sourceKind,
+          sections,
+          lang,
+          // Injectée par l'appelant, jamais lue d'une horloge côté modèle — et le harnais la fige
+          // pour que deux passages du même cas rendent le même rapport.
+          reportDate: String(b.reportDate ?? '').slice(0, 40) || new Date().toISOString().slice(0, 10),
+          system: reviewSystem(lang),
+          provider: 'anthropic',
+          budgetMs: Math.min(REPORT_BUDGET_MS, deadline - Date.now()),
+        }))
+      logJson({ fn: 'bench', reqId, op: 'done', phase, ms: Date.now() - t0, ...usage })
+      return json({
+        reqId,
+        phase,
+        ms: Date.now() - t0,
+        totals: usage,
+        invocationMs: Date.now() - invokedAt,
+        markdown: out.markdown,
+        droppedClaims: out.droppedClaims,
+        strictClaims: out.strictClaims,
+      })
+    } catch (e) {
+      // Les jetons d'un rapport en échec sont quand même rendus : ils ont été payés.
+      logJson({ fn: 'bench', reqId, op: 'error', phase, ms: Date.now() - t0, ...usage })
+      return json({
+        reqId,
+        phase,
+        ms: Date.now() - t0,
+        totals: usage,
+        invocationMs: Date.now() - invokedAt,
+        error: e instanceof Error ? e.message : String(e),
+      }, 502)
+    }
+  }
+
+  // ── Phase RUBRIQUES (défaut) ─────────────────────────────────────────────────────────────────
+  const sourceText = typeof b.sourceText === 'string' ? b.sourceText.slice(0, MAX_TEXT_CHARS) : ''
+  if (!sourceText) return json({ error: 'sourceText requis' }, 400)
 
   const all = flattenRubrics(spec)
   // Choix des rubriques : une liste explicite, sinon les N premières. Les mesurer TOUTES en une
@@ -122,17 +327,15 @@ Deno.serve(async (req: Request) => {
   if (!wanted.length) return json({ error: 'aucune rubrique retenue' }, 400)
 
   const sourceKind = (b.sourceKind === 'ocr' ? 'ocr' : 'text') as SourceKind
-  const concurrency = Math.max(1, Math.min(Number(b.concurrency) || DEFAULT_CONCURRENCY, 12))
-  const warmupFirst = b.warmupFirst !== false
   const system = conformitySystem({ docType, missingMarker: MISSING_MARKER })
   const sourcePart: Part = { text: `DOCUMENT SOURCE :\n${sourceText}` }
   const source = prepareSource(sourceText, sourceKind)
-  const deadline = invokedAt + EDGE_WALL_CLOCK_MS - BENCH_MARGIN_MS
 
   logJson({
     fn: 'bench',
     reqId,
     op: 'start',
+    phase,
     docType,
     sections: wanted.length,
     concurrency,
@@ -140,97 +343,31 @@ Deno.serve(async (req: Request) => {
     chars: sourceText.length,
   })
 
-  const report = await boundedMap<typeof wanted[number], SectionMeasure>(
+  const report = await boundedMap(
     wanted,
-    async (rubric) => {
-      // Accumulateur EXTERNALISÉ, comme en production : un appel payé puis suivi d'une erreur doit
-      // rester compté. Un banc qui perd les jetons des rubriques en échec sous-estime le coût réel,
-      // et c'est justement sur les rubriques difficiles que le rejeu double la facture.
-      const usage = emptyUsage()
-      const budgetMs = Math.min(SECTION_BUDGET_MS, deadline - Date.now())
-      try {
-        if (budgetMs < MIN_SECTION_BUDGET_MS) throw new Error('budget insuffisant')
-        const s = await runWithUsage(usage, () =>
-          generateSection(generateParts, {
-            spec,
-            rubric,
-            sourceParts: [sourcePart],
-            source,
-            system,
-            countryCode: b.countryCode,
-            // Fournisseur ÉPINGLÉ, comme en production : le décodage contraint n'existe pas chez
-            // tous les fournisseurs. Mesurer Vertex ici donnerait une durée sans rapport avec la
-            // chaîne qui livrera.
-            provider: 'anthropic',
-            budgetMs,
-          }))
-        return {
-          sectionId: s.sectionId,
-          title: s.title,
-          ms: 0, // renseigné par le pool, seule horloge qui mesure l'item entier
-          status: s.status,
-          verdict: s.verdict,
-          attempts: s.attempts,
-          downgraded: s.downgraded,
-          downgradeReason: s.downgradeReason,
-          ungrounded: s.ungrounded.length,
-          chars: s.content.length,
-          usage,
-          skipped: false,
-        }
-      } catch (e) {
-        return {
-          sectionId: rubric.id,
-          title: rubric.title ?? rubric.id,
-          ms: 0,
-          status: null,
-          verdict: null,
-          attempts: 0,
-          downgraded: false,
-          ungrounded: 0,
-          chars: 0,
-          usage,
-          error: e instanceof Error ? e.message : String(e),
-          skipped: false,
-        }
-      }
-    },
-    { concurrency, warmupFirst, deadline, minSliceMs: MIN_SECTION_BUDGET_MS },
+    measured(
+      (rubric, budgetMs) =>
+        generateSection(generateParts, {
+          spec,
+          rubric,
+          sourceParts: [sourcePart],
+          source,
+          system,
+          countryCode: b.countryCode,
+          provider: 'anthropic',
+          budgetMs: Math.min(SECTION_BUDGET_MS, budgetMs),
+        }),
+      deadline,
+    ),
+    { concurrency, warmupFirst, deadline, minSliceMs: MIN_SLICE_MS },
   )
 
-  // La durée d'un item n'est connue que du pool : on la recolle ici plutôt que de la mesurer dans
-  // le worker, qui ne verrait pas l'attente en file d'attente.
-  const sections: SectionMeasure[] = report.outcomes.map((o, i) => {
-    const base = o.value ?? {
-      sectionId: wanted[i].id,
-      title: wanted[i].title ?? wanted[i].id,
-      status: null,
-      verdict: null,
-      attempts: 0,
-      downgraded: false,
-      ungrounded: 0,
-      chars: 0,
-      usage: emptyUsage(),
-      skipped: o.skipped,
-      error: o.error?.message,
-    }
-    return { ...base, ms: o.ms, skipped: o.skipped }
-  })
-
-  const totals = sections.reduce(
-    (a, s) => ({
-      in: a.in + s.usage.in,
-      out: a.out + s.usage.out,
-      cacheRead: a.cacheRead + s.usage.cacheRead,
-      cacheWrite: a.cacheWrite + s.usage.cacheWrite,
-    }),
-    emptyUsage(),
-  )
-
+  const { items: measures, totals } = collect(report)
   logJson({
     fn: 'bench',
     reqId,
     op: 'done',
+    phase,
     ms: report.ms,
     slowestMs: report.slowestMs,
     ok: report.ok,
@@ -241,6 +378,7 @@ Deno.serve(async (req: Request) => {
 
   return json({
     reqId,
+    phase,
     docType,
     concurrency,
     warmupFirst,
@@ -256,6 +394,29 @@ Deno.serve(async (req: Request) => {
     // Le temps total de l'invocation, mur compris : c'est LUI qui doit rester sous 150 s, pas la
     // seule durée du lot. Le prélude et la réponse comptent aussi.
     invocationMs: Date.now() - invokedAt,
-    sections,
+    sections: measures.map((m, i) => ({
+      sectionId: m.value?.sectionId ?? wanted[i].id,
+      title: m.value?.title ?? wanted[i].title,
+      ms: m.ms,
+      skipped: m.skipped,
+      error: m.error,
+      usage: m.usage,
+      ...(m.value
+        ? {
+          status: m.value.status,
+          verdict: m.value.verdict,
+          attempts: m.value.attempts,
+          downgraded: m.value.downgraded,
+          downgradeReason: m.value.downgradeReason,
+          // Le CONTENU sort avec la mesure : le harnais en a besoin pour assembler le document,
+          // traduire, puis bâtir la revue — l'état vit chez l'appelant, comme il vivra en base
+          // chez le worker. Idem pour les valeurs non ancrées, qui nourrissent `figuresToVerify`.
+          content: m.value.content,
+          evidence: m.value.evidence,
+          ungrounded: m.value.ungrounded,
+          figuresAdvisory: m.value.figuresAdvisory,
+        }
+        : {}),
+    })),
   })
 })

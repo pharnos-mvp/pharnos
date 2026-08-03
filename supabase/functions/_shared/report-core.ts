@@ -42,8 +42,22 @@ import type { AiOptions, Part, Provider } from './ai/types.ts'
 import { DOC_SHORT, type ConformityDocType, type ConformitySpec } from './conformity-specs.ts'
 import type { OutputLang, SectionOutcome } from './upgrade-section-core.ts'
 
-export const REPORT_BUDGET_MS = 100_000
-const REPORT_ATTEMPT_TIMEOUT_MS = 90_000
+/**
+ * Budget total de la revue, et plafond de son unique tentative.
+ *
+ * ⚠️ MESURÉ, pas choisi : à 90 s, la revue d'un RCP de 28 000 caractères sur 34 rubriques a dépassé
+ * son délai DEUX FOIS de suite sur Opus 5 (banc U0.3, 03/08/2026) — un constat structurel, pas un
+ * aléa. La revue est le seul appel de la chaîne qui produise jusqu'à 8 000 jetons de JSON sur
+ * quatre tableaux non bornés, réflexion adaptative comprise ; les rubriques, elles, en rendent
+ * ~200 chacune et tiennent en 5 à 8 s.
+ *
+ * 115 s est le maximum exploitable, et il est contraint des deux côtés : `MAX_CALL_TIMEOUT_MS`
+ * (120 s) borne tout appel sortant, et le mur Edge (150 s) doit encore couvrir le prélude et
+ * l'écriture de la réponse. Il n'y a donc PAS de marge au-delà : si une revue venait à dépasser
+ * 115 s, la réponse ne serait pas d'augmenter encore le chiffre mais de découper la passe.
+ */
+export const REPORT_BUDGET_MS = 118_000
+const REPORT_ATTEMPT_TIMEOUT_MS = 115_000
 const REPORT_MAX_OUTPUT_TOKENS = 8_000
 
 /**
