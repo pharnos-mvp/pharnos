@@ -78,6 +78,20 @@ const PAGES = [
       ogImageAlt: 'Pharnos — official template, regulatory library for the WAEMU zone.',
     },
   },
+  {
+    src: 'ctdbuilder.html',
+    out: path.join('en', 'ctdbuilder.html'),
+    canonical: 'https://pharnos.com/en/ctdbuilder',
+    head: {
+      title: 'CTD Builder — assemble WAEMU-compliant CTD dossiers on your own machine · Pharnos',
+      description:
+        'The Pharnos CTD Builder assembles your MA dossiers on your own machine: country-specific Module 1 tree, filing of documents, structure checks, package compilation. Your documents never pass through our servers. From €49.',
+      ogDescription:
+        'Country-specific Module 1 tree, filing of documents, structure checks, compilation. Your documents never pass through Pharnos servers.',
+      ogImage: 'https://pharnos.com/assets/og-image-en.png?v=1',
+      ogImageAlt: 'Pharnos CTD Builder — assembling compliant CTD dossiers for the WAEMU zone.',
+    },
+  },
 ]
 
 const BANNER = (src) =>

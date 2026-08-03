@@ -105,6 +105,9 @@
 /invite.js
   Cache-Control: public, max-age=300
 
+/ctdbuilder.css
+  Cache-Control: public, max-age=300
+
 /checking.css
   Cache-Control: public, max-age=300
 
