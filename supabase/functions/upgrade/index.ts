@@ -23,7 +23,7 @@ import {
   MISSING_MARKER,
   SECTION_BUDGET_MS,
 } from '../_shared/upgrade-section-core.ts'
-import { runWithUsage, withUsage, type Usage } from '../_shared/usage.ts'
+import { emptyUsage, runWithUsage, withUsage, type Usage } from '../_shared/usage.ts'
 
 const MAX_FILE_BYTES = 12 * 1024 * 1024
 const MAX_TEXT_CHARS = 60_000
@@ -385,7 +385,7 @@ Deno.serve(async (req: Request) => {
     // Accumulateur de tokens EXTERNALISÉ : sur le chemin d'erreur (troncature, refus final), les
     // appels déjà payés doivent quand même débiter le quota — sinon il suffit de faire échouer la
     // génération pour consommer l'IA gratuitement.
-    const usage: Usage = { in: 0, out: 0 }
+    const usage: Usage = emptyUsage()
     const certifiedContext = dossierContextBlock(b.dossierContext)
     try {
       const s = await runWithUsage(usage, () =>
@@ -476,8 +476,11 @@ Deno.serve(async (req: Request) => {
         {
           onDone: (chars) =>
             logJson({ ...log, op: 'upgrade', ms: Date.now() - started, status: 'ok', chars }),
+          // Le flux SSE ne remonte que deux compteurs : la ventilation du cache n'existe pas dans
+          // les événements `message_delta`. Des zéros HONNÊTES, donc — le mode rubrique, lui, la
+          // mesure vraiment (c'est le seul chemin que le banc U0.2 instrumente).
           onUsage: (uin, uout) =>
-            recordAiUsage(supabase, 'upgrade', { in: uin, out: uout }, activeOrg),
+            recordAiUsage(supabase, 'upgrade', { ...emptyUsage(), in: uin, out: uout }, activeOrg),
         },
       )
       return new Response(out, {

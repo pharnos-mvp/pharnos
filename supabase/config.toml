@@ -405,6 +405,14 @@ verify_jwt = false
 [functions.retention-purge]
 verify_jwt = false
 
+# Banc d'essai U0.2 : mesure une vague de rubriques là où vit `ANTHROPIC_API_KEY`. L'appelant est
+# un script d'atelier, pas un utilisateur — il n'a pas de JWT Supabase. La barrière est DANS la
+# fonction : jeton `x-bench-token` comparé À TEMPS CONSTANT sur les condensés, et refus 503 tant
+# que `BENCH_TOKEN` n'est pas posé. Aucun en-tête CORS n'est émis : un navigateur ne peut pas lire
+# la réponse, même muni du jeton.
+[functions.bench]
+verify_jwt = false
+
 # Formulaire public « Demander une démo » de la landing pharnos.com : le prospect n'a pas de
 # compte — la barrière est DANS la fonction (CORS dédié, honeypot, rate-limit share_hit,
 # validation stricte ; écriture service-role sur demo_requests, RLS sans policy).

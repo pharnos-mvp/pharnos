@@ -223,7 +223,7 @@ function recordUsage(usage: AnthropicUsage | undefined): {
   const cacheWrite = usage?.cache_creation_input_tokens ?? 0
   const input = (usage?.input_tokens ?? 0) + cacheRead + cacheWrite
   const output = usage?.output_tokens ?? 0
-  addUsage(input, output)
+  addUsage(input, output, cacheRead, cacheWrite)
   return { in: input, out: output, cacheRead, cacheWrite }
 }
 
