@@ -581,8 +581,16 @@ de développement** : l'accident aurait été silencieux et public.
    chez le client, qui refuse ensuite d'exécuter le module (mauvais type MIME) et affiche un
    écran blanc, sans erreur réseau. C'est arrivé à la première visite après le déploiement.
    → `max-age=300` sans `immutable` sur ce préfixe, tant qu'une URL inconnue ne répond pas 404.
-2. **Une réécriture `_redirects` vers `…/index.html` ne s'applique pas** : Cloudflare renvoie un
-   308 « pretty URL » vers `…/` et la règle se perd — le même piège que `/i/*`. La destination
-   doit être **`/ctd-builder/`**, sans nom de fichier.
+2. **Aucune réécriture SPA n'est en place, et les deux formes évidentes sont fausses** — les deux
+   essayées en production le même jour :
+   - `/ctd-builder/* /ctd-builder/index.html 200` → **ne s'applique jamais** (308 « pretty URL »
+     de `…/index.html` vers `…/`, la règle se perd — même piège que `/i/*`) ;
+   - `/ctd-builder/* /ctd-builder/ 200` → **s'applique à tout, assets EXISTANTS compris**. Le
+     fichier statique n'a pas gagné sur la règle : le JS de l'app répondait `200 text/html`,
+     le module n'était plus exécuté, page blanche. **Régression réelle, en production.**
+
+   → Règle retirée. Sans perte aujourd'hui (une seule URL, pas de routeur). **Au lot B1**, le
+   repli devra exclure `/ctd-builder/assets/` et être **mesuré en production** avant d'être
+   considéré comme acquis.
 - [x] Le stockage durable se demande depuis un geste utilisateur et l'état s'affiche
 - [x] Servi sous `pharnos.com/ctd-builder/` — assemblé dans le déploiement de la vitrine, aucun projet Cloudflare supplémentaire
