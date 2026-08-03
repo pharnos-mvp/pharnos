@@ -1,0 +1,229 @@
+/**
+ * Garde-fou d'ISOLATION du CTD Builder autonome.
+ *
+ * L'argument de vente du produit est une phrase : « vos documents ne transitent jamais par les
+ * serveurs de Pharnos » (PLAN-CTD-BUILDER §1). Une phrase que rien ne vérifie est une promesse
+ * commerciale ; ici c'est une promesse RÉGLEMENTAIRE faite à des laboratoires — elle doit être
+ * tenue par la mécanique, pas par la discipline.
+ *
+ * Deux verrous indépendants, et il en faut deux :
+ *  1. la CSP `connect-src 'self'` de `builder.pharnos.com` (`public-builder/_headers`) — le
+ *     NAVIGATEUR refuse toute sortie tierce, même si du code fautif était livré ;
+ *  2. ce contrôle-ci — le BUILD refuse de produire un artefact qui contient le code de sortie.
+ *
+ * Le 1 protège l'utilisateur, le 2 protège la promesse : un bundle qui embarque le client Supabase
+ * est un bundle dont on ne peut plus affirmer, en diligence d'acheteur, qu'il ne parle à personne.
+ *
+ * Fonction PURE (aucune API DOM ni Node) : appelée par `vite.builder.config.ts` sur les modules
+ * RÉELLEMENT ÉMIS, et testée unitairement.
+ */
+
+export type ForbiddenRule = {
+  /** Étiquette lisible, affichée telle quelle dans l'erreur de build. */
+  readonly label: string
+  /** Reconnaît un identifiant de module normalisé (séparateurs `/`, sans suffixe de requête). */
+  readonly matches: (id: string) => boolean
+  /** Pourquoi ce module n'a rien à faire dans l'édition autonome. */
+  readonly why: string
+}
+
+export type ForbiddenHit = {
+  readonly moduleId: string
+  readonly rule: ForbiddenRule
+}
+
+const contains =
+  (needle: string) =>
+  (id: string): boolean =>
+    id.includes(needle)
+
+/**
+ * Ce que l'édition autonome ne doit JAMAIS embarquer.
+ *
+ * La liste vise des CAPACITÉS de sortie réseau ou des périmètres vendus avec l'abonnement
+ * (PLAN-CTD-BUILDER §2), pas des fichiers pris un par un : un nouveau `*-sync.ts` est couvert
+ * le jour où il est écrit, sans que personne ait à penser à modifier cette liste.
+ */
+export const FORBIDDEN_RULES: readonly ForbiddenRule[] = [
+  {
+    label: '@supabase/*',
+    // TOUTE la famille, pas le seul méta-paquet : `postgrest-js`, `storage-js`, `functions-js`,
+    // `auth-js` et `realtime-js` sont des clients réseau AUTONOMES, importables directement.
+    // Vérifié : viser `@supabase/supabase-js` seul laissait entrer REST + Storage + Edge
+    // Functions au complet avec un build vert.
+    matches: contains('/@supabase/'),
+    why: "client réseau du backend — l'édition autonome n'a pas de backend",
+  },
+  {
+    label: 'src/lib/supabase.ts',
+    matches: contains('/src/lib/supabase.ts'),
+    why: 'singleton du client Supabase (auth + REST + Storage)',
+  },
+  {
+    label: 'src/lib/session.ts',
+    matches: contains('/src/lib/session.ts'),
+    why: 'session serveur et org courante — notions absentes du produit autonome',
+  },
+  {
+    label: '*-sync.ts(x)',
+    // Le module de synchronisation d'une feature, quelle qu'elle soit. C'est LA frontière du
+    // produit (§5.1) : « le même dépôt local, sans le module de synchronisation ».
+    matches: (id) => /-sync\.tsx?$/.test(id),
+    why: 'module de synchronisation — la frontière même du produit autonome',
+  },
+  {
+    label: 'src/lib/outbox.ts',
+    matches: contains('/src/lib/outbox.ts'),
+    why: "file d'attente de remontée vers le serveur",
+  },
+  {
+    label: 'src/lib/flush-outbox.ts',
+    matches: contains('/src/lib/flush-outbox.ts'),
+    why: "vidange de la file d'attente vers le serveur",
+  },
+  {
+    label: '@sentry/*',
+    matches: contains('/@sentry/'),
+    why: "télémétrie sortante — révélerait qu'un dossier d'AMM est en cours de montage",
+  },
+  {
+    label: 'src/lib/sentry.ts',
+    matches: contains('/src/lib/sentry.ts'),
+    why: 'initialisation de la télémétrie sortante',
+  },
+  {
+    label: 'src/features/auth/',
+    matches: contains('/src/features/auth/'),
+    why: 'authentification — le produit se vend « sans compte à créer » (§7.2)',
+  },
+  {
+    label: 'src/features/admin/',
+    matches: contains('/src/features/admin/'),
+    why: "console d'administration Pharnos — hors périmètre",
+  },
+]
+
+/**
+ * Normalise un identifiant de module Rollup pour la comparaison :
+ *  • séparateurs Windows `\` → `/` (le build tourne sous Windows en local, Linux en CI) ;
+ *  • suffixe de requête (`?used`, `?v=…`, `?worker`) retiré — il ne change pas l'origine ;
+ *  • préfixe des modules virtuels (`\0`) retiré.
+ */
+export function normalizeModuleId(id: string): string {
+  return id.replace(/^\0/, '').replace(/\\/g, '/').split('?')[0] ?? ''
+}
+
+/** Modules interdits présents dans la liste fournie. Vide = artefact conforme. */
+export function findForbiddenModules(moduleIds: Iterable<string>): ForbiddenHit[] {
+  const hits: ForbiddenHit[] = []
+  for (const raw of moduleIds) {
+    const id = normalizeModuleId(raw)
+    if (!id) continue
+    for (const rule of FORBIDDEN_RULES) {
+      if (rule.matches(id)) hits.push({ moduleId: id, rule })
+    }
+  }
+  return hits
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────────────
+   SECOND ÉTAGE — le contrôle de CAPACITÉ.
+   `findForbiddenModules` est une liste noire de DÉPENDANCES : elle attrape un import du client
+   Supabase, pas un `fetch('https://…', { body: dossier })` écrit à la main dans un composant.
+   Elle est aussi aveugle aux builds IMBRIQUÉS de Vite (les web workers sont compilés à part et
+   émis en ASSET, jamais présents dans `chunk.modules`) — vérifié en revue : neuf caractères
+   (`?worker`) suffisaient à faire passer `@supabase/supabase-js` entier.
+   Ce second étage lit donc le CODE ÉMIS, chunks et assets JS confondus.
+   ───────────────────────────────────────────────────────────────────────────────────────────── */
+
+export type EmittedFile = { readonly file: string; readonly code: string }
+
+export type EgressHit = {
+  readonly file: string
+  /** L'extrait fautif, tel qu'il apparaît dans l'artefact. */
+  readonly evidence: string
+  readonly why: string
+}
+
+/**
+ * URLs absolues tolérées dans le code émis. Aucune n'est jointe au réseau : ce sont des espaces
+ * de noms XML et des liens de documentation intégrés par React à ses messages d'erreur.
+ * Toute URL hors de cette liste fait échouer le build — c'est le but : une nouvelle adresse dans
+ * un produit « sans backend » doit être un acte conscient, pas un effet de bord.
+ */
+// Liste tenue au plus juste : ces deux entrées sont les seules présentes dans l'artefact
+// (`http://www.w3.org/2000/svg` et consorts, `https://react.dev/errors/`). N'y ajouter une ligne
+// qu'après avoir constaté qu'elle est réellement émise.
+const URL_ALLOWLIST: readonly RegExp[] = [
+  /^https?:\/\/react\.dev\//,
+  /^https?:\/\/(www\.)?w3\.org\//,
+]
+
+/**
+ * Primitives de sortie réseau. Ce sont des propriétés d'objets globaux : la minification ne les
+ * renomme pas, elle ne peut pas — c'est ce qui rend ce contrôle fiable sur du code compilé.
+ * `fetch` n'y figure PAS : trop de faux positifs (le mot apparaît dans des identifiants et des
+ * commentaires de dépendances), et toute cible utile de `fetch` est déjà couverte par l'URL.
+ */
+const EGRESS_PRIMITIVES: readonly { readonly needle: string; readonly why: string }[] = [
+  { needle: 'sendBeacon', why: 'envoi en arrière-plan, survit à la fermeture de l’onglet' },
+  { needle: 'new WebSocket', why: 'canal bidirectionnel persistant' },
+  { needle: 'new EventSource', why: 'flux serveur' },
+  { needle: 'XMLHttpRequest', why: 'requête sortante' },
+  { needle: 'importScripts', why: 'chargement de code distant dans un worker' },
+]
+
+/**
+ * Cherche, dans le code RÉELLEMENT ÉMIS, toute adresse absolue non autorisée et toute primitive
+ * de sortie réseau. Fonction pure — les fichiers sont fournis par le plugin de build.
+ */
+export function findEgress(files: Iterable<EmittedFile>): EgressHit[] {
+  const hits: EgressHit[] = []
+  for (const { file, code } of files) {
+    for (const match of code.matchAll(/https?:\/\/[\w.-]+(?:\/[\w./-]*)?/g)) {
+      const url = match[0]
+      if (URL_ALLOWLIST.some((re) => re.test(url))) continue
+      hits.push({ file, evidence: url, why: 'adresse absolue dans un produit sans backend' })
+    }
+    for (const { needle, why } of EGRESS_PRIMITIVES) {
+      if (code.includes(needle)) hits.push({ file, evidence: needle, why })
+    }
+  }
+  return hits
+}
+
+/** Message d'erreur du contrôle de capacité. */
+export function formatEgressFailure(hits: readonly EgressHit[]): string {
+  // Un même littéral peut apparaître cent fois : on ne montre qu'une occurrence par couple.
+  const seen = new Set<string>()
+  const lines: string[] = []
+  for (const h of hits) {
+    const key = `${h.file} ${h.evidence}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    lines.push(`  • ${h.file} : « ${h.evidence} »\n      → ${h.why}`)
+  }
+  return [
+    `Sortie réseau détectée dans l'artefact du CTD Builder — ${lines.length} cas :`,
+    ...lines,
+    '',
+    "Le produit se vend sur l'absence de sortie réseau (PLAN-CTD-BUILDER §1). Si cette adresse",
+    'est légitime et jointe par personne (espace de noms, lien de documentation), ajoute-la à',
+    "URL_ALLOWLIST dans src/builder/isolation.ts, avec la raison. Si elle est appelée, c'est un",
+    'changement de nature du produit : il passe par la CSP de public-builder/_headers.',
+  ].join('\n')
+}
+
+/** Message d'erreur de build : ce qui est entré, par quel nom, et pourquoi c'est refusé. */
+export function formatIsolationFailure(hits: readonly ForbiddenHit[]): string {
+  const lines = hits.map((h) => `  • ${h.moduleId}\n      → ${h.rule.label} : ${h.rule.why}`)
+  return [
+    `Isolation du CTD Builder rompue — ${hits.length} module(s) interdits dans l'artefact :`,
+    ...lines,
+    '',
+    "L'édition autonome ne doit contenir aucune capacité de sortie réseau (PLAN-CTD-BUILDER §1).",
+    "Retirer l'import fautif, ou — si la sortie est VOULUE (réservation de crédits, lot B3) —",
+    'ajouter la règle correspondante en connaissance de cause dans src/builder/isolation.ts',
+    'ET ouvrir la CSP de public-builder/_headers dans le même commit.',
+  ].join('\n')
+}
