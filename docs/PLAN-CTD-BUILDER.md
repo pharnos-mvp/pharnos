@@ -581,6 +581,10 @@ de développement** : l'accident aurait été silencieux et public.
    chez le client, qui refuse ensuite d'exécuter le module (mauvais type MIME) et affiche un
    écran blanc, sans erreur réseau. C'est arrivé à la première visite après le déploiement.
    → `max-age=300` sans `immutable` sur ce préfixe, tant qu'une URL inconnue ne répond pas 404.
+   ⚠️ **La valeur déclarée n'est pas celle qui est servie** : `max-age=300` revient en
+   `max-age=14400` (4 h). Le réseau relève les valeurs basses vers son propre plancher, mais
+   respecte les valeurs hautes — c'est pourquoi `immutable` + un an, lui, était bien appliqué.
+   Le plafond réel du dégât est donc de 4 heures, pas de 5 minutes.
 2. **Aucune réécriture SPA n'est en place, et les deux formes évidentes sont fausses** — les deux
    essayées en production le même jour :
    - `/ctd-builder/* /ctd-builder/index.html 200` → **ne s'applique jamais** (308 « pretty URL »

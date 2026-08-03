@@ -72,8 +72,19 @@
 #
 # C'est la même classe de panne que celle documentée plus bas pour `/styles.css` (17/07/2026) :
 # un cache long sur un chemin qui peut mentir transforme un incident d'une seconde en panne
-# durable. 5 minutes suffisent à absorber toute propagation, et l'asset reste dans le cache du
-# navigateur pendant la session — le coût est une revalidation 304 sur ~60 Ko.
+# durable.
+#
+# ⚠️ CE QUI EST RÉELLEMENT SERVI N'EST PAS CETTE VALEUR — mesuré le 2026-08-03 :
+#     déclaré ici `max-age=300`  →  reçu par le navigateur `public, max-age=14400` (4 h).
+# Le réseau relève les valeurs inférieures à son propre plancher (vraisemblablement le réglage
+# de zone « Browser Cache TTL », dont le défaut est 4 h ; non vérifié faute d'accès au tableau
+# de bord). Une valeur SUPÉRIEURE, elle, est respectée telle quelle : `immutable` + un an
+# l'était, et c'est bien ce qui a gelé la panne. Le plancher effectif est donc 4 heures, pas
+# 5 minutes — c'est acceptable (un incident se résorbe seul dans la journée), ce ne l'était pas
+# à l'échelle de l'année.
+#
+# Garder une valeur basse a deux vertus : elle plafonne le dégât, et elle deviendra effective
+# le jour où la zone respectera les en-têtes d'origine.
 #
 # À relever seulement quand une URL inconnue sous ce préfixe répondra vraiment 404.
 /ctd-builder/assets/*
