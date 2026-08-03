@@ -14,7 +14,7 @@ import {
   streamSimpleSse,
   type Part,
 } from '../_shared/ai/provider.ts'
-import { withUsage } from '../_shared/usage.ts'
+import { emptyUsage, withUsage } from '../_shared/usage.ts'
 
 const MAX_FILE_BYTES = 12 * 1024 * 1024
 const MAX_TEXT_CHARS = 60_000
@@ -181,8 +181,10 @@ Deno.serve(async (req: Request) => {
         {
           onDone: (chars) =>
             logJson({ ...log, op: 'translate', ms: Date.now() - started, status: 'ok', chars }),
+          // Le flux SSE ne remonte que deux compteurs : la ventilation du cache n'existe pas dans
+          // les événements `message_delta`. Des zéros HONNÊTES, donc — et non des champs absents.
           onUsage: (uin, uout) =>
-            recordAiUsage(supabase, 'translate', { in: uin, out: uout }, activeOrg),
+            recordAiUsage(supabase, 'translate', { ...emptyUsage(), in: uin, out: uout }, activeOrg),
         },
       )
       return new Response(out, {

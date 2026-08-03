@@ -26,6 +26,7 @@ import {
 import {
   parseSectionResult,
   sectionSchema,
+  SectionOutputError,
   type SectionResult,
   type SectionStatus,
 } from './ai/section-schema.ts'
@@ -145,6 +146,12 @@ export type DowngradeReason =
   | 'empty_content'
   /** Rejet non rejoué faute de budget : un défaut de PLATEFORME, pas une tentation d'inventer. */
   | 'budget'
+  /**
+   * Le modèle a répondu DEUX FOIS sur une autre rubrique du gabarit. Distinct de `evidence` : rien
+   * n'a été jugé, il n'y avait rien à juger sous le bon numéro. À suivre en métrique — s'il grimpe,
+   * c'est le schéma élargi (`schemaIds`) qui désoriente, et le prix du cache partagé serait à revoir.
+   */
+  | 'misrouted'
 
 /**
  * Neutralise ce qui permettrait à un extrait de se faire passer pour une consigne : caractères de
@@ -349,6 +356,8 @@ export async function generateSection(
   const figuresAdvisory = req.source.kind === 'ocr'
 
   let parsed: SectionResult | null = null
+  /** Deux réponses de suite sur une AUTRE rubrique du gabarit — cause de rétrogradation à part. */
+  let misrouted = false
   let verdict: EvidenceVerdict = 'not_attempted'
   let ungrounded: string[] = []
   let attempts = 0
@@ -397,7 +406,30 @@ export async function generateSection(
       if (i === 0) throw e
       break
     }
-    parsed = parseSectionResult(raw, ids)
+    try {
+      parsed = parseSectionResult(raw, ids)
+    } catch (e) {
+      // Répondre SUR UNE AUTRE rubrique du gabarit est redevenu possible depuis que le schéma les
+      // autorise toutes (cf. `schemaIds` — c'est le prix du cache partagé). Ce n'est PAS une panne
+      // déterministe comme une troncature : un rejeu, avec le contrat de sortie en position de
+      // récence, la corrige. Sans ce rattrapage, une rubrique sur trente-quatre ferait perdre la
+      // passe entière — 1,2 $ à repayer pour une erreur d'aiguillage.
+      //
+      // La GARANTIE, elle, ne bouge pas d'un pouce : on n'accepte toujours rien. Au second échec la
+      // rubrique se rétrograde en `missing`, elle n'est jamais rangée sous le numéro demandé.
+      if (e instanceof SectionOutputError && e.reason === 'unknown_section') {
+        // `parsed` reste nul : la seconde tentative repart sur l'instruction de base, qui exige
+        // déjà « section_id : exactement "<id>" ». Rien de la réponse fautive n'est réutilisé.
+        parsed = null
+        if (i === 0) continue
+        // Deux fois de suite : on rétrograde comme pour tout autre rejet définitif, plutôt que de
+        // faire tomber la vague entière. La garantie tient — sans contenu sous le bon numéro, la
+        // rubrique porte le marqueur, jamais la réponse mal aiguillée.
+        misrouted = true
+        break
+      }
+      throw e
+    }
     verdict = verifyEvidence(parsed.source_evidence, req.source, parsed.status, req.rubric.title)
     ungrounded = parsed.status === 'missing'
       ? []
@@ -412,7 +444,9 @@ export async function generateSection(
   // Le marqueur suit la langue du document produit : une lacune se traduit, elle ne disparait pas.
   const marker = MARKER_BY_LANG[req.outputLang ?? 'fr']
   if (!parsed) {
-    // Aucune tentative n'a pu être lancée (budget épuisé avant même le premier appel).
+    // Deux cas, et ils ne se confondent pas : aucune tentative lançable (budget épuisé avant le
+    // premier appel), ou deux réponses de suite sur une autre rubrique du gabarit. Le second est
+    // une RÉTROGRADATION — le modèle a produit quelque chose, ce n'était simplement pas ici.
     return {
       sectionId: req.rubric.id,
       title,
@@ -422,7 +456,8 @@ export async function generateSection(
       verdict,
       ungrounded,
       attempts,
-      downgraded: false,
+      downgraded: misrouted,
+      ...(misrouted ? { downgradeReason: 'misrouted' as const } : {}),
       figuresAdvisory,
     }
   }

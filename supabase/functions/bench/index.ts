@@ -52,8 +52,20 @@ import { emptyUsage, runWithUsage, type Usage } from '../_shared/usage.ts'
 const MAX_TEXT_CHARS = 60_000
 /** Borne par ITEM de traduction — une rubrique validée ne dépasse jamais cet ordre de grandeur. */
 const MAX_ITEM_CHARS = 20_000
-/** Une vague reste une vague : au-delà, c'est plusieurs invocations que l'appelant doit faire. */
-const MAX_ITEMS = 30
+/**
+ * Plafond du nombre d'items d'une requête — **il refuse, il ne tronque pas.**
+ *
+ * ⚠️ Il valait 30 pour un gabarit RCP qui compte 34 rubriques : la revue était calculée sur un
+ * document AMPUTÉ de ses rubriques 8, 9, 10 et `prescription`, et `renderReportMarkdown` annonçait
+ * « à compléter — N » sur cette vue partielle. Sur le run AARCOLD le compte tombait juste par
+ * chance (les quatre écartées étaient renseignées) ; le premier dossier étranger sans numéro d'AMM
+ * — cas ordinaire, rubriques 8/9/10 vides — aurait livré un rapport contredisant son propre
+ * document. Une borne qui tronque en silence est pire que pas de borne du tout.
+ *
+ * Calibré sur le référentiel réel, avec de la marge : rcp 34, notice 26, labeling 17, cover 14,
+ * pght 8.
+ */
+const MAX_ITEMS = 50
 /**
  * Marge sous le mur de 150 s. Elle couvre la lecture du corps (jusqu'à 60 000 caractères), la
  * sérialisation de la réponse et la latence de sortie. Un banc tué en 546 ne rendrait AUCUNE
@@ -182,10 +194,39 @@ Deno.serve(async (req: Request) => {
   const spec = specForDocType(docType)
   if (!spec) return json({ error: 'docType inconnu' }, 400)
 
+  /**
+   * Refus explicite plutôt que troncature. Un banc dont on ampute l'entrée rend une durée, un coût
+   * et un taux de lacunes FAUX — or c'est sur ces chiffres que le prix de vente se fixe.
+   */
+  const tooMany = (n: number, champ: string): Response | null =>
+    n > MAX_ITEMS
+      ? json({ error: `${champ} : ${n} éléments pour un maximum de ${MAX_ITEMS}`, reason: 'too_many_items' }, 400)
+      : null
+
+  /**
+   * Le texte source ne se coupe pas non plus. La production tient déjà cet invariant — elle rend un
+   * 413 nommé plutôt qu'un document amputé (`upgrade/index.ts`, mode rubrique avec pièce) ; le banc
+   * doit le tenir aussi, sans quoi il mesurerait un document que personne ne déposera jamais.
+   */
+  const readSource = (): string | Response => {
+    const t = typeof b.sourceText === 'string' ? b.sourceText : ''
+    if (!t) return json({ error: 'sourceText requis' }, 400)
+    if (t.length > MAX_TEXT_CHARS) {
+      return json({
+        error: `sourceText : ${t.length} caractères pour un maximum de ${MAX_TEXT_CHARS} — le banc ne mesure pas un document amputé`,
+        reason: 'source_too_long',
+      }, 413)
+    }
+    return t
+  }
+
   // ── Phase TRADUCTION ─────────────────────────────────────────────────────────────────────────
   if (phase === 'translate') {
     const targetLang: OutputLang = b.targetLang === 'fr' ? 'fr' : 'en'
-    const items = (Array.isArray(b.items) ? b.items : []).slice(0, MAX_ITEMS).map((i) => ({
+    const rawItems = Array.isArray(b.items) ? b.items : []
+    const refusedItems = tooMany(rawItems.length, 'items')
+    if (refusedItems) return refusedItems
+    const items = rawItems.map((i) => ({
       sectionId: String(i.sectionId ?? '').slice(0, 40),
       title: String(i.title ?? '').slice(0, 200),
       status: String(i.status ?? 'filled') as SectionStatus,
@@ -251,16 +292,26 @@ Deno.serve(async (req: Request) => {
 
   // ── Phase REVUE ──────────────────────────────────────────────────────────────────────────────
   if (phase === 'report') {
-    const sourceText = typeof b.sourceText === 'string' ? b.sourceText.slice(0, MAX_TEXT_CHARS) : ''
-    if (!sourceText) return json({ error: 'sourceText requis' }, 400)
-    const sections = (Array.isArray(b.reportSections) ? b.reportSections : [])
-      .slice(0, MAX_ITEMS)
+    const src = readSource()
+    if (typeof src !== 'string') return src
+    const sourceText = src
+    const rawSections = Array.isArray(b.reportSections) ? b.reportSections : []
+    const refusedSections = tooMany(rawSections.length, 'reportSections')
+    if (refusedSections) return refusedSections
+    // ⚠️ Un statut inconnu N'EST PAS corrigé en `missing` : il gonflerait le décompte « à compléter »
+    // d'un rapport client sur une faute de frappe de l'appelant. On refuse.
+    const badStatus = rawSections.find((s) => !['filled', 'partial', 'missing'].includes(String(s.status)))
+    if (badStatus) {
+      return json({
+        error: `statut inconnu « ${String(badStatus.status).slice(0, 20)} » sur la rubrique « ${String(badStatus.sectionId).slice(0, 40)} »`,
+        reason: 'unknown_status',
+      }, 400)
+    }
+    const sections = rawSections
       .map((s) => ({
         sectionId: String(s.sectionId ?? '').slice(0, 40),
         title: String(s.title ?? '').slice(0, 200),
-        status: (['filled', 'partial', 'missing'].includes(String(s.status))
-          ? s.status
-          : 'missing') as ReportSection['status'],
+        status: s.status as ReportSection['status'],
         ...(Array.isArray(s.figuresToVerify) && s.figuresToVerify.length
           ? { figuresToVerify: s.figuresToVerify.map((f) => String(f).slice(0, 80)) }
           : {}),
@@ -302,21 +353,32 @@ Deno.serve(async (req: Request) => {
       })
     } catch (e) {
       // Les jetons d'un rapport en échec sont quand même rendus : ils ont été payés.
-      logJson({ fn: 'bench', reqId, op: 'error', phase, ms: Date.now() - t0, ...usage })
+      //
+      // ⚠️ SAUF SUR UN DÉPASSEMENT DE DÉLAI, et c'est le cas le plus fréquent ici. Le SDK n'ayant
+      // reçu aucune réponse, `recordUsage` n'est jamais appelé : `totals` vaut ZÉRO alors qu'Anthropic
+      // a bien facturé l'entrée et la réflexion produite. Mesuré le 03/08/2026 — trois revues
+      // avortées ont coûté ~1,01 $, retrouvés seulement par différence avec la console de
+      // facturation. Le drapeau le DIT, faute de quoi un coût invisible se lirait comme un coût nul.
+      const message = e instanceof Error ? e.message : String(e)
+      const timedOut = /délai|timeout|abort/i.test(message)
+      logJson({ fn: 'bench', reqId, op: 'error', phase, ms: Date.now() - t0, timedOut, ...usage })
       return json({
         reqId,
         phase,
         ms: Date.now() - t0,
         totals: usage,
+        /** `true` = `totals` est un PLANCHER, pas la dépense réelle. Ne jamais l'additionner comme un zéro. */
+        usageUnobservable: timedOut,
         invocationMs: Date.now() - invokedAt,
-        error: e instanceof Error ? e.message : String(e),
+        error: message,
       }, 502)
     }
   }
 
   // ── Phase RUBRIQUES (défaut) ─────────────────────────────────────────────────────────────────
-  const sourceText = typeof b.sourceText === 'string' ? b.sourceText.slice(0, MAX_TEXT_CHARS) : ''
-  if (!sourceText) return json({ error: 'sourceText requis' }, 400)
+  const srcSections = readSource()
+  if (typeof srcSections !== 'string') return srcSections
+  const sourceText = srcSections
 
   const all = flattenRubrics(spec)
   // Choix des rubriques : une liste explicite, sinon les N premières. Les mesurer TOUTES en une
@@ -325,6 +387,14 @@ Deno.serve(async (req: Request) => {
     ? all.filter((r) => b.sections!.includes(r.id))
     : all.slice(0, Math.max(1, Math.min(Number(b.limit) || DEFAULT_CONCURRENCY, all.length)))
   if (!wanted.length) return json({ error: 'aucune rubrique retenue' }, 400)
+  // Un identifiant inconnu se perdrait silencieusement dans le `filter` ci-dessus : l'appelant
+  // croirait avoir mesuré N rubriques et en aurait mesuré N−1.
+  if (Array.isArray(b.sections) && b.sections.length !== wanted.length) {
+    const inconnues = b.sections.filter((id) => !all.some((r) => r.id === id))
+    return json({ error: `rubriques inconnues du gabarit : ${inconnues.join(', ')}`, reason: 'unknown_section' }, 400)
+  }
+  const refusedWave = tooMany(wanted.length, 'sections')
+  if (refusedWave) return refusedWave
 
   const sourceKind = (b.sourceKind === 'ocr' ? 'ocr' : 'text') as SourceKind
   const system = conformitySystem({ docType, missingMarker: MISSING_MARKER })

@@ -107,10 +107,11 @@ Deno.test('generateSection : le schéma est IDENTIQUE d’une rubrique à l’au
   assertEquals(schema.properties.section_id.enum!.includes('4.1'), true)
 })
 
-Deno.test('generateSection : une AUTRE rubrique du gabarit est refusée en code', async () => {
-  // Le pendant du test précédent : le schéma s'est élargi, la garantie NON. Le modèle peut
-  // désormais former « 2 » — c'est la lecture qui doit le refuser, sinon on rangerait le contenu
-  // d'une rubrique sous le numéro d'une autre, et le document serait faux sans être détectable.
+Deno.test('generateSection : une AUTRE rubrique est REJOUÉE une fois, jamais acceptée', async () => {
+  // Le schéma s'étant élargi pour partager le préfixe, le modèle PEUT désormais former « 2 » en
+  // répondant sur « 1 ». Sans rattrapage, une seule rubrique fautive sur trente-quatre ferait
+  // perdre la passe entière — 1,2 $ à repayer pour une erreur d'aiguillage. Ce n'est pas une panne
+  // déterministe : un rejeu la corrige. La garantie, elle, ne bouge pas — voir le test suivant.
   const s = scripted([
     JSON.stringify({
       section_id: '2',
@@ -118,9 +119,38 @@ Deno.test('generateSection : une AUTRE rubrique du gabarit est refusée en code'
       content: 'x'.repeat(20),
       source_evidence: 'GYNORIL 500 mg, comprimé pelliculé.',
     }),
+    out('filled', 'GYNORIL 500 mg, comprimé pelliculé.', 'GYNORIL 500 mg, comprimé pelliculé.'),
   ])
-  const e = await assertRejects(() => generateSection(s.generate, req()), SectionOutputError)
-  assertEquals(e.reason, 'unknown_section')
+  const r = await generateSection(s.generate, req())
+  assertEquals(s.calls.length, 2)
+  assertEquals(r.sectionId, '1')
+  assertEquals(r.status, 'filled')
+  assertEquals(r.attempts, 2)
+  // Rien de la réponse fautive n'est réutilisé : la seconde tentative repart sur l'instruction de
+  // base, celle qui exige déjà l'identifiant exact.
+  assertStringIncludes(String(s.calls[1].parts[1].text), 'Rubrique demandée : 1.')
+})
+
+Deno.test('generateSection : deux fois la mauvaise rubrique → RÉTROGRADÉE, jamais rangée à tort', async () => {
+  // Le pendant du test précédent : le schéma s'est élargi, la garantie NON. Le modèle peut
+  // désormais former « 2 » — c'est la lecture qui doit le refuser, sinon on rangerait le contenu
+  // d'une rubrique sous le numéro d'une autre, et le document serait faux sans être détectable.
+  const wrong = JSON.stringify({
+    section_id: '2',
+    status: 'filled',
+    content: 'CONTENU DE LA RUBRIQUE 2',
+    source_evidence: 'GYNORIL 500 mg, comprimé pelliculé.',
+  })
+  const s = scripted([wrong, wrong])
+  const r = await generateSection(s.generate, req())
+  assertEquals(s.calls.length, 2)
+  assertEquals(r.sectionId, '1')
+  assertEquals(r.status, 'missing')
+  assertEquals(r.content, MISSING_MARKER)
+  assertEquals(r.downgraded, true)
+  assertEquals(r.downgradeReason, 'misrouted')
+  // LE point : rien du contenu mal aiguillé n'a survécu.
+  assertEquals(r.content.includes('RUBRIQUE 2'), false)
 })
 
 Deno.test('generateSection : l’ordre des fragments place le contrat en position de récence', async () => {

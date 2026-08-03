@@ -172,6 +172,8 @@ interface SectionRow {
   ms: number;
   usage: Usage;
   error?: string;
+  /** `true` quand l'échéance du pool a empêché le lancement : pas d'erreur, mais pas de contenu. */
+  skipped?: boolean;
 }
 
 interface PhaseMeasure {
@@ -189,8 +191,15 @@ interface PhaseMeasure {
 /* ────────────────────────────── Reprise — l'état survit aux passes ─────────────────────────── */
 // La leçon du premier run : la revue a dépassé son délai APRÈS 59 appels payés, et tout était
 // perdu — le harnais ne tenait l'état qu'en mémoire. C'est exactement le défaut que le worker
-// (U4) évitera en écrivant en base après chaque vague ; le harnais fait pareil avec un fichier.
-// Un état présent dans `--out` saute la passe correspondante ; le supprimer force le re-jeu.
+// (U4) évitera en écrivant en base ; le harnais fait pareil avec un fichier.
+//
+// ⚠️ L'état s'écrit après CHAQUE VAGUE, jamais en fin de passe. Une première version sauvegardait
+// à la fin de la boucle : un échec en vague 5 sur 6 reperdait les cinq vagues déjà payées, soit
+// exactement le défaut que ce module prétendait corriger. La granularité de la sauvegarde doit
+// être celle de la DÉPENSE.
+//
+// La reprise est un FILTRE (`!rows.has(id)`), pas un saut de passe : un état partiel reprend au
+// bon endroit au lieu de tout rejouer ou de tout sauter.
 await Deno.mkdir(OUT, { recursive: true });
 async function loadState<T>(name: string): Promise<T | undefined> {
   try {
@@ -211,14 +220,19 @@ const prior1 = await loadState<{ p1: PhaseMeasure; rows: SectionRow[] }>(
 if (prior1) {
   Object.assign(p1, prior1.p1);
   for (const s of prior1.rows) rows.set(s.sectionId, s);
-  console.error(
-    `passe 1 — reprise depuis state-p1.json (${rows.size} rubriques)`,
-  );
 }
-if (!prior1) {
-  console.error(`passe 1 — ${flat.length} rubriques en vagues de ${WAVE}…`);
+// Reprise à la VAGUE, pas à la passe : c'est la vague qui est payée. Sauvegarder seulement en fin
+// de passe reproduisait exactement le défaut que ce module prétend corriger — un échec en vague 5
+// sur 6 perdait les cinq vagues déjà réglées.
+const restant1 = flat.filter((r) => !rows.has(r.id));
+if (restant1.length) {
+  console.error(
+    prior1
+      ? `passe 1 — reprise : ${rows.size} rubriques acquises, ${restant1.length} à faire`
+      : `passe 1 — ${flat.length} rubriques en vagues de ${WAVE}…`,
+  );
   for (const wave of chunks(
-    flat.map((r) => r.id),
+    restant1.map((r) => r.id),
     WAVE,
   )) {
     const r = await bench({
@@ -237,18 +251,30 @@ if (!prior1) {
     p1.ms += w.ms;
     addTo(p1.totals, r.totals as Usage);
     for (const s of r.sections as SectionRow[]) rows.set(s.sectionId, s);
+    // Écrit AVANT toute sortie en erreur : ce qui est payé est acquis.
+    await saveState("state-p1.json", { p1, rows: [...rows.values()] });
     console.error(
       `  vague [${wave.join(", ")}] : ${(w.ms / 1000).toFixed(1)} s · ${w.ok} ok · ${w.failed} échec(s)`,
     );
   }
-  const failed1 = [...rows.values()].filter((s) => s.error);
-  if (failed1.length) {
-    console.error(
-      `ÉCHEC passe 1 : ${failed1.map((s) => `${s.sectionId} (${s.error})`).join(" ; ")}`,
-    );
-    Deno.exit(1);
-  }
-  await saveState("state-p1.json", { p1, rows: [...rows.values()] });
+} else {
+  console.error(
+    `passe 1 — reprise depuis state-p1.json (${rows.size} rubriques)`,
+  );
+}
+// Un item ABANDONNÉ par l'échéance du pool n'a pas d'`error` mais pas de `content` non plus : sans
+// ce test il traverserait le filtre et partirait en traduction avec un contenu indéfini.
+const failed1 = [...rows.values()].filter(
+  (s) => s.error || s.skipped || typeof s.content !== "string",
+);
+if (failed1.length) {
+  console.error(
+    `ÉCHEC passe 1 : ${failed1.map((s) => `${s.sectionId} (${s.error ?? "abandonnée"})`).join(" ; ")}`,
+  );
+  console.error(
+    "état conservé dans --out : relancer reprend où l'on s'est arrêté.",
+  );
+  Deno.exit(1);
 }
 
 /* ─────────────────────────────── Passe 2 — traduction EN ───────────────────────────────────── */
@@ -275,13 +301,20 @@ const prior2 = await loadState<{ p2: PhaseMeasure; en: EnRow[] }>(
 if (prior2) {
   Object.assign(p2, prior2.p2);
   for (const e of prior2.en) en.set(e.sectionId, e);
-  console.error(
-    `passe 2 — reprise depuis state-p2.json (${en.size} traductions)`,
-  );
 }
-if (!prior2) {
-  console.error(`passe 2 — ${toTranslate.length} rubriques à traduire…`);
-  for (const wave of chunks(toTranslate, WAVE)) {
+const saveP2 = () =>
+  saveState("state-p2.json", {
+    p2,
+    en: [...en.entries()].map(([sectionId, e]) => ({ ...e, sectionId })),
+  });
+const restant2 = toTranslate.filter((r) => !en.has(r.id));
+if (restant2.length) {
+  console.error(
+    prior2
+      ? `passe 2 — reprise : ${en.size} traductions acquises, ${restant2.length} à faire`
+      : `passe 2 — ${toTranslate.length} rubriques à traduire…`,
+  );
+  for (const wave of chunks(restant2, WAVE)) {
     const r = await bench({
       phase: "translate",
       targetLang: "en",
@@ -297,24 +330,32 @@ if (!prior2) {
     p2.waves.push(w);
     p2.ms += w.ms;
     addTo(p2.totals, r.totals as Usage);
+    const echecs: string[] = [];
     for (const item of r.items as (SectionRow & {
       translated: boolean;
       driftedFigures: string[];
     })[]) {
-      if (item.error) {
-        console.error(`ÉCHEC passe 2 : ${item.sectionId} (${item.error})`);
-        Deno.exit(1);
-      }
-      en.set(item.sectionId, item);
+      if (item.error || item.skipped)
+        echecs.push(`${item.sectionId} (${item.error ?? "abandonnée"})`);
+      else en.set(item.sectionId, item);
+    }
+    // La vague est acquise AVANT de sortir en erreur : ses traductions réussies sont payées.
+    await saveP2();
+    if (echecs.length) {
+      console.error(`ÉCHEC passe 2 : ${echecs.join(" ; ")}`);
+      console.error(
+        "état conservé dans --out : relancer reprend où l'on s'est arrêté.",
+      );
+      Deno.exit(1);
     }
     console.error(
       `  vague [${wave.map((x) => x.id).join(", ")}] : ${(w.ms / 1000).toFixed(1)} s`,
     );
   }
-  await saveState("state-p2.json", {
-    p2,
-    en: [...en.entries()].map(([sectionId, e]) => ({ ...e, sectionId })),
-  });
+} else {
+  console.error(
+    `passe 2 — reprise depuis state-p2.json (${en.size} traductions)`,
+  );
 }
 
 /* ─────────────────────────────────── Passe 3 — revue ───────────────────────────────────────── */

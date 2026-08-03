@@ -59,6 +59,16 @@ import type { OutputLang, SectionOutcome } from './upgrade-section-core.ts'
 export const REPORT_BUDGET_MS = 118_000
 const REPORT_ATTEMPT_TIMEOUT_MS = 115_000
 const REPORT_MAX_OUTPUT_TOKENS = 8_000
+/**
+ * En deçà, la revue REFUSE de partir.
+ *
+ * ⚠️ Sans ce plancher, un appelant qui omet `budgetMs` — ou qui a déjà consommé son wall clock à
+ * télécharger 12 Mo de Storage — obtiendrait 115 s d'appel quand même, et la plateforme le tuerait
+ * en 546 : payé, sans rendre ni mesure ni rapport. Pire, `boundedTimeout` traite un budget NÉGATIF
+ * comme « non renseigné » et retomberait sur le défaut : un budget épuisé deviendrait un appel
+ * pleine longueur. Le garde-fou vit donc ICI, dans la fonction qui lance, jamais chez l'appelant.
+ */
+const MIN_REPORT_BUDGET_MS = 20_000
 
 /**
  * Budget du rapprochement APPROCHÉ des affirmations d'une revue, **en caractères**.
@@ -622,6 +632,12 @@ export async function generateReport(
   }
   // Pièce d'abord, instruction ensuite — même ordre que la passe de conformité : le préfixe stable
   // reste cachable et la consigne de sortie garde la position la plus récente.
+  const budgetMs = req.budgetMs ?? REPORT_BUDGET_MS
+  if (budgetMs < MIN_REPORT_BUDGET_MS) {
+    throw new Error(
+      `revue : budget de ${Math.round(budgetMs)} ms — un appel qui ne peut pas finir est un 546 déguisé`,
+    )
+  }
   const parts: Part[] = [...(req.sourceParts ?? []), { text: buildReportInstruction(req) }]
   const raw = await generate(parts, {
     // Sans posture, la revue perdrait ce que le client achète : c'est la SEULE passe où la
@@ -630,7 +646,7 @@ export async function generateReport(
     json: true,
     jsonSchema: reportSchema(),
     maxOutputTokens: REPORT_MAX_OUTPUT_TOKENS,
-    timeoutMs: Math.min(REPORT_ATTEMPT_TIMEOUT_MS, req.budgetMs ?? REPORT_BUDGET_MS),
+    timeoutMs: Math.min(REPORT_ATTEMPT_TIMEOUT_MS, budgetMs),
     provider: req.provider,
   })
   const { analysis, dropped, strictClaims } = pruneUnverifiable(

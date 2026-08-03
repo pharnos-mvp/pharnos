@@ -464,3 +464,23 @@ Deno.test('pruneUnverifiable : le crédit ne se dépense QUE pour ce qui en a be
   assertEquals(analysis.relocations.length, 201)
   assertEquals(strictClaims, 0)
 })
+
+Deno.test('generateReport : un budget insuffisant REFUSE de partir', async () => {
+  // Le garde-fou vit dans la fonction qui LANCE, pas chez l'appelant. Sans lui, un budget épuisé
+  // descend jusqu'à `boundedTimeout`, qui traite une valeur négative comme « non renseignée » et
+  // repart pour le défaut : l'appel serait tué en 546 par la plateforme, payé et sans mesure.
+  let appels = 0
+  const never = () => {
+    appels++
+    return Promise.resolve(out(ANALYSIS))
+  }
+  for (const budgetMs of [19_000, 0, -5_000]) {
+    await assertRejects(
+      () => generateReport(never, req({ budgetMs })),
+      Error,
+      'un appel qui ne peut pas finir',
+    )
+  }
+  // Le refus se prononce AVANT tout appel : rien n'est payé.
+  assertEquals(appels, 0)
+})
