@@ -10,8 +10,20 @@ import '@fontsource-variable/dm-sans/standard.css'
 import '@fontsource-variable/syne'
 import './index.css'
 import App from '@/App'
+import { setOverrideSyncHook } from '@/features/catalogue/ref-overrides'
+import { syncRefOverrides } from '@/features/catalogue/ref-overrides-sync'
 import { captureInviteCodeFromUrl } from '@/lib/invite-code'
 import { initSentry } from '@/lib/sentry'
+
+// Les adaptations locales du référentiel s'écrivent sans connaître la synchronisation : leur
+// module ne peut pas importer Supabase, sous peine de le faire entrer dans `dossier-repository` —
+// donc dans l'édition autonome, qui se vend sur l'absence de sortie réseau (cf. `ref-overrides`).
+// C'est la PLATEFORME qui branche les deux, ici, avant tout rendu.
+//
+// ⚠️ Ici et pas dans `catalogue-sync.ts` : ce module n'est chargé qu'avec les écrans du catalogue.
+// Une adaptation posée avant ce chargement ne partirait jamais — perte silencieuse après un toast
+// de succès. L'entrée est le seul endroit dont l'exécution est garantie avant toute écriture.
+setOverrideSyncHook(syncRefOverrides)
 
 // Observabilité : no-op si VITE_SENTRY_DSN absent ; sinon charge Sentry en chunk séparé. Un chunk
 // injoignable (lien coupé) ne doit pas laisser un rejet non traité au démarrage — et Sentry ne peut,
