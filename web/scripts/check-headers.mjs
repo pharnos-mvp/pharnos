@@ -3,29 +3,33 @@
 // But : empêcher une régression silencieuse (suppression/affaiblissement d'un en-tête lors d'un
 // futur changement). Exécuté en CI après le build.
 //
-//   node scripts/check-headers.mjs            → plateforme (dist/)          — `npm run headers`
-//   node scripts/check-headers.mjs builder    → CTD Builder (dist-builder/) — `npm run headers:builder`
+//   node scripts/check-headers.mjs            → plateforme app.pharnos.com (dist/)
+//   node scripts/check-headers.mjs builder    → CTD Builder, section /ctd-builder/* de landing/
 //
 // Les deux cibles ne se contrôlent PAS de la même façon, et c'est le cœur du sujet : le CTD
-// Builder autonome se vend sur l'absence de sortie réseau (PLAN-CTD-BUILDER §1). Pour lui,
-// `connect-src` n'est pas « présent », il vaut `'self'` et rien d'autre — vérifié comme tel.
+// Builder se vend sur l'absence de sortie réseau (PLAN-CTD-BUILDER §1). Pour lui, `connect-src`
+// n'est pas « présent », il vaut `'self'` et rien d'autre — vérifié comme tel.
 //
-// ⚠️ Trois pièges, tous constatés en revue, tous corrigés ici — ne pas les réintroduire :
-//  1. Les règles Cloudflare se CUMULENT. Une seconde section `/*` ajoutée en fin de fichier
-//     élargissait la CSP sans que rien ne bronche → on exige une seule section `/*` et on ne
-//     lit les en-têtes de sécurité QUE dans celle-là (jamais par `includes` sur tout le fichier :
-//     un en-tête posé dans une section sans portée aurait suffi à faire passer le contrôle).
-//  2. Une ligne `Content-Security-Policy-Report-Only` posée AVANT la vraie était lue à sa place
-//     → on distingue les deux, et on exige exactement une CSP appliquée.
-//  3. Un nom de directive n'est pas un préfixe : `style-src` ne doit pas lire `style-src-attr`.
-//     On découpe la politique en directives une fois pour toutes.
+// ⚠️ LES RÈGLES CLOUDFLARE SE CUMULENT, et tout ce fichier en découle. Une section plus précise
+// AJOUTE ses en-têtes à ceux de `/*` ; pour en remplacer un, il faut le détacher (`! Nom`) puis
+// le reposer. Le contrôle reproduit donc ce calcul — `effectiveHeaders()` — au lieu de chercher
+// des chaînes dans le fichier : le builder hérite de `/*` la protection anti-cadrage et HSTS,
+// mais impose SA CSP, qui serait sinon celle de la landing (laquelle autorise Supabase et le
+// processeur de paiement).
+//
+// ⚠️ Trois autres pièges, tous constatés en revue, tous fermés ici :
+//  1. une seconde section `/*` élargissait la politique sans que rien ne bronche ;
+//  2. une ligne `Content-Security-Policy-Report-Only` posée AVANT la vraie était lue à sa place ;
+//  3. un nom de directive n'est pas un préfixe : `style-src` ne doit pas lire `style-src-attr`.
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
 const TARGETS = {
   app: {
-    label: 'plateforme (dist/_headers)',
-    dist: '../dist',
+    label: 'plateforme app.pharnos.com (dist/_headers)',
+    headersFile: '../dist/_headers',
+    section: '/*',
+    artifactDir: null,
     source: 'web/public/_headers',
     referrerPolicy: 'Referrer-Policy: strict-origin-when-cross-origin',
     cacheRules: [
@@ -41,25 +45,31 @@ const TARGETS = {
     requiredArtifacts: [],
   },
   builder: {
-    label: 'CTD Builder autonome (dist-builder/_headers)',
-    dist: '../dist-builder',
-    source: 'web/public-builder/_headers',
+    label: 'CTD Builder (pharnos.com/ctd-builder/ — landing/_headers)',
+    // La SOURCE, pas une copie : `landing/` est déployée telle quelle, ce fichier EST ce qui sera
+    // servi. Rien à construire pour le contrôler.
+    headersFile: '../../landing/_headers',
+    section: '/ctd-builder/*',
+    artifactDir: '../../landing/ctd-builder',
+    source: 'landing/_headers',
     // Aucune requête ne sort : rien à révéler à personne, même pas l'origine.
     referrerPolicy: 'Referrer-Policy: no-referrer',
     // Pas de règle `/sw.js` : le service worker arrive au lot B9, avec sa stratégie
     // d'activation atomique. La règle sera ajoutée avec lui.
     cacheRules: [
-      { section: '/assets/*', header: 'Cache-Control: public, max-age=31536000, immutable' },
+      {
+        section: '/ctd-builder/assets/*',
+        header: 'Cache-Control: public, max-age=31536000, immutable',
+      },
     ],
     // LE contrôle du produit : la seule origine joignable est elle-même.
     connectSrcExact: "'self'",
     // Aucun style inline dans cette cible (l'entrée HTML n'en a pas) → on garde le cran serré.
     strictStyleSrc: true,
-    // Rien à observer sur cette origine : une CSP en mode rapport y serait un angle mort.
+    // Rien à observer sur ce chemin : une CSP en mode rapport y serait un angle mort.
     allowReportOnly: false,
-    // Le `_headers` est copié AVANT que les chunks soient écrits : sans cette exigence, le
-    // contrôle passait au vert sur un `dist-builder/` ne contenant QUE `_headers` et
-    // `_redirects` — c'est-à-dire sur un site totalement vide, prêt à être déployé.
+    // Sans cette exigence, le contrôle passait au vert sur un `/ctd-builder/` inexistant ou vidé
+    // par un build échoué — c'est-à-dire sur une entrée de header menant à un 404.
     requiredArtifacts: ['index.html'],
   },
 }
@@ -73,14 +83,13 @@ if (!target) {
   process.exit(1)
 }
 
-const DIST = path.resolve(import.meta.dirname, target.dist)
-const HEADERS_FILE = path.join(DIST, '_headers')
+const HEADERS_FILE = path.resolve(import.meta.dirname, target.headersFile)
 
 let content
 try {
   content = readFileSync(HEADERS_FILE, 'utf8')
 } catch {
-  console.error(`✗ Fichier introuvable : ${HEADERS_FILE} — lance le build de cette cible d'abord.`)
+  console.error(`✗ Fichier introuvable : ${HEADERS_FILE}`)
   process.exit(1)
 }
 
@@ -104,6 +113,29 @@ function parseSections(text) {
   return sections
 }
 
+/** Nom d'un en-tête (`Content-Security-Policy: …` → `content-security-policy`). */
+const headerName = (line) => (line.split(':')[0] ?? '').trim().toLowerCase()
+
+/**
+ * En-têtes RÉELLEMENT servis sur un chemin : ceux de `/*`, moins ceux que la section détache
+ * (`! Nom`), plus ceux qu'elle pose. C'est la règle de cumul de Cloudflare Pages, reproduite —
+ * la chercher par sous-chaîne dans le fichier donnerait une réponse fausse dans les deux sens.
+ */
+function effectiveHeaders(sections, sectionPath) {
+  let headers = sections.filter((s) => s.path === '/*').flatMap((s) => s.headers)
+  if (sectionPath === '/*') return headers
+  for (const s of sections.filter((s) => s.path === sectionPath)) {
+    for (const line of s.headers) {
+      if (line.startsWith('!')) {
+        const detached = line.slice(1).trim().toLowerCase()
+        headers = headers.filter((h) => headerName(h) !== detached)
+      }
+    }
+    headers = headers.concat(s.headers.filter((l) => !l.startsWith('!')))
+  }
+  return headers
+}
+
 let failed = false
 const check = (ok, label) => {
   if (!ok) failed = true
@@ -112,6 +144,7 @@ const check = (ok, label) => {
 
 const sections = parseSections(content)
 const globalSections = sections.filter((s) => s.path === '/*')
+const targetSections = sections.filter((s) => s.path === target.section)
 
 console.log(`Cible : ${target.label}\n`)
 
@@ -120,9 +153,12 @@ check(
   globalSections.length === 1,
   `exactement une section /* (les règles Cloudflare se CUMULENT) — trouvé : ${globalSections.length}`,
 )
+if (target.section !== '/*') {
+  check(targetSections.length === 1, `exactement une section ${target.section}`)
+}
 
-const globalHeaders = globalSections.flatMap((s) => s.headers)
-const has = (needle) => globalHeaders.some((h) => h.startsWith(needle) || h.includes(needle))
+const applied = effectiveHeaders(sections, target.section)
+const has = (needle) => applied.some((h) => h.startsWith(needle) || h.includes(needle))
 
 const REQUIRED_HEADERS = [
   'X-Frame-Options: DENY',
@@ -133,17 +169,22 @@ const REQUIRED_HEADERS = [
   'Cross-Origin-Opener-Policy: same-origin',
 ]
 
-console.log('\nEn-têtes de sécurité (section /* uniquement) :')
+console.log(`\nEn-têtes réellement servis sur ${target.section} :`)
 for (const h of REQUIRED_HEADERS) check(has(h), h)
+// Un en-tête posé DEUX fois (cumul non détaché) laisse le navigateur arbitrer : on l'interdit.
+for (const name of ['content-security-policy', 'referrer-policy']) {
+  const n = applied.filter((h) => headerName(h) === name).length
+  check(n <= 1, `${name} servi une seule fois (cumul détaché) — trouvé : ${n}`)
+}
 
-const cspHeaders = globalHeaders.filter((h) => /^Content-Security-Policy(-Report-Only)?:/.test(h))
+const cspHeaders = applied.filter((h) => /^Content-Security-Policy(-Report-Only)?:/.test(h))
 const enforced = cspHeaders.filter((h) => !/^Content-Security-Policy-Report-Only:/.test(h))
 const reportOnly = cspHeaders.filter((h) => /^Content-Security-Policy-Report-Only:/.test(h))
 
 console.log('\nCSP :')
 check(enforced.length === 1, `exactement une CSP APPLIQUÉE — trouvé : ${enforced.length}`)
 if (!target.allowReportOnly) {
-  check(reportOnly.length === 0, 'aucune CSP en mode rapport (rien à observer sur cette origine)')
+  check(reportOnly.length === 0, 'aucune CSP en mode rapport (rien à observer sur ce chemin)')
 }
 
 if (enforced.length === 1) {
@@ -204,12 +245,13 @@ for (const { section, header } of target.cacheRules) {
   check(Boolean(found?.headers.includes(header)), `${section} → ${header}`)
 }
 
-if (target.requiredArtifacts.length > 0) {
-  console.log('\nArtefact réellement produit :')
+if (target.artifactDir && target.requiredArtifacts.length > 0) {
+  const dir = path.resolve(import.meta.dirname, target.artifactDir)
+  console.log('\nArtefact réellement assemblé :')
   for (const file of target.requiredArtifacts) {
-    check(existsSync(path.join(DIST, file)), `présent : ${file}`)
+    check(existsSync(path.join(dir, file)), `présent : ${path.join(target.artifactDir, file)}`)
   }
-  const assetsDir = path.join(DIST, 'assets')
+  const assetsDir = path.join(dir, 'assets')
   const jsEmitted = existsSync(assetsDir) && readdirSync(assetsDir).some((f) => f.endsWith('.js'))
   check(jsEmitted, 'au moins un chunk JS émis dans assets/')
 }

