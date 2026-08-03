@@ -3,6 +3,7 @@ node_modules/
 
 # Build output
 dist/
+dist-builder/
 dev-dist/
 
 # Tests / coverage
