@@ -1,10 +1,24 @@
 # PLAN — Front de l'upgrade RCP et module d'achat
 
-> **Document de reprise.** Écrit le 30 juillet 2026 pour démarrer ce chantier dans un contexte neuf.
-> Il contient tout ce qu'il faut savoir : ce qui est déjà construit, ce qui reste, et les décisions
-> déjà prises qu'il ne faut pas rouvrir.
+> **Document de reprise.** Écrit le 30 juillet 2026, **mis à jour le 3 août 2026 à la clôture de U0**
+> avec les mesures réelles. Il contient tout ce qu'il faut savoir : ce qui est construit, ce qui
+> reste, et les décisions prises qu'il ne faut pas rouvrir.
 >
-> **Le moteur est terminé. Ce chantier est du front et de l'encaissement, pas de l'IA.**
+> **Le moteur est terminé et désormais MESURÉ de bout en bout.** Ce chantier est du front et de
+> l'encaissement — à une exception près, nommée au §1 : **la revue ne tient plus dans une invocation
+> Edge**, et c'est la seule décision d'architecture encore ouverte.
+>
+> ## Reprise en 60 secondes
+>
+> | | |
+> |---|---|
+> | Branche | `feat/upgrade-u0-renderer` (poussée, PR non ouverte) |
+> | Dernier commit | `c024817` — U0.3 |
+> | **Fait** | U0.1 rendu pur · U0.2 banc Edge · U0.3 harnais + chaîne complète mesurée |
+> | **Chiffres réels** | **60 appels · 319 s · 1,96 $** (§1) |
+> | **À trancher d'abord** | le découpage de la revue — 0,9 s de marge (§1) |
+> | **Suivant** | U1 vérité du paiement (migration `0082`, webhook Chariow re-vérifié) |
+> | Rejouer la mesure | `docs/gabarits/tools/bench-harness.ts` — commande au §1 |
 
 ---
 
@@ -31,23 +45,72 @@ réels : **Gynoril Ovule** (source FR) et **KV-Kacin 500** (source EN, 15 pages,
 | `_shared/ai/personas.ts` | trois postures, une par passe |
 | `_shared/ai/pool.ts` | parallélisme borné + préchauffage du cache |
 | `_shared/ai/evidence.ts` | citation et ancrage des chiffres · tolérance des sources **scannées** |
-| `_shared/ai/section-schema.ts` | schéma par rubrique, `enum` verrouillé |
+| `_shared/ai/section-schema.ts` | schéma de rubrique — `enum` sur **tout le gabarit** (cf. U0 ci-dessous) |
 | `web/src/lib/deliverables/` | DOCX + PDF — **porté dans `web/` le 03/08/2026 (U0.1)**, module pur |
+| `bench/index.ts` | **banc d'essai** trois phases — mesure là où vit la clé (U0.2) |
+| `docs/gabarits/tools/bench-harness.ts` | **harnais** — joue la chaîne complète et rend `MESURES.md` (U0.3) |
 
-**298 tests Deno.** Surface HTTP en production : `POST /upgrade` avec `section: "<id>"`.
+**366 tests Deno.** Surface HTTP en production : `POST /upgrade` avec `section: "<id>"`.
 
-### Les chiffres, mesurés sur les prompts réels
+### Les chiffres — MESURÉS de bout en bout le 03/08/2026 (U0.3)
 
-| | Valeur |
-|---|---|
-| Appels par upgrade | **59** — 29 rubriques × 2 passes + 1 revue |
-| Coût passe 1, entrée, avec cache + préchauffage | **0,27 – 0,33 $** (−82 %) |
-| Coût total estimé par upgrade | **≈ 1,00 – 1,30 $** |
-| Durée, 6 appels simultanés | **≈ 2,6 min** |
-| Durée, séquentiel | 11 – 23 min — **ne passe pas** |
+Premier passage réel des trois passes sur un RCP jamais vu du moteur : **RCP_Sample.pdf**
+(AARCOLD, quadrithérapie, 27 829 caractères), Claude Opus 5, vagues de 6, banc Edge en production.
 
-⚠️ Ces jetons sont une **estimation** (longueurs exactes, conversion par ratio 3,1–3,9 car./jeton).
-Le chiffre exact viendra du premier passage par l'API.
+| Passe | Appels | Durée | Coût |
+|---|---|---|---|
+| 1 — conformité FR | 34 | 148,7 s | 1,215 $ |
+| 2 — traduction EN | 25 | 56,4 s | 0,443 $ |
+| 3 — revue | 1 | 114,1 s | 0,304 $ |
+| **Total** | **60** | **319,2 s** (5,3 min) | **1,962 $** |
+
+Vague la plus lente : **48,3 s** pour un mur de 150 s — le modèle « une invocation = une vague »
+tient largement. Qualité : 20 rubriques `filled`, 7 `partial`, 7 `missing` ; **7 rubriques sur 34
+déclenchent un rejeu** du contrôle de citation et 2 rétrogradent — régime normal du garde-fou.
+
+> ⚠️ **Ces chiffres REMPLACENT l'estimation précédente** (« ≈ 1,00–1,30 $ », « ≈ 2,6 min »), qui
+> était une conversion par ratio caractères/jeton et n'avait jamais été observée. **Le prix de vente
+> se calcule sur 1,96 $.** Reproductible :
+> `BENCH_TOKEN=… deno run --allow-net --allow-read --allow-write --allow-env docs/gabarits/tools/bench-harness.ts --source <txt> --product … --source-name … --out <dir>`
+> puis `cd web && UPGRADE_RUN_DIR=<dir> npm run deliverables:run`.
+
+**Trois faits à ne pas réapprendre :**
+
+1. **Un timeout ne rend AUCUN jeton.** Le SDK n'ayant rien reçu, `addUsage` n'est jamais appelé :
+   l'appel est facturé par Anthropic et invisible dans nos totaux. Ne jamais le compter gratuit.
+2. **Le cache de préfixe vaut 3,17 $ par run** (`a520ec7`). Il ne prenait **jamais** avant :
+   `sectionSchema([rubric.id])` cuisait l'identifiant dans l'`enum`, et le schéma entre dans le
+   préfixe caché — chaque rubrique écrivait le sien, aucune ne relisait, donc **plus cher que pas
+   de cache** (1,25× contre 1,0×). Le correctif découple : le **schéma** couvre tout le gabarit
+   (il GUIDE le décodage), le **contrôle** reste `parseSectionResult(raw, [rubric.id])` (il
+   GARANTIT). Un test compare les schémas de deux rubriques **à l'octet** : un `enum` réduit
+   reviendrait sans casser aucun autre test — la sortie resterait juste, seule la facture changerait.
+3. **Tenir l'état en mémoire coûte.** Le premier run a perdu 59 appels payés sur un dépassement en
+   passe 3. Le harnais écrit désormais après chaque passe ; **le worker U4 devra faire pareil en base.**
+
+### ⚠️ LE POINT OUVERT — la revue ne tient plus dans une invocation
+
+**114,1 s pour un plafond de 115.** Neuf dixièmes de seconde de marge. Avant relèvement du budget,
+elle avait dépassé 90 s **deux fois de suite** : c'est structurel, pas un aléa.
+
+La cause est nette : la revue est le **seul appel de la chaîne** qui produise jusqu'à **8 000 jetons
+sur quatre tableaux non bornés** (`relocations`, `terminology`, `findings`, `recommendations`),
+réflexion adaptative comprise — là où une rubrique rend ~200 jetons en 5 à 8 s.
+
+**Il n'y a plus de marge à prendre** : `MAX_CALL_TIMEOUT_MS` borne tout appel sortant à 120 s, et le
+mur Edge est à 150 s. Un RCP un peu plus long échouera, et la réponse ne sera pas un chiffre plus
+grand.
+
+**Décision de plan à trancher avant U4** (aucune n'est prise) :
+
+| Voie | Ce qu'elle coûte | Ce qu'elle préserve |
+|---|---|---|
+| Découper la revue en 2–4 appels (un par section du rapport) | une passe d'assemblage, et le risque qu'un constat transversal se perde | le plan `free` et le mur de 150 s |
+| Baisser `effort` ou `REPORT_MAX_OUTPUT_TOKENS` | de la profondeur d'analyse — or c'est **ce que le client achète** | la forme actuelle, un seul appel |
+| Passer Supabase en `Pro` | l'abonnement, et le mur ne recule qu'à 400 s | tout le reste inchangé |
+
+Ma recommandation : **découper**, parce que c'est la seule voie qui ne dégrade ni le livrable ni
+l'économie, et parce que le rapport est déjà structuré en quatre tableaux indépendants.
 
 ---
 
@@ -86,25 +149,38 @@ Source unique : [`RA-source/Vigilance/INDEX-vigilance-UEMOA.md`](../RA-source/Vi
 ⚠️ Une date d'autorisation du **pays d'origine** n'est jamais la rubrique 9, qui vise le pays de dépôt.
 C'est un piège réel, rencontré sur Gynoril.
 
-### B. Orchestration côté navigateur
+### B. Orchestration — la forme est MESURÉE, la voie reste à trancher
 
-Le moteur est prêt, l'enchaînement ne l'est pas. **Le mur de 150 s interdit d'enchaîner les 59 appels
-dans une seule invocation Edge** ; chaque appel individuel, lui, tient largement (5 à 22 s).
+Le mur de 150 s interdit d'enchaîner les 60 appels dans une seule invocation. La forme retenue et
+**éprouvée en production** (U0.3) est : **une invocation = une vague de 6**, l'état vivant chez
+l'appelant entre deux vagues. Le harnais l'a jouée 12 fois d'affilée sans incident.
 
-Deux voies :
+| Passe | Vagues | Vague la plus lente |
+|---|---|---|
+| 1 — conformité | 6 | 48,3 s |
+| 2 — traduction | 5 | 26,5 s |
+| 3 — revue | 1 appel | **114,1 s** ⚠️ |
+
+Reste à choisir **qui** tient l'état entre les vagues :
 
 | Voie | Pour qui | Coût |
 |---|---|---|
-| **Navigateur pilote** — une invocation Edge par rubrique | in-app, l'utilisateur regarde | aucun nouveau composant |
-| **Worker asynchrone** (M4, `pg_cron` + `pg_net` déjà installés) | vente à l'acte, l'utilisateur est parti | une brique de plus |
+| **Navigateur pilote** — l'onglet enchaîne les vagues | in-app, l'utilisateur regarde | aucun nouveau composant |
+| **Worker asynchrone** (U4, `pg_cron` + `pg_net` déjà installés) | vente à l'acte, l'utilisateur est parti | une brique de plus |
 
 Chariow encaisse en **une fois** et le client attend la livraison : la voie navigateur suffit si
 l'onglet reste ouvert, le worker devient nécessaire sinon. **À trancher au début du chantier.**
 
-`_shared/ai/pool.ts` est pur — sans API Deno ni DOM — donc utilisable **tel quel** par les deux voies.
+`_shared/ai/pool.ts` est pur — sans API Deno ni DOM — donc utilisable **tel quel** par les deux
+voies, et `bench/index.ts` en est le premier appelant réel : sa boucle est le prototype du `job-tick`.
 
-⚠️ **Régler `warmupFirst: true`** et `concurrency: 6`. Sans préchauffage, six appels simultanés
-paient six écritures de cache au lieu d'une : 0,28 à 0,35 $ perdus par upgrade.
+⚠️ **`warmupFirst: true` sur la PREMIÈRE vague seulement.** Le préchauffage sérialise le premier
+appel pour qu'il écrive le cache avant les cinq autres ; une fois le préfixe écrit, le répéter à
+chaque vague ne fait que rallonger. Mesuré : la vague 1 lit 0 et écrit 16 696 jetons, les cinq
+suivantes lisent 16 696 chacune.
+
+⚠️ **Pas de préchauffage en passe 2.** Chaque traduction porte SON contenu : il n'y a pas de long
+préfixe commun dont la première écriture servirait les suivantes (`cacheRead` = 0 sur les 25).
 
 ### C. Portage du générateur dans `web/` — ✅ FAIT le 03/08/2026 (lot U0.1)
 
@@ -468,6 +544,9 @@ vente.
 | **Un modèle par pays** — la mention 4.8 en dépend | §D bis |
 | Le fichier **ne quitte pas le navigateur avant paiement** | §D bis |
 | Lexique client : **modèle**, **mise à niveau documentaire**, jamais « gabarit » | §D bis |
+| Le **schéma** de sortie GUIDE (tout le gabarit), le **code** GARANTIT (`[rubric.id]`) | U0, `a520ec7` |
+| Une invocation = **une vague**, l'état vit chez l'appelant | U0.3, mesuré |
+| Le coût de référence d'un upgrade est **1,96 $**, pas l'estimation initiale | U0.3, mesuré |
 
 ---
 
@@ -497,8 +576,11 @@ lot M0 avait déjà corrigé côté moteur.
 - [ ] Pays et activité recueillis **avant** le premier appel, et présents dans chaque prompt
 - [ ] Mention de vigilance conforme au pays choisi
 - [ ] Rubriques 8, 9, 10 conformes à l'activité choisie
-- [ ] 59 appels enchaînés sous **5 minutes** (`concurrency: 6`, `warmupFirst: true`)
-- [ ] Journal du cache non nul : `cacheRead` élevé dès la deuxième rubrique
+- [ ] 60 appels enchaînés sous **6 minutes** (`concurrency: 6`, `warmupFirst` sur la 1ʳᵉ vague)
+      — référence mesurée : **319 s** sur RCP_Sample (U0.3)
+- [ ] `cacheRead` non nul **dès la deuxième rubrique de la première vague** — c'est le seul témoin
+      que le préfixe est partagé ; à zéro, la passe 1 coûte 4,32 $ au lieu de 1,21 $
+- [ ] Coût du run conforme à l'ordre de grandeur mesuré (**≈ 2 $**), écart signalé et non absorbé
 - [ ] Cinq fichiers produits, parité FR/EN mécanique (rubriques, sous-rubriques, marqueurs)
 - [ ] Aucun lot partiel présenté comme complet
 - [ ] Un PDF **scanné** est détecté, océrisé côté navigateur, et traité — pas refusé
