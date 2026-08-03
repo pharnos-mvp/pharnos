@@ -5,7 +5,7 @@ import { requestPersistentStorage } from '@/lib/persist'
 /**
  * Coquille du CTD Builder autonome (lot B0 — socle de build).
  *
- * Ce que cet écran EST : la preuve que la chaîne de build/déploiement de `builder.pharnos.com`
+ * Ce que cet écran EST : la preuve que la chaîne de build/déploiement de `pharnos.com/ctd-builder/`
  * tient de bout en bout, et le premier point dur du produit — la durabilité du stockage local.
  * Ce qu'il N'EST PAS : le tableau de bord (§6), qui est le lot B4 et se construira ici.
  *

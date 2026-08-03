@@ -74,15 +74,20 @@ jobs:
       - name: Headers de sécurité (_headers Cloudflare)
         run: npm run headers
 
-      # ── CTD Builder autonome (produit vendu séparément, origine builder.pharnos.com) ──
+      # ── CTD Builder (offre sur licence, servie sur pharnos.com/ctd-builder/) ──
       # Il partage `src/` avec la plateforme : un import ajouté ici peut lui faire entrer une
       # capacité de sortie réseau sans que personne le voie. Le build ÉCHOUE dans ce cas
       # (`src/builder/isolation.ts`) — c'est la garantie « vos documents ne transitent jamais par
       # les serveurs de Pharnos », vérifiée à chaque PR plutôt que promise.
+      # L'assemblage reproduit ici ce que fait `deploy-landing.yml` : sans lui, le contrôle
+      # d'en-têtes ne pourrait pas vérifier que l'artefact existe vraiment.
       - name: Build CTD Builder (isolation réseau vérifiée)
         run: npm run build:builder
 
-      - name: Headers CTD Builder (CSP — connect-src 'self' exact)
+      - name: Assembler le CTD Builder dans la landing
+        run: npm run assemble:builder
+
+      - name: Headers CTD Builder (CSP /ctd-builder/* — connect-src 'self' exact)
         run: npm run headers:builder
 
       - name: Landing EN prérendu synchronisé (SEO /en/)

@@ -1,9 +1,23 @@
-# Déploiement du landing statique (pharnos.com) sur Cloudflare Pages — projet `pharnos-landing`.
+# Déploiement de pharnos.com sur Cloudflare Pages — projet `pharnos-landing`.
+#
 # Raison d'être : l'intégration Git NATIVE de Cloudflare pour ce projet ne publiait plus sur les
 # merges `main` (site live figé sur une vieille version malgré #334/#335). On reprend la main via la
 # CI — même mécanisme que l'app (`deploy.yml`, projet `pharnos`) — pour un déploiement observable et
-# reproductible. `landing/` est statique (aucun build). Le secret CLOUDFLARE_API_TOKEN a Pages:Edit.
-# Dépannage local : `npx wrangler pages deploy landing --project-name pharnos-landing --branch main`.
+# reproductible. Le secret CLOUDFLARE_API_TOKEN a Pages:Edit.
+#
+# ⚠️ CE WORKFLOW PUBLIE DEUX CHOSES, ET C'EST VOULU :
+#   • `landing/` — le site vitrine, statique, déployé TEL QUEL (aucun build) ;
+#   • `landing/ctd-builder/` — l'application CTD Builder, ASSEMBLÉE ici depuis `web/dist-builder/`.
+#
+# Pourquoi un seul workflow et un seul projet Pages : un projet Pages publie UN dossier. Deux
+# workflows visant `pharnos-landing` s'écraseraient l'un l'autre. Et un projet supplémentaire
+# ajouterait un domaine, un certificat et une surface à surveiller pour un produit qui vit très
+# bien sous un chemin de pharnos.com — la séparation qui compte, celle des bases IndexedDB, est
+# déjà acquise puisque `pharnos.com` et `app.pharnos.com` sont deux origines distinctes.
+#
+# Dépannage local (depuis la racine) :
+#   cd web && npm run build:builder && npm run assemble:builder && npm run headers:builder
+#   npx wrangler pages deploy landing --project-name pharnos-landing --branch main
 name: Deploy landing
 
 on:
@@ -11,6 +25,15 @@ on:
     branches: [main]
     paths:
       - 'landing/**'
+      # Le CTD Builder est bâti depuis `web/` : une modification du front change ce qui est publié
+      # sous /ctd-builder/. Sans ces chemins, le site servirait une version périmée de l'app sans
+      # que rien ne le signale.
+      - 'web/src/**'
+      - 'web/index.builder.html'
+      - 'web/vite.builder.config.ts'
+      - 'web/scripts/**'
+      - 'web/package.json'
+      - 'web/package-lock.json'
       - '.github/workflows/deploy-landing.yml'
   workflow_dispatch:
 
@@ -23,7 +46,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Cloudflare Pages — landing
+    name: Cloudflare Pages — landing + CTD Builder
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,7 +56,41 @@ jobs:
         id: guard
         run: echo "ready=${{ secrets.CLOUDFLARE_API_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
 
-      - name: Deploy landing to Cloudflare Pages
+      - name: Setup Node
+        if: steps.guard.outputs.ready == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        if: steps.guard.outputs.ready == 'true'
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      # AUCUNE variable d'application n'est fournie, et c'est délibéré : ni URL Supabase, ni clé
+      # publiable, ni jeton Sentry. Le CTD Builder n'a pas de backend. `envPrefix` de
+      # `vite.builder.config.ts` verrouille cela même en cas d'assemblage local.
+      # Le build ÉCHOUE si une capacité de sortie réseau entre dans l'artefact
+      # (`web/src/builder/isolation.ts`) — c'est la garantie « vos documents ne transitent jamais
+      # par les serveurs de Pharnos », vérifiée plutôt que promise.
+      - name: Build CTD Builder (isolation réseau vérifiée)
+        if: steps.guard.outputs.ready == 'true'
+        working-directory: web
+        run: npm run build:builder
+
+      - name: Assembler le CTD Builder dans la landing
+        if: steps.guard.outputs.ready == 'true'
+        working-directory: web
+        run: npm run assemble:builder
+
+      - name: En-têtes de sécurité (CSP /ctd-builder/* — connect-src 'self' exact)
+        if: steps.guard.outputs.ready == 'true'
+        working-directory: web
+        run: npm run headers:builder
+
+      - name: Deploy to Cloudflare Pages
         if: steps.guard.outputs.ready == 'true'
         uses: cloudflare/wrangler-action@v3
         with:

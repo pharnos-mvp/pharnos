@@ -11,22 +11,27 @@
 ## 0. État et prochaine action
 
 **B0 livré (2026-08-03) — la chaîne de fabrication du produit existe et se vérifie.**
-Cible de build séparée, origine séparée, déploiement séparé, et surtout : l'isolation réseau
-n'est plus une intention, c'est un test qui casse le build (§10). Le socle applicatif existe
+Seconde cible de build sur la **même base de code** (« on ne reconstruit rien, on scinde »),
+publication sur **`pharnos.com/ctd-builder/`**, et surtout : l'isolation réseau n'est plus une
+intention, c'est un test qui casse le build (§10). Le socle applicatif existe
 (`web/src/features/workspace/`), les trois produits Chariow restent à créer, et le chantier
 s'ouvre **après M3** (banc d'essai du moteur IA) — sauf B1 et B2, indépendants de l'IA.
 
-**Prochaine action : B1** — édition autonome du workspace, sans module de synchronisation.
+**Aucun projet Cloudflare supplémentaire** (arbitrage CEO du 2026-08-03) : le builder est assemblé
+dans le déploiement de la vitrine, cf. §10.1. Rien n'est en attente côté infrastructure.
 
-⏳ **En attente d'une action CEO, hors code** : créer le projet Cloudflare Pages
-`pharnos-builder` et rattacher `builder.pharnos.com` (DNS).
+**Prochaine action : B1** — le SCINDEMENT du workspace. C'est là qu'est le travail réel, et il a
+un point dur identifié : `NewDossierPage.tsx` importe `syncDossiers` **en statique**
+(`from './dossier-sync'`), ce que le garde-fou d'isolation refuse — à juste titre. Il faut rendre
+la synchronisation **injectée** plutôt qu'importée, pour que le même écran serve les deux offres.
 
-Tant que ce n'est pas fait, `deploy-builder.yml` reste en **déclenchement manuel** — pas par
-prudence excessive : un déclencheur automatique sur `main` échouerait à chaque poussée faute de
-projet cible, et dans ce dépôt un workflow rouge envoie un e-mail aux admins. Une fausse alerte
-« déploiement en échec » répétée, sur un produit qui n'est pas en ligne, use le signal exactement
-quand on en aura besoin. **Le jour du GO : décommenter le bloc `push:` en tête du workflow** — il
-y est écrit, prêt à l'emploi.
+⏳ **Question ouverte, à trancher avant B1** : un dossier se crée aujourd'hui à partir d'un
+**produit du Catalogue** (`listProducts`) et de `@/features/variations/*`. Le builder embarque-t-il
+un catalogue minimal (produit + organisations), ou bien la création de dossier est-elle
+simplifiée pour cette offre ? Les deux sont défendables, ils ne coûtent pas la même chose.
+
+**L'entrée dans le header de `pharnos.com` n'est PAS encore posée**, et c'est délibéré : elle
+pointerait aujourd'hui vers une coquille. Elle arrive avec B1 (§7.3).
 
 ---
 
@@ -189,7 +194,10 @@ suivant. Deux dangers déjà rencontrés dans ce dépôt :
 - ⚠️ **Origine séparée.** IndexedDB est partagée par origine, et le dépôt porte déjà une garde de
   purge au changement de compte. Faire cohabiter un builder sans compte et une plateforme
   multi-tenant sur la même origine, c'est programmer une collision de caches.
-  **→ Servir l'édition autonome sur `builder.pharnos.com`.**
+  **→ Le builder est servi par `pharnos.com`, la plateforme par `app.pharnos.com`.** Ce sont deux
+  origines distinctes : la contrainte est satisfaite **sans troisième domaine**. Un
+  `builder.pharnos.com` réglerait le même problème en ajoutant un projet Cloudflare, un
+  certificat et une surface à surveiller — arbitrage tranché par le CEO le 2026-08-03.
 
 ---
 
@@ -419,7 +427,7 @@ badge de prix** — mais c'est le deuxième choix.
 | **B6**    | **Mode atelier** : File System Access API (Chrome/Edge) + repli                                                                                             | B2                             |
 | **B7**    | Passerelle vers l'abonnement : import d'un `.pharnos` dans un compte                                                                                        | B2                             |
 | **B8**    | **Référentiel hors ligne** : payload public signé, cache, `isTreeOutdated`, blocage de compilation sur arbre périmé                                         | B1                             |
-| **B9**    | **PWA** : service worker, activation atomique, origine `builder.pharnos.com`                                                                                | B1                             |
+| **B9**    | **PWA** : service worker, activation atomique, sous `pharnos.com/ctd-builder/`                                                                              | B1                             |
 | **B10**   | **Licence annuelle** : vérification à 30 jours, grâce 14 jours, rafraîchissement du référentiel                                                             | B3, B8                         |
 | **B11**   | _(optionnel, tardif)_ API Drive OAuth `drive.file` — uniquement pour les contextes sans système de fichiers                                                 | B6                             |
 
@@ -454,19 +462,27 @@ badge de prix** — mais c'est le deuxième choix.
 
 `web/` produit désormais **deux artefacts** depuis les mêmes sources :
 
-|              | Plateforme                    | CTD Builder autonome                          |
+|              | Plateforme                    | CTD Builder                                   |
 | ------------ | ----------------------------- | --------------------------------------------- |
 | Config       | `vite.config.ts`              | `vite.builder.config.ts`                      |
 | Entrée       | `index.html` → `src/main.tsx` | `index.builder.html` → `src/builder/main.tsx` |
 | Sortie       | `web/dist/`                   | `web/dist-builder/`                           |
-| En-têtes     | `public/_headers`             | `public-builder/_headers`                     |
-| Origine      | `app.pharnos.com`             | `builder.pharnos.com`                         |
-| Projet Pages | `pharnos`                     | `pharnos-builder`                             |
-| Workflow     | `deploy.yml`                  | `deploy-builder.yml`                          |
+| Assemblage   | —                             | `landing/ctd-builder/` (non versionné)        |
+| En-têtes     | `public/_headers`             | section `/ctd-builder/*` de `landing/_headers` |
+| URL publique | `app.pharnos.com`             | `pharnos.com/ctd-builder/`                    |
+| Projet Pages | `pharnos`                     | `pharnos-landing` (le même que la vitrine)    |
+| Workflow     | `deploy.yml`                  | `deploy-landing.yml`                          |
+
+**Pourquoi aucun projet Cloudflare supplémentaire.** Un projet Pages publie **un** dossier : deux
+workflows visant le même projet s'écraseraient. Et la seule raison technique qui aurait justifié un
+domaine à part — la séparation des bases IndexedDB (§4.4) — est déjà acquise, puisque
+`pharnos.com` et `app.pharnos.com` sont deux origines distinctes. Le builder est donc **assemblé
+dans le déploiement de la vitrine**, par un seul workflow.
 
 ```bash
 npm run dev:builder       # développement (sert bien l'entrée du BUILDER, pas celle de l'app)
 npm run build:builder     # build + contrôle d'isolation
+npm run assemble:builder  # web/dist-builder/ → landing/ctd-builder/
 npm run headers:builder   # CSP publiée : connect-src 'self' EXACTEMENT
 npm run preview:builder   # servir dist-builder/ localement
 ```
@@ -483,7 +499,7 @@ pharmaceutique fera vérifier. Elle repose donc sur deux mécanismes indépendan
 
 | Verrou                            | Où                                                                    | Ce qu'il empêche                                                                                                                                                                                  | Qui il protège    |
 | --------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| **CSP `connect-src 'self'`**      | `web/public-builder/_headers`                                         | Toute requête **de fond** vers une autre origine — `fetch`, XHR, WebSocket, EventSource, `sendBeacon` — quel que soit le code livré                                                               | **L'utilisateur** |
+| **CSP `connect-src 'self'`**      | section `/ctd-builder/*` de `landing/_headers`                                         | Toute requête **de fond** vers une autre origine — `fetch`, XHR, WebSocket, EventSource, `sendBeacon` — quel que soit le code livré                                                               | **L'utilisateur** |
 | **Contrôle d'isolation du build** | `web/src/builder/isolation.ts`, branché dans `vite.builder.config.ts` | L'**émission** d'un artefact contenant une dépendance interdite (client réseau, `*-sync.ts`, outbox, télémétrie, authentification) **ou** une adresse absolue / primitive de sortie non autorisée | **La promesse**   |
 
 ⚠️ **Ce que la CSP ne couvre pas, et qu'il faut savoir avant de le promettre à un acheteur :**
@@ -556,4 +572,4 @@ de développement** : l'accident aurait été silencieux et public.
 - [x] Il refuse un `dist-builder/` **vide** — cas réel : après un build échoué, les en-têtes sont déjà copiés mais aucun chunk n'existe
 - [x] `npm run dev:builder` sert l'entrée du builder et non celle de la plateforme
 - [x] Le stockage durable se demande depuis un geste utilisateur et l'état s'affiche
-- [ ] **CEO** : projet Pages `pharnos-builder` créé et `builder.pharnos.com` rattaché
+- [x] Servi sous `pharnos.com/ctd-builder/` — assemblé dans le déploiement de la vitrine, aucun projet Cloudflare supplémentaire

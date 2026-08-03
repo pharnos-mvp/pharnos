@@ -7,7 +7,7 @@
  * tenue par la mécanique, pas par la discipline.
  *
  * Deux verrous indépendants, et il en faut deux :
- *  1. la CSP `connect-src 'self'` de `builder.pharnos.com` (`public-builder/_headers`) — le
+ *  1. la CSP `connect-src 'self'` servie sur `/ctd-builder/*` (`landing/_headers`) — le
  *     NAVIGATEUR refuse toute sortie tierce, même si du code fautif était livré ;
  *  2. ce contrôle-ci — le BUILD refuse de produire un artefact qui contient le code de sortie.
  *
@@ -100,6 +100,29 @@ export const FORBIDDEN_RULES: readonly ForbiddenRule[] = [
     label: 'src/features/admin/',
     matches: contains('/src/features/admin/'),
     why: "console d'administration Pharnos — hors périmètre",
+  },
+  // ── Frontière d'OFFRE, pas de sécurité ──────────────────────────────────────────────────────
+  // Le CTD Builder monte des dossiers conformes au CTD UEMOA. Le suivi de bout en bout — cycle de
+  // vie, relances, correspondance — est ce qui distingue l'abonnement `app.pharnos.com` (§2). Ces
+  // règles empêchent la frontière commerciale de s'effacer par un import distrait : c'est la même
+  // mécanique que pour le réseau, appliquée au périmètre vendu.
+  {
+    label: 'RoadmapPage (cycle de vie)',
+    // ⚠️ La PAGE, pas `roadmap-data.ts` : ce dernier porte les agences et les langues officielles
+    // (`agencyFor`, `officialLanguage`), dont le montage d'un dossier a légitimement besoin.
+    // Interdire le fichier de données casserait la réutilisation qu'on cherche justement à faire.
+    matches: contains('/src/features/workspace/RoadmapPage'),
+    why: 'suivi du cycle de vie — vendu avec la plateforme, pas avec le builder',
+  },
+  {
+    label: 'src/features/reminders/',
+    matches: contains('/src/features/reminders/'),
+    why: 'relances — vendues avec la plateforme, pas avec le builder',
+  },
+  {
+    label: 'src/features/correspondence/',
+    matches: contains('/src/features/correspondence/'),
+    why: 'correspondance avec les agences — vendue avec la plateforme',
   },
 ]
 
@@ -210,7 +233,7 @@ export function formatEgressFailure(hits: readonly EgressHit[]): string {
     "Le produit se vend sur l'absence de sortie réseau (PLAN-CTD-BUILDER §1). Si cette adresse",
     'est légitime et jointe par personne (espace de noms, lien de documentation), ajoute-la à',
     "URL_ALLOWLIST dans src/builder/isolation.ts, avec la raison. Si elle est appelée, c'est un",
-    'changement de nature du produit : il passe par la CSP de public-builder/_headers.',
+    'changement de nature du produit : il passe par la CSP de landing/_headers.',
   ].join('\n')
 }
 
@@ -224,6 +247,6 @@ export function formatIsolationFailure(hits: readonly ForbiddenHit[]): string {
     "L'édition autonome ne doit contenir aucune capacité de sortie réseau (PLAN-CTD-BUILDER §1).",
     "Retirer l'import fautif, ou — si la sortie est VOULUE (réservation de crédits, lot B3) —",
     'ajouter la règle correspondante en connaissance de cause dans src/builder/isolation.ts',
-    'ET ouvrir la CSP de public-builder/_headers dans le même commit.',
+    'ET ouvrir la CSP de landing/_headers (/ctd-builder/*) dans le même commit.',
   ].join('\n')
 }

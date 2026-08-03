@@ -3,3 +3,9 @@
 # ⚠️ Cible SANS extension : « /invite.html » déclenche le 308 « pretty URLs » de Pages vers
 # /invite, qui PERD le code du chemin — « /invite » est une réécriture interne, chemin préservé.
 /i/* /invite 200
+
+# CTD Builder — application à page unique servie sous /ctd-builder/ : toute URL interne
+# (routage React Router) doit rendre l'index de l'app, pas un 404 de la landing.
+# ⚠️ Le fichier est cité en dur, sans passer par une « pretty URL » : Cloudflare renverrait
+# /ctd-builder/ en 308 et le chemin applicatif serait perdu — même piège que /i/* ci-dessus.
+/ctd-builder/* /ctd-builder/index.html 200
