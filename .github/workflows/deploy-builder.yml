@@ -80,6 +80,35 @@ jobs:
       # Le build ÉCHOUE si une capacité de sortie réseau entre dans l'artefact
       # (`web/src/builder/isolation.ts`) — c'est la garantie « vos documents ne transitent jamais
       # par les serveurs de Pharnos », vérifiée plutôt que promise.
+      # Le domaine du produit est DÉCLARÉ ici, pas cliqué dans un tableau de bord. Wrangler ne
+      # couvre pas les domaines personnalisés (`wrangler pages` n'a pas de sous-commande
+      # `domain`) : on passe par l'API Pages, avec le même jeton.
+      #
+      # Idempotent par LECTURE, pas par tolérance d'erreur : on liste d'abord, on n'ajoute que si
+      # le domaine manque. Un rattachement déjà fait ne produit donc ni bruit ni faux échec, et
+      # un vrai refus de l'API reste visible.
+      #
+      # Effet de bord assumé et voulu : Cloudflare crée l'enregistrement DNS dans la zone
+      # `pharnos.com`, qui est sur ce même compte.
+      - name: Rattacher builder.pharnos.com au projet
+        if: steps.guard.outputs.ready == 'true'
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DOMAINE: builder.pharnos.com
+        run: |
+          set -euo pipefail
+          API="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/pages/projects/pharnos-builder/domains"
+          if curl -sf -H "Authorization: Bearer $CF_TOKEN" "$API" | grep -q "\"name\":\"$DOMAINE\""; then
+            echo "::notice title=Domaine::$DOMAINE déjà rattaché — rien à faire."
+          else
+            echo "Rattachement de $DOMAINE…"
+            curl -sf -X POST -H "Authorization: Bearer $CF_TOKEN" -H "Content-Type: application/json" \
+              --data "{\"name\":\"$DOMAINE\"}" "$API" > /tmp/domaine.json
+            grep -q '"success":true' /tmp/domaine.json || { echo "::error::Rattachement refusé"; cat /tmp/domaine.json; exit 1; }
+            echo "::notice title=Domaine::$DOMAINE rattaché."
+          fi
+
       - name: Build CTD Builder (isolation réseau vérifiée)
         if: steps.guard.outputs.ready == 'true'
         run: npm run build:builder
