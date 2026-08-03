@@ -1,7 +1,7 @@
 import { reportError } from '@/lib/sentry'
 import { syncDocuments } from './documents-sync'
 import { syncParties } from './parties-sync'
-import { syncRefOverrides } from './ref-overrides'
+import { syncRefOverrides } from './ref-overrides-sync'
 import { syncRefContent } from './ref-sync'
 import { syncProducts } from './sync'
 

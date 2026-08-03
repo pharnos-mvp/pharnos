@@ -27,7 +27,25 @@ périmètre réutilisé, avec la même règle de scindement que le workspace.
 
 **Prochaine action : B1 — et sa première étape est identifiée, mesurée, non triviale.**
 
-### B1.0 — Découpler `ref-overrides` du réseau (préalable à TOUT le reste)
+### ✅ B1.0 — LIVRÉ : `ref-overrides` est découplé du réseau
+
+`syncRefOverrides` et ses aides de ligne vivent dans `ref-overrides-sync.ts` ; les deux écritures
+locales passent par un crochet injecté (`setOverrideSyncHook`), que **`src/main.tsx`** branche au
+démarrage. Mesures : **1392 tests verts**, budget d'entrée **131,5 Ko → 131,5 Ko** (impact nul —
+Supabase était déjà dans le chunk d'entrée via l'authentification), CSP et en-têtes inchangés.
+
+**Vérifié par l'expérience qui échouait avant** : en important `dossier-repository` dans l'entrée
+du builder, `@supabase/*` et `src/lib/sentry.ts` **ne sont plus tirés**. La chaîne est coupée.
+
+⚠️ **Obstacle SUIVANT, mesuré par la même sonde** : le contrôle de sortie réseau signale alors deux
+adresses dans l'artefact — `https://tinyurl.com/y2uuvskb` et `http://bit.ly/2kdckMn`. Provenance
+tracée : ce sont des **liens de documentation dans les messages d'exception de Dexie**
+(« Transaction committed too early. See … »), donc des chaînes inertes que personne n'appelle.
+Elles iront dans `URL_ALLOWLIST` **avec cette raison** au moment où le dépôt entrera réellement
+dans le builder — pas avant, et pas sans la vérification ci-dessus : une URL raccourcie est opaque
+par construction, l'autoriser revient à faire confiance à la dépendance qui l'émet.
+
+### B1.0 — la conception, pour mémoire
 
 Chaîne constatée en branchant le vrai dépôt dans la coquille (le garde-fou l'a refusée) :
 
