@@ -77,9 +77,6 @@ jobs:
           npx wrangler pages project create pharnos-builder --production-branch main \
             || echo "::notice title=Projet Pages::pharnos-builder existe déjà — création ignorée."
 
-      # Le build ÉCHOUE si une capacité de sortie réseau entre dans l'artefact
-      # (`web/src/builder/isolation.ts`) — c'est la garantie « vos documents ne transitent jamais
-      # par les serveurs de Pharnos », vérifiée plutôt que promise.
       # Le domaine du produit est DÉCLARÉ ici, pas cliqué dans un tableau de bord. Wrangler ne
       # couvre pas les domaines personnalisés (`wrangler pages` n'a pas de sous-commande
       # `domain`) : on passe par l'API Pages, avec le même jeton.
@@ -87,6 +84,12 @@ jobs:
       # Idempotent par LECTURE, pas par tolérance d'erreur : on liste d'abord, on n'ajoute que si
       # le domaine manque. Un rattachement déjà fait ne produit donc ni bruit ni faux échec, et
       # un vrai refus de l'API reste visible.
+      #
+      # ⚠️ LECTURE PAR `jq`, JAMAIS PAR SOUS-CHAÎNE. La première version testait
+      # `grep '"success":true'` : l'API répond en JSON INDENTÉ (`"success": true`, avec une
+      # espace), donc l'étape a échoué alors que le rattachement avait RÉUSSI — et le contrôle
+      # d'idempotence, écrit de la même façon, n'aurait jamais reconnu un domaine déjà présent.
+      # Un test textuel sur du JSON est une réponse au hasard sur le formatage du serveur.
       #
       # Effet de bord assumé et voulu : Cloudflare crée l'enregistrement DNS dans la zone
       # `pharnos.com`, qui est sur ce même compte.
@@ -99,16 +102,21 @@ jobs:
         run: |
           set -euo pipefail
           API="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/pages/projects/pharnos-builder/domains"
-          if curl -sf -H "Authorization: Bearer $CF_TOKEN" "$API" | grep -q "\"name\":\"$DOMAINE\""; then
+          curl -sf -H "Authorization: Bearer $CF_TOKEN" "$API" > /tmp/domaines.json
+          if jq -e --arg d "$DOMAINE" '.result[]? | select(.name == $d)' /tmp/domaines.json > /dev/null; then
             echo "::notice title=Domaine::$DOMAINE déjà rattaché — rien à faire."
           else
             echo "Rattachement de $DOMAINE…"
             curl -sf -X POST -H "Authorization: Bearer $CF_TOKEN" -H "Content-Type: application/json" \
               --data "{\"name\":\"$DOMAINE\"}" "$API" > /tmp/domaine.json
-            grep -q '"success":true' /tmp/domaine.json || { echo "::error::Rattachement refusé"; cat /tmp/domaine.json; exit 1; }
+            jq -e '.success' /tmp/domaine.json > /dev/null \
+              || { echo "::error title=Domaine::Rattachement refusé"; cat /tmp/domaine.json; exit 1; }
             echo "::notice title=Domaine::$DOMAINE rattaché."
           fi
 
+      # Le build ÉCHOUE si une capacité de sortie réseau entre dans l'artefact
+      # (`web/src/builder/isolation.ts`) — c'est la garantie « vos documents ne transitent jamais
+      # par les serveurs de Pharnos », vérifiée plutôt que promise.
       - name: Build CTD Builder (isolation réseau vérifiée)
         if: steps.guard.outputs.ready == 'true'
         run: npm run build:builder
