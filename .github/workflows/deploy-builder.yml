@@ -22,13 +22,22 @@
 # `npx wrangler pages deploy dist-builder --project-name pharnos-builder --branch main` (depuis web/).
 name: Deploy builder
 
+# ⚠️ DÉCLENCHEMENT MANUEL SEULEMENT, ET C'EST TEMPORAIRE.
+# Le projet Cloudflare Pages `pharnos-builder` n'existe pas encore (action CEO, cf. §0 du plan).
+# Un déclencheur `push: main` ferait donc échouer ce workflow à chaque mouvement de `main` — et
+# dans ce dépôt, un workflow rouge envoie un e-mail aux admins : une fausse alerte « déploiement
+# en échec » récurrente, pour un produit qui n'est pas en ligne.
+#
+# LE JOUR OÙ LE PROJET PAGES EXISTE, remplacer ce bloc par (le builder partage `web/src/` avec la
+# plateforme : toute modification du front peut le changer, d'où les mêmes critères que
+# `deploy.yml` — un déploiement inutile coûte deux minutes, un déploiement manquant laisse un
+# produit payant en retard de version) :
+#
+#   push:
+#     branches: [main]
+#     paths-ignore: ['docs/**', '**.md', 'RA-source/**', 'load/**', 'supabase/**', 'landing/**']
+#   workflow_dispatch:
 on:
-  push:
-    branches: [main]
-    # Le builder partage `web/src/` avec la plateforme : toute modification du front peut le
-    # changer. On redéploie donc sur les mêmes critères que `deploy.yml` — un déploiement inutile
-    # coûte deux minutes, un déploiement manquant laisse un produit payant en retard de version.
-    paths-ignore: ['docs/**', '**.md', 'RA-source/**', 'load/**', 'supabase/**', 'landing/**']
   workflow_dispatch:
 
 permissions:

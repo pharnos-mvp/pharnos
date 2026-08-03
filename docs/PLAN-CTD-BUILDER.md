@@ -19,15 +19,21 @@ s'ouvre **après M3** (banc d'essai du moteur IA) — sauf B1 et B2, indépendan
 **Prochaine action : B1** — édition autonome du workspace, sans module de synchronisation.
 
 ⏳ **En attente d'une action CEO, hors code** : créer le projet Cloudflare Pages
-`pharnos-builder` et rattacher `builder.pharnos.com` (DNS). Tant que ce n'est pas fait, le
-workflow `deploy-builder.yml` construit et vérifie l'artefact mais ne publie rien.
+`pharnos-builder` et rattacher `builder.pharnos.com` (DNS).
+
+Tant que ce n'est pas fait, `deploy-builder.yml` reste en **déclenchement manuel** — pas par
+prudence excessive : un déclencheur automatique sur `main` échouerait à chaque poussée faute de
+projet cible, et dans ce dépôt un workflow rouge envoie un e-mail aux admins. Une fausse alerte
+« déploiement en échec » répétée, sur un produit qui n'est pas en ligne, use le signal exactement
+quand on en aura besoin. **Le jour du GO : décommenter le bloc `push:` en tête du workflow** — il
+y est écrit, prêt à l'emploi.
 
 ---
 
 ## 1. Le pivot : la limitation est l'argument de vente
 
 Un responsable des affaires réglementaires qui envisage un SaaS a **une** angoisse avant toutes les
-autres : *« mon dossier d'AMM va se retrouver sur le serveur de quelqu'un d'autre »*. C'est la raison
+autres : _« mon dossier d'AMM va se retrouver sur le serveur de quelqu'un d'autre »_. C'est la raison
 pour laquelle la page Checking Standard doit déjà promettre « espace chiffré · NDA sur demande ».
 
 L'édition autonome supprime la question :
@@ -53,18 +59,18 @@ l'édition autonome affaiblirait à la fois l'abonnement et cet argument.**
 
 ## 2. Ce que l'édition autonome contient — et ne contient pas
 
-| | CTD Builder autonome | Abonnement (écosystème RIM) |
-|---|---|---|
-| Arborescence CTD / eCTD par pays | ✅ | ✅ |
-| Dépôt et rangement des pièces | ✅ (local) | ✅ |
-| Contrôles de structure et de complétude | ✅ | ✅ |
-| Compilation du paquet | ✅ (au crédit) | ✅ (illimité) |
-| **Synchronisation multi-postes** | ❌ | ✅ |
-| **Travail à plusieurs** | ❌ | ✅ |
-| Copilote Regafy AI | ❌ | ✅ |
-| Upgrade RCP / notice / étiquetage | ❌ | ✅ |
-| Traduction | ❌ | ✅ |
-| Cockpit produit, cycle de vie, correspondance, relances | ❌ | ✅ |
+|                                                         | CTD Builder autonome | Abonnement (écosystème RIM) |
+| ------------------------------------------------------- | -------------------- | --------------------------- |
+| Arborescence CTD / eCTD par pays                        | ✅                   | ✅                          |
+| Dépôt et rangement des pièces                           | ✅ (local)           | ✅                          |
+| Contrôles de structure et de complétude                 | ✅                   | ✅                          |
+| Compilation du paquet                                   | ✅ (au crédit)       | ✅ (illimité)               |
+| **Synchronisation multi-postes**                        | ❌                   | ✅                          |
+| **Travail à plusieurs**                                 | ❌                   | ✅                          |
+| Copilote Regafy AI                                      | ❌                   | ✅                          |
+| Upgrade RCP / notice / étiquetage                       | ❌                   | ✅                          |
+| Traduction                                              | ❌                   | ✅                          |
+| Cockpit produit, cycle de vie, correspondance, relances | ❌                   | ✅                          |
 
 **Le mur est la collaboration, et il se heurte dès le deuxième jour** — pas au sixième mois.
 Un service RA à deux personnes le rencontre immédiatement. C'est le déclencheur d'abonnement le plus
@@ -84,11 +90,11 @@ est la commission Chariow. On tarife donc pour l'adoption, pas pour couvrir un c
 
 **Barème arrêté par le CEO le 2026-07-28.**
 
-| Offre | Compilations | Prix | € / compilation | FCFA | Net après 15 % |
-|---|---|---|---|---|---|
-| **Essai** | 3 | **49 €** | 16,33 € | 32 150 F | 27 328 F |
-| **Travail** ★ | 20 | **249 €** | 12,45 € (−24 %) | 163 350 F | 138 848 F |
-| **Licence annuelle** | **illimitées, 12 mois** | **490 €** | — | 321 450 F | 273 233 F |
+| Offre                | Compilations            | Prix      | € / compilation | FCFA      | Net après 15 % |
+| -------------------- | ----------------------- | --------- | --------------- | --------- | -------------- |
+| **Essai**            | 3                       | **49 €**  | 16,33 €         | 32 150 F  | 27 328 F       |
+| **Travail** ★        | 20                      | **249 €** | 12,45 € (−24 %) | 163 350 F | 138 848 F      |
+| **Licence annuelle** | **illimitées, 12 mois** | **490 €** | —               | 321 450 F | 273 233 F      |
 
 Trois intentions, pas trois volumes : **j'essaie · je travaille · je ne compte plus.**
 
@@ -123,10 +129,10 @@ qu'un builder hors ligne rend difficile — donc précieux.
 
 ### 4.1 Deux choses se mettent à jour, à ne jamais confondre
 
-| | Quoi | Rythme | Mécanisme |
-|---|---|---|---|
-| **(a) L'application** | code du builder, corrections, fonctionnalités | au gré des livraisons | **PWA · service worker** |
-| **(b) Le référentiel** | arborescence Module 1 par pays, pièces attendues | au gré des agences | **payload versionné signé** |
+|                        | Quoi                                             | Rythme                | Mécanisme                   |
+| ---------------------- | ------------------------------------------------ | --------------------- | --------------------------- |
+| **(a) L'application**  | code du builder, corrections, fonctionnalités    | au gré des livraisons | **PWA · service worker**    |
+| **(b) Le référentiel** | arborescence Module 1 par pays, pièces attendues | au gré des agences    | **payload versionné signé** |
 
 Les mêler serait une faute : le référentiel doit pouvoir bouger **sans** redéployer l'application,
 et l'application sans invalider les dossiers en cours.
@@ -167,8 +173,8 @@ Pour la **licence annuelle**, il n'y a pas de réservation — donc un battement
 **vérification tous les 30 jours, avec 14 jours de grâce.** Assez fréquent pour tenir le référentiel
 frais, assez souple pour qu'un déplacement ne bloque personne.
 
-**Le mécanisme de mise à jour est aussi le mécanisme de rétention.** Le message *« votre arborescence
-date de quatre mois — connectez-vous pour la mettre à jour »* est à la fois un avertissement de
+**Le mécanisme de mise à jour est aussi le mécanisme de rétention.** Le message _« votre arborescence
+date de quatre mois — connectez-vous pour la mettre à jour »_ est à la fois un avertissement de
 sécurité réglementaire et une relance commerciale. Les deux sont légitimes, ce qui est rare.
 
 ### 4.4 L'application — PWA, et deux pièges maison
@@ -203,23 +209,23 @@ module de synchronisation et sans l'outbox**.
 
 Un compteur stocké localement se falsifie en dix secondes. Comment facturer un produit hors ligne ?
 
-**Par la réservation.** Quand le poste est connecté, l'application *réserve* N crédits : le serveur
+**Par la réservation.** Quand le poste est connecté, l'application _réserve_ N crédits : le serveur
 **décrémente immédiatement** et renvoie un jeton signé contenant N jetons de compilation. Le poste
 les consomme ensuite **hors ligne**, et réconcilie à la prochaine connexion.
 
 - Aucune fraude possible : le décompte serveur a déjà eu lieu à la réservation.
 - Vraie capacité hors ligne : on peut compiler dans un avion.
-- Métaphore immédiate pour l'utilisateur : il *télécharge* ses crédits.
+- Métaphore immédiate pour l'utilisateur : il _télécharge_ ses crédits.
 
 ⚠️ **Le jeton est vérifié par signature, jamais lu en confiance.**
 
 ### 5.3 Trois modes de stockage — et pourquoi le Drive passe par le dossier
 
-| Mode | Où vivent les fichiers | Sauvegarde | Multi-poste | Navigateurs |
-|---|---|---|---|---|
-| **A — Navigateur** (repli) | IndexedDB | export `.pharnos` manuel | non | tous |
-| **B — Dossier local ★** | dossier choisi sur le disque | celle du dossier | **oui**, si le dossier est synchronisé | Chrome/Edge |
-| **C — API Drive (OAuth)** | Google Drive via API | oui | oui | tous |
+| Mode                       | Où vivent les fichiers       | Sauvegarde               | Multi-poste                            | Navigateurs |
+| -------------------------- | ---------------------------- | ------------------------ | -------------------------------------- | ----------- |
+| **A — Navigateur** (repli) | IndexedDB                    | export `.pharnos` manuel | non                                    | tous        |
+| **B — Dossier local ★**    | dossier choisi sur le disque | celle du dossier         | **oui**, si le dossier est synchronisé | Chrome/Edge |
+| **C — API Drive (OAuth)**  | Google Drive via API         | oui                      | oui                                    | tous        |
 
 **Recommandation : B par défaut quand le navigateur le permet, A en repli, C plus tard — voire jamais.**
 
@@ -228,25 +234,25 @@ OneDrive synchronisé sur son disque.** Google Drive Desktop transforme le Drive
 ordinaire (`G:\Mon Drive\`) : le navigateur ne sait même pas que c'est un Drive. Pointer le builder
 dessus donne tout ce qu'apporterait l'API…
 
-| Ce que l'API Drive imposerait | Le dossier synchronisé |
-|---|---|
-| Écran de consentement OAuth, politique de confidentialité à réviser | un sélecteur de dossier — **le choix EST le consentement** |
-| Un jeton de rafraîchissement à stocker et protéger | aucun jeton |
-| Portée `drive.file` obligatoire (la portée large déclenche une **évaluation de sécurité CASA**, plusieurs milliers de dollars par an) | aucune portée |
-| Quotas d'API, pannes Google dans notre chemin critique | **aucun appel réseau** |
-| Google seulement | **Drive, OneDrive, Dropbox, NAS, partage réseau — identiquement** |
+| Ce que l'API Drive imposerait                                                                                                         | Le dossier synchronisé                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Écran de consentement OAuth, politique de confidentialité à réviser                                                                   | un sélecteur de dossier — **le choix EST le consentement**        |
+| Un jeton de rafraîchissement à stocker et protéger                                                                                    | aucun jeton                                                       |
+| Portée `drive.file` obligatoire (la portée large déclenche une **évaluation de sécurité CASA**, plusieurs milliers de dollars par an) | aucune portée                                                     |
+| Quotas d'API, pannes Google dans notre chemin critique                                                                                | **aucun appel réseau**                                            |
+| Google seulement                                                                                                                      | **Drive, OneDrive, Dropbox, NAS, partage réseau — identiquement** |
 
 Ce dernier point n'est pas mineur : beaucoup de laboratoires sont sur Microsoft, pas sur Google.
 
 **Deux moments distincts, deux besoins** — et ils ne s'opposent pas :
 
-| | **La sortie** (à livrer en premier) | **L'atelier** (mode confort) |
-|---|---|---|
-| Quoi | le paquet compilé : télécharger, ou enregistrer dans un dossier Drive | tout le chantier vit dès le départ dans le dossier choisi |
-| Protège | le **livrable** | le **travail en cours** |
-| Répond à | « où je mets mon paquet » | « et si mon ordinateur meurt en plein montage ? » |
-| Navigateurs | tous | Chrome / Edge |
-| Effort | **une journée** | un vrai lot (B6) |
+|             | **La sortie** (à livrer en premier)                                   | **L'atelier** (mode confort)                              |
+| ----------- | --------------------------------------------------------------------- | --------------------------------------------------------- |
+| Quoi        | le paquet compilé : télécharger, ou enregistrer dans un dossier Drive | tout le chantier vit dès le départ dans le dossier choisi |
+| Protège     | le **livrable**                                                       | le **travail en cours**                                   |
+| Répond à    | « où je mets mon paquet »                                             | « et si mon ordinateur meurt en plein montage ? »         |
+| Navigateurs | tous                                                                  | Chrome / Edge                                             |
+| Effort      | **une journée**                                                       | un vrai lot (B6)                                          |
 
 Ni l'un ni l'autre n'a besoin de l'API Google.
 
@@ -267,11 +273,11 @@ C'est aussi celle qui répond à la seule question que le client se pose vraimen
 
 ### 5.5 Stockage — le vrai risque technique
 
-| Sujet | Décision |
-|---|---|
-| Quota | `navigator.storage.persist()` **obligatoire** au premier lancement. Sans permission durable, le navigateur peut évincer IndexedDB sous pression disque. |
-| Gros dossiers | Un CTD, ce sont des PDF : centaines de Mo. Espace consommé affiché **dans le tableau de bord**, pas dans un menu caché. |
-| Poste perdu = travail perdu | **Export `.pharnos` du dossier complet**, rappel actif si aucun export depuis 7 jours. Non négociable : c'est la contrepartie honnête du hors-ligne. |
+| Sujet                       | Décision                                                                                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quota                       | `navigator.storage.persist()` **obligatoire** au premier lancement. Sans permission durable, le navigateur peut évincer IndexedDB sous pression disque. |
+| Gros dossiers               | Un CTD, ce sont des PDF : centaines de Mo. Espace consommé affiché **dans le tableau de bord**, pas dans un menu caché.                                 |
+| Poste perdu = travail perdu | **Export `.pharnos` du dossier complet**, rappel actif si aucun export depuis 7 jours. Non négociable : c'est la contrepartie honnête du hors-ligne.    |
 
 ### 5.6 Compilation → paquet ZIP
 
@@ -321,22 +327,23 @@ réglementairement critique. C'est lui qui portera plus tard le lien vers l'abon
 
 ### 7.1 Structure
 
-| Section | Rôle |
-|---|---|
-| **Hero** | La promesse de confidentialité, pas la promesse de vitesse |
-| **Le problème** | Monter un Module 1 à la main, pays par pays |
-| **Comment ça marche** | 3 étapes, une phrase chacune |
-| **Toujours à jour** | Le moat (§4) — c'est ce qui justifie la licence |
-| **Inclus / non inclus** | Le tableau du §2, **tel quel** — la transparence est l'argument |
-| **Tarifs** | 3 offres, « Travail » mise en avant |
-| **FAQ** | Hors ligne · poste perdu · changement d'ordinateur · confidentialité |
-| **CTA** | Achat direct, sans création de compte |
+| Section                 | Rôle                                                                 |
+| ----------------------- | -------------------------------------------------------------------- |
+| **Hero**                | La promesse de confidentialité, pas la promesse de vitesse           |
+| **Le problème**         | Monter un Module 1 à la main, pays par pays                          |
+| **Comment ça marche**   | 3 étapes, une phrase chacune                                         |
+| **Toujours à jour**     | Le moat (§4) — c'est ce qui justifie la licence                      |
+| **Inclus / non inclus** | Le tableau du §2, **tel quel** — la transparence est l'argument      |
+| **Tarifs**              | 3 offres, « Travail » mise en avant                                  |
+| **FAQ**                 | Hors ligne · poste perdu · changement d'ordinateur · confidentialité |
+| **CTA**                 | Achat direct, sans création de compte                                |
 
 ### 7.2 Copywriting
 
 **Hero**
 
 > ## Montez vos dossiers CTD sans les confier à personne
+>
 > Le CTD Builder de Pharnos fonctionne entièrement sur votre poste. Arborescence par pays,
 > rangement des pièces, contrôles de structure, compilation du paquet prêt à déposer.
 > **Vos documents ne transitent jamais par nos serveurs** — ils restent sur votre disque, ou dans le
@@ -355,6 +362,7 @@ réglementairement critique. C'est lui qui portera plus tard le lien vers l'abon
 **Toujours à jour**
 
 > ### Une arborescence qui suit les agences
+>
 > Les exigences changent. Un dossier monté sur une arborescence périmée est arrêté à la réception —
 > redevances engagées, cycle de dépôt à recommencer.
 > Le builder met son référentiel à jour dès que vous êtes connecté, et **vous dit toujours sur quelle
@@ -363,6 +371,7 @@ réglementairement critique. C'est lui qui portera plus tard le lien vers l'abon
 **Bloc honnêteté** — celui qui fera la différence auprès d'un RA
 
 > ### Ce que cette édition ne fait pas
+>
 > Elle ne synchronise rien. Vos dossiers vivent sur ce poste et nulle part ailleurs — c'est ce qui
 > garantit leur confidentialité, et c'est aussi une contrainte : pour travailler à plusieurs ou
 > retrouver vos dossiers sur un autre ordinateur, il vous faudra la plateforme Pharnos.
@@ -399,20 +408,20 @@ badge de prix** — mais c'est le deuxième choix.
 
 ## 8. Lots
 
-| Lot | Contenu | Dépend de |
-|---|---|---|
-| **B0** ✅ | **Socle de fabrication** : cible de build séparée, CSP `connect-src 'self'`, contrôle d'isolation bloquant, workflow de déploiement, coquille + `persist()` | — |
-| **B1** | Édition autonome : `workspace` sans `*-sync.ts` ni outbox · `persist()` · alerte quota | B0 |
-| **B2** | Compilation → ZIP (`client-zip`) · **destination du paquet** (disque ou dossier Drive) · export/import `.pharnos` | B1 |
-| **B3** | Crédits : réservation signée, consommation hors ligne, réconciliation | B2, `orders` (PLAN-CHARIOW §6) |
-| **B4** | Tableau de bord 4 éléments | B3 |
-| **B5** | Page de vente + entrée d'en-tête + 3 produits Chariow | B3 |
-| **B6** | **Mode atelier** : File System Access API (Chrome/Edge) + repli | B2 |
-| **B7** | Passerelle vers l'abonnement : import d'un `.pharnos` dans un compte | B2 |
-| **B8** | **Référentiel hors ligne** : payload public signé, cache, `isTreeOutdated`, blocage de compilation sur arbre périmé | B1 |
-| **B9** | **PWA** : service worker, activation atomique, origine `builder.pharnos.com` | B1 |
-| **B10** | **Licence annuelle** : vérification à 30 jours, grâce 14 jours, rafraîchissement du référentiel | B3, B8 |
-| **B11** | *(optionnel, tardif)* API Drive OAuth `drive.file` — uniquement pour les contextes sans système de fichiers | B6 |
+| Lot       | Contenu                                                                                                                                                     | Dépend de                      |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| **B0** ✅ | **Socle de fabrication** : cible de build séparée, CSP `connect-src 'self'`, contrôle d'isolation bloquant, workflow de déploiement, coquille + `persist()` | —                              |
+| **B1**    | Édition autonome : `workspace` sans `*-sync.ts` ni outbox · `persist()` · alerte quota                                                                      | B0                             |
+| **B2**    | Compilation → ZIP (`client-zip`) · **destination du paquet** (disque ou dossier Drive) · export/import `.pharnos`                                           | B1                             |
+| **B3**    | Crédits : réservation signée, consommation hors ligne, réconciliation                                                                                       | B2, `orders` (PLAN-CHARIOW §6) |
+| **B4**    | Tableau de bord 4 éléments                                                                                                                                  | B3                             |
+| **B5**    | Page de vente + entrée d'en-tête + 3 produits Chariow                                                                                                       | B3                             |
+| **B6**    | **Mode atelier** : File System Access API (Chrome/Edge) + repli                                                                                             | B2                             |
+| **B7**    | Passerelle vers l'abonnement : import d'un `.pharnos` dans un compte                                                                                        | B2                             |
+| **B8**    | **Référentiel hors ligne** : payload public signé, cache, `isTreeOutdated`, blocage de compilation sur arbre périmé                                         | B1                             |
+| **B9**    | **PWA** : service worker, activation atomique, origine `builder.pharnos.com`                                                                                | B1                             |
+| **B10**   | **Licence annuelle** : vérification à 30 jours, grâce 14 jours, rafraîchissement du référentiel                                                             | B3, B8                         |
+| **B11**   | _(optionnel, tardif)_ API Drive OAuth `drive.file` — uniquement pour les contextes sans système de fichiers                                                 | B6                             |
 
 **Deux contraintes d'ordre :**
 
@@ -445,15 +454,15 @@ badge de prix** — mais c'est le deuxième choix.
 
 `web/` produit désormais **deux artefacts** depuis les mêmes sources :
 
-| | Plateforme | CTD Builder autonome |
-|---|---|---|
-| Config | `vite.config.ts` | `vite.builder.config.ts` |
-| Entrée | `index.html` → `src/main.tsx` | `index.builder.html` → `src/builder/main.tsx` |
-| Sortie | `web/dist/` | `web/dist-builder/` |
-| En-têtes | `public/_headers` | `public-builder/_headers` |
-| Origine | `app.pharnos.com` | `builder.pharnos.com` |
-| Projet Pages | `pharnos` | `pharnos-builder` |
-| Workflow | `deploy.yml` | `deploy-builder.yml` |
+|              | Plateforme                    | CTD Builder autonome                          |
+| ------------ | ----------------------------- | --------------------------------------------- |
+| Config       | `vite.config.ts`              | `vite.builder.config.ts`                      |
+| Entrée       | `index.html` → `src/main.tsx` | `index.builder.html` → `src/builder/main.tsx` |
+| Sortie       | `web/dist/`                   | `web/dist-builder/`                           |
+| En-têtes     | `public/_headers`             | `public-builder/_headers`                     |
+| Origine      | `app.pharnos.com`             | `builder.pharnos.com`                         |
+| Projet Pages | `pharnos`                     | `pharnos-builder`                             |
+| Workflow     | `deploy.yml`                  | `deploy-builder.yml`                          |
 
 ```bash
 npm run dev:builder       # développement (sert bien l'entrée du BUILDER, pas celle de l'app)
@@ -472,10 +481,10 @@ C'est le point le plus important du lot, et il vaut d'être écrit sans détour 
 transitent jamais par les serveurs de Pharnos » (§1) est une affirmation qu'un acheteur
 pharmaceutique fera vérifier. Elle repose donc sur deux mécanismes indépendants :
 
-| Verrou | Où | Ce qu'il empêche | Qui il protège |
-|---|---|---|---|
-| **CSP `connect-src 'self'`** | `web/public-builder/_headers` | Toute requête **de fond** vers une autre origine — `fetch`, XHR, WebSocket, EventSource, `sendBeacon` — quel que soit le code livré | **L'utilisateur** |
-| **Contrôle d'isolation du build** | `web/src/builder/isolation.ts`, branché dans `vite.builder.config.ts` | L'**émission** d'un artefact contenant une dépendance interdite (client réseau, `*-sync.ts`, outbox, télémétrie, authentification) **ou** une adresse absolue / primitive de sortie non autorisée | **La promesse** |
+| Verrou                            | Où                                                                    | Ce qu'il empêche                                                                                                                                                                                  | Qui il protège    |
+| --------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| **CSP `connect-src 'self'`**      | `web/public-builder/_headers`                                         | Toute requête **de fond** vers une autre origine — `fetch`, XHR, WebSocket, EventSource, `sendBeacon` — quel que soit le code livré                                                               | **L'utilisateur** |
+| **Contrôle d'isolation du build** | `web/src/builder/isolation.ts`, branché dans `vite.builder.config.ts` | L'**émission** d'un artefact contenant une dépendance interdite (client réseau, `*-sync.ts`, outbox, télémétrie, authentification) **ou** une adresse absolue / primitive de sortie non autorisée | **La promesse**   |
 
 ⚠️ **Ce que la CSP ne couvre pas, et qu'il faut savoir avant de le promettre à un acheteur :**
 la **navigation de premier niveau**. `location.href = 'https://ailleurs/?d=' + données` échappe
@@ -487,7 +496,7 @@ Le second verrou a **deux étages**, et le second étage n'est pas un luxe :
 
 1. **Dépendances** — les modules réellement émis dans les chunks (pas ceux que Rollup a seulement
    résolus).
-2. **Capacité** — le **code** émis, chunks *et* assets JS : toute adresse absolue hors liste
+2. **Capacité** — le **code** émis, chunks _et_ assets JS : toute adresse absolue hors liste
    blanche, toute primitive de sortie (`sendBeacon`, `WebSocket`, `EventSource`,
    `XMLHttpRequest`, `importScripts`).
 
