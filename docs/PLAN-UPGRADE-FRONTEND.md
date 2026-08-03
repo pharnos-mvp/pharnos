@@ -13,7 +13,7 @@
 > | | |
 > |---|---|
 > | Branche | `feat/upgrade-u0-renderer` (poussée, PR non ouverte) |
-> | Dernier commit | `c024817` — U0.3 |
+> | Dernier commit | `d224665` — revue de code passée, blocages corrigés |
 > | **Fait** | U0.1 rendu pur · U0.2 banc Edge · U0.3 harnais + chaîne complète mesurée |
 > | **Chiffres réels** | **60 appels · 319 s · 1,96 $** (§1) |
 > | **À trancher d'abord** | le découpage de la revue — 0,9 s de marge (§1) |

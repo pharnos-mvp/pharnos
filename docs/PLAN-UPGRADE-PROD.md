@@ -13,7 +13,7 @@
 > | | |
 > |---|---|
 > | Branche | `feat/upgrade-u0-renderer` — poussée, PR non ouverte |
-> | Derniers commits | `9a81d93` → `c024817` |
+> | Derniers commits | `9a81d93` → **`d224665`** (revue de code passée, blocages corrigés) |
 > | **Fait** | **U0 complet** (§3) — rendu pur, banc Edge, chaîne mesurée de bout en bout |
 > | **Mesuré** | **60 appels · 319 s · 1,96 $** par upgrade — recoupé console (§3, U0) |
 > | **À trancher AVANT U4** | le découpage de la revue — 114,1 s pour un plafond de 115 |
@@ -285,7 +285,7 @@ Chaque lot est livrable et vérifiable seul. L'ordre n'est pas négociable : **U
 | U0.2 | banc d'essai 3 phases, **là où vit la clé** (elle ne sort jamais du serveur) | `supabase/functions/bench/` |
 | U0.3 | harnais reprennable + chaîne complète, jusqu'aux 5 fichiers | `docs/gabarits/tools/bench-harness.ts` |
 
-Commits `9a81d93` → `c024817`. **366 tests Deno.** Cas : `RA-source/RCP_Sample.pdf` (AARCOLD,
+Commits `9a81d93` → `d224665`. **368 tests Deno.** Cas : `RA-source/RCP_Sample.pdf` (AARCOLD,
 quadrithérapie, 27 829 caractères) — **une source que le moteur n'avait jamais vue**, choisie pour
 cela : KV-Kacin avait déjà son livrable et aurait biaisé la lecture des écarts.
 
@@ -348,6 +348,32 @@ une rubrique en rend ~200 en 5 à 8 s.
 | Supabase `Pro` | l'abonnement, et le mur ne recule qu'à 400 s | tout le reste |
 
 **Recommandation : découper.** Le rapport est déjà en quatre tableaux indépendants. **Non tranchée.**
+
+#### Ce que la revue de code a corrigé après coup (`d224665`)
+
+Le lot avait franchi mes portes locales ; une revue dédiée a trouvé deux blocages, tous deux issus
+du même réflexe — **avoir vérifié mes fichiers plutôt que la liste de la CI**.
+
+1. **`translate/index.ts` ne compilait plus.** L'élargissement de `Usage` avait cassé un appelant
+   non modifié, absent de mon typecheck. La branche était rouge. → typechecker **toute** la liste
+   `deno check` du workflow, jamais le sous-ensemble qu'on vient de toucher.
+2. **Le banc gardait 30 rubriques sur 34**, écartant 8, 9, 10 et `prescription` — précisément
+   celles qu'un dossier étranger sans numéro d'AMM laisse vides. `renderReportMarkdown` calculant
+   « à compléter — N » sur ce qu'on lui donne, le rapport aurait **contredit son propre document**.
+   Le compte d'AARCOLD tombait juste par chance. → **une borne qui tronque en silence est pire que
+   pas de borne** : refuser, et calibrer sur le référentiel réel.
+
+Trois variantes du même défaut ont été corrigées avec : texte source coupé en silence, `status`
+inconnu corrigé en `missing` (donc gonflant le décompte de lacunes d'un rapport client), rubrique
+inconnue évaporée dans un `filter`. **Refuser plutôt que corriger poliment.**
+
+**Et une fragilité que le correctif de cache avait introduite** : élargir l'`enum` a rendu
+ATTEIGNABLE un cas jusque-là impossible — le modèle peut former « 2 » en répondant sur « 1 ». La
+rubrique était perdue, ni rejouée ni rétrogradée, et le harnais sortait en erreur : 1,2 $ à repayer
+pour une erreur d'aiguillage. Elle est désormais rejouée une fois puis **rétrogradée en `missing`
+avec la cause `misrouted`** — jamais rangée sous le mauvais numéro. **`misrouted` est une métrique à
+suivre** : s'il grimpe, c'est le schéma élargi qui désoriente, et le prix du cache partagé serait à
+revoir.
 
 #### Le coût qu'on ne voit pas
 
@@ -511,4 +537,14 @@ avant d'ouvrir la PR, sinon le conflit se découvrira à la fusion.
    **L'export CSV fait foi.**
 4. **Vérifier l'historique, pas seulement le disque.** Ce plan a été déclaré inexistant sur la foi
    d'un `Glob` : il vivait sur `feat/bibliotheque-reglementaire`, jamais fusionnée. Une recréation
-   de 158 lignes a failli remplacer 390 lignes plus riches.
+   de 158 lignes a failli remplacer 390 lignes plus riches. `git log --all -- <fichier>` avant toute
+   conclusion d'absence.
+5. **Typechecker la liste de la CI, pas ses propres fichiers.** Élargir un type partagé casse des
+   appelants qu'on n'a pas ouverts. Deux minutes de `deno check` sur les 14 fonctions valent mieux
+   qu'une branche rouge découverte à la PR.
+6. **Une borne qui tronque en silence est pire que pas de borne.** `MAX_ITEMS = 30` sur un gabarit
+   de 34 rubriques rendait un rapport calculé sur un document amputé, sans le dire. Refuser.
+7. **Élargir une contrainte rend atteignables des cas jusque-là impossibles.** L'`enum` par rubrique
+   interdisait structurellement une réponse mal aiguillée ; l'élargir pour partager le cache l'a
+   rendue possible. Toute contrainte qu'on relâche pour une raison de performance demande de
+   vérifier ce qu'elle empêchait par construction.
