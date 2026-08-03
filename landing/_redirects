@@ -4,8 +4,15 @@
 # /invite, qui PERD le code du chemin — « /invite » est une réécriture interne, chemin préservé.
 /i/* /invite 200
 
-# CTD Builder — application à page unique servie sous /ctd-builder/ : toute URL interne
-# (routage React Router) doit rendre l'index de l'app, pas un 404 de la landing.
-# ⚠️ Le fichier est cité en dur, sans passer par une « pretty URL » : Cloudflare renverrait
-# /ctd-builder/ en 308 et le chemin applicatif serait perdu — même piège que /i/* ci-dessus.
-/ctd-builder/* /ctd-builder/index.html 200
+# CTD Builder — application servie sous /ctd-builder/ : une URL interne (routage React Router)
+# doit rendre l'index de l'APP, pas celui de la vitrine.
+#
+# ⚠️ Destination SANS `index.html` — vérifié en production le 2026-08-03 : avec
+# `/ctd-builder/index.html` comme cible, la règle ne s'appliquait pas du tout et une URL inconnue
+# retombait sur le HTML de la vitrine. C'est le piège « pretty URLs » déjà documenté pour /i/*
+# ci-dessus : Cloudflare renvoie un 308 de `…/index.html` vers `…/`, et la réécriture se perd.
+#
+# ⚠️ Cette règle ne masque pas les assets : Pages sert un fichier existant AVANT de consulter
+# `_redirects`. Elle couvre en revanche les assets ABSENTS — d'où le cache court imposé à
+# `/ctd-builder/assets/*` dans `_headers`.
+/ctd-builder/* /ctd-builder/ 200

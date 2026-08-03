@@ -56,11 +56,11 @@ const TARGETS = {
     referrerPolicy: 'Referrer-Policy: no-referrer',
     // Pas de règle `/sw.js` : le service worker arrive au lot B9, avec sa stratégie
     // d'activation atomique. La règle sera ajoutée avec lui.
+    // ⚠️ PAS `immutable`, et c'est un garde-fou, pas un oubli : ce projet Pages répond 200 + HTML
+    // à toute URL inconnue, y compris sous `/ctd-builder/assets/`. Un cache d'un an y gèlerait
+    // une mauvaise réponse — mesuré en production le 2026-08-03, écran blanc à la clé.
     cacheRules: [
-      {
-        section: '/ctd-builder/assets/*',
-        header: 'Cache-Control: public, max-age=31536000, immutable',
-      },
+      { section: '/ctd-builder/assets/*', header: 'Cache-Control: public, max-age=300' },
     ],
     // LE contrôle du produit : la seule origine joignable est elle-même.
     connectSrcExact: "'self'",
