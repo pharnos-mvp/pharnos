@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title data-en="CTD Builder — assemble UEMOA-compliant CTD dossiers on your own machine · Pharnos">CTD Builder — montez des dossiers CTD conformes UEMOA sur votre poste · Pharnos</title>
+<meta name="description" content="Le CTD Builder de Pharnos monte vos dossiers d'AMM sur votre poste : arborescence du Module 1 par pays, rangement des pièces, contrôles de structure, compilation du paquet. Vos documents ne transitent jamais par nos serveurs. À partir de 49 €." />
+<link rel="stylesheet" href="/styles.css?v=15" />
+<link rel="stylesheet" href="/ctdbuilder.css?v=1" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<link rel="canonical" href="https://pharnos.com/ctdbuilder" />
+<link rel="alternate" hreflang="fr" href="https://pharnos.com/ctdbuilder" />
+<link rel="alternate" hreflang="en" href="https://pharnos.com/en/ctdbuilder" />
+<link rel="alternate" hreflang="x-default" href="https://pharnos.com/ctdbuilder" />
+<meta name="theme-color" content="#120a2e" />
+<meta property="og:title" content="CTD Builder — montez vos dossiers CTD sans les confier à personne" />
+<meta property="og:description" content="Arborescence du Module 1 par pays, rangement des pièces, contrôles de structure, compilation. Vos documents ne transitent jamais par les serveurs de Pharnos." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://pharnos.com/ctdbuilder" />
+<meta property="og:site_name" content="Pharnos" />
+<meta property="og:locale" content="fr_FR" />
+<meta property="og:locale:alternate" content="en_US" />
+<meta property="og:image" content="https://pharnos.com/assets/og-image.png?v=1" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="Pharnos CTD Builder — montage de dossiers CTD conformes en zone UEMOA." />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="CTD Builder — montez vos dossiers CTD sans les confier à personne" />
+<meta name="twitter:description" content="Arborescence par pays, contrôles de structure, compilation. Vos documents ne transitent jamais par nos serveurs." />
+<meta name="twitter:image" content="https://pharnos.com/assets/og-image.png?v=1" />
+<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/sora-latin.woff2" crossorigin />
+<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/syne-latin-wght-normal.woff2" crossorigin />
+<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/dm-sans-latin-standard-normal.woff2" crossorigin />
+</head>
+<body class="cb">
+<a class="skip-link" href="#main" data-en="Skip to content">Aller au contenu</a>
+
+<svg width="0" height="0" aria-hidden="true">
+  <defs>
+    <symbol id="logo-p" viewBox="0 0 640 640">
+      <path fill="currentColor" d="M610.99,569.98c.48,9.86-.64,18.75-7.05,26.28-5.47,6.42-12.3,10.02-20.7,10.62-1.5.11-3,.12-4.5.12-90.16,0-180.32,0-270.48,0h-4.09v-135.49c13.8,0,27.45.54,41.03-.13,19.93-.98,39.98-1.73,59.69-4.57,30.3-4.38,58.57-14.9,83.28-33.61,29.84-22.6,47.04-52.98,53.52-89.41,5.88-33.04,5.36-66.02-4.73-98.34-11.31-36.21-34.93-61.8-68.91-77.99-24.63-11.74-50.89-17.45-77.95-19.39-14.77-1.06-29.62-1.45-44.43-1.51-47.66-.18-95.32-.07-142.99-.07h-5.5v87.9h3.95c33,0,66-.08,98.99.03,23.14.07,46.3.05,69.43.72,12.2.35,24.01,3.57,35.02,9.02,15.94,7.89,25.51,20.96,29.71,38,3.97,16.09,4.32,32.32.21,48.44-5.99,23.52-21.83,37.72-44.07,45.61-17.35,6.16-35.4,7.6-53.61,7.6-44.65,0-89.3-.13-133.95-.2h-5.66v223.15c-1.66.09-3.08.24-4.5.24-43.16.01-86.33.03-129.49,0-19.78-.02-32.19-12.39-32.19-32.07-.01-169.32-.01-338.64,0-507.95,0-19.39,12.43-31.95,31.78-31.95,172.15-.03,344.3-.03,516.45,0,19.5,0,31.73,12.61,31.73,32.51.01,167.32.01,334.63,0,502.45Z"/>
+    </symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M4 12.5l5.2 5.2L20 7"/></symbol>
+    <symbol id="i-out" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  </defs>
+</svg>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="Pharnos — accueil">
+      <svg aria-hidden="true"><use href="#logo-p"/></svg>
+      <span class="brand-name">Pharnos</span>
+    </a>
+    <nav class="site-nav" aria-label="Navigation principale" data-en-al="Main navigation">
+      <a class="navlink" href="/#modules" data-en="Platform">Plateforme</a>
+      <a class="navlink" href="/ctdbuilder" aria-current="page">CTD Builder</a>
+      <div class="navitem">
+        <button type="button" class="navtrigger" id="tools-trigger" aria-expanded="false" aria-controls="tools-menu">
+          <span data-en="Tools">Outils</span>
+          <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="navmenu" id="tools-menu" hidden>
+          <a href="/checking-standard">
+            <span class="mt">Checking Standard <span class="tag" data-en="Free">Gratuit</span></span>
+            <span class="md" data-en="Is your MA dossier ready for reception? A diagnostic in 3 minutes, no document to upload.">Votre dossier d'AMM est-il prêt pour la réception ? Un diagnostic en 3 minutes, sans téléverser de document.</span>
+          </a>
+          <a href="/bibliotheque-reglementaire">
+            <span class="mt"><span data-en="Regulatory templates">Modèles réglementaires</span> <span class="tag" data-en="Free">Gratuit</span></span>
+            <span class="md" data-en="SmPC, leaflet and labelling on the official template of each country.">RCP, notice et étiquetage sur le modèle officiel de chaque pays.</span>
+          </a>
+          <span class="soon">
+            <span class="mt"><span data-en="Regulatory translation">Traduction réglementaire</span> <span class="tag" data-en="Soon">Bientôt</span></span>
+            <span class="md" data-en="FR ⇄ EN ⇄ PT, with the vocabulary of the dossier preserved.">FR ⇄ EN ⇄ PT, avec le vocabulaire du dossier respecté.</span>
+          </span>
+        </div>
+      </div>
+      <a class="navlink" href="/#offres" data-en="Pricing">Tarifs</a>
+    </nav>
+    <div class="lang" role="group" aria-label="Choisir la langue" data-en-al="Choose language">
+      <button type="button" class="on" aria-pressed="true">FR</button>
+      <button type="button" aria-pressed="false">EN</button>
+    </div>
+    <a class="login" href="https://app.pharnos.com" data-en="Sign in">Se connecter</a>
+    <button class="burger" type="button" aria-expanded="false" aria-controls="mnav" aria-label="Ouvrir le menu" data-en-al="Open menu">
+      <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <nav class="mnav" id="mnav" hidden aria-label="Menu mobile" data-en-al="Mobile menu">
+      <a href="/#modules" data-en="Platform">Plateforme</a>
+      <a href="/ctdbuilder">CTD Builder</a>
+      <div class="mgroup">
+        <span class="mglabel" data-en="Tools">Outils</span>
+        <a href="/checking-standard">Checking Standard</a>
+        <a href="/bibliotheque-reglementaire" data-en="Regulatory templates">Modèles réglementaires</a>
+        <span class="msoon"><span data-en="Regulatory translation">Traduction réglementaire</span> <span class="tag" data-en="Soon">Bientôt</span></span>
+      </div>
+      <a href="/#offres" data-en="Pricing">Tarifs</a>
+      <div class="lang" role="group" aria-label="Choisir la langue" data-en-al="Choose language">
+        <button type="button" class="on" aria-pressed="true">FR</button>
+        <button type="button" aria-pressed="false">EN</button>
+      </div>
+      <a class="login" href="https://app.pharnos.com" data-en="Sign in">Se connecter</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ── Hero ───────────────────────────────────────────────────────────────────────────── -->
+  <section class="cb-hero">
+    <div class="wrap">
+      <span class="cb-kick"><b data-en="Licence">Licence</b> <span data-en="Runs on your machine · no cloud sync">Fonctionne sur votre poste · sans synchronisation cloud</span></span>
+      <h1><span data-en="Assemble your CTD dossiers">Montez vos dossiers CTD</span> <em data-en="without entrusting them to anyone">sans les confier à personne</em></h1>
+      <p class="cb-lede" data-en="Country-specific Module 1 tree, filing of your documents, structure checks, and a submission-ready package. Everything runs on your machine — your documents never pass through Pharnos servers.">
+        Arborescence du Module 1 par pays, rangement de vos pièces, contrôles de structure, et un paquet prêt à déposer. Tout s'exécute sur votre poste — vos documents ne transitent jamais par les serveurs de Pharnos.
+      </p>
+      <div class="cb-cta">
+        <a class="btn-white btn-pill" href="https://pharnos.com/ctd-builder/" target="_blank" rel="noopener">
+          <span data-en="Open the CTD Builder">Ouvrir le CTD Builder</span>
+          <svg aria-hidden="true"><use href="#i-out"/></svg>
+        </a>
+        <a class="btn-line" href="#offres" data-en="See the offers">Voir les offres</a>
+      </div>
+      <ul class="cb-proof">
+        <li data-en="8 UEMOA countries">8 pays UEMOA</li>
+        <li class="dot" aria-hidden="true">·</li>
+        <li data-en="Regulation No. 04/2020/CM/UEMOA">Règlement n° 04/2020/CM/UEMOA</li>
+        <li class="dot" aria-hidden="true">·</li>
+        <li data-en="eCTD on the same foundation — soon">eCTD sur le même socle — bientôt</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ── Le problème ────────────────────────────────────────────────────────────────────── -->
+  <section class="cb-sec">
+    <div class="wrap">
+      <div class="cb-head">
+        <div class="cb-eyebrow" data-en="The real cost">Le coût réel</div>
+        <h2 data-en="A dossier is not rejected on its science. It is stopped at reception.">Un dossier n'est pas refusé sur sa science. Il est arrêté à la réception.</h2>
+        <p data-en="Module 1 is the only part of the CTD that changes from one UEMOA country to another. Assembling it by hand, country by country, is where the weeks are lost — and where the fees are already spent.">
+          Le Module 1 est la seule partie du CTD qui change d'un pays UEMOA à l'autre. C'est en le montant à la main, pays par pays, qu'on perd les semaines — et qu'on a déjà engagé les redevances.
+        </p>
+      </div>
+      <div class="cb-grid">
+        <article class="cb-card">
+          <span class="n">01</span>
+          <h3 data-en="An outdated tree">Une arborescence périmée</h3>
+          <p data-en="Requirements change. A dossier built on last year's structure is stopped on arrival — fees committed, filing cycle to start over.">Les exigences changent. Un dossier bâti sur la structure de l'an dernier est arrêté à l'arrivée — redevances engagées, cycle de dépôt à recommencer.</p>
+        </article>
+        <article class="cb-card">
+          <span class="n">02</span>
+          <h3 data-en="A missing piece, found too late">Une pièce manquante, vue trop tard</h3>
+          <p data-en="A certificate in the wrong format, an unsigned annex, a section numbered as in another country: nothing warns you before the receipt desk does.">Un certificat au mauvais format, une annexe non signée, une rubrique numérotée comme ailleurs : rien ne vous prévient avant le guichet.</p>
+        </article>
+        <article class="cb-card">
+          <span class="n">03</span>
+          <h3 data-en="A dossier that must not leave">Un dossier qui ne doit pas sortir</h3>
+          <p data-en="An MA dossier is confidential by nature. Uploading it to someone else's server is a question your quality department will ask before your budget does.">Un dossier d'AMM est confidentiel par nature. Le téléverser sur le serveur d'un tiers, c'est une question que votre assurance qualité posera avant votre budget.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Comment ça marche ──────────────────────────────────────────────────────────────── -->
+  <section class="cb-sec alt">
+    <div class="wrap">
+      <div class="cb-head">
+        <div class="cb-eyebrow" data-en="How it works">Comment ça marche</div>
+        <h2 data-en="Three steps, and the third one produces the package">Trois étapes, et la troisième produit le paquet</h2>
+      </div>
+      <div class="cb-grid">
+        <article class="cb-card">
+          <span class="n">1</span>
+          <h3 data-en="Choose the filing country">Vous choisissez le pays de dépôt</h3>
+          <p data-en="The Module 1 tree is built according to that country's requirements — the only CTD module that varies across UEMOA.">L'arborescence du Module 1 se construit selon les exigences de ce pays — le seul module du CTD qui varie dans l'UEMOA.</p>
+        </article>
+        <article class="cb-card">
+          <span class="n">2</span>
+          <h3 data-en="File your documents">Vous rangez vos pièces</h3>
+          <p data-en="The builder flags what is missing, what is in the wrong format, and what does not match the rest of the dossier.">Le builder signale ce qui manque, ce qui est au mauvais format, et ce qui ne concorde pas avec le reste du dossier.</p>
+        </article>
+        <article class="cb-card">
+          <span class="n">3</span>
+          <h3 data-en="Compile">Vous compilez</h3>
+          <p data-en="A named and ordered package, ready to file. Compiling on an outdated tree is never done silently.">Un paquet nommé et ordonné, prêt à déposer. Une compilation sur une arborescence périmée ne se fait jamais en silence.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Le moat ────────────────────────────────────────────────────────────────────────── -->
+  <section class="cb-sec">
+    <div class="wrap">
+      <div class="cb-head">
+        <div class="cb-eyebrow" data-en="Always current">Toujours à jour</div>
+        <h2 data-en="A tree that follows the agencies — and tells you which version you are working on">Une arborescence qui suit les agences — et qui vous dit sur quelle version vous travaillez</h2>
+        <p><span data-en="A frozen builder becomes dangerous within months: it produces dossiers that will be stopped at reception — exactly the loss it claims to prevent. The tree updates as soon as you are connected, and the version is displayed permanently. Reference updates are included in every offer: the licence sells unlimited compilations and duration, never the accuracy of the data.">Un builder figé devient dangereux en quelques mois : il fabrique des dossiers qui seront arrêtés à la réception, c'est-à-dire exactement le sinistre qu'il prétend éviter. L'arborescence se met à jour dès que vous êtes connecté, et la version est affichée en permanence. Les mises à jour du référentiel sont incluses dans toutes les offres — la licence vend l'illimité et la durée, jamais l'exactitude de la donnée.</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Périmètre : la transparence est l'argument ──────────────────────────────────────── -->
+  <section class="cb-sec alt">
+    <div class="wrap">
+      <div class="cb-head">
+        <div class="cb-eyebrow" data-en="Scope">Périmètre</div>
+        <h2 data-en="What it does — and what it deliberately does not">Ce qu'il fait — et ce qu'il ne fait pas, délibérément</h2>
+        <p data-en="The wall is collaboration, and you hit it on day two, not in month six. We prefer you to know before buying.">Le mur est la collaboration, et on s'y heurte dès le deuxième jour — pas au sixième mois. Nous préférons que vous le sachiez avant d'acheter.</p>
+      </div>
+      <div class="cb-scope">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col" data-en="Capability">Fonction</th>
+              <th scope="col">CTD Builder</th>
+              <th scope="col" data-en="Cloud platform">Plateforme cloud</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row" data-en="CTD / eCTD tree by country">Arborescence CTD / eCTD par pays</th><td class="cb-yes">✓</td><td class="cb-yes">✓</td></tr>
+            <tr><th scope="row" data-en="Filing and ordering of documents">Dépôt et rangement des pièces</th><td class="cb-yes" data-en="✓ local">✓ local</td><td class="cb-yes">✓</td></tr>
+            <tr><th scope="row" data-en="Structure and completeness checks">Contrôles de structure et de complétude</th><td class="cb-yes">✓</td><td class="cb-yes">✓</td></tr>
+            <tr><th scope="row" data-en="Package compilation">Compilation du paquet</th><td class="cb-yes">✓</td><td class="cb-yes">✓</td></tr>
+            <tr class="hi"><th scope="row" data-en="Multi-device synchronisation">Synchronisation multi-postes</th><td class="cb-no">—</td><td class="cb-yes">✓</td></tr>
+            <tr class="hi"><th scope="row" data-en="Working as a team">Travail à plusieurs</th><td class="cb-no">—</td><td class="cb-yes">✓</td></tr>
+            <tr><th scope="row" data-en="Regafy AI copilot">Copilote Regafy AI</th><td class="cb-no">—</td><td class="cb-yes">✓</td></tr>
+            <tr><th scope="row" data-en="Dossier lifecycle, correspondence, reminders">Cycle de vie, correspondance, relances</th><td class="cb-no">—</td><td class="cb-yes">✓</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="cb-note" data-en="It synchronises nothing. Your dossiers live on this machine and nowhere else — that is what guarantees their confidentiality, and it is also a constraint. Export regularly: the builder will remind you.">
+        Il ne synchronise rien. Vos dossiers vivent sur ce poste et nulle part ailleurs — c'est ce qui garantit leur confidentialité, et c'est aussi une contrainte. Exportez régulièrement : le builder vous le rappellera.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── Offres ─────────────────────────────────────────────────────────────────────────── -->
+  <section class="cb-sec" id="offres">
+    <div class="wrap">
+      <div class="cb-head">
+        <div class="cb-eyebrow" data-en="Offers">Offres</div>
+        <h2 data-en="Three intentions, not three volumes">Trois intentions, pas trois volumes</h2>
+        <p><span data-en="A credit is consumed on compilation, never on creating a dossier. Reference updates are included everywhere.">Un crédit se consomme à la compilation, jamais à la création d'un dossier. Les mises à jour du référentiel sont incluses partout.</span></p>
+      </div>
+      <div class="cb-plans">
+        <article class="cb-plan">
+          <div class="pn" data-en="Trial">Essai</div>
+          <div class="pp">49 €</div>
+          <div class="pf" data-en="≈ 32,150 FCFA · valid 12 months">≈ 32 150 FCFA · valable 12 mois</div>
+          <p class="pd"><b data-en="Three compilations">Trois compilations</b><span data-en=", to see the tool on your own dossier rather than on a demo.">, pour voir l'outil sur votre vrai dossier plutôt que sur une démonstration.</span></p>
+          <ul>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg><span data-en="Full Module 1 tree, all 8 countries">Arborescence Module 1 complète, 8 pays</span></li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg><span data-en="Structure and completeness checks">Contrôles de structure et de complétude</span></li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg><span data-en="Reference updates included">Mises à jour du référentiel incluses</span></li>
+          </ul>
+          <div class="pcta"><a class="btn btn-ghost" href="mailto:contact@pharnos.com?subject=CTD%20Builder%20—%20Essai" data-en="Get this offer">Obtenir cette offre</a></div>
+        </article>
+
+        <article class="cb-plan star">
+          <span class="pbadge" data-en="Recommended">Recommandé</span>
+          <div class="pn" data-en="Work">Travail</div>
+          <div class="pp">249 €</div>
+          <div class="pf" data-en="≈ 163,350 FCFA · valid 12 months">≈ 163 350 FCFA · valable 12 mois</div>
+          <p class="pd"><b data-en="Twenty compilations">Vingt compilations</b><span data-en=" — 24% less per compilation. The rhythm of a department that files regularly."> — 24 % de moins l'unité. Le rythme d'un service qui dépose régulièrement.</span></p>
+          <ul>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg><span data-en="Everything in Trial">Tout ce que contient l'Essai</span></li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg><span data-en="Export / import of a complete dossier">Export / import d'un dossier complet</span></li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg><span data-en="Save straight into your Drive, OneDrive or network share">Enregistrement direct dans votre Drive, OneDrive ou partage réseau</span></li>
+          </ul>
+          <div class="pcta"><a class="btn btn-primary" href="mailto:contact@pharnos.com?subject=CTD%20Builder%20—%20Travail" data-en="Get this offer">Obtenir cette offre</a></div>
+        </article>
+
+        <article class="cb-plan">
+          <div class="pn" data-en="Annual licence">Licence annuelle</div>
+          <div class="pp">490 €</div>
+          <div class="pf" data-en="≈ 321,450 FCFA · 12 months">≈ 321 450 FCFA · 12 mois</div>
+          <p class="pd"><b data-en="Unlimited compilations">Compilations illimitées</b><span data-en=" for twelve months. The only offer whose argument is not a counter — it is the guarantee of a tree kept current."> pendant douze mois. La seule offre dont l'argument n'est pas un compteur — c'est la garantie d'une arborescence tenue à jour.</span></p>
+          <ul>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg><span data-en="Everything in Work">Tout ce que contient Travail</span></li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg><span data-en="No counting, no running out mid-filing">Aucun décompte, aucune panne sèche en plein dépôt</span></li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg><span data-en="27% of an annual Pro subscription">27 % d'un abonnement Pro annuel</span></li>
+          </ul>
+          <div class="pcta"><a class="btn btn-ghost" href="mailto:contact@pharnos.com?subject=CTD%20Builder%20—%20Licence%20annuelle" data-en="Get this offer">Obtenir cette offre</a></div>
+        </article>
+      </div>
+      <p class="cb-note" data-en="Online purchase is opening shortly. In the meantime, write to us and we will set up your licence.">Le paiement en ligne ouvre prochainement. D'ici là, écrivez-nous et nous mettons votre licence en place.</p>
+    </div>
+  </section>
+
+  <!-- ── L'offre voisine : la plateforme cloud ───────────────────────────────────────────── -->
+  <section class="cb-sec alt">
+    <div class="wrap">
+      <div class="cb-cloud">
+        <div>
+          <h2 data-en="Need the whole chain, not just the assembly?">Besoin de toute la chaîne, pas seulement du montage ?</h2>
+          <p data-en="The Pharnos cloud platform covers what the builder deliberately leaves out: several people on the same dossier, synchronisation across machines, dossier lifecycle and deadlines, correspondence with agencies, and the Regafy AI copilot.">
+            La plateforme cloud Pharnos couvre ce que le builder laisse volontairement de côté : plusieurs personnes sur le même dossier, synchronisation entre postes, cycle de vie et échéances, correspondance avec les agences, et le copilote Regafy AI.
+          </p>
+          <div class="cl-act">
+            <a class="btn btn-white" href="/#offres" data-en="See platform pricing">Voir les offres de la plateforme</a>
+            <span class="cl-price" data-en="From 100,000 FCFA / month · 30-day trial, no card">À partir de 100 000 FCFA / mois · essai 30 jours sans carte</span>
+          </div>
+        </div>
+        <div class="cl-side">
+          <div><svg aria-hidden="true"><use href="#i-check"/></svg><span data-en="Several people on one dossier">Plusieurs personnes sur un dossier</span></div>
+          <div><svg aria-hidden="true"><use href="#i-check"/></svg><span data-en="Lifecycle, deadlines, reminders">Cycle de vie, échéances, relances</span></div>
+          <div><svg aria-hidden="true"><use href="#i-check"/></svg><span data-en="Correspondence with agencies">Correspondance avec les agences</span></div>
+          <div><svg aria-hidden="true"><use href="#i-check"/></svg><span data-en="Regafy AI copilot">Copilote Regafy AI</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FAQ ────────────────────────────────────────────────────────────────────────────── -->
+  <section class="cb-sec">
+    <div class="wrap">
+      <div class="cb-head">
+        <div class="cb-eyebrow">FAQ</div>
+        <h2 data-en="The questions that actually get asked">Les questions qu'on nous pose vraiment</h2>
+      </div>
+      <div class="cb-faq">
+        <details>
+          <summary data-en="What happens if I change computer?">Que se passe-t-il si je change d'ordinateur ?</summary>
+          <div class="a" data-en="Export your dossier from the builder, open it on the new machine. The export is a single file containing everything: tree, documents, metadata. If you want that to be automatic, that is exactly what the cloud platform does.">Exportez votre dossier depuis le builder, ouvrez-le sur le nouveau poste. L'export est un fichier unique qui contient tout : arborescence, pièces, métadonnées. Si vous voulez que ce soit automatique, c'est précisément ce que fait la plateforme cloud.</div>
+        </details>
+        <details>
+          <summary data-en="Does it work without an internet connection?">Fonctionne-t-il sans connexion ?</summary>
+          <div class="a" data-en="Yes. Assembling, checking and compiling all run on your machine. A connection is only needed to refresh the country reference and to load your compilation credits — which you then use offline.">Oui. Le montage, les contrôles et la compilation s'exécutent sur votre poste. La connexion ne sert qu'à rafraîchir le référentiel pays et à charger vos crédits de compilation — que vous consommez ensuite hors ligne.</div>
+        </details>
+        <details>
+          <summary data-en="Where exactly do my documents live?">Où vivent exactement mes documents ?</summary>
+          <div class="a" data-en="On your machine, or in the folder you choose — Drive, OneDrive, Dropbox, a network share. If you pick a Drive folder, your files go to Google, not to us. The sentence that is true in every case: your documents never pass through Pharnos servers.">Sur votre poste, ou dans le dossier que vous choisissez — Drive, OneDrive, Dropbox, un partage réseau. Si vous choisissez un dossier Drive, vos fichiers partent chez Google, pas chez nous. La phrase vraie dans tous les cas : vos documents ne transitent jamais par les serveurs de Pharnos.</div>
+        </details>
+        <details>
+          <summary data-en="And if my machine dies?">Et si mon poste meurt ?</summary>
+          <div class="a" data-en="You lose what was not exported. That is the honest counterpart of working offline, and the builder actively reminds you to export. Pointing it at a synchronised folder removes the risk entirely.">Vous perdez ce qui n'a pas été exporté. C'est la contrepartie honnête du hors-ligne, et le builder vous rappelle activement d'exporter. Le pointer sur un dossier synchronisé supprime le risque.</div>
+        </details>
+        <details>
+          <summary data-en="Which browsers?">Quels navigateurs ?</summary>
+          <div class="a" data-en="All of them for assembling and compiling. Saving directly into a folder on your disk requires Chrome or Edge; on Safari and Firefox the builder falls back to download and manual export, and says so.">Tous pour monter et compiler. L'enregistrement direct dans un dossier de votre disque demande Chrome ou Edge ; sur Safari et Firefox, le builder bascule sur le téléchargement et l'export manuel, et vous le dit.</div>
+        </details>
+        <details>
+          <summary data-en="Will there be eCTD?">Y aura-t-il l'eCTD ?</summary>
+          <div class="a" data-en="Yes — on the same foundation, with the same rule: what is assembled on your machine stays on your machine.">Oui — sur le même socle, avec la même règle : ce qui se monte sur votre poste reste sur votre poste.</div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Clôture ────────────────────────────────────────────────────────────────────────── -->
+  <section class="cb-end">
+    <div class="wrap">
+      <h2 data-en="Open it, and assemble a real dossier">Ouvrez-le, et montez un vrai dossier</h2>
+      <p data-en="No account to create to look around. The builder opens in a new tab and runs on your machine.">Aucun compte à créer pour regarder. Le builder s'ouvre dans un nouvel onglet et s'exécute sur votre poste.</p>
+      <div class="cb-cta">
+        <a class="btn btn-navy btn-lg" href="https://pharnos.com/ctd-builder/" target="_blank" rel="noopener">
+          <span data-en="Open the CTD Builder">Ouvrir le CTD Builder</span>
+          <svg width="16" height="16" aria-hidden="true"><use href="#i-out"/></svg>
+        </a>
+        <a class="btn-line" href="mailto:contact@pharnos.com?subject=CTD%20Builder" data-en="Talk to the team">Parler à l'équipe</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <a class="brand" href="/" aria-label="Pharnos">
+          <svg aria-hidden="true"><use href="#logo-p"/></svg>
+          <span class="brand-name">Pharnos</span>
+        </a>
+        <p class="tag" data-en="The operating system for pharmaceutical regulatory affairs — UEMOA / CEDEAO.">Le système d'exploitation des affaires réglementaires pharmaceutiques — UEMOA / CEDEAO.</p>
+      </div>
+      <div>
+        <h4>CTD Builder</h4>
+        <ul>
+          <li><a href="#offres" data-en="Offers">Offres</a></li>
+          <li><a href="https://pharnos.com/ctd-builder/" target="_blank" rel="noopener" data-en="Open the app">Ouvrir l'application</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 data-en="Platform">Plateforme</h4>
+        <ul>
+          <li><a href="/#modules" data-en="RIM Catalogue">Catalogue RIM</a></li>
+          <li><a href="/#regafy">Regafy AI</a></li>
+          <li><a href="/#offres" data-en="Pharnos pricing">Offres Pharnos</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Contact</h4>
+        <ul>
+          <li><a href="mailto:contact@pharnos.com">contact@pharnos.com</a></li>
+          <li><a href="https://app.pharnos.com">app.pharnos.com</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="legal">
+      <span data-en="The CTD Builder assembles and checks the structure of a dossier against the requirements published by the national authorities. It is neither a regulatory opinion, nor a decision, nor a guarantee of admissibility — admissibility rests with the competent national authorities.">Le CTD Builder monte et contrôle la structure d'un dossier au regard des exigences publiées par les autorités nationales. Il ne constitue ni un avis réglementaire, ni une décision, ni une garantie de recevabilité — celle-ci relève des autorités nationales compétentes.</span>
+      <span data-en="© 2026 Pharnos — all rights reserved.">© 2026 Pharnos — tous droits réservés.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="/landing.js?v=15" defer></script>
+</body>
+</html>

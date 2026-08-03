@@ -1,0 +1,507 @@
+/* ── Page CTD Builder (pharnos.com/ctdbuilder) ──────────────────────────────────────────────
+   Complément de styles.css, jamais une reprise : tokens, boutons, header et footer viennent
+   du fichier commun. On n'ajoute ici que ce qui n'existe pas ailleurs.
+   Chargée avec `?v=N` — le `_headers` impose un max-age court sur ce fichier (propagation).
+   ────────────────────────────────────────────────────────────────────────────────────────── */
+
+/* ── Hero — encre profonde, la même famille que la constellation de l'accueil ── */
+.cb-hero {
+  position: relative;
+  margin-top: -58px;
+  padding: 138px 0 clamp(64px, 8vw, 108px);
+  background:
+    radial-gradient(1100px 520px at 78% -10%, rgba(88, 62, 214, 0.42), transparent 62%),
+    radial-gradient(760px 420px at 8% 8%, rgba(26, 86, 219, 0.3), transparent 60%),
+    linear-gradient(160deg, #120a2e 0%, var(--ink-1) 58%, var(--ink-2) 100%);
+  color: #fff;
+  overflow: hidden;
+}
+/* Trame discrète : donne de la matière au fond sans image à télécharger. */
+.cb-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(circle at 50% 0%, #000 0%, transparent 72%);
+}
+.cb-hero .wrap {
+  position: relative;
+  max-width: 1000px;
+  text-align: center;
+}
+.cb-kick {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 14px 6px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  font-family: 'Sora', sans-serif;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: #e4dcff;
+}
+.cb-kick b {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #a855f7, #7c3aed);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.cb-hero h1 {
+  margin-top: 28px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(34px, 5.6vw, 62px);
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+}
+.cb-hero h1 em {
+  font-style: normal;
+  background: linear-gradient(92deg, #c4b5fd, #8ab4ff 55%, #7ee0b8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.cb-lede {
+  margin: 22px auto 0;
+  max-width: 720px;
+  font-family: 'Sora', sans-serif;
+  font-size: clamp(15.5px, 1.35vw, 18px);
+  line-height: 1.62;
+  color: #cbd3e6;
+}
+.cb-cta {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 36px;
+}
+.cb-cta .btn-white {
+  min-width: 250px;
+  justify-content: center;
+}
+.cb-cta .btn-line {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 210px;
+  border-radius: 999px;
+  padding: 14px 30px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  transition: var(--transition);
+}
+.cb-cta .btn-line:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+.cb-cta svg {
+  width: 16px;
+  height: 16px;
+}
+.cb-proof {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 26px;
+  margin-top: 30px;
+  font-size: 13.5px;
+  color: #9fb0cd;
+}
+.cb-proof li.dot {
+  opacity: 0.45;
+}
+
+/* ── Rythme des sections ── */
+.cb-sec {
+  padding: clamp(64px, 7vw, 104px) 0;
+}
+.cb-sec.alt {
+  background: var(--g50);
+  border-block: 1px solid var(--g200);
+}
+.cb-head {
+  max-width: 760px;
+  margin: 0 auto clamp(38px, 4vw, 58px);
+  text-align: center;
+}
+.cb-eyebrow {
+  font-family: 'Sora', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--blue);
+}
+.cb-head h2 {
+  margin-top: 12px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(26px, 3.1vw, 40px);
+  line-height: 1.14;
+  letter-spacing: -0.025em;
+  color: var(--navy);
+}
+.cb-head p {
+  margin-top: 16px;
+  font-size: 16.5px;
+  line-height: 1.65;
+  color: var(--g600);
+}
+
+/* ── Cartes génériques ── */
+.cb-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr));
+}
+.cb-card {
+  padding: 26px;
+  border: 1px solid var(--g200);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  transition: var(--transition);
+}
+.cb-card:hover {
+  border-color: var(--g300);
+  box-shadow: var(--shadow-soft);
+  transform: translateY(-2px);
+}
+.cb-card .n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--blue-ghost);
+  color: var(--blue);
+  font-family: 'Sora', sans-serif;
+  font-weight: 800;
+  font-size: 14px;
+}
+.cb-card h3 {
+  margin-top: 16px;
+  font-size: 17.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--navy);
+}
+.cb-card p {
+  margin-top: 9px;
+  font-size: 14.8px;
+  line-height: 1.62;
+  color: var(--g600);
+}
+
+/* ── Tableau périmètre : la transparence EST l'argument (§2 du plan) ── */
+.cb-scope {
+  overflow-x: auto;
+  border: 1px solid var(--g200);
+  border-radius: var(--radius-lg);
+  background: #fff;
+}
+.cb-scope table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+.cb-scope th,
+.cb-scope td {
+  padding: 14px 20px;
+  text-align: left;
+  border-bottom: 1px solid var(--g100);
+}
+.cb-scope thead th {
+  font-family: 'Sora', sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--g500);
+  background: var(--g50);
+}
+.cb-scope tbody tr:last-child th,
+.cb-scope tbody tr:last-child td {
+  border-bottom: 0;
+}
+.cb-scope th[scope='row'] {
+  font-weight: 500;
+  color: var(--g700);
+}
+.cb-scope td {
+  width: 172px;
+  text-align: center;
+  font-weight: 600;
+}
+.cb-yes {
+  color: var(--success-fg);
+}
+.cb-no {
+  color: var(--g400);
+}
+.cb-scope tr.hi th[scope='row'] {
+  font-weight: 700;
+  color: var(--navy);
+}
+
+/* ── Offres ── */
+.cb-plans {
+  display: grid;
+  gap: 22px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  align-items: start;
+}
+.cb-plan {
+  display: flex;
+  flex-direction: column;
+  padding: 30px 28px;
+  border: 1px solid var(--g200);
+  border-radius: var(--radius-lg);
+  background: #fff;
+}
+.cb-plan.star {
+  border-color: var(--navy);
+  box-shadow: var(--shadow-soft);
+  position: relative;
+}
+/* Élément RÉEL, pas un `content: attr(...)` : une pseudo-classe est invisible du moteur i18n
+   (landing.js ne traduit que des nœuds texte) et le badge serait resté en français sur /en/. */
+.cb-plan .pbadge {
+  position: absolute;
+  top: -13px;
+  left: 28px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--navy);
+  color: #fff;
+  font-family: 'Sora', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.cb-plan .pn {
+  font-family: 'Sora', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--g500);
+}
+.cb-plan .pp {
+  margin-top: 14px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 40px;
+  letter-spacing: -0.03em;
+  color: var(--navy);
+}
+.cb-plan .pf {
+  margin-top: 4px;
+  font-size: 13.5px;
+  color: var(--g500);
+}
+.cb-plan .pd {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--g100);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--g700);
+}
+.cb-plan ul {
+  margin-top: 16px;
+  display: grid;
+  gap: 9px;
+  font-size: 14.6px;
+  color: var(--g600);
+}
+.cb-plan li {
+  display: flex;
+  gap: 9px;
+  line-height: 1.55;
+}
+.cb-plan li svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 3px;
+  color: var(--success-fg);
+}
+.cb-plan .pcta {
+  margin-top: auto;
+  padding-top: 24px;
+}
+.cb-plan .pcta .btn {
+  width: 100%;
+  justify-content: center;
+}
+.cb-note {
+  margin-top: 22px;
+  text-align: center;
+  font-size: 13.8px;
+  line-height: 1.6;
+  color: var(--g500);
+}
+
+/* ── Bloc plateforme cloud — offre voisine, volontairement compacte ── */
+.cb-cloud {
+  display: grid;
+  gap: 26px;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  align-items: center;
+  padding: clamp(28px, 3.4vw, 44px);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(150deg, var(--navy) 0%, #142744 100%);
+  color: #fff;
+}
+.cb-cloud h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(23px, 2.5vw, 31px);
+  line-height: 1.18;
+  letter-spacing: -0.02em;
+}
+.cb-cloud p {
+  margin-top: 14px;
+  font-size: 15.6px;
+  line-height: 1.65;
+  color: #c3cfe2;
+}
+.cb-cloud .cl-side {
+  display: grid;
+  gap: 12px;
+}
+.cb-cloud .cl-side div {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 14.8px;
+  line-height: 1.55;
+  color: #dbe4f2;
+}
+.cb-cloud .cl-side svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 3px;
+  color: #7ee0b8;
+}
+.cb-cloud .cl-act {
+  margin-top: 22px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+.cb-cloud .cl-price {
+  font-size: 14px;
+  color: #9fb0cd;
+}
+
+/* ── FAQ ── */
+.cb-faq {
+  max-width: 800px;
+  margin: 0 auto;
+  display: grid;
+  gap: 12px;
+}
+.cb-faq details {
+  border: 1px solid var(--g200);
+  border-radius: var(--radius);
+  background: #fff;
+  transition: var(--transition);
+}
+.cb-faq details[open] {
+  border-color: var(--g300);
+  box-shadow: var(--shadow-sm);
+}
+.cb-faq summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 17px 20px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--navy);
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+.cb-faq summary::-webkit-details-marker {
+  display: none;
+}
+.cb-faq summary::after {
+  content: '+';
+  flex: none;
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--g400);
+  transition: transform 0.18s ease;
+}
+.cb-faq details[open] summary::after {
+  transform: rotate(45deg);
+}
+.cb-faq .a {
+  padding: 0 20px 18px;
+  font-size: 15.2px;
+  line-height: 1.68;
+  color: var(--g600);
+}
+
+/* ── Bandeau de clôture ── */
+.cb-end {
+  text-align: center;
+  padding: clamp(56px, 6vw, 88px) 0;
+  background: var(--g50);
+  border-top: 1px solid var(--g200);
+}
+.cb-end h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(25px, 3vw, 36px);
+  letter-spacing: -0.025em;
+  color: var(--navy);
+}
+.cb-end p {
+  margin: 14px auto 0;
+  max-width: 620px;
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--g600);
+}
+.cb-end .cb-cta {
+  margin-top: 28px;
+}
+.cb-end .cb-cta .btn-line {
+  color: var(--g800);
+  border-color: var(--g300);
+}
+.cb-end .cb-cta .btn-line:hover {
+  background: #fff;
+  border-color: var(--g400);
+}
+
+@media (max-width: 860px) {
+  .cb-cloud {
+    grid-template-columns: 1fr;
+  }
+}
