@@ -6,7 +6,10 @@
 // demande ~440 s, au-dessus même du mur du plan Pro. C'est la seule forme qui tienne.
 //
 // Ce module est le point où les garanties sont rendues exécutables (§8.2) :
-//  1. le modèle ne peut pas répondre sur une autre rubrique (`enum` réduit à celle demandée) ;
+//  1. le modèle ne peut pas répondre sur une autre rubrique : la sortie est REFUSÉE en code si
+//     `section_id` diffère de celle demandée. Le schéma, lui, autorise tout le gabarit — il guide
+//     le décodage et doit rester identique d'une rubrique à l'autre pour que le cache de préfixe
+//     prenne (cf. `schemaIds`). Guider n'est pas garantir : la garantie est à la lecture ;
 //  2. une rubrique dont la citation n'est pas retrouvée dans la source est rejouée UNE fois, puis
 //     rétrogradée en `missing` — jamais livrée telle quelle ;
 //  3. une rubrique dont les VALEURS CHIFFRÉES ne se retrouvent pas dans la source subit le même
@@ -27,7 +30,7 @@ import {
   type SectionStatus,
 } from './ai/section-schema.ts'
 import type { AiOptions, Part, Provider } from './ai/types.ts'
-import type { ConformitySpec, RubricSpec } from './conformity-specs.ts'
+import { flattenRubrics, type ConformitySpec, type RubricSpec } from './conformity-specs.ts'
 
 /**
  * Marqueur officiel des rubriques sans information source — CONTRAT CLIENT (le compteur du front
@@ -257,12 +260,46 @@ interface RejectedAttempt {
   figures: string[]
 }
 
+/**
+ * Identifiants du gabarit — la liste que voit le SCHÉMA, mise en cache par spec.
+ *
+ * POURQUOI ELLE N'EST PAS `[rubric.id]`. Le schéma de sortie entre dans le préfixe mis en cache,
+ * en amont du point de césure. Y placer l'identifiant de la rubrique rendait ce préfixe UNIQUE à
+ * chaque rubrique : mesuré en production le 03/08/2026, `cacheRead` valait 0 sur les six rubriques
+ * d'une vague et `cacheWrite` 16 461 jetons pour « 4 » contre 16 463 pour « 4.1 » — deux jetons
+ * d'écart, exactement la longueur ajoutée par l'identifiant. Le cache n'était donc pas seulement
+ * inutile : on payait 29 écritures à 1,25× là où une écriture et 28 lectures à 0,1× suffisaient,
+ * soit 3,24 $ au lieu de 0,59 $ par passe. Une liste commune à tout le gabarit rend le préfixe
+ * identique d'une rubrique à l'autre, donc partageable.
+ *
+ * ⚠️ L'ORDRE FAIT PARTIE DE LA CLÉ. `flattenRubrics` parcourt une structure figée, donc rend
+ * toujours la même suite ; trier, filtrer ou dédupliquer ici casserait le cache sans rien signaler.
+ *
+ * Cette liste ne relâche AUCUNE garantie : elle guide le décodage, elle ne le vérifie pas. La
+ * vérification reste `parseSectionResult(raw, [rubric.id])` — une réponse portant une autre
+ * rubrique du gabarit est refusée en code, comme avant.
+ */
+const SCHEMA_IDS = new WeakMap<ConformitySpec, string[]>()
+function schemaIds(spec: ConformitySpec, rubricId: string): string[] {
+  let ids = SCHEMA_IDS.get(spec)
+  if (!ids) {
+    ids = flattenRubrics(spec).map((r) => r.id)
+    SCHEMA_IDS.set(spec, ids)
+  }
+  // Rubrique hors gabarit (tests, appel forgé) : un schéma qui ne l'autorise pas rendrait toute
+  // réponse correcte impossible. On retombe sur l'ancien comportement plutôt que d'élargir la
+  // liste commune — ce cas ne se met de toute façon pas en cache.
+  return ids.includes(rubricId) ? ids : [rubricId]
+}
+
 /** Options d'appel d'une tentative — la sortie structurée est le cœur du protocole (§3.2). */
 function attemptOptions(req: SectionRequest, timeoutMs: number): AiOptions {
   return {
     system: req.system,
     json: true,
-    jsonSchema: sectionSchema([req.rubric.id]),
+    // Liste COMMUNE au gabarit — le préfixe reste ainsi partageable entre rubriques (cf.
+    // `schemaIds`). La stricte égalité à la rubrique demandée est vérifiée en code, à la lecture.
+    jsonSchema: sectionSchema(schemaIds(req.spec, req.rubric.id)),
     maxOutputTokens: SECTION_MAX_OUTPUT_TOKENS,
     timeoutMs,
     provider: req.provider,
