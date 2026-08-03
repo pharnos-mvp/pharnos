@@ -32,7 +32,7 @@ réels : **Gynoril Ovule** (source FR) et **KV-Kacin 500** (source EN, 15 pages,
 | `_shared/ai/pool.ts` | parallélisme borné + préchauffage du cache |
 | `_shared/ai/evidence.ts` | citation et ancrage des chiffres · tolérance des sources **scannées** |
 | `_shared/ai/section-schema.ts` | schéma par rubrique, `enum` verrouillé |
-| `docs/gabarits/tools/render-deliverables.mjs` | DOCX + PDF (à porter dans `web/`) |
+| `web/src/lib/deliverables/` | DOCX + PDF — **porté dans `web/` le 03/08/2026 (U0.1)**, module pur |
 
 **298 tests Deno.** Surface HTTP en production : `POST /upgrade` avec `section: "<id>"`.
 
@@ -106,13 +106,14 @@ l'onglet reste ouvert, le worker devient nécessaire sinon. **À trancher au dé
 ⚠️ **Régler `warmupFirst: true`** et `concurrency: 6`. Sans préchauffage, six appels simultanés
 paient six écritures de cache au lieu d'une : 0,28 à 0,35 $ perdus par upgrade.
 
-### C. Portage du générateur dans `web/`
+### C. Portage du générateur dans `web/` — ✅ FAIT le 03/08/2026 (lot U0.1)
 
-`docs/gabarits/tools/render-deliverables.mjs` produit les cinq fichiers avec `docx@9.7.1` et
-`pdf-lib@1.17.1` — **les bibliothèques mêmes de l'application**, précisément pour que le portage soit
-un déplacement et non une réécriture.
+Le générateur vit désormais dans **`web/src/lib/deliverables/`**, en module **pur** (ni `node:fs`,
+ni DOM, garde ESLint à l'appui), avec `docx@9.7.1` et `pdf-lib@1.17.1` — les bibliothèques mêmes de
+l'application. Le portage a bien été un déplacement : texte extrait et pagination **identiques** sur
+les sept documents de référence, `word/document.xml` identique à l'octet.
 
-Trois pièges déjà payés, à ne pas re-découvrir :
+Trois pièges déjà payés, à ne pas re-découvrir — **tous trois désormais couverts par des tests** :
 
 1. **Tracer une chaîne entière par groupe de style, jamais mot à mot.** Le positionnement manuel
    produit un PDF dont les extracteurs recollent le texte (« QUALITATIVEET » observé). Sur un

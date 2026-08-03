@@ -29,6 +29,29 @@ export default defineConfig([
     },
   },
   {
+    // Moteur des livrables d'upgrade : le MÊME code fabrique les 5 fichiers sous Node (banc
+    // d'essai de mesure) et dans le navigateur (livraison sur `/u/{token}`). Un `Buffer` ou un
+    // `document.` qui s'y glisserait ne casserait QUE la livraison client — les tests, eux,
+    // tournent en jsdom avec les globals Node, et ne verraient rien. D'où cette garde : la
+    // pureté ne peut pas rester une phrase de commentaire.
+    files: ['src/lib/deliverables/**/*.ts'],
+    ignores: ['src/lib/deliverables/**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: ['node:*'] }],
+      'no-restricted-globals': [
+        'error',
+        'Buffer',
+        'process',
+        '__dirname',
+        'require',
+        'document',
+        'window',
+        'navigator',
+        'localStorage',
+      ],
+    },
+  },
+  {
     // E2E Playwright + fichiers de config/scripts : tournent côté Node, et les callbacks
     // page.evaluate() s'exécutent dans le navigateur → exposer les deux jeux de globals.
     files: ['e2e/**/*.ts', 'playwright.config.ts', 'scripts/**/*.{ts,mjs,js}'],
