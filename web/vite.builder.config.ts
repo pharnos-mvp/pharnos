@@ -45,11 +45,11 @@ import {
  */
 
 /**
- * Chemin public du builder sur `pharnos.com`. Source unique : le `base` de Vite, la réécriture
- * SPA de `landing/_redirects` et la section CSP de `landing/_headers` doivent parler du MÊME
- * chemin — les trois sont vérifiés par `npm run headers:builder`.
+ * Le builder est servi à la RACINE de son propre domaine. `base` reste explicite : c est ce qui
+ * a changé en passant d un chemin de la vitrine à un projet dédié, et ce qu il faudrait
+ * modifier si l on revenait en arrière (ce que la revue déconseille — cf. §10.1 du plan).
  */
-const BASE = '/ctd-builder/'
+const BASE = '/'
 
 /** Identifiant de build affiché dans l'app — voir `src/builder/build-id.d.ts`. */
 const buildId = process.env.GITHUB_SHA?.slice(0, 7) ?? 'local'
@@ -102,6 +102,34 @@ function builderIsolationGate(): Plugin {
 }
 
 /**
+ * Icônes partagées avec la plateforme. Sur son propre domaine, le builder ne peut plus emprunter
+ * celles de la vitrine : `img-src 'self'` interdit une image d'une autre origine, et l'entrée
+ * HTML les référence en absolu. On les copie donc depuis la SOURCE UNIQUE `public/`, plutôt que
+ * de dupliquer des binaires dans le dépôt.
+ *
+ * Échec DUR si un fichier manque : `_redirects` renvoie `index.html` en 200 pour toute URL
+ * inconnue, donc une icône absente ne produirait pas un 404 mais du HTML servi comme image —
+ * une panne muette, le motif déjà rencontré avec les modèles de reconnaissance de caractères.
+ */
+function sharedIcons(): Plugin {
+  const FILES = ['favicon.svg', 'apple-touch-icon.png']
+  return {
+    name: 'pharnos:builder-shared-icons',
+    // `writeBundle` et non `closeBundle` : ce dernier s'exécute AUSSI après un build échoué, et
+    // son message masquerait la vraie cause (constaté en écrivant le test du garde-fou).
+    writeBundle() {
+      const from = path.resolve(import.meta.dirname, 'public')
+      const to = path.resolve(import.meta.dirname, 'dist-builder')
+      for (const file of FILES) {
+        const src = path.join(from, file)
+        if (!fs.existsSync(src)) this.error(`icône partagée introuvable : ${src}`)
+        fs.copyFileSync(src, path.join(to, file))
+      }
+    },
+  }
+}
+
+/**
  * En DÉVELOPPEMENT, Vite sert `<root>/index.html` — c'est-à-dire l'entrée de la PLATEFORME.
  * Sans cette réécriture, `npm run dev:builder` lancerait l'application complète en croyant lancer
  * le builder : un piège silencieux, et le pire genre (on teste autre chose que ce qu'on livre).
@@ -145,16 +173,21 @@ function renameEntryHtml(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), devEntryHtml(), builderIsolationGate(), renameEntryHtml()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    devEntryHtml(),
+    builderIsolationGate(),
+    sharedIcons(),
+    renameEntryHtml(),
+  ],
   // Le builder est servi SOUS UN CHEMIN de pharnos.com : sans `base`, les URL d'assets émises
   // pointeraient vers la racine du site (`/assets/…`) et entreraient en collision avec celles de
   // la landing, qui a déjà un dossier `assets/`.
   base: BASE,
-  // Aucun `publicDir`, et rien à recopier : le builder est SERVI PAR pharnos.com, dont la racine
-  // porte déjà `favicon.svg` et `apple-touch-icon.png` — que l'entrée HTML référence en absolu
-  // (Vite ne préfixe pas ces chemins par `base`, vérifié dans l'artefact). Les en-têtes HTTP,
-  // eux, vivent dans `landing/_headers` : Cloudflare ne lit que celui de la racine du déploiement.
-  publicDir: false,
+  // `public-builder/` : les en-têtes HTTP et le repli SPA du domaine, rien d'autre. Aucun
+  // fichier de `public/` (la plateforme) ne doit atterrir ici par inadvertance.
+  publicDir: 'public-builder',
   // Le garde-fou s'applique AUSSI aux builds imbriqués des web workers — sans quoi il ne voit
   // pas leur graphe de modules (constaté en revue, cf. `builderIsolationGate`).
   worker: {

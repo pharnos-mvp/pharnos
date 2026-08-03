@@ -8,7 +8,6 @@
     "build": "tsc -b && vite build",
     "dev:builder": "vite --config vite.builder.config.ts",
     "build:builder": "tsc -b && vite build --config vite.builder.config.ts",
-    "assemble:builder": "node scripts/assemble-builder.mjs",
     "preview:builder": "vite preview --config vite.builder.config.ts",
     "headers:builder": "node scripts/check-headers.mjs builder",
     "preview": "vite preview",

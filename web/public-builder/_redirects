@@ -1,0 +1,9 @@
+# Repli de l'application à page unique : toute URL interne rend l'index, le routage se fait
+# ensuite côté client. C'est la configuration STANDARD d'un projet Pages dédié — exactement
+# celle de `web/public/_redirects` qui sert `app.pharnos.com` depuis un an.
+#
+# ⚠️ C'est précisément ce qui était IMPOSSIBLE sous un chemin de `pharnos.com` : les deux formes
+# essayées en production le 2026-08-03 ont échoué, l'une en ne s'appliquant jamais, l'autre en
+# capturant les assets existants (écran blanc). Un fichier qui existe est servi AVANT que cette
+# règle ne soit consultée — la mécanique ne fonctionne qu'à la racine d'un projet.
+/*    /index.html   200

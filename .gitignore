@@ -6,11 +6,6 @@ dist/
 dist-builder/
 dev-dist/
 
-# CTD Builder assemblé DANS la landing au moment du déploiement (web/dist-builder/ → ici).
-# Jamais versionné : `landing/` est déployée telle quelle, et un bundle compilé committé
-# dériverait de sa source au premier oubli.
-landing/ctd-builder/
-
 # Tests / coverage
 coverage/
 
