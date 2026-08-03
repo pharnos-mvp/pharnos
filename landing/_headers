@@ -57,9 +57,27 @@
   Referrer-Policy: no-referrer
   Cross-Origin-Opener-Policy: same-origin
 
-# Assets empreintés du CTD Builder (hash dans le nom) → cache long immuable.
+# Assets empreintés du CTD Builder (hash dans le nom).
+#
+# ⚠️ PAS de `immutable`, et pas de max-age d'un an — malgré l'empreinte dans le nom, qui rendrait
+# les deux légitimes partout ailleurs. Raison, MESURÉE en production le 2026-08-03 :
+#
+#   GET /ctd-builder/assets/nimporte-quoi.js  →  200  text/html   (le HTML de la vitrine)
+#
+# Ce projet Pages répond 200 + HTML à TOUTE URL inconnue, y compris sous ce préfixe. Un client
+# qui demande un asset une seconde trop tôt — pendant la propagation d'un déploiement — reçoit
+# donc du HTML avec un `Content-Type` de page, et `immutable` le lui fait garder UN AN. Le
+# navigateur refuse ensuite d'exécuter le module (mauvais type MIME) : écran blanc, sans erreur
+# réseau, sans moyen de s'en sortir autrement qu'en vidant le cache. Constaté sur cette page.
+#
+# C'est la même classe de panne que celle documentée plus bas pour `/styles.css` (17/07/2026) :
+# un cache long sur un chemin qui peut mentir transforme un incident d'une seconde en panne
+# durable. 5 minutes suffisent à absorber toute propagation, et l'asset reste dans le cache du
+# navigateur pendant la session — le coût est une revalidation 304 sur ~60 Ko.
+#
+# À relever seulement quand une URL inconnue sous ce préfixe répondra vraiment 404.
 /ctd-builder/assets/*
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: public, max-age=300
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable

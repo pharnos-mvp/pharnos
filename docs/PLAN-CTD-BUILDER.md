@@ -571,5 +571,18 @@ de développement** : l'accident aurait été silencieux et public.
 - [x] Il refuse aussi une **seconde section `/*`** (les règles Cloudflare se cumulent) et une CSP **Report-Only** posée devant la vraie
 - [x] Il refuse un `dist-builder/` **vide** — cas réel : après un build échoué, les en-têtes sont déjà copiés mais aucun chunk n'existe
 - [x] `npm run dev:builder` sert l'entrée du builder et non celle de la plateforme
+- [x] **Vérifié en PRODUCTION** (2026-08-03) : `pharnos.com/ctd-builder/` rend l'application, CSP
+      `connect-src 'self'` réellement servie, `Referrer-Policy: no-referrer`, détachement effectif
+
+⚠️ **Deux comportements MESURÉS en production, à connaître avant B1 :**
+
+1. **Ce projet Pages répond `200` + le HTML de la vitrine à TOUTE URL inconnue** — pas un 404.
+   Conséquence directe : un cache long sur `/ctd-builder/assets/*` gèle cette mauvaise réponse
+   chez le client, qui refuse ensuite d'exécuter le module (mauvais type MIME) et affiche un
+   écran blanc, sans erreur réseau. C'est arrivé à la première visite après le déploiement.
+   → `max-age=300` sans `immutable` sur ce préfixe, tant qu'une URL inconnue ne répond pas 404.
+2. **Une réécriture `_redirects` vers `…/index.html` ne s'applique pas** : Cloudflare renvoie un
+   308 « pretty URL » vers `…/` et la règle se perd — le même piège que `/i/*`. La destination
+   doit être **`/ctd-builder/`**, sans nom de fichier.
 - [x] Le stockage durable se demande depuis un geste utilisateur et l'état s'affiche
 - [x] Servi sous `pharnos.com/ctd-builder/` — assemblé dans le déploiement de la vitrine, aucun projet Cloudflare supplémentaire
