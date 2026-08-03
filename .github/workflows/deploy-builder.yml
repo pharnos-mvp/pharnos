@@ -1,0 +1,105 @@
+# Déploiement du CTD Builder sur Cloudflare Pages — projet `pharnos-builder`,
+# domaine `builder.pharnos.com`.
+#
+# ⚠️ POURQUOI UN PROJET À PART, ALORS QUE LE BUILDER A VÉCU SOUS UN CHEMIN DE pharnos.com :
+# parce qu'une application à page unique servie sous un chemin de ce projet Pages n'a PAS de
+# repli de routage possible. Les deux formes ont été essayées en production le 2026-08-03 :
+# `/ctd-builder/* → /ctd-builder/index.html 200` ne s'applique jamais (308 « pretty URL »), et
+# `/ctd-builder/* → /ctd-builder/ 200` s'applique à TOUT, assets existants compris — écran blanc.
+# À la racine d'un projet dédié, `/* → /index.html 200` est la configuration standard, celle qui
+# sert `app.pharnos.com` depuis un an. S'y ajoutent trois bénéfices : un rayon d'explosion séparé
+# (une coquille marketing ne redéploie plus l'application), une CSP à la racine plutôt que par
+# sections cumulatives, et pas d'ambiguïté d'URL avec la page de vente `pharnos.com/ctdbuilder`.
+#
+# AUCUN secret d'application n'est fourni à ce build, et c'est délibéré : ni URL Supabase, ni clé
+# publiable, ni jeton Sentry. `envPrefix` de `vite.builder.config.ts` le verrouille même en cas
+# de build local. Le jour où la vérification de LICENCE exigera l'API, l'ajout se fera ici ET
+# dans `public-builder/_headers`, dans le même commit.
+#
+# Dépannage local : `npm run build:builder` puis
+# `npx wrangler pages deploy dist-builder --project-name pharnos-builder --branch main` (web/).
+name: Deploy builder
+
+on:
+  push:
+    branches: [main]
+    # Le builder partage `web/src/` avec la plateforme : toute modification du front peut le
+    # changer. Un déploiement inutile coûte deux minutes ; un déploiement manquant laisse un
+    # produit payant en retard de version.
+    paths-ignore: ['docs/**', '**.md', 'RA-source/**', 'load/**', 'supabase/**', 'landing/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-builder-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Cloudflare Pages — CTD Builder
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      # Garde-fou : on ne déploie que si le token Cloudflare est configuré (sans exposer le secret).
+      - name: Check Cloudflare token
+        id: guard
+        run: echo "ready=${{ secrets.CLOUDFLARE_API_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node
+        if: steps.guard.outputs.ready == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        if: steps.guard.outputs.ready == 'true'
+        run: npm install --no-audit --no-fund
+
+      # Un projet Pages n'existe qu'à partir de sa création : cette étape est IDEMPOTENTE par
+      # tolérance (elle échoue si le projet est déjà là, ce qui est le cas nominal). On ne s'y
+      # fie pas comme vérification — c'est l'étape de déploiement qui échouera bruyamment si le
+      # projet manque vraiment. Le jeton de CI porte Pages:Edit ; le jeton local, non (il ne
+      # peut même pas lister les comptes) : d'où la création ici et non depuis un poste.
+      - name: Créer le projet Pages s'il n'existe pas
+        if: steps.guard.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx wrangler pages project create pharnos-builder --production-branch main \
+            || echo "::notice title=Projet Pages::pharnos-builder existe déjà — création ignorée."
+
+      # Le build ÉCHOUE si une capacité de sortie réseau entre dans l'artefact
+      # (`web/src/builder/isolation.ts`) — c'est la garantie « vos documents ne transitent jamais
+      # par les serveurs de Pharnos », vérifiée plutôt que promise.
+      - name: Build CTD Builder (isolation réseau vérifiée)
+        if: steps.guard.outputs.ready == 'true'
+        run: npm run build:builder
+
+      - name: En-têtes de sécurité (CSP — connect-src 'self' exact)
+        if: steps.guard.outputs.ready == 'true'
+        run: npm run headers:builder
+
+      - name: Deploy to Cloudflare Pages
+        if: steps.guard.outputs.ready == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: web
+          command: pages deploy dist-builder --project-name pharnos-builder --branch ${{ github.ref_name }}
+
+      # Sans le token, toutes les étapes ci-dessus sont sautées et le job serait VERT sans avoir
+      # rien publié — un run vert trompeur sur un produit payant. On le dit à voix haute.
+      - name: Rien n'a été déployé (token Cloudflare absent)
+        if: steps.guard.outputs.ready != 'true'
+        run: |
+          echo "::warning title=CTD Builder non déployé::CLOUDFLARE_API_TOKEN absent — build et vérifications sautés, rien n'a été publié sur builder.pharnos.com."

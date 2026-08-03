@@ -4,7 +4,7 @@
 // futur changement). Exécuté en CI après le build.
 //
 //   node scripts/check-headers.mjs            → plateforme app.pharnos.com (dist/)
-//   node scripts/check-headers.mjs builder    → CTD Builder, section /ctd-builder/* de landing/
+//   node scripts/check-headers.mjs builder    → CTD Builder builder.pharnos.com (dist-builder/)
 //
 // Les deux cibles ne se contrôlent PAS de la même façon, et c'est le cœur du sujet : le CTD
 // Builder se vend sur l'absence de sortie réseau (PLAN-CTD-BUILDER §1). Pour lui, `connect-src`
@@ -45,22 +45,19 @@ const TARGETS = {
     requiredArtifacts: [],
   },
   builder: {
-    label: 'CTD Builder (pharnos.com/ctd-builder/ — landing/_headers)',
-    // La SOURCE, pas une copie : `landing/` est déployée telle quelle, ce fichier EST ce qui sera
-    // servi. Rien à construire pour le contrôler.
-    headersFile: '../../landing/_headers',
-    section: '/ctd-builder/*',
-    artifactDir: '../../landing/ctd-builder',
-    source: 'landing/_headers',
+    label: 'CTD Builder (builder.pharnos.com — dist-builder/_headers)',
+    headersFile: '../dist-builder/_headers',
+    section: '/*',
+    artifactDir: '../dist-builder',
+    source: 'web/public-builder/_headers',
     // Aucune requête ne sort : rien à révéler à personne, même pas l'origine.
     referrerPolicy: 'Referrer-Policy: no-referrer',
     // Pas de règle `/sw.js` : le service worker arrive au lot B9, avec sa stratégie
     // d'activation atomique. La règle sera ajoutée avec lui.
-    // ⚠️ PAS `immutable`, et c'est un garde-fou, pas un oubli : ce projet Pages répond 200 + HTML
-    // à toute URL inconnue, y compris sous `/ctd-builder/assets/`. Un cache d'un an y gèlerait
-    // une mauvaise réponse — mesuré en production le 2026-08-03, écran blanc à la clé.
+    // Même règle que la plateforme : assets empreintés, cache long. Le risque du repli SPA qui
+    // sert du HTML sous une URL d'asset est documenté dans `public-builder/_headers`.
     cacheRules: [
-      { section: '/ctd-builder/assets/*', header: 'Cache-Control: public, max-age=300' },
+      { section: '/assets/*', header: 'Cache-Control: public, max-age=31536000, immutable' },
     ],
     // LE contrôle du produit : la seule origine joignable est elle-même.
     connectSrcExact: "'self'",

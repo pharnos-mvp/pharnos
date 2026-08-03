@@ -467,22 +467,32 @@ badge de prix** — mais c'est le deuxième choix.
 | Config       | `vite.config.ts`              | `vite.builder.config.ts`                      |
 | Entrée       | `index.html` → `src/main.tsx` | `index.builder.html` → `src/builder/main.tsx` |
 | Sortie       | `web/dist/`                   | `web/dist-builder/`                           |
-| Assemblage   | —                             | `landing/ctd-builder/` (non versionné)        |
-| En-têtes     | `public/_headers`             | section `/ctd-builder/*` de `landing/_headers` |
-| URL publique | `app.pharnos.com`             | `pharnos.com/ctd-builder/`                    |
-| Projet Pages | `pharnos`                     | `pharnos-landing` (le même que la vitrine)    |
-| Workflow     | `deploy.yml`                  | `deploy-landing.yml`                          |
+| En-têtes      | `public/_headers`             | `public-builder/_headers`                     |
+| URL publique  | `app.pharnos.com`             | `builder.pharnos.com`                         |
+| Page de vente | —                             | `pharnos.com/ctdbuilder` (statique)           |
+| Projet Pages  | `pharnos`                     | `pharnos-builder`                             |
+| Workflow      | `deploy.yml`                  | `deploy-builder.yml`                          |
 
-**Pourquoi aucun projet Cloudflare supplémentaire.** Un projet Pages publie **un** dossier : deux
-workflows visant le même projet s'écraseraient. Et la seule raison technique qui aurait justifié un
-domaine à part — la séparation des bases IndexedDB (§4.4) — est déjà acquise, puisque
-`pharnos.com` et `app.pharnos.com` sont deux origines distinctes. Le builder est donc **assemblé
-dans le déploiement de la vitrine**, par un seul workflow.
+**Pourquoi un projet Pages dédié — décision prise APRÈS avoir essayé l'inverse.** Le builder a vécu
+une demi-journée assemblé dans le déploiement de la vitrine, sous `pharnos.com/ctd-builder/`. Ce
+montage a coûté **deux incidents de production le 2026-08-03**, et le premier est rédhibitoire :
+
+> **Une application à page unique servie sous un chemin de ce projet n'a pas de repli de routage
+> possible.** Cible `…/index.html` → ne s'applique jamais (308 « pretty URL »). Cible `…/` →
+> capture les assets existants, module au mauvais type MIME, page blanche.
+
+À la racine d'un projet dédié, `/* → /index.html 200` est la configuration standard — celle qui
+sert `app.pharnos.com` depuis un an. S'y ajoutent un **rayon d'explosion séparé** (une coquille
+marketing ne redéploie plus l'application), une **CSP à la racine** plutôt que par sections
+cumulatives, et l'absence d'ambiguïté d'URL avec la page de vente. Le coût — un projet, un
+enregistrement DNS sur une zone déjà gérée — est sans commune mesure avec celui des deux incidents.
+
+⚠️ Le projet Pages est créé **par la CI**, pas depuis un poste : le jeton local est restreint au
+DNS (il ne peut même pas lister les comptes), celui de la CI porte `Pages:Edit`.
 
 ```bash
 npm run dev:builder       # développement (sert bien l'entrée du BUILDER, pas celle de l'app)
 npm run build:builder     # build + contrôle d'isolation
-npm run assemble:builder  # web/dist-builder/ → landing/ctd-builder/
 npm run headers:builder   # CSP publiée : connect-src 'self' EXACTEMENT
 npm run preview:builder   # servir dist-builder/ localement
 ```

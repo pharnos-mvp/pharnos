@@ -1,0 +1,52 @@
+# En-têtes HTTP de `builder.pharnos.com` — CTD Builder (projet Cloudflare Pages `pharnos-builder`).
+# Copié tel quel dans `dist-builder/` par Vite (publicDir), comme `_redirects`.
+#
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# `connect-src 'self'` EST L'ARGUMENT DE VENTE, ÉCRIT EN POLITIQUE APPLIQUÉE PAR LE NAVIGATEUR.
+#
+# Le produit se vend sur une phrase — « vos documents ne transitent jamais par les serveurs de
+# Pharnos ». Cette directive interdit mécaniquement toute requête de fond vers une autre origine
+# — `fetch`, XHR, WebSocket, EventSource, `sendBeacon` — quel que soit le code livré.
+#
+# ⚠️ Ce qu'elle ne couvre PAS : la navigation de premier niveau
+# (`location.href = 'https://ailleurs/?d=' + données`). La directive `navigate-to` a été retirée
+# de la spécification et n'est implémentée nulle part. D'où le SECOND verrou, dans le build :
+# `web/src/builder/isolation.ts` refuse d'émettre du code contenant une adresse absolue non
+# autorisée ou une primitive de sortie. Aucun des deux ne suffit seul.
+#
+# ⚠️ La vérification de LICENCE (accès à l'application) devra ouvrir `connect-src` vers l'API.
+# Ce sera une ligne ajoutée ICI, dans le même commit que le code appelant — donc visible en
+# revue. `npm run headers:builder` compare `connect-src` à `'self'` par ÉGALITÉ, jamais par
+# sous-chaîne : `connect-src 'self' https://exfil.example` contiendrait « connect-src 'self' »
+# et passerait un contrôle naïf.
+#
+# Différences assumées avec la plateforme (`web/public/_headers`) :
+# - `style-src 'self'` STRICT — la plateforme doit tolérer 'unsafe-inline' pour les attributs
+#   `style` de TipTap/Radix ; le builder n'en a aucun aujourd'hui. À ouvrir avec le workspace.
+# - pas de `'wasm-unsafe-eval'` : pdf.js n'est pas encore embarqué (lots B1/B2).
+# - `form-action 'none'` : aucun formulaire ne se soumet nulle part.
+# - `Referrer-Policy: no-referrer` : rien ne sort, donc rien à révéler, pas même l'origine.
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Cross-Origin-Opener-Policy: same-origin
+
+# Assets empreintés par Vite (hash dans le nom) → cache long immuable, comme sur
+# `app.pharnos.com` depuis un an.
+#
+# ⚠️ Le risque connu, pour qu'il ne soit pas redécouvert : `_redirects` renvoie `index.html` en
+# 200 pour toute URL inconnue. Un asset demandé avant d'exister recevrait donc du HTML, et
+# `immutable` figerait cette réponse — module au mauvais type MIME, écran blanc. C'est arrivé le
+# 2026-08-03 sous `pharnos.com/ctd-builder/`, où la réécriture SPA était cassée et où les assets
+# tombaient VRAIMENT dans le repli. Ici la configuration est celle, éprouvée, de la plateforme :
+# déploiement atomique, et un index ne référence que des assets de SON déploiement. Si un écran
+# blanc réapparaît après une mise en ligne, c'est la première piste — et le correctif est de
+# repasser ce préfixe en `max-age=300`.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

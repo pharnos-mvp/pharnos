@@ -4,23 +4,9 @@
 # /invite, qui PERD le code du chemin — « /invite » est une réécriture interne, chemin préservé.
 /i/* /invite 200
 
-# ⛔ PAS de réécriture SPA pour /ctd-builder/ — et ce n'est pas un oubli.
-#
-# Les deux formes ont été essayées EN PRODUCTION le 2026-08-03, et les deux sont fausses :
-#
-#   /ctd-builder/* /ctd-builder/index.html 200
-#       → ne s'applique jamais. Cloudflare renvoie un 308 « pretty URL » de `…/index.html`
-#         vers `…/` et la réécriture se perd (même piège que /i/* ci-dessus). Une URL inconnue
-#         retombait sur le HTML de la vitrine.
-#
-#   /ctd-builder/* /ctd-builder/ 200
-#       → s'applique À TOUT, y compris aux assets EXISTANTS. Contrairement à ce que laisse
-#         entendre la documentation, le fichier statique n'a PAS gagné sur la règle :
-#         `/ctd-builder/assets/index.builder-*.js` répondait `200 text/html` (l'index de l'app),
-#         le navigateur refusait d'exécuter le module et la page restait blanche. Constaté en
-#         production, corrigé en retirant la règle.
-#
-# Aucune perte aujourd'hui : le CTD Builder n'a pas encore de routeur, il n'existe qu'une seule
-# URL. Le repli sera nécessaire au lot B1, quand les routes arriveront — il devra alors être
-# conçu pour NE PAS couvrir `/ctd-builder/assets/`, et vérifié en production avant d'être
-# considéré comme acquis. Ne pas remettre une règle « qui devrait marcher » sans l'avoir mesurée.
+# Le CTD Builder ne vit plus sous un chemin de ce site : il a son propre domaine,
+# builder.pharnos.com (projet Pages `pharnos-builder`). C est ce qui a rendu son repli SPA
+# possible — a la racine d un projet, `/* /index.html 200` fonctionne ; sous un chemin d ici,
+# les deux formes essayees en production le 2026-08-03 ont echoue (l une ne s appliquait
+# jamais, l autre capturait les assets et blanchissait la page). Ne pas re-introduire de regle
+# `/ctdbuilder*` : `ctdbuilder.html` est une PAGE de ce site, servie normalement.
