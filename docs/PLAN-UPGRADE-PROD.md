@@ -12,13 +12,13 @@
 >
 > | | |
 > |---|---|
-> | Branche | `feat/upgrade-u0-renderer` — poussée, PR non ouverte |
-> | Derniers commits | `9a81d93` → **`d224665`** (revue de code passée, blocages corrigés) |
+> | Branche | `feat/upgrade-u0-renderer` — **à jour de `origin/main`** (fusion sans conflit), PR non ouverte |
+> | Derniers commits | `9a81d93` → **`d224665`**, puis le découpage de la revue |
 > | **Fait** | **U0 complet** (§3) — rendu pur, banc Edge, chaîne mesurée de bout en bout |
 > | **Mesuré** | **60 appels · 319 s · 1,96 $** par upgrade — recoupé console (§3, U0) |
-> | **À trancher AVANT U4** | le découpage de la revue — 114,1 s pour un plafond de 115 |
+> | ✅ **Tranché** | **la revue est DÉCOUPÉE en 4 appels**, un par tableau (§3, U0) — CEO, 2026-08-04 |
 > | **Suivant** | **U1 — la vérité du paiement** |
-> | ⚠️ Branche en retard | `origin/main` a 5 commits d'avance, dont `c7d0304` qui corrige **le même** advisory que mon `0b5b0f9` — à réconcilier avant la PR |
+> | ⚠️ À mesurer | le découpage n'a tourné que **sur banc à générateur injecté** : les durées réelles par tableau restent à relever sur un vrai document (§3) |
 > **Plans liés** : [PLAN-MOTEUR-IA.md](PLAN-MOTEUR-IA.md) (le moteur) ·
 > [PLAN-UPGRADE-FRONTEND.md](PLAN-UPGRADE-FRONTEND.md) (les écrans, **partiellement périmé** — voir §1.3) ·
 > [PLAN-CHARIOW.md](PLAN-CHARIOW.md) (l'encaissement, exact) ·
@@ -179,7 +179,11 @@ Un seul ajout de dépendance : `jszip` (le « tout télécharger »). Rien d'aut
     JSON complet et **fabrique les cinq fichiers dans le navigateur** en ~1 s. Téléchargements
     unitaires + ZIP. Le lien reste valide **30 jours**.
 
-### 2.4 Le modèle de données — migration `0082`
+### 2.4 Le modèle de données — migration `0083`
+
+> ⚠️ **`0082` est PRIS** depuis la fusion de `main` du 2026-08-04 : `0082_compilation_grace_window.sql`
+> (#470, métrage de la compilation). Ce plan annonçait `0082` ; U1 écrira donc **`0083`**. Vérifier
+> le dernier numéro sur `main` au moment d'écrire la migration, jamais se fier au numéro d'un plan.
 
 ```sql
 orders                       -- une commande payée, vérité serveur
@@ -331,23 +335,49 @@ de 0,78 $ : **8,92 $ économisés en une journée d'essais.**
 Un test compare les schémas de **deux rubriques différentes à l'octet** : un `enum` réduit
 reviendrait sans casser aucun autre test — la sortie resterait juste, seule la facture changerait.
 
-#### ⚠️ Ce que U0 laisse OUVERT — à trancher avant U4
+#### ✅ Ce que U0 laissait OUVERT — TRANCHÉ le 2026-08-04 : la revue est découpée
 
-**La revue a tenu en 114,1 s pour un plafond de 115.** Neuf dixièmes de seconde. Elle avait dépassé
-90 s **deux fois de suite** avant relèvement du budget : c'est structurel, pas un aléa. Elle est le
-seul appel de la chaîne à produire jusqu'à **8 000 jetons sur quatre tableaux non bornés**
-(`relocations`, `terminology`, `findings`, `recommendations`), réflexion adaptative comprise — là où
-une rubrique en rend ~200 en 5 à 8 s.
-
-**Il n'y a plus de marge** : `MAX_CALL_TIMEOUT_MS` borne tout appel à 120 s, le mur Edge est à 150 s.
+**La revue tenait en 114,1 s pour un plafond de 115.** Neuf dixièmes de seconde. Elle avait dépassé
+90 s **deux fois de suite** avant relèvement du budget : structurel, pas un aléa. Elle était le seul
+appel de la chaîne à produire jusqu'à **8 000 jetons sur quatre tableaux non bornés**, réflexion
+adaptative comprise — là où une rubrique en rend ~200 en 5 à 8 s. Plus aucune marge :
+`MAX_CALL_TIMEOUT_MS` borne tout appel à 120 s, le mur Edge est à 150 s.
 
 | Voie | Ce qu'elle coûte | Ce qu'elle préserve |
 |---|---|---|
-| **Découper** en 2–4 appels, un par tableau | une passe d'assemblage ; risque qu'un constat transversal se perde | le plan `free`, le livrable, la marge |
-| Baisser `effort` ou `REPORT_MAX_OUTPUT_TOKENS` | de la profondeur — **ce que le client achète** | la forme actuelle |
+| ✅ **Découper** en 4 appels, un par tableau | une passe d'assemblage ; risque qu'un constat transversal se perde | le plan `free`, le livrable, la marge |
+| Baisser `effort` ou le budget de sortie | de la profondeur — **ce que le client achète** | la forme actuelle |
 | Supabase `Pro` | l'abonnement, et le mur ne recule qu'à 400 s | tout le reste |
 
-**Recommandation : découper.** Le rapport est déjà en quatre tableaux indépendants. **Non tranchée.**
+**Décision CEO : découper.** Livré dans `_shared/report-core.ts` — `generateReportPart()` produit UN
+tableau, `generateReport()` orchestre les quatre. **Trois contraintes en fixent la forme, et aucune
+n'est un choix de style :**
+
+1. **Le schéma reste ENTIER, identique aux quatre appels.** C'est le prix — et la leçon — de
+   `a520ec7` : le schéma entre dans le préfixe mis en cache. Quatre schémas taillés chacun pour son
+   tableau, ce seraient quatre préfixes distincts, donc **quatre écritures à 1,25× et zéro
+   relecture : plus cher que pas de cache du tout**. Le schéma GUIDE, le code GARANTIT (`splitPart`
+   ne retient que la liste demandée). Un test compare les quatre schémas **à l'octet** — c'est la
+   seule forme qui attrape une régression dont *seule la facture* changerait.
+2. **Le premier appel préchauffe, et c'est le plus COURT qui s'en charge.** `terminology` ouvre la
+   marche et écrit le préfixe partagé ; `relocations` et `findings` le relisent en parallèle. Faire
+   préchauffer `findings` coûterait le double en latence pour exactement le même cache.
+3. **`recommendations` passe en dernier, nourri des constats.** Seule dépendance réelle des quatre :
+   une action qui reformule un constat au lieu de le couvrir donnerait deux listes redondantes. Les
+   constats voyagent dans la **queue variable**, après le point de rupture — le préfixe reste intact.
+
+**Un tableau manquant fait REFUSER le rapport entier**, il ne le dégrade pas : `renderReportMarkdown`
+écrit « Aucun. » pour une liste vide, et c'est une **affirmation**, pas une absence de données.
+Livrer « aucune terminologie à aligner » parce qu'un appel a expiré, ce serait exactement le défaut
+corrigé en `d224665` — un rapport qui contredit son propre document. L'erreur **nomme le tableau** et
+porte l'originale en `cause` (déterministe ⇒ jamais rejouer ; transitoire ⇒ rejouable).
+
+⚠️ **Deux choses restent à mesurer en vrai, et le banc ne les donnera pas** : les durées réelles par
+tableau (aucun ne doit approcher son plafond de 60 s) et le taux de `strayRows` — le prix du schéma
+entier, puisqu'il laisse au modèle la possibilité de ranger une ligne sous une autre liste. Les deux
+sortent désormais du banc (`partsMs`, `partsAttempts`, `strayRows`) et entrent dans `MESURES.md`.
+**Et le risque assumé qu'aucun test n'attrapera : un constat TRANSVERSAL, visible seulement en tenant
+les quatre tableaux à la fois, peut se perdre.** Il se surveille en recette, pas en CI.
 
 #### Ce que la revue de code a corrigé après coup (`d224665`)
 
@@ -385,7 +415,7 @@ sous-estimera systématiquement les commandes difficiles.
 
 ### U1 — La vérité du paiement — 1 jour
 
-Migration `0082` (§2.4). Edge **`chariow-pulse`** (`verify_jwt = false`, re-vérification
+Migration `0083` (§2.4 — `0082` est pris). Edge **`chariow-pulse`** (`verify_jwt = false`, re-vérification
 `GET /v1/sales/{id}`, idempotence, 5 rejeux). Edge **`order-claim`** (rendu du jeton contre la
 référence, borné en débit). Jeton via `share-auth.ts`. **E-mail n°1** via Resend.
 
@@ -416,6 +446,10 @@ Edge **`job-tick`** (§2.5) : réclamation `SKIP LOCKED`, `boundedMap`, auto-cha
 global, filet `pg_cron`. Surfaces HTTP pour `translate-section-core.ts` et `report-core.ts` — qui
 n'en ont aucune. Edge **`order-status`** (lecture par jeton, sans PII superflue).
 
+La revue entre dans la file comme **quatre lignes** (`generateReportPart`, un `section_id` par
+tableau), avec la seule contrainte d'ordre du chantier : `recommendations` attend `findings`. Les
+trois autres sont indépendants, `terminology` en tête pour préchauffer le cache.
+
 **Fait quand** : une commande passe de `paid` à `done` sans intervention, les 59 appels sont tracés,
 et tuer un tick au milieu ne perd aucune rubrique (le filet reprend).
 
@@ -445,7 +479,8 @@ inclus : il ne coûte rien de plus dès lors que la page vit dans `web/`, où `p
 |---|---|---|
 | **Une invocation = une vague de 6**, l'état vit chez l'appelant | U4 (`job-tick`) | forme éprouvée 12 fois d'affilée ; vague la plus lente 48,3 s pour un mur de 150 s |
 | **L'état s'écrit après CHAQUE vague** | U4 (en base) | le premier run du harnais a perdu 59 appels payés sur un dépassement en passe 3 |
-| **`warmupFirst` sur la PREMIÈRE vague seulement** | U4 | vague 1 : écrit 16 696 jetons, lit 0 · vagues 2 à 6 : lisent 16 696 chacune. Le répéter ne fait que rallonger. **Aucun préchauffage en passe 2** : chaque traduction porte son propre contenu, il n'y a pas de préfixe commun (`cacheRead` = 0 sur les 25) |
+| **`warmupFirst` sur la PREMIÈRE vague seulement** | U4 | vague 1 : écrit 16 696 jetons, lit 0 · vagues 2 à 6 : lisent 16 696 chacune. Le répéter ne fait que rallonger. **Aucun préchauffage en passe 2** : chaque traduction porte son propre contenu, il n'y a pas de préfixe commun (`cacheRead` = 0 sur les 25). **La passe 3 en a un depuis le découpage** — pièce + préambule, partagés par les quatre appels |
+| **La revue est QUATRE lignes de file, pas une** | U4 (`upgrade_sections`) | `generateReportPart()` est exportée pour cela : un `section_id` par tableau, donc un rejeu ciblé. Rejouer la passe entière pour un tableau expiré repaierait les trois autres |
 
 ---
 
@@ -510,16 +545,25 @@ inclus : il ne coûte rien de plus dès lors que la page vit dans `web/`, où `p
 chiffres existent, ils sont recoupés avec la facturation, et ils tiennent : **1,96 $ et 5,3 minutes
 par upgrade.**
 
-**Deux actions, dans cet ordre :**
+~~**Trancher le découpage de la revue.**~~ ✅ **Fait le 2026-08-04** — découpée en quatre appels
+(§3, U0). C'était la dernière décision qui bloquait l'écriture de U4.
 
-1. **Trancher le découpage de la revue** (§3, U0). C'est une décision, pas un développement : elle
-   conditionne l'écriture de U4 et ne peut pas être prise en écrivant du code. Recommandation :
-   découper en quatre appels, un par tableau du rapport.
-2. **U1 — la vérité du paiement.** Migration `0082`, Edge `chariow-pulse` et `order-claim`.
+~~**Une dette à solder avant la PR** : `origin/main` a cinq commits d'avance.~~ ✅ **Soldée le
+2026-08-04.** La fusion s'est faite **sans un seul conflit**, et la crainte annoncée ici était
+infondée pour une raison qui mérite d'être notée : `c7d0304` et mon `0b5b0f9` corrigeaient bien le
+même advisory, mais **avec le même contenu** — les deux `package-lock.json` étaient déjà identiques à
+l'octet (`brace-expansion` 5.0.9, `fast-uri` 3.1.5, `undici` 7.29.0), et les `overrides` inchangés.
+Git ne voit pas de conflit là où les deux côtés écrivent la même chose. **Mesurer avant de
+redouter** : `git merge-tree --write-tree` répond en une seconde et sans rien écrire.
 
-**Et une dette à solder avant la PR** : `origin/main` a cinq commits d'avance sur cette branche,
-dont `c7d0304` qui corrige **le même advisory `brace-expansion`** que mon `0b5b0f9`. Réconcilier
-avant d'ouvrir la PR, sinon le conflit se découvrira à la fusion.
+**Le vrai obstacle était ailleurs, et il n'était pas dans le plan** : l'arbre de travail portait
+onze fichiers non commités du CEO (#470, métrage de la compilation) qui bloquaient la fusion. Ils se
+sont révélés **identiques au hash près à ce que `origin/main` allait écrire** — le travail était déjà
+fusionné en amont. Vérifié par `git hash-object` avant de dégager quoi que ce soit, sauvegardé, puis
+recontrôlé après fusion : dix-sept fichiers, zéro octet perdu.
+
+**Action suivante : U1 — la vérité du paiement.** Migration `0083` (⚠️ `0082` est pris depuis #470 —
+voir §2.4), Edge `chariow-pulse` et `order-claim`.
 
 ---
 
@@ -547,4 +591,12 @@ avant d'ouvrir la PR, sinon le conflit se découvrira à la fusion.
 7. **Élargir une contrainte rend atteignables des cas jusque-là impossibles.** L'`enum` par rubrique
    interdisait structurellement une réponse mal aiguillée ; l'élargir pour partager le cache l'a
    rendue possible. Toute contrainte qu'on relâche pour une raison de performance demande de
-   vérifier ce qu'elle empêchait par construction.
+   vérifier ce qu'elle empêchait par construction. **Le découpage de la revue a reposé exactement le
+   même arbitrage**, et l'a tranché pareil : schéma entier pour que le cache prenne, garantie en
+   code, rejeu puis refus.
+8. **Mesurer avant de redouter.** Ce plan annonçait un conflit de fusion certain ; il n'y en a eu
+   aucun — les deux branches corrigeaient le même advisory avec le même contenu. Et le vrai obstacle
+   (onze fichiers non commités dans l'arbre) n'était pas écrit. `git merge-tree --write-tree` simule
+   la fusion sans rien écrire, `git hash-object` dit en une seconde si un fichier « en travail » est
+   déjà celui d'en face. **Une minute de mesure remplace une heure de prudence — et surtout, elle
+   corrige la peur de travers.**

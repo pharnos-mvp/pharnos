@@ -362,12 +362,16 @@ if (restant2.length) {
 // Miroir exact de `reportInputFrom` : TOUTES les rubriques, dans l'ordre du gabarit, et les
 // valeurs à relire seulement quand la provenance est océrisée.
 //
-// La revue est UNE tentative de 90 s au plus (`REPORT_ATTEMPT_TIMEOUT_MS`) : au premier run réel,
-// Opus 5 l'a dépassée une fois. Dans une même invocation, un timeout n'est jamais re-tenté (§8.9) ;
-// une NOUVELLE invocation est un nouvel essai — le harnais s'en accorde deux, et compte les jetons
-// des deux : un dépassement a un coût même sans sortie.
+// La revue est DÉCOUPÉE en quatre appels, un par tableau (`REPORT_PARTS`), chacun borné à 60 s.
+// En un seul appel elle tenait en 114,1 s pour un plafond de 115 : sans marge, et structurellement
+// — elle avait dépassé 90 s deux fois de suite avant relèvement du budget.
+//
+// Dans une même invocation, un timeout n'est jamais re-tenté (§8.9) ; une NOUVELLE invocation est un
+// nouvel essai — le harnais s'en accorde deux, et compte les jetons des deux : un dépassement a un
+// coût même sans sortie. Un tableau peut en outre être rejoué UNE fois pour mauvais aiguillage, d'où
+// `partsAttempts` : le nombre d'appels réels est ≥ 4, jamais figé à 4.
 console.error("passe 3 — revue réglementaire…");
-const p3 = { ms: 0, totals: zero(), attempts: 0 };
+const p3 = { ms: 0, totals: zero(), attempts: 0, calls: 0 };
 let r3: Record<string, unknown> | undefined;
 for (let attempt = 1; attempt <= 2 && !r3; attempt++) {
   p3.attempts = attempt;
@@ -396,6 +400,11 @@ for (let attempt = 1; attempt <= 2 && !r3; attempt++) {
   );
   p3.ms += Number(res.ms ?? 0);
   if (res.totals) addTo(p3.totals, res.totals as Usage);
+  // Compté depuis les tentatives RÉELLES de chaque tableau, jamais depuis un 4 en dur : un rejeu
+  // pour mauvais aiguillage est un appel payé, et un compte figé le rendrait invisible.
+  p3.calls += Object.values(
+    (res.partsAttempts ?? {}) as Record<string, number>,
+  ).reduce((n, v) => n + Number(v), 0);
   if (res.error) {
     console.error(`  tentative ${attempt} : ${res.error}`);
     continue;
@@ -410,7 +419,7 @@ if (!r3) {
   Deno.exit(1);
 }
 console.error(
-  `  revue : ${(p3.ms / 1000).toFixed(1)} s (${p3.attempts} tentative(s))`,
+  `  revue : ${(p3.ms / 1000).toFixed(1)} s · ${p3.calls} appels (${p3.attempts} invocation(s))`,
 );
 
 /* ───────────────────────── Assemblage des markdowns (conventions des références) ───────────── */
@@ -528,8 +537,8 @@ const mesures = [
   "|---|---|---|---|---|---|---|---|",
   line("1 — conformité FR", calls1, p1),
   line("2 — traduction EN", calls2, p2),
-  line("3 — revue", p3.attempts, p3),
-  `| **Total** | **${calls1 + calls2 + 1}** | **${(grand.ms / 1000).toFixed(1)} s** | **${fmt(
+  line("3 — revue", p3.calls, p3),
+  `| **Total** | **${calls1 + calls2 + p3.calls}** | **${(grand.ms / 1000).toFixed(1)} s** | **${fmt(
     total.in,
   )}** | **${fmt(total.cacheRead)}** | **${fmt(total.cacheWrite)}** | **${fmt(total.out)}** | **${grand.cost.toFixed(
     3,
@@ -544,6 +553,23 @@ const mesures = [
   `Constats écartés par le contrôle d'ancrage de la revue : ${
     (r3.droppedClaims as string[]).length
   }.`,
+  // Le chiffre qui décide si le découpage a tenu : AUCUN tableau ne doit approcher son plafond de
+  // 60 s. Celui qui s'en approcherait est le prochain à découper, ou à borner.
+  `Revue, par tableau : ${
+    Object.entries((r3.partsMs ?? {}) as Record<string, number>)
+      .map(([k, v]) => {
+        const n = ((r3!.partsAttempts ?? {}) as Record<string, number>)[k] ?? 1;
+        return `${k} ${(Number(v) / 1000).toFixed(1)} s${n > 1 ? ` (${n} tentatives)` : ""}`;
+      })
+      .join(" · ")
+  }.`,
+  `Lignes rangées sous une autre liste, écartées : ${Number(r3.strayRows ?? 0)}.`,
+  ...(p3.attempts > 1
+    ? [
+      `⚠️ ${p3.attempts} invocations de la revue : le compte d'appels ci-dessus est un PLANCHER — ` +
+      `une invocation avortée ne rend ni \`partsAttempts\` ni ses jetons, et elle a pourtant été facturée.`,
+    ]
+    : []),
   "",
   "## Détail par rubrique (passe 1)",
   "",

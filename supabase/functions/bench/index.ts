@@ -350,6 +350,12 @@ Deno.serve(async (req: Request) => {
         markdown: out.markdown,
         droppedClaims: out.droppedClaims,
         strictClaims: out.strictClaims,
+        // Le découpage se JUSTIFIE par ces deux chiffres, ou s'infirme par eux : la durée de chaque
+        // tableau (aucun ne doit s'approcher de son plafond) et le nombre de lignes mal aiguillées
+        // (le prix du schéma entier, gardé pour que le cache prenne).
+        partsMs: out.partsMs,
+        partsAttempts: out.partsAttempts,
+        strayRows: out.strayRows,
       })
     } catch (e) {
       // Les jetons d'un rapport en échec sont quand même rendus : ils ont été payés.

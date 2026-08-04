@@ -37,38 +37,61 @@ import {
   type SourceKind,
 } from './ai/evidence.ts'
 import { reviewSystem } from './ai/personas.ts'
+import { boundedMap, type PoolReport } from './ai/pool.ts'
 import { SectionOutputError } from './ai/section-schema.ts'
 import type { AiOptions, Part, Provider } from './ai/types.ts'
 import { DOC_SHORT, type ConformityDocType, type ConformitySpec } from './conformity-specs.ts'
 import type { OutputLang, SectionOutcome } from './upgrade-section-core.ts'
 
 /**
- * Budget total de la revue, et plafond de son unique tentative.
+ * Budget total de la PASSE — quatre appels, plus le préchauffage (§ « Le découpage », plus bas).
  *
- * ⚠️ MESURÉ, pas choisi : à 90 s, la revue d'un RCP de 28 000 caractères sur 34 rubriques a dépassé
- * son délai DEUX FOIS de suite sur Opus 5 (banc U0.3, 03/08/2026) — un constat structurel, pas un
- * aléa. La revue est le seul appel de la chaîne qui produise jusqu'à 8 000 jetons de JSON sur
- * quatre tableaux non bornés, réflexion adaptative comprise ; les rubriques, elles, en rendent
- * ~200 chacune et tiennent en 5 à 8 s.
+ * ⚠️ MESURÉ, pas choisi. En UN seul appel, la revue d'un RCP de 28 000 caractères sur 34 rubriques
+ * a tenu en **114,1 s pour un plafond de 115** (banc U0.3, 03/08/2026), après avoir dépassé 90 s
+ * DEUX FOIS de suite : un constat structurel, pas un aléa. Elle était le seul appel de la chaîne à
+ * produire jusqu'à 8 000 jetons de JSON sur quatre tableaux non bornés, réflexion adaptative
+ * comprise — là où une rubrique en rend ~200 en 5 à 8 s.
  *
- * 115 s est le maximum exploitable, et il est contraint des deux côtés : `MAX_CALL_TIMEOUT_MS`
- * (120 s) borne tout appel sortant, et le mur Edge (150 s) doit encore couvrir le prélude et
- * l'écriture de la réponse. Il n'y a donc PAS de marge au-delà : si une revue venait à dépasser
- * 115 s, la réponse ne serait pas d'augmenter encore le chiffre mais de découper la passe.
+ * Neuf dixièmes de seconde de marge, contraints des deux côtés : `MAX_CALL_TIMEOUT_MS` (120 s)
+ * borne tout appel sortant, et le mur Edge (150 s) doit encore couvrir le prélude et l'écriture de
+ * la réponse. La réponse retenue n'est donc PAS d'augmenter le chiffre, mais de **découper la
+ * passe** — un appel par tableau, chacun largement sous son propre plafond.
  */
 export const REPORT_BUDGET_MS = 118_000
-const REPORT_ATTEMPT_TIMEOUT_MS = 115_000
-const REPORT_MAX_OUTPUT_TOKENS = 8_000
+/**
+ * Plafond d'UN appel de tableau. Un quart de la sortie, donc très loin des 114 s de l'appel unique :
+ * ce n'est pas une cible, c'est le garde-fou qui rend impossible le retour du problème qu'on vient
+ * de corriger. Un tableau qui s'en approcherait signalerait une dérive à mesurer, pas à relever.
+ */
+const REPORT_PART_TIMEOUT_MS = 60_000
+/**
+ * Temps qu'un appel de tableau doit pouvoir consommer pour valoir la peine d'être LANCÉ. En deçà,
+ * on l'abandonne : un appel tué en vol par la plateforme est payé et ne rend rien (§ « le coût
+ * qu'on ne voit pas » — un dépassement ne restitue AUCUN jeton et n'apparaît dans aucune mesure).
+ */
+const REPORT_MIN_SLICE_MS = 15_000
+/**
+ * Budget de sortie demandé pour UN tableau.
+ *
+ * ⚠️ Consultatif côté Anthropic : `MIN_MAX_TOKENS` (16 000) y sert de plancher, parce que la
+ * réflexion adaptative partage ce budget avec le texte. Le chiffre documente l'intention et borne
+ * réellement tout fournisseur sans plancher.
+ */
+const REPORT_PART_MAX_OUTPUT_TOKENS = 3_000
 /**
  * En deçà, la revue REFUSE de partir.
  *
  * ⚠️ Sans ce plancher, un appelant qui omet `budgetMs` — ou qui a déjà consommé son wall clock à
- * télécharger 12 Mo de Storage — obtiendrait 115 s d'appel quand même, et la plateforme le tuerait
- * en 546 : payé, sans rendre ni mesure ni rapport. Pire, `boundedTimeout` traite un budget NÉGATIF
+ * télécharger 12 Mo de Storage — lancerait quand même la passe, et la plateforme la tuerait en
+ * 546 : payée, sans rendre ni mesure ni rapport. Pire, `boundedTimeout` traite un budget NÉGATIF
  * comme « non renseigné » et retomberait sur le défaut : un budget épuisé deviendrait un appel
  * pleine longueur. Le garde-fou vit donc ICI, dans la fonction qui lance, jamais chez l'appelant.
+ *
+ * Le chiffre couvre les TROIS étapes du découpage (préchauffage, vague, recommandations), à une
+ * tranche minimale chacune : en deçà, on paierait des appels pour un rapport de toute façon refusé.
+ * `boundedMap` ne protège que la vague — le préchauffage part sans regarder l'échéance.
  */
-const MIN_REPORT_BUDGET_MS = 20_000
+const MIN_REPORT_BUDGET_MS = 3 * REPORT_MIN_SLICE_MS
 
 /**
  * Budget du rapprochement APPROCHÉ des affirmations d'une revue, **en caractères**.
@@ -108,6 +131,73 @@ export interface ReportAnalysis {
   findings: { criticality: Criticality; title: string; detail: string }[]
   recommendations: { criticality: Criticality; action: string }[]
 }
+
+/* ──────────────────────────── Le découpage en quatre appels ─────────────────────────────────
+ *
+ * UN appel par tableau, et trois contraintes qui en fixent la forme. Aucune n'est un choix de
+ * style ; chacune vient d'un piège déjà payé.
+ *
+ * 1. **Le schéma reste ENTIER, identique aux quatre appels.** C'est le prix, et la leçon, de
+ *    `a520ec7` : le schéma entre dans le préfixe mis en cache — prouvé à deux jetons près, un
+ *    `enum` qui portait « 4 » contre « 4.1 » déplaçait `cacheWrite` de 16 461 à 16 463. Quatre
+ *    schémas taillés chacun pour son tableau, ce serait quatre préfixes distincts : quatre
+ *    écritures à 1,25× et zéro relecture, soit **plus cher que pas de cache du tout**. Le schéma
+ *    GUIDE (tout le gabarit, partageable) ; le CODE GARANTIT (`splitPart` ne retient que la liste
+ *    demandée). Chaque appel rend donc les trois autres listes vides — c'est voulu.
+ *
+ * 2. **Le premier appel PRÉCHAUFFE, et c'est le plus court qui s'en charge.** Lancer les quatre
+ *    ensemble ferait payer quatre fois l'écriture du préfixe — le document source — avant que le
+ *    premier ne l'ait écrit. `terminology` ouvre donc la marche : trois champs brefs par ligne,
+ *    c'est le tableau le plus rapide à produire. Faire préchauffer `findings` coûterait le double
+ *    en latence pour exactement le même cache.
+ *
+ * 3. **`recommendations` passe en DERNIER, nourri des constats.** C'est la seule dépendance réelle
+ *    entre les quatre : une action qui reformule un constat au lieu de le couvrir donnerait deux
+ *    listes redondantes là où le client attend « ce qui ne va pas » puis « quoi faire ». Les
+ *    constats voyagent dans la QUEUE variable de l'instruction, après le point de rupture du
+ *    cache : le préfixe partagé reste intact.
+ *
+ * ⚠️ Ce que le découpage coûte, et qu'aucun test n'attrapera : un constat TRANSVERSAL — visible
+ * seulement en tenant les quatre tableaux à la fois — peut se perdre. C'est le risque assumé au
+ * moment de trancher (PLAN-UPGRADE-PROD §3, U0) ; il se surveille en recette, pas en CI.
+ */
+
+/** Les trois tableaux INDÉPENDANTS : le premier préchauffe le cache, les deux autres le relisent. */
+const REPORT_WAVE = ['terminology', 'relocations', 'findings'] as const
+/** Le seul tableau qui dépend d'un autre (cf. n°3) — d'où sa position, et non l'inverse. */
+const REPORT_LAST = 'recommendations' as const
+
+/** Les quatre listes du rapport, dans l'ordre où elles sont demandées. */
+export const REPORT_PARTS = [...REPORT_WAVE, REPORT_LAST] as const
+export type ReportPart = typeof REPORT_PARTS[number]
+
+/** Ne retient que la liste DEMANDÉE, et compte ce qui a été rangé ailleurs. La garantie en code. */
+function splitPart(from: ReportAnalysis, part: ReportPart): { only: ReportAnalysis; stray: number } {
+  const only = emptyAnalysis()
+  switch (part) {
+    case 'relocations':
+      only.relocations = from.relocations
+      break
+    case 'terminology':
+      only.terminology = from.terminology
+      break
+    case 'findings':
+      only.findings = from.findings
+      break
+    case 'recommendations':
+      only.recommendations = from.recommendations
+      break
+  }
+  const stray = REPORT_PARTS.filter((p) => p !== part).reduce((n, p) => n + from[p].length, 0)
+  return { only, stray }
+}
+
+const emptyAnalysis = (): ReportAnalysis => ({
+  relocations: [],
+  terminology: [],
+  findings: [],
+  recommendations: [],
+})
 
 /** Une rubrique telle que la passe de conformité l'a laissée — l'entrée factuelle du rapport. */
 export interface ReportSection {
@@ -456,7 +546,15 @@ export function pruneUnverifiable(analysis: ReportAnalysis, source: PreparedSour
 
 /* ─────────────────────────────────────── Instruction ─────────────────────────────────────── */
 
-export function buildReportInstruction(req: ReportRequest): string {
+/**
+ * Le PRÉAMBULE — identique aux quatre appels, donc mis en cache.
+ *
+ * ⚠️ Tout ce qui entre ici doit être vrai pour les QUATRE tableaux. Y glisser une consigne propre à
+ * l'un d'eux ne casserait rien de visible : le préfixe resterait partagé, et les trois autres
+ * appels paieraient simplement une consigne qui ne les concerne pas. C'est l'inverse qui est
+ * coûteux — sortir d'ici quelque chose de commun le fait payer quatre fois en jetons frais.
+ */
+export function buildReportPreamble(req: ReportRequest): string {
   const { spec, sections, lang } = req
   const missing = sections.filter((s) => s.status === 'missing')
   const langLabel = lang === 'fr' ? 'FRANÇAIS' : 'ANGLAIS'
@@ -465,22 +563,8 @@ export function buildReportInstruction(req: ReportRequest): string {
     `Document : ${req.sourceName} · Gabarit : ${spec.label} — ${spec.reference}.`,
     '',
     'Le rapport lui-même est assemblé par le programme : avertissement, liste des rubriques à ' +
-      'compléter et décomptes sont déjà écrits. Tu ne produis QUE les quatre listes ci-dessous.',
-    '',
-    '- « relocations » : les contenus dont la POSITION change entre le document source et le ' +
-      'gabarit. `source_position` doit citer l\'intitulé tel qu\'il apparaît DANS le document ' +
-      '(il est vérifié automatiquement ; un intitulé absent fait écarter la ligne). `risk` dit ce ' +
-      'qu\'une recopie en place aurait produit, concrètement.',
-    '- « terminology » : les libellés remplacés par leur forme officielle. `before` doit citer le ' +
-      'libellé tel qu\'il apparaît dans le document (également vérifié).',
-    '- « findings » : les constats qui demandent une décision de l\'expert. C\'est ici, et ' +
-      'seulement ici, que ta connaissance réglementaire et pharmaceutique générale est utile — ' +
-      'incohérences internes, éléments hors périmètre, résidus d\'un autre dossier, classements ' +
-      'erronés. Un constat sans conséquence pratique n\'a pas sa place.',
-    '- « recommendations » : les actions, une par ligne, formulées à l\'impératif.',
-    '',
-    'Criticité : « blocking » empêche le dépôt · « major » provoquera une question de l\'autorité · ' +
-      '« minor » est une amélioration.',
+      'compléter et décomptes sont déjà écrits. Tu ne produis QUE des listes d\'analyse, et ' +
+      'chaque demande n\'en porte QU\'UNE.',
     '',
     'Ton : celui d\'un confrère expérimenté qui travaille AVEC le client. Nomme son produit. ' +
       'Explique le risque, jamais le reproche. N\'écris pas « non conforme ».',
@@ -500,6 +584,78 @@ export function buildReportInstruction(req: ReportRequest): string {
       : []),
     '',
     ...(req.sourceParts?.length ? ['DOCUMENT SOURCE : voir la pièce fournie.'] : ['DOCUMENT SOURCE :', req.sourceText]),
+  ].join('\n')
+}
+
+/** Ce qui est attendu de CHAQUE tableau — la seule partie qui change d'un appel à l'autre. */
+const PART_SPEC: Record<ReportPart, string> = {
+  relocations: '- « relocations » : les contenus dont la POSITION change entre le document source ' +
+    'et le gabarit. `source_position` doit citer l\'intitulé tel qu\'il apparaît DANS le document ' +
+    '(il est vérifié automatiquement ; un intitulé absent fait écarter la ligne). `risk` dit ce ' +
+    'qu\'une recopie en place aurait produit, concrètement.',
+  terminology: '- « terminology » : les libellés remplacés par leur forme officielle. `before` ' +
+    'doit citer le libellé tel qu\'il apparaît dans le document (également vérifié).',
+  findings: '- « findings » : les constats qui demandent une décision de l\'expert. C\'est ici, et ' +
+    'seulement ici, que ta connaissance réglementaire et pharmaceutique générale est utile — ' +
+    'incohérences internes, éléments hors périmètre, résidus d\'un autre dossier, classements ' +
+    'erronés. Un constat sans conséquence pratique n\'a pas sa place.',
+  recommendations: '- « recommendations » : les actions, une par ligne, formulées à l\'impératif.',
+}
+
+/** Les tableaux dont les lignes portent une criticité — la consigne ne part qu'à ceux-là. */
+const PART_HAS_CRITICALITY: Record<ReportPart, boolean> = {
+  relocations: false,
+  terminology: false,
+  findings: true,
+  recommendations: true,
+}
+
+/**
+ * La QUEUE variable de l'instruction : le tableau demandé, et lui seul.
+ *
+ * Placée après le point de rupture du cache, elle ne coûte que ses propres jetons et garde la
+ * position de récence — celle que le modèle suit le mieux pour un contrat de sortie.
+ *
+ * La conséquence du mauvais aiguillage est DITE au modèle (« toute ligne rangée ailleurs est
+ * écartée ») : c'est ce qui rend la consigne tenable sans schéma restreint, puisque le schéma, lui,
+ * doit rester entier pour que le cache prenne.
+ */
+export function buildReportPartAsk(part: ReportPart, tail?: string): string {
+  const others = REPORT_PARTS.filter((p) => p !== part).map((p) => `« ${p} »`).join(', ')
+  return [
+    `Cette demande porte sur UNE SEULE des quatre listes : « ${part} ».`,
+    `Rends les trois autres (${others}) comme des listes VIDES : elles font l'objet de demandes ` +
+      `distinctes, et toute ligne rangée ailleurs que dans « ${part} » est écartée.`,
+    '',
+    PART_SPEC[part],
+    ...(PART_HAS_CRITICALITY[part]
+      ? [
+        '',
+        'Criticité : « blocking » empêche le dépôt · « major » provoquera une question de ' +
+          'l\'autorité · « minor » est une amélioration.',
+      ]
+      : []),
+    ...(tail ? ['', tail] : []),
+  ].join('\n')
+}
+
+/**
+ * Les constats, tels qu'ils sont donnés à l'appel des recommandations.
+ *
+ * ⚠️ **Aucune borne, et c'est délibéré.** Couper la liste ferait produire des actions aveugles aux
+ * derniers constats, sans que rien ne le signale — le rapport recommanderait alors de traiter ce
+ * qu'il vient lui-même de signaler. Une borne qui tronque en silence est pire que pas de borne : les
+ * intitulés sont courts, et ils ne sont pas mis en cache de toute façon.
+ */
+function findingsDigest(findings: ReportAnalysis['findings']): string {
+  if (!findings.length) {
+    return 'Aucun constat n\'a été retenu sur ce document : les actions ne peuvent donc pas s\'y ' +
+      'adosser. Ne recommande que ce que le document lui-même justifie.'
+  }
+  return [
+    'Constats DÉJÀ établis sur ce document. Tes actions doivent les COUVRIR sans les reformuler — ' +
+      'le rapport les affiche déjà, juste au-dessus de tes recommandations :',
+    ...findings.map((f) => `- [${f.criticality}] ${f.title}`),
   ].join('\n')
 }
 
@@ -612,45 +768,210 @@ export interface ReportOutcome {
    * écartées à tort. À journaliser : une borne qu'on ne voit pas se lit comme une absence de borne.
    */
   strictClaims: number
+  /**
+   * Lignes rendues sous une liste NON demandée, donc écartées.
+   *
+   * **Métrique à suivre**, exactement comme `misrouted` sur les rubriques : elle est le prix du
+   * schéma entier: il faut le garder pour que le cache prenne, mais il laisse au modèle la
+   * possibilité de ranger une ligne ailleurs. Non nul et durable ⇒ la consigne de queue ne tient
+   * plus, et l'arbitrage cache/schéma serait à rouvrir.
+   */
+  strayRows: number
+  /** Durée de CHAQUE appel de tableau. C'est la mesure qui justifie le découpage — ou l'infirme. */
+  partsMs: Record<ReportPart, number>
+  /**
+   * Tentatives par tableau : 1 en régime normal, 2 après un rejeu pour mauvais aiguillage.
+   *
+   * ⚠️ La passe coûte donc **4 appels au moins**, pas 4 exactement. Un compte figé à 4 sous-estimerait
+   * la facture des cas difficiles — précisément le défaut relevé sur les revues avortées de U0, dont
+   * le coût n'était retrouvable que par différence avec la console.
+   */
+  partsAttempts: Record<ReportPart, number>
 }
 
-/** Produit le rapport : un seul appel, analyse contrainte, assemblage déterministe. */
-export async function generateReport(
-  generate: (parts: Part[], opts: AiOptions) => Promise<string>,
-  req: ReportRequest,
-): Promise<ReportOutcome> {
-  // L'invariant « le texte océrisé n'entre jamais dans le prompt » se tient ICI, dans la fonction
-  // qui assemble les fragments — pas dans le commentaire du champ. Sans la pièce, le repli enverrait
-  // le texte reconstruit AVEC la consigne qui affirme au modèle qu'il lit une image : il reprocherait
-  // alors au client des coquilles fabriquées par notre propre lecture, et `pruneUnverifiable` ne
-  // pourrait pas les écarter puisqu'elles figurent bel et bien dans le corpus de contrôle.
-  // La NATURE de la pièce compte, pas sa présence : `sourceParts: [{ text: ocr }]` satisferait un
-  // simple test de longueur et enverrait le texte reconstruit au modèle, avec la consigne qui lui
-  // affirme qu'il lit une image. C'est l'invariant que ce garde-fou prétend tenir.
+/** Ce que rend UN appel de tableau. */
+export interface ReportPartOutcome {
+  part: ReportPart
+  /** Analyse ne portant QUE `part` — les trois autres listes y sont vides, garanties en code. */
+  analysis: ReportAnalysis
+  /** 2 = la première réponse était mal aiguillée et a été rejouée. */
+  attempts: number
+  /** Lignes rangées sous une autre liste, écartées (cf. `ReportOutcome.strayRows`). */
+  strayRows: number
+  ms: number
+}
+
+/**
+ * Les fragments COMMUNS aux quatre appels : la pièce, puis le préambule. Le tableau demandé s'ajoute
+ * après — d'où le point de rupture du cache sur le dernier fragment d'ici.
+ *
+ * L'invariant « le texte océrisé n'entre jamais dans le prompt » se tient ICI, dans la fonction qui
+ * assemble les fragments — pas dans le commentaire du champ. Sans la pièce, le repli enverrait le
+ * texte reconstruit AVEC la consigne qui affirme au modèle qu'il lit une image : il reprocherait
+ * alors au client des coquilles fabriquées par notre propre lecture, et `pruneUnverifiable` ne
+ * pourrait pas les écarter puisqu'elles figurent bel et bien dans le corpus de contrôle.
+ * La NATURE de la pièce compte, pas sa présence : `sourceParts: [{ text: ocr }]` satisferait un
+ * simple test de longueur et enverrait le texte reconstruit au modèle, avec la consigne qui lui
+ * affirme qu'il lit une image. C'est l'invariant que ce garde-fou prétend tenir.
+ */
+function reportPrefix(req: ReportRequest): Part[] {
   if (req.sourceKind === 'ocr' && !req.sourceParts?.some((p) => p.inlineData)) {
     throw new Error('revue sur source océrisée : la pièce d’origine (image ou PDF) est obligatoire')
   }
   // Pièce d'abord, instruction ensuite — même ordre que la passe de conformité : le préfixe stable
   // reste cachable et la consigne de sortie garde la position la plus récente.
+  return [...(req.sourceParts ?? []), { text: buildReportPreamble(req) }]
+}
+
+/**
+ * Produit UN tableau du rapport.
+ *
+ * Exportée parce que U4 pilote la revue tableau par tableau, avec son propre état en base : une
+ * ligne `upgrade_sections` par tableau, donc un rejeu ciblé plutôt que quatre appels repayés.
+ * `generateReport` n'est que l'orchestration de ces quatre appels dans une seule invocation.
+ */
+export async function generateReportPart(
+  generate: (parts: Part[], opts: AiOptions) => Promise<string>,
+  req: ReportRequest,
+  part: ReportPart,
+  options: { deadline: number; tail?: string },
+): Promise<ReportPartOutcome> {
+  const prefix = reportPrefix(req)
+  const startedAt = Date.now()
+  let strayRows = 0
+
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const remaining = options.deadline - Date.now()
+    // Ne pas LANCER ce qui ne peut pas finir : la plateforme tuerait l'appel en vol, payé et muet.
+    if (remaining < REPORT_MIN_SLICE_MS) {
+      if (attempt === 1) {
+        throw new Error(
+          `revue « ${part} » : ${Math.round(remaining)} ms restants — un appel qui ne peut pas finir ` +
+            `est un 546 déguisé`,
+        )
+      }
+      break
+    }
+    const raw = await generate([...prefix, { text: buildReportPartAsk(part, options.tail) }], {
+      // Sans posture, la revue perdrait ce que le client achète : c'est la SEULE passe où la
+      // connaissance générale est un actif, et elle doit être autorisée explicitement.
+      system: req.system ?? reviewSystem(req.lang),
+      json: true,
+      // ⚠️ Le schéma ENTIER, identique aux quatre appels — sans quoi le préfixe cesse d'être
+      // partagé et les quatre paient une écriture de cache (cf. « Le découpage », n°1).
+      jsonSchema: reportSchema(),
+      maxOutputTokens: REPORT_PART_MAX_OUTPUT_TOKENS,
+      timeoutMs: Math.min(REPORT_PART_TIMEOUT_MS, remaining),
+      provider: req.provider,
+      cacheBreakpointAfter: prefix.length - 1,
+    })
+    const { only, stray } = splitPart(parseReportAnalysis(raw), part)
+    strayRows += stray
+    // Liste demandée VIDE alors que le modèle a rempli une autre : ce n'est pas « rien à signaler »,
+    // c'est un mauvais aiguillage. Le rejouer coûte un appel ; l'accepter ferait écrire « Aucun. »
+    // dans un rapport payé, là où le modèle avait bel et bien trouvé quelque chose.
+    if (only[part].length || stray === 0) {
+      return { part, analysis: only, attempts: attempt, strayRows, ms: Date.now() - startedAt }
+    }
+  }
+  // Deux fois de suite : on refuse. Aucune ligne n'est rangée sous une liste qu'elle ne concerne
+  // pas, et surtout aucune liste jamais obtenue n'est présentée comme vide.
+  throw new SectionOutputError(
+    'misrouted',
+    `revue : la liste « ${part} » est revenue vide deux fois, avec ${strayRows} ligne(s) rangée(s) ` +
+      `ailleurs — refusé plutôt que rendu « Aucun. »`,
+  )
+}
+
+/** Verse une analyse partielle dans l'assemblage. */
+function merge(into: ReportAnalysis, from: ReportAnalysis): void {
+  into.relocations.push(...from.relocations)
+  into.terminology.push(...from.terminology)
+  into.findings.push(...from.findings)
+  into.recommendations.push(...from.recommendations)
+}
+
+/**
+ * Un tableau manquant fait REFUSER le rapport entier.
+ *
+ * ⚠️ Ne pas « dégrader gracieusement » ici. `renderReportMarkdown` écrit « Aucun. » pour une liste
+ * vide — c'est une AFFIRMATION, pas une absence de données. Livrer « Aucune terminologie à
+ * aligner » parce qu'un appel a expiré, c'est exactement le défaut corrigé en `d224665` : un
+ * rapport qui contredit son propre document, sans que rien ne le signale. L'appelant rejoue le ou
+ * les tableaux nommés — leur état est per-tableau, jamais la passe entière.
+ */
+function refuseIfIncomplete(report: PoolReport<ReportPartOutcome>, parts: readonly ReportPart[]): void {
+  if (report.failed === 0 && report.skipped === 0) return
+  const lost = report.outcomes
+    .map((o, i) => (o.skipped || o.error ? `« ${parts[i]} » (${o.skipped ? 'non lancé' : o.error?.message})` : null))
+    .filter((s): s is string => s !== null)
+  // `cause` porte la PREMIÈRE erreur telle quelle : c'est elle qui dit si l'échec est déterministe
+  // (JSON illisible, troncature — jamais re-tenter) ou transitoire (503, délai). L'enrobage nomme le
+  // tableau ; il ne doit pas effacer ce qui permet de décider du rejeu.
+  throw new Error(`revue incomplète, rapport refusé — à rejouer : ${lost.join(' · ')}`, {
+    cause: report.outcomes.find((o) => o.error)?.error,
+  })
+}
+
+/**
+ * Produit le rapport : QUATRE appels contraints, assemblage déterministe.
+ *
+ * Trois étapes, pour les raisons détaillées en tête de fichier (§ « Le découpage ») : un
+ * préchauffage qui écrit le préfixe partagé, une vague qui le relit, puis les recommandations
+ * nourries des constats.
+ */
+export async function generateReport(
+  generate: (parts: Part[], opts: AiOptions) => Promise<string>,
+  req: ReportRequest,
+): Promise<ReportOutcome> {
   const budgetMs = req.budgetMs ?? REPORT_BUDGET_MS
   if (budgetMs < MIN_REPORT_BUDGET_MS) {
     throw new Error(
       `revue : budget de ${Math.round(budgetMs)} ms — un appel qui ne peut pas finir est un 546 déguisé`,
     )
   }
-  const parts: Part[] = [...(req.sourceParts ?? []), { text: buildReportInstruction(req) }]
-  const raw = await generate(parts, {
-    // Sans posture, la revue perdrait ce que le client achète : c'est la SEULE passe où la
-    // connaissance générale est un actif, et elle doit être autorisée explicitement.
-    system: req.system ?? reviewSystem(req.lang),
-    json: true,
-    jsonSchema: reportSchema(),
-    maxOutputTokens: REPORT_MAX_OUTPUT_TOKENS,
-    timeoutMs: Math.min(REPORT_ATTEMPT_TIMEOUT_MS, budgetMs),
-    provider: req.provider,
-  })
+  // Lève AVANT tout appel si la source est un scan sans sa pièce : rien ne doit être payé pour un
+  // rapport qu'on refusera ensuite.
+  reportPrefix(req)
+  const deadline = Date.now() + budgetMs
+
+  // Étapes 1 et 2 — `warmupFirst` fait partir `terminology` SEUL : c'est lui qui écrit le préfixe
+  // partagé, que `relocations` et `findings` relisent ensuite à 0,1×. Sans lui, trois écritures.
+  const wave = await boundedMap(
+    REPORT_WAVE,
+    (part) => generateReportPart(generate, req, part, { deadline }),
+    {
+      concurrency: REPORT_WAVE.length,
+      warmupFirst: true,
+      deadline,
+      minSliceMs: REPORT_MIN_SLICE_MS,
+    },
+  )
+  refuseIfIncomplete(wave, REPORT_WAVE)
+
+  const assembled = emptyAnalysis()
+  const partsMs = {} as Record<ReportPart, number>
+  const partsAttempts = {} as Record<ReportPart, number>
+  let strayRows = 0
+  const collect = (value: ReportPartOutcome) => {
+    merge(assembled, value.analysis)
+    partsMs[value.part] = value.ms
+    partsAttempts[value.part] = value.attempts
+    strayRows += value.strayRows
+  }
+  for (const o of wave.outcomes) collect(o.value as ReportPartOutcome)
+
+  // Étape 3 — les recommandations voient les constats. C'est la seule dépendance entre les quatre,
+  // et elle voyage dans la queue variable : le préfixe partagé reste intact.
+  collect(
+    await generateReportPart(generate, req, REPORT_LAST, {
+      deadline,
+      tail: findingsDigest(assembled.findings),
+    }),
+  )
+
   const { analysis, dropped, strictClaims } = pruneUnverifiable(
-    parseReportAnalysis(raw),
+    assembled,
     prepareSource(req.sourceText, req.sourceKind),
   )
   return {
@@ -658,5 +979,8 @@ export async function generateReport(
     analysis,
     droppedClaims: dropped,
     strictClaims,
+    strayRows,
+    partsMs,
+    partsAttempts,
   }
 }
