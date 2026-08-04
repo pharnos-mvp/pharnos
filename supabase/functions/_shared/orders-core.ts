@@ -214,6 +214,93 @@ export function lireVente(raw: unknown): VenteVerifiee | { erreur: string } {
   }
 }
 
+/* ─────────────────────────────────── Le dépôt de la source ────────────────────────────────── */
+
+/**
+ * Le SEUL type accepté au dépôt : PDF.
+ *
+ * Ce n'est pas une frilosité, c'est le contrat réel de la chaîne : `prepareUpgradeSource` entre par
+ * `readPdfPages` (pdf.js), et l'OCR n'intervient que sur les pages SANS couche texte d'un PDF. Une
+ * image ou un DOCX déposés ici n'échoueraient pas au dépôt mais bien plus loin, après paiement,
+ * sur une pile d'appels — c'est-à-dire au pire endroit. Refuser tôt et le DIRE vaut mieux.
+ */
+export const TYPE_SOURCE = 'application/pdf'
+/** 25 Mo : au-delà, le téléchargement seul mangerait le wall clock de l'invocation qui le lit. */
+export const MAX_SOURCE_BYTES = 25 * 1024 * 1024
+/** Dépôts autorisés par commande (§2.3, étape 6) — la borne vit AUSSI dans la contrainte SQL. */
+export const MAX_DEPOTS = 3
+
+/**
+ * Clé Storage du document source.
+ *
+ * ⚠️ **Aucune chaîne venue du client n'y entre**, et c'est délibéré : ni le nom de fichier, ni le
+ * type de document. Le piège « Invalid key » de Supabase sur les clés accentuées disparaît alors
+ * par construction, plutôt que d'être rattrapé par une fonction d'assainissement qu'on peut
+ * oublier d'appeler. Le nom d'origine, lui, n'est pas perdu pour autant — il vit en base, où il
+ * n'a aucune contrainte de jeu de caractères.
+ */
+export const sourceObjectKey = (orderId: string, jobId: string): string =>
+  `orders/${orderId}/${jobId}/source.pdf`
+
+/**
+ * Types de document vendables. **Liste blanche FERMÉE**, et jamais un `in` sur un objet.
+ *
+ * ⚠️ `'constructor' in CONFORMITY_SPECS` vaut `true` — comme `toString`, `valueOf`,
+ * `hasOwnProperty` : ce sont les clés du prototype. Un `docType: 'constructor'` faisait donc passer
+ * le test d'appartenance, `spec` devenait `Object`, et `flattenRubrics` levait une `TypeError` non
+ * capturée : 500 SANS en-tête CORS (le navigateur ne voit qu'une panne réseau) et un job
+ * définitivement inutilisable. Un `Set` n'a pas de prototype à confondre avec ses données.
+ */
+export const DOC_TYPES_VENDABLES: ReadonlySet<string> = new Set(['rcp', 'notice', 'labeling'])
+
+export interface DemandeDepot {
+  docType: string
+  size: number
+}
+
+/** Valide une demande d'URL de dépôt. Le jeton est vérifié à part, contre la base. */
+export function lireDemandeDepot(body: unknown): DemandeDepot | { erreur: string } {
+  if (!body || typeof body !== 'object') return { erreur: 'corps non structuré' }
+  const b = body as Record<string, unknown>
+
+  const type = texte(b.contentType, 120)
+  if (type !== TYPE_SOURCE) {
+    return { erreur: 'seuls les PDF sont acceptés' }
+  }
+  const size = Number(b.size)
+  if (!Number.isFinite(size) || size <= 0) return { erreur: 'taille absente' }
+  if (size > MAX_SOURCE_BYTES) return { erreur: 'fichier trop volumineux' }
+
+  const brut = texte(b.docType, 40)
+  const docType = brut && DOC_TYPES_VENDABLES.has(brut) ? brut : 'rcp'
+  return { docType, size: Math.round(size) }
+}
+
+/* ────────────────────────────── Les gardes d'état, en CODE PUR ─────────────────────────────── */
+//
+// ⚠️ Elles vivent ICI, et pas dans les `index.ts`, pour une raison apprise à la revue : tant que
+// l'enchaînement des gardes n'était lisible que dans le transport, il n'était couvert par AUCUN
+// test — et un défaut d'ordre y était invisible. La branche de refus de `order-gate` réécrivait
+// l'état AVANT la garde « déjà lancé », ce qui permettait de relancer autant de traitements qu'on
+// voulait sur une seule commande payée, à ~2 $ pièce. Trois lignes de test l'auraient montré.
+
+/** États depuis lesquels un nouveau dépôt est permis. */
+export const peutDeposer = (status: string): boolean =>
+  status === 'paid' || status === 'source_uploaded' || status === 'gated_out'
+
+/**
+ * Un traitement est-il déjà engagé ? `running` et `done` sont des points de non-retour : relancer
+ * doublerait les 60 appels du moteur, soit près de 2 $ jetés sans que rien ne le signale.
+ */
+export const dejaLance = (status: string): boolean => status === 'running' || status === 'done'
+
+/**
+ * États depuis lesquels une transition est acceptable — la liste passée en `.in(...)` du
+ * compare-and-swap. C'est LUI qui fait autorité, pas la lecture qui précède : entre le `select` et
+ * l'`update`, une autre requête a pu passer.
+ */
+export const ETATS_DEPOSABLES = ['paid', 'source_uploaded', 'gated_out'] as const
+
 /* ──────────────────────────────────── Le pont (`order-claim`) ─────────────────────────────── */
 
 /**

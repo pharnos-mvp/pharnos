@@ -206,9 +206,13 @@ alter table public.upgrade_sections enable row level security;
 -- ──────────────────────────────────── Horodatage ───────────────────────────────────────────────
 -- `updated_at` posé par la BASE, jamais par l'appelant : un worker qui oublie de le mettre à jour
 -- rendrait le filet `pg_cron` aveugle exactement quand il sert.
+-- `search_path` FIGÉ : sans lui, un schéma placé en tête du chemin par un appelant pourrait
+-- détourner la résolution des noms à l'intérieur de la fonction. C'est aussi ce que l'advisor
+-- Supabase signale (`function_search_path_mutable`) — on le pose à l'écriture, pas après coup.
 create or replace function public.touch_updated_at()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   new.updated_at = now();

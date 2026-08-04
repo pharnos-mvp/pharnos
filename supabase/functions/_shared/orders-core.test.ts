@@ -2,15 +2,23 @@
 import { assertEquals, assertNotEquals, assertMatch } from 'jsr:@std/assert@1'
 
 import {
+  dejaLance,
   deliveryExpiryFrom,
   deliveryTokenHash,
+  DOC_TYPES_VENDABLES,
+  ETATS_DEPOSABLES,
   isValidDeliveryToken,
+  peutDeposer,
   isValidRef,
+  lireDemandeDepot,
   lirePulse,
   lireVente,
+  MAX_SOURCE_BYTES,
   newDeliveryToken,
   PRODUITS,
   PULSE_EVENT_VENTE,
+  sourceObjectKey,
+  TYPE_SOURCE,
 } from './orders-core.ts'
 
 const REF = '3f2504e0-4f89-11d3-9a0c-0305e82c3301'
@@ -201,6 +209,99 @@ Deno.test('vente : un montant illisible ne bloque pas la commande, il devient in
   const v = lireVente(vente({ amount: 'gratuit' }))
   assertEquals('erreur' in v, false)
   assertEquals((v as { amountMinor: number | null }).amountMinor, null)
+})
+
+/* ─────────────────────────────────────── Le dépôt ──────────────────────────────────────────── */
+
+Deno.test('dépôt : PDF uniquement — le refus tombe AU DÉPÔT, pas après paiement', () => {
+  // `prepareUpgradeSource` entre par `readPdfPages` (pdf.js) : une image ou un DOCX n'échoueraient
+  // pas ici mais bien plus loin, sur une pile d'appels déjà payée. Refuser tôt, et le DIRE.
+  assertEquals('erreur' in lireDemandeDepot({ contentType: TYPE_SOURCE, size: 1024 }), false)
+  for (const type of ['image/png', 'application/msword', 'text/plain', '', undefined]) {
+    const d = lireDemandeDepot({ contentType: type, size: 1024 })
+    assertEquals('erreur' in d, true, `type accepté à tort : ${String(type)}`)
+  }
+})
+
+Deno.test('dépôt : la taille est bornée des DEUX côtés', () => {
+  assertEquals('erreur' in lireDemandeDepot({ contentType: TYPE_SOURCE, size: 0 }), true)
+  assertEquals('erreur' in lireDemandeDepot({ contentType: TYPE_SOURCE, size: -1 }), true)
+  assertEquals('erreur' in lireDemandeDepot({ contentType: TYPE_SOURCE, size: 'gros' }), true)
+  assertEquals('erreur' in lireDemandeDepot({ contentType: TYPE_SOURCE, size: MAX_SOURCE_BYTES }), false)
+  assertEquals('erreur' in lireDemandeDepot({ contentType: TYPE_SOURCE, size: MAX_SOURCE_BYTES + 1 }), true)
+})
+
+Deno.test('dépôt : le type de document retombe sur `rcp`, il ne fait pas échouer', () => {
+  const d = lireDemandeDepot({ contentType: TYPE_SOURCE, size: 10 })
+  assertEquals((d as { docType: string }).docType, 'rcp')
+  const notice = lireDemandeDepot({ contentType: TYPE_SOURCE, size: 10, docType: 'notice' })
+  assertEquals((notice as { docType: string }).docType, 'notice')
+})
+
+Deno.test('dépôt : AUCUNE chaîne du client n’entre dans la clé Storage', () => {
+  // ⚠️ C'est ce qui fait disparaître le piège « Invalid key » de Supabase par CONSTRUCTION, au lieu
+  // de dépendre d'une fonction d'assainissement qu'on peut oublier d'appeler. Le nom d'origine du
+  // fichier n'est pas perdu pour autant : il vit en base, où le jeu de caractères est libre.
+  const cle = sourceObjectKey('11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222')
+  assertEquals(
+    cle,
+    'orders/11111111-1111-1111-1111-111111111111/22222222-2222-2222-2222-222222222222/source.pdf',
+  )
+  // Purement ASCII, aucun caractère de traversée de chemin.
+  assertMatch(cle, /^[A-Za-z0-9/_.-]+$/)
+  assertEquals(cle.includes('..'), false)
+})
+
+/* ─────────────────────────────────── Les gardes d'état ─────────────────────────────────────── */
+
+Deno.test('gardes : on ne dépose que depuis un état déposable', () => {
+  for (const s of ['paid', 'source_uploaded', 'gated_out']) {
+    assertEquals(peutDeposer(s), true, s)
+  }
+  for (const s of ['running', 'done', 'failed', 'inconnu', '']) {
+    assertEquals(peutDeposer(s), false, s)
+  }
+})
+
+Deno.test('gardes : `running` et `done` sont des points de NON-RETOUR', () => {
+  // ⚠️ Le test qui aurait rendu visible le blocker de la revue. La branche de refus de `order-gate`
+  // réécrivait `orders.status` AVANT cette garde, la rendant inatteignable : on relançait alors
+  // autant de traitements qu'on voulait sur une seule commande payée, à ~2 $ pièce, en alternant
+  // un faux document (qui remettait l'état à `gated_out`) et un vrai (qui relançait).
+  assertEquals(dejaLance('running'), true)
+  assertEquals(dejaLance('done'), true)
+  for (const s of ['paid', 'source_uploaded', 'gated_out', 'failed']) {
+    assertEquals(dejaLance(s), false, s)
+  }
+  // Les deux ensembles ne se recouvrent JAMAIS : un état ne peut pas être à la fois déposable et
+  // lancé, sans quoi l'ordre des gardes redeviendrait significatif.
+  for (const s of ETATS_DEPOSABLES) assertEquals(dejaLance(s), false, s)
+})
+
+Deno.test('gardes : `ETATS_DEPOSABLES` et `peutDeposer` ne peuvent pas diverger', () => {
+  // La liste part en `.in(...)` du compare-and-swap SQL, la fonction sert à l'écran : deux
+  // définitions de la même règle qui glisseraient l'une par rapport à l'autre rouvriraient un
+  // chemin d'écriture que l'affichage croirait fermé.
+  for (const s of ETATS_DEPOSABLES) assertEquals(peutDeposer(s), true, s)
+  assertEquals(ETATS_DEPOSABLES.length, 3)
+})
+
+Deno.test('dépôt : les clés du PROTOTYPE ne sont pas des types de document', () => {
+  // ⚠️ `'constructor' in CONFORMITY_SPECS` vaut `true`, comme `toString` et `valueOf`. Avec un `in`,
+  // `docType: 'constructor'` faisait de `spec` un `Object`, et `flattenRubrics` levait une
+  // `TypeError` non capturée : 500 SANS en-tête CORS — le navigateur ne voit qu'une panne réseau —
+  // et un job définitivement inutilisable.
+  for (const poison of ['constructor', 'toString', 'valueOf', 'hasOwnProperty', '__proto__']) {
+    assertEquals(DOC_TYPES_VENDABLES.has(poison), false, poison)
+    const d = lireDemandeDepot({ contentType: TYPE_SOURCE, size: 10, docType: poison })
+    assertEquals((d as { docType: string }).docType, 'rcp', poison)
+  }
+  // Et un gabarit réel mais NON VENDU ne passe pas non plus : juger contre le mauvais gabarit
+  // donnerait un verdict de recevabilité sur un référentiel que le client n'a pas acheté.
+  for (const hors of ['pght', 'cover']) {
+    const d = lireDemandeDepot({ contentType: TYPE_SOURCE, size: 10, docType: hors })
+    assertEquals((d as { docType: string }).docType, 'rcp', hors)
+  }
 })
 
 /* ──────────────────────────────────────── Le pont ──────────────────────────────────────────── */

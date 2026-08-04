@@ -447,6 +447,18 @@ verify_jwt = false
 [functions.order-claim]
 verify_jwt = false
 
+# Dépôt du document APRÈS paiement : l'URL signée est portée sur une clé calculée par le serveur,
+# donc le client ne choisit pas où il écrit. Autorisé par le jeton de livraison, jamais par un
+# paramètre d'URL — c'est là que l'invariant « rien ne part avant le règlement » se tient.
+[functions.order-upload-url]
+verify_jwt = false
+
+# Porte de recevabilité ET lancement — une seule surface, parce qu'aucune décision de l'utilisateur
+# ne s'intercale entre le verdict et sa conséquence. Un refus ne crée AUCUNE ligne de travail :
+# il n'y a donc rien à rembourser, et le message le dit à l'acheteur.
+[functions.order-gate]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
