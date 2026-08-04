@@ -433,6 +433,20 @@ verify_jwt = false
 [functions.checkout]
 verify_jwt = false
 
+# Webhook Chariow : c'est LUI qui fait naître la commande, et le seul chemin qui l'autorise.
+# Chariow n'a pas de compte chez nous, donc pas de JWT — et ses Pulses ne portent aucun secret de
+# signature (vérifié en console). L'authenticité ne vient donc pas de l'appel mais de la
+# RE-VÉRIFICATION `GET /v1/sales/{id}` faite avec notre propre clé. Aucun en-tête CORS : c'est du
+# serveur à serveur, une page web n'a rien à y faire.
+[functions.chariow-pulse]
+verify_jwt = false
+
+# Pont du retour de paiement : l'acheteur échange sa référence contre un jeton de livraison. Il
+# n'a pas de compte, d'où l'absence de JWT ; la fonction ne CRÉE jamais de commande — elle lit
+# celle que le webhook a créée, sinon elle répond « pas encore ».
+[functions.order-claim]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
