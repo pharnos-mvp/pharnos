@@ -67,3 +67,38 @@ describe('compileDossierToPdf — exclusions du dossier', () => {
     expect(filtered.missing).toEqual(['rcp-a.pdf'])
   })
 })
+
+describe('compileDossierToPdf — déterminisme des octets', () => {
+  // Le métrage (migration 0082) identifie un paquet par le SHA-256 de ses octets, pour offrir la
+  // RÉCUPÉRATION d'un livrable déjà payé. Si la compilation n'est pas une fonction pure de son
+  // contenu, cette règle est inerte et le client repaie pour retélécharger ce qu'il possède.
+  //
+  // Le piège n'est pas théorique : `PDFDocument.create()` estampille /CreationDate et /ModDate
+  // À LA SECONDE, dans le dictionnaire Info compressé — invisible à l'inspection du fichier.
+  // Sans le gel des métadonnées, ce test échoue dès que les deux compilations tombent sur deux
+  // secondes différentes.
+  const input = () => ({
+    dossier: dossier([]),
+    generatedDocs: [],
+    docs: [],
+    attachments: [],
+    autoStructural: true,
+  })
+
+  it('deux compilations du MÊME dossier produisent exactement les mêmes octets', async () => {
+    const a = await compileDossierToPdf(input())
+    // Franchir une frontière de seconde : c'est la granularité de l'horodatage de pdf-lib.
+    await new Promise((r) => setTimeout(r, 1100))
+    const b = await compileDossierToPdf(input())
+    expect(Array.from(b.bytes)).toEqual(Array.from(a.bytes))
+  })
+
+  it('un contenu différent produit des octets différents — la récupération n’avale pas tout', async () => {
+    const a = await compileDossierToPdf(input())
+    const b = await compileDossierToPdf({
+      ...input(),
+      dossier: { ...dossier([]), productName: 'Un autre produit' },
+    })
+    expect(Array.from(b.bytes)).not.toEqual(Array.from(a.bytes))
+  })
+})
