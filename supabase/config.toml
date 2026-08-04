@@ -504,3 +504,9 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # barrière DANS la fonction (CORS landing, rate-limit share_hit, format strict, 404 uniforme).
 [functions.invite-info]
 verify_jwt = false
+
+# Le moteur en série. `verify_jwt = false` parce que l'appelant est `pg_cron`, pas un humain :
+# l'authentification se fait par secret partagé comparé au HASH rendu par `upgrade_tick_secret_hash()`
+# — le secret lui-même ne sort JAMAIS de la base (patron de 0051). Secret absent ⇒ porte FERMÉE.
+[functions.job-tick]
+verify_jwt = false

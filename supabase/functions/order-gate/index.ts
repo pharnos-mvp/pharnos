@@ -245,6 +245,11 @@ Deno.serve(async (req) => {
       // Déclarée par le navigateur, jamais devinée ici : elle commande la tolérance du contrôle
       // d'ancrage ET l'encart « votre document est un scan » du rapport.
       source_kind: sourceKind,
+      // Le corpus SURVIT à cette invocation : le worker en a besoin à chaque vague pour vérifier en
+      // code les citations et l'ancrage des chiffres. Le re-dériver du PDF coûterait pdf.js et, sur
+      // un scan, une reconnaissance complète — à chaque vague, alors que le navigateur l'a déjà
+      // faite une fois. C'est la coupure du plan : le navigateur calcule, le serveur attend.
+      control_text: controlText,
       sections_total: lignes.length,
       phase: 'conformity',
       started_at: new Date().toISOString(),
