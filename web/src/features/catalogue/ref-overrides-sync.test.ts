@@ -83,7 +83,13 @@ vi.mock('@/lib/audit', () => ({ recordAudit: vi.fn() }))
 
 import { db } from '@/lib/db'
 import { reportError } from '@/lib/sentry'
-import { overrideKey, setOverride, syncRefOverrides } from './ref-overrides'
+import { overrideKey, setOverride, setOverrideSyncHook } from './ref-overrides'
+import { syncRefOverrides } from './ref-overrides-sync'
+
+// La pose d'une adaptation ne connaît plus la synchronisation : elle appelle un crochet, que la
+// plateforme branche depuis `src/main.tsx`. On reproduit ce branchement ici — les cas qui vérifient
+// « une pose déclenche un cycle » testent donc AUSSI le câblage réel, au lieu de le supposer.
+setOverrideSyncHook(syncRefOverrides)
 
 const KEY = overrideKey('org-1', 'SN', 'agency.directeur')
 

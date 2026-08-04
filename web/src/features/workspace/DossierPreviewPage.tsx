@@ -15,6 +15,8 @@ import { CountryFlag } from '@/features/dashboard/CountryFlag'
 import { expiringDocs } from '@/features/dashboard/dashboard-data'
 import { useOrgId } from '@/features/org/org-context'
 import { useOrgPlan } from '@/features/org/use-org-plan'
+import { packageFingerprint } from '@/features/org/metered-compile'
+import { useCompilationCredit } from '@/features/org/use-compilation-credit'
 import { getBrandingForParty } from '@/features/profile/pro-settings-repository'
 import { db, type DossierAttachmentRecord, type GeneratedDocRecord } from '@/lib/db'
 import { useI18n } from '@/lib/i18n-context'
@@ -70,6 +72,8 @@ export function DossierPreviewPage() {
   const { user } = useAuth()
   // Filigrane « by Pharnos » : réservé à l'offre Free (aperçu ↔ téléchargement cohérents).
   const { data: orgPlan } = useOrgPlan()
+  // Métrage du dépôt : cette page fait SORTIR le paquet compilé (télécharger, envoyer).
+  const credit = useCompilationCredit(dossierId ?? null)
 
   const dossier = useLiveQuery(
     async () => (dossierId ? ((await getDossier(dossierId)) ?? null) : null),
@@ -111,7 +115,11 @@ export function DossierPreviewPage() {
     key: string
     sectionPages: Record<string, number>
   } | null>(null)
-  const [shareOpen, setShareOpen] = useState(false)
+  // Ce qu'on envoie, FIGÉ à l'ouverture de la boîte : les octets ET leur empreinte ensemble.
+  // L'aperçu se recompile tout seul quand le dossier change (effet sur `sig`) — garder les deux
+  // séparément laisserait décompter l'empreinte d'un paquet qui n'est pas celui qui est parti.
+  const [sendPayload, setSendPayload] = useState<{ blob: Blob; sha: string } | null>(null)
+  const [metering, setMetering] = useState(false)
   const [tocOpen, setTocOpen] = useState(true)
   const viewerRef = useRef<PdfViewerHandle>(null)
 
@@ -239,6 +247,58 @@ export function DossierPreviewPage() {
     return desc.length ? Math.min(...desc) : undefined
   }
 
+  // ── Métrage du dépôt ────────────────────────────────────────────────────────────────────────
+  // L'aperçu à l'écran reste libre : regarder n'est pas déposer, et la recompilation automatique
+  // (effet sur `sig`) n'est pas un geste de l'utilisateur. Ce qui se décompte, c'est le paquet qui
+  // SORT — téléchargé ou envoyé à l'agence. Sans ces deux gardes, un compte au plafond récupérait
+  // ici exactement le PDF que « Compiler » lui refusait.
+  //
+  // Ici les octets EXISTENT déjà : on passe donc leur empreinte dès le préflight. C'est ce qui rend
+  // la **récupération** gratuite pour toujours — retélécharger un paquet déjà payé ne peut jamais
+  // coûter un second crédit, même des mois plus tard (§5.2.3). Seul un contenu qui a changé
+  // retombe sur la fenêtre de grâce de 24 h, puis sur la facturation.
+  async function meteredExport(action: (blob: Blob) => void | Promise<void>) {
+    if (!pdf) return
+    const blob = pdf.blob
+    setMetering(true)
+    try {
+      // Refuser AVANT, décompter APRÈS — même ordre que partout ailleurs : un crédit ne se
+      // consomme jamais sans que le paquet soit effectivement sorti.
+      const sha = await packageFingerprint(await blob.arrayBuffer())
+      if (!(await credit.guard(sha))) return
+      await action(blob)
+      await credit.settle(sha)
+    } catch (e) {
+      console.error(e)
+      toast.error(t({ fr: 'Compilation indisponible.', en: 'Compilation unavailable.' }))
+    } finally {
+      setMetering(false)
+    }
+  }
+
+  // ⚠️ On repart du BLOB, pas de `pdf.url` : l'effet de recompilation révoque l'URL dès que `sig`
+  // change, et `sig` peut changer pendant l'aller-retour du métrage (une écriture Dexie suffit).
+  // On aurait alors décompté un crédit pour un téléchargement silencieusement mort.
+  const handleDownload = () =>
+    meteredExport((blob) => triggerDownload(URL.createObjectURL(blob), downloadName, true))
+
+  // L'envoi se joue dans une boîte de dialogue : on refuse tôt (sans facturer), et on décompte
+  // seulement quand le dossier est réellement parti. Annuler la boîte ne coûte donc rien.
+  async function handleSend() {
+    if (!pdf) return
+    const blob = pdf.blob
+    setMetering(true)
+    try {
+      const sha = await packageFingerprint(await blob.arrayBuffer())
+      if (await credit.guard(sha)) setSendPayload({ blob, sha })
+    } catch (e) {
+      console.error(e)
+      toast.error(t({ fr: 'Compilation indisponible.', en: 'Compilation unavailable.' }))
+    } finally {
+      setMetering(false)
+    }
+  }
+
   async function handleLifecycle(reason: string) {
     if (isArchived) await restoreDossier(activeDossier.id)
     else if (status === 'draft') await deleteDossier(activeDossier.id, reason)
@@ -299,16 +359,16 @@ export function DossierPreviewPage() {
           <Button
             variant="outline"
             size="sm"
-            disabled={!previewReady}
-            onClick={() => pdf && triggerDownload(pdf.url, downloadName, false)}
+            disabled={!previewReady || metering}
+            onClick={() => void handleDownload()}
           >
             <Download /> {t({ fr: 'Télécharger', en: 'Download' })}
           </Button>
           <Button
             variant="primary"
             size="sm"
-            disabled={!previewReady}
-            onClick={() => setShareOpen(true)}
+            disabled={!previewReady || metering}
+            onClick={() => void handleSend()}
           >
             <Send /> {t({ fr: 'Envoyer', en: 'Send' })}
           </Button>
@@ -446,16 +506,20 @@ export function DossierPreviewPage() {
         </div>
       </div>
 
-      {shareOpen && pdf ? (
+      {sendPayload ? (
         <ShareDialog
           orgId={orgId}
           dossier={dossier}
-          pdfBlob={pdf.blob}
+          pdfBlob={sendPayload.blob}
           senderEmail={user?.email ?? 'local'}
-          onClose={() => setShareOpen(false)}
+          onClose={() => setSendPayload(null)}
           onSent={() => {
-            setShareOpen(false)
+            const { sha } = sendPayload
+            setSendPayload(null)
             toast.success(t({ fr: 'Dossier envoyé', en: 'Dossier sent' }))
+            // Le paquet est parti : c'est maintenant qu'il se décompte — sur l'empreinte de ce
+            // qui a RÉELLEMENT été transmis, pas sur celle d'une recompilation entre-temps.
+            void credit.settle(sha)
           }}
         />
       ) : null}

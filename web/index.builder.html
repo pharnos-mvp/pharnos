@@ -6,7 +6,7 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0a0a0a" />
-    <!-- `builder.pharnos.com` sert l'APPLICATION, pas la page de vente (qui vit sur pharnos.com,
+    <!-- `/ctd-builder/` sert l'APPLICATION, pas la page de vente (qui vit sur pharnos.com,
          cf. §7). Rien ici n'a vocation à être indexé. -->
     <meta name="robots" content="noindex, nofollow" />
     <meta
@@ -14,9 +14,10 @@
       content="CTD Builder — montez vos dossiers CTD sur votre poste. Vos documents ne transitent jamais par les serveurs de Pharnos."
     />
     <!--
-      Ni script ni style INLINE : la CSP de cette origine est `script-src 'self'` ET
-      `style-src 'self'` (public-builder/_headers), plus stricte que celle de la plateforme, qui
-      doit tolérer les attributs `style` posés par TipTap/Radix. Le squelette d'app-shell peint en
+      Ni script ni style INLINE : la CSP servie sur ce chemin est `script-src 'self'` ET
+      `style-src 'self'` (section /ctd-builder/* de landing/_headers), plus stricte que celle de
+      la plateforme, qui doit tolérer les attributs `style` posés par TipTap/Radix. Le squelette
+      d'app-shell peint en
       CSS inline de `index.html` n'a donc PAS d'équivalent ici — et la coquille du builder est
       assez légère pour s'en passer. Toute exception future devra ouvrir la CSP dans le même
       commit, ce qui la rendra visible en revue.

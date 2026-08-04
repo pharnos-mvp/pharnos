@@ -74,7 +74,7 @@ jobs:
       - name: Headers de sécurité (_headers Cloudflare)
         run: npm run headers
 
-      # ── CTD Builder autonome (produit vendu séparément, origine builder.pharnos.com) ──
+      # ── CTD Builder (offre sur licence, servie sur builder.pharnos.com) ──
       # Il partage `src/` avec la plateforme : un import ajouté ici peut lui faire entrer une
       # capacité de sortie réseau sans que personne le voie. Le build ÉCHOUE dans ce cas
       # (`src/builder/isolation.ts`) — c'est la garantie « vos documents ne transitent jamais par
@@ -84,6 +84,12 @@ jobs:
 
       - name: Headers CTD Builder (CSP — connect-src 'self' exact)
         run: npm run headers:builder
+
+      # Le builder s'installe sur des postes de laboratoire et doit être ENTIÈREMENT chargé pour
+      # fonctionner hors ligne : il n'a pas le luxe du chargement à la demande. Le plafond se
+      # relève à la main, dans le commit qui l'a fait grossir — jamais par dérive silencieuse.
+      - name: Budget de poids du CTD Builder (gzip par famille de fichiers)
+        run: npm run budget:builder
 
       - name: Landing EN prérendu synchronisé (SEO /en/)
         # /en/ est GÉNÉRÉ depuis les sources FR de landing/. On régénère et on exige zéro diff :

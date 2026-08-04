@@ -13,22 +13,29 @@ import {
 } from './src/builder/isolation.ts'
 
 /**
- * Cible de build du **CTD Builder autonome** — produit distinct de la plateforme, servi sur une
- * ORIGINE distincte (`builder.pharnos.com`).
+ * Cible de build du **CTD Builder** — l'offre « monter des dossiers conformes au CTD UEMOA »,
+ * servie sur **`pharnos.com/ctd-builder/`**, une entrée du header du site.
  *
- * Pourquoi une seconde configuration plutôt qu'un drapeau dans `vite.config.ts` : les deux
+ * ⚠️ AUCUN nouveau projet Cloudflare. Le builder est **assemblé dans le déploiement de la
+ * landing** (`deploy-landing.yml` → projet `pharnos-landing`). Un projet Pages publie UN dossier :
+ * deux workflows visant le même projet s'écraseraient. D'où un seul workflow qui assemble
+ * `landing/` + `landing/ctd-builder/`.
+ *
+ * ⚠️ La séparation des caches est tout de même assurée, et c'est ce qui compte (§4.4) : IndexedDB
+ * est partagée **par origine**, et `pharnos.com` n'est pas `app.pharnos.com`. Le builder sans
+ * compte et la plateforme multi-tenant ne partagent donc aucune base locale — sans qu'il faille
+ * un troisième domaine pour l'obtenir.
+ *
+ * Pourquoi une seconde configuration Vite plutôt qu'un drapeau dans `vite.config.ts` : les deux
  * artefacts n'ont ni le même périmètre, ni la même CSP, ni le même cycle de déploiement, et
  * surtout le builder doit pouvoir prouver ce qu'il NE contient pas. Un drapeau se trompe en
- * silence ; deux cibles se comparent.
+ * silence ; deux cibles se comparent. C'est le « on ne reconstruit rien, on scinde » : même
+ * `src/`, deux assemblages.
  *
- * ⚠️ L'origine séparée n'est pas cosmétique (§4.4) : IndexedDB est partagée par origine, et le
- * dépôt porte déjà une garde de purge du cache local au changement de compte. Faire cohabiter un
- * builder sans compte et la plateforme multi-tenant sur la même origine, c'est programmer une
- * collision de caches — et, ici, une perte de dossiers.
- *
- *   Build   : npm run build:builder      → web/dist-builder/
- *   Headers : npm run headers:builder
- *   Deploy  : .github/workflows/deploy-builder.yml (projet Pages `pharnos-builder`)
+ *   Build    : npm run build:builder     → web/dist-builder/
+ *   Assemble : npm run assemble:builder  → landing/ctd-builder/ (non versionné)
+ *   Headers  : npm run headers:builder   → section /ctd-builder/* de landing/_headers
+ *   Deploy   : .github/workflows/deploy-landing.yml
  *
  * Ce qui n'est PAS ici, et le sera au lot indiqué :
  *  • service worker / PWA → B9 (activation atomique : on ne pose pas un SW avant sa stratégie) ;
@@ -36,6 +43,13 @@ import {
  *    (les recopier maintenant alourdirait l'artefact de ~30 Mo pour du code absent) ;
  *  • upload de sourcemaps Sentry → jamais : la télémétrie est bannie de cette cible.
  */
+
+/**
+ * Le builder est servi à la RACINE de son propre domaine. `base` reste explicite : c est ce qui
+ * a changé en passant d un chemin de la vitrine à un projet dédié, et ce qu il faudrait
+ * modifier si l on revenait en arrière (ce que la revue déconseille — cf. §10.1 du plan).
+ */
+const BASE = '/'
 
 /** Identifiant de build affiché dans l'app — voir `src/builder/build-id.d.ts`. */
 const buildId = process.env.GITHUB_SHA?.slice(0, 7) ?? 'local'
@@ -71,9 +85,13 @@ function builderIsolationGate(): Plugin {
         if (output.type === 'chunk') {
           emittedModules.push(...Object.keys(output.modules))
           emittedCode.push({ file, code: output.code })
-        } else if (typeof output.source === 'string' && /\.[cm]?js$/.test(file)) {
-          // Asset JavaScript = très probablement un build imbriqué (worker). Son graphe de
-          // modules est hors d'atteinte ici ; son code, non.
+        } else if (typeof output.source === 'string' && /\.([cm]?js|css|html)$/.test(file)) {
+          // JS : très probablement un build imbriqué (worker). Son graphe de modules est hors
+          // d'atteinte ici ; son code, non.
+          // CSS et HTML : ils savent aussi joindre une origine tierce — un `@import
+          // url(https://fonts.googleapis.com/…)` dans 114 Ko de CSS, un `<link rel=preconnect>`
+          // dans la coquille. La CSP les bloquerait à l'exécution, mais cet étage est censé
+          // prouver ce que l'artefact CONTIENT, pas ce que le navigateur voudra bien refuser.
           emittedCode.push({ file, code: output.source })
         }
       }
@@ -88,32 +106,27 @@ function builderIsolationGate(): Plugin {
 }
 
 /**
- * Assets statiques partagés avec la plateforme (icônes, favicon). `publicDir` pointe sur
- * `public-builder/` — qui ne contient que ce qui DIFFÈRE (les en-têtes HTTP) — pour qu'aucun
- * fichier de la plateforme n'atterrisse ici par inadvertance. Le partage est donc explicite,
- * fichier par fichier.
+ * Icônes partagées avec la plateforme. Sur son propre domaine, le builder ne peut plus emprunter
+ * celles de la vitrine : `img-src 'self'` interdit une image d'une autre origine, et l'entrée
+ * HTML les référence en absolu. On les copie donc depuis la SOURCE UNIQUE `public/`, plutôt que
+ * de dupliquer des binaires dans le dépôt.
  *
- * Liste blanche + échec dur si un fichier manque : `public-builder/_redirects` renvoie
- * `index.html` en 200 pour toute URL inconnue, donc une icône absente ne produirait pas un 404
- * mais du HTML servi comme image — une panne muette, exactement le motif déjà rencontré avec les
- * modèles de reconnaissance de caractères.
+ * Échec DUR si un fichier manque : `_redirects` renvoie `index.html` en 200 pour toute URL
+ * inconnue, donc une icône absente ne produirait pas un 404 mais du HTML servi comme image —
+ * une panne muette, le motif déjà rencontré avec les modèles de reconnaissance de caractères.
  */
-function sharedPublicAssets(): Plugin {
-  const FILES = ['favicon.svg', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png']
+function sharedIcons(): Plugin {
+  const FILES = ['favicon.svg', 'apple-touch-icon.png']
   return {
-    name: 'pharnos:builder-shared-assets',
-    // `writeBundle` et non `closeBundle` : `closeBundle` s'exécute AUSSI quand le build a échoué
-    // plus tôt, et son propre message d'erreur MASQUE alors la vraie cause. Constaté en écrivant
-    // le test négatif du garde-fou d'isolation : la violation était remplacée à l'écran par un
-    // « entrée HTML introuvable » incompréhensible.
+    name: 'pharnos:builder-shared-icons',
+    // `writeBundle` et non `closeBundle` : ce dernier s'exécute AUSSI après un build échoué, et
+    // son message masquerait la vraie cause (constaté en écrivant le test du garde-fou).
     writeBundle() {
       const from = path.resolve(import.meta.dirname, 'public')
       const to = path.resolve(import.meta.dirname, 'dist-builder')
       for (const file of FILES) {
         const src = path.join(from, file)
-        if (!fs.existsSync(src)) {
-          this.error(`asset partagé introuvable : ${src} — build interrompu`)
-        }
+        if (!fs.existsSync(src)) this.error(`icône partagée introuvable : ${src}`)
         fs.copyFileSync(src, path.join(to, file))
       }
     },
@@ -169,9 +182,23 @@ export default defineConfig({
     tailwindcss(),
     devEntryHtml(),
     builderIsolationGate(),
-    sharedPublicAssets(),
+    sharedIcons(),
     renameEntryHtml(),
   ],
+  // Le builder est servi SOUS UN CHEMIN de pharnos.com : sans `base`, les URL d'assets émises
+  // pointeraient vers la racine du site (`/assets/…`) et entreraient en collision avec celles de
+  // la landing, qui a déjà un dossier `assets/`.
+  base: BASE,
+  // ⚠️ Port DISTINCT de celui de la plateforme (5173), et ce n'est pas du confort : en production
+  // les deux produits sont séparés par leur ORIGINE, ce qui sépare aussi leurs IndexedDB. En
+  // développement, sans cette ligne, ils partageaient `localhost:5173` — donc la MÊME base. Le
+  // builder écrivait ses dossiers (`orgId: 'local'`) dans la base de la plateforme, et une
+  // déconnexion côté plateforme (`clearLocalData`) les effaçait. La séparation par origine ne
+  // vaut que si elle vaut aussi sur le poste du développeur.
+  server: { port: 4320 },
+  preview: { port: 4320 },
+  // `public-builder/` : les en-têtes HTTP et le repli SPA du domaine, rien d'autre. Aucun
+  // fichier de `public/` (la plateforme) ne doit atterrir ici par inadvertance.
   publicDir: 'public-builder',
   // Le garde-fou s'applique AUSSI aux builds imbriqués des web workers — sans quoi il ne voit
   // pas leur graphe de modules (constaté en revue, cf. `builderIsolationGate`).
@@ -182,8 +209,8 @@ export default defineConfig({
   // ⚠️ Préfixe d'environnement volontairement INEXISTANT dans ce dépôt : sans cette ligne, Vite
   // injecte les `VITE_*` du `.env.local` du poste — dont l'URL Supabase et la clé publiable de
   // PRODUCTION — dans un artefact vendu comme dépourvu de backend. En CI c'est sans effet (aucun
-  // `.env` versionné), mais le dépannage documenté dans `deploy-builder.yml` publie
-  // `dist-builder/` depuis un poste de développement : l'accident serait silencieux et public.
+  // `.env` versionné), mais un assemblage local suivi d'un `wrangler pages deploy landing`
+  // publierait l'accident, silencieusement.
   envPrefix: ['PHARNOS_BUILDER_'],
   define: {
     __BUILDER_BUILD_ID__: JSON.stringify(buildId),

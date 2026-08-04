@@ -1,8 +1,19 @@
 # Déploiement du landing statique (pharnos.com) sur Cloudflare Pages — projet `pharnos-landing`.
+#
 # Raison d'être : l'intégration Git NATIVE de Cloudflare pour ce projet ne publiait plus sur les
 # merges `main` (site live figé sur une vieille version malgré #334/#335). On reprend la main via la
 # CI — même mécanisme que l'app (`deploy.yml`, projet `pharnos`) — pour un déploiement observable et
 # reproductible. `landing/` est statique (aucun build). Le secret CLOUDFLARE_API_TOKEN a Pages:Edit.
+#
+# ⚠️ Ce workflow ne publie QUE la vitrine. Le CTD Builder a son propre domaine et son propre
+# workflow (`deploy-builder.yml`, projet `pharnos-builder`). Il a vécu brièvement assemblé ici,
+# sous `/ctd-builder/`, et cette cohabitation a coûté deux incidents de production le 2026-08-03 :
+# un repli SPA impossible à écrire correctement sous un chemin, et un cache long posé sur un
+# préfixe capable de répondre du HTML. Ne pas y revenir.
+#
+# `pharnos.com/ctdbuilder` reste ici : c'est la PAGE DE VENTE du builder, un fichier statique
+# comme les autres.
+#
 # Dépannage local : `npx wrangler pages deploy landing --project-name pharnos-landing --branch main`.
 name: Deploy landing
 
