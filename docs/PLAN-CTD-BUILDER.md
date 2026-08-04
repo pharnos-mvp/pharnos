@@ -15,14 +15,15 @@
 
 | Quoi             | Où                                                                               | État                                                      |
 | ---------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| Application      | **`builder.pharnos.com`** (projet Pages `pharnos-builder`, `deploy-builder.yml`) | En ligne, **coquille** — pas encore de montage de dossier |
+| Application      | **`builder.pharnos.com`** (projet Pages `pharnos-builder`, `deploy-builder.yml`) | En ligne. **Crée un dossier et affiche son Module 1** (B1.1) ; le classement des pièces manque |
 | Page de vente    | **`pharnos.com/ctdbuilder`** (FR + EN, onglet de premier niveau du header)       | En ligne, vérifiée                                        |
 | Isolation réseau | `web/src/builder/isolation.ts`                                                   | Casse le build, réseau **et** frontière d'offre (§10.2)   |
-| Socle de données | `dossier-repository` & co.                                                       | **Réutilisable** depuis B1.0 (chaîne Supabase coupée)     |
+| Poids            | `npm run budget:builder` (étape de CI)                                           | Entrée 115,3 Ko gzip, plafond 145 Ko                      |
+| Socle de données | `dossier-repository` & co.                                                       | **Branché et vérifié** dans le builder depuis B1.1        |
 
-**Le produit n'est pas vendable tant que B1 n'est pas livré** : le bouton de la page de vente ouvre
-une application qui affiche l'état du poste et rien d'autre. Rien n'est en attente côté
-infrastructure ; tout ce qui reste est du logiciel.
+**Le produit n'est pas vendable tant que B1 n'est pas livré** : on peut désormais créer un dossier
+et voir son arborescence, mais pas encore y ranger une seule pièce — donc rien à compiler et rien à
+déposer. Rien n'est en attente côté infrastructure ; tout ce qui reste est du logiciel.
 
 ⚠️ **Le design de l'application doit être au niveau de la page de vente** (exigence CEO,
 2026-08-03). La coquille actuelle est un écran de diagnostic, pas un design. Cela fait partie de
@@ -41,7 +42,9 @@ de 24 h par dossier**, **crédit consommé après succès**, **commentaire honn�
 — plus une course concurrente refermée au passage. Rien ne bloque donc la création des produits
 Chariow côté règle de décompte.
 
-**Prochaine action : B1 — et sa première étape est identifiée, mesurée, non triviale.**
+**Prochaine action : la suite de B1** — le classement des pièces sous les nœuds de l'arborescence.
+Le socle de données est branché et vérifié (B1.1 ci-dessous) ; ce qui manque au produit pour être
+vendable, c'est de pouvoir y ranger des documents.
 
 ### ✅ B1.0 — LIVRÉ : `ref-overrides` est découplé du réseau
 
@@ -60,6 +63,42 @@ tracée : ce sont des **liens de documentation dans les messages d'exception de 
 Elles iront dans `URL_ALLOWLIST` **avec cette raison** au moment où le dépôt entrera réellement
 dans le builder — pas avant, et pas sans la vérification ci-dessus : une URL raccourcie est opaque
 par construction, l'autoriser revient à faire confiance à la dépendance qui l'émet.
+
+### ✅ B1.1 — LIVRÉ : le builder monte un dossier, hors ligne
+
+**La mesure d'abord, et elle est meilleure qu'espéré.** En branchant `dossier-repository`,
+`ArborescenceTree`, `module1-tree` et les dépôts de pièces jointes et de documents générés dans
+l'entrée du builder, le contrôle de DÉPENDANCES ne signale **plus rien** : B1.0 a réellement coupé
+la chaîne, et le socle de données est réutilisable tel quel. Le seul obstacle restant était bien
+celui qui était prévu — les deux liens de documentation de Dexie.
+
+**Ils sont autorisés, après vérification et pas sur parole** (`node_modules/dexie/dist/dexie.js`
+l. 381 et 4749) : ce sont des littéraux dans des messages d'exception, jamais passés à un `fetch`,
+un `open` ou une navigation. Redirections résolues (301) vers `dexie.org/docs/DexieErrors/…`.
+⚠️ **Autorisés en correspondance EXACTE et ancrée, jamais par domaine** : `tinyurl.com/*` aurait
+laissé un tiers choisir la destination, aujourd'hui ou demain. Un test le prouve — et le protège
+du jour où quelqu'un « simplifiera » la règle en motif de domaine.
+
+Ce que l'écran fait aujourd'hui : lister les dossiers du poste, en créer un (pays · opération ·
+produit), et afficher l'arborescence officielle du Module 1 du pays choisi.
+
+**Vérifié en vrai navigateur, pas seulement en test** : dossier Sénégal créé → **38 nœuds**
+d'arborescence rendus → **retrouvé après rechargement complet** de la page → **aucune requête
+réseau** hors les propres assets de l'application. C'est la recette n°1 de la §9, tenue.
+
+**Mesures** : 1410 tests verts · entrée **61,5 → 115,3 Ko gzip** (le socle de données qui entre) ·
+CSS 19,4 Ko · budget posé à 145/28 Ko.
+
+⚠️ **Le budget de poids existe désormais** (`npm run budget:builder`, étape de CI) — il était dû
+avec ce lot (§10.3). Il porte sur le **gzip de l'ENTRÉE**, parce que le builder doit être
+entièrement chargé pour fonctionner hors ligne : il n'a pas le luxe du chargement à la demande sur
+lequel la plateforme s'appuie. Le relever est un acte, dans le commit qui l'a fait grossir.
+
+**Reste au lot B1** : le classement des pièces sous les nœuds, le catalogue minimal (un dossier se
+crée depuis un produit, décision CEO du 2026-08-03), et la recette visuelle du CEO.
+⚠️ **Dette connue, à traiter en B2** : `createDossier` alimente l'outbox LOCALE que personne ne
+vide dans le builder. Elle est bornée par le stockage, mais elle grossit à chaque écriture — sa
+purge appartient au lot qui traite l'export.
 
 ### B1.0 — la conception, pour mémoire
 

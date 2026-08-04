@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { requestPersistentStorage } from '@/lib/persist'
+import { I18nProvider } from '@/lib/I18nProvider'
+import { BuilderWorkspace } from './BuilderWorkspace'
+import { BuilderErrorBoundary } from './BuilderErrorBoundary'
 
 /**
- * Coquille du CTD Builder autonome (lot B0 — socle de build).
+ * Coquille du CTD Builder autonome — en-tête, montage de dossier, et l'état du poste.
  *
- * Ce que cet écran EST : la preuve que la chaîne de build/déploiement de `pharnos.com/ctd-builder/`
- * tient de bout en bout, et le premier point dur du produit — la durabilité du stockage local.
- * Ce qu'il N'EST PAS : le tableau de bord (§6), qui est le lot B4 et se construira ici.
+ * Le bandeau du bas est un choix produit, pas un aveu (§6) : il rassure (rien ne part), rappelle
+ * la limite (rien ne revient si le poste meurt) et affichera la version de référentiel — le seul
+ * indicateur réglementairement critique. Le tableau de bord complet reste le lot B4.
  *
  * `navigator.storage.persist()` est traité dès maintenant, et pas plus tard, parce que c'est le
  * seul risque de la §5.5 qui détruit des données SANS prévenir : sous pression disque, un
@@ -80,6 +83,14 @@ function StatusRow({ label, value }: { label: string; value: string }) {
 }
 
 export function BuilderShell() {
+  return (
+    <I18nProvider>
+      <BuilderChrome />
+    </I18nProvider>
+  )
+}
+
+function BuilderChrome() {
   const { state, denied, pending, request } = usePersistState()
 
   return (
@@ -92,18 +103,15 @@ export function BuilderShell() {
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-8 md:px-6">
-        <h1 className="font-display text-2xl font-semibold tracking-tight">
-          Édition autonome — socle en place
-        </h1>
-        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Cette version ne contient pas encore le montage de dossier : c'est la chaîne de
-          construction et de déploiement du produit, vérifiée de bout en bout. Le montage arrive au
-          lot B1.
-        </p>
+        {/* La frontière n'entoure QUE le montage de dossier. Le bandeau « État du poste » reste
+            en dehors : c'est lui qui explique le stockage, il doit survivre à sa panne. */}
+        <BuilderErrorBoundary>
+          <BuilderWorkspace />
+        </BuilderErrorBoundary>
 
         <section
           aria-labelledby="etat-du-poste"
-          className="border-border bg-card mt-8 rounded-xl border p-5"
+          className="border-border bg-card mt-12 rounded-xl border p-5"
         >
           <h2 id="etat-du-poste" className="text-sm font-semibold">
             État du poste

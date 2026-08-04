@@ -10,6 +10,7 @@
     "build:builder": "tsc -b && vite build --config vite.builder.config.ts",
     "preview:builder": "vite preview --config vite.builder.config.ts",
     "headers:builder": "node scripts/check-headers.mjs builder",
+    "budget:builder": "node scripts/check-builder-budget.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "lint": "eslint .",

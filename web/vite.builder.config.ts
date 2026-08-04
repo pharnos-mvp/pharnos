@@ -85,9 +85,13 @@ function builderIsolationGate(): Plugin {
         if (output.type === 'chunk') {
           emittedModules.push(...Object.keys(output.modules))
           emittedCode.push({ file, code: output.code })
-        } else if (typeof output.source === 'string' && /\.[cm]?js$/.test(file)) {
-          // Asset JavaScript = très probablement un build imbriqué (worker). Son graphe de
-          // modules est hors d'atteinte ici ; son code, non.
+        } else if (typeof output.source === 'string' && /\.([cm]?js|css|html)$/.test(file)) {
+          // JS : très probablement un build imbriqué (worker). Son graphe de modules est hors
+          // d'atteinte ici ; son code, non.
+          // CSS et HTML : ils savent aussi joindre une origine tierce — un `@import
+          // url(https://fonts.googleapis.com/…)` dans 114 Ko de CSS, un `<link rel=preconnect>`
+          // dans la coquille. La CSP les bloquerait à l'exécution, mais cet étage est censé
+          // prouver ce que l'artefact CONTIENT, pas ce que le navigateur voudra bien refuser.
           emittedCode.push({ file, code: output.source })
         }
       }
@@ -185,6 +189,14 @@ export default defineConfig({
   // pointeraient vers la racine du site (`/assets/…`) et entreraient en collision avec celles de
   // la landing, qui a déjà un dossier `assets/`.
   base: BASE,
+  // ⚠️ Port DISTINCT de celui de la plateforme (5173), et ce n'est pas du confort : en production
+  // les deux produits sont séparés par leur ORIGINE, ce qui sépare aussi leurs IndexedDB. En
+  // développement, sans cette ligne, ils partageaient `localhost:5173` — donc la MÊME base. Le
+  // builder écrivait ses dossiers (`orgId: 'local'`) dans la base de la plateforme, et une
+  // déconnexion côté plateforme (`clearLocalData`) les effaçait. La séparation par origine ne
+  // vaut que si elle vaut aussi sur le poste du développeur.
+  server: { port: 4320 },
+  preview: { port: 4320 },
   // `public-builder/` : les en-têtes HTTP et le repli SPA du domaine, rien d'autre. Aucun
   // fichier de `public/` (la plateforme) ne doit atterrir ici par inadvertance.
   publicDir: 'public-builder',
