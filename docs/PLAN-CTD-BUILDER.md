@@ -4,7 +4,8 @@
 > sans synchronisation en ligne**.
 > **Rôle** : entonnoir vers l'écosystème RIM de Pharnos.
 > **Plans liés** : [PLAN-CHARIOW.md](PLAN-CHARIOW.md) (encaissement, table `orders`, crédits).
-> **Dernière mise au propre** : 2026-08-03 (B0 + page de vente + domaine + B1.0 livrés ; licence arrêtée §5.2).
+> **Dernière mise au propre** : 2026-08-04 (B0 + page de vente + domaine + B1.0 livrés ; licence
+> arrêtée §5.2 ; unité de compte tranchée et métrage corrigé §5.2.6–5.2.7).
 
 ---
 
@@ -31,6 +32,14 @@ B1, pas d'une finition ultérieure.
 crée depuis un produit, comme sur la plateforme. On ne simplifie pas la création : c'est un clone
 sans écosystème, pas un produit différent. Corollaire : `features/catalogue/` entre dans le
 périmètre réutilisé, avec la même règle de scindement que le workspace.
+
+### ✅ Métrage — LIVRÉ (2026-08-04) : l'unité de compte est tranchée et le compteur est juste
+
+Le CEO a tranché : **les paliers 49 € et 249 € comptent des COMPILATIONS** (§5.2.6). Les trois
+correctifs validés à l'audit du 2026-08-03 partent avec la décision (§5.2.7) : **fenêtre de grâce
+de 24 h par dossier**, **crédit consommé après succès**, **commentaire honnête sur le hors-ligne**
+— plus une course concurrente refermée au passage. Rien ne bloque donc la création des produits
+Chariow côté règle de décompte.
 
 **Prochaine action : B1 — et sa première étape est identifiée, mesurée, non triviale.**
 
@@ -168,6 +177,11 @@ est la commission Chariow. On tarife donc pour l'adoption, pas pour couvrir un c
 | **Licence annuelle** | **illimitées, 12 mois** | **490 €** | —               | 321 450 F | 273 233 F      |
 
 Trois intentions, pas trois volumes : **j'essaie · je travaille · je ne compte plus.**
+
+**Ce qui se décompte, tranché le 2026-08-04 : la COMPILATION** (§5.2.6), pas le dossier — même
+unité que la plateforme, donc un seul registre et une seule règle. Ce qu'il faut dire sur la page
+de vente, parce que c'est ce qui rend l'offre honnête : **recompiler le même dossier dans les 24 h
+est gratuit.** Corriger une coquille et relancer ne coûte pas un crédit.
 
 - **49 € est déjà l'ancre du catalogue** (Audit Regafy AI) : « 49 € — trois compilations, ou un
   audit ». Le prospect n'a pas de nouveau repère à apprendre.
@@ -354,6 +368,9 @@ avec la création des produits Chariow.
 
 **À lire avant d'écrire une ligne de licence : la plateforme a déjà tranché, et le builder s'aligne.**
 
+> 📌 Section conservée telle quelle pour la trace du raisonnement. **Les trois correctifs qu'elle
+> annonce sont livrés** — voir §5.2.7.
+
 - [`0039_compilation_metering.sql`](../supabase/migrations/0039_compilation_metering.sql) : table
   `compilations` (registre) + RPC `record_compilation`, garde atomique fail-closed.
 - [`0040_drop_dossier_creation_quota.sql`](../supabase/migrations/0040_drop_dossier_creation_quota.sql) :
@@ -401,17 +418,114 @@ pas devant B1.
   l'utilisateur — son référentiel de travail. Le registre garde la trace : trente compilations sur
   un dossier unique avec un produit renommé trente fois, ça se voit après coup.
 
-**Correctifs validés à livrer sur la plateforme** (avant ou pendant le lot licence) :
+#### 5.2.6 ✅ L'unité de compte — TRANCHÉE PAR LE CEO (2026-08-04)
 
-| #   | Correctif                                                                               | Pourquoi                                                                                            |
-| --- | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| a   | **Fenêtre de grâce par dossier (24 h)** : recompiler le _même_ dossier ne consomme rien | Un RA corrige trois coquilles dans une session ; sans ça, trois crédits brûlés et un client furieux |
-| b   | **Consommer le crédit après succès**                                                    | Un crédit ne doit jamais être brûlé sans livrable                                                   |
-| c   | **Commentaire honnête** sur le hors-ligne                                               | Un commentaire faux sur une garde de quota finira par tromper quelqu'un                             |
+> **Les paliers 49 € (3) et 249 € (20) comptent des COMPILATIONS.**
+> Le **490 €/an reste illimité, donc sans compteur** — juste une clé valide.
 
-⏳ **À trancher avant de créer les produits Chariow** : les paliers 49 € / 249 € comptent-ils des
-**compilations** (aligné plateforme, recommandé) ou des **dossiers** ? Le 490 € = illimité, donc
-sans compteur — juste une clé valide.
+C'est l'option alignée sur la plateforme : une seule règle, un seul registre, un seul code à
+maintenir des deux côtés (§5.2.4). Elle a une conséquence directe, et c'est elle qui a été livrée
+en même temps que la décision : **compter chaque clic n'est vivable que si corriger une coquille
+ne coûte rien.** Sur un pack de 3, trois allers-retours de relecture épuisaient l'offre sans qu'un
+seul dossier soit déposé.
+
+#### 5.2.7 ✅ LIVRÉ — les trois correctifs de l'audit
+
+Migration [`0082_compilation_grace_window.sql`](../supabase/migrations/0082_compilation_grace_window.sql)
+et son pendant client.
+
+| #   | Correctif                                                                               | Où                                                                                             |
+| --- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| a   | **Fenêtre de grâce par dossier (24 h)** : recompiler le _même_ dossier ne consomme rien | `compilation_quota()` (0082) — autorisée **même au plafond**, puisqu'elle ne décompte rien      |
+| b   | **Consommer le crédit après succès**                                                    | `runMeteredCompile()` — préflight → fabrication → enregistrement, ordre prouvé par 6 tests      |
+| c   | **Commentaire honnête** sur le hors-ligne                                               | `DossierWorkspacePage.tsx` — le trou est nommé, ainsi que sa vraie fermeture (bons signés)      |
+
+Le fail-open subsiste et il a changé de poids : l'appel étant désormais le DERNIER, une erreur RPC
+livre le paquet sans rien décompter. On ne le referme pas — refuser un livrable déjà fabriqué pour
+une panne réseau serait pire — mais `recordCompilation` **réessaie une fois** puis **remonte la
+fuite à Sentry**. Une fuite qu'on ne mesure pas n'existe pas dans les chiffres, seulement dans la
+trésorerie.
+
+**Deux trous trouvés en revue, fermés dans la même livraison — ils valaient à eux seuls le lot :**
+
+- 🚪 **Le paquet sortait gratuitement par l'aperçu.** `DossierPreviewPage` recompilait le PDF
+  **octet pour octet** (mêmes arguments, même filigrane) et l'offrait au **téléchargement** et à
+  l'**envoi à l'agence**, sans le moindre décompte. Un compte au plafond n'avait qu'à ouvrir
+  `/apercu`. Le métrage a donc changé de définition : ce qui se compte n'est pas « le clic sur
+  Compiler », c'est **le paquet qui quitte l'application**. Les trois sorties passent désormais par
+  `useCompilationCredit`, et la fenêtre de grâce fait que compiler + télécharger + envoyer le même
+  dossier coûte **un** crédit. L'aperçu à l'écran, lui, reste libre : regarder n'est pas déposer.
+- 💸 **Un pack se rechargeait tout seul chaque mois.** Le cap se dérogeait par org
+  (`org_quota_override.max_compilations`) mais la **période** se lisait sur le plan, et tous les
+  plans sont `'month'`. Livrer « 3 compilations » à l'acheteur du pack 49 € lui donnait donc
+  3 compilations **par mois, à vie**. `org_quota_override.compilations_period` répare le modèle :
+  un pack se livre en `'lifetime'`. **Sans cette colonne, les offres 49 € et 249 € n'étaient pas
+  exprimables** — le décompte demandé par le CEO n'aurait pas tenu au premier client.
+  ⚠️ La période se lit par `coalesce(override, plan)` **aux deux endroits** : dans le compteur qui
+  DÉCIDE (`compilation_quota`) et dans celui qui s'AFFICHE (`my_org_plan`). Ne l'avoir corrigé qu'à
+  un seul endroit affichait « 0 / 3 » le 1er du mois pendant que le serveur refusait — un compteur
+  d'affichage qui contredit le compteur de décision est pire qu'une absence de compteur.
+  🔧 **Livrer un pack reste un `INSERT` SQL manuel** : aucune UI, et `admin_set_org_quota` ne touche
+  pas ces colonnes (vérifié — il ne les écrase donc pas). À écrire dans le runbook d'encaissement.
+
+⚠️ **Et un piège que la fermeture a créé, corrigé dans la foulée :** métrer la sortie du paquet
+rendait un dossier **payé la veille irrécupérable le lendemain** — la fenêtre de grâce ayant
+expiré, le client repayait pour retélécharger ce qu'il possédait déjà. C'est exactement ce que la
+§5.2.3 interdit (« on limite la _création_, jamais la _récupération_ »). D'où **l'empreinte
+SHA-256 du paquet** (`compilations.content_sha256`), qui sépare deux gratuités très différentes :
+
+| | Condition | Durée |
+| --- | --- | --- |
+| **Récupération** | mêmes octets déjà facturés à l'org | **illimitée** — on ne paie jamais deux fois le même paquet |
+| **Correction** | octets différents, dans les 24 h d'une compilation facturée du même dossier | 24 h, **10 gratuités** au plus |
+
+Des octets **différents** hors fenêtre sont facturés : ce n'est donc toujours pas « 1 crédit =
+1 dossier ». Et l'empreinte redonne au registre le pouvoir de témoin que la grâce lui avait retiré —
+trente lignes avec trente empreintes distinctes, ce ne sont pas trente corrections. Les deux
+gratuités sont **budgétées séparément** (`compilations.free_reason`) : sans ça, un cycle normal —
+compiler, télécharger, envoyer — brûlait deux des dix gratuités de correction en récupérations.
+
+🔬 **Le piège qui rendait tout cela inerte, et qui ne se voit pas à l'œil nu.** `PDFDocument.create()`
+estampille `/CreationDate` et `/ModDate` **à la seconde**, dans le dictionnaire Info compressé.
+Deux compilations rigoureusement identiques donnaient donc deux fichiers différents — **mesuré :
+1,1 s d'écart suffit à changer le SHA-256**. L'empreinte n'aurait jamais correspondu d'une session
+à l'autre, la récupération n'aurait jamais joué, et le client aurait repayé pour retélécharger.
+Les métadonnées sont désormais figées (`stampFixedMetadata`), la date de couverture vient du
+**dossier** et non de l'horloge, et un test compile deux fois à plus d'une seconde d'écart pour
+comparer les octets. **Toute évolution du compilateur qui réintroduit une source de temps casse
+silencieusement la facturation** — ce test est le garde-fou.
+
+⚠️ **À dire sans détour, parce que le lot licence va s'appuyer dessus** : l'empreinte est calculée
+par le client, donc forgeable, et rejouer une empreinte déjà facturée donne des compilations
+gratuites. Ce n'est pas un affaiblissement — bloquer l'appel RPC dans les outils du navigateur
+suffit déjà, le fail-open le traite comme un succès — mais il faut l'écrire : **tout le métrage est
+honnête-client jusqu'aux bons signés Ed25519** (§5.2.2). Ce lot réduit la **sur**-facturation d'un
+client de bonne foi ; il ne prétend pas résister à un client de mauvaise foi.
+
+**Trois choix de conception valent d'être retenus, parce qu'ils se paieraient cher à refaire :**
+
+1. **La grâce n'est pas un non-enregistrement.** Toute compilation entre au registre ; seule la
+   colonne `billable` dit si elle a consommé un crédit — le registre reste complet.
+   ⚠️ Mais **il ne démasque pas l'abus** : trente lignes sur le même `dossier_id` en 24 h, c'est
+   exactement la forme que la grâce bénit, et le contenu n'est pas enregistré (§5.2.2). Comme
+   `dossier_id` vient du client et n'a pas de clé étrangère (un dossier local-only n'existe pas
+   côté serveur), la seule borne possible est un **plafond de dix gratuités par fenêtre** : un
+   crédit n'achète pas 24 h illimitées, il achète onze compilations.
+2. **La fenêtre est ancrée sur la dernière compilation FACTURÉE**, jamais sur la dernière ligne.
+   Ancrée sur n'importe quelle ligne, une compilation gratuite à t+23 h en aurait ouvert une autre
+   jusqu'à t+47 h, et ainsi de suite : le dossier ne serait plus jamais facturé. Le test le prouve.
+   Corollaire du même piège : un `dossier_id` NULL n'ouvre **jamais** la grâce, sinon la première
+   compilation sans dossier rendrait gratuites toutes les suivantes de l'org.
+3. **Le verrou consultatif par org.** La garde de 0039 se décrivait comme « ATOMIQUE » ; elle ne
+   l'était pas — un `count(*)` suivi d'un `insert` sous READ COMMITTED laisse deux onglets lire
+   `used = cap - 1` et insérer tous les deux. `pg_advisory_xact_lock` par org ferme la course.
+   À défaut, vendre un pack de 3 revenait à en livrer 4 à qui ouvre deux onglets.
+
+⚠️ **Ce qui reste ouvert, et qui n'est pas un oubli** : hors ligne, une compilation n'est comptée
+nulle part et **rien ne la rattrape**. Décision inchangée (§5.2.5, défaut 2) : pas de rustine de
+réconciliation, la fermeture est l'autorisation **préalable** par bons signés. `runMeteredCompile`
+a d'ailleurs été écrit pour que le builder y branche la vérification de bon **sans changer
+l'ordre** des trois temps.
 
 ### 5.3 Trois modes de stockage — et pourquoi le Drive passe par le dossier
 

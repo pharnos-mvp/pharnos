@@ -118,6 +118,28 @@ interface Run {
 
 /* ----------------------------- Utilitaires ----------------------------- */
 
+/**
+ * Métadonnées FIGÉES — le paquet compilé doit être une fonction pure de son contenu.
+ *
+ * ⚠️ Sans ceci, `PDFDocument.create()` estampille `/CreationDate` et `/ModDate` **à la seconde**
+ * dans le dictionnaire Info (compressé, donc invisible à l'œil nu dans le fichier). Deux
+ * compilations rigoureusement identiques produisent alors deux fichiers différents — mesuré :
+ * 1,1 s d'écart suffit à changer le SHA-256.
+ *
+ * Ce n'est pas un détail cosmétique : le métrage (migration 0082) identifie un paquet par
+ * l'empreinte de ses octets pour offrir la RÉCUPÉRATION d'un livrable déjà payé. Une empreinte qui
+ * ne se répète jamais rend cette règle inerte, et le client repaie pour retélécharger ce qu'il a
+ * déjà acheté. La date de fabrication n'a par ailleurs aucune valeur réglementaire ici : celle qui
+ * compte est imprimée sur la couverture.
+ */
+function stampFixedMetadata(doc: PDFDocument): void {
+  const EPOCH = new Date(0)
+  doc.setCreationDate(EPOCH)
+  doc.setModificationDate(EPOCH)
+  doc.setProducer('Pharnos')
+  doc.setCreator('Pharnos')
+}
+
 export function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; isPng: boolean } | null {
   const m = /^data:(image\/[\w+.-]+);base64,(.*)$/s.exec(dataUrl)
   if (!m) return null
@@ -1187,6 +1209,7 @@ export async function compileDossier(
 ): Promise<Uint8Array> {
   // 1) Contenu (hors TDM) dans un doc temporaire, en mémorisant l'index de page de départ de chaque nœud.
   const contentDoc = await PDFDocument.create()
+  stampFixedMetadata(contentDoc)
   const fonts: Fonts = {
     regular: await contentDoc.embedFont(StandardFonts.TimesRoman),
     bold: await contentDoc.embedFont(StandardFonts.TimesRomanBold),
@@ -1289,6 +1312,7 @@ export async function compileDossier(
 
   // 2) Assemblage final = couvertures + pages TDM (réservées) + contenu copié.
   const final = await PDFDocument.create()
+  stampFixedMetadata(final)
   const fFonts: Fonts = {
     regular: await final.embedFont(StandardFonts.TimesRoman),
     bold: await final.embedFont(StandardFonts.TimesRomanBold),

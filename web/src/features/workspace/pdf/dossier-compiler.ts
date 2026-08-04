@@ -165,7 +165,15 @@ export async function compileDossierToPdf(args: CompileArgs): Promise<CompileRes
   const header = branding?.headerImage ? dataUrlToBytes(branding.headerImage) : null
   const footer = branding?.footerImage ? dataUrlToBytes(branding.footerImage) : null
 
-  const monthYear = new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+  // Date de couverture tirée du DOSSIER, jamais de l'horloge. Deux raisons, la seconde décisive :
+  // un paquet déjà produit ne doit pas changer de date parce qu'on le rouvre le mois suivant ; et
+  // le métrage (0082) identifie un paquet par l'empreinte de ses octets pour offrir la
+  // récupération d'un livrable déjà payé — une couverture qui bascule au 1er du mois referait
+  // payer le client pour retélécharger ce qu'il possède.
+  const coverDate = new Date(dossier.updatedAt || dossier.createdAt)
+  const monthYear = Number.isNaN(coverDate.getTime())
+    ? '' // date absente → pas de mention, jamais « Invalid Date » sur une couverture d'AMM
+    : coverDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
   const cover = product
     ? {
         activity: dossier.activity,
