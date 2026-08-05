@@ -94,11 +94,18 @@ export function PublicUpgradePage({ token }: { token: string }) {
 
   // Sondage — uniquement pendant le traitement. Sonder un état stable, c'est ~150 requêtes par
   // onglet oublié sur une surface publique.
+  //
+  // ⚠️ La dépendance est `vue.etape`, PAS `vue` : `vueDepuis` rend un objet neuf à chaque rendu,
+  // donc dépendre de lui ferait démonter et remonter l'intervalle à chaque rendu — y compris ceux
+  // qui n'ont rien à voir avec l'avancement. Le minuteur repartirait de zéro à chaque fois et,
+  // sous une cascade de rendus, il ne se déclencherait jamais : la barre de progression resterait
+  // figée sur une commande qui, elle, avance.
+  const sonder = doitSonder(vue)
   useEffect(() => {
-    if (!doitSonder(vue)) return
+    if (!sonder) return
     const id = setInterval(() => void rafraichir(), SONDAGE_MS)
     return () => clearInterval(id)
-  }, [vue, rafraichir])
+  }, [sonder, rafraichir])
 
   /** Lit le PDF puis franchit la porte. Le `jobId` désigne le dépôt : le serveur seul le donne. */
   const lireEtFranchir = useCallback(
