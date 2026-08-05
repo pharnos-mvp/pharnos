@@ -488,6 +488,40 @@ texte de bout en bout, et un journal déposé à la place d'un RCP (refus sans c
 ⚠️ **`order-source` n'est pas encore déployée** (le déploiement Edge est hors CI), et `order-status`
 doit l'être à nouveau pour rendre `docType`.
 
+#### Ce que la revue de code a corrigé — six bloquants, cinq payants (`54c92c5`)
+
+La revue a répondu **DO NOT SHIP** sur la première version. Chaque constat a été re-vérifié avant
+correction ; aucun n'était un faux positif. Les cinq premiers coûtaient de l'argent à quelqu'un qui
+venait d'en donner.
+
+| # | Le défaut | Ce qu'il coûtait |
+|---|---|---|
+| B1 | La landing nomme l'étiquetage `etiquetage`, le serveur `labeling`, et `lireDemandeDepot` retombait **en silence** sur `rcp` | l'acheteur d'un étiquetage voyait son document jugé contre le gabarit du RCP et refusé **trois fois** : commande morte, 19 000 F encaissés, zéro livrable |
+| B2 | `pontEnCours` est une variable de **module** — morte au rechargement — alors que la référence vit 7 jours dans `localStorage` | chaque rechargement, retour arrière ou réouverture d'onglet **consommait un dépôt sur trois** |
+| B3 | Le récapitulatif d'un bundle annonçait les trois fichiers comme « reçus » ; le pont n'en transmet qu'un | deux documents payés effacés de l'appareil au 7ᵉ jour, sans un mot |
+| B4 | `rafraichir` rendait `null` sur **toute** erreur, et `vueDepuis(null)` vaut « expiré » | une coupure 3G ou un 429 annonçaient « ce lien n'est plus valable » à quelqu'un qui venait de payer — sans aucun bouton de reprise |
+| B5 | `source_uploaded` est écrit dès que le serveur **constate** le fichier, donc avant que le navigateur ait su le lire | un PDF protégé par mot de passe enfermait sur un sablier définitif : pas de sondage, pas de bouton, deux dépôts inatteignables |
+| B6 | Ce qui précédait le dépôt était `arrayBuffer()` — de la copie d'octets, qui ne juge **rien** | un PDF chiffré ou corrompu consommait une tentative avant d'échouer, et le commentaire jurait le contraire |
+
+**Trois leçons qui valent au-delà de ce lot :**
+
+1. **Un repli silencieux sur une valeur par défaut est pire qu'un refus.** B1 tenait entièrement dans
+   un `? brut : 'rcp'`, et un test figeait ce comportement — il affirmait exactement l'inverse de ce
+   qu'il fallait garantir. Deux vocabulaires qui se ressemblent (`etiquetage` / `labeling`) ne se
+   rapprochent que par une table explicite.
+2. **Une garde en variable de module n'est pas une garde.** B2 : elle protège d'un double clic,
+   jamais d'un rechargement. Une garantie d'argent vit dans une persistance, pas dans une portée.
+3. **« Je n'ai pas de données » n'est pas « ça n'existe pas ».** B4 et M5 sont le même défaut, à deux
+   endroits : un `catch` qui rassemble une panne réseau et un état métier fait dire à l'écran des
+   choses fausses sur la commande d'un client.
+
+**Aussi corrigé** : le changement de langue relançait toute la séquence (`t` change d'identité avec
+`lang` et entrait dans les dépendances) — deux reconnaissances de caractères en parallèle, puis un
+faux « refusé » ; `order-source` pouvait faire **remonter** une commande refusée vers « préparation »
+(la garde ne vivait que côté client) ; la promesse « un e-mail vous préviendra » portait sur un envoi
+qui n'existe pas encore (U5) ; et **le jeton de livraison partait dans les traces Sentry**, qui
+nomment leurs transactions d'après l'URL — masquage posé sur les trois portes.
+
 ### U4 — Le moteur en série — 2 jours
 
 Edge **`job-tick`** (§2.5) : réclamation `SKIP LOCKED`, `boundedMap`, auto-chaînage, sémaphore
