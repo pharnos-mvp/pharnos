@@ -500,13 +500,16 @@ function etapePanneau(n) {
   // L'argumentaire a fait son travail : au moment de payer, il ne fait plus que pousser le
   // bouton vers le bas. On rend au panneau la hauteur qu'il coûtait.
   $("#upgdesc").hidden = n === 4 || n === 5;
+  // ⚠️ Sur la confirmation, le premier élément focalisable est `#cfmback` et NON `#cfmsend` :
+  // depuis le pont, ce bouton naît caché, et `focus()` sur un élément caché ne fait rien — en
+  // silence. Le clavier serait resté sur `body`, sur l'écran même où l'acheteur attend une suite.
   const premier = $(
     n === 5
       ? "#paymclose"
       : n === 4
         ? "#payprenom"
         : n === 3
-          ? "#cfmsend"
+          ? "#cfmback"
           : "#upgclose",
   );
   if (premier) premier.focus();
