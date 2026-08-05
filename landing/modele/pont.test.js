@@ -9,6 +9,7 @@ import {
   ATTENTE_MAX_MS,
   CADENCE_MS,
   delaiClaim,
+  docTypeServeur,
   lireClaim,
   putRetentable,
   urlLivraison,
@@ -146,5 +147,39 @@ Deno.test("pont : seul ce qui a une chance de passer se retente", () => {
   // lentement — et pendant ce temps l'acheteur regarde un écran qui prétend travailler.
   for (const s of [400, 401, 403, 404, 409, 413]) {
     assertEquals(putRetentable(s), false, `${s}`);
+  }
+});
+
+/* ─────────────────────────── Le vocabulaire des types de document ──────────────────────────── */
+
+Deno.test(
+  "pont : l’étiquetage s’appelle `labeling` côté serveur — le traduire ou ne rien envoyer",
+  () => {
+    // ⚠️ Le défaut que ce test ferme a tué une commande entière. La landing nomme l'étiquetage
+    // `etiquetage` ; la liste blanche du serveur le nomme `labeling`. Envoyé tel quel, il était
+    // inconnu et le serveur retombait en silence sur `rcp` : l'acheteur d'un étiquetage voyait son
+    // document jugé contre le gabarit du RCP, refusé trois fois, sa commande payée verrouillée.
+    assertEquals(docTypeServeur("rcp"), "rcp");
+    assertEquals(docTypeServeur("notice"), "notice");
+    assertEquals(docTypeServeur("etiquetage"), "labeling");
+  },
+);
+
+Deno.test("pont : ce qu’on ne sait pas traduire ne part PAS", () => {
+  // Rien plutôt qu'un type approximatif : la page de suivi redemandera le document, alors qu'un
+  // mauvais type consomme un dépôt sur trois ET fait juger contre le mauvais gabarit.
+  for (const inconnu of ["pght", "cover", "labeling", "", null, undefined, 7]) {
+    assertEquals(docTypeServeur(inconnu), null, String(inconnu));
+  }
+  // ⚠️ Les clés du prototype : `objet['constructor']` rend une fonction — donc vraie — et un
+  // `?? null` ne rattraperait rien. La table est une `Map`, qui n'a pas de prototype à confondre.
+  for (const poison of [
+    "constructor",
+    "toString",
+    "valueOf",
+    "__proto__",
+    "hasOwnProperty",
+  ]) {
+    assertEquals(docTypeServeur(poison), null, poison);
   }
 });

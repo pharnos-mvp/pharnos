@@ -17,6 +17,7 @@ import {
   newDeliveryToken,
   PRODUITS,
   PULSE_EVENT_VENTE,
+  DOSSIER_IMPOSSIBLE,
   jugerObjetSource,
   sourceObjectFolder,
   sourceObjectKey,
@@ -296,15 +297,31 @@ Deno.test('dépôt : les clés du PROTOTYPE ne sont pas des types de document', 
   // et un job définitivement inutilisable.
   for (const poison of ['constructor', 'toString', 'valueOf', 'hasOwnProperty', '__proto__']) {
     assertEquals(DOC_TYPES_VENDABLES.has(poison), false, poison)
-    const d = lireDemandeDepot({ contentType: TYPE_SOURCE, size: 10, docType: poison })
-    assertEquals((d as { docType: string }).docType, 'rcp', poison)
+    assertEquals('erreur' in lireDemandeDepot({ contentType: TYPE_SOURCE, size: 10, docType: poison }), true, poison)
   }
-  // Et un gabarit réel mais NON VENDU ne passe pas non plus : juger contre le mauvais gabarit
-  // donnerait un verdict de recevabilité sur un référentiel que le client n'a pas acheté.
-  for (const hors of ['pght', 'cover']) {
-    const d = lireDemandeDepot({ contentType: TYPE_SOURCE, size: 10, docType: hors })
-    assertEquals((d as { docType: string }).docType, 'rcp', hors)
+})
+
+Deno.test('dépôt : un type PRÉSENT mais inconnu fait REFUSER — il ne retombe pas sur `rcp`', () => {
+  // ⚠️ Le défaut que ce test ferme a coûté une commande entière. La landing nomme l'étiquetage
+  // `etiquetage`, la liste blanche le nomme `labeling` : avec un repli muet, l'acheteur d'un
+  // étiquetage voyait son document enregistré comme un RCP, jugé contre le gabarit du RCP, et
+  // refusé — trois fois, jusqu'à épuisement des dépôts d'une commande payée, sans qu'aucun écran
+  // ne puisse expliquer pourquoi. Un repli silencieux sur le mauvais gabarit est pire qu'un refus.
+  for (const inconnu of ['etiquetage', 'pght', 'cover', 'smpc', 'RCP']) {
+    const d = lireDemandeDepot({ contentType: TYPE_SOURCE, size: 10, docType: inconnu })
+    assertEquals('erreur' in d, true, `accepté à tort : ${inconnu}`)
   }
+  // Les trois types VENDUS passent, chacun sous son propre nom.
+  for (const vendu of ['rcp', 'notice', 'labeling']) {
+    const d = lireDemandeDepot({ contentType: TYPE_SOURCE, size: 10, docType: vendu })
+    assertEquals((d as { docType: string }).docType, vendu, vendu)
+  }
+  // Un type ABSENT, lui, retombe sur `rcp` : c'est un appelant qui ne se prononce pas, pas un
+  // appelant qui se trompe.
+  assertEquals(
+    (lireDemandeDepot({ contentType: TYPE_SOURCE, size: 10 }) as { docType: string }).docType,
+    'rcp',
+  )
 })
 
 /* ──────────────────────────────────────── Le pont ──────────────────────────────────────────── */
@@ -324,9 +341,11 @@ Deno.test('objet source : le dossier se dérive de la clé, et une clé sans dos
   // ⚠️ Le défaut que ce test attrape : `slice(0, lastIndexOf('/'))` sur une clé sans séparateur rend
   // `slice(0, -1)`, donc `source.pd` — un préfixe qui liste un dossier VOISIN, dont un objet
   // homonyme validerait une source jamais déposée. Une chaîne vide, elle, ne liste rien.
-  assertEquals(sourceObjectFolder('source.pdf'), '')
-  assertEquals(sourceObjectFolder('/source.pdf'), '')
-  assertEquals(sourceObjectFolder(''), '')
+  // ⚠️ Et le repli n'est PAS la chaîne vide : `list('')` liste la RACINE du bucket — le pire des
+  // deux mondes. C'est un préfixe qui ne peut PAS exister (`orders/` ne contient que des UUID).
+  for (const sansDossier of ['source.pdf', '/source.pdf', '']) {
+    assertEquals(sourceObjectFolder(sansDossier), DOSSIER_IMPOSSIBLE, sansDossier)
+  }
 })
 
 Deno.test('objet source : absent, c’est 409 — la demande est bonne, c’est l’état qui ne l’est pas', () => {

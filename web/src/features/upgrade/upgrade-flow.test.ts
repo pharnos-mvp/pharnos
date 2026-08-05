@@ -191,3 +191,39 @@ describe('estDocType', () => {
     }
   })
 })
+
+describe('vueDepuis — échec de lecture', () => {
+  it('un PDF illisible ROUVRE le dépôt, il n’enferme pas dans un sablier', () => {
+    // ⚠️ `source_uploaded` est écrit par le serveur dès qu'il CONSTATE le fichier, donc bien avant
+    // que le navigateur ait réussi à le lire. Sans cette sortie, un PDF protégé par mot de passe —
+    // courant en affaires réglementaires — laissait l'acheteur sur l'étape « préparation » : aucun
+    // sondage, aucun bouton, et un rechargement qui relit le même fichier illisible. Ses deux
+    // dépôts restants étaient inatteignables sur une commande payée.
+    const bloque = vueDepuis(resume({ statut: 'source_uploaded' }))
+    expect(bloque.etape).toBe('preparation')
+    const libre = vueDepuis(resume({ statut: 'source_uploaded' }), { echecLecture: true })
+    expect(libre.etape).toBe('depot')
+    expect(libre.peutRedeposer).toBe(true)
+  })
+
+  it('mais tant qu’une lecture est EN COURS, elle a le dernier mot', () => {
+    // Sinon un échec précédent ferait clignoter l'écran de dépôt par-dessus la nouvelle tentative.
+    const v = vueDepuis(resume({ statut: 'source_uploaded' }), {
+      echecLecture: true,
+      preparationEnCours: true,
+    })
+    expect(v.etape).toBe('preparation')
+  })
+
+  it('et il ne recouvre JAMAIS un travail lancé, fini ou en panne', () => {
+    // Une fois le moteur parti, l'échec de lecture appartient au passé : proposer un dépôt
+    // relancerait un traitement à ~2 $ sur une commande qui en a déjà un.
+    expect(vueDepuis(resume({ statut: 'running' }), { echecLecture: true }).etape).toBe(
+      'traitement',
+    )
+    expect(vueDepuis(resume({ statut: 'done', pret: true }), { echecLecture: true }).etape).toBe(
+      'livraison',
+    )
+    expect(vueDepuis(resume({ statut: 'failed' }), { echecLecture: true }).etape).toBe('panne')
+  })
+})

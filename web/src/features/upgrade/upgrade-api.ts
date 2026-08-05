@@ -31,11 +31,21 @@ export class UpgradeApiError extends Error {
   readonly raison: RaisonEchec
   /** Message DESTINÉ AU CLIENT quand le serveur en fournit un (la porte de recevabilité le fait). */
   readonly messageClient?: string
-  constructor(raison: RaisonEchec, message: string, messageClient?: string) {
+  /**
+   * Code MACHINE rendu par le serveur (`already_running`, `no_source`, `gated_out`…).
+   *
+   * ⚠️ Sans lui, `already_running` — qui arrive en 409, donc en exception — était indiscernable
+   * d'un vrai refus : deux onglets ouverts sur la même commande faisaient afficher « ce dépôt a
+   * été refusé » sur un traitement qui venait de démarrer normalement. Le code se lit dans
+   * `error` OU dans `status` selon la surface, les deux formes existent en production.
+   */
+  readonly code?: string
+  constructor(raison: RaisonEchec, message: string, messageClient?: string, code?: string) {
     super(message)
     this.name = 'UpgradeApiError'
     this.raison = raison
     this.messageClient = messageClient
+    this.code = code
   }
 }
 
@@ -76,10 +86,19 @@ async function poster<T>(chemin: string, corps: unknown): Promise<T> {
   }
 
   if (!res.ok) {
+    // Le code machine vit tantôt dans `error` (refus), tantôt dans `status` (`already_running`) :
+    // les deux formes existent en production, et l'écran doit pouvoir les distinguer.
+    const code =
+      typeof payload.error === 'string'
+        ? payload.error
+        : typeof payload.status === 'string'
+          ? payload.status
+          : undefined
     throw new UpgradeApiError(
       raisonDepuisHttp(res.status),
-      `${chemin} : ${res.status} ${String(payload.error ?? '')}`.trim(),
+      `${chemin} : ${res.status} ${code ?? ''}`.trim(),
       typeof payload.message === 'string' ? payload.message : undefined,
+      code,
     )
   }
   return payload as T

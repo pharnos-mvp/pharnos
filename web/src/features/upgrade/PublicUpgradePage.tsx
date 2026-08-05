@@ -15,7 +15,7 @@
  * vérifierait rien.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AlertTriangle, CheckCircle2, CircleAlert, FileText, Loader2, Upload } from 'lucide-react'
+import { CheckCircle2, CircleAlert, FileText, Info, Loader2, Upload } from 'lucide-react'
 
 import { LangSwitch } from '@/components/layout/LangSwitch'
 import { Button } from '@/components/ui/button'
@@ -65,32 +65,64 @@ type Travail =
   | { quoi: 'envoi' }
   | { quoi: 'porte' }
 
+/**
+ * L'accès à la commande, distingué de son CONTENU.
+ *
+ * ⚠️ « Je n'ai pas de données » n'est PAS « votre lien est mort ». Sans cette distinction, une
+ * coupure 3G, un 503 ou un 429 — `order-status` compte par IP, et les opérateurs mobiles de la
+ * région font du CGNAT derrière une poignée d'adresses — affichait « Ce lien n'est plus valable »
+ * à quelqu'un qui venait de payer 19 000 F.
+ */
+type Acces = 'inconnu' | 'ok' | 'invalide' | 'injoignable'
+
 export function PublicUpgradePage({ token }: { token: string }) {
   const { t, lang } = useI18n()
   const [resume, setResume] = useState<ResumeCommande | null>(null)
+  const [acces, setAcces] = useState<Acces>('inconnu')
   const [chargement, setChargement] = useState(true)
   const [travail, setTravail] = useState<Travail>({ quoi: 'repos' })
-  /** Message du serveur sur un refus de recevabilité — affiché TEL QUEL : il dit ce qui n'a pas été débité. */
-  const [refus, setRefus] = useState<string | null>(null)
-  /** Ce qui mérite d'être dit sans empêcher d'avancer (document tronqué, panne réseau passagère). */
-  const [avis, setAvis] = useState<string | null>(null)
+  /** Refus de recevabilité — le message du SERVEUR s'affiche tel quel : il dit ce qui n'a pas été débité. */
+  const [refus, setRefus] = useState<Message | null>(null)
+  /** Ce qui mérite d'être dit sans empêcher d'avancer (document tronqué, lecture partielle). */
+  const [avis, setAvis] = useState<Message | null>(null)
+  /** La lecture du PDF a échoué : l'écran doit rouvrir le dépôt, pas laisser tourner un sablier. */
+  const [echecLecture, setEchecLecture] = useState(false)
   const [docType, setDocType] = useState<DocType>('rcp')
+  /** L'acheteur a-t-il choisi son type de document lui-même ? Alors le serveur ne l'écrase plus. */
+  const choixManuel = useRef(false)
+  /**
+   * Garde de réentrance NON RÉACTIVE. Un second onglet, un `StrictMode` de développement ou un
+   * changement de langue lançaient une deuxième préparation en parallèle : deux moteurs de
+   * reconnaissance sur le même téléphone, deux barres qui se disputent, puis deux `franchirPorte`
+   * dont le second reçoit 409 — et l'écran annonçait « ce dépôt a été refusé » alors que le
+   * traitement venait de démarrer normalement.
+   */
+  const enVol = useRef(false)
 
   const rafraichir = useCallback(async (): Promise<ResumeCommande | null> => {
     try {
       const r = (await lireStatut(token)) as ResumeCommande
       setResume(r)
-      if (estDocType(r.docType)) setDocType(r.docType)
+      setAcces('ok')
+      // ⚠️ Ne JAMAIS écraser un choix de l'acheteur. Après un refus, `orders.doc_type` porte encore
+      // le type du dépôt précédent : le réappliquer effacerait en silence la correction que
+      // l'acheteur vient de faire, et le dépôt suivant serait jugé contre le même mauvais gabarit.
+      if (!choixManuel.current && estDocType(r.docType)) setDocType(r.docType)
       return r
     } catch (e) {
+      const mort = e instanceof UpgradeApiError && e.raison === 'lien_invalide'
       // ⚠️ Un lien invalide EFFACE le résumé : garder l'ancien afficherait un écran de suivi
-      // rassurant sur une commande à laquelle on n'a plus accès.
-      if (e instanceof UpgradeApiError && e.raison === 'lien_invalide') setResume(null)
+      // rassurant sur une commande à laquelle on n'a plus accès. Une panne, elle, n'efface RIEN.
+      if (mort) setResume(null)
+      setAcces(mort ? 'invalide' : 'injoignable')
       return null
     }
   }, [token])
 
-  const vue = vueDepuis(resume, { preparationEnCours: travail.quoi !== 'repos' })
+  const vue = vueDepuis(resume, {
+    preparationEnCours: travail.quoi !== 'repos',
+    echecLecture,
+  })
 
   // Sondage — uniquement pendant le traitement. Sonder un état stable, c'est ~150 requêtes par
   // onglet oublié sur une surface publique.
@@ -107,78 +139,82 @@ export function PublicUpgradePage({ token }: { token: string }) {
     return () => clearInterval(id)
   }, [sonder, rafraichir])
 
-  /** Lit le PDF puis franchit la porte. Le `jobId` désigne le dépôt : le serveur seul le donne. */
-  const lireEtFranchir = useCallback(
-    async (donnees: ArrayBuffer, jobId: string) => {
-      let prep: PreparedUpgradeSource
+  /**
+   * Lit le PDF — c'est ce que le navigateur seul sait faire, et c'est ce qui décide de tout.
+   *
+   * ⚠️ Rend `null` sur échec, après avoir posé `echecLecture` : l'écran rouvre alors le dépôt au
+   * lieu de laisser tourner un sablier que rien ne vient arrêter.
+   */
+  const lireLeDocument = useCallback(
+    async (donnees: ArrayBuffer): Promise<PreparedUpgradeSource | null> => {
       try {
         setTravail({ quoi: 'lecture', phase: 'reading', ratio: 0 })
-        prep = await prepareUpgradeSource(donnees, {
+        const prep = await prepareUpgradeSource(donnees, {
           onPhase: (phase) => setTravail({ quoi: 'lecture', phase, ratio: 0 }),
           onProgress: (ratio) => setTravail((v) => (v.quoi === 'lecture' ? { ...v, ratio } : v)),
         })
+        if (prep.truncated) setAvis('tronque')
+        return prep
       } catch (e) {
-        setTravail({ quoi: 'repos' })
         // ⚠️ On NOMME la cause. « Texte source requis » ferait passer un défaut de fichier pour une
         // panne de notre service, sur une page où l'acheteur a déjà payé.
-        setRefus(
-          e instanceof ControlCorpusTooLargeError
-            ? t({
-                fr: 'Ce document est trop volumineux pour être traité rubrique par rubrique. Envoyez-nous le fichier à contact@pharnos.com — votre commande reste ouverte.',
-                en: 'This document is too large to process section by section. Send us the file at contact@pharnos.com — your order stays open.',
-              })
-            : t({
-                fr: "Nous n'avons pas réussi à lire ce PDF — il est peut-être protégé par mot de passe ou endommagé. Essayez le fichier d'origine, ou un export PDF récent.",
-                en: 'We could not read this PDF — it may be password-protected or damaged. Try the original file, or a fresh PDF export.',
-              }),
-        )
-        await rafraichir()
-        return
+        setRefus(e instanceof ControlCorpusTooLargeError ? 'trop_volumineux' : 'illisible')
+        setEchecLecture(true)
+        return null
       }
+    },
+    [],
+  )
 
-      if (prep.truncated) {
-        setAvis(
-          t({
-            fr: 'Ce document est long : nous ne l’avons pas lu en entier. Les rubriques situées dans les dernières pages pourront ressortir « Non fourni ».',
-            en: 'This document is long: we did not read all of it. Sections in the last pages may come back as “Not provided”.',
-          }),
-        )
-      }
-
+  /** Franchit la porte de recevabilité. Le `jobId` désigne le dépôt : le serveur seul le donne. */
+  const franchir = useCallback(
+    async (prep: PreparedUpgradeSource, jobId: string) => {
       try {
         setTravail({ quoi: 'porte' })
         const verdict = await franchirPorte(token, jobId, prep.controlText, prep.sourceKind)
         // Un refus revient en 200 : la commande est intacte, et le message du serveur dit
         // lui-même que rien n'a été débité. On l'affiche tel quel plutôt que de le reformuler.
-        if (verdict.status === 'refused') setRefus(verdict.message ?? null)
-        else setRefus(null)
+        setRefus(verdict.status === 'refused' ? { serveur: verdict.message ?? '' } : null)
       } catch (e) {
-        setRefus(messageErreur(e, t))
+        // ⚠️ `already_running` arrive en 409, donc en exception : c'est le cas NOMINAL de deux
+        // onglets ouverts sur la même commande. L'annoncer « refusé » ferait croire à un rejet
+        // alors que le traitement vient de démarrer.
+        setRefus(estDejaLance(e) ? null : cleErreur(e))
       } finally {
         setTravail({ quoi: 'repos' })
         await rafraichir()
       }
     },
-    [token, rafraichir, t],
+    [token, rafraichir],
   )
 
   /** Le document que le pont a déjà téléversé depuis `pharnos.com`. */
   const reprendreDepuisServeur = useCallback(async () => {
+    if (enVol.current) return
+    enVol.current = true
     setTravail({ quoi: 'source' })
     setChargement(false)
     try {
       const src = await demanderSource(token)
       const donnees = await telechargerSource(src.url)
-      if (estDocType(src.docType)) setDocType(src.docType)
-      await lireEtFranchir(donnees, src.jobId)
-    } catch {
-      // `no_source` / `source_absente` / `already_started` : aucun n'est une panne. On relit l'état
-      // et on laisse `vueDepuis` choisir l'écran — dépôt si rien n'est arrivé, suivi si le travail
-      // a démarré entre-temps.
+      if (!choixManuel.current && estDocType(src.docType)) setDocType(src.docType)
+      const prep = await lireLeDocument(donnees)
+      if (prep) await franchir(prep, src.jobId)
+      else await rafraichir()
+    } catch (e) {
+      // ⚠️ Trois situations OPPOSÉES arrivaient ici ensemble. `no_source`, `source_absente`,
+      // `gated_out` et `already_started` sont nominaux : on relit l'état et `vueDepuis` choisit
+      // l'écran. Une panne réseau ou un 429, en revanche, ne disent RIEN de la commande — et
+      // proposer un écran de dépôt à quelqu'un dont le document est déjà chez nous, c'est
+      // l'inviter à brûler un dépôt sur trois pour un incident qui n'est pas le sien.
+      if (e instanceof UpgradeApiError && e.raison === 'refus') setRefus(null)
+      else setAcces('injoignable')
+    } finally {
       setTravail({ quoi: 'repos' })
+      enVol.current = false
       await rafraichir()
     }
-  }, [token, lireEtFranchir, rafraichir])
+  }, [token, lireLeDocument, franchir, rafraichir])
 
   // Séquence d'ouverture, en UN seul effet : lire l'état, puis — et seulement si le document ne
   // peut pas être un document REFUSÉ — demander au serveur s'il en détient déjà un.
@@ -204,56 +240,60 @@ export function PublicUpgradePage({ token }: { token: string }) {
   /** Le document que l'acheteur choisit ICI — parce qu'il a fermé l'onglet, ou qu'il redépose. */
   const deposer = useCallback(
     async (fichier: File) => {
+      if (enVol.current) return
+      enVol.current = true
       setRefus(null)
       setAvis(null)
-      const invalide = validerFichierSource(fichier)
-      if (invalide) {
-        setRefus(
-          invalide === 'taille'
-            ? t({
-                fr: 'Ce fichier dépasse 25 Mo. Un export PDF sans les images de fond passe presque toujours.',
-                en: 'This file is over 25 MB. A PDF export without background images almost always fits.',
-              })
-            : t({
-                fr: 'Seuls les fichiers PDF sont acceptés.',
-                en: 'Only PDF files are accepted.',
-              }),
-        )
-        return
-      }
-
-      // ⚠️ ON LIT AVANT DE DÉPOSER, et l'ordre est la décision. C'est `order-upload-url` qui
-      // consomme un dépôt sur les trois : un PDF illisible refusé ici ne coûte rien à l'acheteur,
-      // alors que le même fichier déposé d'abord lui aurait pris une tentative sur une commande
-      // déjà payée.
-      let donnees: ArrayBuffer
+      setEchecLecture(false)
       try {
-        setTravail({ quoi: 'lecture', phase: 'reading', ratio: 0 })
-        donnees = await fichier.arrayBuffer()
-      } catch {
-        setTravail({ quoi: 'repos' })
-        setRefus(
-          t({
-            fr: 'Ce fichier n’a pas pu être ouvert depuis cet appareil. Réessayez, ou choisissez-le à nouveau.',
-            en: 'This file could not be opened from this device. Try again, or pick it once more.',
-          }),
-        )
-        return
-      }
+        const invalide = validerFichierSource(fichier)
+        if (invalide) {
+          setRefus(invalide === 'taille' ? 'trop_gros' : 'pdf_seulement')
+          return
+        }
 
-      try {
+        let donnees: ArrayBuffer
+        try {
+          donnees = await fichier.arrayBuffer()
+        } catch {
+          setRefus('fichier_inaccessible')
+          return
+        }
+
+        // ⚠️ ON LIT LE PDF AVANT DE DEMANDER L'URL DE DÉPÔT, et l'ordre EST la décision.
+        //
+        // C'est `order-upload-url` qui consomme un dépôt sur les trois, par compare-and-swap. Lire
+        // d'abord, c'est refuser gratuitement un PDF chiffré, corrompu ou vide de couche texte —
+        // exactement les fichiers qui échouent. Dans l'autre ordre, chacun de ces trois cas prenait
+        // une tentative sur une commande déjà payée, et trois essais suffisaient à la verrouiller.
+        //
+        // (Copier les octets — `arrayBuffer()` — ne juge RIEN : ce n'est pas « lire le PDF ».)
+        const prep = await lireLeDocument(donnees)
+        if (!prep) return
+
         setTravail({ quoi: 'envoi' })
         const depot = await demanderUrlDepot(token, fichier.size, docType)
         await televerserAvecReprises(depot.uploadUrl, depot.uploadToken, fichier)
-        await lireEtFranchir(donnees, depot.jobId)
+        await franchir(prep, depot.jobId)
       } catch (e) {
+        setRefus(cleErreur(e))
+      } finally {
         setTravail({ quoi: 'repos' })
-        setRefus(messageErreur(e, t))
+        enVol.current = false
         await rafraichir()
       }
     },
-    [token, docType, lireEtFranchir, rafraichir, t],
+    [token, docType, lireLeDocument, franchir, rafraichir],
   )
+
+  /** La reprise manuelle — le seul bouton de cette page qui ne dépend d'aucun état serveur. */
+  const reessayer = useCallback(async () => {
+    setAcces('inconnu')
+    setChargement(true)
+    const r = await rafraichir()
+    if (doitChercherSource(r)) await reprendreDepuisServeur()
+    else setChargement(false)
+  }, [rafraichir, reprendreDepuisServeur])
 
   if (chargement) {
     return (
@@ -262,6 +302,29 @@ export function PublicUpgradePage({ token }: { token: string }) {
           <Loader2 className="size-4 animate-spin" />
           {t({ fr: 'Chargement de votre commande…', en: 'Loading your order…' })}
         </div>
+      </Cadre>
+    )
+  }
+
+  // ⚠️ « Je n'ai pas pu joindre le serveur » N'EST PAS « votre lien est mort ». Une coupure 3G, un
+  // 503 ou un 429 — `order-status` compte par IP, et les opérateurs de la région partagent les
+  // leurs — affichaient à quelqu'un qui venait de payer que sa commande n'existait plus.
+  if (acces === 'injoignable' && !resume) {
+    return (
+      <Cadre>
+        <Titre
+          icone={<CircleAlert className="text-muted-foreground size-5" />}
+          titre={t({ fr: 'Connexion perdue', en: 'Connection lost' })}
+        />
+        <p className="text-muted-foreground text-sm">
+          {t({
+            fr: 'Nous n’arrivons pas à joindre nos serveurs. Votre commande et votre lien sont intacts — ce lien reste valable 30 jours.',
+            en: 'We cannot reach our servers. Your order and your link are intact — this link stays valid for 30 days.',
+          })}
+        </p>
+        <Button type="button" onClick={() => void reessayer()} className="w-full">
+          {t({ fr: 'Réessayer', en: 'Try again' })}
+        </Button>
       </Cadre>
     )
   }
@@ -283,6 +346,8 @@ export function PublicUpgradePage({ token }: { token: string }) {
     )
   }
 
+  const dire = (m: Message): string => (typeof m === 'string' ? t(MESSAGES[m]) : m.serveur)
+
   return (
     <Cadre>
       <Titre
@@ -291,14 +356,17 @@ export function PublicUpgradePage({ token }: { token: string }) {
         sousTitre={t(LIBELLES_DOC[docType])}
       />
 
-      {avis && <Encart ton="avis">{avis}</Encart>}
-      {refus && <Encart ton="refus">{refus}</Encart>}
+      {avis && <Encart ton="avis">{dire(avis)}</Encart>}
+      {refus && <Encart ton="refus">{dire(refus)}</Encart>}
 
       {vue.etape === 'depot' && (
         <EcranDepot
           resume={resume}
           docType={docType}
-          onDocType={setDocType}
+          onDocType={(d) => {
+            choixManuel.current = true
+            setDocType(d)
+          }}
           onFichier={(f) => void deposer(f)}
         />
       )}
@@ -371,7 +439,9 @@ function EcranDepot({
         <select
           className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
           value={docType}
-          onChange={(e) => estDocType(e.target.value) && onDocType(e.target.value)}
+          onChange={(e) => {
+            if (estDocType(e.target.value)) onDocType(e.target.value)
+          }}
         >
           {DOC_TYPES.map((d) => (
             <option key={d} value={d}>
@@ -490,12 +560,17 @@ function EcranTraitement({
         </p>
       )}
 
-      {/* La promesse de la maquette, et elle est VRAIE à partir d'ici : le travail vit sur nos
-          serveurs, plus dans cet onglet. */}
+      {/* La promesse de la maquette, et elle devient VRAIE ici : le travail vit sur nos serveurs,
+          plus dans cet onglet.
+
+          ⚠️ ELLE NE PARLE PAS D'E-MAIL. L'e-mail « vos fichiers sont prêts » appartient à U5 et
+          n'existe pas encore : `job-tick` n'envoie rien. Adosser « vous pouvez fermer » à un envoi
+          qui n'a pas lieu transformerait une fermeture d'onglet en abandon silencieux. Ce qui est
+          vrai, en revanche, c'est que le LIEN dure 30 jours — et c'est cela qu'on promet. */}
       <Encart ton="avis">
         {t({
-          fr: 'Vous pouvez fermer cette page. Le traitement continue sans vous, et un e-mail vous préviendra dès que vos fichiers seront prêts.',
-          en: 'You can close this page. Processing continues without you, and an e-mail will tell you when your files are ready.',
+          fr: 'Vous pouvez fermer cette page : le traitement continue sans vous. Revenez sur ce lien quand vous voulez, il reste valable 30 jours.',
+          en: 'You can close this page: processing continues without you. Come back to this link whenever you like — it stays valid for 30 days.',
         })}
       </Encart>
 
@@ -522,8 +597,8 @@ function EcranLivraison({ resume, lang }: { resume: ResumeCommande | null; lang:
       </div>
       <p className="text-muted-foreground text-sm">
         {t({
-          fr: 'Les cinq fichiers — le document en français et en anglais, chacun en Word et en PDF, plus la revue réglementaire — se fabriquent ici même, dans votre navigateur.',
-          en: 'The five files — the document in French and English, each in Word and PDF, plus the regulatory review — are built right here, in your browser.',
+          fr: 'Votre livrable comprend cinq fichiers : le document en français et en anglais, chacun en Word et en PDF, plus la revue réglementaire.',
+          en: 'Your deliverable has five files: the document in French and in English, each in Word and PDF, plus the regulatory review.',
         })}
       </p>
       {/* ⚠️ SEAM U5 — la fabrication des cinq fichiers est le lot suivant (`lib/deliverables`, plus
@@ -597,10 +672,12 @@ function Encart({ ton, children }: { ton: 'avis' | 'refus'; children: React.Reac
           : 'text-muted-foreground bg-muted/40',
       )}
     >
+      {/* ⚠️ Pas d'icône d'alerte sur un `avis` : le même encart porte « vous pouvez fermer cette
+          page », qui est une bonne nouvelle. Un triangle jaune devant en ferait un avertissement. */}
       {ton === 'refus' ? (
         <CircleAlert className="mt-0.5 size-4 shrink-0" />
       ) : (
-        <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+        <Info className="mt-0.5 size-4 shrink-0" />
       )}
       <span>{children}</span>
     </div>
@@ -624,25 +701,80 @@ function Barre({ ratio }: { ratio: number }) {
   )
 }
 
-/** Traduit une panne d'appel en phrase utile. Jamais un code, jamais « erreur inconnue ». */
-function messageErreur(e: unknown, t: (v: { fr: string; en: string }) => string): string {
-  if (e instanceof UpgradeApiError) {
-    if (e.messageClient) return e.messageClient
-    if (e.raison === 'trop_de_requetes') {
-      return t({
-        fr: 'Trop de tentatives depuis cette connexion. Patientez une minute, puis réessayez.',
-        en: 'Too many attempts from this connection. Wait a minute, then try again.',
-      })
-    }
-    if (e.raison === 'refus') {
-      return t({
-        fr: 'Ce dépôt a été refusé. Si cela se reproduit, écrivez-nous à contact@pharnos.com — votre commande reste ouverte.',
-        en: 'This upload was refused. If it happens again, write to contact@pharnos.com — your order stays open.',
-      })
-    }
-  }
-  return t({
+/* ─────────────────────────────────────── Les messages ──────────────────────────────────────── */
+//
+// ⚠️ LES ÉTATS PORTENT DES CLÉS, PAS DES PHRASES — et ce n'est pas une préférence de style.
+//
+// `t` est un `useCallback` dont l'identité change avec la langue. Traduire dans les rappels le
+// faisait entrer dans leurs dépendances, donc dans celles de l'effet d'ouverture : un clic sur
+// FR/EN pendant la reconnaissance d'un scan relançait TOUTE la séquence. Deux moteurs de
+// reconnaissance en parallèle sur le même téléphone, deux barres de progression concurrentes,
+// puis deux appels à la porte dont le second recevait 409 — et l'écran annonçait « refusé » sur
+// un traitement qui venait de démarrer normalement. Une clé, elle, ne dépend d'aucune langue.
+
+type CleMessage =
+  | 'trop_volumineux'
+  | 'illisible'
+  | 'pdf_seulement'
+  | 'trop_gros'
+  | 'fichier_inaccessible'
+  | 'trop_de_requetes'
+  | 'refus_generique'
+  | 'reseau'
+  | 'tronque'
+
+/** Un message vient soit de NOUS (une clé), soit du SERVEUR (déjà rédigé, déjà dans la bonne langue). */
+type Message = CleMessage | { serveur: string }
+
+const MESSAGES: Record<CleMessage, { fr: string; en: string }> = {
+  trop_volumineux: {
+    fr: 'Ce document est trop volumineux pour être traité rubrique par rubrique. Envoyez-nous le fichier à contact@pharnos.com — votre commande reste ouverte.',
+    en: 'This document is too large to process section by section. Send us the file at contact@pharnos.com — your order stays open.',
+  },
+  illisible: {
+    fr: "Nous n'avons pas réussi à lire ce PDF — il est peut-être protégé par mot de passe ou endommagé. Essayez le fichier d'origine, ou un export PDF récent. Cette tentative n'a rien coûté.",
+    en: 'We could not read this PDF — it may be password-protected or damaged. Try the original file, or a fresh PDF export. This attempt cost you nothing.',
+  },
+  pdf_seulement: {
+    fr: 'Seuls les fichiers PDF sont acceptés.',
+    en: 'Only PDF files are accepted.',
+  },
+  trop_gros: {
+    fr: 'Ce fichier dépasse 25 Mo. Un export PDF sans les images de fond passe presque toujours.',
+    en: 'This file is over 25 MB. A PDF export without background images almost always fits.',
+  },
+  fichier_inaccessible: {
+    fr: 'Ce fichier n’a pas pu être ouvert depuis cet appareil. Réessayez, ou choisissez-le à nouveau.',
+    en: 'This file could not be opened from this device. Try again, or pick it once more.',
+  },
+  trop_de_requetes: {
+    fr: 'Trop de tentatives depuis cette connexion. Patientez une minute, puis réessayez.',
+    en: 'Too many attempts from this connection. Wait a minute, then try again.',
+  },
+  refus_generique: {
+    fr: 'Ce dépôt a été refusé. Si cela se reproduit, écrivez-nous à contact@pharnos.com — votre commande reste ouverte.',
+    en: 'This upload was refused. If it happens again, write to contact@pharnos.com — your order stays open.',
+  },
+  reseau: {
     fr: 'La connexion a échoué. Votre commande est intacte — réessayez dans un instant.',
     en: 'The connection failed. Your order is intact — try again in a moment.',
-  })
+  },
+  tronque: {
+    fr: 'Ce document est long : nous ne l’avons pas lu en entier. Les rubriques situées dans les dernières pages pourront ressortir « Non fourni ».',
+    en: 'This document is long: we did not read all of it. Sections in the last pages may come back as “Not provided”.',
+  },
+}
+
+/** Le serveur a-t-il dit « c'est déjà lancé » ? Ce n'est pas un refus, c'est la course de deux onglets. */
+const estDejaLance = (e: unknown): boolean =>
+  e instanceof UpgradeApiError && e.code === 'already_running'
+
+/** Traduit une panne d'appel en clé. Jamais un code, jamais « erreur inconnue ». */
+function cleErreur(e: unknown): Message {
+  if (e instanceof UpgradeApiError) {
+    if (e.messageClient) return { serveur: e.messageClient }
+    if (e.raison === 'trop_de_requetes') return 'trop_de_requetes'
+    if (e.raison === 'refus') return 'refus_generique'
+  }
+  return 'reseau'
 }

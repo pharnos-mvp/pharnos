@@ -20,6 +20,7 @@ import {
 import { VIGILANCE } from "./checking/vigilance.js?v=2026.1";
 import {
   delaiClaim,
+  docTypeServeur,
   lireClaim,
   PUT_ATTENTE_MS,
   PUT_ESSAIS,
@@ -1302,17 +1303,24 @@ function ouvrirConfirmation(cmd) {
   const offre = trois
     ? L(["les trois documents", "all three documents"])
     : L(["un document", "one document"]);
-  // Le récapitulatif nomme TOUS les fichiers reçus : sur un bundle, l'acheteur doit voir que
-  // ses trois documents sont bien là et n'a plus rien à envoyer.
-  const recus = [
-    `${cmd.nomFichier} (${tailleLisible(cmd.octets, lang)})`,
-    ...(cmd.annexes ?? []).map(
-      (a) => `${a.nomFichier} (${tailleLisible(a.octets, lang)})`,
-    ),
-  ];
+  // ⚠️ LE RÉCAPITULATIF NE NOMME QUE CE QUI PART. Il annonçait les trois fichiers d'un bundle comme
+  // « reçus » — alors que le pont n'en transmet qu'un et que les deux autres sont effacés de
+  // l'appareil au bout de sept jours. Un acheteur qui lit « vos trois documents sont là » ferme son
+  // onglet et perd deux documents payés, sans qu'aucun écran ne l'ait prévenu. Tant que le compteur
+  // de dépôts est de 3 par COMMANDE et non par document (hors périmètre, PLAN-UPGRADE-PROD §4),
+  // c'est le message qui doit dire la vérité, pas le code qui doit faire semblant.
   $("#cfmrecap").textContent =
     `${L(m.nom)} · ${nomPays(cmd.pays)} · ${libelleActivite(cmd.activite)} · ${offre}` +
-    ` · ${recus.join(" · ")}`;
+    ` · ${cmd.nomFichier} (${tailleLisible(cmd.octets, lang)})`;
+  if (trois) {
+    $("#cfmdesc-trio").hidden = false;
+    $("#cfmdesc-trio").textContent = L([
+      `Seul ${cmd.nomFichier} part maintenant au traitement. Pour les deux autres documents du lot, écrivez-nous à contact@pharnos.com en rappelant la référence ${cmd.id.slice(0, 8)} — ils sont compris dans votre commande.`,
+      `Only ${cmd.nomFichier} goes to processing now. For the two other documents in the bundle, write to contact@pharnos.com quoting reference ${cmd.id.slice(0, 8)} — they are included in your order.`,
+    ]);
+  } else {
+    $("#cfmdesc-trio").hidden = true;
+  }
   // ⚠️ NE JAMAIS annoncer une réception qui n'a pas eu lieu. Tant que le pont n'a pas rendu la
   // main, le document est encore dans l'IndexedDB de l'acheteur — et rien n'autorise à le laisser
   // fermer son onglet. C'est `franchirLePont` qui écrit ici, état par état.
@@ -1389,13 +1397,27 @@ async function envoyerDocument(token, cmd) {
   const fichier = cmd.fichier;
   if (!(fichier instanceof Blob)) return false;
 
+  // ⚠️ Ne rien envoyer sous un type que le serveur ne connaît pas : il le rangerait ailleurs, et la
+  // porte jugerait le document contre le mauvais gabarit. Mieux vaut laisser la page de suivi le
+  // redemander que de brûler un dépôt sur un malentendu de vocabulaire.
+  const docType = docTypeServeur(cmd.doc);
+  if (!docType) return false;
+
   const { status, corps } = await appelOrders("order-upload-url", {
     token,
     size: fichier.size,
-    docType: cmd.doc,
+    docType,
     contentType: "application/pdf",
   });
-  if (status !== 200 || typeof corps.uploadUrl !== "string") return false;
+  // ⚠️ `uploadToken` se vérifie AUSSI : un `Bearer undefined` part au PUT, échoue en 403 non
+  // retentable — et le dépôt, lui, vient d'être consommé.
+  if (
+    status !== 200 ||
+    typeof corps.uploadUrl !== "string" ||
+    typeof corps.uploadToken !== "string"
+  ) {
+    return false;
+  }
 
   for (let essai = 1; essai <= PUT_ESSAIS; essai++) {
     let code = null;
@@ -1470,11 +1492,30 @@ async function franchirLePont(cmd) {
       return;
     }
 
-    direPont(
-      L(["Envoi de votre document…", "Uploading your document…"]),
-      L(["Ne fermez pas cette page.", "Please keep this page open."]),
-    );
-    const envoye = await envoyerDocument(jeton.token, cmd);
+    // ⚠️ LE PONT NE SE FRANCHIT QU'UNE FOIS, ET LA GARDE DOIT SURVIVRE À UN RECHARGEMENT.
+    //
+    // `pontEnCours` est une variable de module : elle meurt avec la page. Or `?paiement=ok` reste
+    // dans l'historique, la référence vit sept jours dans `localStorage`, et `reprendre()` relance
+    // donc tout le pont à chaque rechargement, retour arrière ou réouverture d'onglet. Chaque
+    // passage redemandait une URL de dépôt — et `order-upload-url` en CONSOMME un sur trois par
+    // compare-and-swap. Trois visites suffisaient à verrouiller une commande payée.
+    //
+    // Le drapeau vit donc où vit le document : dans la commande, en IndexedDB.
+    let envoye = cmd.depotFait === true;
+    if (!envoye) {
+      direPont(
+        L(["Envoi de votre document…", "Uploading your document…"]),
+        L(["Ne fermez pas cette page.", "Please keep this page open."]),
+      );
+      envoye = await envoyerDocument(jeton.token, cmd);
+      if (envoye) {
+        // Écrit AVANT la redirection : c'est la seule fenêtre où l'on sait que le document est
+        // arrivé et où la page est encore vivante pour le noter.
+        await sauverCommande({ ...cmd, depotFait: true }).catch((e) =>
+          console.error("depot note", e),
+        );
+      }
+    }
 
     // ⚠️ On redirige MÊME si l'envoi a échoué. La page de suivi sait redemander le fichier ; y
     // laisser l'acheteur avec un message d'erreur sur la landing, lui, l'y laisserait pour de bon.

@@ -39,6 +39,28 @@ export function urlLivraison(token, hote) {
 }
 
 /**
+ * Correspondance entre les clés de documents de la landing et la liste blanche du SERVEUR.
+ *
+ * ⚠️ **Les deux vocabulaires diffèrent, et le repli muet coûtait une commande entière.** La landing
+ * nomme l'étiquetage `etiquetage` ; `DOC_TYPES_VENDABLES` le nomme `labeling`. Envoyé tel quel, il
+ * était inconnu du serveur, qui retombait en silence sur `rcp` : l'acheteur d'un étiquetage voyait
+ * son document enregistré comme un RCP, jugé par la porte contre le gabarit du RCP, et refusé —
+ * trois fois, jusqu'à épuisement des dépôts d'une commande payée, sans qu'aucun écran ne puisse
+ * expliquer pourquoi.
+ *
+ * ⚠️ Une `Map`, jamais un objet littéral : `objet['constructor']` rend une fonction — donc vraie —
+ * et un `?? null` ne rattraperait rien. Une `Map` n'a pas de prototype à confondre avec ses données.
+ */
+const DOC_TYPE_SERVEUR = new Map([
+  ["rcp", "rcp"],
+  ["notice", "notice"],
+  ["etiquetage", "labeling"],
+]);
+
+/** Le nom que le serveur attend, ou `null` si nous ne savons pas traduire — et alors on n'envoie pas. */
+export const docTypeServeur = (doc) => DOC_TYPE_SERVEUR.get(doc) ?? null;
+
+/**
  * Traduit une réponse de `order-claim` en décision.
  *
  * Les quatre réponses du serveur ne sont PAS interchangeables, et deux d'entre elles arrivent avec

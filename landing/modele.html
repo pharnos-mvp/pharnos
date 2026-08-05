@@ -1013,6 +1013,10 @@
             Votre commande est enregistrée
           </h4>
           <p class="upsell-d" id="cfmrecap"></p>
+          <!-- Bundle « les trois documents » : seul le principal traverse le pont. Le compteur de
+               dépôts vaut 3 par COMMANDE, donc trois documents l'épuiseraient sans laisser de
+               reprise. On le DIT ici plutôt que de perdre deux fichiers en silence. -->
+          <p class="upsell-d" id="cfmdesc-trio" hidden></p>
           <p class="upsell-d" id="cfmnext" aria-live="polite"></p>
           <div class="stack">
             <button

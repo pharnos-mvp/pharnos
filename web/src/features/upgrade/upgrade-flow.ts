@@ -98,7 +98,7 @@ export interface VueUpgrade {
  */
 export function vueDepuis(
   resume: ResumeCommande | null,
-  options: { preparationEnCours?: boolean } = {},
+  options: { preparationEnCours?: boolean; echecLecture?: boolean } = {},
 ): VueUpgrade {
   if (!resume) {
     return { etape: 'expire', progression: 0, fermable: false, peutRedeposer: false }
@@ -118,6 +118,18 @@ export function vueDepuis(
     // selon le navigateur.
     const progression = resume.total > 0 ? Math.min(1, resume.faites / resume.total) : 0
     return { etape: 'traitement', progression, fermable: true, peutRedeposer: false }
+  }
+  // ⚠️ UN ÉCHEC DE LECTURE ROUVRE LE DÉPÔT — et cette sortie doit venir AVANT la préparation.
+  //
+  // `source_uploaded` est écrit par le serveur dès qu'il CONSTATE le fichier, donc bien avant que
+  // le navigateur ait réussi à le lire. Sans cette sortie, un PDF protégé par mot de passe — cas
+  // courant en affaires réglementaires — laissait l'acheteur sur un sablier définitif : étape
+  // « préparation », aucun sondage, aucun bouton, et un rechargement qui relit le même fichier
+  // illisible. Ses deux dépôts restants étaient inatteignables sur une commande déjà payée.
+  //
+  // Elle passe APRÈS `running` : une fois le travail lancé, l'échec de lecture appartient au passé.
+  if (options.echecLecture && !options.preparationEnCours) {
+    return { etape: 'depot', progression: 0, fermable: true, peutRedeposer }
   }
   // `source_uploaded` : le fichier est arrivé, le navigateur doit encore le lire avant la porte.
   if (options.preparationEnCours || resume.statut === 'source_uploaded') {

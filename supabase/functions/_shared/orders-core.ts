@@ -250,12 +250,17 @@ export const sourceObjectKey = (orderId: string, jobId: string): string =>
  *
  * ⚠️ `lastIndexOf('/')` rend `-1` sur une clé sans séparateur, et `slice(0, -1)` amputerait alors
  * le dernier caractère au lieu de refuser : on listerait un dossier voisin, dont l'objet homonyme
- * validerait une source qui n'a jamais été déposée. Une clé sans dossier n'est pas une clé de ce
- * parcours — on rend la chaîne vide, qui ne liste rien.
+ * validerait une source qui n'a jamais été déposée.
+ *
+ * ⚠️ Et le repli n'est PAS la chaîne vide : `list('')` liste la RACINE du bucket, donc le pire des
+ * deux mondes — un préfixe qui rend des objets sans aucun rapport avec cette commande. Le repli est
+ * un préfixe qui n'existe pas et ne peut pas exister (`orders/` ne contient que des UUID).
  */
+export const DOSSIER_IMPOSSIBLE = 'orders/__aucun__'
+
 export function sourceObjectFolder(path: string): string {
   const coupe = path.lastIndexOf('/')
-  return coupe > 0 ? path.slice(0, coupe) : ''
+  return coupe > 0 ? path.slice(0, coupe) : DOSSIER_IMPOSSIBLE
 }
 
 /**
@@ -337,9 +342,20 @@ export function lireDemandeDepot(body: unknown): DemandeDepot | { erreur: string
   if (!Number.isFinite(size) || size <= 0) return { erreur: 'taille absente' }
   if (size > MAX_SOURCE_BYTES) return { erreur: 'fichier trop volumineux' }
 
+  // ⚠️ UN TYPE PRÉSENT MAIS INCONNU FAIT REFUSER — il ne retombe PAS sur `rcp`.
+  //
+  // Le repli silencieux a coûté un incident entier : la landing nomme l'étiquetage `etiquetage`,
+  // cette liste le nomme `labeling`. L'acheteur d'un étiquetage voyait donc son document enregistré
+  // comme un RCP, jugé par la porte contre le gabarit du RCP, et refusé — trois fois, jusqu'à
+  // épuisement des dépôts d'une commande payée, sans qu'aucun écran ne puisse expliquer pourquoi.
+  //
+  // Un type ABSENT, lui, retombe légitimement sur `rcp` : c'est un appelant qui ne se prononce pas,
+  // pas un appelant qui se trompe. Refuser, c'est refuser TÔT et le DIRE — la règle du chantier.
   const brut = texte(b.docType, 40)
-  const docType = brut && DOC_TYPES_VENDABLES.has(brut) ? brut : 'rcp'
-  return { docType, size: Math.round(size) }
+  if (brut && !DOC_TYPES_VENDABLES.has(brut)) {
+    return { erreur: 'type de document inconnu' }
+  }
+  return { docType: brut || 'rcp', size: Math.round(size) }
 }
 
 /* ────────────────────────────── Les gardes d'état, en CODE PUR ─────────────────────────────── */

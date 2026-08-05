@@ -26,7 +26,6 @@ import { commandeParJeton, estRefus, statutHttp } from '../_shared/order-access.
 import {
   dejaLance,
   DOC_TYPES_VENDABLES,
-  ETATS_DEPOSABLES,
   jugerObjetSource,
   SOURCE_OBJECT_NAME,
   sourceObjectFolder,
@@ -133,6 +132,18 @@ Deno.serve(async (req) => {
     return json({ error: 'already_started', etat: commande.status }, 409, origin)
   }
 
+  // ⚠️ UNE COMMANDE REFUSÉE NE REÇOIT RIEN — et la garde est ICI, pas dans l'écran.
+  //
+  // Après un refus, le document le plus récent est celui que la porte vient d'écarter. Le rendre
+  // ferait re-préparer, re-soumettre, re-refuser — en boucle, jusqu'à épuiser les trois dépôts
+  // d'une commande payée. Le front porte déjà cette règle (`doitChercherSource`), mais **une
+  // garantie doit vivre dans la fonction qui ÉCRIT** : un second onglet, un rejeu ou une future
+  // surface d'administration contournerait un calcul d'affichage.
+  if (commande.status === 'gated_out') {
+    logJson({ ...log, status: 'refuse_precedemment' })
+    return json({ error: 'gated_out' }, 409, origin)
+  }
+
   // Le job COURANT : le plus récent. Un nouveau dépôt en crée un nouveau, et le précédent porte le
   // document REFUSÉ — le rouvrir ferait analyser le mauvais fichier, sans que rien ne le signale.
   const { data: jobs, error: jobErr } = await sb
@@ -178,16 +189,18 @@ Deno.serve(async (req) => {
   }
 
   // ── L'objet est CONSTATÉ : la commande peut passer à `source_uploaded` ────────────────────────
-  // ⚠️ `.in(ETATS_DEPOSABLES)` et non un `.eq('id')` seul : entre notre lecture et cette écriture,
-  // la porte a pu lancer le travail. Rétrograder un `running` en `source_uploaded` rouvrirait le
-  // dépôt sur une commande en cours d'exécution — deux documents pour une analyse, à ~2 $ pièce.
+  // ⚠️ `.eq('status', 'paid')` et NON `.in(ETATS_DEPOSABLES)` : cette liste contient `gated_out`,
+  // donc un rejeu concurrent aurait pu faire REMONTER une commande refusée vers « préparation », en
+  // pointant sur le document que la porte venait d'écarter. Entre notre lecture et cette écriture,
+  // la porte a aussi pu lancer le travail : rétrograder un `running` rouvrirait le dépôt sur une
+  // commande en cours — deux documents pour une analyse à ~2 $ pièce. Seul `paid` avance.
   // L'échec de cette écriture n'est PAS bloquant : elle ne fait qu'accélérer l'écran de reprise.
-  if (commande.status !== 'source_uploaded') {
+  if (commande.status === 'paid') {
     const { error: majErr } = await sb
       .from('orders')
       .update({ status: 'source_uploaded' })
       .eq('id', commande.id)
-      .in('status', ETATS_DEPOSABLES)
+      .eq('status', 'paid')
     if (majErr) logJson({ ...log, status: 'statut_non_avance' })
   }
 
