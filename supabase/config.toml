@@ -510,3 +510,9 @@ verify_jwt = false
 # — le secret lui-même ne sort JAMAIS de la base (patron de 0051). Secret absent ⇒ porte FERMÉE.
 [functions.job-tick]
 verify_jwt = false
+
+# Suivi et livraison, lus par la page publique. `verify_jwt = false` : l'acheteur n'a pas de compte,
+# le jeton EST l'autorisation. Aucune donnée personnelle n'en sort — un jeton se retrouve dans un
+# historique de navigateur ou une capture d'écran envoyée au support.
+[functions.order-status]
+verify_jwt = false

@@ -80,13 +80,17 @@ Deno.test('porte : le chemin de REFUS reste sous le budget CPU sur un gros scan'
   // Mesuré avant correction : ~1,15 s pour 200 000 caractères et ~9,5 s pour 1,4 million, contre
   // 2 s de CPU par invocation Edge. L'isolat était tué et l'acheteur recevait une erreur opaque à
   // la place du message qui lui disait qu'il pouvait redéposer sans rien payer.
-  const gros = (JOURNAL + '\n').repeat(4000) // ~600 000 caractères, aucun repère
+  // Le corpus MAXIMAL que l'Edge accepte (400 000 caractères), sans un seul repère : le pire cas
+  // réel, pas un cas d'école. C'est ce test qui a rattrapé une première borne posée par
+  // raisonnement — elle laissait le refus à 3 001 ms, au-dessus du budget.
+  const gros = (JOURNAL + '\n').repeat(2700)
   const t0 = Date.now()
   const v = jugerRecevabilite(gros, 'ocr', CONFORMITY_SPECS.rcp)
   const ms = Date.now() - t0
   assertEquals(v.recevable, false)
-  // Marge large : le test doit attraper une régression d'ordre de grandeur, pas mesurer la machine.
-  assertEquals(ms < 2000, true, `refus sur gros scan : ${ms} ms`)
+  // 1,5 s : au-dessus des ~700 ms mesurés, sous les 2 s de CPU d'une invocation. Le test attrape
+  // une régression d'ordre de grandeur, il ne mesure pas la machine.
+  assertEquals(ms < 1500, true, `refus sur gros scan : ${ms} ms`)
 })
 
 Deno.test('porte : la passe LITTÉRALE couvre tout le corpus, la TOLÉRANTE est bornée', () => {

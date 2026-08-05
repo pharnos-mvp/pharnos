@@ -115,11 +115,21 @@ export function jugerRecevabilite(
 /**
  * Corpus soumis au rapprochement APPROCHÉ, en caractères.
  *
- * Mesuré : ~1,15 s pour 200 000 caractères sur 29 repères tous absents — le pire cas. La borne
- * tient donc le chemin de refus sous le budget de 2 s. Les repères d'un RCP vivent de toute façon
- * dans les premières pages : les chercher au-delà rapporterait peu et coûterait proportionnellement.
+ * ⚠️ **MESURÉ, deux fois — la première borne était fausse.** Posée à 200 000 par raisonnement, elle
+ * laissait le chemin de refus à 3 001 ms, au-dessus des 2 s de CPU d'une invocation ; c'est un test
+ * qui l'a rattrapée, pas une relecture. Relevé sur 29 repères tous absents (le pire cas) :
+ *
+ *   | corpus approché | 40 k | 60 k | 80 k | 120 k |
+ *   |---|---|---|---|---|
+ *   | durée           | 558 ms | 693 ms | 947 ms | 1 396 ms |
+ *
+ * 60 000 laisse une marge de plus du double. La passe LITTÉRALE, elle, reste sur le corpus entier :
+ * elle coûte **20 ms sur 430 000 caractères**, soit trois ordres de grandeur de moins — la borner
+ * aurait sacrifié de la couverture pour rien.
+ *
+ * Un RCP porte ses repères dans ses premières pages ; 60 000 caractères en couvrent une vingtaine.
  */
-const MAX_CORPUS_APPROCHE = 200_000
+const MAX_CORPUS_APPROCHE = 60_000
 
 /**
  * Le message de refus, dans la langue de l'acheteur.

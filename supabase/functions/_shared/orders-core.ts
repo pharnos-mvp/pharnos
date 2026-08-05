@@ -309,6 +309,10 @@ export const ETATS_DEPOSABLES = ['paid', 'source_uploaded', 'gated_out'] as cons
  */
 export const REVUE_SECTIONS = ['terminology', 'relocations', 'findings', 'recommendations'] as const
 
+/** Nombre de tableaux qu'une revue complète doit porter — le livrable en dépend, pas l'affichage. */
+export const REPORT_SECTIONS_ATTENDUES = REVUE_SECTIONS.length
+
+
 /**
  * Une référence est-elle recevable au pont ? UUID strict — le pont interroge en boucle courte et
  * sans authentification (la commande n'existe pas encore), donc son entrée doit être la plus
