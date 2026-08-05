@@ -51,7 +51,9 @@ describe('vueDepuis', () => {
     // ⚠️ La promesse « vous pouvez fermer cette page » ne vaut qu'à partir du moment où le SERVEUR
     // travaille. Pendant la lecture du PDF (et surtout pendant la reconnaissance de caractères, ~4 s
     // par page), fermer perdrait tout et renverrait l'acheteur au dépôt.
-    expect(vueDepuis(resume({ statut: 'source_uploaded' })).fermable).toBe(false)
+    const enCours = vueDepuis(resume({ statut: 'source_uploaded' }), { preparationEnCours: true })
+    expect(enCours.etape).toBe('preparation')
+    expect(enCours.fermable).toBe(false)
     expect(vueDepuis(resume({ statut: 'paid' }), { preparationEnCours: true }).etape).toBe(
       'preparation',
     )
@@ -199,7 +201,7 @@ describe('vueDepuis — échec de lecture', () => {
     // courant en affaires réglementaires — laissait l'acheteur sur l'étape « préparation » : aucun
     // sondage, aucun bouton, et un rechargement qui relit le même fichier illisible. Ses deux
     // dépôts restants étaient inatteignables sur une commande payée.
-    const bloque = vueDepuis(resume({ statut: 'source_uploaded' }))
+    const bloque = vueDepuis(resume({ statut: 'source_uploaded' }), { preparationEnCours: true })
     expect(bloque.etape).toBe('preparation')
     const libre = vueDepuis(resume({ statut: 'source_uploaded' }), { echecLecture: true })
     expect(libre.etape).toBe('depot')
@@ -225,5 +227,31 @@ describe('vueDepuis — échec de lecture', () => {
       'livraison',
     )
     expect(vueDepuis(resume({ statut: 'failed' }), { echecLecture: true }).etape).toBe('panne')
+  })
+})
+
+describe('vueDepuis — « source déposée » sans rien en vol', () => {
+  it('⚠️ propose de REPRENDRE, jamais un sablier ni un second dépôt', () => {
+    // La page démarre TOUJOURS la préparation sur `source_uploaded` : s'y retrouver au repos, c'est
+    // que le téléchargement ou la porte a échoué. C'était le dernier sablier définitif de cet
+    // écran — un « ne fermez pas cet onglet » sous lequel plus rien ne tournait, sans un bouton.
+    const v = vueDepuis(resume({ statut: 'source_uploaded' }))
+    expect(v.etape).toBe('reprise')
+    // ⚠️ PAS un `depot` : le fichier est déjà là et son dépôt est déjà décompté. En proposer un
+    // second ferait payer à l'acheteur un incident réseau qui n'est pas le sien.
+    expect(v.etape).not.toBe('depot')
+    expect(doitSonder(v)).toBe(false)
+  })
+
+  it('tant qu’une préparation tourne, c’est elle qu’on montre', () => {
+    expect(
+      vueDepuis(resume({ statut: 'source_uploaded' }), { preparationEnCours: true }).etape,
+    ).toBe('preparation')
+  })
+
+  it('un échec de LECTURE, lui, rouvre bien le dépôt — c’est le fichier qui est en cause', () => {
+    expect(vueDepuis(resume({ statut: 'source_uploaded' }), { echecLecture: true }).etape).toBe(
+      'depot',
+    )
   })
 })

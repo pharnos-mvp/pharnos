@@ -245,21 +245,26 @@ export function PublicUpgradePage({ token }: { token: string }) {
       setRefus(null)
       setAvis(null)
       setEchecLecture(false)
+      // ⚠️ Les deux refus purement LOCAUX sortent avant le `try`, donc avant le `rafraichir()` du
+      // `finally` : un aller-retour réseau pour dire « ce n'est pas un PDF », décidé sur place, ne
+      // sert à rien — et s'il échoue, il fait basculer la page en « connexion perdue » sur un
+      // verdict qui n'a jamais quitté l'appareil.
+      const invalide = validerFichierSource(fichier)
+      if (invalide) {
+        setRefus(invalide === 'taille' ? 'trop_gros' : 'pdf_seulement')
+        enVol.current = false
+        return
+      }
+      let donnees: ArrayBuffer
       try {
-        const invalide = validerFichierSource(fichier)
-        if (invalide) {
-          setRefus(invalide === 'taille' ? 'trop_gros' : 'pdf_seulement')
-          return
-        }
+        donnees = await fichier.arrayBuffer()
+      } catch {
+        setRefus('fichier_inaccessible')
+        enVol.current = false
+        return
+      }
 
-        let donnees: ArrayBuffer
-        try {
-          donnees = await fichier.arrayBuffer()
-        } catch {
-          setRefus('fichier_inaccessible')
-          return
-        }
-
+      try {
         // ⚠️ ON LIT LE PDF AVANT DE DEMANDER L'URL DE DÉPÔT, et l'ordre EST la décision.
         //
         // C'est `order-upload-url` qui consomme un dépôt sur les trois, par compare-and-swap. Lire
@@ -289,10 +294,18 @@ export function PublicUpgradePage({ token }: { token: string }) {
   /** La reprise manuelle — le seul bouton de cette page qui ne dépend d'aucun état serveur. */
   const reessayer = useCallback(async () => {
     setAcces('inconnu')
+    setEchecLecture(false)
+    setRefus(null)
     setChargement(true)
-    const r = await rafraichir()
-    if (doitChercherSource(r)) await reprendreDepuisServeur()
-    else setChargement(false)
+    try {
+      const r = await rafraichir()
+      if (doitChercherSource(r)) await reprendreDepuisServeur()
+    } finally {
+      // ⚠️ Toujours ici, jamais dans une branche. Confier la remise à zéro à
+      // `reprendreDepuisServeur` la perdait dès que celui-ci sortait tôt (garde `enVol`) : le
+      // bouton de secours laissait alors un écran de chargement dont plus rien ne sortait.
+      setChargement(false)
+    }
   }, [rafraichir, reprendreDepuisServeur])
 
   if (chargement) {
@@ -372,6 +385,26 @@ export function PublicUpgradePage({ token }: { token: string }) {
       )}
 
       {vue.etape === 'preparation' && <EcranPreparation travail={travail} />}
+
+      {vue.etape === 'reprise' && (
+        <div className="space-y-4">
+          <p className="text-sm">
+            {t({
+              fr: 'Nous avons bien votre document, mais la préparation s’est arrêtée avant d’aboutir. Rien n’est perdu et rien de plus ne vous sera demandé.',
+              en: 'We do have your document, but preparation stopped before finishing. Nothing is lost, and nothing more will be asked of you.',
+            })}
+          </p>
+          <Button type="button" className="w-full" onClick={() => void reessayer()}>
+            {t({ fr: 'Reprendre la préparation', en: 'Resume preparation' })}
+          </Button>
+          <p className="text-muted-foreground text-xs">
+            {t({
+              fr: 'Si cela se reproduit, écrivez-nous à contact@pharnos.com — votre commande reste ouverte 30 jours.',
+              en: 'If this happens again, write to contact@pharnos.com — your order stays open for 30 days.',
+            })}
+          </p>
+        </div>
+      )}
 
       {vue.etape === 'traitement' && <EcranTraitement resume={resume} vue={vue} />}
 

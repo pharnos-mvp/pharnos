@@ -70,6 +70,14 @@ export type EtapeUpgrade =
   | 'depot'
   /** Le navigateur lit le PDF (couche texte, sinon reconnaissance de caractères). */
   | 'preparation'
+  /**
+   * Le document est chez nous, mais la tentative automatique s'est arrêtée : il faut la relancer.
+   *
+   * ⚠️ Cette étape N'EST PAS un `depot`. Le fichier est déjà déposé et le dépôt est déjà décompté :
+   * proposer d'en redéposer un en coûterait un second pour un incident réseau qui n'est pas celui
+   * de l'acheteur. Ce qu'il lui faut, c'est un bouton — pas un sélecteur de fichier.
+   */
+  | 'reprise'
   /** Le moteur travaille. C'est ici que l'acheteur peut fermer l'onglet. */
   | 'traitement'
   /** Les cinq fichiers sont récupérables. */
@@ -119,24 +127,33 @@ export function vueDepuis(
     const progression = resume.total > 0 ? Math.min(1, resume.faites / resume.total) : 0
     return { etape: 'traitement', progression, fermable: true, peutRedeposer: false }
   }
-  // ⚠️ UN ÉCHEC DE LECTURE ROUVRE LE DÉPÔT — et cette sortie doit venir AVANT la préparation.
-  //
-  // `source_uploaded` est écrit par le serveur dès qu'il CONSTATE le fichier, donc bien avant que
-  // le navigateur ait réussi à le lire. Sans cette sortie, un PDF protégé par mot de passe — cas
-  // courant en affaires réglementaires — laissait l'acheteur sur un sablier définitif : étape
-  // « préparation », aucun sondage, aucun bouton, et un rechargement qui relit le même fichier
-  // illisible. Ses deux dépôts restants étaient inatteignables sur une commande déjà payée.
-  //
-  // Elle passe APRÈS `running` : une fois le travail lancé, l'échec de lecture appartient au passé.
-  if (options.echecLecture && !options.preparationEnCours) {
-    return { etape: 'depot', progression: 0, fermable: true, peutRedeposer }
-  }
-  // `source_uploaded` : le fichier est arrivé, le navigateur doit encore le lire avant la porte.
-  if (options.preparationEnCours || resume.statut === 'source_uploaded') {
-    // ⚠️ PAS fermable : la préparation (couche texte, puis reconnaissance de caractères) tourne
-    // DANS l'onglet. Le promettre ici perdrait le travail et renverrait l'acheteur au dépôt.
+  // Quelque chose tourne DANS l'onglet : cela prime sur tout le reste.
+  // ⚠️ PAS fermable — la préparation (couche texte, puis reconnaissance de caractères) vit ici. Le
+  // promettre perdrait le travail et renverrait l'acheteur au dépôt.
+  if (options.preparationEnCours) {
     return { etape: 'preparation', progression: 0, fermable: false, peutRedeposer: false }
   }
+
+  // ⚠️ UN ÉCHEC DE LECTURE ROUVRE LE DÉPÔT. `source_uploaded` est écrit par le serveur dès qu'il
+  // CONSTATE le fichier, donc bien avant que le navigateur ait su le lire : sans cette sortie, un
+  // PDF protégé par mot de passe — cas courant en affaires réglementaires — laissait l'acheteur sur
+  // un sablier définitif. Ici, redéposer est bien la bonne réponse : c'est le FICHIER qui est en
+  // cause, et son remplaçant vaut son dépôt.
+  if (options.echecLecture) {
+    return { etape: 'depot', progression: 0, fermable: true, peutRedeposer }
+  }
+
+  // ⚠️ `source_uploaded` SANS RIEN EN VOL NE PEUT SIGNIFIER QU'UNE CHOSE : la tentative automatique
+  // s'est arrêtée. La page démarre TOUJOURS la préparation sur cet état ; s'y retrouver au repos,
+  // c'est que le téléchargement ou la porte a échoué. C'était le dernier sablier définitif de cet
+  // écran — un « ne fermez pas cet onglet » sous lequel plus rien ne tournait, sans un bouton.
+  //
+  // Et ce n'est PAS un `depot` : le fichier est déjà là, son dépôt est déjà décompté. En proposer
+  // un second ferait payer à l'acheteur un incident réseau qui n'est pas le sien.
+  if (resume.statut === 'source_uploaded') {
+    return { etape: 'reprise', progression: 0, fermable: true, peutRedeposer }
+  }
+
   // `paid` (jamais déposé) et `gated_out` (refusé, sans crédit consommé).
   return { etape: 'depot', progression: 0, fermable: true, peutRedeposer }
 }

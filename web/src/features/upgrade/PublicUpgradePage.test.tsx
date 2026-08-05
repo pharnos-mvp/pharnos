@@ -236,7 +236,7 @@ describe('reprise du document déposé par le pont', () => {
     expect(api.demanderSource).not.toHaveBeenCalled()
   })
 
-  it('une panne pendant la reprise ne propose PAS de redéposer', async () => {
+  it('une panne pendant la reprise ne propose PAS de redéposer — elle propose de REPRENDRE', async () => {
     // Proposer un dépôt à quelqu'un dont le document EST déjà chez nous, c'est l'inviter à brûler
     // une tentative pour un incident réseau qui n'est pas le sien.
     api.lireStatut.mockResolvedValue(statut({ statut: 'source_uploaded' }))
@@ -244,6 +244,55 @@ describe('reprise du document déposé par le pont', () => {
     rendre()
     await waitFor(() => expect(api.demanderSource).toHaveBeenCalled())
     expect(screen.queryByRole('button', { name: /Choisir mon document/ })).not.toBeInTheDocument()
+    // ⚠️ Et surtout : il RESTE une sortie. C'était le dernier sablier définitif de cet écran — un
+    // « ne fermez pas cet onglet » sous lequel plus rien ne tournait, sans un bouton.
+    expect(
+      await screen.findByRole('button', { name: /Reprendre la préparation/ }),
+    ).toBeInTheDocument()
+  })
+
+  it('⚠️ un TÉLÉCHARGEMENT raté laisse une sortie, pas un sablier', async () => {
+    //  écrit  dès qu'il constate le fichier — donc avant que le
+    // navigateur ait pu le télécharger. Une coupure ici laissait l'écran sur « Lecture de votre
+    // document… », sans message, sans bouton, et sans sondage : plus rien ne tournait.
+    api.lireStatut.mockResolvedValue(statut({ statut: 'source_uploaded' }))
+    api.demanderSource.mockResolvedValue({
+      jobId: 'job-3',
+      docType: 'rcp',
+      url: 'https://s/signed',
+      expiresIn: 600,
+    })
+    api.telechargerSource.mockRejectedValue(new UpgradeApiError('indisponible', 'injoignable'))
+    rendre()
+    await waitFor(() => expect(api.telechargerSource).toHaveBeenCalled())
+    expect(
+      await screen.findByRole('button', { name: /Reprendre la préparation/ }),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Lecture de votre document/)).not.toBeInTheDocument()
+  })
+
+  it('⚠️ une PORTE injoignable laisse une sortie aussi', async () => {
+    api.lireStatut.mockResolvedValue(statut({ statut: 'source_uploaded' }))
+    api.demanderSource.mockResolvedValue({
+      jobId: 'job-4',
+      docType: 'rcp',
+      url: 'https://s/signed',
+      expiresIn: 600,
+    })
+    api.telechargerSource.mockResolvedValue(new ArrayBuffer(8))
+    ocr.prepareUpgradeSource.mockResolvedValue({
+      sourceKind: 'text',
+      controlText: 'texte',
+      pageCount: 2,
+      recognizedPages: 0,
+      truncated: false,
+    })
+    api.franchirPorte.mockRejectedValue(new UpgradeApiError('indisponible', 'injoignable'))
+    rendre()
+    await waitFor(() => expect(api.franchirPorte).toHaveBeenCalled())
+    expect(
+      await screen.findByRole('button', { name: /Reprendre la préparation/ }),
+    ).toBeInTheDocument()
   })
 })
 

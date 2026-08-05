@@ -1393,6 +1393,24 @@ async function reclamerJeton(ref) {
  *  ⚠️ L'URL de dépôt est demandée UNE fois : c'est elle qui décompte un dépôt sur les trois. Le
  *  PUT, lui, se retente sur la même URL — la clé est dérivée du job et `x-upsert` autorise la
  *  réécriture, donc un micro-trou réseau ne coûte rien à quelqu'un qui a payé. */
+/**
+ * Note en base que le dépôt de cette commande a été consommé.
+ *
+ * ⚠️ Relit la commande AVANT d'écrire. Deux écritures partent de copies de `cmd` prises à des
+ * instants différents (le marqueur « réglé » du guet de paiement, et celui-ci) : écrire depuis une
+ * copie périmée effacerait l'autre. Tant que le perdant était `regle`, que personne ne relit, cela
+ * ne coûtait rien — `depotFait`, lui, porte de l'argent.
+ */
+async function marquerDepotConsomme(cmd) {
+  try {
+    const frais = (await lireCommande(cmd.id)) ?? cmd;
+    await sauverCommande({ ...frais, depotFait: true });
+  } catch (e) {
+    // Le dépôt est consommé quoi qu'il arrive ; ne pas empêcher la suite pour un champ de statut.
+    console.error("depot note", e);
+  }
+}
+
 async function envoyerDocument(token, cmd) {
   const fichier = cmd.fichier;
   if (!(fichier instanceof Blob)) return false;
@@ -1418,6 +1436,15 @@ async function envoyerDocument(token, cmd) {
   ) {
     return false;
   }
+
+  // ⚠️ LE DÉPÔT EST CONSOMMÉ ICI, ET LE DRAPEAU SE POSE ICI — pas après le PUT.
+  //
+  // `order-upload-url` décompte par compare-and-swap ; le succès du PUT n'y change rien. Noter le
+  // dépôt seulement quand le téléversement RÉUSSIT laissait donc ouvert le scénario le plus
+  // probable : réseau instable, PUT épuisé, compteur déjà décrémenté, drapeau resté faux. Le
+  // client recharge, le pont repart, dépôt n°2. Encore : dépôt n°3, commande verrouillée sans
+  // qu'un seul octet soit arrivé. C'est la page `/u/{token}` qui redemandera le fichier.
+  await marquerDepotConsomme(cmd);
 
   for (let essai = 1; essai <= PUT_ESSAIS; essai++) {
     let code = null;
@@ -1500,7 +1527,9 @@ async function franchirLePont(cmd) {
     // passage redemandait une URL de dépôt — et `order-upload-url` en CONSOMME un sur trois par
     // compare-and-swap. Trois visites suffisaient à verrouiller une commande payée.
     //
-    // Le drapeau vit donc où vit le document : dans la commande, en IndexedDB.
+    // Le drapeau vit donc où vit le document : dans la commande, en IndexedDB. Il marque le dépôt
+    // CONSOMMÉ (posé dans `envoyerDocument`, dès que le serveur a décompté), pas le téléversement
+    // réussi — sans quoi un PUT raté sur réseau instable rouvrait exactement la même boucle.
     let envoye = cmd.depotFait === true;
     if (!envoye) {
       direPont(
@@ -1508,13 +1537,6 @@ async function franchirLePont(cmd) {
         L(["Ne fermez pas cette page.", "Please keep this page open."]),
       );
       envoye = await envoyerDocument(jeton.token, cmd);
-      if (envoye) {
-        // Écrit AVANT la redirection : c'est la seule fenêtre où l'on sait que le document est
-        // arrivé et où la page est encore vivante pour le noter.
-        await sauverCommande({ ...cmd, depotFait: true }).catch((e) =>
-          console.error("depot note", e),
-        );
-      }
     }
 
     // ⚠️ On redirige MÊME si l'envoi a échoué. La page de suivi sait redemander le fichier ; y
