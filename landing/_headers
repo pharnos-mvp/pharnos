@@ -105,3 +105,12 @@
 /checking/*
   Cache-Control: no-cache
   Content-Type: text/javascript; charset=utf-8
+
+# Modules ES de la page modèle, importés par /modele.js — MÊME raison que `/checking/*` ci-dessus :
+# leur URL ne peut pas porter de `?v=` piloté depuis le HTML, donc un `max-age` désaccorderait un
+# jour l'entrée et sa dépendance. Ici la dépendance est le PONT du paiement : servir un ancien
+# `pont.js` avec un `modele.js` neuf enverrait un acheteur qui vient de payer sur une destination
+# périmée. La revalidation coûte un 304 de quelques kilo-octets.
+/modele/*
+  Cache-Control: no-cache
+  Content-Type: text/javascript; charset=utf-8

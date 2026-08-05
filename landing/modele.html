@@ -1013,22 +1013,21 @@
             Votre commande est enregistrée
           </h4>
           <p class="upsell-d" id="cfmrecap"></p>
-          <p class="upsell-d" id="cfmnext"></p>
+          <p class="upsell-d" id="cfmnext" aria-live="polite"></p>
           <div class="stack">
             <button
               class="btn btn-primary btn-block"
               type="button"
               id="cfmsend"
+              hidden
             ></button>
             <a class="btn btn-ghost btn-block" id="cfmback" href="/"></a>
           </div>
-          <p
-            class="mfoot-note"
-            data-en="Nothing has left this device — you send it yourself, with the reference already filled in."
-          >
-            Rien n'a quitté cet appareil — c'est vous qui transmettez, la
-            référence est déjà inscrite.
-          </p>
+          <!-- ⚠️ Ce pied de page annonçait « Rien n'a quitté cet appareil ». C'était vrai tant que
+               le transport était un `mailto:` ; depuis le pont (U2), le document part vers notre
+               stockage dès le règlement confirmé. Une phrase rassurante devenue fausse sur la page
+               de confirmation d'un achat serait le pire endroit possible pour en laisser une. -->
+          <p class="mfoot-note" id="cfmfoot"></p>
         </div>
         <!-- Étape 5 — PAIEMENT, DANS LE MÊME PANNEAU. L'acheteur ne quitte ni la page ni
              le cadre où il vient de se nommer : la page du processeur prend la place du
@@ -1131,6 +1130,6 @@
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <script src="/landing.js?v=15" defer></script>
-    <script type="module" src="/modele.js?v=17"></script>
+    <script type="module" src="/modele.js?v=18"></script>
   </body>
 </html>
