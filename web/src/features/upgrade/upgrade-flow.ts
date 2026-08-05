@@ -19,7 +19,50 @@ export interface ResumeCommande {
   pret: boolean
   depositsLeft: number
   expireLe: string
+  /** `null` tant qu'aucun dépôt n'a eu lieu : la commande naît du webhook, qui l'ignore. */
+  docType?: string | null
   erreur?: string | null
+}
+
+/**
+ * Documents vendus à l'unité. **Liste FERMÉE**, jumelle de `DOC_TYPES_VENDABLES` côté Edge : le type
+ * choisi ici commande le gabarit contre lequel la porte juge la recevabilité, et une notice jugée
+ * contre le gabarit du RCP serait refusée pour une raison qui n'existe pas.
+ */
+export const DOC_TYPES = ['rcp', 'notice', 'labeling'] as const
+export type DocType = (typeof DOC_TYPES)[number]
+
+export const estDocType = (v: unknown): v is DocType =>
+  typeof v === 'string' && (DOC_TYPES as readonly string[]).includes(v)
+
+/** Plafond du document source — jumeau de `MAX_SOURCE_BYTES` côté Edge. */
+export const MAX_SOURCE_OCTETS = 25 * 1024 * 1024
+
+export type RefusFichier = 'vide' | 'type' | 'taille'
+
+/**
+ * Le fichier choisi peut-il partir ?
+ *
+ * ⚠️ Ce contrôle N'EST PAS la garantie — le serveur reconstate le type et la taille RÉELS sur
+ * l'objet déposé, parce qu'une URL signée ne contraint ni l'un ni l'autre. Il est là pour une autre
+ * raison, tout aussi concrète : refuser ici ne coûte rien, alors que laisser partir un `.docx`
+ * consomme un dépôt sur les trois d'une commande payée.
+ *
+ * Le type MIME ne suffit pas à lui seul : certains systèmes rendent une chaîne vide sur un PDF
+ * légitime. On accepte alors sur l'extension plutôt que de refuser un fichier valide.
+ */
+export function validerFichierSource(fichier: {
+  name: string
+  size: number
+  type: string
+}): RefusFichier | null {
+  if (!fichier.size) return 'vide'
+  const estPdf =
+    fichier.type === 'application/pdf' ||
+    (!fichier.type && fichier.name.toLowerCase().endsWith('.pdf'))
+  if (!estPdf) return 'type'
+  if (fichier.size > MAX_SOURCE_OCTETS) return 'taille'
+  return null
 }
 
 export type EtapeUpgrade =
@@ -85,6 +128,22 @@ export function vueDepuis(
   // `paid` (jamais déposé) et `gated_out` (refusé, sans crédit consommé).
   return { etape: 'depot', progression: 0, fermable: true, peutRedeposer }
 }
+
+/**
+ * Faut-il demander au serveur s'il détient déjà un document, avant d'en réclamer un à l'acheteur ?
+ *
+ * ⚠️ **`gated_out` en est EXCLU, et c'est l'essentiel de cette fonction.** Après un refus, le
+ * document le plus récemment déposé est précisément celui que la porte vient d'écarter : le
+ * redemander au serveur, ce serait le re-préparer, le re-soumettre, se le voir refuser à
+ * nouveau — et consommer les trois dépôts d'une commande payée en boucle, sans que l'acheteur
+ * n'ait jamais eu l'occasion de fournir le bon fichier.
+ *
+ * Les deux états retenus sont ceux où un document présent NE PEUT PAS être un document refusé :
+ * `paid` (le pont vient peut-être de téléverser) et `source_uploaded` (constaté, en cours de
+ * préparation — la page a pu être rechargée).
+ */
+export const doitChercherSource = (resume: ResumeCommande | null): boolean =>
+  resume?.statut === 'paid' || resume?.statut === 'source_uploaded'
 
 /** Une commande refusée à la porte a-t-elle épuisé ses tentatives ? */
 export const enImpasse = (resume: ResumeCommande | null): boolean =>

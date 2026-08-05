@@ -22,6 +22,14 @@ const PublicReviewPage = lazyChunk(() =>
     default: m.PublicReviewPage,
   })),
 )
+// Page d'après-paiement (U3) — chunk séparé : elle embarque la lecture des PDF, et le reste de
+// l'app n'a aucune raison de la charger. La reconnaissance de caractères, elle, se charge encore
+// plus tard, et seulement sur un scan.
+const PublicUpgradePage = lazyChunk(() =>
+  import('@/features/upgrade/PublicUpgradePage').then((m) => ({
+    default: m.PublicUpgradePage,
+  })),
+)
 const ResetPasswordPage = lazyChunk(() =>
   import('@/features/auth/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })),
 )
@@ -138,12 +146,28 @@ function AppGate() {
 // base64url — même contrat que l'Edge (`share-auth.ts`).
 const shareToken = /^\/r\/([A-Za-z0-9_-]{43})\/?$/.exec(window.location.pathname)?.[1] ?? null
 
+// Page publique d'après-paiement `/u/{token}` (U3) : MÊME patron que `/r/{token}` ci-dessus, et
+// pour la même raison — l'acheteur n'a pas de compte. Ni `AuthProvider`, ni `BrowserRouter`, ni
+// synchronisation hors ligne : la page est autonome, atteinte une fois sur un lien reçu par e-mail.
+// Format STRICT 43 caractères base64url — même contrat que les Edge (`orders-core.ts`).
+const upgradeToken = /^\/u\/([A-Za-z0-9_-]{43})\/?$/.exec(window.location.pathname)?.[1] ?? null
+
 export default function App() {
   if (shareToken) {
     return (
       <Providers>
         <Screen>
           <PublicReviewPage token={shareToken} />
+        </Screen>
+        <Toaster richColors position="top-right" />
+      </Providers>
+    )
+  }
+  if (upgradeToken) {
+    return (
+      <Providers>
+        <Screen>
+          <PublicUpgradePage token={upgradeToken} />
         </Screen>
         <Toaster richColors position="top-right" />
       </Providers>

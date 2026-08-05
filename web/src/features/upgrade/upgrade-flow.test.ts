@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  DOC_TYPES,
   DUREE_TOTALE_S,
+  doitChercherSource,
   doitSonder,
   enImpasse,
+  estDocType,
+  MAX_SOURCE_OCTETS,
   resteEstimeS,
+  validerFichierSource,
   vueDepuis,
   type ResumeCommande,
 } from './upgrade-flow'
@@ -121,5 +126,68 @@ describe('resteEstimeS', () => {
   it('ne descend jamais à zéro : « il reste 0 s » depuis une minute est pire que « bientôt »', () => {
     const fin = resteEstimeS(vueDepuis(resume({ statut: 'running', faites: 34, total: 34 })))
     expect(fin).toBeGreaterThanOrEqual(10)
+  })
+})
+
+describe('doitChercherSource', () => {
+  it('demande au serveur ce qu’il détient avant de réclamer un fichier', () => {
+    // Sans cela, l'acheteur qui vient du pont se verrait redemander un document déjà téléversé —
+    // et ce second dépôt consommerait une des trois tentatives d'une commande payée.
+    expect(doitChercherSource(resume({ statut: 'paid' }))).toBe(true)
+    expect(doitChercherSource(resume({ statut: 'source_uploaded' }))).toBe(true)
+  })
+
+  it('⚠️ JAMAIS après un refus : le document le plus récent est celui que la porte a écarté', () => {
+    // Le redemander, ce serait le re-préparer, le re-soumettre, se le voir refuser à nouveau — et
+    // épuiser les trois dépôts sans que l'acheteur ait jamais pu fournir le bon fichier.
+    expect(doitChercherSource(resume({ statut: 'gated_out' }))).toBe(false)
+  })
+
+  it('ni pendant ni après le travail : il n’y a plus rien à préparer', () => {
+    for (const statut of ['running', 'done', 'failed']) {
+      expect(doitChercherSource(resume({ statut }))).toBe(false)
+    }
+    expect(doitChercherSource(null)).toBe(false)
+  })
+})
+
+describe('validerFichierSource', () => {
+  const f = (o: Partial<{ name: string; size: number; type: string }> = {}) => ({
+    name: 'rcp.pdf',
+    size: 1024,
+    type: 'application/pdf',
+    ...o,
+  })
+
+  it('un PDF ordinaire passe', () => {
+    expect(validerFichierSource(f())).toBeNull()
+    expect(validerFichierSource(f({ size: MAX_SOURCE_OCTETS }))).toBeNull()
+  })
+
+  it('refuse ici ce qui coûterait un dépôt là-bas', () => {
+    // Ce contrôle n'est PAS la garantie — le serveur reconstate le type réel sur l'objet déposé.
+    // Il évite qu'un `.docx` consomme une des trois tentatives d'une commande déjà payée.
+    expect(
+      validerFichierSource(f({ type: 'application/vnd.openxmlformats', name: 'a.docx' })),
+    ).toBe('type')
+    expect(validerFichierSource(f({ size: 0 }))).toBe('vide')
+    expect(validerFichierSource(f({ size: MAX_SOURCE_OCTETS + 1 }))).toBe('taille')
+  })
+
+  it('un type MIME absent ne fait pas refuser un PDF légitime', () => {
+    // Certains systèmes rendent une chaîne vide sur un PDF parfaitement valide : refuser là-dessus
+    // renverrait l'acheteur chercher un problème qui n'existe pas.
+    expect(validerFichierSource(f({ type: '', name: 'Gynoril RCP.PDF' }))).toBeNull()
+    expect(validerFichierSource(f({ type: '', name: 'rcp.docx' }))).toBe('type')
+  })
+})
+
+describe('estDocType', () => {
+  it('liste FERMÉE — le type commande le gabarit contre lequel la porte juge', () => {
+    for (const d of DOC_TYPES) expect(estDocType(d)).toBe(true)
+    // ⚠️ Une notice jugée contre le gabarit du RCP serait refusée pour une raison qui n'existe pas.
+    for (const poison of ['constructor', 'toString', '__proto__', 'pght', '', null, 7]) {
+      expect(estDocType(poison)).toBe(false)
+    }
   })
 })

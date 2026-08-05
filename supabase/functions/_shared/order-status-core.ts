@@ -34,6 +34,15 @@ export interface ResumeCommande {
   pret: boolean
   depositsLeft: number
   expireLe: string
+  /**
+   * Type de document acheté — `null` tant qu'aucun dépôt n'a eu lieu.
+   *
+   * ⚠️ Il ne se DEVINE pas : la commande naît du webhook Chariow, qui ne connaît que le produit
+   * (un document, ou les trois), jamais lequel. Retomber en silence sur `rcp` ferait juger une
+   * notice contre le gabarit du RCP — un verdict de recevabilité rendu sur le mauvais référentiel,
+   * qu'aucun écran ne signalerait. Tant qu'il vaut `null`, c'est à l'acheteur de le nommer.
+   */
+  docType: string | null
 }
 
 /**
@@ -48,6 +57,7 @@ export function resumer(
     status: string
     deposits_used: number
     delivery_expires_at: string
+    doc_type?: string | null
   },
   job: { phase: string; sections_total: number } | null,
   lignes: readonly LigneSection[],
@@ -69,6 +79,7 @@ export function resumer(
     pret: commande.status === 'done',
     depositsLeft: Math.max(0, maxDepots - commande.deposits_used),
     expireLe: commande.delivery_expires_at,
+    docType: commande.doc_type ?? null,
   }
 }
 

@@ -2,10 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   UpgradeApiError,
+  demanderSource,
   demanderUrlDepot,
   franchirPorte,
   lireStatut,
   raisonDepuisHttp,
+  telechargerSource,
   televerserSource,
 } from './upgrade-api'
 
@@ -145,6 +147,52 @@ describe('televerserSource', () => {
       vi.fn(async () => new Response(null, { status: 403 })),
     )
     await expect(televerserSource('u', 'k', new Blob(['x']))).rejects.toBeInstanceOf(
+      UpgradeApiError,
+    )
+  })
+})
+
+describe('demanderSource / telechargerSource', () => {
+  it('« pas de document déposé » est un REFUS (409), jamais un lien mort (404)', async () => {
+    // ⚠️ Les deux sont des 4xx, et la page en tire deux écrans opposés : un 404 lui fait dire
+    // « votre lien a expiré » — c'est-à-dire annoncer la mort de sa commande à quelqu'un qui a
+    // simplement fermé l'onglet avant de téléverser.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => reponse(409, { error: 'no_source' })),
+    )
+    await expect(demanderSource('t'.repeat(43))).rejects.toMatchObject({ raison: 'refus' })
+  })
+
+  it('le jeton part dans le CORPS, jamais dans l’URL', async () => {
+    const f = espionFetch(async () =>
+      reponse(200, { jobId: 'j', docType: 'rcp', url: 'https://s/x', expiresIn: 600 }),
+    )
+    vi.stubGlobal('fetch', f)
+    const r = await demanderSource('t'.repeat(43))
+    expect(r.jobId).toBe('j')
+    expect(String(f.mock.calls[0]![0])).not.toContain('t'.repeat(43))
+    expect(corpsEnvoye(f).token).toBe('t'.repeat(43))
+  })
+
+  it('le téléchargement ne porte AUCUN en-tête d’autorisation', async () => {
+    // La signature est DANS l'URL. Un en-tête `authorization` transformerait la requête en requête
+    // « non simple » et déclencherait un contrôle préalable CORS que le stockage refuse.
+    const f = espionFetch(async () => new Response(new Uint8Array([1, 2, 3]), { status: 200 }))
+    vi.stubGlobal('fetch', f)
+    const buf = await telechargerSource('https://storage/signed')
+    expect(buf.byteLength).toBe(3)
+    expect(f.mock.calls[0]![1]?.headers).toBeUndefined()
+  })
+
+  it('une URL signée périmée est NOMMÉE, pas rendue comme un document vide', async () => {
+    // Rendre un tampon vide ferait partir `prepareUpgradeSource` sur un PDF de zéro octet, et
+    // l'acheteur lirait « nous n'avons pas réussi à lire ce PDF » à propos d'un fichier valide.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(null, { status: 400 })),
+    )
+    await expect(telechargerSource('https://storage/signed')).rejects.toBeInstanceOf(
       UpgradeApiError,
     )
   })

@@ -130,6 +130,47 @@ export async function televerserSource(
   }
 }
 
+export interface ReponseSource {
+  jobId: string
+  docType: string
+  /** URL signée de LECTURE, valable quelques minutes. À consommer tout de suite. */
+  url: string
+  expiresIn: number
+}
+
+/**
+ * Récupère le document déjà déposé — celui que le pont a téléversé depuis `pharnos.com`.
+ *
+ * ⚠️ **Ce n'est pas un confort, c'est ce qui empêche de brûler un dépôt.** L'acheteur a téléversé
+ * depuis une AUTRE origine ; rien de son navigateur ne traverse jusqu'ici. Sans cet appel, la page
+ * lui redemanderait son fichier, et ce second dépôt consommerait une des trois tentatives d'une
+ * commande déjà payée.
+ *
+ * `404 no_source` et `409 source_absente` ne sont pas des pannes : ils disent « personne n'a encore
+ * déposé », et l'écran de dépôt est la bonne réponse.
+ */
+export const demanderSource = (token: string) => poster<ReponseSource>('order-source', { token })
+
+/**
+ * Télécharge la source depuis son URL signée.
+ *
+ * ⚠️ Aucun en-tête d'autorisation : la signature EST dans l'URL. En ajouter un ferait échouer la
+ * requête préliminaire CORS sur le domaine de stockage.
+ */
+export async function telechargerSource(url: string, signal?: AbortSignal): Promise<ArrayBuffer> {
+  let res: Response
+  try {
+    res = await fetch(url, { signal })
+  } catch {
+    throw new UpgradeApiError('indisponible', 'source : injoignable')
+  }
+  if (!res.ok) {
+    // Une URL signée périmée se re-demande ; c'est un appel, pas un dépôt.
+    throw new UpgradeApiError(raisonDepuisHttp(res.status), `source : ${res.status}`)
+  }
+  return await res.arrayBuffer()
+}
+
 export interface ReponsePorte {
   status: 'started' | 'refused' | 'already_running'
   /** Présent sur un refus : il DIT que rien n'a été débité. À afficher tel quel. */
@@ -161,6 +202,7 @@ export interface ReponseStatut {
   pret: boolean
   depositsLeft: number
   expireLe: string
+  docType?: string | null
   jobId?: string | null
   erreur?: string | null
   livrable?: unknown

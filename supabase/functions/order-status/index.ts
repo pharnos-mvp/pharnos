@@ -120,6 +120,7 @@ Deno.serve(async (req) => {
       status: commande.status,
       deposits_used: commande.depositsUsed,
       delivery_expires_at: commande.expiresAt,
+      doc_type: commande.docType,
     },
     job,
     lignes,

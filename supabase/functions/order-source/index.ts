@@ -150,8 +150,12 @@ Deno.serve(async (req) => {
   if (!job?.source_path) {
     // Cas NOMINAL de l'acheteur qui a fermé l'onglet avant le téléversement : ce n'est pas une
     // panne, c'est la page qui doit lui redemander son fichier.
+    //
+    // ⚠️ 409 et NON 404. Le 404 de ce parcours est déjà pris : c'est la réponse d'un jeton inconnu
+    // (`order-access.ts`), et la page en fait « votre lien a expiré ». Un acheteur qui n'a rien
+    // déposé y lirait la mort de sa commande au lieu d'un écran de dépôt.
     logJson({ ...log, status: 'aucun_depot' })
-    return json({ error: 'no_source' }, 404, origin)
+    return json({ error: 'no_source' }, 409, origin)
   }
 
   const { data: objets, error: lsErr } = await sb.storage
