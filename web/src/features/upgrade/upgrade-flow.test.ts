@@ -255,3 +255,36 @@ describe('vueDepuis — « source déposée » sans rien en vol', () => {
     )
   })
 })
+
+describe('vueDepuis — porte à reprendre', () => {
+  it('⚠️ un téléversement RÉUSSI puis une porte en panne ne fait pas payer un 2ᵉ dépôt', () => {
+    // `order-gate` n'écrit rien avant d'avoir jugé, donc le statut reste `paid` : l'écran retombait
+    // sur `depot`, et son SEUL bouton était le sélecteur de fichier — c'est-à-dire une deuxième
+    // tentative sur trois, pour un incident réseau qui n'est pas celui de l'acheteur.
+    const sans = vueDepuis(resume({ statut: 'paid' }))
+    expect(sans.etape).toBe('depot')
+    const avec = vueDepuis(resume({ statut: 'paid' }), { porteAReprendre: true })
+    expect(avec.etape).toBe('reprise')
+  })
+
+  it('la reprise gratuite ne recouvre jamais un travail lancé, fini ou en panne', () => {
+    for (const [statut, attendu] of [
+      ['running', 'traitement'],
+      ['done', 'livraison'],
+      ['failed', 'panne'],
+    ] as const) {
+      const v = vueDepuis(resume({ statut, pret: statut === 'done' }), { porteAReprendre: true })
+      expect(v.etape).toBe(attendu)
+    }
+  })
+
+  it('un fichier ILLISIBLE l’emporte : c’est le document qu’il faut remplacer', () => {
+    // Les deux ne coexistent pas en pratique (la porte suppose une lecture réussie), mais l'ordre
+    // doit être explicite : redéposer répare un mauvais fichier, refranchir ne répare qu'un réseau.
+    const v = vueDepuis(resume({ statut: 'paid' }), {
+      porteAReprendre: true,
+      echecLecture: true,
+    })
+    expect(v.etape).toBe('depot')
+  })
+})

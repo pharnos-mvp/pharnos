@@ -106,7 +106,12 @@ export interface VueUpgrade {
  */
 export function vueDepuis(
   resume: ResumeCommande | null,
-  options: { preparationEnCours?: boolean; echecLecture?: boolean } = {},
+  options: {
+    preparationEnCours?: boolean
+    echecLecture?: boolean
+    /** Le document est déposé et la porte reste à franchir : une reprise GRATUITE est en main. */
+    porteAReprendre?: boolean
+  } = {},
 ): VueUpgrade {
   if (!resume) {
     return { etape: 'expire', progression: 0, fermable: false, peutRedeposer: false }
@@ -150,7 +155,13 @@ export function vueDepuis(
   //
   // Et ce n'est PAS un `depot` : le fichier est déjà là, son dépôt est déjà décompté. En proposer
   // un second ferait payer à l'acheteur un incident réseau qui n'est pas le sien.
-  if (resume.statut === 'source_uploaded') {
+  //
+  // ⚠️ `porteAReprendre` ouvre la MÊME sortie par la porte d'à côté, et il le faut. Un téléversement
+  // qui RÉUSSIT suivi d'une porte en panne (503 sur une invocation neuve, après avoir porté 25 Mo)
+  // laisse le statut serveur à `paid` — `order-gate` n'écrit rien avant d'avoir jugé. L'écran
+  // retombait donc sur `depot`, et **son seul bouton facturait le deuxième dépôt sur trois** pour un
+  // incident réseau qui n'est pas celui de l'acheteur, alors qu'une reprise gratuite était en main.
+  if (resume.statut === 'source_uploaded' || options.porteAReprendre) {
     return { etape: 'reprise', progression: 0, fermable: true, peutRedeposer }
   }
 

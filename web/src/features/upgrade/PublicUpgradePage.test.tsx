@@ -167,6 +167,47 @@ describe('dépôt d’un document', () => {
     expect(api.franchirPorte).toHaveBeenCalledWith(JETON, 'job-1', 'contenu de contrôle', 'text')
   })
 
+  it('⚠️ téléversement RÉUSSI puis porte en PANNE : la reprise est GRATUITE', async () => {
+    // La porte n'écrit rien avant d'avoir jugé, donc le statut serveur reste `paid` : l'écran
+    // retombait sur le dépôt, et son SEUL bouton facturait le deuxième dépôt sur trois pour un
+    // incident réseau qui n'est pas celui de l'acheteur. Or tout est déjà en main — le document est
+    // déposé, son dépôt décompté, le corpus de contrôle lu : il ne reste que la porte.
+    api.lireStatut.mockResolvedValue(statut({ statut: 'paid', depositsLeft: 2 }))
+    ocr.prepareUpgradeSource.mockResolvedValue({
+      sourceKind: 'text',
+      controlText: 'texte',
+      pageCount: 1,
+      recognizedPages: 0,
+      truncated: false,
+    })
+    api.demanderUrlDepot.mockResolvedValue({
+      jobId: 'job-7',
+      path: 'p',
+      uploadUrl: 'u',
+      uploadToken: 'k',
+      depositsLeft: 2,
+    })
+    api.televerserAvecReprises.mockResolvedValue(undefined)
+    api.franchirPorte.mockRejectedValueOnce(new UpgradeApiError('indisponible', 'injoignable'))
+
+    rendre()
+    await screen.findByRole('button', { name: /Choisir mon document/ })
+    await choisir(pdf())
+
+    // L'écran propose de REPRENDRE, pas de redéposer.
+    const bouton = await screen.findByRole('button', { name: /Reprendre la préparation/ })
+    expect(screen.queryByRole('button', { name: /Choisir mon document/ })).not.toBeInTheDocument()
+
+    // Et la reprise ne consomme RIEN : ni dépôt, ni téléversement, ni relecture du PDF.
+    api.franchirPorte.mockResolvedValue({ status: 'started' })
+    bouton.click()
+    await waitFor(() => expect(api.franchirPorte).toHaveBeenCalledTimes(2))
+    expect(api.demanderUrlDepot).toHaveBeenCalledTimes(1)
+    expect(api.televerserAvecReprises).toHaveBeenCalledTimes(1)
+    expect(ocr.prepareUpgradeSource).toHaveBeenCalledTimes(1)
+    expect(api.franchirPorte).toHaveBeenLastCalledWith(JETON, 'job-7', 'texte', 'text')
+  })
+
   it('un REFUS de recevabilité affiche le message du serveur, tel quel', async () => {
     // Il dit lui-même que rien n'a été débité. Le reformuler perdrait exactement cette phrase-là.
     api.lireStatut.mockResolvedValue(statut())

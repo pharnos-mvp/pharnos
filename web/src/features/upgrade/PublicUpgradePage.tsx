@@ -87,6 +87,14 @@ export function PublicUpgradePage({ token }: { token: string }) {
   const [avis, setAvis] = useState<Message | null>(null)
   /** La lecture du PDF a échoué : l'écran doit rouvrir le dépôt, pas laisser tourner un sablier. */
   const [echecLecture, setEchecLecture] = useState(false)
+  /**
+   * De quoi refranchir la porte SANS RIEN CONSOMMER — le document est déposé, son dépôt décompté,
+   * et le corpus de contrôle déjà lu. Non nul, c'est qu'une panne a interrompu le dernier geste.
+   */
+  const [porteEnAttente, setPorteEnAttente] = useState<{
+    prep: PreparedUpgradeSource
+    jobId: string
+  } | null>(null)
   const [docType, setDocType] = useState<DocType>('rcp')
   /** L'acheteur a-t-il choisi son type de document lui-même ? Alors le serveur ne l'écrase plus. */
   const choixManuel = useRef(false)
@@ -122,6 +130,7 @@ export function PublicUpgradePage({ token }: { token: string }) {
   const vue = vueDepuis(resume, {
     preparationEnCours: travail.quoi !== 'repos',
     echecLecture,
+    porteAReprendre: porteEnAttente !== null,
   })
 
   // Sondage — uniquement pendant le traitement. Sonder un état stable, c'est ~150 requêtes par
@@ -175,11 +184,18 @@ export function PublicUpgradePage({ token }: { token: string }) {
         // Un refus revient en 200 : la commande est intacte, et le message du serveur dit
         // lui-même que rien n'a été débité. On l'affiche tel quel plutôt que de le reformuler.
         setRefus(verdict.status === 'refused' ? { serveur: verdict.message ?? '' } : null)
+        setPorteEnAttente(null)
       } catch (e) {
         // ⚠️ `already_running` arrive en 409, donc en exception : c'est le cas NOMINAL de deux
         // onglets ouverts sur la même commande. L'annoncer « refusé » ferait croire à un rejet
         // alors que le traitement vient de démarrer.
-        setRefus(estDejaLance(e) ? null : cleErreur(e))
+        const nominal = estDejaLance(e)
+        setRefus(nominal ? null : cleErreur(e))
+        // ⚠️ ON GARDE DE QUOI RECOMMENCER POUR RIEN. Le document est déposé, son dépôt décompté,
+        // et le corpus de contrôle est déjà lu : refranchir la porte ne coûte pas un octet de plus.
+        // Sans cela, le seul bouton de l'écran était le sélecteur de fichier — c'est-à-dire un
+        // deuxième dépôt sur trois pour un incident réseau qui n'est pas celui de l'acheteur.
+        setPorteEnAttente(nominal ? null : { prep, jobId })
       } finally {
         setTravail({ quoi: 'repos' })
         await rafraichir()
@@ -245,6 +261,8 @@ export function PublicUpgradePage({ token }: { token: string }) {
       setRefus(null)
       setAvis(null)
       setEchecLecture(false)
+      // Un nouveau dépôt annule la reprise gratuite du précédent : elle porterait l'ancien `jobId`.
+      setPorteEnAttente(null)
       // ⚠️ Les deux refus purement LOCAUX sortent avant le `try`, donc avant le `rafraichir()` du
       // `finally` : un aller-retour réseau pour dire « ce n'est pas un PDF », décidé sur place, ne
       // sert à rien — et s'il échoue, il fait basculer la page en « connexion perdue » sur un
@@ -298,6 +316,14 @@ export function PublicUpgradePage({ token }: { token: string }) {
     setRefus(null)
     setChargement(true)
     try {
+      // ⚠️ LE CHEMIN LE MOINS CHER D'ABORD. Si le document est déposé et déjà lu, il ne reste que
+      // la porte à refranchir : ni téléchargement, ni reconnaissance de caractères, ni — surtout —
+      // de nouveau dépôt. Repasser par `order-source` referait tout le travail pour rien.
+      if (porteEnAttente) {
+        setChargement(false)
+        await franchir(porteEnAttente.prep, porteEnAttente.jobId)
+        return
+      }
       const r = await rafraichir()
       if (doitChercherSource(r)) await reprendreDepuisServeur()
     } finally {
@@ -306,7 +332,7 @@ export function PublicUpgradePage({ token }: { token: string }) {
       // bouton de secours laissait alors un écran de chargement dont plus rien ne sortait.
       setChargement(false)
     }
-  }, [rafraichir, reprendreDepuisServeur])
+  }, [porteEnAttente, franchir, rafraichir, reprendreDepuisServeur])
 
   if (chargement) {
     return (
