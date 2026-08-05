@@ -503,6 +503,20 @@ venait d'en donner.
 | B5 | `source_uploaded` est écrit dès que le serveur **constate** le fichier, donc avant que le navigateur ait su le lire | un PDF protégé par mot de passe enfermait sur un sablier définitif : pas de sondage, pas de bouton, deux dépôts inatteignables |
 | B6 | Ce qui précédait le dépôt était `arrayBuffer()` — de la copie d'octets, qui ne juge **rien** | un PDF chiffré ou corrompu consommait une tentative avant d'échouer, et le commentaire jurait le contraire |
 
+**La contre-revue a trouvé deux majeurs de plus** (`01e2bfa`) — les deux dans mes propres
+corrections, et les deux reproduits avant d'être crus :
+
+| # | Le défaut | Ce qu'il coûtait |
+|---|---|---|
+| C1 | `echecLecture` n'était posé que par la lecture du PDF : un téléchargement coupé ou une porte en 503 laissaient l'écran **exactement là où B5 le laissait** | sablier définitif sous un « ne fermez pas cet onglet », sans message ni bouton |
+| C2 | `depotFait` n'était écrit que si le téléversement **réussissait**, alors que le dépôt est consommé par `order-upload-url`, dont le succès est indépendant du PUT | sur réseau instable, chaque rechargement reprenait un dépôt : commande verrouillée **sans qu'un octet soit arrivé** |
+
+C1 ne se rattrape pas, il se **rend impossible** : `source_uploaded` sans rien en vol ne peut
+signifier qu'une chose — la page démarre toujours la préparation sur cet état — donc c'est une étape
+à part entière (`reprise`), avec son bouton. ⚠️ **Et surtout pas un `depot`** : le fichier est déjà
+là et son dépôt déjà décompté ; en proposer un second ferait payer à l'acheteur un incident réseau
+qui n'est pas le sien.
+
 **Trois leçons qui valent au-delà de ce lot :**
 
 1. **Un repli silencieux sur une valeur par défaut est pire qu'un refus.** B1 tenait entièrement dans
@@ -514,6 +528,11 @@ venait d'en donner.
 3. **« Je n'ai pas de données » n'est pas « ça n'existe pas ».** B4 et M5 sont le même défaut, à deux
    endroits : un `catch` qui rassemble une panne réseau et un état métier fait dire à l'écran des
    choses fausses sur la commande d'un client.
+4. **Un drapeau doit marquer ce qui a été CONSOMMÉ, pas ce qui a RÉUSSI.** C2 : entre les deux, il y
+   a exactement le chemin d'échec qu'on voulait couvrir.
+5. **Corriger un défaut sur un chemin ne le corrige pas sur les autres.** B5 et C1 sont le même
+   sablier, atteint par trois portes différentes ; deux étaient encore ouvertes après le correctif.
+   Balayer les états × les échecs, et pas seulement celui qu'on vient de lire.
 
 **Aussi corrigé** : le changement de langue relançait toute la séquence (`t` change d'identité avec
 `lang` et entrait dans les dépendances) — deux reconnaissances de caractères en parallèle, puis un
