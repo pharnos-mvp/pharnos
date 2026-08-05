@@ -14,10 +14,11 @@
 > |---|---|
 > | Branche | `feat/upgrade-u0-renderer` — **à jour de `origin/main`** (fusion sans conflit), PR non ouverte |
 > | Derniers commits | `9a81d93` → **`d224665`**, puis le découpage de la revue |
-> | **Fait** | **U0 complet** (§3) — rendu pur, banc Edge, chaîne mesurée de bout en bout |
+> | **Fait** | **U0 → U4** (§3) — banc mesuré, paiement, pont, page publique, moteur en série |
 > | **Mesuré** | **60 appels · 319 s · 1,96 $** par upgrade — recoupé console (§3, U0) |
 > | ✅ **Tranché** | **la revue est DÉCOUPÉE en 4 appels**, un par tableau (§3, U0) — CEO, 2026-08-04 |
-> | **Suivant** | **U1 — la vérité du paiement** |
+> | **Suivant** | **U5 — la livraison** : fabriquer les cinq fichiers dans le navigateur depuis le JSON d'`order-status` |
+> | ⚠️ À faire avant toute recette | **déployer `order-source` (nouvelle) et redéployer `order-status`** — le déploiement Edge est hors CI |
 > | ⚠️ À mesurer | le découpage n'a tourné que **sur banc à générateur injecté** : les durées réelles par tableau restent à relever sur un vrai document (§3) |
 > **Plans liés** : [PLAN-MOTEUR-IA.md](PLAN-MOTEUR-IA.md) (le moteur) ·
 > [PLAN-UPGRADE-FRONTEND.md](PLAN-UPGRADE-FRONTEND.md) (les écrans, **partiellement périmé** — voir §1.3) ·
@@ -422,23 +423,70 @@ référence, borné en débit). Jeton via `share-auth.ts`. **E-mail n°1** via R
 **Fait quand** : un règlement de recette à 570 F crée une ligne `orders`, l'e-mail arrive, et un
 second Pulse pour la même vente ne crée rien.
 
-### U2 — Le pont — 1 jour
+### U2 — Le pont — ✅ **LIVRÉ le 2026-08-05** (`3352f48`)
 
-Landing : après confirmation **serveur**, téléversement du ou des documents vers une URL signée
-(Edge `order-upload-url`), puis redirection vers `app.pharnos.com/u/{token}`. Suppression du
-`mailto:` comme transport. `?paiement=ok` ne sert plus qu'à déclencher l'interrogation.
+Landing : après confirmation **serveur**, téléversement du document vers une URL signée
+(Edge `order-upload-url`), puis redirection vers `app.pharnos.com/u/{token}`. Le `mailto:` n'est
+plus le transport. `?paiement=ok` ne sert plus qu'à déclencher l'interrogation.
 
-**Fait quand** : le document arrive dans Storage sous la clé de la commande, et l'onglet bascule sur
-la page publique. Recette explicite du chemin « le client ferme avant le téléversement ».
+Ce qui décide vit dans `landing/modele/pont.js`, module **pur**, **8 tests Deno** (`deno test`
+couvre désormais `landing/` en plus de `_shared/`) :
 
-### U3 — La page publique — 1,5 jour
+| Décision | Pourquoi elle est testée |
+|---|---|
+| « pas encore » ≠ « refusé » | le Pulse peut arriver APRÈS le client — le confondre avec un échec renverrait l'acheteur sur « commande introuvable » une seconde avant que sa commande n'existe |
+| la boucle FINIT (~90 s, cadence monotone) | un onglet oublié interrogerait le serveur sans fin ; la fin dit quoi faire — l'e-mail n°1 porte le même lien |
+| jeton dans le CHEMIN | une chaîne de requête fuit dans les `Referer`, les journaux de proxy, les captures d'écran |
+| `localhost.attaquant.fr` ≠ `localhost` | comparaison stricte, jamais une sous-chaîne |
 
-`app.pharnos.com/u/{token}` sur le patron `/r/{token}` (`App.tsx:139-151`) : aucune auth, aucune org,
-aucune synchro. Téléchargement de la source, **`prepareUpgradeSource`** (son premier appelant),
-porte de recevabilité (`order-gate`), `order-start`, puis l'écran de suivi de la maquette v3.
+⚠️ **L'URL de dépôt est demandée UNE fois** — c'est elle qui décompte un dépôt sur trois. Le PUT se
+retente sur la même URL (clé dérivée du job, `x-upsert`), et **seulement sur ce qui a une chance de
+passer** : un 403 d'URL expirée retenté trois fois ne fait que rallonger l'attente.
 
-**Fait quand** : un scan comme un PDF à couche texte passent ; un journal déposé à la place d'un RCP
-est refusé **sans consommer de crédit**, et le message le dit.
+⚠️ **On redirige MÊME quand l'envoi échoue.** La page de suivi sait redemander le fichier ; laisser
+l'acheteur sur la landing avec un message d'erreur l'y laisserait pour de bon.
+
+Le pied de page annonçait « Rien n'a quitté cet appareil ». C'était vrai avec le `mailto:` ; ça ne
+l'est plus, et une phrase rassurante devenue fausse sur la confirmation d'un achat est le pire
+endroit pour en laisser une.
+
+**Reste sur ce lot** : le bundle `up3` ne fait traverser que le document principal — le compteur de
+dépôts est de 3 par COMMANDE, trois documents l'épuiseraient sans laisser de reprise. Conforme au §4
+(hors périmètre tant qu'un `up1` n'a pas réussi de bout en bout), mais **la vente `up3` est ouverte
+sur la landing** : à trancher avec la réouverture de U6.
+
+### U3 — La page publique — ✅ **LIVRÉE le 2026-08-05** (`693ac65`, `5613789`)
+
+`app.pharnos.com/u/{token}` sur le patron `/r/{token}` : aucune auth, aucune org, aucune synchro.
+Récupération de la source, **`prepareUpgradeSource`** (son premier appelant en production), porte de
+recevabilité (`order-gate`), puis l'écran de suivi.
+
+**Une surface non prévue par ce plan a dû être écrite : `order-source`.** Le document est téléversé
+depuis `pharnos.com` et lu depuis `app.pharnos.com` — deux origines, donc **aucun stockage
+navigateur partagé** (le §2.1 le disait, sans en tirer la conséquence). Storage est le seul chemin,
+et la page n'a ni compte ni JWT pour l'y lire.
+
+⚠️ **Et `source_uploaded` n'était écrit NULLE PART.** Le téléversement se fait sur une URL signée :
+personne ne nous dit que les octets sont arrivés, et `source_path` est écrit à l'ÉMISSION de l'URL.
+`order-source` **constate** l'objet dans Storage avant de faire avancer la commande. Sans ce
+constat, un acheteur revenu par l'e-mail n°1 se voyait redemander un document déjà envoyé et
+**brûlait un dépôt sur trois** pour rien.
+
+**Trois décisions protègent les trois dépôts d'une commande payée :**
+
+1. `doitChercherSource` interroge le serveur **avant** de réclamer un fichier.
+2. **Jamais après un refus** : le document le plus récent est alors celui que la porte vient
+   d'écarter. Le redemander, ce serait boucler jusqu'à épuiser les trois dépôts sans que l'acheteur
+   ait jamais pu fournir le bon fichier.
+3. **On lit le PDF avant de le déposer** : c'est `order-upload-url` qui décompte, donc un fichier
+   illisible refusé côté navigateur ne coûte rien.
+
+**Fait quand** : ✅ le chargement, le routage et l'écran de lien expiré sont vérifiés en vrai
+navigateur sur un VRAI 404 de l'Edge. ⏳ **Reste à jouer en recette** : un scan et un PDF à couche
+texte de bout en bout, et un journal déposé à la place d'un RCP (refus sans crédit consommé).
+
+⚠️ **`order-source` n'est pas encore déployée** (le déploiement Edge est hors CI), et `order-status`
+doit l'être à nouveau pour rendre `docType`.
 
 ### U4 — Le moteur en série — 2 jours
 
