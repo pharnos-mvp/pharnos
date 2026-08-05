@@ -1,33 +1,49 @@
-// Edge Function `job-tick` — le moteur en série (U4). UNE invocation = UNE vague.
+// Edge Function `job-tick` — le moteur en série (U4). Une invocation sert PLUSIEURS vagues.
 //
 // Le mur n'est pas le CPU : les 60 appels du moteur sont de l'ATTENTE, le calcul y est négligeable.
 // C'est le wall clock de 150 s par invocation. Une orchestration de 5,3 minutes n'y rentre pas ;
-// elle rentre parfaitement en vagues de 6, dont la plus lente mesurée tient en 48,3 s.
+// elle rentre en vagues de 6, dont la plus lente mesurée tient en 48,3 s.
+//
+// ⚠️ L'invocation BOUCLE tant qu'il lui reste du temps. Une vague par invocation aurait ajouté la
+// latence du planificateur entre chaque : à 30 s de période et ~14 vagues par commande, sept
+// minutes d'attente pure venaient s'ajouter aux 5,3 minutes de travail réel. `pg_cron` n'est que
+// le DÉMARREUR et le filet ; il ne cadence pas le produit.
 //
 // TROIS CONTRATS, tous issus de la mesure et non du plan (§ « Ce que U0 impose aux lots suivants ») :
-//   1. **Une invocation = une vague**, et l'état vit chez l'appelant — ici, en base.
-//   2. **L'état s'écrit après CHAQUE rubrique**, jamais en fin de passe : le premier run du banc a
-//      perdu 59 appels PAYÉS sur un dépassement en passe 3. La granularité de la sauvegarde doit
-//      être celle de la DÉPENSE.
-//   3. **`warmupFirst` sur la PREMIÈRE vague seulement** : la vague 1 écrit le préfixe de cache
-//      (16 696 jetons), les suivantes le relisent. Le répéter ne ferait que rallonger. Et AUCUN
-//      préchauffage en traduction — chaque rubrique y porte son propre contenu, `cacheRead` = 0.
+//   1. **Une vague = 6**, et l'état vit en base — jamais en mémoire d'un isolat qu'on peut tuer.
+//   2. **L'état s'écrit après CHAQUE rubrique** : le premier run du banc a perdu 59 appels PAYÉS
+//      sur un dépassement en passe 3. La granularité de la sauvegarde est celle de la DÉPENSE.
+//   3. **Préchauffage sur la première vague d'une phase à préfixe partagé** — conformité ET revue,
+//      jamais la traduction (chaque rubrique y porte son propre contenu).
 //
-// Sécurité : `verify_jwt = false` (l'appelant est `pg_cron`, pas un humain), authentifié par un
-// secret partagé comparé au HASH rendu par `upgrade_tick_secret_hash()` — le secret lui-même ne
-// sort JAMAIS de la base (patron de 0051).
+// Sécurité : `verify_jwt = false` (l'appelant est `pg_cron`), authentifié par un secret partagé
+// comparé au HASH rendu par `upgrade_tick_secret_hash()` — le secret ne sort JAMAIS de la base.
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
+import { encodeBase64 } from 'jsr:@std/encoding@1/base64'
 
-import { EDGE_WALL_CLOCK_MS } from '../_shared/ai/limits.ts'
 import { prepareSource } from '../_shared/ai/evidence.ts'
+import { EDGE_WALL_CLOCK_MS } from '../_shared/ai/limits.ts'
 import { conformitySystem, reviewSystem, translationSystem } from '../_shared/ai/personas.ts'
 import { boundedMap } from '../_shared/ai/pool.ts'
 import { generateParts, type Part } from '../_shared/ai/provider.ts'
 import { findRubric } from '../_shared/ai/section-schema.ts'
 import { CONFORMITY_SPECS, type ConformityDocType } from '../_shared/conformity-specs.ts'
+import {
+  classerEchec,
+  doitPrechauffer,
+  jugerPhase,
+  PHASE_SUIVANTE,
+  trancheMinMs,
+  trierVagueRevue,
+} from '../_shared/job-tick-core.ts'
 import { logJson, newReqId } from '../_shared/log.ts'
 import { DOC_TYPES_VENDABLES } from '../_shared/orders-core.ts'
-import { generateReportPart, REPORT_PARTS, type ReportPart } from '../_shared/report-core.ts'
+import {
+  generateReportPart,
+  pruneUnverifiable,
+  REPORT_PARTS,
+  type ReportPart,
+} from '../_shared/report-core.ts'
 import {
   generateSection,
   MISSING_MARKER,
@@ -41,24 +57,24 @@ const BUCKET = 'documents'
 /** Vague de 6 : au-delà, la limite de débit du fournisseur annule le gain (cf. `pool.ts`). */
 const VAGUE = 6
 /**
- * Plafond GLOBAL de rubriques simultanées, toutes commandes confondues. C'est le seul endroit où la
- * montée en charge se règle : sans lui, dix acheteurs simultanés lancent 60 appels et le
- * fournisseur nous limite en 429 — chaque rejeu étant lui-même facturé.
+ * Plafond GLOBAL de rubriques simultanées, toutes commandes confondues. Seul endroit où la montée
+ * en charge se règle : sans lui, dix acheteurs lancent 60 appels et le fournisseur nous limite en
+ * 429 — chaque rejeu étant lui-même facturé.
  */
 const PLAFOND_GLOBAL = 24
 /**
- * Budget de l'invocation. Volontairement SOUS le mur de 150 s : il reste à télécharger le PDF,
- * l'encoder en base64 et écrire les résultats. Un budget collé au mur ferait tuer l'invocation
- * juste après le dernier appel payé — le pire moment possible.
+ * Budget de l'invocation, volontairement SOUS le mur de 150 s : il reste à télécharger le PDF, à
+ * l'encoder et à écrire les résultats. Un budget collé au mur ferait tuer l'invocation juste après
+ * le dernier appel payé — le pire moment possible.
  */
-const BUDGET_INVOCATION_MS = EDGE_WALL_CLOCK_MS - 40_000
-/** Une rubrique lancée doit pouvoir finir : en deçà, on la laisse à la vague suivante. */
-const TRANCHE_MIN_MS = 12_000
+const BUDGET_INVOCATION_MS = EDGE_WALL_CLOCK_MS - 35_000
+/** Marge exigée pour rouvrir une vague : la tranche de la phase, plus de quoi écrire les résultats. */
+const MARGE_ECRITURE_MS = 8_000
 
 const json = (b: unknown, s: number) =>
   new Response(JSON.stringify(b), { status: s, headers: { 'content-type': 'application/json' } })
 
-/** Comparaison à temps constant : un `===` sur une chaîne rend son préfixe devinable par le temps. */
+/** Comparaison à temps constant : un `===` rend le préfixe devinable par le temps de réponse. */
 function egalConstant(a: string, b: string): boolean {
   if (a.length !== b.length) return false
   let d = 0
@@ -77,96 +93,164 @@ interface Job {
   doc_type: string
   source_path: string
   source_kind: 'text' | 'ocr'
-  control_text: string
+  control_text: string | null
   phase: string
+  lang: OutputLang
 }
+
+const CHAMPS_JOB = 'id, order_id, doc_type, source_path, source_kind, control_text, phase'
 
 /* ─────────────────────────────── Avancement de phase ──────────────────────────────────────── */
 
 /**
- * Une phase est ÉPUISÉE quand elle n'a plus ni `queued` ni `running`. C'est le seul moment où l'on
- * peut créer la suivante : les rubriques de traduction dépendent de ce que la conformité a produit,
- * et celles de la revue de ce que la traduction a produit. Les créer d'avance figerait une liste
- * que le travail n'a pas encore déterminée.
+ * Compte les rubriques d'une phase. Rend `null` sur ERREUR — jamais un compteur à zéro.
+ *
+ * ⚠️ C'est le correctif du défaut le plus coûteux du lot. La version précédente ignorait l'`error`
+ * de la requête : une panne transitoire rendait `count` indéfini, donc `0`, donc « phase épuisée ».
+ * Le job traversait alors traduction et revue sans aucune ligne, puis se déclarait `done` et posait
+ * `delivered_at` : **l'acheteur recevait un dossier amputé présenté comme complet.** Dans le doute,
+ * on n'avance pas.
  */
-async function phaseEpuisee(sb: SupabaseClient, jobId: string, phase: string): Promise<boolean> {
-  const { count } = await sb
+async function compterPhase(sb: SupabaseClient, jobId: string, phase: string) {
+  const { data, error } = await sb
     .from('upgrade_sections')
-    .select('id', { count: 'exact', head: true })
+    .select('status, attempts')
     .eq('job_id', jobId)
     .eq('phase', phase)
-    .in('status', ['queued', 'running'])
-  return (count ?? 0) === 0
+  if (error || !data) return null
+  const c = { queued: 0, running: 0, bloquees: 0, failed: 0 }
+  for (const s of data as { status: string; attempts: number }[]) {
+    if (s.status === 'running') c.running++
+    // Une `queued` au plafond de tentatives n'est plus réclamable par personne : la compter comme
+    // du travail en attente figerait le job pour toujours (cf. `job-tick-core.ts`).
+    else if (s.status === 'queued') s.attempts >= 3 ? c.bloquees++ : c.queued++
+    else if (s.status === 'failed') c.failed++
+  }
+  return c
 }
 
-/** Fait avancer le job d'une phase, en créant la file de la suivante. Rend la nouvelle phase. */
-async function avancerPhase(sb: SupabaseClient, job: Job): Promise<string> {
+/** Marque le job ET la commande en échec — un job cassé doit se distinguer d'un job lent. */
+async function marquerEchec(sb: SupabaseClient, job: Job, raison: string): Promise<void> {
+  await sb.from('upgrade_jobs').update({ error: raison.slice(0, 2000) }).eq('id', job.id)
+  await sb.from('orders').update({ status: 'failed' }).eq('id', job.order_id).eq('status', 'running')
+}
+
+/**
+ * Fait avancer d'une phase le job dont la phase courante est terminée ET saine.
+ *
+ * Les rubriques de la phase suivante ne sont créées qu'ICI : celles de traduction dépendent de ce
+ * que la conformité a produit, celles de la revue de ce que la traduction a produit. Les créer
+ * d'avance figerait une liste que le travail n'a pas encore déterminée.
+ */
+async function avancerPhase(sb: SupabaseClient, job: Job, log: Record<string, unknown>): Promise<void> {
+  const compte = await compterPhase(sb, job.id, job.phase)
+  if (!compte) return // lecture douteuse : on ne décide rien.
+
+  const verdict = jugerPhase(compte)
+  if (!verdict.avance) {
+    if (verdict.raison === 'echec' || verdict.raison === 'bloquee') {
+      // ⚠️ Ne JAMAIS avancer sur une phase qui porte un échec. Sur la revue en particulier : si le
+      // tableau `findings` a échoué, mettre `recommendations` en file ferait affirmer au modèle
+      // « aucun constat n'a été retenu », et le rapport écrirait « Aucun. » sous Constats — une
+      // affirmation FAUSSE dans un livrable payé. `generateReport` refuse pour cette raison ; le
+      // worker appelle par tableau et contourne ce refus, donc le refus vit ici.
+      await marquerEchec(sb, job, `phase ${job.phase} : ${verdict.raison} (${compte.failed} échec(s), ${compte.bloquees} bloquée(s))`)
+      logJson({ ...log, status: 'job_echec', job: job.id.slice(0, 8), phase: job.phase, raison: verdict.raison })
+    }
+    return
+  }
+
   if (job.phase === 'conformity') {
-    // ⚠️ Seules les rubriques RENSEIGNÉES se traduisent. Une lacune ne se traduit pas, elle se
-    // ré-affiche : `translateSection` le sait et ne consomme aucun appel, mais créer la ligne
-    // quand même gonflerait le décompte affiché à l'acheteur (« 34 » là où 25 travaillent).
-    const { data: faites } = await sb
+    // Seules les rubriques RENSEIGNÉES se traduisent : une lacune ne se traduit pas, elle se
+    // ré-affiche. Créer la ligne quand même gonflerait le décompte montré à l'acheteur.
+    const { data: faites, error } = await sb
       .from('upgrade_sections')
       .select('section_id, content')
       .eq('job_id', job.id)
       .eq('phase', 'conformity')
       .eq('status', 'done')
-    const aTraduire = (faites ?? []).filter((s) => {
+    if (error || !faites) return
+    const aTraduire = faites.filter((s) => {
       const c = s.content as { status?: string } | null
       return c?.status && c.status !== 'missing'
     })
     if (aTraduire.length) {
-      await sb.from('upgrade_sections').upsert(
+      const { error: insErr } = await sb.from('upgrade_sections').upsert(
         aTraduire.map((s) => ({ job_id: job.id, section_id: s.section_id, phase: 'translation' })),
         { onConflict: 'job_id,phase,section_id', ignoreDuplicates: true },
       )
+      if (insErr) return // la file n'est pas prête : on ne bascule pas la phase.
     }
-    await sb.from('upgrade_jobs').update({ phase: 'translation' }).eq('id', job.id)
-    return 'translation'
+    await sb.from('upgrade_jobs')
+      .update({ phase: 'translation', sections_total: aTraduire.length })
+      .eq('id', job.id)
+    logJson({ ...log, status: 'phase', job: job.id.slice(0, 8), vers: 'translation', n: aTraduire.length })
+    return
   }
 
   if (job.phase === 'translation') {
-    // La revue occupe QUATRE lignes, une par tableau — mais `recommendations` dépend des constats,
-    // et n'est mise en file qu'une fois `findings` établi (voir plus bas). Trois d'abord.
-    await sb.from('upgrade_sections').upsert(
-      REPORT_PARTS.filter((p) => p !== 'recommendations').map((p) => ({
-        job_id: job.id,
-        section_id: p,
-        phase: 'report',
-      })),
+    // La revue occupe QUATRE lignes. `recommendations` dépend des constats : elle n'est mise en
+    // file qu'une fois `findings` ABOUTI — pas seulement la phase épuisée.
+    const trois = REPORT_PARTS.filter((p) => p !== 'recommendations')
+    const { error } = await sb.from('upgrade_sections').upsert(
+      trois.map((p) => ({ job_id: job.id, section_id: p, phase: 'report' })),
       { onConflict: 'job_id,phase,section_id', ignoreDuplicates: true },
     )
-    await sb.from('upgrade_jobs').update({ phase: 'report' }).eq('id', job.id)
-    return 'report'
+    if (error) return
+    await sb.from('upgrade_jobs')
+      .update({ phase: 'report', sections_total: REPORT_PARTS.length })
+      .eq('id', job.id)
+    logJson({ ...log, status: 'phase', job: job.id.slice(0, 8), vers: 'report' })
+    return
   }
 
   if (job.phase === 'report') {
-    // Les trois tableaux indépendants sont faits : `recommendations` peut enfin partir, nourri des
-    // constats. C'est la SEULE dépendance des quatre, et elle vaut d'être respectée — des actions
-    // qui reformulent les constats au lieu de les couvrir donneraient deux listes redondantes.
-    const { count } = await sb
+    const { data: reco, error } = await sb
       .from('upgrade_sections')
-      .select('id', { count: 'exact', head: true })
+      .select('id')
       .eq('job_id', job.id)
       .eq('phase', 'report')
       .eq('section_id', 'recommendations')
-    if ((count ?? 0) === 0) {
-      await sb.from('upgrade_sections').insert({
-        job_id: job.id,
-        section_id: 'recommendations',
-        phase: 'report',
-      })
-      return 'report'
+    if (error || !reco) return
+    if (reco.length === 0) {
+      // `jugerPhase` a déjà garanti qu'aucun des trois n'a échoué : les constats existent.
+      const { error: insErr } = await sb.from('upgrade_sections')
+        .insert({ job_id: job.id, section_id: 'recommendations', phase: 'report' })
+      if (!insErr) logJson({ ...log, status: 'phase', job: job.id.slice(0, 8), vers: 'recommendations' })
+      return
     }
-    await sb.from('upgrade_jobs')
-      .update({ phase: 'done', finished_at: new Date().toISOString() })
-      .eq('id', job.id)
-    await sb.from('orders')
-      .update({ status: 'done', delivered_at: new Date().toISOString() })
-      .eq('id', job.order_id)
-    return 'done'
+    if (PHASE_SUIVANTE.report === null) {
+      await sb.from('upgrade_jobs')
+        .update({ phase: 'done', finished_at: new Date().toISOString() })
+        .eq('id', job.id)
+      await sb.from('orders')
+        .update({ status: 'done', delivered_at: new Date().toISOString() })
+        .eq('id', job.order_id)
+        .eq('status', 'running')
+      logJson({ ...log, status: 'job_termine', job: job.id.slice(0, 8) })
+    }
   }
-  return job.phase
+}
+
+/**
+ * Balaye les jobs et fait avancer ceux qui le peuvent — À CHAQUE TICK, avant de servir une vague.
+ *
+ * ⚠️ La version précédente ne l'atteignait que lorsque `next_upgrade_work()` ne rendait RIEN, donc
+ * quand aucun job au monde n'avait de travail en file. Deux commandes simultanées se bloquaient
+ * mutuellement : le job A ne pouvait pas passer en traduction tant que le job B n'avait pas vidé
+ * ses 34 rubriques. Avec un flux d'arrivées continu, plus aucun job ne changeait jamais de phase.
+ */
+async function avancerCeQuiPeut(sb: SupabaseClient, log: Record<string, unknown>): Promise<void> {
+  const { data: jobs, error } = await sb
+    .from('upgrade_jobs')
+    .select(CHAMPS_JOB)
+    .neq('phase', 'done')
+    .order('created_at')
+    .limit(20)
+  if (error || !jobs) return
+  for (const j of jobs as unknown as Job[]) {
+    await avancerPhase(sb, { ...j, lang: 'fr' }, log)
+  }
 }
 
 /* ──────────────────────────────────── Le tick ─────────────────────────────────────────────── */
@@ -174,7 +258,13 @@ async function avancerPhase(sb: SupabaseClient, job: Job): Promise<string> {
 Deno.serve(async (req) => {
   const log = { fn: 'job-tick', reqId: newReqId() }
   const debut = Date.now()
+  const echeance = debut + BUDGET_INVOCATION_MS
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405)
+
+  // Contrôle BON MARCHÉ d'abord : sur un point d'entrée sans JWT, chaque requête anonyme ne doit
+  // pas coûter un aller-retour base. Le secret fait 64 caractères hexadécimaux, toujours.
+  const presente = req.headers.get('x-cron-secret') ?? ''
+  if (presente.length !== 64) return json({ error: 'forbidden' }, 403)
 
   const sb = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -182,56 +272,75 @@ Deno.serve(async (req) => {
     { auth: { persistSession: false } },
   )
 
-  // ── Authentification : le secret ne sort jamais de la base, on compare des HASHES ─────────────
-  const presente = req.headers.get('x-cron-secret') ?? ''
   const { data: attendu, error: hashErr } = await sb.rpc('upgrade_tick_secret_hash')
+  // Secret absent ⇒ porte FERMÉE. L'absence de configuration ne doit jamais ouvrir. Et le même 403
+  // que l'échec de comparaison : distinguer les deux dirait à un inconnu si le secret est posé.
   if (hashErr || typeof attendu !== 'string' || attendu.length !== 64) {
-    // Secret non configuré ⇒ la porte est FERMÉE. L'absence de configuration ne doit jamais ouvrir.
     logJson({ ...log, status: 'secret_absent' })
-    return json({ error: 'not_configured' }, 503)
+    return json({ error: 'forbidden' }, 403)
   }
-  if (!presente || !egalConstant(await sha256Hex(presente), attendu)) {
+  if (!egalConstant(await sha256Hex(presente), attendu)) {
     logJson({ ...log, status: 'auth_refusee' })
     return json({ error: 'forbidden' }, 403)
   }
 
-  // ── Le filet, avant tout : rendre à la file ce qu'une invocation tuée a laissé en `running` ────
+  // Le filet AVANT tout : rendre à la file ce qu'une invocation tuée a laissé en `running`, et
+  // trancher les rubriques que plus rien ne peut réclamer.
   const { data: remises } = await sb.rpc('requeue_dead_sections', { p_stale_seconds: 180 })
-  if (typeof remises === 'number' && remises > 0) {
-    logJson({ ...log, status: 'filet', remises })
-  }
+  if (typeof remises === 'number' && remises > 0) logJson({ ...log, status: 'filet', remises })
 
-  const { data: travail } = await sb.rpc('next_upgrade_work')
-  const item = Array.isArray(travail) ? travail[0] : null
+  let vagues = 0
+  let rubriques = 0
 
-  // ── Rien en file : peut-être une phase à faire avancer ────────────────────────────────────────
-  if (!item) {
-    const { data: jobs } = await sb
-      .from('upgrade_jobs')
-      .select('id, order_id, doc_type, source_path, source_kind, control_text, phase')
-      .neq('phase', 'done')
-      .order('created_at')
-      .limit(5)
-    let avances = 0
-    for (const j of (jobs ?? []) as Job[]) {
-      if (await phaseEpuisee(sb, j.id, j.phase)) {
-        const nouvelle = await avancerPhase(sb, j)
-        avances++
-        logJson({ ...log, status: 'phase', job: j.id.slice(0, 8), de: j.phase, vers: nouvelle })
-      }
+  // ── La boucle : plusieurs vagues par invocation, tant que le temps le permet ───────────────────
+  for (;;) {
+    // L'avancement passe AVANT le service : sans cela, un job prêt à changer de phase attend qu'un
+    // autre ait vidé la sienne.
+    await avancerCeQuiPeut(sb, log)
+
+    const { data: travail, error: workErr } = await sb.rpc('next_upgrade_work')
+    if (workErr) {
+      logJson({ ...log, status: 'work_error' })
+      break
     }
-    return json({ ok: true, avances, ms: Date.now() - debut }, 200)
+    const item = (Array.isArray(travail) ? travail[0] : null) as
+      | { job_id: string; phase: string }
+      | null
+    if (!item) break
+
+    if (echeance - Date.now() < trancheMinMs(item.phase) + MARGE_ECRITURE_MS) break
+
+    const servies = await servirVague(sb, item, echeance, log)
+    if (servies < 0) break // panne franche : on rend la main, le cron reprendra.
+    vagues++
+    rubriques += servies
+    if (servies === 0) break // plafond global atteint : inutile d'insister dans cette invocation.
   }
 
-  const { data: jobRow } = await sb
+  logJson({ ...log, status: 'fin', vagues, rubriques, ms: Date.now() - debut })
+  return json({ ok: true, vagues, rubriques, ms: Date.now() - debut }, 200)
+})
+
+/** Sert UNE vague. Rend le nombre de rubriques traitées, ou -1 sur panne franche. */
+async function servirVague(
+  sb: SupabaseClient,
+  item: { job_id: string; phase: string },
+  echeance: number,
+  log: Record<string, unknown>,
+): Promise<number> {
+  const { data: jobRow, error: jobErr } = await sb
     .from('upgrade_jobs')
-    .select('id, order_id, doc_type, source_path, source_kind, control_text, phase')
+    .select(`${CHAMPS_JOB}, orders!inner(lang)`)
     .eq('id', item.job_id)
     .maybeSingle()
-  if (!jobRow) return json({ error: 'job_introuvable' }, 404)
-  const job = jobRow as Job
+  if (jobErr || !jobRow) return -1
+  const brut = jobRow as unknown as Record<string, unknown>
+  const rel = brut.orders as unknown
+  const cmd = (Array.isArray(rel) ? rel[0] : rel) as { lang?: string } | undefined
+  // La langue vient de la COMMANDE : un acheteur anglophone ne doit pas recevoir un rapport
+  // français. Elle était figée à 'fr' en dur.
+  const job: Job = { ...(brut as unknown as Job), lang: cmd?.lang === 'en' ? 'en' : 'fr' }
 
-  // ── Réclamation d'une vague : `SKIP LOCKED` + sémaphore global, dans la MÊME requête ───────────
   const { data: reclamees, error: claimErr } = await sb.rpc('claim_upgrade_sections', {
     p_job: job.id,
     p_phase: item.phase,
@@ -240,113 +349,128 @@ Deno.serve(async (req) => {
   })
   if (claimErr) {
     logJson({ ...log, status: 'claim_error' })
-    return json({ error: 'db' }, 503)
+    return -1
   }
-  const vague = (reclamees ?? []) as { id: string; section_id: string; attempts: number }[]
-  if (!vague.length) {
-    // Plafond global atteint : ce n'est PAS une erreur, c'est la régulation qui fait son travail.
-    logJson({ ...log, status: 'plafond', phase: item.phase })
-    return json({ ok: true, plafond: true, ms: Date.now() - debut }, 200)
+  const brutes = (reclamees ?? []) as { id: string; section_id: string; attempts: number }[]
+  if (!brutes.length) {
+    logJson({ ...log, status: 'aucune_prise', phase: item.phase })
+    return 0
   }
+  // En revue, le tableau le plus COURT doit préchauffer : `created_at` ne les départage pas (même
+  // horodatage de transaction), l'ordre revenait au hasard du plan d'exécution.
+  const vague = item.phase === 'report' ? trierVagueRevue(brutes) : brutes
 
-  const docType = (DOC_TYPES_VENDABLES.has(job.doc_type) ? job.doc_type : "rcp") as ConformityDocType
+  const docType = (DOC_TYPES_VENDABLES.has(job.doc_type) ? job.doc_type : 'rcp') as ConformityDocType
   const spec = CONFORMITY_SPECS[docType]
-  const lang: OutputLang = 'fr'
-  const echeance = debut + BUDGET_INVOCATION_MS
   const source = prepareSource(job.control_text ?? '', job.source_kind)
 
-  // La PIÈCE : le modèle lit le PDF, jamais le corpus océrisé. Sans elle, il reprocherait au client
-  // les coquilles de NOTRE reconnaissance de caractères.
+  // ⚠️ Sans corpus de contrôle, `verifyEvidence` rend `unverifiable` — un verdict que
+  // `isEvidenceRejected` N'EXCLUT PAS : les 34 rubriques seraient acceptées SANS AUCUNE
+  // vérification, et livrées. La garantie zéro-invention tomberait en silence.
+  if (item.phase !== 'translation' && !source.available) {
+    await sb.from('upgrade_sections')
+      .update({ status: 'failed', claimed_at: null, error: 'corpus de contrôle absent' })
+      .in('id', vague.map((v) => v.id))
+    logJson({ ...log, status: 'corpus_absent', job: job.id.slice(0, 8) })
+    return -1
+  }
+
+  // La PIÈCE : le modèle lit le PDF, jamais le corpus océrisé — sinon il reprocherait au client les
+  // coquilles de NOTRE reconnaissance de caractères.
   let sourceParts: Part[] = []
   if (item.phase !== 'translation') {
     const { data: blob, error: dlErr } = await sb.storage.from(BUCKET).download(job.source_path)
     if (dlErr || !blob) {
-      logJson({ ...log, status: 'source_illisible' })
-      // Les rubriques réclamées retournent en file : elles n'ont rien coûté.
-      await sb.from('upgrade_sections').update({ status: 'queued', claimed_at: null })
-        .in('id', vague.map((v) => v.id))
-      return json({ error: 'storage' }, 503)
+      // ⚠️ La tentature est RENDUE : cet échec n'a coûté aucun appel. Sans cela, trois pannes
+      // Storage laissaient les rubriques `queued` avec `attempts = 3` — plus réclamables par le
+      // `claim`, invisibles du filet (qui ne balaie que `running`), mais toujours comptées comme du
+      // travail en attente : le job était figé pour toujours, sans un seul log.
+      for (const v of vague) {
+        await sb.from('upgrade_sections')
+          .update({ status: 'queued', claimed_at: null, attempts: Math.max(0, v.attempts - 1) })
+          .eq('id', v.id)
+      }
+      logJson({ ...log, status: 'source_illisible', job: job.id.slice(0, 8) })
+      return -1
     }
-    const buf = new Uint8Array(await blob.arrayBuffer())
-    let bin = ''
-    for (const b of buf) bin += String.fromCharCode(b)
-    sourceParts = [{ inlineData: { mimeType: 'application/pdf', data: btoa(bin) } }]
+    // `encodeBase64` du std : la concaténation octet par octet montait à ~50 Mo de chaîne
+    // intermédiaire sur un scan de 25 Mo, au-dessus du buffer déjà résident — CPU et mémoire de
+    // l'isolat, à chaque vague.
+    sourceParts = [{
+      inlineData: {
+        mimeType: 'application/pdf',
+        data: encodeBase64(new Uint8Array(await blob.arrayBuffer())),
+      },
+    }]
   }
 
-  // ── La vague. `warmupFirst` UNIQUEMENT sur la première de la phase de conformité ───────────────
-  // Vague 1 : écrit 16 696 jetons de préfixe, en lit 0. Vagues 2 à 6 : en lisent 16 696 chacune.
-  // Le répéter ne ferait que rallonger. En traduction il n'y a PAS de préfixe commun — chaque
-  // rubrique porte son propre contenu, `cacheRead` valait 0 sur les 25 mesurées.
-  const premiereVague = item.phase === 'conformity' && vague.some((v) => v.attempts === 1) &&
-    (await premiereDeLaPhase(sb, job.id, item.phase))
+  const { count: abouties } = await sb
+    .from('upgrade_sections')
+    .select('id', { count: 'exact', head: true })
+    .eq('job_id', job.id)
+    .eq('phase', item.phase)
+    .eq('status', 'done')
 
   const rapport = await boundedMap(
     vague,
     async (ligne) => {
       const usage = emptyUsage()
       const valeur = await runWithUsage(usage, () =>
-        executer(sb, item.phase, ligne.section_id, {
-          spec,
-          lang,
-          source,
-          sourceParts,
-          job,
-          echeance,
-        }))
-      return { ligne, valeur, usage }
+        executer(sb, item.phase, ligne.section_id, { spec, source, sourceParts, job, echeance }))
+      return { valeur, usage }
     },
     {
       concurrency: VAGUE,
-      warmupFirst: premiereVague,
+      warmupFirst: doitPrechauffer(item.phase, abouties ?? 0, vague.length),
       deadline: echeance,
-      minSliceMs: TRANCHE_MIN_MS,
+      minSliceMs: trancheMinMs(item.phase),
     },
   )
 
-  // ── L'état s'écrit rubrique par rubrique — la granularité de la DÉPENSE ───────────────────────
+  // ── L'état s'écrit rubrique par rubrique : la granularité de la DÉPENSE ───────────────────────
   let ok = 0
   let echecs = 0
   for (const o of rapport.outcomes) {
     const ligne = vague[o.index]
     if (o.skipped) {
-      // Jamais lancée : elle retourne en file SANS consommer sa tentative.
-      await sb.from('upgrade_sections')
-        .update({ status: 'queued', claimed_at: null, attempts: ligne.attempts - 1 })
-        .eq('id', ligne.id)
+      // Jamais lancée : elle rend sa tentative, elle n'a rien coûté.
+      await ecrire(sb, ligne.id, {
+        status: 'queued',
+        claimed_at: null,
+        attempts: Math.max(0, ligne.attempts - 1),
+      }, log)
       continue
     }
     if (o.error) {
       echecs++
-      // ⚠️ Un TIMEOUT ne se rejoue JAMAIS (invariant moteur) : sous le mur, une seconde tentative
-      // ne peut pas aboutir, et elle serait facturée. On la marque épuisée tout de suite.
-      const msg = String(o.error.message).slice(0, 2000)
-      const definitif = /délai|timeout|abort|tronqu/i.test(msg) || ligne.attempts >= 3
-      await sb.from('upgrade_sections')
-        .update({
-          status: definitif ? 'failed' : 'queued',
-          claimed_at: null,
-          error: msg,
-          finished_at: definitif ? new Date().toISOString() : null,
-        })
-        .eq('id', ligne.id)
+      // Décidé sur le TYPE de l'erreur, jamais sur la prose de son message : un timeout ne se
+      // rejoue JAMAIS, une panne transitoire se rejoue jusqu'au plafond (`job-tick-core.ts`).
+      const statut = classerEchec(o.error, ligne.attempts)
+      await ecrire(sb, ligne.id, {
+        status: statut,
+        claimed_at: null,
+        error: String(o.error.message).slice(0, 2000),
+        finished_at: statut === 'failed' ? new Date().toISOString() : null,
+      }, log)
       continue
     }
     ok++
-    await sb.from('upgrade_sections')
-      .update({
-        status: 'done',
-        content: o.value!.valeur as unknown as Record<string, unknown>,
-        tokens: o.value!.usage as unknown as Record<string, unknown>,
-        finished_at: new Date().toISOString(),
-        claimed_at: null,
-      })
-      .eq('id', ligne.id)
+    await ecrire(sb, ligne.id, {
+      status: 'done',
+      content: o.value!.valeur as unknown as Record<string, unknown>,
+      tokens: o.value!.usage as unknown as Record<string, unknown>,
+      finished_at: new Date().toISOString(),
+      claimed_at: null,
+    }, log)
   }
 
+  // Décompte de la PHASE COURANTE : sans le filtre, le compteur cumulait les trois passes et
+  // finissait à 63 pour un total de 34.
   const { count: faites } = await sb
     .from('upgrade_sections')
     .select('id', { count: 'exact', head: true })
     .eq('job_id', job.id)
+    .eq('phase', item.phase)
     .eq('status', 'done')
   await sb.from('upgrade_jobs').update({ sections_done: faites ?? 0 }).eq('id', job.id)
 
@@ -358,32 +482,41 @@ Deno.serve(async (req) => {
     ok,
     echecs,
     plusLente: rapport.slowestMs,
-    ms: Date.now() - debut,
   })
-  return json({ ok: true, phase: item.phase, prises: vague.length, faites: ok, echecs }, 200)
-})
+  return vague.length
+}
 
-/** Aucune rubrique de cette phase n'a encore abouti ⇒ le cache de préfixe n'est pas encore écrit. */
-async function premiereDeLaPhase(sb: SupabaseClient, jobId: string, phase: string): Promise<boolean> {
-  const { count } = await sb
-    .from('upgrade_sections')
-    .select('id', { count: 'exact', head: true })
-    .eq('job_id', jobId)
-    .eq('phase', phase)
-    .eq('status', 'done')
-  return (count ?? 0) === 0
+/**
+ * Écrit l'état d'une rubrique, et VÉRIFIE l'écriture.
+ *
+ * ⚠️ Une écriture de `done` perdue laisse la ligne en `running` ; le filet la remet en file à
+ * +180 s, et la rubrique est régénérée — donc REPAYÉE — alors que son résultat existait. C'est le
+ * contrat n°2 (« la granularité de la sauvegarde est celle de la dépense ») qui tombait en silence.
+ */
+async function ecrire(
+  sb: SupabaseClient,
+  id: string,
+  champs: Record<string, unknown>,
+  log: Record<string, unknown>,
+): Promise<void> {
+  for (let essai = 1; essai <= 2; essai++) {
+    const { error } = await sb.from('upgrade_sections').update(champs).eq('id', id)
+    if (!error) return
+    if (essai === 2) {
+      logJson({ ...log, status: 'ecriture_perdue', section: id.slice(0, 8), champ: String(champs.status) })
+    }
+  }
 }
 
 interface Contexte {
   spec: typeof CONFORMITY_SPECS[ConformityDocType]
-  lang: OutputLang
   source: ReturnType<typeof prepareSource>
   sourceParts: Part[]
   job: Job
   echeance: number
 }
 
-/** Aiguille une rubrique vers la passe qui lui correspond. Aucune décision de budget ici. */
+/** Aiguille une rubrique vers la passe qui lui correspond. */
 async function executer(
   sb: SupabaseClient,
   phase: string,
@@ -401,19 +534,20 @@ async function executer(
       sourceParts: ctx.sourceParts,
       source: ctx.source,
       system: conformitySystem({ docType: ctx.spec.docType, missingMarker: MISSING_MARKER }),
-      outputLang: ctx.lang,
+      outputLang: ctx.job.lang,
       budgetMs: Math.min(SECTION_BUDGET_MS, restant),
     })
   }
 
   if (phase === 'translation') {
-    const { data } = await sb
+    const { data, error } = await sb
       .from('upgrade_sections')
       .select('content')
       .eq('job_id', ctx.job.id)
       .eq('phase', 'conformity')
       .eq('section_id', sectionId)
       .maybeSingle()
+    if (error) throw new Error(`amont illisible pour « ${sectionId} »`)
     const amont = data?.content as { title?: string; status?: string; content?: string } | null
     if (!amont?.content) throw new Error(`traduction sans amont pour « ${sectionId} »`)
     return await translateSection(generateParts, {
@@ -427,18 +561,21 @@ async function executer(
     })
   }
 
-  // ── REVUE : une ligne = UN tableau. `recommendations` reçoit les constats en queue variable ────
+  // ── REVUE : une ligne = UN tableau ────────────────────────────────────────────────────────────
   const part = sectionId as ReportPart
   if (!REPORT_PARTS.includes(part)) throw new Error(`tableau de revue inconnu : ${sectionId}`)
 
-  const { data: rubriques } = await sb
+  const { data: rubriques, error: rubErr } = await sb
     .from('upgrade_sections')
     .select('section_id, content')
     .eq('job_id', ctx.job.id)
     .eq('phase', 'conformity')
     .eq('status', 'done')
-  const sections = (rubriques ?? []).map((r) => {
-    const c = r.content as { title?: string; status?: string; ungrounded?: string[]; figuresAdvisory?: boolean } | null
+  if (rubErr || !rubriques) throw new Error('rubriques de conformité illisibles')
+  const sections = rubriques.map((r) => {
+    const c = r.content as
+      | { title?: string; status?: string; ungrounded?: string[]; figuresAdvisory?: boolean }
+      | null
     return {
       sectionId: r.section_id,
       title: c?.title ?? r.section_id,
@@ -449,14 +586,20 @@ async function executer(
 
   let tail: string | undefined
   if (part === 'recommendations') {
-    const { data: cst } = await sb
+    const { data: cst, error: cstErr } = await sb
       .from('upgrade_sections')
-      .select('content')
+      .select('content, status')
       .eq('job_id', ctx.job.id)
       .eq('phase', 'report')
       .eq('section_id', 'findings')
       .maybeSingle()
-    const trouves = (cst?.content as { findings?: { criticality: string; title: string }[] } | null)?.findings ?? []
+    // ⚠️ Sans constats ABOUTIS, on refuse. Poursuivre ferait affirmer « aucun constat n'a été
+    // retenu » — une phrase FAUSSE, que le rapport rendrait en « Aucun. » sous Constats.
+    if (cstErr || cst?.status !== 'done') {
+      throw new Error('recommandations demandées avant que les constats ne soient établis')
+    }
+    const trouves = (cst.content as { findings?: { criticality: string; title: string }[] } | null)
+      ?.findings ?? []
     tail = trouves.length
       ? [
         'Constats DÉJÀ établis sur ce document. Tes actions doivent les COUVRIR sans les reformuler :',
@@ -475,12 +618,24 @@ async function executer(
       sourceKind: ctx.job.source_kind,
       sourceParts: ctx.sourceParts,
       sections,
-      lang: ctx.lang,
+      lang: ctx.job.lang,
       reportDate: new Date().toISOString().slice(0, 10),
-      system: reviewSystem(ctx.lang),
+      system: reviewSystem(ctx.job.lang),
     },
     part,
-    { deadline: Math.min(ctx.echeance, Date.now() + restant), tail },
+    { deadline: ctx.echeance, tail },
   )
-  return outcome.analysis
+
+  // ⚠️ **La garantie factuelle de la revue se tient ICI, et nulle part ailleurs sur ce chemin.**
+  // `pruneUnverifiable` vit dans `generateReport`, l'orchestrateur — que le worker n'utilise pas,
+  // puisqu'il pilote les tableaux un par un. Sans ce rappel, plus rien n'écartait une
+  // `source_position` ou un `before` absents du document : « votre rubrique 7 s'intitule Fabricant »
+  // serait rendu au client sans que la chaîne figure nulle part dans sa source. Le contrôle ne juge
+  // NI les constats NI les recommandations — ce sont des analyses, pas des citations — donc il ne
+  // coûte réellement quelque chose que sur `relocations` et `terminology`.
+  const { analysis, dropped, strictClaims } = pruneUnverifiable(outcome.analysis, ctx.source)
+  if (dropped.length) {
+    logJson({ fn: 'job-tick', op: 'ancrage', part, ecartees: dropped.length, strictClaims })
+  }
+  return { ...analysis, strayRows: outcome.strayRows, droppedClaims: dropped, strictClaims }
 }
