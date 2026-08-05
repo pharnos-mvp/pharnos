@@ -7,7 +7,9 @@ import {
   franchirPorte,
   lireStatut,
   raisonDepuisHttp,
+  PUT_ESSAIS,
   telechargerSource,
+  televerserAvecReprises,
   televerserSource,
 } from './upgrade-api'
 
@@ -195,5 +197,55 @@ describe('demanderSource / telechargerSource', () => {
     await expect(telechargerSource('https://storage/signed')).rejects.toBeInstanceOf(
       UpgradeApiError,
     )
+  })
+})
+
+describe('televerserAvecReprises', () => {
+  it('une coupure réseau ne coûte PAS un dépôt sur trois', async () => {
+    // ⚠️ Réessayer le PUT ne consomme rien : la clé est dérivée du job et `x-upsert` autorise la
+    // réécriture. C'est `order-upload-url` qui décompte, et il a déjà été appelé.
+    let appels = 0
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        appels += 1
+        if (appels < 3) throw new TypeError('Failed to fetch')
+        return new Response(null, { status: 200 })
+      }),
+    )
+    await televerserAvecReprises('u', 'k', new Blob(['x']), async () => {})
+    expect(appels).toBe(3)
+  })
+
+  it('un REFUS du serveur ne se réessaie pas — il refuserait à l’identique', async () => {
+    // Une URL signée expirée retentée trois fois ne fait que rallonger l'attente d'un acheteur
+    // qui a payé, pendant que l'écran prétend travailler.
+    let appels = 0
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        appels += 1
+        return new Response(null, { status: 403 })
+      }),
+    )
+    await expect(
+      televerserAvecReprises('u', 'k', new Blob(['x']), async () => {}),
+    ).rejects.toBeInstanceOf(UpgradeApiError)
+    expect(appels).toBe(1)
+  })
+
+  it('les reprises sont BORNÉES', async () => {
+    let appels = 0
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        appels += 1
+        throw new TypeError('Failed to fetch')
+      }),
+    )
+    await expect(
+      televerserAvecReprises('u', 'k', new Blob(['x']), async () => {}),
+    ).rejects.toMatchObject({ raison: 'indisponible' })
+    expect(appels).toBe(PUT_ESSAIS)
   })
 })

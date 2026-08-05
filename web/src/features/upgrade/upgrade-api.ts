@@ -110,23 +110,68 @@ export const demanderUrlDepot = (token: string, size: number, docType = 'rcp') =
  * ⚠️ `x-upsert: true` est volontaire : un dépôt interrompu puis relancé écrit la MÊME clé (elle est
  * dérivée du job), et sans cela le second essai échouerait en 409 sur un job qui vient pourtant de
  * consommer sa tentative. L'acheteur perdrait un dépôt sur trois pour une coupure réseau.
+ *
+ * ⚠️ **La coupure réseau est NOMMÉE `indisponible`**, comme partout ailleurs dans ce module. Sans
+ * cela, `fetch` laisse remonter un `TypeError` brut — donc le mode d'échec le plus fréquent d'un
+ * téléversement de plusieurs mégaoctets, précisément celui qu'il faut réessayer, échappait à toute
+ * politique de reprise écrite en `instanceof UpgradeApiError`.
  */
 export async function televerserSource(
   uploadUrl: string,
   uploadToken: string,
   fichier: Blob,
 ): Promise<void> {
-  const res = await fetch(uploadUrl, {
-    method: 'PUT',
-    headers: {
-      authorization: `Bearer ${uploadToken}`,
-      'content-type': 'application/pdf',
-      'x-upsert': 'true',
-    },
-    body: fichier,
-  })
+  let res: Response
+  try {
+    res = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        authorization: `Bearer ${uploadToken}`,
+        'content-type': 'application/pdf',
+        'x-upsert': 'true',
+      },
+      body: fichier,
+    })
+  } catch {
+    throw new UpgradeApiError('indisponible', 'téléversement : injoignable')
+  }
   if (!res.ok) {
     throw new UpgradeApiError(raisonDepuisHttp(res.status), `téléversement : ${res.status}`)
+  }
+}
+
+/** Tentatives de téléversement — voir `televerserAvecReprises`. */
+export const PUT_ESSAIS = 3
+const PUT_ATTENTE_MS = 800
+
+/**
+ * Téléverse, en réessayant ce qui a une chance de passer.
+ *
+ * ⚠️ **Réessayer le PUT ne consomme PAS un second dépôt** : la clé est dérivée du job et `x-upsert`
+ * autorise la réécriture. C'est `order-upload-url` qui décompte, et il a déjà été appelé. Sans
+ * cette reprise, une coupure d'une seconde — sur un marché où la bande passante est ce qu'elle est,
+ * avec un PDF de plusieurs mégaoctets — coûtait à l'acheteur une tentative sur trois.
+ *
+ * Ce qui ne se réessaie pas : un refus du serveur. Une URL signée expirée refusera à l'identique,
+ * trois fois plus lentement, pendant que l'écran prétend travailler.
+ */
+export async function televerserAvecReprises(
+  uploadUrl: string,
+  uploadToken: string,
+  fichier: Blob,
+  attendre: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
+): Promise<void> {
+  for (let essai = 1; ; essai++) {
+    try {
+      await televerserSource(uploadUrl, uploadToken, fichier)
+      return
+    } catch (e) {
+      const rejouable =
+        e instanceof UpgradeApiError &&
+        (e.raison === 'indisponible' || e.raison === 'trop_de_requetes')
+      if (!rejouable || essai >= PUT_ESSAIS) throw e
+      await attendre(PUT_ATTENTE_MS * essai)
+    }
   }
 }
 

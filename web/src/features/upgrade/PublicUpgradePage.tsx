@@ -33,7 +33,7 @@ import {
   franchirPorte,
   lireStatut,
   telechargerSource,
-  televerserSource,
+  televerserAvecReprises,
   UpgradeApiError,
 } from './upgrade-api'
 import {
@@ -244,7 +244,7 @@ export function PublicUpgradePage({ token }: { token: string }) {
       try {
         setTravail({ quoi: 'envoi' })
         const depot = await demanderUrlDepot(token, fichier.size, docType)
-        await televerserSource(depot.uploadUrl, depot.uploadToken, fichier)
+        await televerserAvecReprises(depot.uploadUrl, depot.uploadToken, fichier)
         await lireEtFranchir(donnees, depot.jobId)
       } catch (e) {
         setTravail({ quoi: 'repos' })
