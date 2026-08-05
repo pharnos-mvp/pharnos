@@ -239,8 +239,74 @@ export const MAX_DEPOTS = 3
  * oublier d'appeler. Le nom d'origine, lui, n'est pas perdu pour autant — il vit en base, où il
  * n'a aucune contrainte de jeu de caractères.
  */
+export const SOURCE_OBJECT_NAME = 'source.pdf'
+
 export const sourceObjectKey = (orderId: string, jobId: string): string =>
-  `orders/${orderId}/${jobId}/source.pdf`
+  `orders/${orderId}/${jobId}/${SOURCE_OBJECT_NAME}`
+
+/**
+ * Dossier parent d'une clé source — `list()` de Storage prend un préfixe, jamais un chemin de
+ * fichier.
+ *
+ * ⚠️ `lastIndexOf('/')` rend `-1` sur une clé sans séparateur, et `slice(0, -1)` amputerait alors
+ * le dernier caractère au lieu de refuser : on listerait un dossier voisin, dont l'objet homonyme
+ * validerait une source qui n'a jamais été déposée. Une clé sans dossier n'est pas une clé de ce
+ * parcours — on rend la chaîne vide, qui ne liste rien.
+ */
+export function sourceObjectFolder(path: string): string {
+  const coupe = path.lastIndexOf('/')
+  return coupe > 0 ? path.slice(0, coupe) : ''
+}
+
+/**
+ * Ce que Storage RAPPORTE d'un objet déposé. `size` et `mimetype` sont mesurés par Storage à la
+ * réception — contrairement au `contentType` et au `size` de la demande d'URL, qui sont DÉCLARÉS
+ * par le client et qu'une URL signée ne contraint pas.
+ */
+export interface MetaObjetStockage {
+  size?: number
+  mimetype?: string
+}
+
+export type VerdictObjetSource =
+  | { ok: true; taille: number | null }
+  | { ok: false; refus: 'absent' }
+  | { ok: false; refus: 'type'; message: string; type: string }
+  | { ok: false; refus: 'taille'; message: string }
+
+/**
+ * Le fichier réellement présent dans Storage est-il exploitable ?
+ *
+ * ⚠️ Ce jugement est partagé par `order-gate` et `order-source` À DESSEIN. Recopié, il divergerait :
+ * la porte refuserait un fichier que la page vient d'accepter de télécharger, ou l'inverse — et le
+ * désaccord ne se verrait sur aucun écran, seulement sur une commande payée qui n'avance plus.
+ *
+ * ⚠️ `mimetype` peut manquer (dépôt sans en-tête) : on ne refuse alors PAS. Le type réel est
+ * reconstaté par `prepareUpgradeSource` côté navigateur, qui ouvre le PDF ou échoue franchement ;
+ * refuser ici sur une métadonnée absente rejetterait des dépôts valides sans recours.
+ */
+export function jugerObjetSource(
+  objet: { metadata?: unknown } | null | undefined,
+): VerdictObjetSource {
+  if (!objet) return { ok: false, refus: 'absent' }
+  const meta = (objet.metadata ?? {}) as MetaObjetStockage
+  if (meta.mimetype && meta.mimetype !== TYPE_SOURCE) {
+    return {
+      ok: false,
+      refus: 'type',
+      message: 'seuls les PDF sont acceptés',
+      type: String(meta.mimetype),
+    }
+  }
+  if (typeof meta.size === 'number' && meta.size > MAX_SOURCE_BYTES) {
+    return { ok: false, refus: 'taille', message: 'fichier trop volumineux' }
+  }
+  return { ok: true, taille: typeof meta.size === 'number' ? meta.size : null }
+}
+
+/** Code HTTP d'un refus d'objet source. `absent` est un 409 : l'état, pas la demande, est en cause. */
+export const statutHttpObjetSource = (refus: VerdictObjetSource): number =>
+  refus.ok ? 200 : refus.refus === 'absent' ? 409 : refus.refus === 'taille' ? 413 : 400
 
 /**
  * Types de document vendables. **Liste blanche FERMÉE**, et jamais un `in` sur un objet.

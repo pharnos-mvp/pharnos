@@ -17,7 +17,10 @@ import {
   newDeliveryToken,
   PRODUITS,
   PULSE_EVENT_VENTE,
+  jugerObjetSource,
+  sourceObjectFolder,
   sourceObjectKey,
+  statutHttpObjetSource,
   TYPE_SOURCE,
 } from './orders-core.ts'
 
@@ -312,4 +315,55 @@ Deno.test('pont : seule une référence UUID est recevable', () => {
   for (const mauvaise of ['', 'abc', REF + 'x', "' or '1'='1", null, 42, {}]) {
     assertEquals(isValidRef(mauvaise), false, `accepté à tort : ${String(mauvaise)}`)
   }
+})
+
+/* ───────────────────────── L’objet source, tel que Storage le rapporte ─────────────────────── */
+
+Deno.test('objet source : le dossier se dérive de la clé, et une clé sans dossier ne liste RIEN', () => {
+  assertEquals(sourceObjectFolder(sourceObjectKey(REF, REF)), `orders/${REF}/${REF}`)
+  // ⚠️ Le défaut que ce test attrape : `slice(0, lastIndexOf('/'))` sur une clé sans séparateur rend
+  // `slice(0, -1)`, donc `source.pd` — un préfixe qui liste un dossier VOISIN, dont un objet
+  // homonyme validerait une source jamais déposée. Une chaîne vide, elle, ne liste rien.
+  assertEquals(sourceObjectFolder('source.pdf'), '')
+  assertEquals(sourceObjectFolder('/source.pdf'), '')
+  assertEquals(sourceObjectFolder(''), '')
+})
+
+Deno.test('objet source : absent, c’est 409 — la demande est bonne, c’est l’état qui ne l’est pas', () => {
+  for (const rien of [null, undefined]) {
+    const v = jugerObjetSource(rien)
+    assertEquals(v.ok, false)
+    assertEquals((v as { refus: string }).refus, 'absent')
+    assertEquals(statutHttpObjetSource(v), 409)
+  }
+})
+
+Deno.test('objet source : le type RÉEL prime sur celui qui a été déclaré au dépôt', () => {
+  // Une URL signée ne contraint ni le type ni la taille : le `contentType` de la demande est une
+  // DÉCLARATION. Seule cette métadonnée-ci est mesurée par Storage à la réception.
+  const v = jugerObjetSource({ metadata: { mimetype: 'application/zip', size: 10 } })
+  assertEquals(v.ok, false)
+  assertEquals((v as { refus: string }).refus, 'type')
+  assertEquals(statutHttpObjetSource(v), 400)
+  assertEquals(jugerObjetSource({ metadata: { mimetype: TYPE_SOURCE, size: 10 } }).ok, true)
+})
+
+Deno.test('objet source : un type ABSENT ne fait pas refuser', () => {
+  // Un dépôt sans en-tête de type laisse `mimetype` vide. Refuser là-dessus rejetterait un PDF
+  // valide sans recours, alors que le navigateur le rouvre juste après et échouerait franchement.
+  const v = jugerObjetSource({ metadata: { size: 1024 } })
+  assertEquals(v.ok, true)
+  assertEquals((v as { taille: number | null }).taille, 1024)
+  // Métadonnées entièrement absentes : présent vaut mieux que refusé, la taille reste inconnue.
+  assertEquals(jugerObjetSource({}).ok, true)
+  assertEquals((jugerObjetSource({}) as { taille: number | null }).taille, null)
+})
+
+Deno.test('objet source : au-delà du plafond, c’est 413 — jamais un 400 qui accuse la requête', () => {
+  const v = jugerObjetSource({ metadata: { mimetype: TYPE_SOURCE, size: MAX_SOURCE_BYTES + 1 } })
+  assertEquals(v.ok, false)
+  assertEquals((v as { refus: string }).refus, 'taille')
+  assertEquals(statutHttpObjetSource(v), 413)
+  // La borne est inclusive : un fichier pile au plafond passe.
+  assertEquals(jugerObjetSource({ metadata: { size: MAX_SOURCE_BYTES } }).ok, true)
 })

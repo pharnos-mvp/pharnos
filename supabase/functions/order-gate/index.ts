@@ -26,8 +26,11 @@ import {
   DOC_TYPES_VENDABLES,
   ETATS_DEPOSABLES,
   isValidRef as isUuid,
+  jugerObjetSource,
   MAX_DEPOTS,
-  MAX_SOURCE_BYTES,
+  SOURCE_OBJECT_NAME,
+  sourceObjectFolder,
+  statutHttpObjetSource,
 } from '../_shared/orders-core.ts'
 
 const BUCKET = 'documents'
@@ -167,27 +170,27 @@ Deno.serve(async (req) => {
   // restait bloquée en `running`. C'est AUSSI le seul endroit où le type et la taille réels sont
   // constatés : `contentType` et `size` du dépôt sont DÉCLARÉS par le client, et l'URL signée ne
   // contraint ni l'un ni l'autre.
-  const dossier = job.source_path.slice(0, job.source_path.lastIndexOf('/'))
   const { data: objets, error: lsErr } = await supabase.storage
     .from(BUCKET)
-    .list(dossier, { limit: 1, search: 'source.pdf' })
+    .list(sourceObjectFolder(job.source_path), { limit: 1, search: SOURCE_OBJECT_NAME })
   if (lsErr) {
     logJson({ ...log, status: 'storage_error' })
     return json({ error: 'storage' }, 503, origin)
   }
-  const objet = objets?.[0]
-  if (!objet) {
-    logJson({ ...log, status: 'source_absente' })
-    return json({ error: 'source_absente' }, 409, origin)
-  }
-  const meta = (objet.metadata ?? {}) as { size?: number; mimetype?: string }
-  if (meta.mimetype && meta.mimetype !== 'application/pdf') {
-    logJson({ ...log, status: 'type_reel_refuse', type: meta.mimetype })
-    return json({ error: 'invalid_source', message: 'seuls les PDF sont acceptés' }, 400, origin)
-  }
-  if (typeof meta.size === 'number' && meta.size > MAX_SOURCE_BYTES) {
-    logJson({ ...log, status: 'taille_reelle_refusee' })
-    return json({ error: 'invalid_source', message: 'fichier trop volumineux' }, 413, origin)
+  // Jugement PARTAGÉ avec `order-source` : la page ne doit jamais pouvoir télécharger un fichier
+  // que la porte refusera ensuite, ni l'inverse.
+  const verdictObjet = jugerObjetSource(objets?.[0])
+  if (!verdictObjet.ok) {
+    if (verdictObjet.refus === 'absent') {
+      logJson({ ...log, status: 'source_absente' })
+      return json({ error: 'source_absente' }, 409, origin)
+    }
+    logJson({ ...log, status: `objet_${verdictObjet.refus}` })
+    return json(
+      { error: 'invalid_source', message: verdictObjet.message },
+      statutHttpObjetSource(verdictObjet),
+      origin,
+    )
   }
 
   // ⚠️ `in` sur un objet répond `true` pour `constructor`, `toString`, `valueOf`… — les clés du

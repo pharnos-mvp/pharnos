@@ -516,3 +516,11 @@ verify_jwt = false
 # historique de navigateur ou une capture d'écran envoyée au support.
 [functions.order-status]
 verify_jwt = false
+
+# Le document déposé, rendu à la page qui doit le LIRE. Le téléversement vient de `pharnos.com`, la
+# lecture se fait depuis `app.pharnos.com` : deux origines, donc aucun stockage navigateur partagé —
+# Storage est le seul chemin, et cette surface le signe. Elle CONSTATE l'objet avant de faire passer
+# la commande à `source_uploaded`, sans quoi un acheteur revenu par l'e-mail redéposerait son fichier
+# et brûlerait un dépôt sur trois.
+[functions.order-source]
+verify_jwt = false
