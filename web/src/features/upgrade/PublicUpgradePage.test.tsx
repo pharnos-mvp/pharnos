@@ -208,6 +208,63 @@ describe('dépôt d’un document', () => {
     expect(api.franchirPorte).toHaveBeenLastCalledWith(JETON, 'job-7', 'texte', 'text')
   })
 
+  it('un scan ILLISIBLE nomme sa cause et rouvre le dépôt — il n atteint même pas la porte', async () => {
+    // Le corpus de contrôle rendu vide (scan illisible, photo, pages blanches) partait jusqu a la
+    // porte, qui repondait 400 : un refus technique et opaque la ou la cause est simple et se dit.
+    api.lireStatut.mockResolvedValue(statut())
+    ocr.prepareUpgradeSource.mockResolvedValue({
+      sourceKind: 'ocr',
+      controlText: '   ',
+      pageCount: 4,
+      recognizedPages: 4,
+      truncated: false,
+    })
+    rendre()
+    await screen.findByRole('button', { name: /Choisir mon document/ })
+    await choisir(pdf())
+
+    expect(await screen.findByText(/extrait aucun texte/)).toBeInTheDocument()
+    expect(api.demanderUrlDepot).not.toHaveBeenCalled()
+    expect(api.franchirPorte).not.toHaveBeenCalled()
+    // Et le sélecteur reste : c est un autre FICHIER qu il faut, pas un autre essai.
+    expect(screen.getByRole('button', { name: /Choisir mon document/ })).toBeInTheDocument()
+  })
+
+  it('un refus DÉFINITIF de la porte ne verrouille pas sur un bouton qui ne peut pas aboutir', async () => {
+    // Regression fermee ici : la reprise gratuite etait conservee pour TOUTE erreur non nominale,
+    // y compris un 400. Le bouton rejouait le meme corpus, recevait le meme 400, indefiniment — et
+    // le selecteur de fichier avait disparu, sur une commande a qui il restait deux depots.
+    api.lireStatut.mockResolvedValue(statut({ depositsLeft: 2 }))
+    ocr.prepareUpgradeSource.mockResolvedValue({
+      sourceKind: 'text',
+      controlText: 'texte',
+      pageCount: 1,
+      recognizedPages: 0,
+      truncated: false,
+    })
+    api.demanderUrlDepot.mockResolvedValue({
+      jobId: 'job-8',
+      path: 'p',
+      uploadUrl: 'u',
+      uploadToken: 'k',
+      depositsLeft: 1,
+    })
+    api.televerserAvecReprises.mockResolvedValue(undefined)
+    api.franchirPorte.mockRejectedValue(
+      new UpgradeApiError('refus', 'order-gate : 400 bad_request'),
+    )
+
+    rendre()
+    await screen.findByRole('button', { name: /Choisir mon document/ })
+    await choisir(pdf())
+
+    // On revient au DÉPÔT : redéposer est le seul geste qui peut encore aboutir.
+    expect(await screen.findByRole('button', { name: /Choisir mon document/ })).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Reprendre la préparation/ }),
+    ).not.toBeInTheDocument()
+  })
+
   it('un REFUS de recevabilité affiche le message du serveur, tel quel', async () => {
     // Il dit lui-même que rien n'a été débité. Le reformuler perdrait exactement cette phrase-là.
     api.lireStatut.mockResolvedValue(statut())

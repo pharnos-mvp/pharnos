@@ -162,6 +162,17 @@ export function PublicUpgradePage({ token }: { token: string }) {
           onPhase: (phase) => setTravail({ quoi: 'lecture', phase, ratio: 0 }),
           onProgress: (ratio) => setTravail((v) => (v.quoi === 'lecture' ? { ...v, ratio } : v)),
         })
+        // ⚠️ UN CORPUS VIDE EST UN ÉCHEC DE LECTURE, pas un document à soumettre.
+        //
+        // `buildControlCorpus` rend une chaîne vide quand toutes les pages le sont après filtrage —
+        // un scan illisible, une photo, des pages blanches — et `prepareUpgradeSource` ne refuse
+        // que le corpus TROP GRAND, jamais le vide. Il atteignait donc la porte, qui répondait
+        // `400 bad_request` : un refus technique, opaque, là où la cause est simple et se dit.
+        if (!prep.controlText.trim()) {
+          setRefus('aucun_texte')
+          setEchecLecture(true)
+          return null
+        }
         if (prep.truncated) setAvis('tronque')
         return prep
       } catch (e) {
@@ -191,11 +202,20 @@ export function PublicUpgradePage({ token }: { token: string }) {
         // alors que le traitement vient de démarrer.
         const nominal = estDejaLance(e)
         setRefus(nominal ? null : cleErreur(e))
-        // ⚠️ ON GARDE DE QUOI RECOMMENCER POUR RIEN. Le document est déposé, son dépôt décompté,
-        // et le corpus de contrôle est déjà lu : refranchir la porte ne coûte pas un octet de plus.
-        // Sans cela, le seul bouton de l'écran était le sélecteur de fichier — c'est-à-dire un
-        // deuxième dépôt sur trois pour un incident réseau qui n'est pas celui de l'acheteur.
-        setPorteEnAttente(nominal ? null : { prep, jobId })
+        // ⚠️ ON GARDE DE QUOI RECOMMENCER POUR RIEN — MAIS SEULEMENT SI RECOMMENCER PEUT CHANGER
+        // QUELQUE CHOSE. Le document est déposé, son dépôt décompté, et le corpus de contrôle déjà
+        // lu : refranchir la porte ne coûte pas un octet de plus, et c'est ce qui évite de facturer
+        // un deuxième dépôt sur trois pour un incident réseau.
+        //
+        // Mais un refus DÉFINITIF (400, 404) se reproduira à l'identique, et garder le drapeau
+        // retirerait à l'acheteur le seul geste qui, lui, marcherait : redéposer. L'écran
+        // affichait alors un bouton qui ne pouvait pas aboutir, sans sélecteur de fichier, sur une
+        // commande à qui il restait deux dépôts. Même règle que le téléversement : on ne retient
+        // que ce qui a une chance de passer.
+        const rejouable =
+          e instanceof UpgradeApiError &&
+          (e.raison === 'indisponible' || e.raison === 'trop_de_requetes')
+        setPorteEnAttente(nominal || !rejouable ? null : { prep, jobId })
       } finally {
         setTravail({ quoi: 'repos' })
         await rafraichir()
@@ -774,6 +794,7 @@ function Barre({ ratio }: { ratio: number }) {
 type CleMessage =
   | 'trop_volumineux'
   | 'illisible'
+  | 'aucun_texte'
   | 'pdf_seulement'
   | 'trop_gros'
   | 'fichier_inaccessible'
@@ -793,6 +814,12 @@ const MESSAGES: Record<CleMessage, { fr: string; en: string }> = {
   illisible: {
     fr: "Nous n'avons pas réussi à lire ce PDF — il est peut-être protégé par mot de passe ou endommagé. Essayez le fichier d'origine, ou un export PDF récent. Cette tentative n'a rien coûté.",
     en: 'We could not read this PDF — it may be password-protected or damaged. Try the original file, or a fresh PDF export. This attempt cost you nothing.',
+  },
+  // ⚠️ Ne PAS écrire « aucun texte n'est enregistré dans ce fichier » : ce serait affirmer un fait
+  // sur le fichier du client, alors qu'on ne peut dire que ce que NOUS avons su en tirer.
+  aucun_texte: {
+    fr: 'Nous n’avons extrait aucun texte de ce PDF. S’il s’agit d’une numérisation, essayez une image plus nette, ou un export PDF depuis le document d’origine. Cette tentative n’a rien coûté.',
+    en: 'We could not extract any text from this PDF. If it is a scan, try a sharper image, or a PDF export from the original document. This attempt cost you nothing.',
   },
   pdf_seulement: {
     fr: 'Seuls les fichiers PDF sont acceptés.',
