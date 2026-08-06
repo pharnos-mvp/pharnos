@@ -485,8 +485,17 @@ constat, un acheteur revenu par l'e-mail n°1 se voyait redemander un document d
 navigateur sur un VRAI 404 de l'Edge. ⏳ **Reste à jouer en recette** : un scan et un PDF à couche
 texte de bout en bout, et un journal déposé à la place d'un RCP (refus sans crédit consommé).
 
-⚠️ **`order-source` n'est pas encore déployée** (le déploiement Edge est hors CI), et `order-status`
-doit l'être à nouveau pour rendre `docType`.
+#### ⚠️ L'ORDRE DE DÉPLOIEMENT N'EST PAS INDIFFÉRENT
+
+**`order-source` doit être déployée AVANT que `app.pharnos.com` ne serve la nouvelle page.**
+
+Si le front sort en premier, `demanderSource` reçoit le **404 du routeur de Functions** — et non le
+409 métier. `raisonDepuisHttp` classe un 404 en `lien_invalide`, jamais en `refus` : l'acheteur qui
+arrive du pont, **document déjà téléversé et dépôt déjà décompté**, se retrouve sur l'écran de
+dépôt et en brûle un second. Le seul cas du chantier où l'ordre de déploiement coûte de l'argent.
+
+`order-status` peut suivre dans n'importe quel ordre : l'ajout de `docType` est purement additif, et
+la page tolère son absence (`docType?: string | null`, garde `estDocType`).
 
 #### Ce que la revue de code a corrigé — six bloquants, cinq payants (`54c92c5`)
 
