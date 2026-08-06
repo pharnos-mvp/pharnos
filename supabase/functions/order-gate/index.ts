@@ -235,6 +235,15 @@ Deno.serve(async (req) => {
   // écriture conditionnelle tranche. Ensuite parce qu'une commande `up3` porte TROIS documents —
   // un verrou sur la commande aurait rendu les documents 2 et 3 impossibles à traiter, la commande
   // étant déjà `running` depuis le premier.
+  //
+  // ⚠️ MAIS LE CAS SUR LE JOB NE SUFFIT PAS, et c'est un défaut trouvé en revue de branche : il
+  // empêche de relancer LE MÊME job, jamais de lancer DEUX jobs de la même commande. Un acheteur
+  // qui redépose en crée un second ; deux portes concurrentes — deux onglets — passaient la lecture
+  // `dejaLance` toutes les deux, puis chacune sa propre CAS. Deux fois 34 rubriques, ~4 $ sur une
+  // commande à 29 €, dont la moitié invisible puisque `order-status` ne lit que le job le plus
+  // récent. La borne est désormais en BASE, à la seule granularité qui ne casse pas le bundle :
+  // un index unique partiel sur (order_id, doc_type) parmi les jobs en vol (migration `0087`).
+  // Une seconde porte se fait refuser par Postgres, pas par une lecture qu'on espère à jour.
   const rubriques = flattenRubrics(spec)
   const lignes = rubriques.map((r) => ({
     job_id: job.id,
@@ -261,6 +270,13 @@ Deno.serve(async (req) => {
     .is('started_at', null)
     .select('id')
   if (casErr) {
+    // ⚠️ `23505` n'est PAS une panne : c'est l'index `upgrade_jobs_un_en_vol_par_document` qui vient
+    // de refuser un second traitement en vol pour le même document. C'est le cas nominal de deux
+    // onglets, et il se répond comme tel — surtout pas en 503, qui inviterait à réessayer.
+    if ((casErr as { code?: string }).code === '23505') {
+      logJson({ ...log, status: 'lancement_concurrent_base' })
+      return json({ status: 'already_running' }, 409, origin)
+    }
     logJson({ ...log, status: 'job_maj_error' })
     return json({ error: 'db' }, 503, origin)
   }

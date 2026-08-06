@@ -31,6 +31,7 @@ import { CONFORMITY_SPECS, type ConformityDocType } from '../_shared/conformity-
 import {
   classerEchec,
   doitPrechauffer,
+  jobLance,
   jugerPhase,
   PHASE_SUIVANTE,
   trancheMinMs,
@@ -95,10 +96,55 @@ interface Job {
   source_kind: 'text' | 'ocr'
   control_text: string | null
   phase: string
+  /** Nul tant que la porte de recevabilité n'a pas lancé le travail. */
+  started_at: string | null
   lang: OutputLang
 }
 
-const CHAMPS_JOB = 'id, order_id, doc_type, source_path, source_kind, control_text, phase'
+// ⚠️ `started_at` en fait partie, et ce n'est pas décoratif : c'est lui qui distingue un job
+// « en attente de sa porte » d'un job en travail. Son absence de cette liste a coûté un bloquant.
+const CHAMPS_JOB = 'id, order_id, doc_type, source_path, source_kind, control_text, phase, started_at'
+
+/**
+ * Prévient QUELQU'UN qu'une commande payée est morte.
+ *
+ * ⚠️ Sans elle, un échec ne vivait que dans le journal d'une Edge Function que personne ne regarde.
+ * L'acheteur, lui, voyait un écran honnête — « écrivez-nous, nous relançons sans nouveau
+ * paiement » — mais cette promesse n'engageait que lui : de notre côté, rien ne savait qu'il fallait
+ * relancer. Une chaîne qui encaisse avant de travailler doit savoir quand elle a échoué.
+ *
+ * ⚠️ **N'échoue JAMAIS le tick.** Le job est déjà marqué ; une alerte qui lèverait ferait perdre
+ * l'état sur lequel toute la reprise repose. Elle est au mieux, et le dit.
+ */
+async function alerterEchec(job: Job, raison: string): Promise<void> {
+  try {
+    const apiKey = Deno.env.get('RESEND_API_KEY')
+    const support = Deno.env.get('SUPPORT_EMAIL')
+    if (!apiKey || !support) return
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        from: Deno.env.get('EMAIL_FROM') ?? 'Pharnos <onboarding@resend.dev>',
+        to: [support],
+        subject: `[Upgrade] commande en échec — job ${job.id.slice(0, 8)}`,
+        // ⚠️ Aucune donnée personnelle : des identifiants, et la cause technique. Une alerte
+        // d'exploitation n'a pas besoin de savoir qui est l'acheteur pour être actionnable.
+        text: [
+          `Job    : ${job.id}`,
+          `Commande : ${job.order_id}`,
+          `Phase  : ${job.phase}`,
+          `Cause  : ${raison}`,
+          '',
+          "La commande est en `failed`. L'acheteur voit un écran qui l'invite à écrire au support.",
+        ].join('\n'),
+      }),
+      signal: AbortSignal.timeout(10_000),
+    })
+  } catch (e) {
+    logJson({ fn: 'job-tick', status: 'alerte_echec_impossible', err: String(e).slice(0, 200) })
+  }
+}
 
 /* ─────────────────────────────── Avancement de phase ──────────────────────────────────────── */
 
@@ -129,10 +175,30 @@ async function compterPhase(sb: SupabaseClient, jobId: string, phase: string) {
   return c
 }
 
-/** Marque le job ET la commande en échec — un job cassé doit se distinguer d'un job lent. */
+/**
+ * Marque le job ET la commande en échec — un job cassé doit se distinguer d'un job lent.
+ *
+ * ⚠️ **L'échec doit être TERMINAL, sinon il ne s'arrête jamais.** Le job ne portait que `error`, sa
+ * `phase` restait `conformity` ou `report`, et le prédicat du cron
+ * (`exists … upgrade_jobs where phase <> 'done'`) restait donc vrai **à jamais** dès le premier job
+ * cassé : `job-tick` était réveillé toutes les 30 secondes pour l'éternité, et à chaque réveil
+ * `avancerCeQuiPeut` re-jugeait le même job mort et ré-écrivait les deux mêmes lignes. La table
+ * grossissait, les journaux se remplissaient, et ces jobs saturaient la liste de vingt.
+ *
+ * `phase = 'done'` est déjà autorisé par la contrainte de `0083`, et c'est `error` — non nul — qui
+ * distingue un job terminé d'un job abouti. La lecture reste sans ambiguïté pour tout le monde.
+ *
+ * ⚠️ `.neq('phase', 'done')` : deux ticks porteurs de la même liste ne doivent pas réécrire
+ * `finished_at`, sans quoi l'horodatage de fin cesse d'être une mesure.
+ */
 async function marquerEchec(sb: SupabaseClient, job: Job, raison: string): Promise<void> {
-  await sb.from('upgrade_jobs').update({ error: raison.slice(0, 2000) }).eq('id', job.id)
+  await sb.from('upgrade_jobs')
+    .update({ error: raison.slice(0, 2000), phase: 'done', finished_at: new Date().toISOString() })
+    .eq('id', job.id)
+    .neq('phase', 'done')
   await sb.from('orders').update({ status: 'failed' }).eq('id', job.order_id).eq('status', 'running')
+  // L'échec d'une commande PAYÉE ne doit pas rester entre le journal d'une fonction et personne.
+  await alerterEchec(job, raison)
 }
 
 /**
@@ -143,6 +209,11 @@ async function marquerEchec(sb: SupabaseClient, job: Job, raison: string): Promi
  * d'avance figerait une liste que le travail n'a pas encore déterminée.
  */
 async function avancerPhase(sb: SupabaseClient, job: Job, log: Record<string, unknown>): Promise<void> {
+  // ⚠️ Un job dont la porte n'est pas franchie n'a AUCUNE phase à terminer : ses zéro rubrique ne
+  // sont pas un épuisement (cf. `jobLance`). Sans ce refus, le tick le promenait jusqu'à la revue
+  // pendant que l'acheteur lisait encore son PDF, et la commande finissait en échec après avoir
+  // été facturée.
+  if (!jobLance(job)) return
   const compte = await compterPhase(sb, job.id, job.phase)
   if (!compte) return // lecture douteuse : on ne décide rien.
 
@@ -245,6 +316,12 @@ async function avancerCeQuiPeut(sb: SupabaseClient, log: Record<string, unknown>
     .from('upgrade_jobs')
     .select(CHAMPS_JOB)
     .neq('phase', 'done')
+    // ⚠️ Le filtre est ici AUSSI, et pas seulement dans `avancerPhase` : sans lui, les jobs jamais
+    // lancés — dépôt abandonné, dépôt refusé à la porte — consomment les 20 emplacements de cette
+    // liste. Ils n'atteignent jamais `phase = 'done'`, rien ne les en sort, et ils sont les plus
+    // ANCIENS donc les premiers servis. Au vingtième, plus aucun job vivant n'était vu : le moteur
+    // s'arrêtait pour tout le monde, définitivement.
+    .not('started_at', 'is', null)
     .order('created_at')
     .limit(20)
   if (error || !jobs) return

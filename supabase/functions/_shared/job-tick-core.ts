@@ -53,6 +53,30 @@ export function jugerPhase(c: CompteurPhase): VerdictPhase {
   return { avance: true }
 }
 
+/**
+ * Un job a-t-il seulement commencé ? **Rien ne doit le faire avancer avant sa porte.**
+ *
+ * ⚠️ Le défaut que cette garde ferme était sur le chemin NOMINAL, et il coûtait la commande.
+ * `order-upload-url` crée la ligne `upgrade_jobs` au moment où il **signe l'URL de dépôt** — donc
+ * bien avant que l'acheteur ne franchisse la porte de recevabilité. Entre les deux, son navigateur
+ * lit le PDF : quelques secondes sur une couche texte, plusieurs MINUTES sur un scan océrisé. Le
+ * cron, lui, frappe toutes les 30 s.
+ *
+ * Sans cette garde, `compterPhase` rendait quatre zéros sur ce job vide, `jugerPhase` répondait
+ * « avance », et le tick le promenait de `conformity` à `translation` (avec `sections_total: 0`)
+ * puis à `report`, où il mettait en file les trois tableaux de la revue sur un job **sans corpus**.
+ * Ils échouaient. L'acheteur franchissait enfin la porte, 34 rubriques réelles partaient et étaient
+ * facturées (~1,2 $), puis la phase `report` retrouvait les trois échecs hérités et la commande
+ * finissait en `failed`. **Payé, facturé, aucun livrable.**
+ *
+ * ⚠️ **La garde porte sur `started_at`, JAMAIS sur « zéro rubrique ».** Refuser d'avancer une phase
+ * vide paraît plus simple et serait un blocage définitif : quand toutes les rubriques d'un document
+ * ressortent `missing`, rien n'est à traduire, la phase `translation` a légitimement zéro ligne —
+ * et elle DOIT avancer jusqu'à la revue. C'est la distinction entre « pas encore commencé » et
+ * « terminé sans rien produire », et seul `started_at` la porte.
+ */
+export const jobLance = (job: { started_at?: string | null }): boolean => Boolean(job.started_at)
+
 /** L'enchaînement des passes. `null` = le job est terminé. */
 export const PHASE_SUIVANTE: Record<string, string | null> = {
   conformity: 'translation',

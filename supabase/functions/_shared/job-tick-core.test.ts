@@ -7,6 +7,7 @@ import { HttpError } from './retry.ts'
 import {
   classerEchec,
   doitPrechauffer,
+  jobLance,
   jugerPhase,
   ORDRE_REVUE,
   PHASE_SUIVANTE,
@@ -143,3 +144,27 @@ Deno.test('vague de revue : le tableau le plus COURT part en premier', () => {
   const avecInconnu = [{ section_id: 'zzz' }, { section_id: 'terminology' }]
   assertEquals(trierVagueRevue(avecInconnu).map((v) => v.section_id), ['terminology', 'zzz'])
 })
+
+/* ────────────────────────── Un job n'avance pas avant sa porte ─────────────────────────────── */
+
+Deno.test("phase : un job JAMAIS LANCÉ n'a aucune phase à terminer", () => {
+  // ⚠️ Le défaut le plus coûteux du lot, et il était sur le chemin NOMINAL. `order-upload-url` crée
+  // la ligne du job quand il SIGNE l'URL de dépôt — donc avant la porte. Entre les deux, le
+  // navigateur lit le PDF : des minutes sur un scan. Le cron frappe toutes les 30 s. Le tick
+  // promenait ce job vide jusqu'à la revue, dont les trois tableaux partaient sans corpus et
+  // échouaient ; la commande finissait en `failed` APRÈS avoir été facturée.
+  assertEquals(jobLance({ started_at: null }), false)
+  assertEquals(jobLance({}), false)
+  assertEquals(jobLance({ started_at: '2026-08-06T10:00:00.000Z' }), true)
+})
+
+Deno.test('phase : une phase VIDE mais lancée avance — la garde porte sur `started_at`', () => {
+  // ⚠️ Le piège du correctif « refuser d'avancer une phase à zéro rubrique », qui paraît plus simple
+  // et serait un BLOCAGE DÉFINITIF : quand toutes les rubriques d'un document ressortent `missing`,
+  // rien n'est à traduire, la phase `translation` a légitimement zéro ligne — et elle DOIT avancer
+  // jusqu'à la revue. « Pas encore commencé » et « terminé sans rien produire » sont deux états
+  // différents, et seul `started_at` les distingue.
+  assertEquals(jugerPhase(compte()), { avance: true })
+  assertEquals(jobLance({ started_at: '2026-08-06T10:00:00.000Z' }), true)
+})
+
