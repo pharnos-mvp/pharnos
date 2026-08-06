@@ -225,8 +225,20 @@ export function lireVente(raw: unknown): VenteVerifiee | { erreur: string } {
  * sur une pile d'appels — c'est-à-dire au pire endroit. Refuser tôt et le DIRE vaut mieux.
  */
 export const TYPE_SOURCE = 'application/pdf'
-/** 25 Mo : au-delà, le téléchargement seul mangerait le wall clock de l'invocation qui le lit. */
-export const MAX_SOURCE_BYTES = 25 * 1024 * 1024
+/**
+ * Plafond du document source — **12 Mo, aligné sur `upgrade` et `translate`**.
+ *
+ * ⚠️ Il valait 25 Mo, et c'était intenable de deux façons. D'abord la pièce repart au modèle à
+ * CHAQUE appel de conformité et de revue (38 fois), encodée en base64 : 25 Mo binaires font 33,3 Mo
+ * de base64, au-dessus de la limite de corps de requête du fournisseur. Ensuite les deux autres
+ * surfaces du moteur plafonnent depuis toujours à 12 Mo — trois valeurs pour une même contrainte,
+ * dont la plus permissive gardait la porte d'entrée.
+ *
+ * Un acheteur déposant un scan de 20 Mo passait donc le dépôt, passait la porte, et échouait sur
+ * les 34 rubriques : après paiement, une rubrique à la fois. Le refus tombe maintenant à la demande
+ * d'URL, avant tout débit de dépôt, et la landing le dit avant même le paiement.
+ */
+export const MAX_SOURCE_BYTES = 12 * 1024 * 1024
 /** Dépôts autorisés par commande (§2.3, étape 6) — la borne vit AUSSI dans la contrainte SQL. */
 export const MAX_DEPOTS = 3
 

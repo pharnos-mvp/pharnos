@@ -1,19 +1,24 @@
 // deno test — le pont entre le paiement et la page de livraison (U2). Tout ce qui décide est pur.
 //
-// ⚠️ Ce fichier vit dans `landing/` et non dans `supabase/functions/_shared/` : il teste du code de
-// la landing, et rien ici ne doit finir dans le paquet d'une Edge Function. La CI l'exécute en
-// ajoutant `landing/` au chemin de `deno test`.
+// ⚠️ Ce fichier vit HORS de `landing/`, et c'est délibéré : `landing/` est déployé TEL QUEL sur
+// pharnos.com par `wrangler pages deploy`. Un test resté là serait servi publiquement — avec tout
+// son raisonnement de sécurité en clair : plafonds, vecteurs de forge, incidents nommés. Il ne peut
+// pas non plus vivre sous `supabase/functions/_shared/`, où il entrerait dans le paquet d'une Edge.
+// La CI l'exécute en ajoutant `tests/` au chemin de `deno test`.
 import { assertEquals } from "jsr:@std/assert@1";
 
 import {
   ATTENTE_MAX_MS,
+  ATTENTE_PIRE_CAS_MS,
   CADENCE_MS,
+  MAX_UPGRADE_OCTETS,
+  refusFichierUpgrade,
   delaiClaim,
   docTypeServeur,
   lireClaim,
   putRetentable,
   urlLivraison,
-} from "./pont.js";
+} from "../landing/pont/pont.js";
 
 const JETON = "a".repeat(43);
 
@@ -183,3 +188,59 @@ Deno.test("pont : ce qu’on ne sait pas traduire ne part PAS", () => {
     assertEquals(docTypeServeur(poison), null, poison);
   }
 });
+
+/* ─────────────────── Ce que la mise à niveau accepte, dit AVANT le paiement ─────────────────── */
+
+Deno.test("upgrade : seul le PDF part — la page vend pourtant du Word", () => {
+  // ⚠️ Le bloquant que ce test ferme. La bibliothèque accepte `.pdf`, `.doc` et `.docx` — juste
+  // pour un outil gratuit. Le pont, lui, déclarait `application/pdf` EN DUR quel que soit le
+  // fichier ; le mimetype enregistré dans Storage étant celui que le client déclare, ce mensonge
+  // neutralisait les DEUX gardes du serveur. Un consultant déposant son `RCP.docx` — le format
+  // natif de ces documents — payait, brûlait un dépôt sur trois, et se voyait refusé sans qu'aucun
+  // écran sache dire pourquoi.
+  assertEquals(refusFichierUpgrade({ name: "RCP.pdf", size: 1024 }), null);
+  assertEquals(refusFichierUpgrade({ name: "RCP.PDF", size: 1024 }), null);
+  assertEquals(refusFichierUpgrade({ name: "RCP.docx", size: 1024 }), "type");
+  assertEquals(refusFichierUpgrade({ name: "RCP.doc", size: 1024 }), "type");
+  assertEquals(
+    refusFichierUpgrade({ name: "RCP.pdf.docx", size: 1024 }),
+    "type",
+  );
+  assertEquals(refusFichierUpgrade(null), "type");
+});
+
+Deno.test(
+  "upgrade : le plafond est celui du MOTEUR, pas celui de la bibliothèque",
+  () => {
+    // La pièce repart au modèle à chaque appel de conformité et de revue, encodée en base64 : au-delà
+    // de ~12 Mo binaires on dépasse la limite de corps de requête du fournisseur. La bibliothèque
+    // accepte 40 Mo ; laisser cet écart faisait échouer APRÈS paiement, rubrique par rubrique.
+    assertEquals(MAX_UPGRADE_OCTETS, 12 * 1024 * 1024);
+    assertEquals(
+      refusFichierUpgrade({ name: "a.pdf", size: MAX_UPGRADE_OCTETS }),
+      null,
+    );
+    assertEquals(
+      refusFichierUpgrade({ name: "a.pdf", size: MAX_UPGRADE_OCTETS + 1 }),
+      "taille",
+    );
+    assertEquals(refusFichierUpgrade({ name: "a.pdf", size: 0 }), "vide");
+  },
+);
+
+Deno.test(
+  "pont : la borne de la boucle compte AUSSI le temps passé dans les appels",
+  () => {
+    // ⚠️ `ATTENTE_MAX_MS` ne totalisait que les pauses. Chaque tentative pouvant ajouter son délai
+    // réseau, le pire cas réel atteignait ~7 minutes sous un écran promettant « quelques secondes ».
+    // Une boucle dont la borne ignore ses propres appels n'est pas bornée.
+    assertEquals(ATTENTE_PIRE_CAS_MS > ATTENTE_MAX_MS, true);
+    // L'échéance est testée EN TÊTE de chaque tour : le dépassement se borne au dernier tour engagé
+    // (sa pause + son appel), pas à la somme des dix-huit délais réseau possibles.
+    assertEquals(
+      ATTENTE_PIRE_CAS_MS <= 120_000,
+      true,
+      "pire cas au-delà de deux minutes",
+    );
+  },
+);

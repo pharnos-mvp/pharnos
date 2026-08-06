@@ -61,6 +61,41 @@ const DOC_TYPE_SERVEUR = new Map([
 export const docTypeServeur = (doc) => DOC_TYPE_SERVEUR.get(doc) ?? null;
 
 /**
+ * Ce que la MISE À NIVEAU accepte — et ce n'est pas ce que la bibliothèque accepte.
+ *
+ * ⚠️ La page de la bibliothèque prend `.pdf`, `.doc` et `.docx` jusqu'à 40 Mo, ce qui est juste pour
+ * un outil gratuit. Le chemin payant, lui, est contraint par le moteur : `prepareUpgradeSource` lit
+ * du PDF (pdf.js), et `lireDemandeDepot` refuse tout autre type. Le pont déclarait pourtant
+ * `application/pdf` **en dur**, quel que soit le fichier — et comme le mimetype enregistré dans
+ * Storage est celui que le client déclare, ce mensonge neutralisait les DEUX gardes du serveur :
+ * celle de la demande d'URL, et celle de la porte qui reconstate le type réel de l'objet.
+ *
+ * Un consultant qui dépose son `RCP.docx` — le format NATIF de ces documents — payait 19 000 F,
+ * brûlait un dépôt sur trois, et voyait son document refusé sans qu'aucun écran ne sache dire
+ * pourquoi. Le refus doit tomber AVANT le paiement, où il ne coûte rien et s'explique.
+ */
+export const EXTENSIONS_UPGRADE = [".pdf"];
+
+/**
+ * Plafond du chemin payant — **jumeau de `MAX_SOURCE_BYTES`** (`_shared/orders-core.ts`).
+ *
+ * ⚠️ Ce n'est pas le plafond de la bibliothèque (40 Mo). Le moteur joint la PIÈCE à chaque appel de
+ * conformité et de revue, encodée en base64 : au-delà de ~12 Mo binaires on approche la limite de
+ * corps de requête du fournisseur, et l'échec tombe alors APRÈS le paiement, rubrique par rubrique.
+ * Refuser ici coûte un message ; refuser là-bas coûte une commande.
+ */
+export const MAX_UPGRADE_OCTETS = 12 * 1024 * 1024;
+
+/** `null` si le fichier peut partir, sinon la raison — à dire avant tout paiement. */
+export function refusFichierUpgrade(fichier) {
+  const nom = String(fichier?.name ?? "").toLowerCase();
+  if (!EXTENSIONS_UPGRADE.some((e) => nom.endsWith(e))) return "type";
+  if (!fichier?.size) return "vide";
+  if (fichier.size > MAX_UPGRADE_OCTETS) return "taille";
+  return null;
+}
+
+/**
  * Traduit une réponse de `order-claim` en décision.
  *
  * Les quatre réponses du serveur ne sont PAS interchangeables, et deux d'entre elles arrivent avec
@@ -107,8 +142,28 @@ export const CADENCE_MS = [
   8000, 8000, 10000, 12000, 12000,
 ];
 
-/** Attente totale de la boucle, en millisecondes — la borne, pas une moyenne. */
+/** Attente totale des PAUSES, en millisecondes. */
 export const ATTENTE_MAX_MS = CADENCE_MS.reduce((t, d) => t + d, 0);
+
+/**
+ * Délai maximal d'un appel à `order-claim` — une simple lecture indexée.
+ *
+ * ⚠️ Sans lui, la borne de la boucle ne bornait que les PAUSES. Chaque tentative pouvait prendre
+ * 20 s de plus (le délai générique des appels), soit dix-huit tentatives à ~7 minutes réelles sous
+ * un écran qui promet « quelques secondes ». Une boucle bornée dont la borne ne compte pas le temps
+ * passé n'est pas une boucle bornée.
+ */
+export const CLAIM_TIMEOUT_MS = 8_000;
+
+/**
+ * Pire cas RÉEL de la boucle — et c'est ce chiffre-là que la promesse d'écran doit tenir.
+ *
+ * `reclamerJeton` teste l'échéance EN TÊTE de chaque tour : une fois `ATTENTE_MAX_MS` écoulé, la
+ * boucle s'arrête. Le dépassement est donc borné par le dernier tour engagé — sa pause, puis son
+ * appel — et non par la somme des dix-huit délais réseau possibles.
+ */
+export const ATTENTE_PIRE_CAS_MS =
+  ATTENTE_MAX_MS + Math.max(...CADENCE_MS) + CLAIM_TIMEOUT_MS;
 
 /**
  * Délai avant la tentative `essai` (0 = la première, qui part tout de suite), ou `null` quand il

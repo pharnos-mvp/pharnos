@@ -19,14 +19,18 @@ import {
 } from "./checking/modeles-manifest.js?v=2026.10";
 import { VIGILANCE } from "./checking/vigilance.js?v=2026.1";
 import {
+  ATTENTE_MAX_MS,
+  CLAIM_TIMEOUT_MS,
   delaiClaim,
   docTypeServeur,
   lireClaim,
+  MAX_UPGRADE_OCTETS,
   PUT_ATTENTE_MS,
   PUT_ESSAIS,
   putRetentable,
+  refusFichierUpgrade,
   urlLivraison,
-} from "./modele/pont.js";
+} from "./pont/pont.js";
 import {
   activitesDe,
   fichierModele,
@@ -715,6 +719,49 @@ const sauverCommande = async (cmd) => {
   db.close();
 };
 
+/**
+ * Réserve LE dépôt de cette commande — lecture et écriture dans UNE transaction.
+ *
+ * ⚠️ **`order-upload-url` décompte à la RÉCEPTION de la requête**, par compare-and-swap, pas à sa
+ * réponse. Poser le drapeau après le 200 laissait donc deux trous, et les deux coûtaient un dépôt
+ * sur trois à quelqu'un qui a déjà payé :
+ *
+ *  • **la réponse perdue** — coupure, ou 503 sur l'une des trois écritures qui suivent le décompte.
+ *    Le compteur est débité, le drapeau reste faux, l'acheteur revient (Retour, onglet rouvert,
+ *    historique) et repart pour un dépôt. Trois fois : commande verrouillée, zéro octet arrivé ;
+ *  • **deux passages concurrents** — le panneau offre « ouvrir dans un onglet », et le processeur
+ *    peut rediriger les deux. Deux ponts lisaient un drapeau absent et demandaient chacun leur URL.
+ *
+ * Une transaction `readwrite` d'IndexedDB est sérialisée par l'ORIGINE : c'est le seul verrou dont
+ * on dispose entre deux onglets, et il faut donc que la lecture et l'écriture vivent dedans — les
+ * séparer les rendrait à nouveau concurrentes.
+ *
+ * Le compromis est explicite et va du bon côté : si la requête n'atteint jamais le serveur, on aura
+ * marqué un dépôt non consommé. L'acheteur téléverse alors depuis `/u/{token}` avec 2 tentatives au
+ * lieu de 3 — au lieu de n'en avoir plus aucune.
+ */
+async function reserverDepot(id) {
+  const db = await ouvrirDb();
+  try {
+    return await new Promise((res, rej) => {
+      const tx = db.transaction(DB_STORE, "readwrite");
+      const st = tx.objectStore(DB_STORE);
+      const g = st.get(id);
+      let pris = false;
+      g.onsuccess = () => {
+        const c = g.result;
+        if (!c || c.depotFait) return;
+        st.put({ ...c, depotFait: true });
+        pris = true;
+      };
+      tx.oncomplete = () => res(pris);
+      tx.onerror = tx.onabort = () => rej(tx.error);
+    });
+  } finally {
+    db.close();
+  }
+}
+
 const lireCommande = async (id) => {
   const db = await ouvrirDb();
   const c = await transiger(db, "readonly", (s) => s.get(id));
@@ -1035,6 +1082,27 @@ function ouvrirPaiement(url, cmd) {
 $("#paymclose").addEventListener("click", () => fermerPaiement(4));
 
 let enCours = false;
+/** Ce que la mise à niveau refuse, DIT AVANT LE PAIEMENT — jamais après. */
+function direRefusUpgrade(raison, nom) {
+  if (raison === "type") {
+    toast(
+      L([
+        `La mise à niveau ne traite que le PDF — « ${nom} » n'en est pas un. Exportez votre document en PDF, ou écrivez-nous à contact@pharnos.com.`,
+        `The upgrade only handles PDF — “${nom}” is not one. Export your document to PDF, or write to contact@pharnos.com.`,
+      ]),
+    );
+  } else if (raison === "taille") {
+    toast(
+      L([
+        `« ${nom} » dépasse ${tailleLisible(MAX_UPGRADE_OCTETS, lang)}. Un export PDF sans les images de fond passe presque toujours — sinon écrivez-nous, nous le traitons à la main.`,
+        `“${nom}” exceeds ${tailleLisible(MAX_UPGRADE_OCTETS, lang)}. A PDF export without background images almost always fits — otherwise write to us and we handle it manually.`,
+      ]),
+    );
+  } else {
+    toast(L([`« ${nom} » est vide.`, `“${nom}” is empty.`]));
+  }
+}
+
 async function acheter(offre) {
   if (enCours) return;
   const v = validerFichier(S.fichier);
@@ -1044,6 +1112,20 @@ async function acheter(offre) {
     );
     $("#udrop").focus();
     return;
+  }
+  // ⚠️ LE CHEMIN PAYANT EST PLUS ÉTROIT QUE LA BIBLIOTHÈQUE, et le dire ici est la seule fenêtre où
+  // c'est gratuit. La page accepte `.doc`/`.docx` jusqu'à 40 Mo — juste pour un outil gratuit, faux
+  // pour le moteur, qui lit du PDF et joint la pièce à chaque appel. Sans ce refus, le pont
+  // déclarait `application/pdf` en dur pour un `.docx` : le mimetype enregistré dans Storage étant
+  // celui que le client déclare, le mensonge neutralisait les DEUX gardes du serveur, brûlait un
+  // dépôt sur trois, et le document ressortait refusé sans qu'aucun écran sache dire pourquoi.
+  for (const f of [S.fichier, ...[...bundleFichiers.values()]]) {
+    const refus = refusFichierUpgrade(f);
+    if (refus) {
+      direRefusUpgrade(refus, f?.name ?? "");
+      $("#udrop").focus();
+      return;
+    }
   }
   const identite = {
     prenom: $("#payprenom").value.trim(),
@@ -1361,13 +1443,13 @@ const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Appel JSON d'une surface d'après-paiement. Rend `{ status, corps }` — un échec réseau devient
  *  `status: 0`, jamais une exception : le pont décide, il ne se laisse pas interrompre. */
-async function appelOrders(chemin, corps) {
+async function appelOrders(chemin, corps, delaiMs = 20000) {
   try {
     const res = await fetch(`${ORDERS_API}/${chemin}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(corps),
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(delaiMs),
     });
     const lu = await res.json().catch(() => ({}));
     return { status: res.status, corps: lu };
@@ -1376,13 +1458,23 @@ async function appelOrders(chemin, corps) {
   }
 }
 
-/** Étape 1 — le jeton, contre la référence, dès que le webhook est passé. */
+/** Étape 1 — le jeton, contre la référence, dès que le webhook est passé.
+ *
+ *  ⚠️ La borne est une ÉCHÉANCE, pas un compteur de pauses. `ATTENTE_MAX_MS` ne totalisait que les
+ *  `dormir()` : chaque tentative pouvait ajouter 20 s de délai réseau, soit ~7 minutes réelles sous
+ *  un écran qui promet « quelques secondes ». Une boucle dont la borne ignore le temps passé dans
+ *  ses appels n'est pas bornée. */
 async function reclamerJeton(ref) {
+  const fin = Date.now() + ATTENTE_MAX_MS;
   for (let essai = 0; ; essai++) {
     const attente = delaiClaim(essai);
-    if (attente === null) return { etat: "trop_long" };
+    if (attente === null || Date.now() > fin) return { etat: "trop_long" };
     if (attente) await dormir(attente);
-    const { status, corps } = await appelOrders("order-claim", { ref });
+    const { status, corps } = await appelOrders(
+      "order-claim",
+      { ref },
+      CLAIM_TIMEOUT_MS,
+    );
     const lu = lireClaim(status, corps);
     if (lu.etat !== "attente") return lu;
   }
@@ -1393,24 +1485,6 @@ async function reclamerJeton(ref) {
  *  ⚠️ L'URL de dépôt est demandée UNE fois : c'est elle qui décompte un dépôt sur les trois. Le
  *  PUT, lui, se retente sur la même URL — la clé est dérivée du job et `x-upsert` autorise la
  *  réécriture, donc un micro-trou réseau ne coûte rien à quelqu'un qui a payé. */
-/**
- * Note en base que le dépôt de cette commande a été consommé.
- *
- * ⚠️ Relit la commande AVANT d'écrire. Deux écritures partent de copies de `cmd` prises à des
- * instants différents (le marqueur « réglé » du guet de paiement, et celui-ci) : écrire depuis une
- * copie périmée effacerait l'autre. Tant que le perdant était `regle`, que personne ne relit, cela
- * ne coûtait rien — `depotFait`, lui, porte de l'argent.
- */
-async function marquerDepotConsomme(cmd) {
-  try {
-    const frais = (await lireCommande(cmd.id)) ?? cmd;
-    await sauverCommande({ ...frais, depotFait: true });
-  } catch (e) {
-    // Le dépôt est consommé quoi qu'il arrive ; ne pas empêcher la suite pour un champ de statut.
-    console.error("depot note", e);
-  }
-}
-
 async function envoyerDocument(token, cmd) {
   const fichier = cmd.fichier;
   if (!(fichier instanceof Blob)) return false;
@@ -1420,6 +1494,23 @@ async function envoyerDocument(token, cmd) {
   // redemander que de brûler un dépôt sur un malentendu de vocabulaire.
   const docType = docTypeServeur(cmd.doc);
   if (!docType) return false;
+
+  // ⚠️ Ceinture du refus posé avant le paiement : un fichier restauré depuis une commande plus
+  // ancienne n'est pas repassé par `acheter()`. Ne JAMAIS déclarer `application/pdf` sur autre
+  // chose — c'est ce mensonge qui neutralisait les deux gardes du serveur.
+  if (
+    refusFichierUpgrade(
+      fichier ? { name: cmd.nomFichier ?? "", size: fichier.size } : null,
+    )
+  ) {
+    return false;
+  }
+
+  // ⚠️ LE DÉPÔT SE RÉSERVE AVANT L'APPEL, PAS APRÈS SA RÉPONSE. `order-upload-url` décompte à la
+  // RÉCEPTION de la requête : une réponse perdue — coupure, 503 sur l'une des écritures qui suivent
+  // — laissait le compteur débité et le drapeau faux, donc un dépôt de plus au retour suivant.
+  // `reserverDepot` lit et écrit dans une seule transaction : c'est aussi le verrou inter-onglets.
+  if (!(await reserverDepot(cmd.id))) return false;
 
   const { status, corps } = await appelOrders("order-upload-url", {
     token,
@@ -1437,15 +1528,6 @@ async function envoyerDocument(token, cmd) {
     return false;
   }
 
-  // ⚠️ LE DÉPÔT EST CONSOMMÉ ICI, ET LE DRAPEAU SE POSE ICI — pas après le PUT.
-  //
-  // `order-upload-url` décompte par compare-and-swap ; le succès du PUT n'y change rien. Noter le
-  // dépôt seulement quand le téléversement RÉUSSIT laissait donc ouvert le scénario le plus
-  // probable : réseau instable, PUT épuisé, compteur déjà décrémenté, drapeau resté faux. Le
-  // client recharge, le pont repart, dépôt n°2. Encore : dépôt n°3, commande verrouillée sans
-  // qu'un seul octet soit arrivé. C'est la page `/u/{token}` qui redemandera le fichier.
-  await marquerDepotConsomme(cmd);
-
   for (let essai = 1; essai <= PUT_ESSAIS; essai++) {
     let code = null;
     try {
@@ -1459,6 +1541,11 @@ async function envoyerDocument(token, cmd) {
           "x-upsert": "true",
         },
         body: fichier,
+        // ⚠️ Un PUT sans délai de garde est un sablier définitif : une radio mobile qui change de
+        // réseau laisse la promesse pendante, l'écran reste sur « Ne fermez pas cette page », le
+        // dépôt est consommé, et ni la reprise ni la sortie de secours ne sont jamais atteintes.
+        // L'abandon retombe sur `code = null`, donc retentable — le bon comportement.
+        signal: AbortSignal.timeout(90000),
       });
       if (res.ok) return true;
       code = res.status;
@@ -1508,12 +1595,27 @@ async function franchirLePont(cmd) {
       );
       return;
     }
-    if (jeton.etat !== "pret") {
-      // `trop_long` ou `voir_email` : la commande existe (ou existera), mais pas par ce chemin-ci.
+    if (jeton.etat === "voir_email") {
+      // La commande EXISTE — c'est le plafond de jetons qui est atteint —, donc l'e-mail n°1 est
+      // bien parti. Ici, l'affirmer est vrai.
       renvoyerVersEmail(
         L([
           "Nous vous avons envoyé par e-mail le lien de suivi de cette commande — ouvrez-le pour déposer votre document.",
           "We have e-mailed you this order's tracking link — open it to upload your document.",
+        ]),
+      );
+      return;
+    }
+    if (jeton.etat !== "pret") {
+      // ⚠️ `trop_long` N'EST PAS `voir_email`, et les confondre faisait affirmer un envoi qui n'a
+      // pas eu lieu. Recevoir « pas encore » pendant toute la boucle signifie que la commande
+      // N'EXISTE PAS ENCORE côté serveur — donc qu'aucun e-mail n'est parti, et que si le Pulse a
+      // échoué, aucun ne partira. On ne promet donc rien : on donne la référence, qui est la seule
+      // chose que l'acheteur possède et que le support sait retrouver.
+      renvoyerVersEmail(
+        L([
+          `Votre règlement est enregistré, mais notre confirmation tarde. Référence ${cmd.id} — si vous ne recevez rien d'ici une heure, écrivez-nous à contact@pharnos.com en la citant.`,
+          `Your payment is recorded, but our confirmation is delayed. Reference ${cmd.id} — if you receive nothing within the hour, write to contact@pharnos.com quoting it.`,
         ]),
       );
       return;
@@ -1559,7 +1661,13 @@ async function franchirLePont(cmd) {
     // seconde chance. Les deux autres restent dans l'IndexedDB de l'acheteur et se traitent avec
     // le support, jusqu'à ce que le bundle ait son propre compteur — le plan le range hors
     // périmètre tant qu'un `up1` n'a pas réussi de bout en bout (PLAN-UPGRADE-PROD §4).
-    window.location.href = urlLivraison(jeton.token, window.location.hostname);
+    // ⚠️ `replace` et NON `href` : `href` empile une entrée d'historique, et depuis `/u/{token}` le
+    // geste réflexe « Retour » ramenait sur `/modele?paiement=ok`, où `reprendre()` rejouait TOUT
+    // le pont — un jeton de plus frappé (plafond de 12 par commande) et, avant la réservation du
+    // dépôt, une tentative de plus consommée. La page de retour n'est pas une étape à revisiter.
+    window.location.replace(
+      urlLivraison(jeton.token, window.location.hostname),
+    );
   } catch (e) {
     console.error("pont", e);
     renvoyerVersEmail(
