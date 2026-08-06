@@ -152,6 +152,34 @@ describe('renderDeliverables', () => {
     expect(dropped).not.toContain('µ')
   })
 
+  it('⚠️ un octet de MOJIBAKE ne fait plus échouer les cinq fichiers', async () => {
+    // Le défaut : `encodable` testait `codePointAt() < 256`, or WinAnsi ne code NI les contrôles C0,
+    // NI `U+007F`, NI les C1 bruts `U+0080`–`U+009F` — tous inférieurs à 256. `pdfSafe` les laissait
+    // passer, `drawText` LEVAIT, et l'acheteur ne recevait AUCUN fichier. Déterministe : redéposer
+    // n'y changeait rien. Et `dropped`, écrit pour signaler un caractère perdu, ne voyait rien —
+    // la levée le précédait.
+    //
+    // `U+0080` et `U+009D` sont exactement ce que produit un aller-retour UTF-8 → CP1252 sur une
+    // apostrophe typographique : le mojibake le plus banal d'une source réglementaire.
+    // ⚠️ L'ancre doit exister dans le corpus, sinon `replace` ne remplace RIEN et le test passe
+    // en ne testant rien — c'est ce que sa première version faisait.
+    const ancre = 'néphrotoxicité'
+    expect(sources.fr).toContain(ancre)
+    const abime = {
+      ...sources,
+      fr: sources.fr.replace(ancre, `nphrotoxicité	suite`),
+    }
+    const { files, dropped } = await renderDeliverables(upgradeJobs(abime), {
+      created: new Date(0),
+    })
+    expect(files).toHaveLength(DELIVERABLE_FILE_COUNT)
+    // Les octets illisibles sont RETIRÉS et SIGNALÉS — le harnais fait échouer un run qui en porte.
+    expect(dropped).toContain('')
+    expect(dropped).toContain('')
+    // La tabulation, elle, se dégrade en espace : la jeter recollerait deux mots.
+    expect(dropped).not.toContain('	')
+  })
+
   it('rend des PDF identiques à l’OCTET pour une même entrée et une même date', async () => {
     // Critère de recette U5 : les fichiers fabriqués par le navigateur doivent être ceux que le
     // banc d'essai a produits sous Node. Pour les PDF, la comparaison est exacte.

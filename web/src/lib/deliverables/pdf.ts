@@ -130,9 +130,34 @@ export async function buildDeliverablePdf(
     // piece deposee, invisible a la relecture puisque le nombre reste plausible. On la degrade
     // vers l insecable ordinaire (U+00A0), codable en WinAnsi, qui garde le nombre solidaire.
     [NNBSP]: NBSP,
+    // La tabulation se DÉGRADE en espace au lieu d'être jetée : elle sépare des mots, et la perdre
+    // recollerait deux cellules d'un tableau recopié depuis la source.
+    '\t': ' ',
   }
   const WINANSI_EXTRA = new Set('€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ')
-  const encodable = (ch: string) => (ch.codePointAt(0) ?? 0) < 256 || WINANSI_EXTRA.has(ch)
+
+  /**
+   * ⚠️ **`< 256` était FAUX, et le prix de l'erreur était les cinq fichiers.** WinAnsi ne code ni
+   * les contrôles C0 (`U+0000`–`U+001F`), ni `U+007F`, ni les C1 bruts (`U+0080`–`U+009F`) — tous
+   * inférieurs à 256. `pdfSafe` les laissait donc passer intacts, `drawText` LEVAIT, et
+   * `buildDeliverablePdf` rejetait : l'acheteur ne recevait AUCUN fichier, et redéposer n'y changeait
+   * rien puisque le défaut est déterministe.
+   *
+   * Mesuré contre pdf-lib : `0x7f`, `0x80` et `0x9d` lèvent bien ; `0x09` passe. Peu importe —
+   * l'énumération de ce que WinAnsi code VRAIMENT est la seule forme sûre, et elle ne dépend pas
+   * du détail d'implémentation de la bibliothèque.
+   *
+   * ⚠️ Et le mécanisme `dropped`, écrit précisément pour signaler un caractère perdu, ne voyait
+   * rien : la levée le précédait. Un garde-fou placé après ce qu'il doit surveiller n'en est pas un.
+   *
+   * `U+0080` et `U+009D` ne sont pas théoriques : ce sont exactement les octets que produit un
+   * aller-retour UTF-8 → CP1252 sur une apostrophe typographique, le mojibake le plus banal d'une
+   * source réglementaire — que le modèle recopie fidèlement, puisque c'est ce qu'il lit.
+   */
+  const encodable = (ch: string) => {
+    const c = ch.codePointAt(0) ?? 0
+    return (c >= 0x20 && c <= 0x7e) || (c >= 0xa0 && c <= 0xff) || WINANSI_EXTRA.has(ch)
+  }
 
   /** Normalise ce qui n'a NI police de secours NI codage direct. */
   const pdfSafe = (s: string) =>
