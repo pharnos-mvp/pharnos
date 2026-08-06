@@ -572,6 +572,44 @@ bibliothèques déjà présentes. `jszip` pour le « tout télécharger ». **E-
 **Fait quand** : les cinq fichiers produits dans le navigateur sont **binairement conformes** à ceux
 que produit le harnais U0 en Node, sur le même JSON.
 
+#### ⚠️ Ce que l'étape 10 du §2.3 disait, et pourquoi elle change
+
+Le plan annonce « la page récupère le JSON complet et fabrique les cinq fichiers ». Vérifié dans le
+code au moment d'écrire ce lot, **ce JSON ne suffit pas** :
+
+1. **`renderReportMarkdown` calcule la liste des lacunes depuis les STATUTS des rubriques.**
+   `assembler()` ne rend que le `content` des lignes **abouties** — jamais leur `status`. Le
+   navigateur ne peut donc pas reproduire le squelette déterministe du rapport. Le lui faire
+   recalculer depuis un `livrable` enrichi recréerait **exactement** le défaut corrigé en `d224665` :
+   un rapport dont le décompte contredit son propre document. La garantie doit rester là où la
+   donnée fait autorité — en base.
+2. **La référence de conformité binaire EST le markdown du serveur.** Le harnais U0 écrit
+   `rapport.md` depuis `r3.markdown`, produit à la génération. Comparer le navigateur à lui-même
+   ne prouverait rien.
+3. **`job-tick` ne l'assemble nulle part** : il passe la phase `report` à `done` en laissant les
+   quatre tableaux en lignes séparées. `renderReportMarkdown` **n'a aujourd'hui aucun appelant en
+   production** — le même piège que `pool.ts` avant U0 (« un module testé mais sans appelant n'est
+   pas un module fini »).
+
+**Décision : le SERVEUR produit les trois markdowns à la fin du job, le NAVIGATEUR met en page les
+cinq fichiers.** La coupure du §1.4 est respectée à la lettre — le serveur fait ce qui fait autorité
+et ce qui est lent, le navigateur fait ce qui coûte du CPU (2 s de DOCX/PDF, l'invariant qui
+interdit le rendu côté Edge). Assembler trois chaînes de caractères n'est pas ce CPU-là.
+
+Ce que cela impose :
+
+| | |
+|---|---|
+| Migration `0087` | les trois markdowns portés par `upgrade_jobs` |
+| `job-tick` | à la complétion, rend les markdowns — **premier appelant de `renderReportMarkdown`** |
+| `_shared/deliverable-markdown.ts` | l'assemblage des documents, EXTRAIT du harnais et partagé avec lui, jamais recopié |
+| `order-status?livrable=1` | rend les trois markdowns + `{slug, reportHeader, reportLang}` |
+| `web/` | `upgradeJobs()` + `renderDeliverables()` + `jszip`, et rien d'autre |
+
+⚠️ **Un défaut de qualité à corriger dans ce lot** : `job-tick` passe `productName: 'votre produit'`
+en dur (`index.ts:615`) là où le harnais passe le vrai nom commercial. Le rapport livré au client
+poserait donc la question « sans objet » sur « votre produit ». Le nom doit venir de la commande.
+
 ### U6 — Vérité de la promesse et recette — 0,5 jour
 
 Le « 4 minutes environ » de `landing/modele.html:430` est remplacé par **le chiffre mesuré en U0**,
@@ -596,8 +634,31 @@ inclus : il ne coûte rien de plus dès lors que la page vit dans `web/`, où `p
 
 ## 4. Hors périmètre, explicitement
 
-- **Le bundle « les trois documents » (`up3`)** : la mécanique est identique (3 jobs pour une
-  commande), mais on ne l'ouvre qu'après un `up1` réussi de bout en bout.
+- ~~**Le bundle « les trois documents » (`up3`)** : la mécanique est identique (3 jobs pour une
+  commande), mais on ne l'ouvre qu'après un `up1` réussi de bout en bout.~~
+  ⛔ **CADUC — arbitrage CEO du 2026-08-06.** Le bundle **rentre dans le périmètre**, et sa forme
+  est arrêtée : à l'arrivée sur `/u/{token}`, la page **ouvre une session qui réclame les deux
+  documents manquants** (le premier est passé par le pont), chacun avec sa propre porte de
+  recevabilité, et **l'analyse ne démarre que lorsque les trois sont recevables**.
+  **Aucun recours par e-mail** — ni pour les annexes, ni pour quoi que ce soit d'autre.
+
+  ⚠️ **Ce n'était pas un arbitrage de confort : c'est l'offre elle-même.** Ce qui est vendu 69 €,
+  c'est « **les trois documents, mis en cohérence entre eux** » (lexique verrouillé,
+  `PLAN-UPGRADE-FRONTEND.md` §D bis). Une mise en cohérence exige de tenir les trois **avant**
+  d'analyser : les traiter séparément, ou en faire transiter deux par le support, ne livre pas une
+  version dégradée de la promesse — cela ne la livre pas du tout.
+
+  ⚠️ **Le blocage est en base, pas à l'écran.** `deposits_used` est un compteur **par commande**,
+  plafonné à 3 par contrainte SQL, et `order-source` / `order-status` ne lisent que le job **le plus
+  récent**. Trois documents demandent trois budgets de dépôt séparés — sinon déposer les trois
+  épuise le compteur et ne laisse aucune reprise. Migration nécessaire (le dépôt devient un couple
+  commande × document), plus les quatre Edge et les deux fronts. Le reste existe déjà :
+  `upgrade_jobs` porte déjà plusieurs jobs par commande, c'est ainsi que les reprises fonctionnent.
+
+  **État au 2026-08-06** : la landing renvoie encore les deux annexes vers le support (`#cfmdesc-trio`
+  de `modele.html`). **C'est le contournement que cet arbitrage annule** ; il tombe avec le lot
+  bundle. La vente publique étant fermée jusqu'à U6, aucun acheteur réel ne l'atteint d'ici là —
+  **point à reprendre en U6 avant réouverture**.
 - **La livraison dans l'espace de l'org** pour un acheteur qui a un compte : le plan front la prévoit
   (`PLAN-UPGRADE-FRONTEND.md:427-430`), elle attend U6.
 - **Le worker pour une génération sans navigateur du tout** : inutile — le serveur fait déjà tout le
