@@ -141,6 +141,8 @@ Deno.serve(async (req) => {
       deposits_used: commande.depositsUsed,
       delivery_expires_at: commande.expiresAt,
       doc_type: commande.docType,
+      country: commande.country,
+      activity: commande.activity,
     },
     job,
     lignes,

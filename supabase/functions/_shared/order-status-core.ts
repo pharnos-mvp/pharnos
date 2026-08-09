@@ -43,6 +43,11 @@ export interface ResumeCommande {
    * qu'aucun écran ne signalerait. Tant qu'il vaut `null`, c'est à l'acheteur de le nommer.
    */
   docType: string | null
+  /** Pays de dépôt et activité — `null` tant que le PONT (ou la page) ne les a pas transportés.
+   *  L'écran de dépôt les REDEMANDE alors : ils commandent la mention 4.8 et les rubriques 8/9/10,
+   *  et l'acheteur les avait choisis avant de payer. */
+  country: string | null
+  activity: string | null
 }
 
 /**
@@ -58,6 +63,8 @@ export function resumer(
     deposits_used: number
     delivery_expires_at: string
     doc_type?: string | null
+    country?: string | null
+    activity?: string | null
   },
   job: { phase: string; sections_total: number } | null,
   lignes: readonly LigneSection[],
@@ -80,6 +87,8 @@ export function resumer(
     depositsLeft: Math.max(0, maxDepots - commande.deposits_used),
     expireLe: commande.delivery_expires_at,
     docType: commande.doc_type ?? null,
+    country: commande.country ?? null,
+    activity: commande.activity ?? null,
   }
 }
 

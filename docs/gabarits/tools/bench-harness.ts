@@ -27,6 +27,11 @@ import {
   MISSING_MARKER,
   MISSING_MARKER_EN,
 } from "../../../supabase/functions/_shared/upgrade-section-core.ts";
+import {
+  assembleDocument,
+  type LigneAssemblage,
+} from "../../../supabase/functions/_shared/deliverable-markdown.ts";
+import { DELIVERABLE_TITLES_EN } from "../../../supabase/functions/_shared/deliverable-titles.ts";
 
 /* ─────────────────────────────── Tarifs Claude Opus 5 (USD / M jetons) ─────────────────────── */
 const PRICE = { in: 5, out: 25, cacheWrite: 6.25, cacheRead: 0.5 };
@@ -84,51 +89,10 @@ const spec = CONFORMITY_SPECS.rcp;
 const flat = flattenRubrics(spec);
 const isParent = (r: RubricSpec) => Boolean(r.children?.length);
 
-/* ─────────────────── Titres EN — lus dans le gabarit verrouillé, jamais inventés ───────────── */
-const gabaritEn = await Deno.readTextFile(
-  new URL("../RCP/Gabarit-SmPC-EN-UEMOA.md", import.meta.url),
-);
-function enTitles(): Map<string, string> {
-  const map = new Map<string, string>();
-  const lines = gabaritEn.split("\n");
-  // Parents à sous-parties nommées : leurs enfants se lisent dans l'ORDRE des lignes en gras.
-  const dashParents = flat.filter(
-    (r) => isParent(r) && r.children!.some((c) => c.id.includes("-")),
-  );
-  let current: RubricSpec | undefined;
-  let taken = 0;
-  for (const line of lines) {
-    const h = line.match(/^#{3,4} (?:(\d+(?:\.\d+)?)\. )?(.+)$/);
-    if (h) {
-      const [, id, title] = h;
-      if (id) {
-        map.set(id, title.trim());
-        current = dashParents.find((p) => p.id === id);
-        taken = 0;
-      } else if (/^CONDITIONS OF/i.test(title)) {
-        map.set("prescription", title.trim());
-        current = undefined;
-      }
-      continue;
-    }
-    const bold = line.match(/^\*\*<?([^*<>]+)>?\*\*$/);
-    if (bold && current && taken < current.children!.length) {
-      map.set(current.children![taken].id, bold[1].trim());
-      taken++;
-    }
-  }
-  return map;
-}
-const EN_TITLES = enTitles();
-{
-  const missing = flat.filter((r) => !EN_TITLES.has(r.id)).map((r) => r.id);
-  if (missing.length) {
-    console.error(
-      `titres EN introuvables dans le gabarit pour : ${missing.join(", ")}`,
-    );
-    Deno.exit(1);
-  }
-}
+// Les titres EN viennent de la donnée GÉNÉRÉE `_shared/deliverable-titles.ts` — celle que
+// l'assemblage serveur consomme, gardée contre le gabarit par son test de dérive. Le harnais
+// portait sa propre lecture du gabarit : deux algorithmes pour une même table finissent par
+// diverger, et c'est précisément ce que l'extraction U5 devait fermer.
 
 /* ──────────────────────────────────── Appels au banc ───────────────────────────────────────── */
 async function bench(
@@ -163,7 +127,7 @@ function chunks<T>(items: T[], size: number): T[][] {
 interface SectionRow {
   sectionId: string;
   title: string;
-  status: string;
+  status: "filled" | "partial" | "missing";
   verdict?: string;
   content: string;
   ungrounded: string[];
@@ -320,7 +284,7 @@ if (restant2.length) {
       targetLang: "en",
       items: wave.map((rub) => ({
         sectionId: rub.id,
-        title: EN_TITLES.get(rub.id)!,
+        title: DELIVERABLE_TITLES_EN.get(rub.id)!,
         status: rows.get(rub.id)!.status,
         content: rows.get(rub.id)!.content,
       })),
@@ -422,62 +386,32 @@ console.error(
   `  revue : ${(p3.ms / 1000).toFixed(1)} s · ${p3.calls} appels (${p3.attempts} invocation(s))`,
 );
 
-/* ───────────────────────── Assemblage des markdowns (conventions des références) ───────────── */
-function sectionHeading(r: RubricSpec, title: string): string {
-  if (r.id === "prescription") return `### ${title}`;
-  if (r.id.includes("-")) return `**${title}**`;
-  return r.id.includes(".")
-    ? `#### ${r.id}. ${title}`
-    : `### ${r.id}. ${title}`;
-}
-
+/* ─────────────── Assemblage des markdowns — le MÊME code que le serveur (U5) ─────────────── */
 function assemble(lang: "fr" | "en"): string {
-  const out: string[] = [];
-  if (lang === "fr") {
-    out.push(
-      `# RCP ${PRODUCT} — version conforme au gabarit ABMed/UEMOA 2026`,
-      "",
-      `> **LIVRABLE.** Produit à partir du seul \`${SOURCE_NAME}\`, restructuré selon le gabarit`,
-      `> RCP ABMed/UEMOA 2026. Aucune information n'y a été ajoutée depuis une connaissance générale`,
-      `> du médicament, ni depuis un autre document du dossier.`,
-      `>`,
-      `> Pays de dépôt : ${COUNTRY} · Activité : ${ACTIVITY}.`,
-      `> L'analyse et les recommandations figurent dans le **rapport séparé** — jamais dans ce document.`,
-      "",
-      "---",
-      "",
-      "## RÉSUMÉ DES CARACTÉRISTIQUES DU PRODUIT",
-    );
-  } else {
-    out.push(
-      `# ${PRODUCT} SmPC — English version`,
-      "",
-      `> **DELIVERABLE.** Companion to the French version, both produced from \`${SOURCE_NAME}\``,
-      `> alone, restructured to the ABMed/UEMOA 2026 template. Section status is carried over,`,
-      `> never recalculated: the same sections are marked as incomplete in both languages.`,
-      `>`,
-      `> Country of filing: ${COUNTRY} · Activity: ${ACTIVITY}.`,
-      "",
-      "---",
-      "",
-      "## SUMMARY OF PRODUCT CHARACTERISTICS",
-    );
-  }
+  const lignes = new Map<string, LigneAssemblage>();
+  const traductions = new Map<string, string>();
   for (const r of flat) {
     const row = rows.get(r.id)!;
-    const title = lang === "fr" ? row.title : EN_TITLES.get(r.id)!;
-    out.push("", sectionHeading(r, title));
-    if (isParent(r)) continue; // un conteneur n'a pas de corps : ses enfants suivent
-    const content =
-      lang === "fr"
-        ? row.content
-        : row.status === "missing" || row.content === MISSING_MARKER
-          ? MISSING_MARKER_EN
-          : en.get(r.id)!.content;
-    out.push("", content);
+    lignes.set(r.id, {
+      sectionId: r.id,
+      title: row.title,
+      status: row.status,
+      content: row.content,
+    });
+    const t = en.get(r.id);
+    if (t) traductions.set(r.id, t.content);
   }
-  out.push("");
-  return out.join("\n");
+  const doc = assembleDocument(lang, spec, lignes, traductions, {
+    product: PRODUCT,
+    sourceName: SOURCE_NAME,
+    country: COUNTRY,
+    activity: ACTIVITY,
+  });
+  if (typeof doc !== "string") {
+    console.error(`assemblage ${lang} refusé : ${doc.erreur}`);
+    Deno.exit(1);
+  }
+  return doc;
 }
 
 /* ──────────────────────────────────────── Sorties ──────────────────────────────────────────── */
@@ -500,6 +434,11 @@ await write(
       reportLang: "fr",
       reportHeader: `${PRODUCT} — Revue réglementaire`,
       reportDate: REPORT_DATE,
+      // ⚠️ L'horodatage que `renderDeliverables` inscrit dans les PDF. DÉTERMINISTE (dérivé de la
+      // date du rapport, pas de l'horloge) : c'est lui qui permet de comparer À L'OCTET les
+      // fichiers du banc et ceux du navigateur — en production, son équivalent est le
+      // `finished_at` du job, servi par `order-status`.
+      created: `${REPORT_DATE}T00:00:00.000Z`,
     },
     null,
     2,

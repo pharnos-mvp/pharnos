@@ -473,13 +473,15 @@ describe('suivi et livraison', () => {
     expect(screen.getByText('12 / 34')).toBeInTheDocument()
   })
 
-  it('la promesse d’un e-mail n’est pas faite tant que cet e-mail n’existe pas', async () => {
-    // L'e-mail n°2 appartient à U5. Une promesse adossée à un envoi qui n'existe pas transforme
-    // une fermeture d'onglet en abandon silencieux.
+  it('la promesse d’e-mail est faite — et DEPUIS U5 seulement, où l’envoi existe', async () => {
+    // Ce test disait l'inverse avant U5, et c'était juste : `job-tick` n'envoyait rien, et une
+    // promesse adossée à un envoi inexistant transformait une fermeture d'onglet en abandon
+    // silencieux. L'e-mail n°2 existe désormais (bascule running→done, jeton `completion`) : la
+    // promesse peut se faire entière. Si l'envoi disparaissait, ce test DOIT se réinverser.
     api.lireStatut.mockResolvedValue(statut({ statut: 'running', faites: 1, total: 34 }))
     rendre()
     await screen.findByText(/Vous pouvez fermer cette page/)
-    expect(screen.queryByText(/e-mail vous préviendra/)).not.toBeInTheDocument()
+    expect(screen.getByText(/e-mail vous préviendra/)).toBeInTheDocument()
   })
 
   it('une panne est présentée comme une panne, avec une commande qui reste ouverte', async () => {

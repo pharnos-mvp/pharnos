@@ -17,6 +17,9 @@ export interface CommandeAutorisee {
   essai: boolean
   depositsUsed: number
   docType: string | null
+  /** Pays et activité — transportés par le dépôt, `null` avant. Ils commandent les prompts. */
+  country: string | null
+  activity: string | null
   expiresAt: string
 }
 
@@ -51,7 +54,9 @@ export async function commandeParJeton(
   // qu'on ne charge pas ne peut pas fuir.
   const { data, error } = await supabase
     .from('order_tokens')
-    .select('expires_at, orders!inner(id, status, offre, lang, essai, deposits_used, doc_type)')
+    .select(
+      'expires_at, orders!inner(id, status, offre, lang, essai, deposits_used, doc_type, country, activity)',
+    )
     .eq('token_hash', await deliveryTokenHash(token))
     .maybeSingle()
 
@@ -77,6 +82,8 @@ export async function commandeParJeton(
     essai: o.essai === true,
     depositsUsed: Number(o.deposits_used ?? 0),
     docType: typeof o.doc_type === 'string' ? o.doc_type : null,
+    country: typeof o.country === 'string' ? o.country : null,
+    activity: typeof o.activity === 'string' ? o.activity : null,
     expiresAt: data.expires_at,
   }
 }

@@ -31,6 +31,7 @@ import {
   demanderSource,
   demanderUrlDepot,
   franchirPorte,
+  lireLivrable as lireLivrableApi,
   lireStatut,
   telechargerSource,
   televerserAvecReprises,
@@ -38,10 +39,19 @@ import {
   type ReponseDepot,
 } from './upgrade-api'
 import {
+  fabriquerFichiers,
+  fabriquerZip,
+  lireLivrable,
+  mimeDe,
+  type FichiersLivres,
+} from './livraison'
+import {
+  ACTIVITES,
   DOC_TYPES,
   doitChercherSource,
   doitSonder,
   estDocType,
+  PAYS_UEMOA,
   resteEstimeS,
   SONDAGE_MS,
   validerFichierSource,
@@ -107,6 +117,13 @@ export function PublicUpgradePage({ token }: { token: string }) {
     | { quoi: 'envoi'; prep: PreparedUpgradeSource; depot: ReponseDepot; fichier: File }
   const [reprise, setReprise] = useState<Reprise | null>(null)
   const [docType, setDocType] = useState<DocType>('rcp')
+  /**
+   * Pays et activité — le PONT les transporte dans le cas nominal ; un acheteur revenu par
+   * l'e-mail SANS être passé par le pont doit pouvoir les redonner (il les avait choisis avant de
+   * payer, et la mention de vigilance 4.8 en dépend). `null` = pas encore connus.
+   */
+  const [paysChoisi, setPaysChoisi] = useState<string | null>(null)
+  const [activiteChoisie, setActiviteChoisie] = useState<string | null>(null)
   /** L'acheteur a-t-il choisi son type de document lui-même ? Alors le serveur ne l'écrase plus. */
   const choixManuel = useRef(false)
   /**
@@ -127,6 +144,9 @@ export function PublicUpgradePage({ token }: { token: string }) {
       // le type du dépôt précédent : le réappliquer effacerait en silence la correction que
       // l'acheteur vient de faire, et le dépôt suivant serait jugé contre le même mauvais gabarit.
       if (!choixManuel.current && estDocType(r.docType)) setDocType(r.docType)
+      // Les valeurs SERVEUR priment : elles viennent d'un choix déjà fait avant le paiement.
+      if (r.country) setPaysChoisi(r.country)
+      if (r.activity) setActiviteChoisie(r.activity)
       return r
     } catch (e) {
       const mort = e instanceof UpgradeApiError && e.raison === 'lien_invalide'
@@ -330,7 +350,11 @@ export function PublicUpgradePage({ token }: { token: string }) {
         if (!prep) return
 
         setTravail({ quoi: 'envoi' })
-        const depot = await demanderUrlDepot(token, fichier.size, docType)
+        const depot = await demanderUrlDepot(token, fichier.size, docType, {
+          sourceName: fichier.name,
+          country: paysChoisi,
+          activity: activiteChoisie,
+        })
         try {
           await televerserAvecReprises(depot.uploadUrl, depot.uploadToken, fichier)
         } catch (e) {
@@ -356,7 +380,7 @@ export function PublicUpgradePage({ token }: { token: string }) {
         enVol.current = false
       }
     },
-    [token, docType, lireLeDocument, franchir, rafraichir],
+    [token, docType, paysChoisi, activiteChoisie, lireLeDocument, franchir, rafraichir],
   )
 
   /** La reprise manuelle — le seul bouton de cette page qui ne dépend d'aucun état serveur. */
@@ -483,6 +507,10 @@ export function PublicUpgradePage({ token }: { token: string }) {
             setDocType(d)
           }}
           onFichier={(f) => void deposer(f)}
+          pays={paysChoisi}
+          onPays={setPaysChoisi}
+          activite={activiteChoisie}
+          onActivite={setActiviteChoisie}
         />
       )}
 
@@ -510,7 +538,7 @@ export function PublicUpgradePage({ token }: { token: string }) {
 
       {vue.etape === 'traitement' && <EcranTraitement resume={resume} vue={vue} />}
 
-      {vue.etape === 'livraison' && <EcranLivraison resume={resume} lang={lang} />}
+      {vue.etape === 'livraison' && <EcranLivraison resume={resume} lang={lang} token={token} />}
 
       {vue.etape === 'panne' && (
         <>
@@ -536,14 +564,26 @@ function EcranDepot({
   docType,
   onDocType,
   onFichier,
+  pays,
+  onPays,
+  activite,
+  onActivite,
 }: {
   resume: ResumeCommande | null
   docType: DocType
   onDocType: (d: DocType) => void
   onFichier: (f: File) => void
+  pays: string | null
+  onPays: (p: string | null) => void
+  activite: string | null
+  onActivite: (a: string | null) => void
 }) {
   const { t } = useI18n()
   const champ = useRef<HTMLInputElement>(null)
+  // « Connu » = porté par la COMMANDE, pas seulement choisi à l'écran : la question ne se repose
+  // jamais à quelqu'un dont le pont a déjà transporté le choix.
+  const paysConnu = Boolean(resume?.country)
+  const activiteConnue = Boolean(resume?.activity)
   const restants = resume?.depositsLeft ?? 0
   const epuise = restants <= 0
 
@@ -585,6 +625,47 @@ function EcranDepot({
           ))}
         </select>
       </label>
+
+      {/* ⚠️ Visibles SEULEMENT quand la commande ne les porte pas : dans le cas nominal le pont les
+          a transportés, et redemander un choix déjà fait se lirait comme une panne de mémoire. */}
+      {paysConnu ? null : (
+        <label className="block space-y-1.5">
+          <span className="text-muted-foreground text-xs font-medium">
+            {t({ fr: 'Pays de dépôt', en: 'Country of filing' })}
+          </span>
+          <select
+            className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+            value={pays ?? ''}
+            onChange={(e) => onPays(e.target.value || null)}
+          >
+            <option value="">{t({ fr: 'Choisir…', en: 'Choose…' })}</option>
+            {PAYS_UEMOA.map((p) => (
+              <option key={p.code} value={p.code}>
+                {t({ fr: p.fr, en: p.en })}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {activiteConnue ? null : (
+        <label className="block space-y-1.5">
+          <span className="text-muted-foreground text-xs font-medium">
+            {t({ fr: 'Activité réglementaire', en: 'Regulatory activity' })}
+          </span>
+          <select
+            className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+            value={activite ?? ''}
+            onChange={(e) => onActivite(e.target.value || null)}
+          >
+            <option value="">{t({ fr: 'Choisir…', en: 'Choose…' })}</option>
+            {ACTIVITES.map((a) => (
+              <option key={a.code} value={a.code}>
+                {t({ fr: a.fr, en: a.en })}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       <input
         ref={champ}
@@ -698,14 +779,12 @@ function EcranTraitement({
       {/* La promesse de la maquette, et elle devient VRAIE ici : le travail vit sur nos serveurs,
           plus dans cet onglet.
 
-          ⚠️ ELLE NE PARLE PAS D'E-MAIL. L'e-mail « vos fichiers sont prêts » appartient à U5 et
-          n'existe pas encore : `job-tick` n'envoie rien. Adosser « vous pouvez fermer » à un envoi
-          qui n'a pas lieu transformerait une fermeture d'onglet en abandon silencieux. Ce qui est
-          vrai, en revanche, c'est que le LIEN dure 30 jours — et c'est cela qu'on promet. */}
+          Et depuis U5, l'e-mail « vos fichiers sont prêts » EXISTE (`job-tick` l'envoie à la
+          bascule `running→done`) : la promesse peut se faire entière. */}
       <Encart ton="avis">
         {t({
-          fr: 'Vous pouvez fermer cette page : le traitement continue sans vous. Revenez sur ce lien quand vous voulez, il reste valable 30 jours.',
-          en: 'You can close this page: processing continues without you. Come back to this link whenever you like — it stays valid for 30 days.',
+          fr: 'Vous pouvez fermer cette page : le traitement continue sans vous, et un e-mail vous préviendra quand vos fichiers seront prêts. Ce lien reste valable 30 jours.',
+          en: 'You can close this page: processing continues without you, and an e-mail will tell you when your files are ready. This link stays valid for 30 days.',
         })}
       </Encart>
 
@@ -721,9 +800,63 @@ function EcranTraitement({
   )
 }
 
-function EcranLivraison({ resume, lang }: { resume: ResumeCommande | null; lang: string }) {
+/**
+ * L'écran de livraison — le dernier maillon, et le seul dont la sortie devient un DOCUMENT DÉPOSÉ.
+ *
+ * La page demande le livrable UNE fois (`?livrable=1`), fabrique les cinq fichiers dans le
+ * navigateur (~1 s), et les offre en téléchargements unitaires + ZIP. Rien n'est stocké de dérivé :
+ * revenir sur le lien refabrique à l'identique — `created` venant du serveur, les octets sont les
+ * mêmes.
+ */
+function EcranLivraison({
+  resume,
+  lang,
+  token,
+}: {
+  resume: ResumeCommande | null
+  lang: string
+  token: string
+}) {
   const { t } = useI18n()
   const expire = resume?.expireLe ? new Date(resume.expireLe) : null
+  const [etat, setEtat] = useState<
+    | { quoi: 'fabrication' }
+    | { quoi: 'prets'; fichiers: FichiersLivres }
+    | { quoi: 'echec'; raison: string }
+  >({ quoi: 'fabrication' })
+
+  useEffect(() => {
+    let vivant = true
+    void (async () => {
+      try {
+        const reponse = await lireLivrableApi(token)
+        const livrable = lireLivrable((reponse as { livrable?: unknown }).livrable)
+        if ('erreur' in livrable) throw new Error(livrable.erreur)
+        const fichiers = await fabriquerFichiers(livrable)
+        if ('erreur' in fichiers) throw new Error(fichiers.erreur)
+        if (vivant) setEtat({ quoi: 'prets', fichiers })
+      } catch (e) {
+        // ⚠️ Une fabrication qui échoue se DIT — jamais un bouton mort ni un écran qui prétend.
+        // La commande et le lien restent intacts : recharger refait tout, et le support existe.
+        if (vivant) setEtat({ quoi: 'echec', raison: e instanceof Error ? e.message : String(e) })
+      }
+    })()
+    return () => {
+      vivant = false
+    }
+  }, [token])
+
+  const telecharger = (nom: string, bytes: Uint8Array | Blob, mime: string) => {
+    const blob = bytes instanceof Blob ? bytes : new Blob([bytes as BlobPart], { type: mime })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = nom
+    a.click()
+    // Révoqué au tour SUIVANT : le révoquer tout de suite casse le téléchargement sur Safari.
+    setTimeout(() => URL.revokeObjectURL(url), 30_000)
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 text-sm font-medium">
@@ -736,16 +869,64 @@ function EcranLivraison({ resume, lang }: { resume: ResumeCommande | null; lang:
           en: 'Your deliverable has five files: the document in French and in English, each in Word and PDF, plus the regulatory review.',
         })}
       </p>
-      {/* ⚠️ SEAM U5 — la fabrication des cinq fichiers est le lot suivant (`lib/deliverables`, plus
-          la conversion du JSON de `order-status` en markdown). Tant qu'elle n'est pas branchée, on
-          ne montre AUCUN bouton de téléchargement : un bouton qui ne rend rien sur la page d'un
-          client qui a payé est pire qu'une phrase qui dit où l'on en est. */}
-      <Encart ton="avis">
-        {t({
-          fr: 'Nous finalisons la remise de vos fichiers. Écrivez-nous à contact@pharnos.com si vous les voulez tout de suite.',
-          en: 'We are finalising file delivery. Write to contact@pharnos.com if you want them right away.',
-        })}
-      </Encart>
+
+      {etat.quoi === 'fabrication' && (
+        <div className="text-muted-foreground flex items-center gap-2 text-sm">
+          <Loader2 className="size-4 animate-spin" />
+          {t({
+            fr: 'Fabrication de vos fichiers dans votre navigateur…',
+            en: 'Building your files in your browser…',
+          })}
+        </div>
+      )}
+
+      {etat.quoi === 'prets' && (
+        <div className="space-y-2">
+          {etat.fichiers.files.map((f) => (
+            <Button
+              key={f.fileName}
+              type="button"
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => telecharger(f.fileName, f.bytes, mimeDe(f))}
+            >
+              <FileText className="size-4" />
+              {f.fileName}
+            </Button>
+          ))}
+          <Button
+            type="button"
+            className="w-full"
+            onClick={() =>
+              void fabriquerZip(etat.fichiers).then((zip) =>
+                telecharger(etat.fichiers.zipName, zip, 'application/zip'),
+              )
+            }
+          >
+            <Upload className="size-4 rotate-180" />
+            {t({ fr: 'Tout télécharger (ZIP)', en: 'Download all (ZIP)' })}
+          </Button>
+          {/* ⚠️ Un caractère intraçable retiré d'un PDF peut changer le sens d'une ligne : le
+              client le VOIT, il ne le découvre pas chez l'agence. */}
+          {etat.fichiers.dropped.length > 0 && (
+            <Encart ton="avis">
+              {t({
+                fr: `Certains caractères de la source n'ont pas pu être tracés dans les PDF : ${etat.fichiers.dropped.join(' ')}. Vérifiez les passages concernés dans les fichiers Word, qui les conservent.`,
+                en: `Some source characters could not be drawn in the PDFs: ${etat.fichiers.dropped.join(' ')}. Check the affected passages in the Word files, which keep them.`,
+              })}
+            </Encart>
+          )}
+        </div>
+      )}
+
+      {etat.quoi === 'echec' && (
+        <Encart ton="refus">
+          {t({
+            fr: 'La préparation de vos fichiers a échoué dans ce navigateur. Rechargez la page pour réessayer — et si cela persiste, écrivez-nous à contact@pharnos.com : votre dossier est terminé et en sécurité.',
+            en: 'Preparing your files failed in this browser. Reload the page to try again — if it persists, write to contact@pharnos.com: your dossier is complete and safe.',
+          })}
+        </Encart>
+      )}
       {expire && (
         <p className="text-muted-foreground text-xs">
           {t({

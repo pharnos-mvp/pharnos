@@ -114,13 +114,27 @@ export interface ReponseDepot {
   depositsLeft: number
 }
 
-/** Demande une URL signée de dépôt. Le serveur calcule la clé : le client ne choisit pas où il écrit. */
-export const demanderUrlDepot = (token: string, size: number, docType = 'rcp') =>
+/**
+ * Demande une URL signée de dépôt. Le serveur calcule la clé : le client ne choisit pas où il écrit.
+ *
+ * ⚠️ `sourceName`, `country` et `activity` voyagent ici parce que le dépôt est le SEUL appel commun
+ * aux deux fronts : sans eux, la mention de vigilance 4.8 n'entrait dans aucun prompt. Le serveur
+ * valide (`^[A-Z]{2}$`, vocabulaire fermé) et ignore l'invalide — jamais de correction silencieuse.
+ */
+export const demanderUrlDepot = (
+  token: string,
+  size: number,
+  docType = 'rcp',
+  extras: { sourceName?: string | null; country?: string | null; activity?: string | null } = {},
+) =>
   poster<ReponseDepot>('order-upload-url', {
     token,
     size,
     docType,
     contentType: 'application/pdf',
+    ...(extras.sourceName ? { sourceName: extras.sourceName } : {}),
+    ...(extras.country ? { country: extras.country } : {}),
+    ...(extras.activity ? { activity: extras.activity } : {}),
   })
 
 /**

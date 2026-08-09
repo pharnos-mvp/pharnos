@@ -26,6 +26,8 @@ it.skipIf(!DIR)('émet les 5 livrables du cas mesuré par le harnais', async () 
     slug: string
     reportHeader: string
     reportLang: 'fr' | 'en'
+    reportDate?: string
+    created?: string
   }
 
   const jobs = upgradeJobs({
@@ -36,7 +38,14 @@ it.skipIf(!DIR)('émet les 5 livrables du cas mesuré par le harnais', async () 
     reportHeader: run.reportHeader,
     reportLang: run.reportLang,
   })
-  const { files, dropped } = await renderDeliverables(jobs)
+  // ⚠️ La date vient du RUN, jamais de l'horloge : sans elle, `pdf-lib` horodate à la seconde et
+  // la référence de la recette U5 — comparer À L'OCTET le rendu navigateur à celui du banc —
+  // changerait à chaque exécution. Un run sans date est un run d'avant U5 : on refuse, on ne
+  // fabrique pas une référence invérifiable.
+  const created = run.created ?? (run.reportDate ? `${run.reportDate}T00:00:00.000Z` : null)
+  if (!created)
+    throw new Error('run.json sans `created` ni `reportDate` : référence non reproductible')
+  const { files, dropped } = await renderDeliverables(jobs, { created: new Date(created) })
 
   expect(files).toHaveLength(5)
   // Un signe intraçable retiré d'un PDF peut changer le sens d'une ligne (fréquences, dosages) :

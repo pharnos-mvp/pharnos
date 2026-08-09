@@ -21,6 +21,9 @@ export interface ResumeCommande {
   expireLe: string
   /** `null` tant qu'aucun dépôt n'a eu lieu : la commande naît du webhook, qui l'ignore. */
   docType?: string | null
+  /** Pays et activité — `null` tant que rien ne les a transportés ; l'écran les redemande alors. */
+  country?: string | null
+  activity?: string | null
   erreur?: string | null
 }
 
@@ -35,8 +38,38 @@ export type DocType = (typeof DOC_TYPES)[number]
 export const estDocType = (v: unknown): v is DocType =>
   typeof v === 'string' && (DOC_TYPES as readonly string[]).includes(v)
 
-/** Plafond du document source — jumeau de `MAX_SOURCE_BYTES` côté Edge. */
-export const MAX_SOURCE_OCTETS = 25 * 1024 * 1024
+/**
+ * Plafond du document source — **jumeau de `MAX_SOURCE_BYTES` côté Edge (12 Mo)**.
+ *
+ * ⚠️ 12 et non 25 : la pièce repart au modèle à chaque appel de conformité et de revue, encodée en
+ * base64, et 25 Mo dépassaient la limite de corps de requête du fournisseur — l'échec tombait alors
+ * APRÈS le paiement, rubrique par rubrique. Ce jumeau a déjà dérivé une fois (25 ici, 12 là-bas) :
+ * si les deux valeurs divergent encore, le refus le plus permissif garde la porte d'entrée.
+ */
+export const MAX_SOURCE_OCTETS = 12 * 1024 * 1024
+
+/**
+ * Les huit pays servis — jumeaux des codes que `lireDemandeDepot` accepte (`^[A-Z]{2}$`) et que
+ * `conformity-specs` connaît (`mentions[].requiredFor`). L'écran de dépôt les propose quand la
+ * commande n'en porte pas encore : le PONT les transporte dans le cas nominal, mais un acheteur
+ * revenu par l'e-mail sans être passé par le pont doit pouvoir les redonner — il les avait choisis
+ * avant de payer, et la mention de vigilance 4.8 en dépend.
+ */
+export const PAYS_UEMOA: readonly { code: string; fr: string; en: string }[] = [
+  { code: 'BJ', fr: 'Bénin', en: 'Benin' },
+  { code: 'BF', fr: 'Burkina Faso', en: 'Burkina Faso' },
+  { code: 'CI', fr: "Côte d'Ivoire", en: "Côte d'Ivoire" },
+  { code: 'GW', fr: 'Guinée-Bissau', en: 'Guinea-Bissau' },
+  { code: 'ML', fr: 'Mali', en: 'Mali' },
+  { code: 'NE', fr: 'Niger', en: 'Niger' },
+  { code: 'SN', fr: 'Sénégal', en: 'Senegal' },
+  { code: 'TG', fr: 'Togo', en: 'Togo' },
+]
+
+export const ACTIVITES: readonly { code: 'amm' | 'renouv'; fr: string; en: string }[] = [
+  { code: 'amm', fr: 'Nouvelle AMM', en: 'New MA' },
+  { code: 'renouv', fr: 'Renouvellement', en: 'Renewal' },
+]
 
 export type RefusFichier = 'vide' | 'type' | 'taille'
 

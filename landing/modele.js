@@ -1517,6 +1517,12 @@ async function envoyerDocument(token, cmd) {
     size: fichier.size,
     docType,
     contentType: "application/pdf",
+    // ⚠️ Pays, activité et nom du fichier : choisis dans la modale AVANT le paiement, et sans ce
+    // transport ils mouraient dans IndexedDB — la mention de vigilance 4.8, celle qui varie par
+    // pays, n'entrait alors dans AUCUN prompt. Le serveur valide et n'invente jamais.
+    sourceName: cmd.nomFichier ?? fichier.name ?? null,
+    country: cmd.pays ?? null,
+    activity: cmd.activite ?? null,
   });
   // ⚠️ `uploadToken` se vérifie AUSSI : un `Bearer undefined` part au PUT, échoue en 403 non
   // retentable — et le dépôt, lui, vient d'être consommé.
