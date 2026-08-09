@@ -35,6 +35,7 @@ import {
   telechargerSource,
   televerserAvecReprises,
   UpgradeApiError,
+  type ReponseDepot,
 } from './upgrade-api'
 import {
   DOC_TYPES,
@@ -88,13 +89,23 @@ export function PublicUpgradePage({ token }: { token: string }) {
   /** La lecture du PDF a échoué : l'écran doit rouvrir le dépôt, pas laisser tourner un sablier. */
   const [echecLecture, setEchecLecture] = useState(false)
   /**
-   * De quoi refranchir la porte SANS RIEN CONSOMMER — le document est déposé, son dépôt décompté,
-   * et le corpus de contrôle déjà lu. Non nul, c'est qu'une panne a interrompu le dernier geste.
+   * De quoi REPRENDRE le dernier geste coûteux SANS RIEN CONSOMMER. Non nul, c'est qu'une panne
+   * réseau a interrompu la chaîne après un point de non-retour — et le point de non-retour est
+   * `demanderUrlDepot`, qui décompte un dépôt sur trois par compare-and-swap à la réception.
+   *
+   *  • `porte` — le document est chez nous, le corpus lu : il ne reste que la porte à refranchir.
+   *  • `envoi` — l'URL signée est émise (dépôt DÉJÀ décompté) mais le PUT a échoué. La clé étant
+   *    dérivée du job et `x-upsert` posé, rejouer le PUT sur la MÊME URL ne consomme rien.
+   *
+   * ⚠️ Sans le second cas, un téléversement raté — 12 Mo sur un lien mobile, le mode d'échec le
+   * plus banal du marché visé — affichait « votre commande est intacte » (faux : un dépôt venait
+   * d'être débité) au-dessus d'un écran dont le SEUL bouton débitait le suivant. Le PUT échoue
+   * bien plus souvent que la porte ; il méritait la même reprise gratuite qu'elle.
    */
-  const [porteEnAttente, setPorteEnAttente] = useState<{
-    prep: PreparedUpgradeSource
-    jobId: string
-  } | null>(null)
+  type Reprise =
+    | { quoi: 'porte'; prep: PreparedUpgradeSource; jobId: string }
+    | { quoi: 'envoi'; prep: PreparedUpgradeSource; depot: ReponseDepot; fichier: File }
+  const [reprise, setReprise] = useState<Reprise | null>(null)
   const [docType, setDocType] = useState<DocType>('rcp')
   /** L'acheteur a-t-il choisi son type de document lui-même ? Alors le serveur ne l'écrase plus. */
   const choixManuel = useRef(false)
@@ -130,7 +141,7 @@ export function PublicUpgradePage({ token }: { token: string }) {
   const vue = vueDepuis(resume, {
     preparationEnCours: travail.quoi !== 'repos',
     echecLecture,
-    porteAReprendre: porteEnAttente !== null,
+    porteAReprendre: reprise !== null,
   })
 
   // Sondage — uniquement pendant le traitement. Sonder un état stable, c'est ~150 requêtes par
@@ -195,7 +206,7 @@ export function PublicUpgradePage({ token }: { token: string }) {
         // Un refus revient en 200 : la commande est intacte, et le message du serveur dit
         // lui-même que rien n'a été débité. On l'affiche tel quel plutôt que de le reformuler.
         setRefus(verdict.status === 'refused' ? { serveur: verdict.message ?? '' } : null)
-        setPorteEnAttente(null)
+        setReprise(null)
       } catch (e) {
         // ⚠️ `already_running` arrive en 409, donc en exception : c'est le cas NOMINAL de deux
         // onglets ouverts sur la même commande. L'annoncer « refusé » ferait croire à un rejet
@@ -215,10 +226,14 @@ export function PublicUpgradePage({ token }: { token: string }) {
         const rejouable =
           e instanceof UpgradeApiError &&
           (e.raison === 'indisponible' || e.raison === 'trop_de_requetes')
-        setPorteEnAttente(nominal || !rejouable ? null : { prep, jobId })
+        setReprise(nominal || !rejouable ? null : { quoi: 'porte', prep, jobId })
       } finally {
-        setTravail({ quoi: 'repos' })
+        // ⚠️ `rafraichir` AVANT de rendre la main. Dans l'autre ordre, React rendait un état
+        // intermédiaire — travail au repos, `resume` encore à `paid` — et l'écran de dépôt
+        // CLIGNOTAIT pendant tout l'aller-retour réseau. Un clic à cet instant recevait
+        // `409 already_started`, affiché « refusé » sur un traitement qui venait de démarrer.
         await rafraichir()
+        setTravail({ quoi: 'repos' })
       }
     },
     [token, rafraichir],
@@ -282,7 +297,7 @@ export function PublicUpgradePage({ token }: { token: string }) {
       setAvis(null)
       setEchecLecture(false)
       // Un nouveau dépôt annule la reprise gratuite du précédent : elle porterait l'ancien `jobId`.
-      setPorteEnAttente(null)
+      setReprise(null)
       // ⚠️ Les deux refus purement LOCAUX sortent avant le `try`, donc avant le `rafraichir()` du
       // `finally` : un aller-retour réseau pour dire « ce n'est pas un PDF », décidé sur place, ne
       // sert à rien — et s'il échoue, il fait basculer la page en « connexion perdue » sur un
@@ -316,14 +331,29 @@ export function PublicUpgradePage({ token }: { token: string }) {
 
         setTravail({ quoi: 'envoi' })
         const depot = await demanderUrlDepot(token, fichier.size, docType)
-        await televerserAvecReprises(depot.uploadUrl, depot.uploadToken, fichier)
+        try {
+          await televerserAvecReprises(depot.uploadUrl, depot.uploadToken, fichier)
+        } catch (e) {
+          // ⚠️ L'URL est ÉMISE : le dépôt est déjà décompté, quoi qu'il arrive au PUT. Sur une
+          // panne rejouable, on garde de quoi rejouer le PUT sur la MÊME URL (`x-upsert`, clé
+          // dérivée du job) — gratuitement. Jeter ce contexte, c'était afficher « votre commande
+          // est intacte » (faux) au-dessus d'un sélecteur de fichier qui débitait le dépôt suivant.
+          const rejouable =
+            e instanceof UpgradeApiError &&
+            (e.raison === 'indisponible' || e.raison === 'trop_de_requetes')
+          if (rejouable) setReprise({ quoi: 'envoi', prep, depot, fichier })
+          throw e
+        }
         await franchir(prep, depot.jobId)
       } catch (e) {
-        setRefus(cleErreur(e))
+        // `already_started` est la course de deux onglets, pas un refus : le `rafraichir` du
+        // `finally` montrera l'écran de traitement.
+        setRefus(estDejaLance(e) ? null : cleErreur(e))
       } finally {
+        // Même ordre que `franchir`, même raison : pas d'écran de dépôt fantôme entre deux états.
+        await rafraichir()
         setTravail({ quoi: 'repos' })
         enVol.current = false
-        await rafraichir()
       }
     },
     [token, docType, lireLeDocument, franchir, rafraichir],
@@ -334,14 +364,40 @@ export function PublicUpgradePage({ token }: { token: string }) {
     setAcces('inconnu')
     setEchecLecture(false)
     setRefus(null)
+    // L'avis « document tronqué » appartient à la lecture PRÉCÉDENTE : le laisser survivrait à une
+    // reprise qui a relu autre chose.
+    setAvis(null)
     setChargement(true)
     try {
-      // ⚠️ LE CHEMIN LE MOINS CHER D'ABORD. Si le document est déposé et déjà lu, il ne reste que
-      // la porte à refranchir : ni téléchargement, ni reconnaissance de caractères, ni — surtout —
-      // de nouveau dépôt. Repasser par `order-source` referait tout le travail pour rien.
-      if (porteEnAttente) {
+      // ⚠️ LE CHEMIN LE MOINS CHER D'ABORD. Tout ce qui est déjà acquis — dépôt décompté, corpus
+      // lu, URL signée — se rejoue tel quel : ni téléchargement, ni reconnaissance de caractères,
+      // ni — surtout — de nouveau dépôt. Repasser par `order-source` referait tout pour rien.
+      if (reprise) {
         setChargement(false)
-        await franchir(porteEnAttente.prep, porteEnAttente.jobId)
+        if (reprise.quoi === 'envoi') {
+          setTravail({ quoi: 'envoi' })
+          try {
+            await televerserAvecReprises(
+              reprise.depot.uploadUrl,
+              reprise.depot.uploadToken,
+              reprise.fichier,
+            )
+          } catch (e) {
+            // Rejouable : on garde la reprise, l'écran reste sur son bouton. Définitif (URL signée
+            // expirée) : la reprise tombe, et le dépôt suivant est le seul chemin restant.
+            const rejouable =
+              e instanceof UpgradeApiError &&
+              (e.raison === 'indisponible' || e.raison === 'trop_de_requetes')
+            if (!rejouable) setReprise(null)
+            setRefus(cleErreur(e))
+            await rafraichir()
+            setTravail({ quoi: 'repos' })
+            return
+          }
+          await franchir(reprise.prep, reprise.depot.jobId)
+          return
+        }
+        await franchir(reprise.prep, reprise.jobId)
         return
       }
       const r = await rafraichir()
@@ -352,7 +408,7 @@ export function PublicUpgradePage({ token }: { token: string }) {
       // bouton de secours laissait alors un écran de chargement dont plus rien ne sortait.
       setChargement(false)
     }
-  }, [porteEnAttente, franchir, rafraichir, reprendreDepuisServeur])
+  }, [reprise, franchir, rafraichir, reprendreDepuisServeur])
 
   if (chargement) {
     return (
@@ -615,7 +671,7 @@ function EcranTraitement({
   vue: ReturnType<typeof vueDepuis>
 }) {
   const { t } = useI18n()
-  const reste = resteEstimeS(vue)
+  const reste = resteEstimeS(vue, resume?.phase ?? 'conformity')
   const phase = LIBELLES_PHASE[resume?.phase ?? 'conformity'] ?? PHASE_CONFORMITE
 
   return (
@@ -799,6 +855,7 @@ type CleMessage =
   | 'trop_gros'
   | 'fichier_inaccessible'
   | 'trop_de_requetes'
+  | 'depots_epuises'
   | 'refus_generique'
   | 'reseau'
   | 'tronque'
@@ -837,13 +894,23 @@ const MESSAGES: Record<CleMessage, { fr: string; en: string }> = {
     fr: 'Trop de tentatives depuis cette connexion. Patientez une minute, puis réessayez.',
     en: 'Too many attempts from this connection. Wait a minute, then try again.',
   },
+  // ⚠️ Ce cas arrive en 429 comme la limitation de débit, mais il est DÉFINITIF : l'afficher
+  // « patientez une minute » promettait qu'attendre suffirait, juste au-dessus de l'encart qui dit
+  // le contraire. Le code machine (`deposits_exhausted`) les distingue, pas le code HTTP.
+  depots_epuises: {
+    fr: 'Les trois dépôts de cette commande ont été utilisés. Elle reste ouverte : écrivez-nous à contact@pharnos.com avec votre référence, nous prenons la suite sans nouveau paiement.',
+    en: 'All three uploads of this order have been used. It stays open: write to contact@pharnos.com with your reference and we take it from there at no extra cost.',
+  },
   refus_generique: {
     fr: 'Ce dépôt a été refusé. Si cela se reproduit, écrivez-nous à contact@pharnos.com — votre commande reste ouverte.',
     en: 'This upload was refused. If it happens again, write to contact@pharnos.com — your order stays open.',
   },
+  // ⚠️ Ne PAS écrire « votre commande est intacte » : quand la coupure tombe après l'émission de
+  // l'URL signée, un dépôt vient d'être décompté. « Rien n'est perdu » est vrai dans tous les cas —
+  // la reprise gratuite rejoue le geste interrompu sans rien consommer de plus.
   reseau: {
-    fr: 'La connexion a échoué. Votre commande est intacte — réessayez dans un instant.',
-    en: 'The connection failed. Your order is intact — try again in a moment.',
+    fr: 'La connexion a échoué. Rien n’est perdu — réessayez dans un instant.',
+    en: 'The connection failed. Nothing is lost — try again in a moment.',
   },
   tronque: {
     fr: 'Ce document est long : nous ne l’avons pas lu en entier. Les rubriques situées dans les dernières pages pourront ressortir « Non fourni ».',
@@ -859,6 +926,9 @@ const estDejaLance = (e: unknown): boolean =>
 function cleErreur(e: unknown): Message {
   if (e instanceof UpgradeApiError) {
     if (e.messageClient) return { serveur: e.messageClient }
+    // ⚠️ AVANT le test sur `raison` : `deposits_exhausted` arrive en 429, donc en
+    // `trop_de_requetes` — mais il est définitif, et « patientez une minute » mentait.
+    if (e.code === 'deposits_exhausted') return 'depots_epuises'
     if (e.raison === 'trop_de_requetes') return 'trop_de_requetes'
     if (e.raison === 'refus') return 'refus_generique'
   }

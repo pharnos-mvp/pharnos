@@ -213,7 +213,38 @@ export const SONDAGE_MS = 2_000
  */
 export const DUREE_TOTALE_S = 320
 
-export function resteEstimeS(vue: VueUpgrade): number | null {
+/**
+ * Parts de chaque passe dans la durée totale — les MESURES de U0.3, pas des tiers égaux.
+ *
+ * | Passe | Mesuré | Part |
+ * |---|---|---|
+ * | conformité | 148,7 s | 0,47 |
+ * | traduction | 56,4 s | 0,17 |
+ * | revue | 114,1 s | 0,36 |
+ *
+ * ⚠️ Découpée depuis, la revue reste la même somme de travail : le découpage change le nombre
+ * d'appels, pas ce qu'ils produisent.
+ */
+const PART_PASSE: Record<string, { avant: number; poids: number }> = {
+  conformity: { avant: 0, poids: 0.47 },
+  translation: { avant: 0.47, poids: 0.17 },
+  report: { avant: 0.64, poids: 0.36 },
+}
+
+/**
+ * ⚠️ L'estimation replie la PHASE dans la progression, et c'était le défaut : `vue.progression`
+ * est l'avancement de la phase COURANTE (décision de `resumer()` — un compteur global reculerait),
+ * or on la multipliait par la durée des TROIS passes. À 34/34 de conformité l'écran annonçait
+ * « 10 s », puis la traduction démarrait à 0/34 et il annonçait « 6 min » : l'estimation
+ * REMONTAIT sous les yeux de l'acheteur — mot pour mot ce que le commentaire de `DUREE_TOTALE_S`
+ * interdit, et le test d'alors verrouillait le défaut au lieu de le voir.
+ *
+ * Une phase inconnue ne prétend rien : `null` vaut mieux qu'un chiffre faux.
+ */
+export function resteEstimeS(vue: VueUpgrade, phase: string): number | null {
   if (vue.etape !== 'traitement') return null
-  return Math.max(10, Math.round(DUREE_TOTALE_S * (1 - vue.progression)))
+  const part = PART_PASSE[phase]
+  if (!part) return null
+  const global = part.avant + part.poids * vue.progression
+  return Math.max(10, Math.round(DUREE_TOTALE_S * (1 - global)))
 }

@@ -120,13 +120,56 @@ describe('doitSonder', () => {
 
 describe('resteEstimeS', () => {
   it('estime depuis la durée MESURÉE, et seulement pendant le traitement', () => {
-    expect(resteEstimeS(vueDepuis(resume({ statut: 'paid' })))).toBeNull()
-    const debut = resteEstimeS(vueDepuis(resume({ statut: 'running', faites: 0, total: 34 })))
+    expect(resteEstimeS(vueDepuis(resume({ statut: 'paid' })), 'conformity')).toBeNull()
+    const debut = resteEstimeS(
+      vueDepuis(resume({ statut: 'running', faites: 0, total: 34 })),
+      'conformity',
+    )
     expect(debut).toBe(DUREE_TOTALE_S)
   })
 
+  it("⚠️ l'estimation ne REMONTE JAMAIS d'une phase à la suivante", () => {
+    // Le défaut que ce test ferme — et que sa version précédente VERROUILLAIT au lieu de voir :
+    // `vue.progression` est l'avancement de la phase COURANTE (un compteur global reculerait,
+    // décision de `resumer()`), or on la multipliait par la durée des TROIS passes. À 34/34 de
+    // conformité l'écran annonçait « 10 s », puis la traduction démarrait à 0/34 et il annonçait
+    // « 6 min » : l'estimation s'allongeait sous les yeux de l'acheteur, mot pour mot ce que le
+    // commentaire de `DUREE_TOTALE_S` interdit.
+    const finConformite = resteEstimeS(
+      vueDepuis(resume({ statut: 'running', faites: 34, total: 34 })),
+      'conformity',
+    )!
+    const debutTraduction = resteEstimeS(
+      vueDepuis(resume({ statut: 'running', phase: 'translation', faites: 0, total: 25 })),
+      'translation',
+    )!
+    const finTraduction = resteEstimeS(
+      vueDepuis(resume({ statut: 'running', phase: 'translation', faites: 25, total: 25 })),
+      'translation',
+    )!
+    const debutRevue = resteEstimeS(
+      vueDepuis(resume({ statut: 'running', phase: 'report', faites: 0, total: 4 })),
+      'report',
+    )!
+    expect(debutTraduction).toBeLessThanOrEqual(finConformite)
+    expect(debutRevue).toBeLessThanOrEqual(finTraduction)
+    // Et l'ordre de grandeur vient des MESURES de U0.3 : à la fin de la conformité il reste la
+    // traduction (56 s) et la revue (114 s) — pas « une minute ».
+    expect(finConformite).toBeGreaterThan(120)
+  })
+
+  it('une phase INCONNUE ne prétend rien', () => {
+    // `null` vaut mieux qu'un chiffre calculé sur une phase que cette version ne connaît pas.
+    expect(
+      resteEstimeS(vueDepuis(resume({ statut: 'running', faites: 1, total: 4 })), 'assemblage'),
+    ).toBeNull()
+  })
+
   it('ne descend jamais à zéro : « il reste 0 s » depuis une minute est pire que « bientôt »', () => {
-    const fin = resteEstimeS(vueDepuis(resume({ statut: 'running', faites: 34, total: 34 })))
+    const fin = resteEstimeS(
+      vueDepuis(resume({ statut: 'running', phase: 'report', faites: 4, total: 4 })),
+      'report',
+    )
     expect(fin).toBeGreaterThanOrEqual(10)
   })
 })

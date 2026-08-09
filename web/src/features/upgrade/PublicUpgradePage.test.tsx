@@ -265,6 +265,75 @@ describe('dépôt d’un document', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('⚠️ un TÉLÉVERSEMENT raté ne coûte rien de plus : la reprise rejoue le PUT, jamais le dépôt', async () => {
+    // `demanderUrlDepot` décompte un dépôt sur trois À LA RÉCEPTION, par compare-and-swap. Quand le
+    // PUT échouait ensuite (12 Mo sur un lien mobile), l'écran affichait « votre commande est
+    // intacte » — faux — au-dessus d'un sélecteur de fichier dont le clic débitait le dépôt
+    // suivant. Or la clé est dérivée du job et `x-upsert` posé : rejouer le PUT sur la MÊME URL ne
+    // consomme rien.
+    api.lireStatut.mockResolvedValue(statut({ depositsLeft: 2 }))
+    ocr.prepareUpgradeSource.mockResolvedValue({
+      sourceKind: 'text',
+      controlText: 'texte',
+      pageCount: 1,
+      recognizedPages: 0,
+      truncated: false,
+    })
+    api.demanderUrlDepot.mockResolvedValue({
+      jobId: 'job-9',
+      path: 'p',
+      uploadUrl: 'https://s/signed',
+      uploadToken: 'k',
+      depositsLeft: 1,
+    })
+    api.televerserAvecReprises.mockRejectedValueOnce(
+      new UpgradeApiError('indisponible', 'téléversement : injoignable'),
+    )
+
+    rendre()
+    await screen.findByRole('button', { name: /Choisir mon document/ })
+    await choisir(pdf())
+
+    // L'écran propose de REPRENDRE — pas de redéposer, pas de « commande intacte ».
+    const bouton = await screen.findByRole('button', { name: /Reprendre la préparation/ })
+    expect(screen.queryByRole('button', { name: /Choisir mon document/ })).not.toBeInTheDocument()
+    expect(screen.queryByText(/intacte/)).not.toBeInTheDocument()
+
+    // La reprise rejoue le PUT sur la MÊME URL puis franchit la porte : AUCUN nouveau dépôt.
+    api.televerserAvecReprises.mockResolvedValue(undefined)
+    api.franchirPorte.mockResolvedValue({ status: 'started' })
+    bouton.click()
+    await waitFor(() => expect(api.franchirPorte).toHaveBeenCalledTimes(1))
+    expect(api.demanderUrlDepot).toHaveBeenCalledTimes(1)
+    expect(api.televerserAvecReprises).toHaveBeenLastCalledWith(
+      'https://s/signed',
+      'k',
+      expect.anything(),
+    )
+    expect(api.franchirPorte).toHaveBeenCalledWith(JETON, 'job-9', 'texte', 'text')
+  })
+
+  it('« dépôts épuisés » ne se lit plus « patientez une minute »', async () => {
+    // Les deux arrivent en 429 ; seul le code machine les distingue. « Patientez » promettait
+    // qu'attendre suffirait, juste au-dessus de l'encart qui dit le contraire.
+    api.lireStatut.mockResolvedValue(statut({ depositsLeft: 1 }))
+    ocr.prepareUpgradeSource.mockResolvedValue({
+      sourceKind: 'text',
+      controlText: 'texte',
+      pageCount: 1,
+      recognizedPages: 0,
+      truncated: false,
+    })
+    api.demanderUrlDepot.mockRejectedValue(
+      new UpgradeApiError('trop_de_requetes', '429', undefined, 'deposits_exhausted'),
+    )
+    rendre()
+    await screen.findByRole('button', { name: /Choisir mon document/ })
+    await choisir(pdf())
+    expect(await screen.findByText(/trois dépôts de cette commande/)).toBeInTheDocument()
+    expect(screen.queryByText(/Patientez une minute/)).not.toBeInTheDocument()
+  })
+
   it('un REFUS de recevabilité affiche le message du serveur, tel quel', async () => {
     // Il dit lui-même que rien n'a été débité. Le reformuler perdrait exactement cette phrase-là.
     api.lireStatut.mockResolvedValue(statut())

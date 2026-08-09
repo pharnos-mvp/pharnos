@@ -134,7 +134,17 @@ export const demanderUrlDepot = (token: string, size: number, docType = 'rcp') =
  * cela, `fetch` laisse remonter un `TypeError` brut — donc le mode d'échec le plus fréquent d'un
  * téléversement de plusieurs mégaoctets, précisément celui qu'il faut réessayer, échappait à toute
  * politique de reprise écrite en `instanceof UpgradeApiError`.
+ *
+ * ⚠️ Et le transfert est BORNÉ — large (12 Mo sur un lien lent), mais borné. `poster` borne tout à
+ * 30 s ; les deux transferts lourds ne bornaient RIEN. Une radio mobile qui meurt socket ouverte —
+ * changement de réseau, le quotidien du marché visé — laissait la promesse pendante : écran figé
+ * sur « ne fermez pas cet onglet », aucun bouton, aucun sondage. Le délai du navigateur existe,
+ * mais il n'est ni choisi, ni garanti, ni le même sur mobile. Un abandon ressort en
+ * `indisponible`, donc rejouable — comme toute coupure.
  */
+const PUT_TIMEOUT_MS = 180_000
+const GET_SOURCE_TIMEOUT_MS = 60_000
+
 export async function televerserSource(
   uploadUrl: string,
   uploadToken: string,
@@ -150,6 +160,7 @@ export async function televerserSource(
         'x-upsert': 'true',
       },
       body: fichier,
+      signal: AbortSignal.timeout(PUT_TIMEOUT_MS),
     })
   } catch {
     throw new UpgradeApiError('indisponible', 'téléversement : injoignable')
@@ -224,7 +235,7 @@ export const demanderSource = (token: string) => poster<ReponseSource>('order-so
 export async function telechargerSource(url: string, signal?: AbortSignal): Promise<ArrayBuffer> {
   let res: Response
   try {
-    res = await fetch(url, { signal })
+    res = await fetch(url, { signal: signal ?? AbortSignal.timeout(GET_SOURCE_TIMEOUT_MS) })
   } catch {
     throw new UpgradeApiError('indisponible', 'source : injoignable')
   }
