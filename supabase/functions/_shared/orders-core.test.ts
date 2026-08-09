@@ -386,3 +386,34 @@ Deno.test('objet source : au-delà du plafond, c’est 413 — jamais un 400 qui
   // La borne est inclusive : un fichier pile au plafond passe.
   assertEquals(jugerObjetSource({ metadata: { size: MAX_SOURCE_BYTES } }).ok, true)
 })
+
+Deno.test('dépôt : pays, activité et nom de fichier voyagent — validés, jamais devinés', () => {
+  // ⚠️ Le trou que U5 a découvert : ces valeurs n'atteignaient JAMAIS le serveur, et la mention de
+  // vigilance 4.8 — celle qui varie par pays, le cœur du « checking standard » — n'était donc
+  // jamais injectée dans les prompts de production.
+  const d = lireDemandeDepot({
+    contentType: TYPE_SOURCE,
+    size: 10,
+    docType: 'rcp',
+    sourceName: 'RCP Gynoril v2.pdf',
+    country: 'BJ',
+    activity: 'renouv',
+  }) as { sourceName: string; country: string; activity: string }
+  assertEquals(d.country, 'BJ')
+  assertEquals(d.activity, 'renouv')
+  // Les caractères de contrôle sont expurgés du nom — il part dans un en-tête de livrable.
+  assertEquals(d.sourceName, 'RCP Gynoril v2.pdf')
+
+  // Hors format ⇒ IGNORÉ, jamais corrigé : un pays inventé injecterait la mention d'un AUTRE pays
+  // dans un dossier réel, une activité fausse ferait écrire « Sans objet » sur un renouvellement.
+  const mauvais = lireDemandeDepot({
+    contentType: TYPE_SOURCE,
+    size: 10,
+    country: 'benin',
+    activity: 'renewal-2026',
+  }) as { country: string | null; activity: string | null; sourceName: string | null }
+  assertEquals(mauvais.country, null)
+  assertEquals(mauvais.activity, null)
+  assertEquals(mauvais.sourceName, null)
+})
+

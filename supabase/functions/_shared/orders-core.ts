@@ -339,6 +339,12 @@ export const DOC_TYPES_VENDABLES: ReadonlySet<string> = new Set(['rcp', 'notice'
 export interface DemandeDepot {
   docType: string
   size: number
+  /** Nom du fichier tel que l'acheteur le connaît — AFFICHAGE seul, jamais une clé Storage. */
+  sourceName: string | null
+  /** Code pays de dépôt (`BJ`…), ou `null` — il commande la mention de vigilance 4.8. */
+  country: string | null
+  /** `amm` | `renouv`, ou `null` — il commande les rubriques 8, 9 et 10. */
+  activity: string | null
 }
 
 /** Valide une demande d'URL de dépôt. Le jeton est vérifié à part, contre la base. */
@@ -367,7 +373,33 @@ export function lireDemandeDepot(body: unknown): DemandeDepot | { erreur: string
   if (brut && !DOC_TYPES_VENDABLES.has(brut)) {
     return { erreur: 'type de document inconnu' }
   }
-  return { docType: brut || 'rcp', size: Math.round(size) }
+
+  // ── Pays, activité, nom du fichier — le trou que U5 a découvert ───────────────────────────────
+  //
+  // ⚠️ Ces trois valeurs n'atteignaient JAMAIS le serveur. Les colonnes existaient (`0083`), la
+  // landing les connaissait, elles mouraient dans IndexedDB — et `job-tick` ne passait donc AUCUN
+  // `countryCode` au moteur : la mention de vigilance 4.8, celle qui varie par pays et fonde le
+  // « checking standard », n'était jamais injectée en production. Le dépôt est leur transport
+  // naturel : c'est le premier appel qui porte le document, et le seul que les deux fronts font.
+  //
+  // Elles sont OPTIONNELLES — un appelant ancien ne casse pas — mais jamais devinées :
+  //  • un pays hors format est IGNORÉ (le repli neutre de la 4.8 est le cas courant, pas une
+  //    lacune) ; un pays inventé injecterait la mention d'un autre pays dans un dossier réel ;
+  //  • une activité hors vocabulaire est IGNORÉE : le silence laisse le gabarit décider, une
+  //    consigne fausse ferait écrire « Sans objet » sur un renouvellement.
+  const paysBrut = texte(b.country, 8)
+  const country = paysBrut && /^[A-Z]{2}$/.test(paysBrut) ? paysBrut : null
+  const activiteBrut = texte(b.activity, 40)
+  const activity = activiteBrut === 'amm' || activiteBrut === 'renouv' ? activiteBrut : null
+  // Le nom sert l'AFFICHAGE (en-tête du livrable, rapport) : borné, expurgé des caractères de
+  // contrôle, jamais utilisé comme clé — `sourceObjectKey` reste sans chaîne client.
+  const nomBrut = texte(b.sourceName, 200)
+  const sourceName = nomBrut
+    ? nomBrut.split('').filter((c) => c.charCodeAt(0) >= 0x20 && c.charCodeAt(0) !== 0x7f).join('')
+      .trim() || null
+    : null
+
+  return { docType: brut || 'rcp', size: Math.round(size), sourceName, country, activity }
 }
 
 /* ────────────────────────────── Les gardes d'état, en CODE PUR ─────────────────────────────── */

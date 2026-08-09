@@ -1,7 +1,7 @@
 // deno test — ce que la page publique voit d'une commande. Aucun réseau, aucune base.
 import { assertEquals, assertStringIncludes } from 'jsr:@std/assert@1'
 
-import { assembler, resumer, type LigneSection } from './order-status-core.ts'
+import { resumer, type LigneSection } from './order-status-core.ts'
 
 const cmd = (o: Partial<{ status: string; deposits_used: number; delivery_expires_at: string }> = {}) => ({
   status: 'running',
@@ -77,57 +77,6 @@ Deno.test('résumé : AUCUNE donnée personnelle n’en sort', () => {
   }
 })
 
-/* ───────────────────────────────────── Le livrable ─────────────────────────────────────────── */
-
-const complet = (): LigneSection[] => [
-  ...['1', '2', '3'].map((id) => ligne({ section_id: id, phase: 'conformity' })),
-  ...['1', '2'].map((id) => ligne({ section_id: id, phase: 'translation' })),
-  ...['terminology', 'relocations', 'findings', 'recommendations'].map((id) =>
-    ligne({ section_id: id, phase: 'report', content: { [id]: [] } })
-  ),
-]
-
-Deno.test('livrable : les trois passes sont rendues, la revue indexée par tableau', () => {
-  const l = assembler(complet(), { conformity: 3, report: 4 }, { sourceKind: 'text', lang: 'fr' })
-  assertEquals('erreur' in l, false)
-  const ok = l as Exclude<typeof l, { erreur: string }>
-  assertEquals(ok.conformity.length, 3)
-  assertEquals(ok.translation.length, 2)
-  assertEquals(Object.keys(ok.report).sort(), ['findings', 'recommendations', 'relocations', 'terminology'])
-  assertEquals(ok.sourceKind, 'text')
-})
-
-Deno.test('livrable : une rubrique MANQUANTE fait refuser, elle ne se laisse pas tronquer', () => {
-  // ⚠️ Les cinq fichiers sont fabriqués dans le navigateur À PARTIR de ce JSON. Un JSON amputé
-  // produirait un document silencieusement incomplet, avec un décompte de lacunes calculé sur ce
-  // qui reste — le défaut de `d224665`, où un rapport contredisait son propre document.
-  const ampute = complet().filter((l) => !(l.phase === 'conformity' && l.section_id === '2'))
-  const r = assembler(ampute, { conformity: 3, report: 4 }, { sourceKind: 'text', lang: 'fr' })
-  assertEquals('erreur' in r, true)
-  assertStringIncludes((r as { erreur: string }).erreur, '2 rubriques sur 3')
-})
-
-Deno.test('livrable : un TABLEAU de revue manquant fait refuser aussi', () => {
-  const sansConstats = complet().filter((l) => l.section_id !== 'findings')
-  const r = assembler(sansConstats, { conformity: 3, report: 4 }, { sourceKind: 'text', lang: 'fr' })
-  assertEquals('erreur' in r, true)
-  assertStringIncludes((r as { erreur: string }).erreur, 'revue incomplète')
-})
-
-Deno.test('livrable : une rubrique non ABOUTIE ne compte pas comme faite', () => {
-  // `running` ou `queued` ne sont pas des contenus : les compter livrerait des trous.
-  const enCours = complet().map((l) =>
-    l.phase === 'conformity' && l.section_id === '3' ? { ...l, status: 'running' } : l
-  )
-  const r = assembler(enCours, { conformity: 3, report: 4 }, { sourceKind: 'text', lang: 'fr' })
-  assertEquals('erreur' in r, true)
-})
-
-Deno.test('livrable : une traduction absente NE bloque pas — la rubrique reste en français', () => {
-  // Un livrable dont une rubrique reste dans la langue d'origine est visiblement incomplet ; un
-  // livrable dont un dosage a changé est faux. On préfère toujours le premier (cf. `translated`).
-  const sansTraduction = complet().filter((l) => l.phase !== 'translation')
-  const r = assembler(sansTraduction, { conformity: 3, report: 4 }, { sourceKind: 'ocr', lang: 'fr' })
-  assertEquals('erreur' in r, false)
-  assertEquals((r as { translation: unknown[] }).translation.length, 0)
-})
+// ⚠️ Les tests du « livrable » sont partis avec `assembler()` (U5) : l'assemblage vit désormais
+// dans `job-tick` et ses garanties — refuser une rubrique manquante, refuser un tableau absent —
+// sont testées là où elles s'exercent (`deliverable-markdown.test.ts`, `analyseDepuisParts`).

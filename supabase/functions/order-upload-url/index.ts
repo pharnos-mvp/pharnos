@@ -143,7 +143,16 @@ Deno.serve(async (req) => {
   }
   const { data: pris, error: casErr } = await supabase
     .from('orders')
-    .update({ deposits_used: commande.depositsUsed + 1, doc_type: demande.docType })
+    .update({
+      deposits_used: commande.depositsUsed + 1,
+      doc_type: demande.docType,
+      // ⚠️ Pays et activité ne voyageaient JAMAIS jusqu'ici : la mention de vigilance 4.8 — celle
+      // qui varie par pays — n'était donc jamais injectée dans les prompts. Le dépôt est leur
+      // transport. `?? null` explicite : une valeur absente n'écrase pas, elle laisse nul — et un
+      // redépôt PEUT corriger un choix (l'acheteur s'est trompé de pays comme de fichier).
+      ...(demande.country ? { country: demande.country } : {}),
+      ...(demande.activity ? { activity: demande.activity } : {}),
+    })
     .eq('id', commande.id)
     .eq('deposits_used', commande.depositsUsed)
     .in('status', ETATS_DEPOSABLES)
@@ -164,7 +173,9 @@ Deno.serve(async (req) => {
   // document. Les mélanger produirait un rapport composite, faux et invisible.
   const { data: job, error: jobErr } = await supabase
     .from('upgrade_jobs')
-    .insert({ order_id: commande.id, doc_type: demande.docType })
+    // Le nom d'origine vit EN BASE, où il n'a aucune contrainte de jeu de caractères — la clé
+    // Storage, elle, reste sans chaîne du client (`sourceObjectKey`).
+    .insert({ order_id: commande.id, doc_type: demande.docType, source_name: demande.sourceName })
     .select('id')
     .single()
   if (jobErr || !job) {

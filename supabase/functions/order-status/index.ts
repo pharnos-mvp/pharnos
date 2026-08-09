@@ -17,8 +17,9 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 
 import { logJson, newReqId } from '../_shared/log.ts'
 import { commandeParJeton, estRefus, statutHttp } from '../_shared/order-access.ts'
-import { assembler, resumer, type LigneSection } from '../_shared/order-status-core.ts'
-import { MAX_DEPOTS, REPORT_SECTIONS_ATTENDUES } from '../_shared/orders-core.ts'
+import { produitDepuisRubrique1, slugFrom } from '../_shared/deliverable-markdown.ts'
+import { resumer, type LigneSection } from '../_shared/order-status-core.ts'
+import { MAX_DEPOTS } from '../_shared/orders-core.ts'
 
 const RL_WINDOW_S = 600
 /** ~150 requêtes par commande et par onglet : 900 laisse la place à plusieurs onglets et à un rejeu. */
@@ -94,12 +95,31 @@ Deno.serve(async (req) => {
 
   // Le job COURANT de la commande : le plus récent, puisqu'un nouveau dépôt en crée un nouveau et
   // que les rubriques du précédent portent l'analyse d'un AUTRE document.
+  // Les markdowns ne sont sélectionnés qu'en mode livrable : ~100 Ko qui n'ont rien à faire dans
+  // un sondage de deux secondes. (`returns<…>` : la sélection est calculée, le parseur de types de
+  // supabase-js ne sait la lire que littérale.)
+  interface JobRow {
+    id: string
+    phase: string
+    sections_total: number
+    source_kind: string
+    error: string | null
+    finished_at?: string | null
+    source_name?: string | null
+    deliverable_fr?: string | null
+    deliverable_en?: string | null
+    deliverable_report?: string | null
+  }
+  const selJob: string = corps.livrable
+    ? 'id, phase, sections_total, source_kind, error, finished_at, source_name, deliverable_fr, deliverable_en, deliverable_report'
+    : 'id, phase, sections_total, source_kind, error'
   const { data: jobs, error: jobErr } = await sb
     .from('upgrade_jobs')
-    .select('id, phase, sections_total, source_kind, error')
+    .select(selJob)
     .eq('order_id', commande.id)
     .order('created_at', { ascending: false })
     .limit(1)
+    .returns<JobRow[]>()
   if (jobErr) return json({ error: 'db' }, 503, origin)
   const job = jobs?.[0] ?? null
 
@@ -137,17 +157,43 @@ Deno.serve(async (req) => {
     // dernier sondage et la fin du travail. On rend le résumé, il réessaiera.
     return json({ ...resume, livrable: null }, 200, origin)
   }
-  const attenduConformite = lignes.filter((l) => l.phase === 'conformity').length
-  const livrable = assembler(
-    lignes,
-    { conformity: attenduConformite, report: REPORT_SECTIONS_ATTENDUES },
-    { sourceKind: job?.source_kind ?? 'text', lang: commande.lang },
+  // ── U5 : les MARKDOWNS du serveur sont l'autorité ─────────────────────────────────────────────
+  //
+  // ⚠️ Le JSON de rubriques ne suffisait pas — `renderReportMarkdown` calcule la liste des lacunes
+  // depuis les STATUTS, que `assembler()` ne rendait pas, et le squelette de la revue serait alors
+  // recalculé par le navigateur : le défaut de `d224665`. Le serveur assemble à la complétion
+  // (`job-tick`), cette surface ne fait que SERVIR. Un job `done` sans markdowns est un état
+  // impossible depuis `0088` (l'écriture précède la bascule) : le rencontrer est une panne franche,
+  // qui se dit — jamais un repli sur l'ancien JSON, qui livrerait un rapport différent de celui que
+  // le banc d'essai a validé.
+  const j = job
+  if (!j?.deliverable_fr || !j.deliverable_en || !j.deliverable_report) {
+    logJson({ ...log, status: 'livrable_absent', job: j?.id?.slice(0, 8) })
+    return json({ ...resume, livrable: null, erreur: 'livrable introuvable' }, 409, origin)
+  }
+
+  // Le nom du produit se dérive de la rubrique 1 — même règle que l'assemblage : le nom des
+  // fichiers téléchargés doit porter le produit, pas un identifiant technique.
+  const rub1 = lignes.find((l) => l.phase === 'conformity' && l.section_id === '1')
+  const produit = produitDepuisRubrique1(
+    (rub1?.content as { content?: string } | null)?.content,
   )
-  if ('erreur' in livrable) {
-    // ⚠️ On REFUSE plutôt que de rendre un JSON amputé : les cinq fichiers sont fabriqués à partir
-    // de lui, et un document silencieusement incomplet vaut pire qu'une erreur franche.
-    logJson({ ...log, status: 'livrable_incomplet', raison: livrable.erreur })
-    return json({ ...resume, livrable: null, erreur: livrable.erreur }, 409, origin)
+  const slug = slugFrom(produit) || 'document'
+  const reportLang = commande.lang
+  const livrable = {
+    fr: j.deliverable_fr,
+    en: j.deliverable_en,
+    rapport: j.deliverable_report,
+    slug,
+    reportHeader: produit
+      ? (reportLang === 'en' ? `${produit} — Regulatory Review` : `${produit} — Revue réglementaire`)
+      : (reportLang === 'en' ? 'Regulatory Review' : 'Revue réglementaire'),
+    reportLang,
+    // ⚠️ La date de RENDU vient du serveur, la MÊME pour le navigateur et pour le banc d'essai :
+    // c'est elle qui rend les PDF reproductibles à l'octet (recette U5). `pdf-lib` horodate sinon
+    // à la seconde de la fabrication, et deux rendus du même contenu divergent.
+    created: j.finished_at ?? null,
+    sourceKind: j.source_kind,
   }
 
   logJson({ ...log, status: 'livrable', essai: commande.essai })

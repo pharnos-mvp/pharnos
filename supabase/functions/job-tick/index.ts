@@ -27,7 +27,7 @@ import { conformitySystem, reviewSystem, translationSystem } from '../_shared/ai
 import { boundedMap } from '../_shared/ai/pool.ts'
 import { generateParts, type Part } from '../_shared/ai/provider.ts'
 import { findRubric } from '../_shared/ai/section-schema.ts'
-import { CONFORMITY_SPECS, type ConformityDocType } from '../_shared/conformity-specs.ts'
+import { CONFORMITY_SPECS, type ConformityDocType, DOC_SHORT, flattenRubrics } from '../_shared/conformity-specs.ts'
 import {
   classerEchec,
   doitPrechauffer,
@@ -37,11 +37,20 @@ import {
   trancheMinMs,
   trierVagueRevue,
 } from '../_shared/job-tick-core.ts'
+import {
+  activityContextLine,
+  activityLabel,
+  analyseDepuisParts,
+  assembleDocument,
+  type LigneAssemblage,
+  produitDepuisRubrique1,
+} from '../_shared/deliverable-markdown.ts'
 import { logJson, newReqId } from '../_shared/log.ts'
-import { DOC_TYPES_VENDABLES } from '../_shared/orders-core.ts'
+import { deliveryTokenHash, DOC_TYPES_VENDABLES, newDeliveryToken } from '../_shared/orders-core.ts'
 import {
   generateReportPart,
   pruneUnverifiable,
+  renderReportMarkdown,
   REPORT_PARTS,
   type ReportPart,
 } from '../_shared/report-core.ts'
@@ -99,11 +108,17 @@ interface Job {
   /** Nul tant que la porte de recevabilité n'a pas lancé le travail. */
   started_at: string | null
   lang: OutputLang
+  /** Nom du fichier déposé — affichage seul (en-tête du livrable, rapport). */
+  source_name?: string | null
+  /** Pays de dépôt et activité, portés par la COMMANDE — ils commandent les prompts. */
+  country: string | null
+  activity: string | null
 }
 
 // ⚠️ `started_at` en fait partie, et ce n'est pas décoratif : c'est lui qui distingue un job
 // « en attente de sa porte » d'un job en travail. Son absence de cette liste a coûté un bloquant.
-const CHAMPS_JOB = 'id, order_id, doc_type, source_path, source_kind, control_text, phase, started_at'
+const CHAMPS_JOB =
+  'id, order_id, doc_type, source_path, source_kind, control_text, phase, started_at, source_name'
 
 /**
  * Prévient QUELQU'UN qu'une commande payée est morte.
@@ -300,16 +315,232 @@ async function avancerPhase(sb: SupabaseClient, job: Job, log: Record<string, un
       return
     }
     if (PHASE_SUIVANTE.report === null) {
-      await sb.from('upgrade_jobs')
-        .update({ phase: 'done', finished_at: new Date().toISOString() })
+      // ── U5 : les trois markdowns naissent ICI, avant que le job ne se déclare terminé ─────────
+      //
+      // ⚠️ L'ordre est la garantie. Assembler APRÈS avoir posé `done` laisserait une fenêtre où
+      // `order-status` sert un job « terminé » sans livrable — et si l'assemblage échoue, un job
+      // `done` sans markdowns serait un état que rien ne répare. Ici : assemblage d'abord, refus
+      // net s'il échoue (`marquerEchec`, avec alerte), et `done` seulement une fois les trois
+      // textes ÉCRITS. Le tick suivant retrouve un job encore en `report` et réessaie — l'écriture
+      // est idempotente.
+      const livrables = await assemblerLivrables(sb, job, log)
+      if ('erreur' in livrables) {
+        await marquerEchec(sb, job, `assemblage du livrable : ${livrables.erreur}`)
+        logJson({ ...log, status: 'assemblage_refuse', job: job.id.slice(0, 8) })
+        return
+      }
+      const { error: ecrErr } = await sb.from('upgrade_jobs')
+        .update({
+          deliverable_fr: livrables.fr,
+          deliverable_en: livrables.en,
+          deliverable_report: livrables.rapport,
+          phase: 'done',
+          finished_at: new Date().toISOString(),
+        })
         .eq('id', job.id)
-      await sb.from('orders')
+        .neq('phase', 'done')
+      if (ecrErr) {
+        // Panne d'écriture : le job reste en `report`, le tick suivant réassemble. Rien n'est
+        // perdu, rien n'est annoncé.
+        logJson({ ...log, status: 'livrable_non_ecrit', job: job.id.slice(0, 8) })
+        return
+      }
+      // ⚠️ `.select()` : seul le tick qui fait BASCULER la commande envoie l'e-mail n°2. Sans
+      // cela, deux ticks porteurs de la même liste enverraient deux e-mails au même acheteur.
+      const { data: bascule } = await sb.from('orders')
         .update({ status: 'done', delivered_at: new Date().toISOString() })
         .eq('id', job.order_id)
         .eq('status', 'running')
+        .select('id')
+      if (bascule?.length) await envoyerEmailLivraison(sb, job, log)
       logJson({ ...log, status: 'job_termine', job: job.id.slice(0, 8) })
     }
   }
+}
+
+/**
+ * Assemble les trois markdowns du livrable depuis les rubriques ABOUTIES.
+ *
+ * ⚠️ Tout refus est NOMMÉ et fait échouer le job — jamais un texte amputé. C'est le pendant serveur
+ * de `assembler()` d'`order-status` : même philosophie, mais ici on produit l'AUTORITÉ (les
+ * markdowns), pas un résumé.
+ */
+async function assemblerLivrables(
+  sb: SupabaseClient,
+  job: Job,
+  log: Record<string, unknown>,
+): Promise<{ fr: string; en: string; rapport: string } | { erreur: string }> {
+  const { data: lignes, error } = await sb
+    .from('upgrade_sections')
+    .select('section_id, phase, status, content')
+    .eq('job_id', job.id)
+    .eq('status', 'done')
+  if (error || !lignes) return { erreur: 'rubriques illisibles' }
+
+  const docType = (DOC_TYPES_VENDABLES.has(job.doc_type) ? job.doc_type : 'rcp') as ConformityDocType
+  const spec = CONFORMITY_SPECS[docType]
+
+  // ── La commande porte pays et activité ; le job de `avancerCeQuiPeut` ne les a pas chargés ────
+  const { data: cmdRow } = await sb
+    .from('orders')
+    .select('lang, country, activity')
+    .eq('id', job.order_id)
+    .maybeSingle()
+  const lang: OutputLang = cmdRow?.lang === 'en' ? 'en' : 'fr'
+  const country = typeof cmdRow?.country === 'string' ? cmdRow.country : ''
+  const activite = typeof cmdRow?.activity === 'string' ? cmdRow.activity : null
+
+  const conformite = new Map<string, LigneAssemblage>()
+  const traductions = new Map<string, string>()
+  const rapportParts = new Map<string, unknown>()
+  for (const l of lignes) {
+    const c = l.content as Record<string, unknown> | null
+    if (l.phase === 'conformity') {
+      conformite.set(l.section_id, {
+        sectionId: l.section_id,
+        title: typeof c?.title === 'string' ? c.title : l.section_id,
+        status: (c?.status === 'filled' || c?.status === 'partial' ? c.status : 'missing'),
+        content: typeof c?.content === 'string' ? c.content : MISSING_MARKER,
+      })
+    } else if (l.phase === 'translation') {
+      if (typeof c?.content === 'string') traductions.set(l.section_id, c.content)
+    } else if (l.phase === 'report') {
+      rapportParts.set(l.section_id, c)
+    }
+  }
+
+  // ⚠️ Les rubriques `missing` n'ont PAS de ligne de traduction (elles ne se traduisent pas) : ce
+  // n'est pas un trou, l'assembleur pose le marqueur EN. Mais une rubrique RENSEIGNÉE sans
+  // traduction fait refuser — l'assembleur s'en charge.
+  const produit = produitDepuisRubrique1(conformite.get('1')?.content)
+  const meta = {
+    // Une rubrique 1 illisible ne devient JAMAIS « votre produit » : le titre du livrable porte
+    // alors le type de document seul, ce qui est vrai.
+    product: produit || DOC_SHORT[docType]?.[lang] || 'RCP',
+    sourceName: job.source_name || 'document.pdf',
+    country,
+    activity: activityLabel(activite, lang),
+  }
+
+  const fr = assembleDocument('fr', spec, conformite, traductions, meta)
+  if (typeof fr !== 'string') return fr
+  const en = assembleDocument('en', spec, conformite, traductions, {
+    ...meta,
+    activity: activityLabel(activite, 'en'),
+  })
+  if (typeof en !== 'string') return en
+
+  // ── La revue : squelette déterministe + les quatre tableaux — PREMIER appelant en production ──
+  const analysis = analyseDepuisParts(rapportParts)
+  if ('erreur' in analysis) return analysis
+  // ⚠️ Dans l'ordre du GABARIT, jamais dans celui du plan d'exécution SQL : la liste des lacunes du
+  // rapport suit cet ordre, et « la plus sérieuse » est la première — un ordre de base de données
+  // ferait varier le rapport d'un run à l'autre sur le même document.
+  const sections = flattenRubrics(spec)
+    .map((r) => conformite.get(r.id))
+    .filter((l): l is LigneAssemblage => Boolean(l))
+    .map((l) => {
+      const brut = lignes.find((x) => x.phase === 'conformity' && x.section_id === l.sectionId)
+      const c = brut?.content as { ungrounded?: string[]; figuresAdvisory?: boolean } | null
+      return {
+        sectionId: l.sectionId,
+        title: l.title,
+        status: l.status,
+        ...(c?.figuresAdvisory && c.ungrounded?.length ? { figuresToVerify: c.ungrounded } : {}),
+      }
+    })
+  const rapport = renderReportMarkdown(analysis.analyse, {
+    spec,
+    productName: meta.product,
+    sourceName: meta.sourceName,
+    sourceText: job.control_text ?? '',
+    sourceKind: job.source_kind,
+    sections,
+    lang,
+    reportDate: new Date().toISOString().slice(0, 10),
+    system: reviewSystem(lang),
+  })
+  return { fr, en, rapport }
+}
+
+/**
+ * E-mail n°2 — « vos fichiers sont prêts », avec un lien NEUF.
+ *
+ * ⚠️ Le serveur ne détient QUE le hash des jetons : il ne peut pas reconstruire le lien de
+ * l'e-mail n°1. Il en frappe un nouveau (`source: 'completion'`), comme le pont le fait déjà. Et
+ * comme l'alerte d'échec, cet envoi n'échoue JAMAIS le tick : le job est terminé, le livrable est
+ * en base, et l'acheteur peut toujours revenir par son lien n°1 — l'e-mail est un confort, pas la
+ * livraison.
+ */
+async function envoyerEmailLivraison(
+  sb: SupabaseClient,
+  job: Job,
+  log: Record<string, unknown>,
+): Promise<void> {
+  try {
+    const apiKey = Deno.env.get('RESEND_API_KEY')
+    if (!apiKey) return
+    const { data: cmd } = await sb
+      .from('orders')
+      .select('email, first_name, lang, delivery_expires_at, essai')
+      .eq('id', job.order_id)
+      .maybeSingle()
+    if (!cmd?.email) return
+
+    const jeton = newDeliveryToken()
+    const { error: insErr } = await sb.from('order_tokens').insert({
+      token_hash: await deliveryTokenHash(jeton),
+      order_id: job.order_id,
+      // Comme le pont : l'échéance de la commande, jamais allongée.
+      expires_at: cmd.delivery_expires_at,
+      source: 'completion',
+    })
+    if (insErr) return
+
+    const lien = `https://app.pharnos.com/u/${jeton}`
+    const en = cmd.lang === 'en'
+    const bonjour = cmd.first_name
+      ? `${en ? 'Hello' : 'Bonjour'} ${escapeHtml(String(cmd.first_name))},`
+      : en
+      ? 'Hello,'
+      : 'Bonjour,'
+    const sujet = (cmd.essai ? (en ? '[TEST] ' : '[RECETTE] ') : '') +
+      (en ? 'Your files are ready — Pharnos' : 'Vos fichiers sont prêts — Pharnos')
+    const corps = en
+      ? [
+        `<p>${bonjour}</p>`,
+        '<p>The upgrade of your document is complete. Open the page below to download your five files — the compliant document in French and in English, each as Word and PDF, plus the regulatory review.</p>',
+        `<p><a href="${lien}" style="display:inline-block;background:#d29922;color:#20160a;font-weight:700;padding:12px 22px;border-radius:99px;text-decoration:none">Download my files →</a></p>`,
+        `<p style="color:#6b7280;font-size:12px">This link stays valid for 30 days. If the button does not work, copy this address into your browser:<br>${lien}</p>`,
+      ].join('')
+      : [
+        `<p>${bonjour}</p>`,
+        '<p>La mise à niveau de votre document est terminée. Ouvrez la page ci-dessous pour télécharger vos cinq fichiers — le document conforme en français et en anglais, chacun en Word et en PDF, plus la revue réglementaire.</p>',
+        `<p><a href="${lien}" style="display:inline-block;background:#d29922;color:#20160a;font-weight:700;padding:12px 22px;border-radius:99px;text-decoration:none">Télécharger mes fichiers →</a></p>`,
+        `<p style="color:#6b7280;font-size:12px">Ce lien reste valable 30 jours. Si le bouton ne fonctionne pas, copiez cette adresse dans votre navigateur :<br>${lien}</p>`,
+      ].join('')
+
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        from: Deno.env.get('EMAIL_FROM') ?? 'Pharnos <onboarding@resend.dev>',
+        to: [cmd.email],
+        subject: sujet,
+        html: corps,
+      }),
+      signal: AbortSignal.timeout(10_000),
+    })
+    logJson({ ...log, status: 'email_livraison', job: job.id.slice(0, 8) })
+  } catch (e) {
+    logJson({ ...log, status: 'email_livraison_impossible', err: String(e).slice(0, 200) })
+  }
+}
+
+/** Échappement minimal pour un prénom injecté dans un gabarit HTML — même règle que l'e-mail n°1. */
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) =>
+    c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '"' ? '&quot;' : '&#39;')
 }
 
 /**
@@ -335,7 +566,7 @@ async function avancerCeQuiPeut(sb: SupabaseClient, log: Record<string, unknown>
     .limit(20)
   if (error || !jobs) return
   for (const j of jobs as unknown as Job[]) {
-    await avancerPhase(sb, { ...j, lang: 'fr' }, log)
+    await avancerPhase(sb, { ...j, lang: 'fr', country: null, activity: null }, log)
   }
 }
 
@@ -416,16 +647,28 @@ async function servirVague(
 ): Promise<number> {
   const { data: jobRow, error: jobErr } = await sb
     .from('upgrade_jobs')
-    .select(`${CHAMPS_JOB}, orders!inner(lang)`)
+    .select(`${CHAMPS_JOB}, orders!inner(lang, country, activity)`)
     .eq('id', item.job_id)
     .maybeSingle()
   if (jobErr || !jobRow) return -1
   const brut = jobRow as unknown as Record<string, unknown>
   const rel = brut.orders as unknown
-  const cmd = (Array.isArray(rel) ? rel[0] : rel) as { lang?: string } | undefined
+  const cmd = (Array.isArray(rel) ? rel[0] : rel) as
+    | { lang?: string; country?: string | null; activity?: string | null }
+    | undefined
   // La langue vient de la COMMANDE : un acheteur anglophone ne doit pas recevoir un rapport
   // français. Elle était figée à 'fr' en dur.
-  const job: Job = { ...(brut as unknown as Job), lang: cmd?.lang === 'en' ? 'en' : 'fr' }
+  //
+  // ⚠️ Pays et activité aussi — et ils n'étaient JAMAIS lus. La mention de vigilance 4.8 (celle
+  // qui varie par pays) et les consignes des rubriques 8/9/10 (qui dépendent de l'activité)
+  // n'entraient donc dans AUCUN prompt de production. `null` reste `null` : le repli neutre est le
+  // cas courant de quatre pays sur huit, jamais une lacune à corriger.
+  const job: Job = {
+    ...(brut as unknown as Job),
+    lang: cmd?.lang === 'en' ? 'en' : 'fr',
+    country: cmd?.country ?? null,
+    activity: cmd?.activity ?? null,
+  }
 
   const { data: reclamees, error: claimErr } = await sb.rpc('claim_upgrade_sections', {
     p_job: job.id,
@@ -627,6 +870,10 @@ async function executer(
       source: ctx.source,
       system: conformitySystem({ docType: ctx.spec.docType, missingMarker: MISSING_MARKER }),
       outputLang: ctx.job.lang,
+      // ⚠️ Le pays FILTRE les mentions imposées (vigilance 4.8) ; l'activité voyage en contexte
+      // CERTIFIÉ (rubriques 8/9/10). Ni l'un ni l'autre n'atteignaient le moteur en production.
+      countryCode: ctx.job.country ?? undefined,
+      extraContext: activityContextLine(ctx.job.activity) || undefined,
       budgetMs: Math.min(SECTION_BUDGET_MS, restant),
     })
   }

@@ -83,49 +83,8 @@ export function resumer(
   }
 }
 
-export interface Livrable {
-  /** Rubriques de conformité, dans l'ordre du gabarit — le document français. */
-  conformity: { sectionId: string; content: unknown }[]
-  /** Traductions abouties — l'anglais. Une rubrique non traduite reste dans sa langue d'origine. */
-  translation: { sectionId: string; content: unknown }[]
-  /** Les quatre tableaux de la revue, par nom. */
-  report: Record<string, unknown>
-  sourceKind: string
-  lang: string
-}
-
-/**
- * Assemble le livrable à partir des rubriques ABOUTIES.
- *
- * ⚠️ **Ne rend RIEN si une rubrique manque.** Les cinq fichiers sont fabriqués dans le navigateur à
- * partir de ce JSON : livrer un JSON amputé produirait un document silencieusement incomplet, avec
- * un décompte de lacunes calculé sur ce qui reste — exactement le défaut corrigé en `d224665`, où
- * un rapport contredisait son propre document. Refuser laisse le job rejouable ; livrer faux, non.
- */
-export function assembler(
-  lignes: readonly LigneSection[],
-  attendu: { conformity: number; report: number },
-  meta: { sourceKind: string; lang: string },
-): Livrable | { erreur: string } {
-  const abouties = lignes.filter((l) => l.status === 'done')
-  const conformity = abouties.filter((l) => l.phase === 'conformity')
-  const translation = abouties.filter((l) => l.phase === 'translation')
-  const report = abouties.filter((l) => l.phase === 'report')
-
-  if (conformity.length < attendu.conformity) {
-    return {
-      erreur: `document incomplet : ${conformity.length} rubriques sur ${attendu.conformity}`,
-    }
-  }
-  if (report.length < attendu.report) {
-    return { erreur: `revue incomplète : ${report.length} tableaux sur ${attendu.report}` }
-  }
-
-  return {
-    conformity: conformity.map((l) => ({ sectionId: l.section_id, content: l.content })),
-    translation: translation.map((l) => ({ sectionId: l.section_id, content: l.content })),
-    report: Object.fromEntries(report.map((l) => [l.section_id, l.content])),
-    sourceKind: meta.sourceKind,
-    lang: meta.lang,
-  }
-}
+// ⚠️ `assembler()` a vécu ici jusqu'à U5 : le JSON de rubriques qu'il rendait ne suffisait pas
+// (les STATUTS n'y étaient pas, et le squelette de la revue aurait été recalculé côté navigateur —
+// le défaut de `d224665`). Les markdowns naissent désormais au SERVEUR (`job-tick`,
+// `assemblerLivrables`), et cette surface ne fait plus que les SERVIR. Un module sans appelant
+// n'est pas un module fini — il est parti, pas archivé.
