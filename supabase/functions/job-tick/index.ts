@@ -255,6 +255,9 @@ async function avancerPhase(sb: SupabaseClient, job: Job, log: Record<string, un
     await sb.from('upgrade_jobs')
       .update({ phase: 'translation', sections_total: aTraduire.length })
       .eq('id', job.id)
+      // Un tick porteur d'une liste lue plusieurs secondes plus tôt ne fait pas RÉGRESSER un job
+      // que son voisin vient d'avancer : la bascule n'écrit que depuis la phase qu'elle croit.
+      .eq('phase', 'conformity')
     logJson({ ...log, status: 'phase', job: job.id.slice(0, 8), vers: 'translation', n: aTraduire.length })
     return
   }
@@ -271,6 +274,7 @@ async function avancerPhase(sb: SupabaseClient, job: Job, log: Record<string, un
     await sb.from('upgrade_jobs')
       .update({ phase: 'report', sections_total: REPORT_PARTS.length })
       .eq('id', job.id)
+      .eq('phase', 'translation')
     logJson({ ...log, status: 'phase', job: job.id.slice(0, 8), vers: 'report' })
     return
   }
@@ -286,7 +290,12 @@ async function avancerPhase(sb: SupabaseClient, job: Job, log: Record<string, un
     if (reco.length === 0) {
       // `jugerPhase` a déjà garanti qu'aucun des trois n'a échoué : les constats existent.
       const { error: insErr } = await sb.from('upgrade_sections')
-        .insert({ job_id: job.id, section_id: 'recommendations', phase: 'report' })
+        // Deux ticks concurrents passaient tous deux le compte à zéro : le second `insert` levait
+        // un 23505 avalé sans log. Même intention, dite sans erreur.
+        .upsert(
+          { job_id: job.id, section_id: 'recommendations', phase: 'report' },
+          { onConflict: 'job_id,phase,section_id', ignoreDuplicates: true },
+        )
       if (!insErr) logJson({ ...log, status: 'phase', job: job.id.slice(0, 8), vers: 'recommendations' })
       return
     }
@@ -570,6 +579,8 @@ async function servirVague(
  * +180 s, et la rubrique est régénérée — donc REPAYÉE — alors que son résultat existait. C'est le
  * contrat n°2 (« la granularité de la sauvegarde est celle de la dépense ») qui tombait en silence.
  */
+const respirer = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
 async function ecrire(
   sb: SupabaseClient,
   id: string,
@@ -581,7 +592,11 @@ async function ecrire(
     if (!error) return
     if (essai === 2) {
       logJson({ ...log, status: 'ecriture_perdue', section: id.slice(0, 8), champ: String(champs.status) })
+      return
     }
+    // Deux tentatives immédiates sur la même panne n'en font qu'une — et la conséquence d'un
+    // échec ici est une rubrique REPAYÉE. 250 ms laissent passer un basculement de connexion.
+    await respirer(250)
   }
 }
 
