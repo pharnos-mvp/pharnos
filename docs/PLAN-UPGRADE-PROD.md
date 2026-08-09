@@ -17,7 +17,8 @@
 > | **Fait** | **U0 → U4** (§3) — banc mesuré, paiement, pont, page publique, moteur en série |
 > | **Mesuré** | **60 appels · 319 s · 1,96 $** par upgrade — recoupé console (§3, U0) |
 > | ✅ **Tranché** | **la revue est DÉCOUPÉE en 4 appels**, un par tableau (§3, U0) — CEO, 2026-08-04 |
-> | **Suivant** | **U5 — la livraison** : fabriquer les cinq fichiers dans le navigateur depuis le JSON d'`order-status` |
+> | ✅ **U5 LIVRÉ (2026-08-09)** | le serveur ASSEMBLE (markdowns à la complétion, e-mail n°2), le navigateur MET EN PAGE (5 fichiers + ZIP, reproductibles à l'octet). Et le trou fermé en chemin : **pays/activité n'atteignaient jamais le serveur** — la mention 4.8 n'entrait dans aucun prompt |
+> | **Suivant** | **le bundle up3** (session multi-dépôts, budget de dépôts PAR document), puis **U6** — recette réelle à 570 F et réouverture de la vente |
 > | ✅ **Revue de branche purgée (2026-08-09)** | 8 bloquants + 16 majeurs corrigés, déployés (migration `0087`, 4 Edge). Détail : §« Revue de branche » |
 > | ✅ Edge déployées | `order-source`, `order-status`, `order-gate`, `order-upload-url`, `chariow-pulse`, `job-tick` — à jour du 2026-08-09, migrations `0083`→`0087` appliquées |
 > | ⚠️ À mesurer | le découpage n'a tourné que **sur banc à générateur injecté** : les durées réelles par tableau restent à relever sur un vrai document (§3) |
@@ -564,7 +565,26 @@ trois autres sont indépendants, `terminology` en tête pour préchauffer le cac
 **Fait quand** : une commande passe de `paid` à `done` sans intervention, les 59 appels sont tracés,
 et tuer un tick au milieu ne perd aucune rubrique (le filet reprend).
 
-### U5 — La livraison — 1 jour
+### U5 — La livraison — ✅ **LIVRÉ le 2026-08-09** (`ad06274`, `9e64e5a`)
+
+Migration `0088` appliquée, Edge à jour. Ce qui a été construit suit la décision ci-dessous
+(le serveur assemble, le navigateur met en page) ; s'y ajoutent, découverts en chemin :
+
+- **le trou pays/activité** — les colonnes de `0083` n'étaient JAMAIS écrites, et `job-tick` ne
+  passait aucun `countryCode` au moteur : la mention de vigilance 4.8 n'entrait dans AUCUN prompt
+  de production. Le dépôt est leur transport ; la page ne les redemande que si la commande n'en
+  porte pas ;
+- **l'e-mail n°2 existe** (bascule `running→done` sous `.select()` : un seul tick l'envoie, jeton
+  neuf `source:'completion'`, échéance jamais allongée) — et la promesse d'écran s'est refaite
+  entière, avec le test inversé qui EXIGE de se réinverser si l'envoi disparaît ;
+- **le rapport ne dit plus « votre produit »** : le nom se dérive de la rubrique 1 ;
+- **la parité banc/navigateur est structurelle** : le harnais importe le MÊME assembleur et la
+  MÊME table de titres que `job-tick`, et `run.json` porte `created`.
+
+⏳ **Recette restante** : un achat réel à 570 F de bout en bout (c'est U6) — la chaîne complète n'a
+tourné qu'en pièces vérifiées séparément.
+
+#### Le plan initial (pour mémoire)
 
 Rendu des cinq fichiers **dans le navigateur** depuis le JSON, avec le module pur de U0 et les
 bibliothèques déjà présentes. `jszip` pour le « tout télécharger ». **E-mail n°2**. Lien valable
