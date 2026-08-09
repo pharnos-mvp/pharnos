@@ -18,7 +18,8 @@
 > | **Mesuré** | **60 appels · 319 s · 1,96 $** par upgrade — recoupé console (§3, U0) |
 > | ✅ **Tranché** | **la revue est DÉCOUPÉE en 4 appels**, un par tableau (§3, U0) — CEO, 2026-08-04 |
 > | **Suivant** | **U5 — la livraison** : fabriquer les cinq fichiers dans le navigateur depuis le JSON d'`order-status` |
-> | ⚠️ À faire avant toute recette | **déployer `order-source` (nouvelle) et redéployer `order-status`** — le déploiement Edge est hors CI |
+> | ✅ **Revue de branche purgée (2026-08-09)** | 8 bloquants + 16 majeurs corrigés, déployés (migration `0087`, 4 Edge). Détail : §« Revue de branche » |
+> | ✅ Edge déployées | `order-source`, `order-status`, `order-gate`, `order-upload-url`, `chariow-pulse`, `job-tick` — à jour du 2026-08-09, migrations `0083`→`0087` appliquées |
 > | ⚠️ À mesurer | le découpage n'a tourné que **sur banc à générateur injecté** : les durées réelles par tableau restent à relever sur un vrai document (§3) |
 > **Plans liés** : [PLAN-MOTEUR-IA.md](PLAN-MOTEUR-IA.md) (le moteur) ·
 > [PLAN-UPGRADE-FRONTEND.md](PLAN-UPGRADE-FRONTEND.md) (les écrans, **partiellement périmé** — voir §1.3) ·
