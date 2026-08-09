@@ -37,6 +37,8 @@ const LIEN_LIVRAISON = 'https://app.pharnos.com/u'
 // Chariow avec des identifiants inventés.
 const RL_WINDOW_S = 300
 const RL_MAX_HITS = 120
+/** Par IP : Chariow rejoue au plus 5 fois par vente — 30 par fenêtre laisse dix ventes d'avance. */
+const RL_IP_MAX_HITS = 30
 
 const json = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
@@ -53,8 +55,17 @@ Deno.serve(async (req) => {
   const log = { fn: 'chariow-pulse', reqId: newReqId() }
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405)
 
+  // ⚠️ Refuser AVANT de lire, comme les quatre autres surfaces d'après-paiement : `await req.text()`
+  // puis mesurer, c'est avoir déjà tout mis en mémoire — et celle-ci est la surface la plus exposée
+  // du lot, appelable par quiconque connaît l'URL. Filet : `content-length` peut manquer (transfert
+  // par morceaux), et `.length` compte des unités UTF-16 donc MINORE les octets — marge de 2.
+  const annonce = Number(req.headers.get('content-length') ?? '0')
+  if (Number.isFinite(annonce) && annonce > MAX_BODY_BYTES) {
+    logJson({ ...log, status: 'body_too_large' })
+    return json({ error: 'payload_too_large' }, 413)
+  }
   const brut = await req.text()
-  if (brut.length > MAX_BODY_BYTES) {
+  if (brut.length * 2 > MAX_BODY_BYTES) {
     logJson({ ...log, status: 'body_too_large' })
     return json({ error: 'payload_too_large' }, 413)
   }
@@ -84,6 +95,39 @@ Deno.serve(async (req) => {
     // Panne de CONFIGURATION, pas de décision : on veut le rejeu de Chariow une fois le secret posé.
     logJson({ ...log, status: 'no_api_key' })
     return json({ error: 'not_configured' }, 503)
+  }
+
+  // ── La limitation de débit, AVANT l'appel qu'elle protège ─────────────────────────────────────
+  // ⚠️ Elle était posée APRÈS la re-vérification — c'est-à-dire après coup. Son propre commentaire
+  // disait ce que le code ne faisait pas : sans elle ICI, quiconque connaît l'URL fait émettre par
+  // notre serveur autant de `GET /v1/sales/<inventé>` PORTEURS DE NOTRE CLÉ API qu'il ouvre de
+  // requêtes (15 s de timeout chacune). Chariow limite alors notre clé, la re-vérification des
+  // VRAIES ventes tombe en 503, et les commandes n'existent qu'au rythme des rejeux — jusqu'à 24 h.
+  // Un seau par IP en plus du global, comme les quatre autres surfaces ; fail-closed.
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    { auth: { persistSession: false } },
+  )
+  const ip = req.headers.get('cf-connecting-ip')?.trim() ||
+    (req.headers.get('x-forwarded-for') ?? '').split(',').map((x) => x.trim()).filter(Boolean)
+      .pop() ||
+    'unknown'
+  for (
+    const [bucket, max] of [
+      [`pulse:ip:${ip}`, RL_IP_MAX_HITS],
+      ['pulse:all', RL_MAX_HITS],
+    ] as const
+  ) {
+    const { data: hits, error: rlErr } = await supabase.rpc('share_hit', {
+      p_bucket: bucket,
+      p_window_seconds: RL_WINDOW_S,
+    })
+    if (rlErr || typeof hits !== 'number' || hits > max) {
+      logJson({ ...log, status: 'rate_limited', scope: bucket === 'pulse:all' ? 'all' : 'ip' })
+      // 503 et non 200 : un rejeu APRÈS la fenêtre est exactement ce qu'on veut.
+      return json({ error: 'rate_limited' }, 503)
+    }
   }
 
   // ── La re-vérification : c'est ELLE qui authentifie la vente ──────────────────────────────────
@@ -119,22 +163,6 @@ Deno.serve(async (req) => {
     // contact absent : trois décisions, aucune ne se rejoue.
     logJson({ ...log, status: 'vente_ecartee', raison: v.erreur })
     return acquitte(v.erreur)
-  }
-
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    { auth: { persistSession: false } },
-  )
-
-  const { data: hits, error: rlErr } = await supabase.rpc('share_hit', {
-    p_bucket: 'pulse:all',
-    p_window_seconds: RL_WINDOW_S,
-  })
-  if (rlErr || typeof hits !== 'number' || hits > RL_MAX_HITS) {
-    logJson({ ...log, status: 'rate_limited' })
-    // 503 et non 200 : un rejeu APRÈS la fenêtre est exactement ce qu'on veut.
-    return json({ error: 'rate_limited' }, 503)
   }
 
   // ── Naissance de la commande, idempotente par la contrainte `unique` ──────────────────────────
@@ -256,14 +284,14 @@ async function envoyerEmail(
       `<p>${bonjour}</p>`,
       '<p>Your payment has been received and your order is registered. Everything happens on the secure page below — <strong>you can close this email and come back later</strong>: the link stays valid for 30 days.</p>',
       `<p><a href="${lien}" style="display:inline-block;background:#d29922;color:#20160a;font-weight:700;padding:12px 22px;border-radius:99px;text-decoration:none">Open my upgrade →</a></p>`,
-      '<p>On that page you will upload your document, we check it is the right kind, and the analysis starts. <strong>You may close the tab while it runs</strong> — we email you again as soon as your files are ready.</p>',
+      '<p>On that page you will upload your document, we check it is the right kind, and the analysis starts. <strong>You may close the tab while it runs</strong> — come back to this link whenever you like, it stays valid for 30 days.</p>',
       `<p style="color:#6b7280;font-size:12px">If the button does not work, copy this address into your browser:<br>${lien}</p>`,
     ].join('')
     : [
       `<p>${bonjour}</p>`,
       '<p>Votre règlement nous est bien parvenu et votre commande est enregistrée. Tout se passe sur la page sécurisée ci-dessous — <strong>vous pouvez fermer cet e-mail et y revenir plus tard</strong> : le lien reste valable 30 jours.</p>',
       `<p><a href="${lien}" style="display:inline-block;background:#d29922;color:#20160a;font-weight:700;padding:12px 22px;border-radius:99px;text-decoration:none">Ouvrir ma mise à niveau →</a></p>`,
-      '<p>Vous y déposerez votre document, nous vérifions qu’il s’agit bien du bon type, puis l’analyse démarre. <strong>Vous pouvez fermer l’onglet pendant le traitement</strong> — nous vous réécrivons dès que vos fichiers sont prêts.</p>',
+      '<p>Vous y déposerez votre document, nous vérifions qu’il s’agit bien du bon type, puis l’analyse démarre. <strong>Vous pouvez fermer l’onglet pendant le traitement</strong> — revenez sur ce lien quand vous voulez, il reste valable 30 jours.</p>',
       `<p style="color:#6b7280;font-size:12px">Si le bouton ne fonctionne pas, recopiez cette adresse dans votre navigateur :<br>${lien}</p>`,
     ].join('')
 
