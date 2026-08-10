@@ -46,7 +46,7 @@ const RL_IP_MAX = 30
 const RL_GLOBAL_MAX = 600
 
 const ALLOWED_ORIGIN =
-  /^https:\/\/app\.pharnos\.com$|^https:\/\/([a-z0-9-]+\.)?pharnos-app\.pages\.dev$|^http:\/\/localhost:\d+$/
+  /^https:\/\/app\.pharnos\.com$|^https:\/\/([a-z0-9-]+\.)?pharnos\.pages\.dev$|^http:\/\/localhost:\d+$/
 
 const BASE_HEADERS = {
   'Access-Control-Allow-Headers': 'content-type',

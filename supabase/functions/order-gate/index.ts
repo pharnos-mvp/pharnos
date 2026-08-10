@@ -49,7 +49,7 @@ const DOC_LABELS: Record<string, { fr: string; en: string }> = {
 }
 
 const ALLOWED_ORIGIN =
-  /^https:\/\/app\.pharnos\.com$|^https:\/\/([a-z0-9-]+\.)?pharnos-app\.pages\.dev$|^http:\/\/localhost:\d+$/
+  /^https:\/\/app\.pharnos\.com$|^https:\/\/([a-z0-9-]+\.)?pharnos\.pages\.dev$|^http:\/\/localhost:\d+$/
 
 const BASE_HEADERS = {
   'Access-Control-Allow-Headers': 'content-type',

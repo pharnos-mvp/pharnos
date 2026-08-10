@@ -34,7 +34,7 @@ const RL_IP_MAX = 60
 const RL_GLOBAL_MAX = 1200
 
 const ALLOWED_ORIGIN =
-  /^https:\/\/(www\.)?pharnos\.com$|^https:\/\/app\.pharnos\.com$|^https:\/\/([a-z0-9-]+\.)?pharnos-landing\.pages\.dev$|^https:\/\/([a-z0-9-]+\.)?pharnos-app\.pages\.dev$|^http:\/\/localhost:\d+$/
+  /^https:\/\/(www\.)?pharnos\.com$|^https:\/\/app\.pharnos\.com$|^https:\/\/([a-z0-9-]+\.)?pharnos-landing\.pages\.dev$|^https:\/\/([a-z0-9-]+\.)?pharnos\.pages\.dev$|^http:\/\/localhost:\d+$/
 
 const BASE_HEADERS = {
   'Access-Control-Allow-Headers': 'content-type',

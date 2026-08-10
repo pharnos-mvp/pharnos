@@ -738,8 +738,8 @@ function EcranDepot({
 
       <p className="text-muted-foreground text-xs">
         {t({
-          fr: `PDF, 25 Mo au plus. Les documents scannés sont acceptés — nous les lisons page par page. ${restants} dépôt${restants > 1 ? 's' : ''} restant${restants > 1 ? 's' : ''} sur cette commande.`,
-          en: `PDF, 25 MB max. Scanned documents are accepted — we read them page by page. ${restants} upload${restants > 1 ? 's' : ''} left on this order.`,
+          fr: `PDF, 12 Mo au plus. Les documents scannés sont acceptés — nous les lisons page par page. ${restants} dépôt${restants > 1 ? 's' : ''} restant${restants > 1 ? 's' : ''} sur cette commande.`,
+          en: `PDF, 12 MB max. Scanned documents are accepted — we read them page by page. ${restants} upload${restants > 1 ? 's' : ''} left on this order.`,
         })}
       </p>
     </div>
@@ -1153,8 +1153,8 @@ const MESSAGES: Record<CleMessage, { fr: string; en: string }> = {
     en: 'Pick the country of filing and the activity first: they drive the vigilance mention and sections 8 to 10 of your document.',
   },
   trop_gros: {
-    fr: 'Ce fichier dépasse 25 Mo. Un export PDF sans les images de fond passe presque toujours.',
-    en: 'This file is over 25 MB. A PDF export without background images almost always fits.',
+    fr: 'Ce fichier dépasse 12 Mo. Un export PDF sans les images de fond passe presque toujours.',
+    en: 'This file is over 12 MB. A PDF export without background images almost always fits.',
   },
   fichier_inaccessible: {
     fr: 'Ce fichier n’a pas pu être ouvert depuis cet appareil. Réessayez, ou choisissez-le à nouveau.',
