@@ -26,6 +26,18 @@ import { EDGE_WALL_CLOCK_MS } from '../_shared/ai/limits.ts'
 import { conformitySystem, reviewSystem, translationSystem } from '../_shared/ai/personas.ts'
 import { boundedMap } from '../_shared/ai/pool.ts'
 import { generateParts, type Part } from '../_shared/ai/provider.ts'
+
+/**
+ * Le générateur remis au moteur, fournisseur ÉPINGLÉ — une seule définition pour toutes les passes.
+ *
+ * ⚠️ Le moteur par rubrique vit en sortie structurée (`jsonSchema`) de bout en bout, et seul
+ * Anthropic la supporte (`vertex.ts` n'a pas de `responseSchema` — PLAN-MOTEUR-IA §3.2). Sans
+ * épinglage, le fournisseur retombe sur l'env `AI_PROVIDER` : une commande PAYÉE dépend alors d'un
+ * réglage global posé pour d'autres surfaces. C'est arrivé (recette du 2026-08-10) — `vertex` en
+ * env, 34 rubriques en échec après paiement, pendant que le banc passait parce qu'il épingle.
+ */
+const generateAnthropic: typeof generateParts = (parts, opts = {}) =>
+  generateParts(parts, { ...opts, provider: 'anthropic' })
 import { findRubric } from '../_shared/ai/section-schema.ts'
 import { CONFORMITY_SPECS, type ConformityDocType, DOC_SHORT, flattenRubrics } from '../_shared/conformity-specs.ts'
 import {
@@ -927,7 +939,7 @@ async function executer(
   if (phase === 'conformity') {
     const rubric = findRubric(ctx.spec, sectionId)
     if (!rubric) throw new Error(`rubrique « ${sectionId} » hors gabarit`)
-    return await generateSection(generateParts, {
+    return await generateSection(generateAnthropic, {
       spec: ctx.spec,
       rubric,
       sourceParts: ctx.sourceParts,
@@ -953,7 +965,7 @@ async function executer(
     if (error) throw new Error(`amont illisible pour « ${sectionId} »`)
     const amont = data?.content as { title?: string; status?: string; content?: string } | null
     if (!amont?.content) throw new Error(`traduction sans amont pour « ${sectionId} »`)
-    return await translateSection(generateParts, {
+    return await translateSection(generateAnthropic, {
       sectionId,
       title: amont.title ?? sectionId,
       status: (amont.status ?? 'filled') as 'filled' | 'partial' | 'missing',
@@ -1012,7 +1024,7 @@ async function executer(
   }
 
   const outcome = await generateReportPart(
-    generateParts,
+    generateAnthropic,
     {
       spec: ctx.spec,
       productName: 'votre produit',
