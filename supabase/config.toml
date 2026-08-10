@@ -425,6 +425,14 @@ verify_jwt = false
 [functions.checkout]
 verify_jwt = false
 
+# Webhook des ventes Chariow (Pulse `successful.sale`) : appelé par leurs serveurs, pas par un
+# utilisateur — pas de JWT. Un Pulse n'est pas signé ; la barrière est DANS la fonction :
+# jeton d'URL secret comparé en temps constant (CHARIOW_PULSE_TOKEN), re-vérification de la
+# vente via GET /v1/sales/{id} avec la clé serveur, rate-limit share_hit, idempotence par
+# contrainte unique (orders.chariow_sale_id, migration 0083).
+[functions.chariow-pulse]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

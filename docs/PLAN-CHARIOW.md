@@ -15,20 +15,40 @@
 | **Boutique** | `store_pezqgl0f7v0p` (compte Chariow « pharnos ») · clé API en secret Supabase `CHARIOW_API_KEY` |
 | **Produits** | les 2 offres Upgrade **publiées** au prix public · 2 offres de **recette** publiées (§4.4) |
 | **Sous-domaine** | `services.pharnos.com` **branché**, certificat actif |
-| **Code** | Edge `checkout` **en production** (parcours d'achat complet dans le panneau de `/modele`) · lots L1→L6 toujours ouverts |
+| **Code** | Edge `checkout` **en production** (parcours d'achat complet dans le panneau de `/modele`) · **L1+L3 écrits** (2026-08-10) : table `orders` + facturation (migration `0083`) et Edge `chariow-pulse` — à déployer et brancher (voir « Prochaine action ») · L5→L6 ouverts |
 | **Décision de plateforme** | Supabase reste `free` jusqu'au 1ᵉʳ abonné payant (§2) |
 
 **Ce qui marche aujourd'hui de bout en bout** : configuration de l'upgrade → dépôt du ou des
 documents → identité → page du processeur DANS le panneau → retour et confirmation. La session de
 paiement s'ouvre, l'acheteur est bien géolocalisé, la devise est correcte.
 
-**Ce qui n'existe pas encore** : rien n'est écrit côté serveur quand un paiement aboutit. Pas de
-table `orders`, pas de webhook, pas de chemin de dépôt du document vers nos serveurs, **aucun lien
-entre l'encaissement et le moteur Regafy AI**. Le document reste dans l'IndexedDB de l'acheteur et
-le transport est le bouton d'e-mail. C'est exactement l'objet de L1→L3.
+**Ce qui existe depuis le 2026-08-10 (L1+L3, écrits — pas encore déployés)** : la table `orders`
+avec sa numérotation de facture sans trou (migration **`0083`** — le `0082` réservé par ce plan a
+été pris entre-temps par la fenêtre de grâce de compilation) et l'Edge **`chariow-pulse`** :
+réception du Pulse, jeton d'URL secret, **re-vérification `GET /v1/sales/{id}`** avec la clé
+serveur, écriture idempotente (`chariow_sale_id` unique), bundle enregistré à **3 crédits**.
+La logique vit dans `_shared/chariow-pulse-core.ts` (testée sans réseau) ; une commande de
+recette est enregistrée mais **ne consomme pas** de numéro de facture. Deux écarts assumés sur
+le schéma esquissé en §6 : `amount`+`currency` au lieu d'`amount_xof` (hors zone franc le
+règlement est en EUR), pas de `lead_id` tant qu'aucun parcours ne le renseigne. La façade
+`_shared/payments.ts` (§12) attend le **second rail** : les deux noyaux sont déjà purs, la
+couture existe.
 
-**Prochaine action : L1** — migration `0082`, `_shared/payments.ts`, `_shared/chariow-core.ts`.
-Elle ne dépend ni des prix ni de la boutique.
+**Ce qui n'existe toujours pas** : le chemin de dépôt du document vers nos serveurs et **le lien
+entre l'encaissement et le moteur Regafy AI** (L5). Le document reste dans l'IndexedDB de
+l'acheteur et le transport est le bouton d'e-mail.
+
+**Prochaine action : brancher L1+L3** — dans l'ordre :
+1. `supabase db push` (migration `0083`) puis déploiement de `chariow-pulse` ;
+2. poser le secret **`CHARIOW_PULSE_TOKEN`** (≥ 16 caractères aléatoires) dans les secrets Supabase ;
+3. console Chariow : créer le Pulse `successful.sale` →
+   `https://<ref>.supabase.co/functions/v1/chariow-pulse?jeton=<CHARIOW_PULSE_TOKEN>` ;
+4. recette : un achat au jeton d'essai (570/575 F) doit produire une ligne `orders`
+   (`essai: true`, sans facture) ; le premier achat réel, une ligne avec `PH-2026-000001`.
+   ⚠️ La forme exacte de la réponse `GET /v1/sales/{id}` n'est documentée nulle part : le
+   parseur est **fermé par défaut** (statut hors nomenclature ⇒ aucun octroi, tracé dans les
+   logs avec son détail). Si la recette montre un statut inattendu, il s'ajoute dans
+   `STATUTS_ABOUTIS` (`chariow-pulse-core.ts`) les yeux ouverts — jamais l'inverse.
 
 **Point bloquant côté CEO**, indépendant du code : le **régime TVA** — sans lui le gabarit de
 facture ne peut pas être figé (§10). Et **aucune transaction n'a encore atteint « Terminé »** chez
@@ -240,7 +260,13 @@ n'est qu'un adaptateur HTTP.
 
 ---
 
-## 6. Modèle de données — migration `0082`
+## 6. Modèle de données — migration `0083`
+
+> **Livré (2026-08-10).** Le schéma ci-dessous est l'esquisse d'origine ; la source de vérité
+> est [`0083_orders.sql`](../supabase/migrations/0083_orders.sql), qui documente ses trois
+> écarts (`amount`+`currency`, pas de `lead_id`, `offer` borné sans enum SQL) et ajoute le
+> compteur `invoice_counters` — un compteur sous verrou de ligne, pas une SEQUENCE, parce
+> qu'une séquence survit au rollback et laisse des trous.
 
 La table s'appelle **`orders`** : un seul mécanisme de crédits porte l'audit, les upgrades et les
 packs CTD Builder. Un seul point de décrémentation, une seule chaîne de livraison.
@@ -344,9 +370,9 @@ voir au smoke test, pas au premier client tombé sur un checkout mort.
 | Lot | Responsable | Contenu | Dépend de |
 |---|---|---|---|
 | **L0** | CEO | Coller les 10 descriptions · publier · supprimer le produit de test · brancher `services.pharnos.com` · passer la vitrine en FR · demander au support : facture, CGU/Licence, signature des Pulses | — |
-| **L1** | Dev | Migration `0082` · `_shared/payments.ts` (`createCheckout`/`verifySale`) · `_shared/chariow-core.ts` + test | — |
-| **L2** | Dev | Edge `chariow-checkout` | L1 |
-| **L3** | Dev | Edge `chariow-pulse` + numérotation de facture | L1 |
+| **L1** | Dev | ✅ **2026-08-10** — migration `0083` (`orders` + `invoice_counters`) · `_shared/chariow-pulse-core.ts` + tests. La façade `payments.ts` attend le second rail (§12) | — |
+| **L2** | Dev | ✅ livré sous le nom `checkout` (+ `_shared/checkout-core.ts`) | L1 |
+| **L3** | Dev | ✅ **2026-08-10** — Edge `chariow-pulse` + numérotation de facture (à déployer/brancher, §0) | L1 |
 | **L4** | Dev | Câblage des boutons de [`checking-standard.html`](../landing/checking-standard.html) · `data-price` renseignés · retrait de « paiement en ligne en cours de déploiement » · page de retour | L2, L0 |
 | **L5** | Dev | Route `/commande/:token` + Edge `order-run` + exports DOCX/PDF | L3 |
 | **L6** | Dev | Upsell Upgrade dans le rapport d'audit (§4.3) | L5 |
