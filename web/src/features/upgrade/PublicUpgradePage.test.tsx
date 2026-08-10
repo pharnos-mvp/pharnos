@@ -1,0 +1,525 @@
+/**
+ * L'écran d'après-paiement, testé là où il coûte de l'argent.
+ *
+ * Ce fichier ne teste pas du rendu : il teste des SITUATIONS dans lesquelles un acheteur qui a payé
+ * 19 000 F se retrouve, et où la mauvaise réaction de l'écran lui coûte soit un dépôt sur trois,
+ * soit sa commande. `vueDepuis` couvre les transitions pures ; ici, c'est l'orchestration — l'ordre
+ * des appels, ce qui est consommé, et ce que l'acheteur lit.
+ */
+import { render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { I18nProvider } from '@/lib/I18nProvider'
+
+const api = vi.hoisted(() => ({
+  lireStatut: vi.fn(),
+  demanderSource: vi.fn(),
+  telechargerSource: vi.fn(),
+  demanderUrlDepot: vi.fn(),
+  televerserAvecReprises: vi.fn(),
+  franchirPorte: vi.fn(),
+}))
+const ocr = vi.hoisted(() => ({ prepareUpgradeSource: vi.fn() }))
+
+vi.mock('./upgrade-api', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('./upgrade-api')>()
+  return { ...mod, ...api }
+})
+vi.mock('@/lib/ocr/prepare-source', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@/lib/ocr/prepare-source')>()
+  return { ...mod, ...ocr }
+})
+
+const { PublicUpgradePage } = await import('./PublicUpgradePage')
+const { UpgradeApiError } = await import('./upgrade-api')
+
+const JETON = 'a'.repeat(43)
+
+const statut = (o: Record<string, unknown> = {}) => ({
+  statut: 'paid',
+  phase: 'conformity',
+  faites: 0,
+  total: 0,
+  echecs: 0,
+  pret: false,
+  depositsLeft: 3,
+  expireLe: '2026-09-03T10:00:00.000Z',
+  docType: 'rcp',
+  // Le cas NOMINAL : le pont a transporté pays et activité. Les tests qui vérifient la garde
+  // « pays/activité requis » les retirent explicitement.
+  country: 'BJ',
+  activity: 'amm',
+  ...o,
+})
+
+const rendre = () =>
+  render(
+    <I18nProvider>
+      <PublicUpgradePage token={JETON} />
+    </I18nProvider>,
+  )
+
+beforeEach(() => {
+  for (const f of Object.values(api)) f.mockReset()
+  ocr.prepareUpgradeSource.mockReset()
+  // Par défaut : aucun document déposé — l'acheteur a fermé l'onglet avant le téléversement.
+  api.demanderSource.mockRejectedValue(new UpgradeApiError('refus', 'order-source : 409 no_source'))
+})
+afterEach(() => vi.clearAllMocks())
+
+/* ─────────────────────────── Ce qui distingue une panne d'un lien mort ─────────────────────── */
+
+describe('accès à la commande', () => {
+  it('un lien inconnu annonce l’expiration', async () => {
+    api.lireStatut.mockRejectedValue(new UpgradeApiError('lien_invalide', 'order-status : 404'))
+    rendre()
+    expect(await screen.findByText(/n’est plus valable/)).toBeInTheDocument()
+  })
+
+  it('⚠️ une COUPURE réseau n’annonce PAS l’expiration', async () => {
+    // Le défaut que ce test ferme : `rafraichir` rendait `null` sur toute erreur, et `vueDepuis(null)`
+    // vaut « expiré ». Une coupure 3G, un 503, ou un 429 — `order-status` compte par IP et les
+    // opérateurs de la région partagent les leurs — annonçaient donc à quelqu'un qui venait de
+    // payer que sa commande n'existait plus.
+    api.lireStatut.mockRejectedValue(new UpgradeApiError('indisponible', 'injoignable'))
+    rendre()
+    expect(await screen.findByText(/Connexion perdue/)).toBeInTheDocument()
+    expect(screen.queryByText(/n’est plus valable/)).not.toBeInTheDocument()
+    // Et il existe une sortie : sans bouton, la page n'offrait AUCUN moyen de reprendre.
+    expect(screen.getByRole('button', { name: /Réessayer/ })).toBeInTheDocument()
+  })
+})
+
+/* ──────────────────────────── Ce qui consomme un dépôt, et dans quel ordre ─────────────────── */
+
+describe('dépôt d’un document', () => {
+  const choisir = async (fichier: File) => {
+    const champ = document.querySelector('input[type="file"]') as HTMLInputElement
+    Object.defineProperty(champ, 'files', { value: [fichier], configurable: true })
+    champ.dispatchEvent(new Event('change', { bubbles: true }))
+    return champ
+  }
+
+  const pdf = (nom = 'rcp.pdf') => {
+    const f = new File([new Uint8Array([1, 2, 3])], nom, { type: 'application/pdf' })
+    // jsdom ne fournit pas `arrayBuffer()` sur `File`.
+    Object.defineProperty(f, 'arrayBuffer', { value: async () => new ArrayBuffer(3) })
+    return f
+  }
+
+  it('⚠️ un PDF ILLISIBLE ne consomme AUCUN dépôt', async () => {
+    // L'ordre EST la décision. `order-upload-url` consomme un dépôt sur trois par compare-and-swap :
+    // lire le PDF d'abord, c'est refuser gratuitement un fichier chiffré, corrompu ou vide de couche
+    // texte. Dans l'autre ordre, chacun de ces cas prenait une tentative — et trois essais
+    // suffisaient à verrouiller une commande payée.
+    api.lireStatut.mockResolvedValue(statut())
+    ocr.prepareUpgradeSource.mockRejectedValue(new Error('PDF protégé par mot de passe'))
+    rendre()
+    await screen.findByRole('button', { name: /Choisir mon document/ })
+    await choisir(pdf())
+
+    await waitFor(() => expect(ocr.prepareUpgradeSource).toHaveBeenCalled())
+    expect(api.demanderUrlDepot).not.toHaveBeenCalled()
+    expect(api.televerserAvecReprises).not.toHaveBeenCalled()
+    // Et l'acheteur ne reste pas sur un sablier : le dépôt se rouvre, avec la cause nommée.
+    expect(await screen.findByText(/protégé par mot de passe ou endommagé/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Choisir mon document/ })).toBeInTheDocument()
+  })
+
+  it('un fichier qui n’est pas un PDF n’atteint même pas le lecteur', async () => {
+    api.lireStatut.mockResolvedValue(statut())
+    rendre()
+    await screen.findByRole('button', { name: /Choisir mon document/ })
+    await choisir(new File(['x'], 'dossier.docx', { type: 'application/msword' }))
+    expect(await screen.findByText(/Seuls les fichiers PDF/)).toBeInTheDocument()
+    expect(ocr.prepareUpgradeSource).not.toHaveBeenCalled()
+    expect(api.demanderUrlDepot).not.toHaveBeenCalled()
+  })
+
+  it('un PDF lisible passe par lecture → dépôt → téléversement → porte, dans cet ordre', async () => {
+    api.lireStatut.mockResolvedValue(statut())
+    ocr.prepareUpgradeSource.mockResolvedValue({
+      sourceKind: 'text',
+      controlText: 'contenu de contrôle',
+      pageCount: 3,
+      recognizedPages: 0,
+      truncated: false,
+    })
+    api.demanderUrlDepot.mockResolvedValue({
+      jobId: 'job-1',
+      path: 'orders/x/job-1/source.pdf',
+      uploadUrl: 'https://s/u',
+      uploadToken: 'k',
+      depositsLeft: 2,
+    })
+    api.televerserAvecReprises.mockResolvedValue(undefined)
+    api.franchirPorte.mockResolvedValue({ status: 'started', sectionsTotal: 34 })
+
+    rendre()
+    await screen.findByRole('button', { name: /Choisir mon document/ })
+    await choisir(pdf())
+
+    await waitFor(() => expect(api.franchirPorte).toHaveBeenCalled())
+    const ordre = [
+      ocr.prepareUpgradeSource.mock.invocationCallOrder[0]!,
+      api.demanderUrlDepot.mock.invocationCallOrder[0]!,
+      api.televerserAvecReprises.mock.invocationCallOrder[0]!,
+      api.franchirPorte.mock.invocationCallOrder[0]!,
+    ]
+    expect(ordre).toEqual([...ordre].sort((a, b) => a - b))
+    // La provenance est DÉCLARÉE par le navigateur : le serveur ne la devine pas.
+    expect(api.franchirPorte).toHaveBeenCalledWith(JETON, 'job-1', 'contenu de contrôle', 'text')
+  })
+
+  it('⚠️ téléversement RÉUSSI puis porte en PANNE : la reprise est GRATUITE', async () => {
+    // La porte n'écrit rien avant d'avoir jugé, donc le statut serveur reste `paid` : l'écran
+    // retombait sur le dépôt, et son SEUL bouton facturait le deuxième dépôt sur trois pour un
+    // incident réseau qui n'est pas celui de l'acheteur. Or tout est déjà en main — le document est
+    // déposé, son dépôt décompté, le corpus de contrôle lu : il ne reste que la porte.
+    api.lireStatut.mockResolvedValue(statut({ statut: 'paid', depositsLeft: 2 }))
+    ocr.prepareUpgradeSource.mockResolvedValue({
+      sourceKind: 'text',
+      controlText: 'texte',
+      pageCount: 1,
+      recognizedPages: 0,
+      truncated: false,
+    })
+    api.demanderUrlDepot.mockResolvedValue({
+      jobId: 'job-7',
+      path: 'p',
+      uploadUrl: 'u',
+      uploadToken: 'k',
+      depositsLeft: 2,
+    })
+    api.televerserAvecReprises.mockResolvedValue(undefined)
+    api.franchirPorte.mockRejectedValueOnce(new UpgradeApiError('indisponible', 'injoignable'))
+
+    rendre()
+    await screen.findByRole('button', { name: /Choisir mon document/ })
+    await choisir(pdf())
+
+    // L'écran propose de REPRENDRE, pas de redéposer.
+    const bouton = await screen.findByRole('button', { name: /Reprendre la préparation/ })
+    expect(screen.queryByRole('button', { name: /Choisir mon document/ })).not.toBeInTheDocument()
+
+    // Et la reprise ne consomme RIEN : ni dépôt, ni téléversement, ni relecture du PDF.
+    api.franchirPorte.mockResolvedValue({ status: 'started' })
+    bouton.click()
+    await waitFor(() => expect(api.franchirPorte).toHaveBeenCalledTimes(2))
+    expect(api.demanderUrlDepot).toHaveBeenCalledTimes(1)
+    expect(api.televerserAvecReprises).toHaveBeenCalledTimes(1)
+    expect(ocr.prepareUpgradeSource).toHaveBeenCalledTimes(1)
+    expect(api.franchirPorte).toHaveBeenLastCalledWith(JETON, 'job-7', 'texte', 'text')
+  })
+
+  it('un scan ILLISIBLE nomme sa cause et rouvre le dépôt — il n atteint même pas la porte', async () => {
+    // Le corpus de contrôle rendu vide (scan illisible, photo, pages blanches) partait jusqu a la
+    // porte, qui repondait 400 : un refus technique et opaque la ou la cause est simple et se dit.
+    api.lireStatut.mockResolvedValue(statut())
+    ocr.prepareUpgradeSource.mockResolvedValue({
+      sourceKind: 'ocr',
+      controlText: '   ',
+      pageCount: 4,
+      recognizedPages: 4,
+      truncated: false,
+    })
+    rendre()
+    await screen.findByRole('button', { name: /Choisir mon document/ })
+    await choisir(pdf())
+
+    expect(await screen.findByText(/extrait aucun texte/)).toBeInTheDocument()
+    expect(api.demanderUrlDepot).not.toHaveBeenCalled()
+    expect(api.franchirPorte).not.toHaveBeenCalled()
+    // Et le sélecteur reste : c est un autre FICHIER qu il faut, pas un autre essai.
+    expect(screen.getByRole('button', { name: /Choisir mon document/ })).toBeInTheDocument()
+  })
+
+  it('un refus DÉFINITIF de la porte ne verrouille pas sur un bouton qui ne peut pas aboutir', async () => {
+    // Regression fermee ici : la reprise gratuite etait conservee pour TOUTE erreur non nominale,
+    // y compris un 400. Le bouton rejouait le meme corpus, recevait le meme 400, indefiniment — et
+    // le selecteur de fichier avait disparu, sur une commande a qui il restait deux depots.
+    api.lireStatut.mockResolvedValue(statut({ depositsLeft: 2 }))
+    ocr.prepareUpgradeSource.mockResolvedValue({
+      sourceKind: 'text',
+      controlText: 'texte',
+      pageCount: 1,
+      recognizedPages: 0,
+      truncated: false,
+    })
+    api.demanderUrlDepot.mockResolvedValue({
+      jobId: 'job-8',
+      path: 'p',
+      uploadUrl: 'u',
+      uploadToken: 'k',
+      depositsLeft: 1,
+    })
+    api.televerserAvecReprises.mockResolvedValue(undefined)
+    api.franchirPorte.mockRejectedValue(
+      new UpgradeApiError('refus', 'order-gate : 400 bad_request'),
+    )
+
+    rendre()
+    await screen.findByRole('button', { name: /Choisir mon document/ })
+    await choisir(pdf())
+
+    // On revient au DÉPÔT : redéposer est le seul geste qui peut encore aboutir.
+    expect(await screen.findByRole('button', { name: /Choisir mon document/ })).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Reprendre la préparation/ }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('⚠️ un TÉLÉVERSEMENT raté ne coûte rien de plus : la reprise rejoue le PUT, jamais le dépôt', async () => {
+    // `demanderUrlDepot` décompte un dépôt sur trois À LA RÉCEPTION, par compare-and-swap. Quand le
+    // PUT échouait ensuite (12 Mo sur un lien mobile), l'écran affichait « votre commande est
+    // intacte » — faux — au-dessus d'un sélecteur de fichier dont le clic débitait le dépôt
+    // suivant. Or la clé est dérivée du job et `x-upsert` posé : rejouer le PUT sur la MÊME URL ne
+    // consomme rien.
+    api.lireStatut.mockResolvedValue(statut({ depositsLeft: 2 }))
+    ocr.prepareUpgradeSource.mockResolvedValue({
+      sourceKind: 'text',
+      controlText: 'texte',
+      pageCount: 1,
+      recognizedPages: 0,
+      truncated: false,
+    })
+    api.demanderUrlDepot.mockResolvedValue({
+      jobId: 'job-9',
+      path: 'p',
+      uploadUrl: 'https://s/signed',
+      uploadToken: 'k',
+      depositsLeft: 1,
+    })
+    api.televerserAvecReprises.mockRejectedValueOnce(
+      new UpgradeApiError('indisponible', 'téléversement : injoignable'),
+    )
+
+    rendre()
+    await screen.findByRole('button', { name: /Choisir mon document/ })
+    await choisir(pdf())
+
+    // L'écran propose de REPRENDRE — pas de redéposer, pas de « commande intacte ».
+    const bouton = await screen.findByRole('button', { name: /Reprendre la préparation/ })
+    expect(screen.queryByRole('button', { name: /Choisir mon document/ })).not.toBeInTheDocument()
+    expect(screen.queryByText(/intacte/)).not.toBeInTheDocument()
+
+    // La reprise rejoue le PUT sur la MÊME URL puis franchit la porte : AUCUN nouveau dépôt.
+    api.televerserAvecReprises.mockResolvedValue(undefined)
+    api.franchirPorte.mockResolvedValue({ status: 'started' })
+    bouton.click()
+    await waitFor(() => expect(api.franchirPorte).toHaveBeenCalledTimes(1))
+    expect(api.demanderUrlDepot).toHaveBeenCalledTimes(1)
+    expect(api.televerserAvecReprises).toHaveBeenLastCalledWith(
+      'https://s/signed',
+      'k',
+      expect.anything(),
+    )
+    expect(api.franchirPorte).toHaveBeenCalledWith(JETON, 'job-9', 'texte', 'text')
+  })
+
+  it('« dépôts épuisés » ne se lit plus « patientez une minute »', async () => {
+    // Les deux arrivent en 429 ; seul le code machine les distingue. « Patientez » promettait
+    // qu'attendre suffirait, juste au-dessus de l'encart qui dit le contraire.
+    api.lireStatut.mockResolvedValue(statut({ depositsLeft: 1 }))
+    ocr.prepareUpgradeSource.mockResolvedValue({
+      sourceKind: 'text',
+      controlText: 'texte',
+      pageCount: 1,
+      recognizedPages: 0,
+      truncated: false,
+    })
+    api.demanderUrlDepot.mockRejectedValue(
+      new UpgradeApiError('trop_de_requetes', '429', undefined, 'deposits_exhausted'),
+    )
+    rendre()
+    await screen.findByRole('button', { name: /Choisir mon document/ })
+    await choisir(pdf())
+    expect(await screen.findByText(/trois dépôts de cette commande/)).toBeInTheDocument()
+    expect(screen.queryByText(/Patientez une minute/)).not.toBeInTheDocument()
+  })
+
+  it('un REFUS de recevabilité affiche le message du serveur, tel quel', async () => {
+    // Il dit lui-même que rien n'a été débité. Le reformuler perdrait exactement cette phrase-là.
+    api.lireStatut.mockResolvedValue(statut())
+    ocr.prepareUpgradeSource.mockResolvedValue({
+      sourceKind: 'text',
+      controlText: 'texte',
+      pageCount: 1,
+      recognizedPages: 0,
+      truncated: false,
+    })
+    api.demanderUrlDepot.mockResolvedValue({
+      jobId: 'job-1',
+      path: 'p',
+      uploadUrl: 'u',
+      uploadToken: 'k',
+      depositsLeft: 2,
+    })
+    api.televerserAvecReprises.mockResolvedValue(undefined)
+    api.franchirPorte.mockResolvedValue({
+      status: 'refused',
+      message: 'Ce document ne ressemble pas à un RCP. Cette tentative ne vous a rien coûté.',
+      depositsLeft: 2,
+    })
+
+    rendre()
+    await screen.findByRole('button', { name: /Choisir mon document/ })
+    await choisir(pdf())
+    expect(await screen.findByText(/ne vous a rien coûté/)).toBeInTheDocument()
+  })
+})
+
+/* ────────────────────────── Le document que le pont a déjà téléversé ───────────────────────── */
+
+describe('reprise du document déposé par le pont', () => {
+  it('le document déjà déposé est repris — l’acheteur ne le redépose pas', async () => {
+    // ⚠️ Sans cette reprise, l'acheteur qui vient de `pharnos.com` se voyait redemander un document
+    // déjà envoyé, et ce second dépôt consommait une des trois tentatives d'une commande payée.
+    api.lireStatut.mockResolvedValue(statut({ statut: 'paid' }))
+    api.demanderSource.mockResolvedValue({
+      jobId: 'job-9',
+      docType: 'labeling',
+      url: 'https://s/signed',
+      expiresIn: 600,
+    })
+    api.telechargerSource.mockResolvedValue(new ArrayBuffer(8))
+    ocr.prepareUpgradeSource.mockResolvedValue({
+      sourceKind: 'ocr',
+      controlText: 'texte océrisé',
+      pageCount: 5,
+      recognizedPages: 5,
+      truncated: false,
+    })
+    api.franchirPorte.mockResolvedValue({ status: 'started' })
+
+    rendre()
+    await waitFor(() => expect(api.franchirPorte).toHaveBeenCalled())
+    expect(api.demanderUrlDepot).not.toHaveBeenCalled()
+    expect(api.franchirPorte).toHaveBeenCalledWith(JETON, 'job-9', 'texte océrisé', 'ocr')
+  })
+
+  it('⚠️ après un REFUS, on ne redemande pas la source au serveur', async () => {
+    // Le document le plus récent est alors celui que la porte vient d'écarter : le reprendre, ce
+    // serait le re-préparer, le re-soumettre, se le voir refuser — jusqu'à épuiser les trois dépôts.
+    api.lireStatut.mockResolvedValue(statut({ statut: 'gated_out', depositsLeft: 2 }))
+    rendre()
+    expect(await screen.findByRole('button', { name: /Choisir mon document/ })).toBeInTheDocument()
+    expect(api.demanderSource).not.toHaveBeenCalled()
+  })
+
+  it('une panne pendant la reprise ne propose PAS de redéposer — elle propose de REPRENDRE', async () => {
+    // Proposer un dépôt à quelqu'un dont le document EST déjà chez nous, c'est l'inviter à brûler
+    // une tentative pour un incident réseau qui n'est pas le sien.
+    api.lireStatut.mockResolvedValue(statut({ statut: 'source_uploaded' }))
+    api.demanderSource.mockRejectedValue(new UpgradeApiError('indisponible', 'injoignable'))
+    rendre()
+    await waitFor(() => expect(api.demanderSource).toHaveBeenCalled())
+    expect(screen.queryByRole('button', { name: /Choisir mon document/ })).not.toBeInTheDocument()
+    // ⚠️ Et surtout : il RESTE une sortie. C'était le dernier sablier définitif de cet écran — un
+    // « ne fermez pas cet onglet » sous lequel plus rien ne tournait, sans un bouton.
+    expect(
+      await screen.findByRole('button', { name: /Reprendre la préparation/ }),
+    ).toBeInTheDocument()
+  })
+
+  it('⚠️ un TÉLÉCHARGEMENT raté laisse une sortie, pas un sablier', async () => {
+    //  écrit  dès qu'il constate le fichier — donc avant que le
+    // navigateur ait pu le télécharger. Une coupure ici laissait l'écran sur « Lecture de votre
+    // document… », sans message, sans bouton, et sans sondage : plus rien ne tournait.
+    api.lireStatut.mockResolvedValue(statut({ statut: 'source_uploaded' }))
+    api.demanderSource.mockResolvedValue({
+      jobId: 'job-3',
+      docType: 'rcp',
+      url: 'https://s/signed',
+      expiresIn: 600,
+    })
+    api.telechargerSource.mockRejectedValue(new UpgradeApiError('indisponible', 'injoignable'))
+    rendre()
+    await waitFor(() => expect(api.telechargerSource).toHaveBeenCalled())
+    expect(
+      await screen.findByRole('button', { name: /Reprendre la préparation/ }),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Lecture de votre document/)).not.toBeInTheDocument()
+  })
+
+  it('⚠️ une PORTE injoignable laisse une sortie aussi', async () => {
+    api.lireStatut.mockResolvedValue(statut({ statut: 'source_uploaded' }))
+    api.demanderSource.mockResolvedValue({
+      jobId: 'job-4',
+      docType: 'rcp',
+      url: 'https://s/signed',
+      expiresIn: 600,
+    })
+    api.telechargerSource.mockResolvedValue(new ArrayBuffer(8))
+    ocr.prepareUpgradeSource.mockResolvedValue({
+      sourceKind: 'text',
+      controlText: 'texte',
+      pageCount: 2,
+      recognizedPages: 0,
+      truncated: false,
+    })
+    api.franchirPorte.mockRejectedValue(new UpgradeApiError('indisponible', 'injoignable'))
+    rendre()
+    await waitFor(() => expect(api.franchirPorte).toHaveBeenCalled())
+    expect(
+      await screen.findByRole('button', { name: /Reprendre la préparation/ }),
+    ).toBeInTheDocument()
+  })
+})
+
+/* ────────────────────────────────── Ce que l'écran promet ──────────────────────────────────── */
+
+describe('suivi et livraison', () => {
+  it('pendant le traitement, et SEULEMENT là, l’acheteur peut fermer la page', async () => {
+    api.lireStatut.mockResolvedValue(statut({ statut: 'running', faites: 12, total: 34 }))
+    rendre()
+    expect(await screen.findByText(/Vous pouvez fermer cette page/)).toBeInTheDocument()
+    expect(screen.getByText('12 / 34')).toBeInTheDocument()
+  })
+
+  it('la promesse d’e-mail est faite — et DEPUIS U5 seulement, où l’envoi existe', async () => {
+    // Ce test disait l'inverse avant U5, et c'était juste : `job-tick` n'envoyait rien, et une
+    // promesse adossée à un envoi inexistant transformait une fermeture d'onglet en abandon
+    // silencieux. L'e-mail n°2 existe désormais (bascule running→done, jeton `completion`) : la
+    // promesse peut se faire entière. Si l'envoi disparaissait, ce test DOIT se réinverser.
+    api.lireStatut.mockResolvedValue(statut({ statut: 'running', faites: 1, total: 34 }))
+    rendre()
+    await screen.findByText(/Vous pouvez fermer cette page/)
+    expect(screen.getByText(/e-mail vous préviendra/)).toBeInTheDocument()
+  })
+
+  it('une panne est présentée comme une panne, avec une commande qui reste ouverte', async () => {
+    api.lireStatut.mockResolvedValue(statut({ statut: 'failed', erreur: 'phase conformity' }))
+    rendre()
+    expect(await screen.findByText(/sans nouveau paiement/)).toBeInTheDocument()
+  })
+})
+
+describe('pays et activité', () => {
+  it('⚠️ la garde vit dans deposer(), pas dans le disabled du bouton', async () => {
+    // L'input `sr-only` reste atteignable au clavier : sans refus dans la fonction qui ÉCRIT, un
+    // dépôt sans pays repartait avec `country: null` en silence — le trou que le transport ferme.
+    api.lireStatut.mockResolvedValue(statut({ country: null, activity: null }))
+    rendre()
+    await screen.findByRole('button', { name: /Choisir mon document/ })
+    const champ = document.querySelector('input[type="file"]') as HTMLInputElement
+    const f = new File([new Uint8Array([1])], 'rcp.pdf', { type: 'application/pdf' })
+    Object.defineProperty(f, 'arrayBuffer', { value: async () => new ArrayBuffer(1) })
+    Object.defineProperty(champ, 'files', { value: [f], configurable: true })
+    champ.dispatchEvent(new Event('change', { bubbles: true }))
+    // Le message apparaît DEUX fois — l'encart de refus et l'indication sous le bouton — et les
+    // deux sont voulus : l'un répond au geste, l'autre prévient le prochain.
+    expect((await screen.findAllByText(/Choisissez d’abord le pays/)).length).toBeGreaterThan(0)
+    expect(api.demanderUrlDepot).not.toHaveBeenCalled()
+  })
+
+  it('une commande historique d’un type NON LIVRABLE ferme l’écran de dépôt, avec la vérité', async () => {
+    // Le sélecteur n'offre plus que le RCP : sur une commande `notice`, l'écran se contredirait
+    // (sous-titre « Notice patient », select vide) et le seul geste possible ferait juger une
+    // notice contre le gabarit du RCP — un dépôt décompté à chaque essai.
+    api.lireStatut.mockResolvedValue(statut({ docType: 'notice' }))
+    rendre()
+    expect(await screen.findByText(/ouvre bientôt/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Choisir mon document/ })).not.toBeInTheDocument()
+  })
+})

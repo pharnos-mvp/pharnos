@@ -2,7 +2,13 @@
 
 > **Statut : VERROUILLÉ** par le CEO le 29 juillet 2026, sur la référence RCP Gynoril.
 > Prérequis : étapes 1 et 2 validées. Générateur de référence :
-> `docs/gabarits/tools/render-deliverables.mjs`.
+> `web/src/lib/deliverables/` (`npm run deliverables`).
+>
+> *La mise en page décrite ici n'a pas changé. Seul son implémentation a déménagé, le 3 août 2026 :
+> l'ancienne CLI Node `docs/gabarits/tools/render-deliverables.mjs` est devenue un module
+> TypeScript pur, pour que le MÊME code produise les fichiers sous Node (banc d'essai) et dans le
+> navigateur (livraison au client). Port vérifié : texte extrait et pagination identiques sur les
+> sept documents de référence.*
 
 ---
 

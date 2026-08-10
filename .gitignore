@@ -51,3 +51,12 @@ Test/
 # Clés privées (backup age, etc.) — défense en profondeur, JAMAIS versionné.
 *.key
 .commitmsg
+
+# Sorties du banc d'essai upgrade : documents réglementaires produits pour un client ou un cas réel.
+# Même raison que `Test/` et `RA-source/MedDRA/` — un `git add -A` les publierait sans qu'on le voie.
+# Le harnais écrit dans son `--out` ; ces motifs couvrent le cas où l'on pointe la racine du dépôt.
+/run-*/
+/*-RCP-FR.*
+/*-SmPC-EN.*
+/*-revue-reglementaire-*.*
+/*-regulatory-review.*

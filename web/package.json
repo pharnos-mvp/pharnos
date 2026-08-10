@@ -29,7 +29,9 @@
     "build:landing-en": "node scripts/build-landing-en.mjs",
     "build:checking-bareme": "node scripts/build-checking-bareme.mjs",
     "build:landing-modeles": "node scripts/build-landing-modeles.mjs",
-    "build:landing-vendor": "node scripts/build-landing-vendor.mjs"
+    "build:landing-vendor": "node scripts/build-landing-vendor.mjs",
+    "deliverables": "vitest run src/lib/deliverables/render.emit.test.ts",
+    "deliverables:run": "vitest run src/lib/deliverables/render.run.emit.test.ts"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.2.8",

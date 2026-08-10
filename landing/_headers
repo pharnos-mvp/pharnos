@@ -105,3 +105,16 @@
 /checking/*
   Cache-Control: no-cache
   Content-Type: text/javascript; charset=utf-8
+
+# Le PONT du paiement, importé par /modele.js — MÊME raison que `/checking/*` ci-dessus : l'URL d'un
+# module importé par un module ne peut pas porter de `?v=` piloté depuis le HTML, donc un `max-age`
+# désaccorderait un jour l'entrée et sa dépendance. Servir un ancien `pont.js` avec un `modele.js`
+# neuf enverrait un acheteur qui vient de payer sur une destination périmée.
+#
+# ⚠️ Le répertoire s'appelle `/pont/` et NON `/modele/` : `modele.html` existe, et un couple
+# page/répertoire homonyme est un pari sur la résolution d'URL de Cloudflare Pages — que rien dans
+# la CI ne teste. Pari perdu, `/modele/pont.js` rend un 404, l'import casse `modele.js` EN ENTIER,
+# et la page perd son dépôt, son bouton d'achat et son pont. Le pari ne valait pas un `git mv`.
+/pont/*
+  Cache-Control: no-cache
+  Content-Type: text/javascript; charset=utf-8

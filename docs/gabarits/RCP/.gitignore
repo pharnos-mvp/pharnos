@@ -1,5 +1,6 @@
 # Livrables REGÉNÉRÉS depuis les références markdown de ce dossier, par
-# `docs/gabarits/tools/render-deliverables.mjs`. La source de vérité est le markdown ; versionner
-# les binaires ferait diverger les deux et polluerait chaque diff.
+# `web/src/lib/deliverables/` — `npm run deliverables` dans `web/`, et aussi à chaque `npm test`.
+# La source de vérité est le markdown ; versionner les binaires ferait diverger les deux et
+# polluerait chaque diff.
 *.docx
 *.pdf

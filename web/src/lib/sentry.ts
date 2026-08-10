@@ -12,6 +12,34 @@ let capture: Capturer = () => {}
  * Posture pharma / confidentialité : pas de PII par défaut, pas de session replay,
  * échantillonnage de traces faible.
  */
+/**
+ * Jetons publics de 43 caractères base64url portés par un CHEMIN d'URL — `/r/{token}` (revue) et
+ * `/u/{token}` (livraison d'une mise à niveau).
+ *
+ * ⚠️ **Ces jetons SONT l'authentification**, et pour trente jours. Sur `/u/`, il ouvre une commande
+ * payée et ses trois dépôts. Or `browserTracingIntegration` nomme ses transactions d'après l'URL et
+ * en fait des fils d'Ariane : sans ce masquage, l'authentification complète d'un achat partait chez
+ * un tiers à chaque transaction échantillonnée. « Ni chaîne de requête, ni log » — un log tiers
+ * reste un log.
+ */
+const CHEMIN_JETON = /\/(r|u)\/[A-Za-z0-9_-]{43}/g
+
+/** Remplace tout jeton d'un texte porteur d'URL. Rend la chaîne telle quelle si elle n'en porte pas. */
+export const masquerJetons = (texte: string): string => texte.replace(CHEMIN_JETON, '/$1/:token')
+
+function masquerDansUrls<T>(objet: T): T {
+  if (typeof objet === 'string') return masquerJetons(objet) as T
+  if (Array.isArray(objet)) return objet.map(masquerDansUrls) as T
+  if (objet && typeof objet === 'object') {
+    const sortie: Record<string, unknown> = {}
+    for (const [cle, valeur] of Object.entries(objet as Record<string, unknown>)) {
+      sortie[cle] = masquerDansUrls(valeur)
+    }
+    return sortie as T
+  }
+  return objet
+}
+
 export async function initSentry(): Promise<void> {
   if (!env.sentryDsn) return
   const Sentry = await import('@sentry/react')
@@ -23,6 +51,11 @@ export async function initSentry(): Promise<void> {
     // → zéro Web Vitals (LCP/INP/CLS) côté Sentry. Chunk déjà lazy, impact bundle initial nul.
     integrations: [Sentry.browserTracingIntegration()],
     tracesSampleRate: 0.1,
+    // Les trois portes par lesquelles une URL sort : l'événement, la transaction, le fil d'Ariane.
+    // En masquer deux sur trois ne masque rien.
+    beforeSend: (evenement) => masquerDansUrls(evenement),
+    beforeSendTransaction: (transaction) => masquerDansUrls(transaction),
+    beforeBreadcrumb: (fil) => masquerDansUrls(fil),
   })
   capture = (error, context) =>
     Sentry.captureException(error, context ? { extra: context } : undefined)

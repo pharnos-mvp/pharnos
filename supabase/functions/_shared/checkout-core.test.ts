@@ -89,7 +89,9 @@ Deno.test('corpsChariow — porte le produit mappé, la référence en métadonn
   const corps = corpsChariow(v.cmd, '203.0.113.7')
   assertEquals(corps.product_id, OFFRES_CHARIOW.up1.productId)
   assertEquals(corps.redirect_url, RETOURS.fr)
-  assertEquals(corps.custom_metadata, { ref: v.cmd.ref, offre: 'up1' })
+  // ⚠️ `lang` en fait partie : c'est la SEULE façon dont `chariow-pulse` connaîtra la langue de
+  // l'acheteur au moment d'envoyer l'e-mail n°1 — son unique chemin d'accès si l'onglet est fermé.
+  assertEquals(corps.custom_metadata, { ref: v.cmd.ref, offre: 'up1', lang: 'fr' })
   assertEquals(corps.phone, { number: '0196441776', country_code: 'BJ' })
 })
 
@@ -108,7 +110,7 @@ Deno.test('corpsChariow — en recette, produit de test ET marque dans les méta
     const corps = corpsChariow(v.cmd, 'unknown', true)
     assertEquals(corps.product_id, OFFRES_ESSAI[offre].productId)
     // Une commande de recette doit se reconnaître dans le back-office sans recouper les montants.
-    assertEquals(corps.custom_metadata, { ref: v.cmd.ref, offre, essai: '1' })
+    assertEquals(corps.custom_metadata, { ref: v.cmd.ref, offre, lang: 'fr', essai: '1' })
     // Les deux catalogues couvrent EXACTEMENT les mêmes offres : une offre présente en
     // production mais absente en recette ferait planter l'Edge sur `.productId` d'undefined.
     assert(OFFRES_ESSAI[offre].productId !== OFFRES_CHARIOW[offre].productId)

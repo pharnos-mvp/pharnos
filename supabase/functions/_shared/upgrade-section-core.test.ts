@@ -5,7 +5,7 @@ import { prepareSource } from './ai/evidence.ts'
 import { buildSectionInstruction } from './upgrade-section-core.ts'
 import { SectionOutputError } from './ai/section-schema.ts'
 import type { AiOptions, Part } from './ai/types.ts'
-import { CONFORMITY_SPECS } from './conformity-specs.ts'
+import { CONFORMITY_SPECS, flattenRubrics } from './conformity-specs.ts'
 import {
   generateSection,
   MISSING_MARKER,
@@ -76,11 +76,86 @@ Deno.test('generateSection : sans fragment source, aucun cache n’est demandé'
   assertEquals(s.calls[0].opts.cacheBreakpointAfter, undefined)
 })
 
-Deno.test('generateSection : l’appel est contraint à LA rubrique demandée', async () => {
+Deno.test('generateSection : le schéma est IDENTIQUE d’une rubrique à l’autre', async () => {
+  // LE test qui protège le cache. Le schéma entre dans le préfixe mis en cache : y placer
+  // l'identifiant de la rubrique le rendait unique à chaque appel, et le cache ne prenait JAMAIS —
+  // mesuré en production, `cacheRead` nul sur six rubriques, 3,24 $ au lieu de 0,59 $ par passe.
+  // Un `enum` réduit à la rubrique demandée passerait tous les autres tests sans en casser un seul :
+  // la sortie resterait correcte, seule la facture changerait. D'où cette comparaison directe.
+  const a = scripted([out('filled', 'x'.repeat(20), 'GYNORIL 500 mg, comprimé pelliculé.')])
+  await generateSection(a.generate, req())
+
+  const rubric2 = RCP.rubrics.find((r) => r.id === '2')!
+  const b = scripted([
+    JSON.stringify({
+      section_id: '2',
+      status: 'filled',
+      content: 'x'.repeat(20),
+      source_evidence: 'GYNORIL 500 mg, comprimé pelliculé.',
+    }),
+  ])
+  await generateSection(b.generate, req({ rubric: rubric2 }))
+
+  assertEquals(
+    JSON.stringify(a.calls[0].opts.jsonSchema),
+    JSON.stringify(b.calls[0].opts.jsonSchema),
+  )
+  // Et il couvre bien tout le gabarit, pas seulement les deux rubriques comparées.
+  const schema = a.calls[0].opts.jsonSchema as { properties: Record<string, { enum?: string[] }> }
+  assertEquals(schema.properties.section_id.enum!.length, flattenRubrics(RCP).length)
+  assertEquals(schema.properties.section_id.enum!.includes('1'), true)
+  assertEquals(schema.properties.section_id.enum!.includes('4.1'), true)
+})
+
+Deno.test('generateSection : une AUTRE rubrique est REJOUÉE une fois, jamais acceptée', async () => {
+  // Le schéma s'étant élargi pour partager le préfixe, le modèle PEUT désormais former « 2 » en
+  // répondant sur « 1 ». Sans rattrapage, une seule rubrique fautive sur trente-quatre ferait
+  // perdre la passe entière — 1,2 $ à repayer pour une erreur d'aiguillage. Ce n'est pas une panne
+  // déterministe : un rejeu la corrige. La garantie, elle, ne bouge pas — voir le test suivant.
+  const s = scripted([
+    JSON.stringify({
+      section_id: '2',
+      status: 'filled',
+      content: 'x'.repeat(20),
+      source_evidence: 'GYNORIL 500 mg, comprimé pelliculé.',
+    }),
+    out('filled', 'GYNORIL 500 mg, comprimé pelliculé.', 'GYNORIL 500 mg, comprimé pelliculé.'),
+  ])
+  const r = await generateSection(s.generate, req())
+  assertEquals(s.calls.length, 2)
+  assertEquals(r.sectionId, '1')
+  assertEquals(r.status, 'filled')
+  assertEquals(r.attempts, 2)
+  // Rien de la réponse fautive n'est réutilisé : la seconde tentative repart sur l'instruction de
+  // base, celle qui exige déjà l'identifiant exact.
+  assertStringIncludes(String(s.calls[1].parts[1].text), 'Rubrique demandée : 1.')
+})
+
+Deno.test('generateSection : deux fois la mauvaise rubrique → RÉTROGRADÉE, jamais rangée à tort', async () => {
+  // Le pendant du test précédent : le schéma s'est élargi, la garantie NON. Le modèle peut
+  // désormais former « 2 » — c'est la lecture qui doit le refuser, sinon on rangerait le contenu
+  // d'une rubrique sous le numéro d'une autre, et le document serait faux sans être détectable.
+  const wrong = JSON.stringify({
+    section_id: '2',
+    status: 'filled',
+    content: 'CONTENU DE LA RUBRIQUE 2',
+    source_evidence: 'GYNORIL 500 mg, comprimé pelliculé.',
+  })
+  const s = scripted([wrong, wrong])
+  const r = await generateSection(s.generate, req())
+  assertEquals(s.calls.length, 2)
+  assertEquals(r.sectionId, '1')
+  assertEquals(r.status, 'missing')
+  assertEquals(r.content, MISSING_MARKER)
+  assertEquals(r.downgraded, true)
+  assertEquals(r.downgradeReason, 'misrouted')
+  // LE point : rien du contenu mal aiguillé n'a survécu.
+  assertEquals(r.content.includes('RUBRIQUE 2'), false)
+})
+
+Deno.test('generateSection : l’ordre des fragments place le contrat en position de récence', async () => {
   const s = scripted([out('filled', 'x'.repeat(20), 'GYNORIL 500 mg, comprimé pelliculé.')])
   await generateSection(s.generate, req())
-  const schema = s.calls[0].opts.jsonSchema as { properties: Record<string, { enum?: string[] }> }
-  assertEquals(schema.properties.section_id.enum, ['1'])
   assertEquals(s.calls[0].opts.json, true)
   // Source D'ABORD (préfixe stable, cachable sur 28 rubriques), contrat de sortie ENSUITE — c'est
   // le contrat qui doit occuper la position de récence, pas le document fourni par l'utilisateur.

@@ -46,8 +46,10 @@ export interface AiOptions {
    * relire. Le fournisseur refuse ce cas plutôt que de le laisser coûter en silence.
    *
    * Ne sert que là où le préfixe est réellement partagé : la génération par rubrique renvoie le même
-   * document source 29 fois, soit **72 % du coût d'entrée** mesuré sur KV-Kacin. La traduction et la
-   * revue n'ont rien à partager entre appels — l'option y serait un coût net.
+   * document source 29 fois, soit **72 % du coût d'entrée** mesuré sur KV-Kacin. Depuis le découpage
+   * de la revue en quatre appels (un par tableau), elle partage elle aussi son préfixe — pièce et
+   * préambule — et l'utilise. Seule la TRADUCTION n'a rien à partager entre appels : chaque rubrique
+   * y porte un texte différent (`cacheRead` = 0 sur les 25, mesuré), l'option y serait un coût net.
    */
   cacheBreakpointAfter?: number
   /**

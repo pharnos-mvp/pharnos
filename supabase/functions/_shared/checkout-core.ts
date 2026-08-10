@@ -283,7 +283,17 @@ export function corpsChariow(
     redirect_url: RETOURS[cmd.langue],
     // `essai` voyage jusque dans les webhooks : une commande de recette doit se reconnaître
     // dans le back-office Chariow sans avoir à recouper les montants.
-    custom_metadata: { ref: cmd.ref, offre: cmd.offre, ...(essai ? { essai: '1' } : {}) },
+    //
+    // ⚠️ `langue` voyage pour une raison précise : le webhook (`chariow-pulse`) envoie l'e-mail
+    // n°1, et il n'a AUCUN autre moyen de connaître la langue de l'acheteur — il ne voit ni la
+    // page d'origine ni l'en-tête `Accept-Language`. Sans elle, un acheteur anglophone reçoit un
+    // e-mail français, et c'est son SEUL chemin d'accès au livrable s'il a fermé l'onglet.
+    custom_metadata: {
+      ref: cmd.ref,
+      offre: cmd.offre,
+      lang: cmd.langue,
+      ...(essai ? { essai: '1' } : {}),
+    },
     ...(devise ? { payment_currency: devise } : {}),
     // ⚠️ `customer_ip` est OBLIGATOIRE ici, contre-intuitif mais mesuré le 31/07 : sans lui,
     // Chariow voit l'IP de notre Edge (Francfort) et classe TOUS les acheteurs en `country=DE`.

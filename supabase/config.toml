@@ -405,6 +405,14 @@ verify_jwt = false
 [functions.retention-purge]
 verify_jwt = false
 
+# Banc d'essai U0.2 : mesure une vague de rubriques là où vit `ANTHROPIC_API_KEY`. L'appelant est
+# un script d'atelier, pas un utilisateur — il n'a pas de JWT Supabase. La barrière est DANS la
+# fonction : jeton `x-bench-token` comparé À TEMPS CONSTANT sur les condensés, et refus 503 tant
+# que `BENCH_TOKEN` n'est pas posé. Aucun en-tête CORS n'est émis : un navigateur ne peut pas lire
+# la réponse, même muni du jeton.
+[functions.bench]
+verify_jwt = false
+
 # Formulaire public « Demander une démo » de la landing pharnos.com : le prospect n'a pas de
 # compte — la barrière est DANS la fonction (CORS dédié, honeypot, rate-limit share_hit,
 # validation stricte ; écriture service-role sur demo_requests, RLS sans policy).
@@ -423,6 +431,32 @@ verify_jwt = false
 # share_hit, validation stricte). La clé CHARIOW_API_KEY ne sort jamais du serveur ; le
 # navigateur nomme une offre, le serveur seul nomme le produit.
 [functions.checkout]
+verify_jwt = false
+
+# Webhook Chariow : c'est LUI qui fait naître la commande, et le seul chemin qui l'autorise.
+# Chariow n'a pas de compte chez nous, donc pas de JWT — et ses Pulses ne portent aucun secret de
+# signature (vérifié en console). L'authenticité ne vient donc pas de l'appel mais de la
+# RE-VÉRIFICATION `GET /v1/sales/{id}` faite avec notre propre clé. Aucun en-tête CORS : c'est du
+# serveur à serveur, une page web n'a rien à y faire.
+[functions.chariow-pulse]
+verify_jwt = false
+
+# Pont du retour de paiement : l'acheteur échange sa référence contre un jeton de livraison. Il
+# n'a pas de compte, d'où l'absence de JWT ; la fonction ne CRÉE jamais de commande — elle lit
+# celle que le webhook a créée, sinon elle répond « pas encore ».
+[functions.order-claim]
+verify_jwt = false
+
+# Dépôt du document APRÈS paiement : l'URL signée est portée sur une clé calculée par le serveur,
+# donc le client ne choisit pas où il écrit. Autorisé par le jeton de livraison, jamais par un
+# paramètre d'URL — c'est là que l'invariant « rien ne part avant le règlement » se tient.
+[functions.order-upload-url]
+verify_jwt = false
+
+# Porte de recevabilité ET lancement — une seule surface, parce qu'aucune décision de l'utilisateur
+# ne s'intercale entre le verdict et sa conséquence. Un refus ne crée AUCUNE ligne de travail :
+# il n'y a donc rien à rembourser, et le message le dit à l'acheteur.
+[functions.order-gate]
 verify_jwt = false
 
 [edge_runtime]
@@ -469,4 +503,24 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # Résolution publique d'un code d'invitation pour la page pharnos.com/i/CODE : pas de compte —
 # barrière DANS la fonction (CORS landing, rate-limit share_hit, format strict, 404 uniforme).
 [functions.invite-info]
+verify_jwt = false
+
+# Le moteur en série. `verify_jwt = false` parce que l'appelant est `pg_cron`, pas un humain :
+# l'authentification se fait par secret partagé comparé au HASH rendu par `upgrade_tick_secret_hash()`
+# — le secret lui-même ne sort JAMAIS de la base (patron de 0051). Secret absent ⇒ porte FERMÉE.
+[functions.job-tick]
+verify_jwt = false
+
+# Suivi et livraison, lus par la page publique. `verify_jwt = false` : l'acheteur n'a pas de compte,
+# le jeton EST l'autorisation. Aucune donnée personnelle n'en sort — un jeton se retrouve dans un
+# historique de navigateur ou une capture d'écran envoyée au support.
+[functions.order-status]
+verify_jwt = false
+
+# Le document déposé, rendu à la page qui doit le LIRE. Le téléversement vient de `pharnos.com`, la
+# lecture se fait depuis `app.pharnos.com` : deux origines, donc aucun stockage navigateur partagé —
+# Storage est le seul chemin, et cette surface le signe. Elle CONSTATE l'objet avant de faire passer
+# la commande à `source_uploaded`, sans quoi un acheteur revenu par l'e-mail redéposerait son fichier
+# et brûlerait un dépôt sur trois.
+[functions.order-source]
 verify_jwt = false

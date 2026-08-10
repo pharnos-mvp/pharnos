@@ -4,7 +4,8 @@
      ⚠️ INVARIANT CENTRAL — LE FICHIER DU CLIENT NE QUITTE PAS LE NAVIGATEUR AVANT LE PAIEMENT.
      Il est choisi, affiché comme déposé, conservé dans IndexedDB sous la référence de commande,
      et rien d'autre. Aucun `fetch`, aucun `FormData`, aucune requête ne le porte ici. Le premier
-     envoi a lieu au RETOUR du paiement, et il appartient au traitement, pas à cette page.
+     envoi a lieu au RETOUR du paiement — c'est le PONT (§ « Le pont », plus bas), et il ne part
+     que lorsque le SERVEUR a confirmé le règlement. `?paiement=ok` n'accorde rien.
 
      Parcours (spécification CEO du 31/07/2026) :
        • le document s'affiche dans un LECTEUR, colonne droite sticky ;
@@ -17,6 +18,20 @@ import {
   MODELES_VERSION,
 } from "./checking/modeles-manifest.js?v=2026.10";
 import { VIGILANCE } from "./checking/vigilance.js?v=2026.1";
+import {
+  ATTENTE_MAX_MS,
+  CLAIM_TIMEOUT_MS,
+  delaiClaim,
+  docTypeLivrable,
+  docTypeServeur,
+  lireClaim,
+  MAX_UPGRADE_OCTETS,
+  PUT_ATTENTE_MS,
+  PUT_ESSAIS,
+  putRetentable,
+  refusFichierUpgrade,
+  urlLivraison,
+} from "./pont/pont.js";
 import {
   activitesDe,
   fichierModele,
@@ -491,13 +506,16 @@ function etapePanneau(n) {
   // L'argumentaire a fait son travail : au moment de payer, il ne fait plus que pousser le
   // bouton vers le bas. On rend au panneau la hauteur qu'il coûtait.
   $("#upgdesc").hidden = n === 4 || n === 5;
+  // ⚠️ Sur la confirmation, le premier élément focalisable est `#cfmback` et NON `#cfmsend` :
+  // depuis le pont, ce bouton naît caché, et `focus()` sur un élément caché ne fait rien — en
+  // silence. Le clavier serait resté sur `body`, sur l'écran même où l'acheteur attend une suite.
   const premier = $(
     n === 5
       ? "#paymclose"
       : n === 4
         ? "#payprenom"
         : n === 3
-          ? "#cfmsend"
+          ? "#cfmback"
           : "#upgclose",
   );
   if (premier) premier.focus();
@@ -702,6 +720,49 @@ const sauverCommande = async (cmd) => {
   db.close();
 };
 
+/**
+ * Réserve LE dépôt de cette commande — lecture et écriture dans UNE transaction.
+ *
+ * ⚠️ **`order-upload-url` décompte à la RÉCEPTION de la requête**, par compare-and-swap, pas à sa
+ * réponse. Poser le drapeau après le 200 laissait donc deux trous, et les deux coûtaient un dépôt
+ * sur trois à quelqu'un qui a déjà payé :
+ *
+ *  • **la réponse perdue** — coupure, ou 503 sur l'une des trois écritures qui suivent le décompte.
+ *    Le compteur est débité, le drapeau reste faux, l'acheteur revient (Retour, onglet rouvert,
+ *    historique) et repart pour un dépôt. Trois fois : commande verrouillée, zéro octet arrivé ;
+ *  • **deux passages concurrents** — le panneau offre « ouvrir dans un onglet », et le processeur
+ *    peut rediriger les deux. Deux ponts lisaient un drapeau absent et demandaient chacun leur URL.
+ *
+ * Une transaction `readwrite` d'IndexedDB est sérialisée par l'ORIGINE : c'est le seul verrou dont
+ * on dispose entre deux onglets, et il faut donc que la lecture et l'écriture vivent dedans — les
+ * séparer les rendrait à nouveau concurrentes.
+ *
+ * Le compromis est explicite et va du bon côté : si la requête n'atteint jamais le serveur, on aura
+ * marqué un dépôt non consommé. L'acheteur téléverse alors depuis `/u/{token}` avec 2 tentatives au
+ * lieu de 3 — au lieu de n'en avoir plus aucune.
+ */
+async function reserverDepot(id) {
+  const db = await ouvrirDb();
+  try {
+    return await new Promise((res, rej) => {
+      const tx = db.transaction(DB_STORE, "readwrite");
+      const st = tx.objectStore(DB_STORE);
+      const g = st.get(id);
+      let pris = false;
+      g.onsuccess = () => {
+        const c = g.result;
+        if (!c || c.depotFait) return;
+        st.put({ ...c, depotFait: true });
+        pris = true;
+      };
+      tx.oncomplete = () => res(pris);
+      tx.onerror = tx.onabort = () => rej(tx.error);
+    });
+  } finally {
+    db.close();
+  }
+}
+
 const lireCommande = async (id) => {
   const db = await ouvrirDb();
   const c = await transiger(db, "readonly", (s) => s.get(id));
@@ -732,6 +793,10 @@ async function purger() {
  *  L'Edge parle seul à l'API Chariow : le navigateur nomme une OFFRE, jamais un produit. */
 const CHECKOUT_API =
   "https://uhsireqwzqqymgsxuvqh.supabase.co/functions/v1/checkout";
+
+/** Base des surfaces d'après-paiement. ⚠️ Cet hôte est le SEUL de `connect-src` (`landing/_headers`) :
+ *  un `fetch` même-origine y serait bloqué, et un autre hôte aussi. */
+const ORDERS_API = "https://uhsireqwzqqymgsxuvqh.supabase.co/functions/v1";
 
 /**
  * Indicatifs proposés au paiement — les huit pays servis d'abord (le marché), puis la CEDEAO,
@@ -1018,6 +1083,27 @@ function ouvrirPaiement(url, cmd) {
 $("#paymclose").addEventListener("click", () => fermerPaiement(4));
 
 let enCours = false;
+/** Ce que la mise à niveau refuse, DIT AVANT LE PAIEMENT — jamais après. */
+function direRefusUpgrade(raison, nom) {
+  if (raison === "type") {
+    toast(
+      L([
+        `La mise à niveau ne traite que le PDF — « ${nom} » n'en est pas un. Exportez votre document en PDF, ou écrivez-nous à contact@pharnos.com.`,
+        `The upgrade only handles PDF — “${nom}” is not one. Export your document to PDF, or write to contact@pharnos.com.`,
+      ]),
+    );
+  } else if (raison === "taille") {
+    toast(
+      L([
+        `« ${nom} » dépasse ${tailleLisible(MAX_UPGRADE_OCTETS, lang)}. Un export PDF sans les images de fond passe presque toujours — sinon écrivez-nous, nous le traitons à la main.`,
+        `“${nom}” exceeds ${tailleLisible(MAX_UPGRADE_OCTETS, lang)}. A PDF export without background images almost always fits — otherwise write to us and we handle it manually.`,
+      ]),
+    );
+  } else {
+    toast(L([`« ${nom} » est vide.`, `“${nom}” is empty.`]));
+  }
+}
+
 async function acheter(offre) {
   if (enCours) return;
   const v = validerFichier(S.fichier);
@@ -1027,6 +1113,33 @@ async function acheter(offre) {
     );
     $("#udrop").focus();
     return;
+  }
+  // ⚠️ SEUL LE RCP EST LIVRABLE AUJOURD'HUI. La notice et l'étiquetage sont au catalogue, mais leur
+  // assemblage n'existe pas encore : encaisser 19 000 F pour un document que la chaîne ne sait pas
+  // livrer ferait mourir la commande APRÈS la dépense moteur. Le refus tombe ici, avant tout
+  // paiement — et le serveur refuse de toute façon au dépôt (double ceinture).
+  if (!docTypeLivrable(S.doc)) {
+    toast(
+      L([
+        "La mise à niveau de ce type de document ouvre bientôt — seul le RCP est traité pour l'instant. Écrivez-nous à contact@pharnos.com pour être prévenu.",
+        "Upgrading this document type opens soon — only the SmPC is handled for now. Write to contact@pharnos.com to be notified.",
+      ]),
+    );
+    return;
+  }
+  // ⚠️ LE CHEMIN PAYANT EST PLUS ÉTROIT QUE LA BIBLIOTHÈQUE, et le dire ici est la seule fenêtre où
+  // c'est gratuit. La page accepte `.doc`/`.docx` jusqu'à 40 Mo — juste pour un outil gratuit, faux
+  // pour le moteur, qui lit du PDF et joint la pièce à chaque appel. Sans ce refus, le pont
+  // déclarait `application/pdf` en dur pour un `.docx` : le mimetype enregistré dans Storage étant
+  // celui que le client déclare, le mensonge neutralisait les DEUX gardes du serveur, brûlait un
+  // dépôt sur trois, et le document ressortait refusé sans qu'aucun écran sache dire pourquoi.
+  for (const f of [S.fichier, ...[...bundleFichiers.values()]]) {
+    const refus = refusFichierUpgrade(f);
+    if (refus) {
+      direRefusUpgrade(refus, f?.name ?? "");
+      $("#udrop").focus();
+      return;
+    }
   }
   const identite = {
     prenom: $("#payprenom").value.trim(),
@@ -1269,9 +1382,9 @@ function ouvrirRappel(cmd) {
   );
 }
 
-/** Confirmation de retour de paiement. Elle dit ce que nous SAVONS — la commande est enregistrée,
- *  le document est retrouvé — et ce qu'il reste à faire : nous le transmettre. Elle ne prétend
- *  pas avoir reçu le fichier, et elle ne revend rien. */
+/** Confirmation de retour de paiement. Elle dit ce que nous SAVONS, et le PONT fait le reste :
+ *  il attend que le serveur ait vu le règlement, envoie le document, puis emmène l'acheteur sur sa
+ *  page de suivi. Elle ne prétend jamais avoir reçu ce qui n'est pas encore parti. */
 function ouvrirConfirmation(cmd) {
   const m = MODELES_FICHIERS[cmd.doc];
   $("#upgtitle").textContent = L([
@@ -1286,42 +1399,313 @@ function ouvrirConfirmation(cmd) {
   const offre = trois
     ? L(["les trois documents", "all three documents"])
     : L(["un document", "one document"]);
-  // Le récapitulatif nomme TOUS les fichiers reçus : sur un bundle, l'acheteur doit voir que
-  // ses trois documents sont bien là et n'a plus rien à envoyer.
-  const recus = [
-    `${cmd.nomFichier} (${tailleLisible(cmd.octets, lang)})`,
-    ...(cmd.annexes ?? []).map(
-      (a) => `${a.nomFichier} (${tailleLisible(a.octets, lang)})`,
-    ),
-  ];
+  // ⚠️ LE RÉCAPITULATIF NE NOMME QUE CE QUI PART. Il annonçait les trois fichiers d'un bundle comme
+  // « reçus » — alors que le pont n'en transmet qu'un et que les deux autres sont effacés de
+  // l'appareil au bout de sept jours. Un acheteur qui lit « vos trois documents sont là » ferme son
+  // onglet et perd deux documents payés, sans qu'aucun écran ne l'ait prévenu. Tant que le compteur
+  // de dépôts est de 3 par COMMANDE et non par document (hors périmètre, PLAN-UPGRADE-PROD §4),
+  // c'est le message qui doit dire la vérité, pas le code qui doit faire semblant.
   $("#cfmrecap").textContent =
     `${L(m.nom)} · ${nomPays(cmd.pays)} · ${libelleActivite(cmd.activite)} · ${offre}` +
-    ` · ${recus.join(" · ")}`;
-  // ⚠️ NE JAMAIS écrire que les documents sont « entre nos mains ». Ils ne le sont pas : rien
-  // dans ce dépôt ne les téléverse — ils vivent dans l'IndexedDB de l'acheteur, purgée au TTL.
-  // Le bouton ci-dessous EST le transport. Annoncer une réception qui n'existe pas ferait
-  // fermer l'onglet à un client qui a payé, et son document disparaîtrait sept jours plus tard.
-  const pluriel = recus.length > 1;
-  $("#cfmnext").textContent = L([
-    `Dernière étape : ${pluriel ? "vos documents sont prêts" : "votre document est prêt"} à partir. Nous ouvrons l'e-mail, référence déjà inscrite — ${pluriel ? "joignez-les" : "joignez-le"} et envoyez. Les livrables vous reviennent par le même canal.`,
-    `Last step: your ${pluriel ? "documents are" : "document is"} ready to go. We open the e-mail with the reference already filled in — attach and send. The deliverables come back the same way.`,
-  ]);
-  $("#cfmsend").hidden = false;
-  $("#cfmsend").textContent = pluriel
-    ? L(["Envoyer mes documents", "Send my documents"])
-    : L(["Envoyer mon document", "Send my document"]);
+    ` · ${cmd.nomFichier} (${tailleLisible(cmd.octets, lang)})`;
+  if (trois) {
+    $("#cfmdesc-trio").hidden = false;
+    $("#cfmdesc-trio").textContent = L([
+      `Seul ${cmd.nomFichier} part maintenant au traitement. Pour les deux autres documents du lot, écrivez-nous à contact@pharnos.com en rappelant la référence ${cmd.id.slice(0, 8)} — ils sont compris dans votre commande.`,
+      `Only ${cmd.nomFichier} goes to processing now. For the two other documents in the bundle, write to contact@pharnos.com quoting reference ${cmd.id.slice(0, 8)} — they are included in your order.`,
+    ]);
+  } else {
+    $("#cfmdesc-trio").hidden = true;
+  }
+  // ⚠️ NE JAMAIS annoncer une réception qui n'a pas eu lieu. Tant que le pont n'a pas rendu la
+  // main, le document est encore dans l'IndexedDB de l'acheteur — et rien n'autorise à le laisser
+  // fermer son onglet. C'est `franchirLePont` qui écrit ici, état par état.
+  $("#cfmsend").hidden = true;
   const retour = $("#cfmback");
   retour.href = retourBiblio();
   retour.textContent = L(["Retour à la bibliothèque", "Back to the library"]);
-  $("#cfmsend").onclick = () => {
-    window.location.href = mailtoCommande(cmd);
-  };
   etapePanneau(3);
   ouvrirModale("#upg", null);
+  franchirLePont(cmd);
 }
 
-/** Retour de paiement : on retrouve le document conservé et on le remet sous les yeux du client.
- *  L'envoi au traitement appartient au worker, pas à cette page. */
+/* ══ Le pont — du règlement à la page de livraison ══
+ *
+ * Trois gestes, dans cet ordre, et l'ordre est la spécification :
+ *
+ *   1. **Attendre que le SERVEUR ait vu le règlement.** Le Pulse Chariow peut arriver après le
+ *      client ; `order-claim` répond « pas encore » tant que la commande n'existe pas. Rien ici
+ *      n'accorde de droit : `?paiement=ok` ne fait que déclencher cette interrogation.
+ *   2. **Envoyer le document**, sur une URL signée que le serveur calcule.
+ *   3. **Emmener l'acheteur sur `app.pharnos.com/u/{token}`**, où tout l'après-paiement se passe.
+ *
+ * Si l'un des trois échoue, l'e-mail n°1 porte le même lien : le parcours n'est jamais sans issue,
+ * et le message le DIT plutôt que de laisser un sablier tourner. */
+
+/** Le pont ne se franchit qu'une fois : la confirmation peut s'ouvrir deux fois (guet du cadre,
+ *  puis reprise au chargement), et deux ponts en parallèle demanderaient deux URL de dépôt —
+ *  donc consommeraient DEUX dépôts sur les trois d'une commande payée. */
+let pontEnCours = false;
+
+/** Ce que l'acheteur lit pendant que le pont travaille. */
+function direPont(texte, note) {
+  $("#cfmnext").textContent = texte;
+  $("#cfmfoot").textContent = note ?? "";
+}
+
+const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Appel JSON d'une surface d'après-paiement. Rend `{ status, corps }` — un échec réseau devient
+ *  `status: 0`, jamais une exception : le pont décide, il ne se laisse pas interrompre. */
+async function appelOrders(chemin, corps, delaiMs = 20000) {
+  try {
+    const res = await fetch(`${ORDERS_API}/${chemin}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(corps),
+      signal: AbortSignal.timeout(delaiMs),
+    });
+    const lu = await res.json().catch(() => ({}));
+    return { status: res.status, corps: lu };
+  } catch {
+    return { status: 0, corps: {} };
+  }
+}
+
+/** Étape 1 — le jeton, contre la référence, dès que le webhook est passé.
+ *
+ *  ⚠️ La borne est une ÉCHÉANCE, pas un compteur de pauses. `ATTENTE_MAX_MS` ne totalisait que les
+ *  `dormir()` : chaque tentative pouvait ajouter 20 s de délai réseau, soit ~7 minutes réelles sous
+ *  un écran qui promet « quelques secondes ». Une boucle dont la borne ignore le temps passé dans
+ *  ses appels n'est pas bornée. */
+async function reclamerJeton(ref) {
+  const fin = Date.now() + ATTENTE_MAX_MS;
+  for (let essai = 0; ; essai++) {
+    const attente = delaiClaim(essai);
+    if (attente === null || Date.now() > fin) return { etat: "trop_long" };
+    if (attente) await dormir(attente);
+    const { status, corps } = await appelOrders(
+      "order-claim",
+      { ref },
+      CLAIM_TIMEOUT_MS,
+    );
+    const lu = lireClaim(status, corps);
+    if (lu.etat !== "attente") return lu;
+  }
+}
+
+/** Étape 2 — le document part. Rend `true` s'il est bien arrivé.
+ *
+ *  ⚠️ L'URL de dépôt est demandée UNE fois : c'est elle qui décompte un dépôt sur les trois. Le
+ *  PUT, lui, se retente sur la même URL — la clé est dérivée du job et `x-upsert` autorise la
+ *  réécriture, donc un micro-trou réseau ne coûte rien à quelqu'un qui a payé. */
+async function envoyerDocument(token, cmd) {
+  const fichier = cmd.fichier;
+  if (!(fichier instanceof Blob)) return false;
+
+  // ⚠️ Ne rien envoyer sous un type que le serveur ne connaît pas : il le rangerait ailleurs, et la
+  // porte jugerait le document contre le mauvais gabarit. Mieux vaut laisser la page de suivi le
+  // redemander que de brûler un dépôt sur un malentendu de vocabulaire.
+  const docType = docTypeServeur(cmd.doc);
+  if (!docType) return false;
+
+  // ⚠️ Ceinture du refus posé avant le paiement : un fichier restauré depuis une commande plus
+  // ancienne n'est pas repassé par `acheter()`. Ne JAMAIS déclarer `application/pdf` sur autre
+  // chose — c'est ce mensonge qui neutralisait les deux gardes du serveur.
+  if (
+    refusFichierUpgrade(
+      fichier ? { name: cmd.nomFichier ?? "", size: fichier.size } : null,
+    )
+  ) {
+    return false;
+  }
+
+  // ⚠️ LE DÉPÔT SE RÉSERVE AVANT L'APPEL, PAS APRÈS SA RÉPONSE. `order-upload-url` décompte à la
+  // RÉCEPTION de la requête : une réponse perdue — coupure, 503 sur l'une des écritures qui suivent
+  // — laissait le compteur débité et le drapeau faux, donc un dépôt de plus au retour suivant.
+  // `reserverDepot` lit et écrit dans une seule transaction : c'est aussi le verrou inter-onglets.
+  if (!(await reserverDepot(cmd.id))) return false;
+
+  const { status, corps } = await appelOrders("order-upload-url", {
+    token,
+    size: fichier.size,
+    docType,
+    contentType: "application/pdf",
+    // ⚠️ Pays, activité et nom du fichier : choisis dans la modale AVANT le paiement, et sans ce
+    // transport ils mouraient dans IndexedDB — la mention de vigilance 4.8, celle qui varie par
+    // pays, n'entrait alors dans AUCUN prompt. Le serveur valide et n'invente jamais.
+    sourceName: cmd.nomFichier ?? fichier.name ?? null,
+    // ⚠️ MAJUSCULES : le manifeste porte `bj`, `ci`… et le serveur valide `^[A-Z]{2}$` — envoyé
+    // tel quel, le pays était jeté en silence et la mention 4.8 n'entrait dans aucun prompt.
+    country: (cmd.pays ?? "").toUpperCase() || null,
+    activity: cmd.activite ?? null,
+  });
+  // ⚠️ `uploadToken` se vérifie AUSSI : un `Bearer undefined` part au PUT, échoue en 403 non
+  // retentable — et le dépôt, lui, vient d'être consommé.
+  if (
+    status !== 200 ||
+    typeof corps.uploadUrl !== "string" ||
+    typeof corps.uploadToken !== "string"
+  ) {
+    return false;
+  }
+
+  for (let essai = 1; essai <= PUT_ESSAIS; essai++) {
+    let code = null;
+    try {
+      const res = await fetch(corps.uploadUrl, {
+        method: "PUT",
+        headers: {
+          authorization: `Bearer ${corps.uploadToken}`,
+          "content-type": "application/pdf",
+          // Un dépôt interrompu puis relancé écrit la MÊME clé : sans cela, le second essai
+          // échouerait en 409 sur un job qui vient pourtant de consommer sa tentative.
+          "x-upsert": "true",
+        },
+        body: fichier,
+        // ⚠️ Un PUT sans délai de garde est un sablier définitif : une radio mobile qui change de
+        // réseau laisse la promesse pendante, l'écran reste sur « Ne fermez pas cette page », le
+        // dépôt est consommé, et ni la reprise ni la sortie de secours ne sont jamais atteintes.
+        // L'abandon retombe sur `code = null`, donc retentable — le bon comportement.
+        signal: AbortSignal.timeout(90000),
+      });
+      if (res.ok) return true;
+      code = res.status;
+    } catch {
+      code = null; // la requête n'a jamais abouti
+    }
+    if (!putRetentable(code) || essai === PUT_ESSAIS) return false;
+    await dormir(PUT_ATTENTE_MS * essai);
+  }
+  return false;
+}
+
+/** L'issue de secours, et elle n'est jamais vide : l'e-mail n°1 porte le même lien de suivi. */
+function renvoyerVersEmail(texte) {
+  direPont(
+    texte,
+    L([
+      "Votre règlement est bien enregistré — rien n'est perdu.",
+      "Your payment is recorded — nothing is lost.",
+    ]),
+  );
+  $("#cfmsend").hidden = true;
+}
+
+async function franchirLePont(cmd) {
+  if (pontEnCours) return;
+  pontEnCours = true;
+  try {
+    direPont(
+      L([
+        "Nous confirmons votre règlement auprès de la banque…",
+        "Confirming your payment with the bank…",
+      ]),
+      L([
+        "Quelques secondes — ne fermez pas cette page.",
+        "A few seconds — please keep this page open.",
+      ]),
+    );
+
+    const jeton = await reclamerJeton(cmd.id);
+    if (jeton.etat === "expire") {
+      renvoyerVersEmail(
+        L([
+          "Le lien de cette commande a expiré. Écrivez-nous à contact@pharnos.com avec votre référence.",
+          "This order's link has expired. Write to contact@pharnos.com with your reference.",
+        ]),
+      );
+      return;
+    }
+    if (jeton.etat === "voir_email") {
+      // La commande EXISTE — c'est le plafond de jetons qui est atteint —, donc l'e-mail n°1 est
+      // bien parti. Ici, l'affirmer est vrai.
+      renvoyerVersEmail(
+        L([
+          "Nous vous avons envoyé par e-mail le lien de suivi de cette commande — ouvrez-le pour déposer votre document.",
+          "We have e-mailed you this order's tracking link — open it to upload your document.",
+        ]),
+      );
+      return;
+    }
+    if (jeton.etat !== "pret") {
+      // ⚠️ `trop_long` N'EST PAS `voir_email`, et les confondre faisait affirmer un envoi qui n'a
+      // pas eu lieu. Recevoir « pas encore » pendant toute la boucle signifie que la commande
+      // N'EXISTE PAS ENCORE côté serveur — donc qu'aucun e-mail n'est parti, et que si le Pulse a
+      // échoué, aucun ne partira. On ne promet donc rien : on donne la référence, qui est la seule
+      // chose que l'acheteur possède et que le support sait retrouver.
+      renvoyerVersEmail(
+        L([
+          `Votre règlement est enregistré, mais notre confirmation tarde. Référence ${cmd.id} — si vous ne recevez rien d'ici une heure, écrivez-nous à contact@pharnos.com en la citant.`,
+          `Your payment is recorded, but our confirmation is delayed. Reference ${cmd.id} — if you receive nothing within the hour, write to contact@pharnos.com quoting it.`,
+        ]),
+      );
+      return;
+    }
+
+    // ⚠️ LE PONT NE SE FRANCHIT QU'UNE FOIS, ET LA GARDE DOIT SURVIVRE À UN RECHARGEMENT.
+    //
+    // `pontEnCours` est une variable de module : elle meurt avec la page. Or `?paiement=ok` reste
+    // dans l'historique, la référence vit sept jours dans `localStorage`, et `reprendre()` relance
+    // donc tout le pont à chaque rechargement, retour arrière ou réouverture d'onglet. Chaque
+    // passage redemandait une URL de dépôt — et `order-upload-url` en CONSOMME un sur trois par
+    // compare-and-swap. Trois visites suffisaient à verrouiller une commande payée.
+    //
+    // Le drapeau vit donc où vit le document : dans la commande, en IndexedDB. Il marque le dépôt
+    // CONSOMMÉ (posé dans `envoyerDocument`, dès que le serveur a décompté), pas le téléversement
+    // réussi — sans quoi un PUT raté sur réseau instable rouvrait exactement la même boucle.
+    let envoye = cmd.depotFait === true;
+    if (!envoye) {
+      direPont(
+        L(["Envoi de votre document…", "Uploading your document…"]),
+        L(["Ne fermez pas cette page.", "Please keep this page open."]),
+      );
+      envoye = await envoyerDocument(jeton.token, cmd);
+    }
+
+    // ⚠️ On redirige MÊME si l'envoi a échoué. La page de suivi sait redemander le fichier ; y
+    // laisser l'acheteur avec un message d'erreur sur la landing, lui, l'y laisserait pour de bon.
+    direPont(
+      envoye
+        ? L([
+            "Document reçu. Nous ouvrons votre page de suivi…",
+            "Document received. Opening your tracking page…",
+          ])
+        : L([
+            "Votre commande est ouverte. Nous vous emmenons y déposer votre document…",
+            "Your order is open. Taking you there to upload your document…",
+          ]),
+      "",
+    );
+    // ⚠️ BUNDLE `up3` — seul le document principal traverse le pont. Le compteur de dépôts
+    // (3 par COMMANDE, contrainte SQL de `0083`) est calibré pour un document et ses deux
+    // reprises : téléverser trois documents épuiserait les trois dépôts et ne laisserait aucune
+    // seconde chance. Les deux autres restent dans l'IndexedDB de l'acheteur et se traitent avec
+    // le support, jusqu'à ce que le bundle ait son propre compteur — le plan le range hors
+    // périmètre tant qu'un `up1` n'a pas réussi de bout en bout (PLAN-UPGRADE-PROD §4).
+    // ⚠️ `replace` et NON `href` : `href` empile une entrée d'historique, et depuis `/u/{token}` le
+    // geste réflexe « Retour » ramenait sur `/modele?paiement=ok`, où `reprendre()` rejouait TOUT
+    // le pont — un jeton de plus frappé (plafond de 12 par commande) et, avant la réservation du
+    // dépôt, une tentative de plus consommée. La page de retour n'est pas une étape à revisiter.
+    window.location.replace(
+      urlLivraison(jeton.token, window.location.hostname),
+    );
+  } catch (e) {
+    console.error("pont", e);
+    renvoyerVersEmail(
+      L([
+        "Nous vous avons envoyé par e-mail le lien de suivi de cette commande.",
+        "We have e-mailed you this order's tracking link.",
+      ]),
+    );
+  } finally {
+    pontEnCours = false;
+  }
+}
+
+/** Retour de paiement : on retrouve le document conservé, on le remet sous les yeux du client, et
+ *  la confirmation lance le PONT. Un rafraîchissement de cette page repasse par le même chemin —
+ *  `order-claim` est idempotent côté commande, et `pontEnCours` empêche deux ponts en parallèle. */
 async function reprendre() {
   // `?commande=` si le prestataire relaie notre référence ; sinon `?paiement=ok` et la référence
   // gardée avant le départ. Les deux chemins mènent au même document.
