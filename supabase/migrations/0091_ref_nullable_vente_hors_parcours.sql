@@ -1,0 +1,16 @@
+-- 0091 — `orders.ref` devient nullable : la vente HORS PARCOURS crée quand même sa commande.
+--
+-- La frontière SQL↔code, encore elle (même famille que le 23514 de l'e-mail n°2, corrigé en 0089) :
+-- `lireVente` rend `ref: null` pour une vente conclue hors de notre parcours — lien de produit
+-- Chariow ouvert directement, commande créée en console — et son commentaire promet « la commande
+-- se crée quand même, seul le PONT est indisponible ». Mais la colonne était `not null` : l'insert
+-- de `chariow-pulse` échouait en 23502, répondait 503, et après les cinq rejeux de Chariow (24 h),
+-- plus rien. Un acheteur qui a payé, sans commande, sans e-mail, sans trace chez nous.
+--
+-- Trouvé à la répétition générale U6 du 2026-08-10, AVANT la première vente réelle — pas après.
+--
+-- `unique` reste : Postgres n'indexe pas les NULL dans une contrainte d'unicité, donc plusieurs
+-- commandes sans référence coexistent, et une référence PRÉSENTE reste unique. `order-claim`, lui,
+-- exige déjà un UUID strict (`isValidRef`) : un `ref` nul est simplement inatteignable par le pont,
+-- et l'e-mail n°1 devient le seul chemin d'accès — le comportement que le code documentait.
+alter table public.orders alter column ref drop not null;
