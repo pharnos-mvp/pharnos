@@ -7,6 +7,8 @@
 // mécanisme ne voyait, un rapport qui affirmait « Aucun constat » parce que le tableau des constats
 // avait échoué. Tout ce qui DÉCIDE vit désormais ici.
 
+import { REPORT_PART_TIMEOUT_MS } from './report-core.ts'
+
 /** Rubriques d'une phase, telles que la base les compte. */
 export interface CompteurPhase {
   /** `queued` encore réclamables (`attempts` sous le plafond). */
@@ -138,10 +140,16 @@ export function classerEchec(e: unknown, attempts: number, max = 3): 'failed' | 
  *    l'invariant « un timeout ne se rejoue jamais » en faisait une rubrique perdue ET payée ;
  *  • en revue, sous le plancher de `generateReportPart` (15 s), qui lève AVANT tout appel — la
  *    tentative était donc brûlée pour rien, et trois fois de suite cassaient le rapport.
+ *
+ * ⚠️ Et 20 s en revue reproduisaient le piège de la conformité UN CRAN plus haut (recette
+ * 2026-08-10) : un tableau peut légitimement consommer son plafond entier, et un timeout est
+ * DÉFINITIF — un tableau lancé en fin de fenêtre expirait en échec terminal au lieu d'attendre le
+ * tick suivant, à 30 s de là. La tranche de revue vaut donc LE PLAFOND, structurellement : elle ne
+ * peut plus repasser dessous sans que ce fichier cesse de compiler.
  */
 export function trancheMinMs(phase: string): number {
   if (phase === 'conformity') return 25_000
-  if (phase === 'report') return 20_000
+  if (phase === 'report') return REPORT_PART_TIMEOUT_MS
   return 18_000
 }
 

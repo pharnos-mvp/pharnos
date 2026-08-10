@@ -3,6 +3,7 @@ import { assertEquals } from 'jsr:@std/assert@1'
 
 import { AnthropicOutputError } from './ai/anthropic.ts'
 import { SectionOutputError } from './ai/section-schema.ts'
+import { REPORT_PART_TIMEOUT_MS } from './report-core.ts'
 import { HttpError } from './retry.ts'
 import {
   classerEchec,
@@ -110,8 +111,15 @@ Deno.test('tranche : chaque phase reste AU-DESSUS du seuil qu’elle doit proté
   // Conformité : le pire cas mesuré d'une rubrique est 22 s. En deçà, l'appel part, expire, et
   // l'invariant « un timeout ne se rejoue jamais » en fait une rubrique perdue ET payée.
   assertEquals(trancheMinMs('conformity') > 22_000, true)
-  // Revue : `generateReportPart` REFUSE de partir sous 15 s — la tentative serait brûlée sans appel.
-  assertEquals(trancheMinMs('report') > 15_000, true)
+  // Revue : un tableau peut consommer son plafond ENTIER (recette 2026-08-10 — `relocations` a
+  // dépassé les 60 s d'alors), et un timeout est définitif. La tranche vaut donc le plafond :
+  // un tableau lancé sans la piste entière attendrait le tick suivant au lieu de mourir.
+  assertEquals(trancheMinMs('report'), REPORT_PART_TIMEOUT_MS)
+  // Et le plafond doit TENIR dans la fenêtre d'une invocation : budget 115 s (mur Edge 150 s
+  // − 35 s de prélude, `BUDGET_INVOCATION_MS`) moins la marge d'écriture de 8 s
+  // (`MARGE_ECRITURE_MS`, job-tick/index.ts) — sinon plus aucune ligne de revue n'est jamais
+  // réclamée et le rapport ne démarre pas.
+  assertEquals(REPORT_PART_TIMEOUT_MS + 8_000 <= 150_000 - 35_000, true)
   assertEquals(trancheMinMs('translation') > 15_000, true)
 })
 

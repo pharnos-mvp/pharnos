@@ -59,11 +59,20 @@ import type { OutputLang, SectionOutcome } from './upgrade-section-core.ts'
  */
 export const REPORT_BUDGET_MS = 118_000
 /**
- * Plafond d'UN appel de tableau. Un quart de la sortie, donc très loin des 114 s de l'appel unique :
- * ce n'est pas une cible, c'est le garde-fou qui rend impossible le retour du problème qu'on vient
- * de corriger. Un tableau qui s'en approcherait signalerait une dérive à mesurer, pas à relever.
+ * Plafond d'UN appel de tableau.
+ *
+ * ⚠️ Il valait 60 s — « très loin des 114 s de l'appel unique » — et la PREMIÈRE commande réelle
+ * l'a démenti (recette 2026-08-10) : `relocations` a dépassé 60 s sur un RCP de 27 k caractères,
+ * et comme un timeout est une raison DÉFINITIVE (jamais rejouée), la commande est morte après les
+ * ~60 appels payés des deux premières passes. Le chiffre était une projection, pas une mesure —
+ * le même défaut que les « 2,6 min à concurrence 6 ».
+ *
+ * 100 s est ce que la fenêtre d'invocation du worker sait HÉBERGER en entier : budget 115 s
+ * (mur Edge 150 s − 35 s de prélude), moins la marge d'écriture de 8 s et la latence de
+ * réclamation. Exporté parce que `trancheMinMs('report')` DOIT valoir ce plafond : lancer un
+ * tableau sans la piste entière, c'est transformer une fin de fenêtre en échec définitif.
  */
-const REPORT_PART_TIMEOUT_MS = 60_000
+export const REPORT_PART_TIMEOUT_MS = 100_000
 /**
  * Temps qu'un appel de tableau doit pouvoir consommer pour valoir la peine d'être LANCÉ. En deçà,
  * on l'abandonne : un appel tué en vol par la plateforme est payé et ne rend rien (§ « le coût
