@@ -23,10 +23,7 @@ import {
   flattenRubrics,
   type RubricSpec,
 } from "../../../supabase/functions/_shared/conformity-specs.ts";
-import {
-  MISSING_MARKER,
-  MISSING_MARKER_EN,
-} from "../../../supabase/functions/_shared/upgrade-section-core.ts";
+import { MISSING_MARKER } from "../../../supabase/functions/_shared/upgrade-section-core.ts";
 import {
   assembleDocument,
   type LigneAssemblage,

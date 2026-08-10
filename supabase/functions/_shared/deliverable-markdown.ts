@@ -148,10 +148,12 @@ export function assembleDocument(
 }
 
 /**
- * Ligne de contexte certifié portant l'ACTIVITÉ réglementaire — partagée entre l'Edge authentifiée
- * (`upgrade/index.ts`) et le worker (`job-tick`).
+ * Ligne de contexte certifié portant l'ACTIVITÉ réglementaire — consommée par le worker
+ * (`job-tick`). Le texte est ALIGNÉ sur celui que l'Edge authentifiée fabrique elle-même
+ * (`upgrade/index.ts`, `dossierContextBlock`) ; les fusionner exigerait de toucher cette Edge,
+ * que l'invariant du chantier protège — l'alignement se vérifie à la lecture, pas par import.
  *
- * ⚠️ Deux vocabulaire coexistent : l'app dit `new_ma`, la landing dit `amm`/`renouv`. Les accepter
+ * ⚠️ Deux vocabulaires coexistent : l'app dit `new_ma`, la landing dit `amm`/`renouv`. Les accepter
  * tous ici évite la table de correspondance de plus — et le repli est le SILENCE, jamais une
  * consigne inventée : sans activité connue, le modèle traite les rubriques 8/9/10 depuis la seule
  * source, ce qui est le comportement par défaut du gabarit.
@@ -196,6 +198,17 @@ export function analyseDepuisParts(
     const brut = parts.get(nom) as Record<string, unknown> | null | undefined
     const liste = brut?.[nom]
     if (!Array.isArray(liste)) return { erreur: `tableau de revue absent : ${nom}` }
+    // ⚠️ Vide-par-ERREUR ≠ vide-par-constat. Le contrôle d'ancrage (`pruneUnverifiable`) peut
+    // écarter TOUTES les lignes d'un tableau — le compte est dans `droppedClaims`. Rendre alors la
+    // liste vide ferait écrire « Aucun. » dans le rapport : une AFFIRMATION fausse, le défaut
+    // `d224665` exactement. Un tableau intégralement écarté se refuse, il ne se tait pas.
+    const ecartees = brut?.droppedClaims
+    if (liste.length === 0 && Array.isArray(ecartees) && ecartees.length > 0) {
+      return {
+        erreur: `tableau ${nom} entièrement écarté par le contrôle d'ancrage : ` +
+          `le rapport affirmerait « Aucun. » à tort`,
+      }
+    }
     analyse[nom] = liste
   }
   return { analyse: analyse as unknown as ReportAnalysis }

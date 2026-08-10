@@ -156,5 +156,15 @@ Deno.test('revue : un TABLEAU absent fait refuser le rapport entier — « Aucun
   const casse = new Map(complet)
   casse.set('findings', { findings: 'pas une liste' })
   assertEquals('erreur' in analyseDepuisParts(casse), true)
+
+  // ⚠️ Et le tableau VIDÉ PAR L'ANCRAGE refuse : `pruneUnverifiable` peut écarter toutes les
+  // lignes (le compte est dans `droppedClaims`) — rendre alors « Aucun. » serait une affirmation
+  // fausse dans un rapport payé. Un tableau vide SANS écartées, lui, est un vrai constat.
+  const vide = new Map(complet)
+  vide.set('terminology', { terminology: [], droppedClaims: ['ligne écartée'] })
+  const refus = analyseDepuisParts(vide)
+  assertEquals('erreur' in refus, true)
+  assertMatch((refus as { erreur: string }).erreur, /ancrage/)
+  assertEquals('erreur' in analyseDepuisParts(complet), false)
 })
 

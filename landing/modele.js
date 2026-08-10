@@ -22,6 +22,7 @@ import {
   ATTENTE_MAX_MS,
   CLAIM_TIMEOUT_MS,
   delaiClaim,
+  docTypeLivrable,
   docTypeServeur,
   lireClaim,
   MAX_UPGRADE_OCTETS,
@@ -1113,6 +1114,19 @@ async function acheter(offre) {
     $("#udrop").focus();
     return;
   }
+  // ⚠️ SEUL LE RCP EST LIVRABLE AUJOURD'HUI. La notice et l'étiquetage sont au catalogue, mais leur
+  // assemblage n'existe pas encore : encaisser 19 000 F pour un document que la chaîne ne sait pas
+  // livrer ferait mourir la commande APRÈS la dépense moteur. Le refus tombe ici, avant tout
+  // paiement — et le serveur refuse de toute façon au dépôt (double ceinture).
+  if (!docTypeLivrable(S.doc)) {
+    toast(
+      L([
+        "La mise à niveau de ce type de document ouvre bientôt — seul le RCP est traité pour l'instant. Écrivez-nous à contact@pharnos.com pour être prévenu.",
+        "Upgrading this document type opens soon — only the SmPC is handled for now. Write to contact@pharnos.com to be notified.",
+      ]),
+    );
+    return;
+  }
   // ⚠️ LE CHEMIN PAYANT EST PLUS ÉTROIT QUE LA BIBLIOTHÈQUE, et le dire ici est la seule fenêtre où
   // c'est gratuit. La page accepte `.doc`/`.docx` jusqu'à 40 Mo — juste pour un outil gratuit, faux
   // pour le moteur, qui lit du PDF et joint la pièce à chaque appel. Sans ce refus, le pont
@@ -1521,7 +1535,9 @@ async function envoyerDocument(token, cmd) {
     // transport ils mouraient dans IndexedDB — la mention de vigilance 4.8, celle qui varie par
     // pays, n'entrait alors dans AUCUN prompt. Le serveur valide et n'invente jamais.
     sourceName: cmd.nomFichier ?? fichier.name ?? null,
-    country: cmd.pays ?? null,
+    // ⚠️ MAJUSCULES : le manifeste porte `bj`, `ci`… et le serveur valide `^[A-Z]{2}$` — envoyé
+    // tel quel, le pays était jeté en silence et la mention 4.8 n'entrait dans aucun prompt.
+    country: (cmd.pays ?? "").toUpperCase() || null,
     activity: cmd.activite ?? null,
   });
   // ⚠️ `uploadToken` se vérifie AUSSI : un `Bearer undefined` part au PUT, échoue en 403 non

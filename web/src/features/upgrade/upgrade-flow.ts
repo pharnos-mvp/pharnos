@@ -35,6 +35,14 @@ export interface ResumeCommande {
 export const DOC_TYPES = ['rcp', 'notice', 'labeling'] as const
 export type DocType = (typeof DOC_TYPES)[number]
 
+/**
+ * Ce que la chaîne sait LIVRER — jumeau de `DOC_TYPES_LIVRABLES` côté serveur. Le sélecteur de
+ * l'écran de dépôt n'offre QUE cela : proposer une notice que l'assemblage ne sait pas produire
+ * ferait mourir la commande après la dépense moteur. `DOC_TYPES` reste large pour LIRE ce que le
+ * serveur rend (`estDocType`) — une commande historique peut porter un autre type.
+ */
+export const DOC_TYPES_LIVRABLES: readonly DocType[] = ['rcp']
+
 export const estDocType = (v: unknown): v is DocType =>
   typeof v === 'string' && (DOC_TYPES as readonly string[]).includes(v)
 

@@ -59,6 +59,8 @@ export interface FichiersLivres {
   /** Caractères retirés des PDF — à MONTRER : un signe perdu peut changer le sens d'une ligne. */
   dropped: string[]
   zipName: string
+  /** La date de complétion serveur — celle des PDF, et celle des en-têtes du ZIP. */
+  created: Date
 }
 
 /**
@@ -92,20 +94,23 @@ export async function fabriquerFichiers(
     // à présenter comme la livraison.
     return { erreur: `${files.length} fichiers produits sur ${DELIVERABLE_FILE_COUNT}` }
   }
-  return { files, dropped, zipName: `${l.slug}-upgrade.zip` }
+  return { files, dropped, zipName: `${l.slug}-upgrade.zip`, created }
 }
 
-/** Le « tout télécharger » — chargé à la demande : jszip n'a rien à faire dans le chunk initial. */
+/**
+ * Le « tout télécharger » — chargé à la demande : jszip n'a rien à faire dans le chunk initial.
+ *
+ * ⚠️ La date de complétion est posée sur CHAQUE entrée : sans elle, jszip stampe l'horloge locale
+ * et deux archives du même contenu diffèrent. La reproductibilité à l'octet reste celle des trois
+ * PDF — les DOCX portent l'horodatage interne de la bibliothèque `docx`
+ * (`DOCX_NONDETERMINISTIC_ENTRY`), et l'archive en hérite : dire le contraire ferait croire au
+ * prochain lecteur une garantie qui n'existe pas.
+ */
 export async function fabriquerZip(fichiers: FichiersLivres): Promise<Blob> {
   const { default: JSZip } = await import('jszip')
   const zip = new JSZip()
-  for (const f of fichiers.files) zip.file(f.fileName, f.bytes)
-  return await zip.generateAsync({
-    type: 'blob',
-    // ⚠️ DÉTERMINISTE : sans date fixée, jszip stampe l'horloge locale dans chaque en-tête ZIP et
-    // deux archives du même contenu diffèrent. La recette compare des octets.
-    compression: 'DEFLATE',
-  })
+  for (const f of fichiers.files) zip.file(f.fileName, f.bytes, { date: fichiers.created })
+  return await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
 }
 
 /** Le type MIME d'un livrable, pour le téléchargement. */

@@ -47,7 +47,7 @@ import {
 } from './livraison'
 import {
   ACTIVITES,
-  DOC_TYPES,
+  DOC_TYPES_LIVRABLES,
   doitChercherSource,
   doitSonder,
   estDocType,
@@ -618,7 +618,7 @@ function EcranDepot({
             if (estDocType(e.target.value)) onDocType(e.target.value)
           }}
         >
-          {DOC_TYPES.map((d) => (
+          {DOC_TYPES_LIVRABLES.map((d) => (
             <option key={d} value={d}>
               {t(LIBELLES_DOC[d])}
             </option>
@@ -667,6 +667,9 @@ function EcranDepot({
         </label>
       )}
 
+      {/* ⚠️ Le fichier attend les réponses : poser une question et accepter le dépôt sans la
+          réponse enverrait `country: null` en silence — le trou même que le transport ferme. La
+          landing exige déjà pays et activité avant l'achat ; le même contrat vaut ici. */}
       <input
         ref={champ}
         type="file"
@@ -680,10 +683,23 @@ function EcranDepot({
           if (f) onFichier(f)
         }}
       />
-      <Button type="button" className="w-full" onClick={() => champ.current?.click()}>
+      <Button
+        type="button"
+        className="w-full"
+        disabled={(!paysConnu && !pays) || (!activiteConnue && !activite)}
+        onClick={() => champ.current?.click()}
+      >
         <Upload className="size-4" />
         {t({ fr: 'Choisir mon document (PDF)', en: 'Choose my document (PDF)' })}
       </Button>
+      {((!paysConnu && !pays) || (!activiteConnue && !activite)) && (
+        <p className="text-muted-foreground text-xs">
+          {t({
+            fr: 'Choisissez d’abord le pays et l’activité : ils commandent la mention de vigilance et les rubriques 8 à 10.',
+            en: 'Pick the country and activity first: they drive the vigilance mention and sections 8 to 10.',
+          })}
+        </p>
+      )}
 
       <p className="text-muted-foreground text-xs">
         {t({
@@ -819,10 +835,14 @@ function EcranLivraison({
 }) {
   const { t } = useI18n()
   const expire = resume?.expireLe ? new Date(resume.expireLe) : null
+  const [tentative, setTentative] = useState(0)
   const [etat, setEtat] = useState<
     | { quoi: 'fabrication' }
     | { quoi: 'prets'; fichiers: FichiersLivres }
-    | { quoi: 'echec'; raison: string }
+    // ⚠️ Deux échecs OPPOSÉS, et les confondre accusait le navigateur de tout : `definitif` = le
+    // serveur a refusé (livrable introuvable) — recharger est une boucle sans issue, le support
+    // est le seul chemin ; non définitif = réseau ou 429 — réessayer a un sens.
+    | { quoi: 'echec'; definitif: boolean }
   >({ quoi: 'fabrication' })
 
   useEffect(() => {
@@ -831,20 +851,20 @@ function EcranLivraison({
       try {
         const reponse = await lireLivrableApi(token)
         const livrable = lireLivrable((reponse as { livrable?: unknown }).livrable)
-        if ('erreur' in livrable) throw new Error(livrable.erreur)
+        if ('erreur' in livrable) throw new UpgradeApiError('refus', livrable.erreur)
         const fichiers = await fabriquerFichiers(livrable)
-        if ('erreur' in fichiers) throw new Error(fichiers.erreur)
+        if ('erreur' in fichiers) throw new UpgradeApiError('refus', fichiers.erreur)
         if (vivant) setEtat({ quoi: 'prets', fichiers })
       } catch (e) {
-        // ⚠️ Une fabrication qui échoue se DIT — jamais un bouton mort ni un écran qui prétend.
-        // La commande et le lien restent intacts : recharger refait tout, et le support existe.
-        if (vivant) setEtat({ quoi: 'echec', raison: e instanceof Error ? e.message : String(e) })
+        // Une fabrication qui échoue se DIT — jamais un bouton mort ni un écran qui prétend.
+        const definitif = e instanceof UpgradeApiError && e.raison === 'refus'
+        if (vivant) setEtat({ quoi: 'echec', definitif })
       }
     })()
     return () => {
       vivant = false
     }
-  }, [token])
+  }, [token, tentative])
 
   const telecharger = (nom: string, bytes: Uint8Array | Blob, mime: string) => {
     const blob = bytes instanceof Blob ? bytes : new Blob([bytes as BlobPart], { type: mime })
@@ -920,12 +940,33 @@ function EcranLivraison({
       )}
 
       {etat.quoi === 'echec' && (
-        <Encart ton="refus">
-          {t({
-            fr: 'La préparation de vos fichiers a échoué dans ce navigateur. Rechargez la page pour réessayer — et si cela persiste, écrivez-nous à contact@pharnos.com : votre dossier est terminé et en sécurité.',
-            en: 'Preparing your files failed in this browser. Reload the page to try again — if it persists, write to contact@pharnos.com: your dossier is complete and safe.',
-          })}
-        </Encart>
+        <>
+          <Encart ton="refus">
+            {etat.definitif
+              ? t({
+                  // ⚠️ PAS de conseil de rechargement sur un refus serveur : recharger rejouerait
+                  // le même 409 en boucle, sur un état que seul le support peut réparer.
+                  fr: 'Vos fichiers ne sont pas disponibles sur cette page. Écrivez-nous à contact@pharnos.com avec votre référence : votre dossier est terminé et en sécurité, nous vous le remettons directement.',
+                  en: 'Your files are not available on this page. Write to contact@pharnos.com with your reference: your dossier is complete and safe, we will hand it over directly.',
+                })
+              : t({
+                  fr: 'La connexion a échoué pendant la récupération de vos fichiers. Votre dossier est terminé et en sécurité — réessayez.',
+                  en: 'The connection failed while fetching your files. Your dossier is complete and safe — try again.',
+                })}
+          </Encart>
+          {!etat.definitif && (
+            <Button
+              type="button"
+              className="w-full"
+              onClick={() => {
+                setEtat({ quoi: 'fabrication' })
+                setTentative((n) => n + 1)
+              }}
+            >
+              {t({ fr: 'Réessayer', en: 'Try again' })}
+            </Button>
+          )}
+        </>
       )}
       {expire && (
         <p className="text-muted-foreground text-xs">

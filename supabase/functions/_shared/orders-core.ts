@@ -336,6 +336,21 @@ export const statutHttpObjetSource = (refus: VerdictObjetSource): number =>
  */
 export const DOC_TYPES_VENDABLES: ReadonlySet<string> = new Set(['rcp', 'notice', 'labeling'])
 
+/**
+ * Ce que la chaîne sait LIVRER aujourd'hui — et c'est plus étroit que le catalogue.
+ *
+ * ⚠️ La revue U5 l'a prouvé en exécutant : l'assemblage porte les en-têtes du RCP en dur et la
+ * table de titres EN ne couvre que ses rubriques. Une notice déposée aurait donc traversé les
+ * ~60 appels du moteur (~2 $) puis échoué À L'ASSEMBLAGE — commande `failed` après la dépense,
+ * le pire ordre possible. Le refus vit ici, AVANT le décompte du dépôt, avec un message qui dit
+ * la vérité : le processus notice/étiquetage suit le patron du RCP, il n'est pas encore construit
+ * (décision CEO : finaliser le RCP de bout en bout, puis s'en inspirer pour les deux autres).
+ *
+ * Ouvrir un type = l'ajouter ICI une fois son gabarit, ses titres EN et son en-tête d'assemblage
+ * en place — le test `deliverable-titles.test.ts` et l'assembleur refuseront tout raccourci.
+ */
+export const DOC_TYPES_LIVRABLES: ReadonlySet<string> = new Set(['rcp'])
+
 export interface DemandeDepot {
   docType: string
   size: number
@@ -373,6 +388,13 @@ export function lireDemandeDepot(body: unknown): DemandeDepot | { erreur: string
   if (brut && !DOC_TYPES_VENDABLES.has(brut)) {
     return { erreur: 'type de document inconnu' }
   }
+  if (brut && !DOC_TYPES_LIVRABLES.has(brut)) {
+    // Connu du catalogue mais pas encore livrable : refuser AVANT la dépense, en le disant.
+    return {
+      erreur:
+        'la mise à niveau de ce type de document ouvre bientôt — seul le RCP est traité pour l’instant',
+    }
+  }
 
   // ── Pays, activité, nom du fichier — le trou que U5 a découvert ───────────────────────────────
   //
@@ -387,7 +409,11 @@ export function lireDemandeDepot(body: unknown): DemandeDepot | { erreur: string
   //    lacune) ; un pays inventé injecterait la mention d'un autre pays dans un dossier réel ;
   //  • une activité hors vocabulaire est IGNORÉE : le silence laisse le gabarit décider, une
   //    consigne fausse ferait écrire « Sans objet » sur un renouvellement.
-  const paysBrut = texte(b.country, 8)
+  // ⚠️ `toUpperCase()` d'abord : la landing envoie `bj`, `ci`… (les clés de son manifeste), et le
+  // motif strict les jetait en silence — le trou « la 4.8 n'entre dans aucun prompt » restait
+  // ouvert sur le SEUL chemin de production, le pont. Majusculer un code ISO-2 n'est pas deviner,
+  // c'est normaliser ; un code hors format, lui, reste ignoré.
+  const paysBrut = texte(b.country, 8)?.toUpperCase() ?? null
   const country = paysBrut && /^[A-Z]{2}$/.test(paysBrut) ? paysBrut : null
   const activiteBrut = texte(b.activity, 40)
   const activity = activiteBrut === 'amm' || activiteBrut === 'renouv' ? activiteBrut : null
@@ -395,7 +421,9 @@ export function lireDemandeDepot(body: unknown): DemandeDepot | { erreur: string
   // contrôle, jamais utilisé comme clé — `sourceObjectKey` reste sans chaîne client.
   const nomBrut = texte(b.sourceName, 200)
   const sourceName = nomBrut
-    ? nomBrut.split('').filter((c) => c.charCodeAt(0) >= 0x20 && c.charCodeAt(0) !== 0x7f).join('')
+    ? nomBrut.split('')
+      .filter((c) => c.charCodeAt(0) >= 0x20 && c.charCodeAt(0) !== 0x7f && c !== '`')
+      .join('')
       .trim() || null
     : null
 

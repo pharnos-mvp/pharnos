@@ -61,6 +61,19 @@ const DOC_TYPE_SERVEUR = new Map([
 export const docTypeServeur = (doc) => DOC_TYPE_SERVEUR.get(doc) ?? null;
 
 /**
+ * Ce que la chaîne sait LIVRER aujourd'hui — jumeau de `DOC_TYPES_LIVRABLES` côté serveur.
+ *
+ * ⚠️ Vendable n'est pas livrable : l'assemblage U5 porte les en-têtes du RCP en dur et sa table de
+ * titres EN ne couvre que lui. Une notice vendue aurait traversé les ~60 appels du moteur (~2 $)
+ * puis échoué à l'assemblage — commande morte APRÈS la dépense. Le refus tombe AVANT le paiement,
+ * où il ne coûte rien et se dit ; le serveur refuse de toute façon au dépôt (double ceinture).
+ * Ouvrir la notice et l'étiquetage = construire leur gabarit d'assemblage, puis élargir les DEUX
+ * jumeaux — le processus suit le patron du RCP (décision CEO : finaliser le RCP, s'en inspirer).
+ */
+export const DOC_LIVRABLES = new Set(["rcp"]);
+export const docTypeLivrable = (doc) => DOC_LIVRABLES.has(doc);
+
+/**
  * Ce que la MISE À NIVEAU accepte — et ce n'est pas ce que la bibliothèque accepte.
  *
  * ⚠️ La page de la bibliothèque prend `.pdf`, `.doc` et `.docx` jusqu'à 40 Mo, ce qui est juste pour

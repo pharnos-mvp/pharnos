@@ -235,11 +235,13 @@ Deno.test('dépôt : la taille est bornée des DEUX côtés', () => {
   assertEquals('erreur' in lireDemandeDepot({ contentType: TYPE_SOURCE, size: MAX_SOURCE_BYTES + 1 }), true)
 })
 
-Deno.test('dépôt : le type de document retombe sur `rcp`, il ne fait pas échouer', () => {
+Deno.test('dépôt : un type ABSENT retombe sur `rcp` — le seul livrable aujourd’hui', () => {
+  // Un appelant qui ne se prononce pas n'est pas un appelant qui se trompe. Et le repli tombe sur
+  // `rcp` précisément parce que c'est le seul type que la chaîne sait LIVRER (cf. le test
+  // « vendable mais non livrable » plus bas — notice et labeling refusent tant que leur gabarit
+  // d'assemblage n'existe pas).
   const d = lireDemandeDepot({ contentType: TYPE_SOURCE, size: 10 })
   assertEquals((d as { docType: string }).docType, 'rcp')
-  const notice = lireDemandeDepot({ contentType: TYPE_SOURCE, size: 10, docType: 'notice' })
-  assertEquals((notice as { docType: string }).docType, 'notice')
 })
 
 Deno.test('dépôt : AUCUNE chaîne du client n’entre dans la clé Storage', () => {
@@ -311,11 +313,10 @@ Deno.test('dépôt : un type PRÉSENT mais inconnu fait REFUSER — il ne retomb
     const d = lireDemandeDepot({ contentType: TYPE_SOURCE, size: 10, docType: inconnu })
     assertEquals('erreur' in d, true, `accepté à tort : ${inconnu}`)
   }
-  // Les trois types VENDUS passent, chacun sous son propre nom.
-  for (const vendu of ['rcp', 'notice', 'labeling']) {
-    const d = lireDemandeDepot({ contentType: TYPE_SOURCE, size: 10, docType: vendu })
-    assertEquals((d as { docType: string }).docType, vendu, vendu)
-  }
+  // Le type LIVRABLE passe sous son propre nom ; les deux autres relèvent du test « vendable mais
+  // non livrable » — refusés AVANT la dépense tant que leur assemblage n'existe pas.
+  const rcp = lireDemandeDepot({ contentType: TYPE_SOURCE, size: 10, docType: 'rcp' })
+  assertEquals((rcp as { docType: string }).docType, 'rcp')
   // Un type ABSENT, lui, retombe sur `rcp` : c'est un appelant qui ne se prononce pas, pas un
   // appelant qui se trompe.
   assertEquals(
@@ -415,5 +416,34 @@ Deno.test('dépôt : pays, activité et nom de fichier voyagent — validés, ja
   assertEquals(mauvais.country, null)
   assertEquals(mauvais.activity, null)
   assertEquals(mauvais.sourceName, null)
+})
+
+Deno.test('dépôt : `bj` en minuscules PASSE — c’est la valeur RÉELLE de l’appelant réel', () => {
+  // ⚠️ Le manifeste de la landing porte `bj`, `ci`… en minuscules, et le motif strict `^[A-Z]{2}$`
+  // les jetait en SILENCE : le trou « la 4.8 n'entre dans aucun prompt » restait ouvert sur le
+  // seul chemin de production, le pont. Le test précédent vérifiait `benin` — jamais `bj`. Tester
+  // la valeur que l'appelant envoie VRAIMENT, pas celle qu'on imagine.
+  const d = lireDemandeDepot({ contentType: TYPE_SOURCE, size: 10, country: 'bj' }) as {
+    country: string | null
+  }
+  assertEquals(d.country, 'BJ')
+})
+
+Deno.test('dépôt : un type VENDABLE mais non LIVRABLE refuse AVANT la dépense, en le disant', () => {
+  // ⚠️ L'assemblage U5 est RCP seul (en-têtes en dur, titres EN du seul gabarit RCP) : une notice
+  // déposée aurait traversé ~60 appels (~2 $) puis échoué À L'ASSEMBLAGE — `failed` après la
+  // dépense, le pire ordre possible. Le refus vit à l'entrée, et son message dit la vérité.
+  for (const pasEncore of ['notice', 'labeling']) {
+    const d = lireDemandeDepot({ contentType: TYPE_SOURCE, size: 10, docType: pasEncore })
+    assertEquals('erreur' in d, true, pasEncore)
+    assertMatch((d as { erreur: string }).erreur, /ouvre bientôt/)
+  }
+  // Le backtick sort du nom : il part dans une portée de code markdown du livrable.
+  const nom = lireDemandeDepot({
+    contentType: TYPE_SOURCE,
+    size: 10,
+    sourceName: 'RCP `x` v2.pdf',
+  }) as { sourceName: string | null }
+  assertEquals(nom.sourceName, 'RCP x v2.pdf')
 })
 

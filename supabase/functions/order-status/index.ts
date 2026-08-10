@@ -125,11 +125,12 @@ Deno.serve(async (req) => {
 
   let lignes: LigneSection[] = []
   if (job) {
+    // ⚠️ JAMAIS le contenu des ~74 rubriques : les markdowns assemblés sont l'autorité depuis U5,
+    // et seule la rubrique 1 sert encore ici (le nom du produit → slug). L'ancienne sélection
+    // chargeait des centaines de kilo-octets pour en garder vingt caractères.
     const { data, error } = await sb
       .from('upgrade_sections')
-      // Le CONTENU n'est chargé que pour le livrable : en mode résumé, il pèserait des mégaoctets
-      // toutes les deux secondes pour afficher un compteur.
-      .select(corps.livrable ? 'section_id, phase, status, content' : 'section_id, phase, status')
+      .select('section_id, phase, status')
       .eq('job_id', job.id)
     if (error) return json({ error: 'db' }, 503, origin)
     lignes = (data ?? []) as unknown as LigneSection[]
@@ -175,8 +176,14 @@ Deno.serve(async (req) => {
   }
 
   // Le nom du produit se dérive de la rubrique 1 — même règle que l'assemblage : le nom des
-  // fichiers téléchargés doit porter le produit, pas un identifiant technique.
-  const rub1 = lignes.find((l) => l.phase === 'conformity' && l.section_id === '1')
+  // fichiers téléchargés doit porter le produit, pas un identifiant technique. UNE ligne, pas 74.
+  const { data: rub1 } = await sb
+    .from('upgrade_sections')
+    .select('content')
+    .eq('job_id', j.id)
+    .eq('phase', 'conformity')
+    .eq('section_id', '1')
+    .maybeSingle()
   const produit = produitDepuisRubrique1(
     (rub1?.content as { content?: string } | null)?.content,
   )

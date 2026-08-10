@@ -323,7 +323,7 @@ async function avancerPhase(sb: SupabaseClient, job: Job, log: Record<string, un
       // net s'il échoue (`marquerEchec`, avec alerte), et `done` seulement une fois les trois
       // textes ÉCRITS. Le tick suivant retrouve un job encore en `report` et réessaie — l'écriture
       // est idempotente.
-      const livrables = await assemblerLivrables(sb, job, log)
+      const livrables = await assemblerLivrables(sb, job)
       if ('erreur' in livrables) {
         await marquerEchec(sb, job, `assemblage du livrable : ${livrables.erreur}`)
         logJson({ ...log, status: 'assemblage_refuse', job: job.id.slice(0, 8) })
@@ -335,7 +335,7 @@ async function avancerPhase(sb: SupabaseClient, job: Job, log: Record<string, un
           deliverable_en: livrables.en,
           deliverable_report: livrables.rapport,
           phase: 'done',
-          finished_at: new Date().toISOString(),
+          finished_at: livrables.quand.toISOString(),
         })
         .eq('id', job.id)
         .neq('phase', 'done')
@@ -347,11 +347,15 @@ async function avancerPhase(sb: SupabaseClient, job: Job, log: Record<string, un
       }
       // ⚠️ `.select()` : seul le tick qui fait BASCULER la commande envoie l'e-mail n°2. Sans
       // cela, deux ticks porteurs de la même liste enverraient deux e-mails au même acheteur.
-      const { data: bascule } = await sb.from('orders')
+      // Et l'ERREUR est lue : un échec ici laisse un job `done` + livrable face à une commande
+      // `running` — l'état exact que `reconcilierBasculesPerdues` répare au tick suivant, à
+      // condition de savoir qu'il existe.
+      const { data: bascule, error: bascErr } = await sb.from('orders')
         .update({ status: 'done', delivered_at: new Date().toISOString() })
         .eq('id', job.order_id)
         .eq('status', 'running')
         .select('id')
+      if (bascErr) logJson({ ...log, status: 'bascule_perdue', job: job.id.slice(0, 8) })
       if (bascule?.length) await envoyerEmailLivraison(sb, job, log)
       logJson({ ...log, status: 'job_termine', job: job.id.slice(0, 8) })
     }
@@ -368,8 +372,8 @@ async function avancerPhase(sb: SupabaseClient, job: Job, log: Record<string, un
 async function assemblerLivrables(
   sb: SupabaseClient,
   job: Job,
-  log: Record<string, unknown>,
-): Promise<{ fr: string; en: string; rapport: string } | { erreur: string }> {
+): Promise<{ fr: string; en: string; rapport: string; quand: Date } | { erreur: string }> {
+  const quand = new Date()
   const { data: lignes, error } = await sb
     .from('upgrade_sections')
     .select('section_id, phase, status, content')
@@ -413,21 +417,20 @@ async function assemblerLivrables(
   // n'est pas un trou, l'assembleur pose le marqueur EN. Mais une rubrique RENSEIGNÉE sans
   // traduction fait refuser — l'assembleur s'en charge.
   const produit = produitDepuisRubrique1(conformite.get('1')?.content)
-  const meta = {
-    // Une rubrique 1 illisible ne devient JAMAIS « votre produit » : le titre du livrable porte
-    // alors le type de document seul, ce qui est vrai.
-    product: produit || DOC_SHORT[docType]?.[lang] || 'RCP',
+  // ⚠️ Chaque champ se replie PAR LANGUE, et le pays ne reste jamais vide : « Pays de dépôt :  · »
+  // dans un document déposé chez une autorité était le rendu réel du repli silencieux. Et une
+  // rubrique 1 illisible donnait « # RCP RCP » (le repli valait déjà le préfixe) — le titre dit
+  // désormais ce qu'on sait, une seule fois.
+  const metaPour = (l: 'fr' | 'en') => ({
+    product: produit || (l === 'fr' ? 'du document déposé' : 'the submitted document'),
     sourceName: job.source_name || 'document.pdf',
-    country,
-    activity: activityLabel(activite, lang),
-  }
-
-  const fr = assembleDocument('fr', spec, conformite, traductions, meta)
-  if (typeof fr !== 'string') return fr
-  const en = assembleDocument('en', spec, conformite, traductions, {
-    ...meta,
-    activity: activityLabel(activite, 'en'),
+    country: country || (l === 'fr' ? 'non précisé' : 'not specified'),
+    activity: activityLabel(activite, l),
   })
+
+  const fr = assembleDocument('fr', spec, conformite, traductions, metaPour('fr'))
+  if (typeof fr !== 'string') return fr
+  const en = assembleDocument('en', spec, conformite, traductions, metaPour('en'))
   if (typeof en !== 'string') return en
 
   // ── La revue : squelette déterministe + les quatre tableaux — PREMIER appelant en production ──
@@ -436,12 +439,17 @@ async function assemblerLivrables(
   // ⚠️ Dans l'ordre du GABARIT, jamais dans celui du plan d'exécution SQL : la liste des lacunes du
   // rapport suit cet ordre, et « la plus sérieuse » est la première — un ordre de base de données
   // ferait varier le rapport d'un run à l'autre sur le même document.
+  const brutesConformite = new Map(
+    lignes.filter((x) => x.phase === 'conformity').map((x) => [x.section_id, x.content]),
+  )
   const sections = flattenRubrics(spec)
     .map((r) => conformite.get(r.id))
     .filter((l): l is LigneAssemblage => Boolean(l))
     .map((l) => {
-      const brut = lignes.find((x) => x.phase === 'conformity' && x.section_id === l.sectionId)
-      const c = brut?.content as { ungrounded?: string[]; figuresAdvisory?: boolean } | null
+      const c = brutesConformite.get(l.sectionId) as
+        | { ungrounded?: string[]; figuresAdvisory?: boolean }
+        | null
+        | undefined
       return {
         sectionId: l.sectionId,
         title: l.title,
@@ -449,6 +457,7 @@ async function assemblerLivrables(
         ...(c?.figuresAdvisory && c.ungrounded?.length ? { figuresToVerify: c.ungrounded } : {}),
       }
     })
+  const meta = metaPour(lang)
   const rapport = renderReportMarkdown(analysis.analyse, {
     spec,
     productName: meta.product,
@@ -457,10 +466,12 @@ async function assemblerLivrables(
     sourceKind: job.source_kind,
     sections,
     lang,
-    reportDate: new Date().toISOString().slice(0, 10),
+    // ⚠️ La MÊME horloge que `finished_at` : deux `new Date()` distincts faisaient, à cheval sur
+    // minuit UTC, un rapport daté d'un jour et des métadonnées PDF datées de l'autre.
+    reportDate: quand.toISOString().slice(0, 10),
     system: reviewSystem(lang),
   })
-  return { fr, en, rapport }
+  return { fr, en, rapport, quand }
 }
 
 /**
@@ -495,7 +506,14 @@ async function envoyerEmailLivraison(
       expires_at: cmd.delivery_expires_at,
       source: 'completion',
     })
-    if (insErr) return
+    if (insErr) {
+      // ⚠️ AUDIBLE, et c'est la leçon du bloquant que ce log ferme : la contrainte de
+      // `order_tokens` refusait `'completion'` (23514, corrigé en `0089`) et ce `return` muet a
+      // caché l'échec de CHAQUE envoi — pendant que l'écran promettait l'e-mail. Un envoi « au
+      // mieux » a le droit d'échouer ; il n'a pas le droit d'échouer en silence.
+      logJson({ ...log, status: 'jeton_completion_refuse', code: (insErr as { code?: string }).code })
+      return
+    }
 
     const lien = `https://app.pharnos.com/u/${jeton}`
     const en = cmd.lang === 'en'
@@ -551,7 +569,45 @@ function escapeHtml(s: string): string {
  * mutuellement : le job A ne pouvait pas passer en traduction tant que le job B n'avait pas vidé
  * ses 34 rubriques. Avec un flux d'arrivées continu, plus aucun job ne changeait jamais de phase.
  */
+/**
+ * Répare les BASCULES PERDUES — un job `done` avec livrable face à une commande restée `running`.
+ *
+ * ⚠️ Deux chemins y mènent, et aucun ne se répare seul : l'isolat tué entre l'écriture des
+ * markdowns et la bascule, ou un échec de cette écriture-là. La commande figée n'est plus vue par
+ * `avancerCeQuiPeut` (le job est `done`), le cron finit par s'éteindre (son prédicat porte sur les
+ * jobs), et l'acheteur reste sur un écran de traitement à 100 % pour toujours — livrable en base,
+ * payé, jamais servi. Cette passe est IDEMPOTENTE (le CAS `running→done` ne gagne qu'une fois) et
+ * c'est elle qui rattrape aussi l'e-mail n°2 de ces commandes.
+ */
+async function reconcilierBasculesPerdues(
+  sb: SupabaseClient,
+  log: Record<string, unknown>,
+): Promise<void> {
+  const { data: orphelins, error } = await sb
+    .from('upgrade_jobs')
+    .select(`${CHAMPS_JOB}, orders!inner(status)`)
+    .eq('phase', 'done')
+    .is('error', null)
+    .not('deliverable_fr', 'is', null)
+    .eq('orders.status', 'running')
+    .limit(5)
+  if (error || !orphelins?.length) return
+  for (const brut of orphelins as unknown as Record<string, unknown>[]) {
+    const job = { ...(brut as unknown as Job), lang: 'fr' as const, country: null, activity: null }
+    const { data: bascule } = await sb.from('orders')
+      .update({ status: 'done', delivered_at: new Date().toISOString() })
+      .eq('id', job.order_id)
+      .eq('status', 'running')
+      .select('id')
+    if (bascule?.length) {
+      logJson({ ...log, status: 'bascule_reparee', job: job.id.slice(0, 8) })
+      await envoyerEmailLivraison(sb, job, log)
+    }
+  }
+}
+
 async function avancerCeQuiPeut(sb: SupabaseClient, log: Record<string, unknown>): Promise<void> {
+  await reconcilierBasculesPerdues(sb, log)
   const { data: jobs, error } = await sb
     .from('upgrade_jobs')
     .select(CHAMPS_JOB)
