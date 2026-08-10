@@ -110,6 +110,13 @@ declare
   v_year integer;
   v_n integer;
 begin
+  -- L'idempotence repose sur l'unicité de `chariow_sale_id` — or une colonne unique admet
+  -- plusieurs NULL. Un identifiant absent ou hors forme ne doit donc jamais entrer ici,
+  -- même si un appelant futur oubliait la validation amont.
+  if p_sale_id is null or char_length(p_sale_id) not between 4 and 80 then
+    raise exception 'record_chariow_sale: sale_id invalide';
+  end if;
+
   -- Rejeu : la contrainte unique porte la garantie, ce SELECT ne fait qu'éviter une erreur.
   select id, invoice_number into v_id, v_invoice
     from public.orders where chariow_sale_id = p_sale_id;

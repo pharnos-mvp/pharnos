@@ -145,9 +145,11 @@ Deno.serve(async (req) => {
         httpStatus: res.status,
         saleId,
       })
-      // `introuvable` (forgeage), `statut` fermé et `produit_inconnu` sont définitifs : 200
-      // éteint les rejeux, la trace reste. `reponse` est transitoire (5xx, schéma) : 502.
-      return lu.raison === 'reponse'
+      // `introuvable` (forgeage), `statut_ferme` (remboursée, échouée) et `produit_inconnu`
+      // sont définitifs : 200 éteint les rejeux, la trace reste. `reponse` (5xx, schéma) et
+      // `statut_inconnu` (nomenclature à compléter) sont transitoires : 502, Chariow rejoue
+      // jusqu'à 24 h — le temps de corriger sans perdre la vente.
+      return lu.raison === 'reponse' || lu.raison === 'statut_inconnu'
         ? json({ error: 'upstream' }, 502)
         : json({ received: true, recorded: false }, 200)
     }

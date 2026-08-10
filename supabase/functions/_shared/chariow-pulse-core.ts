@@ -91,10 +91,13 @@ export type LectureVente =
   | {
       ok: false
       /** `introuvable` = vente inexistante (Pulse forgé : rejet DÉFINITIF, aucun octroi) ;
-       *  `statut` = vente réelle mais non aboutie (remboursée, échouée, en attente) ;
+       *  `statut_ferme` = vente réelle mais SANS droit (remboursée, échouée…) — définitif ;
+       *  `statut_inconnu` = statut absent ou hors nomenclature — TRANSITOIRE : le rejeu
+       *  Chariow (jusqu'à 24 h) laisse le temps d'ajouter un statut légitime à la
+       *  nomenclature sans perdre la vente ;
        *  `produit_inconnu` = payée mais hors catalogue (divergence à régler à la main) ;
        *  `reponse` = réponse illisible ou champ requis absent (transitoire ou schéma à revoir). */
-      raison: 'introuvable' | 'statut' | 'produit_inconnu' | 'reponse'
+      raison: 'introuvable' | 'statut_ferme' | 'statut_inconnu' | 'produit_inconnu' | 'reponse'
       detail?: string
     }
 
@@ -153,13 +156,14 @@ export function lireVente(status: number, corps: unknown): LectureVente {
   const brutStatut = [d.status, d.payment_status, d.state].find((v) => typeof v === 'string')
   const statut = typeof brutStatut === 'string' ? brutStatut.trim().toLowerCase() : null
   if (statut === null || !STATUTS_ABOUTIS.has(statut)) {
-    // Distinguer « vente réelle non aboutie » (définitif) de « statut hors nomenclature »
-    // (à diagnostiquer) — les deux refusent, mais le second doit se voir dans les logs.
-    return {
-      ok: false,
-      raison: 'statut',
-      detail: statut === null ? 'absent' : STATUTS_FERMES.has(statut) ? statut : `inconnu_${statut}`,
+    // Deux refus distincts parce qu'ils PILOTENT les rejeux différemment : une vente fermée
+    // (remboursée, échouée) ne changera plus — rejet définitif ; un statut absent ou hors
+    // nomenclature est peut-être un légitime qu'on ne connaît pas encore — laisser Chariow
+    // rejouer donne 24 h pour l'ajouter à STATUTS_ABOUTIS sans perdre la vente.
+    if (statut !== null && STATUTS_FERMES.has(statut)) {
+      return { ok: false, raison: 'statut_ferme', detail: statut }
     }
+    return { ok: false, raison: 'statut_inconnu', detail: statut ?? 'absent' }
   }
 
   const produit = d.product as Record<string, unknown> | undefined

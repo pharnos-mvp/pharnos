@@ -134,15 +134,26 @@ Deno.test('lireVente — 404 = Pulse forgé : rejet définitif, aucun octroi', (
   assertEquals(r.raison, 'introuvable')
 })
 
-Deno.test('lireVente — un statut non abouti refuse, et son détail nomme le cas', () => {
+Deno.test('lireVente — une vente FERMÉE (remboursée, échouée) est un rejet définitif', () => {
+  for (const statut of ['refunded', 'failed', 'cancelled', 'disputed']) {
+    const r = lireVente(200, { data: vente({ status: statut }) })
+    assert(!r.ok, statut)
+    assertEquals(r.raison, 'statut_ferme')
+    assertEquals(r.detail, statut)
+  }
+})
+
+Deno.test('lireVente — statut absent ou hors nomenclature : refus TRANSITOIRE, jamais un octroi', () => {
+  // Transitoire parce que le rejeu Chariow (24 h) laisse le temps d'ajouter un statut
+  // légitime à STATUTS_ABOUTIS sans perdre la vente — mais rien n'est accordé d'ici là.
   for (const [statut, detail] of [
-    ['refunded', 'refunded'],
-    ['pending', 'inconnu_pending'],
+    ['pending', 'pending'],
+    ['termine', 'termine'],
     [undefined, 'absent'],
   ] as const) {
     const r = lireVente(200, { data: vente({ status: statut }) })
     assert(!r.ok, String(statut))
-    assertEquals(r.raison, 'statut')
+    assertEquals(r.raison, 'statut_inconnu')
     assertEquals(r.detail, detail)
   }
 })
