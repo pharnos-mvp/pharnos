@@ -594,11 +594,17 @@ async function reconcilierBasculesPerdues(
   if (error || !orphelins?.length) return
   for (const brut of orphelins as unknown as Record<string, unknown>[]) {
     const job = { ...(brut as unknown as Job), lang: 'fr' as const, country: null, activity: null }
-    const { data: bascule } = await sb.from('orders')
+    // ⚠️ L'erreur est LUE — le défaut corrigé dix lignes plus haut ne se réintroduit pas ici :
+    // une panne d'écriture persistante repasserait sinon à chaque tick, sans un mot.
+    const { data: bascule, error: bascErr } = await sb.from('orders')
       .update({ status: 'done', delivered_at: new Date().toISOString() })
       .eq('id', job.order_id)
       .eq('status', 'running')
       .select('id')
+    if (bascErr) {
+      logJson({ ...log, status: 'reconciliation_echouee', job: job.id.slice(0, 8) })
+      continue
+    }
     if (bascule?.length) {
       logJson({ ...log, status: 'bascule_reparee', job: job.id.slice(0, 8) })
       await envoyerEmailLivraison(sb, job, log)
@@ -607,7 +613,6 @@ async function reconcilierBasculesPerdues(
 }
 
 async function avancerCeQuiPeut(sb: SupabaseClient, log: Record<string, unknown>): Promise<void> {
-  await reconcilierBasculesPerdues(sb, log)
   const { data: jobs, error } = await sb
     .from('upgrade_jobs')
     .select(CHAMPS_JOB)
@@ -669,6 +674,9 @@ Deno.serve(async (req) => {
   for (;;) {
     // L'avancement passe AVANT le service : sans cela, un job prêt à changer de phase attend qu'un
     // autre ait vidé la sienne.
+  // ⚠️ UNE fois par invocation, jamais par tour de boucle : la requête balaie les jobs `done`
+  // (non indexés par l'index partiel de 0087) — ~14 passages par invocation étaient du pur gâchis.
+  await reconcilierBasculesPerdues(sb, log)
     await avancerCeQuiPeut(sb, log)
 
     const { data: travail, error: workErr } = await sb.rpc('next_upgrade_work')

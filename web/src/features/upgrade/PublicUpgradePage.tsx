@@ -316,6 +316,15 @@ export function PublicUpgradePage({ token }: { token: string }) {
       setRefus(null)
       setAvis(null)
       setEchecLecture(false)
+      // ⚠️ LA GARDE VIT DANS LA FONCTION QUI ÉCRIT — le `disabled` du bouton n'est qu'un confort.
+      // L'input `sr-only` reste atteignable au clavier et au lecteur d'écran : sans ce refus,
+      // un dépôt sans pays ni activité repartait avec `country: null` en silence — le trou même
+      // que le transport ferme.
+      if ((!resume?.country && !paysChoisi) || (!resume?.activity && !activiteChoisie)) {
+        setRefus('pays_activite_requis')
+        enVol.current = false
+        return
+      }
       // Un nouveau dépôt annule la reprise gratuite du précédent : elle porterait l'ancien `jobId`.
       setReprise(null)
       // ⚠️ Les deux refus purement LOCAUX sortent avant le `try`, donc avant le `rafraichir()` du
@@ -380,7 +389,17 @@ export function PublicUpgradePage({ token }: { token: string }) {
         enVol.current = false
       }
     },
-    [token, docType, paysChoisi, activiteChoisie, lireLeDocument, franchir, rafraichir],
+    [
+      token,
+      docType,
+      paysChoisi,
+      activiteChoisie,
+      resume?.country,
+      resume?.activity,
+      lireLeDocument,
+      franchir,
+      rafraichir,
+    ],
   )
 
   /** La reprise manuelle — le seul bouton de cette page qui ne dépend d'aucun état serveur. */
@@ -586,6 +605,22 @@ function EcranDepot({
   const activiteConnue = Boolean(resume?.activity)
   const restants = resume?.depositsLeft ?? 0
   const epuise = restants <= 0
+
+  // ⚠️ Une commande HISTORIQUE `notice`/`labeling` (aucune en base aujourd'hui — vérifié — mais le
+  // schéma les permet) : le sélecteur n'offrant plus que le livrable, l'écran se contredirait — un
+  // sous-titre « Notice patient » au-dessus d'un select vide, et le seul geste possible ferait
+  // juger une notice contre le gabarit du RCP, un dépôt décompté à chaque essai. Même contrat que
+  // la landing : pas de sélecteur de fichier, la vérité, le contact.
+  if (resume?.docType && !(DOC_TYPES_LIVRABLES as readonly string[]).includes(resume.docType)) {
+    return (
+      <Encart ton="avis">
+        {t({
+          fr: 'La mise à niveau de ce type de document ouvre bientôt — seul le RCP est traité pour l’instant. Écrivez-nous à contact@pharnos.com avec votre référence : votre commande reste valable.',
+          en: 'Upgrading this document type opens soon — only the SmPC is handled for now. Write to contact@pharnos.com with your reference: your order stays valid.',
+        })}
+      </Encart>
+    )
+  }
 
   if (epuise) {
     return (
@@ -852,7 +887,15 @@ function EcranLivraison({
         const reponse = await lireLivrableApi(token)
         const livrable = lireLivrable((reponse as { livrable?: unknown }).livrable)
         if ('erreur' in livrable) throw new UpgradeApiError('refus', livrable.erreur)
-        const fichiers = await fabriquerFichiers(livrable)
+        let fichiers: Awaited<ReturnType<typeof fabriquerFichiers>>
+        try {
+          fichiers = await fabriquerFichiers(livrable)
+        } catch (e) {
+          // ⚠️ Une exception DANS le rendu (pdf-lib, police, mémoire mobile) n'est pas une panne
+          // réseau : « réessayer » rejouerait à l'identique, et le message « la connexion a
+          // échoué » aurait menti. C'est un refus — le contact est le chemin.
+          throw new UpgradeApiError('refus', e instanceof Error ? e.message : String(e))
+        }
         if ('erreur' in fichiers) throw new UpgradeApiError('refus', fichiers.erreur)
         if (vivant) setEtat({ quoi: 'prets', fichiers })
       } catch (e) {
@@ -1074,6 +1117,7 @@ type CleMessage =
   | 'illisible'
   | 'aucun_texte'
   | 'pdf_seulement'
+  | 'pays_activite_requis'
   | 'trop_gros'
   | 'fichier_inaccessible'
   | 'trop_de_requetes'
@@ -1103,6 +1147,10 @@ const MESSAGES: Record<CleMessage, { fr: string; en: string }> = {
   pdf_seulement: {
     fr: 'Seuls les fichiers PDF sont acceptés.',
     en: 'Only PDF files are accepted.',
+  },
+  pays_activite_requis: {
+    fr: 'Choisissez d’abord le pays de dépôt et l’activité : ils commandent la mention de vigilance et les rubriques 8 à 10 de votre document.',
+    en: 'Pick the country of filing and the activity first: they drive the vigilance mention and sections 8 to 10 of your document.',
   },
   trop_gros: {
     fr: 'Ce fichier dépasse 25 Mo. Un export PDF sans les images de fond passe presque toujours.',

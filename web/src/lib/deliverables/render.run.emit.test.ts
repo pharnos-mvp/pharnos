@@ -20,6 +20,16 @@ import { renderDeliverables, upgradeJobs } from './index'
  */
 const DIR = process.env.UPGRADE_RUN_DIR
 
+// ⚠️ Le saut se DIT. Ce fichier est la SEULE garde de la reproductibilité banc/navigateur — hors
+// CI par nature (il exige un run réel du moteur, et des fixtures figées divergeraient du vrai).
+// Sans cette ligne, la garde était un silence que personne ne remarque.
+if (!DIR) {
+  console.warn(
+    '[recette U5] parité banc/navigateur NON vérifiée dans ce run — ' +
+      'UPGRADE_RUN_DIR absent (normal en CI ; à jouer sur run réel avant toute recette).',
+  )
+}
+
 it.skipIf(!DIR)('émet les 5 livrables du cas mesuré par le harnais', async () => {
   const read = (name: string) => readFileSync(resolve(DIR!, name), 'utf8')
   const run = JSON.parse(read('run.json')) as {

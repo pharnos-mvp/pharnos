@@ -45,6 +45,10 @@ const statut = (o: Record<string, unknown> = {}) => ({
   depositsLeft: 3,
   expireLe: '2026-09-03T10:00:00.000Z',
   docType: 'rcp',
+  // Le cas NOMINAL : le pont a transporté pays et activité. Les tests qui vérifient la garde
+  // « pays/activité requis » les retirent explicitement.
+  country: 'BJ',
+  activity: 'amm',
   ...o,
 })
 
@@ -488,5 +492,34 @@ describe('suivi et livraison', () => {
     api.lireStatut.mockResolvedValue(statut({ statut: 'failed', erreur: 'phase conformity' }))
     rendre()
     expect(await screen.findByText(/sans nouveau paiement/)).toBeInTheDocument()
+  })
+})
+
+describe('pays et activité', () => {
+  it('⚠️ la garde vit dans deposer(), pas dans le disabled du bouton', async () => {
+    // L'input `sr-only` reste atteignable au clavier : sans refus dans la fonction qui ÉCRIT, un
+    // dépôt sans pays repartait avec `country: null` en silence — le trou que le transport ferme.
+    api.lireStatut.mockResolvedValue(statut({ country: null, activity: null }))
+    rendre()
+    await screen.findByRole('button', { name: /Choisir mon document/ })
+    const champ = document.querySelector('input[type="file"]') as HTMLInputElement
+    const f = new File([new Uint8Array([1])], 'rcp.pdf', { type: 'application/pdf' })
+    Object.defineProperty(f, 'arrayBuffer', { value: async () => new ArrayBuffer(1) })
+    Object.defineProperty(champ, 'files', { value: [f], configurable: true })
+    champ.dispatchEvent(new Event('change', { bubbles: true }))
+    // Le message apparaît DEUX fois — l'encart de refus et l'indication sous le bouton — et les
+    // deux sont voulus : l'un répond au geste, l'autre prévient le prochain.
+    expect((await screen.findAllByText(/Choisissez d’abord le pays/)).length).toBeGreaterThan(0)
+    expect(api.demanderUrlDepot).not.toHaveBeenCalled()
+  })
+
+  it('une commande historique d’un type NON LIVRABLE ferme l’écran de dépôt, avec la vérité', async () => {
+    // Le sélecteur n'offre plus que le RCP : sur une commande `notice`, l'écran se contredirait
+    // (sous-titre « Notice patient », select vide) et le seul geste possible ferait juger une
+    // notice contre le gabarit du RCP — un dépôt décompté à chaque essai.
+    api.lireStatut.mockResolvedValue(statut({ docType: 'notice' }))
+    rendre()
+    expect(await screen.findByText(/ouvre bientôt/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Choisir mon document/ })).not.toBeInTheDocument()
   })
 })
