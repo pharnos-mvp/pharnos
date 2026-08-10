@@ -12,16 +12,17 @@
 >
 > | | |
 > |---|---|
-> | Branche | `feat/upgrade-u0-renderer` — **à jour de `origin/main`** (fusion sans conflit), PR non ouverte |
-> | Derniers commits | `9a81d93` → **`d224665`**, puis le découpage de la revue |
+> | Branche | `feat/upgrade-u0-renderer` — **PR [#473](https://github.com/pharnos-mvp/pharnos/pull/473) OUVERTE** (31 commits, à jour de `origin/main`) |
+> | Derniers commits | `9a81d93` → **`87ffb52`** (répétition générale + 4 correctifs + deps) |
 > | **Fait** | **U0 → U4** (§3) — banc mesuré, paiement, pont, page publique, moteur en série |
 > | **Mesuré** | **60 appels · 319 s · 1,96 $** par upgrade — recoupé console (§3, U0) |
 > | ✅ **Tranché** | **la revue est DÉCOUPÉE en 4 appels**, un par tableau (§3, U0) — CEO, 2026-08-04 |
 > | ✅ **U5 LIVRÉ (2026-08-09)** | le serveur ASSEMBLE (markdowns à la complétion, e-mail n°2), le navigateur MET EN PAGE (5 fichiers + ZIP, reproductibles à l'octet). Et le trou fermé en chemin : **pays/activité n'atteignaient jamais le serveur** — la mention 4.8 n'entrait dans aucun prompt |
-> | **Suivant** | **le bundle up3** (session multi-dépôts, budget de dépôts PAR document), puis **U6** — recette réelle à 570 F et réouverture de la vente |
+> | ✅ **RÉPÉTITION GÉNÉRALE U6 À BLANC PASSÉE (2026-08-10)** | la chaîne complète a tourné **d'un seul tenant** pour la première fois (commande injectée = ce qu'écrit le webhook, parcours acheteur réel en navigateur, backend de prod) : dépôt → porte → 34+27+4 appels → assemblage → e-mail n°2 délivré → 5 fichiers + ZIP au navigateur, **parité binaire 3/3 PDF avec le banc**. Elle a payé : **4 défauts trouvés AVANT le premier acheteur** — `job-tick` n'épinglait pas `anthropic` (34 échecs sur `AI_PROVIDER=vertex`), plafond de revue 60 s crevé par `relocations` sur document réel (→ 100 s mesurés, tranche = plafond par import), `orders.ref NOT NULL` contre `ref: null` hors parcours (`0091`), CORS `order-*` sur un projet Pages inexistant. Chemins d'échec vérifiés aussi : échec terminal + alerte support + page honnête + relance sans nouveau paiement |
+> | **Suivant** | **fusionner #473** (déploie app + landing depuis `main`) → **U6 : recette réelle à 570 F** sur les surfaces déployées (`?essai=<jeton>`, produit `prd_g3norblb`) → réouverture de la vente → **puis le bundle up3** (session multi-dépôts, budget de dépôts PAR document) |
 > | ✅ **Revue de branche purgée (2026-08-09)** | 8 bloquants + 16 majeurs corrigés, déployés (migration `0087`, 4 Edge). Détail : §« Revue de branche » |
-> | ✅ Edge déployées | `order-source`, `order-status`, `order-gate`, `order-upload-url`, `chariow-pulse`, `job-tick` — à jour du 2026-08-09, migrations `0083`→`0087` appliquées |
-> | ⚠️ À mesurer | le découpage n'a tourné que **sur banc à générateur injecté** : les durées réelles par tableau restent à relever sur un vrai document (§3) |
+> | ✅ Edge déployées | `order-source`, `order-status`, `order-gate`, `order-upload-url`, `chariow-pulse`, `job-tick` — à jour du **2026-08-10** (répétition), migrations `0083`→**`0091`** appliquées |
+> | ✅ Mesuré sur run réel (2026-08-10) | le découpage de la revue a tourné sur document réel : `terminology` et `findings` sous 60 s, **`relocations` AU-DESSUS de 60 s** (le plafond-projection l'a tuée une fois), passe sous le plafond recalibré de 100 s ; `recommendations` sous 60 s. La chaîne bout en bout : dépôt→livrable en ~17 min avec l'échec-relance, ~8 min en nominal |
 > **Plans liés** : [PLAN-MOTEUR-IA.md](PLAN-MOTEUR-IA.md) (le moteur) ·
 > [PLAN-UPGRADE-FRONTEND.md](PLAN-UPGRADE-FRONTEND.md) (les écrans, **partiellement périmé** — voir §1.3) ·
 > [PLAN-CHARIOW.md](PLAN-CHARIOW.md) (l'encaissement, exact) ·
