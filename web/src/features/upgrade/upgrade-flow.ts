@@ -247,12 +247,16 @@ export const SONDAGE_MS = 2_000
 /**
  * Temps restant estimé, en secondes — `null` tant qu'on ne sait rien de fiable.
  *
- * Fondé sur la durée MESURÉE d'une chaîne complète (319 s pour 60 appels), pas sur une moyenne
- * glissante des rubriques déjà faites : les trois passes n'ont pas le même coût unitaire, et une
- * extrapolation depuis la conformité annoncerait deux minutes là où il en reste cinq. Une estimation
- * qui s'allonge sous les yeux du client est pire que pas d'estimation.
+ * ⚠️ C'est une PROMESSE au client, pas une mesure : elle doit couvrir le cas DÉFAVORABLE, pas le
+ * nominal. La chaîne mesurée tient en ~320 s (319 s pour 60 appels au banc U0, ~7 min dépôt→e-mail
+ * à la recette) — mais un tableau de revue peut consommer son plafond entier, les bascules de
+ * phase attendent le tick suivant (30 s chacune), et depuis la relance automatique un run qui
+ * trébuche repart sans rien demander à personne : chaque relance ajoute plusieurs minutes. Le
+ * décompte part donc de 15 min et FINIT EN AVANCE dans le cas courant — décision CEO 2026-08-11 :
+ * une barre qui finit tôt rassure, une barre qui dépasse son annonce inquiète, et l'acheteur ne
+ * doit jamais voir l'estimation s'allonger sous ses yeux.
  */
-export const DUREE_TOTALE_S = 320
+export const DUREE_TOTALE_S = 900
 
 /**
  * Parts de chaque passe dans la durée totale — les MESURES de U0.3, pas des tiers égaux.

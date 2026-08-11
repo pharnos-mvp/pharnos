@@ -120,17 +120,48 @@ function raisonDe(e: unknown): string | null {
   return null
 }
 
+/** Plafond de réclamations d'une rubrique — aligné sur `claim_upgrade_sections` et
+ * `next_upgrade_work` (`attempts < 3` dans les deux, `0084`). */
+export const MAX_TENTATIVES_RUBRIQUE = 3
+
 /**
  * Que devient une rubrique qui vient d'échouer ? `failed` (définitif) ou `queued` (rejouable).
  *
  * `attempts` est incrémenté à la RÉCLAMATION : la valeur reçue ici compte donc déjà l'essai qui
  * vient d'échouer.
  */
-export function classerEchec(e: unknown, attempts: number, max = 3): 'failed' | 'queued' {
+export function classerEchec(
+  e: unknown,
+  attempts: number,
+  max = MAX_TENTATIVES_RUBRIQUE,
+): 'failed' | 'queued' {
   const raison = raisonDe(e)
   if (raison && RAISONS_DEFINITIVES.has(raison)) return 'failed'
   return attempts >= max ? 'failed' : 'queued'
 }
+
+/**
+ * Relances AUTOMATIQUES d'une phase en échec, avant l'échec terminal.
+ *
+ * ⚠️ Décision CEO 2026-08-11, payée à la recette : **l'acheteur n'est jamais le mécanisme de
+ * reprise.** La première version marquait la commande `failed` au premier échec de phase et
+ * l'écran demandait d'écrire au support — pendant que la relance, elle, n'était qu'une chirurgie
+ * SQL que le serveur savait faire tout seul. Désormais il la fait : les rubriques échouées de la
+ * phase repartent en file, sans un mot à l'acheteur, qui ne voit qu'une barre de progression un
+ * peu plus lente (le décompte affiché est calibré pour couvrir ces relances).
+ *
+ * Pourquoi rejouer peut réussir là où trois tentatives ont échoué : les « raisons définitives »
+ * ne le sont que POUR UN TICK. Un timeout rejoué dans la même fenêtre n'a aucune chance ; rejoué
+ * dans une invocation NEUVE, il dispose de la fenêtre entière — c'est exactement la relance
+ * support qui a terminé la commande de la recette. Borné à deux : au-delà, l'échec est
+ * structurel (document, gabarit, panne fournisseur durable), et le troisième verdict devient
+ * terminal — commande `failed`, alerte support, écran honnête. Le recours humain reste le
+ * DERNIER étage, plus jamais le premier.
+ */
+export const MAX_RELANCES_JOB = 2
+
+/** Le job a-t-il encore droit à une relance automatique de sa phase ? */
+export const doitRelancer = (relances: number): boolean => relances < MAX_RELANCES_JOB
 
 /**
  * Tranche minimale AVANT de lancer une rubrique, par phase.

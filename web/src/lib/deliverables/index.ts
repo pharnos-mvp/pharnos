@@ -37,6 +37,8 @@ export interface DeliverableJob {
   signature?: boolean
   /** En-tête courant. Par défaut, le nom du produit lu dans la rubrique 1. */
   header?: string
+  /** Langue des libellés ajoutés par le RENDU (criticité de la revue). Défaut : `fr`. */
+  lang?: 'fr' | 'en'
 }
 
 export interface Deliverable {
@@ -116,6 +118,7 @@ export function upgradeJobs({
       docx: false,
       signature: true,
       header: reportHeader,
+      lang: reportLang,
     },
   ]
 }
@@ -147,6 +150,7 @@ export async function renderDeliverables(
       header,
       signature: job.signature,
       created,
+      ...(job.lang ? { lang: job.lang } : {}),
     })
     for (const ch of pdf.dropped) dropped.add(ch)
     files.push({ fileName: `${name}.pdf`, kind: 'pdf', bytes: pdf.bytes })

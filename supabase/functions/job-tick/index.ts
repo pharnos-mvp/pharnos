@@ -43,8 +43,10 @@ import { CONFORMITY_SPECS, type ConformityDocType, DOC_SHORT, flattenRubrics } f
 import {
   classerEchec,
   doitPrechauffer,
+  doitRelancer,
   jobLance,
   jugerPhase,
+  MAX_TENTATIVES_RUBRIQUE,
   PHASE_SUIVANTE,
   trancheMinMs,
   trierVagueRevue,
@@ -125,12 +127,14 @@ interface Job {
   /** Pays de dépôt et activité, portés par la COMMANDE — ils commandent les prompts. */
   country: string | null
   activity: string | null
+  /** Relances automatiques déjà consommées (`0092`) — l'acheteur n'est jamais le mécanisme de reprise. */
+  relances: number
 }
 
 // ⚠️ `started_at` en fait partie, et ce n'est pas décoratif : c'est lui qui distingue un job
 // « en attente de sa porte » d'un job en travail. Son absence de cette liste a coûté un bloquant.
 const CHAMPS_JOB =
-  'id, order_id, doc_type, source_path, source_kind, control_text, phase, started_at, source_name'
+  'id, order_id, doc_type, source_path, source_kind, control_text, phase, started_at, source_name, relances'
 
 /**
  * Prévient QUELQU'UN qu'une commande payée est morte.
@@ -229,6 +233,36 @@ async function marquerEchec(sb: SupabaseClient, job: Job, raison: string): Promi
 }
 
 /**
+ * Relance AUTOMATIQUE de la phase courante — le geste support de la recette, fait par le serveur.
+ *
+ * L'acheteur ne voit rien : la commande reste `running`, sa page continue d'afficher la barre de
+ * progression, et le cron (dont le prédicat couvre `phase <> 'done'`) réinvoque le tick dans les
+ * 30 s. Seul le compteur `relances` borne le manège (`doitRelancer`).
+ *
+ * ⚠️ Le CAS sur `relances` désigne UN SEUL relanceur : deux ticks porteurs du même verdict
+ * incrémenteraient sinon deux fois, et brûleraient deux relances pour un seul échec. Le perdant
+ * ne remet rien en file — le gagnant l'a déjà fait, et refaire l'update serait sans effet mais
+ * raconterait deux relances dans les journaux.
+ */
+async function relancerPhase(sb: SupabaseClient, job: Job): Promise<boolean> {
+  const { data: gagne, error: casErr } = await sb.from('upgrade_jobs')
+    .update({ relances: job.relances + 1 })
+    .eq('id', job.id)
+    .eq('relances', job.relances)
+    .neq('phase', 'done')
+    .select('id')
+  if (casErr || !gagne?.length) return false
+  // Rubriques échouées ET bloquées (attempts au plafond) de la phase : retour en file, compteur
+  // remis à zéro — la même écriture que la relance support de la recette du 2026-08-10.
+  const { error: reqErr } = await sb.from('upgrade_sections')
+    .update({ status: 'queued', attempts: 0, error: null, claimed_at: null, finished_at: null })
+    .eq('job_id', job.id)
+    .eq('phase', job.phase)
+    .or(`status.eq.failed,attempts.gte.${MAX_TENTATIVES_RUBRIQUE}`)
+  return !reqErr
+}
+
+/**
  * Fait avancer d'une phase le job dont la phase courante est terminée ET saine.
  *
  * Les rubriques de la phase suivante ne sont créées qu'ICI : celles de traduction dépendent de ce
@@ -252,7 +286,21 @@ async function avancerPhase(sb: SupabaseClient, job: Job, log: Record<string, un
       // « aucun constat n'a été retenu », et le rapport écrirait « Aucun. » sous Constats — une
       // affirmation FAUSSE dans un livrable payé. `generateReport` refuse pour cette raison ; le
       // worker appelle par tableau et contourne ce refus, donc le refus vit ici.
-      await marquerEchec(sb, job, `phase ${job.phase} : ${verdict.raison} (${compte.failed} échec(s), ${compte.bloquees} bloquée(s))`)
+      //
+      // Mais un échec de phase n'est TERMINAL qu'après épuisement des relances automatiques :
+      // l'acheteur n'est jamais le mécanisme de reprise (décision CEO 2026-08-11, `doitRelancer`).
+      if (doitRelancer(job.relances) && (await relancerPhase(sb, job))) {
+        logJson({
+          ...log,
+          status: 'job_relance',
+          job: job.id.slice(0, 8),
+          phase: job.phase,
+          relance: job.relances + 1,
+          raison: verdict.raison,
+        })
+        return
+      }
+      await marquerEchec(sb, job, `phase ${job.phase} : ${verdict.raison} (${compte.failed} échec(s), ${compte.bloquees} bloquée(s), ${job.relances} relance(s) automatique(s))`)
       logJson({ ...log, status: 'job_echec', job: job.id.slice(0, 8), phase: job.phase, raison: verdict.raison })
     }
     return

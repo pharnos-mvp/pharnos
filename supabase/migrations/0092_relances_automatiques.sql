@@ -1,0 +1,13 @@
+-- 0092 — Relances automatiques : l'acheteur n'est JAMAIS le mécanisme de reprise.
+--
+-- Décision CEO du 2026-08-11, payée à la recette : au premier échec de phase, la commande passait
+-- `failed` et l'écran demandait à l'acheteur d'écrire au support — pendant que la relance n'était
+-- qu'une remise en file que le serveur savait faire seul (c'est exactement le geste qui a terminé
+-- la commande de la répétition générale). Désormais `job-tick` relance lui-même la phase échouée,
+-- au plus MAX_RELANCES_JOB fois (2 — `job-tick-core.ts`), sans rien afficher à l'acheteur ; le
+-- troisième verdict devient terminal, avec alerte support et écran honnête.
+--
+-- Cette colonne est le COMPTEUR de ces relances. Elle vit sur le job (pas la commande) : c'est la
+-- phase d'un job qui échoue et se rejoue, et le bundle up3 aura trois jobs aux destins séparés.
+-- `smallint` et non nul : un compteur absent n'est pas un état, c'est zéro.
+alter table public.upgrade_jobs add column relances smallint not null default 0;

@@ -81,6 +81,27 @@ export const DOTS: Readonly<Record<string, string>> = {
 }
 
 /**
+ * Libellé de criticité, dans la langue de la revue.
+ *
+ * ⚠️ La pastille de couleur ne suffit PAS sur un document réglementaire : imprimée en noir et
+ * blanc, rastérisée, ou lue par un extracteur de texte, la couleur disparaît et la colonne
+ * « Criticité » semble vide — constaté sur le livrable réel de la recette du 2026-08-10. Le mot
+ * accompagne la pastille, il ne la remplace pas.
+ */
+export const DOT_LABELS: Readonly<Record<string, { fr: string; en: string }>> = {
+  '🔴': { fr: 'Critique', en: 'Critical' },
+  '🟠': { fr: 'Majeure', en: 'Major' },
+  '🟡': { fr: 'Mineure', en: 'Minor' },
+}
+
+/** Libellé de criticité si le texte commence par un émoji du barème, sinon `null`. */
+export function dotLabelOf(t: string, lang: 'fr' | 'en'): string | null {
+  const first = [...t.trim()][0]
+  const label = first !== undefined ? DOT_LABELS[first] : undefined
+  return label ? label[lang] : null
+}
+
+/**
  * Découpe le markdown en blocs.
  *
  * Le profil `document` ignore tout ce qui précède le premier `## ` : le markdown de travail porte
