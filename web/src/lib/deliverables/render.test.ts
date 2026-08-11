@@ -56,7 +56,7 @@ function pdfDrawn(bytes: Uint8Array): string {
     const start = m.index + m[0].length
     const end = raw.indexOf('endstream', start)
     if (end < 0) continue
-    let flux = ''
+    let flux: string
     try {
       flux = inflateSync(buf.subarray(start, end)).toString('latin1')
     } catch {
