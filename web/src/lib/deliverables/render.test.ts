@@ -42,6 +42,34 @@ function pdfText(bytes: Uint8Array): string {
 }
 
 /**
+ * Le texte TRACÉ d'un PDF, et lui seul — les chaînes hexadécimales des opérateurs `Tj`, hors
+ * dictionnaires et noms de ressources. `pdfText` mêle tout : y compter des caractères compterait
+ * aussi « WinAnsiEncoding » et consorts.
+ */
+function pdfDrawn(bytes: Uint8Array): string {
+  const buf = Buffer.from(bytes)
+  const raw = buf.toString('latin1')
+  const out: string[] = []
+  const re = /stream\r?\n/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(raw)) !== null) {
+    const start = m.index + m[0].length
+    const end = raw.indexOf('endstream', start)
+    if (end < 0) continue
+    let flux = ''
+    try {
+      flux = inflateSync(buf.subarray(start, end)).toString('latin1')
+    } catch {
+      continue
+    }
+    for (const mm of flux.matchAll(/<([0-9A-Fa-f\s]+)>\s*Tj/g)) {
+      out.push(Buffer.from((mm[1] ?? '').replace(/\s+/g, ''), 'hex').toString('latin1'))
+    }
+  }
+  return out.join('\n')
+}
+
+/**
  * Contenu d'un DOCX, entrée par entrée — lecteur ZIP minimal, sans dépendance.
  *
  * Lu par le CATALOGUE CENTRAL et non par les en-têtes locaux : ceux-ci peuvent porter des tailles
@@ -178,6 +206,54 @@ describe('renderDeliverables', () => {
     expect(dropped).toContain('')
     // La tabulation, elle, se dégrade en espace : la jeter recollerait deux mots.
     expect(dropped).not.toContain('	')
+  })
+
+  it('la criticité de la revue porte un MOT, pas seulement une couleur', async () => {
+    // Constaté sur le livrable réel (recette 2026-08-10) : la cellule « Criticité » ne contenait
+    // que l'émoji, rendu en pastille colorée — invisible en impression N&B, muette pour un
+    // extracteur : la colonne SEMBLAIT vide. Le rendu ajoute le mot, dans la langue de la revue.
+    const { files } = await renderDeliverables(upgradeJobs(sources), { created: new Date(0) })
+    const review = files.find((f) => f.fileName.endsWith('regulatory-review.pdf'))!
+    const text = pdfText(review.bytes)
+    expect(text).toContain('Critical')
+    expect(text).toContain('Major')
+
+    const fr = await renderDeliverables(upgradeJobs({ ...sources, reportLang: 'fr' }), {
+      created: new Date(0),
+    })
+    const revueFr = fr.files.find((f) => f.fileName.includes('revue-reglementaire'))!
+    expect(pdfText(revueFr.bytes)).toContain('Critique')
+  })
+
+  it('un mot plus large que sa colonne se REPLIE au lieu de chevaucher la voisine', async () => {
+    // Constaté sur le livrable réel (recette 2026-08-10) : le repli ne connaissant que les blancs,
+    // « Dénomination » débordait sur le texte de la colonne d'à côté. Un mot-marqueur de 60
+    // caractères dans une table à trois colonnes DOIT ressortir coupé en plusieurs tronçons —
+    // tous présents (rien de retiré), aucun assez long pour déborder.
+    //
+    // ⚠️ Compté sur le texte TRACÉ seul (`pdfDrawn`) : les octets bruts du PDF portent
+    // « WinAnsiEncoding », dont le W fausserait un comptage sur `pdfText`.
+    const marqueur = 'W'.repeat(60)
+    const report = [
+      '# Revue réglementaire du RCP',
+      '',
+      '## Constats',
+      '',
+      '| Rubrique | Criticité | Constat |',
+      '|---|---|---|',
+      `| ${marqueur} | 🔴 | Une ligne ordinaire pour tenir les proportions du tableau. |`,
+    ].join('\n')
+    const { files, dropped } = await renderDeliverables(
+      upgradeJobs({ ...sources, report }),
+      { created: new Date(0) },
+    )
+    expect(dropped).toEqual([])
+    const review = files.find((f) => f.fileName.endsWith('regulatory-review.pdf'))!
+    const tronçons = pdfDrawn(review.bytes).match(/W+/g) ?? []
+    const total = tronçons.reduce((s, t) => s + t.length, 0)
+    expect(total).toBe(60)
+    expect(tronçons.length).toBeGreaterThan(1)
+    expect(Math.max(...tronçons.map((t) => t.length))).toBeLessThan(60)
   })
 
   it('rend des PDF identiques à l’OCTET pour une même entrée et une même date', async () => {

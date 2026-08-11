@@ -18,7 +18,7 @@ import {
   rgb,
 } from 'pdf-lib'
 
-import { type Block, dotOf, isMissing, runs } from './blocks'
+import { type Block, dotLabelOf, dotOf, isMissing, runs } from './blocks'
 import { BAND, BLUE, GREY, PT, RULE, SMALL_PT, TITLE_PT } from './style'
 
 /**
@@ -59,6 +59,8 @@ export interface PdfOptions {
    * navigateur produit exactement ce que le serveur a mesuré (critère de recette U5).
    */
   created?: Date
+  /** Langue des libellés que le RENDU ajoute (criticité) — celle de la revue. Défaut : `fr`. */
+  lang?: 'fr' | 'en'
 }
 
 export interface PdfResult {
@@ -72,7 +74,7 @@ export interface PdfResult {
 
 export async function buildDeliverablePdf(
   blocks: readonly Block[],
-  { header, signature = false, created }: PdfOptions,
+  { header, signature = false, created, lang = 'fr' }: PdfOptions,
 ): Promise<PdfResult> {
   const pdf = await PDFDocument.create()
   if (created) {
@@ -253,7 +255,24 @@ export async function buildDeliverablePdf(
     // celui tracé désaligne tout.
     for (const seg of segments)
       for (const word of pdfSafe(seg.text).split(BREAKABLE).filter(Boolean)) {
-        words.push({ word, seg })
+        const f = fontOf(seg)
+        if (widthOf(word, f, size) <= w) {
+          words.push({ word, seg })
+          continue
+        }
+        // ⚠️ Mot plus large que la colonne : COUPE AU CARACTÈRE. Sans elle, le repli — qui ne
+        // connaît que les blancs — rendait le mot entier sur sa ligne et il CHEVAUCHAIT la colonne
+        // voisine (« Dénomination » sur le texte d'à côté, constaté sur le livrable réel de la
+        // recette du 2026-08-10). Aucun trait d'union n'est inséré : le rendu n'ajoute jamais un
+        // caractère qui n'est pas dans la source — l'extractibilité fait partie de la conformité.
+        let cur = ''
+        for (const ch of word) {
+          if (cur && widthOf(cur + ch, f, size) > w) {
+            words.push({ word: cur, seg })
+            cur = ch
+          } else cur += ch
+        }
+        if (cur) words.push({ word: cur, seg })
       }
     const lines: (typeof words)[] = []
     let cur: typeof words = []
@@ -392,18 +411,41 @@ export async function buildDeliverablePdf(
     if (!head) return
     const weight = head.map((_, c) => Math.max(...b.rows.map((r) => (r[c] ?? '').length)))
     const totalW = weight.reduce((a, x) => a + x, 0)
-    const cols = weight.map((x) => Math.max(52, (x / totalW) * W))
-    const scale = W / cols.reduce((a, x) => a + x, 0)
-    const widths = cols.map((c) => c * scale)
+    // Plancher par colonne : son plus long MOT, mesuré en GRAS (la face la plus large qu'une
+    // cellule puisse porter). Sans lui, la largeur proportionnelle au volume de texte étranglait
+    // les colonnes d'intitulés (« Rubrique 1 — Dénomination… ») sous la largeur de leurs propres
+    // mots. Plafonné au tiers de la page : une colonne ne confisque pas la table, la coupe au
+    // caractère de `layout` reste le filet du cas extrême.
+    const maxWordW = head.map((_, c) => {
+      let mw = 0
+      for (const r of b.rows) {
+        for (const seg of runs(r[c] ?? '')) {
+          for (const wd of pdfSafe(seg.text).split(BREAKABLE).filter(Boolean)) {
+            mw = Math.max(mw, widthOf(wd, bold, size))
+          }
+        }
+      }
+      return Math.min(mw + 12, W * 0.32)
+    })
+    const base = weight.map((_, c) => Math.max(52, maxWordW[c] ?? 0))
+    const baseSum = base.reduce((a, x) => a + x, 0)
+    const rest = W - baseSum
+    const widths = rest > 0
+      ? base.map((bw, c) => bw + ((weight[c] ?? 0) / totalW) * rest)
+      : base.map((bw) => bw * (W / baseSum))
 
     const renderRow = (cells: readonly string[], isHead: boolean) => {
       const lines = cells.map((c, i) => {
         const segs = runs(c)
         const dot = dotOf(c)
+        // Cellule réduite à un émoji de criticité : la pastille reçoit son MOT (« Critique »,
+        // « Majeure »…) — la couleur seule meurt à l'impression N&B et sous les extracteurs.
+        const label = dot && segs.length === 0 ? dotLabelOf(c, lang) : null
         return layout(
           // Rond plein, comme dans le DOCX : ZapfDingbats le trace, plus besoin de le dégrader.
           [
             ...(dot ? [{ text: '●', color: hex(dot) }] : []),
+            ...(label ? [{ text: label }] : []),
             ...segs.map((r) => ({ ...r, bold: r.bold || isHead })),
           ],
           size,
@@ -460,11 +502,19 @@ export async function buildDeliverablePdf(
       drawTable(b)
     } else if (b.t === 'bullet') {
       const dot = dotOf(b.text)
-      const yb = y - 13
-      draw(runs(b.text), { indent: 26, lead: 13 })
+      // ⚠️ La puce se dessine AVANT son texte, sur la page où tombera la première ligne — et pas
+      // après. Dessinée après, elle héritait de la page COURANTE avec une coordonnée calculée sur
+      // l'ancienne : un constat qui enjambait une page laissait sa puce flotter au milieu de la
+      // page suivante, ou seule au pied de la précédente (constaté sur le livrable réel, recette
+      // du 2026-08-10 — pages 10, 11 et 14 de la revue AARCOLD).
+      if (y - 13 < M) {
+        page = pdf.addPage(A4)
+        y = TOP
+      }
       // Par `drawMixed` comme tout le reste : la puce est codable en WinAnsi, mais l'invariant
       // « aucun tracé direct » ne vaut que s'il ne souffre pas d'exception qu'on doit re-vérifier.
-      drawMixed('•', M + 12, yb, reg, PT, dot ? hex(dot) : black)
+      drawMixed('•', M + 12, y - 13, reg, PT, dot ? hex(dot) : black)
+      draw(runs(b.text), { indent: 26, lead: 13 })
       space(3)
     } else if (isMissing(b.text)) {
       draw([{ text: b.text, color: grey }], { size: SMALL_PT, lead: 12 })
