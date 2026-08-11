@@ -8,8 +8,10 @@ import { HttpError } from './retry.ts'
 import {
   classerEchec,
   doitPrechauffer,
+  doitRelancer,
   jobLance,
   jugerPhase,
+  MAX_RELANCES_JOB,
   ORDRE_REVUE,
   PHASE_SUIVANTE,
   trancheMinMs,
@@ -103,6 +105,19 @@ Deno.test('échec : la raison portée par la CAUSE est lue aussi', () => {
     cause: new SectionOutputError('invalid_json', 'rapport : JSON illisible'),
   })
   assertEquals(classerEchec(enrobee, 1), 'failed')
+})
+
+/* ───────────────────────────────── Relances automatiques ───────────────────────────────────── */
+
+Deno.test('relance : le serveur rejoue AVANT de déclarer l’échec, borné, jamais l’acheteur', () => {
+  // Décision CEO 2026-08-11 : au premier échec de phase, la première version demandait à
+  // l'acheteur d'écrire au support — pendant que la relance n'était qu'une remise en file que le
+  // serveur savait faire seul. Deux relances automatiques, puis seulement l'échec terminal.
+  assertEquals(doitRelancer(0), true)
+  assertEquals(doitRelancer(1), true)
+  assertEquals(doitRelancer(MAX_RELANCES_JOB), false)
+  // Un compteur corrompu (négatif) relance encore ; un compteur au-delà du plafond n'insiste pas.
+  assertEquals(doitRelancer(MAX_RELANCES_JOB + 5), false)
 })
 
 /* ─────────────────────────── Tranches, préchauffage, ordre de vague ────────────────────────── */
