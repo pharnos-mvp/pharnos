@@ -243,10 +243,9 @@ describe('renderDeliverables', () => {
       '|---|---|---|',
       `| ${marqueur} | 🔴 | Une ligne ordinaire pour tenir les proportions du tableau. |`,
     ].join('\n')
-    const { files, dropped } = await renderDeliverables(
-      upgradeJobs({ ...sources, report }),
-      { created: new Date(0) },
-    )
+    const { files, dropped } = await renderDeliverables(upgradeJobs({ ...sources, report }), {
+      created: new Date(0),
+    })
     expect(dropped).toEqual([])
     const review = files.find((f) => f.fileName.endsWith('regulatory-review.pdf'))!
     const tronçons = pdfDrawn(review.bytes).match(/W+/g) ?? []

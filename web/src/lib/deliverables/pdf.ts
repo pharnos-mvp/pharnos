@@ -430,9 +430,10 @@ export async function buildDeliverablePdf(
     const base = weight.map((_, c) => Math.max(52, maxWordW[c] ?? 0))
     const baseSum = base.reduce((a, x) => a + x, 0)
     const rest = W - baseSum
-    const widths = rest > 0
-      ? base.map((bw, c) => bw + ((weight[c] ?? 0) / totalW) * rest)
-      : base.map((bw) => bw * (W / baseSum))
+    const widths =
+      rest > 0
+        ? base.map((bw, c) => bw + ((weight[c] ?? 0) / totalW) * rest)
+        : base.map((bw) => bw * (W / baseSum))
 
     const renderRow = (cells: readonly string[], isHead: boolean) => {
       const lines = cells.map((c, i) => {
