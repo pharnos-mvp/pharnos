@@ -399,6 +399,26 @@ Deno.test('generateSection : sur une source océrisée, un chiffre non retrouvé
   assertEquals(s.calls.length, 1)
 })
 
+Deno.test('generateSection : un seuil ≤/≥ non confirmé par le corpus océrisé entre en valeurs à relire', async () => {
+  // LE cas KV-RL (2026-08-14) : l'OCR lit « ≤ 28 » comme « ″ 28 ». La valeur 28 est retrouvée,
+  // donc le contrôle des chiffres ne dit rien — mais le SENS du seuil n'est confirmé par personne.
+  const corpus = OCR_TEXT + ' Contre-indiqué chez les nouveau-nés (″ 28 jours) et le nourrisson.'
+  const content = 'Contre-indiqué chez les nouveau-nés (≤ 28 jours).'
+  const s = scripted([out('filled', content, 'Contre-indiqué chez les nouveau-nés')])
+  const r = await generateSection(s.generate, req({
+    source: prepareSource(corpus, 'ocr'),
+    grounding: prepareSource(corpus, 'ocr'),
+  }))
+  // La rubrique est LIVRÉE telle que le modèle l'a lue sur l'image — jamais rejouée pour cela :
+  // reprocher au modèle la lecture fautive de NOTRE OCR l'amènerait à « corriger » ≤ en ″.
+  assertEquals(r.status, 'filled')
+  assertEquals(r.downgraded, false)
+  assertEquals(r.attempts, 1)
+  // ...et le seuil est REMONTÉ, comparateur compris, comme valeur à relire.
+  assertEquals(r.ungrounded, ['≤ 28'])
+  assertEquals(r.figuresAdvisory, true)
+})
+
 Deno.test('generateSection : la MÊME valeur rétrograde bien sur une source fidèle', async () => {
   // Garde-fou du dispositif : c'est la PROVENANCE qui rend les chiffres consultatifs, rien d'autre.
   // Sans ce test, un `figuresAdvisory` posé trop largement désarmerait le contrôle pour tous — et le
@@ -464,6 +484,33 @@ Deno.test('generateSection : une provenance incohérente entre source et ancrage
     Error,
     'provenance incohérente',
   )
+})
+
+Deno.test('instruction rubrique 2 : renvoi 6.1, effet notoire conditionnel, formulation → 3.2.P.1', () => {
+  // Doctrine §2/6.1 (arbitrage CEO 2026-08-14). L'instruction de la rubrique 2 doit porter le
+  // renvoi imposé, la mention conditionnelle AVEC sa condition, et la consigne qui tient le
+  // tableau de formulation hors du RCP — la revue journalise la relocation, l'instruction l'évite.
+  const rubric2 = RCP.rubrics.find((r) => r.id === '2')!
+  const instruction = buildSectionInstruction(req({ rubric: rubric2 }))
+  assertStringIncludes(
+    instruction,
+    'Mention imposée dans cette rubrique : « Pour la liste complète des excipients, voir rubrique 6.1. »',
+  )
+  assertStringIncludes(
+    instruction,
+    'Mention imposée dans cette rubrique, quand la source identifie un ou des excipients à effet ' +
+      'notoire : « Excipient(s) à effet notoire : »',
+  )
+  assertStringIncludes(instruction, 'Consigne de rubrique :')
+  assertStringIncludes(instruction, 'module 3.2.P.1')
+  assertStringIncludes(instruction, 'ne le reproduis pas ici')
+})
+
+Deno.test('instruction rubrique 6.1 : la liste complète des excipients, véhicule inclus, vit ici', () => {
+  const rubric61 = flattenRubrics(RCP).find((r) => r.id === '6.1')!
+  const instruction = buildSectionInstruction(req({ rubric: rubric61 }))
+  assertStringIncludes(instruction, 'Liste COMPLÈTE des excipients')
+  assertStringIncludes(instruction, 'véhicule/solvant inclus')
 })
 
 Deno.test('instruction : la clause STRUCTURE impose les tableaux markdown — jamais aplatis', () => {

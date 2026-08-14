@@ -17,6 +17,7 @@
 //     suffirait à faire passer un contenu inventé : la citation prouve qu'un passage existe, pas
 //     que le contenu en découle.
 import {
+  comparatorsToVerify,
   isEvidenceRejected,
   ungroundedFigures,
   verifyEvidence,
@@ -187,8 +188,18 @@ export function buildSectionInstruction(req: SectionRequest, rejected?: Rejected
   ]
   for (const m of rubric.mentions ?? []) {
     if (m.requiredFor && (!countryCode || !m.requiredFor.includes(countryCode))) continue
-    lines.push(`Mention imposée dans cette rubrique : « ${m.text} »`)
+    // La condition accompagne la mention : sans elle, « Excipient(s) à effet notoire : » serait
+    // écrit même dans un document qui n'en identifie aucun — un intitulé vide, imposé à tort.
+    lines.push(
+      m.when
+        ? `Mention imposée dans cette rubrique, ${m.when} : « ${m.text} »`
+        : `Mention imposée dans cette rubrique : « ${m.text} »`,
+    )
   }
+  // La doctrine du gabarit (périmètre de la rubrique, renvois, ce qui relève d'un autre module du
+  // dossier) voyage avec l'instruction — même véhicule que les mentions, même position variable :
+  // le préfixe mis en cache n'en est pas touché.
+  for (const g of rubric.guidance ?? []) lines.push(`Consigne de rubrique : ${g}`)
   if (rubric.children?.length) {
     const kids = rubric.children.map((c) => c.id).join(', ')
     lines.push(
@@ -441,7 +452,16 @@ export async function generateSection(
     verdict = verifyEvidence(parsed.source_evidence, req.source, parsed.status, req.rubric.title)
     ungrounded = parsed.status === 'missing'
       ? []
-      : ungroundedFigures(parsed.content, grounding, ownId)
+      : [
+        ...ungroundedFigures(parsed.content, grounding, ownId),
+        // Seuils dont le comparateur n'est pas confirmé (≤/≥ lus « ″ » par l'OCR — KV-RL). Vide
+        // hors corpus océrisé, donc TOUJOURS consultatif : ces entrées rejoignent les « valeurs à
+        // relire » de la revue, jamais un motif de rejeu ni de rétrogradation (cf. la fonction).
+        // ⚠️ `req.source` et non `grounding` : un seuil est une affirmation du DOCUMENT — le
+        // contexte certifié du dossier (RCCM, adresses) n'en porte aucun, et l'y chercher ne
+        // pourrait que confirmer à tort.
+        ...comparatorsToVerify(parsed.content, req.source),
+      ]
     // Sur un corpus océrisé, un chiffre non retrouvé n'est PAS une invention constatée : l'OCR
     // confond 0/O, 1/l, 5/S, 8/B. Rejouer puis rétrograder sur ce signal ferait tomber des rubriques
     // justes. Les valeurs sont donc SIGNALÉES à vérifier, jamais opposées au livrable.
