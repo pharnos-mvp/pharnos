@@ -155,3 +155,48 @@ Deno.test('refus : sans dépôt restant, le message ouvre un RECOURS au lieu d�
   assertStringIncludes(messageRefus('fr', 'un RCP', 0), 'e-mail de confirmation')
   assertStringIncludes(messageRefus('en', 'an SmPC', 0), 'confirmation email')
 })
+
+Deno.test('porte : la LANGUE SOURCE est celle de l’empreinte qui a ouvert (LOT B3)', () => {
+  // Le RCP français ouvre par les titres FR du gabarit ; le SmPC anglais par la table EN de
+  // l'assemblage. C'est le seul point de la chaîne qui le sait déjà — libellés de phase et nom
+  // d'archive en dépendent.
+  assertEquals(jugerRecevabilite(RCP, 'text', CONFORMITY_SPECS.rcp).langueSource, 'fr')
+  const smpcEn = [
+    '1. NAME OF THE MEDICINAL PRODUCT',
+    'KV-RL — Compound Sodium Lactate Intravenous Infusion BP',
+    '2. QUALITATIVE AND QUANTITATIVE COMPOSITION',
+    'Each 100 ml contains Sodium Lactate (60 %) solution BP 0.533 gm',
+    '4.1. Therapeutic indications',
+    'Restoration of extracellular fluid and electrolytes balances.',
+  ].join('\n')
+  assertEquals(jugerRecevabilite(smpcEn, 'text', CONFORMITY_SPECS.rcp).langueSource, 'en')
+  // Un document REFUSÉ n'a pas de langue à déclarer : rien n'a ouvert.
+  assertEquals(jugerRecevabilite(JOURNAL, 'text', CONFORMITY_SPECS.rcp).langueSource, null)
+})
+
+Deno.test('porte : DEUX intitulés français égarés ne font pas d’un SmPC anglais un document français', () => {
+  // ⚠️ Le défaut que ce test ferme : la décision se prenait sur `trouves`, échantillon tronqué au
+  // 3ᵉ repère et parcouru FR d'abord — une page de garde bilingue ou un sommaire français
+  // suffisait à inverser la langue d'un SmPC anglais, LE cas d'affaires. La décision se prend
+  // désormais sur les deux tables entières, contre le corpus.
+  const smpcEnAvecEnTetesFr = [
+    // Deux intitulés FRANÇAIS légitimes (formulaire de dépôt bilingue) …
+    'COMPOSITION QUALITATIVE ET QUANTITATIVE — voir le formulaire joint',
+    'FORME PHARMACEUTIQUE (rappel du dossier)',
+    // … dans un document massivement ANGLAIS.
+    '1. NAME OF THE MEDICINAL PRODUCT',
+    'KV-RL — Compound Sodium Lactate Intravenous Infusion BP',
+    '2. QUALITATIVE AND QUANTITATIVE COMPOSITION',
+    'Each 100 ml contains Sodium Lactate (60 %) solution BP 0.533 gm',
+    '3. PHARMACEUTICAL FORM',
+    'Solution for infusion. A clear, colourless solution.',
+    '4.1. Therapeutic indications',
+    'Restoration of extracellular fluid and electrolytes balances.',
+    '4.3 Contraindications',
+    'Special warnings and precautions for use',
+    'Interaction with other medicinal products and other forms of interaction',
+  ].join('\n')
+  const v = jugerRecevabilite(smpcEnAvecEnTetesFr, 'text', CONFORMITY_SPECS.rcp)
+  assertEquals(v.recevable, true)
+  assertEquals(v.langueSource, 'en')
+})

@@ -78,6 +78,52 @@ export interface VerdictRecevabilite {
   /** Total de repères cherchés : sans lui, « 2 trouvés » ne veut rien dire. */
   cherches: number
   seuil: number
+  /**
+   * Langue du document SOURCE — celle des titres qui s'y retrouvent (LOT B3).
+   *
+   * La porte est le seul point de la chaîne qui tient déjà le corpus ET les deux tables de titres
+   * (FR du gabarit, EN de l'assemblage). La majorité, comptée sur les tables ENTIÈRES — jamais sur
+   * l'échantillon tronqué de la recevabilité (cf. `langueDuCorpus`) — tranche ; l'égalité retombe
+   * sur `fr`. `null` quand la porte refuse : un document hors sujet n'a pas de langue à déclarer.
+   */
+  langueSource: 'fr' | 'en' | null
+}
+
+/** Les titres ANGLAIS de l'empreinte — pour décider quelle langue a ouvert (cf. `langueSource`). */
+function titresAnglais(spec: ConformitySpec): string[] {
+  if (spec.docType !== 'rcp') return []
+  const out = new Set<string>()
+  for (const t of DELIVERABLE_TITLES_EN.values()) {
+    const v = t.trim()
+    if (v.length >= MIN_REPERE_CHARS) out.add(v)
+  }
+  return [...out]
+}
+
+/**
+ * La langue majoritaire des titres retrouvés — comptés sur les DEUX tables ENTIÈRES.
+ *
+ * ⚠️ Ne JAMAIS décider sur `trouves` : la recherche de recevabilité s'arrête au 3ᵉ repère et
+ * parcourt les titres FRANÇAIS d'abord — l'échantillon est saturé FR par construction, et DEUX
+ * intitulés français égarés dans un SmPC anglais (page de garde bilingue, sommaire, formulaire de
+ * dépôt) suffisaient à le faire déclarer français. L'erreur était à sens unique : seul le document
+ * anglais — LE cas d'affaires — pouvait être mal étiqueté. Le comptage complet coûte ~20 ms sur la
+ * passe littérale (mesuré plus bas), et il ne tourne que sur un document ACCEPTÉ.
+ * L'égalité retombe sur `fr` — la langue du gabarit.
+ */
+function langueDuCorpus(controlText: string, spec: ConformitySpec): 'fr' | 'en' {
+  const litteral = prepareSource(controlText, 'text')
+  const compte = (titres: Iterable<string>) => {
+    let n = 0
+    for (const t of titres) {
+      const v = t.trim()
+      if (v.length >= MIN_REPERE_CHARS && findInSourceExact(normalizeForEvidence(v), litteral)) n++
+    }
+    return n
+  }
+  const fr = compte(flattenRubrics(spec).map((r) => r.title))
+  const en = compte(titresAnglais(spec))
+  return en > fr ? 'en' : 'fr'
 }
 
 /**
@@ -121,11 +167,13 @@ export function jugerRecevabilite(
     }
   }
 
+  const recevable = trouves.length >= REPERES_MINIMUM
   return {
-    recevable: trouves.length >= REPERES_MINIMUM,
+    recevable,
     trouves,
     cherches: reperes.length,
     seuil: REPERES_MINIMUM,
+    langueSource: recevable ? langueDuCorpus(controlText, spec) : null,
   }
 }
 

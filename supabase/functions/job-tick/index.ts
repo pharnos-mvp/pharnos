@@ -58,6 +58,8 @@ import {
   assembleDocument,
   type LigneAssemblage,
   produitDepuisRubrique1,
+  statsLivrable,
+  type StatsLivrable,
 } from '../_shared/deliverable-markdown.ts'
 import { logJson, newReqId } from '../_shared/log.ts'
 import { deliveryTokenHash, DOC_TYPES_VENDABLES, newDeliveryToken } from '../_shared/orders-core.ts'
@@ -394,6 +396,7 @@ async function avancerPhase(sb: SupabaseClient, job: Job, log: Record<string, un
           deliverable_fr: livrables.fr,
           deliverable_en: livrables.en,
           deliverable_report: livrables.rapport,
+          deliverable_stats: livrables.stats,
           phase: 'done',
           finished_at: livrables.quand.toISOString(),
         })
@@ -432,7 +435,10 @@ async function avancerPhase(sb: SupabaseClient, job: Job, log: Record<string, un
 async function assemblerLivrables(
   sb: SupabaseClient,
   job: Job,
-): Promise<{ fr: string; en: string; rapport: string; quand: Date } | { erreur: string }> {
+): Promise<
+  | { fr: string; en: string; rapport: string; stats: StatsLivrable; quand: Date }
+  | { erreur: string }
+> {
   const quand = new Date()
   const { data: lignes, error } = await sb
     .from('upgrade_sections')
@@ -531,7 +537,9 @@ async function assemblerLivrables(
     reportDate: quand.toISOString().slice(0, 10),
     system: reviewSystem(lang),
   })
-  return { fr, en, rapport, quand }
+  // Les comptes de l'écran de livraison — figés ICI, le seul moment où conformité et revue sont
+  // ensemble en mémoire (LOT B3, migration `0093`).
+  return { fr, en, rapport, stats: statsLivrable(sections, analysis.analyse), quand }
 }
 
 /**
@@ -915,6 +923,18 @@ async function servirVague(
       finished_at: new Date().toISOString(),
       claimed_at: null,
     }, log)
+    // Le NOM DU PRODUIT se fige dès que la rubrique 1 aboutit — UNE écriture par job, pour que la
+    // page publique (sondée toutes les 2 s) le lise sur la ligne de job qu'elle charge déjà, au
+    // lieu de requêter la rubrique 1 à chaque sondage. Best-effort : un échec ici ne coûte que le
+    // bandeau, jamais la rubrique — et l'assemblage re-dérive le nom de toute façon.
+    if (item.phase === 'conformity' && ligne.section_id === '1') {
+      const produit = produitDepuisRubrique1(
+        (o.value!.valeur as { content?: string } | null)?.content,
+      )
+      if (produit) {
+        await sb.from('upgrade_jobs').update({ product_name: produit }).eq('id', job.id)
+      }
+    }
   }
 
   // Décompte de la PHASE COURANTE : sans le filtre, le compteur cumulait les trois passes et
