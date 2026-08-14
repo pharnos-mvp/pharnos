@@ -675,3 +675,14 @@ Deno.test('buildReportPartAsk : chaque demande NOMME les trois listes à laisser
   assertEquals(buildReportPartAsk('terminology').includes('blocking'), false)
   assertEquals(buildReportPartAsk('relocations').includes('blocking'), false)
 })
+
+Deno.test('buildReportPartAsk : une relocation vers un AUTRE module du dossier se journalise', () => {
+  // Doctrine §2/6.1 (arbitrage CEO 2026-08-14) : le tableau de formulation par volume nominal
+  // sort du RCP vers le module 3.2.P.1 — la revue doit journaliser ce déplacement, pas le taire.
+  const ask = buildReportPartAsk('relocations')
+  assertStringIncludes(ask, 'AUTRE module du dossier CTD')
+  assertStringIncludes(ask, 'module 3.2.P.1')
+  // Formulation AGNOSTIQUE du type de document : la même consigne part aux revues de notice et
+  // d'étiquetage — elle ne doit nommer ni « RCP » ni une rubrique qui n'existe que chez lui.
+  assertStringIncludes(ask, 'jamais de l\'information produit')
+})

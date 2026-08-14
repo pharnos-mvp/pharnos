@@ -37,6 +37,34 @@ Deno.test('RCP 4.8 : pharmacovigilance ABMed obligatoire pour le Bénin uniqueme
   assert(!specPromptText(CONFORMITY_SPECS.rcp, 'CI').includes('vigilances.abmed@gouv.bj'))
 })
 
+Deno.test('RCP 2 : renvoi 6.1 imposé partout, effet notoire conditionnel, doctrine §2/6.1', () => {
+  // Arbitrage CEO 2026-08-14 (LOT A) : la rubrique 2 est une phrase de composition — actifs +
+  // effet notoire + renvoi 6.1 ; la formule intégrale relève du module 3.2.P.1, hors RCP.
+  const r2 = CONFORMITY_SPECS.rcp.rubrics.find((r) => r.id === '2')!
+  const renvoi = r2.mentions?.find((m) =>
+    m.text === 'Pour la liste complète des excipients, voir rubrique 6.1.'
+  )
+  assert(renvoi, 'renvoi 6.1 absent de la rubrique 2')
+  assertEquals(renvoi?.requiredFor, undefined, 'le renvoi 6.1 vaut pour TOUS les pays')
+  const notoire = r2.mentions?.find((m) => m.text.startsWith('Excipient(s) à effet notoire'))
+  assert(notoire?.when, 'la mention « effet notoire » doit porter sa condition')
+  assert(
+    r2.guidance?.some((g) => g.includes('3.2.P.1')),
+    'la doctrine « formulation → module 3.2.P.1 » doit être une consigne de la rubrique 2',
+  )
+  const r61 = flattenRubrics(CONFORMITY_SPECS.rcp).find((r) => r.id === '6.1')!
+  assert(
+    r61.guidance?.some((g) => g.includes('véhicule')),
+    'la 6.1 doit exiger la liste complète, véhicule inclus',
+  )
+  // Rendu prompt d'AUDIT : le renvoi (inconditionnel) se grade quel que soit le pays ; la mention
+  // CONDITIONNELLE n'y entre JAMAIS — un RCP sans excipient à effet notoire n'a rien à annoncer,
+  // et la grader ferait rendre « non conforme » un document correct au Checking Standard public.
+  const prompt = specPromptText(CONFORMITY_SPECS.rcp, 'CI')
+  assert(prompt.includes('voir rubrique 6.1'))
+  assert(!prompt.includes('effet notoire'), 'mention conditionnelle gradée dans le prompt d’audit')
+})
+
 Deno.test('Notice : sections 1 à 6 + encadré + table des matières', () => {
   const ids = CONFORMITY_SPECS.notice.rubrics.map((r) => r.id)
   for (const id of ['entete', 'encadre', 'tdm', '1', '2', '3', '4', '5', '6']) {

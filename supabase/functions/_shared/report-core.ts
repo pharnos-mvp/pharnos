@@ -604,7 +604,11 @@ const PART_SPEC: Record<ReportPart, string> = {
   relocations: '- « relocations » : les contenus dont la POSITION change entre le document source ' +
     'et le gabarit. `source_position` doit citer l\'intitulé tel qu\'il apparaît DANS le document ' +
     '(il est vérifié automatiquement ; un intitulé absent fait écarter la ligne). `risk` dit ce ' +
-    'qu\'une recopie en place aurait produit, concrètement.',
+    'qu\'une recopie en place aurait produit, concrètement. Un contenu dont la place est un AUTRE ' +
+    'module du dossier CTD sort du document livré et se journalise ICI, `template_position` ' +
+    'nommant ce module — ainsi un tableau de formulation par volume nominal (fonctions, ' +
+    'références de pharmacopée) relève du module 3.2.P.1 du dossier, jamais de l\'information ' +
+    'produit.',
   terminology: '- « terminology » : les libellés remplacés par leur forme officielle. `before` ' +
     'doit citer le libellé tel qu\'il apparaît dans le document (également vérifié).',
   findings: '- « findings » : les constats qui demandent une décision de l\'expert. C\'est ici, et ' +
