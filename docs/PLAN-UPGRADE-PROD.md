@@ -60,7 +60,7 @@ sont déjà déployées hors CI).
 | A5 | **Comparateurs OCR** : `≤`/`≥` mal reconnus (« ″ 28 jours ») — normalisation + entrée en « valeurs à relire » | test sur corpus OCR truqué |
 | A6 | **En-tête courant** : nom long tronqué à GAUCHE (« *olution pour perfusion…* ») — réduction de corps ou ellipse propre | test de largeur ; contrôle visuel |
 | A4 | ~~Casse des titres~~ **CLOS** — arbitrage CEO : « garder le bon français » (capitales accentuées) | test de dérive des titres (existant) |
-| ✔ | **Clôture du LOT A = UN run réel sur KV-RL** (feu vert CEO) — critères : 4.8 en **table MedDRA** (colonnes/lignes de la source), renvoi 6.1 présent, §2 sans tableau de formulation, comparateurs propres, parité binaire re-prouvée | le run est LA preuve |
+| ✔ | Clôture du LOT A : tests de dérive + golden files + rendu local sur les markdowns DÉJÀ payés (`run-kvrl` du scratchpad) — **AUCUN run moteur** ; la preuve réelle vit dans le run unique final (ci-dessous) | zéro dépense avant l'heure |
 
 ### LOT B — le front = le mockup
 | # | Tâche |
@@ -79,10 +79,20 @@ sont déjà déployées hors CI).
 | C4 | **Repli du pont** : JAMAIS en mode recette (panne franche affichée) ; en réel : un retry avant repli + signal journalisé |
 | C5 | **E-mails** : partie texte brut (aujourd'hui HTML seul) ; **facture DURABLE** (`order-invoice?token=` re-signe à la volée — les URLs Chariow expirent en ~1 h 30) ; absorber les e-mails tiers : « le débit apparaît sous *MiMo Global* » au panneau, clé de licence Chariow désactivée en console sinon expliquée dans l'e-mail n°1 |
 
-### Critère de réouverture (inchangé)
-**UNE recette carte→ZIP avec ZÉRO intervention de l'opérateur.** Puis réouverture, puis **up3**
-(session multi-dépôts, budget PAR document) avec les leviers vitesse **L1** (N jobs par tick — le
-bundle passe de ~20 à ~8-10 min) et **L3** (bascule de phase dans le même tick).
+### Critère de réouverture — et la règle du RUN UNIQUE (directive CEO, 2026-08-14)
+
+**Aucun run consommant des jetons API ou un paiement Chariow tant que TOUT le workflow n'est pas
+prêt pour une exécution de bout en bout** : paiement → traitement suivi en direct à l'écran
+(streaming, niveau mockup) → livrable 100 % qualitatif. Les lots A, B et C se valident par tests,
+golden files et rendus locaux sur les markdowns déjà payés — jamais par un run.
+
+**LE run, unique et final (feu vert CEO)** = la recette d'autonomie ET la preuve de qualité en un
+seul geste : carte → ZIP avec **ZÉRO intervention de l'opérateur**, page de suivi conforme au
+mockup pendant le traitement, et à l'arrivée : 4.8 en **table MedDRA** (colonnes/lignes de la
+source), renvoi 6.1 présent, §2 sans tableau de formulation, comparateurs OCR propres, nommage par
+langue source, parité binaire. Vert → réouverture. Puis **up3** (session multi-dépôts, budget PAR
+document) avec les leviers vitesse **L1** (N jobs par tick — le bundle passe de ~20 à ~8-10 min)
+et **L3** (bascule de phase dans le même tick).
 > | ✅ **Revue de branche purgée (2026-08-09)** | 8 bloquants + 16 majeurs corrigés, déployés (migration `0087`, 4 Edge). Détail : §« Revue de branche » |
 > | ✅ Edge déployées | `order-source`, `order-status`, `order-gate`, `order-upload-url`, `chariow-pulse`, `job-tick` — à jour du **2026-08-10** (répétition), migrations `0083`→**`0091`** appliquées |
 > | ✅ Mesuré sur run réel (2026-08-10) | le découpage de la revue a tourné sur document réel : `terminology` et `findings` sous 60 s, **`relocations` AU-DESSUS de 60 s** (le plafond-projection l'a tuée une fois), passe sous le plafond recalibré de 100 s ; `recommendations` sous 60 s. La chaîne bout en bout : dépôt→livrable en ~17 min avec l'échec-relance, ~8 min en nominal |
