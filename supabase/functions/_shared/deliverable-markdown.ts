@@ -190,6 +190,43 @@ export function activityLabel(activity: string | null | undefined, lang: 'fr' | 
  * écrit « Aucun. » pour une liste vide, et c'est une AFFIRMATION — livrer « aucune terminologie à
  * aligner » parce qu'une ligne manque serait le défaut corrigé en `d224665`.
  */
+/** Les quatre comptes de l'écran de livraison — figés à l'assemblage (migration `0093`). */
+export interface StatsLivrable {
+  /** Rubriques reprises et vérifiées (`filled` + `partial`). */
+  reprises: number
+  /** Rubriques restées « Non fourni, à compléter ». */
+  aCompleter: number
+  /** Contenus remis à leur place (les relocations de la revue). */
+  deplaces: number
+  /** Valeurs lues par reconnaissance de caractères, à relire — dédupliquées comme au rapport. */
+  aRelire: number
+}
+
+/**
+ * Calcule les comptes de l'écran de livraison — au SEUL moment où conformité et revue sont
+ * ensemble en mémoire (l'assemblage). Les recalculer à la lecture referait ce travail à chaque
+ * visite du lien, sur des données que l'assemblage a déjà jugées.
+ *
+ * ⚠️ `aRelire` DÉDUPLIQUE comme le rapport (`renderReportMarkdown` passe par un `Set`) : la même
+ * valeur mal lue apparaît dans plusieurs rubriques, et le compte doit égaler la liste que le
+ * client voit — un « 7 valeurs à relire » au-dessus d'une liste de 4 se lit comme une omission.
+ */
+export function statsLivrable(
+  sections: readonly {
+    status: 'filled' | 'partial' | 'missing'
+    figuresToVerify?: readonly string[]
+  }[],
+  analyse: Pick<ReportAnalysis, 'relocations'>,
+): StatsLivrable {
+  const aRelire = new Set(sections.flatMap((s) => [...(s.figuresToVerify ?? [])]))
+  return {
+    reprises: sections.filter((s) => s.status !== 'missing').length,
+    aCompleter: sections.filter((s) => s.status === 'missing').length,
+    deplaces: analyse.relocations.length,
+    aRelire: aRelire.size,
+  }
+}
+
 export function analyseDepuisParts(
   parts: ReadonlyMap<string, unknown>,
 ): { analyse: ReportAnalysis } | { erreur: string } {

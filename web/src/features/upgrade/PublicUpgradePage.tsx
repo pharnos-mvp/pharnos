@@ -15,7 +15,17 @@
  * vérifierait rien.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CheckCircle2, CircleAlert, FileText, Info, Loader2, Upload } from 'lucide-react'
+import {
+  CheckCircle2,
+  CircleAlert,
+  FileText,
+  Hash,
+  Info,
+  Loader2,
+  Quote,
+  Search,
+  Upload,
+} from 'lucide-react'
 
 import { LangSwitch } from '@/components/layout/LangSwitch'
 import { Button } from '@/components/ui/button'
@@ -39,25 +49,34 @@ import {
   type ReponseDepot,
 } from './upgrade-api'
 import {
+  extensionDe,
   fabriquerFichiers,
   fabriquerZip,
+  labelFichier,
   lireLivrable,
   mimeDe,
   type FichiersLivres,
+  type LivrableRecu,
 } from './livraison'
 import {
   ACTIVITES,
+  bandeauContexte,
   DOC_TYPES_LIVRABLES,
   doitChercherSource,
   doitSonder,
+  dureeLisible,
   estDocType,
+  libellePhase,
   PAYS_UEMOA,
   resteEstimeS,
+  rubriqueEnCours,
+  rubriquesVivantes,
   SONDAGE_MS,
   validerFichierSource,
   vueDepuis,
   type DocType,
   type ResumeCommande,
+  type RubriqueVivante,
 } from './upgrade-flow'
 
 const LIBELLES_DOC: Record<DocType, { fr: string; en: string }> = {
@@ -507,7 +526,7 @@ export function PublicUpgradePage({ token }: { token: string }) {
   const dire = (m: Message): string => (typeof m === 'string' ? t(MESSAGES[m]) : m.serveur)
 
   return (
-    <Cadre>
+    <Cadre large={vue.etape === 'traitement' || vue.etape === 'livraison'}>
       <Titre
         icone={<FileText className="text-primary size-5" />}
         titre={t({ fr: 'Mise à niveau documentaire', en: 'Document upgrade' })}
@@ -786,15 +805,6 @@ function EcranPreparation({ travail }: { travail: Travail }) {
   )
 }
 
-const PHASE_CONFORMITE = { fr: 'Mise en conformité', en: 'Compliance pass' }
-/** ⚠️ Une phase inconnue retombe sur la première, jamais sur un libellé vide : le serveur peut
- *  nommer une passe que cette version de la page ne connaît pas encore. */
-const LIBELLES_PHASE: Record<string, { fr: string; en: string } | undefined> = {
-  conformity: PHASE_CONFORMITE,
-  translation: { fr: 'Traduction anglaise', en: 'English translation' },
-  report: { fr: 'Revue réglementaire', en: 'Regulatory review' },
-}
-
 function EcranTraitement({
   resume,
   vue,
@@ -802,42 +812,75 @@ function EcranTraitement({
   resume: ResumeCommande | null
   vue: ReturnType<typeof vueDepuis>
 }) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const reste = resteEstimeS(vue, resume?.phase ?? 'conformity')
-  const phase = LIBELLES_PHASE[resume?.phase ?? 'conformity'] ?? PHASE_CONFORMITE
+  // Le libellé suit la LANGUE SOURCE (LOT B3) : une source anglaise ne subit jamais une
+  // « Traduction anglaise » — son document EST anglais.
+  const phase = libellePhase(resume?.phase ?? 'conformity', resume?.sourceLang)
+  const langUi = lang === 'en' ? 'en' : 'fr'
+  const rubriques = rubriquesVivantes(resume?.sections, resume?.docType, langUi)
+  const enCours = rubriqueEnCours(rubriques)
+  const contexte = bandeauContexte(resume, langUi)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {/* Le flow-head du mockup : ce que nous faisons, et le bandeau contexte de CE dossier. */}
+      <div className="space-y-1">
+        <h2 className="text-lg font-semibold tracking-tight">
+          {t({
+            fr: 'Nous reprenons votre document, rubrique par rubrique',
+            en: 'We are reworking your document, section by section',
+          })}
+        </h2>
+        {contexte && <p className="text-muted-foreground text-sm">{contexte}</p>}
+      </div>
+
       <div className="space-y-1.5">
-        <div className="flex items-baseline justify-between text-sm">
-          <span className="font-medium">{t(phase)}</span>
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
+          {/* `aria-live` sur le LIBELLÉ de phase : trois annonces par run (une par passe), là où
+              la liste vivante en ferait une toutes les deux secondes. La barre porte déjà
+              `role=progressbar` pour l'interrogation à la demande. */}
+          <span className="font-medium" aria-live="polite">
+            {t(phase)}
+            {enCours &&
+              ` — ${t({ fr: 'rubrique', en: 'section' })} ${enCours.num} ${t({ fr: 'sur', en: 'of' })} ${resume?.total ?? rubriques.length}`}
+          </span>
           <span className="text-muted-foreground tabular-nums">
-            {resume?.faites ?? 0} / {resume?.total ?? 0}
+            {reste !== null
+              ? t({
+                  fr: `environ ${Math.ceil(reste / 60)} min restantes`,
+                  en: `about ${Math.ceil(reste / 60)} min remaining`,
+                })
+              : `${resume?.faites ?? 0} / ${resume?.total ?? 0}`}
           </span>
         </div>
         <Barre ratio={vue.progression} />
       </div>
 
-      {reste !== null && (
-        <p className="text-muted-foreground text-sm">
+      {/* La notice OCR du mockup : nommer la cause de l'attente AVANT qu'elle inquiète. */}
+      {resume?.sourceKind === 'ocr' && (
+        <Encart ton="avis">
           {t({
-            fr: `Environ ${Math.ceil(reste / 60)} min restantes.`,
-            en: `About ${Math.ceil(reste / 60)} min remaining.`,
+            fr: 'Ce PDF ne porte pas de texte exploitable : nous le lisons page par page. C’est ce qui explique l’attente.',
+            en: 'This PDF carries no usable text: we read it page by page. That is what explains the wait.',
           })}
-        </p>
+        </Encart>
       )}
 
-      {/* La promesse de la maquette, et elle devient VRAIE ici : le travail vit sur nos serveurs,
-          plus dans cet onglet.
-
-          Et depuis U5, l'e-mail « vos fichiers sont prêts » EXISTE (`job-tick` l'envoie à la
-          bascule `running→done`) : la promesse peut se faire entière. */}
-      <Encart ton="avis">
-        {t({
-          fr: 'Vous pouvez fermer cette page : le traitement continue sans vous, et un e-mail vous préviendra quand vos fichiers seront prêts. Ce lien reste valable 30 jours.',
-          en: 'You can close this page: processing continues without you, and an e-mail will tell you when your files are ready. This link stays valid for 30 days.',
-        })}
-      </Encart>
+      <div className="grid gap-4 md:grid-cols-[1.3fr_1fr]">
+        <RubriquesListe rubriques={rubriques} />
+        <div className="space-y-3">
+          <PanneauGaranties />
+          {/* La promesse de la maquette, et elle devient VRAIE ici : le travail vit sur nos
+              serveurs, plus dans cet onglet — et l'e-mail n°2 existe depuis U5. */}
+          <Encart ton="avis">
+            {t({
+              fr: 'Vous pouvez fermer cette page : le traitement continue sans vous, et un e-mail vous préviendra quand vos fichiers seront prêts. Ce lien reste valable 30 jours.',
+              en: 'You can close this page: processing continues without you, and an e-mail will tell you when your files are ready. This link stays valid for 30 days.',
+            })}
+          </Encart>
+        </div>
+      </div>
 
       {(resume?.echecs ?? 0) > 0 && (
         <p className="text-muted-foreground text-xs">
@@ -847,6 +890,141 @@ function EcranTraitement({
           })}
         </p>
       )}
+    </div>
+  )
+}
+
+/** La liste « à statuts vivants » du mockup — l'acheteur VOIT le travail, rubrique par rubrique. */
+function RubriquesListe({ rubriques }: { rubriques: readonly RubriqueVivante[] }) {
+  const { t } = useI18n()
+  const listeRef = useRef<HTMLUListElement>(null)
+  const enCoursRef = useRef<HTMLLIElement>(null)
+  // ⚠️ Le worker traite par VAGUES de 6 : plusieurs lignes sont `running` en même temps. Le ref
+  // se pose sur LA ligne dont l'identifiant pilote l'effet — la première — jamais sur « toute
+  // ligne running » (React garde alors la DERNIÈRE, et l'écran défilait cinq lignes trop bas).
+  const enCoursId = rubriques.find((r) => r.st === 'running')?.id
+  // ⚠️ `scrollIntoView` fait défiler TOUS les conteneurs jusqu'au viewport — la page comprise :
+  // sur téléphone, chaque vague ramenait l'acheteur de force sur la liste pendant qu'il lisait le
+  // panneau des garanties. On ne bouge donc QUE le scrollport de la liste, à la main.
+  useEffect(() => {
+    const li = enCoursRef.current
+    const ul = listeRef.current
+    if (!li || !ul) return
+    const haut = li.offsetTop - ul.scrollTop
+    const bas = haut + li.offsetHeight - ul.clientHeight
+    if (bas > 0) ul.scrollTop += bas
+    else if (haut < 0) ul.scrollTop += haut
+  }, [enCoursId])
+
+  if (!rubriques.length) {
+    return (
+      <div className="text-muted-foreground flex items-center gap-2 rounded-lg border p-4 text-sm">
+        <Loader2 className="size-4 animate-spin" />
+        {t({ fr: 'Préparation des rubriques…', en: 'Preparing the sections…' })}
+      </div>
+    )
+  }
+  return (
+    <ul ref={listeRef} className="max-h-80 divide-y overflow-y-auto rounded-lg border">
+      {rubriques.map((r) => (
+        <li
+          key={r.id}
+          ref={r.id === enCoursId ? enCoursRef : undefined}
+          className={cn(
+            'flex items-center gap-2.5 px-3 py-2 text-sm',
+            r.st === 'running' && 'bg-primary/5',
+            r.st === 'queued' && 'text-muted-foreground',
+          )}
+        >
+          <span className="text-muted-foreground w-9 shrink-0 font-mono text-xs">{r.num}</span>
+          <span className="min-w-0 truncate">{r.titre}</span>
+          <span className="ml-auto shrink-0">
+            <StatutRubrique st={r.st} o={r.o} />
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** Le badge d'une rubrique — les quatre états du mockup, plus l'échec (qui se dit, jamais caché). */
+function StatutRubrique({ st, o }: { st: string; o?: string }) {
+  const { t } = useI18n()
+  if (st === 'running') {
+    return (
+      <Loader2
+        className="text-primary size-4 animate-spin"
+        aria-label={t({ fr: 'en cours', en: 'in progress' })}
+      />
+    )
+  }
+  if (st === 'done' && o === 'missing') {
+    return (
+      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+        {t({ fr: 'À compléter', en: 'To complete' })}
+      </span>
+    )
+  }
+  if (st === 'done') {
+    return (
+      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+        {t({ fr: 'Reprise', en: 'Carried over' })}
+      </span>
+    )
+  }
+  if (st === 'failed') {
+    return (
+      <span className="bg-destructive/10 text-destructive rounded-full px-2 py-0.5 text-xs font-medium">
+        {t({ fr: 'En échec', en: 'Failed' })}
+      </span>
+    )
+  }
+  return (
+    <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs font-medium">
+      {t({ fr: 'En attente', en: 'Waiting' })}
+    </span>
+  )
+}
+
+/** Le panneau « Ce que nous faisons en ce moment » — les trois garanties du mockup, mot pour mot. */
+function PanneauGaranties() {
+  const { t } = useI18n()
+  const lignes = [
+    {
+      icone: <Search className="text-primary mt-0.5 size-4 shrink-0" />,
+      texte: t({
+        fr: 'Nous cherchons la rubrique dans tout votre document, pas sous le numéro qui lui ressemble.',
+        en: 'We look for each section across your whole document, not under the number that looks like it.',
+      }),
+    },
+    {
+      icone: <Quote className="text-primary mt-0.5 size-4 shrink-0" />,
+      texte: t({
+        fr: 'Chaque phrase doit se retrouver mot pour mot dans votre source.',
+        en: 'Every sentence must be found word for word in your source.',
+      }),
+    },
+    {
+      icone: <Hash className="text-primary mt-0.5 size-4 shrink-0" />,
+      texte: t({
+        fr: 'Chaque dosage est vérifié : 250 mg n’est pas 250 µg.',
+        en: 'Every strength is checked: 250 mg is not 250 µg.',
+      }),
+    },
+  ]
+  return (
+    <div className="space-y-2.5 rounded-lg border p-4">
+      <p className="text-sm font-semibold">
+        {t({ fr: 'Ce que nous faisons en ce moment', en: 'What we are doing right now' })}
+      </p>
+      <ul className="space-y-2.5">
+        {lignes.map((l, i) => (
+          <li key={i} className="text-muted-foreground flex gap-2 text-sm">
+            {l.icone}
+            <span>{l.texte}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
@@ -869,11 +1047,12 @@ function EcranLivraison({
   token: string
 }) {
   const { t } = useI18n()
+  const langUi: 'fr' | 'en' = lang === 'en' ? 'en' : 'fr'
   const expire = resume?.expireLe ? new Date(resume.expireLe) : null
   const [tentative, setTentative] = useState(0)
   const [etat, setEtat] = useState<
     | { quoi: 'fabrication' }
-    | { quoi: 'prets'; fichiers: FichiersLivres }
+    | { quoi: 'prets'; fichiers: FichiersLivres; livrable: LivrableRecu }
     // ⚠️ Deux échecs OPPOSÉS, et les confondre accusait le navigateur de tout : `definitif` = le
     // serveur a refusé (livrable introuvable) — recharger est une boucle sans issue, le support
     // est le seul chemin ; non définitif = réseau ou 429 — réessayer a un sens.
@@ -897,7 +1076,7 @@ function EcranLivraison({
           throw new UpgradeApiError('refus', e instanceof Error ? e.message : String(e))
         }
         if ('erreur' in fichiers) throw new UpgradeApiError('refus', fichiers.erreur)
-        if (vivant) setEtat({ quoi: 'prets', fichiers })
+        if (vivant) setEtat({ quoi: 'prets', fichiers, livrable })
       } catch (e) {
         // Une fabrication qui échoue se DIT — jamais un bouton mort ni un écran qui prétend.
         const definitif = e instanceof UpgradeApiError && e.raison === 'refus'
@@ -920,18 +1099,76 @@ function EcranLivraison({
     setTimeout(() => URL.revokeObjectURL(url), 30_000)
   }
 
+  const stats = etat.quoi === 'prets' ? etat.livrable.stats : null
+  const dureeS = etat.quoi === 'prets' ? etat.livrable.dureeS : null
+  const contexte = bandeauContexte(resume, langUi)
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <CheckCircle2 className="size-5 text-emerald-600" />
-        {t({ fr: 'Votre dossier est terminé.', en: 'Your dossier is complete.' })}
+      {/* Le flow-head du mockup : le résultat d'abord, le reste-à-faire dans la MÊME phrase —
+          « attendent vos données », jamais « manquantes » : le défaut appartient à la source. */}
+      <div className="space-y-1">
+        <h2 className="flex items-start gap-2 text-lg font-semibold tracking-tight">
+          <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-600" />
+          <span>
+            {stats
+              ? stats.aCompleter > 0
+                ? t({
+                    fr: `Votre document est repris au gabarit. ${stats.aCompleter} rubrique${stats.aCompleter > 1 ? 's' : ''} attend${stats.aCompleter > 1 ? 'ent' : ''} vos données.`,
+                    en: `Your document is reworked to the template. ${stats.aCompleter} section${stats.aCompleter > 1 ? 's' : ''} await${stats.aCompleter > 1 ? '' : 's'} your data.`,
+                  })
+                : t({
+                    fr: 'Votre document est repris au gabarit, rubrique par rubrique.',
+                    en: 'Your document is reworked to the template, section by section.',
+                  })
+              : t({ fr: 'Votre dossier est terminé.', en: 'Your dossier is complete.' })}
+          </span>
+        </h2>
+        {(contexte || dureeS !== null) && (
+          <p className="text-muted-foreground text-sm">
+            {[
+              contexte,
+              dureeS !== null
+                ? t({
+                    fr: `terminé en ${dureeLisible(dureeS, 'fr')}`,
+                    en: `done in ${dureeLisible(dureeS, 'en')}`,
+                  })
+                : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
+        )}
       </div>
-      <p className="text-muted-foreground text-sm">
-        {t({
-          fr: 'Votre livrable comprend cinq fichiers : le document en français et en anglais, chacun en Word et en PDF, plus la revue réglementaire.',
-          en: 'Your deliverable has five files: the document in French and in English, each in Word and PDF, plus the regulatory review.',
-        })}
-      </p>
+
+      {/* Les quatre tuiles du mockup — du GAIN au reste-à-faire, dans cet ordre. Masquées
+          entières sur un job d'avant la migration 0093 : jamais une tuile inventée. */}
+      {stats && (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <Tuile
+            valeur={stats.reprises}
+            ton="ok"
+            libelle={t({
+              fr: 'rubriques reprises et vérifiées',
+              en: 'sections carried over and checked',
+            })}
+          />
+          <Tuile
+            valeur={stats.aCompleter}
+            ton="warn"
+            libelle={t({ fr: 'rubriques à compléter', en: 'sections to complete' })}
+          />
+          <Tuile
+            valeur={stats.deplaces}
+            ton="info"
+            libelle={t({ fr: 'contenus remis à leur place', en: 'contents moved to their place' })}
+          />
+          <Tuile
+            valeur={stats.aRelire}
+            libelle={t({ fr: 'valeurs à relire', en: 'figures to re-read' })}
+          />
+        </div>
+      )}
 
       {etat.quoi === 'fabrication' && (
         <div className="text-muted-foreground flex items-center gap-2 text-sm">
@@ -944,31 +1181,62 @@ function EcranLivraison({
       )}
 
       {etat.quoi === 'prets' && (
-        <div className="space-y-2">
-          {etat.fichiers.files.map((f) => (
-            <Button
-              key={f.fileName}
-              type="button"
-              variant="outline"
-              className="w-full justify-start"
-              onClick={() => telecharger(f.fileName, f.bytes, mimeDe(f))}
-            >
-              <FileText className="size-4" />
-              {f.fileName}
-            </Button>
-          ))}
-          <Button
-            type="button"
-            className="w-full"
-            onClick={() =>
-              void fabriquerZip(etat.fichiers).then((zip) =>
-                telecharger(etat.fichiers.zipName, zip, 'application/zip'),
-              )
-            }
-          >
-            <Upload className="size-4 rotate-180" />
-            {t({ fr: 'Tout télécharger (ZIP)', en: 'Download all (ZIP)' })}
-          </Button>
+        <div className="space-y-3">
+          {/* La carte « Vos cinq fichiers » — Tout télécharger EN TÊTE (décision du mockup) :
+              le geste principal ne vit pas sous une liste qu'il faut faire défiler. */}
+          <div className="rounded-lg border">
+            <div className="flex flex-wrap items-center gap-3 border-b p-4">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">
+                  {t({ fr: 'Vos cinq fichiers', en: 'Your five files' })}
+                </p>
+                <p className="text-muted-foreground text-sm">
+                  {t({
+                    fr: 'Le document part à l’agence. La revue reste chez vous.',
+                    en: 'The document goes to the agency. The review stays with you.',
+                  })}
+                </p>
+              </div>
+              <Button
+                type="button"
+                onClick={() =>
+                  void fabriquerZip(etat.fichiers).then((zip) =>
+                    telecharger(etat.fichiers.zipName, zip, 'application/zip'),
+                  )
+                }
+              >
+                <Upload className="size-4 rotate-180" />
+                {t({ fr: 'Tout télécharger', en: 'Download all' })}
+              </Button>
+            </div>
+            <div className="space-y-2 p-4">
+              {etat.fichiers.files.map((f) => (
+                <Button
+                  key={f.fileName}
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => telecharger(f.fileName, f.bytes, mimeDe(f))}
+                >
+                  <FileText className="size-4" />
+                  <span className="min-w-0 flex-1 truncate text-left">
+                    {labelFichier(f.fileName, langUi)}
+                  </span>
+                  <span className="text-muted-foreground font-mono text-xs">
+                    {extensionDe(f.fileName)}
+                  </span>
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <Encart ton="avis">
+            {t({
+              fr: 'La revue ne se dépose jamais : elle accompagne le document, elle n’en fait pas partie.',
+              en: 'The review is never filed: it accompanies the document, it is not part of it.',
+            })}
+          </Encart>
+
           {/* ⚠️ Un caractère intraçable retiré d'un PDF peut changer le sens d'une ligne : le
               client le VOIT, il ne le découvre pas chez l'agence. */}
           {etat.fichiers.dropped.length > 0 && (
@@ -1025,10 +1293,12 @@ function EcranLivraison({
 
 /* ──────────────────────────────────────── Les briques ──────────────────────────────────────── */
 
-function Cadre({ children }: { children: React.ReactNode }) {
+function Cadre({ children, large }: { children: React.ReactNode; large?: boolean }) {
   return (
     <div className="bg-page flex min-h-svh justify-center px-4 py-10">
-      <div className="w-full max-w-xl space-y-6">
+      {/* LARGE pour le traitement et la livraison (mockup v3 : liste vivante + tuiles) ; étroit
+          partout ailleurs — un écran de dépôt n'a rien à étaler. */}
+      <div className={cn('w-full space-y-6', large ? 'max-w-3xl' : 'max-w-xl')}>
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold tracking-tight">Pharnos</span>
           <LangSwitch />
@@ -1037,6 +1307,33 @@ function Cadre({ children }: { children: React.ReactNode }) {
           <div className="space-y-5">{children}</div>
         </div>
       </div>
+    </div>
+  )
+}
+
+/** Une tuile chiffrée de l'écran de livraison — le mockup en aligne quatre, du gain au reste. */
+function Tuile({
+  valeur,
+  libelle,
+  ton,
+}: {
+  valeur: number
+  libelle: string
+  ton?: 'ok' | 'warn' | 'info'
+}) {
+  return (
+    <div className="bg-card rounded-lg border p-3">
+      <p
+        className={cn(
+          'text-2xl font-bold tabular-nums',
+          ton === 'ok' && 'text-emerald-600',
+          ton === 'warn' && 'text-amber-600',
+          ton === 'info' && 'text-primary',
+        )}
+      >
+        {valeur}
+      </p>
+      <p className="text-muted-foreground text-xs">{libelle}</p>
     </div>
   )
 }

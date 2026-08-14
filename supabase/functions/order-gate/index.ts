@@ -257,6 +257,9 @@ Deno.serve(async (req) => {
       // Déclarée par le navigateur, jamais devinée ici : elle commande la tolérance du contrôle
       // d'ancrage ET l'encart « votre document est un scan » du rapport.
       source_kind: sourceKind,
+      // La langue de l'empreinte qui a OUVERT (LOT B3) : libellés de phase et nom d'archive en
+      // dépendent. Écrite au seul endroit qui la connaît — jamais re-devinée plus tard.
+      source_lang: verdict.langueSource,
       // Le corpus SURVIT à cette invocation : le worker en a besoin à chaque vague pour vérifier en
       // code les citations et l'ancrage des chiffres. Le re-dériver du PDF coûterait pdf.js et, sur
       // un scan, une reconnaissance complète — à chaque vague, alors que le navigateur l'a déjà

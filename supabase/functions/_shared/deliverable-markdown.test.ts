@@ -12,6 +12,7 @@ import {
   produitDepuisRubrique1,
   sectionHeading,
   slugFrom,
+  statsLivrable,
   type LigneAssemblage,
 } from './deliverable-markdown.ts'
 
@@ -168,3 +169,26 @@ Deno.test('revue : un TABLEAU absent fait refuser le rapport entier — « Aucun
   assertEquals('erreur' in analyseDepuisParts(complet), false)
 })
 
+
+Deno.test('statsLivrable : les quatre comptes de l’écran de livraison, dédupliqués comme au rapport', () => {
+  const sections = [
+    { status: 'filled' as const, figuresToVerify: ['≤ 28', '500'] },
+    { status: 'partial' as const, figuresToVerify: ['500'] },
+    { status: 'missing' as const },
+    { status: 'missing' as const },
+  ]
+  const stats = statsLivrable(sections, {
+    relocations: [
+      { content: 'a', source_position: 'b', template_position: 'c', risk: 'd' },
+      { content: 'e', source_position: 'f', template_position: 'g', risk: 'h' },
+    ],
+  })
+  // ⚠️ `aRelire` DÉDUPLIQUE (« 500 » apparaît dans deux rubriques, une seule entrée au rapport) :
+  // le compte doit égaler la liste que le client voit.
+  assertEquals(stats, { reprises: 2, aCompleter: 2, deplaces: 2, aRelire: 2 })
+  // Sans revue ni valeurs, tout tombe à zéro — jamais `undefined` dans une tuile.
+  assertEquals(
+    statsLivrable([{ status: 'filled' as const }], { relocations: [] }),
+    { reprises: 1, aCompleter: 0, deplaces: 0, aRelire: 0 },
+  )
+})

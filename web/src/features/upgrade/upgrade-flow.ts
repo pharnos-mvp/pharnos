@@ -8,6 +8,17 @@
  * une panne comme une attente. Enfouies dans un composant, elles ne seraient testables qu'au
  * travers d'un rendu ; ici, elles se vérifient à la ligne.
  */
+import { flattenRubrics, specForDocType } from '@specs'
+import { DELIVERABLE_TITLES_EN } from '@titles'
+
+/** Une rubrique de la liste « à statuts vivants » — le contrat compact d'`order-status`. */
+export interface SectionVivante {
+  id: string
+  /** `queued` | `running` | `done` | `failed`. */
+  st: string
+  /** `filled` | `partial` | `missing` — seulement quand `st` vaut `done`. */
+  o?: string
+}
 
 /** Le résumé rendu par l'Edge `order-status`. */
 export interface ResumeCommande {
@@ -24,6 +35,14 @@ export interface ResumeCommande {
   /** Pays et activité — `null` tant que rien ne les a transportés ; l'écran les redemande alors. */
   country?: string | null
   activity?: string | null
+  /** Provenance du corpus (`text`/`ocr`) — la notice « nous lisons page par page » en dépend. */
+  sourceKind?: string | null
+  /** Langue du document SOURCE, détectée par la porte (LOT B3). */
+  sourceLang?: string | null
+  /** Nom du produit (rubrique 1) — `null` tant qu'elle n'a pas abouti. */
+  produit?: string | null
+  /** Rubriques de la passe de conformité, à statuts vivants — l'ordre est celui du gabarit, trié ICI. */
+  sections?: SectionVivante[]
   erreur?: string | null
 }
 
@@ -243,6 +262,128 @@ export function doitSonder(vue: VueUpgrade): boolean {
 
 /** Intervalle de sondage, en millisecondes (§2.3, étape 9 du plan). */
 export const SONDAGE_MS = 2_000
+
+/** Une rubrique prête à l'affichage — la liste « à statuts vivants » du mockup, ordonnée gabarit. */
+export interface RubriqueVivante {
+  id: string
+  /** Le numéro AFFICHÉ : `4.2-posologie` se montre « 4.2 », jamais un identifiant interne. */
+  num: string
+  titre: string
+  /** `queued` | `running` | `done` | `failed`. */
+  st: string
+  /** `filled` | `partial` | `missing` — seulement quand `st` vaut `done`. */
+  o?: string
+}
+
+/**
+ * Ordonne et TITRE la liste vivante sur le gabarit — la même source que le moteur (`@specs`) et
+ * que l'assemblage (`@titles`), jamais une liste parallèle. Le serveur n'envoie que des
+ * identifiants et des états : transporter les titres à chaque sondage de deux secondes les
+ * ferait payer ~150 fois par commande.
+ *
+ * Une rubrique HORS gabarit (commande historique, gabarit qui a évolué) ferme la marche avec son
+ * identifiant pour titre : disparaître serait mentir sur le travail en cours.
+ */
+export function rubriquesVivantes(
+  sections: readonly SectionVivante[] | undefined,
+  docType: string | null | undefined,
+  lang: 'fr' | 'en',
+): RubriqueVivante[] {
+  if (!sections?.length) return []
+  const spec = specForDocType(docType ?? 'rcp') ?? specForDocType('rcp')
+  if (!spec)
+    return sections.map((s) => ({
+      id: s.id,
+      num: s.id,
+      titre: s.id,
+      st: s.st,
+      ...(s.o ? { o: s.o } : {}),
+    }))
+  const parId = new Map(sections.map((s) => [s.id, s]))
+  const out: RubriqueVivante[] = []
+  for (const r of flattenRubrics(spec)) {
+    const s = parId.get(r.id)
+    if (!s) continue
+    const titre = (lang === 'en' ? DELIVERABLE_TITLES_EN.get(r.id) : undefined) ?? r.title
+    out.push({
+      id: r.id,
+      num: r.id.split('-')[0] ?? r.id,
+      titre,
+      st: s.st,
+      ...(s.o ? { o: s.o } : {}),
+    })
+    parId.delete(r.id)
+  }
+  for (const s of parId.values()) {
+    out.push({ id: s.id, num: s.id, titre: s.id, st: s.st, ...(s.o ? { o: s.o } : {}) })
+  }
+  return out
+}
+
+/** La rubrique EN COURS — celle du titre « Rubrique 4.8 sur 29 » et du défilement automatique. */
+export const rubriqueEnCours = (rubriques: readonly RubriqueVivante[]): RubriqueVivante | null =>
+  rubriques.find((r) => r.st === 'running') ?? null
+
+/** « 4 min 12 » — la durée RÉELLE du mockup, jamais une estimation reformatée. */
+export function dureeLisible(secondes: number, lang: 'fr' | 'en'): string {
+  const s = Math.max(0, Math.round(secondes))
+  if (s < 60) return `${s} s`
+  const m = Math.floor(s / 60)
+  const r = s % 60
+  if (!r) return `${m} min`
+  return lang === 'fr'
+    ? `${m} min ${String(r).padStart(2, '0')}`
+    : `${m} min ${String(r).padStart(2, '0')} s`
+}
+
+/**
+ * Le bandeau contexte du mockup : « KV-KACIN 500 · Burkina Faso · Nouvelle AMM ·
+ * anglais → français ». Chaque segment n'apparaît que s'il est SU — un bandeau qui devine
+ * afficherait le mauvais pays sous un document payé. `null` quand rien n'est su.
+ */
+export function bandeauContexte(
+  r: Pick<ResumeCommande, 'produit' | 'country' | 'activity' | 'sourceLang'> | null,
+  lang: 'fr' | 'en',
+): string | null {
+  if (!r) return null
+  const fr = lang === 'fr'
+  const parts: string[] = []
+  if (r.produit) parts.push(r.produit)
+  const pays = PAYS_UEMOA.find((p) => p.code === r.country)
+  if (pays) parts.push(fr ? pays.fr : pays.en)
+  const act = ACTIVITES.find((a) => a.code === r.activity)
+  if (act) parts.push(fr ? act.fr : act.en)
+  if (r.sourceLang === 'en') parts.push(fr ? 'anglais → français' : 'English → French')
+  else if (r.sourceLang === 'fr') parts.push(fr ? 'français → anglais' : 'French → English')
+  return parts.length ? parts.join(' · ') : null
+}
+
+/**
+ * Le libellé d'une passe suit la LANGUE SOURCE (LOT B3) — jamais un mensonge de vocabulaire.
+ *
+ * ⚠️ Pour une source ANGLAISE, « Traduction anglaise » est absurde : le document de l'acheteur
+ * EST anglais. Ce qu'il reçoit de la passe 1, c'est la VERSION FRANÇAISE du gabarit ; de la
+ * passe 2, sa version anglaise remise au standard. Une source française garde les libellés
+ * historiques. Une phase inconnue retombe sur la première, jamais sur un libellé vide — le
+ * serveur peut nommer une passe que cette version de la page ne connaît pas encore.
+ */
+export function libellePhase(
+  phase: string,
+  sourceLang: string | null | undefined,
+): { fr: string; en: string } {
+  const sourceEn = sourceLang === 'en'
+  const conformity = sourceEn
+    ? { fr: 'Version française', en: 'French version' }
+    : { fr: 'Mise en conformité', en: 'Compliance pass' }
+  const libelles: Record<string, { fr: string; en: string }> = {
+    conformity,
+    translation: sourceEn
+      ? { fr: 'Version anglaise au standard', en: 'English version to the standard' }
+      : { fr: 'Traduction anglaise', en: 'English translation' },
+    report: { fr: 'Revue réglementaire', en: 'Regulatory review' },
+  }
+  return libelles[phase] ?? conformity
+}
 
 /**
  * Temps restant estimé, en secondes — `null` tant qu'on ne sait rien de fiable.

@@ -103,16 +103,20 @@ Deno.serve(async (req) => {
     phase: string
     sections_total: number
     source_kind: string
+    source_lang: string | null
+    product_name: string | null
     error: string | null
+    started_at?: string | null
     finished_at?: string | null
     source_name?: string | null
     deliverable_fr?: string | null
     deliverable_en?: string | null
     deliverable_report?: string | null
+    deliverable_stats?: Record<string, number> | null
   }
   const selJob: string = corps.livrable
-    ? 'id, phase, sections_total, source_kind, error, finished_at, source_name, deliverable_fr, deliverable_en, deliverable_report'
-    : 'id, phase, sections_total, source_kind, error'
+    ? 'id, phase, sections_total, source_kind, source_lang, product_name, error, started_at, finished_at, source_name, deliverable_fr, deliverable_en, deliverable_report, deliverable_stats'
+    : 'id, phase, sections_total, source_kind, source_lang, product_name, error'
   const { data: jobs, error: jobErr } = await sb
     .from('upgrade_jobs')
     .select(selJob)
@@ -124,13 +128,18 @@ Deno.serve(async (req) => {
   const job = jobs?.[0] ?? null
 
   let lignes: LigneSection[] = []
+  // Le NOM DU PRODUIT (bandeau contexte du mockup) : dénormalisé sur le job par le worker dès que
+  // la rubrique 1 aboutit — le sondage de 2 s ne requête JAMAIS la rubrique pour un texte qui ne
+  // change plus (~150 allers-retours économisés par commande).
+  let produit: string | null = job?.product_name ?? null
   if (job) {
-    // ⚠️ JAMAIS le contenu des ~74 rubriques : les markdowns assemblés sont l'autorité depuis U5,
-    // et seule la rubrique 1 sert encore ici (le nom du produit → slug). L'ancienne sélection
-    // chargeait des centaines de kilo-octets pour en garder vingt caractères.
+    // ⚠️ JAMAIS le contenu des ~74 rubriques — mais son VERDICT, oui : `content->>status` fait
+    // extraire les quelques caractères de `filled`/`partial`/`missing` PAR LA REQUÊTE, là où
+    // l'ancienne sélection du contenu entier chargeait des centaines de kilo-octets. C'est ce qui
+    // rend la liste « à statuts vivants » du mockup sondable toutes les deux secondes.
     const { data, error } = await sb
       .from('upgrade_sections')
-      .select('section_id, phase, status')
+      .select('section_id, phase, status, outcome:content->>status')
       .eq('job_id', job.id)
     if (error) return json({ error: 'db' }, 503, origin)
     lignes = (data ?? []) as unknown as LigneSection[]
@@ -148,6 +157,7 @@ Deno.serve(async (req) => {
     job,
     lignes,
     MAX_DEPOTS,
+    produit,
   )
 
   if (!corps.livrable) {
@@ -175,19 +185,25 @@ Deno.serve(async (req) => {
     return json({ ...resume, livrable: null, erreur: 'livrable introuvable' }, 409, origin)
   }
 
-  // Le nom du produit se dérive de la rubrique 1 — même règle que l'assemblage : le nom des
-  // fichiers téléchargés doit porter le produit, pas un identifiant technique. UNE ligne, pas 74.
-  const { data: rub1 } = await sb
-    .from('upgrade_sections')
-    .select('content')
-    .eq('job_id', j.id)
-    .eq('phase', 'conformity')
-    .eq('section_id', '1')
-    .maybeSingle()
-  const produit = produitDepuisRubrique1(
-    (rub1?.content as { content?: string } | null)?.content,
-  )
-  const slug = slugFrom(produit) || 'document'
+  // Le nom du produit vient du job (dénormalisé) ; les jobs d'AVANT la migration `0093` ne le
+  // portent pas — repli sur la rubrique 1, UNE fois, sur ce seul chemin. ⚠️ L'erreur est LUE :
+  // muette, elle livrait cinq fichiers « document-… » sans nom de produit, sans un log.
+  if (!produit) {
+    const { data: rub1, error: rub1Err } = await sb
+      .from('upgrade_sections')
+      .select('texte:content->>content')
+      .eq('job_id', j.id)
+      .eq('phase', 'conformity')
+      .eq('section_id', '1')
+      .eq('status', 'done')
+      .maybeSingle()
+    if (rub1Err) {
+      logJson({ ...log, status: 'produit_illisible', job: j.id.slice(0, 8) })
+      return json({ error: 'db' }, 503, origin)
+    }
+    produit = produitDepuisRubrique1((rub1 as { texte?: string } | null)?.texte ?? undefined) || null
+  }
+  const slug = slugFrom(produit ?? '') || 'document'
   const reportLang = commande.lang
   const livrable = {
     fr: j.deliverable_fr,
@@ -203,6 +219,16 @@ Deno.serve(async (req) => {
     // à la seconde de la fabrication, et deux rendus du même contenu divergent.
     created: j.finished_at ?? null,
     sourceKind: j.source_kind,
+    // LOT B3 : la langue SOURCE nomme l'archive (`_RCP Upgrade` / `_SmPC Upgrade`) ; les comptes
+    // de l'écran de livraison sont FIGÉS à l'assemblage — `null` sur les jobs antérieurs, la page
+    // masque alors les tuiles plutôt que d'inventer des chiffres.
+    sourceLang: j.source_lang,
+    stats: j.deliverable_stats ?? null,
+    // La DURÉE RÉELLE du traitement (mockup : « terminé en 4 min 12 ») — mesurée entre le
+    // lancement de la porte et la complétion, jamais estimée. `null` si l'un des deux manque.
+    dureeS: j.started_at && j.finished_at
+      ? Math.max(0, Math.round((Date.parse(j.finished_at) - Date.parse(j.started_at)) / 1000))
+      : null,
   }
 
   logJson({ ...log, status: 'livrable', essai: commande.essai })

@@ -27,7 +27,8 @@
     /* Path alias (résolu relativement à ce tsconfig — pas de baseUrl, déprécié en TS 6) */
     "paths": {
       "@/*": ["./src/*"],
-      "@specs": ["../supabase/functions/_shared/conformity-specs.ts"]
+      "@specs": ["../supabase/functions/_shared/conformity-specs.ts"],
+      "@titles": ["../supabase/functions/_shared/deliverable-titles.ts"]
     },
 
     /* Strictness */
