@@ -450,55 +450,9 @@
           <p class="mdesc" id="upgdesc"></p>
         </header>
 
-        <div class="body" id="upgbody">
-          <div class="mfield">
-            <label class="mlab" for="upays" data-fr="Pays de dépôt">Country of filing</label>
-            <select id="upays"></select>
-          </div>
-
-          <div class="mfield">
-            <span class="mlab" id="uactlab" data-fr="Activité réglementaire">Regulatory activity</span>
-            <div class="chips" role="radiogroup" aria-labelledby="uactlab" id="uact">
-              <button class="chip" type="button" role="radio" aria-checked="false" data-v="amm" data-fr="
-                Nouvelle AMM
-              ">New MA</button>
-              <button class="chip" type="button" role="radio" aria-checked="false" data-v="renouv" data-fr="
-                Renouvellement
-              ">Renewal</button>
-            </div>
-          </div>
-
-          <div class="mfield">
-            <span class="mlab" id="ufilelab" data-fr="Votre document">Your document</span>
-            <input type="file" id="ufile" class="vh" accept=".pdf,.doc,.docx" aria-labelledby="ufilelab">
-            <button class="updrop" type="button" id="udrop">
-              <span class="ic" aria-hidden="true">⤒</span>
-              <span class="t" data-fr="Déposer mon document">Upload my document</span>
-              <span class="s" data-fr="Word ou PDF, scanné ou non">Word or PDF, scanned or not</span>
-            </button>
-            <div class="mfile" id="ufilerow" hidden="">
-              <span class="ico" aria-hidden="true">▤</span>
-              <span class="fx"><span class="nm" id="ufilename"></span><span class="mt" id="ufilesize"></span></span>
-              <button class="x" type="button" id="ufileclear" aria-label="Remove the document" data-fr-al="Retirer le document">
-                ×
-              </button>
-            </div>
-            <p class="readyline" id="ureadyline" hidden="" data-fr="
-              Prêt — il partira au traitement dès la commande
-            ">Ready — it will be sent for processing as soon as you order</p>
-          </div>
-        </div>
-
-        <div class="sect-buy" id="upg-e1">
-          <div class="pline">
-            <span class="amt" id="up1"></span>
-            <span class="un" data-fr="un document · paiement unique">one document · one-off payment</span>
-          </div>
-          <button class="btn btn-primary btn-block btn-lg" type="button" id="buy1"></button>
-          <p class="mfoot-note" data-fr="
-            Votre document reste sur votre appareil jusqu'au paiement.
-          ">Your document stays on your device until payment.</p>
-        </div>
+        <!-- B2 — CONFIGURATION APRÈS PAIEMENT : le panneau ne collecte ni pays, ni activité, ni
+             fichier. Tout se choisit sur la page sécurisée `/u/{token}`, après le règlement —
+             une seule saisie, aucun transfert entre origines. -->
 
         <!-- Étape 4 — OFFRE + IDENTITÉ en un seul écran : chaque étape retirée avant le
              paiement se lit sur le taux de conversion. Le bundle se propose ICI, après le clic
@@ -508,20 +462,18 @@
         <div class="sect-buy" id="upg-e4" hidden="">
           <h4 class="upsell-t" data-fr="Votre commande">Your order</h4>
           <p class="upsell-d" id="payrecap"></p>
+          <p class="mfoot-note" data-fr="
+            Pays de dépôt, activité et dépôt du document : après le paiement,
+            sur votre page sécurisée.
+          ">Country of filing, activity and document upload happen after payment, on your secure page.</p>
           <form id="payform" novalidate="">
             <div class="offer-pick" role="radiogroup" aria-labelledby="payofflab">
               <span class="mlab" id="payofflab" data-fr="Périmètre">Scope</span>
               <button class="offer-opt" type="button" role="radio" aria-checked="true" data-offre="up1" id="off1"></button>
               <button class="offer-opt" type="button" role="radio" aria-checked="false" data-offre="up3" id="off3"></button>
             </div>
-            <!-- Les deux AUTRES documents du bundle. Ils se déposent ICI, avant le paiement :
-                 réclamer par e-mail après coup ce qu'on vient de vendre casse la promesse et
-                 laisse la commande sans matière. Rendu par le script, qui seul sait quels deux
-                 documents manquent selon celui qu'on regarde. -->
-            <div class="mfield" id="bundlezone" role="group" aria-labelledby="bundlelab" hidden="">
-              <span class="mlab" id="bundlelab"></span>
-              <div id="bundleslots"></div>
-            </div>
+            <!-- B2 : les documents du bundle se déposent APRÈS paiement, sur la page sécurisée —
+                 plus aucune collecte de fichier au panneau. -->
             <div class="duo">
               <div class="mfield">
                 <label class="mlab" for="payprenom" data-fr="Prénom">First name</label>
@@ -552,9 +504,9 @@
             <div class="paybar">
               <button class="btn btn-primary btn-block btn-lg" type="submit" id="paygo"></button>
               <p class="mfoot-note" data-fr="
-                Paiement sécurisé par mobile money ou carte. Votre document
-                reste sur votre appareil jusqu'au paiement.
-              ">Secure payment by mobile money or card. Your document stays on your device until payment.</p>
+                Paiement sécurisé par mobile money ou carte. Sur votre relevé
+                bancaire, le débit apparaît sous « MiMo Global ».
+              ">Secure payment by mobile money or card. On your bank statement, the charge appears as “MiMo Global”.</p>
             </div>
           </form>
           <button class="linklike" type="button" id="payretour" data-fr="
@@ -575,6 +527,9 @@
           <p class="upsell-d" id="cfmdesc-trio" hidden=""></p>
           <p class="upsell-d" id="cfmnext" aria-live="polite"></p>
           <div class="stack">
+            <!-- C2 : dès que la commande est confirmée, le LIEN de livraison s'affiche ICI —
+                 l'e-mail n'est qu'un filet, et la redirection automatique n'est qu'un confort. -->
+            <a class="btn btn-primary btn-block" id="cfmlink" href="/en/" hidden="" data-fr="Ouvrir ma page sécurisée →">Open my secure page →</a>
             <button class="btn btn-primary btn-block" type="button" id="cfmsend" hidden=""></button>
             <a class="btn btn-ghost btn-block" id="cfmback" href="/en/"></a>
           </div>

@@ -11,12 +11,11 @@ import {
   ATTENTE_MAX_MS,
   ATTENTE_PIRE_CAS_MS,
   CADENCE_MS,
-  MAX_UPGRADE_OCTETS,
-  refusFichierUpgrade,
+  CADENCE_RELANCE_MS,
   delaiClaim,
-  docTypeServeur,
   lireClaim,
-  putRetentable,
+  palierAttente,
+  PALIERS_ATTENTE,
   urlLivraison,
 } from "../landing/pont/pont.js";
 
@@ -126,121 +125,57 @@ Deno.test("pont : la boucle part tout de suite, ralentit, et FINIT", () => {
 });
 
 Deno.test(
-  "pont : l’attente bornée laisse au webhook le temps d’arriver, sans éterniser",
+  "pont : la salle d’attente survit à DEUX périodes du cron de réconciliation (C2)",
   () => {
+    // ⚠️ La première vente réelle l'a prouvé : le Pulse peut ne JAMAIS arriver. La commande naît
+    // alors du balayage `chariow-reconcile` (toutes les 2 minutes) — l'acheteur qui attend ici
+    // doit encore être là quand elle naît. 2 périodes pleines + marge = 5 minutes au moins.
     assertEquals(
-      ATTENTE_MAX_MS >= 60_000,
+      ATTENTE_MAX_MS >= 5 * 60_000,
       true,
-      "trop court pour un webhook en retard",
+      "trop court : l’acheteur partirait avant la réconciliation",
     );
     assertEquals(
-      ATTENTE_MAX_MS <= 150_000,
+      ATTENTE_MAX_MS <= 8 * 60_000,
       true,
       "trop long : l’acheteur mérite une consigne",
     );
+    // Le pire cas réel reste borné lui aussi.
+    assertEquals(Number.isFinite(ATTENTE_PIRE_CAS_MS), true);
   },
 );
 
-/* ──────────────────────────────────── Le téléversement ─────────────────────────────────────── */
-
-Deno.test("pont : seul ce qui a une chance de passer se retente", () => {
-  // Coupure réseau (la requête n'a jamais abouti) et pannes serveur : oui.
-  for (const s of [null, 408, 429, 500, 502, 503, 504]) {
-    assertEquals(putRetentable(s), true, `${s}`);
-  }
-  // URL signée expirée ou consommée : réessayer à l'identique refusera pareil, trois fois plus
-  // lentement — et pendant ce temps l'acheteur regarde un écran qui prétend travailler.
-  for (const s of [400, 401, 403, 404, 409, 413]) {
-    assertEquals(putRetentable(s), false, `${s}`);
-  }
-});
-
-/* ─────────────────────────── Le vocabulaire des types de document ──────────────────────────── */
-
-Deno.test(
-  "pont : l’étiquetage s’appelle `labeling` côté serveur — le traduire ou ne rien envoyer",
-  () => {
-    // ⚠️ Le défaut que ce test ferme a tué une commande entière. La landing nomme l'étiquetage
-    // `etiquetage` ; la liste blanche du serveur le nomme `labeling`. Envoyé tel quel, il était
-    // inconnu et le serveur retombait en silence sur `rcp` : l'acheteur d'un étiquetage voyait son
-    // document jugé contre le gabarit du RCP, refusé trois fois, sa commande payée verrouillée.
-    assertEquals(docTypeServeur("rcp"), "rcp");
-    assertEquals(docTypeServeur("notice"), "notice");
-    assertEquals(docTypeServeur("etiquetage"), "labeling");
-  },
-);
-
-Deno.test("pont : ce qu’on ne sait pas traduire ne part PAS", () => {
-  // Rien plutôt qu'un type approximatif : la page de suivi redemandera le document, alors qu'un
-  // mauvais type consomme un dépôt sur trois ET fait juger contre le mauvais gabarit.
-  for (const inconnu of ["pght", "cover", "labeling", "", null, undefined, 7]) {
-    assertEquals(docTypeServeur(inconnu), null, String(inconnu));
-  }
-  // ⚠️ Les clés du prototype : `objet['constructor']` rend une fonction — donc vraie — et un
-  // `?? null` ne rattraperait rien. La table est une `Map`, qui n'a pas de prototype à confondre.
-  for (const poison of [
-    "constructor",
-    "toString",
-    "valueOf",
-    "__proto__",
-    "hasOwnProperty",
-  ]) {
-    assertEquals(docTypeServeur(poison), null, poison);
-  }
-});
-
-/* ─────────────────── Ce que la mise à niveau accepte, dit AVANT le paiement ─────────────────── */
-
-Deno.test("upgrade : seul le PDF part — la page vend pourtant du Word", () => {
-  // ⚠️ Le bloquant que ce test ferme. La bibliothèque accepte `.pdf`, `.doc` et `.docx` — juste
-  // pour un outil gratuit. Le pont, lui, déclarait `application/pdf` EN DUR quel que soit le
-  // fichier ; le mimetype enregistré dans Storage étant celui que le client déclare, ce mensonge
-  // neutralisait les DEUX gardes du serveur. Un consultant déposant son `RCP.docx` — le format
-  // natif de ces documents — payait, brûlait un dépôt sur trois, et se voyait refusé sans qu'aucun
-  // écran sache dire pourquoi.
-  assertEquals(refusFichierUpgrade({ name: "RCP.pdf", size: 1024 }), null);
-  assertEquals(refusFichierUpgrade({ name: "RCP.PDF", size: 1024 }), null);
-  assertEquals(refusFichierUpgrade({ name: "RCP.docx", size: 1024 }), "type");
-  assertEquals(refusFichierUpgrade({ name: "RCP.doc", size: 1024 }), "type");
-  assertEquals(
-    refusFichierUpgrade({ name: "RCP.pdf.docx", size: 1024 }),
-    "type",
-  );
-  assertEquals(refusFichierUpgrade(null), "type");
-});
-
-Deno.test(
-  "upgrade : le plafond est celui du MOTEUR, pas celui de la bibliothèque",
-  () => {
-    // La pièce repart au modèle à chaque appel de conformité et de revue, encodée en base64 : au-delà
-    // de ~12 Mo binaires on dépasse la limite de corps de requête du fournisseur. La bibliothèque
-    // accepte 40 Mo ; laisser cet écart faisait échouer APRÈS paiement, rubrique par rubrique.
-    assertEquals(MAX_UPGRADE_OCTETS, 12 * 1024 * 1024);
+Deno.test("pont : la salle d’attente ne se tait JAMAIS — un palier pour chaque instant (C2)", () => {
+  // Le premier palier s'applique dès 0 ms, les suivants sont croissants : aucun trou de silence.
+  assertEquals(PALIERS_ATTENTE[0].apresMs, 0);
+  for (let i = 1; i < PALIERS_ATTENTE.length; i++) {
     assertEquals(
-      refusFichierUpgrade({ name: "a.pdf", size: MAX_UPGRADE_OCTETS }),
-      null,
-    );
-    assertEquals(
-      refusFichierUpgrade({ name: "a.pdf", size: MAX_UPGRADE_OCTETS + 1 }),
-      "taille",
-    );
-    assertEquals(refusFichierUpgrade({ name: "a.pdf", size: 0 }), "vide");
-  },
-);
-
-Deno.test(
-  "pont : la borne de la boucle compte AUSSI le temps passé dans les appels",
-  () => {
-    // ⚠️ `ATTENTE_MAX_MS` ne totalisait que les pauses. Chaque tentative pouvant ajouter son délai
-    // réseau, le pire cas réel atteignait ~7 minutes sous un écran promettant « quelques secondes ».
-    // Une boucle dont la borne ignore ses propres appels n'est pas bornée.
-    assertEquals(ATTENTE_PIRE_CAS_MS > ATTENTE_MAX_MS, true);
-    // L'échéance est testée EN TÊTE de chaque tour : le dépassement se borne au dernier tour engagé
-    // (sa pause + son appel), pas à la somme des dix-huit délais réseau possibles.
-    assertEquals(
-      ATTENTE_PIRE_CAS_MS <= 120_000,
+      PALIERS_ATTENTE[i].apresMs > PALIERS_ATTENTE[i - 1].apresMs,
       true,
-      "pire cas au-delà de deux minutes",
+      `palier ${i}`,
     );
-  },
-);
+  }
+  // Chaque palier parle les deux langues, texte ET note.
+  for (const p of PALIERS_ATTENTE) {
+    assertEquals(p.texte.length, 2);
+    assertEquals(p.note.length, 2);
+  }
+  // La sélection rend la DERNIÈRE entrée atteinte — jamais une future.
+  assertEquals(palierAttente(0), PALIERS_ATTENTE[0]);
+  assertEquals(palierAttente(PALIERS_ATTENTE[1].apresMs), PALIERS_ATTENTE[1]);
+  assertEquals(
+    palierAttente(Number.MAX_SAFE_INTEGER),
+    PALIERS_ATTENTE[PALIERS_ATTENTE.length - 1],
+  );
+});
+
+Deno.test("pont : la relance avant repli est COURTE — jamais une deuxième salle d’attente (C4)", () => {
+  const total = CADENCE_RELANCE_MS.reduce((t, d) => t + d, 0);
+  assertEquals(total <= 45_000, true, "la rafale doit rester une rafale");
+  assertEquals(CADENCE_RELANCE_MS.length >= 3, true, "au moins quelques essais");
+});
+
+// B2 — les tests du téléversement (`putRetentable`), du vocabulaire (`docTypeServeur`) et des
+// gardes de fichier (`refusFichierUpgrade`) sont PARTIS avec le transfert inter-origines : le
+// panneau ne collecte plus aucun fichier, le dépôt vit sur `/u/{token}` — et ses gardes sont
+// testées là-bas (`upgrade-flow.test.ts`, `PublicUpgradePage.test.tsx`).

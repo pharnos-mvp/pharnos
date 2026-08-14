@@ -20,22 +20,17 @@ import {
 import { VIGILANCE } from "./checking/vigilance.js?v=2026.1";
 import {
   ATTENTE_MAX_MS,
+  CADENCE_RELANCE_MS,
   CLAIM_TIMEOUT_MS,
   delaiClaim,
   docTypeLivrable,
-  docTypeServeur,
   lireClaim,
-  MAX_UPGRADE_OCTETS,
-  PUT_ATTENTE_MS,
-  PUT_ESSAIS,
-  putRetentable,
-  refusFichierUpgrade,
+  palierAttente,
   urlLivraison,
 } from "./pont/pont.js";
 import {
   activitesDe,
   fichierModele,
-  MAX_OCTETS,
   nouvelleCommande,
   OFFRES,
   paysDuModele,
@@ -43,10 +38,7 @@ import {
   PRIX_UP3_PLEIN,
   prixCourt,
   prixDouble,
-  tailleLisible,
-  TRIO_UPGRADABLE,
   TTL_MS,
-  validerFichier,
 } from "./checking/bibliotheque-core.js?v=2026.10";
 
 const $ = (s) => document.querySelector(s);
@@ -460,7 +452,6 @@ $$("#dlact .chip").forEach((c) =>
   c.addEventListener("click", () => {
     S.activite = c.dataset.v;
     majChips("#dlact", S.activite);
-    majChips("#uact", S.activite);
     majDlGo();
   }),
 );
@@ -468,28 +459,30 @@ $$("#dlact .chip").forEach((c) =>
 /* ══════════════════ Mise à niveau — panneau ancré à droite ══════════════════ */
 
 function ouvrirUpgrade(declencheur) {
+  // ⚠️ SEUL LE RCP EST LIVRABLE aujourd'hui : le refus tombe AVANT le paiement, où il ne coûte
+  // qu'un message — le serveur refuse de toute façon au dépôt (double ceinture).
+  if (!docTypeLivrable(S.doc)) {
+    toast(
+      L([
+        "La mise à niveau de ce type de document ouvre bientôt — seul le RCP est traité pour l'instant. Écrivez-nous à contact@pharnos.com pour être prévenu.",
+        "Upgrading this document type opens soon — only the SmPC is handled for now. Write to contact@pharnos.com to be notified.",
+      ]),
+    );
+    return;
+  }
   $("#upgtitle").textContent = L([
     `Mettre ${monDoc()} au standard officiel`,
     `Bring ${monDoc()} up to the official standard`,
   ]);
+  // B2 — CONFIGURATION APRÈS PAIEMENT (directive CEO) : le panneau ne demande plus ni pays, ni
+  // activité, ni fichier. Tout se choisit sur la page sécurisée `/u/{token}` — une seule saisie,
+  // aucun transfert entre origines, et la salle d'attente marche depuis n'importe quel appareil.
   $("#upgdesc").textContent = L([
-    "Regafy AI le reconstruit rubrique par rubrique, sur le modèle du pays choisi.",
-    "Regafy AI rebuilds it section by section, on the template of the selected country.",
+    "Regafy AI le reconstruit rubrique par rubrique. Le dépôt du document et le choix du pays se font après le paiement, sur votre page sécurisée.",
+    "Regafy AI rebuilds it section by section. Uploading the document and picking the country happen after payment, on your secure page.",
   ]);
-  remplirPays($("#upays"), S.pays);
-  majChips("#uact", S.activite);
-  peindreAchat();
-  etapePanneau(1);
+  ouvrirIdentite(offreChoisie);
   ouvrirModale("#upg", declencheur);
-}
-
-function peindreAchat() {
-  $("#up1").textContent = prixDouble(PRIX.up1, lang);
-  const pret =
-    S.fichier !== null && Boolean($("#upays")?.value) && Boolean(S.activite);
-  $("#buy1").textContent =
-    `${L(["Commander la mise à niveau", "Order the upgrade"])} — ${prixCourt(PRIX.up1, lang)}`;
-  $("#buy1").disabled = !pret;
 }
 
 /** Bascule entre les trois états du panneau : commande (1), offre + identité (4),
@@ -498,14 +491,12 @@ function peindreAchat() {
  *  (on ne laisse pas changer de fichier pendant qu'on nomme l'acheteur), à l'étape 3 la
  *  commande est passée, il n'y a plus rien à choisir ni à régler. */
 function etapePanneau(n) {
-  $("#upg-e1").hidden = n !== 1;
   $("#upg-e3").hidden = n !== 3;
   $("#upg-e4").hidden = n !== 4;
   $("#upg-e5").hidden = n !== 5;
-  $("#upgbody").hidden = n === 3 || n === 4 || n === 5;
-  // L'argumentaire a fait son travail : au moment de payer, il ne fait plus que pousser le
-  // bouton vers le bas. On rend au panneau la hauteur qu'il coûtait.
-  $("#upgdesc").hidden = n === 4 || n === 5;
+  // L'argumentaire reste visible sur l'écran offre + identité : c'est lui qui porte désormais
+  // « le dépôt se fait après le paiement » — la seule chose que l'acheteur doit savoir ici.
+  $("#upgdesc").hidden = n === 5;
   // ⚠️ Sur la confirmation, le premier élément focalisable est `#cfmback` et NON `#cfmsend` :
   // depuis le pont, ce bouton naît caché, et `focus()` sur un élément caché ne fait rien — en
   // silence. Le clavier serait resté sur `body`, sur l'écran même où l'acheteur attend une suite.
@@ -522,170 +513,11 @@ function etapePanneau(n) {
 }
 
 $("#upbtn").addEventListener("click", () => ouvrirUpgrade($("#upbtn")));
-$("#upays").addEventListener("change", (e) => {
-  S.pays = e.target.value;
-  peindre();
-  peindreAchat();
-});
-$$("#uact .chip").forEach((c) =>
-  c.addEventListener("click", () => {
-    S.activite = c.dataset.v;
-    majChips("#uact", S.activite);
-    peindreAchat();
-  }),
-);
 
-/** Le refus d'un fichier se dit d'UNE seule voix : la cause nommée, et la vraie limite —
- *  écrire « 12 Mo » quelque part alors que `MAX_OCTETS` en vaut 40 envoie le client corriger
- *  un problème qu'il n'a pas. */
-function messageFichierRefuse(raison) {
-  toast(
-    L(
-      {
-        absent: ["Choisissez un document.", "Choose a document."],
-        extension: [
-          "Formats acceptés : PDF, Word (.doc, .docx).",
-          "Accepted formats: PDF, Word (.doc, .docx).",
-        ],
-        vide: ["Ce fichier est vide.", "This file is empty."],
-        trop_gros: [
-          `Ce document dépasse ${tailleLisible(MAX_OCTETS, lang)}. Envoyez-nous-le à contact@pharnos.com.`,
-          `This document exceeds ${tailleLisible(MAX_OCTETS, lang)}. Send it to contact@pharnos.com.`,
-        ],
-      }[raison],
-    ),
-  );
-}
-
-function poserFichier(file) {
-  const v = validerFichier(file);
-  if (!v.ok) {
-    messageFichierRefuse(v.raison);
-    return;
-  }
-  S.fichier = file;
-  $("#ufilename").textContent = file.name;
-  $("#ufilesize").textContent = tailleLisible(file.size, lang);
-  $("#ufilerow").hidden = false;
-  $("#ureadyline").hidden = false;
-  $("#udrop").hidden = true;
-  peindreAchat();
-}
-
-function retirerFichier() {
-  S.fichier = null;
-  $("#ufile").value = "";
-  $("#ufilerow").hidden = true;
-  $("#ureadyline").hidden = true;
-  $("#udrop").hidden = false;
-  peindreAchat();
-  $("#udrop").focus();
-}
-
-/* ── Bundle : les DEUX autres documents se déposent avant le paiement ────────────────────
-   Vendre « les trois documents » puis n'en collecter qu'un obligeait à réclamer le reste par
-   e-mail après encaissement — la commande partait sans sa matière, et le client devait
-   travailler après avoir payé. Les trois documents d'information sont un TRIO fermé : celui
-   qu'on regarde, plus les deux autres. ── */
-
-/** Les deux documents qui manquent au trio quand on regarde `S.doc`. La liste vient du
- *  manifeste (`TRIO_UPGRADABLE`), jamais d'une copie : elle doit rester celle que
- *  `nouvelleCommande` exige, sinon le formulaire collecte ce que la commande refuse. */
-const autresDuTrio = () => TRIO_UPGRADABLE.filter((s) => s !== S.doc);
-
-/** Fichiers du bundle, par slug. Vidé dès qu'on repasse à l'offre simple : garder un fichier
- *  pour une offre qu'on n'achète plus le ferait voyager jusqu'à la commande. */
-const bundleFichiers = new Map();
-
-function peindreBundle() {
-  const trois = offreChoisie === "up3";
-  $("#bundlezone").hidden = !trois;
-  if (!trois) return;
-  const manquants = autresDuTrio();
-  $("#bundlelab").textContent = L([
-    "Les deux autres documents",
-    "The two other documents",
-  ]);
-  const slots = $("#bundleslots");
-  // Reconstruit à chaque peinture : le document regardé peut changer, donc le duo aussi.
-  slots.innerHTML = "";
-  for (const slug of manquants) {
-    const m = MODELES_FICHIERS[slug];
-    const f = bundleFichiers.get(slug) ?? null;
-    const ligne = document.createElement("div");
-    ligne.className = "bundle-slot";
-    if (f) {
-      ligne.innerHTML =
-        `<span class="ico" aria-hidden="true">▤</span>` +
-        `<span class="fx"><span class="nm">${esc(L(m.court))}</span>` +
-        `<span class="mt">${esc(f.name)} · ${esc(tailleLisible(f.size, lang))}</span></span>`;
-      const x = document.createElement("button");
-      x.type = "button";
-      x.className = "x";
-      x.textContent = "×";
-      x.setAttribute(
-        "aria-label",
-        L([`Retirer ${L(m.court)}`, `Remove ${L(m.court)}`]),
-      );
-      x.addEventListener("click", () => {
-        bundleFichiers.delete(slug);
-        peindreBundle();
-      });
-      ligne.appendChild(x);
-    } else {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = "bundle-add";
-      b.innerHTML =
-        `<span class="ic" aria-hidden="true">⤒</span>` +
-        `<span class="t">${esc(L([`Déposer ${L(m.court)}`, `Upload ${L(m.court)}`]))}</span>`;
-      b.addEventListener("click", () => choisirFichierBundle(slug));
-      ligne.appendChild(b);
-    }
-    slots.appendChild(ligne);
-  }
-}
-
-/** Ouvre le sélecteur natif pour un document du bundle. Un `<input>` jetable plutôt qu'un champ
- *  par slug : le duo change avec le document regardé, un champ figé mentirait. */
-function choisirFichierBundle(slug) {
-  const inp = document.createElement("input");
-  inp.type = "file";
-  inp.accept = ".pdf,.doc,.docx";
-  inp.addEventListener("change", () => {
-    const f = inp.files && inp.files[0];
-    if (!f) return;
-    const v = validerFichier(f);
-    if (!v.ok) {
-      messageFichierRefuse(v.raison);
-      return;
-    }
-    bundleFichiers.set(slug, f);
-    peindreBundle();
-  });
-  inp.click();
-}
-
-$("#udrop").addEventListener("click", () => $("#ufile").click());
-$("#ufile").addEventListener("change", (e) => {
-  const f = e.target.files && e.target.files[0];
-  if (f) poserFichier(f);
-});
-$("#ufileclear").addEventListener("click", retirerFichier);
-for (const type of ["dragenter", "dragover"]) {
-  $("#udrop").addEventListener(type, (e) => {
-    e.preventDefault();
-    $("#udrop").classList.add("over");
-  });
-}
-for (const type of ["dragleave", "drop"]) {
-  $("#udrop").addEventListener(type, (e) => {
-    e.preventDefault();
-    $("#udrop").classList.remove("over");
-    if (type === "drop" && e.dataTransfer?.files?.[0])
-      poserFichier(e.dataTransfer.files[0]);
-  });
-}
+// B2 — le panneau ne collecte plus AUCUN fichier : dépôt du document, pays et activité vivent
+// sur `/u/{token}`, après le paiement. La collecte d'annexes du bundle est partie avec — les
+// trois documents d'un `up3` se déposent eux aussi sur la page sécurisée (un maintenant, les
+// deux autres avec le support tant que le compteur de dépôts reste par commande).
 
 /* ══════════════════ Commande — le document survit au passage par le paiement ══════════════════ */
 
@@ -719,49 +551,6 @@ const sauverCommande = async (cmd) => {
   await transiger(db, "readwrite", (s) => s.put(cmd));
   db.close();
 };
-
-/**
- * Réserve LE dépôt de cette commande — lecture et écriture dans UNE transaction.
- *
- * ⚠️ **`order-upload-url` décompte à la RÉCEPTION de la requête**, par compare-and-swap, pas à sa
- * réponse. Poser le drapeau après le 200 laissait donc deux trous, et les deux coûtaient un dépôt
- * sur trois à quelqu'un qui a déjà payé :
- *
- *  • **la réponse perdue** — coupure, ou 503 sur l'une des trois écritures qui suivent le décompte.
- *    Le compteur est débité, le drapeau reste faux, l'acheteur revient (Retour, onglet rouvert,
- *    historique) et repart pour un dépôt. Trois fois : commande verrouillée, zéro octet arrivé ;
- *  • **deux passages concurrents** — le panneau offre « ouvrir dans un onglet », et le processeur
- *    peut rediriger les deux. Deux ponts lisaient un drapeau absent et demandaient chacun leur URL.
- *
- * Une transaction `readwrite` d'IndexedDB est sérialisée par l'ORIGINE : c'est le seul verrou dont
- * on dispose entre deux onglets, et il faut donc que la lecture et l'écriture vivent dedans — les
- * séparer les rendrait à nouveau concurrentes.
- *
- * Le compromis est explicite et va du bon côté : si la requête n'atteint jamais le serveur, on aura
- * marqué un dépôt non consommé. L'acheteur téléverse alors depuis `/u/{token}` avec 2 tentatives au
- * lieu de 3 — au lieu de n'en avoir plus aucune.
- */
-async function reserverDepot(id) {
-  const db = await ouvrirDb();
-  try {
-    return await new Promise((res, rej) => {
-      const tx = db.transaction(DB_STORE, "readwrite");
-      const st = tx.objectStore(DB_STORE);
-      const g = st.get(id);
-      let pris = false;
-      g.onsuccess = () => {
-        const c = g.result;
-        if (!c || c.depotFait) return;
-        st.put({ ...c, depotFait: true });
-        pris = true;
-      };
-      tx.oncomplete = () => res(pris);
-      tx.onerror = tx.onabort = () => rej(tx.error);
-    });
-  } finally {
-    db.close();
-  }
-}
 
 const lireCommande = async (id) => {
   const db = await ouvrirDb();
@@ -954,16 +743,13 @@ function choisirOffre(offre) {
   $$("#upg-e4 .offer-opt").forEach((b) =>
     b.setAttribute("aria-checked", String(b.dataset.offre === offre)),
   );
-  $("#payrecap").textContent =
-    `${L(m.nom)} · ${nomPays($("#upays").value)} · ${libelleActivite(S.activite)}`;
+  // B2 : le récapitulatif ne porte QUE ce qui est décidé ici — le document et l'offre. Pays,
+  // activité et dépôt se choisissent après le paiement, et l'écran le DIT (note sous le récap).
+  $("#payrecap").textContent = L(m.nom);
   $("#paygo").textContent = L([
     `Payer — ${prixCourt(PRIX[offre], lang)}`,
     `Pay — ${prixCourt(PRIX[offre], lang)}`,
   ]);
-  // Repasser à l'offre simple VIDE les deux autres dépôts : un fichier gardé pour une offre
-  // qu'on n'achète plus voyagerait jusqu'à la commande.
-  if (offre !== "up3") bundleFichiers.clear();
-  peindreBundle();
 }
 
 function ouvrirIdentite(offre) {
@@ -1083,64 +869,8 @@ function ouvrirPaiement(url, cmd) {
 $("#paymclose").addEventListener("click", () => fermerPaiement(4));
 
 let enCours = false;
-/** Ce que la mise à niveau refuse, DIT AVANT LE PAIEMENT — jamais après. */
-function direRefusUpgrade(raison, nom) {
-  if (raison === "type") {
-    toast(
-      L([
-        `La mise à niveau ne traite que le PDF — « ${nom} » n'en est pas un. Exportez votre document en PDF, ou écrivez-nous à contact@pharnos.com.`,
-        `The upgrade only handles PDF — “${nom}” is not one. Export your document to PDF, or write to contact@pharnos.com.`,
-      ]),
-    );
-  } else if (raison === "taille") {
-    toast(
-      L([
-        `« ${nom} » dépasse ${tailleLisible(MAX_UPGRADE_OCTETS, lang)}. Un export PDF sans les images de fond passe presque toujours — sinon écrivez-nous, nous le traitons à la main.`,
-        `“${nom}” exceeds ${tailleLisible(MAX_UPGRADE_OCTETS, lang)}. A PDF export without background images almost always fits — otherwise write to us and we handle it manually.`,
-      ]),
-    );
-  } else {
-    toast(L([`« ${nom} » est vide.`, `“${nom}” is empty.`]));
-  }
-}
-
 async function acheter(offre) {
   if (enCours) return;
-  const v = validerFichier(S.fichier);
-  if (!v.ok) {
-    toast(
-      L(["Déposez d’abord votre document.", "Upload your document first."]),
-    );
-    $("#udrop").focus();
-    return;
-  }
-  // ⚠️ SEUL LE RCP EST LIVRABLE AUJOURD'HUI. La notice et l'étiquetage sont au catalogue, mais leur
-  // assemblage n'existe pas encore : encaisser 19 000 F pour un document que la chaîne ne sait pas
-  // livrer ferait mourir la commande APRÈS la dépense moteur. Le refus tombe ici, avant tout
-  // paiement — et le serveur refuse de toute façon au dépôt (double ceinture).
-  if (!docTypeLivrable(S.doc)) {
-    toast(
-      L([
-        "La mise à niveau de ce type de document ouvre bientôt — seul le RCP est traité pour l'instant. Écrivez-nous à contact@pharnos.com pour être prévenu.",
-        "Upgrading this document type opens soon — only the SmPC is handled for now. Write to contact@pharnos.com to be notified.",
-      ]),
-    );
-    return;
-  }
-  // ⚠️ LE CHEMIN PAYANT EST PLUS ÉTROIT QUE LA BIBLIOTHÈQUE, et le dire ici est la seule fenêtre où
-  // c'est gratuit. La page accepte `.doc`/`.docx` jusqu'à 40 Mo — juste pour un outil gratuit, faux
-  // pour le moteur, qui lit du PDF et joint la pièce à chaque appel. Sans ce refus, le pont
-  // déclarait `application/pdf` en dur pour un `.docx` : le mimetype enregistré dans Storage étant
-  // celui que le client déclare, le mensonge neutralisait les DEUX gardes du serveur, brûlait un
-  // dépôt sur trois, et le document ressortait refusé sans qu'aucun écran sache dire pourquoi.
-  for (const f of [S.fichier, ...[...bundleFichiers.values()]]) {
-    const refus = refusFichierUpgrade(f);
-    if (refus) {
-      direRefusUpgrade(refus, f?.name ?? "");
-      $("#udrop").focus();
-      return;
-    }
-  }
   const identite = {
     prenom: $("#payprenom").value.trim(),
     nom: $("#paynom").value.trim(),
@@ -1169,19 +899,6 @@ async function acheter(offre) {
     $("#payind").focus();
     return;
   }
-  // Le bundle SANS ses deux documents ne doit pas partir dans `nouvelleCommande`, qui lèverait
-  // et afficherait « Impossible d'enregistrer la commande » — un message qui accuse l'appareil
-  // du client alors qu'il lui manque simplement deux fichiers.
-  if (offre === "up3" && bundleFichiers.size !== autresDuTrio().length) {
-    toast(
-      L([
-        "Déposez les deux autres documents avant de payer.",
-        "Upload the two other documents before paying.",
-      ]),
-    );
-    $("#bundleslots button")?.focus();
-    return;
-  }
   const manquant = ["prenom", "nom", "email", "telephone"].find(
     (k) => !identite[k],
   );
@@ -1201,38 +918,17 @@ async function acheter(offre) {
   bouton.disabled = true;
   bouton.textContent = L(["Ouverture du paiement…", "Opening payment…"]);
   try {
-    if (!$("#upays").value || !S.activite) {
-      toast(
-        L([
-          "Choisissez votre pays et votre activité.",
-          "Choose your country and activity.",
-        ]),
-      );
-      etapePanneau(1);
-      return;
-    }
     const cmd = nouvelleCommande({
       doc: S.doc,
-      pays: $("#upays").value,
-      activite: S.activite,
       offre,
-      fichier: S.fichier,
-      nomFichier: S.fichier.name,
-      octets: S.fichier.size,
-      annexes:
-        offre === "up3"
-          ? [...bundleFichiers].map(([doc, fichier]) => ({ doc, fichier }))
-          : [],
       id: crypto.randomUUID(),
       cree: Date.now(),
     });
-    // Conservé AVANT la navigation : le fichier doit survivre au passage par le paiement.
-    // Sans cela, le client paie et se retrouve sans document. L'identité, elle, n'est PAS
-    // conservée ici — elle ne sert qu'à la session, Chariow en devient le dépositaire.
+    // B2 : la commande locale ne porte plus AUCUN fichier — seulement la référence et le choix,
+    // pour le récapitulatif du retour de paiement. La salle d'attente sait de toute façon
+    // travailler sans elle (`?commande=<ref>` suffit, depuis n'importe quel appareil).
+    // L'identité n'est PAS conservée : elle ne sert qu'à la session, Chariow en est dépositaire.
     await sauverCommande(cmd);
-    // La commande porte désormais les fichiers : les garder en mémoire ferait rouvrir le
-    // panneau avec les dépôts d'une commande déjà passée.
-    bundleFichiers.clear();
 
     const session = await sessionPaiement(cmd, identite);
     if (session.erreur === "plafond") {
@@ -1300,31 +996,6 @@ async function acheter(offre) {
     bouton.textContent = libelle;
   }
 }
-// Le clic de commande OUVRE l'écran unique offre + identité — un seul écran entre l'envie et
-// le paiement : chaque étape retirée se lit sur le taux de conversion.
-$("#buy1").addEventListener("click", () => {
-  if (!$("#upays").value || !S.activite) {
-    toast(
-      L([
-        "Choisissez votre pays et votre activité.",
-        "Choose your country and activity.",
-      ]),
-    );
-    $("#upays").focus();
-    return;
-  }
-  const v = validerFichier(S.fichier);
-  if (!v.ok) {
-    toast(
-      L(["Déposez d’abord votre document.", "Upload your document first."]),
-    );
-    $("#udrop").focus();
-    return;
-  }
-  // ⚠️ `offreChoisie`, PAS "up1" : revenir en arrière puis recommander rétrogradait la
-  // commande de 69 € à 29 € et effaçait les deux dépôts, sans un mot.
-  ouvrirIdentite(offreChoisie);
-});
 $$("#upg-e4 .offer-opt").forEach((b) =>
   b.addEventListener("click", () => choisirOffre(b.dataset.offre)),
 );
@@ -1345,26 +1016,29 @@ $("#payform").addEventListener("submit", (e) => {
   e.preventDefault();
   acheter(offreChoisie);
 });
-$("#payretour").addEventListener("click", () => etapePanneau(1));
-
-const libelleActivite = (a) =>
-  L(
-    a === "renouv" ? ["Renouvellement", "Renewal"] : ["Nouvelle AMM", "New MA"],
-  );
+// B2 : l’écran offre + identité est le PREMIER du panneau — « retour » le referme.
+$("#payretour").addEventListener("click", () => fermerModale("#upg"));
 
 /** Le courriel qui porte la commande : sa référence, ce qui a été choisi, ce qui a été réglé.
  *  Le document N'EST PAS joint par nous — le navigateur ne sait pas le faire, et c'est très bien
  *  ainsi : c'est le client qui l'attache, en connaissance de cause. */
 function mailtoCommande(cmd) {
-  const m = MODELES_FICHIERS[cmd.doc];
+  const m = cmd.doc ? MODELES_FICHIERS[cmd.doc] : null;
+  const docNom = m ? L(m.nom) : L(["Mise à niveau documentaire", "Document upgrade"]);
   const sujet = L([
-    `Mise à niveau ${L(m.court)} — ${nomPays(cmd.pays)} — ${cmd.id.slice(0, 8)}`,
-    `Upgrade ${L(m.court)} — ${nomPays(cmd.pays)} — ${cmd.id.slice(0, 8)}`,
+    `Mise à niveau — ${cmd.id.slice(0, 8)}`,
+    `Upgrade — ${cmd.id.slice(0, 8)}`,
   ]);
-  const activite = libelleActivite(cmd.activite);
+  const offre = cmd.offre && OFFRES[cmd.offre]
+    ? prixDouble(OFFRES[cmd.offre].prix, lang)
+    : "";
   const corps = L([
-    `Document : ${L(m.nom)}\nPays de dépôt : ${nomPays(cmd.pays)}\nActivité : ${activite}\nOffre : ${prixDouble(OFFRES[cmd.offre].prix, lang)}\nRéférence : ${cmd.id}\n\n(Joignez ici le document à mettre à niveau : ${cmd.nomFichier})`,
-    `Document: ${L(m.nom)}\nCountry of filing: ${nomPays(cmd.pays)}\nActivity: ${activite}\nOffer: ${prixDouble(OFFRES[cmd.offre].prix, lang)}\nReference: ${cmd.id}\n\n(Attach here the document to upgrade: ${cmd.nomFichier})`,
+    `Document : ${docNom}
+Offre : ${offre}
+Référence : ${cmd.id}`,
+    `Document: ${docNom}
+Offer: ${offre}
+Reference: ${cmd.id}`,
   ]);
   return `mailto:contact@pharnos.com?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
 }
@@ -1386,41 +1060,34 @@ function ouvrirRappel(cmd) {
  *  il attend que le serveur ait vu le règlement, envoie le document, puis emmène l'acheteur sur sa
  *  page de suivi. Elle ne prétend jamais avoir reçu ce qui n'est pas encore parti. */
 function ouvrirConfirmation(cmd) {
-  const m = MODELES_FICHIERS[cmd.doc];
+  const m = cmd.doc ? MODELES_FICHIERS[cmd.doc] : null;
   $("#upgtitle").textContent = L([
     `Commande ${cmd.id.slice(0, 8)}`,
     `Order ${cmd.id.slice(0, 8)}`,
   ]);
   $("#upgdesc").textContent = L([
-    "Merci — nous avons ce qu'il faut pour lancer la mise à niveau.",
-    "Thank you — we have what we need to start the upgrade.",
+    "Merci — nous confirmons votre règlement.",
+    "Thank you — we are confirming your payment.",
   ]);
   const trois = cmd.offre === "up3";
-  const offre = trois
-    ? L(["les trois documents", "all three documents"])
-    : L(["un document", "one document"]);
-  // ⚠️ LE RÉCAPITULATIF NE NOMME QUE CE QUI PART. Il annonçait les trois fichiers d'un bundle comme
-  // « reçus » — alors que le pont n'en transmet qu'un et que les deux autres sont effacés de
-  // l'appareil au bout de sept jours. Un acheteur qui lit « vos trois documents sont là » ferme son
-  // onglet et perd deux documents payés, sans qu'aucun écran ne l'ait prévenu. Tant que le compteur
-  // de dépôts est de 3 par COMMANDE et non par document (hors périmètre, PLAN-UPGRADE-PROD §4),
-  // c'est le message qui doit dire la vérité, pas le code qui doit faire semblant.
-  $("#cfmrecap").textContent =
-    `${L(m.nom)} · ${nomPays(cmd.pays)} · ${libelleActivite(cmd.activite)} · ${offre}` +
-    ` · ${cmd.nomFichier} (${tailleLisible(cmd.octets, lang)})`;
+  // B2 : le récapitulatif ne nomme que ce qui est SU — une salle d'attente ouverte sur un autre
+  // appareil (`?commande=<ref>`) ne connaît ni le document ni l'offre, et ne les invente pas.
+  $("#cfmrecap").textContent = m
+    ? `${L(m.nom)} · ${trois ? L(["les trois documents", "all three documents"]) : L(["un document", "one document"])}`
+    : L(["Votre commande est en cours de confirmation.", "Your order is being confirmed."]);
   if (trois) {
     $("#cfmdesc-trio").hidden = false;
     $("#cfmdesc-trio").textContent = L([
-      `Seul ${cmd.nomFichier} part maintenant au traitement. Pour les deux autres documents du lot, écrivez-nous à contact@pharnos.com en rappelant la référence ${cmd.id.slice(0, 8)} — ils sont compris dans votre commande.`,
-      `Only ${cmd.nomFichier} goes to processing now. For the two other documents in the bundle, write to contact@pharnos.com quoting reference ${cmd.id.slice(0, 8)} — they are included in your order.`,
+      `Le dépôt des documents se fait sur votre page sécurisée. Un document s'y traite maintenant ; pour les deux autres du lot, écrivez-nous à contact@pharnos.com en rappelant la référence ${cmd.id.slice(0, 8)} — ils sont compris dans votre commande.`,
+      `Documents are uploaded on your secure page. One document is processed there now; for the two others in the bundle, write to contact@pharnos.com quoting reference ${cmd.id.slice(0, 8)} — they are included in your order.`,
     ]);
   } else {
     $("#cfmdesc-trio").hidden = true;
   }
-  // ⚠️ NE JAMAIS annoncer une réception qui n'a pas eu lieu. Tant que le pont n'a pas rendu la
-  // main, le document est encore dans l'IndexedDB de l'acheteur — et rien n'autorise à le laisser
-  // fermer son onglet. C'est `franchirLePont` qui écrit ici, état par état.
+  // ⚠️ NE JAMAIS annoncer une réception qui n'a pas eu lieu : c'est `franchirLePont` qui écrit
+  // ici, état par état — et le LIEN de livraison s'affichera À L'ÉCRAN dès qu'il existe (C2).
   $("#cfmsend").hidden = true;
+  $("#cfmlink").hidden = true;
   const retour = $("#cfmback");
   retour.href = retourBiblio();
   retour.textContent = L(["Retour à la bibliothèque", "Back to the library"]);
@@ -1494,91 +1161,9 @@ async function reclamerJeton(ref) {
   }
 }
 
-/** Étape 2 — le document part. Rend `true` s'il est bien arrivé.
- *
- *  ⚠️ L'URL de dépôt est demandée UNE fois : c'est elle qui décompte un dépôt sur les trois. Le
- *  PUT, lui, se retente sur la même URL — la clé est dérivée du job et `x-upsert` autorise la
- *  réécriture, donc un micro-trou réseau ne coûte rien à quelqu'un qui a payé. */
-async function envoyerDocument(token, cmd) {
-  const fichier = cmd.fichier;
-  if (!(fichier instanceof Blob)) return false;
-
-  // ⚠️ Ne rien envoyer sous un type que le serveur ne connaît pas : il le rangerait ailleurs, et la
-  // porte jugerait le document contre le mauvais gabarit. Mieux vaut laisser la page de suivi le
-  // redemander que de brûler un dépôt sur un malentendu de vocabulaire.
-  const docType = docTypeServeur(cmd.doc);
-  if (!docType) return false;
-
-  // ⚠️ Ceinture du refus posé avant le paiement : un fichier restauré depuis une commande plus
-  // ancienne n'est pas repassé par `acheter()`. Ne JAMAIS déclarer `application/pdf` sur autre
-  // chose — c'est ce mensonge qui neutralisait les deux gardes du serveur.
-  if (
-    refusFichierUpgrade(
-      fichier ? { name: cmd.nomFichier ?? "", size: fichier.size } : null,
-    )
-  ) {
-    return false;
-  }
-
-  // ⚠️ LE DÉPÔT SE RÉSERVE AVANT L'APPEL, PAS APRÈS SA RÉPONSE. `order-upload-url` décompte à la
-  // RÉCEPTION de la requête : une réponse perdue — coupure, 503 sur l'une des écritures qui suivent
-  // — laissait le compteur débité et le drapeau faux, donc un dépôt de plus au retour suivant.
-  // `reserverDepot` lit et écrit dans une seule transaction : c'est aussi le verrou inter-onglets.
-  if (!(await reserverDepot(cmd.id))) return false;
-
-  const { status, corps } = await appelOrders("order-upload-url", {
-    token,
-    size: fichier.size,
-    docType,
-    contentType: "application/pdf",
-    // ⚠️ Pays, activité et nom du fichier : choisis dans la modale AVANT le paiement, et sans ce
-    // transport ils mouraient dans IndexedDB — la mention de vigilance 4.8, celle qui varie par
-    // pays, n'entrait alors dans AUCUN prompt. Le serveur valide et n'invente jamais.
-    sourceName: cmd.nomFichier ?? fichier.name ?? null,
-    // ⚠️ MAJUSCULES : le manifeste porte `bj`, `ci`… et le serveur valide `^[A-Z]{2}$` — envoyé
-    // tel quel, le pays était jeté en silence et la mention 4.8 n'entrait dans aucun prompt.
-    country: (cmd.pays ?? "").toUpperCase() || null,
-    activity: cmd.activite ?? null,
-  });
-  // ⚠️ `uploadToken` se vérifie AUSSI : un `Bearer undefined` part au PUT, échoue en 403 non
-  // retentable — et le dépôt, lui, vient d'être consommé.
-  if (
-    status !== 200 ||
-    typeof corps.uploadUrl !== "string" ||
-    typeof corps.uploadToken !== "string"
-  ) {
-    return false;
-  }
-
-  for (let essai = 1; essai <= PUT_ESSAIS; essai++) {
-    let code = null;
-    try {
-      const res = await fetch(corps.uploadUrl, {
-        method: "PUT",
-        headers: {
-          authorization: `Bearer ${corps.uploadToken}`,
-          "content-type": "application/pdf",
-          // Un dépôt interrompu puis relancé écrit la MÊME clé : sans cela, le second essai
-          // échouerait en 409 sur un job qui vient pourtant de consommer sa tentative.
-          "x-upsert": "true",
-        },
-        body: fichier,
-        // ⚠️ Un PUT sans délai de garde est un sablier définitif : une radio mobile qui change de
-        // réseau laisse la promesse pendante, l'écran reste sur « Ne fermez pas cette page », le
-        // dépôt est consommé, et ni la reprise ni la sortie de secours ne sont jamais atteintes.
-        // L'abandon retombe sur `code = null`, donc retentable — le bon comportement.
-        signal: AbortSignal.timeout(90000),
-      });
-      if (res.ok) return true;
-      code = res.status;
-    } catch {
-      code = null; // la requête n'a jamais abouti
-    }
-    if (!putRetentable(code) || essai === PUT_ESSAIS) return false;
-    await dormir(PUT_ATTENTE_MS * essai);
-  }
-  return false;
-}
+// B2 — le pont n'envoie plus AUCUN document : le dépôt vit sur `/u/{token}`, après paiement.
+// Le transfert inter-origines (téléversement + pays/activité depuis la landing) est parti avec —
+// et avec lui la réservation de dépôt en IndexedDB : plus rien ne se consomme depuis cette page.
 
 /** L'issue de secours, et elle n'est jamais vide : l'e-mail n°1 porte le même lien de suivi. */
 function renvoyerVersEmail(texte) {
@@ -1595,19 +1180,33 @@ function renvoyerVersEmail(texte) {
 async function franchirLePont(cmd) {
   if (pontEnCours) return;
   pontEnCours = true;
+  let minuterie = null;
   try {
-    direPont(
-      L([
-        "Nous confirmons votre règlement auprès de la banque…",
-        "Confirming your payment with the bank…",
-      ]),
-      L([
-        "Quelques secondes — ne fermez pas cette page.",
-        "A few seconds — please keep this page open.",
-      ]),
-    );
+    // C2 — LA SALLE D'ATTENTE : elle réclame plusieurs minutes, affiche l'état, et ne se tait
+    // jamais. Le message suit le temps écoulé (paliers du pont) — la cadence de la boucle, elle,
+    // est calibrée pour SURVIVRE à deux périodes du cron de réconciliation : même un Pulse jamais
+    // livré (première vente réelle) voit sa commande naître pendant que l'acheteur attend ici.
+    const debut = Date.now();
+    // ⚠️ `#cfmnext` est `aria-live="polite"` : réécrire le MÊME texte toutes les 5 s ferait
+    // ré-annoncer ~66 fois la même phrase à un lecteur d'écran. On ne repeint qu'au CHANGEMENT
+    // de palier.
+    let palierCourant = null;
+    const peindreAttente = () => {
+      const p = palierAttente(Date.now() - debut);
+      if (p === palierCourant) return;
+      palierCourant = p;
+      direPont(L(p.texte), L(p.note));
+    };
+    peindreAttente();
+    minuterie = setInterval(peindreAttente, 5000);
 
-    const jeton = await reclamerJeton(cmd.id);
+    let jeton = await reclamerJeton(cmd.id);
+    // C4 — UNE relance courte avant tout repli : la réconciliation a pu faire naître la commande
+    // à la dernière seconde. Silencieuse — l'acheteur a déjà son message de palier.
+    if (jeton.etat === "trop_long") jeton = await relancerJeton(cmd.id);
+    clearInterval(minuterie);
+    minuterie = null;
+
     if (jeton.etat === "expire") {
       renvoyerVersEmail(
         L([
@@ -1629,11 +1228,22 @@ async function franchirLePont(cmd) {
       return;
     }
     if (jeton.etat !== "pret") {
-      // ⚠️ `trop_long` N'EST PAS `voir_email`, et les confondre faisait affirmer un envoi qui n'a
-      // pas eu lieu. Recevoir « pas encore » pendant toute la boucle signifie que la commande
-      // N'EXISTE PAS ENCORE côté serveur — donc qu'aucun e-mail n'est parti, et que si le Pulse a
-      // échoué, aucun ne partira. On ne promet donc rien : on donne la référence, qui est la seule
-      // chose que l'acheteur possède et que le support sait retrouver.
+      // C4 — LE REPLI EST HONNÊTE, ET JAMAIS EN RECETTE. Recevoir « pas encore » pendant toute la
+      // salle d'attente ET la relance signifie que la commande N'EXISTE PAS côté serveur : ni
+      // webhook, ni réconciliation. En recette, c'est une PANNE FRANCHE à afficher — la promesse
+      // d'un e-mail masquerait précisément ce que la recette existe pour voir. En réel, on donne
+      // la référence — la seule chose que l'acheteur possède et que le support sait retrouver.
+      if (essaiToken) {
+        direPont(
+          L([
+            "[RECETTE] La confirmation n'est pas arrivée : ni le webhook ni la réconciliation n'ont fait naître la commande. C'est une panne franche du rail — rien ne partira par e-mail.",
+            "[TEST] Confirmation never arrived: neither the webhook nor the reconciliation created the order. This is a hard rail failure — nothing will be e-mailed.",
+          ]),
+          L([`Référence ${cmd.id}.`, `Reference ${cmd.id}.`]),
+        );
+        $("#cfmsend").hidden = true;
+        return;
+      }
       renvoyerVersEmail(
         L([
           `Votre règlement est enregistré, mais notre confirmation tarde. Référence ${cmd.id} — si vous ne recevez rien d'ici une heure, écrivez-nous à contact@pharnos.com en la citant.`,
@@ -1643,53 +1253,23 @@ async function franchirLePont(cmd) {
       return;
     }
 
-    // ⚠️ LE PONT NE SE FRANCHIT QU'UNE FOIS, ET LA GARDE DOIT SURVIVRE À UN RECHARGEMENT.
-    //
-    // `pontEnCours` est une variable de module : elle meurt avec la page. Or `?paiement=ok` reste
-    // dans l'historique, la référence vit sept jours dans `localStorage`, et `reprendre()` relance
-    // donc tout le pont à chaque rechargement, retour arrière ou réouverture d'onglet. Chaque
-    // passage redemandait une URL de dépôt — et `order-upload-url` en CONSOMME un sur trois par
-    // compare-and-swap. Trois visites suffisaient à verrouiller une commande payée.
-    //
-    // Le drapeau vit donc où vit le document : dans la commande, en IndexedDB. Il marque le dépôt
-    // CONSOMMÉ (posé dans `envoyerDocument`, dès que le serveur a décompté), pas le téléversement
-    // réussi — sans quoi un PUT raté sur réseau instable rouvrait exactement la même boucle.
-    let envoye = cmd.depotFait === true;
-    if (!envoye) {
-      direPont(
-        L(["Envoi de votre document…", "Uploading your document…"]),
-        L(["Ne fermez pas cette page.", "Please keep this page open."]),
-      );
-      envoye = await envoyerDocument(jeton.token, cmd);
-    }
-
-    // ⚠️ On redirige MÊME si l'envoi a échoué. La page de suivi sait redemander le fichier ; y
-    // laisser l'acheteur avec un message d'erreur sur la landing, lui, l'y laisserait pour de bon.
+    // C2 — LE LIEN S'AFFICHE À L'ÉCRAN (l'e-mail n'est qu'un filet), puis la page s'ouvre seule.
+    // ⚠️ `replace` et NON `href` : depuis `/u/{token}`, le geste « Retour » ramènerait sur
+    // `?paiement=ok`, où `reprendre()` rejouerait tout le pont — un jeton de plus frappé
+    // (plafond de 12 par commande). La page de retour n'est pas une étape à revisiter.
+    const lien = urlLivraison(jeton.token, window.location.hostname);
     direPont(
-      envoye
-        ? L([
-            "Document reçu. Nous ouvrons votre page de suivi…",
-            "Document received. Opening your tracking page…",
-          ])
-        : L([
-            "Votre commande est ouverte. Nous vous emmenons y déposer votre document…",
-            "Your order is open. Taking you there to upload your document…",
-          ]),
-      "",
+      L(["Votre commande est confirmée.", "Your order is confirmed."]),
+      L(["Nous ouvrons votre page sécurisée…", "Opening your secure page…"]),
     );
-    // ⚠️ BUNDLE `up3` — seul le document principal traverse le pont. Le compteur de dépôts
-    // (3 par COMMANDE, contrainte SQL de `0083`) est calibré pour un document et ses deux
-    // reprises : téléverser trois documents épuiserait les trois dépôts et ne laisserait aucune
-    // seconde chance. Les deux autres restent dans l'IndexedDB de l'acheteur et se traitent avec
-    // le support, jusqu'à ce que le bundle ait son propre compteur — le plan le range hors
-    // périmètre tant qu'un `up1` n'a pas réussi de bout en bout (PLAN-UPGRADE-PROD §4).
-    // ⚠️ `replace` et NON `href` : `href` empile une entrée d'historique, et depuis `/u/{token}` le
-    // geste réflexe « Retour » ramenait sur `/modele?paiement=ok`, où `reprendre()` rejouait TOUT
-    // le pont — un jeton de plus frappé (plafond de 12 par commande) et, avant la réservation du
-    // dépôt, une tentative de plus consommée. La page de retour n'est pas une étape à revisiter.
-    window.location.replace(
-      urlLivraison(jeton.token, window.location.hostname),
-    );
+    const a = $("#cfmlink");
+    a.href = lien;
+    a.hidden = false;
+    a.focus();
+    // 3,5 s : le temps de LIRE « votre commande est confirmée » et de voir le bouton — un lien
+    // affiché 900 ms n'existe que pour la conscience du développeur. La redirection reste
+    // automatique : le clic n'est qu'un filet si elle échoue.
+    setTimeout(() => window.location.replace(lien), 3500);
   } catch (e) {
     console.error("pont", e);
     renvoyerVersEmail(
@@ -1699,8 +1279,20 @@ async function franchirLePont(cmd) {
       ]),
     );
   } finally {
+    if (minuterie) clearInterval(minuterie);
     pontEnCours = false;
   }
+}
+
+/** C4 — la rafale de relance : courte, silencieuse, après l'échéance de la salle d'attente. */
+async function relancerJeton(ref) {
+  for (const attente of CADENCE_RELANCE_MS) {
+    await dormir(attente);
+    const { status, corps } = await appelOrders("order-claim", { ref }, CLAIM_TIMEOUT_MS);
+    const lu = lireClaim(status, corps);
+    if (lu.etat !== "attente") return lu;
+  }
+  return { etat: "trop_long" };
 }
 
 /** Retour de paiement : on retrouve le document conservé, on le remet sous les yeux du client, et
@@ -1708,48 +1300,26 @@ async function franchirLePont(cmd) {
  *  `order-claim` est idempotent côté commande, et `pontEnCours` empêche deux ponts en parallèle. */
 async function reprendre() {
   // `?commande=` si le prestataire relaie notre référence ; sinon `?paiement=ok` et la référence
-  // gardée avant le départ. Les deux chemins mènent au même document.
+  // gardée avant le départ. Les deux chemins mènent à la même salle d'attente.
   const ref =
     params.get("commande") ??
     (params.get("paiement") ? referenceEnAttente() : null);
   if (!ref) return;
+  // ⚠️ La référence se VALIDE avant d'ouvrir la salle d'attente : nos références sont des UUID
+  // (`crypto.randomUUID`). Sans ce filtre, `?commande=nimportequoi` ouvrait cinq minutes de
+  // « nous confirmons votre règlement » et ~40 appels à `order-claim` pour une chaîne inventée.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref)) return;
   let cmd = null;
   try {
     cmd = await lireCommande(ref);
   } catch (e) {
     console.error("reprise", e);
   }
-  if (!cmd) {
-    toast(
-      L([
-        "Cette commande n’a pas été retrouvée sur cet appareil. Écrivez-nous à contact@pharnos.com.",
-        "This order was not found on this device. Write to contact@pharnos.com.",
-      ]),
-    );
-    return;
-  }
-  S.doc = cmd.doc;
-  S.pays = cmd.pays;
-  S.activite = cmd.activite;
-  S.fichier = cmd.fichier;
-  peindre();
-  poserFichier(cmd.fichier);
-  // La référence reste en attente : un simple rafraîchissement de la page de retour doit
-  // ramener la même confirmation, pas une page vierge. Elle s'efface d'elle-même au TTL, et
-  // la commande suivante l'écrase.
-  try {
-    await sauverCommande({ ...cmd, regle: true, regleeLe: Date.now() });
-  } catch (e) {
-    // La commande est déjà en base ; ne pas empêcher la confirmation pour un champ de statut.
-    console.error("statut commande", e);
-  }
-  ouvrirConfirmation(cmd);
-  toast(
-    L([
-      `Commande ${cmd.id.slice(0, 8)} — votre document a bien été conservé.`,
-      `Order ${cmd.id.slice(0, 8)} — your document was kept safely.`,
-    ]),
-  );
+  // B2 : plus AUCUN fichier à retrouver — la référence SEULE suffit. Une commande inconnue de cet
+  // appareil (autre navigateur, autre poste) ouvre la même salle d'attente avec un récapitulatif
+  // minimal, au lieu de l'ancienne impasse « commande introuvable sur cet appareil ».
+  if (cmd?.doc) S.doc = cmd.doc;
+  ouvrirConfirmation(cmd ?? { id: ref, doc: null, offre: null });
 }
 
 /* ══════════════════ Popup et panneau : ouverture, fermeture, focus ══════════════════ */
@@ -1840,7 +1410,7 @@ function peindreEssai() {
   if (!bandeauEssai) {
     bandeauEssai = document.createElement("p");
     bandeauEssai.className = "essai-note";
-    $("#upgbody").prepend(bandeauEssai);
+    $("#upg-e4").prepend(bandeauEssai);
   }
   bandeauEssai.textContent = L([
     "Mode recette — si le jeton est valide, le règlement partira au tarif de test (570 / 575 F CFA), pas au prix affiché.",
@@ -1854,14 +1424,10 @@ function appliquerLangue(l) {
   if ($("#dlm").classList.contains("on"))
     remplirPays($("#dlpays"), $("#dlpays").value || S.pays);
   if ($("#upg").classList.contains("on")) {
-    remplirPays($("#upays"), $("#upays").value || S.pays);
-    peindreAchat();
     // L'étape identité porte ses propres libellés dynamiques (récap, indicatifs, bouton) —
     // la rouvrir dans la nouvelle langue les repeint tous.
     if (!$("#upg-e4").hidden) ouvrirIdentite(offreChoisie);
   }
-  if (S.fichier)
-    $("#ufilesize").textContent = tailleLisible(S.fichier.size, lang);
   peindreEssai();
 }
 if (window.I18N && typeof window.I18N.on === "function")

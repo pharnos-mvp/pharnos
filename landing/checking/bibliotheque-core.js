@@ -167,13 +167,6 @@ export const estPerimee = (cmd, maintenant) =>
 /** Les deux offres, et ce qu'elles couvrent. `documents` sert à écrire le libellé, jamais un
  *  solde : le second document d'un bundle se dépose après la commande, il ne se « consomme »
  *  pas sur un compteur. */
-/** Les documents que la mise à niveau sait traiter — DÉRIVÉS du manifeste, jamais recopiés :
- *  un quatrième document `upgradable` ferait autrement un bundle à trois annexes qu'aucune
- *  interface ne collecte, et toute commande groupée échouerait sans qu'on sache pourquoi. */
-export const TRIO_UPGRADABLE = Object.keys(MODELES_FICHIERS).filter(
-  (s) => MODELES_FICHIERS[s].upgradable,
-);
-
 export const OFFRES = {
   up1: { prix: PRIX.up1, documents: 1 },
   up3: { prix: PRIX.up3, documents: 3 },
@@ -183,58 +176,14 @@ export const OFFRES = {
  * Fabrique l'enregistrement de commande. `id` et `cree` sont injectés — une fonction pure se
  * teste, `crypto.randomUUID()` et `Date.now()` appartiennent à l'appelant.
  *
- * @param {{doc: string, pays: string, activite: string, offre: string, fichier: File|Blob,
- *          nomFichier: string, octets: number, id: string, cree: number,
- *          annexes?: Array<{doc: string, fichier: File|Blob}>}} p
+ * @param {{doc: string, offre: string, id: string, cree: number}} p
  */
 export function nouvelleCommande(p) {
+  // B2 (config APRÈS paiement) : la commande locale ne porte plus NI fichier, NI pays, NI
+  // activité — tout se choisit sur `/u/{token}` après le règlement. Elle ne sert plus qu'au
+  // récapitulatif du retour de paiement ; la salle d'attente sait travailler sans elle.
   if (!OFFRES[p.offre]) throw new Error(`offre inconnue « ${p.offre} »`);
   if (!MODELES_FICHIERS[p.doc])
     throw new Error(`document inconnu « ${p.doc} »`);
-  if (p.activite !== "amm" && p.activite !== "renouv") {
-    // Le pays et l'activité entrent dans le prompt de CHAQUE rubrique : les laisser passer vides
-    // produirait un document mis à niveau sur un contexte que personne n'a choisi.
-    throw new Error(`activité inconnue « ${p.activite} »`);
-  }
-  // Le bundle vend TROIS documents : la commande doit les porter tous les trois, sinon on
-  // encaisse puis on réclame le reste par e-mail — le client travaille après avoir payé.
-  const annexes = Array.isArray(p.annexes) ? p.annexes : [];
-  for (const a of annexes) {
-    if (!MODELES_FICHIERS[a?.doc])
-      throw new Error(`annexe inconnue « ${a?.doc} »`);
-    if (!(a.fichier instanceof Blob))
-      throw new Error(`annexe ${a.doc} sans fichier`);
-  }
-  if (p.offre !== "up3" && annexes.length > 0) {
-    throw new Error("une offre à un document ne porte pas d'annexe");
-  }
-  if (p.offre === "up3") {
-    // ⚠️ Compter les annexes ne suffit pas : `[rcp, rcp]` en ferait deux et se vendrait comme
-    // « les trois documents ». La garantie vit ICI, dans la fonction qui écrit la commande —
-    // jamais dans le calcul de l'affichage, qui n'engage rien.
-    const attendus = TRIO_UPGRADABLE.filter((s) => s !== p.doc).sort();
-    const recus = [...new Set(annexes.map((a) => a.doc))].sort();
-    if (recus.join("+") !== attendus.join("+")) {
-      throw new Error(
-        `le bundle attend ${attendus.join(" + ")}, reçu ${recus.join(" + ") || "rien"}`,
-      );
-    }
-  }
-  return {
-    id: p.id,
-    cree: p.cree,
-    doc: p.doc,
-    pays: p.pays,
-    activite: p.activite,
-    offre: p.offre,
-    nomFichier: p.nomFichier,
-    octets: p.octets,
-    fichier: p.fichier,
-    annexes: annexes.map((a) => ({
-      doc: a.doc,
-      nomFichier: a.fichier.name,
-      octets: a.fichier.size,
-      fichier: a.fichier,
-    })),
-  };
+  return { id: p.id, cree: p.cree, doc: p.doc, offre: p.offre };
 }
