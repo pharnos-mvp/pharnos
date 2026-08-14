@@ -1,7 +1,7 @@
 // La livraison — le seul appel dont la sortie devient un DOCUMENT DÉPOSÉ chez une agence.
 import { describe, expect, it } from 'vitest'
 
-import { fabriquerFichiers, lireLivrable } from './livraison'
+import { extensionDe, fabriquerFichiers, labelFichier, lireLivrable, nomArchive } from './livraison'
 
 const FR = [
   '## RÉSUMÉ DES CARACTÉRISTIQUES DU PRODUIT',
@@ -53,7 +53,9 @@ describe('fabriquerFichiers', () => {
         a.files[i]!.fileName,
       ).toBe(true)
     }
-    expect(a.zipName).toBe('KV-Kacin-upgrade.zip')
+    // LOT B3 : l'archive porte le nom du document que l'acheteur connaît — la langue
+    // source absente (fixture sans `sourceLang`) retombe sur la forme du gabarit.
+    expect(a.zipName).toBe('KV-Kacin_RCP Upgrade.zip')
   })
 
   it('⚠️ SANS date de complétion, on REFUSE — jamais un repli sur l’horloge locale', async () => {
@@ -63,5 +65,70 @@ describe('fabriquerFichiers', () => {
     if ('erreur' in l) throw new Error(l.erreur)
     const r = await fabriquerFichiers(l)
     expect('erreur' in r).toBe(true)
+  })
+})
+
+describe('nomArchive (LOT B3)', () => {
+  it("l'archive porte le nom du document que l'acheteur connaît", () => {
+    expect(nomArchive('KV-RL', 'fr')).toBe('KV-RL_RCP Upgrade.zip')
+    expect(nomArchive('KV-RL', 'en')).toBe('KV-RL_SmPC Upgrade.zip')
+    // Un job d'avant la migration 0093 retombe sur la forme du gabarit (FR).
+    expect(nomArchive('KV-RL', null)).toBe('KV-RL_RCP Upgrade.zip')
+  })
+})
+
+describe('lireLivrable : stats et langue source (LOT B3)', () => {
+  const base = {
+    fr: '# RCP',
+    en: '# SmPC',
+    rapport: '# Revue',
+    slug: 'KV-RL',
+    reportHeader: 'KV-RL — Revue réglementaire',
+    reportLang: 'fr',
+    created: '2026-08-14T02:59:59.866Z',
+    sourceKind: 'ocr',
+  }
+
+  it('des stats complètes passent, une langue source EN aussi', () => {
+    const l = lireLivrable({
+      ...base,
+      sourceLang: 'en',
+      stats: { reprises: 23, aCompleter: 6, deplaces: 11, aRelire: 4 },
+    })
+    expect('erreur' in l).toBe(false)
+    if ('erreur' in l) return
+    expect(l.sourceLang).toBe('en')
+    expect(l.stats).toEqual({ reprises: 23, aCompleter: 6, deplaces: 11, aRelire: 4 })
+  })
+
+  it('des stats INCOMPLÈTES tombent à null entières — jamais une tuile à `undefined`', () => {
+    const l = lireLivrable({ ...base, stats: { reprises: 23, aCompleter: 6 } })
+    expect('erreur' in l).toBe(false)
+    if ('erreur' in l) return
+    expect(l.stats).toBeNull()
+    // Absentes (job d'avant 0093) : null aussi, et la langue inconnue reste null.
+    const vieux = lireLivrable(base)
+    if ('erreur' in vieux) return
+    expect(vieux.stats).toBeNull()
+    expect(vieux.sourceLang).toBeNull()
+  })
+})
+
+describe('labelFichier + extensionDe (LOT B1)', () => {
+  it('des labels HUMAINS, décidés sur le nom — jamais sur une position de liste', () => {
+    expect(labelFichier('KV-RL-RCP-FR.pdf', 'fr')).toBe('RCP — français')
+    expect(labelFichier('KV-RL-RCP-FR.docx', 'fr')).toBe('RCP — français')
+    expect(labelFichier('KV-RL-SmPC-EN.pdf', 'fr')).toBe('SmPC — anglais')
+    expect(labelFichier('KV-RL-revue-reglementaire-RCP.pdf', 'fr')).toContain('Revue réglementaire')
+    expect(labelFichier('KV-RL-SmPC-regulatory-review.pdf', 'en')).toContain('Regulatory review')
+    // Un nom inconnu garde son nom : mentir sur un fichier serait pire qu'être technique.
+    expect(labelFichier('mystere.bin', 'fr')).toBe('mystere.bin')
+  })
+
+  it("l'extension s'affiche en capitales, comme au mockup", () => {
+    expect(extensionDe('KV-RL-RCP-FR.docx')).toBe('DOCX')
+    expect(extensionDe('KV-RL-RCP-FR.pdf')).toBe('PDF')
+    // Sans point : rien — jamais le nom entier en capitales.
+    expect(extensionDe('mystere')).toBe('')
   })
 })

@@ -14,6 +14,14 @@ import {
   type Deliverable,
 } from '@/lib/deliverables'
 
+/** Les quatre comptes de l'écran de livraison — figés à l'assemblage, côté serveur. */
+export interface StatsLivrable {
+  reprises: number
+  aCompleter: number
+  deplaces: number
+  aRelire: number
+}
+
 /** Ce que `order-status?livrable=1` rend — le contrat serveur, revalidé ici. */
 export interface LivrableRecu {
   fr: string
@@ -25,6 +33,12 @@ export interface LivrableRecu {
   /** Date de complétion (ISO) — l'horodatage des PDF, identique au banc d'essai. */
   created: string | null
   sourceKind: string
+  /** Langue du document SOURCE (porte, LOT B3) — `null` sur les jobs antérieurs. */
+  sourceLang: 'fr' | 'en' | null
+  /** `null` sur les jobs antérieurs à la migration `0093` : la page masque alors les tuiles. */
+  stats: StatsLivrable | null
+  /** Durée réelle du traitement, en secondes — mesurée par le serveur, jamais estimée ici. */
+  dureeS: number | null
 }
 
 /**
@@ -42,6 +56,16 @@ export function lireLivrable(brut: unknown): LivrableRecu | { erreur: string } {
       return { erreur: `livrable incomplet : ${champ}` }
     }
   }
+  // Les stats sont OPTIONNELLES (jobs antérieurs à `0093`) mais jamais à moitié : un objet
+  // incomplet afficherait des tuiles à `undefined` — on préfère les masquer entières.
+  const s = b.stats as Record<string, unknown> | null | undefined
+  const stats =
+    s &&
+    (['reprises', 'aCompleter', 'deplaces', 'aRelire'] as const).every(
+      (k) => typeof s[k] === 'number' && Number.isFinite(s[k]),
+    )
+      ? (s as unknown as StatsLivrable)
+      : null
   return {
     fr: b.fr as string,
     en: b.en as string,
@@ -51,7 +75,36 @@ export function lireLivrable(brut: unknown): LivrableRecu | { erreur: string } {
     reportLang: b.reportLang === 'en' ? 'en' : 'fr',
     created: typeof b.created === 'string' ? b.created : null,
     sourceKind: b.sourceKind === 'ocr' ? 'ocr' : 'text',
+    sourceLang: b.sourceLang === 'en' ? 'en' : b.sourceLang === 'fr' ? 'fr' : null,
+    stats,
+    dureeS: typeof b.dureeS === 'number' && Number.isFinite(b.dureeS) ? b.dureeS : null,
   }
+}
+
+/**
+ * Le LABEL HUMAIN d'un fichier livré (mockup v3 : « SmPC — anglais », jamais un nom technique).
+ *
+ * Décidé sur le NOM du fichier — la seule donnée que `Deliverable` porte — et jamais en dur sur
+ * une position de liste : l'ordre de `upgradeJobs` pourrait changer sans casser aucun test de
+ * position. Un nom inconnu garde son nom : mentir sur un fichier serait pire qu'être technique.
+ */
+export function labelFichier(fileName: string, lang: 'fr' | 'en'): string {
+  const fr = lang === 'fr'
+  if (/-RCP-FR\./i.test(fileName)) return fr ? 'RCP — français' : 'SmPC — French'
+  if (/-SmPC-EN\./i.test(fileName)) return fr ? 'SmPC — anglais' : 'SmPC — English'
+  if (/revue-reglementaire|regulatory-review/i.test(fileName)) {
+    return fr
+      ? 'Revue réglementaire — ce que nous avons fait, et ce qu’il reste à faire'
+      : 'Regulatory review — what we did, and what remains'
+  }
+  return fileName
+}
+
+/** L'extension affichée à côté du label (mockup : `DOCX` / `PDF`). Sans point : rien — jamais le
+ *  nom entier en capitales. */
+export const extensionDe = (fileName: string): string => {
+  const point = fileName.lastIndexOf('.')
+  return point > 0 ? fileName.slice(point + 1).toUpperCase() : ''
 }
 
 export interface FichiersLivres {
@@ -94,8 +147,16 @@ export async function fabriquerFichiers(
     // à présenter comme la livraison.
     return { erreur: `${files.length} fichiers produits sur ${DELIVERABLE_FILE_COUNT}` }
   }
-  return { files, dropped, zipName: `${l.slug}-upgrade.zip`, created }
+  return { files, dropped, zipName: nomArchive(l.slug, l.sourceLang), created }
 }
+
+/**
+ * Le nom de l'archive suit la LANGUE SOURCE (LOT B3) : l'acheteur d'un SmPC anglais reçoit
+ * « Produit_SmPC Upgrade.zip » — son document, mis au standard — jamais « RCP » qu'il ne
+ * connaît pas. `null` (job antérieur à `0093`) retombe sur la forme française du gabarit.
+ */
+export const nomArchive = (slug: string, sourceLang: 'fr' | 'en' | null): string =>
+  sourceLang === 'en' ? `${slug}_SmPC Upgrade.zip` : `${slug}_RCP Upgrade.zip`
 
 /**
  * Le « tout télécharger » — chargé à la demande : jszip n'a rien à faire dans le chunk initial.

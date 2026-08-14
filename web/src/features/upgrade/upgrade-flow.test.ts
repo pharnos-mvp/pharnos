@@ -12,6 +12,10 @@ import {
   validerFichierSource,
   vueDepuis,
   type ResumeCommande,
+  libellePhase,
+  bandeauContexte,
+  dureeLisible,
+  rubriquesVivantes,
 } from './upgrade-flow'
 
 const resume = (o: Partial<ResumeCommande> = {}): ResumeCommande => ({
@@ -329,5 +333,88 @@ describe('vueDepuis — porte à reprendre', () => {
       echecLecture: true,
     })
     expect(v.etape).toBe('depot')
+  })
+})
+
+describe('libellePhase (LOT B3)', () => {
+  it('une source ANGLAISE ne subit jamais une « Traduction anglaise »', () => {
+    expect(libellePhase('conformity', 'en')).toEqual({
+      fr: 'Version française',
+      en: 'French version',
+    })
+    expect(libellePhase('translation', 'en')).toEqual({
+      fr: 'Version anglaise au standard',
+      en: 'English version to the standard',
+    })
+  })
+
+  it('une source française garde les libellés historiques', () => {
+    expect(libellePhase('conformity', 'fr')).toEqual({
+      fr: 'Mise en conformité',
+      en: 'Compliance pass',
+    })
+    expect(libellePhase('translation', 'fr')).toEqual({
+      fr: 'Traduction anglaise',
+      en: 'English translation',
+    })
+    // Un job d'avant la migration 0093 (`null`) se lit comme une source française.
+    expect(libellePhase('translation', null)).toEqual(libellePhase('translation', 'fr'))
+  })
+
+  it('la revue ne dépend pas de la langue source, et une phase inconnue retombe sur la première', () => {
+    expect(libellePhase('report', 'en')).toEqual(libellePhase('report', 'fr'))
+    expect(libellePhase('phase-de-2027', 'en')).toEqual(libellePhase('conformity', 'en'))
+  })
+})
+
+describe('rubriquesVivantes + bandeauContexte + dureeLisible (LOT B1)', () => {
+  it('ordonne sur le GABARIT et titre depuis la même source que le moteur', () => {
+    const sections = [
+      { id: '4.8', st: 'queued' },
+      { id: '1', st: 'done', o: 'filled' },
+      { id: '4.2-posologie', st: 'running' },
+    ]
+    const r = rubriquesVivantes(sections, 'rcp', 'fr')
+    // L'ordre est celui du gabarit (1 avant 4.2 avant 4.8), pas celui du serveur.
+    expect(r.map((x) => x.id)).toEqual(['1', '4.2-posologie', '4.8'])
+    expect(r[0]).toMatchObject({ titre: 'DÉNOMINATION DU MÉDICAMENT', st: 'done', o: 'filled' })
+    // `4.2-posologie` s'AFFICHE « 4.2 » — jamais un identifiant interne.
+    expect(r[1]?.num).toBe('4.2')
+    // En anglais, les titres viennent de la table de l'assemblage — pas d'une liste parallèle.
+    const en = rubriquesVivantes(sections, 'rcp', 'en')
+    expect(en[0]?.titre).toBe('NAME OF THE MEDICINAL PRODUCT')
+  })
+
+  it('une rubrique HORS gabarit ferme la marche au lieu de disparaître', () => {
+    const r = rubriquesVivantes(
+      [
+        { id: 'zz-inconnue', st: 'queued' },
+        { id: '1', st: 'done' },
+      ],
+      'rcp',
+      'fr',
+    )
+    expect(r.map((x) => x.id)).toEqual(['1', 'zz-inconnue'])
+  })
+
+  it('le bandeau contexte ne dit QUE ce qui est su', () => {
+    expect(
+      bandeauContexte({ produit: 'KV-RL', country: 'BF', activity: 'amm', sourceLang: 'en' }, 'fr'),
+    ).toBe('KV-RL · Burkina Faso · Nouvelle AMM · anglais → français')
+    // Une source française annonce l'autre sens ; un pays inconnu n'invente rien.
+    expect(
+      bandeauContexte({ produit: null, country: 'XX', activity: null, sourceLang: 'fr' }, 'en'),
+    ).toBe('French → English')
+    expect(
+      bandeauContexte({ produit: null, country: null, activity: null, sourceLang: null }, 'fr'),
+    ).toBeNull()
+    expect(bandeauContexte(null, 'fr')).toBeNull()
+  })
+
+  it('dureeLisible : la durée réelle du mockup (« 4 min 12 »), jamais reformatée en promesse', () => {
+    expect(dureeLisible(252, 'fr')).toBe('4 min 12')
+    expect(dureeLisible(252, 'en')).toBe('4 min 12 s')
+    expect(dureeLisible(58, 'fr')).toBe('58 s')
+    expect(dureeLisible(240, 'fr')).toBe('4 min')
   })
 })

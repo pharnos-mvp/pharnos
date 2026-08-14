@@ -13,6 +13,7 @@ import { I18nProvider } from '@/lib/I18nProvider'
 
 const api = vi.hoisted(() => ({
   lireStatut: vi.fn(),
+  lireLivrable: vi.fn(),
   demanderSource: vi.fn(),
   telechargerSource: vi.fn(),
   demanderUrlDepot: vi.fn(),
@@ -474,7 +475,9 @@ describe('suivi et livraison', () => {
     api.lireStatut.mockResolvedValue(statut({ statut: 'running', faites: 12, total: 34 }))
     rendre()
     expect(await screen.findByText(/Vous pouvez fermer cette page/)).toBeInTheDocument()
-    expect(screen.getByText('12 / 34')).toBeInTheDocument()
+    // Mockup v3 : l'écran annonce le temps restant estimé, pas un compteur brut — le décompte
+    // prudent (15 min au départ) reste la promesse, jamais une mesure.
+    expect(screen.getByText(/environ \d+ min restantes/)).toBeInTheDocument()
   })
 
   it('la promesse d’e-mail est faite — et DEPUIS U5 seulement, où l’envoi existe', async () => {
@@ -521,5 +524,111 @@ describe('pays et activité', () => {
     rendre()
     expect(await screen.findByText(/ouvre bientôt/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Choisir mon document/ })).not.toBeInTheDocument()
+  })
+})
+
+/* ─────────────────────────── LOT B1 : la page au niveau du mockup v3 ───────────────────────── */
+
+describe('écran de génération (mockup v3)', () => {
+  it('la liste à statuts vivants, le bandeau contexte et la notice OCR sont là', async () => {
+    api.lireStatut.mockResolvedValue(
+      statut({
+        statut: 'running',
+        faites: 2,
+        total: 4,
+        country: 'BF',
+        sourceKind: 'ocr',
+        sourceLang: 'en',
+        produit: 'KV-RL',
+        sections: [
+          { id: '1', st: 'done', o: 'filled' },
+          { id: '2', st: 'done', o: 'missing' },
+          { id: '3', st: 'running' },
+          { id: '4.1', st: 'queued' },
+        ],
+      }),
+    )
+    rendre()
+    // Le bandeau contexte : produit · pays · activité · langue source → cible.
+    expect(
+      await screen.findByText('KV-RL · Burkina Faso · Nouvelle AMM · anglais → français'),
+    ).toBeInTheDocument()
+    // Les statuts vivants du mockup — Reprise / À compléter / En attente.
+    expect(screen.getByText('Reprise')).toBeInTheDocument()
+    expect(screen.getByText('À compléter')).toBeInTheDocument()
+    expect(screen.getByText('En attente')).toBeInTheDocument()
+    // Les titres viennent du gabarit, pas du serveur.
+    expect(screen.getByText('DÉNOMINATION DU MÉDICAMENT')).toBeInTheDocument()
+    // La notice OCR nomme la cause de l'attente AVANT qu'elle inquiète.
+    expect(screen.getByText(/nous le lisons page par page/)).toBeInTheDocument()
+    // Le panneau des trois garanties.
+    expect(screen.getByText(/Ce que nous faisons en ce moment/)).toBeInTheDocument()
+    expect(screen.getByText(/mot pour mot/)).toBeInTheDocument()
+    // La rubrique en cours est nommée : « rubrique 3 sur 4 ».
+    expect(screen.getByText(/rubrique 3 sur 4/)).toBeInTheDocument()
+    // Et le libellé de phase suit la LANGUE SOURCE : une source EN reçoit sa « Version française ».
+    expect(screen.getByText(/Version française/)).toBeInTheDocument()
+  })
+
+  it('sans scan, pas de notice OCR — on n’explique pas une attente qui n’existe pas', async () => {
+    api.lireStatut.mockResolvedValue(
+      statut({ statut: 'running', faites: 1, total: 2, sourceKind: 'text', sections: [] }),
+    )
+    rendre()
+    await screen.findByText(/Vous pouvez fermer cette page/)
+    expect(screen.queryByText(/page par page/)).not.toBeInTheDocument()
+  })
+})
+
+describe('écran de livraison (mockup v3)', () => {
+  const LIVRABLE = {
+    fr: '# RCP\n\n## RÉSUMÉ DES CARACTÉRISTIQUES DU PRODUIT\n\n### 1. DÉNOMINATION DU MÉDICAMENT\n\nKV-RL, solution pour perfusion.\n',
+    en: '# SmPC\n\n## SUMMARY OF PRODUCT CHARACTERISTICS\n\n### 1. NAME OF THE MEDICINAL PRODUCT\n\nKV-RL, solution for infusion.\n',
+    rapport: '# Revue réglementaire du RCP — KV-RL\n\nConstat.\n',
+    slug: 'KV-RL',
+    reportHeader: 'KV-RL — Revue réglementaire',
+    reportLang: 'fr',
+    created: '2026-08-14T02:59:59.000Z',
+    sourceKind: 'ocr',
+    sourceLang: 'en',
+    stats: { reprises: 23, aCompleter: 6, deplaces: 11, aRelire: 4 },
+    dureeS: 252,
+  }
+
+  it('tuiles chiffrées, labels humains, durée réelle et « Tout télécharger » en tête', async () => {
+    api.lireStatut.mockResolvedValue(
+      statut({ statut: 'done', pret: true, produit: 'KV-RL', country: 'BF', sourceLang: 'en' }),
+    )
+    api.lireLivrable.mockResolvedValue({ livrable: LIVRABLE })
+    rendre()
+    // Le flow-head dit le reste-à-faire dans la MÊME phrase — « attendent vos données ».
+    expect(await screen.findByText(/6 rubriques attendent vos données/)).toBeInTheDocument()
+    // La durée RÉELLE, mesurée par le serveur — jamais l'estimation.
+    expect(screen.getByText(/terminé en 4 min 12/)).toBeInTheDocument()
+    // Les quatre tuiles, du gain au reste à faire.
+    expect(screen.getByText('23')).toBeInTheDocument()
+    expect(screen.getByText(/rubriques reprises et vérifiées/)).toBeInTheDocument()
+    expect(screen.getByText(/contenus remis à leur place/)).toBeInTheDocument()
+    expect(screen.getByText(/valeurs à relire/)).toBeInTheDocument()
+    // Les labels HUMAINS des fichiers — un par forme (DOCX + PDF), jamais un nom technique.
+    expect((await screen.findAllByText('RCP — français')).length).toBe(2)
+    expect(screen.getAllByText('SmPC — anglais').length).toBe(2)
+    // « Tout télécharger » vit EN TÊTE de la carte, et la phrase-clé du mockup est là.
+    expect(screen.getByRole('button', { name: /Tout télécharger/ })).toBeInTheDocument()
+    expect(
+      screen.getByText(/Le document part à l’agence\. La revue reste chez vous\./),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/La revue ne se dépose jamais/)).toBeInTheDocument()
+  })
+
+  it('un livrable d’AVANT la migration 0093 masque tuiles et durée — jamais des chiffres inventés', async () => {
+    api.lireStatut.mockResolvedValue(statut({ statut: 'done', pret: true }))
+    api.lireLivrable.mockResolvedValue({
+      livrable: { ...LIVRABLE, stats: null, dureeS: null, sourceLang: null },
+    })
+    rendre()
+    expect(await screen.findByText(/Votre dossier est terminé/)).toBeInTheDocument()
+    expect(screen.queryByText(/valeurs à relire/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/terminé en/)).not.toBeInTheDocument()
   })
 })
