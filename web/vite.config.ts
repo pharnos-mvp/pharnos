@@ -256,6 +256,14 @@ export default defineConfig({
           },
         ],
         navigateFallback: '/index.html',
+        // ⚠️ LOT B4 : un lien de LIVRAISON ne sert JAMAIS un vieux shell. `/u/{token}` (page
+        // publique d'après-paiement) et `/r/{token}` (partage) sont atteints par des acheteurs
+        // SANS compte, souvent des semaines après leur dernière visite : le repli de navigation
+        // leur servirait l'index précaché d'une version antérieure — un écran de livraison
+        // d'avant le correctif du jour, sur une commande payée. Ces routes vont AU RÉSEAU ;
+        // hors-ligne, un lien de livraison n'a de toute façon rien à montrer (tout vient
+        // d'`order-status`).
+        navigateFallbackDenylist: [/^\/u\//, /^\/r\//],
         cleanupOutdatedCaches: true,
         // Prise de contrôle immédiate → l'app est servie depuis le cache dès le rechargement
         // suivant (hors-ligne fiable, mises à jour appliquées sans recharger deux fois).
@@ -302,6 +310,13 @@ export default defineConfig({
       '@specs': path.resolve(
         import.meta.dirname,
         '../supabase/functions/_shared/conformity-specs.ts',
+      ),
+      // Titres EN des rubriques : la MÊME table que l'assemblage serveur (TS pur, donnée générée
+      // gardée par test de dérive) — la liste « à statuts vivants » de la page publique s'affiche
+      // dans la langue de l'interface sans liste parallèle à maintenir.
+      '@titles': path.resolve(
+        import.meta.dirname,
+        '../supabase/functions/_shared/deliverable-titles.ts',
       ),
     },
   },
