@@ -19,6 +19,24 @@ export interface LigneSection {
   phase: string
   status: string
   content: unknown
+  /**
+   * Verdict de la rubrique (`filled`/`partial`/`missing`), extrait de `content->>status` PAR LA
+   * REQUÊTE — jamais en chargeant `content` entier : le contenu des ~34 rubriques pèse des
+   * centaines de kilo-octets, et cette surface est sondée toutes les deux secondes.
+   */
+  outcome?: string | null
+}
+
+/**
+ * Une rubrique telle que la PAGE la montre — la liste « à statuts vivants » du mockup v3
+ * (Reprise / À compléter / En attente / en cours). Champs courts : ~34 entrées par sondage.
+ */
+export interface SectionVivante {
+  id: string
+  /** `queued` | `running` | `done` | `failed` — l'état d'exécution. */
+  st: string
+  /** `filled` | `partial` | `missing` — le verdict, seulement quand `st` vaut `done`. */
+  o?: string
 }
 
 export interface ResumeCommande {
@@ -48,6 +66,20 @@ export interface ResumeCommande {
    *  et l'acheteur les avait choisis avant de payer. */
   country: string | null
   activity: string | null
+  /** Provenance du corpus (`text`/`ocr`) — la notice « nous lisons page par page » en dépend. */
+  sourceKind: string | null
+  /** Langue du document SOURCE, détectée par la porte (LOT B3) — libellés de phase et nommage. */
+  sourceLang: string | null
+  /** Nom du produit (rubrique 1) — `null` tant qu'elle n'a pas abouti. Le bandeau contexte l'attend. */
+  produit: string | null
+  /**
+   * La liste « à statuts vivants » du mockup : les rubriques de la passe de CONFORMITÉ — celle que
+   * l'acheteur comprend, le gabarit de SON document. Les passes suivantes gardent cette liste
+   * (toutes abouties) et changent le libellé de phase. L'ORDRE est celui de la base : la page trie
+   * sur le gabarit (`@specs`), qu'elle possède déjà — le transporter ici serait le payer à chaque
+   * sondage.
+   */
+  sections: SectionVivante[]
 }
 
 /**
@@ -66,9 +98,15 @@ export function resumer(
     country?: string | null
     activity?: string | null
   },
-  job: { phase: string; sections_total: number } | null,
+  job: {
+    phase: string
+    sections_total: number
+    source_kind?: string | null
+    source_lang?: string | null
+  } | null,
   lignes: readonly LigneSection[],
   maxDepots: number,
+  produit: string | null = null,
 ): ResumeCommande {
   const phase = job?.phase ?? 'conformity'
   const dePhase = lignes.filter((l) => l.phase === phase)
@@ -89,6 +127,19 @@ export function resumer(
     docType: commande.doc_type ?? null,
     country: commande.country ?? null,
     activity: commande.activity ?? null,
+    sourceKind: job?.source_kind ?? null,
+    sourceLang: job?.source_lang ?? null,
+    produit,
+    // La liste vivante = la passe de CONFORMITÉ, toujours : c'est le gabarit du document de
+    // l'acheteur. Le verdict (`o`) n'accompagne qu'une rubrique ABOUTIE — un verdict sur une
+    // rubrique en vol serait celui d'une exécution précédente.
+    sections: lignes
+      .filter((l) => l.phase === 'conformity')
+      .map((l) => ({
+        id: l.section_id,
+        st: l.status,
+        ...(l.status === 'done' && l.outcome ? { o: l.outcome } : {}),
+      })),
   }
 }
 

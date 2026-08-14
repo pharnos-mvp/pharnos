@@ -71,12 +71,74 @@ Deno.test('résumé : les dépôts restants ne passent jamais sous zéro', () =>
 Deno.test('résumé : AUCUNE donnée personnelle n’en sort', () => {
   // La page est atteinte par la seule possession d'un jeton — lequel se retrouve dans un historique
   // de navigateur, un cache de proxy, une capture d'écran envoyée au support.
-  const champs = Object.keys(resumer(cmd(), null, [], 3))
-  for (const interdit of ['email', 'first_name', 'last_name', 'chariow_sale_id', 'ref']) {
-    assertEquals(champs.includes(interdit), false, interdit)
+  // ⚠️ Le résumé est PLEINEMENT peuplé (job, lignes, produit) : un test sur le résumé vide ne
+  // garderait aucune des branches où une fuite s'ajouterait.
+  const complet = resumer(
+    cmd({ status: 'running' }),
+    { phase: 'conformity', sections_total: 1, source_kind: 'ocr', source_lang: 'en' },
+    [{ section_id: '1', phase: 'conformity', status: 'done', content: null, outcome: 'filled' }],
+    3,
+    'KV-RL',
+  )
+  const plat = JSON.stringify(complet)
+  for (const interdit of ['email', 'first_name', 'last_name', 'chariow_sale_id', '"ref"']) {
+    assertEquals(plat.includes(interdit), false, interdit)
   }
 })
 
 // ⚠️ Les tests du « livrable » sont partis avec `assembler()` (U5) : l'assemblage vit désormais
 // dans `job-tick` et ses garanties — refuser une rubrique manquante, refuser un tableau absent —
 // sont testées là où elles s'exercent (`deliverable-markdown.test.ts`, `analyseDepuisParts`).
+
+Deno.test('résumé : la liste à statuts vivants porte la CONFORMITÉ, verdict compris (LOT B3)', () => {
+  const lignes = [
+    { section_id: '1', phase: 'conformity', status: 'done', content: null, outcome: 'filled' },
+    { section_id: '2', phase: 'conformity', status: 'done', content: null, outcome: 'missing' },
+    { section_id: '3', phase: 'conformity', status: 'running', content: null, outcome: null },
+    { section_id: '4.1', phase: 'conformity', status: 'queued', content: null, outcome: null },
+    // Une ligne de TRADUCTION n'entre jamais dans la liste : le gabarit montré est celui du
+    // document de l'acheteur, pas le plan d'exécution interne.
+    { section_id: '1', phase: 'translation', status: 'queued', content: null, outcome: null },
+  ]
+  const r = resumer(
+    { status: 'running', deposits_used: 1, delivery_expires_at: '2026-09-03T10:00:00.000Z' },
+    { phase: 'conformity', sections_total: 4, source_kind: 'ocr', source_lang: 'en' },
+    lignes,
+    3,
+    'KV-RL',
+  )
+  assertEquals(r.sections, [
+    { id: '1', st: 'done', o: 'filled' },
+    { id: '2', st: 'done', o: 'missing' },
+    { id: '3', st: 'running' },
+    { id: '4.1', st: 'queued' },
+  ])
+  assertEquals(r.sourceKind, 'ocr')
+  assertEquals(r.sourceLang, 'en')
+  assertEquals(r.produit, 'KV-RL')
+})
+
+Deno.test('résumé : un verdict n’accompagne JAMAIS une rubrique non aboutie', () => {
+  // Le `content` d'une ligne rejouée porte le verdict de l'exécution PRÉCÉDENTE : l'exposer sur
+  // une ligne `running` afficherait « Reprise » sur une rubrique en train de changer d'avis.
+  const lignes = [
+    { section_id: '1', phase: 'conformity', status: 'running', content: null, outcome: 'filled' },
+  ]
+  const r = resumer(
+    { status: 'running', deposits_used: 0, delivery_expires_at: '2026-09-03T10:00:00.000Z' },
+    { phase: 'conformity', sections_total: 1 },
+    lignes,
+    3,
+  )
+  assertEquals(r.sections, [{ id: '1', st: 'running' }])
+  // Et sans job ni produit, les champs neufs restent nuls — jamais devinés.
+  const vide = resumer(
+    { status: 'paid', deposits_used: 0, delivery_expires_at: '2026-09-03T10:00:00.000Z' },
+    null,
+    [],
+    3,
+  )
+  assertEquals(vide.sections, [])
+  assertEquals(vide.sourceLang, null)
+  assertEquals(vide.produit, null)
+})
