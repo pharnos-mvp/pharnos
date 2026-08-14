@@ -102,3 +102,12 @@ Deno.test('les trois postures sont DISTINCTES — pas une variation d’un même
   assertEquals(/expert senior/i.test(a), false)
   assertEquals(/expert senior/i.test(c), true)
 })
+
+Deno.test('structure : les postures exigent que les TABLEAUX restent des tableaux', () => {
+  // ⚠️ Payé à la première vente réelle (KV-RL, 2026-08-14) : la table MedDRA de la 4.8 ressortait
+  // aplatie en prose — « sans mise en forme » se lisait comme « sans structure ». La structure est
+  // une information ; si cette clause disparaît d'une évolution de prompt, ce test la rappelle.
+  const conformity = conformitySystem({ docType: 'rcp', missingMarker: '[X]' })
+  assertStringIncludes(conformity, 'un tableau de la source reste un tableau')
+  assertStringIncludes(translationSystem('en'), 'un tableau markdown reste un tableau')
+})

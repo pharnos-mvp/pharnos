@@ -465,3 +465,12 @@ Deno.test('generateSection : une provenance incohérente entre source et ancrage
     'provenance incohérente',
   )
 })
+
+Deno.test('instruction : la clause STRUCTURE impose les tableaux markdown — jamais aplatis', () => {
+  // ⚠️ « Sans mise en forme décorative » faisait aplatir les tables MedDRA en prose (première
+  // vente réelle, KV-RL 2026-08-14). La clause distingue désormais structure et décoration.
+  const instruction = buildSectionInstruction(req())
+  assertStringIncludes(instruction, 'TABLEAU markdown')
+  assertStringIncludes(instruction, 's’aplatissent JAMAIS en prose')
+  assertStringIncludes(instruction, 'aucun tableau que la source ne porte pas')
+})

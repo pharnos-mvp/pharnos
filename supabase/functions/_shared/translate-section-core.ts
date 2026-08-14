@@ -143,6 +143,10 @@ export function buildTranslateInstruction(req: TranslateRequest, drifted?: strin
     '- Ne traduis pas les dénominations commerciales, les DCI, les raisons sociales, les adresses ' +
       'ni les noms d\'organismes : un destinataire de pharmacovigilance traduit n\'existe pas.',
     '- N\'ajoute rien et n\'enlève rien. Le texte cible dit exactement ce que dit le texte source.',
+    // ⚠️ Sans cette règle, la passe pouvait « améliorer » un tableau en paragraphes — perdant la
+    // structure MedDRA que le gabarit attend (constaté sur la 4.8, première vente réelle).
+    '- La STRUCTURE se conserve à l\'identique : un tableau markdown (| … |) reste un tableau — ' +
+      'mêmes colonnes, mêmes lignes, seuls les libellés se traduisent ; une liste reste une liste.',
   ]
   if (drifted?.length) {
     lines.push(

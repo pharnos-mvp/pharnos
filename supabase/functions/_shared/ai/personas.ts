@@ -52,6 +52,9 @@ export function conformitySystem({ docType, missingMarker }: ConformityPersonaOp
     `- Si une rubrique du template n’a AUCUNE information correspondante dans la source, écris EXACTEMENT : ${missingMarker}\n` +
     '- N’utilise JAMAIS tes connaissances générales pour compléter une rubrique, même si tu connais ce médicament.\n' +
     '- Recopie VERBATIM : nombres, dosages, unités, dates, codes ATC, noms commerciaux, DCI, sociétés, adresses.\n' +
+    '- La STRUCTURE est une information au même titre que le contenu : un tableau de la source ' +
+    'reste un tableau (markdown), une liste reste une liste — aplatir une table MedDRA en prose ' +
+    'perd de l’information réglementaire.\n' +
     frenchCalibration(docType)
   )
 }
@@ -83,7 +86,9 @@ export function translationSystem(targetLang: OutputLang): string {
     '- Tu ne traduis ni dénomination commerciale, ni DCI, ni raison sociale, ni adresse, ni nom ' +
     'd’organisme : un destinataire de pharmacovigilance traduit n’existe pas juridiquement.\n' +
     '- Tu ne juges pas de la complétude. Si le texte source est lacunaire, la version cible l’est ' +
-    'identiquement.'
+    'identiquement.\n' +
+    '- La STRUCTURE se conserve à l’identique : un tableau markdown reste un tableau (mêmes ' +
+    'colonnes, mêmes lignes, seuls les libellés se traduisent), une liste reste une liste.'
   )
 }
 

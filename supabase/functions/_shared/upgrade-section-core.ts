@@ -207,8 +207,16 @@ export function buildSectionInstruction(req: SectionRequest, rejected?: Rejected
     '- « status » : « filled » si la source couvre la rubrique, « partial » si elle ne la couvre ' +
       "qu'en partie, « missing » si la source n'en dit rien.",
     '- « content » : le TEXTE de la rubrique, sans son titre, sans commentaire et sans mise en ' +
-      'forme décorative. Concis : ce qui ne figure pas dans la source n’y entre pas. Laisse ce ' +
-      'champ vide si « status » vaut « missing ».',
+      'forme décorative (pas de gras, pas d’italique). Concis : ce qui ne figure pas dans la ' +
+      'source n’y entre pas. Laisse ce champ vide si « status » vaut « missing ».',
+    // ⚠️ La STRUCTURE est une information, pas une décoration. Sans cette clause, « sans mise en
+    // forme » faisait aplatir les tables MedDRA en prose — constaté sur la première vente réelle
+    // (KV-RL, 2026-08-14) : la 4.8 tabulaire de la source ressortait en paragraphes.
+    '- STRUCTURE : une structure TABULAIRE de la source se restitue en TABLEAU markdown ' +
+      '(| Colonne | Colonne |), mêmes colonnes et mêmes lignes — une table d’effets indésirables ' +
+      'par classe de systèmes d’organes (MedDRA), un tableau posologique ou de compatibilité ne ' +
+      's’aplatissent JAMAIS en prose. Une liste reste une liste. Et l’inverse vaut : tu ne ' +
+      'fabriques aucun tableau que la source ne porte pas.',
     '- « source_evidence » : un extrait COPIÉ MOT POUR MOT du document source (une à trois ' +
       'phrases) d’où provient « content ». Un extrait qui ne figure pas dans le document fait ' +
       'rejeter la rubrique. Laisse ce champ vide si « status » vaut « missing ».',
