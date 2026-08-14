@@ -2,6 +2,7 @@
 import { assertEquals } from 'jsr:@std/assert@1'
 
 import {
+  comparatorsToVerify,
   findInSource,
   isEvidenceRejected,
   MAX_EVIDENCE_CHARS,
@@ -458,4 +459,110 @@ Deno.test('findInSource : les unités écrites en TOUTES LETTRES sont protégée
   // Et un mot GELÉ dont l'OCR a abîmé une lettre reste toléré : le gel interdit la suppression,
   // pas la confusion graphique.
   assertEquals(findInSource(mg.replace('milligrammes', 'mllligrammes'), src), 'ocr')
+})
+
+Deno.test('normalizeForEvidence : les variantes d’un comparateur se plient — jamais le double prime', () => {
+  // ≦ (U+2266), ⩽ (U+2A7D) et « <= » sont la même affirmation que ≤ ; idem côté ≥.
+  assertEquals(normalizeForEvidence('dose ≦ 28 jours'), 'dose ≤ 28 jours')
+  assertEquals(normalizeForEvidence('dose ⩽ 28 jours'), 'dose ≤ 28 jours')
+  assertEquals(normalizeForEvidence('dose <= 28 jours'), 'dose ≤ 28 jours')
+  assertEquals(normalizeForEvidence('age ≧ 12 ans'), 'age ≥ 12 ans')
+  assertEquals(normalizeForEvidence('age ⩾ 12 ans'), 'age ≥ 12 ans')
+  assertEquals(normalizeForEvidence('age >= 12 ans'), 'age ≥ 12 ans')
+  // ⚠️ « ″ » (U+2033) peut venir de ≤ COMME de ≥ : le plier vers l'un fabriquerait un seuil
+  // clinique. NFKC le décompose en deux primes, qui deviennent deux apostrophes — jamais un
+  // comparateur. C'est `comparatorsToVerify` qui signale le cas.
+  assertEquals(normalizeForEvidence('nouveau-nes (″ 28 jours)'), "nouveau-nes ('' 28 jours)")
+})
+
+Deno.test('comparatorsToVerify : un seuil non confirmé par le corpus océrisé entre en valeurs à relire', () => {
+  // LE cas de la première vente réelle (KV-RL, 2026-08-14) : l'OCR a lu « ≤ 28 days » comme
+  // « ″ 28 days ». La valeur 28 est retrouvée, donc `ungroundedFigures` ne dit rien — mais le SENS
+  // du seuil n'est confirmé par personne : il doit être signalé à relire.
+  const src = prepareSource(
+    'contraindicated in newborn infants (″ 28 days), even if separate infusion lines are used',
+    'ocr',
+  )
+  assertEquals(
+    comparatorsToVerify('contre-indiquée chez les nouveau-nés (≤ 28 jours)', src),
+    ['≤ 28'],
+  )
+  // Le corpus qui CONFIRME le comparateur ne signale rien — espace collée ou non.
+  const ok = prepareSource('contraindicated in newborn infants (≤ 28 days)', 'ocr')
+  assertEquals(comparatorsToVerify('nouveau-nés (≤ 28 jours)', ok), [])
+  const colle = prepareSource('contraindicated in newborn infants (≤28 days)', 'ocr')
+  assertEquals(comparatorsToVerify('nouveau-nés (≤ 28 jours)', colle), [])
+  // Une variante pliable du corpus (« <= ») confirme le ≤ du contenu.
+  const digramme = prepareSource('patients aged <= 28 days must not receive it', 'ocr')
+  assertEquals(comparatorsToVerify('patients (≤ 28 jours)', digramme), [])
+})
+
+Deno.test('comparatorsToVerify : consultatif OCR seulement — une source fidèle ne signale RIEN', () => {
+  // Sur une couche de texte fidèle, le symbole du contenu peut paraphraser des mots de la source
+  // (« inférieur ou égal à 28 jours ») : exiger le symbole rétrograderait des rubriques justes.
+  const text = prepareSource('chez les patients de moins de 28 jours, ne pas administrer', 'text')
+  assertEquals(comparatorsToVerify('nouveau-nés (≤ 28 jours)', text), [])
+  // Et sans corpus, rien à signaler — le contrôle ne s'exerce pas.
+  assertEquals(comparatorsToVerify('nouveau-nés (≤ 28 jours)', prepareSource('', 'ocr')), [])
+})
+
+Deno.test('comparatorsToVerify : valeurs canoniques et doublons — un seuil n’est signalé qu’une fois', () => {
+  const src = prepareSource('perfusion ″ 0.5 ml/min chez le nourrisson ″ 0.5 ml/min', 'ocr')
+  // « 0,5 » (contenu FR) et « 0.5 » (corpus EN) sont la même valeur ; deux occurrences, une entrée.
+  assertEquals(
+    comparatorsToVerify('perfusion ≥ 0,5 ml/min puis encore ≥ 0,5 ml/min', src),
+    ['≥ 0,5'],
+  )
+})
+
+Deno.test('normalizeForEvidence : « => » est une flèche, jamais un ≥ — « =< » n’est la notation de personne', () => {
+  // Plier « => » en ≥ ferait CONFIRMER un seuil que la source n'a jamais énoncé.
+  assertEquals(normalizeForEvidence('etape 1 => 2 jours de repos'), 'etape 1 => 2 jours de repos')
+  assertEquals(normalizeForEvidence('dose =< 28 jours'), 'dose =< 28 jours')
+})
+
+Deno.test('comparatorsToVerify : les fréquences CIOMS de la 4.8 ne polluent pas les valeurs à relire', () => {
+  // « ≥ 1/10 », « ≥ 1/10 000 » : vocabulaire de gabarit, pas une donnée du document — et `\d+`
+  // s'arrêtant à la barre, elles s'effondraient toutes sur une ligne « ≥ 1 » sans dénominateur.
+  const src = prepareSource('adverse reactions listed by frequency in this section', 'ocr')
+  assertEquals(
+    comparatorsToVerify(
+      'très fréquent (≥ 1/10), fréquent (≥ 1/100, < 1/10), rare (≥ 1/10 000, < 1/1 000)',
+      src,
+    ),
+    [],
+  )
+  // Et sous deux chiffres, la paire ne prouve ni ne signale rien (« ≥ 6 » se retrouve partout).
+  assertEquals(comparatorsToVerify('chez l’enfant ≥ 6 ans uniquement', src), [])
+})
+
+Deno.test('findInSource : un seuil au sens INVERSÉ du corpus n’est JAMAIS « retrouvé »', () => {
+  // Une seule édition séparait « ≥ 0,5 » d'un corpus qui dit « ≤ 0,5 » : un seuil inversé sortait
+  // « verified_ocr ». Le sens d'un seuil est aussi porteur que l'unité d'un dosage, déjà gelée.
+  const src = prepareSource(
+    'lorsque la perfusion <= 0,5 ml par minute est envisagee chez le nourrisson',
+    'ocr',
+  )
+  assertEquals(
+    findInSource('lorsque la perfusion >= 0,5 ml par minute est envisagee', src),
+    'absent',
+  )
+  // Le MÊME sens, lui, se retrouve — littéralement, après pliage des variantes.
+  assertEquals(
+    findInSource('lorsque la perfusion ≤ 0,5 ml par minute est envisagee', src),
+    'exact',
+  )
+})
+
+Deno.test('findInSource : la tolérance comparateur ↔ ARTEFACT reste entière (« ″ » n’affirme rien)', () => {
+  // LE cas KV-RL : l'OCR lit « ≤ 28 » comme « ″ 28 ». Le corpus n'affirme alors AUCUN sens —
+  // la citation juste du modèle (qui lit l'image) doit encore se retrouver, jamais être rejetée.
+  const src = prepareSource(
+    'contraindicated in newborn infants (″ 28 days), even if separate lines are used',
+    'ocr',
+  )
+  assertEquals(
+    findInSource('contraindicated in newborn infants (≤ 28 days), even if separate lines are used', src),
+    'ocr',
+  )
 })

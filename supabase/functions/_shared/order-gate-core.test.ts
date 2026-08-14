@@ -34,6 +34,10 @@ Deno.test('empreinte : les repères viennent du GABARIT, jamais d’une liste pa
   const reperes = empreinteGabarit(CONFORMITY_SPECS.rcp)
   assertEquals(reperes.includes('COMPOSITION QUALITATIVE ET QUANTITATIVE'), true)
   assertEquals(reperes.includes('DÉNOMINATION DU MÉDICAMENT'), true)
+  // L'empreinte est BILINGUE : les titres EN viennent de la table de l'assemblage (une seule
+  // source de vérité, gardée par `deliverable-titles.test.ts`), jamais d'une liste parallèle.
+  assertEquals(reperes.includes('QUALITATIVE AND QUANTITATIVE COMPOSITION'), true)
+  assertEquals(reperes.includes('Therapeutic indications'), true)
   // Les titres trop courts sont écartés : ils se retrouvent partout et gonfleraient le score.
   assertEquals(reperes.includes('Posologie'), false)
   assertEquals(reperes.every((r) => r.length >= 12), true)
@@ -44,6 +48,30 @@ Deno.test('empreinte : les repères viennent du GABARIT, jamais d’une liste pa
 Deno.test('porte : un RCP réel PASSE, même avec un contenu quelconque', () => {
   // ⚠️ La porte ne juge pas la qualité. Un RCP médiocre est le cas d'usage NORMAL de l'upgrade.
   const v = jugerRecevabilite(RCP, 'text', CONFORMITY_SPECS.rcp)
+  assertEquals(v.recevable, true)
+  assertEquals(v.trouves.length >= REPERES_MINIMUM, true)
+})
+
+Deno.test('porte : un SmPC ANGLAIS réel PASSE — l’acheteur vient pour la langue du livrable, pas l’inverse', () => {
+  // ⚠️ Payé à la PREMIÈRE vente réelle (2026-08-14) : un SmPC parfaitement structuré — « KV-RL,
+  // Summary of Product Characteristics » — refusé DEUX fois à 0 repère sur 29, parce que
+  // l'empreinte ne cherchait que les titres français. Or le cas d'affaires n°1 du marché UEMOA
+  // est exactement celui-là : le dossier du fabricant arrive en anglais et paie pour DEVENIR un
+  // RCP français. La porte juge le TYPE du document, jamais la langue du livrable attendu.
+  const smpcEn = [
+    'Compound Sodium Lactate Intravenous Infusion BP',
+    'Summary of Product Characteristics (SmPC)',
+    '1. NAME OF THE MEDICINAL PRODUCT',
+    'KV-RL — Compound Sodium Lactate Intravenous Infusion BP',
+    '2. QUALITATIVE AND QUANTITATIVE COMPOSITION',
+    'Each 100 ml contains Sodium Lactate (60 %) solution BP 0.533 gm',
+    '3. PHARMACEUTICAL FORM',
+    'Solution for infusion. A clear, colourless solution.',
+    '4. CLINICAL PARTICULARS',
+    '4.1. Therapeutic indications',
+    'Restoration of extracellular fluid and electrolytes balances.',
+  ].join('\n')
+  const v = jugerRecevabilite(smpcEn, 'text', CONFORMITY_SPECS.rcp)
   assertEquals(v.recevable, true)
   assertEquals(v.trouves.length >= REPERES_MINIMUM, true)
 })
@@ -117,6 +145,9 @@ Deno.test('refus : le message dit ce qui manque ET que rien n’a été débité
   const en = messageRefus('en', 'an SmPC', 2)
   assertStringIncludes(en, 'nothing has been charged')
   assertStringIncludes(en, '2 attempt')
+  // Texte BRUT : des `**` de markdown se sont affichés tels quels chez un acheteur (2026-08-14).
+  assertEquals(fr.includes('**'), false)
+  assertEquals(en.includes('**'), false)
 })
 
 Deno.test('refus : sans dépôt restant, le message ouvre un RECOURS au lieu d’une impasse', () => {

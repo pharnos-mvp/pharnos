@@ -72,6 +72,48 @@ export interface PdfResult {
   dropped: string[]
 }
 
+/** Corps plancher de l'en-tête courant : en deçà, il devient illisible — on préfère l'ellipse. */
+const HEADER_MIN_PT = 7
+
+/**
+ * Fait TENIR l'en-tête courant dans la largeur utile : réduction de corps d'abord — le nom reste
+ * entier — puis ellipse FINALE en dernier recours.
+ *
+ * ⚠️ Sans cet ajustement, un nom plus large que la page débordait à GAUCHE de la marge — l'en-tête
+ * est tracé à `x = droite − largeur` — et perdait ses PREMIÈRES lettres au bord physique de la page
+ * (« olution pour perfusion… », livrable KV-RL 2026-08-14). L'ellipse coupe la fin, jamais le
+ * début : le début d'un nom identifie le produit, la fin se devine.
+ */
+export function fitHeader(
+  text: string,
+  measure: (text: string, size: number) => number,
+  maxWidth: number,
+  basePt: number = SMALL_PT,
+  minPt: number = HEADER_MIN_PT,
+): { text: string; size: number } {
+  let size = basePt
+  while (size > minPt && measure(text, size) > maxWidth) size = Math.max(minPt, size - 0.5)
+  if (measure(text, size) <= maxWidth) return { text, size }
+  // Coupe par POINTS DE CODE, cherchée par dichotomie. Retirer un caractère à la fois relançait
+  // une mesure — donc un parcours entier de la chaîne — par caractère retiré : O(n²) sur une
+  // chaîne issue du modèle, sans borne, dans le navigateur de l'acheteur (1,1 s mesurée à
+  // 16 000 caractères). Et `slice(0, -1)` coupait les paires de substitution en plein milieu :
+  // le suppléant isolé finissait dans `dropped`, donc dans l'avertissement remis au client.
+  const cp = [...text]
+  let lo = 0
+  let hi = cp.length
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1
+    if (measure(`${cp.slice(0, mid).join('').trimEnd()}…`, size) <= maxWidth) lo = mid
+    else hi = mid - 1
+  }
+  // ⚠️ Précondition : `maxWidth` doit loger au moins « … » à `minPt` — vrai par construction au
+  // seul point d'appel (largeur utile A4). À `lo = 0`, le texte rendu est « … » seul, jamais plus
+  // court : un appelant à largeur pathologique reçoit un résultat POSSIBLEMENT plus large, et le
+  // tracé borne son x à la marge (cf. l'appel).
+  return { text: `${cp.slice(0, lo).join('').trimEnd()}…`, size }
+}
+
 export async function buildDeliverablePdf(
   blocks: readonly Block[],
   { header, signature = false, created, lang = 'fr' }: PdfOptions,
@@ -126,6 +168,10 @@ export async function buildDeliverablePdf(
     ᵉ: 'e',
     '−': '-',
     '‰': 'o/oo',
+    // Décoration du bandeau OCR d'ANCIENS livrables (l'assembleur ne l'émet plus) : la retirer est
+    // le rendu voulu, pas une perte à signaler — un lien de livraison vit 30 jours, ses markdowns
+    // en base gardent l'émoji d'époque.
+    '📄': '',
     // ATTENTION : espace FINE insecable (U+202F), celle que produisent Word et les traitements
     // de texte francais dans un nombre comme 250 000 UI. Hors WinAnsi, elle etait purement
     // SUPPRIMEE : le PDF portait 250000 la ou le DOCX portait 250 000. Un dosage FAUX dans une
@@ -166,7 +212,10 @@ export async function buildDeliverablePdf(
     [...String(s)]
       .map((ch) => {
         if (GLYPH_FONT[ch]) return ch
-        if (SUBST[ch]) return SUBST[ch]
+        // ⚠️ `!== undefined`, pas un test de vérité : une substitution vers la chaîne VIDE (📄)
+        // est falsy, et `if (SUBST[ch])` la faisait retomber dans `dropped` — signalée comme
+        // perte alors qu'elle est le rendu voulu.
+        if (SUBST[ch] !== undefined) return SUBST[ch]
         if (encodable(ch)) return ch
         dropped.add(ch)
         return ''
@@ -529,11 +578,24 @@ export async function buildDeliverablePdf(
   // En-tête + pagination — posés après coup : le total de pages n'est connu qu'à la fin.
   // Conventions reprises du compilateur CTD : pagination en bas à DROITE, filigrane centré au pied.
   const pages = pdf.getPages()
-  const headW = widthOf(header, reg, SMALL_PT)
+  // Ajusté à la largeur UTILE : un nom long débordait à gauche de la marge et perdait ses
+  // premières lettres au bord de la page (cf. `fitHeader`).
+  const head = fitHeader(header, (t, s) => widthOf(t, reg, s), W)
+  const headW = widthOf(head.text, reg, head.size)
   pages.forEach((p, i) => {
     // Pas d'en-tête sur la PREMIÈRE page : elle porte déjà le titre du document.
     if (i > 0) {
-      drawMixedOn(p, header, A4[0] - M - headW, A4[1] - M + 16, reg, SMALL_PT, grey)
+      // `max(M, …)` : ceinture sur la précondition de `fitHeader` — quoi qu'il rende, l'en-tête
+      // ne repart jamais à gauche de la marge, là où la page physique le tronquait.
+      drawMixedOn(
+        p,
+        head.text,
+        Math.max(M, A4[0] - M - headW),
+        A4[1] - M + 16,
+        reg,
+        head.size,
+        grey,
+      )
     }
     const n = `${i + 1} / ${pages.length}`
     drawMixedOn(p, n, A4[0] - M - widthOf(n, reg, SMALL_PT), M - 26, reg, SMALL_PT, grey)

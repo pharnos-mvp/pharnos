@@ -177,3 +177,18 @@ Deno.test('parityReport : la parité est MÉCANIQUE, pas déclarative', () => {
   assertEquals(r.ok, false)
   assertEquals(r.missing, [1, 0])
 })
+
+Deno.test('instruction : la traduction CONSERVE les tableaux — mêmes colonnes, mêmes lignes', () => {
+  // Le risque propre de cette passe est l'« amélioration » : re-rédiger un tableau en paragraphes
+  // perdrait la structure MedDRA que le gabarit attend (constaté sur la 4.8, KV-RL 2026-08-14).
+  const instruction = buildTranslateInstruction({
+    sectionId: '4.8',
+    title: 'Effets indésirables',
+    status: 'filled',
+    content: '| Classe | Réaction |\n|---|---|\n| Immunitaire | Hypersensibilité |',
+    targetLang: 'en',
+    system: 'x',
+  })
+  assertStringIncludes(instruction, 'reste un tableau')
+  assertStringIncludes(instruction, 'seuls les libellés se traduisent')
+})

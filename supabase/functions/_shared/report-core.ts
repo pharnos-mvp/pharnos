@@ -335,7 +335,10 @@ const LOCALES: Record<OutputLang, Locale> = {
       'Constats qui demandent une décision',
       'Recommandations',
     ],
-    scanHead: '### 📄 Votre document source a été lu par reconnaissance de caractères',
+    // ⚠️ Pas d'émoji dans un livrable : le PDF (WinAnsi) le retire et le SIGNALE — la première
+    // livraison OCR réelle (KV-RL, 2026-08-14) est partie avec un avertissement « caractère
+    // retiré » causé par notre propre décoration.
+    scanHead: '### Votre document source a été lu par reconnaissance de caractères',
     scanBody: [
       // Formulé au niveau de ce qui est SU — notre mode de lecture — et non de ce qui est supposé.
       // Affirmer « aucun texte n'est enregistré dans ce PDF » énoncerait un fait sur le fichier du
@@ -389,7 +392,7 @@ const LOCALES: Record<OutputLang, Locale> = {
       'Findings that need a decision',
       'Recommendations',
     ],
-    scanHead: '### 📄 Your source document was read by character recognition',
+    scanHead: '### Your source document was read by character recognition',
     scanBody: [
       'Its content was reconstructed from the page images, for want of usable text in the file. If ' +
         'your reader shows you selectable text, that text comes from its own recognition, not from ' +
@@ -601,7 +604,11 @@ const PART_SPEC: Record<ReportPart, string> = {
   relocations: '- « relocations » : les contenus dont la POSITION change entre le document source ' +
     'et le gabarit. `source_position` doit citer l\'intitulé tel qu\'il apparaît DANS le document ' +
     '(il est vérifié automatiquement ; un intitulé absent fait écarter la ligne). `risk` dit ce ' +
-    'qu\'une recopie en place aurait produit, concrètement.',
+    'qu\'une recopie en place aurait produit, concrètement. Un contenu dont la place est un AUTRE ' +
+    'module du dossier CTD sort du document livré et se journalise ICI, `template_position` ' +
+    'nommant ce module — ainsi un tableau de formulation par volume nominal (fonctions, ' +
+    'références de pharmacopée) relève du module 3.2.P.1 du dossier, jamais de l\'information ' +
+    'produit.',
   terminology: '- « terminology » : les libellés remplacés par leur forme officielle. `before` ' +
     'doit citer le libellé tel qu\'il apparaît dans le document (également vérifié).',
   findings: '- « findings » : les constats qui demandent une décision de l\'expert. C\'est ici, et ' +

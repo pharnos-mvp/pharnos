@@ -8,6 +8,7 @@ import {
   renderDeliverables,
   upgradeJobs,
 } from './index'
+import { fitHeader } from './pdf'
 
 /**
  * Tout le texte d'un PDF, flux compressés inclus.
@@ -359,5 +360,70 @@ describe('renderDeliverables', () => {
     const fr = files.find((f) => f.fileName === 'KV-Kacin-RCP-FR.pdf')!
     // Le titre doit apparaître comme UNE chaîne tracée, espaces compris — pas mot par mot.
     expect(pdfText(fr.bytes)).toContain('COMPOSITION QUALITATIVE ET QUANTITATIVE')
+  })
+})
+
+describe('fitHeader', () => {
+  // Mesure factice, proportionnelle et déterministe : largeur = caractères × corps × 0,6.
+  const measure = (t: string, s: number) => t.length * s * 0.6
+
+  it('laisse un en-tête court intact, au corps de base', () => {
+    const r = fitHeader('KV-RL — Solution', measure, 453, 9.5)
+    expect(r).toEqual({ text: 'KV-RL — Solution', size: 9.5 })
+  })
+
+  it('réduit le corps AVANT de toucher au texte — le nom reste entier', () => {
+    // 70 caractères : 399 pt à 9,5, trop pour 380 — mais 336 pt à 8. Le nom survit entier.
+    const name = 'x'.repeat(70)
+    const r = fitHeader(name, measure, 380, 9.5)
+    expect(r.text).toBe(name)
+    expect(r.size).toBeLessThan(9.5)
+    expect(measure(r.text, r.size)).toBeLessThanOrEqual(380)
+  })
+
+  it('ellipse la FIN en dernier recours — le début identifie le produit', () => {
+    // Le défaut réel (KV-RL) : l'en-tête tracé à « droite − largeur » débordait à GAUCHE de la
+    // marge et perdait ses premières lettres (« olution pour perfusion… »). L'ellipse doit couper
+    // la fin, jamais le début.
+    const name = 'KV-RL — Compound Sodium Lactate Intravenous Infusion BP ' + 'y'.repeat(200)
+    const r = fitHeader(name, measure, 453, 9.5)
+    expect(r.size).toBe(7)
+    expect(r.text.startsWith('KV-RL — Compound Sodium Lactate')).toBe(true)
+    expect(r.text.endsWith('…')).toBe(true)
+    expect(measure(r.text, r.size)).toBeLessThanOrEqual(453)
+  })
+
+  it('ne rend jamais plus large que la limite, quel que soit le texte', () => {
+    for (const n of [1, 40, 90, 120, 500]) {
+      const r = fitHeader('A'.repeat(n), measure, 453, 9.5)
+      expect(measure(r.text, r.size)).toBeLessThanOrEqual(453)
+    }
+  })
+
+  it('coupe par POINTS DE CODE — jamais au milieu d’une paire de substitution', () => {
+    // `slice(0, -1)` laissait un suppléant isolé, qui finissait dans `dropped`, donc dans
+    // l'avertissement remis au client.
+    const r = fitHeader('Produit ' + '𝐀'.repeat(300), measure, 453, 9.5)
+    for (const ch of r.text) {
+      const c = ch.codePointAt(0)!
+      expect(c >= 0xd800 && c <= 0xdfff, 'suppléant isolé dans l’en-tête').toBe(false)
+    }
+  })
+
+  it('un nom de produit démesuré traverse le RENDU RÉEL sans caractère retiré', async () => {
+    // La mesure factice ci-dessus n'exerce pas la vraie chaîne polices/WinAnsi : ce cas passe par
+    // `buildDeliverablePdf` entier — l'ellipse « … » doit se tracer, et `dropped` rester vide.
+    const long = {
+      ...sources,
+      fr: sources.fr.replace(
+        'KV-KACIN 500, poudre pour solution injectable.',
+        'KV-KACIN 500 ' + 'poudre '.repeat(60) + 'sans ponctuation',
+      ),
+    }
+    const { files, dropped } = await renderDeliverables(upgradeJobs(long), {
+      created: new Date(0),
+    })
+    expect(dropped).toEqual([])
+    expect(files).toHaveLength(DELIVERABLE_FILE_COUNT)
   })
 })

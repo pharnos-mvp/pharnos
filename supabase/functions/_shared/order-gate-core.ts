@@ -19,15 +19,24 @@ import {
   type SourceKind,
 } from './ai/evidence.ts'
 import { flattenRubrics, type ConformitySpec } from './conformity-specs.ts'
+import { DELIVERABLE_TITLES_EN } from './deliverable-titles.ts'
 
 /**
- * Repères cherchés : les titres de rubriques du gabarit demandé, **dérivés de
- * `conformity-specs.ts`** et non d'une liste parallèle à maintenir. Une liste en double finirait
- * par diverger du gabarit, et la porte jugerait alors sur un référentiel que le moteur n'utilise
- * plus.
+ * Repères cherchés : les titres de rubriques du gabarit demandé — **en FRANÇAIS ET EN ANGLAIS** —
+ * dérivés de `conformity-specs.ts` et de `deliverable-titles.ts`, jamais d'une liste parallèle à
+ * maintenir. Une liste en double finirait par diverger du gabarit, et la porte jugerait alors sur
+ * un référentiel que le moteur n'utilise plus.
  *
- * Les titres très courts sont écartés : « Posologie » ou « Fertilité » se retrouvent dans trop de
- * documents pour distinguer quoi que ce soit, et gonfleraient le score d'une notice.
+ * ⚠️ L'anglais n'est pas une largesse, c'est LE cas d'affaires (payé à la première vente réelle,
+ * 2026-08-14) : le dossier d'un fabricant arrive en SmPC anglais et vient ici précisément pour
+ * devenir un RCP UEMOA. L'empreinte monolingue a refusé deux fois un SmPC parfaitement structuré —
+ * « KV-RL, Summary of Product Characteristics » — à 0 repère sur 29 : la porte exigeait la langue
+ * du LIVRABLE, pas celle du document reçu. Les titres EN sortent de la table de l'assemblage,
+ * gardée contre la dérive par `deliverable-titles.test.ts` — la même source de vérité que le
+ * livrable lui-même.
+ *
+ * Les titres très courts sont écartés : « Posologie », « Fertilité » ou « Overdose » se retrouvent
+ * dans trop de documents pour distinguer quoi que ce soit, et gonfleraient le score d'une notice.
  */
 const MIN_REPERE_CHARS = 12
 
@@ -36,6 +45,14 @@ export function empreinteGabarit(spec: ConformitySpec): string[] {
   for (const r of flattenRubrics(spec)) {
     const t = r.title.trim()
     if (t.length >= MIN_REPERE_CHARS) vus.add(t)
+  }
+  // La table EN couvre le gabarit RCP/SmPC — les autres types recevront la leur en ouvrant
+  // (le test de dérive refusera un gabarit dont la table manque, comme pour l'assemblage).
+  if (spec.docType === 'rcp') {
+    for (const t of DELIVERABLE_TITLES_EN.values()) {
+      const v = t.trim()
+      if (v.length >= MIN_REPERE_CHARS) vus.add(v)
+    }
   }
   return [...vus]
 }
@@ -123,13 +140,15 @@ export function jugerRecevabilite(
  *   |---|---|---|---|---|
  *   | durée           | 558 ms | 693 ms | 947 ms | 1 396 ms |
  *
- * 60 000 laisse une marge de plus du double. La passe LITTÉRALE, elle, reste sur le corpus entier :
+ * 60 000 laissait une marge de plus du double pour 29 repères. **L'empreinte bilingue les porte à
+ * ~55** : le pire cas (tout absent) double, et 60 000 le ramènerait à ~1,4 s — trop près du mur.
+ * 40 000 le tient à ~1,1 s, marge conservée. La passe LITTÉRALE, elle, reste sur le corpus entier :
  * elle coûte **20 ms sur 430 000 caractères**, soit trois ordres de grandeur de moins — la borner
  * aurait sacrifié de la couverture pour rien.
  *
- * Un RCP porte ses repères dans ses premières pages ; 60 000 caractères en couvrent une vingtaine.
+ * Un RCP porte ses repères dans ses premières pages ; 40 000 caractères en couvrent une douzaine.
  */
-const MAX_CORPUS_APPROCHE = 60_000
+const MAX_CORPUS_APPROCHE = 40_000
 
 /**
  * Le message de refus, dans la langue de l'acheteur.
@@ -138,15 +157,17 @@ const MAX_CORPUS_APPROCHE = 60_000
  * n'a été débité**. Un refus sec ferait ouvrir un litige là où une phrase suffit.
  */
 export function messageRefus(lang: 'fr' | 'en', docLabel: string, depotsRestants: number): string {
+  // ⚠️ Texte BRUT, aucun balisage : la page l'affiche tel quel, et des `**` de markdown se sont
+  // retrouvés à l'écran d'un acheteur (constaté sur la vente réelle du 2026-08-14).
   if (lang === 'en') {
     return `This file does not look like ${docLabel}. We stopped before any analysis: ` +
-      `**nothing has been charged and your order is intact**. ` +
+      `nothing has been charged and your order is intact. ` +
       (depotsRestants > 0
         ? `You can upload another document (${depotsRestants} attempt(s) left).`
         : `Reply to your confirmation email and we will look at it with you.`)
   }
   return `Ce fichier ne ressemble pas à ${docLabel}. Nous nous sommes arrêtés avant toute ` +
-    `analyse : **rien n'a été débité et votre commande reste entière**. ` +
+    `analyse : rien n'a été débité et votre commande reste entière. ` +
     (depotsRestants > 0
       ? `Vous pouvez déposer un autre document (${depotsRestants} tentative(s) restante(s)).`
       : `Répondez à votre e-mail de confirmation et nous le regarderons avec vous.`)

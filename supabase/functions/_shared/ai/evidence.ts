@@ -185,6 +185,22 @@ function letterConfusable(a: number, b: number): boolean {
   return (a === MU && b === CODE_U) || (a === CODE_U && b === MU)
 }
 
+/** ≤ (U+2264), ≥ (U+2265), < et > — les quatre signes qui portent le SENS d'un seuil. */
+const isComparator = (c: number) => c === 0x2264 || c === 0x2265 || c === 60 || c === 62
+
+/**
+ * Substitution comparateur ↔ comparateur : INTERDITE dès qu'ils diffèrent.
+ *
+ * Première moitié de la défense : « ≥ 0,5 ml/min » se retrouvait dans un corpus qui dit
+ * « ≤ 0,5 ml/min » pour UNE substitution — sous le budget de toute citation réelle — et un seuil
+ * INVERSÉ ressortait « verified_ocr ». ⚠️ Cette règle seule ne suffit pas : délétion + saut font
+ * le même détournement en DEUX éditions, encore sous budget dès ~25 caractères. La seconde moitié
+ * est `opposedThreshold`, au niveau des PAIRES — les deux se complètent, aucune ne se retire.
+ * La tolérance comparateur ↔ ARTEFACT (« '' », lecture OCR de ≤) reste, elle, entière : c'est
+ * elle qui évite de rétrograder une rubrique juste quand NOTRE lecture a abîmé le signe.
+ */
+const comparatorFlip = (a: number, b: number) => isComparator(a) && isComparator(b)
+
 /**
  * Unités pharmaceutiques — vocabulaire FERMÉ, et c'est ce qui le rend juste.
  *
@@ -459,6 +475,10 @@ function approxContains(
         // « 250 mg » en substituant le « g » à l'espace suivante, puis en supprimant une espace
         // ailleurs. Une unité ne devient jamais une espace sous l'œil d'une reconnaissance.
         sub = IMPOSSIBLE
+      } else if (comparatorFlip(nc, ch)) {
+        // Deux comparateurs DIFFÉRENTS (l'égalité stricte est déjà traitée) : un seuil ne change
+        // jamais de sens sous couvert de tolérance de lecture — cf. `comparatorFlip`.
+        sub = IMPOSSIBLE
       } else if (!chDigit && !isDigit(nc)) {
         // Dans un nombre ou son unité, seules les confusions graphiques sans effet sur la magnitude.
         sub = (needleMask[i - 1] === 1 || hProtected)
@@ -497,6 +517,18 @@ const SPACES = /[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\u200B\uFEFF]/g
 const HYPHENATION = /[-\u2010\u2011][ \t]*\r?\n\s*/g
 /** Points de suspension typographiques. */
 const ELLIPSIS = /\u2026/g
+// Variantes d'un m\u00eame comparateur \u2192 forme canonique. \u26a0\ufe0f Le pliage ne porte QUE sur des graphies
+// \u00e9quivalentes (\u2266, \u2a7d, \u00ab <= \u00bb). Deux exclusions d\u00e9lib\u00e9r\u00e9es : \u00ab => \u00bb et \u00ab =< \u00bb \u2014 le premier est une
+// FL\u00c8CHE dans un texte r\u00e9el (\u00ab \u00e9tape 1 => 2 jours \u00bb), et le plier en \u2265 ferait CONFIRMER un seuil
+// que la source n'a jamais \u00e9nonc\u00e9 ; le second n'est la notation de personne. Et \u00ab \u2033 \u00bb (double
+// prime), lecture OCR fr\u00e9quente de \u2264/\u2265, n'est jamais pli\u00e9 VERS un comparateur \u2014 il pourrait venir
+// de l'un comme de l'autre, et choisir fabriquerait un seuil clinique (NFKC le d\u00e9compose en deux
+// primes, que `APOSTROPHES` rend en apostrophes). Ce cas-l\u00e0 se SIGNALE (`comparatorsToVerify`),
+// il ne se r\u00e9pare pas en silence.
+/** \u2266 (U+2266), \u2a7d (U+2A7D) et le digramme \u00ab <= \u00bb \u2192 \u2264. */
+const LTE_VARIANTS = /[\u2266\u2a7d]|<=/g
+/** \u2267 (U+2267), \u2a7e (U+2A7E) et le digramme \u00ab >= \u00bb \u2192 \u2265. */
+const GTE_VARIANTS = /[\u2267\u2a7e]|>=/g
 
 /**
  * Normalisation appliquée À L'IDENTIQUE aux deux côtés de la comparaison. Elle absorbe ce qui
@@ -513,6 +545,8 @@ export function normalizeForEvidence(input: string): string {
     .replace(QUOTES, '"')
     .replace(DASHES, '-')
     .replace(ELLIPSIS, '...')
+    .replace(LTE_VARIANTS, '≤')
+    .replace(GTE_VARIANTS, '≥')
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase()
@@ -613,6 +647,10 @@ export function findInSource(text: string, source: PreparedSource): SourceMatch 
   // invention se cache le mieux. `verifyEvidence` plafonne la citation en amont (`too_long`, donc
   // rejouable) ; ici, la borne protège aussi les affirmations d'une revue.
   if (needle.length > OCR_MAX_ANCHOR_CHARS) return 'absent'
+  // Un seuil dont le corpus AFFIRME le sens opposé ne se « retrouve » jamais, quel que soit le
+  // budget d'édition — voir `opposedThreshold`. Sur un document réglementaire, on se trompe dans
+  // le sens du refus : la rubrique rejouée relira l'image, jamais un seuil inversé certifié.
+  if (opposedThreshold(needle, source)) return 'absent'
   return approxContains(needle, source.normalized, source.protectedRegions, ocrEditBudget(needle.length))
     ? 'ocr'
     : 'absent'
@@ -722,6 +760,103 @@ export function ungroundedFigures(
     if (ignore.has(token)) continue
     if (source.figures.has(canonFigure(token))) continue
     out.push(token)
+  }
+  return out
+}
+
+/**
+ * Comparateur canonique suivi d'une valeur chiffrée ENTIÈRE — « ≤ 28 », « > 12 », « ≥ 0,5 ».
+ *
+ * ⚠️ Une valeur suivie d'une barre est EXCLUE : les fréquences CIOMS de la rubrique 4.8
+ * (« ≥ 1/10 », « ≥ 1/10 000 ») sont du vocabulaire de gabarit, pas une donnée du document — et
+ * `\d+` s'arrêtant à la barre, elles se seraient toutes effondrées sur « ≥ 1 », une ligne sans
+ * dénominateur ni sens dans la liste remise au client.
+ */
+const COMPARATOR_FIGURE = /([≤≥<>])\s?(\d+(?:[ ,.]\d{3})*(?:[.,]\d+)?)(?!\s?\/)/g
+
+/**
+ * Paires (comparateur, valeur canonique) d'un corpus. Mémoïsées par OBJET `PreparedSource` — pas
+ * « par document » : chaque appelant qui reconstruit sa source repaie le balayage. Le gain réel
+ * est la vague de `job-tick`, qui partage un même objet entre ses six rubriques ; le corpus
+ * fidèle, lui, ne paie jamais rien (`comparatorsToVerify` sort avant).
+ */
+const COMPARATOR_PAIRS = new WeakMap<PreparedSource, ReadonlySet<string>>()
+
+function comparatorPairs(source: PreparedSource): ReadonlySet<string> {
+  let pairs = COMPARATOR_PAIRS.get(source)
+  if (!pairs) {
+    const out = new Set<string>()
+    for (const m of source.normalized.matchAll(COMPARATOR_FIGURE)) {
+      out.add(m[1] + canonFigure(m[2]))
+    }
+    COMPARATOR_PAIRS.set(source, out)
+    pairs = out
+  }
+  return pairs
+}
+
+/** Les deux directions d'un seuil — l'appartenance décide, jamais la graphie exacte. */
+const LTE_SET = ['≤', '<'] as const
+const GTE_SET = ['≥', '>'] as const
+
+/**
+ * Le passage cherché affirme-t-il un seuil dont le corpus océrisé porte le sens OPPOSÉ ?
+ *
+ * Seconde moitié de la défense anti-inversion (cf. `comparatorFlip`) : au niveau des paires
+ * (comparateur, valeur canonique), un « ≥ 0,5 » cherché dans un corpus qui ne connaît que
+ * « ≤ 0,5 » est un détournement, pas une lecture — le rapprochement approché n'a pas à en juger.
+ * Un corpus qui porte LES DEUX sens pour la même valeur (deux phrases distinctes) n'oppose rien.
+ * Résidu assumé : si l'OCR a lu ≥ comme ≤ (confusion miroir, rare), une citation juste est
+ * rejetée puis la rubrique rejouée — sur un livrable réglementaire, on refuse plutôt qu'on ne
+ * certifie un sens de seuil que personne n'a confirmé.
+ */
+function opposedThreshold(needle: string, source: PreparedSource): boolean {
+  const pairs = comparatorPairs(source)
+  if (pairs.size === 0) return false
+  for (const m of needle.matchAll(COMPARATOR_FIGURE)) {
+    // Même garde que `comparatorsToVerify` : sous deux chiffres, « ≤ 6 mois » (conservation) et
+    // « ≥ 6 ans » (âge) coexistent dans un même document — l'opposition ne prouverait rien et
+    // rejetterait des citations justes.
+    if (m[2].replace(/\D/g, '').length < 2) continue
+    const canon = canonFigure(m[2])
+    const lte = m[1] === '≤' || m[1] === '<'
+    const same = lte ? LTE_SET : GTE_SET
+    const opp = lte ? GTE_SET : LTE_SET
+    if (same.some((c) => pairs.has(c + canon))) continue
+    if (opp.some((c) => pairs.has(c + canon))) return true
+  }
+  return false
+}
+
+/**
+ * Seuils du contenu (« ≤ 28 jours ») dont le COMPARATEUR ne se retrouve pas dans le corpus océrisé.
+ *
+ * **Pourquoi ce contrôle existe** : une reconnaissance de caractères lit ≤/≥ comme « ″ » — constaté
+ * sur la première vente réelle (KV-RL, 2026-08-14 : « ″ 28 jours » dans le corpus, « ≤ 28 days »
+ * au livrable). La VALEUR est alors retrouvée (« 28 » figure au corpus), donc `ungroundedFigures`
+ * ne signale rien — mais le SENS du seuil, lui, n'est confirmé par personne. Sur une
+ * contre-indication néonatale, inverser ≤ et ≥ inverse la population protégée.
+ *
+ * ⚠️ CONSULTATIF par construction, et OCR seulement : sur un corpus océrisé les valeurs sont déjà
+ * à relire, jamais opposées au livrable. En faire un motif de rejeu reprocherait au modèle la
+ * lecture fautive de NOTRE reconnaissance — il « corrigerait » ≤ vers ″. Et sur une source fidèle,
+ * le symbole du contenu peut paraphraser des mots de la source (« inférieur ou égal à ») : exiger
+ * le symbole au corpus y rétrograderait des rubriques justes, d'où le retour vide hors OCR.
+ */
+export function comparatorsToVerify(content: string, source: PreparedSource): string[] {
+  if (source.kind !== 'ocr' || !source.available) return []
+  const pairs = comparatorPairs(source)
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const m of normalizeForEvidence(content).matchAll(COMPARATOR_FIGURE)) {
+    // Même garde que `ungroundedFigures` : sous deux chiffres, la paire se retrouve partout dans
+    // un corpus (« ≥ 6 » quelque part suffit) — la confirmer ne prouverait rien, la signaler
+    // noierait la liste. Le résidu assumé : un seuil à un chiffre mal lu n'est pas signalé.
+    if (m[2].replace(/\D/g, '').length < 2) continue
+    const key = m[1] + canonFigure(m[2])
+    if (seen.has(key) || pairs.has(key)) continue
+    seen.add(key)
+    out.push(`${m[1]} ${m[2]}`)
   }
   return out
 }

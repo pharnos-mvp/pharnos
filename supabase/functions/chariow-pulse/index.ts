@@ -25,6 +25,7 @@ import {
   lireVente,
   newDeliveryToken,
   PULSE_EVENT_VENTE,
+  type VenteVerifiee,
 } from '../_shared/orders-core.ts'
 
 const MAX_BODY_BYTES = 16 * 1024
@@ -238,7 +239,7 @@ Deno.serve(async (req) => {
   // Ce n'est pas une courtoisie. C'est le seul chemin d'accès de l'acheteur vers son livrable s'il
   // ferme l'onglet avant la redirection — cas explicitement prévu par le plan (§2.3, étape 4).
   const lien = `${LIEN_LIVRAISON}/${jeton}`
-  const envoye = await envoyerEmail(v.email, v.firstName, lien, v.lang, v.essai)
+  const envoye = await envoyerEmail(v, lien)
   if (envoye && orderId) {
     await supabase.from('orders').update({ notified_at: new Date().toISOString() }).eq('id', orderId)
   }
@@ -263,19 +264,83 @@ const escapeHtml = (s: string) =>
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string,
   )
 
-async function envoyerEmail(
-  to: string,
-  prenom: string | null,
-  lien: string,
-  lang: 'fr' | 'en',
-  essai: boolean,
-): Promise<boolean> {
+/**
+ * Identité légale portée par le REÇU — AASK SARL, la structure derrière Pharnos.
+ *
+ * ⚠️ Ce n'est pas de la décoration : l'attestation d'immatriculation exige que l'IFU figure
+ * « sur toutes les quittances, factures ou lettres » émises. Demande CEO du 2026-08-14, après
+ * une première vente réelle passée sans aucun reçu.
+ */
+const RECU_VENDEUR = {
+  nom: 'Pharnos — un service de AASK SARL',
+  rccm: 'RCCM Cotonou N° RB/COT/21 B 31197',
+  ifu: 'IFU 3202113643386',
+  adresse: 'Zogbohouè, 03 BP 4245 Jéricho, Cotonou, Bénin',
+  contact: 'contact@pharnos.com',
+}
+
+/** Libellés facturables des offres — celui du reçu, pas celui du catalogue technique. */
+const RECU_LIBELLES: Record<string, { fr: string; en: string }> = {
+  up1: { fr: 'Mise à niveau documentaire — 1 document', en: 'Document upgrade — 1 document' },
+  up3: {
+    fr: 'Mise à niveau documentaire — les trois documents',
+    en: 'Document upgrade — all three documents',
+  },
+}
+
+/** Bloc reçu de l'e-mail n°1 — montant, méthode, vendeur, et la facture officielle si la vente
+ *  en porte une. Tout vient de la vente VÉRIFIÉE ; un champ absent se tait au lieu de mentir. */
+function blocRecu(v: VenteVerifiee): string {
+  const en = v.lang === 'en'
+  const lignes: string[] = []
+  const libelle = RECU_LIBELLES[v.offre]?.[v.lang] ?? v.offre
+  const montant = v.amountMinor !== null
+    ? `${v.amountMinor.toLocaleString(en ? 'en-US' : 'fr-FR')} ${escapeHtml(v.currency ?? 'FCFA')}`
+    : null
+  lignes.push(
+    `<tr><td style="padding:2px 12px 2px 0;color:#6b7280">${en ? 'Order' : 'Commande'}</td><td>${escapeHtml(libelle)}</td></tr>`,
+  )
+  if (montant) {
+    lignes.push(
+      `<tr><td style="padding:2px 12px 2px 0;color:#6b7280">${en ? 'Amount paid' : 'Montant réglé'}</td><td><strong>${montant}</strong></td></tr>`,
+    )
+  }
+  if (v.paymentMethod) {
+    lignes.push(
+      `<tr><td style="padding:2px 12px 2px 0;color:#6b7280">${en ? 'Payment method' : 'Moyen de paiement'}</td><td>${escapeHtml(v.paymentMethod)}</td></tr>`,
+    )
+  }
+  lignes.push(
+    `<tr><td style="padding:2px 12px 2px 0;color:#6b7280">${en ? 'Reference' : 'Référence'}</td><td>${escapeHtml(v.saleId)}</td></tr>`,
+  )
+  const facture = v.invoiceUrl
+    ? `<p style="margin:8px 0 0"><a href="${v.invoiceUrl}" style="color:#1d4ed8">${
+      en ? 'Download the official invoice (PDF)' : 'Télécharger la facture officielle (PDF)'
+    }</a></p>`
+    : ''
+  return [
+    `<div style="margin-top:20px;padding:14px 16px;border:1px solid #e5e7eb;border-radius:10px;font-size:13px">`,
+    `<p style="margin:0 0 8px;font-weight:700">${en ? 'Payment receipt' : 'Reçu de paiement'}</p>`,
+    `<table style="border-collapse:collapse">${lignes.join('')}</table>`,
+    facture,
+    `<p style="margin:10px 0 0;color:#6b7280;font-size:11px">${escapeHtml(RECU_VENDEUR.nom)} · ${
+      escapeHtml(RECU_VENDEUR.rccm)
+    } · ${escapeHtml(RECU_VENDEUR.ifu)}<br>${escapeHtml(RECU_VENDEUR.adresse)} · ${
+      escapeHtml(RECU_VENDEUR.contact)
+    }</p>`,
+    `</div>`,
+  ].join('')
+}
+
+async function envoyerEmail(v: VenteVerifiee, lien: string): Promise<boolean> {
   const apiKey = Deno.env.get('RESEND_API_KEY')
   if (!apiKey) return false
   const from = Deno.env.get('EMAIL_FROM') ?? 'Pharnos <onboarding@resend.dev>'
-  const en = lang === 'en'
-  const bonjour = prenom ? `${en ? 'Hello' : 'Bonjour'} ${escapeHtml(prenom)},` : (en ? 'Hello,' : 'Bonjour,')
-  const sujet = essai
+  const en = v.lang === 'en'
+  const bonjour = v.firstName
+    ? `${en ? 'Hello' : 'Bonjour'} ${escapeHtml(v.firstName)},`
+    : (en ? 'Hello,' : 'Bonjour,')
+  const sujet = v.essai
     ? (en ? '[TEST] Your order is registered' : '[RECETTE] Votre commande est enregistrée')
     : (en ? 'Your order is registered — Pharnos' : 'Votre commande est enregistrée — Pharnos')
 
@@ -286,6 +351,7 @@ async function envoyerEmail(
       `<p><a href="${lien}" style="display:inline-block;background:#d29922;color:#20160a;font-weight:700;padding:12px 22px;border-radius:99px;text-decoration:none">Open my upgrade →</a></p>`,
       '<p>On that page you will upload your document, we check it is the right kind, and the analysis starts. <strong>You may close the tab while it runs</strong> — come back to this link whenever you like, it stays valid for 30 days.</p>',
       `<p style="color:#6b7280;font-size:12px">If the button does not work, copy this address into your browser:<br>${lien}</p>`,
+      blocRecu(v),
     ].join('')
     : [
       `<p>${bonjour}</p>`,
@@ -293,13 +359,14 @@ async function envoyerEmail(
       `<p><a href="${lien}" style="display:inline-block;background:#d29922;color:#20160a;font-weight:700;padding:12px 22px;border-radius:99px;text-decoration:none">Ouvrir ma mise à niveau →</a></p>`,
       '<p>Vous y déposerez votre document, nous vérifions qu’il s’agit bien du bon type, puis l’analyse démarre. <strong>Vous pouvez fermer l’onglet pendant le traitement</strong> — revenez sur ce lien quand vous voulez, il reste valable 30 jours.</p>',
       `<p style="color:#6b7280;font-size:12px">Si le bouton ne fonctionne pas, recopiez cette adresse dans votre navigateur :<br>${lien}</p>`,
+      blocRecu(v),
     ].join('')
 
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ from, to: [to], subject: sujet, html: corps }),
+      body: JSON.stringify({ from, to: [v.email], subject: sujet, html: corps }),
     })
     return res.ok
   } catch {

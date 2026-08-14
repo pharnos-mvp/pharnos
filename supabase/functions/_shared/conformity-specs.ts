@@ -15,6 +15,12 @@ export interface MentionSpec {
   text: string
   /** Pays où la mention est obligatoire (codes ISO-2) ; absent = tous les pays. */
   requiredFor?: string[]
+  /**
+   * Condition de FOND (« quand la source identifie … ») ; absente = mention inconditionnelle.
+   * Une mention conditionnelle exigée sans sa condition ferait écrire un intitulé vide dans un
+   * document où il n'a rien à annoncer — l'inverse exact d'une mention imposée.
+   */
+  when?: string
 }
 
 export interface RubricSpec {
@@ -26,6 +32,16 @@ export interface RubricSpec {
   required: boolean
   children?: RubricSpec[]
   mentions?: MentionSpec[]
+  /**
+   * Consignes de rubrique — la DOCTRINE du gabarit (périmètre, renvois, ce qui relève d'un autre
+   * module du dossier). Énoncées au modèle dans l'instruction de la rubrique, comme les mentions.
+   *
+   * ⚠️ DÉLIBÉRÉMENT absentes de `specPromptText` : ce rendu-là nourrit l'AUDIT d'un document
+   * existant (Checking Standard public), où une consigne d'écriture (« ne le reproduis pas ici »)
+   * n'a pas de sens et durcirait le verdict. Les « réparer » dans le prompt d'audit changerait la
+   * note de documents réels.
+   */
+  guidance?: string[]
 }
 
 export interface ConformitySpec {
@@ -53,7 +69,28 @@ const RCP_SPEC: ConformitySpec = {
   ],
   rubrics: [
     { id: '1', title: 'DÉNOMINATION DU MÉDICAMENT', required: true },
-    { id: '2', title: 'COMPOSITION QUALITATIVE ET QUANTITATIVE', required: true },
+    {
+      id: '2',
+      title: 'COMPOSITION QUALITATIVE ET QUANTITATIVE',
+      required: true,
+      // Doctrine §2/6.1 — arbitrage CEO 2026-08-14 : la rubrique 2 est une PHRASE de composition
+      // (actifs + effet notoire + renvoi 6.1), jamais la formule intégrale du produit.
+      mentions: [
+        { text: 'Pour la liste complète des excipients, voir rubrique 6.1.' },
+        {
+          text: 'Excipient(s) à effet notoire :',
+          when: 'quand la source identifie un ou des excipients à effet notoire',
+        },
+      ],
+      guidance: [
+        'Cette rubrique présente les substances ACTIVES (qualité et quantité par unité de prise) ' +
+          "et, le cas échéant, les excipients à effet notoire — la liste complète des excipients " +
+          'appartient à la rubrique 6.1.',
+        'Un tableau de formulation par volume nominal (composition intégrale avec fonctions et ' +
+          'références de pharmacopée) relève du module 3.2.P.1 du dossier, pas du RCP : ne le ' +
+          'reproduis pas ici.',
+      ],
+    },
     { id: '3', title: 'FORME PHARMACEUTIQUE', required: true },
     {
       id: '4',
@@ -127,7 +164,15 @@ const RCP_SPEC: ConformitySpec = {
       title: 'DONNÉES PHARMACEUTIQUES',
       required: true,
       children: [
-        { id: '6.1', title: 'Liste des excipients', required: true },
+        {
+          id: '6.1',
+          title: 'Liste des excipients',
+          required: true,
+          guidance: [
+            'Liste COMPLÈTE des excipients de la formule, véhicule/solvant inclus (p. ex. eau ' +
+              'pour préparations injectables) — c\'est ici, et non en rubrique 2, qu\'elle vit.',
+          ],
+        },
         { id: '6.2', title: 'Incompatibilités', required: true },
         { id: '6.3', title: 'Durée de conservation', required: true },
         { id: '6.4', title: 'Précautions particulières de conservation', required: true },
@@ -475,6 +520,13 @@ export function specPromptText(spec: ConformitySpec, country?: string): string {
       lines.push(`${'  '.repeat(depth)}- ${r.id}. ${r.title} ${flag}`)
       for (const m of r.mentions ?? []) {
         if (m.requiredFor && (!country || !m.requiredFor.includes(country))) continue
+        // ⚠️ Une mention CONDITIONNELLE ne se grade pas ici. Ce rendu nourrit l'AUDIT d'un document
+        // déjà écrit (conformity-check → regafy-ai, Checking Standard public) : l'absence d'une
+        // mention conditionnelle peut être le rendu correct — un RCP sans excipient à effet
+        // notoire n'a rien à annoncer — et la condition, formulée pour la GÉNÉRATION (« quand la
+        // source identifie… »), n'est pas évaluable dans un audit où le document EST l'artefact.
+        // Le moteur d'upgrade, lui, la reçoit avec sa condition via `buildSectionInstruction`.
+        if (m.when) continue
         lines.push(`${'  '.repeat(depth + 1)}• Mention imposée : « ${m.text} »`)
       }
       if (r.children) walk(r.children, depth + 1)

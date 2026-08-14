@@ -126,7 +126,29 @@ Deno.test('vente : une vente réglée sur un produit connu devient une commande'
     lastName: 'Ndiaye',
     ref: REF,
     lang: 'fr',
+    paymentMethod: null,
+    invoiceUrl: null,
   })
+})
+
+Deno.test('vente : le montant en OBJET — la forme RÉELLE de l’API — est lu, avec méthode et facture', () => {
+  // Appris sur la PREMIÈRE vente réelle (2026-08-14) : `amount` arrive en objet
+  // `{ value, formatted, currency }` — `Number(objet)` rendait NaN et la commande naissait sans
+  // montant. La méthode de paiement et la facture officielle nourrissent le REÇU de l'e-mail n°1.
+  const v = lireVente(vente({
+    amount_minor: undefined,
+    currency: undefined,
+    amount: { value: 570, formatted: 'F CFA 570', currency: 'XOF' },
+    payment: { method: { name: 'Credit Card (Visa/MasterCard)' } },
+    invoice_download_url: 'https://download.chariow.com/sale/SALE123/invoice?sig=x',
+  })) as Record<string, unknown>
+  assertEquals(v.amountMinor, 570)
+  assertEquals(v.currency, 'XOF')
+  assertEquals(v.paymentMethod, 'Credit Card (Visa/MasterCard)')
+  assertEquals(v.invoiceUrl, 'https://download.chariow.com/sale/SALE123/invoice?sig=x')
+  // Un lien de facture non-HTTPS est écarté : il finirait cliquable dans un e-mail.
+  const sans = lireVente(vente({ invoice_download_url: 'http://pirate.example/x' })) as Record<string, unknown>
+  assertEquals(sans.invoiceUrl, null)
 })
 
 Deno.test('vente : la LANGUE se lit des métadonnées, et retombe sur le français', () => {

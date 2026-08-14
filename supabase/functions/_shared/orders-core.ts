@@ -136,6 +136,10 @@ export interface VenteVerifiee {
    * son propre e-mail dans l'autre langue. Défaut `fr` — le marché principal.
    */
   lang: 'fr' | 'en'
+  /** Méthode de paiement telle que la vente la rapporte (« Credit Card… », mobile money) — reçu. */
+  paymentMethod: string | null
+  /** Facture officielle du processeur (URL signée, expirante) — jointe au reçu, jamais exigée. */
+  invoiceUrl: string | null
 }
 
 const texte = (v: unknown, max: number): string | null => {
@@ -195,7 +199,27 @@ export function lireVente(raw: unknown): VenteVerifiee | { erreur: string } {
   const refBrut = texte(meta.ref, 60)
   const ref = refBrut && UUID_RE.test(refBrut) ? refBrut.toLowerCase() : null
 
-  const montant = Number(v.amount_minor ?? v.amount ?? v.total ?? NaN)
+  // ⚠️ Le montant arrive en OBJET dans l'API réelle — `amount: { value, formatted, currency }` —
+  // appris sur la PREMIÈRE vente réelle (2026-08-14) : `Number(objet)` rendait NaN et la commande
+  // naissait sans montant. Les formes plates restent acceptées (alias d'intégrations).
+  const amountObj = (v.amount && typeof v.amount === 'object')
+    ? v.amount as Record<string, unknown>
+    : null
+  const montant = Number(v.amount_minor ?? amountObj?.value ?? v.amount ?? v.total ?? NaN)
+  const currency = texte(v.currency, 8) ?? (amountObj ? texte(amountObj.currency, 8) : null)
+
+  // Reçu de paiement (e-mail n°1) : la méthode et la facture officielle viennent de la vente
+  // VÉRIFIÉE — jamais du Pulse. Optionnelles : leur absence ne bloque pas une commande.
+  const paiement = (v.payment && typeof v.payment === 'object')
+    ? v.payment as Record<string, unknown>
+    : null
+  const methode = (paiement?.method && typeof paiement.method === 'object')
+    ? texte((paiement.method as Record<string, unknown>).name, 80)
+    : null
+  const invoiceUrl = (() => {
+    const u = texte(v.invoice_download_url, 2048)
+    return u && u.startsWith('https://') ? u : null
+  })()
 
   return {
     saleId,
@@ -205,12 +229,14 @@ export function lireVente(raw: unknown): VenteVerifiee | { erreur: string } {
     // ni l'inverse.
     essai: produit.essai,
     amountMinor: Number.isFinite(montant) && montant >= 0 ? Math.round(montant) : null,
-    currency: texte(v.currency, 8),
+    currency,
     email,
     firstName: texte(v.customer_first_name ?? v.first_name, 120),
     lastName: texte(v.customer_last_name ?? v.last_name, 120),
     ref,
     lang: meta.lang === 'en' ? 'en' : 'fr',
+    paymentMethod: methode,
+    invoiceUrl,
   }
 }
 
