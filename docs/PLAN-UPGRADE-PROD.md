@@ -24,7 +24,65 @@
 > | ❌ **RECETTE U6 RÉELLE (2026-08-14) : ÉCHEC au critère d'autonomie** | Première vente réelle (570 F, carte via Moneroo, vente `SALEX5MD9EZOYKITEPM`) : paiement OK, **mais TROIS interventions manuelles ont été nécessaires** — ① Chariow n'a JAMAIS livré son Pulse (webhook déclenché à la main, la re-vérification à la source a permis une naissance légitime) ; ② e-mail n°1 délivré chez Gmail mais introuvable en boîte (lien remis à la main) ; ③ la porte monolingue a refusé deux fois un SmPC anglais légitime (corrigée et redéployée en vol — l'empreinte est désormais bilingue). Le moteur a ensuite tourné SEUL sur la source anglaise OCR : 34+31+4 appels, e-mail n°2, 5 fichiers, **parité binaire 3/3 avec le ZIP acheteur**, mention ABMed en 4.8, revue qui a trouvé le défaut critique du dossier (phrases 28 jours tronquées). **Les 570 F ont acheté trois défauts qu'aucun test interne n'aurait vus** — mais le verdict est NO-GO : la vente reste fermée |
 > | **Critère de réouverture** | Les LOTS A (fond du livrable : mentions imposées §2/6.1, doctrine actifs/excipients, tableaux markdown, casse des titres, comparateurs OCR, en-tête), B (front = LE MOCKUP comme contrat d'acceptation + config post-paiement + nommage/libellés par langue source) et C (rail : réconciliation active des ventes, salle d'attente, signature `whsec`, retry avant repli) verts, **puis UNE recette complète carte→ZIP avec ZÉRO intervention de l'opérateur**. Rien ne rouvre avant |
 > | ✅ **Arbitrages CEO du 2026-08-14 (LOT A)** | ① **Titres : « garder le bon français »** — capitales ACCENTUÉES conservées (RÉSUMÉ, DÉNOMINATION…), pas d'alignement sur la maquette non accentuée ; le test de dérive verrouille l'existant, A4 est CLOS sans changement. ② **Tableau de formulation** (500 ml, colonnes Réf. pharmacopée/Fonction) : **SORT du RCP** — le §2 de la maquette est une phrase de composition (actifs + « Excipient(s) à effet notoire » + renvoi 6.1), le tableau relève du module 3.2.P.1 ; la revue journalise la relocation. ③ **Tableau MedDRA de la 4.8** (SOC | réactions — celui que le CEO désignait) : **RESTE un TABLEAU dans le RCP** — le livrable KV-RL l'a aplati en prose (contenu intégral conservé, structure perdue) : le moteur doit savoir ÉMETTRE des tableaux markdown (le rendu les affiche déjà — la revue en est pleine) ; 4.8 se rend par SOC (+ fréquences quand la source les donne). ④ E-mails : délivrabilité PROUVÉE (mauvais compte consulté — enquête close) ; restent au lot C : partie texte brut, lien de facture DURABLE (`order-invoice` re-signant — les URLs Chariow expirent en ~1 h 30), et l'absorption des e-mails tiers du parcours (reçu **MiMo Global** sur le relevé carte + **clé de licence Chariow** à désactiver en console sinon expliquer) |
-> | **Suivant** | LOT A → LOT B → LOT C → recette d'autonomie → réouverture → **bundle up3** (session multi-dépôts, budget PAR document, leviers L1+L3 inclus) |
+> | **Suivant** | §« Lots de réouverture » ci-dessous — LOT A (solde) → LOT B → LOT C → recette d'autonomie → réouverture → **bundle up3** (leviers vitesse L1+L3 inclus) |
+
+---
+
+## Lots de réouverture — état au 2026-08-14, zéro régression / zéro dette
+
+**Règles du chantier (non négociables)** : ① tout changement qui touche le LIVRABLE re-prouve la
+parité binaire banc/navigateur (`UPGRADE_RUN_DIR` sur le run KV-RL du scratchpad) ; ② toute clause
+de prompt, mention ou format porte son **test de dérive** — une régression casse la CI, jamais un
+livrable client ; ③ **aucun run moteur** hors du run de clôture de lot, au feu vert CEO (~2 $) ;
+④ le mockup `docs/mockups/upgrade-mise-en-conformite-v3.html` est le **contrat d'acceptation** du
+front — recette écran par écran.
+
+⚠️ **Branche `feat/upgrade-recette-suite` : PR à ouvrir → merger** pour déployer la part WEB
+(SUBST `📄`/falsy de `pdf.ts` n'est PAS sur `app.pharnos.com` tant que non mergée ; les Edge, elles,
+sont déjà déployées hors CI).
+
+### ✅ Déjà fait, déployé, verrouillé (recette des 13-14/08)
+| Fait | Verrou |
+|---|---|
+| Porte de recevabilité **bilingue** (le SmPC EN est LE cas d'affaires) | test « un SmPC ANGLAIS réel PASSE » |
+| **Tableaux = information** : clauses structure sur les 3 passes (rubrique, conformité, traduction) | 3 tests de dérive ; preuve réelle au run de clôture |
+| **Reçu AASK** dans l'e-mail n°1 (RCCM/IFU/adresse, montant, méthode, facture) + lecture du montant OBJET Chariow | tests `lireVente` (forme réelle de l'API) |
+| Relance automatique (`0092`), plafond revue 100 s = tranche, décompte prudent 15 min, rendu revue lisible | tests job-tick-core + deliverables (PR #474, mergée) |
+| Bandeau OCR sans émoji + `SUBST !== undefined` | test emit + parité re-prouvée 3/3 sur la vente réelle |
+| Vitrine Chariow : AUCUN produit public ; up1/up3/audit masqués (« Masquer sur la boutique ») | décision consignée ; ne pas « Dépublier » (casserait l'API) |
+| Délivrabilité e-mail : domaine Resend vérifié, DKIM aligné, boîte principale — **enquête close** | ne pas rouvrir |
+
+### LOT A — le fond du livrable (solde)
+| # | Tâche | Définition de fini |
+|---|---|---|
+| A1 | **Mentions imposées** de la rubrique 2 : « Pour la liste complète des excipients, voir rubrique 6.1. » (+ « Excipient(s) à effet notoire : » quand identifiables) — via `rubric.mentions` (mécanisme de la 4.8, sans `requiredFor`) | mention présente dans le livrable ; test de dérive gabarit |
+| A2 | **Doctrine §2/6.1** : consignes de rubrique — §2 = actifs + effet notoire, 6.1 = liste complète (véhicule inclus) ; **tableau de formulation par volume nominal → HORS RCP** (module 3.2.P.1), relocation JOURNALISÉE dans la revue | tests d'instruction ; constat de relocation dans la revue |
+| A5 | **Comparateurs OCR** : `≤`/`≥` mal reconnus (« ″ 28 jours ») — normalisation + entrée en « valeurs à relire » | test sur corpus OCR truqué |
+| A6 | **En-tête courant** : nom long tronqué à GAUCHE (« *olution pour perfusion…* ») — réduction de corps ou ellipse propre | test de largeur ; contrôle visuel |
+| A4 | ~~Casse des titres~~ **CLOS** — arbitrage CEO : « garder le bon français » (capitales accentuées) | test de dérive des titres (existant) |
+| ✔ | **Clôture du LOT A = UN run réel sur KV-RL** (feu vert CEO) — critères : 4.8 en **table MedDRA** (colonnes/lignes de la source), renvoi 6.1 présent, §2 sans tableau de formulation, comparateurs propres, parité binaire re-prouvée | le run est LA preuve |
+
+### LOT B — le front = le mockup
+| # | Tâche |
+|---|---|
+| B1 | Page `/u/` portée au mockup v3 : bandeau contexte (produit · pays · activité · **langue source → cible**), **liste des rubriques à statuts vivants** (Reprise / À compléter / En attente), panneau « Ce que nous faisons » (3 garanties), notice OCR, **écran de livraison** : 4 tuiles chiffrées (reprises / à compléter / remis à leur place / valeurs à relire), labels humains des fichiers, durée réelle, « Le document part à l'agence. La revue reste chez vous. », Tout télécharger en tête |
+| B2 | **Configuration APRÈS paiement** (directive CEO) : panneau d'achat = offre + identité + payer ; pays/activité/document sur `/u/` — supprime la double saisie et le transfert inter-origines |
+| B3 | **Langue source** : détectée par la porte (quelle empreinte a ouvert), stockée sur le job (migration `0093`) → libellés de phase adaptés (source EN : « Version française » / « Version anglaise au standard » — jamais « Traduction anglaise » d'un doc déjà EN) + **nommage** `NomProduit_RCP Upgrade.zip` (source FR) / `NomProduit_SmPC Upgrade.zip` (source EN) |
+| B4 | Service worker : `navigateFallbackDenylist` `/u/` `/r/` (chip en attente) — un lien de livraison ne sert JAMAIS un vieux shell |
+
+### LOT C — le rail
+| # | Tâche |
+|---|---|
+| C1 | **Réconciliation active** : cron → `GET /v1/sales` `completed` sans commande → naissance par le chemin re-vérifié (l'automatisation du geste manuel du 14/08 — plus JAMAIS suspendu au webhook d'un tiers) |
+| C2 | **Salle d'attente post-paiement** : réclame plusieurs minutes, affiche l'état, ne se tait jamais ; le lien de livraison s'affiche À L'ÉCRAN (l'e-mail n'est qu'un filet) |
+| C3 | **Signature des Pulses** (`whsec_…`, nouveau chez Chariow) — vérifiée au webhook |
+| C4 | **Repli du pont** : JAMAIS en mode recette (panne franche affichée) ; en réel : un retry avant repli + signal journalisé |
+| C5 | **E-mails** : partie texte brut (aujourd'hui HTML seul) ; **facture DURABLE** (`order-invoice?token=` re-signe à la volée — les URLs Chariow expirent en ~1 h 30) ; absorber les e-mails tiers : « le débit apparaît sous *MiMo Global* » au panneau, clé de licence Chariow désactivée en console sinon expliquée dans l'e-mail n°1 |
+
+### Critère de réouverture (inchangé)
+**UNE recette carte→ZIP avec ZÉRO intervention de l'opérateur.** Puis réouverture, puis **up3**
+(session multi-dépôts, budget PAR document) avec les leviers vitesse **L1** (N jobs par tick — le
+bundle passe de ~20 à ~8-10 min) et **L3** (bascule de phase dans le même tick).
 > | ✅ **Revue de branche purgée (2026-08-09)** | 8 bloquants + 16 majeurs corrigés, déployés (migration `0087`, 4 Edge). Détail : §« Revue de branche » |
 > | ✅ Edge déployées | `order-source`, `order-status`, `order-gate`, `order-upload-url`, `chariow-pulse`, `job-tick` — à jour du **2026-08-10** (répétition), migrations `0083`→**`0091`** appliquées |
 > | ✅ Mesuré sur run réel (2026-08-10) | le découpage de la revue a tourné sur document réel : `terminology` et `findings` sous 60 s, **`relocations` AU-DESSUS de 60 s** (le plafond-projection l'a tuée une fois), passe sous le plafond recalibré de 100 s ; `recommendations` sous 60 s. La chaîne bout en bout : dépôt→livrable en ~17 min avec l'échec-relance, ~8 min en nominal |
