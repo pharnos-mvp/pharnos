@@ -606,6 +606,28 @@ async function envoyerEmailLivraison(
         `<p style="color:#6b7280;font-size:12px">Ce lien reste valable 30 jours. Si le bouton ne fonctionne pas, copiez cette adresse dans votre navigateur :<br>${lien}</p>`,
       ].join('')
 
+    // Partie TEXTE en plus du HTML (C5) : mieux notée par les filtres, et un webmail verrouillé
+    // en texte seul recevait sinon un message VIDE — sans le lien, donc sans les fichiers payés.
+    const texte = (en
+      ? [
+        cmd.first_name ? `Hello ${String(cmd.first_name)},` : 'Hello,',
+        '',
+        'The upgrade of your document is complete. Open this page to download your five files:',
+        '',
+        lien,
+        '',
+        'This link stays valid for 30 days.',
+      ]
+      : [
+        cmd.first_name ? `Bonjour ${String(cmd.first_name)},` : 'Bonjour,',
+        '',
+        'La mise à niveau de votre document est terminée. Ouvrez cette page pour télécharger vos cinq fichiers :',
+        '',
+        lien,
+        '',
+        'Ce lien reste valable 30 jours.',
+      ]).join('\n')
+
     await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
@@ -614,6 +636,7 @@ async function envoyerEmailLivraison(
         to: [cmd.email],
         subject: sujet,
         html: corps,
+        text: texte,
       }),
       signal: AbortSignal.timeout(10_000),
     })
