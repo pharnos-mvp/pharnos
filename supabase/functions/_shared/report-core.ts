@@ -335,7 +335,10 @@ const LOCALES: Record<OutputLang, Locale> = {
       'Constats qui demandent une décision',
       'Recommandations',
     ],
-    scanHead: '### 📄 Votre document source a été lu par reconnaissance de caractères',
+    // ⚠️ Pas d'émoji dans un livrable : le PDF (WinAnsi) le retire et le SIGNALE — la première
+    // livraison OCR réelle (KV-RL, 2026-08-14) est partie avec un avertissement « caractère
+    // retiré » causé par notre propre décoration.
+    scanHead: '### Votre document source a été lu par reconnaissance de caractères',
     scanBody: [
       // Formulé au niveau de ce qui est SU — notre mode de lecture — et non de ce qui est supposé.
       // Affirmer « aucun texte n'est enregistré dans ce PDF » énoncerait un fait sur le fichier du
@@ -389,7 +392,7 @@ const LOCALES: Record<OutputLang, Locale> = {
       'Findings that need a decision',
       'Recommendations',
     ],
-    scanHead: '### 📄 Your source document was read by character recognition',
+    scanHead: '### Your source document was read by character recognition',
     scanBody: [
       'Its content was reconstructed from the page images, for want of usable text in the file. If ' +
         'your reader shows you selectable text, that text comes from its own recognition, not from ' +

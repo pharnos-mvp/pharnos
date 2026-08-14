@@ -126,6 +126,10 @@ export async function buildDeliverablePdf(
     ᵉ: 'e',
     '−': '-',
     '‰': 'o/oo',
+    // Décoration du bandeau OCR d'ANCIENS livrables (l'assembleur ne l'émet plus) : la retirer est
+    // le rendu voulu, pas une perte à signaler — un lien de livraison vit 30 jours, ses markdowns
+    // en base gardent l'émoji d'époque.
+    '📄': '',
     // ATTENTION : espace FINE insecable (U+202F), celle que produisent Word et les traitements
     // de texte francais dans un nombre comme 250 000 UI. Hors WinAnsi, elle etait purement
     // SUPPRIMEE : le PDF portait 250000 la ou le DOCX portait 250 000. Un dosage FAUX dans une
@@ -166,7 +170,10 @@ export async function buildDeliverablePdf(
     [...String(s)]
       .map((ch) => {
         if (GLYPH_FONT[ch]) return ch
-        if (SUBST[ch]) return SUBST[ch]
+        // ⚠️ `!== undefined`, pas un test de vérité : une substitution vers la chaîne VIDE (📄)
+        // est falsy, et `if (SUBST[ch])` la faisait retomber dans `dropped` — signalée comme
+        // perte alors qu'elle est le rendu voulu.
+        if (SUBST[ch] !== undefined) return SUBST[ch]
         if (encodable(ch)) return ch
         dropped.add(ch)
         return ''
