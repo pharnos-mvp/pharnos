@@ -5,9 +5,86 @@ import { assert, assertEquals } from 'jsr:@std/assert@1'
 import {
   CONFORMITY_SPECS,
   flattenRubrics,
+  idsSousDecoupage,
   specForDocType,
   specPromptText,
 } from './conformity-specs.ts'
+
+Deno.test('RCP : 34 entrées au gabarit, dont 5 sous-découpages — 29 RUBRIQUES', () => {
+  // 29 est le chiffre que l'acheteur voit à l'écran et peut vérifier en comptant les lignes de son
+  // propre document. Les sous-découpages (`4.2-posologie`…) sont un artefact du moteur : ils
+  // portent le numéro de leur parent, donc les afficher mettait trois « 4.2 » dans la liste.
+  const toutes = flattenRubrics(CONFORMITY_SPECS.rcp)
+  const morceaux = idsSousDecoupage(CONFORMITY_SPECS.rcp)
+  assertEquals(toutes.length, 34)
+  assertEquals([...morceaux].sort(), [
+    '4.2-administration',
+    '4.2-posologie',
+    '4.6-allaitement',
+    '4.6-fertilite',
+    '4.6-grossesse',
+  ])
+  assertEquals(toutes.length - morceaux.size, 29)
+  // Les têtes de section RESTENT des rubriques : elles existent dans le document.
+  for (const id of ['4', '4.2', '4.6', '5', '6']) {
+    assert(!morceaux.has(id), `${id} est une rubrique, pas un morceau`)
+  }
+})
+
+Deno.test('flattenRubrics est en PRÉ-ORDRE : un parent précède toujours ses morceaux', () => {
+  // L'écran agrège l'état d'une rubrique découpée en lisant ses morceaux au moment où il traite le
+  // PARENT, puis les consomme. En post-ordre, les morceaux seraient déjà consommés et l'agrégat
+  // silencieusement vide — la rubrique afficherait l'état de sa seule ligne propre. Une ligne de
+  // test pour fermer un basculement qui ne lèverait aucune erreur.
+  const ids = flattenRubrics(CONFORMITY_SPECS.rcp).map((r) => r.id)
+  for (const [parent, morceau] of [
+    ['4.2', '4.2-posologie'],
+    ['4.6', '4.6-fertilite'],
+  ]) {
+    assert(ids.indexOf(parent!) < ids.indexOf(morceau!), `${parent} doit précéder ${morceau}`)
+  }
+})
+
+Deno.test('les autres gabarits n’ont AUCUN sous-découpage — la notice garde ses 26 lignes', () => {
+  // Le compte affiché, gabarit par gabarit. Ce test est le garde-fou d'un piège mesuré : dériver
+  // les morceaux du TIRET dans l'identifiant (au lieu de les déclarer) masquait 17 des 26 lignes
+  // de la notice — `2-avertissements`, `6-fabricant`… sont de VRAIS intertitres imprimés dans une
+  // notice patient — et `ville-date` de la page de garde. Le jour où l'un de ces gabarits devient
+  // livrable, l'acheteur aurait vu 9 lignes pour un document qui en porte 26, sans erreur ni trace.
+  const attendus: Record<string, [number, number]> = {
+    cover: [14, 0],
+    pght: [8, 0],
+    rcp: [34, 5],
+    notice: [26, 0],
+    labeling: [17, 0],
+  }
+  for (const [nom, spec] of Object.entries(CONFORMITY_SPECS)) {
+    const [entrees, morceaux] = attendus[nom]!
+    assertEquals(flattenRubrics(spec).length, entrees, `${nom} : nombre d'entrées`)
+    assertEquals(idsSousDecoupage(spec).size, morceaux, `${nom} : sous-découpages`)
+  }
+})
+
+Deno.test('un tiret ne fait pas un morceau : `ville-date` de la page de garde reste une rubrique', () => {
+  // Contre-exemple RÉEL, trouvé en écrivant ce test : la page de garde porte « ville-date »
+  // (« Ville et date »), un identifiant composé qui n'est le morceau de personne. Un raccourci
+  // « l'id contient un tiret » l'aurait effacé de la liste de l'acheteur le jour où ce gabarit
+  // devient livrable — sans erreur, sans trace.
+  assert(flattenRubrics(CONFORMITY_SPECS.cover).some((r) => r.id === 'ville-date'))
+  assert(!idsSousDecoupage(CONFORMITY_SPECS.cover).has('ville-date'))
+  // La notice porte même des identifiants à DEUX tirets (« 2-autres-medicaments ») dont le parent
+  // est « 2 » : aucune découpe de chaîne ne pouvait les classer correctement.
+  assert(flattenRubrics(CONFORMITY_SPECS.notice).some((r) => r.id === '2-autres-medicaments'))
+  assert(!idsSousDecoupage(CONFORMITY_SPECS.notice).has('2-autres-medicaments'))
+  // Un morceau est toujours l'ENFANT de la rubrique qu'il découpe : marquer `interne` sur une
+  // rubrique de premier niveau la ferait disparaître sans que rien ne la reprenne.
+  for (const [nom, spec] of Object.entries(CONFORMITY_SPECS)) {
+    const enfants = new Set(flattenRubrics(spec).flatMap((p) => (p.children ?? []).map((c) => c.id)))
+    for (const id of idsSousDecoupage(spec)) {
+      assert(enfants.has(id), `${nom} : « ${id} » est marqué interne mais n'est l'enfant de personne`)
+    }
+  }
+})
 
 Deno.test('les 5 specs existent et portent une référence de template', () => {
   const types = Object.keys(CONFORMITY_SPECS).sort()

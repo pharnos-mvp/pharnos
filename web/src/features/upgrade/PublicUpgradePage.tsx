@@ -61,6 +61,7 @@ import {
 } from './livraison'
 import {
   ACTIVITES,
+  avancementVisible,
   bandeauContexte,
   DOC_TYPES_LIVRABLES,
   doitChercherSource,
@@ -828,6 +829,16 @@ function EcranTraitement({
   const rubriques = rubriquesVivantes(resume?.sections, resume?.docType, langUi)
   const enCours = rubriqueEnCours(rubriques)
   const contexte = bandeauContexte(resume, langUi)
+  // Le MÊME décompte que la barre et l'estimation (`vueDepuis` en fait autant) : les intertitres du
+  // gabarit ne sont pas des rubriques, et l'acheteur peut compter les lignes de sa liste.
+  const avancement = resume ? avancementVisible(resume) : { faites: 0, total: 0 }
+  // Les échecs se comptent sur les lignes AFFICHÉES, pas sur celles du serveur : deux morceaux de
+  // la même rubrique en échec annonçaient « 2 rubriques en échec » au-dessus d'UNE seule ligne
+  // rouge. Hors conformité, la liste ne décrit plus la phase en cours — le serveur reprend la main.
+  const echecs =
+    resume?.phase === 'conformity'
+      ? rubriques.filter((r) => r.st === 'failed').length
+      : (resume?.echecs ?? 0)
 
   return (
     <div className="space-y-5">
@@ -850,7 +861,7 @@ function EcranTraitement({
           <span className="font-medium" aria-live="polite">
             {t(phase)}
             {enCours &&
-              ` — ${t({ fr: 'rubrique', en: 'section' })} ${enCours.num} ${t({ fr: 'sur', en: 'of' })} ${resume?.total ?? rubriques.length}`}
+              ` — ${t({ fr: 'rubrique', en: 'section' })} ${enCours.id} ${t({ fr: 'sur', en: 'of' })} ${avancement.total || rubriques.length}`}
           </span>
           <span className="text-muted-foreground tabular-nums">
             {reste !== null
@@ -858,7 +869,7 @@ function EcranTraitement({
                   fr: `environ ${Math.ceil(reste / 60)} min restantes`,
                   en: `about ${Math.ceil(reste / 60)} min remaining`,
                 })
-              : `${resume?.faites ?? 0} / ${resume?.total ?? 0}`}
+              : `${avancement.faites} / ${avancement.total}`}
           </span>
         </div>
         <Barre ratio={vue.progression} />
@@ -889,11 +900,11 @@ function EcranTraitement({
         </div>
       </div>
 
-      {(resume?.echecs ?? 0) > 0 && (
+      {echecs > 0 && (
         <p className="text-muted-foreground text-xs">
           {t({
-            fr: `${resume?.echecs} rubrique(s) en échec — elles seront signalées dans la revue.`,
-            en: `${resume?.echecs} section(s) failed — they will be flagged in the review.`,
+            fr: `${echecs} rubrique(s) en échec — elles seront signalées dans la revue.`,
+            en: `${echecs} section(s) failed — they will be flagged in the review.`,
           })}
         </p>
       )}
@@ -943,7 +954,7 @@ function RubriquesListe({ rubriques }: { rubriques: readonly RubriqueVivante[] }
             r.st === 'queued' && 'text-muted-foreground',
           )}
         >
-          <span className="text-muted-foreground w-9 shrink-0 font-mono text-xs">{r.num}</span>
+          <span className="text-muted-foreground w-9 shrink-0 font-mono text-xs">{r.id}</span>
           <span className="min-w-0 truncate">{r.titre}</span>
           <span className="ml-auto shrink-0">
             <StatutRubrique st={r.st} o={r.o} />
