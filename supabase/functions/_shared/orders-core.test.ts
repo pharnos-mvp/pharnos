@@ -104,8 +104,39 @@ Deno.test('Pulse : la forme RÉELLE des Pulses prod — l’identifiant sous `sa
   )
 })
 
+Deno.test('Pulse : `sale.id` prime sur l’`id` de racine — l’un est la vente, l’autre peut-être le Pulse', () => {
+  // Le premier candidat UTILISABLE, jamais le premier non nul : un `id` de racine (ambigu) ou un
+  // `sale_id: ''` ne doit ni détourner ni tuer le `sale.id` valide. Trouvé en revue de diff.
+  for (const corps of [
+    { event: PULSE_EVENT_VENTE, id: 'evt_123', sale: { id: 'SALEX5MD9EZOYKITEPM' } },
+    { event: PULSE_EVENT_VENTE, sale_id: '', sale: { id: 'SALEX5MD9EZOYKITEPM' } },
+    { event: PULSE_EVENT_VENTE, data: { sale: { id: 'SALEX5MD9EZOYKITEPM' } } },
+    { event: PULSE_EVENT_VENTE, sale: { id: '  SALEX5MD9EZOYKITEPM  ' } },
+  ]) {
+    assertEquals(
+      lirePulse(corps),
+      { event: PULSE_EVENT_VENTE, saleId: 'SALEX5MD9EZOYKITEPM' },
+      `perdu sur : ${JSON.stringify(corps)}`,
+    )
+  }
+})
+
 Deno.test('Pulse : un corps sans événement ni identifiant est refusé', () => {
-  for (const mauvais of [null, 'texte', {}, { event: 'x' }, { event: 'x', sale_id: '' }, { sale_id: 'a' }, { event: 'x', sale: { id: 42 } }, { event: 'x', sale: 'SALE_9' }]) {
+  for (const mauvais of [
+    null,
+    'texte',
+    {},
+    { event: 'x' },
+    { event: 'x', sale_id: '' },
+    { sale_id: 'a' },
+    { event: 'x', sale: { id: 42 } },
+    { event: 'x', sale: 'SALE_9' },
+    { event: 'x', sale: null },
+    { event: 'x', sale: ['SALE_9'] },
+    // `.` et `..` se normaliseraient en segments de chemin dans l'URL de re-vérification.
+    { event: 'x', sale: { id: '..' } },
+    { event: 'x', sale: { id: '.' } },
+  ]) {
     const lu = lirePulse(mauvais)
     assertEquals('erreur' in lu, true, `accepté à tort : ${JSON.stringify(mauvais)}`)
   }

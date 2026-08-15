@@ -83,6 +83,14 @@ export interface PulseLu {
 }
 
 /**
+ * Format observé en prod : `SALEX5MD9EZOYKITEPM`. Épinglé maintenant qu'on le CONNAÎT : le motif
+ * interdit au passage `.` et `..`, que `fetch` normaliserait en segments de chemin dans l'URL de
+ * re-vérification (`/v1/sales/..` → `/v1/`, mesuré) — `encodeURIComponent` borne la remontée mais
+ * autant ne jamais partir. 120 : même plafond de longueur qu'avant.
+ */
+const SALE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/
+
+/**
  * Lit un Pulse. On n'en retient QUE deux choses : l'événement et l'identifiant de vente.
  *
  * Tout le reste du corps est ignoré — non par prudence de principe, mais parce qu'il n'est
@@ -103,13 +111,21 @@ export function lirePulse(body: unknown): PulseLu | { erreur: string } {
   // L'identifiant se présente sous plusieurs formes selon les intégrations Chariow : à plat,
   // porté par l'objet `data`, ou porté par l'objet `sale` — la forme RÉELLE des Pulses
   // `successful.sale`, observée en prod au rejeu de la vente du 14/08/2026 (le corps signé est
-  // `{ event, sale: { id, … }, store, product, customer }` ; les deux premières formes ne
-  // venaient que de la documentation). On accepte les trois, on n'invente pas la quatrième.
+  // `{ event, sale: { id, … }, store, product, customer }` ; les formes plates ne venaient que
+  // de la documentation). `data.sale ?? b.sale` couvre la composition des deux sans rien élargir.
   const data = b.data && typeof b.data === 'object' ? b.data as Record<string, unknown> : b
-  const vente = b.sale && typeof b.sale === 'object' ? b.sale as Record<string, unknown> : null
-  const brut = data.sale_id ?? data.saleId ?? data.id ?? vente?.id
-  const saleId = typeof brut === 'string' ? brut.trim() : ''
-  if (!saleId || saleId.length > 120) return { erreur: 'identifiant de vente absent ou hors bornes' }
+  const conteneur = data.sale ?? b.sale
+  const vente = conteneur && typeof conteneur === 'object'
+    ? conteneur as Record<string, unknown>
+    : null
+  // Le premier candidat UTILISABLE, jamais le premier NON NUL : `??` s'arrêterait sur un
+  // `id: 42` ou un `sale_id: ''` et perdrait le `sale.id` valide qui suit. Et `sale.id`
+  // (explicite) prime sur l'`id` de RACINE, ambigu — quand il n'y a pas d'enveloppe `data`,
+  // `data.id` EST l'id de racine, c'est-à-dire peut-être celui du Pulse, pas de la vente.
+  const brut = [data.sale_id, data.saleId, vente?.id, data.id]
+    .find((c): c is string => typeof c === 'string' && c.trim() !== '')
+  const saleId = brut?.trim() ?? ''
+  if (!SALE_ID_RE.test(saleId)) return { erreur: 'identifiant de vente absent ou hors bornes' }
 
   return { event, saleId }
 }

@@ -60,7 +60,10 @@ Deno.serve(async (req) => {
   // par morceaux), et `.length` compte des unités UTF-16 donc MINORE les octets — marge de 2.
   const annonce = Number(req.headers.get('content-length') ?? '0')
   if (Number.isFinite(annonce) && annonce > MAX_BODY_BYTES) {
-    logJson({ ...log, status: 'body_too_large' })
+    // La taille dans le log : le corps réel porte `sale`+`store`+`product`+`customer` — bien plus
+    // que le `{event, sale_id}` supposé à l'origine. Si un jour un Pulse dépasse le plafond, il
+    // faut pouvoir dire DE COMBIEN sans rejouer la livraison.
+    logJson({ ...log, status: 'body_too_large', octets: annonce })
     return json({ error: 'payload_too_large' }, 413)
   }
   // ⚠️ Les OCTETS, pas le texte : la signature couvre le corps BRUT tel que reçu. Décoder puis
@@ -68,7 +71,7 @@ Deno.serve(async (req) => {
   // contrat interdit explicitement.
   const octets = new Uint8Array(await req.arrayBuffer())
   if (octets.byteLength > MAX_BODY_BYTES) {
-    logJson({ ...log, status: 'body_too_large' })
+    logJson({ ...log, status: 'body_too_large', octets: octets.byteLength })
     return json({ error: 'payload_too_large' }, 413)
   }
 
@@ -206,6 +209,9 @@ Deno.serve(async (req) => {
     // Jamais l'adresse : seulement si l'envoi a abouti.
     mail: naissance.mail,
     ref: v.ref ? v.ref.slice(0, 8) : null,
+    // La taille RÉELLE des Pulses en prod : c'est elle qui dira si le plafond de 16 Ko a de la
+    // marge, plutôt qu'une hypothèse de plus sur un corps qu'on a déjà mal deviné une fois.
+    octets: octets.byteLength,
   })
   // 200 même si l'e-mail a échoué : la COMMANDE existe, et c'est elle qui fait foi. Un rejeu
   // Chariow retentera l'envoi grâce à `notified_at` resté nul.
