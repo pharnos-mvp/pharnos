@@ -25,5 +25,10 @@ fb233954dc18980b2760689cd328a8198a42f6f0:supabase/functions/_shared/checkout-cor
 #    secret d'exemple construit pour le test — la règle generic-api-key voit un identifiant
 #    `secret` affecté d'une valeur à préfixe whsec_ et s'alarme. Aucun secret réel : le vrai
 #    whsec vit dans la console Chariow et les secrets Edge, jamais dans le dépôt.
-3b8a7280a6c7fcbee80ed67ab3540f19a5439a72:supabase/functions/_shared/pulse-signature.test.ts:generic-api-key:22
-3b8a7280a6c7fcbee80ed67ab3540f19a5439a72:supabase/functions/_shared/pulse-signature.test.ts:generic-api-key:29
+#
+#    ⚠️ Épinglé une première fois au commit de BRANCHE (3b8a7280…) — la fusion SQUASH de la
+#    PR #477 a réécrit le hash, et l'empreinte est morte avec lui : toute PR suivante re-butait
+#    sur les mêmes lignes sous le hash squashé. Un fingerprint se pose donc sur le commit tel
+#    qu'il existera DANS main — c'est-à-dire APRÈS la fusion pour un dépôt en squash-merge.
+3f5524cce2acdbd3f21621647d28070377322f6d:supabase/functions/_shared/pulse-signature.test.ts:generic-api-key:22
+3f5524cce2acdbd3f21621647d28070377322f6d:supabase/functions/_shared/pulse-signature.test.ts:generic-api-key:29
