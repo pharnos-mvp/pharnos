@@ -112,8 +112,25 @@ export function lirePulse(body: unknown): PulseLu | { erreur: string } {
 
 /* ─────────────────────────── La vente, telle que l'API la confirme ────────────────────────── */
 
-/** Statuts que Chariow donne à une vente réglée. Tout autre statut ⇒ aucune commande. */
-const STATUTS_PAYES = new Set(['paid', 'completed', 'complete', 'success', 'successful', 'terminé', 'termine'])
+/**
+ * Statuts que Chariow donne à une vente RÉGLÉE. Tout autre statut ⇒ aucune commande.
+ *
+ * ⚠️ `settled` en fait partie : c'est une vente payée dont les fonds ont été REVERSÉS au vendeur
+ * (le statut avance tout seul chez Chariow). La refuser affamait la réconciliation : une vente
+ * passée `settled` avant d'être née restait à jamais non-naissable, re-vérifiée toutes les deux
+ * minutes, et occupait un créneau du balayage pour rien — trouvé en revue de diff.
+ * EXPORTÉE : `reconcile-core` trie sur la MÊME liste — deux listes divergeraient exactement là.
+ */
+export const STATUTS_PAYES = new Set([
+  'paid',
+  'completed',
+  'complete',
+  'settled',
+  'success',
+  'successful',
+  'terminé',
+  'termine',
+])
 
 export interface VenteVerifiee {
   saleId: string

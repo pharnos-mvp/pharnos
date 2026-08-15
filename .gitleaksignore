@@ -20,3 +20,10 @@ fb233954dc18980b2760689cd328a8198a42f6f0:supabase/functions/_shared/checkout-cor
 # 2) La première version de CE fichier citait la ligne du point 1 dans son commentaire — et se
 #    faisait donc détecter à son tour. Commentaire réécrit, empreinte morte épinglée.
 561318455b32678603120037ae4ed078a2d22282:.gitleaksignore:generic-api-key:11
+
+# 3) Fixtures SYNTHÉTIQUES du test de signature des Pulses (LOT C3) : « whsec_test_… » est un
+#    secret d'exemple construit pour le test — la règle generic-api-key voit un identifiant
+#    `secret` affecté d'une valeur à préfixe whsec_ et s'alarme. Aucun secret réel : le vrai
+#    whsec vit dans la console Chariow et les secrets Edge, jamais dans le dépôt.
+3b8a7280a6c7fcbee80ed67ab3540f19a5439a72:supabase/functions/_shared/pulse-signature.test.ts:generic-api-key:22
+3b8a7280a6c7fcbee80ed67ab3540f19a5439a72:supabase/functions/_shared/pulse-signature.test.ts:generic-api-key:29

@@ -18,7 +18,6 @@ import {
   fmtMontant,
   MAX_OCTETS,
   nouvelleCommande,
-  TRIO_UPGRADABLE,
   OFFRES,
   PRIX,
   PRIX_UP3_PLEIN,
@@ -135,92 +134,24 @@ describe('document déposé', () => {
   })
 })
 
-describe('commande — le contexte est capté AVANT le premier appel du moteur', () => {
+describe('commande — B2 : la configuration se donne APRÈS le paiement, sur /u/', () => {
   const base = {
     doc: 'rcp',
-    pays: 'sn',
-    activite: 'amm',
     offre: 'up1',
-    fichier: new Blob(['x']),
-    nomFichier: 'rcp.pdf',
-    octets: 1,
     id: 'id-1',
     cree: 1_700_000_000_000,
   }
 
-  it('conserve le pays, l’activité et le document', () => {
+  it('ne porte QUE le document et l’offre — ni fichier, ni pays, ni activité', () => {
+    // B2 (directive CEO) : le panneau d'achat = offre + identité + payer. Pays, activité et
+    // dépôt vivent sur la page sécurisée — la commande locale ne sert qu'au récapitulatif.
     const c = nouvelleCommande(base)
-    expect(c).toMatchObject({ doc: 'rcp', pays: 'sn', activite: 'amm', offre: 'up1' })
-    expect(c.fichier).toBeInstanceOf(Blob)
+    expect(c).toEqual({ id: 'id-1', cree: 1_700_000_000_000, doc: 'rcp', offre: 'up1' })
   })
 
-  it('refuse une activité vide ou inconnue', () => {
-    // Pays et activité entrent dans le prompt de CHAQUE rubrique : les laisser passer vides
-    // produirait un document mis à niveau sur un contexte que personne n'a choisi.
-    expect(() => nouvelleCommande({ ...base, activite: '' })).toThrow(/activité inconnue/)
-    expect(() => nouvelleCommande({ ...base, activite: 'variation' })).toThrow(/activité inconnue/)
-  })
-
-  /* ── Le bundle vend TROIS documents : la commande doit les PORTER, pas les promettre.
-     Sans ces garanties, on encaisse 69 € puis on réclame le reste par e-mail — le client
-     travaille après avoir payé, et la commande part sans sa matière. ── */
-  const annexe = (doc: string) => ({ doc, fichier: new File(['x'], `${doc}.pdf`) })
-
-  it('le bundle porte les DEUX autres documents du trio, ni plus ni moins', () => {
-    expect(() => nouvelleCommande({ ...base, offre: 'up3' })).toThrow(/le bundle attend/)
-    expect(() => nouvelleCommande({ ...base, offre: 'up3', annexes: [annexe('notice')] })).toThrow(
-      /le bundle attend/,
-    )
-    const c = nouvelleCommande({
-      ...base,
-      offre: 'up3',
-      annexes: [annexe('notice'), annexe('etiquetage')],
-    })
-    expect(c.annexes.map((a: { doc: string }) => a.doc).sort()).toEqual(['etiquetage', 'notice'])
-    // Nom et taille sont DÉRIVÉS du fichier : l'écran de confirmation ne lit que ceux-là.
-    expect(c.annexes[0]).toMatchObject({ nomFichier: 'notice.pdf', octets: 1 })
-  })
-
-  it('compter ne suffit pas — deux fois le même document n’est pas un bundle', () => {
-    expect(() =>
-      nouvelleCommande({ ...base, offre: 'up3', annexes: [annexe('notice'), annexe('notice')] }),
-    ).toThrow(/le bundle attend/)
-  })
-
-  it('une offre à un document ne porte aucune annexe', () => {
-    expect(() => nouvelleCommande({ ...base, annexes: [annexe('notice')] })).toThrow(
-      /ne porte pas d'annexe/,
-    )
-  })
-
-  it('refuse une annexe sans fichier ou de document inconnu', () => {
-    expect(() =>
-      nouvelleCommande({
-        ...base,
-        offre: 'up3',
-        // Un appelant JS peut passer une annexe sans fichier : le contrat doit le refuser
-        // AVANT la commande, pas en lisant plus tard un Blob absent.
-        annexes: [annexe('notice'), { doc: 'etiquetage' } as unknown as ReturnType<typeof annexe>],
-      }),
-    ).toThrow(/sans fichier/)
-    expect(() =>
-      nouvelleCommande({ ...base, offre: 'up3', annexes: [annexe('notice'), annexe('qos-pd')] }),
-    ).toThrow(/le bundle attend/)
-  })
-
-  it('le trio est DÉRIVÉ du manifeste, jamais recopié', () => {
-    // Un quatrième document `upgradable` ferait un bundle à trois annexes qu'aucun écran ne
-    // collecte : le test échoue AVANT que la vente ne casse.
-    expect([...TRIO_UPGRADABLE].sort()).toEqual(['etiquetage', 'notice', 'rcp'])
-  })
-
-  it('accepte le renouvellement, qui change les rubriques 8, 9 et 10', () => {
-    expect(nouvelleCommande({ ...base, activite: 'renouv' }).activite).toBe('renouv')
-  })
-
-  it('refuse une offre ou un document inconnus', () => {
-    expect(() => nouvelleCommande({ ...base, offre: 'abo' })).toThrow(/offre inconnue/)
-    expect(() => nouvelleCommande({ ...base, doc: 'qos' })).toThrow(/document inconnu/)
+  it('refuse une offre ou un document inconnus — le récapitulatif ne ment pas', () => {
+    expect(() => nouvelleCommande({ ...base, offre: 'up9' })).toThrow(/offre inconnue/)
+    expect(() => nouvelleCommande({ ...base, doc: 'inconnu' })).toThrow(/document inconnu/)
   })
 })
 

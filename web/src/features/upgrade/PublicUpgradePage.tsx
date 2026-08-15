@@ -38,6 +38,7 @@ import {
 } from '@/lib/ocr/prepare-source'
 import { cn } from '@/lib/utils'
 import {
+  demanderFacture,
   demanderSource,
   demanderUrlDepot,
   franchirPorte,
@@ -591,6 +592,12 @@ export function PublicUpgradePage({ token }: { token: string }) {
           )}
         </>
       )}
+
+      {/* ⚠️ La facture vit sur TOUS les écrans d'une commande valide — pas seulement la livraison :
+          l'e-mail n°1 la promet « depuis votre page de suivi » DÈS la naissance, et c'est entre le
+          paiement et la livraison que le lien Chariow (~1 h 30) meurt entre les mains du comptable.
+          Une promesse d'e-mail que la page ne tient pas serait pire que pas de promesse. */}
+      {resume && <BoutonFacture token={token} />}
     </Cadre>
   )
 }
@@ -1307,6 +1314,65 @@ function Cadre({ children, large }: { children: React.ReactNode; large?: boolean
           <div className="space-y-5">{children}</div>
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * La facture officielle, DURABLE (LOT C5) — l'URL Chariow expire en ~1 h 30, celle-ci se
+ * re-signe à chaque clic tant que le lien de livraison vit. Le jeton part dans le CORPS d'un
+ * POST, jamais dans une URL. `url: null` (commande née hors Chariow, recette) masque le bouton
+ * après le premier essai — on ne promet pas une facture qui n'existe pas.
+ */
+function BoutonFacture({ token }: { token: string }) {
+  const { t } = useI18n()
+  const [etat, setEtat] = useState<'repos' | 'chargement' | 'absente' | 'echec'>('repos')
+  if (etat === 'absente') return null
+  return (
+    <div className="space-y-1">
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full"
+        disabled={etat === 'chargement'}
+        onClick={() => {
+          // ⚠️ La fenêtre s'ouvre DANS le geste de clic : après l'`await`, le jeton d'interaction
+          // est perdu et Safari/Firefox bloquent en silence — l'acheteur croirait le bouton mort.
+          // On ouvre un onglet vide tout de suite, on le fait naviguer quand l'URL arrive.
+          const onglet = window.open('', '_blank')
+          setEtat('chargement')
+          void demanderFacture(token)
+            .then((r) => {
+              if (!r.url) {
+                onglet?.close()
+                setEtat('absente')
+                return
+              }
+              setEtat('repos')
+              if (onglet) onglet.location.href = r.url
+              else window.location.href = r.url
+            })
+            .catch(() => {
+              onglet?.close()
+              setEtat('echec')
+            })
+        }}
+      >
+        {etat === 'chargement' ? (
+          <Loader2 className="size-4 animate-spin" />
+        ) : (
+          <FileText className="size-4" />
+        )}
+        {t({ fr: 'Facture officielle (PDF)', en: 'Official invoice (PDF)' })}
+      </Button>
+      {etat === 'echec' && (
+        <p className="text-muted-foreground text-xs">
+          {t({
+            fr: 'La facture n’a pas pu être récupérée — réessayez dans un instant.',
+            en: 'The invoice could not be fetched — try again in a moment.',
+          })}
+        </p>
+      )}
     </div>
   )
 }

@@ -517,6 +517,16 @@ verify_jwt = false
 [functions.order-status]
 verify_jwt = false
 
+# La réconciliation ACTIVE des ventes (LOT C1) : surface cron, auth par x-cron-secret (hash Vault),
+# aucun CORS — la chaîne n'est plus jamais suspendue au webhook d'un tiers.
+[functions.chariow-reconcile]
+verify_jwt = false
+
+# La facture officielle DURABLE (LOT C5) : le jeton de livraison autorise, l'Edge re-signe l'URL
+# Chariow à la volée — les liens de facture expirent en ~1 h 30, le lien de livraison vit 30 jours.
+[functions.order-invoice]
+verify_jwt = false
+
 # Le document déposé, rendu à la page qui doit le LIRE. Le téléversement vient de `pharnos.com`, la
 # lecture se fait depuis `app.pharnos.com` : deux origines, donc aucun stockage navigateur partagé —
 # Storage est le seul chemin, et cette surface le signe. Elle CONSTATE l'objet avant de faire passer

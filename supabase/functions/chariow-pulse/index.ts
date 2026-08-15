@@ -8,9 +8,15 @@
 // Contrat de sécurité :
 //   • `verify_jwt = false` : Chariow n'a pas de compte chez nous. Et **aucun en-tête CORS** — ce
 //     n'est pas une surface navigateur, c'est du serveur à serveur. Une page web n'a rien à y faire.
-//   • **Le Pulse n'est pas cru.** Les Pulses Chariow ne portent AUCUN secret de signature (vérifié
-//     en console le 2026-07-28). On ne lui accorde qu'une chose : un IDENTIFIANT de vente à aller
-//     vérifier. Produit, montant, acheteur viennent de `GET /v1/sales/{id}`, jamais du corps reçu.
+//   • **La SIGNATURE d'abord (C3)** : chaque Pulse porte `x-chariow-signature: sha256=<hex>` —
+//     HMAC-SHA256 du corps BRUT, clé = le secret `whsec_…` propre au Pulse (contrat complet :
+//     chariow.dev, « Pulse Security »). Vérifiée en temps constant AVANT toute dépense (base, API).
+//     Secret non posé → mode OBSERVATION : on journalise sans refuser — l'absence de configuration
+//     ne doit pas suspendre les ventes, et la re-vérification reste l'autorité.
+//   • **Le Pulse n'est toujours pas cru sur son CONTENU.** Signé ou pas, on ne lui accorde qu'un
+//     IDENTIFIANT de vente à aller vérifier : produit, montant, acheteur viennent de
+//     `GET /v1/sales/{id}`, jamais du corps reçu. La signature ferme le martèlement ; la
+//     re-vérification ferme le mensonge.
 //   • **Idempotence par la base** : `orders.chariow_sale_id` est `unique`. Chariow rejoue cinq fois
 //     (1 min → 24 h) ; le deuxième Pulse ne crée rien.
 //   • Écriture en service-role uniquement — les trois tables sont en RLS sans policy.
@@ -18,21 +24,13 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
 import { logJson, newReqId } from '../_shared/log.ts'
-import {
-  deliveryExpiryFrom,
-  deliveryTokenHash,
-  lirePulse,
-  lireVente,
-  newDeliveryToken,
-  PULSE_EVENT_VENTE,
-  type VenteVerifiee,
-} from '../_shared/orders-core.ts'
+import { faireNaitreCommande } from '../_shared/order-birth.ts'
+import { lirePulse, lireVente, PULSE_EVENT_VENTE } from '../_shared/orders-core.ts'
+import { signaturePulseValide } from '../_shared/pulse-signature.ts'
 
 const MAX_BODY_BYTES = 16 * 1024
 const CHARIOW_TIMEOUT_MS = 15_000
 const CHARIOW_SALES = 'https://api.chariow.com/v1/sales'
-/** L'après-paiement vit dans `web/`, sur le patron de page publique par jeton (§2.1). */
-const LIEN_LIVRAISON = 'https://app.pharnos.com/u'
 // Un webhook public reste une surface : on borne le débit GLOBAL. Le but n'est pas d'arrêter
 // Chariow (qui n'en approchera jamais) mais d'empêcher un tiers de nous faire marteler l'API
 // Chariow avec des identifiants inventés.
@@ -65,15 +63,41 @@ Deno.serve(async (req) => {
     logJson({ ...log, status: 'body_too_large' })
     return json({ error: 'payload_too_large' }, 413)
   }
-  const brut = await req.text()
-  if (brut.length * 2 > MAX_BODY_BYTES) {
+  // ⚠️ Les OCTETS, pas le texte : la signature couvre le corps BRUT tel que reçu. Décoder puis
+  // ré-encoder pour le HMAC introduirait la seule classe d'écart (normalisation UTF-8) que le
+  // contrat interdit explicitement.
+  const octets = new Uint8Array(await req.arrayBuffer())
+  if (octets.byteLength > MAX_BODY_BYTES) {
     logJson({ ...log, status: 'body_too_large' })
     return json({ error: 'payload_too_large' }, 413)
   }
 
+  // ── C3 : la signature, AVANT toute dépense ────────────────────────────────────────────────────
+  // Le contrôle est pur CPU : il tombe avant la base, avant la limitation de débit, avant l'appel
+  // Chariow. Un tiers qui poste des corps forgés est arrêté au premier calcul.
+  const whsec = Deno.env.get('CHARIOW_PULSE_SECRET')
+  const recue = req.headers.get('x-chariow-signature') ?? ''
+  if (whsec) {
+    if (!(await signaturePulseValide(whsec, octets, recue))) {
+      logJson({ ...log, status: 'signature_refusee' })
+      return json({ error: 'invalid_signature' }, 401)
+    }
+  } else if (Deno.env.get('CHARIOW_PULSE_OBSERVE') === '1') {
+    // Mode OBSERVATION — EXPLICITE, jamais un défaut : `CHARIOW_PULSE_OBSERVE=1` est posé le
+    // temps que le secret soit copié depuis la console Chariow. Un secret PERDU dans un déploiement
+    // ne rouvre pas la porte en silence : sans lui ET sans le drapeau, on ferme (branche suivante).
+    logJson({ ...log, status: 'signature_non_verifiee', portee: recue ? 'presente' : 'absente' })
+  } else {
+    // Ni secret ni observation déclarée : porte FERMÉE. L'absence de configuration ne doit jamais
+    // ouvrir — même règle que le secret cron de `job-tick`. La réconciliation (C1), authentifiée
+    // par Vault, continue de faire naître les ventes pendant qu'on répare la configuration.
+    logJson({ ...log, status: 'signature_non_configuree' })
+    return json({ error: 'not_configured' }, 503)
+  }
+
   let corps: unknown
   try {
-    corps = JSON.parse(brut)
+    corps = JSON.parse(new TextDecoder().decode(octets))
   } catch {
     logJson({ ...log, status: 'bad_json' })
     return acquitte('json_illisible')
@@ -166,82 +190,12 @@ Deno.serve(async (req) => {
     return acquitte(v.erreur)
   }
 
-  // ── Naissance de la commande, idempotente par la contrainte `unique` ──────────────────────────
-  const maintenant = new Date()
-  const expire = deliveryExpiryFrom(maintenant).toISOString()
-  const { data: cree, error: insErr } = await supabase
-    .from('orders')
-    .insert({
-      ref: v.ref,
-      chariow_sale_id: v.saleId,
-      offre: v.offre,
-      essai: v.essai,
-      amount_minor: v.amountMinor,
-      currency: v.currency,
-      email: v.email,
-      first_name: v.firstName,
-      last_name: v.lastName,
-      lang: v.lang,
-      delivery_expires_at: expire,
-    })
-    .select('id')
-    .maybeSingle()
-
-  let orderId: string | null = cree?.id ?? null
-
-  if (insErr) {
-    // 23505 = violation d'unicité : c'est le REJEU, le cas nominal du webhook. Tout autre code est
-    // une vraie panne d'écriture, et Chariow doit revenir.
-    if (insErr.code !== '23505') {
-      logJson({ ...log, status: 'insert_error', code: insErr.code })
-      return json({ error: 'db' }, 503)
-    }
-    const { data: deja } = await supabase
-      .from('orders')
-      .select('id, notified_at')
-      .eq('chariow_sale_id', v.saleId)
-      .maybeSingle()
-    if (!deja) {
-      logJson({ ...log, status: 'conflit_sans_ligne' })
-      return json({ error: 'db' }, 503)
-    }
-    if (deja.notified_at) {
-      logJson({ ...log, status: 'rejeu', essai: v.essai })
-      return json({ ok: true, replay: true }, 200)
-    }
-    // La commande existe mais son e-mail n'est JAMAIS parti. On en émet simplement un NOUVEAU :
-    // les jetons sont multiples par conception (`order_tokens`), donc rien n'est invalidé et il
-    // n'y a aucune course à assumer. C'est ce qui rend l'e-mail n°1 fiable à travers les cinq
-    // rejeux de Chariow.
-    orderId = deja.id
-  }
-
-  if (!orderId) {
-    logJson({ ...log, status: 'sans_order_id' })
-    return json({ error: 'db' }, 503)
-  }
-
-  const jeton = newDeliveryToken()
-  const { error: tokErr } = await supabase.from('order_tokens').insert({
-    token_hash: await deliveryTokenHash(jeton),
-    order_id: orderId,
-    expires_at: expire,
-    source: 'email',
-  })
-  if (tokErr) {
-    // Sans jeton, l'e-mail n°1 ne mènerait nulle part : mieux vaut le rejeu de Chariow qu'un
-    // message porteur d'un lien mort.
-    logJson({ ...log, status: 'token_error' })
-    return json({ error: 'db' }, 503)
-  }
-
-  // ── E-mail n°1 : le FILET du parcours ─────────────────────────────────────────────────────────
-  // Ce n'est pas une courtoisie. C'est le seul chemin d'accès de l'acheteur vers son livrable s'il
-  // ferme l'onglet avant la redirection — cas explicitement prévu par le plan (§2.3, étape 4).
-  const lien = `${LIEN_LIVRAISON}/${jeton}`
-  const envoye = await envoyerEmail(v, lien)
-  if (envoye && orderId) {
-    await supabase.from('orders').update({ notified_at: new Date().toISOString() }).eq('id', orderId)
+  // ── Naissance de la commande — le chemin PARTAGÉ avec la réconciliation (C1) ──────────────────
+  const naissance = await faireNaitreCommande(supabase, v, log)
+  if (naissance.statut === 'erreur') return json({ error: 'db' }, 503)
+  if (naissance.statut === 'rejeu') {
+    logJson({ ...log, status: 'rejeu', essai: v.essai })
+    return json({ ok: true, replay: true }, 200)
   }
 
   logJson({
@@ -250,126 +204,10 @@ Deno.serve(async (req) => {
     offre: v.offre,
     essai: v.essai,
     // Jamais l'adresse : seulement si l'envoi a abouti.
-    mail: envoye ? 'sent' : 'failed',
+    mail: naissance.mail,
     ref: v.ref ? v.ref.slice(0, 8) : null,
   })
   // 200 même si l'e-mail a échoué : la COMMANDE existe, et c'est elle qui fait foi. Un rejeu
   // Chariow retentera l'envoi grâce à `notified_at` resté nul.
   return json({ ok: true }, 200)
 })
-
-const escapeHtml = (s: string) =>
-  s.replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string,
-  )
-
-/**
- * Identité légale portée par le REÇU — AASK SARL, la structure derrière Pharnos.
- *
- * ⚠️ Ce n'est pas de la décoration : l'attestation d'immatriculation exige que l'IFU figure
- * « sur toutes les quittances, factures ou lettres » émises. Demande CEO du 2026-08-14, après
- * une première vente réelle passée sans aucun reçu.
- */
-const RECU_VENDEUR = {
-  nom: 'Pharnos — un service de AASK SARL',
-  rccm: 'RCCM Cotonou N° RB/COT/21 B 31197',
-  ifu: 'IFU 3202113643386',
-  adresse: 'Zogbohouè, 03 BP 4245 Jéricho, Cotonou, Bénin',
-  contact: 'contact@pharnos.com',
-}
-
-/** Libellés facturables des offres — celui du reçu, pas celui du catalogue technique. */
-const RECU_LIBELLES: Record<string, { fr: string; en: string }> = {
-  up1: { fr: 'Mise à niveau documentaire — 1 document', en: 'Document upgrade — 1 document' },
-  up3: {
-    fr: 'Mise à niveau documentaire — les trois documents',
-    en: 'Document upgrade — all three documents',
-  },
-}
-
-/** Bloc reçu de l'e-mail n°1 — montant, méthode, vendeur, et la facture officielle si la vente
- *  en porte une. Tout vient de la vente VÉRIFIÉE ; un champ absent se tait au lieu de mentir. */
-function blocRecu(v: VenteVerifiee): string {
-  const en = v.lang === 'en'
-  const lignes: string[] = []
-  const libelle = RECU_LIBELLES[v.offre]?.[v.lang] ?? v.offre
-  const montant = v.amountMinor !== null
-    ? `${v.amountMinor.toLocaleString(en ? 'en-US' : 'fr-FR')} ${escapeHtml(v.currency ?? 'FCFA')}`
-    : null
-  lignes.push(
-    `<tr><td style="padding:2px 12px 2px 0;color:#6b7280">${en ? 'Order' : 'Commande'}</td><td>${escapeHtml(libelle)}</td></tr>`,
-  )
-  if (montant) {
-    lignes.push(
-      `<tr><td style="padding:2px 12px 2px 0;color:#6b7280">${en ? 'Amount paid' : 'Montant réglé'}</td><td><strong>${montant}</strong></td></tr>`,
-    )
-  }
-  if (v.paymentMethod) {
-    lignes.push(
-      `<tr><td style="padding:2px 12px 2px 0;color:#6b7280">${en ? 'Payment method' : 'Moyen de paiement'}</td><td>${escapeHtml(v.paymentMethod)}</td></tr>`,
-    )
-  }
-  lignes.push(
-    `<tr><td style="padding:2px 12px 2px 0;color:#6b7280">${en ? 'Reference' : 'Référence'}</td><td>${escapeHtml(v.saleId)}</td></tr>`,
-  )
-  const facture = v.invoiceUrl
-    ? `<p style="margin:8px 0 0"><a href="${v.invoiceUrl}" style="color:#1d4ed8">${
-      en ? 'Download the official invoice (PDF)' : 'Télécharger la facture officielle (PDF)'
-    }</a></p>`
-    : ''
-  return [
-    `<div style="margin-top:20px;padding:14px 16px;border:1px solid #e5e7eb;border-radius:10px;font-size:13px">`,
-    `<p style="margin:0 0 8px;font-weight:700">${en ? 'Payment receipt' : 'Reçu de paiement'}</p>`,
-    `<table style="border-collapse:collapse">${lignes.join('')}</table>`,
-    facture,
-    `<p style="margin:10px 0 0;color:#6b7280;font-size:11px">${escapeHtml(RECU_VENDEUR.nom)} · ${
-      escapeHtml(RECU_VENDEUR.rccm)
-    } · ${escapeHtml(RECU_VENDEUR.ifu)}<br>${escapeHtml(RECU_VENDEUR.adresse)} · ${
-      escapeHtml(RECU_VENDEUR.contact)
-    }</p>`,
-    `</div>`,
-  ].join('')
-}
-
-async function envoyerEmail(v: VenteVerifiee, lien: string): Promise<boolean> {
-  const apiKey = Deno.env.get('RESEND_API_KEY')
-  if (!apiKey) return false
-  const from = Deno.env.get('EMAIL_FROM') ?? 'Pharnos <onboarding@resend.dev>'
-  const en = v.lang === 'en'
-  const bonjour = v.firstName
-    ? `${en ? 'Hello' : 'Bonjour'} ${escapeHtml(v.firstName)},`
-    : (en ? 'Hello,' : 'Bonjour,')
-  const sujet = v.essai
-    ? (en ? '[TEST] Your order is registered' : '[RECETTE] Votre commande est enregistrée')
-    : (en ? 'Your order is registered — Pharnos' : 'Votre commande est enregistrée — Pharnos')
-
-  const corps = en
-    ? [
-      `<p>${bonjour}</p>`,
-      '<p>Your payment has been received and your order is registered. Everything happens on the secure page below — <strong>you can close this email and come back later</strong>: the link stays valid for 30 days.</p>',
-      `<p><a href="${lien}" style="display:inline-block;background:#d29922;color:#20160a;font-weight:700;padding:12px 22px;border-radius:99px;text-decoration:none">Open my upgrade →</a></p>`,
-      '<p>On that page you will upload your document, we check it is the right kind, and the analysis starts. <strong>You may close the tab while it runs</strong> — come back to this link whenever you like, it stays valid for 30 days.</p>',
-      `<p style="color:#6b7280;font-size:12px">If the button does not work, copy this address into your browser:<br>${lien}</p>`,
-      blocRecu(v),
-    ].join('')
-    : [
-      `<p>${bonjour}</p>`,
-      '<p>Votre règlement nous est bien parvenu et votre commande est enregistrée. Tout se passe sur la page sécurisée ci-dessous — <strong>vous pouvez fermer cet e-mail et y revenir plus tard</strong> : le lien reste valable 30 jours.</p>',
-      `<p><a href="${lien}" style="display:inline-block;background:#d29922;color:#20160a;font-weight:700;padding:12px 22px;border-radius:99px;text-decoration:none">Ouvrir ma mise à niveau →</a></p>`,
-      '<p>Vous y déposerez votre document, nous vérifions qu’il s’agit bien du bon type, puis l’analyse démarre. <strong>Vous pouvez fermer l’onglet pendant le traitement</strong> — revenez sur ce lien quand vous voulez, il reste valable 30 jours.</p>',
-      `<p style="color:#6b7280;font-size:12px">Si le bouton ne fonctionne pas, recopiez cette adresse dans votre navigateur :<br>${lien}</p>`,
-      blocRecu(v),
-    ].join('')
-
-  try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ from, to: [v.email], subject: sujet, html: corps }),
-    })
-    return res.ok
-  } catch {
-    return false
-  }
-}

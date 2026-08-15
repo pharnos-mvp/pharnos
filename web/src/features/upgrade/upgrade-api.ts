@@ -311,3 +311,11 @@ export const lireLivrable = (token: string) =>
  * renverrait l'acheteur sur « commande introuvable » alors qu'elle naît une seconde plus tard.
  */
 export const reclamerJeton = (ref: string) => poster<{ token: string }>('order-claim', { ref })
+
+/**
+ * La facture officielle, re-signée à la volée (LOT C5) — les URLs Chariow expirent en ~1 h 30,
+ * ce chemin-ci vit aussi longtemps que le lien de livraison. `url: null` = pas de facture pour
+ * cette commande (née hors Chariow, en recette) : l'écran masque le bouton, il ne promet rien.
+ */
+export const demanderFacture = (token: string) =>
+  poster<{ url: string | null }>('order-invoice', { token })
