@@ -100,10 +100,14 @@ export function lirePulse(body: unknown): PulseLu | { erreur: string } {
     : ''
   if (!event) return { erreur: 'événement absent' }
 
-  // L'identifiant se présente sous plusieurs formes selon les intégrations Chariow : à plat, ou
-  // porté par l'objet `data`. On accepte les deux, on n'invente pas la troisième.
+  // L'identifiant se présente sous plusieurs formes selon les intégrations Chariow : à plat,
+  // porté par l'objet `data`, ou porté par l'objet `sale` — la forme RÉELLE des Pulses
+  // `successful.sale`, observée en prod au rejeu de la vente du 14/08/2026 (le corps signé est
+  // `{ event, sale: { id, … }, store, product, customer }` ; les deux premières formes ne
+  // venaient que de la documentation). On accepte les trois, on n'invente pas la quatrième.
   const data = b.data && typeof b.data === 'object' ? b.data as Record<string, unknown> : b
-  const brut = data.sale_id ?? data.saleId ?? data.id
+  const vente = b.sale && typeof b.sale === 'object' ? b.sale as Record<string, unknown> : null
+  const brut = data.sale_id ?? data.saleId ?? data.id ?? vente?.id
   const saleId = typeof brut === 'string' ? brut.trim() : ''
   if (!saleId || saleId.length > 120) return { erreur: 'identifiant de vente absent ou hors bornes' }
 
