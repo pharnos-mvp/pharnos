@@ -25,5 +25,14 @@ fb233954dc18980b2760689cd328a8198a42f6f0:supabase/functions/_shared/checkout-cor
 #    secret d'exemple construit pour le test — la règle generic-api-key voit un identifiant
 #    `secret` affecté d'une valeur à préfixe whsec_ et s'alarme. Aucun secret réel : le vrai
 #    whsec vit dans la console Chariow et les secrets Edge, jamais dans le dépôt.
+#
+#    ⚠️ DEUX hashes pour les MÊMES lignes, et il les faut tous les deux : gitleaks scanne TOUS
+#    les refs (`detect` = tout l'historique, toutes branches), et le checkout CI (`fetch-depth: 0`)
+#    ramène toutes les branches d'origin. Les lignes existent donc sous le commit de BRANCHE
+#    (3b8a7280, tant que `feat/upgrade-lot-c` vit sur origin) ET sous le commit SQUASHÉ de la
+#    PR #477 (3f5524cc, à jamais dans main). N'épingler que l'un des deux = CI rouge sur l'autre —
+#    c'est arrivé deux fois de suite, une par moitié.
 3b8a7280a6c7fcbee80ed67ab3540f19a5439a72:supabase/functions/_shared/pulse-signature.test.ts:generic-api-key:22
 3b8a7280a6c7fcbee80ed67ab3540f19a5439a72:supabase/functions/_shared/pulse-signature.test.ts:generic-api-key:29
+3f5524cce2acdbd3f21621647d28070377322f6d:supabase/functions/_shared/pulse-signature.test.ts:generic-api-key:22
+3f5524cce2acdbd3f21621647d28070377322f6d:supabase/functions/_shared/pulse-signature.test.ts:generic-api-key:29
