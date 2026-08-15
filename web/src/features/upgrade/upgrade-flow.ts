@@ -484,15 +484,28 @@ export function libellePhase(
  * Temps restant estimé, en secondes — `null` tant qu'on ne sait rien de fiable.
  *
  * ⚠️ C'est une PROMESSE au client, pas une mesure : elle doit couvrir le cas DÉFAVORABLE, pas le
- * nominal. La chaîne mesurée tient en ~320 s (319 s pour 60 appels au banc U0, ~7 min dépôt→e-mail
- * à la recette) — mais un tableau de revue peut consommer son plafond entier, les bascules de
- * phase attendent le tick suivant (30 s chacune), et depuis la relance automatique un run qui
- * trébuche repart sans rien demander à personne : chaque relance ajoute plusieurs minutes. Le
- * décompte part donc de 15 min et FINIT EN AVANCE dans le cas courant — décision CEO 2026-08-11 :
- * une barre qui finit tôt rassure, une barre qui dépasse son annonce inquiète, et l'acheteur ne
- * doit jamais voir l'estimation s'allonger sous ses yeux.
+ * nominal — un tableau de revue peut consommer son plafond entier, les bascules de phase attendent
+ * le tick suivant (30 s chacune), et depuis la relance automatique un run qui trébuche repart sans
+ * rien demander à personne. La règle de 2026-08-11 tient : l'estimation FINIT EN AVANCE, elle ne
+ * s'allonge jamais sous les yeux de l'acheteur.
+ *
+ * Mais 900 s (15 min) était une projection posée AVANT toute mesure de bout en bout, et elle
+ * mentait de trois fois : le premier run réel (2026-08-14, 34 rubriques de conformité + 31 de
+ * traduction + 4 tableaux de revue, zéro relance) a duré **311 s**, soit 5 min 11 — pendant que
+ * l'écran annonçait encore 13 minutes à un tiers du parcours, sur un produit vendu « environ
+ * quatre minutes ». Une annonce trois fois trop longue n'est plus prudente : elle fait douter du
+ * produit, et l'acheteur reste devant l'écran d'autant plus longtemps.
+ *
+ * 360 s = la mesure réelle + 16 % de marge, soit « environ 6 min » au premier affichage. Le choix
+ * se joue contre la PAGE QUI VEND : elle promet « en quatre minutes », et le mockup affiche
+ * « terminé en 4 min 12 ». Annoncer 15 min (l'ancienne valeur) ou même 7 contredisait la promesse
+ * juste après l'encaissement — c'est la classe de contradiction que ce fichier existe pour
+ * empêcher. Six minutes restent au-dessus de la mesure, donc la barre finit encore en avance.
+ *
+ * Une relance automatique peut dépasser l'annonce — assumé : le cas est rare, et le prix serait
+ * sinon de mentir de trois fois sur les 95 % de runs nominaux.
  */
-export const DUREE_TOTALE_S = 900
+export const DUREE_TOTALE_S = 360
 
 /**
  * Parts de chaque passe dans la durée totale — les MESURES de U0.3, pas des tiers égaux.
