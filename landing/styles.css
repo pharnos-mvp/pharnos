@@ -352,8 +352,11 @@
      écran à moitié construit : la règle `prefers-reduced-motion` globale (plus haut) neutralise
      toutes les animations, et ce visuel doit rester lisible dans ce cas. ── */
   .wsx { background: linear-gradient(180deg, var(--g50) 0%, var(--white) 62%); }
-  .wsx-intro { max-width: 720px; }
-  .wsx-shot { position: relative; margin: 38px 0 0; }
+  /* Bloc centré et BORNÉ : le titre, l'illustration et les trois arguments partagent la même
+     largeur utile (920 px) et le même axe. Laisser l'illustration prendre les 1180 px du `.wrap`
+     la faisait dominer la section — elle sert la démonstration, elle ne la remplace pas. */
+  .wsx-intro { max-width: 660px; margin: 0 auto; text-align: center; }
+  .wsx-shot { position: relative; max-width: 920px; margin: 34px auto 0; }
   /* Halo — pur décor, jamais dans le flux : `filter: blur` sur un élément en flux ferait grossir
      la boîte et décalerait la grille en dessous. */
   .wsx-shot::before {
@@ -421,11 +424,15 @@
     font-size: 12px; font-weight: 600; color: #fff; background: var(--g900);
     border-radius: 9px; padding: 9px 14px; box-shadow: var(--shadow); }
   .wsx-cap { margin-top: 12px; font-size: 12px; color: var(--g400); text-align: center; }
-  .wsx-points { margin-top: 44px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 40px; }
-  .wsx-points h3 { font-family: var(--font-sans); font-size: 15.5px; font-weight: 700;
-    color: var(--navy); margin-bottom: 6px; }
-  .wsx-points p { font-size: 14.5px; line-height: 1.65; color: var(--g600); }
-  .wsx-cta { margin-top: 38px; text-align: center; }
+  /* Centrés : chaque argument tient en une ligne, donc le centrage ne coûte rien à la lecture et
+     garde l'axe du titre et de l'illustration. Une phrase de plus par point, et il faudrait
+     repasser à gauche — c'est la limite à ne pas franchir en réécrivant cette copie. */
+  .wsx-points { max-width: 920px; margin: 40px auto 0; display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 26px 36px; text-align: center; }
+  .wsx-points h3 { font-family: var(--font-sans); font-size: 15px; font-weight: 700;
+    color: var(--navy); margin-bottom: 5px; }
+  .wsx-points p { font-size: 14px; line-height: 1.6; color: var(--g600); }
+  .wsx-cta { margin-top: 34px; text-align: center; }
 
   @media (max-width: 860px) {
     /* Sous cette largeur le panneau document devient une colonne de traits illisible : on garde
