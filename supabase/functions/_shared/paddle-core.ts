@@ -137,6 +137,13 @@ export function lireTransactionPaddle(
     ? refBrute
     : null
   const lang = meta?.lang === 'en' ? 'en' : 'fr'
+  // ⚠️ `meta.offre` n'est JAMAIS lue, et ce n'est pas un oubli : comparer les deux pour refuser en
+  // cas d'écart a été essayé, puis retiré. `custom_data` de la transaction passe par le navigateur
+  // — avec notre jeton client, public par conception, n'importe qui ouvre un tunnel sur le prix à
+  // 29 € en s'y déclarant `up3`. Sous la règle du catalogue il reçoit ce qu'il a PAYÉ ; sous une
+  // règle de refus, une transaction RÉGLÉE ne donnerait plus de commande du tout. Et le désaccord
+  // de configuration que le refus prétendait attraper est bénin : le montant prélevé suit toujours
+  // le prix, donc l'acheteur paie et reçoit la même offre — celle que le tunnel lui a nommée.
 
   // Moyen de paiement — pour le reçu, jamais pour une décision.
   const paiements = Array.isArray(t.payments) ? t.payments : []

@@ -55,6 +55,21 @@ export function prixParOffre(brut: string | undefined): Record<string, string> {
 }
 
 /**
+ * Bac à sable ⇔ essai, dans les DEUX sens. La règle tient en une équivalence parce que les deux
+ * moitiés sont aussi coûteuses l'une que l'autre :
+ *
+ *  • **essai en production** ferait encaisser le plein tarif à quelqu'un qui croyait tester — il
+ *    n'existe pas de catalogue à 570 F chez Paddle, le régime d'essai de ce rail EST le bac à sable ;
+ *  • **bac à sable sans jeton de recette** est le côté cher, et le moins visible : la carte de test
+ *    de Paddle règle tout, donc un visiteur quelconque repartirait avec les cinq fichiers réels,
+ *    moteur payé par NOUS. Rien d'autre ne le retient — `essai` ne bride ni la porte, ni le moteur,
+ *    ni la livraison : il ne change que le sujet d'un e-mail.
+ *
+ * Écrire les deux moitiés séparément revenait à n'en écrire qu'une : c'est arrivé.
+ */
+export const regimeCoherent = (bacASable: boolean, essai: boolean): boolean => bacASable === essai
+
+/**
  * URL de NOTRE tunnel, celle que Paddle rendra augmentée de `?_ptxn=…`.
  *
  * Elle est construite sur l'origine de l'ACHETEUR (déjà validée par l'allowlist CORS de l'appelant)
@@ -143,6 +158,14 @@ export function lireTransactionCreee(
   if (rendue.protocol !== 'https:') return refus
   if (rendue.origin !== attendue.origin || rendue.pathname !== attendue.pathname) return refus
   if (rendue.searchParams.get('_ptxn') !== id) return refus
+  // ⚠️ `e` et `lang` AUSSI, et pas par symétrie : `e` CHOISIT le jeton client du tunnel, et son
+  // absence retombe sur l'environnement de production dont le jeton peut ne pas être posé. Une URL
+  // rendue sans lui passerait cette comparaison pour ouvrir une page incapable de s'initialiser —
+  // le serveur journaliserait « ok » pendant que toutes les ventes meurent. « La seule URL
+  // acceptable est celle qu'on a écrite » n'est vrai que si on compare TOUT ce qu'on a écrit.
+  for (const p of ['e', 'lang']) {
+    if (rendue.searchParams.get(p) !== attendue.searchParams.get(p)) return refus
+  }
 
   return { ok: true, url, transactionId: id }
 }
