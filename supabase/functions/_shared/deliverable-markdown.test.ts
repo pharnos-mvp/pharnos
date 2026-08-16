@@ -8,6 +8,7 @@ import {
   activityLabel,
   analyseDepuisParts,
   assembleDocument,
+  languesLivrable,
   MISSING_MARKER,
   MISSING_MARKER_EN,
   produitDepuisRubrique1,
@@ -230,4 +231,23 @@ Deno.test('statsLivrable : les quatre comptes de l’écran de livraison, dédup
     deplaces: 0,
     aRelire: 0,
   })
+})
+
+Deno.test('langues — le COUPLE livré ne suit jamais la page de l’acheteur', () => {
+  // ⚠️ Le défaut payé du 2026-08-16 : la passe de conformité recevait `orders.lang`, c'est-à-dire
+  // la langue de la PAGE consultée. Un acheteur venu de la version anglaise du site faisait
+  // rédiger le corps des rubriques en anglais — et comme l'assembleur prend le français DANS cette
+  // passe, le fichier livré sous le nom `-RCP-FR` était intégralement en anglais. La traduction,
+  // câblée vers l'anglais, ne pouvait rien y faire.
+  for (const acheteur of ['fr', 'en'] as const) {
+    const l = languesLivrable(acheteur)
+    assertEquals(l.document, 'fr', `document altéré par la page ${acheteur}`)
+    assertEquals(l.traduction, 'en', `traduction altérée par la page ${acheteur}`)
+  }
+  // Les deux moitiés du couple sont toujours DISTINCTES : les rendre égales livrerait deux fois
+  // le même fichier sous deux noms, ce que l'acheteur a payé une fois pour chacun.
+  assertEquals(languesLivrable('fr').document === languesLivrable('fr').traduction, false)
+  // Seul le RAPPORT s'adresse à l'acheteur, donc lui seul le suit.
+  assertEquals(languesLivrable('en').rapport, 'en')
+  assertEquals(languesLivrable('fr').rapport, 'fr')
 })

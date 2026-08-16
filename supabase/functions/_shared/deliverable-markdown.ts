@@ -18,7 +18,38 @@ import {
   type ReportAnalysis,
   rubriquesDuDocument,
 } from './report-core.ts'
-import { MISSING_MARKER, MISSING_MARKER_EN } from './upgrade-section-core.ts'
+import { MISSING_MARKER, MISSING_MARKER_EN, type OutputLang } from './upgrade-section-core.ts'
+
+/**
+ * Les TROIS langues d'une commande, et pourquoi elles ne sont pas la même.
+ *
+ * ⚠️ CORRECTIF D'UN DÉFAUT PAYÉ (recette du 2026-08-16). La passe de conformité recevait
+ * `orders.lang` — la langue de la PAGE que l'acheteur consultait. Un acheteur qui parcourt
+ * pharnos.com en anglais faisait donc rédiger le corps des rubriques en anglais ; comme
+ * `assembleDocument` prend le français DANS cette passe et l'anglais dans la traduction, le
+ * fichier livré sous le nom `-RCP-FR` était intégralement en anglais, titres français mis à part.
+ * La traduction, elle, est cablée vers l'anglais : elle ne pouvait pas le rattraper.
+ *
+ * Les deux fichiers du couple ne dépendent donc PLUS de rien :
+ *   • le DOCUMENT est français parce que le gabarit ABMed/UEMOA l'est — c'est la pièce déposée ;
+ *   • la TRADUCTION est anglaise parce qu'elle est l'exemplaire d'accompagnement ;
+ *   • seul le RAPPORT suit l'acheteur : il s'adresse à lui, pas à l'autorité.
+ *
+ * La langue du document SOURCE n'entre dans aucun des trois : la porte accepte les deux, et c'est
+ * précisément ce qui rendait ce défaut atteignable.
+ */
+export interface LanguesLivrable {
+  /** Langue du document conforme — la pièce qui part à l'agence. */
+  document: OutputLang
+  /** Langue de l'exemplaire d'accompagnement. */
+  traduction: OutputLang
+  /** Langue du rapport — la seule qui suive l'acheteur. */
+  rapport: OutputLang
+}
+
+export function languesLivrable(langueAcheteur: OutputLang): LanguesLivrable {
+  return { document: 'fr', traduction: 'en', rapport: langueAcheteur }
+}
 
 /** Une rubrique telle que l'assemblage la consomme — le sous-ensemble STABLE des sorties du moteur. */
 export interface LigneAssemblage {
