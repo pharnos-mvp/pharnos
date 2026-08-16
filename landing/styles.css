@@ -346,14 +346,21 @@
 
      FOND DISTINCT, et pas par coquetterie : la section précédente est le bandeau sombre de la
      couverture, la suivante (« Regroupez votre équipe ») est blanche. Un dégradé qui finissait
-     en blanc soudait visuellement les deux : on ne voyait plus où l'une s'arrêtait. D'où un gris
-     tenu de bout en bout et un filet de séparation. ── */
+     en blanc soudait visuellement les deux : on ne voyait plus où l'une s'arrêtait. ── */
   .wsx { background: var(--g50); border-bottom: 1px solid var(--g200); }
-  /* Texte à gauche, démonstration à droite — la colonne de droite est la plus large : c'est
-     l'illustration qui doit être lisible, le texte tient en trois lignes courtes. */
-  .wsx .wrap { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
-    gap: 56px; align-items: center; padding-top: 76px; padding-bottom: 76px; }
+  .wsx .wrap { padding-top: 76px; padding-bottom: 76px; }
+  /* Titre et chapô : pleine largeur, centrés, au-dessus des deux colonnes. */
+  .wsx-intro { max-width: 680px; margin: 0 auto; text-align: center; }
+  /* Arguments à gauche, démonstration à droite — la droite est la plus large : c'est
+     l'illustration qui doit être lisible, les arguments tiennent en une ligne chacun. */
+  .wsx-grid { margin-top: 44px; display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
+    gap: 48px; align-items: center; }
   .wsx-text { min-width: 0; }
+  .wsx-points { display: grid; gap: 20px; }
+  .wsx-points h3 { font-family: var(--font-sans); font-size: 15px; font-weight: 700;
+    color: var(--navy); margin-bottom: 4px; }
+  .wsx-points p { font-size: 14px; line-height: 1.6; color: var(--g600); }
+  .wsx-cta { margin-top: 28px; }
   .wsx-shot { position: relative; min-width: 0; }
   /* Halo — pur décor, jamais dans le flux : `filter: blur` sur un élément en flux ferait grossir
      la boîte et décalerait la grille à côté. */
@@ -382,16 +389,26 @@
   .wsx-btn { font-size: 11px; font-weight: 600; color: var(--g600); background: var(--white);
     border: 1px solid var(--g200); border-radius: 8px; padding: 5px 10px; white-space: nowrap; }
   .wsx-btn-primary { color: #fff; background: var(--blue); border-color: var(--blue); }
-  /* Barre de compilation : posée SUR le filet du bas de l'en-tête, largeur pilotée par la
-     séquence. `transform-origin` à gauche pour qu'elle se remplisse dans le sens de la lecture. */
+  /* Barre de compilation : posée SUR le filet du bas de l'en-tête, remplie dans le sens de la
+     lecture (`transform-origin` à gauche). */
   .wsx-bar { position: absolute; left: 0; bottom: -1px; height: 2px; width: 100%;
     background: var(--blue); transform: scaleX(0); transform-origin: left center; }
   /* `minmax(0, …)` sur les deux pistes : sans lui, un libellé long de l'arborescence impose sa
      largeur minimale et pousse le panneau document hors du cadre (invariant DS du projet). */
   .wsx-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.02fr); }
   .wsx-tree { position: relative; border-right: 1px solid var(--g200); padding: 12px 10px; min-width: 0; }
-  .wsx-treehead { font-family: var(--font-display); font-size: 10px; font-weight: 700;
-    letter-spacing: .12em; text-transform: uppercase; color: var(--g400); margin: 0 0 8px 8px; }
+  /* Jauge de complétude — le seul chiffre de la maquette, et il ne prétend rien : il illustre
+     une progression, il n'annonce pas un barème. */
+  .wsx-meter { display: flex; align-items: center; gap: 8px; padding: 0 9px; margin-bottom: 10px; position: relative; }
+  .wsx-meterlab { font-family: var(--font-display); font-size: 9.5px; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--g400); white-space: nowrap; }
+  .wsx-meterbar { flex: 1; min-width: 0; height: 4px; border-radius: 3px; background: var(--g100); overflow: hidden; }
+  .wsx-meterbar i { display: block; height: 100%; width: 100%; border-radius: 3px;
+    background: var(--success); transform: scaleX(.45); transform-origin: left center; }
+  .wsx-pct { font-size: 9.5px; font-weight: 700; color: var(--success-fg); white-space: nowrap;
+    font-variant-numeric: tabular-nums; }
+  /* Les deux valeurs se superposent : la largeur de la ligne ne bouge pas au changement. */
+  .wsx-pct2 { position: absolute; right: 9px; opacity: 0; }
   .wsx-node { display: flex; align-items: center; gap: 7px; position: relative;
     font-size: 11.5px; color: var(--g600); padding: 5px 9px; border-radius: 7px; }
   .wsx-node b { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--g400); flex: none; }
@@ -410,11 +427,17 @@
   .wsx-draft { color: var(--warning); background: var(--warning-subtle); }
   /* Les deux pastilles d'une bascule se superposent : aucune largeur ne bouge au changement. */
   .wsx-after { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); opacity: 0; }
-  /* Pastille qui n'existe qu'une fois la pièce déposée. Sans animation (mouvement réduit), la
-     rubrique reste sans pastille : un dossier où rien n'a encore été déposé, état cohérent. */
+  /* Pastille qui n'existe qu'une fois la pièce déposée, et coche de validation. Sans animation
+     (mouvement réduit) la rubrique reste nue : un dossier où rien n'a été déposé, état cohérent. */
   .wsx-lazy { opacity: 0; }
+  .wsx-ok { font-style: normal; font-size: 10px; font-weight: 700; color: var(--success);
+    flex: none; opacity: 0; }
+  /* Le curseur vit DANS la ligne visée : il la suit si la maquette change, plutôt que d'être
+     posé à une coordonnée en pixels qui se décale au premier ajustement de police. */
+  .wsx-cursor { position: absolute; left: 38%; top: 50%; width: 9px; height: 9px; border-radius: 50%;
+    background: var(--navy); box-shadow: 0 0 0 3px rgba(10,22,40,.14); opacity: 0; pointer-events: none; }
   /* La pièce qui tombe sur la rubrique. */
-  .wsx-drop { position: absolute; left: 16px; top: 96px; opacity: 0;
+  .wsx-drop { position: absolute; left: 16px; top: 108px; opacity: 0;
     font-size: 10px; font-weight: 600; color: var(--g700); background: var(--white);
     border: 1px solid var(--g300); border-radius: 7px; padding: 4px 9px;
     box-shadow: var(--shadow); pointer-events: none; white-space: nowrap; }
@@ -431,21 +454,28 @@
   .wsx-field { font-size: 10.5px; font-weight: 700; color: var(--warning);
     background: var(--warning-subtle); border: 1px dashed currentColor; border-radius: 6px;
     padding: 4px 8px; margin: 7px 0; display: inline-block; }
-  /* Les lignes qui remplacent la zone à compléter une fois la rubrique complétée. */
   .wsx-fill { opacity: 0; }
   .wsx-toast { position: absolute; right: 14px; bottom: 14px; opacity: 0;
     font-size: 11px; font-weight: 600; color: #fff; background: var(--g900);
     border-radius: 9px; padding: 8px 12px; box-shadow: var(--shadow); white-space: nowrap; }
+  /* Écran de création du dossier — recouvre le cadre entier le temps de la saisie. */
+  .wsx-setup { position: absolute; inset: 0; z-index: 2; background: var(--white);
+    display: flex; flex-direction: column; justify-content: center; gap: 9px; padding: 0 14%; }
+  .wsx-setuphead { font-family: var(--font-display); font-size: 13px; font-weight: 700;
+    color: var(--ink-1); margin-bottom: 6px; }
+  .wsx-row { display: flex; align-items: center; gap: 10px; opacity: 0;
+    border: 1px solid var(--g200); border-radius: 8px; padding: 7px 11px; }
+  .wsx-lab { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--g400); white-space: nowrap; }
+  .wsx-val { font-size: 12px; font-weight: 600; color: var(--g900); margin-left: auto;
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wsx-go { align-self: flex-start; margin-top: 6px; font-size: 11.5px; font-weight: 700;
+    color: #fff; background: var(--blue); border-radius: 8px; padding: 7px 14px; opacity: 0; }
   .wsx-cap { margin-top: 11px; font-size: 11.5px; color: var(--g400); text-align: center; }
-  .wsx-points { margin-top: 26px; display: grid; gap: 18px; }
-  .wsx-points h3 { font-family: var(--font-sans); font-size: 15px; font-weight: 700;
-    color: var(--navy); margin-bottom: 4px; }
-  .wsx-points p { font-size: 14px; line-height: 1.6; color: var(--g600); }
-  .wsx-cta { margin-top: 28px; }
 
   @media (max-width: 1040px) {
-    /* Une colonne : la démonstration passe SOUS le texte et se recentre. */
-    .wsx .wrap { grid-template-columns: minmax(0, 1fr); gap: 38px; }
+    /* Une colonne : la démonstration passe SOUS les arguments et se recentre. */
+    .wsx-grid { grid-template-columns: minmax(0, 1fr); gap: 38px; }
     .wsx-shot { max-width: 720px; margin: 0 auto; width: 100%; }
     .wsx-points { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 26px 32px; }
   }
@@ -607,93 +637,142 @@
     .dossier-card .live i { animation: pulse 2.2s infinite; }
     @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(74,194,107,.45); } 60% { box-shadow: 0 0 0 6px rgba(74,194,107,0); } }
 
-    /* Workspace CTD — la démonstration, en boucle.
-       Trois gestes réels du produit s'enchaînent : on téléverse une pièce, on complète une
-       rubrique, on compile la liasse. Puis tout revient à l'état initial et recommence.
+    /* Workspace CTD — le parcours, en boucle de 16 s.
+       Sept temps, dans l'ordre où un expert RA les vit : on crée le dossier (produit, pays,
+       format), on clique une rubrique, on y dépose une pièce, elle passe au vert, la complétude
+       monte, on compile, la liasse est prête.
 
-       UN SEUL AXE DE TEMPS. Toutes les règles ci-dessous partagent la même durée (12 s) et se
-       positionnent en POURCENTAGES de ce cycle. C'est ce qui garantit que la pastille arrive
-       après la pièce, et le toast après la barre : des durées et des `delay` différents
-       dériveraient les uns par rapport aux autres au premier ajustement.
+       UN SEUL AXE DE TEMPS. Toutes les règles partagent la même durée (16 s) et se positionnent
+       en POURCENTAGES de ce cycle — c'est ce qui garantit que la pastille arrive après la pièce
+       et le toast après la barre. Des durées et des `delay` séparés dériveraient les uns par
+       rapport aux autres au premier ajustement, et la démonstration raconterait n'importe quoi.
 
-       ⚠️ Elle ne démarre qu'au `.in` posé par l'IntersectionObserver de landing.js. Une boucle
-       qui tourne sur un élément hors écran fait travailler le compositeur pour personne — sur un
-       portable de terrain, c'est de la batterie. (Une version précédente ne jouait qu'une fois ;
-       le CEO a demandé une démonstration continue, d'où la boucle — mais la garde reste.)
+       ⚠️ Elle ne démarre qu'au `.in` posé par l'IntersectionObserver de landing.js : une boucle
+       qui tourne sur un élément hors écran fait travailler le compositeur pour personne.
 
        Le repli « sans animation » est un état COHÉRENT et non un écran à moitié construit : la
-       règle `prefers-reduced-motion` globale neutralise tout, et il reste un dossier crédible —
-       une rubrique sans pièce déposée, une zone encore à compléter, aucun toast. */
-    .wsx-shot.in .wsx-drop { animation: wsxDrop 12s linear infinite both; }
+       règle `prefers-reduced-motion` globale neutralise tout, et il reste l'écran de création du
+       dossier — premier écran du parcours, lisible et complet. */
+
+    /* ── Temps 1 · création du dossier ─────────────────────────────────────────────────────── */
+    .wsx-shot.in .wsx-setup { animation: wsxSetup 16s linear infinite both; }
+    @keyframes wsxSetup {
+      0%, 24%   { opacity: 1; transform: none; }
+      28%, 96%  { opacity: 0; transform: scale(1.02); }
+      100%      { opacity: 1; transform: none; }
+    }
+    .wsx-shot.in .wsx-row  { animation: wsxRow 16s linear infinite both; }
+    .wsx-shot.in .wsx-row2 { animation-name: wsxRow2; }
+    .wsx-shot.in .wsx-row3 { animation-name: wsxRow3; }
+    /* Les lignes s'effacent AVANT que la carte ne revienne (96 %) : sinon la boucle repart sur un
+       formulaire déjà rempli qui saute à vide à l'instant 0 — couture visible à chaque tour. */
+    @keyframes wsxRow  { 0%, 3%  { opacity: 0; transform: translateY(5px); } 7%, 93%  { opacity: 1; transform: none; } 96%, 100% { opacity: 0; transform: translateY(5px); } }
+    @keyframes wsxRow2 { 0%, 8%  { opacity: 0; transform: translateY(5px); } 12%, 93% { opacity: 1; transform: none; } 96%, 100% { opacity: 0; transform: translateY(5px); } }
+    @keyframes wsxRow3 { 0%, 13% { opacity: 0; transform: translateY(5px); } 17%, 93% { opacity: 1; transform: none; } 96%, 100% { opacity: 0; transform: translateY(5px); } }
+    .wsx-shot.in .wsx-go { animation: wsxGo 16s linear infinite both; }
+    @keyframes wsxGo {
+      0%, 18%   { opacity: 0; box-shadow: 0 0 0 0 rgba(26,86,219,0); }
+      21%       { opacity: 1; box-shadow: 0 0 0 0 rgba(26,86,219,0); }
+      23%       { opacity: 1; box-shadow: 0 0 0 5px rgba(26,86,219,.25); }
+      25%, 93%  { opacity: 1; box-shadow: 0 0 0 0 rgba(26,86,219,0); }
+      96%, 100% { opacity: 0; box-shadow: 0 0 0 0 rgba(26,86,219,0); }
+    }
+
+    /* ── Temps 2 · le clic sur la rubrique ─────────────────────────────────────────────────── */
+    .wsx-shot.in .wsx-cursor { animation: wsxCursor 16s linear infinite both; }
+    @keyframes wsxCursor {
+      0%, 27%   { opacity: 0; transform: translate(-16px, -14px) scale(1); }
+      30%       { opacity: 1; transform: translate(-16px, -14px) scale(1); }
+      33%       { opacity: 1; transform: translate(0, -4px) scale(1); }
+      35%       { opacity: 1; transform: translate(0, -4px) scale(.7); }
+      37%       { opacity: 1; transform: translate(0, -4px) scale(1); }
+      41%, 100% { opacity: 0; transform: translate(0, -4px) scale(1); }
+    }
+    /* La rubrique visée : bleue au clic, verte une fois la pièce validée. */
+    .wsx-shot.in .wsx-target { animation: wsxTarget 16s linear infinite both; }
+    @keyframes wsxTarget {
+      0%, 33%   { background: transparent; }
+      36%, 51%  { background: var(--blue-ghost); }
+      55%, 93%  { background: var(--success-subtle); }
+      97%, 100% { background: transparent; }
+    }
+
+    /* ── Temps 3 · le téléversement ────────────────────────────────────────────────────────── */
+    .wsx-shot.in .wsx-drop { animation: wsxDrop 16s linear infinite both; }
     @keyframes wsxDrop {
-      0%   { opacity: 0; transform: translate(-10px, -30px) scale(.92); }
-      3%   { opacity: 1; }
-      8%   { opacity: 1; transform: translate(0, 0) scale(1); }
-      12%  { opacity: 0; transform: translate(0, 6px) scale(.97); }
-      100% { opacity: 0; transform: translate(-10px, -30px) scale(.92); }
+      0%, 38%   { opacity: 0; transform: translate(-10px, -28px) scale(.92); }
+      41%       { opacity: 1; }
+      45%       { opacity: 1; transform: translate(0, 0) scale(1); }
+      48%, 100% { opacity: 0; transform: translate(0, 6px) scale(.97); }
     }
-
-    .wsx-shot.in .wsx-target { animation: wsxHit 12s linear infinite both; }
-    @keyframes wsxHit {
-      0%, 7%    { background: transparent; }
-      10%, 14%  { background: var(--blue-ghost); }
-      20%, 100% { background: transparent; }
-    }
-
-    .wsx-shot.in .wsx-lazy { animation: wsxPop 12s linear infinite both; }
+    .wsx-shot.in .wsx-lazy { animation: wsxPop 16s linear infinite both; }
     @keyframes wsxPop {
-      0%, 11%   { opacity: 0; transform: scale(.8); }
-      15%, 93%  { opacity: 1; transform: scale(1); }
+      0%, 47%   { opacity: 0; transform: scale(.8); }
+      50%, 93%  { opacity: 1; transform: scale(1); }
       97%, 100% { opacity: 0; transform: scale(.8); }
     }
 
-    /* Complétude : la zone à compléter s'efface, les lignes rédigées prennent sa place. */
-    .wsx-shot.in .wsx-field { animation: wsxField 12s linear infinite both; }
+    /* ── Temps 4 · la rubrique passe au vert ───────────────────────────────────────────────── */
+    .wsx-shot.in .wsx-ok { animation: wsxOk 16s linear infinite both; }
+    @keyframes wsxOk {
+      0%, 52%   { opacity: 0; transform: scale(.6); }
+      56%, 93%  { opacity: 1; transform: scale(1); }
+      97%, 100% { opacity: 0; transform: scale(.6); }
+    }
+
+    /* ── Temps 5 · la complétude ───────────────────────────────────────────────────────────── */
+    .wsx-shot.in .wsx-field { animation: wsxField 16s linear infinite both; }
     @keyframes wsxField {
-      0%, 26%   { opacity: 1; transform: scale(1); }
-      31%, 93%  { opacity: 0; transform: scale(.96); }
+      0%, 56%   { opacity: 1; transform: scale(1); }
+      60%, 93%  { opacity: 0; transform: scale(.96); }
       97%, 100% { opacity: 1; transform: scale(1); }
     }
-    .wsx-shot.in .wsx-fill { animation: wsxFill 12s linear infinite both; }
-    @keyframes wsxFill {
-      0%, 29%   { opacity: 0; }
-      34%, 93%  { opacity: 1; }
-      97%, 100% { opacity: 0; }
-    }
+    .wsx-shot.in .wsx-fill { animation: wsxFill 16s linear infinite both; }
+    @keyframes wsxFill { 0%, 58% { opacity: 0; } 62%, 93% { opacity: 1; } 97%, 100% { opacity: 0; } }
 
-    /* Les deux bascules « À générer » → « Autogénéré », décalées pour qu'on les lise l'une
-       après l'autre plutôt que d'un bloc. */
-    .wsx-shot.in .wsx-flip .wsx-todo  { animation: wsxOut 12s linear infinite both; }
-    .wsx-shot.in .wsx-flip .wsx-after { animation: wsxAfter 12s linear infinite both; }
+    .wsx-shot.in .wsx-flip .wsx-todo   { animation: wsxOut 16s linear infinite both; }
+    .wsx-shot.in .wsx-flip .wsx-after  { animation: wsxAfter 16s linear infinite both; }
     .wsx-shot.in .wsx-flip2 .wsx-todo  { animation-name: wsxOut2; }
     .wsx-shot.in .wsx-flip2 .wsx-after { animation-name: wsxAfter2; }
-    @keyframes wsxOut     { 0%, 37% { opacity: 1; } 41%, 93% { opacity: 0; } 97%, 100% { opacity: 1; } }
-    @keyframes wsxAfter   { 0%, 38% { opacity: 0; transform: translateY(-50%) scale(.9); }
-                            43%, 93% { opacity: 1; transform: translateY(-50%) scale(1); }
+    @keyframes wsxOut     { 0%, 61% { opacity: 1; } 64%, 93% { opacity: 0; } 97%, 100% { opacity: 1; } }
+    @keyframes wsxAfter   { 0%, 62% { opacity: 0; transform: translateY(-50%) scale(.9); }
+                            66%, 93% { opacity: 1; transform: translateY(-50%) scale(1); }
                             97%, 100% { opacity: 0; transform: translateY(-50%) scale(.9); } }
-    @keyframes wsxOut2    { 0%, 45% { opacity: 1; } 49%, 93% { opacity: 0; } 97%, 100% { opacity: 1; } }
-    @keyframes wsxAfter2  { 0%, 46% { opacity: 0; transform: translateY(-50%) scale(.9); }
-                            51%, 93% { opacity: 1; transform: translateY(-50%) scale(1); }
+    @keyframes wsxOut2    { 0%, 66% { opacity: 1; } 69%, 93% { opacity: 0; } 97%, 100% { opacity: 1; } }
+    @keyframes wsxAfter2  { 0%, 67% { opacity: 0; transform: translateY(-50%) scale(.9); }
+                            71%, 93% { opacity: 1; transform: translateY(-50%) scale(1); }
                             97%, 100% { opacity: 0; transform: translateY(-50%) scale(.9); } }
 
-    /* Compilation : le bouton s'enfonce, la barre balaie l'en-tête, le toast conclut. */
-    .wsx-shot.in .wsx-btn-primary { animation: wsxPress 12s linear infinite both; }
+    /* La jauge suit les rubriques qui se complètent, elle ne les devance pas. */
+    .wsx-shot.in .wsx-meterbar i { animation: wsxMeter 16s linear infinite both; }
+    @keyframes wsxMeter {
+      0%, 50%   { transform: scaleX(.45); }
+      74%, 93%  { transform: scaleX(1); }
+      97%, 100% { transform: scaleX(.45); }
+    }
+    .wsx-shot.in .wsx-pct:not(.wsx-pct2) { animation: wsxPct1 16s linear infinite both; }
+    .wsx-shot.in .wsx-pct2 { animation: wsxPct2 16s linear infinite both; }
+    @keyframes wsxPct1 { 0%, 70% { opacity: 1; } 74%, 93% { opacity: 0; } 97%, 100% { opacity: 1; } }
+    @keyframes wsxPct2 { 0%, 71% { opacity: 0; } 75%, 93% { opacity: 1; } 97%, 100% { opacity: 0; } }
+
+    /* ── Temps 6 et 7 · la compilation, puis la liasse ─────────────────────────────────────── */
+    .wsx-shot.in .wsx-btn-primary { animation: wsxPress 16s linear infinite both; }
     @keyframes wsxPress {
-      0%, 57%   { box-shadow: 0 0 0 0 rgba(26,86,219,0); }
-      60%       { box-shadow: 0 0 0 5px rgba(26,86,219,.25); }
-      64%, 100% { box-shadow: 0 0 0 0 rgba(26,86,219,0); }
+      0%, 76%   { box-shadow: 0 0 0 0 rgba(26,86,219,0); }
+      79%       { box-shadow: 0 0 0 5px rgba(26,86,219,.25); }
+      82%, 100% { box-shadow: 0 0 0 0 rgba(26,86,219,0); }
     }
-    .wsx-shot.in .wsx-bar { animation: wsxBar 12s linear infinite both; }
+    .wsx-shot.in .wsx-bar { animation: wsxBar 16s linear infinite both; }
     @keyframes wsxBar {
-      0%, 60%   { transform: scaleX(0); opacity: 1; }
-      72%       { transform: scaleX(1); opacity: 1; }
-      78%, 100% { transform: scaleX(1); opacity: 0; }
+      0%, 78%   { transform: scaleX(0); opacity: 1; }
+      86%       { transform: scaleX(1); opacity: 1; }
+      90%, 100% { transform: scaleX(1); opacity: 0; }
     }
-    .wsx-shot.in .wsx-toast { animation: wsxToast 12s linear infinite both; }
+    .wsx-shot.in .wsx-toast { animation: wsxToast 16s linear infinite both; }
     @keyframes wsxToast {
-      0%, 72%   { opacity: 0; transform: translateY(8px); }
-      76%, 91%  { opacity: 1; transform: none; }
-      95%, 100% { opacity: 0; transform: translateY(8px); }
+      0%, 86%   { opacity: 0; transform: translateY(8px); }
+      89%, 94%  { opacity: 1; transform: none; }
+      97%, 100% { opacity: 0; transform: translateY(8px); }
     }
 
     /* spine du cycle : la ligne se remplit, les étapes s'allument en cascade */
