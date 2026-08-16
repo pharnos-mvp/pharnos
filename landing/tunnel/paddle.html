@@ -32,7 +32,10 @@
     la référence vivent dans la transaction, créée par le serveur.
   -->
   <body>
-    <div id="paddle-checkout"></div>
+    <!-- ⚠️ Une CLASSE, pas un id : `frameTarget` est résolu par Paddle.js en
+         `getElementsByClassName(...)[0]`. Avec un id seul, il appelle `appendChild` sur
+         `undefined` et la page reste blanche — mesuré en production le 2026-08-16. -->
+    <div class="paddle-checkout"></div>
     <p id="souci" hidden>
       Le paiement n’a pas pu s’ouvrir. Réessayez, ou écrivez-nous à
       <a href="mailto:contact@pharnos.com">contact@pharnos.com</a>.
