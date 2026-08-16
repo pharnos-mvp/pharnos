@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title data-fr="Pharnos — La plateforme du réglementaire pharmaceutique en Afrique">Pharnos — The pharmaceutical regulatory platform for Africa</title>
 <meta name="description" content="CTD Builder, submission, seamless collaboration between manufacturer and local representative, real-time tracking — on a single dashboard. UEMOA / CEDEAO.">
-<link rel="stylesheet" href="/styles.css?v=17">
+<link rel="stylesheet" href="/styles.css?v=18">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="canonical" href="https://pharnos.com/en/">
@@ -296,6 +296,108 @@
     </div>
   </section>
 
+  <!-- ═══════════ WORKSPACE CTD · la démonstration du produit ═══════════
+       Le visuel est une RECONSTITUTION de l'interface en HTML/CSS, pas une capture d'écran.
+       Trois raisons, dans cet ordre : la CSP interdit toute image externe et une PNG de plusieurs
+       centaines de Ko sur le chemin critique coûterait le score Lighthouse que la CI vérifie ;
+       une capture vieillit en silence au premier changement d'UI ; et un écran réel exposerait
+       le dossier d'un client. Les libellés, eux, ne sont PAS inventés : arborescence de
+       `web/src/features/workspace/module1-tree.ts`, statuts et actions de `DossierWorkspacePage`.
+       En changer un ici sans qu'il existe dans l'app, c'est promettre une fonctionnalité absente. -->
+  <section class="section wsx" id="workspace">
+    <div class="wrap">
+      <div class="wsx-intro reveal">
+        <p class="kicker" data-fr="Le workspace CTD">The CTD workspace</p>
+        <h2 data-fr="Votre dossier se monte à l'écran, rubrique par rubrique.">Your dossier takes shape on screen, section by section.</h2>
+        <p class="section-sub" data-fr="L'arborescence Module 1 du pays où vous déposez est déjà en place. Chaque rubrique dit ce qu'elle attend — un document à générer, une pièce à téléverser, une annexe à produire. Vous remplissez le fond ; Pharnos compile la liasse.">The Module 1 tree of the country you are filing in is already in place. Each section states what it expects — a document to generate, a file to upload, an annex to produce. You fill in the content; Pharnos compiles the package.</p>
+      </div>
+
+      <!-- Reconstitution d'interface — décorative : tout ce qu'elle raconte est écrit en toutes
+           lettres dans `.wsx-points` juste en dessous, donc rien n'est perdu pour un lecteur
+           d'écran. D'où `aria-hidden` plutôt qu'une description alternative interminable. -->
+      <figure class="wsx-shot reveal">
+        <div class="wsx-app" aria-hidden="true">
+          <div class="wsx-chrome">
+            <span class="wsx-dots"><i></i><i></i><i></i></span>
+            <span class="wsx-url">app.pharnos.com</span>
+          </div>
+          <div class="wsx-head">
+            <span class="wsx-back">←</span>
+            <span class="wsx-title">Amoxicilline 500 mg</span>
+            <span class="wsx-flag">BJ</span>
+            <span class="wsx-acts">
+              <span class="wsx-btn" data-fr="Feuille de route">Roadmap</span>
+              <span class="wsx-btn" data-fr="Correspondance">Correspondence</span>
+              <span class="wsx-btn wsx-btn-primary" data-fr="Compiler le PDF">Compile the PDF</span>
+            </span>
+          </div>
+          <!-- Chaque libellé porte son `data-en` sur un élément à UN SEUL nœud texte : le numéro
+               dans <b>, le titre dans <span>, la pastille dans <i>. Poser un `data-en` sur la
+               ligne entière casserait le retour au français (le moteur i18n ne restaure que le
+               premier nœud texte) — c'est l'avertissement que crache `landing.js` en console. -->
+          <div class="wsx-body">
+            <div class="wsx-tree">
+              <p class="wsx-treehead">Module 1</p>
+              <p class="wsx-node wsx-lvl1"><b>1.0</b><span data-fr="Correspondance">Correspondence</span></p>
+              <p class="wsx-node" style="--i:1"><b>1.0.1</b><span data-fr="Lettre d'accompagnement">Cover letter</span><i class="wsx-tag wsx-auto" data-fr="Autogénéré">Auto-generated</i></p>
+              <p class="wsx-node" style="--i:2"><b>1.0.3</b><span data-fr="Tableau de suivi">Lifecycle tracking table</span><i class="wsx-tag wsx-auto" data-fr="Autogénéré">Auto-generated</i></p>
+              <p class="wsx-node wsx-lvl1" style="--i:3"><b>1.2</b><span data-fr="Informations administratives">Administrative information</span></p>
+              <p class="wsx-node" style="--i:4"><b>1.2.1</b><span data-fr="Formulaires de demande">Application forms</span><i class="wsx-tag wsx-file" data-fr="Pièce">File</i></p>
+              <p class="wsx-node" style="--i:5"><b>1.2.2</b><span data-fr="Formulaires de frais">Fee forms</span><i class="wsx-tag wsx-file" data-fr="Pièce">File</i></p>
+              <p class="wsx-node wsx-lvl1" style="--i:6"><b>1.3</b><span data-fr="Information produit">Product information</span></p>
+              <p class="wsx-node wsx-on" style="--i:7"><b>1.3.1</b><span data-fr="RCP">SmPC</span><i class="wsx-tag wsx-draft" data-fr="Brouillon">Draft</i></p>
+              <!-- La rubrique qui bascule : « À générer » cède la place à « Autogénéré ». -->
+              <p class="wsx-node wsx-flip" style="--i:8"><b>1.3.2</b><span data-fr="Notice">Leaflet</span><i class="wsx-tag wsx-todo" data-fr="À générer">To generate</i><i class="wsx-tag wsx-auto wsx-after" data-fr="Autogénéré">Auto-generated</i></p>
+              <p class="wsx-node" style="--i:9"><b>1.3.3</b><span data-fr="Étiquetage">Labelling</span><i class="wsx-tag wsx-todo" data-fr="À générer">To generate</i></p>
+              <p class="wsx-node wsx-lvl1" style="--i:10"><b>1.8</b><span data-fr="Pharmacovigilance">Pharmacovigilance</span></p>
+            </div>
+            <div class="wsx-doc">
+              <p class="wsx-docref" data-fr="1.3.1 · Résumé des Caractéristiques du Produit">1.3.1 · Summary of Product Characteristics</p>
+              <p class="wsx-h" data-fr="4.8 Effets indésirables">4.8 Undesirable effects</p>
+              <span class="wsx-l"></span><span class="wsx-l"></span><span class="wsx-l w70"></span>
+              <p class="wsx-locked" data-fr="Titre réglementaire verrouillé">Regulatory heading locked</p>
+              <p class="wsx-h" data-fr="Déclaration des effets indésirables suspectés">Reporting of suspected adverse reactions</p>
+              <span class="wsx-l"></span><span class="wsx-l w85"></span>
+              <p class="wsx-field" data-fr="[ À COMPLÉTER ]">[ TO BE COMPLETED ]</p>
+              <span class="wsx-l w60"></span>
+            </div>
+          </div>
+          <!-- Aucun compte de rubriques ici : il dépend du pays et de l'activité, et un chiffre
+               figé dans une illustration devient une promesse fausse au premier dossier qui n'en
+               a pas autant. On annonce ce que la compilation produit, ce qui est toujours vrai. -->
+          <p class="wsx-toast" data-fr="Dossier compilé — PDF paginé, TdM incluse">Dossier compiled — paginated PDF, ToC included</p>
+        </div>
+        <figcaption class="wsx-cap" data-fr="Interface Pharnos — app.pharnos.com · © 2026 Pharnos. Reconstitution à titre d'illustration ; les libellés sont ceux du produit.">Pharnos interface — app.pharnos.com · © 2026 Pharnos. Reconstruction for illustration; labels are those of the product.</figcaption>
+      </figure>
+
+      <!-- Trois points, arrêtés par le CEO. Sur le premier, la formule demandée était « garantit
+           un meilleur taux d'acceptation » : elle n'est pas reprise telle quelle, parce que
+           l'article 5 des conditions générales — en ligne, opposable — dit l'inverse (« ne
+           garantit pas qu'un dossier sera recevable, enregistré ou autorisé »). Une vitrine qui
+           promet ce que le contrat exclut est le premier écart que relève un service juridique.
+           L'argument est donc rendu par son MÉCANISME, qui se démontre : le montage écarte la
+           catégorie de rejet la plus fréquente à la réception, celle qui porte sur la forme. -->
+      <ul class="wsx-points stagger reveal">
+        <li>
+          <h3 data-fr="Monté sur l'arborescence officielle">Assembled on the official tree</h3>
+          <p data-fr="Module 1 au cadre du pays où vous déposez, dans l'ordre qu'attend l'agence — pas celui qu'a pris votre disque dur. La non-conformité de structure est la première chose que regarde la recevabilité, et c'est exactement la catégorie de rejet que ce montage écarte.">Module 1 in the framework of the country you are filing in, in the order the agency expects — not the one your hard drive ended up with. Structural non-conformity is the first thing a reception check looks at, and it is precisely the class of rejection this assembly removes.</p>
+        </li>
+        <li>
+          <h3 data-fr="Déclinée en quelques clics, pays par pays">Rolled out to each country in a few clicks</h3>
+          <p data-fr="La fiche produit est saisie une fois. Vous la déclinez en autant de Modules 1 que de pays visés — chacun à son cadre national, sans une seule ressaisie.">The product record is entered once. You roll it out into as many Module 1 dossiers as you have target countries — each in its own national framework, without a single re-entry.</p>
+        </li>
+        <li>
+          <h3 data-fr="Partagée et suivie entre les acteurs du dossier">Shared and tracked across the dossier's parties</h3>
+          <p data-fr="Titulaire (MAH), représentant local, agence-conseil : chacun voit le dossier qui le concerne, y dépose ses pièces et suit l'avancement en direct. Le périmètre se donne dossier par dossier, jamais en bloc.">Marketing authorisation holder, local representative, consulting agency: each sees the dossier that concerns them, files their own documents and follows progress live. Scope is granted dossier by dossier, never wholesale.</p>
+        </li>
+      </ul>
+
+      <div class="wsx-cta reveal">
+        <button class="btn btn-primary btn-lg" type="button" data-demo-open="" data-fr="Voyez-le sur votre dossier">See it on your dossier</button>
+      </div>
+    </div>
+  </section>
+
   <!-- ═══════════ POUR QUI ═══════════ -->
   <section class="section" id="pourqui">
     <div class="wrap">
@@ -417,105 +519,6 @@
           <p data-fr="Isolation par organisation (RLS) · journal d'audit append-only · corbeille 30 j ·
              liens tokenisés révocables · sauvegardes chiffrées · chiffrement en transit et au repos.">Per-organisation isolation (RLS) · append-only audit log · 30-day trash · revocable tokenised links · encrypted backups · encryption in transit and at rest.</p>
         </article>
-      </div>
-    </div>
-  </section>
-
-  <!-- ═══════════ WORKSPACE CTD · la démonstration du produit ═══════════
-       Le visuel est une RECONSTITUTION de l'interface en HTML/CSS, pas une capture d'écran.
-       Trois raisons, dans cet ordre : la CSP interdit toute image externe et une PNG de plusieurs
-       centaines de Ko sur le chemin critique coûterait le score Lighthouse que la CI vérifie ;
-       une capture vieillit en silence au premier changement d'UI ; et un écran réel exposerait
-       le dossier d'un client. Les libellés, eux, ne sont PAS inventés : arborescence de
-       `web/src/features/workspace/module1-tree.ts`, statuts et actions de `DossierWorkspacePage`.
-       En changer un ici sans qu'il existe dans l'app, c'est promettre une fonctionnalité absente. -->
-  <section class="section wsx" id="workspace">
-    <div class="wrap">
-      <div class="wsx-intro reveal">
-        <p class="kicker" data-fr="Le workspace CTD">The CTD workspace</p>
-        <h2 data-fr="Votre dossier se monte à l'écran, rubrique par rubrique.">Your dossier takes shape on screen, section by section.</h2>
-        <p class="section-sub" data-fr="L'arborescence Module 1 du pays où vous déposez est déjà en place. Chaque rubrique dit ce qu'elle attend — un document à générer, une pièce à téléverser, une annexe à produire. Vous remplissez le fond ; Pharnos compile la liasse.">The Module 1 tree of the country you are filing in is already in place. Each section states what it expects — a document to generate, a file to upload, an annex to produce. You fill in the content; Pharnos compiles the package.</p>
-      </div>
-
-      <!-- Reconstitution d'interface — décorative : tout ce qu'elle raconte est écrit en toutes
-           lettres dans `.wsx-points` juste en dessous, donc rien n'est perdu pour un lecteur
-           d'écran. D'où `aria-hidden` plutôt qu'une description alternative interminable. -->
-      <figure class="wsx-shot reveal">
-        <div class="wsx-app" aria-hidden="true">
-          <div class="wsx-chrome">
-            <span class="wsx-dots"><i></i><i></i><i></i></span>
-            <span class="wsx-url">app.pharnos.com</span>
-          </div>
-          <div class="wsx-head">
-            <span class="wsx-back">←</span>
-            <span class="wsx-title">Amoxicilline 500 mg</span>
-            <span class="wsx-flag">BJ</span>
-            <span class="wsx-acts">
-              <span class="wsx-btn" data-fr="Feuille de route">Roadmap</span>
-              <span class="wsx-btn" data-fr="Correspondance">Correspondence</span>
-              <span class="wsx-btn wsx-btn-primary" data-fr="Compiler le PDF">Compile the PDF</span>
-            </span>
-          </div>
-          <!-- Chaque libellé porte son `data-en` sur un élément à UN SEUL nœud texte : le numéro
-               dans <b>, le titre dans <span>, la pastille dans <i>. Poser un `data-en` sur la
-               ligne entière casserait le retour au français (le moteur i18n ne restaure que le
-               premier nœud texte) — c'est l'avertissement que crache `landing.js` en console. -->
-          <div class="wsx-body">
-            <div class="wsx-tree">
-              <p class="wsx-treehead">Module 1</p>
-              <p class="wsx-node wsx-lvl1"><b>1.0</b><span data-fr="Correspondance">Correspondence</span></p>
-              <p class="wsx-node" style="--i:1"><b>1.0.1</b><span data-fr="Lettre d'accompagnement">Cover letter</span><i class="wsx-tag wsx-auto" data-fr="Autogénéré">Auto-generated</i></p>
-              <p class="wsx-node" style="--i:2"><b>1.0.3</b><span data-fr="Tableau de suivi">Lifecycle tracking table</span><i class="wsx-tag wsx-auto" data-fr="Autogénéré">Auto-generated</i></p>
-              <p class="wsx-node wsx-lvl1" style="--i:3"><b>1.2</b><span data-fr="Informations administratives">Administrative information</span></p>
-              <p class="wsx-node" style="--i:4"><b>1.2.1</b><span data-fr="Formulaires de demande">Application forms</span><i class="wsx-tag wsx-file" data-fr="Pièce">File</i></p>
-              <p class="wsx-node" style="--i:5"><b>1.2.2</b><span data-fr="Formulaires de frais">Fee forms</span><i class="wsx-tag wsx-file" data-fr="Pièce">File</i></p>
-              <p class="wsx-node wsx-lvl1" style="--i:6"><b>1.3</b><span data-fr="Information produit">Product information</span></p>
-              <p class="wsx-node wsx-on" style="--i:7"><b>1.3.1</b><span data-fr="RCP">SmPC</span><i class="wsx-tag wsx-draft" data-fr="Brouillon">Draft</i></p>
-              <!-- La rubrique qui bascule : « À générer » cède la place à « Autogénéré ». -->
-              <p class="wsx-node wsx-flip" style="--i:8"><b>1.3.2</b><span data-fr="Notice">Leaflet</span><i class="wsx-tag wsx-todo" data-fr="À générer">To generate</i><i class="wsx-tag wsx-auto wsx-after" data-fr="Autogénéré">Auto-generated</i></p>
-              <p class="wsx-node" style="--i:9"><b>1.3.3</b><span data-fr="Étiquetage">Labelling</span><i class="wsx-tag wsx-todo" data-fr="À générer">To generate</i></p>
-              <p class="wsx-node wsx-lvl1" style="--i:10"><b>1.8</b><span data-fr="Pharmacovigilance">Pharmacovigilance</span></p>
-            </div>
-            <div class="wsx-doc">
-              <p class="wsx-docref" data-fr="1.3.1 · Résumé des Caractéristiques du Produit">1.3.1 · Summary of Product Characteristics</p>
-              <p class="wsx-h" data-fr="4.8 Effets indésirables">4.8 Undesirable effects</p>
-              <span class="wsx-l"></span><span class="wsx-l"></span><span class="wsx-l w70"></span>
-              <p class="wsx-locked" data-fr="Titre réglementaire verrouillé">Regulatory heading locked</p>
-              <p class="wsx-h" data-fr="Déclaration des effets indésirables suspectés">Reporting of suspected adverse reactions</p>
-              <span class="wsx-l"></span><span class="wsx-l w85"></span>
-              <p class="wsx-field" data-fr="[ À COMPLÉTER ]">[ TO BE COMPLETED ]</p>
-              <span class="wsx-l w60"></span>
-            </div>
-          </div>
-          <!-- Aucun compte de rubriques ici : il dépend du pays et de l'activité, et un chiffre
-               figé dans une illustration devient une promesse fausse au premier dossier qui n'en
-               a pas autant. On annonce ce que la compilation produit, ce qui est toujours vrai. -->
-          <p class="wsx-toast" data-fr="Dossier compilé — PDF paginé, TdM incluse">Dossier compiled — paginated PDF, ToC included</p>
-        </div>
-        <figcaption class="wsx-cap" data-fr="Interface Pharnos — app.pharnos.com · © 2026 Pharnos. Reconstitution à titre d'illustration ; les libellés sont ceux du produit.">Pharnos interface — app.pharnos.com · © 2026 Pharnos. Reconstruction for illustration; labels are those of the product.</figcaption>
-      </figure>
-
-      <ul class="wsx-points stagger reveal">
-        <li>
-          <h3 data-fr="L'arborescence officielle, pas la vôtre">The official tree, not yours</h3>
-          <p data-fr="Module 1 au cadre du pays où vous déposez — correspondance, informations administratives, information produit, pharmacovigilance. L'ordre qu'attend l'agence, pas celui qu'a pris votre disque dur.">Module 1 in the framework of the country you are filing in — correspondence, administrative information, product information, pharmacovigilance. The order the agency expects, not the one your hard drive ended up with.</p>
-        </li>
-        <li>
-          <h3 data-fr="Chaque rubrique dit ce qu'elle attend">Every section says what it expects</h3>
-          <p data-fr="À générer, autogénéré, pièce, annexe, brouillon. Un coup d'œil suffit pour voir ce qui manque encore avant le dépôt — aucune liste à tenir à côté.">To generate, auto-generated, file, annex, draft. One glance tells you what is still missing before filing — no checklist to keep on the side.</p>
-        </li>
-        <li>
-          <h3 data-fr="Les titres réglementaires sont verrouillés">Regulatory headings are locked</h3>
-          <p data-fr="Vous écrivez le fond, jamais la structure. Les intitulés officiels et les mentions obligatoires ne peuvent être ni renommés ni déplacés par inadvertance — ce que la recevabilité regarde en premier.">You write the content, never the structure. Official headings and mandatory statements cannot be renamed or moved by accident — which is what a reception check looks at first.</p>
-        </li>
-        <li>
-          <h3 data-fr="Un bouton, une liasse">One button, one package</h3>
-          <p data-fr="« Compiler le PDF » assemble la liasse dans l'ordre, la pagine et fabrique la table des matières. Ce qui prenait un après-midi de copier-coller prend quelques secondes.">Compile the PDF assembles the dossier in order, paginates it and builds the table of contents. What used to take an afternoon of copy-pasting takes seconds.</p>
-        </li>
-      </ul>
-
-      <div class="wsx-cta reveal">
-        <button class="btn btn-primary btn-lg" type="button" data-demo-open="" data-fr="Voyez-le sur votre dossier">See it on your dossier</button>
       </div>
     </div>
   </section>
