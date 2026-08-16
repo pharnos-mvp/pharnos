@@ -351,6 +351,13 @@
   .wsx .wrap { padding-top: 76px; padding-bottom: 76px; }
   /* Titre et chapô : pleine largeur, centrés, au-dessus des deux colonnes. */
   .wsx-intro { max-width: 680px; margin: 0 auto; text-align: center; }
+  /* Le titre tient sur UNE ligne dans les deux langues. La règle globale `h2 { max-width: 28ch }`
+     (≈ 522 px à cette taille) est plus étroite que la version anglaise, qui demande 548 px : elle
+     la coupait en deux. 34ch laisse la marge nécessaire sans dépasser le conteneur — donc pas de
+     `white-space: nowrap`, qui ferait déborder la page sur les petits écrans au lieu de replier
+     proprement le titre. Le chapô garde sa largeur de lecture. */
+  .wsx-intro h2 { max-width: 34ch; }
+  .wsx-intro .section-sub { max-width: 62ch; margin-left: auto; margin-right: auto; }
   /* Arguments à gauche, démonstration à droite — la droite est la plus large : c'est
      l'illustration qui doit être lisible, les arguments tiennent en une ligne chacun. */
   .wsx-grid { margin-top: 44px; display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
