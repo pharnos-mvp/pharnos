@@ -534,3 +534,11 @@ verify_jwt = false
 # et brûlerait un dépôt sur trois.
 [functions.order-source]
 verify_jwt = false
+
+# Le SECOND rail d'encaissement (Paddle, merchant of record) : `verify_jwt = false` parce que Paddle
+# n'a pas de compte chez nous, et AUCUN en-tête CORS — c'est du serveur à serveur. La barrière est
+# DANS la fonction : signature `Paddle-Signature` (HMAC-SHA256 de `ts:corps brut`) vérifiée avant
+# toute dépense, fail-closed sans `PADDLE_WEBHOOK_SECRET`. Aucun mode « observation » : ce rail naît
+# APRÈS la leçon du mode observation de `chariow-pulse`.
+[functions.paddle-webhook]
+verify_jwt = false
