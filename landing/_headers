@@ -67,6 +67,9 @@
 /landing.js
   Cache-Control: public, max-age=300
 
+/consent.js
+  Cache-Control: public, max-age=300
+
 /invite.js
   Cache-Control: public, max-age=300
 
