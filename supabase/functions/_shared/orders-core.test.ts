@@ -16,6 +16,7 @@ import {
   MAX_SOURCE_BYTES,
   newDeliveryToken,
   PRODUITS,
+  refCommande,
   PULSE_EVENT_VENTE,
   DOSSIER_IMPOSSIBLE,
   jugerObjetSource,
@@ -79,11 +80,11 @@ Deno.test('jeton : le lien expire à 30 jours, depuis une horloge INJECTÉE', ()
 Deno.test('Pulse : l’identifiant se lit à plat comme sous `data`', () => {
   assertEquals(
     lirePulse({ event: PULSE_EVENT_VENTE, sale_id: 'sale_9' }),
-    { event: PULSE_EVENT_VENTE, saleId: 'sale_9' },
+    { event: PULSE_EVENT_VENTE, saleId: 'sale_9', ref: null },
   )
   assertEquals(
     lirePulse({ type: PULSE_EVENT_VENTE, data: { id: 'sale_9' } }),
-    { event: PULSE_EVENT_VENTE, saleId: 'sale_9' },
+    { event: PULSE_EVENT_VENTE, saleId: 'sale_9', ref: null },
   )
 })
 
@@ -100,8 +101,93 @@ Deno.test('Pulse : la forme RÉELLE des Pulses prod — l’identifiant sous `sa
       product: { id: 'prd_hf86pys5' },
       customer: { id: 'cus_x' },
     }),
-    { event: PULSE_EVENT_VENTE, saleId: 'SALEX5MD9EZOYKITEPM' },
+    { event: PULSE_EVENT_VENTE, saleId: 'SALEX5MD9EZOYKITEPM', ref: null },
   )
+})
+
+Deno.test('⚠️ Pulse : la RÉFÉRENCE survit — sans elle la salle d’attente ne trouve rien', () => {
+  // Le défaut que ce test ferme, mesuré sur la vente réelle du 14/08/2026 : `custom_metadata.ref`
+  // voyage dans le Pulse, mais `GET /v1/sales/{id}` ne rend PAS `custom_metadata`. La chercher là
+  // seulement revenait à ne jamais l'avoir : `orders.ref` nulle sur CHAQUE vente, `order-claim`
+  // aveugle, et la salle d'attente qui annonce une panne au bout de sept minutes alors que la
+  // commande existe et que l'e-mail est parti.
+  const REF = '8f3a2c10-4b6d-4e21-9c77-2a1b5e9d0f34'
+  const lu = lirePulse({
+    event: PULSE_EVENT_VENTE,
+    sale: {
+      id: 'SALEX5MD9EZOYKITEPM',
+      status: 'completed',
+      custom_metadata: { ref: REF, essai: '1', offre: 'up1' },
+    },
+    product: { id: 'prd_g3norblb' },
+    customer: { id: 'cus_x' },
+  })
+  assertEquals(lu, { event: PULSE_EVENT_VENTE, saleId: 'SALEX5MD9EZOYKITEPM', ref: REF })
+
+  // Une référence qui n'est pas un UUID ne voyage pas : `order-claim` n'en ferait rien, et une
+  // chaîne arbitraire venue d'un tiers n'a aucune commande à désigner.
+  for (const mauvaise of ['pas-un-uuid', '', '   ', 42, null, { ref: 'x' }]) {
+    const r = lirePulse({
+      event: PULSE_EVENT_VENTE,
+      sale: { id: 'SALE_9', custom_metadata: { ref: mauvaise } },
+    })
+    assertEquals('erreur' in r ? 'erreur' : r.ref, null, `acceptée à tort : ${JSON.stringify(mauvaise)}`)
+  }
+  // Métadonnées absentes : pas de référence, pas d'invention.
+  assertEquals(lirePulse({ event: PULSE_EVENT_VENTE, sale: { id: 'SALE_9' } }), {
+    event: PULSE_EVENT_VENTE,
+    saleId: 'SALE_9',
+    ref: null,
+  })
+})
+
+Deno.test('refCommande : l’API prime, et le Pulse NON SIGNÉ ne nomme jamais la référence', () => {
+  const API = '11111111-1111-4111-8111-111111111111'
+  const PULSE = '22222222-2222-4222-8222-222222222222'
+  // Le jour où l'API rendra `custom_metadata`, elle reprend la main sans qu'on touche au code.
+  assertEquals(refCommande(API, PULSE, true), API)
+  assertEquals(refCommande(null, PULSE, true), PULSE)
+  assertEquals(refCommande(API, null, true), API)
+  // Aucune des deux : la commande naît sans référence — l'e-mail n°1 reste le chemin d'accès.
+  assertEquals(refCommande(null, null, true), null)
+  assertEquals(refCommande(null, undefined, true), null)
+
+  // ⚠️ LE contrat de sécurité : en mode observation la signature n'est pas vérifiée, et la
+  // référence commande l'accès au dossier (`order-claim` l'échange contre un jeton de livraison,
+  // qui autorise dépôt, lancement du moteur et téléchargement). Un corps non authentifié ne la
+  // nomme donc JAMAIS — même si l'API se tait, et même si le Pulse en porte une valide.
+  assertEquals(refCommande(null, PULSE, false), null)
+  // L'API, elle, reste souveraine : elle est re-vérifiée, pas reçue.
+  assertEquals(refCommande(API, PULSE, false), API)
+})
+
+Deno.test('Pulse : les métadonnées se lisent sous TOUS les alias, chaîne JSON comprise', () => {
+  // `lireVente` accepte `custom_metadata` OU `metadata` — cet alias existe parce qu'on a vu la
+  // seconde forme. Être plus étroit ici rendait la référence nulle en silence. Et une chaîne
+  // n'étant pas nullish, le `??` ne retombait pas sur le conteneur suivant : elle se décode.
+  const REF = '8f3a2c10-4b6d-4e21-9c77-2a1b5e9d0f34'
+  const formes: Record<string, unknown>[] = [
+    { event: PULSE_EVENT_VENTE, sale: { id: 'S1', custom_metadata: { ref: REF } } },
+    { event: PULSE_EVENT_VENTE, sale: { id: 'S1', metadata: { ref: REF } } },
+    { event: PULSE_EVENT_VENTE, sale: { id: 'S1' }, custom_metadata: { ref: REF } },
+    { event: PULSE_EVENT_VENTE, data: { sale: { id: 'S1' } }, custom_metadata: { ref: REF } },
+    { event: PULSE_EVENT_VENTE, sale: { id: 'S1', custom_metadata: JSON.stringify({ ref: REF }) } },
+    // Majuscules : la référence se compare en minuscules côté `order-claim`.
+    { event: PULSE_EVENT_VENTE, sale: { id: 'S1', custom_metadata: { ref: REF.toUpperCase() } } },
+  ]
+  for (const forme of formes) {
+    const lu = lirePulse(forme)
+    assertEquals('erreur' in lu ? 'erreur' : lu.ref, REF, `perdue sur : ${JSON.stringify(forme)}`)
+  }
+  // Ce qui ne peut pas porter de référence n'en invente pas.
+  for (const forme of [
+    { event: PULSE_EVENT_VENTE, sale: { id: 'S1', custom_metadata: 'pas du json' } },
+    { event: PULSE_EVENT_VENTE, sale: { id: 'S1', custom_metadata: [{ ref: REF }] } },
+    { event: PULSE_EVENT_VENTE, sale: { id: 'S1', custom_metadata: JSON.stringify({ ref: 'x' }) } },
+  ]) {
+    const lu = lirePulse(forme)
+    assertEquals('erreur' in lu ? 'erreur' : lu.ref, null, `inventée sur : ${JSON.stringify(forme)}`)
+  }
 })
 
 Deno.test('Pulse : `sale.id` prime sur l’`id` de racine — l’un est la vente, l’autre peut-être le Pulse', () => {
@@ -115,7 +201,7 @@ Deno.test('Pulse : `sale.id` prime sur l’`id` de racine — l’un est la vent
   ]) {
     assertEquals(
       lirePulse(corps),
-      { event: PULSE_EVENT_VENTE, saleId: 'SALEX5MD9EZOYKITEPM' },
+      { event: PULSE_EVENT_VENTE, saleId: 'SALEX5MD9EZOYKITEPM', ref: null },
       `perdu sur : ${JSON.stringify(corps)}`,
     )
   }
@@ -155,7 +241,7 @@ Deno.test('Pulse : RIEN d’autre que l’événement et l’identifiant n’est
     product_id: 'prd_hf86pys5',
     status: 'paid',
   })
-  assertEquals(lu, { event: PULSE_EVENT_VENTE, saleId: 'sale_9' })
+  assertEquals(lu, { event: PULSE_EVENT_VENTE, saleId: 'sale_9', ref: null })
 })
 
 /* ─────────────────────────────── La vente vérifiée auprès de l’API ─────────────────────────── */

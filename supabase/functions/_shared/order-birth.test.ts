@@ -1,5 +1,5 @@
 // deno test — les gabarits de l'e-mail n°1 (C5). Module pur : aucun réseau, aucune base.
-import { assertEquals, assertStringIncludes } from 'jsr:@std/assert@1'
+import { assertArrayIncludes, assertEquals, assertStringIncludes } from 'jsr:@std/assert@1'
 
 import { htmlEmailCommande, texteEmailCommande } from './order-birth.ts'
 import type { VenteVerifiee } from './orders-core.ts'
@@ -13,7 +13,7 @@ const VENTE: VenteVerifiee = {
   email: 'acheteur@example.com',
   firstName: 'Awa',
   lastName: 'K.',
-  ref: 'ref-123',
+  ref: '8f3a2c10-4b6d-4e21-9c77-2a1b5e9d0f34',
   lang: 'fr',
   paymentMethod: 'Carte bancaire',
   invoiceUrl: 'https://chariow.example/invoice/abc',
@@ -69,9 +69,14 @@ Deno.test('e-mail n°1 : la version anglaise est complète, et une vente sans fa
 import { faireNaitreCommande } from './order-birth.ts'
 
 interface Scenario {
-  insertOrder: { data: { id: string } | null; error: { code?: string } | null }
-  dejaLigne?: { id: string; notified_at: string | null } | null
+  insertOrder: { data: { id: string } | null; error: { code?: string; message?: string; details?: string } | null }
+  dejaLigne?: { id: string; notified_at: string | null; ref?: string | null } | null
   insertToken?: { error: { code?: string } | null }
+  /** Second insert, quand une renaissance sans référence rejoue l'écriture. */
+  insertOrder2?: { data: { id: string } | null; error: { code?: string } | null }
+  majRefErreur?: { code?: string } | null
+  /** Lignes touchées par le back-fill — `[]` simule une course perdue. */
+  majRefTouchees?: { id: string }[]
 }
 
 function stubSb(sc: Scenario) {
@@ -85,9 +90,13 @@ function stubSb(sc: Scenario) {
             return Promise.resolve({ error: sc.insertToken?.error ?? null })
           }
           ecrits.orders_insert.push(ligne)
+          // Le second insert rejoue l'écriture sans référence (conflit `orders_ref_key`).
+          const rep = ecrits.orders_insert.length === 1 || !sc.insertOrder2
+            ? sc.insertOrder
+            : sc.insertOrder2
           return {
             select: () => ({
-              maybeSingle: () => Promise.resolve({ data: sc.insertOrder.data, error: sc.insertOrder.error }),
+              maybeSingle: () => Promise.resolve({ data: rep.data, error: rep.error }),
             }),
           }
         },
@@ -97,8 +106,25 @@ function stubSb(sc: Scenario) {
           }),
         }),
         update(maj: unknown) {
-          ecrits.orders_update.push(maj)
-          return { eq: () => Promise.resolve({ error: null }) }
+          // ⚠️ Les FILTRES sont enregistrés, pas seulement la charge utile. Sans cela, retirer
+          // `.is('ref', null)` — la seule protection contre la course au back-fill — ne faisait
+          // échouer AUCUN test : mesuré par mutation du module.
+          const filtres: string[] = []
+          ecrits.orders_update.push({ maj, filtres })
+          const chaine = {
+            eq(colonne: string, _v: unknown) {
+              filtres.push(`eq:${colonne}`)
+              return Object.assign(Promise.resolve({ error: null }), chaine)
+            },
+            is(colonne: string, valeur: unknown) {
+              filtres.push(`is:${colonne}=${valeur}`)
+              return Object.assign(
+                Promise.resolve({ data: sc.majRefTouchees ?? [{ id: 'ord-1' }], error: sc.majRefErreur ?? null }),
+                { select: () => Promise.resolve({ data: sc.majRefTouchees ?? [{ id: 'ord-1' }], error: sc.majRefErreur ?? null }) },
+              )
+            },
+          }
+          return chaine
         },
       }
     },
@@ -114,7 +140,13 @@ Deno.test('naissance : le cas nominal crée la commande, frappe UN jeton, tente 
   const r = await faireNaitreCommande(sb, VENTE, LOG)
   // Sans RESEND_API_KEY (environnement de test), l'envoi échoue proprement : la commande, elle,
   // EXISTE — et `notified_at` reste nul pour que le rejeu retente.
-  assertEquals(r, { statut: 'nee', orderId: 'ord-1', mail: 'failed', renaissance: false })
+  assertEquals(r, {
+    statut: 'nee',
+    orderId: 'ord-1',
+    mail: 'failed',
+    renaissance: false,
+    refPosee: VENTE.ref,
+  })
   assertEquals(ecrits.orders_insert.length, 1)
   assertEquals(ecrits.tokens_insert.length, 1)
   assertEquals(ecrits.orders_update.length, 0)
@@ -179,11 +211,68 @@ Deno.test('naissance : quand l’e-mail PART, notified_at est posé — le rejeu
     const r = await faireNaitreCommande(sb, VENTE, LOG)
     assertEquals(r.statut === 'nee' && r.mail, 'sent')
     assertEquals(ecrits.orders_update.length, 1)
-    const maj = ecrits.orders_update[0] as { notified_at?: string }
-    assertEquals(typeof maj.notified_at, 'string')
+    const maj = ecrits.orders_update[0] as { maj: { notified_at?: string } }
+    assertEquals(typeof maj.maj.notified_at, 'string')
   } finally {
     globalThis.fetch = vraiFetch
     if (anciensEnv === undefined) Deno.env.delete('RESEND_API_KEY')
     else Deno.env.set('RESEND_API_KEY', anciensEnv)
   }
+})
+
+Deno.test('⚠️ naissance : la RÉFÉRENCE se remplit quand la réconciliation a gagné la course', async () => {
+  // LA trajectoire du 14/08/2026, celle qui a coûté la vente : le Pulse n'arrive pas, le balayage
+  // fait naître la commande SANS référence (il n'en a aucune), puis le Pulse arrive enfin. Sans ce
+  // back-fill, sa référence était jetée et la salle d'attente restait aveugle — le défaut survivait
+  // sur le chemin même où il avait mordu.
+  const { sb, ecrits } = stubSb({
+    insertOrder: { data: null, error: { code: '23505' } },
+    dejaLigne: { id: 'ord-1', notified_at: '2026-08-14T02:20:00Z', ref: null },
+  })
+  const r = await faireNaitreCommande(sb, VENTE, LOG)
+  assertEquals(r, { statut: 'rejeu' })
+  // La référence est écrite, et RIEN d'autre : ni jeton, ni e-mail — la commande était déjà servie.
+  assertEquals(ecrits.orders_update.length, 1)
+  const maj = ecrits.orders_update[0] as { maj: unknown; filtres: string[] }
+  assertEquals(maj.maj, { ref: VENTE.ref })
+  // ⚠️ Le filtre EST la protection : le garde `!deja.ref` est une lecture, donc racée. C'est
+  // `is('ref', null)` qui rend l'écriture sûre — un test qui ne l'exige pas laisse le retirer.
+  assertArrayIncludes(maj.filtres, ['is:ref=null'])
+  assertEquals(ecrits.tokens_insert.length, 0)
+})
+
+Deno.test('naissance : une commande qui a DÉJÀ une référence n’est jamais déplacée', async () => {
+  // Remplir, jamais écraser : un Pulse tardif — ou forgé — ne doit pas pouvoir déplacer le pont
+  // d'une commande établie vers une référence qu'il choisit.
+  const { sb, ecrits } = stubSb({
+    insertOrder: { data: null, error: { code: '23505' } },
+    dejaLigne: {
+      id: 'ord-1',
+      notified_at: '2026-08-14T02:20:00Z',
+      ref: '11111111-1111-4111-8111-111111111111',
+    },
+  })
+  assertEquals(await faireNaitreCommande(sb, VENTE, LOG), { statut: 'rejeu' })
+  assertEquals(ecrits.orders_update.length, 0)
+})
+
+Deno.test('⚠️ naissance : une RÉFÉRENCE déjà prise ne tue pas une vente réglée', async () => {
+  // `orders.ref` est UNIQUE (`orders_ref_key`, 0083) : depuis que la référence voyage, cette
+  // contrainte est armée. Deviner laquelle des deux a cédé ferait relire par `chariow_sale_id`,
+  // ne rien trouver, rendre 503 — et Chariow rejouerait le même conflit cinq fois sur 24 h, pour
+  // une vente PAYÉE. On renaît donc sans elle : le pont est perdu, la commande ne l'est pas.
+  const { sb, ecrits } = stubSb({
+    insertOrder: {
+      data: null,
+      error: { code: '23505', message: 'duplicate key value violates unique constraint "orders_ref_key"' },
+    },
+    insertOrder2: { data: { id: 'ord-2' }, error: null },
+  })
+  const r = await faireNaitreCommande(sb, VENTE, LOG)
+  assertEquals(r.statut, 'nee')
+  assertEquals(ecrits.orders_insert.length, 2)
+  // La seconde écriture est la même commande, sans sa référence.
+  const seconde = ecrits.orders_insert[1] as { ref: string | null; chariow_sale_id: string }
+  assertEquals(seconde.ref, null)
+  assertEquals(seconde.chariow_sale_id, VENTE.saleId)
 })

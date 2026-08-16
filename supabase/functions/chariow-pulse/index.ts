@@ -25,7 +25,12 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 
 import { logJson, newReqId } from '../_shared/log.ts'
 import { faireNaitreCommande } from '../_shared/order-birth.ts'
-import { lirePulse, lireVente, PULSE_EVENT_VENTE } from '../_shared/orders-core.ts'
+import {
+  lirePulse,
+  lireVente,
+  PULSE_EVENT_VENTE,
+  refCommande,
+} from '../_shared/orders-core.ts'
 import { signaturePulseValide } from '../_shared/pulse-signature.ts'
 
 const MAX_BODY_BYTES = 16 * 1024
@@ -80,11 +85,22 @@ Deno.serve(async (req) => {
   // Chariow. Un tiers qui poste des corps forgés est arrêté au premier calcul.
   const whsec = Deno.env.get('CHARIOW_PULSE_SECRET')
   const recue = req.headers.get('x-chariow-signature') ?? ''
+  // ⚠️ Retenu pour la SUITE, pas seulement pour cette porte : la référence de commande est le seul
+  // champ que l'on emprunte au corps reçu, et on ne l'emprunte QUE s'il est authentifié. En mode
+  // observation la signature n'est pas vérifiée — quiconque connaît l'URL pourrait alors poser SA
+  // référence sur une commande en train de naître, et réclamer ensuite le jeton de livraison du
+  // dossier d'un acheteur. Le mode observation reste un mode de configuration, jamais un mode de
+  // confiance.
+  let signee = false
   if (whsec) {
     if (!(await signaturePulseValide(whsec, octets, recue))) {
       logJson({ ...log, status: 'signature_refusee' })
       return json({ error: 'invalid_signature' }, 401)
     }
+    // ⚠️ Posé ICI, et nulle part ailleurs : « vérifiée ET passée », jamais « le secret existe ».
+    // Déduire l'authentification de la présence du secret, c'est la classe de raccourci qui a
+    // ouvert le trou du mode observation.
+    signee = true
   } else if (Deno.env.get('CHARIOW_PULSE_OBSERVE') === '1') {
     // Mode OBSERVATION — EXPLICITE, jamais un défaut : `CHARIOW_PULSE_OBSERVE=1` est posé le
     // temps que le secret soit copié depuis la console Chariow. Un secret PERDU dans un déploiement
@@ -194,7 +210,13 @@ Deno.serve(async (req) => {
   }
 
   // ── Naissance de la commande — le chemin PARTAGÉ avec la réconciliation (C1) ──────────────────
-  const naissance = await faireNaitreCommande(supabase, v, log)
+  // ⚠️ La référence est le SEUL champ que le Pulse peut compléter : l'API ne rend pas
+  // `custom_metadata`, et sans elle la salle d'attente ne retrouve jamais la commande. Trois
+  // garde-fous : l'API reste prioritaire (`refCommande`), la référence doit être un UUID, et le
+  // corps doit avoir été SIGNÉ — en mode observation on préfère une commande sans référence à une
+  // référence posée par un inconnu. Rien d'autre du corps reçu n'entre ici.
+  const aNaitre = { ...v, ref: refCommande(v.ref, lu.ref, signee) }
+  const naissance = await faireNaitreCommande(supabase, aNaitre, log)
   if (naissance.statut === 'erreur') return json({ error: 'db' }, 503)
   if (naissance.statut === 'rejeu') {
     logJson({ ...log, status: 'rejeu', essai: v.essai })
@@ -208,7 +230,17 @@ Deno.serve(async (req) => {
     essai: v.essai,
     // Jamais l'adresse : seulement si l'envoi a abouti.
     mail: naissance.mail,
-    ref: v.ref ? v.ref.slice(0, 8) : null,
+    ref: naissance.refPosee ? naissance.refPosee.slice(0, 8) : null,
+    // D'où vient la référence : mesure du repli, pour savoir le jour où l'API se met à la rendre.
+    // Quatre valeurs, pas trois : « non_signe » dit qu'une référence EXISTAIT et qu'on l'a
+    // refusée faute de signature — sans quoi une fenêtre de rotation de secret jetterait des
+    // références en silence, et on chercherait la panne du côté de la landing.
+    refSource: naissance.refPosee
+      ? v.ref ? 'api' : 'pulse'
+      : lu.ref
+      ? signee ? 'perdue_conflit' : 'non_signe'
+      : 'absente',
+    signee,
     // La taille RÉELLE des Pulses en prod : c'est elle qui dira si le plafond de 16 Ko a de la
     // marge, plutôt qu'une hypothèse de plus sur un corps qu'on a déjà mal deviné une fois.
     octets: octets.byteLength,
