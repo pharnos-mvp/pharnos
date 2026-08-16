@@ -22,7 +22,18 @@ const LIEN_LIVRAISON = 'https://app.pharnos.com/u'
 
 export type NaissanceResultat =
   /** Commande créée (ou e-mail renvoyé sur une commande jamais notifiée). */
-  | { statut: 'nee'; orderId: string; mail: 'sent' | 'failed'; renaissance: boolean }
+  | {
+    statut: 'nee'
+    orderId: string
+    mail: 'sent' | 'failed'
+    renaissance: boolean
+    /**
+     * La référence RÉELLEMENT posée sur la commande — `null` si elle a été abandonnée (déjà prise
+     * par une autre vente). L'appelant journalise CE champ, jamais celui qu'il avait l'intention
+     * d'écrire : le log est le seul témoin du run, il ne doit pas affirmer l'inverse de la base.
+     */
+    refPosee: string | null
+  }
   /** La commande existe et son e-mail est parti : il n'y a rien à faire. */
   | { statut: 'rejeu' }
   /** Panne d'écriture — l'appelant décide du rejeu (503 au webhook, prochain tour au cron). */
@@ -68,14 +79,56 @@ export async function faireNaitreCommande(
       logJson({ ...log, status: 'insert_error', code: insErr.code })
       return { statut: 'erreur' }
     }
+    // ⚠️ DEUX contraintes uniques sur cette table : `chariow_sale_id` ET `ref` (`orders_ref_key`,
+    // posée par 0083 — 0091 n'a retiré que le NOT NULL). Tant que le webhook écrivait toujours
+    // `ref: null`, seule la première pouvait sauter ; depuis que la référence voyage, la seconde
+    // est armée.
+    //
+    // Laquelle a cédé ? On ne le DEVINE pas dans le texte de l'erreur — un format PostgREST qui
+    // change, une contrainte renommée, et le rail redeviendrait muet en silence. On le CONSTATE :
+    //   • une ligne porte déjà cette vente  ⇒ le conflit venait de `chariow_sale_id` : rejeu nominal ;
+    //   • aucune ligne                      ⇒ il venait de la RÉFÉRENCE : elle appartient à une
+    //     autre commande, et on renaît SANS elle plutôt que de tuer une vente réglée (relire par
+    //     `chariow_sale_id` ne trouverait rien, on rendrait 503, et Chariow rejouerait le même
+    //     conflit cinq fois sur 24 h). Le pont est perdu, la commande ne l'est pas : l'e-mail n°1
+    //     reste le chemin d'accès.
+    //
+    // L'ordre compte aussi pour le BRUIT : sur un rejeu Chariow ordinaire les DEUX contraintes
+    // cèdent, et Postgres rapporte la première dans l'ordre des OID — celle de la référence.
+    // Se fier au message aurait donc allumé une alarme « référence en conflit » à chaque rejeu
+    // sain, et gaspillé un insert. La récursion est bornée à 2 par construction : `ref: null` ne
+    // peut pas rejouer ce conflit, Postgres n'indexant pas les NULL dans une contrainte d'unicité.
     const { data: deja } = await sb
       .from('orders')
-      .select('id, notified_at')
+      .select('id, notified_at, ref')
       .eq('chariow_sale_id', v.saleId)
       .maybeSingle()
     if (!deja) {
+      if (v.ref) {
+        logJson({ ...log, status: 'ref_en_conflit' })
+        return await faireNaitreCommande(sb, { ...v, ref: null }, log)
+      }
       logJson({ ...log, status: 'conflit_sans_ligne' })
       return { statut: 'erreur' }
+    }
+    // ⚠️ REMPLIR, jamais écraser — et AVANT le retour « rejeu », sinon ce code serait mort dans le
+    // seul cas qui le justifie. C'est la trajectoire du 14/08/2026 : le Pulse n'arrive pas, la
+    // réconciliation fait naître la commande SANS référence (elle n'en a aucune), puis le Pulse
+    // arrive enfin — et sa référence était jetée. La salle d'attente restait aveugle sur le chemin
+    // même où le défaut avait coûté la vente. Le `.is('ref', null)` rend l'opération sûre : elle ne
+    // peut structurellement pas déplacer le pont d'une commande qui en a déjà un.
+    if (v.ref && !deja.ref) {
+      // `.select('id')` n'est pas décoratif : sans lui, PostgREST rend 204 qu'il ait touché une
+      // ligne ou zéro, et on annoncerait « posée » après une course perdue.
+      const { data: touchees, error: majErr } = await sb
+        .from('orders')
+        .update({ ref: v.ref })
+        .eq('id', deja.id)
+        .is('ref', null)
+        .select('id')
+      // Échec = cette référence appartient à une autre commande. On se tait : la commande vit.
+      if (majErr) logJson({ ...log, status: 'ref_backfill_refuse', code: majErr.code })
+      else logJson({ ...log, status: (touchees?.length ?? 0) > 0 ? 'ref_backfill' : 'ref_backfill_neant' })
     }
     if (deja.notified_at) return { statut: 'rejeu' }
     // La commande existe mais son e-mail n'est JAMAIS parti. On en émet simplement un NOUVEAU :
@@ -110,7 +163,14 @@ export async function faireNaitreCommande(
   if (envoye) {
     await sb.from('orders').update({ notified_at: new Date().toISOString() }).eq('id', orderId)
   }
-  return { statut: 'nee', orderId, mail: envoye ? 'sent' : 'failed', renaissance }
+  return {
+    statut: 'nee',
+    orderId,
+    mail: envoye ? 'sent' : 'failed',
+    renaissance,
+    // Dans la branche récursive, `v.ref` vaut déjà `null` : la vérité remonte d'elle-même.
+    refPosee: v.ref,
+  }
 }
 
 const escapeHtml = (s: string) =>

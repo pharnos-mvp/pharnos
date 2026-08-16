@@ -80,6 +80,13 @@ export const PULSE_EVENT_VENTE = 'successful.sale'
 export interface PulseLu {
   event: string
   saleId: string
+  /**
+   * Référence tirée par le navigateur avant paiement (`custom_metadata.ref`), ou `null`.
+   *
+   * C'est le SEUL chemin par lequel elle nous parvient : l'API des ventes ne rend pas
+   * `custom_metadata`. Sans elle, la salle d'attente ne peut pas retrouver la commande.
+   */
+  ref: string | null
 }
 
 /**
@@ -91,12 +98,24 @@ export interface PulseLu {
 const SALE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/
 
 /**
- * Lit un Pulse. On n'en retient QUE deux choses : l'événement et l'identifiant de vente.
+ * Lit un Pulse. On n'en retient que TROIS choses : l'événement, l'identifiant de vente, et la
+ * référence tirée par le navigateur avant paiement.
  *
- * Tout le reste du corps est ignoré — non par prudence de principe, mais parce qu'il n'est
- * authentifié par rien. Le lire donnerait à un tiers capable d'appeler notre URL le pouvoir de
- * décrire une vente ; le jeter lui laisse seulement celui de nous faire interroger l'API Chariow
- * sur un identifiant qui n'existe pas.
+ * Tout le reste du corps est ignoré — non par prudence de principe, mais parce qu'il ne décide de
+ * rien : produit, montant, statut et acheteur viennent de `GET /v1/sales/{id}`, jamais d'ici.
+ *
+ * ⚠️ POURQUOI LA RÉFÉRENCE, ELLE, EST RETENUE. Elle voyage dans `custom_metadata.ref`, que le
+ * checkout y pose — mais **la réponse de `GET /v1/sales/{id}` ne porte pas `custom_metadata`**
+ * (absent de la documentation Get Sale, absent des réponses observées). La chercher là revenait
+ * donc à ne jamais la trouver : `orders.ref` restait nulle sur CHAQUE vente, `order-claim` ne
+ * retrouvait jamais la commande, et la salle d'attente tombait au bout de sept minutes en
+ * annonçant une panne — alors que la commande existait et que l'e-mail était parti. Constaté sur
+ * la vente réelle du 14/08/2026, dont le Pulse portait pourtant bien la référence.
+ *
+ * Ce que cela accorde à un forgeur : rien. Le corps est authentifié par la signature HMAC AVANT
+ * d'arriver ici (`chariow-pulse` est fail-closed), la référence est un UUID que le navigateur a
+ * lui-même tiré, et elle ne sert qu'à échanger une commande DÉJÀ NÉE contre un jeton de livraison.
+ * Elle ne décide ni du produit, ni du prix, ni du régime d'essai.
  */
 export function lirePulse(body: unknown): PulseLu | { erreur: string } {
   if (!body || typeof body !== 'object') return { erreur: 'corps non structuré' }
@@ -127,8 +146,57 @@ export function lirePulse(body: unknown): PulseLu | { erreur: string } {
   const saleId = brut?.trim() ?? ''
   if (!SALE_ID_RE.test(saleId)) return { erreur: 'identifiant de vente absent ou hors bornes' }
 
-  return { event, saleId }
+  // La référence vit dans les métadonnées de la VENTE — le même conteneur que son identifiant.
+  // ⚠️ Les mêmes alias que `lireVente` (`custom_metadata` OU `metadata`) : cet alias-là n'est pas
+  // décoratif, il existe parce qu'on a vu la seconde forme. Être plus étroit ici rendrait la
+  // référence nulle en silence sur une forme que l'autre lecteur accepte.
+  const metaBrute = vente?.custom_metadata ?? vente?.metadata ??
+    data.custom_metadata ?? data.metadata ?? b.custom_metadata
+  // Certaines intégrations sérialisent les métadonnées en CHAÎNE. Une chaîne n'étant pas nullish,
+  // le `??` ci-dessus ne retombe pas sur le conteneur suivant : il faut la décoder ici, ou la
+  // référence se perd sans un mot.
+  const meta = typeof metaBrute === 'string'
+    ? (() => {
+      try {
+        return JSON.parse(metaBrute) as unknown
+      } catch {
+        return null
+      }
+    })()
+    : metaBrute
+  const refBrute = meta && typeof meta === 'object' && !Array.isArray(meta)
+    ? (meta as Record<string, unknown>).ref
+    : undefined
+  const ref = typeof refBrute === 'string' && isValidRef(refBrute.trim())
+    ? refBrute.trim().toLowerCase()
+    : null
+
+  return { event, saleId, ref }
 }
+
+/**
+ * La référence à écrire sur la commande : celle de l'API d'abord, celle du Pulse en repli.
+ *
+ * L'ordre n'est pas indifférent. L'API est la source RE-VÉRIFIÉE — si elle finit par rendre
+ * `custom_metadata` (rien ne l'interdit), c'est elle qui doit gouverner, et ce repli s'effacera de
+ * lui-même sans qu'on ait à y revenir. Le Pulse ne sert que tant qu'elle se tait.
+ *
+ * ⚠️ `pulseAuthentifie` est OBLIGATOIRE, et c'est le cœur du contrat. La référence n'est pas une
+ * donnée d'affichage : `order-claim` l'échange contre un jeton de livraison, et ce jeton EST
+ * l'autorisation complète du parcours — déposer, lancer le moteur (~2 $), télécharger le livrable.
+ * Un corps non authentifié qui la nomme laisse donc un tiers réclamer le dossier d'un acheteur.
+ * Le mode observation (`CHARIOW_PULSE_OBSERVE=1`) ne vérifie AUCUNE signature : c'est un mode de
+ * configuration, jamais un mode de confiance. En faire un paramètre explicite plutôt qu'un test
+ * chez l'appelant, c'est rendre l'oubli impossible plutôt qu'improbable.
+ *
+ * Le repli ne s'applique QU'AU webhook : la réconciliation (C1) naît sans Pulse — la référence lui
+ * revient alors par le back-fill de `faireNaitreCommande`, quand le Pulse arrive ensuite.
+ */
+export const refCommande = (
+  refApi: string | null,
+  refPulse: string | null | undefined,
+  pulseAuthentifie: boolean,
+): string | null => refApi ?? (pulseAuthentifie ? refPulse ?? null : null)
 
 /* ─────────────────────────── La vente, telle que l'API la confirme ────────────────────────── */
 
