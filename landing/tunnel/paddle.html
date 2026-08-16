@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Paiement · Pharnos</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/tunnel/paddle.css" />
+    <!--
+      Paddle.js est CHARGÉ ICI, en tête, et nulle part ailleurs sur pharnos.com.
+
+      Contrairement à Chariow, Paddle n'héberge aucune page de paiement : le tunnel s'exécute
+      chez le vendeur, et il lui faut un script tiers. Le reste du site garde donc
+      `script-src 'self'` intact, et cette page — qui ne contient rien d'autre que le tunnel,
+      aucun formulaire à nous, aucune donnée client — porte seule l'assouplissement.
+    -->
+    <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+  </head>
+  <!--
+    TUNNEL de paiement Paddle — cadrée par /modele, jamais visitée en direct.
+
+    Pourquoi un répertoire `/tunnel/` à part et non `/paiement/` : les règles `_headers` de
+    Cloudflare Pages se CUMULENT (une CSP ajoutée n'en remplace pas une autre, les deux doivent
+    passer). Poser cette page sous `/paiement/*`, déjà exceptée, y aurait ajouté une seconde
+    politique — et la plus stricte des deux aurait gagné, donc Paddle.js serait resté bloqué.
+    Un chemin distinct ne croise que `/*`, et se détache exactement comme les deux exceptions
+    déjà éprouvées en production.
+
+    Elle reçoit `?_ptxn=<transaction>&e=<s|l>&lang=<fr|en>` — Paddle insère `_ptxn` lui-même et
+    CONSERVE nos paramètres (mesuré le 2026-08-16). Elle ne décide de rien : le prix, l'offre et
+    la référence vivent dans la transaction, créée par le serveur.
+  -->
+  <body>
+    <div id="paddle-checkout"></div>
+    <p id="souci" hidden>
+      Le paiement n’a pas pu s’ouvrir. Réessayez, ou écrivez-nous à
+      <a href="mailto:contact@pharnos.com">contact@pharnos.com</a>.
+    </p>
+    <script src="/tunnel/paddle.js"></script>
+  </body>
+</html>

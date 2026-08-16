@@ -1,13 +1,19 @@
-// Edge Function `checkout` — ouvre une session de paiement Chariow pour la Bibliothèque
-// réglementaire (pharnos.com/modele), afin que l'identité du client se saisisse dans NOTRE
-// design et que la boutique Chariow ne soit jamais visible : le navigateur reçoit une URL de
-// paiement pur (payment.chariow.com) et rien d'autre.
+// Edge Function `checkout` — ouvre une session de paiement pour la Bibliothèque réglementaire
+// (pharnos.com/modele), afin que l'identité du client se saisisse dans NOTRE design et que la
+// boutique du processeur ne soit jamais visible : le navigateur reçoit une URL de paiement et
+// rien d'autre.
+//
+// DEUX RAILS, un seul contrat de sortie (`{url}`) : Chariow encaisse le mobile money UEMOA,
+// Paddle est merchant of record pour le reste du monde. La bascule est `RAIL_PAIEMENT`, et le
+// navigateur ne sait pas — n'a pas à savoir — lequel l'a servi.
 //
 // Contrat sécurité :
 //   • verify_jwt = false : l'acheteur n'a pas de compte. Surface minuscule — POST JSON borné,
-//     AUCUNE donnée lue, aucune écriture en base ici.
-//   • La clé Chariow (`CHARIOW_API_KEY`) ne sort JAMAIS du serveur ; le navigateur nomme une
-//     OFFRE (`up1`/`up3`), le serveur seul nomme le produit (mapping dans checkout-core).
+//     AUCUNE donnée lue, aucune écriture en base ici, et rien d'écrit chez le processeur non
+//     plus : on crée un ordre de paiement, jamais une fiche client à partir d'une adresse que
+//     personne n'a prouvée.
+//   • La clé du processeur ne sort JAMAIS du serveur ; le navigateur nomme une OFFRE
+//     (`up1`/`up3`), le serveur seul nomme le produit (mapping dans checkout-core / PADDLE_PRICES).
 //   • CORS dédié à la landing (même allowlist que demo-request) — l'app n'appelle pas ceci.
 //   • Anti-abus : rate-limit par IP puis global via `share_hit` (service-role, fail-closed).
 //     Pas de honeypot : le formulaire est DERRIÈRE deux clics volontaires et l'appel Chariow
@@ -17,12 +23,21 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 
 import {
   CHARIOW_ENDPOINT,
+  type CommandeValidee,
   corpsChariow,
   essaiAutorise,
   lireReponseChariow,
   validerCommande,
 } from '../_shared/checkout-core.ts'
 import { logJson, newReqId } from '../_shared/log.ts'
+import {
+  corpsTransactionPaddle,
+  lireTransactionCreee,
+  PADDLE_VERSION,
+  paddleApi,
+  prixParOffre,
+  urlTunnel,
+} from '../_shared/paddle-checkout.ts'
 import { clientIp } from '../_shared/net.ts'
 
 const MAX_BODY_BYTES = 4 * 1024
@@ -33,9 +48,11 @@ const IP_WINDOW_S = 3600
 const IP_MAX_HITS = 20
 const GLOBAL_WINDOW_S = 3600
 const GLOBAL_MAX_HITS = 120
-// L'API Chariow répond en pratique en moins de 5 s ; au-delà de 15, l'acheteur a déjà renoncé —
-// on répond une erreur franche et le front retombe sur le lien de paiement direct.
-const CHARIOW_TIMEOUT_MS = 15_000
+// L'API du processeur répond en pratique en moins de 5 s ; au-delà de 15, l'acheteur a déjà
+// renoncé — on répond une erreur franche. Le budget est celui d'UN appel : les deux rails ne font
+// qu'une seule requête sortante sur le chemin chaud, et rien de facultatif ne doit pouvoir manger
+// le temps de la seule qui encaisse.
+const PAIEMENT_TIMEOUT_MS = 15_000
 
 const ALLOWED_ORIGIN =
   /^https:\/\/(www\.)?pharnos\.com$|^https:\/\/([a-z0-9-]+\.)?pharnos-landing\.pages\.dev$|^http:\/\/localhost:\d+$/
@@ -59,6 +76,111 @@ function json(body: unknown, status: number, origin: string | null): Response {
   })
 }
 
+/**
+ * Ouvre un paiement PADDLE. Même contrat de sortie que le chemin Chariow — `{url}` ou une erreur
+ * nommée — pour que le navigateur n'ait rien à savoir du rail qui l'a servi.
+ *
+ * UN SEUL appel sortant, volontairement. La version précédente en faisait trois (chercher le
+ * client, le créer, créer la transaction) pour pré-remplir le tunnel : un confort qui partageait
+ * son budget de temps avec la seule requête qui encaisse, et qui surtout rattachait la vente à un
+ * client Paddle désigné par une adresse que PERSONNE n'avait prouvée. Le pré-remplissage, s'il
+ * revient, se fera côté navigateur — afficher sans lier.
+ *
+ * ⚠️ Aucun repli inter-rails : toutes les sorties portent `repli: 'aucun'`. Renvoyer un acheteur
+ * européen vers Chariow parce que Paddle a hoqueté annulerait la seule raison d'être de ce rail —
+ * la TVA collectée et reversée par un merchant of record.
+ */
+async function ouvrirPaiementPaddle(
+  cmd: CommandeValidee,
+  essai: boolean,
+  log: Record<string, unknown>,
+  origin: string | null,
+): Promise<Response> {
+  const ferme = (status: number) => json({ error: 'server_error', repli: 'aucun' }, status, origin)
+  const bacASable = Deno.env.get('PADDLE_ENV') !== 'live'
+  const apiKey = Deno.env.get('PADDLE_API_KEY')
+  const prix = prixParOffre(Deno.env.get('PADDLE_PRICES'))[cmd.offre]
+  if (!apiKey || !prix) {
+    // Configuration incomplète = vente fermée sur ce rail, pas de demi-mesure. Le log dit LEQUEL
+    // des deux manque plutôt que « erreur serveur » : un rail basculé mais inopérant est un
+    // incident à voir tout de suite, pas une ligne à retrouver plus tard.
+    logJson({ ...log, status: 'paddle_non_configure', cle: Boolean(apiKey), prix: Boolean(prix) })
+    return ferme(503)
+  }
+  if (essai && !bacASable) {
+    // Le régime d'essai de ce rail, c'est le BAC À SABLE — il n'y a pas de catalogue à 570 F chez
+    // Paddle. En production, honorer un jeton de recette encaisserait le plein tarif à quelqu'un
+    // qui croyait tester. On ferme, on ne facture pas par surprise.
+    logJson({ ...log, status: 'paddle_essai_en_live', offre: cmd.offre })
+    return ferme(503)
+  }
+
+  // L'origine de l'ACHETEUR porte le tunnel : la page ne se laisse cadrer que par elle-même.
+  // Repli sur l'apex quand l'appel arrive sans `Origin` (navigation directe, outil de recette).
+  const origineTunnel = origin && ALLOWED_ORIGIN.test(origin) ? origin : 'https://pharnos.com'
+  const urlDemandee = urlTunnel(origineTunnel, cmd.langue, bacASable)
+
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), PAIEMENT_TIMEOUT_MS)
+  try {
+    const res = await fetch(`${paddleApi(bacASable)}/transactions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'content-type': 'application/json',
+        'Paddle-Version': PADDLE_VERSION,
+        // La référence de commande est déjà unique par commande : un double-clic sur « Payer »
+        // rend la MÊME transaction au lieu d'en semer une seconde, orpheline.
+        'Paddle-Idempotency-Key': cmd.ref,
+      },
+      signal: ctrl.signal,
+      body: JSON.stringify(corpsTransactionPaddle(cmd, prix, urlDemandee)),
+    })
+    const corps = await res.json().catch(() => null)
+    const lu = lireTransactionCreee(res.status, corps, urlDemandee)
+    if (!lu.ok) {
+      // Le CODE et non le détail : les détails de validation Paddle ré-échoient la valeur soumise,
+      // et ce fichier promet des logs sans PII. Le code est une énumération stable, donc plus
+      // exploitable.
+      const err = (corps as { error?: { code?: unknown } } | null)?.error
+      logJson({
+        ...log,
+        status: 'paddle_refus',
+        rail: 'paddle',
+        httpStatus: res.status,
+        offre: cmd.offre,
+        essai,
+        ref: cmd.ref.slice(0, 8),
+        code: typeof err?.code === 'string' ? err.code : null,
+      })
+      return ferme(502)
+    }
+    logJson({
+      ...log,
+      status: 'ok',
+      rail: 'paddle',
+      offre: cmd.offre,
+      essai,
+      ref: cmd.ref.slice(0, 8),
+      txn: lu.transactionId.slice(0, 12),
+    })
+    return json({ url: lu.url }, 200, origin)
+  } catch (e) {
+    // Le message est journalisé : sans lui, un bug de NOTRE code se présente comme une panne amont
+    // et se diagnostique à l'aveugle. Il vient de nous, pas de l'acheteur — donc sans PII.
+    const aborted = e instanceof DOMException && e.name === 'AbortError'
+    logJson({
+      ...log,
+      status: aborted ? 'paddle_timeout' : 'paddle_error',
+      rail: 'paddle',
+      err: aborted ? null : String(e).slice(0, 200),
+    })
+    return ferme(aborted ? 504 : 502)
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 Deno.serve(async (req) => {
   const origin = req.headers.get('origin')
   const log = { fn: 'checkout', reqId: newReqId() }
@@ -68,13 +190,6 @@ Deno.serve(async (req) => {
   if (origin !== null && !ALLOWED_ORIGIN.test(origin)) {
     logJson({ ...log, status: 'forbidden_origin' })
     return json({ error: 'forbidden' }, 403, origin)
-  }
-
-  const apiKey = Deno.env.get('CHARIOW_API_KEY')
-  if (!apiKey) {
-    // Configuration absente = vente fermée, pas de demi-mesure : le front garde son repli.
-    logJson({ ...log, status: 'missing_api_key' })
-    return json({ error: 'server_error' }, 500, origin)
   }
 
   try {
@@ -131,9 +246,33 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Le RAIL — une bascule, jamais une règle métier ─────────────────────────────────────────
+    // `RAIL_PAIEMENT=paddle` fait passer l'encaissement par le merchant of record ; toute autre
+    // valeur (y compris absente) garde Chariow. Une variable d'environnement plutôt qu'une règle
+    // par pays : le jour où le compte Paddle est validé, la bascule se retourne en dix secondes,
+    // sans redéploiement ni logique à débuguer. La règle par pays viendra quand il y aura des
+    // ventes réelles sur les deux rails à comparer.
+    //
+    // Le rail voyage dans TOUTES les lignes de log à partir d'ici : une valeur mal casée
+    // (`Paddle`, ou avec une espace) sert Chariow, et sans ce champ ce basculement muet se
+    // chercherait pendant une heure.
+    const rail = Deno.env.get('RAIL_PAIEMENT') === 'paddle' ? 'paddle' : 'chariow'
+    Object.assign(log, { rail })
+    if (rail === 'paddle') return await ouvrirPaiementPaddle(v.cmd, essai, log, origin)
+
+    // La clé Chariow n'est exigée que sur SON rail : sans cette place, un secret Chariow expiré
+    // fermerait une boutique qui ne passe plus par lui, et le rail Paddle ne pourrait pas vivre
+    // seul le jour où l'autre sera décommissionné.
+    const apiKey = Deno.env.get('CHARIOW_API_KEY')
+    if (!apiKey) {
+      // Configuration absente = vente fermée, pas de demi-mesure : le front garde son repli.
+      logJson({ ...log, status: 'missing_api_key' })
+      return json({ error: 'server_error' }, 500, origin)
+    }
+
     // L'ordre d'encaissement part vers Chariow — borné dans le temps : au-delà, erreur franche.
     const ctrl = new AbortController()
-    const timer = setTimeout(() => ctrl.abort(), CHARIOW_TIMEOUT_MS)
+    const timer = setTimeout(() => ctrl.abort(), PAIEMENT_TIMEOUT_MS)
     let res: Response
     try {
       res = await fetch(CHARIOW_ENDPOINT, {
