@@ -344,103 +344,117 @@
      reste de la page réunie — le budget Lighthouse de la CI ne le passerait pas. Bonus : le
      visuel reste net à tout zoom et suit les tokens du thème.
 
-     L'ANIMATION NE DÉMARRE QU'AU `.in` posé par l'IntersectionObserver de landing.js. Une
-     animation en boucle sur un élément hors écran fait tourner le compositeur pour personne :
-     sur un portable de terrain, c'est de la batterie. Elle joue UNE fois, puis se fige — un
-     décor qui s'agite en continu pendant qu'on lit le texte à côté est du bruit, pas du premium.
-     Le repli « sans animation » est un état COHÉRENT (« À générer » reste affiché), pas un
-     écran à moitié construit : la règle `prefers-reduced-motion` globale (plus haut) neutralise
-     toutes les animations, et ce visuel doit rester lisible dans ce cas. ── */
-  .wsx { background: linear-gradient(180deg, var(--g50) 0%, var(--white) 62%); }
-  /* Bloc centré et BORNÉ : le titre, l'illustration et les trois arguments partagent la même
-     largeur utile (920 px) et le même axe. Laisser l'illustration prendre les 1180 px du `.wrap`
-     la faisait dominer la section — elle sert la démonstration, elle ne la remplace pas. */
-  .wsx-intro { max-width: 660px; margin: 0 auto; text-align: center; }
-  .wsx-shot { position: relative; max-width: 920px; margin: 34px auto 0; }
+     FOND DISTINCT, et pas par coquetterie : la section précédente est le bandeau sombre de la
+     couverture, la suivante (« Regroupez votre équipe ») est blanche. Un dégradé qui finissait
+     en blanc soudait visuellement les deux : on ne voyait plus où l'une s'arrêtait. D'où un gris
+     tenu de bout en bout et un filet de séparation. ── */
+  .wsx { background: var(--g50); border-bottom: 1px solid var(--g200); }
+  /* Texte à gauche, démonstration à droite — la colonne de droite est la plus large : c'est
+     l'illustration qui doit être lisible, le texte tient en trois lignes courtes. */
+  .wsx .wrap { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
+    gap: 56px; align-items: center; padding-top: 76px; padding-bottom: 76px; }
+  .wsx-text { min-width: 0; }
+  .wsx-shot { position: relative; min-width: 0; }
   /* Halo — pur décor, jamais dans le flux : `filter: blur` sur un élément en flux ferait grossir
-     la boîte et décalerait la grille en dessous. */
+     la boîte et décalerait la grille à côté. */
   .wsx-shot::before {
-    content: ''; position: absolute; inset: 8% 12% 18%; z-index: 0;
-    background: radial-gradient(60% 60% at 50% 40%, rgba(26,86,219,.16), transparent 70%);
-    filter: blur(38px); pointer-events: none;
+    content: ''; position: absolute; inset: 6% 8% 14%; z-index: 0;
+    background: radial-gradient(60% 60% at 50% 40%, rgba(26,86,219,.18), transparent 70%);
+    filter: blur(34px); pointer-events: none;
   }
   .wsx-app {
     position: relative; z-index: 1; border: 1px solid var(--g200); border-radius: var(--radius-lg);
-    background: var(--white); box-shadow: 0 28px 64px rgba(10,22,40,.16); overflow: hidden;
+    background: var(--white); box-shadow: 0 26px 60px rgba(10,22,40,.16); overflow: hidden;
   }
-  .wsx-chrome { display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+  .wsx-chrome { display: flex; align-items: center; gap: 10px; padding: 9px 12px;
     background: var(--g50); border-bottom: 1px solid var(--g200); }
-  .wsx-dots { display: flex; gap: 6px; }
-  .wsx-dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--g300); }
-  .wsx-url { font-size: 11.5px; color: var(--g500); background: var(--white);
-    border: 1px solid var(--g200); border-radius: 999px; padding: 3px 12px; }
-  .wsx-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+  .wsx-dots { display: flex; gap: 5px; }
+  .wsx-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--g300); }
+  .wsx-url { font-size: 11px; color: var(--g500); background: var(--white);
+    border: 1px solid var(--g200); border-radius: 999px; padding: 3px 11px; }
+  .wsx-head { position: relative; display: flex; align-items: center; gap: 9px; padding: 11px 14px;
     border-bottom: 1px solid var(--g200); }
-  .wsx-back { color: var(--g400); font-size: 15px; }
-  .wsx-title { font-family: var(--font-sans); font-weight: 700; font-size: 14px; color: var(--g900); }
-  .wsx-flag { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; color: var(--info-fg);
-    background: var(--info-subtle); border-radius: 5px; padding: 2px 7px; }
-  .wsx-acts { margin-left: auto; display: flex; gap: 7px; }
-  .wsx-btn { font-size: 11.5px; font-weight: 600; color: var(--g600); background: var(--white);
-    border: 1px solid var(--g200); border-radius: 8px; padding: 5px 11px; white-space: nowrap; }
+  .wsx-back { color: var(--g400); font-size: 14px; }
+  .wsx-title { font-family: var(--font-sans); font-weight: 700; font-size: 13px; color: var(--g900); white-space: nowrap; }
+  .wsx-flag { font-size: 10px; font-weight: 700; letter-spacing: .04em; color: var(--info-fg);
+    background: var(--info-subtle); border-radius: 5px; padding: 2px 6px; }
+  .wsx-acts { margin-left: auto; display: flex; gap: 6px; }
+  .wsx-btn { font-size: 11px; font-weight: 600; color: var(--g600); background: var(--white);
+    border: 1px solid var(--g200); border-radius: 8px; padding: 5px 10px; white-space: nowrap; }
   .wsx-btn-primary { color: #fff; background: var(--blue); border-color: var(--blue); }
+  /* Barre de compilation : posée SUR le filet du bas de l'en-tête, largeur pilotée par la
+     séquence. `transform-origin` à gauche pour qu'elle se remplisse dans le sens de la lecture. */
+  .wsx-bar { position: absolute; left: 0; bottom: -1px; height: 2px; width: 100%;
+    background: var(--blue); transform: scaleX(0); transform-origin: left center; }
   /* `minmax(0, …)` sur les deux pistes : sans lui, un libellé long de l'arborescence impose sa
      largeur minimale et pousse le panneau document hors du cadre (invariant DS du projet). */
-  .wsx-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); }
-  .wsx-tree { border-right: 1px solid var(--g200); padding: 14px 12px; min-width: 0; }
-  .wsx-treehead { font-family: var(--font-display); font-size: 10.5px; font-weight: 700;
-    letter-spacing: .12em; text-transform: uppercase; color: var(--g400); margin: 0 0 10px 8px; }
-  .wsx-node { display: flex; align-items: center; gap: 8px; position: relative;
-    font-size: 12.5px; color: var(--g600); padding: 6px 10px; border-radius: 7px; }
+  .wsx-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.02fr); }
+  .wsx-tree { position: relative; border-right: 1px solid var(--g200); padding: 12px 10px; min-width: 0; }
+  .wsx-treehead { font-family: var(--font-display); font-size: 10px; font-weight: 700;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--g400); margin: 0 0 8px 8px; }
+  .wsx-node { display: flex; align-items: center; gap: 7px; position: relative;
+    font-size: 11.5px; color: var(--g600); padding: 5px 9px; border-radius: 7px; }
   .wsx-node b { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--g400); flex: none; }
   /* L'ellipse vit sur le LIBELLÉ, pas sur la ligne : en flex, `text-overflow` posé sur le
      conteneur ne tronque rien. `min-width: 0` sans quoi un item flex refuse de rétrécir sous sa
      largeur de contenu et pousse la pastille hors du panneau (invariant DS du projet). */
   .wsx-node > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .wsx-lvl1 { font-weight: 600; color: var(--g900); margin-top: 4px; }
+  .wsx-lvl1 { font-weight: 600; color: var(--g900); margin-top: 3px; }
   .wsx-lvl1 b { color: var(--g600); }
   .wsx-on { background: var(--blue-ghost); color: var(--g900); }
-  .wsx-tag { margin-left: auto; flex: none; font-style: normal; font-size: 10px; font-weight: 700;
-    letter-spacing: .02em; border-radius: 5px; padding: 2px 7px; }
+  .wsx-tag { margin-left: auto; flex: none; font-style: normal; font-size: 9.5px; font-weight: 700;
+    letter-spacing: .02em; border-radius: 5px; padding: 2px 6px; }
   .wsx-todo { color: var(--g500); background: var(--g100); }
   .wsx-auto { color: var(--info-fg); background: var(--info-subtle); }
   .wsx-file { color: var(--g600); background: var(--g100); }
   .wsx-draft { color: var(--warning); background: var(--warning-subtle); }
-  .wsx-after { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); opacity: 0; }
-  .wsx-doc { padding: 18px 20px; min-width: 0; }
-  .wsx-docref { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; color: var(--g400);
-    text-transform: uppercase; margin-bottom: 12px; }
-  .wsx-h { font-family: var(--font-serif); font-size: 13.5px; font-weight: 600; color: var(--g900);
-    margin: 14px 0 8px; }
+  /* Les deux pastilles d'une bascule se superposent : aucune largeur ne bouge au changement. */
+  .wsx-after { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); opacity: 0; }
+  /* Pastille qui n'existe qu'une fois la pièce déposée. Sans animation (mouvement réduit), la
+     rubrique reste sans pastille : un dossier où rien n'a encore été déposé, état cohérent. */
+  .wsx-lazy { opacity: 0; }
+  /* La pièce qui tombe sur la rubrique. */
+  .wsx-drop { position: absolute; left: 16px; top: 96px; opacity: 0;
+    font-size: 10px; font-weight: 600; color: var(--g700); background: var(--white);
+    border: 1px solid var(--g300); border-radius: 7px; padding: 4px 9px;
+    box-shadow: var(--shadow); pointer-events: none; white-space: nowrap; }
+  .wsx-doc { padding: 14px 16px; min-width: 0; }
+  .wsx-docref { font-size: 9.5px; font-weight: 700; letter-spacing: .04em; color: var(--g400);
+    text-transform: uppercase; margin-bottom: 10px; }
+  .wsx-h { font-family: var(--font-serif); font-size: 12.5px; font-weight: 600; color: var(--g900);
+    margin: 12px 0 7px; }
   .wsx-h:first-of-type { margin-top: 0; }
-  .wsx-l { display: block; height: 7px; border-radius: 4px; background: var(--g100); margin-bottom: 7px; }
+  .wsx-l { display: block; height: 6px; border-radius: 4px; background: var(--g100); margin-bottom: 6px; }
   .wsx-l.w85 { width: 85%; } .wsx-l.w70 { width: 70%; } .wsx-l.w60 { width: 60%; }
-  .wsx-locked { display: inline-block; font-size: 10px; font-weight: 700; color: var(--success-fg);
-    background: var(--success-subtle); border-radius: 5px; padding: 2px 8px; margin: 6px 0 2px; }
-  .wsx-field { font-size: 11.5px; font-weight: 700; color: var(--warning);
+  .wsx-locked { display: inline-block; font-size: 9.5px; font-weight: 700; color: var(--success-fg);
+    background: var(--success-subtle); border-radius: 5px; padding: 2px 7px; margin: 5px 0 2px; }
+  .wsx-field { font-size: 10.5px; font-weight: 700; color: var(--warning);
     background: var(--warning-subtle); border: 1px dashed currentColor; border-radius: 6px;
-    padding: 5px 9px; margin: 8px 0; display: inline-block; }
-  .wsx-toast { position: absolute; right: 16px; bottom: 16px; opacity: 0;
-    font-size: 12px; font-weight: 600; color: #fff; background: var(--g900);
-    border-radius: 9px; padding: 9px 14px; box-shadow: var(--shadow); }
-  .wsx-cap { margin-top: 12px; font-size: 12px; color: var(--g400); text-align: center; }
-  /* Centrés : chaque argument tient en une ligne, donc le centrage ne coûte rien à la lecture et
-     garde l'axe du titre et de l'illustration. Une phrase de plus par point, et il faudrait
-     repasser à gauche — c'est la limite à ne pas franchir en réécrivant cette copie. */
-  .wsx-points { max-width: 920px; margin: 40px auto 0; display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 26px 36px; text-align: center; }
+    padding: 4px 8px; margin: 7px 0; display: inline-block; }
+  /* Les lignes qui remplacent la zone à compléter une fois la rubrique complétée. */
+  .wsx-fill { opacity: 0; }
+  .wsx-toast { position: absolute; right: 14px; bottom: 14px; opacity: 0;
+    font-size: 11px; font-weight: 600; color: #fff; background: var(--g900);
+    border-radius: 9px; padding: 8px 12px; box-shadow: var(--shadow); white-space: nowrap; }
+  .wsx-cap { margin-top: 11px; font-size: 11.5px; color: var(--g400); text-align: center; }
+  .wsx-points { margin-top: 26px; display: grid; gap: 18px; }
   .wsx-points h3 { font-family: var(--font-sans); font-size: 15px; font-weight: 700;
-    color: var(--navy); margin-bottom: 5px; }
+    color: var(--navy); margin-bottom: 4px; }
   .wsx-points p { font-size: 14px; line-height: 1.6; color: var(--g600); }
-  .wsx-cta { margin-top: 34px; text-align: center; }
+  .wsx-cta { margin-top: 28px; }
 
-  @media (max-width: 860px) {
+  @media (max-width: 1040px) {
+    /* Une colonne : la démonstration passe SOUS le texte et se recentre. */
+    .wsx .wrap { grid-template-columns: minmax(0, 1fr); gap: 38px; }
+    .wsx-shot { max-width: 720px; margin: 0 auto; width: 100%; }
+    .wsx-points { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 26px 32px; }
+  }
+  @media (max-width: 780px) {
     /* Sous cette largeur le panneau document devient une colonne de traits illisible : on garde
        l'arborescence, qui est le sujet, et on retire le décor. */
     .wsx-body { grid-template-columns: minmax(0, 1fr); }
     .wsx-doc { display: none; }
-    .wsx-points { grid-template-columns: minmax(0, 1fr); gap: 24px; }
-    .wsx-acts .wsx-btn:not(.wsx-btn-primary) { display: none; }
+    .wsx-points { grid-template-columns: minmax(0, 1fr); gap: 22px; }
   }
 
   .regafy { background: var(--navy); color: #c3d0e6; }
@@ -593,30 +607,94 @@
     .dossier-card .live i { animation: pulse 2.2s infinite; }
     @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(74,194,107,.45); } 60% { box-shadow: 0 0 0 6px rgba(74,194,107,0); } }
 
-    /* Workspace CTD — la séquence de montage du dossier.
-       Elle ne se déclenche qu'au `.in` (élément visible) et ne joue QU'UNE FOIS : `both` fige
-       l'état final. `--i` porté par le HTML échelonne les lignes de l'arborescence ; tout le
-       reste s'accroche à ce même axe de temps, pour qu'un ajout de ligne demain décale la
-       cascade sans désynchroniser la bascule et le toast. */
-    .wsx-shot .wsx-node { opacity: 0; transform: translateY(6px); }
-    .wsx-shot.in .wsx-node {
-      animation: wsxRow .42s cubic-bezier(.22,.8,.36,1) both;
-      animation-delay: calc(.15s + var(--i, 0) * .07s);
+    /* Workspace CTD — la démonstration, en boucle.
+       Trois gestes réels du produit s'enchaînent : on téléverse une pièce, on complète une
+       rubrique, on compile la liasse. Puis tout revient à l'état initial et recommence.
+
+       UN SEUL AXE DE TEMPS. Toutes les règles ci-dessous partagent la même durée (12 s) et se
+       positionnent en POURCENTAGES de ce cycle. C'est ce qui garantit que la pastille arrive
+       après la pièce, et le toast après la barre : des durées et des `delay` différents
+       dériveraient les uns par rapport aux autres au premier ajustement.
+
+       ⚠️ Elle ne démarre qu'au `.in` posé par l'IntersectionObserver de landing.js. Une boucle
+       qui tourne sur un élément hors écran fait travailler le compositeur pour personne — sur un
+       portable de terrain, c'est de la batterie. (Une version précédente ne jouait qu'une fois ;
+       le CEO a demandé une démonstration continue, d'où la boucle — mais la garde reste.)
+
+       Le repli « sans animation » est un état COHÉRENT et non un écran à moitié construit : la
+       règle `prefers-reduced-motion` globale neutralise tout, et il reste un dossier crédible —
+       une rubrique sans pièce déposée, une zone encore à compléter, aucun toast. */
+    .wsx-shot.in .wsx-drop { animation: wsxDrop 12s linear infinite both; }
+    @keyframes wsxDrop {
+      0%   { opacity: 0; transform: translate(-10px, -30px) scale(.92); }
+      3%   { opacity: 1; }
+      8%   { opacity: 1; transform: translate(0, 0) scale(1); }
+      12%  { opacity: 0; transform: translate(0, 6px) scale(.97); }
+      100% { opacity: 0; transform: translate(-10px, -30px) scale(.92); }
     }
-    @keyframes wsxRow { to { opacity: 1; transform: none; } }
 
-    /* La bascule « À générer » → « Autogénéré ». Les deux pastilles se superposent (l'une est en
-       absolu), donc aucun décalage de largeur ne secoue la ligne au moment du changement. */
-    .wsx-shot.in .wsx-flip .wsx-todo { animation: wsxFade .28s ease-out 1.55s both; }
-    .wsx-shot.in .wsx-flip .wsx-after { animation: wsxPop .34s cubic-bezier(.22,1.2,.36,1) 1.7s both; }
-    @keyframes wsxFade { to { opacity: 0; } }
-    @keyframes wsxPop { from { opacity: 0; transform: translateY(-50%) scale(.9); } to { opacity: 1; transform: translateY(-50%) scale(1); } }
+    .wsx-shot.in .wsx-target { animation: wsxHit 12s linear infinite both; }
+    @keyframes wsxHit {
+      0%, 7%    { background: transparent; }
+      10%, 14%  { background: var(--blue-ghost); }
+      20%, 100% { background: transparent; }
+    }
 
-    .wsx-shot.in .wsx-btn-primary { animation: wsxPress .5s ease-out 2.1s both; }
-    @keyframes wsxPress { 40% { box-shadow: 0 0 0 5px rgba(26,86,219,.22); } 100% { box-shadow: 0 0 0 0 rgba(26,86,219,0); } }
+    .wsx-shot.in .wsx-lazy { animation: wsxPop 12s linear infinite both; }
+    @keyframes wsxPop {
+      0%, 11%   { opacity: 0; transform: scale(.8); }
+      15%, 93%  { opacity: 1; transform: scale(1); }
+      97%, 100% { opacity: 0; transform: scale(.8); }
+    }
 
-    .wsx-shot.in .wsx-toast { animation: wsxToast .45s cubic-bezier(.22,.8,.36,1) 2.5s both; }
-    @keyframes wsxToast { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    /* Complétude : la zone à compléter s'efface, les lignes rédigées prennent sa place. */
+    .wsx-shot.in .wsx-field { animation: wsxField 12s linear infinite both; }
+    @keyframes wsxField {
+      0%, 26%   { opacity: 1; transform: scale(1); }
+      31%, 93%  { opacity: 0; transform: scale(.96); }
+      97%, 100% { opacity: 1; transform: scale(1); }
+    }
+    .wsx-shot.in .wsx-fill { animation: wsxFill 12s linear infinite both; }
+    @keyframes wsxFill {
+      0%, 29%   { opacity: 0; }
+      34%, 93%  { opacity: 1; }
+      97%, 100% { opacity: 0; }
+    }
+
+    /* Les deux bascules « À générer » → « Autogénéré », décalées pour qu'on les lise l'une
+       après l'autre plutôt que d'un bloc. */
+    .wsx-shot.in .wsx-flip .wsx-todo  { animation: wsxOut 12s linear infinite both; }
+    .wsx-shot.in .wsx-flip .wsx-after { animation: wsxAfter 12s linear infinite both; }
+    .wsx-shot.in .wsx-flip2 .wsx-todo  { animation-name: wsxOut2; }
+    .wsx-shot.in .wsx-flip2 .wsx-after { animation-name: wsxAfter2; }
+    @keyframes wsxOut     { 0%, 37% { opacity: 1; } 41%, 93% { opacity: 0; } 97%, 100% { opacity: 1; } }
+    @keyframes wsxAfter   { 0%, 38% { opacity: 0; transform: translateY(-50%) scale(.9); }
+                            43%, 93% { opacity: 1; transform: translateY(-50%) scale(1); }
+                            97%, 100% { opacity: 0; transform: translateY(-50%) scale(.9); } }
+    @keyframes wsxOut2    { 0%, 45% { opacity: 1; } 49%, 93% { opacity: 0; } 97%, 100% { opacity: 1; } }
+    @keyframes wsxAfter2  { 0%, 46% { opacity: 0; transform: translateY(-50%) scale(.9); }
+                            51%, 93% { opacity: 1; transform: translateY(-50%) scale(1); }
+                            97%, 100% { opacity: 0; transform: translateY(-50%) scale(.9); } }
+
+    /* Compilation : le bouton s'enfonce, la barre balaie l'en-tête, le toast conclut. */
+    .wsx-shot.in .wsx-btn-primary { animation: wsxPress 12s linear infinite both; }
+    @keyframes wsxPress {
+      0%, 57%   { box-shadow: 0 0 0 0 rgba(26,86,219,0); }
+      60%       { box-shadow: 0 0 0 5px rgba(26,86,219,.25); }
+      64%, 100% { box-shadow: 0 0 0 0 rgba(26,86,219,0); }
+    }
+    .wsx-shot.in .wsx-bar { animation: wsxBar 12s linear infinite both; }
+    @keyframes wsxBar {
+      0%, 60%   { transform: scaleX(0); opacity: 1; }
+      72%       { transform: scaleX(1); opacity: 1; }
+      78%, 100% { transform: scaleX(1); opacity: 0; }
+    }
+    .wsx-shot.in .wsx-toast { animation: wsxToast 12s linear infinite both; }
+    @keyframes wsxToast {
+      0%, 72%   { opacity: 0; transform: translateY(8px); }
+      76%, 91%  { opacity: 1; transform: none; }
+      95%, 100% { opacity: 0; transform: translateY(8px); }
+    }
 
     /* spine du cycle : la ligne se remplit, les étapes s'allument en cascade */
     .lifecycle:not(.in) .fill { width: 0; }
