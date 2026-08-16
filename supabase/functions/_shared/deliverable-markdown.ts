@@ -12,7 +12,12 @@
 // de `d224665` — un rapport dont le décompte contredit son propre document.
 import { type ConformitySpec, flattenRubrics, type RubricSpec } from './conformity-specs.ts'
 import { DELIVERABLE_TITLES_EN } from './deliverable-titles.ts'
-import { REPORT_PARTS, type ReportAnalysis } from './report-core.ts'
+import {
+  lacunesDuDocument,
+  REPORT_PARTS,
+  type ReportAnalysis,
+  rubriquesDuDocument,
+} from './report-core.ts'
 import { MISSING_MARKER, MISSING_MARKER_EN } from './upgrade-section-core.ts'
 
 /** Une rubrique telle que l'assemblage la consomme — le sous-ensemble STABLE des sorties du moteur. */
@@ -213,15 +218,32 @@ export interface StatsLivrable {
  */
 export function statsLivrable(
   sections: readonly {
+    sectionId: string
     status: 'filled' | 'partial' | 'missing'
     figuresToVerify?: readonly string[]
   }[],
   analyse: Pick<ReportAnalysis, 'relocations'>,
+  spec: ConformitySpec,
 ): StatsLivrable {
+  // ⚠️ `aRelire` se calcule sur TOUTES les lignes, morceaux compris : une valeur mal lue dans la
+  // moitié « posologie » de la 4.2 est à relire, que la rubrique soit comptée entière ou non.
   const aRelire = new Set(sections.flatMap((s) => [...(s.figuresToVerify ?? [])]))
+  // ⚠️ Les comptes viennent de la MÊME liste que le rapport (`lacunesDuDocument`) : un rapport qui
+  // annonce « À compléter — 4 » sous une tuile qui annonce 1 détruit la confiance, et c'est
+  // l'artefact — pas l'écran — que l'expert transmet à l'agence. Une seule fonction, donc, plutôt
+  // que deux règles jumelles.
+  const rubriques = rubriquesDuDocument(spec)
+  const lacunes = lacunesDuDocument(sections, spec).length
+  // ⚠️ Une rubrique SANS ligne n'a pas été traitée : la compter en « reprise » affirmerait un
+  // travail qui n'a pas eu lieu, sur un artefact payé. `assembleDocument` refuse déjà un jeu
+  // incomplet — mais cette garde-là vit chez l'appelant, et c'est ICI qu'on signe le chiffre.
+  const vues = new Set(sections.map((s) => s.sectionId))
+  const absentes = flattenRubrics(spec).filter(
+    (r) => !r.interne && !vues.has(r.id),
+  ).length
   return {
-    reprises: sections.filter((s) => s.status !== 'missing').length,
-    aCompleter: sections.filter((s) => s.status === 'missing').length,
+    reprises: rubriques - lacunes - absentes,
+    aCompleter: lacunes,
     deplaces: analyse.relocations.length,
     aRelire: aRelire.size,
   }

@@ -6,6 +6,7 @@ import {
   CONFORMITY_SPECS,
   flattenRubrics,
   idsSousDecoupage,
+  pireVerdict,
   specForDocType,
   specPromptText,
 } from './conformity-specs.ts'
@@ -29,6 +30,31 @@ Deno.test('RCP : 34 entrées au gabarit, dont 5 sous-découpages — 29 RUBRIQUE
   for (const id of ['4', '4.2', '4.6', '5', '6']) {
     assert(!morceaux.has(id), `${id} est une rubrique, pas un morceau`)
   }
+})
+
+Deno.test('un morceau est toujours une FEUILLE — sinon l’agrégat serveur le perdrait', () => {
+  // L'écran récurse sur les morceaux, le serveur ne regarde que les enfants directs : un morceau
+  // lui-même découpé serait affiché mais pas compté, et les deux surfaces divergeraient sur la même
+  // rubrique. Tant que cette assertion tient, les deux lectures sont équivalentes.
+  for (const [nom, spec] of Object.entries(CONFORMITY_SPECS)) {
+    const morceaux = idsSousDecoupage(spec)
+    for (const r of flattenRubrics(spec).filter((x) => morceaux.has(x.id))) {
+      assertEquals(r.children ?? [], [], `${nom} : « ${r.id} » est un morceau ET un conteneur`)
+    }
+  }
+})
+
+Deno.test('pireVerdict : le plus SÉVÈRE gouverne, et l’inconnu ne rassure jamais', () => {
+  assertEquals(pireVerdict(['filled', 'filled']), 'filled')
+  assertEquals(pireVerdict(['filled', 'partial']), 'partial')
+  assertEquals(pireVerdict(['filled', 'missing']), 'missing')
+  assertEquals(pireVerdict(['partial', 'missing']), 'missing')
+  // Un verdict absent, inconnu, ou une liste vide : `partial`, jamais `filled`. Le front et les
+  // Edge se déploient séparément — un état neuf ne doit pas devenir une bonne nouvelle.
+  assertEquals(pireVerdict([undefined]), 'partial')
+  assertEquals(pireVerdict(['inconnu']), 'partial')
+  assertEquals(pireVerdict([]), 'partial')
+  assertEquals(pireVerdict(['filled', undefined]), 'partial')
 })
 
 Deno.test('flattenRubrics est en PRÉ-ORDRE : un parent précède toujours ses morceaux', () => {

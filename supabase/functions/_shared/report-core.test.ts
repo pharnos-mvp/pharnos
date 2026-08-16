@@ -4,7 +4,8 @@ import { assertEquals, assertRejects, assertStringIncludes } from 'jsr:@std/asse
 import { prepareSource } from './ai/evidence.ts'
 import { SectionOutputError } from './ai/section-schema.ts'
 import type { AiOptions, Part } from './ai/types.ts'
-import { CONFORMITY_SPECS } from './conformity-specs.ts'
+import { CONFORMITY_SPECS, flattenRubrics } from './conformity-specs.ts'
+import { statsLivrable } from './deliverable-markdown.ts'
 import {
   buildReportPartAsk,
   buildReportPreamble,
@@ -196,6 +197,42 @@ Deno.test('renderReportMarkdown : le décompte des lacunes vient des STATUTS, pa
   assertStringIncludes(md, 'À compléter — 2')
   assertStringIncludes(md, 'CONDITIONS DE PRESCRIPTION ET DE DÉLIVRANCE')
   assertStringIncludes(md, 'Fertilité')
+})
+
+Deno.test('le §3 parle RUBRIQUES — jamais d’identifiants internes, et jamais un blanc qui n’existe pas', () => {
+  // Trois défauts que ce test ferme, tous trouvés en revue de diff sur un livrable PAYÉ :
+  //  ① le rapport comptait les 34 entrées du gabarit → « À compléter — 4 » pour UNE rubrique
+  //    absente, sous une tuile qui en annonçait 1 ;
+  //  ② il rendait `4.6-fertilite. Fertilité` — l'identifiant interne du moteur, dans un document
+  //    réglementaire ;
+  //  ③ un CONTENEUR `missing` produisait une lacune FANTÔME : « compléter 4. DONNÉES CLINIQUES »
+  //    alors que l'assemblage saute son corps, donc que le document ne porte aucun blanc là.
+  const statuts = (missing: readonly string[]) =>
+    flattenRubrics(CONFORMITY_SPECS.rcp).map((r) => ({
+      sectionId: r.id,
+      title: r.title,
+      status: (missing.includes(r.id) ? 'missing' : 'filled') as 'filled' | 'partial' | 'missing',
+    }))
+
+  // ① + ② : la rubrique 4.6 absente en entier (chapeau + ses trois morceaux) = UNE lacune, nommée.
+  const sections = statuts(['4.6', '4.6-grossesse', '4.6-allaitement', '4.6-fertilite'])
+  const md = renderReportMarkdown(ANALYSIS, req({ sections }))
+  assertStringIncludes(md, 'À compléter — 1')
+  assertStringIncludes(md, '1 rubrique au total')
+  assertStringIncludes(md, '4.6. Fertilité, grossesse et allaitement (Grossesse, Allaitement, Fertilité)')
+  assertEquals(/4\.[26]-/.test(md), false, 'identifiant interne exposé dans un livrable payé')
+
+  // ③ : un conteneur seul ne produit AUCUNE lacune — le document ne laisse pas de blanc à remplir.
+  const chapeau = renderReportMarkdown(ANALYSIS, req({ sections: statuts(['4']) }))
+  assertStringIncludes(chapeau, 'À compléter — 0')
+  assertEquals(chapeau.includes('DONNÉES CLINIQUES'), false)
+
+  // L'invariant qui a manqué deux fois : la TUILE et le RAPPORT comptent la même chose.
+  assertStringIncludes(
+    md,
+    `À compléter — ${statsLivrable(sections, ANALYSIS, CONFORMITY_SPECS.rcp).aCompleter}
+`,
+  )
 })
 
 Deno.test('renderReportMarkdown : la question « sans objet » nomme le produit', () => {
