@@ -1,3 +1,32 @@
+/* ── Devise affichée — « Euro (FCFA) » en Afrique, euro seul ailleurs (règle CEO du 2026-08-16).
+     Le prix en FCFA n'informe que celui qui paiera en FCFA ; ailleurs c'est un nombre parasite.
+
+     Le HTML porte le FCFA dans un `.xof-only` VISIBLE PAR DÉFAUT ; ce script ne fait que le
+     RETIRER, et seulement s'il a la certitude d'être hors zone. Sens choisi délibérément :
+       • sans JS, avec un `Intl` cassé ou un fuseau inconnu → les deux devises restent affichées ;
+       • l'erreur documentée (cf. `prixDouble` dans checking/bibliotheque-core.js) est de cacher le
+         FCFA à un lecteur ivoirien — jamais de montrer le FCFA à un lecteur belge.
+     Inverser ce défaut (masquer en CSS, révéler en JS) ferait basculer la panne du bon côté au
+     mauvais : un blocage de script priverait toute l'Afrique du seul prix qu'elle peut lire.
+
+     Jumeau de `zoneFcfa()` dans checking/bibliotheque-core.js — même regex, même repli. Deux
+     copies parce que ce fichier-ci est un script classique (pas de `import`) chargé par toutes les
+     pages ; toute correction de la liste des fuseaux doit être portée AUX DEUX endroits.
+
+     Aucun appel réseau, aucune géolocalisation : le fuseau du poste ne quitte pas le navigateur. ── */
+(function () {
+  var enZoneFcfa = true;
+  try {
+    var tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    if (tz)
+      enZoneFcfa =
+        /^(Africa\/|Indian\/(Antananarivo|Comoro|Mayotte|Reunion)|Atlantic\/(Cape_Verde|St_Helena))/.test(
+          tz,
+        );
+  } catch (e) {}
+  if (!enZoneFcfa) document.documentElement.classList.add('hors-zone-fcfa');
+})();
+
 /* ── i18n FR/EN (Lot 12) — le toggle de langue swap le contenu POUR DE VRAI (avant : décoratif).
      Mécanisme : chaque élément traduisible porte `data-en` (texte) ; le swap remplace le PREMIER
      nœud texte non vide en PRÉSERVANT les enfants (icônes <svg>) → zéro changement de structure HTML,
@@ -96,6 +125,10 @@ var I18N = (function () {
       var MIROIR = {
         '/bibliotheque-reglementaire': '/en/regulatory-library',
         '/modele': '/en/template',
+        '/mentions-legales': '/en/legal-notice',
+        '/conditions-generales': '/en/terms',
+        '/confidentialite': '/en/privacy',
+        '/remboursement': '/en/refund-policy',
       };
       var VERS_FR = {};
       for (var k in MIROIR) VERS_FR[MIROIR[k]] = k;

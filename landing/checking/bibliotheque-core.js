@@ -36,15 +36,48 @@ export const fmtMontant = (n, lang) =>
 /**
  * `29 € (19 000 FCFA)` — les DEUX devises, toujours, dans les deux langues.
  *
- * ⚠️ Ne pas revenir à une fonction qui rend l'une OU l'autre selon un drapeau : c'est ce que
- * faisait `price()` du Checking Standard, et un lecteur ivoirien y lisait un prix en euros sans
- * savoir ce qu'il paierait réellement.
+ * ⚠️ Ne JAMAIS faire de cette fonction-ci une fonction qui rend l'une OU l'autre selon un
+ * drapeau : c'est ce que faisait `price()` du Checking Standard, et un lecteur ivoirien y lisait
+ * un prix en euros sans savoir ce qu'il paierait réellement. Elle reste la forme complète, et
+ * sert de base à `prixLocal` — c'est LUI qui décide d'omettre le FCFA, et seulement hors Afrique.
  */
 export const prixDouble = (p, lang) =>
   `${fmtMontant(p.eur, lang)} € (${fmtMontant(p.xof, lang)} FCFA)`;
 
 /** Montant seul, pour un bouton où le libellé porte déjà le contexte. */
 export const prixCourt = (p, lang) => `${fmtMontant(p.eur, lang)} €`;
+
+/**
+ * Le visiteur est-il dans la zone où le prix en FCFA lui apprend quelque chose ?
+ *
+ * Règle CEO du 2026-08-16 : « Euro (FCFA) pour l'Afrique, euro seul pour les autres continents ».
+ * Le FCFA n'informe que celui qui paiera en FCFA ; ailleurs, c'est un nombre de plus à côté du prix.
+ *
+ * ⚠️ FAIL-OPEN, et c'est tout le contrat de cette fonction : au moindre doute elle rend `true`,
+ * donc les DEUX devises. L'erreur qui coûte est documentée sur `prixDouble` — cacher le FCFA à un
+ * lecteur ivoirien — pas son inverse : un lecteur belge à qui l'on montre le FCFA ne perd rien.
+ * Un fuseau absent, un `Intl` indisponible ou un fuseau inconnu retombent donc sur « les deux ».
+ *
+ * Le fuseau horaire du poste, et RIEN d'autre : aucun appel réseau, aucune géolocalisation, aucun
+ * service tiers — la CSP du site interdit de toute façon d'en joindre un, et un continent ne vaut
+ * pas qu'on fasse sortir une donnée du navigateur.
+ */
+export const zoneFcfa = () => {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    if (!tz) return true;
+    // Les fuseaux africains ne sont pas tous sous « Africa/ » : les îles de l'océan Indien et de
+    // l'Atlantique sont classées par océan. Les omettre priverait Madagascar ou le Cap-Vert du FCFA.
+    return /^(Africa\/|Indian\/(Antananarivo|Comoro|Mayotte|Reunion)|Atlantic\/(Cape_Verde|St_Helena))/
+      .test(tz);
+  } catch (e) {
+    return true;
+  }
+};
+
+/** `29 € (19 000 FCFA)` en zone FCFA, `29 €` ailleurs — cf. `zoneFcfa`. Forme d'AFFICHAGE. */
+export const prixLocal = (p, lang) =>
+  zoneFcfa() ? prixDouble(p, lang) : prixCourt(p, lang);
 
 /* ══════════════════ fichier servi ══════════════════ */
 

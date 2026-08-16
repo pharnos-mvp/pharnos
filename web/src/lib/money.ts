@@ -7,6 +7,35 @@ import type { Lang } from '@/lib/i18n-context'
  */
 export const EUR_TO_XOF = 655.957
 
+/**
+ * Le visiteur est-il dans la zone où le prix en FCFA lui apprend quelque chose ?
+ *
+ * Règle CEO du 2026-08-16 : « Euro (FCFA) pour l'Afrique, euro seul pour les autres continents ».
+ * Sert l'AFFICHAGE d'un barème (cf. `priceXof` de `plan-catalog`), jamais un calcul : la parité
+ * ci-dessus est fixe et ne dépend d'aucun visiteur.
+ *
+ * ⚠️ FAIL-OPEN : au moindre doute (fuseau absent, `Intl` indisponible, fuseau inconnu) elle rend
+ * `true`, donc les DEUX devises. Cacher le FCFA à quelqu'un qui paiera en FCFA est l'erreur qui
+ * coûte ; montrer le FCFA à un lecteur européen ne coûte rien.
+ *
+ * Le fuseau du poste, et rien d'autre : aucun appel réseau, aucune géolocalisation.
+ * Jumeau de `zoneFcfa()` dans `landing/checking/bibliotheque-core.js` et du garde en tête de
+ * `landing/landing.js` — toute correction de la liste des fuseaux se porte aux TROIS endroits.
+ */
+export function zoneFcfa(): boolean {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''
+    if (!tz) return true
+    // Les fuseaux africains ne sont pas tous sous « Africa/ » : les îles de l'océan Indien et de
+    // l'Atlantique sont classées par océan. Les omettre priverait Madagascar ou le Cap-Vert du FCFA.
+    return /^(Africa\/|Indian\/(Antananarivo|Comoro|Mayotte|Reunion)|Atlantic\/(Cape_Verde|St_Helena))/.test(
+      tz,
+    )
+  } catch {
+    return true
+  }
+}
+
 /** Convertit un montant EUR → FCFA (XOF) à la parité fixe. `NaN` propagé si l'entrée n'est pas finie. */
 export function eurToXof(eur: number): number {
   return eur * EUR_TO_XOF

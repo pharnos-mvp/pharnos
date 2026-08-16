@@ -38,6 +38,7 @@ import {
   PRIX_UP3_PLEIN,
   prixCourt,
   prixDouble,
+  prixLocal,
   TTL_MS,
 } from "./checking/bibliotheque-core.js?v=2026.10";
 
@@ -280,7 +281,7 @@ function peindre() {
       `Regafy AI reprend votre ${courtPhrase} existant et le reconstruit dans ce modèle — vous relisez, vous déposez.`,
       `Regafy AI takes your existing ${court} and rebuilds it in this template — you review, you file.`,
     ]);
-    $("#p1").textContent = prixDouble(PRIX.up1, lang);
+    $("#p1").textContent = prixLocal(PRIX.up1, lang);
     $("#upbtn").textContent = L([
       `Mettre ${monDoc()} au standard`,
       `Bring ${monDoc()} up to standard`,
@@ -734,12 +735,12 @@ function choisirOffre(offre) {
   const m = MODELES_FICHIERS[S.doc];
   $("#off1").innerHTML =
     `<b>${esc(L(["Un document", "One document"]))}</b>` +
-    `<span>${esc(`${L(m.court)} · ${prixDouble(PRIX.up1, lang)}`)}</span>`;
+    `<span>${esc(`${L(m.court)} · ${prixLocal(PRIX.up1, lang)}`)}</span>`;
   // L'économie du bundle se montre SUR l'option : c'est elle qui vend, pas un écran de plus.
   $("#off3").innerHTML =
     `<b>${esc(L(["Les trois documents", "All three documents"]))}</b>` +
     `<span>${esc(L(["RCP + notice + étiquetage · ", "SmPC + leaflet + labelling · "]))}` +
-    `<s>${esc(prixCourt(PRIX_UP3_PLEIN, lang))}</s> ${esc(prixDouble(PRIX.up3, lang))}</span>`;
+    `<s>${esc(prixCourt(PRIX_UP3_PLEIN, lang))}</s> ${esc(prixLocal(PRIX.up3, lang))}</span>`;
   $$("#upg-e4 .offer-opt").forEach((b) =>
     b.setAttribute("aria-checked", String(b.dataset.offre === offre)),
   );

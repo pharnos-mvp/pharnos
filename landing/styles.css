@@ -50,6 +50,15 @@
   .skip-link:focus { left: 16px; top: 16px; z-index: 100; background: var(--navy); color: #fff; padding: 8px 14px; border-radius: 8px; }
   :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
 
+  /* Équivalent FCFA d'un prix — VISIBLE PAR DÉFAUT, retiré par `landing.js` uniquement lorsqu'il a
+     la certitude que le visiteur est hors d'Afrique. Le défaut est « affiché » à dessein : sans JS
+     ou sur un fuseau inconnu, on montre les deux devises plutôt que de priver du FCFA quelqu'un
+     qui paiera en FCFA (cf. le commentaire en tête de landing.js). */
+  /* `!important` assumé : c'est un utilitaire de VISIBILITÉ, il doit gagner contre n'importe quelle
+     règle de composant. Sans lui, `.plan .price .price-xof { display: block }` (0,3,0, et déclarée
+     plus bas) reprend la main et le FCFA reste affiché en Europe — constaté au test navigateur. */
+  .hors-zone-fcfa .xof-only { display: none !important; }
+
   /* ── Boutons (recette DS) — `font/color: inherit` : mêmes recettes sur <a> et <button> ── */
   .btn { display: inline-flex; align-items: center; gap: 8px; font-family: inherit; font-weight: 600;
     font-size: 15px; color: inherit; background: none; border-radius: 10px; padding: 10px 20px;
@@ -380,7 +389,9 @@
   .plan .price { font-family: var(--font-display); font-size: 22px; font-weight: 800; color: var(--g900);
     margin: 12px 0 2px; line-height: 1.1; white-space: nowrap; }
   .plan .price .cur { font-size: 12px; font-weight: 700; color: var(--g500); }
-  .plan .price .price-eur { display: block; font-size: 13px; font-weight: 700; color: var(--g500);
+  /* Le FCFA passe en ligne SECONDAIRE : depuis le 2026-08-16 l'euro est le prix affiché, le FCFA
+     l'équivalent — et il ne s'affiche qu'en Afrique (cf. `.xof-only` plus bas). */
+  .plan .price .price-xof { display: block; font-size: 13px; font-weight: 700; color: var(--g500);
     line-height: 1.25; margin-top: 2px; }
   .plan .per { font-size: 12.5px; color: var(--g400); margin-bottom: 16px; }
   .plan ul { display: grid; gap: 8px; font-size: 13.5px; color: var(--g600); margin-bottom: 20px; }
@@ -403,7 +414,11 @@
 
   /* ── Footer ── */
   .site-footer { background: var(--navy); color: #c3d0e6; padding: 56px 0 34px; }
-  .site-footer .cols { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 36px; }
+  /* 5 colonnes depuis l'ajout de la colonne « Légal » (conditions, confidentialité, remboursement,
+     mentions légales) — exigence d'approbation de domaine chez Paddle, et de toute façon l'endroit
+     où un acheteur va les chercher. `minmax(0, 1fr)` et pas `1fr` : un libellé long
+     (« Conditions générales ») imposerait sinon sa largeur minimale et déborderait la grille. */
+  .site-footer .cols { display: grid; grid-template-columns: 1.4fr repeat(4, minmax(0, 1fr)); gap: 36px; }
   .site-footer .brand svg, .site-footer .brand-name { color: #fff; }
   .site-footer .tag { font-size: 13.5px; margin-top: 14px; max-width: 34ch; color: #8fa3c4; }
   .site-footer h4 { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #7da3dc; margin-bottom: 14px; }
