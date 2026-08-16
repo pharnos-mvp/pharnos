@@ -24,6 +24,31 @@
   X-Frame-Options: SAMEORIGIN
   Cache-Control: public, max-age=300
 
+# TUNNEL Paddle — la SEULE page de pharnos.com qui exécute un script tiers.
+#
+# Paddle n'héberge pas de page de paiement : contrairement à Chariow, son tunnel s'exécute chez
+# le vendeur et exige `Paddle.js` depuis `cdn.paddle.com`. Le choix est donc entre assouplir la
+# CSP de `/modele` — qui porte le formulaire, le catalogue et le dépôt de document — ou isoler le
+# tunnel sur une page qui ne contient QUE lui. C'est la seconde, et c'est la même doctrine qui
+# avait sorti Snap de `pharnos.com` vers `services.pharnos.com`.
+#
+# ⚠️ Chemin `/tunnel/` et NON `/paiement/` : les règles se CUMULENT chez Cloudflare Pages (cf.
+# `/modeles/*` ci-dessous). Sous `/paiement/*`, déjà excepté, notre politique se serait AJOUTÉE à
+# la sienne — et comme toutes les politiques présentes doivent passer, la plus stricte des deux
+# aurait gagné : `script-src 'self'` de `/paiement/*` bloquait Paddle.js, sans le moindre message.
+# Un chemin distinct ne croise que `/*`, donc un seul détachement, exactement comme les deux
+# exceptions déjà éprouvées en production.
+#
+# `style-src 'unsafe-inline'` : Paddle.js pose ses propres feuilles de style. C'est le prix du
+# script tiers, et il est borné à cette page — qui n'affiche AUCUN contenu contrôlable par un
+# tiers (ni saisie, ni paramètre rendu), donc rien à injecter dedans.
+/tunnel/*
+  ! Content-Security-Policy
+  ! X-Frame-Options
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.paddle.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.paddle.com; font-src 'self' data: https://cdn.paddle.com; connect-src https://*.paddle.com; frame-src https://*.paddle.com; frame-ancestors 'self'; form-action 'none'; base-uri 'self'; object-src 'none'
+  X-Frame-Options: SAMEORIGIN
+  Cache-Control: public, max-age=300
+
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 

@@ -1,0 +1,31 @@
+/* Tunnel de paiement — la page vit DANS la modale de /modele : elle n'apporte ni fond, ni
+   marge, ni titre. Tout ce qui s'y voit vient de Paddle. */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+
+body {
+  font:
+    15px/1.5 system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  color: #1f2933;
+}
+
+#paddle-checkout {
+  width: 100%;
+  min-width: 312px;
+}
+
+#souci {
+  margin: 24px;
+  text-align: center;
+}
+
+#souci[hidden] {
+  display: none;
+}

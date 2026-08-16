@@ -810,8 +810,16 @@ async function sessionPaiement(cmd, identite) {
       return { erreur: "champs", champs: Array.isArray(champs) ? champs : [] };
     }
     if (res.status === 429) return { erreur: "plafond" };
+    // Le SERVEUR nomme le repli, le navigateur ne le devine pas. Sur le rail merchant of record,
+    // renvoyer l'acheteur vers la boutique directe le ferait payer sans TVA collectée ni reversée :
+    // une gêne technique deviendrait un écart de conformité, et sans un mot dans aucun journal.
+    const { repli } = await res.json().catch(() => ({}));
+    if (repli === "aucun") return { erreur: "indisponible" };
     return { repli: true };
   } catch {
+    // Panne réseau : le rail servi est inconnu d'ici, et une vente perdue est certaine quand un
+    // repli est seulement risqué. On replie — c'est le comportement historique. Le jour où Paddle
+    // encaisse seul, les liens de `CHECKOUT` disparaissent et ce chemin s'éteint de lui-même.
     return { repli: true };
   }
 }
@@ -959,6 +967,17 @@ async function acheter(offre) {
             ]),
       );
       $(tel ? "#paytel" : "#payemail").focus();
+      return;
+    }
+    if (session.erreur === "indisponible") {
+      // Le serveur a fermé la vente sur son rail et INTERDIT le repli. Le dire franchement vaut
+      // mieux qu'un tunnel de secours qui encaisserait sous un régime fiscal différent.
+      toast(
+        L([
+          "Le paiement est momentanément indisponible — réessayez dans quelques minutes.",
+          "Payment is briefly unavailable — please try again in a few minutes.",
+        ]),
+      );
       return;
     }
     // La référence d'attente se pose au moment de PARTIR, jamais avant : une tentative
