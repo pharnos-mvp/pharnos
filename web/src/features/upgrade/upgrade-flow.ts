@@ -8,7 +8,7 @@
  * une panne comme une attente. Enfouies dans un composant, elles ne seraient testables qu'au
  * travers d'un rendu ; ici, elles se vérifient à la ligne.
  */
-import { flattenRubrics, specForDocType } from '@specs'
+import { flattenRubrics, idsSousDecoupage, specForDocType, type RubricSpec } from '@specs'
 import { DELIVERABLE_TITLES_EN } from '@titles'
 
 /** Une rubrique de la liste « à statuts vivants » — le contrat compact d'`order-status`. */
@@ -189,7 +189,11 @@ export function vueDepuis(
     // Le total peut valoir 0 le temps que la phase suivante se remplisse : diviser par lui donnerait
     // `NaN`, qui traverse silencieusement une barre de progression et l'affiche vide ou pleine
     // selon le navigateur.
-    const progression = resume.total > 0 ? Math.min(1, resume.faites / resume.total) : 0
+    // ⚠️ L'avancement VISIBLE, pas celui du serveur : la barre, le texte « rubrique N sur M » et
+    // l'estimation doivent compter les mêmes rubriques que la liste affichée — sinon l'acheteur
+    // voit 29 lignes sous un compteur qui en annonce 34.
+    const { faites, total } = avancementVisible(resume)
+    const progression = total > 0 ? Math.min(1, faites / total) : 0
     return { etape: 'traitement', progression, fermable: true, peutRedeposer: false }
   }
   // Quelque chose tourne DANS l'onglet : cela prime sur tout le reste.
@@ -266,13 +270,59 @@ export const SONDAGE_MS = 2_000
 /** Une rubrique prête à l'affichage — la liste « à statuts vivants » du mockup, ordonnée gabarit. */
 export interface RubriqueVivante {
   id: string
-  /** Le numéro AFFICHÉ : `4.2-posologie` se montre « 4.2 », jamais un identifiant interne. */
-  num: string
   titre: string
   /** `queued` | `running` | `done` | `failed`. */
   st: string
   /** `filled` | `partial` | `missing` — seulement quand `st` vaut `done`. */
   o?: string
+}
+
+type EtatRubrique = { st: string; o?: string }
+
+/** Ce qui AVANCE prime, puis ce qui a échoué, puis ce qui attend. */
+const PRIORITE = ['running', 'failed', 'queued'] as const
+
+/**
+ * L'état d'une rubrique, dérivé de SA ligne ET de celles de ses morceaux — jamais inventé.
+ *
+ * ⚠️ La ligne du parent COMPTE : `order-gate` crée une ligne par entrée du gabarit, donc `4.2` a
+ * son propre appel moteur, son propre statut et son propre verdict. Une première version ne
+ * lisait que les morceaux et court-circuitait le parent : une rubrique dont le chapeau avait
+ * ÉCHOUÉ s'affichait verte, « Reprise », pendant que le bandeau du bas annonçait « 1 rubrique en
+ * échec » — le mensonge le plus rassurant, sur l'écran d'un acheteur qui a payé.
+ *
+ * ⚠️ Fail-safe : on n'affirme `done` que si TOUT est constaté `done`. Un statut inconnu (le front
+ * et les Edge se déploient séparément) ne doit jamais devenir un badge vert, et un `done` sans
+ * verdict rend `partial` plutôt que `filled`.
+ *
+ * NB : l'écran ne distingue aujourd'hui que `missing` (ambre) — `partial` et `filled` portent le
+ * même badge « Reprise », comme dans le mockup. La prudence ci-dessus est donc invisible pour
+ * l'instant ; elle tient au cas où un état s'ajoute, et elle garde le VERDICT juste pour qui le
+ * lit (le décompte, la revue).
+ */
+function agreger(etats: readonly (EtatRubrique | undefined)[]): EtatRubrique | undefined {
+  const ss = etats.filter((s): s is EtatRubrique => !!s)
+  if (!ss.length) return undefined
+  const inacheve = ss.find((s) => s.st !== 'done')
+  if (inacheve) return { st: PRIORITE.find((p) => ss.some((s) => s.st === p)) ?? inacheve.st }
+  const o = ss.some((s) => s.o === 'missing')
+    ? 'missing'
+    : ss.some((s) => s.o === 'partial' || !s.o)
+      ? 'partial'
+      : 'filled'
+  return { st: 'done', o }
+}
+
+/** L'état d'une rubrique et de ses morceaux, à n'importe quelle profondeur de découpage. */
+function etatAvecMorceaux(
+  r: RubricSpec,
+  parId: ReadonlyMap<string, SectionVivante>,
+  morceauxDuGabarit: ReadonlySet<string>,
+): EtatRubrique | undefined {
+  const morceaux = (r.children ?? [])
+    .filter((c) => morceauxDuGabarit.has(c.id))
+    .map((c) => etatAvecMorceaux(c, parId, morceauxDuGabarit))
+  return agreger([parId.get(r.id), ...morceaux])
 }
 
 /**
@@ -283,6 +333,12 @@ export interface RubriqueVivante {
  *
  * Une rubrique HORS gabarit (commande historique, gabarit qui a évolué) ferme la marche avec son
  * identifiant pour titre : disparaître serait mentir sur le travail en cours.
+ *
+ * ⚠️ Les SOUS-DÉCOUPAGES du moteur n'y figurent pas, et leur état REMONTE sur la rubrique qu'ils
+ * découpent : le document n'a qu'une rubrique « 4.2 Posologie et mode d'administration », alors
+ * que le gabarit la scinde en deux pour la traiter. Les afficher mettait trois lignes « 4.2 » et
+ * quatre lignes « 4.6 » dans la liste — le même numéro, plusieurs fois, sur la page qui vend la
+ * rigueur réglementaire.
  */
 export function rubriquesVivantes(
   sections: readonly SectionVivante[] | undefined,
@@ -294,28 +350,36 @@ export function rubriquesVivantes(
   if (!spec)
     return sections.map((s) => ({
       id: s.id,
-      num: s.id,
       titre: s.id,
       st: s.st,
       ...(s.o ? { o: s.o } : {}),
     }))
   const parId = new Map(sections.map((s) => [s.id, s]))
+  const morceauxDuGabarit = idsSousDecoupage(spec)
   const out: RubriqueVivante[] = []
   for (const r of flattenRubrics(spec)) {
-    const s = parId.get(r.id)
-    if (!s) continue
+    if (morceauxDuGabarit.has(r.id)) {
+      // Consommé — son état a déjà servi à l'agrégat du parent, et il ne doit pas ressortir en
+      // fin de liste par la boucle des hors-gabarit.
+      parId.delete(r.id)
+      continue
+    }
+    // Sa ligne PLUS celles de ses morceaux. Récursif, pour qu'un morceau lui-même découpé remonte
+    // au lieu d'être perdu ; borné aux morceaux, donc §4 n'hérite pas de l'état de 4.2 — 4.1, 4.2…
+    // sont de vraies rubriques, qui ont leur propre ligne dans la liste.
+    const etat = etatAvecMorceaux(r, parId, morceauxDuGabarit)
+    if (!etat) continue
     const titre = (lang === 'en' ? DELIVERABLE_TITLES_EN.get(r.id) : undefined) ?? r.title
     out.push({
       id: r.id,
-      num: r.id.split('-')[0] ?? r.id,
       titre,
-      st: s.st,
-      ...(s.o ? { o: s.o } : {}),
+      st: etat.st,
+      ...(etat.o ? { o: etat.o } : {}),
     })
     parId.delete(r.id)
   }
   for (const s of parId.values()) {
-    out.push({ id: s.id, num: s.id, titre: s.id, st: s.st, ...(s.o ? { o: s.o } : {}) })
+    out.push({ id: s.id, titre: s.id, st: s.st, ...(s.o ? { o: s.o } : {}) })
   }
   return out
 }
@@ -323,6 +387,37 @@ export function rubriquesVivantes(
 /** La rubrique EN COURS — celle du titre « Rubrique 4.8 sur 29 » et du défilement automatique. */
 export const rubriqueEnCours = (rubriques: readonly RubriqueVivante[]): RubriqueVivante | null =>
   rubriques.find((r) => r.st === 'running') ?? null
+
+/**
+ * L'avancement tel que l'acheteur peut le VÉRIFIER en comptant les lignes de sa liste.
+ *
+ * Le serveur compte les 34 entrées du gabarit, sous-découpages compris (`sections_total` vient de
+ * `flattenRubrics`) : l'écran annonçait « rubrique 4.8 sur 34 » au-dessus d'une liste de 29, et le
+ * mockup — le contrat — dit 29.
+ *
+ * ⚠️ SEULEMENT pendant la conformité. `resumer()` n'envoie JAMAIS que les lignes de conformité
+ * dans `sections` (`order-status-core.ts`), même quand la phase courante est la traduction ou la
+ * revue : elles y sont alors toutes `done` et ne disent plus rien de l'avancement. Les lire quand
+ * même épinglait la barre à 100 % et l'estimation à son plancher pendant la MOITIÉ du traitement
+ * payé — trouvé en revue de diff, après que la première version soit passée au vert sur une suite
+ * de tests dont aucun fixture ne portait de `sections`. Hors conformité, les compteurs du serveur
+ * suivent la bonne phase : ce sont eux qui font foi.
+ */
+export function avancementVisible(resume: ResumeCommande): { faites: number; total: number } {
+  const sections = resume.sections
+  if (resume.phase !== 'conformity' || !sections?.length) {
+    return { faites: resume.faites, total: resume.total }
+  }
+  // ⚠️ La MÊME source que la liste, agrégats compris : compter ici les sections brutes ferait
+  // diverger le compteur de ce que l'acheteur lit juste en dessous — une rubrique découpée dont
+  // la ligne propre est `done` mais dont un morceau tourne encore serait comptée faite alors que
+  // sa ligne affiche « en cours ». La langue n'entre que dans les titres, jamais dans les états.
+  const vues = rubriquesVivantes(sections, resume.docType, 'fr')
+  // Le total EST le nombre de lignes affichées : c'est la seule définition que l'acheteur peut
+  // vérifier, et l'insertion des rubriques est atomique (`order-gate`), donc la file n'est jamais
+  // partielle.
+  return { faites: vues.filter((v) => v.st === 'done').length, total: vues.length }
+}
 
 /** « 4 min 12 » — la durée RÉELLE du mockup, jamais une estimation reformatée. */
 export function dureeLisible(secondes: number, lang: 'fr' | 'en'): string {
@@ -389,15 +484,28 @@ export function libellePhase(
  * Temps restant estimé, en secondes — `null` tant qu'on ne sait rien de fiable.
  *
  * ⚠️ C'est une PROMESSE au client, pas une mesure : elle doit couvrir le cas DÉFAVORABLE, pas le
- * nominal. La chaîne mesurée tient en ~320 s (319 s pour 60 appels au banc U0, ~7 min dépôt→e-mail
- * à la recette) — mais un tableau de revue peut consommer son plafond entier, les bascules de
- * phase attendent le tick suivant (30 s chacune), et depuis la relance automatique un run qui
- * trébuche repart sans rien demander à personne : chaque relance ajoute plusieurs minutes. Le
- * décompte part donc de 15 min et FINIT EN AVANCE dans le cas courant — décision CEO 2026-08-11 :
- * une barre qui finit tôt rassure, une barre qui dépasse son annonce inquiète, et l'acheteur ne
- * doit jamais voir l'estimation s'allonger sous ses yeux.
+ * nominal — un tableau de revue peut consommer son plafond entier, les bascules de phase attendent
+ * le tick suivant (30 s chacune), et depuis la relance automatique un run qui trébuche repart sans
+ * rien demander à personne. La règle de 2026-08-11 tient : l'estimation FINIT EN AVANCE, elle ne
+ * s'allonge jamais sous les yeux de l'acheteur.
+ *
+ * Mais 900 s (15 min) était une projection posée AVANT toute mesure de bout en bout, et elle
+ * mentait de trois fois : le premier run réel (2026-08-14, 34 rubriques de conformité + 31 de
+ * traduction + 4 tableaux de revue, zéro relance) a duré **311 s**, soit 5 min 11 — pendant que
+ * l'écran annonçait encore 13 minutes à un tiers du parcours, sur un produit vendu « environ
+ * quatre minutes ». Une annonce trois fois trop longue n'est plus prudente : elle fait douter du
+ * produit, et l'acheteur reste devant l'écran d'autant plus longtemps.
+ *
+ * 360 s = la mesure réelle + 16 % de marge, soit « environ 6 min » au premier affichage. Le choix
+ * se joue contre la PAGE QUI VEND : elle promet « en quatre minutes », et le mockup affiche
+ * « terminé en 4 min 12 ». Annoncer 15 min (l'ancienne valeur) ou même 7 contredisait la promesse
+ * juste après l'encaissement — c'est la classe de contradiction que ce fichier existe pour
+ * empêcher. Six minutes restent au-dessus de la mesure, donc la barre finit encore en avance.
+ *
+ * Une relance automatique peut dépasser l'annonce — assumé : le cas est rare, et le prix serait
+ * sinon de mentir de trois fois sur les 95 % de runs nominaux.
  */
-export const DUREE_TOTALE_S = 900
+export const DUREE_TOTALE_S = 360
 
 /**
  * Parts de chaque passe dans la durée totale — les MESURES de U0.3, pas des tiers égaux.

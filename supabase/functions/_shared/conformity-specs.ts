@@ -31,6 +31,18 @@ export interface RubricSpec {
   /** Rubrique exigée (true) ou conditionnelle/optionnelle (false). */
   required: boolean
   children?: RubricSpec[]
+  /**
+   * Découpage INTERNE au moteur : ce nœud n'existe pas dans le document de l'acheteur, il scinde
+   * une rubrique officielle pour la traiter (`4.2-posologie` découpe la rubrique 4.2). L'écran de
+   * suivi ne l'affiche pas et ne le compte pas — il porterait le numéro de son parent, mettant
+   * plusieurs lignes « 4.2 » dans la liste.
+   *
+   * ⚠️ DÉCLARÉ, jamais deviné. Un premier essai le dérivait du tiret dans l'identifiant : la règle
+   * marchait pour le RCP mais aurait effacé 17 des 26 lignes de la NOTICE (`2-avertissements`,
+   * `6-fabricant`… sont de vrais intertitres imprimés) et `ville-date` de la page de garde, le jour
+   * où ces gabarits deviennent livrables. Sans erreur, sans trace.
+   */
+  interne?: true
   mentions?: MentionSpec[]
   /**
    * Consignes de rubrique — la DOCTRINE du gabarit (périmètre, renvois, ce qui relève d'un autre
@@ -103,8 +115,8 @@ const RCP_SPEC: ConformitySpec = {
           title: "Posologie et mode d'administration",
           required: true,
           children: [
-            { id: '4.2-posologie', title: 'Posologie', required: true },
-            { id: '4.2-administration', title: "Mode d'administration", required: true },
+            { id: '4.2-posologie', title: 'Posologie', required: true, interne: true },
+            { id: '4.2-administration', title: "Mode d'administration", required: true, interne: true },
           ],
         },
         { id: '4.3', title: 'Contre-indications', required: true },
@@ -119,9 +131,9 @@ const RCP_SPEC: ConformitySpec = {
           title: 'Fertilité, grossesse et allaitement',
           required: true,
           children: [
-            { id: '4.6-grossesse', title: 'Grossesse', required: true },
-            { id: '4.6-allaitement', title: 'Allaitement', required: true },
-            { id: '4.6-fertilite', title: 'Fertilité', required: false },
+            { id: '4.6-grossesse', title: 'Grossesse', required: true, interne: true },
+            { id: '4.6-allaitement', title: 'Allaitement', required: true, interne: true },
+            { id: '4.6-fertilite', title: 'Fertilité', required: false, interne: true },
           ],
         },
         {
@@ -492,6 +504,20 @@ const DOCTYPE_TO_SPEC: Record<string, ConformityDocType> = {
 export function specForDocType(docType: string): ConformitySpec | null {
   const key = DOCTYPE_TO_SPEC[docType]
   return key ? CONFORMITY_SPECS[key] : null
+}
+
+/**
+ * Les identifiants des sous-découpages INTERNES d'un gabarit — ceux que l'écran de suivi n'affiche
+ * pas et ne compte pas (voir `RubricSpec.interne`).
+ *
+ * Le gabarit RCP porte 34 entrées dont 5 sous-découpages, soit **29 rubriques** — le chiffre du
+ * mockup, et celui que l'acheteur obtient s'il compte les lignes de son propre document.
+ *
+ * Les têtes de section — `4`, `5`, `6`, `4.2`, `4.6` — restent de vraies rubriques : elles existent
+ * dans le document et portent leur titre. Leur avancement se DÉRIVE de leurs morceaux.
+ */
+export function idsSousDecoupage(spec: ConformitySpec): Set<string> {
+  return new Set(flattenRubrics(spec).filter((r) => r.interne).map((r) => r.id))
 }
 
 /** Aplati les rubriques (avec celles des enfants) — utilitaire prompts/tests. */

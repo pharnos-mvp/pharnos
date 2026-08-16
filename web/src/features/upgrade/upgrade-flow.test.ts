@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
+import { CONFORMITY_SPECS, flattenRubrics } from '@specs'
+
 import {
+  avancementVisible,
   DOC_TYPES,
   DUREE_TOTALE_S,
   doitChercherSource,
@@ -17,6 +20,9 @@ import {
   dureeLisible,
   rubriquesVivantes,
 } from './upgrade-flow'
+
+/** Les 34 identifiants du gabarit RCP, tels que la porte les met en file. */
+const flattenRubriquesRcp = () => flattenRubrics(CONFORMITY_SPECS.rcp).map((r) => r.id)
 
 const resume = (o: Partial<ResumeCommande> = {}): ResumeCommande => ({
   statut: 'paid',
@@ -376,13 +382,155 @@ describe('rubriquesVivantes + bandeauContexte + dureeLisible (LOT B1)', () => {
     ]
     const r = rubriquesVivantes(sections, 'rcp', 'fr')
     // L'ordre est celui du gabarit (1 avant 4.2 avant 4.8), pas celui du serveur.
-    expect(r.map((x) => x.id)).toEqual(['1', '4.2-posologie', '4.8'])
+    expect(r.map((x) => x.id)).toEqual(['1', '4.2', '4.8'])
     expect(r[0]).toMatchObject({ titre: 'DÉNOMINATION DU MÉDICAMENT', st: 'done', o: 'filled' })
-    // `4.2-posologie` s'AFFICHE « 4.2 » — jamais un identifiant interne.
-    expect(r[1]?.num).toBe('4.2')
+    // Un MORCEAU ne s'affiche jamais : c'est la rubrique qu'il découpe qui porte son état, sous
+    // son numéro officiel et son titre de gabarit. Afficher les morceaux mettait plusieurs lignes
+    // sous le même numéro.
+    expect(r[1]).toMatchObject({
+      id: '4.2',
+      titre: "Posologie et mode d'administration",
+      st: 'running',
+    })
     // En anglais, les titres viennent de la table de l'assemblage — pas d'une liste parallèle.
     const en = rubriquesVivantes(sections, 'rcp', 'en')
     expect(en[0]?.titre).toBe('NAME OF THE MEDICINAL PRODUCT')
+  })
+
+  it('⚠️ les SOUS-DÉCOUPAGES ne sont pas des lignes — leur état remonte, les numéros restent uniques', () => {
+    // Le serveur crée une ligne pour les 34 entrées du gabarit. Afficher les morceaux mettait
+    // trois lignes « 4.2 » et quatre « 4.6 » dans la liste — le même numéro plusieurs fois, sur la
+    // page qui vend la rigueur réglementaire. Le document, lui, n'a qu'une rubrique 4.2.
+    const sections = [
+      { id: '4', st: 'done', o: 'filled' },
+      { id: '4.1', st: 'done', o: 'filled' },
+      { id: '4.2', st: 'done', o: 'filled' },
+      { id: '4.2-posologie', st: 'done', o: 'filled' },
+      { id: '4.2-administration', st: 'running' },
+      { id: '4.6', st: 'done', o: 'filled' },
+      { id: '4.6-grossesse', st: 'done', o: 'filled' },
+      { id: '4.6-allaitement', st: 'done', o: 'missing' },
+      { id: '4.6-fertilite', st: 'done', o: 'filled' },
+    ]
+    const r = rubriquesVivantes(sections, 'rcp', 'fr')
+    expect(r.map((x) => x.id)).toEqual(['4', '4.1', '4.2', '4.6'])
+    // Aucun morceau ne ressort par la porte de derrière (la boucle des hors-gabarit).
+    expect(r.some((x) => x.id.includes('-'))).toBe(false)
+    // Le numéro affiché est unique — c'était le défaut visible.
+    expect(new Set(r.map((x) => x.id)).size).toBe(r.length)
+    // 4.2 : un morceau tourne encore ⇒ la rubrique est EN COURS, même si sa ligne propre est
+    // `done`. L'état d'une rubrique découpée se dérive, il ne se lit pas.
+    expect(r.find((x) => x.id === '4.2')).toMatchObject({ st: 'running' })
+    // 4.6 : tout est fini, mais une moitié n'a pas de donnée ⇒ le verdict le plus SÉVÈRE gouverne.
+    expect(r.find((x) => x.id === '4.6')).toMatchObject({ st: 'done', o: 'missing' })
+    // 4 : ses enfants sont des rubriques, pas des morceaux — il garde son propre état.
+    expect(r.find((x) => x.id === '4')).toMatchObject({ st: 'done', o: 'filled' })
+  })
+
+  it('⚠️ la ligne du CHAPEAU compte : une rubrique en échec ne s’affiche jamais verte', () => {
+    // `order-gate` crée une ligne par entrée du gabarit : 4.2 a son propre appel moteur, son propre
+    // statut et son propre verdict. Une première version ne lisait que les morceaux et
+    // court-circuitait le chapeau — une rubrique en ÉCHEC s'affichait « Reprise » en vert, pendant
+    // que le bandeau du bas annonçait « 1 rubrique en échec ». Trouvé en revue de diff.
+    const avec = (chapeau: { st: string; o?: string }) =>
+      rubriquesVivantes(
+        [
+          { id: '4.2', ...chapeau },
+          { id: '4.2-posologie', st: 'done', o: 'filled' },
+          { id: '4.2-administration', st: 'done', o: 'filled' },
+        ],
+        'rcp',
+        'fr',
+      ).find((x) => x.id === '4.2')
+
+    expect(avec({ st: 'failed' })).toMatchObject({ st: 'failed' })
+    expect(avec({ st: 'running' })).toMatchObject({ st: 'running' })
+    // Le verdict du chapeau compte aussi : « manquant » ne se fait pas effacer par ses morceaux.
+    expect(avec({ st: 'done', o: 'missing' })).toMatchObject({ st: 'done', o: 'missing' })
+  })
+
+  it('⚠️ `agreger` est fail-safe : un statut inconnu ne devient jamais un badge vert', () => {
+    // Le front et les Edge se déploient séparément : un statut serveur que ce build ne connaît pas
+    // ne doit pas être présenté comme « Reprise » sur les onglets déjà ouverts. Et un `done` sans
+    // verdict ne remonte pas mieux que ce qu'on sait.
+    const etat = (morceaux: { id: string; st: string; o?: string }[]) =>
+      rubriquesVivantes([...morceaux], 'rcp', 'fr').find((x) => x.id === '4.2')
+
+    expect(
+      etat([
+        { id: '4.2', st: 'done', o: 'filled' },
+        { id: '4.2-posologie', st: 'skipped' },
+        { id: '4.2-administration', st: 'done', o: 'filled' },
+      ]),
+    ).toMatchObject({ st: 'skipped' })
+    expect(
+      etat([
+        { id: '4.2', st: 'done' },
+        { id: '4.2-posologie', st: 'done', o: 'filled' },
+      ]),
+    ).toMatchObject({ st: 'done', o: 'partial' })
+  })
+
+  it('le compteur annonce 29, le chiffre que l’acheteur peut vérifier en comptant ses lignes', () => {
+    // Le serveur envoie les 34 entrées et un `total` de 34 ; l'écran doit dire 29 — et surtout le
+    // MÊME nombre que les lignes affichées, sans quoi l'acheteur voit le mensonge tout seul.
+    const sections = flattenRubriquesRcp().map((id) => ({
+      id,
+      st: 'done' as const,
+      o: 'filled' as const,
+    }))
+    const r = resume({ statut: 'running', faites: 34, total: 34, docType: 'rcp', sections })
+    const a = avancementVisible(r)
+    expect(a.total).toBe(29)
+    expect(a.faites).toBe(29)
+    expect(rubriquesVivantes(sections, 'rcp', 'fr')).toHaveLength(a.total)
+    // Et la barre suit le même décompte que le texte.
+    expect(vueDepuis(r).progression).toBe(1)
+  })
+
+  it('⚠️ une rubrique dont un morceau TOURNE n’est pas comptée faite', () => {
+    // L'état réel pendant les cinq minutes du traitement — celui que le test « tout done » ne
+    // couvrait pas. Si le compteur lisait la ligne propre de 4.2 (`done`) au lieu de l'agrégat, il
+    // annoncerait 29/29 pendant que la liste affiche encore « 4.2 en cours ».
+    const sections = flattenRubriquesRcp().map((id) => ({
+      id,
+      st: id === '4.2-administration' ? 'running' : 'done',
+      o: 'filled',
+    }))
+    const r = resume({ statut: 'running', faites: 33, total: 34, docType: 'rcp', sections })
+    expect(avancementVisible(r)).toEqual({ faites: 28, total: 29 })
+    expect(rubriquesVivantes(sections, 'rcp', 'fr').find((x) => x.id === '4.2')?.st).toBe('running')
+  })
+
+  it('sans liste de rubriques, on rend les chiffres du serveur plutôt qu’une correction à l’aveugle', () => {
+    const a = avancementVisible(resume({ statut: 'running', faites: 3, total: 34 }))
+    expect(a).toEqual({ faites: 3, total: 34 })
+  })
+
+  it('⚠️ HORS conformité, `sections` ne dit plus rien : la barre doit suivre le SERVEUR', () => {
+    // `resumer()` n'envoie QUE les lignes de conformité dans `sections`, quelle que soit la phase
+    // courante. Pendant la traduction et la revue — la moitié du traitement payé — elles sont donc
+    // toutes `done` : les lire épinglait la barre à 100 % et l'estimation à son plancher, écran
+    // figé, pendant que le moteur travaillait. Trouvé en revue de diff.
+    const toutesFaites = flattenRubriquesRcp().map((id) => ({
+      id,
+      st: 'done' as const,
+      o: 'filled' as const,
+    }))
+    const traduction = resume({
+      statut: 'running',
+      phase: 'translation',
+      faites: 4,
+      total: 31,
+      docType: 'rcp',
+      sections: toutesFaites,
+    })
+    expect(avancementVisible(traduction)).toEqual({ faites: 4, total: 31 })
+    expect(vueDepuis(traduction).progression).toBeCloseTo(4 / 31)
+    // Et l'estimation redescend au fil de la phase au lieu de rester collée à son plancher.
+    const debut = resteEstimeS(vueDepuis(traduction), 'translation')!
+    const fin = resteEstimeS(vueDepuis({ ...traduction, faites: 31 }), 'translation')!
+    expect(fin).toBeLessThan(debut)
   })
 
   it('une rubrique HORS gabarit ferme la marche au lieu de disparaître', () => {
