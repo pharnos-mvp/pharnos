@@ -152,9 +152,19 @@ Deno.test('tunnel-jumeau — la page rendue par le serveur est AFFICHABLE par la
   assert(lignes.includes('! Content-Security-Policy'), `${glob} ne détache pas la CSP de /*`)
   assert(lignes.includes('! X-Frame-Options'), `${glob} ne détache pas X-Frame-Options`)
 
-  assert(directive('script-src').includes('https://cdn.paddle.com'), 'Paddle.js resterait bloqué')
-  assert(directive('frame-src').includes('https://*.paddle.com'), 'le tunnel Paddle serait bloqué')
-  assert(directive('connect-src').includes('https://*.paddle.com'), 'Paddle.js ne pourrait rien appeler')
+  // ⚠️ Le JOKER, pas le seul `cdn.` : Paddle.js se charge depuis `cdn.paddle.com` mais va chercher
+  // ses ressources ailleurs (en bac à sable, `sandbox-cdn.paddle.com`). Restreindre l'une de ces
+  // directives au seul `cdn.` a donné un tunnel nu en production le 2026-08-16.
+  for (const nom of ['script-src', 'style-src', 'img-src', 'font-src', 'connect-src', 'frame-src']) {
+    assert(directive(nom).includes('https://*.paddle.com'), `${nom} n’ouvre pas tout le domaine Paddle`)
+  }
+  // La cible du cadre est une CLASSE : Paddle.js la résout par `getElementsByClassName`, et un id
+  // seul lui fait appeler `appendChild` sur `undefined` — page blanche, sans message d'erreur.
+  const html = await Deno.readTextFile(new URL(`../../../landing${CHEMIN_TUNNEL}.html`, import.meta.url))
+  const js = await Deno.readTextFile(new URL(`../../../landing${CHEMIN_TUNNEL}.js`, import.meta.url))
+  const cible = /frameTarget:\s*"([^"]+)"/.exec(js)?.[1] ?? ''
+  assert(cible, 'aucun frameTarget dans le script du tunnel')
+  assert(html.includes(`class="${cible}"`), `le conteneur n’a pas la CLASSE « ${cible} »`)
   // Cadrable par pharnos.com, et par personne d'autre.
   assertEquals(directive('frame-ancestors'), "'self'")
 

@@ -42,10 +42,16 @@
 # `style-src 'unsafe-inline'` : Paddle.js pose ses propres feuilles de style. C'est le prix du
 # script tiers, et il est borné à cette page — qui n'affiche AUCUN contenu contrôlable par un
 # tiers (ni saisie, ni paramètre rendu), donc rien à injecter dedans.
+#
+# ⚠️ `https://*.paddle.com` et non le seul `cdn.paddle.com` : le script se charge bien depuis
+# `cdn.`, mais il va ensuite chercher SES ressources ailleurs — en bac à sable, la feuille de
+# style vient de `sandbox-cdn.paddle.com`. Mesuré en production le 2026-08-16 : avec le seul
+# `cdn.`, la CSP bloquait `sandbox-cdn.paddle.com/paddle/v2/assets/css/paddle.css` et le tunnel
+# s'affichait nu. Aucun test ne peut voir ça — `_headers` n'existe qu'en production.
 /tunnel/*
   ! Content-Security-Policy
   ! X-Frame-Options
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.paddle.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.paddle.com; font-src 'self' data: https://cdn.paddle.com; connect-src https://*.paddle.com; frame-src https://*.paddle.com; frame-ancestors 'self'; form-action 'none'; base-uri 'self'; object-src 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://*.paddle.com; style-src 'self' 'unsafe-inline' https://*.paddle.com; img-src 'self' data: https://*.paddle.com; font-src 'self' data: https://*.paddle.com; connect-src https://*.paddle.com; frame-src https://*.paddle.com; frame-ancestors 'self'; form-action 'none'; base-uri 'self'; object-src 'none'
   X-Frame-Options: SAMEORIGIN
   Cache-Control: public, max-age=300
 

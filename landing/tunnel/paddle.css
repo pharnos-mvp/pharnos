@@ -16,7 +16,8 @@ body {
   color: #1f2933;
 }
 
-#paddle-checkout {
+/* Classe et non id : c'est Paddle.js qui résout cette cible, par nom de classe. */
+.paddle-checkout {
   width: 100%;
   min-width: 312px;
 }
