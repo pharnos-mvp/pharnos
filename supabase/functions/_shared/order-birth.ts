@@ -48,6 +48,11 @@ export async function faireNaitreCommande(
   sb: SupabaseClient,
   v: VenteVerifiee,
   log: Record<string, unknown>,
+  /**
+   * Le processeur qui a encaissé. Défaut `chariow` : c'est le rail historique, et le laisser
+   * implicite évite de toucher ses deux appelants. Paddle le déclare explicitement.
+   */
+  rail: 'chariow' | 'paddle' = 'chariow',
 ): Promise<NaissanceResultat> {
   const maintenant = new Date()
   const expire = deliveryExpiryFrom(maintenant).toISOString()
@@ -55,6 +60,10 @@ export async function faireNaitreCommande(
     .from('orders')
     .insert({
       ref: v.ref,
+      rail,
+      // ⚠️ La colonne garde son nom historique mais porte l'identifiant du processeur QUEL QU'IL
+      // soit (Chariow `SALE…`, Paddle `txn_…`) : c'est elle qui porte l'idempotence des deux rails,
+      // et la renommer casserait les Edge déployées à la seconde où la migration passe.
       chariow_sale_id: v.saleId,
       offre: v.offre,
       essai: v.essai,
@@ -106,7 +115,7 @@ export async function faireNaitreCommande(
     if (!deja) {
       if (v.ref) {
         logJson({ ...log, status: 'ref_en_conflit' })
-        return await faireNaitreCommande(sb, { ...v, ref: null }, log)
+        return await faireNaitreCommande(sb, { ...v, ref: null }, log, rail)
       }
       logJson({ ...log, status: 'conflit_sans_ligne' })
       return { statut: 'erreur' }

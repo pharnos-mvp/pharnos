@@ -65,12 +65,26 @@ export const deliveryExpiryFrom = (now: Date): Date =>
  * Un produit inconnu n'est PAS une erreur — c'est une vente qui ne nous concerne pas, et elle
  * s'acquitte en 200 sans rien créer. Répondre en erreur ferait rejouer Chariow cinq fois pour rien.
  */
-export const PRODUITS: Record<string, { offre: 'up1' | 'up3'; essai: boolean }> = {
+export const PRODUITS: Record<string, { offre: Offre; essai: boolean }> = {
   prd_hf86pys5: { offre: 'up1', essai: false },
   prd_1u8jrq16: { offre: 'up3', essai: false },
   prd_g3norblb: { offre: 'up1', essai: true },
   prd_abtk4i8b: { offre: 'up3', essai: true },
 }
+
+/** Les offres que la chaîne d'upgrade sait servir. */
+export type Offre = 'up1' | 'up3'
+
+/**
+ * Les mêmes offres, en ensemble — DÉRIVÉES du catalogue, jamais recopiées.
+ *
+ * Le second rail (Paddle) valide contre cet ensemble plutôt que contre une liste à lui : deux
+ * listes d'offres finiraient par diverger, et un processeur accepterait alors une offre que
+ * l'autre refuse — sur la même chaîne d'après-paiement.
+ */
+export const OFFRES_SERVABLES: ReadonlySet<string> = new Set(
+  Object.values(PRODUITS).map((p) => p.offre),
+)
 
 /* ─────────────────────────────────────── Le Pulse ─────────────────────────────────────────── */
 
