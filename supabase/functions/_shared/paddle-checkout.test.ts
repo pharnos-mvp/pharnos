@@ -8,6 +8,7 @@ import {
   lireTransactionCreee,
   paddleApi,
   prixParOffre,
+  regimeCoherent,
   urlTunnel,
 } from './paddle-checkout.ts'
 import type { CommandeValidee } from './checkout-core.ts'
@@ -89,6 +90,12 @@ Deno.test('réponse : seule l’URL EXACTEMENT demandée est transmise', () => {
     'https://pharnos.com/tunnel/paddle?e=s&lang=fr',
     `https://pharnos.com/tunnel/paddle?_ptxn=txn_01m04prg3480m270fsmdd4w999&e=s&lang=fr`,
     'pas une url',
+    // ⚠️ `e` et `lang` comptent AUTANT que le chemin. `e` choisit le jeton client du tunnel : une
+    // URL qui les perd ouvre une page incapable de s'initialiser, pendant que le serveur
+    // journalise « ok ». Paddle les conserve aujourd'hui — c'est une mesure, pas un contrat.
+    `https://pharnos.com/tunnel/paddle?_ptxn=${TXN}`,
+    `https://pharnos.com/tunnel/paddle?_ptxn=${TXN}&e=l&lang=fr`,
+    `https://pharnos.com/tunnel/paddle?_ptxn=${TXN}&e=s&lang=en`,
   ]
   for (const url of refuses) {
     assertEquals(
@@ -172,7 +179,28 @@ Deno.test('tunnel-jumeau — la page rendue par le serveur est AFFICHABLE par la
   const racine = blocs.get('/*')!.find((l) => l.startsWith('Content-Security-Policy:')) ?? ''
   assertEquals(racine.includes('paddle.com'), false, 'la CSP globale s’est ouverte à Paddle')
 
+  // ⚠️ L'AUTRE moitié du jumeau : la page mère doit pouvoir CADRER le tunnel. `frame-src` est
+  // explicite dans `/*`, donc il ne retombe pas sur `default-src 'self'` — y retirer `'self'` au
+  // motif qu'il paraît redondant rendrait un cadre BLANC après « Payer », sans erreur ni repli.
+  const frameSrcRacine = /frame-src ([^;]+)/.exec(racine)?.[1] ?? ''
+  assert(
+    frameSrcRacine.split(/\s+/).includes("'self'"),
+    '/* n’autorise plus /modele à cadrer le tunnel',
+  )
+
   // La page existe vraiment là où le serveur promet de l'envoyer.
   const page = new URL(`../../../landing${CHEMIN_TUNNEL}.html`, import.meta.url)
   assert((await Deno.stat(page)).isFile, `${CHEMIN_TUNNEL}.html absent de landing/`)
+})
+
+Deno.test('régime — bac à sable ⇔ essai, dans les DEUX sens', () => {
+  assertEquals(regimeCoherent(true, true), true, 'recette en bac à sable : le cas nominal')
+  assertEquals(regimeCoherent(false, false), true, 'vente réelle en production : le cas nominal')
+  // ⚠️ Un essai en PRODUCTION encaisserait le plein tarif à quelqu'un qui croyait tester : il
+  // n'existe pas de catalogue à 570 F chez Paddle, contrairement au rail Chariow.
+  assertEquals(regimeCoherent(false, true), false)
+  // ⚠️ Et le côté CHER, celui qui manquait : en bac à sable, la carte de test de Paddle règle tout.
+  // Sans jeton de recette, un visiteur quelconque repart avec les cinq fichiers RÉELS et c'est nous
+  // qui payons le moteur — `essai` ne bride ni la porte, ni le moteur, ni la livraison.
+  assertEquals(regimeCoherent(true, false), false)
 })

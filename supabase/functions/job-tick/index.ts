@@ -127,6 +127,9 @@ interface Job {
   lang: OutputLang
   /** Nom du fichier déposé — affichage seul (en-tête du livrable, rapport). */
   source_name?: string | null
+  /** Langue du document DÉPOSÉ, écrite par la porte. Elle commande la langue du RAPPORT (décision
+   *  verrouillée, étape 1) et nomme déjà l'archive : les deux ne doivent pas pouvoir diverger. */
+  source_lang?: string | null
   /** Pays de dépôt et activité, portés par la COMMANDE — ils commandent les prompts. */
   country: string | null
   activity: string | null
@@ -137,7 +140,7 @@ interface Job {
 // ⚠️ `started_at` en fait partie, et ce n'est pas décoratif : c'est lui qui distingue un job
 // « en attente de sa porte » d'un job en travail. Son absence de cette liste a coûté un bloquant.
 const CHAMPS_JOB =
-  'id, order_id, doc_type, source_path, source_kind, control_text, phase, started_at, source_name, relances'
+  'id, order_id, doc_type, source_path, source_kind, control_text, phase, started_at, source_name, source_lang, relances'
 
 /**
  * Prévient QUELQU'UN qu'une commande payée est morte.
@@ -457,7 +460,12 @@ async function assemblerLivrables(
     .select('lang, country, activity')
     .eq('id', job.order_id)
     .maybeSingle()
-  const lang: OutputLang = cmdRow?.lang === 'en' ? 'en' : 'fr'
+  // ⚠️ La langue du RAPPORT vient du document DÉPOSÉ, pas de la page consultée — décision
+  // verrouillée (étape 1) et déjà celle qui nomme l'archive. Les faire diverger mettrait une revue
+  // française sous un nom anglais DANS LE MÊME ZIP.
+  const acheteur: OutputLang = cmdRow?.lang === 'en' ? 'en' : 'fr'
+  const langues = languesLivrable(job.source_lang, acheteur)
+  const lang: OutputLang = langues.rapport
   const country = typeof cmdRow?.country === 'string' ? cmdRow.country : ''
   const activite = typeof cmdRow?.activity === 'string' ? cmdRow.activity : null
 
@@ -467,6 +475,15 @@ async function assemblerLivrables(
   for (const l of lignes) {
     const c = l.content as Record<string, unknown> | null
     if (l.phase === 'conformity') {
+      // ⚠️ Une rubrique écrite dans une AUTRE langue que celle du document fait REFUSER, elle ne se
+      // recopie pas. C'est la seule protection contre un déploiement à cheval : sans elle, un job
+      // commencé sous l'ancienne règle et fini sous la nouvelle livre un document moitié anglais
+      // moitié français, `done`, sans un log. Les rubriques d'avant ce marquage n'en portent pas —
+      // elles passent, exactement comme avant.
+      const langueEcrite = c?.outputLang
+      if (typeof langueEcrite === 'string' && langueEcrite !== langues.document) {
+        return { erreur: `rubrique ${l.section_id} rédigée en ${langueEcrite} : document mélangé` }
+      }
       conformite.set(l.section_id, {
         sectionId: l.section_id,
         title: typeof c?.title === 'string' ? c.title : l.section_id,
@@ -1035,7 +1052,8 @@ async function executer(
   if (phase === 'conformity') {
     const rubric = findRubric(ctx.spec, sectionId)
     if (!rubric) throw new Error(`rubrique « ${sectionId} » hors gabarit`)
-    return await generateSection(generateAnthropic, {
+    const langueDoc = languesLivrable(ctx.job.source_lang, ctx.job.lang).document
+    const rubriqueEcrite = await generateSection(generateAnthropic, {
       spec: ctx.spec,
       rubric,
       sourceParts: ctx.sourceParts,
@@ -1045,13 +1063,18 @@ async function executer(
       // que le gabarit ABMed/UEMOA l'est. `orders.lang` n'est que la langue de la page consultée
       // — un acheteur qui parcourait le site en anglais faisait livrer un « RCP-FR » rédigé en
       // anglais, que la traduction (câblée vers l'anglais) ne pouvait pas rattraper.
-      outputLang: languesLivrable(ctx.job.lang).document,
+      outputLang: langueDoc,
       // ⚠️ Le pays FILTRE les mentions imposées (vigilance 4.8) ; l'activité voyage en contexte
       // CERTIFIÉ (rubriques 8/9/10). Ni l'un ni l'autre n'atteignaient le moteur en production.
       countryCode: ctx.job.country ?? undefined,
       extraContext: activityContextLine(ctx.job.activity) || undefined,
       budgetMs: Math.min(SECTION_BUDGET_MS, restant),
     })
+    // ⚠️ La langue s'écrit AVEC la rubrique. Un déploiement qui change la règle laisse en base des
+    // rubriques rédigées sous l'ANCIENNE, et l'assembleur n'a aucun autre moyen de les distinguer :
+    // il les recopierait sous un titre français. C'est le défaut payé du 16/08, en moitié-moitié —
+    // et un document à moitié traduit se remarque moins qu'un document entièrement anglais.
+    return { ...rubriqueEcrite, outputLang: langueDoc }
   }
 
   if (phase === 'translation') {
@@ -1073,8 +1096,8 @@ async function executer(
       // La CIBLE est l'exemplaire d'accompagnement — anglais, quelle que soit la page consultée.
       // Elle se lit au même endroit que la langue du document : les deux moitiés du couple ne
       // doivent jamais pouvoir diverger.
-      targetLang: languesLivrable(ctx.job.lang).traduction,
-      system: translationSystem(languesLivrable(ctx.job.lang).traduction),
+      targetLang: languesLivrable(ctx.job.source_lang, ctx.job.lang).traduction,
+      system: translationSystem(languesLivrable(ctx.job.source_lang, ctx.job.lang).traduction),
       budgetMs: Math.min(TRANSLATE_BUDGET_MS, restant),
     })
   }

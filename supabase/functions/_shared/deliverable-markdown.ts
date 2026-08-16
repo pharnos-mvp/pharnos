@@ -30,25 +30,43 @@ import { MISSING_MARKER, MISSING_MARKER_EN, type OutputLang } from './upgrade-se
  * fichier livré sous le nom `-RCP-FR` était intégralement en anglais, titres français mis à part.
  * La traduction, elle, est cablée vers l'anglais : elle ne pouvait pas le rattraper.
  *
- * Les deux fichiers du couple ne dépendent donc PLUS de rien :
+ * Les trois langues, et leur seule source légitime :
  *   • le DOCUMENT est français parce que le gabarit ABMed/UEMOA l'est — c'est la pièce déposée ;
  *   • la TRADUCTION est anglaise parce qu'elle est l'exemplaire d'accompagnement ;
- *   • seul le RAPPORT suit l'acheteur : il s'adresse à lui, pas à l'autorité.
+ *   • le RAPPORT suit le document TÉLÉVERSÉ — décision verrouillée de
+ *     `docs/gabarits/PROCESS-UPGRADE-ETAPE-1.md` : « source FR → rapport FR ; source EN → rapport
+ *     EN. Le rapport suit le client, pas le livrable. » C'est aussi `source_lang` qui NOMME
+ *     l'archive et le rapport lui-même : les faire diverger mettrait, dans le même ZIP, une revue
+ *     française sous un nom anglais.
  *
- * La langue du document SOURCE n'entre dans aucun des trois : la porte accepte les deux, et c'est
- * précisément ce qui rendait ce défaut atteignable.
+ * ⚠️ La langue de la PAGE n'entre dans aucune des trois. Elle n'y est admise qu'en dernier recours,
+ * pour les jobs antérieurs à `source_lang` (elle valait alors déjà le rapport) : mieux vaut le
+ * comportement d'hier qu'un anglais imposé à un acheteur francophone.
  */
 export interface LanguesLivrable {
   /** Langue du document conforme — la pièce qui part à l'agence. */
   document: OutputLang
   /** Langue de l'exemplaire d'accompagnement. */
   traduction: OutputLang
-  /** Langue du rapport — la seule qui suive l'acheteur. */
+  /** Langue du rapport — celle du document déposé. */
   rapport: OutputLang
 }
 
-export function languesLivrable(langueAcheteur: OutputLang): LanguesLivrable {
-  return { document: 'fr', traduction: 'en', rapport: langueAcheteur }
+/**
+ * ⚠️ `langueSource` est typée `string` et non `OutputLang` : elle vient de la BASE
+ * (`upgrade_jobs.source_lang`), où rien ne garantit l'énumération — les jobs antérieurs à ce champ
+ * la portent à `null`, et une détection future pourrait y écrire autre chose. Le repli est décidé
+ * ici plutôt que chez chaque appelant.
+ */
+export function languesLivrable(
+  langueSource: string | null | undefined,
+  langueAcheteur: OutputLang,
+): LanguesLivrable {
+  return {
+    document: 'fr',
+    traduction: 'en',
+    rapport: langueSource === 'fr' || langueSource === 'en' ? langueSource : langueAcheteur,
+  }
 }
 
 /** Une rubrique telle que l'assemblage la consomme — le sous-ensemble STABLE des sorties du moteur. */

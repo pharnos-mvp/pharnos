@@ -239,15 +239,24 @@ Deno.test('langues — le COUPLE livré ne suit jamais la page de l’acheteur',
   // rédiger le corps des rubriques en anglais — et comme l'assembleur prend le français DANS cette
   // passe, le fichier livré sous le nom `-RCP-FR` était intégralement en anglais. La traduction,
   // câblée vers l'anglais, ne pouvait rien y faire.
-  for (const acheteur of ['fr', 'en'] as const) {
-    const l = languesLivrable(acheteur)
-    assertEquals(l.document, 'fr', `document altéré par la page ${acheteur}`)
-    assertEquals(l.traduction, 'en', `traduction altérée par la page ${acheteur}`)
+  for (const source of ['fr', 'en', null] as const) {
+    for (const acheteur of ['fr', 'en'] as const) {
+      const l = languesLivrable(source, acheteur)
+      assertEquals(l.document, 'fr', `document altéré (source ${source}, page ${acheteur})`)
+      assertEquals(l.traduction, 'en', `traduction altérée (source ${source}, page ${acheteur})`)
+      // Les deux moitiés du couple sont toujours DISTINCTES : les rendre égales livrerait deux fois
+      // le même fichier sous deux noms, payés une fois chacun.
+      assertEquals(l.document === l.traduction, false)
+    }
   }
-  // Les deux moitiés du couple sont toujours DISTINCTES : les rendre égales livrerait deux fois
-  // le même fichier sous deux noms, ce que l'acheteur a payé une fois pour chacun.
-  assertEquals(languesLivrable('fr').document === languesLivrable('fr').traduction, false)
-  // Seul le RAPPORT s'adresse à l'acheteur, donc lui seul le suit.
-  assertEquals(languesLivrable('en').rapport, 'en')
-  assertEquals(languesLivrable('fr').rapport, 'fr')
+  // ⚠️ Le RAPPORT suit le document DÉPOSÉ, jamais la page — décision verrouillée de
+  // `PROCESS-UPGRADE-ETAPE-1.md`. C'est aussi `source_lang` qui NOMME le rapport et l'archive :
+  // les faire diverger mettrait une revue française sous un nom anglais, dans le même ZIP.
+  assertEquals(languesLivrable('en', 'fr').rapport, 'en')
+  assertEquals(languesLivrable('fr', 'en').rapport, 'fr')
+  // Source inconnue (jobs antérieurs à `source_lang`) : la page reprend la main — le comportement
+  // d'hier vaut mieux qu'un anglais imposé à un acheteur francophone.
+  assertEquals(languesLivrable(null, 'fr').rapport, 'fr')
+  assertEquals(languesLivrable(undefined, 'en').rapport, 'en')
+  assertEquals(languesLivrable('pt', 'fr').rapport, 'fr')
 })

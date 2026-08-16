@@ -36,6 +36,7 @@ import {
   PADDLE_VERSION,
   paddleApi,
   prixParOffre,
+  regimeCoherent,
   urlTunnel,
 } from '../_shared/paddle-checkout.ts'
 import { clientIp } from '../_shared/net.ts'
@@ -107,11 +108,12 @@ async function ouvrirPaiementPaddle(
     logJson({ ...log, status: 'paddle_non_configure', cle: Boolean(apiKey), prix: Boolean(prix) })
     return ferme(503)
   }
-  if (essai && !bacASable) {
-    // Le régime d'essai de ce rail, c'est le BAC À SABLE — il n'y a pas de catalogue à 570 F chez
-    // Paddle. En production, honorer un jeton de recette encaisserait le plein tarif à quelqu'un
-    // qui croyait tester. On ferme, on ne facture pas par surprise.
-    logJson({ ...log, status: 'paddle_essai_en_live', offre: cmd.offre })
+  if (!regimeCoherent(bacASable, essai)) {
+    // UNE équivalence, pas deux gardes : le régime d'essai de ce rail EST le bac à sable, et les
+    // deux écarts coûtent. Un essai en production facture le plein tarif à qui croyait tester ; un
+    // bac à sable sans jeton de recette laisse n'importe quel visiteur repartir avec les cinq
+    // fichiers réels, moteur à notre charge. Le log dit LEQUEL des deux, pas seulement « refusé ».
+    logJson({ ...log, status: 'paddle_regime_incoherent', bacASable, essai, offre: cmd.offre })
     return ferme(503)
   }
 
