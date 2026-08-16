@@ -40,7 +40,13 @@ import { reviewSystem } from './ai/personas.ts'
 import { boundedMap, type PoolReport } from './ai/pool.ts'
 import { SectionOutputError } from './ai/section-schema.ts'
 import type { AiOptions, Part, Provider } from './ai/types.ts'
-import { DOC_SHORT, type ConformityDocType, type ConformitySpec } from './conformity-specs.ts'
+import {
+  DOC_SHORT,
+  type ConformityDocType,
+  type ConformitySpec,
+  flattenRubrics,
+  idsSousDecoupage,
+} from './conformity-specs.ts'
 import type { OutputLang, SectionOutcome } from './upgrade-section-core.ts'
 
 /**
@@ -356,10 +362,13 @@ const LOCALES: Record<OutputLang, Locale> = {
     ],
     scanFiguresLead: 'Valeurs lues par reconnaissance de caractères et non retrouvées à ' +
       "l'identique — à relire en priorité :",
+    // ⚠️ « ${n} RUBRIQUES », jamais « ${n} mentions » : une rubrique découpée porte plusieurs
+    // marqueurs dans le document (4.6 en compte trois) pour une seule entrée ici. Attacher le
+    // chiffre à la mention faisait mentir le rapport sur son propre document.
     gapsLead: (n) =>
       `Toute rubrique du gabarit non renseignée par votre document porte la mention ` +
-      `« Non fourni, à compléter » — ${n} au total. Le gabarit est le socle : rien n'est passé ` +
-      `sous silence.`,
+      `« Non fourni, à compléter » — ${n} rubrique${n > 1 ? 's' : ''} au total. Le gabarit est le ` +
+      `socle : rien n'est passé sous silence.`,
     gapsMostSerious: 'Le plus sérieux',
     gapsThen: 'Ensuite',
     notApplicable: (p) => [
@@ -408,7 +417,8 @@ const LOCALES: Record<OutputLang, Locale> = {
       'first:',
     gapsLead: (n) =>
       `Every maquette element left unfilled by your document carries "Not provided, to be ` +
-      `completed" — ${n} in total. The maquette is the baseline: nothing is passed over in silence.`,
+      `completed" — ${n} section${n > 1 ? 's' : ''} in total. The maquette is the baseline: ` +
+      `nothing is passed over in silence.`,
     gapsMostSerious: 'Most serious',
     gapsThen: 'Then',
     notApplicable: (p) => [
@@ -568,7 +578,12 @@ export function pruneUnverifiable(analysis: ReportAnalysis, source: PreparedSour
  */
 export function buildReportPreamble(req: ReportRequest): string {
   const { spec, sections, lang } = req
-  const missing = sections.filter((s) => s.status === 'missing')
+  // ⚠️ La MÊME liste que le §3 du rapport. Nourrir le modèle avec les 34 entrées lui faisait citer
+  // les identifiants INTERNES du moteur (« compléter la rubrique 4.6-fertilite ») dans ses
+  // recommandations — que rien ne filtre — sous un rapport qui, lui, annonce « 4.6 ». Le préfixe
+  // caché contient déjà le document du client : il est propre à une commande, le modifier ne coûte
+  // donc aucun cache partagé.
+  const missing = lacunesDuDocument(sections, spec)
   const langLabel = lang === 'fr' ? 'FRANÇAIS' : 'ANGLAIS'
   return [
     `Tu rédiges l'ANALYSE d'un rapport d'upgrade réglementaire, en ${langLabel}.`,
@@ -687,12 +702,54 @@ const byCriticality = <T extends { criticality: Criticality }>(xs: T[]): T[] =>
   [...xs].sort((a, b) => CRITICALITIES.indexOf(a.criticality) - CRITICALITIES.indexOf(b.criticality))
 
 /**
+ * Les lacunes telles que le DOCUMENT les porte — une entrée par rubrique, jamais par morceau.
+ *
+ * Le gabarit découpe 4.2 et 4.6 pour le moteur ; le document, lui, n'a qu'une rubrique 4.6. Compter
+ * les morceaux annonçait « À compléter — 4 » pour une seule rubrique absente, et le rendu exposait
+ * l'identifiant interne (« 4.6-fertilite. Fertilité ») dans un livrable payé. Les sous-parties
+ * manquantes se NOMMENT entre parenthèses : « Fertilité, grossesse et allaitement (Fertilité) » dit
+ * à l'expert RA exactement ce qui manque, sous le numéro qu'il déposera.
+ *
+ * ⚠️ Cette liste est la MÊME que celle des comptes de l'écran de livraison (`statsLivrable`) : un
+ * rapport qui annonce 4 sous une tuile qui annonce 1 détruit la confiance, et c'est l'artefact —
+ * pas l'écran — que l'expert transmet à l'agence.
+ */
+export function lacunesDuDocument(
+  // Le titre vient du GABARIT, jamais des lignes : c'est le libellé officiel que l'expert déposera,
+  // et il reste juste même si le moteur a nommé la rubrique autrement.
+  sections: readonly { sectionId: string; status: 'filled' | 'partial' | 'missing' }[],
+  spec: ConformitySpec,
+): { sectionId: string; title: string }[] {
+  const morceaux = idsSousDecoupage(spec)
+  const parId = new Map(sections.map((s) => [s.sectionId, s]))
+  const out: { sectionId: string; title: string }[] = []
+  for (const r of flattenRubrics(spec)) {
+    if (morceaux.has(r.id)) continue
+    const siens = (r.children ?? []).filter((c) => morceaux.has(c.id))
+    const trous = siens.filter((c) => parId.get(c.id)?.status === 'missing').map((c) => c.title)
+    // ⚠️ Un CONTENEUR n'a pas de corps dans le livrable (`assembleDocument` saute son contenu) :
+    // son `missing` propre ne peut produire AUCUN « Non fourni, à compléter ». Le compter faisait
+    // réclamer par le rapport payé de compléter « 4. DONNÉES CLINIQUES » à un endroit où le
+    // document ne laisse pas un seul blanc — et l'acheteur cherche. Seules les FEUILLES parlent
+    // pour elles-mêmes ; les têtes de section parlent par leurs morceaux.
+    const propre = !r.children?.length && parId.get(r.id)?.status === 'missing'
+    if (!propre && !trous.length) continue
+    out.push({ sectionId: r.id, title: trous.length ? `${r.title} (${trous.join(', ')})` : r.title })
+  }
+  return out
+}
+
+/** Les rubriques du DOCUMENT — les 34 entrées du gabarit moins ses sous-découpages internes. */
+export const rubriquesDuDocument = (spec: ConformitySpec): number =>
+  flattenRubrics(spec).length - idsSousDecoupage(spec).size
+
+/**
  * Assemble le markdown du rapport. Les parties fixes viennent d'ici, l'analyse du modèle : c'est
  * cette séparation qui rend l'avertissement et le décompte des lacunes impossibles à altérer.
  */
 export function renderReportMarkdown(analysis: ReportAnalysis, req: ReportRequest): string {
   const L = LOCALES[req.lang]
-  const missing = req.sections.filter((s) => s.status === 'missing')
+  const missing = lacunesDuDocument(req.sections, req.spec)
   const out: string[] = [
     `# ${L.title(req.productName, req.spec.docType)}`,
     '',

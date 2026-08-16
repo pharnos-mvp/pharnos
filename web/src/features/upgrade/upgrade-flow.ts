@@ -8,7 +8,13 @@
  * une panne comme une attente. Enfouies dans un composant, elles ne seraient testables qu'au
  * travers d'un rendu ; ici, elles se vérifient à la ligne.
  */
-import { flattenRubrics, idsSousDecoupage, specForDocType, type RubricSpec } from '@specs'
+import {
+  flattenRubrics,
+  idsSousDecoupage,
+  pireVerdict,
+  specForDocType,
+  type RubricSpec,
+} from '@specs'
 import { DELIVERABLE_TITLES_EN } from '@titles'
 
 /** Une rubrique de la liste « à statuts vivants » — le contrat compact d'`order-status`. */
@@ -305,12 +311,10 @@ function agreger(etats: readonly (EtatRubrique | undefined)[]): EtatRubrique | u
   if (!ss.length) return undefined
   const inacheve = ss.find((s) => s.st !== 'done')
   if (inacheve) return { st: PRIORITE.find((p) => ss.some((s) => s.st === p)) ?? inacheve.st }
-  const o = ss.some((s) => s.o === 'missing')
-    ? 'missing'
-    : ss.some((s) => s.o === 'partial' || !s.o)
-      ? 'partial'
-      : 'filled'
-  return { st: 'done', o }
+  // La MÊME règle de sévérité que les comptes de l'écran de livraison (`statsLivrable`) : deux
+  // règles jumelles finiraient par diverger, et l'acheteur lirait deux verdicts différents sur la
+  // même rubrique à cinq minutes d'intervalle.
+  return { st: 'done', o: pireVerdict(ss.map((s) => s.o)) }
 }
 
 /** L'état d'une rubrique et de ses morceaux, à n'importe quelle profondeur de découpage. */

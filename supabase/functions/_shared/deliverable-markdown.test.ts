@@ -2,6 +2,7 @@
 import { assertEquals, assertMatch, assertStringIncludes } from 'jsr:@std/assert@1'
 
 import { CONFORMITY_SPECS, flattenRubrics } from './conformity-specs.ts'
+import { lacunesDuDocument } from './report-core.ts'
 import {
   activityContextLine,
   activityLabel,
@@ -170,25 +171,63 @@ Deno.test('revue : un TABLEAU absent fait refuser le rapport entier — « Aucun
 })
 
 
+Deno.test('statsLivrable : les comptes sont ceux des 29 RUBRIQUES, pas des 34 entrées', () => {
+  // L'acheteur lit « rubrique 4.8 sur 29 » pendant cinq minutes, puis les quatre tuiles de la
+  // livraison. Comptées sur les 34 entrées du gabarit, elles annonçaient « 31 reprises · 3 à
+  // compléter » = 34 : la contradiction sautait aux yeux au dernier écran.
+  const sections = flattenRubrics(CONFORMITY_SPECS.rcp).map((r) => ({
+    sectionId: r.id,
+    status: 'filled' as const,
+  }))
+  const stats = statsLivrable(sections, { relocations: [] }, CONFORMITY_SPECS.rcp)
+  assertEquals(stats.reprises + stats.aCompleter, 29)
+
+  // Le verdict d'une rubrique découpée est le PLUS SÉVÈRE de ses morceaux : une moitié sans donnée
+  // rend la rubrique « à compléter », jamais « reprise » — c'est cette moitié que l'agence verra.
+  const avecTrou = sections.map((s) =>
+    s.sectionId === '4.6-fertilite' ? { ...s, status: 'missing' as const } : s
+  )
+  const stats2 = statsLivrable(avecTrou, { relocations: [] }, CONFORMITY_SPECS.rcp)
+  assertEquals(stats2.aCompleter, 1)
+  assertEquals(stats2.reprises + stats2.aCompleter, 29)
+
+  // Et le compte des tuiles est celui du RAPPORT, par construction : une seule liste de lacunes,
+  // pas deux règles jumelles. C'est l'invariant qui a manqué au premier jet — la tuile disait 1,
+  // le rapport payé disait 4.
+  assertEquals(stats2.aCompleter, lacunesDuDocument(avecTrou, CONFORMITY_SPECS.rcp).length)
+})
+
 Deno.test('statsLivrable : les quatre comptes de l’écran de livraison, dédupliqués comme au rapport', () => {
-  const sections = [
-    { status: 'filled' as const, figuresToVerify: ['≤ 28', '500'] },
-    { status: 'partial' as const, figuresToVerify: ['500'] },
-    { status: 'missing' as const },
-    { status: 'missing' as const },
-  ]
+  const sections = flattenRubrics(CONFORMITY_SPECS.rcp).map((r) => ({
+    sectionId: r.id,
+    status: (r.id === '4.4' || r.id === '5.2' ? 'missing' : 'filled') as
+      | 'filled'
+      | 'partial'
+      | 'missing',
+    ...(r.id === '1'
+      ? { figuresToVerify: ['≤ 28', '500'] }
+      : r.id === '2'
+      ? { figuresToVerify: ['500'] }
+      : {}),
+  }))
   const stats = statsLivrable(sections, {
     relocations: [
       { content: 'a', source_position: 'b', template_position: 'c', risk: 'd' },
       { content: 'e', source_position: 'f', template_position: 'g', risk: 'h' },
     ],
-  })
+  }, CONFORMITY_SPECS.rcp)
   // ⚠️ `aRelire` DÉDUPLIQUE (« 500 » apparaît dans deux rubriques, une seule entrée au rapport) :
   // le compte doit égaler la liste que le client voit.
-  assertEquals(stats, { reprises: 2, aCompleter: 2, deplaces: 2, aRelire: 2 })
+  assertEquals(stats, { reprises: 27, aCompleter: 2, deplaces: 2, aRelire: 2 })
   // Sans revue ni valeurs, tout tombe à zéro — jamais `undefined` dans une tuile.
-  assertEquals(
-    statsLivrable([{ status: 'filled' as const }], { relocations: [] }),
-    { reprises: 1, aCompleter: 0, deplaces: 0, aRelire: 0 },
-  )
+  const toutesRemplies = flattenRubrics(CONFORMITY_SPECS.rcp).map((r) => ({
+    sectionId: r.id,
+    status: 'filled' as const,
+  }))
+  assertEquals(statsLivrable(toutesRemplies, { relocations: [] }, CONFORMITY_SPECS.rcp), {
+    reprises: 29,
+    aCompleter: 0,
+    deplaces: 0,
+    aRelire: 0,
+  })
 })

@@ -539,7 +539,11 @@ async function assemblerLivrables(
   })
   // Les comptes de l'écran de livraison — figés ICI, le seul moment où conformité et revue sont
   // ensemble en mémoire (LOT B3, migration `0093`).
-  return { fr, en, rapport, stats: statsLivrable(sections, analysis.analyse), quand }
+  // ⚠️ `sections` porte les 34 entrées, morceaux compris — c'est la matière brute. Le rapport et
+  // les tuiles la ramènent tous deux aux 29 rubriques du DOCUMENT, par la même fonction
+  // (`lacunesDuDocument`) : un rapport qui annonce « À compléter — 4 » sous une tuile qui annonce 1
+  // détruit la confiance, et c'est l'artefact — pas l'écran — que l'expert transmet à l'agence.
+  return { fr, en, rapport, stats: statsLivrable(sections, analysis.analyse, spec), quand }
 }
 
 /**

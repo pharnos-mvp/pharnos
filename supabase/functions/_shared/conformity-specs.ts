@@ -520,6 +520,28 @@ export function idsSousDecoupage(spec: ConformitySpec): Set<string> {
   return new Set(flattenRubrics(spec).filter((r) => r.interne).map((r) => r.id))
 }
 
+/** Verdicts d'une rubrique, du plus sévère au plus favorable. */
+const SEVERITE_VERDICT = ['missing', 'partial', 'filled'] as const
+export type Verdict = (typeof SEVERITE_VERDICT)[number]
+
+/**
+ * Le verdict d'une rubrique découpée : le PLUS SÉVÈRE de ses morceaux.
+ *
+ * Une moitié de rubrique sans donnée rend la rubrique « à compléter », jamais « reprise » — c'est
+ * la moitié manquante que l'agence verra. Partagé par l'écran de suivi et par les comptes de
+ * l'écran de livraison : deux règles de sévérité finiraient par diverger, et l'acheteur lirait
+ * deux verdicts différents sur la même rubrique à cinq minutes d'intervalle.
+ *
+ * Un verdict inconnu, absent — ou une liste VIDE — vaut `partial` : on ne remonte jamais mieux que
+ * ce que l'on sait, et « rien à juger » n'est pas « tout va bien ».
+ */
+export function pireVerdict(verdicts: readonly (string | undefined)[]): Verdict {
+  const connus = verdicts.map((v) =>
+    (SEVERITE_VERDICT as readonly string[]).includes(v ?? '') ? (v as Verdict) : 'partial'
+  )
+  return SEVERITE_VERDICT.find((s) => connus.includes(s)) ?? 'partial'
+}
+
 /** Aplati les rubriques (avec celles des enfants) — utilitaire prompts/tests. */
 export function flattenRubrics(spec: ConformitySpec): RubricSpec[] {
   const out: RubricSpec[] = []
