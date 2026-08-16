@@ -65,6 +65,7 @@ import { formatBytes } from '@/lib/format-bytes'
 import { useI18n, type Lang } from '@/lib/i18n-context'
 import { imageFileToAvatarDataUrl, MAX_IMAGE_BYTES } from '@/lib/image-utils'
 import { initials } from '@/lib/initials'
+import { zoneFcfa } from '@/lib/money'
 import { setSyncEnabledCache } from '@/lib/sync-prefs'
 import { cn } from '@/lib/utils'
 import { purgeLocalData, updatePassword, updateProfileMetadata } from './account-repository'
@@ -749,7 +750,9 @@ export function AbonnementSection() {
                 </div>
                 <p className="text-muted-foreground mt-0.5 text-xs">{t(p.tagline)}</p>
                 {p.price ? (
-                  <div className="font-display mt-2 text-lg font-semibold">{t(p.price)}</div>
+                  <div className="font-display mt-2 text-lg font-semibold">
+                    {t(zoneFcfa() && p.priceXof ? p.priceXof : p.price)}
+                  </div>
                 ) : null}
                 <ul className="mt-3 space-y-1.5">
                   {p.highlights.map((h, i) => (

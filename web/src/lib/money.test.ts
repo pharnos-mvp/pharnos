@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { EUR_TO_XOF, eurStringToFcfa, eurToXof, formatMoney, parseAmount } from './money'
+import { EUR_TO_XOF, eurStringToFcfa, eurToXof, formatMoney, parseAmount, zoneFcfa } from './money'
 
 describe('parité EUR↔XOF (BCEAO, fixe)', () => {
   it('applique la parité officielle immuable 1 EUR = 655,957 XOF', () => {
@@ -49,5 +49,48 @@ describe('eurStringToFcfa', () => {
   it('rend une chaîne vide sur saisie invalide', () => {
     expect(eurStringToFcfa('', 'fr')).toBe('')
     expect(eurStringToFcfa('abc', 'fr')).toBe('')
+  })
+})
+
+describe('zoneFcfa — « euro (FCFA) » en Afrique, euro seul ailleurs', () => {
+  /** Force le fuseau rendu par `Intl` le temps d'un cas ; `null` simule un `Intl` cassé. */
+  function avecFuseau(tz: string | null, verifier: () => void) {
+    const vrai = Intl.DateTimeFormat
+    Intl.DateTimeFormat = function (...args: unknown[]) {
+      const inst = new (vrai as unknown as new (...a: unknown[]) => Intl.DateTimeFormat)(...args)
+      if (tz === null) throw new Error('Intl indisponible')
+      return { ...inst, resolvedOptions: () => ({ ...inst.resolvedOptions(), timeZone: tz }) }
+    } as unknown as typeof Intl.DateTimeFormat
+    try {
+      verifier()
+    } finally {
+      Intl.DateTimeFormat = vrai
+    }
+  }
+
+  it('montre le FCFA sur le continent, y compris hors zone franc et sur les îles', () => {
+    for (const tz of [
+      'Africa/Porto-Novo',
+      'Africa/Abidjan',
+      'Africa/Dakar',
+      'Africa/Cairo',
+      'Indian/Antananarivo',
+      'Atlantic/Cape_Verde',
+    ]) {
+      avecFuseau(tz, () => expect(zoneFcfa(), tz).toBe(true))
+    }
+  })
+
+  it("l'omet sur les autres continents", () => {
+    for (const tz of ['Europe/Paris', 'America/New_York', 'Asia/Tokyo', 'Australia/Sydney']) {
+      avecFuseau(tz, () => expect(zoneFcfa(), tz).toBe(false))
+    }
+  })
+
+  // Le contrat de cette fonction. Cacher le FCFA à qui paiera en FCFA est l'erreur qui coûte
+  // (cf. le commentaire de `prixDouble` côté landing) ; l'inverse ne coûte rien.
+  it('retombe sur « les deux devises » quand le fuseau est absent, inconnu ou illisible', () => {
+    avecFuseau('', () => expect(zoneFcfa()).toBe(true))
+    avecFuseau(null, () => expect(zoneFcfa()).toBe(true))
   })
 })

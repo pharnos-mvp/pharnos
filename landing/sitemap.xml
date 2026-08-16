@@ -55,4 +55,76 @@
     <xhtml:link rel="alternate" hreflang="en" href="https://pharnos.com/en/regulatory-library" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://pharnos.com/bibliotheque-reglementaire" />
   </url>
+  <url>
+    <loc>https://pharnos.com/mentions-legales</loc>
+    <lastmod>2026-08-16</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://pharnos.com/mentions-legales" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://pharnos.com/en/legal-notice" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://pharnos.com/mentions-legales" />
+  </url>
+  <url>
+    <loc>https://pharnos.com/en/legal-notice</loc>
+    <lastmod>2026-08-16</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://pharnos.com/mentions-legales" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://pharnos.com/en/legal-notice" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://pharnos.com/mentions-legales" />
+  </url>
+  <url>
+    <loc>https://pharnos.com/conditions-generales</loc>
+    <lastmod>2026-08-16</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://pharnos.com/conditions-generales" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://pharnos.com/en/terms" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://pharnos.com/conditions-generales" />
+  </url>
+  <url>
+    <loc>https://pharnos.com/en/terms</loc>
+    <lastmod>2026-08-16</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://pharnos.com/conditions-generales" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://pharnos.com/en/terms" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://pharnos.com/conditions-generales" />
+  </url>
+  <url>
+    <loc>https://pharnos.com/confidentialite</loc>
+    <lastmod>2026-08-16</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://pharnos.com/confidentialite" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://pharnos.com/en/privacy" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://pharnos.com/confidentialite" />
+  </url>
+  <url>
+    <loc>https://pharnos.com/en/privacy</loc>
+    <lastmod>2026-08-16</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://pharnos.com/confidentialite" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://pharnos.com/en/privacy" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://pharnos.com/confidentialite" />
+  </url>
+  <url>
+    <loc>https://pharnos.com/remboursement</loc>
+    <lastmod>2026-08-16</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://pharnos.com/remboursement" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://pharnos.com/en/refund-policy" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://pharnos.com/remboursement" />
+  </url>
+  <url>
+    <loc>https://pharnos.com/en/refund-policy</loc>
+    <lastmod>2026-08-16</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://pharnos.com/remboursement" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://pharnos.com/en/refund-policy" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://pharnos.com/remboursement" />
+  </url>
 </urlset>

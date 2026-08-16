@@ -31,7 +31,7 @@ const PAGES = [
         'The pharmaceutical regulatory platform for Africa — CTD Builder, submission, collaboration and real-time tracking. UEMOA / CEDEAO.',
       appDescription:
         'The operating system for pharmaceutical regulatory affairs: RIM catalogue, CTD Builder in the UEMOA framework, correspondence and dossier lifecycle, Regafy AI.',
-      offerDescription: 'Free Pilot plan; paid plans from 100,000 FCFA / month.',
+      offerDescription: 'Free Pilot plan; paid plans from €149 / month.',
     },
   },
   {
@@ -90,6 +90,65 @@ const PAGES = [
         'Country-specific Module 1 tree, filing of documents, structure checks, compilation. Your documents never pass through Pharnos servers.',
       ogImage: 'https://pharnos.com/assets/og-image-en.png?v=1',
       ogImageAlt: 'Pharnos CTD Builder — assembling compliant CTD dossiers for the WAEMU zone.',
+    },
+  },
+  // ── Pages légales. Exigence de Paddle pour l'approbation d'un domaine vendeur : le site doit
+  //    CONTENIR ou LIER conditions d'utilisation, politique de confidentialité et politique de
+  //    remboursement. Elles sont donc liées depuis le pied de page de TOUTES les pages, et
+  //    mirrorées en anglais comme le reste — un examinateur anglophone doit pouvoir les lire.
+  {
+    src: 'mentions-legales.html',
+    out: path.join('en', 'legal-notice.html'),
+    canonical: 'https://pharnos.com/en/legal-notice',
+    head: {
+      title: 'Legal Notice · Pharnos',
+      description:
+        'Publisher, legal identity, hosting, contractual documents and intellectual property of Pharnos, a service of AASK SARL.',
+      ogDescription: 'Publisher, legal identity, hosting and contractual documents of Pharnos.',
+      ogImage: 'https://pharnos.com/assets/og-image-en.png?v=1',
+      ogImageAlt: 'Pharnos — legal notice.',
+    },
+  },
+  {
+    src: 'conditions-generales.html',
+    out: path.join('en', 'terms.html'),
+    canonical: 'https://pharnos.com/en/terms',
+    head: {
+      title: 'Terms of Use and Sale · Pharnos',
+      description:
+        'The terms governing use of the Pharnos services and any purchase made on pharnos.com: seller identity, offers, prices, payment, delivery, liability and governing law.',
+      ogDescription:
+        'The terms governing use of the Pharnos services and any purchase made on pharnos.com.',
+      ogImage: 'https://pharnos.com/assets/og-image-en.png?v=1',
+      ogImageAlt: 'Pharnos — terms of use and sale.',
+    },
+  },
+  {
+    src: 'confidentialite.html',
+    out: path.join('en', 'privacy.html'),
+    canonical: 'https://pharnos.com/en/privacy',
+    head: {
+      title: 'Privacy Policy · Pharnos',
+      description:
+        'What data Pharnos collects, why, where it is hosted, who has access to it, how long it is kept and how to exercise your rights.',
+      ogDescription:
+        'What data Pharnos collects, why, where it is hosted, who has access to it and how to exercise your rights.',
+      ogImage: 'https://pharnos.com/assets/og-image-en.png?v=1',
+      ogImageAlt: 'Pharnos — privacy policy.',
+    },
+  },
+  {
+    src: 'remboursement.html',
+    out: path.join('en', 'refund-policy.html'),
+    canonical: 'https://pharnos.com/en/refund-policy',
+    head: {
+      title: 'Refund Policy · Pharnos',
+      description:
+        'When a Pharnos order is refunded, within what time limits, how to request it and how the refund is paid. The rule, offer by offer.',
+      ogDescription:
+        'When a Pharnos order is refunded, within what time limits and how to request it.',
+      ogImage: 'https://pharnos.com/assets/og-image-en.png?v=1',
+      ogImageAlt: 'Pharnos — refund policy.',
     },
   },
 ]

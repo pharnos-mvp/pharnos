@@ -16,6 +16,13 @@ export interface PlanCatalogEntry {
    * et le Compte + la landing l'affichent sans autre changement. Display only, pas d'encaissement.
    */
   price?: Translatable
+  /**
+   * Même prix, avec l'équivalent en FCFA — affiché À LA PLACE de `price` aux visiteurs de la zone
+   * FCFA (règle CEO du 2026-08-16 : « euro (FCFA) pour l'Afrique, euro seul ailleurs », cf.
+   * `zoneFcfa()` dans `@/lib/money`). Chaîne complète et non un fragment à concaténer : un prix
+   * est ce qu'on relit le plus souvent et le moins volontiers en morceaux.
+   */
+  priceXof?: Translatable
   highlights: Translatable[]
   team: boolean
   recommended?: boolean
@@ -38,7 +45,8 @@ export const PLAN_CATALOG: PlanCatalogEntry[] = [
   {
     tier: 'pro',
     tagline: { fr: 'Pour un expert RA', en: 'For a single RA expert' },
-    price: { fr: '100 000 FCFA (149 €) / mois', en: '149 € / mo' },
+    price: { fr: '149 € / mois', en: '149 € / mo' },
+    priceXof: { fr: '149 € (100 000 FCFA) / mois', en: '149 € (100,000 FCFA) / mo' },
     highlights: [
       {
         fr: '5 dépôts / mois · brouillons illimités',
@@ -53,7 +61,11 @@ export const PLAN_CATALOG: PlanCatalogEntry[] = [
   {
     tier: 'team',
     tagline: { fr: 'Pour une équipe', en: 'For a team' },
-    price: { fr: '120 000 FCFA (179 €) / utilisateur / mois', en: '179 € / user / mo' },
+    price: { fr: '179 € / utilisateur / mois', en: '179 € / user / mo' },
+    priceXof: {
+      fr: '179 € (120 000 FCFA) / utilisateur / mois',
+      en: '179 € (120,000 FCFA) / user / mo',
+    },
     highlights: [
       { fr: '15 dépôts / mois', en: '15 submissions / month' },
       { fr: '1 000 000 tokens IA', en: '1,000,000 AI tokens' },
@@ -65,7 +77,8 @@ export const PLAN_CATALOG: PlanCatalogEntry[] = [
   {
     tier: 'business',
     tagline: { fr: 'Pour un laboratoire établi', en: 'For an established lab' },
-    price: { fr: '400 000 FCFA (599 €) / mois', en: '599 € / mo' },
+    price: { fr: '599 € / mois', en: '599 € / mo' },
+    priceXof: { fr: '599 € (400 000 FCFA) / mois', en: '599 € (400,000 FCFA) / mo' },
     highlights: [
       { fr: '50 dépôts / mois', en: '50 submissions / month' },
       { fr: '5 000 000 tokens IA', en: '5,000,000 AI tokens' },

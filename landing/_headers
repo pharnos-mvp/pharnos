@@ -76,6 +76,9 @@
 /checking.css
   Cache-Control: public, max-age=300
 
+/legal.css
+  Cache-Control: public, max-age=300
+
 /checking.js
   Cache-Control: public, max-age=300
 
