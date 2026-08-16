@@ -56,6 +56,7 @@ import {
   activityLabel,
   analyseDepuisParts,
   assembleDocument,
+  languesLivrable,
   type LigneAssemblage,
   produitDepuisRubrique1,
   statsLivrable,
@@ -1040,7 +1041,11 @@ async function executer(
       sourceParts: ctx.sourceParts,
       source: ctx.source,
       system: conformitySystem({ docType: ctx.spec.docType, missingMarker: MISSING_MARKER }),
-      outputLang: ctx.job.lang,
+      // ⚠️ PAS `ctx.job.lang` : cette passe écrit LE DOCUMENT, et le document est français parce
+      // que le gabarit ABMed/UEMOA l'est. `orders.lang` n'est que la langue de la page consultée
+      // — un acheteur qui parcourait le site en anglais faisait livrer un « RCP-FR » rédigé en
+      // anglais, que la traduction (câblée vers l'anglais) ne pouvait pas rattraper.
+      outputLang: languesLivrable(ctx.job.lang).document,
       // ⚠️ Le pays FILTRE les mentions imposées (vigilance 4.8) ; l'activité voyage en contexte
       // CERTIFIÉ (rubriques 8/9/10). Ni l'un ni l'autre n'atteignaient le moteur en production.
       countryCode: ctx.job.country ?? undefined,
@@ -1065,8 +1070,11 @@ async function executer(
       title: amont.title ?? sectionId,
       status: (amont.status ?? 'filled') as 'filled' | 'partial' | 'missing',
       content: amont.content,
-      targetLang: 'en',
-      system: translationSystem('en'),
+      // La CIBLE est l'exemplaire d'accompagnement — anglais, quelle que soit la page consultée.
+      // Elle se lit au même endroit que la langue du document : les deux moitiés du couple ne
+      // doivent jamais pouvoir diverger.
+      targetLang: languesLivrable(ctx.job.lang).traduction,
+      system: translationSystem(languesLivrable(ctx.job.lang).traduction),
       budgetMs: Math.min(TRANSLATE_BUDGET_MS, restant),
     })
   }
