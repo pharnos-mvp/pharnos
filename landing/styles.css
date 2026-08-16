@@ -421,7 +421,7 @@
     font-size: 12px; font-weight: 600; color: #fff; background: var(--g900);
     border-radius: 9px; padding: 9px 14px; box-shadow: var(--shadow); }
   .wsx-cap { margin-top: 12px; font-size: 12px; color: var(--g400); text-align: center; }
-  .wsx-points { margin-top: 44px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 40px; }
+  .wsx-points { margin-top: 44px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 40px; }
   .wsx-points h3 { font-family: var(--font-sans); font-size: 15.5px; font-weight: 700;
     color: var(--navy); margin-bottom: 6px; }
   .wsx-points p { font-size: 14.5px; line-height: 1.65; color: var(--g600); }
