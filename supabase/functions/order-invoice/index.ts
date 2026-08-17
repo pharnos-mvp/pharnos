@@ -85,24 +85,38 @@ Deno.serve(async (req) => {
   const commande = await commandeParJeton(sb, corps.token)
   if (estRefus(commande)) return json({ error: commande.refus }, statutHttp(commande), origin)
 
-  const apiKey = Deno.env.get('CHARIOW_API_KEY')
-  if (!apiKey) {
-    logJson({ ...log, status: 'no_api_key' })
-    return json({ error: 'not_configured' }, 503, origin)
-  }
-
-  // L'identifiant de vente vit sur la commande — jamais transmis par le client.
+  // L'identifiant de vente vit sur la commande — jamais transmis par le client. Le RAIL aussi :
+  // c'est lui qui dit s'il existe seulement une facture à re-signer.
   const { data: ligne, error: dbErr } = await sb
     .from('orders')
-    .select('chariow_sale_id')
+    .select('chariow_sale_id, rail')
     .eq('id', commande.id)
     .maybeSingle()
   if (dbErr) return json({ error: 'db' }, 503, origin)
   const saleId = typeof ligne?.chariow_sale_id === 'string' ? ligne.chariow_sale_id : null
+
+  // ⚠️ Sur le rail PADDLE il n'y a rien à re-signer, et surtout rien à demander à Chariow : le
+  // merchant of record émet la facture lui-même et l'adresse à l'acheteur par e-mail. Interroger
+  // l'API Chariow avec un identifiant `txn_…` rendait 404 → 503, et l'acheteur lisait « la facture
+  // n'a pas pu être récupérée » sur un bouton qui n'aurait jamais dû s'afficher (vu en production
+  // le 2026-08-16). `url: null` est le contrat qui fait DISPARAÎTRE le bouton côté front — on ne
+  // promet pas une facture qu'on n'émet pas.
+  if (ligne?.rail === 'paddle') {
+    logJson({ ...log, status: 'facture_chez_le_mor', rail: 'paddle' })
+    return json({ url: null }, 200, origin)
+  }
   if (!saleId) {
     // Commande née hors Chariow (injection de recette) : il n'existe pas de facture à re-signer.
     logJson({ ...log, status: 'sans_vente' })
     return json({ url: null }, 200, origin)
+  }
+
+  // La clé n'est exigée que sur le rail qui en a besoin : sans cette place, un secret Chariow
+  // expiré rendrait 503 à des acheteurs Paddle qui n'ont jamais eu affaire à lui.
+  const apiKey = Deno.env.get('CHARIOW_API_KEY')
+  if (!apiKey) {
+    logJson({ ...log, status: 'no_api_key' })
+    return json({ error: 'not_configured' }, 503, origin)
   }
 
   const ctrl = new AbortController()

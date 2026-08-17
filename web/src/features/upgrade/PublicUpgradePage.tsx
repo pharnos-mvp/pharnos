@@ -1179,7 +1179,15 @@ function EcranLivraison({
           <Tuile
             valeur={stats.deplaces}
             ton="info"
-            libelle={t({ fr: 'contenus remis à leur place', en: 'contents moved to their place' })}
+            /* ⚠️ « à replacer », pas « remis à leur place » : ce compte vient de
+               `analyse.relocations`, qui porte `source_position` / `template_position` — un CONSTAT
+               de position, pas une action accomplie. Le moteur travaille rubrique par rubrique et ne
+               transporte rien d'une rubrique à l'autre ; il ne doit pas, car déplacer une
+               contre-indication est une décision réglementaire. Vérifié sur un livrable payé le
+               2026-08-16 : 6 des 7 lignes annoncées « remises en place » étaient toujours à leur
+               position d'origine dans le document remis. Le jumeau de ce libellé est le titre du
+               rapport (`report-core.ts`, « Ce qui est à replacer ») : les deux bougent ensemble. */
+            libelle={t({ fr: 'contenus à replacer', en: 'contents to relocate' })}
           />
           <Tuile
             valeur={stats.aRelire}

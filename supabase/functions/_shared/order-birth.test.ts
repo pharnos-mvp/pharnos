@@ -59,6 +59,33 @@ Deno.test('e-mail n°1 : la version anglaise est complète, et une vente sans fa
   assertStringIncludes(html, 'tracking page')
 })
 
+Deno.test('e-mail n°1 : sur PADDLE, le reçu ne dit rien de faux — ni MiMo, ni Chariow, ni page de suivi', () => {
+  // ⚠️ Trois mensonges partaient à chaque vente Paddle, tous écrits en dur pour l'autre rail :
+  //   • « le débit apparaît sous MiMo Global » — la phrase censée PRÉVENIR la contestation de bonne
+  //     foi la provoquait, l'acheteur ne verra que `PADDLE.NET* PHARNOS` sur son relevé ;
+  //   • « la facture reste téléchargeable depuis votre page de suivi » — elle ne l'est pas : le
+  //     bouton rendait 404 (l'API Chariow ne connaît pas un `txn_…`) et c'est Paddle qui l'envoie ;
+  //   • la note « clé de licence Chariow » — un e-mail qui n'arrivera jamais, d'un prestataire que
+  //     l'acheteur n'a pas vu.
+  const vente: VenteVerifiee = { ...VENTE, saleId: 'txn_01m063vjmnynme4d3vdkm453rh', invoiceUrl: null }
+  for (const sortie of [texteEmailCommande(vente, LIEN, 'paddle'), htmlEmailCommande(vente, LIEN, 'paddle')]) {
+    assertEquals(sortie.includes('MiMo Global'), false)
+    assertEquals(sortie.includes('Chariow'), false)
+    assertEquals(sortie.includes('clé de licence'), false)
+    assertEquals(sortie.includes('page de suivi'), false)
+    assertStringIncludes(sortie, 'PADDLE.NET* PHARNOS')
+    assertStringIncludes(sortie, 'Paddle vous adresse la facture')
+    // ⚠️ Et le VENDEUR LÉGAL est nommé : Paddle achète et revend, s'immatricule à la TVA et la
+    // reverse. Présenter AASK SARL comme vendeur contredirait la facture que Paddle émet sur la
+    // MÊME transaction — deux documents contradictoires sur un seul paiement.
+    assertStringIncludes(sortie, 'Paddle.com Market Ltd (revendeur)')
+    // L'identité AASK reste : l'IFU doit figurer sur toute quittance émise par nous.
+    assertStringIncludes(sortie, 'IFU 3202113643386')
+  }
+  // Le rail par défaut reste Chariow — ses deux appelants historiques ne le déclarent pas.
+  assertStringIncludes(texteEmailCommande(VENTE, LIEN), 'MiMo Global')
+})
+
 /* ────────────────────── La machine à états de la naissance — le cœur du rail ─────────────────
  *
  * `faireNaitreCommande` est LE chemin partagé webhook/réconciliation : c'est précisément parce

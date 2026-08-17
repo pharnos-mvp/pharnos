@@ -185,8 +185,28 @@ export function parse(md: string, profile: Profile): Block[] {
     if (line.startsWith('|')) {
       const rows: string[][] = []
       for (let row = lines[i]; row !== undefined && row.trim().startsWith('|'); row = lines[++i]) {
-        const cells = row
-          .trim()
+        // ⚠️ UNE ligne de tableau peut occuper PLUSIEURS lignes physiques : il suffit qu'une cellule
+        // porte un retour à la ligne, ce que le moteur produit dès qu'il énumère des termes MedDRA
+        // (« Urticaria / Rash / Pruritus » dans un même effet indésirable). On absorbe alors les
+        // lignes suivantes jusqu'à la barre fermante.
+        //
+        // Sans ça — défaut LIVRÉ le 2026-08-16, rubrique 4.8 d'un RCP payé — la première moitié
+        // devenait une ligne du tableau et la seconde retombait en paragraphe : l'acheteur lisait
+        // « Rash Pruritus | Not known | » en clair, barres Markdown comprises, dans un document
+        // destiné à une autorité.
+        let complet = row.trim()
+        for (
+          let suite = lines[i + 1];
+          !complet.endsWith('|') &&
+          suite !== undefined &&
+          suite.trim() !== '' &&
+          !suite.trim().startsWith('|') &&
+          !suite.trim().startsWith('#');
+          suite = lines[i + 1]
+        ) {
+          complet = `${complet} ${lines[++i]!.trim()}`
+        }
+        const cells = complet
           .replace(/^\||\|$/g, '')
           .split('|')
           .map((c) => c.trim())

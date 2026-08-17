@@ -608,7 +608,7 @@ describe('écran de livraison (mockup v3)', () => {
     // Les quatre tuiles, du gain au reste à faire.
     expect(screen.getByText('23')).toBeInTheDocument()
     expect(screen.getByText(/rubriques reprises et vérifiées/)).toBeInTheDocument()
-    expect(screen.getByText(/contenus remis à leur place/)).toBeInTheDocument()
+    expect(screen.getByText(/contenus à replacer/)).toBeInTheDocument()
     expect(screen.getByText(/valeurs à relire/)).toBeInTheDocument()
     // Les labels HUMAINS des fichiers — un par forme (DOCX + PDF), jamais un nom technique.
     expect((await screen.findAllByText('RCP — français')).length).toBe(2)

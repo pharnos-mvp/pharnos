@@ -85,6 +85,45 @@ describe('parse — profil rapport', () => {
       ],
     })
   })
+
+  it('recolle une ligne dont une CELLULE porte un retour à la ligne', () => {
+    // ⚠️ Défaut LIVRÉ le 2026-08-16 dans la rubrique 4.8 d'un RCP payé : le moteur énumère les
+    // termes MedDRA d'un même effet sur plusieurs lignes. La première moitié devenait une ligne du
+    // tableau, la seconde retombait en paragraphe — l'acheteur lisait « Rash Pruritus | Not known | »
+    // en clair, barres Markdown comprises, dans un document destiné à une autorité.
+    const blocks = parse(
+      [
+        '# R',
+        '',
+        '| SOC | Effet | Fréquence |',
+        '|---|---|---|',
+        '| Affections de la peau | Urticaire',
+        'Éruption',
+        'Prurit | Indéterminée |',
+        '| Affections vasculaires | Hypotension | Indéterminée |',
+      ].join('\n'),
+      'report',
+    )
+    expect(blocks[1]).toEqual({
+      t: 'table',
+      rows: [
+        ['SOC', 'Effet', 'Fréquence'],
+        ['Affections de la peau', 'Urticaire Éruption Prurit', 'Indéterminée'],
+        ['Affections vasculaires', 'Hypotension', 'Indéterminée'],
+      ],
+    })
+    // Et AUCUNE barre ne survit dans le rendu : c'est le symptôme que voyait l'acheteur.
+    expect(JSON.stringify(blocks)).not.toContain('|')
+  })
+
+  it('une ligne jamais refermée s’arrête à la frontière, sans dévorer la suite', () => {
+    const blocks = parse(
+      ['# R', '', '| A | B', 'suite sans barre', '', '## Titre suivant'].join('\n'),
+      'report',
+    )
+    expect(blocks[1]).toEqual({ t: 'table', rows: [['A', 'B suite sans barre']] })
+    expect(blocks[2]).toMatchObject({ text: 'Titre suivant' })
+  })
 })
 
 describe('runs', () => {

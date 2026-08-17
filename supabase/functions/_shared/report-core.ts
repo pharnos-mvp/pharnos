@@ -335,7 +335,15 @@ const LOCALES: Record<OutputLang, Locale> = {
         "la prend pas, et n'engage pas la responsabilité du titulaire de l'AMM.",
     ],
     h: [
-      'Ce qui a été déplacé',
+      // ⚠️ « à replacer », pas « déplacé ». Le modèle rend `source_position` / `template_position` :
+      // où le contenu EST chez le client, et où le gabarit l'attend. C'est un CONSTAT DE POSITION,
+      // pas le compte rendu d'une action — le moteur travaille rubrique par rubrique et ne peut
+      // structurellement pas transporter un paragraphe de 4.3 vers 4.4. Et il ne doit pas :
+      // déplacer une contre-indication vers les mises en garde est une décision réglementaire, que
+      // ce produit promet explicitement de ne pas prendre à la place de l'expert. Le titre annonçait
+      // une action jamais faite — vérifié sur un livrable payé : 6 des 7 lignes étaient encore en
+      // place dans le document remis.
+      'Ce qui est à replacer',
       'Terminologie alignée sur les référentiels officiels',
       'À compléter',
       'Constats qui demandent une décision',
@@ -395,7 +403,8 @@ const LOCALES: Record<OutputLang, Locale> = {
         'and does not engage the liability of the marketing authorisation holder.',
     ],
     h: [
-      'What was relocated',
+      // Jumeau du libellé français : un constat de position, jamais une action accomplie.
+      'What needs relocating',
       'Terminology aligned with official references',
       'To be completed',
       'Findings that need a decision',
