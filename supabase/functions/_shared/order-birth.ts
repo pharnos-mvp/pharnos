@@ -168,7 +168,7 @@ export async function faireNaitreCommande(
   // Ce n'est pas une courtoisie. C'est le seul chemin d'accès de l'acheteur vers son livrable s'il
   // ferme l'onglet avant la redirection — cas explicitement prévu par le plan (§2.3, étape 4).
   const lien = `${LIEN_LIVRAISON}/${jeton}`
-  const envoye = await envoyerEmailCommande(v, lien)
+  const envoye = await envoyerEmailCommande(v, lien, rail)
   if (envoye) {
     await sb.from('orders').update({ notified_at: new Date().toISOString() }).eq('id', orderId)
   }
@@ -203,6 +203,50 @@ const RECU_VENDEUR = {
   contact: 'contact@pharnos.com',
 }
 
+/**
+ * Ce que le RAIL change dans le reçu — et rien de tout cela n'est cosmétique.
+ *
+ * ⚠️ Sur Paddle, le vendeur légal n'est PAS nous : Paddle.com Market Ltd achète et revend, s'immatricule
+ * à la TVA et la reverse — c'est toute la raison d'être de ce rail. Un reçu qui présenterait AASK
+ * SARL comme vendeur d'une vente encaissée par le merchant of record contredirait la facture que
+ * Paddle envoie de son côté, sur la même transaction. Deux documents contradictoires sur un même
+ * paiement, c'est exactement le litige que ce bloc existe pour éviter.
+ *
+ * ⚠️ Et le LIBELLÉ DE RELEVÉ doit être celui du processeur qui a réellement débité. « MiMo Global »
+ * était écrit en dur : sur une vente Paddle, l'acheteur lisait un libellé qu'il ne verrait jamais
+ * sur son relevé — la phrase censée prévenir la contestation de bonne foi la provoquait.
+ */
+const RECU_RAIL = {
+  chariow: {
+    releve: {
+      fr: 'le débit apparaît sous « MiMo Global »',
+      en: 'the charge appears as “MiMo Global”',
+    },
+    facture: {
+      fr: 'Votre facture officielle reste téléchargeable depuis votre page de suivi.',
+      en: 'Your official invoice stays available from your tracking page.',
+    },
+    revendeur: null,
+  },
+  paddle: {
+    releve: {
+      fr: 'le débit apparaît sous « PADDLE.NET* PHARNOS »',
+      en: 'the charge appears as “PADDLE.NET* PHARNOS”',
+    },
+    // Pas de page de suivi ici : c'est Paddle qui émet et envoie la facture, à cette même adresse.
+    facture: {
+      fr: 'Paddle vous adresse la facture officielle par e-mail, à cette adresse.',
+      en: 'Paddle e-mails you the official invoice, to this address.',
+    },
+    revendeur: {
+      fr: 'Vendu par Paddle.com Market Ltd (revendeur) · service fourni par ',
+      en: 'Sold by Paddle.com Market Ltd (reseller) · service provided by ',
+    },
+  },
+} as const
+
+export type RailPaiement = keyof typeof RECU_RAIL
+
 /** Libellés facturables des offres — celui du reçu, pas celui du catalogue technique. */
 const RECU_LIBELLES: Record<string, { fr: string; en: string }> = {
   up1: { fr: 'Mise à niveau documentaire — 1 document', en: 'Document upgrade — 1 document' },
@@ -214,8 +258,9 @@ const RECU_LIBELLES: Record<string, { fr: string; en: string }> = {
 
 /** Bloc reçu de l'e-mail n°1 — montant, méthode, vendeur, et la facture officielle si la vente
  *  en porte une. Tout vient de la vente VÉRIFIÉE ; un champ absent se tait au lieu de mentir. */
-function blocRecu(v: VenteVerifiee): string {
+function blocRecu(v: VenteVerifiee, rail: RailPaiement): string {
   const en = v.lang === 'en'
+  const rl = RECU_RAIL[rail]
   const lignes: string[] = []
   const libelle = RECU_LIBELLES[v.offre]?.[v.lang] ?? v.offre
   const montant = v.amountMinor !== null
@@ -241,33 +286,30 @@ function blocRecu(v: VenteVerifiee): string {
   // libellé. Le dire ICI évite la contestation de bonne foi — et le litige qui va avec (C5).
   const releve = `<tr><td style="padding:2px 12px 2px 0;color:#6b7280">${
     en ? 'On your statement' : 'Sur votre relevé'
-  }</td><td>${en ? 'the charge appears as “MiMo Global”' : 'le débit apparaît sous « MiMo Global »'}</td></tr>`
+  }</td><td>${rl.releve[v.lang]}</td></tr>`
   lignes.push(releve)
   // La facture Chariow expire en ~1 h 30 (URL signée) : le lien direct sert tout de suite, la
-  // PAGE DE SUIVI reste le chemin durable (`order-invoice` re-signe à la volée — C5).
+  // PAGE DE SUIVI reste le chemin durable (`order-invoice` re-signe à la volée — C5). Sur Paddle,
+  // il n'y a ni lien ni page de suivi à promettre : le merchant of record l'envoie lui-même.
   const facture = v.invoiceUrl
     ? `<p style="margin:8px 0 0"><a href="${escapeHtml(v.invoiceUrl)}" style="color:#1d4ed8">${
       en ? 'Download the official invoice (PDF)' : 'Télécharger la facture officielle (PDF)'
     }</a><br><span style="color:#6b7280;font-size:11px">${
       en
-        ? 'This link expires after a few hours — the invoice stays available from your tracking page.'
-        : 'Ce lien expire après quelques heures — la facture reste téléchargeable depuis votre page de suivi.'
+        ? `This link expires after a few hours — ${rl.facture.en.replace(/^Your/, 'your')}`
+        : `Ce lien expire après quelques heures — ${rl.facture.fr.replace(/^Votre/, 'votre')}`
     }</span></p>`
-    : `<p style="margin:8px 0 0;color:#6b7280;font-size:11px">${
-      en
-        ? 'Your official invoice stays available from your tracking page.'
-        : 'Votre facture officielle reste téléchargeable depuis votre page de suivi.'
-    }</p>`
+    : `<p style="margin:8px 0 0;color:#6b7280;font-size:11px">${rl.facture[v.lang]}</p>`
   return [
     `<div style="margin-top:20px;padding:14px 16px;border:1px solid #e5e7eb;border-radius:10px;font-size:13px">`,
     `<p style="margin:0 0 8px;font-weight:700">${en ? 'Payment receipt' : 'Reçu de paiement'}</p>`,
     `<table style="border-collapse:collapse">${lignes.join('')}</table>`,
     facture,
-    `<p style="margin:10px 0 0;color:#6b7280;font-size:11px">${escapeHtml(RECU_VENDEUR.nom)} · ${
-      escapeHtml(RECU_VENDEUR.rccm)
-    } · ${escapeHtml(RECU_VENDEUR.ifu)}<br>${escapeHtml(RECU_VENDEUR.adresse)} · ${
-      escapeHtml(RECU_VENDEUR.contact)
-    }</p>`,
+    `<p style="margin:10px 0 0;color:#6b7280;font-size:11px">${
+      rl.revendeur ? escapeHtml(rl.revendeur[v.lang]) : ''
+    }${escapeHtml(RECU_VENDEUR.nom)} · ${escapeHtml(RECU_VENDEUR.rccm)} · ${
+      escapeHtml(RECU_VENDEUR.ifu)
+    }<br>${escapeHtml(RECU_VENDEUR.adresse)} · ${escapeHtml(RECU_VENDEUR.contact)}</p>`,
     `</div>`,
   ].join('')
 }
@@ -277,7 +319,7 @@ function blocRecu(v: VenteVerifiee): string {
  * un lecteur en texte seul — courant sur les webmails d'entreprise verrouillés — recevait un
  * message VIDE : le lien de livraison, c'est-à-dire l'accès à la commande, n'existait pas pour lui.
  */
-export function texteEmailCommande(v: VenteVerifiee, lien: string): string {
+export function texteEmailCommande(v: VenteVerifiee, lien: string, rail: RailPaiement = 'chariow'): string {
   const en = v.lang === 'en'
   const bonjour = v.firstName ? `${en ? 'Hello' : 'Bonjour'} ${v.firstName},` : en ? 'Hello,' : 'Bonjour,'
   const libelle = RECU_LIBELLES[v.offre]?.[v.lang] ?? v.offre
@@ -295,17 +337,21 @@ export function texteEmailCommande(v: VenteVerifiee, lien: string): string {
       '',
       'On that page you upload your document, we check it is the right kind, and the analysis starts. You may close the tab while it runs.',
       '',
-      'You may also receive a separate Chariow e-mail mentioning a “licence key”: it does not apply to this order — the link above is your only access.',
-      '',
+      ...(rail === 'chariow'
+        ? [
+          'You may also receive a separate Chariow e-mail mentioning a “licence key”: it does not apply to this order — the link above is your only access.',
+          '',
+        ]
+        : []),
       '--- Payment receipt ---',
       `Order: ${libelle}`,
       ...(montant ? [`Amount paid: ${montant}`] : []),
       ...(v.paymentMethod ? [`Payment method: ${v.paymentMethod}`] : []),
       `Reference: ${v.saleId}`,
-      'On your bank statement, the charge appears as “MiMo Global”.',
-      'Your official invoice stays available from your tracking page.',
+      `On your bank statement, ${RECU_RAIL[rail].releve.en}.`,
+      RECU_RAIL[rail].facture.en,
       '',
-      `${RECU_VENDEUR.nom} · ${RECU_VENDEUR.rccm} · ${RECU_VENDEUR.ifu}`,
+      `${RECU_RAIL[rail].revendeur?.en ?? ''}${RECU_VENDEUR.nom} · ${RECU_VENDEUR.rccm} · ${RECU_VENDEUR.ifu}`,
       `${RECU_VENDEUR.adresse} · ${RECU_VENDEUR.contact}`,
     ]
     : [
@@ -318,29 +364,38 @@ export function texteEmailCommande(v: VenteVerifiee, lien: string): string {
       '',
       'Vous y déposerez votre document, nous vérifions qu’il s’agit bien du bon type, puis l’analyse démarre. Vous pouvez fermer l’onglet pendant le traitement.',
       '',
-      'Il se peut que Chariow vous envoie séparément un e-mail mentionnant une « clé de licence » : elle ne concerne pas cette commande — le lien ci-dessus est votre seul accès.',
-      '',
+      ...(rail === 'chariow'
+        ? [
+          'Il se peut que Chariow vous envoie séparément un e-mail mentionnant une « clé de licence » : elle ne concerne pas cette commande — le lien ci-dessus est votre seul accès.',
+          '',
+        ]
+        : []),
       '--- Reçu de paiement ---',
       `Commande : ${libelle}`,
       ...(montant ? [`Montant réglé : ${montant}`] : []),
       ...(v.paymentMethod ? [`Moyen de paiement : ${v.paymentMethod}`] : []),
       `Référence : ${v.saleId}`,
-      'Sur votre relevé bancaire, le débit apparaît sous « MiMo Global ».',
-      'Votre facture officielle reste téléchargeable depuis votre page de suivi.',
+      `Sur votre relevé bancaire, ${RECU_RAIL[rail].releve.fr}.`,
+      RECU_RAIL[rail].facture.fr,
       '',
-      `${RECU_VENDEUR.nom} · ${RECU_VENDEUR.rccm} · ${RECU_VENDEUR.ifu}`,
+      `${RECU_RAIL[rail].revendeur?.fr ?? ''}${RECU_VENDEUR.nom} · ${RECU_VENDEUR.rccm} · ${RECU_VENDEUR.ifu}`,
       `${RECU_VENDEUR.adresse} · ${RECU_VENDEUR.contact}`,
     ]
   return lignes.join('\n')
 }
 
 /** Le HTML de l'e-mail n°1 — exporté pour le test de dérive du gabarit (mêmes clauses que le texte). */
-export function htmlEmailCommande(v: VenteVerifiee, lien: string): string {
+export function htmlEmailCommande(v: VenteVerifiee, lien: string, rail: RailPaiement = 'chariow'): string {
   const en = v.lang === 'en'
   const bonjour = v.firstName
     ? `${en ? 'Hello' : 'Bonjour'} ${escapeHtml(v.firstName)},`
     : (en ? 'Hello,' : 'Bonjour,')
-  const licence = en
+  // ⚠️ Cette note NOMME Chariow : elle désamorce l'e-mail « clé de licence » que sa boutique envoie
+  // de son côté. Sur le rail Paddle, elle parlerait d'un e-mail qui n'arrivera jamais, d'un
+  // prestataire que l'acheteur n'a pas vu — on se tait plutôt que d'inquiéter.
+  const licence = rail !== 'chariow'
+    ? ''
+    : en
     ? '<p style="color:#6b7280;font-size:12px">You may also receive a separate Chariow e-mail mentioning a “licence key”: it does not apply to this order — the link above is your only access.</p>'
     : '<p style="color:#6b7280;font-size:12px">Il se peut que Chariow vous envoie séparément un e-mail mentionnant une « clé de licence » : elle ne concerne pas cette commande — le lien ci-dessus est votre seul accès.</p>'
   return en
@@ -351,7 +406,7 @@ export function htmlEmailCommande(v: VenteVerifiee, lien: string): string {
       '<p>On that page you will upload your document, we check it is the right kind, and the analysis starts. <strong>You may close the tab while it runs</strong> — come back to this link whenever you like, it stays valid for 30 days.</p>',
       `<p style="color:#6b7280;font-size:12px">If the button does not work, copy this address into your browser:<br>${lien}</p>`,
       licence,
-      blocRecu(v),
+      blocRecu(v, rail),
     ].join('')
     : [
       `<p>${bonjour}</p>`,
@@ -360,11 +415,11 @@ export function htmlEmailCommande(v: VenteVerifiee, lien: string): string {
       '<p>Vous y déposerez votre document, nous vérifions qu’il s’agit bien du bon type, puis l’analyse démarre. <strong>Vous pouvez fermer l’onglet pendant le traitement</strong> — revenez sur ce lien quand vous voulez, il reste valable 30 jours.</p>',
       `<p style="color:#6b7280;font-size:12px">Si le bouton ne fonctionne pas, recopiez cette adresse dans votre navigateur :<br>${lien}</p>`,
       licence,
-      blocRecu(v),
+      blocRecu(v, rail),
     ].join('')
 }
 
-async function envoyerEmailCommande(v: VenteVerifiee, lien: string): Promise<boolean> {
+async function envoyerEmailCommande(v: VenteVerifiee, lien: string, rail: RailPaiement): Promise<boolean> {
   const apiKey = Deno.env.get('RESEND_API_KEY')
   if (!apiKey) return false
   const from = Deno.env.get('EMAIL_FROM') ?? 'Pharnos <onboarding@resend.dev>'
@@ -380,9 +435,9 @@ async function envoyerEmailCommande(v: VenteVerifiee, lien: string): Promise<boo
         from,
         to: [v.email],
         subject: sujet,
-        html: htmlEmailCommande(v, lien),
+        html: htmlEmailCommande(v, lien, rail),
         // Multipart complet (C5) : mieux noté par les filtres, et lisible en texte seul.
-        text: texteEmailCommande(v, lien),
+        text: texteEmailCommande(v, lien, rail),
       }),
     })
     return res.ok

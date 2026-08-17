@@ -220,7 +220,17 @@ Il s'ouvre sur l'avertissement, **au mot près** :
 
 Structure :
 
-1. **Ce qui a été déplacé** — tableau contenu / source / gabarit / risque évité
+1. **Ce qui est à replacer** — tableau contenu / source / gabarit / risque évité
+
+   > ⚠️ **Amendement du 2026-08-16, après un livrable payé.** Ce tableau s'intitulait « Ce qui a
+   > été déplacé », et le titre était faux : le modèle rend `source_position` et
+   > `template_position` — où le contenu EST chez le client, où le gabarit l'attend. C'est un
+   > constat de POSITION. Le moteur travaille rubrique par rubrique et ne transporte rien de l'une
+   > à l'autre ; il ne doit pas, car déplacer une contre-indication vers les mises en garde est une
+   > décision réglementaire, que ce produit s'interdit de prendre à la place de l'expert. Sur la
+   > commande du 16/08, 6 des 7 lignes annoncées « remises en place » étaient encore à leur
+   > position d'origine dans le document livré. Les colonnes disaient vrai ; seul le titre mentait.
+   > Le libellé jumeau vit dans la tuile de l'écran de livraison et sur la page de vente.
 2. **Terminologie alignée** — tableau avant / après / référentiel
 3. **À compléter** — le plus sérieux d'abord, puis la liste ; suivi de la question « sans objet »
 4. **Constats issus d'autres pièces** — signalés, jamais repris dans le document
