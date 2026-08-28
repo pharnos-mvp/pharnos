@@ -64,6 +64,10 @@
 /styles.css
   Cache-Control: public, max-age=300
 
+# llms.txt évolue avec l'offre (mêmes raisons que le HTML) : jamais un an de cache dessus.
+/llms.txt
+  Cache-Control: public, max-age=300
+
 /landing.js
   Cache-Control: public, max-age=300
 
