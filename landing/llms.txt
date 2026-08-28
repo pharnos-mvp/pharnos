@@ -1,0 +1,30 @@
+# Pharnos
+
+> Pharnos is the pharmaceutical regulatory affairs platform for Africa — WAEMU (UEMOA) and ECOWAS (CEDEAO) zones. It combines a RIM catalogue, a CTD Builder aligned with the WAEMU Module 1 framework, dossier lifecycle and correspondence tracking, and Regafy AI assistance. Published by AASK SARL.
+
+The site is bilingual. French is the default (https://pharnos.com/) and every public
+page has a pre-rendered English mirror under https://pharnos.com/en/ — both versions
+declare hreflang alternates. The application itself lives at https://app.pharnos.com
+and the CTD Builder application at https://builder.pharnos.com.
+
+## Platform
+
+- [Home (EN)](https://pharnos.com/en/): what Pharnos does — RIM catalogue, CTD Builder, submission and lifecycle tracking, collaboration between manufacturer and local representative, pricing (free Pilot plan, paid plans from €149/month). French: https://pharnos.com/
+- [CTD Builder (EN)](https://pharnos.com/en/ctdbuilder): assembles CTD marketing-authorisation dossiers on your own machine — country-specific Module 1 tree, document filing, structure checks, package compilation. Documents never pass through Pharnos servers. From €49 per compiled dossier. French: https://pharnos.com/ctdbuilder
+
+## Free tools
+
+- [Checking Standard (EN)](https://pharnos.com/en/checking-standard): free completeness diagnostic of a marketing-authorisation dossier against the WAEMU reception standard (Regulation 04/2020/CM/UEMOA), in the browser, no sign-up and no document upload — score, preparation plan, official templates. French: https://pharnos.com/checking-standard
+- [Regulatory library (EN)](https://pharnos.com/en/regulatory-library): the official SmPC, package leaflet and labelling templates expected in each of the eight WAEMU countries, free to download, with the country's pharmacovigilance statement already in section 4.8. French: https://pharnos.com/bibliotheque-reglementaire
+
+## Legal
+
+- [Legal notice](https://pharnos.com/en/legal-notice): publisher and legal identity (AASK SARL). French: https://pharnos.com/mentions-legales
+- [Terms of Use and Sale](https://pharnos.com/en/terms): French: https://pharnos.com/conditions-generales
+- [Privacy policy](https://pharnos.com/en/privacy): French: https://pharnos.com/confidentialite
+- [Refund policy](https://pharnos.com/en/refund-policy): French: https://pharnos.com/remboursement
+
+## Contact
+
+- Email: contact@pharnos.com
+- Application: https://app.pharnos.com
