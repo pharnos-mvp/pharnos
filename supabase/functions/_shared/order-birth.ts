@@ -10,6 +10,7 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 
 import { logJson } from './log.ts'
+import { adresseReponse } from './mail.ts'
 import {
   deliveryExpiryFrom,
   deliveryTokenHash,
@@ -434,6 +435,8 @@ async function envoyerEmailCommande(v: VenteVerifiee, lien: string, rail: RailPa
       body: JSON.stringify({
         from,
         to: [v.email],
+        // L'acheteur qui répond doit être LU : `from` est un noreply non routé (cf. `mail.ts`).
+        reply_to: [adresseReponse()],
         subject: sujet,
         html: htmlEmailCommande(v, lien, rail),
         // Multipart complet (C5) : mieux noté par les filtres, et lisible en texte seul.
