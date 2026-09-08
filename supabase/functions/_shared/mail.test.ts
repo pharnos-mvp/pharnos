@@ -28,3 +28,25 @@ Deno.test('reply-to : une valeur vide ou blanche ne remplace rien', () => {
     }
   }
 })
+
+// ⚠️ Le vrai mode de panne : une adresse mal saisie ferait rejeter la requête ENTIÈRE par Resend —
+// donc l'e-mail de livraison d'une commande payée ne partirait pas. Un réglage de confort ne doit
+// jamais pouvoir casser une livraison : chaque valeur douteuse retombe sur le défaut.
+Deno.test('reply-to : toute valeur non conforme dégrade vers le défaut, jamais vers une panne', () => {
+  const refusees = [
+    'pas-une-adresse',
+    'contact@pharnos',
+    'Contact <contact@pharnos.com>',
+    'contact@pharnos.com, autre@ailleurs.com',
+    'contact@pharnos.com\nBcc: ailleurs@exemple.com',
+    'contact@pharnos.com;autre@ailleurs.com',
+  ]
+  for (const valeur of refusees) {
+    Deno.env.set('EMAIL_REPLY_TO', valeur)
+    try {
+      assertEquals(adresseReponse(), 'contact@pharnos.com', `refusée attendue : ${JSON.stringify(valeur)}`)
+    } finally {
+      Deno.env.delete('EMAIL_REPLY_TO')
+    }
+  }
+})
