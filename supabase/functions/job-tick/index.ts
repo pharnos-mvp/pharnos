@@ -26,6 +26,7 @@ import { EDGE_WALL_CLOCK_MS } from '../_shared/ai/limits.ts'
 import { conformitySystem, reviewSystem, translationSystem } from '../_shared/ai/personas.ts'
 import { boundedMap } from '../_shared/ai/pool.ts'
 import { generateParts, type Part } from '../_shared/ai/provider.ts'
+import { adresseReponse } from '../_shared/mail.ts'
 
 /**
  * Le générateur remis au moteur, fournisseur ÉPINGLÉ — une seule définition pour toutes les passes.
@@ -656,6 +657,8 @@ async function envoyerEmailLivraison(
       body: JSON.stringify({
         from: Deno.env.get('EMAIL_FROM') ?? 'Pharnos <onboarding@resend.dev>',
         to: [cmd.email],
+        // Même règle que l'e-mail n°1 : une réponse à la livraison ne doit pas tomber dans le vide.
+        reply_to: [adresseReponse()],
         subject: sujet,
         html: corps,
         text: texte,

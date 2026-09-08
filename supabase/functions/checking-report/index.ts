@@ -22,6 +22,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { BAREME_VERSION } from '../_shared/checking/scoring.js'
 import { buildReportEmail, buildTeamNotice, clientIp, contactBucketKey, resultFor, validateRequest } from '../_shared/checking-report-core.ts'
 import { logJson, newReqId } from '../_shared/log.ts'
+import { adresseReponse } from '../_shared/mail.ts'
 
 const MAX_BODY_BYTES = 16 * 1024
 
@@ -156,7 +157,8 @@ Deno.serve(async (req) => {
       const team = Deno.env.get('DEMO_NOTIFY_TO') ?? 'contact@pharnos.com'
       const mail =
         valid.channel === 'email'
-          ? { to: [valid.contact], ...buildReportEmail(valid, result) }
+          // Le rapport part chez le PROSPECT : sa réponse doit arriver, pas mourir sur le noreply.
+          ? { to: [valid.contact], reply_to: [adresseReponse()], ...buildReportEmail(valid, result) }
           : { to: [team], ...buildTeamNotice(valid, result) }
       try {
         const res = await fetch('https://api.resend.com/emails', {
